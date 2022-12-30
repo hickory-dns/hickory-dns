@@ -20,7 +20,7 @@
 use crate::rr::dnssec::rdata::DNSSECRData;
 use crate::{
     rr::{
-        rdata::{ANAME, CNAME, NS, PTR},
+        rdata::{ANAME, CNAME, HTTPS, NS, PTR},
         Name, RData, RecordType,
     },
     serialize::txt::{
@@ -81,7 +81,7 @@ impl RDataParser for RData {
             RecordType::CNAME => Self::CNAME(CNAME(name::parse(tokens, origin)?)),
             RecordType::CSYNC => csync::parse(tokens).map(Self::CSYNC)?,
             RecordType::HINFO => Self::HINFO(hinfo::parse(tokens)?),
-            RecordType::HTTPS => svcb::parse(tokens).map(Self::SVCB)?,
+            RecordType::HTTPS => svcb::parse(tokens).map(HTTPS).map(Self::HTTPS)?,
             RecordType::IXFR => return Err(ParseError::from("parsing IXFR doesn't make sense")),
             RecordType::MX => Self::MX(mx::parse(tokens, origin)?),
             RecordType::NAPTR => Self::NAPTR(naptr::parse(tokens, origin)?),

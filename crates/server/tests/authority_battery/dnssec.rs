@@ -5,13 +5,19 @@ use std::str::FromStr;
 
 use futures_executor::block_on;
 
-use trust_dns_proto::op::{Header, Query};
-use trust_dns_proto::rr::dnssec::rdata::DNSKEY;
-use trust_dns_proto::rr::dnssec::{Algorithm, SupportedAlgorithms, Verifier};
-use trust_dns_proto::rr::{DNSClass, Name, RData, Record, RecordType};
-use trust_dns_proto::xfer;
-use trust_dns_server::authority::{AuthLookup, Authority, DnssecAuthority, LookupOptions};
-use trust_dns_server::server::{Protocol, RequestInfo};
+use trust_dns_proto::{
+    op::{Header, Query},
+    rr::{
+        dnssec::{rdata::DNSKEY, Algorithm, SupportedAlgorithms, Verifier},
+        rdata::RRSIG,
+        DNSClass, Name, RData, Record, RecordType,
+    },
+    xfer,
+};
+use trust_dns_server::{
+    authority::{AuthLookup, Authority, DnssecAuthority, LookupOptions},
+    server::{Protocol, RequestInfo},
+};
 
 const TEST_HEADER: &Header = &Header::new();
 
@@ -35,9 +41,10 @@ pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DN
         .cloned()
         .partition(|r| r.record_type() == RecordType::A);
 
-    let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records
+    let rrsig_records: Vec<_> = other_records
         .into_iter()
-        .partition(|r| r.record_type() == RecordType::RRSIG);
+        .filter_map(|r| Record::<RRSIG>::try_from(r).ok())
+        .collect();
 
     assert!(!rrsig_records.is_empty());
     verify(&a_records, &rrsig_records, keys);
@@ -71,9 +78,10 @@ pub fn test_soa<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]
     assert_eq!(604800, soa.expire());
     assert_eq!(86400, soa.minimum());
 
-    let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records
+    let rrsig_records: Vec<_> = other_records
         .into_iter()
-        .partition(|r| r.record_type() == RecordType::RRSIG);
+        .filter_map(|r| Record::<RRSIG>::try_from(r).ok())
+        .collect();
 
     assert!(!rrsig_records.is_empty());
     verify(&soa_records, &rrsig_records, keys);
@@ -100,9 +108,10 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY])
         Name::from_str("bbb.example.com.").unwrap()
     );
 
-    let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records
+    let rrsig_records: Vec<_> = other_records
         .into_iter()
-        .partition(|r| r.record_type() == RecordType::RRSIG);
+        .filter_map(|r| Record::<RRSIG>::try_from(r).ok())
+        .collect();
 
     assert!(!rrsig_records.is_empty());
     verify(&ns_records, &rrsig_records, keys);
@@ -132,9 +141,10 @@ pub fn test_aname_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: 
         .cloned()
         .partition(|r| r.record_type() == RecordType::A);
 
-    let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records
+    let rrsig_records: Vec<_> = other_records
         .into_iter()
-        .partition(|r| r.record_type() == RecordType::RRSIG);
+        .filter_map(|r| Record::<RRSIG>::try_from(r).ok())
+        .collect();
 
     assert!(!rrsig_records.is_empty());
     verify(&a_records, &rrsig_records, keys);
@@ -169,9 +179,10 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DN
         .iter()
         .all(|r| *r.name() == Name::from_str("www.wildcard.example.com.").unwrap()));
 
-    let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records
+    let rrsig_records: Vec<_> = other_records
         .into_iter()
-        .partition(|r| r.record_type() == RecordType::RRSIG);
+        .filter_map(|r| Record::<RRSIG>::try_from(r).ok())
+        .collect();
 
     assert!(!rrsig_records.is_empty());
     verify(&cname_records, &rrsig_records, keys);
@@ -331,16 +342,17 @@ pub fn test_rfc_6975_supported_algorithms<A: Authority<Lookup = AuthLookup>>(
             .cloned()
             .partition(|r| r.record_type() == RecordType::A);
 
-        let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records
+        let rrsig_records: Vec<_> = other_records
             .into_iter()
-            .partition(|r| r.record_type() == RecordType::RRSIG);
+            .filter_map(|r| Record::<RRSIG>::try_from(r).ok())
+            .collect();
 
         assert!(!rrsig_records.is_empty());
         verify(&a_records, &rrsig_records, &[key.clone()]);
     }
 }
 
-pub fn verify(records: &[Record], rrsig_records: &[Record], keys: &[DNSKEY]) {
+pub fn verify(records: &[Record], rrsig_records: &[Record<RRSIG>], keys: &[DNSKEY]) {
     let record_name = records.first().unwrap().name();
     let record_type = records.first().unwrap().record_type();
     println!("record_name: {record_name}, type: {record_type}");
@@ -348,19 +360,8 @@ pub fn verify(records: &[Record], rrsig_records: &[Record], keys: &[DNSKEY]) {
     // should be signed with all the keys
     assert!(keys.iter().all(|key| rrsig_records
         .iter()
-        .filter_map(|rrsig| {
-            let rrsig = rrsig
-                .data()
-                .and_then(RData::as_dnssec)
-                .expect("not DNSSEC")
-                .as_sig()
-                .expect("not RRSIG");
-            if rrsig.algorithm() == key.algorithm() {
-                Some(rrsig)
-            } else {
-                None
-            }
-        })
+        .filter_map(|rrsig| rrsig.data())
+        .filter(|rrsig| rrsig.algorithm() == key.algorithm())
         .filter(|rrsig| rrsig.key_tag() == key.calculate_key_tag().unwrap())
         .filter(|rrsig| rrsig.type_covered() == record_type)
         .any(|rrsig| key

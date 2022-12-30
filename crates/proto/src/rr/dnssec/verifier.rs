@@ -1,7 +1,7 @@
 //! Verifier is a structure for performing many of the signing processes of the DNSSEC specification
 
 use crate::error::*;
-use crate::rr::dnssec::rdata::{DNSKEY, KEY, SIG};
+use crate::rr::dnssec::rdata::{DNSKEY, KEY, RRSIG, SIG};
 use crate::rr::dnssec::Algorithm;
 use crate::rr::dnssec::{tbs, PublicKey, PublicKeyEnum};
 use crate::rr::{DNSClass, Name, Record};
@@ -62,7 +62,7 @@ pub trait Verifier {
         &self,
         name: &Name,
         dns_class: DNSClass,
-        sig: &SIG,
+        sig: &RRSIG,
         records: &[Record],
     ) -> ProtoResult<()> {
         let rrset_tbs = tbs::rrset_tbs_with_sig(name, dns_class, sig, records)?;

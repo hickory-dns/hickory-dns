@@ -1,9 +1,9 @@
 //! hash functions for DNSSEC operations
 
-use super::rdata::{sig, DNSSECRData, SIG};
+use super::rdata::{sig, RRSIG, SIG};
 use crate::error::*;
 use crate::rr::dnssec::Algorithm;
-use crate::rr::{DNSClass, Name, RData, Record, RecordType};
+use crate::rr::{DNSClass, Name, Record, RecordType};
 use crate::serialize::binary::{BinEncodable, BinEncoder, EncodeMode};
 
 /// Data To Be Signed.
@@ -183,8 +183,8 @@ pub fn rrset_tbs(
 /// # Return
 ///
 /// binary hash of the RRSet with the information from the RRSIG record
-pub fn rrset_tbs_with_rrsig(rrsig: &Record, records: &[Record]) -> ProtoResult<TBS> {
-    if let Some(RData::DNSSEC(DNSSECRData::SIG(ref sig))) = rrsig.data() {
+pub fn rrset_tbs_with_rrsig(rrsig: &Record<RRSIG>, records: &[Record]) -> ProtoResult<TBS> {
+    if let Some(sig) = rrsig.data() {
         rrset_tbs_with_sig(rrsig.name(), rrsig.dns_class(), sig, records)
     } else {
         Err(format!("could not determine name from {}", rrsig.name()).into())

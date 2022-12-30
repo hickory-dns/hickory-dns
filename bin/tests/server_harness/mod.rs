@@ -17,7 +17,7 @@ use tokio::runtime::Runtime;
 use tracing::{info, warn};
 use trust_dns_client::client::*;
 use trust_dns_client::proto::xfer::DnsResponse;
-use trust_dns_client::rr::*;
+use trust_dns_proto::rr::*;
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::rr::{dnssec::rdata::DNSSECRData, dnssec::*};
 
@@ -266,6 +266,8 @@ pub fn query_all_dnssec(
     algorithm: Algorithm,
     with_rfc6975: bool,
 ) {
+    use trust_dns_client::rr::rdata::{DNSKEY, RRSIG};
+
     let name = Name::from_str("example.com.").unwrap();
     let mut client = MutMessageHandle::new(client);
     client.lookup_options.set_is_dnssec(true);
@@ -280,14 +282,8 @@ pub fn query_all_dnssec(
     let dnskey = response
         .answers()
         .iter()
-        .filter(|r| r.record_type() == RecordType::DNSKEY)
-        .map(|r| {
-            if let Some(RData::DNSSEC(DNSSECRData::DNSKEY(ref dnskey))) = r.data() {
-                dnskey.clone()
-            } else {
-                panic!("wrong RDATA")
-            }
-        })
+        .filter_map(|r| r.data())
+        .filter_map(|r| DNSKEY::try_borrow(r).ok())
         .find(|d| d.algorithm() == algorithm);
     assert!(dnskey.is_some(), "DNSKEY not found");
 
@@ -296,14 +292,8 @@ pub fn query_all_dnssec(
     let rrsig = response
         .answers()
         .iter()
-        .filter(|r| r.record_type() == RecordType::RRSIG)
-        .map(|r| {
-            if let Some(RData::DNSSEC(DNSSECRData::SIG(ref rrsig))) = r.data() {
-                rrsig.clone()
-            } else {
-                panic!("wrong RDATA")
-            }
-        })
+        .filter_map(|r| r.data())
+        .filter_map(|r| RRSIG::try_borrow(r).ok())
         .filter(|rrsig| rrsig.algorithm() == algorithm)
         .find(|rrsig| rrsig.type_covered() == RecordType::DNSKEY);
     assert!(rrsig.is_some(), "Associated RRSIG not found");

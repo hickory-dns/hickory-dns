@@ -595,7 +595,7 @@ mod tests {
 
     use crate::op::{Message, Query};
     use crate::rr::dnssec::rdata::key::KeyUsage;
-    use crate::rr::dnssec::rdata::{DNSSECRData, SIG};
+    use crate::rr::dnssec::rdata::{DNSSECRData, RRSIG, SIG};
     use crate::rr::dnssec::*;
     use crate::rr::rdata::NS;
     use crate::rr::{DNSClass, Name, Record, RecordType};
@@ -677,9 +677,9 @@ mod tests {
         let rrsig = Record::new()
             .set_name(origin.clone())
             .set_ttl(86400)
-            .set_rr_type(RecordType::NS)
+            .set_rr_type(RecordType::RRSIG)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::DNSSEC(DNSSECRData::SIG(SIG::new(
+            .set_data(Some(RRSIG::new(
                 RecordType::NS,
                 Algorithm::RSASHA256,
                 origin.num_labels(),
@@ -689,7 +689,7 @@ mod tests {
                 signer.calculate_key_tag().unwrap(),
                 origin.clone(),
                 vec![],
-            )))))
+            )))
             .clone();
         let rrset = vec![
             Record::new()
@@ -799,7 +799,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
     mod tests {
         use openssl::rsa::Rsa;
 
-        use crate::rr::dnssec::rdata::{DNSSECRData, SIG};
+        use crate::rr::dnssec::rdata::RRSIG;
         use crate::rr::dnssec::tbs::*;
         use crate::rr::dnssec::*;
         use crate::rr::rdata::{CNAME, NS};
@@ -816,9 +816,9 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
             let rrsig = Record::new()
                 .set_name(origin.clone())
                 .set_ttl(86400)
-                .set_rr_type(RecordType::NS)
+                .set_rr_type(RecordType::RRSIG)
                 .set_dns_class(DNSClass::IN)
-                .set_data(Some(RData::DNSSEC(DNSSECRData::SIG(SIG::new(
+                .set_data(Some(RRSIG::new(
                     RecordType::NS,
                     Algorithm::RSASHA256,
                     origin.num_labels(),
@@ -828,7 +828,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
                     signer.calculate_key_tag().unwrap(),
                     origin.clone(),
                     vec![],
-                )))))
+                )))
                 .clone();
             let rrset = vec![
                 Record::new()

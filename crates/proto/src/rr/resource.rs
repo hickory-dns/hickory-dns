@@ -280,7 +280,19 @@ impl<R: RecordData> Record<R> {
     ///                 For example, the if the TYPE is A and the CLASS is IN,
     ///                 the RDATA field is a 4 octet ARPA Internet address.
     /// ```
+    #[track_caller]
     pub fn set_data(&mut self, rdata: Option<R>) -> &mut Self {
+        debug_assert!(
+            if let Some(rdata) = &rdata {
+                rdata.record_type() == self.record_type() || rdata.record_type() == RecordType::NULL
+            } else {
+                true
+            },
+            "record types do not match, {} <> {:?}",
+            self.record_type(),
+            rdata.map(|r| r.record_type())
+        );
+
         self.rdata = rdata;
         self
     }
@@ -537,6 +549,17 @@ impl<'r, R: RecordData + RecordDataDecodable<'r>> BinDecodable<'r> for Record<R>
                 Restrict::new(rd_length),
             )?)
         };
+
+        debug_assert!(
+            if let Some(rdata) = &rdata {
+                rdata.record_type() == record_type
+            } else {
+                true
+            },
+            "record types do not match, {} <> {:?}",
+            record_type,
+            rdata.map(|r| r.record_type())
+        );
 
         Ok(Self {
             name_labels,

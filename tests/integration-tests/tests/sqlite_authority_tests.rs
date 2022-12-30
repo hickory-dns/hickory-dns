@@ -961,13 +961,11 @@ async fn test_zone_signing() {
         assert!(
             inner_results
                 .iter()
-                .any(|r| r.record_type() == RecordType::RRSIG
-                    && r.name() == record.name()
-                    && if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *r.data().unwrap() {
-                        rrsig.type_covered() == record.record_type()
-                    } else {
-                        false
-                    }),
+                .filter(|r| r.record_type() == RecordType::RRSIG)
+                .filter(|r| r.name() == record.name())
+                .filter_map(|r| r.data())
+                .filter_map(|r| RRSIG::try_borrow(r).ok())
+                .any(|rrsig| rrsig.type_covered() == record.record_type()),
             "record type not covered: {:?}",
             record
         );

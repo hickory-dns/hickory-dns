@@ -744,6 +744,10 @@ impl InnerInMemory {
         zone_ttl: u32,
         zone_class: DNSClass,
     ) -> DnsSecResult<()> {
+        use crate::client::rr::dnssec::tbs;
+        use time::OffsetDateTime;
+        use trust_dns_client::rr::rdata::RRSIG;
+
         let inception = OffsetDateTime::now_utc();
 
         rr_set.clear_rrsigs();
@@ -798,7 +802,7 @@ impl InnerInMemory {
             };
 
             let mut rrsig = rrsig_temp.clone();
-            rrsig.set_data(Some(RData::DNSSEC(DNSSECRData::SIG(SIG::new(
+            rrsig.set_data(Some(RData::DNSSEC(DNSSECRData::RRSIG(RRSIG::new(
                 // type_covered: RecordType,
                 rr_set.record_type(),
                 // algorithm: Algorithm,
