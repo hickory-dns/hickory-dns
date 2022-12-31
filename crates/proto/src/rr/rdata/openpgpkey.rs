@@ -1,4 +1,4 @@
-// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -11,9 +11,11 @@ use std::fmt;
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
-use crate::error::*;
-use crate::rr::{RData, RecordData, RecordDataDecodable, RecordType};
-use crate::serialize::binary::*;
+use crate::{
+    error::ProtoResult,
+    rr::{RData, RecordData, RecordDataDecodable, RecordType},
+    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict},
+};
 
 /// [RFC 7929](https://tools.ietf.org/html/rfc7929#section-2.1)
 ///

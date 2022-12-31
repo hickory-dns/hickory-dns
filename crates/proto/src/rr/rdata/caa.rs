@@ -1,4 +1,4 @@
-// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -21,20 +21,17 @@
 //! ```
 #![allow(clippy::use_self)]
 
-use std::fmt;
-use std::str;
+use std::{fmt, str};
 
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
-
-use crate::error::*;
-use crate::rr::domain::Name;
-use crate::rr::RData;
-use crate::rr::RecordData;
-use crate::rr::RecordDataDecodable;
-use crate::rr::RecordType;
-use crate::serialize::binary::*;
 use url::Url;
+
+use crate::{
+    error::{ProtoError, ProtoResult},
+    rr::{domain::Name, RData, RecordData, RecordDataDecodable, RecordType},
+    serialize::binary::*,
+};
 
 /// The CAA RR Type
 ///
@@ -928,8 +925,11 @@ impl fmt::Display for CAA {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    use super::*;
     use std::str;
+
+    use crate::error::ProtoErrorKind;
+
+    use super::*;
 
     #[test]
     fn test_read_tag() {

@@ -1,4 +1,4 @@
-// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -7,13 +7,18 @@
 
 //! SVCB records in presentation format
 
-use std::net::{Ipv4Addr, Ipv6Addr};
-use std::str::FromStr;
+use std::{
+    net::{Ipv4Addr, Ipv6Addr},
+    str::FromStr,
+};
 
-use crate::rr::rdata::svcb::*;
-use crate::rr::Name;
-use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
-use crate::serialize::txt::{Lexer, Token};
+use crate::{
+    rr::{rdata::svcb::*, Name},
+    serialize::txt::{
+        errors::{ParseError, ParseErrorKind, ParseResult},
+        Lexer, Token,
+    },
+};
 
 /// [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-2.2)
 ///

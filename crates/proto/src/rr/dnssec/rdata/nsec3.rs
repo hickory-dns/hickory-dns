@@ -1,4 +1,4 @@
-// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -12,14 +12,14 @@ use std::fmt;
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
-use crate::error::*;
-use crate::rr::dnssec::Nsec3HashAlgorithm;
-use crate::rr::type_bit_map::*;
-use crate::rr::RData;
-use crate::rr::RecordData;
-use crate::rr::RecordDataDecodable;
-use crate::rr::RecordType;
-use crate::serialize::binary::*;
+use crate::{
+    error::*,
+    rr::{
+        dnssec::Nsec3HashAlgorithm, type_bit_map::*, RData, RecordData, RecordDataDecodable,
+        RecordType,
+    },
+    serialize::binary::*,
+};
 
 use super::DNSSECRData;
 

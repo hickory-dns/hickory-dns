@@ -1,4 +1,4 @@
-// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -33,9 +33,11 @@
 
 pub use std::net::Ipv4Addr;
 
-use crate::error::*;
-use crate::rr::{RData, RecordData, RecordType};
-use crate::serialize::binary::*;
+use crate::{
+    error::*,
+    rr::{RData, RecordData, RecordType},
+    serialize::binary::*,
+};
 
 impl RecordData for Ipv4Addr {
     fn try_from_rdata(data: RData) -> Result<Self, crate::rr::RData> {

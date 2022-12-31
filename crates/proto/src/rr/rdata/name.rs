@@ -1,4 +1,4 @@
-// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -30,16 +30,16 @@
 //! the description of name server logic in [RFC-1034] for details.
 //! ```
 
-use std::fmt;
-use std::ops::Deref;
+use std::{fmt, ops::Deref};
 
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
-use crate::error::*;
-use crate::rr::domain::Name;
-use crate::rr::{RData, RecordData, RecordType};
-use crate::serialize::binary::*;
+use crate::{
+    error::ProtoResult,
+    rr::{domain::Name, RData, RecordData, RecordType},
+    serialize::binary::*,
+};
 
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Name> {

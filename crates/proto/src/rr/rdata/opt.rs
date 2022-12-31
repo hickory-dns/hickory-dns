@@ -1,4 +1,4 @@
-// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -8,19 +8,20 @@
 //! option record for passing protocol options between the client and server
 #![allow(clippy::use_self)]
 
-use std::collections::HashMap;
-use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
+use std::{collections::HashMap, fmt};
 
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
 use tracing::warn;
 
-use crate::error::{ProtoError, ProtoErrorKind, ProtoResult};
-use crate::rr::{RData, RecordData, RecordDataDecodable, RecordType};
-use crate::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict};
+use crate::{
+    error::{ProtoError, ProtoErrorKind, ProtoResult},
+    rr::{RData, RecordData, RecordDataDecodable, RecordType},
+    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict},
+};
 
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::SupportedAlgorithms;

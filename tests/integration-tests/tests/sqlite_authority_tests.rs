@@ -911,7 +911,7 @@ async fn test_update() {
 #[tokio::test]
 #[allow(clippy::uninlined_format_args)]
 async fn test_zone_signing() {
-    use trust_dns_proto::rr::dnssec::rdata::DNSSECRData;
+    use trust_dns_proto::rr::dnssec::rdata::RRSIG;
 
     let authority = create_secure_example();
 

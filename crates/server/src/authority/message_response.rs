@@ -251,10 +251,8 @@ mod tests {
     use std::net::Ipv4Addr;
     use std::str::FromStr;
 
-    use trust_dns_client::rr::RecordType;
-
     use crate::proto::op::{Header, Message};
-    use crate::proto::rr::{DNSClass, Name, RData, Record};
+    use crate::proto::rr::{DNSClass, Name, RData, Record, RecordType};
     use crate::proto::serialize::binary::BinEncoder;
 
     use super::*;

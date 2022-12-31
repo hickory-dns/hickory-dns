@@ -1,4 +1,4 @@
-// Copyright 2015-2020 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -7,18 +7,21 @@
 
 //! Error types for the crate
 
-use std::cmp::Ordering;
-use std::{fmt, io, sync};
+use std::{cmp::Ordering, fmt, io, sync};
 
 use thiserror::Error;
 use tracing::debug;
-use trust_dns_proto::rr::rdata::SOA;
-use trust_dns_proto::rr::resource::{Record, RecordRef};
 
-use crate::proto::error::{ProtoError, ProtoErrorKind};
-use crate::proto::op::{Query, ResponseCode};
-use crate::proto::xfer::retry_dns_handle::RetryableError;
-use crate::proto::xfer::DnsResponse;
+use crate::proto::{
+    error::{ProtoError, ProtoErrorKind},
+    op::{Query, ResponseCode},
+    rr::{
+        rdata::SOA,
+        resource::{Record, RecordRef},
+    },
+    xfer::{retry_dns_handle::RetryableError, DnsResponse},
+};
+
 #[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
 

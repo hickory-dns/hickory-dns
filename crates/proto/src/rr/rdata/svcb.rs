@@ -1,4 +1,4 @@
-// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -21,9 +21,13 @@ use serde::{Deserialize, Serialize};
 
 use enum_as_inner::EnumAsInner;
 
-use crate::rr::{Name, RData, RecordData, RecordType};
-use crate::serialize::binary::*;
-use crate::{error::*, rr::RecordDataDecodable};
+use crate::{
+    error::{ProtoError, ProtoErrorKind, ProtoResult},
+    rr::{Name, RData, RecordData, RecordDataDecodable, RecordType},
+    serialize::binary::{
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
+    },
+};
 
 ///  [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-2.2)
 ///

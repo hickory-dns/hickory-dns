@@ -1,11 +1,23 @@
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
 //! Verifier is a structure for performing many of the signing processes of the DNSSEC specification
 
-use crate::error::*;
-use crate::rr::dnssec::rdata::{DNSKEY, KEY, RRSIG, SIG};
-use crate::rr::dnssec::Algorithm;
-use crate::rr::dnssec::{tbs, PublicKey, PublicKeyEnum};
-use crate::rr::{DNSClass, Name, Record};
-use crate::serialize::binary::BinEncodable;
+use crate::{
+    error::ProtoResult,
+    rr::{
+        dnssec::{
+            rdata::{DNSKEY, KEY, RRSIG, SIG},
+            tbs, Algorithm, PublicKey, PublicKeyEnum,
+        },
+        DNSClass, Name, Record,
+    },
+    serialize::binary::BinEncodable,
+};
 
 /// Types which are able to verify DNS based signatures
 pub trait Verifier {

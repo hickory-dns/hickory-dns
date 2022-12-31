@@ -1,4 +1,4 @@
-// Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -7,33 +7,43 @@
 
 //! Lookup result from a resolution of ipv4 and ipv6 records with a Resolver.
 
-use std::cmp::min;
-use std::error::Error;
-use std::net::{Ipv4Addr, Ipv6Addr};
-use std::pin::Pin;
-use std::slice::Iter;
-use std::sync::Arc;
-use std::task::{Context, Poll};
-use std::time::{Duration, Instant};
+use std::{
+    cmp::min,
+    error::Error,
+    net::{Ipv4Addr, Ipv6Addr},
+    pin::Pin,
+    slice::Iter,
+    sync::Arc,
+    task::{Context, Poll},
+    time::{Duration, Instant},
+};
 
-use futures_util::stream::Stream;
-use futures_util::{future, future::Future, FutureExt};
+use futures_util::{
+    future::{self, Future},
+    stream::Stream,
+    FutureExt,
+};
 
-use proto::error::ProtoError;
-use proto::op::Query;
-use proto::rr::rdata;
-use proto::rr::{Name, RData, Record, RecordType};
-use proto::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
+use crate::{
+    caching_client::CachingClient,
+    dns_lru::MAX_TTL,
+    error::*,
+    lookup_ip::LookupIpIter,
+    name_server::{NameServerPool, RuntimeProvider},
+    proto::{
+        error::ProtoError,
+        op::Query,
+        rr::{
+            rdata::{self, NS, PTR},
+            Name, RData, Record, RecordType,
+        },
+        xfer::{DnsRequest, DnsRequestOptions, DnsResponse},
+        DnsHandle, RetryDnsHandle,
+    },
+};
+
 #[cfg(feature = "dnssec")]
 use proto::DnssecDnsHandle;
-use proto::{DnsHandle, RetryDnsHandle};
-use trust_dns_proto::rr::rdata::{NS, PTR};
-
-use crate::caching_client::CachingClient;
-use crate::dns_lru::MAX_TTL;
-use crate::error::*;
-use crate::lookup_ip::LookupIpIter;
-use crate::name_server::{NameServerPool, RuntimeProvider};
 
 /// Result of a DNS query when querying for any record type supported by the Trust-DNS Proto library.
 ///

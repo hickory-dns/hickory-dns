@@ -1,4 +1,4 @@
-// Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -7,31 +7,39 @@
 
 //! Caching related functionality for the Resolver.
 
-use std::borrow::Cow;
-use std::error::Error;
-use std::net::{Ipv4Addr, Ipv6Addr};
-use std::pin::Pin;
-use std::sync::atomic::{AtomicU8, Ordering};
-use std::sync::Arc;
-use std::time::Instant;
+use std::{
+    borrow::Cow,
+    error::Error,
+    net::{Ipv4Addr, Ipv6Addr},
+    pin::Pin,
+    sync::{
+        atomic::{AtomicU8, Ordering},
+        Arc,
+    },
+    time::Instant,
+};
 
 use futures_util::future::Future;
 
-use proto::error::ProtoError;
-use proto::op::{Query, ResponseCode};
-use proto::rr::domain::usage::{
-    ResolverUsage, DEFAULT, INVALID, IN_ADDR_ARPA_127, IP6_ARPA_1, LOCAL,
-    LOCALHOST as LOCALHOST_usage, ONION,
+use crate::{
+    dns_lru::{self, DnsLru, TtlConfig},
+    error::{ResolveError, ResolveErrorKind},
+    lookup::Lookup,
+    proto::{
+        error::ProtoError,
+        op::{Query, ResponseCode},
+        rr::{
+            domain::usage::{
+                ResolverUsage, DEFAULT, INVALID, IN_ADDR_ARPA_127, IP6_ARPA_1, LOCAL,
+                LOCALHOST as LOCALHOST_usage, ONION,
+            },
+            rdata::{CNAME, PTR, SOA},
+            resource::RecordRef,
+            DNSClass, Name, RData, Record, RecordType,
+        },
+        xfer::{DnsHandle, DnsRequestOptions, DnsResponse, FirstAnswer},
+    },
 };
-use proto::rr::{DNSClass, Name, RData, Record, RecordType};
-use proto::xfer::{DnsHandle, DnsRequestOptions, DnsResponse, FirstAnswer};
-use trust_dns_proto::rr::rdata::{CNAME, PTR, SOA};
-use trust_dns_proto::rr::resource::RecordRef;
-
-use crate::dns_lru::DnsLru;
-use crate::dns_lru::{self, TtlConfig};
-use crate::error::*;
-use crate::lookup::Lookup;
 
 const MAX_QUERY_DEPTH: u8 = 8; // arbitrarily chosen number...
 

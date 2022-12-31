@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -11,11 +11,6 @@ use tracing::debug;
 #[cfg(feature = "dnssec")]
 use std::time::Duration;
 
-use crate::error::{ProtoErrorKind, ProtoResult};
-use crate::op::{Message, MessageFinalizer, MessageVerifier};
-use crate::rr::Record;
-use crate::serialize::binary::BinEncodable;
-
 #[cfg(feature = "dnssec")]
 use crate::{
     error::DnsSecResult,
@@ -27,6 +22,12 @@ use crate::{
         {DNSClass, Name, RData, RecordType},
     },
     serialize::binary::BinEncoder,
+};
+use crate::{
+    error::{ProtoErrorKind, ProtoResult},
+    op::{Message, MessageFinalizer, MessageVerifier},
+    rr::Record,
+    serialize::binary::BinEncodable,
 };
 
 /// Use for performing signing and validation of DNSSEC based components. The SigSigner can be used for singing requests and responses with SIG0, or DNSSEC RRSIG records. The format is based on the SIG record type.
