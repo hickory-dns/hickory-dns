@@ -1,4 +1,4 @@
-// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -7,28 +7,30 @@
 
 //! The `DnssecDnsHandle` is used to validate all DNS responses for correct DNSSEC signatures.
 
-use std::clone::Clone;
-use std::collections::HashSet;
-use std::error::Error;
-use std::pin::Pin;
-use std::sync::Arc;
+use std::{clone::Clone, collections::HashSet, error::Error, pin::Pin, sync::Arc};
 
-use futures_util::future;
-use futures_util::future::{Future, FutureExt, TryFutureExt};
-use futures_util::stream;
-use futures_util::stream::{Stream, TryStreamExt};
+use futures_util::{
+    future::{self, Future, FutureExt, TryFutureExt},
+    stream::{self, Stream, TryStreamExt},
+};
 use tracing::{debug, trace};
 
-use crate::op::{OpCode, Query};
-use crate::rr::dnssec::rdata::{DNSSECRData, DNSKEY, RRSIG};
+use crate::{
+    error::{ProtoError, ProtoErrorKind, ProtoResult},
+    op::{Edns, OpCode, Query},
+    rr::{
+        dnssec::{
+            rdata::{DNSSECRData, DNSKEY, RRSIG},
+            Algorithm, SupportedAlgorithms, TrustAnchor,
+        },
+        rdata::opt::EdnsOption,
+        DNSClass, Name, RData, Record, RecordData, RecordType,
+    },
+    xfer::{dns_handle::DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer},
+};
+
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::Verifier;
-use crate::rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor};
-use crate::rr::rdata::opt::EdnsOption;
-use crate::rr::{DNSClass, Name, RData, Record, RecordData, RecordType};
-use crate::xfer::dns_handle::DnsHandle;
-use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer};
-use crate::{error::*, op::Edns};
 
 #[derive(Debug)]
 struct Rrset {
@@ -728,7 +730,7 @@ where
                         .iter()
                         .filter(|r| is_dnssec(r, RecordType::DNSKEY))
                         .filter_map(|r| r.data().map(|data| (r.name(), data)))
-                        .filter_map(|(dnskey_name, data)| 
+                        .filter_map(|(dnskey_name, data)|
                            DNSKEY::try_borrow(data).ok().map(|data| (dnskey_name, data)))
                         .find(|(dnskey_name, dnskey)|
                                 verify_rrset_with_dnskey(dnskey_name, dnskey, &sig, &rrset).is_ok()

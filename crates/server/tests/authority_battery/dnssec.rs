@@ -8,8 +8,10 @@ use futures_executor::block_on;
 use trust_dns_proto::{
     op::{Header, Query},
     rr::{
-        dnssec::{rdata::DNSKEY, Algorithm, SupportedAlgorithms, Verifier},
-        rdata::RRSIG,
+        dnssec::{
+            rdata::{DNSKEY, RRSIG},
+            Algorithm, SupportedAlgorithms, Verifier,
+        },
         DNSClass, Name, RData, Record, RecordType,
     },
     xfer,

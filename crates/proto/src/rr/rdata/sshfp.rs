@@ -1,4 +1,4 @@
-// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -16,9 +16,11 @@ use serde::{Deserialize, Serialize};
 use data_encoding::{Encoding, Specification};
 use lazy_static::lazy_static;
 
-use crate::error::*;
-use crate::rr::{RData, RecordData, RecordDataDecodable, RecordType};
-use crate::serialize::binary::*;
+use crate::{
+    error::{ProtoError, ProtoResult},
+    rr::{RData, RecordData, RecordDataDecodable, RecordType},
+    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath},
+};
 
 lazy_static! {
     /// HEX formatting specific to TLSA and SSHFP encodings

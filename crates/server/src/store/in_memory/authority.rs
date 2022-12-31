@@ -1,4 +1,4 @@
-// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -7,6 +7,10 @@
 
 //! All authority related types
 
+#[cfg(feature = "dnssec")]
+use std::borrow::Borrow;
+#[cfg(all(feature = "dnssec", feature = "testing"))]
+use std::ops::Deref;
 use std::{
     collections::{BTreeMap, HashSet},
     ops::DerefMut,
@@ -25,7 +29,7 @@ use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::{
     authority::DnssecAuthority,
     proto::rr::dnssec::{
-        rdata::{key::KEY, DNSSECRData, NSEC, SIG},
+        rdata::{key::KEY, DNSSECRData, NSEC},
         {tbs, DnsSecResult, SigSigner, SupportedAlgorithms},
     },
 };
@@ -44,10 +48,6 @@ use crate::{
     },
     server::RequestInfo,
 };
-#[cfg(feature = "dnssec")]
-use std::borrow::Borrow;
-#[cfg(all(feature = "dnssec", feature = "testing"))]
-use std::ops::Deref;
 
 /// InMemoryAuthority is responsible for storing the resource records for a particular zone.
 ///
@@ -744,9 +744,7 @@ impl InnerInMemory {
         zone_ttl: u32,
         zone_class: DNSClass,
     ) -> DnsSecResult<()> {
-        use crate::client::rr::dnssec::tbs;
-        use time::OffsetDateTime;
-        use trust_dns_client::rr::rdata::RRSIG;
+        use trust_dns_proto::rr::dnssec::rdata::RRSIG;
 
         let inception = OffsetDateTime::now_utc();
 

@@ -1,4 +1,4 @@
-// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -12,12 +12,14 @@ use std::fmt::{self, Display, Formatter};
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
-use crate::error::*;
-use crate::rr::dnssec::{Algorithm, DigestType};
-use crate::serialize::binary::*;
-
-use crate::rr::dnssec::rdata::DNSKEY;
-use crate::rr::{Name, RData, RecordData, RecordDataDecodable, RecordType};
+use crate::{
+    error::{ProtoError, ProtoResult},
+    rr::{
+        dnssec::{rdata::DNSKEY, Algorithm, DigestType},
+        Name, RData, RecordData, RecordDataDecodable, RecordType,
+    },
+    serialize::binary::*,
+};
 
 use super::DNSSECRData;
 

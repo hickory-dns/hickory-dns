@@ -1,25 +1,26 @@
 pub mod mut_message_client;
 
-use std::env;
-use std::io::{stdout, BufRead, BufReader, Write};
-use std::mem;
-use std::net::*;
-use std::panic::{catch_unwind, UnwindSafe};
-use std::process::{Command, Stdio};
-use std::str::FromStr;
-use std::sync::*;
-use std::thread;
-use std::time::*;
+use std::{
+    env,
+    io::{stdout, BufRead, BufReader, Write},
+    mem,
+    net::*,
+    panic::{catch_unwind, UnwindSafe},
+    process::{Command, Stdio},
+    str::FromStr,
+    sync::*,
+    thread,
+    time::*,
+};
 
 use regex::Regex;
 use tokio::runtime::Runtime;
-
 use tracing::{info, warn};
-use trust_dns_client::client::*;
-use trust_dns_client::proto::xfer::DnsResponse;
-use trust_dns_proto::rr::*;
+use trust_dns_client::{client::*, proto::xfer::DnsResponse};
+
 #[cfg(feature = "dnssec")]
-use trust_dns_proto::rr::{dnssec::rdata::DNSSECRData, dnssec::*};
+use trust_dns_proto::rr::dnssec::*;
+use trust_dns_proto::rr::*;
 
 #[cfg(feature = "dnssec")]
 use self::mut_message_client::MutMessageHandle;

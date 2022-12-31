@@ -1,4 +1,4 @@
-// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -12,10 +12,14 @@ use std::fmt;
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
-use crate::error::*;
-use crate::rr::type_bit_map::{decode_type_bit_maps, encode_type_bit_maps};
-use crate::rr::{RData, RecordData, RecordDataDecodable, RecordType};
-use crate::serialize::binary::*;
+use crate::{
+    error::*,
+    rr::{
+        type_bit_map::{decode_type_bit_maps, encode_type_bit_maps},
+        RData, RecordData, RecordDataDecodable, RecordType,
+    },
+    serialize::binary::*,
+};
 
 /// [RFC 7477, Child-to-Parent Synchronization in DNS, March 2015][rfc7477]
 ///

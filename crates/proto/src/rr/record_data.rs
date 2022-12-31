@@ -1,4 +1,4 @@
-// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -8,9 +8,13 @@
 //! record data enum variants
 #![allow(deprecated, clippy::use_self)] // allows us to deprecate RData types
 
-use std::cmp::Ordering;
-use std::fmt;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+#[cfg(test)]
+use std::convert::From;
+use std::{
+    cmp::Ordering,
+    fmt,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
+};
 
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
@@ -18,14 +22,18 @@ use serde::{Deserialize, Serialize};
 use enum_as_inner::EnumAsInner;
 use tracing::{trace, warn};
 
-use super::rdata::{
-    ANAME, CAA, CNAME, CSYNC, HINFO, HTTPS, MX, NAPTR, NS, NULL, OPENPGPKEY, OPT, PTR, SOA, SRV,
-    SSHFP, SVCB, TLSA, TXT,
+use crate::{
+    error::{ProtoError, ProtoErrorKind, ProtoResult},
+    rr::{
+        rdata::{
+            ANAME, CAA, CNAME, CSYNC, HINFO, HTTPS, MX, NAPTR, NS, NULL, OPENPGPKEY, OPT, PTR, SOA,
+            SRV, SSHFP, SVCB, TLSA, TXT,
+        },
+        record_type::RecordType,
+        RecordData, RecordDataDecodable,
+    },
+    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict},
 };
-use super::record_type::RecordType;
-use super::{RecordData, RecordDataDecodable};
-use crate::error::*;
-use crate::serialize::binary::*;
 
 #[cfg(feature = "dnssec")]
 use super::dnssec::rdata::DNSSECRData;

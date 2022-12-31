@@ -1,4 +1,4 @@
-// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -13,21 +13,22 @@ use lru_cache::LruCache;
 use parking_lot::Mutex;
 use tracing::{debug, info, warn};
 
-use trust_dns_proto::{
-    op::Query,
-    rr::{RData, RecordType},
+use crate::{
+    proto::{
+        op::Query,
+        rr::{RData, RecordType},
+    },
+    recursor_pool::RecursorPool,
+    resolver::{
+        config::{NameServerConfig, NameServerConfigGroup, Protocol, ResolverOpts},
+        dns_lru::{DnsLru, TtlConfig},
+        error::ResolveError,
+        lookup::Lookup,
+        name_server::{NameServerPool, TokioRuntimeProvider},
+        Name,
+    },
+    Error, ErrorKind,
 };
-use trust_dns_resolver::name_server::TokioRuntimeProvider;
-use trust_dns_resolver::{
-    config::{NameServerConfig, NameServerConfigGroup, Protocol, ResolverOpts},
-    dns_lru::{DnsLru, TtlConfig},
-    error::ResolveError,
-    lookup::Lookup,
-    name_server::NameServerPool,
-    Name,
-};
-
-use crate::{recursor_pool::RecursorPool, Error, ErrorKind};
 
 /// Set of nameservers by the zone name
 type NameServerCache<P> = LruCache<Name, RecursorPool<P>>;

@@ -1,4 +1,4 @@
-// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -8,20 +8,20 @@
 //! TSIG for secret key authentication of transaction
 #![allow(clippy::use_self)]
 
-use std::fmt;
+use std::{convert::TryInto, fmt};
 
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
-use crate::error::*;
-use crate::op::{Header, Message, Query};
-use crate::rr::dns_class::DNSClass;
-use crate::rr::dnssec::rdata::DNSSECRData;
-use crate::rr::rdata::sshfp;
-use crate::rr::record_data::RData;
-use crate::rr::record_type::RecordType;
-use crate::rr::{Name, Record, RecordData, RecordDataDecodable};
-use crate::serialize::binary::*;
+use crate::{
+    error::{ProtoError, ProtoErrorKind, ProtoResult},
+    op::{Header, Message, Query},
+    rr::{
+        dns_class::DNSClass, dnssec::rdata::DNSSECRData, rdata::sshfp, record_data::RData,
+        record_type::RecordType, Name, Record, RecordData, RecordDataDecodable,
+    },
+    serialize::binary::*,
+};
 
 /// [RFC 8945, Secret Key Transaction Authentication for DNS](https://tools.ietf.org/html/rfc8945#section-4.2)
 ///

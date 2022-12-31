@@ -1,4 +1,4 @@
-// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -31,10 +31,11 @@ pub mod tsig;
 use enum_as_inner::EnumAsInner;
 use tracing::trace;
 
-use crate::error::*;
-use crate::rr::rdata::NULL;
-use crate::rr::{RData, RecordDataDecodable, RecordType};
-use crate::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict};
+use crate::{
+    error::*,
+    rr::{rdata::NULL, RData, RecordDataDecodable, RecordType},
+    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict},
+};
 
 pub use self::cdnskey::CDNSKEY;
 pub use self::cds::CDS;

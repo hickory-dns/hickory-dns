@@ -1,38 +1,25 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! resource record implementation
 
-use std::cmp::Ordering;
-use std::convert::TryFrom;
-use std::fmt;
+use std::{cmp::Ordering, convert::TryFrom, fmt};
 
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
-use crate::error::*;
-use crate::rr::dns_class::DNSClass;
+use crate::{
+    error::{ProtoError, ProtoErrorKind, ProtoResult},
+    rr::{dns_class::DNSClass, Name, RData, RecordData, RecordSet, RecordType},
+    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict},
+};
+
 #[allow(deprecated)]
 use crate::rr::IntoRecordSet;
-use crate::rr::Name;
-use crate::rr::RData;
-use crate::rr::RecordData;
-use crate::rr::RecordSet;
-use crate::rr::RecordType;
-use crate::serialize::binary::*;
 
 use super::RecordDataDecodable;
 
