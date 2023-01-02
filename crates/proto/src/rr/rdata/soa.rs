@@ -266,10 +266,10 @@ impl RecordData for SOA {
         }
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+    fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::SOA(soa) => Ok(soa),
-            _ => Err(data),
+            RData::SOA(soa) => Some(soa),
+            _ => None,
         }
     }
 

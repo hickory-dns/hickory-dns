@@ -811,7 +811,7 @@ impl<'a, R: RecordData> TryFrom<&'a Record> for RecordRef<'a, R> {
             mdns_cache_flush,
         } = record;
 
-        match rdata.as_ref().map(R::try_borrow) {
+        match rdata.as_ref().and_then(R::try_borrow) {
             None => Ok(Self {
                 name_labels,
                 rr_type: *rr_type,
@@ -821,7 +821,7 @@ impl<'a, R: RecordData> TryFrom<&'a Record> for RecordRef<'a, R> {
                 #[cfg(feature = "mdns")]
                 mdns_cache_flush: *mdns_cache_flush,
             }),
-            Some(Ok(rdata)) => Ok(Self {
+            Some(rdata) => Ok(Self {
                 name_labels,
                 rr_type: *rr_type,
                 dns_class: *dns_class,
@@ -830,7 +830,6 @@ impl<'a, R: RecordData> TryFrom<&'a Record> for RecordRef<'a, R> {
                 #[cfg(feature = "mdns")]
                 mdns_cache_flush: *mdns_cache_flush,
             }),
-            Some(Err(_rdata)) => Err(record),
         }
     }
 }

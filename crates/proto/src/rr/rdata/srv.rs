@@ -243,10 +243,10 @@ impl RecordData for SRV {
         }
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+    fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::SRV(data) => Ok(data),
-            _ => Err(data),
+            RData::SRV(data) => Some(data),
+            _ => None,
         }
     }
 

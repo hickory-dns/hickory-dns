@@ -963,8 +963,8 @@ async fn test_zone_signing() {
                 .iter()
                 .filter(|r| r.record_type() == RecordType::RRSIG)
                 .filter(|r| r.name() == record.name())
-                .filter_map(|r| r.data())
-                .filter_map(|r| RRSIG::try_borrow(r).ok())
+                .filter_map(Record::data)
+                .filter_map(RRSIG::try_borrow)
                 .any(|rrsig| rrsig.type_covered() == record.record_type()),
             "record type not covered: {:?}",
             record

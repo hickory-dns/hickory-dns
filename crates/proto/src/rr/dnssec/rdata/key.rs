@@ -832,10 +832,10 @@ impl RecordData for KEY {
         }
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+    fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::DNSSEC(DNSSECRData::KEY(csync)) => Ok(csync),
-            _ => Err(data),
+            RData::DNSSEC(DNSSECRData::KEY(csync)) => Some(csync),
+            _ => None,
         }
     }
 

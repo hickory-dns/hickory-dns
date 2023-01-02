@@ -175,10 +175,10 @@ impl RecordData for CSYNC {
         }
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+    fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::CSYNC(csync) => Ok(csync),
-            _ => Err(data),
+            RData::CSYNC(csync) => Some(csync),
+            _ => None,
         }
     }
 

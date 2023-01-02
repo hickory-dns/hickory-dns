@@ -416,10 +416,10 @@ impl RecordData for DNSKEY {
         }
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+    fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::DNSSEC(DNSSECRData::DNSKEY(csync)) => Ok(csync),
-            _ => Err(data),
+            RData::DNSSEC(DNSSECRData::DNSKEY(csync)) => Some(csync),
+            _ => None,
         }
     }
 

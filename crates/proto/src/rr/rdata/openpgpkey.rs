@@ -75,10 +75,10 @@ impl RecordData for OPENPGPKEY {
         }
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+    fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::OPENPGPKEY(csync) => Ok(csync),
-            _ => Err(data),
+            RData::OPENPGPKEY(csync) => Some(csync),
+            _ => None,
         }
     }
 

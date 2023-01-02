@@ -992,8 +992,8 @@ impl RecordData for RData {
         Ok(data)
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
-        Ok(data)
+    fn try_borrow(data: &RData) -> Option<&Self> {
+        Some(data)
     }
 
     fn record_type(&self) -> RecordType {

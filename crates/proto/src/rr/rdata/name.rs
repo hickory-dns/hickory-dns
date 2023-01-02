@@ -99,10 +99,10 @@ macro_rules! name_rdata {
                 }
             }
 
-            fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+            fn try_borrow(data: &RData) -> Option<&Self> {
                 match data {
-                    RData::$name(data) => Ok(data),
-                    _ => Err(data),
+                    RData::$name(data) => Some(data),
+                    _ => None,
                 }
             }
 

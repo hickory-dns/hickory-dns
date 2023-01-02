@@ -400,10 +400,10 @@ impl RecordData for TLSA {
         }
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+    fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::TLSA(data) => Ok(data),
-            _ => Err(data),
+            RData::TLSA(data) => Some(data),
+            _ => None,
         }
     }
 

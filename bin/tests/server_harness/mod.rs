@@ -283,8 +283,8 @@ pub fn query_all_dnssec(
     let dnskey = response
         .answers()
         .iter()
-        .filter_map(|r| r.data())
-        .filter_map(|r| DNSKEY::try_borrow(r).ok())
+        .filter_map(Record::data)
+        .filter_map(DNSKEY::try_borrow)
         .find(|d| d.algorithm() == algorithm);
     assert!(dnskey.is_some(), "DNSKEY not found");
 
@@ -293,8 +293,8 @@ pub fn query_all_dnssec(
     let rrsig = response
         .answers()
         .iter()
-        .filter_map(|r| r.data())
-        .filter_map(|r| RRSIG::try_borrow(r).ok())
+        .filter_map(Record::data)
+        .filter_map(RRSIG::try_borrow)
         .filter(|rrsig| rrsig.algorithm() == algorithm)
         .find(|rrsig| rrsig.type_covered() == RecordType::DNSKEY);
     assert!(rrsig.is_some(), "Associated RRSIG not found");

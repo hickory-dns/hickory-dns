@@ -269,10 +269,10 @@ impl RecordData for SSHFP {
         }
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+    fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::SSHFP(data) => Ok(data),
-            _ => Err(data),
+            RData::SSHFP(data) => Some(data),
+            _ => None,
         }
     }
 
