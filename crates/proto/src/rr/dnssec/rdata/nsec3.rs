@@ -339,10 +339,10 @@ impl RecordData for NSEC3 {
         }
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+    fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::DNSSEC(DNSSECRData::NSEC3(csync)) => Ok(csync),
-            _ => Err(data),
+            RData::DNSSEC(DNSSECRData::NSEC3(csync)) => Some(csync),
+            _ => None,
         }
     }
 

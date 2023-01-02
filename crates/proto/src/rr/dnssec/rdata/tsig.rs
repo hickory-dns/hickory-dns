@@ -443,10 +443,10 @@ impl RecordData for TSIG {
         }
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+    fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::DNSSEC(DNSSECRData::TSIG(csync)) => Ok(csync),
-            _ => Err(data),
+            RData::DNSSEC(DNSSECRData::TSIG(csync)) => Some(csync),
+            _ => None,
         }
     }
 

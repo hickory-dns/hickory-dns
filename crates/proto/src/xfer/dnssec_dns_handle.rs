@@ -489,7 +489,7 @@ where
             .enumerate()
             .filter(|&(_, rr)| is_dnssec(rr, RecordType::DNSKEY))
             .filter_map(|(i, rr)| rr.data().map(|rr| (i, rr)))
-            .filter_map(|(i, rr)| DNSKEY::try_borrow(rr).map(|rr| (i, rr)).ok())
+            .filter_map(|(i, rr)| DNSKEY::try_borrow(rr).map(|rr| (i, rr)))
             .filter_map(|(i, rdata)| {
                 if handle
                     .trust_anchor
@@ -731,7 +731,7 @@ where
                         .filter(|r| is_dnssec(r, RecordType::DNSKEY))
                         .filter_map(|r| r.data().map(|data| (r.name(), data)))
                         .filter_map(|(dnskey_name, data)|
-                           DNSKEY::try_borrow(data).ok().map(|data| (dnskey_name, data)))
+                           DNSKEY::try_borrow(data).map(|data| (dnskey_name, data)))
                         .find(|(dnskey_name, dnskey)|
                                 verify_rrset_with_dnskey(dnskey_name, dnskey, &sig, &rrset).is_ok()
                         )

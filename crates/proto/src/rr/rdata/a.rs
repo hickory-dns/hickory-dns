@@ -47,10 +47,10 @@ impl RecordData for Ipv4Addr {
         }
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+    fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::A(ipv4) => Ok(ipv4),
-            _ => Err(data),
+            RData::A(ipv4) => Some(ipv4),
+            _ => None,
         }
     }
 

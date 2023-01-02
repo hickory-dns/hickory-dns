@@ -841,10 +841,10 @@ impl RecordData for CAA {
         }
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+    fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::CAA(csync) => Ok(csync),
-            _ => Err(data),
+            RData::CAA(csync) => Some(csync),
+            _ => None,
         }
     }
 

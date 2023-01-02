@@ -121,10 +121,10 @@ impl RecordData for RRSIG {
         }
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+    fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::DNSSEC(DNSSECRData::RRSIG(csync)) => Ok(csync),
-            _ => Err(data),
+            RData::DNSSEC(DNSSECRData::RRSIG(csync)) => Some(csync),
+            _ => None,
         }
     }
 

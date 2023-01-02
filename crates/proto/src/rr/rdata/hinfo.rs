@@ -127,10 +127,10 @@ impl RecordData for HINFO {
         }
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+    fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::HINFO(csync) => Ok(csync),
-            _ => Err(data),
+            RData::HINFO(csync) => Some(csync),
+            _ => None,
         }
     }
 

@@ -211,10 +211,10 @@ impl RecordData for NSEC3PARAM {
         }
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+    fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::DNSSEC(DNSSECRData::NSEC3PARAM(csync)) => Ok(csync),
-            _ => Err(data),
+            RData::DNSSEC(DNSSECRData::NSEC3PARAM(csync)) => Some(csync),
+            _ => None,
         }
     }
 

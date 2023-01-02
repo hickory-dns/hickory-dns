@@ -1137,10 +1137,10 @@ impl RecordData for SVCB {
         }
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+    fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::SVCB(data) => Ok(data),
-            _ => Err(data),
+            RData::SVCB(data) => Some(data),
+            _ => None,
         }
     }
 

@@ -347,7 +347,7 @@ mod tests {
             .next()
             .unwrap()
             .data()
-            .and_then(|d| D::try_borrow(d).ok())
+            .and_then(D::try_borrow)
             .expect("Not the correct record")
             .clone()
     }

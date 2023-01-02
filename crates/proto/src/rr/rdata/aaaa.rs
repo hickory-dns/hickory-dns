@@ -39,10 +39,10 @@ impl RecordData for Ipv6Addr {
         }
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+    fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::AAAA(ipv6) => Ok(ipv6),
-            _ => Err(data),
+            RData::AAAA(ipv6) => Some(ipv6),
+            _ => None,
         }
     }
 

@@ -57,10 +57,10 @@ impl RecordData for CDS {
         }
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+    fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::DNSSEC(DNSSECRData::CDS(cds)) => Ok(cds),
-            _ => Err(data),
+            RData::DNSSEC(DNSSECRData::CDS(cds)) => Some(cds),
+            _ => None,
         }
     }
 

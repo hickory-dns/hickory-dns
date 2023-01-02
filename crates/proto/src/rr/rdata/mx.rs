@@ -111,10 +111,10 @@ impl RecordData for MX {
         }
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+    fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::MX(csync) => Ok(csync),
-            _ => Err(data),
+            RData::MX(csync) => Some(csync),
+            _ => None,
         }
     }
 

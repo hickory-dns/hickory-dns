@@ -536,10 +536,10 @@ impl RecordData for SIG {
         }
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+    fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::DNSSEC(DNSSECRData::SIG(csync)) => Ok(csync),
-            _ => Err(data),
+            RData::DNSSEC(DNSSECRData::SIG(csync)) => Some(csync),
+            _ => None,
         }
     }
 

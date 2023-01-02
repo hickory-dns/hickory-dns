@@ -96,10 +96,10 @@ impl RecordData for NULL {
         }
     }
 
-    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+    fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::NULL(csync) => Ok(csync),
-            _ => Err(data),
+            RData::NULL(csync) => Some(csync),
+            _ => None,
         }
     }
 
