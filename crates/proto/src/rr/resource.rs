@@ -35,6 +35,9 @@ use super::RecordDataDecodable;
 const MDNS_ENABLE_CACHE_FLUSH: u16 = 1 << 15;
 /// Resource records are storage value in DNS, into which all key/value pair data is stored.
 ///
+/// # Generic type
+/// * `R` - the RecordData type this resource record represents, if unknown at runtime use the `RData` abstract enum type
+///
 /// [RFC 1035](https://tools.ietf.org/html/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
 ///
 /// ```text
