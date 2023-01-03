@@ -42,6 +42,8 @@ pub use lower_name::LowerName;
 pub use rr_key::RrKey;
 
 /// RecordData that is stored in a DNS Record.
+///
+/// This trait allows for generic usage of `RecordData` types inside the `Record` type. Specific RecordData types can be used to enforce compile time constraints on a Record.
 pub trait RecordData: Clone + Sized + PartialEq + Eq + fmt::Display + BinEncodable {
     /// Attempts to convert to this RecordData from the RData type, if it is not the correct type the original is returned
     #[allow(clippy::result_large_err)]
@@ -50,10 +52,10 @@ pub trait RecordData: Clone + Sized + PartialEq + Eq + fmt::Display + BinEncodab
     /// Attempts to borrow this RecordData from the RData type, if it is not the correct type the original is returned
     fn try_borrow(data: &RData) -> Option<&Self>;
 
-    /// Get the associated RecordType for the RData
+    /// Get the associated RecordType for the RecordData
     fn record_type(&self) -> RecordType;
 
-    /// Converts this RecordData into generic RData
+    /// Converts this RecordData into generic RecordData
     fn into_rdata(self) -> RData;
 }
 

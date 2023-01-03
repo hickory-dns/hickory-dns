@@ -38,7 +38,9 @@ use crate::{
 #[cfg(feature = "dnssec")]
 use super::dnssec::rdata::DNSSECRData;
 
-/// Record data enum variants
+/// Record data enum variants for all valid DNS data types.
+///
+/// This is used to represent the generic Record as it is read off the wire. Allows for a Record to be abstractly referenced without knowing it's internal until runtime.
 ///
 /// [RFC 1035](https://tools.ietf.org/html/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
 ///
