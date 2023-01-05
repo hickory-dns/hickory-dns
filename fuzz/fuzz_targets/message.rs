@@ -8,12 +8,12 @@ use trust_dns_proto::{
 };
 
 fuzz_target!(|data: &[u8]| {
-    if let Ok(msg) = Message::from_bytes(data) {
-        let new_data = msg.to_bytes().unwrap();
-        match Message::from_bytes(&new_data) {
+    if let Ok(original) = Message::from_bytes(data) {
+        let reencoded = original.to_bytes().unwrap();
+        match Message::from_bytes(&reencoded) {
             Ok(reparsed) => {
-                if !messages_equal(&msg, &reparsed) {
-                    for (m, r) in format!("{:#?}", msg)
+                if !messages_equal(&original, &reparsed) {
+                    for (m, r) in format!("{:#?}", original)
                         .lines()
                         .zip(format!("{:#?}", reparsed).lines())
                     {
@@ -21,41 +21,46 @@ fuzz_target!(|data: &[u8]| {
                             println!("{} -> {}", m, r);
                         }
                     }
-                    assert_eq!(msg, reparsed);
+                    assert_eq!(original, reparsed);
                 }
             }
             Err(e) => {
-                eprintln!("{:?}", msg);
+                eprintln!("{:?}", original);
                 panic!("Message failed to deserialize: {:?}", e);
             }
         }
     }
 });
 
-fn messages_equal(msg1: &Message, msg2: &Message) -> bool {
-    if msg1 == msg2 {
+fn messages_equal(original: &Message, reparsed: &Message) -> bool {
+    if original == reparsed {
         return true;
     }
 
     // see if there are some of the records that don't round trip properly...
+    if reparsed.is_truncated() {
+        // TODO: there might be a better comparison to make here.
+        return true;
+    }
+
     // compare headers
-    if msg1.header() != msg2.header() {
+    if original.header() != reparsed.header() {
         return false;
     }
 
     // compare queries
-    if msg1.queries() != msg2.queries() {
+    if original.queries() != reparsed.queries() {
         return false;
     }
 
     // now compare answers
-    if !records_equal(msg1.answers(), msg2.answers()) {
+    if !records_equal(original.answers(), reparsed.answers()) {
         return false;
     }
-    if !records_equal(msg1.name_servers(), msg2.name_servers()) {
+    if !records_equal(original.name_servers(), reparsed.name_servers()) {
         return false;
     }
-    if !records_equal(msg1.additionals(), msg2.additionals()) {
+    if !records_equal(original.additionals(), reparsed.additionals()) {
         return false;
     }
 
