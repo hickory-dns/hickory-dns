@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::fmt::{Debug, Formatter};
+use std::task::ready;
 use std::{
     fmt::{self, Display},
     future::Future,
@@ -15,7 +17,7 @@ use std::{
 };
 
 use futures_util::{future::FutureExt, stream::Stream};
-use quinn::{ClientConfig, Connection, Endpoint, TransportConfig, VarInt};
+use quinn::{AsyncUdpSocket, ClientConfig, Connection, Endpoint, TransportConfig, VarInt};
 use rustls::{version::TLS13, ClientConfig as TlsClientConfig};
 
 use crate::{
@@ -174,6 +176,39 @@ impl QuicClientStreamBuilder {
         QuicClientConnect(Box::pin(self.connect(name_server, dns_name)) as _)
     }
 
+    pub fn build_with_future<S, F>(self, future: F) -> QuicClientConnect
+    where
+        S: UdpSocket + QuicLocalAddr,
+        F: Future<Output = std::io::Result<S>> + Send,
+    {
+        QuicClientConnect(Box::pin(self.connect(name_server, dns_name)) as _)
+    }
+
+    async fn connect_with_future<S, F>(
+        self,
+        future: F,
+        name_server: SocketAddr,
+        dns_name: String,
+    ) -> Result<QuicClientStream, ProtoError>
+    where
+        S: UdpSocket + QuicLocalAddr,
+        F: Future<Output = std::io::Result<S>> + Send,
+    {
+        let socket = future.await?;
+        let endpoint_config = quic_config::endpoint();
+        let wrapper = QuinnAsyncUdpSocketAdapter {
+            io: S,
+            dest: name_server,
+        };
+        let mut endpoint = Endpoint::new_with_abstract_socket(
+            endpoint_config,
+            None,
+            wrapper,
+            quinn::TokioRuntime,
+        )?;
+        self.connect_inner(endpoint, name_server, dns_name)
+    }
+
     async fn connect(
         self,
         name_server: SocketAddr,
@@ -187,10 +222,17 @@ impl QuicClientStreamBuilder {
 
         let socket = connect.await?;
         let socket = socket.into_std()?;
-
         let endpoint_config = quic_config::endpoint();
         let mut endpoint = Endpoint::new(endpoint_config, None, socket, quinn::TokioRuntime)?;
+        self.connect_inner(endpoint, name_server, dns_name)
+    }
 
+    async fn connect_inner<S: UdpSocket>(
+        self,
+        mut endpoint: Endpoint,
+        name_server: SocketAddr,
+        dns_name: String,
+    ) -> Result<QuicClientStream, ProtoError> {
         // ensure the ALPN protocol is set correctly
         let mut crypto_config = self.crypto_config;
         if crypto_config.alpn_protocols.is_empty() {
@@ -284,5 +326,105 @@ impl Future for QuicClientResponse {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.as_mut().poll(cx).map_err(ProtoError::from)
+    }
+}
+
+/// To implement quinn::AsyncUdpSocket, we need our custom socket capable of getting local address.
+pub trait QuicLocalAddr {
+    fn local_addr(&self) -> std::io::Result<std::net::SocketAddr>;
+}
+
+/// Wrapper used for quinn::Endpoint::new_with_abstract_socket
+pub struct QuinnAsyncUdpSocketAdapter<S: UdpSocket + QuicLocalAddr> {
+    io: S,
+    dest: SocketAddr,
+}
+
+impl<S: UdpSocket> Debug for QuinnAsyncUdpSocketAdapter<S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str("Wrapper for quinn::AsyncUdpSocket")
+    }
+}
+
+/// TODO: Naive implementation. Look forward to
+impl<S: UdpSocket + QuicLocalAddr> AsyncUdpSocket for QuinnAsyncUdpSocketAdapter<S> {
+    fn poll_send(
+        &mut self,
+        _state: &quinn_udp::UdpState,
+        cx: &mut Context,
+        transmits: &[quinn_udp::Transmit],
+    ) -> Poll<std::io::Result<usize>> {
+        // logics from quinn-udp::fallback.rs
+        let io = &self.io;
+        let mut sent = 0;
+        for transmit in transmits {
+            match io.poll_send_to(cx, &transmit.contents, transmit.destination) {
+                Poll::Ready(ready) => match ready {
+                    Ok(_) => {
+                        sent += 1;
+                    }
+                    // We need to report that some packets were sent in this case, so we rely on
+                    // errors being either harmlessly transient (in the case of WouldBlock) or
+                    // recurring on the next call.
+                    Err(_) if sent != 0 => return Poll::Ready(Ok(sent)),
+                    Err(e) => {
+                        if e.kind() == std::io::ErrorKind::WouldBlock {
+                            return Poll::Ready(Err(e));
+                        }
+
+                        // Other errors are ignored, since they will ususally be handled
+                        // by higher level retransmits and timeouts.
+                        // - PermissionDenied errors have been observed due to iptable rules.
+                        //   Those are not fatal errors, since the
+                        //   configuration can be dynamically changed.
+                        // - Destination unreachable errors have been observed for other
+                        // log_sendmsg_error(&mut self.last_send_error, e, transmit);
+                        sent += 1;
+                    }
+                },
+                Poll::Pending => {
+                    return if sent == 0 {
+                        Poll::Pending
+                    } else {
+                        Poll::Ready(Ok(sent))
+                    }
+                }
+            }
+        }
+        Poll::Ready(Ok(sent))
+    }
+
+    fn poll_recv(
+        &self,
+        cx: &mut Context,
+        bufs: &mut [std::io::IoSliceMut<'_>],
+        meta: &mut [quinn_udp::RecvMeta],
+    ) -> Poll<std::io::Result<usize>> {
+        // logics from quinn-udp::fallback.rs
+
+        let io = &self.io;
+        let Some(mut buf) = bufs.get(0)else {
+            return Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput,"no buf")));
+        };
+        match io.poll_recv_from(cx, buf.as_mut()) {
+            Poll::Ready(res) => match res {
+                Ok((len, addr)) => {
+                    meta[0] = quinn_udp::RecvMeta {
+                        len,
+                        stride: len,
+                        addr: addr.as_socket().unwrap(),
+                        ecn: None,
+                        dst_ip: None,
+                    };
+                    Poll::Ready(Ok(1))
+                }
+                Err(err) => Poll::Ready(Err(err)),
+            },
+            Poll::Pending => Poll::Pending,
+        }
+    }
+
+    fn local_addr(&self) -> std::io::Result<std::net::SocketAddr> {
+        self.io.local_addr()
     }
 }

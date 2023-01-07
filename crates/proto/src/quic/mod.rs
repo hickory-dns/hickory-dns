@@ -14,7 +14,7 @@ mod quic_stream;
 
 pub use self::quic_client_stream::{
     client_config_tls13_webpki_roots, QuicClientConnect, QuicClientResponse, QuicClientStream,
-    QuicClientStreamBuilder,
+    QuicClientStreamBuilder, QuicLocalAddr,
 };
 pub use self::quic_server::{QuicServer, QuicStreams};
 pub use self::quic_stream::{DoqErrorCode, QuicStream};

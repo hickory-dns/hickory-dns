@@ -5,12 +5,14 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::future::Future;
 use std::net::SocketAddr;
 
 use crate::name_server::RuntimeProvider;
 use crate::tls::CLIENT_CONFIG;
 
 use proto::https::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
+use proto::tcp::DnsTcpStream;
 use proto::xfer::{DnsExchange, DnsExchangeConnect};
 use proto::TokioTime;
 
@@ -36,6 +38,29 @@ where
         https_builder.bind_addr(bind_addr);
     }
     DnsExchange::connect(https_builder.build::<R::Tcp>(socket_addr, dns_name))
+}
+
+#[allow(clippy::type_complexity)]
+pub(crate) fn new_https_stream_with_future<S, F>(
+    future: F,
+    dns_name: String,
+    client_config: Option<TlsClientConfig>,
+) -> DnsExchangeConnect<HttpsClientConnect<S>, HttpsClientStream, TokioTime>
+where
+    S: DnsTcpStream,
+    F: Future<Output = std::io::Result<S>> + Send,
+{
+    let client_config = client_config.map_or_else(
+        || CLIENT_CONFIG.clone(),
+        |TlsClientConfig(client_config)| client_config,
+    );
+
+    DnsExchange::connect(HttpsClientStreamBuilder::build_with_future(
+        future,
+        client_config,
+        socket_addr,
+        dns_name,
+    ))
 }
 
 #[cfg(test)]

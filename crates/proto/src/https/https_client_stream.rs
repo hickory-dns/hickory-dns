@@ -31,7 +31,7 @@ use tracing::{debug, warn};
 use crate::error::ProtoError;
 use crate::iocompat::AsyncIoStdAsTokio;
 use crate::op::Message;
-use crate::tcp::Connect;
+use crate::tcp::{Connect, DnsTcpStream};
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
 
 const ALPN_H2: &[u8] = b"h2";
@@ -324,6 +324,36 @@ impl HttpsClientStreamBuilder {
         HttpsClientConnect::<S>(HttpsClientConnectState::ConnectTcp {
             name_server,
             bind_addr: self.bind_addr,
+            tls: Some(tls),
+        })
+    }
+
+    pub fn build_with_future<S, F>(
+        future: F,
+        mut client_config: Arc<ClientConfig>,
+        name_server: SocketAddr,
+        dns_name: String,
+    ) -> HttpsClientConnect<S>
+    where
+        S: DnsTcpStream,
+        F: Future<Output = std::io::Result<S>> + Send,
+    {
+        // ensure the ALPN protocol is set correctly
+        if client_config.alpn_protocols.is_empty() {
+            let mut client_cfg = (*client_config).clone();
+            client_cfg.alpn_protocols = vec![ALPN_H2.to_vec()];
+
+            client_config = Arc::new(client_cfg);
+        }
+
+        let tls = TlsConfig {
+            client_config,
+            dns_name: Arc::from(dns_name),
+        };
+
+        HttpsClientConnect::<S>(HttpsClientConnectState::TcpConnecting {
+            connect: Pin::new(Box::new(future)),
+            name_server,
             tls: Some(tls),
         })
     }

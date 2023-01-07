@@ -263,6 +263,29 @@ async fn send_serial_message<S: UdpSocket + Send>(
 ) -> Result<DnsResponse, ProtoError> {
     let name_server = msg.addr();
     let socket: S = NextRandomUdpSocket::new(&name_server, &bind_addr).await?;
+    send_serial_message_inner(msg, msg_id, verifier, socket).await
+}
+
+async fn send_serial_message_with_closure<S, C>(
+    msg: SerialMessage,
+    msg_id: u16,
+    verifier: Option<MessageVerifier>,
+    creator: C,
+) -> Result<DnsResponse, ProtoError>
+where
+    S: UdpSocket + Send,
+    C: Fn(&SocketAddr) -> dyn Future<Output = Result<S, std::io::Error>>,
+{
+    let socket: S = NextRandomUdpSocket::new_with_closure(creator).await?;
+    send_serial_message_inner(msg, msg_id, verifier, socket).await
+}
+
+async fn send_serial_message_inner<S: UdpSocket + Send>(
+    msg: SerialMessage,
+    msg_id: u16,
+    verifier: Option<MessageVerifier>,
+    socket: S,
+) -> Result<DnsResponse, ProtoError> {
     let bytes = msg.bytes();
     let addr = msg.addr();
     let len_sent: usize = socket.send_to(bytes, addr).await?;

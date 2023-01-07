@@ -167,25 +167,7 @@ impl<S: Connect> TcpStream<S> {
         outbound_messages: StreamReceiver,
     ) -> Result<Self, io::Error> {
         let tcp = S::connect_with_bind(name_server, bind_addr);
-        S::Time::timeout(timeout, tcp)
-            .map(move |tcp_stream: Result<Result<S, io::Error>, _>| {
-                tcp_stream
-                    .and_then(|tcp_stream| tcp_stream)
-                    .map(|tcp_stream| {
-                        debug!("TCP connection established to: {}", name_server);
-                        Self {
-                            socket: tcp_stream,
-                            outbound_messages,
-                            send_state: None,
-                            read_state: ReadTcpState::LenBytes {
-                                pos: 0,
-                                bytes: [0u8; 2],
-                            },
-                            peer_addr: name_server,
-                        }
-                    })
-            })
-            .await
+        Self::connect_with_future(tcp, name_server, timeout, outbound_messages).await
     }
 }
 
@@ -241,6 +223,48 @@ impl<S: DnsTcpStream> TcpStream<S> {
             },
             peer_addr,
         }
+    }
+
+    #[allow(clippy::type_complexity)]
+    pub fn with_future<F: Future<Output = Result<S, io::Error>> + Send>(
+        future: F,
+        name_server: SocketAddr,
+        timeout: Duration,
+    ) -> (
+        impl Future<Output = Result<Self, io::Error>> + Send,
+        BufDnsStreamHandle,
+    ) {
+        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
+        let stream_fut = Self::connect_with_future(future, name_server, timeout, outbound_messages);
+
+        (stream_fut, message_sender)
+    }
+
+    async fn connect_with_future<F: Future<Output = Result<S, io::Error>> + Send>(
+        future: F,
+        name_server: SocketAddr,
+        timeout: Duration,
+        outbound_messages: StreamReceiver,
+    ) -> Result<Self, io::Error> {
+        S::Time::timeout(timeout, future)
+            .map(move |tcp_stream: Result<Result<S, io::Error>, _>| {
+                tcp_stream
+                    .and_then(|tcp_stream| tcp_stream)
+                    .map(|tcp_stream| {
+                        debug!("TCP connection established to: {}", name_server);
+                        Self {
+                            socket: tcp_stream,
+                            outbound_messages,
+                            send_state: None,
+                            read_state: ReadTcpState::LenBytes {
+                                pos: 0,
+                                bytes: [0u8; 2],
+                            },
+                            peer_addr: name_server,
+                        }
+                    })
+            })
+            .await
     }
 }
 
