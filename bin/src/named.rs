@@ -5,11 +5,11 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! The `named` binary for running a DNS server
+//! The `trust-dns` binary for running a DNS server
 //!
 //! ```text
-//! Usage: named [options]
-//!       named (-h | --help | --version)
+//! Usage: trust-dns [options]
+//!       trust-dns (-h | --help | --version)
 //!
 //! Options:
 //!    -q, --quiet             Disable INFO messages, WARN and ERROR will remain
