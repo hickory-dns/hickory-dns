@@ -19,7 +19,7 @@ This repo consists of multiple crates:
 | **Trust-DNS** | [![](https://img.shields.io/crates/v/trust-dns.svg)](https://crates.io/crates/trust-dns) Binaries for running a DNS authoritative server.                                                                                                                                                                                                  |
 | **Proto**     | [![](https://img.shields.io/crates/v/trust-dns-proto.svg)](https://crates.io/crates/trust-dns-proto) [![trust-dns-proto](https://docs.rs/trust-dns-proto/badge.svg)](https://docs.rs/trust-dns-proto) Raw DNS library, exposes an unstable API and only for use by the other Trust-DNS libraries, not intended for end-user use.           |
 | **Client**    | [![](https://img.shields.io/crates/v/trust-dns-client.svg)](https://crates.io/crates/trust-dns-client) [![trust-dns-client](https://docs.rs/trust-dns-client/badge.svg)](https://docs.rs/trust-dns-client) Used for sending `query`, `update`, and `notify` messages directly to a DNS server.                                             |
-| **Server**    | [![](https://img.shields.io/crates/v/trust-dns-server.svg)](https://crates.io/crates/trust-dns-server) [![trust-dns-server](https://docs.rs/trust-dns-server/badge.svg)](https://docs.rs/trust-dns-server) Use to host DNS records, this also has a `named` binary for running in a daemon form.                                           |
+| **Server**    | [![](https://img.shields.io/crates/v/trust-dns-server.svg)](https://crates.io/crates/trust-dns-server) [![trust-dns-server](https://docs.rs/trust-dns-server/badge.svg)](https://docs.rs/trust-dns-server) Use to host DNS records, this also has a `trust-dns` binary for running in a daemon form.                                           |
 | **Resolver**  | [![](https://img.shields.io/crates/v/trust-dns-resolver.svg)](https://crates.io/crates/trust-dns-resolver) [![trust-dns-resolver](https://docs.rs/trust-dns-resolver/badge.svg)](https://docs.rs/trust-dns-resolver) Utilizes the client library to perform DNS resolution. Can be used in place of the standard OS resolution facilities. |
 
 # Goals
@@ -246,21 +246,21 @@ so this should allow it to work with most internal loads.
 - Verify the version
 
 ```shell
-./target/release/named --version
+./target/release/trust-dns --version
 ```
 
 - Get help
 
 ```shell
-./target/release/named --help
+./target/release/trust-dns --help
 ```
 
-- Launch `named` server with test config
+- Launch `trust-dns` server with test config
 
 You may want not passing the `-p` parameter will run on default DNS ports. For the tls features, there are also port options for those, see `trust-dns --help`
 
 ```shell
-./target/release/named -c ./tests/test-data/named_test_configs/example.toml -z ./tests/test-data/named_test_configs/ -p 24141
+./target/release/trust-dns -c ./tests/test-data/named_test_configs/example.toml -z ./tests/test-data/named_test_configs/ -p 24141
 ```
 
 - Query the just launched server with `dig`
