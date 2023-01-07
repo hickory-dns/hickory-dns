@@ -95,6 +95,22 @@ impl<S: DnsTcpStream> TcpClientStream<S> {
     pub fn from_stream(tcp_stream: TcpStream<S>) -> Self {
         Self { tcp_stream }
     }
+
+    #[allow(clippy::new_ret_no_self)]
+    pub fn with_future<F: Future<Output = io::Result<S>>>(
+        future: F,
+        timeout: Duration,
+    ) -> (TcpClientConnect<S>, BufDnsStreamHandle) {
+        let (stream_future, sender) = TcpStream::<S>::with_future(future, timeout);
+
+        let new_future = Box::pin(
+            stream_future
+                .map_ok(move |tcp_stream| Self { tcp_stream })
+                .map_err(ProtoError::from),
+        );
+
+        (TcpClientConnect(new_future), sender)
+    }
 }
 
 impl<S: DnsTcpStream> Display for TcpClientStream<S> {

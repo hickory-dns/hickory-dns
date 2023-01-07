@@ -136,6 +136,51 @@ pub fn tls_connect_with_bind_addr<S: Connect>(
     (stream, message_sender)
 }
 
+/// Creates a new TlsStream to the specified name_server connecting from a specific address.
+///
+/// # Arguments
+///
+/// * `name_server` - IP and Port for the remote DNS resolver
+/// * `bind_addr` - IP and port to connect from
+/// * `dns_name` - The DNS name,  Subject Public Key Info (SPKI) name, as associated to a certificate
+#[allow(clippy::type_complexity)]
+pub fn tls_connect_with_future<S, F>(
+    future: F,
+    dns_name: String,
+    client_config: Arc<ClientConfig>,
+) -> (
+    Pin<
+        Box<
+            dyn Future<
+                    Output = Result<
+                        TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>,
+                        io::Error,
+                    >,
+                > + Send,
+        >,
+    >,
+    BufDnsStreamHandle,
+)
+where
+    S: DnsTcpStream,
+    F: Future<Output = io::Result<S>>,
+{
+    let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
+    let early_data_enabled = client_config.enable_early_data;
+    let tls_connector = TlsConnector::from(client_config).early_data(early_data_enabled);
+
+    // This set of futures collapses the next tcp socket into a stream which can be used for
+    //  sending and receiving tcp packets.
+    let stream = Box::pin(connect_tls_with_future(
+        tls_connector,
+        future,
+        dns_name,
+        outbound_messages,
+    ));
+
+    (stream, message_sender)
+}
+
 async fn connect_tls<S: Connect>(
     tls_connector: TlsConnector,
     name_server: SocketAddr,
@@ -144,7 +189,19 @@ async fn connect_tls<S: Connect>(
     outbound_messages: StreamReceiver,
 ) -> io::Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>> {
     let tcp = S::connect_with_bind(name_server, bind_addr).await?;
+    connect_tls_with_future(tls_connector, tcp, dns_name, outbound_messages)
+}
 
+async fn connect_tls_with_future<S, F>(
+    tls_connector: TlsConnector,
+    future: F,
+    dns_name: String,
+    outbound_messages: StreamReceiver,
+) -> io::Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>>
+where
+    S: DnsTcpStream,
+    F: Future<Output = io::Result<S>> + Send,
+{
     let dns_name = match dns_name.as_str().try_into() {
         Ok(name) => name,
         Err(_) => return Err(io::Error::new(io::ErrorKind::InvalidInput, "bad dns_name")),

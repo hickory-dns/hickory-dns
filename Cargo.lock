@@ -1194,9 +1194,9 @@ dependencies = [
 
 [[package]]
 name = "quinn-udp"
-version = "0.3.0"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47085d44ed35b0f4499a88e47d689a411d483845966124e187a8f3cbb39eeebb"
+checksum = "641538578b21f5e5c8ea733b736895576d0fe329bb883b937db6f4d163dbaaf4"
 dependencies = [
  "libc",
  "quinn-proto",
@@ -1921,6 +1921,7 @@ dependencies = [
  "native-tls",
  "openssl",
  "quinn",
+ "quinn-udp",
  "rand",
  "ring",
  "rustls",

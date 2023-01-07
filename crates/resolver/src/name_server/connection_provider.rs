@@ -6,12 +6,13 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::marker::Unpin;
+use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use futures_util::future::{Future, FutureExt};
-use futures_util::ready;
 use futures_util::stream::{Stream, StreamExt};
+use futures_util::{ready, AsyncRead, AsyncWrite};
 #[cfg(feature = "tokio-runtime")]
 use tokio::net::TcpStream as TokioTcpStream;
 #[cfg(all(feature = "dns-over-native-tls", not(feature = "dns-over-rustls")))]
@@ -29,8 +30,10 @@ use tokio_rustls::client::TlsStream as TokioTlsStream;
 use proto::https::{HttpsClientConnect, HttpsClientStream};
 #[cfg(feature = "mdns")]
 use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
+use proto::quic::QuicLocalAddr;
 #[cfg(feature = "dns-over-quic")]
 use proto::quic::{QuicClientConnect, QuicClientStream};
+use proto::tcp::DnsTcpStream;
 use proto::{
     self,
     error::ProtoError,
@@ -79,11 +82,40 @@ pub trait RuntimeProvider: Clone + 'static {
     /// Timer
     type Timer: Time + Send + Unpin;
 
+    #[cfg(not(feature = "dns-over-quic"))]
     /// UdpSocket
     type Udp: UdpSocket + Send;
+    #[cfg(feature = "dns-over-quic")]
+    /// UdpSocket
+    type Udp: UdpSocket + QuicLocalAddr + Send;
 
     /// TcpStream
-    type Tcp: Connect;
+    type Tcp: DnsTcpStream;
+
+    /// Ths future is responsible for the successful connection of the underlying resources.
+    type Connecting<S>: Future<Output = std::io::Result<S>> + Send + 'static;
+
+    /// Create a TCP connection with custom configuration.
+    fn connect_tcp(
+        &self,
+        config: &NameServerConfig,
+        options: &ResolverOpts,
+    ) -> Self::Connecting<Self::Tcp>;
+
+    /// Create a UDP socket with custom configuration.
+    fn bind_udp(
+        &self,
+        config: &NameServerConfig,
+        options: &ResolverOpts,
+    ) -> Self::Connecting<Self::Udp>;
+
+    #[cfg(feature = "mdns")]
+    /// Create a UDP socket with configuration for mdns only.
+    fn bind_mdns_udp(
+        &self,
+        config: &NameServerConfig,
+        options: &ResolverOpts,
+    ) -> std::io::Result<std::net::UdpSocket>;
 }
 
 /// A type defines the Handle which can spawn future.
@@ -401,6 +433,7 @@ pub mod tokio_runtime {
     /// The Tokio Runtime for async execution
     #[derive(Clone, Copy)]
     pub struct TokioRuntime;
+
     impl RuntimeProvider for TokioRuntime {
         type Handle = TokioHandle;
         type Tcp = AsyncIoTokioAsStd<TokioTcpStream>;
