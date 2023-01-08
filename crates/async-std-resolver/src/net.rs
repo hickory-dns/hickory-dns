@@ -10,6 +10,7 @@ use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+use crate::proto::udp::DnsUdpSocket;
 use async_std::task::spawn_blocking;
 use async_trait::async_trait;
 use futures_io::{AsyncRead, AsyncWrite};
@@ -18,7 +19,6 @@ use pin_utils::pin_mut;
 use socket2::{Domain, Protocol, Socket, Type};
 use trust_dns_resolver::proto::tcp::{Connect, DnsTcpStream};
 use trust_dns_resolver::proto::udp::UdpSocket;
-use crate::proto::udp::DnsUdpSocket;
 
 use crate::time::AsyncStdTime;
 
@@ -59,9 +59,8 @@ impl DnsUdpSocket for AsyncStdUdpSocket {
     }
 }
 
-
 #[async_trait]
-impl UdpSocket for AsyncStdUdpSocket{
+impl UdpSocket for AsyncStdUdpSocket {
     async fn connect(addr: SocketAddr) -> io::Result<Self> {
         let bind_addr: SocketAddr = match addr {
             SocketAddr::V4(_addr) => (Ipv4Addr::UNSPECIFIED, 0).into(),
@@ -84,7 +83,6 @@ impl UdpSocket for AsyncStdUdpSocket{
             .await
             .map(AsyncStdUdpSocket)
     }
-
 }
 
 pub struct AsyncStdTcpStream(async_std::net::TcpStream);

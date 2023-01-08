@@ -21,6 +21,7 @@ use crate::error::ProtoError;
 use crate::op::message::NoopMessageFinalizer;
 use crate::op::{Message, MessageFinalizer, MessageVerifier};
 use crate::udp::udp_stream::{NextRandomUdpSocket, UdpSocket};
+use crate::udp::DnsUdpSocket;
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, SerialMessage};
 use crate::Time;
 
@@ -276,11 +277,12 @@ where
     S: UdpSocket + Send,
     C: Fn(&SocketAddr) -> dyn Future<Output = Result<S, std::io::Error>>,
 {
-    let socket: S = NextRandomUdpSocket::new_with_closure(creator).await?;
+    let name_server = msg.addr();
+    let socket: S = NextRandomUdpSocket::new_with_closure(&name_server, creator).await?;
     send_serial_message_inner(msg, msg_id, verifier, socket).await
 }
 
-async fn send_serial_message_inner<S: UdpSocket + Send>(
+async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
     msg: SerialMessage,
     msg_id: u16,
     verifier: Option<MessageVerifier>,

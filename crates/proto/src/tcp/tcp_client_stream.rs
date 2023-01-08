@@ -97,11 +97,12 @@ impl<S: DnsTcpStream> TcpClientStream<S> {
     }
 
     #[allow(clippy::new_ret_no_self)]
-    pub fn with_future<F: Future<Output = io::Result<S>>>(
+    pub fn with_future<F: Future<Output = io::Result<S>> + Send>(
         future: F,
+        name_server: SocketAddr,
         timeout: Duration,
     ) -> (TcpClientConnect<S>, BufDnsStreamHandle) {
-        let (stream_future, sender) = TcpStream::<S>::with_future(future, timeout);
+        let (stream_future, sender) = TcpStream::<S>::with_future(future, name_server, timeout);
 
         let new_future = Box::pin(
             stream_future

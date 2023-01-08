@@ -226,7 +226,7 @@ impl<S: DnsTcpStream> TcpStream<S> {
     }
 
     #[allow(clippy::type_complexity)]
-    pub fn with_future<F: Future<Output = Result<S, io::Error>> + Send>(
+    pub fn with_future<F: Future<Output = Result<S, io::Error>> + Send + 'static>(
         future: F,
         name_server: SocketAddr,
         timeout: Duration,
@@ -240,7 +240,7 @@ impl<S: DnsTcpStream> TcpStream<S> {
         (stream_fut, message_sender)
     }
 
-    async fn connect_with_future<F: Future<Output = Result<S, io::Error>> + Send>(
+    async fn connect_with_future<F: Future<Output = Result<S, io::Error>> + Send + 'static>(
         future: F,
         name_server: SocketAddr,
         timeout: Duration,
