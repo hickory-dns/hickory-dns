@@ -16,6 +16,7 @@ use std::{
 };
 
 use tracing::{debug, info};
+use trust_dns_proto::rr::DNSClass;
 
 #[cfg(feature = "dnssec")]
 use crate::{
@@ -197,7 +198,7 @@ impl FileAuthority {
 
         let lexer = Lexer::new(&buf);
         let (origin, records) = Parser::new()
-            .parse(lexer, Some(origin), None)
+            .parse(lexer, Some(origin), Some(DNSClass::IN))
             .map_err(|e| format!("failed to parse {}: {:?}", config.zone_file_path, e))?;
 
         info!(
