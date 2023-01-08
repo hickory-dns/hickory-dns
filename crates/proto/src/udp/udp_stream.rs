@@ -9,6 +9,7 @@ use std::io;
 use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use async_trait::async_trait;
@@ -20,6 +21,9 @@ use tracing::{debug, warn};
 
 use crate::xfer::{BufDnsStreamHandle, SerialMessage, StreamReceiver};
 use crate::Time;
+
+pub(crate) type UdpCreator<S> =
+    Arc<dyn Send+ Sync+ (Fn(&SocketAddr) -> Pin<Box<dyn Send+(Future<Output = Result<S, std::io::Error>>)>>)>;
 
 /// Trait for UdpSocket
 #[async_trait]
@@ -202,11 +206,11 @@ impl<S: DnsUdpSocket + Send + 'static> Stream for UdpStream<S> {
 #[must_use = "futures do nothing unless polled"]
 pub(crate) struct NextRandomUdpSocket<S> {
     bind_address: SocketAddr,
-    closure: Pin<Box<dyn Fn(&SocketAddr) -> Box<dyn Future<Output = Result<S, io::Error>>>>>,
+    closure: UdpCreator<S>,
     marker: PhantomData<S>,
 }
 
-impl<S: UdpSocket> NextRandomUdpSocket<S> {
+impl<S: UdpSocket + 'static> NextRandomUdpSocket<S> {
     /// Creates a future for randomly binding to a local socket address for client connections,
     /// if no port is specified.
     ///
@@ -224,7 +228,7 @@ impl<S: UdpSocket> NextRandomUdpSocket<S> {
 
         Self {
             bind_address,
-            closure: Box::new(|addr| S::bind(*addr)),
+            closure: Arc::new(|addr:_| S::bind(*addr)),
             marker: PhantomData,
         }
     }
@@ -232,12 +236,7 @@ impl<S: UdpSocket> NextRandomUdpSocket<S> {
 
 impl<S: DnsUdpSocket> NextRandomUdpSocket<S> {
     /// Create a future with generator
-    pub(crate) fn new_with_closure<
-        F: Fn(&SocketAddr) -> Box<dyn Future<Output = Result<S, io::Error>>>,
-    >(
-        name_server: &SocketAddr,
-        func: F,
-    ) -> Self {
+    pub(crate) fn new_with_closure(name_server: &SocketAddr, func: UdpCreator<S>) -> Self {
         let bind_address = match *name_server {
             SocketAddr::V4(..) => SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0),
             SocketAddr::V6(..) => {
@@ -246,7 +245,7 @@ impl<S: DnsUdpSocket> NextRandomUdpSocket<S> {
         };
         Self {
             bind_address,
-            closure: Box::pin(func),
+            closure: func,
             marker: PhantomData,
         }
     }
