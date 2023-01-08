@@ -317,7 +317,6 @@ struct NextRandomUdpSocket {
     packet_ttl: Option<u32>,
     ipv4_if: Option<Ipv4Addr>,
     ipv6_if: Option<u32>,
-    closure: Box<dyn Fn(&SocketAddr) -> dyn Future<Output = std::io::Result<std::net::UdpSocket>>>,
 }
 
 impl NextRandomUdpSocket {
