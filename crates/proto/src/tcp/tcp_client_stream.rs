@@ -97,7 +97,7 @@ impl<S: DnsTcpStream> TcpClientStream<S> {
     }
 
     #[allow(clippy::new_ret_no_self)]
-    pub fn with_future<F: Future<Output = io::Result<S>> + Send>(
+    pub fn with_future<F: Future<Output = io::Result<S>> + Send + 'static>(
         future: F,
         name_server: SocketAddr,
         timeout: Duration,

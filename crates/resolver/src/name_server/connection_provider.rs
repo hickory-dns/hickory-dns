@@ -30,9 +30,8 @@ use tokio_rustls::client::TlsStream as TokioTlsStream;
 use proto::https::{HttpsClientConnect, HttpsClientStream};
 #[cfg(feature = "mdns")]
 use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
-use proto::quic::QuicLocalAddr;
 #[cfg(feature = "dns-over-quic")]
-use proto::quic::{QuicClientConnect, QuicClientStream};
+use proto::quic::{QuicClientConnect, QuicClientStream, QuicLocalAddr};
 use proto::tcp::DnsTcpStream;
 use proto::udp::DnsUdpSocket;
 use proto::{
@@ -111,13 +110,6 @@ pub trait RuntimeProvider: Clone + 'static {
         options: &ResolverOpts,
     ) -> Self::Connecting<Self::Udp>;
 
-    #[cfg(feature = "mdns")]
-    /// Create a UDP socket with configuration for mdns only.
-    fn bind_mdns_udp(
-        &self,
-        config: &NameServerConfig,
-        options: &ResolverOpts,
-    ) -> std::io::Result<std::net::UdpSocket>;
 }
 
 /// A type defines the Handle which can spawn future.
@@ -336,8 +328,8 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
 /// Resolves to a new Connection
 #[must_use = "futures do nothing unless polled"]
 pub struct ConnectionFuture<R: RuntimeProvider> {
-    connect: ConnectionConnect<R>,
-    spawner: R::Handle,
+    pub(crate) connect: ConnectionConnect<R>,
+    pub(crate) spawner: R::Handle,
 }
 
 impl<R: RuntimeProvider> Future for ConnectionFuture<R> {
