@@ -34,6 +34,7 @@ use proto::quic::QuicLocalAddr;
 #[cfg(feature = "dns-over-quic")]
 use proto::quic::{QuicClientConnect, QuicClientStream};
 use proto::tcp::DnsTcpStream;
+use proto::udp::DnsUdpSocket;
 use proto::{
     self,
     error::ProtoError,
@@ -84,10 +85,10 @@ pub trait RuntimeProvider: Clone + 'static {
 
     #[cfg(not(feature = "dns-over-quic"))]
     /// UdpSocket
-    type Udp: UdpSocket + Send;
+    type Udp: DnsUdpSocket + Send;
     #[cfg(feature = "dns-over-quic")]
     /// UdpSocket
-    type Udp: UdpSocket + QuicLocalAddr + Send;
+    type Udp: DnsUdpSocket + QuicLocalAddr + Send;
 
     /// TcpStream
     type Tcp: DnsTcpStream;
@@ -103,6 +104,7 @@ pub trait RuntimeProvider: Clone + 'static {
     ) -> Self::Connecting<Self::Tcp>;
 
     /// Create a UDP socket with custom configuration.
+    /// *Notice: the future should be ready once returned at best effort. Otherwise UDP DNS may need much more retries.*
     fn bind_udp(
         &self,
         config: &NameServerConfig,

@@ -114,7 +114,9 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
 
         (stream, message_sender)
     }
+}
 
+impl<S: DnsUdpSocket + Send + 'static> UdpStream<S> {
     /// Initialize the Stream with an already bound socket. Generally this should be only used for
     ///  server listening sockets. See `new` for a client oriented socket. Specifically, this there
     ///  is already a bound socket in this context, whereas `new` makes sure to randomize ports
@@ -155,7 +157,7 @@ impl<S: Send> UdpStream<S> {
     }
 }
 
-impl<S: UdpSocket + Send + 'static> Stream for UdpStream<S> {
+impl<S: DnsUdpSocket + Send + 'static> Stream for UdpStream<S> {
     type Item = Result<SerialMessage, io::Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -200,7 +202,7 @@ impl<S: UdpSocket + Send + 'static> Stream for UdpStream<S> {
 #[must_use = "futures do nothing unless polled"]
 pub(crate) struct NextRandomUdpSocket<S> {
     bind_address: SocketAddr,
-    closure: Option<Box<dyn Fn(&SocketAddr) -> dyn Future<Output = Result<S, io::Error>>>>,
+    closure: Pin<Box<dyn Fn(&SocketAddr) -> Box<dyn Future<Output = Result<S, io::Error>>>>>,
     marker: PhantomData<S>,
 }
 
@@ -222,13 +224,16 @@ impl<S: UdpSocket> NextRandomUdpSocket<S> {
 
         Self {
             bind_address,
-            closure: None,
+            closure: Box::new(|addr| S::bind(*addr)),
             marker: PhantomData,
         }
     }
+}
 
+impl<S: DnsUdpSocket> NextRandomUdpSocket<S> {
+    /// Create a future with generator
     pub(crate) fn new_with_closure<
-        F: Fn(&SocketAddr) -> dyn Future<Output = Result<S, io::Error>>,
+        F: Fn(&SocketAddr) -> Box<dyn Future<Output = Result<S, io::Error>>>,
     >(
         name_server: &SocketAddr,
         func: F,
@@ -241,21 +246,17 @@ impl<S: UdpSocket> NextRandomUdpSocket<S> {
         };
         Self {
             bind_address,
-            closure: func,
+            closure: Box::pin(func),
             marker: PhantomData,
         }
     }
 
     async fn bind(&self, addr: SocketAddr) -> Result<S, io::Error> {
-        if self.closure.is_none() {
-            S::bind(addr).await
-        } else {
-            (*self.closure)(&addr).await
-        }
+        Box::pin((*self.closure)(&addr)).await
     }
 }
 
-impl<S: UdpSocket> Future for NextRandomUdpSocket<S> {
+impl<S: DnsUdpSocket + Send> Future for NextRandomUdpSocket<S> {
     type Output = Result<S, io::Error>;
 
     /// polls until there is an available next random UDP port,
@@ -304,7 +305,7 @@ impl<S: UdpSocket> Future for NextRandomUdpSocket<S> {
             Poll::Pending
         } else {
             // Use port that was specified in bind address.
-            Box::pin(self.bind(*bind_address)).as_mut().poll(cx)
+            Box::pin(self.bind(self.bind_address)).as_mut().poll(cx)
         }
     }
 }

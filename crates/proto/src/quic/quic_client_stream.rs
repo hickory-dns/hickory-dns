@@ -20,6 +20,7 @@ use futures_util::{future::FutureExt, stream::Stream};
 use quinn::{AsyncUdpSocket, ClientConfig, Connection, Endpoint, TransportConfig, VarInt};
 use rustls::{version::TLS13, ClientConfig as TlsClientConfig};
 
+use crate::udp::DnsUdpSocket;
 use crate::{
     error::ProtoError,
     quic::quic_stream::{DoqErrorCode, QuicStream},
@@ -178,10 +179,10 @@ impl QuicClientStreamBuilder {
 
     pub fn build_with_future<S, F>(self, future: F) -> QuicClientConnect
     where
-        S: UdpSocket + QuicLocalAddr,
+        S: DnsUdpSocket + QuicLocalAddr,
         F: Future<Output = std::io::Result<S>> + Send,
     {
-        QuicClientConnect(Box::pin(self.connect(name_server, dns_name)) as _)
+        QuicClientConnect(Box::pin(self.connect_with_future(future, name_server, dns_name)) as _)
     }
 
     async fn connect_with_future<S, F>(
@@ -191,7 +192,7 @@ impl QuicClientStreamBuilder {
         dns_name: String,
     ) -> Result<QuicClientStream, ProtoError>
     where
-        S: UdpSocket + QuicLocalAddr,
+        S: DnsUdpSocket + QuicLocalAddr,
         F: Future<Output = std::io::Result<S>> + Send,
     {
         let socket = future.await?;
@@ -227,7 +228,7 @@ impl QuicClientStreamBuilder {
         self.connect_inner(endpoint, name_server, dns_name)
     }
 
-    async fn connect_inner<S: UdpSocket>(
+    async fn connect_inner(
         self,
         mut endpoint: Endpoint,
         name_server: SocketAddr,
@@ -335,19 +336,19 @@ pub trait QuicLocalAddr {
 }
 
 /// Wrapper used for quinn::Endpoint::new_with_abstract_socket
-pub struct QuinnAsyncUdpSocketAdapter<S: UdpSocket + QuicLocalAddr> {
+pub struct QuinnAsyncUdpSocketAdapter<S: DnsUdpSockett + QuicLocalAddr> {
     io: S,
     dest: SocketAddr,
 }
 
-impl<S: UdpSocket> Debug for QuinnAsyncUdpSocketAdapter<S> {
+impl<S: DnsUdpSocket> Debug for QuinnAsyncUdpSocketAdapter<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str("Wrapper for quinn::AsyncUdpSocket")
     }
 }
 
 /// TODO: Naive implementation. Look forward to
-impl<S: UdpSocket + QuicLocalAddr> AsyncUdpSocket for QuinnAsyncUdpSocketAdapter<S> {
+impl<S: DnsUdpSocket + QuicLocalAddr> AsyncUdpSocket for QuinnAsyncUdpSocketAdapter<S> {
     fn poll_send(
         &mut self,
         _state: &quinn_udp::UdpState,
