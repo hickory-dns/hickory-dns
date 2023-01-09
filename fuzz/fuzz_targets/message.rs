@@ -38,7 +38,7 @@ fn messages_equal(original: &Message, reparsed: &Message) -> bool {
     }
 
     // see if there are some of the records that don't round trip properly...
-    if reparsed.is_truncated() {
+    if reparsed.truncated() {
         // TODO: there might be a better comparison to make here.
         return true;
     }
