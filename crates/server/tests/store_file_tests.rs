@@ -30,8 +30,7 @@ dnssec_battery!(file);
 #[test]
 fn test_all_lines_are_loaded() {
     let config = FileConfig {
-        zone_file_path: "../../tests/test-data/named_test_configs/default/nonewline.zone"
-            .to_string(),
+        zone_file_path: "../../tests/test-data/test_configs/default/nonewline.zone".to_string(),
     };
 
     let mut authority = FileAuthority::try_from_config(
@@ -52,8 +51,7 @@ fn test_all_lines_are_loaded() {
 #[tokio::test]
 async fn test_ttl_wilcard() {
     let config = FileConfig {
-        zone_file_path: "../../tests/test-data/named_test_configs/default/test.local.zone"
-            .to_string(),
+        zone_file_path: "../../tests/test-data/test_configs/default/test.local.zone".to_string(),
     };
 
     let zone_name = LowerName::from_str("test.local.").unwrap();

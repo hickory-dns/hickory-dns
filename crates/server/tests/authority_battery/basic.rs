@@ -725,7 +725,7 @@ macro_rules! define_basic_test {
                 // Useful for getting debug logs
                 // env_logger::try_init().ok();
 
-                let authority = crate::$new("../../tests/test-data/named_test_configs/example.com.zone", module_path!(), stringify!($f));
+                let authority = crate::$new("../../tests/test-data/test_configs/example.com.zone", module_path!(), stringify!($f));
                 crate::authority_battery::basic::$f(authority);
             }
         )*

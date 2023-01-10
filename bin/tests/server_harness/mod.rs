@@ -51,10 +51,10 @@ where
             "trust_dns_client=debug,trust_dns_proto=debug,trust_dns_resolver=debug,trust_dns_server=debug",
         ).arg("-d")
         .arg(&format!(
-            "--config={}/tests/test-data/named_test_configs/{}",
+            "--config={}/tests/test-data/test_configs/{}",
             server_path, toml
         )).arg(&format!(
-            "--zonedir={}/tests/test-data/named_test_configs",
+            "--zonedir={}/tests/test-data/test_configs",
             server_path
         )).arg(&format!("--port={}", 0))
         .arg(&format!("--tls-port={}", 0))

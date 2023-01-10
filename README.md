@@ -87,7 +87,7 @@ a restart of the server process.
 
 ### DNS-over-TLS and DNS-over-HTTPS on the Server
 
-Support of TLS on the Server is managed through a pkcs12 der file. The documentation is captured in the example test config file, [example.toml](https://github.com/bluejekyll/trust-dns/blob/main/tests/test-data/named_test_configs/example.toml). A registered certificate to the server can be pinned to the Client with the `add_ca()` method. Alternatively, as the client uses the rust-native-tls library, it should work with certificate signed by any standard CA.
+Support of TLS on the Server is managed through a pkcs12 der file. The documentation is captured in the example test config file, [example.toml](https://github.com/bluejekyll/trust-dns/blob/main/tests/test-data/test_configs/example.toml). A registered certificate to the server can be pinned to the Client with the `add_ca()` method. Alternatively, as the client uses the rust-native-tls library, it should work with certificate signed by any standard CA.
 
 ## DNS-over-TLS and DNS-over-HTTPS
 
@@ -260,7 +260,7 @@ so this should allow it to work with most internal loads.
 You may want not passing the `-p` parameter will run on default DNS ports. For the tls features, there are also port options for those, see `trust-dns --help`
 
 ```shell
-./target/release/trust-dns -c ./tests/test-data/named_test_configs/example.toml -z ./tests/test-data/named_test_configs/ -p 24141
+./target/release/trust-dns -c ./tests/test-data/test_configs/example.toml -z ./tests/test-data/test_configs/ -p 24141
 ```
 
 - Query the just launched server with `dig`

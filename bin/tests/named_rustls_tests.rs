@@ -38,7 +38,7 @@ fn test_example_tls_toml_startup() {
             println!("using server src path: {}", server_path);
 
             File::open(format!(
-                "{}/tests/test-data/named_test_configs/sec/example.cert",
+                "{}/tests/test-data/test_configs/sec/example.cert",
                 server_path
             ))
             .expect("failed to open cert")
