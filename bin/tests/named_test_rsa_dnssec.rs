@@ -111,7 +111,7 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
 fn test_rsa_sha256() {
     generic_test(
         confg_toml(),
-        "tests/test-data/named_test_configs/dnssec/rsa_2048.pem",
+        "tests/test-data/test_configs/dnssec/rsa_2048.pem",
         KeyFormat::Pem,
         Algorithm::RSASHA256,
     );
@@ -122,7 +122,7 @@ fn test_rsa_sha256() {
 fn test_rsa_sha512() {
     generic_test(
         confg_toml(),
-        "tests/test-data/named_test_configs/dnssec/rsa_2048.pem",
+        "tests/test-data/test_configs/dnssec/rsa_2048.pem",
         KeyFormat::Pem,
         Algorithm::RSASHA512,
     );
@@ -133,7 +133,7 @@ fn test_rsa_sha512() {
 fn test_ecdsa_p256() {
     generic_test(
         confg_toml(),
-        "tests/test-data/named_test_configs/dnssec/ecdsa_p256.pem",
+        "tests/test-data/test_configs/dnssec/ecdsa_p256.pem",
         KeyFormat::Pem,
         Algorithm::ECDSAP256SHA256,
     );
@@ -144,7 +144,7 @@ fn test_ecdsa_p256() {
 fn test_ecdsa_p256_pkcs8() {
     generic_test(
         confg_toml(),
-        "tests/test-data/named_test_configs/dnssec/ecdsa_p256.pk8",
+        "tests/test-data/test_configs/dnssec/ecdsa_p256.pk8",
         KeyFormat::Pkcs8,
         Algorithm::ECDSAP256SHA256,
     );
@@ -155,7 +155,7 @@ fn test_ecdsa_p256_pkcs8() {
 fn test_ecdsa_p384() {
     generic_test(
         confg_toml(),
-        "tests/test-data/named_test_configs/dnssec/ecdsa_p384.pem",
+        "tests/test-data/test_configs/dnssec/ecdsa_p384.pem",
         KeyFormat::Pem,
         Algorithm::ECDSAP384SHA384,
     );
@@ -166,7 +166,7 @@ fn test_ecdsa_p384() {
 fn test_ecdsa_p384_pkcs8() {
     generic_test(
         confg_toml(),
-        "tests/test-data/named_test_configs/dnssec/ecdsa_p384.pk8",
+        "tests/test-data/test_configs/dnssec/ecdsa_p384.pk8",
         KeyFormat::Pkcs8,
         Algorithm::ECDSAP384SHA384,
     );
@@ -177,7 +177,7 @@ fn test_ecdsa_p384_pkcs8() {
 fn test_ed25519() {
     generic_test(
         confg_toml(),
-        "tests/test-data/named_test_configs/dnssec/ed25519.pk8",
+        "tests/test-data/test_configs/dnssec/ed25519.pk8",
         KeyFormat::Pkcs8,
         Algorithm::ED25519,
     );
@@ -189,7 +189,7 @@ fn test_ed25519() {
 fn test_rsa_sha1_fails() {
     generic_test(
         confg_toml(),
-        "tests/test-data/named_test_configs/dnssec/rsa_2048.pem",
+        "tests/test-data/test_configs/dnssec/rsa_2048.pem",
         KeyFormat::Pem,
         Algorithm::RSASHA1,
     );
@@ -202,13 +202,12 @@ fn test_dnssec_restart_with_update_journal() {
     // TODO: make journal path configurable, it should be in target/tests/...
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     let server_path = Path::new(&server_path);
-    let journal =
-        server_path.join("tests/test-data/named_test_configs/example.com_dnssec_update.jrnl");
+    let journal = server_path.join("tests/test-data/test_configs/example.com_dnssec_update.jrnl");
     std::fs::remove_file(&journal).ok();
 
     generic_test(
         "dnssec_with_update.toml",
-        "tests/test-data/named_test_configs/dnssec/rsa_2048.pem",
+        "tests/test-data/test_configs/dnssec/rsa_2048.pem",
         KeyFormat::Pem,
         Algorithm::RSASHA256,
     );
@@ -219,7 +218,7 @@ fn test_dnssec_restart_with_update_journal() {
     // and all dnssec tests should still pass
     generic_test(
         "dnssec_with_update.toml",
-        "tests/test-data/named_test_configs/dnssec/rsa_2048.pem",
+        "tests/test-data/test_configs/dnssec/rsa_2048.pem",
         KeyFormat::Pem,
         Algorithm::RSASHA256,
     );
@@ -239,12 +238,12 @@ fn test_dnssec_restart_with_update_journal_dep() {
     // TODO: make journal path configurable, it should be in target/tests/...
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     let server_path = Path::new(&server_path);
-    let journal = server_path.join("tests/test-data/named_test_configs/example.com.jrnl");
+    let journal = server_path.join("tests/test-data/test_configs/example.com.jrnl");
     std::fs::remove_file(&journal).ok();
 
     generic_test(
         "dnssec_with_update_deprecated.toml",
-        "tests/test-data/named_test_configs/dnssec/rsa_2048.pem",
+        "tests/test-data/test_configs/dnssec/rsa_2048.pem",
         KeyFormat::Pem,
         Algorithm::RSASHA256,
     );
@@ -255,7 +254,7 @@ fn test_dnssec_restart_with_update_journal_dep() {
     // and all dnssec tests should still pass
     generic_test(
         "dnssec_with_update_deprecated.toml",
-        "tests/test-data/named_test_configs/dnssec/rsa_2048.pem",
+        "tests/test-data/test_configs/dnssec/rsa_2048.pem",
         KeyFormat::Pem,
         Algorithm::RSASHA256,
     );

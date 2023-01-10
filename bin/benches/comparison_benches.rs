@@ -87,11 +87,8 @@ fn trust_dns_process() -> (NamedProcess, u16) {
 
     let ws_root = env::var("WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     let named_path = format!("{}/target/release/named", ws_root);
-    let config_path = format!(
-        "{}/tests/test-data/named_test_configs/example.toml",
-        ws_root
-    );
-    let zone_dir = format!("{}/tests/test-data/named_test_configs", ws_root);
+    let config_path = format!("{}/tests/test-data/test_configs/example.toml", ws_root);
+    let zone_dir = format!("{}/tests/test-data/test_configs", ws_root);
 
     File::open(&named_path).expect(&named_path);
     File::open(&config_path).expect(&config_path);

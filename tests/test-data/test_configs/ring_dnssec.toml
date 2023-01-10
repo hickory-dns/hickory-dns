@@ -1,4 +1,4 @@
-## Example configuration for supported OpenSSL DNSSEC signing options.
+## Example configuration for all supported (including ring) signing options for DNSSEC.
 
 ## Default zones, these should be present on all nameservers, except in rare
 ##  configuration cases
@@ -40,32 +40,19 @@ file = "example.com.zone"
 enable_dnssec = true
 
 [[zones.keys]]
-key_path = "../tests/test-data/named_test_configs/dnssec/rsa_2048.pem"
-## the password used to encrypt/decrypt the file (must be PEM), blank for none
-password = "123456"
-## specify the algorithm
-algorithm = "RSASHA256"
-## this key should be used to sign the zone
-is_zone_signing_key = true
-## this key is authorized for dynamic update access to the zone via SIG0
-# is_zone_update_auth = true
-## create the key if it is not found
-# create_if_absent = false
-
-[[zones.keys]]
-key_path = "../tests/test-data/named_test_configs/dnssec/rsa_2048.pem"
-password = "123456"
-algorithm = "RSASHA512"
-is_zone_signing_key = true
-
-[[zones.keys]]
-key_path = "../tests/test-data/named_test_configs/dnssec/ecdsa_p256.pem"
-# password = "123456"
+# Requires --features=ring
+key_path = "../tests/test-data/test_configs/dnssec/ecdsa_p256.pk8"
 algorithm = "ECDSAP256SHA256"
 is_zone_signing_key = true
 
 [[zones.keys]]
-key_path = "../tests/test-data/named_test_configs/dnssec/ecdsa_p384.pem"
-# password = "123456"
+# Requires --features=ring
+key_path = "../tests/test-data/test_configs/dnssec/ecdsa_p384.pk8"
 algorithm = "ECDSAP384SHA384"
+is_zone_signing_key = true
+
+[[zones.keys]]
+# Requires --features=ring
+key_path = "../tests/test-data/test_configs/dnssec/ed25519.pk8"
+algorithm = "ED25519"
 is_zone_signing_key = true

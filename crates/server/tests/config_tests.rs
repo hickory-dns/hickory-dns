@@ -25,7 +25,7 @@ use trust_dns_server::config::*;
 fn test_read_config() {
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
     let path: PathBuf =
-        PathBuf::from(server_path).join("tests/test-data/named_test_configs/example.toml");
+        PathBuf::from(server_path).join("tests/test-data/test_configs/example.toml");
 
     if !path.exists() {
         panic!("can't locate example.toml and other configs: {:?}", path)
@@ -240,7 +240,7 @@ tls_listen_port = 8853
 fn test_config(path: &str) {
     let workspace = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
     let path = PathBuf::from(workspace)
-        .join("tests/test-data/named_test_configs")
+        .join("tests/test-data/test_configs")
         .join(path)
         .with_extension("toml");
     assert!(path.exists(), "does not exist: {}", path.display());
