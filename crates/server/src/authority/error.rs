@@ -10,7 +10,7 @@ use std::io;
 use enum_as_inner::EnumAsInner;
 use thiserror::Error;
 
-use crate::client::op::ResponseCode;
+use crate::proto::op::ResponseCode;
 #[cfg(feature = "trust-dns-resolver")]
 use crate::resolver::error::ResolveError;
 

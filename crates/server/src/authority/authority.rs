@@ -10,15 +10,13 @@
 use cfg_if::cfg_if;
 
 #[cfg(feature = "dnssec")]
-use crate::client::{
-    proto::rr::dnssec::rdata::key::KEY,
-    rr::dnssec::{DnsSecResult, SigSigner, SupportedAlgorithms},
-    rr::Name,
+use crate::proto::rr::{
+    dnssec::{rdata::key::KEY, DnsSecResult, SigSigner, SupportedAlgorithms},
+    Name,
 };
 use crate::{
     authority::{LookupError, MessageRequest, UpdateResult, ZoneType},
-    client::rr::{LowerName, RecordSet, RecordType},
-    proto::rr::RrsetRecords,
+    proto::rr::{LowerName, RecordSet, RecordType, RrsetRecords},
     server::RequestInfo,
 };
 

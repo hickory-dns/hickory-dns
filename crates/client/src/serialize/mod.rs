@@ -17,4 +17,4 @@
 //! Contains serialization libraries for `binary` and text, `txt`.
 
 pub mod binary;
-pub mod txt;
+pub use crate::proto::serialize::txt;

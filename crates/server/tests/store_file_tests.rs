@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
-use trust_dns_client::rr::{LowerName, RecordType};
-use trust_dns_client::rr::{Name, RrKey};
+use trust_dns_proto::rr::{LowerName, Name, RecordType, RrKey};
 use trust_dns_server::authority::{Authority, LookupOptions, ZoneType};
 use trust_dns_server::store::file::{FileAuthority, FileConfig};
 

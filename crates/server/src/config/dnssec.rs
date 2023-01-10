@@ -15,13 +15,13 @@ use openssl::{pkey::PKey, stack::Stack, x509::X509};
 use rustls::{Certificate, PrivateKey};
 use serde::Deserialize;
 
-use crate::client::error::ParseResult;
-use crate::client::rr::domain::Name;
+use crate::proto::rr::domain::Name;
 #[cfg(feature = "dnssec")]
-use crate::client::rr::{
+use crate::proto::rr::{
     dnssec::{Algorithm, KeyFormat, KeyPair, Private, SigSigner},
     domain::IntoName,
 };
+use crate::proto::serialize::txt::ParseResult;
 
 /// Key pair configuration for DNSSEC keys for signing a zone
 #[derive(Deserialize, PartialEq, Eq, Debug)]
@@ -80,7 +80,7 @@ impl KeyConfig {
     #[cfg(any(feature = "dns-over-tls", feature = "dnssec"))]
     #[cfg_attr(docsrs, doc(cfg(any(feature = "dns-over-tls", feature = "dnssec"))))]
     pub fn format(&self) -> ParseResult<KeyFormat> {
-        use crate::client::error::ParseErrorKind;
+        use crate::proto::serialize::txt::ParseErrorKind;
 
         let extension = self.key_path().extension().ok_or_else(|| {
             ParseErrorKind::Msg(format!(

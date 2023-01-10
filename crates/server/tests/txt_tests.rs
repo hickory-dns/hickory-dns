@@ -3,9 +3,9 @@ use std::str::FromStr;
 
 use futures_executor::block_on;
 
-use trust_dns_client::proto::rr::rdata::tlsa::*;
-use trust_dns_client::rr::*;
-use trust_dns_client::serialize::txt::*;
+use trust_dns_proto::rr::rdata::tlsa::*;
+use trust_dns_proto::rr::*;
+use trust_dns_proto::serialize::txt::*;
 use trust_dns_server::authority::{Authority, LookupOptions, ZoneType};
 use trust_dns_server::store::in_memory::InMemoryAuthority;
 

@@ -44,8 +44,8 @@ maintenance = { status = "actively-developed" }
 
 [features]
 backtrace = ["trust-dns-proto/backtrace"]
-dnssec-openssl = ["dnssec", "openssl", "trust-dns-client/dnssec-openssl", "trust-dns-proto/dnssec-openssl", "trust-dns-resolver/dnssec-openssl"]
-dnssec-ring = ["dnssec", "trust-dns-client/dnssec-ring", "trust-dns-proto/dnssec-ring", "trust-dns-resolver/dnssec-ring"]
+dnssec-openssl = ["dnssec", "openssl", "trust-dns-proto/dnssec-openssl", "trust-dns-resolver/dnssec-openssl"]
+dnssec-ring = ["dnssec", "trust-dns-proto/dnssec-ring", "trust-dns-resolver/dnssec-ring"]
 dnssec = []
 # Recursive Resolution is Experimental!
 recursor = ["trust-dns-recursor"]
@@ -54,12 +54,12 @@ sqlite = ["rusqlite"]
 
 # TODO: Need to figure out how to be consistent with ring/openssl usage...
 # dns-over-https-openssl = ["dns-over-openssl", "trust-dns-client/dns-over-https-openssl", "dns-over-https"]
-dns-over-https-rustls = ["dns-over-https", "trust-dns-proto/dns-over-https-rustls", "trust-dns-client/dns-over-https-rustls", "trust-dns-resolver/dns-over-https-rustls", "dns-over-rustls", "tokio-rustls"]
+dns-over-https-rustls = ["dns-over-https", "trust-dns-proto/dns-over-https-rustls", "trust-dns-resolver/dns-over-https-rustls", "dns-over-rustls", "tokio-rustls"]
 dns-over-https = ["h2", "http", "trust-dns-proto/dns-over-https"]
 
 # TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
-dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-proto/dns-over-openssl", "tokio-openssl", "trust-dns-client/dns-over-openssl", "trust-dns-resolver/dns-over-openssl"]
-dns-over-rustls = ["dns-over-tls", "dnssec-ring", "rustls", "trust-dns-proto/dns-over-rustls", "trust-dns-client/dns-over-rustls", "trust-dns-resolver/dns-over-rustls", "tokio-rustls"]
+dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-proto/dns-over-openssl", "tokio-openssl", "trust-dns-resolver/dns-over-openssl"]
+dns-over-rustls = ["dns-over-tls", "dnssec-ring", "rustls", "trust-dns-proto/dns-over-rustls", "trust-dns-resolver/dns-over-rustls", "tokio-rustls"]
 dns-over-tls = []
 
 dns-over-quic = ["dns-over-rustls", "trust-dns-proto/dns-over-quic", "trust-dns-resolver/dns-over-quic"]
@@ -97,8 +97,7 @@ tokio = { version = "1.21", features = ["net", "sync"] }
 tokio-openssl = { version = "0.6.0", optional = true }
 tokio-rustls = { version = "0.23.0", optional = true }
 toml = "0.5"
-trust-dns-client= { version = "0.22.0", path = "../client" }
-trust-dns-proto = { version = "0.22.0", path = "../proto" }
+trust-dns-proto = { version = "0.22.0", path = "../proto", features = ["text-parsing"] }
 trust-dns-recursor = { version = "0.22.0", path = "../recursor", features = ["serde-config"], optional = true }
 trust-dns-resolver = { version = "0.22.0", path = "../resolver", features = ["serde-config"], optional = true }
 

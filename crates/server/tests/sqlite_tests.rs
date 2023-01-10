@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use rusqlite::*;
 
-use trust_dns_client::rr::*;
+use trust_dns_proto::rr::*;
 use trust_dns_server::store::sqlite::persistence::CURRENT_VERSION;
 use trust_dns_server::store::sqlite::Journal;
 

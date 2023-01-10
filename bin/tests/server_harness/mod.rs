@@ -19,7 +19,7 @@ use trust_dns_client::client::*;
 use trust_dns_client::proto::xfer::DnsResponse;
 use trust_dns_client::rr::*;
 #[cfg(feature = "dnssec")]
-use trust_dns_client::rr::{dnssec::*, rdata::DNSSECRData};
+use trust_dns_proto::rr::{dnssec::rdata::DNSSECRData, dnssec::*};
 
 #[cfg(feature = "dnssec")]
 use self::mut_message_client::MutMessageHandle;

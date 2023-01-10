@@ -12,8 +12,7 @@ use std::sync::Arc;
 use cfg_if::cfg_if;
 
 use crate::authority::{LookupObject, LookupOptions};
-use crate::client::rr::LowerName;
-use crate::proto::rr::{Record, RecordSet, RecordType, RrsetRecords};
+use crate::proto::rr::{LowerName, Record, RecordSet, RecordType, RrsetRecords};
 
 /// The result of a lookup on an Authority
 ///

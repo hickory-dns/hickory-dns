@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use trust_dns_client::rr::*;
+use trust_dns_proto::rr::*;
 
 use trust_dns_server::authority::ZoneType;
 use trust_dns_server::store::in_memory::InMemoryAuthority;
@@ -200,7 +200,7 @@ pub fn create_secure_example() -> InMemoryAuthority {
 
     use openssl::rsa::Rsa;
     use time::Duration;
-    use trust_dns_client::rr::dnssec::*;
+    use trust_dns_proto::rr::dnssec::*;
     use trust_dns_server::authority::{Authority, DnssecAuthority};
 
     let mut authority = create_example();

@@ -27,8 +27,8 @@ use std::path::PathBuf;
 
 use clap::{command, ArgMatches};
 
-use trust_dns_client::rr::dnssec::Algorithm;
 use trust_dns_proto::rr::dnssec::rdata::DNSSECRData;
+use trust_dns_proto::rr::dnssec::Algorithm;
 use trust_dns_proto::rr::record_data::RData;
 use trust_dns_proto::rr::record_type::RecordType;
 use trust_dns_resolver::Resolver;

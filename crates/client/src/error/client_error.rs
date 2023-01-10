@@ -11,11 +11,10 @@ use std::{fmt, io};
 
 use futures_channel::mpsc;
 use thiserror::Error;
-use trust_dns_proto::error::{ProtoError, ProtoErrorKind};
 
-use crate::error::{DnsSecError, DnsSecErrorKind};
 #[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
+use trust_dns_proto::error::{DnsSecError, DnsSecErrorKind, ProtoError, ProtoErrorKind};
 
 /// An alias for results returned by functions of this crate
 pub type Result<T> = ::std::result::Result<T, Error>;

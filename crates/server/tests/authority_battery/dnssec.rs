@@ -5,10 +5,10 @@ use std::str::FromStr;
 
 use futures_executor::block_on;
 
-use trust_dns_client::op::{Header, Query};
-use trust_dns_client::rr::dnssec::{Algorithm, SupportedAlgorithms, Verifier};
-use trust_dns_client::rr::{DNSClass, Name, RData, Record, RecordType};
+use trust_dns_proto::op::{Header, Query};
 use trust_dns_proto::rr::dnssec::rdata::DNSKEY;
+use trust_dns_proto::rr::dnssec::{Algorithm, SupportedAlgorithms, Verifier};
+use trust_dns_proto::rr::{DNSClass, Name, RData, Record, RecordType};
 use trust_dns_proto::xfer;
 use trust_dns_server::authority::{AuthLookup, Authority, DnssecAuthority, LookupOptions};
 use trust_dns_server::server::{Protocol, RequestInfo};

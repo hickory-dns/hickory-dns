@@ -22,10 +22,12 @@ pub mod dns_class;
 #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 pub mod dnssec;
 pub mod domain;
+mod lower_name;
 pub mod rdata;
 pub mod record_data;
 pub mod record_type;
 pub mod resource;
+mod rr_key;
 mod rr_set;
 pub mod type_bit_map;
 
@@ -38,3 +40,5 @@ pub use self::resource::Record;
 pub use self::rr_set::IntoRecordSet;
 pub use self::rr_set::RecordSet;
 pub use self::rr_set::RrsetRecords;
+pub use lower_name::LowerName;
+pub use rr_key::RrKey;

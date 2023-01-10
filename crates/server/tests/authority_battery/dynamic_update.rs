@@ -8,11 +8,11 @@ use std::{
 
 use futures_executor::block_on;
 
-use trust_dns_client::{
+use trust_dns_proto::{
     op::{update_message, Header, Message, Query, ResponseCode},
-    proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType},
     rr::dnssec::{Algorithm, SigSigner, SupportedAlgorithms, Verifier},
-    serialize::binary::{BinDecodable, BinEncodable, BinSerializable},
+    rr::{DNSClass, Name, RData, Record, RecordSet, RecordType},
+    serialize::binary::{BinDecodable, BinEncodable},
 };
 use trust_dns_server::{
     authority::{
@@ -776,7 +776,7 @@ pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys
 }
 
 pub fn add_auth<A: DnssecAuthority>(authority: &mut A) -> Vec<SigSigner> {
-    use trust_dns_client::rr::rdata::key::KeyUsage;
+    use trust_dns_proto::rr::dnssec::rdata::key::KeyUsage;
     use trust_dns_server::config::dnssec::*;
 
     let update_name = Name::from_str("update")

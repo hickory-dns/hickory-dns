@@ -20,8 +20,8 @@ use cfg_if::cfg_if;
 use serde::{self, Deserialize};
 use toml;
 
-use crate::client::rr::Name;
 use crate::proto::error::ProtoResult;
+use crate::proto::rr::Name;
 
 use crate::authority::ZoneType;
 use crate::error::{ConfigError, ConfigResult};

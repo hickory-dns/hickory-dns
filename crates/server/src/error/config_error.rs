@@ -30,7 +30,7 @@ pub enum ErrorKind {
 
     /// An error occurred while parsing a zone file
     #[error("failed to parse the zone file: {0}")]
-    ZoneParse(#[from] trust_dns_client::error::ParseError),
+    ZoneParse(#[from] crate::proto::serialize::txt::ParseError),
 }
 
 /// The error type for errors that get returned in the crate

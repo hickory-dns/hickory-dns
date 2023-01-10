@@ -15,6 +15,8 @@ use std::{
 
 use cfg_if::cfg_if;
 use futures_util::future::{self, TryFutureExt};
+#[cfg(feature = "dnssec")]
+use time::OffsetDateTime;
 use tracing::{debug, error, warn};
 
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -22,17 +24,18 @@ use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 #[cfg(feature = "dnssec")]
 use crate::{
     authority::DnssecAuthority,
-    client::rr::{
-        dnssec::{DnsSecResult, SigSigner, SupportedAlgorithms},
-        rdata::{key::KEY, DNSSECRData},
+    proto::rr::dnssec::{
+        rdata::{key::KEY, DNSSECRData, NSEC, SIG},
+        {tbs, DnsSecResult, SigSigner, SupportedAlgorithms},
     },
 };
+
 use crate::{
     authority::{
         AnyRecords, AuthLookup, Authority, LookupError, LookupOptions, LookupRecords, LookupResult,
         MessageRequest, UpdateResult, ZoneType,
     },
-    client::{
+    proto::{
         op::ResponseCode,
         rr::{
             rdata::SOA,
@@ -665,8 +668,6 @@ impl InnerInMemory {
     /// Dummy implementation for when DNSSEC is disabled.
     #[cfg(feature = "dnssec")]
     fn nsec_zone(&mut self, origin: &LowerName, dns_class: DNSClass) {
-        use crate::client::rr::rdata::NSEC;
-
         // only create nsec records for secure zones
         if self.secure_keys.is_empty() {
             return;
@@ -745,10 +746,6 @@ impl InnerInMemory {
         zone_ttl: u32,
         zone_class: DNSClass,
     ) -> DnsSecResult<()> {
-        use crate::client::rr::dnssec::tbs;
-        use crate::client::rr::rdata::SIG;
-        use time::OffsetDateTime;
-
         let inception = OffsetDateTime::now_utc();
 
         rr_set.clear_rrsigs();

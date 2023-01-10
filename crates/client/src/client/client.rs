@@ -18,21 +18,20 @@ use std::sync::Arc;
 
 use futures_util::stream::{Stream, StreamExt};
 use tokio::runtime::{self, Runtime};
-use trust_dns_proto::xfer::DnsRequest;
 
 use crate::client::async_client::ClientStreamXfr;
 use crate::client::{AsyncClient, ClientConnection, ClientHandle, Signer};
 use crate::error::*;
 use crate::proto::{
     error::ProtoError,
-    xfer::{DnsExchangeSend, DnsHandle, DnsResponse},
+    xfer::{DnsExchangeSend, DnsHandle, DnsRequest, DnsResponse},
 };
 use crate::rr::rdata::SOA;
 use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 #[cfg(feature = "dnssec")]
-use {
-    crate::client::AsyncDnssecClient,
-    crate::rr::dnssec::{tsig::TSigner, SigSigner, TrustAnchor},
+use crate::{
+    client::AsyncDnssecClient,
+    proto::rr::dnssec::{tsig::TSigner, SigSigner, TrustAnchor},
 };
 
 use super::ClientStreamingResponse;

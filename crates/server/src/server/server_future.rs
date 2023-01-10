@@ -22,11 +22,10 @@ use trust_dns_proto::rr::Record;
 use crate::proto::openssl::tls_server::*;
 use crate::{
     authority::{MessageRequest, MessageResponseBuilder},
-    client::op::LowerQuery,
     proto::{
         error::ProtoError,
         iocompat::AsyncIoTokioAsStd,
-        op::{Edns, Header, Query, ResponseCode},
+        op::{Edns, Header, LowerQuery, Query, ResponseCode},
         serialize::binary::{BinDecodable, BinDecoder},
         tcp::TcpStream,
         udp::UdpStream,

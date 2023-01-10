@@ -46,7 +46,6 @@
 //! * Secure dynamic update
 //! * New features for securing public information
 
-pub use trust_dns_client as client;
 pub use trust_dns_proto as proto;
 #[cfg(feature = "trust-dns-recursor")]
 #[cfg_attr(docsrs, doc(cfg(feature = "recursor")))]

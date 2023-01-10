@@ -17,11 +17,11 @@ use time::Duration;
 
 use trust_dns_client::client::Client;
 use trust_dns_client::client::{ClientConnection, SyncClient};
-use trust_dns_client::op::ResponseCode;
+use trust_dns_client::proto::op::ResponseCode;
 use trust_dns_client::proto::rr::dnssec::rdata::tsig::TsigAlgorithm;
-use trust_dns_client::rr::dnssec::tsig::TSigner;
-use trust_dns_client::rr::Name;
-use trust_dns_client::rr::{RData, Record, RecordType};
+use trust_dns_client::proto::rr::dnssec::tsig::TSigner;
+use trust_dns_client::proto::rr::Name;
+use trust_dns_client::proto::rr::{RData, Record, RecordType};
 use trust_dns_client::tcp::TcpClientConnection;
 use trust_dns_client::udp::UdpClientConnection;
 use trust_dns_compatibility::named_process;
