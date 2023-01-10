@@ -58,7 +58,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 "###,
     );
 
-    let records = Parser::new().parse(lexer, Some(Name::from_str("isi.edu").unwrap()), None);
+    let records = Parser::new().parse(lexer, Some(Name::from_str("isi.edu").unwrap()));
     if records.is_err() {
         panic!("failed to parse: {:?}", records.err())
     }
@@ -424,7 +424,7 @@ a       A       127.0.0.1
 "###,
     );
 
-    let records = Parser::new().parse(lexer, Some(Name::from_str("isi.edu").unwrap()), None);
+    let records = Parser::new().parse(lexer, Some(Name::from_str("isi.edu").unwrap()));
 
     if records.is_err() {
         panic!("failed to parse: {:?}", records.err())
@@ -452,7 +452,7 @@ b       A       127.0.0.2
 "###,
     );
 
-    let records = Parser::new().parse(lexer, Some(Name::from_str("isi.edu").unwrap()), None);
+    let records = Parser::new().parse(lexer, Some(Name::from_str("isi.edu").unwrap()));
 
     if records.is_err() {
         panic!("failed to parse: {:?}", records.err())
@@ -479,7 +479,7 @@ a       A       127.0.0.1
 "###,
     );
 
-    let records = Parser::new().parse(lexer, Some(Name::from_str("isi.edu").unwrap()), None);
+    let records = Parser::new().parse(lexer, Some(Name::from_str("isi.edu").unwrap()));
 
     if records.is_err() {
         panic!("failed to parse: {:?}", records.err())
@@ -498,7 +498,7 @@ fn test_named_root() {
 "###,
     );
 
-    let records = Parser::new().parse(lexer, Some(Name::root()), Some(DNSClass::IN));
+    let records = Parser::new().parse(lexer, Some(Name::root()));
 
     if records.is_err() {
         panic!("failed to parse: {:?}", records.err())

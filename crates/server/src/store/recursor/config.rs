@@ -15,7 +15,7 @@ use std::{
 
 use serde::Deserialize;
 use trust_dns_client::{
-    rr::{DNSClass, RData, Record, RecordSet},
+    rr::{RData, Record, RecordSet},
     serialize::txt::{Lexer, Parser},
 };
 use trust_dns_resolver::Name;
@@ -47,7 +47,7 @@ impl RecursiveConfig {
         let lexer = Lexer::new(&roots_str);
         let mut parser = Parser::new();
 
-        let (_zone, roots_zone) = parser.parse(lexer, Some(Name::root()), Some(DNSClass::IN))?;
+        let (_zone, roots_zone) = parser.parse(lexer, Some(Name::root()))?;
 
         // TODO: we may want to deny some of the root nameservers, for reasons...
         Ok(roots_zone

@@ -139,13 +139,12 @@ impl Parser {
         &mut self,
         lexer: Lexer<'_>,
         origin: Option<Name>,
-        class: Option<DNSClass>,
     ) -> ParseResult<(Name, BTreeMap<RrKey, RecordSet>)> {
         let mut lexer = lexer;
         let mut records: BTreeMap<RrKey, RecordSet> = BTreeMap::new();
 
         let mut origin: Option<Name> = origin;
-        let mut class: Option<DNSClass> = class;
+        let mut class: DNSClass = DNSClass::IN;
         let mut current_name: Option<Name> = None;
         let mut rtype: Option<RecordType> = None;
         let mut ttl: Option<u32> = None;
@@ -218,8 +217,8 @@ impl Parser {
                                 // if can parse DNSClass, then class
                                 data.make_ascii_uppercase();
                                 let result = DNSClass::from_str(&data);
-                                if result.is_ok() {
-                                    class = result.ok();
+                                if let Ok(parsed) = result {
+                                    class = parsed;
                                     State::TtlClassType
                                 } else {
                                     // if can parse RecordType, then RecordType
@@ -295,7 +294,7 @@ impl Parser {
         current_name: &Option<Name>,
         rtype: Option<RecordType>,
         ttl: &mut Option<u32>,
-        class: Option<DNSClass>,
+        class: DNSClass,
         records: &mut BTreeMap<RrKey, RecordSet>,
     ) -> ParseResult<()> {
         // call out to parsers for difference record types
@@ -318,9 +317,7 @@ impl Parser {
             ParseError::from(ParseErrorKind::Message("record name not specified"))
         })?);
         record.set_rr_type(rtype);
-        record.set_dns_class(class.ok_or_else(|| {
-            ParseError::from(ParseErrorKind::Message("record class not specified"))
-        })?);
+        record.set_dns_class(class);
 
         // slightly annoying, need to grab the TTL, then move rdata into the record,
         //  then check the Type again and have custom add logic.
@@ -476,7 +473,7 @@ mod tests {
 "#;
 
         let lexer = Lexer::new(zone_data);
-        let result = Parser::new().parse(lexer, Some(domain), None);
+        let result = Parser::new().parse(lexer, Some(domain));
         assert!(
             result.is_err()
                 & result
@@ -484,39 +481,6 @@ mod tests {
                     .unwrap_err()
                     .to_string()
                     .contains("FAULTY-RECORD-TYPE"),
-            "unexpected success: {:#?}",
-            result
-        );
-    }
-
-    #[test]
-    fn test_zone_parse_default_class() {
-        let domain = Name::from_str("example.com.").unwrap();
-
-        let zone_data = r#"example.com.  	3600	SOA	ns1.example.com. contact.example.com. 2022100601 3600 900 1209600 86400"#;
-        let lexer = Lexer::new(zone_data);
-        // NOTE: We specify a default class of DNSClass:IN, so no error should occur even though the
-        // zone data doesn't provide one.
-        let result = Parser::new().parse(lexer, Some(domain), Option::Some(DNSClass::IN));
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_zone_parse_missing_class() {
-        let domain = Name::from_str("example.com.").unwrap();
-
-        let zone_data = r#"example.com.  	3600	SOA	ns1.example.com. contact.example.com. 2022100601 3600 900 1209600 86400"#;
-        let lexer = Lexer::new(zone_data);
-        // NOTE: We specify no default class, so an error should occur since the zone data does not
-        // provide one.
-        let result = Parser::new().parse(lexer, Some(domain), None);
-        assert!(
-            result.is_err()
-                & result
-                    .as_ref()
-                    .unwrap_err()
-                    .to_string()
-                    .contains("record class not specified"),
             "unexpected success: {:#?}",
             result
         );
