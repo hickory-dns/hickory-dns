@@ -73,7 +73,7 @@ tls = ["dns-over-openssl"]
 
 [[bin]]
 name = "trust-dns"
-path = "src/named.rs"
+path = "src/trust-dns.rs"
 
 [dependencies]
 # clap features:
