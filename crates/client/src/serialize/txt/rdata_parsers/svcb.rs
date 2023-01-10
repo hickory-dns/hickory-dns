@@ -321,7 +321,6 @@ where
 mod tests {
     use trust_dns_proto::rr::RData;
 
-    use crate::rr::DNSClass;
     use crate::serialize::txt::{Lexer, Parser};
 
     use super::*;
@@ -333,7 +332,7 @@ mod tests {
         let mut parser = Parser::new();
 
         let records = parser
-            .parse(lex, Some(Name::root()), Some(DNSClass::IN))
+            .parse(lex, Some(Name::root()))
             .expect("failed to parse record")
             .1;
         let record_set = records.into_iter().next().expect("no record found").1;
