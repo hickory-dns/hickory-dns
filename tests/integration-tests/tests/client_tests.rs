@@ -13,9 +13,6 @@ use trust_dns_client::client::Signer;
 use trust_dns_client::client::SyncDnssecClient;
 #[allow(deprecated)]
 use trust_dns_client::client::{Client, ClientConnection, SyncClient};
-#[cfg(feature = "dnssec")]
-use trust_dns_client::rr::Record;
-use trust_dns_client::rr::{DNSClass, Name, RData, RecordType};
 use trust_dns_client::tcp::TcpClientConnection;
 use trust_dns_client::udp::UdpClientConnection;
 use trust_dns_client::{
@@ -26,6 +23,9 @@ use trust_dns_integration::example_authority::create_example;
 use trust_dns_integration::{NeverReturnsClientConnection, TestClientStream};
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::op::*;
+#[cfg(feature = "dnssec")]
+use trust_dns_proto::rr::Record;
+use trust_dns_proto::rr::{DNSClass, Name, RData, RecordType};
 use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
 use trust_dns_server::authority::{Authority, Catalog};
 
@@ -441,8 +441,8 @@ fn test_nsec_query_type() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConnection>, Name) {
     use openssl::rsa::Rsa;
-    use trust_dns_client::rr::dnssec::{Algorithm, KeyPair, Signer as SigSigner};
     use trust_dns_proto::rr::dnssec::rdata::{DNSSECRData, KEY};
+    use trust_dns_proto::rr::dnssec::{Algorithm, KeyPair, Signer as SigSigner};
     use trust_dns_server::store::sqlite::SqliteAuthority;
 
     let authority = create_example();

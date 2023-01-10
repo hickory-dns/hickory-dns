@@ -19,8 +19,8 @@ use trust_dns_proto::op::Edns;
 
 use crate::client::Signer;
 use crate::error::*;
-use crate::op::{update_message, Message, MessageType, OpCode, Query};
 use crate::proto::error::{ProtoError, ProtoErrorKind};
+use crate::proto::op::{update_message, Message, MessageType, OpCode, Query};
 use crate::proto::xfer::{
     BufDnsStreamHandle, DnsClientStream, DnsExchange, DnsExchangeBackground, DnsExchangeSend,
     DnsHandle, DnsMultiplexer, DnsRequest, DnsRequestOptions, DnsRequestSender, DnsResponse,
@@ -28,11 +28,6 @@ use crate::proto::xfer::{
 use crate::proto::TokioTime;
 use crate::rr::rdata::SOA;
 use crate::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType};
-
-// TODO: this should be configurable
-// > An EDNS buffer size of 1232 bytes will avoid fragmentation on nearly all current networks.
-// https://dnsflagday.net/2020/
-pub(crate) const MAX_PAYLOAD_LEN: u16 = 1232;
 
 /// A DNS Client implemented over futures-rs.
 ///
@@ -271,7 +266,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
             message
                 .extensions_mut()
                 .get_or_insert_with(Edns::new)
-                .set_max_payload(MAX_PAYLOAD_LEN)
+                .set_max_payload(update_message::MAX_PAYLOAD_LEN)
                 .set_version(0);
         }
 

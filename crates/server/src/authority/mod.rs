@@ -7,7 +7,7 @@
 
 //! Module for `Catalog` of `Authority` zones which are responsible for storing `RRSet` records.
 
-use crate::client::op::ResponseCode;
+use crate::proto::op::ResponseCode;
 
 /// Result of an Update operation
 pub type UpdateResult<T> = Result<T, ResponseCode>;

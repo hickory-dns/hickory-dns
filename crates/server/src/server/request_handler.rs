@@ -11,8 +11,7 @@ use std::net::SocketAddr;
 
 use crate::{
     authority::MessageRequest,
-    client::op::LowerQuery,
-    proto::op::{Header, ResponseCode},
+    proto::op::{Header, LowerQuery, ResponseCode},
     server::{Protocol, ResponseHandler},
 };
 
@@ -152,8 +151,7 @@ pub trait RequestHandler: Send + Sync + Unpin + 'static {
 
 #[cfg(test)]
 mod tests {
-    use trust_dns_client::op::{Header, Query};
-
+    use crate::proto::op::{Header, Query};
     use crate::server::Protocol;
 
     use super::RequestInfo;

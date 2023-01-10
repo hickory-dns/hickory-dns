@@ -12,8 +12,9 @@ use trust_dns_proto::rr::Record;
 
 use crate::{
     authority::MessageResponse,
-    client::serialize::binary::BinEncoder,
-    proto::{xfer::SerialMessage, BufDnsStreamHandle, DnsStreamHandle},
+    proto::{
+        serialize::binary::BinEncoder, xfer::SerialMessage, BufDnsStreamHandle, DnsStreamHandle,
+    },
     server::ResponseInfo,
 };
 

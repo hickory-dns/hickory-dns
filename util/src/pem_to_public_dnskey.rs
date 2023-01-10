@@ -28,7 +28,7 @@ use clap::Parser;
 use openssl::pkey::PKey;
 use tracing::info;
 
-use trust_dns_client::rr::dnssec::{KeyPair, Public};
+use trust_dns_proto::rr::dnssec::{KeyPair, Public};
 
 /// Cli struct for all options managed with clap derive api.
 #[derive(Debug, Parser)]

@@ -5,10 +5,10 @@ use std::str::FromStr;
 
 use rusqlite::*;
 
-use trust_dns_client::op::*;
-use trust_dns_client::rr::dnssec::*;
-use trust_dns_client::rr::rdata::*;
-use trust_dns_client::rr::*;
+use trust_dns_proto::op::*;
+use trust_dns_proto::rr::dnssec::*;
+use trust_dns_proto::rr::rdata::*;
+use trust_dns_proto::rr::*;
 
 use trust_dns_server::authority::LookupOptions;
 use trust_dns_server::authority::{Authority, ZoneType};
@@ -906,6 +906,8 @@ async fn test_update() {
 #[cfg(feature = "dnssec")]
 #[tokio::test]
 async fn test_zone_signing() {
+    use trust_dns_proto::rr::dnssec::rdata::DNSSECRData;
+
     let authority = create_secure_example();
 
     let results = authority

@@ -19,21 +19,6 @@
 #![deny(missing_docs)]
 
 mod client_error;
-mod dnssec_error;
-mod lexer_error;
-mod parse_error;
-
 pub use self::client_error::Error as ClientError;
-pub use self::dnssec_error::Error as DnsSecError;
-pub use self::lexer_error::Error as LexerError;
-pub use self::parse_error::Error as ParseError;
-
 pub use self::client_error::ErrorKind as ClientErrorKind;
-pub use self::dnssec_error::ErrorKind as DnsSecErrorKind;
-pub use self::lexer_error::ErrorKind as LexerErrorKind;
-pub use self::parse_error::ErrorKind as ParseErrorKind;
-
 pub use self::client_error::Result as ClientResult;
-pub use self::dnssec_error::Result as DnsSecResult;
-pub use self::lexer_error::Result as LexerResult;
-pub use self::parse_error::Result as ParseResult;

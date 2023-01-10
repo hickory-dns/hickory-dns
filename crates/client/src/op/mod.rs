@@ -8,15 +8,10 @@
 //! Operations to send with a `Client` or server, e.g. `Query`, `Message`, or `UpdateMessage` can
 //! be used together to either query or update resource records sets.
 
-mod lower_query;
-pub mod update_message;
-
-pub use self::lower_query::LowerQuery;
-pub use self::update_message::UpdateMessage;
 pub use crate::proto::{
     op::{
         Edns, Header, Message, MessageFinalizer, MessageType, MessageVerifier, OpCode, Query,
-        ResponseCode,
+        ResponseCode, UpdateMessage,
     },
     xfer::DnsResponse,
 };

@@ -20,17 +20,12 @@ use tracing::{debug, info};
 #[cfg(feature = "dnssec")]
 use crate::{
     authority::DnssecAuthority,
-    client::{
-        proto::rr::dnssec::rdata::key::KEY,
-        rr::dnssec::{DnsSecResult, SigSigner},
-    },
+    proto::rr::dnssec::{rdata::key::KEY, DnsSecResult, SigSigner},
 };
 use crate::{
     authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType},
-    client::{
-        rr::{LowerName, Name, RecordSet, RecordType, RrKey},
-        serialize::txt::{Lexer, Parser, Token},
-    },
+    proto::rr::{LowerName, Name, RecordSet, RecordType, RrKey},
+    proto::serialize::txt::{Lexer, Parser, Token},
     server::RequestInfo,
     store::{file::FileConfig, in_memory::InMemoryAuthority},
 };
@@ -356,7 +351,7 @@ mod tests {
     use std::net::Ipv4Addr;
     use std::str::FromStr;
 
-    use crate::client::rr::RData;
+    use crate::proto::rr::RData;
     use futures_executor::block_on;
 
     use super::*;

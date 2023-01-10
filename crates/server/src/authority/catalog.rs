@@ -12,10 +12,9 @@ use std::{borrow::Borrow, collections::HashMap, future::Future, io};
 
 use cfg_if::cfg_if;
 use tracing::{debug, error, info, trace, warn};
-use trust_dns_proto::rr::Record;
 
 #[cfg(feature = "dnssec")]
-use crate::client::rr::{
+use crate::proto::rr::{
     dnssec::{Algorithm, SupportedAlgorithms},
     rdata::opt::{EdnsCode, EdnsOption},
 };
@@ -24,10 +23,8 @@ use crate::{
         AuthLookup, AuthorityObject, EmptyLookup, LookupError, LookupObject, LookupOptions,
         MessageResponse, MessageResponseBuilder, ZoneType,
     },
-    client::{
-        op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode},
-        rr::{LowerName, RecordType},
-    },
+    proto::op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode},
+    proto::rr::{LowerName, Record, RecordType},
     server::{Request, RequestHandler, RequestInfo, ResponseHandler, ResponseInfo},
 };
 

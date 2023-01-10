@@ -18,11 +18,10 @@ use tracing::{error, info, warn};
 
 use crate::{
     authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType},
-    client::rr::{LowerName, RrKey},
     error::{PersistenceErrorKind, PersistenceResult},
     proto::{
         op::ResponseCode,
-        rr::{DNSClass, Name, RData, Record, RecordSet, RecordType},
+        rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
     },
     server::RequestInfo,
     store::{
@@ -33,8 +32,10 @@ use crate::{
 #[cfg(feature = "dnssec")]
 use crate::{
     authority::{DnssecAuthority, UpdateRequest},
-    client::rr::dnssec::{DnsSecResult, SigSigner},
-    proto::rr::dnssec::rdata::key::KEY,
+    proto::rr::dnssec::{
+        rdata::{key::KEY, DNSSECRData},
+        DnsSecResult, SigSigner, Verifier,
+    },
 };
 
 /// SqliteAuthority is responsible for storing the resource records for a particular zone.
@@ -451,9 +452,6 @@ impl SqliteAuthority {
     #[allow(clippy::blocks_in_if_conditions)]
     pub async fn authorize(&self, update_message: &MessageRequest) -> UpdateResult<()> {
         use tracing::debug;
-
-        use crate::client::rr::rdata::DNSSECRData;
-        use crate::proto::rr::dnssec::Verifier;
 
         // 3.3.3 - Pseudocode for Permission Checking
         //

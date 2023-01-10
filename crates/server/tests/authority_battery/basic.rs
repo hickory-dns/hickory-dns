@@ -6,8 +6,11 @@ use std::str::FromStr;
 
 use futures_executor::block_on;
 
-use trust_dns_client::op::{Header, Message, Query, ResponseCode};
-use trust_dns_client::rr::{Name, RData, Record, RecordType};
+use trust_dns_proto::{
+    op::{Header, Message, Query, ResponseCode},
+    rr::{Name, RData, Record, RecordType},
+    serialize::binary::BinDecodable,
+};
 use trust_dns_server::authority::{
     AuthLookup, Authority, LookupError, LookupOptions, MessageRequest,
 };
@@ -452,8 +455,6 @@ pub fn test_aname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
 }
 
 pub fn test_update_errors<A: Authority<Lookup = AuthLookup>>(mut authority: A) {
-    use trust_dns_client::serialize::binary::BinDecodable;
-
     let mut message = Message::default();
     message.add_query(Query::default());
     let bytes = message.to_vec().unwrap();

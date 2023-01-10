@@ -13,7 +13,7 @@ use crate::{
     authority::{
         Authority, LookupError, LookupObject, LookupOptions, MessageRequest, UpdateResult, ZoneType,
     },
-    client::{
+    proto::{
         op::ResponseCode,
         rr::{LowerName, Name, Record, RecordType},
     },

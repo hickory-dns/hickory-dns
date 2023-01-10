@@ -14,13 +14,13 @@ use std::{
 };
 
 use serde::Deserialize;
-use trust_dns_client::{
+
+use crate::error::ConfigError;
+use crate::proto::{
     rr::{RData, Record, RecordSet},
     serialize::txt::{Lexer, Parser},
 };
-use trust_dns_resolver::Name;
-
-use crate::error::ConfigError;
+use crate::resolver::Name;
 
 /// Configuration for file based zones
 #[derive(Clone, Deserialize, Eq, PartialEq, Debug)]

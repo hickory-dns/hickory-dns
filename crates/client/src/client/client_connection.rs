@@ -16,15 +16,14 @@
 use std::future::Future;
 use std::sync::Arc;
 
-use trust_dns_proto::{error::ProtoError, xfer::DnsRequestSender};
-
 use crate::op::{MessageFinalizer, MessageVerifier};
 #[cfg(feature = "dnssec")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
-use crate::rr::dnssec::tsig::TSigner;
+use crate::proto::rr::dnssec::tsig::TSigner;
 #[cfg(feature = "dnssec")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
-use crate::rr::dnssec::SigSigner;
+use crate::proto::rr::dnssec::SigSigner;
+use crate::proto::{error::ProtoError, xfer::DnsRequestSender};
 
 use crate::proto::error::ProtoResult;
 use crate::proto::op::Message;

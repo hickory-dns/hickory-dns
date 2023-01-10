@@ -20,12 +20,12 @@ use time::Duration;
 use trust_dns_client::client::Client;
 use trust_dns_client::client::{ClientConnection, SyncClient};
 #[cfg(not(feature = "none"))]
-use trust_dns_client::op::ResponseCode;
-use trust_dns_client::rr::dnssec::{Algorithm, KeyPair, SigSigner};
-use trust_dns_client::rr::rdata::key::{KeyUsage, KEY};
-use trust_dns_client::rr::Name;
+use trust_dns_client::proto::op::ResponseCode;
+use trust_dns_client::proto::rr::dnssec::rdata::key::{KeyUsage, KEY};
+use trust_dns_client::proto::rr::dnssec::{Algorithm, KeyPair, SigSigner};
+use trust_dns_client::proto::rr::Name;
 #[cfg(not(feature = "none"))]
-use trust_dns_client::rr::{DNSClass, RData, Record, RecordType};
+use trust_dns_client::proto::rr::{DNSClass, RData, Record, RecordType};
 #[cfg(not(feature = "none"))]
 use trust_dns_client::udp::UdpClientConnection;
 #[cfg(not(feature = "none"))]

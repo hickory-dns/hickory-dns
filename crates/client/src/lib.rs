@@ -158,7 +158,7 @@
 //! use trust_dns_client::client::{Client, SyncClient};
 //! use trust_dns_client::udp::UdpClientConnection;
 //! use trust_dns_client::rr::{Name, RData, Record, RecordType};
-//! use trust_dns_client::rr::dnssec::{Algorithm, SigSigner, KeyPair};
+//! use trust_dns_client::proto::rr::dnssec::{Algorithm, SigSigner, KeyPair};
 //! use trust_dns_client::op::ResponseCode;
 //! use trust_dns_client::rr::rdata::key::KEY;
 //!

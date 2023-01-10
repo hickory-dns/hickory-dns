@@ -8,20 +8,20 @@
 use std::{io, path::Path, time::Instant};
 
 use tracing::{debug, info};
-use trust_dns_client::op::Query;
-
-pub(crate) use trust_dns_resolver::lookup::Lookup;
 
 use crate::{
     authority::{
         Authority, LookupError, LookupObject, LookupOptions, MessageRequest, UpdateResult, ZoneType,
     },
-    client::{
-        op::ResponseCode,
+    proto::{
+        op::{Query, ResponseCode},
         rr::{LowerName, Name, Record, RecordType},
     },
     recursor::Recursor,
-    resolver::config::{NameServerConfig, NameServerConfigGroup, Protocol},
+    resolver::{
+        config::{NameServerConfig, NameServerConfigGroup, Protocol},
+        lookup::Lookup,
+    },
     server::RequestInfo,
     store::recursor::RecursiveConfig,
 };

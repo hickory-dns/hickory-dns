@@ -13,7 +13,7 @@ use tracing::debug;
 
 use crate::{
     authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType},
-    client::rr::{LowerName, Record, RecordType},
+    proto::rr::{LowerName, Record, RecordType},
     server::RequestInfo,
 };
 

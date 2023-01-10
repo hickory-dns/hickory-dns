@@ -14,9 +14,9 @@ use tokio::runtime::Runtime;
 
 use trust_dns_client::client::{Signer, *};
 use trust_dns_client::proto::tcp::TcpClientStream;
-use trust_dns_client::proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
 use trust_dns_client::proto::DnssecDnsHandle;
-use trust_dns_client::rr::dnssec::*;
+use trust_dns_proto::rr::dnssec::*;
+use trust_dns_proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
 use trust_dns_proto::{iocompat::AsyncIoTokioAsStd, TokioTime};
 
 use server_harness::*;

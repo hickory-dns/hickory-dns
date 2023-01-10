@@ -150,8 +150,8 @@ fn test_parse_toml() {
 #[cfg(feature = "dnssec")]
 #[test]
 fn test_parse_zone_keys() {
-    use trust_dns_client::rr::dnssec::Algorithm;
-    use trust_dns_client::rr::Name;
+    use trust_dns_proto::rr::dnssec::Algorithm;
+    use trust_dns_proto::rr::Name;
 
     let config: Config = "
 [[zones]]

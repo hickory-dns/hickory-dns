@@ -14,8 +14,6 @@ use tokio::{
 
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 use trust_dns_client::client::Signer;
-#[cfg(feature = "dnssec")]
-use trust_dns_client::rr::{dnssec::SigSigner, Record};
 use trust_dns_client::{
     client::{AsyncClient, ClientHandle},
     error::ClientErrorKind,
@@ -27,6 +25,8 @@ use trust_dns_client::{
     tcp::TcpClientStream,
     udp::UdpClientStream,
 };
+#[cfg(feature = "dnssec")]
+use trust_dns_proto::rr::{dnssec::SigSigner, Record};
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
@@ -297,8 +297,8 @@ async fn create_sig0_ready_client() -> (
     Name,
 ) {
     use openssl::rsa::Rsa;
-    use trust_dns_client::rr::dnssec::{Algorithm, KeyPair};
-    use trust_dns_client::rr::rdata::DNSSECRData;
+    use trust_dns_proto::rr::dnssec::rdata::DNSSECRData;
+    use trust_dns_proto::rr::dnssec::{Algorithm, KeyPair};
     use trust_dns_server::store::sqlite::SqliteAuthority;
 
     let authority = create_example();

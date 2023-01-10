@@ -32,7 +32,7 @@ use openssl::bn::BigNum;
 use openssl::rsa::Rsa;
 use tracing::{info, warn, Level};
 
-use trust_dns_client::rr::dnssec::Algorithm;
+use trust_dns_proto::rr::dnssec::Algorithm;
 
 /// Cli struct for all options managed with clap derive api.
 #[derive(Debug, Parser)]

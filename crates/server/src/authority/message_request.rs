@@ -7,17 +7,14 @@
 
 use std::iter::once;
 
-use crate::{
-    client::op::LowerQuery,
-    proto::{
-        error::*,
-        op::{
-            message::{self, EmitAndCount},
-            Edns, Header, Message, MessageType, OpCode, ResponseCode,
-        },
-        rr::Record,
-        serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder},
+use crate::proto::{
+    error::*,
+    op::{
+        message::{self, EmitAndCount},
+        Edns, Header, LowerQuery, Message, MessageType, OpCode, ResponseCode,
     },
+    rr::Record,
+    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder},
 };
 
 /// A Message which captures the data from an inbound request

@@ -53,6 +53,7 @@ dnssec = []
 
 testing = []
 
+text-parsing = []
 tokio-runtime = ["tokio/net", "tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
 default = ["tokio-runtime"]
 

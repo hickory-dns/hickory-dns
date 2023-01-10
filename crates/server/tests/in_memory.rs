@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use tokio::runtime::Runtime;
-use trust_dns_client::rr::{Name, RData, Record, RecordType};
+use trust_dns_proto::rr::{Name, RData, Record, RecordType};
 use trust_dns_server::{
     authority::{Authority, ZoneType},
     store::in_memory::InMemoryAuthority,
