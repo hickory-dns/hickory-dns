@@ -179,7 +179,7 @@ where
                     return Poll::Ready(Ok(()));
                 }
                 Poll::Ready(Some(Err(err))) => {
-                    warn!("io_stream hit an error, shutting down: {}", err);
+                    debug!("io_stream hit an error, shutting down");
 
                     return Poll::Ready(Err(err));
                 }
@@ -193,7 +193,7 @@ where
                     let (dns_request, serial_response): (DnsRequest, _) = dns_request.into_parts();
 
                     // Try to forward the `DnsResponseStream` to the requesting task. If we fail,
-                    // it must be because the requesting task has gone away / is no longer
+                    // it must be because the requesting task has gone away / is no longerwarn!
                     // interested. In that case, we can just log a warning, but there's no need
                     // to take any more serious measures (such as shutting down this task).
                     match serial_response.send_response(io_stream.send_message(dns_request)) {
