@@ -198,11 +198,7 @@ where
 
     /// Closes all outstanding completes with a closed stream error
     fn stream_closed_close_all(&mut self, error: ProtoError) {
-        if !self.active_requests.is_empty() {
-            warn!("stream {} error: {}", self.stream, error);
-        } else {
-            debug!("stream {} error: {}", self.stream, error);
-        }
+        debug!("stream {} error: {}", self.stream, error);
 
         for (_, active_request) in self.active_requests.drain() {
             // complete the request, it's failed...
