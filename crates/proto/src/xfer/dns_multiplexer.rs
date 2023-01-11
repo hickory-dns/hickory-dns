@@ -22,7 +22,7 @@ use futures_util::stream::{Stream, StreamExt};
 use futures_util::{future::Future, ready, FutureExt};
 use rand;
 use rand::distributions::{Distribution, Standard};
-use tracing::{debug, warn};
+use tracing::debug;
 
 use crate::error::*;
 use crate::op::{MessageFinalizer, MessageVerifier};
@@ -198,7 +198,7 @@ where
 
     /// Closes all outstanding completes with a closed stream error
     fn stream_closed_close_all(&mut self, error: ProtoError) {
-        debug!("stream {} error: {}", self.stream, error);
+        debug!(error = error.as_dyn(), stream = %self.stream);
 
         for (_, active_request) in self.active_requests.drain() {
             // complete the request, it's failed...
@@ -310,7 +310,7 @@ where
 
         match request.to_vec() {
             Ok(buffer) => {
-                debug!("sending message id: {}", active_request.request_id());
+                debug!(id = %active_request.request_id(), "sending message");
                 let serial_message = SerialMessage::new(buffer, self.stream.name_server_addr());
 
                 debug!(
@@ -331,9 +331,9 @@ where
             }
             Err(e) => {
                 debug!(
-                    "error message id: {} error: {}",
-                    active_request.request_id(),
-                    e
+                    id = %active_request.request_id(),
+                    error = e.as_dyn(),
+                    "error message"
                 );
                 // complete with the error, don't add to the map of active requests
                 return e.into();
@@ -398,7 +398,7 @@ where
                             Entry::Vacant(..) => debug!("unexpected request_id: {}", message.id()),
                         },
                         // TODO: return src address for diagnostics
-                        Err(e) => debug!("error decoding message: {}", e),
+                        Err(error) => debug!(error = error.as_dyn(), "error decoding message"),
                     }
                 }
                 Poll::Ready(err) => {

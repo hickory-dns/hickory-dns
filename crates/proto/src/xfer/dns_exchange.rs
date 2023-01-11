@@ -179,7 +179,10 @@ where
                     return Poll::Ready(Ok(()));
                 }
                 Poll::Ready(Some(Err(err))) => {
-                    debug!("io_stream hit an error, shutting down");
+                    debug!(
+                        error = err.as_dyn(),
+                        "io_stream hit an error, shutting down"
+                    );
 
                     return Poll::Ready(Err(err));
                 }
@@ -324,7 +327,7 @@ where
                         }
                         Poll::Pending => return Poll::Pending,
                         Poll::Ready(Err(error)) => {
-                            debug!("stream errored while connecting: {:?}", error);
+                            debug!(erorr = error.as_dyn(), "stream errored while connecting");
                             next = Self::FailAll {
                                 error,
                                 outbound_messages: outbound_messages
