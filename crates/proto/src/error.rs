@@ -328,6 +328,10 @@ impl ProtoError {
     pub fn is_busy(&self) -> bool {
         matches!(*self.kind, ProtoErrorKind::Busy)
     }
+
+    pub(crate) fn as_dyn(&self) -> &(dyn std::error::Error + 'static) {
+        self
+    }
 }
 
 impl fmt::Display for ProtoError {
