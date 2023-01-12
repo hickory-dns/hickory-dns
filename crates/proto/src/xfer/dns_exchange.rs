@@ -327,7 +327,7 @@ where
                         }
                         Poll::Pending => return Poll::Pending,
                         Poll::Ready(Err(error)) => {
-                            debug!(erorr = error.as_dyn(), "stream errored while connecting");
+                            debug!(error = error.as_dyn(), "stream errored while connecting");
                             next = Self::FailAll {
                                 error,
                                 outbound_messages: outbound_messages
