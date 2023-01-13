@@ -56,24 +56,6 @@ use crate::config::Protocol;
 use crate::config::{NameServerConfig, ResolverOpts};
 use crate::error::ResolveError;
 
-/// A type to allow for custom ConnectionProviders. Needed mainly for mocking purposes.
-///
-/// ConnectionProvider is responsible for spawning any background tasks as necessary.
-pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
-    /// The handle to the connect for sending DNS requests.
-    type Conn: DnsHandle<Error = ResolveError> + Clone + Send + Sync + 'static;
-
-    /// Ths future is responsible for spawning any background tasks as necessary
-    type FutureConn: Future<Output = Result<Self::Conn, ResolveError>> + Send + 'static;
-
-    /// The type used to set up timeout futures
-    type Time: Time;
-
-    /// The returned handle should
-    fn new_connection(&self, config: &NameServerConfig, options: &ResolverOpts)
-        -> Self::FutureConn;
-}
-
 /// RuntimeProvider defines which async runtime that handles IO and timers.
 pub trait RuntimeProvider: Clone + 'static {
     /// Handle to the executor;
@@ -92,15 +74,12 @@ pub trait RuntimeProvider: Clone + 'static {
     /// TcpStream
     type Tcp: DnsTcpStream;
 
-    /// Ths future is responsible for the successful connection of the underlying resources.
-    type Connecting<S>: Future<Output = std::io::Result<S>> + Send + 'static;
-
     /// Create a TCP connection with custom configuration.
     fn connect_tcp(
         &self,
         config: &NameServerConfig,
         options: &ResolverOpts,
-    ) -> Self::Connecting<Self::Tcp>;
+    ) -> ConnectionFuture<Self::Tcp>;
 
     /// Create a UDP socket with custom configuration.
     /// *Notice: the future should be ready once returned at best effort. Otherwise UDP DNS may need much more retries.*
@@ -108,8 +87,7 @@ pub trait RuntimeProvider: Clone + 'static {
         &self,
         config: &NameServerConfig,
         options: &ResolverOpts,
-    ) -> Self::Connecting<Self::Udp>;
-
+    ) -> ConnectionFuture<Self::Udp>;
 }
 
 /// A type defines the Handle which can spawn future.
@@ -118,155 +96,6 @@ pub trait Spawn {
     fn spawn_bg<F>(&mut self, future: F)
     where
         F: Future<Output = Result<(), ProtoError>> + Send + 'static;
-}
-
-/// Standard connection implements the default mechanism for creating new Connections
-#[derive(Clone)]
-pub struct GenericConnectionProvider<R: RuntimeProvider>(R::Handle);
-
-impl<R: RuntimeProvider> GenericConnectionProvider<R> {
-    /// construct a new Connection provider based on the Runtime Handle
-    pub fn new(handle: R::Handle) -> Self {
-        Self(handle)
-    }
-}
-
-impl<R> ConnectionProvider for GenericConnectionProvider<R>
-where
-    R: RuntimeProvider,
-    <R as RuntimeProvider>::Tcp: Connect,
-{
-    type Conn = GenericConnection;
-    type FutureConn = ConnectionFuture<R>;
-    type Time = R::Timer;
-
-    /// Constructs an initial constructor for the ConnectionHandle to be used to establish a
-    ///   future connection.
-    fn new_connection(
-        &self,
-        config: &NameServerConfig,
-        options: &ResolverOpts,
-    ) -> Self::FutureConn {
-        let dns_connect = match config.protocol {
-            Protocol::Udp => {
-                let stream = UdpClientStream::<R::Udp>::with_bind_addr_and_timeout(
-                    config.socket_addr,
-                    config.bind_addr,
-                    options.timeout,
-                );
-                let exchange = DnsExchange::connect(stream);
-                ConnectionConnect::Udp(exchange)
-            }
-            Protocol::Tcp => {
-                let socket_addr = config.socket_addr;
-                let bind_addr = config.bind_addr;
-                let timeout = options.timeout;
-
-                let (stream, handle) = TcpClientStream::<R::Tcp>::with_bind_addr_and_timeout(
-                    socket_addr,
-                    bind_addr,
-                    timeout,
-                );
-                // TODO: need config for Signer...
-                let dns_conn = DnsMultiplexer::with_timeout(
-                    stream,
-                    handle,
-                    timeout,
-                    NoopMessageFinalizer::new(),
-                );
-
-                let exchange = DnsExchange::connect(dns_conn);
-                ConnectionConnect::Tcp(exchange)
-            }
-            #[cfg(feature = "dns-over-tls")]
-            Protocol::Tls => {
-                let socket_addr = config.socket_addr;
-                let bind_addr = config.bind_addr;
-                let timeout = options.timeout;
-                let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
-                #[cfg(feature = "dns-over-rustls")]
-                let client_config = config.tls_config.clone();
-
-                #[cfg(feature = "dns-over-rustls")]
-                let (stream, handle) = {
-                    crate::tls::new_tls_stream::<R>(
-                        socket_addr,
-                        bind_addr,
-                        tls_dns_name,
-                        client_config,
-                    )
-                };
-                #[cfg(not(feature = "dns-over-rustls"))]
-                let (stream, handle) =
-                    { crate::tls::new_tls_stream::<R>(socket_addr, bind_addr, tls_dns_name) };
-
-                let dns_conn = DnsMultiplexer::with_timeout(
-                    stream,
-                    handle,
-                    timeout,
-                    NoopMessageFinalizer::new(),
-                );
-
-                let exchange = DnsExchange::connect(dns_conn);
-                ConnectionConnect::Tls(exchange)
-            }
-            #[cfg(feature = "dns-over-https")]
-            Protocol::Https => {
-                let socket_addr = config.socket_addr;
-                let bind_addr = config.bind_addr;
-                let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
-                #[cfg(feature = "dns-over-rustls")]
-                let client_config = config.tls_config.clone();
-
-                let exchange = crate::https::new_https_stream::<R>(
-                    socket_addr,
-                    bind_addr,
-                    tls_dns_name,
-                    client_config,
-                );
-                ConnectionConnect::Https(exchange)
-            }
-            #[cfg(feature = "dns-over-quic")]
-            Protocol::Quic => {
-                let socket_addr = config.socket_addr;
-                let bind_addr = config.bind_addr;
-                let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
-                #[cfg(feature = "dns-over-rustls")]
-                let client_config = config.tls_config.clone();
-
-                let exchange = crate::quic::new_quic_stream(
-                    socket_addr,
-                    bind_addr,
-                    tls_dns_name,
-                    client_config,
-                );
-                ConnectionConnect::Quic(exchange)
-            }
-            #[cfg(feature = "mdns")]
-            Protocol::Mdns => {
-                let socket_addr = config.socket_addr;
-                let timeout = options.timeout;
-
-                let (stream, handle) =
-                    MdnsClientStream::new(socket_addr, MdnsQueryType::OneShot, None, None, None);
-                // TODO: need config for Signer...
-                let dns_conn = DnsMultiplexer::with_timeout(
-                    stream,
-                    handle,
-                    timeout,
-                    NoopMessageFinalizer::new(),
-                );
-
-                let exchange = DnsExchange::connect(dns_conn);
-                ConnectionConnect::Mdns(exchange)
-            }
-        };
-
-        ConnectionFuture {
-            connect: dns_connect,
-            spawner: self.0.clone(),
-        }
-    }
 }
 
 #[cfg(feature = "dns-over-tls")]

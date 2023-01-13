@@ -124,7 +124,9 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> UdpClientStream<S, MF>
             name_server,
             timeout,
             signer,
-            creator: Arc::new(move |addr: _| Box::pin(NextRandomUdpSocket::<S>::new(addr, &bind_addr))),
+            creator: Arc::new(move |addr: _| {
+                Box::pin(NextRandomUdpSocket::<S>::new(addr, &bind_addr))
+            }),
             marker: PhantomData::<S>,
         }
     }
@@ -215,9 +217,9 @@ impl<S: DnsUdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
 
         S::Time::timeout::<Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>>(
             self.timeout,
-            Box::pin(async move{
+            Box::pin(async move {
                 let socket = (*creator)(&addr).await?;
-                send_serial_message_inner(message,message_id,verifier,socket).await
+                send_serial_message_inner(message, message_id, verifier, socket).await
             }),
         )
         .into()
@@ -286,7 +288,7 @@ async fn send_serial_message<S: UdpSocket + Send + 'static>(
     send_serial_message_inner(msg, msg_id, verifier, socket).await
 }
 
-async fn send_serial_message_with_closure<S:DnsUdpSocket+Send>(
+async fn send_serial_message_with_closure<S: DnsUdpSocket + Send>(
     msg: SerialMessage,
     msg_id: u16,
     verifier: Option<MessageVerifier>,

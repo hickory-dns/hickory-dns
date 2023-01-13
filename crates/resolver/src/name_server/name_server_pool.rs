@@ -23,7 +23,7 @@ use crate::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts, ServerO
 use crate::error::{ResolveError, ResolveErrorKind};
 #[cfg(feature = "mdns")]
 use crate::name_server;
-use crate::name_server::{ConnectionProvider, NameServer};
+use crate::name_server::{ConnectionProvider, NameServer, RuntimeProvider};
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
 use crate::name_server::{TokioConnection, TokioConnectionProvider, TokioHandle};
@@ -32,13 +32,10 @@ use crate::name_server::{TokioConnection, TokioConnectionProvider, TokioHandle};
 ///
 /// This is not expected to be used directly, see [crate::AsyncResolver].
 #[derive(Clone)]
-pub struct NameServerPool<
-    C: DnsHandle<Error = ResolveError> + Send + Sync + 'static,
-    P: ConnectionProvider<Conn = C> + Send + 'static,
-> {
+pub struct NameServerPool<P: RuntimeProvider + Send + 'static> {
     // TODO: switch to FuturesMutex (Mutex will have some undesirable locking)
-    datagram_conns: Arc<[NameServer<C, P>]>, /* All NameServers must be the same type */
-    stream_conns: Arc<[NameServer<C, P>]>,   /* All NameServers must be the same type */
+    datagram_conns: Arc<[NameServer<P>]>, /* All NameServers must be the same type */
+    stream_conns: Arc<[NameServer<P>]>,   /* All NameServers must be the same type */
     #[cfg(feature = "mdns")]
     mdns_conns: NameServer<C, P>, /* All NameServers must be the same type */
     options: ResolverOpts,
@@ -56,17 +53,16 @@ impl NameServerPool<TokioConnection, TokioConnectionProvider> {
     }
 }
 
-impl<C, P> NameServerPool<C, P>
+impl<P> NameServerPool<P>
 where
-    C: DnsHandle<Error = ResolveError> + Sync + 'static,
-    P: ConnectionProvider<Conn = C> + 'static,
+    P: RuntimeProvider + 'static,
 {
     pub(crate) fn from_config_with_provider(
         config: &ResolverConfig,
         options: &ResolverOpts,
         conn_provider: P,
     ) -> Self {
-        let datagram_conns: Vec<NameServer<C, P>> = config
+        let datagram_conns: Vec<NameServer<P>> = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_datagram())
@@ -80,11 +76,11 @@ where
                 #[cfg(not(feature = "dns-over-rustls"))]
                 let ns_config = { ns_config.clone() };
 
-                NameServer::<C, P>::new_with_provider(ns_config, *options, conn_provider.clone())
+                NameServer::<P>::new_with_provider(ns_config, *options, conn_provider.clone())
             })
             .collect();
 
-        let stream_conns: Vec<NameServer<C, P>> = config
+        let stream_conns: Vec<NameServer<P>> = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_stream())
@@ -98,7 +94,7 @@ where
                 #[cfg(not(feature = "dns-over-rustls"))]
                 let ns_config = { ns_config.clone() };
 
-                NameServer::<C, P>::new_with_provider(ns_config, *options, conn_provider.clone())
+                NameServer::<P>::new_with_provider(ns_config, *options, conn_provider.clone())
             })
             .collect();
 
@@ -118,7 +114,7 @@ where
         conn_provider: P,
     ) -> Self {
         let map_config_to_ns = |ns_config| {
-            NameServer::<C, P>::new_with_provider(ns_config, *options, conn_provider.clone())
+            NameServer::<P>::new_with_provider(ns_config, *options, conn_provider.clone())
         };
 
         let (datagram, stream): (Vec<_>, Vec<_>) = name_servers
@@ -142,8 +138,8 @@ where
     #[cfg(not(feature = "mdns"))]
     pub fn from_nameservers(
         options: &ResolverOpts,
-        datagram_conns: Vec<NameServer<C, P>>,
-        stream_conns: Vec<NameServer<C, P>>,
+        datagram_conns: Vec<NameServer<P>>,
+        stream_conns: Vec<NameServer<P>>,
     ) -> Self {
         Self {
             datagram_conns: Arc::from(datagram_conns),
@@ -173,8 +169,8 @@ where
     #[allow(dead_code)]
     fn from_nameservers_test(
         options: &ResolverOpts,
-        datagram_conns: Arc<[NameServer<C, P>]>,
-        stream_conns: Arc<[NameServer<C, P>]>,
+        datagram_conns: Arc<[NameServer<P>]>,
+        stream_conns: Arc<[NameServer<P>]>,
     ) -> Self {
         Self {
             datagram_conns,
@@ -202,10 +198,10 @@ where
 
     async fn try_send(
         opts: ResolverOpts,
-        conns: Arc<[NameServer<C, P>]>,
+        conns: Arc<[NameServer<P>]>,
         request: DnsRequest,
     ) -> Result<DnsResponse, ResolveError> {
-        let mut conns: Vec<NameServer<C, P>> = conns.to_vec();
+        let mut conns: Vec<NameServer<P>> = conns.to_vec();
 
         match opts.server_ordering_strategy {
             // select the highest priority connection
@@ -220,10 +216,9 @@ where
     }
 }
 
-impl<C, P> DnsHandle for NameServerPool<C, P>
+impl<P> DnsHandle for NameServerPool<P>
 where
-    C: DnsHandle<Error = ResolveError> + Sync + 'static,
-    P: ConnectionProvider<Conn = C> + 'static,
+    P: RuntimeProvider + 'static,
 {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>>;
     type Error = ResolveError;
@@ -299,14 +294,13 @@ where
 
 // TODO: we should be able to have a self-referential future here with Pin and not require cloned conns
 /// An async function that will loop over all the conns with a max parallel request count of ops.num_concurrent_req
-async fn parallel_conn_loop<C, P>(
-    mut conns: Vec<NameServer<C, P>>,
+async fn parallel_conn_loop<P>(
+    mut conns: Vec<NameServer<P>>,
     request: DnsRequest,
     opts: ResolverOpts,
 ) -> Result<DnsResponse, ResolveError>
 where
-    C: DnsHandle<Error = ResolveError> + 'static,
-    P: ConnectionProvider<Conn = C> + 'static,
+    P: RuntimeProvider + 'static,
 {
     let mut err = ResolveError::no_connections();
     // If the name server we're trying is giving us backpressure by returning ProtoErrorKind::Busy,
@@ -320,13 +314,13 @@ where
     // close to the connection, which means the top level resolution might take substantially longer
     // to fire than the timeout configured in `ResolverOpts`.
     let mut backoff = Duration::from_millis(20);
-    let mut busy = SmallVec::<[NameServer<C, P>; 2]>::new();
+    let mut busy = SmallVec::<[NameServer<P>; 2]>::new();
 
     loop {
         let request_cont = request.clone();
 
         // construct the parallel requests, 2 is the default
-        let mut par_conns = SmallVec::<[NameServer<C, P>; 2]>::new();
+        let mut par_conns = SmallVec::<[NameServer<P>; 2]>::new();
         let count = conns.len().min(opts.num_concurrent_reqs.max(1));
         for conn in conns.drain(..count) {
             par_conns.push(conn);

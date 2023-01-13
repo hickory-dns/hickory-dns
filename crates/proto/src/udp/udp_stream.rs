@@ -22,8 +22,11 @@ use tracing::{debug, warn};
 use crate::xfer::{BufDnsStreamHandle, SerialMessage, StreamReceiver};
 use crate::Time;
 
-pub(crate) type UdpCreator<S> =
-    Arc<dyn Send+ Sync+ (Fn(&SocketAddr) -> Pin<Box<dyn Send+(Future<Output = Result<S, std::io::Error>>)>>)>;
+pub(crate) type UdpCreator<S> = Arc<
+    dyn Send
+        + Sync
+        + (Fn(&SocketAddr) -> Pin<Box<dyn Send + (Future<Output = Result<S, std::io::Error>>)>>),
+>;
 
 /// Trait for UdpSocket
 #[async_trait]
@@ -228,7 +231,7 @@ impl<S: UdpSocket + 'static> NextRandomUdpSocket<S> {
 
         Self {
             bind_address,
-            closure: Arc::new(|addr:_| S::bind(*addr)),
+            closure: Arc::new(|addr: _| S::bind(*addr)),
             marker: PhantomData,
         }
     }

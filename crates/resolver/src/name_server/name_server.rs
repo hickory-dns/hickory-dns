@@ -16,34 +16,38 @@ use futures_util::stream::{once, Stream};
 
 #[cfg(feature = "mdns")]
 use proto::multicast::MDNS_IPV4;
-use proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
+use proto::op::NoopMessageFinalizer;
+use proto::tcp::TcpClientStream;
+use proto::udp::UdpClientStream;
+use proto::xfer::{DnsExchange, DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
+use proto::DnsMultiplexer;
 use tracing::debug;
 
 #[cfg(feature = "mdns")]
 use crate::config::Protocol;
 use crate::config::{NameServerConfig, ResolverOpts};
 use crate::error::ResolveError;
-use crate::name_server::{ConnectionProvider, NameServerState, NameServerStats};
+use crate::name_server::connection_provider::{ConnectionConnect, ConnectionFuture};
+use crate::name_server::{
+    ConnectionProvider, GenericConnection, NameServerState, NameServerStats, RuntimeProvider,
+};
 #[cfg(feature = "tokio-runtime")]
 use crate::name_server::{TokioConnection, TokioConnectionProvider, TokioHandle};
+#[cfg(feature = "mdns")]
+use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
 
 /// Specifies the details of a remote NameServer used for lookups
 #[derive(Clone)]
-pub struct NameServer<
-    C: DnsHandle<Error = ResolveError> + Send,
-    P: ConnectionProvider<Conn = C> + Send,
-> {
+pub struct NameServer<P: RuntimeProvider + Send> {
     config: NameServerConfig,
     options: ResolverOpts,
-    client: Arc<Mutex<Option<C>>>,
+    client: Arc<Mutex<Option<GenericConnection>>>,
     state: Arc<NameServerState>,
     stats: Arc<NameServerStats>,
-    conn_provider: P,
+    runtime_provider: P,
 }
 
-impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> Debug
-    for NameServer<C, P>
-{
+impl<P: RuntimeProvider> Debug for NameServer<P> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "config: {:?}, options: {:?}", self.config, self.options)
     }
@@ -51,19 +55,19 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> Debug
 
 #[cfg(feature = "tokio-runtime")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
-impl NameServer<TokioConnection, TokioConnectionProvider> {
+impl NameServer<TokioConnectionProvider> {
     /// A shortcut for constructing a nameserver usable in the Tokio runtime
     pub fn new(config: NameServerConfig, options: ResolverOpts, runtime: TokioHandle) -> Self {
         Self::new_with_provider(config, options, TokioConnectionProvider::new(runtime))
     }
 }
 
-impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameServer<C, P> {
+impl<P: RuntimeProvider> NameServer<P> {
     /// Construct a new Nameserver with the configuration and options. The connection provider will create UDP and TCP sockets
     pub fn new_with_provider(
         config: NameServerConfig,
         options: ResolverOpts,
-        conn_provider: P,
+        runtime_provider: P,
     ) -> Self {
         Self {
             config,
@@ -71,7 +75,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
             client: Arc::new(Mutex::new(None)),
             state: Arc::new(NameServerState::init(None)),
             stats: Arc::new(NameServerStats::default()),
-            conn_provider,
+            runtime_provider,
         }
     }
 
@@ -80,7 +84,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
         config: NameServerConfig,
         options: ResolverOpts,
         client: C,
-        conn_provider: P,
+        runtime_provider: P,
     ) -> Self {
         Self {
             config,
@@ -88,7 +92,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
             client: Arc::new(Mutex::new(Some(client))),
             state: Arc::new(NameServerState::init(None)),
             stats: Arc::new(NameServerStats::default()),
-            conn_provider,
+            runtime_provider,
         }
     }
 
@@ -118,7 +122,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
             self.state.reinit(None);
 
             let new_client = self
-                .conn_provider
+                .runtime_provider
                 .new_connection(&self.config, &self.options)
                 .await?;
 
@@ -131,6 +135,132 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
         Ok((*client)
             .clone()
             .expect("bad state, client should be connected"))
+    }
+
+    fn new_connection(
+        &self,
+        config: &NameServerConfig,
+        options: &ResolverOpts,
+    ) -> ConnectionFuture<P> {
+        let dns_connect = match config.protocol {
+            Protocol::Udp => {
+                let stream = UdpClientStream::<R::Udp>::with_(
+                    config.socket_addr,
+                    config.bind_addr,
+                    options.timeout,
+                );
+                let exchange = DnsExchange::connect(stream);
+                ConnectionConnect::Udp(exchange)
+            }
+            Protocol::Tcp => {
+                let socket_addr = config.socket_addr;
+                let bind_addr = config.bind_addr;
+                let timeout = options.timeout;
+
+                let (stream, handle) = TcpClientStream::<R::Tcp>::with_bind_addr_and_timeout(
+                    socket_addr,
+                    bind_addr,
+                    timeout,
+                );
+                // TODO: need config for Signer...
+                let dns_conn = DnsMultiplexer::with_timeout(
+                    stream,
+                    handle,
+                    timeout,
+                    NoopMessageFinalizer::new(),
+                );
+
+                let exchange = DnsExchange::connect(dns_conn);
+                ConnectionConnect::Tcp(exchange)
+            }
+            #[cfg(feature = "dns-over-tls")]
+            Protocol::Tls => {
+                let socket_addr = config.socket_addr;
+                let bind_addr = config.bind_addr;
+                let timeout = options.timeout;
+                let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
+                #[cfg(feature = "dns-over-rustls")]
+                let client_config = config.tls_config.clone();
+
+                #[cfg(feature = "dns-over-rustls")]
+                let (stream, handle) = {
+                    crate::tls::new_tls_stream::<R>(
+                        socket_addr,
+                        bind_addr,
+                        tls_dns_name,
+                        client_config,
+                    )
+                };
+                #[cfg(not(feature = "dns-over-rustls"))]
+                let (stream, handle) =
+                    { crate::tls::new_tls_stream::<R>(socket_addr, bind_addr, tls_dns_name) };
+
+                let dns_conn = DnsMultiplexer::with_timeout(
+                    stream,
+                    handle,
+                    timeout,
+                    NoopMessageFinalizer::new(),
+                );
+
+                let exchange = DnsExchange::connect(dns_conn);
+                ConnectionConnect::Tls(exchange)
+            }
+            #[cfg(feature = "dns-over-https")]
+            Protocol::Https => {
+                let socket_addr = config.socket_addr;
+                let bind_addr = config.bind_addr;
+                let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
+                #[cfg(feature = "dns-over-rustls")]
+                let client_config = config.tls_config.clone();
+
+                let exchange = crate::https::new_https_stream::<R>(
+                    socket_addr,
+                    bind_addr,
+                    tls_dns_name,
+                    client_config,
+                );
+                ConnectionConnect::Https(exchange)
+            }
+            #[cfg(feature = "dns-over-quic")]
+            Protocol::Quic => {
+                let socket_addr = config.socket_addr;
+                let bind_addr = config.bind_addr;
+                let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
+                #[cfg(feature = "dns-over-rustls")]
+                let client_config = config.tls_config.clone();
+
+                let exchange = crate::quic::new_quic_stream(
+                    socket_addr,
+                    bind_addr,
+                    tls_dns_name,
+                    client_config,
+                );
+                ConnectionConnect::Quic(exchange)
+            }
+            #[cfg(feature = "mdns")]
+            Protocol::Mdns => {
+                let socket_addr = config.socket_addr;
+                let timeout = options.timeout;
+
+                let (stream, handle) =
+                    MdnsClientStream::new(socket_addr, MdnsQueryType::OneShot, None, None, None);
+                // TODO: need config for Signer...
+                let dns_conn = DnsMultiplexer::with_timeout(
+                    stream,
+                    handle,
+                    timeout,
+                    NoopMessageFinalizer::new(),
+                );
+
+                let exchange = DnsExchange::connect(dns_conn);
+                ConnectionConnect::Mdns(exchange)
+            }
+        };
+
+        ConnectionFuture {
+            connect: dns_connect,
+            spawner: self.0.clone(),
+        }
     }
 
     async fn inner_send<R: Into<DnsRequest> + Unpin + Send + 'static>(
@@ -180,10 +310,9 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
     }
 }
 
-impl<C, P> DnsHandle for NameServer<C, P>
+impl<P> DnsHandle for NameServer<P>
 where
-    C: DnsHandle<Error = ResolveError>,
-    P: ConnectionProvider<Conn = C>,
+    P: RuntimeProvider,
 {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>>;
     type Error = ResolveError;
@@ -200,7 +329,7 @@ where
     }
 }
 
-impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> Ord for NameServer<C, P> {
+impl<P: RuntimeProvider> Ord for NameServer<P> {
     /// Custom implementation of Ord for NameServer which incorporates the performance of the connection into it's ranking
     fn cmp(&self, other: &Self) -> Ordering {
         // if they are literally equal, just return
@@ -212,35 +341,30 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> Ord fo
     }
 }
 
-impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> PartialOrd
-    for NameServer<C, P>
-{
+impl<P: RuntimeProvider> PartialOrd for NameServer<P> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> PartialEq
-    for NameServer<C, P>
-{
+impl<P: RuntimeProvider> PartialEq for NameServer<P> {
     /// NameServers are equal if the config (connection information) are equal
     fn eq(&self, other: &Self) -> bool {
         self.config == other.config
     }
 }
 
-impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> Eq for NameServer<C, P> {}
+impl<P: RuntimeProvider> Eq for NameServer<P> {}
 
 // TODO: once IPv6 is better understood, also make this a binary keep.
 #[cfg(feature = "mdns")]
-pub(crate) fn mdns_nameserver<C, P>(
+pub(crate) fn mdns_nameserver<P>(
     options: ResolverOpts,
     conn_provider: P,
     trust_negative_responses: bool,
-) -> NameServer<C, P>
+) -> NameServer<P>
 where
-    C: DnsHandle<Error = ResolveError>,
-    P: ConnectionProvider<Conn = C>,
+    P: RuntimeProvider,
 {
     let config = NameServerConfig {
         socket_addr: *MDNS_IPV4,
