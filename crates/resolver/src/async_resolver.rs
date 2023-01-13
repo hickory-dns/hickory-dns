@@ -25,10 +25,7 @@ use crate::dns_lru::{self, DnsLru};
 use crate::error::*;
 use crate::lookup::{self, Lookup, LookupEither, LookupFuture};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
-use crate::name_server::{
-    ConnectionProvider, GenericConnection, GenericConnectionProvider, NameServerPool,
-    RuntimeProvider,
-};
+use crate::name_server::{GenericConnection, NameServerPool, RuntimeProvider};
 #[cfg(feature = "tokio-runtime")]
 use crate::name_server::{TokioConnection, TokioConnectionProvider, TokioHandle};
 

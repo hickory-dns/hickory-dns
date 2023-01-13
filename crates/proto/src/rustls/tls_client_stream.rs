@@ -84,6 +84,7 @@ pub fn tls_client_connect_with_bind_addr<S: Connect>(
 #[allow(clippy::type_complexity)]
 pub fn tls_client_connect_with_future<S, F>(
     future: F,
+    socket_addr: SocketAddr,
     dns_name: String,
     client_config: Arc<ClientConfig>,
 ) -> (
@@ -94,7 +95,8 @@ where
     S: DnsTcpStream,
     F: Future<Output = io::Result<S>> + Send,
 {
-    let (stream_future, sender) = tls_connect_with_future(future, dns_name, client_config);
+    let (stream_future, sender) =
+        tls_connect_with_future(future, socket_addr, dns_name, client_config);
 
     let new_future = Box::pin(
         stream_future

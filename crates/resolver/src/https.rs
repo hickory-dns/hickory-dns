@@ -43,6 +43,7 @@ where
 #[allow(clippy::type_complexity)]
 pub(crate) fn new_https_stream_with_future<S, F>(
     future: F,
+    socket_addr: SocketAddr,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
 ) -> DnsExchangeConnect<HttpsClientConnect<S>, HttpsClientStream, TokioTime>

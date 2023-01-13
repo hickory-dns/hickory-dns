@@ -146,6 +146,7 @@ pub fn tls_connect_with_bind_addr<S: Connect>(
 #[allow(clippy::type_complexity)]
 pub fn tls_connect_with_future<S, F>(
     future: F,
+    name_server: SocketAddr,
     dns_name: String,
     client_config: Arc<ClientConfig>,
 ) -> (
