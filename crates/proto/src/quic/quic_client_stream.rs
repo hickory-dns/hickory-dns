@@ -177,7 +177,12 @@ impl QuicClientStreamBuilder {
         QuicClientConnect(Box::pin(self.connect(name_server, dns_name)) as _)
     }
 
-    pub fn build_with_future<S, F>(self, future: F) -> QuicClientConnect
+    pub fn build_with_future<S, F>(
+        self,
+        future: F,
+        name_server: SocketAddr,
+        dns_name: String,
+    ) -> QuicClientConnect
     where
         S: DnsUdpSocket + QuicLocalAddr,
         F: Future<Output = std::io::Result<S>> + Send,

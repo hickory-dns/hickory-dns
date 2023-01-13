@@ -23,14 +23,11 @@ use proto::xfer::{DnsExchange, DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
 use proto::DnsMultiplexer;
 use tracing::debug;
 
-#[cfg(feature = "mdns")]
 use crate::config::Protocol;
 use crate::config::{NameServerConfig, ResolverOpts};
 use crate::error::ResolveError;
 use crate::name_server::connection_provider::{ConnectionConnect, ConnectionFuture};
-use crate::name_server::{
-    ConnectionProvider, GenericConnection, NameServerState, NameServerStats, RuntimeProvider,
-};
+use crate::name_server::{GenericConnection, NameServerState, NameServerStats, RuntimeProvider};
 #[cfg(feature = "tokio-runtime")]
 use crate::name_server::{TokioConnection, TokioConnectionProvider, TokioHandle};
 #[cfg(feature = "mdns")]
@@ -44,7 +41,7 @@ pub struct NameServer<P: RuntimeProvider + Send> {
     client: Arc<Mutex<Option<GenericConnection>>>,
     state: Arc<NameServerState>,
     stats: Arc<NameServerStats>,
-    runtime_provider: P,
+    runtime_provider: Arc<P>,
 }
 
 impl<P: RuntimeProvider> Debug for NameServer<P> {
@@ -83,7 +80,7 @@ impl<P: RuntimeProvider> NameServer<P> {
     pub fn from_conn(
         config: NameServerConfig,
         options: ResolverOpts,
-        client: C,
+        client: GenericConnection,
         runtime_provider: P,
     ) -> Self {
         Self {
@@ -144,24 +141,24 @@ impl<P: RuntimeProvider> NameServer<P> {
     ) -> ConnectionFuture<P> {
         let dns_connect = match config.protocol {
             Protocol::Udp => {
-                let stream = UdpClientStream::<R::Udp>::with_(
+                let provider_handle = self.runtime_provider.clone();
+                let closure = move || provider_handle.bind_udp(&config, &options);
+                let stream = UdpClientStream::with_creator(
                     config.socket_addr,
-                    config.bind_addr,
+                    None,
                     options.timeout,
+                    closure,
                 );
                 let exchange = DnsExchange::connect(stream);
                 ConnectionConnect::Udp(exchange)
             }
             Protocol::Tcp => {
                 let socket_addr = config.socket_addr;
-                let bind_addr = config.bind_addr;
                 let timeout = options.timeout;
+                let tcp_future = self.runtime_provider.connect_tcp(&config, &options);
 
-                let (stream, handle) = TcpClientStream::<R::Tcp>::with_bind_addr_and_timeout(
-                    socket_addr,
-                    bind_addr,
-                    timeout,
-                );
+                let (stream, handle) =
+                    TcpClientStream::with_future(tcp_future, socket_addr, timeout);
                 // TODO: need config for Signer...
                 let dns_conn = DnsMultiplexer::with_timeout(
                     stream,
@@ -176,17 +173,18 @@ impl<P: RuntimeProvider> NameServer<P> {
             #[cfg(feature = "dns-over-tls")]
             Protocol::Tls => {
                 let socket_addr = config.socket_addr;
-                let bind_addr = config.bind_addr;
                 let timeout = options.timeout;
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
+                let tcp_future = self.runtime_provider.connect_tcp(&config, &options);
+
                 #[cfg(feature = "dns-over-rustls")]
                 let client_config = config.tls_config.clone();
 
                 #[cfg(feature = "dns-over-rustls")]
                 let (stream, handle) = {
-                    crate::tls::new_tls_stream::<R>(
+                    crate::tls::new_tls_stream_with_future(
+                        tcp_future,
                         socket_addr,
-                        bind_addr,
                         tls_dns_name,
                         client_config,
                     )
@@ -208,14 +206,14 @@ impl<P: RuntimeProvider> NameServer<P> {
             #[cfg(feature = "dns-over-https")]
             Protocol::Https => {
                 let socket_addr = config.socket_addr;
-                let bind_addr = config.bind_addr;
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
                 #[cfg(feature = "dns-over-rustls")]
                 let client_config = config.tls_config.clone();
+                let tcp_future = self.runtime_provider.connect_tcp(&config, &options);
 
-                let exchange = crate::https::new_https_stream::<R>(
+                let exchange = crate::https::new_https_stream_with_future(
+                    tcp_future,
                     socket_addr,
-                    bind_addr,
                     tls_dns_name,
                     client_config,
                 );
@@ -224,14 +222,14 @@ impl<P: RuntimeProvider> NameServer<P> {
             #[cfg(feature = "dns-over-quic")]
             Protocol::Quic => {
                 let socket_addr = config.socket_addr;
-                let bind_addr = config.bind_addr;
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
                 #[cfg(feature = "dns-over-rustls")]
                 let client_config = config.tls_config.clone();
+                let udp_future = self.runtime_provider.bind_udp(&config, &options);
 
-                let exchange = crate::quic::new_quic_stream(
+                let exchange = crate::quic::new_quic_stream_with_future(
+                    udp_future,
                     socket_addr,
-                    bind_addr,
                     tls_dns_name,
                     client_config,
                 );

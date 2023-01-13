@@ -78,10 +78,11 @@ pub(crate) fn new_tls_stream<R: RuntimeProvider>(
 #[allow(clippy::type_complexity)]
 pub(crate) fn new_tls_stream_with_future<S, F>(
     future: F,
+    socket_addr: SocketAddr,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
 ) -> (
-    Pin<Box<dyn Future<Output = Result<TlsClientStream<R::Tcp>, ProtoError>> + Send>>,
+    Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send>>,
     BufDnsStreamHandle,
 )
 where
@@ -92,6 +93,7 @@ where
         || CLIENT_CONFIG.clone(),
         |TlsClientConfig(client_config)| client_config,
     );
-    let (stream, handle) = tls_client_connect_with_future(future, dns_name, client_config);
+    let (stream, handle) =
+        tls_client_connect_with_future(future, socket_addr, dns_name, client_config);
     (Box::pin(stream), handle)
 }
