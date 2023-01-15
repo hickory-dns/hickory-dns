@@ -94,10 +94,3 @@ impl RuntimeProvider for AsyncStdRuntimeProvider {
         Box::pin(AsyncStdUdpSocket::bind(local_addr))
     }
 }
-
-impl AsyncStdRuntimeProvider {
-    #[cfg(test)]
-    pub(crate) fn handle(&self) -> AsyncStdRuntimeHandle {
-        AsyncStdRuntimeHandle
-    }
-}

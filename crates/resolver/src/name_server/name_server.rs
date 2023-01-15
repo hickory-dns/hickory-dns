@@ -430,7 +430,6 @@ mod tests {
             bind_addr: None,
         };
         let io_loop = Runtime::new().unwrap();
-        let runtime_handle = TokioHandle::default();
         let name_server =
             future::lazy(|_| NameServer::new(config, options, TokioRuntimeProvider::new()));
 
