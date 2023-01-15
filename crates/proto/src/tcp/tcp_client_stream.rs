@@ -96,6 +96,13 @@ impl<S: DnsTcpStream> TcpClientStream<S> {
         Self { tcp_stream }
     }
 
+    /// Constructs a new TcpStream for a client to the specified SocketAddr.
+    ///
+    /// # Arguments
+    ///
+    /// * `future` - a future of a connecting tcp
+    /// * `name_server` - the IP and Port of the DNS server to connect to
+    /// * `timeout` - connection timeout
     #[allow(clippy::new_ret_no_self)]
     pub fn with_future<F: Future<Output = io::Result<S>> + Send + 'static>(
         future: F,

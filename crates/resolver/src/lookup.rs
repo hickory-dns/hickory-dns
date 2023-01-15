@@ -32,7 +32,7 @@ use crate::caching_client::CachingClient;
 use crate::dns_lru::MAX_TTL;
 use crate::error::*;
 use crate::lookup_ip::LookupIpIter;
-use crate::name_server::NameServerPool;
+use crate::name_server::{NameServerPool, RuntimeProvider};
 
 /// Result of a DNS query when querying for any record type supported by the Trust-DNS Proto library.
 ///
@@ -175,19 +175,14 @@ impl Iterator for LookupIntoIter {
 /// Different lookup options for the lookup attempts and validation
 #[derive(Clone)]
 #[doc(hidden)]
-pub enum LookupEither<
-    C: DnsHandle<Error = ResolveError> + 'static,
-    P: ConnectionProvider<Conn = C> + 'static,
-> {
-    Retry(RetryDnsHandle<NameServerPool<C, P>>),
+pub enum LookupEither<P: RuntimeProvider + Send> {
+    Retry(RetryDnsHandle<NameServerPool<P>>),
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
-    Secure(DnssecDnsHandle<RetryDnsHandle<NameServerPool<C, P>>>),
+    Secure(DnssecDnsHandle<RetryDnsHandle<NameServerPool<P>>>),
 }
 
-impl<C: DnsHandle<Error = ResolveError> + Sync, P: ConnectionProvider<Conn = C>> DnsHandle
-    for LookupEither<C, P>
-{
+impl<P: RuntimeProvider> DnsHandle for LookupEither<P> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>>;
     type Error = ResolveError;
 

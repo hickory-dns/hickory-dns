@@ -11,9 +11,9 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures_util::future::{Future, FutureExt, FutureObj};
+use futures_util::future::{Future, FutureExt};
+use futures_util::ready;
 use futures_util::stream::{Stream, StreamExt};
-use futures_util::{ready, AsyncRead, AsyncWrite};
 #[cfg(feature = "tokio-runtime")]
 use tokio::net::TcpStream as TokioTcpStream;
 #[cfg(all(feature = "dns-over-native-tls", not(feature = "dns-over-rustls")))]
@@ -29,36 +29,34 @@ use tokio_rustls::client::TlsStream as TokioTlsStream;
 
 #[cfg(feature = "dns-over-https")]
 use proto::https::{HttpsClientConnect, HttpsClientStream};
+use proto::iocompat::AsyncIoTokioAsStd;
 #[cfg(feature = "mdns")]
 use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
 #[cfg(feature = "dns-over-quic")]
 use proto::quic::{QuicClientConnect, QuicClientStream, QuicLocalAddr};
 use proto::tcp::DnsTcpStream;
 use proto::udp::DnsUdpSocket;
+#[cfg(feature = "tokio-runtime")]
+use proto::TokioTime;
 use proto::{
     self,
     error::ProtoError,
     op::NoopMessageFinalizer,
-    tcp::Connect,
     tcp::TcpClientConnect,
     tcp::TcpClientStream,
     udp::UdpClientConnect,
-    udp::{UdpClientStream, UdpSocket},
+    udp::UdpClientStream,
     xfer::{
         DnsExchange, DnsExchangeConnect, DnsExchangeSend, DnsHandle, DnsMultiplexer,
         DnsMultiplexerConnect, DnsRequest, DnsResponse,
     },
     Time,
 };
-#[cfg(feature = "tokio-runtime")]
-use proto::{iocompat::AsyncIoTokioAsStd, TokioTime};
 
-use crate::config::Protocol;
-use crate::config::{NameServerConfig, ResolverOpts};
 use crate::error::ResolveError;
 
 /// RuntimeProvider defines which async runtime that handles IO and timers.
-pub trait RuntimeProvider: Clone + 'static {
+pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
     /// Handle to the executor;
     type Handle: Clone + Send + Spawn + Sync + Unpin;
 
@@ -75,12 +73,21 @@ pub trait RuntimeProvider: Clone + 'static {
     /// TcpStream
     type Tcp: DnsTcpStream;
 
+    /// Create a runtime handle
+    fn create_handle(&self) -> Self::Handle;
+
     /// Create a TCP connection with custom configuration.
-    fn connect_tcp(&self, server_addr: SocketAddr) -> FutureObj<io::Result<Self::Tcp>>;
+    fn connect_tcp(
+        &self,
+        server_addr: SocketAddr,
+    ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Tcp>>>>;
 
     /// Create a UDP socket with custom configuration.
     /// *Notice: the future should be ready once returned at best effort. Otherwise UDP DNS may need much more retries.*
-    fn bind_udp(&self, local_addr: Option<SocketAddr>) -> FutureObj<io::Result<Self::Udp>>;
+    fn bind_udp(
+        &self,
+        local_addr: SocketAddr,
+    ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Udp>>>>;
 }
 
 /// A type defines the Handle which can spawn future.
@@ -149,7 +156,7 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
 
 /// Resolves to a new Connection
 #[must_use = "futures do nothing unless polled"]
-pub struct ConnectionFuture<R: RuntimeProvider> {
+pub(crate) struct ConnectionFuture<R: RuntimeProvider> {
     pub(crate) connect: ConnectionConnect<R>,
     pub(crate) spawner: R::Handle,
 }
@@ -248,18 +255,41 @@ pub mod tokio_runtime {
 
     /// The Tokio Runtime for async execution
     #[derive(Clone, Copy)]
-    pub struct TokioRuntime;
+    pub struct TokioRuntimeProvider;
 
-    impl RuntimeProvider for TokioRuntime {
-        type Handle = TokioHandle;
-        type Tcp = AsyncIoTokioAsStd<TokioTcpStream>;
-        type Timer = TokioTime;
-        type Udp = TokioUdpSocket;
+    impl TokioRuntimeProvider {
+        /// Create a Tokio runtime
+        pub fn new() -> TokioRuntimeProvider {
+            Self {}
+        }
     }
 
-    /// An alias for Tokio use cases
-    pub type TokioConnection = GenericConnection;
+    impl RuntimeProvider for TokioRuntimeProvider {
+        type Handle = TokioHandle;
+        type Timer = TokioTime;
+        type Udp = TokioUdpSocket;
+        type Tcp = AsyncIoTokioAsStd<TokioTcpStream>;
 
-    /// An alias for Tokio use cases
-    pub type TokioConnectionProvider = GenericConnectionProvider<TokioRuntime>;
+        fn create_handle(&self) -> Self::Handle {
+            TokioHandle::default()
+        }
+
+        fn connect_tcp(
+            &self,
+            server_addr: SocketAddr,
+        ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Tcp>>>> {
+            Box::pin(async move {
+                TokioTcpStream::connect(server_addr)
+                    .await
+                    .map(|c| AsyncIoTokioAsStd(c))
+            })
+        }
+
+        fn bind_udp(
+            &self,
+            local_addr: SocketAddr,
+        ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Udp>>>> {
+            Box::pin(tokio::net::UdpSocket::bind(local_addr))
+        }
+    }
 }

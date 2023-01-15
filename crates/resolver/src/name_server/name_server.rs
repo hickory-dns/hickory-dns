@@ -29,8 +29,6 @@ use crate::config::{NameServerConfig, ResolverOpts};
 use crate::error::ResolveError;
 use crate::name_server::connection_provider::{ConnectionConnect, ConnectionFuture};
 use crate::name_server::{GenericConnection, NameServerState, NameServerStats, RuntimeProvider};
-#[cfg(feature = "tokio-runtime")]
-use crate::name_server::{TokioConnection, TokioConnectionProvider, TokioHandle};
 #[cfg(feature = "mdns")]
 use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
 
@@ -42,7 +40,7 @@ pub struct NameServer<P: RuntimeProvider + Send> {
     client: Arc<Mutex<Option<GenericConnection>>>,
     state: Arc<NameServerState>,
     stats: Arc<NameServerStats>,
-    runtime_provider: Arc<P>,
+    runtime_provider: P,
 }
 
 impl<P: RuntimeProvider> Debug for NameServer<P> {
@@ -51,22 +49,9 @@ impl<P: RuntimeProvider> Debug for NameServer<P> {
     }
 }
 
-#[cfg(feature = "tokio-runtime")]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
-impl NameServer<TokioConnectionProvider> {
-    /// A shortcut for constructing a nameserver usable in the Tokio runtime
-    pub fn new(config: NameServerConfig, options: ResolverOpts, runtime: TokioHandle) -> Self {
-        Self::new_with_provider(config, options, TokioConnectionProvider::new(runtime))
-    }
-}
-
 impl<P: RuntimeProvider> NameServer<P> {
     /// Construct a new Nameserver with the configuration and options. The connection provider will create UDP and TCP sockets
-    pub fn new_with_provider(
-        config: NameServerConfig,
-        options: ResolverOpts,
-        runtime_provider: P,
-    ) -> Self {
+    pub fn new(config: NameServerConfig, options: ResolverOpts, runtime_provider: P) -> Self {
         Self {
             config,
             options,
@@ -119,10 +104,7 @@ impl<P: RuntimeProvider> NameServer<P> {
             // TODO: we need the local EDNS options
             self.state.reinit(None);
 
-            let new_client = self
-                .runtime_provider
-                .new_connection(&self.config, &self.options)
-                .await?;
+            let new_client = self.new_connection(&self.config, &self.options).await?;
 
             // establish a new connection
             *client = Some(new_client);
@@ -143,7 +125,7 @@ impl<P: RuntimeProvider> NameServer<P> {
         let dns_connect = match config.protocol {
             Protocol::Udp => {
                 let provider_handle = self.runtime_provider.clone();
-                let closure = move |addr: SocketAddr| provider_handle.bind_udp(Some(addr));
+                let closure = move |addr: SocketAddr| provider_handle.bind_udp(addr);
                 let stream = UdpClientStream::with_creator(
                     config.socket_addr,
                     None,
@@ -223,10 +205,16 @@ impl<P: RuntimeProvider> NameServer<P> {
             #[cfg(feature = "dns-over-quic")]
             Protocol::Quic => {
                 let socket_addr = config.socket_addr;
+                let bind_addr = config.bind_addr.unwrap_or(match socket_addr {
+                    SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0),
+                    SocketAddr::V6(_) => {
+                        SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)), 0)
+                    }
+                });
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
                 #[cfg(feature = "dns-over-rustls")]
                 let client_config = config.tls_config.clone();
-                let udp_future = self.runtime_provider.bind_udp(config.bind_addr);
+                let udp_future = self.runtime_provider.bind_udp(bind_addr);
 
                 let exchange = crate::quic::new_quic_stream_with_future(
                     udp_future,
@@ -258,7 +246,7 @@ impl<P: RuntimeProvider> NameServer<P> {
 
         ConnectionFuture {
             connect: dns_connect,
-            spawner: self.0.clone(),
+            spawner: self.runtime_provider.create_handle(),
         }
     }
 
@@ -392,6 +380,7 @@ mod tests {
 
     use super::*;
     use crate::config::Protocol;
+    use crate::name_server::TokioRuntimeProvider;
 
     #[test]
     fn test_name_server() {
@@ -407,13 +396,8 @@ mod tests {
             bind_addr: None,
         };
         let io_loop = Runtime::new().unwrap();
-        let runtime_handle = TokioHandle::default();
         let name_server = future::lazy(|_| {
-            NameServer::<_, TokioConnectionProvider>::new(
-                config,
-                ResolverOpts::default(),
-                runtime_handle,
-            )
+            NameServer::new(config, ResolverOpts::default(), TokioRuntimeProvider::new())
         });
 
         let name = Name::parse("www.example.com.", None).unwrap();
@@ -447,9 +431,8 @@ mod tests {
         };
         let io_loop = Runtime::new().unwrap();
         let runtime_handle = TokioHandle::default();
-        let name_server = future::lazy(|_| {
-            NameServer::<_, TokioConnectionProvider>::new(config, options, runtime_handle)
-        });
+        let name_server =
+            future::lazy(|_| NameServer::new(config, options, TokioRuntimeProvider::new()));
 
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(io_loop

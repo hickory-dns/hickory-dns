@@ -87,7 +87,7 @@ impl<S: UdpSocket + Send + 'static> UdpClientStream<S, NoopMessageFinalizer> {
 }
 
 impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> UdpClientStream<S, MF> {
-    /// Constructs a new TcpStream for a client to the specified SocketAddr.
+    /// Constructs a new UdpStream for a client to the specified SocketAddr.
     ///
     /// # Arguments
     ///
@@ -107,7 +107,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> UdpClientStream<S, MF>
         }
     }
 
-    /// Constructs a new TcpStream for a client to the specified SocketAddr.
+    /// Constructs a new UdpStream for a client to the specified SocketAddr.
     ///
     /// # Arguments
     ///
@@ -133,6 +133,14 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> UdpClientStream<S, MF>
 }
 
 impl<S: DnsUdpSocket + Send, MF: MessageFinalizer> UdpClientStream<S, MF> {
+    /// Constructs a new UdpStream for a client to the specified SocketAddr.
+    ///
+    /// # Arguments
+    ///
+    /// * `name_server` - the IP and Port of the DNS server to connect to
+    /// * `signer` - optional final amendment
+    /// * `timeout` - connection timeout
+    /// * `creator` - function that binds a local address to a newly created UDP socket
     pub fn with_creator(
         name_server: SocketAddr,
         signer: Option<Arc<MF>>,

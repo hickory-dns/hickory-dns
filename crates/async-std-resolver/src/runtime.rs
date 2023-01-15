@@ -6,15 +6,17 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::future::Future;
+use std::net::SocketAddr;
+use std::pin::Pin;
 
 use trust_dns_resolver::proto::error::ProtoError;
 use trust_dns_resolver::proto::Executor;
 
-use trust_dns_resolver::name_server::{
-    GenericConnection, GenericConnectionProvider, RuntimeProvider, Spawn,
-};
+use trust_dns_resolver::name_server::{RuntimeProvider, Spawn};
 
 use crate::net::{AsyncStdTcpStream, AsyncStdUdpSocket};
+use crate::proto::tcp::Connect;
+use crate::proto::udp::UdpSocket;
 use crate::time::AsyncStdTime;
 
 /// The async_std runtime.
@@ -45,9 +47,9 @@ use crate::time::AsyncStdTime;
 /// [mod]: index.html
 /// [`new`]: #method.new
 #[derive(Clone, Copy)]
-pub struct AsyncStdRuntime;
+pub struct AsyncStdRuntimeProvider;
 
-impl Executor for AsyncStdRuntime {
+impl Executor for AsyncStdRuntimeProvider {
     fn new() -> Self {
         Self {}
     }
@@ -68,22 +70,34 @@ impl Spawn for AsyncStdRuntimeHandle {
     }
 }
 
-impl RuntimeProvider for AsyncStdRuntime {
+impl RuntimeProvider for AsyncStdRuntimeProvider {
     type Handle = AsyncStdRuntimeHandle;
-    type Tcp = AsyncStdTcpStream;
     type Timer = AsyncStdTime;
     type Udp = AsyncStdUdpSocket;
+    type Tcp = AsyncStdTcpStream;
+
+    fn create_handle(&self) -> Self::Handle {
+        AsyncStdRuntimeHandle {}
+    }
+
+    fn connect_tcp(
+        &self,
+        server_addr: SocketAddr,
+    ) -> Pin<Box<dyn Send + Future<Output = std::io::Result<Self::Tcp>>>> {
+        Box::pin(AsyncStdTcpStream::connect(server_addr))
+    }
+
+    fn bind_udp(
+        &self,
+        local_addr: SocketAddr,
+    ) -> Pin<Box<dyn Send + Future<Output = std::io::Result<Self::Udp>>>> {
+        Box::pin(AsyncStdUdpSocket::bind(local_addr))
+    }
 }
 
-impl AsyncStdRuntime {
+impl AsyncStdRuntimeProvider {
     #[cfg(test)]
     pub(crate) fn handle(&self) -> AsyncStdRuntimeHandle {
         AsyncStdRuntimeHandle
     }
 }
-
-/// AsyncStd default connection
-pub type AsyncStdConnection = GenericConnection;
-
-/// AsyncStd default connection provider
-pub type AsyncStdConnectionProvider = GenericConnectionProvider<AsyncStdRuntime>;
