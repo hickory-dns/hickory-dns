@@ -5,12 +5,13 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::io;
 use std::marker::Unpin;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures_util::future::{Future, FutureExt};
+use futures_util::future::{Future, FutureExt, FutureObj};
 use futures_util::stream::{Stream, StreamExt};
 use futures_util::{ready, AsyncRead, AsyncWrite};
 #[cfg(feature = "tokio-runtime")]
@@ -75,19 +76,11 @@ pub trait RuntimeProvider: Clone + 'static {
     type Tcp: DnsTcpStream;
 
     /// Create a TCP connection with custom configuration.
-    fn connect_tcp(
-        &self,
-        config: &NameServerConfig,
-        options: &ResolverOpts,
-    ) -> ConnectionFuture<Self::Tcp>;
+    fn connect_tcp(&self, server_addr: SocketAddr) -> FutureObj<io::Result<Self::Tcp>>;
 
     /// Create a UDP socket with custom configuration.
     /// *Notice: the future should be ready once returned at best effort. Otherwise UDP DNS may need much more retries.*
-    fn bind_udp(
-        &self,
-        config: &NameServerConfig,
-        options: &ResolverOpts,
-    ) -> ConnectionFuture<Self::Udp>;
+    fn bind_udp(&self, local_addr: Option<SocketAddr>) -> FutureObj<io::Result<Self::Udp>>;
 }
 
 /// A type defines the Handle which can spawn future.

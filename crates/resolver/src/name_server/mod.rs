@@ -14,8 +14,8 @@ mod name_server_pool;
 mod name_server_state;
 mod name_server_stats;
 
-pub use self::connection_provider::{ConnectionProvider, RuntimeProvider, Spawn};
-pub use self::connection_provider::{GenericConnection, GenericConnectionProvider};
+pub use self::connection_provider::GenericConnection;
+pub use self::connection_provider::{RuntimeProvider, Spawn};
 #[cfg(feature = "mdns")]
 #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
 pub(crate) use self::name_server::mdns_nameserver;
