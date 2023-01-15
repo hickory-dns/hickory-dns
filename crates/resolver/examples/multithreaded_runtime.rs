@@ -3,10 +3,12 @@
 //! This example shows how to create a resolver that uses the tokio multithreaded runtime. This is how
 //! you might integrate the resolver into a more complex application.
 
+use trust_dns_resolver::name_server::TokioRuntimeProvider;
+
 #[cfg(feature = "tokio-runtime")]
 fn main() {
     use tokio::runtime::Runtime;
-    use trust_dns_resolver::{TokioAsyncResolver, TokioHandle};
+    use trust_dns_resolver::TokioAsyncResolver;
 
     tracing_subscriber::fmt::init();
 
@@ -18,7 +20,7 @@ fn main() {
         #[cfg(any(unix, windows))]
         {
             // use the system resolver configuration
-            TokioAsyncResolver::from_system_conf(TokioHandle::default())
+            TokioAsyncResolver::from_system_conf(TokioRuntimeProvider::new())
         }
 
         // For other operating systems, we can use one of the preconfigured definitions

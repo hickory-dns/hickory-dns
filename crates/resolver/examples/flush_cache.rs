@@ -1,5 +1,7 @@
 #![recursion_limit = "128"]
 
+use trust_dns_resolver::name_server::TokioRuntimeProvider;
+
 #[cfg(feature = "tokio-runtime")]
 fn main() {
     tokio::runtime::Builder::new_multi_thread()
@@ -20,7 +22,7 @@ async fn tokio_main() {
         #[cfg(any(unix, windows))]
         {
             // use the system resolver configuration
-            TokioAsyncResolver::from_system_conf(TokioHandle::default())
+            TokioAsyncResolver::from_system_conf(TokioRuntimeProvider::new())
         }
 
         // For other operating systems, we can use one of the preconfigured definitions
@@ -58,12 +60,9 @@ async fn tokio_main() {
 }
 
 #[cfg(feature = "tokio-runtime")]
-async fn resolve_list<
-    C: trust_dns_proto::DnsHandle<Error = trust_dns_resolver::error::ResolveError>,
-    P: trust_dns_resolver::ConnectionProvider<Conn = C>,
->(
+async fn resolve_list<P: trust_dns_resolver::name_server::RuntimeProvider>(
     names: &[&str],
-    resolver: &trust_dns_resolver::AsyncResolver<C, P>,
+    resolver: &trust_dns_resolver::AsyncResolver<P>,
 ) -> tokio::time::Duration {
     use tokio::time::Instant;
     let start_time = Instant::now();

@@ -12,10 +12,11 @@ use std::task::Poll;
 
 use futures_util::future;
 
+use trust_dns_resolver::name_server::TokioRuntimeProvider;
+#[cfg(feature = "tokio-runtime")]
+use trust_dns_resolver::TokioAsyncResolver;
 #[cfg(feature = "tokio-runtime")]
 use trust_dns_resolver::{IntoName, TryParseIp};
-#[cfg(feature = "tokio-runtime")]
-use trust_dns_resolver::{TokioAsyncResolver, TokioHandle};
 
 // This is an example of registering a static global resolver into any system.
 //
@@ -51,7 +52,7 @@ lazy_static! {
                 #[cfg(any(unix, windows))]
                 {
                     // use the system resolver configuration
-                    TokioAsyncResolver::from_system_conf(TokioHandle::default())
+                    TokioAsyncResolver::from_system_conf(TokioRuntimeProvider::new())
                 }
 
                 // For other operating systems, we can use one of the preconfigured definitions

@@ -23,10 +23,10 @@ use crate::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts, ServerO
 use crate::error::{ResolveError, ResolveErrorKind};
 #[cfg(feature = "mdns")]
 use crate::name_server;
-use crate::name_server::{NameServer, RuntimeProvider};
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
-use crate::name_server::{TokioConnection, TokioConnectionProvider, TokioHandle};
+use crate::name_server::TokioRuntimeProvider;
+use crate::name_server::{NameServer, RuntimeProvider};
 
 /// A pool of NameServers
 ///
@@ -37,19 +37,19 @@ pub struct NameServerPool<P: RuntimeProvider + Send + 'static> {
     datagram_conns: Arc<[NameServer<P>]>, /* All NameServers must be the same type */
     stream_conns: Arc<[NameServer<P>]>,   /* All NameServers must be the same type */
     #[cfg(feature = "mdns")]
-    mdns_conns: NameServer<C, P>, /* All NameServers must be the same type */
+    mdns_conns: NameServer<P>, /* All NameServers must be the same type */
     options: ResolverOpts,
 }
 
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
-impl NameServerPool<TokioConnection, TokioConnectionProvider> {
+impl NameServerPool<TokioRuntimeProvider> {
     pub(crate) fn tokio_from_config(
         config: &ResolverConfig,
         options: &ResolverOpts,
-        runtime: TokioHandle,
+        runtime: TokioRuntimeProvider,
     ) -> Self {
-        Self::from_config_with_provider(config, options, TokioConnectionProvider::new(runtime))
+        Self::from_config_with_provider(config, options, runtime)
     }
 }
 
@@ -460,6 +460,7 @@ mod tests {
     use super::*;
     use crate::config::NameServerConfig;
     use crate::config::Protocol;
+    use crate::name_server::TokioRuntimeProvider;
 
     #[ignore]
     // because of there is a real connection that needs a reasonable timeout
@@ -491,10 +492,10 @@ mod tests {
         resolver_config.add_name_server(config2);
 
         let io_loop = Runtime::new().unwrap();
-        let mut pool = NameServerPool::<_, TokioConnectionProvider>::tokio_from_config(
+        let mut pool = NameServerPool::tokio_from_config(
             &resolver_config,
             &ResolverOpts::default(),
-            TokioHandle::default(),
+            TokioRuntimeProvider::new(),
         );
 
         let name = Name::parse("www.example.com.", None).unwrap();
@@ -536,7 +537,7 @@ mod tests {
     #[test]
     fn test_multi_use_conns() {
         let io_loop = Runtime::new().unwrap();
-        let conn_provider = TokioConnectionProvider::new(TokioHandle::default());
+        let conn_provider = TokioRuntimeProvider::new();
 
         let tcp = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
@@ -553,7 +554,7 @@ mod tests {
             ..ResolverOpts::default()
         };
         let ns_config = { tcp };
-        let name_server = NameServer::new_with_provider(ns_config, opts, conn_provider);
+        let name_server = NameServer::new(ns_config, opts, conn_provider);
         let name_servers: Arc<[_]> = Arc::from([name_server]);
 
         let mut pool = NameServerPool::from_nameservers_test(

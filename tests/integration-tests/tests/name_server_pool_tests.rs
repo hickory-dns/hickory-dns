@@ -18,7 +18,7 @@ use trust_dns_proto::xfer::{DnsHandle, DnsResponse, FirstAnswer};
 use trust_dns_proto::TokioTime;
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
-use trust_dns_resolver::name_server::{ConnectionProvider, NameServer, NameServerPool};
+use trust_dns_resolver::name_server::{NameServer, NameServerPool};
 
 const DEFAULT_SERVER_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
 
