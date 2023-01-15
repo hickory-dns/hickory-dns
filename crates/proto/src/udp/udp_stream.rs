@@ -28,7 +28,7 @@ pub(crate) type UdpCreator<S> = Arc<
         + (Fn(SocketAddr) -> Pin<Box<dyn Send + (Future<Output = Result<S, std::io::Error>>)>>),
 >;
 
-/// Trait for UdpSocket
+/// Trait for DnsUdpSocket
 #[async_trait]
 pub trait DnsUdpSocket
 where
@@ -65,6 +65,7 @@ where
     }
 }
 
+/// Trait for UdpSocket
 #[async_trait]
 pub trait UdpSocket: DnsUdpSocket {
     /// setups up a "client" udp connection that will only receive packets from the associated address

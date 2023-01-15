@@ -76,7 +76,7 @@ where
                 #[cfg(not(feature = "dns-over-rustls"))]
                 let ns_config = { ns_config.clone() };
 
-                NameServer::<P>::new_with_provider(ns_config, *options, conn_provider.clone())
+                NameServer::new(ns_config, *options, conn_provider.clone())
             })
             .collect();
 
@@ -94,7 +94,7 @@ where
                 #[cfg(not(feature = "dns-over-rustls"))]
                 let ns_config = { ns_config.clone() };
 
-                NameServer::<P>::new_with_provider(ns_config, *options, conn_provider.clone())
+                NameServer::new(ns_config, *options, conn_provider.clone())
             })
             .collect();
 
@@ -113,9 +113,8 @@ where
         options: &ResolverOpts,
         conn_provider: P,
     ) -> Self {
-        let map_config_to_ns = |ns_config| {
-            NameServer::<P>::new_with_provider(ns_config, *options, conn_provider.clone())
-        };
+        let map_config_to_ns =
+            |ns_config| NameServer::new(ns_config, *options, conn_provider.clone());
 
         let (datagram, stream): (Vec<_>, Vec<_>) = name_servers
             .into_inner()
@@ -328,7 +327,7 @@ where
 
         if par_conns.is_empty() {
             if !busy.is_empty() && backoff < Duration::from_millis(300) {
-                P::Time::delay_for(backoff).await;
+                P::Timer::delay_for(backoff).await;
                 conns.extend(busy.drain(..));
                 backoff *= 2;
                 continue;

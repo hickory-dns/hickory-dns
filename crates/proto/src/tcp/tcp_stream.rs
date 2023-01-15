@@ -225,6 +225,13 @@ impl<S: DnsTcpStream> TcpStream<S> {
         }
     }
 
+    /// Creates a new future of the eventually establish a IO stream connection or fail trying
+    ///
+    /// # Arguments
+    ///
+    /// * `future` - underlying stream future which this tcp stream relies on
+    /// * `name_server` - the IP and Port of the DNS server to connect to
+    /// * `timeout` - connection timeout
     #[allow(clippy::type_complexity)]
     pub fn with_future<F: Future<Output = Result<S, io::Error>> + Send + 'static>(
         future: F,

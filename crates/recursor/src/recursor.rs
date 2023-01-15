@@ -17,26 +17,27 @@ use trust_dns_proto::{
     op::Query,
     rr::{RData, RecordType},
 };
+use trust_dns_resolver::name_server::TokioRuntimeProvider;
 use trust_dns_resolver::{
     config::{NameServerConfig, NameServerConfigGroup, Protocol, ResolverOpts},
     dns_lru::{DnsLru, TtlConfig},
     error::ResolveError,
     lookup::Lookup,
     name_server::NameServerPool,
-    Name, TokioConnection, TokioConnectionProvider, TokioHandle,
+    Name,
 };
 
 use crate::{recursor_pool::RecursorPool, Error, ErrorKind};
 
 /// Set of nameservers by the zone name
-type NameServerCache<C, P> = LruCache<Name, RecursorPool<C, P>>;
+type NameServerCache<P> = LruCache<Name, RecursorPool<P>>;
 
 /// A top down recursive resolver which operates off a list of roots for initial recursive requests.
 ///
 /// This is the well known root nodes, referred to as hints in RFCs. See the IANA [Root Servers](https://www.iana.org/domains/root/servers) list.
 pub struct Recursor {
-    roots: RecursorPool<TokioConnection, TokioConnectionProvider>,
-    name_server_cache: Mutex<NameServerCache<TokioConnection, TokioConnectionProvider>>,
+    roots: RecursorPool<TokioRuntimeProvider>,
+    name_server_cache: Mutex<NameServerCache<TokioRuntimeProvider>>,
     record_cache: DnsLru,
 }
 
@@ -53,11 +54,7 @@ impl Recursor {
         assert!(!roots.is_empty(), "roots must not be empty");
 
         let opts = recursor_opts();
-        let roots = NameServerPool::from_config(
-            roots,
-            &opts,
-            TokioConnectionProvider::new(TokioHandle::default()),
-        );
+        let roots = NameServerPool::from_config(roots, &opts, TokioRuntimeProvider::new());
         let roots = RecursorPool::from(Name::root(), roots);
         let name_server_cache = Mutex::new(NameServerCache::new(100)); // TODO: make this configurable
         let record_cache = DnsLru::new(100, TtlConfig::default());
@@ -279,7 +276,7 @@ impl Recursor {
     async fn lookup(
         &self,
         query: Query,
-        ns: RecursorPool<TokioConnection, TokioConnectionProvider>,
+        ns: RecursorPool<TokioRuntimeProvider>,
         now: Instant,
     ) -> Result<Lookup, Error> {
         if let Some(lookup) = self.record_cache.get(&query, now) {
@@ -318,7 +315,7 @@ impl Recursor {
         &self,
         zone: Name,
         request_time: Instant,
-    ) -> Result<RecursorPool<TokioConnection, TokioConnectionProvider>, Error> {
+    ) -> Result<RecursorPool<TokioRuntimeProvider>, Error> {
         // TODO: need to check TTLs here.
         if let Some(ns) = self.name_server_cache.lock().get_mut(&zone) {
             return Ok(ns.clone());
@@ -439,7 +436,7 @@ impl Recursor {
         let ns = NameServerPool::from_config(
             config_group,
             &recursor_opts(),
-            TokioConnectionProvider::new(TokioHandle::default()),
+            TokioRuntimeProvider::new(),
         );
         let ns = RecursorPool::from(zone.clone(), ns);
 
