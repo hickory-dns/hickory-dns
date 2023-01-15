@@ -7,6 +7,7 @@
 
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
+use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Instant;
@@ -108,7 +109,7 @@ impl<P: RuntimeProvider> NameServer<P> {
     /// This will return a mutable client to allows for sending messages.
     ///
     /// If the connection is in a failed state, then this will establish a new connection
-    async fn connected_mut_client(&mut self) -> Result<C, ResolveError> {
+    async fn connected_mut_client(&mut self) -> Result<GenericConnection, ResolveError> {
         let mut client = self.client.lock().await;
 
         // if this is in a failure state
@@ -142,12 +143,12 @@ impl<P: RuntimeProvider> NameServer<P> {
         let dns_connect = match config.protocol {
             Protocol::Udp => {
                 let provider_handle = self.runtime_provider.clone();
-                let closure = move || provider_handle.bind_udp(&config, &options);
+                let closure = move |addr: SocketAddr| provider_handle.bind_udp(Some(addr));
                 let stream = UdpClientStream::with_creator(
                     config.socket_addr,
                     None,
                     options.timeout,
-                    closure,
+                    Arc::new(closure),
                 );
                 let exchange = DnsExchange::connect(stream);
                 ConnectionConnect::Udp(exchange)
@@ -155,7 +156,7 @@ impl<P: RuntimeProvider> NameServer<P> {
             Protocol::Tcp => {
                 let socket_addr = config.socket_addr;
                 let timeout = options.timeout;
-                let tcp_future = self.runtime_provider.connect_tcp(&config, &options);
+                let tcp_future = self.runtime_provider.connect_tcp(socket_addr);
 
                 let (stream, handle) =
                     TcpClientStream::with_future(tcp_future, socket_addr, timeout);
@@ -175,7 +176,7 @@ impl<P: RuntimeProvider> NameServer<P> {
                 let socket_addr = config.socket_addr;
                 let timeout = options.timeout;
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
-                let tcp_future = self.runtime_provider.connect_tcp(&config, &options);
+                let tcp_future = self.runtime_provider.connect_tcp(socket_addr);
 
                 #[cfg(feature = "dns-over-rustls")]
                 let client_config = config.tls_config.clone();
@@ -209,7 +210,7 @@ impl<P: RuntimeProvider> NameServer<P> {
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
                 #[cfg(feature = "dns-over-rustls")]
                 let client_config = config.tls_config.clone();
-                let tcp_future = self.runtime_provider.connect_tcp(&config, &options);
+                let tcp_future = self.runtime_provider.connect_tcp(socket_addr);
 
                 let exchange = crate::https::new_https_stream_with_future(
                     tcp_future,
@@ -225,7 +226,7 @@ impl<P: RuntimeProvider> NameServer<P> {
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
                 #[cfg(feature = "dns-over-rustls")]
                 let client_config = config.tls_config.clone();
-                let udp_future = self.runtime_provider.bind_udp(&config, &options);
+                let udp_future = self.runtime_provider.bind_udp(config.bind_addr);
 
                 let exchange = crate::quic::new_quic_stream_with_future(
                     udp_future,

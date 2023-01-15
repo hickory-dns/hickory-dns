@@ -23,7 +23,7 @@ use crate::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts, ServerO
 use crate::error::{ResolveError, ResolveErrorKind};
 #[cfg(feature = "mdns")]
 use crate::name_server;
-use crate::name_server::{ConnectionProvider, NameServer, RuntimeProvider};
+use crate::name_server::{NameServer, RuntimeProvider};
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
 use crate::name_server::{TokioConnection, TokioConnectionProvider, TokioHandle};

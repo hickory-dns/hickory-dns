@@ -25,7 +25,7 @@ use crate::Time;
 pub(crate) type UdpCreator<S> = Arc<
     dyn Send
         + Sync
-        + (Fn(&SocketAddr) -> Pin<Box<dyn Send + (Future<Output = Result<S, std::io::Error>>)>>),
+        + (Fn(SocketAddr) -> Pin<Box<dyn Send + (Future<Output = Result<S, std::io::Error>>)>>),
 >;
 
 /// Trait for UdpSocket
@@ -231,7 +231,7 @@ impl<S: UdpSocket + 'static> NextRandomUdpSocket<S> {
 
         Self {
             bind_address,
-            closure: Arc::new(|addr: _| S::bind(*addr)),
+            closure: Arc::new(|addr: _| S::bind(addr)),
             marker: PhantomData,
         }
     }
@@ -254,7 +254,7 @@ impl<S: DnsUdpSocket> NextRandomUdpSocket<S> {
     }
 
     async fn bind(&self, addr: SocketAddr) -> Result<S, io::Error> {
-        Box::pin((*self.closure)(&addr)).await
+        Box::pin((*self.closure)(addr)).await
     }
 }
 

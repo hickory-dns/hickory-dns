@@ -102,7 +102,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> UdpClientStream<S, MF>
             name_server,
             timeout,
             signer,
-            creator: Arc::new(|addr: _| Box::pin(NextRandomUdpSocket::<S>::new(addr, &None))),
+            creator: Arc::new(|addr: _| Box::pin(NextRandomUdpSocket::<S>::new(&addr, &None))),
             marker: PhantomData::<S>,
         }
     }
@@ -125,7 +125,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> UdpClientStream<S, MF>
             timeout,
             signer,
             creator: Arc::new(move |addr: _| {
-                Box::pin(NextRandomUdpSocket::<S>::new(addr, &bind_addr))
+                Box::pin(NextRandomUdpSocket::<S>::new(&addr, &bind_addr))
             }),
             marker: PhantomData::<S>,
         }
@@ -218,7 +218,7 @@ impl<S: DnsUdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
         S::Time::timeout::<Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>>(
             self.timeout,
             Box::pin(async move {
-                let socket = (*creator)(&addr).await?;
+                let socket: S = NextRandomUdpSocket::new_with_closure(&addr, creator).await?;
                 send_serial_message_inner(message, message_id, verifier, socket).await
             }),
         )
@@ -277,27 +277,27 @@ impl<S: Send + Unpin, MF: MessageFinalizer> Future for UdpClientConnect<S, MF> {
     }
 }
 
-async fn send_serial_message<S: UdpSocket + Send + 'static>(
-    msg: SerialMessage,
-    msg_id: u16,
-    verifier: Option<MessageVerifier>,
-    bind_addr: Option<SocketAddr>,
-) -> Result<DnsResponse, ProtoError> {
-    let name_server = msg.addr();
-    let socket: S = NextRandomUdpSocket::new(&name_server, &bind_addr).await?;
-    send_serial_message_inner(msg, msg_id, verifier, socket).await
-}
-
-async fn send_serial_message_with_closure<S: DnsUdpSocket + Send>(
-    msg: SerialMessage,
-    msg_id: u16,
-    verifier: Option<MessageVerifier>,
-    creator: UdpCreator<S>,
-) -> Result<DnsResponse, ProtoError> {
-    let name_server = msg.addr();
-    let socket: S = NextRandomUdpSocket::new_with_closure(&name_server, creator).await?;
-    send_serial_message_inner(msg, msg_id, verifier, socket).await
-}
+// async fn send_serial_message<S: UdpSocket + Send + 'static>(
+//     msg: SerialMessage,
+//     msg_id: u16,
+//     verifier: Option<MessageVerifier>,
+//     bind_addr: Option<SocketAddr>,
+// ) -> Result<DnsResponse, ProtoError> {
+//     let name_server = msg.addr();
+//     let socket: S = NextRandomUdpSocket::new(&name_server, &bind_addr).await?;
+//     send_serial_message_inner(msg, msg_id, verifier, socket).await
+// }
+//
+// async fn send_serial_message_with_closure<S: DnsUdpSocket + Send>(
+//     msg: SerialMessage,
+//     msg_id: u16,
+//     verifier: Option<MessageVerifier>,
+//     creator: UdpCreator<S>,
+// ) -> Result<DnsResponse, ProtoError> {
+//     let name_server = msg.addr();
+//     let socket: S = NextRandomUdpSocket::new_with_closure(&name_server, creator).await?;
+//     send_serial_message_inner(msg, msg_id, verifier, socket).await
+// }
 
 async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
     msg: SerialMessage,

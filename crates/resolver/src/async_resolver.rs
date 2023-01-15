@@ -473,7 +473,7 @@ pub mod testing {
     use std::{net::*, str::FromStr};
 
     use crate::config::{LookupIpStrategy, NameServerConfig, ResolverConfig, ResolverOpts};
-    use crate::name_server::{GenericConnection, GenericConnectionProvider, RuntimeProvider};
+    use crate::name_server::{GenericConnection, RuntimeProvider};
     use crate::AsyncResolver;
     use proto::{rr::Name, Executor};
 
