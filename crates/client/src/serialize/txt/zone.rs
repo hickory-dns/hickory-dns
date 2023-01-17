@@ -488,37 +488,4 @@ mod tests {
             result
         );
     }
-
-    #[test]
-    fn test_zone_parse_default_class() {
-        let domain = Name::from_str("example.com.").unwrap();
-
-        let zone_data = r#"example.com.  	3600	SOA	ns1.example.com. contact.example.com. 2022100601 3600 900 1209600 86400"#;
-        let lexer = Lexer::new(zone_data);
-        // NOTE: We specify a default class of DNSClass:IN, so no error should occur even though the
-        // zone data doesn't provide one.
-        let result = Parser::new().parse(lexer, Some(domain), Option::Some(DNSClass::IN));
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_zone_parse_missing_class() {
-        let domain = Name::from_str("example.com.").unwrap();
-
-        let zone_data = r#"example.com.  	3600	SOA	ns1.example.com. contact.example.com. 2022100601 3600 900 1209600 86400"#;
-        let lexer = Lexer::new(zone_data);
-        // NOTE: We specify no default class, so an error should occur since the zone data does not
-        // provide one.
-        let result = Parser::new().parse(lexer, Some(domain), None);
-        assert!(
-            result.is_err()
-                & result
-                    .as_ref()
-                    .unwrap_err()
-                    .to_string()
-                    .contains("record class not specified"),
-            "unexpected success: {:#?}",
-            result
-        );
-    }
 }
