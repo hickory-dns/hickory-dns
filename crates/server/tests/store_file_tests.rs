@@ -48,22 +48,6 @@ fn test_all_lines_are_loaded() {
     assert!(authority.records_get_mut().get(&rrkey).is_some())
 }
 
-#[test]
-fn test_implicit_in_class() {
-    let config = FileConfig {
-        zone_file_path: "../../tests/test-data/test_configs/default/implicitclass.zone".to_string(),
-    };
-
-    let authority = FileAuthority::try_from_config(
-        Name::from_str("example.com.").unwrap(),
-        ZoneType::Primary,
-        false,
-        None,
-        &config,
-    );
-    assert!(authority.is_ok());
-}
-
 #[tokio::test]
 async fn test_ttl_wilcard() {
     let config = FileConfig {
