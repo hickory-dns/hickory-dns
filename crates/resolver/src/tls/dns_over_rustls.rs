@@ -19,11 +19,10 @@ use rustls::{ClientConfig, OwnedTrustAnchor, RootCertStore};
 use proto::error::ProtoError;
 use proto::rustls::tls_client_stream::tls_client_connect_with_future;
 use proto::rustls::{tls_client_connect_with_bind_addr, TlsClientStream};
-use proto::tcp::DnsTcpStream;
+use proto::tcp::{Connect, DnsTcpStream};
 use proto::BufDnsStreamHandle;
 
 use crate::config::TlsClientConfig;
-use crate::name_server::RuntimeProvider;
 
 const ALPN_H2: &[u8] = b"h2";
 
@@ -57,13 +56,13 @@ lazy_static! {
 }
 
 #[allow(clippy::type_complexity)]
-pub(crate) fn new_tls_stream<R: RuntimeProvider>(
+pub(crate) fn new_tls_stream<S: Connect>(
     socket_addr: SocketAddr,
     bind_addr: Option<SocketAddr>,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
 ) -> (
-    Pin<Box<dyn Future<Output = Result<TlsClientStream<R::Tcp>, ProtoError>> + Send>>,
+    Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send>>,
     BufDnsStreamHandle,
 ) {
     let client_config = client_config.map_or_else(
@@ -87,7 +86,7 @@ pub(crate) fn new_tls_stream_with_future<S, F>(
 )
 where
     S: DnsTcpStream,
-    F: Future<Output = io::Result<S>> + Send,
+    F: Future<Output = io::Result<S>> + Send + Unpin + 'static,
 {
     let client_config = client_config.map_or_else(
         || CLIENT_CONFIG.clone(),

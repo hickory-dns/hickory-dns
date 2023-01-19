@@ -10,6 +10,7 @@ use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+use crate::proto::quic::QuicLocalAddr;
 use crate::proto::udp::DnsUdpSocket;
 use async_std::task::spawn_blocking;
 use async_trait::async_trait;
@@ -56,6 +57,12 @@ impl DnsUdpSocket for AsyncStdUdpSocket {
 
     async fn send_to(&self, buf: &[u8], target: SocketAddr) -> io::Result<usize> {
         self.0.send_to(buf, target).await
+    }
+}
+
+impl QuicLocalAddr for AsyncStdUdpSocket {
+    fn local_addr(&self) -> io::Result<SocketAddr> {
+        self.0.local_addr()
     }
 }
 

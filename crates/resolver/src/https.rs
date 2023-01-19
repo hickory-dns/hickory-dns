@@ -8,25 +8,25 @@
 use std::future::Future;
 use std::net::SocketAddr;
 
-use crate::name_server::RuntimeProvider;
 use crate::tls::CLIENT_CONFIG;
 
 use proto::https::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
-use proto::tcp::DnsTcpStream;
+use proto::tcp::{Connect, DnsTcpStream};
 use proto::xfer::{DnsExchange, DnsExchangeConnect};
 use proto::TokioTime;
 
 use crate::config::TlsClientConfig;
 
 #[allow(clippy::type_complexity)]
-pub(crate) fn new_https_stream<R>(
+#[allow(unused)]
+pub(crate) fn new_https_stream<S>(
     socket_addr: SocketAddr,
     bind_addr: Option<SocketAddr>,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
-) -> DnsExchangeConnect<HttpsClientConnect<R::Tcp>, HttpsClientStream, TokioTime>
+) -> DnsExchangeConnect<HttpsClientConnect<S>, HttpsClientStream, TokioTime>
 where
-    R: RuntimeProvider,
+    S: Connect,
 {
     let client_config = client_config.map_or_else(
         || CLIENT_CONFIG.clone(),
@@ -37,7 +37,7 @@ where
     if let Some(bind_addr) = bind_addr {
         https_builder.bind_addr(bind_addr);
     }
-    DnsExchange::connect(https_builder.build::<R::Tcp>(socket_addr, dns_name))
+    DnsExchange::connect(https_builder.build::<S>(socket_addr, dns_name))
 }
 
 #[allow(clippy::type_complexity)]
@@ -49,7 +49,7 @@ pub(crate) fn new_https_stream_with_future<S, F>(
 ) -> DnsExchangeConnect<HttpsClientConnect<S>, HttpsClientStream, TokioTime>
 where
     S: DnsTcpStream,
-    F: Future<Output = std::io::Result<S>> + Send,
+    F: Future<Output = std::io::Result<S>> + Send + Unpin + 'static,
 {
     let client_config = client_config.map_or_else(
         || CLIENT_CONFIG.clone(),
@@ -71,7 +71,8 @@ mod tests {
     use tokio::runtime::Runtime;
 
     use crate::config::{ResolverConfig, ResolverOpts};
-    use crate::{TokioAsyncResolver, TokioHandle};
+    use crate::name_server::TokioRuntimeProvider;
+    use crate::TokioAsyncResolver;
 
     fn https_test(config: ResolverConfig) {
         let io_loop = Runtime::new().unwrap();
@@ -82,7 +83,7 @@ mod tests {
                 try_tcp_on_error: true,
                 ..ResolverOpts::default()
             },
-            TokioHandle::default(),
+            TokioRuntimeProvider::default(),
         )
         .expect("failed to create resolver");
 

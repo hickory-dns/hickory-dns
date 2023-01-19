@@ -13,7 +13,6 @@ mod dns_over_rustls;
 
 cfg_if! {
     if #[cfg(feature = "dns-over-rustls")] {
-        pub(crate) use self::dns_over_rustls::new_tls_stream;
         pub(crate) use self::dns_over_rustls::new_tls_stream_with_future;
         #[cfg(any(feature = "dns-over-https-rustls", feature = "dns-over-quic"))]
         pub(crate) use self::dns_over_rustls::CLIENT_CONFIG;
@@ -34,7 +33,8 @@ mod tests {
     use tokio::runtime::Runtime;
 
     use crate::config::{ResolverConfig, ResolverOpts};
-    use crate::{TokioAsyncResolver, TokioHandle};
+    use crate::name_server::TokioRuntimeProvider;
+    use crate::TokioAsyncResolver;
 
     fn tls_test(config: ResolverConfig) {
         let io_loop = Runtime::new().unwrap();
@@ -45,7 +45,7 @@ mod tests {
                 try_tcp_on_error: true,
                 ..ResolverOpts::default()
             },
-            TokioHandle::default(),
+            TokioRuntimeProvider::default(),
         )
         .expect("failed to create resolver");
 

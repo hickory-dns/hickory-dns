@@ -6,7 +6,6 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::fmt::{Debug, Formatter};
-use std::task::ready;
 use std::{
     fmt::{self, Display},
     future::Future,
@@ -177,6 +176,7 @@ impl QuicClientStreamBuilder {
         QuicClientConnect(Box::pin(self.connect(name_server, dns_name)) as _)
     }
 
+    /// Create a QuicStream with existing connection
     pub fn build_with_future<S, F>(
         self,
         future: F,
@@ -184,8 +184,8 @@ impl QuicClientStreamBuilder {
         dns_name: String,
     ) -> QuicClientConnect
     where
-        S: DnsUdpSocket + QuicLocalAddr,
-        F: Future<Output = std::io::Result<S>> + Send,
+        S: DnsUdpSocket + QuicLocalAddr + 'static,
+        F: Future<Output = std::io::Result<S>> + Send + 'static,
     {
         QuicClientConnect(Box::pin(self.connect_with_future(future, name_server, dns_name)) as _)
     }
@@ -197,22 +197,19 @@ impl QuicClientStreamBuilder {
         dns_name: String,
     ) -> Result<QuicClientStream, ProtoError>
     where
-        S: DnsUdpSocket + QuicLocalAddr,
+        S: DnsUdpSocket + QuicLocalAddr + 'static,
         F: Future<Output = std::io::Result<S>> + Send,
     {
         let socket = future.await?;
         let endpoint_config = quic_config::endpoint();
-        let wrapper = QuinnAsyncUdpSocketAdapter {
-            io: S,
-            dest: name_server,
-        };
-        let mut endpoint = Endpoint::new_with_abstract_socket(
+        let wrapper = QuinnAsyncUdpSocketAdapter { io: socket };
+        let endpoint = Endpoint::new_with_abstract_socket(
             endpoint_config,
             None,
             wrapper,
             quinn::TokioRuntime,
         )?;
-        self.connect_inner(endpoint, name_server, dns_name)
+        self.connect_inner(endpoint, name_server, dns_name).await
     }
 
     async fn connect(
@@ -229,8 +226,8 @@ impl QuicClientStreamBuilder {
         let socket = connect.await?;
         let socket = socket.into_std()?;
         let endpoint_config = quic_config::endpoint();
-        let mut endpoint = Endpoint::new(endpoint_config, None, socket, quinn::TokioRuntime)?;
-        self.connect_inner(endpoint, name_server, dns_name)
+        let endpoint = Endpoint::new(endpoint_config, None, socket, quinn::TokioRuntime)?;
+        self.connect_inner(endpoint, name_server, dns_name).await
     }
 
     async fn connect_inner(
@@ -337,28 +334,40 @@ impl Future for QuicClientResponse {
 
 /// To implement quinn::AsyncUdpSocket, we need our custom socket capable of getting local address.
 pub trait QuicLocalAddr {
+    /// Get local address
     fn local_addr(&self) -> std::io::Result<std::net::SocketAddr>;
 }
 
-/// Wrapper used for quinn::Endpoint::new_with_abstract_socket
-pub struct QuinnAsyncUdpSocketAdapter<S: DnsUdpSockett + QuicLocalAddr> {
-    io: S,
-    dest: SocketAddr,
+#[cfg(feature = "tokio-runtime")]
+use tokio::net::UdpSocket as TokioUdpSocket;
+
+#[cfg(feature = "tokio-runtime")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
+#[allow(unreachable_pub)]
+impl QuicLocalAddr for TokioUdpSocket {
+    fn local_addr(&self) -> std::io::Result<SocketAddr> {
+        self.local_addr()
+    }
 }
 
-impl<S: DnsUdpSocket> Debug for QuinnAsyncUdpSocketAdapter<S> {
+/// Wrapper used for quinn::Endpoint::new_with_abstract_socket
+struct QuinnAsyncUdpSocketAdapter<S: DnsUdpSocket + QuicLocalAddr> {
+    io: S,
+}
+
+impl<S: DnsUdpSocket + QuicLocalAddr> Debug for QuinnAsyncUdpSocketAdapter<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str("Wrapper for quinn::AsyncUdpSocket")
     }
 }
 
 /// TODO: Naive implementation. Look forward to
-impl<S: DnsUdpSocket + QuicLocalAddr> AsyncUdpSocket for QuinnAsyncUdpSocketAdapter<S> {
+impl<S: DnsUdpSocket + QuicLocalAddr + 'static> AsyncUdpSocket for QuinnAsyncUdpSocketAdapter<S> {
     fn poll_send(
         &mut self,
         _state: &quinn_udp::UdpState,
-        cx: &mut Context,
-        transmits: &[quinn_udp::Transmit],
+        cx: &mut Context<'_>,
+        transmits: &[quinn::Transmit],
     ) -> Poll<std::io::Result<usize>> {
         // logics from quinn-udp::fallback.rs
         let io = &self.io;
@@ -402,14 +411,14 @@ impl<S: DnsUdpSocket + QuicLocalAddr> AsyncUdpSocket for QuinnAsyncUdpSocketAdap
 
     fn poll_recv(
         &self,
-        cx: &mut Context,
+        cx: &mut Context<'_>,
         bufs: &mut [std::io::IoSliceMut<'_>],
         meta: &mut [quinn_udp::RecvMeta],
     ) -> Poll<std::io::Result<usize>> {
         // logics from quinn-udp::fallback.rs
 
         let io = &self.io;
-        let Some(mut buf) = bufs.get(0)else {
+        let Some(buf) = bufs.get_mut(0)else {
             return Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::InvalidInput,"no buf")));
         };
         match io.poll_recv_from(cx, buf.as_mut()) {
@@ -418,7 +427,7 @@ impl<S: DnsUdpSocket + QuicLocalAddr> AsyncUdpSocket for QuinnAsyncUdpSocketAdap
                     meta[0] = quinn_udp::RecvMeta {
                         len,
                         stride: len,
-                        addr: addr.as_socket().unwrap(),
+                        addr,
                         ecn: None,
                         dst_ip: None,
                     };

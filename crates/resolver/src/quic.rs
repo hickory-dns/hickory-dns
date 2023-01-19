@@ -5,6 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use proto::quic::QuicLocalAddr;
 use rustls::ClientConfig as CryptoConfig;
 use std::future::Future;
 use std::net::SocketAddr;
@@ -18,6 +19,7 @@ use crate::config::TlsClientConfig;
 use crate::tls::CLIENT_CONFIG;
 
 #[allow(clippy::type_complexity)]
+#[allow(unused)]
 pub(crate) fn new_quic_stream(
     socket_addr: SocketAddr,
     bind_addr: Option<SocketAddr>,
@@ -42,15 +44,15 @@ pub(crate) fn new_quic_stream(
 }
 
 #[allow(clippy::type_complexity)]
-pub(crate) fn new_quic_stream_with_future(
+pub(crate) fn new_quic_stream_with_future<S, F>(
     future: F,
     socket_addr: SocketAddr,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
 ) -> DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime>
 where
-    S: DnsUdpSocket,
-    F: Future<Output = std::io::Result<S>> + Send,
+    S: DnsUdpSocket + QuicLocalAddr + 'static,
+    F: Future<Output = std::io::Result<S>> + Send + 'static,
 {
     let client_config = client_config.map_or_else(
         || CLIENT_CONFIG.clone(),

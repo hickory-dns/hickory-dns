@@ -93,7 +93,7 @@ pub fn tls_client_connect_with_future<S, F>(
 )
 where
     S: DnsTcpStream,
-    F: Future<Output = io::Result<S>> + Send,
+    F: Future<Output = io::Result<S>> + Send + Unpin + 'static,
 {
     let (stream_future, sender) =
         tls_connect_with_future(future, socket_addr, dns_name, client_config);

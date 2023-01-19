@@ -15,12 +15,9 @@ use trust_dns_client::rr::{Name, RecordType};
 use trust_dns_integration::mock_client::*;
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{DnsHandle, DnsResponse, FirstAnswer};
-use trust_dns_proto::TokioTime;
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
-use trust_dns_resolver::name_server::{
-    AbstractNameServer, AbstractNameServerPool, NameServer, NameServerPool, RuntimeProvider,
-};
+use trust_dns_resolver::name_server::{AbstractNameServer, AbstractNameServerPool};
 
 const DEFAULT_SERVER_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
 

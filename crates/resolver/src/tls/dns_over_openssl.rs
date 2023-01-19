@@ -15,17 +15,16 @@ use futures_util::future::Future;
 
 use proto::error::ProtoError;
 use proto::openssl::{TlsClientStream, TlsClientStreamBuilder};
+use proto::tcp::Connect;
 use proto::BufDnsStreamHandle;
 
-use crate::name_server::RuntimeProvider;
-
 #[allow(clippy::type_complexity)]
-pub(crate) fn new_tls_stream<R: RuntimeProvider>(
+pub(crate) fn new_tls_stream<S: Connect>(
     socket_addr: SocketAddr,
     bind_addr: Option<SocketAddr>,
     dns_name: String,
 ) -> (
-    Pin<Box<dyn Future<Output = Result<TlsClientStream<R::Tcp>, ProtoError>> + Send>>,
+    Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send>>,
     BufDnsStreamHandle,
 ) {
     let mut tls_builder = TlsClientStreamBuilder::new();
