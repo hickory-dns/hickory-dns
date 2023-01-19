@@ -18,6 +18,7 @@ use futures::{future, AsyncRead, AsyncWrite, Future};
 use trust_dns_client::op::{Message, Query};
 use trust_dns_client::rr::{rdata::SOA, Name, RData, Record};
 use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::quic::QuicLocalAddr;
 use trust_dns_proto::tcp::DnsTcpStream;
 use trust_dns_proto::udp::DnsUdpSocket;
 use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
@@ -62,6 +63,16 @@ impl DnsTcpStream for TcpPlaceholder {
 }
 
 pub struct UdpPlaceholder;
+
+#[cfg(feature = "dns-over-quic")]
+impl QuicLocalAddr for UdpPlaceholder {
+    fn local_addr(&self) -> std::io::Result<SocketAddr> {
+        Ok(SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::new(255, 255, 255, 255)),
+            9999,
+        ))
+    }
+}
 
 impl DnsUdpSocket for UdpPlaceholder {
     type Time = TokioTime;
@@ -120,7 +131,7 @@ impl<O: OnSend + Unpin> RuntimeProvider for MockConnProvider<O> {
 
     fn bind_udp(
         &self,
-        local_addr: SocketAddr,
+        _local_addr: SocketAddr,
     ) -> Pin<Box<dyn Send + Future<Output = std::io::Result<Self::Udp>>>> {
         Box::pin(async { Ok(UdpPlaceholder) })
     }
@@ -165,12 +176,20 @@ impl<O: OnSend, E: Send + 'static> CreateConnection for MockClientHandle<O, E> {
     type FutureConn<P: RuntimeProvider> = future::Ready<Result<Self, ResolveError>>;
 
     fn new_connection<P: RuntimeProvider>(
-        _runtime_provider: &P,
+        runtime_provider: &P,
         _config: &NameServerConfig,
         _options: &ResolverOpts,
     ) -> Self::FutureConn<P> {
+        if TypeId::of::<P>() != TypeId::of::<MockConnProvider<O>>() {
+            panic!("Type Mismatched. Unsafe to cast")
+        }
+        // Safety: we have checked the type
+        let provider = unsafe { &*(runtime_provider as *const P as *const MockConnProvider<O>) };
         println!("MockConnProvider::new_connection");
-        future::ok(MockClientHandle::mock_on_send(vec![]))
+        future::ok(MockClientHandle::mock_on_send(
+            vec![],
+            provider.on_send.clone(),
+        ))
     }
 }
 

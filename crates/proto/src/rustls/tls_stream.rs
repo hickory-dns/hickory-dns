@@ -14,7 +14,6 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use futures_util::TryFutureExt;
 use rustls::ClientConfig;
 use tokio;
 use tokio::net::TcpStream as TokioTcpStream;
@@ -164,7 +163,7 @@ pub fn tls_connect_with_future<S, F>(
 )
 where
     S: DnsTcpStream,
-    F: Future<Output = io::Result<S>>,
+    F: Future<Output = io::Result<S>> + Send + Unpin + 'static,
 {
     let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
     let early_data_enabled = client_config.enable_early_data;
@@ -175,6 +174,7 @@ where
     let stream = Box::pin(connect_tls_with_future(
         tls_connector,
         future,
+        name_server,
         dns_name,
         outbound_messages,
     ));
@@ -189,29 +189,36 @@ async fn connect_tls<S: Connect>(
     dns_name: String,
     outbound_messages: StreamReceiver,
 ) -> io::Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>> {
-    let tcp = S::connect_with_bind(name_server, bind_addr).await?;
-    connect_tls_with_future(tls_connector, tcp, dns_name, outbound_messages)
+    let tcp = S::connect_with_bind(name_server, bind_addr);
+    connect_tls_with_future(tls_connector, tcp, name_server, dns_name, outbound_messages).await
 }
 
 async fn connect_tls_with_future<S, F>(
     tls_connector: TlsConnector,
     future: F,
+    name_server: SocketAddr,
     dns_name: String,
     outbound_messages: StreamReceiver,
 ) -> io::Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>>
 where
     S: DnsTcpStream,
-    F: Future<Output = io::Result<S>> + Send,
+    F: Future<Output = io::Result<S>> + Send + Unpin,
 {
     let dns_name = match dns_name.as_str().try_into() {
         Ok(name) => name,
         Err(_) => return Err(io::Error::new(io::ErrorKind::InvalidInput, "bad dns_name")),
     };
 
+    let stream = future.await?;
     let s = tls_connector
-        .connect(dns_name, AsyncIoStdAsTokio(tcp))
-        .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {e}")))
-        .await?;
+        .connect(dns_name, AsyncIoStdAsTokio(stream))
+        .await
+        .map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::ConnectionRefused,
+                format!("tls error: {e}"),
+            )
+        })?;
 
     Ok(TcpStream::from_stream_with_receiver(
         AsyncIoTokioAsStd(s),

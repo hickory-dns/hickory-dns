@@ -401,8 +401,13 @@ pub mod tokio_runtime {
 
     impl TokioRuntimeProvider {
         /// Create a Tokio runtime
-        pub fn new() -> TokioRuntimeProvider {
-            Self {}
+        pub fn new() -> Self {
+            Self::default()
+        }
+    }
+    impl Default for TokioRuntimeProvider {
+        fn default() -> Self {
+            Self
         }
     }
 
@@ -423,7 +428,7 @@ pub mod tokio_runtime {
             Box::pin(async move {
                 TokioTcpStream::connect(server_addr)
                     .await
-                    .map(|c| AsyncIoTokioAsStd(c))
+                    .map(AsyncIoTokioAsStd)
             })
         }
 

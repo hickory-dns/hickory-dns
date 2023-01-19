@@ -321,13 +321,16 @@ impl HttpsClientStreamBuilder {
             dns_name: Arc::from(dns_name),
         };
 
-        HttpsClientConnect::<S>(HttpsClientConnectState::ConnectTcp {
+        let connect = S::connect_with_bind(name_server, self.bind_addr);
+
+        HttpsClientConnect::<S>(HttpsClientConnectState::TcpConnecting {
+            connect,
             name_server,
-            bind_addr: self.bind_addr,
             tls: Some(tls),
         })
     }
 
+    /// Creates a new HttpsStream with existing connection
     pub fn build_with_future<S, F>(
         future: F,
         mut client_config: Arc<ClientConfig>,
@@ -336,7 +339,7 @@ impl HttpsClientStreamBuilder {
     ) -> HttpsClientConnect<S>
     where
         S: DnsTcpStream,
-        F: Future<Output = std::io::Result<S>> + Send,
+        F: Future<Output = std::io::Result<S>> + Send + Unpin + 'static,
     {
         // ensure the ALPN protocol is set correctly
         if client_config.alpn_protocols.is_empty() {
@@ -352,7 +355,7 @@ impl HttpsClientStreamBuilder {
         };
 
         HttpsClientConnect::<S>(HttpsClientConnectState::TcpConnecting {
-            connect: Pin::new(Box::new(future)),
+            connect: Box::pin(future),
             name_server,
             tls: Some(tls),
         })
@@ -362,11 +365,11 @@ impl HttpsClientStreamBuilder {
 /// A future that resolves to an HttpsClientStream
 pub struct HttpsClientConnect<S>(HttpsClientConnectState<S>)
 where
-    S: Connect;
+    S: DnsTcpStream;
 
 impl<S> Future for HttpsClientConnect<S>
 where
-    S: Connect,
+    S: DnsTcpStream,
 {
     type Output = Result<HttpsClientStream, ProtoError>;
 
@@ -384,13 +387,8 @@ struct TlsConfig {
 #[allow(clippy::type_complexity)]
 enum HttpsClientConnectState<S>
 where
-    S: Connect,
+    S: DnsTcpStream,
 {
-    ConnectTcp {
-        name_server: SocketAddr,
-        bind_addr: Option<SocketAddr>,
-        tls: Option<TlsConfig>,
-    },
     TcpConnecting {
         connect: Pin<Box<dyn Future<Output = io::Result<S>> + Send>>,
         name_server: SocketAddr,
@@ -425,26 +423,13 @@ where
 
 impl<S> Future for HttpsClientConnectState<S>
 where
-    S: Connect,
+    S: DnsTcpStream,
 {
     type Output = Result<HttpsClientStream, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
             let next = match *self {
-                Self::ConnectTcp {
-                    name_server,
-                    bind_addr,
-                    ref mut tls,
-                } => {
-                    debug!("tcp connecting to: {}", name_server);
-                    let connect = S::connect_with_bind(name_server, bind_addr);
-                    Self::TcpConnecting {
-                        connect,
-                        name_server,
-                        tls: tls.take(),
-                    }
-                }
                 Self::TcpConnecting {
                     ref mut connect,
                     name_server,

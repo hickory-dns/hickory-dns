@@ -584,7 +584,7 @@ pub mod testing {
     ) {
         //env_logger::try_init().ok();
 
-        let resolver = AsyncResolver::<GenericConnection, GenericConnectionProvider<R>>::new(
+        let resolver = AsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts {
                 validate: true,
@@ -625,7 +625,7 @@ pub mod testing {
     ) {
         use crate::error::*;
         use proto::rr::RecordType;
-        let resolver = AsyncResolver::<GenericConnection, GenericConnectionProvider<R>>::new(
+        let resolver = AsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts {
                 validate: true,
