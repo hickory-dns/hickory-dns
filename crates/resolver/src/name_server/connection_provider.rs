@@ -8,7 +8,10 @@
 use std::io;
 use std::marker::Unpin;
 use std::net::SocketAddr;
+#[cfg(feature = "dns-over-quic")]
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use futures_util::future::{Future, FutureExt};
@@ -27,6 +30,7 @@ use tokio_openssl::SslStream as TokioTlsStream;
 #[cfg(feature = "dns-over-rustls")]
 use tokio_rustls::client::TlsStream as TokioTlsStream;
 
+use crate::config::{NameServerConfig, Protocol, ResolverOpts};
 #[cfg(feature = "dns-over-https")]
 use proto::https::{HttpsClientConnect, HttpsClientStream};
 use proto::iocompat::AsyncIoTokioAsStd;
@@ -54,6 +58,7 @@ use proto::{
 };
 
 use crate::error::ResolveError;
+use crate::name_server::name_server::CreateConnection;
 
 /// RuntimeProvider defines which async runtime that handles IO and timers.
 pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
@@ -67,7 +72,7 @@ pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
     /// UdpSocket
     type Udp: DnsUdpSocket + Send;
     #[cfg(feature = "dns-over-quic")]
-    /// UdpSocket
+    /// UdpSocket, where `QuicLocalAddr` is for `quinn` crate.
     type Udp: DnsUdpSocket + QuicLocalAddr + Send;
 
     /// TcpStream
@@ -156,7 +161,7 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
 
 /// Resolves to a new Connection
 #[must_use = "futures do nothing unless polled"]
-pub(crate) struct ConnectionFuture<R: RuntimeProvider> {
+pub struct ConnectionFuture<R: RuntimeProvider> {
     pub(crate) connect: ConnectionConnect<R>,
     pub(crate) spawner: R::Handle,
 }
@@ -214,6 +219,143 @@ impl DnsHandle for GenericConnection {
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
         ConnectionResponse(self.0.send(request))
+    }
+}
+
+impl CreateConnection for GenericConnection {
+    type FutureConn<P: RuntimeProvider> = ConnectionFuture<P>;
+
+    fn new_connection<P: RuntimeProvider>(
+        runtime_provider: &P,
+        config: &NameServerConfig,
+        options: &ResolverOpts,
+    ) -> Self::FutureConn<P> {
+        let dns_connect = match config.protocol {
+            Protocol::Udp => {
+                let provider_handle = runtime_provider.clone();
+                let closure = move |addr: SocketAddr| provider_handle.bind_udp(addr);
+                let stream = UdpClientStream::with_creator(
+                    config.socket_addr,
+                    None,
+                    options.timeout,
+                    Arc::new(closure),
+                );
+                let exchange = DnsExchange::connect(stream);
+                ConnectionConnect::Udp(exchange)
+            }
+            Protocol::Tcp => {
+                let socket_addr = config.socket_addr;
+                let timeout = options.timeout;
+                let tcp_future = runtime_provider.connect_tcp(socket_addr);
+
+                let (stream, handle) =
+                    TcpClientStream::with_future(tcp_future, socket_addr, timeout);
+                // TODO: need config for Signer...
+                let dns_conn = DnsMultiplexer::with_timeout(
+                    stream,
+                    handle,
+                    timeout,
+                    NoopMessageFinalizer::new(),
+                );
+
+                let exchange = DnsExchange::connect(dns_conn);
+                ConnectionConnect::Tcp(exchange)
+            }
+            #[cfg(feature = "dns-over-tls")]
+            Protocol::Tls => {
+                let socket_addr = config.socket_addr;
+                let timeout = options.timeout;
+                let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
+                let tcp_future = runtime_provider.connect_tcp(socket_addr);
+
+                #[cfg(feature = "dns-over-rustls")]
+                let client_config = config.tls_config.clone();
+
+                #[cfg(feature = "dns-over-rustls")]
+                let (stream, handle) = {
+                    crate::tls::new_tls_stream_with_future(
+                        tcp_future,
+                        socket_addr,
+                        tls_dns_name,
+                        client_config,
+                    )
+                };
+                #[cfg(not(feature = "dns-over-rustls"))]
+                let (stream, handle) =
+                    { crate::tls::new_tls_stream::<R>(socket_addr, bind_addr, tls_dns_name) };
+
+                let dns_conn = DnsMultiplexer::with_timeout(
+                    stream,
+                    handle,
+                    timeout,
+                    NoopMessageFinalizer::new(),
+                );
+
+                let exchange = DnsExchange::connect(dns_conn);
+                ConnectionConnect::Tls(exchange)
+            }
+            #[cfg(feature = "dns-over-https")]
+            Protocol::Https => {
+                let socket_addr = config.socket_addr;
+                let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
+                #[cfg(feature = "dns-over-rustls")]
+                let client_config = config.tls_config.clone();
+                let tcp_future = runtime_provider.connect_tcp(socket_addr);
+
+                let exchange = crate::https::new_https_stream_with_future(
+                    tcp_future,
+                    socket_addr,
+                    tls_dns_name,
+                    client_config,
+                );
+                ConnectionConnect::Https(exchange)
+            }
+            #[cfg(feature = "dns-over-quic")]
+            Protocol::Quic => {
+                let socket_addr = config.socket_addr;
+                let bind_addr = config.bind_addr.unwrap_or(match socket_addr {
+                    SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0),
+                    SocketAddr::V6(_) => {
+                        SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)), 0)
+                    }
+                });
+                let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
+                #[cfg(feature = "dns-over-rustls")]
+                let client_config = config.tls_config.clone();
+                let udp_future = runtime_provider.bind_udp(bind_addr);
+
+                let exchange = crate::quic::new_quic_stream_with_future(
+                    udp_future,
+                    socket_addr,
+                    tls_dns_name,
+                    client_config,
+                );
+                ConnectionConnect::Quic(exchange)
+            }
+            #[cfg(feature = "mdns")]
+            Protocol::Mdns => {
+                let socket_addr = config.socket_addr;
+                let timeout = options.timeout;
+
+                let (stream, handle) =
+                    MdnsClientStream::new(socket_addr, MdnsQueryType::OneShot, None, None, None);
+                // TODO: need config for Signer...
+                let dns_conn = DnsMultiplexer::with_timeout(
+                    stream,
+                    handle,
+                    timeout,
+                    NoopMessageFinalizer::new(),
+                );
+
+                let exchange = DnsExchange::connect(dns_conn);
+                ConnectionConnect::Mdns(exchange)
+            }
+        };
+
+        ConnectionFuture {
+            connect: dns_connect,
+            spawner: runtime_provider.create_handle(),
+        }
     }
 }
 
