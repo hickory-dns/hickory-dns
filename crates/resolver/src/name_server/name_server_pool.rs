@@ -176,8 +176,8 @@ where
     #[allow(dead_code)]
     fn from_nameservers_test(
         options: &ResolverOpts,
-        datagram_conns: Arc<[NameServer<P>]>,
-        stream_conns: Arc<[NameServer<P>]>,
+        datagram_conns: Arc<[AbstractNameServer<C, P>]>,
+        stream_conns: Arc<[AbstractNameServer<C, P>]>,
     ) -> Self {
         Self {
             datagram_conns,
@@ -470,6 +470,7 @@ mod tests {
     use super::*;
     use crate::config::NameServerConfig;
     use crate::config::Protocol;
+    use crate::name_server::NameServer;
     use crate::name_server::TokioRuntimeProvider;
 
     #[ignore]
@@ -543,11 +544,6 @@ mod tests {
             );
         }
     }
-
-    #[test]
-    use crate::name_server;
-    #[test]
-    use crate::name_server::TokioHandle;
 
     #[test]
     fn test_multi_use_conns() {

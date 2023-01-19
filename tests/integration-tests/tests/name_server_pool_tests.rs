@@ -18,38 +18,16 @@ use trust_dns_proto::xfer::{DnsHandle, DnsResponse, FirstAnswer};
 use trust_dns_proto::TokioTime;
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
-use trust_dns_resolver::name_server::{NameServer, NameServerPool};
+use trust_dns_resolver::name_server::{
+    AbstractNameServer, AbstractNameServerPool, NameServer, NameServerPool, RuntimeProvider,
+};
 
 const DEFAULT_SERVER_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
 
-#[derive(Clone)]
-struct MockConnProvider<O: OnSend> {
-    on_send: O,
-}
-
-impl Default for MockConnProvider<DefaultOnSend> {
-    fn default() -> Self {
-        Self {
-            on_send: DefaultOnSend,
-        }
-    }
-}
-
-#[allow(clippy::type_complexity)]
-impl<O: OnSend + Unpin> ConnectionProvider for MockConnProvider<O> {
-    type Conn = MockClientHandle<O, ResolveError>;
-    type FutureConn = future::Ready<Result<Self::Conn, ResolveError>>;
-    type Time = TokioTime;
-
-    fn new_connection(&self, _: &NameServerConfig, _: &ResolverOpts) -> Self::FutureConn {
-        println!("MockClient::new_connection");
-        future::ok(MockClientHandle::mock_on_send(vec![], self.on_send.clone()))
-    }
-}
-
-type MockedNameServer<O> = NameServer<MockClientHandle<O, ResolveError>, MockConnProvider<O>>;
+type MockedNameServer<O> =
+    AbstractNameServer<MockClientHandle<O, ResolveError>, MockConnProvider<O>>;
 type MockedNameServerPool<O> =
-    NameServerPool<MockClientHandle<O, ResolveError>, MockConnProvider<O>>;
+    AbstractNameServerPool<MockClientHandle<O, ResolveError>, MockConnProvider<O>>;
 
 #[cfg(test)]
 fn mock_nameserver(
@@ -105,7 +83,7 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
     };
     let client = MockClientHandle::mock_on_send(messages, on_send);
 
-    NameServer::from_conn(
+    AbstractNameServer::from_conn(
         NameServerConfig {
             socket_addr: SocketAddr::new(addr, 0),
             protocol: Protocol::Udp,
@@ -140,10 +118,10 @@ fn mock_nameserver_pool_on_send<O: OnSend + Unpin>(
     options: ResolverOpts,
 ) -> MockedNameServerPool<O> {
     #[cfg(not(feature = "mdns"))]
-    return NameServerPool::from_nameservers(&options, udp, tcp);
+    return AbstractNameServerPool::from_nameservers(&options, udp, tcp);
 
     #[cfg(feature = "mdns")]
-    return NameServerPool::from_nameservers(
+    return AbstractNameServerPool::from_nameservers(
         &options, udp,
         tcp,
         //_mdns.unwrap_or_else(move || mock_nameserver_on_send(vec![], options, on_send)),

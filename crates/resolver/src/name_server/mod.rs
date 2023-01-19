@@ -19,8 +19,8 @@ pub use self::connection_provider::{RuntimeProvider, Spawn};
 #[cfg(feature = "mdns")]
 #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
 pub(crate) use self::name_server::mdns_nameserver;
-pub use self::name_server::NameServer;
-pub use self::name_server_pool::NameServerPool;
+pub use self::name_server::{AbstractNameServer, CreateConnection, NameServer};
+pub use self::name_server_pool::{AbstractNameServerPool, NameServerPool};
 use self::name_server_state::NameServerState;
 use self::name_server_stats::NameServerStats;
 
