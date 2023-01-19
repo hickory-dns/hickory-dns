@@ -261,10 +261,12 @@ where
 
 /// Used for connection mocking
 pub trait CreateConnection: Sized {
+    /// Future of Self
     type FutureConn<P: RuntimeProvider>: Future<Output = Result<Self, ResolveError>>
         + Send
         + 'static;
 
+    /// Create a future of Self with the help of runtime provider.
     fn new_connection<P: RuntimeProvider>(
         runtime_provider: &P,
         config: &NameServerConfig,

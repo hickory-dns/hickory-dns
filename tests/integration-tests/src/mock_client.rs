@@ -5,18 +5,126 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::any::TypeId;
 use std::error::Error;
-use std::net::Ipv4Addr;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
+use std::task::{Context, Poll};
 
 use futures::stream::{once, Stream};
-use futures::{future, Future};
+use futures::{future, AsyncRead, AsyncWrite, Future};
 
 use trust_dns_client::op::{Message, Query};
 use trust_dns_client::rr::{rdata::SOA, Name, RData, Record};
 use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::tcp::DnsTcpStream;
+use trust_dns_proto::udp::DnsUdpSocket;
 use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
+use trust_dns_proto::TokioTime;
+use trust_dns_resolver::config::{NameServerConfig, ResolverOpts};
+use trust_dns_resolver::error::ResolveError;
+use trust_dns_resolver::name_server::{CreateConnection, RuntimeProvider};
+use trust_dns_resolver::TokioHandle;
+
+pub struct TcpPlaceholder;
+
+impl AsyncRead for TcpPlaceholder {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<std::io::Result<usize>> {
+        Poll::Ready(Ok(buf.len()))
+    }
+}
+
+impl AsyncWrite for TcpPlaceholder {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<std::io::Result<usize>> {
+        Poll::Ready(Ok(buf.len()))
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn poll_close(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+}
+
+impl DnsTcpStream for TcpPlaceholder {
+    type Time = TokioTime;
+}
+
+pub struct UdpPlaceholder;
+
+impl DnsUdpSocket for UdpPlaceholder {
+    type Time = TokioTime;
+
+    fn poll_recv_from(
+        &self,
+        _cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<std::io::Result<(usize, SocketAddr)>> {
+        Poll::Ready(Ok((
+            buf.len(),
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(255, 255, 255, 77)), 1),
+        )))
+    }
+
+    fn poll_send_to(
+        &self,
+        _cx: &mut Context<'_>,
+        buf: &[u8],
+        _target: SocketAddr,
+    ) -> Poll<std::io::Result<usize>> {
+        Poll::Ready(Ok(buf.len()))
+    }
+}
+
+#[derive(Clone)]
+pub struct MockConnProvider<O: OnSend> {
+    pub on_send: O,
+}
+
+impl Default for MockConnProvider<DefaultOnSend> {
+    fn default() -> Self {
+        Self {
+            on_send: DefaultOnSend,
+        }
+    }
+}
+
+#[allow(clippy::type_complexity)]
+impl<O: OnSend + Unpin> RuntimeProvider for MockConnProvider<O> {
+    type Handle = TokioHandle;
+    type Timer = TokioTime;
+    type Udp = UdpPlaceholder;
+    type Tcp = TcpPlaceholder;
+
+    fn create_handle(&self) -> Self::Handle {
+        TokioHandle::default()
+    }
+
+    fn connect_tcp(
+        &self,
+        _server_addr: SocketAddr,
+    ) -> Pin<Box<dyn Send + Future<Output = std::io::Result<Self::Tcp>>>> {
+        Box::pin(async { Ok(TcpPlaceholder) })
+    }
+
+    fn bind_udp(
+        &self,
+        local_addr: SocketAddr,
+    ) -> Pin<Box<dyn Send + Future<Output = std::io::Result<Self::Udp>>>> {
+        Box::pin(async { Ok(UdpPlaceholder) })
+    }
+}
 
 #[derive(Clone)]
 pub struct MockClientHandle<O: OnSend, E> {
@@ -50,6 +158,19 @@ impl<O: OnSend, E> MockClientHandle<O, E> {
             messages: Arc::new(Mutex::new(messages)),
             on_send,
         }
+    }
+}
+
+impl<O: OnSend, E: Send + 'static> CreateConnection for MockClientHandle<O, E> {
+    type FutureConn<P: RuntimeProvider> = future::Ready<Result<Self, ResolveError>>;
+
+    fn new_connection<P: RuntimeProvider>(
+        _runtime_provider: &P,
+        _config: &NameServerConfig,
+        _options: &ResolverOpts,
+    ) -> Self::FutureConn<P> {
+        println!("MockConnProvider::new_connection");
+        future::ok(MockClientHandle::mock_on_send(vec![]))
     }
 }
 
