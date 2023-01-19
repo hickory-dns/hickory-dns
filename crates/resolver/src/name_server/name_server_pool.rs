@@ -23,23 +23,30 @@ use crate::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts, ServerO
 use crate::error::{ResolveError, ResolveErrorKind};
 #[cfg(feature = "mdns")]
 use crate::name_server;
+use crate::name_server::name_server::{AbstractNameServer, CreateConnection};
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
 use crate::name_server::TokioRuntimeProvider;
-use crate::name_server::{NameServer, RuntimeProvider};
+use crate::name_server::{GenericConnection, RuntimeProvider};
 
-/// A pool of NameServers
-///
-/// This is not expected to be used directly, see [crate::AsyncResolver].
+/// Abstract interface for mocking purpose
 #[derive(Clone)]
-pub struct NameServerPool<P: RuntimeProvider + Send + 'static> {
+pub struct AbstractNameServerPool<
+    C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
+    P: RuntimeProvider + Send + 'static,
+> {
     // TODO: switch to FuturesMutex (Mutex will have some undesirable locking)
-    datagram_conns: Arc<[NameServer<P>]>, /* All NameServers must be the same type */
-    stream_conns: Arc<[NameServer<P>]>,   /* All NameServers must be the same type */
+    datagram_conns: Arc<[AbstractNameServer<C, P>]>, /* All NameServers must be the same type */
+    stream_conns: Arc<[AbstractNameServer<C, P>]>,   /* All NameServers must be the same type */
     #[cfg(feature = "mdns")]
     mdns_conns: NameServer<P>, /* All NameServers must be the same type */
     options: ResolverOpts,
 }
+
+/// A pool of NameServers
+///
+/// This is not expected to be used directly, see [crate::AsyncResolver].
+pub type NameServerPool<P> = AbstractNameServerPool<GenericConnection, P>;
 
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
@@ -53,8 +60,9 @@ impl NameServerPool<TokioRuntimeProvider> {
     }
 }
 
-impl<P> NameServerPool<P>
+impl<C, P> AbstractNameServerPool<C, P>
 where
+    C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
     P: RuntimeProvider + 'static,
 {
     pub(crate) fn from_config_with_provider(
@@ -62,7 +70,7 @@ where
         options: &ResolverOpts,
         conn_provider: P,
     ) -> Self {
-        let datagram_conns: Vec<NameServer<P>> = config
+        let datagram_conns: Vec<AbstractNameServer<C, P>> = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_datagram())
@@ -76,11 +84,11 @@ where
                 #[cfg(not(feature = "dns-over-rustls"))]
                 let ns_config = { ns_config.clone() };
 
-                NameServer::new(ns_config, *options, conn_provider.clone())
+                AbstractNameServer::new(ns_config, *options, conn_provider.clone())
             })
             .collect();
 
-        let stream_conns: Vec<NameServer<P>> = config
+        let stream_conns: Vec<AbstractNameServer<C, P>> = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_stream())
@@ -94,7 +102,7 @@ where
                 #[cfg(not(feature = "dns-over-rustls"))]
                 let ns_config = { ns_config.clone() };
 
-                NameServer::new(ns_config, *options, conn_provider.clone())
+                AbstractNameServer::new(ns_config, *options, conn_provider.clone())
             })
             .collect();
 
@@ -114,7 +122,7 @@ where
         conn_provider: P,
     ) -> Self {
         let map_config_to_ns =
-            |ns_config| NameServer::new(ns_config, *options, conn_provider.clone());
+            |ns_config| AbstractNameServer::new(ns_config, *options, conn_provider.clone());
 
         let (datagram, stream): (Vec<_>, Vec<_>) = name_servers
             .into_inner()
@@ -137,8 +145,8 @@ where
     #[cfg(not(feature = "mdns"))]
     pub fn from_nameservers(
         options: &ResolverOpts,
-        datagram_conns: Vec<NameServer<P>>,
-        stream_conns: Vec<NameServer<P>>,
+        datagram_conns: Vec<AbstractNameServer<C, P>>,
+        stream_conns: Vec<AbstractNameServer<C, P>>,
     ) -> Self {
         Self {
             datagram_conns: Arc::from(datagram_conns),
@@ -197,10 +205,10 @@ where
 
     async fn try_send(
         opts: ResolverOpts,
-        conns: Arc<[NameServer<P>]>,
+        conns: Arc<[AbstractNameServer<C, P>]>,
         request: DnsRequest,
     ) -> Result<DnsResponse, ResolveError> {
-        let mut conns: Vec<NameServer<P>> = conns.to_vec();
+        let mut conns: Vec<AbstractNameServer<C, P>> = conns.to_vec();
 
         match opts.server_ordering_strategy {
             // select the highest priority connection
@@ -215,8 +223,9 @@ where
     }
 }
 
-impl<P> DnsHandle for NameServerPool<P>
+impl<C, P> DnsHandle for AbstractNameServerPool<C, P>
 where
+    C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
     P: RuntimeProvider + 'static,
 {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>>;
@@ -293,12 +302,13 @@ where
 
 // TODO: we should be able to have a self-referential future here with Pin and not require cloned conns
 /// An async function that will loop over all the conns with a max parallel request count of ops.num_concurrent_req
-async fn parallel_conn_loop<P>(
-    mut conns: Vec<NameServer<P>>,
+async fn parallel_conn_loop<C, P>(
+    mut conns: Vec<AbstractNameServer<C, P>>,
     request: DnsRequest,
     opts: ResolverOpts,
 ) -> Result<DnsResponse, ResolveError>
 where
+    C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
     P: RuntimeProvider + 'static,
 {
     let mut err = ResolveError::no_connections();
@@ -313,13 +323,13 @@ where
     // close to the connection, which means the top level resolution might take substantially longer
     // to fire than the timeout configured in `ResolverOpts`.
     let mut backoff = Duration::from_millis(20);
-    let mut busy = SmallVec::<[NameServer<P>; 2]>::new();
+    let mut busy = SmallVec::<[AbstractNameServer<C, P>; 2]>::new();
 
     loop {
         let request_cont = request.clone();
 
         // construct the parallel requests, 2 is the default
-        let mut par_conns = SmallVec::<[NameServer<P>; 2]>::new();
+        let mut par_conns = SmallVec::<[AbstractNameServer<C, P>; 2]>::new();
         let count = conns.len().min(opts.num_concurrent_reqs.max(1));
         for conn in conns.drain(..count) {
             par_conns.push(conn);
@@ -533,6 +543,11 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    use crate::name_server;
+    #[test]
+    use crate::name_server::TokioHandle;
 
     #[test]
     fn test_multi_use_conns() {
