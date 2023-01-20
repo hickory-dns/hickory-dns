@@ -12,9 +12,8 @@ use std::task::Poll;
 
 use futures_util::future;
 
-use trust_dns_resolver::name_server::TokioRuntimeProvider;
 #[cfg(feature = "tokio-runtime")]
-use trust_dns_resolver::TokioAsyncResolver;
+use trust_dns_resolver::{name_server::TokioRuntimeProvider, TokioAsyncResolver};
 #[cfg(feature = "tokio-runtime")]
 use trust_dns_resolver::{IntoName, TryParseIp};
 

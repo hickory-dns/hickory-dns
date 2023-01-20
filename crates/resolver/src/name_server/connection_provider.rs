@@ -33,15 +33,12 @@ use tokio_rustls::client::TlsStream as TokioTlsStream;
 use crate::config::{NameServerConfig, Protocol, ResolverOpts};
 #[cfg(feature = "dns-over-https")]
 use proto::https::{HttpsClientConnect, HttpsClientStream};
-use proto::iocompat::AsyncIoTokioAsStd;
 #[cfg(feature = "mdns")]
 use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
 #[cfg(feature = "dns-over-quic")]
-use proto::quic::{QuicClientConnect, QuicClientStream, QuicLocalAddr};
+use proto::quic::{QuicClientConnect, QuicClientStream};
 use proto::tcp::DnsTcpStream;
 use proto::udp::DnsUdpSocket;
-#[cfg(feature = "tokio-runtime")]
-use proto::TokioTime;
 use proto::{
     self,
     error::ProtoError,
@@ -56,6 +53,10 @@ use proto::{
     },
     Time,
 };
+#[cfg(feature = "tokio-runtime")]
+use proto::{iocompat::AsyncIoTokioAsStd, TokioTime};
+#[cfg(feature = "dns-over-quic")]
+use trust_dns_proto::udp::QuicLocalAddr;
 
 use crate::error::ResolveError;
 use crate::name_server::name_server::CreateConnection;

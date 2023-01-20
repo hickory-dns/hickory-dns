@@ -6,7 +6,6 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::fmt::{self, Display};
-#[cfg(feature = "tokio-runtime")]
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;

@@ -25,7 +25,8 @@ use crate::error::*;
 use crate::lookup::{self, Lookup, LookupEither, LookupFuture};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
 #[cfg(feature = "tokio-runtime")]
-use crate::name_server::{NameServerPool, RuntimeProvider, TokioRuntimeProvider};
+use crate::name_server::TokioRuntimeProvider;
+use crate::name_server::{AbstractNameServerPool, RuntimeProvider};
 
 use crate::Hosts;
 
@@ -200,7 +201,8 @@ impl<P: RuntimeProvider> AsyncResolver<P> {
         options: ResolverOpts,
         conn_provider: P,
     ) -> Result<Self, ResolveError> {
-        let pool = NameServerPool::from_config_with_provider(&config, &options, conn_provider);
+        let pool =
+            AbstractNameServerPool::from_config_with_provider(&config, &options, conn_provider);
         let either;
         let client = RetryDnsHandle::new(pool, options.attempts);
         if options.validate {

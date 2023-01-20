@@ -19,7 +19,7 @@ use futures_util::{future::FutureExt, stream::Stream};
 use quinn::{AsyncUdpSocket, ClientConfig, Connection, Endpoint, TransportConfig, VarInt};
 use rustls::{version::TLS13, ClientConfig as TlsClientConfig};
 
-use crate::udp::DnsUdpSocket;
+use crate::udp::{DnsUdpSocket, QuicLocalAddr};
 use crate::{
     error::ProtoError,
     quic::quic_stream::{DoqErrorCode, QuicStream},
@@ -329,24 +329,6 @@ impl Future for QuicClientResponse {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.as_mut().poll(cx).map_err(ProtoError::from)
-    }
-}
-
-/// To implement quinn::AsyncUdpSocket, we need our custom socket capable of getting local address.
-pub trait QuicLocalAddr {
-    /// Get local address
-    fn local_addr(&self) -> std::io::Result<std::net::SocketAddr>;
-}
-
-#[cfg(feature = "tokio-runtime")]
-use tokio::net::UdpSocket as TokioUdpSocket;
-
-#[cfg(feature = "tokio-runtime")]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
-#[allow(unreachable_pub)]
-impl QuicLocalAddr for TokioUdpSocket {
-    fn local_addr(&self) -> std::io::Result<SocketAddr> {
-        self.local_addr()
     }
 }
 
