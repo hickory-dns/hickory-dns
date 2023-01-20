@@ -5,10 +5,10 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use proto::quic::QuicLocalAddr;
 use rustls::ClientConfig as CryptoConfig;
 use std::future::Future;
 use std::net::SocketAddr;
+use trust_dns_proto::udp::QuicLocalAddr;
 
 use proto::udp::DnsUdpSocket;
 use proto::xfer::{DnsExchange, DnsExchangeConnect};

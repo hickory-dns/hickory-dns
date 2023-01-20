@@ -1,7 +1,5 @@
 #![recursion_limit = "128"]
 
-use trust_dns_resolver::name_server::TokioRuntimeProvider;
-
 #[cfg(feature = "tokio-runtime")]
 fn main() {
     tokio::runtime::Builder::new_multi_thread()
@@ -15,6 +13,7 @@ fn main() {
 
 #[cfg(feature = "tokio-runtime")]
 async fn tokio_main() {
+    use trust_dns_resolver::name_server::TokioRuntimeProvider;
     use trust_dns_resolver::TokioAsyncResolver;
 
     let resolver = {

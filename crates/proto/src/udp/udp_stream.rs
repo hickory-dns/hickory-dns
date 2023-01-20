@@ -85,6 +85,24 @@ pub struct UdpStream<S: Send> {
     outbound_messages: StreamReceiver,
 }
 
+/// To implement quinn::AsyncUdpSocket, we need our custom socket capable of getting local address.
+pub trait QuicLocalAddr {
+    /// Get local address
+    fn local_addr(&self) -> std::io::Result<std::net::SocketAddr>;
+}
+
+#[cfg(feature = "tokio-runtime")]
+use tokio::net::UdpSocket as TokioUdpSocket;
+
+#[cfg(feature = "tokio-runtime")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
+#[allow(unreachable_pub)]
+impl QuicLocalAddr for TokioUdpSocket {
+    fn local_addr(&self) -> std::io::Result<SocketAddr> {
+        self.local_addr()
+    }
+}
+
 impl<S: UdpSocket + Send + 'static> UdpStream<S> {
     /// This method is intended for client connections, see `with_bound` for a method better for
     ///  straight listening. It is expected that the resolver wrapper will be responsible for

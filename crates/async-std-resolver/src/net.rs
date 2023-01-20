@@ -10,8 +10,6 @@ use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use crate::proto::quic::QuicLocalAddr;
-use crate::proto::udp::DnsUdpSocket;
 use async_std::task::spawn_blocking;
 use async_trait::async_trait;
 use futures_io::{AsyncRead, AsyncWrite};
@@ -19,7 +17,7 @@ use futures_util::future::FutureExt;
 use pin_utils::pin_mut;
 use socket2::{Domain, Protocol, Socket, Type};
 use trust_dns_resolver::proto::tcp::{Connect, DnsTcpStream};
-use trust_dns_resolver::proto::udp::UdpSocket;
+use trust_dns_resolver::proto::udp::{DnsUdpSocket, QuicLocalAddr, UdpSocket};
 
 use crate::time::AsyncStdTime;
 

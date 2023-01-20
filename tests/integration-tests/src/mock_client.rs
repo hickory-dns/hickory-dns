@@ -18,9 +18,10 @@ use futures::{future, AsyncRead, AsyncWrite, Future};
 use trust_dns_client::op::{Message, Query};
 use trust_dns_client::rr::{rdata::SOA, Name, RData, Record};
 use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::quic::QuicLocalAddr;
 use trust_dns_proto::tcp::DnsTcpStream;
 use trust_dns_proto::udp::DnsUdpSocket;
+#[cfg(feature = "dns-over-quic")]
+use trust_dns_proto::udp::QuicLocalAddr;
 use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 use trust_dns_proto::TokioTime;
 use trust_dns_resolver::config::{NameServerConfig, ResolverOpts};
