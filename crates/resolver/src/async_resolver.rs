@@ -1100,7 +1100,7 @@ mod tests {
     fn test_lookup_google() {
         use super::testing::lookup_test;
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        let handle = TokioRuntimeProvider;
+        let handle = TokioRuntimeProvider::new();
         lookup_test::<Runtime, TokioRuntimeProvider>(ResolverConfig::google(), io_loop, handle)
     }
 
@@ -1108,7 +1108,7 @@ mod tests {
     fn test_lookup_cloudflare() {
         use super::testing::lookup_test;
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        let handle = TokioRuntimeProvider;
+        let handle = TokioRuntimeProvider::new();
         lookup_test::<Runtime, TokioRuntimeProvider>(ResolverConfig::cloudflare(), io_loop, handle)
     }
 

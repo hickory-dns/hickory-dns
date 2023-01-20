@@ -15,7 +15,7 @@ fn main() {
 
 #[cfg(feature = "tokio-runtime")]
 async fn tokio_main() {
-    use trust_dns_resolver::{TokioAsyncResolver, TokioHandle};
+    use trust_dns_resolver::TokioAsyncResolver;
 
     let resolver = {
         // To make this independent, if targeting macOS, BSD, Linux, or Windows, we can use the system's configuration:

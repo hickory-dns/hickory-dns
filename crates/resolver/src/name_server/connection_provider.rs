@@ -396,18 +396,13 @@ pub mod tokio_runtime {
     }
 
     /// The Tokio Runtime for async execution
-    #[derive(Clone, Copy)]
-    pub struct TokioRuntimeProvider;
+    #[derive(Clone, Default)]
+    pub struct TokioRuntimeProvider(TokioHandle);
 
     impl TokioRuntimeProvider {
         /// Create a Tokio runtime
         pub fn new() -> Self {
             Self::default()
-        }
-    }
-    impl Default for TokioRuntimeProvider {
-        fn default() -> Self {
-            Self
         }
     }
 
@@ -418,7 +413,7 @@ pub mod tokio_runtime {
         type Tcp = AsyncIoTokioAsStd<TokioTcpStream>;
 
         fn create_handle(&self) -> Self::Handle {
-            TokioHandle::default()
+            self.0.clone()
         }
 
         fn connect_tcp(
