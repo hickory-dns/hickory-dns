@@ -18,8 +18,8 @@ use native_tls::{Certificate, Identity, TlsConnector};
 use tokio_native_tls::{TlsConnector as TokioTlsConnector, TlsStream as TokioTlsStream};
 
 use crate::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
-use crate::tcp::Connect;
 use crate::tcp::TcpStream;
+use crate::tcp::{Connect, DnsTcpStream};
 use crate::xfer::{BufDnsStreamHandle, StreamReceiver};
 
 /// A TlsStream counterpart to the TcpStream which embeds a secure TlsStream
@@ -44,7 +44,7 @@ fn tls_new(certs: Vec<Certificate>, pkcs12: Option<Identity>) -> io::Result<TlsC
 /// Initializes a TlsStream with an existing tokio_tls::TlsStream.
 ///
 /// This is intended for use with a TlsListener and Incoming connections
-pub fn tls_from_stream<S: Connect>(
+pub fn tls_from_stream<S: DnsTcpStream>(
     stream: TokioTlsStream<AsyncIoStdAsTokio<S>>,
     peer_addr: SocketAddr,
 ) -> (TlsStream<S>, BufDnsStreamHandle) {
@@ -68,7 +68,7 @@ pub struct TlsStreamBuilder<S> {
     marker: PhantomData<S>,
 }
 
-impl<S: Connect> TlsStreamBuilder<S> {
+impl<S: DnsTcpStream> TlsStreamBuilder<S> {
     /// Constructs a new TlsStreamBuilder
     pub fn new() -> Self {
         Self {
@@ -97,6 +97,79 @@ impl<S: Connect> TlsStreamBuilder<S> {
         self.bind_addr = Some(bind_addr);
     }
 
+    /// Similar to `build`, but with customized stream future.
+    ///
+    /// # Arguments
+    ///
+    /// * `name_server` - IP and Port for the remote DNS resolver
+    /// * `dns_name` - The DNS name, Public Key Info (SPKI) name, as associated to a certificate
+    #[allow(clippy::type_complexity)]
+    pub fn build_with_future<F>(
+        self,
+        future: F,
+        name_server: SocketAddr,
+        dns_name: String,
+    ) -> (
+        // TODO: change to impl?
+        Pin<Box<dyn Future<Output = Result<TlsStream<S>, io::Error>> + Send>>,
+        BufDnsStreamHandle,
+    )
+    where
+        S: DnsTcpStream,
+        F: Future<Output = std::io::Result<S>> + Send + Unpin + 'static,
+    {
+        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
+
+        let stream = self.inner_build(future, name_server, dns_name, outbound_messages);
+        (Box::pin(stream), message_sender)
+    }
+
+    async fn inner_build<F>(
+        self,
+        future: F,
+        name_server: SocketAddr,
+        dns_name: String,
+        outbound_messages: StreamReceiver,
+    ) -> Result<TlsStream<S>, io::Error>
+    where
+        F: Future<Output = std::io::Result<S>> + Send + Unpin + 'static,
+    {
+        use crate::native_tls::tls_stream;
+        let tcp_stream = future.await;
+
+        let ca_chain = self.ca_chain.clone();
+        let identity = self.identity;
+
+        // TODO: for some reason the above wouldn't accept a ?
+        let tcp_stream = match tcp_stream {
+            Ok(tcp_stream) => AsyncIoStdAsTokio(tcp_stream),
+            Err(err) => return Err(err),
+        };
+
+        // This set of futures collapses the next tcp socket into a stream which can be used for
+        //  sending and receiving tcp packets.
+        let tls_connector = tls_stream::tls_new(ca_chain, identity)
+            .map(TokioTlsConnector::from)
+            .map_err(|e| {
+                io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {e}"))
+            })?;
+
+        let tls_connected = tls_connector
+            .connect(&dns_name, tcp_stream)
+            .map_err(|e| {
+                io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {e}"))
+            })
+            .await?;
+
+        Ok(TcpStream::from_stream_with_receiver(
+            AsyncIoTokioAsStd(tls_connected),
+            name_server,
+            outbound_messages,
+        ))
+    }
+}
+
+impl<S: Connect> TlsStreamBuilder<S> {
     /// Creates a new TlsStream to the specified name_server
     ///
     /// [RFC 7858](https://tools.ietf.org/html/rfc7858), DNS over TLS, May 2016
@@ -133,49 +206,8 @@ impl<S: Connect> TlsStreamBuilder<S> {
         BufDnsStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
-
-        let stream = self.inner_build(name_server, dns_name, outbound_messages);
+        let conn = S::connect_with_bind(name_server, self.bind_addr);
+        let stream = self.inner_build(conn, name_server, dns_name, outbound_messages);
         (Box::pin(stream), message_sender)
-    }
-
-    async fn inner_build(
-        self,
-        name_server: SocketAddr,
-        dns_name: String,
-        outbound_messages: StreamReceiver,
-    ) -> Result<TlsStream<S>, io::Error> {
-        use crate::native_tls::tls_stream;
-
-        let ca_chain = self.ca_chain.clone();
-        let identity = self.identity;
-
-        let tcp_stream = S::connect_with_bind(name_server, self.bind_addr).await;
-
-        // TODO: for some reason the above wouldn't accept a ?
-        let tcp_stream = match tcp_stream {
-            Ok(tcp_stream) => AsyncIoStdAsTokio(tcp_stream),
-            Err(err) => return Err(err),
-        };
-
-        // This set of futures collapses the next tcp socket into a stream which can be used for
-        //  sending and receiving tcp packets.
-        let tls_connector = tls_stream::tls_new(ca_chain, identity)
-            .map(TokioTlsConnector::from)
-            .map_err(|e| {
-                io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {e}"))
-            })?;
-
-        let tls_connected = tls_connector
-            .connect(&dns_name, tcp_stream)
-            .map_err(|e| {
-                io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {e}"))
-            })
-            .await?;
-
-        Ok(TcpStream::from_stream_with_receiver(
-            AsyncIoTokioAsStd(tls_connected),
-            name_server,
-            outbound_messages,
-        ))
     }
 }

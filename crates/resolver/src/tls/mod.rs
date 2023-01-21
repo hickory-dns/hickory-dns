@@ -17,7 +17,7 @@ cfg_if! {
         #[cfg(any(feature = "dns-over-https-rustls", feature = "dns-over-quic"))]
         pub(crate) use self::dns_over_rustls::CLIENT_CONFIG;
     } else if #[cfg(feature = "dns-over-native-tls")] {
-        pub(crate) use self::dns_over_native_tls::new_tls_stream;
+        pub(crate) use self::dns_over_native_tls::new_tls_stream_with_future;
     } else if #[cfg(feature = "dns-over-openssl")] {
         pub(crate) use self::dns_over_openssl::new_tls_stream;
     } else {

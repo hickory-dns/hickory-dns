@@ -15,7 +15,7 @@ use futures_util::future::Future;
 
 use proto::error::ProtoError;
 use proto::native_tls::{TlsClientStream, TlsClientStreamBuilder};
-use proto::tcp::Connect;
+use proto::tcp::{Connect, DnsTcpStream};
 use proto::BufDnsStreamHandle;
 
 #[allow(clippy::type_complexity)]
@@ -32,4 +32,20 @@ pub(crate) fn new_tls_stream<S: Connect>(
         tls_builder.bind_addr(bind_addr);
     }
     tls_builder.build(socket_addr, dns_name)
+}
+
+#[allow(clippy::type_complexity)]
+pub(crate) fn new_tls_stream_with_future<S, F>(
+    future: F,
+    socket_addr: SocketAddr,
+    dns_name: String,
+) -> (
+    Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send>>,
+    BufDnsStreamHandle,
+)
+where
+    S: DnsTcpStream,
+    F: Future<Output = std::io::Result<S>> + Send + Unpin + 'static,
+{
+    TlsClientStreamBuilder::new().build_with_future(future, socket_addr, dns_name)
 }

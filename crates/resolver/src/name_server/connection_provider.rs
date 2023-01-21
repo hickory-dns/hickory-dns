@@ -282,8 +282,9 @@ impl CreateConnection for GenericConnection {
                     )
                 };
                 #[cfg(not(feature = "dns-over-rustls"))]
-                let (stream, handle) =
-                    { crate::tls::new_tls_stream::<R>(socket_addr, bind_addr, tls_dns_name) };
+                let (stream, handle) = {
+                    crate::tls::new_tls_stream_with_future(tcp_future, socket_addr, tls_dns_name)
+                };
 
                 let dns_conn = DnsMultiplexer::with_timeout(
                     stream,
