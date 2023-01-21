@@ -19,7 +19,7 @@ cfg_if! {
     } else if #[cfg(feature = "dns-over-native-tls")] {
         pub(crate) use self::dns_over_native_tls::new_tls_stream_with_future;
     } else if #[cfg(feature = "dns-over-openssl")] {
-        pub(crate) use self::dns_over_openssl::new_tls_stream;
+        pub(crate) use self::dns_over_openssl::new_tls_stream_with_future;
     } else {
         compile_error!("One of the dns-over-rustls, dns-over-native-tls, or dns-over-openssl must be enabled for dns-over-tls features");
     }

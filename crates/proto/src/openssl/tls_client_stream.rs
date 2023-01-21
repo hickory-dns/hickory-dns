@@ -19,7 +19,7 @@ use tokio_openssl::SslStream as TokioTlsStream;
 use crate::error::ProtoError;
 use crate::iocompat::AsyncIoStdAsTokio;
 use crate::iocompat::AsyncIoTokioAsStd;
-use crate::tcp::{Connect, TcpClientStream};
+use crate::tcp::{Connect, DnsTcpStream, TcpClientStream};
 use crate::xfer::BufDnsStreamHandle;
 
 use super::TlsStreamBuilder;
@@ -31,7 +31,7 @@ pub type TlsClientStream<S> =
 /// A Builder for the TlsClientStream
 pub struct TlsClientStreamBuilder<S>(TlsStreamBuilder<S>);
 
-impl<S: Connect> TlsClientStreamBuilder<S> {
+impl<S: DnsTcpStream> TlsClientStreamBuilder<S> {
     /// Creates a builder for the construction of a TlsClientStream.
     pub fn new() -> Self {
         Self(TlsStreamBuilder::new())
@@ -65,6 +65,45 @@ impl<S: Connect> TlsClientStreamBuilder<S> {
         self.0.bind_addr(bind_addr);
     }
 
+    /// Creates a new TlsStream to the specified name_server with future
+    ///
+    /// # Arguments
+    ///
+    /// * `future` - future for underlying tcp stream
+    /// * `name_server` - IP and Port for the remote DNS resolver
+    /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
+    #[allow(clippy::type_complexity)]
+    pub fn build_with_future<F>(
+        self,
+        future: F,
+        name_server: SocketAddr,
+        dns_name: String,
+    ) -> (
+        Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send>>,
+        BufDnsStreamHandle,
+    )
+    where
+        F: Future<Output = io::Result<S>> + Send + Unpin + 'static,
+    {
+        let (stream_future, sender) = self.0.build_with_future(future, name_server, dns_name);
+
+        let new_future = Box::pin(
+            stream_future
+                .map_ok(TcpClientStream::from_stream)
+                .map_err(ProtoError::from),
+        );
+
+        (new_future, sender)
+    }
+}
+
+impl<S: DnsTcpStream> Default for TlsClientStreamBuilder<S> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<S: Connect> TlsClientStreamBuilder<S> {
     /// Creates a new TlsStream to the specified name_server
     ///
     /// # Arguments
@@ -90,11 +129,5 @@ impl<S: Connect> TlsClientStreamBuilder<S> {
         );
 
         (new_future, sender)
-    }
-}
-
-impl<S: Connect> Default for TlsClientStreamBuilder<S> {
-    fn default() -> Self {
-        Self::new()
     }
 }
