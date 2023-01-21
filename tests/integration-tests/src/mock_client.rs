@@ -133,6 +133,7 @@ impl<O: OnSend + Unpin> RuntimeProvider for MockConnProvider<O> {
     fn bind_udp(
         &self,
         _local_addr: SocketAddr,
+        _server_addr: SocketAddr,
     ) -> Pin<Box<dyn Send + Future<Output = std::io::Result<Self::Udp>>>> {
         Box::pin(async { Ok(UdpPlaceholder) })
     }

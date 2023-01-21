@@ -25,7 +25,10 @@ use crate::Time;
 pub(crate) type UdpCreator<S> = Arc<
     dyn Send
         + Sync
-        + (Fn(SocketAddr) -> Pin<Box<dyn Send + (Future<Output = Result<S, std::io::Error>>)>>),
+        + (Fn(
+            SocketAddr, // local addr
+            SocketAddr, // server addr
+        ) -> Pin<Box<dyn Send + (Future<Output = Result<S, std::io::Error>>)>>),
 >;
 
 /// Trait for DnsUdpSocket
@@ -227,6 +230,7 @@ impl<S: DnsUdpSocket + Send + 'static> Stream for UdpStream<S> {
 
 #[must_use = "futures do nothing unless polled"]
 pub(crate) struct NextRandomUdpSocket<S> {
+    name_server: SocketAddr,
     bind_address: SocketAddr,
     closure: UdpCreator<S>,
     marker: PhantomData<S>,
@@ -249,8 +253,9 @@ impl<S: UdpSocket + 'static> NextRandomUdpSocket<S> {
         };
 
         Self {
+            name_server: *name_server,
             bind_address,
-            closure: Arc::new(|addr: _| S::bind(addr)),
+            closure: Arc::new(|local_addr: _, _server_addr: _| S::bind(local_addr)),
             marker: PhantomData,
         }
     }
@@ -266,14 +271,11 @@ impl<S: DnsUdpSocket> NextRandomUdpSocket<S> {
             }
         };
         Self {
+            name_server: *name_server,
             bind_address,
             closure: func,
             marker: PhantomData,
         }
-    }
-
-    async fn bind(&self, addr: SocketAddr) -> Result<S, io::Error> {
-        Box::pin((*self.closure)(addr)).await
     }
 }
 
@@ -299,7 +301,10 @@ impl<S: DnsUdpSocket + Send> Future for NextRandomUdpSocket<S> {
 
                 // TODO: allow TTL to be adjusted...
                 // TODO: this immediate poll might be wrong in some cases...
-                match Box::pin(self.bind(bind_addr)).as_mut().poll(cx) {
+                match (*self.closure)(bind_addr, self.name_server)
+                    .as_mut()
+                    .poll(cx)
+                {
                     Poll::Ready(Ok(socket)) => {
                         debug!("created socket successfully");
                         return Poll::Ready(Ok(socket));
@@ -326,7 +331,9 @@ impl<S: DnsUdpSocket + Send> Future for NextRandomUdpSocket<S> {
             Poll::Pending
         } else {
             // Use port that was specified in bind address.
-            Box::pin(self.bind(self.bind_address)).as_mut().poll(cx)
+            (*self.closure)(self.bind_address, self.name_server)
+                .as_mut()
+                .poll(cx)
         }
     }
 }
