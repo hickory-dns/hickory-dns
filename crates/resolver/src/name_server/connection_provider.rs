@@ -88,11 +88,12 @@ pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
         server_addr: SocketAddr,
     ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Tcp>>>>;
 
-    /// Create a UDP socket with custom configuration.
+    /// Create a UDP socket bound to `local_addr`. The returned value should **not** be connected to `server_addr`.
     /// *Notice: the future should be ready once returned at best effort. Otherwise UDP DNS may need much more retries.*
     fn bind_udp(
         &self,
         local_addr: SocketAddr,
+        server_addr: SocketAddr,
     ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Udp>>>>;
 }
 
@@ -234,7 +235,9 @@ impl CreateConnection for GenericConnection {
         let dns_connect = match config.protocol {
             Protocol::Udp => {
                 let provider_handle = runtime_provider.clone();
-                let closure = move |addr: SocketAddr| provider_handle.bind_udp(addr);
+                let closure = move |local_addr: SocketAddr, server_addr: SocketAddr| {
+                    provider_handle.bind_udp(local_addr, server_addr)
+                };
                 let stream = UdpClientStream::with_creator(
                     config.socket_addr,
                     None,
@@ -324,7 +327,7 @@ impl CreateConnection for GenericConnection {
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
                 #[cfg(feature = "dns-over-rustls")]
                 let client_config = config.tls_config.clone();
-                let udp_future = runtime_provider.bind_udp(bind_addr);
+                let udp_future = runtime_provider.bind_udp(bind_addr, socket_addr);
 
                 let exchange = crate::quic::new_quic_stream_with_future(
                     udp_future,
@@ -432,6 +435,7 @@ pub mod tokio_runtime {
         fn bind_udp(
             &self,
             local_addr: SocketAddr,
+            _server_addr: SocketAddr,
         ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Udp>>>> {
             Box::pin(tokio::net::UdpSocket::bind(local_addr))
         }

@@ -90,6 +90,7 @@ impl RuntimeProvider for AsyncStdRuntimeProvider {
     fn bind_udp(
         &self,
         local_addr: SocketAddr,
+        _server_addr: SocketAddr,
     ) -> Pin<Box<dyn Send + Future<Output = std::io::Result<Self::Udp>>>> {
         Box::pin(AsyncStdUdpSocket::bind(local_addr))
     }

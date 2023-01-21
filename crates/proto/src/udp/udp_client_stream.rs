@@ -102,7 +102,12 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> UdpClientStream<S, MF>
             name_server,
             timeout,
             signer,
-            creator: Arc::new(|addr: _| Box::pin(NextRandomUdpSocket::<S>::new(&addr, &None))),
+            creator: Arc::new(|local_addr: _, server_addr: _| {
+                Box::pin(NextRandomUdpSocket::<S>::new(
+                    &server_addr,
+                    &Some(local_addr),
+                ))
+            }),
             marker: PhantomData::<S>,
         }
     }
@@ -124,8 +129,11 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> UdpClientStream<S, MF>
             name_server,
             timeout,
             signer,
-            creator: Arc::new(move |addr: _| {
-                Box::pin(NextRandomUdpSocket::<S>::new(&addr, &bind_addr))
+            creator: Arc::new(move |local_addr: _, server_addr: _| {
+                Box::pin(NextRandomUdpSocket::<S>::new(
+                    &server_addr,
+                    &Some(bind_addr.unwrap_or(local_addr)),
+                ))
             }),
             marker: PhantomData::<S>,
         }
