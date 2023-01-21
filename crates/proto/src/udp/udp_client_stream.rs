@@ -293,28 +293,6 @@ impl<S: Send + Unpin, MF: MessageFinalizer> Future for UdpClientConnect<S, MF> {
     }
 }
 
-// async fn send_serial_message<S: UdpSocket + Send + 'static>(
-//     msg: SerialMessage,
-//     msg_id: u16,
-//     verifier: Option<MessageVerifier>,
-//     bind_addr: Option<SocketAddr>,
-// ) -> Result<DnsResponse, ProtoError> {
-//     let name_server = msg.addr();
-//     let socket: S = NextRandomUdpSocket::new(&name_server, &bind_addr).await?;
-//     send_serial_message_inner(msg, msg_id, verifier, socket).await
-// }
-//
-// async fn send_serial_message_with_closure<S: DnsUdpSocket + Send>(
-//     msg: SerialMessage,
-//     msg_id: u16,
-//     verifier: Option<MessageVerifier>,
-//     creator: UdpCreator<S>,
-// ) -> Result<DnsResponse, ProtoError> {
-//     let name_server = msg.addr();
-//     let socket: S = NextRandomUdpSocket::new_with_closure(&name_server, creator).await?;
-//     send_serial_message_inner(msg, msg_id, verifier, socket).await
-// }
-
 async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
     msg: SerialMessage,
     msg_id: u16,
