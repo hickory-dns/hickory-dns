@@ -63,10 +63,9 @@ where
 {
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
     let pem_path = format!(
-        "{}/tests/compatibility-tests/tests/conf/Kupdate.example.com.+008+56935.pem",
-        server_path
+        "{server_path}/tests/compatibility-tests/tests/conf/Kupdate.example.com.+008+56935.pem"
     );
-    println!("loading pem from: {}", pem_path);
+    println!("loading pem from: {pem_path}");
     let mut pem = File::open(pem_path).expect("could not find pem file");
 
     let mut pem_buf = Vec::<u8>::new();

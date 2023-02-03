@@ -247,7 +247,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
 async fn udp(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     let nameserver = opts.nameserver;
 
-    println!("; using udp:{}", nameserver);
+    println!("; using udp:{nameserver}");
     let stream = UdpClientStream::<UdpSocket>::new(nameserver);
     let (client, bg) = AsyncClient::connect(stream).await?;
     let handle = tokio::spawn(bg);
@@ -260,7 +260,7 @@ async fn udp(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
 async fn tcp(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     let nameserver = opts.nameserver;
 
-    println!("; using tcp:{}", nameserver);
+    println!("; using tcp:{nameserver}");
     let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(nameserver);
     let client = AsyncClient::new(stream, sender, None);
     let (client, bg) = client.await?;
@@ -284,7 +284,7 @@ async fn tls(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     let dns_name = opts
         .tls_dns_name
         .expect("tls_dns_name is required tls connections");
-    println!("; using tls:{} dns_name:{}", nameserver, dns_name);
+    println!("; using tls:{nameserver} dns_name:{dns_name}");
 
     let mut config = tls_config();
     if opts.do_not_verify_nameserver_cert {
@@ -323,7 +323,7 @@ async fn https(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     let dns_name = opts
         .tls_dns_name
         .expect("tls_dns_name is required https connections");
-    println!("; using https:{} dns_name:{}", nameserver, dns_name);
+    println!("; using https:{nameserver} dns_name:{dns_name}");
 
     let mut config = tls_config();
     if opts.do_not_verify_nameserver_cert {
@@ -362,7 +362,7 @@ async fn quic(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     let dns_name = opts
         .tls_dns_name
         .expect("tls_dns_name is required quic connections");
-    println!("; using quic:{} dns_name:{}", nameserver, dns_name);
+    println!("; using quic:{nameserver} dns_name:{dns_name}");
 
     let mut config = quic::client_config_tls13_webpki_roots();
     if opts.do_not_verify_nameserver_cert {
@@ -391,12 +391,7 @@ async fn handle_request(
         Command::Query(query) => {
             let name = query.name;
             let ty = query.ty;
-            println!(
-                "; sending query: {name} {class} {ty}",
-                name = name,
-                class = class,
-                ty = ty
-            );
+            println!("; sending query: {name} {class} {ty}");
             client.query(name, class, ty).await?
         }
         Command::Notify(opt) => {
@@ -411,12 +406,7 @@ async fn handle_request(
                 Some(record_set_from(name.clone(), class, ty, ttl, rdata))
             };
 
-            println!(
-                "; sending notify: {name} {class} {ty}",
-                name = name,
-                class = class,
-                ty = ty
-            );
+            println!("; sending notify: {name} {class} {ty}");
             client.notify(name, class, ty, rdata).await?
         }
         Command::Create(opt) => {
@@ -428,13 +418,7 @@ async fn handle_request(
 
             let rdata = record_set_from(name.clone(), class, ty, ttl, rdata);
 
-            println!(
-                "; sending create: {name} {class} {ty} in {zone}",
-                name = name,
-                class = class,
-                ty = ty,
-                zone = zone
-            );
+            println!("; sending create: {name} {class} {ty} in {zone}");
             client.create(rdata, zone).await?
         }
         Command::Append(opt) => {
@@ -448,12 +432,7 @@ async fn handle_request(
             let rdata = record_set_from(name.clone(), class, ty, ttl, rdata);
 
             println!(
-                "; sending append: {name} {class} {ty} in {zone} and must_exist({must_exist})",
-                name = name,
-                class = class,
-                ty = ty,
-                zone = zone,
-                must_exist = must_exist
+                "; sending append: {name} {class} {ty} in {zone} and must_exist({must_exist})"
             );
             client.append(rdata, zone, must_exist).await?
         }
@@ -466,20 +445,14 @@ async fn handle_request(
 
             let rdata = record_set_from(name.clone(), class, ty, ttl, rdata);
 
-            println!(
-                "; sending delete-record: {name} {class} {ty} from {zone}",
-                name = name,
-                class = class,
-                ty = ty,
-                zone = zone
-            );
+            println!("; sending delete-record: {name} {class} {ty} from {zone}");
             client.delete_by_rdata(rdata, zone).await?
         }
     };
 
     let response = response.into_message();
     println!("; received response");
-    println!("{response}", response = response);
+    println!("{response}");
     Ok(())
 }
 

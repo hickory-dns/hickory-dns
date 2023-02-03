@@ -269,7 +269,7 @@ impl Recursor {
             }
         }
 
-        let ns = ns.ok_or_else(|| Error::from(format!("no nameserver found for {}", zone)))?;
+        let ns = ns.ok_or_else(|| Error::from(format!("no nameserver found for {zone}")))?;
         debug!("found zone {} for {}", ns.zone(), query);
 
         let response = self.lookup(query, ns, request_time).await?;
@@ -283,7 +283,7 @@ impl Recursor {
         now: Instant,
     ) -> Result<Lookup, Error> {
         if let Some(lookup) = self.record_cache.get(&query, now) {
-            debug!("cached data {:?}", lookup);
+            debug!("cached data {lookup:?}");
             return lookup.map_err(Into::into);
         }
 
@@ -307,7 +307,7 @@ impl Recursor {
                 lookup.ok_or_else(|| Error::from("no records found"))
             }
             Err(e) => {
-                warn!("lookup error: {}", e);
+                warn!("lookup error: {e}");
                 Err(Error::from(e))
             }
         }
@@ -327,7 +327,7 @@ impl Recursor {
         let parent_zone = zone.base_name();
 
         let nameserver_pool = if parent_zone.is_root() {
-            debug!("using roots for {} nameservers", zone);
+            debug!("using roots for {zone} nameservers");
             self.roots.clone()
         } else {
             self.ns_pool_for_zone(parent_zone, request_time).await?

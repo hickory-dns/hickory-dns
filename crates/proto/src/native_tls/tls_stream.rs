@@ -36,12 +36,9 @@ fn tls_new(certs: Vec<Certificate>, pkcs12: Option<Identity>) -> io::Result<TlsC
     if let Some(pkcs12) = pkcs12 {
         builder.identity(pkcs12);
     }
-    builder.build().map_err(|e| {
-        io::Error::new(
-            io::ErrorKind::ConnectionRefused,
-            format!("tls error: {}", e),
-        )
-    })
+    builder
+        .build()
+        .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {e}")))
 }
 
 /// Initializes a TlsStream with an existing tokio_tls::TlsStream.
@@ -165,19 +162,13 @@ impl<S: Connect> TlsStreamBuilder<S> {
         let tls_connector = tls_stream::tls_new(ca_chain, identity)
             .map(TokioTlsConnector::from)
             .map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::ConnectionRefused,
-                    format!("tls error: {}", e),
-                )
+                io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {e}"))
             })?;
 
         let tls_connected = tls_connector
             .connect(&dns_name, tcp_stream)
             .map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::ConnectionRefused,
-                    format!("tls error: {}", e),
-                )
+                io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {e}"))
             })
             .await?;
 

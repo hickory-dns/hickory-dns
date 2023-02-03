@@ -359,7 +359,7 @@ where
                         .queries()
                         .iter()
                         .map(|q| q.to_string())
-                        .fold(String::new(), |s, q| format!("{},{}", q, s));
+                        .fold(String::new(), |s, q| format!("{q},{s}"));
 
                     query.truncate(query.len() - 1);
                     debug!("an rrset failed to verify ({}): {:?}", query, e);

@@ -74,7 +74,7 @@ impl RecursiveAuthority {
         }
 
         let recursor =
-            Recursor::new(roots).map_err(|e| format!("failed to initialize recursor: {}", e))?;
+            Recursor::new(roots).map_err(|e| format!("failed to initialize recursor: {e}"))?;
 
         Ok(Self {
             origin: origin.into(),

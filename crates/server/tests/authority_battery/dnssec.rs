@@ -190,7 +190,7 @@ pub fn test_nsec_nodata<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &
         .cloned()
         .partition(|r| r.record_type() == RecordType::NSEC);
 
-    println!("nsec_records: {:?}", nsec_records);
+    println!("nsec_records: {nsec_records:?}");
 
     // there should only be one, and it should match the www.example.com name
     assert_eq!(nsec_records.len(), 1);
@@ -220,7 +220,7 @@ pub fn test_nsec_nxdomain_start<A: Authority<Lookup = AuthLookup>>(authority: A,
         .cloned()
         .partition(|r| r.record_type() == RecordType::NSEC);
 
-    println!("nsec_records: {:?}", nsec_records);
+    println!("nsec_records: {nsec_records:?}");
 
     // there should only be one, and it should match the www.example.com name
     assert!(!nsec_records.is_empty());
@@ -252,7 +252,7 @@ pub fn test_nsec_nxdomain_middle<A: Authority<Lookup = AuthLookup>>(authority: A
         .cloned()
         .partition(|r| r.record_type() == RecordType::NSEC);
 
-    println!("nsec_records: {:?}", nsec_records);
+    println!("nsec_records: {nsec_records:?}");
 
     // there should only be one, and it should match the www.example.com name
     assert!(!nsec_records.is_empty());
@@ -286,7 +286,7 @@ pub fn test_nsec_nxdomain_wraps_end<A: Authority<Lookup = AuthLookup>>(
         .cloned()
         .partition(|r| r.record_type() == RecordType::NSEC);
 
-    println!("nsec_records: {:?}", nsec_records);
+    println!("nsec_records: {nsec_records:?}");
 
     // there should only be one, and it should match the www.example.com name
     assert!(!nsec_records.is_empty());
@@ -342,7 +342,7 @@ pub fn test_rfc_6975_supported_algorithms<A: Authority<Lookup = AuthLookup>>(
 pub fn verify(records: &[Record], rrsig_records: &[Record], keys: &[DNSKEY]) {
     let record_name = records.first().unwrap().name();
     let record_type = records.first().unwrap().record_type();
-    println!("record_name: {}, type: {}", record_name, record_type);
+    println!("record_name: {record_name}, type: {record_type}");
 
     // should be signed with all the keys
     assert!(keys.iter().all(|key| rrsig_records
@@ -364,7 +364,7 @@ pub fn verify(records: &[Record], rrsig_records: &[Record], keys: &[DNSKEY]) {
         .filter(|rrsig| rrsig.type_covered() == record_type)
         .any(|rrsig| key
             .verify_rrsig(record_name, DNSClass::IN, rrsig, records)
-            .map_err(|e| println!("failed to verify: {}", e))
+            .map_err(|e| println!("failed to verify: {e}"))
             .is_ok())));
 }
 

@@ -325,7 +325,7 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
                         if peer != dst {
                             return Poll::Ready(Some(Err(io::Error::new(
                                 io::ErrorKind::InvalidData,
-                                format!("mismatched peer: {} and dst: {}", peer, dst),
+                                format!("mismatched peer: {peer} and dst: {dst}"),
                             ))));
                         }
 

@@ -83,10 +83,7 @@ impl ResponseHandler for ResponseHandle {
         };
 
         let info = encode_result.map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("error encoding message: {}", e),
-            )
+            io::Error::new(io::ErrorKind::Other, format!("error encoding message: {e}"))
         })?;
 
         self.stream_handle

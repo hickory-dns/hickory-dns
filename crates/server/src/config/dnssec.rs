@@ -95,8 +95,7 @@ impl KeyConfig {
             Some("pem") => Ok(KeyFormat::Pem),
             Some("pk8") => Ok(KeyFormat::Pkcs8),
             e => Err(ParseErrorKind::Msg(format!(
-                "extension not understood, '{:?}': {:?}",
-                e,
+                "extension not understood, '{e:?}': {:?}",
                 self.key_path()
             ))
             .into()),
@@ -121,7 +120,7 @@ impl KeyConfig {
             "ECDSAP256SHA256" => Ok(Algorithm::ECDSAP256SHA256),
             "ECDSAP384SHA384" => Ok(Algorithm::ECDSAP384SHA384),
             "ED25519" => Ok(Algorithm::ED25519),
-            s => Err(format!("unrecognized string {}", s).into()),
+            s => Err(format!("unrecognized string {s}").into()),
         }
     }
 
@@ -156,13 +155,13 @@ impl KeyConfig {
     pub fn try_into_signer<N: IntoName>(&self, signer_name: N) -> Result<SigSigner, String> {
         let signer_name = signer_name
             .into_name()
-            .map_err(|e| format!("error loading signer name: {}", e))?;
+            .map_err(|e| format!("error loading signer name: {e}"))?;
 
         let key = load_key(signer_name, self)
-            .map_err(|e| format!("failed to load key: {:?} msg: {}", self.key_path(), e))?;
+            .map_err(|e| format!("failed to load key: {:?} msg: {e}", self.key_path()))?;
 
         key.test_key()
-            .map_err(|e| format!("key failed test: {}", e))?;
+            .map_err(|e| format!("key failed test: {e}"))?;
         Ok(key)
     }
 }
@@ -271,44 +270,44 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<SigSigner, String
     let key_path = key_config.key_path();
     let algorithm = key_config
         .algorithm()
-        .map_err(|e| format!("bad algorithm: {}", e))?;
+        .map_err(|e| format!("bad algorithm: {e}"))?;
     let format = key_config
         .format()
-        .map_err(|e| format!("bad key format: {}", e))?;
+        .map_err(|e| format!("bad key format: {e}"))?;
 
     // read the key in
     let key: KeyPair<Private> = {
         info!("reading key: {:?}", key_path);
 
         let mut file = File::open(key_path)
-            .map_err(|e| format!("error opening private key file: {:?}: {}", key_path, e))?;
+            .map_err(|e| format!("error opening private key file: {key_path:?}: {e}"))?;
 
         let mut key_bytes = Vec::with_capacity(256);
         file.read_to_end(&mut key_bytes)
-            .map_err(|e| format!("could not read key from: {:?}: {}", key_path, e))?;
+            .map_err(|e| format!("could not read key from: {key_path:?}: {e}"))?;
 
         format
             .decode_key(&key_bytes, key_config.password(), algorithm)
-            .map_err(|e| format!("could not decode key: {}", e))?
+            .map_err(|e| format!("could not decode key: {e}"))?
     };
 
     let name = key_config
         .signer_name()
-        .map_err(|e| format!("error reading name: {}", e))?
+        .map_err(|e| format!("error reading name: {e}"))?
         .unwrap_or(zone_name);
 
     // add the key to the zone
     // TODO: allow the duration of signatures to be customized
     let dnskey = key
         .to_dnskey(algorithm)
-        .map_err(|e| format!("error converting to dnskey: {}", e))?;
+        .map_err(|e| format!("error converting to dnskey: {e}"))?;
     Ok(SigSigner::dnssec(
         dnskey,
         key,
         name,
         Duration::weeks(52)
             .try_into()
-            .map_err(|e| format!("error converting time to std::Duration: {}", e))?,
+            .map_err(|e| format!("error converting time to std::Duration: {e}"))?,
     ))
 }
 
@@ -392,7 +391,7 @@ pub fn load_cert(
     let cert = match cert_type {
         CertType::Pem => {
             info!("loading TLS PEM certificate chain from: {}", path.display());
-            read_cert(&path).map_err(|e| format!("error reading cert: {}", e))?
+            read_cert(&path).map_err(|e| format!("error reading cert: {e}"))?
         }
         CertType::Pkcs12 => {
             return Err(

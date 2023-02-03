@@ -475,7 +475,7 @@ impl Clone for ProtoErrorKind {
             }),
             Poisoned => Poisoned,
             Ring(ref _e) => Ring(Unspecified),
-            SSL(ref e) => Msg(format!("there was an SSL error: {}", e)),
+            SSL(ref e) => Msg(format!("there was an SSL error: {e}")),
             Timeout => Timeout,
             Timer => Timer,
             #[cfg(feature = "dnssec")]
@@ -567,9 +567,9 @@ impl Clone for DnsSecErrorKind {
 
             // foreign
             Proto(proto) => Proto(proto.clone()),
-            RingKeyRejected(r) => Msg(format!("Ring rejected key: {}", r)),
+            RingKeyRejected(r) => Msg(format!("Ring rejected key: {r}")),
             RingUnspecified(_r) => RingUnspecified(Unspecified),
-            SSL(ssl) => Msg(format!("SSL had an error: {}", ssl)),
+            SSL(ssl) => Msg(format!("SSL had an error: {ssl}")),
             Timeout => Timeout,
         }
     }

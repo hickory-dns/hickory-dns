@@ -152,12 +152,7 @@ async fn connect_tls<S: Connect>(
 
     let s = tls_connector
         .connect(dns_name, AsyncIoStdAsTokio(tcp))
-        .map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::ConnectionRefused,
-                format!("tls error: {}", e),
-            )
-        })
+        .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {e}")))
         .await?;
 
     Ok(TcpStream::from_stream_with_receiver(

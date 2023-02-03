@@ -14,7 +14,7 @@ fn test_dnskey_display() {
         Algorithm::RSASHA1,
         include_bytes!("test-data/rfc4034-2.3.key").to_vec(),
     );
-    let result = format!("{}", dnskey);
+    let result = format!("{dnskey}");
     let exp_result = include_str!("test-data/rfc4034-2.3.rdata");
     assert_eq!(result, exp_result);
 
@@ -25,7 +25,7 @@ fn test_dnskey_display() {
         Algorithm::RSASHA1,
         include_bytes!("test-data/rfc4034-5.4.key").to_vec(),
     );
-    let result = format!("{}", dnskey);
+    let result = format!("{dnskey}");
     let exp_result = include_str!("test-data/rfc4034-5.4.rdata");
     assert_eq!(result, exp_result);
 }
@@ -52,7 +52,7 @@ fn test_ds_display() {
         DigestType::SHA1,
         digest.as_ref().to_vec(),
     );
-    let result = format!("{}", ds);
+    let result = format!("{ds}");
     let exp_result = "60485 5 1 2BB183AF5F22588179A53B0A98631FAD1A292118";
     assert_eq!(result, exp_result);
 }

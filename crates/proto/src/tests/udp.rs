@@ -51,7 +51,7 @@ pub async fn udp_stream_test<S: UdpSocket + Send + 'static>(server_addr: IpAddr)
         .set_write_timeout(Some(std::time::Duration::from_secs(5)))
         .unwrap(); // should receive something within 5 seconds...
     let server_addr = server.local_addr().unwrap();
-    println!("server listening on: {}", server_addr);
+    println!("server listening on: {server_addr}");
 
     let test_bytes: &'static [u8; 8] = b"DEADBEEF";
     let send_recv_times = 4u32;
@@ -189,12 +189,12 @@ pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor, TE: Ti
 
                 // bounce them right back...
                 let bytes = message.to_vec().unwrap();
-                debug!("server sending response {} to: {}", i, addr);
+                debug!("server sending response {i} to: {addr}");
                 assert_eq!(
                     server.send_to(&bytes, addr).expect("send failed"),
                     bytes.len()
                 );
-                debug!("server sent response {}", i);
+                debug!("server sent response {i}");
                 std::thread::yield_now();
             }
         })
@@ -213,15 +213,15 @@ pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor, TE: Ti
         // test once
         let response_stream =
             stream.send_message(DnsRequest::new(query.clone(), DnsRequestOptions::default()));
-        println!("client sending request {}", i);
+        println!("client sending request {i}");
         let response = match exec.block_on(response_stream.first_answer()) {
             Ok(response) => response,
             Err(err) => {
-                println!("failed to get message: {}", err);
+                println!("failed to get message: {err}");
                 continue;
             }
         };
-        println!("client got response {}", i);
+        println!("client got response {i}");
 
         let response = Message::from(response);
         if let Some(RData::NULL(null)) = response.answers()[0].data() {

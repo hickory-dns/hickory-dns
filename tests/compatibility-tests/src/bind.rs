@@ -20,18 +20,17 @@ pub fn named_process() -> (NamedProcess, u16) {
     let test_port = find_test_port();
 
     let bind_path = env::var("TDNS_BIND_PATH").expect("TDNS_BIND_PATH not set");
-    let bind_path = format!("{}/sbin/named", bind_path);
+    let bind_path = format!("{bind_path}/sbin/named");
 
     println!(
-        "Path to BIND '{}' this can be changed with the TDNS_BIND_PATH environment variable",
-        bind_path
+        "Path to BIND '{bind_path}' this can be changed with the TDNS_BIND_PATH environment variable"
     );
 
     let working_dir = new_working_dir();
-    println!("---> BIND working directory: {}", working_dir);
+    println!("---> BIND working directory: {working_dir}");
 
     // start up bind
-    println!("---> starting BIND: {}", bind_path);
+    println!("---> starting BIND: {bind_path}");
     let mut named = Command::new(bind_path)
         .current_dir(&working_dir)
         .stderr(Stdio::piped())
@@ -43,7 +42,7 @@ pub fn named_process() -> (NamedProcess, u16) {
         .arg("Trust-DNS compatibility")
         .arg("-g")
         .arg("-p")
-        .arg(&format!("{}", test_port))
+        .arg(&format!("{test_port}"))
         .spawn()
         .expect("failed to start named");
 

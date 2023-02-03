@@ -100,7 +100,7 @@ impl OpCode {
             2 => Ok(Self::Status),
             4 => Ok(Self::Notify),
             5 => Ok(Self::Update),
-            _ => Err(format!("unknown OpCode: {}", value).into()),
+            _ => Err(format!("unknown OpCode: {value}").into()),
         }
     }
 }

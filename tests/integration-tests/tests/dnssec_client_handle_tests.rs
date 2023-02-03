@@ -49,7 +49,7 @@ where
         .block_on(client.query(name.clone(), DNSClass::IN, RecordType::A))
         .expect("query failed");
 
-    println!("response records: {:?}", response);
+    println!("response records: {response:?}");
     assert!(response
         .extensions()
         .as_ref()

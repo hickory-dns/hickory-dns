@@ -83,7 +83,7 @@ pub fn test() {
     assert!(emit(&mut encoder, &rdata).is_ok());
     let bytes = encoder.into_bytes();
 
-    println!("bytes: {:?}", bytes);
+    println!("bytes: {bytes:?}");
 
     let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
     let read_rdata = read(&mut decoder).expect("Decoding error");

@@ -349,6 +349,6 @@ impl From<ResolveError> for io::Error {
 
 impl<T> From<sync::PoisonError<T>> for ResolveError {
     fn from(e: sync::PoisonError<T>) -> Self {
-        ResolveErrorKind::Msg(format!("lock was poisoned, this is non-recoverable: {}", e)).into()
+        ResolveErrorKind::Msg(format!("lock was poisoned, this is non-recoverable: {e}")).into()
     }
 }

@@ -249,8 +249,8 @@ impl DNSKEY {
                 .emit(&mut encoder)
                 .and_then(|_| emit(&mut encoder, self))
             {
-                tracing::warn!("error serializing dnskey: {}", e);
-                return Err(format!("error serializing dnskey: {}", e).into());
+                tracing::warn!("error serializing dnskey: {e}");
+                return Err(format!("error serializing dnskey: {e}").into());
             }
         }
 
@@ -479,7 +479,7 @@ mod tests {
         assert!(emit(&mut encoder, &rdata).is_ok());
         let bytes = encoder.into_bytes();
 
-        println!("bytes: {:?}", bytes);
+        println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16));

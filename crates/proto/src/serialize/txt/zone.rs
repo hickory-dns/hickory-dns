@@ -332,7 +332,7 @@ impl Parser {
                         *ttl = Some(soa.minimum());
                     } // TODO: should this only set it if it's not set?
                 } else {
-                    let msg = format!("Invalid RData here, expected SOA: {:?}", rdata);
+                    let msg = format!("Invalid RData here, expected SOA: {rdata:?}");
                     return ParseResult::Err(ParseError::from(ParseErrorKind::Msg(msg)));
                 }
             }
@@ -465,6 +465,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::uninlined_format_args)]
     fn test_zone_parse() {
         let domain = Name::from_str("parameter.origin.org.").unwrap();
 

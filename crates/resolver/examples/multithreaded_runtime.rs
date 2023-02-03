@@ -51,7 +51,7 @@ fn main() {
             .expect("Failed completing lookup future")
             .iter()
             .collect::<Vec<_>>();
-        println!("{} resolved to {:?}", name, ips);
+        println!("{name} resolved to {ips:?}");
     }
 
     // Drop the resolver, which means that the runtime will become idle.

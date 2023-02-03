@@ -29,6 +29,7 @@ use rustls::RootCertStore;
 use trust_dns_integration::tls_client_connection::TlsClientConnection;
 
 #[test]
+#[allow(clippy::uninlined_format_args)]
 fn test_server_www_udp() {
     let runtime = Runtime::new().expect("failed to create Tokio Runtime");
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
@@ -57,6 +58,7 @@ fn test_server_www_udp() {
 }
 
 #[test]
+#[allow(clippy::uninlined_format_args)]
 fn test_server_www_tcp() {
     let runtime = Runtime::new().expect("failed to create Tokio Runtime");
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
@@ -91,7 +93,7 @@ fn test_server_unknown_type() {
     let udp_socket = runtime.block_on(UdpSocket::bind(&addr)).unwrap();
 
     let ipaddr = udp_socket.local_addr().unwrap();
-    println!("udp_socket on port: {}", ipaddr);
+    println!("udp_socket on port: {ipaddr}");
     let server_continue = Arc::new(AtomicBool::new(true));
     let server_continue2 = server_continue.clone();
 
@@ -138,7 +140,7 @@ fn test_server_form_error_on_multiple_queries() {
     let udp_socket = runtime.block_on(UdpSocket::bind(&addr)).unwrap();
 
     let ipaddr = udp_socket.local_addr().unwrap();
-    println!("udp_socket on port: {}", ipaddr);
+    println!("udp_socket on port: {ipaddr}");
     let server_continue = Arc::new(AtomicBool::new(true));
     let server_continue2 = server_continue.clone();
 
@@ -195,6 +197,7 @@ fn read_file(path: &str) -> Vec<u8> {
 // TODO: move all this to future based clients
 #[cfg(feature = "dns-over-rustls")]
 #[test]
+#[allow(clippy::uninlined_format_args)]
 fn test_server_www_tls() {
     use std::env;
     use std::path::Path;
@@ -209,13 +212,13 @@ fn test_server_www_tls() {
         "{}/tests/test-data/ca.pem",
         server_path
     )))
-    .map_err(|e| format!("error reading cert: {}", e))
+    .map_err(|e| format!("error reading cert: {e}"))
     .unwrap();
     let cert = tls_server::read_cert(Path::new(&format!(
         "{}/tests/test-data/cert.pem",
         server_path
     )))
-    .map_err(|e| format!("error reading cert: {}", e))
+    .map_err(|e| format!("error reading cert: {e}"))
     .unwrap();
     let key = tls_server::read_key_from_pem(Path::new(&format!(
         "{}/tests/test-data/cert.key",
@@ -231,7 +234,7 @@ fn test_server_www_tls() {
     let tcp_listener = runtime.block_on(TcpListener::bind(&addr)).unwrap();
 
     let ipaddr = tcp_listener.local_addr().unwrap();
-    println!("tcp_listner on port: {}", ipaddr);
+    println!("tcp_listner on port: {ipaddr}");
     let server_continue = Arc::new(AtomicBool::new(true));
     let server_continue2 = server_continue.clone();
 

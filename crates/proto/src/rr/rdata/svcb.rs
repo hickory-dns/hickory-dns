@@ -279,9 +279,9 @@ impl fmt::Display for SvcParamKey {
             Self::Ipv4Hint => f.write_str("ipv4hint")?,
             Self::EchConfig => f.write_str("echconfig")?,
             Self::Ipv6Hint => f.write_str("ipv6hint")?,
-            Self::Key(val) => write!(f, "key{}", val)?,
+            Self::Key(val) => write!(f, "key{val}")?,
             Self::Key65535 => f.write_str("key65535")?,
-            Self::Unknown(val) => write!(f, "unknown{}", val)?,
+            Self::Unknown(val) => write!(f, "unknown{val}")?,
         }
 
         Ok(())
@@ -296,8 +296,7 @@ impl std::str::FromStr for SvcParamKey {
         fn parse_unknown_key(key: &str) -> Result<SvcParamKey, ProtoError> {
             let key_value = key.strip_prefix("key").ok_or_else(|| {
                 ProtoError::from(ProtoErrorKind::Msg(format!(
-                    "bad formatted key ({}), expected key1234",
-                    key
+                    "bad formatted key ({key}), expected key1234"
                 )))
             })?;
 
@@ -509,14 +508,14 @@ impl BinEncodable for SvcParamValue {
 impl fmt::Display for SvcParamValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
-            Self::Mandatory(mandatory) => write!(f, "{}", mandatory)?,
-            Self::Alpn(alpn) => write!(f, "{}", alpn)?,
+            Self::Mandatory(mandatory) => write!(f, "{mandatory}")?,
+            Self::Alpn(alpn) => write!(f, "{alpn}")?,
             Self::NoDefaultAlpn => (),
-            Self::Port(port) => write!(f, "{}", port)?,
-            Self::Ipv4Hint(ip_hint) => write!(f, "{}", ip_hint)?,
-            Self::EchConfig(ech_config) => write!(f, "{}", ech_config)?,
-            Self::Ipv6Hint(ip_hint) => write!(f, "{}", ip_hint)?,
-            Self::Unknown(unknown) => write!(f, "{}", unknown)?,
+            Self::Port(port) => write!(f, "{port}")?,
+            Self::Ipv4Hint(ip_hint) => write!(f, "{ip_hint}")?,
+            Self::EchConfig(ech_config) => write!(f, "{ech_config}")?,
+            Self::Ipv6Hint(ip_hint) => write!(f, "{ip_hint}")?,
+            Self::Unknown(unknown) => write!(f, "{unknown}")?,
         }
 
         Ok(())
@@ -629,7 +628,7 @@ impl fmt::Display for Mandatory {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         for key in self.0.iter() {
             // TODO: confirm in the RFC that trailing commas are ok
-            write!(f, "{},", key)?;
+            write!(f, "{key},")?;
         }
 
         Ok(())
@@ -784,7 +783,7 @@ impl fmt::Display for Alpn {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         for alpn in self.0.iter() {
             // TODO: confirm in the RFC that trailing commas are ok
-            write!(f, "{},", alpn)?;
+            write!(f, "{alpn},")?;
         }
 
         Ok(())
@@ -976,7 +975,7 @@ where
     ///   this SvcParamValue MUST NOT contain escape sequences.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         for ip in self.0.iter() {
-            write!(f, "{},", ip)?;
+            write!(f, "{ip},")?;
         }
 
         Ok(())
@@ -1061,7 +1060,7 @@ pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoR
     let mut remainder_len = rdata_length
         .map(|len| len as usize)
         .checked_sub(decoder.index() - start_index)
-        .map_err(|len| format!("Bad length for RDATA of SVCB: {}", len))?
+        .map_err(|len| format!("Bad length for RDATA of SVCB: {len}"))?
         .unverified(); // valid len
     let mut svc_params: Vec<(SvcParamKey, SvcParamValue)> = Vec::new();
 
@@ -1086,7 +1085,7 @@ pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoR
         remainder_len = rdata_length
             .map(|len| len as usize)
             .checked_sub(decoder.index() - start_index)
-            .map_err(|len| format!("Bad length for RDATA of SVCB: {}", len))?
+            .map_err(|len| format!("Bad length for RDATA of SVCB: {len}"))?
             .unverified(); // valid len
     }
 
@@ -1138,7 +1137,7 @@ impl fmt::Display for SVCB {
         )?;
 
         for (key, param) in self.svc_params.iter() {
-            write!(f, " {key}={param}", key = key, param = param)?
+            write!(f, " {key}={param}")?
         }
 
         Ok(())

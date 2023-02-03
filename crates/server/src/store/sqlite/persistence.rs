@@ -159,8 +159,7 @@ impl Journal {
                 match Record::read(&mut decoder) {
                     Ok(record) => Ok((row_id, record)),
                     Err(decode_error) => Err(rusqlite::Error::InvalidParameterName(format!(
-                        "could not decode: {}",
-                        decode_error
+                        "could not decode: {decode_error}"
                     ))),
                 }
             })?

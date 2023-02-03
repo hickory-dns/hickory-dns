@@ -800,7 +800,7 @@ mod tests {
         emit(&mut encoder, &rdata).expect("failed to emit tsig");
         let bytes = encoder.into_bytes();
 
-        println!("bytes: {:?}", bytes);
+        println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let read_rdata =

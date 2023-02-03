@@ -176,7 +176,7 @@ mod tests {
         let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
 
         let response = resolver.lookup_ip("www.example.com.").unwrap();
-        println!("response records: {:?}", response);
+        println!("response records: {response:?}");
 
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
@@ -200,7 +200,7 @@ mod tests {
         let resolver = Resolver::from_system_conf().unwrap();
 
         let response = resolver.lookup_ip("www.example.com.").unwrap();
-        println!("response records: {:?}", response);
+        println!("response records: {response:?}");
 
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {

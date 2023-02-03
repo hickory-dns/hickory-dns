@@ -151,7 +151,7 @@ fn print_record(r: &Record) {
         ty = style(r.record_type()).blue(),
     );
     if let Some(rdata) = r.data() {
-        println!(" {rdata}", rdata = rdata);
+        println!(" {rdata}");
     } else {
         println!("NULL")
     }
@@ -182,7 +182,7 @@ fn print_error(error: ResolveError) {
             }
         }
         &_ => {
-            println!("{:?}", error);
+            println!("{error:?}");
         }
     }
 }
@@ -326,7 +326,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let name_servers = config
         .name_servers()
         .iter()
-        .map(|ns| format!("{}", ns))
+        .map(|ns| format!("{ns}"))
         .collect::<Vec<String>>()
         .join(", ");
 
