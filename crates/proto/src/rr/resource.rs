@@ -554,7 +554,7 @@ impl fmt::Display for Record {
         )?;
 
         if let Some(rdata) = &self.rdata {
-            write!(f, " {rdata}", rdata = rdata)?;
+            write!(f, " {rdata}")?;
         }
 
         Ok(())
@@ -743,7 +743,7 @@ mod tests {
 
         assert_eq!(record.clone(), record.clone());
         for (r, g) in compares {
-            println!("r, g: {:?}, {:?}", r, g);
+            println!("r, g: {r:?}, {g:?}");
             assert_eq!(r.cmp(g), Ordering::Less);
         }
     }

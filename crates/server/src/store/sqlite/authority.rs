@@ -95,7 +95,7 @@ impl SqliteAuthority {
         if journal_path.exists() {
             info!("recovering zone from journal: {:?}", journal_path);
             let journal = Journal::from_file(&journal_path)
-                .map_err(|e| format!("error opening journal: {:?}: {}", journal_path, e))?;
+                .map_err(|e| format!("error opening journal: {journal_path:?}: {e}"))?;
 
             let in_memory = InMemoryAuthority::empty(zone_name.clone(), zone_type, allow_axfr);
             let mut authority = Self::new(in_memory, config.allow_update, enable_dnssec);
@@ -103,7 +103,7 @@ impl SqliteAuthority {
             authority
                 .recover_with_journal(&journal)
                 .await
-                .map_err(|e| format!("error recovering from journal: {}", e))?;
+                .map_err(|e| format!("error recovering from journal: {e}"))?;
 
             authority.set_journal(journal).await;
             info!("recovered zone: {}", zone_name);
@@ -131,7 +131,7 @@ impl SqliteAuthority {
             // if dynamic update is enabled, enable the journal
             info!("creating new journal: {:?}", journal_path);
             let journal = Journal::from_file(&journal_path)
-                .map_err(|e| format!("error creating journal {:?}: {}", journal_path, e))?;
+                .map_err(|e| format!("error creating journal {journal_path:?}: {e}"))?;
 
             authority.set_journal(journal).await;
 
@@ -139,15 +139,12 @@ impl SqliteAuthority {
             authority
                 .persist_to_journal()
                 .await
-                .map_err(|e| format!("error persisting to journal {:?}: {}", journal_path, e))?;
+                .map_err(|e| format!("error persisting to journal {journal_path:?}: {e}"))?;
 
             info!("zone file loaded: {}", zone_name);
             Ok(authority)
         } else {
-            Err(format!(
-                "no zone file or journal defined at: {:?}",
-                zone_path
-            ))
+            Err(format!("no zone file or journal defined at: {zone_path:?}"))
         }
     }
 

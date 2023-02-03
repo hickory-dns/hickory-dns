@@ -65,7 +65,7 @@ fn new_working_dir() -> String {
         (rand >> 16) as u8,
         (rand >> 24) as u8,
     ]);
-    let working_dir = format!("{}/bind_pwd_{}", target_dir, rand);
+    let working_dir = format!("{target_dir}/bind_pwd_{rand}");
 
     if !Path::new(&working_dir).exists() {
         DirBuilder::new()
@@ -95,7 +95,7 @@ where
             .expect("could not read stdout");
 
         if !output.is_empty() {
-            print!("SRV: {}", output);
+            print!("SRV: {output}");
         }
 
         if output.ends_with(started_str) {

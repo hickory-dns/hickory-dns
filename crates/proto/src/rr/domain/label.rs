@@ -70,7 +70,7 @@ impl Label {
             .to_ascii(s)
         {
             Ok(puny) => Self::from_ascii(&puny),
-            e => Err(format!("Label contains invalid characters: {:?}", e).into()),
+            e => Err(format!("Label contains invalid characters: {e:?}").into()),
         }
     }
 
@@ -93,7 +93,7 @@ impl Label {
         {
             Self::from_raw_bytes(s.as_bytes())
         } else {
-            Err(format!("Malformed label: {}", s).into())
+            Err(format!("Malformed label: {s}").into())
         }
     }
 
@@ -163,7 +163,7 @@ impl Label {
 
     /// Performs the conversion to utf8 from IDNA as necessary, see `fmt` for more details
     pub fn to_utf8(&self) -> String {
-        format!("{}", self)
+        format!("{self}")
     }
 
     /// Converts this label to safe ascii, escaping characters as necessary
@@ -185,8 +185,8 @@ impl Label {
             f: &mut W,
             is_first: bool,
         ) -> Result<(), fmt::Error> {
-            let to_triple_escape = |ch: u8| format!("\\{:03o}", ch);
-            let to_single_escape = |ch: char| format!("\\{}", ch);
+            let to_triple_escape = |ch: u8| format!("\\{ch:03o}");
+            let to_single_escape = |ch: char| format!("\\{ch}");
 
             match char::from(byte) {
                 c if is_safe_ascii(c, is_first, true) => f.write_char(c)?,
@@ -403,7 +403,7 @@ mod tests {
 
     fn assert_panic_label_too_long(error: ProtoResult<Label>, len: usize) {
         // poor man debug since ProtoResult don't implement Partial Eq due to ssl errors.
-        eprintln!("{:?}", error);
+        eprintln!("{error:?}");
         assert!(error.is_err());
         match *error.unwrap_err().kind() {
             ProtoErrorKind::LabelBytesTooLong(n) if n == len => (),
@@ -553,7 +553,7 @@ mod tests {
         ];
 
         for (left, right) in comparisons {
-            println!("left: {}, right: {}", left, right);
+            println!("left: {left}, right: {right}");
             assert_eq!(left.cmp(&right), Ordering::Less);
         }
     }

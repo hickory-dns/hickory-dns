@@ -41,9 +41,9 @@ where
     F: FnOnce(Option<u16>, Option<u16>, Option<u16>, Option<u16>, Option<u16>) -> R + UnwindSafe,
 {
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
-    println!("using server src path: {}", server_path);
+    println!("using server src path: {server_path}");
 
-    let mut command = Command::new(format!("{}/target/debug/trust-dns", server_path));
+    let mut command = Command::new(format!("{server_path}/target/debug/trust-dns"));
     command
         .stdout(Stdio::piped())
         .env(
@@ -51,17 +51,15 @@ where
             "trust_dns_client=debug,trust_dns_proto=debug,trust_dns_resolver=debug,trust_dns_server=debug",
         ).arg("-d")
         .arg(&format!(
-            "--config={}/tests/test-data/test_configs/{}",
-            server_path, toml
+            "--config={server_path}/tests/test-data/test_configs/{toml}"
         )).arg(&format!(
-            "--zonedir={}/tests/test-data/test_configs",
-            server_path
+            "--zonedir={server_path}/tests/test-data/test_configs"
         )).arg(&format!("--port={}", 0))
         .arg(&format!("--tls-port={}", 0))
         .arg(&format!("--https-port={}", 0))
         .arg(&format!("--quic-port={}", 0));
 
-    println!("named cli options: {command:#?}", command = command);
+    println!("named cli options: {command:#?}");
 
     let mut named = command.spawn().expect("failed to start named");
 
@@ -187,7 +185,7 @@ where
     stdout().flush().unwrap();
     assert!(found);
     println!(
-        "Test server started. ports: udp {test_udp_port:?}, tcp {test_tcp_port:?}, tls {test_tls_port:?}, https {test_https_port:?}, quic {test_quic_port:?}", test_udp_port = test_udp_port, test_tcp_port = test_tcp_port, test_tls_port = test_tls_port, test_https_port = test_https_port, test_quic_port = test_quic_port,
+        "Test server started. ports: udp {test_udp_port:?}, tcp {test_tcp_port:?}, tls {test_tls_port:?}, https {test_https_port:?}, quic {test_quic_port:?}",
     );
 
     // spawn a thread to capture stdout
@@ -237,7 +235,7 @@ pub fn query_message<C: ClientHandle>(
     name: Name,
     record_type: RecordType,
 ) -> DnsResponse {
-    println!("sending request: {} for: {}", name, record_type);
+    println!("sending request: {name} for: {record_type}");
     let response = io_loop.block_on(client.query(name, DNSClass::IN, record_type));
     //println!("got response: {}");
     response.expect("request failed")

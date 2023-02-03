@@ -175,7 +175,7 @@ fn test_query(client: &mut AsyncClient) -> impl Future<Output = ()> {
     client
         .query(name.clone(), DNSClass::IN, RecordType::A)
         .map_ok(move |response| {
-            println!("response records: {:?}", response);
+            println!("response records: {response:?}");
             assert!(response
                 .queries()
                 .first()
@@ -227,7 +227,7 @@ fn test_query_edns(client: &mut AsyncClient) -> impl Future<Output = ()> {
         .send(msg)
         .first_answer()
         .map_ok(move |response| {
-            println!("response records: {:?}", response);
+            println!("response records: {response:?}");
             assert!(response
                 .queries()
                 .first()
@@ -940,7 +940,7 @@ fn test_timeout_query(mut client: AsyncClient, io_loop: Runtime) {
         .block_on(client.query(name.clone(), DNSClass::IN, RecordType::A))
         .unwrap_err();
 
-    println!("got error: {:?}", err);
+    println!("got error: {err:?}");
     if let ClientErrorKind::Timeout = err.kind() {
     } else {
         panic!("expected timeout error");

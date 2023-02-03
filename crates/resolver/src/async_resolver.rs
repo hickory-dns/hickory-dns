@@ -665,7 +665,7 @@ pub mod testing {
 
         use proto::error::{ProtoError, ProtoErrorKind};
 
-        let error_str = format!("{}", error);
+        let error_str = format!("{error}");
         let name = Name::from_str("trust-dns.org.").unwrap();
         let expected_str = format!(
             "{}",

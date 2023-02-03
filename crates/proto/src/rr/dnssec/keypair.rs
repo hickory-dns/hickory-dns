@@ -376,8 +376,7 @@ impl<K: HasPrivate> KeyPair<K> {
                     let expect = |pos: usize, expected: u8| -> DnsSecResult<()> {
                         if bytes[pos] != expected {
                             return Err(format!(
-                                "unexpected signature format ({}, {}))",
-                                pos, expected
+                                "unexpected signature format ({pos}, {expected}))"
                             )
                             .into());
                         }
@@ -572,6 +571,7 @@ mod tests {
         hash_test(Algorithm::ED25519, KeyFormat::Pkcs8);
     }
 
+    #[allow(clippy::uninlined_format_args)]
     fn public_key_test(algorithm: Algorithm, key_format: KeyFormat) {
         let key = key_format
             .decode_key(
@@ -597,6 +597,7 @@ mod tests {
         );
     }
 
+    #[allow(clippy::uninlined_format_args)]
     fn hash_test(algorithm: Algorithm, key_format: KeyFormat) {
         let tbs = TBS::from(&b"www.example.com"[..]);
 

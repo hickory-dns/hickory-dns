@@ -112,7 +112,7 @@ where
         .query(&name, DNSClass::IN, RecordType::A)
         .expect("Query failed");
 
-    println!("response records: {:?}", response);
+    println!("response records: {response:?}");
     assert!(response
         .queries()
         .first()
@@ -162,7 +162,7 @@ where
 
     let response = client.send(msg).remove(0).expect("Query failed");
 
-    println!("response records: {:?}", response);
+    println!("response records: {response:?}");
     assert!(response
         .queries()
         .first()
@@ -232,7 +232,7 @@ where
         .query(&name, DNSClass::IN, RecordType::A)
         .expect("Query failed");
 
-    println!("response records: {:?}", response);
+    println!("response records: {response:?}");
     assert!(response
         .extensions()
         .as_ref()

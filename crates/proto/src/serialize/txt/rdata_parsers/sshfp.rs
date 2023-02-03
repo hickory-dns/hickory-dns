@@ -27,7 +27,7 @@ use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
 /// ```
 pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<SSHFP> {
     fn missing_field<E: From<ParseErrorKind>>(field: &str) -> E {
-        ParseErrorKind::Msg(format!("SSHFP {} field missing", field)).into()
+        ParseErrorKind::Msg(format!("SSHFP {field} field missing")).into()
     }
     let (algorithm, fingerprint_type) = {
         let mut parse_u8 = |field: &str| {

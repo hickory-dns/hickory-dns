@@ -61,12 +61,8 @@ pub type TlsStream<S> = TcpStream<AsyncIoTokioAsStd<TokioTlsStream<S>>>;
 pub(crate) type CompatTlsStream<S> = TlsStream<AsyncIoStdAsTokio<S>>;
 
 fn new(certs: Vec<X509>, pkcs12: Option<ParsedPkcs12>) -> io::Result<SslConnector> {
-    let mut tls = SslConnector::builder(SslMethod::tls()).map_err(|e| {
-        io::Error::new(
-            io::ErrorKind::ConnectionRefused,
-            format!("tls error: {}", e),
-        )
-    })?;
+    let mut tls = SslConnector::builder(SslMethod::tls())
+        .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {e}")))?;
 
     // mutable reference block
     {
@@ -81,28 +77,19 @@ fn new(certs: Vec<X509>, pkcs12: Option<ParsedPkcs12>) -> io::Result<SslConnecto
         );
 
         let mut store = X509StoreBuilder::new().map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::ConnectionRefused,
-                format!("tls error: {}", e),
-            )
+            io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {e}"))
         })?;
 
         for cert in certs {
             store.add_cert(cert).map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::ConnectionRefused,
-                    format!("tls error: {}", e),
-                )
+                io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {e}"))
             })?;
         }
 
         openssl_ctx_builder
             .set_verify_cert_store(store.build())
             .map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::ConnectionRefused,
-                    format!("tls error: {}", e),
-                )
+                io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {e}"))
             })?;
 
         // if there was a pkcs12 associated, we'll add it to the identity
@@ -133,22 +120,15 @@ async fn connect_tls<S: Connect>(
 ) -> Result<TokioTlsStream<AsyncIoStdAsTokio<S>>, io::Error> {
     let tcp = S::connect_with_bind(name_server, bind_addr)
         .await
-        .map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::ConnectionRefused,
-                format!("tls error: {}", e),
-            )
-        })?;
+        .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {e}")))?;
     let mut stream = tls_config
         .into_ssl(&dns_name)
         .and_then(|ssl| TokioTlsStream::new(ssl, AsyncIoStdAsTokio(tcp)))
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("tls error: {}", e)))?;
-    Pin::new(&mut stream).connect().await.map_err(|e| {
-        io::Error::new(
-            io::ErrorKind::ConnectionRefused,
-            format!("tls error: {}", e),
-        )
-    })?;
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("tls error: {e}")))?;
+    Pin::new(&mut stream)
+        .connect()
+        .await
+        .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {e}")))?;
     Ok(stream)
 }
 
@@ -230,10 +210,7 @@ impl<S: Connect> TlsStreamBuilder<S> {
             Err(e) => {
                 return (
                     Box::pin(future::err(e).map_err(|e| {
-                        io::Error::new(
-                            io::ErrorKind::ConnectionRefused,
-                            format!("tls error: {}", e),
-                        )
+                        io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {e}"))
                     })),
                     message_sender,
                 )
@@ -247,7 +224,7 @@ impl<S: Connect> TlsStreamBuilder<S> {
                     Box::pin(future::err(e).map_err(|e| {
                         io::Error::new(
                             io::ErrorKind::ConnectionRefused,
-                            format!("tls config error: {}", e),
+                            format!("tls config error: {e}"),
                         )
                     })),
                     message_sender,

@@ -32,11 +32,8 @@ where
     CC: ClientConnection,
 {
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
-    let pem_path = format!(
-        "{}/tests/compatibility-tests/tests/conf/tsig.raw",
-        server_path
-    );
-    println!("loading key from: {}", pem_path);
+    let pem_path = format!("{server_path}/tests/compatibility-tests/tests/conf/tsig.raw");
+    println!("loading key from: {pem_path}");
     let mut key_file = File::open(pem_path).expect("could not find key file");
 
     let mut key = Vec::new();

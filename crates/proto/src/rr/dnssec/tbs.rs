@@ -286,5 +286,5 @@ pub fn determine_name(name: &Name, num_labels: u8) -> Result<Name, ProtoError> {
     //                   checks and MUST NOT be used to authenticate this
     //                   RRset.
 
-    Err(format!("could not determine name from {}", name).into())
+    Err(format!("could not determine name from {name}").into())
 }

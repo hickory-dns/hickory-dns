@@ -45,5 +45,5 @@ pub fn new(message_len: usize) -> HttpsResult<Response<()>> {
         .header(CONTENT_TYPE, crate::https::MIME_APPLICATION_DNS)
         .header(CONTENT_LENGTH, message_len)
         .body(())
-        .map_err(|e| ProtoError::from(format!("invalid response: {}", e)).into())
+        .map_err(|e| ProtoError::from(format!("invalid response: {e}")).into())
 }

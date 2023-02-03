@@ -355,7 +355,7 @@ impl SigSigner {
     pub fn sign(&self, tbs: &TBS) -> ProtoResult<Vec<u8>> {
         self.key
             .sign(self.algorithm, tbs)
-            .map_err(|e| ProtoErrorKind::Msg(format!("signing error: {}", e)).into())
+            .map_err(|e| ProtoErrorKind::Msg(format!("signing error: {e}")).into())
     }
 
     /// Returns the algorithm this Signer will use to either sign or validate a signature
@@ -522,7 +522,7 @@ impl MessageFinalizer for SigSigner {
         message: &Message,
         current_time: u32,
     ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
-        debug!("signing message: {:?}", message);
+        debug!("signing message: {message:?}");
         let key_tag: u16 = self.calculate_key_tag()?;
 
         // this is based on RFCs 2535, 2931 and 3007
@@ -641,7 +641,7 @@ mod tests {
 
         let pre_sig0 = pre_sig0(&signer, 0, 300);
         let sig = signer.sign_message(&question, &pre_sig0).unwrap();
-        println!("sig: {:?}", sig);
+        println!("sig: {sig:?}");
 
         assert!(!sig.is_empty());
 
@@ -653,7 +653,7 @@ mod tests {
         assert!(!question.sig0().is_empty());
 
         let sig = signer.sign_message(&question, &pre_sig0);
-        println!("sig after sign: {:?}", sig);
+        println!("sig after sign: {sig:?}");
 
         if let Some(RData::DNSSEC(DNSSECRData::SIG(ref sig))) = question.sig0()[0].data() {
             assert!(sig0key.verify_message(&question, sig.sig(), sig).is_ok());

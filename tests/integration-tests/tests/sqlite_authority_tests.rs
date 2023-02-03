@@ -793,7 +793,7 @@ async fn test_update() {
             .await
             .unwrap();
 
-        println!("after delete of specific record: {:?}", lookup);
+        println!("after delete of specific record: {lookup:?}");
         assert!(lookup.was_empty());
     }
 
@@ -905,6 +905,7 @@ async fn test_update() {
 
 #[cfg(feature = "dnssec")]
 #[tokio::test]
+#[allow(clippy::uninlined_format_args)]
 async fn test_zone_signing() {
     use trust_dns_proto::rr::dnssec::rdata::DNSSECRData;
 

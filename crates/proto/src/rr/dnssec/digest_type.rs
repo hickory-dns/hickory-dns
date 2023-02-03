@@ -74,7 +74,7 @@ impl DigestType {
             Self::SHA256 => Ok(hash::MessageDigest::sha256()),
             Self::SHA384 => Ok(hash::MessageDigest::sha384()),
             Self::SHA512 => Ok(hash::MessageDigest::sha512()),
-            _ => Err(format!("digest not supported by openssl: {:?}", self).into()),
+            _ => Err(format!("digest not supported by openssl: {self:?}").into()),
         }
     }
 
@@ -87,7 +87,7 @@ impl DigestType {
             Self::SHA256 => Ok(&digest::SHA256),
             Self::SHA384 => Ok(&digest::SHA384),
             Self::SHA512 => Ok(&digest::SHA512),
-            _ => Err(format!("digest not supported by ring: {:?}", self).into()),
+            _ => Err(format!("digest not supported by ring: {self:?}").into()),
         }
     }
 

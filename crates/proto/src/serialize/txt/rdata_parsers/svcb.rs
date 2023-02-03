@@ -398,7 +398,7 @@ mod tests {
         let svcb_display = svcb.to_string();
 
         // add back the name, etc...
-        let svcb_display = format!("crypto.cloudflare.com. 299 IN SVCB {}", svcb_display);
+        let svcb_display = format!("crypto.cloudflare.com. 299 IN SVCB {svcb_display}");
         let svcb_display = parse_record(&svcb_display);
 
         assert_eq!(svcb, svcb_display);

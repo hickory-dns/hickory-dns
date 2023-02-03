@@ -89,7 +89,7 @@ async fn resolve_list<
                 .map(|rdata| rdata.to_string())
                 .collect::<Vec<_>>()
         });
-        println!("  {} returned to {:?}", name, txts);
+        println!("  {name} returned to {txts:?}");
     }
     println!();
     start_time.elapsed()

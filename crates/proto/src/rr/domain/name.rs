@@ -170,7 +170,7 @@ impl Name {
             return Err(ProtoErrorKind::DomainNameTooLong(labels.len()).into());
         };
         if !errors.is_empty() {
-            return Err(format!("error converting some labels: {:?}", errors).into());
+            return Err(format!("error converting some labels: {errors:?}").into());
         };
 
         let mut name = Self {
@@ -538,14 +538,14 @@ impl Name {
                     }
                     '\\' => state = ParseState::Escape1,
                     ch if !ch.is_control() && !ch.is_whitespace() => label.push(ch),
-                    _ => return Err(format!("unrecognized char: {}", ch).into()),
+                    _ => return Err(format!("unrecognized char: {ch}").into()),
                 },
                 ParseState::Escape1 => {
                     if ch.is_numeric() {
-                        state =
-                            ParseState::Escape2(ch.to_digit(8).ok_or_else(|| {
-                                ProtoError::from(format!("illegal char: {}", ch))
-                            })?);
+                        state = ParseState::Escape2(
+                            ch.to_digit(8)
+                                .ok_or_else(|| ProtoError::from(format!("illegal char: {ch}")))?,
+                        );
                     } else {
                         // it's a single escaped char
                         label.push(ch);
@@ -557,10 +557,10 @@ impl Name {
                         state = ParseState::Escape3(
                             i,
                             ch.to_digit(8)
-                                .ok_or_else(|| ProtoError::from(format!("illegal char: {}", ch)))?,
+                                .ok_or_else(|| ProtoError::from(format!("illegal char: {ch}")))?,
                         );
                     } else {
-                        return Err(ProtoError::from(format!("unrecognized char: {}", ch)));
+                        return Err(ProtoError::from(format!("unrecognized char: {ch}")));
                     }
                 }
                 ParseState::Escape3(i, ii) => {
@@ -569,13 +569,13 @@ impl Name {
                         let val: u32 = (i * 8 * 8)
                             + (ii * 8)
                             + ch.to_digit(8)
-                                .ok_or_else(|| ProtoError::from(format!("illegal char: {}", ch)))?;
+                                .ok_or_else(|| ProtoError::from(format!("illegal char: {ch}")))?;
                         let new: char = char::from_u32(val)
-                            .ok_or_else(|| ProtoError::from(format!("illegal char: {}", ch)))?;
+                            .ok_or_else(|| ProtoError::from(format!("illegal char: {ch}")))?;
                         label.push(new);
                         state = ParseState::Label;
                     } else {
-                        return Err(format!("unrecognized char: {}", ch).into());
+                        return Err(format!("unrecognized char: {ch}").into());
                     }
                 }
             }
@@ -727,7 +727,7 @@ impl Name {
     ///  is followed by the final `.`, e.g. as in `www.example.com.`, which represents a fully
     ///  qualified Name.
     pub fn to_utf8(&self) -> String {
-        format!("{}", self)
+        format!("{self}")
     }
 
     /// Converts a *.arpa Name in a PTR record back into an IpNet if possible.
@@ -921,7 +921,7 @@ impl LabelEnc for LabelEncUtf8 {
     }
 
     fn write_label<W: Write>(f: &mut W, label: &Label) -> Result<(), fmt::Error> {
-        write!(f, "{}", label)
+        write!(f, "{label}")
     }
 }
 
@@ -1002,7 +1002,7 @@ impl From<Ipv4Addr> for Name {
                 .iter()
                 .rev()
                 .fold(Vec::<Label>::with_capacity(6), |mut labels, o| {
-                    let label: Label = format!("{}", o)
+                    let label: Label = format!("{o}")
                         .as_bytes()
                         .into_label()
                         .expect("IP octet to label should never fail");
@@ -1583,7 +1583,7 @@ mod tests {
         ];
 
         for (left, right) in comparisons {
-            println!("left: {}, right: {}", left, right);
+            println!("left: {left}, right: {right}");
             assert_eq!(left.partial_cmp(&right), Some(Ordering::Equal));
         }
     }
@@ -1626,7 +1626,7 @@ mod tests {
         ];
 
         for (left, right) in comparisons {
-            println!("left: {}, right: {}", left, right);
+            println!("left: {left}, right: {right}");
             assert_eq!(left.cmp(&right), Ordering::Less);
         }
     }
@@ -1645,7 +1645,7 @@ mod tests {
         ];
 
         for (left, right) in comparisons {
-            println!("left: {}, right: {}", left, right);
+            println!("left: {left}, right: {right}");
             assert_eq!(left, right);
         }
     }
@@ -1775,7 +1775,7 @@ mod tests {
 
         let mut result = Ok(());
         for i in 0..10000 {
-            let name = Name::from_ascii(format!("name{}.example.com.", i)).unwrap();
+            let name = Name::from_ascii(format!("name{i}.example.com.")).unwrap();
             result = name.emit(&mut encoder);
             if let Err(..) = result {
                 break;

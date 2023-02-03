@@ -488,6 +488,7 @@ fn test_noerror_doesnt_leak() {
 }
 
 #[test]
+#[allow(clippy::uninlined_format_args)]
 fn test_distrust_nx_responses() {
     let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
 

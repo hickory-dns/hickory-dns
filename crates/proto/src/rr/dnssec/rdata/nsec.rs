@@ -203,7 +203,7 @@ impl fmt::Display for NSEC {
         write!(f, "{}", self.next_domain_name)?;
 
         for ty in &self.type_bit_maps {
-            write!(f, " {}", ty)?;
+            write!(f, " {ty}")?;
         }
 
         Ok(())
@@ -236,7 +236,7 @@ mod tests {
         assert!(emit(&mut encoder, &rdata).is_ok());
         let bytes = encoder.into_bytes();
 
-        println!("bytes: {:?}", bytes);
+        println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let restrict = Restrict::new(bytes.len() as u16);

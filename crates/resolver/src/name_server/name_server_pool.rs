@@ -471,6 +471,7 @@ mod tests {
     #[ignore]
     // because of there is a real connection that needs a reasonable timeout
     #[test]
+    #[allow(clippy::uninlined_format_args)]
     fn test_failed_then_success_pool() {
         let config1 = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 252)), 253),

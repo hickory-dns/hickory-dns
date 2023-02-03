@@ -111,7 +111,7 @@ pub async fn resolve<N: IntoName + Display + TryParseIp + 'static>(
             // we transform the error into a standard IO error for convenience
             io::Error::new(
                 io::ErrorKind::AddrNotAvailable,
-                format!("dns resolution error for {}: {}", name, err),
+                format!("dns resolution error for {name}: {err}"),
             )
         })
         .map(move |lookup_ip| {
@@ -149,7 +149,7 @@ fn main() {
             .join()
             .expect("resolution thread failed")
             .expect("resolution failed");
-        println!("{} resolved to {:?}", name, result);
+        println!("{name} resolved to {result:?}");
     }
 }
 

@@ -998,8 +998,8 @@ impl RData {
 
 impl fmt::Display for RData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        fn w<D: fmt::Display>(f: &mut fmt::Formatter<'_>, d: D) -> Result<(), fmt::Error> {
-            write!(f, "{rdata}", rdata = d)
+        fn w<D: fmt::Display>(f: &mut fmt::Formatter<'_>, rdata: D) -> Result<(), fmt::Error> {
+            write!(f, "{rdata}")
         }
 
         match *self {
@@ -1234,7 +1234,7 @@ mod tests {
     #[test]
     fn test_read() {
         for (test_pass, (expect, binary)) in get_data().into_iter().enumerate() {
-            println!("test {}: {:?}", test_pass, binary);
+            println!("test {test_pass}: {binary:?}");
             let length = binary.len() as u16; // pre exclusive borrow
             let mut decoder = BinDecoder::new(&binary);
 

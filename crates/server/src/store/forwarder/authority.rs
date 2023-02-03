@@ -38,7 +38,7 @@ impl ForwardAuthority {
     #[doc(hidden)]
     pub fn new(runtime: TokioHandle) -> Result<Self, String> {
         let resolver = TokioAsyncResolver::from_system_conf(runtime)
-            .map_err(|e| format!("error constructing new Resolver: {}", e))?;
+            .map_err(|e| format!("error constructing new Resolver: {e}"))?;
 
         Ok(Self {
             origin: Name::root().into(),
@@ -79,7 +79,7 @@ impl ForwardAuthority {
         let config = ResolverConfig::from_parts(None, vec![], name_servers);
 
         let resolver = TokioAsyncResolver::new(config, options, TokioHandle::default())
-            .map_err(|e| format!("error constructing new Resolver: {}", e))?;
+            .map_err(|e| format!("error constructing new Resolver: {e}"))?;
 
         info!("forward resolver configured: {}: ", origin);
 

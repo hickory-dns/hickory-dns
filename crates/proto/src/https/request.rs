@@ -45,11 +45,11 @@ pub fn new(name_server_name: &str, message_len: usize) -> HttpsResult<Request<()
     parts.scheme = Some(uri::Scheme::HTTPS);
     parts.authority = Some(
         uri::Authority::from_str(name_server_name)
-            .map_err(|e| ProtoError::from(format!("invalid authority: {}", e)))?,
+            .map_err(|e| ProtoError::from(format!("invalid authority: {e}")))?,
     );
 
     let url =
-        Uri::from_parts(parts).map_err(|e| ProtoError::from(format!("uri parse error: {}", e)))?;
+        Uri::from_parts(parts).map_err(|e| ProtoError::from(format!("uri parse error: {e}")))?;
 
     // TODO: add user agent to TypedHeaders
     let request = Request::builder()
@@ -60,7 +60,7 @@ pub fn new(name_server_name: &str, message_len: usize) -> HttpsResult<Request<()
         .header(ACCEPT, crate::https::MIME_APPLICATION_DNS)
         .header(CONTENT_LENGTH, message_len)
         .body(())
-        .map_err(|e| ProtoError::from(format!("h2 stream errored: {}", e)))?;
+        .map_err(|e| ProtoError::from(format!("h2 stream errored: {e}")))?;
 
     Ok(request)
 }

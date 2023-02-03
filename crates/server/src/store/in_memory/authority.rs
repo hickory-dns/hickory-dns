@@ -94,7 +94,7 @@ impl InMemoryAuthority {
             .and_then(Record::data)
             .and_then(RData::as_soa)
             .map(SOA::serial)
-            .ok_or_else(|| format!("SOA record must be present: {}", origin))?;
+            .ok_or_else(|| format!("SOA record must be present: {origin}"))?;
 
         let iter = records.into_values();
 
@@ -106,8 +106,7 @@ impl InMemoryAuthority {
             for record in rrset.records_without_rrsigs() {
                 if !inner.upsert(record.clone(), serial, this.class) {
                     return Err(format!(
-                        "Failed to insert {} {} to zone: {}",
-                        name, rr_type, origin
+                        "Failed to insert {name} {rr_type} to zone: {origin}"
                     ));
                 };
             }

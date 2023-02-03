@@ -187,7 +187,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
 
         if let Some(rdata) = r.data() {
-            println!(" {rdata}", rdata = rdata);
+            println!(" {rdata}");
         } else {
             println!("NULL")
         }

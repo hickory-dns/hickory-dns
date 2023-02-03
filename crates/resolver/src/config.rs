@@ -441,7 +441,7 @@ impl fmt::Display for NameServerConfig {
         write!(f, "{}:", self.protocol)?;
 
         if let Some(ref tls_dns_name) = self.tls_dns_name {
-            write!(f, "{}@", tls_dns_name)?;
+            write!(f, "{tls_dns_name}@")?;
         }
 
         write!(f, "{}", self.socket_addr)

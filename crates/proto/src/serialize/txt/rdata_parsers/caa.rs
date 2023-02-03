@@ -117,10 +117,7 @@ mod tests {
             RData::CAA(parsed_rdata) => assert_eq!(
                 expected_rdata,
                 parsed_rdata,
-                "CAA rdata was not parsed as expected. input={:?} expected_rdata={:?} parsed_rdata={:?}",
-                input_string,
-                expected_rdata,
-                parsed_rdata,
+                "CAA rdata was not parsed as expected. input={input_string:?} expected_rdata={expected_rdata:?} parsed_rdata={parsed_rdata:?}",
             ),
             parsed_rdata => panic!("Parsed RData is not CAA: {:?}", parsed_rdata),
         }

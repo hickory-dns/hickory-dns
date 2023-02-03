@@ -286,8 +286,8 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     txt_records.sort();
 
-    println!("compare: {:#?}", compare);
-    println!("txt_records: {:#?}", txt_records);
+    println!("compare: {compare:#?}");
+    println!("txt_records: {txt_records:#?}");
 
     let compare = txt_records.iter().zip(compare);
 

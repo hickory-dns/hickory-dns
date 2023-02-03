@@ -67,7 +67,7 @@ impl HttpsClientStream {
             Ok(h2) => h2,
             Err(err) => {
                 // TODO: make specific error
-                return Err(ProtoError::from(format!("h2 send_request error: {}", err)));
+                return Err(ProtoError::from(format!("h2 send_request error: {err}")));
             }
         };
 
@@ -75,22 +75,22 @@ impl HttpsClientStream {
         let request = crate::https::request::new(&name_server_name, message.remaining());
 
         let request =
-            request.map_err(|err| ProtoError::from(format!("bad http request: {}", err)))?;
+            request.map_err(|err| ProtoError::from(format!("bad http request: {err}")))?;
 
         debug!("request: {:#?}", request);
 
         // Send the request
         let (response_future, mut send_stream) = h2
             .send_request(request, false)
-            .map_err(|err| ProtoError::from(format!("h2 send_request error: {}", err)))?;
+            .map_err(|err| ProtoError::from(format!("h2 send_request error: {err}")))?;
 
         send_stream
             .send_data(message, true)
-            .map_err(|e| ProtoError::from(format!("h2 send_data error: {}", e)))?;
+            .map_err(|e| ProtoError::from(format!("h2 send_data error: {e}")))?;
 
         let mut response_stream = response_future
             .await
-            .map_err(|err| ProtoError::from(format!("received a stream error: {}", err)))?;
+            .map_err(|err| ProtoError::from(format!("received a stream error: {err}")))?;
 
         debug!("got response: {:#?}", response_stream);
 
@@ -100,10 +100,10 @@ impl HttpsClientStream {
             .get(CONTENT_LENGTH)
             .map(|v| v.to_str())
             .transpose()
-            .map_err(|e| ProtoError::from(format!("bad headers received: {}", e)))?
+            .map_err(|e| ProtoError::from(format!("bad headers received: {e}")))?
             .map(usize::from_str)
             .transpose()
-            .map_err(|e| ProtoError::from(format!("bad headers received: {}", e)))?;
+            .map_err(|e| ProtoError::from(format!("bad headers received: {e}")))?;
 
         // TODO: what is a good max here?
         // clamp(512, 4096) says make sure it is at least 512 bytes, and min 4096 says it is at most 4k
@@ -113,7 +113,7 @@ impl HttpsClientStream {
 
         while let Some(partial_bytes) = response_stream.body_mut().data().await {
             let partial_bytes =
-                partial_bytes.map_err(|e| ProtoError::from(format!("bad http request: {}", e)))?;
+                partial_bytes.map_err(|e| ProtoError::from(format!("bad http request: {e}")))?;
 
             debug!("got bytes: {}", partial_bytes.len());
             response_bytes.extend(partial_bytes);
@@ -158,7 +158,7 @@ impl HttpsClientStream {
                     .map(|h| {
                         h.to_str().map_err(|err| {
                             // TODO: make explicit error type
-                            ProtoError::from(format!("ContentType header not a string: {}", err))
+                            ProtoError::from(format!("ContentType header not a string: {err}"))
                         })
                     })
                     .unwrap_or(Ok(crate::https::MIME_APPLICATION_DNS))?;
@@ -270,8 +270,7 @@ impl Stream for HttpsClientStream {
             Poll::Ready(Ok(())) => Poll::Ready(Some(Ok(()))),
             Poll::Pending => Poll::Pending,
             Poll::Ready(Err(e)) => Poll::Ready(Some(Err(ProtoError::from(format!(
-                "h2 stream errored: {}",
-                e
+                "h2 stream errored: {e}",
             ))))),
         }
     }
@@ -469,13 +468,13 @@ where
                 } => {
                     let (send_request, connection) = ready!(handshake
                         .poll_unpin(cx)
-                        .map_err(|e| ProtoError::from(format!("h2 handshake error: {}", e))))?;
+                        .map_err(|e| ProtoError::from(format!("h2 handshake error: {e}"))))?;
 
                     // TODO: hand this back for others to run rather than spawning here?
                     debug!("h2 connection established to: {}", name_server);
                     tokio::spawn(
                         connection
-                            .map_err(|e| warn!("h2 connection failed: {}", e))
+                            .map_err(|e| warn!("h2 connection failed: {e}"))
                             .map(|_: Result<(), ()>| ()),
                     );
 

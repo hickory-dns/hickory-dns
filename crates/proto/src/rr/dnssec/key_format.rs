@@ -38,54 +38,51 @@ impl KeyFormat {
 
         #[allow(deprecated)]
         match algorithm {
-            Algorithm::Unknown(v) => Err(format!("unknown algorithm: {}", v).into()),
+            Algorithm::Unknown(v) => Err(format!("unknown algorithm: {v}").into()),
             #[cfg(feature = "openssl")]
             e @ Algorithm::RSASHA1 | e @ Algorithm::RSASHA1NSEC3SHA1 => {
-                Err(format!("unsupported Algorithm (insecure): {:?}", e).into())
+                Err(format!("unsupported Algorithm (insecure): {e:?}").into())
             }
             #[cfg(feature = "openssl")]
             Algorithm::RSASHA256 | Algorithm::RSASHA512 => {
                 let key = match self {
                     Self::Der => Rsa::private_key_from_der(bytes)
-                        .map_err(|e| format!("error reading RSA as DER: {}", e))?,
+                        .map_err(|e| format!("error reading RSA as DER: {e}"))?,
                     Self::Pem => {
                         let key = Rsa::private_key_from_pem_passphrase(bytes, password);
 
                         key.map_err(|e| {
-                            format!("could not decode RSA from PEM, bad password?: {}", e)
+                            format!("could not decode RSA from PEM, bad password?: {e}")
                         })?
                     }
                     e => {
                         return Err(format!(
                             "unsupported key format with RSA (DER or PEM only): \
-                             {:?}",
-                            e
+                             {e:?}"
                         )
                         .into())
                     }
                 };
 
                 Ok(KeyPair::from_rsa(key)
-                    .map_err(|e| format!("could not translate RSA to KeyPair: {}", e))?)
+                    .map_err(|e| format!("could not translate RSA to KeyPair: {e}"))?)
             }
             Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => match self {
                 #[cfg(feature = "openssl")]
                 Self::Der => {
                     let key = EcKey::private_key_from_der(bytes)
-                        .map_err(|e| format!("error reading EC as DER: {}", e))?;
+                        .map_err(|e| format!("error reading EC as DER: {e}"))?;
 
                     Ok(KeyPair::from_ec_key(key)
-                        .map_err(|e| format!("could not translate RSA to KeyPair: {}", e))?)
+                        .map_err(|e| format!("could not translate RSA to KeyPair: {e}"))?)
                 }
                 #[cfg(feature = "openssl")]
                 Self::Pem => {
-                    let key =
-                        EcKey::private_key_from_pem_passphrase(bytes, password).map_err(|e| {
-                            format!("could not decode EC from PEM, bad password?: {}", e)
-                        })?;
+                    let key = EcKey::private_key_from_pem_passphrase(bytes, password)
+                        .map_err(|e| format!("could not decode EC from PEM, bad password?: {e}"))?;
 
                     Ok(KeyPair::from_ec_key(key)
-                        .map_err(|e| format!("could not translate RSA to KeyPair: {}", e))?)
+                        .map_err(|e| format!("could not translate RSA to KeyPair: {e}"))?)
                 }
                 #[cfg(feature = "ring")]
                 Self::Pkcs8 => {
@@ -98,7 +95,7 @@ impl KeyFormat {
 
                     Ok(KeyPair::from_ecdsa(key))
                 }
-                e => Err(format!("unsupported key format with EC: {:?}", e).into()),
+                e => Err(format!("unsupported key format with EC: {e:?}").into()),
             },
             Algorithm::ED25519 => match self {
                 #[cfg(feature = "ring")]
@@ -108,16 +105,13 @@ impl KeyFormat {
                     Ok(KeyPair::from_ed25519(key))
                 }
                 e => Err(format!(
-                    "unsupported key format with ED25519 (only Pkcs8 supported): {:?}",
-                    e
+                    "unsupported key format with ED25519 (only Pkcs8 supported): {e:?}"
                 )
                 .into()),
             },
-            e => Err(format!(
-                "unsupported Algorithm, enable openssl or ring feature: {:?}",
-                e
-            )
-            .into()),
+            e => {
+                Err(format!("unsupported Algorithm, enable openssl or ring feature: {e:?}").into())
+            }
         }
     }
 
@@ -138,10 +132,10 @@ impl KeyFormat {
         // generate the key
         #[allow(unused, deprecated)]
         let key_pair: KeyPair<Private> = match algorithm {
-            Algorithm::Unknown(v) => return Err(format!("unknown algorithm: {}", v).into()),
+            Algorithm::Unknown(v) => return Err(format!("unknown algorithm: {v}").into()),
             #[cfg(feature = "openssl")]
             e @ Algorithm::RSASHA1 | e @ Algorithm::RSASHA1NSEC3SHA1 => {
-                return Err(format!("unsupported Algorithm (insecure): {:?}", e).into())
+                return Err(format!("unsupported Algorithm (insecure): {e:?}").into())
             }
             #[cfg(feature = "openssl")]
             Algorithm::RSASHA256 | Algorithm::RSASHA512 => KeyPair::generate(algorithm)?,
@@ -150,16 +144,14 @@ impl KeyFormat {
                 Self::Der | Self::Pem => KeyPair::generate(algorithm)?,
                 #[cfg(feature = "ring")]
                 Self::Pkcs8 => return KeyPair::generate_pkcs8(algorithm),
-                e => return Err(format!("unsupported key format with EC: {:?}", e).into()),
+                e => return Err(format!("unsupported key format with EC: {e:?}").into()),
             },
             #[cfg(feature = "ring")]
             Algorithm::ED25519 => return KeyPair::generate_pkcs8(algorithm),
             e => {
-                return Err(format!(
-                    "unsupported Algorithm, enable openssl or ring feature: {:?}",
-                    e
+                return Err(
+                    format!("unsupported Algorithm, enable openssl or ring feature: {e:?}").into(),
                 )
-                .into())
             }
         };
 
@@ -172,10 +164,10 @@ impl KeyFormat {
                     Self::Der => {
                         // to avoid accidentally storing a key where there was an expectation that it was password protected
                         if password.is_some() {
-                            return Err(format!("Can only password protect PEM: {:?}", self).into());
+                            return Err(format!("Can only password protect PEM: {self:?}").into());
                         }
                         pkey.private_key_to_der()
-                            .map_err(|e| format!("error writing key as DER: {}", e).into())
+                            .map_err(|e| format!("error writing key as DER: {e}").into())
                     }
                     Self::Pem => {
                         let key = if let Some(password) = password {
@@ -187,12 +179,11 @@ impl KeyFormat {
                             pkey.private_key_to_pem_pkcs8()
                         };
 
-                        key.map_err(|e| format!("error writing key as PEM: {}", e).into())
+                        key.map_err(|e| format!("error writing key as PEM: {e}").into())
                     }
                     e => Err(format!(
                         "unsupported key format with RSA or EC (DER or PEM \
-                         only): {:?}",
-                        e
+                         only): {e:?}"
                     )
                     .into()),
                 }
@@ -231,10 +222,10 @@ impl KeyFormat {
                     Self::Der => {
                         // to avoid accidentally storing a key where there was an expectation that it was password protected
                         if password.is_some() {
-                            return Err(format!("Can only password protect PEM: {:?}", self).into());
+                            return Err(format!("Can only password protect PEM: {self:?}").into());
                         }
                         pkey.private_key_to_der()
-                            .map_err(|e| format!("error writing key as DER: {}", e).into())
+                            .map_err(|e| format!("error writing key as DER: {e}").into())
                     }
                     Self::Pem => {
                         let key = if let Some(password) = password {
@@ -246,12 +237,11 @@ impl KeyFormat {
                             pkey.private_key_to_pem_pkcs8()
                         };
 
-                        key.map_err(|e| format!("error writing key as PEM: {}", e).into())
+                        key.map_err(|e| format!("error writing key as PEM: {e}").into())
                     }
                     e => Err(format!(
                         "unsupported key format with RSA or EC (DER or PEM \
-                         only): {:?}",
-                        e
+                         only): {e:?}"
                     )
                     .into()),
                 }
@@ -376,13 +366,7 @@ mod tests {
         decode: bool,
     ) {
         println!(
-            "test params: format: {:?}, en_pass: {:?}, de_pass: {:?}, alg: {:?}, encode: {}, decode: {}",
-            key_format,
-            en_pass,
-            de_pass,
-            algorithm,
-            encode,
-            decode
+            "test params: format: {key_format:?}, en_pass: {en_pass:?}, de_pass: {de_pass:?}, alg: {algorithm:?}, encode: {encode}, decode: {decode}"
         );
         let encoded_rslt = key_format.generate_and_encode(algorithm, en_pass);
 

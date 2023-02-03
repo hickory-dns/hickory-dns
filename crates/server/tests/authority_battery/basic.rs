@@ -464,6 +464,7 @@ pub fn test_update_errors<A: Authority<Lookup = AuthLookup>>(mut authority: A) {
     assert!(block_on(authority.update(&update)).is_err());
 }
 
+#[allow(clippy::uninlined_format_args)]
 pub fn test_dots_in_name<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let query = Query::query(
         Name::from_str("this.has.dots.example.com.").unwrap(),

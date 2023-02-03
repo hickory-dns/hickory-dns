@@ -124,7 +124,7 @@ where
     F: Fn(BinDecoder<'_>) -> ProtoResult<E>,
 {
     for (test_pass, (expect, binary)) in data_set.into_iter().enumerate() {
-        println!("test {}: {:?}", test_pass, binary);
+        println!("test {test_pass}: {binary:?}");
 
         let decoder = BinDecoder::new(&binary);
         assert_eq!(read_func(decoder).unwrap(), expect);
@@ -137,7 +137,7 @@ where
     S: Debug,
 {
     for (test_pass, (data, expect)) in data_set.into_iter().enumerate() {
-        println!("test {}: {:?}", test_pass, data);
+        println!("test {test_pass}: {data:?}");
 
         let mut bytes: Vec<u8> = Vec::with_capacity(512);
         {

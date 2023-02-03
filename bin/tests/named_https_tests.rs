@@ -34,11 +34,10 @@ fn test_example_https_toml_startup() {
     named_test_harness("dns_over_https.toml", move |_, _, _, https_port, _| {
         let mut cert_der = vec![];
         let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
-        println!("using server src path: {}", server_path);
+        println!("using server src path: {server_path}");
 
         File::open(format!(
-            "{}/tests/test-data/test_configs/sec/example.cert",
-            server_path
+            "{server_path}/tests/test-data/test_configs/sec/example.cert"
         ))
         .expect("failed to open cert")
         .read_to_end(&mut cert_der)

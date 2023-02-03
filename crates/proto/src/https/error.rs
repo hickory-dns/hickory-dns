@@ -126,6 +126,6 @@ impl From<h2::Error> for Error {
 
 impl From<Error> for io::Error {
     fn from(err: Error) -> Self {
-        Self::new(io::ErrorKind::Other, format!("https: {}", err))
+        Self::new(io::ErrorKind::Other, format!("https: {err}"))
     }
 }

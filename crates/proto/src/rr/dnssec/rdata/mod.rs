@@ -646,8 +646,8 @@ impl DNSSECRData {
 
 impl fmt::Display for DNSSECRData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        fn w<D: fmt::Display>(f: &mut fmt::Formatter<'_>, d: D) -> Result<(), fmt::Error> {
-            write!(f, "{rdata}", rdata = d)
+        fn w<D: fmt::Display>(f: &mut fmt::Formatter<'_>, rdata: D) -> Result<(), fmt::Error> {
+            write!(f, "{rdata}")
         }
 
         match self {

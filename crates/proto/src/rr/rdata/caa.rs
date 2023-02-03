@@ -512,7 +512,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
                             key_values,
                         }
                     }
-                    ch => return Err(format!("bad character in CAA issuer key: {}", ch).into()),
+                    ch => return Err(format!("bad character in CAA issuer key: {ch}").into()),
                 }
             }
             ParseNameKeyPairState::Key {
@@ -542,7 +542,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
                             key_values,
                         }
                     }
-                    ch => return Err(format!("bad character in CAA issuer key: {}", ch).into()),
+                    ch => return Err(format!("bad character in CAA issuer key: {ch}").into()),
                 }
             }
             ParseNameKeyPairState::Value {
@@ -566,7 +566,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
                             key_values,
                         }
                     }
-                    ch => return Err(format!("bad character in CAA issuer value: '{}'", ch).into()),
+                    ch => return Err(format!("bad character in CAA issuer value: '{ch}'").into()),
                 }
             }
         }
@@ -585,7 +585,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
             key_values
         }
         ParseNameKeyPairState::Key { key, .. } => {
-            return Err(format!("key missing value: {}", key).into());
+            return Err(format!("key missing value: {key}").into());
         }
     };
 
@@ -784,7 +784,7 @@ fn emit_tag(buf: &mut [u8], tag: &Property) -> ProtoResult<u8> {
 
     let len = property.len();
     if len > ::std::u8::MAX as usize {
-        return Err(format!("CAA property too long: {}", len).into());
+        return Err(format!("CAA property too long: {len}").into());
     }
     if buf.len() < len {
         return Err(format!(
@@ -844,15 +844,15 @@ impl fmt::Display for Value {
         match self {
             Value::Issuer(name, values) => {
                 if let Some(name) = name {
-                    write!(f, "{}", name)?;
+                    write!(f, "{name}")?;
                 }
                 for value in values.iter() {
-                    write!(f, "; {}", value)?;
+                    write!(f, "; {value}")?;
                 }
             }
-            Value::Url(url) => write!(f, "{}", url)?,
+            Value::Url(url) => write!(f, "{url}")?,
             Value::Unknown(v) => match str::from_utf8(v) {
-                Ok(text) => write!(f, "{}", text)?,
+                Ok(text) => write!(f, "{text}")?,
                 Err(_) => return Err(fmt::Error),
             },
         }
@@ -1021,7 +1021,7 @@ mod tests {
         emit(&mut encoder, &rdata).expect("failed to emit caa");
         let bytes = encoder.into_bytes();
 
-        println!("bytes: {:?}", bytes);
+        println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let read_rdata =
