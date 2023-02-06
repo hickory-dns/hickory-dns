@@ -17,7 +17,6 @@ use regex::Regex;
 use tokio::runtime::Runtime;
 use tracing::{info, warn};
 use trust_dns_client::{client::*, proto::xfer::DnsResponse};
-
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::rr::dnssec::*;
 use trust_dns_proto::rr::*;
