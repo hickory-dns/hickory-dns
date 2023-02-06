@@ -744,7 +744,7 @@ impl InnerInMemory {
         zone_ttl: u32,
         zone_class: DNSClass,
     ) -> DnsSecResult<()> {
-        use trust_dns_proto::rr::dnssec::rdata::RRSIG;
+        use crate::proto::rr::dnssec::rdata::RRSIG;
 
         let inception = OffsetDateTime::now_utc();
 
