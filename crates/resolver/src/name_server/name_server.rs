@@ -259,7 +259,9 @@ where
     NameServer::new_with_provider(config, options, conn_provider)
 }
 
-/// Used for connection mocking
+/// Used for creating new connections.
+/// We introduce this trait as an intermediate layer for real logic and mock testing.
+/// If you are an end user and use `GenericConnection`, just ignore this trait.
 pub trait CreateConnection: Sized {
     /// Future of Self
     type FutureConn<P: RuntimeProvider>: Future<Output = Result<Self, ResolveError>>
