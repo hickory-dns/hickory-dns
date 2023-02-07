@@ -30,7 +30,7 @@ use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
 #[derive(Clone)]
 pub struct AbstractNameServer<
     C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
-    P: RuntimeProvider + Send,
+    P: RuntimeProvider,
 > {
     config: NameServerConfig,
     options: ResolverOpts,
