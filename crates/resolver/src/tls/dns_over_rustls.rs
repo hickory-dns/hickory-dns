@@ -18,8 +18,8 @@ use rustls::{ClientConfig, OwnedTrustAnchor, RootCertStore};
 
 use proto::error::ProtoError;
 use proto::rustls::tls_client_stream::tls_client_connect_with_future;
-use proto::rustls::{tls_client_connect_with_bind_addr, TlsClientStream};
-use proto::tcp::{Connect, DnsTcpStream};
+use proto::rustls::TlsClientStream;
+use proto::tcp::DnsTcpStream;
 use proto::BufDnsStreamHandle;
 
 use crate::config::TlsClientConfig;
