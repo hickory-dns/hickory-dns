@@ -56,25 +56,6 @@ lazy_static! {
 }
 
 #[allow(clippy::type_complexity)]
-pub(crate) fn new_tls_stream<S: Connect>(
-    socket_addr: SocketAddr,
-    bind_addr: Option<SocketAddr>,
-    dns_name: String,
-    client_config: Option<TlsClientConfig>,
-) -> (
-    Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send>>,
-    BufDnsStreamHandle,
-) {
-    let client_config = client_config.map_or_else(
-        || CLIENT_CONFIG.clone(),
-        |TlsClientConfig(client_config)| client_config,
-    );
-    let (stream, handle) =
-        tls_client_connect_with_bind_addr(socket_addr, bind_addr, dns_name, client_config);
-    (Box::pin(stream), handle)
-}
-
-#[allow(clippy::type_complexity)]
 pub(crate) fn new_tls_stream_with_future<S, F>(
     future: F,
     socket_addr: SocketAddr,
