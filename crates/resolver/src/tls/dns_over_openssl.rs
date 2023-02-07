@@ -19,22 +19,6 @@ use proto::tcp::{Connect, DnsTcpStream};
 use proto::BufDnsStreamHandle;
 
 #[allow(clippy::type_complexity)]
-pub(crate) fn new_tls_stream<S: Connect>(
-    socket_addr: SocketAddr,
-    bind_addr: Option<SocketAddr>,
-    dns_name: String,
-) -> (
-    Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send>>,
-    BufDnsStreamHandle,
-) {
-    let mut tls_builder = TlsClientStreamBuilder::new();
-    if let Some(bind_addr) = bind_addr {
-        tls_builder.bind_addr(bind_addr);
-    }
-    tls_builder.build(socket_addr, dns_name)
-}
-
-#[allow(clippy::type_complexity)]
 pub(crate) fn new_tls_stream_with_future<S, F>(
     future: F,
     socket_addr: SocketAddr,
