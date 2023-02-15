@@ -371,7 +371,7 @@ impl Recursor {
                     .into_iter()
                     .flatten()
                     .chain(cached_aaaa.into_iter().flatten())
-                    .filter_map(|r| RData::to_ip_addr(&r));
+                    .filter_map(|r| RData::ip_addr(&r));
 
                 let mut had_glue = false;
                 for ip in glue_ips {
@@ -415,7 +415,7 @@ impl Recursor {
                 match next {
                     Ok(response) => {
                         debug!("A or AAAA response: {:?}", response);
-                        let ips = response.iter().filter_map(RData::to_ip_addr);
+                        let ips = response.iter().filter_map(RData::ip_addr);
 
                         for ip in ips {
                             let udp =

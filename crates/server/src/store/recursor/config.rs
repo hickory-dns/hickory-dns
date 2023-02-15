@@ -54,7 +54,7 @@ impl RecursiveConfig {
             .values()
             .flat_map(RecordSet::records_without_rrsigs)
             .filter_map(Record::data)
-            .filter_map(RData::to_ip_addr) // we only want IPs
+            .filter_map(RData::ip_addr) // we only want IPs
             .map(|ip| SocketAddr::from((ip, 53))) // all the roots only have tradition DNS ports
             .collect())
     }

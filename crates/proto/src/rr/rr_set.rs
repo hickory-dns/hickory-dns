@@ -237,7 +237,7 @@ impl RecordSet {
 
     /// creates a new Record as part of this RecordSet, adding the associated RData
     pub fn add_rdata(&mut self, rdata: RData) -> bool {
-        debug_assert_eq!(self.record_type, rdata.to_record_type());
+        debug_assert_eq!(self.record_type, rdata.record_type());
 
         let mut record = Record::with(self.name.clone(), self.record_type, self.ttl);
         record.set_data(Some(rdata));
