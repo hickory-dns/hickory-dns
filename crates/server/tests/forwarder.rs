@@ -33,5 +33,5 @@ fn test_lookup() {
         .data()
         .and_then(RData::as_a)
         .expect("not an A record");
-    assert_eq!(*address, Ipv4Addr::new(93, 184, 216, 34));
+    assert_eq!(*address, Ipv4Addr::new(93, 184, 216, 34).into());
 }

@@ -631,7 +631,7 @@ mod test {
             .set_ttl(86400)
             .set_rr_type(record_type)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 24))))
+            .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 24).into())))
             .clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
@@ -649,7 +649,7 @@ mod test {
             .set_ttl(86400)
             .set_rr_type(record_type)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 25))))
+            .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 25).into())))
             .clone();
         assert!(rr_set.insert(insert1.clone(), 0));
         assert_eq!(rr_set.records_without_rrsigs().count(), 2);
@@ -778,14 +778,14 @@ mod test {
             .set_ttl(86400)
             .set_rr_type(record_type)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 24))))
+            .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 24).into())))
             .clone();
         let insert1 = Record::new()
             .set_name(name)
             .set_ttl(86400)
             .set_rr_type(record_type)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 25))))
+            .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 25).into())))
             .clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
@@ -952,7 +952,7 @@ mod test {
             .set_ttl(3600)
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 24))))
+            .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 24).into())))
             .clone();
 
         let mut rrset = RecordSet::from(a);

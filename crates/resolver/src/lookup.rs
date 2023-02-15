@@ -10,7 +10,6 @@
 use std::{
     cmp::min,
     error::Error,
-    net::{Ipv4Addr, Ipv6Addr},
     pin::Pin,
     slice::Iter,
     sync::Arc,
@@ -34,7 +33,7 @@ use crate::{
         error::ProtoError,
         op::Query,
         rr::{
-            rdata::{self, NS, PTR},
+            rdata::{self, A, AAAA, NS, PTR},
             Name, RData, Record, RecordType,
         },
         xfer::{DnsRequest, DnsRequestOptions, DnsResponse},
@@ -494,19 +493,13 @@ lookup_type!(
     RData::PTR,
     PTR
 );
-lookup_type!(
-    Ipv4Lookup,
-    Ipv4LookupIter,
-    Ipv4LookupIntoIter,
-    RData::A,
-    Ipv4Addr
-);
+lookup_type!(Ipv4Lookup, Ipv4LookupIter, Ipv4LookupIntoIter, RData::A, A);
 lookup_type!(
     Ipv6Lookup,
     Ipv6LookupIter,
     Ipv6LookupIntoIter,
     RData::AAAA,
-    Ipv6Addr
+    AAAA
 );
 lookup_type!(
     MxLookup,
@@ -577,7 +570,7 @@ pub mod tests {
         message.insert_answers(vec![Record::from_rdata(
             Name::root(),
             86400,
-            RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+            RData::A(A::new(127, 0, 0, 1)),
         )]);
 
         let resp = DnsResponse::from_message(message).unwrap();
@@ -695,25 +688,19 @@ pub mod tests {
                 Record::from_rdata(
                     Name::from_str("www.example.com.").unwrap(),
                     80,
-                    RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+                    RData::A(A::new(127, 0, 0, 1)),
                 ),
                 Record::from_rdata(
                     Name::from_str("www.example.com.").unwrap(),
                     80,
-                    RData::A(Ipv4Addr::new(127, 0, 0, 2)),
+                    RData::A(A::new(127, 0, 0, 2)),
                 ),
             ]),
             index: 0,
         };
 
-        assert_eq!(
-            lookup.next().unwrap(),
-            RData::A(Ipv4Addr::new(127, 0, 0, 1))
-        );
-        assert_eq!(
-            lookup.next().unwrap(),
-            RData::A(Ipv4Addr::new(127, 0, 0, 2))
-        );
+        assert_eq!(lookup.next().unwrap(), RData::A(A::new(127, 0, 0, 1)));
+        assert_eq!(lookup.next().unwrap(), RData::A(A::new(127, 0, 0, 2)));
         assert_eq!(lookup.next(), None);
     }
 }

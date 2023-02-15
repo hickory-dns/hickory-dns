@@ -10,11 +10,7 @@
 
 #[cfg(test)]
 use std::convert::From;
-use std::{
-    cmp::Ordering,
-    fmt,
-    net::{IpAddr, Ipv4Addr, Ipv6Addr},
-};
+use std::{cmp::Ordering, fmt, net::IpAddr};
 
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
@@ -26,8 +22,8 @@ use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     rr::{
         rdata::{
-            ANAME, CAA, CNAME, CSYNC, HINFO, HTTPS, MX, NAPTR, NS, NULL, OPENPGPKEY, OPT, PTR, SOA,
-            SRV, SSHFP, SVCB, TLSA, TXT,
+            A, AAAA, ANAME, CAA, CNAME, CSYNC, HINFO, HTTPS, MX, NAPTR, NS, NULL, OPENPGPKEY, OPT,
+            PTR, SOA, SRV, SSHFP, SVCB, TLSA, TXT,
         },
         record_type::RecordType,
         RecordData, RecordDataDecodable,
@@ -86,7 +82,7 @@ pub enum RData {
     /// decimal numbers separated by dots without any embedded spaces (e.g.,
     /// "10.2.0.52" or "192.0.5.6").
     /// ```
-    A(Ipv4Addr),
+    A(A),
 
     /// ```text
     /// -- RFC 1886 -- IPv6 DNS Extensions              December 1995
@@ -96,7 +92,7 @@ pub enum RData {
     ///    A 128 bit IPv6 address is encoded in the data portion of an AAAA
     ///    resource record in network byte order (high-order byte first).
     /// ```
-    AAAA(Ipv6Addr),
+    AAAA(AAAA),
 
     /// ```text
     /// 2.  The ANAME resource record
@@ -746,8 +742,8 @@ impl RData {
     /// If this is an A or AAAA record type, then an IpAddr will be returned
     pub fn to_ip_addr(&self) -> Option<IpAddr> {
         match *self {
-            Self::A(a) => Some(IpAddr::from(a)),
-            Self::AAAA(aaaa) => Some(IpAddr::from(aaaa)),
+            Self::A(a) => Some(IpAddr::from(a.0)),
+            Self::AAAA(aaaa) => Some(IpAddr::from(aaaa.0)),
             _ => None,
         }
     }
@@ -870,11 +866,11 @@ impl<'r> RecordDataDecodable<'r> for RData {
         let result = match record_type {
             RecordType::A => {
                 trace!("reading A");
-                Ipv4Addr::read_data(decoder, record_type, length).map(Self::A)
+                A::read(decoder).map(Self::A)
             }
             RecordType::AAAA => {
                 trace!("reading AAAA");
-                Ipv6Addr::read_data(decoder, record_type, length).map(Self::AAAA)
+                AAAA::read(decoder).map(Self::AAAA)
             }
             RecordType::ANAME => {
                 trace!("reading ANAME");
@@ -1084,8 +1080,6 @@ impl Ord for RData {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    use std::net::Ipv4Addr;
-    use std::net::Ipv6Addr;
     use std::str::FromStr;
 
     use super::*;
@@ -1151,12 +1145,9 @@ mod tests {
                     6, b'a', b'b', b'c', b'd', b'e', b'f', 3, b'g', b'h', b'i', 0, 1, b'j',
                 ],
             ),
+            (RData::A(A::from_str("0.0.0.0").unwrap()), vec![0, 0, 0, 0]),
             (
-                RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()),
-                vec![0, 0, 0, 0],
-            ),
-            (
-                RData::AAAA(Ipv6Addr::from_str("::").unwrap()),
+                RData::AAAA(AAAA::from_str("::").unwrap()),
                 vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             ),
             (
@@ -1182,8 +1173,8 @@ mod tests {
     #[test]
     fn test_order() {
         let ordered: Vec<RData> = vec![
-            RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()),
-            RData::AAAA(Ipv6Addr::from_str("::").unwrap()),
+            RData::A(A::from_str("0.0.0.0").unwrap()),
+            RData::AAAA(AAAA::from_str("::").unwrap()),
             RData::SRV(SRV::new(
                 1,
                 2,
@@ -1230,8 +1221,8 @@ mod tests {
                 "".to_string(),
                 "j".to_string(),
             ])),
-            RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()),
-            RData::AAAA(Ipv6Addr::from_str("::").unwrap()),
+            RData::A(A::from_str("0.0.0.0").unwrap()),
+            RData::AAAA(AAAA::from_str("::").unwrap()),
             RData::SRV(SRV::new(
                 1,
                 2,

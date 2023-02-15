@@ -597,7 +597,7 @@ mod tests {
                 .data()
                 .and_then(RData::as_a)
                 .expect("no a record available"),
-            Ipv4Addr::new(93, 184, 216, 34)
+            Ipv4Addr::new(93, 184, 216, 34).into()
         );
 
         assert!(
@@ -621,7 +621,7 @@ mod tests {
                 .data()
                 .and_then(RData::as_aaaa)
                 .expect("no aaaa record available"),
-            Ipv6Addr::new(0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946)
+            Ipv6Addr::new(0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946).into()
         );
 
         assert!(

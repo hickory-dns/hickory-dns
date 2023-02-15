@@ -205,7 +205,7 @@ mod tests {
             .map(ToOwned::to_owned)
             .collect::<Vec<RData>>();
 
-        assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))]);
+        assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(127, 0, 0, 1).into())]);
 
         let rdatas = hosts
             .lookup_static_host(&Query::query(name, RecordType::AAAA))
@@ -216,7 +216,7 @@ mod tests {
 
         assert_eq!(
             rdatas,
-            vec![RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
+            vec![RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into())]
         );
 
         let name = Name::from_str("broadcasthost").unwrap();
@@ -226,7 +226,10 @@ mod tests {
             .iter()
             .map(ToOwned::to_owned)
             .collect::<Vec<RData>>();
-        assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(255, 255, 255, 255))]);
+        assert_eq!(
+            rdatas,
+            vec![RData::A(Ipv4Addr::new(255, 255, 255, 255).into())]
+        );
 
         let name = Name::from_str("example.com").unwrap();
         let rdatas = hosts
@@ -235,7 +238,7 @@ mod tests {
             .iter()
             .map(ToOwned::to_owned)
             .collect::<Vec<RData>>();
-        assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(10, 0, 1, 102))]);
+        assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(10, 0, 1, 102).into())]);
 
         let name = Name::from_str("a.example.com").unwrap();
         let rdatas = hosts
@@ -244,7 +247,7 @@ mod tests {
             .iter()
             .map(ToOwned::to_owned)
             .collect::<Vec<RData>>();
-        assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(10, 0, 1, 111))]);
+        assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(10, 0, 1, 111).into())]);
 
         let name = Name::from_str("b.example.com").unwrap();
         let rdatas = hosts
@@ -253,6 +256,6 @@ mod tests {
             .iter()
             .map(ToOwned::to_owned)
             .collect::<Vec<RData>>();
-        assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(10, 0, 1, 111))]);
+        assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(10, 0, 1, 111).into())]);
     }
 }

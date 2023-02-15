@@ -15,6 +15,7 @@ use trust_dns_client::tcp::TcpClientStream;
 use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 use trust_dns_proto::op::ResponseCode;
 use trust_dns_proto::rr::dnssec::TrustAnchor;
+use trust_dns_proto::rr::rdata::A;
 use trust_dns_proto::rr::Name;
 use trust_dns_proto::rr::{DNSClass, RData, RecordType};
 use trust_dns_proto::udp::{UdpClientConnect, UdpClientStream};
@@ -63,7 +64,7 @@ where
     assert_eq!(record.dns_class(), DNSClass::IN);
 
     if let RData::A(ref address) = *record.data().unwrap() {
-        assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
+        assert_eq!(address, &A::new(93, 184, 216, 34))
     } else {
         panic!();
     }

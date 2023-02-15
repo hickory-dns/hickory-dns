@@ -88,7 +88,7 @@ pub fn create_example() -> InMemoryAuthority {
             .set_ttl(86400)
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 34))))
+            .set_data(Some(RData::A(A::new(93, 184, 216, 34))))
             .clone(),
         0,
     );
@@ -100,7 +100,7 @@ pub fn create_example() -> InMemoryAuthority {
             .set_ttl(86400)
             .set_rr_type(RecordType::AAAA)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::AAAA(Ipv6Addr::new(
+            .set_data(Some(RData::AAAA(AAAA::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
             ))))
             .clone(),
@@ -143,7 +143,7 @@ pub fn create_example() -> InMemoryAuthority {
             .set_ttl(86400)
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 34))))
+            .set_data(Some(RData::A(A::new(93, 184, 216, 34))))
             .clone(),
         0,
     );
@@ -155,7 +155,7 @@ pub fn create_example() -> InMemoryAuthority {
             .set_ttl(86400)
             .set_rr_type(RecordType::AAAA)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::AAAA(Ipv6Addr::new(
+            .set_data(Some(RData::AAAA(AAAA::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
             ))))
             .clone(),

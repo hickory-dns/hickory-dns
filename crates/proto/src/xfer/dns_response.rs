@@ -647,7 +647,7 @@ impl NegativeType {
 #[cfg(test)]
 mod tests {
     use crate::op::{Message, Query, ResponseCode};
-    use crate::rr::rdata::{CNAME, NS, SOA};
+    use crate::rr::rdata::{A, CNAME, NS, SOA};
     use crate::rr::RData;
     use crate::rr::{Name, Record, RecordType};
 
@@ -698,11 +698,11 @@ mod tests {
     }
 
     fn ns1_a() -> Record {
-        Record::from_rdata(xx(), 88640, RData::A([127, 0, 0, 2].into()))
+        Record::from_rdata(xx(), 88640, RData::A(A::new(127, 0, 0, 2)))
     }
 
     fn ns2_a() -> Record {
-        Record::from_rdata(xx(), 88640, RData::A([127, 0, 0, 3].into()))
+        Record::from_rdata(xx(), 88640, RData::A(A::new(127, 0, 0, 3)))
     }
 
     fn soa() -> Record {
@@ -729,7 +729,7 @@ mod tests {
         message.add_answer(Record::from_rdata(
             Name::root(),
             88640,
-            RData::A([127, 0, 0, 2].into()),
+            RData::A(A::new(127, 0, 0, 2)),
         ));
 
         let response = DnsResponse::from_message(message).unwrap();

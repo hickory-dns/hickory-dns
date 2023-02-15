@@ -527,7 +527,7 @@ impl Future for HttpsClientResponse {
 
 #[cfg(test)]
 mod tests {
-    use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+    use std::net::SocketAddr;
     use std::str::FromStr;
 
     use rustls::KeyLogFile;
@@ -536,6 +536,7 @@ mod tests {
 
     use crate::iocompat::AsyncIoTokioAsStd;
     use crate::op::{Message, Query, ResponseCode};
+    use crate::rr::rdata::{A, AAAA};
     use crate::rr::{Name, RData, RecordType};
     use crate::xfer::{DnsRequestOptions, FirstAnswer};
 
@@ -573,7 +574,7 @@ mod tests {
             .and_then(RData::as_a)
             .expect("Expected A record");
 
-        assert_eq!(addr, &Ipv4Addr::new(93, 184, 216, 34));
+        assert_eq!(addr, &A::new(93, 184, 216, 34));
 
         //
         // assert that the connection works for a second query
@@ -601,7 +602,7 @@ mod tests {
 
             assert_eq!(
                 addr,
-                &Ipv6Addr::new(0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946)
+                &AAAA::new(0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946)
             );
         }
     }
@@ -639,7 +640,7 @@ mod tests {
             .and_then(RData::as_a)
             .expect("invalid response, expected A record");
 
-        assert_eq!(addr, &Ipv4Addr::new(93, 184, 216, 34));
+        assert_eq!(addr, &A::new(93, 184, 216, 34));
 
         //
         // assert that the connection works for a second query
@@ -663,7 +664,7 @@ mod tests {
 
         assert_eq!(
             addr,
-            &Ipv6Addr::new(0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946)
+            &AAAA::new(0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946)
         );
     }
 

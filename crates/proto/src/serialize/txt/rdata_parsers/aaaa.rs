@@ -19,13 +19,16 @@
 use std::net::Ipv6Addr;
 use std::str::FromStr;
 
-use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
+use crate::{
+    rr::rdata::AAAA,
+    serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult},
+};
 
 /// Parse the RData from a set of Tokens
-pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<Ipv6Addr> {
+pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<AAAA> {
     let address: Ipv6Addr = tokens
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("ipv6 address".to_string())))
         .and_then(|s| Ipv6Addr::from_str(s).map_err(Into::into))?;
-    Ok(address)
+    Ok(address.into())
 }

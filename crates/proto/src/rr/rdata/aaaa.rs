@@ -23,7 +23,11 @@
 //!   resource record in network byte order (high-order byte first).
 //! ```
 
-use std::net::Ipv6Addr;
+pub use std::net::Ipv6Addr;
+use std::{fmt, net::AddrParseError, ops::Deref, str};
+
+#[cfg(feature = "serde-config")]
+use serde::{Deserialize, Serialize};
 
 use crate::{
     error::ProtoResult,
@@ -31,7 +35,20 @@ use crate::{
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder},
 };
 
-impl RecordData for Ipv6Addr {
+/// The DNS AAAA record type, an IPv6 address
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub struct AAAA(pub Ipv6Addr);
+
+impl AAAA {
+    /// Construct a new AAAA record with the 128 bits of IPv6 address
+    #[allow(clippy::too_many_arguments)]
+    pub const fn new(a: u16, b: u16, c: u16, d: u16, e: u16, f: u16, g: u16, h: u16) -> Self {
+        Self(Ipv6Addr::new(a, b, c, d, e, f, g, h))
+    }
+}
+
+impl RecordData for AAAA {
     fn try_from_rdata(data: RData) -> Result<Self, crate::rr::RData> {
         match data {
             RData::AAAA(ipv4) => Ok(ipv4),
@@ -55,71 +72,136 @@ impl RecordData for Ipv6Addr {
     }
 }
 
+impl BinEncodable for AAAA {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        let segments = self.segments();
+
+        // TODO: this might be more efficient as a single write of the array
+        encoder.emit_u16(segments[0])?;
+        encoder.emit_u16(segments[1])?;
+        encoder.emit_u16(segments[2])?;
+        encoder.emit_u16(segments[3])?;
+        encoder.emit_u16(segments[4])?;
+        encoder.emit_u16(segments[5])?;
+        encoder.emit_u16(segments[6])?;
+        encoder.emit_u16(segments[7])?;
+        Ok(())
+    }
+}
+
+impl<'r> BinDecodable<'r> for AAAA {
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+        // TODO: would this be more efficient as two u64 reads?
+        let a: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+        let b: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+        let c: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+        let d: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+        let e: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+        let f: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+        let g: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+        let h: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+
+        Ok(Ipv6Addr::new(a, b, c, d, e, f, g, h).into())
+    }
+}
+
 /// Read the RData from the given Decoder
 #[allow(clippy::many_single_char_names)]
 #[deprecated(note = "use the BinDecodable::read method instead")]
-pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Ipv6Addr> {
-    <Ipv6Addr as BinDecodable>::read(decoder)
+pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<AAAA> {
+    <AAAA as BinDecodable>::read(decoder)
 }
 
 /// Write the RData from the given Decoder
 #[deprecated(note = "use the BinEncodable::emit method instead")]
 pub fn emit(encoder: &mut BinEncoder<'_>, address: &Ipv6Addr) -> ProtoResult<()> {
-    BinEncodable::emit(address, encoder)
+    BinEncodable::emit(&AAAA::from(*address), encoder)
+}
+
+impl From<Ipv6Addr> for AAAA {
+    fn from(aaaa: Ipv6Addr) -> Self {
+        Self(aaaa)
+    }
+}
+
+impl From<AAAA> for Ipv6Addr {
+    fn from(aaaa: AAAA) -> Self {
+        aaaa.0
+    }
+}
+
+impl Deref for AAAA {
+    type Target = Ipv6Addr;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl fmt::Display for AAAA {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl str::FromStr for AAAA {
+    type Err = AddrParseError;
+    fn from_str(s: &str) -> Result<Self, AddrParseError> {
+        Ipv6Addr::from_str(s).map(From::from)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::net::Ipv6Addr;
     use std::str::FromStr;
 
     use super::*;
     use crate::serialize::binary::bin_tests::{test_emit_data_set, test_read_data_set};
 
-    fn get_data() -> Vec<(Ipv6Addr, Vec<u8>)> {
+    fn get_data() -> Vec<(AAAA, Vec<u8>)> {
         vec![
             (
-                Ipv6Addr::from_str("::").unwrap(),
+                AAAA::from_str("::").unwrap(),
                 vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             ), // base case
             (
-                Ipv6Addr::from_str("1::").unwrap(),
+                AAAA::from_str("1::").unwrap(),
                 vec![0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             ),
             (
-                Ipv6Addr::from_str("0:1::").unwrap(),
+                AAAA::from_str("0:1::").unwrap(),
                 vec![0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             ),
             (
-                Ipv6Addr::from_str("0:0:1::").unwrap(),
+                AAAA::from_str("0:0:1::").unwrap(),
                 vec![0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             ),
             (
-                Ipv6Addr::from_str("0:0:0:1::").unwrap(),
+                AAAA::from_str("0:0:0:1::").unwrap(),
                 vec![0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
             ),
             (
-                Ipv6Addr::from_str("::1:0:0:0").unwrap(),
+                AAAA::from_str("::1:0:0:0").unwrap(),
                 vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
             ),
             (
-                Ipv6Addr::from_str("::1:0:0").unwrap(),
+                AAAA::from_str("::1:0:0").unwrap(),
                 vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
             ),
             (
-                Ipv6Addr::from_str("::1:0").unwrap(),
+                AAAA::from_str("::1:0").unwrap(),
                 vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
             ),
             (
-                Ipv6Addr::from_str("::1").unwrap(),
+                AAAA::from_str("::1").unwrap(),
                 vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
             ),
             (
-                Ipv6Addr::from_str("::127.0.0.1").unwrap(),
+                AAAA::from_str("::127.0.0.1").unwrap(),
                 vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 127, 0, 0, 1],
             ),
             (
-                Ipv6Addr::from_str("FF00::192.168.64.32").unwrap(),
+                AAAA::from_str("FF00::192.168.64.32").unwrap(),
                 vec![255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 168, 64, 32],
             ),
         ]
@@ -127,7 +209,7 @@ mod tests {
 
     #[test]
     fn test_read() {
-        test_read_data_set(get_data(), |ref mut d| Ipv6Addr::read(d));
+        test_read_data_set(get_data(), |ref mut d| AAAA::read(d));
     }
 
     #[test]

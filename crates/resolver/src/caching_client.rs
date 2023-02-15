@@ -10,7 +10,6 @@
 use std::{
     borrow::Cow,
     error::Error,
-    net::{Ipv4Addr, Ipv6Addr},
     pin::Pin,
     sync::{
         atomic::{AtomicU8, Ordering},
@@ -33,7 +32,7 @@ use crate::{
                 ResolverUsage, DEFAULT, INVALID, IN_ADDR_ARPA_127, IP6_ARPA_1, LOCAL,
                 LOCALHOST as LOCALHOST_usage, ONION,
             },
-            rdata::{CNAME, PTR, SOA},
+            rdata::{A, AAAA, CNAME, PTR, SOA},
             resource::RecordRef,
             DNSClass, Name, RData, Record, RecordType,
         },
@@ -45,8 +44,8 @@ const MAX_QUERY_DEPTH: u8 = 8; // arbitrarily chosen number...
 
 lazy_static! {
     static ref LOCALHOST: RData = RData::PTR(PTR(Name::from_ascii("localhost.").unwrap()));
-    static ref LOCALHOST_V4: RData = RData::A(Ipv4Addr::new(127, 0, 0, 1));
-    static ref LOCALHOST_V6: RData = RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1));
+    static ref LOCALHOST_V4: RData = RData::A(A::new(127, 0, 0, 1));
+    static ref LOCALHOST_V6: RData = RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1));
 }
 
 struct DepthTracker {
@@ -550,7 +549,7 @@ mod tests {
                 Record::from_rdata(
                     query.name().clone(),
                     u32::max_value(),
-                    RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+                    RData::A(A::new(127, 0, 0, 1)),
                 ),
                 u32::max_value(),
             )],
@@ -570,7 +569,7 @@ mod tests {
 
         assert_eq!(
             ips.iter().cloned().collect::<Vec<_>>(),
-            vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))]
+            vec![RData::A(A::new(127, 0, 0, 1))]
         );
     }
 
@@ -591,7 +590,7 @@ mod tests {
 
         assert_eq!(
             ips.iter().cloned().collect::<Vec<_>>(),
-            vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))]
+            vec![RData::A(A::new(127, 0, 0, 1))]
         );
 
         // next should come from cache...
@@ -608,7 +607,7 @@ mod tests {
 
         assert_eq!(
             ips.iter().cloned().collect::<Vec<_>>(),
-            vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))]
+            vec![RData::A(A::new(127, 0, 0, 1))]
         );
     }
 
@@ -739,12 +738,12 @@ mod tests {
             Record::from_rdata(
                 Name::from_str("actual.example.com.").unwrap(),
                 86400,
-                RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+                RData::A(A::new(127, 0, 0, 1)),
             ),
             Record::from_rdata(
                 Name::from_str("actual.example.com.").unwrap(),
                 86400,
-                RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+                RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1)),
             ),
         ]);
 
@@ -774,8 +773,8 @@ mod tests {
                     443,
                     Name::from_str("www.example.com.").unwrap(),
                 )),
-                RData::A(Ipv4Addr::new(127, 0, 0, 1)),
-                RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+                RData::A(A::new(127, 0, 0, 1)),
+                RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1)),
             ]
         );
     }
@@ -843,12 +842,12 @@ mod tests {
             Record::from_rdata(
                 Name::from_str("actual.example.com.").unwrap(),
                 86400,
-                RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+                RData::A(A::new(127, 0, 0, 1)),
             ),
             Record::from_rdata(
                 Name::from_str("actual.example.com.").unwrap(),
                 86400,
-                RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+                RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1)),
             ),
         ]);
 
@@ -870,8 +869,8 @@ mod tests {
             ips.iter().cloned().collect::<Vec<_>>(),
             vec![
                 RData::NS(NS(Name::from_str("www.example.com.").unwrap())),
-                RData::A(Ipv4Addr::new(127, 0, 0, 1)),
-                RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+                RData::A(A::new(127, 0, 0, 1)),
+                RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1)),
             ]
         );
     }
@@ -890,7 +889,7 @@ mod tests {
         message.insert_additionals(vec![Record::from_rdata(
             Name::from_str("actual.example.com.").unwrap(),
             second,
-            RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+            RData::A(A::new(127, 0, 0, 1)),
         )]);
 
         let records = CachingClient::handle_noerror(
@@ -1027,7 +1026,7 @@ mod tests {
         message.add_answer(Record::from_rdata(
             Name::from_str("www.example.local.").unwrap(),
             86400,
-            RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+            RData::A(A::new(127, 0, 0, 1)),
         ));
 
         let client = mock(vec![

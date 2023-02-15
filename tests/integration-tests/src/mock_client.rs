@@ -220,7 +220,7 @@ pub fn cname_record(name: Name, cname: Name) -> Record {
 }
 
 pub fn v4_record(name: Name, ip: Ipv4Addr) -> Record {
-    Record::from_rdata(name, 86400, RData::A(ip))
+    Record::from_rdata(name, 86400, RData::A(ip.into()))
 }
 
 pub fn soa_record(name: Name, mname: Name) -> Record {

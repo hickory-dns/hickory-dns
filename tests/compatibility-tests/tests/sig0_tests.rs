@@ -35,6 +35,8 @@ use trust_dns_compatibility::named_process;
 #[test]
 #[allow(unused)]
 fn test_get() {
+    use trust_dns_client::rr::rdata::A;
+
     let (process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
     let conn = UdpClientConnection::new(socket).unwrap();
@@ -50,7 +52,7 @@ fn test_get() {
 
     let rdata = result.answers()[0].data();
     if let Some(RData::A(address)) = rdata {
-        assert_eq!(address, &Ipv4Addr::new(127, 0, 0, 1));
+        assert_eq!(address, &A::new(127, 0, 0, 1));
     } else {
         panic!("RData::A wasn't here");
     }
@@ -92,6 +94,8 @@ where
 #[test]
 #[allow(unused)]
 fn test_create() {
+    use trust_dns_client::rr::rdata::A;
+
     let (process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
     let conn = UdpClientConnection::new(socket).unwrap();
@@ -105,7 +109,7 @@ fn test_create() {
         RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
     );
-    record.set_data(Some(RData::A(Ipv4Addr::new(100, 10, 100, 10))));
+    record.set_data(Some(RData::A(A::new(100, 10, 100, 10))));
 
     let result = client
         .create(record.clone(), origin.clone())
@@ -127,7 +131,7 @@ fn test_create() {
 
     // will fail if already set and not the same value.
     let mut record = record;
-    record.set_data(Some(RData::A(Ipv4Addr::new(101, 11, 101, 11))));
+    record.set_data(Some(RData::A(A::new(101, 11, 101, 11))));
 
     let result = client.create(record, origin).expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);

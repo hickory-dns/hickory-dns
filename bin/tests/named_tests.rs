@@ -281,6 +281,7 @@ fn test_server_continues_on_bad_data_tcp() {
 #[cfg(feature = "resolver")]
 fn test_forward() {
     use server_harness::query_message;
+    use trust_dns_proto::rr::rdata::A;
 
     //env_logger::init();
 
@@ -304,7 +305,7 @@ fn test_forward() {
         );
         assert_eq!(
             *response.answers()[0].data().and_then(RData::as_a).unwrap(),
-            Ipv4Addr::new(93, 184, 216, 34)
+            A::new(93, 184, 216, 34)
         );
 
         // just tests that multiple queries work
@@ -326,7 +327,7 @@ fn test_forward() {
         );
         assert_eq!(
             *response.answers()[0].data().and_then(RData::as_a).unwrap(),
-            Ipv4Addr::new(93, 184, 216, 34)
+            A::new(93, 184, 216, 34)
         );
         assert!(!response.header().authoritative());
     })
