@@ -29,6 +29,8 @@ pub mod svcb;
 pub mod tlsa;
 pub mod txt;
 
+pub use self::a::A;
+pub use self::aaaa::AAAA;
 pub use self::caa::CAA;
 pub use self::csync::CSYNC;
 pub use self::hinfo::HINFO;

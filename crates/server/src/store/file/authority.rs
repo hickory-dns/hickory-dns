@@ -348,10 +348,9 @@ impl DnssecAuthority for FileAuthority {
 
 #[cfg(test)]
 mod tests {
-    use std::net::Ipv4Addr;
     use std::str::FromStr;
 
-    use crate::proto::rr::RData;
+    use crate::proto::rr::{rdata::A, RData};
     use futures_executor::block_on;
 
     use super::*;
@@ -391,7 +390,7 @@ mod tests {
             .expect("A record not found in authority")
             .data()
         {
-            Some(RData::A(ip)) => assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *ip),
+            Some(RData::A(ip)) => assert_eq!(A::new(127, 0, 0, 1), *ip),
             _ => panic!("wrong rdata type returned"),
         }
 
@@ -409,7 +408,7 @@ mod tests {
             .expect("A record not found in authority")
             .data()
         {
-            Some(RData::A(ip)) => assert_eq!(Ipv4Addr::new(127, 0, 0, 5), *ip),
+            Some(RData::A(ip)) => assert_eq!(A::new(127, 0, 0, 5), *ip),
             _ => panic!("wrong rdata type returned"),
         }
     }

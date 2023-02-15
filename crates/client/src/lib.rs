@@ -105,6 +105,7 @@
 //! # use trust_dns_client::udp::UdpClientConnection;
 //! use trust_dns_client::op::DnsResponse;
 //! use trust_dns_client::rr::{DNSClass, Name, RData, Record, RecordType};
+//! use trust_dns_client::rr::rdata::A;
 //! #
 //! # let address = "8.8.8.8:53".parse().unwrap();
 //! # let conn = UdpClientConnection::new(address).unwrap();
@@ -128,7 +129,7 @@
 //! //  In order to access it we need to first check what type of record it is
 //! //  In this case we are interested in A, IPv4 address
 //! if let Some(RData::A(ref ip)) = answers[0].data() {
-//!     assert_eq!(*ip, Ipv4Addr::new(93, 184, 216, 34))
+//!     assert_eq!(*ip, A::new(93, 184, 216, 34))
 //! } else {
 //!     assert!(false, "unexpected result")
 //! }
@@ -160,7 +161,7 @@
 //! use trust_dns_client::rr::{Name, RData, Record, RecordType};
 //! use trust_dns_client::proto::rr::dnssec::{Algorithm, SigSigner, KeyPair};
 //! use trust_dns_client::op::ResponseCode;
-//! use trust_dns_client::rr::rdata::key::KEY;
+//! use trust_dns_client::rr::rdata::{A, key::KEY};
 //!
 //! # let address = "0.0.0.0:53".parse().unwrap();
 //! # let conn = UdpClientConnection::new(address).unwrap();
@@ -202,7 +203,7 @@
 //! let mut record = Record::with(Name::from_str("new.example.com").unwrap(),
 //!                               RecordType::A,
 //!                               Duration::minutes(5).whole_seconds() as u32);
-//! record.set_data(Some(RData::A(Ipv4Addr::new(100, 10, 100, 10))));
+//! record.set_data(Some(RData::A(A::new(100, 10, 100, 10))));
 //!
 //! // the server must be authoritative for this zone
 //! let origin = Name::from_str("example.com.").unwrap();
@@ -231,6 +232,7 @@
 //! use trust_dns_client::client::{AsyncClient, ClientHandle};
 //! use trust_dns_client::proto::iocompat::AsyncIoTokioAsStd;
 //! use trust_dns_client::rr::{DNSClass, Name, RData, RecordType};
+//! use trust_dns_client::rr::rdata::A;
 //! use trust_dns_client::tcp::TcpClientStream;
 //!
 //! #[tokio::main]
@@ -264,7 +266,7 @@
 //!
 //!     // validate it's what we expected
 //!     if let Some(RData::A(addr)) = response.answers()[0].data() {
-//!         assert_eq!(*addr, Ipv4Addr::new(93, 184, 216, 34));
+//!         assert_eq!(*addr, A::new(93, 184, 216, 34));
 //!     }
 //! }
 //! ```

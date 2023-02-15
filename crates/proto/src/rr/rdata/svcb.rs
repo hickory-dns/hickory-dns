@@ -12,8 +12,6 @@ use std::{
     cmp::{Ord, Ordering, PartialOrd},
     convert::TryFrom,
     fmt,
-    net::Ipv4Addr,
-    net::Ipv6Addr,
 };
 
 #[cfg(feature = "serde-config")]
@@ -23,7 +21,10 @@ use enum_as_inner::EnumAsInner;
 
 use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
-    rr::{Name, RData, RecordData, RecordDataDecodable, RecordType},
+    rr::{
+        rdata::{A, AAAA},
+        Name, RData, RecordData, RecordDataDecodable, RecordType,
+    },
     serialize::binary::{
         BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
     },
@@ -401,7 +402,7 @@ pub enum SvcParamValue {
     ///   or other geo-aware features and thereby degrade client performance.
     ///
     /// see `IpHint`
-    Ipv4Hint(IpHint<Ipv4Addr>),
+    Ipv4Hint(IpHint<A>),
     /// ```text
     /// 6.3.  "echconfig"
     ///
@@ -424,7 +425,7 @@ pub enum SvcParamValue {
     /// ```
     EchConfig(EchConfig),
     /// See `IpHint`
-    Ipv6Hint(IpHint<Ipv6Addr>),
+    Ipv6Hint(IpHint<AAAA>),
     /// Unparsed network data. Refer to documents on the associated key value
     ///
     /// This will be left as is when read off the wire, and encoded in bas64
@@ -469,9 +470,9 @@ impl SvcParamValue {
                 let port = decoder.read_u16()?.unverified(/*all values are legal ports*/);
                 Self::Port(port)
             }
-            SvcParamKey::Ipv4Hint => Self::Ipv4Hint(IpHint::<Ipv4Addr>::read(&mut decoder)?),
+            SvcParamKey::Ipv4Hint => Self::Ipv4Hint(IpHint::<A>::read(&mut decoder)?),
             SvcParamKey::EchConfig => Self::EchConfig(EchConfig::read(&mut decoder)?),
-            SvcParamKey::Ipv6Hint => Self::Ipv6Hint(IpHint::<Ipv6Addr>::read(&mut decoder)?),
+            SvcParamKey::Ipv6Hint => Self::Ipv6Hint(IpHint::<AAAA>::read(&mut decoder)?),
             SvcParamKey::Key(_) | SvcParamKey::Key65535 | SvcParamKey::Unknown(_) => {
                 Self::Unknown(Unknown::read(&mut decoder)?)
             }

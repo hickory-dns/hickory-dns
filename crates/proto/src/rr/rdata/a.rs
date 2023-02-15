@@ -32,6 +32,10 @@
 //! ```
 
 pub use std::net::Ipv4Addr;
+use std::{fmt, net::AddrParseError, ops::Deref, str};
+
+#[cfg(feature = "serde-config")]
+use serde::{Deserialize, Serialize};
 
 use crate::{
     error::*,
@@ -39,7 +43,19 @@ use crate::{
     serialize::binary::*,
 };
 
-impl RecordData for Ipv4Addr {
+/// The DNS A record type, an IPv4 address
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub struct A(pub Ipv4Addr);
+
+impl A {
+    /// Construct a new AAAA record with the 32 bits of IPv4 address
+    pub const fn new(a: u8, b: u8, c: u8, d: u8) -> Self {
+        Self(Ipv4Addr::new(a, b, c, d))
+    }
+}
+
+impl RecordData for A {
     fn try_from_rdata(data: RData) -> Result<Self, crate::rr::RData> {
         match data {
             RData::A(ipv4) => Ok(ipv4),
@@ -63,36 +79,93 @@ impl RecordData for Ipv4Addr {
     }
 }
 
+impl BinEncodable for A {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        let segments = self.octets();
+
+        encoder.emit(segments[0])?;
+        encoder.emit(segments[1])?;
+        encoder.emit(segments[2])?;
+        encoder.emit(segments[3])?;
+        Ok(())
+    }
+}
+
+impl<'r> BinDecodable<'r> for A {
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+        // TODO: would this be more efficient as a single u32 read?
+        Ok(Ipv4Addr::new(
+            decoder.pop()?.unverified(/*valid as any u8*/),
+            decoder.pop()?.unverified(/*valid as any u8*/),
+            decoder.pop()?.unverified(/*valid as any u8*/),
+            decoder.pop()?.unverified(/*valid as any u8*/),
+        )
+        .into())
+    }
+}
+
 /// Read the RData from the given Decoder
 #[deprecated(note = "use the BinDecodable::read method instead")]
-pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Ipv4Addr> {
-    <Ipv4Addr as BinDecodable>::read(decoder)
+pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<A> {
+    <A as BinDecodable>::read(decoder)
 }
 
 /// Write the RData from the given Decoder
 #[deprecated(note = "use the BinEncodable::emit method instead")]
 pub fn emit(encoder: &mut BinEncoder<'_>, address: Ipv4Addr) -> ProtoResult<()> {
-    BinEncodable::emit(&address, encoder)
+    BinEncodable::emit(&A::from(address), encoder)
+}
+
+impl From<Ipv4Addr> for A {
+    fn from(a: Ipv4Addr) -> Self {
+        Self(a)
+    }
+}
+
+impl From<A> for Ipv4Addr {
+    fn from(a: A) -> Self {
+        a.0
+    }
+}
+
+impl Deref for A {
+    type Target = Ipv4Addr;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl fmt::Display for A {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl str::FromStr for A {
+    type Err = AddrParseError;
+    fn from_str(s: &str) -> Result<Self, AddrParseError> {
+        Ipv4Addr::from_str(s).map(From::from)
+    }
 }
 
 #[cfg(test)]
 mod mytests {
-    use std::net::Ipv4Addr;
     use std::str::FromStr;
 
     use super::*;
     use crate::serialize::binary::bin_tests::{test_emit_data_set, test_read_data_set};
 
-    fn get_data() -> Vec<(Ipv4Addr, Vec<u8>)> {
+    fn get_data() -> Vec<(A, Vec<u8>)> {
         vec![
-            (Ipv4Addr::from_str("0.0.0.0").unwrap(), vec![0, 0, 0, 0]), // base case
-            (Ipv4Addr::from_str("1.0.0.0").unwrap(), vec![1, 0, 0, 0]),
-            (Ipv4Addr::from_str("0.1.0.0").unwrap(), vec![0, 1, 0, 0]),
-            (Ipv4Addr::from_str("0.0.1.0").unwrap(), vec![0, 0, 1, 0]),
-            (Ipv4Addr::from_str("0.0.0.1").unwrap(), vec![0, 0, 0, 1]),
-            (Ipv4Addr::from_str("127.0.0.1").unwrap(), vec![127, 0, 0, 1]),
+            (A::from_str("0.0.0.0").unwrap(), vec![0, 0, 0, 0]), // base case
+            (A::from_str("1.0.0.0").unwrap(), vec![1, 0, 0, 0]),
+            (A::from_str("0.1.0.0").unwrap(), vec![0, 1, 0, 0]),
+            (A::from_str("0.0.1.0").unwrap(), vec![0, 0, 1, 0]),
+            (A::from_str("0.0.0.1").unwrap(), vec![0, 0, 0, 1]),
+            (A::from_str("127.0.0.1").unwrap(), vec![127, 0, 0, 1]),
             (
-                Ipv4Addr::from_str("192.168.64.32").unwrap(),
+                A::from_str("192.168.64.32").unwrap(),
                 vec![192, 168, 64, 32],
             ),
         ]
@@ -100,7 +173,7 @@ mod mytests {
 
     #[test]
     fn test_parse() {
-        test_read_data_set(get_data(), |ref mut d| Ipv4Addr::read(d));
+        test_read_data_set(get_data(), |ref mut d| A::read(d));
     }
 
     #[test]

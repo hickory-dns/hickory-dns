@@ -18,8 +18,8 @@ pub trait TryParseIp {
 impl TryParseIp for str {
     fn try_parse_ip(&self) -> Option<RData> {
         match self.parse::<IpAddr>() {
-            Ok(IpAddr::V4(ip4)) => Ok(RData::A(ip4)),
-            Ok(IpAddr::V6(ip6)) => Ok(RData::AAAA(ip6)),
+            Ok(IpAddr::V4(ip4)) => Ok(RData::A(ip4.into())),
+            Ok(IpAddr::V6(ip6)) => Ok(RData::AAAA(ip6.into())),
             Err(err) => Err(err),
         }
         .ok()
@@ -54,12 +54,12 @@ fn test_try_parse_ip() {
 
     assert_eq!(
         "127.0.0.1".try_parse_ip().expect("failed"),
-        RData::A(Ipv4Addr::new(127, 0, 0, 1))
+        RData::A(Ipv4Addr::new(127, 0, 0, 1).into())
     );
 
     assert_eq!(
         "::1".try_parse_ip().expect("failed"),
-        RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))
+        RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into())
     );
 
     assert!("example.com".try_parse_ip().is_none());

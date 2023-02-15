@@ -842,11 +842,11 @@ mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use std::cmp::Ordering;
-    use std::net::Ipv4Addr;
     use std::str::FromStr;
 
     use super::*;
     use crate::rr::dns_class::DNSClass;
+    use crate::rr::rdata::A;
     use crate::rr::record_data::RData;
     use crate::rr::record_type::RecordType;
     use crate::rr::Name;
@@ -862,7 +862,7 @@ mod tests {
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
             .set_ttl(5)
-            .set_data(Some(RData::A(Ipv4Addr::new(192, 168, 0, 1))));
+            .set_data(Some(RData::A(A::new(192, 168, 0, 1))));
 
         let mut vec_bytes: Vec<u8> = Vec::with_capacity(512);
         {
@@ -885,7 +885,7 @@ mod tests {
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
             .set_ttl(5)
-            .set_data(Some(RData::A(Ipv4Addr::new(192, 168, 0, 1))));
+            .set_data(Some(RData::A(A::new(192, 168, 0, 1))));
 
         let mut greater_name = record.clone();
         greater_name.set_name(Name::from_str("zzz.example.com").unwrap());
@@ -897,7 +897,7 @@ mod tests {
         greater_class.set_dns_class(DNSClass::NONE);
 
         let mut greater_rdata = record.clone();
-        greater_rdata.set_data(Some(RData::A(Ipv4Addr::new(192, 168, 0, 255))));
+        greater_rdata.set_data(Some(RData::A(A::new(192, 168, 0, 255))));
 
         let compares = vec![
             (&record, &greater_name),

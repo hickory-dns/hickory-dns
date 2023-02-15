@@ -8,7 +8,10 @@ use futures_executor::block_on;
 
 use trust_dns_proto::{
     op::{Header, Message, Query, ResponseCode},
-    rr::{Name, RData, Record, RecordType},
+    rr::{
+        rdata::{A as A4, AAAA},
+        Name, RData, Record, RecordType,
+    },
     serialize::binary::BinDecodable,
 };
 use trust_dns_server::authority::{
@@ -36,7 +39,7 @@ pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .data()
         .and_then(RData::as_a)
     {
-        Some(ip) => assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *ip),
+        Some(ip) => assert_eq!(A4::new(127, 0, 0, 1), *ip),
         _ => panic!("wrong rdata type returned"),
     }
 }
@@ -110,7 +113,7 @@ pub fn test_ns_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .data()
         .and_then(RData::as_a)
         .expect("Not an A record");
-    assert_eq!(Ipv4Addr::new(127, 0, 0, 2), *a);
+    assert_eq!(A4::new(127, 0, 0, 2), *a);
 }
 
 pub fn test_mx<A: Authority<Lookup = AuthLookup>>(authority: A) {
@@ -158,7 +161,7 @@ pub fn test_mx<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .data()
         .and_then(RData::as_a)
         .expect("Not an A record");
-    assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
+    assert_eq!(A4::new(127, 0, 0, 1), *a);
 
     let aaaa = additionals
         .next()
@@ -166,7 +169,7 @@ pub fn test_mx<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .data()
         .and_then(RData::as_aaaa)
         .expect("Not an AAAA record");
-    assert_eq!(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
+    assert_eq!(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
 }
 
 pub fn test_mx_to_null<A: Authority<Lookup = AuthLookup>>(authority: A) {
@@ -258,7 +261,7 @@ pub fn test_cname_alias<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .data()
         .and_then(RData::as_a)
         .expect("Not an A record");
-    assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
+    assert_eq!(A4::new(127, 0, 0, 1), *a);
 }
 
 pub fn test_cname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
@@ -308,7 +311,7 @@ pub fn test_cname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .data()
         .and_then(RData::as_a)
         .expect("Not an A record");
-    assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
+    assert_eq!(A4::new(127, 0, 0, 1), *a);
 }
 
 /// In this the ANAME , should, return A and AAAA records in additional section
@@ -345,7 +348,7 @@ pub fn test_aname<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .and_then(Record::data)
         .and_then(RData::as_a)
         .expect("A not found");
-    assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
+    assert_eq!(A4::new(127, 0, 0, 1), *a);
 
     let aaaa = additionals
         .iter()
@@ -353,7 +356,7 @@ pub fn test_aname<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .and_then(Record::data)
         .and_then(RData::as_aaaa)
         .expect("AAAA not found");
-    assert_eq!(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
+    assert_eq!(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
 }
 
 /// In this test the A record that the ANAME resolves to should be returned as the answer,
@@ -380,7 +383,7 @@ pub fn test_aname_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .expect("No A answer");
 
     let a = a.and_then(RData::as_a).expect("Not an A record");
-    assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
+    assert_eq!(A4::new(127, 0, 0, 1), *a);
     assert_eq!(Name::from_str("example.com.").unwrap(), *name);
 
     // check that additionals contain the info
@@ -422,7 +425,7 @@ pub fn test_aname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .expect("Not an A record");
 
     let a = a.and_then(RData::as_a).expect("Not an A record");
-    assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
+    assert_eq!(A4::new(127, 0, 0, 1), *a);
     assert_eq!(Name::from_str("aname-chain.example.com.").unwrap(), *name);
 
     // the name should match the lookup, not the A records
@@ -451,7 +454,7 @@ pub fn test_aname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .data()
         .and_then(RData::as_a)
         .expect("Not an A record");
-    assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
+    assert_eq!(A4::new(127, 0, 0, 1), *a);
 }
 
 pub fn test_update_errors<A: Authority<Lookup = AuthLookup>>(mut authority: A) {
@@ -488,7 +491,7 @@ pub fn test_dots_in_name<A: Authority<Lookup = AuthLookup>>(authority: A) {
             .data()
             .and_then(RData::as_a)
             .expect("wrong rdata type returned"),
-        Ipv4Addr::new(127, 0, 0, 3)
+        A4::new(127, 0, 0, 3)
     );
 
     // the rest should all be NameExists
@@ -642,7 +645,7 @@ pub fn test_wildcard_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .data()
         .and_then(RData::as_a)
         .expect("Not an A record");
-    assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
+    assert_eq!(A4::new(127, 0, 0, 1), *a);
 }
 
 pub fn test_srv<A: Authority<Lookup = AuthLookup>>(authority: A) {
@@ -691,7 +694,7 @@ pub fn test_srv<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .data()
         .and_then(RData::as_a)
         .expect("Not an A record");
-    assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
+    assert_eq!(A4::new(127, 0, 0, 1), *a);
 
     let aaaa = additionals
         .next()
@@ -699,7 +702,7 @@ pub fn test_srv<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .data()
         .and_then(RData::as_aaaa)
         .expect("Not an AAAA record");
-    assert_eq!(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
+    assert_eq!(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
 }
 
 pub fn test_invalid_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {

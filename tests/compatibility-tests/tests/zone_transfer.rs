@@ -38,6 +38,8 @@ macro_rules! assert_serial {
 #[test]
 #[allow(unused)]
 fn test_zone_transfer() {
+    use trust_dns_client::rr::rdata::A;
+
     let (process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
     let conn = TcpClientConnection::new(socket).unwrap();
@@ -75,7 +77,7 @@ fn test_zone_transfer() {
         RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
     );
-    record.set_data(Some(RData::A(Ipv4Addr::new(100, 10, 100, 10))));
+    record.set_data(Some(RData::A(A::new(100, 10, 100, 10))));
 
     client.create(record, name.clone()).expect("create failed");
 

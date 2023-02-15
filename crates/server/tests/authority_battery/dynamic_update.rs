@@ -11,7 +11,10 @@ use futures_executor::block_on;
 use trust_dns_proto::{
     op::{update_message, Header, Message, Query, ResponseCode},
     rr::dnssec::{Algorithm, SigSigner, SupportedAlgorithms, Verifier},
-    rr::{DNSClass, Name, RData, Record, RecordSet, RecordType},
+    rr::{
+        rdata::{A as A4, AAAA},
+        DNSClass, Name, RData, Record, RecordSet, RecordType,
+    },
     serialize::binary::{BinDecodable, BinEncodable},
 };
 use trust_dns_server::{
@@ -44,7 +47,7 @@ pub fn test_create<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
             .append_name(&name)
             .unwrap();
 
-        let record = Record::from_rdata(name.clone(), 8, RData::A(Ipv4Addr::new(127, 0, 0, 10)));
+        let record = Record::from_rdata(name.clone(), 8, RData::A(A4::new(127, 0, 0, 10)));
         let message = update_message::create(
             record.clone().into(),
             Name::from_str("example.com.").unwrap(),
@@ -68,7 +71,7 @@ pub fn test_create<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
             .expect("A record not found in authority")
             .data()
         {
-            Some(RData::A(ip)) => assert_eq!(Ipv4Addr::new(127, 0, 0, 10), *ip),
+            Some(RData::A(ip)) => assert_eq!(A4::new(127, 0, 0, 10), *ip),
             _ => panic!("wrong rdata type returned"),
         }
 
@@ -91,11 +94,11 @@ pub fn test_create_multi<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
             .unwrap();
         // create a record
         let mut record = Record::with(name.clone(), RecordType::A, 8);
-        record.set_data(Some(RData::A(Ipv4Addr::new(100, 10, 100, 10))));
+        record.set_data(Some(RData::A(A4::new(100, 10, 100, 10))));
         let record = record;
 
         let mut record2 = record.clone();
-        record2.set_data(Some(RData::A(Ipv4Addr::new(100, 10, 100, 11))));
+        record2.set_data(Some(RData::A(A4::new(100, 10, 100, 11))));
         let record2 = record2;
 
         let mut rrset = RecordSet::from(record.clone());
@@ -138,7 +141,7 @@ pub fn test_append<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
 
         // append a record
         let mut record = Record::with(name.clone(), RecordType::A, 8);
-        record.set_data(Some(RData::A(Ipv4Addr::new(100, 10, 100, 10))));
+        record.set_data(Some(RData::A(A4::new(100, 10, 100, 10))));
 
         // first check the must_exist option
         let mut message = update_message::append(
@@ -177,7 +180,7 @@ pub fn test_append<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
 
         // will fail if already set and not the same value.
         let mut record2 = record.clone();
-        record2.set_data(Some(RData::A(Ipv4Addr::new(101, 11, 101, 11))));
+        record2.set_data(Some(RData::A(A4::new(101, 11, 101, 11))));
 
         let message = update_message::append(
             record2.clone().into(),
@@ -238,7 +241,7 @@ pub fn test_append_multi<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
 
         // append a record
         let mut record = Record::with(name.clone(), RecordType::A, 8);
-        record.set_data(Some(RData::A(Ipv4Addr::new(100, 10, 100, 10))));
+        record.set_data(Some(RData::A(A4::new(100, 10, 100, 10))));
 
         // next append to a non-existent RRset
         let message = update_message::append(
@@ -251,9 +254,9 @@ pub fn test_append_multi<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
 
         // will fail if already set and not the same value.
         let mut record2 = record.clone();
-        record2.set_data(Some(RData::A(Ipv4Addr::new(101, 11, 101, 11))));
+        record2.set_data(Some(RData::A(A4::new(101, 11, 101, 11))));
         let mut record3 = record.clone();
-        record3.set_data(Some(RData::A(Ipv4Addr::new(101, 11, 101, 12))));
+        record3.set_data(Some(RData::A(A4::new(101, 11, 101, 12))));
 
         // build the append set
         let mut rrset = RecordSet::from(record2.clone());
@@ -324,7 +327,7 @@ pub fn test_compare_and_swap<A: Authority<Lookup = AuthLookup>>(
 
         // create a record
         let mut record = Record::with(name.clone(), RecordType::A, 8);
-        record.set_data(Some(RData::A(Ipv4Addr::new(100, 10, 100, 10))));
+        record.set_data(Some(RData::A(A4::new(100, 10, 100, 10))));
         let record = record;
 
         let message = update_message::create(
@@ -336,7 +339,7 @@ pub fn test_compare_and_swap<A: Authority<Lookup = AuthLookup>>(
 
         let current = record;
         let mut new = current.clone();
-        new.set_data(Some(RData::A(Ipv4Addr::new(101, 11, 101, 11))));
+        new.set_data(Some(RData::A(A4::new(101, 11, 101, 11))));
         let new = new;
 
         let message = update_message::compare_and_swap(
@@ -363,7 +366,7 @@ pub fn test_compare_and_swap<A: Authority<Lookup = AuthLookup>>(
 
         // check the it fails if tried again.
         let mut not = new.clone();
-        not.set_data(Some(RData::A(Ipv4Addr::new(102, 12, 102, 12))));
+        not.set_data(Some(RData::A(A4::new(102, 12, 102, 12))));
         let not = not;
 
         let message = update_message::compare_and_swap(
@@ -408,10 +411,10 @@ pub fn test_compare_and_swap_multi<A: Authority<Lookup = AuthLookup>>(
         let mut current = RecordSet::with_ttl(name.clone(), RecordType::A, 8);
 
         let current1 = current
-            .new_record(&RData::A(Ipv4Addr::new(100, 10, 100, 10)))
+            .new_record(&RData::A(A4::new(100, 10, 100, 10)))
             .clone();
         let current2 = current
-            .new_record(&RData::A(Ipv4Addr::new(100, 10, 100, 11)))
+            .new_record(&RData::A(A4::new(100, 10, 100, 11)))
             .clone();
         let current = current;
 
@@ -424,12 +427,8 @@ pub fn test_compare_and_swap_multi<A: Authority<Lookup = AuthLookup>>(
 
         let mut new =
             RecordSet::with_ttl(current.name().clone(), current.record_type(), current.ttl());
-        let new1 = new
-            .new_record(&RData::A(Ipv4Addr::new(100, 10, 101, 10)))
-            .clone();
-        let new2 = new
-            .new_record(&RData::A(Ipv4Addr::new(100, 10, 101, 11)))
-            .clone();
+        let new1 = new.new_record(&RData::A(A4::new(100, 10, 101, 10))).clone();
+        let new2 = new.new_record(&RData::A(A4::new(100, 10, 101, 11))).clone();
         let new = new;
 
         let mut message = update_message::compare_and_swap(
@@ -458,7 +457,7 @@ pub fn test_compare_and_swap_multi<A: Authority<Lookup = AuthLookup>>(
 
         // check the it fails if tried again.
         let mut not = new1.clone();
-        not.set_data(Some(RData::A(Ipv4Addr::new(102, 12, 102, 12))));
+        not.set_data(Some(RData::A(A4::new(102, 12, 102, 12))));
         let not = not;
 
         let message = update_message::compare_and_swap(
@@ -501,7 +500,7 @@ pub fn test_delete_by_rdata<A: Authority<Lookup = AuthLookup>>(
 
         // append a record
         let mut record1 = Record::with(name.clone(), RecordType::A, 8);
-        record1.set_data(Some(RData::A(Ipv4Addr::new(100, 10, 100, 10))));
+        record1.set_data(Some(RData::A(A4::new(100, 10, 100, 10))));
 
         // first check the must_exist option
         let mut message = update_message::delete_by_rdata(
@@ -520,7 +519,7 @@ pub fn test_delete_by_rdata<A: Authority<Lookup = AuthLookup>>(
         assert!(update_authority(message, key, &mut authority).expect("delete_by_rdata failed"));
 
         let mut record2 = record1.clone();
-        record2.set_data(Some(RData::A(Ipv4Addr::new(101, 11, 101, 11))));
+        record2.set_data(Some(RData::A(A4::new(101, 11, 101, 11))));
         let message = update_message::append(
             record2.clone().into(),
             Name::from_str("example.com.").unwrap(),
@@ -567,16 +566,16 @@ pub fn test_delete_by_rdata_multi<A: Authority<Lookup = AuthLookup>>(
         let mut rrset = RecordSet::with_ttl(name.clone(), RecordType::A, 8);
 
         let record1 = rrset
-            .new_record(&RData::A(Ipv4Addr::new(100, 10, 100, 10)))
+            .new_record(&RData::A(A4::new(100, 10, 100, 10)))
             .clone();
         let record2 = rrset
-            .new_record(&RData::A(Ipv4Addr::new(100, 10, 100, 11)))
+            .new_record(&RData::A(A4::new(100, 10, 100, 11)))
             .clone();
         let record3 = rrset
-            .new_record(&RData::A(Ipv4Addr::new(100, 10, 100, 12)))
+            .new_record(&RData::A(A4::new(100, 10, 100, 12)))
             .clone();
         let record4 = rrset
-            .new_record(&RData::A(Ipv4Addr::new(100, 10, 100, 13)))
+            .new_record(&RData::A(A4::new(100, 10, 100, 13)))
             .clone();
         let rrset = rrset;
 
@@ -644,7 +643,7 @@ pub fn test_delete_rrset<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
 
         // append a record
         let mut record = Record::with(name.clone(), RecordType::A, 8);
-        record.set_data(Some(RData::A(Ipv4Addr::new(100, 10, 100, 10))));
+        record.set_data(Some(RData::A(A4::new(100, 10, 100, 10))));
 
         // first check the must_exist option
         let message = update_message::delete_rrset(
@@ -663,7 +662,7 @@ pub fn test_delete_rrset<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
         assert!(update_authority(message, key, &mut authority).expect("create failed"));
 
         let mut record = record.clone();
-        record.set_data(Some(RData::A(Ipv4Addr::new(101, 11, 101, 11))));
+        record.set_data(Some(RData::A(A4::new(101, 11, 101, 11))));
         let message = update_message::append(
             record.clone().into(),
             Name::from_str("example.com.").unwrap(),
@@ -707,7 +706,7 @@ pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys
 
         // append a record
         let mut record = Record::with(name.clone(), RecordType::A, 8);
-        record.set_data(Some(RData::A(Ipv4Addr::new(100, 10, 100, 10))));
+        record.set_data(Some(RData::A(A4::new(100, 10, 100, 10))));
 
         // first check the must_exist option
         let message = update_message::delete_all(
@@ -728,7 +727,7 @@ pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys
 
         let mut record = record.clone();
         record.set_rr_type(RecordType::AAAA);
-        record.set_data(Some(RData::AAAA(Ipv6Addr::new(1, 2, 3, 4, 5, 6, 7, 8))));
+        record.set_data(Some(RData::AAAA(AAAA::new(1, 2, 3, 4, 5, 6, 7, 8))));
         let message = update_message::create(
             record.clone().into(),
             Name::from_str("example.com.").unwrap(),

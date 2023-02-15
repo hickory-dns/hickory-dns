@@ -1,9 +1,8 @@
-use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
 use futures_executor::block_on;
 
-use trust_dns_proto::rr::rdata::tlsa::*;
+use trust_dns_proto::rr::rdata::{tlsa::*, A, AAAA};
 use trust_dns_proto::rr::*;
 use trust_dns_proto::serialize::txt::*;
 use trust_dns_server::authority::{Authority, LookupOptions, ZoneType};
@@ -207,7 +206,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     assert_eq!(DNSClass::IN, a_record.dns_class());
     assert_eq!(RecordType::A, a_record.record_type());
     if let Some(RData::A(ref address)) = a_record.data() {
-        assert_eq!(&Ipv4Addr::new(26u8, 3u8, 0u8, 103u8), address);
+        assert_eq!(&A::new(26u8, 3u8, 0u8, 103u8), address);
     } else {
         panic!("Not an A record!!!") // valid panic, test code
     }
@@ -225,10 +224,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     .unwrap();
     assert_eq!(&Name::from_str("aaaa.isi.edu").unwrap(), aaaa_record.name());
     if let Some(RData::AAAA(ref address)) = aaaa_record.data() {
-        assert_eq!(
-            &Ipv6Addr::from_str("4321:0:1:2:3:4:567:89ab").unwrap(),
-            address
-        );
+        assert_eq!(&AAAA::from_str("4321:0:1:2:3:4:567:89ab").unwrap(), address);
     } else {
         panic!("Not a AAAA record!!!") // valid panic, test code
     }
@@ -250,7 +246,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     );
     assert_eq!(70, short_record.ttl());
     if let Some(RData::A(ref address)) = short_record.data() {
-        assert_eq!(&Ipv4Addr::new(26u8, 3u8, 0u8, 104u8), address);
+        assert_eq!(&A::new(26u8, 3u8, 0u8, 104u8), address);
     } else {
         panic!("Not an A record!!!") // valid panic, test code
     }
@@ -352,7 +348,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         idna_record.name()
     );
     if let Some(RData::A(ref address)) = idna_record.data() {
-        assert_eq!(&Ipv4Addr::new(192u8, 0u8, 2u8, 1u8), address);
+        assert_eq!(&A::new(192u8, 0u8, 2u8, 1u8), address);
     } else {
         panic!("Not an A record!!!") // valid panic, test code
     }

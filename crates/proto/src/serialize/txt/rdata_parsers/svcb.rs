@@ -7,13 +7,13 @@
 
 //! SVCB records in presentation format
 
-use std::{
-    net::{Ipv4Addr, Ipv6Addr},
-    str::FromStr,
-};
+use std::str::FromStr;
 
 use crate::{
-    rr::{rdata::svcb::*, Name},
+    rr::{
+        rdata::{svcb::*, A, AAAA},
+        Name,
+    },
     serialize::txt::{
         errors::{ParseError, ParseErrorKind, ParseResult},
         Lexer, Token,
@@ -238,7 +238,7 @@ fn parse_ipv4_hint(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
         ParseError::from(ParseErrorKind::Message("expected at least one ipv4 hint"))
     })?;
 
-    let hints = parse_list::<Ipv4Addr>(value)?;
+    let hints = parse_list::<A>(value)?;
     Ok(SvcParamValue::Ipv4Hint(IpHint(hints)))
 }
 
@@ -276,7 +276,7 @@ fn parse_ipv6_hint(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
         ParseError::from(ParseErrorKind::Message("expected at least one ipv6 hint"))
     })?;
 
-    let hints = parse_list::<Ipv6Addr>(value)?;
+    let hints = parse_list::<AAAA>(value)?;
     Ok(SvcParamValue::Ipv6Hint(IpHint(hints)))
 }
 
@@ -371,10 +371,7 @@ mod tests {
         assert_eq!(SvcParamKey::Ipv4Hint, param.0);
         assert_eq!(
             param.1.as_ipv4_hint().expect("ipv4hint").0,
-            &[
-                Ipv4Addr::from([162, 159, 135, 79]),
-                Ipv4Addr::from([162, 159, 136, 79])
-            ]
+            &[A::new(162, 159, 135, 79), A::new(162, 159, 136, 79)]
         );
 
         // echconfig
@@ -391,8 +388,8 @@ mod tests {
         assert_eq!(
             param.1.as_ipv6_hint().expect("ipv6hint").0,
             &[
-                Ipv6Addr::from([0x2606, 0x4700, 0x7, 0, 0, 0, 0xa29f, 0x874f]),
-                Ipv6Addr::from([0x2606, 0x4700, 0x7, 0, 0, 0, 0xa29f, 0x884f])
+                AAAA::new(0x2606, 0x4700, 0x7, 0, 0, 0, 0xa29f, 0x874f),
+                AAAA::new(0x2606, 0x4700, 0x7, 0, 0, 0, 0xa29f, 0x884f)
             ]
         );
     }

@@ -8,7 +8,7 @@ use tokio::runtime::Runtime;
 
 use trust_dns_proto::{
     op::{NoopMessageFinalizer, Query},
-    rr::{DNSClass, Name, RData, Record, RecordType},
+    rr::{rdata::A, DNSClass, Name, RData, Record, RecordType},
     xfer::{DnsExchange, DnsMultiplexer, DnsResponse},
     TokioTime,
 };
@@ -51,7 +51,7 @@ fn test_lookup() {
 
     assert_eq!(
         *lookup.iter().next().unwrap(),
-        RData::A(Ipv4Addr::new(93, 184, 216, 34))
+        RData::A(A::new(93, 184, 216, 34))
     );
 }
 
@@ -73,7 +73,7 @@ fn test_lookup_hosts() {
     let record = Record::from_rdata(
         Name::from_str("www.example.com.").unwrap(),
         86400,
-        RData::A(Ipv4Addr::new(10, 0, 1, 104)),
+        RData::A(A::new(10, 0, 1, 104)),
     );
     hosts.insert(
         Name::from_str("www.example.com.").unwrap(),
@@ -105,7 +105,7 @@ fn create_ip_like_example() -> InMemoryAuthority {
             .set_ttl(86400)
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(Ipv4Addr::new(198, 51, 100, 35))))
+            .set_data(Some(RData::A(A::new(198, 51, 100, 35))))
             .clone(),
         0,
     );
@@ -133,7 +133,7 @@ fn test_lookup_ipv4_like() {
         CachingClient::new(0, client, false),
         Default::default(),
         Some(Arc::new(Hosts::default())),
-        Some(RData::A(Ipv4Addr::new(1, 2, 3, 4))),
+        Some(RData::A(A::new(1, 2, 3, 4))),
     );
     let lookup = io_loop.block_on(lookup).unwrap();
 
@@ -163,7 +163,7 @@ fn test_lookup_ipv4_like_fall_through() {
         CachingClient::new(0, client, false),
         Default::default(),
         Some(Arc::new(Hosts::default())),
-        Some(RData::A(Ipv4Addr::new(198, 51, 100, 35))),
+        Some(RData::A(A::new(198, 51, 100, 35))),
     );
     let lookup = io_loop.block_on(lookup).unwrap();
 
@@ -196,7 +196,7 @@ fn test_mock_lookup() {
 
     assert_eq!(
         *lookup.iter().next().unwrap(),
-        RData::A(Ipv4Addr::new(93, 184, 216, 34))
+        RData::A(A::new(93, 184, 216, 34))
     );
 }
 
@@ -227,7 +227,7 @@ fn test_cname_lookup() {
 
     assert_eq!(
         *lookup.iter().next().unwrap(),
-        RData::A(Ipv4Addr::new(93, 184, 216, 34))
+        RData::A(A::new(93, 184, 216, 34))
     );
 }
 
@@ -263,10 +263,7 @@ fn test_cname_lookup_preserve() {
 
     let mut iter = lookup.iter();
     assert_eq!(iter.next().unwrap(), cname_record.data().unwrap());
-    assert_eq!(
-        *iter.next().unwrap(),
-        RData::A(Ipv4Addr::new(93, 184, 216, 34))
-    );
+    assert_eq!(*iter.next().unwrap(), RData::A(A::new(93, 184, 216, 34)));
 }
 
 #[test]
@@ -303,7 +300,7 @@ fn test_chained_cname_lookup() {
 
     assert_eq!(
         *lookup.iter().next().unwrap(),
-        RData::A(Ipv4Addr::new(93, 184, 216, 34))
+        RData::A(A::new(93, 184, 216, 34))
     );
 }
 
@@ -346,10 +343,7 @@ fn test_chained_cname_lookup_preserve() {
 
     let mut iter = lookup.iter();
     assert_eq!(iter.next().unwrap(), cname_record.data().unwrap());
-    assert_eq!(
-        *iter.next().unwrap(),
-        RData::A(Ipv4Addr::new(93, 184, 216, 34))
-    );
+    assert_eq!(*iter.next().unwrap(), RData::A(A::new(93, 184, 216, 34)));
 }
 
 #[test]
@@ -448,6 +442,6 @@ fn test_max_chained_lookup_depth() {
 
     assert_eq!(
         *lookup.iter().next().unwrap(),
-        RData::A(Ipv4Addr::new(93, 184, 216, 34))
+        RData::A(A::new(93, 184, 216, 34))
     );
 }

@@ -4,7 +4,6 @@ use std::{
     env,
     io::{stdout, BufRead, BufReader, Write},
     mem,
-    net::*,
     panic::{catch_unwind, UnwindSafe},
     process::{Command, Stdio},
     str::FromStr,
@@ -19,7 +18,7 @@ use tracing::{info, warn};
 use trust_dns_client::{client::*, proto::xfer::DnsResponse};
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::rr::dnssec::*;
-use trust_dns_proto::rr::*;
+use trust_dns_proto::rr::{rdata::A, *};
 
 #[cfg(feature = "dnssec")]
 use self::mut_message_client::MutMessageHandle;
@@ -250,7 +249,7 @@ pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
     let record = &response.answers()[0];
 
     if let Some(RData::A(ref address)) = record.data() {
-        assert_eq!(address, &Ipv4Addr::new(127, 0, 0, 1))
+        assert_eq!(address, &A::new(127, 0, 0, 1))
     } else {
         panic!("wrong RDATA")
     }
