@@ -709,7 +709,7 @@ impl RData {
     }
 
     /// Converts this to a Recordtype
-    pub fn to_record_type(&self) -> RecordType {
+    pub fn record_type(&self) -> RecordType {
         match *self {
             Self::A(..) => RecordType::A,
             Self::AAAA(..) => RecordType::AAAA,
@@ -740,7 +740,7 @@ impl RData {
     }
 
     /// If this is an A or AAAA record type, then an IpAddr will be returned
-    pub fn to_ip_addr(&self) -> Option<IpAddr> {
+    pub fn ip_addr(&self) -> Option<IpAddr> {
         match *self {
             Self::A(a) => Some(IpAddr::from(a.0)),
             Self::AAAA(aaaa) => Some(IpAddr::from(aaaa.0)),
@@ -995,7 +995,7 @@ impl RecordData for RData {
     }
 
     fn record_type(&self) -> RecordType {
-        self.to_record_type()
+        self.record_type()
     }
 
     fn into_rdata(self) -> RData {

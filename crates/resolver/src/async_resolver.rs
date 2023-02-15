@@ -397,7 +397,7 @@ impl<P: RuntimeProvider> AsyncResolver<P> {
             if self.options.ndots > 4 {
                 finally_ip_addr = Some(record);
             } else {
-                let query = Query::query(name, ip_addr.to_record_type());
+                let query = Query::query(name, ip_addr.record_type());
                 let lookup = Lookup::new_with_max_ttl(query, Arc::from([record]));
                 return Ok(lookup.into());
             }

@@ -605,7 +605,7 @@ pub mod tests {
             ))
             .unwrap()
             .iter()
-            .map(|r| r.to_ip_addr().unwrap())
+            .map(|r| r.ip_addr().unwrap())
             .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::new(127, 0, 0, 1)]
         );
@@ -625,7 +625,7 @@ pub mod tests {
                 .records()[0]
             )
             .unwrap()
-            .to_ip_addr()
+            .ip_addr()
             .unwrap(),
             Ipv4Addr::new(127, 0, 0, 1)
         );
@@ -642,7 +642,7 @@ pub mod tests {
             ))
             .unwrap()
             .into_iter()
-            .map(|r| r.to_ip_addr().unwrap())
+            .map(|r| r.ip_addr().unwrap())
             .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::new(127, 0, 0, 1)]
         );
