@@ -20,6 +20,7 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use crate::rr::Name;
 use crate::serialize::binary::*;
 
+/// TODO: all LowerNames should be stored in a global "intern" space, and then everything that uses
 ///  them should be through references. As a workaround the Strings are all Rc as well as the array
 #[derive(Default, Debug, Eq, Clone)]
 pub struct LowerName(Name);
