@@ -372,7 +372,6 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
     use crate::tests::udp_client_stream_test;
-    use crate::TokioTime;
     #[cfg(not(target_os = "linux"))]
     use std::net::Ipv6Addr;
     use std::net::{IpAddr, Ipv4Addr};
@@ -381,7 +380,7 @@ mod tests {
     #[test]
     fn test_udp_client_stream_ipv4() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        udp_client_stream_test::<TokioUdpSocket, Runtime, TokioTime>(
+        udp_client_stream_test::<TokioUdpSocket, Runtime>(
             IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
             io_loop,
         )
@@ -391,7 +390,7 @@ mod tests {
     #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
     fn test_udp_client_stream_ipv6() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        udp_client_stream_test::<TokioUdpSocket, Runtime, TokioTime>(
+        udp_client_stream_test::<TokioUdpSocket, Runtime>(
             IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
             io_loop,
         )
