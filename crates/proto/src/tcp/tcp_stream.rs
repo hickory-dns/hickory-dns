@@ -20,7 +20,6 @@ use futures_util::stream::Stream;
 use futures_util::{self, future::Future, ready, FutureExt};
 use tracing::debug;
 
-use crate::error::*;
 use crate::xfer::{SerialMessage, StreamReceiver};
 use crate::BufDnsStreamHandle;
 use crate::Time;
@@ -103,15 +102,12 @@ impl<S: Connect> TcpStream<S> {
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
     #[allow(clippy::new_ret_no_self, clippy::type_complexity)]
-    pub fn new<E>(
+    pub fn new(
         name_server: SocketAddr,
     ) -> (
         impl Future<Output = Result<Self, io::Error>> + Send,
         BufDnsStreamHandle,
-    )
-    where
-        E: FromProtoError,
-    {
+    ) {
         Self::with_timeout(name_server, Duration::from_secs(5))
     }
 
