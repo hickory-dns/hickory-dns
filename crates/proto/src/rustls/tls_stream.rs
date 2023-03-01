@@ -213,12 +213,7 @@ where
     let s = tls_connector
         .connect(dns_name, AsyncIoStdAsTokio(stream))
         .await
-        .map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::ConnectionRefused,
-                format!("tls error: {e}"),
-            )
-        })?;
+        .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {e}")))?;
 
     Ok(TcpStream::from_stream_with_receiver(
         AsyncIoTokioAsStd(s),
