@@ -6,7 +6,7 @@ use tracing::debug;
 use crate::udp::{UdpClientStream, UdpSocket, UdpStream};
 use crate::xfer::dns_handle::DnsStreamHandle;
 use crate::xfer::{DnsRequestOptions, FirstAnswer};
-use crate::{Executor, Time};
+use crate::Executor;
 
 /// Test next random udpsocket.
 pub fn next_random_socket_test<S: UdpSocket + Send + 'static, E: Executor>(mut exec: E) {
@@ -114,7 +114,7 @@ pub async fn udp_stream_test<S: UdpSocket + Send + 'static>(server_addr: IpAddr)
 
 /// Test udp_client_stream.
 #[allow(clippy::print_stdout)]
-pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor, TE: Time>(
+pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor>(
     server_addr: IpAddr,
     mut exec: E,
 ) {
