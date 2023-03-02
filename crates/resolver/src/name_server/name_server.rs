@@ -112,8 +112,12 @@ where
             // TODO: we need the local EDNS options
             self.state.reinit(None);
 
-            let new_client =
-                C::new_connection(&self.runtime_provider, &self.config, &self.options).await?;
+            let new_client = Box::pin(C::new_connection(
+                &self.runtime_provider,
+                &self.config,
+                &self.options,
+            ))
+            .await?;
 
             // establish a new connection
             *client = Some(new_client);
@@ -263,17 +267,12 @@ where
 /// We introduce this trait as an intermediate layer for real logic and mock testing.
 /// If you are an end user and use `GenericConnection`, just ignore this trait.
 pub trait CreateConnection: Sized {
-    /// Future of Self
-    type FutureConn<P: RuntimeProvider>: Future<Output = Result<Self, ResolveError>>
-        + Send
-        + 'static;
-
     /// Create a future of Self with the help of runtime provider.
     fn new_connection<P: RuntimeProvider>(
         runtime_provider: &P,
         config: &NameServerConfig,
         options: &ResolverOpts,
-    ) -> Self::FutureConn<P>;
+    ) -> Box<dyn Future<Output = Result<Self, ResolveError>> + Send + Unpin + 'static>;
 }
 
 #[cfg(test)]

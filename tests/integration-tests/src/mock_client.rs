@@ -175,23 +175,21 @@ impl<O: OnSend, E> MockClientHandle<O, E> {
 }
 
 impl<O: OnSend, E: Send + 'static> CreateConnection for MockClientHandle<O, E> {
-    type FutureConn<P: RuntimeProvider> = future::Ready<Result<Self, ResolveError>>;
-
     fn new_connection<P: RuntimeProvider>(
         runtime_provider: &P,
         _config: &NameServerConfig,
         _options: &ResolverOpts,
-    ) -> Self::FutureConn<P> {
+    ) -> Box<dyn Future<Output = Result<Self, ResolveError>> + Send + Unpin + 'static> {
         if TypeId::of::<P>() != TypeId::of::<MockConnProvider<O>>() {
             panic!("Type Mismatched. Unsafe to cast")
         }
         // Safety: we have checked the type
         let provider = unsafe { &*(runtime_provider as *const P as *const MockConnProvider<O>) };
         println!("MockConnProvider::new_connection");
-        future::ok(MockClientHandle::mock_on_send(
+        Box::new(future::ok(MockClientHandle::mock_on_send(
             vec![],
             provider.on_send.clone(),
-        ))
+        )))
     }
 }
 
