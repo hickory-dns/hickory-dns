@@ -163,7 +163,7 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
 
 /// Resolves to a new Connection
 #[must_use = "futures do nothing unless polled"]
-pub struct ConnectionFuture<R: RuntimeProvider> {
+pub(crate) struct ConnectionFuture<R: RuntimeProvider> {
     pub(crate) connect: ConnectionConnect<R>,
     pub(crate) spawner: R::Handle,
 }
@@ -225,13 +225,11 @@ impl DnsHandle for GenericConnection {
 }
 
 impl CreateConnection for GenericConnection {
-    type FutureConn<P: RuntimeProvider> = ConnectionFuture<P>;
-
     fn new_connection<P: RuntimeProvider>(
         runtime_provider: &P,
         config: &NameServerConfig,
         options: &ResolverOpts,
-    ) -> Self::FutureConn<P> {
+    ) -> Box<dyn Future<Output = Result<Self, ResolveError>> + Send + Unpin + 'static> {
         let dns_connect = match config.protocol {
             Protocol::Udp => {
                 let provider_handle = runtime_provider.clone();
@@ -357,10 +355,10 @@ impl CreateConnection for GenericConnection {
             }
         };
 
-        ConnectionFuture {
+        Box::new(ConnectionFuture::<P> {
             connect: dns_connect,
             spawner: runtime_provider.create_handle(),
-        }
+        })
     }
 }
 
