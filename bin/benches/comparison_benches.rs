@@ -86,7 +86,7 @@ fn trust_dns_process() -> (NamedProcess, u16) {
     let test_port = find_test_port();
 
     let ws_root = env::var("WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
-    let named_path = format!("{}/target/release/named", ws_root);
+    let named_path = format!("{}/target/release/trust-dns", ws_root);
     let config_path = format!("{}/tests/test-data/test_configs/example.toml", ws_root);
     let zone_dir = format!("{}/tests/test-data/test_configs", ws_root);
 
@@ -101,7 +101,7 @@ fn trust_dns_process() -> (NamedProcess, u16) {
         .arg(&format!("--zonedir={}", zone_dir))
         .arg(&format!("--port={}", test_port))
         .spawn()
-        .expect("failed to start named");
+        .expect("failed to start trust-dns");
     //
 
     let process = wrap_process(named, test_port);
