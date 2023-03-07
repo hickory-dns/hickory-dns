@@ -22,5 +22,9 @@ args = ["run", "--example=global_resolver"]
 command = "cargo"
 args = ["run", "--example=multithreaded_runtime"]
 
+[tasks.example-custom_provider]
+command = "cargo"
+args = ["run", "--example=custom_provider"]
+
 [tasks.test-examples]
 dependencies = ["example-global_resolver", "example-multithreaded_runtime"]
