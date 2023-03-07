@@ -17,6 +17,7 @@
 //! mail exchange, email, record
 
 use std::fmt;
+use std::str::FromStr;
 
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
@@ -159,6 +160,34 @@ pub fn emit(encoder: &mut BinEncoder<'_>, mx: &MX) -> ProtoResult<()> {
 impl fmt::Display for MX {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{pref} {ex}", pref = self.preference, ex = self.exchange)
+    }
+}
+
+// Keep this in sync with the `Display` impl above!
+impl FromStr for MX {
+    type Err = ProtoError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut parts = s.split(' ');
+        let preference = match parts.next() {
+            Some(part) => u16::from_str(part)
+                .map_err(|_| ProtoErrorKind::Message("invalid preference in MX record"))?,
+            None => return Err(ProtoErrorKind::Message("missing preference in MX record").into()),
+        };
+
+        let exchange = match parts.next() {
+            Some(part) => Name::from_str(part.trim_matches('"'))
+                .map_err(|_| ProtoErrorKind::Message("invalid exchange in MX record"))?,
+            None => return Err(ProtoErrorKind::Message("missing exchange in MX record").into()),
+        };
+
+        if parts.next().is_some() {
+            return Err(
+                ProtoErrorKind::Message("unexpected data after exchange in MX record").into(),
+            );
+        }
+
+        Ok(Self::new(preference, exchange))
     }
 }
 
