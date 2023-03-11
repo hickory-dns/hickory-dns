@@ -382,8 +382,7 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let read_rdata = SOA::read_data(&mut decoder, RecordType::SOA, Restrict::new(len))
-            .expect("Decoding error");
+        let read_rdata = SOA::read_data(&mut decoder, Restrict::new(len)).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 }

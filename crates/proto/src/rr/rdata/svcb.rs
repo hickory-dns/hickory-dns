@@ -1080,11 +1080,7 @@ impl<'r> RecordDataDecodable<'r> for SVCB {
     ///   If any RRs are malformed, the client MUST reject the entire RRSet and
     ///   fall back to non-SVCB connection establishment.
     /// ```
-    fn read_data(
-        decoder: &mut BinDecoder<'_>,
-        _record_type: RecordType,
-        rdata_length: Restrict<u16>,
-    ) -> ProtoResult<SVCB> {
+    fn read_data(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<SVCB> {
         let start_index = decoder.index();
 
         let svc_priority = decoder.read_u16()?.unverified(/*any u16 is valid*/);
@@ -1222,12 +1218,8 @@ mod tests {
         let bytes = encoder.into_bytes();
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let read_rdata = SVCB::read_data(
-            &mut decoder,
-            RecordType::SVCB,
-            Restrict::new(bytes.len() as u16),
-        )
-        .expect("failed to read back");
+        let read_rdata = SVCB::read_data(&mut decoder, Restrict::new(bytes.len() as u16))
+            .expect("failed to read back");
         assert_eq!(rdata, read_rdata);
     }
 

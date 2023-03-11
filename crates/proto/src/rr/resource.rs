@@ -21,8 +21,6 @@ use crate::{
 #[allow(deprecated)]
 use crate::rr::IntoRecordSet;
 
-use super::RecordDataDecodable;
-
 #[cfg(feature = "mdns")]
 /// From [RFC 6762](https://tools.ietf.org/html/rfc6762#section-10.2)
 /// ```text
@@ -455,7 +453,7 @@ impl<R: RecordData> BinEncodable for Record<R> {
     }
 }
 
-impl<'r, R: RecordData + RecordDataDecodable<'r>> BinDecodable<'r> for Record<R> {
+impl<'r> BinDecodable<'r> for Record<RData> {
     /// parse a resource record line example:
     ///  WARNING: the record_bytes is 100% consumed and destroyed in this parsing process
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
@@ -533,7 +531,7 @@ impl<'r, R: RecordData + RecordDataDecodable<'r>> BinDecodable<'r> for Record<R>
             //                according to the TYPE and CLASS of the resource record.
             // Adding restrict to the rdata length because it's used for many calculations later
             //  and must be validated before hand
-            Some(R::read_data(
+            Some(RData::read_data(
                 decoder,
                 record_type,
                 Restrict::new(rd_length),

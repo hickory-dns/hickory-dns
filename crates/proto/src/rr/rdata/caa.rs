@@ -804,13 +804,7 @@ impl<'r> RecordDataDecodable<'r> for CAA {
     ///      The length of the value field is specified implicitly as the
     ///      remaining length of the enclosing Resource Record data field.
     /// ```
-    fn read_data(
-        decoder: &mut BinDecoder<'r>,
-        record_type: RecordType,
-        length: Restrict<u16>,
-    ) -> ProtoResult<CAA> {
-        assert_eq!(record_type, RecordType::CAA);
-
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<CAA> {
         // the spec declares that other flags should be ignored for future compatibility...
         let issuer_critical: bool =
             decoder.read_u8()?.unverified(/*used as bitfield*/) & 0b1000_0000 != 0;
@@ -1061,12 +1055,8 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let read_rdata = CAA::read_data(
-            &mut decoder,
-            RecordType::CAA,
-            Restrict::new(bytes.len() as u16),
-        )
-        .expect("failed to read back");
+        let read_rdata = CAA::read_data(&mut decoder, Restrict::new(bytes.len() as u16))
+            .expect("failed to read back");
         assert_eq!(rdata, read_rdata);
     }
 
@@ -1245,12 +1235,7 @@ mod tests {
         ];
 
         let mut decoder = BinDecoder::new(MESSAGE);
-        let err = CAA::read_data(
-            &mut decoder,
-            RecordType::CAA,
-            Restrict::new(MESSAGE.len() as u16),
-        )
-        .unwrap_err();
+        let err = CAA::read_data(&mut decoder, Restrict::new(MESSAGE.len() as u16)).unwrap_err();
         match err.kind() {
             ProtoErrorKind::Msg(msg) => assert_eq!(msg, "bad character in CAA issuer key: ÿ"),
             _ => panic!("unexpected error: {:?}", err),

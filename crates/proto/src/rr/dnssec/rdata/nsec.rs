@@ -146,13 +146,7 @@ impl BinEncodable for NSEC {
 }
 
 impl<'r> RecordDataDecodable<'r> for NSEC {
-    fn read_data(
-        decoder: &mut BinDecoder<'r>,
-        record_type: RecordType,
-        length: Restrict<u16>,
-    ) -> ProtoResult<Self> {
-        assert_eq!(record_type, RecordType::NSEC);
-
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
         let start_idx = decoder.index();
 
         let next_domain_name = Name::read(decoder)?;
@@ -266,8 +260,7 @@ mod tests {
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata =
-            NSEC::read_data(&mut decoder, RecordType::NSEC, restrict).expect("Decoding error");
+        let read_rdata = NSEC::read_data(&mut decoder, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 }

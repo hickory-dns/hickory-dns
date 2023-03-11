@@ -204,11 +204,7 @@ impl BinEncodable for DS {
 }
 
 impl<'r> RecordDataDecodable<'r> for DS {
-    fn read_data(
-        decoder: &mut BinDecoder<'r>,
-        _record_type: RecordType,
-        length: Restrict<u16>,
-    ) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
         let start_idx = decoder.index();
 
         let key_tag: u16 = decoder.read_u16()?.unverified(/*key_tag is valid as any u16*/);
@@ -333,8 +329,7 @@ mod tests {
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata =
-            DS::read_data(&mut decoder, RecordType::DS, restrict).expect("Decoding error");
+        let read_rdata = DS::read_data(&mut decoder, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 

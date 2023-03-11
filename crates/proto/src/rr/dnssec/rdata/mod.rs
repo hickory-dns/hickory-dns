@@ -582,31 +582,31 @@ impl DNSSECRData {
         match record_type {
             RecordType::CDNSKEY => {
                 trace!("reading CDNSKEY");
-                CDNSKEY::read_data(decoder, record_type, rdata_length).map(Self::CDNSKEY)
+                CDNSKEY::read_data(decoder, rdata_length).map(Self::CDNSKEY)
             }
             RecordType::CDS => {
                 trace!("reading CDS");
-                CDS::read_data(decoder, record_type, rdata_length).map(Self::CDS)
+                CDS::read_data(decoder, rdata_length).map(Self::CDS)
             }
             RecordType::DNSKEY => {
                 trace!("reading DNSKEY");
-                DNSKEY::read_data(decoder, record_type, rdata_length).map(Self::DNSKEY)
+                DNSKEY::read_data(decoder, rdata_length).map(Self::DNSKEY)
             }
             RecordType::DS => {
                 trace!("reading DS");
-                DS::read_data(decoder, record_type, rdata_length).map(Self::DS)
+                DS::read_data(decoder, rdata_length).map(Self::DS)
             }
             RecordType::KEY => {
                 trace!("reading KEY");
-                KEY::read_data(decoder, record_type, rdata_length).map(Self::KEY)
+                KEY::read_data(decoder, rdata_length).map(Self::KEY)
             }
             RecordType::NSEC => {
                 trace!("reading NSEC");
-                NSEC::read_data(decoder, record_type, rdata_length).map(Self::NSEC)
+                NSEC::read_data(decoder, rdata_length).map(Self::NSEC)
             }
             RecordType::NSEC3 => {
                 trace!("reading NSEC3");
-                NSEC3::read_data(decoder, record_type, rdata_length).map(Self::NSEC3)
+                NSEC3::read_data(decoder, rdata_length).map(Self::NSEC3)
             }
             RecordType::NSEC3PARAM => {
                 trace!("reading NSEC3PARAM");
@@ -614,15 +614,15 @@ impl DNSSECRData {
             }
             RecordType::RRSIG => {
                 trace!("reading RRSIG");
-                RRSIG::read_data(decoder, record_type, rdata_length).map(Self::RRSIG)
+                RRSIG::read_data(decoder, rdata_length).map(Self::RRSIG)
             }
             RecordType::SIG => {
                 trace!("reading SIG");
-                SIG::read_data(decoder, record_type, rdata_length).map(Self::SIG)
+                SIG::read_data(decoder, rdata_length).map(Self::SIG)
             }
             RecordType::TSIG => {
                 trace!("reading TSIG");
-                TSIG::read_data(decoder, record_type, rdata_length).map(Self::TSIG)
+                TSIG::read_data(decoder, rdata_length).map(Self::TSIG)
             }
             r => {
                 panic!("not a dnssec RecordType: {}", r);

@@ -355,12 +355,7 @@ impl BinEncodable for DNSKEY {
 }
 
 impl<'r> RecordDataDecodable<'r> for DNSKEY {
-    fn read_data(
-        decoder: &mut BinDecoder<'r>,
-        record_type: RecordType,
-        length: Restrict<u16>,
-    ) -> ProtoResult<Self> {
-        assert_eq!(record_type, RecordType::DNSKEY);
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
         let flags: u16 = decoder.read_u16()?.unverified(/*used as a bitfield, this is safe*/);
 
         //    Bits 0-6 and 8-14 are reserved: these bits MUST have value 0 upon
@@ -510,11 +505,7 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let read_rdata = DNSKEY::read_data(
-            &mut decoder,
-            RecordType::DNSKEY,
-            Restrict::new(bytes.len() as u16),
-        );
+        let read_rdata = DNSKEY::read_data(&mut decoder, Restrict::new(bytes.len() as u16));
         let read_rdata = read_rdata.expect("error decoding");
 
         assert_eq!(rdata, read_rdata);

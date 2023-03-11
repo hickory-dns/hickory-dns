@@ -752,6 +752,135 @@ impl RData {
     pub fn is_soa(&self) -> bool {
         matches!(self, RData::SOA(..))
     }
+
+    /// Read data from the decoder
+    pub(crate) fn read_data(
+        decoder: &mut BinDecoder<'_>,
+        record_type: RecordType,
+        length: Restrict<u16>,
+    ) -> ProtoResult<Self> {
+        let start_idx = decoder.index();
+
+        let result = match record_type {
+            RecordType::A => {
+                trace!("reading A");
+                A::read(decoder).map(Self::A)
+            }
+            RecordType::AAAA => {
+                trace!("reading AAAA");
+                AAAA::read(decoder).map(Self::AAAA)
+            }
+            RecordType::ANAME => {
+                trace!("reading ANAME");
+                ANAME::read(decoder).map(Self::ANAME)
+            }
+            rt @ RecordType::ANY | rt @ RecordType::AXFR | rt @ RecordType::IXFR => {
+                return Err(ProtoErrorKind::UnknownRecordTypeValue(rt.into()).into());
+            }
+            RecordType::CAA => {
+                trace!("reading CAA");
+                CAA::read_data(decoder, length).map(Self::CAA)
+            }
+            RecordType::CNAME => {
+                trace!("reading CNAME");
+                CNAME::read(decoder).map(Self::CNAME)
+            }
+            RecordType::CSYNC => {
+                trace!("reading CSYNC");
+                CSYNC::read_data(decoder, length).map(Self::CSYNC)
+            }
+            RecordType::HINFO => {
+                trace!("reading HINFO");
+                HINFO::read_data(decoder, length).map(Self::HINFO)
+            }
+            RecordType::HTTPS => {
+                trace!("reading HTTPS");
+                HTTPS::read_data(decoder, length).map(Self::HTTPS)
+            }
+            RecordType::ZERO => {
+                trace!("reading EMPTY");
+                // we should never get here, since ZERO should be 0 length, and None in the Record.
+                //   this invariant is verified below, and the decoding will fail with an err.
+                #[allow(deprecated)]
+                Ok(Self::ZERO)
+            }
+            RecordType::MX => {
+                trace!("reading MX");
+                MX::read_data(decoder, length).map(Self::MX)
+            }
+            RecordType::NAPTR => {
+                trace!("reading NAPTR");
+                NAPTR::read_data(decoder, length).map(Self::NAPTR)
+            }
+            RecordType::NULL => {
+                trace!("reading NULL");
+                NULL::read_data(decoder, length).map(Self::NULL)
+            }
+            RecordType::NS => {
+                trace!("reading NS");
+                NS::read(decoder).map(Self::NS)
+            }
+            RecordType::OPENPGPKEY => {
+                trace!("reading OPENPGPKEY");
+                OPENPGPKEY::read_data(decoder, length).map(Self::OPENPGPKEY)
+            }
+            RecordType::OPT => {
+                trace!("reading OPT");
+                OPT::read_data(decoder, length).map(Self::OPT)
+            }
+            RecordType::PTR => {
+                trace!("reading PTR");
+                PTR::read(decoder).map(Self::PTR)
+            }
+            RecordType::SOA => {
+                trace!("reading SOA");
+                SOA::read_data(decoder, length).map(Self::SOA)
+            }
+            RecordType::SRV => {
+                trace!("reading SRV");
+                SRV::read_data(decoder, length).map(Self::SRV)
+            }
+            RecordType::SSHFP => {
+                trace!("reading SSHFP");
+                SSHFP::read_data(decoder, length).map(Self::SSHFP)
+            }
+            RecordType::SVCB => {
+                trace!("reading SVCB");
+                SVCB::read_data(decoder, length).map(Self::SVCB)
+            }
+            RecordType::TLSA => {
+                trace!("reading TLSA");
+                TLSA::read_data(decoder, length).map(Self::TLSA)
+            }
+            RecordType::TXT => {
+                trace!("reading TXT");
+                TXT::read_data(decoder, length).map(Self::TXT)
+            }
+            #[cfg(feature = "dnssec")]
+            r if r.is_dnssec() => DNSSECRData::read(decoder, record_type, length).map(Self::DNSSEC),
+            record_type => {
+                trace!("reading Unknown record: {}", record_type);
+                NULL::read_data(decoder, length).map(|rdata| Self::Unknown {
+                    code: record_type.into(),
+                    rdata,
+                })
+            }
+        };
+
+        // we should have read rdata_length, but we did not
+        let read = decoder.index() - start_idx;
+        length
+            .map(|u| u as usize)
+            .verify_unwrap(|rdata_length| read == *rdata_length)
+            .map_err(|rdata_length| {
+                ProtoError::from(ProtoErrorKind::IncorrectRDataLengthRead {
+                    read,
+                    len: rdata_length,
+                })
+            })?;
+
+        result
+    }
 }
 
 impl BinEncodable for RData {
@@ -852,136 +981,6 @@ impl BinEncodable for RData {
             Self::DNSSEC(ref rdata) => encoder.with_canonical_names(|encoder| rdata.emit(encoder)),
             Self::Unknown { ref rdata, .. } => rdata.emit(encoder),
         }
-    }
-}
-
-impl<'r> RecordDataDecodable<'r> for RData {
-    fn read_data(
-        decoder: &mut BinDecoder<'r>,
-        record_type: RecordType,
-        length: Restrict<u16>,
-    ) -> ProtoResult<Self> {
-        let start_idx = decoder.index();
-
-        let result = match record_type {
-            RecordType::A => {
-                trace!("reading A");
-                A::read(decoder).map(Self::A)
-            }
-            RecordType::AAAA => {
-                trace!("reading AAAA");
-                AAAA::read(decoder).map(Self::AAAA)
-            }
-            RecordType::ANAME => {
-                trace!("reading ANAME");
-                ANAME::read(decoder).map(Self::ANAME)
-            }
-            rt @ RecordType::ANY | rt @ RecordType::AXFR | rt @ RecordType::IXFR => {
-                return Err(ProtoErrorKind::UnknownRecordTypeValue(rt.into()).into());
-            }
-            RecordType::CAA => {
-                trace!("reading CAA");
-                CAA::read_data(decoder, record_type, length).map(Self::CAA)
-            }
-            RecordType::CNAME => {
-                trace!("reading CNAME");
-                CNAME::read(decoder).map(Self::CNAME)
-            }
-            RecordType::CSYNC => {
-                trace!("reading CSYNC");
-                CSYNC::read_data(decoder, record_type, length).map(Self::CSYNC)
-            }
-            RecordType::HINFO => {
-                trace!("reading HINFO");
-                HINFO::read_data(decoder, record_type, length).map(Self::HINFO)
-            }
-            RecordType::HTTPS => {
-                trace!("reading HTTPS");
-                HTTPS::read_data(decoder, record_type, length).map(Self::HTTPS)
-            }
-            RecordType::ZERO => {
-                trace!("reading EMPTY");
-                // we should never get here, since ZERO should be 0 length, and None in the Record.
-                //   this invariant is verified below, and the decoding will fail with an err.
-                #[allow(deprecated)]
-                Ok(Self::ZERO)
-            }
-            RecordType::MX => {
-                trace!("reading MX");
-                MX::read_data(decoder, record_type, length).map(Self::MX)
-            }
-            RecordType::NAPTR => {
-                trace!("reading NAPTR");
-                NAPTR::read_data(decoder, record_type, length).map(Self::NAPTR)
-            }
-            RecordType::NULL => {
-                trace!("reading NULL");
-                NULL::read_data(decoder, record_type, length).map(Self::NULL)
-            }
-            RecordType::NS => {
-                trace!("reading NS");
-                NS::read(decoder).map(Self::NS)
-            }
-            RecordType::OPENPGPKEY => {
-                trace!("reading OPENPGPKEY");
-                OPENPGPKEY::read_data(decoder, record_type, length).map(Self::OPENPGPKEY)
-            }
-            RecordType::OPT => {
-                trace!("reading OPT");
-                OPT::read_data(decoder, record_type, length).map(Self::OPT)
-            }
-            RecordType::PTR => {
-                trace!("reading PTR");
-                PTR::read(decoder).map(Self::PTR)
-            }
-            RecordType::SOA => {
-                trace!("reading SOA");
-                SOA::read_data(decoder, record_type, length).map(Self::SOA)
-            }
-            RecordType::SRV => {
-                trace!("reading SRV");
-                SRV::read_data(decoder, record_type, length).map(Self::SRV)
-            }
-            RecordType::SSHFP => {
-                trace!("reading SSHFP");
-                SSHFP::read_data(decoder, record_type, length).map(Self::SSHFP)
-            }
-            RecordType::SVCB => {
-                trace!("reading SVCB");
-                SVCB::read_data(decoder, record_type, length).map(Self::SVCB)
-            }
-            RecordType::TLSA => {
-                trace!("reading TLSA");
-                TLSA::read_data(decoder, record_type, length).map(Self::TLSA)
-            }
-            RecordType::TXT => {
-                trace!("reading TXT");
-                TXT::read_data(decoder, record_type, length).map(Self::TXT)
-            }
-            #[cfg(feature = "dnssec")]
-            r if r.is_dnssec() => DNSSECRData::read(decoder, record_type, length).map(Self::DNSSEC),
-            record_type => {
-                trace!("reading Unknown record: {}", record_type);
-                NULL::read_data(decoder, record_type, length).map(|rdata| Self::Unknown {
-                    code: record_type.into(),
-                    rdata,
-                })
-            }
-        };
-
-        // we should have read rdata_length, but we did not
-        let read = decoder.index() - start_idx;
-        length
-            .map(|u| u as usize)
-            .verify_unwrap(|rdata_length| read == *rdata_length)
-            .map_err(|rdata_length| {
-                ProtoError::from(ProtoErrorKind::IncorrectRDataLengthRead {
-                    read,
-                    len: rdata_length,
-                })
-            })?;
-
-        result
     }
 }
 

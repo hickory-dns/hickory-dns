@@ -244,11 +244,7 @@ impl BinEncodable for SSHFP {
 }
 
 impl<'r> RecordDataDecodable<'r> for SSHFP {
-    fn read_data(
-        decoder: &mut BinDecoder<'r>,
-        _record_type: RecordType,
-        length: Restrict<u16>,
-    ) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
         let algorithm = decoder.read_u8()?.unverified().into();
         let fingerprint_type = decoder.read_u8()?.unverified().into();
         let fingerprint_len = length
@@ -358,12 +354,8 @@ mod tests {
         assert_eq!(bytes, &result);
 
         let mut decoder = BinDecoder::new(result);
-        let read_rdata = SSHFP::read_data(
-            &mut decoder,
-            RecordType::SSHFP,
-            Restrict::new(result.len() as u16),
-        )
-        .expect("failed to read SSHFP");
+        let read_rdata = SSHFP::read_data(&mut decoder, Restrict::new(result.len() as u16))
+            .expect("failed to read SSHFP");
         assert_eq!(read_rdata, rdata)
     }
 
