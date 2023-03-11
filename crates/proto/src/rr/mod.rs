@@ -65,22 +65,14 @@ trait RecordDataDecodable<'r>: Sized {
     /// * `decoder` - data stream from which the RData will be read
     /// * `record_type` - specifies the RecordType that has already been read from the stream
     /// * `length` - the data length that should be read from the stream for this RecordData
-    fn read_data(
-        decoder: &mut BinDecoder<'r>,
-        record_type: RecordType,
-        length: Restrict<u16>,
-    ) -> ProtoResult<Self>;
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self>;
 }
 
 impl<'r, T> RecordDataDecodable<'r> for T
 where
     T: 'r + BinDecodable<'r> + Sized,
 {
-    fn read_data(
-        decoder: &mut BinDecoder<'r>,
-        _record_type: RecordType,
-        _length: Restrict<u16>,
-    ) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'r>, _length: Restrict<u16>) -> ProtoResult<Self> {
         T::read(decoder)
     }
 }

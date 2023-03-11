@@ -40,12 +40,8 @@ impl BinEncodable for HTTPS {
 }
 
 impl<'r> RecordDataDecodable<'r> for HTTPS {
-    fn read_data(
-        decoder: &mut BinDecoder<'r>,
-        record_type: RecordType,
-        length: Restrict<u16>,
-    ) -> ProtoResult<Self> {
-        SVCB::read_data(decoder, record_type, length).map(Self)
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
+        SVCB::read_data(decoder, length).map(Self)
     }
 }
 

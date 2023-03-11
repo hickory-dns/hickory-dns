@@ -366,11 +366,7 @@ impl<'r> RecordDataDecodable<'r> for TLSA {
     ///    /                                                               /
     ///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /// ```
-    fn read_data(
-        decoder: &mut BinDecoder<'_>,
-        _record_type: RecordType,
-        rdata_length: Restrict<u16>,
-    ) -> ProtoResult<TLSA> {
+    fn read_data(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<TLSA> {
         let cert_usage = decoder.read_u8()?.unverified(/*CertUsage is verified*/).into();
         let selector = decoder.read_u8()?.unverified(/*Selector is verified*/).into();
         let matching = decoder.read_u8()?.unverified(/*Matching is verified*/).into();
@@ -543,12 +539,8 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let read_rdata = TLSA::read_data(
-            &mut decoder,
-            RecordType::TLSA,
-            Restrict::new(bytes.len() as u16),
-        )
-        .expect("failed to read back");
+        let read_rdata = TLSA::read_data(&mut decoder, Restrict::new(bytes.len() as u16))
+            .expect("failed to read back");
         assert_eq!(rdata, read_rdata);
     }
 

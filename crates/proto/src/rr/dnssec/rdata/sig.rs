@@ -485,13 +485,7 @@ impl BinEncodable for SIG {
 }
 
 impl<'r> RecordDataDecodable<'r> for SIG {
-    fn read_data(
-        decoder: &mut BinDecoder<'r>,
-        record_type: RecordType,
-        length: Restrict<u16>,
-    ) -> ProtoResult<Self> {
-        assert!(record_type == RecordType::SIG || record_type == RecordType::RRSIG);
-
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
         let start_idx = decoder.index();
 
         // TODO should we verify here? or elsewhere...
@@ -670,8 +664,7 @@ mod tests {
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata =
-            SIG::read_data(&mut decoder, RecordType::SIG, restrict).expect("Decoding error");
+        let read_rdata = SIG::read_data(&mut decoder, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 }

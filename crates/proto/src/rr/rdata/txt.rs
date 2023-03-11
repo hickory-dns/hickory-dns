@@ -101,11 +101,7 @@ impl BinEncodable for TXT {
 }
 
 impl<'r> RecordDataDecodable<'r> for TXT {
-    fn read_data(
-        decoder: &mut BinDecoder<'_>,
-        _record_type: RecordType,
-        rdata_length: Restrict<u16>,
-    ) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<Self> {
         let data_len = decoder.len();
         let mut strings = Vec::with_capacity(1);
 
@@ -197,8 +193,7 @@ mod tests {
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata =
-            TXT::read_data(&mut decoder, RecordType::TXT, restrict).expect("Decoding error");
+        let read_rdata = TXT::read_data(&mut decoder, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 
@@ -216,8 +211,7 @@ mod tests {
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata =
-            TXT::read_data(&mut decoder, RecordType::TXT, restrict).expect("Decoding error");
+        let read_rdata = TXT::read_data(&mut decoder, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 }

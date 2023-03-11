@@ -73,11 +73,7 @@ impl BinEncodable for NULL {
 }
 
 impl<'r> RecordDataDecodable<'r> for NULL {
-    fn read_data(
-        decoder: &mut BinDecoder<'r>,
-        _record_type: RecordType,
-        length: Restrict<u16>,
-    ) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
         let rdata_length = length.map(|u| u as usize).unverified(/*any u16 is valid*/);
         if rdata_length > 0 {
             let anything = decoder.read_vec(rdata_length)?.unverified(/*any byte array is good*/);
@@ -137,8 +133,7 @@ mod tests {
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata =
-            NULL::read_data(&mut decoder, RecordType::NULL, restrict).expect("Decoding error");
+        let read_rdata = NULL::read_data(&mut decoder, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 }

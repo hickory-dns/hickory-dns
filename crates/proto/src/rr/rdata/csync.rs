@@ -139,12 +139,7 @@ impl BinEncodable for CSYNC {
 }
 
 impl<'r> RecordDataDecodable<'r> for CSYNC {
-    fn read_data(
-        decoder: &mut BinDecoder<'r>,
-        record_type: RecordType,
-        length: Restrict<u16>,
-    ) -> ProtoResult<Self> {
-        assert_eq!(record_type, RecordType::CSYNC);
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
         let start_idx = decoder.index();
 
         let soa_serial = decoder.read_u32()?.unverified();
@@ -229,8 +224,7 @@ mod tests {
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata =
-            CSYNC::read_data(&mut decoder, RecordType::CSYNC, restrict).expect("Decoding error");
+        let read_rdata = CSYNC::read_data(&mut decoder, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 }

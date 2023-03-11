@@ -394,11 +394,7 @@ impl<'r> RecordDataDecodable<'r> for TSIG {
     ///  /                                                               /
     ///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /// ```
-    fn read_data(
-        decoder: &mut BinDecoder<'r>,
-        _record_type: RecordType,
-        length: Restrict<u16>,
-    ) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
         let end_idx = length.map(|rdl| rdl as usize)
         .checked_add(decoder.index())
         .map_err(|_| ProtoError::from("rdata end position overflow"))? // no legal message is long enough to trigger that
@@ -829,12 +825,8 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let read_rdata = TSIG::read_data(
-            &mut decoder,
-            RecordType::TSIG,
-            Restrict::new(bytes.len() as u16),
-        )
-        .expect("failed to read back");
+        let read_rdata = TSIG::read_data(&mut decoder, Restrict::new(bytes.len() as u16))
+            .expect("failed to read back");
         assert_eq!(rdata, read_rdata);
     }
 
