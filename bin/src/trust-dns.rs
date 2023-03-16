@@ -577,11 +577,18 @@ fn config_https(
     }
 
     for https_listener in &https_sockaddrs {
-        info!(
-            "loading cert for DNS over TLS named {} from {:?}",
-            tls_cert_config.get_endpoint_name(),
-            tls_cert_config.get_path()
-        );
+        if let Some(endpoint_name) = tls_cert_config.get_endpoint_name() {
+            info!(
+                "loading cert for DNS over TLS named {} from {:?}",
+                endpoint_name,
+                tls_cert_config.get_path()
+            );
+        } else {
+            info!(
+                "loading cert for DNS over TLS from {:?}",
+                tls_cert_config.get_path()
+            );
+        }
         // TODO: see about modifying native_tls to impl Clone for Pkcs12
         let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config)
             .expect("error loading tls certificate file");
@@ -605,7 +612,7 @@ fn config_https(
                 https_listener,
                 config.get_tcp_request_timeout(),
                 tls_cert,
-                tls_cert_config.get_endpoint_name().to_string(),
+                tls_cert_config.get_endpoint_name().map(|s| s.to_string()),
             )
             .expect("could not register HTTPS listener");
     }
@@ -636,11 +643,18 @@ fn config_quic(
     }
 
     for quic_listener in &quic_sockaddrs {
-        info!(
-            "loading cert for DNS over TLS named {} from {:?}",
-            tls_cert_config.get_endpoint_name(),
-            tls_cert_config.get_path()
-        );
+        if let Some(endpoint_name) = tls_cert_config.get_endpoint_name() {
+            info!(
+                "loading cert for DNS over QUIC named {} from {:?}",
+                endpoint_name,
+                tls_cert_config.get_path()
+            );
+        } else {
+            info!(
+                "loading cert for DNS over QUIC from {:?}",
+                tls_cert_config.get_path()
+            );
+        }
         // TODO: see about modifying native_tls to impl Clone for Pkcs12
         let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config)
             .expect("error loading tls certificate file");
@@ -664,7 +678,7 @@ fn config_quic(
                 quic_listener,
                 config.get_tcp_request_timeout(),
                 tls_cert,
-                tls_cert_config.get_endpoint_name().to_string(),
+                tls_cert_config.get_endpoint_name().map(|s| s.to_string()),
             )
             .expect("could not register QUIC listener");
     }

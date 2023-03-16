@@ -27,7 +27,7 @@ pub(crate) async fn h2_handler<T, I>(
     handler: Arc<T>,
     io: I,
     src_addr: SocketAddr,
-    dns_hostname: Arc<str>,
+    dns_hostname: Option<Arc<str>>,
 ) where
     T: RequestHandler,
     I: AsyncRead + AsyncWrite + Unpin,
