@@ -7,7 +7,6 @@
 
 //! HTTPS related server items
 
-use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::str::FromStr;
 use std::sync::Arc;
