@@ -29,7 +29,7 @@ pub(crate) async fn quic_handler<T>(
     handler: Arc<T>,
     mut quic_streams: QuicStreams,
     src_addr: SocketAddr,
-    _dns_hostname: Arc<str>,
+    _dns_hostname: Option<Arc<str>>,
 ) -> Result<(), ProtoError>
 where
     T: RequestHandler,

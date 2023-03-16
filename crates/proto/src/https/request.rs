@@ -66,7 +66,7 @@ pub fn new(name_server_name: &str, message_len: usize) -> HttpsResult<Request<()
 }
 
 /// Verifies the request is something we know what to deal with
-pub fn verify<T>(name_server: &str, request: &Request<T>) -> HttpsResult<()> {
+pub fn verify<T>(name_server: Option<&str>, request: &Request<T>) -> HttpsResult<()> {
     // Verify all HTTP parameters
     let uri = request.uri();
 
@@ -86,12 +86,14 @@ pub fn verify<T>(name_server: &str, request: &Request<T>) -> HttpsResult<()> {
     }
 
     // the authority must match our nameserver name
-    if let Some(authority) = uri.authority() {
-        if authority.host() != name_server {
-            return Err("incorrect authority".into());
+    if let Some(name_server) = name_server {
+        if let Some(authority) = uri.authority() {
+            if authority.host() != name_server {
+                return Err("incorrect authority".into());
+            }
+        } else {
+            return Err("no authority in HTTPS request".into());
         }
-    } else {
-        return Err("no authority in HTTPS request".into());
     }
 
     // TODO: switch to mime::APPLICATION_DNS when that stabilizes
@@ -150,6 +152,6 @@ mod tests {
     #[test]
     fn test_new_verify() {
         let request = new("ns.example.com", 512).expect("error converting to http");
-        assert!(verify("ns.example.com", &request).is_ok());
+        assert!(verify(Some("ns.example.com"), &request).is_ok());
     }
 }
