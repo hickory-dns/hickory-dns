@@ -377,7 +377,6 @@ pub enum LookupRecordsIter<'r> {
     Empty,
 }
 
-
 impl<'r> Iterator for LookupRecordsIter<'r> {
     type Item = &'r Record;
 
