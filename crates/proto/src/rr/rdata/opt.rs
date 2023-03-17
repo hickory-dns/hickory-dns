@@ -18,6 +18,8 @@
 #![allow(clippy::use_self)]
 
 use std::collections::HashMap;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::str::FromStr;
 
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
@@ -433,6 +435,9 @@ pub enum EdnsOption {
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     N3U(SupportedAlgorithms),
 
+    /// [RFC 7871, Client Subnet, Optional](https://tools.ietf.org/html/rfc7871)
+    Subnet(ClientSubnet),
+
     /// Unknown, used to deal with unknown or unsupported codes
     Unknown(u16, Vec<u8>),
 }
@@ -445,6 +450,7 @@ impl EdnsOption {
             EdnsOption::DAU(ref algorithms)
             | EdnsOption::DHU(ref algorithms)
             | EdnsOption::N3U(ref algorithms) => algorithms.len(),
+            EdnsOption::Subnet(ref subnet) => subnet.len(),
             EdnsOption::Unknown(_, ref data) => data.len() as u16, // TODO: should we verify?
         }
     }
@@ -456,6 +462,7 @@ impl EdnsOption {
             EdnsOption::DAU(ref algorithms)
             | EdnsOption::DHU(ref algorithms)
             | EdnsOption::N3U(ref algorithms) => algorithms.is_empty(),
+            EdnsOption::Subnet(ref subnet) => subnet.is_empty(),
             EdnsOption::Unknown(_, ref data) => data.is_empty(),
         }
     }
@@ -468,6 +475,7 @@ impl BinEncodable for EdnsOption {
             EdnsOption::DAU(ref algorithms)
             | EdnsOption::DHU(ref algorithms)
             | EdnsOption::N3U(ref algorithms) => algorithms.emit(encoder),
+            EdnsOption::Subnet(ref subnet) => subnet.emit(encoder),
             EdnsOption::Unknown(_, ref data) => encoder.emit_vec(data), // gah, clone needed or make a crazy api.
         }
     }
@@ -484,6 +492,7 @@ impl<'a> From<(EdnsCode, &'a [u8])> for EdnsOption {
             EdnsCode::DHU => Self::DHU(value.1.into()),
             #[cfg(feature = "dnssec")]
             EdnsCode::N3U => Self::N3U(value.1.into()),
+            EdnsCode::Subnet => Self::Subnet(value.1.into()),
             _ => Self::Unknown(value.0.into(), value.1.to_vec()),
         }
     }
@@ -496,6 +505,7 @@ impl<'a> From<&'a EdnsOption> for Vec<u8> {
             EdnsOption::DAU(ref algorithms)
             | EdnsOption::DHU(ref algorithms)
             | EdnsOption::N3U(ref algorithms) => algorithms.into(),
+            EdnsOption::Subnet(ref subnet) => subnet.into(),
             EdnsOption::Unknown(_, ref data) => data.clone(), // gah, clone needed or make a crazy api.
         }
     }
@@ -510,8 +520,197 @@ impl<'a> From<&'a EdnsOption> for EdnsCode {
             EdnsOption::DHU(..) => Self::DHU,
             #[cfg(feature = "dnssec")]
             EdnsOption::N3U(..) => Self::N3U,
+            EdnsOption::Subnet(..) => Self::Subnet,
             EdnsOption::Unknown(code, _) => code.into(),
         }
+    }
+}
+
+/// [RFC 7871, Client Subnet, Optional](https://tools.ietf.org/html/rfc7871)
+///
+/// +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+/// 0: |                            FAMILY                             |
+///    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+/// 2: |     SOURCE PREFIX-LENGTH      |     SCOPE PREFIX-LENGTH       |
+///    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+/// 4: |                           ADDRESS...                          /
+///    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+///
+/// o  FAMILY, 2 octets, indicates the family of the address contained in
+///    the option, using address family codes as assigned by IANA in
+///    Address Family Numbers [Address_Family_Numbers].
+/// o  SOURCE PREFIX-LENGTH, an unsigned octet representing the leftmost
+///    number of significant bits of ADDRESS to be used for the lookup.
+///    In responses, it mirrors the same value as in the queries.
+/// o  SCOPE PREFIX-LENGTH, an unsigned octet representing the leftmost
+///    number of significant bits of ADDRESS that the response covers.
+///    In queries, it MUST be set to 0.
+/// o  ADDRESS, variable number of octets, contains either an IPv4 or
+///    IPv6 address, depending on FAMILY, which MUST be truncated to the
+///    number of bits indicated by the SOURCE PREFIX-LENGTH field,
+///    padding with 0 bits to pad to the end of the last octet needed.
+/// o  A server receiving an ECS option that uses either too few or too
+///    many ADDRESS octets, or that has non-zero ADDRESS bits set beyond
+///    SOURCE PREFIX-LENGTH, SHOULD return FORMERR to reject the packet,
+///    as a signal to the software developer making the request to fix
+///    their implementation.
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
+pub struct ClientSubnet {
+    address: IpAddr,
+    source_prefix: u8,
+    scope_prefix: u8,
+}
+
+impl ClientSubnet {
+    /// Construct a new EcsOption with the address, source_prefix and scope_prefix.
+    pub fn new(address: IpAddr, source_prefix: u8, scope_prefix: u8) -> Self {
+        Self {
+            address,
+            source_prefix,
+            scope_prefix,
+        }
+    }
+
+    /// Returns the length in bytes of the EdnsOption
+    pub fn len(&self) -> u16 {
+        // FAMILY: 2 octets
+        // SOURCE PREFIX-LENGTH: 1 octets
+        // SCOPE PREFIX-LENGTH: 1 octets
+        // ADDRESS: runcated to the number of bits indicated by the SOURCE PREFIX-LENGTH field
+        2 + 1 + 1 + self.addr_len()
+    }
+
+    /// Returns `true` if the length in bytes of the EcsOption is 0
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        false
+    }
+
+    fn addr_len(&self) -> u16 {
+        let source_prefix = self.source_prefix as u16;
+        source_prefix / 8 + if source_prefix % 8 > 0 { 1 } else { 0 }
+    }
+}
+
+impl BinEncodable for ClientSubnet {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        let address = self.address;
+        let source_prefix = self.source_prefix;
+        let scope_prefix = self.scope_prefix;
+
+        let addr_len = self.addr_len();
+
+        match address {
+            IpAddr::V4(ip) => {
+                encoder.emit_u16(1)?; // FAMILY: IPv4
+                encoder.emit_u8(source_prefix)?;
+                encoder.emit_u8(scope_prefix)?;
+                let octets = ip.octets();
+                let addr_len = addr_len as usize;
+                if addr_len <= octets.len() {
+                    encoder.emit_vec(&octets[0..addr_len])?
+                } else {
+                    return Err(ProtoErrorKind::Message(
+                        "Invalid addr length for encode EcsOption",
+                    )
+                    .into());
+                }
+            }
+            IpAddr::V6(ip) => {
+                encoder.emit_u16(2)?; // FAMILY: IPv6
+                encoder.emit_u8(source_prefix)?;
+                encoder.emit_u8(scope_prefix)?;
+                let octets = ip.octets();
+                let addr_len = addr_len as usize;
+                if addr_len <= octets.len() {
+                    encoder.emit_vec(&octets[0..addr_len])?
+                } else {
+                    return Err(ProtoErrorKind::Message(
+                        "Invalid addr length for encode EcsOption",
+                    )
+                    .into());
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<'a> BinDecodable<'a> for ClientSubnet {
+    fn read(decoder: &mut BinDecoder<'a>) -> ProtoResult<Self> {
+        let family = decoder.read_u16()?.unverified();
+
+        match family {
+            1 => {
+                // ipv4
+                let source_prefix = decoder.read_u8()?.unverified();
+                let scope_prefix = decoder.read_u8()?.unverified();
+                let addr_len =
+                    (source_prefix / 8 + if source_prefix % 8 > 0 { 1 } else { 0 }) as usize;
+                let mut octets = Ipv4Addr::UNSPECIFIED.octets();
+                for octet in octets.iter_mut().take(addr_len) {
+                    *octet = decoder.read_u8()?.unverified();
+                }
+                Ok(Self {
+                    address: IpAddr::from(octets),
+                    source_prefix,
+                    scope_prefix,
+                })
+            }
+            2 => {
+                // ipv6
+                let source_prefix = decoder.read_u8()?.unverified();
+                let scope_prefix = decoder.read_u8()?.unverified();
+                let addr_len =
+                    (source_prefix / 8 + if source_prefix % 8 > 0 { 1 } else { 0 }) as usize;
+                let mut octets = Ipv6Addr::UNSPECIFIED.octets();
+                for octet in octets.iter_mut().take(addr_len) {
+                    *octet = decoder.read_u8()?.unverified();
+                }
+
+                Ok(Self {
+                    address: IpAddr::from(octets),
+                    source_prefix,
+                    scope_prefix,
+                })
+            }
+            _ => Err(ProtoErrorKind::Message("Invalid family type.").into()),
+        }
+    }
+}
+impl<'a> From<&'a ClientSubnet> for Vec<u8> {
+    fn from(value: &'a ClientSubnet) -> Self {
+        let mut bytes = Self::with_capacity(value.len() as usize); // today this is less than 8
+        let mut encoder = BinEncoder::new(&mut bytes);
+        value.emit(&mut encoder).expect("Invalid EcsOption");
+        bytes.shrink_to_fit();
+        bytes
+    }
+}
+
+impl<'a> From<&'a [u8]> for ClientSubnet {
+    fn from(value: &'a [u8]) -> Self {
+        let mut decoder = BinDecoder::new(value);
+        Self::read(&mut decoder).expect("Invalid binary format for EDNS client subnet(ECS).")
+    }
+}
+
+impl From<ipnet::IpNet> for ClientSubnet {
+    fn from(net: ipnet::IpNet) -> Self {
+        Self {
+            address: net.addr(),
+            source_prefix: net.prefix_len(),
+            scope_prefix: Default::default(),
+        }
+    }
+}
+
+impl FromStr for ClientSubnet {
+    type Err = ipnet::AddrParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        ipnet::IpNet::from_str(s).map(ClientSubnet::from)
     }
 }
 
@@ -557,7 +756,10 @@ mod tests {
 
         let opt = read_rdata.unwrap();
         let mut options = HashMap::default();
-        options.insert(EdnsCode::Subnet, EdnsOption::Unknown(8, vec![0, 1, 0, 0]));
+        options.insert(
+            EdnsCode::Subnet,
+            EdnsOption::Subnet("0.0.0.0/0".parse().unwrap()),
+        );
         options.insert(
             EdnsCode::Cookie,
             EdnsOption::Unknown(10, vec![0x0b, 0x64, 0xb4, 0xdc, 0xd7, 0xb0, 0xcc, 0x8f]),
@@ -565,5 +767,21 @@ mod tests {
         options.insert(EdnsCode::Keepalive, EdnsOption::Unknown(11, vec![]));
         let options = OPT::new(options);
         assert_eq!(opt, options);
+    }
+
+    #[test]
+    fn test_write_client_subnet() {
+        let expected_bytes: Vec<u8> = vec![0x00, 0x01, 0x18, 0x00, 0xac, 0x01, 0x01];
+        let ecs: ClientSubnet = "172.1.1.1/24".parse().unwrap();
+        let bytes: Vec<u8> = (&ecs).into();
+        println!("bytes: {bytes:?}");
+        assert_eq!(bytes, expected_bytes);
+    }
+
+    #[test]
+    fn test_read_client_subnet() {
+        let bytes: Vec<u8> = vec![0x00, 0x01, 0x18, 0x00, 0xac, 0x01, 0x01];
+        let ecs: ClientSubnet = bytes.as_slice().into();
+        assert_eq!(ecs, "172.1.1.0/24".parse().unwrap());
     }
 }

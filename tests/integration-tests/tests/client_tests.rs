@@ -139,10 +139,8 @@ where
     let name = Name::from_ascii("WWW.example.com").unwrap();
     let mut edns = Edns::new();
     // garbage subnet value, but lets check
-    edns.options_mut().insert(EdnsOption::Unknown(
-        EdnsCode::Subnet.into(),
-        vec![0, 1, 16, 0, 1, 2],
-    ));
+    edns.options_mut()
+        .insert(EdnsOption::Subnet("1.2.0.0/16".parse().unwrap()));
 
     // TODO: write builder
     let mut msg = Message::new();
@@ -182,7 +180,7 @@ where
             .unwrap()
             .option(EdnsCode::Subnet)
             .unwrap(),
-        &EdnsOption::Unknown(EdnsCode::Subnet.into(), vec![0, 1, 16, 0, 1, 2])
+        &EdnsOption::Subnet("1.2.0.0/16".parse().unwrap())
     );
 
     if let RData::A(ref address) = *record.data().unwrap() {
