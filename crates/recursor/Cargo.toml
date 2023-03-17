@@ -72,28 +72,28 @@ name = "trust_dns_recursor"
 path = "src/lib.rs"
 
 [dependencies]
-async-trait = "0.1.43"
-async-recursion = "1.0.0"
+async-trait.workspace = true
+async-recursion.workspace = true
 #backtrace = { version = "0.3.50", optional = true }
-bytes = "1"
-cfg-if = "1"
-enum-as-inner = "0.5"
-futures-executor = { version = "0.3.5", default-features = false, features = ["std"] }
-futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
-lru-cache = "0.1.2"
-parking_lot = "0.12"
-serde = { version = "1.0.114", features = ["derive"], optional = true }
-thiserror = "1.0.20"
-time = "0.3"
-tracing = "0.1.30"
-tokio = { version = "1.0", features = ["net"] }
-toml = "0.7"
-trust-dns-proto = { version = "0.22.0", path = "../proto" }
-trust-dns-resolver = { version = "0.22.0", path = "../resolver" }
+bytes.workspace = true
+cfg-if.workspace = true
+enum-as-inner.workspace = true
+futures-executor = { workspace = true, default-features = false, features = ["std"] }
+futures-util = { workspace = true, default-features = false, features = ["std"] }
+lru-cache.workspace = true
+parking_lot.workspace = true
+serde = { workspace = true, features = ["derive"], optional = true }
+thiserror.workspace = true
+time.workspace = true
+tracing.workspace = true
+tokio = { workspace = true, features = ["net"] }
+toml.workspace = true
+trust-dns-proto.workspace = true
+trust-dns-resolver.workspace = true
 
 [dev-dependencies]
-tokio = { version="1.0", features = ["macros", "rt"] }
-tracing-subscriber = { version = "0.3", features = ["std", "fmt", "env-filter"] }
+tokio = { workspace = true, features = ["macros", "rt"] }
+tracing-subscriber = { workspace = true, features = ["std", "fmt", "env-filter"] }
 
 [package.metadata.docs.rs]
 all-features = true

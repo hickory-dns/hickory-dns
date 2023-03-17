@@ -67,54 +67,56 @@ mdns = ["socket2/all"]
 
 wasm-bindgen = ["wasm-bindgen-crate", "js-sys"]
 
+backtrace = ["dep:backtrace"]
+
 [lib]
 name = "trust_dns_proto"
 path = "src/lib.rs"
 
 [dependencies]
-async-trait = "0.1.43"
-backtrace = { version = "0.3.50", optional = true }
-bytes = { version = "1", optional = true }
-cfg-if = "1"
-data-encoding = "2.2.0"
-enum-as-inner = "0.5"
-futures-channel = { version = "0.3.5", default-features = false, features = ["std"] }
-futures-io = { version = "0.3.5", default-features = false, features = ["std"] }
-futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
-h2 = { version = "0.3.0", features = ["stream"], optional = true }
-http = { version = "0.2", optional = true }
-idna = "0.3.0"
-ipnet = "2.3.0"
-js-sys = { version = "0.3.44", optional = true }
-lazy_static = "1.2.0"
-native-tls = { version = "0.2", optional = true }
-openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
-quinn = { version = "0.9", optional = true }
-quinn-udp = {version ="0.3.2", optional = true}
-rand = "0.8"
-ring = { version = "0.16", optional = true, features = ["std"] }
-rustls = { version = "0.20.0", optional = true }
-rustls-pemfile = { version = "1.0.0", optional = true }
-serde = { version = "1.0", features = ["derive"], optional = true }
-smallvec = "1.6"
-socket2 = { version = "0.4.0", optional = true }
-thiserror = "1.0.20"
-tinyvec = { version = "1.1.1", features = ["alloc"] }
-tracing = "0.1.30"
-tokio = { version = "1.0", features = ["io-util"], optional = true }
-tokio-native-tls = { version = "0.3.0", optional = true }
-tokio-openssl = { version = "0.6.0", optional = true }
-tokio-rustls = { version = "0.23.0", optional = true, features = ["early-data"] }
-url = "2.3.1"
-wasm-bindgen-crate = { version = "0.2.58", optional = true, package = "wasm-bindgen" }
-webpki = { version = "0.22.0", optional = true }
-webpki-roots = { version = "0.22.1", optional = true }
+async-trait.workspace = true
+backtrace = { workspace = true, optional = true }
+bytes = { workspace = true, optional = true }
+cfg-if.workspace = true
+data-encoding.workspace = true
+enum-as-inner.workspace = true
+futures-channel = { workspace = true, default-features = false, features = ["std"] }
+futures-io = { workspace = true, default-features = false, features = ["std"] }
+futures-util = { workspace = true, default-features = false, features = ["std"] }
+h2 = { workspace = true, features = ["stream"], optional = true }
+http = { workspace = true, optional = true }
+idna.workspace = true
+ipnet.workspace = true
+js-sys = { workspace = true, optional = true }
+lazy_static.workspace = true
+native-tls = { workspace = true, optional = true }
+openssl = { workspace = true, features = ["v102", "v110"], optional = true }
+quinn = { workspace = true, optional = true }
+quinn-udp = {workspace = true, optional = true}
+rand.workspace = true
+ring = { workspace = true, optional = true, features = ["std"] }
+rustls = { workspace = true, optional = true }
+rustls-pemfile = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+smallvec.workspace = true
+socket2 = { workspace = true, optional = true }
+thiserror.workspace = true
+tinyvec = { workspace = true, features = ["alloc"] }
+tracing.workspace = true
+tokio = { workspace = true, features = ["io-util"], optional = true }
+tokio-native-tls = { workspace = true, optional = true }
+tokio-openssl = { workspace = true, optional = true }
+tokio-rustls = { workspace = true, optional = true, features = ["early-data"] }
+url.workspace = true
+wasm-bindgen-crate = { workspace = true, optional = true, package = "wasm-bindgen" }
+webpki = { workspace = true, optional = true }
+webpki-roots = { workspace = true, optional = true }
 
 [dev-dependencies]
-futures-executor = { version = "0.3.5", default-features = false, features = ["std"] }
-openssl = { version = "0.10", features = ["v102", "v110"] }
-tokio = { version = "1.0", features = ["rt", "time", "macros"] }
-tracing-subscriber = { version = "0.3", features = ["std", "fmt", "env-filter"] }
+futures-executor = { workspace = true, default-features = false, features = ["std"] }
+openssl = { workspace = true, features = ["v102", "v110"] }
+tokio = { workspace = true, features = ["rt", "time", "macros"] }
+tracing-subscriber = { workspace = true, features = ["std", "fmt", "env-filter"] }
 
 [package.metadata.docs.rs]
 all-features = true

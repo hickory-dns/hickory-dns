@@ -47,9 +47,9 @@ name = "trust_dns_compatibility"
 path = "src/lib.rs"
 
 [dependencies]
-data-encoding = "2.2.0"
-futures = "0.3.5"
-openssl = { version = "0.10", features = ["v102", "v110"] }
-rand = "0.8"
-time = "0.3"
-trust-dns-client= { version = "0.22.0", path="../../crates/client", features = ["dnssec-openssl"] }
+data-encoding.workspace = true
+futures.workspace = true
+openssl = { workspace = true, features = ["v102", "v110"] }
+rand.workspace = true
+time.workspace = true
+trust-dns-client= { workspace = true, features = ["dnssec-openssl"] }

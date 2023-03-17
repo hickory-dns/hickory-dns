@@ -71,32 +71,32 @@ path = "src/lib.rs"
 
 [dependencies]
 #backtrace = { version = "0.3.50", optional = true }
-cfg-if = "1.0.0"
-futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
-lazy_static = "1.2.0"
-lru-cache = "0.1.2"
-parking_lot = "0.12"
-rand = "0.8"
-resolv-conf = { version = "0.7.0", optional = true, features = ["system"] }
-rustls = { version = "0.20.0", optional = true }
-serde = { version = "1.0", features = ["derive"], optional = true }
-smallvec = "1.6"
-thiserror = "1.0.20"
-tracing = "0.1.30"
-tokio = { version = "1.21", optional = true }
-tokio-native-tls = { version = "0.3", optional = true }
-tokio-openssl = { version = "0.6.0", optional = true }
-tokio-rustls = { version = "0.23.0", optional = true }
-trust-dns-proto = { version = "0.22.0", path = "../proto", default-features = false }
-webpki-roots = { version = "0.22.1", optional = true }
+cfg-if.workspace = true
+futures-util = { workspace = true, default-features = false, features = ["std"] }
+lazy_static.workspace = true
+lru-cache.workspace = true
+parking_lot.workspace = true
+rand.workspace = true
+resolv-conf = { workspace = true, optional = true, features = ["system"] }
+rustls = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+smallvec.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tokio = { workspace = true, optional = true }
+tokio-native-tls = { workspace = true, optional = true }
+tokio-openssl = { workspace = true, optional = true }
+tokio-rustls = { workspace = true, optional = true }
+trust-dns-proto = { workspace = true, default-features = false }
+webpki-roots = { workspace = true, optional = true }
 
 [target.'cfg(windows)'.dependencies]
-ipconfig = { version = "0.3.0", optional = true }
+ipconfig = { workspace = true, optional = true }
 
 [dev-dependencies]
-futures-executor = { version = "0.3.5", default-features = false, features = ["std"] }
-tokio = { version="1.0", features = ["macros", "test-util"] }
-tracing-subscriber = { version = "0.3", features = ["std", "fmt", "env-filter"] }
+futures-executor = { workspace = true, default-features = false, features = ["std"] }
+tokio = { workspace = true, features = ["macros", "test-util"] }
+tracing-subscriber = { workspace = true, features = ["std", "fmt", "env-filter"] }
 
 [package.metadata.docs.rs]
 all-features = true
