@@ -2,7 +2,7 @@
 name = "trust-dns-proto"
 version = "0.22.0"
 edition = "2021"
-rust-version = "1.60.0"
+rust-version = "1.64.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
