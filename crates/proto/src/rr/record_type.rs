@@ -9,9 +9,7 @@
 #![allow(clippy::use_self)]
 
 use std::cmp::Ordering;
-use std::convert::From;
-use std::fmt;
-use std::fmt::{Display, Formatter};
+use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 
 #[cfg(feature = "serde-config")]
@@ -315,7 +313,6 @@ impl<'r> BinDecodable<'r> for RecordType {
 /// Convert from `RecordType` to `&str`
 ///
 /// ```
-/// use std::convert::From;
 /// use trust_dns_proto::rr::record_type::RecordType;
 ///
 /// let var: &'static str = From::from(RecordType::A);
@@ -371,7 +368,6 @@ impl From<RecordType> for &'static str {
 /// Convert from `RecordType` to `u16`
 ///
 /// ```
-/// use std::convert::From;
 /// use trust_dns_proto::rr::record_type::RecordType;
 ///
 /// let var: u16 = RecordType::A.into();

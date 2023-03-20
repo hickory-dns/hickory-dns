@@ -8,7 +8,6 @@
 //! TSIG for secret key authentication of transaction
 #![allow(clippy::use_self)]
 
-use std::convert::TryInto;
 use std::fmt;
 
 #[cfg(feature = "serde-config")]

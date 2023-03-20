@@ -261,7 +261,6 @@ impl TlsCertConfig {
 fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<SigSigner, String> {
     use tracing::info;
 
-    use std::convert::TryInto;
     use std::fs::File;
     use std::io::Read;
 

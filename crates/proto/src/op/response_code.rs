@@ -197,7 +197,6 @@ impl Display for ResponseCode {
 /// Convert from `ResponseCode` to `u16`
 ///
 /// ```
-/// use std::convert::From;
 /// use trust_dns_proto::op::response_code::ResponseCode;
 ///
 /// let var: ResponseCode = From::from(0);
@@ -242,7 +241,6 @@ impl From<ResponseCode> for u16 {
 /// Convert from `u16` to `ResponseCode`
 ///
 /// ```
-/// use std::convert::From;
 /// use trust_dns_proto::op::response_code::ResponseCode;
 ///
 /// let var: u16 = From::from(ResponseCode::NoError);

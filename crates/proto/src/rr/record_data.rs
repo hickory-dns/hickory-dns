@@ -9,8 +9,6 @@
 #![allow(deprecated, clippy::use_self)] // allows us to deprecate RData types
 
 use std::cmp::Ordering;
-#[cfg(test)]
-use std::convert::From;
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 

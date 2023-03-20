@@ -16,9 +16,7 @@
 
 //! bitmap for expressing the set of supported algorithms in edns.
 
-use std::convert::From;
-use std::fmt;
-use std::fmt::{Display, Formatter};
+use std::fmt::{self, Display, Formatter};
 
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};

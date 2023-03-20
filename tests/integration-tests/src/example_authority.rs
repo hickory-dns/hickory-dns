@@ -196,8 +196,6 @@ pub fn create_example() -> InMemoryAuthority {
 #[cfg(feature = "dnssec")]
 #[allow(unused)]
 pub fn create_secure_example() -> InMemoryAuthority {
-    use std::convert::TryInto;
-
     use openssl::rsa::Rsa;
     use time::Duration;
     use trust_dns_proto::rr::dnssec::*;

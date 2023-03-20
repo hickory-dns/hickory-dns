@@ -9,9 +9,7 @@
 #![allow(clippy::use_self)]
 
 use std::cmp::Ordering;
-use std::convert::From;
-use std::fmt;
-use std::fmt::{Display, Formatter};
+use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 
 #[cfg(feature = "serde-config")]
