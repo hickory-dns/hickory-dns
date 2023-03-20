@@ -18,6 +18,7 @@
 #![allow(clippy::use_self)]
 
 use std::collections::HashMap;
+use std::convert::{TryFrom, TryInto};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
@@ -250,7 +251,7 @@ pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoR
                 // The data state does not process 0-length correctly, since it always reads at
                 // least 1 byte, thus making the length check fail.
                 state = if length == 0 {
-                    options.insert(code, (code, &[] as &[u8]).into());
+                    options.insert(code, (code, &[] as &[u8]).try_into()?);
                     OptReadState::ReadCode
                 } else {
                     OptReadState::Data {
@@ -270,7 +271,7 @@ pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoR
                 // TODO: can this be replaced by read_slice()?
                 collected.push(decoder.pop()?.unverified(/*byte array is safe*/));
                 if length == collected.len() {
-                    options.insert(code, (code, &collected as &[u8]).into());
+                    options.insert(code, (code, &collected as &[u8]).try_into()?);
                     state = OptReadState::ReadCode;
                 } else {
                     state = OptReadState::Data {
@@ -481,32 +482,36 @@ impl BinEncodable for EdnsOption {
 }
 
 /// only the supported extensions are listed right now.
-impl<'a> From<(EdnsCode, &'a [u8])> for EdnsOption {
+impl<'a> TryFrom<(EdnsCode, &'a [u8])> for EdnsOption {
+    type Error = ProtoError;
+
     #[allow(clippy::match_single_binding)]
-    fn from(value: (EdnsCode, &'a [u8])) -> Self {
-        match value.0 {
+    fn try_from(value: (EdnsCode, &'a [u8])) -> Result<Self, Self::Error> {
+        Ok(match value.0 {
             #[cfg(feature = "dnssec")]
             EdnsCode::DAU => Self::DAU(value.1.into()),
             #[cfg(feature = "dnssec")]
             EdnsCode::DHU => Self::DHU(value.1.into()),
             #[cfg(feature = "dnssec")]
             EdnsCode::N3U => Self::N3U(value.1.into()),
-            EdnsCode::Subnet => Self::Subnet(value.1.into()),
+            EdnsCode::Subnet => Self::Subnet(value.1.try_into()?),
             _ => Self::Unknown(value.0.into(), value.1.to_vec()),
-        }
+        })
     }
 }
 
-impl<'a> From<&'a EdnsOption> for Vec<u8> {
-    fn from(value: &'a EdnsOption) -> Self {
-        match *value {
+impl<'a> TryFrom<&'a EdnsOption> for Vec<u8> {
+    type Error = ProtoError;
+
+    fn try_from(value: &'a EdnsOption) -> Result<Self, Self::Error> {
+        Ok(match *value {
             #[cfg(feature = "dnssec")]
             EdnsOption::DAU(ref algorithms)
             | EdnsOption::DHU(ref algorithms)
             | EdnsOption::N3U(ref algorithms) => algorithms.into(),
-            EdnsOption::Subnet(ref subnet) => subnet.into(),
+            EdnsOption::Subnet(ref subnet) => subnet.try_into()?,
             EdnsOption::Unknown(_, ref data) => data.clone(), // gah, clone needed or make a crazy api.
-        }
+        })
     }
 }
 
@@ -678,20 +683,25 @@ impl<'a> BinDecodable<'a> for ClientSubnet {
         }
     }
 }
-impl<'a> From<&'a ClientSubnet> for Vec<u8> {
-    fn from(value: &'a ClientSubnet) -> Self {
+
+impl<'a> TryFrom<&'a ClientSubnet> for Vec<u8> {
+    type Error = ProtoError;
+
+    fn try_from(value: &'a ClientSubnet) -> Result<Self, Self::Error> {
         let mut bytes = Self::with_capacity(value.len() as usize); // today this is less than 8
         let mut encoder = BinEncoder::new(&mut bytes);
-        value.emit(&mut encoder).expect("Invalid EcsOption");
+        value.emit(&mut encoder)?;
         bytes.shrink_to_fit();
-        bytes
+        Ok(bytes)
     }
 }
 
-impl<'a> From<&'a [u8]> for ClientSubnet {
-    fn from(value: &'a [u8]) -> Self {
+impl<'a> TryFrom<&'a [u8]> for ClientSubnet {
+    type Error = ProtoError;
+
+    fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
         let mut decoder = BinDecoder::new(value);
-        Self::read(&mut decoder).expect("Invalid binary format for EDNS client subnet(ECS).")
+        Self::read(&mut decoder)
     }
 }
 
@@ -772,7 +782,7 @@ mod tests {
     fn test_write_client_subnet() {
         let expected_bytes: Vec<u8> = vec![0x00, 0x01, 0x18, 0x00, 0xac, 0x01, 0x01];
         let ecs: ClientSubnet = "172.1.1.1/24".parse().unwrap();
-        let bytes: Vec<u8> = (&ecs).into();
+        let bytes = Vec::<u8>::try_from(&ecs).unwrap();
         println!("bytes: {bytes:?}");
         assert_eq!(bytes, expected_bytes);
     }
@@ -780,7 +790,7 @@ mod tests {
     #[test]
     fn test_read_client_subnet() {
         let bytes: Vec<u8> = vec![0x00, 0x01, 0x18, 0x00, 0xac, 0x01, 0x01];
-        let ecs: ClientSubnet = bytes.as_slice().into();
+        let ecs = ClientSubnet::try_from(bytes.as_slice()).unwrap();
         assert_eq!(ecs, "172.1.1.0/24".parse().unwrap());
     }
 }
