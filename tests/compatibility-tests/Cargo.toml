@@ -2,7 +2,7 @@
 name = "trust-dns-compatibility"
 version = "0.22.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
-edition = "2018"
+edition = "2021"
 rust-version = "1.60.0"
 
 # A short blurb about the package. This is not rendered in any format when
