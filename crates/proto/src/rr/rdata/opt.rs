@@ -26,11 +26,10 @@ use serde::{Deserialize, Serialize};
 
 use tracing::warn;
 
-use crate::error::*;
-use crate::serialize::binary::*;
-
+use crate::error::{ProtoError, ProtoErrorKind, ProtoResult};
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::SupportedAlgorithms;
+use crate::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict};
 
 /// The OPT record type is used for ExtendedDNS records.
 ///
