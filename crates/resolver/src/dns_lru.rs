@@ -8,7 +8,6 @@
 //! An LRU cache designed for work with DNS lookups
 
 use std::collections::HashMap;
-use std::convert::TryFrom;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 

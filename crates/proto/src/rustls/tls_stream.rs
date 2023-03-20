@@ -7,7 +7,6 @@
 
 //! DNS over TLS I/O stream implementation for Rustls
 
-use std::convert::TryInto;
 use std::future::Future;
 use std::io;
 use std::net::SocketAddr;

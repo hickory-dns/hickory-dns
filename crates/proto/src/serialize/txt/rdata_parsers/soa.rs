@@ -15,7 +15,6 @@
  */
 
 //! Parser for SOA text form
-use std::convert::TryInto;
 
 use crate::{
     rr::{domain::Name, rdata::SOA},

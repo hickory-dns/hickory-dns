@@ -60,7 +60,6 @@ impl fmt::Display for OpCode {
 /// Convert from `OpCode` to `u8`
 ///
 /// ```
-/// use std::convert::From;
 /// use trust_dns_proto::op::op_code::OpCode;
 ///
 /// let var: u8 = From::from(OpCode::Query);
@@ -86,7 +85,6 @@ impl From<OpCode> for u8 {
 /// Convert from `u8` to `OpCode`
 ///
 /// ```
-/// use std::convert::From;
 /// use trust_dns_proto::op::op_code::OpCode;
 ///
 /// let var: OpCode = OpCode::from_u8(0).unwrap();

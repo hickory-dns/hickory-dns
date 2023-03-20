@@ -18,7 +18,6 @@
 #![allow(clippy::use_self)]
 
 use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
