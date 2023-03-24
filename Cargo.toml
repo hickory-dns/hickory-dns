@@ -10,9 +10,8 @@ members = [
     "util",
     "tests/compatibility-tests",
     "tests/integration-tests",
+    "fuzz",
 ]
-
-exclude = ["fuzz"]
 
 [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }
