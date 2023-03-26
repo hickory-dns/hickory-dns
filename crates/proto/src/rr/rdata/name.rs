@@ -125,7 +125,7 @@ macro_rules! name_rdata {
 
         impl fmt::Display for $name {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-                write!(f, "{self}")
+                write!(f, "{}", self.0)
             }
         }
     };
@@ -136,20 +136,31 @@ name_rdata!(NS);
 name_rdata!(PTR);
 name_rdata!(ANAME);
 
-#[test]
-pub fn test() {
-    #![allow(clippy::dbg_macro, clippy::print_stdout)]
+#[cfg(test)]
+mod tests {
 
-    let rdata = Name::from_ascii("WWW.example.com.").unwrap();
+    use super::*;
 
-    let mut bytes = Vec::new();
-    let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
-    assert!(emit(&mut encoder, &rdata).is_ok());
-    let bytes = encoder.into_bytes();
+    #[test]
+    fn test_it_to_string_should_not_stack_overflow() {
+        assert_eq!(PTR("abc.com".parse().unwrap()).to_string(), "abc.com");
+    }
 
-    println!("bytes: {bytes:?}");
+    #[test]
+    fn test() {
+        #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-    let read_rdata = read(&mut decoder).expect("Decoding error");
-    assert_eq!(rdata, read_rdata);
+        let rdata = Name::from_ascii("WWW.example.com.").unwrap();
+
+        let mut bytes = Vec::new();
+        let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
+        assert!(emit(&mut encoder, &rdata).is_ok());
+        let bytes = encoder.into_bytes();
+
+        println!("bytes: {bytes:?}");
+
+        let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
+        let read_rdata = read(&mut decoder).expect("Decoding error");
+        assert_eq!(rdata, read_rdata);
+    }
 }
