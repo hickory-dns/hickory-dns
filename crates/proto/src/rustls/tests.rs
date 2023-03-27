@@ -107,17 +107,19 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
         .name("test_tls_client_stream:server".to_string())
         .spawn(move || {
             let pkcs12 = Pkcs12::from_der(&server_pkcs12_der)
-                .and_then(|p| p.parse("mypass"))
+                .and_then(|p| p.parse2("mypass"))
                 .expect("Pkcs12::from_der");
             let mut tls =
                 SslAcceptor::mozilla_modern(SslMethod::tls()).expect("mozilla_modern failed");
+            if let Some(pkey) = pkcs12.pkey.as_ref() {
+                tls.set_private_key(pkey).expect("failed to associated key");
+            }
+            if let Some(cert) = &pkcs12.cert {
+                tls.set_certificate(cert)
+                    .expect("failed to associated cert");
+            }
 
-            tls.set_private_key(&pkcs12.pkey)
-                .expect("failed to associated key");
-            tls.set_certificate(&pkcs12.cert)
-                .expect("failed to associated cert");
-
-            if let Some(ref chain) = pkcs12.chain {
+            if let Some(ref chain) = pkcs12.ca {
                 for cert in chain {
                     tls.add_extra_chain_cert(cert.to_owned())
                         .expect("failed to add chain");
