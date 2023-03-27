@@ -70,7 +70,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                     let message = match message {
                         Err(e) => {
                             warn!("error receiving message on udp_socket: {}", e);
-                            break;
+                            continue;
                         }
                         Ok(message) => message,
                     };
