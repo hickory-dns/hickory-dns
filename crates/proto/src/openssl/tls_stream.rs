@@ -11,12 +11,12 @@ use std::pin::Pin;
 use std::{future::Future, marker::PhantomData};
 
 use futures_util::{future, TryFutureExt};
-use openssl::pkcs12::ParsedPkcs12;
-use openssl::pkey::{PKeyRef, Private};
+use openssl::pkcs12::ParsedPkcs12_2;
+use openssl::pkey::{PKey, Private};
 use openssl::ssl::{ConnectConfiguration, SslConnector, SslContextBuilder, SslMethod, SslOptions};
 use openssl::stack::Stack;
 use openssl::x509::store::X509StoreBuilder;
-use openssl::x509::{X509Ref, X509};
+use openssl::x509::X509;
 use tokio_openssl::{self, SslStream as TokioTlsStream};
 
 use crate::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
@@ -25,14 +25,18 @@ use crate::tcp::{Connect, DnsTcpStream};
 use crate::xfer::BufDnsStreamHandle;
 
 pub(crate) trait TlsIdentityExt {
-    fn identity(&mut self, pkcs12: &ParsedPkcs12) -> io::Result<()> {
-        self.identity_parts(&pkcs12.cert, &pkcs12.pkey, pkcs12.chain.as_ref())
+    fn identity(&mut self, pkcs12: &ParsedPkcs12_2) -> io::Result<()> {
+        self.identity_parts(
+            pkcs12.cert.as_ref(),
+            pkcs12.pkey.as_ref(),
+            pkcs12.ca.as_ref(),
+        )
     }
 
     fn identity_parts(
         &mut self,
-        cert: &X509Ref,
-        pkey: &PKeyRef<Private>,
+        cert: Option<&X509>,
+        pkey: Option<&PKey<Private>>,
         chain: Option<&Stack<X509>>,
     ) -> io::Result<()>;
 }
@@ -40,12 +44,16 @@ pub(crate) trait TlsIdentityExt {
 impl TlsIdentityExt for SslContextBuilder {
     fn identity_parts(
         &mut self,
-        cert: &X509Ref,
-        pkey: &PKeyRef<Private>,
+        cert: Option<&X509>,
+        pkey: Option<&PKey<Private>>,
         chain: Option<&Stack<X509>>,
     ) -> io::Result<()> {
-        self.set_certificate(cert)?;
-        self.set_private_key(pkey)?;
+        if let Some(cert) = cert {
+            self.set_certificate(cert)?;
+        }
+        if let Some(pkey) = pkey {
+            self.set_private_key(pkey)?;
+        }
         self.check_private_key()?;
         if let Some(chain) = chain {
             for cert in chain {
@@ -60,7 +68,7 @@ impl TlsIdentityExt for SslContextBuilder {
 pub type TlsStream<S> = TcpStream<AsyncIoTokioAsStd<TokioTlsStream<S>>>;
 pub(crate) type CompatTlsStream<S> = TlsStream<AsyncIoStdAsTokio<S>>;
 
-fn new(certs: Vec<X509>, pkcs12: Option<ParsedPkcs12>) -> io::Result<SslConnector> {
+fn new(certs: Vec<X509>, pkcs12: Option<ParsedPkcs12_2>) -> io::Result<SslConnector> {
     let mut tls = SslConnector::builder(SslMethod::tls())
         .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {e}")))?;
 
@@ -139,7 +147,7 @@ where
 #[derive(Default)]
 pub struct TlsStreamBuilder<S> {
     ca_chain: Vec<X509>,
-    identity: Option<ParsedPkcs12>,
+    identity: Option<ParsedPkcs12_2>,
     bind_addr: Option<SocketAddr>,
     marker: PhantomData<S>,
 }
