@@ -28,8 +28,7 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{
     client::{HandshakeSignatureValid, ServerCertVerified},
-    internal::msgs::handshake::DigitallySignedStruct,
-    Certificate, ClientConfig, OwnedTrustAnchor, RootCertStore,
+    Certificate, ClientConfig, DigitallySignedStruct, OwnedTrustAnchor, RootCertStore,
 };
 use tokio::net::{TcpStream as TokioTcpStream, UdpSocket};
 use tracing::Level;

@@ -60,7 +60,7 @@ impl QuicServer {
             endpoint_config,
             Some(server_config),
             socket,
-            quinn::TokioRuntime,
+            Arc::new(quinn::TokioRuntime),
         )?;
 
         Ok(Self { endpoint })

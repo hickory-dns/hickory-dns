@@ -15,7 +15,7 @@ pub(crate) fn endpoint() -> EndpointConfig {
     // all DNS packets have a maximum size of u16 due to DoQ and 1035 rfc
     // TODO: the RFC claims max == u16::max, but this matches the max in some test servers.
     endpoint_config
-        .max_udp_payload_size(0x45acu16 as u64)
+        .max_udp_payload_size(0x45ac)
         .expect("max udp payload size exceeded");
 
     endpoint_config

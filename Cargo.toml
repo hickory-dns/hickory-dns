@@ -54,22 +54,22 @@ async-std = "1.6"
 tokio = "1.21"
 tokio-native-tls = "0.3.0"
 tokio-openssl = "0.6.0"
-tokio-rustls = "0.23.0"
+tokio-rustls = "0.24.0"
 parking_lot = "0.12"
 
 
 # ssl
 native-tls = "0.2"
 openssl = "0.10.48"
-rustls = "0.20.0"
+rustls = "0.21.0"
 rustls-pemfile = "1.0.0"
-webpki = "0.22.0"
-webpki-roots = "0.22.1"
+webpki = { version = "0.100.1", package = "rustls-webpki" }
+webpki-roots = "0.23.0"
 ring = "0.16"
 
 
 # net proto
-quinn = "0.9"
+quinn = "0.10"
 quinn-udp = "0.3.2"
 h2 = "0.3.0"
 http = "0.2"
