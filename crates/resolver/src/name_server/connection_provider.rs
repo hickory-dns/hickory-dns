@@ -394,7 +394,9 @@ pub mod tokio_runtime {
         where
             F: Future<Output = Result<(), ProtoError>> + Send + 'static,
         {
-            self.join_set.lock().unwrap().spawn(future);
+            let mut join_set = self.join_set.lock().unwrap();
+            join_set.spawn(future);
+            reap_tasks(&mut join_set);
         }
     }
 
@@ -437,5 +439,10 @@ pub mod tokio_runtime {
         ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Udp>>>> {
             Box::pin(tokio::net::UdpSocket::bind(local_addr))
         }
+    }
+
+    /// Reap finished tasks from a `JoinSet`, without awaiting or blocking.
+    fn reap_tasks(join_set: &mut JoinSet<Result<(), ProtoError>>) {
+        while FutureExt::now_or_never(join_set.join_next()).is_some() {}
     }
 }
