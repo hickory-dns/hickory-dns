@@ -152,8 +152,6 @@
 //! use std::net::Ipv4Addr;
 //! use std::str::FromStr;
 //!
-//! use time::Duration;
-//!
 //! # #[cfg(feature = "openssl")]
 //! use openssl::rsa::Rsa;
 //! use trust_dns_client::client::{Client, SyncClient};
@@ -202,7 +200,7 @@
 //! // Now we can send updates... let's create a new Record
 //! let mut record = Record::with(Name::from_str("new.example.com").unwrap(),
 //!                               RecordType::A,
-//!                               Duration::minutes(5).whole_seconds() as u32);
+//!                               300);
 //! record.set_data(Some(RData::A(A::new(100, 10, 100, 10))));
 //!
 //! // the server must be authoritative for this zone
