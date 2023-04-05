@@ -24,7 +24,7 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use tinyvec::TinyVec;
 
 /// A domain name
-#[derive(Clone, Default, Eq)]
+#[derive(Clone, Eq)]
 pub struct Name {
     is_fqdn: bool,
     label_data: TinyVec<[u8; 32]>,
@@ -36,7 +36,11 @@ pub struct Name {
 impl Name {
     /// Create a new domain::Name, i.e. label
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            is_fqdn: false,
+            label_data: TinyVec::new(),
+            label_ends: TinyVec::new(),
+        }
     }
 
     /// Returns the root label, i.e. no labels, can probably make this better in the future.
@@ -90,7 +94,7 @@ impl Name {
 
         let mut name = Self {
             is_fqdn: true,
-            ..Self::default()
+            ..Self::new()
         };
         for label in labels {
             name = name.append_label(label)?;

@@ -10,7 +10,6 @@ use std::fmt;
 use std::net::IpAddr;
 use std::sync::Arc;
 
-use proto::error::ProtoResult;
 use proto::op::Query;
 use proto::rr::domain::usage::ONION;
 use proto::rr::domain::TryParseIp;
@@ -381,13 +380,13 @@ impl<P: RuntimeProvider> AsyncResolver<P> {
         &self,
         host: N,
     ) -> Result<LookupIp, ResolveError> {
-        let mut finally_ip_addr: Option<Record> = None;
+        let mut finally_ip_addr = None;
         let maybe_ip = host.try_parse_ip();
-        let maybe_name: ProtoResult<Name> = host.into_name();
+        let maybe_name = host.into_name();
 
         // if host is a ip address, return directly.
         if let Some(ip_addr) = maybe_ip {
-            let name = maybe_name.clone().unwrap_or_default();
+            let name = maybe_name.clone().unwrap_or_else(|_| Name::root());
             let record = Record::from_rdata(name.clone(), dns_lru::MAX_TTL, ip_addr.clone());
 
             // if ndots are greater than 4, then we can't assume the name is an IpAddr
