@@ -1179,6 +1179,7 @@ impl fmt::Display for SVCB {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
     #[test]
     fn read_svcb_key() {
@@ -1227,12 +1228,12 @@ mod tests {
     fn test_encode_decode_svcb() {
         test_encode_decode(SVCB::new(
             0,
-            Name::from_utf8("www.example.com.").unwrap(),
+            Name::from_str("www.example.com.").unwrap(),
             vec![],
         ));
         test_encode_decode(SVCB::new(
             0,
-            Name::from_utf8(".").unwrap(),
+            Name::from_str(".").unwrap(),
             vec![(
                 SvcParamKey::Alpn,
                 SvcParamValue::Alpn(Alpn(vec!["h2".to_string()])),
@@ -1240,7 +1241,7 @@ mod tests {
         ));
         test_encode_decode(SVCB::new(
             0,
-            Name::from_utf8("example.com.").unwrap(),
+            Name::from_str("example.com.").unwrap(),
             vec![
                 (
                     SvcParamKey::Mandatory,
@@ -1259,7 +1260,7 @@ mod tests {
     fn test_encode_decode_svcb_bad_order() {
         test_encode_decode(SVCB::new(
             0,
-            Name::from_utf8(".").unwrap(),
+            Name::from_str(".").unwrap(),
             vec![
                 (
                     SvcParamKey::Alpn,
@@ -1286,7 +1287,7 @@ mod tests {
     fn test_unrestricted_output_size() {
         let svcb = SVCB::new(
             8224,
-            Name::from_utf8(".").unwrap(),
+            Name::from_str(".").unwrap(),
             vec![(
                 SvcParamKey::Unknown(8224),
                 SvcParamValue::Unknown(Unknown(vec![32; 257])),

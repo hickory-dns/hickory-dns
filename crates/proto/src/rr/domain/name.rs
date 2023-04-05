@@ -170,6 +170,7 @@ impl Name {
     /// assert!(!bytes_name.eq_case(&utf8_name));
     /// assert!(lower_name.eq_case(&utf8_name));
     /// ```
+    #[deprecated(since = "0.23.0", note = "use FromStr::from_str() instead")]
     pub fn from_utf8<S: AsRef<str>>(name: S) -> ProtoResult<Self> {
         Self::from_encoded_str::<LabelEncUtf8>(name.as_ref(), None)
     }
@@ -194,7 +195,7 @@ impl Name {
     /// ```
     pub fn from_str_relaxed<S: AsRef<str>>(name: S) -> ProtoResult<Self> {
         let name = name.as_ref();
-        Self::from_utf8(name).or_else(|_| Self::from_ascii(name))
+        Self::from_str(name).or_else(|_| Self::from_ascii(name))
     }
 
     fn from_encoded_str<E: LabelEnc>(local: &str, origin: Option<&Self>) -> ProtoResult<Self> {
@@ -1292,7 +1293,8 @@ impl FromStr for Name {
 
     /// Uses the Name::from_utf8 conversion on this string, see [Name::from_ascii] for ascii only, or for preserving case
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_str_relaxed(s)
+        #[allow(deprecated)]
+        Self::from_utf8(s)
     }
 }
 
@@ -1305,21 +1307,21 @@ pub trait IntoName: Sized {
 impl<'a> IntoName for &'a str {
     /// Performs a utf8, IDNA or punycode, translation of the `str` into `Name`
     fn into_name(self) -> ProtoResult<Name> {
-        Name::from_utf8(self)
+        Name::from_str(self)
     }
 }
 
 impl IntoName for String {
     /// Performs a utf8, IDNA or punycode, translation of the `String` into `Name`
     fn into_name(self) -> ProtoResult<Name> {
-        Name::from_utf8(self)
+        Name::from_str(&self)
     }
 }
 
 impl IntoName for &String {
     /// Performs a utf8, IDNA or punycode, translation of the `&String` into `Name`
     fn into_name(self) -> ProtoResult<Name> {
-        Name::from_utf8(self)
+        Name::from_str(self)
     }
 }
 
@@ -1725,8 +1727,8 @@ mod tests {
     #[test]
     fn test_from_utf8() {
         let bytes_name = Name::from_labels(vec![b"WWW" as &[u8], b"example", b"COM"]).unwrap();
-        let utf8_name = Name::from_utf8("WWW.example.COM.").unwrap();
-        let lower_name = Name::from_utf8("www.example.com.").unwrap();
+        let utf8_name = Name::from_str("WWW.example.COM.").unwrap();
+        let lower_name = Name::from_str("www.example.com.").unwrap();
 
         assert!(!bytes_name.eq_case(&utf8_name));
         assert!(lower_name.eq_case(&utf8_name));
@@ -1734,21 +1736,21 @@ mod tests {
 
     #[test]
     fn test_into_name() {
-        let name = Name::from_utf8("www.example.com").unwrap();
-        assert_eq!(Name::from_utf8("www.example.com").unwrap(), name);
+        let name = Name::from_str("www.example.com").unwrap();
+        assert_eq!(Name::from_str("www.example.com").unwrap(), name);
         assert_eq!(
-            Name::from_utf8("www.example.com").unwrap(),
-            Name::from_utf8("www.example.com")
+            Name::from_str("www.example.com").unwrap(),
+            Name::from_str("www.example.com")
                 .unwrap()
                 .into_name()
                 .unwrap()
         );
         assert_eq!(
-            Name::from_utf8("www.example.com").unwrap(),
+            Name::from_str("www.example.com").unwrap(),
             "www.example.com".into_name().unwrap()
         );
         assert_eq!(
-            Name::from_utf8("www.example.com").unwrap(),
+            Name::from_str("www.example.com").unwrap(),
             "www.example.com".to_string().into_name().unwrap()
         );
     }
@@ -1760,7 +1762,7 @@ mod tests {
             "WWW.example.COM."
         );
         assert_eq!(
-            Name::from_utf8("WWW.example.COM.").unwrap().to_ascii(),
+            Name::from_str("WWW.example.COM.").unwrap().to_ascii(),
             "www.example.com."
         );
         assert_eq!(
