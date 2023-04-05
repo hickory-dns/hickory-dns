@@ -198,7 +198,11 @@ impl Name {
         Self::from_str(name).or_else(|_| Self::from_ascii(name))
     }
 
-    fn from_encoded_str<E: LabelEnc>(local: &str, origin: Option<&Self>) -> ProtoResult<Self> {
+    fn from_encoded_str<E: LabelEnc>(
+        local: &str,
+        origin: Option<&Self>,
+        //allow_underscore: bool,
+    ) -> ProtoResult<Self> {
         let mut name = Self::new();
         let mut label = String::new();
 
@@ -1798,8 +1802,22 @@ mod tests {
     #[test]
     fn test_underscore() {
         Name::from_str("_begin.example.com").expect("failed at beginning");
+        assert_eq!(
+            Name::from_str("_begin.example.com").unwrap(),
+            Name::from_ascii("_begin.example.com").unwrap(),
+        );
+
         Name::from_str_relaxed("mid_dle.example.com").expect("failed in the middle");
+        assert_eq!(
+            Name::from_str("mid_dle.example.com").is_ok(),
+            Name::from_ascii("mid_dle.example.com").is_ok(),
+        );
+
         Name::from_str_relaxed("end_.example.com").expect("failed at the end");
+        assert_eq!(
+            Name::from_str("end_.example.com").is_ok(),
+            Name::from_ascii("end_.example.com").is_ok(),
+        );
     }
 
     #[test]
