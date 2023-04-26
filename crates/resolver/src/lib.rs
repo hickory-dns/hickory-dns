@@ -282,7 +282,7 @@ pub use self::proto::rr::{IntoName, Name, TryParseIp};
 #[cfg(feature = "testing")]
 #[cfg_attr(docsrs, doc(cfg(feature = "testing")))]
 pub use async_resolver::testing;
-pub use async_resolver::AsyncResolver;
+pub use async_resolver::{AsyncResolverBuilder,AsyncResolver};
 #[cfg(feature = "tokio-runtime")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 pub use async_resolver::TokioAsyncResolver;
