@@ -140,33 +140,60 @@ impl TokioAsyncResolver {
 pub struct AsyncResolverBuilder<R: RuntimeProvider> {
     config: ResolverConfig,
     options: ResolverOpts,
-    conn_provider: R,
+    runtime_provider: R,
     /// DNS cache to use instead of the default one created as part of creating
     /// the AsyncResolver.
     cache: Option<DnsLru>,
 }
 
-impl<R: RuntimeProvider> AsyncResolverBuilder<R> {
-    /// Construct a new `AsyncResolverBuilder` with the provided configuration.
+/// An AsyncResolverBuilder used with Tokio
+#[cfg(feature = "tokio-runtime")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
+pub type TokioAsyncResolverBuilder = AsyncResolverBuilder<TokioRuntimeProvider>;
+
+impl TokioAsyncResolverBuilder {
+    /// Construct a new `TokioAsyncResolverBuilder` with default configuration.
     ///
-    /// # Arguments
-    ///
-    /// * `config` - configuration, name_servers, etc. for the AsyncResolver
-    /// * `options` - basic lookup options for the AsyncResolver
-    /// * `conn_provider` - connection provider for the AsyncResolver
+    /// Uses the default() for ResolverConfig and ResolverOpts, and a TokioRuntimeProvider
     ///
     /// # Returns
     ///
-    /// An AsyncResolverBuilder.
-    pub fn new(
-        config: ResolverConfig,
-        options: ResolverOpts,
-        conn_provider: R,
-    ) -> Self {
+    /// A TokioAsyncResolverBuilder.
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Default for TokioAsyncResolverBuilder {
+    /// Construct a new `TokioAsyncResolverBuilder` with default configuration.
+    ///
+    /// Uses the default() for ResolverConfig and ResolverOpts, and a TokioRuntimeProvider
+    ///
+    /// # Returns
+    ///
+    /// A TokioAsyncResolverBuilder.
+    fn default() -> Self {
+        Self::new_with_provider(TokioRuntimeProvider::new())
+    }
+}
+
+impl<R: RuntimeProvider> AsyncResolverBuilder<R> {
+    /// Construct a new `TokioAsyncResolverBuilder` with default configuration.
+    ///
+    /// Uses the default() for ResolverConfig and ResolverOpts, and a TokioRuntimeProvider
+    ///
+    /// # Arguments
+    ///
+    /// * `provider` - runtime provider for the AsyncResolverBuilder
+    ///
+    /// # Returns
+    ///
+    /// A TokioAsyncResolverBuilder.
+    pub fn new_with_provider(runtime_provider: R) -> Self {
         Self {
-            config,
-            options,
-            conn_provider,
+            config: ResolverConfig::default(),
+            options: ResolverOpts::default(),
+            runtime_provider,
             cache: None,
         }
     }
@@ -175,9 +202,37 @@ impl<R: RuntimeProvider> AsyncResolverBuilder<R> {
     /// optional: calling `build` on the builder without having called this
     /// method will result in the AsyncResolver constructing its own DnsLru
     /// based on the provided configuration.
+    ///
+    /// Note that if this option is provided, then the cache_size and min and max ttls from the given options are not obeyed.
     pub fn with_cache(mut self, cache: DnsLru) -> Self {
         self.cache = Some(cache);
         self
+    }
+
+    /// Provide ResolverConfig .
+    pub fn with_config(mut self, config: ResolverConfig) -> Self {
+        self.config = config;
+        self
+    }
+
+    /// Provide ResolverOpts.
+    pub fn with_options(mut self, options: ResolverOpts) -> Self {
+        self.options = options;
+        self
+    }
+
+    /// Use the system configuration.
+    ///
+    /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
+    #[cfg(any(unix, target_os = "windows"))]
+    #[cfg(feature = "system-config")]
+    #[cfg_attr(
+        docsrs,
+        doc(cfg(all(feature = "system-config", any(unix, target_os = "windows"))))
+    )]
+    pub fn with_system_conf(mut self) -> Result<Self, ResolveError> {
+        (self.config, self.options) = super::system_conf::read_system_conf()?;
+        Ok(self)
     }
 
     /// Build the AsyncResolver.
@@ -185,7 +240,7 @@ impl<R: RuntimeProvider> AsyncResolverBuilder<R> {
         let pool = AbstractNameServerPool::from_config_with_provider(
             &self.config,
             &self.options,
-            self.conn_provider,
+            self.runtime_provider,
         );
         let either;
         let client = RetryDnsHandle::new(pool, self.options.attempts);
@@ -242,13 +297,11 @@ impl<R: RuntimeProvider> AsyncResolver<R> {
     ///
     /// * `config` - configuration, name_servers, etc. for the Resolver
     /// * `options` - basic lookup options for the resolver
+    /// * `provider` - runtime provider for the AsyncResolver
     ///
     /// # Returns
     ///
-    /// A tuple containing the new `AsyncResolver` and a future that drives the
-    /// background task that runs resolutions for the `AsyncResolver`. See the
-    /// documentation for `AsyncResolver` for more information on how to use
-    /// the background future.
+    /// The new `AsyncResolver`.
     pub fn new(
         config: ResolverConfig,
         options: ResolverOpts,
@@ -276,29 +329,28 @@ impl<R: RuntimeProvider> AsyncResolver<R> {
     pub fn clear_cache(&self) {
         self.client_cache.clear_cache();
     }
-}
 
-impl<P: RuntimeProvider> AsyncResolver<P> {
     /// Construct a new `AsyncResolver` with the provided configuration.
     ///
     /// # Arguments
     ///
     /// * `config` - configuration, name_servers, etc. for the Resolver
     /// * `options` - basic lookup options for the resolver
+    /// * `conn_provider` - runtime provider for the AsyncResolver
     ///
     /// # Returns
     ///
-    /// A tuple containing the new `AsyncResolver` and a future that drives the
-    /// background task that runs resolutions for the `AsyncResolver`. See the
-    /// documentation for `AsyncResolver` for more information on how to use
-    /// the background future.
+    /// The new `AsyncResolver`.
     #[allow(clippy::unnecessary_wraps)]
     pub fn new_with_conn(
         config: ResolverConfig,
         options: ResolverOpts,
-        conn_provider: P,
+        conn_provider: R,
     ) -> Result<Self, ResolveError> {
-        AsyncResolverBuilder::new(config, options, conn_provider).build()
+        AsyncResolverBuilder::new_with_provider(conn_provider)
+            .with_config(config)
+            .with_options(options)
+            .build()
     }
 
     /// Constructs a new Resolver with the system configuration.
@@ -310,9 +362,10 @@ impl<P: RuntimeProvider> AsyncResolver<P> {
         docsrs,
         doc(cfg(all(feature = "system-config", any(unix, target_os = "windows"))))
     )]
-    pub fn from_system_conf_with_provider(conn_provider: P) -> Result<Self, ResolveError> {
-        let (config, options) = super::system_conf::read_system_conf()?;
-        Self::new_with_conn(config, options, conn_provider)
+    pub fn from_system_conf_with_provider(conn_provider: R) -> Result<Self, ResolveError> {
+        AsyncResolverBuilder::new_with_provider(conn_provider)
+            .with_system_conf()?
+            .build()
     }
 
     /// Per request options based on the ResolverOpts
@@ -514,7 +567,7 @@ impl<P: RuntimeProvider> AsyncResolver<P> {
     lookup_fn!(txt_lookup, lookup::TxtLookup, RecordType::TXT);
 }
 
-impl<P: RuntimeProvider> fmt::Debug for AsyncResolver<P> {
+impl<R: RuntimeProvider> fmt::Debug for AsyncResolver<R> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("AsyncResolver")
             .field("request_tx", &"...")
