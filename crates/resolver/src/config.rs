@@ -891,7 +891,7 @@ impl Default for ResolverOpts {
             server_ordering_strategy: ServerOrderingStrategy::default(),
             recursion_desired: true,
             authentic_data: false,
-            shuffle_dns_servers: true,
+            shuffle_dns_servers: false,
         }
     }
 }
