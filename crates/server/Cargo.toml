@@ -92,7 +92,7 @@ tokio-rustls = { workspace = true, optional = true }
 toml.workspace = true
 trust-dns-proto = { workspace = true, features = ["text-parsing"] }
 trust-dns-recursor = { workspace = true, features = ["serde-config"], optional = true }
-trust-dns-resolver = { workspace = true, features = ["serde-config"], optional = true }
+trust-dns-resolver = { workspace = true, features = ["serde-config", "system-config"], optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt"] }
