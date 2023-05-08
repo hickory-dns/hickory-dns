@@ -48,6 +48,7 @@ use tokio::{
     net::{TcpListener, UdpSocket},
     runtime,
 };
+use futures_util::future::TryFutureExt;
 use tracing::{debug, error, info, warn, Event, Subscriber};
 use tracing_subscriber::{
     fmt::{format, FmtContext, FormatEvent, FormatFields, FormattedFields},
@@ -509,8 +510,6 @@ fn config_tls(
     listen_addrs: &[IpAddr],
     runtime: &mut runtime::Runtime,
 ) {
-    use futures::TryFutureExt;
-
     let tls_listen_port: u16 = args
         .tls_port
         .unwrap_or_else(|| config.get_tls_listen_port());
@@ -562,8 +561,6 @@ fn config_https(
     listen_addrs: &[IpAddr],
     runtime: &mut runtime::Runtime,
 ) {
-    use futures::TryFutureExt;
-
     let https_listen_port: u16 = args
         .https_port
         .unwrap_or_else(|| config.get_https_listen_port());
@@ -628,8 +625,6 @@ fn config_quic(
     listen_addrs: &[IpAddr],
     runtime: &mut runtime::Runtime,
 ) {
-    use futures::TryFutureExt;
-
     let quic_listen_port: u16 = args
         .quic_port
         .unwrap_or_else(|| config.get_quic_listen_port());

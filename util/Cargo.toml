@@ -75,7 +75,7 @@ name = "recurse"
 path = "src/recurse.rs"
 
 [dependencies]
-clap = { workspace = true, default-features = false, features = ["std", "cargo", "derive", "color", "suggestions", "help", "usage"] }
+clap = { workspace = true, features = ["std", "cargo", "derive", "color", "suggestions", "help", "usage"] }
 console.workspace = true
 data-encoding.workspace = true
 openssl = { workspace = true, features = ["v102", "v110"], optional = true }

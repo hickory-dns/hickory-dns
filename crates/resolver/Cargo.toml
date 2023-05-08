@@ -72,7 +72,7 @@ path = "src/lib.rs"
 [dependencies]
 #backtrace = { version = "0.3.50", optional = true }
 cfg-if.workspace = true
-futures-util = { workspace = true, default-features = false, features = ["std"] }
+futures-util = { workspace = true, features = ["std"] }
 lazy_static.workspace = true
 lru-cache.workspace = true
 parking_lot.workspace = true
@@ -87,14 +87,14 @@ tokio = { workspace = true, optional = true }
 tokio-native-tls = { workspace = true, optional = true }
 tokio-openssl = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true }
-trust-dns-proto = { workspace = true, default-features = false }
+trust-dns-proto = { workspace = true }
 webpki-roots = { workspace = true, optional = true }
 
 [target.'cfg(windows)'.dependencies]
 ipconfig = { workspace = true, optional = true }
 
 [dev-dependencies]
-futures-executor = { workspace = true, default-features = false, features = ["std"] }
+futures-executor = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["macros", "test-util"] }
 tracing-subscriber = { workspace = true, features = ["std", "fmt", "env-filter"] }
 

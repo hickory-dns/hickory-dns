@@ -105,7 +105,7 @@ pub trait Spawn {
         F: Future<Output = Result<(), ProtoError>> + Send + 'static;
 }
 
-#[cfg(feature = "dns-over-tls")]
+#[cfg(all(feature = "tokio-runtime", feature = "dns-over-tls"))]
 /// Predefined type for TLS client stream
 type TlsClientStream<S> =
     TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<proto::iocompat::AsyncIoStdAsTokio<S>>>>;
@@ -125,7 +125,7 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
             R::Timer,
         >,
     ),
-    #[cfg(feature = "dns-over-tls")]
+    #[cfg(all(feature = "tokio-runtime", feature = "dns-over-tls"))]
     Tls(
         DnsExchangeConnect<
             DnsMultiplexerConnect<
@@ -147,9 +147,9 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
             TokioTime,
         >,
     ),
-    #[cfg(feature = "dns-over-https")]
+    #[cfg(all(feature = "tokio-runtime", feature = "dns-over-https"))]
     Https(DnsExchangeConnect<HttpsClientConnect<R::Tcp>, HttpsClientStream, TokioTime>),
-    #[cfg(feature = "dns-over-quic")]
+    #[cfg(all(feature = "tokio-runtime", feature = "dns-over-quic"))]
     Quic(DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime>),
     #[cfg(feature = "mdns")]
     Mdns(

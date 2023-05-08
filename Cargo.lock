@@ -1832,7 +1832,7 @@ name = "trust-dns"
 version = "0.22.0"
 dependencies = [
  "clap",
- "futures",
+ "futures-util",
  "native-tls",
  "regex",
  "rustls",
@@ -1853,8 +1853,8 @@ version = "0.22.0"
 dependencies = [
  "cfg-if",
  "data-encoding",
- "futures",
  "futures-channel",
+ "futures-executor",
  "futures-util",
  "lazy_static",
  "openssl",

@@ -85,8 +85,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use futures::executor::block_on;
-    use futures::future;
+    use futures_executor::block_on;
+    use futures_util::future;
     use futures_util::stream::once;
 
     use crate::proto::error::{ProtoError, ProtoErrorKind};

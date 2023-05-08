@@ -67,12 +67,12 @@ path = "src/lib.rs"
 [dependencies]
 async-std = { workspace = true, features = ["unstable"] }
 async-trait.workspace = true
-futures-io = { workspace = true, default-features = false, features = ["std"] }
-futures-util = { workspace = true, default-features = false, features = ["std"] }
+futures-io = { workspace = true, features = ["std"] }
+futures-util = { workspace = true, features = ["std"] }
 pin-utils.workspace = true
-trust-dns-resolver = { workspace = true, default-features = false }
+trust-dns-resolver = { workspace = true }
 socket2.workspace = true
 
 [dev-dependencies]
 async-std = { workspace = true, features = ["attributes"] }
-trust-dns-resolver = { workspace = true, default-features = false, features = ["testing"] }
+trust-dns-resolver = { workspace = true, features = ["testing"] }

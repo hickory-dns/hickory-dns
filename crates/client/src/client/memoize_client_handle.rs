@@ -98,8 +98,9 @@ mod test {
     use std::pin::Pin;
     use std::sync::Arc;
 
-    use futures::lock::Mutex;
-    use futures::*;
+    use futures_util::lock::Mutex;
+    use futures_util::{stream, Stream};
+    use futures_executor::block_on;
     use trust_dns_proto::{
         error::ProtoError,
         xfer::{DnsHandle, DnsRequest, DnsResponse},
@@ -146,8 +147,6 @@ mod test {
 
     #[test]
     fn test_memoized() {
-        use futures::executor::block_on;
-
         let mut client = MemoizeClientHandle::new(TestClient {
             i: Arc::new(Mutex::new(0)),
         });

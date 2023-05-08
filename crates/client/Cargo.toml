@@ -72,8 +72,8 @@ path = "src/lib.rs"
 [dependencies]
 cfg-if.workspace = true
 data-encoding.workspace = true
-futures-channel = { workspace = true, default-features = false, features = ["std"] }
-futures-util = { workspace = true, default-features = false, features = ["std"] }
+futures-channel = { workspace = true, features = ["std"] }
+futures-util = { workspace = true, features = ["std"] }
 lazy_static.workspace = true
 openssl = { workspace = true, features = ["v102", "v110"], optional = true }
 radix_trie.workspace = true
@@ -88,7 +88,7 @@ trust-dns-proto = { workspace = true, features = ["text-parsing"] }
 webpki = { workspace = true, optional = true }
 
 [dev-dependencies]
-futures = { workspace = true, default-features = false, features = ["std", "executor"] }
+futures-executor = { workspace = true, features = ["std"] }
 openssl = { workspace = true, features = ["v102", "v110"], optional = false }
 tokio = { workspace = true, features = ["rt", "macros"] }
 tracing-subscriber = { workspace = true, features = ["std", "fmt", "env-filter"] }
