@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-util"
-version = "0.22.0-alpha.1"
+version = "0.23.0-alpha.1"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2021"
 rust-version = "1.64.0"
@@ -85,7 +85,7 @@ tracing-subscriber = { workspace = true, features = ["std", "fmt", "env-filter"]
 trust-dns-client.workspace = true
 trust-dns-proto.workspace = true
 trust-dns-recursor.workspace = true
-trust-dns-resolver.workspace = true
+trust-dns-resolver = { workspace = true, features = ["system-config"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 webpki = { workspace = true, optional = true }
 webpki-roots = { workspace = true, optional = true }

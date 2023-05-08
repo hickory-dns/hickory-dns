@@ -181,7 +181,7 @@ dependencies = [
 
 [[package]]
 name = "async-std-resolver"
-version = "0.22.0-alpha.1"
+version = "0.23.0-alpha.1"
 dependencies = [
  "async-std",
  "async-trait",
@@ -566,17 +566,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "futures-macro"
-version = "0.3.27"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3eb14ed937631bd8b8b8977f2c198443447a8355b6e3ca599f38c975e5a963b6"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "futures-sink"
 version = "0.3.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -597,7 +586,6 @@ dependencies = [
  "futures-channel",
  "futures-core",
  "futures-io",
- "futures-macro",
  "futures-sink",
  "futures-task",
  "memchr",
@@ -1829,7 +1817,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns"
-version = "0.22.0-alpha.1"
+version = "0.23.0-alpha.1"
 dependencies = [
  "clap",
  "futures",
@@ -1849,7 +1837,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-client"
-version = "0.22.0-alpha.1"
+version = "0.23.0-alpha.1"
 dependencies = [
  "cfg-if",
  "data-encoding",
@@ -1873,7 +1861,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-compatibility"
-version = "0.22.0-alpha.1"
+version = "0.23.0-alpha.1"
 dependencies = [
  "data-encoding",
  "futures",
@@ -1885,7 +1873,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-integration"
-version = "0.22.0-alpha.1"
+version = "0.23.0-alpha.1"
 dependencies = [
  "async-trait",
  "futures",
@@ -1908,7 +1896,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-proto"
-version = "0.22.0-alpha.1"
+version = "0.23.0-alpha.1"
 dependencies = [
  "async-trait",
  "backtrace",
@@ -1961,7 +1949,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-recursor"
-version = "0.22.0-alpha.1"
+version = "0.23.0-alpha.1"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -1984,7 +1972,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-resolver"
-version = "0.22.0-alpha.1"
+version = "0.23.0-alpha.1"
 dependencies = [
  "cfg-if",
  "futures-executor",
@@ -2011,7 +1999,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-server"
-version = "0.22.0-alpha.1"
+version = "0.23.0-alpha.1"
 dependencies = [
  "async-trait",
  "bytes",
@@ -2040,7 +2028,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-util"
-version = "0.22.0-alpha.1"
+version = "0.23.0-alpha.1"
 dependencies = [
  "clap",
  "console",

@@ -1172,6 +1172,7 @@ mod tests {
     #[ignore]
     // these appear to not work on CI, test on macos with `10.1.0.104  a.com`
     #[cfg(unix)]
+    #[cfg(feature = "system-config")]
     fn test_hosts_lookup() {
         use super::testing::hosts_lookup_test;
         let io_loop = Runtime::new().expect("failed to create tokio runtime io_loop");

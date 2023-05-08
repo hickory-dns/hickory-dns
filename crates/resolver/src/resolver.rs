@@ -196,6 +196,7 @@ mod tests {
     #[test]
     #[ignore]
     #[cfg(any(unix, target_os = "windows"))]
+    #[cfg(feature = "system-config")]
     fn test_system_lookup() {
         let resolver = Resolver::from_system_conf().unwrap();
 

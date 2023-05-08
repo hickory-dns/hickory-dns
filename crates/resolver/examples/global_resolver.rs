@@ -1,21 +1,16 @@
 #![recursion_limit = "128"]
 
-#[macro_use]
-extern crate lazy_static;
-
-use std::fmt::Display;
-#[cfg(feature = "tokio-runtime")]
-use std::io;
-#[cfg(feature = "tokio-runtime")]
-use std::net::SocketAddr;
-use std::task::Poll;
-
-use futures_util::future;
-
-#[cfg(feature = "tokio-runtime")]
-use trust_dns_resolver::{name_server::TokioRuntimeProvider, TokioAsyncResolver};
-#[cfg(feature = "tokio-runtime")]
-use trust_dns_resolver::{IntoName, TryParseIp};
+#[cfg(all(feature = "tokio-runtime", feature = "system-config"))]
+use {
+    futures_util::future,
+    lazy_static::lazy_static,
+    std::fmt::Display,
+    std::io,
+    std::net::SocketAddr,
+    std::task::Poll,
+    trust_dns_resolver::{name_server::TokioRuntimeProvider, TokioAsyncResolver},
+    trust_dns_resolver::{IntoName, TryParseIp},
+};
 
 // This is an example of registering a static global resolver into any system.
 //
@@ -25,7 +20,7 @@ use trust_dns_resolver::{IntoName, TryParseIp};
 // Thank you to @zonyitoo for the original example.
 // TODO: this example can probably be made much simpler with the new
 //      `AsyncResolver`.
-#[cfg(feature = "tokio-runtime")]
+#[cfg(all(feature = "tokio-runtime", feature = "system-config"))]
 lazy_static! {
     // First we need to setup the global Resolver
     static ref GLOBAL_DNS_RESOLVER: TokioAsyncResolver = {
@@ -96,8 +91,11 @@ lazy_static! {
 ///
 /// This looks up the `host` (a `&str` or `String` is good), and combines that with the provided port
 ///   this mimics the lookup functions of `std::net`.
-#[cfg(feature = "tokio-runtime")]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
+#[cfg(all(feature = "tokio-runtime", feature = "system-config"))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(all(feature = "tokio-runtime", feature = "system-config")))
+)]
 pub async fn resolve<N: IntoName + Display + TryParseIp + 'static>(
     host: N,
     port: u16,
@@ -123,7 +121,7 @@ pub async fn resolve<N: IntoName + Display + TryParseIp + 'static>(
         })
 }
 
-#[cfg(feature = "tokio-runtime")]
+#[cfg(all(feature = "tokio-runtime", feature = "system-config"))]
 fn main() {
     use std::thread;
 
@@ -153,7 +151,7 @@ fn main() {
     }
 }
 
-#[cfg(not(feature = "tokio-runtime"))]
+#[cfg(not(all(feature = "tokio-runtime", feature = "system-config")))]
 fn main() {
-    println!("tokio-runtime feature must be enabled")
+    println!("tokio-runtime and system-config feature must be enabled")
 }
