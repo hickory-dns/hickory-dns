@@ -1009,6 +1009,7 @@ impl DnssecAuthority for SqliteAuthority {
 }
 
 #[cfg(test)]
+#[allow(clippy::extra_unused_type_parameters)]
 mod tests {
     use crate::store::sqlite::SqliteAuthority;
 
