@@ -76,8 +76,8 @@ rustls = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 thiserror.workspace = true
 tracing.workspace = true
-tokio = { workspace = true, features = ["rt"] }
-trust-dns-proto = { workspace = true, features = ["text-parsing"] }
+tokio = { workspace = true, features = ["rt", "net"] }
+trust-dns-proto = { workspace = true, features = ["text-parsing", "tokio-runtime"] }
 webpki = { workspace = true, optional = true }
 
 [dev-dependencies]
