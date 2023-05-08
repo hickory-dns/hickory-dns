@@ -210,6 +210,7 @@ impl PartialOrd for NameServerStats {
 }
 
 #[cfg(test)]
+#[allow(clippy::extra_unused_type_parameters)]
 mod tests {
     use super::*;
 
