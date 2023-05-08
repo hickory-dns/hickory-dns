@@ -1,9 +1,5 @@
 [package]
 name = "trust-dns-recursor"
-version = "0.23.0-alpha.1"
-authors = ["Benjamin Fry <benjaminfry@me.com>"]
-edition = "2021"
-rust-version = "1.64.0"
 
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
@@ -18,23 +14,20 @@ Trust-DNS Recursor is a safe and secure DNS recursive resolver with DNSSEC suppo
 
 # These URLs point to more information about the repository
 documentation = "https://docs.rs/trust-dns-recursor"
-homepage = "https://trust-dns.org/"
-repository = "https://github.com/bluejekyll/trust-dns"
 
 # This points to a file in the repository (relative to this Cargo.toml). The
 # contents of this file are stored and indexed in the registry.
 readme = "README.md"
 
-# This is a small list of keywords used to categorize and search for this
-# package.
-keywords = ["DNS", "BIND", "dig", "named", "dnssec"]
-categories = ["network-programming"]
-
-# This is a string description of the license for this package. Currently
-# crates.io will validate the license provided against a whitelist of known
-# license identifiers from http://spdx.org/licenses/. Multiple licenses can
-# be separated with a `/`
-license = "MIT/Apache-2.0"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+license.workspace = true
 
 [badges]
 codecov = { repository = "bluejekyll/trust-dns", branch = "main", service = "github" }
