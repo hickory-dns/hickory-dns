@@ -1,18 +1,17 @@
 #![recursion_limit = "128"]
 
-use std::future::Future;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::pin::Pin;
 #[cfg(feature = "tokio-runtime")]
-use tokio::net::{TcpStream, UdpSocket};
-use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
-use trust_dns_resolver::name_server::RuntimeProvider;
-#[cfg(feature = "tokio-runtime")]
-use trust_dns_resolver::proto::iocompat::AsyncIoTokioAsStd;
-#[cfg(feature = "tokio-runtime")]
-use trust_dns_resolver::proto::TokioTime;
-#[cfg(feature = "tokio-runtime")]
-use trust_dns_resolver::{AsyncResolver, TokioHandle};
+use {
+    std::future::Future,
+    std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    std::pin::Pin,
+    tokio::net::{TcpStream, UdpSocket},
+    trust_dns_resolver::config::{ResolverConfig, ResolverOpts},
+    trust_dns_resolver::name_server::RuntimeProvider,
+    trust_dns_resolver::proto::iocompat::AsyncIoTokioAsStd,
+    trust_dns_resolver::proto::TokioTime,
+    trust_dns_resolver::{AsyncResolver, TokioHandle},
+};
 
 #[cfg(feature = "tokio-runtime")]
 #[derive(Clone, Default)]

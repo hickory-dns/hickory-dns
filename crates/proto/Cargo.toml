@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-proto"
-version = "0.22.0-alpha.1"
+version = "0.23.0-alpha.1"
 edition = "2021"
 rust-version = "1.64.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
@@ -108,7 +108,7 @@ tokio-native-tls = { workspace = true, optional = true }
 tokio-openssl = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true, features = ["early-data"] }
 url.workspace = true
-wasm-bindgen-crate = { workspace = true, optional = true, package = "wasm-bindgen" }
+wasm-bindgen-crate = { workspace = true, optional = true }
 webpki = { workspace = true, optional = true }
 webpki-roots = { workspace = true, optional = true }
 

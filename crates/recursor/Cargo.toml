@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-recursor"
-version = "0.22.0-alpha.1"
+version = "0.23.0-alpha.1"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2021"
 rust-version = "1.64.0"
@@ -88,7 +88,7 @@ tracing.workspace = true
 tokio = { workspace = true, features = ["net"] }
 toml.workspace = true
 trust-dns-proto.workspace = true
-trust-dns-resolver.workspace = true
+trust-dns-resolver = { workspace = true, features = ["tokio-runtime"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt"] }
