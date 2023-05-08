@@ -15,10 +15,16 @@ members = [
 
 exclude = ["fuzz"]
 
-[patch.crates-io]
-# tokio = { path = "../tokio/tokio" }
-# mio = { git = "https://github.com/tokio-rs/mio.git" }
-# h2 = { git = "https://github.com/hyperium/h2.git" }
+[workspace.package]
+version = "0.23.0-alpha.1"
+authors = ["Benjamin Fry <benjaminfry@me.com>"]
+edition = "2021"
+rust-version = "1.64.0"
+homepage = "https://trust-dns.org/"
+repository = "https://github.com/bluejekyll/trust-dns"
+keywords = ["DNS", "BIND", "dig", "named", "dnssec"]
+categories = ["network-programming"]
+license = "MIT/Apache-2.0"
 
 
 [workspace.dependencies]
@@ -98,3 +104,8 @@ tinyvec = "1.1.1"
 toml = "0.7"
 url = "2.3.1"
 wasm-bindgen-crate = { version = "0.2.58", package = "wasm-bindgen" }
+
+[patch.crates-io]
+# tokio = { path = "../tokio/tokio" }
+# mio = { git = "https://github.com/tokio-rs/mio.git" }
+# h2 = { git = "https://github.com/hyperium/h2.git" }
