@@ -5,6 +5,83 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.23.0
+
+### Fixed
+
+- (all) Fix bench errors in rust-analyzer #1777 by jeff-hiner
+- (all) Regenerate the test SSL certificates #1781 by ssinger
+- (all) Fix some spelling errors #1783 by nhurley3
+- (proto) proto: only allow ASCII characters in CAA key/value data #1796 by djc
+- (proto) [rfc8659] CAA RR Change references to RFC 6844 to 8659 #1798 by darnuria
+- (all) Fixed some clippy warning #1801 by darnuria
+- (all) Fix links to client documentation #1808 by clint-white
+- (all) fix cleanliness for 1.65 #1821 by bluejekyll
+- (proto) Fix stuck of dns over tls with clear text SNI #1826 by mokeyish
+- (all) Fix enabling only dns-over-* feature #1833 by NobodyXu
+- (proto) OpenSSL 3.0 compliant #1841 by HLFH
+- (server) FIX WIP: Zone Parser panics when hostname entry has a leading whitespace. #1842 by wuerges
+- (server) Fix $TTL not taken into account with wildcard from zonefile. #1850 by darnuria
+- (all) Some cargo clippy fix #1851 by darnuria
+- (all) Fix #1835 RUSTSEC-2021-0145 Update clap to 4.0.29. #1853 by darnuria
+- (docs) fix DNSSEC typo #1858 by HLFH
+- (all) clippy updates for Rust 1.66 #1862 by bluejekyll
+- (tests) ignore truncation for fuzz comparison #1872 by bluejekyll
+- (tests) fix fuzz build failure #1875 by manunio
+- (proto) docs: fix truncated rustdoc TODO on LowerName. #1897 by cpu
+- (tests) Fix: invalid benchmark #1900 by XOR-op
+- (proto) Fix panics in ClientSubnet conversions #1909 by djc
+- (tests) Fix fuzz build #1911 by manunio
+- (proto) Fix PTR.to_string() stack overflow #1912 by mokeyish
+- (proto) Fix audit upgrade openssl #1914 by mokeyish
+- (proto) Fix panic of unexpected close of UDP socket #1915 by mokeyish
+- (proto) Lazily reap finished connections in TokioHandle on spawn_bg #1917 by jeff-hiner
+
+### Changed
+
+- (resolver) Order name servers by SRTT #1784 by nhurley3
+- (resolver) resolver: use errors' Display impl #1785 by hdhoang
+- (proto) NameIter use a u8 for start/end. #1787 by darnuria
+- (proto) name.rs use DomainNameTooLong in place of Message. #1788 by darnuria
+- (proto) Explicit test for label max len and use ProtoErrorKind. #1789 by darnuria
+- (cli) Port to clap4 #1791 by darnuria
+- (proto) Improve CAA rdata display #1794 by wuerges
+- (all) fix #1767 Update tracing-subscriber to 0.3.16 #1797 by darnuria
+- (proto) Simplify interface between BinEncoder and MaximalBuf #1802 by djc
+- (proto) proto: allow unrestricted length character length in SVCB param values #1806 by djc
+- (all) bump MSRV to 1.60 #1813 by bluejekyll
+- (all) Lazily reap finished tasks from inner_join_set #1818 by jeff-hiner
+- (proto) proto: upgrade to Quinn 0.9 #1822 by djc
+- (resolve) Preserve intermediates for TXT records #1828 by schultetwin1
+- (all) Feature gate tokio features on mdns crate #1831 by jxs
+- (test) python3-ply rather than python-ply #1846 by HLFH
+- (docs) Replace http: links with https: #1848 by msrd0
+- (docs) Make homepage link simpler for end users #1857 by HLFH
+- (resolver) Don't retry authoritative NOERROR with an empty set, from trusted resolvers #1861 by jeff-hiner
+- (server) authority: parse with default record class IN. #1874 by cpu
+- (resolver) API-breaking change: Deprecate ConnectionProvider with new RuntimeProvider #1876 by XOR-op
+- (proto) deps: upgrade Tokio 1.21.0 -> 1.24.1 #1877 by cpu
+- (proto) Move client code used by server code down into proto #1879 by djc
+- (proto) proto: clean up error logging #1881 by hawkw
+- (resolver) Make dns_hostname optional to disable verify #1907 by mokeyish
+- (all) Introduce central crate version management #1908 by mokeyish
+- (resolver) remove use of time in recursor and client #1918 by zh-jq
+
+### Removed
+
+- (server) remove named binary #1859 by HLFH
+- (docs) project: remove refs. to removed 'named' binary #1873 by cpu
+
+### Added
+
+- (resolve) Add --reverse, --file and --interval to util/resolve #1807 by cunha
+- (client) TSIG documenting client tsig code + update rfc link #1810 by darnuria
+- (client) Create dedicated Errors types for Tsig error case #1811 by darnuria
+- (all) Also declare MSRV in Cargo.toml #1820 by glts
+- (proto) Add wireformat buffer to DnsResponse #1855 by mattias-p #1885 by cpu
+- (client) client: rm zone parse optional class arg.
+- (proto) Implement EDNS Client Subnet ECS reading and writing #1906 by mokeyish
+
 ## 0.22.0
 
 ### Removed
