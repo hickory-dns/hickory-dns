@@ -1066,6 +1066,7 @@ pub mod testing {
 }
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
+#[allow(clippy::extra_unused_type_parameters)]
 mod tests {
     use proto::xfer::DnsRequest;
     use tokio::runtime::Runtime;
