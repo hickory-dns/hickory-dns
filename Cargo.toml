@@ -23,11 +23,11 @@ exclude = ["fuzz"]
 
 [workspace.dependencies]
 # trustdns
-trust-dns-client = { version = "0.22.0-alpha.1", path = "crates/client" }
-trust-dns-recursor = { version = "0.22.0-alpha.1", path = "crates/recursor" }
-trust-dns-resolver = { version = "0.22.0-alpha.1", path = "crates/resolver" }
-trust-dns-server = { version = "0.22.0-alpha.1", path = "crates/server" }
-trust-dns-proto = { version = "0.22.0-alpha.1", path = "crates/proto" }
+trust-dns-client = { version = "0.23.0-alpha.1", path = "crates/client", default-features = false }
+trust-dns-recursor = { version = "0.23.0-alpha.1", path = "crates/recursor", default-features = false }
+trust-dns-resolver = { version = "0.23.0-alpha.1", path = "crates/resolver", default-features = false }
+trust-dns-server = { version = "0.23.0-alpha.1", path = "crates/server", default-features = false }
+trust-dns-proto = { version = "0.23.0-alpha.1", path = "crates/proto", default-features = false }
 
 
 # logging
@@ -39,11 +39,11 @@ thiserror = "1.0.20"
 # async/await
 async-recursion = "1.0.0"
 async-trait = "0.1.43"
-futures = "0.3.5"
-futures-channel = "0.3.5"
-futures-executor = "0.3.5"
-futures-io = "0.3.5"
-futures-util = "0.3.5"
+futures = { version = "0.3.5", default-features = false }
+futures-channel = { version = "0.3.5", default-features = false }
+futures-executor = { version = "0.3.5", default-features = false }
+futures-io = { version = "0.3.5", default-features = false }
+futures-util = { version = "0.3.5", default-features = false }
 async-std = "1.6"
 tokio = "1.0"
 tokio-native-tls = "0.3.0"
@@ -73,7 +73,7 @@ http = "0.2"
 backtrace = "0.3.50"
 bytes = "1"
 cfg-if = "1"
-clap = "4.0"
+clap = { version = "4.0", default-features = false }
 console = "0.15.0"
 data-encoding = "2.2.0"
 enum-as-inner = "0.5"
