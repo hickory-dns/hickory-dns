@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-proto"
-version = "0.22.0"
+version = "0.22.0-alpha.1"
 edition = "2021"
 rust-version = "1.64.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]

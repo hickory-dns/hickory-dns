@@ -23,11 +23,11 @@ exclude = ["fuzz"]
 
 [workspace.dependencies]
 # trustdns
-trust-dns-client = { version = "0.22.0", path = "crates/client" }
-trust-dns-recursor = { version = "0.22.0", path = "crates/recursor" }
-trust-dns-resolver = { version = "0.22.0", path = "crates/resolver" }
-trust-dns-server = { version = "0.22.0", path = "crates/server" }
-trust-dns-proto = { version = "0.22.0", path = "crates/proto" }
+trust-dns-client = { version = "0.22.0-alpha.1", path = "crates/client" }
+trust-dns-recursor = { version = "0.22.0-alpha.1", path = "crates/recursor" }
+trust-dns-resolver = { version = "0.22.0-alpha.1", path = "crates/resolver" }
+trust-dns-server = { version = "0.22.0-alpha.1", path = "crates/server" }
+trust-dns-proto = { version = "0.22.0-alpha.1", path = "crates/proto" }
 
 
 # logging
