@@ -10,10 +10,12 @@ use crate::runtime::AsyncStdRuntimeProvider;
 use crate::AsyncStdResolver;
 use crate::ResolveError;
 
+#[allow(clippy::extra_unused_type_parameters)]
 fn is_send_t<T: Send>() -> bool {
     true
 }
 
+#[allow(clippy::extra_unused_type_parameters)]
 fn is_sync_t<T: Sync>() -> bool {
     true
 }
