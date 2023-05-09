@@ -36,7 +36,7 @@ dns-over-native-tls = ["dns-over-tls", "tokio-native-tls", "trust-dns-proto/dns-
 # DNS over TLS with OpenSSL currently needs a good way to set default CAs, use rustls or native-tls
 dns-over-openssl = ["dns-over-tls", "trust-dns-proto/dns-over-openssl", "tokio-openssl"]
 dns-over-rustls = ["dns-over-tls", "rustls", "tokio-rustls", "trust-dns-proto/dns-over-rustls", "webpki-roots"]
-dns-over-tls = []
+dns-over-tls = ["tokio-runtime"]
 
 # This requires some TLS library, currently only rustls is supported
 dns-over-https-rustls = ["trust-dns-proto/dns-over-https-rustls", "dns-over-rustls", "dns-over-https"]
