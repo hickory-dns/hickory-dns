@@ -17,7 +17,7 @@ exclude = ["fuzz"]
 
 [workspace.package]
 version = "0.23.0-alpha.1"
-authors = ["Benjamin Fry <benjaminfry@me.com>"]
+authors = ["The contributors to Trust-DNS"]
 edition = "2021"
 rust-version = "1.64.0"
 homepage = "https://trust-dns.org/"
