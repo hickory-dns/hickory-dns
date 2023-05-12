@@ -603,6 +603,26 @@ impl NameServerConfigGroup {
         )
     }
 
+    /// Configure a NameServer address and port for DNS-over-QUIC
+    ///
+    /// This will create a QUIC connections.
+    #[cfg(feature = "dns-over-quic")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-quic")))]
+    pub fn from_ips_quic(
+        ips: &[IpAddr],
+        port: u16,
+        tls_dns_name: String,
+        trust_negative_responses: bool,
+    ) -> Self {
+        Self::from_ips_encrypted(
+            ips,
+            port,
+            tls_dns_name,
+            Protocol::Quic,
+            trust_negative_responses,
+        )
+    }
+
     /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google).
     ///
     /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `AsyncResolver::from_system_conf`
