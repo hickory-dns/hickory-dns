@@ -70,7 +70,6 @@ ring = "0.16"
 
 # net proto
 quinn = "0.10"
-quinn-udp = "0.3.2"
 h2 = "0.3.0"
 http = "0.2"
 
