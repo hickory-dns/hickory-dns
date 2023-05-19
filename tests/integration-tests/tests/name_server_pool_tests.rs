@@ -17,14 +17,13 @@ use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{DnsHandle, DnsResponse, FirstAnswer};
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
-use trust_dns_resolver::name_server::{AbstractNameServer, AbstractNameServerPool};
+use trust_dns_resolver::name_server::{NameServer, NameServerPool};
 
 const DEFAULT_SERVER_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
 
-type MockedNameServer<O> =
-    AbstractNameServer<MockClientHandle<O, ResolveError>, MockConnProvider<O>>;
+type MockedNameServer<O> = NameServer<MockClientHandle<O, ResolveError>, MockConnProvider<O>>;
 type MockedNameServerPool<O> =
-    AbstractNameServerPool<MockClientHandle<O, ResolveError>, MockConnProvider<O>>;
+    NameServerPool<MockClientHandle<O, ResolveError>, MockConnProvider<O>>;
 
 #[cfg(test)]
 fn mock_nameserver(
@@ -80,7 +79,7 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
     };
     let client = MockClientHandle::mock_on_send(messages, on_send);
 
-    AbstractNameServer::from_conn(
+    NameServer::from_conn(
         NameServerConfig {
             socket_addr: SocketAddr::new(addr, 0),
             protocol: Protocol::Udp,
@@ -115,10 +114,10 @@ fn mock_nameserver_pool_on_send<O: OnSend + Unpin>(
     options: ResolverOpts,
 ) -> MockedNameServerPool<O> {
     #[cfg(not(feature = "mdns"))]
-    return AbstractNameServerPool::from_nameservers(&options, udp, tcp);
+    return NameServerPool::from_nameservers(&options, udp, tcp);
 
     #[cfg(feature = "mdns")]
-    return AbstractNameServerPool::from_nameservers(
+    return NameServerPool::from_nameservers(
         &options, udp,
         tcp,
         //_mdns.unwrap_or_else(move || mock_nameserver_on_send(vec![], options, on_send)),
