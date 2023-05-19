@@ -59,7 +59,6 @@ use proto::{iocompat::AsyncIoTokioAsStd, TokioTime};
 use trust_dns_proto::udp::QuicLocalAddr;
 
 use crate::error::ResolveError;
-use crate::name_server::name_server::CreateConnection;
 
 /// RuntimeProvider defines which async runtime that handles IO and timers.
 pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
@@ -95,6 +94,21 @@ pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
         local_addr: SocketAddr,
         server_addr: SocketAddr,
     ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Udp>>>>;
+}
+
+/// Create `DnsHandle` with the help of `RuntimeProvider`.
+/// This trait is designed for customization.
+pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
+    /// The handle to the connect for sending DNS requests.
+    type Conn: DnsHandle<Error = ResolveError> + Clone + Send + Sync + 'static;
+    /// Ths future is responsible for spawning any background tasks as necessary.
+    type FutureConn: Future<Output = Result<Self::Conn, ResolveError>> + Send + 'static;
+    /// Provider that handles the underlying I/O and timing.
+    type RuntimeProvider: RuntimeProvider;
+
+    /// Create a new connection.
+    fn new_connection(&self, config: &NameServerConfig, options: &ResolverOpts)
+        -> Self::FutureConn;
 }
 
 /// A type defines the Handle which can spawn future.
@@ -163,7 +177,7 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
 
 /// Resolves to a new Connection
 #[must_use = "futures do nothing unless polled"]
-pub(crate) struct ConnectionFuture<R: RuntimeProvider> {
+pub struct ConnectionFuture<R: RuntimeProvider> {
     pub(crate) connect: ConnectionConnect<R>,
     pub(crate) spawner: R::Handle,
 }
@@ -224,15 +238,40 @@ impl DnsHandle for GenericConnection {
     }
 }
 
-impl CreateConnection for GenericConnection {
-    fn new_connection<P: RuntimeProvider>(
-        runtime_provider: &P,
+/// Default connector for `GenericConnection`
+#[derive(Clone)]
+pub struct GenericConnector<P: RuntimeProvider> {
+    runtime_provider: P,
+}
+
+impl<P: RuntimeProvider> GenericConnector<P> {
+    /// Create a new instance.
+    pub fn new(runtime_provider: P) -> Self {
+        Self { runtime_provider }
+    }
+}
+
+impl<P: RuntimeProvider + Default> Default for GenericConnector<P> {
+    fn default() -> Self {
+        Self {
+            runtime_provider: P::default(),
+        }
+    }
+}
+
+impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
+    type Conn = GenericConnection;
+    type FutureConn = ConnectionFuture<P>;
+    type RuntimeProvider = P;
+
+    fn new_connection(
+        &self,
         config: &NameServerConfig,
         options: &ResolverOpts,
-    ) -> Box<dyn Future<Output = Result<Self, ResolveError>> + Send + Unpin + 'static> {
+    ) -> Self::FutureConn {
         let dns_connect = match config.protocol {
             Protocol::Udp => {
-                let provider_handle = runtime_provider.clone();
+                let provider_handle = self.runtime_provider.clone();
                 let closure = move |local_addr: SocketAddr, server_addr: SocketAddr| {
                     provider_handle.bind_udp(local_addr, server_addr)
                 };
@@ -248,7 +287,7 @@ impl CreateConnection for GenericConnection {
             Protocol::Tcp => {
                 let socket_addr = config.socket_addr;
                 let timeout = options.timeout;
-                let tcp_future = runtime_provider.connect_tcp(socket_addr);
+                let tcp_future = self.runtime_provider.connect_tcp(socket_addr);
 
                 let (stream, handle) =
                     TcpClientStream::with_future(tcp_future, socket_addr, timeout);
@@ -268,7 +307,7 @@ impl CreateConnection for GenericConnection {
                 let socket_addr = config.socket_addr;
                 let timeout = options.timeout;
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
-                let tcp_future = runtime_provider.connect_tcp(socket_addr);
+                let tcp_future = self.runtime_provider.connect_tcp(socket_addr);
 
                 #[cfg(feature = "dns-over-rustls")]
                 let client_config = config.tls_config.clone();
@@ -303,7 +342,7 @@ impl CreateConnection for GenericConnection {
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
                 #[cfg(feature = "dns-over-rustls")]
                 let client_config = config.tls_config.clone();
-                let tcp_future = runtime_provider.connect_tcp(socket_addr);
+                let tcp_future = self.runtime_provider.connect_tcp(socket_addr);
 
                 let exchange = crate::https::new_https_stream_with_future(
                     tcp_future,
@@ -325,7 +364,7 @@ impl CreateConnection for GenericConnection {
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
                 #[cfg(feature = "dns-over-rustls")]
                 let client_config = config.tls_config.clone();
-                let udp_future = runtime_provider.bind_udp(bind_addr, socket_addr);
+                let udp_future = self.runtime_provider.bind_udp(bind_addr, socket_addr);
 
                 let exchange = crate::quic::new_quic_stream_with_future(
                     udp_future,
@@ -355,10 +394,10 @@ impl CreateConnection for GenericConnection {
             }
         };
 
-        Box::new(ConnectionFuture::<P> {
+        ConnectionFuture::<P> {
             connect: dns_connect,
-            spawner: runtime_provider.create_handle(),
-        })
+            spawner: self.runtime_provider.create_handle(),
+        }
     }
 }
 
@@ -445,4 +484,7 @@ pub mod tokio_runtime {
     fn reap_tasks(join_set: &mut JoinSet<Result<(), ProtoError>>) {
         while FutureExt::now_or_never(join_set.join_next()).is_some() {}
     }
+
+    /// Default ConnectionProvider with `GenericConnection`.
+    pub type TokioConnectionProvider = GenericConnector<TokioRuntimeProvider>;
 }
