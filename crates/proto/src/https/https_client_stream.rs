@@ -608,6 +608,71 @@ mod tests {
     }
 
     #[test]
+    fn test_https_google_with_pure_ip_address_server() {
+        //env_logger::try_init().ok();
+
+        let google = SocketAddr::from(([8, 8, 8, 8], 443));
+        let mut request = Message::new();
+        let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+        request.add_query(query);
+
+        let request = DnsRequest::new(request, DnsRequestOptions::default());
+
+        let mut client_config = client_config_tls12_webpki_roots();
+        client_config.key_log = Arc::new(KeyLogFile::new());
+
+        let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
+        let connect = https_builder
+            .build::<AsyncIoTokioAsStd<TokioTcpStream>>(google, google.ip().to_string());
+
+        // tokio runtime stuff...
+        let runtime = Runtime::new().expect("could not start runtime");
+        let mut https = runtime.block_on(connect).expect("https connect failed");
+
+        let response = runtime
+            .block_on(https.send_message(request).first_answer())
+            .expect("send_message failed");
+
+        let record = &response.answers()[0];
+        let addr = record
+            .data()
+            .and_then(RData::as_a)
+            .expect("Expected A record");
+
+        assert_eq!(addr, &A::new(93, 184, 216, 34));
+
+        //
+        // assert that the connection works for a second query
+        let mut request = Message::new();
+        let query = Query::query(
+            Name::from_str("www.example.com.").unwrap(),
+            RecordType::AAAA,
+        );
+        request.add_query(query);
+        let request = DnsRequest::new(request, DnsRequestOptions::default());
+
+        for _ in 0..3 {
+            let response = runtime
+                .block_on(https.send_message(request.clone()).first_answer())
+                .expect("send_message failed");
+            if response.response_code() == ResponseCode::ServFail {
+                continue;
+            }
+
+            let record = &response.answers()[0];
+            let addr = record
+                .data()
+                .and_then(RData::as_aaaa)
+                .expect("invalid response, expected A record");
+
+            assert_eq!(
+                addr,
+                &AAAA::new(0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946)
+            );
+        }
+    }
+
+    #[test]
     #[ignore] // cloudflare has been unreliable as a public test service.
     fn test_https_cloudflare() {
         // self::env_logger::try_init().ok();
