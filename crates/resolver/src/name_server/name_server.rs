@@ -22,51 +22,47 @@ use tracing::debug;
 
 use crate::config::{NameServerConfig, ResolverOpts};
 use crate::error::ResolveError;
-use crate::name_server::{GenericConnection, NameServerState, NameServerStats, RuntimeProvider};
+use crate::name_server::connection_provider::{ConnectionProvider, GenericConnector};
+use crate::name_server::{NameServerState, NameServerStats, RuntimeProvider};
 #[cfg(feature = "mdns")]
 use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
 
 /// This struct is used to create `DnsHandle` with the help of `P`.
 #[derive(Clone)]
-pub struct NameServer<
-    C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
-    P: RuntimeProvider,
-> {
+pub struct NameServer<P: ConnectionProvider> {
     config: NameServerConfig,
     options: ResolverOpts,
-    client: Arc<Mutex<Option<C>>>,
+    client: Arc<Mutex<Option<P::Conn>>>,
     state: Arc<NameServerState>,
     stats: Arc<NameServerStats>,
-    runtime_provider: P,
+    connection_provider: P,
 }
 
 /// Specifies the details of a remote NameServer used for lookups
-pub type GenericNameServer<P> = NameServer<GenericConnection, P>;
+pub type GenericNameServer<R> = NameServer<GenericConnector<R>>;
 
-impl<C, P> Debug for NameServer<C, P>
+impl<P> Debug for NameServer<P>
 where
-    C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
-    P: RuntimeProvider + Send,
+    P: ConnectionProvider + Send,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "config: {:?}, options: {:?}", self.config, self.options)
     }
 }
 
-impl<C, P> NameServer<C, P>
+impl<P> NameServer<P>
 where
-    C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
-    P: RuntimeProvider + Send,
+    P: ConnectionProvider + Send,
 {
     /// Construct a new Nameserver with the configuration and options. The connection provider will create UDP and TCP sockets
-    pub fn new(config: NameServerConfig, options: ResolverOpts, runtime_provider: P) -> Self {
+    pub fn new(config: NameServerConfig, options: ResolverOpts, connection_provider: P) -> Self {
         Self {
             config,
             options,
             client: Arc::new(Mutex::new(None)),
             state: Arc::new(NameServerState::init(None)),
             stats: Arc::new(NameServerStats::default()),
-            runtime_provider,
+            connection_provider,
         }
     }
 
@@ -74,8 +70,8 @@ where
     pub fn from_conn(
         config: NameServerConfig,
         options: ResolverOpts,
-        client: C,
-        runtime_provider: P,
+        client: P::Conn,
+        connection_provider: P,
     ) -> Self {
         Self {
             config,
@@ -83,7 +79,7 @@ where
             client: Arc::new(Mutex::new(Some(client))),
             state: Arc::new(NameServerState::init(None)),
             stats: Arc::new(NameServerStats::default()),
-            runtime_provider,
+            connection_provider,
         }
     }
 
@@ -102,7 +98,7 @@ where
     /// This will return a mutable client to allows for sending messages.
     ///
     /// If the connection is in a failed state, then this will establish a new connection
-    async fn connected_mut_client(&mut self) -> Result<C, ResolveError> {
+    async fn connected_mut_client(&mut self) -> Result<P::Conn, ResolveError> {
         let mut client = self.client.lock().await;
 
         // if this is in a failure state
@@ -112,11 +108,10 @@ where
             // TODO: we need the local EDNS options
             self.state.reinit(None);
 
-            let new_client = Box::pin(C::new_connection(
-                &self.runtime_provider,
-                &self.config,
-                &self.options,
-            ))
+            let new_client = Box::pin(
+                self.connection_provider
+                    .new_connection(&self.config, &self.options),
+            )
             .await?;
 
             // establish a new connection
@@ -177,10 +172,9 @@ where
     }
 }
 
-impl<C, P> DnsHandle for NameServer<C, P>
+impl<P> DnsHandle for NameServer<P>
 where
-    C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
-    P: RuntimeProvider,
+    P: ConnectionProvider + Clone,
 {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>>;
     type Error = ResolveError;
@@ -197,10 +191,9 @@ where
     }
 }
 
-impl<C, P> Ord for NameServer<C, P>
+impl<P> Ord for NameServer<P>
 where
-    C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
-    P: RuntimeProvider + Send,
+    P: ConnectionProvider + Send,
 {
     /// Custom implementation of Ord for NameServer which incorporates the performance of the connection into it's ranking
     fn cmp(&self, other: &Self) -> Ordering {
@@ -213,20 +206,18 @@ where
     }
 }
 
-impl<C, P> PartialOrd for NameServer<C, P>
+impl<P> PartialOrd for NameServer<P>
 where
-    C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
-    P: RuntimeProvider + Send,
+    P: ConnectionProvider + Send,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<C, P> PartialEq for NameServer<C, P>
+impl<P> PartialEq for NameServer<P>
 where
-    C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
-    P: RuntimeProvider + Send,
+    P: ConnectionProvider + Send,
 {
     /// NameServers are equal if the config (connection information) are equal
     fn eq(&self, other: &Self) -> bool {
@@ -234,12 +225,7 @@ where
     }
 }
 
-impl<C, P> Eq for NameServer<C, P>
-where
-    C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
-    P: RuntimeProvider + Send,
-{
-}
+impl<P> Eq for NameServer<P> where P: ConnectionProvider + Send {}
 
 // TODO: once IPv6 is better understood, also make this a binary keep.
 #[cfg(feature = "mdns")]
@@ -249,7 +235,7 @@ pub(crate) fn mdns_nameserver<P>(
     trust_negative_responses: bool,
 ) -> GenericNameServer<P>
 where
-    P: RuntimeProvider,
+    P: ConnectionProvider,
 {
     let config = NameServerConfig {
         socket_addr: *MDNS_IPV4,
@@ -290,7 +276,7 @@ mod tests {
 
     use super::*;
     use crate::config::Protocol;
-    use crate::name_server::TokioRuntimeProvider;
+    use crate::name_server::TokioConnectionProvider;
 
     #[test]
     fn test_name_server() {
@@ -307,7 +293,11 @@ mod tests {
         };
         let io_loop = Runtime::new().unwrap();
         let name_server = future::lazy(|_| {
-            GenericNameServer::new(config, ResolverOpts::default(), TokioRuntimeProvider::new())
+            GenericNameServer::new(
+                config,
+                ResolverOpts::default(),
+                TokioConnectionProvider::default(),
+            )
         });
 
         let name = Name::parse("www.example.com.", None).unwrap();
@@ -340,8 +330,9 @@ mod tests {
             bind_addr: None,
         };
         let io_loop = Runtime::new().unwrap();
-        let name_server =
-            future::lazy(|_| GenericNameServer::new(config, options, TokioRuntimeProvider::new()));
+        let name_server = future::lazy(|_| {
+            GenericNameServer::new(config, options, TokioConnectionProvider::default())
+        });
 
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(io_loop
