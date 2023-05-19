@@ -26,7 +26,7 @@ use crate::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts, ServerO
 use crate::error::{ResolveError, ResolveErrorKind};
 #[cfg(feature = "mdns")]
 use crate::name_server;
-use crate::name_server::name_server::{AbstractNameServer, CreateConnection};
+use crate::name_server::name_server::{CreateConnection, NameServer};
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
 use crate::name_server::TokioRuntimeProvider;
@@ -34,13 +34,13 @@ use crate::name_server::{GenericConnection, RuntimeProvider};
 
 /// Abstract interface for mocking purpose
 #[derive(Clone)]
-pub struct AbstractNameServerPool<
+pub struct NameServerPool<
     C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
     P: RuntimeProvider + Send + 'static,
 > {
     // TODO: switch to FuturesMutex (Mutex will have some undesirable locking)
-    datagram_conns: Arc<[AbstractNameServer<C, P>]>, /* All NameServers must be the same type */
-    stream_conns: Arc<[AbstractNameServer<C, P>]>,   /* All NameServers must be the same type */
+    datagram_conns: Arc<[NameServer<C, P>]>, /* All NameServers must be the same type */
+    stream_conns: Arc<[NameServer<C, P>]>,   /* All NameServers must be the same type */
     #[cfg(feature = "mdns")]
     mdns_conns: NameServer<P>, /* All NameServers must be the same type */
     options: ResolverOpts,
@@ -49,11 +49,11 @@ pub struct AbstractNameServerPool<
 /// A pool of NameServers
 ///
 /// This is not expected to be used directly, see [crate::AsyncResolver].
-pub type NameServerPool<P> = AbstractNameServerPool<GenericConnection, P>;
+pub type GenericNameServerPool<P> = NameServerPool<GenericConnection, P>;
 
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
-impl NameServerPool<TokioRuntimeProvider> {
+impl GenericNameServerPool<TokioRuntimeProvider> {
     pub(crate) fn tokio_from_config(
         config: &ResolverConfig,
         options: &ResolverOpts,
@@ -63,7 +63,7 @@ impl NameServerPool<TokioRuntimeProvider> {
     }
 }
 
-impl<C, P> AbstractNameServerPool<C, P>
+impl<C, P> NameServerPool<C, P>
 where
     C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
     P: RuntimeProvider + 'static,
@@ -73,7 +73,7 @@ where
         options: &ResolverOpts,
         conn_provider: P,
     ) -> Self {
-        let datagram_conns: Vec<AbstractNameServer<C, P>> = config
+        let datagram_conns: Vec<NameServer<C, P>> = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_datagram())
@@ -87,11 +87,11 @@ where
                 #[cfg(not(feature = "dns-over-rustls"))]
                 let ns_config = { ns_config.clone() };
 
-                AbstractNameServer::new(ns_config, *options, conn_provider.clone())
+                NameServer::new(ns_config, *options, conn_provider.clone())
             })
             .collect();
 
-        let stream_conns: Vec<AbstractNameServer<C, P>> = config
+        let stream_conns: Vec<NameServer<C, P>> = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_stream())
@@ -105,7 +105,7 @@ where
                 #[cfg(not(feature = "dns-over-rustls"))]
                 let ns_config = { ns_config.clone() };
 
-                AbstractNameServer::new(ns_config, *options, conn_provider.clone())
+                NameServer::new(ns_config, *options, conn_provider.clone())
             })
             .collect();
 
@@ -125,7 +125,7 @@ where
         conn_provider: P,
     ) -> Self {
         let map_config_to_ns =
-            |ns_config| AbstractNameServer::new(ns_config, *options, conn_provider.clone());
+            |ns_config| NameServer::new(ns_config, *options, conn_provider.clone());
 
         let (datagram, stream): (Vec<_>, Vec<_>) = name_servers
             .into_inner()
@@ -148,8 +148,8 @@ where
     #[cfg(not(feature = "mdns"))]
     pub fn from_nameservers(
         options: &ResolverOpts,
-        datagram_conns: Vec<AbstractNameServer<C, P>>,
-        stream_conns: Vec<AbstractNameServer<C, P>>,
+        datagram_conns: Vec<NameServer<C, P>>,
+        stream_conns: Vec<NameServer<C, P>>,
     ) -> Self {
         Self {
             datagram_conns: Arc::from(datagram_conns),
@@ -166,7 +166,7 @@ where
         stream_conns: Vec<NameServer<C, P>>,
         mdns_conns: NameServer<C, P>,
     ) -> Self {
-        NameServerPool {
+        GenericNameServerPool {
             datagram_conns: Arc::from(datagram_conns),
             stream_conns: Arc::from(stream_conns),
             mdns_conns,
@@ -179,8 +179,8 @@ where
     #[allow(dead_code)]
     fn from_nameservers_test(
         options: &ResolverOpts,
-        datagram_conns: Arc<[AbstractNameServer<C, P>]>,
-        stream_conns: Arc<[AbstractNameServer<C, P>]>,
+        datagram_conns: Arc<[NameServer<C, P>]>,
+        stream_conns: Arc<[NameServer<C, P>]>,
     ) -> Self {
         Self {
             datagram_conns,
@@ -197,7 +197,7 @@ where
         stream_conns: Arc<[NameServer<C, P>]>,
         mdns_conns: NameServer<C, P>,
     ) -> Self {
-        NameServerPool {
+        GenericNameServerPool {
             datagram_conns,
             stream_conns,
             mdns_conns,
@@ -208,10 +208,10 @@ where
 
     async fn try_send(
         opts: ResolverOpts,
-        conns: Arc<[AbstractNameServer<C, P>]>,
+        conns: Arc<[NameServer<C, P>]>,
         request: DnsRequest,
     ) -> Result<DnsResponse, ResolveError> {
-        let mut conns: Vec<AbstractNameServer<C, P>> = conns.to_vec();
+        let mut conns: Vec<NameServer<C, P>> = conns.to_vec();
 
         match opts.server_ordering_strategy {
             // select the highest priority connection
@@ -226,7 +226,7 @@ where
     }
 }
 
-impl<C, P> DnsHandle for AbstractNameServerPool<C, P>
+impl<C, P> DnsHandle for NameServerPool<C, P>
 where
     C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
     P: RuntimeProvider + 'static,
@@ -306,7 +306,7 @@ where
 // TODO: we should be able to have a self-referential future here with Pin and not require cloned conns
 /// An async function that will loop over all the conns with a max parallel request count of ops.num_concurrent_req
 async fn parallel_conn_loop<C, P>(
-    mut conns: Vec<AbstractNameServer<C, P>>,
+    mut conns: Vec<NameServer<C, P>>,
     request: DnsRequest,
     opts: ResolverOpts,
 ) -> Result<DnsResponse, ResolveError>
@@ -326,13 +326,13 @@ where
     // close to the connection, which means the top level resolution might take substantially longer
     // to fire than the timeout configured in `ResolverOpts`.
     let mut backoff = Duration::from_millis(20);
-    let mut busy = SmallVec::<[AbstractNameServer<C, P>; 2]>::new();
+    let mut busy = SmallVec::<[NameServer<C, P>; 2]>::new();
 
     loop {
         let request_cont = request.clone();
 
         // construct the parallel requests, 2 is the default
-        let mut par_conns = SmallVec::<[AbstractNameServer<C, P>; 2]>::new();
+        let mut par_conns = SmallVec::<[NameServer<C, P>; 2]>::new();
         let count = conns.len().min(opts.num_concurrent_reqs.max(1));
 
         // Shuffe DNS NameServers to avoid overloads to the first configured ones
@@ -486,7 +486,7 @@ mod tests {
     use super::*;
     use crate::config::NameServerConfig;
     use crate::config::Protocol;
-    use crate::name_server::NameServer;
+    use crate::name_server::GenericNameServer;
     use crate::name_server::TokioRuntimeProvider;
 
     #[ignore]
@@ -519,7 +519,7 @@ mod tests {
         resolver_config.add_name_server(config2);
 
         let io_loop = Runtime::new().unwrap();
-        let mut pool = NameServerPool::tokio_from_config(
+        let mut pool = GenericNameServerPool::tokio_from_config(
             &resolver_config,
             &ResolverOpts::default(),
             TokioRuntimeProvider::new(),
@@ -581,10 +581,10 @@ mod tests {
             ..ResolverOpts::default()
         };
         let ns_config = { tcp };
-        let name_server = NameServer::new(ns_config, opts, conn_provider);
+        let name_server = GenericNameServer::new(ns_config, opts, conn_provider);
         let name_servers: Arc<[_]> = Arc::from([name_server]);
 
-        let mut pool = NameServerPool::from_nameservers_test(
+        let mut pool = GenericNameServerPool::from_nameservers_test(
             &opts,
             Arc::from([]),
             Arc::clone(&name_servers),

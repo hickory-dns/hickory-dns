@@ -26,9 +26,9 @@ use crate::name_server::{GenericConnection, NameServerState, NameServerStats, Ru
 #[cfg(feature = "mdns")]
 use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
 
-/// This struct is needed only for testing. Specifically, `C` is needed for mocking.
+/// This struct is used to create `DnsHandle` with the help of `P`.
 #[derive(Clone)]
-pub struct AbstractNameServer<
+pub struct NameServer<
     C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
     P: RuntimeProvider,
 > {
@@ -41,9 +41,9 @@ pub struct AbstractNameServer<
 }
 
 /// Specifies the details of a remote NameServer used for lookups
-pub type NameServer<P> = AbstractNameServer<GenericConnection, P>;
+pub type GenericNameServer<P> = NameServer<GenericConnection, P>;
 
-impl<C, P> Debug for AbstractNameServer<C, P>
+impl<C, P> Debug for NameServer<C, P>
 where
     C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
     P: RuntimeProvider + Send,
@@ -53,7 +53,7 @@ where
     }
 }
 
-impl<C, P> AbstractNameServer<C, P>
+impl<C, P> NameServer<C, P>
 where
     C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
     P: RuntimeProvider + Send,
@@ -177,7 +177,7 @@ where
     }
 }
 
-impl<C, P> DnsHandle for AbstractNameServer<C, P>
+impl<C, P> DnsHandle for NameServer<C, P>
 where
     C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
     P: RuntimeProvider,
@@ -197,7 +197,7 @@ where
     }
 }
 
-impl<C, P> Ord for AbstractNameServer<C, P>
+impl<C, P> Ord for NameServer<C, P>
 where
     C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
     P: RuntimeProvider + Send,
@@ -213,7 +213,7 @@ where
     }
 }
 
-impl<C, P> PartialOrd for AbstractNameServer<C, P>
+impl<C, P> PartialOrd for NameServer<C, P>
 where
     C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
     P: RuntimeProvider + Send,
@@ -223,7 +223,7 @@ where
     }
 }
 
-impl<C, P> PartialEq for AbstractNameServer<C, P>
+impl<C, P> PartialEq for NameServer<C, P>
 where
     C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
     P: RuntimeProvider + Send,
@@ -234,7 +234,7 @@ where
     }
 }
 
-impl<C, P> Eq for AbstractNameServer<C, P>
+impl<C, P> Eq for NameServer<C, P>
 where
     C: DnsHandle<Error = ResolveError> + Send + Sync + 'static + CreateConnection,
     P: RuntimeProvider + Send,
@@ -247,7 +247,7 @@ pub(crate) fn mdns_nameserver<P>(
     options: ResolverOpts,
     conn_provider: P,
     trust_negative_responses: bool,
-) -> NameServer<P>
+) -> GenericNameServer<P>
 where
     P: RuntimeProvider,
 {
@@ -260,7 +260,7 @@ where
         tls_config: None,
         bind_addr: None,
     };
-    NameServer::new_with_provider(config, options, conn_provider)
+    GenericNameServer::new_with_provider(config, options, conn_provider)
 }
 
 /// Used for creating new connections.
@@ -307,7 +307,7 @@ mod tests {
         };
         let io_loop = Runtime::new().unwrap();
         let name_server = future::lazy(|_| {
-            NameServer::new(config, ResolverOpts::default(), TokioRuntimeProvider::new())
+            GenericNameServer::new(config, ResolverOpts::default(), TokioRuntimeProvider::new())
         });
 
         let name = Name::parse("www.example.com.", None).unwrap();
@@ -341,7 +341,7 @@ mod tests {
         };
         let io_loop = Runtime::new().unwrap();
         let name_server =
-            future::lazy(|_| NameServer::new(config, options, TokioRuntimeProvider::new()));
+            future::lazy(|_| GenericNameServer::new(config, options, TokioRuntimeProvider::new()));
 
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(io_loop

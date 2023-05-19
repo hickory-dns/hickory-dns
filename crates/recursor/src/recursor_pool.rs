@@ -23,7 +23,7 @@ use trust_dns_proto::{
 use trust_dns_resolver::name_server::{RuntimeProvider, TokioRuntimeProvider};
 use trust_dns_resolver::{
     error::{ResolveError, ResolveErrorKind},
-    name_server::NameServerPool,
+    name_server::GenericNameServerPool,
     Name,
 };
 
@@ -52,12 +52,12 @@ impl Future for SharedLookup {
 #[derive(Clone)]
 pub(crate) struct RecursorPool<P: RuntimeProvider + Send + 'static> {
     zone: Name,
-    ns: NameServerPool<P>,
+    ns: GenericNameServerPool<P>,
     active_requests: Arc<Mutex<ActiveRequests>>,
 }
 
 impl RecursorPool<TokioRuntimeProvider> {
-    pub(crate) fn from(zone: Name, ns: NameServerPool<TokioRuntimeProvider>) -> Self {
+    pub(crate) fn from(zone: Name, ns: GenericNameServerPool<TokioRuntimeProvider>) -> Self {
         let active_requests = Arc::new(Mutex::new(ActiveRequests::default()));
 
         Self {
