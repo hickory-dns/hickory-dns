@@ -1,5 +1,6 @@
 #![recursion_limit = "128"]
 
+use trust_dns_resolver::name_server::{ConnectionProvider, GenericConnector};
 #[cfg(feature = "tokio-runtime")]
 use {
     std::future::Future,
@@ -57,7 +58,7 @@ impl RuntimeProvider for PrintProvider {
 }
 
 #[cfg(feature = "tokio-runtime")]
-async fn lookup_test<R: RuntimeProvider>(resolver: AsyncResolver<R>) {
+async fn lookup_test<R: ConnectionProvider>(resolver: AsyncResolver<R>) {
     let response = resolver.lookup_ip("www.example.com.").await.unwrap();
 
     // There can be many addresses associated with the name,
@@ -81,7 +82,7 @@ async fn main() {
     let resolver = AsyncResolver::new(
         ResolverConfig::google(),
         ResolverOpts::default(),
-        PrintProvider::default(),
+        GenericConnector::new(PrintProvider::default()),
     );
     lookup_test(resolver).await;
 
@@ -90,7 +91,7 @@ async fn main() {
         let resolver2 = AsyncResolver::new(
             ResolverConfig::cloudflare_https(),
             ResolverOpts::default(),
-            PrintProvider::default(),
+            GenericConnector::new(PrintProvider::default()),
         );
         lookup_test(resolver2).await;
     }
