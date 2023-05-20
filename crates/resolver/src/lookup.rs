@@ -28,6 +28,7 @@ use crate::{
     dns_lru::MAX_TTL,
     error::*,
     lookup_ip::LookupIpIter,
+    name_server::{ConnectionProvider, NameServerPool},
     proto::{
         error::ProtoError,
         op::Query,
@@ -40,7 +41,6 @@ use crate::{
     },
 };
 
-use crate::name_server::{ConnectionProvider, NameServerPool};
 #[cfg(feature = "dnssec")]
 use proto::DnssecDnsHandle;
 

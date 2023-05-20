@@ -1,6 +1,5 @@
 #![recursion_limit = "128"]
 
-use trust_dns_resolver::name_server::TokioConnectionProvider;
 #[cfg(all(feature = "tokio-runtime", feature = "system-config"))]
 use {
     futures_util::future,
@@ -9,6 +8,7 @@ use {
     std::io,
     std::net::SocketAddr,
     std::task::Poll,
+    trust_dns_resolver::name_server::TokioConnectionProvider,
     trust_dns_resolver::TokioAsyncResolver,
     trust_dns_resolver::{IntoName, TryParseIp},
 };

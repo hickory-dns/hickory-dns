@@ -1,7 +1,5 @@
 #![recursion_limit = "128"]
 
-use trust_dns_resolver::name_server::TokioConnectionProvider;
-
 #[cfg(all(feature = "tokio-runtime", feature = "system-config"))]
 fn main() {
     tokio::runtime::Builder::new_multi_thread()
@@ -15,7 +13,7 @@ fn main() {
 
 #[cfg(all(feature = "tokio-runtime", feature = "system-config"))]
 async fn tokio_main() {
-    use trust_dns_resolver::TokioAsyncResolver;
+    use trust_dns_resolver::{name_server::TokioConnectionProvider, TokioAsyncResolver};
 
     let resolver = {
         // To make this independent, if targeting macOS, BSD, Linux, or Windows, we can use the system's configuration:

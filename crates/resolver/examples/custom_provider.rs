@@ -1,6 +1,5 @@
 #![recursion_limit = "128"]
 
-use trust_dns_resolver::name_server::{ConnectionProvider, GenericConnector};
 #[cfg(feature = "tokio-runtime")]
 use {
     std::future::Future,
@@ -8,7 +7,7 @@ use {
     std::pin::Pin,
     tokio::net::{TcpStream, UdpSocket},
     trust_dns_resolver::config::{ResolverConfig, ResolverOpts},
-    trust_dns_resolver::name_server::RuntimeProvider,
+    trust_dns_resolver::name_server::{ConnectionProvider, GenericConnector, RuntimeProvider},
     trust_dns_resolver::proto::iocompat::AsyncIoTokioAsStd,
     trust_dns_resolver::proto::TokioTime,
     trust_dns_resolver::{AsyncResolver, TokioHandle},
