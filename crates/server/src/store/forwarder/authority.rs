@@ -8,7 +8,7 @@
 use std::io;
 
 use tracing::{debug, info};
-use trust_dns_resolver::name_server::TokioRuntimeProvider;
+use trust_dns_resolver::name_server::TokioConnectionProvider;
 
 use crate::{
     authority::{
@@ -35,7 +35,7 @@ impl ForwardAuthority {
     /// TODO: change this name to create or something
     #[allow(clippy::new_without_default)]
     #[doc(hidden)]
-    pub fn new(runtime: TokioRuntimeProvider) -> Result<Self, String> {
+    pub fn new(runtime: TokioConnectionProvider) -> Result<Self, String> {
         let resolver = TokioAsyncResolver::from_system_conf(runtime)
             .map_err(|e| format!("error constructing new Resolver: {e}"))?;
 
@@ -77,7 +77,7 @@ impl ForwardAuthority {
 
         let config = ResolverConfig::from_parts(None, vec![], name_servers);
 
-        let resolver = TokioAsyncResolver::new(config, options, TokioRuntimeProvider::new());
+        let resolver = TokioAsyncResolver::new(config, options, TokioConnectionProvider::default());
 
         info!("forward resolver configured: {}: ", origin);
 

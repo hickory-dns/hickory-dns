@@ -8,7 +8,7 @@ use crate::lookup::LookupFuture;
 use crate::lookup_ip::LookupIpFuture;
 use crate::proto::xfer::DnsRequest;
 use crate::proto::Executor;
-use crate::runtime::AsyncStdRuntimeProvider;
+use crate::runtime::AsyncStdConnectionProvider;
 use crate::AsyncStdResolver;
 use crate::ResolveError;
 
@@ -38,11 +38,11 @@ fn test_send_sync() {
 #[test]
 fn test_lookup_google() {
     use testing::lookup_test;
-    let io_loop = AsyncStdRuntimeProvider::new();
+    let io_loop = AsyncStdConnectionProvider::new();
 
-    lookup_test::<AsyncStdRuntimeProvider, AsyncStdRuntimeProvider>(
+    lookup_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(
         ResolverConfig::google(),
-        io_loop,
+        io_loop.clone(),
         io_loop,
     )
 }
@@ -50,10 +50,10 @@ fn test_lookup_google() {
 #[test]
 fn test_lookup_cloudflare() {
     use testing::lookup_test;
-    let io_loop = AsyncStdRuntimeProvider::new();
-    lookup_test::<AsyncStdRuntimeProvider, AsyncStdRuntimeProvider>(
+    let io_loop = AsyncStdConnectionProvider::new();
+    lookup_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(
         ResolverConfig::cloudflare(),
-        io_loop,
+        io_loop.clone(),
         io_loop,
     )
 }
@@ -61,10 +61,10 @@ fn test_lookup_cloudflare() {
 #[test]
 fn test_lookup_quad9() {
     use testing::lookup_test;
-    let io_loop = AsyncStdRuntimeProvider::new();
-    lookup_test::<AsyncStdRuntimeProvider, AsyncStdRuntimeProvider>(
+    let io_loop = AsyncStdConnectionProvider::new();
+    lookup_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(
         ResolverConfig::quad9(),
-        io_loop,
+        io_loop.clone(),
         io_loop,
     )
 }
@@ -72,31 +72,40 @@ fn test_lookup_quad9() {
 #[test]
 fn test_ip_lookup() {
     use testing::ip_lookup_test;
-    let io_loop = AsyncStdRuntimeProvider::new();
-    ip_lookup_test::<AsyncStdRuntimeProvider, AsyncStdRuntimeProvider>(io_loop, io_loop)
+    let io_loop = AsyncStdConnectionProvider::new();
+    ip_lookup_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(
+        io_loop.clone(),
+        io_loop,
+    )
 }
 
 #[test]
 fn test_ip_lookup_across_threads() {
     use testing::ip_lookup_across_threads_test;
-    let io_loop = AsyncStdRuntimeProvider::new();
-    ip_lookup_across_threads_test::<AsyncStdRuntimeProvider, AsyncStdRuntimeProvider>(io_loop)
+    let io_loop = AsyncStdConnectionProvider::new();
+    ip_lookup_across_threads_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(io_loop)
 }
 
 #[test]
 #[cfg(feature = "dnssec")]
 fn test_sec_lookup() {
     use testing::sec_lookup_test;
-    let io_loop = AsyncStdRuntimeProvider::new();
-    sec_lookup_test::<AsyncStdRuntimeProvider, AsyncStdRuntimeProvider>(io_loop, io_loop);
+    let io_loop = AsyncStdConnectionProvider::new();
+    sec_lookup_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(
+        io_loop.clone(),
+        io_loop,
+    );
 }
 
 #[test]
 #[cfg(feature = "dnssec")]
 fn test_sec_lookup_fails() {
     use testing::sec_lookup_fails_test;
-    let io_loop = AsyncStdRuntimeProvider::new();
-    sec_lookup_fails_test::<AsyncStdRuntimeProvider, AsyncStdRuntimeProvider>(io_loop, io_loop);
+    let io_loop = AsyncStdConnectionProvider::new();
+    sec_lookup_fails_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(
+        io_loop.clone(),
+        io_loop,
+    );
 }
 
 #[test]
@@ -105,8 +114,11 @@ fn test_sec_lookup_fails() {
 #[cfg(feature = "system-config")]
 fn test_system_lookup() {
     use testing::system_lookup_test;
-    let io_loop = AsyncStdRuntimeProvider::new();
-    system_lookup_test::<AsyncStdRuntimeProvider, AsyncStdRuntimeProvider>(io_loop, io_loop);
+    let io_loop = AsyncStdConnectionProvider::new();
+    system_lookup_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(
+        io_loop.clone(),
+        io_loop,
+    );
 }
 
 #[test]
@@ -116,94 +128,115 @@ fn test_system_lookup() {
 #[cfg(unix)]
 fn test_hosts_lookup() {
     use testing::hosts_lookup_test;
-    let io_loop = AsyncStdRuntimeProvider::new();
-    hosts_lookup_test::<AsyncStdRuntimeProvider, AsyncStdRuntimeProvider>(io_loop, io_loop);
+    let io_loop = AsyncStdConnectionProvider::new();
+    hosts_lookup_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(
+        io_loop.clone(),
+        io_loop,
+    );
 }
 
 #[test]
 fn test_fqdn() {
     use testing::fqdn_test;
-    let io_loop = AsyncStdRuntimeProvider::new();
-    fqdn_test::<AsyncStdRuntimeProvider, AsyncStdRuntimeProvider>(io_loop, io_loop);
+    let io_loop = AsyncStdConnectionProvider::new();
+    fqdn_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(io_loop.clone(), io_loop);
 }
 
 #[test]
 fn test_ndots() {
     use testing::ndots_test;
-    let io_loop = AsyncStdRuntimeProvider::new();
-    ndots_test::<AsyncStdRuntimeProvider, AsyncStdRuntimeProvider>(io_loop, io_loop);
+    let io_loop = AsyncStdConnectionProvider::new();
+    ndots_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(io_loop.clone(), io_loop);
 }
 
 #[test]
 fn test_large_ndots() {
     use testing::large_ndots_test;
-    let io_loop = AsyncStdRuntimeProvider::new();
-    large_ndots_test::<AsyncStdRuntimeProvider, AsyncStdRuntimeProvider>(io_loop, io_loop);
+    let io_loop = AsyncStdConnectionProvider::new();
+    large_ndots_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(
+        io_loop.clone(),
+        io_loop,
+    );
 }
 
 #[test]
 fn test_domain_search() {
     use testing::domain_search_test;
-    let io_loop = AsyncStdRuntimeProvider::new();
-    domain_search_test::<AsyncStdRuntimeProvider, AsyncStdRuntimeProvider>(io_loop, io_loop);
+    let io_loop = AsyncStdConnectionProvider::new();
+    domain_search_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(
+        io_loop.clone(),
+        io_loop,
+    );
 }
 
 #[test]
 fn test_search_list() {
     use testing::search_list_test;
-    let io_loop = AsyncStdRuntimeProvider::new();
-    search_list_test::<AsyncStdRuntimeProvider, AsyncStdRuntimeProvider>(io_loop, io_loop);
+    let io_loop = AsyncStdConnectionProvider::new();
+    search_list_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(
+        io_loop.clone(),
+        io_loop,
+    );
 }
 
 #[test]
 fn test_idna() {
     use testing::idna_test;
-    let io_loop = AsyncStdRuntimeProvider::new();
-    idna_test::<AsyncStdRuntimeProvider, AsyncStdRuntimeProvider>(io_loop, io_loop);
+    let io_loop = AsyncStdConnectionProvider::new();
+    idna_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(io_loop.clone(), io_loop);
 }
 
 #[test]
 fn test_localhost_ipv4() {
     use testing::localhost_ipv4_test;
-    let io_loop = AsyncStdRuntimeProvider::new();
+    let io_loop = AsyncStdConnectionProvider::new();
 
-    localhost_ipv4_test::<AsyncStdRuntimeProvider, AsyncStdRuntimeProvider>(io_loop, io_loop);
+    localhost_ipv4_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(
+        io_loop.clone(),
+        io_loop,
+    );
 }
 
 #[test]
 fn test_localhost_ipv6() {
     use testing::localhost_ipv6_test;
-    let io_loop = AsyncStdRuntimeProvider::new();
+    let io_loop = AsyncStdConnectionProvider::new();
 
-    localhost_ipv6_test::<AsyncStdRuntimeProvider, AsyncStdRuntimeProvider>(io_loop, io_loop);
+    localhost_ipv6_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(
+        io_loop.clone(),
+        io_loop,
+    );
 }
 
 #[test]
 fn test_search_ipv4_large_ndots() {
     use testing::search_ipv4_large_ndots_test;
-    let io_loop = AsyncStdRuntimeProvider::new();
+    let io_loop = AsyncStdConnectionProvider::new();
 
-    search_ipv4_large_ndots_test::<AsyncStdRuntimeProvider, AsyncStdRuntimeProvider>(
-        io_loop, io_loop,
+    search_ipv4_large_ndots_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(
+        io_loop.clone(),
+        io_loop,
     );
 }
 
 #[test]
 fn test_search_ipv6_large_ndots() {
     use testing::search_ipv6_large_ndots_test;
-    let io_loop = AsyncStdRuntimeProvider::new();
+    let io_loop = AsyncStdConnectionProvider::new();
 
-    search_ipv6_large_ndots_test::<AsyncStdRuntimeProvider, AsyncStdRuntimeProvider>(
-        io_loop, io_loop,
+    search_ipv6_large_ndots_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(
+        io_loop.clone(),
+        io_loop,
     );
 }
 
 #[test]
 fn test_search_ipv6_name_parse_fails() {
     use testing::search_ipv6_name_parse_fails_test;
-    let io_loop = AsyncStdRuntimeProvider::new();
+    let io_loop = AsyncStdConnectionProvider::new();
 
-    search_ipv6_name_parse_fails_test::<AsyncStdRuntimeProvider, AsyncStdRuntimeProvider>(
-        io_loop, io_loop,
+    search_ipv6_name_parse_fails_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(
+        io_loop.clone(),
+        io_loop,
     );
 }
