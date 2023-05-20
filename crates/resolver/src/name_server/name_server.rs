@@ -7,7 +7,6 @@
 
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
-use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Instant;
@@ -23,7 +22,7 @@ use tracing::debug;
 use crate::config::{NameServerConfig, ResolverOpts};
 use crate::error::ResolveError;
 use crate::name_server::connection_provider::{ConnectionProvider, GenericConnector};
-use crate::name_server::{NameServerState, NameServerStats, RuntimeProvider};
+use crate::name_server::{NameServerState, NameServerStats};
 #[cfg(feature = "mdns")]
 use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
 
