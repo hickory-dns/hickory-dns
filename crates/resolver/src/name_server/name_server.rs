@@ -249,18 +249,6 @@ where
     GenericNameServer::new_with_provider(config, options, conn_provider)
 }
 
-/// Used for creating new connections.
-/// We introduce this trait as an intermediate layer for real logic and mock testing.
-/// If you are an end user and use `GenericConnection`, just ignore this trait.
-pub trait CreateConnection: Sized {
-    /// Create a future of Self with the help of runtime provider.
-    fn new_connection<P: RuntimeProvider>(
-        runtime_provider: &P,
-        config: &NameServerConfig,
-        options: &ResolverOpts,
-    ) -> Box<dyn Future<Output = Result<Self, ResolveError>> + Send + Unpin + 'static>;
-}
-
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
 mod tests {
