@@ -21,9 +21,8 @@ use trust_dns_resolver::name_server::{NameServer, NameServerPool};
 
 const DEFAULT_SERVER_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
 
-type MockedNameServer<O> = NameServer<MockClientHandle<O, ResolveError>, MockConnProvider<O>>;
-type MockedNameServerPool<O> =
-    NameServerPool<MockClientHandle<O, ResolveError>, MockConnProvider<O>>;
+type MockedNameServer<O> = NameServer<MockConnProvider<O, ResolveError>>;
+type MockedNameServerPool<O> = NameServerPool<MockConnProvider<O, ResolveError>>;
 
 #[cfg(test)]
 fn mock_nameserver(
@@ -76,6 +75,7 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
 ) -> MockedNameServer<O> {
     let conn_provider = MockConnProvider {
         on_send: on_send.clone(),
+        _p: Default::default(),
     };
     let client = MockClientHandle::mock_on_send(messages, on_send);
 

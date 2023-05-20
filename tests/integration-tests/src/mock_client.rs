@@ -5,8 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::any::TypeId;
 use std::error::Error;
+use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
@@ -27,7 +27,7 @@ use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 use trust_dns_proto::TokioTime;
 use trust_dns_resolver::config::{NameServerConfig, ResolverOpts};
 use trust_dns_resolver::error::ResolveError;
-use trust_dns_resolver::name_server::{CreateConnection, RuntimeProvider};
+use trust_dns_resolver::name_server::{ConnectionProvider, RuntimeProvider};
 use trust_dns_resolver::TokioHandle;
 
 pub struct TcpPlaceholder;
@@ -100,21 +100,11 @@ impl DnsUdpSocket for UdpPlaceholder {
     }
 }
 
-#[derive(Clone)]
-pub struct MockConnProvider<O: OnSend> {
-    pub on_send: O,
-}
-
-impl Default for MockConnProvider<DefaultOnSend> {
-    fn default() -> Self {
-        Self {
-            on_send: DefaultOnSend,
-        }
-    }
-}
+#[derive(Clone, Default)]
+pub struct MockRuntimeProvider;
 
 #[allow(clippy::type_complexity)]
-impl<O: OnSend + Unpin> RuntimeProvider for MockConnProvider<O> {
+impl RuntimeProvider for MockRuntimeProvider {
     type Handle = TokioHandle;
     type Timer = TokioTime;
     type Udp = UdpPlaceholder;
@@ -137,6 +127,30 @@ impl<O: OnSend + Unpin> RuntimeProvider for MockConnProvider<O> {
         _server_addr: SocketAddr,
     ) -> Pin<Box<dyn Send + Future<Output = std::io::Result<Self::Udp>>>> {
         Box::pin(async { Ok(UdpPlaceholder) })
+    }
+}
+
+#[derive(Clone)]
+pub struct MockConnProvider<O: OnSend + Unpin, E> {
+    pub on_send: O,
+    pub _p: PhantomData<E>,
+}
+
+impl<O: OnSend + Unpin> ConnectionProvider for MockConnProvider<O, ResolveError> {
+    type Conn = MockClientHandle<O, ResolveError>;
+    type FutureConn = Pin<Box<dyn Send + Future<Output = Result<Self::Conn, ResolveError>>>>;
+    type RuntimeProvider = MockRuntimeProvider;
+
+    fn new_connection(
+        &self,
+        _config: &NameServerConfig,
+        _options: &ResolverOpts,
+    ) -> Self::FutureConn {
+        println!("MockConnProvider::new_connection");
+        Box::pin(future::ok(MockClientHandle::mock_on_send(
+            vec![],
+            self.on_send.clone(),
+        )))
     }
 }
 
@@ -172,25 +186,6 @@ impl<O: OnSend, E> MockClientHandle<O, E> {
             messages: Arc::new(Mutex::new(messages)),
             on_send,
         }
-    }
-}
-
-impl<O: OnSend, E: Send + 'static> CreateConnection for MockClientHandle<O, E> {
-    fn new_connection<P: RuntimeProvider>(
-        runtime_provider: &P,
-        _config: &NameServerConfig,
-        _options: &ResolverOpts,
-    ) -> Box<dyn Future<Output = Result<Self, ResolveError>> + Send + Unpin + 'static> {
-        if TypeId::of::<P>() != TypeId::of::<MockConnProvider<O>>() {
-            panic!("Type Mismatched. Unsafe to cast")
-        }
-        // Safety: we have checked the type
-        let provider = unsafe { &*(runtime_provider as *const P as *const MockConnProvider<O>) };
-        println!("MockConnProvider::new_connection");
-        Box::new(future::ok(MockClientHandle::mock_on_send(
-            vec![],
-            provider.on_send.clone(),
-        )))
     }
 }
 

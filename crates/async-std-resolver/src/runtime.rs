@@ -8,11 +8,14 @@
 use std::future::Future;
 use std::net::SocketAddr;
 use std::pin::Pin;
+use trust_dns_resolver::config::{NameServerConfig, ResolverOpts};
 
 use trust_dns_resolver::proto::error::ProtoError;
 use trust_dns_resolver::proto::Executor;
 
-use trust_dns_resolver::name_server::{RuntimeProvider, Spawn};
+use trust_dns_resolver::name_server::{
+    ConnectionProvider, GenericConnector, RuntimeProvider, Spawn,
+};
 
 use crate::net::{AsyncStdTcpStream, AsyncStdUdpSocket};
 use crate::proto::tcp::Connect;
@@ -46,7 +49,7 @@ use crate::time::AsyncStdTime;
 /// [timer]: crate::time
 /// [mod]: index.html
 /// [`new`]: #method.new
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct AsyncStdRuntimeProvider;
 
 impl Executor for AsyncStdRuntimeProvider {
@@ -93,5 +96,39 @@ impl RuntimeProvider for AsyncStdRuntimeProvider {
         _server_addr: SocketAddr,
     ) -> Pin<Box<dyn Send + Future<Output = std::io::Result<Self::Udp>>>> {
         Box::pin(AsyncStdUdpSocket::bind(local_addr))
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct AsyncStdConnectionProvider {
+    runtime_provider: AsyncStdRuntimeProvider,
+    connection_provider: GenericConnector<AsyncStdRuntimeProvider>,
+}
+
+impl Executor for AsyncStdConnectionProvider {
+    fn new() -> Self {
+        let p = AsyncStdRuntimeProvider::new();
+        Self {
+            runtime_provider: p,
+            connection_provider: GenericConnector::new(p),
+        }
+    }
+
+    fn block_on<F: Future>(&mut self, future: F) -> F::Output {
+        self.runtime_provider.block_on(future)
+    }
+}
+
+impl ConnectionProvider for AsyncStdConnectionProvider {
+    type Conn = <GenericConnector<AsyncStdRuntimeProvider> as ConnectionProvider>::Conn;
+    type FutureConn = <GenericConnector<AsyncStdRuntimeProvider> as ConnectionProvider>::FutureConn;
+    type RuntimeProvider = AsyncStdRuntimeProvider;
+
+    fn new_connection(
+        &self,
+        config: &NameServerConfig,
+        options: &ResolverOpts,
+    ) -> Self::FutureConn {
+        self.connection_provider.new_connection(config, options)
     }
 }
