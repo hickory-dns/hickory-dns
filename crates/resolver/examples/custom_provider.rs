@@ -82,8 +82,7 @@ async fn main() {
         ResolverConfig::google(),
         ResolverOpts::default(),
         PrintProvider::default(),
-    )
-    .unwrap();
+    );
     lookup_test(resolver).await;
 
     #[cfg(feature = "dns-over-https-rustls")]
@@ -92,8 +91,7 @@ async fn main() {
             ResolverConfig::cloudflare_https(),
             ResolverOpts::default(),
             PrintProvider::default(),
-        )
-        .unwrap();
+        );
         lookup_test(resolver2).await;
     }
 

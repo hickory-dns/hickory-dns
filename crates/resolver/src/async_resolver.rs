@@ -118,7 +118,7 @@ impl TokioAsyncResolver {
     /// background task that runs resolutions for the `AsyncResolver`. See the
     /// documentation for `AsyncResolver` for more information on how to use
     /// the background future.
-    pub fn tokio(config: ResolverConfig, options: ResolverOpts) -> Result<Self, ResolveError> {
+    pub fn tokio(config: ResolverConfig, options: ResolverOpts) -> Self {
         Self::new(config, options, TokioRuntimeProvider::new())
     }
 
@@ -152,11 +152,7 @@ impl<R: RuntimeProvider> AsyncResolver<R> {
     /// background task that runs resolutions for the `AsyncResolver`. See the
     /// documentation for `AsyncResolver` for more information on how to use
     /// the background future.
-    pub fn new(
-        config: ResolverConfig,
-        options: ResolverOpts,
-        provider: R,
-    ) -> Result<Self, ResolveError> {
+    pub fn new(config: ResolverConfig, options: ResolverOpts, provider: R) -> Self {
         Self::new_with_conn(config, options, provider)
     }
 
@@ -195,12 +191,7 @@ impl<P: RuntimeProvider> AsyncResolver<P> {
     /// background task that runs resolutions for the `AsyncResolver`. See the
     /// documentation for `AsyncResolver` for more information on how to use
     /// the background future.
-    #[allow(clippy::unnecessary_wraps)]
-    pub fn new_with_conn(
-        config: ResolverConfig,
-        options: ResolverOpts,
-        conn_provider: P,
-    ) -> Result<Self, ResolveError> {
+    pub fn new_with_conn(config: ResolverConfig, options: ResolverOpts, conn_provider: P) -> Self {
         let pool =
             AbstractNameServerPool::from_config_with_provider(&config, &options, conn_provider);
         let either;
@@ -230,12 +221,12 @@ impl<P: RuntimeProvider> AsyncResolver<P> {
 
         trace!("handle passed back");
         let lru = DnsLru::new(options.cache_size, dns_lru::TtlConfig::from_opts(&options));
-        Ok(Self {
+        Self {
             config,
             options,
             client_cache: CachingClient::with_cache(lru, either, options.preserve_intermediates),
             hosts,
-        })
+        }
     }
 
     /// Constructs a new Resolver with the system configuration.
@@ -249,7 +240,7 @@ impl<P: RuntimeProvider> AsyncResolver<P> {
     )]
     pub fn from_system_conf_with_provider(conn_provider: P) -> Result<Self, ResolveError> {
         let (config, options) = super::system_conf::read_system_conf()?;
-        Self::new_with_conn(config, options, conn_provider)
+        Ok(Self::new_with_conn(config, options, conn_provider))
     }
 
     /// Per request options based on the ResolverOpts
@@ -477,8 +468,7 @@ pub mod testing {
         mut exec: E,
         handle: R,
     ) {
-        let resolver = AsyncResolver::<R>::new(config, ResolverOpts::default(), handle)
-            .expect("failed to create resolver");
+        let resolver = AsyncResolver::<R>::new(config, ResolverOpts::default(), handle);
 
         let response = exec
             .block_on(resolver.lookup_ip("www.example.com."))
@@ -502,8 +492,7 @@ pub mod testing {
     /// Test IP lookup from IP literals.
     pub fn ip_lookup_test<E: Executor, R: RuntimeProvider>(mut exec: E, handle: R) {
         let resolver =
-            AsyncResolver::<R>::new(ResolverConfig::default(), ResolverOpts::default(), handle)
-                .expect("failed to create resolver");
+            AsyncResolver::<R>::new(ResolverConfig::default(), ResolverOpts::default(), handle);
 
         let response = exec
             .block_on(resolver.lookup_ip("10.1.0.2"))
@@ -535,8 +524,7 @@ pub mod testing {
         // AsyncResolver works correctly.
         use std::thread;
         let resolver =
-            AsyncResolver::<R>::new(ResolverConfig::default(), ResolverOpts::default(), handle)
-                .expect("failed to create resolver");
+            AsyncResolver::<R>::new(ResolverConfig::default(), ResolverOpts::default(), handle);
 
         let resolver_one = resolver.clone();
         let resolver_two = resolver;
@@ -594,8 +582,7 @@ pub mod testing {
                 ..ResolverOpts::default()
             },
             handle,
-        )
-        .expect("failed to create resolver");
+        );
 
         let response = exec
             .block_on(resolver.lookup_ip("www.example.com."))
@@ -635,8 +622,7 @@ pub mod testing {
                 ..ResolverOpts::default()
             },
             handle,
-        )
-        .expect("failed to create resolver");
+        );
 
         // needs to be a domain that exists, but is not signed (eventually this will be)
         let response = exec.block_on(resolver.lookup_ip("trust-dns.org."));
@@ -732,8 +718,7 @@ pub mod testing {
                 ..ResolverOpts::default()
             },
             handle,
-        )
-        .expect("failed to create resolver");
+        );
 
         let response = exec
             .block_on(resolver.lookup_ip("www.example.com."))
@@ -768,8 +753,7 @@ pub mod testing {
                 ..ResolverOpts::default()
             },
             handle,
-        )
-        .expect("failed to create resolver");
+        );
 
         // notice this is not a FQDN, no trailing dot.
         let response = exec
@@ -808,8 +792,7 @@ pub mod testing {
                 ..ResolverOpts::default()
             },
             handle,
-        )
-        .expect("failed to create resolver");
+        );
 
         // notice this is not a FQDN, no trailing dot.
         let response = exec
@@ -849,8 +832,7 @@ pub mod testing {
                 ..ResolverOpts::default()
             },
             handle,
-        )
-        .expect("failed to create resolver");
+        );
 
         // notice no dots, should not trigger ndots rule
         let response = exec
@@ -889,8 +871,7 @@ pub mod testing {
                 ..ResolverOpts::default()
             },
             handle,
-        )
-        .expect("failed to create resolver");
+        );
 
         // notice no dots, should not trigger ndots rule
         let response = exec
@@ -910,8 +891,7 @@ pub mod testing {
     /// Test idna.
     pub fn idna_test<E: Executor + Send + 'static, R: RuntimeProvider>(mut exec: E, handle: R) {
         let resolver =
-            AsyncResolver::<R>::new(ResolverConfig::default(), ResolverOpts::default(), handle)
-                .expect("failed to create resolver");
+            AsyncResolver::<R>::new(ResolverConfig::default(), ResolverOpts::default(), handle);
 
         let response = exec
             .block_on(resolver.lookup_ip("中国.icom.museum."))
@@ -934,8 +914,7 @@ pub mod testing {
                 ..ResolverOpts::default()
             },
             handle,
-        )
-        .expect("failed to create resolver");
+        );
 
         let response = exec
             .block_on(resolver.lookup_ip("localhost"))
@@ -960,8 +939,7 @@ pub mod testing {
                 ..ResolverOpts::default()
             },
             handle,
-        )
-        .expect("failed to create resolver");
+        );
 
         let response = exec
             .block_on(resolver.lookup_ip("localhost"))
@@ -990,8 +968,7 @@ pub mod testing {
                 ..ResolverOpts::default()
             },
             handle,
-        )
-        .expect("failed to create resolver");
+        );
 
         let response = exec
             .block_on(resolver.lookup_ip("198.51.100.35"))
@@ -1020,8 +997,7 @@ pub mod testing {
                 ..ResolverOpts::default()
             },
             handle,
-        )
-        .expect("failed to create resolver");
+        );
 
         let response = exec
             .block_on(resolver.lookup_ip("2001:db8::c633:6423"))
@@ -1050,8 +1026,7 @@ pub mod testing {
                 ..ResolverOpts::default()
             },
             handle,
-        )
-        .expect("failed to create resolver");
+        );
 
         let response = exec
             .block_on(resolver.lookup_ip("2001:db8::198.51.100.35"))
@@ -1274,8 +1249,7 @@ mod tests {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_ascii("example.com.").unwrap());
         let resolver =
-            AsyncResolver::<TokioRuntimeProvider>::new(config, ResolverOpts::default(), handle)
-                .expect("failed to create resolver");
+            AsyncResolver::<TokioRuntimeProvider>::new(config, ResolverOpts::default(), handle);
         let tor_address = [
             Name::from_ascii("2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.onion")
                 .unwrap(),
