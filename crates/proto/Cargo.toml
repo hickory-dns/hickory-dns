@@ -84,7 +84,7 @@ js-sys = { workspace = true, optional = true }
 lazy_static.workspace = true
 native-tls = { workspace = true, optional = true }
 openssl = { workspace = true, features = ["v102", "v110"], optional = true }
-quinn = { workspace = true, optional = true }
+quinn = { workspace = true, optional = true, features = ["log", "runtime-tokio", "tls-rustls"] }
 rand.workspace = true
 ring = { workspace = true, optional = true, features = ["std"] }
 rustls = { workspace = true, optional = true }

@@ -1172,7 +1172,6 @@ dependencies = [
  "ring",
  "rustc-hash",
  "rustls",
- "rustls-native-certs",
  "slab",
  "thiserror",
  "tinyvec",
@@ -1366,18 +1365,6 @@ dependencies = [
  "ring",
  "rustls-webpki",
  "sct",
-]
-
-[[package]]
-name = "rustls-native-certs"
-version = "0.6.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0167bac7a9f490495f3c33013e7722b53cb087ecbe082fb0c6387c96f634ea50"
-dependencies = [
- "openssl-probe",
- "rustls-pemfile",
- "schannel",
- "security-framework",
 ]
 
 [[package]]
