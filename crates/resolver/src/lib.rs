@@ -112,7 +112,7 @@
 //!     TokioAsyncResolver::tokio(
 //!         ResolverConfig::default(),
 //!         ResolverOpts::default())
-//! }).expect("failed to connect resolver");
+//! });
 //!
 //! // Lookup the IP addresses associated with a name.
 //! // This returns a future that will lookup the IP addresses, it must be run in the Core to
@@ -153,7 +153,7 @@
 //! #    TokioAsyncResolver::tokio(
 //! #        ResolverConfig::default(),
 //! #        ResolverOpts::default())
-//! # }).expect("failed to connect resolver");
+//! # });
 //! #
 //! let ips = io_loop.block_on(resolver.lookup_ip("www.example.com.")).unwrap();
 //!

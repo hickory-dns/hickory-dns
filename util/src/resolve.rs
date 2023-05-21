@@ -339,7 +339,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         options.ip_strategy = trust_dns_resolver::config::LookupIpStrategy::Ipv4AndIpv6;
     }
 
-    let resolver_arc = Arc::new(TokioAsyncResolver::tokio(config, options)?);
+    let resolver_arc = Arc::new(TokioAsyncResolver::tokio(config, options));
 
     if let Some(domainname) = &opts.domainname {
         log_query(domainname, opts.ty, &name_servers, &opts);
