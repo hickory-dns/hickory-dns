@@ -525,6 +525,7 @@ impl Future for HttpsClientResponse {
     }
 }
 
+#[cfg(any(feature = "webpki-roots", feature = "native-certs"))]
 #[cfg(test)]
 mod tests {
     use std::net::SocketAddr;
@@ -553,7 +554,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = client_config_tls12_webpki_roots();
+        let mut client_config = client_config_tls12();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
@@ -618,7 +619,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = client_config_tls12_webpki_roots();
+        let mut client_config = client_config_tls12();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
@@ -684,7 +685,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let client_config = client_config_tls12_webpki_roots();
+        let client_config = client_config_tls12();
         let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
         let connect = https_builder.build::<AsyncIoTokioAsStd<TokioTcpStream>>(
             cloudflare,
@@ -733,11 +734,32 @@ mod tests {
         );
     }
 
-    fn client_config_tls12_webpki_roots() -> ClientConfig {
-        use rustls::{OwnedTrustAnchor, RootCertStore};
+    fn client_config_tls12() -> ClientConfig {
+        use rustls::RootCertStore;
+        #[cfg_attr(
+            not(any(feature = "native-certs", feature = "webpki-roots")),
+            allow(unused_mut)
+        )]
         let mut root_store = RootCertStore::empty();
+        #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
+        {
+            let (added, ignored) = root_store
+                .add_parsable_certificates(&rustls_native_certs::load_native_certs().unwrap());
+
+            if ignored > 0 {
+                warn!(
+                    "failed to parse {} certificate(s) from the native root store",
+                    ignored
+                );
+            }
+
+            if added == 0 {
+                panic!("no valid certificates found in the native root store");
+            }
+        }
+        #[cfg(feature = "webpki-roots")]
         root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-            OwnedTrustAnchor::from_subject_spki_name_constraints(
+            rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
                 ta.subject,
                 ta.spki,
                 ta.name_constraints,

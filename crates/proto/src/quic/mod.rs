@@ -13,7 +13,7 @@ mod quic_server;
 mod quic_stream;
 
 pub use self::quic_client_stream::{
-    client_config_tls13_webpki_roots, QuicClientConnect, QuicClientResponse, QuicClientStream,
+    client_config_tls13, QuicClientConnect, QuicClientResponse, QuicClientStream,
     QuicClientStreamBuilder,
 };
 pub use self::quic_server::{QuicServer, QuicStreams};

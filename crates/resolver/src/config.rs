@@ -259,9 +259,11 @@ impl ResolverConfig {
     ///
     /// use rustls::{ClientConfig, ProtocolVersion, RootCertStore, OwnedTrustAnchor};
     /// use trust_dns_resolver::config::ResolverConfig;
+    /// # #[cfg(feature = "webpki-roots")]
     /// use webpki_roots;
     ///
     /// let mut root_store = RootCertStore::empty();
+    /// # #[cfg(feature = "webpki-roots")]
     /// root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
     ///     OwnedTrustAnchor::from_subject_spki_name_constraints(
     ///         ta.subject,

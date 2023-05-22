@@ -1,6 +1,9 @@
 #![recursion_limit = "128"]
 
-#[cfg(feature = "tokio-runtime")]
+#[cfg(all(
+    feature = "tokio-runtime",
+    any(feature = "webpki-roots", feature = "native-certs")
+))]
 use {
     std::future::Future,
     std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
@@ -13,13 +16,19 @@ use {
     trust_dns_resolver::{AsyncResolver, TokioHandle},
 };
 
-#[cfg(feature = "tokio-runtime")]
+#[cfg(all(
+    feature = "tokio-runtime",
+    any(feature = "webpki-roots", feature = "native-certs")
+))]
 #[derive(Clone, Default)]
 struct PrintProvider {
     handle: TokioHandle,
 }
 
-#[cfg(feature = "tokio-runtime")]
+#[cfg(all(
+    feature = "tokio-runtime",
+    any(feature = "webpki-roots", feature = "native-certs")
+))]
 impl RuntimeProvider for PrintProvider {
     type Handle = TokioHandle;
     type Timer = TokioTime;
@@ -56,7 +65,10 @@ impl RuntimeProvider for PrintProvider {
     }
 }
 
-#[cfg(feature = "tokio-runtime")]
+#[cfg(all(
+    feature = "tokio-runtime",
+    any(feature = "webpki-roots", feature = "native-certs")
+))]
 async fn lookup_test<R: ConnectionProvider>(resolver: AsyncResolver<R>) {
     let response = resolver.lookup_ip("www.example.com.").await.unwrap();
 
@@ -75,7 +87,10 @@ async fn lookup_test<R: ConnectionProvider>(resolver: AsyncResolver<R>) {
     }
 }
 
-#[cfg(feature = "tokio-runtime")]
+#[cfg(all(
+    feature = "tokio-runtime",
+    any(feature = "webpki-roots", feature = "native-certs")
+))]
 #[tokio::main]
 async fn main() {
     let resolver = AsyncResolver::new(
@@ -98,7 +113,10 @@ async fn main() {
     println!("Hello, world!");
 }
 
-#[cfg(not(feature = "tokio-runtime"))]
+#[cfg(not(all(
+    feature = "tokio-runtime",
+    any(feature = "webpki-roots", feature = "native-certs")
+)))]
 fn main() {
     println!("tokio-runtime feature must be enabled")
 }

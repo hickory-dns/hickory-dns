@@ -36,9 +36,11 @@ dns-over-native-tls = ["dns-over-tls", "native-tls", "tokio-native-tls", "tokio-
 dns-over-openssl = ["dns-over-tls", "openssl", "tokio-openssl", "tokio-runtime"]
 
 dns-over-https-rustls = ["dns-over-https"]
-dns-over-https = ["bytes", "h2", "http", "dns-over-rustls", "webpki-roots", "tokio-runtime"]
+dns-over-https = ["bytes", "h2", "http", "dns-over-rustls", "tokio-runtime"]
 
-dns-over-quic = ["quinn", "rustls/quic", "dns-over-rustls", "bytes", "webpki-roots", "tokio-runtime"]
+dns-over-quic = ["quinn", "rustls/quic", "dns-over-rustls", "bytes", "tokio-runtime"]
+
+native-certs = ["dep:rustls-native-certs"]
 
 dnssec-openssl = ["dnssec", "openssl"]
 dnssec-ring = ["dnssec", "ring"]
@@ -88,6 +90,7 @@ quinn = { workspace = true, optional = true, features = ["log", "runtime-tokio",
 rand.workspace = true
 ring = { workspace = true, optional = true, features = ["std"] }
 rustls = { workspace = true, optional = true }
+rustls-native-certs = { workspace = true, optional = true }
 rustls-pemfile = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 smallvec.workspace = true
