@@ -270,11 +270,24 @@ impl QuicClientStreamBuilder {
 }
 
 /// Default crypto options for quic
-pub fn client_config_tls13_webpki_roots() -> TlsClientConfig {
-    use rustls::{OwnedTrustAnchor, RootCertStore};
+pub fn client_config_tls13() -> TlsClientConfig {
+    use rustls::RootCertStore;
+    #[cfg_attr(
+        not(any(feature = "native-certs", feature = "webpki-roots")),
+        allow(unused_mut)
+    )]
     let mut root_store = RootCertStore::empty();
+    #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
+    root_store.add_parsable_certificates(
+        &rustls_native_certs::load_native_certs()
+            .unwrap()
+            .into_iter()
+            .map(|cert| cert.0)
+            .collect::<Vec<_>>(),
+    );
+    #[cfg(feature = "webpki-roots")]
     root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-        OwnedTrustAnchor::from_subject_spki_name_constraints(
+        rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
             ta.subject,
             ta.spki,
             ta.name_constraints,
@@ -296,7 +309,7 @@ impl Default for QuicClientStreamBuilder {
         // clients never accept new bidirectional streams
         transport_config.max_concurrent_bidi_streams(VarInt::from_u32(0));
 
-        let client_config = client_config_tls13_webpki_roots();
+        let client_config = client_config_tls13();
 
         Self {
             crypto_config: client_config,

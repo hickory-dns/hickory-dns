@@ -31,14 +31,17 @@ maintenance = { status = "actively-developed" }
 
 [features]
 dns-over-tls = []
-dns-over-rustls = ["dns-over-tls", "rustls", "rustls-pemfile", "tokio-rustls", "webpki", "tokio-runtime"]
+dns-over-rustls = ["dns-over-tls", "rustls", "rustls-pemfile", "tokio-rustls", "tokio-runtime"]
 dns-over-native-tls = ["dns-over-tls", "native-tls", "tokio-native-tls", "tokio-runtime"]
 dns-over-openssl = ["dns-over-tls", "openssl", "tokio-openssl", "tokio-runtime"]
 
 dns-over-https-rustls = ["dns-over-https"]
-dns-over-https = ["bytes", "h2", "http", "dns-over-rustls", "webpki-roots", "tokio-runtime"]
+dns-over-https = ["bytes", "h2", "http", "dns-over-rustls", "tokio-runtime"]
 
-dns-over-quic = ["quinn", "rustls/quic", "dns-over-rustls", "bytes", "webpki-roots", "tokio-runtime"]
+dns-over-quic = ["quinn", "rustls/quic", "dns-over-rustls", "bytes", "tokio-runtime"]
+
+webpki-roots = ["dep:webpki-roots"]
+native-certs = ["dep:rustls-native-certs"]
 
 dnssec-openssl = ["dnssec", "openssl"]
 dnssec-ring = ["dnssec", "ring"]
@@ -88,6 +91,7 @@ quinn = { workspace = true, optional = true, features = ["log", "runtime-tokio",
 rand.workspace = true
 ring = { workspace = true, optional = true, features = ["std"] }
 rustls = { workspace = true, optional = true }
+rustls-native-certs = { workspace = true, optional = true }
 rustls-pemfile = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 smallvec.workspace = true
@@ -101,7 +105,6 @@ tokio-openssl = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true, features = ["early-data"] }
 url.workspace = true
 wasm-bindgen-crate = { workspace = true, optional = true }
-webpki = { workspace = true, optional = true }
 webpki-roots = { workspace = true, optional = true }
 
 [dev-dependencies]

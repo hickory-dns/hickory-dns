@@ -28,7 +28,7 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{
     client::{HandshakeSignatureValid, ServerCertVerified},
-    Certificate, ClientConfig, DigitallySignedStruct, OwnedTrustAnchor, RootCertStore,
+    Certificate, ClientConfig, DigitallySignedStruct, RootCertStore,
 };
 use tokio::net::{TcpStream as TokioTcpStream, UdpSocket};
 use tracing::Level;
@@ -363,7 +363,7 @@ async fn quic(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
         .expect("tls_dns_name is required quic connections");
     println!("; using quic:{nameserver} dns_name:{dns_name}");
 
-    let mut config = quic::client_config_tls13_webpki_roots();
+    let mut config = quic::client_config_tls13();
     if opts.do_not_verify_nameserver_cert {
         self::do_not_verify_nameserver_cert(&mut config);
     }
@@ -478,9 +478,22 @@ fn record_set_from(
 
 #[cfg(feature = "dns-over-rustls")]
 fn tls_config() -> ClientConfig {
+    #[cfg_attr(
+        not(any(feature = "native-certs", feature = "webpki-roots")),
+        allow(unused_mut)
+    )]
     let mut root_store = RootCertStore::empty();
+    #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
+    root_store.add_parsable_certificates(
+        &rustls_native_certs::load_native_certs()
+            .unwrap()
+            .into_iter()
+            .map(|cert| cert.0)
+            .collect::<Vec<_>>(),
+    );
+    #[cfg(feature = "webpki-roots")]
     root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-        OwnedTrustAnchor::from_subject_spki_name_constraints(
+        rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
             ta.subject,
             ta.spki,
             ta.name_constraints,

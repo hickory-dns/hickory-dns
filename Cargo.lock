@@ -1336,6 +1336,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustls-native-certs"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0167bac7a9f490495f3c33013e7722b53cb087ecbe082fb0c6387c96f634ea50"
+dependencies = [
+ "openssl-probe",
+ "rustls-pemfile",
+ "schannel",
+ "security-framework",
+]
+
+[[package]]
 name = "rustls-pemfile"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1827,7 +1839,6 @@ dependencies = [
  "radix_trie",
  "rand",
  "rustls",
- "rustls-webpki",
  "serde",
  "thiserror",
  "tokio",
@@ -1897,8 +1908,8 @@ dependencies = [
  "rand",
  "ring",
  "rustls",
+ "rustls-native-certs",
  "rustls-pemfile",
- "rustls-webpki",
  "serde",
  "smallvec",
  "socket2 0.5.3",
@@ -1952,6 +1963,7 @@ dependencies = [
  "rand",
  "resolv-conf",
  "rustls",
+ "rustls-native-certs",
  "serde",
  "smallvec",
  "thiserror",
@@ -2004,7 +2016,7 @@ dependencies = [
  "data-encoding",
  "openssl",
  "rustls",
- "rustls-webpki",
+ "rustls-native-certs",
  "tokio",
  "tracing",
  "tracing-subscriber",

@@ -64,6 +64,7 @@ where
     ))
 }
 
+#[cfg(any(feature = "webpki-roots", feature = "native-certs"))]
 #[cfg(test)]
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
