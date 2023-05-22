@@ -173,6 +173,8 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
             TokioTime,
         >,
     ),
+    #[cfg(any(feature = "dns-over-https", feature = "dns-over-quic"))]
+    Error(ResolveError),
 }
 
 /// Resolves to a new Connection
@@ -221,6 +223,8 @@ impl<R: RuntimeProvider> Future for ConnectionFuture<R> {
                 self.spawner.spawn_bg(bg);
                 GenericConnection(conn)
             }
+            #[cfg(any(feature = "dns-over-https", feature = "dns-over-quic"))]
+            ConnectionConnect::Error(err) => return Poll::Ready(Err(err.clone())),
         }))
     }
 }
@@ -344,13 +348,13 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let client_config = config.tls_config.clone();
                 let tcp_future = self.runtime_provider.connect_tcp(socket_addr);
 
-                let exchange = crate::https::new_https_stream_with_future(
+                crate::https::new_https_stream_with_future(
                     tcp_future,
                     socket_addr,
                     tls_dns_name,
                     client_config,
-                );
-                ConnectionConnect::Https(exchange)
+                )
+                .map_or_else(ConnectionConnect::Error, ConnectionConnect::Https)
             }
             #[cfg(feature = "dns-over-quic")]
             Protocol::Quic => {
@@ -366,13 +370,13 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let client_config = config.tls_config.clone();
                 let udp_future = self.runtime_provider.bind_udp(bind_addr, socket_addr);
 
-                let exchange = crate::quic::new_quic_stream_with_future(
+                crate::quic::new_quic_stream_with_future(
                     udp_future,
                     socket_addr,
                     tls_dns_name,
                     client_config,
-                );
-                ConnectionConnect::Quic(exchange)
+                )
+                .map_or_else(ConnectionConnect::Error, ConnectionConnect::Quic)
             }
             #[cfg(feature = "mdns")]
             Protocol::Mdns => {

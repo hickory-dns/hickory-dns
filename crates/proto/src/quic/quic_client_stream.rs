@@ -148,7 +148,7 @@ impl Stream for QuicClientStream {
 /// A QUIC connection builder for DNS-over-QUIC
 #[derive(Clone)]
 pub struct QuicClientStreamBuilder {
-    crypto_config: TlsClientConfig,
+    crypto_config: Option<TlsClientConfig>,
     transport_config: Arc<TransportConfig>,
     bind_addr: Option<SocketAddr>,
 }
@@ -156,7 +156,7 @@ pub struct QuicClientStreamBuilder {
 impl QuicClientStreamBuilder {
     /// Constructs a new TlsStreamBuilder with the associated ClientConfig
     pub fn crypto_config(&mut self, crypto_config: TlsClientConfig) -> &mut Self {
-        self.crypto_config = crypto_config;
+        self.crypto_config = Some(crypto_config);
         self
     }
 
@@ -237,7 +237,11 @@ impl QuicClientStreamBuilder {
         dns_name: String,
     ) -> Result<QuicClientStream, ProtoError> {
         // ensure the ALPN protocol is set correctly
-        let mut crypto_config = self.crypto_config;
+        let mut crypto_config = if let Some(crypto_config) = self.crypto_config {
+            crypto_config
+        } else {
+            client_config_tls13()?
+        };
         if crypto_config.alpn_protocols.is_empty() {
             crypto_config.alpn_protocols = vec![quic_stream::DOQ_ALPN.to_vec()];
         }
@@ -270,24 +274,47 @@ impl QuicClientStreamBuilder {
 }
 
 /// Default crypto options for quic
-pub fn client_config_tls13_webpki_roots() -> TlsClientConfig {
-    use rustls::{OwnedTrustAnchor, RootCertStore};
+pub fn client_config_tls13() -> Result<TlsClientConfig, ProtoError> {
+    use rustls::RootCertStore;
+    #[cfg_attr(
+        not(any(feature = "native-certs", feature = "webpki-roots")),
+        allow(unused_mut)
+    )]
     let mut root_store = RootCertStore::empty();
+    #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
+    {
+        use crate::error::ProtoErrorKind;
+
+        let (added, ignored) =
+            root_store.add_parsable_certificates(&rustls_native_certs::load_native_certs()?);
+
+        if ignored > 0 {
+            tracing::warn!(
+                "failed to parse {} certificate(s) from the native root store",
+                ignored,
+            );
+        }
+
+        if added == 0 {
+            return Err(ProtoErrorKind::NativeCerts.into());
+        }
+    }
+    #[cfg(feature = "webpki-roots")]
     root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-        OwnedTrustAnchor::from_subject_spki_name_constraints(
+        rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
             ta.subject,
             ta.spki,
             ta.name_constraints,
         )
     }));
 
-    TlsClientConfig::builder()
+    Ok(TlsClientConfig::builder()
         .with_safe_default_cipher_suites()
         .with_safe_default_kx_groups()
         .with_protocol_versions(&[&TLS13])
         .expect("TLS 1.3 not supported")
         .with_root_certificates(root_store)
-        .with_no_client_auth()
+        .with_no_client_auth())
 }
 
 impl Default for QuicClientStreamBuilder {
@@ -296,10 +323,8 @@ impl Default for QuicClientStreamBuilder {
         // clients never accept new bidirectional streams
         transport_config.max_concurrent_bidi_streams(VarInt::from_u32(0));
 
-        let client_config = client_config_tls13_webpki_roots();
-
         Self {
-            crypto_config: client_config,
+            crypto_config: None,
             transport_config: Arc::new(transport_config),
             bind_addr: None,
         }

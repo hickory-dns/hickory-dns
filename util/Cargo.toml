@@ -30,11 +30,14 @@ codecov = { repository = "bluejekyll/trust-dns", branch = "main", service = "git
 maintenance = { status = "actively-developed" }
 
 [features]
-dns-over-rustls = ["rustls", "webpki-roots", "trust-dns-proto/dns-over-rustls", "trust-dns-client/dns-over-rustls", "trust-dns-resolver/dns-over-rustls"]
+dns-over-rustls = ["rustls", "trust-dns-proto/dns-over-rustls", "trust-dns-client/dns-over-rustls", "trust-dns-resolver/dns-over-rustls"]
 dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "trust-dns-proto/dns-over-https-rustls", "trust-dns-client/dns-over-https-rustls", "trust-dns-resolver/dns-over-https-rustls"]
 dns-over-https = ["trust-dns-proto/dns-over-https", "trust-dns-client/dns-over-https","trust-dns-resolver/dns-over-https"]
 
 dns-over-quic = ["dns-over-rustls", "trust-dns-resolver/dns-over-quic"]
+
+webpki-roots = ["dep:webpki-roots", "trust-dns-proto/webpki-roots", "trust-dns-client/webpki-roots", "trust-dns-resolver/webpki-roots"]
+native-certs = ["dep:rustls-native-certs", "trust-dns-proto/native-certs", "trust-dns-client/native-certs", "trust-dns-resolver/native-certs"]
 
 dnssec = []
 dnssec-openssl = ["dnssec", "openssl", "trust-dns-client/dnssec-openssl", "trust-dns-proto/dnssec-openssl", "trust-dns-resolver/dnssec-openssl"]
@@ -73,6 +76,7 @@ console.workspace = true
 data-encoding.workspace = true
 openssl = { workspace = true, features = ["v102", "v110"], optional = true }
 rustls = { workspace = true, features = ["dangerous_configuration"], optional = true }
+rustls-native-certs = { workspace = true, optional = true } 
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["std", "fmt", "env-filter"] }
 trust-dns-client.workspace = true

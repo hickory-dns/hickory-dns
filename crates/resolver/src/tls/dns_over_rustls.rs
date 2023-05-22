@@ -8,6 +8,7 @@
 #![cfg(feature = "dns-over-rustls")]
 #![allow(dead_code)]
 
+use std::future;
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
@@ -15,7 +16,7 @@ use std::sync::Arc;
 
 use futures_util::future::Future;
 use once_cell::sync::Lazy;
-use rustls::{ClientConfig, OwnedTrustAnchor, RootCertStore};
+use rustls::{ClientConfig, RootCertStore};
 
 use proto::error::ProtoError;
 use proto::rustls::tls_client_stream::tls_client_connect_with_future;
@@ -27,11 +28,33 @@ use crate::config::TlsClientConfig;
 
 const ALPN_H2: &[u8] = b"h2";
 
-// using the mozilla default root store
-pub(crate) static CLIENT_CONFIG: Lazy<Arc<ClientConfig>> = Lazy::new(|| {
+pub(crate) static CLIENT_CONFIG: Lazy<Result<Arc<ClientConfig>, ProtoError>> = Lazy::new(|| {
+    #[cfg_attr(
+        not(any(feature = "native-certs", feature = "webpki-roots")),
+        allow(unused_mut)
+    )]
     let mut root_store = RootCertStore::empty();
+    #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
+    {
+        use proto::error::ProtoErrorKind;
+
+        let (added, ignored) =
+            root_store.add_parsable_certificates(&rustls_native_certs::load_native_certs()?);
+
+        if ignored > 0 {
+            tracing::warn!(
+                "failed to parse {} certificate(s) from the native root store",
+                ignored,
+            );
+        }
+
+        if added == 0 {
+            return Err(ProtoErrorKind::NativeCerts.into());
+        }
+    }
+    #[cfg(feature = "webpki-roots")]
     root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-        OwnedTrustAnchor::from_subject_spki_name_constraints(
+        rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
             ta.subject,
             ta.spki,
             ta.name_constraints,
@@ -51,7 +74,7 @@ pub(crate) static CLIENT_CONFIG: Lazy<Arc<ClientConfig>> = Lazy::new(|| {
 
     client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
-    Arc::new(client_config)
+    Ok(Arc::new(client_config))
 });
 
 #[allow(clippy::type_complexity)]
@@ -68,10 +91,19 @@ where
     S: DnsTcpStream,
     F: Future<Output = io::Result<S>> + Send + Unpin + 'static,
 {
-    let client_config = client_config.map_or_else(
-        || CLIENT_CONFIG.clone(),
-        |TlsClientConfig(client_config)| client_config,
-    );
+    let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
+        client_config
+    } else {
+        match CLIENT_CONFIG.clone() {
+            Ok(client_config) => client_config,
+            Err(err) => {
+                return (
+                    Box::pin(future::ready(Err(err))),
+                    BufDnsStreamHandle::new(socket_addr).0,
+                )
+            }
+        }
+    };
     let (stream, handle) =
         tls_client_connect_with_future(future, socket_addr, dns_name, client_config);
     (Box::pin(stream), handle)
