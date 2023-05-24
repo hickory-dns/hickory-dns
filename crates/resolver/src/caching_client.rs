@@ -19,6 +19,7 @@ use std::{
 };
 
 use futures_util::future::Future;
+use once_cell::sync::Lazy;
 
 use crate::{
     dns_lru::{self, DnsLru, TtlConfig},
@@ -42,11 +43,10 @@ use crate::{
 
 const MAX_QUERY_DEPTH: u8 = 8; // arbitrarily chosen number...
 
-lazy_static! {
-    static ref LOCALHOST: RData = RData::PTR(PTR(Name::from_ascii("localhost.").unwrap()));
-    static ref LOCALHOST_V4: RData = RData::A(A::new(127, 0, 0, 1));
-    static ref LOCALHOST_V6: RData = RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1));
-}
+static LOCALHOST: Lazy<RData> =
+    Lazy::new(|| RData::PTR(PTR(Name::from_ascii("localhost.").unwrap())));
+static LOCALHOST_V4: Lazy<RData> = Lazy::new(|| RData::A(A::new(127, 0, 0, 1)));
+static LOCALHOST_V6: Lazy<RData> = Lazy::new(|| RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1)));
 
 struct DepthTracker {
     query_depth: Arc<AtomicU8>,

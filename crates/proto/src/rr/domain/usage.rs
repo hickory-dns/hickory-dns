@@ -11,130 +11,173 @@
 
 use std::ops::Deref;
 
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 
 use crate::rr::domain::Name;
 
-lazy_static! {
-    /// Default Name usage, everything is normal...
-    pub static ref DEFAULT: ZoneUsage = ZoneUsage::default();
-}
+/// Default Name usage, everything is normal...
+pub static DEFAULT: Lazy<ZoneUsage> = Lazy::new(ZoneUsage::default);
 
-lazy_static! {
-    static ref ARPA: Name = Name::from_ascii("arpa.").unwrap();
-    /// zone for ipv4 reverse addresses
-    pub static ref IN_ADDR_ARPA: Name = Name::from_ascii("in-addr").unwrap().append_domain(&ARPA).unwrap();
-    /// zone for ipv6 reverse addresses
-    pub static ref IP6_ARPA: Name = Name::from_ascii("ip6").unwrap().append_domain(&ARPA).unwrap();
-}
+static ARPA: Lazy<Name> = Lazy::new(|| Name::from_ascii("arpa.").unwrap());
+/// zone for ipv4 reverse addresses
+pub static IN_ADDR_ARPA: Lazy<Name> = Lazy::new(|| {
+    Name::from_ascii("in-addr")
+        .unwrap()
+        .append_domain(&ARPA)
+        .unwrap()
+});
+/// zone for ipv6 reverse addresses
+pub static IP6_ARPA: Lazy<Name> = Lazy::new(|| {
+    Name::from_ascii("ip6")
+        .unwrap()
+        .append_domain(&ARPA)
+        .unwrap()
+});
 
-lazy_static! {
-    /// localhost.
-    ///
-    /// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
-    ///
-    /// ```text
-    /// 6.3.  Domain Name Reservation Considerations for "localhost."
-    ///
-    ///    The domain "localhost." and any names falling within ".localhost."
-    ///    are special in the following ways:
-    /// ```
+/// localhost.
+///
+/// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
+///
+/// ```text
+/// 6.3.  Domain Name Reservation Considerations for "localhost."
+///
+///    The domain "localhost." and any names falling within ".localhost."
+///    are special in the following ways:
+/// ```
 
-    /// localhost. usage
-    pub static ref LOCALHOST: ZoneUsage = ZoneUsage::localhost(Name::from_ascii("localhost.").unwrap());
+/// localhost. usage
+pub static LOCALHOST: Lazy<ZoneUsage> =
+    Lazy::new(|| ZoneUsage::localhost(Name::from_ascii("localhost.").unwrap()));
 
-    /// 127.in-addr.arpa. usage; 127/8 is reserved for loopback
-    pub static ref IN_ADDR_ARPA_127: ZoneUsage = ZoneUsage::localhost(Name::from_ascii("127").unwrap().append_domain(&IN_ADDR_ARPA).unwrap());
+/// 127.in-addr.arpa. usage; 127/8 is reserved for loopback
+pub static IN_ADDR_ARPA_127: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::localhost(
+        Name::from_ascii("127")
+            .unwrap()
+            .append_domain(&IN_ADDR_ARPA)
+            .unwrap(),
+    )
+});
 
-    /// 1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa. usage; 1/128 is the only address in ipv6 loopback
-    pub static ref IP6_ARPA_1: ZoneUsage = ZoneUsage::localhost(Name::from_ascii("1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0").unwrap().append_domain(&IP6_ARPA).unwrap());
-}
+/// 1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa. usage; 1/128 is the only address in ipv6 loopback
+pub static IP6_ARPA_1: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::localhost(
+        Name::from_ascii("1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0")
+            .unwrap()
+            .append_domain(&IP6_ARPA)
+            .unwrap(),
+    )
+});
 
-lazy_static! {
-    /// .local.
-    ///
-    /// [Multicast DNS](https://tools.ietf.org/html/rfc6762), RFC 6762  February 2013
-    ///
-    /// ```text
-    /// This document specifies that the DNS top-level domain ".local." is a
-    ///   special domain with special semantics, namely that any fully
-    ///   qualified name ending in ".local." is link-local, and names within
-    ///   this domain are meaningful only on the link where they originate.
-    ///   This is analogous to IPv4 addresses in the 169.254/16 prefix or IPv6
-    ///   addresses in the FE80::/10 prefix, which are link-local and
-    ///   meaningful only on the link where they originate.
-    /// ```
+/// .local.
+///
+/// [Multicast DNS](https://tools.ietf.org/html/rfc6762), RFC 6762  February 2013
+///
+/// ```text
+/// This document specifies that the DNS top-level domain ".local." is a
+///   special domain with special semantics, namely that any fully
+///   qualified name ending in ".local." is link-local, and names within
+///   this domain are meaningful only on the link where they originate.
+///   This is analogous to IPv4 addresses in the 169.254/16 prefix or IPv6
+///   addresses in the FE80::/10 prefix, which are link-local and
+///   meaningful only on the link where they originate.
+/// ```
 
-    /// localhost. usage
-    pub static ref LOCAL: ZoneUsage = ZoneUsage::local(Name::from_ascii("local.").unwrap());
+/// localhost. usage
+pub static LOCAL: Lazy<ZoneUsage> =
+    Lazy::new(|| ZoneUsage::local(Name::from_ascii("local.").unwrap()));
 
-    // RFC 6762                      Multicast DNS                February 2013
+// RFC 6762                      Multicast DNS                February 2013
 
-    // Any DNS query for a name ending with "254.169.in-addr.arpa." MUST
-    //  be sent to the mDNS IPv4 link-local multicast address 224.0.0.251
-    //  or the mDNS IPv6 multicast address FF02::FB.  Since names under
-    //  this domain correspond to IPv4 link-local addresses, it is logical
-    //  that the local link is the best place to find information
-    //  pertaining to those names.
-    //
-    //  Likewise, any DNS query for a name within the reverse mapping
-    //  domains for IPv6 link-local addresses ("8.e.f.ip6.arpa.",
-    //  "9.e.f.ip6.arpa.", "a.e.f.ip6.arpa.", and "b.e.f.ip6.arpa.") MUST
-    //  be sent to the mDNS IPv6 link-local multicast address FF02::FB or
-    //  the mDNS IPv4 link-local multicast address 224.0.0.251.
+// Any DNS query for a name ending with "254.169.in-addr.arpa." MUST
+//  be sent to the mDNS IPv4 link-local multicast address 224.0.0.251
+//  or the mDNS IPv6 multicast address FF02::FB.  Since names under
+//  this domain correspond to IPv4 link-local addresses, it is logical
+//  that the local link is the best place to find information
+//  pertaining to those names.
+//
+//  Likewise, any DNS query for a name within the reverse mapping
+//  domains for IPv6 link-local addresses ("8.e.f.ip6.arpa.",
+//  "9.e.f.ip6.arpa.", "a.e.f.ip6.arpa.", and "b.e.f.ip6.arpa.") MUST
+//  be sent to the mDNS IPv6 link-local multicast address FF02::FB or
+//  the mDNS IPv4 link-local multicast address 224.0.0.251.
 
-    /// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
-    pub static ref IN_ADDR_ARPA_169_254: ZoneUsage = ZoneUsage::local(Name::from_ascii("254.169").unwrap().append_domain(&IN_ADDR_ARPA).unwrap());
+/// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
+pub static IN_ADDR_ARPA_169_254: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::local(
+        Name::from_ascii("254.169")
+            .unwrap()
+            .append_domain(&IN_ADDR_ARPA)
+            .unwrap(),
+    )
+});
 
-    /// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
-    pub static ref IP6_ARPA_FE_8: ZoneUsage = ZoneUsage::local(Name::from_ascii("8.e.f").unwrap().append_domain(&IP6_ARPA).unwrap());
-    /// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
-    pub static ref IP6_ARPA_FE_9: ZoneUsage = ZoneUsage::local(Name::from_ascii("9.e.f").unwrap().append_domain(&IP6_ARPA).unwrap());
-    /// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
-    pub static ref IP6_ARPA_FE_B: ZoneUsage = ZoneUsage::local(Name::from_ascii("b.e.f").unwrap().append_domain(&IP6_ARPA).unwrap());
-}
+/// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
+pub static IP6_ARPA_FE_8: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::local(
+        Name::from_ascii("8.e.f")
+            .unwrap()
+            .append_domain(&IP6_ARPA)
+            .unwrap(),
+    )
+});
+/// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
+pub static IP6_ARPA_FE_9: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::local(
+        Name::from_ascii("9.e.f")
+            .unwrap()
+            .append_domain(&IP6_ARPA)
+            .unwrap(),
+    )
+});
+/// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
+pub static IP6_ARPA_FE_B: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::local(
+        Name::from_ascii("b.e.f")
+            .unwrap()
+            .append_domain(&IP6_ARPA)
+            .unwrap(),
+    )
+});
 
-lazy_static! {
-    /// invalid.
-    ///
-    /// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
-    ///
-    /// ```text
-    /// 6.4.  Domain Name Reservation Considerations for "invalid."
-    ///
-    ///    The domain "invalid." and any names falling within ".invalid." are
-    ///    special in the ways listed below.  In the text below, the term
-    ///    "invalid" is used in quotes to signify such names, as opposed to
-    ///    names that may be invalid for other reasons (e.g., being too long).
-    /// ```
+/// invalid.
+///
+/// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
+///
+/// ```text
+/// 6.4.  Domain Name Reservation Considerations for "invalid."
+///
+///    The domain "invalid." and any names falling within ".invalid." are
+///    special in the ways listed below.  In the text below, the term
+///    "invalid" is used in quotes to signify such names, as opposed to
+///    names that may be invalid for other reasons (e.g., being too long).
+/// ```
 
-    /// invalid. name usage
-    pub static ref INVALID: ZoneUsage = ZoneUsage::invalid(Name::from_ascii("invalid.").unwrap());
-}
+/// invalid. name usage
+pub static INVALID: Lazy<ZoneUsage> =
+    Lazy::new(|| ZoneUsage::invalid(Name::from_ascii("invalid.").unwrap()));
 
-lazy_static! {
-    /// invalid.
-    ///
-    /// [The ".onion" Special-Use Domain Name](https://tools.ietf.org/html/rfc7686), RFC 7686 October, 2015
-    ///
-    /// ```text
-    /// 1.  Introduction
-    ///
-    ///   The Tor network has the ability to host network
-    ///   services using the ".onion" Special-Use Top-Level Domain Name.  Such
-    ///   names can be used as other domain names would be (e.g., in URLs
-    ///   [RFC3986]), but instead of using the DNS infrastructure, .onion names
-    ///   functionally correspond to the identity of a given service, thereby
-    ///   combining location and authentication.
-    /// ```
+/// invalid.
+///
+/// [The ".onion" Special-Use Domain Name](https://tools.ietf.org/html/rfc7686), RFC 7686 October, 2015
+///
+/// ```text
+/// 1.  Introduction
+///
+///   The Tor network has the ability to host network
+///   services using the ".onion" Special-Use Top-Level Domain Name.  Such
+///   names can be used as other domain names would be (e.g., in URLs
+///   [RFC3986]), but instead of using the DNS infrastructure, .onion names
+///   functionally correspond to the identity of a given service, thereby
+///   combining location and authentication.
+/// ```
 
-    /// onion. name usage
-    pub static ref ONION: ZoneUsage = ZoneUsage {
-        user: UserUsage::Normal, // the domain is special, but this is what seems to match the most
-        app: AppUsage::Normal, // the domain is special, but this is what seems to match the most
-        .. ZoneUsage::invalid(Name::from_ascii("onion.").unwrap())
-    };
-}
+/// onion. name usage
+pub static ONION: Lazy<ZoneUsage> = Lazy::new(|| ZoneUsage {
+    user: UserUsage::Normal, // the domain is special, but this is what seems to match the most
+    app: AppUsage::Normal,   // the domain is special, but this is what seems to match the most
+    ..ZoneUsage::invalid(Name::from_ascii("onion.").unwrap())
+});
 
 /// Users:
 ///

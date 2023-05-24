@@ -66,8 +66,8 @@ sqlite = ["rusqlite", "trust-dns-server/sqlite"]
 
 [dependencies]
 async-trait.workspace = true
-lazy_static.workspace = true
 futures.workspace = true
+once_cell.workspace = true
 openssl = { workspace = true, features = ["v102", "v110"] }
 rand.workspace = true
 rusqlite = { workspace = true, features = ["bundled"], optional = true }

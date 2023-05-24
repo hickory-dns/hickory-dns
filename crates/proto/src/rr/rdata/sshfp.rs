@@ -14,7 +14,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use data_encoding::{Encoding, Specification};
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 
 use crate::{
     error::{ProtoError, ProtoResult},
@@ -22,17 +22,15 @@ use crate::{
     serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath},
 };
 
-lazy_static! {
-    /// HEX formatting specific to TLSA and SSHFP encodings
-    pub static ref HEX: Encoding = {
-        let mut spec = Specification::new();
-        spec.symbols.push_str("0123456789abcdef");
-        spec.ignore.push_str(" \t\r\n");
-        spec.translate.from.push_str("ABCDEF");
-        spec.translate.to.push_str("abcdef");
-        spec.encoding().expect("error in sshfp HEX encoding")
-    };
-}
+/// HEX formatting specific to TLSA and SSHFP encodings
+pub static HEX: Lazy<Encoding> = Lazy::new(|| {
+    let mut spec = Specification::new();
+    spec.symbols.push_str("0123456789abcdef");
+    spec.ignore.push_str(" \t\r\n");
+    spec.translate.from.push_str("ABCDEF");
+    spec.translate.to.push_str("abcdef");
+    spec.encoding().expect("error in sshfp HEX encoding")
+});
 
 /// [RFC 4255](https://tools.ietf.org/html/rfc4255#section-3.1)
 ///
