@@ -67,7 +67,7 @@ cfg-if.workspace = true
 data-encoding.workspace = true
 futures-channel = { workspace = true, default-features = false, features = ["std"] }
 futures-util = { workspace = true, default-features = false, features = ["std"] }
-lazy_static.workspace = true
+once_cell.workspace = true
 openssl = { workspace = true, features = ["v102", "v110"], optional = true }
 radix_trie.workspace = true
 rand.workspace = true
