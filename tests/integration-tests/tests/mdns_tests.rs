@@ -1,8 +1,5 @@
 #![cfg(feature = "mdns")]
 
-#[macro_use]
-extern crate lazy_static;
-
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Barrier};
@@ -11,6 +8,7 @@ use std::time::Duration;
 
 use futures::future::Either;
 use futures::{future, StreamExt};
+use once_cell::sync::Lazy;
 use tokio::runtime::Runtime;
 
 use trust_dns_client::client::{AsyncClient, ClientHandle};
@@ -23,12 +21,11 @@ use trust_dns_proto::xfer::SerialMessage;
 
 const MDNS_PORT: u16 = 5363;
 
-lazy_static! {
-    /// 250 appears to be unused/unregistered
-    static ref TEST_MDNS_IPV4: IpAddr = Ipv4Addr::new(224,0,0,249).into();
-    /// FA appears to be unused/unregistered
-    static ref TEST_MDNS_IPV6: IpAddr = Ipv6Addr::new(0xFF02, 0, 0, 0, 0, 0, 0, 0x00F9).into();
-}
+/// 250 appears to be unused/unregistered
+static TEST_MDNS_IPV4: Lazy<IpAddr> = Lazy::new(|| Ipv4Addr::new(224, 0, 0, 249).into());
+/// FA appears to be unused/unregistered
+static TEST_MDNS_IPV6: Lazy<IpAddr> =
+    Lazy::new(|| Ipv6Addr::new(0xFF02, 0, 0, 0, 0, 0, 0, 0x00F9).into());
 
 fn mdns_responsder(
     test_name: &'static str,

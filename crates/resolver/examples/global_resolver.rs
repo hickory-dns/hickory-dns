@@ -3,7 +3,7 @@
 #[cfg(all(feature = "tokio-runtime", feature = "system-config"))]
 use {
     futures_util::future,
-    lazy_static::lazy_static,
+    once_cell::sync::Lazy,
     std::fmt::Display,
     std::io,
     std::net::SocketAddr,
@@ -21,71 +21,71 @@ use {
 // TODO: this example can probably be made much simpler with the new
 //      `AsyncResolver`.
 #[cfg(all(feature = "tokio-runtime", feature = "system-config"))]
-lazy_static! {
-    // First we need to setup the global Resolver
-    static ref GLOBAL_DNS_RESOLVER: TokioAsyncResolver = {
-        use std::sync::{Arc, Mutex, Condvar};
-        use std::thread;
+// First we need to setup the global Resolver
+static GLOBAL_DNS_RESOLVER: Lazy<TokioAsyncResolver> = Lazy::new(|| {
+    use std::sync::{Arc, Condvar, Mutex};
+    use std::thread;
 
-        // We'll be using this condvar to get the Resolver from the thread...
-        let pair = Arc::new((Mutex::new(None::<TokioAsyncResolver>), Condvar::new()));
-        let pair2 = pair.clone();
+    // We'll be using this condvar to get the Resolver from the thread...
+    let pair = Arc::new((Mutex::new(None::<TokioAsyncResolver>), Condvar::new()));
+    let pair2 = pair.clone();
 
+    // Spawn the runtime to a new thread...
+    //
+    // This thread will manage the actual resolution runtime
+    thread::spawn(move || {
+        // A runtime for this new thread
+        let runtime = tokio::runtime::Runtime::new().expect("failed to launch Runtime");
 
-        // Spawn the runtime to a new thread...
-        //
-        // This thread will manage the actual resolution runtime
-        thread::spawn(move || {
-            // A runtime for this new thread
-            let runtime = tokio::runtime::Runtime::new().expect("failed to launch Runtime");
+        // our platform independent future, result, see next blocks
+        let resolver = {
+            // To make this independent, if targeting macOS, BSD, Linux, or Windows, we can use the system's configuration:
+            #[cfg(any(unix, windows))]
+            {
+                // use the system resolver configuration
+                TokioAsyncResolver::from_system_conf(TokioRuntimeProvider::new())
+            }
 
-            // our platform independent future, result, see next blocks
-            let resolver = {
+            // For other operating systems, we can use one of the preconfigured definitions
+            #[cfg(not(any(unix, windows)))]
+            {
+                // Directly reference the config types
+                use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
 
-                // To make this independent, if targeting macOS, BSD, Linux, or Windows, we can use the system's configuration:
-                #[cfg(any(unix, windows))]
-                {
-                    // use the system resolver configuration
-                    TokioAsyncResolver::from_system_conf(TokioRuntimeProvider::new())
-                }
+                // Get a new resolver with the google nameservers as the upstream recursive resolvers
+                TokioAsyncResolver::new(
+                    ResolverConfig::google(),
+                    ResolverOpts::default(),
+                    runtime.handle().clone(),
+                )
+            }
+        };
 
-                // For other operating systems, we can use one of the preconfigured definitions
-                #[cfg(not(any(unix, windows)))]
-                {
-                    // Directly reference the config types
-                    use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
+        let (lock, cvar) = &*pair2;
+        let mut started = lock.lock().unwrap();
 
-                    // Get a new resolver with the google nameservers as the upstream recursive resolvers
-                    TokioAsyncResolver::new(ResolverConfig::google(), ResolverOpts::default(), runtime.handle().clone())
-                }
-            };
+        let resolver = resolver.expect("failed to create trust-dns-resolver");
 
-            let (lock, cvar) = &*pair2;
-            let mut started = lock.lock().unwrap();
+        *started = Some(resolver);
+        cvar.notify_one();
+        drop(started);
 
-            let resolver = resolver.expect("failed to create trust-dns-resolver");
+        runtime.block_on(future::poll_fn(|_cx| Poll::<()>::Pending))
+    });
 
-            *started = Some(resolver);
-            cvar.notify_one();
-            drop(started);
+    // Wait for the thread to start up.
+    let (lock, cvar) = &*pair;
+    let mut resolver = lock.lock().unwrap();
+    while resolver.is_none() {
+        resolver = cvar.wait(resolver).unwrap();
+    }
 
-            runtime.block_on(future::poll_fn(|_cx| Poll::<()>::Pending))
-        });
+    // take the started resolver
+    let resolver = std::mem::replace(&mut *resolver, None);
 
-        // Wait for the thread to start up.
-        let (lock, cvar) = &*pair;
-        let mut resolver = lock.lock().unwrap();
-        while resolver.is_none() {
-            resolver = cvar.wait(resolver).unwrap();
-        }
-
-        // take the started resolver
-        let resolver = std::mem::replace(&mut *resolver, None);
-
-        // set the global resolver
-        resolver.expect("resolver should not be none")
-    };
-}
+    // set the global resolver
+    resolver.expect("resolver should not be none")
+});
 
 /// Provide a general purpose resolution function.
 ///

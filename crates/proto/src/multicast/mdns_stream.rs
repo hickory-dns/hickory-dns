@@ -14,7 +14,7 @@ use std::task::{Context, Poll};
 
 use futures_util::stream::{Stream, StreamExt};
 use futures_util::{future, future::Future, ready, FutureExt, TryFutureExt};
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
 use socket2::{self, Socket};
@@ -27,12 +27,16 @@ use crate::xfer::SerialMessage;
 use crate::BufDnsStreamHandle;
 
 pub(crate) const MDNS_PORT: u16 = 5353;
-lazy_static! {
-    /// mDNS ipv4 address https://www.iana.org/assignments/multicast-addresses/multicast-addresses.xhtml
-    pub static ref MDNS_IPV4: SocketAddr = SocketAddr::new(Ipv4Addr::new(224,0,0,251).into(), MDNS_PORT);
-    /// link-local mDNS ipv6 address https://www.iana.org/assignments/ipv6-multicast-addresses/ipv6-multicast-addresses.xhtml
-    pub static ref MDNS_IPV6: SocketAddr = SocketAddr::new(Ipv6Addr::new(0xFF02, 0, 0, 0, 0, 0, 0, 0x00FB).into(), MDNS_PORT);
-}
+/// mDNS ipv4 address https://www.iana.org/assignments/multicast-addresses/multicast-addresses.xhtml
+pub static MDNS_IPV4: Lazy<SocketAddr> =
+    Lazy::new(|| SocketAddr::new(Ipv4Addr::new(224, 0, 0, 251).into(), MDNS_PORT));
+/// link-local mDNS ipv6 address https://www.iana.org/assignments/ipv6-multicast-addresses/ipv6-multicast-addresses.xhtml
+pub static MDNS_IPV6: Lazy<SocketAddr> = Lazy::new(|| {
+    SocketAddr::new(
+        Ipv6Addr::new(0xFF02, 0, 0, 0, 0, 0, 0, 0x00FB).into(),
+        MDNS_PORT,
+    )
+});
 
 /// A UDP stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
@@ -430,12 +434,11 @@ pub(crate) mod tests {
     // TODO: is there a better way?
     const BASE_TEST_PORT: u16 = 5379;
 
-    lazy_static! {
-        /// 250 appears to be unused/unregistered
-        static ref TEST_MDNS_IPV4: IpAddr = Ipv4Addr::new(224,0,0,250).into();
-        /// FA appears to be unused/unregistered
-        static ref TEST_MDNS_IPV6: IpAddr = Ipv6Addr::new(0xFF02, 0, 0, 0, 0, 0, 0, 0x00FA).into();
-    }
+    /// 250 appears to be unused/unregistered
+    static TEST_MDNS_IPV4: Lazy<IpAddr> = Lazy::new(|| Ipv4Addr::new(224, 0, 0, 250).into());
+    /// FA appears to be unused/unregistered
+    static TEST_MDNS_IPV6: Lazy<IpAddr> =
+        Lazy::new(|| Ipv6Addr::new(0xFF02, 0, 0, 0, 0, 0, 0, 0x00FA).into());
 
     // one_shot tests are basically clones from the udp tests
     #[test]

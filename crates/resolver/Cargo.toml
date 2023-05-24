@@ -66,8 +66,8 @@ path = "src/lib.rs"
 #backtrace = { version = "0.3.50", optional = true }
 cfg-if.workspace = true
 futures-util = { workspace = true, default-features = false, features = ["std"] }
-lazy_static.workspace = true
 lru-cache.workspace = true
+once_cell.workspace = true
 parking_lot.workspace = true
 rand.workspace = true
 resolv-conf = { workspace = true, optional = true, features = ["system"] }
