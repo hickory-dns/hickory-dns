@@ -531,11 +531,7 @@ impl<'r> BinDecodable<'r> for Record<RData> {
             //                according to the TYPE and CLASS of the resource record.
             // Adding restrict to the rdata length because it's used for many calculations later
             //  and must be validated before hand
-            Some(RData::read_data(
-                decoder,
-                record_type,
-                Restrict::new(rd_length),
-            )?)
+            Some(RData::read(decoder, record_type, Restrict::new(rd_length))?)
         };
 
         debug_assert!(
