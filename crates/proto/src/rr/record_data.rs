@@ -754,7 +754,7 @@ impl RData {
     }
 
     /// Read data from the decoder
-    pub(crate) fn read_data(
+    pub fn read(
         decoder: &mut BinDecoder<'_>,
         record_type: RecordType,
         length: Restrict<u16>,
@@ -1242,7 +1242,7 @@ mod tests {
             let mut decoder = BinDecoder::new(&binary);
 
             assert_eq!(
-                RData::read_data(
+                RData::read(
                     &mut decoder,
                     record_type_from_rdata(&expect),
                     Restrict::new(length)
