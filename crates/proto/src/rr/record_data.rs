@@ -748,11 +748,6 @@ impl RData {
         }
     }
 
-    /// Returns true if
-    pub fn is_soa(&self) -> bool {
-        matches!(self, RData::SOA(..))
-    }
-
     /// Read data from the decoder
     pub fn read(
         decoder: &mut BinDecoder<'_>,
