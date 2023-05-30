@@ -10,8 +10,8 @@ rust-version = "1.64.0"
 cargo-fuzz = true
 
 [dependencies]
-libfuzzer-sys.workspace = true
-trust-dns-proto.workspace = true
+libfuzzer-sys = "0.4"
+trust-dns-proto = { path = "../crates/proto" }
 
 [[bin]]
 name = "message"
