@@ -420,7 +420,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-proto"
-version = "0.22.0"
+version = "0.23.0-alpha.2"
 dependencies = [
  "async-trait",
  "cfg-if",
