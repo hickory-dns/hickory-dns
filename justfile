@@ -45,6 +45,11 @@ fmt:
     cargo ws exec cargo fmt -- --check
     cargo fmt --manifest-path fuzz/Cargo.toml -- --check
 
+# Audit all depenedencies
+audit: init-audit (check '--all-features')
+    cargo audit --deny warnings
+    cargo audit --file fuzz/Cargo.lock --deny warnings
+
 # Removes the target directory cleaning all built artifacts
 clean:
     rm -rf {{TARGET_DIR}}
@@ -100,6 +105,9 @@ init-cargo-workspaces:
     @cargo ws --version || cargo install cargo-workspaces
 
 
+init-audit:
+    @cargo audit --version || cargo install cargo-audit
+    
 # Initialize all tools needed for running tests, etc.
-init: init-cargo-workspaces
+init: init-cargo-workspaces init-audit init-bind9
     @echo 'all tools initialized'
