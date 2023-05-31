@@ -40,6 +40,11 @@ clippy:
     just clippy-inner
     just clippy-inner --all-features
 
+# Check the format of all the Rust code with rustfmt
+fmt:
+    cargo ws exec cargo fmt -- --check
+    cargo fmt --manifest-path fuzz/Cargo.toml -- --check
+
 # Removes the target directory cleaning all built artifacts
 clean:
     rm -rf {{TARGET_DIR}}
