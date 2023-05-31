@@ -29,6 +29,17 @@ compatibility: init-bind9
 build-bench:
     cargo ws exec cargo +nightly bench --no-run
 
+[private]
+clippy-inner feature='':
+    cargo ws exec cargo clippy --all-targets --benches --examples --bins --tests {{feature}} -- -D warnings
+
+# Run clippy on all targets and all sources
+clippy:
+    find {{justfile_directory()}} -name '*.rs' -exec touch {} \;
+    just clippy-inner --no-default-features
+    just clippy-inner
+    just clippy-inner --all-features
+
 # Removes the target directory cleaning all built artifacts
 clean:
     rm -rf {{TARGET_DIR}}
