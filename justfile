@@ -50,6 +50,9 @@ audit: init-audit (check '--all-features')
     cargo audit --deny warnings
     cargo audit --file fuzz/Cargo.lock --deny warnings
 
+# Task to run clippy, rustfmt, and audit on all crates
+cleanliness: clippy fmt audit
+
 # Removes the target directory cleaning all built artifacts
 clean:
     rm -rf {{TARGET_DIR}}
