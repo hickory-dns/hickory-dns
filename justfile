@@ -7,21 +7,25 @@ BIND_VER := "9.16.41"
 # Default target to check, build, and test all crates
 default feature='': (check feature) (build feature) (test feature)
 
+# Run check on all projects in the workspace
 check feature='':
     cargo ws exec cargo check --all-targets --benches --examples --bins --tests {{feature}}
     cargo check --manifest-path fuzz/Cargo.toml --all-targets --benches --examples --bins --tests
 
+# Run build on all projects in the workspace
 build feature='':
     cargo ws exec cargo build --all-targets --benches --examples --bins --tests {{feature}}
 
+# Run tests on all projects in the workspace
 test feature='':
     cargo ws exec cargo test --all-targets --benches --examples --bins --tests {{feature}}
    
 # This tests compatibility with BIND9, TODO: support other feature sets besides openssl for tests
-compatibility:
+compatibility: init-bind9
     cargo test --manifest-path tests/compatibility-tests/Cargo.toml --all-targets --benches --examples --bins --tests --no-default-features --features=none;
     cargo test --manifest-path tests/compatibility-tests/Cargo.toml --all-targets --benches --examples --bins --tests --no-default-features --features=bind;
 
+# Removes the target directory cleaning all built artifacts
 clean:
     rm -rf {{TARGET_DIR}}
 
@@ -39,12 +43,14 @@ init-bind9-deps:
 
 # Install BIND9, needed for compatability tests
 [unix]
-init-bind9: init-bind9-deps    
+init-bind9:    
     #!/usr/bin/env bash
     set -euxo pipefail
     
     if {{TDNS_BIND_PATH}}/sbin/named -v ; then exit 0 ; fi
     
+    just init-bind9-deps
+
     ## This must run after OpenSSL installation    
     if openssl version ; then WITH_OPENSSL="--with-openssl=$(dirname $(dirname $(which openssl)))" ; fi
     
