@@ -25,6 +25,10 @@ compatibility: init-bind9
     cargo test --manifest-path tests/compatibility-tests/Cargo.toml --all-targets --benches --examples --bins --tests --no-default-features --features=none;
     cargo test --manifest-path tests/compatibility-tests/Cargo.toml --all-targets --benches --examples --bins --tests --no-default-features --features=bind;
 
+# Build all bench marking tools, i.e. check that they work, but don't run
+build-bench:
+    cargo ws exec cargo +nightly bench --no-run
+
 # Removes the target directory cleaning all built artifacts
 clean:
     rm -rf {{TARGET_DIR}}
