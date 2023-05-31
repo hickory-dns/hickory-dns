@@ -1,7 +1,8 @@
 ## Script for executing commands for the project.
-TARGET_DIR := join(justfile_directory(), "target")
-BIND_VER := "9.11.7"
-TDNS_BIND_PATH := join(TARGET_DIR, "bind")
+export TARGET_DIR := join(justfile_directory(), "target")
+export TDNS_BIND_PATH := join(TARGET_DIR, "bind")
+
+BIND_VER := "9.16.41"
 
 # Default target to check, build, and test all crates
 default feature='': (check feature) (build feature) (test feature)
@@ -21,11 +22,14 @@ compatibility:
     cargo test --manifest-path tests/compatibility-tests/Cargo.toml --all-targets --benches --examples --bins --tests --no-default-features --features=none;
     cargo test --manifest-path tests/compatibility-tests/Cargo.toml --all-targets --benches --examples --bins --tests --no-default-features --features=bind;
 
+clean:
+    rm -rf {{TARGET_DIR}}
+
 [private]
 [macos]
 init-bind9-deps:
     pip install ply
-    brew install openssl
+    brew install openssl@1.1
     brew install wget
 
 [private]
@@ -33,9 +37,9 @@ init-bind9-deps:
 init-bind9-deps:
     if apt-get --version ; then sudo apt-get install -y python3-ply ; fi
 
-# Install BIND9
+# Install BIND9, needed for compatability tests
 [unix]
-init-bind9: init-bind9-deps
+init-bind9: init-bind9-deps    
     #!/usr/bin/env bash
     set -euxo pipefail
     
@@ -48,9 +52,10 @@ init-bind9: init-bind9-deps
     
     echo "----> downloading bind"
     rm -rf {{TARGET_DIR}}/bind-{{BIND_VER}}
-    wget -O {{TARGET_DIR}}/bind-{{BIND_VER}}.tar.gz https://downloads.isc.org/isc/bind9/{{BIND_VER}}/bind-{{BIND_VER}}.tar.gz
-    ls -la {{TARGET_DIR}}/bind-{{BIND_VER}}.tar.gz
-    tar -xzf {{TARGET_DIR}}/bind-{{BIND_VER}}.tar.gz -C {{TARGET_DIR}}
+    wget -O {{TARGET_DIR}}/bind-{{BIND_VER}}.tar.xz https://downloads.isc.org/isc/bind9/{{BIND_VER}}/bind-{{BIND_VER}}.tar.xz
+
+    ls -la {{TARGET_DIR}}/bind-{{BIND_VER}}.tar.xz
+    tar -xJf {{TARGET_DIR}}/bind-{{BIND_VER}}.tar.xz -C {{TARGET_DIR}}
     
     echo "----> compiling bind"
     cd {{TARGET_DIR}}/bind-{{BIND_VER}}
@@ -59,10 +64,10 @@ init-bind9: init-bind9-deps
     make install
     cd -
     
-    ${TDNS_BIND_PATH}/sbin/named -v
+    {{TDNS_BIND_PATH}}/sbin/named -v
     
-    rm ${TARGET_DIR:?}/bind-${BIND_VER}.tar.gz
-    rm -rf ${TARGET_DIR:?}/bind-${BIND_VER}
+    rm {{TARGET_DIR}}/bind-{{BIND_VER}}.tar.xz
+    rm -rf {{TARGET_DIR}}/bind-{{BIND_VER}}
 
 # Check for the cargo-workspaces command, install if it does not exist
 init-cargo-workspaces:
