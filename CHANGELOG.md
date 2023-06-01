@@ -82,6 +82,12 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (client) client: rm zone parse optional class arg.
 - (proto) Implement EDNS Client Subnet ECS reading and writing #1906 by mokeyish
 
+## 0.22.1
+
+### Fixed
+
+- (server) drop response messages #1952 by @djc
+
 ## 0.22.0
 
 ### Removed
