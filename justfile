@@ -101,6 +101,10 @@ coverage: init-llvm-cov
     mkdir -p {{TARGET_COV_DIR}}
     cargo +nightly llvm-cov report --codecov --output-path {{join(TARGET_COV_DIR, "trust-dns-coverage.json")}}
 
+# Publish all crates
+publish:
+    cargo ws publish --from-git --token $CRATES_IO_TOKEN
+
 # Removes the target directory cleaning all built artifacts
 clean:
     rm -rf {{TARGET_DIR}}
