@@ -15,25 +15,25 @@ all-features: (default "--all-features")
 no-default-features: (default "--no-default-features")
 
 # Check, build, and test all crates with dns-over-rustls enabled
-dns-over-rustls: (default "--features=dns-over-rustls" "--ignore=async-std-resolver,trust-dns-compatibility")
+dns-over-rustls: (default "--features=dns-over-rustls" "--ignore=\\{async-std-resolver,trust-dns-compatibility\\}")
 
 # Check, build, and test all crates with dns-over-https-rustls enabled
-dns-over-https-rustls: (default "--features=dns-over-https-rustls" "--ignore=async-std-resolver,trust-dns-compatibility")
+dns-over-https-rustls: (default "--features=dns-over-https-rustls" "--ignore=\\{async-std-resolver,trust-dns-compatibility\\}")
 
 # Check, build, and test all crates with dns-over-quic enabled
-dns-over-quic: (default "--features=dns-over-quic" "--ignore=async-std-resolver,trust-dns-compatibility")
+dns-over-quic: (default "--features=dns-over-quic" "--ignore=\\{async-std-resolver,trust-dns-compatibility\\}")
 
 # Check, build, and test all crates with dns-over-native-tls enabled
-dns-over-native-tls: (default "--features=dns-over-native-tls" "--ignore=async-std-resolver,trust-dns-compatibility,trust-dns-server,trust-dns,trust-dns-util,trust-dns-integration")
+dns-over-native-tls: (default "--features=dns-over-native-tls" "--ignore=\\{async-std-resolver,trust-dns-compatibility,trust-dns-server,trust-dns,trust-dns-util,trust-dns-integration\\}")
 
 # Check, build, and test all crates with dns-over-openssl enabled
-dns-over-openssl: (default "--features=dnssec-openssl" "--ignore=async-std-resolver,trust-dns-compatibility")
+dns-over-openssl: (default "--features=dnssec-openssl" "--ignore=\\{async-std-resolver,trust-dns-compatibility\\}")
 
 # Check, build, and test all crates with dnssec-openssl enabled
-dnssec-openssl: (default "--features=dnssec-openssl" "--ignore=async-std-resolver,trust-dns-compatibility")
+dnssec-openssl: (default "--features=dnssec-openssl" "--ignore=\\{async-std-resolver,trust-dns-compatibility\\}")
 
 # Check, build, and test all crates with dnssec-ring enabled
-dnssec-ring: (default "--features=dnssec-ring" "--ignore=async-std-resolver,trust-dns-compatibility")
+dnssec-ring: (default "--features=dnssec-ring" "--ignore=\\{async-std-resolver,trust-dns-compatibility\\}")
 
 # Run check on all projects in the workspace
 check feature='' ignore='':
