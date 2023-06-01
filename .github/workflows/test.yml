@@ -32,6 +32,11 @@ jobs:
       
       - uses: extractions/setup-just@v1
 
+      - name: cargo install cargo-workspaces
+        uses: baptiste0928/cargo-install@v2
+        with:
+          crate: cargo-workspaces
+
       - name: just all-features
         run: just all-features
 
@@ -94,6 +99,11 @@ jobs:
       
       - uses: extractions/setup-just@v1
 
+      - name: cargo install cargo-workspaces
+        uses: baptiste0928/cargo-install@v2
+        with:
+          crate: cargo-workspaces
+
       - name: just
         run: just ${{ matrix.feature }}
 
@@ -117,6 +127,11 @@ jobs:
           override: true
       
       - uses: extractions/setup-just@v1
+
+      - name: cargo install cargo-workspaces
+        uses: baptiste0928/cargo-install@v2
+        with:
+          crate: cargo-workspaces
 
       - name: just no-default-features
         run: just no-default-features
@@ -152,6 +167,11 @@ jobs:
       
       - uses: extractions/setup-just@v1
 
+      - name: cargo install cargo-workspaces
+        uses: baptiste0928/cargo-install@v2
+        with:
+          crate: cargo-workspaces
+
       # Clippy
       - name: just clippy
         run: just clippy
@@ -183,10 +203,10 @@ jobs:
         uses: actions/cache@v3
         with:
           path: target/bind
-          key: ${{ runner.os }}-bind-${{ hashFiles('**/Makefile.toml') }}
+          key: ${{ runner.os }}-bind-${{ hashFiles('**/justfile') }}
           restore-keys: |
-            ${{ runner.os }}-bind-${{ hashFiles('**/Makefile.toml') }}
+            ${{ runner.os }}-bind-${{ hashFiles('**/justfile') }}
             ${{ runner.os }}-bind
 
-      - name: just bind-compatibility
-        run: just bind-compatibility
+      - name: just compatibility
+        run: just compatibility

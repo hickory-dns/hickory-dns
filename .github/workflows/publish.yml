@@ -22,7 +22,12 @@ jobs:
         override: true
 
     - uses: extractions/setup-just@v1
-      
+
+    - name: cargo install cargo-workspaces
+      uses: baptiste0928/cargo-install@v2
+      with:
+        crate: cargo-workspaces
+
     - name: just publish
       env:
         CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
