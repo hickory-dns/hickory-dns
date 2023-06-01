@@ -12,9 +12,6 @@ on:
   schedule:
     - cron: "0 3 * * 4"
 
-env:
-  CARGO_MAKE_VERSION: "0.36.6"
-
 jobs:
   ## Run all default oriented feature sets across all platforms.
   platform-matrix:
@@ -32,24 +29,31 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: davidB/rust-cargo-make@v1
+      
+      - uses: extractions/setup-just@v1
+
+      - name: just all-features
+        run: just all-features
+
+  ## Run all default oriented feature sets across all platforms.
+  code-coverage:
+    name: coverage
+    needs: platform-matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions-rs/toolchain@v1
         with:
-          version: ${{ env.CARGO_MAKE_VERSION }}
+          profile: minimal
+          toolchain: nightly
+          override: true
+          components: llvm-tools-preview
+      
+      - uses: extractions/setup-just@v1
 
-      - name: cargo make all-features
-        run: cargo make all-features
-
-      - name: target/kcov cache
-        uses: actions/cache@v3
-        with:
-          path: target/kcov
-          key: ${{ runner.os }}-kcov-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-kcov-${{ hashFiles('**/Cargo.toml') }}
-            ${{ runner.os }}-kcov
-
-      - name: cargo make coverage
-        run: cargo make coverage --env="FEATURES=--all-features"
+      - name: just coverage
+        run: just coverage
 
       - name: upload coverage
         if: matrix.os == 'ubuntu-latest'
@@ -87,29 +91,11 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: davidB/rust-cargo-make@v1
-        with:
-          version: ${{ env.CARGO_MAKE_VERSION }}
+      
+      - uses: extractions/setup-just@v1
 
-      - name: cargo make
-        run: cargo make ${{ matrix.feature }}
-
-      - name: target/kcov cache
-        uses: actions/cache@v3
-        with:
-          path: target/kcov
-          key: ${{ runner.os }}-kcov-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-kcov-${{ hashFiles('**/Cargo.toml') }}
-            ${{ runner.os }}-kcov
-
-      - name: cargo make coverage
-        run: cargo make coverage --env=FEATURES="--features ${{ matrix.feature }}"
-
-      - name: upload coverage
-        uses: codecov/codecov-action@v3
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+      - name: just
+        run: just ${{ matrix.feature }}
 
   ## Check past and future versions
   ##   this enforces the minimum version of rust this project works with
@@ -129,16 +115,15 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.version }}
           override: true
-      - uses: davidB/rust-cargo-make@v1
-        with:
-          version: ${{ env.CARGO_MAKE_VERSION }}
+      
+      - uses: extractions/setup-just@v1
 
-      - name: cargo make no-default-features
-        run: cargo make no-default-features
+      - name: just no-default-features
+        run: just no-default-features
 
-      - name: cargo make build-bench
+      - name: just build-bench
         if: matrix.version == 'nightly'
-        run: cargo make build-bench
+        run: just build-bench
 
   ## Execute the clippy checks
   cleanliness:
@@ -164,19 +149,18 @@ jobs:
           toolchain: stable
           components: rustfmt, clippy
           override: true
-      - uses: davidB/rust-cargo-make@v1
-        with:
-          version: ${{ env.CARGO_MAKE_VERSION }}
+      
+      - uses: extractions/setup-just@v1
 
       # Clippy
-      - name: cargo make clippy
-        run: cargo make clippy
+      - name: just clippy
+        run: just clippy
       # Rustfmt
-      - name: cargo make fmt
-        run: cargo make fmt
+      - name: just fmt
+        run: just fmt
       # Audit
       - name: cargo audit
-        run: cargo make audit
+        run: just audit
 
   # Build and run bind to test our compatibility with standard name servers
   compatibility:
@@ -192,9 +176,8 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: davidB/rust-cargo-make@v1
-        with:
-          version: ${{ env.CARGO_MAKE_VERSION }}
+      
+      - uses: extractions/setup-just@v1
 
       - name: target/bind cache
         uses: actions/cache@v3
@@ -205,5 +188,5 @@ jobs:
             ${{ runner.os }}-bind-${{ hashFiles('**/Makefile.toml') }}
             ${{ runner.os }}-bind
 
-      - name: cargo make bind-compatibility
-        run: cargo make bind-compatibility
+      - name: just bind-compatibility
+        run: just bind-compatibility

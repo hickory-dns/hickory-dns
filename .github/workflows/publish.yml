@@ -5,9 +5,6 @@ on:
     types:
       - published
 
-env:
-  CARGO_MAKE_VERSION: '0.36.6'
-
 jobs:
   publish:
     name: publish
@@ -23,11 +20,10 @@ jobs:
         profile: minimal
         toolchain: stable
         override: true
-    - uses: davidB/rust-cargo-make@v1
-      with:
-        version: ${{ env.CARGO_MAKE_VERSION }}
-    
-    - name: cargo make publish
+
+    - uses: extractions/setup-just@v1
+      
+    - name: just publish
       env:
         CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
-      run: cargo make publish
+      run: just publish
