@@ -34,6 +34,7 @@
     unreachable_pub
 )]
 #![recursion_limit = "128"]
+#![allow(clippy::redundant_clone)]
 
 use std::{
     env, fmt,

@@ -6,7 +6,6 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::env;
-use std::mem;
 use std::process::{Command, Stdio};
 
 use super::*;
@@ -47,7 +46,7 @@ pub fn named_process() -> (NamedProcess, u16) {
         .expect("failed to start named");
 
     //
-    let stderr = mem::replace(&mut named.stderr, None).unwrap();
+    let stderr = named.stderr.take().unwrap();
     let process = wrap_process(working_dir, named, stderr, "running\n");
     (process, test_port)
 }

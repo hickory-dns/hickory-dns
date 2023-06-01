@@ -81,7 +81,7 @@ static GLOBAL_DNS_RESOLVER: Lazy<TokioAsyncResolver> = Lazy::new(|| {
     }
 
     // take the started resolver
-    let resolver = std::mem::replace(&mut *resolver, None);
+    let resolver = resolver.take();
 
     // set the global resolver
     resolver.expect("resolver should not be none")

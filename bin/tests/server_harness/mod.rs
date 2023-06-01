@@ -3,7 +3,6 @@ pub mod mut_message_client;
 use std::{
     env,
     io::{stdout, BufRead, BufReader, Write},
-    mem,
     panic::{catch_unwind, UnwindSafe},
     process::{Command, Stdio},
     str::FromStr,
@@ -64,7 +63,7 @@ where
 
     println!("server starting");
 
-    let mut named_out = BufReader::new(mem::replace(&mut named.stdout, None).expect("no stdout"));
+    let mut named_out = BufReader::new(named.stdout.take().expect("no stdout"));
 
     // forced thread killer
     let named = Arc::new(Mutex::new(named));
