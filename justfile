@@ -1,6 +1,7 @@
 ## Script for executing commands for the project.
 export TARGET_DIR := join(justfile_directory(), "target")
 export TDNS_BIND_PATH := join(TARGET_DIR, "bind")
+export TARGET_COV_DIR := join(TARGET_DIR, "llvm-cov-target")
 
 BIND_VER := "9.16.41"
 
@@ -52,6 +53,26 @@ audit: init-audit (check '--all-features')
 
 # Task to run clippy, rustfmt, and audit on all crates
 cleanliness: clippy fmt audit
+
+# Generate coverage report
+coverage: init-llvm-cov
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    
+    export CARGO_LLVM_COV_TARGET_DIR={{TARGET_COV_DIR}}
+    export LLVM_PROFILE_FILE={{join(TARGET_COV_DIR, "trust-dns-%p-%m.profraw")}}
+    
+    source <(cargo llvm-cov show-env --export-prefix)
+    
+    echo $RUSTFLAGS
+    
+    cargo +nightly llvm-cov clean
+    cargo +nightly build --workspace --all-targets --all-features 
+    cargo +nightly llvm-cov --workspace --no-report --all-targets --benches --examples --bins --tests --all-features
+    cargo +nightly llvm-cov --workspace --no-report --doc --doctests --all-features
+
+    mkdir -p {{TARGET_COV_DIR}}
+    cargo +nightly llvm-cov report --codecov --output-path {{join(TARGET_COV_DIR, "trust-dns-coverage.json")}}
 
 # Removes the target directory cleaning all built artifacts
 clean:
@@ -110,7 +131,11 @@ init-cargo-workspaces:
 
 init-audit:
     @cargo audit --version || cargo install cargo-audit
-    
+
+init-llvm-cov:
+    @cargo llvm-cov --version || cargo install cargo-llvm-cov
+    @rustup component add llvm-tools-preview --toolchain stable-x86_64-apple-darwin
+
 # Initialize all tools needed for running tests, etc.
 init: init-cargo-workspaces init-audit init-bind9
     @echo 'all tools initialized'
