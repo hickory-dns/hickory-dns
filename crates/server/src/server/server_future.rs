@@ -16,7 +16,7 @@ use futures_util::{FutureExt, StreamExt};
 use rustls::{Certificate, PrivateKey};
 use tokio::{net, task::JoinSet};
 use tracing::{debug, info, warn};
-use trust_dns_proto::rr::Record;
+use trust_dns_proto::{op::MessageType, rr::Record};
 
 #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 use crate::proto::openssl::tls_server::*;
@@ -799,6 +799,11 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
 
     // method to handle the request
     let inner_handle_request = |message: MessageRequest, response_handler: R| async move {
+        if message.message_type() == MessageType::Response {
+            // Don't process response messages to avoid DoS attacks from reflection.
+            return;
+        }
+
         let id = message.id();
         let qflags = message.header().flags();
         let qop_code = message.op_code();
