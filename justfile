@@ -5,21 +5,48 @@ export TARGET_COV_DIR := join(TARGET_DIR, "llvm-cov-target")
 
 BIND_VER := "9.16.41"
 
-# Default target to check, build, and test all crates
-default feature='': (check feature) (build feature) (test feature)
+# Check, build, and test all crates with default features enabled
+default feature='' ignore='': (check feature ignore) (build feature ignore) (test feature ignore)
+
+# Check, build, and test all crates with all-features enabled
+all-features: (default "--all-features")
+
+# Check, build, and test all crates with no-default-features
+no-default-features: (default "--no-default-features")
+
+# Check, build, and test all crates with dns-over-rustls enabled
+dns-over-rustls: (default "--features=dns-over-rustls" "--ignore=async-std-resolver,trust-dns-compatibility")
+
+# Check, build, and test all crates with dns-over-https-rustls enabled
+dns-over-https-rustls: (default "--features=dns-over-https-rustls" "--ignore=async-std-resolver,trust-dns-compatibility")
+
+# Check, build, and test all crates with dns-over-quic enabled
+dns-over-quic: (default "--features=dns-over-quic" "--ignore=async-std-resolver,trust-dns-compatibility")
+
+# Check, build, and test all crates with dns-over-native-tls enabled
+dns-over-native-tls: (default "--features=dns-over-native-tls" "--ignore=async-std-resolver,trust-dns-compatibility,trust-dns-server,trust-dns,trust-dns-util,trust-dns-integration")
+
+# Check, build, and test all crates with dns-over-openssl enabled
+dns-over-openssl: (default "--features=dnssec-openssl" "--ignore=async-std-resolver,trust-dns-compatibility")
+
+# Check, build, and test all crates with dnssec-openssl enabled
+dnssec-openssl: (default "--features=dnssec-openssl" "--ignore=async-std-resolver,trust-dns-compatibility")
+
+# Check, build, and test all crates with dnssec-ring enabled
+dnssec-ring: (default "--features=dnssec-ring" "--ignore=async-std-resolver,trust-dns-compatibility")
 
 # Run check on all projects in the workspace
-check feature='':
-    cargo ws exec cargo check --all-targets --benches --examples --bins --tests {{feature}}
+check feature='' ignore='':
+    cargo ws exec {{ignore}} cargo check --all-targets --benches --examples --bins --tests {{feature}}
     cargo check --manifest-path fuzz/Cargo.toml --all-targets --benches --examples --bins --tests
 
 # Run build on all projects in the workspace
-build feature='':
-    cargo ws exec cargo build --all-targets --benches --examples --bins --tests {{feature}}
+build feature='' ignore='':
+    cargo ws exec {{ignore}} cargo build --all-targets --benches --examples --bins --tests {{feature}}
 
 # Run tests on all projects in the workspace
-test feature='':
-    cargo ws exec cargo test --all-targets --benches --examples --bins --tests {{feature}}
+test feature='' ignore='':
+    cargo ws exec {{ignore}} cargo test --all-targets --benches --examples --bins --tests {{feature}}
    
 # This tests compatibility with BIND9, TODO: support other feature sets besides openssl for tests
 compatibility: init-bind9
