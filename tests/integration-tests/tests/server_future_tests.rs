@@ -181,6 +181,40 @@ fn test_server_form_error_on_multiple_queries() {
     server_thread.join().unwrap();
 }
 
+#[test]
+fn test_server_no_response_on_response() {
+    let runtime = Runtime::new().expect("failed to create Tokio Runtime");
+    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
+    let udp_socket = runtime.block_on(UdpSocket::bind(&addr)).unwrap();
+
+    let ipaddr = udp_socket.local_addr().unwrap();
+    println!("udp_socket on port: {}", ipaddr);
+    let server_continue = Arc::new(AtomicBool::new(true));
+    let server_continue2 = server_continue.clone();
+
+    let server_thread = thread::Builder::new()
+        .name("test_server:udp:server".to_string())
+        .spawn(move || server_thread_udp(runtime, udp_socket, server_continue2))
+        .unwrap();
+
+    let conn = UdpClientConnection::new(ipaddr).unwrap();
+    let client = SyncClient::new(conn);
+
+    // build the message
+    let query_a = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+    let mut message = Message::new();
+    message
+        .set_message_type(MessageType::Response)
+        .set_op_code(OpCode::Query)
+        .add_query(query_a);
+
+    let client_result = client.send(message);
+    assert_eq!(client_result.len(), 0);
+
+    server_continue.store(false, Ordering::Relaxed);
+    server_thread.join().unwrap();
+}
+
 #[cfg(feature = "dns-over-rustls")]
 #[allow(unused)]
 fn read_file(path: &str) -> Vec<u8> {
