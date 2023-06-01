@@ -5,6 +5,12 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.22.1
+
+### Fixed
+
+- (server) drop response messages #1952 by @djc
+
 ## 0.22.0
 
 ### Removed
