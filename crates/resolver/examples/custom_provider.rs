@@ -102,3 +102,8 @@ async fn main() {
 fn main() {
     println!("tokio-runtime feature must be enabled")
 }
+
+#[test]
+fn test_custom_provider() {
+    main()
+}

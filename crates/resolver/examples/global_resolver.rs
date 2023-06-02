@@ -155,3 +155,8 @@ fn main() {
 fn main() {
     println!("tokio-runtime and system-config feature must be enabled")
 }
+
+#[test]
+fn test_global_resolver() {
+    main()
+}

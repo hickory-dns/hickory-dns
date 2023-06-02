@@ -5,6 +5,9 @@ on:
     types:
       - published
 
+env:
+  CARGO_WS_VERSION: "0.2.42"
+
 jobs:
   publish:
     name: publish
@@ -27,6 +30,8 @@ jobs:
       uses: baptiste0928/cargo-install@v2
       with:
         crate: cargo-workspaces
+        version: ${{ env.CARGO_WS_VERSION }}
+
 
     - name: just publish
       env:
