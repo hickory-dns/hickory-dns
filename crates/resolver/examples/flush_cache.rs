@@ -97,3 +97,8 @@ async fn resolve_list<P: trust_dns_resolver::name_server::RuntimeProvider>(
 fn main() {
     println!("tokio-runtime feature must be enabled")
 }
+
+#[test]
+fn test_flush_cache() {
+    main()
+}

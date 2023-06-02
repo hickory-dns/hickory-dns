@@ -12,6 +12,9 @@ on:
   schedule:
     - cron: "0 3 * * 4"
 
+env:
+  CARGO_WS_VERSION: "0.2.42"
+
 jobs:
   ## Run all default oriented feature sets across all platforms.
   platform-matrix:
@@ -36,6 +39,7 @@ jobs:
         uses: baptiste0928/cargo-install@v2
         with:
           crate: cargo-workspaces
+          version: ${{ env.CARGO_WS_VERSION }}
 
       - name: just all-features
         run: just all-features
@@ -82,7 +86,7 @@ jobs:
         #   feature: [default-features, no-default-features, dns-over-rustls, dns-over-https-rustls, dns-over-native-tls, dns-over-openssl, dnssec-openssl, dnssec-ring, mdns, async-std]
         feature:
           [
-            default-features,
+            default,
             no-default-features,
             dns-over-rustls,
             dns-over-https-rustls,
@@ -106,6 +110,7 @@ jobs:
         uses: baptiste0928/cargo-install@v2
         with:
           crate: cargo-workspaces
+          version: ${{ env.CARGO_WS_VERSION }}
 
       - name: just
         run: just ${{ matrix.feature }}
@@ -135,6 +140,7 @@ jobs:
         uses: baptiste0928/cargo-install@v2
         with:
           crate: cargo-workspaces
+          version: ${{ env.CARGO_WS_VERSION }}
 
       - name: just no-default-features
         run: just no-default-features
@@ -174,6 +180,7 @@ jobs:
         uses: baptiste0928/cargo-install@v2
         with:
           crate: cargo-workspaces
+          version: ${{ env.CARGO_WS_VERSION }}
 
       # Clippy
       - name: just clippy
