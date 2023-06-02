@@ -13,7 +13,7 @@ default feature='' ignore='': (check feature ignore) (build feature ignore) (tes
 all-features: (default "--all-features")
 
 # Check, build, and test all crates with no-default-features
-no-default-features: (default "--no-default-features")
+no-default-features: (default "--no-default-features" "--ignore=\\{trust-dns-compatibility\\}")
 
 # Check, build, and test all crates with dns-over-rustls enabled
 dns-over-rustls: (default "--features=dns-over-rustls" "--ignore=\\{async-std-resolver,trust-dns-compatibility\\}")
