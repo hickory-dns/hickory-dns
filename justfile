@@ -159,7 +159,6 @@ init-bind9:
 init-cargo-workspaces:
     @cargo ws --version || cargo install cargo-workspaces
 
-
 init-audit:
     @cargo audit --version || cargo install cargo-audit
 

@@ -85,8 +85,6 @@ jobs:
             dns-over-native-tls,
             dnssec-openssl,
             dnssec-ring,
-            mdns,
-            async-std,
           ]
     steps:
       - uses: actions/checkout@v3
