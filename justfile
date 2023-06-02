@@ -164,7 +164,7 @@ init-audit:
 
 init-llvm-cov:
     @cargo llvm-cov --version || cargo install cargo-llvm-cov
-    @rustup component add llvm-tools-preview --toolchain stable-x86_64-apple-darwin
+    @rustup component add llvm-tools-preview
 
 # Initialize all tools needed for running tests, etc.
 init: init-cargo-workspaces init-audit init-bind9
