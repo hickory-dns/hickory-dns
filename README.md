@@ -197,7 +197,7 @@ presume that the trust-dns repos have already been synced to the local system:
 
 ## Testing
 
-Trust-DNS uses `cargo-make` for build workflow management. While running `cargo test` at the project root will work, this is not exhaustive. Install `cargo-make` with `cargo install cargo-make`.
+Trust-DNS uses `just` for build workflow management. While running `cargo test` at the project root will work, this is not exhaustive. Install `just` with `cargo install just`.
 
 - Default tests
 
@@ -206,7 +206,7 @@ Trust-DNS uses `cargo-make` for build workflow management. While running `cargo 
   be run from the crate directory, i.e. `client` or `server` and `cargo test`
 
 ```shell
-cargo make
+just default
 ```
 
 - Default feature tests
@@ -214,15 +214,15 @@ cargo make
   Trust-DNS has many features, to quickly test with them or without, there are three targets supported, `default`, `no-default-features`, `all-features`:
 
 ```shell
-cargo make all-features
+just all-features
 ```
 
 - Individual feature tests
 
-  Trust-DNS has many features, each individual feature can be tested in dependently, see individual crates for all their features, here is a not necessarily up to date list: `dns-over-rustls`, `dns-over-https-rustls`, `dns-over-native-tls`, `dns-over-openssl`, `dns-dnssec-openssl`, `dns-dnssec-openssl`, `dns-dnssec-ring`, `mdns`. Each feature can be tested with itself as the task target for `cargo-make`:
+  Trust-DNS has many features, each individual feature can be tested in dependently, see individual crates for all their features, here is a not necessarily up to date list: `dns-over-rustls`, `dns-over-https-rustls`, `dns-over-native-tls`, `dns-over-openssl`, `dns-dnssec-openssl`, `dns-dnssec-openssl`, `dns-dnssec-ring`, `mdns`. Each feature can be tested with itself as the task target for `just`:
 
 ```shell
-cargo make dns-over-https-rustls
+just dns-over-https-rustls
 ```
 
 - Benchmarks
