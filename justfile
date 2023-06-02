@@ -2,6 +2,7 @@
 export TARGET_DIR := join(justfile_directory(), "target")
 export TDNS_BIND_PATH := join(TARGET_DIR, "bind")
 export TARGET_COV_DIR := join(TARGET_DIR, "llvm-cov-target")
+export TEST_DATA := join(join(justfile_directory(), "tests"), "test-data")
 
 BIND_VER := "9.16.41"
 
@@ -101,6 +102,11 @@ coverage: init-llvm-cov
     mkdir -p {{TARGET_COV_DIR}}
     cargo +nightly llvm-cov report --codecov --output-path {{join(TARGET_COV_DIR, "trust-dns-coverage.json")}}
 
+# (Re)generates Test Certificates, if tests are failing, this needs to be run yearly
+generate-test-certs: init-openssl
+    cd {{TEST_DATA}} && rm ca.key ca.pem cert.key cert.csr cert.pem cert.p12
+    scripts/gen_certs.sh
+
 # Publish all crates
 publish:
     cargo ws publish --from-git --token $CRATES_IO_TOKEN
@@ -111,9 +117,18 @@ clean:
 
 [private]
 [macos]
-init-bind9-deps:
+init-openssl:
+    openssl version || brew install openssl@1.1
+
+[private]
+[linux]
+init-openssl:
+    openssl version
+
+[private]
+[macos]
+init-bind9-deps: init-openssl
     pip install ply
-    brew install openssl@1.1
     brew install wget
 
 [private]
@@ -159,9 +174,11 @@ init-bind9:
 init-cargo-workspaces:
     @cargo ws --version || cargo install cargo-workspaces
 
+# Install audit tools
 init-audit:
     @cargo audit --version || cargo install cargo-audit
 
+# Install the code coverage components for LLVM
 init-llvm-cov:
     @cargo llvm-cov --version || cargo install cargo-llvm-cov
     @rustup component add llvm-tools-preview

@@ -1,8 +1,8 @@
 # !/bin/bash
 
-set -e
+set -euxo pipefail
 
-OPENSSL=/usr/bin/openssl
+OPENSSL=openssl
 
 trust_dns_dir=$(dirname $0)/..
 
