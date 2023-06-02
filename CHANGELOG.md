@@ -9,6 +9,9 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Fixed
 
+- (server) Merge up deny response in requests to server #1954
+- (proto) remove duplicate is_soa function #1948 by mattsse
+- (resolver) Fix minimal tokio version requirement #1931 by Gelbpunkt
 - (all) Fix bench errors in rust-analyzer #1777 by jeff-hiner
 - (all) Regenerate the test SSL certificates #1781 by ssinger
 - (all) Fix some spelling errors #1783 by nhurley3
@@ -39,6 +42,12 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Changed
 
+- (all) Bump log to v0.4.18 #1949 by daxpedda
+- (proto) Make RData::read() API public #1945 by djc
+- (all) Replace lazy_static with once_cell #1944 by daxpedda
+- (resolver) Return Self from AsyncResolver::new() #1942 by daxpedda
+- (all) Use default-features = false for quinn #1941 by daxpedda
+- (all) remove the direct dependency to quinn-udp #1935 by zh-jq
 - (resolver) Order name servers by SRTT #1784 by nhurley3
 - (resolver) resolver: use errors' Display impl #1785 by hdhoang
 - (proto) NameIter use a u8 for start/end. #1787 by darnuria
@@ -74,6 +83,8 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Added
 
+- (resolver) add test for connecting DoH with pure IP Address #1936 by mokeyish
+- (resolver) add NameServerConfigGroup::from_ips_quic #1929 by zh-jq
 - (resolve) Add --reverse, --file and --interval to util/resolve #1807 by cunha
 - (client) TSIG documenting client tsig code + update rfc link #1810 by darnuria
 - (client) Create dedicated Errors types for Tsig error case #1811 by darnuria
