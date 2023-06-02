@@ -57,7 +57,7 @@ jobs:
       
       - uses: extractions/setup-just@v1
 
-      - name: cargo install cargo-workspaces
+      - name: cargo install cargo-llvm-cov
         uses: baptiste0928/cargo-install@v2
         with:
           crate: cargo-llvm-cov
