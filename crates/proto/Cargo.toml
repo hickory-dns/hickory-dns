@@ -1,9 +1,5 @@
 [package]
 name = "trust-dns-proto"
-version = "0.22.0"
-edition = "2021"
-rust-version = "1.64.0"
-authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
@@ -13,23 +9,20 @@ Trust-DNS is a safe and secure DNS library. This is the foundational DNS protoco
 
 # These URLs point to more information about the repository
 documentation = "https://docs.rs/trust-dns-proto"
-homepage = "https://trust-dns.org/"
-repository = "https://github.com/bluejekyll/trust-dns"
 
 # This points to a file in the repository (relative to this Cargo.toml). The
 # contents of this file are stored and indexed in the registry.
 readme = "README.md"
 
-# This is a small list of keywords used to categorize and search for this
-# package.
-keywords = ["DNS", "BIND", "dig", "named", "dnssec"]
-categories = ["network-programming"]
-
-# This is a string description of the license for this package. Currently
-# crates.io will validate the license provided against a whitelist of known
-# license identifiers from http://spdx.org/licenses/. Multiple licenses can
-# be separated with a `/`
-license = "MIT/Apache-2.0"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+license.workspace = true
 
 [badges]
 #github-actions = { repository = "bluejekyll/trust-dns", branch = "main", workflow = "test" }
@@ -45,7 +38,7 @@ dns-over-openssl = ["dns-over-tls", "openssl", "tokio-openssl", "tokio-runtime"]
 dns-over-https-rustls = ["dns-over-https"]
 dns-over-https = ["bytes", "h2", "http", "dns-over-rustls", "webpki-roots", "tokio-runtime"]
 
-dns-over-quic = ["quinn", "quinn-udp","rustls/quic", "dns-over-rustls", "bytes", "webpki-roots", "tokio-runtime"]
+dns-over-quic = ["quinn", "rustls/quic", "dns-over-rustls", "bytes", "webpki-roots", "tokio-runtime"]
 
 dnssec-openssl = ["dnssec", "openssl"]
 dnssec-ring = ["dnssec", "ring"]
@@ -88,11 +81,10 @@ http = { workspace = true, optional = true }
 idna.workspace = true
 ipnet.workspace = true
 js-sys = { workspace = true, optional = true }
-lazy_static.workspace = true
 native-tls = { workspace = true, optional = true }
+once_cell.workspace = true
 openssl = { workspace = true, features = ["v102", "v110"], optional = true }
-quinn = { workspace = true, optional = true }
-quinn-udp = {workspace = true, optional = true}
+quinn = { workspace = true, optional = true, features = ["log", "runtime-tokio", "tls-rustls"] }
 rand.workspace = true
 ring = { workspace = true, optional = true, features = ["std"] }
 rustls = { workspace = true, optional = true }
@@ -108,7 +100,7 @@ tokio-native-tls = { workspace = true, optional = true }
 tokio-openssl = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true, features = ["early-data"] }
 url.workspace = true
-wasm-bindgen-crate = { workspace = true, optional = true, package = "wasm-bindgen" }
+wasm-bindgen-crate = { workspace = true, optional = true }
 webpki = { workspace = true, optional = true }
 webpki-roots = { workspace = true, optional = true }
 

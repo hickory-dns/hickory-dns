@@ -125,7 +125,7 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
             R::Timer,
         >,
     ),
-    #[cfg(feature = "dns-over-tls")]
+    #[cfg(all(feature = "dns-over-tls", feature = "tokio-runtime"))]
     Tls(
         DnsExchangeConnect<
             DnsMultiplexerConnect<
@@ -147,9 +147,9 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
             TokioTime,
         >,
     ),
-    #[cfg(feature = "dns-over-https")]
+    #[cfg(all(feature = "dns-over-https", feature = "tokio-runtime"))]
     Https(DnsExchangeConnect<HttpsClientConnect<R::Tcp>, HttpsClientStream, TokioTime>),
-    #[cfg(feature = "dns-over-quic")]
+    #[cfg(all(feature = "dns-over-quic", feature = "tokio-runtime"))]
     Quic(DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime>),
     #[cfg(feature = "mdns")]
     Mdns(

@@ -80,8 +80,7 @@ impl Resolver {
         builder.enable_all();
 
         let runtime = builder.build()?;
-        let async_resolver = AsyncResolver::new(config, options, TokioRuntimeProvider::new())
-            .expect("failed to create resolver");
+        let async_resolver = AsyncResolver::new(config, options, TokioRuntimeProvider::new());
 
         Ok(Self {
             runtime: Mutex::new(runtime),
@@ -196,6 +195,7 @@ mod tests {
     #[test]
     #[ignore]
     #[cfg(any(unix, target_os = "windows"))]
+    #[cfg(feature = "system-config")]
     fn test_system_lookup() {
         let resolver = Resolver::from_system_conf().unwrap();
 

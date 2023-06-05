@@ -4,7 +4,7 @@ pub use crate::proto::rr::domain::usage::*;
 use crate::proto::rr::domain::{Label, Name};
 use crate::proto::serialize::binary::BinEncodable;
 
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use radix_trie::{Trie, TrieKey};
 
 // Reserved reverse IPs
@@ -25,48 +25,178 @@ use radix_trie::{Trie, TrieKey};
 //      19.172.in-addr.arpa.  24.172.in-addr.arpa.  31.172.in-addr.arpa.
 //      20.172.in-addr.arpa.  25.172.in-addr.arpa.  168.192.in-addr.arpa.
 // ```
-lazy_static! {
-    /// 10.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_10: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("10").unwrap().append_domain(&IN_ADDR_ARPA).unwrap());
 
-    static ref IN_ADDR_ARPA_172: Name = Name::from_ascii("172").unwrap().append_domain(&IN_ADDR_ARPA).unwrap();
+/// 10.in-addr.arpa. usage
+pub static IN_ADDR_ARPA_10: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::reverse(
+        Name::from_ascii("10")
+            .unwrap()
+            .append_domain(&IN_ADDR_ARPA)
+            .unwrap(),
+    )
+});
 
-    /// 16.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_16: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("16").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
-    /// 17.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_17: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("17").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
-    /// 18.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_18: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("18").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
-    /// 19.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_19: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("19").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
-    /// 20.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_20: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("20").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
-    /// 21.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_21: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("21").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
-    /// 22.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_22: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("22").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
-    /// 23.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_23: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("23").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
-    /// 24.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_24: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("24").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
-    /// 25.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_25: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("25").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
-    /// 26.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_26: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("26").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
-    /// 27.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_27: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("27").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
-    /// 28.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_28: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("28").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
-    /// 29.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_29: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("29").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
-    /// 30.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_30: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("30").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
-    /// 31.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_31: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("31").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
+static IN_ADDR_ARPA_172: Lazy<Name> = Lazy::new(|| {
+    Name::from_ascii("172")
+        .unwrap()
+        .append_domain(&IN_ADDR_ARPA)
+        .unwrap()
+});
 
-    /// 168.192.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_192_168: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("168.192").unwrap().append_domain(&IN_ADDR_ARPA).unwrap());
-}
+/// 16.172.in-addr.arpa. usage
+pub static IN_ADDR_ARPA_172_16: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::reverse(
+        Name::from_ascii("16")
+            .unwrap()
+            .append_domain(&IN_ADDR_ARPA_172)
+            .unwrap(),
+    )
+});
+/// 17.172.in-addr.arpa. usage
+pub static IN_ADDR_ARPA_172_17: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::reverse(
+        Name::from_ascii("17")
+            .unwrap()
+            .append_domain(&IN_ADDR_ARPA_172)
+            .unwrap(),
+    )
+});
+/// 18.172.in-addr.arpa. usage
+pub static IN_ADDR_ARPA_172_18: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::reverse(
+        Name::from_ascii("18")
+            .unwrap()
+            .append_domain(&IN_ADDR_ARPA_172)
+            .unwrap(),
+    )
+});
+/// 19.172.in-addr.arpa. usage
+pub static IN_ADDR_ARPA_172_19: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::reverse(
+        Name::from_ascii("19")
+            .unwrap()
+            .append_domain(&IN_ADDR_ARPA_172)
+            .unwrap(),
+    )
+});
+/// 20.172.in-addr.arpa. usage
+pub static IN_ADDR_ARPA_172_20: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::reverse(
+        Name::from_ascii("20")
+            .unwrap()
+            .append_domain(&IN_ADDR_ARPA_172)
+            .unwrap(),
+    )
+});
+/// 21.172.in-addr.arpa. usage
+pub static IN_ADDR_ARPA_172_21: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::reverse(
+        Name::from_ascii("21")
+            .unwrap()
+            .append_domain(&IN_ADDR_ARPA_172)
+            .unwrap(),
+    )
+});
+/// 22.172.in-addr.arpa. usage
+pub static IN_ADDR_ARPA_172_22: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::reverse(
+        Name::from_ascii("22")
+            .unwrap()
+            .append_domain(&IN_ADDR_ARPA_172)
+            .unwrap(),
+    )
+});
+/// 23.172.in-addr.arpa. usage
+pub static IN_ADDR_ARPA_172_23: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::reverse(
+        Name::from_ascii("23")
+            .unwrap()
+            .append_domain(&IN_ADDR_ARPA_172)
+            .unwrap(),
+    )
+});
+/// 24.172.in-addr.arpa. usage
+pub static IN_ADDR_ARPA_172_24: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::reverse(
+        Name::from_ascii("24")
+            .unwrap()
+            .append_domain(&IN_ADDR_ARPA_172)
+            .unwrap(),
+    )
+});
+/// 25.172.in-addr.arpa. usage
+pub static IN_ADDR_ARPA_172_25: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::reverse(
+        Name::from_ascii("25")
+            .unwrap()
+            .append_domain(&IN_ADDR_ARPA_172)
+            .unwrap(),
+    )
+});
+/// 26.172.in-addr.arpa. usage
+pub static IN_ADDR_ARPA_172_26: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::reverse(
+        Name::from_ascii("26")
+            .unwrap()
+            .append_domain(&IN_ADDR_ARPA_172)
+            .unwrap(),
+    )
+});
+/// 27.172.in-addr.arpa. usage
+pub static IN_ADDR_ARPA_172_27: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::reverse(
+        Name::from_ascii("27")
+            .unwrap()
+            .append_domain(&IN_ADDR_ARPA_172)
+            .unwrap(),
+    )
+});
+/// 28.172.in-addr.arpa. usage
+pub static IN_ADDR_ARPA_172_28: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::reverse(
+        Name::from_ascii("28")
+            .unwrap()
+            .append_domain(&IN_ADDR_ARPA_172)
+            .unwrap(),
+    )
+});
+/// 29.172.in-addr.arpa. usage
+pub static IN_ADDR_ARPA_172_29: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::reverse(
+        Name::from_ascii("29")
+            .unwrap()
+            .append_domain(&IN_ADDR_ARPA_172)
+            .unwrap(),
+    )
+});
+/// 30.172.in-addr.arpa. usage
+pub static IN_ADDR_ARPA_172_30: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::reverse(
+        Name::from_ascii("30")
+            .unwrap()
+            .append_domain(&IN_ADDR_ARPA_172)
+            .unwrap(),
+    )
+});
+/// 31.172.in-addr.arpa. usage
+pub static IN_ADDR_ARPA_172_31: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::reverse(
+        Name::from_ascii("31")
+            .unwrap()
+            .append_domain(&IN_ADDR_ARPA_172)
+            .unwrap(),
+    )
+});
+
+/// 168.192.in-addr.arpa. usage
+pub static IN_ADDR_ARPA_192_168: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::reverse(
+        Name::from_ascii("168.192")
+            .unwrap()
+            .append_domain(&IN_ADDR_ARPA)
+            .unwrap(),
+    )
+});
 
 // example., example.com., example.net., and example.org.
 //
@@ -79,21 +209,27 @@ lazy_static! {
 //    "example.org.", and any names falling within those domains, are
 //    special in the following ways:
 // ```
-lazy_static! {
-    static ref COM: Label = Label::from_ascii("com").unwrap();
-    static ref NET: Label = Label::from_ascii("net").unwrap();
-    static ref ORG: Label = Label::from_ascii("org").unwrap();
-    static ref EXAMPLE_L: Label = Label::from_ascii("example").unwrap();
 
-    /// example. usage
-    pub static ref EXAMPLE: ZoneUsage = ZoneUsage::example(Name::from_labels(vec![EXAMPLE_L.clone()]).unwrap());
-    /// example.com. usage
-    pub static ref EXAMPLE_COM: ZoneUsage = ZoneUsage::example(Name::from_labels(vec![EXAMPLE_L.clone(), COM.clone()]).unwrap());
-    /// example.com. usage
-    pub static ref EXAMPLE_NET: ZoneUsage = ZoneUsage::example(Name::from_labels(vec![EXAMPLE_L.clone(), NET.clone()]).unwrap());
-    /// example.com. usage
-    pub static ref EXAMPLE_ORG: ZoneUsage = ZoneUsage::example(Name::from_labels(vec![EXAMPLE_L.clone(), ORG.clone()]).unwrap());
-}
+static COM: Lazy<Label> = Lazy::new(|| Label::from_ascii("com").unwrap());
+static NET: Lazy<Label> = Lazy::new(|| Label::from_ascii("net").unwrap());
+static ORG: Lazy<Label> = Lazy::new(|| Label::from_ascii("org").unwrap());
+static EXAMPLE_L: Lazy<Label> = Lazy::new(|| Label::from_ascii("example").unwrap());
+
+/// example. usage
+pub static EXAMPLE: Lazy<ZoneUsage> =
+    Lazy::new(|| ZoneUsage::example(Name::from_labels(vec![EXAMPLE_L.clone()]).unwrap()));
+/// example.com. usage
+pub static EXAMPLE_COM: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::example(Name::from_labels(vec![EXAMPLE_L.clone(), COM.clone()]).unwrap())
+});
+/// example.com. usage
+pub static EXAMPLE_NET: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::example(Name::from_labels(vec![EXAMPLE_L.clone(), NET.clone()]).unwrap())
+});
+/// example.com. usage
+pub static EXAMPLE_ORG: Lazy<ZoneUsage> = Lazy::new(|| {
+    ZoneUsage::example(Name::from_labels(vec![EXAMPLE_L.clone(), ORG.clone()]).unwrap())
+});
 
 // test.
 //
@@ -105,10 +241,10 @@ lazy_static! {
 //    The domain "test.", and any names falling within ".test.", are
 //    special in the following ways:
 // ```
-lazy_static! {
-    /// test. usage
-    pub static ref TEST: ZoneUsage = ZoneUsage::test(Name::from_ascii("test.").unwrap());
-}
+
+/// test. usage
+pub static TEST: Lazy<ZoneUsage> =
+    Lazy::new(|| ZoneUsage::test(Name::from_ascii("test.").unwrap()));
 
 #[derive(Clone, Eq, PartialEq)]
 struct TrieName(Name);
@@ -258,10 +394,8 @@ impl UsageTrie {
     }
 }
 
-lazy_static! {
-    /// All default usage mappings
-    pub static ref USAGE: UsageTrie = UsageTrie::default();
-}
+/// All default usage mappings
+pub static USAGE: Lazy<UsageTrie> = Lazy::new(UsageTrie::default);
 
 #[cfg(test)]
 mod tests {

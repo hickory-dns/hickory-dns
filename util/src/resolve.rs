@@ -339,7 +339,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         options.ip_strategy = trust_dns_resolver::config::LookupIpStrategy::Ipv4AndIpv6;
     }
 
-    let resolver_arc = Arc::new(TokioAsyncResolver::tokio(config, options)?);
+    let resolver_arc = Arc::new(TokioAsyncResolver::tokio(config, options));
 
     if let Some(domainname) = &opts.domainname {
         log_query(domainname, opts.ty, &name_servers, &opts);
@@ -359,7 +359,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut taskset = JoinSet::new();
         let mut timer = tokio::time::interval(duration);
         timer.set_missed_tick_behavior(MissedTickBehavior::Burst);
-        for name in reader.lines().filter_map(|line| line.ok()) {
+        for name in reader.lines().map_while(Result::ok) {
             let (happy, reverse, ty) = (opts.happy, opts.reverse, opts.ty);
             log_query(&name, ty, &name_servers, &opts);
             let resolver = resolver_arc.clone();

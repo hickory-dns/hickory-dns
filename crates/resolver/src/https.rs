@@ -84,8 +84,7 @@ mod tests {
                 ..ResolverOpts::default()
             },
             TokioRuntimeProvider::default(),
-        )
-        .expect("failed to create resolver");
+        );
 
         let response = io_loop
             .block_on(resolver.lookup_ip("www.example.com."))

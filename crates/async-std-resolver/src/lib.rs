@@ -55,7 +55,7 @@
 //!   let resolver = resolver(
 //!     config::ResolverConfig::default(),
 //!     config::ResolverOpts::default(),
-//!   ).await.expect("failed to connect resolver");
+//!   ).await;
 //!
 //!   // Lookup the IP addresses associated with a name.
 //!   // This returns a future that will lookup the IP addresses, it must be run in the Core to
@@ -130,7 +130,7 @@ pub type AsyncStdResolver = AsyncResolver<AsyncStdRuntimeProvider>;
 pub async fn resolver(
     config: config::ResolverConfig,
     options: config::ResolverOpts,
-) -> Result<AsyncStdResolver, ResolveError> {
+) -> AsyncStdResolver {
     AsyncStdResolver::new(config, options, AsyncStdRuntimeProvider::new())
 }
 

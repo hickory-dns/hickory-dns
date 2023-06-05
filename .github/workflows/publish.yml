@@ -6,7 +6,7 @@ on:
       - published
 
 env:
-  CARGO_MAKE_VERSION: '0.27.0'
+  CARGO_MAKE_VERSION: '0.36.6'
 
 jobs:
   publish:
