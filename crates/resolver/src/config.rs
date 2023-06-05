@@ -878,6 +878,8 @@ pub struct ResolverOpts {
     pub recursion_desired: bool,
     /// This is true by default, disabling this is useful for requesting single records, but may prevent successful resolution.
     pub authentic_data: bool,
+    /// Shuffle DNS servers before each query.
+    pub shuffle_dns_servers: bool,
 }
 
 impl Default for ResolverOpts {
@@ -909,6 +911,7 @@ impl Default for ResolverOpts {
             server_ordering_strategy: ServerOrderingStrategy::default(),
             recursion_desired: true,
             authentic_data: false,
+            shuffle_dns_servers: false,
         }
     }
 }
