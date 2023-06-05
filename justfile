@@ -102,6 +102,18 @@ coverage: init-llvm-cov
     mkdir -p {{TARGET_COV_DIR}}
     cargo +nightly llvm-cov report --codecov --output-path {{join(TARGET_COV_DIR, "trust-dns-coverage.json")}}
 
+# Open the html view of the coverage report
+coverage-html: coverage
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    
+    export CARGO_LLVM_COV_TARGET_DIR={{TARGET_COV_DIR}}
+    export LLVM_PROFILE_FILE={{join(TARGET_COV_DIR, "trust-dns-%p-%m.profraw")}}
+    
+    source <(cargo llvm-cov show-env --export-prefix)
+
+    cargo +nightly llvm-cov report --html --open --output-dir {{TARGET_COV_DIR}}
+
 # (Re)generates Test Certificates, if tests are failing, this needs to be run yearly
 generate-test-certs: init-openssl
     cd {{TEST_DATA}} && rm ca.key ca.pem cert.key cert.csr cert.pem cert.p12
