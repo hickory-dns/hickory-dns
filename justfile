@@ -1,8 +1,14 @@
 ## Script for executing commands for the project.
 export TARGET_DIR := join(justfile_directory(), "target")
 export TDNS_BIND_PATH := join(TARGET_DIR, "bind")
-export TARGET_COV_DIR := join(TARGET_DIR, "llvm-cov-target")
 export TEST_DATA := join(join(justfile_directory(), "tests"), "test-data")
+
+## Code coverage config
+COV_RUSTFLAGS := "-C instrument-coverage -C llvm-args=--instrprof-atomic-counter-update-all --cfg=coverage --cfg=trybuild_no_target"
+COV_CARGO_INCREMENTAL := "0"
+COV_CARGO_LLVM_COV := "1"
+COV_CARGO_LLVM_COV_TARGET_DIR := join(TARGET_DIR, "llvm-cov-target")
+COV_LLVM_PROFILE_FILE := join(COV_CARGO_LLVM_COV_TARGET_DIR, "trust-dns-%p-%m_%c.profraw")
 
 BIND_VER := "9.16.41"
 
@@ -87,32 +93,32 @@ coverage: init-llvm-cov
     #!/usr/bin/env bash
     set -euxo pipefail
     
-    export CARGO_LLVM_COV_TARGET_DIR={{TARGET_COV_DIR}}
-    export LLVM_PROFILE_FILE={{join(TARGET_COV_DIR, "trust-dns-%p-%m.profraw")}}
-    
-    source <(cargo llvm-cov show-env --export-prefix)
-    
+    export RUSTFLAGS="{{COV_RUSTFLAGS}}"
+    export CARGO_LLVM_COV={{COV_CARGO_LLVM_COV}}
+    export CARGO_LLVM_COV_TARGET_DIR={{COV_CARGO_LLVM_COV_TARGET_DIR}}
+    export LLVM_PROFILE_FILE={{COV_LLVM_PROFILE_FILE}}
+
     echo $RUSTFLAGS
     
     cargo +nightly llvm-cov clean
+    mkdir -p {{COV_CARGO_LLVM_COV_TARGET_DIR}}
+    
     cargo +nightly build --workspace --all-targets --all-features 
-    cargo +nightly llvm-cov --workspace --no-report --all-targets --benches --examples --bins --tests --all-features
-    cargo +nightly llvm-cov --workspace --no-report --doc --doctests --all-features
-
-    mkdir -p {{TARGET_COV_DIR}}
-    cargo +nightly llvm-cov report --codecov --output-path {{join(TARGET_COV_DIR, "trust-dns-coverage.json")}}
+    cargo +nightly llvm-cov test --workspace --no-report --all-targets --benches --examples --bins --tests --all-features
+    cargo +nightly llvm-cov test --workspace --no-report --doc --doctests --all-features
+    cargo +nightly llvm-cov report --codecov --output-path {{join(COV_CARGO_LLVM_COV_TARGET_DIR, "trust-dns-coverage.json")}}
 
 # Open the html view of the coverage report
 coverage-html: coverage
     #!/usr/bin/env bash
     set -euxo pipefail
     
-    export CARGO_LLVM_COV_TARGET_DIR={{TARGET_COV_DIR}}
-    export LLVM_PROFILE_FILE={{join(TARGET_COV_DIR, "trust-dns-%p-%m.profraw")}}
-    
-    source <(cargo llvm-cov show-env --export-prefix)
+    export RUSTFLAGS="{{COV_RUSTFLAGS}}"
+    export CARGO_LLVM_COV={{COV_CARGO_LLVM_COV}}
+    export CARGO_LLVM_COV_TARGET_DIR={{COV_CARGO_LLVM_COV_TARGET_DIR}}
+    export LLVM_PROFILE_FILE={{COV_LLVM_PROFILE_FILE}}
 
-    cargo +nightly llvm-cov report --html --open --output-dir {{TARGET_COV_DIR}}
+    cargo +nightly llvm-cov report --html --open --output-dir {{COV_CARGO_LLVM_COV_TARGET_DIR}}
 
 # (Re)generates Test Certificates, if tests are failing, this needs to be run yearly
 generate-test-certs: init-openssl
