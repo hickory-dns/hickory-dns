@@ -192,7 +192,7 @@ impl<P: ConnectionProvider> AsyncResolver<P> {
     /// documentation for `AsyncResolver` for more information on how to use
     /// the background future.
     pub fn new_with_conn(config: ResolverConfig, options: ResolverOpts, conn_provider: P) -> Self {
-        let pool = ServerPool::from_config_with_provider(&config, &options, conn_provider);
+        let pool = NameServerPool::from_config_with_provider(&config, &options, conn_provider);
         let either;
         let client = RetryDnsHandle::new(pool, options.attempts);
         if options.validate {
