@@ -42,6 +42,8 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Changed
 
+- (resolver) Provider API Redesign #1938 by XOR-op
+- (all) create default rules for justfile (changed from cargo-make to justfiles) #1951 by bluejekyll
 - (all) Bump log to v0.4.18 #1949 by daxpedda
 - (proto) Make RData::read() API public #1945 by djc
 - (all) Replace lazy_static with once_cell #1944 by daxpedda
@@ -83,6 +85,8 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Added
 
+- (all) add an html coverage report for local review of coverage data #1959 by bluejekyll
+- (resolver) Add the possibility to shuffle NameServers #1920 by Edu4rdSHL
 - (resolver) add test for connecting DoH with pure IP Address #1936 by mokeyish
 - (resolver) add NameServerConfigGroup::from_ips_quic #1929 by zh-jq
 - (resolve) Add --reverse, --file and --interval to util/resolve #1807 by cunha
