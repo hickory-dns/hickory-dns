@@ -418,7 +418,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-proto"
-version = "0.23.0-alpha.3"
+version = "0.23.0-alpha.4"
 dependencies = [
  "async-trait",
  "cfg-if",
