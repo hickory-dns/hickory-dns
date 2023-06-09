@@ -382,6 +382,7 @@ impl Parser {
     ///
     /// assert_eq!(Parser::parse_time("0").unwrap(),  0);
     /// assert!(Parser::parse_time("s").is_err());
+    /// assert!(Parser::parse_time("").is_err());
     /// assert_eq!(Parser::parse_time("0s").unwrap(), 0);
     /// assert_eq!(Parser::parse_time("1").unwrap(),  1);
     /// assert_eq!(Parser::parse_time("1S").unwrap(), 1);
@@ -396,52 +397,56 @@ impl Parser {
     /// assert_eq!(Parser::parse_time("1w").unwrap(), 604800);
     /// assert_eq!(Parser::parse_time("1s2d3w4h2m").unwrap(), 1+2*86400+3*604800+4*3600+2*60);
     /// assert_eq!(Parser::parse_time("3w3w").unwrap(), 3*604800+3*604800);
+    /// assert!(Parser::parse_time("7102w").is_err());
     /// ```
     pub fn parse_time(ttl_str: &str) -> ParseResult<u32> {
-        let mut value: u32 = 0;
-        let mut collect: Option<u32> = None;
-
-        for c in ttl_str.chars() {
-            match c {
-                // TODO, should these all be checked operations?
-                '0'..='9' => {
-                    let digit = c.to_digit(10).ok_or(ParseErrorKind::CharToInt(c))?;
-                    collect = Some(collect.unwrap_or(0) * 10 + digit);
-                }
-                'S' | 's' => {
-                    value += collect
-                        .take()
-                        .ok_or_else(|| ParseErrorKind::ParseTime(ttl_str.to_string()))?
-                }
-                'M' | 'm' => {
-                    value += 60
-                        * collect
-                            .take()
-                            .ok_or_else(|| ParseErrorKind::ParseTime(ttl_str.to_string()))?
-                }
-                'H' | 'h' => {
-                    value += 3_600
-                        * collect
-                            .take()
-                            .ok_or_else(|| ParseErrorKind::ParseTime(ttl_str.to_string()))?
-                }
-                'D' | 'd' => {
-                    value += 86_400
-                        * collect
-                            .take()
-                            .ok_or_else(|| ParseErrorKind::ParseTime(ttl_str.to_string()))?
-                }
-                'W' | 'w' => {
-                    value += 604_800
-                        * collect
-                            .take()
-                            .ok_or_else(|| ParseErrorKind::ParseTime(ttl_str.to_string()))?
-                }
-                _ => return Err(ParseErrorKind::ParseTime(ttl_str.to_string()).into()),
-            }
+        if ttl_str.is_empty() {
+            return Err(ParseErrorKind::ParseTime(ttl_str.to_string()).into());
         }
 
-        Ok(value + collect.unwrap_or(0)) // collects the initial num, or 0 if it was already collected
+        let (mut state, mut value) = (None, 0_u32);
+        for (i, c) in ttl_str.chars().enumerate() {
+            let start = match (state, c) {
+                (None, '0'..='9') => {
+                    state = Some(i);
+                    continue;
+                }
+                (Some(_), '0'..='9') => continue,
+                (Some(start), 'S' | 's' | 'M' | 'm' | 'H' | 'h' | 'D' | 'd' | 'W' | 'w') => start,
+                _ => return Err(ParseErrorKind::ParseTime(ttl_str.to_string()).into()),
+            };
+
+            // All allowed chars are ASCII, so using char indexes to slice &[u8] is OK
+            let number = u32::from_str(&ttl_str[start..i])
+                .map_err(|_| ParseErrorKind::ParseTime(ttl_str.to_string()))?;
+
+            let multiplier = match c {
+                'S' | 's' => 1,
+                'M' | 'm' => 60,
+                'H' | 'h' => 3_600,
+                'D' | 'd' => 86_400,
+                'W' | 'w' => 604_800,
+                _ => unreachable!(),
+            };
+
+            value = number
+                .checked_mul(multiplier)
+                .and_then(|add| value.checked_add(add))
+                .ok_or_else(|| ParseErrorKind::ParseTime(ttl_str.to_string()))?;
+
+            state = None;
+        }
+
+        if let Some(start) = state {
+            // All allowed chars are ASCII, so using char indexes to slice &[u8] is OK
+            let number = u32::from_str(&ttl_str[start..])
+                .map_err(|_| ParseErrorKind::ParseTime(ttl_str.to_string()))?;
+            value = value
+                .checked_add(number)
+                .ok_or_else(|| ParseErrorKind::ParseTime(ttl_str.to_string()))?;
+        }
+
+        Ok(value)
     }
 }
 
