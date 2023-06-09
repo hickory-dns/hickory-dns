@@ -9,7 +9,8 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Fixed
 
-- (server) Merge up deny response in requests to server #1954
+- (proto) avoid panicking in parse_time() #1964 by djc
+- (server) Merge up deny response in requests to server #1954 by djc
 - (proto) remove duplicate is_soa function #1948 by mattsse
 - (resolver) Fix minimal tokio version requirement #1931 by Gelbpunkt
 - (all) Fix bench errors in rust-analyzer #1777 by jeff-hiner
