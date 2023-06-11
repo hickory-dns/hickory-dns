@@ -24,4 +24,5 @@ rls/**
 # ignore fuzzing corpus
 fuzz/artifacts/**
 fuzz/corpus/**
+fuzz/Cargo.lock
 *~
