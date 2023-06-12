@@ -53,7 +53,7 @@ async-std = "1.6"
 tokio = "1.21"
 tokio-native-tls = "0.3.0"
 tokio-openssl = "0.6.0"
-tokio-rustls = "0.24.0"
+tokio-rustls = "0.24.1"
 parking_lot = "0.12"
 
 
