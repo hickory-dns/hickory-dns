@@ -17,6 +17,8 @@ use std::task::{Context, Poll};
 use futures_util::future::{Future, FutureExt};
 use futures_util::ready;
 use futures_util::stream::{Stream, StreamExt};
+#[cfg(feature = "dns-over-rustls")]
+use once_cell::sync::Lazy;
 #[cfg(feature = "tokio-runtime")]
 use tokio::net::TcpStream as TokioTcpStream;
 #[cfg(all(feature = "dns-over-native-tls", not(feature = "dns-over-rustls")))]
@@ -30,6 +32,8 @@ use tokio_openssl::SslStream as TokioTlsStream;
 #[cfg(feature = "dns-over-rustls")]
 use tokio_rustls::client::TlsStream as TokioTlsStream;
 
+#[cfg(feature = "dns-over-rustls")]
+use crate::config::TlsClientConfig;
 use crate::config::{NameServerConfig, Protocol, ResolverOpts};
 #[cfg(feature = "dns-over-https")]
 use proto::https::{HttpsClientConnect, HttpsClientStream};
@@ -173,7 +177,7 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
             TokioTime,
         >,
     ),
-    #[cfg(any(feature = "dns-over-https", feature = "dns-over-quic"))]
+    #[cfg(feature = "dns-over-rustls")]
     Error(ResolveError),
 }
 
@@ -223,7 +227,7 @@ impl<R: RuntimeProvider> Future for ConnectionFuture<R> {
                 self.spawner.spawn_bg(bg);
                 GenericConnection(conn)
             }
-            #[cfg(any(feature = "dns-over-https", feature = "dns-over-quic"))]
+            #[cfg(feature = "dns-over-rustls")]
             ConnectionConnect::Error(err) => return Poll::Ready(Err(err.clone())),
         }))
     }
@@ -246,12 +250,18 @@ impl DnsHandle for GenericConnection {
 #[derive(Clone)]
 pub struct GenericConnector<P: RuntimeProvider> {
     runtime_provider: P,
+    #[cfg(feature = "dns-over-rustls")]
+    client_config: Arc<Lazy<Result<Arc<rustls::ClientConfig>, ProtoError>>>,
 }
 
 impl<P: RuntimeProvider> GenericConnector<P> {
     /// Create a new instance.
     pub fn new(runtime_provider: P) -> Self {
-        Self { runtime_provider }
+        Self {
+            runtime_provider,
+            #[cfg(feature = "dns-over-rustls")]
+            client_config: Arc::new(Lazy::new(crate::tls::client_config)),
+        }
     }
 }
 
@@ -259,6 +269,8 @@ impl<P: RuntimeProvider + Default> Default for GenericConnector<P> {
     fn default() -> Self {
         Self {
             runtime_provider: P::default(),
+            #[cfg(feature = "dns-over-rustls")]
+            client_config: Arc::new(Lazy::new(crate::tls::client_config)),
         }
     }
 }
@@ -314,10 +326,21 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let tcp_future = self.runtime_provider.connect_tcp(socket_addr);
 
                 #[cfg(feature = "dns-over-rustls")]
-                let client_config = config.tls_config.clone();
-
-                #[cfg(feature = "dns-over-rustls")]
                 let (stream, handle) = {
+                    let client_config = if let Some(client_config) = config.tls_config.clone() {
+                        client_config
+                    } else {
+                        match (*self.client_config).clone() {
+                            Ok(client_config) => TlsClientConfig(client_config),
+                            Err(err) => {
+                                return ConnectionFuture::<P> {
+                                    connect: ConnectionConnect::Error(err.into()),
+                                    spawner: self.runtime_provider.create_handle(),
+                                }
+                            }
+                        }
+                    };
+
                     crate::tls::new_tls_stream_with_future(
                         tcp_future,
                         socket_addr,
@@ -345,7 +368,19 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let socket_addr = config.socket_addr;
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
                 #[cfg(feature = "dns-over-rustls")]
-                let client_config = config.tls_config.clone();
+                let client_config = if let Some(client_config) = config.tls_config.clone() {
+                    client_config
+                } else {
+                    match (*self.client_config).clone() {
+                        Ok(client_config) => TlsClientConfig(client_config),
+                        Err(err) => {
+                            return ConnectionFuture::<P> {
+                                connect: ConnectionConnect::Error(err.into()),
+                                spawner: self.runtime_provider.create_handle(),
+                            }
+                        }
+                    }
+                };
                 let tcp_future = self.runtime_provider.connect_tcp(socket_addr);
 
                 crate::https::new_https_stream_with_future(
@@ -367,7 +402,19 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 });
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
                 #[cfg(feature = "dns-over-rustls")]
-                let client_config = config.tls_config.clone();
+                let client_config = if let Some(client_config) = config.tls_config.clone() {
+                    client_config
+                } else {
+                    match (*self.client_config).clone() {
+                        Ok(client_config) => TlsClientConfig(client_config),
+                        Err(err) => {
+                            return ConnectionFuture::<P> {
+                                connect: ConnectionConnect::Error(err.into()),
+                                spawner: self.runtime_provider.create_handle(),
+                            }
+                        }
+                    }
+                };
                 let udp_future = self.runtime_provider.bind_udp(bind_addr, socket_addr);
 
                 crate::quic::new_quic_stream_with_future(

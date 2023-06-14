@@ -17,7 +17,6 @@ use trust_dns_proto::quic::{QuicClientConnect, QuicClientStream};
 
 use crate::config::TlsClientConfig;
 use crate::error::ResolveError;
-use crate::tls::CLIENT_CONFIG;
 
 #[allow(clippy::type_complexity)]
 #[allow(unused)]
@@ -25,18 +24,12 @@ pub(crate) fn new_quic_stream(
     socket_addr: SocketAddr,
     bind_addr: Option<SocketAddr>,
     dns_name: String,
-    client_config: Option<TlsClientConfig>,
+    client_config: TlsClientConfig,
 ) -> Result<DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime>, ResolveError> {
-    let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
-        client_config
-    } else {
-        CLIENT_CONFIG.clone()?
-    };
-
     let mut quic_builder = QuicClientStream::builder()?;
 
     // TODO: normalize the crypto config settings, can we just use common ALPN settings?
-    let crypto_config: CryptoConfig = (*client_config).clone();
+    let crypto_config: CryptoConfig = (*client_config.0).clone();
 
     quic_builder.crypto_config(crypto_config);
     if let Some(bind_addr) = bind_addr {
@@ -52,22 +45,16 @@ pub(crate) fn new_quic_stream_with_future<S, F>(
     future: F,
     socket_addr: SocketAddr,
     dns_name: String,
-    client_config: Option<TlsClientConfig>,
+    client_config: TlsClientConfig,
 ) -> Result<DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime>, ResolveError>
 where
     S: DnsUdpSocket + QuicLocalAddr + 'static,
     F: Future<Output = std::io::Result<S>> + Send + 'static,
 {
-    let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
-        client_config
-    } else {
-        CLIENT_CONFIG.clone()?
-    };
-
     let mut quic_builder = QuicClientStream::builder()?;
 
     // TODO: normalize the crypto config settings, can we just use common ALPN settings?
-    let crypto_config: CryptoConfig = (*client_config).clone();
+    let crypto_config: CryptoConfig = (*client_config.0).clone();
 
     quic_builder.crypto_config(crypto_config);
     Ok(DnsExchange::connect(quic_builder.build_with_future(

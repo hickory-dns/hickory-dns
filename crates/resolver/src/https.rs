@@ -9,7 +9,6 @@ use std::future::Future;
 use std::net::SocketAddr;
 
 use crate::error::ResolveError;
-use crate::tls::CLIENT_CONFIG;
 
 use proto::https::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
 use proto::tcp::{Connect, DnsTcpStream};
@@ -24,18 +23,12 @@ pub(crate) fn new_https_stream<S>(
     socket_addr: SocketAddr,
     bind_addr: Option<SocketAddr>,
     dns_name: String,
-    client_config: Option<TlsClientConfig>,
+    client_config: TlsClientConfig,
 ) -> Result<DnsExchangeConnect<HttpsClientConnect<S>, HttpsClientStream, TokioTime>, ResolveError>
 where
     S: Connect,
 {
-    let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
-        client_config
-    } else {
-        CLIENT_CONFIG.clone()?
-    };
-
-    let mut https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
+    let mut https_builder = HttpsClientStreamBuilder::with_client_config(client_config.0);
     if let Some(bind_addr) = bind_addr {
         https_builder.bind_addr(bind_addr);
     }
@@ -49,20 +42,14 @@ pub(crate) fn new_https_stream_with_future<S, F>(
     future: F,
     socket_addr: SocketAddr,
     dns_name: String,
-    client_config: Option<TlsClientConfig>,
+    client_config: TlsClientConfig,
 ) -> Result<DnsExchangeConnect<HttpsClientConnect<S>, HttpsClientStream, TokioTime>, ResolveError>
 where
     S: DnsTcpStream,
     F: Future<Output = std::io::Result<S>> + Send + Unpin + 'static,
 {
-    let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
-        client_config
-    } else {
-        CLIENT_CONFIG.clone()?
-    };
-
     Ok(DnsExchange::connect(
-        HttpsClientStreamBuilder::build_with_future(future, client_config, socket_addr, dns_name),
+        HttpsClientStreamBuilder::build_with_future(future, client_config.0, socket_addr, dns_name),
     ))
 }
 
