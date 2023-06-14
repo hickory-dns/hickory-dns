@@ -743,17 +743,18 @@ mod tests {
         let mut root_store = RootCertStore::empty();
         #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
         {
-            for cert in rustls_native_certs::load_native_certs().unwrap() {
-                if let Err(err) = root_store.add(&rustls::Certificate(cert.0)) {
-                    warn!(
-                        "failed to parse certificate from native root store: {:?}",
-                        &err
-                    );
-                }
+            let (added, ignored) = root_store
+                .add_parsable_certificates(&rustls_native_certs::load_native_certs().unwrap());
+
+            if ignored > 0 {
+                warn!(
+                    "failed to parse {} certificate(s) from the native root store",
+                    ignored
+                );
             }
 
-            if root_store.is_empty() {
-                panic!("no valid certificates found in native root store");
+            if added == 0 {
+                panic!("no valid certificates found in the native root store");
             }
         }
         #[cfg(feature = "webpki-roots")]

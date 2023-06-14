@@ -296,9 +296,9 @@ pub enum ProtoErrorKind {
     #[error("rustls construction error: {0}")]
     RustlsError(#[from] rustls::Error),
 
-    /// No valid certificates found in native root store.
+    /// No valid certificates found in the native root store.
     #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
-    #[error("no valid certificates found in native root store")]
+    #[error("no valid certificates found in the native root store")]
     NativeCerts,
 }
 

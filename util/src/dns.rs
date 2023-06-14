@@ -486,15 +486,18 @@ fn tls_config() -> Result<ClientConfig, Box<dyn std::error::Error>> {
     #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
     {
         use trust_dns_proto::error::ProtoErrorKind;
-        for cert in rustls_native_certs::load_native_certs()? {
-            if let Err(err) = root_store.add(&rustls::Certificate(cert.0)) {
-                tracing::warn!(
-                    "failed to parse certificate from native root store: {:?}",
-                    &err
-                );
-            }
+
+        let (added, ignored) =
+            root_store.add_parsable_certificates(&rustls_native_certs::load_native_certs()?);
+
+        if ignored > 0 {
+            tracing::warn!(
+                "failed to parse {} certificate(s) from the native root store",
+                ignored,
+            );
         }
-        if root_store.is_empty() {
+
+        if added == 0 {
             return Err(ProtoErrorKind::NativeCerts.into());
         }
     }
