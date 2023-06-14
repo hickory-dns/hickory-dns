@@ -8,6 +8,7 @@
 use std::future::Future;
 use std::net::SocketAddr;
 
+use crate::error::ResolveError;
 use crate::tls::CLIENT_CONFIG;
 
 use proto::https::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
@@ -24,20 +25,23 @@ pub(crate) fn new_https_stream<S>(
     bind_addr: Option<SocketAddr>,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
-) -> DnsExchangeConnect<HttpsClientConnect<S>, HttpsClientStream, TokioTime>
+) -> Result<DnsExchangeConnect<HttpsClientConnect<S>, HttpsClientStream, TokioTime>, ResolveError>
 where
     S: Connect,
 {
-    let client_config = client_config.map_or_else(
-        || CLIENT_CONFIG.clone(),
-        |TlsClientConfig(client_config)| client_config,
-    );
+    let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
+        client_config
+    } else {
+        CLIENT_CONFIG.clone()?
+    };
 
     let mut https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
     if let Some(bind_addr) = bind_addr {
         https_builder.bind_addr(bind_addr);
     }
-    DnsExchange::connect(https_builder.build::<S>(socket_addr, dns_name))
+    Ok(DnsExchange::connect(
+        https_builder.build::<S>(socket_addr, dns_name),
+    ))
 }
 
 #[allow(clippy::type_complexity)]
@@ -46,21 +50,19 @@ pub(crate) fn new_https_stream_with_future<S, F>(
     socket_addr: SocketAddr,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
-) -> DnsExchangeConnect<HttpsClientConnect<S>, HttpsClientStream, TokioTime>
+) -> Result<DnsExchangeConnect<HttpsClientConnect<S>, HttpsClientStream, TokioTime>, ResolveError>
 where
     S: DnsTcpStream,
     F: Future<Output = std::io::Result<S>> + Send + Unpin + 'static,
 {
-    let client_config = client_config.map_or_else(
-        || CLIENT_CONFIG.clone(),
-        |TlsClientConfig(client_config)| client_config,
-    );
+    let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
+        client_config
+    } else {
+        CLIENT_CONFIG.clone()?
+    };
 
-    DnsExchange::connect(HttpsClientStreamBuilder::build_with_future(
-        future,
-        client_config,
-        socket_addr,
-        dns_name,
+    Ok(DnsExchange::connect(
+        HttpsClientStreamBuilder::build_with_future(future, client_config, socket_addr, dns_name),
     ))
 }
 

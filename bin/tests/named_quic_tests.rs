@@ -62,7 +62,7 @@ fn test_example_quic_toml_startup() {
             .with_root_certificates(root_store)
             .with_no_client_auth();
 
-        let mut quic_builder = QuicClientStream::builder();
+        let mut quic_builder = QuicClientStream::builder().unwrap();
         quic_builder.crypto_config(client_config);
 
         let mp = quic_builder.build(addr, "ns.example.com".to_string());

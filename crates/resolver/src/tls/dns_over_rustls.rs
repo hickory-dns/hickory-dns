@@ -8,6 +8,7 @@
 #![cfg(feature = "dns-over-rustls")]
 #![allow(dead_code)]
 
+use std::future;
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
@@ -27,20 +28,28 @@ use crate::config::TlsClientConfig;
 
 const ALPN_H2: &[u8] = b"h2";
 
-pub(crate) static CLIENT_CONFIG: Lazy<Arc<ClientConfig>> = Lazy::new(|| {
+pub(crate) static CLIENT_CONFIG: Lazy<Result<Arc<ClientConfig>, ProtoError>> = Lazy::new(|| {
     #[cfg_attr(
         not(any(feature = "native-certs", feature = "webpki-roots")),
         allow(unused_mut)
     )]
     let mut root_store = RootCertStore::empty();
     #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
-    root_store.add_parsable_certificates(
-        &rustls_native_certs::load_native_certs()
-            .unwrap()
-            .into_iter()
-            .map(|cert| cert.0)
-            .collect::<Vec<_>>(),
-    );
+    {
+        use proto::error::ProtoErrorKind;
+
+        for cert in rustls_native_certs::load_native_certs()? {
+            if let Err(err) = root_store.add(&rustls::Certificate(cert.0)) {
+                tracing::warn!(
+                    "failed to parse certificate from native root store: {:?}",
+                    &err
+                );
+            }
+        }
+        if root_store.is_empty() {
+            return Err(ProtoErrorKind::NativeCerts.into());
+        }
+    }
     #[cfg(feature = "webpki-roots")]
     root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
         rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
@@ -63,7 +72,7 @@ pub(crate) static CLIENT_CONFIG: Lazy<Arc<ClientConfig>> = Lazy::new(|| {
 
     client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
-    Arc::new(client_config)
+    Ok(Arc::new(client_config))
 });
 
 #[allow(clippy::type_complexity)]
@@ -80,10 +89,19 @@ where
     S: DnsTcpStream,
     F: Future<Output = io::Result<S>> + Send + Unpin + 'static,
 {
-    let client_config = client_config.map_or_else(
-        || CLIENT_CONFIG.clone(),
-        |TlsClientConfig(client_config)| client_config,
-    );
+    let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
+        client_config
+    } else {
+        match CLIENT_CONFIG.clone() {
+            Ok(client_config) => client_config,
+            Err(err) => {
+                return (
+                    Box::pin(future::ready(Err(err))),
+                    BufDnsStreamHandle::new(socket_addr).0,
+                )
+            }
+        }
+    };
     let (stream, handle) =
         tls_client_connect_with_future(future, socket_addr, dns_name, client_config);
     (Box::pin(stream), handle)

@@ -86,7 +86,7 @@ async fn test_quic_stream() {
 
     client_config.key_log = Arc::new(KeyLogFile::new());
 
-    let mut builder = QuicClientStreamBuilder::default();
+    let mut builder = QuicClientStreamBuilder::new().unwrap();
     builder.crypto_config(client_config);
 
     println!("starting quic connect");

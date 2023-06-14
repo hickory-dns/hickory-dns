@@ -285,7 +285,7 @@ async fn tls(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
         .expect("tls_dns_name is required tls connections");
     println!("; using tls:{nameserver} dns_name:{dns_name}");
 
-    let mut config = tls_config();
+    let mut config = tls_config()?;
     if opts.do_not_verify_nameserver_cert {
         self::do_not_verify_nameserver_cert(&mut config);
     }
@@ -324,7 +324,7 @@ async fn https(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
         .expect("tls_dns_name is required https connections");
     println!("; using https:{nameserver} dns_name:{dns_name}");
 
-    let mut config = tls_config();
+    let mut config = tls_config()?;
     if opts.do_not_verify_nameserver_cert {
         self::do_not_verify_nameserver_cert(&mut config);
     }
@@ -363,13 +363,13 @@ async fn quic(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
         .expect("tls_dns_name is required quic connections");
     println!("; using quic:{nameserver} dns_name:{dns_name}");
 
-    let mut config = quic::client_config_tls13();
+    let mut config = quic::client_config_tls13()?;
     if opts.do_not_verify_nameserver_cert {
         self::do_not_verify_nameserver_cert(&mut config);
     }
     config.alpn_protocols.push(alpn);
 
-    let mut quic_builder = QuicClientStream::builder();
+    let mut quic_builder = QuicClientStream::builder()?;
     quic_builder.crypto_config(config);
     let (client, bg) = AsyncClient::connect(quic_builder.build(nameserver, dns_name)).await?;
 
@@ -477,20 +477,27 @@ fn record_set_from(
 }
 
 #[cfg(feature = "dns-over-rustls")]
-fn tls_config() -> ClientConfig {
+fn tls_config() -> Result<ClientConfig, Box<dyn std::error::Error>> {
     #[cfg_attr(
         not(any(feature = "native-certs", feature = "webpki-roots")),
         allow(unused_mut)
     )]
     let mut root_store = RootCertStore::empty();
     #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
-    root_store.add_parsable_certificates(
-        &rustls_native_certs::load_native_certs()
-            .unwrap()
-            .into_iter()
-            .map(|cert| cert.0)
-            .collect::<Vec<_>>(),
-    );
+    {
+        use trust_dns_proto::error::ProtoErrorKind;
+        for cert in rustls_native_certs::load_native_certs()? {
+            if let Err(err) = root_store.add(&rustls::Certificate(cert.0)) {
+                tracing::warn!(
+                    "failed to parse certificate from native root store: {:?}",
+                    &err
+                );
+            }
+        }
+        if root_store.is_empty() {
+            return Err(ProtoErrorKind::NativeCerts.into());
+        }
+    }
     #[cfg(feature = "webpki-roots")]
     root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
         rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
@@ -500,10 +507,10 @@ fn tls_config() -> ClientConfig {
         )
     }));
 
-    ClientConfig::builder()
+    Ok(ClientConfig::builder()
         .with_safe_defaults()
         .with_root_certificates(root_store)
-        .with_no_client_auth()
+        .with_no_client_auth())
 }
 
 #[cfg(feature = "dns-over-rustls")]

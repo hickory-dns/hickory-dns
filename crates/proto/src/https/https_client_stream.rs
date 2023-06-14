@@ -742,13 +742,20 @@ mod tests {
         )]
         let mut root_store = RootCertStore::empty();
         #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
-        root_store.add_parsable_certificates(
-            &rustls_native_certs::load_native_certs()
-                .unwrap()
-                .into_iter()
-                .map(|cert| cert.0)
-                .collect::<Vec<_>>(),
-        );
+        {
+            for cert in rustls_native_certs::load_native_certs().unwrap() {
+                if let Err(err) = root_store.add(&rustls::Certificate(cert.0)) {
+                    warn!(
+                        "failed to parse certificate from native root store: {:?}",
+                        &err
+                    );
+                }
+            }
+
+            if root_store.is_empty() {
+                panic!("no valid certificates found in native root store");
+            }
+        }
         #[cfg(feature = "webpki-roots")]
         root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
             rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
