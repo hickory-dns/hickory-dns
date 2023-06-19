@@ -401,7 +401,7 @@ fn main() {
         info!("binding UDP to {:?}", udp_socket);
         let udp_socket = runtime
             .block_on(UdpSocket::bind(udp_socket))
-            .unwrap_or_else(|_| panic!("could not bind to udp: {}", udp_socket));
+            .unwrap_or_else(|err| panic!("could not bind to UDP socket {udp_socket}: {err}"));
 
         info!(
             "listening for UDP on {:?}",
