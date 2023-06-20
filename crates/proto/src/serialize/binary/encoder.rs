@@ -93,7 +93,7 @@ mod private {
 pub struct BinEncoder<'a> {
     offset: usize,
     buffer: private::MaximalBuf<'a>,
-    /// start of label pointers with their labels in fully decompressed form for easy comparison, smallvec here?
+    /// start of label pointers with their labels in fully decompressed form for easy comparison, tinyvec here?
     name_pointers: Vec<(usize, Vec<u8>)>,
     mode: EncodeMode,
     canonical_names: bool,

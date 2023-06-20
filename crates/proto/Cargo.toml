@@ -90,7 +90,6 @@ ring = { workspace = true, optional = true, features = ["std"] }
 rustls = { workspace = true, optional = true }
 rustls-pemfile = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
-smallvec.workspace = true
 socket2 = { workspace = true, optional = true }
 thiserror.workspace = true
 tinyvec = { workspace = true, features = ["alloc"] }

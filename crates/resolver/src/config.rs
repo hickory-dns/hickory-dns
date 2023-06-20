@@ -482,7 +482,7 @@ impl<'de> DeserializeT<'de> for NameServerConfigGroup {
 impl NameServerConfigGroup {
     /// Creates a new `NameServerConfigGroup` with a default size of 2
     pub fn new() -> Self {
-        // this might be a nice opportunity for SmallVec
+        // this might be a nice opportunity for TinyVec
         //   most name_server configs will be 2.
         Self::with_capacity(2)
     }
