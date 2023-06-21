@@ -96,6 +96,11 @@ where
         self
     }
 
+    /// Gets a reference to the EDNS options for the Response.
+    pub fn get_edns(&self) -> &Option<Edns> {
+        &self.edns
+    }
+
     /// Consumes self, and emits to the encoder.
     pub fn destructive_emit(mut self, encoder: &mut BinEncoder<'_>) -> ProtoResult<ResponseInfo> {
         // soa records are part of the nameserver section

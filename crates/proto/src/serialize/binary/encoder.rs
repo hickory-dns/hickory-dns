@@ -132,7 +132,7 @@ impl<'a> BinEncoder<'a> {
         BinEncoder {
             offset: offset as usize,
             // TODO: add max_size to signature
-            buffer: private::MaximalBuf::new(u16::max_value(), buf),
+            buffer: private::MaximalBuf::new(u16::MAX, buf),
             name_pointers: Vec::new(),
             mode,
             canonical_names: false,
@@ -240,8 +240,8 @@ impl<'a> BinEncoder<'a> {
     /// The location is the current position in the buffer
     ///  implicitly, it is expected that the name will be written to the stream after the current index.
     pub fn store_label_pointer(&mut self, start: usize, end: usize) {
-        assert!(start <= (u16::max_value() as usize));
-        assert!(end <= (u16::max_value() as usize));
+        assert!(start <= (u16::MAX as usize));
+        assert!(end <= (u16::MAX as usize));
         assert!(start <= end);
         if self.offset < 0x3FFF_usize {
             self.name_pointers
@@ -255,7 +255,7 @@ impl<'a> BinEncoder<'a> {
 
         for (match_start, matcher) in &self.name_pointers {
             if matcher.as_slice() == search {
-                assert!(match_start <= &(u16::max_value() as usize));
+                assert!(match_start <= &(u16::MAX as usize));
                 return Some(*match_start as u16);
             }
         }

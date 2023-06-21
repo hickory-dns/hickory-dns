@@ -7,9 +7,10 @@
 
 use std::{io, net::SocketAddr};
 
-use tracing::debug;
+use tracing::{debug, trace};
 use trust_dns_proto::rr::Record;
 
+use crate::server::Protocol;
 use crate::{
     authority::MessageResponse,
     proto::{
@@ -46,12 +47,43 @@ pub trait ResponseHandler: Clone + Send + Sync + Unpin + 'static {
 pub struct ResponseHandle {
     dst: SocketAddr,
     stream_handle: BufDnsStreamHandle,
+    protocol: Protocol,
 }
 
 impl ResponseHandle {
     /// Returns a new `ResponseHandle` for sending a response message
-    pub fn new(dst: SocketAddr, stream_handle: BufDnsStreamHandle) -> Self {
-        Self { dst, stream_handle }
+    pub fn new(dst: SocketAddr, stream_handle: BufDnsStreamHandle, protocol: Protocol) -> Self {
+        Self {
+            dst,
+            stream_handle,
+            protocol,
+        }
+    }
+
+    /// Selects an appropriate maximum serialized size for the given response.
+    fn max_size_for_response<'a>(
+        &self,
+        response: &MessageResponse<
+            '_,
+            'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+        >,
+    ) -> u16 {
+        match self.protocol {
+            Protocol::Udp => {
+                // Use EDNS, if available.
+                if let Some(edns) = response.get_edns() {
+                    edns.max_payload()
+                } else {
+                    // No EDNS, use the recommended max from RFC6891.
+                    trust_dns_proto::udp::MAX_RECEIVE_BUFFER_SIZE as u16
+                }
+            }
+            _ => u16::MAX,
+        }
     }
 }
 
@@ -79,6 +111,12 @@ impl ResponseHandler for ResponseHandle {
         let mut buffer = Vec::with_capacity(512);
         let encode_result = {
             let mut encoder = BinEncoder::new(&mut buffer);
+
+            // Set an appropriate maximum on the encoder.
+            let max_size = self.max_size_for_response(&response);
+            trace!("setting response max size: {max_size} for protocol: {:?}", self.protocol);
+            encoder.set_max_size(max_size);
+
             response.destructive_emit(&mut encoder)
         };
 
