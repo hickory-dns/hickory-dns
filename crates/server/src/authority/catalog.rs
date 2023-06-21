@@ -47,22 +47,23 @@ async fn send_response<'a, R: ResponseHandler>(
     >,
     mut response_handle: R,
 ) -> io::Result<ResponseInfo> {
-    #[cfg(feature = "dnssec")]
     if let Some(mut resp_edns) = response_edns {
-        // set edns DAU and DHU
-        // send along the algorithms which are supported by this authority
-        let mut algorithms = SupportedAlgorithms::default();
-        algorithms.set(Algorithm::RSASHA256);
-        algorithms.set(Algorithm::ECDSAP256SHA256);
-        algorithms.set(Algorithm::ECDSAP384SHA384);
-        algorithms.set(Algorithm::ED25519);
+        #[cfg(feature = "dnssec")]
+        {
+            // set edns DAU and DHU
+            // send along the algorithms which are supported by this authority
+            let mut algorithms = SupportedAlgorithms::default();
+            algorithms.set(Algorithm::RSASHA256);
+            algorithms.set(Algorithm::ECDSAP256SHA256);
+            algorithms.set(Algorithm::ECDSAP384SHA384);
+            algorithms.set(Algorithm::ED25519);
 
-        let dau = EdnsOption::DAU(algorithms);
-        let dhu = EdnsOption::DHU(algorithms);
+            let dau = EdnsOption::DAU(algorithms);
+            let dhu = EdnsOption::DHU(algorithms);
 
-        resp_edns.options_mut().insert(dau);
-        resp_edns.options_mut().insert(dhu);
-
+            resp_edns.options_mut().insert(dau);
+            resp_edns.options_mut().insert(dhu);
+        }
         response.set_edns(resp_edns);
     }
 

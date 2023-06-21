@@ -19,6 +19,7 @@ use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
 use tracing::{debug, warn};
 
+use crate::udp::MAX_RECEIVE_BUFFER_SIZE;
 use crate::xfer::{BufDnsStreamHandle, SerialMessage, StreamReceiver};
 use crate::Time;
 
@@ -220,7 +221,7 @@ impl<S: DnsUdpSocket + Send + 'static> Stream for UdpStream<S> {
         // receive all inbound messages
 
         // TODO: this should match edns settings
-        let mut buf = [0u8; 4096];
+        let mut buf = [0u8; MAX_RECEIVE_BUFFER_SIZE];
         let (len, src) = ready!(socket.poll_recv_from(cx, &mut buf))?;
 
         let serial_message = SerialMessage::new(buf.iter().take(len).cloned().collect(), src);

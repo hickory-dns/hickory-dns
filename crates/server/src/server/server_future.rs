@@ -716,7 +716,7 @@ pub(crate) async fn handle_raw_request<T: RequestHandler>(
     response_handler: BufDnsStreamHandle,
 ) {
     let src_addr = message.addr();
-    let response_handler = ResponseHandle::new(message.addr(), response_handler);
+    let response_handler = ResponseHandle::new(message.addr(), response_handler, protocol);
 
     self::handle_request(
         message.bytes(),
