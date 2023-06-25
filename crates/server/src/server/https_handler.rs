@@ -8,6 +8,7 @@
 use std::{io, net::SocketAddr, sync::Arc};
 
 use bytes::{Bytes, BytesMut};
+use drain::Watch;
 use futures_util::lock::Mutex;
 use h2::server;
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -28,6 +29,7 @@ pub(crate) async fn h2_handler<T, I>(
     io: I,
     src_addr: SocketAddr,
     dns_hostname: Option<Arc<str>>,
+    shutdown: Watch,
 ) where
     T: RequestHandler,
     I: AsyncRead + AsyncWrite + Unpin,
@@ -45,13 +47,22 @@ pub(crate) async fn h2_handler<T, I>(
 
     // Accept all inbound HTTP/2.0 streams sent over the
     // connection.
-    while let Some(next_request) = h2.accept().await {
-        let (request, respond) = match next_request {
-            Ok(next_request) => next_request,
-            Err(err) => {
-                warn!("error accepting request {}: {}", src_addr, err);
-                return;
-            }
+    loop {
+        let (request, respond) = tokio::select! {
+            result = h2.accept() => match result {
+                Some(Ok(next_request)) => next_request,
+                Some(Err(err)) => {
+                    warn!("error accepting request {}: {}", src_addr, err);
+                        return;
+                }
+                None => {
+                    return;
+                }
+            },
+            _ = shutdown.clone().signaled() => {
+                // A graceful shutdown was initiated.
+                return
+            },
         };
 
         debug!("Received request: {:#?}", request);
@@ -80,7 +91,7 @@ async fn handle_request<T>(
 }
 
 #[derive(Clone)]
-struct HttpsResponseHandle(Arc<Mutex<::h2::server::SendResponse<Bytes>>>);
+struct HttpsResponseHandle(Arc<Mutex<server::SendResponse<Bytes>>>);
 
 #[async_trait::async_trait]
 impl ResponseHandler for HttpsResponseHandle {

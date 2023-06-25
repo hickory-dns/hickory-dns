@@ -337,8 +337,9 @@ where
         .query(&name, DNSClass::IN, RecordType::A)
         .expect("error querying");
 
-    assert!(
-        response.response_code() == ResponseCode::NoError,
+    assert_eq!(
+        response.response_code(),
+        ResponseCode::NoError,
         "got an error: {:?}",
         response.response_code()
     );
@@ -377,6 +378,7 @@ fn server_thread_udp(io_loop: Runtime, udp_socket: UdpSocket, server_continue: A
         io_loop.block_on(future::lazy(|_| tokio::time::sleep(Duration::from_millis(10))).flatten());
     }
 
+    _ = io_loop.block_on(server.shutdown_gracefully());
     drop(io_loop);
 }
 
@@ -394,6 +396,8 @@ fn server_thread_tcp(
     while server_continue.load(Ordering::Relaxed) {
         io_loop.block_on(future::lazy(|_| tokio::time::sleep(Duration::from_millis(10))).flatten());
     }
+
+    _ = io_loop.block_on(server.shutdown_gracefully());
 }
 
 // TODO: need a rustls option
@@ -425,4 +429,6 @@ fn server_thread_tls(
     while server_continue.load(Ordering::Relaxed) {
         io_loop.block_on(future::lazy(|_| tokio::time::sleep(Duration::from_millis(10))).flatten());
     }
+
+    _ = io_loop.block_on(server.shutdown_gracefully());
 }
