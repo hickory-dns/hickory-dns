@@ -8,6 +8,7 @@
 use std::{io, net::SocketAddr, sync::Arc};
 
 use bytes::{Bytes, BytesMut};
+use drain::Watch;
 use futures_util::lock::Mutex;
 use tracing::{debug, warn};
 use trust_dns_proto::{
@@ -30,6 +31,7 @@ pub(crate) async fn quic_handler<T>(
     mut quic_streams: QuicStreams,
     src_addr: SocketAddr,
     _dns_hostname: Option<Arc<str>>,
+    shutdown: Watch,
 ) -> Result<(), ProtoError>
 where
     T: RequestHandler,
@@ -38,13 +40,22 @@ where
     let mut max_requests = 100u32;
 
     // Accept all inbound quic streams sent over the connection.
-    while let Some(next_request) = quic_streams.next().await {
-        let mut request_stream = match next_request {
-            Ok(next_request) => next_request,
-            Err(err) => {
-                warn!("error accepting request {}: {}", src_addr, err);
-                return Err(err);
-            }
+    loop {
+        let mut request_stream = tokio::select! {
+            result = quic_streams.next() => match result {
+                Some(Ok(next_request)) => next_request,
+                Some(Err(err)) => {
+                    warn!("error accepting request {}: {}", src_addr, err);
+                    return Err(err);
+                }
+                None => {
+                    break;
+                }
+            },
+            _ = shutdown.clone().signaled() => {
+                // A graceful shutdown was initiated.
+                break;
+            },
         };
 
         let request = request_stream.receive_bytes().await?;

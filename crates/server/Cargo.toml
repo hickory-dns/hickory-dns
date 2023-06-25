@@ -74,6 +74,7 @@ path = "src/lib.rs"
 async-trait.workspace = true
 bytes.workspace = true
 cfg-if.workspace = true
+drain.workspace = true
 enum-as-inner.workspace = true
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
 futures-util = { workspace = true, default-features = false, features = ["std"] }
@@ -86,7 +87,7 @@ serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
 time.workspace = true
 tracing.workspace = true
-tokio = { workspace = true, features = ["net", "sync"] }
+tokio = { workspace = true, features = ["macros", "net", "sync"] }
 tokio-openssl = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true }
 toml.workspace = true
