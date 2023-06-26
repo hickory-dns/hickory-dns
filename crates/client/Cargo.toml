@@ -36,21 +36,20 @@ maintenance = { status = "actively-developed" }
 
 [features]
 backtrace = ["trust-dns-proto/backtrace"]
-# TODO: the rustls and openssl crates are not deps... should we change that to make them easier to use?
-#  or change this to also be external?
+
 dns-over-https-openssl = ["dns-over-https", "dns-over-openssl"]
-dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "trust-dns-proto/dns-over-https-rustls"]
+dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "rustls", "trust-dns-proto/dns-over-https-rustls"]
 dns-over-https = ["trust-dns-proto/dns-over-https"]
 
 dns-over-quic = ["dns-over-rustls", "trust-dns-proto/dns-over-quic"]
 
 dns-over-native-tls = ["dns-over-tls", "trust-dns-proto/dns-over-native-tls"]
-dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "openssl"]
-dns-over-rustls = ["dns-over-tls", "dnssec-ring", "rustls", "webpki", "trust-dns-proto/dns-over-rustls"]
+dns-over-openssl = ["dns-over-tls", "dnssec-openssl"]
+dns-over-rustls = ["dns-over-tls", "dnssec-ring", "trust-dns-proto/dns-over-rustls"]
 dns-over-tls = []
 
-dnssec-openssl = ["dnssec", "openssl", "trust-dns-proto/dnssec-openssl"]
-dnssec-ring = ["dnssec", "ring", "trust-dns-proto/dnssec-ring"]
+dnssec-openssl = ["dnssec", "trust-dns-proto/dnssec-openssl"]
+dnssec-ring = ["dnssec", "trust-dns-proto/dnssec-ring"]
 dnssec = ["trust-dns-proto/dnssec"]
 
 serde-config = ["serde"]
@@ -68,10 +67,8 @@ data-encoding.workspace = true
 futures-channel = { workspace = true, default-features = false, features = ["std"] }
 futures-util = { workspace = true, default-features = false, features = ["std"] }
 once_cell.workspace = true
-openssl = { workspace = true, features = ["v102", "v110"], optional = true }
 radix_trie.workspace = true
 rand.workspace = true
-ring = { workspace = true, optional = true, features = ["std"]}
 rustls = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 thiserror.workspace = true
