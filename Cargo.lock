@@ -1818,7 +1818,6 @@ dependencies = [
  "openssl",
  "radix_trie",
  "rand",
- "ring",
  "rustls",
  "rustls-webpki",
  "serde",
