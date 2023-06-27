@@ -114,7 +114,10 @@ impl ResponseHandler for ResponseHandle {
 
             // Set an appropriate maximum on the encoder.
             let max_size = self.max_size_for_response(&response);
-            trace!("setting response max size: {max_size} for protocol: {:?}", self.protocol);
+            trace!(
+                "setting response max size: {max_size} for protocol: {:?}",
+                self.protocol
+            );
             encoder.set_max_size(max_size);
 
             response.destructive_emit(&mut encoder)
