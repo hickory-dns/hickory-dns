@@ -59,7 +59,7 @@ parking_lot = "0.12"
 
 # ssl
 native-tls = "0.2"
-openssl = "0.10.48"
+openssl = "0.10.55"
 rustls = "0.21.0"
 rustls-pemfile = "1.0.0"
 webpki = { version = "0.100.1", package = "rustls-webpki" }
