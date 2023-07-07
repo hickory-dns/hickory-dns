@@ -8,12 +8,13 @@
 //! HTTP request creation and validation
 
 use http::header::{CONTENT_LENGTH, CONTENT_TYPE};
-use http::{Response, StatusCode, Version};
+use http::{Response, StatusCode};
 
 use crate::error::ProtoError;
-use crate::https::HttpsResult;
+use crate::http::error::Result;
+use crate::http::Version;
 
-/// Create a new Response for an http/2 dns-message request
+/// Create a new Response for an http dns-message request
 ///
 /// ```text
 ///  4.2.1.  Handling DNS and HTTP Errors
@@ -38,11 +39,11 @@ use crate::https::HttpsResult;
 /// cannot generate a representation suitable for the client (HTTP status
 /// code 406, [RFC7231] Section 6.5.6), and so on.
 /// ```
-pub fn new(message_len: usize) -> HttpsResult<Response<()>> {
+pub fn new(version: Version, message_len: usize) -> Result<Response<()>> {
     Response::builder()
         .status(StatusCode::OK)
-        .version(Version::HTTP_2)
-        .header(CONTENT_TYPE, crate::https::MIME_APPLICATION_DNS)
+        .version(version.to_http())
+        .header(CONTENT_TYPE, crate::http::MIME_APPLICATION_DNS)
         .header(CONTENT_LENGTH, message_len)
         .body(())
         .map_err(|e| ProtoError::from(format!("invalid response: {e}")).into())

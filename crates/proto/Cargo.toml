@@ -42,6 +42,8 @@ dns-over-quic = ["quinn", "rustls/quic", "dns-over-rustls", "bytes", "tokio-runt
 
 native-certs = ["dep:rustls-native-certs"]
 
+dns-over-h3 = ["h3", "h3-quinn", "quinn", "http", "dns-over-quic"]
+
 dnssec-openssl = ["dnssec", "openssl"]
 dnssec-ring = ["dnssec", "ring"]
 dnssec = []
@@ -79,6 +81,8 @@ futures-channel = { workspace = true, default-features = false, features = ["std
 futures-io = { workspace = true, default-features = false, features = ["std"] }
 futures-util = { workspace = true, default-features = false, features = ["std"] }
 h2 = { workspace = true, features = ["stream"], optional = true }
+h3 = { workspace = true, optional = true }
+h3-quinn = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
 idna.workspace = true
 ipnet.workspace = true
