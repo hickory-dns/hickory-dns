@@ -18,6 +18,7 @@ use http::header::CONTENT_LENGTH;
 use http::{Method, Request};
 use tracing::debug;
 
+use crate::http::Version;
 use crate::https::HttpsError;
 
 /// Given an HTTP request, return a future that will result in the next sequence of bytes.
@@ -34,7 +35,7 @@ where
     debug!("Received request: {:#?}", request);
 
     let this_server_name = this_server_name.as_deref();
-    match crate::https::request::verify(this_server_name, &request) {
+    match crate::http::request::verify(Version::Http2, this_server_name, &request) {
         Ok(_) => (),
         Err(err) => return Err(err),
     }
@@ -97,7 +98,7 @@ mod tests {
     use std::pin::Pin;
     use std::task::{Context, Poll};
 
-    use crate::https::request;
+    use crate::http::request;
     use crate::op::Message;
 
     use super::*;
@@ -123,7 +124,7 @@ mod tests {
         let msg_bytes = message.to_vec().unwrap();
         let len = msg_bytes.len();
         let stream = TestBytesStream(vec![Ok(Bytes::from(msg_bytes))]);
-        let request = request::new("ns.example.com", len).unwrap();
+        let request = request::new(Version::Http2, "ns.example.com", len).unwrap();
         let request = request.map(|()| stream);
 
         let from_post = message_from(Some(Arc::from("ns.example.com")), request);

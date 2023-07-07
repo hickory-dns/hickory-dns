@@ -7,16 +7,10 @@
 
 //! TLS protocol related components for DNS over HTTPS (DoH)
 
-const MIME_APPLICATION_DNS: &str = "application/dns-message";
-const DNS_QUERY_PATH: &str = "/dns-query";
-
-mod error;
 mod https_client_stream;
 pub mod https_server;
-pub mod request;
-pub mod response;
 
-pub use self::error::{Error as HttpsError, Result as HttpsResult};
+pub use crate::http::error::{Error as HttpsError, Result as HttpsResult};
 
 pub use self::https_client_stream::{
     HttpsClientConnect, HttpsClientResponse, HttpsClientStream, HttpsClientStreamBuilder,

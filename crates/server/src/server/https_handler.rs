@@ -13,7 +13,7 @@ use h2::server;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, warn};
-use trust_dns_proto::rr::Record;
+use trust_dns_proto::{http::Version, rr::Record};
 
 use crate::{
     authority::MessageResponse,
@@ -108,7 +108,7 @@ impl ResponseHandler for HttpsResponseHandle {
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
     ) -> io::Result<ResponseInfo> {
-        use crate::proto::https::response;
+        use crate::proto::http::response;
         use crate::proto::https::HttpsError;
         use crate::proto::serialize::binary::BinEncoder;
 
@@ -119,7 +119,7 @@ impl ResponseHandler for HttpsResponseHandle {
             response.destructive_emit(&mut encoder)?
         };
         let bytes = Bytes::from(bytes);
-        let response = response::new(bytes.len())?;
+        let response = response::new(Version::Http2, bytes.len())?;
 
         debug!("sending response: {:#?}", response);
         let mut stream = self

@@ -7,73 +7,67 @@
 
 use std::fmt::{self, Display};
 use std::future::Future;
-use std::io;
 use std::net::SocketAddr;
-use std::ops::DerefMut;
 use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use bytes::{Buf, Bytes, BytesMut};
-use futures_util::future::{FutureExt, TryFutureExt};
-use futures_util::ready;
+use bytes::{Buf, BufMut, Bytes, BytesMut};
+use futures_util::future::FutureExt;
 use futures_util::stream::Stream;
-use h2::client::{Connection, SendRequest};
+use h3::client::{Connection, SendRequest};
+use h3_quinn::OpenStreams;
 use http::header::{self, CONTENT_LENGTH};
-use rustls::ClientConfig;
-use tokio_rustls::{
-    client::TlsStream as TokioTlsClientStream, Connect as TokioTlsConnect, TlsConnector,
-};
-use tracing::{debug, warn};
+use quinn::{ClientConfig, Endpoint, EndpointConfig, TransportConfig};
+use rustls::ClientConfig as TlsClientConfig;
+use tracing::debug;
 
 use crate::error::ProtoError;
 use crate::http::Version;
-use crate::iocompat::AsyncIoStdAsTokio;
 use crate::op::Message;
-use crate::tcp::{Connect, DnsTcpStream};
+use crate::quic::quic_socket::QuinnAsyncUdpSocketAdapter;
+use crate::quic::QuicLocalAddr;
+use crate::udp::{DnsUdpSocket, UdpSocket};
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
 
-const ALPN_H2: &[u8] = b"h2";
+use super::ALPN_H3;
 
-/// A DNS client connection for DNS-over-HTTPS
-#[derive(Clone)]
+/// A DNS client connection for DNS-over-HTTP/3
 #[must_use = "futures do nothing unless polled"]
-pub struct HttpsClientStream {
-    // Corresponds to the dns-name of the HTTPS server
+pub struct H3ClientStream {
+    // Corresponds to the dns-name of the HTTP/3 server
     name_server_name: Arc<str>,
     name_server: SocketAddr,
-    h2: SendRequest<Bytes>,
+    driver: Connection<h3_quinn::Connection, Bytes>,
+    send_request: SendRequest<OpenStreams, Bytes>,
     is_shutdown: bool,
 }
 
-impl Display for HttpsClientStream {
+impl Display for H3ClientStream {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
             formatter,
-            "HTTPS({},{})",
+            "H3({},{})",
             self.name_server, self.name_server_name
         )
     }
 }
 
-impl HttpsClientStream {
+impl H3ClientStream {
+    /// Builder for H3ClientStream
+    pub fn builder() -> H3ClientStreamBuilder {
+        H3ClientStreamBuilder::default()
+    }
+
     async fn inner_send(
-        h2: SendRequest<Bytes>,
+        mut h3: SendRequest<OpenStreams, Bytes>,
         message: Bytes,
         name_server_name: Arc<str>,
     ) -> Result<DnsResponse, ProtoError> {
-        let mut h2 = match h2.ready().await {
-            Ok(h2) => h2,
-            Err(err) => {
-                // TODO: make specific error
-                return Err(ProtoError::from(format!("h2 send_request error: {err}")));
-            }
-        };
-
         // build up the http request
         let request =
-            crate::http::request::new(Version::Http2, &name_server_name, message.remaining());
+            crate::http::request::new(Version::Http3, &name_server_name, message.remaining());
 
         let request =
             request.map_err(|err| ProtoError::from(format!("bad http request: {err}")))?;
@@ -81,22 +75,30 @@ impl HttpsClientStream {
         debug!("request: {:#?}", request);
 
         // Send the request
-        let (response_future, mut send_stream) = h2
-            .send_request(request, false)
-            .map_err(|err| ProtoError::from(format!("h2 send_request error: {err}")))?;
+        let mut stream = h3
+            .send_request(request)
+            .await
+            .map_err(|err| ProtoError::from(format!("h3 send_request error: {err}")))?;
 
-        send_stream
-            .send_data(message, true)
-            .map_err(|e| ProtoError::from(format!("h2 send_data error: {e}")))?;
+        stream
+            .send_data(message)
+            .await
+            .map_err(|e| ProtoError::from(format!("h3 send_data error: {e}")))?;
 
-        let mut response_stream = response_future
+        stream
+            .finish()
             .await
             .map_err(|err| ProtoError::from(format!("received a stream error: {err}")))?;
 
-        debug!("got response: {:#?}", response_stream);
+        let response = stream
+            .recv_response()
+            .await
+            .map_err(|err| ProtoError::from(format!("h3 recv_response error: {err}")))?;
+
+        debug!("got response: {:#?}", response);
 
         // get the length of packet
-        let content_length = response_stream
+        let content_length = response
             .headers()
             .get(CONTENT_LENGTH)
             .map(|v| v.to_str())
@@ -112,12 +114,13 @@ impl HttpsClientStream {
         let mut response_bytes =
             BytesMut::with_capacity(content_length.unwrap_or(512).clamp(512, 4096));
 
-        while let Some(partial_bytes) = response_stream.body_mut().data().await {
-            let partial_bytes =
-                partial_bytes.map_err(|e| ProtoError::from(format!("bad http request: {e}")))?;
-
-            debug!("got bytes: {}", partial_bytes.len());
-            response_bytes.extend(partial_bytes);
+        while let Some(partial_bytes) = stream
+            .recv_data()
+            .await
+            .map_err(|e| ProtoError::from(format!("h3 recv_data error: {e}")))?
+        {
+            debug!("got bytes: {}", partial_bytes.remaining());
+            response_bytes.put(partial_bytes);
 
             // assert the length
             if let Some(content_length) = content_length {
@@ -140,20 +143,20 @@ impl HttpsClientStream {
         }
 
         // Was it a successful request?
-        if !response_stream.status().is_success() {
+        if !response.status().is_success() {
             let error_string = String::from_utf8_lossy(response_bytes.as_ref());
 
             // TODO: make explicit error type
             return Err(ProtoError::from(format!(
                 "http unsuccessful code: {}, message: {}",
-                response_stream.status(),
+                response.status(),
                 error_string
             )));
         } else {
             // verify content type
             {
                 // in the case that the ContentType is not specified, we assume it's the standard DNS format
-                let content_type = response_stream
+                let content_type = response
                     .headers()
                     .get(header::CONTENT_TYPE)
                     .map(|h| {
@@ -180,7 +183,7 @@ impl HttpsClientStream {
     }
 }
 
-impl DnsRequestSender for HttpsClientStream {
+impl DnsRequestSender for H3ClientStream {
     /// This indicates that the HTTP message was successfully sent, and we now have the response.RecvStream
     ///
     /// If the request fails, this will return the error, and it should be assumed that the Stream portion of
@@ -242,7 +245,7 @@ impl DnsRequestSender for HttpsClientStream {
         };
 
         Box::pin(Self::inner_send(
-            self.h2.clone(),
+            self.send_request.clone(),
             Bytes::from(bytes),
             Arc::clone(&self.name_server_name),
         ))
@@ -258,7 +261,7 @@ impl DnsRequestSender for HttpsClientStream {
     }
 }
 
-impl Stream for HttpsClientStream {
+impl Stream for H3ClientStream {
     type Item = Result<(), ProtoError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -267,30 +270,29 @@ impl Stream for HttpsClientStream {
         }
 
         // just checking if the connection is ok
-        match self.h2.poll_ready(cx) {
-            Poll::Ready(Ok(())) => Poll::Ready(Some(Ok(()))),
+        match self.driver.poll_close(cx) {
+            Poll::Ready(Ok(())) => Poll::Ready(None),
             Poll::Pending => Poll::Pending,
             Poll::Ready(Err(e)) => Poll::Ready(Some(Err(ProtoError::from(format!(
-                "h2 stream errored: {e}",
+                "h3 stream errored: {e}",
             ))))),
         }
     }
 }
 
-/// A HTTPS connection builder for DNS-over-HTTPS
+/// A H3 connection builder for DNS-over-HTTP/3
 #[derive(Clone)]
-pub struct HttpsClientStreamBuilder {
-    client_config: Arc<ClientConfig>,
+pub struct H3ClientStreamBuilder {
+    crypto_config: TlsClientConfig,
+    transport_config: Arc<TransportConfig>,
     bind_addr: Option<SocketAddr>,
 }
 
-impl HttpsClientStreamBuilder {
-    /// Constructs a new TlsStreamBuilder with the associated ClientConfig
-    pub fn with_client_config(client_config: Arc<ClientConfig>) -> Self {
-        Self {
-            client_config,
-            bind_addr: None,
-        }
+impl H3ClientStreamBuilder {
+    /// Constructs a new H3ClientStreamBuilder with the associated ClientConfig
+    pub fn crypto_config(&mut self, crypto_config: TlsClientConfig) -> &mut Self {
+        self.crypto_config = crypto_config;
+        self
     }
 
     /// Sets the address to connect from.
@@ -298,228 +300,145 @@ impl HttpsClientStreamBuilder {
         self.bind_addr = Some(bind_addr);
     }
 
-    /// Creates a new HttpsStream to the specified name_server
+    /// Creates a new H3Stream to the specified name_server
     ///
     /// # Arguments
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
-    pub fn build<S: Connect>(
-        mut self,
-        name_server: SocketAddr,
-        dns_name: String,
-    ) -> HttpsClientConnect<S> {
-        // ensure the ALPN protocol is set correctly
-        if self.client_config.alpn_protocols.is_empty() {
-            let mut client_config = (*self.client_config).clone();
-            client_config.alpn_protocols = vec![ALPN_H2.to_vec()];
-
-            self.client_config = Arc::new(client_config);
-        }
-
-        let tls = TlsConfig {
-            client_config: self.client_config,
-            dns_name: Arc::from(dns_name),
-        };
-
-        let connect = S::connect_with_bind(name_server, self.bind_addr);
-
-        HttpsClientConnect::<S>(HttpsClientConnectState::TcpConnecting {
-            connect,
-            name_server,
-            tls: Some(tls),
-        })
+    pub fn build(self, name_server: SocketAddr, dns_name: String) -> H3ClientConnect {
+        H3ClientConnect(Box::pin(self.connect(name_server, dns_name)) as _)
     }
 
-    /// Creates a new HttpsStream with existing connection
+    /// Creates a new H3Stream with existing connection
     pub fn build_with_future<S, F>(
+        self,
         future: F,
-        mut client_config: Arc<ClientConfig>,
         name_server: SocketAddr,
         dns_name: String,
-    ) -> HttpsClientConnect<S>
+    ) -> H3ClientConnect
     where
-        S: DnsTcpStream,
+        S: DnsUdpSocket + QuicLocalAddr + 'static,
         F: Future<Output = std::io::Result<S>> + Send + Unpin + 'static,
     {
-        // ensure the ALPN protocol is set correctly
-        if client_config.alpn_protocols.is_empty() {
-            let mut client_cfg = (*client_config).clone();
-            client_cfg.alpn_protocols = vec![ALPN_H2.to_vec()];
+        H3ClientConnect(Box::pin(self.connect_with_future(future, name_server, dns_name)) as _)
+    }
 
-            client_config = Arc::new(client_cfg);
-        }
+    async fn connect_with_future<S, F>(
+        self,
+        future: F,
+        name_server: SocketAddr,
+        dns_name: String,
+    ) -> Result<H3ClientStream, ProtoError>
+    where
+        S: DnsUdpSocket + QuicLocalAddr + 'static,
+        F: Future<Output = std::io::Result<S>> + Send,
+    {
+        let socket = future.await?;
+        let wrapper = QuinnAsyncUdpSocketAdapter { io: socket };
+        let endpoint = Endpoint::new_with_abstract_socket(
+            EndpointConfig::default(),
+            None,
+            wrapper,
+            Arc::new(quinn::TokioRuntime),
+        )?;
+        self.connect_inner(endpoint, name_server, dns_name).await
+    }
 
-        let tls = TlsConfig {
-            client_config,
-            dns_name: Arc::from(dns_name),
+    async fn connect(
+        self,
+        name_server: SocketAddr,
+        dns_name: String,
+    ) -> Result<H3ClientStream, ProtoError> {
+        let connect = if let Some(bind_addr) = self.bind_addr {
+            <tokio::net::UdpSocket as UdpSocket>::connect_with_bind(name_server, bind_addr)
+        } else {
+            <tokio::net::UdpSocket as UdpSocket>::connect(name_server)
         };
 
-        HttpsClientConnect::<S>(HttpsClientConnectState::TcpConnecting {
-            connect: Box::pin(future),
+        let socket = connect.await?;
+        let socket = socket.into_std()?;
+        let endpoint = Endpoint::new(
+            EndpointConfig::default(),
+            None,
+            socket,
+            Arc::new(quinn::TokioRuntime),
+        )?;
+        self.connect_inner(endpoint, name_server, dns_name).await
+    }
+
+    async fn connect_inner(
+        self,
+        mut endpoint: Endpoint,
+        name_server: SocketAddr,
+        dns_name: String,
+    ) -> Result<H3ClientStream, ProtoError> {
+        let mut crypto_config = self.crypto_config;
+        // ensure the ALPN protocol is set correctly
+        if crypto_config.alpn_protocols.is_empty() {
+            crypto_config.alpn_protocols = vec![ALPN_H3.to_vec()];
+        }
+        let early_data_enabled = crypto_config.enable_early_data;
+
+        let mut client_config = ClientConfig::new(Arc::new(crypto_config));
+        client_config.transport_config(self.transport_config.clone());
+
+        endpoint.set_default_client_config(client_config);
+
+        let connecting = endpoint.connect(name_server, &dns_name)?;
+        // TODO: for Client/Dynamic update, don't use RTT, for queries, do use it.
+
+        let quic_connection = if early_data_enabled {
+            match connecting.into_0rtt() {
+                Ok((new_connection, _)) => new_connection,
+                Err(connecting) => connecting.await?,
+            }
+        } else {
+            connecting.await?
+        };
+
+        let h3_connection = h3_quinn::Connection::new(quic_connection);
+        let (driver, send_request) = h3::client::new(h3_connection)
+            .await
+            .map_err(|e| ProtoError::from(format!("h3 connection failed: {e}")))?;
+
+        Ok(H3ClientStream {
+            name_server_name: Arc::from(dns_name),
             name_server,
-            tls: Some(tls),
+            driver,
+            send_request,
+            is_shutdown: false,
         })
     }
 }
 
-/// A future that resolves to an HttpsClientStream
-pub struct HttpsClientConnect<S>(HttpsClientConnectState<S>)
-where
-    S: DnsTcpStream;
+impl Default for H3ClientStreamBuilder {
+    fn default() -> Self {
+        Self {
+            crypto_config: super::client_config_tls13().unwrap(),
+            transport_config: Arc::new(super::transport()),
+            bind_addr: None,
+        }
+    }
+}
 
-impl<S> Future for HttpsClientConnect<S>
-where
-    S: DnsTcpStream,
-{
-    type Output = Result<HttpsClientStream, ProtoError>;
+/// A future that resolves to an H3ClientStream
+pub struct H3ClientConnect(
+    Pin<Box<dyn Future<Output = Result<H3ClientStream, ProtoError>> + Send>>,
+);
+
+impl Future for H3ClientConnect {
+    type Output = Result<H3ClientStream, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.poll_unpin(cx)
     }
 }
 
-struct TlsConfig {
-    client_config: Arc<ClientConfig>,
-    dns_name: Arc<str>,
-}
-
-#[allow(clippy::large_enum_variant)]
-#[allow(clippy::type_complexity)]
-enum HttpsClientConnectState<S>
-where
-    S: DnsTcpStream,
-{
-    TcpConnecting {
-        connect: Pin<Box<dyn Future<Output = io::Result<S>> + Send>>,
-        name_server: SocketAddr,
-        tls: Option<TlsConfig>,
-    },
-    TlsConnecting {
-        // TODO: also abstract away Tokio TLS in RuntimeProvider.
-        tls: TokioTlsConnect<AsyncIoStdAsTokio<S>>,
-        name_server_name: Arc<str>,
-        name_server: SocketAddr,
-    },
-    H2Handshake {
-        handshake: Pin<
-            Box<
-                dyn Future<
-                        Output = Result<
-                            (
-                                SendRequest<Bytes>,
-                                Connection<TokioTlsClientStream<AsyncIoStdAsTokio<S>>, Bytes>,
-                            ),
-                            h2::Error,
-                        >,
-                    > + Send,
-            >,
-        >,
-        name_server_name: Arc<str>,
-        name_server: SocketAddr,
-    },
-    Connected(Option<HttpsClientStream>),
-    Errored(Option<ProtoError>),
-}
-
-impl<S> Future for HttpsClientConnectState<S>
-where
-    S: DnsTcpStream,
-{
-    type Output = Result<HttpsClientStream, ProtoError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        loop {
-            let next = match *self {
-                Self::TcpConnecting {
-                    ref mut connect,
-                    name_server,
-                    ref mut tls,
-                } => {
-                    let tcp = ready!(connect.poll_unpin(cx))?;
-
-                    debug!("tcp connection established to: {}", name_server);
-                    let tls = tls
-                        .take()
-                        .expect("programming error, tls should not be None here");
-                    let name_server_name = Arc::clone(&tls.dns_name);
-
-                    match tls.dns_name.as_ref().try_into() {
-                        Ok(dns_name) => {
-                            let tls = TlsConnector::from(tls.client_config);
-                            let tls = tls.connect(dns_name, AsyncIoStdAsTokio(tcp));
-                            Self::TlsConnecting {
-                                name_server_name,
-                                name_server,
-                                tls,
-                            }
-                        }
-                        Err(_) => Self::Errored(Some(ProtoError::from(format!(
-                            "bad dns_name: {}",
-                            &tls.dns_name
-                        )))),
-                    }
-                }
-                Self::TlsConnecting {
-                    ref name_server_name,
-                    name_server,
-                    ref mut tls,
-                } => {
-                    let tls = ready!(tls.poll_unpin(cx))?;
-                    debug!("tls connection established to: {}", name_server);
-                    let mut handshake = h2::client::Builder::new();
-                    handshake.enable_push(false);
-
-                    let handshake = handshake.handshake(tls);
-                    Self::H2Handshake {
-                        name_server_name: Arc::clone(name_server_name),
-                        name_server,
-                        handshake: Box::pin(handshake),
-                    }
-                }
-                Self::H2Handshake {
-                    ref name_server_name,
-                    name_server,
-                    ref mut handshake,
-                } => {
-                    let (send_request, connection) = ready!(handshake
-                        .poll_unpin(cx)
-                        .map_err(|e| ProtoError::from(format!("h2 handshake error: {e}"))))?;
-
-                    // TODO: hand this back for others to run rather than spawning here?
-                    debug!("h2 connection established to: {}", name_server);
-                    tokio::spawn(
-                        connection
-                            .map_err(|e| warn!("h2 connection failed: {e}"))
-                            .map(|_: Result<(), ()>| ()),
-                    );
-
-                    Self::Connected(Some(HttpsClientStream {
-                        name_server_name: Arc::clone(name_server_name),
-                        name_server,
-                        h2: send_request,
-                        is_shutdown: false,
-                    }))
-                }
-                Self::Connected(ref mut conn) => {
-                    return Poll::Ready(Ok(conn.take().expect("cannot poll after complete")))
-                }
-                Self::Errored(ref mut err) => {
-                    return Poll::Ready(Err(err.take().expect("cannot poll after complete")))
-                }
-            };
-
-            *self.as_mut().deref_mut() = next;
-        }
-    }
-}
-
 /// A future that resolves to
-pub struct HttpsClientResponse(
-    Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>,
-);
+pub struct H3ClientResponse(Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>);
 
-impl Future for HttpsClientResponse {
+impl Future for H3ClientResponse {
     type Output = Result<DnsResponse, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -527,17 +446,14 @@ impl Future for HttpsClientResponse {
     }
 }
 
-#[cfg(any(feature = "webpki-roots", feature = "native-certs"))]
-#[cfg(test)]
+#[cfg(all(test, any(feature = "native-certs", feature = "webpki-roots")))]
 mod tests {
     use std::net::SocketAddr;
     use std::str::FromStr;
 
     use rustls::KeyLogFile;
-    use tokio::net::TcpStream as TokioTcpStream;
     use tokio::runtime::Runtime;
 
-    use crate::iocompat::AsyncIoTokioAsStd;
     use crate::op::{Message, Query, ResponseCode};
     use crate::rr::rdata::{A, AAAA};
     use crate::rr::{Name, RData, RecordType};
@@ -546,7 +462,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_https_google() {
+    fn test_h3_google() {
         //env_logger::try_init().ok();
 
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
@@ -556,19 +472,19 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = client_config_tls12();
+        let mut client_config = super::super::client_config_tls13().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
-        let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
-        let connect = https_builder
-            .build::<AsyncIoTokioAsStd<TokioTcpStream>>(google, "dns.google".to_string());
+        let mut h3_builder = H3ClientStream::builder();
+        h3_builder.crypto_config(client_config);
+        let connect = h3_builder.build(google, "dns.google".to_string());
 
         // tokio runtime stuff...
         let runtime = Runtime::new().expect("could not start runtime");
-        let mut https = runtime.block_on(connect).expect("https connect failed");
+        let mut h3 = runtime.block_on(connect).expect("h3 connect failed");
 
         let response = runtime
-            .block_on(https.send_message(request).first_answer())
+            .block_on(h3.send_message(request).first_answer())
             .expect("send_message failed");
 
         let record = &response.answers()[0];
@@ -591,7 +507,7 @@ mod tests {
 
         for _ in 0..3 {
             let response = runtime
-                .block_on(https.send_message(request.clone()).first_answer())
+                .block_on(h3.send_message(request.clone()).first_answer())
                 .expect("send_message failed");
             if response.response_code() == ResponseCode::ServFail {
                 continue;
@@ -611,7 +527,7 @@ mod tests {
     }
 
     #[test]
-    fn test_https_google_with_pure_ip_address_server() {
+    fn test_h3_google_with_pure_ip_address_server() {
         //env_logger::try_init().ok();
 
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
@@ -621,19 +537,19 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = client_config_tls12();
+        let mut client_config = super::super::client_config_tls13().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
-        let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
-        let connect = https_builder
-            .build::<AsyncIoTokioAsStd<TokioTcpStream>>(google, google.ip().to_string());
+        let mut h3_builder = H3ClientStream::builder();
+        h3_builder.crypto_config(client_config);
+        let connect = h3_builder.build(google, google.ip().to_string());
 
         // tokio runtime stuff...
         let runtime = Runtime::new().expect("could not start runtime");
-        let mut https = runtime.block_on(connect).expect("https connect failed");
+        let mut h3 = runtime.block_on(connect).expect("h3 connect failed");
 
         let response = runtime
-            .block_on(https.send_message(request).first_answer())
+            .block_on(h3.send_message(request).first_answer())
             .expect("send_message failed");
 
         let record = &response.answers()[0];
@@ -656,7 +572,7 @@ mod tests {
 
         for _ in 0..3 {
             let response = runtime
-                .block_on(https.send_message(request.clone()).first_answer())
+                .block_on(h3.send_message(request.clone()).first_answer())
                 .expect("send_message failed");
             if response.response_code() == ResponseCode::ServFail {
                 continue;
@@ -675,9 +591,10 @@ mod tests {
         }
     }
 
+    /// Currently fails, see <https://github.com/hyperium/h3/issues/206>.
     #[test]
     #[ignore] // cloudflare has been unreliable as a public test service.
-    fn test_https_cloudflare() {
+    fn test_h3_cloudflare() {
         // self::env_logger::try_init().ok();
 
         let cloudflare = SocketAddr::from(([1, 1, 1, 1], 443));
@@ -687,19 +604,19 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let client_config = client_config_tls12();
-        let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
-        let connect = https_builder.build::<AsyncIoTokioAsStd<TokioTcpStream>>(
-            cloudflare,
-            "cloudflare-dns.com".to_string(),
-        );
+        let mut client_config = super::super::client_config_tls13().unwrap();
+        client_config.key_log = Arc::new(KeyLogFile::new());
+
+        let mut h3_builder = H3ClientStream::builder();
+        h3_builder.crypto_config(client_config);
+        let connect = h3_builder.build(cloudflare, "cloudflare-dns.com".to_string());
 
         // tokio runtime stuff...
         let runtime = Runtime::new().expect("could not start runtime");
-        let mut https = runtime.block_on(connect).expect("https connect failed");
+        let mut h3 = runtime.block_on(connect).expect("h3 connect failed");
 
         let response = runtime
-            .block_on(https.send_message(request).first_answer())
+            .block_on(h3.send_message(request).first_answer())
             .expect("send_message failed");
 
         let record = &response.answers()[0];
@@ -721,7 +638,7 @@ mod tests {
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
         let response = runtime
-            .block_on(https.send_message(request).first_answer())
+            .block_on(h3.send_message(request).first_answer())
             .expect("send_message failed");
 
         let record = &response.answers()[0];
@@ -734,49 +651,5 @@ mod tests {
             addr,
             &AAAA::new(0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946)
         );
-    }
-
-    fn client_config_tls12() -> ClientConfig {
-        use rustls::RootCertStore;
-        #[cfg_attr(
-            not(any(feature = "native-certs", feature = "webpki-roots")),
-            allow(unused_mut)
-        )]
-        let mut root_store = RootCertStore::empty();
-        #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
-        {
-            let (added, ignored) = root_store
-                .add_parsable_certificates(&rustls_native_certs::load_native_certs().unwrap());
-
-            if ignored > 0 {
-                warn!(
-                    "failed to parse {} certificate(s) from the native root store",
-                    ignored
-                );
-            }
-
-            if added == 0 {
-                panic!("no valid certificates found in the native root store");
-            }
-        }
-        #[cfg(feature = "webpki-roots")]
-        root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-            rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
-                ta.subject,
-                ta.spki,
-                ta.name_constraints,
-            )
-        }));
-
-        let mut client_config = ClientConfig::builder()
-            .with_safe_default_cipher_suites()
-            .with_safe_default_kx_groups()
-            .with_safe_default_protocol_versions()
-            .unwrap()
-            .with_root_certificates(root_store)
-            .with_no_client_auth();
-
-        client_config.alpn_protocols = vec![ALPN_H2.to_vec()];
-        client_config
     }
 }

@@ -10,13 +10,14 @@
 use std::str::FromStr;
 
 use http::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE};
-use http::{header, uri, Request, Uri, Version};
+use http::{header, uri, Request, Uri};
 use tracing::debug;
 
 use crate::error::ProtoError;
-use crate::https::HttpsResult;
+use crate::http::error::Result;
+use crate::http::Version;
 
-/// Create a new Request for an http/2 dns-message request
+/// Create a new Request for an http dns-message request
 ///
 /// ```text
 /// https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-10#section-5.1
@@ -27,7 +28,7 @@ use crate::https::HttpsResult;
 /// [RFC4648].
 /// ```
 #[allow(clippy::field_reassign_with_default)] // https://github.com/rust-lang/rust-clippy/issues/6527
-pub fn new(name_server_name: &str, message_len: usize) -> HttpsResult<Request<()>> {
+pub fn new(version: Version, name_server_name: &str, message_len: usize) -> Result<Request<()>> {
     // TODO: this is basically the GET version, but it is more expensive than POST
     //   perhaps add an option if people want better HTTP caching options.
 
@@ -41,7 +42,7 @@ pub fn new(name_server_name: &str, message_len: usize) -> HttpsResult<Request<()
     //     .body(());
 
     let mut parts = uri::Parts::default();
-    parts.path_and_query = Some(uri::PathAndQuery::from_static(crate::https::DNS_QUERY_PATH));
+    parts.path_and_query = Some(uri::PathAndQuery::from_static(crate::http::DNS_QUERY_PATH));
     parts.scheme = Some(uri::Scheme::HTTPS);
     parts.authority = Some(
         uri::Authority::from_str(name_server_name)
@@ -55,27 +56,27 @@ pub fn new(name_server_name: &str, message_len: usize) -> HttpsResult<Request<()
     let request = Request::builder()
         .method("POST")
         .uri(url)
-        .version(Version::HTTP_2)
-        .header(CONTENT_TYPE, crate::https::MIME_APPLICATION_DNS)
-        .header(ACCEPT, crate::https::MIME_APPLICATION_DNS)
+        .version(version.to_http())
+        .header(CONTENT_TYPE, crate::http::MIME_APPLICATION_DNS)
+        .header(ACCEPT, crate::http::MIME_APPLICATION_DNS)
         .header(CONTENT_LENGTH, message_len)
         .body(())
-        .map_err(|e| ProtoError::from(format!("h2 stream errored: {e}")))?;
+        .map_err(|e| ProtoError::from(format!("http stream errored: {e}")))?;
 
     Ok(request)
 }
 
 /// Verifies the request is something we know what to deal with
-pub fn verify<T>(name_server: Option<&str>, request: &Request<T>) -> HttpsResult<()> {
+pub fn verify<T>(version: Version, name_server: Option<&str>, request: &Request<T>) -> Result<()> {
     // Verify all HTTP parameters
     let uri = request.uri();
 
     // validate path
-    if uri.path() != crate::https::DNS_QUERY_PATH {
+    if uri.path() != crate::http::DNS_QUERY_PATH {
         return Err(format!(
             "bad path: {}, expected: {}",
             uri.path(),
-            crate::https::DNS_QUERY_PATH
+            crate::http::DNS_QUERY_PATH
         )
         .into());
     }
@@ -98,7 +99,7 @@ pub fn verify<T>(name_server: Option<&str>, request: &Request<T>) -> HttpsResult
 
     // TODO: switch to mime::APPLICATION_DNS when that stabilizes
     match request.headers().get(CONTENT_TYPE).map(|v| v.to_str()) {
-        Some(Ok(ctype)) if ctype == crate::https::MIME_APPLICATION_DNS => {}
+        Some(Ok(ctype)) if ctype == crate::http::MIME_APPLICATION_DNS => {}
         _ => return Err("unsupported content type".into()),
     };
 
@@ -109,7 +110,7 @@ pub fn verify<T>(name_server: Option<&str>, request: &Request<T>) -> HttpsResult
             for mime_and_quality in ctype.split(',') {
                 let mut parts = mime_and_quality.splitn(2, ';');
                 match parts.next() {
-                    Some(mime) if mime.trim() == crate::https::MIME_APPLICATION_DNS => {
+                    Some(mime) if mime.trim() == crate::http::MIME_APPLICATION_DNS => {
                         found = true;
                         break;
                     }
@@ -129,8 +130,14 @@ pub fn verify<T>(name_server: Option<&str>, request: &Request<T>) -> HttpsResult
         None => return Err("Accept is unspecified".into()),
     };
 
-    if request.version() != Version::HTTP_2 {
-        return Err("only HTTP/2 supported".into());
+    if request.version() != version.to_http() {
+        let message = match version {
+            #[cfg(feature = "dns-over-https")]
+            Version::Http2 => "only HTTP/2 supported",
+            #[cfg(feature = "dns-over-h3")]
+            Version::Http3 => "only HTTP/3 supported",
+        };
+        return Err(message.into());
     }
 
     debug!(
@@ -150,8 +157,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_new_verify() {
-        let request = new("ns.example.com", 512).expect("error converting to http");
-        assert!(verify(Some("ns.example.com"), &request).is_ok());
+    #[cfg(feature = "dns-over-https")]
+    fn test_new_verify_h2() {
+        let request = new(Version::Http2, "ns.example.com", 512).expect("error converting to http");
+        assert!(verify(Version::Http2, Some("ns.example.com"), &request).is_ok());
+    }
+
+    #[test]
+    #[cfg(feature = "dns-over-h3")]
+    fn test_new_verify_h3() {
+        let request = new(Version::Http3, "ns.example.com", 512).expect("error converting to http");
+        assert!(verify(Version::Http3, Some("ns.example.com"), &request).is_ok());
     }
 }

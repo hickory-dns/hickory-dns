@@ -85,6 +85,7 @@ jobs:
             dns-over-rustls,
             dns-over-https-rustls,
             dns-over-quic,
+            dns-over-h3,
             dns-over-native-tls,
             dnssec-openssl,
             dnssec-ring,
