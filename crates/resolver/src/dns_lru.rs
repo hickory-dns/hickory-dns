@@ -625,7 +625,7 @@ mod tests {
             .next()
             .unwrap()
             .ttl();
-        assert_eq!(ttl <= 8, true);
+        assert!(ttl <= 8);
     }
 
     #[test]
