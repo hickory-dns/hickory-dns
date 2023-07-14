@@ -1777,7 +1777,7 @@ mod tests {
         for i in 0..10000 {
             let name = Name::from_ascii(format!("name{i}.example.com.")).unwrap();
             result = name.emit(&mut encoder);
-            if let Err(..) = result {
+            if result.is_err() {
                 break;
             }
         }
