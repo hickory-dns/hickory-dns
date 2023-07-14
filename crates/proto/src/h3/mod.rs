@@ -8,6 +8,7 @@
 //! TLS protocol related components for DNS over HTTP/3 (DoH3)
 
 mod h3_client_stream;
+pub mod h3_server;
 
 use quinn::{TransportConfig, VarInt};
 
