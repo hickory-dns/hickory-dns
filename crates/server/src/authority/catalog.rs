@@ -8,9 +8,10 @@
 // TODO, I've implemented this as a separate entity from the cache, but I wonder if the cache
 //  should be the only "front-end" for lookups, where if that misses, then we go to the catalog
 //  then, if requested, do a recursive lookup... i.e. the catalog would only point to files.
-use std::{borrow::Borrow, collections::HashMap, future::Future, io};
+use std::{borrow::Borrow, cmp::Ordering, collections::HashMap, future::Future, io, net::IpAddr};
 
 use cfg_if::cfg_if;
+use ipnet::IpNet;
 use tracing::{debug, error, info, trace, warn};
 
 #[cfg(feature = "dnssec")]
@@ -28,10 +29,28 @@ use crate::{
     server::{Request, RequestHandler, RequestInfo, ResponseHandler, ResponseInfo},
 };
 
+type IpNetAuthoritiesTuple = (Option<IpNet>, HashMap<LowerName, Box<dyn AuthorityObject>>);
 /// Set of authorities, zones, available to this server.
 #[derive(Default)]
 pub struct Catalog {
-    authorities: HashMap<LowerName, Box<dyn AuthorityObject>>,
+    authorities: Vec<IpNetAuthoritiesTuple>,
+}
+
+fn compare_authorities_tuple(a: &IpNetAuthoritiesTuple, b: &IpNetAuthoritiesTuple) -> Ordering {
+    match (a.0, b.0) {
+        (None, None) => Ordering::Equal,
+        (None, Some(_)) => Ordering::Greater,
+        (Some(_), None) => Ordering::Less,
+        (Some(a), Some(b)) => {
+            if a.prefix_len() < b.prefix_len() {
+                Ordering::Greater
+            } else if a.prefix_len() > b.prefix_len() {
+                Ordering::Less
+            } else {
+                Ordering::Equal
+            }
+        }
+    }
 }
 
 #[allow(unused_mut, unused_variables)]
@@ -47,23 +66,22 @@ async fn send_response<'a, R: ResponseHandler>(
     >,
     mut response_handle: R,
 ) -> io::Result<ResponseInfo> {
+    #[cfg(feature = "dnssec")]
     if let Some(mut resp_edns) = response_edns {
-        #[cfg(feature = "dnssec")]
-        {
-            // set edns DAU and DHU
-            // send along the algorithms which are supported by this authority
-            let mut algorithms = SupportedAlgorithms::default();
-            algorithms.set(Algorithm::RSASHA256);
-            algorithms.set(Algorithm::ECDSAP256SHA256);
-            algorithms.set(Algorithm::ECDSAP384SHA384);
-            algorithms.set(Algorithm::ED25519);
+        // set edns DAU and DHU
+        // send along the algorithms which are supported by this authority
+        let mut algorithms = SupportedAlgorithms::default();
+        algorithms.set(Algorithm::RSASHA256);
+        algorithms.set(Algorithm::ECDSAP256SHA256);
+        algorithms.set(Algorithm::ECDSAP384SHA384);
+        algorithms.set(Algorithm::ED25519);
 
-            let dau = EdnsOption::DAU(algorithms);
-            let dhu = EdnsOption::DHU(algorithms);
+        let dau = EdnsOption::DAU(algorithms);
+        let dhu = EdnsOption::DHU(algorithms);
 
-            resp_edns.options_mut().insert(dau);
-            resp_edns.options_mut().insert(dhu);
-        }
+        resp_edns.options_mut().insert(dau);
+        resp_edns.options_mut().insert(dhu);
+
         response.set_edns(resp_edns);
     }
 
@@ -178,23 +196,97 @@ impl Catalog {
     /// Constructs a new Catalog
     pub fn new() -> Self {
         Self {
-            authorities: HashMap::new(),
+            authorities: vec![(None, HashMap::new())],
         }
     }
 
-    /// Insert or update a zone authority
+    /// Insert or update a zone authority for all clients.
     ///
     /// # Arguments
     ///
     /// * `name` - zone name, e.g. example.com.
     /// * `authority` - the zone data
     pub fn upsert(&mut self, name: LowerName, authority: Box<dyn AuthorityObject>) {
-        self.authorities.insert(name, authority);
+        for (ipnet, authorities) in self.authorities.iter_mut().rev() {
+            if ipnet.is_none() {
+                authorities.insert(name, authority);
+                return;
+            }
+        }
+
+        self.authorities.push((None, {
+            let mut hm = HashMap::with_capacity(1);
+            hm.insert(name, authority);
+            hm
+        }));
+    }
+
+    /// Insert or update a zone authority for an [`IpNet`] range of clients.
+    ///
+    /// # Arguments
+    ///
+    /// * `ipnet` - [`IpNet`] this authority is for, e.g. 10.5.0.0/16
+    /// * `name` - zone name, e.g. example.com.
+    /// * `authority` - the zone data
+    pub fn upsert_for_ipnet(
+        &mut self,
+        ipnet: IpNet,
+        name: LowerName,
+        authority: Box<dyn AuthorityObject>,
+    ) {
+        let found_authorities = {
+            let mut fa = None;
+            for (existing_ipnet, authorities) in self.authorities.iter_mut().rev() {
+                if let Some(existing_ipnet) = existing_ipnet {
+                    if existing_ipnet == &ipnet {
+                        fa = Some(authorities);
+                        break;
+                    }
+                }
+            }
+            fa
+        };
+
+        match found_authorities {
+            Some(authorities) => {
+                authorities.insert(name, authority);
+            }
+            None => self.authorities.push((Some(ipnet), {
+                let mut hm = HashMap::with_capacity(1);
+                hm.insert(name, authority);
+                hm
+            })),
+        }
+
+        self.authorities.sort_by(compare_authorities_tuple);
     }
 
     /// Remove a zone from the catalog
     pub fn remove(&mut self, name: &LowerName) -> Option<Box<dyn AuthorityObject>> {
-        self.authorities.remove(name)
+        for (ipnet, authorities) in self.authorities.iter_mut().rev() {
+            if ipnet.is_none() {
+                return authorities.remove(name);
+            }
+        }
+
+        None
+    }
+
+    /// Remove a zone from the catalog for an [`IpNet`] range of clients.
+    pub fn remove_for_ipnet(
+        &mut self,
+        ipnet: &IpNet,
+        name: &LowerName,
+    ) -> Option<Box<dyn AuthorityObject>> {
+        for (existing_ipnet, authorities) in self.authorities.iter_mut().rev() {
+            if let Some(existing_ipnet) = existing_ipnet {
+                if existing_ipnet == ipnet {
+                    return authorities.remove(name);
+                }
+            }
+        }
+
+        None
     }
 
     /// Update the zone given the Update request.
@@ -278,7 +370,7 @@ impl Catalog {
         // verify the zone type and number of zones in request, then find the zone to update
         let request_info = verify_request();
         let authority = request_info.as_ref().map_err(|e| *e).and_then(|info| {
-            self.find(info.query.name())
+            self.find_for_update(info.query.name())
                 .map(|a| a.box_clone())
                 .ok_or(ResponseCode::Refused)
         });
@@ -330,7 +422,13 @@ impl Catalog {
     /// If you do not know the exact domain name to use or you actually
     /// want to use the authority it contains, use `find` instead.
     pub fn contains(&self, name: &LowerName) -> bool {
-        self.authorities.contains_key(name)
+        for (_, authorities) in self.authorities.iter().rev() {
+            if authorities.contains_key(name) {
+                return true;
+            }
+        }
+
+        false
     }
 
     /// Given the requested query, lookup and return any matching results.
@@ -346,7 +444,8 @@ impl Catalog {
         response_handle: R,
     ) -> ResponseInfo {
         let request_info = request.request_info();
-        let authority = self.find(request_info.query.name());
+        let src_ip = request.src().ip();
+        let authority = self.find_for_src_ip(&src_ip, request_info.query.name());
 
         if let Some(authority) = authority {
             lookup(
@@ -381,19 +480,60 @@ impl Catalog {
     }
 
     /// Recursively searches the catalog for a matching authority
-    pub fn find(&self, name: &LowerName) -> Option<&(dyn AuthorityObject + 'static)> {
+    pub fn find_for_update(&self, name: &LowerName) -> Option<&(dyn AuthorityObject + 'static)> {
         debug!("searching authorities for: {}", name);
-        self.authorities
-            .get(name)
-            .map(|authority| &**authority)
-            .or_else(|| {
-                if !name.is_root() {
-                    let name = name.base_name();
-                    self.find(&name)
-                } else {
-                    None
+
+        for (ipnet, authorities) in self.authorities.iter().rev() {
+            if ipnet.is_none() {
+                return authorities
+                    .get(name)
+                    .map(|authority| &**authority)
+                    .or_else(|| {
+                        if !name.is_root() {
+                            let name = name.base_name();
+                            self.find_for_update(&name)
+                        } else {
+                            None
+                        }
+                    });
+            }
+        }
+
+        None
+    }
+
+    /// Recursively searches the catalog for a matching authority
+    pub fn find_for_src_ip(
+        &self,
+        src_ip: &IpAddr,
+        name: &LowerName,
+    ) -> Option<&(dyn AuthorityObject + 'static)> {
+        debug!("searching authorities for: {name} (client is {src_ip}");
+
+        for (ipnet, authorities) in self.authorities.iter().rev() {
+            match ipnet {
+                Some(ipnet) if ipnet.contains(src_ip) => {
+                    if let Some(authorities) = authorities.get(name) {
+                        return Some(&**authorities);
+                    }
                 }
-            })
+
+                None => {
+                    if let Some(authorities) = authorities.get(name) {
+                        return Some(&**authorities);
+                    }
+                }
+
+                _ => continue,
+            }
+        }
+
+        if !name.is_root() {
+            let name = name.base_name();
+            self.find_for_src_ip(src_ip, &name)
+        } else {
+            None
+        }
     }
 }
 

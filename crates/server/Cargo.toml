@@ -79,6 +79,7 @@ futures-executor = { workspace = true, default-features = false, features = ["st
 futures-util = { workspace = true, default-features = false, features = ["std"] }
 h2 = { workspace = true, features = ["stream"], optional = true }
 http = { workspace = true, optional = true }
+ipnet.workspace = true
 openssl = { workspace = true, features = ["v102", "v110"], optional = true }
 rusqlite = { workspace = true, features = ["bundled", "time"], optional = true }
 rustls = { workspace = true, optional = true }
