@@ -125,6 +125,11 @@ mod tests {
     }
 
     #[test]
+    fn test_google_https() {
+        https_test(ResolverConfig::google_https())
+    }
+
+    #[test]
     fn test_cloudflare_https() {
         https_test(ResolverConfig::cloudflare_https())
     }

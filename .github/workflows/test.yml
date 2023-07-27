@@ -27,11 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
       
       - uses: extractions/setup-just@v1
 
@@ -52,11 +48,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@nightly
         with:
-          profile: minimal
-          toolchain: nightly
-          override: true
           components: llvm-tools-preview
       
       - uses: extractions/setup-just@v1
@@ -99,11 +92,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
       
       - uses: extractions/setup-just@v1
 
@@ -129,11 +118,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           toolchain: ${{ matrix.version }}
-          override: true
       
       - uses: extractions/setup-just@v1
 
@@ -168,12 +155,10 @@ jobs:
             ${{ runner.os }}-cargo-all
             ${{ runner.os }}-cargo
 
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
           toolchain: stable
           components: rustfmt, clippy
-          override: true
       
       - uses: extractions/setup-just@v1
 
@@ -202,11 +187,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
       
       - uses: extractions/setup-just@v1
 
