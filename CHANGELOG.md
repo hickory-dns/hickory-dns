@@ -9,6 +9,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Fixed
 
+- (proto) Fix truncation for UDP #1975 by nmittler 
 - (proto) avoid panicking in parse_time() #1964 by djc
 - (server) Merge up deny response in requests to server #1954 by djc
 - (proto) remove duplicate is_soa function #1948 by mattsse
@@ -43,6 +44,10 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Changed
 
+- (resolver) fix(resolver): correct ttl from lru cache #1984 by iberryful
+- (ci) Use dtolnay/rust-toolchain #1993 by waywardmonkeys
+- (all) update the minimum required openssl version #1979 by bluejekyll
+- (bin) Print offending bind error in panic message #1971 by wprzytula
 - (resolver) Provider API Redesign #1938 by XOR-op
 - (all) create default rules for justfile (changed from cargo-make to justfiles) #1951 by bluejekyll
 - (all) Bump log to v0.4.18 #1949 by daxpedda
@@ -86,6 +91,8 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Added
 
+- (resolver) Add Google DoT and DoH to ResolverConfig #1989 by daxpedda
+- (server) Adding graceful shutdown to server #1977 by nmittler
 - (all) add an html coverage report for local review of coverage data #1959 by bluejekyll
 - (resolver) Add the possibility to shuffle NameServers #1920 by Edu4rdSHL
 - (resolver) add test for connecting DoH with pure IP Address #1936 by mokeyish
