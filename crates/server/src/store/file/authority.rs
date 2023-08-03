@@ -9,8 +9,7 @@
 
 use std::{
     collections::BTreeMap,
-    fs::File,
-    io::{BufRead, BufReader},
+    fs,
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
 };
@@ -25,7 +24,7 @@ use crate::{
 use crate::{
     authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType},
     proto::rr::{LowerName, Name, RecordSet, RecordType, RrKey},
-    proto::serialize::txt::{Lexer, Parser, Token},
+    proto::serialize::txt::{Lexer, Parser},
     server::RequestInfo,
     store::{file::FileConfig, in_memory::InMemoryAuthority},
 };
@@ -35,36 +34,6 @@ use crate::{
 /// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
 /// start of authority for the zone, is a Secondary, or a cached zone.
 pub struct FileAuthority(InMemoryAuthority);
-
-/// Max traversal depth for $INCLUDE files
-const MAX_INCLUDE_LEVEL: u16 = 256;
-
-/// Inner state of zone file loader, tracks depth of $INCLUDE
-/// loads as well as visited previously files, so the loader
-/// is able to abort e.g. when cycle is detected
-///
-/// Note, that tracking max depth level explicitly covers also
-/// cycles in $INCLUDEs. The error description in this case would
-/// not be very helpful to detect the root cause of the problem
-/// though. The way to improve diagnose experience would be to
-/// traverse $INCLUDE files in topologically sorted order which
-/// requires quite some re-arrangements in the code and in the
-/// way loader is currently implemented.
-struct FileReaderState {
-    level: u16,
-}
-
-impl FileReaderState {
-    fn new() -> Self {
-        Self { level: 0 }
-    }
-
-    fn next_level(&self) -> Self {
-        Self {
-            level: self.level + 1,
-        }
-    }
-}
 
 impl FileAuthority {
     /// Creates a new Authority.
@@ -91,85 +60,6 @@ impl FileAuthority {
         InMemoryAuthority::new(origin, records, zone_type, allow_axfr).map(Self)
     }
 
-    /// Read given file line by line and recursively invokes reader for
-    /// $INCLUDE directives
-    ///
-    /// TODO: it looks hacky as far we effectively duplicate parser's functionality
-    /// (at least partially) and performing lexing twice.
-    /// Better solution requires us to change lexer to deal
-    /// with Lines-like iterator instead of String buf (or capability to combine a few
-    /// lexer instances into a single lexer).
-    ///
-    /// TODO: $INCLUDE could specify domain name -- to support on-flight swap for Origin
-    /// value we definitely need to rethink and rework loader/parser/lexer
-    fn read_file(
-        zone_path: PathBuf,
-        buf: &mut String,
-        state: FileReaderState,
-    ) -> Result<(), String> {
-        let file = File::open(&zone_path)
-            .map_err(|e| format!("failed to read {}: {:?}", zone_path.display(), e))?;
-        let reader = BufReader::new(file);
-        for line in reader.lines() {
-            let content = line.map_err(|err| format!("failed to read line: {err:?}"))?;
-            let mut lexer = Lexer::new(&content);
-
-            match (lexer.next_token(), lexer.next_token(), lexer.next_token()) {
-                (
-                    Ok(Some(Token::Include)),
-                    Ok(Some(Token::CharData(include_path))),
-                    Ok(Some(Token::CharData(_domain))),
-                ) => {
-                    return Err(format!(
-                        "Domain name for $INCLUDE is not supported at {}, trying to include {}",
-                        zone_path.display(),
-                        include_path
-                    ));
-                }
-                (Ok(Some(Token::Include)), Ok(Some(Token::CharData(include_path))), _) => {
-                    // RFC1035 (section 5) does not specify how filename for $INCLUDE
-                    // should be resolved into file path. The underlying code implements the
-                    // following:
-                    // * if the path is absolute (relies on Path::is_absolute), it uses normalized path
-                    // * otherwise, it joins the path with parent root of the current file
-                    //
-                    // TODO: Inlining files specified using non-relative path might potentially introduce
-                    // security issue in some cases (e.g. when working with zone files from untrusted sources)
-                    // and should probably be configurable by user.
-                    let include_path = Path::new(&include_path);
-                    let include_zone_path = if include_path.is_absolute() {
-                        include_path.to_path_buf()
-                    } else {
-                        let parent_dir =
-                            zone_path.parent().expect("file has to have parent folder");
-                        parent_dir.join(include_path)
-                    };
-
-                    if state.level >= MAX_INCLUDE_LEVEL {
-                        return Err(format!("Max depth level for nested $INCLUDE is reached at {}, trying to include {}", zone_path.display(), include_zone_path.display()));
-                    }
-
-                    let mut include_buf = String::new();
-
-                    info!(
-                        "including file {} into {}",
-                        include_zone_path.display(),
-                        zone_path.display()
-                    );
-
-                    Self::read_file(include_zone_path, &mut include_buf, state.next_level())?;
-                    buf.push_str(&include_buf);
-                }
-                _ => {
-                    buf.push_str(&content);
-                }
-            }
-
-            buf.push('\n');
-        }
-        Ok(())
-    }
-
     /// Read the Authority for the origin from the specified configuration
     pub fn try_from_config(
         origin: Name,
@@ -183,15 +73,13 @@ impl FileAuthority {
 
         info!("loading zone file: {:?}", zone_path);
 
-        let mut buf = String::new();
-
         // TODO: this should really use something to read line by line or some other method to
         //  keep the usage down. and be a custom lexer...
-        Self::read_file(zone_path, &mut buf, FileReaderState::new())
+        let buf = fs::read_to_string(&zone_path)
             .map_err(|e| format!("failed to read {}: {:?}", &config.zone_file_path, e))?;
 
-        let lexer = Lexer::new(&buf);
-        let (origin, records) = Parser::new(lexer, Some(origin))
+        let lexer = Lexer::new(buf);
+        let (origin, records) = Parser::new(lexer, Some(zone_path), Some(origin))
             .parse()
             .map_err(|e| format!("failed to parse {}: {:?}", config.zone_file_path, e))?;
 
