@@ -24,7 +24,7 @@ use crate::{
 use crate::{
     authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType},
     proto::rr::{LowerName, Name, RecordSet, RecordType, RrKey},
-    proto::serialize::txt::{Lexer, Parser},
+    proto::serialize::txt::Parser,
     server::RequestInfo,
     store::{file::FileConfig, in_memory::InMemoryAuthority},
 };
@@ -78,8 +78,7 @@ impl FileAuthority {
         let buf = fs::read_to_string(&zone_path)
             .map_err(|e| format!("failed to read {}: {:?}", &config.zone_file_path, e))?;
 
-        let lexer = Lexer::new(buf);
-        let (origin, records) = Parser::new(lexer, Some(zone_path), Some(origin))
+        let (origin, records) = Parser::new(buf, Some(zone_path), Some(origin))
             .parse()
             .map_err(|e| format!("failed to parse {}: {:?}", config.zone_file_path, e))?;
 

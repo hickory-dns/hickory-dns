@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::{
+    borrow::Cow,
     collections::BTreeMap,
     fs, mem,
     path::{Path, PathBuf},
@@ -131,9 +132,13 @@ impl<'a> Parser<'a> {
     ///
     /// The `path` argument's parent directory is used to resolve relative `$INCLUDE` paths.
     /// Relative `$INCLUDE` paths will yield an error if `path` is `None`.
-    pub fn new(lexer: Lexer<'a>, path: Option<PathBuf>, origin: Option<Name>) -> Self {
+    pub fn new(
+        input: impl Into<Cow<'a, str>>,
+        path: Option<PathBuf>,
+        origin: Option<Name>,
+    ) -> Self {
         Self {
-            lexers: vec![(lexer, path)],
+            lexers: vec![(Lexer::new(input), path)],
             origin,
         }
     }
@@ -536,8 +541,7 @@ mod tests {
  faulty-record-type 60 IN A 1.2.3.4
 "#;
 
-        let lexer = Lexer::new(zone_data);
-        let result = Parser::new(lexer, None, Some(domain)).parse();
+        let result = Parser::new(zone_data, None, Some(domain)).parse();
         assert!(
             result.is_err()
                 & result
