@@ -335,10 +335,8 @@ mod tests {
     // TODO: make Parser return an iterator over all records in a stream.
     fn parse_record<D: RecordData>(txt: &str) -> D {
         let lex = Lexer::new(txt);
-        let parser = Parser::new();
-
-        let records = parser
-            .parse(lex, Some(Name::root()))
+        let records = Parser::new(lex, Some(Name::root()))
+            .parse()
             .expect("failed to parse record")
             .1;
         let record_set = records.into_iter().next().expect("no record found").1;

@@ -45,9 +45,7 @@ impl RecursiveConfig {
         roots.read_to_string(&mut roots_str)?;
 
         let lexer = Lexer::new(&roots_str);
-        let parser = Parser::new();
-
-        let (_zone, roots_zone) = parser.parse(lexer, Some(Name::root()))?;
+        let (_zone, roots_zone) = Parser::new(lexer, Some(Name::root())).parse()?;
 
         // TODO: we may want to deny some of the root nameservers, for reasons...
         Ok(roots_zone

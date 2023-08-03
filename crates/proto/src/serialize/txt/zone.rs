@@ -116,13 +116,15 @@ use crate::{
 /// ;               Semicolon is used to start a comment; the remainder of
 ///                 the line is ignored.
 /// ```
-#[derive(Clone, Copy, Default)]
-pub struct Parser(());
+pub struct Parser<'a> {
+    lexer: Lexer<'a>,
+    origin: Option<Name>,
+}
 
-impl Parser {
+impl<'a> Parser<'a> {
     /// Returns a new Zone file parser
-    pub fn new() -> Self {
-        Self(())
+    pub fn new(lexer: Lexer<'a>, origin: Option<Name>) -> Self {
+        Self { lexer, origin }
     }
 
     /// Parse a file from the Lexer
@@ -130,15 +132,12 @@ impl Parser {
     /// # Return
     ///
     /// A pair of the Zone origin name and a map of all Keys to RecordSets
-    pub fn parse(
-        self,
-        lexer: Lexer<'_>,
-        origin: Option<Name>,
-    ) -> ParseResult<(Name, BTreeMap<RrKey, RecordSet>)> {
-        let mut lexer = lexer;
+    pub fn parse(self) -> ParseResult<(Name, BTreeMap<RrKey, RecordSet>)> {
+        let Self {
+            mut lexer,
+            mut origin,
+        } = self;
         let mut records: BTreeMap<RrKey, RecordSet> = BTreeMap::new();
-
-        let mut origin: Option<Name> = origin;
         let mut class: DNSClass = DNSClass::IN;
         let mut current_name: Option<Name> = None;
         let mut rtype: Option<RecordType> = None;
@@ -474,7 +473,7 @@ mod tests {
 "#;
 
         let lexer = Lexer::new(zone_data);
-        let result = Parser::new().parse(lexer, Some(domain));
+        let result = Parser::new(lexer, Some(domain)).parse();
         assert!(
             result.is_err()
                 & result

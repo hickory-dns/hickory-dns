@@ -191,8 +191,8 @@ impl FileAuthority {
             .map_err(|e| format!("failed to read {}: {:?}", &config.zone_file_path, e))?;
 
         let lexer = Lexer::new(&buf);
-        let (origin, records) = Parser::new()
-            .parse(lexer, Some(origin))
+        let (origin, records) = Parser::new(lexer, Some(origin))
+            .parse()
             .map_err(|e| format!("failed to parse {}: {:?}", config.zone_file_path, e))?;
 
         info!(
