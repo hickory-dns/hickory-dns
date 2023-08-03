@@ -5,23 +5,26 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::char;
-use std::iter::Peekable;
-use std::str::Chars;
+use std::borrow::Cow;
+use std::{char, iter::Peekable};
 
 use crate::serialize::txt::errors::{LexerError, LexerErrorKind, LexerResult};
 
 /// A Lexer for Zone files
 pub struct Lexer<'a> {
-    txt: Peekable<Chars<'a>>,
+    txt: Peekable<CowChars<'a>>,
     state: State,
 }
 
 impl<'a> Lexer<'a> {
     /// Creates a new lexer with the given data to parse
-    pub fn new(txt: &str) -> Lexer<'_> {
+    pub fn new(txt: impl Into<Cow<'a, str>>) -> Lexer<'a> {
         Lexer {
-            txt: txt.chars().peekable(),
+            txt: CowChars {
+                data: txt.into(),
+                offset: 0,
+            }
+            .peekable(),
             state: State::StartLine,
         }
     }
@@ -327,7 +330,27 @@ impl<'a> Lexer<'a> {
     }
 
     fn peek(&mut self) -> Option<char> {
-        self.txt.peek().cloned()
+        self.txt.peek().copied()
+    }
+}
+
+struct CowChars<'a> {
+    data: Cow<'a, str>,
+    offset: usize,
+}
+
+impl<'a> Iterator for CowChars<'a> {
+    type Item = char;
+
+    fn next(&mut self) -> Option<char> {
+        let mut iter = self.data[self.offset..].char_indices();
+        let (_, ch) = iter.next()?; // The returned index is always `0`
+        match iter.next() {
+            Some((idx, _)) => self.offset += idx,
+            None => self.offset = self.data.len(),
+        }
+
+        Some(ch)
     }
 }
 
