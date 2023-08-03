@@ -12,8 +12,7 @@ use trust_dns_server::store::in_memory::InMemoryAuthority;
 #[test]
 #[allow(clippy::cognitive_complexity)]
 fn test_zone() {
-    let lexer = Lexer::new(
-        r#"
+    const ZONE: &str = r#"
 @   IN  SOA     venera      action\.domains (
                             20     ; SERIAL
                             7200   ; REFRESH
@@ -54,10 +53,9 @@ _443._tcp.www.example.com. IN TLSA (
             7983a1d16e8a410e4561cb106618e971)
 
 tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.net.      271851  900     1800    6048000 3600
-"#,
-    );
+"#;
 
-    let records = Parser::new(lexer, None, Some(Name::from_str("isi.edu").unwrap())).parse();
+    let records = Parser::new(ZONE, None, Some(Name::from_str("isi.edu").unwrap())).parse();
     if records.is_err() {
         panic!("failed to parse: {:?}", records.err())
     }
@@ -406,8 +404,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 #[test]
 #[allow(clippy::cognitive_complexity)]
 fn test_bad_cname_at_soa() {
-    let lexer = Lexer::new(
-        r"
+    const ZONE: &str = r"
 @   IN  SOA     venera      action\.domains (
                             20     ; SERIAL
                             7200   ; REFRESH
@@ -417,10 +414,9 @@ fn test_bad_cname_at_soa() {
 
         CNAME   a
 a       A       127.0.0.1
-",
-    );
+";
 
-    let records = Parser::new(lexer, None, Some(Name::from_str("isi.edu").unwrap())).parse();
+    let records = Parser::new(ZONE, None, Some(Name::from_str("isi.edu").unwrap())).parse();
 
     if records.is_err() {
         panic!("failed to parse: {:?}", records.err())
@@ -433,8 +429,7 @@ a       A       127.0.0.1
 
 #[test]
 fn test_bad_cname_at_a() {
-    let lexer = Lexer::new(
-        r"
+    const ZONE: &str = r"
 @   IN  SOA     venera      action\.domains (
                             20     ; SERIAL
                             7200   ; REFRESH
@@ -445,10 +440,9 @@ fn test_bad_cname_at_a() {
 a       CNAME   b
 a       A       127.0.0.1
 b       A       127.0.0.2
-",
-    );
+";
 
-    let records = Parser::new(lexer, None, Some(Name::from_str("isi.edu").unwrap())).parse();
+    let records = Parser::new(ZONE, None, Some(Name::from_str("isi.edu").unwrap())).parse();
 
     if records.is_err() {
         panic!("failed to parse: {:?}", records.err())
@@ -461,8 +455,7 @@ b       A       127.0.0.2
 
 #[test]
 fn test_aname_at_soa() {
-    let lexer = Lexer::new(
-        r"
+    const ZONE: &str = r"
 @   IN  SOA     venera      action\.domains (
                             20     ; SERIAL
                             7200   ; REFRESH
@@ -472,10 +465,9 @@ fn test_aname_at_soa() {
 
         ANAME   a
 a       A       127.0.0.1
-",
-    );
+";
 
-    let records = Parser::new(lexer, None, Some(Name::from_str("isi.edu").unwrap())).parse();
+    let records = Parser::new(ZONE, None, Some(Name::from_str("isi.edu").unwrap())).parse();
 
     if records.is_err() {
         panic!("failed to parse: {:?}", records.err())
@@ -488,13 +480,11 @@ a       A       127.0.0.1
 
 #[test]
 fn test_named_root() {
-    let lexer = Lexer::new(
-        r###"
+    const ZONE: &str = r"
 .                        3600000      NS    A.ROOT-SERVERS.NET.
-"###,
-    );
+";
 
-    let records = Parser::new(lexer, None, Some(Name::root())).parse();
+    let records = Parser::new(ZONE, None, Some(Name::root())).parse();
 
     if records.is_err() {
         panic!("failed to parse: {:?}", records.err())

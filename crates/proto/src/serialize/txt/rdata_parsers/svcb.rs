@@ -326,7 +326,7 @@ where
 mod tests {
     use crate::{
         rr::{rdata::HTTPS, RecordData},
-        serialize::txt::{Lexer, Parser},
+        serialize::txt::Parser,
     };
 
     use super::*;
@@ -334,8 +334,7 @@ mod tests {
     // this assumes that only a single record is parsed
     // TODO: make Parser return an iterator over all records in a stream.
     fn parse_record<D: RecordData>(txt: &str) -> D {
-        let lex = Lexer::new(txt);
-        let records = Parser::new(lex, None, Some(Name::root()))
+        let records = Parser::new(txt, None, Some(Name::root()))
             .parse()
             .expect("failed to parse record")
             .1;

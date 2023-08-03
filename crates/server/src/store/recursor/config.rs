@@ -18,7 +18,7 @@ use serde::Deserialize;
 use crate::error::ConfigError;
 use crate::proto::{
     rr::{RData, Record, RecordSet},
-    serialize::txt::{Lexer, Parser},
+    serialize::txt::Parser,
 };
 use crate::resolver::Name;
 
@@ -44,9 +44,8 @@ impl RecursiveConfig {
         let mut roots_str = String::new();
         roots.read_to_string(&mut roots_str)?;
 
-        let lexer = Lexer::new(roots_str);
         let (_zone, roots_zone) =
-            Parser::new(lexer, Some(path.into_owned()), Some(Name::root())).parse()?;
+            Parser::new(roots_str, Some(path.into_owned()), Some(Name::root())).parse()?;
 
         // TODO: we may want to deny some of the root nameservers, for reasons...
         Ok(roots_zone

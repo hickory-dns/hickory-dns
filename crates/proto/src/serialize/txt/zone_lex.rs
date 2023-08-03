@@ -11,14 +11,14 @@ use std::{char, iter::Peekable};
 use crate::serialize::txt::errors::{LexerError, LexerErrorKind, LexerResult};
 
 /// A Lexer for Zone files
-pub struct Lexer<'a> {
+pub(crate) struct Lexer<'a> {
     txt: Peekable<CowChars<'a>>,
     state: State,
 }
 
 impl<'a> Lexer<'a> {
     /// Creates a new lexer with the given data to parse
-    pub fn new(txt: impl Into<Cow<'a, str>>) -> Lexer<'a> {
+    pub(crate) fn new(txt: impl Into<Cow<'a, str>>) -> Lexer<'a> {
         Lexer {
             txt: CowChars {
                 data: txt.into(),
@@ -30,7 +30,7 @@ impl<'a> Lexer<'a> {
     }
 
     /// Return the next Token in the string
-    pub fn next_token(&mut self) -> LexerResult<Option<Token>> {
+    pub(crate) fn next_token(&mut self) -> LexerResult<Option<Token>> {
         let mut char_data_vec: Option<Vec<String>> = None;
         let mut char_data: Option<String> = None;
 
