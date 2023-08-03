@@ -117,12 +117,12 @@ use crate::{
 ///                 the line is ignored.
 /// ```
 #[derive(Clone, Copy, Default)]
-pub struct Parser;
+pub struct Parser(());
 
 impl Parser {
     /// Returns a new Zone file parser
     pub fn new() -> Self {
-        Self
+        Self(())
     }
 
     /// Parse a file from the Lexer
@@ -131,7 +131,7 @@ impl Parser {
     ///
     /// A pair of the Zone origin name and a map of all Keys to RecordSets
     pub fn parse(
-        &mut self,
+        self,
         lexer: Lexer<'_>,
         origin: Option<Name>,
     ) -> ParseResult<(Name, BTreeMap<RrKey, RecordSet>)> {
