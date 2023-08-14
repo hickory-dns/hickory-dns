@@ -27,7 +27,6 @@ async fn test_truncation() {
     // Create and start the server.
     let mut server = ServerFuture::new(new_large_catalog(128));
     server.register_socket(udp_socket);
-    tokio::spawn(server.block_until_done());
 
     // Create the UDP client.
     let stream = UdpClientStream::<UdpSocket>::new(nameserver);
@@ -58,6 +57,8 @@ async fn test_truncation() {
 
     assert!(result.truncated());
     assert_eq!(max_payload, result.max_payload());
+
+    server.shutdown_gracefully().await.unwrap();
 }
 
 // TODO: should we do this for all of the integration tests?

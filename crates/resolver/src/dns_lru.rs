@@ -42,6 +42,32 @@ impl LruValue {
     fn ttl(&self, now: Instant) -> Duration {
         self.valid_until.saturating_duration_since(now)
     }
+
+    fn with_updated_ttl(&self, now: Instant) -> Self {
+        let lookup = match self.lookup {
+            Ok(ref lookup) => {
+                let records = lookup
+                    .records()
+                    .iter()
+                    .map(|record| {
+                        let mut record = record.clone();
+                        record.set_ttl(self.ttl(now).as_secs() as u32);
+                        record
+                    })
+                    .collect::<Vec<Record>>();
+                Ok(Lookup::new_with_deadline(
+                    lookup.query().clone(),
+                    Arc::from(records),
+                    self.valid_until,
+                ))
+            }
+            Err(ref e) => Err(e.clone()),
+        };
+        Self {
+            lookup,
+            valid_until: self.valid_until,
+        }
+    }
 }
 
 /// And LRU eviction cache specifically for storing DNS records
@@ -323,8 +349,7 @@ impl DnsLru {
         let lookup = cache.get_mut(query).and_then(|value| {
             if value.is_current(now) {
                 out_of_date = false;
-                let mut result = value.lookup.clone();
-
+                let mut result = value.with_updated_ttl(now).lookup;
                 if let Err(ref mut err) = result {
                     Self::nx_error_with_ttl(err, value.ttl(now));
                 }
@@ -574,6 +599,33 @@ mod tests {
 
         let rc_ips = lru.get(&query, now).unwrap().expect("records should exist");
         assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
+    }
+
+    #[test]
+    fn test_update_ttl() {
+        let now = Instant::now();
+
+        let name = Name::from_str("www.example.com.").unwrap();
+        let query = Query::query(name.clone(), RecordType::A);
+        let ips_ttl = vec![(
+            Record::from_rdata(name, 10, RData::A(A::new(127, 0, 0, 1))),
+            10,
+        )];
+        let ips = vec![RData::A(A::new(127, 0, 0, 1))];
+        let lru = DnsLru::new(1, TtlConfig::default());
+
+        let rc_ips = lru.insert(query.clone(), ips_ttl, now);
+        assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
+
+        let ttl = lru
+            .get(&query, now + Duration::from_secs(2))
+            .unwrap()
+            .expect("records should exist")
+            .record_iter()
+            .next()
+            .unwrap()
+            .ttl();
+        assert!(ttl <= 8);
     }
 
     #[test]

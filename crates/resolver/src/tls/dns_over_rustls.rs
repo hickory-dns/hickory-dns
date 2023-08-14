@@ -30,7 +30,7 @@ const ALPN_H2: &[u8] = b"h2";
 // using the mozilla default root store
 pub(crate) static CLIENT_CONFIG: Lazy<Arc<ClientConfig>> = Lazy::new(|| {
     let mut root_store = RootCertStore::empty();
-    root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|ta| {
+    root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
         OwnedTrustAnchor::from_subject_spki_name_constraints(
             ta.subject,
             ta.spki,

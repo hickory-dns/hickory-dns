@@ -15,7 +15,7 @@ members = [
 exclude = ["fuzz"]
 
 [workspace.package]
-version = "0.23.0-alpha.4"
+version = "0.23.0-alpha.5"
 authors = ["The contributors to Trust-DNS"]
 edition = "2021"
 rust-version = "1.64.0"
@@ -28,11 +28,11 @@ license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
 # trustdns
-trust-dns-client = { version = "0.23.0-alpha.4", path = "crates/client", default-features = false }
-trust-dns-recursor = { version = "0.23.0-alpha.4", path = "crates/recursor", default-features = false }
-trust-dns-resolver = { version = "0.23.0-alpha.4", path = "crates/resolver", default-features = false }
-trust-dns-server = { version = "0.23.0-alpha.4", path = "crates/server", default-features = false }
-trust-dns-proto = { version = "0.23.0-alpha.4", path = "crates/proto", default-features = false }
+trust-dns-client = { version = "0.23.0-alpha.5", path = "crates/client", default-features = false }
+trust-dns-recursor = { version = "0.23.0-alpha.5", path = "crates/recursor", default-features = false }
+trust-dns-resolver = { version = "0.23.0-alpha.5", path = "crates/resolver", default-features = false }
+trust-dns-server = { version = "0.23.0-alpha.5", path = "crates/server", default-features = false }
+trust-dns-proto = { version = "0.23.0-alpha.5", path = "crates/proto", default-features = false }
 
 
 # logging
@@ -62,8 +62,8 @@ native-tls = "0.2"
 openssl = "0.10.55"
 rustls = "0.21.0"
 rustls-pemfile = "1.0.0"
-webpki = { version = "0.100.1", package = "rustls-webpki" }
-webpki-roots = "0.23.0"
+webpki = { version = "0.101.0", package = "rustls-webpki" }
+webpki-roots = "0.25.0"
 ring = "0.16"
 
 
@@ -80,6 +80,7 @@ cfg-if = "1"
 clap = { version = "4.0", default-features = false }
 console = "0.15.0"
 data-encoding = "2.2.0"
+drain = "0.1.1"
 enum-as-inner = "0.6"
 idna = "0.4.0"
 ipconfig = "0.3.0"
