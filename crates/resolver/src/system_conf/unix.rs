@@ -90,6 +90,11 @@ fn into_resolver_config(
     // search
     let mut search = vec![];
     for search_domain in parsed_config.get_last_search_or_domain() {
+        // Ignore invalid search domains
+        if search_domain == "--" {
+            continue;
+        }
+
         search.push(Name::from_str_relaxed(search_domain).map_err(|e| {
             io::Error::new(
                 io::ErrorKind::Other,
@@ -170,6 +175,29 @@ mod tests {
         cfg.add_search(Name::from_str("localnet.").unwrap());
         assert_eq!(cfg.search(), parsed.0.search());
         assert_eq!(ResolverOpts::default(), parsed.1);
+    }
+
+    #[test]
+    fn test_skips_invalid_search() {
+        let parsed =
+            parse_resolv_conf("\n\nnameserver 127.0.0.53\noptions edns0 trust-ad\nsearch -- lan\n")
+                .expect("failed");
+        let mut cfg = empty_config();
+
+        {
+            let nameservers = nameserver_config("127.0.0.53");
+            cfg.add_name_server(nameservers[0].clone());
+            cfg.add_name_server(nameservers[1].clone());
+            assert_eq!(cfg.name_servers(), parsed.0.name_servers());
+            assert_eq!(ResolverOpts::default(), parsed.1);
+        }
+
+        // This is the important part, that the invalid `--` is skipped during parsing
+        {
+            cfg.add_search(Name::from_str("lan").unwrap());
+            assert_eq!(cfg.search(), parsed.0.search());
+            assert_eq!(ResolverOpts::default(), parsed.1);
+        }
     }
 
     #[test]
