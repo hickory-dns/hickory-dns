@@ -417,13 +417,13 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 };
                 let udp_future = self.runtime_provider.bind_udp(bind_addr, socket_addr);
 
-                crate::quic::new_quic_stream_with_future(
+                let exchange = crate::quic::new_quic_stream_with_future(
                     udp_future,
                     socket_addr,
                     tls_dns_name,
                     client_config,
-                )
-                .map_or_else(ConnectionConnect::Error, ConnectionConnect::Quic)
+                );
+                ConnectionConnect::Quic(exchange)
             }
             #[cfg(feature = "mdns")]
             Protocol::Mdns => {

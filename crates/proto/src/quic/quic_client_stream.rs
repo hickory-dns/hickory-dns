@@ -50,8 +50,8 @@ impl Display for QuicClientStream {
 
 impl QuicClientStream {
     /// Builder for QuicClientStream
-    pub fn builder() -> Result<QuicClientStreamBuilder, ProtoError> {
-        QuicClientStreamBuilder::new()
+    pub fn builder() -> QuicClientStreamBuilder {
+        QuicClientStreamBuilder::default()
     }
 
     async fn inner_send(
@@ -148,30 +148,15 @@ impl Stream for QuicClientStream {
 /// A QUIC connection builder for DNS-over-QUIC
 #[derive(Clone)]
 pub struct QuicClientStreamBuilder {
-    crypto_config: TlsClientConfig,
+    crypto_config: Option<TlsClientConfig>,
     transport_config: Arc<TransportConfig>,
     bind_addr: Option<SocketAddr>,
 }
 
 impl QuicClientStreamBuilder {
-    /// Creates a new QUIC connection builder.
-    pub fn new() -> Result<Self, ProtoError> {
-        let mut transport_config = quic_config::transport();
-        // clients never accept new bidirectional streams
-        transport_config.max_concurrent_bidi_streams(VarInt::from_u32(0));
-
-        let client_config = client_config_tls13()?;
-
-        Ok(Self {
-            crypto_config: client_config,
-            transport_config: Arc::new(transport_config),
-            bind_addr: None,
-        })
-    }
-
     /// Constructs a new TlsStreamBuilder with the associated ClientConfig
     pub fn crypto_config(&mut self, crypto_config: TlsClientConfig) -> &mut Self {
-        self.crypto_config = crypto_config;
+        self.crypto_config = Some(crypto_config);
         self
     }
 
@@ -252,7 +237,11 @@ impl QuicClientStreamBuilder {
         dns_name: String,
     ) -> Result<QuicClientStream, ProtoError> {
         // ensure the ALPN protocol is set correctly
-        let mut crypto_config = self.crypto_config;
+        let mut crypto_config = if let Some(crypto_config) = self.crypto_config {
+            crypto_config
+        } else {
+            client_config_tls13()?
+        };
         if crypto_config.alpn_protocols.is_empty() {
             crypto_config.alpn_protocols = vec![quic_stream::DOQ_ALPN.to_vec()];
         }
@@ -326,6 +315,20 @@ pub fn client_config_tls13() -> Result<TlsClientConfig, ProtoError> {
         .expect("TLS 1.3 not supported")
         .with_root_certificates(root_store)
         .with_no_client_auth())
+}
+
+impl Default for QuicClientStreamBuilder {
+    fn default() -> Self {
+        let mut transport_config = quic_config::transport();
+        // clients never accept new bidirectional streams
+        transport_config.max_concurrent_bidi_streams(VarInt::from_u32(0));
+
+        Self {
+            crypto_config: None,
+            transport_config: Arc::new(transport_config),
+            bind_addr: None,
+        }
+    }
 }
 
 /// A future that resolves to an QuicClientStream

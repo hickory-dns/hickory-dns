@@ -16,7 +16,6 @@ use proto::TokioTime;
 use trust_dns_proto::quic::{QuicClientConnect, QuicClientStream};
 
 use crate::config::TlsClientConfig;
-use crate::error::ResolveError;
 
 #[allow(clippy::type_complexity)]
 #[allow(unused)]
@@ -25,8 +24,8 @@ pub(crate) fn new_quic_stream(
     bind_addr: Option<SocketAddr>,
     dns_name: String,
     client_config: TlsClientConfig,
-) -> Result<DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime>, ResolveError> {
-    let mut quic_builder = QuicClientStream::builder()?;
+) -> DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime> {
+    let mut quic_builder = QuicClientStream::builder();
 
     // TODO: normalize the crypto config settings, can we just use common ALPN settings?
     let crypto_config: CryptoConfig = (*client_config.0).clone();
@@ -35,9 +34,7 @@ pub(crate) fn new_quic_stream(
     if let Some(bind_addr) = bind_addr {
         quic_builder.bind_addr(bind_addr);
     }
-    Ok(DnsExchange::connect(
-        quic_builder.build(socket_addr, dns_name),
-    ))
+    DnsExchange::connect(quic_builder.build(socket_addr, dns_name))
 }
 
 #[allow(clippy::type_complexity)]
@@ -46,20 +43,16 @@ pub(crate) fn new_quic_stream_with_future<S, F>(
     socket_addr: SocketAddr,
     dns_name: String,
     client_config: TlsClientConfig,
-) -> Result<DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime>, ResolveError>
+) -> DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime>
 where
     S: DnsUdpSocket + QuicLocalAddr + 'static,
     F: Future<Output = std::io::Result<S>> + Send + 'static,
 {
-    let mut quic_builder = QuicClientStream::builder()?;
+    let mut quic_builder = QuicClientStream::builder();
 
     // TODO: normalize the crypto config settings, can we just use common ALPN settings?
     let crypto_config: CryptoConfig = (*client_config.0).clone();
 
     quic_builder.crypto_config(crypto_config);
-    Ok(DnsExchange::connect(quic_builder.build_with_future(
-        future,
-        socket_addr,
-        dns_name,
-    )))
+    DnsExchange::connect(quic_builder.build_with_future(future, socket_addr, dns_name))
 }

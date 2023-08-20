@@ -369,7 +369,7 @@ async fn quic(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     }
     config.alpn_protocols.push(alpn);
 
-    let mut quic_builder = QuicClientStream::builder()?;
+    let mut quic_builder = QuicClientStream::builder();
     quic_builder.crypto_config(config);
     let (client, bg) = AsyncClient::connect(quic_builder.build(nameserver, dns_name)).await?;
 
