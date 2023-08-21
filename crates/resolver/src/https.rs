@@ -7,6 +7,7 @@
 
 use std::future::Future;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use crate::error::ResolveError;
 
@@ -14,8 +15,32 @@ use proto::https::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuild
 use proto::tcp::{Connect, DnsTcpStream};
 use proto::xfer::{DnsExchange, DnsExchangeConnect};
 use proto::TokioTime;
+use rustls::ClientConfig;
+use trust_dns_proto::error::ProtoError;
 
 use crate::config::TlsClientConfig;
+
+const ALPN_H2: &[u8] = b"h2";
+
+pub(crate) fn client_config() -> Result<Arc<ClientConfig>, ProtoError> {
+    fn client_config() -> Result<Arc<ClientConfig>, ProtoError> {
+        let mut client_config = crate::tls::base_client_config()?;
+
+        client_config.alpn_protocols.push(ALPN_H2.to_vec());
+
+        Ok(Arc::new(client_config))
+    }
+
+    #[cfg(not(all(feature = "native-certs", not(feature = "webpki-roots"))))]
+    {
+        use once_cell::sync::Lazy;
+
+        static CONFIG: Lazy<Result<Arc<ClientConfig>, ProtoError>> = Lazy::new(client_config);
+        CONFIG.clone()
+    }
+    #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
+    client_config()
+}
 
 #[allow(clippy::type_complexity)]
 #[allow(unused)]

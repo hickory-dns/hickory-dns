@@ -24,68 +24,81 @@ use proto::BufDnsStreamHandle;
 
 use crate::config::TlsClientConfig;
 
-const ALPN_H2: &[u8] = b"h2";
-
 pub(crate) fn client_config() -> Result<Arc<ClientConfig>, ProtoError> {
+    fn client_config() -> Result<Arc<ClientConfig>, ProtoError> {
+        let mut client_config = base_client_config()?;
+
+        // The port (853) of DOT is for dns dedicated, SNI is unnecessary. (ISP block by the SNI name)
+        client_config.enable_sni = false;
+
+        Ok(Arc::new(client_config))
+    }
+
     #[cfg(not(all(feature = "native-certs", not(feature = "webpki-roots"))))]
     {
         use once_cell::sync::Lazy;
 
-        static CONFIG: Lazy<Result<Arc<ClientConfig>, ProtoError>> =
-            Lazy::new(client_config_internal);
+        static CONFIG: Lazy<Result<Arc<ClientConfig>, ProtoError>> = Lazy::new(client_config);
         CONFIG.clone()
     }
     #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
-    client_config_internal()
+    client_config()
 }
 
-fn client_config_internal() -> Result<Arc<ClientConfig>, ProtoError> {
-    #[cfg_attr(
-        not(any(feature = "native-certs", feature = "webpki-roots")),
-        allow(unused_mut)
-    )]
-    let mut root_store = RootCertStore::empty();
-    #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
-    {
-        use proto::error::ProtoErrorKind;
+pub(crate) fn base_client_config() -> Result<ClientConfig, ProtoError> {
+    fn client_config() -> Result<ClientConfig, ProtoError> {
+        #[cfg_attr(
+            not(any(feature = "native-certs", feature = "webpki-roots")),
+            allow(unused_mut)
+        )]
+        let mut root_store = RootCertStore::empty();
+        #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
+        {
+            use proto::error::ProtoErrorKind;
 
-        let (added, ignored) =
-            root_store.add_parsable_certificates(&rustls_native_certs::load_native_certs()?);
+            let (added, ignored) =
+                root_store.add_parsable_certificates(&rustls_native_certs::load_native_certs()?);
 
-        if ignored > 0 {
-            tracing::warn!(
-                "failed to parse {} certificate(s) from the native root store",
-                ignored,
-            );
+            if ignored > 0 {
+                tracing::warn!(
+                    "failed to parse {} certificate(s) from the native root store",
+                    ignored,
+                );
+            }
+
+            if added == 0 {
+                return Err(ProtoErrorKind::NativeCerts.into());
+            }
         }
+        #[cfg(feature = "webpki-roots")]
+        root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
+            rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
+                ta.subject,
+                ta.spki,
+                ta.name_constraints,
+            )
+        }));
 
-        if added == 0 {
-            return Err(ProtoErrorKind::NativeCerts.into());
-        }
+        let client_config = ClientConfig::builder()
+            .with_safe_default_cipher_suites()
+            .with_safe_default_kx_groups()
+            .with_safe_default_protocol_versions()
+            .unwrap()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
+
+        Ok(client_config)
     }
-    #[cfg(feature = "webpki-roots")]
-    root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-        rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
-            ta.subject,
-            ta.spki,
-            ta.name_constraints,
-        )
-    }));
 
-    let mut client_config = ClientConfig::builder()
-        .with_safe_default_cipher_suites()
-        .with_safe_default_kx_groups()
-        .with_safe_default_protocol_versions()
-        .unwrap()
-        .with_root_certificates(root_store)
-        .with_no_client_auth();
+    #[cfg(not(all(feature = "native-certs", not(feature = "webpki-roots"))))]
+    {
+        use once_cell::sync::Lazy;
 
-    // The port (853) of DOT is for dns dedicated, SNI is unnecessary. (ISP block by the SNI name)
-    client_config.enable_sni = false;
-
-    client_config.alpn_protocols.push(ALPN_H2.to_vec());
-
-    Ok(Arc::new(client_config))
+        static CONFIG: Lazy<Result<ClientConfig, ProtoError>> = Lazy::new(client_config);
+        CONFIG.clone()
+    }
+    #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
+    client_config()
 }
 
 #[allow(clippy::type_complexity)]

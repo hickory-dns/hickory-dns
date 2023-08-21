@@ -250,8 +250,12 @@ impl DnsHandle for GenericConnection {
 #[derive(Clone)]
 pub struct GenericConnector<P: RuntimeProvider> {
     runtime_provider: P,
-    #[cfg(feature = "dns-over-rustls")]
-    client_config: Arc<Lazy<Result<Arc<rustls::ClientConfig>, ProtoError>>>,
+    #[cfg(all(feature = "dns-over-tls", feature = "dns-over-rustls"))]
+    tls_client_config: Arc<Lazy<Result<Arc<rustls::ClientConfig>, ProtoError>>>,
+    #[cfg(all(feature = "dns-over-https", feature = "dns-over-rustls"))]
+    https_client_config: Arc<Lazy<Result<Arc<rustls::ClientConfig>, ProtoError>>>,
+    #[cfg(all(feature = "dns-over-quic", feature = "dns-over-rustls"))]
+    quic_client_config: Arc<Lazy<Result<Arc<rustls::ClientConfig>, ProtoError>>>,
 }
 
 impl<P: RuntimeProvider> GenericConnector<P> {
@@ -259,8 +263,12 @@ impl<P: RuntimeProvider> GenericConnector<P> {
     pub fn new(runtime_provider: P) -> Self {
         Self {
             runtime_provider,
-            #[cfg(feature = "dns-over-rustls")]
-            client_config: Arc::new(Lazy::new(crate::tls::client_config)),
+            #[cfg(all(feature = "dns-over-tls", feature = "dns-over-rustls"))]
+            tls_client_config: Arc::new(Lazy::new(crate::tls::client_config)),
+            #[cfg(all(feature = "dns-over-https", feature = "dns-over-rustls"))]
+            https_client_config: Arc::new(Lazy::new(crate::https::client_config)),
+            #[cfg(all(feature = "dns-over-quic", feature = "dns-over-rustls"))]
+            quic_client_config: Arc::new(Lazy::new(crate::quic::client_config)),
         }
     }
 }
@@ -269,8 +277,12 @@ impl<P: RuntimeProvider + Default> Default for GenericConnector<P> {
     fn default() -> Self {
         Self {
             runtime_provider: P::default(),
-            #[cfg(feature = "dns-over-rustls")]
-            client_config: Arc::new(Lazy::new(crate::tls::client_config)),
+            #[cfg(all(feature = "dns-over-tls", feature = "dns-over-rustls"))]
+            tls_client_config: Arc::new(Lazy::new(crate::tls::client_config)),
+            #[cfg(all(feature = "dns-over-https", feature = "dns-over-rustls"))]
+            https_client_config: Arc::new(Lazy::new(crate::https::client_config)),
+            #[cfg(all(feature = "dns-over-quic", feature = "dns-over-rustls"))]
+            quic_client_config: Arc::new(Lazy::new(crate::quic::client_config)),
         }
     }
 }
@@ -330,7 +342,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                     let client_config = if let Some(client_config) = config.tls_config.clone() {
                         client_config
                     } else {
-                        match (*self.client_config).clone() {
+                        match (*self.tls_client_config).clone() {
                             Ok(client_config) => TlsClientConfig(client_config),
                             Err(err) => {
                                 return ConnectionFuture::<P> {
@@ -371,7 +383,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let client_config = if let Some(client_config) = config.tls_config.clone() {
                     client_config
                 } else {
-                    match (*self.client_config).clone() {
+                    match (*self.https_client_config).clone() {
                         Ok(client_config) => TlsClientConfig(client_config),
                         Err(err) => {
                             return ConnectionFuture::<P> {
@@ -405,7 +417,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let client_config = if let Some(client_config) = config.tls_config.clone() {
                     client_config
                 } else {
-                    match (*self.client_config).clone() {
+                    match (*self.quic_client_config).clone() {
                         Ok(client_config) => TlsClientConfig(client_config),
                         Err(err) => {
                             return ConnectionFuture::<P> {
