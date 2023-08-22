@@ -15,7 +15,7 @@ use std::{
 use drain::{Signal, Watch};
 use futures_util::{FutureExt, StreamExt};
 #[cfg(feature = "dns-over-rustls")]
-use rustls::{Certificate, PrivateKey};
+use rustls::{Certificate, PrivateKey, ServerConfig};
 use tokio::{net, task::JoinSet};
 use tracing::{debug, info, warn};
 use trust_dns_proto::{op::MessageType, rr::Record};
@@ -406,7 +406,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         &mut self,
         listener: net::TcpListener,
         timeout: Duration,
-        tls_config: Arc<tokio_rustls::ServerConfig>,
+        tls_config: Arc<ServerConfig>,
     ) -> io::Result<()> {
         use crate::proto::rustls::tls_from_stream;
         use tokio_rustls::TlsAcceptor;
@@ -530,7 +530,7 @@ impl<T: RequestHandler> ServerFuture<T> {
             )
         })?;
 
-        Self::register_tls_listener_with_tls_config(&mut self, listener, timeout, tls_acceptor)
+        Self::register_tls_listener_with_tls_config(self, listener, timeout, Arc::new(tls_acceptor))
     }
 
     /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
