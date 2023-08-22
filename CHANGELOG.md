@@ -9,6 +9,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Fixed
 
+- (resolver) Malformed label: -- when parsing resolv.conf #1985 by Jake-Shadle
 - (proto) Fix truncation for UDP #1975 by nmittler 
 - (proto) avoid panicking in parse_time() #1964 by djc
 - (server) Merge up deny response in requests to server #1954 by djc
@@ -91,6 +92,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Added
 
+- (server) Graceful Shutdown of Server #1869 by theduke
 - (resolver) Add Google DoT and DoH to ResolverConfig #1989 by daxpedda
 - (server) Adding graceful shutdown to server #1977 by nmittler
 - (all) add an html coverage report for local review of coverage data #1959 by bluejekyll
