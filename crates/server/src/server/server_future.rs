@@ -399,30 +399,23 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               requests within this time period will be closed. In the future it should be
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
-    /// * `pkcs12` - certificate used to announce to clients
+    /// * `tls_config` - rustls server config
     #[cfg(feature = "dns-over-rustls")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
-    pub fn register_tls_listener(
+    pub fn register_tls_listener_with_tls_config(
         &mut self,
         listener: net::TcpListener,
         timeout: Duration,
-        certificate_and_key: (Vec<Certificate>, PrivateKey),
+        tls_config: Arc<tokio_rustls::ServerConfig>,
     ) -> io::Result<()> {
-        use crate::proto::rustls::{tls_from_stream, tls_server};
+        use crate::proto::rustls::tls_from_stream;
         use tokio_rustls::TlsAcceptor;
 
         let handler = self.handler.clone();
 
         debug!("registered tcp: {:?}", listener);
 
-        let tls_acceptor = tls_server::new_acceptor(certificate_and_key.0, certificate_and_key.1)
-            .map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("error creating TLS acceptor: {e}"),
-            )
-        })?;
-        let tls_acceptor = TlsAcceptor::from(Arc::new(tls_acceptor));
+        let tls_acceptor = TlsAcceptor::from(tls_config);
 
         // for each incoming request...
         let shutdown = self.shutdown_watch.clone();
@@ -504,6 +497,40 @@ impl<T: RequestHandler> ServerFuture<T> {
         });
 
         Ok(())
+    }
+
+    /// Register a TlsListener to the Server by providing a pkcs12 certificate and key. The TlsListener
+    /// should already be bound to either an IPv6 or an IPv4 address.
+    ///
+    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
+    ///  to not make this too low depending on use cases.
+    ///
+    /// # Arguments
+    /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
+    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
+    ///               requests within this time period will be closed. In the future it should be
+    ///               possible to create long-lived queries, but these should be from trusted sources
+    ///               only, this would require some type of whitelisting.
+    /// * `pkcs12` - certificate used to announce to clients
+    #[cfg(feature = "dns-over-rustls")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
+    pub fn register_tls_listener(
+        &mut self,
+        listener: net::TcpListener,
+        timeout: Duration,
+        certificate_and_key: (Vec<Certificate>, PrivateKey),
+    ) -> io::Result<()> {
+        use crate::proto::rustls::tls_server;
+
+        let tls_acceptor = tls_server::new_acceptor(certificate_and_key.0, certificate_and_key.1)
+            .map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("error creating TLS acceptor: {e}"),
+            )
+        })?;
+
+        Self::register_tls_listener_with_tls_config(&mut self, listener, timeout, tls_acceptor)
     }
 
     /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
