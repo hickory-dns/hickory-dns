@@ -3,7 +3,6 @@
 //! This example shows how to create a resolver that uses the tokio multithreaded runtime. This is how
 //! you might integrate the resolver into a more complex application.
 
-#[cfg(all(feature = "tokio-runtime", feature = "system-config"))]
 fn main() {
     use tokio::runtime::Runtime;
     use trust_dns_resolver::{name_server::TokioConnectionProvider, TokioAsyncResolver};
@@ -57,11 +56,6 @@ fn main() {
     // Drop the resolver, which means that the runtime will become idle.
     drop(futures);
     drop(resolver);
-}
-
-#[cfg(not(all(feature = "tokio-runtime", feature = "system-config")))]
-fn main() {
-    println!("tokio-runtime feature must be enabled")
 }
 
 #[test]

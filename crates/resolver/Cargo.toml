@@ -100,3 +100,19 @@ all-features = true
 default-target = "x86_64-unknown-linux-gnu"
 targets = ["x86_64-apple-darwin", "x86_64-pc-windows-msvc"]
 rustdoc-args = ["--cfg", "docsrs"]
+
+[[example]]
+name = "custom_provider"
+required-features = ["tokio-runtime"]
+
+[[example]]
+name = "flush_cache"
+required-features = ["tokio-runtime", "system-config"]
+
+[[example]]
+name = "global_resolver"
+required-features = ["tokio-runtime", "system-config"]
+
+[[example]]
+name = "multithreaded_runtime"
+required-features = ["tokio-runtime", "system-config"]
