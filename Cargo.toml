@@ -62,7 +62,6 @@ native-tls = "0.2"
 openssl = "0.10.55"
 rustls = "0.21.0"
 rustls-pemfile = "1.0.0"
-webpki = { version = "0.101.0", package = "rustls-webpki" }
 webpki-roots = "0.25.0"
 ring = "0.16"
 

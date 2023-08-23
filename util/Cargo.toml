@@ -30,7 +30,7 @@ codecov = { repository = "bluejekyll/trust-dns", branch = "main", service = "git
 maintenance = { status = "actively-developed" }
 
 [features]
-dns-over-rustls = ["rustls", "webpki", "webpki-roots", "trust-dns-proto/dns-over-rustls", "trust-dns-client/dns-over-rustls", "trust-dns-resolver/dns-over-rustls"]
+dns-over-rustls = ["rustls", "webpki-roots", "trust-dns-proto/dns-over-rustls", "trust-dns-client/dns-over-rustls", "trust-dns-resolver/dns-over-rustls"]
 dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "trust-dns-proto/dns-over-https-rustls", "trust-dns-client/dns-over-https-rustls", "trust-dns-resolver/dns-over-https-rustls"]
 dns-over-https = ["trust-dns-proto/dns-over-https", "trust-dns-client/dns-over-https","trust-dns-resolver/dns-over-https"]
 
@@ -80,5 +80,4 @@ trust-dns-proto.workspace = true
 trust-dns-recursor.workspace = true
 trust-dns-resolver = { workspace = true, features = ["system-config"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
-webpki = { workspace = true, optional = true }
 webpki-roots = { workspace = true, optional = true }
