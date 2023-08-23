@@ -1,6 +1,5 @@
 #![recursion_limit = "128"]
 
-#[cfg(all(feature = "tokio-runtime", feature = "system-config"))]
 fn main() {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -11,7 +10,6 @@ fn main() {
         });
 }
 
-#[cfg(all(feature = "tokio-runtime", feature = "system-config"))]
 async fn tokio_main() {
     use trust_dns_resolver::{name_server::TokioConnectionProvider, TokioAsyncResolver};
 
@@ -57,7 +55,6 @@ async fn tokio_main() {
     drop(resolver);
 }
 
-#[cfg(all(feature = "tokio-runtime", feature = "system-config"))]
 async fn resolve_list<P: trust_dns_resolver::name_server::ConnectionProvider>(
     names: &[&str],
     resolver: &trust_dns_resolver::AsyncResolver<P>,
@@ -90,11 +87,6 @@ async fn resolve_list<P: trust_dns_resolver::name_server::ConnectionProvider>(
     }
     println!();
     start_time.elapsed()
-}
-
-#[cfg(not(all(feature = "tokio-runtime", feature = "system-config")))]
-fn main() {
-    println!("tokio-runtime feature must be enabled")
 }
 
 #[test]
