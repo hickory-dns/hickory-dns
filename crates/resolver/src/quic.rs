@@ -16,7 +16,6 @@ use proto::TokioTime;
 use trust_dns_proto::quic::{QuicClientConnect, QuicClientStream};
 
 use crate::config::TlsClientConfig;
-use crate::error::ResolveError;
 use crate::tls::CLIENT_CONFIG;
 
 #[allow(clippy::type_complexity)]
@@ -26,11 +25,14 @@ pub(crate) fn new_quic_stream(
     bind_addr: Option<SocketAddr>,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
-) -> Result<DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime>, ResolveError> {
+) -> DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime> {
     let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
         client_config
     } else {
-        CLIENT_CONFIG.clone()?
+        match CLIENT_CONFIG.clone() {
+            Ok(client_config) => client_config,
+            Err(error) => return DnsExchange::error(error),
+        }
     };
 
     let mut quic_builder = QuicClientStream::builder();
@@ -42,9 +44,7 @@ pub(crate) fn new_quic_stream(
     if let Some(bind_addr) = bind_addr {
         quic_builder.bind_addr(bind_addr);
     }
-    Ok(DnsExchange::connect(
-        quic_builder.build(socket_addr, dns_name),
-    ))
+    DnsExchange::connect(quic_builder.build(socket_addr, dns_name))
 }
 
 #[allow(clippy::type_complexity)]
@@ -53,7 +53,7 @@ pub(crate) fn new_quic_stream_with_future<S, F>(
     socket_addr: SocketAddr,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
-) -> Result<DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime>, ResolveError>
+) -> DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime>
 where
     S: DnsUdpSocket + QuicLocalAddr + 'static,
     F: Future<Output = std::io::Result<S>> + Send + 'static,
@@ -61,7 +61,10 @@ where
     let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
         client_config
     } else {
-        CLIENT_CONFIG.clone()?
+        match CLIENT_CONFIG.clone() {
+            Ok(client_config) => client_config,
+            Err(error) => return DnsExchange::error(error),
+        }
     };
 
     let mut quic_builder = QuicClientStream::builder();
@@ -70,9 +73,5 @@ where
     let crypto_config: CryptoConfig = (*client_config).clone();
 
     quic_builder.crypto_config(crypto_config);
-    Ok(DnsExchange::connect(quic_builder.build_with_future(
-        future,
-        socket_addr,
-        dns_name,
-    )))
+    DnsExchange::connect(quic_builder.build_with_future(future, socket_addr, dns_name))
 }

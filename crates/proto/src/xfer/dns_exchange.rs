@@ -83,6 +83,16 @@ impl DnsExchange {
 
         DnsExchangeConnect::connect(connect_future, outbound_messages, message_sender)
     }
+
+    /// Returns a future that returns an error immediately.
+    pub fn error<F, S, TE>(error: ProtoError) -> DnsExchangeConnect<F, S, TE>
+    where
+        F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
+        S: DnsRequestSender + 'static + Send + Unpin,
+        TE: Time + Unpin,
+    {
+        DnsExchangeConnect(DnsExchangeConnectInner::Error(error))
+    }
 }
 
 impl Clone for DnsExchange {
@@ -287,6 +297,7 @@ where
         error: ProtoError,
         outbound_messages: mpsc::Receiver<OneshotDnsRequest>,
     },
+    Error(ProtoError),
 }
 
 #[allow(clippy::type_complexity)]
@@ -364,6 +375,7 @@ where
 
                     return Poll::Ready(Err(error.clone()));
                 }
+                Self::Error(ref error) => return Poll::Ready(Err(error.clone())),
             }
 
             *self = next;
