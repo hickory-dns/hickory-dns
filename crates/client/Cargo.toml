@@ -75,7 +75,6 @@ thiserror.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, features = ["rt", "net"] }
 trust-dns-proto = { workspace = true, features = ["text-parsing", "tokio-runtime"] }
-webpki = { workspace = true, optional = true }
 
 [dev-dependencies]
 futures = { workspace = true, default-features = false, features = ["std", "executor"] }

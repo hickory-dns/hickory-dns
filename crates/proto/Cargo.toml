@@ -31,7 +31,7 @@ maintenance = { status = "actively-developed" }
 
 [features]
 dns-over-tls = []
-dns-over-rustls = ["dns-over-tls", "rustls", "rustls-pemfile", "tokio-rustls", "webpki", "tokio-runtime"]
+dns-over-rustls = ["dns-over-tls", "rustls", "rustls-pemfile", "tokio-rustls", "tokio-runtime"]
 dns-over-native-tls = ["dns-over-tls", "native-tls", "tokio-native-tls", "tokio-runtime"]
 dns-over-openssl = ["dns-over-tls", "openssl", "tokio-openssl", "tokio-runtime"]
 
@@ -101,7 +101,6 @@ tokio-openssl = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true, features = ["early-data"] }
 url.workspace = true
 wasm-bindgen-crate = { workspace = true, optional = true }
-webpki = { workspace = true, optional = true }
 webpki-roots = { workspace = true, optional = true }
 
 [dev-dependencies]
