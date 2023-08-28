@@ -100,7 +100,7 @@ socket2 = "0.5"
 time = "0.3"
 tinyvec = "1.1.1"
 toml = "0.7"
-url = "2.4.0"
+url = "2.4.1"
 wasm-bindgen-crate = { version = "0.2.58", package = "wasm-bindgen" }
 
 [patch.crates-io]
