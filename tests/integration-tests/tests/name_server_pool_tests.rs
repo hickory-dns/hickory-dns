@@ -576,7 +576,7 @@ fn test_user_provided_server_order() {
     // secondary server should be used.
     preferred_server_records
         .into_iter()
-        .chain(secondary_server_records.into_iter())
+        .chain(secondary_server_records)
         .for_each(|expected_record| {
             let request = message(query.clone(), vec![], vec![], vec![]);
             let future = pool.send(request).first_answer();

@@ -1115,9 +1115,8 @@ impl Authority for InMemoryAuthority {
                                 }
 
                                 // prepend answer to additionals here (answer is the ANAME record)
-                                let additionals = std::iter::once(answer)
-                                    .chain(additionals.into_iter())
-                                    .collect();
+                                let additionals =
+                                    std::iter::once(answer).chain(additionals).collect();
 
                                 // return the new answer
                                 //   because the searched set was an Arc, we need to arc too
