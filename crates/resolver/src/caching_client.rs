@@ -380,8 +380,8 @@ where
             let records = answers
                 .into_iter()
                 // Chained records will generally exist in the additionals section
-                .chain(additionals.into_iter())
-                .chain(name_servers.into_iter())
+                .chain(additionals)
+                .chain(name_servers)
                 .filter_map(|r| {
                     // because this resolved potentially recursively, we want the min TTL from the chain
                     let ttl = cname_ttl.min(r.ttl());

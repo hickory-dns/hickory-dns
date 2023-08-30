@@ -514,7 +514,7 @@ impl IntoIterator for RecordSet {
     type IntoIter = Chain<vec::IntoIter<Record>, vec::IntoIter<Record>>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.records.into_iter().chain(self.rrsigs.into_iter())
+        self.records.into_iter().chain(self.rrsigs)
     }
 }
 
