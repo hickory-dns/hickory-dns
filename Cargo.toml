@@ -1,4 +1,5 @@
 [workspace]
+resolver = "2"
 members = [
     "crates/proto",
     "crates/resolver",
@@ -11,7 +12,6 @@ members = [
     "tests/compatibility-tests",
     "tests/integration-tests",
 ]
-
 exclude = ["fuzz"]
 
 [workspace.package]
