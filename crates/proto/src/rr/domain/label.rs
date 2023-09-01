@@ -55,8 +55,8 @@ impl Label {
             return Ok(Self::wildcard());
         }
 
-        // special case for SRV type records
-        if s.starts_with('_') {
+        // Skip IDNA processing for ASCII strings
+        if s.chars().all(is_safe_ascii) {
             return Self::from_ascii(s);
         }
 
@@ -88,8 +88,8 @@ impl Label {
 
         if !s.is_empty()
             && s.is_ascii()
-            && s.chars().take(1).all(|c| is_safe_ascii(c, true, false))
-            && s.chars().skip(1).all(|c| is_safe_ascii(c, false, false))
+            && s.chars().take(1).all(|c| is_valid_ascii(c, true, false))
+            && s.chars().skip(1).all(|c| is_valid_ascii(c, false, false))
         {
             Self::from_raw_bytes(s.as_bytes())
         } else {
@@ -189,7 +189,7 @@ impl Label {
             let to_single_escape = |ch: char| format!("\\{ch}");
 
             match char::from(byte) {
-                c if is_safe_ascii(c, is_first, true) => f.write_char(c)?,
+                c if is_valid_ascii(c, is_first, true) => f.write_char(c)?,
                 // it's not a control and is printable as well as inside the standard ascii range
                 c if byte > b'\x20' && byte < b'\x7f' => f.write_str(&to_single_escape(c))?,
                 _ => f.write_str(&to_triple_escape(byte))?,
@@ -224,14 +224,28 @@ impl Borrow<[u8]> for Label {
     }
 }
 
-fn is_safe_ascii(c: char, is_first: bool, for_encoding: bool) -> bool {
+fn is_valid_ascii(c: char, is_first: bool, for_encoding: bool) -> bool {
+    if !is_safe_ascii(c) {
+        return false;
+    }
+
+    if is_first && c == '-' {
+        false
+    } else if for_encoding && c == '.' {
+        false
+    } else {
+        true
+    }
+}
+
+fn is_safe_ascii(c: char) -> bool {
     match c {
         c if !c.is_ascii() => false,
         c if c.is_alphanumeric() => true,
-        '-' if !is_first => true,     // dash is allowed
-        '_' => true,                  // SRV like labels
-        '*' if is_first => true,      // wildcard
-        '.' if !for_encoding => true, // needed to allow dots, for things like email addresses
+        '-' => true, // dash is allowed
+        '_' => true, // allowed in names that don't represent hostnames, https://github.com/bluejekyll/trust-dns/issues/1904
+        '*' => true, // wild card
+        '.' => true, // needed to allow dots, for things like email addresses
         _ => false,
     }
 }

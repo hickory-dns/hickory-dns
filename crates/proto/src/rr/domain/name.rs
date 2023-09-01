@@ -24,7 +24,7 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use tinyvec::TinyVec;
 
 /// A domain name
-#[derive(Clone, Default, Eq)]
+#[derive(Clone, Eq)]
 pub struct Name {
     is_fqdn: bool,
     label_data: TinyVec<[u8; 32]>,
@@ -36,7 +36,11 @@ pub struct Name {
 impl Name {
     /// Create a new domain::Name, i.e. label
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            is_fqdn: false,
+            label_data: TinyVec::new(),
+            label_ends: TinyVec::new(),
+        }
     }
 
     /// Returns the root label, i.e. no labels, can probably make this better in the future.
@@ -44,6 +48,237 @@ impl Name {
         let mut this = Self::new();
         this.is_fqdn = true;
         this
+    }
+
+    /// Creates a new Name from the specified labels
+    ///
+    /// # Arguments
+    ///
+    /// * `labels` - vector of items which will be stored as Strings.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use std::str::FromStr;
+    /// use trust_dns_proto::rr::domain::Name;
+    ///
+    /// // From strings, uses utf8 conversion
+    /// let from_labels = Name::from_labels(vec!["www", "example", "com"]).unwrap();
+    /// assert_eq!(from_labels, Name::from_str("www.example.com").unwrap());
+    ///
+    /// // Force a set of bytes into labels (this is none-standard and potentially dangerous)
+    /// let from_labels = Name::from_labels(vec!["bad chars".as_bytes(), "example".as_bytes(), "com".as_bytes()]).unwrap();
+    /// assert_eq!(from_labels.iter().next(), Some(&b"bad chars"[..]));
+    ///
+    /// let root = Name::from_labels(Vec::<&str>::new()).unwrap();
+    /// assert!(root.is_root());
+    /// ```
+    pub fn from_labels<I, L>(labels: I) -> ProtoResult<Self>
+    where
+        I: IntoIterator<Item = L>,
+        L: IntoLabel,
+    {
+        let (labels, errors): (Vec<_>, Vec<_>) = labels
+            .into_iter()
+            .map(IntoLabel::into_label)
+            .partition(Result::is_ok);
+        let labels: Vec<_> = labels.into_iter().map(Result::unwrap).collect();
+        let errors: Vec<_> = errors.into_iter().map(Result::unwrap_err).collect();
+
+        if labels.len() > 255 {
+            return Err(ProtoErrorKind::DomainNameTooLong(labels.len()).into());
+        };
+        if !errors.is_empty() {
+            return Err(format!("error converting some labels: {errors:?}").into());
+        };
+
+        let mut name = Self {
+            is_fqdn: true,
+            ..Self::new()
+        };
+        for label in labels {
+            name = name.append_label(label)?;
+        }
+
+        Ok(name)
+    }
+
+    /// attempts to parse a name such as `"example.com."` or `"subdomain.example.com."`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use std::str::FromStr;
+    /// use trust_dns_proto::rr::domain::Name;
+    ///
+    /// let name = Name::from_str("example.com.").unwrap();
+    /// assert_eq!(name.base_name(), Name::from_str("com.").unwrap());
+    /// assert_eq!(name.iter().next(), Some(&b"example"[..]));
+    /// ```
+    pub fn parse(local: &str, origin: Option<&Self>) -> ProtoResult<Self> {
+        Self::from_encoded_str::<LabelEncUtf8>(local, origin)
+    }
+
+    /// Will convert the string to a name only allowing ascii as valid input
+    ///
+    /// This method will also preserve the case of the name where that's desirable
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use trust_dns_proto::rr::Name;
+    ///
+    /// let bytes_name = Name::from_labels(vec!["WWW".as_bytes(), "example".as_bytes(), "COM".as_bytes()]).unwrap();
+    /// let ascii_name = Name::from_ascii("WWW.example.COM.").unwrap();
+    /// let lower_name = Name::from_ascii("www.example.com.").unwrap();
+    ///
+    /// assert!(bytes_name.eq_case(&ascii_name));
+    /// assert!(!lower_name.eq_case(&ascii_name));
+    ///
+    /// // escaped values
+    /// let bytes_name = Name::from_labels(vec!["email.name".as_bytes(), "example".as_bytes(), "com".as_bytes()]).unwrap();
+    /// let name = Name::from_ascii("email\\.name.example.com.").unwrap();
+    ///
+    /// assert_eq!(bytes_name, name);
+    ///
+    /// let bytes_name = Name::from_labels(vec!["bad.char".as_bytes(), "example".as_bytes(), "com".as_bytes()]).unwrap();
+    /// let name = Name::from_ascii("bad\\056char.example.com.").unwrap();
+    ///
+    /// assert_eq!(bytes_name, name);
+    /// ```
+    pub fn from_ascii<S: AsRef<str>>(name: S) -> ProtoResult<Self> {
+        Self::from_encoded_str::<LabelEncAscii>(name.as_ref(), None)
+    }
+
+    // TODO: currently reserved to be private to the crate, due to confusion of IDNA vs. utf8 in https://tools.ietf.org/html/rfc6762#appendix-F
+    /// Will convert the string to a name using IDNA, punycode, to encode the UTF8 as necessary
+    ///
+    /// When making names IDNA compatible, there is a side-effect of lowercasing the name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::str::FromStr;
+    /// use trust_dns_proto::rr::Name;
+    ///
+    /// let bytes_name = Name::from_labels(vec!["WWW".as_bytes(), "example".as_bytes(), "COM".as_bytes()]).unwrap();
+    ///
+    /// // from_str calls through to from_utf8
+    /// let utf8_name = Name::from_str("WWW.example.COM.").unwrap();
+    /// let lower_name = Name::from_str("www.example.com.").unwrap();
+    ///
+    /// assert!(!bytes_name.eq_case(&utf8_name));
+    /// assert!(lower_name.eq_case(&utf8_name));
+    /// ```
+    #[deprecated(since = "0.23.0", note = "use FromStr::from_str() instead")]
+    pub fn from_utf8<S: AsRef<str>>(name: S) -> ProtoResult<Self> {
+        Self::from_encoded_str::<LabelEncUtf8>(name.as_ref(), None)
+    }
+
+    /// First attempts to decode via `from_utf8`, if that fails IDNA checks, then falls back to
+    /// ascii decoding.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::str::FromStr;
+    /// use trust_dns_proto::rr::Name;
+    ///
+    /// // Ok, underscore in the beginning of a name
+    /// assert!(Name::from_utf8("_allows.example.com.").is_ok());
+    ///
+    /// // Error, underscore in the end
+    /// assert!(Name::from_utf8("dis_allowed.example.com.").is_err());
+    ///
+    /// // Ok, relaxed mode
+    /// assert!(Name::from_str_relaxed("allow_in_.example.com.").is_ok());
+    /// ```
+    pub fn from_str_relaxed<S: AsRef<str>>(name: S) -> ProtoResult<Self> {
+        let name = name.as_ref();
+        Self::from_str(name).or_else(|_| Self::from_ascii(name))
+    }
+
+    fn from_encoded_str<E: LabelEnc>(
+        local: &str,
+        origin: Option<&Self>,
+        //allow_underscore: bool,
+    ) -> ProtoResult<Self> {
+        let mut name = Self::new();
+        let mut label = String::new();
+
+        let mut state = ParseState::Label;
+
+        // short circuit root parse
+        if local == "." {
+            name.set_fqdn(true);
+            return Ok(name);
+        }
+
+        // TODO: it would be nice to relocate this to Label, but that is hard because the label boundary can only be detected after processing escapes...
+        // evaluate all characters
+        for ch in local.chars() {
+            match state {
+                ParseState::Label => match ch {
+                    '.' => {
+                        name = name.append_label(E::to_label(&label)?)?;
+                        label.clear();
+                    }
+                    '\\' => state = ParseState::Escape1,
+                    ch if !ch.is_control() && !ch.is_whitespace() => label.push(ch),
+                    _ => return Err(format!("unrecognized char: {ch}").into()),
+                },
+                ParseState::Escape1 => {
+                    if ch.is_numeric() {
+                        state = ParseState::Escape2(
+                            ch.to_digit(8)
+                                .ok_or_else(|| ProtoError::from(format!("illegal char: {ch}")))?,
+                        );
+                    } else {
+                        // it's a single escaped char
+                        label.push(ch);
+                        state = ParseState::Label;
+                    }
+                }
+                ParseState::Escape2(i) => {
+                    if ch.is_numeric() {
+                        state = ParseState::Escape3(
+                            i,
+                            ch.to_digit(8)
+                                .ok_or_else(|| ProtoError::from(format!("illegal char: {ch}")))?,
+                        );
+                    } else {
+                        return Err(ProtoError::from(format!("unrecognized char: {ch}")));
+                    }
+                }
+                ParseState::Escape3(i, ii) => {
+                    if ch.is_numeric() {
+                        // octal conversion
+                        let val: u32 = (i * 8 * 8)
+                            + (ii * 8)
+                            + ch.to_digit(8)
+                                .ok_or_else(|| ProtoError::from(format!("illegal char: {ch}")))?;
+                        let new: char = char::from_u32(val)
+                            .ok_or_else(|| ProtoError::from(format!("illegal char: {ch}")))?;
+                        label.push(new);
+                        state = ParseState::Label;
+                    } else {
+                        return Err(format!("unrecognized char: {ch}").into());
+                    }
+                }
+            }
+        }
+
+        if !label.is_empty() {
+            name = name.append_label(E::to_label(&label)?)?;
+        }
+
+        if local.ends_with('.') {
+            name.set_fqdn(true);
+        } else if let Some(other) = origin {
+            return name.append_domain(other);
+        }
+
+        Ok(name)
     }
 
     /// Extend the name with the offered label, and ensure maximum name length is not exceeded.
@@ -129,59 +364,6 @@ impl Name {
     pub fn append_label<L: IntoLabel>(mut self, label: L) -> ProtoResult<Self> {
         self.extend_name(label.into_label()?.as_bytes())?;
         Ok(self)
-    }
-
-    /// Creates a new Name from the specified labels
-    ///
-    /// # Arguments
-    ///
-    /// * `labels` - vector of items which will be stored as Strings.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::domain::Name;
-    ///
-    /// // From strings, uses utf8 conversion
-    /// let from_labels = Name::from_labels(vec!["www", "example", "com"]).unwrap();
-    /// assert_eq!(from_labels, Name::from_str("www.example.com").unwrap());
-    ///
-    /// // Force a set of bytes into labels (this is none-standard and potentially dangerous)
-    /// let from_labels = Name::from_labels(vec!["bad chars".as_bytes(), "example".as_bytes(), "com".as_bytes()]).unwrap();
-    /// assert_eq!(from_labels.iter().next(), Some(&b"bad chars"[..]));
-    ///
-    /// let root = Name::from_labels(Vec::<&str>::new()).unwrap();
-    /// assert!(root.is_root());
-    /// ```
-    pub fn from_labels<I, L>(labels: I) -> ProtoResult<Self>
-    where
-        I: IntoIterator<Item = L>,
-        L: IntoLabel,
-    {
-        let (labels, errors): (Vec<_>, Vec<_>) = labels
-            .into_iter()
-            .map(IntoLabel::into_label)
-            .partition(Result::is_ok);
-        let labels: Vec<_> = labels.into_iter().map(Result::unwrap).collect();
-        let errors: Vec<_> = errors.into_iter().map(Result::unwrap_err).collect();
-
-        if labels.len() > 255 {
-            return Err(ProtoErrorKind::DomainNameTooLong(labels.len()).into());
-        };
-        if !errors.is_empty() {
-            return Err(format!("error converting some labels: {errors:?}").into());
-        };
-
-        let mut name = Self {
-            is_fqdn: true,
-            ..Self::default()
-        };
-        for label in labels {
-            name = name.append_label(label)?;
-        }
-
-        Ok(name)
     }
 
     /// Appends `other` to `self`, returning a new `Name`
@@ -419,179 +601,6 @@ impl Name {
     /// 1, this is never the case so the method returns false.
     pub fn is_empty(&self) -> bool {
         false
-    }
-
-    /// attempts to parse a name such as `"example.com."` or `"subdomain.example.com."`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::domain::Name;
-    ///
-    /// let name = Name::from_str("example.com.").unwrap();
-    /// assert_eq!(name.base_name(), Name::from_str("com.").unwrap());
-    /// assert_eq!(name.iter().next(), Some(&b"example"[..]));
-    /// ```
-    pub fn parse(local: &str, origin: Option<&Self>) -> ProtoResult<Self> {
-        Self::from_encoded_str::<LabelEncUtf8>(local, origin)
-    }
-
-    /// Will convert the string to a name only allowing ascii as valid input
-    ///
-    /// This method will also preserve the case of the name where that's desirable
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use trust_dns_proto::rr::Name;
-    ///
-    /// let bytes_name = Name::from_labels(vec!["WWW".as_bytes(), "example".as_bytes(), "COM".as_bytes()]).unwrap();
-    /// let ascii_name = Name::from_ascii("WWW.example.COM.").unwrap();
-    /// let lower_name = Name::from_ascii("www.example.com.").unwrap();
-    ///
-    /// assert!(bytes_name.eq_case(&ascii_name));
-    /// assert!(!lower_name.eq_case(&ascii_name));
-    ///
-    /// // escaped values
-    /// let bytes_name = Name::from_labels(vec!["email.name".as_bytes(), "example".as_bytes(), "com".as_bytes()]).unwrap();
-    /// let name = Name::from_ascii("email\\.name.example.com.").unwrap();
-    ///
-    /// assert_eq!(bytes_name, name);
-    ///
-    /// let bytes_name = Name::from_labels(vec!["bad.char".as_bytes(), "example".as_bytes(), "com".as_bytes()]).unwrap();
-    /// let name = Name::from_ascii("bad\\056char.example.com.").unwrap();
-    ///
-    /// assert_eq!(bytes_name, name);
-    /// ```
-    pub fn from_ascii<S: AsRef<str>>(name: S) -> ProtoResult<Self> {
-        Self::from_encoded_str::<LabelEncAscii>(name.as_ref(), None)
-    }
-
-    // TODO: currently reserved to be private to the crate, due to confusion of IDNA vs. utf8 in https://tools.ietf.org/html/rfc6762#appendix-F
-    /// Will convert the string to a name using IDNA, punycode, to encode the UTF8 as necessary
-    ///
-    /// When making names IDNA compatible, there is a side-effect of lowercasing the name.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::Name;
-    ///
-    /// let bytes_name = Name::from_labels(vec!["WWW".as_bytes(), "example".as_bytes(), "COM".as_bytes()]).unwrap();
-    ///
-    /// // from_str calls through to from_utf8
-    /// let utf8_name = Name::from_str("WWW.example.COM.").unwrap();
-    /// let lower_name = Name::from_str("www.example.com.").unwrap();
-    ///
-    /// assert!(!bytes_name.eq_case(&utf8_name));
-    /// assert!(lower_name.eq_case(&utf8_name));
-    /// ```
-    pub fn from_utf8<S: AsRef<str>>(name: S) -> ProtoResult<Self> {
-        Self::from_encoded_str::<LabelEncUtf8>(name.as_ref(), None)
-    }
-
-    /// First attempts to decode via `from_utf8`, if that fails IDNA checks, then falls back to
-    /// ascii decoding.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::Name;
-    ///
-    /// // Ok, underscore in the beginning of a name
-    /// assert!(Name::from_utf8("_allows.example.com.").is_ok());
-    ///
-    /// // Error, underscore in the end
-    /// assert!(Name::from_utf8("dis_allowed.example.com.").is_err());
-    ///
-    /// // Ok, relaxed mode
-    /// assert!(Name::from_str_relaxed("allow_in_.example.com.").is_ok());
-    /// ```
-    pub fn from_str_relaxed<S: AsRef<str>>(name: S) -> ProtoResult<Self> {
-        let name = name.as_ref();
-        Self::from_utf8(name).or_else(|_| Self::from_ascii(name))
-    }
-
-    fn from_encoded_str<E: LabelEnc>(local: &str, origin: Option<&Self>) -> ProtoResult<Self> {
-        let mut name = Self::new();
-        let mut label = String::new();
-
-        let mut state = ParseState::Label;
-
-        // short circuit root parse
-        if local == "." {
-            name.set_fqdn(true);
-            return Ok(name);
-        }
-
-        // TODO: it would be nice to relocate this to Label, but that is hard because the label boundary can only be detected after processing escapes...
-        // evaluate all characters
-        for ch in local.chars() {
-            match state {
-                ParseState::Label => match ch {
-                    '.' => {
-                        name = name.append_label(E::to_label(&label)?)?;
-                        label.clear();
-                    }
-                    '\\' => state = ParseState::Escape1,
-                    ch if !ch.is_control() && !ch.is_whitespace() => label.push(ch),
-                    _ => return Err(format!("unrecognized char: {ch}").into()),
-                },
-                ParseState::Escape1 => {
-                    if ch.is_numeric() {
-                        state = ParseState::Escape2(
-                            ch.to_digit(8)
-                                .ok_or_else(|| ProtoError::from(format!("illegal char: {ch}")))?,
-                        );
-                    } else {
-                        // it's a single escaped char
-                        label.push(ch);
-                        state = ParseState::Label;
-                    }
-                }
-                ParseState::Escape2(i) => {
-                    if ch.is_numeric() {
-                        state = ParseState::Escape3(
-                            i,
-                            ch.to_digit(8)
-                                .ok_or_else(|| ProtoError::from(format!("illegal char: {ch}")))?,
-                        );
-                    } else {
-                        return Err(ProtoError::from(format!("unrecognized char: {ch}")));
-                    }
-                }
-                ParseState::Escape3(i, ii) => {
-                    if ch.is_numeric() {
-                        // octal conversion
-                        let val: u32 = (i * 8 * 8)
-                            + (ii * 8)
-                            + ch.to_digit(8)
-                                .ok_or_else(|| ProtoError::from(format!("illegal char: {ch}")))?;
-                        let new: char = char::from_u32(val)
-                            .ok_or_else(|| ProtoError::from(format!("illegal char: {ch}")))?;
-                        label.push(new);
-                        state = ParseState::Label;
-                    } else {
-                        return Err(format!("unrecognized char: {ch}").into());
-                    }
-                }
-            }
-        }
-
-        if !label.is_empty() {
-            name = name.append_label(E::to_label(&label)?)?;
-        }
-
-        if local.ends_with('.') {
-            name.set_fqdn(true);
-        } else if let Some(other) = origin {
-            return name.append_domain(other);
-        }
-
-        Ok(name)
     }
 
     /// Emits the canonical version of the name to the encoder.
@@ -1288,7 +1297,8 @@ impl FromStr for Name {
 
     /// Uses the Name::from_utf8 conversion on this string, see [Name::from_ascii] for ascii only, or for preserving case
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_str_relaxed(s)
+        #[allow(deprecated)]
+        Self::from_utf8(s)
     }
 }
 
@@ -1301,21 +1311,21 @@ pub trait IntoName: Sized {
 impl<'a> IntoName for &'a str {
     /// Performs a utf8, IDNA or punycode, translation of the `str` into `Name`
     fn into_name(self) -> ProtoResult<Name> {
-        Name::from_utf8(self)
+        Name::from_str(self)
     }
 }
 
 impl IntoName for String {
     /// Performs a utf8, IDNA or punycode, translation of the `String` into `Name`
     fn into_name(self) -> ProtoResult<Name> {
-        Name::from_utf8(self)
+        Name::from_str(&self)
     }
 }
 
 impl IntoName for &String {
     /// Performs a utf8, IDNA or punycode, translation of the `&String` into `Name`
     fn into_name(self) -> ProtoResult<Name> {
-        Name::from_utf8(self)
+        Name::from_str(self)
     }
 }
 
@@ -1721,8 +1731,8 @@ mod tests {
     #[test]
     fn test_from_utf8() {
         let bytes_name = Name::from_labels(vec![b"WWW" as &[u8], b"example", b"COM"]).unwrap();
-        let utf8_name = Name::from_utf8("WWW.example.COM.").unwrap();
-        let lower_name = Name::from_utf8("www.example.com.").unwrap();
+        let utf8_name = Name::from_str("WWW.example.COM.").unwrap();
+        let lower_name = Name::from_str("www.example.com.").unwrap();
 
         assert!(!bytes_name.eq_case(&utf8_name));
         assert!(lower_name.eq_case(&utf8_name));
@@ -1730,21 +1740,21 @@ mod tests {
 
     #[test]
     fn test_into_name() {
-        let name = Name::from_utf8("www.example.com").unwrap();
-        assert_eq!(Name::from_utf8("www.example.com").unwrap(), name);
+        let name = Name::from_str("www.example.com").unwrap();
+        assert_eq!(Name::from_str("www.example.com").unwrap(), name);
         assert_eq!(
-            Name::from_utf8("www.example.com").unwrap(),
-            Name::from_utf8("www.example.com")
+            Name::from_str("www.example.com").unwrap(),
+            Name::from_str("www.example.com")
                 .unwrap()
                 .into_name()
                 .unwrap()
         );
         assert_eq!(
-            Name::from_utf8("www.example.com").unwrap(),
+            Name::from_str("www.example.com").unwrap(),
             "www.example.com".into_name().unwrap()
         );
         assert_eq!(
-            Name::from_utf8("www.example.com").unwrap(),
+            Name::from_str("www.example.com").unwrap(),
             "www.example.com".to_string().into_name().unwrap()
         );
     }
@@ -1756,7 +1766,7 @@ mod tests {
             "WWW.example.COM."
         );
         assert_eq!(
-            Name::from_utf8("WWW.example.COM.").unwrap().to_ascii(),
+            Name::from_str("WWW.example.COM.").unwrap().to_ascii(),
             "www.example.com."
         );
         assert_eq!(
@@ -1792,8 +1802,22 @@ mod tests {
     #[test]
     fn test_underscore() {
         Name::from_str("_begin.example.com").expect("failed at beginning");
+        assert_eq!(
+            Name::from_str("_begin.example.com").unwrap(),
+            Name::from_ascii("_begin.example.com").unwrap(),
+        );
+
         Name::from_str_relaxed("mid_dle.example.com").expect("failed in the middle");
+        assert_eq!(
+            Name::from_str("mid_dle.example.com").is_ok(),
+            Name::from_ascii("mid_dle.example.com").is_ok(),
+        );
+
         Name::from_str_relaxed("end_.example.com").expect("failed at the end");
+        assert_eq!(
+            Name::from_str("end_.example.com").is_ok(),
+            Name::from_ascii("end_.example.com").is_ok(),
+        );
     }
 
     #[test]

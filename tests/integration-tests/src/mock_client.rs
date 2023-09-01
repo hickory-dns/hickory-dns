@@ -9,6 +9,7 @@ use std::error::Error;
 use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::Pin;
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 
@@ -219,7 +220,15 @@ pub fn v4_record(name: Name, ip: Ipv4Addr) -> Record {
 }
 
 pub fn soa_record(name: Name, mname: Name) -> Record {
-    let soa = SOA::new(mname, Default::default(), 1, 3600, 60, 86400, 3600);
+    let soa = SOA::new(
+        mname,
+        Name::from_str("webmaster.example.com").unwrap(),
+        1,
+        3600,
+        60,
+        86400,
+        3600,
+    );
     Record::from_rdata(name, 86400, RData::SOA(soa))
 }
 
