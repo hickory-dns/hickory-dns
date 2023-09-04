@@ -42,7 +42,7 @@ impl DnsHandle for TestClient {
 // The RetryDnsHandle should retry the same nameserver on IO errors, e.g. timeouts.
 #[test]
 fn retry_on_retryable_error() {
-    let mut handle = RetryDnsHandle::new(
+    let handle = RetryDnsHandle::new(
         TestClient {
             retries: 1,
             error_response: ResolveError::from(std::io::Error::from(std::io::ErrorKind::TimedOut)),
@@ -66,7 +66,7 @@ fn dont_retry_on_negative_response() {
         .set_response_code(ResponseCode::NoError);
     let error = ResolveError::from_response(DnsResponse::from_message(response).unwrap(), false)
         .expect_err("NODATA should be an error");
-    let mut client = RetryDnsHandle::new(
+    let client = RetryDnsHandle::new(
         TestClient {
             retries: 1,
             error_response: error,

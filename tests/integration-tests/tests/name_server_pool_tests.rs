@@ -142,7 +142,7 @@ fn test_datagram() {
         Default::default(),
     );
 
-    let mut pool = mock_nameserver_pool(
+    let pool = mock_nameserver_pool(
         vec![udp_nameserver],
         vec![tcp_nameserver],
         None,
@@ -180,7 +180,7 @@ fn test_datagram_stream_upgrades_on_truncation() {
         Default::default(),
     );
 
-    let mut pool = mock_nameserver_pool(
+    let pool = mock_nameserver_pool(
         vec![udp_nameserver],
         vec![tcp_nameserver],
         None,
@@ -225,7 +225,7 @@ fn test_datagram_stream_upgrade_on_truncation_despite_udp() {
         Default::default(),
     );
 
-    let mut pool = mock_nameserver_pool(
+    let pool = mock_nameserver_pool(
         vec![udp_nameserver],
         vec![tcp_nameserver],
         None,
@@ -260,7 +260,7 @@ fn test_datagram_fails_to_stream() {
 
     let mut options = ResolverOpts::default();
     options.try_tcp_on_error = true;
-    let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
+    let pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
 
     let request = message(query, vec![], vec![], vec![]);
     let future = pool.send(request).first_answer();
@@ -292,7 +292,7 @@ fn test_tcp_fallback_only_on_truncated() {
         Default::default(),
     );
 
-    let mut pool = mock_nameserver_pool(
+    let pool = mock_nameserver_pool(
         vec![udp_nameserver],
         vec![tcp_nameserver],
         None,
@@ -380,7 +380,7 @@ fn test_trust_nx_responses_fails() {
         true,
     );
 
-    let mut pool = mock_nameserver_pool(
+    let pool = mock_nameserver_pool(
         vec![fail_nameserver, succeed_nameserver],
         vec![],
         None,
@@ -435,7 +435,7 @@ fn test_noerror_doesnt_leak() {
     let mut options = ResolverOpts::default();
     options.num_concurrent_reqs = 1;
     options.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
-    let mut pool = mock_nameserver_pool(
+    let pool = mock_nameserver_pool(
         vec![udp_nameserver, second_nameserver],
         vec![],
         None,
@@ -500,7 +500,7 @@ fn test_distrust_nx_responses() {
         false,
     );
 
-    let mut pool = mock_nameserver_pool(
+    let pool = mock_nameserver_pool(
         vec![error_nameserver, fallback_nameserver],
         vec![],
         None,
@@ -564,7 +564,7 @@ fn test_user_provided_server_order() {
         Default::default(),
     );
 
-    let mut pool = mock_nameserver_pool(
+    let pool = mock_nameserver_pool(
         vec![preferred_nameserver, secondary_nameserver],
         vec![],
         None,
@@ -609,7 +609,7 @@ fn test_return_error_from_highest_priority_nameserver() {
             mock_nameserver(vec![Err(response)], ResolverOpts::default())
         })
         .collect();
-    let mut pool = mock_nameserver_pool(name_servers, vec![], None, ResolverOpts::default());
+    let pool = mock_nameserver_pool(name_servers, vec![], None, ResolverOpts::default());
 
     let request = message(query, vec![], vec![], vec![]);
     let future = pool.send(request).first_answer();
@@ -704,7 +704,7 @@ fn test_concurrent_requests_2_conns() {
     );
     let udp2_nameserver = mock_nameserver_on_send(vec![], options, on_send);
 
-    let mut pool = mock_nameserver_pool_on_send(
+    let pool = mock_nameserver_pool_on_send(
         vec![udp2_nameserver, udp1_nameserver],
         vec![],
         None,
@@ -747,7 +747,7 @@ fn test_concurrent_requests_more_than_conns() {
     );
     let udp2_nameserver = mock_nameserver_on_send(vec![], options, on_send);
 
-    let mut pool = mock_nameserver_pool_on_send(
+    let pool = mock_nameserver_pool_on_send(
         vec![udp2_nameserver, udp1_nameserver],
         vec![],
         None,
@@ -790,7 +790,7 @@ fn test_concurrent_requests_1_conn() {
     );
     let udp2_nameserver = udp1_nameserver.clone();
 
-    let mut pool = mock_nameserver_pool_on_send(
+    let pool = mock_nameserver_pool_on_send(
         vec![udp2_nameserver, udp1_nameserver],
         vec![],
         None,
@@ -833,7 +833,7 @@ fn test_concurrent_requests_0_conn() {
     );
     let udp2_nameserver = udp1_nameserver.clone();
 
-    let mut pool = mock_nameserver_pool_on_send(
+    let pool = mock_nameserver_pool_on_send(
         vec![udp2_nameserver, udp1_nameserver],
         vec![],
         None,
