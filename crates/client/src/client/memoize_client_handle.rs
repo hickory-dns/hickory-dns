@@ -48,7 +48,7 @@ where
     async fn inner_send(
         request: DnsRequest,
         active_queries: Arc<Mutex<HashMap<Query, RcStream<<H as DnsHandle>::Response>>>>,
-        mut client: H,
+        client: H,
     ) -> impl Stream<Item = Result<DnsResponse, ProtoError>> {
         // TODO: what if we want to support multiple queries (non-standard)?
         let query = request.queries().first().expect("no query!").clone();
@@ -77,7 +77,7 @@ where
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
     type Error = ProtoError;
 
-    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
+    fn send<R: Into<DnsRequest>>(&self, request: R) -> Self::Response {
         let request = request.into();
 
         Box::pin(
@@ -119,7 +119,7 @@ mod test {
         type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
         type Error = ProtoError;
 
-        fn send<R: Into<DnsRequest> + Send + 'static>(&mut self, request: R) -> Self::Response {
+        fn send<R: Into<DnsRequest> + Send + 'static>(&self, request: R) -> Self::Response {
             let i = Arc::clone(&self.i);
             let future = async {
                 let i = i;
@@ -148,7 +148,7 @@ mod test {
     fn test_memoized() {
         use futures::executor::block_on;
 
-        let mut client = MemoizeClientHandle::new(TestClient {
+        let client = MemoizeClientHandle::new(TestClient {
             i: Arc::new(Mutex::new(0)),
         });
 

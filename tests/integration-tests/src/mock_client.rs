@@ -196,7 +196,7 @@ where
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, E>> + Send>>;
     type Error = E;
 
-    fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
+    fn send<R: Into<DnsRequest>>(&self, _: R) -> Self::Response {
         let mut messages = self.messages.lock().expect("failed to lock at messages");
         println!("MockClientHandle::send message count: {}", messages.len());
 
@@ -247,7 +247,7 @@ pub fn error<E>(error: E) -> Result<DnsResponse, E> {
 
 pub trait OnSend: Clone + Send + Sync + 'static {
     fn on_send<E>(
-        &mut self,
+        &self,
         response: Result<DnsResponse, E>,
     ) -> Pin<Box<dyn Future<Output = Result<DnsResponse, E>> + Send>>
     where

@@ -99,7 +99,7 @@ pub trait Client {
         &self,
         msg: R,
     ) -> Vec<ClientResult<DnsResponse>> {
-        let (mut client, runtime) = match self.spawn_client() {
+        let (client, runtime) = match self.spawn_client() {
             Ok(c_r) => c_r,
             Err(e) => return vec![Err(e)],
         };

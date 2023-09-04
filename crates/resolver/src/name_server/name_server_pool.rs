@@ -229,7 +229,7 @@ where
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>>;
     type Error = ResolveError;
 
-    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
+    fn send<R: Into<DnsRequest>>(&self, request: R) -> Self::Response {
         let opts = self.options;
         let request = request.into();
         let datagram_conns = Arc::clone(&self.datagram_conns);
@@ -360,7 +360,7 @@ where
 
         let mut requests = par_conns
             .into_iter()
-            .map(move |mut conn| {
+            .map(move |conn| {
                 conn.send(request_cont.clone())
                     .first_answer()
                     .map(|result| result.map_err(|e| (conn, e)))
@@ -516,7 +516,7 @@ mod tests {
         resolver_config.add_name_server(config2);
 
         let io_loop = Runtime::new().unwrap();
-        let mut pool = GenericNameServerPool::tokio_from_config(
+        let pool = GenericNameServerPool::tokio_from_config(
             &resolver_config,
             &ResolverOpts::default(),
             TokioRuntimeProvider::new(),
@@ -582,7 +582,7 @@ mod tests {
         let name_servers: Arc<[_]> = Arc::from([name_server]);
 
         #[cfg(not(feature = "mdns"))]
-        let mut pool = GenericNameServerPool::from_nameservers_test(
+        let pool = GenericNameServerPool::from_nameservers_test(
             &opts,
             Arc::from([]),
             Arc::clone(&name_servers),

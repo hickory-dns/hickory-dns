@@ -128,7 +128,7 @@ where
         mut self,
         request: R,
     ) -> Result<DnsResponse, ResolveError> {
-        let mut client = self.connected_mut_client().await?;
+        let client = self.connected_mut_client().await?;
         let now = Instant::now();
         let response = client.send(request).first_answer().await;
         let rtt = now.elapsed();
@@ -183,7 +183,7 @@ where
     }
 
     // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
-    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
+    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response {
         let this = self.clone();
         // if state is failed, return future::err(), unless retry delay expired..
         Box::pin(once(this.inner_send(request)))
@@ -289,7 +289,7 @@ mod tests {
 
         let name = Name::parse("www.example.com.", None).unwrap();
         let response = io_loop
-            .block_on(name_server.then(|mut name_server| {
+            .block_on(name_server.then(|name_server| {
                 name_server
                     .lookup(
                         Query::query(name.clone(), RecordType::A),
@@ -323,7 +323,7 @@ mod tests {
 
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(io_loop
-            .block_on(name_server.then(|mut name_server| {
+            .block_on(name_server.then(|name_server| {
                 name_server
                     .lookup(
                         Query::query(name.clone(), RecordType::A),

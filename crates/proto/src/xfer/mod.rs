@@ -166,7 +166,7 @@ impl DnsHandle for BufDnsRequestStreamHandle {
     type Response = DnsResponseReceiver;
     type Error = ProtoError;
 
-    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
+    fn send<R: Into<DnsRequest>>(&self, request: R) -> Self::Response {
         let request: DnsRequest = request.into();
         debug!(
             "enqueueing message:{}:{:?}",
@@ -175,7 +175,8 @@ impl DnsHandle for BufDnsRequestStreamHandle {
         );
 
         let (request, oneshot) = OneshotDnsRequest::oneshot(request);
-        try_oneshot!(self.sender.try_send(request).map_err(|_| {
+        let mut sender = self.sender.clone();
+        try_oneshot!(sender.try_send(request).map_err(|_| {
             debug!("unable to enqueue message");
             ProtoError::from(ProtoErrorKind::Busy)
         }));

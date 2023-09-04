@@ -53,7 +53,7 @@ pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
     /// * `request` - the fully constructed Message to send, note that most implementations of
     ///               will most likely be required to rewrite the QueryId, do no rely on that as
     ///               being stable.
-    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response;
+    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response;
 
     /// A *classic* DNS query
     ///
@@ -63,7 +63,7 @@ pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
     ///
     /// * `query` - the query to lookup
     /// * `options` - options to use when constructing the message
-    fn lookup(&mut self, query: Query, options: DnsRequestOptions) -> Self::Response {
+    fn lookup(&self, query: Query, options: DnsRequestOptions) -> Self::Response {
         debug!("querying: {} {:?}", query.name(), query.query_type());
         self.send(DnsRequest::new(build_message(query, options), options))
     }
