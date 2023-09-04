@@ -77,7 +77,7 @@ where
     }
 
     pub(crate) async fn lookup(&self, query: Query) -> Result<DnsResponse, ResolveError> {
-        let mut ns = self.ns.clone();
+        let ns = self.ns.clone();
 
         let query_cpy = query.clone();
 
