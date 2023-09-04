@@ -63,7 +63,7 @@ where
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, Self::Error>> + Send + Unpin>>;
     type Error = <H as DnsHandle>::Error;
 
-    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
+    fn send<R: Into<DnsRequest>>(&self, request: R) -> Self::Response {
         let request = request.into();
 
         // need to clone here so that the retry can resend if necessary...
@@ -165,7 +165,7 @@ mod test {
         type Response = Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin>;
         type Error = ProtoError;
 
-        fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
+        fn send<R: Into<DnsRequest>>(&self, _: R) -> Self::Response {
             let i = self.attempts.load(Ordering::SeqCst);
 
             if (i > self.retries || self.retries - i == 0) && self.last_succeed {
@@ -181,7 +181,7 @@ mod test {
 
     #[test]
     fn test_retry() {
-        let mut handle = RetryDnsHandle::new(
+        let handle = RetryDnsHandle::new(
             TestClient {
                 last_succeed: true,
                 retries: 1,
@@ -196,7 +196,7 @@ mod test {
 
     #[test]
     fn test_error() {
-        let mut client = RetryDnsHandle::new(
+        let client = RetryDnsHandle::new(
             TestClient {
                 last_succeed: false,
                 retries: 1,

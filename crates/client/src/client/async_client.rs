@@ -147,7 +147,7 @@ impl DnsHandle for AsyncClient {
     type Response = DnsExchangeSend;
     type Error = ProtoError;
 
-    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
+    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response {
         self.exchange.send(request)
     }
 

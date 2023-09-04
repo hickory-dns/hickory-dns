@@ -23,7 +23,7 @@ impl DnsHandle for TestClient {
     type Response = Box<dyn Stream<Item = Result<DnsResponse, Self::Error>> + Send + Unpin>;
     type Error = ResolveError;
 
-    fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
+    fn send<R: Into<DnsRequest>>(&self, _: R) -> Self::Response {
         let i = self.attempts.load(Ordering::SeqCst);
 
         if i > self.retries || self.retries - i == 0 {

@@ -233,7 +233,7 @@ impl DnsHandle for GenericConnection {
     type Response = ConnectionResponse;
     type Error = ResolveError;
 
-    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
+    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response {
         ConnectionResponse(self.0.send(request))
     }
 }

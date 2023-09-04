@@ -115,7 +115,7 @@ where
         true
     }
 
-    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
+    fn send<R: Into<DnsRequest>>(&self, request: R) -> Self::Response {
         let mut request = request.into();
 
         // backstop
@@ -467,7 +467,7 @@ where
 ///  as a success. Otherwise, a query is sent to get the DS record, and the DNSKEY is validated
 ///  against the DS record.
 async fn verify_dnskey_rrset<H, E>(
-    mut handle: DnssecDnsHandle<H>,
+    handle: DnssecDnsHandle<H>,
     rrset: Rrset,
     options: DnsRequestOptions,
 ) -> Result<Rrset, E>
@@ -715,7 +715,7 @@ where
         .filter_map(|rrsig|rrsig.into_data())
         .map(|sig| {
             let rrset = Arc::clone(&rrset);
-            let mut handle = handle.clone_with_context();
+            let  handle = handle.clone_with_context();
 
             handle
                 .lookup(

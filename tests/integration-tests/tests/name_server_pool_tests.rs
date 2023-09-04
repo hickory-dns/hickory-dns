@@ -645,7 +645,7 @@ impl OnSendBarrier {
 
 impl OnSend for OnSendBarrier {
     fn on_send<E>(
-        &mut self,
+        &self,
         response: Result<DnsResponse, E>,
     ) -> Pin<Box<dyn Future<Output = Result<DnsResponse, E>> + Send>>
     where

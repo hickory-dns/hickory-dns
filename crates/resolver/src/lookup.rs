@@ -204,11 +204,11 @@ impl<P: ConnectionProvider> DnsHandle for LookupEither<P> {
         }
     }
 
-    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
+    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response {
         match *self {
-            Self::Retry(ref mut c) => c.send(request),
+            Self::Retry(ref c) => c.send(request),
             #[cfg(feature = "dnssec")]
-            Self::Secure(ref mut c) => c.send(request),
+            Self::Secure(ref c) => c.send(request),
         }
     }
 }
@@ -557,7 +557,7 @@ pub mod tests {
         type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>>;
         type Error = ResolveError;
 
-        fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
+        fn send<R: Into<DnsRequest>>(&self, _: R) -> Self::Response {
             Box::pin(once(
                 future::ready(self.messages.lock().unwrap().pop().unwrap_or_else(empty)).boxed(),
             ))
