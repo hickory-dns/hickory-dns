@@ -55,7 +55,7 @@ dnssec-openssl = ["dnssec", "trust-dns-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "trust-dns-proto/dnssec-ring"]
 dnssec = ["trust-dns-proto/dnssec"]
 
-serde-config = ["serde"]
+serde-config = ["serde", "trust-dns-proto/serde-config"]
 
 # enables experimental the mDNS (multicast) feature
 mdns = ["trust-dns-proto/mdns"]
