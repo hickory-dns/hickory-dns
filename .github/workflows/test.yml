@@ -25,7 +25,7 @@ jobs:
         #os: [ubuntu-latest, macos-latest, windows-latest]
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
       
@@ -46,7 +46,7 @@ jobs:
     needs: platform-matrix
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@nightly
         with:
@@ -90,7 +90,7 @@ jobs:
             dnssec-ring,
           ]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
       
@@ -116,7 +116,7 @@ jobs:
       matrix:
         version: ["1.64.0", beta, nightly]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@master
         with:
@@ -142,7 +142,7 @@ jobs:
     name: cleanliness
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       # not using the cargo cache here, since this differs significantly
       - name: cargo-all cache
@@ -185,7 +185,7 @@ jobs:
     needs: platform-matrix
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
       
