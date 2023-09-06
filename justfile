@@ -204,3 +204,7 @@ init-llvm-cov:
 # Initialize all tools needed for running tests, etc.
 init: init-cargo-workspaces init-audit init-bind9
     @echo 'all tools initialized'
+
+# Run the server with example config, for manual testing purposes
+run-example:
+    @cargo run --bin trust-dns -- -d -c {{TEST_DATA}}/test_configs/example.toml -z {{TEST_DATA}}/test_configs -p 2053
