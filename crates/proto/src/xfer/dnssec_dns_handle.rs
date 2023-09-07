@@ -715,7 +715,7 @@ where
         .filter_map(|rrsig|rrsig.into_data())
         .map(|sig| {
             let rrset = Arc::clone(&rrset);
-            let  handle = handle.clone_with_context();
+            let handle = handle.clone_with_context();
 
             handle
                 .lookup(
