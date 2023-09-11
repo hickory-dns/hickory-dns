@@ -13,7 +13,7 @@ on:
     - cron: "0 3 * * 4"
 
 env:
-  CARGO_WS_VERSION: "0.2.42"
+  CARGO_WS_VERSION: "0.2.44"
 
 jobs:
   ## Run all default oriented feature sets across all platforms.
@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
-      
+
       - uses: extractions/setup-just@v1
 
       - name: cargo install cargo-workspaces
@@ -51,7 +51,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: llvm-tools-preview
-      
+
       - uses: extractions/setup-just@v1
 
       - name: cargo install cargo-llvm-cov
@@ -93,7 +93,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
-      
+
       - uses: extractions/setup-just@v1
 
       - name: cargo install cargo-workspaces
@@ -121,7 +121,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.version }}
-      
+
       - uses: extractions/setup-just@v1
 
       - name: cargo install cargo-workspaces
@@ -159,7 +159,7 @@ jobs:
         with:
           toolchain: stable
           components: rustfmt, clippy
-      
+
       - uses: extractions/setup-just@v1
 
       - name: cargo install cargo-workspaces
@@ -188,7 +188,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
-      
+
       - uses: extractions/setup-just@v1
 
       - name: target/bind cache
