@@ -482,7 +482,10 @@ pub mod tokio_runtime {
 
     /// Reap finished tasks from a `JoinSet`, without awaiting or blocking.
     fn reap_tasks(join_set: &mut JoinSet<Result<(), ProtoError>>) {
-        while FutureExt::now_or_never(join_set.join_next()).is_some() {}
+        while FutureExt::now_or_never(join_set.join_next())
+            .flatten()
+            .is_some()
+        {}
     }
 
     /// Default ConnectionProvider with `GenericConnection`.
