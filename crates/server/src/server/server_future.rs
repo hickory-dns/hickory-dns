@@ -846,7 +846,10 @@ async fn block_until_done(mut join_set: JoinSet<Result<(), ProtoError>>) -> Resu
 
 /// Reap finished tasks from a `JoinSet`, without awaiting or blocking.
 fn reap_tasks(join_set: &mut JoinSet<()>) {
-    while FutureExt::now_or_never(join_set.join_next()).is_some() {}
+    while FutureExt::now_or_never(join_set.join_next())
+        .flatten()
+        .is_some()
+    {}
 }
 
 pub(crate) async fn handle_raw_request<T: RequestHandler>(
@@ -1270,5 +1273,29 @@ mod tests {
         .unwrap();
 
         (cert, key)
+    }
+
+    #[test]
+    fn task_reap_on_empty_joinset() {
+        let mut joinset = JoinSet::new();
+
+        // this should return immediately
+        reap_tasks(&mut joinset);
+    }
+
+    #[test]
+    fn task_reap_on_nonempty_joinset() {
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        runtime.block_on(async {
+            let mut joinset = JoinSet::new();
+            let t = joinset.spawn(tokio::time::sleep(Duration::from_secs(2)));
+
+            // this should return immediately since no task is ready
+            reap_tasks(&mut joinset);
+            t.abort();
+
+            // this should also return immediately since the task has been aborted
+            reap_tasks(&mut joinset);
+        });
     }
 }
