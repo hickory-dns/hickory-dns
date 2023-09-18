@@ -20,8 +20,6 @@ use std::time::Duration;
 
 use cfg_if::cfg_if;
 use serde::{self, Deserialize};
-#[cfg(feature = "toml")]
-use toml;
 
 use crate::proto::error::ProtoResult;
 use crate::proto::rr::Name;
@@ -82,7 +80,7 @@ impl Config {
     /// Read a [`Config`] from the given TOML string.
     #[cfg(feature = "toml")]
     pub fn from_toml(toml: &str) -> ConfigResult<Self> {
-        Ok(toml::from_str(toml)?)
+        Ok(basic_toml::from_str(toml)?)
     }
 
     /// set of listening ipv4 addresses (for TCP and UDP)
