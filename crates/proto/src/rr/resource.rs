@@ -490,9 +490,9 @@ impl<'r> BinDecodable<'r> for Record<RData> {
                     decoder.read_u16()?.unverified(/*DNSClass::from_u16 will verify the value*/);
                 if dns_class_value & MDNS_ENABLE_CACHE_FLUSH > 0 {
                     mdns_cache_flush = true;
-                    DNSClass::from_u16(dns_class_value & !MDNS_ENABLE_CACHE_FLUSH)?
+                    DNSClass::from(dns_class_value & !MDNS_ENABLE_CACHE_FLUSH)
                 } else {
-                    DNSClass::from_u16(dns_class_value)?
+                    DNSClass::from(dns_class_value)
                 }
             }
         };

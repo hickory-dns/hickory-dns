@@ -856,7 +856,7 @@ impl RData {
             record_type => {
                 trace!("reading Unknown record: {}", record_type);
                 NULL::read_data(decoder, length).map(|rdata| Self::Unknown {
-                    code: record_type.into(),
+                    code: record_type,
                     rdata,
                 })
             }
