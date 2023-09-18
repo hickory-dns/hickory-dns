@@ -71,7 +71,6 @@ async-recursion.workspace = true
 bytes.workspace = true
 cfg-if.workspace = true
 enum-as-inner.workspace = true
-futures-executor = { workspace = true, default-features = false, features = ["std"] }
 futures-util = { workspace = true, default-features = false, features = ["std"] }
 lru-cache.workspace = true
 parking_lot.workspace = true
@@ -79,7 +78,6 @@ serde = { workspace = true, features = ["derive"], optional = true }
 thiserror.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, features = ["net"] }
-toml.workspace = true
 trust-dns-proto.workspace = true
 trust-dns-resolver = { workspace = true, features = ["tokio-runtime"] }
 

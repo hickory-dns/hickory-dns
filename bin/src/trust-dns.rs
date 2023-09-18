@@ -510,7 +510,7 @@ fn config_tls(
     listen_addrs: &[IpAddr],
     runtime: &mut runtime::Runtime,
 ) {
-    use futures::TryFutureExt;
+    use futures_util::TryFutureExt;
 
     let tls_listen_port: u16 = args
         .tls_port
@@ -563,7 +563,7 @@ fn config_https(
     listen_addrs: &[IpAddr],
     runtime: &mut runtime::Runtime,
 ) {
-    use futures::TryFutureExt;
+    use futures_util::TryFutureExt;
 
     let https_listen_port: u16 = args
         .https_port
@@ -629,7 +629,7 @@ fn config_quic(
     listen_addrs: &[IpAddr],
     runtime: &mut runtime::Runtime,
 ) {
-    use futures::TryFutureExt;
+    use futures_util::TryFutureExt;
 
     let quic_listen_port: u16 = args
         .quic_port

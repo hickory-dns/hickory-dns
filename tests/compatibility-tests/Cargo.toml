@@ -42,8 +42,10 @@ path = "src/lib.rs"
 
 [dependencies]
 data-encoding.workspace = true
+rand.workspace = true
+
+[dev-dependencies]
 futures.workspace = true
 openssl = { workspace = true, features = ["v102", "v110"] }
-rand.workspace = true
 time.workspace = true
 trust-dns-client= { workspace = true, features = ["dnssec-openssl"] }
