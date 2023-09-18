@@ -686,7 +686,7 @@ pub enum RData {
     /// Unknown RecordData is for record types not supported by Trust-DNS
     Unknown {
         /// RecordType code
-        code: u16,
+        code: RecordType,
         /// RData associated to the record
         rdata: NULL,
     },
@@ -734,7 +734,7 @@ impl RData {
             Self::TXT(..) => RecordType::TXT,
             #[cfg(feature = "dnssec")]
             Self::DNSSEC(ref rdata) => DNSSECRData::to_record_type(rdata),
-            Self::Unknown { code, .. } => RecordType::Unknown(code),
+            Self::Unknown { code, .. } => code,
             Self::ZERO => RecordType::ZERO,
         }
     }
@@ -1273,7 +1273,7 @@ mod tests {
             RData::TXT(..) => RecordType::TXT,
             #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => rdata.to_record_type(),
-            RData::Unknown { code, .. } => RecordType::Unknown(code),
+            RData::Unknown { code, .. } => code,
             RData::ZERO => RecordType::ZERO,
         }
     }
