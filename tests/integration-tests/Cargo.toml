@@ -46,43 +46,42 @@ dnssec-ring = ["dnssec",
                "trust-dns-server/dnssec-ring",
                "trust-dns-client/dnssec-ring", "trust-dns-client/dnssec-openssl",
                "trust-dns-proto/dnssec-ring"]
-dnssec = []
+dnssec = ["dep:openssl"]
 
 # enables experimental the mDNS (multicast) feature
 # TODO: revisit how mdns is implemented in resolver
 # mdns = ["trust-dns-client/mdns", "trust-dns-proto/mdns", "trust-dns-resolver/mdns"]
 
-dns-over-https-rustls = ["trust-dns-client/dns-over-https-rustls", "trust-dns-resolver/dns-over-https-rustls", "dns-over-https", "webpki-roots"]
+dns-over-https-rustls = ["trust-dns-client/dns-over-https-rustls", "trust-dns-resolver/dns-over-https-rustls", "dns-over-https", "dep:rustls", "dep:webpki-roots"]
 dns-over-https = ["trust-dns-proto/dns-over-https"]
 dns-over-quic = ["dns-over-rustls", "trust-dns-proto/dns-over-quic", "trust-dns-resolver/dns-over-quic"]
 
 # TODO: need to make server support rustls and native-tls
 # dns-over-native-tls = ["dns-over-tls",  "trust-dns-resolver/dns-over-native-tls", "trust-dns-server/dns-over-native-tls"]
 dns-over-openssl = ["dns-over-tls", "trust-dns-proto/dns-over-openssl", "trust-dns-resolver/dns-over-openssl", "trust-dns-server/dns-over-openssl"]
-dns-over-rustls = ["dns-over-tls", "trust-dns-proto/dns-over-rustls", "trust-dns-resolver/dns-over-rustls", "trust-dns-server/dns-over-rustls"]
+dns-over-rustls = ["dns-over-tls", "trust-dns-proto/dns-over-rustls", "trust-dns-resolver/dns-over-rustls", "trust-dns-server/dns-over-rustls", "dep:rustls"]
 dns-over-tls = []
 
 sqlite = ["rusqlite", "trust-dns-server/sqlite"]
 
 [dependencies]
 async-trait.workspace = true
-futures.workspace = true
+futures = { workspace = true, features = ["executor"] }
 once_cell.workspace = true
-openssl = { workspace = true, features = ["v102", "v110"] }
+openssl = { workspace = true, optional = true, features = ["v102", "v110"] }
 rand.workspace = true
 rusqlite = { workspace = true, features = ["bundled"], optional = true }
-rustls.workspace = true
+rustls = { workspace = true, optional = true }
 time.workspace = true
 tokio = { workspace = true, features = ["time", "rt"] }
 tracing.workspace = true
-tracing-subscriber = { workspace = true, features = ["std", "fmt", "env-filter"] }
 trust-dns-client.workspace = true
 trust-dns-proto = { workspace = true, features = ["testing"] }
-trust-dns-resolver.workspace = true
-trust-dns-recursor.workspace = true
+trust-dns-resolver = { workspace = true, features = ["tokio-runtime"] }
 trust-dns-server = { workspace = true, features = ["testing"] }
 webpki-roots = { workspace = true, optional = true }
 
 [dev-dependencies]
 futures = { workspace = true, features = ["thread-pool"] }
 tokio = { workspace = true, features = ["macros", "rt"] }
+tracing-subscriber = { workspace = true, features = ["std", "fmt", "env-filter"] }

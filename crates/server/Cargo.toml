@@ -76,7 +76,6 @@ bytes.workspace = true
 cfg-if.workspace = true
 drain.workspace = true
 enum-as-inner.workspace = true
-futures-executor = { workspace = true, default-features = false, features = ["std"] }
 futures-util = { workspace = true, default-features = false, features = ["std"] }
 h2 = { workspace = true, features = ["stream"], optional = true }
 http = { workspace = true, optional = true }
@@ -96,6 +95,7 @@ trust-dns-recursor = { workspace = true, features = ["serde-config"], optional =
 trust-dns-resolver = { workspace = true, features = ["serde-config", "system-config", "tokio-runtime"], optional = true }
 
 [dev-dependencies]
+futures-executor = { workspace = true, default-features = false, features = ["std"] }
 tokio = { workspace = true, features = ["macros", "rt"] }
 tracing-subscriber = { workspace = true, features = ["std", "fmt", "env-filter"] }
 
