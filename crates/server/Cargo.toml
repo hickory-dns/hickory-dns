@@ -90,7 +90,7 @@ tracing.workspace = true
 tokio = { workspace = true, features = ["macros", "net", "sync"] }
 tokio-openssl = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true }
-toml.workspace = true
+toml = { workspace = true, optional = true }
 trust-dns-proto = { workspace = true, features = ["text-parsing", "tokio-runtime"] }
 trust-dns-recursor = { workspace = true, features = ["serde-config"], optional = true }
 trust-dns-resolver = { workspace = true, features = ["serde-config", "system-config", "tokio-runtime"], optional = true }
