@@ -44,6 +44,7 @@ dnssec = []
 recursor = ["trust-dns-recursor"]
 resolver = ["trust-dns-resolver"]
 sqlite = ["rusqlite"]
+toml = ["dep:basic-toml"]
 
 # TODO: Need to figure out how to be consistent with ring/openssl usage...
 # dns-over-https-openssl = ["dns-over-openssl", "trust-dns-client/dns-over-https-openssl", "dns-over-https"]
@@ -72,6 +73,7 @@ path = "src/lib.rs"
 
 [dependencies]
 async-trait.workspace = true
+basic-toml = { workspace = true, optional = true }
 bytes.workspace = true
 cfg-if.workspace = true
 drain.workspace = true
@@ -89,7 +91,6 @@ tracing.workspace = true
 tokio = { workspace = true, features = ["macros", "net", "sync"] }
 tokio-openssl = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true }
-toml = { workspace = true, optional = true }
 trust-dns-proto = { workspace = true, features = ["text-parsing", "tokio-runtime"] }
 trust-dns-recursor = { workspace = true, features = ["serde-config"], optional = true }
 trust-dns-resolver = { workspace = true, features = ["serde-config", "system-config", "tokio-runtime"], optional = true }
