@@ -1235,12 +1235,6 @@ mod tests {
             5, 108, 111, 99, 97, 108, 0, 0, 47, 128, 1, 0, 0, 0, 120, 0, 5, 192, 70, 0, 1, 64,
         ];
 
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "dnssec")] {
-                assert!(Message::from_vec(CRASHING_MESSAGE).is_ok());
-            } else {
-                assert!(Message::from_vec(CRASHING_MESSAGE).is_err());
-            }
-        }
+        Message::from_vec(CRASHING_MESSAGE).expect("failed to parse message");
     }
 }
