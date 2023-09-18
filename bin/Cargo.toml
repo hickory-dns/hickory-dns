@@ -70,7 +70,7 @@ path = "src/trust-dns.rs"
 # - derive for clap derive api
 # - help to generate --help
 clap = { workspace = true, default-features = false, features = ["std", "cargo", "help", "derive", "suggestions"] }
-futures = { workspace = true, default-features = false, features = ["std"] }
+futures-util = { workspace = true, default-features = false, features = ["std"] }
 rustls = { workspace = true, optional = true }
 time.workspace = true
 tracing.workspace = true
