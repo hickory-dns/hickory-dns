@@ -74,7 +74,7 @@ impl DNSClass {
     /// let var = DNSClass::from_u16(1).unwrap();
     /// assert_eq!(DNSClass::IN, var);
     /// ```
-    #[deprecated(note = "use u16::from instead, this is now infallible")]
+    #[deprecated(note = "use u16::into instead, this is now infallible")]
     pub fn from_u16(value: u16) -> ProtoResult<Self> {
         match value {
             1 => Ok(Self::IN),
