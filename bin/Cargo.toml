@@ -78,7 +78,7 @@ tracing-subscriber = { workspace = true, features = ["std", "fmt", "env-filter"]
 tokio = { workspace = true, features = ["time", "rt"] }
 trust-dns-client.workspace = true
 trust-dns-proto.workspace = true
-trust-dns-server.workspace = true
+trust-dns-server = { workspace = true, features = ["toml"] }
 
 [dev-dependencies]
 native-tls.workspace = true

@@ -25,6 +25,7 @@ pub enum ErrorKind {
     Io(#[from] io::Error),
 
     /// An error occurred while decoding toml data
+    #[cfg(feature = "toml")]
     #[error("toml decode error: {0}")]
     TomlDecode(#[from] toml::de::Error),
 
