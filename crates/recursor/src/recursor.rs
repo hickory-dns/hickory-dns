@@ -57,7 +57,7 @@ impl Recursor {
 
         let opts = recursor_opts();
         let roots =
-            GenericNameServerPool::from_config(roots, &opts, TokioConnectionProvider::default());
+            GenericNameServerPool::from_config(roots, opts, TokioConnectionProvider::default());
         let roots = RecursorPool::from(Name::root(), roots);
         let name_server_cache = Mutex::new(NameServerCache::new(100)); // TODO: make this configurable
         let record_cache = DnsLru::new(100, TtlConfig::default());
@@ -439,7 +439,7 @@ impl Recursor {
         // now construct a namesever pool based off the NS and glue records
         let ns = GenericNameServerPool::from_config(
             config_group,
-            &recursor_opts(),
+            recursor_opts(),
             TokioConnectionProvider::default(),
         );
         let ns = RecursorPool::from(zone.clone(), ns);

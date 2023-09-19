@@ -192,7 +192,8 @@ impl<P: ConnectionProvider> AsyncResolver<P> {
     /// documentation for `AsyncResolver` for more information on how to use
     /// the background future.
     pub fn new_with_conn(config: ResolverConfig, options: ResolverOpts, conn_provider: P) -> Self {
-        let pool = NameServerPool::from_config_with_provider(&config, &options, conn_provider);
+        let pool =
+            NameServerPool::from_config_with_provider(&config, options.clone(), conn_provider);
         let either;
         let client = RetryDnsHandle::new(pool, options.attempts);
         if options.validate {
@@ -222,8 +223,8 @@ impl<P: ConnectionProvider> AsyncResolver<P> {
         let lru = DnsLru::new(options.cache_size, dns_lru::TtlConfig::from_opts(&options));
         Self {
             config,
-            options,
             client_cache: CachingClient::with_cache(lru, either, options.preserve_intermediates),
+            options,
             hosts,
         }
     }

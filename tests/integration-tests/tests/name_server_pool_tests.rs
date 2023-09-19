@@ -114,7 +114,7 @@ fn mock_nameserver_pool_on_send<O: OnSend + Unpin>(
     options: ResolverOpts,
 ) -> MockedNameServerPool<O> {
     #[cfg(not(feature = "mdns"))]
-    return NameServerPool::from_nameservers(&options, udp, tcp);
+    return NameServerPool::from_nameservers(options, udp, tcp);
 
     #[cfg(feature = "mdns")]
     return NameServerPool::from_nameservers(
@@ -699,10 +699,10 @@ fn test_concurrent_requests_2_conns() {
 
     let udp1_nameserver = mock_nameserver_on_send(
         vec![Ok(DnsResponse::from_message(udp_message).unwrap())],
-        options,
+        options.clone(),
         on_send.clone(),
     );
-    let udp2_nameserver = mock_nameserver_on_send(vec![], options, on_send);
+    let udp2_nameserver = mock_nameserver_on_send(vec![], options.clone(), on_send);
 
     let pool = mock_nameserver_pool_on_send(
         vec![udp2_nameserver, udp1_nameserver],
@@ -742,10 +742,10 @@ fn test_concurrent_requests_more_than_conns() {
 
     let udp1_nameserver = mock_nameserver_on_send(
         vec![Ok(DnsResponse::from_message(udp_message).unwrap())],
-        options,
+        options.clone(),
         on_send.clone(),
     );
-    let udp2_nameserver = mock_nameserver_on_send(vec![], options, on_send);
+    let udp2_nameserver = mock_nameserver_on_send(vec![], options.clone(), on_send);
 
     let pool = mock_nameserver_pool_on_send(
         vec![udp2_nameserver, udp1_nameserver],
@@ -785,7 +785,7 @@ fn test_concurrent_requests_1_conn() {
 
     let udp1_nameserver = mock_nameserver_on_send(
         vec![Ok(DnsResponse::from_message(udp_message).unwrap())],
-        options,
+        options.clone(),
         on_send,
     );
     let udp2_nameserver = udp1_nameserver.clone();
@@ -828,7 +828,7 @@ fn test_concurrent_requests_0_conn() {
 
     let udp1_nameserver = mock_nameserver_on_send(
         vec![Ok(DnsResponse::from_message(udp_message).unwrap())],
-        options,
+        options.clone(),
         on_send,
     );
     let udp2_nameserver = udp1_nameserver.clone();

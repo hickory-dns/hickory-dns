@@ -54,7 +54,7 @@ impl ForwardAuthority {
         info!("loading forwarder config: {}", origin);
 
         let name_servers = config.name_servers.clone();
-        let mut options = config.options.unwrap_or_default();
+        let mut options = config.options.clone().unwrap_or_default();
 
         // See RFC 1034, Section 4.3.2:
         // "If the data at the node is a CNAME, and QTYPE doesn't match
