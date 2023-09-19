@@ -854,7 +854,7 @@ impl Default for ServerOrderingStrategy {
     derive(Serialize, Deserialize),
     serde(default)
 )]
-#[allow(dead_code, missing_copy_implementations)] // TODO: remove after all params are supported
+#[allow(missing_copy_implementations)]
 #[non_exhaustive]
 pub struct ResolverOpts {
     /// Sets the number of dots that must appear (unless it's a final dot representing the root)
