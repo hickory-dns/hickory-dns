@@ -54,7 +54,7 @@ pub type GenericNameServerPool<P> = NameServerPool<GenericConnector<P>>;
 impl GenericNameServerPool<TokioRuntimeProvider> {
     pub(crate) fn tokio_from_config(
         config: &ResolverConfig,
-        options: &ResolverOpts,
+        options: ResolverOpts,
         runtime: TokioRuntimeProvider,
     ) -> Self {
         Self::from_config_with_provider(config, options, GenericConnector::new(runtime))
@@ -67,7 +67,7 @@ where
 {
     pub(crate) fn from_config_with_provider(
         config: &ResolverConfig,
-        options: &ResolverOpts,
+        options: ResolverOpts,
         conn_provider: P,
     ) -> Self {
         let datagram_conns: Vec<NameServer<P>> = config
@@ -84,7 +84,7 @@ where
                 #[cfg(not(feature = "dns-over-rustls"))]
                 let ns_config = { ns_config.clone() };
 
-                NameServer::new(ns_config, *options, conn_provider.clone())
+                NameServer::new(ns_config, options.clone(), conn_provider.clone())
             })
             .collect();
 
@@ -102,7 +102,7 @@ where
                 #[cfg(not(feature = "dns-over-rustls"))]
                 let ns_config = { ns_config.clone() };
 
-                NameServer::new(ns_config, *options, conn_provider.clone())
+                NameServer::new(ns_config, options.clone(), conn_provider.clone())
             })
             .collect();
 
@@ -110,19 +110,19 @@ where
             datagram_conns: Arc::from(datagram_conns),
             stream_conns: Arc::from(stream_conns),
             #[cfg(feature = "mdns")]
-            mdns_conns: name_server::mdns_nameserver(*options, conn_provider.clone(), false),
-            options: *options,
+            mdns_conns: name_server::mdns_nameserver(options, conn_provider.clone(), false),
+            options,
         }
     }
 
     /// Construct a NameServerPool from a set of name server configs
     pub fn from_config(
         name_servers: NameServerConfigGroup,
-        options: &ResolverOpts,
+        options: ResolverOpts,
         conn_provider: P,
     ) -> Self {
         let map_config_to_ns =
-            |ns_config| NameServer::new(ns_config, *options, conn_provider.clone());
+            |ns_config| NameServer::new(ns_config, options.clone(), conn_provider.clone());
 
         let (datagram, stream): (Vec<_>, Vec<_>) = name_servers
             .into_inner()
@@ -137,28 +137,28 @@ where
             stream_conns: Arc::from(stream_conns),
             #[cfg(feature = "mdns")]
             mdns_conns: name_server::mdns_nameserver(*options, conn_provider.clone(), false),
-            options: *options,
+            options,
         }
     }
 
     #[doc(hidden)]
     #[cfg(not(feature = "mdns"))]
     pub fn from_nameservers(
-        options: &ResolverOpts,
+        options: ResolverOpts,
         datagram_conns: Vec<NameServer<P>>,
         stream_conns: Vec<NameServer<P>>,
     ) -> Self {
         Self {
             datagram_conns: Arc::from(datagram_conns),
             stream_conns: Arc::from(stream_conns),
-            options: *options,
+            options,
         }
     }
 
     #[doc(hidden)]
     #[cfg(feature = "mdns")]
     pub fn from_nameservers(
-        options: &ResolverOpts,
+        options: ResolverOpts,
         datagram_conns: Vec<NameServer<P>>,
         stream_conns: Vec<NameServer<P>>,
         mdns_conns: NameServer<P>,
@@ -167,7 +167,7 @@ where
             datagram_conns: Arc::from(datagram_conns),
             stream_conns: Arc::from(stream_conns),
             mdns_conns,
-            options: *options,
+            options,
         }
     }
 
@@ -175,14 +175,14 @@ where
     #[cfg(not(feature = "mdns"))]
     #[allow(dead_code)]
     fn from_nameservers_test(
-        options: &ResolverOpts,
+        options: ResolverOpts,
         datagram_conns: Arc<[NameServer<P>]>,
         stream_conns: Arc<[NameServer<P>]>,
     ) -> Self {
         Self {
             datagram_conns,
             stream_conns,
-            options: *options,
+            options,
         }
     }
 
@@ -230,7 +230,7 @@ where
     type Error = ResolveError;
 
     fn send<R: Into<DnsRequest>>(&self, request: R) -> Self::Response {
-        let opts = self.options;
+        let opts = self.options.clone();
         let request = request.into();
         let datagram_conns = Arc::clone(&self.datagram_conns);
         let stream_conns = Arc::clone(&self.stream_conns);
@@ -258,7 +258,7 @@ where
             debug!("sending request: {:?}", request.queries());
 
             // First try the UDP connections
-            let udp_res = match Self::try_send(opts, datagram_conns, request).await {
+            let udp_res = match Self::try_send(opts.clone(), datagram_conns, request).await {
                 Ok(response) if response.truncated() => {
                     debug!("truncated response received, retrying over TCP");
                     Ok(response)
@@ -518,7 +518,7 @@ mod tests {
         let io_loop = Runtime::new().unwrap();
         let pool = GenericNameServerPool::tokio_from_config(
             &resolver_config,
-            &ResolverOpts::default(),
+            ResolverOpts::default(),
             TokioRuntimeProvider::new(),
         );
 
@@ -578,12 +578,12 @@ mod tests {
             ..ResolverOpts::default()
         };
         let ns_config = { tcp };
-        let name_server = GenericNameServer::new(ns_config, opts, conn_provider);
+        let name_server = GenericNameServer::new(ns_config, opts.clone(), conn_provider);
         let name_servers: Arc<[_]> = Arc::from([name_server]);
 
         #[cfg(not(feature = "mdns"))]
         let pool = GenericNameServerPool::from_nameservers_test(
-            &opts,
+            opts,
             Arc::from([]),
             Arc::clone(&name_servers),
         );

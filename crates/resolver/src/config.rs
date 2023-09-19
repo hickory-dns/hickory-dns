@@ -848,13 +848,13 @@ impl Default for ServerOrderingStrategy {
 }
 
 /// Configuration for the Resolver
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(
     feature = "serde-config",
     derive(Serialize, Deserialize),
     serde(default)
 )]
-#[allow(dead_code)] // TODO: remove after all params are supported
+#[allow(dead_code, missing_copy_implementations)] // TODO: remove after all params are supported
 #[non_exhaustive]
 pub struct ResolverOpts {
     /// Sets the number of dots that must appear (unless it's a final dot representing the root)
