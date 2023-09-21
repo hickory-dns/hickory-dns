@@ -8,14 +8,29 @@
 use std::future::Future;
 use std::net::SocketAddr;
 
-use crate::tls::CLIENT_CONFIG;
-
 use proto::https::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
 use proto::tcp::{Connect, DnsTcpStream};
 use proto::xfer::{DnsExchange, DnsExchangeConnect};
 use proto::TokioTime;
+use rustls::ClientConfig;
+use trust_dns_proto::error::ProtoError;
 
 use crate::config::TlsClientConfig;
+
+const ALPN_H2: &[u8] = b"h2";
+
+pub(crate) fn http_client_config() -> Result<ClientConfig, ProtoError> {
+    let mut client_config = ClientConfig::builder()
+        .with_safe_default_cipher_suites()
+        .with_safe_default_kx_groups()
+        .with_safe_default_protocol_versions()
+        .unwrap()
+        .with_root_certificates(crate::tls::root_store()?)
+        .with_no_client_auth();
+
+    client_config.alpn_protocols.push(ALPN_H2.to_vec());
+    Ok(client_config)
+}
 
 #[allow(clippy::type_complexity)]
 #[allow(unused)]
@@ -23,21 +38,12 @@ pub(crate) fn new_https_stream<S>(
     socket_addr: SocketAddr,
     bind_addr: Option<SocketAddr>,
     dns_name: String,
-    client_config: Option<TlsClientConfig>,
+    client_config: TlsClientConfig,
 ) -> DnsExchangeConnect<HttpsClientConnect<S>, HttpsClientStream, TokioTime>
 where
     S: Connect,
 {
-    let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
-        client_config
-    } else {
-        match CLIENT_CONFIG.clone() {
-            Ok(client_config) => client_config,
-            Err(error) => return DnsExchange::error(error),
-        }
-    };
-
-    let mut https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
+    let mut https_builder = HttpsClientStreamBuilder::with_client_config(client_config.0);
     if let Some(bind_addr) = bind_addr {
         https_builder.bind_addr(bind_addr);
     }
@@ -49,24 +55,15 @@ pub(crate) fn new_https_stream_with_future<S, F>(
     future: F,
     socket_addr: SocketAddr,
     dns_name: String,
-    client_config: Option<TlsClientConfig>,
+    client_config: TlsClientConfig,
 ) -> DnsExchangeConnect<HttpsClientConnect<S>, HttpsClientStream, TokioTime>
 where
     S: DnsTcpStream,
     F: Future<Output = std::io::Result<S>> + Send + Unpin + 'static,
 {
-    let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
-        client_config
-    } else {
-        match CLIENT_CONFIG.clone() {
-            Ok(client_config) => client_config,
-            Err(error) => return DnsExchange::error(error),
-        }
-    };
-
     DnsExchange::connect(HttpsClientStreamBuilder::build_with_future(
         future,
-        client_config,
+        client_config.0,
         socket_addr,
         dns_name,
     ))
