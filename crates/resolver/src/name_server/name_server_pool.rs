@@ -13,7 +13,6 @@ use std::time::Duration;
 
 use futures_util::future::FutureExt;
 use futures_util::stream::{once, FuturesUnordered, Stream, StreamExt};
-use smallvec::SmallVec;
 
 use proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
 use proto::Time;
@@ -320,13 +319,13 @@ where
     // close to the connection, which means the top level resolution might take substantially longer
     // to fire than the timeout configured in `ResolverOpts`.
     let mut backoff = Duration::from_millis(20);
-    let mut busy = SmallVec::<[NameServer<P>; 2]>::new();
+    let mut busy = Vec::<NameServer<P>>::with_capacity(2);
 
     loop {
         let request_cont = request.clone();
 
         // construct the parallel requests, 2 is the default
-        let mut par_conns = SmallVec::<[NameServer<P>; 2]>::new();
+        let mut par_conns = Vec::<NameServer<P>>::with_capacity(2);
         let count = conns.len().min(opts.num_concurrent_reqs.max(1));
 
         // Shuffe DNS NameServers to avoid overloads to the first configured ones
