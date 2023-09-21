@@ -70,10 +70,12 @@ pub(crate) async fn h2_handler<T, I>(
         let handler = handler.clone();
         let responder = HttpsResponseHandle(Arc::new(Mutex::new(respond)));
 
-        match https_server::message_from(dns_hostname, request).await {
-            Ok(bytes) => handle_request(bytes, src_addr, handler, responder).await,
-            Err(err) => warn!("error while handling request from {}: {}", src_addr, err),
-        };
+        tokio::spawn(async move {
+            match https_server::message_from(dns_hostname, request).await {
+                Ok(bytes) => handle_request(bytes, src_addr, handler, responder).await,
+                Err(err) => warn!("error while handling request from {}: {}", src_addr, err),
+            };
+        });
 
         // we'll continue handling requests from here.
     }
