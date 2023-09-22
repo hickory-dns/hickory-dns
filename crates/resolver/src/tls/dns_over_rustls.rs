@@ -26,8 +26,6 @@ use proto::BufDnsStreamHandle;
 
 use crate::config::TlsClientConfig;
 
-const ALPN_H2: &[u8] = b"h2";
-
 pub(crate) static CLIENT_CONFIG: Lazy<Result<Arc<ClientConfig>, ProtoError>> = Lazy::new(|| {
     #[cfg_attr(
         not(any(feature = "native-certs", feature = "webpki-roots")),
@@ -71,8 +69,6 @@ pub(crate) static CLIENT_CONFIG: Lazy<Result<Arc<ClientConfig>, ProtoError>> = L
 
     // The port (853) of DOT is for dns dedicated, SNI is unnecessary. (ISP block by the SNI name)
     client_config.enable_sni = false;
-
-    client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
     Ok(Arc::new(client_config))
 });
