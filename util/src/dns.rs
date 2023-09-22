@@ -64,7 +64,7 @@ struct Opts {
     tls_dns_name: Option<String>,
 
     /// For TLS, HTTPS, and QUIC a custom ALPN code can be supplied
-    ///  
+    ///
     /// Defaults: none for TLS (`dot` has been suggested), `h2` for HTTPS, and `doq` for QUIC
     #[clap(short = 'a',
         long,
@@ -502,7 +502,7 @@ fn tls_config() -> Result<ClientConfig, Box<dyn std::error::Error>> {
         }
     }
     #[cfg(feature = "webpki-roots")]
-    root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
+    root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
         rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
             ta.subject,
             ta.spki,
