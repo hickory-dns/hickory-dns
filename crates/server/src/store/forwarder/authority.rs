@@ -8,7 +8,7 @@
 use std::io;
 
 use tracing::{debug, info};
-use trust_dns_resolver::name_server::TokioConnectionProvider;
+use trust_dns_resolver::{config::ResolverOpts, name_server::TokioConnectionProvider};
 
 use crate::{
     authority::{
@@ -54,7 +54,7 @@ impl ForwardAuthority {
         info!("loading forwarder config: {}", origin);
 
         let name_servers = config.name_servers.clone();
-        let mut options = config.options.clone().unwrap_or_default();
+        let mut options = config.options.clone().unwrap_or_else(ResolverOpts::new);
 
         // See RFC 1034, Section 4.3.2:
         // "If the data at the node is a CNAME, and QTYPE doesn't match

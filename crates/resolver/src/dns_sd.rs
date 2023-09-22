@@ -172,7 +172,7 @@ mod tests {
             ResolverConfig::default(),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv6thenIpv4,
-                ..ResolverOpts::default()
+                ..ResolverOpts::new()
             },
             TokioHandle::default(),
         )

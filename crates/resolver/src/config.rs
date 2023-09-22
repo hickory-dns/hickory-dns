@@ -849,11 +849,7 @@ impl Default for ServerOrderingStrategy {
 
 /// Configuration for the Resolver
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(
-    feature = "serde-config",
-    derive(Serialize, Deserialize),
-    serde(default)
-)]
+#[cfg_attr(feature = "serde-config", derive(Serialize, Deserialize))]
 #[allow(missing_copy_implementations)]
 #[non_exhaustive]
 pub struct ResolverOpts {
@@ -925,11 +921,12 @@ pub struct ResolverOpts {
     pub shuffle_dns_servers: bool,
 }
 
-impl Default for ResolverOpts {
+impl ResolverOpts {
     /// Default values for the Resolver configuration.
     ///
     /// This follows the resolv.conf defaults as defined in the [Linux man pages](http://man7.org/linux/man-pages/man5/resolv.conf.5.html)
-    fn default() -> Self {
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
         Self {
             ndots: 1,
             timeout: Duration::from_secs(5),

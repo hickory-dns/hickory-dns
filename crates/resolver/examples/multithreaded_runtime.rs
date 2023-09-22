@@ -29,7 +29,7 @@ fn main() {
             // Get a new resolver with the google nameservers as the upstream recursive resolvers
             AsyncResolver::new(
                 ResolverConfig::google(),
-                ResolverOpts::default(),
+                ResolverOpts::new(),
                 runtime.handle().clone(),
             )
         }

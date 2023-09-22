@@ -30,7 +30,7 @@ async fn tokio_main() {
             // Get a new resolver with the google nameservers as the upstream recursive resolvers
             AsyncResolver::tokio(
                 ResolverConfig::quad9(),
-                ResolverOpts::default(),
+                ResolverOpts::new(),
                 //runtime.handle().clone(),
             )
         }

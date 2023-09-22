@@ -80,7 +80,7 @@ async fn lookup_test<R: ConnectionProvider>(resolver: AsyncResolver<R>) {
 async fn main() {
     let resolver = AsyncResolver::new(
         ResolverConfig::google(),
-        ResolverOpts::default(),
+        ResolverOpts::new(),
         GenericConnector::new(PrintProvider::default()),
     );
     lookup_test(resolver).await;
@@ -89,7 +89,7 @@ async fn main() {
     {
         let resolver2 = AsyncResolver::new(
             ResolverConfig::cloudflare_https(),
-            ResolverOpts::default(),
+            ResolverOpts::new(),
             GenericConnector::new(PrintProvider::default()),
         );
         lookup_test(resolver2).await;

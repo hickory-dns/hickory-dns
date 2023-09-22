@@ -518,7 +518,7 @@ mod tests {
         let io_loop = Runtime::new().unwrap();
         let pool = GenericNameServerPool::tokio_from_config(
             &resolver_config,
-            ResolverOpts::default(),
+            ResolverOpts::new(),
             TokioRuntimeProvider::new(),
         );
 
@@ -575,7 +575,7 @@ mod tests {
 
         let opts = ResolverOpts {
             try_tcp_on_error: true,
-            ..ResolverOpts::default()
+            ..ResolverOpts::new()
         };
         let ns_config = { tcp };
         let name_server = GenericNameServer::new(ns_config, opts.clone(), conn_provider);

@@ -282,7 +282,7 @@ mod tests {
         let name_server = future::lazy(|_| {
             GenericNameServer::new(
                 config,
-                ResolverOpts::default(),
+                ResolverOpts::new(),
                 TokioConnectionProvider::default(),
             )
         });
@@ -305,7 +305,7 @@ mod tests {
     fn test_failed_name_server() {
         let options = ResolverOpts {
             timeout: Duration::from_millis(1), // this is going to fail, make it fail fast...
-            ..ResolverOpts::default()
+            ..ResolverOpts::new()
         };
         let config = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 252)), 252),

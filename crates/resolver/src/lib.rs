@@ -49,7 +49,7 @@
 //! use trust_dns_resolver::config::*;
 //!
 //! // Construct a new Resolver with default configuration options
-//! let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
+//! let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::new()).unwrap();
 //!
 //! // Lookup the IP addresses associated with a name.
 //! // The final dot forces this to be an FQDN, otherwise the search rules as specified
@@ -111,7 +111,7 @@
 //! let resolver = io_loop.block_on(async {
 //!     TokioAsyncResolver::tokio(
 //!         ResolverConfig::default(),
-//!         ResolverOpts::default())
+//!         ResolverOpts::new())
 //! });
 //!
 //! // Lookup the IP addresses associated with a name.
@@ -152,7 +152,7 @@
 //! # let resolver = io_loop.block_on(async {
 //! #    TokioAsyncResolver::tokio(
 //! #        ResolverConfig::default(),
-//! #        ResolverOpts::default())
+//! #        ResolverOpts::new())
 //! # });
 //! #
 //! let ips = io_loop.block_on(resolver.lookup_ip("www.example.com.")).unwrap();
@@ -213,7 +213,7 @@
 //!
 //! // Construct a new Resolver with default configuration options
 //! # #[cfg(feature = "dns-over-tls")]
-//! let mut resolver = Resolver::new(ResolverConfig::cloudflare_tls(), ResolverOpts::default()).unwrap();
+//! let mut resolver = Resolver::new(ResolverConfig::cloudflare_tls(), ResolverOpts::new()).unwrap();
 //!
 //! // see example above...
 //! # }

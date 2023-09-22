@@ -54,7 +54,7 @@ static GLOBAL_DNS_RESOLVER: Lazy<TokioAsyncResolver> = Lazy::new(|| {
                 // Get a new resolver with the google nameservers as the upstream recursive resolvers
                 TokioAsyncResolver::new(
                     ResolverConfig::google(),
-                    ResolverOpts::default(),
+                    ResolverOpts::new(),
                     runtime.handle().clone(),
                 )
             }

@@ -30,7 +30,7 @@ async fn main() {
   // Construct a new Resolver with default configuration options
   let resolver = resolver(
     config::ResolverConfig::default(),
-    config::ResolverOpts::default(),
+    config::ResolverOpts::new(),
   ).await;
 
   // Lookup the IP addresses associated with a name.

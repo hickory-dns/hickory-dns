@@ -468,7 +468,7 @@ pub mod testing {
         mut exec: E,
         handle: R,
     ) {
-        let resolver = AsyncResolver::<R>::new(config, ResolverOpts::default(), handle);
+        let resolver = AsyncResolver::<R>::new(config, ResolverOpts::new(), handle);
 
         let response = exec
             .block_on(resolver.lookup_ip("www.example.com."))
@@ -492,7 +492,7 @@ pub mod testing {
     /// Test IP lookup from IP literals.
     pub fn ip_lookup_test<E: Executor, R: ConnectionProvider>(mut exec: E, handle: R) {
         let resolver =
-            AsyncResolver::<R>::new(ResolverConfig::default(), ResolverOpts::default(), handle);
+            AsyncResolver::<R>::new(ResolverConfig::default(), ResolverOpts::new(), handle);
 
         let response = exec
             .block_on(resolver.lookup_ip("10.1.0.2"))
@@ -524,7 +524,7 @@ pub mod testing {
         // AsyncResolver works correctly.
         use std::thread;
         let resolver =
-            AsyncResolver::<R>::new(ResolverConfig::default(), ResolverOpts::default(), handle);
+            AsyncResolver::<R>::new(ResolverConfig::default(), ResolverOpts::new(), handle);
 
         let resolver_one = resolver.clone();
         let resolver_two = resolver;
@@ -579,7 +579,7 @@ pub mod testing {
             ResolverOpts {
                 validate: true,
                 try_tcp_on_error: true,
-                ..ResolverOpts::default()
+                ..ResolverOpts::new()
             },
             handle,
         );
@@ -619,7 +619,7 @@ pub mod testing {
             ResolverOpts {
                 validate: true,
                 ip_strategy: LookupIpStrategy::Ipv4Only,
-                ..ResolverOpts::default()
+                ..ResolverOpts::new()
             },
             handle,
         );
@@ -715,7 +715,7 @@ pub mod testing {
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
-                ..ResolverOpts::default()
+                ..ResolverOpts::new()
             },
             handle,
         );
@@ -750,7 +750,7 @@ pub mod testing {
                 // our name does have 2, the default should be fine, let's just narrow the test criteria a bit.
                 ndots: 2,
                 ip_strategy: LookupIpStrategy::Ipv4Only,
-                ..ResolverOpts::default()
+                ..ResolverOpts::new()
             },
             handle,
         );
@@ -789,7 +789,7 @@ pub mod testing {
                 // matches kubernetes default
                 ndots: 5,
                 ip_strategy: LookupIpStrategy::Ipv4Only,
-                ..ResolverOpts::default()
+                ..ResolverOpts::new()
             },
             handle,
         );
@@ -829,7 +829,7 @@ pub mod testing {
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
-                ..ResolverOpts::default()
+                ..ResolverOpts::new()
             },
             handle,
         );
@@ -868,7 +868,7 @@ pub mod testing {
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
-                ..ResolverOpts::default()
+                ..ResolverOpts::new()
             },
             handle,
         );
@@ -891,7 +891,7 @@ pub mod testing {
     /// Test idna.
     pub fn idna_test<E: Executor + Send + 'static, R: ConnectionProvider>(mut exec: E, handle: R) {
         let resolver =
-            AsyncResolver::<R>::new(ResolverConfig::default(), ResolverOpts::default(), handle);
+            AsyncResolver::<R>::new(ResolverConfig::default(), ResolverOpts::new(), handle);
 
         let response = exec
             .block_on(resolver.lookup_ip("中国.icom.museum."))
@@ -911,7 +911,7 @@ pub mod testing {
             ResolverConfig::default(),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4thenIpv6,
-                ..ResolverOpts::default()
+                ..ResolverOpts::new()
             },
             handle,
         );
@@ -936,7 +936,7 @@ pub mod testing {
             ResolverConfig::default(),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv6thenIpv4,
-                ..ResolverOpts::default()
+                ..ResolverOpts::new()
             },
             handle,
         );
@@ -965,7 +965,7 @@ pub mod testing {
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ndots: 5,
-                ..ResolverOpts::default()
+                ..ResolverOpts::new()
             },
             handle,
         );
@@ -994,7 +994,7 @@ pub mod testing {
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ndots: 5,
-                ..ResolverOpts::default()
+                ..ResolverOpts::new()
             },
             handle,
         );
@@ -1026,7 +1026,7 @@ pub mod testing {
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ndots: 5,
-                ..ResolverOpts::default()
+                ..ResolverOpts::new()
             },
             handle,
         );
@@ -1256,7 +1256,7 @@ mod tests {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_ascii("example.com.").unwrap());
         let resolver =
-            AsyncResolver::<TokioConnectionProvider>::new(config, ResolverOpts::default(), handle);
+            AsyncResolver::<TokioConnectionProvider>::new(config, ResolverOpts::new(), handle);
         let tor_address = [
             Name::from_ascii("2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.onion")
                 .unwrap(),

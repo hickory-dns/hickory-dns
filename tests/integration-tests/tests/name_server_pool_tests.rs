@@ -135,18 +135,18 @@ fn test_datagram() {
     let tcp_message = message(query.clone(), vec![tcp_record], vec![], vec![]);
     let udp_nameserver = mock_nameserver(
         vec![Ok(DnsResponse::from_message(udp_message).unwrap())],
-        Default::default(),
+        ResolverOpts::new(),
     );
     let tcp_nameserver = mock_nameserver(
         vec![Ok(DnsResponse::from_message(tcp_message).unwrap())],
-        Default::default(),
+        ResolverOpts::new(),
     );
 
     let pool = mock_nameserver_pool(
         vec![udp_nameserver],
         vec![tcp_nameserver],
         None,
-        Default::default(),
+        ResolverOpts::new(),
     );
 
     // lookup on UDP succeeds, any other would fail
@@ -173,18 +173,18 @@ fn test_datagram_stream_upgrades_on_truncation() {
 
     let udp_nameserver = mock_nameserver(
         vec![Ok(DnsResponse::from_message(udp_message).unwrap())],
-        Default::default(),
+        ResolverOpts::new(),
     );
     let tcp_nameserver = mock_nameserver(
         vec![Ok(DnsResponse::from_message(tcp_message).unwrap())],
-        Default::default(),
+        ResolverOpts::new(),
     );
 
     let pool = mock_nameserver_pool(
         vec![udp_nameserver],
         vec![tcp_nameserver],
         None,
-        Default::default(),
+        ResolverOpts::new(),
     );
 
     // lookup on UDP succeeds, any other would fail
@@ -218,18 +218,18 @@ fn test_datagram_stream_upgrade_on_truncation_despite_udp() {
 
     let udp_nameserver = mock_nameserver(
         vec![Ok(DnsResponse::from_message(udp_message).unwrap())],
-        Default::default(),
+        ResolverOpts::new(),
     );
     let tcp_nameserver = mock_nameserver(
         vec![Ok(DnsResponse::from_message(tcp_message).unwrap())],
-        Default::default(),
+        ResolverOpts::new(),
     );
 
     let pool = mock_nameserver_pool(
         vec![udp_nameserver],
         vec![tcp_nameserver],
         None,
-        Default::default(),
+        ResolverOpts::new(),
     );
 
     // lookup on UDP succeeds, any other would fail
@@ -252,13 +252,13 @@ fn test_datagram_fails_to_stream() {
 
     let tcp_message = message(query.clone(), vec![tcp_record.clone()], vec![], vec![]);
 
-    let udp_nameserver = mock_nameserver(vec![udp_message], Default::default());
+    let udp_nameserver = mock_nameserver(vec![udp_message], ResolverOpts::new());
     let tcp_nameserver = mock_nameserver(
         vec![Ok(DnsResponse::from_message(tcp_message).unwrap())],
-        Default::default(),
+        ResolverOpts::new(),
     );
 
-    let mut options = ResolverOpts::default();
+    let mut options = ResolverOpts::new();
     options.try_tcp_on_error = true;
     let pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
 
@@ -285,18 +285,18 @@ fn test_tcp_fallback_only_on_truncated() {
             DnsResponse::from_message(udp_message).unwrap(),
             false,
         )],
-        Default::default(),
+        ResolverOpts::new(),
     );
     let tcp_nameserver = mock_nameserver(
         vec![Ok(DnsResponse::from_message(tcp_message).unwrap())],
-        Default::default(),
+        ResolverOpts::new(),
     );
 
     let pool = mock_nameserver_pool(
         vec![udp_nameserver],
         vec![tcp_nameserver],
         None,
-        Default::default(),
+        ResolverOpts::new(),
     );
 
     let request = message(query, vec![], vec![], vec![]);
@@ -371,12 +371,12 @@ fn test_trust_nx_responses_fails() {
     // Fail the first UDP request.
     let fail_nameserver = mock_nameserver_trust_nx(
         vec![Ok(DnsResponse::from_message(nx_message).unwrap())],
-        ResolverOpts::default(),
+        ResolverOpts::new(),
         true,
     );
     let succeed_nameserver = mock_nameserver_trust_nx(
         vec![Ok(DnsResponse::from_message(success_msg).unwrap())],
-        ResolverOpts::default(),
+        ResolverOpts::new(),
         true,
     );
 
@@ -384,7 +384,7 @@ fn test_trust_nx_responses_fails() {
         vec![fail_nameserver, succeed_nameserver],
         vec![],
         None,
-        ResolverOpts::default(),
+        ResolverOpts::new(),
     );
 
     // Lookup on UDP should fail, since we trust nx responses.
@@ -422,17 +422,17 @@ fn test_noerror_doesnt_leak() {
 
     let udp_nameserver = mock_nameserver_trust_nx(
         vec![Ok(DnsResponse::from_message(udp_message).unwrap())],
-        Default::default(),
+        ResolverOpts::new(),
         true,
     );
     // Provide a fake A record; if this nameserver is queried the test should fail.
     let second_nameserver = mock_nameserver_trust_nx(
         vec![Ok(DnsResponse::from_message(incorrect_success_msg).unwrap())],
-        Default::default(),
+        ResolverOpts::new(),
         true,
     );
 
-    let mut options = ResolverOpts::default();
+    let mut options = ResolverOpts::new();
     options.num_concurrent_reqs = 1;
     options.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
     let pool = mock_nameserver_pool(
@@ -487,7 +487,7 @@ fn test_distrust_nx_responses() {
                 Ok(DnsResponse::from_message(error_message).unwrap())
             })
             .collect(),
-        ResolverOpts::default(),
+        ResolverOpts::new(),
         false,
     );
 
@@ -496,7 +496,7 @@ fn test_distrust_nx_responses() {
     let success_message = message(query.clone(), vec![v4_record.clone()], vec![], vec![]);
     let fallback_nameserver = mock_nameserver_trust_nx(
         vec![Ok(DnsResponse::from_message(success_message).unwrap()); RETRYABLE_ERRORS.len()],
-        ResolverOpts::default(),
+        ResolverOpts::new(),
         false,
     );
 
@@ -504,7 +504,7 @@ fn test_distrust_nx_responses() {
         vec![error_nameserver, fallback_nameserver],
         vec![],
         None,
-        ResolverOpts::default(),
+        ResolverOpts::new(),
     );
     for response_code in RETRYABLE_ERRORS.iter() {
         let request = message(query.clone(), vec![], vec![], vec![]);
@@ -523,7 +523,7 @@ fn test_distrust_nx_responses() {
 fn test_user_provided_server_order() {
     use trust_dns_proto::rr::Record;
 
-    let mut options = ResolverOpts::default();
+    let mut options = ResolverOpts::new();
 
     options.num_concurrent_reqs = 1;
     options.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
@@ -556,12 +556,12 @@ fn test_user_provided_server_order() {
     let preferred_nameserver = mock_nameserver_with_addr(
         to_dns_response(preferred_server_records.clone()),
         Ipv4Addr::new(128, 0, 0, 1).into(),
-        Default::default(),
+        ResolverOpts::new(),
     );
     let secondary_nameserver = mock_nameserver_with_addr(
         to_dns_response(secondary_server_records.clone()),
         Ipv4Addr::new(129, 0, 0, 1).into(),
-        Default::default(),
+        ResolverOpts::new(),
     );
 
     let pool = mock_nameserver_pool(
@@ -606,10 +606,10 @@ fn test_return_error_from_highest_priority_nameserver() {
                 true,
             )
             .expect_err("error code should result in resolve error");
-            mock_nameserver(vec![Err(response)], ResolverOpts::default())
+            mock_nameserver(vec![Err(response)], ResolverOpts::new())
         })
         .collect();
-    let pool = mock_nameserver_pool(name_servers, vec![], None, ResolverOpts::default());
+    let pool = mock_nameserver_pool(name_servers, vec![], None, ResolverOpts::new());
 
     let request = message(query, vec![], vec![], vec![]);
     let future = pool.send(request).first_answer();
@@ -682,7 +682,7 @@ where
 
 #[test]
 fn test_concurrent_requests_2_conns() {
-    let mut options = ResolverOpts::default();
+    let mut options = ResolverOpts::new();
 
     // there are only 2 conns, so this matches that count
     options.num_concurrent_reqs = 2;
@@ -725,7 +725,7 @@ fn test_concurrent_requests_2_conns() {
 
 #[test]
 fn test_concurrent_requests_more_than_conns() {
-    let mut options = ResolverOpts::default();
+    let mut options = ResolverOpts::new();
 
     // there are only two conns, but this requests 3 concurrent requests, only 2 called
     options.num_concurrent_reqs = 3;
@@ -768,7 +768,7 @@ fn test_concurrent_requests_more_than_conns() {
 
 #[test]
 fn test_concurrent_requests_1_conn() {
-    let mut options = ResolverOpts::default();
+    let mut options = ResolverOpts::new();
 
     // there are two connections, but no concurrency requested
     options.num_concurrent_reqs = 1;
@@ -811,7 +811,7 @@ fn test_concurrent_requests_1_conn() {
 
 #[test]
 fn test_concurrent_requests_0_conn() {
-    let mut options = ResolverOpts::default();
+    let mut options = ResolverOpts::new();
 
     // there are two connections, but no concurrency requested, 0==1
     options.num_concurrent_reqs = 0;

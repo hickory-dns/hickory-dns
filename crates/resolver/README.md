@@ -26,7 +26,7 @@ use trust_dns_resolver::Resolver;
 use trust_dns_resolver::config::*;
 
 // Construct a new Resolver with default configuration options
-let mut resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
+let mut resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::new()).unwrap();
 
 // On Unix/Posix systems, this will read the /etc/resolv.conf
 // let mut resolver = Resolver::from_system_conf().unwrap();
@@ -64,7 +64,7 @@ A default TLS configuration is available for Cloudflare's `1.1.1.1` DNS service 
 
 ```rust
 // Construct a new Resolver with default configuration options
-let mut resolver = Resolver::new(ResolverConfig::cloudflare_tls(), ResolverOpts::default()).unwrap();
+let mut resolver = Resolver::new(ResolverConfig::cloudflare_tls(), ResolverOpts::new()).unwrap();
 
 /// see example above...
 ```

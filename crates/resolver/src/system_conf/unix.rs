@@ -109,7 +109,7 @@ fn into_resolver_config(
         ndots: parsed_config.ndots as usize,
         timeout: Duration::from_secs(u64::from(parsed_config.timeout)),
         attempts: parsed_config.attempts as usize,
-        ..ResolverOpts::default()
+        ..ResolverOpts::new()
     };
 
     Ok((config, options))
@@ -165,7 +165,7 @@ mod tests {
         cfg.add_name_server(nameservers[0].clone());
         cfg.add_name_server(nameservers[1].clone());
         assert_eq!(cfg.name_servers(), parsed.0.name_servers());
-        assert_eq!(ResolverOpts::default(), parsed.1);
+        assert_eq!(ResolverOpts::new(), parsed.1);
     }
 
     #[test]
@@ -174,7 +174,7 @@ mod tests {
         let mut cfg = empty_config();
         cfg.add_search(Name::from_str("localnet.").unwrap());
         assert_eq!(cfg.search(), parsed.0.search());
-        assert_eq!(ResolverOpts::default(), parsed.1);
+        assert_eq!(ResolverOpts::new(), parsed.1);
     }
 
     #[test]
@@ -189,14 +189,14 @@ mod tests {
             cfg.add_name_server(nameservers[0].clone());
             cfg.add_name_server(nameservers[1].clone());
             assert_eq!(cfg.name_servers(), parsed.0.name_servers());
-            assert_eq!(ResolverOpts::default(), parsed.1);
+            assert_eq!(ResolverOpts::new(), parsed.1);
         }
 
         // This is the important part, that the invalid `--` is skipped during parsing
         {
             cfg.add_search(Name::from_str("lan").unwrap());
             assert_eq!(cfg.search(), parsed.0.search());
-            assert_eq!(ResolverOpts::default(), parsed.1);
+            assert_eq!(ResolverOpts::new(), parsed.1);
         }
     }
 
@@ -206,7 +206,7 @@ mod tests {
         let mut cfg = empty_config();
         cfg.add_search(Name::from_str_relaxed("Speedport_000.").unwrap());
         assert_eq!(cfg.search(), parsed.0.search());
-        assert_eq!(ResolverOpts::default(), parsed.1);
+        assert_eq!(ResolverOpts::new(), parsed.1);
     }
 
     #[test]
@@ -215,7 +215,7 @@ mod tests {
         let mut cfg = empty_config();
         cfg.set_domain(Name::from_str("example.com").unwrap());
         assert_eq!(cfg, parsed.0);
-        assert_eq!(ResolverOpts::default(), parsed.1);
+        assert_eq!(ResolverOpts::new(), parsed.1);
     }
 
     #[test]

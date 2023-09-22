@@ -98,7 +98,7 @@ impl Resolver {
     /// A new `Resolver` or an error if there was an error with the configuration.
     #[allow(clippy::should_implement_trait)]
     pub fn default() -> io::Result<Self> {
-        Self::new(ResolverConfig::default(), ResolverOpts::default())
+        Self::new(ResolverConfig::default(), ResolverOpts::new())
     }
 
     /// Constructs a new Resolver with the system configuration.
@@ -173,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_lookup() {
-        let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
+        let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::new()).unwrap();
 
         let response = resolver.lookup_ip("www.example.com.").unwrap();
         println!("response records: {response:?}");

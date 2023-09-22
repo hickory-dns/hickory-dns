@@ -334,7 +334,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .join(", ");
 
     // configure the resolver options
-    let mut options = sys_options.unwrap_or_default();
+    let mut options = sys_options.unwrap_or_else(ResolverOpts::new);
     if opts.happy {
         options.ip_strategy = trust_dns_resolver::config::LookupIpStrategy::Ipv4AndIpv6;
     }

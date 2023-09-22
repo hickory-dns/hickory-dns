@@ -90,7 +90,7 @@ mod tests {
             config,
             ResolverOpts {
                 try_tcp_on_error: true,
-                ..ResolverOpts::default()
+                ..ResolverOpts::new()
             },
             TokioConnectionProvider::default(),
         );

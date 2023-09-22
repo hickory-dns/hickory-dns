@@ -452,7 +452,7 @@ impl Recursor {
 }
 
 fn recursor_opts() -> ResolverOpts {
-    let mut options = ResolverOpts::default();
+    let mut options = ResolverOpts::new();
     options.ndots = 0;
     options.edns0 = true;
     options.validate = false; // we'll need to do any dnssec validation differently in a recursor (top-down rather than bottom-up)
