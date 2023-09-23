@@ -58,6 +58,8 @@ dns-over-tls = []
 
 dns-over-quic = ["dns-over-rustls", "trust-dns-proto/dns-over-quic", "trust-dns-resolver/dns-over-quic"]
 
+dns-over-h3 = ["dns-over-rustls", "h3", "h3-quinn", "trust-dns-proto/dns-over-h3", "trust-dns-resolver/dns-over-h3"]
+
 # This is a deprecated feature...
 tls-openssl = ["dns-over-openssl"]
 tls = ["dns-over-openssl"]
@@ -79,6 +81,8 @@ cfg-if.workspace = true
 enum-as-inner.workspace = true
 futures-util = { workspace = true, default-features = false, features = ["std"] }
 h2 = { workspace = true, features = ["stream"], optional = true }
+h3 = { workspace = true, optional = true }
+h3-quinn = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
 openssl = { workspace = true, features = ["v102", "v110"], optional = true }
 rusqlite = { workspace = true, features = ["bundled", "time"], optional = true }

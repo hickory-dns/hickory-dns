@@ -2068,6 +2068,8 @@ dependencies = [
  "futures-executor",
  "futures-util",
  "h2",
+ "h3",
+ "h3-quinn",
  "http",
  "openssl",
  "rusqlite",

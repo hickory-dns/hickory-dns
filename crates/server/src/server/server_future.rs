@@ -771,6 +771,99 @@ impl<T: RequestHandler> ServerFuture<T> {
         Ok(())
     }
 
+    /// Register a UdpSocket to the Server for supporting DoH3 (dns-over-h3). The UdpSocket should already be bound to either an
+    /// IPv6 or an IPv4 address.
+    ///
+    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
+    ///  to not make this too low depending on use cases.
+    ///
+    /// # Arguments
+    /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
+    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
+    ///               requests within this time period will be closed. In the future it should be
+    ///               possible to create long-lived queries, but these should be from trusted sources
+    ///               only, this would require some type of whitelisting.
+    /// * `pkcs12` - certificate used to announce to clients
+    #[cfg(feature = "dns-over-h3")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-h3")))]
+    pub fn register_h3_listener(
+        &mut self,
+        socket: net::UdpSocket,
+        // TODO: need to set a timeout between requests.
+        _timeout: Duration,
+        certificate_and_key: (Vec<Certificate>, PrivateKey),
+        dns_hostname: Option<String>,
+    ) -> io::Result<()> {
+        use crate::proto::h3::h3_server::H3Server;
+        use crate::server::h3_handler::h3_handler;
+
+        let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
+
+        let handler = self.handler.clone();
+
+        debug!("registered h3: {:?}", socket);
+        let mut server =
+            H3Server::with_socket(socket, certificate_and_key.0, certificate_and_key.1)?;
+
+        // for each incoming request...
+        let dns_hostname = dns_hostname;
+        let shutdown = self.shutdown_token.clone();
+        self.join_set.spawn(async move {
+            let mut inner_join_set = JoinSet::new();
+            let dns_hostname = dns_hostname;
+            loop {
+                let shutdown = shutdown.clone();
+                let (streams, src_addr) = tokio::select! {
+                    result = server.accept() => match result {
+                        Ok(Some(c)) => c,
+                        Ok(None) => continue,
+                        Err(e) => {
+                            debug!("error receiving h3 connection: {e}");
+                            continue;
+                        }
+                    },
+                    _ = shutdown.cancelled() => {
+                        // A graceful shutdown was initiated. Break out of the loop.
+                        break;
+                    },
+                };
+
+                // verify that the src address is safe for responses
+                // TODO: we're relying the quinn library to actually validate responses before we get here, but this check is still worth doing
+                if let Err(e) = sanitize_src_address(src_addr) {
+                    warn!(
+                        "address can not be responded to {src_addr}: {e}",
+                        src_addr = src_addr,
+                        e = e
+                    );
+                    continue;
+                }
+
+                let handler = handler.clone();
+                let dns_hostname = dns_hostname.clone();
+
+                inner_join_set.spawn(async move {
+                    debug!("starting h3 stream request from: {src_addr}");
+
+                    // TODO: need to consider timeout of total connect...
+                    let result =
+                        h3_handler(handler, streams, src_addr, dns_hostname, shutdown.clone())
+                            .await;
+
+                    if let Err(e) = result {
+                        warn!("h3 stream processing failed from {src_addr}: {e}")
+                    }
+                });
+
+                reap_tasks(&mut inner_join_set);
+            }
+
+            Ok(())
+        });
+
+        Ok(())
+    }
+
     /// Triggers a graceful shutdown the server. All background tasks will stop accepting
     /// new connections and the returned future will complete once all tasks have terminated.
     pub async fn shutdown_gracefully(&mut self) -> Result<(), ProtoError> {
@@ -1124,6 +1217,8 @@ mod tests {
         https_rustls_addr: SocketAddr,
         #[cfg(feature = "dns-over-quic")]
         quic_addr: SocketAddr,
+        #[cfg(feature = "dns-over-h3")]
+        h3_addr: SocketAddr,
     }
 
     impl Endpoints {
@@ -1138,6 +1233,8 @@ mod tests {
             let https_rustls = TcpListener::bind("127.0.0.1:0").await.unwrap();
             #[cfg(feature = "dns-over-quic")]
             let quic = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+            #[cfg(feature = "dns-over-h3")]
+            let h3 = UdpSocket::bind("127.0.0.1:0").await.unwrap();
 
             Self {
                 udp_addr: udp.local_addr().unwrap(),
@@ -1150,6 +1247,8 @@ mod tests {
                 https_rustls_addr: https_rustls.local_addr().unwrap(),
                 #[cfg(feature = "dns-over-quic")]
                 quic_addr: quic.local_addr().unwrap(),
+                #[cfg(feature = "dns-over-h3")]
+                h3_addr: h3.local_addr().unwrap(),
             }
         }
 
@@ -1206,6 +1305,19 @@ mod tests {
                     )
                     .unwrap();
             }
+
+            #[cfg(feature = "dns-over-h3")]
+            {
+                let cert_key = rustls_cert_key();
+                server
+                    .register_h3_listener(
+                        UdpSocket::bind(self.h3_addr).await.unwrap(),
+                        Duration::from_secs(1),
+                        cert_key,
+                        None,
+                    )
+                    .unwrap();
+            }
         }
 
         async fn rebind_all(&self) {
@@ -1219,6 +1331,8 @@ mod tests {
             TcpListener::bind(self.https_rustls_addr).await.unwrap();
             #[cfg(feature = "dns-over-quic")]
             UdpSocket::bind(self.quic_addr).await.unwrap();
+            #[cfg(feature = "dns-over-h3")]
+            UdpSocket::bind(self.h3_addr).await.unwrap();
         }
     }
 
