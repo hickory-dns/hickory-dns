@@ -21,7 +21,7 @@ use trust_dns_client::rr::{Name, RData, Record};
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::tcp::DnsTcpStream;
 use trust_dns_proto::udp::DnsUdpSocket;
-#[cfg(feature = "dns-over-quic")]
+#[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
 use trust_dns_proto::udp::QuicLocalAddr;
 use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 use trust_dns_proto::TokioTime;
@@ -66,7 +66,7 @@ impl DnsTcpStream for TcpPlaceholder {
 
 pub struct UdpPlaceholder;
 
-#[cfg(feature = "dns-over-quic")]
+#[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
 impl QuicLocalAddr for UdpPlaceholder {
     fn local_addr(&self) -> std::io::Result<SocketAddr> {
         Ok(SocketAddr::new(
