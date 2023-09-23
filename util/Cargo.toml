@@ -36,6 +36,8 @@ dns-over-https = ["trust-dns-proto/dns-over-https", "trust-dns-client/dns-over-h
 
 dns-over-quic = ["dns-over-rustls", "trust-dns-resolver/dns-over-quic"]
 
+dns-over-h3 = ["dns-over-rustls", "trust-dns-resolver/dns-over-h3"]
+
 webpki-roots = ["dep:webpki-roots", "trust-dns-proto/webpki-roots", "trust-dns-client/webpki-roots", "trust-dns-resolver/webpki-roots"]
 native-certs = ["dep:rustls-native-certs", "trust-dns-proto/native-certs", "trust-dns-client/native-certs", "trust-dns-resolver/native-certs"]
 
