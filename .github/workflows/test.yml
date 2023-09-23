@@ -114,7 +114,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        version: ["1.67.0", beta, nightly]
+        version: [beta, nightly]
     steps:
       - uses: actions/checkout@v4
 
@@ -136,6 +136,36 @@ jobs:
       - name: just build-bench
         if: matrix.version == 'nightly'
         run: just build-bench
+
+  msrv-libs:
+    name: MSRV
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.67.0"
+
+      - run: cargo check --lib --all-features -p async-std-resolver -p trust-dns-client -p trust-dns-proto -p trust-dns-recursor -p trust-dns-resolver -p trust-dns-server
+
+  msrv-bins:
+    name: MSRV
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.70.0"
+
+      - run: cargo check --all-features
 
   ## Execute the clippy checks
   cleanliness:

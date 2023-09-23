@@ -15,11 +15,11 @@ Trust-DNS is a safe and secure DNS server with DNSSEC support.
 
 documentation = "https://docs.rs/trust-dns-server"
 readme = "README.md"
+rust-version = "1.70"
 
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
-rust-version.workspace = true
 homepage.workspace = true
 repository.workspace = true
 keywords.workspace = true
