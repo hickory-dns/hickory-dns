@@ -259,6 +259,8 @@ pub mod config;
 pub mod dns_lru;
 pub mod dns_sd;
 pub mod error;
+#[cfg(feature = "dns-over-h3")]
+mod h3;
 mod hosts;
 #[cfg(feature = "dns-over-https")]
 mod https;

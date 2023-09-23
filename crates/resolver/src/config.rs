@@ -97,6 +97,22 @@ impl ResolverConfig {
         }
     }
 
+    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google). This limits the registered connections to just HTTP/3 lookups
+    ///
+    /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `AsyncResolver::from_system_conf`
+    ///
+    /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
+    #[cfg(feature = "dns-over-h3")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-h3")))]
+    pub fn google_h3() -> Self {
+        Self {
+            // TODO: this should get the hostname and use the basename as the default
+            domain: None,
+            search: vec![],
+            name_servers: NameServerConfigGroup::google_h3(),
+        }
+    }
+
     /// Creates a default configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare).
     ///
     /// Please see: <https://www.cloudflare.com/dns/>
@@ -324,6 +340,10 @@ pub enum Protocol {
     #[cfg(feature = "dns-over-quic")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-quic")))]
     Quic,
+    /// HTTP/3 for DNS over HTTP/3
+    #[cfg(feature = "dns-over-h3")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-h3")))]
+    H3,
     /// mDNS protocol for performing multicast lookups
     #[cfg(feature = "mdns")]
     #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
@@ -341,6 +361,8 @@ impl fmt::Display for Protocol {
             Self::Https => "https",
             #[cfg(feature = "dns-over-quic")]
             Self::Quic => "quic",
+            #[cfg(feature = "dns-over-h3")]
+            Self::H3 => "h3",
             #[cfg(feature = "mdns")]
             Self::Mdns => "mdns",
         };
@@ -362,6 +384,8 @@ impl Protocol {
             // TODO: if you squint, this is true...
             #[cfg(feature = "dns-over-quic")]
             Self::Quic => true,
+            #[cfg(feature = "dns-over-h3")]
+            Self::H3 => true,
             #[cfg(feature = "mdns")]
             Self::Mdns => true,
         }
@@ -383,6 +407,8 @@ impl Protocol {
             Self::Https => true,
             #[cfg(feature = "dns-over-quic")]
             Self::Quic => true,
+            #[cfg(feature = "dns-over-h3")]
+            Self::H3 => true,
             #[cfg(feature = "mdns")]
             Self::Mdns => false,
         }
@@ -657,6 +683,26 @@ impl NameServerConfigGroup {
         )
     }
 
+    /// Configure a NameServer address and port for DNS-over-HTTP/3
+    ///
+    /// This will create a HTTP/3 connection.
+    #[cfg(feature = "dns-over-h3")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-h3")))]
+    pub fn from_ips_h3(
+        ips: &[IpAddr],
+        port: u16,
+        tls_dns_name: String,
+        trust_negative_responses: bool,
+    ) -> Self {
+        Self::from_ips_encrypted(
+            ips,
+            port,
+            tls_dns_name,
+            Protocol::H3,
+            trust_negative_responses,
+        )
+    }
+
     /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google).
     ///
     /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `AsyncResolver::from_system_conf`
@@ -680,6 +726,15 @@ impl NameServerConfigGroup {
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
     pub fn google_https() -> Self {
         Self::from_ips_https(GOOGLE_IPS, 443, "dns.google".to_string(), true)
+    }
+
+    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google). This limits the registered connections to just HTTP/3 lookups
+    ///
+    /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `AsyncResolver::from_system_conf`
+    #[cfg(feature = "dns-over-h3")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-h3")))]
+    pub fn google_h3() -> Self {
+        Self::from_ips_h3(GOOGLE_IPS, 443, "dns.google".to_string(), true)
     }
 
     /// Creates a default configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare).
