@@ -10,7 +10,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 ### Fixed
 
 - (resolver) Malformed label: -- when parsing resolv.conf #1985 by Jake-Shadle
-- (proto) Fix truncation for UDP #1975 by nmittler 
+- (proto) Fix truncation for UDP #1975 by nmittler
 - (proto) avoid panicking in parse_time() #1964 by djc
 - (server) Merge up deny response in requests to server #1954 by djc
 - (proto) remove duplicate is_soa function #1948 by mattsse
@@ -22,9 +22,9 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (proto) [rfc8659] CAA RR Change references to RFC 6844 to 8659 #1798 by darnuria
 - (all) Fixed some clippy warning #1801 by darnuria
 - (all) Fix links to client documentation #1808 by clint-white
-- (all) fix cleanliness for 1.65 #1821 by bluejekyll
+- (all) fix cleanliness for 1.67 #1821 by bluejekyll
 - (proto) Fix stuck of dns over tls with clear text SNI #1826 by mokeyish
-- (all) Fix enabling only dns-over-* feature #1833 by NobodyXu
+- (all) Fix enabling only dns-over-\* feature #1833 by NobodyXu
 - (proto) OpenSSL 3.0 compliant #1841 by HLFH
 - (server) FIX WIP: Zone Parser panics when hostname entry has a leading whitespace. #1842 by wuerges
 - (server) Fix $TTL not taken into account with wildcard from zonefile. #1850 by darnuria
@@ -124,7 +124,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (resolver) Add option to use a provided name server order #1766 by @nhurley3
 - (proto) Add invalid utf8 output test for TXT::fmt. #1755 by darnuria
 - (proto) Support 0-RTT in DNS over QUIC #1716 by msoxzw
-- (recursor) *new* A Trust DNS based Recursor!!! #1710 by @bluejekyll
+- (recursor) _new_ A Trust DNS based Recursor!!! #1710 by @bluejekyll
 - (resolver) Allow customizing the static hosts configuration #1705 by @fantix
 - (proto/server) Support loading pkcs#1 private key as well #1704 by @lisongmin
 - (util) Trust `dns` client cli (like `dig`) #1680 by @bluejekyll
@@ -215,7 +215,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 - (util) openssl is no longer default enabled in trust-dns-utils, bins marked as required as necessary #1644
 - (proto) deprecate outdated dnssec algorithms #1640
-- (resolver) *BREAKING* removed `DnsRequestOptions` parameter from `AsyncResolver::lookup`, this is derived from `ResolverOpts`
+- (resolver) _BREAKING_ removed `DnsRequestOptions` parameter from `AsyncResolver::lookup`, this is derived from `ResolverOpts`
 - (server) pass RequestInfo into Authority on search #1620
 - (proto) SSHFP: Ed448 is assigned algorithm 6 in RFC 8709 #1604
 - (resolver) Do not retry the same name server on a negative response (@peterthejohnston) #1589
@@ -303,7 +303,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 - (async-std-resolver) Re-export AsyncStdConnection(Provider) (@romanb) #1354
 - (proto) Mutate edns & remove edns options (@leshow) #1363
-- (proto) Change Edns set_* to -> &mut Self (@leshow) #1369
+- (proto) Change Edns set\_\* to -> &mut Self (@leshow) #1369
 - (resolver) Enable RuntimeProvider in DoT implementations (@chengyuhui) #1373
 - (proto) Optimize name parsing (@saethlin) #1388
 - (proto) Remove a lot of bounds checks in BinDecoder by tracking position with a second slice (@saethlin) #1399
@@ -317,26 +317,26 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (proto) Add serde support for the RecordType in the proto crate (@LEXUGE) #1319
 - (https) dns_hostname args all are `Arc<str>` rather than `Arc<String>`, use `Arc::from`
 - (proto) Set TCP_NODELAY when building a TCP connection (@djc) #1249
-- (all) *BREAKING* The `UdpSocket` trait has grown an associated `Time` type.
-- (all) *BREAKING* The `Connect` trait has lost its
-`Transport` associated type, instead relying on the `Self` type.
-- (all) *BREAKING* Introduced a new `DnsTcpStream` trait, which is now a
-bound for implementing the `Connect` trait.
-- (resolver) *BREAKING* Move `CachingClient` from `lookup_state` to `caching_client` module
-- (resolver) *BREAKING* Move `ResolverOpts::distrust_nx_responses` to `NameServerConfig::trust_nx_responses` (@djc) #1212
+- (all) _BREAKING_ The `UdpSocket` trait has grown an associated `Time` type.
+- (all) _BREAKING_ The `Connect` trait has lost its
+  `Transport` associated type, instead relying on the `Self` type.
+- (all) _BREAKING_ Introduced a new `DnsTcpStream` trait, which is now a
+  bound for implementing the `Connect` trait.
+- (resolver) _BREAKING_ Move `CachingClient` from `lookup_state` to `caching_client` module
+- (resolver) _BREAKING_ Move `ResolverOpts::distrust_nx_responses` to `NameServerConfig::trust_nx_responses` (@djc) #1212
 - (proto) `data-encoding` is now a required dependency #1208
 - (all) minimum rustc version now `1.45`
 - (resolver) For all NxDomain and NoError/NoData responses, `ResolveErrorKind::NoRecordsFound` will be returned #1197
 - (server) Support for lowercase DNSClass and RecordType fields in zonefiles (@zhanif3) #1186
 - (resolver) Make EDNS optional for resolvers (@CtrlZvi) #1173
-- (all) Fully support *ring* for all DNSSEC operations. #1145
+- (all) Fully support _ring_ for all DNSSEC operations. #1145
 - (all) No more `master` (branch, moved to `main`) slave, in honor of Juneteenth #1141
 - (all) Minimize `futures` dependencies (@JohnTitor) #1109
 - (proto) increases the UDP buffer size from 2048 to 4096 to allow larger payloads (@DevQps) #1096
 - (resolver) use IntoName trait on synchronous resolver interface (@krisztian-kovacs) #1095
-- (resolver) *BREAKING* removed async for `AsyncResolver::new` (@balboah) #1077 #1056
-- (server) *BREAKING* removed `Runtime` from `ServerFuture::register_socket` (@LucioFranco) #1088 #1087
-- (proto) *Breaking* Adjust the return value from `ResponseCode::high` from u16 to u8 #1202
+- (resolver) _BREAKING_ removed async for `AsyncResolver::new` (@balboah) #1077 #1056
+- (server) _BREAKING_ removed `Runtime` from `ServerFuture::register_socket` (@LucioFranco) #1088 #1087
+- (proto) _Breaking_ Adjust the return value from `ResponseCode::high` from u16 to u8 #1202
 
 ### Fixed
 
@@ -350,7 +350,7 @@ bound for implementing the `Connect` trait.
 
 ### Added
 
-- (util) *new* Add resolve.rs as CLI for trust-dns-resolver #1208
+- (util) _new_ Add resolve.rs as CLI for trust-dns-resolver #1208
 - (proto) Added proper zone display to all RData as an impl of Display #1208
 - (proto) `xfer::dns_response::NegativeType` and `DnsResponse::negative_type` to classify negative response type #1197
 - (proto) `DnsResponse::contains_answer` to determine if a response message has data related to the query #1197
@@ -453,12 +453,12 @@ bound for implementing the `Connect` trait.
 
 - (all) CHANGELOG.md is now merged from the Resolver crate and the top-level. All notes from the Resolver CHANGELOG were merged into this changelog, with the format `## {version} (Resolver)` and the existing notes from the top-level are formatted as `## {version} (Client/Server`. This should make notes on releases easier. Going forward the scope of changes across crates will be captured as `- ({crate}) {note}` where all is used for across the board updates.
 - (all) After the 0.18 release, all crates will be versioned uniformally, and released at the same time, this will resolve some issues around consistency with releases. The final Resolver release before this was `0.12`.
-- *breaking* Generally, any interface that took a 0.1 Future, now returns or consumes a std::future::Future
-- *breaking* (client) rebranded from `trust-dns` to `trust-dns-client`
-- *breaking* (named) moved from `trust-dns-server` to `trust-dns`, in bin/**
-- *breaking* (all) all internals updated to std::future and async/await (requires `Rust 1.39` minimum)
-- *breaking* (client) AsyncClient now returns a connect future which resolves to the client and it's background.
-- *breaking* (resolver) AsyncResolver::new changed to AsyncResolver::connect, requires awaiting the returned future
+- _breaking_ Generally, any interface that took a 0.1 Future, now returns or consumes a std::future::Future
+- _breaking_ (client) rebranded from `trust-dns` to `trust-dns-client`
+- _breaking_ (named) moved from `trust-dns-server` to `trust-dns`, in bin/\*\*
+- _breaking_ (all) all internals updated to std::future and async/await (requires `Rust 1.39` minimum)
+- _breaking_ (client) AsyncClient now returns a connect future which resolves to the client and it's background.
+- _breaking_ (resolver) AsyncResolver::new changed to AsyncResolver::connect, requires awaiting the returned future
 - (client) ClientFuture renamed to AsyncClient
 - (resolver) AsyncResolver now requires a ConnectionProvider type parameter, see TokioAsyncResolver as a predefined type without it
 - (resolver) Now returns a connect future to connect the start all background tasks
@@ -478,7 +478,7 @@ bound for implementing the `Connect` trait.
 ### Removed
 
 - (client) client::BasicClientHandle, ClientFuture no longer requires Background or the separate Handle, this can generally be replaced with just ClientFuture itself in most use cases.
-- *breaking* (resolver) Background type removed
+- _breaking_ (resolver) Background type removed
 - (resolver) removed deprecated AsyncResolver::lookup_service, see AsyncResolver::lookup_srv
 - (client) removed all deprecated reexports from trust_dns_proto
 - (proto) removed unused xfer::BasicDnsHandle, xfer::MessageStreamHandle
@@ -500,10 +500,10 @@ bound for implementing the `Connect` trait.
 
 ### Changes
 
-- *breaking* (client) TcpClientConnect requires generic stream param #794 (@chunyingw)
-- *breaking* (client) UdpClientStream requires generic socket param #824 (@chunyingw)
-- *breaking* (proto) UdpStream and UdpClientStream requires generic socket #824 (@chunyingw)
-- *breaking* (proto) TcpStream and TcpClientStream require generic stream param #794 (@chunyingw)
+- _breaking_ (client) TcpClientConnect requires generic stream param #794 (@chunyingw)
+- _breaking_ (client) UdpClientStream requires generic socket param #824 (@chunyingw)
+- _breaking_ (proto) UdpStream and UdpClientStream requires generic socket #824 (@chunyingw)
+- _breaking_ (proto) TcpStream and TcpClientStream require generic stream param #794 (@chunyingw)
 - Algorithm::from_u8 is now infallible #800 (@zackangelo)
 - Algorithm::hash_len now returns Option #800 (@zackangelo)
 
@@ -538,15 +538,15 @@ bound for implementing the `Connect` trait.
 
 ### Changed
 
-- *breaking* (proto) UdpClientStream and UdpClientConnection refactored to associate UDP sockets to single requests #635
-- *breaking* (server) configuration for sqlite dynamic update different, see dnssec_with_update.toml for example #622
-- *breaking* (util)/dnskey_to_pem has been renamed to bind_dnskey_to_pem for clarity #622
-- *breaking* (proto) Record::from_rdata no longer requires RecordType parameter #674
-- *breaking* (server) AuthLookup inner types simplified #674
-- *breaking* (server) RequestHandler now requires associated type for Future results of lookups #674
-- *breaking* (server) ResponseHandler now requires Clone and 'static #674
-- *breaking* (server) Catalog::lookup takes ownership of MessageRequest and returns a LookupFuture #674
-- *breaking* (server) MessageRequest and Queries no longer carrying lifetime parameters #674
+- _breaking_ (proto) UdpClientStream and UdpClientConnection refactored to associate UDP sockets to single requests #635
+- _breaking_ (server) configuration for sqlite dynamic update different, see dnssec_with_update.toml for example #622
+- _breaking_ (util)/dnskey_to_pem has been renamed to bind_dnskey_to_pem for clarity #622
+- _breaking_ (proto) Record::from_rdata no longer requires RecordType parameter #674
+- _breaking_ (server) AuthLookup inner types simplified #674
+- _breaking_ (server) RequestHandler now requires associated type for Future results of lookups #674
+- _breaking_ (server) ResponseHandler now requires Clone and 'static #674
+- _breaking_ (server) Catalog::lookup takes ownership of MessageRequest and returns a LookupFuture #674
+- _breaking_ (server) MessageRequest and Queries no longer carrying lifetime parameters #674
 
 ## 0.15.0 (Client/Server)
 
@@ -561,7 +561,7 @@ bound for implementing the `Connect` trait.
 ### Added
 
 - feature `dns-over-rustls` to `trust-dns-server` (server) and `trust-dns` (client)
-- feature `dns-over-https-rustls` *experimental* #557
+- feature `dns-over-https-rustls` _experimental_ #557
 - new configuration options for tls, see `server/tests/named_test_configs/dns_over_tls_rustls_and_openssl.toml`
 - new utility for querying root key-signing-keys, `util/get-root-ksks`
 - updated root trust-anchor to include new `20326` RSA root ksk
@@ -570,12 +570,12 @@ bound for implementing the `Connect` trait.
 
 - Make trust_dns_server::server::ResponseHandler Send #593 (sticnarf)
 - Wrap types in Restrict and force validation before usage from streams #586
-- *breaking* Overhauled all `ClientFuture` implementations to align with new `DnsExchange` and `DnsMultiplexer` components in proto.
-- *breaking* `ClientFuture` after construction, now returns a "background" `ClientFuture` and a "foreground" `BasicClientHandle`
-- *breaking* `Client` has more type parameters, these match with the same types returned by the `*ClientConnection` constructors
-- *breaking* all default features, removed: "dns-over-openssl", "dnssec-openssl". Use --features=dns-over-openssl,dnssec-openssl to enable
-- *breaking* `named` configuration now has AXFR disabled by default.
-- *breaking* Migrated from error_chain to Failure #474 (@silwol)
+- _breaking_ Overhauled all `ClientFuture` implementations to align with new `DnsExchange` and `DnsMultiplexer` components in proto.
+- _breaking_ `ClientFuture` after construction, now returns a "background" `ClientFuture` and a "foreground" `BasicClientHandle`
+- _breaking_ `Client` has more type parameters, these match with the same types returned by the `*ClientConnection` constructors
+- _breaking_ all default features, removed: "dns-over-openssl", "dnssec-openssl". Use --features=dns-over-openssl,dnssec-openssl to enable
+- _breaking_ `named` configuration now has AXFR disabled by default.
+- _breaking_ Migrated from error_chain to Failure #474 (@silwol)
 - feature `tls` renamed to `dns-over-openssl`
 - upgraded `native-tls` and `tokio-tls` to 0.2
 - upgraded `rusqlite` to 0.15
@@ -619,7 +619,7 @@ bound for implementing the `Connect` trait.
 - Trust-DNS Proto crate to separate server management from base operations #222
 - Trust-DNS Util crate for dnssec management tools (@briansmith)
 - Integration tests for Server to validate all supported DNSSEC key types
-- *breaking* Common features `dnssec-ring`, `dnssec-openssl`, and `dnssec` across all crates (replaces `openssl` and `ring` features)
+- _breaking_ Common features `dnssec-ring`, `dnssec-openssl`, and `dnssec` across all crates (replaces `openssl` and `ring` features)
 - Clarified `tls` feature with `tls-openssl`, and `tls` in server (in preparation for `tls-rustls`)
 - Support for rfc6844, CAA record type #234
 - Support for rfc6698, TLSA record type #285
@@ -664,14 +664,14 @@ bound for implementing the `Connect` trait.
 
 ### Added
 
-- RSA and ECDSA validation with *ring* for DNSSEC, removes dependency on openssl (@briansmith)
+- RSA and ECDSA validation with _ring_ for DNSSEC, removes dependency on openssl (@briansmith)
 - `lookup` to `ClientHandle`, simpler form with `Query`
 - `query` to `Query` for ease of Query creation
 
 ### Changed
 
 - Large celanup of signing and verification paths in DNSSEC (@briansmith)
-- *breaking* changed `TrustAnchor::insert_trust_anchor` to more safely consume `PublicKey` rather than `Vec<u8>`
+- _breaking_ changed `TrustAnchor::insert_trust_anchor` to more safely consume `PublicKey` rather than `Vec<u8>`
 
 ## 0.11.2 (Client/Server)
 
@@ -707,7 +707,7 @@ bound for implementing the `Connect` trait.
 ### Changed
 
 - Added option to distrust Nameservers on SERVFAIL responses, continue resolution #613
-- *breaking* Record::from_rdata no longer requires RecordType parameter #674
+- _breaking_ Record::from_rdata no longer requires RecordType parameter #674
 - LRU cache is now based on Query rather than just name #674
 
 ## 0.11.0 (Client/Server)
@@ -721,18 +721,18 @@ bound for implementing the `Connect` trait.
 
 ### Changed
 
-- *breaking* all `&mut self` methods on `Name` deprecated as unsafe, Name labels are now immutable.
-- *breaking* All `ClientHandle` traits now take `&Handle` instead of `Handle` (@rushmorem)
-- *warning* `Name` now tracks if it is a fully qualified domain name, slightly changes name parsing rules, allowing `www.example.com` without the trailing `.`, which means that FQDN names are not enforced.
+- _breaking_ all `&mut self` methods on `Name` deprecated as unsafe, Name labels are now immutable.
+- _breaking_ All `ClientHandle` traits now take `&Handle` instead of `Handle` (@rushmorem)
+- _warning_ `Name` now tracks if it is a fully qualified domain name, slightly changes name parsing rules, allowing `www.example.com` without the trailing `.`, which means that FQDN names are not enforced.
 
 ### Removed
 
-- *deprecated* `Name::with_labels` see `Name::from_labels`
-- *deprecated* `Name::append` wasn't clean, see `Name::append_name`
-- *deprecated* `Name::add_label` exposed internal data structure, see `Name::append_label`
-- *deprecated* `Name::label` unclear usage/name, see `Name::append_label`
-- *deprecated* `Name::prepend_label` exposed internal data structure, unclear usage *no replacement*
-- *deprecated* `Record::add_name` unclear usage *no replacement*
+- _deprecated_ `Name::with_labels` see `Name::from_labels`
+- _deprecated_ `Name::append` wasn't clean, see `Name::append_name`
+- _deprecated_ `Name::add_label` exposed internal data structure, see `Name::append_label`
+- _deprecated_ `Name::label` unclear usage/name, see `Name::append_label`
+- _deprecated_ `Name::prepend_label` exposed internal data structure, unclear usage _no replacement_
+- _deprecated_ `Record::add_name` unclear usage _no replacement_
 
 ## 0.10.5 (Client/Server)
 
@@ -778,9 +778,9 @@ bound for implementing the `Connect` trait.
 ### Changed
 
 - Revamped signer and keypair to better deal with public key (possible breaking change)
-- Upgraded *ring* to 0.9.x series, requires pkcs8 for key storage
+- Upgraded _ring_ to 0.9.x series, requires pkcs8 for key storage
 - Dropped support for dangerous private key byte access (possible breaking change)
-- Upgraded tokio-rustls and rustls dependencies to support *ring* updates
+- Upgraded tokio-rustls and rustls dependencies to support _ring_ updates
 
 ### Added
 
@@ -808,7 +808,7 @@ bound for implementing the `Connect` trait.
 
 - Updated TLS documentation, added more elsewhere, docs required; fixes #102
 - Upgraded tokio-core and moved to tokio-io
-- *Important* Some `Server` types have been migrated to [RFC#344](https://github.com/aturon/rfcs/blob/conventions-galore/active/0000-conventions-galore.md#gettersetter-apis) style. `get_field()` -> `field()`; `field()` -> `set_field()`
+- _Important_ Some `Server` types have been migrated to [RFC#344](https://github.com/aturon/rfcs/blob/conventions-galore/active/0000-conventions-galore.md#gettersetter-apis) style. `get_field()` -> `field()`; `field()` -> `set_field()`
 - Moved native-tls client impl to separate crate
 - Defaulted to OpenSSL for tls implementation
 
@@ -836,9 +836,9 @@ bound for implementing the `Connect` trait.
 - Delays all connections until actual use #566
 - Relax parsing rules for CAA issuer keys and values #517
 - `ResolverFuture` renamed to `AsyncResolver` #487 (@hawkw)
-- *breaking* `AsyncResolver::new` returns a tuple of an `AsyncResolver` and a future that drives DNS lookups in the background #487 (@hawkw)
-- *breaking* All `AsyncResolver` lookup methods return `BackgroundLookup<T>` rather than `T` #487 (@hawkw)
-- *breaking* Migrated from error_chain to Failure #474 (@silwol)
+- _breaking_ `AsyncResolver::new` returns a tuple of an `AsyncResolver` and a future that drives DNS lookups in the background #487 (@hawkw)
+- _breaking_ All `AsyncResolver` lookup methods return `BackgroundLookup<T>` rather than `T` #487 (@hawkw)
+- _breaking_ Migrated from error_chain to Failure #474 (@silwol)
 - improve truncation to always return records #497
 
 ### Added
@@ -850,7 +850,7 @@ bound for implementing the `Connect` trait.
 
 ### Changed
 
-- *Important* Possible breaking API change, the original Client has been renamed.
+- _Important_ Possible breaking API change, the original Client has been renamed.
 
 In an attempt to reduce the overhead of managing the project. The original
 Client has now been revamped to essentially be a synchronous Client over the
@@ -862,11 +862,11 @@ Please read those docs on those new types and the Client trait.
 
 - When EDNS option is present, return only the digest understood matching RRSETs
 - All code reformatted with rustfmt
-- *Important* breaking change, all `Record` and associated types have been migrated to [RFC#344](https://github.com/aturon/rfcs/blob/conventions-galore/active/0000-conventions-galore.md#gettersetter-apis) style. `get_field()` -> `field()`; `field()` -> `set_field()`
+- _Important_ breaking change, all `Record` and associated types have been migrated to [RFC#344](https://github.com/aturon/rfcs/blob/conventions-galore/active/0000-conventions-galore.md#gettersetter-apis) style. `get_field()` -> `field()`; `field()` -> `set_field()`
 
 ### Removed
 
-- *Important* The original Server implementation was removed entirely.
+- _Important_ The original Server implementation was removed entirely.
 
 Please use the ServerFuture implementation from now on. Sorry for the inconvenience,
 but this is necessary to make sure that the software remains at a high quality
@@ -1017,7 +1017,7 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 
 ### Changed
 
-- Upgraded OpenSSL to 0.8.* #50
+- Upgraded OpenSSL to 0.8.\* #50
 - Cleaned up the Server implementation to isolate connection handlers
 - Deprecated old Client will possibly remove in the future
 
@@ -1045,7 +1045,7 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 ### Changed
 
 - Resolver no longer depends on Client
-- *breaking* Resolver no longer returns io:Errors, use `From<ResolveError>` for `io::Error`
+- _breaking_ Resolver no longer returns io:Errors, use `From<ResolveError>` for `io::Error`
 - Resolver is now `Send`
 - DNSSEC now disabled by default in Resolver, see `dnssec-ring` or `dnssec-openssl` features #268
 - CNAME chaining was cleaned up #271 (@briansmith)
@@ -1164,8 +1164,8 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 
 ### Changed
 
-- *breaking* `LookupIp` now returns an iterator over owned data (IpAddr is Copy + Clone ref not necessary)
-- *breaking* `Resolver::lookup` will now return an Err on NxDomain and NoData responses
+- _breaking_ `LookupIp` now returns an iterator over owned data (IpAddr is Copy + Clone ref not necessary)
+- _breaking_ `Resolver::lookup` will now return an Err on NxDomain and NoData responses
 - rewrote much of the caching and lookup functionality for generic RecordType lookups
 - removed &mut from resolver fn interfaces, make it easier to use
 
@@ -1173,8 +1173,8 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 
 - Generic record type lookup
 - reverse_lookup for IP to Name lookups
-- ipv4_lookup for looking up *only* ipv4 (lookup_ip has options for dual-stack)
-- ipv6_lookup for looking up *only* ipv6 (lookup_ip has options for dual-stack)
+- ipv4_lookup for looking up _only_ ipv4 (lookup_ip has options for dual-stack)
+- ipv6_lookup for looking up _only_ ipv6 (lookup_ip has options for dual-stack)
 - mx_lookup for querying mail exchanges
 - srv_lookup for service records and also a specialized form for ease of use lookup_service
 - txt_lookup for text record lookups
@@ -1213,7 +1213,7 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 
 ### Removed
 
-- *breaking* impl `Iterator` removed from `LookupIp` result type, see `LookupIp::iter` for replacement
+- _breaking_ impl `Iterator` removed from `LookupIp` result type, see `LookupIp::iter` for replacement
 
 ### Added
 
@@ -1247,12 +1247,12 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 - Google IPv6 nameservers as defaults for `ResolverConfig::default`
 - support for domain name search in `ResolverConfig` and `LookupIpFuture`
 - support for search names in `ResolverConfig` and `LookupIpFuture`
-- `LookupIpFuture` type alias to `LookupIpFuture<NameServerPool>` *compatibility*
+- `LookupIpFuture` type alias to `LookupIpFuture<NameServerPool>` _compatibility_
 
 ### Changed
 
-- *breaking* `LookupIpFuture` renamed to `LookupIpFuture`
-- *breaking* `LookupIpFuture` now takes a generic parameter, generally `<NameServerPool>`
+- _breaking_ `LookupIpFuture` renamed to `LookupIpFuture`
+- _breaking_ `LookupIpFuture` now takes a generic parameter, generally `<NameServerPool>`
 
 ## 0.3.0 (Client/Server 2015-09-27)
 
