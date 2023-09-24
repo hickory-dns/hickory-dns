@@ -137,7 +137,7 @@ jobs:
         if: matrix.version == 'nightly'
         run: just build-bench
 
-  msrv-libs:
+  msrv:
     name: MSRV
     runs-on: ubuntu-20.04
     steps:
@@ -150,22 +150,15 @@ jobs:
         with:
           toolchain: "1.67.0"
 
-      - run: cargo check --lib --all-features -p async-std-resolver -p trust-dns-client -p trust-dns-proto -p trust-dns-recursor -p trust-dns-resolver -p trust-dns-server
+      - uses: extractions/setup-just@v1
 
-  msrv-bins:
-    name: MSRV
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
+      - name: cargo install cargo-workspaces
+        uses: baptiste0928/cargo-install@v2
         with:
-          persist-credentials: false
+          crate: cargo-workspaces
+          version: ${{ env.CARGO_WS_VERSION }}
 
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "1.70.0"
-
-      - run: cargo check --all-features
+      - run: just check --all-features
 
   ## Execute the clippy checks
   cleanliness:
