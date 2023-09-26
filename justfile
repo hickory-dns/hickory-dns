@@ -3,6 +3,9 @@ export TARGET_DIR := join(justfile_directory(), "target")
 export TDNS_BIND_PATH := join(TARGET_DIR, "bind")
 export TEST_DATA := join(join(justfile_directory(), "tests"), "test-data")
 
+## MSRV
+MSRV := env_var_or_default('MSRV', "")
+
 ## Code coverage config
 COV_RUSTFLAGS := "-C instrument-coverage -C llvm-args=--instrprof-atomic-counter-update-all --cfg=coverage --cfg=trybuild_no_target"
 COV_CARGO_INCREMENTAL := "0"
@@ -44,16 +47,16 @@ dnssec-ring: (default "--features=dnssec-ring" "--ignore=\\{async-std-resolver,t
 
 # Run check on all projects in the workspace
 check feature='' ignore='':
-    cargo ws exec {{ignore}} cargo check --all-targets --benches --examples --bins --tests {{feature}}
-    cargo check --manifest-path fuzz/Cargo.toml --all-targets --benches --examples --bins --tests
+    cargo ws exec {{ignore}} cargo {{MSRV}} check --all-targets --benches --examples --bins --tests {{feature}}
+    cargo {{MSRV}} check --manifest-path fuzz/Cargo.toml --all-targets --benches --examples --bins --tests
 
 # Run build on all projects in the workspace
 build feature='' ignore='':
-    cargo ws exec {{ignore}} cargo build --all-targets --benches --examples --bins --tests {{feature}}
+    cargo ws exec {{ignore}} cargo {{MSRV}} build --all-targets --benches --examples --bins --tests {{feature}}
 
 # Run tests on all projects in the workspace
 test feature='' ignore='':
-    cargo ws exec {{ignore}} cargo test --all-targets --benches --examples --bins --tests {{feature}}
+    cargo ws exec {{ignore}} cargo {{MSRV}} test --all-targets --benches --examples --bins --tests {{feature}}
    
 # This tests compatibility with BIND9, TODO: support other feature sets besides openssl for tests
 compatibility: init-bind9
@@ -66,7 +69,7 @@ build-bench:
 
 [private]
 clippy-inner feature='':
-    cargo ws exec cargo clippy --all-targets --benches --examples --bins --tests {{feature}} -- -D warnings
+    cargo ws exec cargo {{MSRV}} clippy --all-targets --benches --examples --bins --tests {{feature}} -- -D warnings
 
 # Run clippy on all targets and all sources
 clippy:
@@ -207,4 +210,4 @@ init: init-cargo-workspaces init-audit init-bind9
 
 # Run the server with example config, for manual testing purposes
 run-example:
-    @cargo run --bin trust-dns -- -d -c {{TEST_DATA}}/test_configs/example.toml -z {{TEST_DATA}}/test_configs -p 2053
+    @cargo {{MSRV}} run --bin trust-dns -- -d -c {{TEST_DATA}}/test_configs/example.toml -z {{TEST_DATA}}/test_configs -p 2053
