@@ -9,7 +9,9 @@
 
 pub mod dnssec;
 
+#[cfg(feature = "toml")]
 use std::fs::File;
+#[cfg(feature = "toml")]
 use std::io::Read;
 use std::net::{AddrParseError, Ipv4Addr, Ipv6Addr};
 use std::path::{Path, PathBuf};
@@ -18,13 +20,13 @@ use std::time::Duration;
 
 use cfg_if::cfg_if;
 use serde::{self, Deserialize};
-use toml;
 
 use crate::proto::error::ProtoResult;
 use crate::proto::rr::Name;
 
 use crate::authority::ZoneType;
-use crate::error::{ConfigError, ConfigResult};
+#[cfg(feature = "toml")]
+use crate::error::ConfigResult;
 use crate::store::StoreConfig;
 
 static DEFAULT_PATH: &str = "/var/named"; // TODO what about windows (do I care? ;)
@@ -67,11 +69,18 @@ pub struct Config {
 
 impl Config {
     /// read a Config file from the file specified at path.
+    #[cfg(feature = "toml")]
     pub fn read_config(path: &Path) -> ConfigResult<Self> {
-        let mut file: File = File::open(path)?;
-        let mut toml: String = String::new();
+        let mut file = File::open(path)?;
+        let mut toml = String::new();
         file.read_to_string(&mut toml)?;
-        toml.parse().map_err(Into::into)
+        Self::from_toml(&toml)
+    }
+
+    /// Read a [`Config`] from the given TOML string.
+    #[cfg(feature = "toml")]
+    pub fn from_toml(toml: &str) -> ConfigResult<Self> {
+        Ok(basic_toml::from_str(toml)?)
     }
 
     /// set of listening ipv4 addresses (for TCP and UDP)
@@ -142,14 +151,6 @@ impl Config {
                 None
             }
         }
-    }
-}
-
-impl FromStr for Config {
-    type Err = ConfigError;
-
-    fn from_str(toml: &str) -> ConfigResult<Self> {
-        toml::de::from_str(toml).map_err(Into::into)
     }
 }
 

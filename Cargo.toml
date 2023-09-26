@@ -18,7 +18,7 @@ exclude = ["fuzz"]
 version = "0.23.0"
 authors = ["The contributors to Trust-DNS"]
 edition = "2021"
-rust-version = "1.64.0"
+rust-version = "1.67.0"
 homepage = "https://trust-dns.org/"
 repository = "https://github.com/bluejekyll/trust-dns"
 keywords = ["DNS", "BIND", "dig", "named", "dnssec"]
@@ -60,7 +60,7 @@ parking_lot = "0.12"
 # ssl
 native-tls = "0.2"
 openssl = "0.10.55"
-rustls = "0.21.2"
+rustls = "0.21.6"
 rustls-native-certs = "0.6.3"
 rustls-pemfile = "1.0.0"
 webpki-roots = "0.25.0"
@@ -75,6 +75,7 @@ http = "0.2"
 
 # others
 backtrace = "0.3.50"
+basic-toml = "0.1"
 bytes = "1"
 cfg-if = "1"
 clap = { version = "4.0", default-features = false }
@@ -99,7 +100,6 @@ smallvec = "1.6"
 socket2 = "0.5"
 time = "0.3"
 tinyvec = "1.1.1"
-toml = "0.7"
 url = "2.4.0"
 wasm-bindgen-crate = { version = "0.2.58", package = "wasm-bindgen" }
 

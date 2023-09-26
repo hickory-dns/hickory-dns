@@ -44,31 +44,16 @@ dnssec-openssl = ["dnssec", "openssl", "trust-dns-client/dnssec-openssl", "trust
 dnssec-ring = ["dnssec", "trust-dns-client/dnssec-ring", "trust-dns-proto/dnssec-ring", "trust-dns-resolver/dnssec-ring"]
 
 [[bin]]
-name = "dns"
-path = "src/dns.rs"
-
-[[bin]]
 name = "dnskey-to-pem"
-path = "src/bind_dnskey_to_pem.rs"
 required-features = ["dnssec-openssl"]
 
 [[bin]]
 name = "get-root-ksks"
-path = "src/get_root_ksks.rs"
 required-features = ["dnssec-openssl"]
 
 [[bin]]
 name = "pem-to-public-dnskey"
-path = "src/pem_to_public_dnskey.rs"
 required-features = ["dnssec-openssl"]
-
-[[bin]]
-name = "resolve"
-path = "src/resolve.rs"
-
-[[bin]]
-name = "recurse"
-path = "src/recurse.rs"
 
 [dependencies]
 clap = { workspace = true, default-features = false, features = ["std", "cargo", "derive", "color", "suggestions", "help", "usage"] }
@@ -76,7 +61,7 @@ console.workspace = true
 data-encoding.workspace = true
 openssl = { workspace = true, features = ["v102", "v110"], optional = true }
 rustls = { workspace = true, features = ["dangerous_configuration"], optional = true }
-rustls-native-certs = { workspace = true, optional = true } 
+rustls-native-certs = { workspace = true, optional = true }
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["std", "fmt", "env-filter"] }
 trust-dns-client.workspace = true
