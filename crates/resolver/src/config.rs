@@ -923,6 +923,15 @@ pub struct ResolverOpts {
     pub authentic_data: bool,
     /// Shuffle DNS servers before each query.
     pub shuffle_dns_servers: bool,
+    #[cfg(feature = "dns-over-rustls")]
+    #[cfg_attr(feature = "serde-config", serde(skip))]
+    pub(crate) tls_client_config: Option<TlsClientConfig>,
+    #[cfg(feature = "dns-over-https-rustls")]
+    #[cfg_attr(feature = "serde-config", serde(skip))]
+    pub(crate) https_client_config: Option<TlsClientConfig>,
+    #[cfg(all(feature = "dns-over-quic", feature = "dns-over-rustls"))]
+    #[cfg_attr(feature = "serde-config", serde(skip))]
+    pub(crate) quic_client_config: Option<TlsClientConfig>,
 }
 
 impl Default for ResolverOpts {
@@ -955,6 +964,12 @@ impl Default for ResolverOpts {
             recursion_desired: true,
             authentic_data: false,
             shuffle_dns_servers: false,
+            #[cfg(feature = "dns-over-rustls")]
+            tls_client_config: None,
+            #[cfg(feature = "dns-over-https-rustls")]
+            https_client_config: None,
+            #[cfg(feature = "dns-over-quic")]
+            quic_client_config: None,
         }
     }
 }

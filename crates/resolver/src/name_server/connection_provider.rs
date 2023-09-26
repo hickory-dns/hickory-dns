@@ -309,20 +309,34 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
                 let tcp_future = self.runtime_provider.connect_tcp(socket_addr);
 
-                #[cfg(feature = "dns-over-rustls")]
-                let client_config = config.tls_config.clone();
+                let (stream, handle) = 'stream: {
+                    #[cfg(feature = "dns-over-rustls")]
+                    let client_config = if let Some(client_config) = config.tls_config.clone() {
+                        client_config
+                    } else {
+                        match crate::tls::tls_client_config() {
+                            Ok(client_config) => {
+                                crate::config::TlsClientConfig(Arc::new(client_config))
+                            }
+                            Err(err) => {
+                                break 'stream (
+                                    Box::pin(std::future::ready(Err(err)))
+                                        as Pin<Box<dyn Future<Output = _> + Send>>,
+                                    proto::BufDnsStreamHandle::new(socket_addr).0,
+                                )
+                            }
+                        }
+                    };
 
-                #[cfg(feature = "dns-over-rustls")]
-                let (stream, handle) = {
-                    crate::tls::new_tls_stream_with_future(
+                    #[cfg(feature = "dns-over-rustls")]
+                    break 'stream crate::tls::new_tls_stream_with_future(
                         tcp_future,
                         socket_addr,
                         tls_dns_name,
                         client_config,
-                    )
-                };
-                #[cfg(not(feature = "dns-over-rustls"))]
-                let (stream, handle) = {
+                    );
+
+                    #[cfg(not(feature = "dns-over-rustls"))]
                     crate::tls::new_tls_stream_with_future(tcp_future, socket_addr, tls_dns_name)
                 };
 
@@ -340,16 +354,28 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
             Protocol::Https => {
                 let socket_addr = config.socket_addr;
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
-                #[cfg(feature = "dns-over-rustls")]
-                let client_config = config.tls_config.clone();
-                let tcp_future = self.runtime_provider.connect_tcp(socket_addr);
 
-                let exchange = crate::https::new_https_stream_with_future(
-                    tcp_future,
-                    socket_addr,
-                    tls_dns_name,
-                    client_config,
-                );
+                let exchange = 'exchange: {
+                    #[cfg(feature = "dns-over-rustls")]
+                    let client_config = if let Some(client_config) = config.tls_config.clone() {
+                        client_config
+                    } else {
+                        match crate::https::http_client_config() {
+                            Ok(client_config) => {
+                                crate::config::TlsClientConfig(Arc::new(client_config))
+                            }
+                            Err(err) => break 'exchange DnsExchange::error(err),
+                        }
+                    };
+                    let tcp_future = self.runtime_provider.connect_tcp(socket_addr);
+
+                    crate::https::new_https_stream_with_future(
+                        tcp_future,
+                        socket_addr,
+                        tls_dns_name,
+                        client_config,
+                    )
+                };
                 ConnectionConnect::Https(exchange)
             }
             #[cfg(feature = "dns-over-quic")]
@@ -362,16 +388,27 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                     }
                 });
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
-                #[cfg(feature = "dns-over-rustls")]
-                let client_config = config.tls_config.clone();
-                let udp_future = self.runtime_provider.bind_udp(bind_addr, socket_addr);
+                let exchange = 'exchange: {
+                    #[cfg(feature = "dns-over-rustls")]
+                    let client_config = if let Some(client_config) = config.tls_config.clone() {
+                        client_config
+                    } else {
+                        match crate::quic::quic_client_config() {
+                            Ok(client_config) => {
+                                crate::config::TlsClientConfig(Arc::new(client_config))
+                            }
+                            Err(err) => break 'exchange DnsExchange::error(err),
+                        }
+                    };
+                    let udp_future = self.runtime_provider.bind_udp(bind_addr, socket_addr);
 
-                let exchange = crate::quic::new_quic_stream_with_future(
-                    udp_future,
-                    socket_addr,
-                    tls_dns_name,
-                    client_config,
-                );
+                    crate::quic::new_quic_stream_with_future(
+                        udp_future,
+                        socket_addr,
+                        tls_dns_name,
+                        client_config,
+                    )
+                };
                 ConnectionConnect::Quic(exchange)
             }
             #[cfg(feature = "mdns")]
