@@ -15,7 +15,6 @@ Trust-DNS is a safe and secure DNS server with DNSSEC support.
 
 documentation = "https://docs.rs/trust-dns-server"
 readme = "README.md"
-rust-version = "1.70"
 
 version.workspace = true
 authors.workspace = true
@@ -33,8 +32,18 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = ["sqlite", "resolver"]
-dnssec-openssl = ["dnssec", "trust-dns-client/dnssec-openssl", "trust-dns-proto/dnssec-openssl", "trust-dns-server/dnssec-openssl"]
-dnssec-ring = ["dnssec", "trust-dns-client/dnssec-ring", "trust-dns-proto/dnssec-ring", "trust-dns-server/dnssec-ring"]
+dnssec-openssl = [
+    "dnssec",
+    "trust-dns-client/dnssec-openssl",
+    "trust-dns-proto/dnssec-openssl",
+    "trust-dns-server/dnssec-openssl",
+]
+dnssec-ring = [
+    "dnssec",
+    "trust-dns-client/dnssec-ring",
+    "trust-dns-proto/dnssec-ring",
+    "trust-dns-server/dnssec-ring",
+]
 dnssec = []
 recursor = ["trust-dns-server/recursor"]
 # Recursive Resolution is Experimental!
@@ -43,14 +52,33 @@ sqlite = ["trust-dns-server/sqlite"]
 
 # TODO: Need to figure out how to be consistent with ring/openssl usage...
 # dns-over-https-openssl = ["dns-over-openssl", "trust-dns-client/dns-over-https-openssl", "dns-over-https"]
-dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "trust-dns-proto/dns-over-https-rustls", "trust-dns-client/dns-over-https-rustls", "trust-dns-server/dns-over-https-rustls"]
+dns-over-https-rustls = [
+    "dns-over-https",
+    "dns-over-rustls",
+    "trust-dns-proto/dns-over-https-rustls",
+    "trust-dns-client/dns-over-https-rustls",
+    "trust-dns-server/dns-over-https-rustls",
+]
 dns-over-https = ["trust-dns-server/dns-over-https"]
 
 dns-over-quic = ["dns-over-rustls", "trust-dns-server/dns-over-quic"]
 
 # TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
-dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-proto/dns-over-openssl", "trust-dns-client/dns-over-openssl", "trust-dns-server/dns-over-openssl"]
-dns-over-rustls = ["dns-over-tls", "dnssec-ring", "rustls", "trust-dns-proto/dns-over-rustls", "trust-dns-client/dns-over-rustls", "trust-dns-server/dns-over-rustls"]
+dns-over-openssl = [
+    "dns-over-tls",
+    "dnssec-openssl",
+    "trust-dns-proto/dns-over-openssl",
+    "trust-dns-client/dns-over-openssl",
+    "trust-dns-server/dns-over-openssl",
+]
+dns-over-rustls = [
+    "dns-over-tls",
+    "dnssec-ring",
+    "rustls",
+    "trust-dns-proto/dns-over-rustls",
+    "trust-dns-client/dns-over-rustls",
+    "trust-dns-server/dns-over-rustls",
+]
 dns-over-tls = []
 
 # This is a deprecated feature...
@@ -69,12 +97,24 @@ path = "src/trust-dns.rs"
 # - suggestion for advanced help with error in cli
 # - derive for clap derive api
 # - help to generate --help
-clap = { workspace = true, default-features = false, features = ["std", "cargo", "help", "derive", "suggestions"] }
-futures-util = { workspace = true, default-features = false, features = ["std"] }
+clap = { workspace = true, default-features = false, features = [
+    "std",
+    "cargo",
+    "help",
+    "derive",
+    "suggestions",
+] }
+futures-util = { workspace = true, default-features = false, features = [
+    "std",
+] }
 rustls = { workspace = true, optional = true }
 time.workspace = true
 tracing.workspace = true
-tracing-subscriber = { workspace = true, features = ["std", "fmt", "env-filter"] }
+tracing-subscriber = { workspace = true, features = [
+    "std",
+    "fmt",
+    "env-filter",
+] }
 tokio = { workspace = true, features = ["time", "rt"] }
 trust-dns-client.workspace = true
 trust-dns-proto.workspace = true
@@ -83,6 +123,9 @@ trust-dns-server = { workspace = true, features = ["toml"] }
 [dev-dependencies]
 native-tls.workspace = true
 regex.workspace = true
-trust-dns-proto = { workspace = true, features = ["testing", "dns-over-native-tls"] }
+trust-dns-proto = { workspace = true, features = [
+    "testing",
+    "dns-over-native-tls",
+] }
 trust-dns-resolver.workspace = true
 webpki-roots.workspace = true
