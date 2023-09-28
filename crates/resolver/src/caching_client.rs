@@ -245,7 +245,10 @@ where
             Ok(Records::CnameChain {
                 next: future,
                 min_ttl: ttl,
-            }) => client.cname(future.await?, query, ttl),
+            }) => match future.await {
+                Ok(lookup) => client.cname(lookup, query, ttl),
+                Err(e) => client.cache(query, Err(e)),
+            },
             Ok(Records::Exists(rdata)) => client.cache(query, Ok(rdata)),
             Err(e) => client.cache(query, Err(e)),
         }
