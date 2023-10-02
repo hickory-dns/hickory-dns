@@ -787,7 +787,9 @@ impl<T: RequestHandler> ServerFuture<T> {
     }
 }
 
-async fn block_until_done(join_set: &mut JoinSet<Result<(), ProtoError>>) -> Result<(), ProtoError> {
+async fn block_until_done(
+    join_set: &mut JoinSet<Result<(), ProtoError>>,
+) -> Result<(), ProtoError> {
     if join_set.is_empty() {
         warn!("block_until_done called with no pending tasks");
         return Ok(());
