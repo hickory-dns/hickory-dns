@@ -144,7 +144,8 @@ async fn test_catalog_lookup() {
     let response_handler = TestResponseHandler::new();
     catalog
         .lookup(&question_req, None, response_handler.clone())
-        .await;
+        .await
+        .unwrap();
     let result = response_handler.into_message().await;
 
     assert_eq!(result.response_code(), ResponseCode::NoError);
@@ -178,7 +179,8 @@ async fn test_catalog_lookup() {
     let response_handler = TestResponseHandler::new();
     catalog
         .lookup(&question_req, None, response_handler.clone())
-        .await;
+        .await
+        .unwrap();
     let result = response_handler.into_message().await;
 
     assert_eq!(result.response_code(), ResponseCode::NoError);
@@ -222,7 +224,8 @@ async fn test_catalog_lookup_soa() {
     let response_handler = TestResponseHandler::new();
     catalog
         .lookup(&question_req, None, response_handler.clone())
-        .await;
+        .await
+        .unwrap();
     let result = response_handler.into_message().await;
 
     assert_eq!(result.response_code(), ResponseCode::NoError);
@@ -287,7 +290,8 @@ async fn test_catalog_nx_soa() {
     let response_handler = TestResponseHandler::new();
     catalog
         .lookup(&question_req, None, response_handler.clone())
-        .await;
+        .await
+        .unwrap();
     let result = response_handler.into_message().await;
 
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
@@ -334,9 +338,10 @@ async fn test_non_authoritive_nx_refused() {
     let question_req = Request::new(question_req, ([127, 0, 0, 1], 5553).into(), Protocol::Udp);
 
     let response_handler = TestResponseHandler::new();
-    catalog
+    let expect_err = catalog
         .lookup(&question_req, None, response_handler.clone())
         .await;
+    assert!(expect_err.is_err());
     let result = response_handler.into_message().await;
 
     assert_eq!(result.response_code(), ResponseCode::Refused);
@@ -389,7 +394,8 @@ async fn test_axfr() {
     let response_handler = TestResponseHandler::new();
     catalog
         .lookup(&question_req, None, response_handler.clone())
-        .await;
+        .await
+        .unwrap();
     let result = response_handler.into_message().await;
 
     let mut answers: Vec<Record> = result.answers().to_vec();
@@ -517,7 +523,8 @@ async fn test_axfr_refused() {
     let response_handler = TestResponseHandler::new();
     catalog
         .lookup(&question_req, None, response_handler.clone())
-        .await;
+        .await
+        .unwrap();
     let result = response_handler.into_message().await;
 
     assert_eq!(result.response_code(), ResponseCode::Refused);
@@ -557,7 +564,8 @@ async fn test_cname_additionals() {
     let response_handler = TestResponseHandler::new();
     catalog
         .lookup(&question_req, None, response_handler.clone())
-        .await;
+        .await
+        .unwrap();
     let result = response_handler.into_message().await;
 
     assert_eq!(result.message_type(), MessageType::Response);
@@ -604,7 +612,8 @@ async fn test_multiple_cname_additionals() {
     let response_handler = TestResponseHandler::new();
     catalog
         .lookup(&question_req, None, response_handler.clone())
-        .await;
+        .await
+        .unwrap();
     let result = response_handler.into_message().await;
 
     assert_eq!(result.message_type(), MessageType::Response);

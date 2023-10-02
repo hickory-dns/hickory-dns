@@ -117,6 +117,20 @@ impl ResponseInfo {
         header.set_response_code(ResponseCode::ServFail);
         header.into()
     }
+
+    pub(crate) fn response_code_error(id: u16, code: ResponseCode) -> Self {
+        let mut header = Header::new();
+        header.set_id(id);
+        header.set_response_code(code);
+        header.into()
+    }
+
+    pub(crate) fn unknown(id: u16) -> Self {
+        let mut header = Header::new();
+        header.set_id(id);
+        header.set_response_code(ResponseCode::Unknown(0));
+        header.into()
+    }
 }
 
 impl From<Header> for ResponseInfo {

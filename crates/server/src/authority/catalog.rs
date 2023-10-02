@@ -137,7 +137,15 @@ impl RequestHandler for Catalog {
             MessageType::Query => match request.op_code() {
                 OpCode::Query => {
                     debug!("query received: {}", request.id());
-                    let info = self.lookup(request, response_edns, response_handle).await;
+                    let info = self
+                        .lookup(request, response_edns, response_handle)
+                        .await
+                        .unwrap_or_else(|e| match e {
+                            LookupError::ResponseCode(code) => {
+                                ResponseInfo::response_code_error(request.header().id(), code)
+                            }
+                            _ => ResponseInfo::unknown(request.header().id()),
+                        });
 
                     Ok(info)
                 }
@@ -344,7 +352,7 @@ impl Catalog {
         request: &Request,
         response_edns: Option<Edns>,
         response_handle: R,
-    ) -> ResponseInfo {
+    ) -> Result<ResponseInfo, LookupError> {
         let request_info = request.request_info();
         let authority = self.find(request_info.query.name());
 
@@ -363,20 +371,18 @@ impl Catalog {
             // if this is empty then the there are no authorities registered that can handle the request
             let response = MessageResponseBuilder::new(Some(request.raw_query()));
 
-            let result = send_response(
+            send_response(
                 response_edns,
                 response.error_msg(request.header(), ResponseCode::Refused),
                 response_handle,
             )
-            .await;
+            .await
+            .map_err(|e| {
+                debug!("failed to send response: {}", e);
+                LookupError::Io(e)
+            })?;
 
-            match result {
-                Err(e) => {
-                    debug!("failed to send response: {}", e);
-                    ResponseInfo::serve_failed()
-                }
-                Ok(r) => r,
-            }
+            Err(LookupError::ResponseCode(ResponseCode::Refused))
         }
     }
 
@@ -403,7 +409,7 @@ async fn lookup<'a, R: ResponseHandler + Unpin>(
     request: &Request,
     response_edns: Option<Edns>,
     response_handle: R,
-) -> ResponseInfo {
+) -> Result<ResponseInfo, LookupError> {
     let query = request_info.query;
     debug!(
         "request: {} found authority: {}",
@@ -419,7 +425,7 @@ async fn lookup<'a, R: ResponseHandler + Unpin>(
         query,
         request.edns(),
     )
-    .await;
+    .await?;
 
     let response = MessageResponseBuilder::new(Some(request.raw_query())).build(
         response_header,
@@ -429,15 +435,12 @@ async fn lookup<'a, R: ResponseHandler + Unpin>(
         sections.additionals.iter(),
     );
 
-    let result = send_response(response_edns.clone(), response, response_handle.clone()).await;
-
-    match result {
-        Err(e) => {
-            debug!("error sending response: {}", e);
-            ResponseInfo::serve_failed()
-        }
-        Ok(i) => i,
-    }
+    send_response(response_edns.clone(), response, response_handle.clone())
+        .await
+        .map_err(|e| {
+            debug!("failed to send response: {}", e);
+            LookupError::Io(e)
+        })
 }
 
 #[allow(unused_variables)]
@@ -471,7 +474,7 @@ async fn build_response(
     request_header: &Header,
     query: &LowerQuery,
     edns: Option<&Edns>,
-) -> (Header, LookupSections) {
+) -> Result<(Header, LookupSections), LookupError> {
     let lookup_options = lookup_options_for_edns(edns);
 
     // log algorithms being requested
@@ -499,14 +502,14 @@ async fn build_response(
                 request_id,
                 query,
             )
-            .await
+            .await?
         }
         ZoneType::Forward | ZoneType::Hint => {
-            send_forwarded_response(future, request_header, &mut response_header).await
+            send_forwarded_response(future, request_header, &mut response_header).await?
         }
     };
 
-    (response_header, sections)
+    Ok((response_header, sections))
 }
 
 async fn send_authoritative_response(
@@ -516,7 +519,7 @@ async fn send_authoritative_response(
     lookup_options: LookupOptions,
     request_id: u16,
     query: &LowerQuery,
-) -> LookupSections {
+) -> Result<LookupSections, LookupError> {
     // In this state we await the records, on success we transition to getting
     // NS records, which indicate an authoritative response.
     //
@@ -531,12 +534,12 @@ async fn send_authoritative_response(
         // TODO: there are probably other error cases that should just drop through (FormErr, ServFail)
         Err(LookupError::ResponseCode(ResponseCode::Refused)) => {
             response_header.set_response_code(ResponseCode::Refused);
-            return LookupSections {
+            return Ok(LookupSections {
                 answers: Box::<AuthLookup>::default(),
                 ns: Box::<AuthLookup>::default(),
                 soa: Box::<AuthLookup>::default(),
                 additionals: Box::<AuthLookup>::default(),
-            };
+            });
         }
         Err(e) => {
             if e.is_nx_domain() {
@@ -605,19 +608,19 @@ async fn send_authoritative_response(
         ),
     };
 
-    LookupSections {
+    Ok(LookupSections {
         answers,
         ns: ns.unwrap_or_else(|| Box::<AuthLookup>::default()),
         soa: soa.unwrap_or_else(|| Box::<AuthLookup>::default()),
         additionals,
-    }
+    })
 }
 
 async fn send_forwarded_response(
     future: impl Future<Output = Result<Box<dyn LookupObject>, LookupError>>,
     request_header: &Header,
     response_header: &mut Header,
-) -> LookupSections {
+) -> Result<LookupSections, LookupError> {
     response_header.set_recursion_available(true);
     response_header.set_authoritative(false);
 
@@ -632,26 +635,31 @@ async fn send_forwarded_response(
             request_header.id()
         );
 
-        Box::new(EmptyLookup)
+        return Err(LookupError::ResponseCode(ResponseCode::Refused));
     } else {
         match future.await {
             Err(e) => {
+                debug!("error resolving: {}", e);
+                if e.is_io() || e.is_unknown() {
+                    return Err(e);
+                }
+
+                // If the server responds with NXDomain we want to copy this behavior
                 if e.is_nx_domain() {
                     response_header.set_response_code(ResponseCode::NXDomain);
                 }
-                debug!("error resolving: {}", e);
                 Box::new(EmptyLookup)
             }
             Ok(rsp) => rsp,
         }
     };
 
-    LookupSections {
+    Ok(LookupSections {
         answers,
         ns: Box::<AuthLookup>::default(),
         soa: Box::<AuthLookup>::default(),
         additionals: Box::<AuthLookup>::default(),
-    }
+    })
 }
 
 struct LookupSections {
