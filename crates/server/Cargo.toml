@@ -55,9 +55,7 @@ dns-over-https = ["h2", "http", "trust-dns-proto/dns-over-https"]
 dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-proto/dns-over-openssl", "tokio-openssl", "trust-dns-resolver/dns-over-openssl"]
 dns-over-rustls = ["dns-over-tls", "dnssec-ring", "rustls", "trust-dns-proto/dns-over-rustls", "trust-dns-resolver/dns-over-rustls", "tokio-rustls"]
 dns-over-tls = []
-
 dns-over-quic = ["dns-over-rustls", "trust-dns-proto/dns-over-quic", "trust-dns-resolver/dns-over-quic"]
-
 dns-over-h3 = ["dns-over-rustls", "h3", "h3-quinn", "trust-dns-proto/dns-over-h3", "trust-dns-resolver/dns-over-h3"]
 
 # This is a deprecated feature...
