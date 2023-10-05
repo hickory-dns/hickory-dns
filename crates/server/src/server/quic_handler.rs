@@ -8,8 +8,8 @@
 use std::{io, net::SocketAddr, sync::Arc};
 
 use bytes::{Bytes, BytesMut};
-use drain::Watch;
 use futures_util::lock::Mutex;
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, warn};
 use trust_dns_proto::{
     error::ProtoError,
@@ -31,7 +31,7 @@ pub(crate) async fn quic_handler<T>(
     mut quic_streams: QuicStreams,
     src_addr: SocketAddr,
     _dns_hostname: Option<Arc<str>>,
-    shutdown: Watch,
+    shutdown: CancellationToken,
 ) -> Result<(), ProtoError>
 where
     T: RequestHandler,
@@ -52,7 +52,7 @@ where
                     break;
                 }
             },
-            _ = shutdown.clone().signaled() => {
+            _ = shutdown.cancelled() => {
                 // A graceful shutdown was initiated.
                 break;
             },

@@ -464,15 +464,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2696e8a945f658fd14dc3b87242e6b80cd0f36ff04ea560fa39082368847946"
 
 [[package]]
-name = "drain"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f1a0abf3fcefad9b4dd0e414207a7408e12b68414a01e6bb19b897d5bd7632d"
-dependencies = [
- "tokio",
-]
-
-[[package]]
 name = "encode_unicode"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2031,7 +2022,6 @@ dependencies = [
  "basic-toml",
  "bytes",
  "cfg-if",
- "drain",
  "enum-as-inner",
  "futures-executor",
  "futures-util",
@@ -2046,6 +2036,7 @@ dependencies = [
  "tokio",
  "tokio-openssl",
  "tokio-rustls",
+ "tokio-util",
  "tracing",
  "tracing-subscriber",
  "trust-dns-proto",

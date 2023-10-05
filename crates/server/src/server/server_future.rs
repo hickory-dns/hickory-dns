@@ -4,7 +4,6 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-use std::future::Future;
 use std::{
     io,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
@@ -12,11 +11,11 @@ use std::{
     time::Duration,
 };
 
-use drain::{Signal, Watch};
 use futures_util::{FutureExt, StreamExt};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey, ServerConfig};
 use tokio::{net, task::JoinSet};
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 use trust_dns_proto::{op::MessageType, rr::Record};
 
@@ -42,19 +41,16 @@ use crate::{
 pub struct ServerFuture<T: RequestHandler> {
     handler: Arc<T>,
     join_set: JoinSet<Result<(), ProtoError>>,
-    shutdown_signal: ShutdownSignal,
-    shutdown_watch: Watch,
+    shutdown_token: CancellationToken,
 }
 
 impl<T: RequestHandler> ServerFuture<T> {
     /// Creates a new ServerFuture with the specified Handler.
     pub fn new(handler: T) -> Self {
-        let (signal, watch) = drain::channel();
         Self {
             handler: Arc::new(handler),
             join_set: JoinSet::new(),
-            shutdown_signal: ShutdownSignal::new(signal),
-            shutdown_watch: watch,
+            shutdown_token: CancellationToken::new(),
         }
     }
 
@@ -64,17 +60,24 @@ impl<T: RequestHandler> ServerFuture<T> {
 
         // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
         //   the address used is acquired from the inbound queries
-        let (stream, stream_handle) =
+        let (mut stream, stream_handle) =
             UdpStream::with_bound(socket, ([127, 255, 255, 254], 0).into());
-        let shutdown = self.shutdown_watch.clone();
-        let mut stream = stream.take_until(Box::pin(shutdown.signaled()));
+        let shutdown = self.shutdown_token.clone();
         let handler = self.handler.clone();
 
         // this spawns a ForEach future which handles all the requests into a Handler.
         self.join_set.spawn({
             async move {
                 let mut inner_join_set = JoinSet::new();
-                while let Some(message) = stream.next().await {
+                loop {
+                    let message = tokio::select! {
+                        message = stream.next() => match message {
+                            None => break,
+                            Some(message) => message,
+                        },
+                        _ = shutdown.cancelled() => break,
+                    };
+
                     let message = match message {
                         Err(e) => {
                             warn!("error receiving message on udp_socket: {}", e);
@@ -106,7 +109,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                     reap_tasks(&mut inner_join_set);
                 }
 
-                if stream.is_stopped() {
+                if shutdown.is_cancelled() {
                     Ok(())
                 } else {
                     // TODO: let's consider capturing all the initial configuration details so that the socket could be recreated...
@@ -140,7 +143,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         let handler = self.handler.clone();
 
         // for each incoming request...
-        let shutdown = self.shutdown_watch.clone();
+        let shutdown = self.shutdown_token.clone();
         self.join_set.spawn(async move {
             let mut inner_join_set = JoinSet::new();
             loop {
@@ -152,7 +155,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                             continue;
                         },
                     },
-                    _ = shutdown.clone().signaled() => {
+                    _ = shutdown.cancelled() => {
                         // A graceful shutdown was initiated. Break out of the loop.
                         break;
                     },
@@ -418,7 +421,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         let tls_acceptor = TlsAcceptor::from(tls_config);
 
         // for each incoming request...
-        let shutdown = self.shutdown_watch.clone();
+        let shutdown = self.shutdown_token.clone();
         self.join_set.spawn(async move {
             let mut inner_join_set = JoinSet::new();
             loop {
@@ -430,7 +433,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                             continue;
                         },
                     },
-                    _ = shutdown.clone().signaled() => {
+                    _ = shutdown.cancelled() => {
                         // A graceful shutdown was initiated. Break out of the loop.
                         break;
                     },
@@ -610,7 +613,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
         // for each incoming request...
         let dns_hostname = dns_hostname;
-        let shutdown = self.shutdown_watch.clone();
+        let shutdown = self.shutdown_token.clone();
         self.join_set.spawn(async move {
             let mut inner_join_set = JoinSet::new();
             let dns_hostname = dns_hostname;
@@ -624,7 +627,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                             continue;
                         },
                     },
-                    _ = shutdown.clone().signaled() => {
+                    _ = shutdown.cancelled() => {
                         // A graceful shutdown was initiated. Break out of the loop.
                         break;
                     },
@@ -711,7 +714,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
         // for each incoming request...
         let dns_hostname = dns_hostname;
-        let shutdown = self.shutdown_watch.clone();
+        let shutdown = self.shutdown_token.clone();
         self.join_set.spawn(async move {
             let mut inner_join_set = JoinSet::new();
             let dns_hostname = dns_hostname;
@@ -726,7 +729,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                             continue;
                         }
                     },
-                    _ = shutdown.clone().signaled() => {
+                    _ = shutdown.cancelled() => {
                         // A graceful shutdown was initiated. Break out of the loop.
                         break;
                     },
@@ -768,58 +771,25 @@ impl<T: RequestHandler> ServerFuture<T> {
         Ok(())
     }
 
-    /// Returns a signal used for initiating a graceful shutdown of the server and the future
-    /// used for awaiting completion of the shutdown.
-    ///
-    /// This allows the application to have separate code paths that are responsible for
-    /// triggering shutdown and awaiting application completion.
-    pub fn graceful(self) -> (ShutdownSignal, impl Future<Output = Result<(), ProtoError>>) {
-        let signal = self.shutdown_signal;
-        let join_set = self.join_set;
-        (signal, block_until_done(join_set))
-    }
-
     /// Triggers a graceful shutdown the server. All background tasks will stop accepting
     /// new connections and the returned future will complete once all tasks have terminated.
-    ///
-    /// This is equivalent to calling [Self::graceful], then triggering the graceful
-    /// shutdown (via [ShutdownSignal::shutdown]) and awaiting completion of the server.
-    pub async fn shutdown_gracefully(self) -> Result<(), ProtoError> {
-        let (signal, fut) = self.graceful();
-
-        // Trigger shutdown.
-        signal.shutdown().await;
+    pub async fn shutdown_gracefully(&mut self) -> Result<(), ProtoError> {
+        self.shutdown_token.cancel();
 
         // Wait for the server to complete.
-        fut.await
+        block_until_done(&mut self.join_set).await
     }
 
     /// This will run until all background tasks complete. If one or more tasks return an error,
     /// one will be chosen as the returned error for this future.
-    pub async fn block_until_done(self) -> Result<(), ProtoError> {
-        block_until_done(self.join_set).await
+    pub async fn block_until_done(&mut self) -> Result<(), ProtoError> {
+        block_until_done(&mut self.join_set).await
     }
 }
 
-/// Signals the start of a graceful shutdown.
-#[derive(Debug)]
-pub struct ShutdownSignal {
-    signal: Signal,
-}
-
-impl ShutdownSignal {
-    fn new(signal: Signal) -> Self {
-        Self { signal }
-    }
-
-    /// Asynchronously sends the shutdown command to all server threads and
-    /// waits for them to complete.
-    pub async fn shutdown(self) {
-        self.signal.drain().await
-    }
-}
-
-async fn block_until_done(mut join_set: JoinSet<Result<(), ProtoError>>) -> Result<(), ProtoError> {
+async fn block_until_done(
+    join_set: &mut JoinSet<Result<(), ProtoError>>,
+) -> Result<(), ProtoError> {
     if join_set.is_empty() {
         warn!("block_until_done called with no pending tasks");
         return Ok(());

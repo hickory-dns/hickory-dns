@@ -8,10 +8,10 @@
 use std::{io, net::SocketAddr, sync::Arc};
 
 use bytes::{Bytes, BytesMut};
-use drain::Watch;
 use futures_util::lock::Mutex;
 use h2::server;
 use tokio::io::{AsyncRead, AsyncWrite};
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, warn};
 use trust_dns_proto::rr::Record;
 
@@ -29,7 +29,7 @@ pub(crate) async fn h2_handler<T, I>(
     io: I,
     src_addr: SocketAddr,
     dns_hostname: Option<Arc<str>>,
-    shutdown: Watch,
+    shutdown: CancellationToken,
 ) where
     T: RequestHandler,
     I: AsyncRead + AsyncWrite + Unpin,
@@ -59,7 +59,7 @@ pub(crate) async fn h2_handler<T, I>(
                     return;
                 }
             },
-            _ = shutdown.clone().signaled() => {
+            _ = shutdown.cancelled() => {
                 // A graceful shutdown was initiated.
                 return
             },

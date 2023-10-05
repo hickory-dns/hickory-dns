@@ -54,6 +54,7 @@ tokio = "1.21"
 tokio-native-tls = "0.3.0"
 tokio-openssl = "0.6.0"
 tokio-rustls = "0.24.0"
+tokio-util = "0.7.9"
 parking_lot = "0.12"
 
 
@@ -81,7 +82,6 @@ cfg-if = "1"
 clap = { version = "4.0", default-features = false }
 console = "0.15.0"
 data-encoding = "2.2.0"
-drain = "0.1.1"
 enum-as-inner = "0.6"
 idna = "0.4.0"
 ipconfig = "0.3.0"
