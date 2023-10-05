@@ -12,7 +12,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use rustls::ClientConfig;
-use trust_dns_proto::https::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
+use trust_dns_proto::h2::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
 use trust_dns_proto::tcp::Connect;
 
 use crate::client::{ClientConnection, Signer};

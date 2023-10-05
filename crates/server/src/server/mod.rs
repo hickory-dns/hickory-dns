@@ -7,10 +7,10 @@
 
 //! `Server` component for hosting a domain name servers operations.
 
+#[cfg(feature = "dns-over-https")]
+mod h2_handler;
 #[cfg(feature = "dns-over-h3")]
 mod h3_handler;
-#[cfg(feature = "dns-over-https")]
-mod https_handler;
 mod protocol;
 #[cfg(feature = "dns-over-quic")]
 mod quic_handler;

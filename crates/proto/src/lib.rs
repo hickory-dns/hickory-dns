@@ -62,6 +62,9 @@ pub fn spawn_bg<F: Future<Output = R> + Send + 'static, R: Send + 'static>(
 }
 
 pub mod error;
+#[cfg(feature = "dns-over-https")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
+pub mod h2;
 #[cfg(feature = "dns-over-h3")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-h3")))]
 pub mod h3;
@@ -71,9 +74,6 @@ pub mod h3;
     doc(cfg(any(feature = "dns-over-https", feature = "dns-over-h3")))
 )]
 pub mod http;
-#[cfg(feature = "dns-over-https")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
-pub mod https;
 #[cfg(feature = "mdns")]
 #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
 pub mod multicast;

@@ -17,7 +17,7 @@ use trust_dns_proto::{http::Version, rr::Record};
 
 use crate::{
     authority::MessageResponse,
-    proto::https::https_server,
+    proto::h2::h2_server,
     server::{
         request_handler::RequestHandler, response_handler::ResponseHandler, server_future,
         Protocol, ResponseInfo,
@@ -71,7 +71,7 @@ pub(crate) async fn h2_handler<T, I>(
         let responder = HttpsResponseHandle(Arc::new(Mutex::new(respond)));
 
         tokio::spawn(async move {
-            match https_server::message_from(dns_hostname, request).await {
+            match h2_server::message_from(dns_hostname, request).await {
                 Ok(bytes) => handle_request(bytes, src_addr, handler, responder).await,
                 Err(err) => warn!("error while handling request from {}: {}", src_addr, err),
             };
@@ -108,8 +108,8 @@ impl ResponseHandler for HttpsResponseHandle {
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
     ) -> io::Result<ResponseInfo> {
+        use crate::proto::h2::HttpsError;
         use crate::proto::http::response;
-        use crate::proto::https::HttpsError;
         use crate::proto::serialize::binary::BinEncoder;
 
         let mut bytes = Vec::with_capacity(512);

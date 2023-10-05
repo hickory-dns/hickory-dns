@@ -7,11 +7,11 @@
 
 //! TLS protocol related components for DNS over HTTPS (DoH)
 
-mod https_client_stream;
-pub mod https_server;
+mod h2_client_stream;
+pub mod h2_server;
 
 pub use crate::http::error::{Error as HttpsError, Result as HttpsResult};
 
-pub use self::https_client_stream::{
+pub use self::h2_client_stream::{
     HttpsClientConnect, HttpsClientResponse, HttpsClientStream, HttpsClientStreamBuilder,
 };

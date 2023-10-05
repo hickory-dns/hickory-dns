@@ -595,7 +595,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         use tokio_rustls::TlsAcceptor;
 
         use crate::proto::rustls::tls_server;
-        use crate::server::https_handler::h2_handler;
+        use crate::server::h2_handler::h2_handler;
 
         let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
 
