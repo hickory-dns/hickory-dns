@@ -314,7 +314,7 @@ async fn https(_opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg(feature = "dns-over-https")]
 async fn https(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
-    use trust_dns_proto::https::HttpsClientStreamBuilder;
+    use trust_dns_proto::h2::HttpsClientStreamBuilder;
 
     let nameserver = opts.nameserver;
     let alpn = opts

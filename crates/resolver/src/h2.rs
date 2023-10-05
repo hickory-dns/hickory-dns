@@ -10,7 +10,7 @@ use std::net::SocketAddr;
 
 use crate::tls::CLIENT_CONFIG;
 
-use proto::https::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
+use proto::h2::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
 use proto::tcp::{Connect, DnsTcpStream};
 use proto::xfer::{DnsExchange, DnsExchangeConnect};
 use proto::TokioTime;

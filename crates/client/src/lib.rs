@@ -282,15 +282,15 @@ pub mod udp;
 
 // TODO: consider removing tcp/udp/https modules...
 #[cfg(feature = "dns-over-https")]
-mod https_client_connection;
+mod h2_client_connection;
 
 pub use trust_dns_proto as proto;
 
 /// The https module which contains all https related connection types
 #[cfg(feature = "dns-over-https")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
-pub mod https {
-    pub use super::https_client_connection::HttpsClientConnection;
+pub mod h2 {
+    pub use super::h2_client_connection::HttpsClientConnection;
 }
 
 /// Returns a version as specified in Cargo.toml

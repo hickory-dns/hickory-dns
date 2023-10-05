@@ -18,8 +18,8 @@ use http::header::CONTENT_LENGTH;
 use http::{Method, Request};
 use tracing::debug;
 
+use crate::h2::HttpsError;
 use crate::http::Version;
-use crate::https::HttpsError;
 
 /// Given an HTTP request, return a future that will result in the next sequence of bytes.
 ///

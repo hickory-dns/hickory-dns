@@ -31,10 +31,10 @@ use tokio_openssl::SslStream as TokioTlsStream;
 use tokio_rustls::client::TlsStream as TokioTlsStream;
 
 use crate::config::{NameServerConfig, Protocol, ResolverOpts};
+#[cfg(feature = "dns-over-https")]
+use proto::h2::{HttpsClientConnect, HttpsClientStream};
 #[cfg(feature = "dns-over-h3")]
 use proto::h3::{H3ClientConnect, H3ClientStream};
-#[cfg(feature = "dns-over-https")]
-use proto::https::{HttpsClientConnect, HttpsClientStream};
 #[cfg(feature = "mdns")]
 use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
 #[cfg(feature = "dns-over-quic")]
@@ -354,7 +354,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let client_config = config.tls_config.clone();
                 let tcp_future = self.runtime_provider.connect_tcp(socket_addr);
 
-                let exchange = crate::https::new_https_stream_with_future(
+                let exchange = crate::h2::new_https_stream_with_future(
                     tcp_future,
                     socket_addr,
                     tls_dns_name,
