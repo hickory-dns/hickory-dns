@@ -63,10 +63,7 @@ where
             .map_err(|e| ProtoError::from(format!("h3 stream receive data failed: {e}")))?
         {
             Some(mut request) => request.copy_to_bytes(request.remaining()),
-            None => {
-                warn!("h3 stream received no data");
-                continue;
-            }
+            None => continue,
         };
 
         debug!(
