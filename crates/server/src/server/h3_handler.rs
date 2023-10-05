@@ -74,7 +74,7 @@ where
         let stream = Arc::new(Mutex::new(stream));
         let responder = H3ResponseHandle(stream.clone());
 
-        handle_request(request, src_addr, handler, responder).await;
+        tokio::spawn(handle_request(request, src_addr, handler, responder));
 
         max_requests -= 1;
         if max_requests == 0 {
