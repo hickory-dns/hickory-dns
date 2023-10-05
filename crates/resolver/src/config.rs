@@ -475,7 +475,10 @@ pub struct NameServerConfig {
     #[cfg(feature = "dns-over-rustls")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
     #[cfg_attr(feature = "serde-config", serde(skip))]
-    /// optional configuration for the tls client
+    /// Optional configuration for the TLS client.
+    ///
+    /// The correct ALPN for the corresponding protocol is automatically
+    /// inserted if none was specificed.
     pub tls_config: Option<TlsClientConfig>,
     /// The client address (IP and port) to use for connecting to the server.
     pub bind_addr: Option<SocketAddr>,
