@@ -516,7 +516,6 @@ fn test_create() {
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 
     // will fail if already set and not the same value.
-    let mut record = record;
     record.set_data(Some(RData::A(A::new(101, 11, 101, 11))));
 
     let result = client.create(record, origin).expect("create failed");
@@ -558,7 +557,6 @@ fn test_append() {
     assert_eq!(result.answers()[0], record);
 
     // will fail if already set and not the same value.
-    let mut record = record;
     record.set_data(Some(RData::A(A::new(101, 11, 101, 11))));
 
     let result = client
@@ -645,7 +643,6 @@ fn test_compare_and_swap() {
         }));
 
     // check the it fails if tried again.
-    let mut new = new;
     new.set_data(Some(RData::A(A::new(102, 12, 102, 12))));
 
     let result = client
@@ -694,7 +691,6 @@ fn test_delete_by_rdata() {
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let mut record = record;
     record.set_data(Some(RData::A(A::new(101, 11, 101, 11))));
     let result = client
         .append(record.clone(), origin.clone(), true)
@@ -748,7 +744,6 @@ fn test_delete_rrset() {
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let mut record = record;
     record.set_data(Some(RData::A(A::new(101, 11, 101, 11))));
     let result = client
         .append(record.clone(), origin.clone(), true)
@@ -796,7 +791,6 @@ fn test_delete_all() {
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let mut record = record;
     record.set_rr_type(RecordType::AAAA);
     record.set_data(Some(RData::AAAA(AAAA::new(1, 2, 3, 4, 5, 6, 7, 8))));
     let result = client

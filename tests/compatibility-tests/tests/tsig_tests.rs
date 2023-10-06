@@ -86,7 +86,6 @@ fn test_create() {
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 
     // will fail if already set and not the same value.
-    let mut record = record;
     record.set_data(Some(RData::A(A::new(101, 11, 101, 11))));
 
     let result = client.create(record, origin).expect("create failed");

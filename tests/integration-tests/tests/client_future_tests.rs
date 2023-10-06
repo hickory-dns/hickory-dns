@@ -888,7 +888,6 @@ fn test_delete_rrset() {
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let mut record = record;
     record.set_data(Some(RData::A(A::new(101, 11, 101, 11))));
     let result = io_loop
         .block_on(client.append(record.clone(), origin.clone(), true))
@@ -941,7 +940,6 @@ fn test_delete_all() {
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let mut record = record;
     record.set_rr_type(RecordType::AAAA);
     record.set_data(Some(RData::AAAA(AAAA::new(1, 2, 3, 4, 5, 6, 7, 8))));
     let result = io_loop

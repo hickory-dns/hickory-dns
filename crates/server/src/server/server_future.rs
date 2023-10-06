@@ -612,11 +612,9 @@ impl<T: RequestHandler> ServerFuture<T> {
         let tls_acceptor = TlsAcceptor::from(Arc::new(tls_acceptor));
 
         // for each incoming request...
-        let dns_hostname = dns_hostname;
         let shutdown = self.shutdown_token.clone();
         self.join_set.spawn(async move {
             let mut inner_join_set = JoinSet::new();
-            let dns_hostname = dns_hostname;
             loop {
                 let shutdown = shutdown.clone();
                 let (tcp_stream, src_addr) = tokio::select! {
@@ -713,11 +711,9 @@ impl<T: RequestHandler> ServerFuture<T> {
             QuicServer::with_socket(socket, certificate_and_key.0, certificate_and_key.1)?;
 
         // for each incoming request...
-        let dns_hostname = dns_hostname;
         let shutdown = self.shutdown_token.clone();
         self.join_set.spawn(async move {
             let mut inner_join_set = JoinSet::new();
-            let dns_hostname = dns_hostname;
             loop {
                 let shutdown = shutdown.clone();
                 let (streams, src_addr) = tokio::select! {
@@ -806,11 +802,9 @@ impl<T: RequestHandler> ServerFuture<T> {
             H3Server::with_socket(socket, certificate_and_key.0, certificate_and_key.1)?;
 
         // for each incoming request...
-        let dns_hostname = dns_hostname;
         let shutdown = self.shutdown_token.clone();
         self.join_set.spawn(async move {
             let mut inner_join_set = JoinSet::new();
-            let dns_hostname = dns_hostname;
             loop {
                 let shutdown = shutdown.clone();
                 let (streams, src_addr) = tokio::select! {
