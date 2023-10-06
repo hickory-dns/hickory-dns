@@ -68,7 +68,7 @@ impl FileAuthority {
         root_dir: Option<&Path>,
         config: &FileConfig,
     ) -> Result<Self, String> {
-        let root_dir_path = root_dir.map(PathBuf::from).unwrap_or_else(PathBuf::new);
+        let root_dir_path = root_dir.map(PathBuf::from).unwrap_or_default();
         let zone_path = root_dir_path.join(&config.zone_file_path);
 
         info!("loading zone file: {:?}", zone_path);

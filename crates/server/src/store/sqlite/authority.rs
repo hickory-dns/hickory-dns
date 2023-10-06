@@ -85,7 +85,7 @@ impl SqliteAuthority {
 
         let zone_name: Name = origin;
 
-        let root_zone_dir = root_dir.map(PathBuf::from).unwrap_or_else(PathBuf::new);
+        let root_zone_dir = root_dir.map(PathBuf::from).unwrap_or_default();
 
         // to be compatible with previous versions, the extension might be zone, not jrnl
         let journal_path: PathBuf = root_zone_dir.join(&config.journal_file_path);

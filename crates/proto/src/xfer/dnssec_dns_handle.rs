@@ -382,8 +382,10 @@ where
     }
 
     // check if any are valid, otherwise return whatever error caused it to fail
-    if verified_rrsets.is_empty() && last_validation_err.is_some() {
-        return Err(last_validation_err.expect("can not be none based on above check"));
+    if verified_rrsets.is_empty() {
+        if let Some(last_validation_err) = last_validation_err {
+            return Err(last_validation_err);
+        }
     }
 
     // validated not none above...
