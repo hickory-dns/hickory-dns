@@ -1,3 +1,5 @@
+*Notice* This project has been rebranded to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo, this crate/binary has been moved to [hickory-pro](https://crates.io/crates/hickory-pro) for all versions >= `0.25`
+
 # Overview
 
 Trust-DNS Proto is the foundational DNS protocol library and implementation for Trust-DNS. Unless you want to manipulate the DNS packets directly, it is likely not the library you want. Please see Trust-DNS [Resolver](https://crates.io/crates/trust-dns-resolver), [Client](https://crates.io/crates/trust-dns-client), or [Server](https://crates.io/crates/trust-dns-server) for higher level interfaces.

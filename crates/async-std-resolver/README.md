@@ -1,3 +1,5 @@
+*Notice* This project has been rebranded to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo versions >= `0.25`
+
 # Overview
 
 Trust-DNS Async-Std Resolver is a library which implements the DNS resolver using the Trust-DNS Resolver library.

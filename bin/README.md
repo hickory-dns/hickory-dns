@@ -1,3 +1,5 @@
+*Notice* This project has been rebranded to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo, this crate/binary has been moved to [hickory-dns](https://crates.io/crates/hickory-dns) for all versions >= `0.25`
+
 # Overview
 
 Trust-DNS provides a binary for hosting or forwarding DNS zones.
@@ -9,7 +11,9 @@ This a named implementation for DNS zone hosting. It is capable of performing si
 - Dynamic Update with sqlite journaling backend (SIG0)
 - DNSSEC online signing (NSEC not NSEC3)
 - DNS over TLS (DoT)
-- DNS over HTTPS (DoH)
+- DNS over HTTPS/2 (DoH)
+- DNS over HTTPS/3 (DoH3)
+- DNS over Quic (DoQ)
 - Forwarding stub resolver
 - ANAME resolution, for zone mapping aliass to A and AAAA records
 - Additionals section generation for aliasing record types
