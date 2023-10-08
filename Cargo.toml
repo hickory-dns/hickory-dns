@@ -15,7 +15,7 @@ members = [
 exclude = ["fuzz"]
 
 [workspace.package]
-version = "0.23.1"
+version = "0.24.0"
 authors = ["The contributors to Trust-DNS"]
 edition = "2021"
 rust-version = "1.67.0"
@@ -28,11 +28,11 @@ license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
 # trustdns
-trust-dns-client = { version = "0.23.1", path = "crates/client", default-features = false }
-trust-dns-recursor = { version = "0.23.1", path = "crates/recursor", default-features = false }
-trust-dns-resolver = { version = "0.23.1", path = "crates/resolver", default-features = false }
-trust-dns-server = { version = "0.23.1", path = "crates/server", default-features = false }
-trust-dns-proto = { version = "0.23.1", path = "crates/proto", default-features = false }
+trust-dns-client = { version = "0.24.0", path = "crates/client", default-features = false }
+trust-dns-recursor = { version = "0.24.0", path = "crates/recursor", default-features = false }
+trust-dns-resolver = { version = "0.24.0", path = "crates/resolver", default-features = false }
+trust-dns-server = { version = "0.24.0", path = "crates/server", default-features = false }
+trust-dns-proto = { version = "0.24.0", path = "crates/proto", default-features = false }
 
 
 # logging

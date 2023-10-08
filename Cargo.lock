@@ -230,7 +230,7 @@ dependencies = [
 
 [[package]]
 name = "async-std-resolver"
-version = "0.23.1"
+version = "0.24.0"
 dependencies = [
  "async-std",
  "async-trait",
@@ -1888,7 +1888,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns"
-version = "0.23.1"
+version = "0.24.0"
 dependencies = [
  "clap",
  "futures-util",
@@ -1908,7 +1908,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-client"
-version = "0.23.1"
+version = "0.24.0"
 dependencies = [
  "cfg-if",
  "data-encoding",
@@ -1930,7 +1930,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-compatibility"
-version = "0.23.1"
+version = "0.24.0"
 dependencies = [
  "data-encoding",
  "futures",
@@ -1942,7 +1942,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-integration"
-version = "0.23.1"
+version = "0.24.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -1964,7 +1964,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-proto"
-version = "0.23.1"
+version = "0.24.0"
 dependencies = [
  "async-trait",
  "backtrace",
@@ -2009,7 +2009,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-recursor"
-version = "0.23.1"
+version = "0.24.0"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -2030,7 +2030,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-resolver"
-version = "0.23.1"
+version = "0.24.0"
 dependencies = [
  "cfg-if",
  "futures-executor",
@@ -2058,7 +2058,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-server"
-version = "0.23.1"
+version = "0.24.0"
 dependencies = [
  "async-trait",
  "basic-toml",
@@ -2090,7 +2090,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-util"
-version = "0.23.1"
+version = "0.24.0"
 dependencies = [
  "clap",
  "console",
