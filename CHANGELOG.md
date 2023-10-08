@@ -5,11 +5,45 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.24.0
+
+**Notice** This project has been rebranded to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo, all versions >= 0.25.0 can be found there.
+
+### Changed
+
+- (proto) Make DnsHandle::send &self instead of &mut self #2018 by ibigbug
+- (all) Update dependencies (avoid vulnerability), optional TOML, remove unused dependencies #2028 by djc
+- (server) Privatize the Lexer API #2040 by djc
+- (server) Use consistent error type for read_system_conf() #2047 by djc
+- (server) Optimized shutdown_gracefully() #2041 by caobug
+
+### Added
+
+- (server) add register with rustls server config #2004 by yaotthaha
+- (all) Add webpki-roots and native-certs crate features #2005 by daxpedda
+- (bin) add run-example target to justfile to simply start trust-dns for manual testing #2020 by bluejekyll
+- (all) DoH3 support #1987 by daxpedda
+
+### Fixed
+
+- (resolver) Fix the resolver version warning in the workspace #2013 by bluejekyll
+- (proto) Forward serde-config feature to the proto crate #2019 by cetanu
+- (server) Prevent task reaping from blocking #2023 by lpraneis
+- (proto) Dont panic on nsec without dnssec #2025 by bluejekyll
+- (server) Spawn H2 Data frame processing into a separate task #2033 by yaroslavros
+- (proto) DoQ default configuration #2036 by daxpedda
+- (resolver) caching bug when CNAME leads to negative response #2053 by Clendenin
+
+### Removed
+
+- (resolver) Remove Copy from ResolverOpts #2029 by daxpedda
+
 ## 0.23.1
 
 ### Changed
 
 - (all) **NOTICE** This project has been rebranded to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, from 0.24.0 onward.
+
 
 ## 0.23.0
 
