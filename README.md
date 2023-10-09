@@ -1,4 +1,4 @@
-**Notice** This project has been rebranded to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo.
+**NOTICE** This project has been rebranded to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo.
 
 [![minimum rustc: 1.67](https://img.shields.io/badge/minimum%20rustc-1.67-green?logo=rust)](https://www.whatrustisit.com)
 [![Build Status](https://github.com/bluejekyll/trust-dns/workflows/test/badge.svg?branch=main)](https://github.com/bluejekyll/trust-dns/actions?query=workflow%3Atest)

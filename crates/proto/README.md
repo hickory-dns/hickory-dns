@@ -1,4 +1,4 @@
-**Notice** This project has been rebranded to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo, this crate/binary has been moved to [hickory-pro](https://crates.io/crates/hickory-pro) for all versions >= `0.25`
+**NOTICE** This project has been rebranded to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo, this crate/binary has been moved to [hickory-proto](https://crates.io/crates/hickory-proto), from `0.24` and onward.
 
 # Overview
 

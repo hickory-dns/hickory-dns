@@ -190,7 +190,7 @@
 //! `openssl` where not supported. `dns-over-openssl` will specify that `openssl` should be used
 //! (which is a perfectly fine option if required). If more than one is specified, the precedence
 //! will be in this order (i.e. only one can be used at a time) `dns-over-rustls`,
-//! `dns-over-native-tls`, and then `dns-over-openssl`. **Notice** the trust-dns developers are not
+//! `dns-over-native-tls`, and then `dns-over-openssl`. **NOTICE** the trust-dns developers are not
 //! responsible for any choice of library that does not meet required security requirements.
 //!
 //! ### Example
