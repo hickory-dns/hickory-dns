@@ -1,3 +1,5 @@
+**NOTICE** This project has been rebranded to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo, this crate/binary has been moved to [hickory-resolver](https://crates.io/crates/hickory-resolver), from `0.24` and onward.
+
 # Overview
 
 Trust-DNS Resolver is a library which implements the DNS resolver using the Trust-DNS Proto library.

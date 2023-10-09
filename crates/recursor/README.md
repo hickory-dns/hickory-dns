@@ -1,3 +1,5 @@
+**NOTICE** This project has been rebranded to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo, this crate/binary has been moved to [hickory-recursor](https://crates.io/crates/hickory-recursor), from `0.24` and onward.
+
 # Overview
 
 Trust-DNS Recursor is a library which implements recursive resolution for DNS. This is currently experimental, test coverage is low and full scope of tests haven't been determined yet.
