@@ -1,5 +1,5 @@
 [package]
-name = "trust-dns-proto-fuzz"
+name = "hickory-proto-fuzz"
 version = "0.0.0"
 authors = ["Automatically generated"]
 publish = false
@@ -11,7 +11,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-trust-dns-proto = { path = "../crates/proto" }
+hickory-proto = { path = "../crates/proto" }
 
 [[bin]]
 name = "message"

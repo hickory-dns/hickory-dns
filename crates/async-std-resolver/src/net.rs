@@ -14,10 +14,10 @@ use async_std::task::spawn_blocking;
 use async_trait::async_trait;
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_util::future::FutureExt;
+use hickory_resolver::proto::tcp::{Connect, DnsTcpStream};
+use hickory_resolver::proto::udp::{DnsUdpSocket, QuicLocalAddr, UdpSocket};
 use pin_utils::pin_mut;
 use socket2::{Domain, Protocol, Socket, Type};
-use trust_dns_resolver::proto::tcp::{Connect, DnsTcpStream};
-use trust_dns_resolver::proto::udp::{DnsUdpSocket, QuicLocalAddr, UdpSocket};
 
 use crate::time::AsyncStdTime;
 

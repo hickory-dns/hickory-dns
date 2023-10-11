@@ -24,8 +24,8 @@ This library contains implementations for IPv4 (A) and IPv6 (AAAA) resolution, m
 
 ```rust
 use std::net::*;
-use trust_dns_resolver::Resolver;
-use trust_dns_resolver::config::*;
+use hickory_resolver::Resolver;
+use hickory_resolver::config::*;
 
 // Construct a new Resolver with default configuration options
 let mut resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();

@@ -7,7 +7,7 @@ use std::cmp::Ordering;
 
 use test::Bencher;
 
-use trust_dns_proto::rr::*;
+use hickory_proto::rr::*;
 
 #[bench]
 fn name_cmp_short(b: &mut Bencher) {

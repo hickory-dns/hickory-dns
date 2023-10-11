@@ -8,26 +8,26 @@ use futures::Future;
 #[cfg(feature = "dnssec")]
 use time::Duration;
 
-use trust_dns_client::client::Signer;
+use hickory_client::client::Signer;
 #[cfg(feature = "dnssec")]
-use trust_dns_client::client::SyncDnssecClient;
+use hickory_client::client::SyncDnssecClient;
 #[allow(deprecated)]
-use trust_dns_client::client::{Client, ClientConnection, SyncClient};
-use trust_dns_client::tcp::TcpClientConnection;
-use trust_dns_client::udp::UdpClientConnection;
-use trust_dns_client::{
+use hickory_client::client::{Client, ClientConnection, SyncClient};
+use hickory_client::tcp::TcpClientConnection;
+use hickory_client::udp::UdpClientConnection;
+use hickory_client::{
     error::ClientErrorKind,
     rr::rdata::opt::{EdnsCode, EdnsOption},
 };
-use trust_dns_integration::example_authority::create_example;
-use trust_dns_integration::{NeverReturnsClientConnection, TestClientStream};
-use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::op::*;
+use hickory_integration::example_authority::create_example;
+use hickory_integration::{NeverReturnsClientConnection, TestClientStream};
+use hickory_proto::error::ProtoError;
+use hickory_proto::op::*;
 #[cfg(feature = "dnssec")]
-use trust_dns_proto::rr::Record;
-use trust_dns_proto::rr::{rdata::A, DNSClass, Name, RData, RecordType};
-use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
-use trust_dns_server::authority::{Authority, Catalog};
+use hickory_proto::rr::Record;
+use hickory_proto::rr::{rdata::A, DNSClass, Name, RData, RecordType};
+use hickory_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
+use hickory_server::authority::{Authority, Catalog};
 
 pub struct TestClientConnection {
     catalog: Arc<StdMutex<Catalog>>,
@@ -438,10 +438,10 @@ fn test_nsec_query_type() {
 #[allow(deprecated)]
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConnection>, Name) {
+    use hickory_proto::rr::dnssec::rdata::{DNSSECRData, KEY};
+    use hickory_proto::rr::dnssec::{Algorithm, KeyPair, Signer as SigSigner};
+    use hickory_server::store::sqlite::SqliteAuthority;
     use openssl::rsa::Rsa;
-    use trust_dns_proto::rr::dnssec::rdata::{DNSSECRData, KEY};
-    use trust_dns_proto::rr::dnssec::{Algorithm, KeyPair, Signer as SigSigner};
-    use trust_dns_server::store::sqlite::SqliteAuthority;
 
     let authority = create_example();
     let mut authority = SqliteAuthority::new(authority, true, false);
@@ -766,7 +766,7 @@ fn test_delete_rrset() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_delete_all() {
-    use trust_dns_proto::rr::rdata::AAAA;
+    use hickory_proto::rr::rdata::AAAA;
 
     let catalog = Catalog::new();
     let (client, origin) = create_sig0_ready_client(catalog);

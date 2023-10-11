@@ -3,9 +3,9 @@
 
 extern crate test;
 
-use trust_dns_proto::op::{Header, Message, MessageType, OpCode, ResponseCode};
-use trust_dns_proto::rr::Record;
-use trust_dns_proto::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
+use hickory_proto::op::{Header, Message, MessageType, OpCode, ResponseCode};
+use hickory_proto::rr::Record;
+use hickory_proto::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
 
 use test::Bencher;
 

@@ -8,7 +8,7 @@ use std::{
 
 use futures_executor::block_on;
 
-use trust_dns_proto::{
+use hickory_proto::{
     op::{update_message, Header, Message, Query, ResponseCode},
     rr::dnssec::{Algorithm, SigSigner, SupportedAlgorithms, Verifier},
     rr::{
@@ -17,7 +17,7 @@ use trust_dns_proto::{
     },
     serialize::binary::{BinDecodable, BinEncodable},
 };
-use trust_dns_server::{
+use hickory_server::{
     authority::{
         AuthLookup, Authority, DnssecAuthority, LookupError, LookupOptions, MessageRequest,
         UpdateResult,
@@ -775,8 +775,8 @@ pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys
 }
 
 pub fn add_auth<A: DnssecAuthority>(authority: &mut A) -> Vec<SigSigner> {
-    use trust_dns_proto::rr::dnssec::rdata::key::KeyUsage;
-    use trust_dns_server::config::dnssec::*;
+    use hickory_proto::rr::dnssec::rdata::key::KeyUsage;
+    use hickory_server::config::dnssec::*;
 
     let update_name = Name::from_str("update")
         .unwrap()

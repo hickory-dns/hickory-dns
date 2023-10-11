@@ -15,8 +15,8 @@ use proto::h3::{H3ClientConnect, H3ClientStream};
 use proto::xfer::{DnsExchange, DnsExchangeConnect};
 use proto::TokioTime;
 
+use hickory_proto::udp::{DnsUdpSocket, QuicLocalAddr};
 use rustls::ClientConfig as CryptoConfig;
-use trust_dns_proto::udp::{DnsUdpSocket, QuicLocalAddr};
 
 #[allow(clippy::type_complexity)]
 #[allow(unused)]

@@ -1,5 +1,5 @@
 [package]
-name = "trust-dns-util"
+name = "hickory-util"
 
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
@@ -8,7 +8,7 @@ Utilities that complement Trust-DNS.
 """
 
 # These URLs point to more information about the repository
-documentation = "https://docs.rs/crate/trust-dns-util"
+documentation = "https://docs.rs/crate/hickory-util"
 
 # This points to a file in the repository (relative to this Cargo.toml). The
 # contents of this file are stored and indexed in the registry.
@@ -25,23 +25,59 @@ categories.workspace = true
 license.workspace = true
 
 [badges]
-#github-actions = { repository = "bluejekyll/trust-dns", branch = "main", workflow = "test" }
-codecov = { repository = "bluejekyll/trust-dns", branch = "main", service = "github" }
+#github-actions = { repository = "bluejekyll/hickory", branch = "main", workflow = "test" }
+codecov = { repository = "hickorydns/hickory-dns", branch = "main", service = "github" }
 maintenance = { status = "actively-developed" }
 
 [features]
-dns-over-rustls = ["rustls", "trust-dns-proto/dns-over-rustls", "trust-dns-client/dns-over-rustls", "trust-dns-resolver/dns-over-rustls"]
-dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "trust-dns-proto/dns-over-https-rustls", "trust-dns-client/dns-over-https-rustls", "trust-dns-resolver/dns-over-https-rustls"]
-dns-over-https = ["trust-dns-proto/dns-over-https", "trust-dns-client/dns-over-https","trust-dns-resolver/dns-over-https"]
-dns-over-quic = ["dns-over-rustls", "trust-dns-resolver/dns-over-quic"]
-dns-over-h3 = ["dns-over-rustls", "trust-dns-resolver/dns-over-h3"]
+dns-over-rustls = [
+    "rustls",
+    "hickory-proto/dns-over-rustls",
+    "hickory-client/dns-over-rustls",
+    "hickory-resolver/dns-over-rustls",
+]
+dns-over-https-rustls = [
+    "dns-over-https",
+    "dns-over-rustls",
+    "hickory-proto/dns-over-https-rustls",
+    "hickory-client/dns-over-https-rustls",
+    "hickory-resolver/dns-over-https-rustls",
+]
+dns-over-https = [
+    "hickory-proto/dns-over-https",
+    "hickory-client/dns-over-https",
+    "hickory-resolver/dns-over-https",
+]
+dns-over-quic = ["dns-over-rustls", "hickory-resolver/dns-over-quic"]
+dns-over-h3 = ["dns-over-rustls", "hickory-resolver/dns-over-h3"]
 
-webpki-roots = ["dep:webpki-roots", "trust-dns-proto/webpki-roots", "trust-dns-client/webpki-roots", "trust-dns-resolver/webpki-roots"]
-native-certs = ["dep:rustls-native-certs", "trust-dns-proto/native-certs", "trust-dns-client/native-certs", "trust-dns-resolver/native-certs"]
+webpki-roots = [
+    "dep:webpki-roots",
+    "hickory-proto/webpki-roots",
+    "hickory-client/webpki-roots",
+    "hickory-resolver/webpki-roots",
+]
+native-certs = [
+    "dep:rustls-native-certs",
+    "hickory-proto/native-certs",
+    "hickory-client/native-certs",
+    "hickory-resolver/native-certs",
+]
 
 dnssec = []
-dnssec-openssl = ["dnssec", "openssl", "trust-dns-client/dnssec-openssl", "trust-dns-proto/dnssec-openssl", "trust-dns-resolver/dnssec-openssl"]
-dnssec-ring = ["dnssec", "trust-dns-client/dnssec-ring", "trust-dns-proto/dnssec-ring", "trust-dns-resolver/dnssec-ring"]
+dnssec-openssl = [
+    "dnssec",
+    "openssl",
+    "hickory-client/dnssec-openssl",
+    "hickory-proto/dnssec-openssl",
+    "hickory-resolver/dnssec-openssl",
+]
+dnssec-ring = [
+    "dnssec",
+    "hickory-client/dnssec-ring",
+    "hickory-proto/dnssec-ring",
+    "hickory-resolver/dnssec-ring",
+]
 
 [[bin]]
 name = "dnskey-to-pem"
@@ -56,17 +92,31 @@ name = "pem-to-public-dnskey"
 required-features = ["dnssec-openssl"]
 
 [dependencies]
-clap = { workspace = true, default-features = false, features = ["std", "cargo", "derive", "color", "suggestions", "help", "usage"] }
+clap = { workspace = true, default-features = false, features = [
+    "std",
+    "cargo",
+    "derive",
+    "color",
+    "suggestions",
+    "help",
+    "usage",
+] }
 console.workspace = true
 data-encoding.workspace = true
 openssl = { workspace = true, features = ["v102", "v110"], optional = true }
-rustls = { workspace = true, features = ["dangerous_configuration"], optional = true }
+rustls = { workspace = true, features = [
+    "dangerous_configuration",
+], optional = true }
 rustls-native-certs = { workspace = true, optional = true }
 tracing.workspace = true
-tracing-subscriber = { workspace = true, features = ["std", "fmt", "env-filter"] }
-trust-dns-client.workspace = true
-trust-dns-proto.workspace = true
-trust-dns-recursor.workspace = true
-trust-dns-resolver = { workspace = true, features = ["system-config"] }
+tracing-subscriber = { workspace = true, features = [
+    "std",
+    "fmt",
+    "env-filter",
+] }
+hickory-client.workspace = true
+hickory-proto.workspace = true
+hickory-recursor.workspace = true
+hickory-resolver = { workspace = true, features = ["system-config"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 webpki-roots = { workspace = true, optional = true }

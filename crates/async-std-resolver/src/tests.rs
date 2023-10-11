@@ -1,7 +1,7 @@
 #![allow(clippy::extra_unused_type_parameters)]
 
-use trust_dns_resolver::name_server::GenericConnection;
-use trust_dns_resolver::testing;
+use hickory_resolver::name_server::GenericConnection;
+use hickory_resolver::testing;
 
 use crate::config::{ResolverConfig, ResolverOpts};
 use crate::lookup::LookupFuture;

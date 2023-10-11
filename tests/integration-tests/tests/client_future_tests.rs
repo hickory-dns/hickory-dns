@@ -13,8 +13,8 @@ use tokio::{
 };
 
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
-use trust_dns_client::client::Signer;
-use trust_dns_client::{
+use hickory_client::client::Signer;
+use hickory_client::{
     client::{AsyncClient, ClientHandle},
     error::ClientErrorKind,
     op::{Edns, Message, MessageType, OpCode, Query, ResponseCode},
@@ -29,16 +29,16 @@ use trust_dns_client::{
     udp::UdpClientStream,
 };
 #[cfg(feature = "dnssec")]
-use trust_dns_proto::rr::{dnssec::SigSigner, Record};
+use hickory_proto::rr::{dnssec::SigSigner, Record};
 #[cfg(feature = "dnssec")]
-use trust_dns_proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
+use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
-use trust_dns_proto::TokioTime;
-use trust_dns_proto::{iocompat::AsyncIoTokioAsStd, xfer::FirstAnswer, DnsHandle};
+use hickory_proto::TokioTime;
+use hickory_proto::{iocompat::AsyncIoTokioAsStd, xfer::FirstAnswer, DnsHandle};
 
-use trust_dns_server::authority::{Authority, Catalog};
+use hickory_server::authority::{Authority, Catalog};
 
-use trust_dns_integration::{
+use hickory_integration::{
     example_authority::create_example, NeverReturnsClientStream, TestClientStream,
 };
 
@@ -54,7 +54,7 @@ fn test_query_nonet() {
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     io_loop.block_on(test_query(&mut client));
     io_loop.block_on(test_query(&mut client));
@@ -67,7 +67,7 @@ fn test_query_udp_ipv4() {
     let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
     let client = AsyncClient::connect(stream);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client));
@@ -87,7 +87,7 @@ fn test_query_udp_ipv6() {
     let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
     let client = AsyncClient::connect(stream);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client));
@@ -102,7 +102,7 @@ fn test_query_tcp_ipv4() {
     let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
     let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client));
@@ -121,7 +121,7 @@ fn test_query_tcp_ipv6() {
     let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
     let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client));
@@ -131,8 +131,8 @@ fn test_query_tcp_ipv6() {
 #[test]
 #[cfg(feature = "dns-over-https-rustls")]
 fn test_query_https() {
+    use hickory_proto::h2::HttpsClientStreamBuilder;
     use rustls::{ClientConfig, OwnedTrustAnchor, RootCertStore};
-    use trust_dns_proto::h2::HttpsClientStreamBuilder;
 
     const ALPN_H2: &[u8] = b"h2";
 
@@ -164,7 +164,7 @@ fn test_query_https() {
             .build::<AsyncIoTokioAsStd<TokioTcpStream>>(addr, "cloudflare-dns.com".to_string()),
     );
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client));
@@ -269,7 +269,7 @@ fn test_notify() {
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     let name = Name::from_str("ping.example.com").unwrap();
 
@@ -297,10 +297,10 @@ async fn create_sig0_ready_client() -> (
     ),
     Name,
 ) {
+    use hickory_proto::rr::dnssec::rdata::DNSSECRData;
+    use hickory_proto::rr::dnssec::{Algorithm, KeyPair};
+    use hickory_server::store::sqlite::SqliteAuthority;
     use openssl::rsa::Rsa;
-    use trust_dns_proto::rr::dnssec::rdata::DNSSECRData;
-    use trust_dns_proto::rr::dnssec::{Algorithm, KeyPair};
-    use trust_dns_server::store::sqlite::SqliteAuthority;
 
     let authority = create_example();
     let mut authority = SqliteAuthority::new(authority, true, false);
@@ -341,7 +341,7 @@ async fn create_sig0_ready_client() -> (
 fn test_create() {
     let io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     // create a record
     let mut record = Record::with(
@@ -389,7 +389,7 @@ fn test_create() {
 fn test_create_multi() {
     let io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     // create a record
     let mut record = Record::with(
@@ -447,7 +447,7 @@ fn test_create_multi() {
 fn test_append() {
     let io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     // append a record
     let mut record = Record::with(
@@ -527,7 +527,7 @@ fn test_append() {
 fn test_append_multi() {
     let io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     // append a record
     let mut record = Record::with(
@@ -613,7 +613,7 @@ fn test_append_multi() {
 fn test_compare_and_swap() {
     let io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     // create a record
     let mut record = Record::with(
@@ -671,7 +671,7 @@ fn test_compare_and_swap() {
 fn test_compare_and_swap_multi() {
     let io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     // create a record
     let mut current = RecordSet::with_ttl(
@@ -737,7 +737,7 @@ fn test_compare_and_swap_multi() {
 fn test_delete_by_rdata() {
     let io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     // append a record
     let mut record1 = Record::with(
@@ -789,7 +789,7 @@ fn test_delete_by_rdata() {
 fn test_delete_by_rdata_multi() {
     let io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     // append a record
     let mut rrset = RecordSet::with_ttl(
@@ -866,7 +866,7 @@ fn test_delete_by_rdata_multi() {
 fn test_delete_rrset() {
     let io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     // append a record
     let mut record = Record::with(
@@ -914,11 +914,11 @@ fn test_delete_rrset() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_delete_all() {
-    use trust_dns_proto::rr::rdata::AAAA;
+    use hickory_proto::rr::rdata::AAAA;
 
     let io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     // append a record
     let mut record = Record::with(
@@ -1000,7 +1000,7 @@ fn test_timeout_query_nonet() {
     let client =
         AsyncClient::with_timeout(stream, sender, std::time::Duration::from_millis(1), None);
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     test_timeout_query(client, io_loop);
 }
@@ -1021,7 +1021,7 @@ fn test_timeout_query_udp() {
         UdpClientStream::<TokioUdpSocket>::with_timeout(addr, std::time::Duration::from_millis(1));
     let client = AsyncClient::connect(stream);
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     test_timeout_query(client, io_loop);
 }

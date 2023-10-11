@@ -34,15 +34,15 @@ use clap::{ArgGroup, Parser};
 use console::style;
 use tokio::task::JoinSet;
 
-use tokio::time::MissedTickBehavior;
-use trust_dns_client::rr::{Record, RecordData};
-use trust_dns_resolver::{
+use hickory_client::rr::{Record, RecordData};
+use hickory_resolver::{
     config::{NameServerConfig, NameServerConfigGroup, Protocol, ResolverConfig, ResolverOpts},
     error::{ResolveError, ResolveErrorKind},
     lookup::Lookup,
     proto::rr::RecordType,
     TokioAsyncResolver,
 };
+use tokio::time::MissedTickBehavior;
 
 /// A CLI interface for the trust-dns-resolver.
 ///
@@ -259,11 +259,11 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    trust_dns_util::logger(env!("CARGO_BIN_NAME"), log_level);
+    hickory_util::logger(env!("CARGO_BIN_NAME"), log_level);
 
     // read system configuration
     let (sys_config, sys_options): (Option<ResolverConfig>, Option<ResolverOpts>) = if opts.system {
-        let (config, options) = trust_dns_resolver::system_conf::read_system_conf()?;
+        let (config, options) = hickory_resolver::system_conf::read_system_conf()?;
 
         (Some(config), Some(options))
     } else {
@@ -336,7 +336,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // configure the resolver options
     let mut options = sys_options.unwrap_or_default();
     if opts.happy {
-        options.ip_strategy = trust_dns_resolver::config::LookupIpStrategy::Ipv4AndIpv6;
+        options.ip_strategy = hickory_resolver::config::LookupIpStrategy::Ipv4AndIpv6;
     }
 
     let resolver_arc = Arc::new(TokioAsyncResolver::tokio(config, options));

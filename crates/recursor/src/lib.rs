@@ -31,7 +31,7 @@ mod recursor;
 pub(crate) mod recursor_pool;
 
 pub use error::{Error, ErrorKind};
+pub use hickory_proto as proto;
+pub use hickory_resolver as resolver;
+pub use hickory_resolver::config::NameServerConfig;
 pub use recursor::Recursor;
-pub use trust_dns_proto as proto;
-pub use trust_dns_resolver as resolver;
-pub use trust_dns_resolver::config::NameServerConfig;

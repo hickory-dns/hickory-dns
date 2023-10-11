@@ -15,7 +15,7 @@ fn get_env() -> String {
 }
 
 fn get_levels<T: ToString>(bin: &str, level: Option<T>) -> String {
-    let trust_dns_crates = level.map(|level| {
+    let hickory_crates = level.map(|level| {
         format!(
             "{bin}={level},trust_dns={level}",
             bin = bin,
@@ -23,10 +23,10 @@ fn get_levels<T: ToString>(bin: &str, level: Option<T>) -> String {
         )
     });
 
-    if let Some(trust_dns_crates) = trust_dns_crates {
+    if let Some(hickory_crates) = hickory_crates {
         format!(
-            "{trust_dns_crates},{env}",
-            trust_dns_crates = trust_dns_crates,
+            "{hickory_crates},{env}",
+            hickory_crates = hickory_crates,
             env = get_env()
         )
     } else {

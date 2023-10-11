@@ -15,16 +15,16 @@ use std::str::FromStr;
 
 use time::Duration;
 
-use trust_dns_client::client::Client;
-use trust_dns_client::client::{ClientConnection, SyncClient};
-use trust_dns_client::proto::op::ResponseCode;
-use trust_dns_client::proto::rr::dnssec::rdata::tsig::TsigAlgorithm;
-use trust_dns_client::proto::rr::dnssec::tsig::TSigner;
-use trust_dns_client::proto::rr::Name;
-use trust_dns_client::proto::rr::{RData, Record, RecordType};
-use trust_dns_client::tcp::TcpClientConnection;
-use trust_dns_client::udp::UdpClientConnection;
-use trust_dns_compatibility::named_process;
+use hickory_client::client::Client;
+use hickory_client::client::{ClientConnection, SyncClient};
+use hickory_client::proto::op::ResponseCode;
+use hickory_client::proto::rr::dnssec::rdata::tsig::TsigAlgorithm;
+use hickory_client::proto::rr::dnssec::tsig::TSigner;
+use hickory_client::proto::rr::Name;
+use hickory_client::proto::rr::{RData, Record, RecordType};
+use hickory_client::tcp::TcpClientConnection;
+use hickory_client::udp::UdpClientConnection;
+use hickory_compatibility::named_process;
 
 #[allow(dead_code)]
 pub fn create_tsig_ready_client<CC>(conn: CC) -> SyncClient<CC>
@@ -50,7 +50,7 @@ where
 #[cfg(not(feature = "none"))]
 #[test]
 fn test_create() {
-    use trust_dns_client::rr::rdata::A;
+    use hickory_client::rr::rdata::A;
 
     let (_process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);

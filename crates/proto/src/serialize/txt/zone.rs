@@ -443,7 +443,7 @@ impl<'a> Parser<'a> {
     ///
     /// # Example
     /// ```
-    /// use trust_dns_proto::serialize::txt::Parser;
+    /// use hickory_proto::serialize::txt::Parser;
     ///
     /// assert_eq!(Parser::parse_time("0").unwrap(),  0);
     /// assert!(Parser::parse_time("s").is_err());

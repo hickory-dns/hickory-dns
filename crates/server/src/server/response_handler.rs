@@ -7,8 +7,8 @@
 
 use std::{io, net::SocketAddr};
 
+use hickory_proto::rr::Record;
 use tracing::{debug, trace};
-use trust_dns_proto::rr::Record;
 
 use crate::server::Protocol;
 use crate::{
@@ -79,7 +79,7 @@ impl ResponseHandle {
                     edns.max_payload()
                 } else {
                     // No EDNS, use the recommended max from RFC6891.
-                    trust_dns_proto::udp::MAX_RECEIVE_BUFFER_SIZE as u16
+                    hickory_proto::udp::MAX_RECEIVE_BUFFER_SIZE as u16
                 }
             }
             _ => u16::MAX,

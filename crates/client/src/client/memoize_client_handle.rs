@@ -11,7 +11,7 @@ use std::sync::Arc;
 use futures_util::future::FutureExt;
 use futures_util::lock::Mutex;
 use futures_util::stream::Stream;
-use trust_dns_proto::{
+use hickory_proto::{
     error::ProtoError,
     xfer::{DnsHandle, DnsRequest, DnsResponse},
 };
@@ -100,7 +100,7 @@ mod test {
 
     use futures::lock::Mutex;
     use futures::*;
-    use trust_dns_proto::{
+    use hickory_proto::{
         error::ProtoError,
         xfer::{DnsHandle, DnsRequest, DnsResponse},
     };
@@ -108,7 +108,7 @@ mod test {
     use crate::client::*;
     use crate::op::*;
     use crate::rr::*;
-    use trust_dns_proto::xfer::FirstAnswer;
+    use hickory_proto::xfer::FirstAnswer;
 
     #[derive(Clone)]
     struct TestClient {

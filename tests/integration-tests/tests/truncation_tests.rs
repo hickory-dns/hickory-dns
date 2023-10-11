@@ -1,18 +1,18 @@
+use hickory_client::client::AsyncClient;
+use hickory_proto::op::{Edns, Message, MessageType, OpCode, Query};
+use hickory_proto::rr::rdata::{A, SOA};
+use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, RrKey};
+use hickory_proto::udp::UdpClientStream;
+use hickory_proto::xfer::FirstAnswer;
+use hickory_proto::DnsHandle;
+use hickory_server::authority::{Catalog, ZoneType};
+use hickory_server::store::in_memory::InMemoryAuthority;
+use hickory_server::ServerFuture;
 use std::collections::BTreeMap;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::net::UdpSocket;
-use trust_dns_client::client::AsyncClient;
-use trust_dns_proto::op::{Edns, Message, MessageType, OpCode, Query};
-use trust_dns_proto::rr::rdata::{A, SOA};
-use trust_dns_proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, RrKey};
-use trust_dns_proto::udp::UdpClientStream;
-use trust_dns_proto::xfer::FirstAnswer;
-use trust_dns_proto::DnsHandle;
-use trust_dns_server::authority::{Catalog, ZoneType};
-use trust_dns_server::store::in_memory::InMemoryAuthority;
-use trust_dns_server::ServerFuture;
 
 #[tokio::test]
 async fn test_truncation() {

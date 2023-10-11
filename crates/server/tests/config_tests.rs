@@ -21,8 +21,8 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use trust_dns_server::authority::ZoneType;
-use trust_dns_server::config::*;
+use hickory_server::authority::ZoneType;
+use hickory_server::config::*;
 
 #[test]
 fn test_read_config() {
@@ -151,8 +151,8 @@ fn test_parse_toml() {
 #[cfg(feature = "dnssec")]
 #[test]
 fn test_parse_zone_keys() {
-    use trust_dns_proto::rr::dnssec::Algorithm;
-    use trust_dns_proto::rr::Name;
+    use hickory_proto::rr::dnssec::Algorithm;
+    use hickory_proto::rr::Name;
 
     let config = Config::from_toml(
         "
@@ -271,5 +271,5 @@ define_test_config!(ipv4_only);
 define_test_config!(ipv6_only);
 define_test_config!(openssl_dnssec);
 define_test_config!(ring_dnssec);
-#[cfg(feature = "trust-dns-resolver")]
+#[cfg(feature = "hickory-resolver")]
 define_test_config!(example_forwarder);

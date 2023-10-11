@@ -11,7 +11,7 @@ use enum_as_inner::EnumAsInner;
 use thiserror::Error;
 
 use crate::proto::op::ResponseCode;
-#[cfg(feature = "trust-dns-resolver")]
+#[cfg(feature = "hickory-resolver")]
 use crate::resolver::error::ResolveError;
 
 // TODO: should this implement Failure?
@@ -27,15 +27,15 @@ pub enum LookupError {
     #[error("Error performing lookup: {0}")]
     ResponseCode(ResponseCode),
     /// Resolve Error
-    #[cfg(feature = "trust-dns-resolver")]
+    #[cfg(feature = "hickory-resolver")]
     #[cfg_attr(docsrs, doc(cfg(feature = "resolver")))]
     #[error("Forward resolution error: {0}")]
     ResolveError(#[from] ResolveError),
     /// Recursive Resolver Error
-    #[cfg(feature = "trust-dns-recursor")]
+    #[cfg(feature = "hickory-recursor")]
     #[cfg_attr(docsrs, doc(cfg(feature = "recursor")))]
     #[error("Recursive resolution error: {0}")]
-    RecursiveError(#[from] trust_dns_recursor::Error),
+    RecursiveError(#[from] hickory_recursor::Error),
     /// An underlying IO error occurred
     #[error("io error: {0}")]
     Io(io::Error),

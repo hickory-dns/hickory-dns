@@ -4,9 +4,9 @@ use std::str::FromStr;
 
 use rusqlite::*;
 
-use trust_dns_proto::rr::{rdata::A, *};
-use trust_dns_server::store::sqlite::persistence::CURRENT_VERSION;
-use trust_dns_server::store::sqlite::Journal;
+use hickory_proto::rr::{rdata::A, *};
+use hickory_server::store::sqlite::persistence::CURRENT_VERSION;
+use hickory_server::store::sqlite::Journal;
 
 #[test]
 fn test_new_journal() {

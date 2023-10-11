@@ -102,7 +102,7 @@ impl<'a> BinDecoder<'a> {
     /// Returns the number of bytes in the buffer
     ///
     /// ```
-    /// use trust_dns_proto::serialize::binary::BinDecoder;
+    /// use hickory_proto::serialize::binary::BinDecoder;
     ///
     /// let deadbeef = b"deadbeef";
     /// let mut decoder = BinDecoder::new(deadbeef);

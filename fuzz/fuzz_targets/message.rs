@@ -1,7 +1,7 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
 
-use trust_dns_proto::{
+use hickory_proto::{
     op::Message,
     rr::{Record, RecordType},
     serialize::binary::{BinDecodable, BinEncodable},
@@ -81,7 +81,7 @@ fn records_equal(records1: &[Record], records2: &[Record]) -> bool {
 /// Some RDATAs don't roundtrip elegantly, so we have custom matching rules here.
 #[allow(clippy::single_match)]
 fn record_equal(record1: &Record, record2: &Record) -> bool {
-    use trust_dns_proto::rr::RData;
+    use hickory_proto::rr::RData;
 
     if record1.record_type() != record2.record_type() {
         return false;

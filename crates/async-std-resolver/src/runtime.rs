@@ -5,17 +5,15 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use hickory_resolver::config::{NameServerConfig, ResolverOpts};
 use std::future::Future;
 use std::net::SocketAddr;
 use std::pin::Pin;
-use trust_dns_resolver::config::{NameServerConfig, ResolverOpts};
 
-use trust_dns_resolver::proto::error::ProtoError;
-use trust_dns_resolver::proto::Executor;
+use hickory_resolver::proto::error::ProtoError;
+use hickory_resolver::proto::Executor;
 
-use trust_dns_resolver::name_server::{
-    ConnectionProvider, GenericConnector, RuntimeProvider, Spawn,
-};
+use hickory_resolver::name_server::{ConnectionProvider, GenericConnector, RuntimeProvider, Spawn};
 
 use crate::net::{AsyncStdTcpStream, AsyncStdUdpSocket};
 use crate::proto::tcp::Connect;

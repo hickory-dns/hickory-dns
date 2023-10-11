@@ -12,8 +12,8 @@
 use std::{fmt, io};
 
 use enum_as_inner::EnumAsInner;
+use hickory_resolver::Name;
 use thiserror::Error;
-use trust_dns_resolver::Name;
 
 #[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};

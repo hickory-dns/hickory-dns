@@ -432,8 +432,8 @@ pub trait Client {
     }
 }
 
-/// The Client is abstracted over either trust_dns_client::tcp::TcpClientConnection or
-///  trust_dns_client::udp::UdpClientConnection.
+/// The Client is abstracted over either hickory_client::tcp::TcpClientConnection or
+///  hickory_client::udp::UdpClientConnection.
 ///
 /// Usage of TCP or UDP is up to the user. Some DNS servers
 ///  disallow TCP in some cases, so if TCP double check if UDP works.

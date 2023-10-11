@@ -793,7 +793,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
         assert_eq!(key_tag, 28551);
     }
 
-    // TODO: these tests technically came from TBS in trust_dns_proto
+    // TODO: these tests technically came from TBS in hickory_proto
     #[cfg(feature = "openssl")]
     #[allow(clippy::module_inception)]
     #[cfg(test)]

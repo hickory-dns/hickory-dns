@@ -29,9 +29,9 @@ use std::{
 use clap::Parser;
 use console::style;
 
-use trust_dns_client::op::Query;
-use trust_dns_recursor::Recursor;
-use trust_dns_resolver::{
+use hickory_client::op::Query;
+use hickory_recursor::Recursor;
+use hickory_resolver::{
     config::{NameServerConfig, NameServerConfigGroup, Protocol},
     proto::rr::RecordType,
     Name,
@@ -115,7 +115,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    trust_dns_util::logger(env!("CARGO_BIN_NAME"), log_level);
+    hickory_util::logger(env!("CARGO_BIN_NAME"), log_level);
 
     // Configure all the name servers
     let mut roots = NameServerConfigGroup::new();

@@ -9,10 +9,10 @@ use std::{net::SocketAddr, time::Instant};
 
 use async_recursion::async_recursion;
 use futures_util::{future::select_all, FutureExt};
+use hickory_resolver::name_server::TokioConnectionProvider;
 use lru_cache::LruCache;
 use parking_lot::Mutex;
 use tracing::{debug, info, warn};
-use trust_dns_resolver::name_server::TokioConnectionProvider;
 
 use crate::{
     proto::{

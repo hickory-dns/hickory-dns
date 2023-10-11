@@ -15,20 +15,20 @@ use std::task::{Context, Poll};
 use futures::stream::{once, Stream};
 use futures::{future, AsyncRead, AsyncWrite, Future};
 
-use trust_dns_client::op::{Message, Query};
-use trust_dns_client::rr::rdata::{CNAME, SOA};
-use trust_dns_client::rr::{Name, RData, Record};
-use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::tcp::DnsTcpStream;
-use trust_dns_proto::udp::DnsUdpSocket;
+use hickory_client::op::{Message, Query};
+use hickory_client::rr::rdata::{CNAME, SOA};
+use hickory_client::rr::{Name, RData, Record};
+use hickory_proto::error::ProtoError;
+use hickory_proto::tcp::DnsTcpStream;
+use hickory_proto::udp::DnsUdpSocket;
 #[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
-use trust_dns_proto::udp::QuicLocalAddr;
-use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
-use trust_dns_proto::TokioTime;
-use trust_dns_resolver::config::{NameServerConfig, ResolverOpts};
-use trust_dns_resolver::error::ResolveError;
-use trust_dns_resolver::name_server::{ConnectionProvider, RuntimeProvider};
-use trust_dns_resolver::TokioHandle;
+use hickory_proto::udp::QuicLocalAddr;
+use hickory_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
+use hickory_proto::TokioTime;
+use hickory_resolver::config::{NameServerConfig, ResolverOpts};
+use hickory_resolver::error::ResolveError;
+use hickory_resolver::name_server::{ConnectionProvider, RuntimeProvider};
+use hickory_resolver::TokioHandle;
 
 pub struct TcpPlaceholder;
 

@@ -11,11 +11,11 @@ use bytes::{Buf, Bytes};
 use futures_util::lock::Mutex;
 use h3::server::RequestStream;
 use h3_quinn::BidiStream;
-use tokio_util::sync::CancellationToken;
-use tracing::{debug, warn};
-use trust_dns_proto::{
+use hickory_proto::{
     error::ProtoError, h3::h3_server::H3Connection, h3::H3Error, http::Version, rr::Record,
 };
+use tokio_util::sync::CancellationToken;
+use tracing::{debug, warn};
 
 use crate::{
     authority::MessageResponse,

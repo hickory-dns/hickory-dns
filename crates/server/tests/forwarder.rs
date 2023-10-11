@@ -1,14 +1,14 @@
 #![recursion_limit = "128"]
-#![cfg(feature = "trust-dns-resolver")]
+#![cfg(feature = "hickory-resolver")]
 
 use std::net::Ipv4Addr;
 use std::str::FromStr;
 
 use tokio::runtime::Runtime;
 
-use trust_dns_proto::rr::{Name, RData, RecordType};
-use trust_dns_resolver::name_server::TokioConnectionProvider;
-use trust_dns_server::{
+use hickory_proto::rr::{Name, RData, RecordType};
+use hickory_resolver::name_server::TokioConnectionProvider;
+use hickory_server::{
     authority::{Authority, LookupObject},
     store::forwarder::ForwardAuthority,
 };

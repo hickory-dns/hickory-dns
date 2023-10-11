@@ -274,7 +274,7 @@ impl ResolverConfig {
     /// use std::sync::Arc;
     ///
     /// use rustls::{ClientConfig, ProtocolVersion, RootCertStore, OwnedTrustAnchor};
-    /// use trust_dns_resolver::config::ResolverConfig;
+    /// use hickory_resolver::config::ResolverConfig;
     /// # #[cfg(feature = "webpki-roots")]
     /// use webpki_roots;
     ///
@@ -794,7 +794,7 @@ impl NameServerConfigGroup {
     ///
     /// ```
     /// use std::net::{SocketAddr, Ipv4Addr};
-    /// use trust_dns_resolver::config::NameServerConfigGroup;
+    /// use hickory_resolver::config::NameServerConfigGroup;
     ///
     /// let mut group = NameServerConfigGroup::google();
     /// group.merge(NameServerConfigGroup::cloudflare());

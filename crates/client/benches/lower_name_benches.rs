@@ -14,7 +14,7 @@ use std::str::FromStr;
 
 use test::Bencher;
 
-use trust_dns_client::rr::*;
+use hickory_client::rr::*;
 
 #[bench]
 fn name_cmp_short(b: &mut Bencher) {

@@ -273,7 +273,7 @@ impl<'a> BinEncoder<'a> {
     /// matches description from above.
     ///
     /// ```
-    /// use trust_dns_proto::serialize::binary::BinEncoder;
+    /// use hickory_proto::serialize::binary::BinEncoder;
     ///
     /// let mut bytes: Vec<u8> = Vec::new();
     /// {

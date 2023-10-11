@@ -1,18 +1,18 @@
 use std::{str::FromStr, sync::Arc};
 
-use trust_dns_client::{
+use hickory_client::{
     op::*,
     rr::{rdata::*, *},
     serialize::binary::{BinDecodable, BinEncodable},
 };
 
-use trust_dns_server::{
+use hickory_server::{
     authority::{Authority, Catalog, MessageRequest, ZoneType},
     server::{Protocol, Request},
     store::in_memory::InMemoryAuthority,
 };
 
-use trust_dns_integration::{example_authority::create_example, *};
+use hickory_integration::{example_authority::create_example, *};
 
 #[allow(clippy::unreadable_literal)]
 pub fn create_test() -> InMemoryAuthority {

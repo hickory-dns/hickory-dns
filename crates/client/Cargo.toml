@@ -1,5 +1,5 @@
 [package]
-name = "trust-dns-client"
+name = "hickory-client"
 
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
@@ -13,7 +13,7 @@ Trust-DNS is a safe and secure DNS library. This is the Client library with DNSS
 """
 
 # These URLs point to more information about the repository
-documentation = "https://docs.rs/trust-dns"
+documentation = "https://docs.rs/hickory-client"
 
 # This points to a file in the repository (relative to this Cargo.toml). The
 # contents of this file are stored and indexed in the registry.
@@ -30,45 +30,58 @@ categories.workspace = true
 license.workspace = true
 
 [badges]
-#github-actions = { repository = "bluejekyll/trust-dns", branch = "main", workflow = "test" }
-codecov = { repository = "bluejekyll/trust-dns", branch = "main", service = "github" }
+#github-actions = { repository = "bluejekyll/hickory", branch = "main", workflow = "test" }
+codecov = { repository = "hickorydns/hickory-dns", branch = "main", service = "github" }
 maintenance = { status = "actively-developed" }
 
 [features]
-backtrace = ["trust-dns-proto/backtrace"]
+backtrace = ["hickory-proto/backtrace"]
 
 dns-over-https-openssl = ["dns-over-https", "dns-over-openssl"]
-dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "rustls", "trust-dns-proto/dns-over-https-rustls"]
-dns-over-https = ["trust-dns-proto/dns-over-https"]
+dns-over-https-rustls = [
+    "dns-over-https",
+    "dns-over-rustls",
+    "rustls",
+    "hickory-proto/dns-over-https-rustls",
+]
+dns-over-https = ["hickory-proto/dns-over-https"]
 
-dns-over-quic = ["dns-over-rustls", "trust-dns-proto/dns-over-quic"]
+dns-over-quic = ["dns-over-rustls", "hickory-proto/dns-over-quic"]
 
-dns-over-native-tls = ["dns-over-tls", "trust-dns-proto/dns-over-native-tls"]
+dns-over-native-tls = ["dns-over-tls", "hickory-proto/dns-over-native-tls"]
 dns-over-openssl = ["dns-over-tls", "dnssec-openssl"]
-dns-over-rustls = ["dns-over-tls", "dnssec-ring", "trust-dns-proto/dns-over-rustls"]
+dns-over-rustls = [
+    "dns-over-tls",
+    "dnssec-ring",
+    "hickory-proto/dns-over-rustls",
+]
 dns-over-tls = []
 
-webpki-roots = ["trust-dns-proto/webpki-roots"]
-native-certs = ["trust-dns-proto/native-certs"]
+webpki-roots = ["hickory-proto/webpki-roots"]
+native-certs = ["hickory-proto/native-certs"]
 
-dnssec-openssl = ["dnssec", "trust-dns-proto/dnssec-openssl"]
-dnssec-ring = ["dnssec", "trust-dns-proto/dnssec-ring"]
-dnssec = ["trust-dns-proto/dnssec"]
+dnssec-openssl = ["dnssec", "hickory-proto/dnssec-openssl"]
+dnssec-ring = ["dnssec", "hickory-proto/dnssec-ring"]
+dnssec = ["hickory-proto/dnssec"]
 
-serde-config = ["serde", "trust-dns-proto/serde-config"]
+serde-config = ["serde", "hickory-proto/serde-config"]
 
 # enables experimental the mDNS (multicast) feature
-mdns = ["trust-dns-proto/mdns"]
+mdns = ["hickory-proto/mdns"]
 
 [lib]
-name = "trust_dns_client"
+name = "hickory_client"
 path = "src/lib.rs"
 
 [dependencies]
 cfg-if.workspace = true
 data-encoding.workspace = true
-futures-channel = { workspace = true, default-features = false, features = ["std"] }
-futures-util = { workspace = true, default-features = false, features = ["std"] }
+futures-channel = { workspace = true, default-features = false, features = [
+    "std",
+] }
+futures-util = { workspace = true, default-features = false, features = [
+    "std",
+] }
 once_cell.workspace = true
 radix_trie.workspace = true
 rand.workspace = true
@@ -77,13 +90,23 @@ serde = { workspace = true, features = ["derive"], optional = true }
 thiserror.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, features = ["rt", "net"] }
-trust-dns-proto = { workspace = true, features = ["text-parsing", "tokio-runtime"] }
+hickory-proto = { workspace = true, features = [
+    "text-parsing",
+    "tokio-runtime",
+] }
 
 [dev-dependencies]
-futures = { workspace = true, default-features = false, features = ["std", "executor"] }
+futures = { workspace = true, default-features = false, features = [
+    "std",
+    "executor",
+] }
 openssl = { workspace = true, features = ["v102", "v110"], optional = false }
 tokio = { workspace = true, features = ["rt", "macros"] }
-tracing-subscriber = { workspace = true, features = ["std", "fmt", "env-filter"] }
+tracing-subscriber = { workspace = true, features = [
+    "std",
+    "fmt",
+    "env-filter",
+] }
 
 [package.metadata.docs.rs]
 all-features = true

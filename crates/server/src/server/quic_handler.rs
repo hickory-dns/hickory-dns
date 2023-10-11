@@ -9,13 +9,13 @@ use std::{io, net::SocketAddr, sync::Arc};
 
 use bytes::{Bytes, BytesMut};
 use futures_util::lock::Mutex;
-use tokio_util::sync::CancellationToken;
-use tracing::{debug, warn};
-use trust_dns_proto::{
+use hickory_proto::{
     error::ProtoError,
     quic::{DoqErrorCode, QuicStream},
     rr::Record,
 };
+use tokio_util::sync::CancellationToken;
+use tracing::{debug, warn};
 
 use crate::{
     authority::MessageResponse,

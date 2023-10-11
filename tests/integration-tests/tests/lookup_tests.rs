@@ -6,13 +6,13 @@ use std::{
 
 use tokio::runtime::Runtime;
 
-use trust_dns_proto::{
+use hickory_proto::{
     op::{NoopMessageFinalizer, Query},
     rr::{rdata::A, DNSClass, Name, RData, Record, RecordType},
     xfer::{DnsExchange, DnsMultiplexer, DnsResponse},
     TokioTime,
 };
-use trust_dns_resolver::{
+use hickory_resolver::{
     caching_client::CachingClient,
     config::LookupIpStrategy,
     error::ResolveError,
@@ -20,12 +20,12 @@ use trust_dns_resolver::{
     lookup_ip::LookupIpFuture,
     Hosts,
 };
-use trust_dns_server::{
+use hickory_server::{
     authority::{Authority, Catalog},
     store::in_memory::InMemoryAuthority,
 };
 
-use trust_dns_integration::{example_authority::create_example, mock_client::*, TestClientStream};
+use hickory_integration::{example_authority::create_example, mock_client::*, TestClientStream};
 
 #[test]
 fn test_lookup() {
@@ -39,7 +39,7 @@ fn test_lookup() {
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
 
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
@@ -67,7 +67,7 @@ fn test_lookup_hosts() {
 
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
     let (client, bg) = io_loop.block_on(client).expect("client connect failed");
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     let mut hosts = Hosts::default();
     let record = Record::from_rdata(
@@ -125,7 +125,7 @@ fn test_lookup_ipv4_like() {
 
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
     let (client, bg) = io_loop.block_on(client).expect("client connect failed");
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     let lookup = LookupIpFuture::lookup(
         vec![Name::from_str("1.2.3.4.example.com.").unwrap()],
@@ -155,7 +155,7 @@ fn test_lookup_ipv4_like_fall_through() {
 
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
     let (client, bg) = io_loop.block_on(client).expect("client connect failed");
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     let lookup = LookupIpFuture::lookup(
         vec![Name::from_str("198.51.100.35.example.com.").unwrap()],

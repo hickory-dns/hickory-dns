@@ -28,7 +28,7 @@ use crate::TokioTime;
 
 /// Tcp client stream
 ///
-/// Use with `trust_dns_client::client::DnsMultiplexer` impls
+/// Use with `hickory_client::client::DnsMultiplexer` impls
 #[must_use = "futures do nothing unless polled"]
 pub struct TcpClientStream<S>
 where

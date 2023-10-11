@@ -7,8 +7,8 @@
 
 use std::io;
 
+use hickory_resolver::name_server::TokioConnectionProvider;
 use tracing::{debug, info};
-use trust_dns_resolver::name_server::TokioConnectionProvider;
 
 use crate::{
     authority::{

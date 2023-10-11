@@ -94,7 +94,7 @@
 //! }
 //! ```
 
-use trust_dns_resolver::AsyncResolver;
+use hickory_resolver::AsyncResolver;
 
 use crate::runtime::AsyncStdConnectionProvider;
 
@@ -104,11 +104,11 @@ mod runtime;
 mod tests;
 mod time;
 
-pub use trust_dns_resolver::config;
-pub use trust_dns_resolver::error::ResolveError;
-pub use trust_dns_resolver::lookup;
-pub use trust_dns_resolver::lookup_ip;
-pub use trust_dns_resolver::proto;
+pub use hickory_resolver::config;
+pub use hickory_resolver::error::ResolveError;
+pub use hickory_resolver::lookup;
+pub use hickory_resolver::lookup_ip;
+pub use hickory_resolver::proto;
 
 /// An AsyncResolver used with async_std
 pub type AsyncStdResolver = AsyncResolver<AsyncStdConnectionProvider>;

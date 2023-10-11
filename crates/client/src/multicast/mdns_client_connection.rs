@@ -19,7 +19,7 @@ use crate::client::{ClientConnection, Signer};
 
 /// MDNS based DNS Client connection
 ///
-/// Use with `trust_dns_client::client::Client` impls
+/// Use with `hickory_client::client::Client` impls
 #[derive(Clone, Copy)]
 pub struct MdnsClientConnection {
     multicast_addr: SocketAddr,

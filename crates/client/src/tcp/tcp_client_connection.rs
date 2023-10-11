@@ -21,7 +21,7 @@ use crate::proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
 
 /// Tcp client connection
 ///
-/// Use with `trust_dns_client::client::Client` impls
+/// Use with `hickory_client::client::Client` impls
 #[derive(Clone, Copy)]
 pub struct TcpClientConnection {
     name_server: SocketAddr,

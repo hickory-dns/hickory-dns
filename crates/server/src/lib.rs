@@ -46,13 +46,13 @@
 //! * Secure dynamic update
 //! * New features for securing public information
 
-pub use trust_dns_proto as proto;
-#[cfg(feature = "trust-dns-recursor")]
+pub use hickory_proto as proto;
+#[cfg(feature = "hickory-recursor")]
 #[cfg_attr(docsrs, doc(cfg(feature = "recursor")))]
-pub use trust_dns_recursor as recursor;
-#[cfg(feature = "trust-dns-resolver")]
+pub use hickory_recursor as recursor;
+#[cfg(feature = "hickory-resolver")]
 #[cfg_attr(docsrs, doc(cfg(feature = "resolver")))]
-pub use trust_dns_resolver as resolver;
+pub use hickory_resolver as resolver;
 
 pub mod authority;
 pub mod config;

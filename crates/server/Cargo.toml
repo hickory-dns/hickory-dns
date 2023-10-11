@@ -1,5 +1,5 @@
 [package]
-name = "trust-dns-server"
+name = "hickory-server"
 
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
@@ -14,7 +14,7 @@ Trust-DNS is a safe and secure DNS server with DNSSEC support.
 """
 
 # These URLs point to more information about the repository
-documentation = "https://docs.rs/trust-dns-server"
+documentation = "https://docs.rs/hickory-server"
 
 # This points to a file in the repository (relative to this Cargo.toml). The
 # contents of this file are stored and indexed in the registry.
@@ -31,44 +31,82 @@ categories.workspace = true
 license.workspace = true
 
 [badges]
-#github-actions = { repository = "bluejekyll/trust-dns", branch = "main", workflow = "test" }
-codecov = { repository = "bluejekyll/trust-dns", branch = "main", service = "github" }
+#github-actions = { repository = "bluejekyll/hickory", branch = "main", workflow = "test" }
+codecov = { repository = "hickorydns/hickory-dns", branch = "main", service = "github" }
 maintenance = { status = "actively-developed" }
 
 [features]
-backtrace = ["trust-dns-proto/backtrace"]
-dnssec-openssl = ["dnssec", "openssl", "trust-dns-proto/dnssec-openssl", "trust-dns-resolver/dnssec-openssl"]
-dnssec-ring = ["dnssec", "trust-dns-proto/dnssec-ring", "trust-dns-resolver/dnssec-ring"]
+backtrace = ["hickory-proto/backtrace"]
+dnssec-openssl = [
+    "dnssec",
+    "openssl",
+    "hickory-proto/dnssec-openssl",
+    "hickory-resolver/dnssec-openssl",
+]
+dnssec-ring = [
+    "dnssec",
+    "hickory-proto/dnssec-ring",
+    "hickory-resolver/dnssec-ring",
+]
 dnssec = []
 # Recursive Resolution is Experimental!
-recursor = ["trust-dns-recursor"]
-resolver = ["trust-dns-resolver"]
+recursor = ["hickory-recursor"]
+resolver = ["hickory-resolver"]
 sqlite = ["rusqlite"]
 toml = ["dep:basic-toml"]
 
 # TODO: Need to figure out how to be consistent with ring/openssl usage...
-# dns-over-https-openssl = ["dns-over-openssl", "trust-dns-client/dns-over-https-openssl", "dns-over-https"]
-dns-over-https-rustls = ["dns-over-https", "trust-dns-proto/dns-over-https-rustls", "trust-dns-resolver/dns-over-https-rustls", "dns-over-rustls", "tokio-rustls"]
-dns-over-https = ["h2", "http", "trust-dns-proto/dns-over-https"]
+# dns-over-https-openssl = ["dns-over-openssl", "hickory-client/dns-over-https-openssl", "dns-over-https"]
+dns-over-https-rustls = [
+    "dns-over-https",
+    "hickory-proto/dns-over-https-rustls",
+    "hickory-resolver/dns-over-https-rustls",
+    "dns-over-rustls",
+    "tokio-rustls",
+]
+dns-over-https = ["h2", "http", "hickory-proto/dns-over-https"]
 
 # TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
-dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-proto/dns-over-openssl", "tokio-openssl", "trust-dns-resolver/dns-over-openssl"]
-dns-over-rustls = ["dns-over-tls", "dnssec-ring", "rustls", "trust-dns-proto/dns-over-rustls", "trust-dns-resolver/dns-over-rustls", "tokio-rustls"]
+dns-over-openssl = [
+    "dns-over-tls",
+    "dnssec-openssl",
+    "hickory-proto/dns-over-openssl",
+    "tokio-openssl",
+    "hickory-resolver/dns-over-openssl",
+]
+dns-over-rustls = [
+    "dns-over-tls",
+    "dnssec-ring",
+    "rustls",
+    "hickory-proto/dns-over-rustls",
+    "hickory-resolver/dns-over-rustls",
+    "tokio-rustls",
+]
 dns-over-tls = []
-dns-over-quic = ["dns-over-rustls", "trust-dns-proto/dns-over-quic", "trust-dns-resolver/dns-over-quic"]
-dns-over-h3 = ["dns-over-rustls", "h3", "h3-quinn", "trust-dns-proto/dns-over-h3", "trust-dns-resolver/dns-over-h3"]
+dns-over-quic = [
+    "dns-over-rustls",
+    "hickory-proto/dns-over-quic",
+    "hickory-resolver/dns-over-quic",
+]
+dns-over-h3 = [
+    "dns-over-rustls",
+    "h3",
+    "h3-quinn",
+    "hickory-proto/dns-over-h3",
+    "hickory-resolver/dns-over-h3",
+]
 
 # This is a deprecated feature...
 tls-openssl = ["dns-over-openssl"]
 tls = ["dns-over-openssl"]
 
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
-# mtls = ["trust-dns-client/mtls"]
+# mtls = ["hickory-client/mtls"]
 
 testing = []
 
 [lib]
-name = "trust_dns_server"
+name = "hickory_server"
 path = "src/lib.rs"
 
 [dependencies]
@@ -77,7 +115,9 @@ basic-toml = { workspace = true, optional = true }
 bytes.workspace = true
 cfg-if.workspace = true
 enum-as-inner.workspace = true
-futures-util = { workspace = true, default-features = false, features = ["std"] }
+futures-util = { workspace = true, default-features = false, features = [
+    "std",
+] }
 h2 = { workspace = true, features = ["stream"], optional = true }
 h3 = { workspace = true, optional = true }
 h3-quinn = { workspace = true, optional = true }
@@ -93,14 +133,29 @@ tokio = { workspace = true, features = ["macros", "net", "sync"] }
 tokio-openssl = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true }
 tokio-util.workspace = true
-trust-dns-proto = { workspace = true, features = ["text-parsing", "tokio-runtime"] }
-trust-dns-recursor = { workspace = true, features = ["serde-config"], optional = true }
-trust-dns-resolver = { workspace = true, features = ["serde-config", "system-config", "tokio-runtime"], optional = true }
+hickory-proto = { workspace = true, features = [
+    "text-parsing",
+    "tokio-runtime",
+] }
+hickory-recursor = { workspace = true, features = [
+    "serde-config",
+], optional = true }
+hickory-resolver = { workspace = true, features = [
+    "serde-config",
+    "system-config",
+    "tokio-runtime",
+], optional = true }
 
 [dev-dependencies]
-futures-executor = { workspace = true, default-features = false, features = ["std"] }
+futures-executor = { workspace = true, default-features = false, features = [
+    "std",
+] }
 tokio = { workspace = true, features = ["macros", "rt"] }
-tracing-subscriber = { workspace = true, features = ["std", "fmt", "env-filter"] }
+tracing-subscriber = { workspace = true, features = [
+    "std",
+    "fmt",
+    "env-filter",
+] }
 
 [package.metadata.docs.rs]
 all-features = true

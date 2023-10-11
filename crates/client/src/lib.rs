@@ -81,9 +81,9 @@
 //! ## Setup a connection
 //!
 //! ```rust
-//! use trust_dns_proto::DnsStreamHandle;
-//! use trust_dns_client::client::{Client, ClientConnection, SyncClient};
-//! use trust_dns_client::udp::UdpClientConnection;
+//! use hickory_proto::DnsStreamHandle;
+//! use hickory_client::client::{Client, ClientConnection, SyncClient};
+//! use hickory_client::udp::UdpClientConnection;
 //!
 //! let address = "8.8.8.8:53".parse().unwrap();
 //! let conn = UdpClientConnection::new(address).unwrap();
@@ -101,11 +101,11 @@
 //! ```rust
 //! use std::net::Ipv4Addr;
 //! use std::str::FromStr;
-//! # use trust_dns_client::client::{Client, SyncClient};
-//! # use trust_dns_client::udp::UdpClientConnection;
-//! use trust_dns_client::op::DnsResponse;
-//! use trust_dns_client::rr::{DNSClass, Name, RData, Record, RecordType};
-//! use trust_dns_client::rr::rdata::A;
+//! # use hickory_client::client::{Client, SyncClient};
+//! # use hickory_client::udp::UdpClientConnection;
+//! use hickory_client::op::DnsResponse;
+//! use hickory_client::rr::{DNSClass, Name, RData, Record, RecordType};
+//! use hickory_client::rr::rdata::A;
 //! #
 //! # let address = "8.8.8.8:53".parse().unwrap();
 //! # let conn = UdpClientConnection::new(address).unwrap();
@@ -121,7 +121,7 @@
 //! // Messages are the packets sent between client and server in DNS.
 //! //  there are many fields to a Message, DnsResponse can be dereferenced into
 //! //  a Message. It's beyond the scope of these examples
-//! //  to explain all the details of a Message. See trust_dns_client::op::message::Message for more details.
+//! //  to explain all the details of a Message. See hickory_client::op::message::Message for more details.
 //! //  generally we will be interested in the Message::answers
 //! let answers: &[Record] = response.answers();
 //!
@@ -135,7 +135,7 @@
 //! }
 //! ```
 //!
-//! In the above example we successfully queried for a A record. There are many other types, each can be independently queried and the associated `trust_dns_client::rr::record_data::RData` has a variant with the deserialized data for the record stored.
+//! In the above example we successfully queried for a A record. There are many other types, each can be independently queried and the associated `hickory_client::rr::record_data::RData` has a variant with the deserialized data for the record stored.
 //!
 //! ## Dynamic update
 //!
@@ -154,12 +154,12 @@
 //!
 //! # #[cfg(feature = "openssl")]
 //! use openssl::rsa::Rsa;
-//! use trust_dns_client::client::{Client, SyncClient};
-//! use trust_dns_client::udp::UdpClientConnection;
-//! use trust_dns_client::rr::{Name, RData, Record, RecordType};
-//! use trust_dns_client::proto::rr::dnssec::{Algorithm, SigSigner, KeyPair};
-//! use trust_dns_client::op::ResponseCode;
-//! use trust_dns_client::rr::rdata::{A, key::KEY};
+//! use hickory_client::client::{Client, SyncClient};
+//! use hickory_client::udp::UdpClientConnection;
+//! use hickory_client::rr::{Name, RData, Record, RecordType};
+//! use hickory_client::proto::rr::dnssec::{Algorithm, SigSigner, KeyPair};
+//! use hickory_client::op::ResponseCode;
+//! use hickory_client::rr::rdata::{A, key::KEY};
 //!
 //! # let address = "0.0.0.0:53".parse().unwrap();
 //! # let conn = UdpClientConnection::new(address).unwrap();
@@ -227,11 +227,11 @@
 //! use std::net::Ipv4Addr;
 //! use std::str::FromStr;
 //! use tokio::net::TcpStream as TokioTcpStream;
-//! use trust_dns_client::client::{AsyncClient, ClientHandle};
-//! use trust_dns_client::proto::iocompat::AsyncIoTokioAsStd;
-//! use trust_dns_client::rr::{DNSClass, Name, RData, RecordType};
-//! use trust_dns_client::rr::rdata::A;
-//! use trust_dns_client::tcp::TcpClientStream;
+//! use hickory_client::client::{AsyncClient, ClientHandle};
+//! use hickory_client::proto::iocompat::AsyncIoTokioAsStd;
+//! use hickory_client::rr::{DNSClass, Name, RData, RecordType};
+//! use hickory_client::rr::rdata::A;
+//! use hickory_client::tcp::TcpClientStream;
 //!
 //! #[tokio::main]
 //! async fn main() {
@@ -284,7 +284,7 @@ pub mod udp;
 #[cfg(feature = "dns-over-https")]
 mod h2_client_connection;
 
-pub use trust_dns_proto as proto;
+pub use hickory_proto as proto;
 
 /// The https module which contains all https related connection types
 #[cfg(feature = "dns-over-https")]

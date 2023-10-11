@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use futures_executor::block_on;
 
-use trust_dns_proto::{
+use hickory_proto::{
     op::{Header, Query},
     rr::{
         dnssec::{
@@ -16,7 +16,7 @@ use trust_dns_proto::{
     },
     xfer,
 };
-use trust_dns_server::{
+use hickory_server::{
     authority::{AuthLookup, Authority, DnssecAuthority, LookupOptions},
     server::{Protocol, RequestInfo},
 };
@@ -373,7 +373,7 @@ pub fn verify(records: &[Record], rrsig_records: &[Record<RRSIG>], keys: &[DNSKE
 }
 
 pub fn add_signers<A: DnssecAuthority>(authority: &mut A) -> Vec<DNSKEY> {
-    use trust_dns_server::config::dnssec::*;
+    use hickory_server::config::dnssec::*;
     let signer_name = Name::from(authority.origin().to_owned());
 
     let mut keys = Vec::<DNSKEY>::new();

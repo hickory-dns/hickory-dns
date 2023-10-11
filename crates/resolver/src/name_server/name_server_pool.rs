@@ -475,10 +475,10 @@ mod tests {
 
     use tokio::runtime::Runtime;
 
+    use hickory_proto::rr::RData;
     use proto::op::Query;
     use proto::rr::{Name, RecordType};
     use proto::xfer::{DnsHandle, DnsRequestOptions};
-    use trust_dns_proto::rr::RData;
 
     use super::*;
     use crate::config::NameServerConfig;

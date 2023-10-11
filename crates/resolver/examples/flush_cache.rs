@@ -11,7 +11,7 @@ fn main() {
 }
 
 async fn tokio_main() {
-    use trust_dns_resolver::{name_server::TokioConnectionProvider, TokioAsyncResolver};
+    use hickory_resolver::{name_server::TokioConnectionProvider, TokioAsyncResolver};
 
     let resolver = {
         // To make this independent, if targeting macOS, BSD, Linux, or Windows, we can use the system's configuration:
@@ -25,7 +25,7 @@ async fn tokio_main() {
         #[cfg(not(any(unix, windows)))]
         {
             // Directly reference the config types
-            use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
+            use hickory_resolver::config::{ResolverConfig, ResolverOpts};
 
             // Get a new resolver with the google nameservers as the upstream recursive resolvers
             AsyncResolver::tokio(
@@ -55,9 +55,9 @@ async fn tokio_main() {
     drop(resolver);
 }
 
-async fn resolve_list<P: trust_dns_resolver::name_server::ConnectionProvider>(
+async fn resolve_list<P: hickory_resolver::name_server::ConnectionProvider>(
     names: &[&str],
-    resolver: &trust_dns_resolver::AsyncResolver<P>,
+    resolver: &hickory_resolver::AsyncResolver<P>,
 ) -> tokio::time::Duration {
     use tokio::time::Instant;
     let start_time = Instant::now();

@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 use futures_executor::block_on;
 
-use trust_dns_proto::{
+use hickory_proto::{
     op::{Header, Message, Query, ResponseCode},
     rr::{
         rdata::{A as A4, AAAA},
@@ -14,10 +14,10 @@ use trust_dns_proto::{
     },
     serialize::binary::BinDecodable,
 };
-use trust_dns_server::authority::{
+use hickory_server::authority::{
     AuthLookup, Authority, LookupError, LookupOptions, MessageRequest,
 };
-use trust_dns_server::server::{Protocol, RequestInfo};
+use hickory_server::server::{Protocol, RequestInfo};
 
 const TEST_HEADER: &Header = &Header::new();
 

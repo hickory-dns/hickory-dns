@@ -12,10 +12,10 @@ mod server_harness;
 
 use std::{env, fs::File, io::*, net::*};
 
+use hickory_client::client::*;
+use hickory_proto::quic::QuicClientStream;
 use rustls::{Certificate, ClientConfig, OwnedTrustAnchor, RootCertStore};
 use tokio::runtime::Runtime;
-use trust_dns_client::client::*;
-use trust_dns_proto::quic::QuicClientStream;
 
 use server_harness::{named_test_harness, query_a};
 
@@ -70,7 +70,7 @@ fn test_example_quic_toml_startup() {
 
         // ipv4 should succeed
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        trust_dns_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::spawn_bg(&io_loop, bg);
 
         query_a(&mut io_loop, &mut client);
 

@@ -28,7 +28,7 @@ use clap::Parser;
 use openssl::pkey::PKey;
 use tracing::info;
 
-use trust_dns_proto::rr::dnssec::{KeyPair, Public};
+use hickory_proto::rr::dnssec::{KeyPair, Public};
 
 /// Cli struct for all options managed with clap derive api.
 #[derive(Debug, Parser)]
@@ -60,7 +60,7 @@ struct Cli {
 
 /// Run the pem_to_public_dnskey program
 pub fn main() {
-    trust_dns_util::logger(env!("CARGO_BIN_NAME"), Some(tracing::Level::INFO));
+    hickory_util::logger(env!("CARGO_BIN_NAME"), Some(tracing::Level::INFO));
 
     let args = Cli::parse();
     let key_path = args.key;

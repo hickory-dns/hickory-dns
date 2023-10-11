@@ -1,15 +1,15 @@
 use std::str::FromStr;
 
-use trust_dns_proto::rr::*;
+use hickory_proto::rr::*;
 
-use trust_dns_server::authority::ZoneType;
-use trust_dns_server::store::in_memory::InMemoryAuthority;
+use hickory_server::authority::ZoneType;
+use hickory_server::store::in_memory::InMemoryAuthority;
 
 #[allow(unused)]
 #[allow(clippy::unreadable_literal)]
 pub fn create_example() -> InMemoryAuthority {
+    use hickory_client::rr::rdata::*;
     use std::net::*;
-    use trust_dns_client::rr::rdata::*;
 
     let origin: Name = Name::parse("example.com.", None).unwrap();
     let mut records = InMemoryAuthority::empty(origin.clone(), ZoneType::Primary, false);
@@ -200,10 +200,10 @@ pub fn create_example() -> InMemoryAuthority {
 #[cfg(feature = "dnssec")]
 #[allow(unused)]
 pub fn create_secure_example() -> InMemoryAuthority {
+    use hickory_proto::rr::dnssec::*;
+    use hickory_server::authority::{Authority, DnssecAuthority};
     use openssl::rsa::Rsa;
     use time::Duration;
-    use trust_dns_proto::rr::dnssec::*;
-    use trust_dns_server::authority::{Authority, DnssecAuthority};
 
     let mut authority = create_example();
     let rsa = Rsa::generate(2048).unwrap();

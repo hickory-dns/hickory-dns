@@ -509,9 +509,8 @@ mod tests {
 
     use futures_executor::block_on;
     use proto::op::{Message, Query};
-    use proto::rr::rdata::SRV;
+    use proto::rr::rdata::{NS, SRV};
     use proto::rr::{Name, Record};
-    use trust_dns_proto::rr::rdata::NS;
 
     use super::*;
     use crate::lookup_ip::tests::*;

@@ -57,16 +57,16 @@ use tracing_subscriber::{
     util::SubscriberInitExt,
 };
 
-use trust_dns_client::rr::Name;
+use hickory_client::rr::Name;
 #[cfg(feature = "dns-over-tls")]
-use trust_dns_server::config::dnssec::{self, TlsCertConfig};
+use hickory_server::config::dnssec::{self, TlsCertConfig};
 #[cfg(feature = "resolver")]
-use trust_dns_server::store::forwarder::ForwardAuthority;
+use hickory_server::store::forwarder::ForwardAuthority;
 #[cfg(feature = "recursor")]
-use trust_dns_server::store::recursor::RecursiveAuthority;
+use hickory_server::store::recursor::RecursiveAuthority;
 #[cfg(feature = "sqlite")]
-use trust_dns_server::store::sqlite::{SqliteAuthority, SqliteConfig};
-use trust_dns_server::{
+use hickory_server::store::sqlite::{SqliteAuthority, SqliteConfig};
+use hickory_server::{
     authority::{AuthorityObject, Catalog, ZoneType},
     config::{Config, ZoneConfig},
     server::ServerFuture,
@@ -77,7 +77,7 @@ use trust_dns_server::{
 };
 
 #[cfg(feature = "dnssec")]
-use {trust_dns_client::rr::rdata::key::KeyUsage, trust_dns_server::authority::DnssecAuthority};
+use {hickory_client::rr::rdata::key::KeyUsage, hickory_server::authority::DnssecAuthority};
 
 #[cfg(feature = "dnssec")]
 async fn load_keys<A, L>(
@@ -333,7 +333,7 @@ fn main() {
         default();
     }
 
-    info!("Trust-DNS {} starting", trust_dns_client::version());
+    info!("Trust-DNS {} starting", hickory_client::version());
     // start up the server for listening
 
     let config = args.config.clone();
@@ -485,12 +485,12 @@ fn main() {
     match runtime.block_on(server.block_until_done()) {
         Ok(()) => {
             // we're exiting for some reason...
-            info!("Trust-DNS {} stopping", trust_dns_client::version());
+            info!("Trust-DNS {} stopping", hickory_client::version());
         }
         Err(e) => {
             let error_msg = format!(
                 "Trust-DNS {} has encountered an error: {}",
-                trust_dns_client::version(),
+                hickory_client::version(),
                 e
             );
 

@@ -45,8 +45,8 @@
 //! # #[cfg(feature = "tokio-runtime")]
 //! # {
 //! use std::net::*;
-//! use trust_dns_resolver::Resolver;
-//! use trust_dns_resolver::config::*;
+//! use hickory_resolver::Resolver;
+//! use hickory_resolver::config::*;
 //!
 //! // Construct a new Resolver with default configuration options
 //! let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
@@ -79,7 +79,7 @@
 //! # #[cfg(feature = "tokio-runtime")]
 //! # {
 //! # use std::net::*;
-//! # use trust_dns_resolver::Resolver;
+//! # use hickory_resolver::Resolver;
 //! // Use the host OS'es `/etc/resolv.conf`
 //! # #[cfg(unix)]
 //! let resolver = Resolver::from_system_conf().unwrap();
@@ -100,8 +100,8 @@
 //! # {
 //! use std::net::*;
 //! use tokio::runtime::Runtime;
-//! use trust_dns_resolver::TokioAsyncResolver;
-//! use trust_dns_resolver::config::*;
+//! use hickory_resolver::TokioAsyncResolver;
+//! use hickory_resolver::config::*;
 //!
 //! // We need a Tokio Runtime to run the resolver
 //! //  this is responsible for running all Future tasks and registering interest in IO channels
@@ -143,8 +143,8 @@
 //! # {
 //! # use std::net::*;
 //! # use tokio::runtime::Runtime;
-//! # use trust_dns_resolver::TokioAsyncResolver;
-//! # use trust_dns_resolver::config::*;
+//! # use hickory_resolver::TokioAsyncResolver;
+//! # use hickory_resolver::config::*;
 //! # use futures_util::TryFutureExt;
 //! #
 //! # let mut io_loop = Runtime::new().unwrap();
@@ -208,8 +208,8 @@
 //! # fn main() {
 //! # #[cfg(feature = "tokio-runtime")]
 //! # {
-//! use trust_dns_resolver::Resolver;
-//! use trust_dns_resolver::config::*;
+//! use hickory_resolver::Resolver;
+//! use hickory_resolver::config::*;
 //!
 //! // Construct a new Resolver with default configuration options
 //! # #[cfg(feature = "dns-over-tls")]
@@ -251,7 +251,7 @@ extern crate cfg_if;
 #[cfg(feature = "serde-config")]
 #[macro_use]
 extern crate serde;
-pub extern crate trust_dns_proto as proto;
+pub extern crate hickory_proto as proto;
 
 mod async_resolver;
 pub mod caching_client;
@@ -306,7 +306,7 @@ pub use resolver::Resolver;
 ///
 /// See the [`AsyncResolver`] documentation for more information on how to
 /// use the background future.
-#[deprecated(note = "use [`trust_dns_resolver::AsyncResolver`] instead")]
+#[deprecated(note = "use [`hickory_resolver::AsyncResolver`] instead")]
 #[cfg(feature = "tokio-runtime")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 pub type ResolverFuture = TokioAsyncResolver;

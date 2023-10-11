@@ -13,19 +13,19 @@ use std::{
 };
 
 use futures_util::{future::Shared, Future, FutureExt, StreamExt};
-use parking_lot::Mutex;
-use tracing::info;
-use trust_dns_proto::{
+use hickory_proto::{
     op::Query,
     xfer::{DnsRequestOptions, DnsResponse},
     DnsHandle,
 };
-use trust_dns_resolver::name_server::{RuntimeProvider, TokioRuntimeProvider};
-use trust_dns_resolver::{
+use hickory_resolver::name_server::{RuntimeProvider, TokioRuntimeProvider};
+use hickory_resolver::{
     error::{ResolveError, ResolveErrorKind},
     name_server::GenericNameServerPool,
     Name,
 };
+use parking_lot::Mutex;
+use tracing::info;
 
 /// Active request cache
 ///

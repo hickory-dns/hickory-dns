@@ -24,10 +24,10 @@ The `client` is capable of DNSSEC validation as well as offering higher order fu
 ```rust
 use std::net::Ipv4Addr;
 use std::str::FromStr;
-use trust_dns_client::client::{Client, SyncClient};
-use trust_dns_client::udp::UdpClientConnection;
-use trust_dns_client::op::DnsResponse;
-use trust_dns_client::rr::{DNSClass, Name, RData, Record, RecordType};
+use hickory_client::client::{Client, SyncClient};
+use hickory_client::udp::UdpClientConnection;
+use hickory_client::op::DnsResponse;
+use hickory_client::rr::{DNSClass, Name, RData, Record, RecordType};
 
 let address = "8.8.8.8:53".parse().unwrap();
 let conn = UdpClientConnection::new(address).unwrap();

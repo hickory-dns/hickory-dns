@@ -6,7 +6,7 @@ use std::time::Duration;
 use futures_util::stream::{iter, Stream, StreamExt, TryStreamExt};
 use tokio::runtime::Runtime;
 
-use trust_dns_server::server::TimeoutStream;
+use hickory_server::server::TimeoutStream;
 
 #[test]
 fn test_no_timeout() {

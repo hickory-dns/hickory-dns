@@ -1,8 +1,8 @@
 #![cfg(feature = "dnssec")]
 
-use trust_dns_proto::rr::dnssec::rdata::{DNSKEY, DS};
-use trust_dns_proto::rr::dnssec::{Algorithm, DigestType};
-use trust_dns_proto::rr::Name;
+use hickory_proto::rr::dnssec::rdata::{DNSKEY, DS};
+use hickory_proto::rr::dnssec::{Algorithm, DigestType};
+use hickory_proto::rr::Name;
 
 #[test]
 #[allow(deprecated)]
