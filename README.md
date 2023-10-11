@@ -1,5 +1,3 @@
-**NOTICE** This project has been rebranded to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo.
-
 [![minimum rustc: 1.67](https://img.shields.io/badge/minimum%20rustc-1.67-green?logo=rust)](https://www.whatrustisit.com)
 [![Build Status](https://github.com/bluejekyll/trust-dns/workflows/test/badge.svg?branch=main)](https://github.com/bluejekyll/trust-dns/actions?query=workflow%3Atest)
 [![codecov](https://codecov.io/gh/bluejekyll/trust-dns/branch/main/graph/badge.svg)](https://codecov.io/gh/bluejekyll/trust-dns)
@@ -23,6 +21,8 @@ This repo consists of multiple crates:
 | **Client**    | [![](https://img.shields.io/crates/v/trust-dns-client.svg)](https://crates.io/crates/trust-dns-client) [![trust-dns-client](https://docs.rs/trust-dns-client/badge.svg)](https://docs.rs/trust-dns-client) Used for sending `query`, `update`, and `notify` messages directly to a DNS server.                                             |
 | **Server**    | [![](https://img.shields.io/crates/v/trust-dns-server.svg)](https://crates.io/crates/trust-dns-server) [![trust-dns-server](https://docs.rs/trust-dns-server/badge.svg)](https://docs.rs/trust-dns-server) Use to host DNS records, this also has a `trust-dns` binary for running in a daemon form.                                       |
 | **Resolver**  | [![](https://img.shields.io/crates/v/trust-dns-resolver.svg)](https://crates.io/crates/trust-dns-resolver) [![trust-dns-resolver](https://docs.rs/trust-dns-resolver/badge.svg)](https://docs.rs/trust-dns-resolver) Utilizes the client library to perform DNS resolution. Can be used in place of the standard OS resolution facilities. |
+
+**NOTICE** This project was rebranded from Trust-DNS to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo.
 
 # Goals
 
