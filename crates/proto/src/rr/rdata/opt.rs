@@ -678,6 +678,9 @@ impl<'a> BinDecodable<'a> for ClientSubnet {
                 let addr_len =
                     (source_prefix / 8 + if source_prefix % 8 > 0 { 1 } else { 0 }) as usize;
                 let mut octets = Ipv4Addr::UNSPECIFIED.octets();
+                if addr_len > octets.len() {
+                    return Err(ProtoErrorKind::Message("Invalid address length").into());
+                }
                 for octet in octets.iter_mut().take(addr_len) {
                     *octet = decoder.read_u8()?.unverified();
                 }
@@ -694,6 +697,9 @@ impl<'a> BinDecodable<'a> for ClientSubnet {
                 let addr_len =
                     (source_prefix / 8 + if source_prefix % 8 > 0 { 1 } else { 0 }) as usize;
                 let mut octets = Ipv6Addr::UNSPECIFIED.octets();
+                if addr_len > octets.len() {
+                    return Err(ProtoErrorKind::Message("Invalid address length").into());
+                }
                 for octet in octets.iter_mut().take(addr_len) {
                     *octet = decoder.read_u8()?.unverified();
                 }
