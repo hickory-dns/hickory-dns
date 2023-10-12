@@ -8,11 +8,11 @@ Most of the project is in the form of crates. The crates are all individually pu
 
 The project has these high-level crates (to be used as dependencies in other projects):
 
-- **[trust-dns-resolver](crates/resolver)** - implements a stub-resolver with support for CNAME chasing and other things, abstract over runtimes (Tokio supported by default)
-- **[async-std-resolver](crates/async-std-resolver)** - an abstraction of trust-dns-resolver using the async-std runtime
+- **[hickory-resolver](crates/resolver)** - implements a stub-resolver with support for CNAME chasing and other things, abstract over runtimes (Tokio supported by default)
+- **[async-std-resolver](crates/async-std-resolver)** - an abstraction of hickory-resolver using the async-std runtime
 - **[trust-dns-client](crates/client)** - a bare-bones client crate, most useful for dynamic DNS updates
 - **[trust-dns-server](crates/server)** - implements support for hosted Authorities of various types
-- **tokio-resolver** - (under consideration, currently Tokio support is directly in trust-dns-resolver)
+- **tokio-resolver** - (under consideration, currently Tokio support is directly in hickory-resolver)
 
 Low-level crates supporting the above high-level crates:
 

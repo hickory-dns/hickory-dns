@@ -25,7 +25,7 @@ use crate::{
 
 /// An authority that will forward resolutions to upstream resolvers.
 ///
-/// This uses the trust-dns-resolver for resolving requests.
+/// This uses the hickory-resolver for resolving requests.
 pub struct ForwardAuthority {
     origin: LowerName,
     resolver: TokioAsyncResolver,

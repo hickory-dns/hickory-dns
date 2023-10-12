@@ -63,7 +63,7 @@ static GLOBAL_DNS_RESOLVER: Lazy<TokioAsyncResolver> = Lazy::new(|| {
         let (lock, cvar) = &*pair2;
         let mut started = lock.lock().unwrap();
 
-        let resolver = resolver.expect("failed to create trust-dns-resolver");
+        let resolver = resolver.expect("failed to create hickory-resolver");
 
         *started = Some(resolver);
         cvar.notify_one();

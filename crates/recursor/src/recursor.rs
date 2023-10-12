@@ -50,7 +50,7 @@ impl Recursor {
     ///
     /// This will panic if the roots are empty.
     pub fn new(roots: impl Into<NameServerConfigGroup>) -> Result<Self, ResolveError> {
-        // configure the trust-dns-resolver
+        // configure the hickory-resolver
         let roots: NameServerConfigGroup = roots.into();
 
         assert!(!roots.is_empty(), "roots must not be empty");

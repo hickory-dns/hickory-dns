@@ -30,7 +30,7 @@
 //!
 //! ```toml
 //! [dependency]
-//! trust-dns-resolver = "*"
+//! hickory-resolver = "*"
 //! ```
 //!
 //! ## Using the Synchronous Resolver
@@ -195,10 +195,10 @@
 //!
 //! ### Example
 //!
-//! Enable the TLS library through the dependency on `trust-dns-resolver`:
+//! Enable the TLS library through the dependency on `hickory-resolver`:
 //!
 //! ```toml
-//! trust-dns-resolver = { version = "*", features = ["dns-over-rustls"] }
+//! hickory-resolver = { version = "*", features = ["dns-over-rustls"] }
 //! ```
 //!
 //! A default TLS configuration is available for Cloudflare's `1.1.1.1` DNS service (Quad9 as
@@ -300,7 +300,7 @@ pub use resolver::Resolver;
 /// # Note
 ///
 /// For users of `ResolverFuture`, the return type for `ResolverFuture::new`
-/// has changed since version 0.9 of `trust-dns-resolver`. It now returns
+/// has changed since version 0.9 of `hickory-resolver`. It now returns
 /// a tuple of an [`AsyncResolver`] _and_ a background future, which must
 /// be spawned on a reactor before any lookup futures will run.
 ///

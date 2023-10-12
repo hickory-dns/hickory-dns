@@ -4,7 +4,7 @@ Hickory DNS Resolver is a library which implements the DNS resolver using the Hi
 
 This library contains implementations for IPv4 (A) and IPv6 (AAAA) resolution, more features are in the works. It is built on top of the [tokio](https://tokio.rs) async-io project, this allows it to be integrated into other systems using the tokio and futures libraries. The Hickory DNS [project](https://github.com/bluejekyll/trust-dns) contains other libraries for DNS: a [client library](https://crates.io/crates/trust-dns-client) for raw protocol usage, a [server library](https://crates.io/crates/trust-dns-server) for hosting zones, and variations on the TLS implementation over [rustls](https://crates.io/crates/trust-dns-rustls) and [native-tls](https://crates.io/crates/trust-dns-native-tls).
 
-**NOTICE** This project was rebranded fromt Hickory DNS to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo, this crate/binary has been moved to [hickory-resolver](https://crates.io/crates/hickory-resolver), from `0.24` and onward, for prior versions see [trust-dns-resolver](https://crates.io/crates/trust-dns-resolver).
+**NOTICE** This project was rebranded fromt Hickory DNS to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo, this crate/binary has been moved to [hickory-resolver](https://crates.io/crates/hickory-resolver), from `0.24` and onward, for prior versions see [hickory-resolver](https://crates.io/crates/hickory-resolver).
 
 ## Features
 
@@ -56,10 +56,10 @@ To enable DoT one of the features `dns-over-native-tls`, `dns-over-openssl`, or 
 
 ### Example
 
-Enable the TLS library through the dependency on `trust-dns-resolver`:
+Enable the TLS library through the dependency on `hickory-resolver`:
 
 ```toml
-trust-dns-resolver = { version = "*", features = ["dns-over-rustls"] }
+hickory-resolver = { version = "*", features = ["dns-over-rustls"] }
 ```
 
 A default TLS configuration is available for Cloudflare's `1.1.1.1` DNS service (Quad9 as well):
@@ -83,7 +83,7 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 
 ## Testing the resolver via CLI with resolve
 
-Useful for testing trust-dns-resolver and it's features via an independent CLI.
+Useful for testing hickory-resolver and it's features via an independent CLI.
 
 ```shell
 cargo install --bin resolve trust-dns-util

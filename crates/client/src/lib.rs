@@ -41,7 +41,7 @@
 //!
 //! The Client library is responsible for the basic protocols responsible for communicating with DNS servers (authorities) and resolvers. It can be used for managing DNS records through the use of update operations. It is possible to send raw DNS Messages with the Client, but for ease of use the `query` and various other update operations are recommended for general use.
 //!
-//! For a system-like resolver, see [trust-dns-resolver](https://docs.rs/trust-dns-resolver). This is most likely what you want if all you want to do is lookup IP addresses.
+//! For a system-like resolver, see [hickory-resolver](https://docs.rs/hickory-resolver). This is most likely what you want if all you want to do is lookup IP addresses.
 //!
 //! For serving DNS serving, see [trust-dns-server](https://docs.rs/trust-dns-server).
 //!
@@ -96,7 +96,7 @@
 //!
 //! ## Querying
 //!
-//! Using the Client to query for DNS records is easy enough, though it performs no resolution. The `trust-dns-resolver` has a simpler interface if that's what is desired. Over time that library will gain more features to generically query for different types.
+//! Using the Client to query for DNS records is easy enough, though it performs no resolution. The `hickory-resolver` has a simpler interface if that's what is desired. Over time that library will gain more features to generically query for different types.
 //!
 //! ```rust
 //! use std::net::Ipv4Addr;

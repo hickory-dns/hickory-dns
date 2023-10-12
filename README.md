@@ -20,7 +20,7 @@ This repo consists of multiple crates:
 | **Proto**     | [![](https://img.shields.io/crates/v/trust-dns-proto.svg)](https://crates.io/crates/trust-dns-proto) [![trust-dns-proto](https://docs.rs/trust-dns-proto/badge.svg)](https://docs.rs/trust-dns-proto) Raw DNS library, exposes an unstable API and only for use by the other Hickory DNS libraries, not intended for end-user use.           |
 | **Client**    | [![](https://img.shields.io/crates/v/trust-dns-client.svg)](https://crates.io/crates/trust-dns-client) [![trust-dns-client](https://docs.rs/trust-dns-client/badge.svg)](https://docs.rs/trust-dns-client) Used for sending `query`, `update`, and `notify` messages directly to a DNS server.                                             |
 | **Server**    | [![](https://img.shields.io/crates/v/trust-dns-server.svg)](https://crates.io/crates/trust-dns-server) [![trust-dns-server](https://docs.rs/trust-dns-server/badge.svg)](https://docs.rs/trust-dns-server) Use to host DNS records, this also has a `trust-dns` binary for running in a daemon form.                                       |
-| **Resolver**  | [![](https://img.shields.io/crates/v/trust-dns-resolver.svg)](https://crates.io/crates/trust-dns-resolver) [![trust-dns-resolver](https://docs.rs/trust-dns-resolver/badge.svg)](https://docs.rs/trust-dns-resolver) Utilizes the client library to perform DNS resolution. Can be used in place of the standard OS resolution facilities. |
+| **Resolver**  | [![](https://img.shields.io/crates/v/hickory-resolver.svg)](https://crates.io/crates/hickory-resolver) [![hickory-resolver](https://docs.rs/hickory-resolver/badge.svg)](https://docs.rs/hickory-resolver) Utilizes the client library to perform DNS resolution. Can be used in place of the standard OS resolution facilities. |
 
 **NOTICE** This project was rebranded from Hickory DNS to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo.
 
@@ -271,7 +271,7 @@ You may want not passing the `-p` parameter will run on default DNS ports. For t
 dig @127.0.0.1 -p 24141 www.example.com
 ```
 
-## Using the trust-dns-resolver CLI
+## Using the hickory-resolver CLI
 
 Available in `0.20`
 

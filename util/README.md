@@ -4,7 +4,7 @@ Hickory DNS Util is a support library for the Hickory DNS libraries.
 
 ## resolve
 
-Useful for testing trust-dns-resolver and it's features via an independent CLI
+Useful for testing hickory-resolver and it's features via an independent CLI
 
 ```shell
 $ cargo install --bin resolve trust-dns-util
@@ -24,10 +24,10 @@ Success for query name: www.example.com. type: A class: IN
 ```shell
 $ resolve -h
 resolve 0.20.0-alpha.3
-A CLI interface for the trust-dns-resolver.
+A CLI interface for the hickory-resolver.
 
-This utility directly uses the trust-dns-resolver to perform a lookup to a set of nameservers. Many of the features can
-be directly tested via the FLAGS and OPTIONS. By default (like trust-dns-resolver) the configured nameservers are the
+This utility directly uses the hickory-resolver to perform a lookup to a set of nameservers. Many of the features can
+be directly tested via the FLAGS and OPTIONS. By default (like hickory-resolver) the configured nameservers are the
 Google provided ones. The system configured ones can be used with the `--system` FLAG. Other nameservers, as many as
 desired, can be configured directly with the `--nameserver` OPTION.
 

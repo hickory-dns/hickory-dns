@@ -44,11 +44,11 @@ use hickory_resolver::{
 };
 use tokio::time::MissedTickBehavior;
 
-/// A CLI interface for the trust-dns-resolver.
+/// A CLI interface for the hickory-resolver.
 ///
-/// This utility directly uses the trust-dns-resolver to perform a lookup to a
+/// This utility directly uses the hickory-resolver to perform a lookup to a
 /// set of nameservers. Many of the features can be directly tested via the
-/// FLAGS and OPTIONS. By default (like trust-dns-resolver) the configured
+/// FLAGS and OPTIONS. By default (like hickory-resolver) the configured
 /// nameservers are the Google provided ones. The system configured ones can be
 /// used with the `--system` FLAG. Other nameservers, as many as desired, can
 /// be configured directly with the `--nameserver` OPTION.
