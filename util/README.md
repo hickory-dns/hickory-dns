@@ -7,7 +7,7 @@ Hickory DNS Util is a support library for the Hickory DNS libraries.
 Useful for testing hickory-resolver and it's features via an independent CLI
 
 ```shell
-$ cargo install --bin resolve trust-dns-util
+$ cargo install --bin resolve hickory-util
 ```
 
 ### example

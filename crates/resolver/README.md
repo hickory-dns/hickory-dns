@@ -86,7 +86,7 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 Useful for testing hickory-resolver and it's features via an independent CLI.
 
 ```shell
-cargo install --bin resolve trust-dns-util
+cargo install --bin resolve hickory-util
 ```
 
 ### example

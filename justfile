@@ -37,7 +37,7 @@ dns-over-quic: (default "--features=dns-over-quic" "--ignore=\\{async-std-resolv
 dns-over-h3: (default "--features=dns-over-h3" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-client\\}")
 
 # Check, build, and test all crates with dns-over-native-tls enabled
-dns-over-native-tls: (default "--features=dns-over-native-tls" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-server,trust-dns,trust-dns-util,hickory-integration\\}")
+dns-over-native-tls: (default "--features=dns-over-native-tls" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-server,trust-dns,hickory-util,hickory-integration\\}")
 
 # Check, build, and test all crates with dns-over-openssl enabled
 dns-over-openssl: (default "--features=dnssec-openssl" "--ignore=\\{async-std-resolver,hickory-compatibility\\}")

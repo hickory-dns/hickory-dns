@@ -276,7 +276,7 @@ dig @127.0.0.1 -p 24141 www.example.com
 Available in `0.20`
 
 ```shell
-cargo install --bin resolve trust-dns-util
+cargo install --bin resolve hickory-util
 ```
 
 Or from source, in the trust-dns directory
