@@ -23,7 +23,7 @@ docker run \
     -a STDERR -a STDOUT \
     -v ${PWD}/../:/src \
     rust:latest bash \
-    -c "cd src/trust-dns \
+    -c "cd src/hickory-dns \
         ${builds}
         " | tee target/linux_output.txt
 popd

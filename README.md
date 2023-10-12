@@ -1,6 +1,6 @@
 [![minimum rustc: 1.67](https://img.shields.io/badge/minimum%20rustc-1.67-green?logo=rust)](https://www.whatrustisit.com)
-[![Build Status](https://github.com/bluejekyll/trust-dns/workflows/test/badge.svg?branch=main)](https://github.com/bluejekyll/trust-dns/actions?query=workflow%3Atest)
-[![codecov](https://codecov.io/gh/bluejekyll/trust-dns/branch/main/graph/badge.svg)](https://codecov.io/gh/bluejekyll/trust-dns)
+[![Build Status](https://github.com/bluejekyll/hickory-dns/workflows/test/badge.svg?branch=main)](https://github.com/bluejekyll/hickory-dns/actions?query=workflow%3Atest)
+[![codecov](https://codecov.io/gh/bluejekyll/hickory-dns/branch/main/graph/badge.svg)](https://codecov.io/gh/bluejekyll/hickory-dns)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE-MIT)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE-APACHE)
 [![Discord](https://img.shields.io/discord/590067103822774272.svg)](https://discord.gg/89nxE4n)
@@ -16,10 +16,10 @@ This repo consists of multiple crates:
 
 | Library       | Description                                                                                                                                                                                                                                                                                                                                |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Hickory DNS** | [![](https://img.shields.io/crates/v/trust-dns.svg)](https://crates.io/crates/trust-dns) Binaries for running a DNS authoritative server.                                                                                                                                                                                                  |
+| **Hickory DNS** | [![](https://img.shields.io/crates/v/hickory-dns.svg)](https://crates.io/crates/hickory-dns) Binaries for running a DNS authoritative server.                                                                                                                                                                                                  |
 | **Proto**     | [![](https://img.shields.io/crates/v/hickory-proto.svg)](https://crates.io/crates/hickory-proto) [![hickory-proto](https://docs.rs/hickory-proto/badge.svg)](https://docs.rs/hickory-proto) Raw DNS library, exposes an unstable API and only for use by the other Hickory DNS libraries, not intended for end-user use.           |
 | **Client**    | [![](https://img.shields.io/crates/v/hickory-client.svg)](https://crates.io/crates/hickory-client) [![hickory-client](https://docs.rs/hickory-client/badge.svg)](https://docs.rs/hickory-client) Used for sending `query`, `update`, and `notify` messages directly to a DNS server.                                             |
-| **Server**    | [![](https://img.shields.io/crates/v/hickory-server.svg)](https://crates.io/crates/hickory-server) [![hickory-server](https://docs.rs/hickory-server/badge.svg)](https://docs.rs/hickory-server) Use to host DNS records, this also has a `trust-dns` binary for running in a daemon form.                                       |
+| **Server**    | [![](https://img.shields.io/crates/v/hickory-server.svg)](https://crates.io/crates/hickory-server) [![hickory-server](https://docs.rs/hickory-server/badge.svg)](https://docs.rs/hickory-server) Use to host DNS records, this also has a `hickory-dns` binary for running in a daemon form.                                       |
 | **Resolver**  | [![](https://img.shields.io/crates/v/hickory-resolver.svg)](https://crates.io/crates/hickory-resolver) [![hickory-resolver](https://docs.rs/hickory-resolver/badge.svg)](https://docs.rs/hickory-resolver) Utilizes the client library to perform DNS resolution. Can be used in place of the standard OS resolution facilities. |
 
 **NOTICE** This project was rebranded from Hickory DNS to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo.
@@ -89,7 +89,7 @@ a restart of the server process.
 
 ### DNS-over-TLS and DNS-over-HTTPS on the Server
 
-Support of TLS on the Server is managed through a pkcs12 der file. The documentation is captured in the example test config file, [example.toml](https://github.com/bluejekyll/trust-dns/blob/main/tests/test-data/test_configs/example.toml). A registered certificate to the server can be pinned to the Client with the `add_ca()` method. Alternatively, as the client uses the rust-native-tls library, it should work with certificate signed by any standard CA.
+Support of TLS on the Server is managed through a pkcs12 der file. The documentation is captured in the example test config file, [example.toml](https://github.com/bluejekyll/hickory-dns/blob/main/tests/test-data/test_configs/example.toml). A registered certificate to the server can be pinned to the Client with the `add_ca()` method. Alternatively, as the client uses the rust-native-tls library, it should work with certificate signed by any standard CA.
 
 ## DNS-over-TLS and DNS-over-HTTPS
 
@@ -168,10 +168,10 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 # Usage
 
 This assumes that you have [Rust](https://www.rust-lang.org) stable installed. These
-presume that the trust-dns repos have already been synced to the local system:
+presume that the hickory-dns repos have already been synced to the local system:
 
-    git clone https://github.com/bluejekyll/trust-dns.git
-    cd trust-dns
+    git clone https://github.com/bluejekyll/hickory-dns.git
+    cd hickory-dns
 
 ## Prerequisites
 
@@ -233,10 +233,10 @@ just dns-over-https-rustls
 
 ## Building
 
-- Production build, from the `trust-dns` base dir, to get all features, just pass the `--all-features` flag.
+- Production build, from the `hickory-dns` base dir, to get all features, just pass the `--all-features` flag.
 
 ```shell
-cargo build --release -p trust-dns
+cargo build --release -p hickory-dns
 ```
 
 ## Running
@@ -248,21 +248,21 @@ so this should allow it to work with most internal loads.
 - Verify the version
 
 ```shell
-./target/release/trust-dns --version
+./target/release/hickory-dns --version
 ```
 
 - Get help
 
 ```shell
-./target/release/trust-dns --help
+./target/release/hickory-dns --help
 ```
 
-- Launch `trust-dns` server with test config
+- Launch `hickory-dns` server with test config
 
-You may want not passing the `-p` parameter will run on default DNS ports. For the tls features, there are also port options for those, see `trust-dns --help`
+You may want not passing the `-p` parameter will run on default DNS ports. For the tls features, there are also port options for those, see `hickory-dns --help`
 
 ```shell
-./target/release/trust-dns -c ./tests/test-data/test_configs/example.toml -z ./tests/test-data/test_configs/ -p 24141
+./target/release/hickory-dns -c ./tests/test-data/test_configs/example.toml -z ./tests/test-data/test_configs/ -p 24141
 ```
 
 - Query the just launched server with `dig`
@@ -279,7 +279,7 @@ Available in `0.20`
 cargo install --bin resolve hickory-util
 ```
 
-Or from source, in the trust-dns directory
+Or from source, in the hickory-dns directory
 
 ```shell
 cargo install --bin resolve --path util
@@ -299,7 +299,7 @@ Success for query name: www.example.com. type: A class: IN
 The Client has a few features which can be disabled for different reasons when embedding in other software.
 
 - `dnssec-openssl`
-  It is a default feature, so default-features will need to be set to false (this will disable all other default features in trust-dns). Until there are other crypto libraries supported, this will also disable DNSSEC validation. The functions will still exist, but will always return errors on validation. The below example line will disable all default features and enable OpenSSL, remove `"openssl"` to remove the dependency on OpenSSL.
+  It is a default feature, so default-features will need to be set to false (this will disable all other default features in hickory-dns). Until there are other crypto libraries supported, this will also disable DNSSEC validation. The functions will still exist, but will always return errors on validation. The below example line will disable all default features and enable OpenSSL, remove `"openssl"` to remove the dependency on OpenSSL.
 
 - `dnssec-ring`
   Ring support can be used for RSA and ED25519 DNSSEC validation.
@@ -324,7 +324,7 @@ Using custom features in dependencies:
 ```
 [dependencies]
   ...
-trust-dns = { version = "*", default-features = false, features = ["dnssec-openssl"] }
+hickory-dns = { version = "*", default-features = false, features = ["dnssec-openssl"] }
 ```
 
 Using custom features during build:

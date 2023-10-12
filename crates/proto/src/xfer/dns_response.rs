@@ -126,7 +126,7 @@ type TimeoutFuture = Pin<
 >;
 
 // TODO: this needs to have the IP addr of the remote system...
-// TODO: see https://github.com/bluejekyll/trust-dns/issues/383 for removing vec of messages and instead returning a Stream
+// TODO: see https://github.com/bluejekyll/hickory-dns/issues/383 for removing vec of messages and instead returning a Stream
 /// A DNS response object
 ///
 /// For Most DNS requests, only one response is expected, the exception is a multicast request.

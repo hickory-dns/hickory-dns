@@ -20,15 +20,15 @@ Low-level crates supporting the above high-level crates:
 
 Binaries:
 
-- **[trust-dns](bin/)** - server binary, `trust-dns`, for hosting authorities, zones, and/or setting up a forwarder
+- **[hickory-dns](bin/)** - server binary, `hickory-dns`, for hosting authorities, zones, and/or setting up a forwarder
 - **[hickory-util](util/)** - helpful utilities, e.g. `resolve` for a CLI resolver, as well as some DNSSEC utilities
 
 Old and Outdated crates:
 
-- **[trust-dns-rustls](https://github.com/bluejekyll/trust-dns/tree/v0.21.0/crates/rustls)** - removed in favor of feature in trust-dns-prot0, crate efs in [v0.21.0](https://github.com/bluejekyll/trust-dns/tree/v0.21.0)
-- **[trust-dns-openssl](https://github.com/bluejekyll/trust-dns/tree/v0.21.0/crates/openssl)** - removed in favor of feature in trust-dns-prot0, crate efs in [v0.21.0](https://github.com/bluejekyll/trust-dns/tree/v0.21.0)
-- **[trust-dns-native-tls](https://github.com/bluejekyll/trust-dns/tree/v0.21.0/crates/native-tls)** - removed in favor of feature in trust-dns-prot0, crate efs in [v0.21.0](https://github.com/bluejekyll/trust-dns/tree/v0.21.0)
-- **[trust-dns-https](https://github.com/bluejekyll/trust-dns/tree/v0.21.0/crates/https)** - removed in favor of feature in trust-dns-prot0, crate efs in [v0.21.0](https://github.com/bluejekyll/trust-dns/tree/v0.21.0)
+- **[trust-dns-rustls](https://github.com/bluejekyll/trust-dns/tree/v0.21.0/crates/rustls)** - removed in favor of feature in hickory-dns-proto, crate efs in [v0.21.0](https://github.com/bluejekyll/hickory-dns/tree/v0.21.0)
+- **[trust-dns-openssl](https://github.com/bluejekyll/hickory-dns/tree/v0.21.0/crates/openssl)** - removed in favor of feature in hickory-dns-proto, crate efs in [v0.21.0](https://github.com/bluejekyll/hickory-dns/tree/v0.21.0)
+- **[trust-dns-native-tls](https://github.com/bluejekyll/hickory-dns/tree/v0.21.0/crates/native-tls)** - removed in favor of feature in hickory-dns-proto, crate efs in [v0.21.0](https://github.com/bluejekyll/hickory-dns/tree/v0.21.0)
+- **[trust-dns-https](https://github.com/bluejekyll/hickory-dns/tree/v0.21.0/crates/https)** - removed in favor of feature in hickory-dns-proto, crate efs in [v0.21.0](https://github.com/bluejekyll/hickory-dns/tree/v0.21.0)
 
 ## TBD
 

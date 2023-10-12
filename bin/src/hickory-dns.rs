@@ -5,17 +5,17 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! The `trust-dns` binary for running a DNS server
+//! The `hickory-dns` binary for running a DNS server
 //!
 //! ```text
-//! Usage: trust-dns [options]
-//!       trust-dns (-h | --help | --version)
+//! Usage: hickory-dns [options]
+//!       hickory-dns (-h | --help | --version)
 //!
 //! Options:
 //!    -q, --quiet             Disable INFO messages, WARN and ERROR will remain
 //!    -d, --debug             Turn on DEBUG messages (default is only INFO)
 //!    -h, --help              Show this message
-//!    -v, --version           Show the version of trust-dns
+//!    -v, --version           Show the version of hickory-dns
 //!    -c FILE, --config=FILE  Path to configuration file, default is /etc/named.toml
 //!    -z DIR, --zonedir=DIR   Path to the root directory for all zone files, see also config toml
 //!    -p PORT, --port=PORT    Override the listening port

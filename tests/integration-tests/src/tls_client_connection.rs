@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 //! TLS based DNS client connection for Client impls
-//! TODO: This modules was moved from trust-dns-rustls, it really doesn't need to exist if tests are refactored...
+//! TODO: This modules was moved from hickory-dns-rustls, it really doesn't need to exist if tests are refactored...
 
 use std::marker::PhantomData;
 use std::net::SocketAddr;

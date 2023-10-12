@@ -39,7 +39,7 @@ async fn tokio_main() {
     .expect("failed to create resolver");
 
     // Create some futures representing name lookups.
-    let names = ["trust-dns.org.", "estada.ch.", "wikipedia.org."];
+    let names = ["hickory-dns.org.", "estada.ch.", "wikipedia.org."];
 
     let first_resolve = resolve_list(&names, &*resolver).await;
     let cached_resolve = resolve_list(&names, &*resolver).await;

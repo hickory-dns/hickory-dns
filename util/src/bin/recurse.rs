@@ -37,9 +37,9 @@ use hickory_resolver::{
     Name,
 };
 
-/// A CLI interface for the trust-dns-recursor.
+/// A CLI interface for the hickory-dns-recursor.
 ///
-/// This utility directly uses the trust-dns-recursor to perform a recursive lookup
+/// This utility directly uses the hickory-dns-recursor to perform a recursive lookup
 ///   starting with a set of root dns servers, aka hints.
 #[derive(Debug, Parser)]
 #[clap(name = "recurse")]

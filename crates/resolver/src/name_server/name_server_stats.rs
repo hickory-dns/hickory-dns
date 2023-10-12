@@ -46,7 +46,7 @@ pub(crate) struct NameServerStats {
     ///    value. Note that this decay is only applied at read time.
     ///
     /// For the original discussion regarding this algorithm, see
-    /// https://github.com/bluejekyll/trust-dns/issues/1702.
+    /// https://github.com/bluejekyll/hickory-dns/issues/1702.
     srtt_microseconds: AtomicU32,
 
     /// The last time the `srtt_microseconds` value was updated.

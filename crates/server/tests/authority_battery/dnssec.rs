@@ -72,8 +72,11 @@ pub fn test_soa<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]
         .and_then(RData::as_soa)
         .unwrap();
 
-    assert_eq!(Name::from_str("trust-dns.org.").unwrap(), *soa.mname());
-    assert_eq!(Name::from_str("root.trust-dns.org.").unwrap(), *soa.rname());
+    assert_eq!(Name::from_str("hickory-dns.org.").unwrap(), *soa.mname());
+    assert_eq!(
+        Name::from_str("root.hickory-dns.org.").unwrap(),
+        *soa.rname()
+    );
     assert!(199609203 < soa.serial()); // serial should be one or more b/c of the signing process
     assert_eq!(28800, soa.refresh());
     assert_eq!(7200, soa.retry());

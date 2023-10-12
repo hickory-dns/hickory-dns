@@ -22,7 +22,7 @@
 //! `Tokio` based async resolver, and can be used inside any `Tokio` based system.
 //!
 //! This as best as possible attempts to abide by the DNS RFCs, please file issues at
-//! <https://github.com/bluejekyll/trust-dns>.
+//! <https://github.com/bluejekyll/hickory-dns>.
 //!
 //! # Usage
 //!
@@ -176,7 +176,7 @@
 //! ## DNS-over-TLS and DNS-over-HTTPS
 //!
 //! DNS-over-TLS and DNS-over-HTTPS are supported in the Hickory DNS Resolver library. The underlying
-//! implementations are available as addon libraries. *WARNING* The trust-dns developers make no
+//! implementations are available as addon libraries. *WARNING* The hickory-dns developers make no
 //! claims on the security and/or privacy guarantees of this implementation.
 //!
 //! To use DNS-over-TLS one of the `dns-over-tls` features must be enabled at compile time. There
@@ -190,7 +190,7 @@
 //! `openssl` where not supported. `dns-over-openssl` will specify that `openssl` should be used
 //! (which is a perfectly fine option if required). If more than one is specified, the precedence
 //! will be in this order (i.e. only one can be used at a time) `dns-over-rustls`,
-//! `dns-over-native-tls`, and then `dns-over-openssl`. **NOTICE** the trust-dns developers are not
+//! `dns-over-native-tls`, and then `dns-over-openssl`. **NOTICE** the hickory-dns developers are not
 //! responsible for any choice of library that does not meet required security requirements.
 //!
 //! ### Example

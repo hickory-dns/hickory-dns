@@ -34,7 +34,7 @@ fn get_levels<T: ToString>(bin: &str, level: Option<T>) -> String {
     }
 }
 
-/// Setup the logging for the given Level of output and all trust-dns crates
+/// Setup the logging for the given Level of output and all hickory-dns crates
 ///
 /// # Panic
 ///

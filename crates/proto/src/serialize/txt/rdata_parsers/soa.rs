@@ -80,8 +80,8 @@ fn test_parse() {
     use std::str::FromStr;
 
     let soa_tokens = vec![
-        "trust-dns.org.",
-        "root.trust-dns.org.",
+        "hickory-dns.org.",
+        "root.hickory-dns.org.",
         "199609203",
         "8h",
         "120m",
@@ -96,8 +96,8 @@ fn test_parse() {
     .expect("failed to parse tokens");
 
     let expected_soa = SOA::new(
-        "trust-dns.org.".parse().unwrap(),
-        "root.trust-dns.org.".parse().unwrap(),
+        "hickory-dns.org.".parse().unwrap(),
+        "root.hickory-dns.org.".parse().unwrap(),
         199609203,
         28800,
         7200,

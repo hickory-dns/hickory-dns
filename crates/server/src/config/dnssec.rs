@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Configuration types for all security options in trust-dns
+//! Configuration types for all security options in hickory-dns
 
 use std::path::Path;
 

@@ -506,7 +506,7 @@ mod tests {
 
     #[test]
     fn test_label_compression_regression() {
-        // https://github.com/bluejekyll/trust-dns/issues/339
+        // https://github.com/bluejekyll/hickory-dns/issues/339
         /*
         ;; QUESTION SECTION:
         ;bluedot.is.autonavi.com.gds.alibabadns.com. IN AAAA

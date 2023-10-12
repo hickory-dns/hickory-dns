@@ -326,7 +326,7 @@ impl DNSKEY {
 
     /// Internal checksum function (used for non-RSAMD5 hashes only,
     /// however, RSAMD5 is considered deprecated and not implemented in
-    /// trust-dns, anyways).
+    /// hickory-dns, anyways).
     pub fn calculate_key_tag_internal(bytes: &[u8]) -> u16 {
         let mut ac: u32 = 0;
         for (i, k) in bytes.iter().enumerate() {
