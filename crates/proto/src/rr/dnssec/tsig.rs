@@ -145,7 +145,7 @@ impl TSigner {
         //    this is to be pedantic about constant time HMAC validation (prevent timing attacks) as well as any security
         //    concerns about MAC truncation and collisions.
         if tsig.mac().len() < tsig.algorithm().output_len()? {
-            return Err(ProtoError::from("Please file an issue with https://github.com/bluejekyll/hickory-dns to support truncated HMACs with TSIG"));
+            return Err(ProtoError::from("Please file an issue with https://github.com/hickorydns/hickory-dns to support truncated HMACs with TSIG"));
         }
 
         // verify the MAC

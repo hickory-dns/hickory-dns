@@ -46,7 +46,7 @@ Releases are somewhat automated. The github action, `publish`, watches for any t
 1. Update all inter-dependent crates, i.e. hickory-resolver to use `hickory-proto = 0.20.1`
 1. Update [CHANGELOG.md](CHANGELOG.md) to include all PR's (of consequence) since the previous release
 1. Push to Github, create a PR and merge in `main` or the target release branch.
-1. Go to [Releases](https://github.com/bluejekyll/hickory-dns/releases) and `Draft a new release`
+1. Go to [Releases](https://github.com/hickorydns/hickory-dns/releases) and `Draft a new release`
 1. Give it a `Tag Version` of `vX.x.x`, e.g. `v0.20.1`, *make sure this is tagging the correct branch, e.g. `main` or `release/0.19`*
 1. Give it a  `Release Title` of something key to the release
 1. Copy and pase the part of the CHANGELOG.md for this release into `Describe this release`

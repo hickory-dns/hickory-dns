@@ -1,5 +1,5 @@
 [![minimum rustc: 1.67](https://img.shields.io/badge/minimum%20rustc-1.67-green?logo=rust)](https://www.whatrustisit.com)
-[![Build Status](https://github.com/bluejekyll/hickory-dns/workflows/test/badge.svg?branch=main)](https://github.com/bluejekyll/hickory-dns/actions?query=workflow%3Atest)
+[![Build Status](https://github.com/hickorydns/hickory-dns/workflows/test/badge.svg?branch=main)](https://github.com/hickorydns/hickory-dns/actions?query=workflow%3Atest)
 [![codecov](https://codecov.io/gh/bluejekyll/hickory-dns/branch/main/graph/badge.svg)](https://codecov.io/gh/bluejekyll/hickory-dns)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE-MIT)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE-APACHE)
@@ -89,7 +89,7 @@ a restart of the server process.
 
 ### DNS-over-TLS and DNS-over-HTTPS on the Server
 
-Support of TLS on the Server is managed through a pkcs12 der file. The documentation is captured in the example test config file, [example.toml](https://github.com/bluejekyll/hickory-dns/blob/main/tests/test-data/test_configs/example.toml). A registered certificate to the server can be pinned to the Client with the `add_ca()` method. Alternatively, as the client uses the rust-native-tls library, it should work with certificate signed by any standard CA.
+Support of TLS on the Server is managed through a pkcs12 der file. The documentation is captured in the example test config file, [example.toml](https://github.com/hickorydns/hickory-dns/blob/main/tests/test-data/test_configs/example.toml). A registered certificate to the server can be pinned to the Client with the `add_ca()` method. Alternatively, as the client uses the rust-native-tls library, it should work with certificate signed by any standard CA.
 
 ## DNS-over-TLS and DNS-over-HTTPS
 
@@ -170,7 +170,7 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 This assumes that you have [Rust](https://www.rust-lang.org) stable installed. These
 presume that the hickory-dns repos have already been synced to the local system:
 
-    git clone https://github.com/bluejekyll/hickory-dns.git
+    git clone https://github.com/hickorydns/hickory-dns.git
     cd hickory-dns
 
 ## Prerequisites
