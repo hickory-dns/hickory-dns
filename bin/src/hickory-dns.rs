@@ -352,7 +352,7 @@ fn main() {
     let mut runtime = runtime::Builder::new_multi_thread()
         .enable_all()
         .worker_threads(4)
-        .thread_name("trust-dns-server-runtime")
+        .thread_name("hickory-server-runtime")
         .build()
         .expect("failed to initialize Tokio Runtime");
     let mut catalog: Catalog = Catalog::new();
@@ -762,17 +762,17 @@ fn all_trust_dns(level: impl ToString) -> String {
     )
 }
 
-/// appends trust-dns-server debug to RUST_LOG
+/// appends hickory-server debug to RUST_LOG
 pub fn debug() {
     logger(tracing::Level::DEBUG);
 }
 
-/// appends trust-dns-server info to RUST_LOG
+/// appends hickory-server info to RUST_LOG
 pub fn default() {
     logger(tracing::Level::INFO);
 }
 
-/// appends trust-dns-server error to RUST_LOG
+/// appends hickory-server error to RUST_LOG
 pub fn quiet() {
     logger(tracing::Level::ERROR);
 }

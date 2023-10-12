@@ -43,7 +43,7 @@
 //!
 //! For a system-like resolver, see [hickory-resolver](https://docs.rs/hickory-resolver). This is most likely what you want if all you want to do is lookup IP addresses.
 //!
-//! For serving DNS serving, see [trust-dns-server](https://docs.rs/trust-dns-server).
+//! For serving DNS serving, see [hickory-server](https://docs.rs/hickory-server).
 //!
 //! # Goals
 //!
@@ -139,7 +139,7 @@
 //!
 //! ## Dynamic update
 //!
-//! Currently `hickory-client` supports SIG(0) signed records for authentication and authorization of dynamic DNS updates. It's beyond the scope of these examples to show how to setup SIG(0) authorization on the server. `hickory-client` is known to work with BIND9 and `trust-dns-server`. Expect in the future for TLS to become a potentially better option for authorization with certificate chains. These examples show using SIG(0) for auth, requires OpenSSL. It's beyond the scope of these examples to describe the configuration for the server.
+//! Currently `hickory-client` supports SIG(0) signed records for authentication and authorization of dynamic DNS updates. It's beyond the scope of these examples to show how to setup SIG(0) authorization on the server. `hickory-client` is known to work with BIND9 and `hickory-server`. Expect in the future for TLS to become a potentially better option for authorization with certificate chains. These examples show using SIG(0) for auth, requires OpenSSL. It's beyond the scope of these examples to describe the configuration for the server.
 
 //!
 //! ```rust,no_run

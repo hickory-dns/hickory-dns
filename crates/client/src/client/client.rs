@@ -454,7 +454,7 @@ impl<CC: ClientConnection> SyncClient<CC> {
 
     /// Creates a new DNS client with the specified connection type and a SIG0 signer.
     ///
-    /// This is necessary for signed update requests to update trust-dns-server entries.
+    /// This is necessary for signed update requests to update hickory-server entries.
     ///
     /// # Arguments
     ///
@@ -597,7 +597,7 @@ impl<CC: ClientConnection> SecureSyncClientBuilder<CC> {
 
     /// Associate a signer to produce a SIG0 for all update requests
     ///
-    /// This is necessary for signed update requests to update trust-dns-server entries
+    /// This is necessary for signed update requests to update hickory-server entries
     ///
     /// # Arguments
     ///
