@@ -1,11 +1,11 @@
 ##
-## This is an example configuration file for the Trust-DNS named server.
+## This is an example configuration file for the Hickory DNS named server.
 ##
 ## The format is in TOML: https://github.com/toml-lang/toml which was chosen
-##  as the configuration format for Trust-DNS. While Trust-DNS is intended to
+##  as the configuration format for Hickory DNS. While Hickory DNS is intended to
 ##  be a drop-in replacement for BIND9, it will not support the named.conf files
 ##  directly. At some point, there will be a binary tool for converting the
-##  BIND9 configuration files over to Trust-DNS TOML.
+##  BIND9 configuration files over to Hickory DNS TOML.
 ##
 ## Many of these options are available as both command line options and
 ##  configuration options in these files. In that case, the command line option
@@ -93,7 +93,7 @@ file = "example.com.zone"
 
 ## set of DNSSEC algorithms to use to sign the zone. enable_dnssec must be true.
 ## these will be lookedup by $file.{key_name}.pem, for backward compatibility
-## with previous versions of Trust-DNS, if enable_dnssec is enabled but
+## with previous versions of Hickory DNS, if enable_dnssec is enabled but
 ## supported_algorithms is not specified, it will default to "RSASHA256" and
 ## look for the $file.pem for the key. To control key length, or other options
 ## keys of the specified formats can be generated in PEM format. Instructions

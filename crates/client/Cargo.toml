@@ -4,10 +4,10 @@ name = "hickory-client"
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
 description = """
-Trust-DNS is a safe and secure DNS library. This is the Client library with DNSSEC support.
+Hickory DNS is a safe and secure DNS library. This is the Client library with DNSSEC support.
  DNSSEC with NSEC validation for negative records, is complete. The client supports
  dynamic DNS with SIG0 authenticated requests, implementing easy to use high level
- funtions. Trust-DNS is based on the Tokio and Futures libraries, which means
+ funtions. Hickory DNS is based on the Tokio and Futures libraries, which means
  it should be easily integrated into other software that also use those
  libraries.
 """

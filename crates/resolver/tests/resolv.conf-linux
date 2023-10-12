@@ -1,4 +1,4 @@
-# Not all of these are supported by Trust-DNS
+# Not all of these are supported by Hickory DNS
 # They are testing that they don't break parsing
 options ndots:8 timeout:8 attempts:8
 
@@ -10,7 +10,7 @@ nameserver 2001:4860:4860::8844
 nameserver 8.8.8.8
 nameserver 8.8.4.4
 
-# some options not supported by Trust-DNS
+# some options not supported by Hickory DNS
 options rotate
 options inet6 no-tld-query
 

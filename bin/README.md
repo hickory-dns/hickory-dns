@@ -1,10 +1,10 @@
 # Overview
 
-Trust-DNS provides a binary for hosting or forwarding DNS zones.
+Hickory DNS provides a binary for hosting or forwarding DNS zones.
 
 This a named implementation for DNS zone hosting. It is capable of performing signing all records in the zone for server DNSSEC RRSIG records associated with all records in a zone. There is also a `trust-dns` binary that can be generated from the library with `cargo install trust-dns`. Dynamic updates are supported via `SIG0` (an mTLS authentication method is under development).
 
-**NOTICE** This project was rebranded fromt Trust-DNS to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo, this crate/binary has been moved to [hickory-dns](https://crates.io/crates/hickory-dns), from `0.24` and onward, for prior versions see [trust-dns](https://crates.io/crates/trust-dns).
+**NOTICE** This project was rebranded fromt Hickory DNS to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo, this crate/binary has been moved to [hickory-dns](https://crates.io/crates/hickory-dns), from `0.24` and onward, for prior versions see [trust-dns](https://crates.io/crates/trust-dns).
 
 ## Features
 
@@ -52,4 +52,4 @@ The current minimum rustc version for this project is `1.67`
 
 ## Versioning
 
-Trust-DNS does it's best job to follow semver. Trust-DNS will be promoted to 1.0 upon stabilization of the publicly exposed APIs. This does not mean that Trust-DNS will necessarily break on upgrades between 0.x updates. Whenever possible, old APIs will be deprecated with notes on what replaced those deprecations. Trust-DNS will make a best effort to never break software which depends on it due to API changes, though this can not be guaranteed. Deprecated interfaces will be maintained for at minimum one major release after that in which they were deprecated (where possible), with the exception of the upgrade to 1.0 where all deprecated interfaces will be planned to be removed.
+Hickory DNS does it's best job to follow semver. Hickory DNS will be promoted to 1.0 upon stabilization of the publicly exposed APIs. This does not mean that Hickory DNS will necessarily break on upgrades between 0.x updates. Whenever possible, old APIs will be deprecated with notes on what replaced those deprecations. Hickory DNS will make a best effort to never break software which depends on it due to API changes, though this can not be guaranteed. Deprecated interfaces will be maintained for at minimum one major release after that in which they were deprecated (where possible), with the exception of the upgrade to 1.0 where all deprecated interfaces will be planned to be removed.

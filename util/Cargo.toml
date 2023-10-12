@@ -4,7 +4,7 @@ name = "hickory-util"
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
 description = """
-Utilities that complement Trust-DNS.
+Utilities that complement Hickory DNS.
 """
 
 # These URLs point to more information about the repository

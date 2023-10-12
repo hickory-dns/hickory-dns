@@ -1,6 +1,6 @@
-# Architecture of Trust-DNS
+# Architecture of Hickory DNS
 
-The Trust-DNS libraries are built from the ground up to be asynchronous. This project grew from first using non-blocking IO interfaces (before Futures 0.1 or async/await had landed in Rust). There are some artifacts of this history sporadically left around the project. Please feel free to submit PRs that clean up areas that still have hand-written Futures based state-machines. Additionally, much of the project was written by @bluejekyll while he learned the Rust language–this means that there may be patterns or missing common implementations in places where he didn't know better. Feel free to clean that up if you feel open to submitting a PR.
+The Hickory DNS libraries are built from the ground up to be asynchronous. This project grew from first using non-blocking IO interfaces (before Futures 0.1 or async/await had landed in Rust). There are some artifacts of this history sporadically left around the project. Please feel free to submit PRs that clean up areas that still have hand-written Futures based state-machines. Additionally, much of the project was written by @bluejekyll while he learned the Rust language–this means that there may be patterns or missing common implementations in places where he didn't know better. Feel free to clean that up if you feel open to submitting a PR.
 
 ## Layout
 
