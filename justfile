@@ -34,7 +34,7 @@ dns-over-https-rustls: (default "--features=dns-over-https-rustls" "--ignore=\\{
 dns-over-quic: (default "--features=dns-over-quic" "--ignore=\\{async-std-resolver,trust-dns-compatibility\\}")
 
 # Check, build, and test all crates with dns-over-h3 enabled
-dns-over-h3: (default "--features=dns-over-h3" "--ignore=\\{async-std-resolver,trust-dns-compatibility,trust-dns-client\\}")
+dns-over-h3: (default "--features=dns-over-h3" "--ignore=\\{async-std-resolver,trust-dns-compatibility,hickory-client\\}")
 
 # Check, build, and test all crates with dns-over-native-tls enabled
 dns-over-native-tls: (default "--features=dns-over-native-tls" "--ignore=\\{async-std-resolver,trust-dns-compatibility,trust-dns-server,trust-dns,trust-dns-util,trust-dns-integration\\}")

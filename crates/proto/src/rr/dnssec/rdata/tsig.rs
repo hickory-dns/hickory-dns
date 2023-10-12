@@ -522,7 +522,7 @@ impl TsigAlgorithm {
         }
     }
 
-    // TODO: remove this once trust-dns-client no longer has dnssec feature enabled by default
+    // TODO: remove this once hickory-client no longer has dnssec feature enabled by default
     #[cfg(not(any(feature = "ring", feature = "openssl")))]
     #[doc(hidden)]
     #[allow(clippy::unimplemented)]
@@ -576,7 +576,7 @@ impl TsigAlgorithm {
         signer.sign_to_vec().map_err(|e| e.into())
     }
 
-    // TODO: remove this once trust-dns-client no longer has dnssec feature enabled by default
+    // TODO: remove this once hickory-client no longer has dnssec feature enabled by default
     #[cfg(not(any(feature = "ring", feature = "openssl")))]
     #[doc(hidden)]
     #[allow(clippy::unimplemented)]
@@ -619,7 +619,7 @@ impl TsigAlgorithm {
         }
     }
 
-    // TODO: remove this once trust-dns-client no longer has dnssec feature enabled by default
+    // TODO: remove this once hickory-client no longer has dnssec feature enabled by default
     #[cfg(not(any(feature = "ring", feature = "openssl")))]
     #[doc(hidden)]
     #[allow(clippy::unimplemented)]

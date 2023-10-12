@@ -62,14 +62,14 @@
 //!
 //! ```toml
 //! [dependencies]
-//! trust-dns-client = "*"
+//! hickory-client = "*"
 //! ```
 //!
 //! By default DNSSEC validation is built in with OpenSSL, this can be disabled with:
 //!
 //! ```toml
 //! [dependencies]
-//! trust-dns-client = { version = "*", default-features = false }
+//! hickory-client = { version = "*", default-features = false }
 //! ```
 //!
 //! ## Objects
@@ -139,7 +139,7 @@
 //!
 //! ## Dynamic update
 //!
-//! Currently `trust-dns-client` supports SIG(0) signed records for authentication and authorization of dynamic DNS updates. It's beyond the scope of these examples to show how to setup SIG(0) authorization on the server. `trust-dns-client` is known to work with BIND9 and `trust-dns-server`. Expect in the future for TLS to become a potentially better option for authorization with certificate chains. These examples show using SIG(0) for auth, requires OpenSSL. It's beyond the scope of these examples to describe the configuration for the server.
+//! Currently `hickory-client` supports SIG(0) signed records for authentication and authorization of dynamic DNS updates. It's beyond the scope of these examples to show how to setup SIG(0) authorization on the server. `hickory-client` is known to work with BIND9 and `trust-dns-server`. Expect in the future for TLS to become a potentially better option for authorization with certificate chains. These examples show using SIG(0) for auth, requires OpenSSL. It's beyond the scope of these examples to describe the configuration for the server.
 
 //!
 //! ```rust,no_run

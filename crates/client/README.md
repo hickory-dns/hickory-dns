@@ -4,20 +4,20 @@ Hickory DNS is a library which implements the DNS protocol and client side funct
 
 This library contains basic implementations for DNS record serialization, and communication. It is capable of performing `query`, `update`, and `notify` operations. `update` has been proven to be compatible with `BIND9` and `SIG0` signed records for updates. It is built on top of the [tokio](https://tokio.rs) async-io project, this allows it to be integrated into other systems using the tokio and futures libraries. The Hickory DNS [project](https://github.com/bluejekyll/trust-dns) contains other libraries for DNS: a [resolver library](https://crates.io/crates/hickory-resolver) for lookups, a [server library](https://crates.io/crates/trust-dns) for hosting zones, and variations on the TLS implementation over [rustls](https://crates.io/crates/trust-dns-rustls) and [native-tls](https://crates.io/crates/trust-dns-native-tls).
 
-**NOTICE** This project was rebranded from Hickory DNS to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo, this crate/binary has been moved to [hickory-client](https://crates.io/crates/hickory-client), from `0.24` and onward, for prior versions see [trust-dns-client](https://crates.io/crates/trust-dns-client).
+**NOTICE** This project was rebranded from Hickory DNS to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo, this crate/binary has been moved to [hickory-client](https://crates.io/crates/hickory-client), from `0.24` and onward, for prior versions see [hickory-client](https://crates.io/crates/hickory-client).
 
 ## Featuress
 
 The `client` is capable of DNSSEC validation as well as offering higher order functions for performing DNS operations:
 
-- [SyncDnssecClient](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/struct.SyncDnssecClient.html) - DNSSEC validation
-- [create](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.create) - atomic create of a record, with authenticated request
-- [append](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.append) - verify existence of a record and append to it
-- [compare_and_swap](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.compare_and_swap) - atomic (depends on server) compare and swap
-- [delete_by_rdata](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.delete_by_rdata) - delete a specific record
-- [delete_rrset](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.delete_rrset) - delete an entire record set
-- [delete_all](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.delete_all) - delete all records sets with a given name
-- [notify](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.notify) - notify server that it should reload a zone
+- [SyncDnssecClient](https://docs.rs/hickory-client/latest/trust_dns_client/client/struct.SyncDnssecClient.html) - DNSSEC validation
+- [create](https://docs.rs/hickory-client/latest/trust_dns_client/client/trait.Client.html#method.create) - atomic create of a record, with authenticated request
+- [append](https://docs.rs/hickory-client/latest/trust_dns_client/client/trait.Client.html#method.append) - verify existence of a record and append to it
+- [compare_and_swap](https://docs.rs/hickory-client/latest/trust_dns_client/client/trait.Client.html#method.compare_and_swap) - atomic (depends on server) compare and swap
+- [delete_by_rdata](https://docs.rs/hickory-client/latest/trust_dns_client/client/trait.Client.html#method.delete_by_rdata) - delete a specific record
+- [delete_rrset](https://docs.rs/hickory-client/latest/trust_dns_client/client/trait.Client.html#method.delete_rrset) - delete an entire record set
+- [delete_all](https://docs.rs/hickory-client/latest/trust_dns_client/client/trait.Client.html#method.delete_all) - delete all records sets with a given name
+- [notify](https://docs.rs/hickory-client/latest/trust_dns_client/client/trait.Client.html#method.notify) - notify server that it should reload a zone
 
 ## Example
 

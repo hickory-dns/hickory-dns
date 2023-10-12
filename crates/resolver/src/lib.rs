@@ -11,8 +11,8 @@
 //! desired is to use the Host OS' resolver, generally in the system's libc, then the
 //! `std::net::ToSocketAddrs` variant over `&str` should be used.
 //!
-//! Unlike the `trust-dns-client`, this tries to provide a simpler interface to perform DNS
-//! queries. For update options, i.e. Dynamic DNS, the `trust-dns-client` crate must be used
+//! Unlike the `hickory-client`, this tries to provide a simpler interface to perform DNS
+//! queries. For update options, i.e. Dynamic DNS, the `hickory-client` crate must be used
 //! instead. The Resolver library is capable of searching multiple domains (this can be disabled by
 //! using an FQDN during lookup), dual-stack IPv4/IPv6 lookups, performing chained CNAME lookups,
 //! and features connection metric tracking for attempting to pick the best upstream DNS resolver.

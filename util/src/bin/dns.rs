@@ -44,9 +44,9 @@ use hickory_client::{
 use hickory_proto::rustls::tls_client_connect;
 use hickory_proto::{iocompat::AsyncIoTokioAsStd, rr::Name};
 
-/// A CLI interface for the trust-dns-client.
+/// A CLI interface for the hickory-client.
 ///
-/// This utility directly uses the trust-dns-client to perform actions with a single
+/// This utility directly uses the hickory-client to perform actions with a single
 /// DNS server
 #[derive(Debug, Parser)]
 #[clap(name = "trust dns client", version)]

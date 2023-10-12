@@ -18,7 +18,7 @@ This repo consists of multiple crates:
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Hickory DNS** | [![](https://img.shields.io/crates/v/trust-dns.svg)](https://crates.io/crates/trust-dns) Binaries for running a DNS authoritative server.                                                                                                                                                                                                  |
 | **Proto**     | [![](https://img.shields.io/crates/v/trust-dns-proto.svg)](https://crates.io/crates/trust-dns-proto) [![trust-dns-proto](https://docs.rs/trust-dns-proto/badge.svg)](https://docs.rs/trust-dns-proto) Raw DNS library, exposes an unstable API and only for use by the other Hickory DNS libraries, not intended for end-user use.           |
-| **Client**    | [![](https://img.shields.io/crates/v/trust-dns-client.svg)](https://crates.io/crates/trust-dns-client) [![trust-dns-client](https://docs.rs/trust-dns-client/badge.svg)](https://docs.rs/trust-dns-client) Used for sending `query`, `update`, and `notify` messages directly to a DNS server.                                             |
+| **Client**    | [![](https://img.shields.io/crates/v/hickory-client.svg)](https://crates.io/crates/hickory-client) [![hickory-client](https://docs.rs/hickory-client/badge.svg)](https://docs.rs/hickory-client) Used for sending `query`, `update`, and `notify` messages directly to a DNS server.                                             |
 | **Server**    | [![](https://img.shields.io/crates/v/trust-dns-server.svg)](https://crates.io/crates/trust-dns-server) [![trust-dns-server](https://docs.rs/trust-dns-server/badge.svg)](https://docs.rs/trust-dns-server) Use to host DNS records, this also has a `trust-dns` binary for running in a daemon form.                                       |
 | **Resolver**  | [![](https://img.shields.io/crates/v/hickory-resolver.svg)](https://crates.io/crates/hickory-resolver) [![hickory-resolver](https://docs.rs/hickory-resolver/badge.svg)](https://docs.rs/hickory-resolver) Utilizes the client library to perform DNS resolution. Can be used in place of the standard OS resolution facilities. |
 
@@ -53,14 +53,14 @@ as high level interfaces, which is a bit more rare.
 
 | Feature                                                                                                                       | Description                                           |
 | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| [SyncDnssecClient](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/struct.SyncDnssecClient.html)              | DNSSEC validation                                     |
-| [create](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.create)                     | atomic create of a record, with authenticated request |
-| [append](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.append)                     | verify existence of a record and append to it         |
-| [compare_and_swap](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.compare_and_swap) | atomic (depends on server) compare and swap           |
-| [delete_by_rdata](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.delete_by_rdata)   | delete a specific record                              |
-| [delete_rrset](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.delete_rrset)         | delete an entire record set                           |
-| [delete_all](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.delete_all)             | delete all records sets with a given name             |
-| [notify](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.notify)                     | notify server that it should reload a zone            |
+| [SyncDnssecClient](https://docs.rs/hickory-client/latest/trust_dns_client/client/struct.SyncDnssecClient.html)              | DNSSEC validation                                     |
+| [create](https://docs.rs/hickory-client/latest/trust_dns_client/client/trait.Client.html#method.create)                     | atomic create of a record, with authenticated request |
+| [append](https://docs.rs/hickory-client/latest/trust_dns_client/client/trait.Client.html#method.append)                     | verify existence of a record and append to it         |
+| [compare_and_swap](https://docs.rs/hickory-client/latest/trust_dns_client/client/trait.Client.html#method.compare_and_swap) | atomic (depends on server) compare and swap           |
+| [delete_by_rdata](https://docs.rs/hickory-client/latest/trust_dns_client/client/trait.Client.html#method.delete_by_rdata)   | delete a specific record                              |
+| [delete_rrset](https://docs.rs/hickory-client/latest/trust_dns_client/client/trait.Client.html#method.delete_rrset)         | delete an entire record set                           |
+| [delete_all](https://docs.rs/hickory-client/latest/trust_dns_client/client/trait.Client.html#method.delete_all)             | delete all records sets with a given name             |
+| [notify](https://docs.rs/hickory-client/latest/trust_dns_client/client/trait.Client.html#method.notify)                     | notify server that it should reload a zone            |
 
 ## Server
 
