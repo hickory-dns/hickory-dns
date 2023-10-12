@@ -43,7 +43,7 @@ Releases are somewhat automated. The github action, `publish`, watches for any t
 1. Create a new branch like `git checkout -b prepare-0.20.1`
 1. Update all Cargo.toml files to the new version, `version = 0.20.1`
 1. Update dependencies, `cargo update`
-1. Update all inter-dependent crates, i.e. hickory-resolver to use `trust-dns-proto = 0.20.1`
+1. Update all inter-dependent crates, i.e. hickory-resolver to use `hickory-proto = 0.20.1`
 1. Update [CHANGELOG.md](CHANGELOG.md) to include all PR's (of consequence) since the previous release
 1. Push to Github, create a PR and merge in `main` or the target release branch.
 1. Go to [Releases](https://github.com/bluejekyll/trust-dns/releases) and `Draft a new release`

@@ -2,7 +2,7 @@
 
 Hickory DNS Proto is the foundational DNS protocol library and implementation for Hickory DNS. Unless you want to manipulate the DNS packets directly, it is likely not the library you want. Please see Hickory DNS [Resolver](https://crates.io/crates/hickory-resolver), [Client](https://crates.io/crates/hickory-client), or [Server](https://crates.io/crates/trust-dns-server) for higher level interfaces.
 
-**NOTICE** This project was rebranded from Hickory DNS to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo, this crate/binary has been moved to [hickory-proto](https://crates.io/crates/hickory-proto), from `0.24` and onward, for prior versions see [trust-dns-proto](https://crates.io/crates/trust-dns-proto).
+**NOTICE** This project was rebranded from Hickory DNS to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo, this crate/binary has been moved to [hickory-proto](https://crates.io/crates/hickory-proto), from `0.24` and onward, for prior versions see [hickory-proto](https://crates.io/crates/hickory-proto).
 
 ## Minimum Rust Version
 

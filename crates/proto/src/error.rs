@@ -542,7 +542,7 @@ pub enum DnsSecErrorKind {
     Msg(String),
 
     // foreign
-    /// An error got returned by the trust-dns-proto crate
+    /// An error got returned by the hickory-proto crate
     #[error("proto error: {0}")]
     Proto(#[from] ProtoError),
 

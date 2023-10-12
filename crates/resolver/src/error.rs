@@ -67,7 +67,7 @@ pub enum ResolveErrorKind {
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 
-    /// An error got returned by the trust-dns-proto crate
+    /// An error got returned by the hickory-proto crate
     #[error("proto error: {0}")]
     Proto(#[from] ProtoError),
 

@@ -40,7 +40,7 @@ pub enum ErrorKind {
     #[error("io error")]
     Io(#[from] std::io::Error),
 
-    /// An error got returned by the trust-dns-proto crate
+    /// An error got returned by the hickory-proto crate
     #[error("proto error")]
     Proto(#[from] ProtoError),
 

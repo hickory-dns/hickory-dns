@@ -65,7 +65,7 @@ pub enum ParseErrorKind {
     #[error("error parsing number: {0}")]
     ParseInt(#[from] std::num::ParseIntError),
 
-    /// An error got returned by the trust-dns-proto crate
+    /// An error got returned by the hickory-proto crate
     #[error("proto error: {0}")]
     Proto(#[from] ProtoError),
 

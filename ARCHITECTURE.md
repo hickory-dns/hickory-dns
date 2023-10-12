@@ -16,7 +16,7 @@ The project has these high-level crates (to be used as dependencies in other pro
 
 Low-level crates supporting the above high-level crates:
 
-- **[trust-dns-proto](crates/proto)** - the lowest level crate, implements the basics of DNS
+- **[hickory-proto](crates/proto)** - the lowest level crate, implements the basics of DNS
 
 Binaries:
 
