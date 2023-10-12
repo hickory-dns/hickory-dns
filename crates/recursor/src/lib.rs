@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! A recursive DNS resolver based on the Trust-DNS (stub) resolver
+//! A recursive DNS resolver based on the Hickory DNS (stub) resolver
 
 #![warn(
     clippy::default_trait_access,

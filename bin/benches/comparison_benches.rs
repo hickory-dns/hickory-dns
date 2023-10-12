@@ -217,7 +217,7 @@ fn bind_process() -> (NamedProcess, u16) {
         .arg("../../server/benches/bind_conf/example.conf")
         //.arg("-d").arg("0")
         .arg("-D")
-        .arg("Trust-DNS cmp bench")
+        .arg("Hickory DNS cmp bench")
         .arg("-g")
         .arg("-p")
         .arg(&format!("{}", test_port))

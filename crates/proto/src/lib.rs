@@ -28,7 +28,7 @@
 #![recursion_limit = "2048"]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-//! Trust-DNS Protocol library
+//! Hickory DNS Protocol library
 
 use async_trait::async_trait;
 use futures_util::future::Future;

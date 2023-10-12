@@ -99,7 +99,7 @@ where
     assert_eq!(response.response_code(), ResponseCode::NXDomain);
 }
 
-// TODO: NSEC response code wrong in Trust-DNS? Issue #53
+// TODO: NSEC response code wrong in Hickory DNS? Issue #53
 // #[test]
 // fn test_nsec_query_type_nonet() {
 //   with_nonet(test_nsec_query_type);

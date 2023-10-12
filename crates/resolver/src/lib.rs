@@ -175,14 +175,14 @@
 //!
 //! ## DNS-over-TLS and DNS-over-HTTPS
 //!
-//! DNS-over-TLS and DNS-over-HTTPS are supported in the Trust-DNS Resolver library. The underlying
+//! DNS-over-TLS and DNS-over-HTTPS are supported in the Hickory DNS Resolver library. The underlying
 //! implementations are available as addon libraries. *WARNING* The trust-dns developers make no
 //! claims on the security and/or privacy guarantees of this implementation.
 //!
 //! To use DNS-over-TLS one of the `dns-over-tls` features must be enabled at compile time. There
 //! are three: `dns-over-openssl`, `dns-over-native-tls`, and `dns-over-rustls`. For DNS-over-HTTPS
 //! only rustls is supported with the `dns-over-https-rustls`, this implicitly enables support for
-//! DNS-over-TLS as well. The reason for each is to make the Trust-DNS libraries flexible for
+//! DNS-over-TLS as well. The reason for each is to make the Hickory DNS libraries flexible for
 //! different deployments, and/or security concerns. The easiest to use will generally be
 //! `dns-over-rustls` which utilizes the `*ring*` Rust cryptography library (a rework of the
 //! `boringssl` project), this should compile and be usable on most ARM and x86 platforms.
@@ -222,7 +222,7 @@
 //!
 //! ## mDNS (multicast DNS)
 //!
-//! Multicast DNS is an experimental feature in Trust-DNS at the moment. Its support on different
+//! Multicast DNS is an experimental feature in Hickory DNS at the moment. Its support on different
 //! platforms is not yet ideal. Initial support is only for IPv4 mDNS, as there are some
 //! complexities to figure out with IPv6. Once enabled, an mDNS `NameServer` will automatically be
 //! added to the `Resolver` and used for any lookups performed in the `.local.` zone.

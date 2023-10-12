@@ -271,7 +271,7 @@ async fn load_zone(
 
 /// Cli struct for all options managed with clap derive api.
 #[derive(Debug, Parser)]
-#[clap(name = "Trust-DNS named server", version, about)]
+#[clap(name = "Hickory DNS named server", version, about)]
 struct Cli {
     /// Disable INFO messages, WARN and ERROR will remain
     #[clap(short = 'q', long = "quiet", conflicts_with = "debug")]
@@ -333,7 +333,7 @@ fn main() {
         default();
     }
 
-    info!("Trust-DNS {} starting", hickory_client::version());
+    info!("Hickory DNS {} starting", hickory_client::version());
     // start up the server for listening
 
     let config = args.config.clone();
@@ -485,11 +485,11 @@ fn main() {
     match runtime.block_on(server.block_until_done()) {
         Ok(()) => {
             // we're exiting for some reason...
-            info!("Trust-DNS {} stopping", hickory_client::version());
+            info!("Hickory DNS {} stopping", hickory_client::version());
         }
         Err(e) => {
             let error_msg = format!(
-                "Trust-DNS {} has encountered an error: {}",
+                "Hickory DNS {} has encountered an error: {}",
                 hickory_client::version(),
                 e
             );

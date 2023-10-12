@@ -315,7 +315,7 @@ struct InnerInMemory {
     // Private key mapped to the Record of the DNSKey
     //  TODO: these private_keys should be stored securely. Ideally, we have keys only stored per
     //   server instance, but that requires requesting updates from the parent zone, which may or
-    //   may not support dynamic updates to register the new key... Trust-DNS will provide support
+    //   may not support dynamic updates to register the new key... Hickory DNS will provide support
     //   for this, in some form, perhaps alternate root zones...
     #[cfg(feature = "dnssec")]
     secure_keys: Vec<SigSigner>,

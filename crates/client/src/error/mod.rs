@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//! All defined errors for Trust-DNS
+//! All defined errors for Hickory DNS
 
 #![deny(missing_docs)]
 

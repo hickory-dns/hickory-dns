@@ -33,9 +33,9 @@ use hickory_proto::rr::dnssec::{KeyPair, Public};
 /// Cli struct for all options managed with clap derive api.
 #[derive(Debug, Parser)]
 #[clap(
-    name = "Trust-DNS pem-to-public-dnskey",
+    name = "Hickory DNS pem-to-public-dnskey",
     version,
-    about = "Converts a PEM formatted public key into a raw public dnskey (not the inverse of dnskey-to-pem). This can be used to create a dnskey in the TrustAnchor internal format in Trust-DNS.",
+    about = "Converts a PEM formatted public key into a raw public dnskey (not the inverse of dnskey-to-pem). This can be used to create a dnskey in the TrustAnchor internal format in Hickory DNS.",
     author = "Benjamin Fry <benjaminfry@me.com>"
 )]
 struct Cli {

@@ -683,7 +683,7 @@ pub enum RData {
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     DNSSEC(DNSSECRData),
 
-    /// Unknown RecordData is for record types not supported by Trust-DNS
+    /// Unknown RecordData is for record types not supported by Hickory DNS
     Unknown {
         /// RecordType code
         code: RecordType,

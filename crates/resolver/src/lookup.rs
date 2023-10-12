@@ -44,7 +44,7 @@ use crate::{
 #[cfg(feature = "dnssec")]
 use proto::DnssecDnsHandle;
 
-/// Result of a DNS query when querying for any record type supported by the Trust-DNS Proto library.
+/// Result of a DNS query when querying for any record type supported by the Hickory DNS Proto library.
 ///
 /// For IP resolution see LookupIp, as it has more features for A and AAAA lookups.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -335,7 +335,7 @@ impl SrvLookup {
 
     /// Returns the list of IPs associated with the SRV record.
     ///
-    /// *Note*: That Trust-DNS performs a recursive lookup on SRV records for IPs if they were not included in the original request. If there are no IPs associated to the result, a subsequent query for the IPs via the `srv.target()` should not resolve to the IPs.
+    /// *Note*: That Hickory DNS performs a recursive lookup on SRV records for IPs if they were not included in the original request. If there are no IPs associated to the result, a subsequent query for the IPs via the `srv.target()` should not resolve to the IPs.
     pub fn ip_iter(&self) -> LookupIpIter<'_> {
         LookupIpIter(self.0.iter())
     }

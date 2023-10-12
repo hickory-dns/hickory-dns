@@ -37,7 +37,7 @@ use hickory_proto::rr::dnssec::Algorithm;
 /// Cli struct for all options managed with clap derive api.
 #[derive(Debug, Parser)]
 #[clap(
-    name = "Trust-DNS dnskey-to-pem",
+    name = "Hickory DNS dnskey-to-pem",
     version,
     about = "Converts a dnskey, as generated from BIND's dnssec-keygen, into pem format",
     author = "Benjamin Fry <benjaminfry@me.com>"

@@ -35,7 +35,7 @@
 #![recursion_limit = "2048"]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-//! Trust-DNS is intended to be a fully compliant domain name server and client library.
+//! Hickory DNS is intended to be a fully compliant domain name server and client library.
 //!
 //! # Goals
 //!
@@ -62,7 +62,7 @@ pub mod store;
 
 pub use self::server::ServerFuture;
 
-/// Returns the current version of Trust-DNS
+/// Returns the current version of Hickory DNS
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }

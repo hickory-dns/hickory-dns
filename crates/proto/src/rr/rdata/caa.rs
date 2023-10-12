@@ -242,7 +242,7 @@ pub enum Property {
     ///    policy violation. The Incident Object Description Exchange Format
     ///    (IODEF) format is used [RFC7970](https://www.rfc-editor.org/rfc/rfc7970).
     Iodef,
-    /// Unknown format to Trust-DNS
+    /// Unknown format to Hickory DNS
     Unknown(String),
 }
 
@@ -272,7 +272,7 @@ impl Property {
         matches!(*self, Self::Iodef)
     }
 
-    /// true if the property is not known to Trust-DNS
+    /// true if the property is not known to Hickory DNS
     pub fn is_unknown(&self) -> bool {
         matches!(*self, Self::Unknown(_))
     }
@@ -308,7 +308,7 @@ pub enum Value {
     Issuer(Option<Name>, Vec<KeyValue>),
     /// Url to which to send CA errors
     Url(Url),
-    /// Unrecognized tag and value by Trust-DNS
+    /// Unrecognized tag and value by Hickory DNS
     Unknown(Vec<u8>),
 }
 

@@ -38,7 +38,7 @@ pub fn named_process() -> (NamedProcess, u16) {
         .arg("../../tests/compatibility-tests/tests/conf/bind-example.conf")
         //.arg("-d").arg("0") // uncomment for debugging information
         .arg("-D")
-        .arg("Trust-DNS compatibility")
+        .arg("Hickory DNS compatibility")
         .arg("-g")
         .arg("-p")
         .arg(&format!("{test_port}"))
