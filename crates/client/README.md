@@ -1,3 +1,5 @@
+**NOTICE** This project has been rebranded to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, this crate/binary has been moved to [hickory-client](https://crates.io/crates/hickory-client), from `0.24` and onward.
+
 # Overview
 
 Trust-DNS is a library which implements the DNS protocol and client side functions.
