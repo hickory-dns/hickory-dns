@@ -26,6 +26,8 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Fixed
 
+- (bin) Add root certificates to the binary crate #2059 by daxpedda
+- (proto) proto/rr: do not deserialize ClientSubnets with invalid prefixes #2057 by 00xc
 - (resolver) Fix the resolver version warning in the workspace #2013 by bluejekyll
 - (proto) Forward serde-config feature to the proto crate #2019 by cetanu
 - (server) Prevent task reaping from blocking #2023 by lpraneis
