@@ -25,8 +25,8 @@ Binaries:
 
 Old and Outdated crates:
 
-- **[trust-dns-*](https://github.com/bluejekyll/trust-dns/tree/v0.23.1/)** - removed in favor of features in hickory-proto, crate in [v0.24.0](https://github.com/hickory-dns/hickorydns/tree/v0.24.0)
-- **[trust-dns-rustls](https://github.com/bluejekyll/trust-dns/tree/v0.21.0/crates/rustls)** - removed in favor of features in hickory-proto, crate in [v0.21.0](https://github.com/hickory-dns/hickorydns/tree/v0.21.0)
+- **[trust-dns-*](https://github.com/bluejekyll/trust-dns/tree/v0.23.1/)** - removed in favor of features in hickory-proto, crate in [v0.24.0](https://github.com/hickory-dns/hickory-dns/tree/v0.24.0)
+- **[trust-dns-rustls](https://github.com/bluejekyll/trust-dns/tree/v0.21.0/crates/rustls)** - removed in favor of features in hickory-proto, crate in [v0.21.0](https://github.com/hickory-dns/hickory-dns/tree/v0.21.0)
 - **[trust-dns-openssl](https://github.com/bluejekyll/trust-dns/tree/v0.21.0/crates/openssl)** - removed in favor of features in hickory-proto, crate in [v0.21.0](https://github.com/hickory-dns/trust-dns/tree/v0.21.0)
 - **[trust-dns-native-tls](https://github.com/bluejekyll/trust-dns/tree/v0.21.0/crates/native-tls)** - removed in favor of features in hickory-proto, crate in [v0.21.0](https://github.com/hickory-dns/trust-dns/tree/v0.21.0)
 - **[trust-dns-https](https://github.com/bluejekyll/trust-dns/tree/v0.21.0/crates/https)** - removed in favor of features in hickory-proto, crate in [v0.21.0](https://github.com/hickory-dns/trust-dns/tree/v0.21.0)

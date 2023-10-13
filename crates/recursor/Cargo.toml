@@ -30,7 +30,7 @@ categories.workspace = true
 license.workspace = true
 
 [badges]
-codecov = { repository = "hickorydns/hickory-dns", branch = "main", service = "github" }
+codecov = { repository = "hickory-dns/hickory-dns", branch = "main", service = "github" }
 maintenance = { status = "actively-developed" }
 
 [features]
