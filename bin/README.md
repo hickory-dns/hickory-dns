@@ -1,4 +1,3 @@
-**NOTICE** This project has been rebranded to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, this crate/binary has been moved to [hickory-dns](https://crates.io/crates/hickory-dns), from `0.24` 
 # Overview
 
 Trust-DNS provides a binary for hosting or forwarding DNS zones.
