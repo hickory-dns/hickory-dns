@@ -42,7 +42,7 @@ let response: DnsResponse = client.query(&name, DNSClass::IN, RecordType::A).unw
 
 // Messages are the packets sent between client and server in DNS, DnsResonse's can be
 //  dereferenced to a Message. There are many fields to a Message, It's beyond the scope
-//  of these examples to explain them. See trust_dns::op::message::Message for more details.
+//  of these examples to explain them. See hickory_dns::op::message::Message for more details.
 //  generally we will be interested in the Message::answers
 let answers: &[Record] = response.answers();
 

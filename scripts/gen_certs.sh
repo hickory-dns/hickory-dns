@@ -4,9 +4,9 @@ set -euxo pipefail
 
 OPENSSL=openssl
 
-trust_dns_dir=$(dirname $0)/..
+hickory_dns_dir=$(dirname $0)/..
 
-pushd $trust_dns_dir/tests/test-data
+pushd $hickory_dns_dir/tests/test-data
 
 for i in ca.key ca.pem cert.key cert.csr cert.pem cert.p12 ; do
     [ -f $i ] && echo "$i exists" && exit 1;

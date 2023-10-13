@@ -27,7 +27,7 @@ license = "MIT OR Apache-2.0"
 
 
 [workspace.dependencies]
-# trustdns
+# hickory
 hickory-client = { version = "0.24.0", path = "crates/client", default-features = false }
 hickory-recursor = { version = "0.24.0", path = "crates/recursor", default-features = false }
 hickory-resolver = { version = "0.24.0", path = "crates/resolver", default-features = false }

@@ -754,9 +754,9 @@ fn get_env() -> String {
     env::var("RUST_LOG").unwrap_or_default()
 }
 
-fn all_trust_dns(level: impl ToString) -> String {
+fn all_hickory_dns(level: impl ToString) -> String {
     format!(
-        "named={level},trust_dns={level},{env}",
+        "hickory_dns={level},{env}",
         level = level.to_string().to_lowercase(),
         env = get_env()
     )
@@ -782,7 +782,7 @@ fn logger(level: tracing::Level) {
     // Setup tracing for logging based on input
     let filter = tracing_subscriber::EnvFilter::builder()
         .with_default_directive(tracing::Level::WARN.into())
-        .parse(all_trust_dns(level))
+        .parse(all_hickory_dns(level))
         .expect("failed to configure tracing/logging");
 
     let formatter = tracing_subscriber::fmt::layer().event_format(TdnsFormatter);

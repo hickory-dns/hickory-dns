@@ -17,7 +17,7 @@ fn get_env() -> String {
 fn get_levels<T: ToString>(bin: &str, level: Option<T>) -> String {
     let hickory_crates = level.map(|level| {
         format!(
-            "{bin}={level},trust_dns={level}",
+            "{bin}={level},hickory_dns={level}",
             bin = bin,
             level = level.to_string().to_lowercase(),
         )

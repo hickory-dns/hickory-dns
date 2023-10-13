@@ -77,7 +77,6 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
     // TODO: look into the `test-log` crate for enabling logging during tests
     // use hickory_client::logger;
     // use tracing::LogLevel;
-    // logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
 
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     let server_path = Path::new(&server_path);
