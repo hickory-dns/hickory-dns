@@ -1,4 +1,4 @@
-# Change Log: Trust-DNS
+# Change Log: Hickory DNS (f.k.a. Trust-DNS)
 
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/).
@@ -38,12 +38,11 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 - (resolver) Remove Copy from ResolverOpts #2029 by daxpedda
 
-## 0.23.1
+## 0.23.1, NOTE: Before this point the project was formerly known as Trust-DNS
 
 ### Changed
 
 - (all) **NOTICE** This project has been rebranded to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, from 0.24.0 onward.
-
 
 ## 0.23.0
 
