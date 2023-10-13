@@ -1,4 +1,4 @@
-# Change Log: Hickory DNS (f.k.a. Trust-DNS)
+# Change Log: Hickory DNS (formerly, Trust-DNS)
 
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/).
