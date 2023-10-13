@@ -1,8 +1,8 @@
 // Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 // needed for the derive statements on algorithm
@@ -20,7 +20,7 @@ use crate::serialize::binary::*;
 
 /// DNSSEC signing and validation algorithms.
 ///
-/// For [reference](http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml)
+/// For [reference](https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml)
 ///  the iana documents have all the officially registered algorithms.
 ///
 /// [RFC 6944](https://tools.ietf.org/html/rfc6944), DNSSEC DNSKEY Algorithm Status, April 2013
@@ -138,7 +138,7 @@ pub enum Algorithm {
 }
 
 impl Algorithm {
-    /// <http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml>
+    /// <https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml>
     pub fn from_u8(value: u8) -> Self {
         #[allow(deprecated)]
         match value {
@@ -197,7 +197,7 @@ impl BinEncodable for Algorithm {
 }
 
 impl<'r> BinDecodable<'r> for Algorithm {
-    // http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
+    // https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
         let algorithm_id =
             decoder.read_u8()?.unverified(/*Algorithm is verified as safe in processing this*/);

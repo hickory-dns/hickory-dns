@@ -1,8 +1,8 @@
 // Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 use std::{
@@ -430,7 +430,7 @@ impl<'a> Parser<'a> {
 
     /// parses the string following the rules from:
     ///  <https://tools.ietf.org/html/rfc2308> (NXCaching RFC) and
-    ///  <http://www.zytrax.com/books/dns/apa/time.html>
+    ///  <https://www.zytrax.com/books/dns/apa/time.html>
     ///
     /// default is seconds
     /// #s = seconds = # x 1 seconds (really!)

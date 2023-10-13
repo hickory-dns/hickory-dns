@@ -1,8 +1,8 @@
 // Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! allows a DNS domain name holder to specify one or more Certification
@@ -91,7 +91,7 @@ use crate::{
 /// $ORIGIN example.com
 /// .       CAA 0 issue "ca.example.net"
 /// .       CAA 0 iodef "mailto:security@example.com"
-/// .       CAA 0 iodef "http://iodef.example.com/"
+/// .       CAA 0 iodef "https://iodef.example.com/"
 ///
 /// A certificate issuer MAY specify additional parameters that allow
 /// customers to specify additional parameters governing certificate
@@ -1041,8 +1041,8 @@ mod tests {
             Url::parse("mailto:security@example.com").unwrap()
         );
         assert_eq!(
-            read_iodef(b"http://iodef.example.com/").unwrap(),
-            Url::parse("http://iodef.example.com/").unwrap()
+            read_iodef(b"https://iodef.example.com/").unwrap(),
+            Url::parse("https://iodef.example.com/").unwrap()
         );
     }
 
@@ -1097,7 +1097,7 @@ mod tests {
     fn test_encode_decode_iodef() {
         test_encode_decode(CAA::new_iodef(
             true,
-            Url::parse("http://www.example.com").unwrap(),
+            Url::parse("https://www.example.com").unwrap(),
         ));
         test_encode_decode(CAA::new_iodef(
             false,
@@ -1215,8 +1215,8 @@ mod tests {
             "0 iodef \"mailto:security@example.com\""
         );
         assert_eq!(
-            CAA::new_iodef(false, Url::parse("http://iodef.example.com/").unwrap()).to_string(),
-            "0 iodef \"http://iodef.example.com/\""
+            CAA::new_iodef(false, Url::parse("https://iodef.example.com/").unwrap()).to_string(),
+            "0 iodef \"https://iodef.example.com/\""
         );
         let unknown = CAA {
             issuer_critical: true,

@@ -4,7 +4,7 @@ Hickory DNS Recursor is a library which implements recursive resolution for DNS.
 
 This library can be used to perform DNS resolution beginning with a set of root (hints) authorities. It does not require an upstream recursive resolver to find records in DNS.
 
-**NOTICE** This project was rebranded from Hickory DNS to Hickory DNS and has been moved to the http://github.com/hickory-dns/hickory-dns organization and repo, this crate/binary has been moved to [hickory-recursor](https://crates.io/crates/hickory-recursor), from `0.24` and onward, for prior versions see [hickory-dns-recursor](https://crates.io/crates/hickory-dns-recursor).
+**NOTICE** This project was rebranded from Hickory DNS to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, this crate/binary has been moved to [hickory-recursor](https://crates.io/crates/hickory-recursor), from `0.24` and onward, for prior versions see [hickory-dns-recursor](https://crates.io/crates/hickory-dns-recursor).
 
 ## Minimum Rust Version
 
