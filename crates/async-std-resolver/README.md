@@ -1,4 +1,4 @@
-**NOTICE** This project has been rebranded to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo, from `0.24` and onward.
+**NOTICE** This project has been rebranded to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, from `0.24` and onward.
 
 # Overview
 
