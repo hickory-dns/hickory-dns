@@ -686,12 +686,16 @@ fn config_quic(
 }
 
 fn banner() {
+    #[cfg(feature = "ascii-art")]
+    const HICKORY_DNS_LOGO: &str = include_str!("hickory-dns.ascii");
+
+    #[cfg(not(feature = "ascii-art"))]
+    const HICKORY_DNS_LOGO: &str = "Hickory DNS";
+
     info!("");
-    info!("    o                      o            o             ");
-    info!("    |                      |            |             ");
-    info!("  --O--  o-o  o  o  o-o  --O--  o-o   o-O  o-o   o-o  ");
-    info!("    |    |    |  |   \\     |         |  |  |  |   \\   ");
-    info!("    o    o    o--o  o-o    o          o-o  o  o  o-o  ");
+    for line in HICKORY_DNS_LOGO.lines() {
+        info!(" {line}");
+    }
     info!("");
 }
 
