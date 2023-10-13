@@ -4,7 +4,7 @@ Hickory DNS Async-Std Resolver is a library which implements the DNS resolver us
 
 This library contains implementations for IPv4 (A) and IPv6 (AAAA) resolution, more features are in the works. It is built on top of the [async-std](https://async.rs) async-io project, this allows it to be integrated into other systems using the async-std and futures libraries. The Hickory DNS [project](https://github.com/hickory-dns/hickory-dns) contains other libraries for DNS: a [client library](https://crates.io/crates/hickory-client) for raw protocol usage, a [server library](https://crates.io/crates/hickory-server) for hosting zones, and variations on the TLS implementation over [rustls](https://crates.io/crates/hickory-dns-rustls) and [native-tls](https://crates.io/crates/hickory-dns-native-tls).
 
-**NOTICE** This project was rebranded from Hickory DNS to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, from `0.24` and onward.
+**NOTICE** This project was rebranded from Trust-DNS to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, from `0.24` and onward.
 
 ## Features
 
