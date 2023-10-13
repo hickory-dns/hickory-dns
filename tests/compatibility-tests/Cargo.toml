@@ -34,7 +34,7 @@ maintenance = { status = "actively-developed" }
 default = ["none"]
 none = []
 bind = []
-trust_dns_client = []
+hickory_client = []
 
 [lib]
 name = "hickory_compatibility"

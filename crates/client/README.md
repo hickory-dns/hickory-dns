@@ -10,14 +10,14 @@ This library contains basic implementations for DNS record serialization, and co
 
 The `client` is capable of DNSSEC validation as well as offering higher order functions for performing DNS operations:
 
-- [SyncDnssecClient](https://docs.rs/hickory-client/latest/trust_dns_client/client/struct.SyncDnssecClient.html) - DNSSEC validation
-- [create](https://docs.rs/hickory-client/latest/trust_dns_client/client/trait.Client.html#method.create) - atomic create of a record, with authenticated request
-- [append](https://docs.rs/hickory-client/latest/trust_dns_client/client/trait.Client.html#method.append) - verify existence of a record and append to it
-- [compare_and_swap](https://docs.rs/hickory-client/latest/trust_dns_client/client/trait.Client.html#method.compare_and_swap) - atomic (depends on server) compare and swap
-- [delete_by_rdata](https://docs.rs/hickory-client/latest/trust_dns_client/client/trait.Client.html#method.delete_by_rdata) - delete a specific record
-- [delete_rrset](https://docs.rs/hickory-client/latest/trust_dns_client/client/trait.Client.html#method.delete_rrset) - delete an entire record set
-- [delete_all](https://docs.rs/hickory-client/latest/trust_dns_client/client/trait.Client.html#method.delete_all) - delete all records sets with a given name
-- [notify](https://docs.rs/hickory-client/latest/trust_dns_client/client/trait.Client.html#method.notify) - notify server that it should reload a zone
+- [SyncDnssecClient](https://docs.rs/hickory-client/latest/hickory_client/client/struct.SyncDnssecClient.html) - DNSSEC validation
+- [create](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.create) - atomic create of a record, with authenticated request
+- [append](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.append) - verify existence of a record and append to it
+- [compare_and_swap](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.compare_and_swap) - atomic (depends on server) compare and swap
+- [delete_by_rdata](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.delete_by_rdata) - delete a specific record
+- [delete_rrset](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.delete_rrset) - delete an entire record set
+- [delete_all](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.delete_all) - delete all records sets with a given name
+- [notify](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.notify) - notify server that it should reload a zone
 
 ## Example
 

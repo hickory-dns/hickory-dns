@@ -89,8 +89,8 @@ tls = ["dns-over-openssl"]
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
 # mtls = ["hickory-client/mtls"]
 
-webpki-roots = ["trust-dns-client/webpki-roots"]
-native-certs = ["trust-dns-client/native-certs"]
+webpki-roots = ["hickory-client/webpki-roots"]
+native-certs = ["hickory-client/native-certs"]
 
 [[bin]]
 name = "hickory-dns"
