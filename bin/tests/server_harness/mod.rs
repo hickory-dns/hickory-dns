@@ -46,7 +46,7 @@ where
         .stdout(Stdio::piped())
         .env(
             "RUST_LOG",
-            "hickory_client=debug,hickory_proto=debug,hickory_resolver=debug,hickory_server=debug",
+            "hickory_dns=debug,hickory_client=debug,hickory_proto=debug,hickory_resolver=debug,hickory_server=debug",
         )
         .arg("-d")
         .arg(&format!(
