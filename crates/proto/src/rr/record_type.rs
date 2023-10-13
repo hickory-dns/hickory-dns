@@ -250,7 +250,7 @@ impl From<u16> for RecordType {
         match value {
             1 => Self::A,
             28 => Self::AAAA,
-            // TODO: wrong value here, see https://github.com/hickorydns/hickory-dns/issues/723
+            // TODO: wrong value here, see https://github.com/hickory-dns/hickory-dns/issues/723
             65305 => Self::ANAME,
             255 => Self::ANY,
             251 => Self::IXFR,
@@ -378,7 +378,7 @@ impl From<RecordType> for u16 {
         match rt {
             RecordType::A => 1,
             RecordType::AAAA => 28,
-            // TODO: wrong value here, see https://github.com/hickorydns/hickory-dns/issues/723
+            // TODO: wrong value here, see https://github.com/hickory-dns/hickory-dns/issues/723
             RecordType::ANAME => 65305,
             RecordType::ANY => 255,
             RecordType::AXFR => 252,

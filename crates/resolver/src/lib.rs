@@ -22,7 +22,7 @@
 //! `Tokio` based async resolver, and can be used inside any `Tokio` based system.
 //!
 //! This as best as possible attempts to abide by the DNS RFCs, please file issues at
-//! <https://github.com/hickorydns/hickory-dns>.
+//! <https://github.com/hickory-dns/hickory-dns>.
 //!
 //! # Usage
 //!

@@ -4,7 +4,7 @@ Hickory DNS Server is a library which implements the zone authoritory functional
 
 This library contains basic implementations for DNS zone hosting. It is capable of performing signing all records in the zone for server DNSSEC RRSIG records associated with all records in a zone. There is also a `hickory-dns` binary that can be generated from the library with `cargo install hickory-dns`. Dynamic updates are supported via `SIG0` (an mTLS authentication method is under development).
 
-**NOTICE** This project was rebranded from Hickory DNS to Hickory DNS and has been moved to the http://github.com/HickoryDNS/hickory-dns organization and repo, this crate/binary has been moved to [hickory-server](https://crates.io/crates/hickory-server), from `0.24` and onward, for prior versions see [hickory-server](https://crates.io/crates/hickory-server).
+**NOTICE** This project was rebranded from Hickory DNS to Hickory DNS and has been moved to the http://github.com/hickory-dns/hickory-dns organization and repo, this crate/binary has been moved to [hickory-server](https://crates.io/crates/hickory-server), from `0.24` and onward, for prior versions see [hickory-server](https://crates.io/crates/hickory-server).
 
 ## Features
 

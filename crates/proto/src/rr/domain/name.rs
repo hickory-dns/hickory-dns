@@ -1885,7 +1885,7 @@ mod tests {
 
     #[test]
     fn test_name_too_long_with_append() {
-        // from https://github.com/hickorydns/hickory-dns/issues/1447
+        // from https://github.com/hickory-dns/hickory-dns/issues/1447
         let n = Name::from_ascii("Llocainvannnnnnaxgtezqzqznnnnnn1na.nnntnninvannnnnnaxgtezqzqznnnnnn1na.nnntnnnnnnnaxgtezqzqznnnnnn1na.nnntnaaaaaaaaaaaaaaaaaaaaaaaaiK.iaaaaaaaaaaaaaaaaaaaaaaaaiKa.innnnnaxgtezqzqznnnnnn1na.nnntnaaaaaaaaaaaaaaaaaaaaaaaaiK.iaaaaaaaaaaaaaaaaaaaaaaaaiKa.in").unwrap();
         let sfx = Name::from_ascii("xxxxxxx.yyyyy.zzz").unwrap();
 

@@ -29,7 +29,7 @@
 //!
 //! Use [`AsyncResolver`](crate::AsyncResolver) for performing DNS queries. `AsyncResolver` is a `async-std` based async resolver, and can be used inside any `asyn-std` based system.
 //!
-//! This as best as possible attempts to abide by the DNS RFCs, please file issues at <https://github.com/hickorydns/hickory-dns>.
+//! This as best as possible attempts to abide by the DNS RFCs, please file issues at <https://github.com/hickory-dns/hickory-dns>.
 //!
 //! # Usage
 //!
