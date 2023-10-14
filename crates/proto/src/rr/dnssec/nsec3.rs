@@ -6,7 +6,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -41,13 +41,13 @@ use crate::serialize::binary::{BinEncodable, BinEncoder};
 ///    mechanism MUST also be defined.
 ///
 ///    This document updates the IANA registry "DOMAIN NAME SYSTEM
-///    PARAMETERS" (http://www.iana.org/assignments/dns-parameters) in sub-
+///    PARAMETERS" (https://www.iana.org/assignments/dns-parameters) in sub-
 ///    registry "TYPES", by defining two new types.  Section 3 defines the
 ///    NSEC3 RR type 50.  Section 4 defines the NSEC3PARAM RR type 51.
 ///
 ///    This document updates the IANA registry "DNS SECURITY ALGORITHM
 ///    NUMBERS -- per [RFC4035]"
-///    (http://www.iana.org/assignments/dns-sec-alg-numbers).  Section 2
+///    (https://www.iana.org/assignments/dns-sec-alg-numbers).  Section 2
 ///    defines the aliases DSA-NSEC3-SHA1 (6) and RSASHA1-NSEC3-SHA1 (7) for
 ///    respectively existing registrations DSA and RSASHA1 in combination
 ///    with NSEC3 hash algorithm SHA1.
@@ -110,7 +110,7 @@ pub enum Nsec3HashAlgorithm {
 }
 
 impl Nsec3HashAlgorithm {
-    /// <http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml>
+    /// <https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml>
     pub fn from_u8(value: u8) -> ProtoResult<Self> {
         match value {
             1 => Ok(Self::SHA1),

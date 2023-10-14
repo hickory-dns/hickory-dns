@@ -1,19 +1,19 @@
 // Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use hickory_proto::udp::QuicLocalAddr;
 use rustls::ClientConfig as CryptoConfig;
 use std::future::Future;
 use std::net::SocketAddr;
-use trust_dns_proto::udp::QuicLocalAddr;
 
+use hickory_proto::quic::{QuicClientConnect, QuicClientStream};
 use proto::udp::DnsUdpSocket;
 use proto::xfer::{DnsExchange, DnsExchangeConnect};
 use proto::TokioTime;
-use trust_dns_proto::quic::{QuicClientConnect, QuicClientStream};
 
 use crate::config::TlsClientConfig;
 use crate::tls::CLIENT_CONFIG;

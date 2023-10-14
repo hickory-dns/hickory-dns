@@ -5,12 +5,12 @@ use std::sync::{
 
 use futures::{executor::block_on, future, stream, Stream};
 
-use trust_dns_proto::{
+use hickory_proto::{
     op::{Message, MessageType, OpCode, ResponseCode},
     xfer::{DnsRequest, DnsResponse, FirstAnswer},
     DnsHandle, RetryDnsHandle,
 };
-use trust_dns_resolver::error::ResolveError;
+use hickory_resolver::error::ResolveError;
 
 #[derive(Clone)]
 struct TestClient {

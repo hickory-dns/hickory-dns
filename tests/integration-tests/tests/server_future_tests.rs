@@ -10,24 +10,24 @@ use tokio::net::TcpListener;
 use tokio::net::UdpSocket;
 use tokio::runtime::Runtime;
 
-use trust_dns_client::client::*;
-use trust_dns_client::op::*;
-use trust_dns_client::rr::*;
-use trust_dns_client::tcp::TcpClientConnection;
-use trust_dns_client::udp::UdpClientConnection;
-use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::rr::rdata::A;
-use trust_dns_proto::xfer::DnsRequestSender;
+use hickory_client::client::*;
+use hickory_client::op::*;
+use hickory_client::rr::*;
+use hickory_client::tcp::TcpClientConnection;
+use hickory_client::udp::UdpClientConnection;
+use hickory_proto::error::ProtoError;
+use hickory_proto::rr::rdata::A;
+use hickory_proto::xfer::DnsRequestSender;
 
-use trust_dns_server::authority::{Authority, Catalog};
-use trust_dns_server::ServerFuture;
+use hickory_server::authority::{Authority, Catalog};
+use hickory_server::ServerFuture;
 
-use trust_dns_integration::example_authority::create_example;
+use hickory_integration::example_authority::create_example;
 
+#[cfg(feature = "dns-over-rustls")]
+use hickory_integration::tls_client_connection::TlsClientConnection;
 #[cfg(feature = "dns-over-rustls")]
 use rustls::RootCertStore;
-#[cfg(feature = "dns-over-rustls")]
-use trust_dns_integration::tls_client_connection::TlsClientConnection;
 
 #[test]
 #[allow(clippy::uninlined_format_args)]
@@ -234,9 +234,9 @@ fn read_file(path: &str) -> Vec<u8> {
 #[test]
 #[allow(clippy::uninlined_format_args)]
 fn test_server_www_tls() {
+    use hickory_proto::rustls::tls_server;
     use std::env;
     use std::path::Path;
-    use trust_dns_proto::rustls::tls_server;
 
     let dns_name = "ns.example.com";
 
@@ -303,7 +303,7 @@ fn lazy_tls_client(
     ipaddr: SocketAddr,
     dns_name: String,
     cert_chain: Vec<rustls::Certificate>,
-) -> TlsClientConnection<trust_dns_proto::iocompat::AsyncIoTokioAsStd<tokio::net::TcpStream>> {
+) -> TlsClientConnection<hickory_proto::iocompat::AsyncIoTokioAsStd<tokio::net::TcpStream>> {
     use rustls::ClientConfig;
 
     let mut root_store = RootCertStore::empty();
@@ -409,8 +409,8 @@ fn server_thread_tls(
     cert_chain: (Vec<rustls::Certificate>, rustls::PrivateKey),
     io_loop: Runtime,
 ) {
+    use hickory_server::config::dnssec::{self, CertType, PrivateKeyType, TlsCertConfig};
     use std::path::Path;
-    use trust_dns_server::config::dnssec::{self, CertType, PrivateKeyType, TlsCertConfig};
 
     let catalog = new_catalog();
     let mut server = ServerFuture::new(catalog);

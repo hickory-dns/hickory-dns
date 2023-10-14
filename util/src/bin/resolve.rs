@@ -1,8 +1,8 @@
 // Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! The resolve program
@@ -34,21 +34,21 @@ use clap::{ArgGroup, Parser};
 use console::style;
 use tokio::task::JoinSet;
 
-use tokio::time::MissedTickBehavior;
-use trust_dns_client::rr::{Record, RecordData};
-use trust_dns_resolver::{
+use hickory_client::rr::{Record, RecordData};
+use hickory_resolver::{
     config::{NameServerConfig, NameServerConfigGroup, Protocol, ResolverConfig, ResolverOpts},
     error::{ResolveError, ResolveErrorKind},
     lookup::Lookup,
     proto::rr::RecordType,
     TokioAsyncResolver,
 };
+use tokio::time::MissedTickBehavior;
 
-/// A CLI interface for the trust-dns-resolver.
+/// A CLI interface for the hickory-resolver.
 ///
-/// This utility directly uses the trust-dns-resolver to perform a lookup to a
+/// This utility directly uses the hickory-resolver to perform a lookup to a
 /// set of nameservers. Many of the features can be directly tested via the
-/// FLAGS and OPTIONS. By default (like trust-dns-resolver) the configured
+/// FLAGS and OPTIONS. By default (like hickory-resolver) the configured
 /// nameservers are the Google provided ones. The system configured ones can be
 /// used with the `--system` FLAG. Other nameservers, as many as desired, can
 /// be configured directly with the `--nameserver` OPTION.
@@ -259,11 +259,11 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    trust_dns_util::logger(env!("CARGO_BIN_NAME"), log_level);
+    hickory_util::logger(env!("CARGO_BIN_NAME"), log_level);
 
     // read system configuration
     let (sys_config, sys_options): (Option<ResolverConfig>, Option<ResolverOpts>) = if opts.system {
-        let (config, options) = trust_dns_resolver::system_conf::read_system_conf()?;
+        let (config, options) = hickory_resolver::system_conf::read_system_conf()?;
 
         (Some(config), Some(options))
     } else {
@@ -336,7 +336,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // configure the resolver options
     let mut options = sys_options.unwrap_or_default();
     if opts.happy {
-        options.ip_strategy = trust_dns_resolver::config::LookupIpStrategy::Ipv4AndIpv6;
+        options.ip_strategy = hickory_resolver::config::LookupIpStrategy::Ipv4AndIpv6;
     }
 
     let resolver_arc = Arc::new(TokioAsyncResolver::tokio(config, options));

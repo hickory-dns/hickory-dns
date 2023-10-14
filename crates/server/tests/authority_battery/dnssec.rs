@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use futures_executor::block_on;
 
-use trust_dns_proto::{
+use hickory_proto::{
     op::{Header, Query},
     rr::{
         dnssec::{
@@ -16,7 +16,7 @@ use trust_dns_proto::{
     },
     xfer,
 };
-use trust_dns_server::{
+use hickory_server::{
     authority::{AuthLookup, Authority, DnssecAuthority, LookupOptions},
     server::{Protocol, RequestInfo},
 };
@@ -72,8 +72,11 @@ pub fn test_soa<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]
         .and_then(RData::as_soa)
         .unwrap();
 
-    assert_eq!(Name::from_str("trust-dns.org.").unwrap(), *soa.mname());
-    assert_eq!(Name::from_str("root.trust-dns.org.").unwrap(), *soa.rname());
+    assert_eq!(Name::from_str("hickory-dns.org.").unwrap(), *soa.mname());
+    assert_eq!(
+        Name::from_str("root.hickory-dns.org.").unwrap(),
+        *soa.rname()
+    );
     assert!(199609203 < soa.serial()); // serial should be one or more b/c of the signing process
     assert_eq!(28800, soa.refresh());
     assert_eq!(7200, soa.retry());
@@ -373,7 +376,7 @@ pub fn verify(records: &[Record], rrsig_records: &[Record<RRSIG>], keys: &[DNSKE
 }
 
 pub fn add_signers<A: DnssecAuthority>(authority: &mut A) -> Vec<DNSKEY> {
-    use trust_dns_server::config::dnssec::*;
+    use hickory_server::config::dnssec::*;
     let signer_name = Name::from(authority.origin().to_owned());
 
     let mut keys = Vec::<DNSKEY>::new();

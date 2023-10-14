@@ -1,13 +1,13 @@
 [![minimum rustc: 1.67](https://img.shields.io/badge/minimum%20rustc-1.67-green?logo=rust)](https://www.whatrustisit.com)
-[![Build Status](https://github.com/bluejekyll/trust-dns/workflows/test/badge.svg?branch=main)](https://github.com/bluejekyll/trust-dns/actions?query=workflow%3Atest)
-[![codecov](https://codecov.io/gh/bluejekyll/trust-dns/branch/main/graph/badge.svg)](https://codecov.io/gh/bluejekyll/trust-dns)
+[![Build Status](https://github.com/hickory-dns/hickory-dns/workflows/test/badge.svg?branch=main)](https://github.com/hickory-dns/hickory-dns/actions?query=workflow%3Atest)
+[![codecov](https://codecov.io/gh/hickory-dns/hickory-dns/branch/main/graph/badge.svg)](https://codecov.io/gh/hickory-dns/hickory-dns)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE-MIT)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE-APACHE)
 [![Discord](https://img.shields.io/discord/590067103822774272.svg)](https://discord.gg/89nxE4n)
 
-![Trust-DNS](logo.svg)
+![Hickory DNS](logo.png)
 
-# Trust-DNS
+# Hickory DNS
 
 A Rust based DNS client, server, and Resolver, built to be safe and secure from the
 ground up.
@@ -16,11 +16,13 @@ This repo consists of multiple crates:
 
 | Library       | Description                                                                                                                                                                                                                                                                                                                                |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Trust-DNS** | [![](https://img.shields.io/crates/v/trust-dns.svg)](https://crates.io/crates/trust-dns) Binaries for running a DNS authoritative server.                                                                                                                                                                                                  |
-| **Proto**     | [![](https://img.shields.io/crates/v/trust-dns-proto.svg)](https://crates.io/crates/trust-dns-proto) [![trust-dns-proto](https://docs.rs/trust-dns-proto/badge.svg)](https://docs.rs/trust-dns-proto) Raw DNS library, exposes an unstable API and only for use by the other Trust-DNS libraries, not intended for end-user use.           |
-| **Client**    | [![](https://img.shields.io/crates/v/trust-dns-client.svg)](https://crates.io/crates/trust-dns-client) [![trust-dns-client](https://docs.rs/trust-dns-client/badge.svg)](https://docs.rs/trust-dns-client) Used for sending `query`, `update`, and `notify` messages directly to a DNS server.                                             |
-| **Server**    | [![](https://img.shields.io/crates/v/trust-dns-server.svg)](https://crates.io/crates/trust-dns-server) [![trust-dns-server](https://docs.rs/trust-dns-server/badge.svg)](https://docs.rs/trust-dns-server) Use to host DNS records, this also has a `trust-dns` binary for running in a daemon form.                                       |
-| **Resolver**  | [![](https://img.shields.io/crates/v/trust-dns-resolver.svg)](https://crates.io/crates/trust-dns-resolver) [![trust-dns-resolver](https://docs.rs/trust-dns-resolver/badge.svg)](https://docs.rs/trust-dns-resolver) Utilizes the client library to perform DNS resolution. Can be used in place of the standard OS resolution facilities. |
+| **Hickory DNS** | [![](https://img.shields.io/crates/v/hickory-dns.svg)](https://crates.io/crates/hickory-dns) Binaries for running a DNS authoritative server.                                                                                                                                                                                                  |
+| **Proto**     | [![](https://img.shields.io/crates/v/hickory-proto.svg)](https://crates.io/crates/hickory-proto) [![hickory-proto](https://docs.rs/hickory-proto/badge.svg)](https://docs.rs/hickory-proto) Raw DNS library, exposes an unstable API and only for use by the other Hickory DNS libraries, not intended for end-user use.           |
+| **Client**    | [![](https://img.shields.io/crates/v/hickory-client.svg)](https://crates.io/crates/hickory-client) [![hickory-client](https://docs.rs/hickory-client/badge.svg)](https://docs.rs/hickory-client) Used for sending `query`, `update`, and `notify` messages directly to a DNS server.                                             |
+| **Server**    | [![](https://img.shields.io/crates/v/hickory-server.svg)](https://crates.io/crates/hickory-server) [![hickory-server](https://docs.rs/hickory-server/badge.svg)](https://docs.rs/hickory-server) Use to host DNS records, this also has a `hickory-dns` binary for running in a daemon form.                                       |
+| **Resolver**  | [![](https://img.shields.io/crates/v/hickory-resolver.svg)](https://crates.io/crates/hickory-resolver) [![hickory-resolver](https://docs.rs/hickory-resolver/badge.svg)](https://docs.rs/hickory-resolver) Utilizes the client library to perform DNS resolution. Can be used in place of the standard OS resolution facilities. |
+
+**NOTICE** This project was rebranded from Trust-DNS to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo.
 
 # Goals
 
@@ -36,13 +38,13 @@ This repo consists of multiple crates:
 
 ## Resolver
 
-The Trust-DNS Resolver is a native Rust implementation for stub resolution in Rust applications. The Resolver supports many common query patterns, all of which can be configured when creating the Resolver. It is capable of using system configuration on Unix and Windows. On Windows there is a known issue that relates to a large set of interfaces being registered for use, so might require ignoring the system configuration.
+The Hickory DNS Resolver is a native Rust implementation for stub resolution in Rust applications. The Resolver supports many common query patterns, all of which can be configured when creating the Resolver. It is capable of using system configuration on Unix and Windows. On Windows there is a known issue that relates to a large set of interfaces being registered for use, so might require ignoring the system configuration.
 
 The Resolver will properly follow CNAME chains as well as SRV record lookups. There is a long term plan to make the Resolver capable of fully recursive queries, but that's not currently possible.
 
 ## Client
 
-The Trust-DNS Client is intended to be used for operating against a DNS server directly. It can be used for verifying records or updating records for servers that support SIG0 and dynamic update. The Client is also capable of validating DNSSEC. As of now NSEC3 validation is not yet supported, though NSEC is. There are two interfaces that can be used, the async/await compatible AsyncClient and a blocking Client for ease of use. Today, Tokio is required for the executor Runtime.
+The Hickory DNS Client is intended to be used for operating against a DNS server directly. It can be used for verifying records or updating records for servers that support SIG0 and dynamic update. The Client is also capable of validating DNSSEC. As of now NSEC3 validation is not yet supported, though NSEC is. There are two interfaces that can be used, the async/await compatible AsyncClient and a blocking Client for ease of use. Today, Tokio is required for the executor Runtime.
 
 ### Unique client side implementations
 
@@ -51,14 +53,14 @@ as high level interfaces, which is a bit more rare.
 
 | Feature                                                                                                                       | Description                                           |
 | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| [SyncDnssecClient](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/struct.SyncDnssecClient.html)              | DNSSEC validation                                     |
-| [create](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.create)                     | atomic create of a record, with authenticated request |
-| [append](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.append)                     | verify existence of a record and append to it         |
-| [compare_and_swap](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.compare_and_swap) | atomic (depends on server) compare and swap           |
-| [delete_by_rdata](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.delete_by_rdata)   | delete a specific record                              |
-| [delete_rrset](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.delete_rrset)         | delete an entire record set                           |
-| [delete_all](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.delete_all)             | delete all records sets with a given name             |
-| [notify](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.notify)                     | notify server that it should reload a zone            |
+| [SyncDnssecClient](https://docs.rs/hickory-client/latest/hickory_client/client/struct.SyncDnssecClient.html)              | DNSSEC validation                                     |
+| [create](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.create)                     | atomic create of a record, with authenticated request |
+| [append](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.append)                     | verify existence of a record and append to it         |
+| [compare_and_swap](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.compare_and_swap) | atomic (depends on server) compare and swap           |
+| [delete_by_rdata](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.delete_by_rdata)   | delete a specific record                              |
+| [delete_rrset](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.delete_rrset)         | delete an entire record set                           |
+| [delete_all](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.delete_all)             | delete all records sets with a given name             |
+| [notify](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.notify)                     | notify server that it should reload a zone            |
 
 ## Server
 
@@ -87,7 +89,7 @@ a restart of the server process.
 
 ### DNS-over-TLS and DNS-over-HTTPS on the Server
 
-Support of TLS on the Server is managed through a pkcs12 der file. The documentation is captured in the example test config file, [example.toml](https://github.com/bluejekyll/trust-dns/blob/main/tests/test-data/test_configs/example.toml). A registered certificate to the server can be pinned to the Client with the `add_ca()` method. Alternatively, as the client uses the rust-native-tls library, it should work with certificate signed by any standard CA.
+Support of TLS on the Server is managed through a pkcs12 der file. The documentation is captured in the example test config file, [example.toml](https://github.com/hickory-dns/hickory-dns/blob/main/tests/test-data/test_configs/example.toml). A registered certificate to the server can be pinned to the Client with the `add_ca()` method. Alternatively, as the client uses the rust-native-tls library, it should work with certificate signed by any standard CA.
 
 ## DNS-over-TLS and DNS-over-HTTPS
 
@@ -166,10 +168,10 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 # Usage
 
 This assumes that you have [Rust](https://www.rust-lang.org) stable installed. These
-presume that the trust-dns repos have already been synced to the local system:
+presume that the hickory-dns repos have already been synced to the local system:
 
-    git clone https://github.com/bluejekyll/trust-dns.git
-    cd trust-dns
+    git clone https://github.com/hickory-dns/hickory-dns.git
+    cd hickory-dns
 
 ## Prerequisites
 
@@ -197,7 +199,7 @@ presume that the trust-dns repos have already been synced to the local system:
 
 ## Testing
 
-Trust-DNS uses `just` for build workflow management. While running `cargo test` at the project root will work, this is not exhaustive. Install `just` with `cargo install just`.
+Hickory DNS uses `just` for build workflow management. While running `cargo test` at the project root will work, this is not exhaustive. Install `just` with `cargo install just`.
 
 - Default tests
 
@@ -211,7 +213,7 @@ just default
 
 - Default feature tests
 
-  Trust-DNS has many features, to quickly test with them or without, there are three targets supported, `default`, `no-default-features`, `all-features`:
+  Hickory DNS has many features, to quickly test with them or without, there are three targets supported, `default`, `no-default-features`, `all-features`:
 
 ```shell
 just all-features
@@ -219,7 +221,7 @@ just all-features
 
 - Individual feature tests
 
-  Trust-DNS has many features, each individual feature can be tested in dependently, see individual crates for all their features, here is a not necessarily up to date list: `dns-over-rustls`, `dns-over-https-rustls`, `dns-over-native-tls`, `dns-over-openssl`, `dns-dnssec-openssl`, `dns-dnssec-openssl`, `dns-dnssec-ring`, `mdns`. Each feature can be tested with itself as the task target for `just`:
+  Hickory DNS has many features, each individual feature can be tested in dependently, see individual crates for all their features, here is a not necessarily up to date list: `dns-over-rustls`, `dns-over-https-rustls`, `dns-over-native-tls`, `dns-over-openssl`, `dns-dnssec-openssl`, `dns-dnssec-openssl`, `dns-dnssec-ring`, `mdns`. Each feature can be tested with itself as the task target for `just`:
 
 ```shell
 just dns-over-https-rustls
@@ -231,36 +233,36 @@ just dns-over-https-rustls
 
 ## Building
 
-- Production build, from the `trust-dns` base dir, to get all features, just pass the `--all-features` flag.
+- Production build, from the `hickory-dns` base dir, to get all features, just pass the `--all-features` flag.
 
 ```shell
-cargo build --release -p trust-dns
+cargo build --release -p hickory-dns
 ```
 
 ## Running
 
-Warning: Trust-DNS is still under development, running in production is not
+Warning: Hickory DNS is still under development, running in production is not
 recommended. The server is currently only single-threaded, it is non-blocking
 so this should allow it to work with most internal loads.
 
 - Verify the version
 
 ```shell
-./target/release/trust-dns --version
+./target/release/hickory-dns --version
 ```
 
 - Get help
 
 ```shell
-./target/release/trust-dns --help
+./target/release/hickory-dns --help
 ```
 
-- Launch `trust-dns` server with test config
+- Launch `hickory-dns` server with test config
 
-You may want not passing the `-p` parameter will run on default DNS ports. For the tls features, there are also port options for those, see `trust-dns --help`
+You may want not passing the `-p` parameter will run on default DNS ports. For the tls features, there are also port options for those, see `hickory-dns --help`
 
 ```shell
-./target/release/trust-dns -c ./tests/test-data/test_configs/example.toml -z ./tests/test-data/test_configs/ -p 24141
+./target/release/hickory-dns -c ./tests/test-data/test_configs/example.toml -z ./tests/test-data/test_configs/ -p 24141
 ```
 
 - Query the just launched server with `dig`
@@ -269,15 +271,15 @@ You may want not passing the `-p` parameter will run on default DNS ports. For t
 dig @127.0.0.1 -p 24141 www.example.com
 ```
 
-## Using the trust-dns-resolver CLI
+## Using the hickory-resolver CLI
 
 Available in `0.20`
 
 ```shell
-cargo install --bin resolve trust-dns-util
+cargo install --bin resolve hickory-util
 ```
 
-Or from source, in the trust-dns directory
+Or from source, in the hickory-dns directory
 
 ```shell
 cargo install --bin resolve --path util
@@ -297,7 +299,7 @@ Success for query name: www.example.com. type: A class: IN
 The Client has a few features which can be disabled for different reasons when embedding in other software.
 
 - `dnssec-openssl`
-  It is a default feature, so default-features will need to be set to false (this will disable all other default features in trust-dns). Until there are other crypto libraries supported, this will also disable DNSSEC validation. The functions will still exist, but will always return errors on validation. The below example line will disable all default features and enable OpenSSL, remove `"openssl"` to remove the dependency on OpenSSL.
+  It is a default feature, so default-features will need to be set to false (this will disable all other default features in hickory-dns). Until there are other crypto libraries supported, this will also disable DNSSEC validation. The functions will still exist, but will always return errors on validation. The below example line will disable all default features and enable OpenSSL, remove `"openssl"` to remove the dependency on OpenSSL.
 
 - `dnssec-ring`
   Ring support can be used for RSA and ED25519 DNSSEC validation.
@@ -322,7 +324,7 @@ Using custom features in dependencies:
 ```
 [dependencies]
   ...
-trust-dns = { version = "*", default-features = false, features = ["dnssec-openssl"] }
+hickory-dns = { version = "*", default-features = false, features = ["dnssec-openssl"] }
 ```
 
 Using custom features during build:
@@ -343,7 +345,7 @@ $> cargo build --release --features dns-over-rustls
 
 - What is the MSRV (minimum stable Rust version) policy?
 
-      Trust-DNS will work to support backward compatibility with three Rust versions.
+      Hickory DNS will work to support backward compatibility with three Rust versions.
 
   For example, if `1.50` is the current release, then the MSRV will be `1.47`. The
   version is only increased as necessary, so it's possible that the MSRV is older

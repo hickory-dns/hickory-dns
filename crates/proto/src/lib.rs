@@ -2,8 +2,8 @@
 // Copyright 2017 Google LLC.
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 // LIBRARY WARNINGS
@@ -28,7 +28,7 @@
 #![recursion_limit = "2048"]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-//! Trust-DNS Protocol library
+//! Hickory DNS Protocol library
 
 use async_trait::async_trait;
 use futures_util::future::Future;

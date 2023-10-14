@@ -1,8 +1,8 @@
 // Copyright 2021 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 #[cfg(not(feature = "none"))]
@@ -14,13 +14,13 @@ use std::str::FromStr;
 use time::Duration;
 
 #[cfg(not(feature = "none"))]
-use trust_dns_client::client::{Client, SyncClient};
+use hickory_client::client::{Client, SyncClient};
 #[cfg(not(feature = "none"))]
-use trust_dns_client::rr::{Name, RData, Record, RecordType};
+use hickory_client::rr::{Name, RData, Record, RecordType};
 #[cfg(not(feature = "none"))]
-use trust_dns_client::tcp::TcpClientConnection;
+use hickory_client::tcp::TcpClientConnection;
 #[cfg(not(feature = "none"))]
-use trust_dns_compatibility::named_process;
+use hickory_compatibility::named_process;
 
 #[allow(unused)]
 macro_rules! assert_serial {
@@ -38,7 +38,7 @@ macro_rules! assert_serial {
 #[test]
 #[allow(unused)]
 fn test_zone_transfer() {
-    use trust_dns_client::rr::rdata::A;
+    use hickory_client::rr::rdata::A;
 
     let (process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);

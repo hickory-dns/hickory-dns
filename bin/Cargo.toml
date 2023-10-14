@@ -1,19 +1,19 @@
 [package]
-name = "trust-dns"
+name = "hickory-dns"
 
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
 description = """
-Trust-DNS is a safe and secure DNS server with DNSSEC support.
+Hickory DNS is a safe and secure DNS server with DNSSEC support.
  Eventually this could be a replacement for BIND9. The DNSSEC support allows
  for live signing of all records, in it does not currently support
  records signed offline. The server supports dynamic DNS with SIG0 authenticated
- requests. Trust-DNS is based on the Tokio and Futures libraries, which means
+ requests. Hickory DNS is based on the Tokio and Futures libraries, which means
  it should be easily integrated into other software that also use those
  libraries.
 """
 
-documentation = "https://docs.rs/trust-dns-server"
+documentation = "https://docs.rs/hickory-dns"
 readme = "README.md"
 
 version.workspace = true
@@ -27,30 +27,63 @@ categories.workspace = true
 license.workspace = true
 
 [badges]
-#github-actions = { repository = "bluejekyll/trust-dns", branch = "main", workflow = "test" }
-codecov = { repository = "bluejekyll/trust-dns", branch = "main", service = "github" }
+#github-actions = { repository = "bluejekyll/hickory", branch = "main", workflow = "test" }
+codecov = { repository = "hickory-dns/hickory-dns", branch = "main", service = "github" }
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["sqlite", "resolver", "native-certs"]
-dnssec-openssl = ["dnssec", "trust-dns-client/dnssec-openssl", "trust-dns-proto/dnssec-openssl", "trust-dns-server/dnssec-openssl"]
-dnssec-ring = ["dnssec", "trust-dns-client/dnssec-ring", "trust-dns-proto/dnssec-ring", "trust-dns-server/dnssec-ring"]
+default = ["sqlite", "resolver", "native-certs", "ascii-art"]
+
+# if enabled, the hickory-dns binary will print ascii-art on start, disable to reduce the binary size
+ascii-art = []
+
+dnssec-openssl = [
+    "dnssec",
+    "hickory-client/dnssec-openssl",
+    "hickory-proto/dnssec-openssl",
+    "hickory-server/dnssec-openssl",
+]
+dnssec-ring = [
+    "dnssec",
+    "hickory-client/dnssec-ring",
+    "hickory-proto/dnssec-ring",
+    "hickory-server/dnssec-ring",
+]
 dnssec = []
-recursor = ["trust-dns-server/recursor"]
+recursor = ["hickory-server/recursor"]
 # Recursive Resolution is Experimental!
-resolver = ["trust-dns-server/resolver"]
-sqlite = ["trust-dns-server/sqlite"]
+resolver = ["hickory-server/resolver"]
+sqlite = ["hickory-server/sqlite"]
 
 # TODO: Need to figure out how to be consistent with ring/openssl usage...
-# dns-over-https-openssl = ["dns-over-openssl", "trust-dns-client/dns-over-https-openssl", "dns-over-https"]
-dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "trust-dns-proto/dns-over-https-rustls", "trust-dns-client/dns-over-https-rustls", "trust-dns-server/dns-over-https-rustls"]
-dns-over-https = ["trust-dns-server/dns-over-https"]
-dns-over-quic = ["dns-over-rustls", "trust-dns-server/dns-over-quic"]
-dns-over-h3 = ["dns-over-rustls", "trust-dns-server/dns-over-h3"]
+# dns-over-https-openssl = ["dns-over-openssl", "hickory-client/dns-over-https-openssl", "dns-over-https"]
+dns-over-https-rustls = [
+    "dns-over-https",
+    "dns-over-rustls",
+    "hickory-proto/dns-over-https-rustls",
+    "hickory-client/dns-over-https-rustls",
+    "hickory-server/dns-over-https-rustls",
+]
+dns-over-https = ["hickory-server/dns-over-https"]
+dns-over-quic = ["dns-over-rustls", "hickory-server/dns-over-quic"]
+dns-over-h3 = ["dns-over-rustls", "hickory-server/dns-over-h3"]
 
 # TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
-dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-proto/dns-over-openssl", "trust-dns-client/dns-over-openssl", "trust-dns-server/dns-over-openssl"]
-dns-over-rustls = ["dns-over-tls", "dnssec-ring", "rustls", "trust-dns-proto/dns-over-rustls", "trust-dns-client/dns-over-rustls", "trust-dns-server/dns-over-rustls"]
+dns-over-openssl = [
+    "dns-over-tls",
+    "dnssec-openssl",
+    "hickory-proto/dns-over-openssl",
+    "hickory-client/dns-over-openssl",
+    "hickory-server/dns-over-openssl",
+]
+dns-over-rustls = [
+    "dns-over-tls",
+    "dnssec-ring",
+    "rustls",
+    "hickory-proto/dns-over-rustls",
+    "hickory-client/dns-over-rustls",
+    "hickory-server/dns-over-rustls",
+]
 dns-over-tls = []
 
 # This is a deprecated feature...
@@ -58,34 +91,49 @@ tls-openssl = ["dns-over-openssl"]
 tls = ["dns-over-openssl"]
 
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
-# mtls = ["trust-dns-client/mtls"]
+# mtls = ["hickory-client/mtls"]
 
-webpki-roots = ["trust-dns-client/webpki-roots"]
-native-certs = ["trust-dns-client/native-certs"]
+webpki-roots = ["hickory-client/webpki-roots"]
+native-certs = ["hickory-client/native-certs"]
 
 [[bin]]
-name = "trust-dns"
-path = "src/trust-dns.rs"
+name = "hickory-dns"
+path = "src/hickory-dns.rs"
 
 [dependencies]
 # clap features:
 # - suggestion for advanced help with error in cli
 # - derive for clap derive api
 # - help to generate --help
-clap = { workspace = true, default-features = false, features = ["std", "cargo", "help", "derive", "suggestions"] }
-futures-util = { workspace = true, default-features = false, features = ["std"] }
+clap = { workspace = true, default-features = false, features = [
+    "std",
+    "cargo",
+    "help",
+    "derive",
+    "suggestions",
+] }
+futures-util = { workspace = true, default-features = false, features = [
+    "std",
+] }
 rustls = { workspace = true, optional = true }
 time.workspace = true
 tracing.workspace = true
-tracing-subscriber = { workspace = true, features = ["std", "fmt", "env-filter"] }
+tracing-subscriber = { workspace = true, features = [
+    "std",
+    "fmt",
+    "env-filter",
+] }
 tokio = { workspace = true, features = ["time", "rt"] }
-trust-dns-client.workspace = true
-trust-dns-proto.workspace = true
-trust-dns-server = { workspace = true, features = ["toml"] }
+hickory-client.workspace = true
+hickory-proto.workspace = true
+hickory-server = { workspace = true, features = ["toml"] }
 
 [dev-dependencies]
 native-tls.workspace = true
 regex.workspace = true
-trust-dns-proto = { workspace = true, features = ["testing", "dns-over-native-tls"] }
-trust-dns-resolver.workspace = true
+hickory-proto = { workspace = true, features = [
+    "testing",
+    "dns-over-native-tls",
+] }
+hickory-resolver.workspace = true
 webpki-roots.workspace = true

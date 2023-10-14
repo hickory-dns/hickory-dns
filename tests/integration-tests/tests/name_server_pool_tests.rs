@@ -10,14 +10,14 @@ use std::task::Poll;
 use futures::executor::block_on;
 use futures::{future, Future};
 
-use trust_dns_client::op::{Query, ResponseCode};
-use trust_dns_client::rr::{Name, RecordType};
-use trust_dns_integration::mock_client::*;
-use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::xfer::{DnsHandle, DnsResponse, FirstAnswer};
-use trust_dns_resolver::config::*;
-use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
-use trust_dns_resolver::name_server::{NameServer, NameServerPool};
+use hickory_client::op::{Query, ResponseCode};
+use hickory_client::rr::{Name, RecordType};
+use hickory_integration::mock_client::*;
+use hickory_proto::error::ProtoError;
+use hickory_proto::xfer::{DnsHandle, DnsResponse, FirstAnswer};
+use hickory_resolver::config::*;
+use hickory_resolver::error::{ResolveError, ResolveErrorKind};
+use hickory_resolver::name_server::{NameServer, NameServerPool};
 
 const DEFAULT_SERVER_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
 
@@ -521,7 +521,7 @@ fn test_distrust_nx_responses() {
 
 #[test]
 fn test_user_provided_server_order() {
-    use trust_dns_proto::rr::Record;
+    use hickory_proto::rr::Record;
 
     let mut options = ResolverOpts::default();
 

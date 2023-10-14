@@ -230,15 +230,15 @@ dependencies = [
 
 [[package]]
 name = "async-std-resolver"
-version = "0.23.1"
+version = "0.24.0"
 dependencies = [
  "async-std",
  "async-trait",
  "futures-io",
  "futures-util",
+ "hickory-resolver",
  "pin-utils",
  "socket2 0.5.4",
- "trust-dns-resolver",
 ]
 
 [[package]]
@@ -788,6 +788,228 @@ name = "hermit-abi"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d77f7ec81a6d05a3abb01ab6eb7590f6083d08449fe5a1c8b1e620283546ccb7"
+
+[[package]]
+name = "hickory-client"
+version = "0.24.0"
+dependencies = [
+ "cfg-if",
+ "data-encoding",
+ "futures",
+ "futures-channel",
+ "futures-util",
+ "hickory-proto",
+ "once_cell",
+ "openssl",
+ "radix_trie",
+ "rand",
+ "rustls",
+ "serde",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "hickory-compatibility"
+version = "0.24.0"
+dependencies = [
+ "data-encoding",
+ "futures",
+ "hickory-client",
+ "openssl",
+ "rand",
+ "time",
+]
+
+[[package]]
+name = "hickory-dns"
+version = "0.24.0"
+dependencies = [
+ "clap",
+ "futures-util",
+ "hickory-client",
+ "hickory-proto",
+ "hickory-resolver",
+ "hickory-server",
+ "native-tls",
+ "regex",
+ "rustls",
+ "time",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "webpki-roots",
+]
+
+[[package]]
+name = "hickory-integration"
+version = "0.24.0"
+dependencies = [
+ "async-trait",
+ "futures",
+ "hickory-client",
+ "hickory-proto",
+ "hickory-resolver",
+ "hickory-server",
+ "once_cell",
+ "openssl",
+ "rand",
+ "rusqlite",
+ "rustls",
+ "time",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "webpki-roots",
+]
+
+[[package]]
+name = "hickory-proto"
+version = "0.24.0"
+dependencies = [
+ "async-trait",
+ "backtrace",
+ "bytes",
+ "cfg-if",
+ "data-encoding",
+ "enum-as-inner",
+ "futures-channel",
+ "futures-executor",
+ "futures-io",
+ "futures-util",
+ "h2",
+ "h3",
+ "h3-quinn",
+ "http",
+ "idna",
+ "ipnet",
+ "js-sys",
+ "native-tls",
+ "once_cell",
+ "openssl",
+ "quinn",
+ "rand",
+ "ring",
+ "rustls",
+ "rustls-native-certs",
+ "rustls-pemfile",
+ "serde",
+ "socket2 0.5.4",
+ "thiserror",
+ "tinyvec",
+ "tokio",
+ "tokio-native-tls",
+ "tokio-openssl",
+ "tokio-rustls",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "wasm-bindgen",
+ "webpki-roots",
+]
+
+[[package]]
+name = "hickory-recursor"
+version = "0.24.0"
+dependencies = [
+ "async-recursion",
+ "async-trait",
+ "bytes",
+ "cfg-if",
+ "enum-as-inner",
+ "futures-util",
+ "hickory-proto",
+ "hickory-resolver",
+ "lru-cache",
+ "parking_lot",
+ "serde",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "hickory-resolver"
+version = "0.24.0"
+dependencies = [
+ "cfg-if",
+ "futures-executor",
+ "futures-util",
+ "hickory-proto",
+ "ipconfig",
+ "lru-cache",
+ "once_cell",
+ "parking_lot",
+ "rand",
+ "resolv-conf",
+ "rustls",
+ "rustls-native-certs",
+ "serde",
+ "smallvec",
+ "thiserror",
+ "tokio",
+ "tokio-native-tls",
+ "tokio-openssl",
+ "tokio-rustls",
+ "tracing",
+ "tracing-subscriber",
+ "webpki-roots",
+]
+
+[[package]]
+name = "hickory-server"
+version = "0.24.0"
+dependencies = [
+ "async-trait",
+ "basic-toml",
+ "bytes",
+ "cfg-if",
+ "enum-as-inner",
+ "futures-executor",
+ "futures-util",
+ "h2",
+ "h3",
+ "h3-quinn",
+ "hickory-proto",
+ "hickory-recursor",
+ "hickory-resolver",
+ "http",
+ "openssl",
+ "rusqlite",
+ "rustls",
+ "serde",
+ "thiserror",
+ "time",
+ "tokio",
+ "tokio-openssl",
+ "tokio-rustls",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "hickory-util"
+version = "0.24.0"
+dependencies = [
+ "clap",
+ "console",
+ "data-encoding",
+ "hickory-client",
+ "hickory-proto",
+ "hickory-recursor",
+ "hickory-resolver",
+ "openssl",
+ "rustls",
+ "rustls-native-certs",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "webpki-roots",
+]
 
 [[package]]
 name = "hostname"
@@ -1884,228 +2106,6 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
-]
-
-[[package]]
-name = "trust-dns"
-version = "0.23.1"
-dependencies = [
- "clap",
- "futures-util",
- "native-tls",
- "regex",
- "rustls",
- "time",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "trust-dns-client",
- "trust-dns-proto",
- "trust-dns-resolver",
- "trust-dns-server",
- "webpki-roots",
-]
-
-[[package]]
-name = "trust-dns-client"
-version = "0.23.1"
-dependencies = [
- "cfg-if",
- "data-encoding",
- "futures",
- "futures-channel",
- "futures-util",
- "once_cell",
- "openssl",
- "radix_trie",
- "rand",
- "rustls",
- "serde",
- "thiserror",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "trust-dns-proto",
-]
-
-[[package]]
-name = "trust-dns-compatibility"
-version = "0.23.1"
-dependencies = [
- "data-encoding",
- "futures",
- "openssl",
- "rand",
- "time",
- "trust-dns-client",
-]
-
-[[package]]
-name = "trust-dns-integration"
-version = "0.23.1"
-dependencies = [
- "async-trait",
- "futures",
- "once_cell",
- "openssl",
- "rand",
- "rusqlite",
- "rustls",
- "time",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "trust-dns-client",
- "trust-dns-proto",
- "trust-dns-resolver",
- "trust-dns-server",
- "webpki-roots",
-]
-
-[[package]]
-name = "trust-dns-proto"
-version = "0.23.1"
-dependencies = [
- "async-trait",
- "backtrace",
- "bytes",
- "cfg-if",
- "data-encoding",
- "enum-as-inner",
- "futures-channel",
- "futures-executor",
- "futures-io",
- "futures-util",
- "h2",
- "h3",
- "h3-quinn",
- "http",
- "idna",
- "ipnet",
- "js-sys",
- "native-tls",
- "once_cell",
- "openssl",
- "quinn",
- "rand",
- "ring",
- "rustls",
- "rustls-native-certs",
- "rustls-pemfile",
- "serde",
- "socket2 0.5.4",
- "thiserror",
- "tinyvec",
- "tokio",
- "tokio-native-tls",
- "tokio-openssl",
- "tokio-rustls",
- "tracing",
- "tracing-subscriber",
- "url",
- "wasm-bindgen",
- "webpki-roots",
-]
-
-[[package]]
-name = "trust-dns-recursor"
-version = "0.23.1"
-dependencies = [
- "async-recursion",
- "async-trait",
- "bytes",
- "cfg-if",
- "enum-as-inner",
- "futures-util",
- "lru-cache",
- "parking_lot",
- "serde",
- "thiserror",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "trust-dns-proto",
- "trust-dns-resolver",
-]
-
-[[package]]
-name = "trust-dns-resolver"
-version = "0.23.1"
-dependencies = [
- "cfg-if",
- "futures-executor",
- "futures-util",
- "ipconfig",
- "lru-cache",
- "once_cell",
- "parking_lot",
- "rand",
- "resolv-conf",
- "rustls",
- "rustls-native-certs",
- "serde",
- "smallvec",
- "thiserror",
- "tokio",
- "tokio-native-tls",
- "tokio-openssl",
- "tokio-rustls",
- "tracing",
- "tracing-subscriber",
- "trust-dns-proto",
- "webpki-roots",
-]
-
-[[package]]
-name = "trust-dns-server"
-version = "0.23.1"
-dependencies = [
- "async-trait",
- "basic-toml",
- "bytes",
- "cfg-if",
- "enum-as-inner",
- "futures-executor",
- "futures-util",
- "h2",
- "h3",
- "h3-quinn",
- "http",
- "openssl",
- "rusqlite",
- "rustls",
- "serde",
- "thiserror",
- "time",
- "tokio",
- "tokio-openssl",
- "tokio-rustls",
- "tokio-util",
- "tracing",
- "tracing-subscriber",
- "trust-dns-proto",
- "trust-dns-recursor",
- "trust-dns-resolver",
-]
-
-[[package]]
-name = "trust-dns-util"
-version = "0.23.1"
-dependencies = [
- "clap",
- "console",
- "data-encoding",
- "openssl",
- "rustls",
- "rustls-native-certs",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "trust-dns-client",
- "trust-dns-proto",
- "trust-dns-recursor",
- "trust-dns-resolver",
- "webpki-roots",
 ]
 
 [[package]]

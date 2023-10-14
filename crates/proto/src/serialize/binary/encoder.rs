@@ -1,8 +1,8 @@
 // Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 use std::marker::PhantomData;
@@ -273,7 +273,7 @@ impl<'a> BinEncoder<'a> {
     /// matches description from above.
     ///
     /// ```
-    /// use trust_dns_proto::serialize::binary::BinEncoder;
+    /// use hickory_proto::serialize::binary::BinEncoder;
     ///
     /// let mut bytes: Vec<u8> = Vec::new();
     /// {
@@ -506,7 +506,7 @@ mod tests {
 
     #[test]
     fn test_label_compression_regression() {
-        // https://github.com/bluejekyll/trust-dns/issues/339
+        // https://github.com/hickory-dns/hickory-dns/issues/339
         /*
         ;; QUESTION SECTION:
         ;bluedot.is.autonavi.com.gds.alibabadns.com. IN AAAA

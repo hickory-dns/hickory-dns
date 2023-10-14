@@ -1,11 +1,11 @@
-; replace the trust-dns.org with your own name
-@      86400 IN  SOA trust-dns.org. root.trust-dns.org. (
+; replace the hickory-dns.org with your own name
+@      86400 IN  SOA hickory-dns.org. root.hickory-dns.org. (
                      199609203 ; Serial
                      28800     ; Refresh
                      7200      ; Retry
                      604800    ; Expire
                      86400)    ; Minimum TTL
-                 NS      trust-dns.org.
+                 NS      hickory-dns.org.
 
 www              A        127.0.0.1
                  AAAA     ::1

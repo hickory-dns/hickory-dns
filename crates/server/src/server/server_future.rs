@@ -1,8 +1,8 @@
 // Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 use std::{
     io,
@@ -12,12 +12,12 @@ use std::{
 };
 
 use futures_util::{FutureExt, StreamExt};
+use hickory_proto::{op::MessageType, rr::Record};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey, ServerConfig};
 use tokio::{net, task::JoinSet};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
-use trust_dns_proto::{op::MessageType, rr::Record};
 
 #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 use crate::proto::openssl::tls_server::*;
@@ -1332,9 +1332,9 @@ mod tests {
 
     #[cfg(feature = "dns-over-rustls")]
     fn rustls_cert_key() -> (Vec<Certificate>, PrivateKey) {
+        use hickory_proto::rustls::tls_server;
         use std::env;
         use std::path::Path;
-        use trust_dns_proto::rustls::tls_server;
 
         let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
 

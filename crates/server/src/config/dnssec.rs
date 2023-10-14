@@ -1,11 +1,11 @@
 // Copyright 2015-2018 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Configuration types for all security options in trust-dns
+//! Configuration types for all security options in hickory-dns
 
 use std::path::Path;
 
@@ -245,7 +245,7 @@ impl TlsCertConfig {
 
 /// set of DNSSEC algorithms to use to sign the zone. enable_dnssec must be true.
 /// these will be looked up by $file.{key_name}.pem, for backward compatibility
-/// with previous versions of Trust-DNS, if enable_dnssec is enabled but
+/// with previous versions of Hickory DNS, if enable_dnssec is enabled but
 /// supported_algorithms is not specified, it will default to "RSASHA256" and
 /// look for the $file.pem for the key. To control key length, or other options
 /// keys of the specified formats can be generated in PEM format. Instructions

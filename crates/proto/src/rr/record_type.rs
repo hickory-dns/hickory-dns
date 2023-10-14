@@ -1,8 +1,8 @@
 // Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! record type definitions
@@ -190,7 +190,7 @@ impl FromStr for RecordType {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::record_type::RecordType;
+    /// use hickory_proto::rr::record_type::RecordType;
     ///
     /// let var: RecordType = RecordType::from_str("A").unwrap();
     /// assert_eq!(RecordType::A, var);
@@ -241,7 +241,7 @@ impl From<u16> for RecordType {
     /// Convert from `u16` to `RecordType`
     ///
     /// ```
-    /// use trust_dns_proto::rr::record_type::RecordType;
+    /// use hickory_proto::rr::record_type::RecordType;
     ///
     /// let var = RecordType::from(1);
     /// assert_eq!(RecordType::A, var);
@@ -250,7 +250,7 @@ impl From<u16> for RecordType {
         match value {
             1 => Self::A,
             28 => Self::AAAA,
-            // TODO: wrong value here, see https://github.com/bluejekyll/trust-dns/issues/723
+            // TODO: wrong value here, see https://github.com/hickory-dns/hickory-dns/issues/723
             65305 => Self::ANAME,
             255 => Self::ANY,
             251 => Self::IXFR,
@@ -313,7 +313,7 @@ impl<'r> BinDecodable<'r> for RecordType {
 /// Convert from `RecordType` to `&str`
 ///
 /// ```
-/// use trust_dns_proto::rr::record_type::RecordType;
+/// use hickory_proto::rr::record_type::RecordType;
 ///
 /// let var: &'static str = From::from(RecordType::A);
 /// assert_eq!("A", var);
@@ -368,7 +368,7 @@ impl From<RecordType> for &'static str {
 /// Convert from `RecordType` to `u16`
 ///
 /// ```
-/// use trust_dns_proto::rr::record_type::RecordType;
+/// use hickory_proto::rr::record_type::RecordType;
 ///
 /// let var: u16 = RecordType::A.into();
 /// assert_eq!(1, var);
@@ -378,7 +378,7 @@ impl From<RecordType> for u16 {
         match rt {
             RecordType::A => 1,
             RecordType::AAAA => 28,
-            // TODO: wrong value here, see https://github.com/bluejekyll/trust-dns/issues/723
+            // TODO: wrong value here, see https://github.com/hickory-dns/hickory-dns/issues/723
             RecordType::ANAME => 65305,
             RecordType::ANY => 255,
             RecordType::AXFR => 252,

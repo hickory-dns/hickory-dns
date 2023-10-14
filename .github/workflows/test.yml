@@ -67,7 +67,7 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
-          #files: target/llvm-cov-target/trust-dns-coverage.json
+          #files: target/llvm-cov-target/hickory-dns-coverage.json
 
   ## Work through all of the variations of the different features, only on linux to save concurrent resources
   exhaustive-features-matrix:

@@ -1,8 +1,8 @@
 // Copyright 2015-2020 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! Error types for the crate
@@ -12,8 +12,8 @@
 use std::{fmt, io};
 
 use enum_as_inner::EnumAsInner;
+use hickory_resolver::Name;
 use thiserror::Error;
-use trust_dns_resolver::Name;
 
 #[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
@@ -42,11 +42,11 @@ pub enum ErrorKind {
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 
-    /// An error got returned by the trust-dns-proto crate
+    /// An error got returned by the hickory-proto crate
     #[error("proto error: {0}")]
     Proto(#[from] ProtoError),
 
-    /// An error got returned by the trust-dns-proto crate
+    /// An error got returned by the hickory-proto crate
     #[error("proto error: {0}")]
     Resolve(ResolveError),
 

@@ -2,8 +2,8 @@
 // Copyright 2017 Google LLC.
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! The bind_dnskey_to_pem program
@@ -32,12 +32,12 @@ use openssl::bn::BigNum;
 use openssl::rsa::Rsa;
 use tracing::{info, warn, Level};
 
-use trust_dns_proto::rr::dnssec::Algorithm;
+use hickory_proto::rr::dnssec::Algorithm;
 
 /// Cli struct for all options managed with clap derive api.
 #[derive(Debug, Parser)]
 #[clap(
-    name = "Trust-DNS dnskey-to-pem",
+    name = "Hickory DNS dnskey-to-pem",
     version,
     about = "Converts a dnskey, as generated from BIND's dnssec-keygen, into pem format",
     author = "Benjamin Fry <benjaminfry@me.com>"
@@ -64,7 +64,7 @@ struct Cli {
 
 /// Run the bind_dnskey_to_pem program
 pub fn main() {
-    trust_dns_util::logger(env!("CARGO_BIN_NAME"), Some(Level::INFO));
+    hickory_util::logger(env!("CARGO_BIN_NAME"), Some(Level::INFO));
 
     let args = Cli::parse();
     let key_path = args.key;

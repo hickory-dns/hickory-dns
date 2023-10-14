@@ -1,8 +1,8 @@
 // Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! The resolve program
@@ -29,17 +29,17 @@ use std::{
 use clap::Parser;
 use console::style;
 
-use trust_dns_client::op::Query;
-use trust_dns_recursor::Recursor;
-use trust_dns_resolver::{
+use hickory_client::op::Query;
+use hickory_recursor::Recursor;
+use hickory_resolver::{
     config::{NameServerConfig, NameServerConfigGroup, Protocol},
     proto::rr::RecordType,
     Name,
 };
 
-/// A CLI interface for the trust-dns-recursor.
+/// A CLI interface for the hickory-dns-recursor.
 ///
-/// This utility directly uses the trust-dns-recursor to perform a recursive lookup
+/// This utility directly uses the hickory-dns-recursor to perform a recursive lookup
 ///   starting with a set of root dns servers, aka hints.
 #[derive(Debug, Parser)]
 #[clap(name = "recurse")]
@@ -115,7 +115,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    trust_dns_util::logger(env!("CARGO_BIN_NAME"), log_level);
+    hickory_util::logger(env!("CARGO_BIN_NAME"), log_level);
 
     // Configure all the name servers
     let mut roots = NameServerConfigGroup::new();

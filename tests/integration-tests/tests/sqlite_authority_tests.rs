@@ -4,28 +4,28 @@ use std::str::FromStr;
 
 use rusqlite::*;
 
-use trust_dns_proto::op::*;
-use trust_dns_proto::rr::dnssec::*;
-use trust_dns_proto::rr::rdata::*;
-use trust_dns_proto::rr::*;
+use hickory_proto::op::*;
+use hickory_proto::rr::dnssec::*;
+use hickory_proto::rr::rdata::*;
+use hickory_proto::rr::*;
 
-use trust_dns_server::authority::LookupOptions;
-use trust_dns_server::authority::{Authority, ZoneType};
-use trust_dns_server::server::Protocol;
-use trust_dns_server::server::RequestInfo;
-use trust_dns_server::store::in_memory::InMemoryAuthority;
-use trust_dns_server::store::sqlite::{Journal, SqliteAuthority};
+use hickory_server::authority::LookupOptions;
+use hickory_server::authority::{Authority, ZoneType};
+use hickory_server::server::Protocol;
+use hickory_server::server::RequestInfo;
+use hickory_server::store::in_memory::InMemoryAuthority;
+use hickory_server::store::sqlite::{Journal, SqliteAuthority};
 
 const TEST_HEADER: &Header = &Header::new();
 
 fn create_example() -> SqliteAuthority {
-    let authority = trust_dns_integration::example_authority::create_example();
+    let authority = hickory_integration::example_authority::create_example();
     SqliteAuthority::new(authority, true, false)
 }
 
 #[cfg(feature = "dnssec")]
 fn create_secure_example() -> SqliteAuthority {
-    let authority = trust_dns_integration::example_authority::create_secure_example();
+    let authority = hickory_integration::example_authority::create_secure_example();
     SqliteAuthority::new(authority, true, true)
 }
 
@@ -207,8 +207,8 @@ async fn test_authority() {
 #[cfg(feature = "dnssec")]
 #[tokio::test]
 async fn test_authorize() {
-    use trust_dns_client::serialize::binary::{BinDecodable, BinEncodable};
-    use trust_dns_server::authority::MessageRequest;
+    use hickory_client::serialize::binary::{BinDecodable, BinEncodable};
+    use hickory_server::authority::MessageRequest;
 
     let authority = create_example();
 
@@ -904,7 +904,7 @@ async fn test_update() {
 #[tokio::test]
 #[allow(clippy::uninlined_format_args)]
 async fn test_zone_signing() {
-    use trust_dns_proto::rr::dnssec::rdata::RRSIG;
+    use hickory_proto::rr::dnssec::rdata::RRSIG;
 
     let authority = create_secure_example();
 

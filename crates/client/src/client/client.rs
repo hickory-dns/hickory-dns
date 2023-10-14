@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//      https://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -432,8 +432,8 @@ pub trait Client {
     }
 }
 
-/// The Client is abstracted over either trust_dns_client::tcp::TcpClientConnection or
-///  trust_dns_client::udp::UdpClientConnection.
+/// The Client is abstracted over either hickory_client::tcp::TcpClientConnection or
+///  hickory_client::udp::UdpClientConnection.
 ///
 /// Usage of TCP or UDP is up to the user. Some DNS servers
 ///  disallow TCP in some cases, so if TCP double check if UDP works.
@@ -454,7 +454,7 @@ impl<CC: ClientConnection> SyncClient<CC> {
 
     /// Creates a new DNS client with the specified connection type and a SIG0 signer.
     ///
-    /// This is necessary for signed update requests to update trust-dns-server entries.
+    /// This is necessary for signed update requests to update hickory-server entries.
     ///
     /// # Arguments
     ///
@@ -597,7 +597,7 @@ impl<CC: ClientConnection> SecureSyncClientBuilder<CC> {
 
     /// Associate a signer to produce a SIG0 for all update requests
     ///
-    /// This is necessary for signed update requests to update trust-dns-server entries
+    /// This is necessary for signed update requests to update hickory-server entries
     ///
     /// # Arguments
     ///

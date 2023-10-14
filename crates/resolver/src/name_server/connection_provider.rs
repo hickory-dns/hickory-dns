@@ -1,8 +1,8 @@
 // Copyright 2015-2019 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 use std::io;
@@ -31,6 +31,8 @@ use tokio_openssl::SslStream as TokioTlsStream;
 use tokio_rustls::client::TlsStream as TokioTlsStream;
 
 use crate::config::{NameServerConfig, Protocol, ResolverOpts};
+#[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
+use hickory_proto::udp::QuicLocalAddr;
 #[cfg(feature = "dns-over-https")]
 use proto::h2::{HttpsClientConnect, HttpsClientStream};
 #[cfg(feature = "dns-over-h3")]
@@ -57,8 +59,6 @@ use proto::{
 };
 #[cfg(feature = "tokio-runtime")]
 use proto::{iocompat::AsyncIoTokioAsStd, TokioTime};
-#[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
-use trust_dns_proto::udp::QuicLocalAddr;
 
 use crate::error::ResolveError;
 

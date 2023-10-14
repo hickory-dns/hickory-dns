@@ -1,8 +1,8 @@
 // Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 use std::{io, net::SocketAddr, sync::Arc};
@@ -11,11 +11,11 @@ use bytes::{Buf, Bytes};
 use futures_util::lock::Mutex;
 use h3::server::RequestStream;
 use h3_quinn::BidiStream;
-use tokio_util::sync::CancellationToken;
-use tracing::{debug, warn};
-use trust_dns_proto::{
+use hickory_proto::{
     error::ProtoError, h3::h3_server::H3Connection, h3::H3Error, http::Version, rr::Record,
 };
+use tokio_util::sync::CancellationToken;
+use tracing::{debug, warn};
 
 use crate::{
     authority::MessageResponse,

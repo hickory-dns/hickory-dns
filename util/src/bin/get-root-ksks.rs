@@ -2,8 +2,8 @@
 // Copyright 2017 Google LLC.
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! The get_root_ksks program
@@ -27,11 +27,11 @@ use std::path::PathBuf;
 
 use clap::{command, ArgMatches};
 
-use trust_dns_proto::rr::dnssec::rdata::DNSSECRData;
-use trust_dns_proto::rr::dnssec::Algorithm;
-use trust_dns_proto::rr::record_data::RData;
-use trust_dns_proto::rr::record_type::RecordType;
-use trust_dns_resolver::Resolver;
+use hickory_proto::rr::dnssec::rdata::DNSSECRData;
+use hickory_proto::rr::dnssec::Algorithm;
+use hickory_proto::rr::record_data::RData;
+use hickory_proto::rr::record_type::RecordType;
+use hickory_resolver::Resolver;
 
 fn args() -> ArgMatches {
     command!().bin_name("get-root-ksks").get_matches()
@@ -39,7 +39,7 @@ fn args() -> ArgMatches {
 
 /// Run the get_root_ksks program
 pub fn main() {
-    trust_dns_util::logger(env!("CARGO_BIN_NAME"), Some(tracing::Level::INFO));
+    hickory_util::logger(env!("CARGO_BIN_NAME"), Some(tracing::Level::INFO));
 
     let _matches = args();
 

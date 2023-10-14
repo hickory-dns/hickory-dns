@@ -11,13 +11,13 @@ use std::{
     time::*,
 };
 
+use hickory_client::{client::*, proto::xfer::DnsResponse};
+#[cfg(feature = "dnssec")]
+use hickory_proto::rr::dnssec::*;
+use hickory_proto::rr::{rdata::A, *};
 use regex::Regex;
 use tokio::runtime::Runtime;
 use tracing::{info, warn};
-use trust_dns_client::{client::*, proto::xfer::DnsResponse};
-#[cfg(feature = "dnssec")]
-use trust_dns_proto::rr::dnssec::*;
-use trust_dns_proto::rr::{rdata::A, *};
 
 #[cfg(feature = "dnssec")]
 use self::mut_message_client::MutMessageHandle;
@@ -41,18 +41,21 @@ where
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     println!("using server src path: {server_path}");
 
-    let mut command = Command::new(format!("{server_path}/target/debug/trust-dns"));
+    let mut command = Command::new(format!("{server_path}/target/debug/hickory-dns"));
     command
         .stdout(Stdio::piped())
         .env(
             "RUST_LOG",
-            "trust_dns_client=debug,trust_dns_proto=debug,trust_dns_resolver=debug,trust_dns_server=debug",
-        ).arg("-d")
+            "hickory_dns=debug,hickory_client=debug,hickory_proto=debug,hickory_resolver=debug,hickory_server=debug",
+        )
+        .arg("-d")
         .arg(&format!(
             "--config={server_path}/tests/test-data/test_configs/{toml}"
-        )).arg(&format!(
+        ))
+        .arg(&format!(
             "--zonedir={server_path}/tests/test-data/test_configs"
-        )).arg(&format!("--port={}", 0))
+        ))
+        .arg(&format!("--port={}", 0))
         .arg(&format!("--tls-port={}", 0))
         .arg(&format!("--https-port={}", 0))
         .arg(&format!("--quic-port={}", 0));
@@ -264,7 +267,7 @@ pub fn query_all_dnssec(
     algorithm: Algorithm,
     with_rfc6975: bool,
 ) {
-    use trust_dns_client::rr::rdata::{DNSKEY, RRSIG};
+    use hickory_client::rr::rdata::{DNSKEY, RRSIG};
 
     let name = Name::from_str("example.com.").unwrap();
     let mut client = MutMessageHandle::new(client);

@@ -1,8 +1,8 @@
 // Copyright 2015-2016 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 #![cfg(feature = "dns-over-openssl")]
@@ -32,11 +32,11 @@ use openssl::pkcs12::*;
 use openssl::rsa::*;
 use openssl::x509::extension::*;
 
-use trust_dns_proto::tcp::Connect;
-use trust_dns_proto::xfer::SerialMessage;
-use trust_dns_proto::{iocompat::AsyncIoTokioAsStd, DnsStreamHandle};
+use hickory_proto::tcp::Connect;
+use hickory_proto::xfer::SerialMessage;
+use hickory_proto::{iocompat::AsyncIoTokioAsStd, DnsStreamHandle};
 
-use trust_dns_proto::openssl::TlsStreamBuilder;
+use hickory_proto::openssl::TlsStreamBuilder;
 
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty
 //  and subsequent reads of a message buffer reads the wrong length. It works for 2 iterations

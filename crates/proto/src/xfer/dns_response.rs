@@ -1,8 +1,8 @@
 // Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! `DnsResponse` wraps a `Message` and any associated connection details
@@ -126,7 +126,7 @@ type TimeoutFuture = Pin<
 >;
 
 // TODO: this needs to have the IP addr of the remote system...
-// TODO: see https://github.com/bluejekyll/trust-dns/issues/383 for removing vec of messages and instead returning a Stream
+// TODO: see https://github.com/hickory-dns/hickory-dns/issues/383 for removing vec of messages and instead returning a Stream
 /// A DNS response object
 ///
 /// For Most DNS requests, only one response is expected, the exception is a multicast request.

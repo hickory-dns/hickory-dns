@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -37,13 +37,13 @@
 #![recursion_limit = "1024"]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-//! Trust-DNS is intended to be a fully compliant domain name server and client library.
+//! Hickory DNS is intended to be a fully compliant domain name server and client library.
 //!
 //! The Client library is responsible for the basic protocols responsible for communicating with DNS servers (authorities) and resolvers. It can be used for managing DNS records through the use of update operations. It is possible to send raw DNS Messages with the Client, but for ease of use the `query` and various other update operations are recommended for general use.
 //!
-//! For a system-like resolver, see [trust-dns-resolver](https://docs.rs/trust-dns-resolver). This is most likely what you want if all you want to do is lookup IP addresses.
+//! For a system-like resolver, see [hickory-resolver](https://docs.rs/hickory-resolver). This is most likely what you want if all you want to do is lookup IP addresses.
 //!
-//! For serving DNS serving, see [trust-dns-server](https://docs.rs/trust-dns-server).
+//! For serving DNS serving, see [hickory-server](https://docs.rs/hickory-server).
 //!
 //! # Goals
 //!
@@ -62,28 +62,28 @@
 //!
 //! ```toml
 //! [dependencies]
-//! trust-dns-client = "*"
+//! hickory-client = "*"
 //! ```
 //!
 //! By default DNSSEC validation is built in with OpenSSL, this can be disabled with:
 //!
 //! ```toml
 //! [dependencies]
-//! trust-dns-client = { version = "*", default-features = false }
+//! hickory-client = { version = "*", default-features = false }
 //! ```
 //!
 //! ## Objects
 //!
 //! There are two variations of implementations of the Client. The `SyncClient`, a synchronous client, and the `AsyncClient`, a Tokio async client. `SyncClient` is an implementation of the `Client` trait, there is another implementation, `SyncDnssecClient`, which validates DNSSEC records. For these basic examples we'll only look at the `SyncClient`
 //!
-//! First we must decide on the type of connection, there are three supported by Trust-DNS today, UDP, TCP and TLS. TLS requires OpenSSL by default, see also [trust-dns-native-tls](https://docs.rs/trust-dns-native-tls) and [trust-dns-rustls](https://docs.rs/trust-dns-rustls) for other TLS options.
+//! First we must decide on the type of connection, there are three supported by Hickory DNS today, UDP, TCP and TLS. TLS requires OpenSSL by default, see also [hickory-dns-native-tls](https://docs.rs/hickory-dns-native-tls) and [hickory-dns-rustls](https://docs.rs/hickory-dns-rustls) for other TLS options.
 //!
 //! ## Setup a connection
 //!
 //! ```rust
-//! use trust_dns_proto::DnsStreamHandle;
-//! use trust_dns_client::client::{Client, ClientConnection, SyncClient};
-//! use trust_dns_client::udp::UdpClientConnection;
+//! use hickory_proto::DnsStreamHandle;
+//! use hickory_client::client::{Client, ClientConnection, SyncClient};
+//! use hickory_client::udp::UdpClientConnection;
 //!
 //! let address = "8.8.8.8:53".parse().unwrap();
 //! let conn = UdpClientConnection::new(address).unwrap();
@@ -96,16 +96,16 @@
 //!
 //! ## Querying
 //!
-//! Using the Client to query for DNS records is easy enough, though it performs no resolution. The `trust-dns-resolver` has a simpler interface if that's what is desired. Over time that library will gain more features to generically query for different types.
+//! Using the Client to query for DNS records is easy enough, though it performs no resolution. The `hickory-resolver` has a simpler interface if that's what is desired. Over time that library will gain more features to generically query for different types.
 //!
 //! ```rust
 //! use std::net::Ipv4Addr;
 //! use std::str::FromStr;
-//! # use trust_dns_client::client::{Client, SyncClient};
-//! # use trust_dns_client::udp::UdpClientConnection;
-//! use trust_dns_client::op::DnsResponse;
-//! use trust_dns_client::rr::{DNSClass, Name, RData, Record, RecordType};
-//! use trust_dns_client::rr::rdata::A;
+//! # use hickory_client::client::{Client, SyncClient};
+//! # use hickory_client::udp::UdpClientConnection;
+//! use hickory_client::op::DnsResponse;
+//! use hickory_client::rr::{DNSClass, Name, RData, Record, RecordType};
+//! use hickory_client::rr::rdata::A;
 //! #
 //! # let address = "8.8.8.8:53".parse().unwrap();
 //! # let conn = UdpClientConnection::new(address).unwrap();
@@ -121,7 +121,7 @@
 //! // Messages are the packets sent between client and server in DNS.
 //! //  there are many fields to a Message, DnsResponse can be dereferenced into
 //! //  a Message. It's beyond the scope of these examples
-//! //  to explain all the details of a Message. See trust_dns_client::op::message::Message for more details.
+//! //  to explain all the details of a Message. See hickory_client::op::message::Message for more details.
 //! //  generally we will be interested in the Message::answers
 //! let answers: &[Record] = response.answers();
 //!
@@ -135,11 +135,11 @@
 //! }
 //! ```
 //!
-//! In the above example we successfully queried for a A record. There are many other types, each can be independently queried and the associated `trust_dns_client::rr::record_data::RData` has a variant with the deserialized data for the record stored.
+//! In the above example we successfully queried for a A record. There are many other types, each can be independently queried and the associated `hickory_client::rr::record_data::RData` has a variant with the deserialized data for the record stored.
 //!
 //! ## Dynamic update
 //!
-//! Currently `trust-dns-client` supports SIG(0) signed records for authentication and authorization of dynamic DNS updates. It's beyond the scope of these examples to show how to setup SIG(0) authorization on the server. `trust-dns-client` is known to work with BIND9 and `trust-dns-server`. Expect in the future for TLS to become a potentially better option for authorization with certificate chains. These examples show using SIG(0) for auth, requires OpenSSL. It's beyond the scope of these examples to describe the configuration for the server.
+//! Currently `hickory-client` supports SIG(0) signed records for authentication and authorization of dynamic DNS updates. It's beyond the scope of these examples to show how to setup SIG(0) authorization on the server. `hickory-client` is known to work with BIND9 and `hickory-server`. Expect in the future for TLS to become a potentially better option for authorization with certificate chains. These examples show using SIG(0) for auth, requires OpenSSL. It's beyond the scope of these examples to describe the configuration for the server.
 
 //!
 //! ```rust,no_run
@@ -154,18 +154,18 @@
 //!
 //! # #[cfg(feature = "openssl")]
 //! use openssl::rsa::Rsa;
-//! use trust_dns_client::client::{Client, SyncClient};
-//! use trust_dns_client::udp::UdpClientConnection;
-//! use trust_dns_client::rr::{Name, RData, Record, RecordType};
-//! use trust_dns_client::proto::rr::dnssec::{Algorithm, SigSigner, KeyPair};
-//! use trust_dns_client::op::ResponseCode;
-//! use trust_dns_client::rr::rdata::{A, key::KEY};
+//! use hickory_client::client::{Client, SyncClient};
+//! use hickory_client::udp::UdpClientConnection;
+//! use hickory_client::rr::{Name, RData, Record, RecordType};
+//! use hickory_client::proto::rr::dnssec::{Algorithm, SigSigner, KeyPair};
+//! use hickory_client::op::ResponseCode;
+//! use hickory_client::rr::rdata::{A, key::KEY};
 //!
 //! # let address = "0.0.0.0:53".parse().unwrap();
 //! # let conn = UdpClientConnection::new(address).unwrap();
 //!
 //! // The format of the key is dependent on the KeyPair type, in this example we're using RSA
-//! //  if the key was generated with BIND, the binary in Trust-DNS client lib `dnskey-to-pem`
+//! //  if the key was generated with BIND, the binary in Hickory DNS client lib `dnskey-to-pem`
 //! //  can be used to convert this to a pem file
 //! let mut pem = File::open("my_private_key.pem").unwrap();
 //! let mut pem_buf = Vec::<u8>::new();
@@ -186,7 +186,7 @@
 //!                        Algorithm::RSASHA256,
 //!                        key.to_public_bytes().unwrap());
 //!
-//! // Create the Trust-DNS SIG(0) signing facility. Generally the signer_name is the label
+//! // Create the Hickory DNS SIG(0) signing facility. Generally the signer_name is the label
 //! //  associated with KEY record in the server.
 //! let signer = SigSigner::sig0(sig0key,
 //!                           key,
@@ -215,7 +215,7 @@
 //! # }
 //! ```
 //!
-//! *Note*: The dynamic DNS functions defined by Trust-DNS are expressed as atomic operations, but this depends on support of the remote server. For example, the `create` operation shown above, should only succeed if there is no `RecordSet` of the specified type at the specified label. The other update operations are `append`, `compare_and_swap`, `delete_by_rdata`, `delete_rrset`, and `delete_all`. See the documentation for each of these methods on the `Client` trait.
+//! *Note*: The dynamic DNS functions defined by Hickory DNS are expressed as atomic operations, but this depends on support of the remote server. For example, the `create` operation shown above, should only succeed if there is no `RecordSet` of the specified type at the specified label. The other update operations are `append`, `compare_and_swap`, `delete_by_rdata`, `delete_rrset`, and `delete_all`. See the documentation for each of these methods on the `Client` trait.
 //!
 //!
 //! ## Async client usage
@@ -227,11 +227,11 @@
 //! use std::net::Ipv4Addr;
 //! use std::str::FromStr;
 //! use tokio::net::TcpStream as TokioTcpStream;
-//! use trust_dns_client::client::{AsyncClient, ClientHandle};
-//! use trust_dns_client::proto::iocompat::AsyncIoTokioAsStd;
-//! use trust_dns_client::rr::{DNSClass, Name, RData, RecordType};
-//! use trust_dns_client::rr::rdata::A;
-//! use trust_dns_client::tcp::TcpClientStream;
+//! use hickory_client::client::{AsyncClient, ClientHandle};
+//! use hickory_client::proto::iocompat::AsyncIoTokioAsStd;
+//! use hickory_client::rr::{DNSClass, Name, RData, RecordType};
+//! use hickory_client::rr::rdata::A;
+//! use hickory_client::tcp::TcpClientStream;
 //!
 //! #[tokio::main]
 //! async fn main() {
@@ -284,7 +284,7 @@ pub mod udp;
 #[cfg(feature = "dns-over-https")]
 mod h2_client_connection;
 
-pub use trust_dns_proto as proto;
+pub use hickory_proto as proto;
 
 /// The https module which contains all https related connection types
 #[cfg(feature = "dns-over-https")]

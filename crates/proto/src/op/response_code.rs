@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -197,7 +197,7 @@ impl Display for ResponseCode {
 /// Convert from `ResponseCode` to `u16`
 ///
 /// ```
-/// use trust_dns_proto::op::response_code::ResponseCode;
+/// use hickory_proto::op::response_code::ResponseCode;
 ///
 /// let var: ResponseCode = From::from(0);
 /// assert_eq!(ResponseCode::NoError, var);
@@ -241,7 +241,7 @@ impl From<ResponseCode> for u16 {
 /// Convert from `u16` to `ResponseCode`
 ///
 /// ```
-/// use trust_dns_proto::op::response_code::ResponseCode;
+/// use hickory_proto::op::response_code::ResponseCode;
 ///
 /// let var: u16 = From::from(ResponseCode::NoError);
 /// assert_eq!(0, var);

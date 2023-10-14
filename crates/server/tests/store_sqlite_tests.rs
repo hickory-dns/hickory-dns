@@ -6,8 +6,8 @@ use std::str::FromStr;
 
 use futures_executor::block_on;
 
-use trust_dns_proto::rr::Name;
-use trust_dns_server::{
+use hickory_proto::rr::Name;
+use hickory_server::{
     authority::ZoneType,
     store::sqlite::{SqliteAuthority, SqliteConfig},
 };

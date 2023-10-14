@@ -1,8 +1,8 @@
 // Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! SVCB records, see [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03)
@@ -859,7 +859,7 @@ impl BinEncodable for EchConfig {
 
 impl fmt::Display for EchConfig {
     /// As the documentation states, the presentation format (what this function outputs) must be a BASE64 encoded string.
-    ///   trust-dns will encode to BASE64 during formatting of the internal data, and output the BASE64 value.
+    ///   hickory-dns will encode to BASE64 during formatting of the internal data, and output the BASE64 value.
     ///
     /// [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-9)
     /// ```text
@@ -871,7 +871,7 @@ impl fmt::Display for EchConfig {
     ///
     /// *note* while the on the wire the EchConfig has a redundant length,
     ///   the RFC is not explicit about including it in the BASE64 encoded value,
-    ///   trust-dns will encode the data as it is stored, i.e. without the length encoding.
+    ///   hickory-dns will encode the data as it is stored, i.e. without the length encoding.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "\"{}\"", data_encoding::BASE64.encode(&self.0))
     }

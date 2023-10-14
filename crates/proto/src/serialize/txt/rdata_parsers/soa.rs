@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -80,8 +80,8 @@ fn test_parse() {
     use std::str::FromStr;
 
     let soa_tokens = vec![
-        "trust-dns.org.",
-        "root.trust-dns.org.",
+        "hickory-dns.org.",
+        "root.hickory-dns.org.",
         "199609203",
         "8h",
         "120m",
@@ -96,8 +96,8 @@ fn test_parse() {
     .expect("failed to parse tokens");
 
     let expected_soa = SOA::new(
-        "trust-dns.org.".parse().unwrap(),
-        "root.trust-dns.org.".parse().unwrap(),
+        "hickory-dns.org.".parse().unwrap(),
+        "root.hickory-dns.org.".parse().unwrap(),
         199609203,
         28800,
         7200,

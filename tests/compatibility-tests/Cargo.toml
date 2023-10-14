@@ -1,15 +1,15 @@
 [package]
-name = "trust-dns-compatibility"
+name = "hickory-compatibility"
 publish = false
 
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
 description = """
-Trust-DNS compatability testing library.
+Hickory DNS compatability testing library.
 """
 
 # These URLs point to more information about the repository
-documentation = "https://docs.rs/trust-dns"
+documentation = "https://docs.rs/hickory-dns"
 
 # This points to a file in the repository (relative to this Cargo.toml). The
 # contents of this file are stored and indexed in the registry.
@@ -26,18 +26,18 @@ categories.workspace = true
 license.workspace = true
 
 [badges]
-#github-actions = { repository = "bluejekyll/trust-dns", branch = "main", workflow = "test" }
-codecov = { repository = "bluejekyll/trust-dns", branch = "main", service = "github" }
+#github-actions = { repository = "bluejekyll/hickory", branch = "main", workflow = "test" }
+codecov = { repository = "hickory-dns/hickory-dns", branch = "main", service = "github" }
 maintenance = { status = "actively-developed" }
 
 [features]
 default = ["none"]
 none = []
 bind = []
-trust_dns_client = []
+hickory_client = []
 
 [lib]
-name = "trust_dns_compatibility"
+name = "hickory_compatibility"
 path = "src/lib.rs"
 
 [dependencies]
@@ -48,4 +48,4 @@ rand.workspace = true
 futures.workspace = true
 openssl = { workspace = true, features = ["v102", "v110"] }
 time.workspace = true
-trust-dns-client= { workspace = true, features = ["dnssec-openssl"] }
+hickory-client = { workspace = true, features = ["dnssec-openssl"] }

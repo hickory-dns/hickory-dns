@@ -1,8 +1,8 @@
 // Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! Basic protocol message for DNS
@@ -767,7 +767,7 @@ impl Message {
 /// Consumes `Message` giving public access to fields in `Message` so they can be
 /// destructured and taken by value
 /// ```rust
-/// use trust_dns_proto::op::{Message, MessageParts};
+/// use hickory_proto::op::{Message, MessageParts};
 ///
 ///  let msg = Message::new();
 ///  let MessageParts { queries, .. } = msg.into_parts();

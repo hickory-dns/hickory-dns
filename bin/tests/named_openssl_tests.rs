@@ -1,8 +1,8 @@
 // Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 #![cfg(not(windows))]
@@ -22,11 +22,11 @@ use native_tls::Certificate;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
-use trust_dns_client::client::*;
-use trust_dns_proto::native_tls::TlsClientStreamBuilder;
+use hickory_client::client::*;
+use hickory_proto::native_tls::TlsClientStreamBuilder;
 
+use hickory_proto::iocompat::AsyncIoTokioAsStd;
 use server_harness::{named_test_harness, query_a};
-use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 
 #[test]
 fn test_example_tls_toml_startup() {
@@ -65,7 +65,7 @@ fn test_startup(toml: &'static str) {
         let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
         let client = AsyncClient::new(stream, sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        trust_dns_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::spawn_bg(&io_loop, bg);
 
         query_a(&mut io_loop, &mut client);
 
@@ -81,7 +81,7 @@ fn test_startup(toml: &'static str) {
         let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
         let client = AsyncClient::new(stream, sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        trust_dns_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::spawn_bg(&io_loop, bg);
 
         // ipv6 should succeed
         query_a(&mut io_loop, &mut client);

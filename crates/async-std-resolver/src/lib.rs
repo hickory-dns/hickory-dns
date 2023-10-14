@@ -1,8 +1,8 @@
 // Copyright 2015-2020 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 // LIBRARY WARNINGS
@@ -25,11 +25,11 @@
 //!
 //! This is a 100% in process DNS resolver. It *does not* use the Host OS' resolver. If what is desired is to use the Host OS' resolver, generally in the system's libc, then the `std::net::ToSocketAddrs` variant over `&str` should be used.
 //!
-//! Unlike the `trust-dns-client`, this tries to provide a simpler interface to perform DNS queries. For update options, i.e. Dynamic DNS, the `trust-dns-client` crate must be used instead. The Resolver library is capable of searching multiple domains (this can be disabled by using an FQDN during lookup), dual-stack IPv4/IPv6 lookups, performing chained CNAME lookups, and features connection metric tracking for attempting to pick the best upstream DNS resolver.
+//! Unlike the `hickory-client`, this tries to provide a simpler interface to perform DNS queries. For update options, i.e. Dynamic DNS, the `hickory-client` crate must be used instead. The Resolver library is capable of searching multiple domains (this can be disabled by using an FQDN during lookup), dual-stack IPv4/IPv6 lookups, performing chained CNAME lookups, and features connection metric tracking for attempting to pick the best upstream DNS resolver.
 //!
 //! Use [`AsyncResolver`](crate::AsyncResolver) for performing DNS queries. `AsyncResolver` is a `async-std` based async resolver, and can be used inside any `asyn-std` based system.
 //!
-//! This as best as possible attempts to abide by the DNS RFCs, please file issues at <https://github.com/bluejekyll/trust-dns>.
+//! This as best as possible attempts to abide by the DNS RFCs, please file issues at <https://github.com/hickory-dns/hickory-dns>.
 //!
 //! # Usage
 //!
@@ -94,7 +94,7 @@
 //! }
 //! ```
 
-use trust_dns_resolver::AsyncResolver;
+use hickory_resolver::AsyncResolver;
 
 use crate::runtime::AsyncStdConnectionProvider;
 
@@ -104,11 +104,11 @@ mod runtime;
 mod tests;
 mod time;
 
-pub use trust_dns_resolver::config;
-pub use trust_dns_resolver::error::ResolveError;
-pub use trust_dns_resolver::lookup;
-pub use trust_dns_resolver::lookup_ip;
-pub use trust_dns_resolver::proto;
+pub use hickory_resolver::config;
+pub use hickory_resolver::error::ResolveError;
+pub use hickory_resolver::lookup;
+pub use hickory_resolver::lookup_ip;
+pub use hickory_resolver::proto;
 
 /// An AsyncResolver used with async_std
 pub type AsyncStdResolver = AsyncResolver<AsyncStdConnectionProvider>;

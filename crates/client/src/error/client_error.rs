@@ -1,8 +1,8 @@
 // Copyright 2015-2020 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! Error types for the crate
@@ -14,7 +14,7 @@ use thiserror::Error;
 
 #[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
-use trust_dns_proto::error::{DnsSecError, DnsSecErrorKind, ProtoError, ProtoErrorKind};
+use hickory_proto::error::{DnsSecError, DnsSecErrorKind, ProtoError, ProtoErrorKind};
 
 /// An alias for results returned by functions of this crate
 pub type Result<T> = ::std::result::Result<T, Error>;
@@ -40,7 +40,7 @@ pub enum ErrorKind {
     #[error("io error")]
     Io(#[from] std::io::Error),
 
-    /// An error got returned by the trust-dns-proto crate
+    /// An error got returned by the hickory-proto crate
     #[error("proto error")]
     Proto(#[from] ProtoError),
 

@@ -1,21 +1,21 @@
 // Copyright 2015-2018 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! The `trust-dns` binary for running a DNS server
+//! The `hickory-dns` binary for running a DNS server
 //!
 //! ```text
-//! Usage: trust-dns [options]
-//!       trust-dns (-h | --help | --version)
+//! Usage: hickory-dns [options]
+//!       hickory-dns (-h | --help | --version)
 //!
 //! Options:
 //!    -q, --quiet             Disable INFO messages, WARN and ERROR will remain
 //!    -d, --debug             Turn on DEBUG messages (default is only INFO)
 //!    -h, --help              Show this message
-//!    -v, --version           Show the version of trust-dns
+//!    -v, --version           Show the version of hickory-dns
 //!    -c FILE, --config=FILE  Path to configuration file, default is /etc/named.toml
 //!    -z DIR, --zonedir=DIR   Path to the root directory for all zone files, see also config toml
 //!    -p PORT, --port=PORT    Override the listening port
@@ -57,16 +57,16 @@ use tracing_subscriber::{
     util::SubscriberInitExt,
 };
 
-use trust_dns_client::rr::Name;
+use hickory_client::rr::Name;
 #[cfg(feature = "dns-over-tls")]
-use trust_dns_server::config::dnssec::{self, TlsCertConfig};
+use hickory_server::config::dnssec::{self, TlsCertConfig};
 #[cfg(feature = "resolver")]
-use trust_dns_server::store::forwarder::ForwardAuthority;
+use hickory_server::store::forwarder::ForwardAuthority;
 #[cfg(feature = "recursor")]
-use trust_dns_server::store::recursor::RecursiveAuthority;
+use hickory_server::store::recursor::RecursiveAuthority;
 #[cfg(feature = "sqlite")]
-use trust_dns_server::store::sqlite::{SqliteAuthority, SqliteConfig};
-use trust_dns_server::{
+use hickory_server::store::sqlite::{SqliteAuthority, SqliteConfig};
+use hickory_server::{
     authority::{AuthorityObject, Catalog, ZoneType},
     config::{Config, ZoneConfig},
     server::ServerFuture,
@@ -77,7 +77,7 @@ use trust_dns_server::{
 };
 
 #[cfg(feature = "dnssec")]
-use {trust_dns_client::rr::rdata::key::KeyUsage, trust_dns_server::authority::DnssecAuthority};
+use {hickory_client::rr::rdata::key::KeyUsage, hickory_server::authority::DnssecAuthority};
 
 #[cfg(feature = "dnssec")]
 async fn load_keys<A, L>(
@@ -271,7 +271,7 @@ async fn load_zone(
 
 /// Cli struct for all options managed with clap derive api.
 #[derive(Debug, Parser)]
-#[clap(name = "Trust-DNS named server", version, about)]
+#[clap(name = "Hickory DNS named server", version, about)]
 struct Cli {
     /// Disable INFO messages, WARN and ERROR will remain
     #[clap(short = 'q', long = "quiet", conflicts_with = "debug")]
@@ -333,7 +333,7 @@ fn main() {
         default();
     }
 
-    info!("Trust-DNS {} starting", trust_dns_client::version());
+    info!("Hickory DNS {} starting", hickory_client::version());
     // start up the server for listening
 
     let config = args.config.clone();
@@ -352,7 +352,7 @@ fn main() {
     let mut runtime = runtime::Builder::new_multi_thread()
         .enable_all()
         .worker_threads(4)
-        .thread_name("trust-dns-server-runtime")
+        .thread_name("hickory-server-runtime")
         .build()
         .expect("failed to initialize Tokio Runtime");
     let mut catalog: Catalog = Catalog::new();
@@ -485,12 +485,12 @@ fn main() {
     match runtime.block_on(server.block_until_done()) {
         Ok(()) => {
             // we're exiting for some reason...
-            info!("Trust-DNS {} stopping", trust_dns_client::version());
+            info!("Hickory DNS {} stopping", hickory_client::version());
         }
         Err(e) => {
             let error_msg = format!(
-                "Trust-DNS {} has encountered an error: {}",
-                trust_dns_client::version(),
+                "Hickory DNS {} has encountered an error: {}",
+                hickory_client::version(),
                 e
             );
 
@@ -686,12 +686,16 @@ fn config_quic(
 }
 
 fn banner() {
+    #[cfg(feature = "ascii-art")]
+    const HICKORY_DNS_LOGO: &str = include_str!("hickory-dns.ascii");
+
+    #[cfg(not(feature = "ascii-art"))]
+    const HICKORY_DNS_LOGO: &str = "Hickory DNS";
+
     info!("");
-    info!("    o                      o            o             ");
-    info!("    |                      |            |             ");
-    info!("  --O--  o-o  o  o  o-o  --O--  o-o   o-O  o-o   o-o  ");
-    info!("    |    |    |  |   \\     |         |  |  |  |   \\   ");
-    info!("    o    o    o--o  o-o    o          o-o  o  o  o-o  ");
+    for line in HICKORY_DNS_LOGO.lines() {
+        info!(" {line}");
+    }
     info!("");
 }
 
@@ -754,25 +758,25 @@ fn get_env() -> String {
     env::var("RUST_LOG").unwrap_or_default()
 }
 
-fn all_trust_dns(level: impl ToString) -> String {
+fn all_hickory_dns(level: impl ToString) -> String {
     format!(
-        "named={level},trust_dns={level},{env}",
+        "hickory_dns={level},{env}",
         level = level.to_string().to_lowercase(),
         env = get_env()
     )
 }
 
-/// appends trust-dns-server debug to RUST_LOG
+/// appends hickory-server debug to RUST_LOG
 pub fn debug() {
     logger(tracing::Level::DEBUG);
 }
 
-/// appends trust-dns-server info to RUST_LOG
+/// appends hickory-server info to RUST_LOG
 pub fn default() {
     logger(tracing::Level::INFO);
 }
 
-/// appends trust-dns-server error to RUST_LOG
+/// appends hickory-server error to RUST_LOG
 pub fn quiet() {
     logger(tracing::Level::ERROR);
 }
@@ -782,7 +786,7 @@ fn logger(level: tracing::Level) {
     // Setup tracing for logging based on input
     let filter = tracing_subscriber::EnvFilter::builder()
         .with_default_directive(tracing::Level::WARN.into())
-        .parse(all_trust_dns(level))
+        .parse(all_hickory_dns(level))
         .expect("failed to configure tracing/logging");
 
     let formatter = tracing_subscriber::fmt::layer().event_format(TdnsFormatter);

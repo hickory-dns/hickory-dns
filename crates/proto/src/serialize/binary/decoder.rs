@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -102,7 +102,7 @@ impl<'a> BinDecoder<'a> {
     /// Returns the number of bytes in the buffer
     ///
     /// ```
-    /// use trust_dns_proto::serialize::binary::BinDecoder;
+    /// use hickory_proto::serialize::binary::BinDecoder;
     ///
     /// let deadbeef = b"deadbeef";
     /// let mut decoder = BinDecoder::new(deadbeef);

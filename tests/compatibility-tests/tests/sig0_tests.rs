@@ -1,8 +1,8 @@
 // Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 use std::env;
@@ -17,25 +17,25 @@ use openssl::rsa::Rsa;
 use time::Duration;
 
 #[cfg(not(feature = "none"))]
-use trust_dns_client::client::Client;
-use trust_dns_client::client::{ClientConnection, SyncClient};
+use hickory_client::client::Client;
+use hickory_client::client::{ClientConnection, SyncClient};
 #[cfg(not(feature = "none"))]
-use trust_dns_client::proto::op::ResponseCode;
-use trust_dns_client::proto::rr::dnssec::rdata::key::{KeyUsage, KEY};
-use trust_dns_client::proto::rr::dnssec::{Algorithm, KeyPair, SigSigner};
-use trust_dns_client::proto::rr::Name;
+use hickory_client::proto::op::ResponseCode;
+use hickory_client::proto::rr::dnssec::rdata::key::{KeyUsage, KEY};
+use hickory_client::proto::rr::dnssec::{Algorithm, KeyPair, SigSigner};
+use hickory_client::proto::rr::Name;
 #[cfg(not(feature = "none"))]
-use trust_dns_client::proto::rr::{DNSClass, RData, Record, RecordType};
+use hickory_client::proto::rr::{DNSClass, RData, Record, RecordType};
 #[cfg(not(feature = "none"))]
-use trust_dns_client::udp::UdpClientConnection;
+use hickory_client::udp::UdpClientConnection;
 #[cfg(not(feature = "none"))]
-use trust_dns_compatibility::named_process;
+use hickory_compatibility::named_process;
 
 #[cfg(not(feature = "none"))]
 #[test]
 #[allow(unused)]
 fn test_get() {
-    use trust_dns_client::rr::rdata::A;
+    use hickory_client::rr::rdata::A;
 
     let (process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
@@ -94,7 +94,7 @@ where
 #[test]
 #[allow(unused)]
 fn test_create() {
-    use trust_dns_client::rr::rdata::A;
+    use hickory_client::rr::rdata::A;
 
     let (process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);

@@ -1,8 +1,8 @@
 // Copyright 2015-2019 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! Structs for creating and using a AsyncResolver
@@ -625,7 +625,7 @@ pub mod testing {
         );
 
         // needs to be a domain that exists, but is not signed (eventually this will be)
-        let response = exec.block_on(resolver.lookup_ip("trust-dns.org."));
+        let response = exec.block_on(resolver.lookup_ip("hickory-dns.org."));
 
         assert!(response.is_err());
         let error = response.unwrap_err();
@@ -633,7 +633,7 @@ pub mod testing {
         use proto::error::{ProtoError, ProtoErrorKind};
 
         let error_str = format!("{error}");
-        let name = Name::from_str("trust-dns.org.").unwrap();
+        let name = Name::from_str("hickory-dns.org.").unwrap();
         let expected_str = format!(
             "{}",
             ResolveError::from(ProtoError::from(ProtoErrorKind::RrsigsNotPresent {

@@ -11,13 +11,13 @@ use futures::{future, StreamExt};
 use once_cell::sync::Lazy;
 use tokio::runtime::Runtime;
 
-use trust_dns_client::client::{AsyncClient, ClientHandle};
-use trust_dns_client::multicast::MdnsQueryType;
-use trust_dns_client::multicast::{MdnsClientStream, MdnsStream};
-use trust_dns_client::op::Message;
-use trust_dns_client::rr::{DNSClass, Name, RecordType};
-use trust_dns_client::serialize::binary::BinDecodable;
-use trust_dns_proto::xfer::SerialMessage;
+use hickory_client::client::{AsyncClient, ClientHandle};
+use hickory_client::multicast::MdnsQueryType;
+use hickory_client::multicast::{MdnsClientStream, MdnsStream};
+use hickory_client::op::Message;
+use hickory_client::rr::{DNSClass, Name, RecordType};
+use hickory_client::serialize::binary::BinDecodable;
+use hickory_proto::xfer::SerialMessage;
 
 const MDNS_PORT: u16 = 5363;
 
@@ -113,7 +113,7 @@ fn test_query_mdns_ipv4() {
     let (stream, sender) = MdnsClientStream::new(addr, MdnsQueryType::OneShot, None, None, None);
     let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("failed to connect mDNS");
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     // A PTR request is the DNS-SD method for doing a directory listing...
     let name = Name::from_ascii("_dns._udp.local.").unwrap();
@@ -137,7 +137,7 @@ fn test_query_mdns_ipv6() {
     let (stream, sender) = MdnsClientStream::new(addr, MdnsQueryType::OneShot, None, None, Some(5));
     let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("failed to connect client");
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     // A PTR request is the DNS-SD method for doing a directory listing...
     let name = Name::from_ascii("_dns._udp.local.").unwrap();

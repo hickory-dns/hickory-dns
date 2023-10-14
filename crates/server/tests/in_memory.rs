@@ -2,8 +2,8 @@ use std::str::FromStr;
 
 use tokio::runtime::Runtime;
 
-use trust_dns_proto::rr::{rdata::CNAME, Name, RData, Record, RecordType};
-use trust_dns_server::{
+use hickory_proto::rr::{rdata::CNAME, Name, RData, Record, RecordType};
+use hickory_server::{
     authority::{Authority, ZoneType},
     store::in_memory::InMemoryAuthority,
 };

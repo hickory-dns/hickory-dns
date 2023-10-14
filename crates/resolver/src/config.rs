@@ -1,8 +1,8 @@
 // Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! Configuration for a resolver
@@ -274,7 +274,7 @@ impl ResolverConfig {
     /// use std::sync::Arc;
     ///
     /// use rustls::{ClientConfig, ProtocolVersion, RootCertStore, OwnedTrustAnchor};
-    /// use trust_dns_resolver::config::ResolverConfig;
+    /// use hickory_resolver::config::ResolverConfig;
     /// # #[cfg(feature = "webpki-roots")]
     /// use webpki_roots;
     ///
@@ -794,7 +794,7 @@ impl NameServerConfigGroup {
     ///
     /// ```
     /// use std::net::{SocketAddr, Ipv4Addr};
-    /// use trust_dns_resolver::config::NameServerConfigGroup;
+    /// use hickory_resolver::config::NameServerConfigGroup;
     ///
     /// let mut group = NameServerConfigGroup::google();
     /// group.merge(NameServerConfigGroup::cloudflare());
@@ -986,7 +986,7 @@ pub struct ResolverOpts {
 impl Default for ResolverOpts {
     /// Default values for the Resolver configuration.
     ///
-    /// This follows the resolv.conf defaults as defined in the [Linux man pages](http://man7.org/linux/man-pages/man5/resolv.conf.5.html)
+    /// This follows the resolv.conf defaults as defined in the [Linux man pages](https://man7.org/linux/man-pages/man5/resolv.conf.5.html)
     fn default() -> Self {
         Self {
             ndots: 1,

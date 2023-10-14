@@ -1,14 +1,14 @@
 [package]
-name = "trust-dns-proto"
+name = "hickory-proto"
 
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
 description = """
-Trust-DNS is a safe and secure DNS library. This is the foundational DNS protocol library for all Trust-DNS projects.
+Hickory DNS is a safe and secure DNS library. This is the foundational DNS protocol library for all Hickory DNS projects.
 """
 
 # These URLs point to more information about the repository
-documentation = "https://docs.rs/trust-dns-proto"
+documentation = "https://docs.rs/hickory-proto"
 
 # This points to a file in the repository (relative to this Cargo.toml). The
 # contents of this file are stored and indexed in the registry.
@@ -25,19 +25,36 @@ categories.workspace = true
 license.workspace = true
 
 [badges]
-#github-actions = { repository = "bluejekyll/trust-dns", branch = "main", workflow = "test" }
-codecov = { repository = "bluejekyll/trust-dns", branch = "main", service = "github" }
+#github-actions = { repository = "bluejekyll/hickory", branch = "main", workflow = "test" }
+codecov = { repository = "hickory-dns/hickory-dns", branch = "main", service = "github" }
 maintenance = { status = "actively-developed" }
 
 [features]
 dns-over-tls = []
-dns-over-rustls = ["dns-over-tls", "rustls", "rustls-pemfile", "tokio-rustls", "tokio-runtime"]
-dns-over-native-tls = ["dns-over-tls", "native-tls", "tokio-native-tls", "tokio-runtime"]
+dns-over-rustls = [
+    "dns-over-tls",
+    "rustls",
+    "rustls-pemfile",
+    "tokio-rustls",
+    "tokio-runtime",
+]
+dns-over-native-tls = [
+    "dns-over-tls",
+    "native-tls",
+    "tokio-native-tls",
+    "tokio-runtime",
+]
 dns-over-openssl = ["dns-over-tls", "openssl", "tokio-openssl", "tokio-runtime"]
 
 dns-over-https-rustls = ["dns-over-https"]
 dns-over-https = ["bytes", "h2", "http", "dns-over-rustls", "tokio-runtime"]
-dns-over-quic = ["quinn", "rustls/quic", "dns-over-rustls", "bytes", "tokio-runtime"]
+dns-over-quic = [
+    "quinn",
+    "rustls/quic",
+    "dns-over-rustls",
+    "bytes",
+    "tokio-runtime",
+]
 dns-over-h3 = ["h3", "h3-quinn", "quinn", "http", "dns-over-quic"]
 
 native-certs = ["dep:rustls-native-certs"]
@@ -65,7 +82,7 @@ wasm-bindgen = ["wasm-bindgen-crate", "js-sys"]
 backtrace = ["dep:backtrace"]
 
 [lib]
-name = "trust_dns_proto"
+name = "hickory_proto"
 path = "src/lib.rs"
 
 [dependencies]
@@ -75,9 +92,13 @@ bytes = { workspace = true, optional = true }
 cfg-if.workspace = true
 data-encoding.workspace = true
 enum-as-inner.workspace = true
-futures-channel = { workspace = true, default-features = false, features = ["std"] }
+futures-channel = { workspace = true, default-features = false, features = [
+    "std",
+] }
 futures-io = { workspace = true, default-features = false, features = ["std"] }
-futures-util = { workspace = true, default-features = false, features = ["std"] }
+futures-util = { workspace = true, default-features = false, features = [
+    "std",
+] }
 h2 = { workspace = true, features = ["stream"], optional = true }
 h3 = { workspace = true, optional = true }
 h3-quinn = { workspace = true, optional = true }
@@ -88,7 +109,11 @@ js-sys = { workspace = true, optional = true }
 native-tls = { workspace = true, optional = true }
 once_cell.workspace = true
 openssl = { workspace = true, features = ["v102", "v110"], optional = true }
-quinn = { workspace = true, optional = true, features = ["log", "runtime-tokio", "tls-rustls"] }
+quinn = { workspace = true, optional = true, features = [
+    "log",
+    "runtime-tokio",
+    "tls-rustls",
+] }
 rand.workspace = true
 ring = { workspace = true, optional = true, features = ["std"] }
 rustls = { workspace = true, optional = true }
@@ -108,10 +133,16 @@ wasm-bindgen-crate = { workspace = true, optional = true }
 webpki-roots = { workspace = true, optional = true }
 
 [dev-dependencies]
-futures-executor = { workspace = true, default-features = false, features = ["std"] }
+futures-executor = { workspace = true, default-features = false, features = [
+    "std",
+] }
 openssl = { workspace = true, features = ["v102", "v110"] }
 tokio = { workspace = true, features = ["rt", "time", "macros"] }
-tracing-subscriber = { workspace = true, features = ["std", "fmt", "env-filter"] }
+tracing-subscriber = { workspace = true, features = [
+    "std",
+    "fmt",
+    "env-filter",
+] }
 
 [package.metadata.docs.rs]
 all-features = true

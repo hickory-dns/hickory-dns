@@ -1,8 +1,8 @@
 use std::str::FromStr;
 
-use trust_dns_proto::rr::{LowerName, Name, RecordType, RrKey};
-use trust_dns_server::authority::{Authority, LookupOptions, ZoneType};
-use trust_dns_server::store::file::{FileAuthority, FileConfig};
+use hickory_proto::rr::{LowerName, Name, RecordType, RrKey};
+use hickory_server::authority::{Authority, LookupOptions, ZoneType};
+use hickory_server::store::file::{FileAuthority, FileConfig};
 
 #[macro_use]
 mod authority_battery;

@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 use futures_executor::block_on;
 
-use trust_dns_proto::{
+use hickory_proto::{
     op::{Header, Message, Query, ResponseCode},
     rr::{
         rdata::{A as A4, AAAA},
@@ -14,10 +14,10 @@ use trust_dns_proto::{
     },
     serialize::binary::BinDecodable,
 };
-use trust_dns_server::authority::{
+use hickory_server::authority::{
     AuthLookup, Authority, LookupError, LookupOptions, MessageRequest,
 };
-use trust_dns_server::server::{Protocol, RequestInfo};
+use hickory_server::server::{Protocol, RequestInfo};
 
 const TEST_HEADER: &Header = &Header::new();
 
@@ -55,8 +55,11 @@ pub fn test_soa<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .data()
     {
         Some(RData::SOA(soa)) => {
-            assert_eq!(Name::from_str("trust-dns.org.").unwrap(), *soa.mname());
-            assert_eq!(Name::from_str("root.trust-dns.org.").unwrap(), *soa.rname());
+            assert_eq!(Name::from_str("hickory-dns.org.").unwrap(), *soa.mname());
+            assert_eq!(
+                Name::from_str("root.hickory-dns.org.").unwrap(),
+                *soa.rname()
+            );
             assert_eq!(199609203, soa.serial());
             assert_eq!(28800, soa.refresh());
             assert_eq!(7200, soa.retry());

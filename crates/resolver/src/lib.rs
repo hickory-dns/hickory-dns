@@ -1,8 +1,8 @@
 // Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! The Resolver is responsible for performing recursive queries to lookup domain names.
@@ -11,8 +11,8 @@
 //! desired is to use the Host OS' resolver, generally in the system's libc, then the
 //! `std::net::ToSocketAddrs` variant over `&str` should be used.
 //!
-//! Unlike the `trust-dns-client`, this tries to provide a simpler interface to perform DNS
-//! queries. For update options, i.e. Dynamic DNS, the `trust-dns-client` crate must be used
+//! Unlike the `hickory-client`, this tries to provide a simpler interface to perform DNS
+//! queries. For update options, i.e. Dynamic DNS, the `hickory-client` crate must be used
 //! instead. The Resolver library is capable of searching multiple domains (this can be disabled by
 //! using an FQDN during lookup), dual-stack IPv4/IPv6 lookups, performing chained CNAME lookups,
 //! and features connection metric tracking for attempting to pick the best upstream DNS resolver.
@@ -22,7 +22,7 @@
 //! `Tokio` based async resolver, and can be used inside any `Tokio` based system.
 //!
 //! This as best as possible attempts to abide by the DNS RFCs, please file issues at
-//! <https://github.com/bluejekyll/trust-dns>.
+//! <https://github.com/hickory-dns/hickory-dns>.
 //!
 //! # Usage
 //!
@@ -30,7 +30,7 @@
 //!
 //! ```toml
 //! [dependency]
-//! trust-dns-resolver = "*"
+//! hickory-resolver = "*"
 //! ```
 //!
 //! ## Using the Synchronous Resolver
@@ -45,8 +45,8 @@
 //! # #[cfg(feature = "tokio-runtime")]
 //! # {
 //! use std::net::*;
-//! use trust_dns_resolver::Resolver;
-//! use trust_dns_resolver::config::*;
+//! use hickory_resolver::Resolver;
+//! use hickory_resolver::config::*;
 //!
 //! // Construct a new Resolver with default configuration options
 //! let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
@@ -79,7 +79,7 @@
 //! # #[cfg(feature = "tokio-runtime")]
 //! # {
 //! # use std::net::*;
-//! # use trust_dns_resolver::Resolver;
+//! # use hickory_resolver::Resolver;
 //! // Use the host OS'es `/etc/resolv.conf`
 //! # #[cfg(unix)]
 //! let resolver = Resolver::from_system_conf().unwrap();
@@ -100,8 +100,8 @@
 //! # {
 //! use std::net::*;
 //! use tokio::runtime::Runtime;
-//! use trust_dns_resolver::TokioAsyncResolver;
-//! use trust_dns_resolver::config::*;
+//! use hickory_resolver::TokioAsyncResolver;
+//! use hickory_resolver::config::*;
 //!
 //! // We need a Tokio Runtime to run the resolver
 //! //  this is responsible for running all Future tasks and registering interest in IO channels
@@ -143,8 +143,8 @@
 //! # {
 //! # use std::net::*;
 //! # use tokio::runtime::Runtime;
-//! # use trust_dns_resolver::TokioAsyncResolver;
-//! # use trust_dns_resolver::config::*;
+//! # use hickory_resolver::TokioAsyncResolver;
+//! # use hickory_resolver::config::*;
 //! # use futures_util::TryFutureExt;
 //! #
 //! # let mut io_loop = Runtime::new().unwrap();
@@ -175,14 +175,14 @@
 //!
 //! ## DNS-over-TLS and DNS-over-HTTPS
 //!
-//! DNS-over-TLS and DNS-over-HTTPS are supported in the Trust-DNS Resolver library. The underlying
-//! implementations are available as addon libraries. *WARNING* The trust-dns developers make no
+//! DNS-over-TLS and DNS-over-HTTPS are supported in the Hickory DNS Resolver library. The underlying
+//! implementations are available as addon libraries. *WARNING* The hickory-dns developers make no
 //! claims on the security and/or privacy guarantees of this implementation.
 //!
 //! To use DNS-over-TLS one of the `dns-over-tls` features must be enabled at compile time. There
 //! are three: `dns-over-openssl`, `dns-over-native-tls`, and `dns-over-rustls`. For DNS-over-HTTPS
 //! only rustls is supported with the `dns-over-https-rustls`, this implicitly enables support for
-//! DNS-over-TLS as well. The reason for each is to make the Trust-DNS libraries flexible for
+//! DNS-over-TLS as well. The reason for each is to make the Hickory DNS libraries flexible for
 //! different deployments, and/or security concerns. The easiest to use will generally be
 //! `dns-over-rustls` which utilizes the `*ring*` Rust cryptography library (a rework of the
 //! `boringssl` project), this should compile and be usable on most ARM and x86 platforms.
@@ -190,15 +190,15 @@
 //! `openssl` where not supported. `dns-over-openssl` will specify that `openssl` should be used
 //! (which is a perfectly fine option if required). If more than one is specified, the precedence
 //! will be in this order (i.e. only one can be used at a time) `dns-over-rustls`,
-//! `dns-over-native-tls`, and then `dns-over-openssl`. *NOTICE* the trust-dns developers are not
+//! `dns-over-native-tls`, and then `dns-over-openssl`. **NOTICE** the Hickory DNS developers are not
 //! responsible for any choice of library that does not meet required security requirements.
 //!
 //! ### Example
 //!
-//! Enable the TLS library through the dependency on `trust-dns-resolver`:
+//! Enable the TLS library through the dependency on `hickory-resolver`:
 //!
 //! ```toml
-//! trust-dns-resolver = { version = "*", features = ["dns-over-rustls"] }
+//! hickory-resolver = { version = "*", features = ["dns-over-rustls"] }
 //! ```
 //!
 //! A default TLS configuration is available for Cloudflare's `1.1.1.1` DNS service (Quad9 as
@@ -208,8 +208,8 @@
 //! # fn main() {
 //! # #[cfg(feature = "tokio-runtime")]
 //! # {
-//! use trust_dns_resolver::Resolver;
-//! use trust_dns_resolver::config::*;
+//! use hickory_resolver::Resolver;
+//! use hickory_resolver::config::*;
 //!
 //! // Construct a new Resolver with default configuration options
 //! # #[cfg(feature = "dns-over-tls")]
@@ -222,7 +222,7 @@
 //!
 //! ## mDNS (multicast DNS)
 //!
-//! Multicast DNS is an experimental feature in Trust-DNS at the moment. Its support on different
+//! Multicast DNS is an experimental feature in Hickory DNS at the moment. Its support on different
 //! platforms is not yet ideal. Initial support is only for IPv4 mDNS, as there are some
 //! complexities to figure out with IPv6. Once enabled, an mDNS `NameServer` will automatically be
 //! added to the `Resolver` and used for any lookups performed in the `.local.` zone.
@@ -251,7 +251,7 @@ extern crate cfg_if;
 #[cfg(feature = "serde-config")]
 #[macro_use]
 extern crate serde;
-pub extern crate trust_dns_proto as proto;
+pub extern crate hickory_proto as proto;
 
 mod async_resolver;
 pub mod caching_client;
@@ -300,13 +300,13 @@ pub use resolver::Resolver;
 /// # Note
 ///
 /// For users of `ResolverFuture`, the return type for `ResolverFuture::new`
-/// has changed since version 0.9 of `trust-dns-resolver`. It now returns
+/// has changed since version 0.9 of `hickory-resolver`. It now returns
 /// a tuple of an [`AsyncResolver`] _and_ a background future, which must
 /// be spawned on a reactor before any lookup futures will run.
 ///
 /// See the [`AsyncResolver`] documentation for more information on how to
 /// use the background future.
-#[deprecated(note = "use [`trust_dns_resolver::AsyncResolver`] instead")]
+#[deprecated(note = "use [`hickory_resolver::AsyncResolver`] instead")]
 #[cfg(feature = "tokio-runtime")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 pub type ResolverFuture = TokioAsyncResolver;

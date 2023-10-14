@@ -1,8 +1,8 @@
 // Copyright 2015-2018 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! UDP based DNS client connection for Client impls
@@ -11,15 +11,15 @@ use std::marker::PhantomData;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use hickory_proto::h2::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
+use hickory_proto::tcp::Connect;
 use rustls::ClientConfig;
-use trust_dns_proto::h2::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
-use trust_dns_proto::tcp::Connect;
 
 use crate::client::{ClientConnection, Signer};
 
 /// UDP based DNS Client connection
 ///
-/// Use with `trust_dns_client::client::Client` impls
+/// Use with `hickory_client::client::Client` impls
 #[derive(Clone)]
 pub struct HttpsClientConnection<T> {
     name_server: SocketAddr,

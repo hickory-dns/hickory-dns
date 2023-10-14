@@ -1,8 +1,8 @@
 // Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! option record for passing protocol options between the client and server
@@ -354,7 +354,7 @@ pub enum EdnsCode {
     /// [RFC 8764l, Apple's Long-Lived Queries, Optional](https://tools.ietf.org/html/rfc8764)
     LLQ,
 
-    /// [UL On-hold](http://files.dns-sd.org/draft-sekar-dns-ul.txt)
+    /// [UL On-hold](https://files.dns-sd.org/draft-sekar-dns-ul.txt)
     UL,
 
     /// [RFC 5001, NSID](https://tools.ietf.org/html/rfc5001)
@@ -440,7 +440,7 @@ impl From<EdnsCode> for u16 {
 ///
 /// `note: Not all EdnsOptions are supported at this time.`
 ///
-/// <http://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-13>
+/// <https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-13>
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Hash)]
 #[non_exhaustive]

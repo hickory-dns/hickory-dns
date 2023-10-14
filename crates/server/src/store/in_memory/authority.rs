@@ -1,8 +1,8 @@
 // Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! All authority related types
@@ -315,7 +315,7 @@ struct InnerInMemory {
     // Private key mapped to the Record of the DNSKey
     //  TODO: these private_keys should be stored securely. Ideally, we have keys only stored per
     //   server instance, but that requires requesting updates from the parent zone, which may or
-    //   may not support dynamic updates to register the new key... Trust-DNS will provide support
+    //   may not support dynamic updates to register the new key... Hickory DNS will provide support
     //   for this, in some form, perhaps alternate root zones...
     #[cfg(feature = "dnssec")]
     secure_keys: Vec<SigSigner>,

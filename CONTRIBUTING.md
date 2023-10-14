@@ -1,4 +1,4 @@
-# Contributing to Trust-DNS
+# Contributing to Hickory DNS
 
 Before contributing, please consider the terms of the licenses (Apache License 2.0 or MIT). We chose these licenses for two reasons:
 
@@ -9,7 +9,7 @@ After ensuring the license options are compatible with the aims of the contribut
 
 ## Understanding the design
 
-Please read the [Architecture](ARCHITECTURE.md) to understand the general design and layout of the Trust-DNS projects.
+Please read the [Architecture](ARCHITECTURE.md) to understand the general design and layout of the Hickory DNS projects.
 
 ## Submitting PRs
 
@@ -23,7 +23,7 @@ All PRs *must* be passing all tests. Ideally any PR submitted should have more t
 
 ## Releases
 
-Trust-DNS tries to follow semver versioning semantics. Major versions will not break APIs in a current major revision. If changes are being made to the current `main` branch, double check the current status of the Major release. Until `1.x.x`, all `0.x.x` minor releases are treated as major releases with breaking changes allowed. Releases are performed on an ad-hoc/on-demand basis.
+Hickory DNS tries to follow semver versioning semantics. Major versions will not break APIs in a current major revision. If changes are being made to the current `main` branch, double check the current status of the Major release. Until `1.x.x`, all `0.x.x` minor releases are treated as major releases with breaking changes allowed. Releases are performed on an ad-hoc/on-demand basis.
 
 *Maintainers*: If changes are needed to previous releases, then there should exist a `release/x.x`. If this does not exist, then go to the previous most recent tag (release) and create a new branch at that tag `release/x.x`, for example the branch `release/0.19`:
 
@@ -43,10 +43,10 @@ Releases are somewhat automated. The github action, `publish`, watches for any t
 1. Create a new branch like `git checkout -b prepare-0.20.1`
 1. Update all Cargo.toml files to the new version, `version = 0.20.1`
 1. Update dependencies, `cargo update`
-1. Update all inter-dependent crates, i.e. trust-dns-resolver to use `trust-dns-proto = 0.20.1`
+1. Update all inter-dependent crates, i.e. hickory-resolver to use `hickory-proto = 0.20.1`
 1. Update [CHANGELOG.md](CHANGELOG.md) to include all PR's (of consequence) since the previous release
 1. Push to Github, create a PR and merge in `main` or the target release branch.
-1. Go to [Releases](https://github.com/bluejekyll/trust-dns/releases) and `Draft a new release`
+1. Go to [Releases](https://github.com/hickory-dns/hickory-dns/releases) and `Draft a new release`
 1. Give it a `Tag Version` of `vX.x.x`, e.g. `v0.20.1`, *make sure this is tagging the correct branch, e.g. `main` or `release/0.19`*
 1. Give it a  `Release Title` of something key to the release
 1. Copy and pase the part of the CHANGELOG.md for this release into `Describe this release`
@@ -78,4 +78,4 @@ Yes! There is no formal process, and generally it's a goal to open up to anyone 
 
 ## Thank you!
 
-Seriously, thank you for contributing to this project. Trust-DNS would not be where it is today without the support of contributors like you.
+Seriously, thank you for contributing to this project. Hickory DNS would not be where it is today without the support of contributors like you.

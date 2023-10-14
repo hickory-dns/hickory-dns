@@ -20,15 +20,15 @@ use tokio::net::TcpStream;
 use tokio::net::UdpSocket;
 use tokio::runtime::Runtime;
 
-use trust_dns_client::client::*;
-use trust_dns_client::op::*;
-use trust_dns_client::rr::*;
-use trust_dns_client::tcp::*;
-use trust_dns_client::udp::*;
-use trust_dns_proto::error::*;
-use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
-use trust_dns_proto::op::NoopMessageFinalizer;
-use trust_dns_proto::xfer::*;
+use hickory_client::client::*;
+use hickory_client::op::*;
+use hickory_client::rr::*;
+use hickory_client::tcp::*;
+use hickory_client::udp::*;
+use hickory_proto::error::*;
+use hickory_proto::iocompat::AsyncIoTokioAsStd;
+use hickory_proto::op::NoopMessageFinalizer;
+use hickory_proto::xfer::*;
 
 fn find_test_port() -> u16 {
     let server = std::net::UdpSocket::bind(("0.0.0.0", 0)).unwrap();
@@ -81,12 +81,12 @@ fn wrap_process(named: Child, server_port: u16) -> NamedProcess {
 
 /// Returns a NamedProcess (cleans the process up on drop), and a socket addr for connecting
 ///  to the server.
-fn trust_dns_process() -> (NamedProcess, u16) {
+fn hickory_process() -> (NamedProcess, u16) {
     // find a random port to listen on
     let test_port = find_test_port();
 
     let ws_root = env::var("WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
-    let named_path = format!("{}/target/release/trust-dns", ws_root);
+    let named_path = format!("{}/target/release/hickory-dns", ws_root);
     let config_path = format!("{}/tests/test-data/test_configs/example.toml", ws_root);
     let zone_dir = format!("{}/tests/test-data/test_configs", ws_root);
 
@@ -101,7 +101,7 @@ fn trust_dns_process() -> (NamedProcess, u16) {
         .arg(&format!("--zonedir={}", zone_dir))
         .arg(&format!("--port={}", test_port))
         .spawn()
-        .expect("failed to start trust-dns");
+        .expect("failed to start hickory-dns");
     //
 
     let process = wrap_process(named, test_port);
@@ -143,8 +143,8 @@ where
 }
 
 #[bench]
-fn trust_dns_udp_bench(b: &mut Bencher) {
-    let (named, server_port) = trust_dns_process();
+fn hickory_udp_bench(b: &mut Bencher) {
+    let (named, server_port) = hickory_process();
 
     let addr: SocketAddr = ("127.0.0.1", server_port)
         .to_socket_addrs()
@@ -160,7 +160,7 @@ fn trust_dns_udp_bench(b: &mut Bencher) {
 
 #[bench]
 #[ignore]
-fn trust_dns_udp_bench_prof(b: &mut Bencher) {
+fn hickory_udp_bench_prof(b: &mut Bencher) {
     let server_port = 6363;
 
     let addr: SocketAddr = ("127.0.0.1", server_port)
@@ -173,8 +173,8 @@ fn trust_dns_udp_bench_prof(b: &mut Bencher) {
 }
 
 #[bench]
-fn trust_dns_tcp_bench(b: &mut Bencher) {
-    let (named, server_port) = trust_dns_process();
+fn hickory_tcp_bench(b: &mut Bencher) {
+    let (named, server_port) = hickory_process();
 
     let addr: SocketAddr = ("127.0.0.1", server_port)
         .to_socket_addrs()
@@ -217,7 +217,7 @@ fn bind_process() -> (NamedProcess, u16) {
         .arg("../../server/benches/bind_conf/example.conf")
         //.arg("-d").arg("0")
         .arg("-D")
-        .arg("Trust-DNS cmp bench")
+        .arg("Hickory DNS cmp bench")
         .arg("-g")
         .arg("-p")
         .arg(&format!("{}", test_port))

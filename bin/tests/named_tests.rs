@@ -1,8 +1,8 @@
 // Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 mod server_harness;
@@ -15,18 +15,18 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio::net::UdpSocket as TokioUdpSocket;
 use tokio::runtime::Runtime;
 
-use trust_dns_client::client::*;
-use trust_dns_client::op::ResponseCode;
-use trust_dns_client::rr::*;
-use trust_dns_client::tcp::TcpClientStream;
-use trust_dns_client::udp::UdpClientStream;
+use hickory_client::client::*;
+use hickory_client::op::ResponseCode;
+use hickory_client::rr::*;
+use hickory_client::tcp::TcpClientStream;
+use hickory_client::udp::UdpClientStream;
 
 // TODO: Needed for when TLS tests are added back
 // #[cfg(feature = "dns-over-openssl")]
-// use trust_dns_proto::openssl::TlsClientStreamBuilder;
+// use hickory_proto::openssl::TlsClientStreamBuilder;
 
+use hickory_proto::iocompat::AsyncIoTokioAsStd;
 use server_harness::{named_test_harness, query_a};
-use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 
 #[test]
 fn test_example_toml_startup() {
@@ -40,7 +40,7 @@ fn test_example_toml_startup() {
         let client = AsyncClient::new(Box::new(stream), sender, None);
 
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        trust_dns_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::spawn_bg(&io_loop, bg);
 
         query_a(&mut io_loop, &mut client);
 
@@ -53,7 +53,7 @@ fn test_example_toml_startup() {
         let client = AsyncClient::new(Box::new(stream), sender, None);
 
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        trust_dns_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::spawn_bg(&io_loop, bg);
 
         query_a(&mut io_loop, &mut client);
     })
@@ -71,7 +71,7 @@ fn test_ipv4_only_toml_startup() {
         let client = AsyncClient::new(Box::new(stream), sender, None);
 
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        trust_dns_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::spawn_bg(&io_loop, bg);
 
         // ipv4 should succeed
         query_a(&mut io_loop, &mut client);
@@ -85,7 +85,7 @@ fn test_ipv4_only_toml_startup() {
 
         assert!(io_loop.block_on(client).is_err());
         //let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        //trust_dns_proto::spawn_bg(&io_loop, bg);
+        //hickory_proto::spawn_bg(&io_loop, bg);
 
         // ipv6 should fail
         // FIXME: probably need to send something for proper test... maybe use JoinHandle in tokio 0.2
@@ -134,7 +134,7 @@ fn test_ipv4_and_ipv6_toml_startup() {
         let client = AsyncClient::new(Box::new(stream), sender, None);
 
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        trust_dns_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::spawn_bg(&io_loop, bg);
         // ipv4 should succeed
         query_a(&mut io_loop, &mut client);
 
@@ -145,7 +145,7 @@ fn test_ipv4_and_ipv6_toml_startup() {
         let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
         let client = AsyncClient::new(Box::new(stream), sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        trust_dns_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::spawn_bg(&io_loop, bg);
 
         // ipv6 should succeed
         query_a(&mut io_loop, &mut client);
@@ -163,7 +163,7 @@ fn test_nodata_where_name_exists() {
         let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
         let client = AsyncClient::new(Box::new(stream), sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        trust_dns_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::spawn_bg(&io_loop, bg);
 
         let msg = io_loop
             .block_on(client.query(
@@ -188,7 +188,7 @@ fn test_nxdomain_where_no_name_exists() {
         let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
         let client = AsyncClient::new(Box::new(stream), sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        trust_dns_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::spawn_bg(&io_loop, bg);
 
         let msg = io_loop
             .block_on(client.query(
@@ -213,7 +213,7 @@ fn test_server_continues_on_bad_data_udp() {
         let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
         let client = AsyncClient::connect(stream);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        trust_dns_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::spawn_bg(&io_loop, bg);
 
         query_a(&mut io_loop, &mut client);
 
@@ -234,7 +234,7 @@ fn test_server_continues_on_bad_data_udp() {
         let client = AsyncClient::connect(stream);
 
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        trust_dns_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::spawn_bg(&io_loop, bg);
 
         query_a(&mut io_loop, &mut client);
     })
@@ -252,7 +252,7 @@ fn test_server_continues_on_bad_data_tcp() {
         let client = AsyncClient::new(Box::new(stream), sender, None);
 
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        trust_dns_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::spawn_bg(&io_loop, bg);
 
         query_a(&mut io_loop, &mut client);
 
@@ -271,7 +271,7 @@ fn test_server_continues_on_bad_data_tcp() {
         let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
         let client = AsyncClient::new(Box::new(stream), sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        trust_dns_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::spawn_bg(&io_loop, bg);
 
         query_a(&mut io_loop, &mut client);
     })
@@ -280,8 +280,8 @@ fn test_server_continues_on_bad_data_tcp() {
 #[test]
 #[cfg(feature = "resolver")]
 fn test_forward() {
+    use hickory_proto::rr::rdata::A;
     use server_harness::query_message;
-    use trust_dns_proto::rr::rdata::A;
 
     //env_logger::init();
 
@@ -295,7 +295,7 @@ fn test_forward() {
         let client = AsyncClient::new(Box::new(stream), sender, None);
 
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        trust_dns_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::spawn_bg(&io_loop, bg);
 
         let response = query_message(
             &mut io_loop,
@@ -317,7 +317,7 @@ fn test_forward() {
         let client = AsyncClient::new(Box::new(stream), sender, None);
 
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        trust_dns_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::spawn_bg(&io_loop, bg);
 
         let response = query_message(
             &mut io_loop,

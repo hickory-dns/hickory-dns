@@ -1,8 +1,8 @@
 // Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 use std::future::Future;
@@ -15,8 +15,8 @@ use proto::h3::{H3ClientConnect, H3ClientStream};
 use proto::xfer::{DnsExchange, DnsExchangeConnect};
 use proto::TokioTime;
 
+use hickory_proto::udp::{DnsUdpSocket, QuicLocalAddr};
 use rustls::ClientConfig as CryptoConfig;
-use trust_dns_proto::udp::{DnsUdpSocket, QuicLocalAddr};
 
 #[allow(clippy::type_complexity)]
 #[allow(unused)]

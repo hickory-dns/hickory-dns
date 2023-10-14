@@ -1,8 +1,8 @@
 // Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! The pem_to_public_dnskey program
@@ -28,14 +28,14 @@ use clap::Parser;
 use openssl::pkey::PKey;
 use tracing::info;
 
-use trust_dns_proto::rr::dnssec::{KeyPair, Public};
+use hickory_proto::rr::dnssec::{KeyPair, Public};
 
 /// Cli struct for all options managed with clap derive api.
 #[derive(Debug, Parser)]
 #[clap(
-    name = "Trust-DNS pem-to-public-dnskey",
+    name = "Hickory DNS pem-to-public-dnskey",
     version,
-    about = "Converts a PEM formatted public key into a raw public dnskey (not the inverse of dnskey-to-pem). This can be used to create a dnskey in the TrustAnchor internal format in Trust-DNS.",
+    about = "Converts a PEM formatted public key into a raw public dnskey (not the inverse of dnskey-to-pem). This can be used to create a dnskey in the TrustAnchor internal format in Hickory DNS.",
     author = "Benjamin Fry <benjaminfry@me.com>"
 )]
 struct Cli {
@@ -60,7 +60,7 @@ struct Cli {
 
 /// Run the pem_to_public_dnskey program
 pub fn main() {
-    trust_dns_util::logger(env!("CARGO_BIN_NAME"), Some(tracing::Level::INFO));
+    hickory_util::logger(env!("CARGO_BIN_NAME"), Some(tracing::Level::INFO));
 
     let args = Cli::parse();
     let key_path = args.key;

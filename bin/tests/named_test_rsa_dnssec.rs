@@ -12,12 +12,12 @@ use std::path::Path;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
-use trust_dns_client::client::{Signer, *};
-use trust_dns_client::proto::tcp::TcpClientStream;
-use trust_dns_client::proto::DnssecDnsHandle;
-use trust_dns_proto::rr::dnssec::*;
-use trust_dns_proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
-use trust_dns_proto::{iocompat::AsyncIoTokioAsStd, TokioTime};
+use hickory_client::client::{Signer, *};
+use hickory_client::proto::tcp::TcpClientStream;
+use hickory_client::proto::DnssecDnsHandle;
+use hickory_proto::rr::dnssec::*;
+use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
+use hickory_proto::{iocompat::AsyncIoTokioAsStd, TokioTime};
 
 use server_harness::*;
 
@@ -75,9 +75,8 @@ async fn standard_tcp_conn(
 
 fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algorithm: Algorithm) {
     // TODO: look into the `test-log` crate for enabling logging during tests
-    // use trust_dns_client::logger;
+    // use hickory_client::logger;
     // use tracing::LogLevel;
-    // logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
 
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     let server_path = Path::new(&server_path);
@@ -88,18 +87,18 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
         // verify all records are present
         let client = standard_tcp_conn(tcp_port.expect("no tcp port"));
         let (client, bg) = io_loop.block_on(client);
-        trust_dns_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::spawn_bg(&io_loop, bg);
         query_all_dnssec_with_rfc6975(&mut io_loop, client, algorithm);
         let client = standard_tcp_conn(tcp_port.expect("no tcp port"));
         let (client, bg) = io_loop.block_on(client);
-        trust_dns_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::spawn_bg(&io_loop, bg);
         query_all_dnssec_wo_rfc6975(&mut io_loop, client, algorithm);
 
         // test that request with Dnssec client is successful, i.e. validates chain
         let trust_anchor = trust_anchor(&server_path.join(key_path), key_format, algorithm);
         let client = standard_tcp_conn(tcp_port.expect("no tcp port"));
         let (client, bg) = io_loop.block_on(client);
-        trust_dns_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::spawn_bg(&io_loop, bg);
         let mut client = DnssecDnsHandle::with_trust_anchor(client, trust_anchor);
 
         query_a(&mut io_loop, &mut client);

@@ -1,8 +1,8 @@
 // Copyright 2015-2019 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! domain name, aka labels, implementation
@@ -38,7 +38,7 @@ impl LowerName {
     /// # Examples
     ///
     /// ```
-    /// use trust_dns_proto::rr::{LowerName, Name};
+    /// use hickory_proto::rr::{LowerName, Name};
     ///
     /// let root = LowerName::from(Name::root());
     /// assert_eq!(&root.to_string(), ".");
@@ -58,7 +58,7 @@ impl LowerName {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::{LowerName, Name};
+    /// use hickory_proto::rr::{LowerName, Name};
     ///
     /// let name = LowerName::from(Name::from_str("www").unwrap());
     /// assert!(!name.is_fqdn());
@@ -79,7 +79,7 @@ impl LowerName {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::{LowerName, Name};
+    /// use hickory_proto::rr::{LowerName, Name};
     ///
     /// let example_com = LowerName::from(Name::from_str("example.com").unwrap());
     /// assert_eq!(example_com.base_name(), LowerName::from(Name::from_str("com.").unwrap()));
@@ -96,7 +96,7 @@ impl LowerName {
     ///
     /// ```rust
     /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::{LowerName, Name};
+    /// use hickory_proto::rr::{LowerName, Name};
     ///
     /// let name = LowerName::from(Name::from_str("www.example.com").unwrap());
     /// let zone = LowerName::from(Name::from_str("example.com").unwrap());
@@ -114,7 +114,7 @@ impl LowerName {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::{LowerName, Name};
+    /// use hickory_proto::rr::{LowerName, Name};
     ///
     /// let root = LowerName::from(Name::root());
     /// assert_eq!(root.num_labels(), 0);

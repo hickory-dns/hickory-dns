@@ -4,8 +4,8 @@
 //! you might integrate the resolver into a more complex application.
 
 fn main() {
+    use hickory_resolver::{name_server::TokioConnectionProvider, TokioAsyncResolver};
     use tokio::runtime::Runtime;
-    use trust_dns_resolver::{name_server::TokioConnectionProvider, TokioAsyncResolver};
 
     tracing_subscriber::fmt::init();
 
@@ -24,7 +24,7 @@ fn main() {
         #[cfg(not(any(unix, windows)))]
         {
             // Directly reference the config types
-            use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
+            use hickory_resolver::config::{ResolverConfig, ResolverOpts};
 
             // Get a new resolver with the google nameservers as the upstream recursive resolvers
             AsyncResolver::new(

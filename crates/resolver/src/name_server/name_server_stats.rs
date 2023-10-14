@@ -1,8 +1,8 @@
 // Copyright 2015-2019 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 use std::cmp::Ordering;
@@ -46,7 +46,7 @@ pub(crate) struct NameServerStats {
     ///    value. Note that this decay is only applied at read time.
     ///
     /// For the original discussion regarding this algorithm, see
-    /// https://github.com/bluejekyll/trust-dns/issues/1702.
+    /// https://github.com/hickory-dns/hickory-dns/issues/1702.
     srtt_microseconds: AtomicU32,
 
     /// The last time the `srtt_microseconds` value was updated.

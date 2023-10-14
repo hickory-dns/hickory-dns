@@ -19,19 +19,19 @@ use futures::{
 };
 use tokio::time::{Duration, Instant, Sleep};
 
-use trust_dns_client::{
+use hickory_client::{
     client::{ClientConnection, Signer},
     error::ClientResult,
     op::*,
     serialize::binary::*,
 };
-use trust_dns_proto::{
+use hickory_proto::{
     error::ProtoError,
     rr::Record,
     xfer::{DnsClientStream, DnsMultiplexer, DnsMultiplexerConnect, SerialMessage, StreamReceiver},
     BufDnsStreamHandle, TokioTime,
 };
-use trust_dns_server::{
+use hickory_server::{
     authority::{Catalog, MessageRequest, MessageResponse},
     server::{Protocol, Request, RequestHandler, ResponseHandler, ResponseInfo},
 };

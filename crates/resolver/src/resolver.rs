@@ -1,8 +1,8 @@
 // Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! Structs for creating and using a Resolver
@@ -27,7 +27,7 @@ use crate::AsyncResolver;
 ///
 /// For forward (A) lookups, hostname -> IP address, see: `Resolver::lookup_ip`
 ///
-/// Special note about resource consumption. The Resolver and all Trust-DNS software is built around the Tokio async-io library. This synchronous Resolver is intended to be a simpler wrapper for of the [`AsyncResolver`]. To allow the `Resolver` to be [`Send`] + [`Sync`], the construction of the `AsyncResolver` is lazy, this means some of the features of the `AsyncResolver`, like performance based resolution via the most efficient `NameServer` will be lost (the lookup cache is shared across invocations of the `Resolver`). If these other features of the Trust-DNS Resolver are desired, please use the tokio based [`AsyncResolver`].
+/// Special note about resource consumption. The Resolver and all Hickory DNS software is built around the Tokio async-io library. This synchronous Resolver is intended to be a simpler wrapper for of the [`AsyncResolver`]. To allow the `Resolver` to be [`Send`] + [`Sync`], the construction of the `AsyncResolver` is lazy, this means some of the features of the `AsyncResolver`, like performance based resolution via the most efficient `NameServer` will be lost (the lookup cache is shared across invocations of the `Resolver`). If these other features of the Hickory DNS Resolver are desired, please use the tokio based [`AsyncResolver`].
 ///
 /// *Note: Threaded/Sync usage*: In multithreaded scenarios, the internal Tokio Runtime will block on an internal Mutex for the tokio Runtime in use. For higher performance, it's recommended to use the [`AsyncResolver`].
 pub struct Resolver {

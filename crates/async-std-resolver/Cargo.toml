@@ -4,7 +4,7 @@ name = "async-std-resolver"
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
 description = """
-Trust-DNS is a safe and secure DNS library, for async-std. This Resolver library uses the trust-dns-proto library to perform all DNS queries. The Resolver is intended to be a high-level library for any DNS record resolution see Resolver and AsyncResolver for supported resolution types. The Client can be used for other queries.
+Hickory DNS is a safe and secure DNS library, for async-std. This Resolver library uses the hickory-proto library to perform all DNS queries. The Resolver is intended to be a high-level library for any DNS record resolution see Resolver and AsyncResolver for supported resolution types. The Client can be used for other queries.
 """
 
 # These URLs point to more information about the repository
@@ -25,32 +25,32 @@ categories.workspace = true
 license.workspace = true
 
 [badges]
-#github-actions = { repository = "bluejekyll/trust-dns", branch = "main", workflow = "test" }
-codecov = { repository = "bluejekyll/trust-dns", branch = "main", service = "github" }
+#github-actions = { repository = "bluejekyll/hickory", branch = "main", workflow = "test" }
+codecov = { repository = "hickory-dns/hickory-dns", branch = "main", service = "github" }
 maintenance = { status = "actively-developed" }
 
 [features]
 default = ["system-config"]
 
 # resolver configuration
-system-config = ["trust-dns-resolver/system-config"]
+system-config = ["hickory-resolver/system-config"]
 
 ####
-# TODO: These next features are common across the trust-dns crates, but they are not ready for use here
+# TODO: These next features are common across the hickory crates, but they are not ready for use here
 ####
 
-#dns-over-native-tls = ["dns-over-tls", "trust-dns-resolver/dns-over-native-tls"]
+#dns-over-native-tls = ["dns-over-tls", "hickory-resolver/dns-over-native-tls"]
 # DNS over TLS with OpenSSL currently needs a good way to set default CAs, use rustls or native-tls
-#dns-over-openssl = ["dns-over-tls", "trust-dns-resolver/dns-over-openssl"]
-#dns-over-rustls = ["dns-over-tls", "trust-dns-resolver/dns-over-rustls"]
+#dns-over-openssl = ["dns-over-tls", "hickory-resolver/dns-over-openssl"]
+#dns-over-rustls = ["dns-over-tls", "hickory-resolver/dns-over-rustls"]
 #dns-over-tls = []
 
 # This requires some TLS library, currently only rustls is supported
-#dns-over-https-rustls = ["trust-dns-resolver/dns-over-https-rustls"]
+#dns-over-https-rustls = ["hickory-resolver/dns-over-https-rustls"]
 #dns-over-https = []
 
-#dnssec-openssl = ["dnssec", "trust-dns-resolver/dnssec-openssl"]
-#dnssec-ring = ["dnssec", "trust-dns-resolver/dnssec-ring"]
+#dnssec-openssl = ["dnssec", "hickory-resolver/dnssec-openssl"]
+#dnssec-ring = ["dnssec", "hickory-resolver/dnssec-ring"]
 #dnssec = []
 
 [lib]
@@ -61,11 +61,15 @@ path = "src/lib.rs"
 async-std = { workspace = true, features = ["unstable"] }
 async-trait.workspace = true
 futures-io = { workspace = true, default-features = false, features = ["std"] }
-futures-util = { workspace = true, default-features = false, features = ["std"] }
+futures-util = { workspace = true, default-features = false, features = [
+    "std",
+] }
 pin-utils.workspace = true
-trust-dns-resolver = { workspace = true, default-features = false }
+hickory-resolver = { workspace = true, default-features = false }
 socket2.workspace = true
 
 [dev-dependencies]
 async-std = { workspace = true, features = ["attributes"] }
-trust-dns-resolver = { workspace = true, default-features = false, features = ["testing"] }
+hickory-resolver = { workspace = true, default-features = false, features = [
+    "testing",
+] }

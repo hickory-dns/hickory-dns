@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,7 +35,7 @@
 #![recursion_limit = "2048"]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-//! Trust-DNS is intended to be a fully compliant domain name server and client library.
+//! Hickory DNS is intended to be a fully compliant domain name server and client library.
 //!
 //! # Goals
 //!
@@ -46,13 +46,13 @@
 //! * Secure dynamic update
 //! * New features for securing public information
 
-pub use trust_dns_proto as proto;
-#[cfg(feature = "trust-dns-recursor")]
+pub use hickory_proto as proto;
+#[cfg(feature = "hickory-recursor")]
 #[cfg_attr(docsrs, doc(cfg(feature = "recursor")))]
-pub use trust_dns_recursor as recursor;
-#[cfg(feature = "trust-dns-resolver")]
+pub use hickory_recursor as recursor;
+#[cfg(feature = "hickory-resolver")]
 #[cfg_attr(docsrs, doc(cfg(feature = "resolver")))]
-pub use trust_dns_resolver as resolver;
+pub use hickory_resolver as resolver;
 
 pub mod authority;
 pub mod config;
@@ -62,7 +62,7 @@ pub mod store;
 
 pub use self::server::ServerFuture;
 
-/// Returns the current version of Trust-DNS
+/// Returns the current version of Hickory DNS
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }

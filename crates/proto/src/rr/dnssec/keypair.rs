@@ -1,8 +1,8 @@
 // Copyright 2015-2016 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 #[cfg(not(feature = "openssl"))]
@@ -46,7 +46,7 @@ use crate::rr::Name;
 
 /// A public and private key pair, the private portion is not required.
 ///
-/// This supports all the various public/private keys which Trust-DNS is capable of using. Given
+/// This supports all the various public/private keys which Hickory DNS is capable of using. Given
 ///  differing features, some key types may not be available. The `openssl` feature will enable RSA and EC
 ///  (P256 and P384). The `ring` feature enables ED25519, in the future, Ring will also be used for other keys.
 #[allow(clippy::large_enum_variant)]

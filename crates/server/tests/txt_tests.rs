@@ -2,11 +2,11 @@ use std::str::FromStr;
 
 use futures_executor::block_on;
 
-use trust_dns_proto::rr::rdata::{tlsa::*, A, AAAA};
-use trust_dns_proto::rr::*;
-use trust_dns_proto::serialize::txt::*;
-use trust_dns_server::authority::{Authority, LookupOptions, ZoneType};
-use trust_dns_server::store::in_memory::InMemoryAuthority;
+use hickory_proto::rr::rdata::{tlsa::*, A, AAAA};
+use hickory_proto::rr::*;
+use hickory_proto::serialize::txt::*;
+use hickory_server::authority::{Authority, LookupOptions, ZoneType};
+use hickory_server::store::in_memory::InMemoryAuthority;
 
 // TODO: split this test up to test each thing separately
 #[test]

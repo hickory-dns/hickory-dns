@@ -2,14 +2,14 @@
 
 use {
     futures_util::future,
+    hickory_resolver::name_server::TokioConnectionProvider,
+    hickory_resolver::TokioAsyncResolver,
+    hickory_resolver::{IntoName, TryParseIp},
     once_cell::sync::Lazy,
     std::fmt::Display,
     std::io,
     std::net::SocketAddr,
     std::task::Poll,
-    trust_dns_resolver::name_server::TokioConnectionProvider,
-    trust_dns_resolver::TokioAsyncResolver,
-    trust_dns_resolver::{IntoName, TryParseIp},
 };
 
 // This is an example of registering a static global resolver into any system.
@@ -49,7 +49,7 @@ static GLOBAL_DNS_RESOLVER: Lazy<TokioAsyncResolver> = Lazy::new(|| {
             #[cfg(not(any(unix, windows)))]
             {
                 // Directly reference the config types
-                use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
+                use hickory_resolver::config::{ResolverConfig, ResolverOpts};
 
                 // Get a new resolver with the google nameservers as the upstream recursive resolvers
                 TokioAsyncResolver::new(
@@ -63,7 +63,7 @@ static GLOBAL_DNS_RESOLVER: Lazy<TokioAsyncResolver> = Lazy::new(|| {
         let (lock, cvar) = &*pair2;
         let mut started = lock.lock().unwrap();
 
-        let resolver = resolver.expect("failed to create trust-dns-resolver");
+        let resolver = resolver.expect("failed to create hickory-resolver");
 
         *started = Some(resolver);
         cvar.notify_one();

@@ -11,7 +11,7 @@ COV_RUSTFLAGS := "-C instrument-coverage -C llvm-args=--instrprof-atomic-counter
 COV_CARGO_INCREMENTAL := "0"
 COV_CARGO_LLVM_COV := "1"
 COV_CARGO_LLVM_COV_TARGET_DIR := join(TARGET_DIR, "llvm-cov-target")
-COV_LLVM_PROFILE_FILE := join(COV_CARGO_LLVM_COV_TARGET_DIR, "trust-dns-%p-%m_%c.profraw")
+COV_LLVM_PROFILE_FILE := join(COV_CARGO_LLVM_COV_TARGET_DIR, "hickory-dns-%p-%m_%c.profraw")
 
 BIND_VER := "9.16.41"
 
@@ -22,31 +22,31 @@ default feature='' ignore='': (check feature ignore) (build feature ignore) (tes
 all-features: (default "--all-features")
 
 # Check, build, and test all crates with no-default-features
-no-default-features: (default "--no-default-features" "--ignore=\\{trust-dns-compatibility\\}")
+no-default-features: (default "--no-default-features" "--ignore=\\{hickory-compatibility\\}")
 
 # Check, build, and test all crates with dns-over-rustls enabled
-dns-over-rustls: (default "--features=dns-over-rustls" "--ignore=\\{async-std-resolver,trust-dns-compatibility\\}")
+dns-over-rustls: (default "--features=dns-over-rustls" "--ignore=\\{async-std-resolver,hickory-compatibility\\}")
 
 # Check, build, and test all crates with dns-over-https-rustls enabled
-dns-over-https-rustls: (default "--features=dns-over-https-rustls" "--ignore=\\{async-std-resolver,trust-dns-compatibility\\}")
+dns-over-https-rustls: (default "--features=dns-over-https-rustls" "--ignore=\\{async-std-resolver,hickory-compatibility\\}")
 
 # Check, build, and test all crates with dns-over-quic enabled
-dns-over-quic: (default "--features=dns-over-quic" "--ignore=\\{async-std-resolver,trust-dns-compatibility\\}")
+dns-over-quic: (default "--features=dns-over-quic" "--ignore=\\{async-std-resolver,hickory-compatibility\\}")
 
 # Check, build, and test all crates with dns-over-h3 enabled
-dns-over-h3: (default "--features=dns-over-h3" "--ignore=\\{async-std-resolver,trust-dns-compatibility,trust-dns-client\\}")
+dns-over-h3: (default "--features=dns-over-h3" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-client\\}")
 
 # Check, build, and test all crates with dns-over-native-tls enabled
-dns-over-native-tls: (default "--features=dns-over-native-tls" "--ignore=\\{async-std-resolver,trust-dns-compatibility,trust-dns-server,trust-dns,trust-dns-util,trust-dns-integration\\}")
+dns-over-native-tls: (default "--features=dns-over-native-tls" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-server,hickory-dns,hickory-util,hickory-integration\\}")
 
 # Check, build, and test all crates with dns-over-openssl enabled
-dns-over-openssl: (default "--features=dnssec-openssl" "--ignore=\\{async-std-resolver,trust-dns-compatibility\\}")
+dns-over-openssl: (default "--features=dnssec-openssl" "--ignore=\\{async-std-resolver,hickory-compatibility\\}")
 
 # Check, build, and test all crates with dnssec-openssl enabled
-dnssec-openssl: (default "--features=dnssec-openssl" "--ignore=\\{async-std-resolver,trust-dns-compatibility\\}")
+dnssec-openssl: (default "--features=dnssec-openssl" "--ignore=\\{async-std-resolver,hickory-compatibility\\}")
 
 # Check, build, and test all crates with dnssec-ring enabled
-dnssec-ring: (default "--features=dnssec-ring" "--ignore=\\{async-std-resolver,trust-dns-compatibility\\}")
+dnssec-ring: (default "--features=dnssec-ring" "--ignore=\\{async-std-resolver,hickory-compatibility\\}")
 
 # Run check on all projects in the workspace
 check feature='' ignore='':
@@ -112,7 +112,7 @@ coverage: init-llvm-cov
     cargo +nightly build --workspace --all-targets --all-features 
     cargo +nightly llvm-cov test --workspace --no-report --all-targets --benches --examples --bins --tests --all-features
     cargo +nightly llvm-cov test --workspace --no-report --doc --doctests --all-features
-    cargo +nightly llvm-cov report --codecov --output-path {{join(COV_CARGO_LLVM_COV_TARGET_DIR, "trust-dns-coverage.json")}}
+    cargo +nightly llvm-cov report --codecov --output-path {{join(COV_CARGO_LLVM_COV_TARGET_DIR, "hickory-dns-coverage.json")}}
 
 # Open the html view of the coverage report
 coverage-html: coverage
@@ -213,4 +213,4 @@ init: init-cargo-workspaces init-audit init-bind9
 
 # Run the server with example config, for manual testing purposes
 run-example:
-    @cargo {{MSRV}} run --bin trust-dns -- -d -c {{TEST_DATA}}/test_configs/example.toml -z {{TEST_DATA}}/test_configs -p 2053
+    @cargo {{MSRV}} run --bin hickory-dns -- -d -c {{TEST_DATA}}/test_configs/example.toml -z {{TEST_DATA}}/test_configs -p 2053

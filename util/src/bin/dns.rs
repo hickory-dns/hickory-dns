@@ -1,8 +1,8 @@
 // Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! The dns client program
@@ -33,7 +33,7 @@ use rustls::{
 use tokio::net::{TcpStream as TokioTcpStream, UdpSocket};
 use tracing::Level;
 
-use trust_dns_client::{
+use hickory_client::{
     client::{AsyncClient, ClientHandle},
     rr::{DNSClass, RData, RecordSet, RecordType},
     serialize::txt::RDataParser,
@@ -41,12 +41,12 @@ use trust_dns_client::{
     udp::UdpClientStream,
 };
 #[cfg(feature = "dns-over-rustls")]
-use trust_dns_proto::rustls::tls_client_connect;
-use trust_dns_proto::{iocompat::AsyncIoTokioAsStd, rr::Name};
+use hickory_proto::rustls::tls_client_connect;
+use hickory_proto::{iocompat::AsyncIoTokioAsStd, rr::Name};
 
-/// A CLI interface for the trust-dns-client.
+/// A CLI interface for the hickory-client.
 ///
-/// This utility directly uses the trust-dns-client to perform actions with a single
+/// This utility directly uses the hickory-client to perform actions with a single
 /// DNS server
 #[derive(Debug, Parser)]
 #[clap(name = "trust dns client", version)]
@@ -230,7 +230,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    trust_dns_util::logger(env!("CARGO_BIN_NAME"), log_level);
+    hickory_util::logger(env!("CARGO_BIN_NAME"), log_level);
 
     // TODO: need to cleanup all of ClientHandle and the Client in general to make it dynamically usable.
     match opts.protocol {
@@ -314,7 +314,7 @@ async fn https(_opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg(feature = "dns-over-https")]
 async fn https(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
-    use trust_dns_proto::h2::HttpsClientStreamBuilder;
+    use hickory_proto::h2::HttpsClientStreamBuilder;
 
     let nameserver = opts.nameserver;
     let alpn = opts
@@ -353,7 +353,7 @@ async fn quic(_opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg(feature = "dns-over-quic")]
 async fn quic(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
-    use trust_dns_proto::quic::{self, QuicClientStream};
+    use hickory_proto::quic::{self, QuicClientStream};
 
     let nameserver = opts.nameserver;
     let alpn = opts
@@ -389,7 +389,7 @@ async fn h3(_opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg(feature = "dns-over-h3")]
 async fn h3(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
-    use trust_dns_proto::h3::{self, H3ClientStream};
+    use hickory_proto::h3::{self, H3ClientStream};
 
     let nameserver = opts.nameserver;
     let alpn = opts
@@ -523,7 +523,7 @@ fn tls_config() -> Result<ClientConfig, Box<dyn std::error::Error>> {
     let mut root_store = RootCertStore::empty();
     #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
     {
-        use trust_dns_proto::error::ProtoErrorKind;
+        use hickory_proto::error::ProtoErrorKind;
 
         let (added, ignored) =
             root_store.add_parsable_certificates(&rustls_native_certs::load_native_certs()?);

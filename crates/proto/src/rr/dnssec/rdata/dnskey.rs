@@ -1,8 +1,8 @@
 // Copyright 2015-2023 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! public key record data for signing zone records
@@ -326,7 +326,7 @@ impl DNSKEY {
 
     /// Internal checksum function (used for non-RSAMD5 hashes only,
     /// however, RSAMD5 is considered deprecated and not implemented in
-    /// trust-dns, anyways).
+    /// hickory-dns, anyways).
     pub fn calculate_key_tag_internal(bytes: &[u8]) -> u16 {
         let mut ac: u32 = 0;
         for (i, k) in bytes.iter().enumerate() {

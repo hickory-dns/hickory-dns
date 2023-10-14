@@ -9,21 +9,21 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio::net::UdpSocket as TokioUdpSocket;
 use tokio::runtime::Runtime;
 
-use trust_dns_client::client::{AsyncClient, ClientHandle, MemoizeClientHandle};
-use trust_dns_client::tcp::TcpClientStream;
+use hickory_client::client::{AsyncClient, ClientHandle, MemoizeClientHandle};
+use hickory_client::tcp::TcpClientStream;
 
-use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
-use trust_dns_proto::op::ResponseCode;
-use trust_dns_proto::rr::dnssec::TrustAnchor;
-use trust_dns_proto::rr::rdata::A;
-use trust_dns_proto::rr::Name;
-use trust_dns_proto::rr::{DNSClass, RData, RecordType};
-use trust_dns_proto::udp::{UdpClientConnect, UdpClientStream};
-use trust_dns_proto::DnssecDnsHandle;
-use trust_dns_server::authority::{Authority, Catalog};
+use hickory_proto::iocompat::AsyncIoTokioAsStd;
+use hickory_proto::op::ResponseCode;
+use hickory_proto::rr::dnssec::TrustAnchor;
+use hickory_proto::rr::rdata::A;
+use hickory_proto::rr::Name;
+use hickory_proto::rr::{DNSClass, RData, RecordType};
+use hickory_proto::udp::{UdpClientConnect, UdpClientStream};
+use hickory_proto::DnssecDnsHandle;
+use hickory_server::authority::{Authority, Catalog};
 
-use trust_dns_integration::example_authority::create_secure_example;
-use trust_dns_integration::TestClientStream;
+use hickory_integration::example_authority::create_secure_example;
+use hickory_integration::TestClientStream;
 
 #[test]
 fn test_secure_query_example_nonet() {
@@ -99,7 +99,7 @@ where
     assert_eq!(response.response_code(), ResponseCode::NXDomain);
 }
 
-// TODO: NSEC response code wrong in Trust-DNS? Issue #53
+// TODO: NSEC response code wrong in Hickory DNS? Issue #53
 // #[test]
 // fn test_nsec_query_type_nonet() {
 //   with_nonet(test_nsec_query_type);
@@ -242,7 +242,7 @@ where
         .block_on(client)
         .expect("failed to create new client");
 
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
     let client = MemoizeClientHandle::new(client);
     let secure_client = DnssecDnsHandle::with_trust_anchor(client, trust_anchor);
 
@@ -278,7 +278,7 @@ where
     let stream: UdpClientConnect<TokioUdpSocket> = UdpClientStream::new(addr);
     let client = AsyncClient::connect(stream);
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     let client = MemoizeClientHandle::new(client);
     let secure_client = DnssecDnsHandle::new(client);
@@ -315,7 +315,7 @@ where
     let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
     let client = AsyncClient::new(Box::new(stream), sender, None);
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    trust_dns_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::spawn_bg(&io_loop, bg);
 
     let client = MemoizeClientHandle::new(client);
     let secure_client = DnssecDnsHandle::new(client);
