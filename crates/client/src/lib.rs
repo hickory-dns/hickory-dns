@@ -37,6 +37,8 @@
 #![recursion_limit = "1024"]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+//! **NOTICE** This project has been rebranded to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, this crate/binary has been moved to [hickory-client](https://docs.rs/hickory-client/latest/hickory_client/), from `0.24` and onward.
+//!
 //! Trust-DNS is intended to be a fully compliant domain name server and client library.
 //!
 //! The Client library is responsible for the basic protocols responsible for communicating with DNS servers (authorities) and resolvers. It can be used for managing DNS records through the use of update operations. It is possible to send raw DNS Messages with the Client, but for ease of use the `query` and various other update operations are recommended for general use.

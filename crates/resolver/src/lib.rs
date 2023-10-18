@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! **NOTICE** This project has been rebranded to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, this crate/binary has been moved to [hickory-resolver](https://docs.rs/hickory-resolver/latest/hickory_resolver/), from `0.24` and onward.
+//!
 //! The Resolver is responsible for performing recursive queries to lookup domain names.
 //!
 //! This is a 100% in process DNS resolver. It *does not* use the Host OS' resolver. If what is

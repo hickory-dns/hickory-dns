@@ -35,6 +35,8 @@
 #![recursion_limit = "2048"]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+//! //! **NOTICE** This project has been rebranded to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, this crate/binary has been moved to [hickory-server](https://docs.rs/hickory-server/latest/hickory_server/), from `0.24` and onward.
+//!
 //! Trust-DNS is intended to be a fully compliant domain name server and client library.
 //!
 //! # Goals
