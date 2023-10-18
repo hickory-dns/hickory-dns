@@ -5,6 +5,12 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.23.2
+
+### Changed
+
+- (all) Added Hickory DNS notice to all library root docs
+
 ## 0.23.1
 
 ### Changed
