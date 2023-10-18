@@ -1,0 +1,33 @@
+name: release-check
+
+on:
+  push:
+    branches:
+      - release/**
+  pull_request:
+    branches:
+      - release/**
+
+env:
+  CARGO_WS_VERSION: "0.2.42"
+
+jobs:
+  ## Run all default oriented feature sets across all platforms.
+  platform-matrix:
+    name: platform
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        #os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.64"
+
+      - uses: extractions/setup-just@v1
+
+      - name: just check
+        run: cargo check --workspace --all-targets --benches --examples --bins --tests
