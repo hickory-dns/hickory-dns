@@ -28,6 +28,8 @@
 #![recursion_limit = "2048"]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+//! **NOTICE** This project has been rebranded to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, this crate/binary has been moved to [hickory-proto](https://docs.rs/hickory-proto/latest/hickory_proto/), from `0.24` and onward.
+//!
 //! Trust-DNS Protocol library
 
 use async_trait::async_trait;

@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! **NOTICE** This project has been rebranded to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, this crate/binary has been moved to [hickory-util](https://docs.rs/hickory-util/latest/hickory_util/), from `0.24` and onward.
+
 use std::env;
 
 use tracing::metadata::LevelFilter;

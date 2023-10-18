@@ -1,3 +1,5 @@
+**NOTICE** This project has been rebranded to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, this crate/binary has been moved to [hickory-util](https://crates.io/crates/hickory-util), from `0.24` and onward.
+
 # Overview
 
 Trust-DNS Util is a support library for the Trust-DNS libraries.
