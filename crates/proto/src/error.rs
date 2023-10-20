@@ -24,7 +24,7 @@ use tracing::debug;
 use crate::op::{Header, Query, ResponseCode};
 
 #[cfg(feature = "dnssec")]
-use crate::rr::dnssec::rdata::tsig::TsigAlgorithm;
+use crate::rr::dnssec::{rdata::tsig::TsigAlgorithm, Proof};
 use crate::rr::rdata::SOA;
 use crate::rr::resource::RecordRef;
 use crate::rr::{Name, Record, RecordType};
@@ -97,6 +97,16 @@ pub enum ProtoErrorKind {
         label: usize,
         /// Start of the other label
         other: usize,
+    },
+
+    /// No Records and there is a corresponding DNSSEC Proof for NSEC
+    #[cfg(feature = "dnssec")]
+    #[error("DNSSEC Negative Record Response for {query}, {proof}")]
+    Nsec {
+        /// Query for which the NSEC was returned
+        query: Query,
+        /// DNSSEC proof of the record
+        proof: Proof,
     },
 
     /// DNS protocol version doesn't have the expected version 3
@@ -629,6 +639,11 @@ impl Clone for ProtoErrorKind {
                 trusted,
             },
             RequestRefused => RequestRefused,
+            #[cfg(feature = "dnssec")]
+            Nsec { ref query, proof } => Nsec {
+                query: query.clone(),
+                proof,
+            },
             RrsigsNotPresent {
                 ref name,
                 ref record_type,
