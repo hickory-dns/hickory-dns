@@ -5,6 +5,8 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::fmt;
+
 /// Represents the status of a DNSSEC verified record.
 ///
 /// see [RFC 4035, DNSSEC Protocol Modifications, March 2005](https://datatracker.ietf.org/doc/html/rfc4035#section-4.3)
@@ -47,4 +49,23 @@ pub enum Proof {
     ///   the security-aware resolver is not able to contact security-aware
     ///   name servers for the relevant zones.
     Indeterminate,
+}
+
+impl Proof {
+    pub fn is_secure(&self) -> bool {
+        *self == Self::Secure
+    }
+}
+
+impl fmt::Display for Proof {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Self::Secure => "Secure",
+            Self::Insecure => "Insecure",
+            Self::Bogus => "Bogus",
+            Self::Indeterminate => "Indeterminate",
+        };
+
+        f.write_str(s)
+    }
 }
