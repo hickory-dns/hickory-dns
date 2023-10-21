@@ -35,8 +35,8 @@ dns-over-rustls = ["dns-over-tls", "rustls", "rustls-pemfile", "tokio-rustls", "
 dns-over-native-tls = ["dns-over-tls", "native-tls", "tokio-native-tls", "tokio-runtime"]
 dns-over-openssl = ["dns-over-tls", "openssl", "tokio-openssl", "tokio-runtime"]
 
-dns-over-https-rustls = ["dns-over-https"]
-dns-over-https = ["bytes", "h2", "http", "dns-over-rustls", "webpki-roots", "tokio-runtime"]
+dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "webpki-roots"]
+dns-over-https = ["bytes", "dns-over-tls", "h2", "http", "tokio-runtime"]
 
 dns-over-quic = ["quinn", "rustls/quic", "dns-over-rustls", "bytes", "webpki-roots", "tokio-runtime"]
 
