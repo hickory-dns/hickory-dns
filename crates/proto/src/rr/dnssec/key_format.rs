@@ -5,6 +5,8 @@ use openssl::rsa::Rsa;
 #[cfg(feature = "openssl")]
 use openssl::symm::Cipher;
 #[cfg(feature = "ring")]
+use ring::rand::SystemRandom;
+#[cfg(feature = "ring")]
 use ring::signature::{
     EcdsaKeyPair, Ed25519KeyPair, ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING,
 };
@@ -86,12 +88,13 @@ impl KeyFormat {
                 }
                 #[cfg(feature = "ring")]
                 Self::Pkcs8 => {
+                    let rng = SystemRandom::new();
                     let ring_algorithm = if algorithm == Algorithm::ECDSAP256SHA256 {
                         &ECDSA_P256_SHA256_FIXED_SIGNING
                     } else {
                         &ECDSA_P384_SHA384_FIXED_SIGNING
                     };
-                    let key = EcdsaKeyPair::from_pkcs8(ring_algorithm, bytes)?;
+                    let key = EcdsaKeyPair::from_pkcs8(ring_algorithm, bytes, &rng)?;
 
                     Ok(KeyPair::from_ecdsa(key))
                 }
