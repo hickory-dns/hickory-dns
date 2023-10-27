@@ -675,12 +675,10 @@ mod tests {
         let signer = SigSigner::sig0(sig0key, key, Name::root());
 
         let origin: Name = Name::parse("example.com.", None).unwrap();
-        let rrsig = Record::new()
-            .set_name(origin.clone())
-            .set_ttl(86400)
-            .set_rr_type(RecordType::RRSIG)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RRSIG::new(
+        let rrsig = Record::from_rdata(
+            origin.clone(),
+            86400,
+            RRSIG::new(
                 RecordType::NS,
                 Algorithm::RSASHA256,
                 origin.num_labels(),
@@ -690,8 +688,9 @@ mod tests {
                 signer.calculate_key_tag().unwrap(),
                 origin.clone(),
                 vec![],
-            )))
-            .clone();
+            ),
+        );
+
         let rrset = vec![
             Record::new()
                 .set_name(origin.clone())
@@ -814,12 +813,10 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
             let signer = SigSigner::sig0(sig0key, key, Name::root());
 
             let origin: Name = Name::parse("example.com.", None).unwrap();
-            let rrsig = Record::new()
-                .set_name(origin.clone())
-                .set_ttl(86400)
-                .set_rr_type(RecordType::RRSIG)
-                .set_dns_class(DNSClass::IN)
-                .set_data(Some(RRSIG::new(
+            let rrsig = Record::from_rdata(
+                origin.clone(),
+                86400,
+                RRSIG::new(
                     RecordType::NS,
                     Algorithm::RSASHA256,
                     origin.num_labels(),
@@ -829,8 +826,8 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
                     signer.calculate_key_tag().unwrap(),
                     origin.clone(),
                     vec![],
-                )))
-                .clone();
+                ),
+            );
             let rrset = vec![
                 Record::new()
                     .set_name(origin.clone())
