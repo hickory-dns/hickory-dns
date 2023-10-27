@@ -111,7 +111,8 @@ impl Record<RData> {
     /// * `name` - name of the resource records
     /// * `rr_type` - the record type
     /// * `ttl` - time-to-live is the amount of time this record should be cached before refreshing
-    #[deprecated = "consider using the typed variant `from_rdata`"]
+    // TODO: maybe deprecate in the future, there are valid use cases for null data...
+    // #[deprecated = "consider using the typed variant `from_rdata`"]
     pub fn with(name: Name, rr_type: RecordType, ttl: u32) -> Self {
         Self {
             name_labels: name,
