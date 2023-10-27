@@ -860,7 +860,7 @@ mod tests {
         let mut record = Record::new();
         record
             .set_name(Name::from_str("www.example.com").unwrap())
-            .set_rr_type(RecordType::A)
+            .set_record_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
             .set_ttl(5)
             .set_data(Some(RData::A(A::new(192, 168, 0, 1))));

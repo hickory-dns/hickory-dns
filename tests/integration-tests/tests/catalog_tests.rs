@@ -24,7 +24,7 @@ pub fn create_test() -> InMemoryAuthority {
         Record::new()
             .set_name(origin.clone())
             .set_ttl(3600)
-            .set_rr_type(RecordType::SOA)
+            .set_record_type(RecordType::SOA)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::SOA(SOA::new(
                 Name::parse("sns.dns.icann.org.", None).unwrap(),
@@ -43,7 +43,7 @@ pub fn create_test() -> InMemoryAuthority {
         Record::new()
             .set_name(origin.clone())
             .set_ttl(86400)
-            .set_rr_type(RecordType::NS)
+            .set_record_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::NS(NS(Name::parse(
                 "a.iana-servers.net.",
@@ -57,7 +57,7 @@ pub fn create_test() -> InMemoryAuthority {
         Record::new()
             .set_name(origin.clone())
             .set_ttl(86400)
-            .set_rr_type(RecordType::NS)
+            .set_record_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::NS(NS(Name::parse(
                 "b.iana-servers.net.",
@@ -72,7 +72,7 @@ pub fn create_test() -> InMemoryAuthority {
         Record::new()
             .set_name(origin.clone())
             .set_ttl(86400)
-            .set_rr_type(RecordType::A)
+            .set_record_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::A(A::new(94, 184, 216, 34))))
             .clone(),
@@ -82,7 +82,7 @@ pub fn create_test() -> InMemoryAuthority {
         Record::new()
             .set_name(origin)
             .set_ttl(86400)
-            .set_rr_type(RecordType::AAAA)
+            .set_record_type(RecordType::AAAA)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::AAAA(AAAA::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
@@ -96,7 +96,7 @@ pub fn create_test() -> InMemoryAuthority {
         Record::new()
             .set_name(www_name.clone())
             .set_ttl(86400)
-            .set_rr_type(RecordType::A)
+            .set_record_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::A(A::new(94, 184, 216, 34))))
             .clone(),
@@ -106,7 +106,7 @@ pub fn create_test() -> InMemoryAuthority {
         Record::new()
             .set_name(www_name)
             .set_ttl(86400)
-            .set_rr_type(RecordType::AAAA)
+            .set_record_type(RecordType::AAAA)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::AAAA(AAAA::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
@@ -358,7 +358,7 @@ async fn test_axfr() {
     let soa = Record::new()
         .set_name(origin.clone().into())
         .set_ttl(3600)
-        .set_rr_type(RecordType::SOA)
+        .set_record_type(RecordType::SOA)
         .set_dns_class(DNSClass::IN)
         .set_data(Some(RData::SOA(SOA::new(
             Name::parse("sns.dns.icann.org.", None).unwrap(),
@@ -404,7 +404,7 @@ async fn test_axfr() {
         Record::new()
             .set_name(origin.clone().into())
             .set_ttl(3600)
-            .set_rr_type(RecordType::SOA)
+            .set_record_type(RecordType::SOA)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::SOA(SOA::new(
                 Name::parse("sns.dns.icann.org.", None).unwrap(),
@@ -419,7 +419,7 @@ async fn test_axfr() {
         Record::new()
             .set_name(origin.clone().into())
             .set_ttl(86400)
-            .set_rr_type(RecordType::NS)
+            .set_record_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::NS(NS(Name::parse(
                 "a.iana-servers.net.",
@@ -430,7 +430,7 @@ async fn test_axfr() {
         Record::new()
             .set_name(origin.clone().into())
             .set_ttl(86400)
-            .set_rr_type(RecordType::NS)
+            .set_record_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::NS(NS(Name::parse(
                 "b.iana-servers.net.",
@@ -441,14 +441,14 @@ async fn test_axfr() {
         Record::new()
             .set_name(origin.clone().into())
             .set_ttl(86400)
-            .set_rr_type(RecordType::A)
+            .set_record_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::A(A::new(94, 184, 216, 34))))
             .clone(),
         Record::new()
             .set_name(origin.clone().into())
             .set_ttl(86400)
-            .set_rr_type(RecordType::AAAA)
+            .set_record_type(RecordType::AAAA)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::AAAA(AAAA::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
@@ -457,14 +457,14 @@ async fn test_axfr() {
         Record::new()
             .set_name(www_name.clone())
             .set_ttl(86400)
-            .set_rr_type(RecordType::A)
+            .set_record_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::A(A::new(94, 184, 216, 34))))
             .clone(),
         Record::new()
             .set_name(www_name)
             .set_ttl(86400)
-            .set_rr_type(RecordType::AAAA)
+            .set_record_type(RecordType::AAAA)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::AAAA(AAAA::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
@@ -473,7 +473,7 @@ async fn test_axfr() {
         Record::new()
             .set_name(origin.into())
             .set_ttl(3600)
-            .set_rr_type(RecordType::SOA)
+            .set_record_type(RecordType::SOA)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::SOA(SOA::new(
                 Name::parse("sns.dns.icann.org.", None).unwrap(),

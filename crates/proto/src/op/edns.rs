@@ -186,7 +186,7 @@ impl<'a> From<&'a Edns> for Record {
         let mut record = Self::new();
 
         record.set_name(Name::root());
-        record.set_rr_type(RecordType::OPT);
+        record.set_record_type(RecordType::OPT);
         record.set_dns_class(DNSClass::for_opt(value.max_payload()));
 
         // rebuild the TTL field

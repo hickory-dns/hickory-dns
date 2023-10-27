@@ -34,7 +34,7 @@ fn create_test_journal() -> (Record, Journal) {
 
     let mut record = Record::new();
     record.set_name(www);
-    record.set_rr_type(RecordType::A);
+    record.set_record_type(RecordType::A);
     record.set_data(Some(RData::A(A::from_str("127.0.0.1").unwrap())));
 
     // test that this message can be inserted

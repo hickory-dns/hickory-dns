@@ -629,7 +629,7 @@ mod test {
         let insert = Record::new()
             .set_name(name.clone())
             .set_ttl(86400)
-            .set_rr_type(record_type)
+            .set_record_type(record_type)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 24).into())))
             .clone();
@@ -647,7 +647,7 @@ mod test {
         let insert1 = Record::new()
             .set_name(name)
             .set_ttl(86400)
-            .set_rr_type(record_type)
+            .set_record_type(record_type)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 25).into())))
             .clone();
@@ -667,7 +667,7 @@ mod test {
         let insert = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
-            .set_rr_type(RecordType::SOA)
+            .set_record_type(RecordType::SOA)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::SOA(SOA::new(
                 Name::from_str("sns.dns.icann.org.").unwrap(),
@@ -682,7 +682,7 @@ mod test {
         let same_serial = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
-            .set_rr_type(RecordType::SOA)
+            .set_record_type(RecordType::SOA)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::SOA(SOA::new(
                 Name::from_str("sns.dns.icann.net.").unwrap(),
@@ -697,7 +697,7 @@ mod test {
         let new_serial = Record::new()
             .set_name(name)
             .set_ttl(3600)
-            .set_rr_type(RecordType::SOA)
+            .set_record_type(RecordType::SOA)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::SOA(SOA::new(
                 Name::from_str("sns.dns.icann.net.").unwrap(),
@@ -744,14 +744,14 @@ mod test {
         let insert = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
-            .set_rr_type(RecordType::CNAME)
+            .set_record_type(RecordType::CNAME)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::CNAME(CNAME(cname))))
             .clone();
         let new_record = Record::new()
             .set_name(name)
             .set_ttl(3600)
-            .set_rr_type(RecordType::CNAME)
+            .set_record_type(RecordType::CNAME)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::CNAME(CNAME(new_cname))))
             .clone();
@@ -776,14 +776,14 @@ mod test {
         let insert = Record::new()
             .set_name(name.clone())
             .set_ttl(86400)
-            .set_rr_type(record_type)
+            .set_record_type(record_type)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 24).into())))
             .clone();
         let insert1 = Record::new()
             .set_name(name)
             .set_ttl(86400)
-            .set_rr_type(record_type)
+            .set_record_type(record_type)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 25).into())))
             .clone();
@@ -807,7 +807,7 @@ mod test {
         let insert = Record::new()
             .set_name(name)
             .set_ttl(3600)
-            .set_rr_type(RecordType::SOA)
+            .set_record_type(RecordType::SOA)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::SOA(SOA::new(
                 Name::from_str("sns.dns.icann.org.").unwrap(),
@@ -834,7 +834,7 @@ mod test {
         let ns1 = Record::new()
             .set_name(name.clone())
             .set_ttl(86400)
-            .set_rr_type(RecordType::NS)
+            .set_record_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::NS(NS(
                 Name::from_str("a.iana-servers.net.").unwrap()
@@ -843,7 +843,7 @@ mod test {
         let ns2 = Record::new()
             .set_name(name)
             .set_ttl(86400)
-            .set_rr_type(RecordType::NS)
+            .set_record_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::NS(NS(
                 Name::from_str("b.iana-servers.net.").unwrap()
@@ -921,28 +921,28 @@ mod test {
         let rrsig_rsa = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
-            .set_rr_type(RecordType::RRSIG)
+            .set_record_type(RecordType::RRSIG)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::DNSSEC(DNSSECRData::RRSIG(rsasha256))))
             .clone();
         let rrsig_ecp256 = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
-            .set_rr_type(RecordType::RRSIG)
+            .set_record_type(RecordType::RRSIG)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::DNSSEC(DNSSECRData::RRSIG(ecp256))))
             .clone();
         let rrsig_ecp384 = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
-            .set_rr_type(RecordType::RRSIG)
+            .set_record_type(RecordType::RRSIG)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::DNSSEC(DNSSECRData::RRSIG(ecp384))))
             .clone();
         let rrsig_ed25519 = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
-            .set_rr_type(RecordType::RRSIG)
+            .set_record_type(RecordType::RRSIG)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::DNSSEC(DNSSECRData::RRSIG(ed25519))))
             .clone();
@@ -950,7 +950,7 @@ mod test {
         let a = Record::new()
             .set_name(name)
             .set_ttl(3600)
-            .set_rr_type(RecordType::A)
+            .set_record_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 24).into())))
             .clone();

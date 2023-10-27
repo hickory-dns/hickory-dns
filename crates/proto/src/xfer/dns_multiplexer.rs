@@ -551,7 +551,7 @@ mod test {
             Record::new()
                 .set_name(name)
                 .set_ttl(86400)
-                .set_rr_type(RecordType::A)
+                .set_record_type(RecordType::A)
                 .set_dns_class(DNSClass::IN)
                 .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 34).into())))
                 .clone(),
@@ -583,7 +583,7 @@ mod test {
         let soa = Record::new()
             .set_name(origin.clone())
             .set_ttl(3600)
-            .set_rr_type(RecordType::SOA)
+            .set_record_type(RecordType::SOA)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::SOA(SOA::new(
                 Name::parse("sns.dns.icann.org.", None).unwrap(),
@@ -601,7 +601,7 @@ mod test {
             Record::new()
                 .set_name(origin.clone())
                 .set_ttl(86400)
-                .set_rr_type(RecordType::NS)
+                .set_record_type(RecordType::NS)
                 .set_dns_class(DNSClass::IN)
                 .set_data(Some(RData::NS(NS(Name::parse(
                     "a.iana-servers.net.",
@@ -612,7 +612,7 @@ mod test {
             Record::new()
                 .set_name(origin.clone())
                 .set_ttl(86400)
-                .set_rr_type(RecordType::NS)
+                .set_record_type(RecordType::NS)
                 .set_dns_class(DNSClass::IN)
                 .set_data(Some(RData::NS(NS(Name::parse(
                     "b.iana-servers.net.",
@@ -623,14 +623,14 @@ mod test {
             Record::new()
                 .set_name(origin.clone())
                 .set_ttl(86400)
-                .set_rr_type(RecordType::A)
+                .set_record_type(RecordType::A)
                 .set_dns_class(DNSClass::IN)
                 .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 34).into())))
                 .clone(),
             Record::new()
                 .set_name(origin)
                 .set_ttl(86400)
-                .set_rr_type(RecordType::AAAA)
+                .set_record_type(RecordType::AAAA)
                 .set_dns_class(DNSClass::IN)
                 .set_data(Some(RData::AAAA(
                     Ipv6Addr::new(0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946).into(),
