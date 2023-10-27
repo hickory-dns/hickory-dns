@@ -791,7 +791,7 @@ fn test_delete_all() {
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    record.set_rr_type(RecordType::AAAA);
+    record.set_record_type(RecordType::AAAA);
     record.set_data(Some(RData::AAAA(AAAA::new(1, 2, 3, 4, 5, 6, 7, 8))));
     let result = client
         .create(record.clone(), origin.clone())

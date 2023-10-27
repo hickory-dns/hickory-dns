@@ -726,7 +726,7 @@ pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys
         assert!(update_authority(message, key, &mut authority).expect("create failed"));
 
         let mut record = record.clone();
-        record.set_rr_type(RecordType::AAAA);
+        record.set_record_type(RecordType::AAAA);
         record.set_data(Some(RData::AAAA(AAAA::new(1, 2, 3, 4, 5, 6, 7, 8))));
         let message = update_message::create(
             record.clone().into(),

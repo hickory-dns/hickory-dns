@@ -546,7 +546,7 @@ impl MessageFinalizer for SigSigner {
 
         let expiration_time: u32 = current_time + (5 * 60); // +5 minutes in seconds
 
-        sig0.set_rr_type(RecordType::SIG);
+        sig0.set_record_type(RecordType::SIG);
         let pre_sig0 = SIG::new(
             // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
             RecordType::ZERO,
@@ -695,7 +695,7 @@ mod tests {
             Record::new()
                 .set_name(origin.clone())
                 .set_ttl(86400)
-                .set_rr_type(RecordType::NS)
+                .set_record_type(RecordType::NS)
                 .set_dns_class(DNSClass::IN)
                 .set_data(Some(RData::NS(NS(Name::parse(
                     "a.iana-servers.net.",
@@ -706,7 +706,7 @@ mod tests {
             Record::new()
                 .set_name(origin)
                 .set_ttl(86400)
-                .set_rr_type(RecordType::NS)
+                .set_record_type(RecordType::NS)
                 .set_dns_class(DNSClass::IN)
                 .set_data(Some(RData::NS(NS(Name::parse(
                     "b.iana-servers.net.",
@@ -832,7 +832,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
                 Record::new()
                     .set_name(origin.clone())
                     .set_ttl(86400)
-                    .set_rr_type(RecordType::NS)
+                    .set_record_type(RecordType::NS)
                     .set_dns_class(DNSClass::IN)
                     .set_data(Some(RData::NS(NS(Name::parse(
                         "a.iana-servers.net.",
@@ -843,7 +843,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
                 Record::new()
                     .set_name(origin.clone())
                     .set_ttl(86400)
-                    .set_rr_type(RecordType::NS)
+                    .set_record_type(RecordType::NS)
                     .set_dns_class(DNSClass::IN)
                     .set_data(Some(RData::NS(NS(Name::parse(
                         "b.iana-servers.net.",
@@ -860,7 +860,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
                 Record::new()
                     .set_name(origin.clone())
                     .set_ttl(86400)
-                    .set_rr_type(RecordType::CNAME)
+                    .set_record_type(RecordType::CNAME)
                     .set_dns_class(DNSClass::IN)
                     .set_data(Some(RData::CNAME(CNAME(
                         Name::parse("a.iana-servers.net.", None).unwrap(),
@@ -869,7 +869,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
                 Record::new()
                     .set_name(Name::parse("www.example.com.", None).unwrap())
                     .set_ttl(86400)
-                    .set_rr_type(RecordType::NS)
+                    .set_record_type(RecordType::NS)
                     .set_dns_class(DNSClass::IN)
                     .set_data(Some(RData::NS(NS(Name::parse(
                         "a.iana-servers.net.",
@@ -880,7 +880,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
                 Record::new()
                     .set_name(origin.clone())
                     .set_ttl(86400)
-                    .set_rr_type(RecordType::NS)
+                    .set_record_type(RecordType::NS)
                     .set_dns_class(DNSClass::CH)
                     .set_data(Some(RData::NS(NS(Name::parse(
                         "a.iana-servers.net.",
@@ -891,7 +891,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
                 Record::new()
                     .set_name(origin.clone())
                     .set_ttl(86400)
-                    .set_rr_type(RecordType::NS)
+                    .set_record_type(RecordType::NS)
                     .set_dns_class(DNSClass::IN)
                     .set_data(Some(RData::NS(NS(Name::parse(
                         "a.iana-servers.net.",
@@ -902,7 +902,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
                 Record::new()
                     .set_name(origin)
                     .set_ttl(86400)
-                    .set_rr_type(RecordType::NS)
+                    .set_record_type(RecordType::NS)
                     .set_dns_class(DNSClass::IN)
                     .set_data(Some(RData::NS(NS(Name::parse(
                         "b.iana-servers.net.",

@@ -376,7 +376,7 @@ impl<'a> Parser<'a> {
         record.set_name(current_name.clone().ok_or_else(|| {
             ParseError::from(ParseErrorKind::Message("record name not specified"))
         })?);
-        record.set_rr_type(rtype);
+        record.set_record_type(rtype);
         record.set_dns_class(class);
 
         // slightly annoying, need to grab the TTL, then move rdata into the record,
