@@ -20,10 +20,11 @@ use crate::{
     op::{Edns, OpCode, Query},
     rr::{
         dnssec::{
-            rdata::{DNSSECRData, DNSKEY, RRSIG},
+            rdata::{DNSSECRData, DNSKEY, DS, RRSIG},
             Algorithm, Proof, SupportedAlgorithms, TrustAnchor,
         },
         rdata::opt::EdnsOption,
+        resource::RecordRef,
         DNSClass, Name, RData, Record, RecordData, RecordType,
     },
     xfer::{dns_handle::DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer},
@@ -33,11 +34,74 @@ use crate::{
 use crate::rr::dnssec::Verifier;
 
 #[derive(Debug)]
-struct Rrset {
+struct Rrset<R: RecordData = RData> {
     pub(crate) name: Name,
     pub(crate) record_type: RecordType,
     pub(crate) record_class: DNSClass,
-    pub(crate) records: Vec<Record>,
+    pub(crate) records: Vec<Record<R>>,
+}
+
+impl Rrset<RData> {
+    /// Attempts to convert into an Rrset of the specific RecordData type
+    fn try_into_record<R: RecordData>(self) -> Result<Rrset<R>, Self> {
+        // To avoid allocating we scan first to make sure all the types are valid
+        if !self
+            .records
+            .iter()
+            .filter_map(|r| r.data())
+            .all(|data| R::try_borrow(data).is_some())
+        {
+            return Err(self);
+        }
+
+        let Self {
+            name,
+            record_type,
+            record_class,
+            records,
+        } = self;
+
+        let original_len = records.len();
+
+        // This allocation is unfortunate,
+        let ok = records
+            .into_iter()
+            .map_while(|r| Record::<R>::try_from(r.clone()).ok())
+            .collect::<Vec<Record<R>>>();
+
+        debug_assert_eq!(ok.len(), original_len);
+
+        Ok(Rrset {
+            name,
+            record_type,
+            record_class,
+            records: ok,
+        })
+    }
+}
+
+impl<R: RecordData> Rrset<R> {
+    /// Infallible conversion from a specific record type generic RData
+    fn into_rdata(self) -> Rrset<RData> {
+        let Self {
+            name,
+            record_type,
+            record_class,
+            records,
+        } = self;
+
+        let records = records
+            .into_iter()
+            .map(|r| r.into_record_of_rdata())
+            .collect::<Vec<Record<RData>>>();
+
+        Rrset {
+            name,
+            record_type,
+            record_class,
+            records,
+        }
+    }
 }
 
 /// Performs DNSSEC validation of all DNS responses from the wrapped DnsHandle
@@ -292,16 +356,8 @@ where
             .iter()
             .chain(message_result.name_servers())
             .chain(message_result.additionals())
-            .filter(|rr| is_dnssec(rr, RecordType::RRSIG))
-            .filter(|rr| {
-                if let Some(RData::DNSSEC(DNSSECRData::RRSIG(ref rrsig))) = rr.data() {
-                    rrsig.type_covered() == record_type
-                } else {
-                    false
-                }
-            })
-            .cloned()
-            .map(|rr| Record::<RRSIG>::try_from(rr).expect("the record type was checked above"))
+            .filter_map(|rr| RecordRef::<RRSIG>::try_from(rr).ok())
+            .map(|rr| rr.to_owned())
             .collect();
 
         // if there is already an active validation going on, assume the other validation will
@@ -443,15 +499,26 @@ async fn verify_rrset<H>(
 where
     H: DnsHandle + Sync + Unpin,
 {
+    // wrapper for some of the type conversion for typed DNSKEY fn calls.
+    let typed_verify_dnskey = move |handle, rrset: Rrset| {
+        async move {
+            // TODO: validate that this DNSKEY is stronger than the one lower in the chain,
+            //  also, set the min algorithm to this algorithm to prevent downgrade attacks.
+            let rrset = rrset.try_into_record::<DNSKEY>().map_err(|_| {
+                ProtoError::from(ProtoErrorKind::Message("Could not validate all DNSKEYs"))
+            })?;
+            let result = verify_dnskey_rrset(handle, rrset, options).await?;
+            Ok(result.into_rdata())
+        }
+    };
+
     // Special case for unsigned DNSKEYs, it's valid for a DNSKEY to be bare in the zone if
     //  it's a trust_anchor, though some DNS servers choose to self-sign in this case,
     //  for self-signed KEYS they will drop through to the standard validation logic.
     if let RecordType::DNSKEY = rrset.record_type {
         if rrsigs.is_empty() {
             debug!("unsigned key: {}, {:?}", rrset.name, rrset.record_type);
-            // TODO: validate that this DNSKEY is stronger than the one lower in the chain,
-            //  also, set the min algorithm to this algorithm to prevent downgrade attacks.
-            return verify_dnskey_rrset(handle.clone_with_context(), rrset, options).await;
+            return typed_verify_dnskey(handle.clone_with_context(), rrset).await;
         }
     }
 
@@ -460,7 +527,7 @@ where
 
     // validation of DNSKEY records
     match rrset.record_type {
-        RecordType::DNSKEY => verify_dnskey_rrset(handle, rrset, options).await,
+        RecordType::DNSKEY => typed_verify_dnskey(handle.clone_with_context(), rrset).await,
         _ => Ok(rrset),
     }
 }
@@ -472,9 +539,9 @@ where
 ///  against the DS record.
 async fn verify_dnskey_rrset<H>(
     handle: DnssecDnsHandle<H>,
-    rrset: Rrset,
+    rrset: Rrset<DNSKEY>,
     options: DnsRequestOptions,
-) -> Result<Rrset, ProtoError>
+) -> Result<Rrset<DNSKEY>, ProtoError>
 where
     H: DnsHandle + Sync + Unpin,
 {
@@ -490,9 +557,7 @@ where
             .records
             .iter()
             .enumerate()
-            .filter(|&(_, rr)| is_dnssec(rr, RecordType::DNSKEY))
-            .filter_map(|(i, rr)| rr.data().map(|rr| (i, rr)))
-            .filter_map(|(i, rr)| DNSKEY::try_borrow(rr).map(|rr| (i, rr)))
+            .filter_map(|(i, rr)| rr.data().map(|d| (i, d)))
             .filter_map(|(i, rdata)| {
                 if handle
                     .trust_anchor
@@ -526,32 +591,19 @@ where
         .records
         .iter()
         .enumerate()
-        .filter(|&(_, rr)| is_dnssec(rr, RecordType::DNSKEY))
-        .filter_map(|(i, rr)| {
-            if let Some(RData::DNSSEC(DNSSECRData::DNSKEY(ref rdata))) = rr.data() {
-                Some((i, rdata))
-            } else {
-                None
-            }
-        })
+        .filter_map(|(i, rr)| rr.data().map(|d| (i, d)))
         .filter(|&(_, key_rdata)| {
             ds_message
                 .answers()
                 .iter()
-                .filter(|ds| is_dnssec(ds, RecordType::DS))
-                .filter_map(|ds| {
-                    if let Some(RData::DNSSEC(DNSSECRData::DS(ref ds_rdata))) = ds.data() {
-                        Some((ds.name(), ds_rdata))
-                    } else {
-                        None
-                    }
-                })
+                .filter_map(|r| r.data().map(|d| (d, r.name())))
+                .filter_map(|(ds, n)| DS::try_borrow(ds).map(|ds| (ds, n)))
                 // must be covered by at least one DS record
-                .any(|(ds_name, ds_rdata)| {
+                .any(|(ds_rdata, ds_name)| {
                     if ds_rdata.covers(&rrset.name, key_rdata).unwrap_or(false) {
                         debug!(
-                            "validated dnskey ({}, {}) with {} {}",
-                            rrset.name, key_rdata, ds_name, ds_rdata
+                            "validated dnskey ({}, {key_rdata}) with {ds_name} {ds_rdata}",
+                            rrset.name
                         );
 
                         true
@@ -661,7 +713,6 @@ where
     // Special case for self-signed DNSKEYS, validate with itself...
     if rrsigs
         .iter()
-        .filter(|rrsig| is_dnssec(rrsig, RecordType::RRSIG))
         .filter_map(|rrsig| rrsig.data())
         .any(|rrsig| RecordType::DNSKEY == rrset.record_type && rrsig.signer_name() == &rrset.name)
     {
@@ -672,20 +723,19 @@ where
         return future::ready(
             rrsigs
                 .into_iter()
-                // this filter is technically unnecessary, can probably remove it...
-                .filter(|rrsig| is_dnssec(rrsig, RecordType::RRSIG))
                 .filter_map(|rrsig| rrsig.into_data())
                 .filter_map(|sig| {
                     let rrset = Arc::clone(&rrset);
 
-                    if rrset.records.iter().any(|r| {
-                        if let Some(RData::DNSSEC(DNSSECRData::DNSKEY(ref dnskey))) = r.data() {
-                            let dnskey_name = r.name();
+                    if rrset
+                        .records
+                        .iter()
+                        .filter_map(|r| r.data().map(|d| (d, r.name())))
+                        .filter_map(|(d, n)| DNSKEY::try_borrow(d).map(|d| (d, n)))
+                        .any(|(dnskey, dnskey_name)| {
                             verify_rrset_with_dnskey(dnskey_name, dnskey, &sig, &rrset).is_ok()
-                        } else {
-                            panic!("expected a DNSKEY here: {:?}", r.data());
-                        }
-                    }) {
+                        })
+                    {
                         Some(())
                     } else {
                         None
@@ -710,8 +760,6 @@ where
     //        dns over TLS will mitigate this.
     //  TODO: strip RRSIGS to accepted algorithms and make algorithms configurable.
     let verifications = rrsigs.into_iter()
-        // this filter is technically unnecessary, can probably remove it...
-        .filter(|rrsig| is_dnssec(rrsig, RecordType::RRSIG))
         .filter_map(|rrsig|rrsig.into_data())
         .map(|sig| {
             let rrset = Arc::clone(&rrset);

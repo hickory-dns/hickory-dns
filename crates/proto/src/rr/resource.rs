@@ -80,7 +80,7 @@ pub struct Record<R: RecordData = RData> {
     mdns_cache_flush: bool,
 }
 
-impl<R: RecordData> Default for Record<R> {
+impl Default for Record<RData> {
     fn default() -> Self {
         Self {
             // TODO: these really should all be Optionals, I was lazy.
@@ -95,7 +95,7 @@ impl<R: RecordData> Default for Record<R> {
     }
 }
 
-impl<R: RecordData> Record<R> {
+impl Record<RData> {
     /// Creates a default record, use the setters to build a more useful object.
     ///
     /// There are no optional elements in this object, defaults are an empty name, type A, class IN,
@@ -111,6 +111,7 @@ impl<R: RecordData> Record<R> {
     /// * `name` - name of the resource records
     /// * `rr_type` - the record type
     /// * `ttl` - time-to-live is the amount of time this record should be cached before refreshing
+    #[deprecated = "consider using the typed variant `from_rdata`"]
     pub fn with(name: Name, rr_type: RecordType, ttl: u32) -> Self {
         Self {
             name_labels: name,
@@ -123,6 +124,33 @@ impl<R: RecordData> Record<R> {
         }
     }
 
+    /// ```text
+    /// TYPE            two octets containing one of the RR type codes.  This
+    ///                 field specifies the meaning of the data in the RDATA
+    ///                 field.
+    /// ```
+    #[deprecated(note = "use `set_record_type`")]
+    pub fn set_rr_type(&mut self, rr_type: RecordType) -> &mut Self {
+        self.rr_type = rr_type;
+        self
+    }
+
+    /// Generally Speaking, this is redundant to the RecordType stored in the associated RData and not recommended
+    ///   to set this separately. Exceptions to this are for Update Messages, where the RecordType is used distinctly
+    ///   as a means to express certain Update instructions. For queries and responses, it will always match the RData
+    ///
+    /// ```text
+    /// TYPE            two octets containing one of the RR type codes.  This
+    ///                 field specifies the meaning of the data in the RDATA
+    ///                 field.
+    /// ```
+    pub fn set_record_type(&mut self, rr_type: RecordType) -> &mut Self {
+        self.rr_type = rr_type;
+        self
+    }
+}
+
+impl<R: RecordData> Record<R> {
     /// Create a record with the specified initial values.
     ///
     /// # Arguments
@@ -156,7 +184,7 @@ impl<R: RecordData> Record<R> {
         } = record;
 
         match rdata.map(R::try_from_rdata) {
-            None => Ok(Self {
+            None => Err(Record {
                 name_labels,
                 rr_type,
                 dns_class,
@@ -167,7 +195,7 @@ impl<R: RecordData> Record<R> {
             }),
             Some(Ok(rdata)) => Ok(Self {
                 name_labels,
-                rr_type,
+                rr_type: rdata.record_type(),
                 dns_class,
                 ttl,
                 rdata: Some(rdata),
@@ -220,27 +248,6 @@ impl<R: RecordData> Record<R> {
     }
 
     /// ```text
-    /// TYPE            two octets containing one of the RR type codes.  This
-    ///                 field specifies the meaning of the data in the RDATA
-    ///                 field.
-    /// ```
-    // #[deprecated(note = "use `Record::set_record_type`")]
-    pub fn set_rr_type(&mut self, rr_type: RecordType) -> &mut Self {
-        self.rr_type = rr_type;
-        self
-    }
-
-    /// ```text
-    /// TYPE            two octets containing one of the RR type codes.  This
-    ///                 field specifies the meaning of the data in the RDATA
-    ///                 field.
-    /// ```
-    pub fn set_record_type(&mut self, rr_type: RecordType) -> &mut Self {
-        self.rr_type = rr_type;
-        self
-    }
-
-    /// ```text
     /// CLASS           two octets which specify the class of the data in the
     ///                 RDATA field.
     /// ```
@@ -272,12 +279,12 @@ impl<R: RecordData> Record<R> {
     pub fn set_data(&mut self, rdata: Option<R>) -> &mut Self {
         debug_assert!(
             if let Some(rdata) = &rdata {
-                rdata.record_type() == self.record_type() || rdata.record_type() == RecordType::NULL
+                rdata.record_type() == self.rr_type || rdata.record_type() == RecordType::NULL
             } else {
                 true
             },
             "record types do not match, {} <> {:?}",
-            self.record_type(),
+            self.rr_type,
             rdata.map(|r| r.record_type())
         );
 
@@ -876,7 +883,7 @@ mod tests {
         let mut record = Record::new();
         record
             .set_name(Name::from_str("www.example.com").unwrap())
-            .set_rr_type(RecordType::A)
+            .set_record_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
             .set_ttl(5)
             .set_data(Some(RData::A(A::new(192, 168, 0, 1))));
@@ -884,8 +891,8 @@ mod tests {
         let mut greater_name = record.clone();
         greater_name.set_name(Name::from_str("zzz.example.com").unwrap());
 
-        let mut greater_type = record.clone();
-        greater_type.set_rr_type(RecordType::AAAA);
+        let mut greater_type = record.clone().into_record_of_rdata();
+        greater_type.set_record_type(RecordType::AAAA);
 
         let mut greater_class = record.clone();
         greater_class.set_dns_class(DNSClass::NONE);

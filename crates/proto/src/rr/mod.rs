@@ -22,7 +22,7 @@ mod rr_key;
 mod rr_set;
 pub mod type_bit_map;
 
-use std::fmt;
+use std::fmt::{Debug, Display};
 
 use crate::{
     error::ProtoResult,
@@ -44,7 +44,7 @@ pub use rr_key::RrKey;
 /// RecordData that is stored in a DNS Record.
 ///
 /// This trait allows for generic usage of `RecordData` types inside the `Record` type. Specific RecordData types can be used to enforce compile time constraints on a Record.
-pub trait RecordData: Clone + Sized + PartialEq + Eq + fmt::Display + BinEncodable {
+pub trait RecordData: Clone + Sized + PartialEq + Eq + Display + Debug + BinEncodable {
     /// Attempts to convert to this RecordData from the RData type, if it is not the correct type the original is returned
     #[allow(clippy::result_large_err)]
     fn try_from_rdata(data: RData) -> Result<Self, RData>;

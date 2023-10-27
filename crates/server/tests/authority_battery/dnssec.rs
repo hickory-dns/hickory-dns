@@ -220,7 +220,8 @@ pub fn test_nsec_nodata<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &
         &query,
         &Name::from_str("example.com.").unwrap(),
         &nsecs
-    ));
+    )
+    .is_secure());
 }
 
 pub fn test_nsec_nxdomain_start<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
@@ -252,7 +253,8 @@ pub fn test_nsec_nxdomain_start<A: Authority<Lookup = AuthLookup>>(authority: A,
         &query,
         &Name::from_str("example.com.").unwrap(),
         &nsecs
-    ));
+    )
+    .is_secure());
 }
 
 pub fn test_nsec_nxdomain_middle<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
@@ -283,7 +285,8 @@ pub fn test_nsec_nxdomain_middle<A: Authority<Lookup = AuthLookup>>(authority: A
         &query,
         &Name::from_str("example.com.").unwrap(),
         &nsecs
-    ));
+    )
+    .is_secure());
 }
 
 pub fn test_nsec_nxdomain_wraps_end<A: Authority<Lookup = AuthLookup>>(
@@ -317,7 +320,8 @@ pub fn test_nsec_nxdomain_wraps_end<A: Authority<Lookup = AuthLookup>>(
         &query,
         &Name::from_str("example.com.").unwrap(),
         &nsecs
-    ));
+    )
+    .is_secure());
 }
 
 pub fn test_rfc_6975_supported_algorithms<A: Authority<Lookup = AuthLookup>>(
