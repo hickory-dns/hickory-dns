@@ -24,7 +24,6 @@ use crate::{
             Algorithm, Proof, SupportedAlgorithms, TrustAnchor,
         },
         rdata::opt::EdnsOption,
-        resource::RecordRef,
         DNSClass, Name, RData, Record, RecordData, RecordType,
     },
     xfer::{dns_handle::DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer},
@@ -63,11 +62,9 @@ impl Rrset<RData> {
         } = self;
 
         let original_len = records.len();
-
-        // This allocation is unfortunate,
         let ok = records
             .into_iter()
-            .map_while(|r| Record::<R>::try_from(r.clone()).ok())
+            .map_while(|r| Record::<R>::try_from(r).ok())
             .collect::<Vec<Record<R>>>();
 
         debug_assert_eq!(ok.len(), original_len);
@@ -733,8 +730,8 @@ where
         //  the DNSKey validation should come after, see verify_rrset().
         return future::ready(
             rrsigs
-                .into_iter()
-                .filter_map(|sig| {
+                .iter()
+                .find_map(|rrsig| {
                     let rrset = Arc::clone(&rrset);
 
                     if rrset
@@ -743,7 +740,7 @@ where
                         .filter_map(|r| r.data().map(|d| (d, r.name())))
                         .filter_map(|(d, n)| DNSKEY::try_borrow(d).map(|d| (d, n)))
                         .any(|(dnskey, dnskey_name)| {
-                            verify_rrset_with_dnskey(dnskey_name, dnskey, &sig, &rrset).is_ok()
+                            verify_rrset_with_dnskey(dnskey_name, dnskey, rrsig, &rrset).is_ok()
                         })
                     {
                         Some(())
@@ -751,7 +748,6 @@ where
                         None
                     }
                 })
-                .next()
                 .ok_or_else(|| {
                     ProtoError::from(ProtoErrorKind::Message("self-signed dnskey is invalid"))
                 }),
@@ -769,7 +765,7 @@ where
     //         susceptible until that algorithm is removed as an option.
     //        dns over TLS will mitigate this.
     //  TODO: strip RRSIGS to accepted algorithms and make algorithms configurable.
-    let verifications = rrsigs.into_iter()
+    let verifications = rrsigs.iter()
         .map(|sig| {
             let rrset = Arc::clone(&rrset);
             let handle = handle.clone_with_context();
