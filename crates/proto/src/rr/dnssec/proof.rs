@@ -5,7 +5,12 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! DNSSEC related Proof of record authenticity
+
 use std::fmt;
+
+#[cfg(feature = "serde-config")]
+use serde::{Deserialize, Serialize};
 
 /// Represents the status of a DNSSEC verified record.
 ///
@@ -18,6 +23,7 @@ use std::fmt;
 ///   security-aware resolver must be able to distinguish between four
 ///   cases:
 /// ```
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Proof {
     /// An RRset for which the resolver is able to build a chain of
@@ -52,8 +58,17 @@ pub enum Proof {
 }
 
 impl Proof {
+    /// Returns true if this Proof represents a validated DNSSEC record
     pub fn is_secure(&self) -> bool {
         *self == Self::Secure
+    }
+}
+
+impl Default for Proof {
+    /// Returns `Indeterminate` as the default state for Proof as this is the closest to meaning
+    ///   that no DNSSEC verification has happened.
+    fn default() -> Self {
+        Self::Indeterminate
     }
 }
 
