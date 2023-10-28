@@ -14,7 +14,7 @@ use crate::{
             rdata::{DNSKEY, KEY, RRSIG, SIG},
             tbs, Algorithm, PublicKey, PublicKeyEnum,
         },
-        DNSClass, Name, RData, Record,
+        DNSClass, Name, Record,
     },
     serialize::binary::BinEncodable,
 };
