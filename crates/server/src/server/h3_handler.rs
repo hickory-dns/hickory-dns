@@ -15,7 +15,7 @@ use hickory_proto::{
     error::ProtoError, h3::h3_server::H3Connection, h3::H3Error, http::Version, rr::Record,
 };
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, warn};
+use tracing::debug;
 
 use crate::{
     authority::MessageResponse,
@@ -44,7 +44,7 @@ where
             result = connection.accept() => match result {
                 Some(Ok(next_request)) => next_request,
                 Some(Err(err)) => {
-                    warn!("error accepting request {}: {}", src_addr, err);
+                    debug!("error accepting request {}: {}", src_addr, err);
                     return Err(err);
                 }
                 None => {
@@ -78,7 +78,7 @@ where
 
         max_requests -= 1;
         if max_requests == 0 {
-            warn!("exceeded request count, shutting down h3 conn: {src_addr}");
+            debug!("exceeded request count, shutting down h3 conn: {src_addr}");
             connection.shutdown().await?;
             break;
         }

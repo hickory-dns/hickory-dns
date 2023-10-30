@@ -13,7 +13,7 @@ use h2::server;
 use hickory_proto::{http::Version, rr::Record};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, warn};
+use tracing::debug;
 
 use crate::{
     authority::MessageResponse,
@@ -40,7 +40,7 @@ pub(crate) async fn h2_handler<T, I>(
     let mut h2 = match server::handshake(io).await {
         Ok(h2) => h2,
         Err(err) => {
-            warn!("handshake error from {}: {}", src_addr, err);
+            debug!("handshake error from {}: {}", src_addr, err);
             return;
         }
     };
@@ -52,7 +52,7 @@ pub(crate) async fn h2_handler<T, I>(
             result = h2.accept() => match result {
                 Some(Ok(next_request)) => next_request,
                 Some(Err(err)) => {
-                    warn!("error accepting request {}: {}", src_addr, err);
+                    debug!("error accepting request {}: {}", src_addr, err);
                         return;
                 }
                 None => {
@@ -73,7 +73,7 @@ pub(crate) async fn h2_handler<T, I>(
         tokio::spawn(async move {
             match h2_server::message_from(dns_hostname, request).await {
                 Ok(bytes) => handle_request(bytes, src_addr, handler, responder).await,
-                Err(err) => warn!("error while handling request from {}: {}", src_addr, err),
+                Err(err) => debug!("error while handling request from {}: {}", src_addr, err),
             };
         });
 

@@ -17,7 +17,7 @@ use hickory_proto::rr::dnssec::*;
 use hickory_proto::rr::{rdata::A, *};
 use regex::Regex;
 use tokio::runtime::Runtime;
-use tracing::{info, warn};
+use tracing::{debug, info};
 
 #[cfg(feature = "dnssec")]
 use self::mut_message_client::MutMessageHandle;
@@ -83,7 +83,7 @@ where
 
                 let mut named = named_killer.lock().unwrap();
                 if let Err(e) = named.kill() {
-                    warn!("warning: failed to kill named: {:?}", e);
+                    debug!("warning: failed to kill named: {:?}", e);
                 }
             };
 

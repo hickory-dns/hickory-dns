@@ -16,7 +16,7 @@ use std::{cmp::Ordering, fmt, net::IpAddr};
 use serde::{Deserialize, Serialize};
 
 use enum_as_inner::EnumAsInner;
-use tracing::{trace, warn};
+use tracing::{debug, trace};
 
 use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
@@ -702,7 +702,7 @@ impl RData {
         {
             let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut buf);
             self.emit(&mut encoder).unwrap_or_else(|_| {
-                warn!("could not encode RDATA: {:?}", self);
+                debug!("could not encode RDATA: {:?}", self);
             });
         }
         buf

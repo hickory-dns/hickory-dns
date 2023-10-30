@@ -15,7 +15,7 @@ use hickory_proto::{
     rr::Record,
 };
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, warn};
+use tracing::debug;
 
 use crate::{
     authority::MessageResponse,
@@ -45,7 +45,7 @@ where
             result = quic_streams.next() => match result {
                 Some(Ok(next_request)) => next_request,
                 Some(Err(err)) => {
-                    warn!("error accepting request {}: {}", src_addr, err);
+                    debug!("error accepting request {}: {}", src_addr, err);
                     return Err(err);
                 }
                 None => {
@@ -72,7 +72,7 @@ where
 
         max_requests -= 1;
         if max_requests == 0 {
-            warn!("exceeded request count, shutting down quic conn: {src_addr}");
+            debug!("exceeded request count, shutting down quic conn: {src_addr}");
             // DOQ_NO_ERROR (0x0): No error. This is used when the connection or stream needs to be closed, but there is no error to signal.
             stream.lock().await.stop(DoqErrorCode::NoError)?;
             break;

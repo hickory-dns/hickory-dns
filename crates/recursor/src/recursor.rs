@@ -12,7 +12,7 @@ use futures_util::{future::select_all, FutureExt};
 use hickory_resolver::name_server::TokioConnectionProvider;
 use lru_cache::LruCache;
 use parking_lot::Mutex;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use crate::{
     proto::{
@@ -307,7 +307,7 @@ impl Recursor {
                 lookup.ok_or_else(|| Error::from("no records found"))
             }
             Err(e) => {
-                warn!("lookup error: {e}");
+                debug!("lookup error: {e}");
                 Err(Error::from(e))
             }
         }
@@ -430,7 +430,7 @@ impl Recursor {
                         }
                     }
                     Err(e) => {
-                        warn!("resolve failed {}", e);
+                        debug!("resolve failed {}", e);
                     }
                 }
             }

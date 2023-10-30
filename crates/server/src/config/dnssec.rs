@@ -316,7 +316,7 @@ pub fn load_cert(
     zone_dir: &Path,
     tls_cert_config: &TlsCertConfig,
 ) -> Result<((X509, Option<Stack<X509>>), PKey<Private>), String> {
-    use tracing::{info, warn};
+    use tracing::{debug, info};
 
     use crate::proto::openssl::tls_server::{
         read_cert_pem, read_cert_pkcs12, read_key_from_der, read_key_from_pkcs8,
@@ -338,7 +338,7 @@ pub fn load_cert(
         }
         CertType::Pkcs12 => {
             if private_key_path.is_some() {
-                warn!(
+                debug!(
                     "ignoring specified key, using the one in the PKCS12 file: {}",
                     path.display()
                 );
@@ -375,7 +375,7 @@ pub fn load_cert(
     zone_dir: &Path,
     tls_cert_config: &TlsCertConfig,
 ) -> Result<(Vec<Certificate>, PrivateKey), String> {
-    use tracing::{info, warn};
+    use tracing::{debug, info};
 
     use crate::proto::rustls::tls_server::{read_cert, read_key, read_key_from_der};
 
@@ -403,7 +403,7 @@ pub fn load_cert(
         (Some(private_key_path), PrivateKeyType::Pkcs8) => {
             info!("loading TLS PKCS8 key from: {}", private_key_path.display());
             if password.is_some() {
-                warn!("Password for key supplied, but Rustls does not support encrypted PKCS8");
+                debug!("Password for key supplied, but Rustls does not support encrypted PKCS8");
             }
 
             read_key(&private_key_path)?

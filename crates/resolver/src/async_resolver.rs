@@ -206,7 +206,7 @@ impl<P: ConnectionProvider> AsyncResolver<P> {
             #[cfg(not(feature = "dnssec"))]
             {
                 // TODO: should this just be a panic, or a pinned error?
-                tracing::warn!("validate option is only available with 'dnssec' feature");
+                tracing::debug!("validate option is only available with 'dnssec' feature");
                 either = LookupEither::Retry(client);
             }
         } else {

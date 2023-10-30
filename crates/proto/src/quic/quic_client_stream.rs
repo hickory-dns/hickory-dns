@@ -289,7 +289,7 @@ pub fn client_config_tls13() -> Result<TlsClientConfig, ProtoError> {
             root_store.add_parsable_certificates(&rustls_native_certs::load_native_certs()?);
 
         if ignored > 0 {
-            tracing::warn!(
+            tracing::debug!(
                 "failed to parse {} certificate(s) from the native root store",
                 ignored,
             );

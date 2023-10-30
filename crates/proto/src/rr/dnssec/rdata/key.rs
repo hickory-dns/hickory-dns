@@ -746,7 +746,7 @@ impl KEY {
     //         encoder.set_canonical_names(true);
     //         if let Err(e) = name.emit(&mut encoder)
     //                .and_then(|_| emit(&mut encoder, self)) {
-    //             warn!("error serializing KEY: {}", e);
+    //             debug!("error serializing KEY: {}", e);
     //             return Err(format!("error serializing KEY: {}", e).into());
     //         }
     //     }

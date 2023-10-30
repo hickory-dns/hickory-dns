@@ -30,7 +30,7 @@ use clap::Parser;
 use data_encoding::BASE64;
 use openssl::bn::BigNum;
 use openssl::rsa::Rsa;
-use tracing::{info, warn, Level};
+use tracing::{debug, info, Level};
 
 use hickory_proto::rr::dnssec::Algorithm;
 
@@ -92,7 +92,7 @@ pub fn main() {
         panic!("Private-key-format line not found: {}", next_line);
     }
     if "v1.2" != value {
-        warn!("WARNING: un-tested version {:?}", value);
+        debug!("WARNING: un-tested version {:?}", value);
     }
 
     // algorithm

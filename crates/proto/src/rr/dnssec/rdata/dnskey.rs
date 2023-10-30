@@ -246,7 +246,7 @@ impl DNSKEY {
                 .emit(&mut encoder)
                 .and_then(|_| self.emit(&mut encoder))
             {
-                tracing::warn!("error serializing dnskey: {e}");
+                tracing::debug!("error serializing dnskey: {e}");
                 return Err(format!("error serializing dnskey: {e}").into());
             }
         }

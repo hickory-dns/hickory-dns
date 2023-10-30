@@ -7,7 +7,7 @@ use std::time::Duration;
 use futures_util::stream::{Stream, StreamExt};
 use futures_util::FutureExt;
 use tokio::time::Sleep;
-use tracing::{debug, warn};
+use tracing::debug;
 
 /// This wraps the underlying Stream in a timeout.
 ///
@@ -64,7 +64,7 @@ where
                     // ensure that interest in the Timeout is registered
                     match timeout.poll_unpin(cx) {
                         Poll::Ready(_) => {
-                            warn!("timeout fired immediately!");
+                            debug!("timeout fired immediately!");
                             return Poll::Ready(Some(Err(io::Error::new(
                                 io::ErrorKind::TimedOut,
                                 "timeout fired immediately!",

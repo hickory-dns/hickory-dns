@@ -162,7 +162,7 @@ impl fmt::Display for TXT {
     /// assert_eq!(
     ///     tested.as_bytes(),
     ///     b"Invalid utf8 <\xEF\xBF\xBD>. Valid utf8 <\xF0\x9F\xA4\xA3>",
-    ///     "Utf8 lossy conversion error! Mismatch between input and expected"
+    ///     "Utf8 lossy conversion debug! Mismatch between input and expected"
     /// );
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {

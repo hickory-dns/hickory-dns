@@ -17,7 +17,7 @@ use futures_util::stream::Stream;
 use futures_util::{future::Future, ready, TryFutureExt};
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
-use tracing::{debug, warn};
+use tracing::debug;
 
 use crate::udp::MAX_RECEIVE_BUFFER_SIZE;
 use crate::xfer::{BufDnsStreamHandle, SerialMessage, StreamReceiver};
@@ -207,7 +207,7 @@ impl<S: DnsUdpSocket + Send + 'static> Stream for UdpStream<S> {
             // TODO: shouldn't this return the error to send to the sender?
             if let Err(e) = ready!(socket.poll_send_to(cx, message.bytes(), addr)) {
                 // Drop the UDP packet and continue
-                warn!(
+                debug!(
                     "error sending message to {} on udp_socket, dropping response: {}",
                     addr, e
                 );

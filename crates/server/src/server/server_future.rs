@@ -17,7 +17,7 @@ use hickory_proto::{op::MessageType, rr::Record};
 use rustls::{Certificate, PrivateKey, ServerConfig};
 use tokio::{net, task::JoinSet};
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 use crate::proto::openssl::tls_server::*;
@@ -80,7 +80,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                     let message = match message {
                         Err(e) => {
-                            warn!("error receiving message on udp_socket: {}", e);
+                            debug!("error receiving message on udp_socket: {}", e);
                             continue;
                         }
                         Ok(message) => message,
@@ -91,7 +91,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                     // verify that the src address is safe for responses
                     if let Err(e) = sanitize_src_address(src_addr) {
-                        warn!(
+                        debug!(
                             "address can not be responded to {src_addr}: {e}",
                             src_addr = src_addr,
                             e = e
@@ -163,7 +163,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                 // verify that the src address is safe for responses
                 if let Err(e) = sanitize_src_address(src_addr) {
-                    warn!(
+                    debug!(
                         "address can not be responded to {src_addr}: {e}",
                         src_addr = src_addr,
                         e = e
@@ -290,7 +290,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                 // verify that the src address is safe for responses
                 if let Err(e) = sanitize_src_address(src_addr) {
-                    warn!(
+                    debug!(
                         "address can not be responded to {src_addr}: {e}",
                         src_addr = src_addr,
                         e = e
@@ -441,7 +441,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                 // verify that the src address is safe for responses
                 if let Err(e) = sanitize_src_address(src_addr) {
-                    warn!(
+                    debug!(
                         "address can not be responded to {src_addr}: {e}",
                         src_addr = src_addr,
                         e = e
@@ -633,7 +633,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                 // verify that the src address is safe for responses
                 if let Err(e) = sanitize_src_address(src_addr) {
-                    warn!("address can not be responded to {src_addr}: {e}");
+                    debug!("address can not be responded to {src_addr}: {e}");
                     continue;
                 }
 
@@ -734,7 +734,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                 // verify that the src address is safe for responses
                 // TODO: we're relying the quinn library to actually validate responses before we get here, but this check is still worth doing
                 if let Err(e) = sanitize_src_address(src_addr) {
-                    warn!(
+                    debug!(
                         "address can not be responded to {src_addr}: {e}",
                         src_addr = src_addr,
                         e = e
@@ -754,7 +754,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                             .await;
 
                     if let Err(e) = result {
-                        warn!("quic stream processing failed from {src_addr}: {e}")
+                        debug!("quic stream processing failed from {src_addr}: {e}")
                     }
                 });
 
@@ -825,7 +825,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                 // verify that the src address is safe for responses
                 // TODO: we're relying the quinn library to actually validate responses before we get here, but this check is still worth doing
                 if let Err(e) = sanitize_src_address(src_addr) {
-                    warn!(
+                    debug!(
                         "address can not be responded to {src_addr}: {e}",
                         src_addr = src_addr,
                         e = e
@@ -845,7 +845,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                             .await;
 
                     if let Err(e) = result {
-                        warn!("h3 stream processing failed from {src_addr}: {e}")
+                        debug!("h3 stream processing failed from {src_addr}: {e}")
                     }
                 });
 
@@ -878,7 +878,7 @@ async fn block_until_done(
     join_set: &mut JoinSet<Result<(), ProtoError>>,
 ) -> Result<(), ProtoError> {
     if join_set.is_empty() {
-        warn!("block_until_done called with no pending tasks");
+        debug!("block_until_done called with no pending tasks");
         return Ok(());
     }
 
@@ -956,7 +956,7 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
         let id = self.request_header.id();
         let rid = response_info.id();
         if id != rid {
-            warn!("request id:{id} does not match response id:{rid}");
+            debug!("request id:{id} does not match response id:{rid}");
             debug_assert_eq!(id, rid, "request id and response id should match");
         }
 
@@ -1084,10 +1084,10 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
                 .await;
 
             if let Err(e) = result {
-                warn!("failed to return FormError to client: {}", e);
+                debug!("failed to return FormError to client: {}", e);
             }
         }
-        Err(e) => warn!("failed to read message: {}", e),
+        Err(e) => debug!("failed to read message: {}", e),
     }
 }
 

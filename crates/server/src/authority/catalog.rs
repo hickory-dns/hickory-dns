@@ -11,7 +11,7 @@
 use std::{borrow::Borrow, collections::HashMap, future::Future, io};
 
 use cfg_if::cfg_if;
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, info, trace};
 
 #[cfg(feature = "dnssec")]
 use crate::proto::rr::{
@@ -102,7 +102,7 @@ impl RequestHandler for Catalog {
             resp_edns.set_version(our_version);
 
             if req_edns.version() > our_version {
-                warn!(
+                debug!(
                     "request edns version greater than {}: {}",
                     our_version,
                     req_edns.version()
@@ -119,7 +119,7 @@ impl RequestHandler for Catalog {
                 // couldn't handle the request
                 return match result {
                     Err(e) => {
-                        error!("request error: {}", e);
+                        debug!("request error: {}", e);
                         ResponseInfo::serve_failed()
                     }
                     Ok(info) => info,
@@ -146,7 +146,7 @@ impl RequestHandler for Catalog {
                     self.update(request, response_edns, response_handle).await
                 }
                 c => {
-                    warn!("unimplemented op_code: {:?}", c);
+                    debug!("unimplemented op_code: {:?}", c);
                     let response = MessageResponseBuilder::new(Some(request.raw_query()));
 
                     response_handle
@@ -155,7 +155,7 @@ impl RequestHandler for Catalog {
                 }
             },
             MessageType::Response => {
-                warn!("got a response as a request from id: {}", request.id());
+                debug!("got a response as a request from id: {}", request.id());
                 let response = MessageResponseBuilder::new(Some(request.raw_query()));
 
                 response_handle
@@ -166,7 +166,7 @@ impl RequestHandler for Catalog {
 
         match result {
             Err(e) => {
-                error!("request failed: {}", e);
+                debug!("request failed: {}", e);
                 ResponseInfo::serve_failed()
             }
             Ok(info) => info,
@@ -265,7 +265,7 @@ impl Catalog {
             let ztype = request_info.query.query_type();
 
             if ztype != RecordType::SOA {
-                warn!(
+                debug!(
                     "invalid update request zone type must be SOA, ztype: {}",
                     ztype
                 );
@@ -288,7 +288,7 @@ impl Catalog {
                 #[allow(deprecated)]
                 match authority.zone_type() {
                     ZoneType::Secondary | ZoneType::Slave => {
-                        error!("secondary forwarding for update not yet implemented");
+                        debug!("secondary forwarding for update not yet implemented");
                         ResponseCode::NotImp
                     }
                     ZoneType::Primary | ZoneType::Master => {
@@ -372,7 +372,7 @@ impl Catalog {
 
             match result {
                 Err(e) => {
-                    error!("failed to send response: {}", e);
+                    debug!("failed to send response: {}", e);
                     ResponseInfo::serve_failed()
                 }
                 Ok(r) => r,
@@ -433,7 +433,7 @@ async fn lookup<'a, R: ResponseHandler + Unpin>(
 
     match result {
         Err(e) => {
-            error!("error sending response: {}", e);
+            debug!("error sending response: {}", e);
             ResponseInfo::serve_failed()
         }
         Ok(i) => i,
@@ -556,7 +556,7 @@ async fn send_authoritative_response(
             match authority.ns(lookup_options).await {
                 Ok(ns) => (Some(ns), None),
                 Err(e) => {
-                    warn!("ns_lookup errored: {}", e);
+                    debug!("ns_lookup errored: {}", e);
                     (None, None)
                 }
             }
@@ -573,7 +573,7 @@ async fn send_authoritative_response(
                 // run the soa lookup
                 Ok(nsecs) => Some(nsecs),
                 Err(e) => {
-                    warn!("failed to lookup nsecs: {}", e);
+                    debug!("failed to lookup nsecs: {}", e);
                     None
                 }
             }
@@ -584,7 +584,7 @@ async fn send_authoritative_response(
         match authority.soa_secure(lookup_options).await {
             Ok(soa) => (nsecs, Some(soa)),
             Err(e) => {
-                warn!("failed to lookup soa: {}", e);
+                debug!("failed to lookup soa: {}", e);
                 (nsecs, None)
             }
         }

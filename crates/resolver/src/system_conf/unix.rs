@@ -85,7 +85,7 @@ fn into_resolver_config(
         });
     }
     if nameservers.is_empty() {
-        tracing::warn!("no nameservers found in config");
+        tracing::debug!("no nameservers found in config");
     }
 
     // search

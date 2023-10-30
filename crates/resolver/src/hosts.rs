@@ -9,7 +9,7 @@ use std::sync::Arc;
 use proto::op::Query;
 use proto::rr::{Name, RecordType};
 use proto::rr::{RData, Record};
-use tracing::warn;
+use tracing::debug;
 
 use crate::dns_lru;
 use crate::lookup::Lookup;
@@ -77,7 +77,7 @@ impl Hosts {
                     Lookup::new_with_max_ttl(query, Arc::from([]))
                 }),
                 _ => {
-                    tracing::warn!("unsupported IP type from Hosts file: {:#?}", record_type);
+                    tracing::debug!("unsupported IP type from Hosts file: {:#?}", record_type);
                     return;
                 }
             };
@@ -89,7 +89,7 @@ impl Hosts {
         match record_type {
             RecordType::A => lookup_type.a = Some(new_lookup),
             RecordType::AAAA => lookup_type.aaaa = Some(new_lookup),
-            _ => tracing::warn!("unsupported IP type from Hosts file"),
+            _ => tracing::debug!("unsupported IP type from Hosts file"),
         }
     }
 
@@ -120,7 +120,7 @@ impl Hosts {
             let addr = if let Some(a) = fields[0].try_parse_ip() {
                 a
             } else {
-                warn!("could not parse an IP from hosts file");
+                debug!("could not parse an IP from hosts file");
                 continue;
             };
 
@@ -140,7 +140,7 @@ impl Hosts {
                             self.insert(name.clone(), RecordType::AAAA, lookup);
                         }
                         _ => {
-                            warn!("unsupported IP type from Hosts file: {:#?}", addr);
+                            debug!("unsupported IP type from Hosts file: {:#?}", addr);
                             continue;
                         }
                     };

@@ -14,7 +14,7 @@ use futures_channel::oneshot;
 use futures_util::future::Future;
 use futures_util::ready;
 use futures_util::stream::{Fuse, Peekable, Stream, StreamExt};
-use tracing::{debug, warn};
+use tracing::debug;
 
 use crate::error::*;
 use crate::Time;
@@ -51,7 +51,7 @@ fn ignore_send<M, T>(result: Result<M, mpsc::TrySendError<T>>) {
             return;
         }
 
-        warn!("error notifying wait, possible future leak: {:?}", error);
+        debug!("error notifying wait, possible future leak: {:?}", error);
     }
 }
 
