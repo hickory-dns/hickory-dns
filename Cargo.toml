@@ -54,7 +54,7 @@ tokio = "1.21"
 tokio-native-tls = "0.3.0"
 tokio-openssl = "0.6.0"
 tokio-rustls = "0.24.0"
-tokio-util = "0.7.9"
+tokio-util = "0.7.10"
 parking_lot = "0.12"
 
 
