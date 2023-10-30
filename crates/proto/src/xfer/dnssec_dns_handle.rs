@@ -16,12 +16,12 @@ use futures_util::{
 use tracing::{debug, trace};
 
 use crate::{
-    error::{ProtoError, ProtoErrorKind, ProtoResult},
+    error::{ProtoError, ProtoErrorKind},
     op::{Edns, OpCode, Query},
     rr::{
         dnssec::{
             rdata::{DNSSECRData, DNSKEY, DS, RRSIG},
-            Algorithm, Proof, SupportedAlgorithms, TrustAnchor,
+            Algorithm, Proof, ProofError, ProofErrorKind, SupportedAlgorithms, TrustAnchor,
         },
         rdata::opt::EdnsOption,
         DNSClass, Name, RData, Record, RecordData, RecordType,
@@ -325,6 +325,7 @@ where
 
     // there was no data returned in that message
     if rrset_types.is_empty() {
+        // TODO: stop cloning message here, take all the answers, etc, from above.
         let mut message_result = message_result.into_message();
 
         // there were no returned results, double check by dropping all the results
@@ -461,18 +462,30 @@ where
         .into_iter()
         .chain(message_result.take_additionals().into_iter())
         .filter(|record| verified_rrsets.contains(&(record.name().clone(), record.record_type())))
+        .map(|mut r| {
+            r.set_proof(Proof::Secure);
+            r
+        })
         .collect::<Vec<Record>>();
 
     let name_servers = message_result
         .take_name_servers()
         .into_iter()
         .filter(|record| verified_rrsets.contains(&(record.name().clone(), record.record_type())))
+        .map(|mut r| {
+            r.set_proof(Proof::Secure);
+            r
+        })
         .collect::<Vec<Record>>();
 
     let additionals = message_result
         .take_additionals()
         .into_iter()
         .filter(|record| verified_rrsets.contains(&(record.name().clone(), record.record_type())))
+        .map(|mut r| {
+            r.set_proof(Proof::Secure);
+            r
+        })
         .collect::<Vec<Record>>();
 
     // add the filtered records back to the message
@@ -711,8 +724,28 @@ async fn verify_default_rrset<H>(
 where
     H: DnsHandle + Sync + Unpin,
 {
+    let assoc_rrset_proof = |rrset: &mut Rrset, proof: Proof| {
+        rrset.records.iter_mut().for_each(|rr| {
+            rr.set_proof(proof);
+        });
+    };
+
+    // TODO: if there are no rrsigs, we are not necessarily failed first need to change this from an error return?
+    if rrsigs.is_empty() {
+        //let mut rrset = rrset;
+        //assoc_rrset_proof(&mut rrset, Proof::Indeterminate);
+
+        // instead of returning here, first deside if we're:
+        //    1) "indeterminate", i.e. no DNSSEC records are available back to the root
+        //    2) "insecure", the zone has a valid NSEC for the DS record in the parent zone
+        //    3) "bogus", the parent zone has a valid DS record, but the child zone didn't have the RRSIGs/DNSKEYs
+        return Err(ProtoError::from(ProtoErrorKind::RrsigsNotPresent {
+            name: rrset.name.clone(),
+            record_type: rrset.record_type,
+        }));
+    }
+
     // the record set is going to be shared across a bunch of futures, Arc for that.
-    let rrset = Arc::new(rrset);
     trace!(
         "default validation {}, record_type: {:?}",
         rrset.name,
@@ -728,19 +761,20 @@ where
         //  then return rrset. Like the standard case below, the DNSKEY is validated
         //  after this function. This function is only responsible for validating the signature
         //  the DNSKey validation should come after, see verify_rrset().
-        return future::ready(
+        future::ready(
             rrsigs
                 .iter()
                 .find_map(|rrsig| {
-                    let rrset = Arc::clone(&rrset);
-
                     if rrset
                         .records
                         .iter()
                         .filter_map(|r| r.data().map(|d| (d, r.name())))
                         .filter_map(|(d, n)| DNSKEY::try_borrow(d).map(|d| (d, n)))
                         .any(|(dnskey, dnskey_name)| {
-                            verify_rrset_with_dnskey(dnskey_name, dnskey, rrsig, &rrset).is_ok()
+                            // If we had rrsigs to verify, then we want them to be secure, or the result is a Bogus proof
+                            verify_rrset_with_dnskey(dnskey_name, dnskey, rrsig, &rrset)
+                                .unwrap_or(Proof::Bogus)
+                                .is_secure()
                         })
                     {
                         Some(())
@@ -752,8 +786,12 @@ where
                     ProtoError::from(ProtoErrorKind::Message("self-signed dnskey is invalid"))
                 }),
         )
-        .map_ok(move |_| Arc::try_unwrap(rrset).expect("unable to unwrap Arc"))
-        .await;
+        .await?;
+
+        // Getting here means the rrset (and records), have been verified
+        let mut rrset = rrset;
+        assoc_rrset_proof(&mut rrset, Proof::Secure);
+        return Ok(rrset);
     }
 
     // we can validate with any of the rrsigs...
@@ -766,19 +804,18 @@ where
     //        dns over TLS will mitigate this.
     //  TODO: strip RRSIGS to accepted algorithms and make algorithms configurable.
     let verifications = rrsigs.iter()
-        .map(|sig| {
-            let rrset = Arc::clone(&rrset);
+        .map(|rrsig| {
             let handle = handle.clone_with_context();
 
             // TODO: Should this sig.signer_name should be confirmed to be in the same zone as the rrsigs and rrset?
             handle
                 .lookup(
-                    Query::query(sig.signer_name().clone(), RecordType::DNSKEY),
+                    Query::query(rrsig.signer_name().clone(), RecordType::DNSKEY),
                     options,
                 )
                 .first_answer()
-                .and_then(move |message|
-                    // DNSKEYs are validated by the inner query
+                .and_then(|message|
+                    // DNSKEYs were already validated by the inner query in the above lookup
                     future::ready(message
                         .answers()
                         .iter()
@@ -787,7 +824,7 @@ where
                         .filter_map(|(dnskey_name, data)|
                            DNSKEY::try_borrow(data).map(|data| (dnskey_name, data)))
                         .find(|(dnskey_name, dnskey)|
-                                verify_rrset_with_dnskey(dnskey_name, dnskey, &sig, &rrset).is_ok()
+                                verify_rrset_with_dnskey(dnskey_name, dnskey, rrsig, &rrset).is_ok()
                         )
                         .map(|_| ())
                         .ok_or_else(|| ProtoError::from(ProtoErrorKind::Message("validation failed"))))
@@ -806,6 +843,7 @@ where
 
     // if there are no available verifications, then we are in a failed state.
     if verifications.is_empty() {
+        // TODO: this is a bogus state, technically we can return the Rrset and make all the records Bogus?
         return Err(ProtoError::from(ProtoErrorKind::RrsigsNotPresent {
             name: rrset.name.clone(),
             record_type: rrset.record_type,
@@ -817,10 +855,14 @@ where
         // getting here means at least one of the rrsigs succeeded...
         .map_ok(move |((), rest)| {
             drop(rest); // drop all others, should free up Arc
-            Arc::try_unwrap(rrset).expect("unable to unwrap Arc")
         });
 
-    select.await
+    select.await?;
+
+    // getting here means we have secure and verified records.
+    let mut rrset = rrset;
+    assoc_rrset_proof(&mut rrset, Proof::Secure);
+    Ok(rrset)
 }
 
 /// Verifies the given SIG of the RRSET with the DNSKEY.
@@ -828,36 +870,60 @@ where
 fn verify_rrset_with_dnskey(
     dnskey_name: &Name,
     dnskey: &DNSKEY,
-    sig: &RRSIG,
+    rrsig: &RRSIG,
     rrset: &Rrset,
-) -> ProtoResult<()> {
+) -> Result<Proof, ProofError> {
     if dnskey.revoke() {
         debug!("revoked");
-        return Err(ProtoErrorKind::Message("revoked").into());
+        return Err(ProofError::new(
+            Proof::Bogus,
+            ProofErrorKind::DnsKeyRevoked {
+                name: dnskey_name.clone(),
+                key_tag: rrsig.key_tag(),
+            },
+        ));
     } // TODO: does this need to be validated? RFC 5011
     if !dnskey.zone_key() {
-        return Err(ProtoErrorKind::Message("is not a zone key").into());
+        return Err(ProofError::new(
+            Proof::Bogus,
+            ProofErrorKind::NotZoneDnsKey {
+                name: dnskey_name.clone(),
+                key_tag: rrsig.key_tag(),
+            },
+        ));
     }
-    if dnskey.algorithm() != sig.algorithm() {
-        return Err(ProtoErrorKind::Message("mismatched algorithm").into());
+    if dnskey.algorithm() != rrsig.algorithm() {
+        return Err(ProofError::new(
+            Proof::Bogus,
+            ProofErrorKind::AlgorithmMismatch {
+                rrsig: rrsig.algorithm(),
+                dnskey: dnskey.algorithm(),
+            },
+        ));
     }
 
     dnskey
-        .verify_rrsig(&rrset.name, rrset.record_class, sig, &rrset.records)
-        .map(|r| {
+        .verify_rrsig(&rrset.name, rrset.record_class, rrsig, &rrset.records)
+        .map(|_| {
             debug!(
                 "validated ({}, {:?}) with ({}, {})",
                 rrset.name, rrset.record_type, dnskey_name, dnskey
             );
-            r
+            Proof::Secure
         })
-        .map_err(Into::into)
         .map_err(|e| {
             debug!(
                 "failed validation of ({}, {:?}) with ({}, {})",
                 rrset.name, rrset.record_type, dnskey_name, dnskey
             );
-            e
+            ProofError::new(
+                Proof::Bogus,
+                ProofErrorKind::DnsKeyVerifyRrsig {
+                    name: dnskey_name.clone(),
+                    key_tag: rrsig.key_tag(),
+                    error: e,
+                },
+            )
         })
 }
 

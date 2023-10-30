@@ -14,7 +14,7 @@ use hickory_client::tcp::TcpClientStream;
 
 use hickory_proto::iocompat::AsyncIoTokioAsStd;
 use hickory_proto::op::ResponseCode;
-use hickory_proto::rr::dnssec::TrustAnchor;
+use hickory_proto::rr::dnssec::{Proof, TrustAnchor};
 use hickory_proto::rr::rdata::A;
 use hickory_proto::rr::Name;
 use hickory_proto::rr::{DNSClass, RData, RecordType};
@@ -62,6 +62,7 @@ where
     assert_eq!(record.name(), &name);
     assert_eq!(record.record_type(), RecordType::A);
     assert_eq!(record.dns_class(), DNSClass::IN);
+    assert_eq!(record.proof(), Proof::Secure);
 
     if let RData::A(ref address) = *record.data().unwrap() {
         assert_eq!(address, &A::new(93, 184, 216, 34))
@@ -288,6 +289,7 @@ where
     join.join().unwrap();
 }
 
+// TODO: just make this a Tokio test?
 fn with_tcp<F>(test: F)
 where
     F: Fn(DnssecDnsHandle<MemoizeClientHandle<AsyncClient>>, Runtime),

@@ -29,7 +29,7 @@ mod verifier;
 pub use self::algorithm::Algorithm;
 pub use self::digest_type::DigestType;
 pub use self::nsec3::Nsec3HashAlgorithm;
-pub use self::proof::Proof;
+pub use self::proof::{Proof, ProofError, ProofErrorKind};
 pub use self::public_key::PublicKey;
 pub use self::public_key::PublicKeyBuf;
 pub use self::public_key::PublicKeyEnum;
