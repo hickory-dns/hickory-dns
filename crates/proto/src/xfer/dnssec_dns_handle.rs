@@ -303,11 +303,11 @@ where
 {
     let mut rrset_types: HashSet<(Name, RecordType)> = HashSet::new();
 
-    // TODO: why isn't this also looking additionals?
     for rrset in message_result
         .answers()
         .iter()
         .chain(message_result.name_servers())
+        .chain(message_result.additionals())
         .filter(|rr| {
             !is_dnssec(rr, RecordType::RRSIG) &&
                              // if we are at a depth greater than 1, we are only interested in proving evaluation chains
