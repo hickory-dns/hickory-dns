@@ -29,6 +29,60 @@ pub struct HttpsClientConnection<T> {
     marker: PhantomData<T>,
 }
 
+//! ## Querying DNS over HTTPS (DoH)
+//!
+//! The example code below demonstrates how to use the Client to
+//! issue DNS queries over HTTPS.
+//!
+//! ```rust
+//! use hickory_client::client::SyncClient;
+//! use hickory_client::client::Client;
+//! use hickory_client::h2::HttpsClientConnection;
+//! use hickory_client::rr::{DNSClass, Name, RecordType};
+//! use hickory_proto::iocompat::AsyncIoTokioAsStd;
+//! use rustls::{ClientConfig, OwnedTrustAnchor, RootCertStore};
+//! use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+//!
+//! let name_server = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 443);
+//! let host_to_lookup = "example.com".to_string();
+//!
+//! let mut root_store = RootCertStore::empty();
+//! root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|ta| {
+//!     OwnedTrustAnchor::from_subject_spki_name_constraints(
+//!         ta.subject,
+//!         ta.spki,
+//!         ta.name_constraints,
+//!     )
+//! }));
+//!
+//! let client_config = ClientConfig::builder()
+//!     .with_safe_default_cipher_suites()
+//!     .with_safe_default_kx_groups()
+//!     .with_safe_default_protocol_versions()
+//!     .unwrap()
+//!     .with_root_certificates(root_store)
+//!     .with_no_client_auth();
+//!
+//! let shared_client_config = std::sync::Arc::new(client_config);
+//! let conn: HttpsClientConnection<AsyncIoTokioAsStd<tokio::net::TcpStream>> =
+//!     HttpsClientConnection::new(name_server, "dns.google".to_string(), shared_client_config);
+//!
+//! let client = SyncClient::new(conn);
+//! let name = Name::from_ascii(host_to_lookup).unwrap();
+//! let dns_class = DNSClass::IN;
+//! let record_type = RecordType::A;
+//!
+//! let response = client.query(&name, dns_class, record_type);
+//! match response {
+//!     Ok(answer) => {
+//!         println!("ok={:?}", answer);
+//!     }
+//!     Err(e) => {
+//!         println!("err Resp={:?}", e);
+//!     }
+//! }
+//! ```
+
 impl<T> HttpsClientConnection<T> {
     /// Creates a new client connection.
     ///
