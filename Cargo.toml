@@ -61,18 +61,18 @@ parking_lot = "0.12"
 # ssl
 native-tls = "0.2"
 openssl = "0.10.55"
-rustls = "0.21.6"
+rustls = "0.21.8"
 rustls-native-certs = "0.6.3"
 rustls-pemfile = "1.0.0"
 webpki-roots = "0.25.0"
-ring = "0.16"
+ring = "0.17"
 
 
 # net proto
 quinn = { version = "0.10", default-features = false }
 h2 = "0.3.0"
-h3 = "0.0.2"
-h3-quinn = "0.0.3"
+h3 = "0.0.3"
+h3-quinn = "0.0.4"
 http = "0.2"
 
 
