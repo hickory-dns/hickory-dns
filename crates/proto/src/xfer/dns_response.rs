@@ -11,7 +11,7 @@ use std::{
     convert::TryFrom,
     future::Future,
     io,
-    ops::Deref,
+    ops::{Deref, DerefMut},
     pin::Pin,
     task::{Context, Poll},
 };
@@ -326,6 +326,12 @@ impl Deref for DnsResponse {
 
     fn deref(&self) -> &Self::Target {
         &self.message
+    }
+}
+
+impl DerefMut for DnsResponse {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.message
     }
 }
 
