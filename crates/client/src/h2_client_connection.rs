@@ -42,6 +42,7 @@ pub struct HttpsClientConnection<T> {
 /// use hickory_proto::iocompat::AsyncIoTokioAsStd;
 /// use rustls::{ClientConfig, OwnedTrustAnchor, RootCertStore};
 /// use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+/// use webpki_roots;
 ///
 /// let name_server = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 443);
 /// let host_to_lookup = "example.com".to_string();
