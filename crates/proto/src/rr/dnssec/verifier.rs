@@ -75,7 +75,7 @@ pub trait Verifier {
         name: &Name,
         dns_class: DNSClass,
         sig: &RRSIG,
-        records: &[Record],
+        records: &[&Record],
     ) -> ProtoResult<()> {
         let rrset_tbs = tbs::rrset_tbs_with_sig(name, dns_class, sig, records)?;
         self.verify(rrset_tbs.as_ref(), sig.sig())
