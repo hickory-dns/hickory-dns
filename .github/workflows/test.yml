@@ -89,6 +89,7 @@ jobs:
             dns-over-native-tls,
             dnssec-openssl,
             dnssec-ring,
+            doc,
           ]
     steps:
       - uses: actions/checkout@v4

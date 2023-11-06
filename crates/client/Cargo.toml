@@ -107,6 +107,7 @@ tracing-subscriber = { workspace = true, features = [
     "fmt",
     "env-filter",
 ] }
+webpki-roots = { workspace = true }
 
 [package.metadata.docs.rs]
 all-features = true

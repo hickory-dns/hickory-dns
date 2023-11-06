@@ -60,7 +60,10 @@ build feature='' ignore='':
 # Run tests on all projects in the workspace
 test feature='' ignore='':
     cargo ws exec {{ignore}} cargo {{MSRV}} test --all-targets --benches --examples --bins --tests {{feature}}
-   
+
+doc feature='':
+    cargo ws exec --ignore=hickory-dns cargo {{MSRV}} test --doc {{feature}}
+
 # This tests compatibility with BIND9, TODO: support other feature sets besides openssl for tests
 compatibility: init-bind9
     cargo test --manifest-path tests/compatibility-tests/Cargo.toml --all-targets --benches --examples --bins --tests --no-default-features --features=none;
