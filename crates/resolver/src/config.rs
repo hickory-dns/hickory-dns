@@ -568,11 +568,12 @@ impl NameServerConfigGroup {
     ///
     /// This will create UDP and TCP connections, using the same port.
     pub fn from_ips_clear(ips: &[IpAddr], port: u16, trust_negative_responses: bool) -> Self {
-        let mut name_servers = Self::with_capacity(ips.len());
+        let mut name_servers = Self::with_capacity(2 * ips.len());
 
         for ip in ips {
+            let socket_addr = SocketAddr::new(*ip, port);
             let udp = NameServerConfig {
-                socket_addr: SocketAddr::new(*ip, port),
+                socket_addr,
                 protocol: Protocol::Udp,
                 tls_dns_name: None,
                 trust_negative_responses,
@@ -581,7 +582,7 @@ impl NameServerConfigGroup {
                 bind_addr: None,
             };
             let tcp = NameServerConfig {
-                socket_addr: SocketAddr::new(*ip, port),
+                socket_addr,
                 protocol: Protocol::Tcp,
                 tls_dns_name: None,
                 trust_negative_responses,
