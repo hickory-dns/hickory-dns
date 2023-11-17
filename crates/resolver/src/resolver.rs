@@ -120,6 +120,16 @@ impl Resolver {
         self.async_resolver.clear_cache();
     }
 
+    /// Read the config for this resolver.
+    pub fn config(&self) -> &ResolverConfig {
+        &self.async_resolver.config()
+    }
+
+    /// Read the options for this resolver.
+    pub fn options(&self) -> &ResolverOpts {
+        &self.async_resolver.options()
+    }
+
     /// Generic lookup for any RecordType
     ///
     /// *WARNING* This interface may change in the future, please use [`Self::lookup_ip`] or another variant for more stable interfaces.
