@@ -122,12 +122,12 @@ impl Resolver {
 
     /// Read the config for this resolver.
     pub fn config(&self) -> &ResolverConfig {
-        &self.async_resolver.config()
+        self.async_resolver.config()
     }
 
     /// Read the options for this resolver.
     pub fn options(&self) -> &ResolverOpts {
-        &self.async_resolver.options()
+        self.async_resolver.options()
     }
 
     /// Generic lookup for any RecordType
