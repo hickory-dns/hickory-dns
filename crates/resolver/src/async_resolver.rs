@@ -175,6 +175,16 @@ impl<R: ConnectionProvider> AsyncResolver<R> {
     pub fn clear_cache(&self) {
         self.client_cache.clear_cache();
     }
+
+    /// Read the config for this resolver.
+    pub fn config(&self) -> &ResolverConfig {
+        &self.config
+    }
+
+    /// Read the options for this resolver.
+    pub fn options(&self) -> &ResolverOpts {
+        &self.options
+    }
 }
 
 impl<P: ConnectionProvider> AsyncResolver<P> {
