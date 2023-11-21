@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use hickory_proto::error::{ProtoError, ProtoErrorKind};
 use lru_cache::LruCache;
 use parking_lot::Mutex;
 
@@ -18,7 +19,6 @@ use proto::op::Query;
 use proto::rr::Record;
 
 use crate::config;
-use crate::error::*;
 use crate::lookup::Lookup;
 
 /// Maximum TTL as defined in https://tools.ietf.org/html/rfc2181, 2147483647
@@ -28,7 +28,7 @@ pub(crate) const MAX_TTL: u32 = 86400_u32;
 #[derive(Debug)]
 struct LruValue {
     // In the None case, this represents an NXDomain
-    lookup: Result<Lookup, ResolveError>,
+    lookup: Result<Lookup, ProtoError>,
     valid_until: Instant,
 }
 
@@ -283,40 +283,31 @@ impl DnsLru {
         lookup
     }
 
-    /// This converts the ResolveError to set the inner negative_ttl value to be the
+    /// This converts the Error to set the inner negative_ttl value to be the
     ///  current expiration ttl.
-    fn nx_error_with_ttl(error: &mut ResolveError, new_ttl: Duration) {
-        if let ResolveError {
-            kind:
-                ResolveErrorKind::NoRecordsFound {
-                    ref mut negative_ttl,
-                    ..
-                },
+    fn nx_error_with_ttl(error: &mut ProtoError, new_ttl: Duration) {
+        let ProtoError { kind, .. } = error;
+
+        if let ProtoErrorKind::NoRecordsFound {
+            ref mut negative_ttl,
             ..
-        } = error
+        } = kind.as_mut()
         {
             *negative_ttl = Some(u32::try_from(new_ttl.as_secs()).unwrap_or(MAX_TTL));
         }
     }
 
-    pub(crate) fn negative(
-        &self,
-        query: Query,
-        mut error: ResolveError,
-        now: Instant,
-    ) -> ResolveError {
+    pub(crate) fn negative(&self, query: Query, mut error: ProtoError, now: Instant) -> ProtoError {
+        let ProtoError { ref kind, .. } = error;
+
         // TODO: if we are getting a negative response, should we instead fallback to cache?
         //   this would cache indefinitely, probably not correct
-        if let ResolveError {
-            kind:
-                ResolveErrorKind::NoRecordsFound {
-                    negative_ttl: Some(ttl),
-                    ..
-                },
+        if let ProtoErrorKind::NoRecordsFound {
+            negative_ttl: Some(ttl),
             ..
-        } = error
+        } = kind.as_ref()
         {
-            let ttl_duration = Duration::from_secs(u64::from(ttl))
+            let ttl_duration = Duration::from_secs(u64::from(*ttl))
                 // Clamp the TTL so that it's between the cache's configured
                 // minimum and maximum TTLs for negative responses.
                 .clamp(self.negative_min_ttl, self.negative_max_ttl);
@@ -341,7 +332,7 @@ impl DnsLru {
     }
 
     /// Based on the query, see if there are any records available
-    pub fn get(&self, query: &Query, now: Instant) -> Option<Result<Lookup, ResolveError>> {
+    pub fn get(&self, query: &Query, now: Instant) -> Option<Result<Lookup, ProtoError>> {
         let mut out_of_date = false;
         let mut cache = self.cache.lock();
         let lookup = cache.get_mut(query).and_then(|value| {
@@ -389,7 +380,7 @@ mod tests {
         let past_the_future = now + Duration::from_secs(6);
 
         let value = LruValue {
-            lookup: Err(ResolveErrorKind::Message("test error").into()),
+            lookup: Err(ProtoErrorKind::Message("test error").into()),
             valid_until: future,
         };
 
@@ -452,7 +443,7 @@ mod tests {
         let lru = DnsLru::new(1, ttls);
 
         // neg response should have TTL of 1 seconds.
-        let err = ResolveErrorKind::NoRecordsFound {
+        let err = ProtoErrorKind::NoRecordsFound {
             query: Box::new(name.clone()),
             soa: None,
             negative_ttl: Some(1),
@@ -461,16 +452,16 @@ mod tests {
         };
         let nx_error = lru.negative(name.clone(), err.into(), now);
         match nx_error.kind() {
-            &ResolveErrorKind::NoRecordsFound { negative_ttl, .. } => {
+            &ProtoErrorKind::NoRecordsFound { negative_ttl, .. } => {
                 let valid_until = negative_ttl.expect("resolve error should have a deadline");
                 // the error's `valid_until` field should have been limited to 2 seconds.
                 assert_eq!(valid_until, 2);
             }
-            other => panic!("expected ResolveErrorKind::NoRecordsFound, got {:?}", other),
+            other => panic!("expected ProtoErrorKind::NoRecordsFound, got {:?}", other),
         }
 
         // neg response should have TTL of 3 seconds.
-        let err = ResolveErrorKind::NoRecordsFound {
+        let err = ProtoErrorKind::NoRecordsFound {
             query: Box::new(name.clone()),
             soa: None,
             negative_ttl: Some(3),
@@ -479,13 +470,13 @@ mod tests {
         };
         let nx_error = lru.negative(name, err.into(), now);
         match nx_error.kind() {
-            &ResolveErrorKind::NoRecordsFound { negative_ttl, .. } => {
-                let negative_ttl = negative_ttl.expect("ResolveError should have a deadline");
+            &ProtoErrorKind::NoRecordsFound { negative_ttl, .. } => {
+                let negative_ttl = negative_ttl.expect("ProtoError should have a deadline");
                 // the error's `valid_until` field should not have been limited, as it was
                 // over the min TTL.
                 assert_eq!(negative_ttl, 3);
             }
-            other => panic!("expected ResolveErrorKind::NoRecordsFound, got {:?}", other),
+            other => panic!("expected ProtoErrorKind::NoRecordsFound, got {:?}", other),
         }
     }
 
@@ -542,7 +533,7 @@ mod tests {
         let lru = DnsLru::new(1, ttls);
 
         // neg response should have TTL of 62 seconds.
-        let err = ResolveErrorKind::NoRecordsFound {
+        let err: ProtoErrorKind = ProtoErrorKind::NoRecordsFound {
             query: Box::new(name.clone()),
             soa: None,
             negative_ttl: Some(62),
@@ -551,16 +542,16 @@ mod tests {
         };
         let nx_error = lru.negative(name.clone(), err.into(), now);
         match nx_error.kind() {
-            &ResolveErrorKind::NoRecordsFound { negative_ttl, .. } => {
+            &ProtoErrorKind::NoRecordsFound { negative_ttl, .. } => {
                 let negative_ttl = negative_ttl.expect("resolve error should have a deadline");
                 // the error's `valid_until` field should have been limited to 60 seconds.
                 assert_eq!(negative_ttl, 60);
             }
-            other => panic!("expected ResolveErrorKind::NoRecordsFound, got {:?}", other),
+            other => panic!("expected ProtoErrorKind::NoRecordsFound, got {:?}", other),
         }
 
         // neg response should have TTL of 59 seconds.
-        let err = ResolveErrorKind::NoRecordsFound {
+        let err = ProtoErrorKind::NoRecordsFound {
             query: Box::new(name.clone()),
             soa: None,
             negative_ttl: Some(59),
@@ -569,13 +560,13 @@ mod tests {
         };
         let nx_error = lru.negative(name, err.into(), now);
         match nx_error.kind() {
-            &ResolveErrorKind::NoRecordsFound { negative_ttl, .. } => {
+            &ProtoErrorKind::NoRecordsFound { negative_ttl, .. } => {
                 let negative_ttl = negative_ttl.expect("resolve error should have a deadline");
                 // the error's `valid_until` field should not have been limited, as it was
                 // under the max TTL.
                 assert_eq!(negative_ttl, 59);
             }
-            other => panic!("expected ResolveErrorKind::NoRecordsFound, got {:?}", other),
+            other => panic!("expected ProtoErrorKind::NoRecordsFound, got {:?}", other),
         }
     }
 

@@ -6,22 +6,21 @@ use std::sync::{
 use futures::{executor::block_on, future, stream, Stream};
 
 use hickory_proto::{
+    error::ProtoError,
     op::{Message, MessageType, OpCode, ResponseCode},
     xfer::{DnsRequest, DnsResponse, FirstAnswer},
     DnsHandle, RetryDnsHandle,
 };
-use hickory_resolver::error::ResolveError;
 
 #[derive(Clone)]
 struct TestClient {
     retries: u16,
-    error_response: ResolveError,
+    error_response: ProtoError,
     attempts: Arc<AtomicU16>,
 }
 
 impl DnsHandle for TestClient {
-    type Response = Box<dyn Stream<Item = Result<DnsResponse, Self::Error>> + Send + Unpin>;
-    type Error = ResolveError;
+    type Response = Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin>;
 
     fn send<R: Into<DnsRequest>>(&self, _: R) -> Self::Response {
         let i = self.attempts.load(Ordering::SeqCst);
@@ -45,7 +44,7 @@ fn retry_on_retryable_error() {
     let handle = RetryDnsHandle::new(
         TestClient {
             retries: 1,
-            error_response: ResolveError::from(std::io::Error::from(std::io::ErrorKind::TimedOut)),
+            error_response: ProtoError::from(std::io::Error::from(std::io::ErrorKind::TimedOut)),
             attempts: Arc::new(AtomicU16::new(0)),
         },
         2,
@@ -64,7 +63,7 @@ fn dont_retry_on_negative_response() {
         .set_message_type(MessageType::Response)
         .set_op_code(OpCode::Update)
         .set_response_code(ResponseCode::NoError);
-    let error = ResolveError::from_response(DnsResponse::from_message(response).unwrap(), false)
+    let error = ProtoError::from_response(DnsResponse::from_message(response).unwrap(), false)
         .expect_err("NODATA should be an error");
     let client = RetryDnsHandle::new(
         TestClient {

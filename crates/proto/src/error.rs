@@ -9,6 +9,7 @@
 
 #![deny(missing_docs)]
 
+use std::cmp::Ordering;
 use std::{fmt, io, sync};
 
 #[cfg(feature = "backtrace")]
@@ -18,13 +19,17 @@ use enum_as_inner::EnumAsInner;
 #[cfg(feature = "backtrace")]
 use once_cell::sync::Lazy;
 use thiserror::Error;
+use tracing::debug;
 
-use crate::op::Header;
+use crate::op::{Header, Query, ResponseCode};
 
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::rdata::tsig::TsigAlgorithm;
-use crate::rr::{Name, RecordType};
+use crate::rr::rdata::SOA;
+use crate::rr::resource::RecordRef;
+use crate::rr::{Name, Record, RecordType};
 use crate::serialize::binary::DecodeError;
+use crate::xfer::DnsResponse;
 
 /// Boolean for checking if backtrace is enabled at runtime
 #[cfg(feature = "backtrace")]
@@ -153,6 +158,10 @@ pub enum ProtoErrorKind {
     #[error("{0}")]
     Msg(String),
 
+    /// No resolvers available
+    #[error("No connections available")]
+    NoConnections,
+
     /// No error was specified
     #[error("no error specified")]
     NoError,
@@ -162,6 +171,23 @@ pub enum ProtoErrorKind {
     NotAllRecordsWritten {
         /// Number of records that were written before the error
         count: usize,
+    },
+
+    /// No records were found for a query
+    #[error("no record found for {:?}", query)]
+    NoRecordsFound {
+        /// The query for which no records were found.
+        query: Box<Query>,
+        /// If an SOA is present, then this is an authoritative response or a referral to another nameserver, see the negative_type field.
+        soa: Option<Box<Record<SOA>>>,
+        /// negative ttl, as determined from DnsResponse::negative_ttl
+        ///  this will only be present if the SOA was also present.
+        negative_ttl: Option<u32>,
+        /// ResponseCode, if `NXDOMAIN`, the domain does not exist (and no other types).
+        ///   If `NoError`, then the domain exists but there exist either other types at the same label, or subzones of that label.
+        response_code: ResponseCode,
+        /// If we trust `NXDOMAIN` errors from this server
+        trusted: bool,
     },
 
     /// Missing rrsigs
@@ -314,18 +340,145 @@ pub struct ProtoError {
 }
 
 impl ProtoError {
+    /// Constructor to NX type errors
+    #[inline]
+    pub fn nx_error(
+        query: Query,
+        soa: Option<Record<SOA>>,
+        negative_ttl: Option<u32>,
+        response_code: ResponseCode,
+        trusted: bool,
+    ) -> Self {
+        ProtoErrorKind::NoRecordsFound {
+            query: Box::new(query),
+            soa: soa.map(Box::new),
+            negative_ttl,
+            response_code,
+            trusted,
+        }
+        .into()
+    }
+
     /// Get the kind of the error
+    #[inline]
     pub fn kind(&self) -> &ProtoErrorKind {
         &self.kind
     }
 
     /// If this is a ProtoErrorKind::Busy
+    #[inline]
     pub fn is_busy(&self) -> bool {
         matches!(*self.kind, ProtoErrorKind::Busy)
     }
 
+    /// Returns true if this error represents NoConnections
+    #[inline]
+    pub fn is_no_connections(&self) -> bool {
+        matches!(*self.kind, ProtoErrorKind::NoConnections)
+    }
+
     pub(crate) fn as_dyn(&self) -> &(dyn std::error::Error + 'static) {
         self
+    }
+
+    /// A conversion to determine if the response is an error
+    pub fn from_response(response: DnsResponse, trust_nx: bool) -> Result<DnsResponse, Self> {
+            debug!("Response:{}", *response);
+    
+            match response.response_code() {
+                response_code @ ResponseCode::ServFail
+                | response_code @ ResponseCode::Refused
+                | response_code @ ResponseCode::FormErr
+                | response_code @ ResponseCode::NotImp
+                | response_code @ ResponseCode::YXDomain
+                | response_code @ ResponseCode::YXRRSet
+                | response_code @ ResponseCode::NXRRSet
+                | response_code @ ResponseCode::NotAuth
+                | response_code @ ResponseCode::NotZone
+                | response_code @ ResponseCode::BADVERS
+                | response_code @ ResponseCode::BADSIG
+                | response_code @ ResponseCode::BADKEY
+                | response_code @ ResponseCode::BADTIME
+                | response_code @ ResponseCode::BADMODE
+                | response_code @ ResponseCode::BADNAME
+                | response_code @ ResponseCode::BADALG
+                | response_code @ ResponseCode::BADTRUNC
+                | response_code @ ResponseCode::BADCOOKIE => {
+                    let response = response;
+                    let soa = response.soa().as_ref().map(RecordRef::to_owned);
+                    let query = response.queries().iter().next().cloned().unwrap_or_default();
+                    let error_kind = ProtoErrorKind::NoRecordsFound {
+                        query: Box::new(query),
+                        soa: soa.map(Box::new),
+                        negative_ttl: None,
+                        response_code,
+                        trusted: false,
+                    };
+    
+                    Err(Self::from(error_kind))
+                }
+                // Some NXDOMAIN responses contain CNAME referrals, that will not be an error
+                response_code @ ResponseCode::NXDomain |
+                // No answers are available, CNAME referrals are not failures
+                response_code @ ResponseCode::NoError
+                if !response.contains_answer() && !response.truncated() => {
+                    // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
+                    // let valid_until = if response.authoritative() { now + response.negative_ttl() };
+    
+                    let  response = response;
+                    let soa = response.soa().as_ref().map(RecordRef::to_owned);
+                    let negative_ttl = response.negative_ttl();
+                    // Note: improperly configured servers may do recursive lookups and return bad SOA
+                    // records here via AS112 (blackhole-1.iana.org. etc)
+                    // Such servers should be marked not trusted, as they may break reverse lookups
+                    // for local hosts.
+                    let trusted = trust_nx && soa.is_some();
+                    let query = response.into_message().take_queries().drain(..).next().unwrap_or_default();
+                    let error_kind = ProtoErrorKind::NoRecordsFound {
+                        query: Box::new(query),
+                        soa: soa.map(Box::new),
+                        negative_ttl,
+                        response_code,
+                        trusted,
+                    };
+    
+                    Err(Self::from(error_kind))
+                }
+                ResponseCode::NXDomain
+                | ResponseCode::NoError
+                | ResponseCode::Unknown(_) => Ok(response),
+            }
+        }
+
+    /// Compare two errors to see if one contains a server response.
+    pub fn cmp_specificity(&self, other: &Self) -> Ordering {
+        let kind = self.kind();
+        let other = other.kind();
+
+        match (kind, other) {
+            (ProtoErrorKind::NoRecordsFound { .. }, ProtoErrorKind::NoRecordsFound { .. }) => {
+                return Ordering::Equal
+            }
+            (ProtoErrorKind::NoRecordsFound { .. }, _) => return Ordering::Greater,
+            (_, ProtoErrorKind::NoRecordsFound { .. }) => return Ordering::Less,
+            _ => (),
+        }
+
+        match (kind, other) {
+            (ProtoErrorKind::Io { .. }, ProtoErrorKind::Io { .. }) => return Ordering::Equal,
+            (ProtoErrorKind::Io { .. }, _) => return Ordering::Greater,
+            (_, ProtoErrorKind::Io { .. }) => return Ordering::Less,
+            _ => (),
+        }
+
+        match (kind, other) {
+            (ProtoErrorKind::Timeout, ProtoErrorKind::Timeout) => return Ordering::Equal,
+            (ProtoErrorKind::Timeout, _) => return Ordering::Greater,
+            (_, ProtoErrorKind::Timeout) => return Ordering::Less,
+            _ => (),
+        }
+
+        Ordering::Equal
     }
 }
 
@@ -452,8 +605,22 @@ impl Clone for ProtoErrorKind {
             MaxBufferSizeExceeded(max) => MaxBufferSizeExceeded(max),
             Message(msg) => Message(msg),
             Msg(ref msg) => Msg(msg.clone()),
+            NoConnections => NoConnections,
             NoError => NoError,
             NotAllRecordsWritten { count } => NotAllRecordsWritten { count },
+            NoRecordsFound {
+                ref query,
+                ref soa,
+                negative_ttl,
+                response_code,
+                trusted,
+            } => NoRecordsFound {
+                query: query.clone(),
+                soa: soa.clone(),
+                negative_ttl,
+                response_code,
+                trusted,
+            },
             RrsigsNotPresent {
                 ref name,
                 ref record_type,

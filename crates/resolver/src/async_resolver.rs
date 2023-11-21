@@ -60,7 +60,7 @@ use crate::Hosts;
 pub struct AsyncResolver<P: ConnectionProvider> {
     config: ResolverConfig,
     options: ResolverOpts,
-    client_cache: CachingClient<LookupEither<P>, ResolveError>,
+    client_cache: CachingClient<LookupEither<P>>,
     hosts: Option<Arc<Hosts>>,
 }
 
@@ -1083,8 +1083,8 @@ mod tests {
         assert!(is_sync_t::<AsyncResolver<TokioConnectionProvider>>());
 
         assert!(is_send_t::<DnsRequest>());
-        assert!(is_send_t::<LookupIpFuture<GenericConnection, ResolveError>>());
-        assert!(is_send_t::<LookupFuture<GenericConnection, ResolveError>>());
+        assert!(is_send_t::<LookupIpFuture<GenericConnection>>());
+        assert!(is_send_t::<LookupFuture<GenericConnection>>());
     }
 
     #[test]

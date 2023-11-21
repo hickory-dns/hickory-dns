@@ -5,8 +5,6 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::error::Error;
-use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
@@ -26,7 +24,6 @@ use hickory_proto::udp::QuicLocalAddr;
 use hickory_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 use hickory_proto::TokioTime;
 use hickory_resolver::config::{NameServerConfig, ResolverOpts};
-use hickory_resolver::error::ResolveError;
 use hickory_resolver::name_server::{ConnectionProvider, RuntimeProvider};
 use hickory_resolver::TokioHandle;
 
@@ -131,14 +128,13 @@ impl RuntimeProvider for MockRuntimeProvider {
 }
 
 #[derive(Clone)]
-pub struct MockConnProvider<O: OnSend + Unpin, E> {
+pub struct MockConnProvider<O: OnSend + Unpin> {
     pub on_send: O,
-    pub _p: PhantomData<E>,
 }
 
-impl<O: OnSend + Unpin> ConnectionProvider for MockConnProvider<O, ResolveError> {
-    type Conn = MockClientHandle<O, ResolveError>;
-    type FutureConn = Pin<Box<dyn Send + Future<Output = Result<Self::Conn, ResolveError>>>>;
+impl<O: OnSend + Unpin> ConnectionProvider for MockConnProvider<O> {
+    type Conn = MockClientHandle<O>;
+    type FutureConn = Pin<Box<dyn Send + Future<Output = Result<Self::Conn, ProtoError>>>>;
     type RuntimeProvider = MockRuntimeProvider;
 
     fn new_connection(
@@ -155,15 +151,15 @@ impl<O: OnSend + Unpin> ConnectionProvider for MockConnProvider<O, ResolveError>
 }
 
 #[derive(Clone)]
-pub struct MockClientHandle<O: OnSend, E> {
-    messages: Arc<Mutex<Vec<Result<DnsResponse, E>>>>,
+pub struct MockClientHandle<O: OnSend> {
+    messages: Arc<Mutex<Vec<Result<DnsResponse, ProtoError>>>>,
     on_send: O,
 }
 
-impl<E> MockClientHandle<DefaultOnSend, E> {
+impl MockClientHandle<DefaultOnSend> {
     /// constructs a new MockClient which returns each Message one after the other (messages are
     /// popped off the back of `messages`, so they are sent in reverse order).
-    pub fn mock(messages: Vec<Result<DnsResponse, E>>) -> Self {
+    pub fn mock(messages: Vec<Result<DnsResponse, ProtoError>>) -> Self {
         println!("MockClientHandle::mock message count: {}", messages.len());
 
         MockClientHandle {
@@ -173,10 +169,10 @@ impl<E> MockClientHandle<DefaultOnSend, E> {
     }
 }
 
-impl<O: OnSend, E> MockClientHandle<O, E> {
+impl<O: OnSend> MockClientHandle<O> {
     /// constructs a new MockClient which returns each Message one after the other (messages are
     /// popped off the back of `messages`, so they are sent in reverse order).
-    pub fn mock_on_send(messages: Vec<Result<DnsResponse, E>>, on_send: O) -> Self {
+    pub fn mock_on_send(messages: Vec<Result<DnsResponse, ProtoError>>, on_send: O) -> Self {
         println!(
             "MockClientHandle::mock_on_send message count: {}",
             messages.len()
@@ -189,23 +185,15 @@ impl<O: OnSend, E> MockClientHandle<O, E> {
     }
 }
 
-impl<O: OnSend + Unpin, E> DnsHandle for MockClientHandle<O, E>
-where
-    E: From<ProtoError> + Error + Clone + Send + Unpin + 'static,
-{
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, E>> + Send>>;
-    type Error = E;
+impl<O: OnSend + Unpin> DnsHandle for MockClientHandle<O> {
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn send<R: Into<DnsRequest>>(&self, _: R) -> Self::Response {
         let mut messages = self.messages.lock().expect("failed to lock at messages");
         println!("MockClientHandle::send message count: {}", messages.len());
 
         Box::pin(once(self.on_send.on_send(messages.pop().unwrap_or_else(
-            || {
-                error(E::from(ProtoError::from(
-                    "Messages exhausted in MockClientHandle",
-                )))
-            },
+            || error(ProtoError::from("Messages exhausted in MockClientHandle")),
         ))))
     }
 }

@@ -60,8 +60,6 @@ use proto::{
 #[cfg(feature = "tokio-runtime")]
 use proto::{iocompat::AsyncIoTokioAsStd, TokioTime};
 
-use crate::error::ResolveError;
-
 /// RuntimeProvider defines which async runtime that handles IO and timers.
 pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
     /// Handle to the executor;
@@ -102,9 +100,9 @@ pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
 /// This trait is designed for customization.
 pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
     /// The handle to the connect for sending DNS requests.
-    type Conn: DnsHandle<Error = ResolveError> + Clone + Send + Sync + 'static;
+    type Conn: DnsHandle + Clone + Send + Sync + 'static;
     /// Ths future is responsible for spawning any background tasks as necessary.
-    type FutureConn: Future<Output = Result<Self::Conn, ResolveError>> + Send + 'static;
+    type FutureConn: Future<Output = Result<Self::Conn, ProtoError>> + Send + 'static;
     /// Provider that handles the underlying I/O and timing.
     type RuntimeProvider: RuntimeProvider;
 
@@ -187,7 +185,7 @@ pub struct ConnectionFuture<R: RuntimeProvider> {
 }
 
 impl<R: RuntimeProvider> Future for ConnectionFuture<R> {
-    type Output = Result<GenericConnection, ResolveError>;
+    type Output = Result<GenericConnection, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Poll::Ready(Ok(match &mut self.connect {
@@ -241,7 +239,6 @@ pub struct GenericConnection(DnsExchange);
 
 impl DnsHandle for GenericConnection {
     type Response = ConnectionResponse;
-    type Error = ResolveError;
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response {
         ConnectionResponse(self.0.send(request))
@@ -437,10 +434,10 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
 pub struct ConnectionResponse(DnsExchangeSend);
 
 impl Stream for ConnectionResponse {
-    type Item = Result<DnsResponse, ResolveError>;
+    type Item = Result<DnsResponse, ProtoError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        Poll::Ready(ready!(self.0.poll_next_unpin(cx)).map(|r| r.map_err(ResolveError::from)))
+        Poll::Ready(ready!(self.0.poll_next_unpin(cx)))
     }
 }
 

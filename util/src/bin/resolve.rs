@@ -32,12 +32,13 @@ use std::{
 
 use clap::{ArgGroup, Parser};
 use console::style;
+use hickory_proto::error::{ProtoError, ProtoErrorKind};
 use tokio::task::JoinSet;
 
 use hickory_client::rr::{Record, RecordData};
 use hickory_resolver::{
     config::{NameServerConfig, NameServerConfigGroup, Protocol, ResolverConfig, ResolverOpts},
-    error::{ResolveError, ResolveErrorKind},
+    error::ResolveError,
     lookup::Lookup,
     proto::rr::RecordType,
     TokioAsyncResolver,
@@ -173,18 +174,18 @@ fn print_ok(lookup: Lookup) {
 }
 
 fn print_error(error: ResolveError) {
-    match error.kind() {
-        ResolveErrorKind::NoRecordsFound { query, soa, .. } => {
+    match error.proto().map(ProtoError::kind) {
+        Some(ProtoErrorKind::NoRecordsFound { query, soa, .. }) => {
             println!(
                 "{} for query {}",
                 style("NoRecordsFound").red(),
                 style(query).blue()
             );
-            if let Some(r) = soa {
+            if let Some(ref r) = soa {
                 print_record(r);
             }
         }
-        &_ => {
+        _ => {
             println!("{error:?}");
         }
     }

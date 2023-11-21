@@ -15,7 +15,6 @@ use hickory_proto::{
 use hickory_resolver::{
     caching_client::CachingClient,
     config::LookupIpStrategy,
-    error::ResolveError,
     lookup::{Lookup, LookupFuture},
     lookup_ip::LookupIpFuture,
     Hosts,
@@ -181,7 +180,7 @@ fn test_mock_lookup() {
         Ipv4Addr::new(93, 184, 216, 34),
     );
     let message = message(resp_query, vec![v4_record], vec![], vec![]);
-    let client: MockClientHandle<_, ResolveError> =
+    let client: MockClientHandle<_> =
         MockClientHandle::mock(vec![Ok(DnsResponse::from_message(message).unwrap())]);
 
     let lookup = LookupFuture::lookup(
@@ -212,7 +211,7 @@ fn test_cname_lookup() {
         Ipv4Addr::new(93, 184, 216, 34),
     );
     let message = message(resp_query, vec![cname_record, v4_record], vec![], vec![]);
-    let client: MockClientHandle<_, ResolveError> =
+    let client: MockClientHandle<_> =
         MockClientHandle::mock(vec![Ok(DnsResponse::from_message(message).unwrap())]);
 
     let lookup = LookupFuture::lookup(
@@ -248,7 +247,7 @@ fn test_cname_lookup_preserve() {
         vec![],
         vec![],
     );
-    let client: MockClientHandle<_, ResolveError> =
+    let client: MockClientHandle<_> =
         MockClientHandle::mock(vec![Ok(DnsResponse::from_message(message).unwrap())]);
 
     let lookup = LookupFuture::lookup(
@@ -283,7 +282,7 @@ fn test_chained_cname_lookup() {
     let message2 = message(resp_query, vec![v4_record], vec![], vec![]);
 
     // the mock pops messages...
-    let client: MockClientHandle<_, ResolveError> = MockClientHandle::mock(vec![
+    let client: MockClientHandle<_> = MockClientHandle::mock(vec![
         Ok(DnsResponse::from_message(message2).unwrap()),
         Ok(DnsResponse::from_message(message1).unwrap()),
     ]);
@@ -326,7 +325,7 @@ fn test_chained_cname_lookup_preserve() {
     let message2 = message(resp_query, vec![v4_record], vec![], vec![]);
 
     // the mock pops messages...
-    let client: MockClientHandle<_, ResolveError> = MockClientHandle::mock(vec![
+    let client: MockClientHandle<_> = MockClientHandle::mock(vec![
         Ok(DnsResponse::from_message(message2).unwrap()),
         Ok(DnsResponse::from_message(message1).unwrap()),
     ]);
@@ -403,7 +402,7 @@ fn test_max_chained_lookup_depth() {
     let message10 = message(resp_query, vec![v4_record], vec![], vec![]);
 
     // the mock pops messages...
-    let client: MockClientHandle<_, ResolveError> = MockClientHandle::mock(vec![
+    let client: MockClientHandle<_> = MockClientHandle::mock(vec![
         Ok(DnsResponse::from_message(message10).unwrap()),
         Ok(DnsResponse::from_message(message9).unwrap()),
         Ok(DnsResponse::from_message(message8).unwrap()),
