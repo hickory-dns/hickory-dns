@@ -310,6 +310,7 @@ where
     P: ConnectionProvider + 'static,
 {
     let mut err = ProtoError::from(ProtoErrorKind::NoConnections);
+
     // If the name server we're trying is giving us backpressure by returning ProtoErrorKind::Busy,
     // we will first try the other name servers (as for other error types). However, if the other
     // servers are also busy, we're going to wait for a little while and then retry each server that
