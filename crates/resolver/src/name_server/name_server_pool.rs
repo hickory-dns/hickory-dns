@@ -13,6 +13,7 @@ use std::time::Duration;
 
 use futures_util::future::FutureExt;
 use futures_util::stream::{once, FuturesUnordered, Stream, StreamExt};
+use hickory_proto::error::ProtoErrorKind;
 use smallvec::SmallVec;
 
 use proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
@@ -23,7 +24,6 @@ use rand::thread_rng as rng;
 use rand::Rng;
 
 use crate::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts, ServerOrderingStrategy};
-use crate::error::{ResolveError, ResolveErrorKind};
 #[cfg(feature = "mdns")]
 use crate::name_server;
 use crate::name_server::connection_provider::{ConnectionProvider, GenericConnector};
@@ -32,6 +32,7 @@ use crate::name_server::RuntimeProvider;
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
 use crate::name_server::TokioRuntimeProvider;
+use crate::proto::error::ProtoError;
 
 /// Abstract interface for mocking purpose
 #[derive(Clone)]
@@ -206,7 +207,7 @@ where
         opts: ResolverOpts,
         conns: Arc<[NameServer<P>]>,
         request: DnsRequest,
-    ) -> Result<DnsResponse, ResolveError> {
+    ) -> Result<DnsResponse, ProtoError> {
         let mut conns: Vec<NameServer<P>> = conns.to_vec();
 
         match opts.server_ordering_strategy {
@@ -226,8 +227,7 @@ impl<P> DnsHandle for NameServerPool<P>
 where
     P: ConnectionProvider + 'static,
 {
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>>;
-    type Error = ResolveError;
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn send<R: Into<DnsRequest>>(&self, request: R) -> Self::Response {
         let opts = self.options.clone();
@@ -258,21 +258,22 @@ where
             debug!("sending request: {:?}", request.queries());
 
             // First try the UDP connections
-            let udp_res = match Self::try_send(opts.clone(), datagram_conns, request).await {
-                Ok(response) if response.truncated() => {
-                    debug!("truncated response received, retrying over TCP");
-                    Ok(response)
-                }
-                Err(e) if opts.try_tcp_on_error || e.is_no_connections() => {
-                    debug!("error from UDP, retrying over TCP: {}", e);
-                    Err(e)
-                }
-                result => return result,
-            };
+            let udp_res: Result<DnsResponse, ProtoError> =
+                match Self::try_send(opts.clone(), datagram_conns, request).await {
+                    Ok(response) if response.truncated() => {
+                        debug!("truncated response received, retrying over TCP");
+                        Ok(response)
+                    }
+                    Err(e) if opts.try_tcp_on_error || e.is_no_connections() => {
+                        debug!("error from UDP, retrying over TCP: {}", e);
+                        Err(e)
+                    }
+                    result => return result.map_err(ProtoError::from),
+                };
 
             if stream_conns.is_empty() {
                 debug!("no TCP connections available");
-                return udp_res;
+                return udp_res.map_err(ProtoError::from);
             }
 
             // Try query over TCP, as response to query over UDP was either truncated or was an
@@ -280,7 +281,7 @@ where
             let tcp_res = Self::try_send(opts, stream_conns, tcp_message).await;
 
             let tcp_err = match tcp_res {
-                res @ Ok(..) => return res,
+                res @ Ok(..) => return res.map_err(ProtoError::from),
                 Err(e) => e,
             };
 
@@ -304,11 +305,11 @@ async fn parallel_conn_loop<P>(
     mut conns: Vec<NameServer<P>>,
     request: DnsRequest,
     opts: ResolverOpts,
-) -> Result<DnsResponse, ResolveError>
+) -> Result<DnsResponse, ProtoError>
 where
     P: ConnectionProvider + 'static,
 {
-    let mut err = ResolveError::no_connections();
+    let mut err: ProtoError = ProtoErrorKind::NoConnections.into();
     // If the name server we're trying is giving us backpressure by returning ProtoErrorKind::Busy,
     // we will first try the other name servers (as for other error types). However, if the other
     // servers are also busy, we're going to wait for a little while and then retry each server that
@@ -374,10 +375,10 @@ where
             };
 
             match e.kind() {
-                ResolveErrorKind::NoRecordsFound { trusted, .. } if *trusted => {
+                ProtoErrorKind::NoRecordsFound { trusted, .. } if *trusted => {
                     return Err(e);
                 }
-                ResolveErrorKind::Proto(e) if e.is_busy() => {
+                _ if e.is_busy() => {
                     busy.push(conn);
                 }
                 _ if err.cmp_specificity(&e) == Ordering::Less => {
@@ -421,7 +422,7 @@ mod mdns {
 #[allow(clippy::large_enum_variant)]
 pub(crate) enum Local {
     #[allow(dead_code)]
-    ResolveStream(Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>>),
+    ResolveStream(Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>),
     NotMdns(DnsRequest),
 }
 
@@ -435,7 +436,7 @@ impl Local {
     /// # Panics
     ///
     /// Panics if this is in fact a Local::NotMdns
-    fn take_stream(self) -> Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>> {
+    fn take_stream(self) -> Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>> {
         match self {
             Self::ResolveStream(future) => future,
             _ => panic!("non Local queries have no future, see take_message()"),
@@ -456,7 +457,7 @@ impl Local {
 }
 
 impl Stream for Local {
-    type Item = Result<DnsResponse, ResolveError>;
+    type Item = Result<DnsResponse, ProtoError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match *self {

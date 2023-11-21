@@ -107,8 +107,7 @@ impl<H> DnsHandle for DnssecDnsHandle<H>
 where
     H: DnsHandle + Sync + Unpin,
 {
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, Self::Error>> + Send>>;
-    type Error = <H as DnsHandle>::Error;
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn is_verifying_dnssec(&self) -> bool {
         // This handler is always verifying...
@@ -120,8 +119,8 @@ where
 
         // backstop
         if self.request_depth > request.options().max_request_depth {
-            return Box::pin(stream::once(future::err(Self::Error::from(
-                ProtoError::from("exceeded max validation depth"),
+            return Box::pin(stream::once(future::err(ProtoError::from(
+                "exceeded max validation depth",
             ))));
         }
 
@@ -129,11 +128,14 @@ where
         if let OpCode::Query = request.op_code() {
             // This will panic on no queries, that is a very odd type of request, isn't it?
             // TODO: with mDNS there can be multiple queries
-            let query = request
-                .queries()
-                .first()
-                .cloned()
-                .expect("no queries in request");
+            let query = if let Some(query) = request.queries().first().cloned() {
+                query
+            } else {
+                return Box::pin(stream::once(future::err(ProtoError::from(
+                    "no query in request",
+                ))));
+            };
+
             let handle: Self = self.clone_with_context();
 
             // TODO: cache response of the server about understood algorithms
@@ -195,9 +197,9 @@ where
                             {
                                 soa_name
                             } else {
-                                return future::err(Self::Error::from(ProtoError::from(
+                                return future::err(ProtoError::from(
                                     "could not validate negative response missing SOA",
-                                )));
+                                ));
                             };
 
                             let nsecs = verified_message
@@ -208,9 +210,9 @@ where
 
                             if !verify_nsec(&query, soa_name, nsecs.as_slice()) {
                                 // TODO change this to remove the NSECs, like we do for the others?
-                                return future::err(Self::Error::from(ProtoError::from(
+                                return future::err(ProtoError::from(
                                     "could not validate negative response with NSEC",
-                                )));
+                                ));
                             }
                         }
 
@@ -226,15 +228,14 @@ where
 /// this pulls all records returned in a Message response and returns a future which will
 ///  validate all of them.
 #[allow(clippy::type_complexity)]
-async fn verify_rrsets<H, E>(
+async fn verify_rrsets<H>(
     handle: DnssecDnsHandle<H>,
     message_result: DnsResponse,
     dns_class: DNSClass,
     options: DnsRequestOptions,
-) -> Result<DnsResponse, E>
+) -> Result<DnsResponse, ProtoError>
 where
-    H: DnsHandle<Error = E> + Sync + Unpin,
-    E: From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+    H: DnsHandle + Sync + Unpin,
 {
     let mut rrset_types: HashSet<(Name, RecordType)> = HashSet::new();
     for rrset in message_result
@@ -265,9 +266,9 @@ where
         message_result.take_name_servers();
         message_result.take_additionals();
 
-        return Err(E::from(ProtoError::from(ProtoErrorKind::Message(
+        return Err(ProtoError::from(ProtoErrorKind::Message(
             "no results to verify",
-        ))));
+        )));
     }
 
     // collect all the rrsets to verify
@@ -431,15 +432,14 @@ where
 ///  validated to prove it's correctness. There is a special case for DNSKEY, where if the RRSET
 ///  is unsigned, `rrsigs` is empty, then an immediate `verify_dnskey_rrset()` is triggered. In
 ///  this case, it's possible the DNSKEY is a trust_anchor and is not self-signed.
-async fn verify_rrset<H, E>(
+async fn verify_rrset<H>(
     handle: DnssecDnsHandle<H>,
     rrset: Rrset,
     rrsigs: Vec<Record<RRSIG>>,
     options: DnsRequestOptions,
-) -> Result<Rrset, E>
+) -> Result<Rrset, ProtoError>
 where
-    H: DnsHandle<Error = E> + Sync + Unpin,
-    E: From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+    H: DnsHandle + Sync + Unpin,
 {
     // Special case for unsigned DNSKEYs, it's valid for a DNSKEY to be bare in the zone if
     //  it's a trust_anchor, though some DNS servers choose to self-sign in this case,
@@ -468,14 +468,13 @@ where
 /// This first checks to see if the key is in the set of trust_anchors. If so then it's returned
 ///  as a success. Otherwise, a query is sent to get the DS record, and the DNSKEY is validated
 ///  against the DS record.
-async fn verify_dnskey_rrset<H, E>(
+async fn verify_dnskey_rrset<H>(
     handle: DnssecDnsHandle<H>,
     rrset: Rrset,
     options: DnsRequestOptions,
-) -> Result<Rrset, E>
+) -> Result<Rrset, ProtoError>
 where
-    H: DnsHandle<Error = E> + Sync + Unpin,
-    E: From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+    H: DnsHandle + Sync + Unpin,
 {
     trace!(
         "dnskey validation {}, record_type: {:?}",
@@ -569,9 +568,9 @@ where
         trace!("validated dnskey: {}", rrset.name);
         Ok(rrset)
     } else {
-        Err(E::from(ProtoError::from(ProtoErrorKind::Message(
+        Err(ProtoError::from(ProtoErrorKind::Message(
             "Could not validate all DNSKEYs",
-        ))))
+        )))
     }
 }
 
@@ -640,15 +639,14 @@ fn test_preserve() {
 ///  be validated through a chain back to the `trust_anchor`. As long as one RRSIG is valid,
 ///  then the RRSET will be valid.
 #[allow(clippy::blocks_in_if_conditions)]
-async fn verify_default_rrset<H, E>(
+async fn verify_default_rrset<H>(
     handle: &DnssecDnsHandle<H>,
     rrset: Rrset,
     rrsigs: Vec<Record<RRSIG>>,
     options: DnsRequestOptions,
-) -> Result<Rrset, E>
+) -> Result<Rrset, ProtoError>
 where
-    H: DnsHandle<Error = E> + Sync + Unpin,
-    E: From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+    H: DnsHandle + Sync + Unpin,
 {
     // the record set is going to be shared across a bunch of futures, Arc for that.
     let rrset = Arc::new(rrset);
@@ -693,9 +691,7 @@ where
                 })
                 .next()
                 .ok_or_else(|| {
-                    E::from(ProtoError::from(ProtoErrorKind::Message(
-                        "self-signed dnskey is invalid",
-                    )))
+                    ProtoError::from(ProtoErrorKind::Message("self-signed dnskey is invalid"))
                 }),
         )
         .map_ok(move |_| Arc::try_unwrap(rrset).expect("unable to unwrap Arc"))
@@ -738,19 +734,17 @@ where
                                 verify_rrset_with_dnskey(dnskey_name, dnskey, &sig, &rrset).is_ok()
                         )
                         .map(|_| ())
-                        .ok_or_else(|| E::from(ProtoError::from(ProtoErrorKind::Message("validation failed")))))
+                        .ok_or_else(|| ProtoError::from(ProtoErrorKind::Message("validation failed"))))
                 )
         })
         .collect::<Vec<_>>();
 
     // if there are no available verifications, then we are in a failed state.
     if verifications.is_empty() {
-        return Err(E::from(ProtoError::from(
-            ProtoErrorKind::RrsigsNotPresent {
-                name: rrset.name.clone(),
-                record_type: rrset.record_type,
-            },
-        )));
+        return Err(ProtoError::from(ProtoErrorKind::RrsigsNotPresent {
+            name: rrset.name.clone(),
+            record_type: rrset.record_type,
+        }));
     }
 
     // as long as any of the verifications is good, then the RRSET is valid.

@@ -164,7 +164,6 @@ macro_rules! try_oneshot {
 
 impl DnsHandle for BufDnsRequestStreamHandle {
     type Response = DnsResponseReceiver;
-    type Error = ProtoError;
 
     fn send<R: Into<DnsRequest>>(&self, request: R) -> Self::Response {
         let request: DnsRequest = request.into();

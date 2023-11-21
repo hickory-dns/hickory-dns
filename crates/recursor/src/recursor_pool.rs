@@ -97,7 +97,7 @@ where
                 let lookup = ns
                     .lookup(query_cpy, options)
                     .into_future()
-                    .map(|(next, _)| next)
+                    .map(|(next, _)| next.map(|r| r.map_err(ResolveError::from)))
                     .boxed()
                     .shared();
 

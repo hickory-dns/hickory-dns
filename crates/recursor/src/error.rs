@@ -12,15 +12,13 @@
 use std::{fmt, io};
 
 use enum_as_inner::EnumAsInner;
+use hickory_proto::error::ProtoErrorKind;
 use hickory_resolver::Name;
 use thiserror::Error;
 
 #[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
-use crate::{
-    proto::error::ProtoError,
-    resolver::error::{ResolveError, ResolveErrorKind},
-};
+use crate::{proto::error::ProtoError, resolver::error::ResolveError};
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, EnumAsInner, Error)]
@@ -134,7 +132,7 @@ impl From<Error> for String {
 
 impl From<ResolveError> for Error {
     fn from(e: ResolveError) -> Self {
-        if let ResolveErrorKind::NoRecordsFound { soa, .. } = e.kind() {
+        if let Some(ProtoErrorKind::NoRecordsFound { soa, .. }) = e.proto().map(ProtoError::kind) {
             match soa {
                 Some(soa) => ErrorKind::Forward(soa.name().clone()).into(),
                 _ => ErrorKind::Resolve(e).into(),

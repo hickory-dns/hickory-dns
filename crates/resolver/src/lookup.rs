@@ -9,7 +9,6 @@
 
 use std::{
     cmp::min,
-    error::Error,
     pin::Pin,
     slice::Iter,
     sync::Arc,
@@ -193,8 +192,7 @@ pub enum LookupEither<P: ConnectionProvider + Send> {
 }
 
 impl<P: ConnectionProvider> DnsHandle for LookupEither<P> {
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>>;
-    type Error = ResolveError;
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn is_verifying_dnssec(&self) -> bool {
         match *self {
@@ -215,22 +213,20 @@ impl<P: ConnectionProvider> DnsHandle for LookupEither<P> {
 
 /// The Future returned from [`AsyncResolver`] when performing a lookup.
 #[doc(hidden)]
-pub struct LookupFuture<C, E>
+pub struct LookupFuture<C>
 where
-    C: DnsHandle<Error = E> + 'static,
-    E: Into<ResolveError> + From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+    C: DnsHandle + 'static,
 {
-    client_cache: CachingClient<C, E>,
+    client_cache: CachingClient<C>,
     names: Vec<Name>,
     record_type: RecordType,
     options: DnsRequestOptions,
     query: Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>>,
 }
 
-impl<C, E> LookupFuture<C, E>
+impl<C> LookupFuture<C>
 where
-    C: DnsHandle<Error = E> + 'static,
-    E: Into<ResolveError> + From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+    C: DnsHandle + 'static,
 {
     /// Perform a lookup from a name and type to a set of RDatas
     ///
@@ -244,7 +240,7 @@ where
         mut names: Vec<Name>,
         record_type: RecordType,
         options: DnsRequestOptions,
-        mut client_cache: CachingClient<C, E>,
+        mut client_cache: CachingClient<C>,
     ) -> Self {
         let name = names.pop().ok_or_else(|| {
             ResolveError::from(ResolveErrorKind::Message("can not lookup for no names"))
@@ -267,10 +263,9 @@ where
     }
 }
 
-impl<C, E> Future for LookupFuture<C, E>
+impl<C> Future for LookupFuture<C>
 where
-    C: DnsHandle<Error = E> + 'static,
-    E: Into<ResolveError> + From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+    C: DnsHandle + 'static,
 {
     type Output = Result<Lookup, ResolveError>;
 
@@ -541,21 +536,21 @@ pub mod tests {
     use futures_util::future;
     use futures_util::stream::once;
 
+    use hickory_proto::error::ProtoErrorKind;
+    use proto::error::ProtoError;
     use proto::op::{Message, Query};
     use proto::rr::{Name, RData, Record, RecordType};
     use proto::xfer::{DnsRequest, DnsRequestOptions};
 
     use super::*;
-    use crate::error::ResolveError;
 
     #[derive(Clone)]
     pub struct MockDnsHandle {
-        messages: Arc<Mutex<Vec<Result<DnsResponse, ResolveError>>>>,
+        messages: Arc<Mutex<Vec<Result<DnsResponse, ProtoError>>>>,
     }
 
     impl DnsHandle for MockDnsHandle {
-        type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>>;
-        type Error = ResolveError;
+        type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
         fn send<R: Into<DnsRequest>>(&self, _: R) -> Self::Response {
             Box::pin(once(
@@ -564,7 +559,7 @@ pub mod tests {
         }
     }
 
-    pub fn v4_message() -> Result<DnsResponse, ResolveError> {
+    pub fn v4_message() -> Result<DnsResponse, ProtoError> {
         let mut message = Message::new();
         message.add_query(Query::query(Name::root(), RecordType::A));
         message.insert_answers(vec![Record::from_rdata(
@@ -578,17 +573,17 @@ pub mod tests {
         Ok(resp)
     }
 
-    pub fn empty() -> Result<DnsResponse, ResolveError> {
+    pub fn empty() -> Result<DnsResponse, ProtoError> {
         Ok(DnsResponse::from_message(Message::new()).unwrap())
     }
 
-    pub fn error() -> Result<DnsResponse, ResolveError> {
-        Err(ResolveError::from(ProtoError::from(std::io::Error::from(
+    pub fn error() -> Result<DnsResponse, ProtoError> {
+        Err(ProtoError::from(std::io::Error::from(
             std::io::ErrorKind::Other,
-        ))))
+        )))
     }
 
-    pub fn mock(messages: Vec<Result<DnsResponse, ResolveError>>) -> MockDnsHandle {
+    pub fn mock(messages: Vec<Result<DnsResponse, ProtoError>>) -> MockDnsHandle {
         MockDnsHandle {
             messages: Arc::new(Mutex::new(messages)),
         }
@@ -661,7 +656,7 @@ pub mod tests {
 
     #[test]
     fn test_empty_no_response() {
-        if let ResolveErrorKind::NoRecordsFound {
+        if let ProtoErrorKind::NoRecordsFound {
             query,
             negative_ttl,
             ..
@@ -671,7 +666,9 @@ pub mod tests {
             DnsRequestOptions::default(),
             CachingClient::new(0, mock(vec![empty()]), false),
         ))
-        .unwrap_err()
+        .expect_err("this should have been a NoRecordsFound")
+        .proto()
+        .expect("it sould have been a ProtoError")
         .kind()
         {
             assert_eq!(**query, Query::query(Name::root(), RecordType::A));

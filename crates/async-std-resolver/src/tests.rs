@@ -10,7 +10,6 @@ use crate::proto::xfer::DnsRequest;
 use crate::proto::Executor;
 use crate::runtime::AsyncStdConnectionProvider;
 use crate::AsyncStdResolver;
-use crate::ResolveError;
 
 fn is_send_t<T: Send>() -> bool {
     true
@@ -31,8 +30,8 @@ fn test_send_sync() {
     assert!(is_sync_t::<AsyncStdResolver>());
 
     assert!(is_send_t::<DnsRequest>());
-    assert!(is_send_t::<LookupIpFuture<GenericConnection, ResolveError>>());
-    assert!(is_send_t::<LookupFuture<GenericConnection, ResolveError>>());
+    assert!(is_send_t::<LookupIpFuture<GenericConnection>>());
+    assert!(is_send_t::<LookupFuture<GenericConnection>>());
 }
 
 #[test]

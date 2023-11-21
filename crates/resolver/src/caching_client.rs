@@ -9,7 +9,6 @@
 
 use std::{
     borrow::Cow,
-    error::Error,
     pin::Pin,
     sync::{
         atomic::{AtomicU8, Ordering},
@@ -18,12 +17,13 @@ use std::{
     time::Instant,
 };
 
-use futures_util::future::Future;
+use futures_util::future::{Future, TryFutureExt};
+use hickory_proto::error::ProtoErrorKind;
 use once_cell::sync::Lazy;
 
 use crate::{
     dns_lru::{self, DnsLru, TtlConfig},
-    error::{ResolveError, ResolveErrorKind},
+    error::ResolveError,
     lookup::Lookup,
     proto::{
         error::ProtoError,
@@ -69,10 +69,9 @@ impl Drop for DepthTracker {
 //       should it just be an variation on Authority?
 #[derive(Clone, Debug)]
 #[doc(hidden)]
-pub struct CachingClient<C, E>
+pub struct CachingClient<C>
 where
-    C: DnsHandle<Error = E>,
-    E: Into<ResolveError> + From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+    C: DnsHandle,
 {
     lru: DnsLru,
     client: C,
@@ -80,10 +79,9 @@ where
     preserve_intermediates: bool,
 }
 
-impl<C, E> CachingClient<C, E>
+impl<C> CachingClient<C>
 where
-    C: DnsHandle<Error = E> + Send + 'static,
-    E: Into<ResolveError> + From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+    C: DnsHandle + Send + 'static,
 {
     #[doc(hidden)]
     pub fn new(max_size: usize, client: C, preserve_intermediates: bool) -> Self {
@@ -110,7 +108,9 @@ where
         query: Query,
         options: DnsRequestOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>> {
-        Box::pin(Self::inner_lookup(query, options, self.clone(), vec![]))
+        Box::pin(
+            Self::inner_lookup(query, options, self.clone(), vec![]).map_err(ResolveError::from),
+        )
     }
 
     async fn inner_lookup(
@@ -118,7 +118,7 @@ where
         options: DnsRequestOptions,
         mut client: Self,
         preserved_records: Vec<(Record, u32)>,
-    ) -> Result<Lookup, ResolveError> {
+    ) -> Result<Lookup, ProtoError> {
         // see https://tools.ietf.org/html/rfc6761
         //
         // ```text
@@ -147,7 +147,7 @@ where
                     RecordType::AAAA => return Ok(Lookup::from_rdata(query, LOCALHOST_V6.clone())),
                     RecordType::PTR => return Ok(Lookup::from_rdata(query, LOCALHOST.clone())),
                     _ => {
-                        return Err(ResolveError::nx_error(
+                        return Err(ProtoError::nx_error(
                             query,
                             None,
                             None,
@@ -164,7 +164,7 @@ where
                 #[cfg(not(feature = "mdns"))]
                 ResolverUsage::LinkLocal => (),
                 ResolverUsage::NxDomain => {
-                    return Err(ResolveError::nx_error(
+                    return Err(ProtoError::nx_error(
                         query,
                         None,
                         None,
@@ -189,42 +189,42 @@ where
             .lookup(query.clone(), options)
             .first_answer()
             .await
-            .map_err(E::into);
+            .map_err(ProtoError::into);
 
         // TODO: technically this might be duplicating work, as name_server already performs this evaluation.
         //  we may want to create a new type, if evaluated... but this is most generic to support any impl in LookupState...
         let response_message = if let Ok(response) = response_message {
-            ResolveError::from_response(response, false)
+            ProtoError::from_response(response, false)
         } else {
             response_message
         };
 
         // TODO: take all records and cache them?
         //  if it's DNSSEC they must be signed, otherwise?
-        let records: Result<Records, ResolveError> = match response_message {
+        let records: Result<Records, ProtoError> = match response_message {
             // this is the only cacheable form
-            Err(ResolveError {
-                kind:
-                    ResolveErrorKind::NoRecordsFound {
+            Err(e) => {
+                match e.kind() {
+                    ProtoErrorKind::NoRecordsFound {
                         query,
                         soa,
                         negative_ttl,
                         response_code,
                         trusted,
-                    },
-                ..
-            }) => {
-                Err(Self::handle_nxdomain(
-                    is_dnssec,
-                    false, /*tbd*/
-                    *query,
-                    soa.map(|v| *v),
-                    negative_ttl,
-                    response_code,
-                    trusted,
-                ))
+                    } => {
+                        Err(Self::handle_nxdomain(
+                            is_dnssec,
+                            false, /*tbd*/
+                            query.as_ref().clone(),
+                            soa.as_ref().map(Box::as_ref).cloned(),
+                            *negative_ttl,
+                            *response_code,
+                            *trusted,
+                        ))
+                    }
+                    _ => return Err(e),
+                }
             }
-            Err(e) => return Err(e),
             Ok(response_message) => {
                 // allow the handle_noerror function to deal with any error codes
                 let records = Self::handle_noerror(
@@ -255,7 +255,7 @@ where
     }
 
     /// Check if this query is already cached
-    fn lookup_from_cache(&self, query: &Query) -> Option<Result<Lookup, ResolveError>> {
+    fn lookup_from_cache(&self, query: &Query) -> Option<Result<Lookup, ProtoError>> {
         self.lru.get(query, Instant::now())
     }
 
@@ -284,10 +284,10 @@ where
         negative_ttl: Option<u32>,
         response_code: ResponseCode,
         trusted: bool,
-    ) -> ResolveError {
+    ) -> ProtoError {
         if valid_nsec || !is_dnssec {
             // only trust if there were validated NSEC records
-            ResolveErrorKind::NoRecordsFound {
+            ProtoErrorKind::NoRecordsFound {
                 query: Box::new(query),
                 soa: soa.map(Box::new),
                 negative_ttl,
@@ -297,7 +297,7 @@ where
             .into()
         } else {
             // not cacheable, no ttl...
-            ResolveErrorKind::NoRecordsFound {
+            ProtoErrorKind::NoRecordsFound {
                 query: Box::new(query),
                 soa: soa.map(Box::new),
                 negative_ttl: None,
@@ -316,7 +316,7 @@ where
         query: &Query,
         response: DnsResponse,
         mut preserved_records: Vec<(Record, u32)>,
-    ) -> Result<Records, ResolveError> {
+    ) -> Result<Records, ProtoError> {
         // initial ttl is what CNAMES for min usage
         const INITIAL_TTL: u32 = dns_lru::MAX_TTL;
 
@@ -467,7 +467,7 @@ where
     }
 
     #[allow(clippy::unnecessary_wraps)]
-    fn cname(&self, lookup: Lookup, query: Query, cname_ttl: u32) -> Result<Lookup, ResolveError> {
+    fn cname(&self, lookup: Lookup, query: Query, cname_ttl: u32) -> Result<Lookup, ProtoError> {
         // this duplicates the cache entry under the original query
         Ok(self.lru.duplicate(query, lookup, cname_ttl, Instant::now()))
     }
@@ -475,8 +475,8 @@ where
     fn cache(
         &self,
         query: Query,
-        records: Result<Vec<(Record, u32)>, ResolveError>,
-    ) -> Result<Lookup, ResolveError> {
+        records: Result<Vec<(Record, u32)>, ProtoError>,
+    ) -> Result<Lookup, ProtoError> {
         // this will put this object into an inconsistent state, but no one should call poll again...
         match records {
             Ok(rdata) => Ok(self.lru.insert(query, rdata, Instant::now())),
@@ -495,7 +495,7 @@ enum Records {
     Exists(Vec<(Record, u32)>),
     /// Future lookup for recursive cname records
     CnameChain {
-        next: Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>>,
+        next: Pin<Box<dyn Future<Output = Result<Lookup, ProtoError>> + Send>>,
         min_ttl: u32,
     },
 }
@@ -521,7 +521,7 @@ mod tests {
         let client = mock(vec![empty()]);
         let client = CachingClient::with_cache(cache, client, false);
 
-        if let ResolveErrorKind::NoRecordsFound {
+        if let ProtoErrorKind::NoRecordsFound {
             query,
             negative_ttl,
             ..
@@ -614,7 +614,7 @@ mod tests {
     }
 
     #[allow(clippy::unnecessary_wraps)]
-    pub(crate) fn cname_message() -> Result<DnsResponse, ResolveError> {
+    pub(crate) fn cname_message() -> Result<DnsResponse, ProtoError> {
         let mut message = Message::new();
         message.add_query(Query::query(
             Name::from_str("www.example.com.").unwrap(),
@@ -629,7 +629,7 @@ mod tests {
     }
 
     #[allow(clippy::unnecessary_wraps)]
-    pub(crate) fn srv_message() -> Result<DnsResponse, ResolveError> {
+    pub(crate) fn srv_message() -> Result<DnsResponse, ProtoError> {
         let mut message = Message::new();
         message.add_query(Query::query(
             Name::from_str("_443._tcp.www.example.com.").unwrap(),

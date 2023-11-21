@@ -145,7 +145,6 @@ impl AsyncClient {
 
 impl DnsHandle for AsyncClient {
     type Response = DnsExchangeSend;
-    type Error = ProtoError;
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response {
         self.exchange.send(request)
@@ -156,10 +155,10 @@ impl DnsHandle for AsyncClient {
     }
 }
 
-impl<T> ClientHandle for T where T: DnsHandle<Error = ProtoError> {}
+impl<T> ClientHandle for T where T: DnsHandle {}
 
 /// A trait for implementing high level functions of DNS.
-pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
+pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
     /// A *classic* DNS query
     ///
     /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to

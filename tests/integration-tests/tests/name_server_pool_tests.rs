@@ -13,20 +13,19 @@ use futures::{future, Future};
 use hickory_client::op::{Query, ResponseCode};
 use hickory_client::rr::{Name, RecordType};
 use hickory_integration::mock_client::*;
-use hickory_proto::error::ProtoError;
+use hickory_proto::error::{ProtoError, ProtoErrorKind};
 use hickory_proto::xfer::{DnsHandle, DnsResponse, FirstAnswer};
 use hickory_resolver::config::*;
-use hickory_resolver::error::{ResolveError, ResolveErrorKind};
 use hickory_resolver::name_server::{NameServer, NameServerPool};
 
 const DEFAULT_SERVER_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
 
-type MockedNameServer<O> = NameServer<MockConnProvider<O, ResolveError>>;
-type MockedNameServerPool<O> = NameServerPool<MockConnProvider<O, ResolveError>>;
+type MockedNameServer<O> = NameServer<MockConnProvider<O>>;
+type MockedNameServerPool<O> = NameServerPool<MockConnProvider<O>>;
 
 #[cfg(test)]
 fn mock_nameserver(
-    messages: Vec<Result<DnsResponse, ResolveError>>,
+    messages: Vec<Result<DnsResponse, ProtoError>>,
     options: ResolverOpts,
 ) -> MockedNameServer<DefaultOnSend> {
     mock_nameserver_on_send_nx(messages, options, DefaultOnSend, DEFAULT_SERVER_ADDR, false)
@@ -34,7 +33,7 @@ fn mock_nameserver(
 
 #[cfg(test)]
 fn mock_nameserver_with_addr(
-    messages: Vec<Result<DnsResponse, ResolveError>>,
+    messages: Vec<Result<DnsResponse, ProtoError>>,
     addr: IpAddr,
     options: ResolverOpts,
 ) -> MockedNameServer<DefaultOnSend> {
@@ -43,7 +42,7 @@ fn mock_nameserver_with_addr(
 
 #[cfg(test)]
 fn mock_nameserver_trust_nx(
-    messages: Vec<Result<DnsResponse, ResolveError>>,
+    messages: Vec<Result<DnsResponse, ProtoError>>,
     options: ResolverOpts,
     trust_negative_responses: bool,
 ) -> MockedNameServer<DefaultOnSend> {
@@ -58,7 +57,7 @@ fn mock_nameserver_trust_nx(
 
 #[cfg(test)]
 fn mock_nameserver_on_send<O: OnSend + Unpin>(
-    messages: Vec<Result<DnsResponse, ResolveError>>,
+    messages: Vec<Result<DnsResponse, ProtoError>>,
     options: ResolverOpts,
     on_send: O,
 ) -> MockedNameServer<O> {
@@ -67,7 +66,7 @@ fn mock_nameserver_on_send<O: OnSend + Unpin>(
 
 #[cfg(test)]
 fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
-    messages: Vec<Result<DnsResponse, ResolveError>>,
+    messages: Vec<Result<DnsResponse, ProtoError>>,
     options: ResolverOpts,
     on_send: O,
     addr: IpAddr,
@@ -75,7 +74,6 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
 ) -> MockedNameServer<O> {
     let conn_provider = MockConnProvider {
         on_send: on_send.clone(),
-        _p: Default::default(),
     };
     let client = MockClientHandle::mock_on_send(messages, on_send);
 
@@ -248,7 +246,7 @@ fn test_datagram_fails_to_stream() {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
     let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
-    let udp_message: Result<DnsResponse, _> = Err(ResolveError::from("Forced Testing Error"));
+    let udp_message: Result<DnsResponse, _> = Err(ProtoError::from("Forced Testing Error"));
 
     let tcp_message = message(query.clone(), vec![tcp_record.clone()], vec![], vec![]);
 
@@ -281,7 +279,7 @@ fn test_tcp_fallback_only_on_truncated() {
     let tcp_message = message(query.clone(), vec![tcp_record], vec![], vec![]);
 
     let udp_nameserver = mock_nameserver(
-        vec![ResolveError::from_response(
+        vec![ProtoError::from_response(
             DnsResponse::from_message(udp_message).unwrap(),
             false,
         )],
@@ -303,7 +301,7 @@ fn test_tcp_fallback_only_on_truncated() {
     let future = pool.send(request).first_answer();
     let error = block_on(future).expect_err("lookup request should fail with SERVFAIL");
     match error.kind() {
-        ResolveErrorKind::NoRecordsFound { response_code, .. }
+        ProtoErrorKind::NoRecordsFound { response_code, .. }
             if *response_code == ResponseCode::ServFail => {}
         kind => panic!(
             "got unexpected kind of resolve error; expected `NoRecordsFound` error with SERVFAIL,
@@ -393,7 +391,7 @@ fn test_trust_nx_responses_fails() {
     let future = pool.send(request).first_answer();
     let response = block_on(future).expect_err("lookup request should fail with NXDOMAIN");
     match response.kind() {
-        ResolveErrorKind::NoRecordsFound { response_code, .. }
+        ProtoErrorKind::NoRecordsFound { response_code, .. }
             if *response_code == ResponseCode::NXDomain => {}
         kind => panic!(
             "got unexpected kind of resolve error; expected `NoRecordsFound` error with NXDOMAIN,
@@ -447,7 +445,7 @@ fn test_noerror_doesnt_leak() {
     let future = pool.send(request).first_answer();
 
     match block_on(future).unwrap_err().kind() {
-        ResolveErrorKind::NoRecordsFound {
+        ProtoErrorKind::NoRecordsFound {
             soa,
             response_code,
             trusted,
@@ -536,7 +534,7 @@ fn test_user_provided_server_order() {
     let preferred_server_records = vec![preferred_record; 10];
     let secondary_server_records = vec![secondary_record; 10];
 
-    let to_dns_response = |records: Vec<Record>| -> Vec<Result<DnsResponse, ResolveError>> {
+    let to_dns_response = |records: Vec<Record>| -> Vec<Result<DnsResponse, ProtoError>> {
         records
             .iter()
             .map(|record| {
@@ -601,11 +599,9 @@ fn test_return_error_from_highest_priority_nameserver() {
         .map(|response_code| {
             let mut error_message = message(query.clone(), vec![], vec![], vec![]);
             error_message.set_response_code(*response_code);
-            let response = ResolveError::from_response(
-                DnsResponse::from_message(error_message).unwrap(),
-                true,
-            )
-            .expect_err("error code should result in resolve error");
+            let response =
+                ProtoError::from_response(DnsResponse::from_message(error_message).unwrap(), true)
+                    .expect_err("error code should result in resolve error");
             mock_nameserver(vec![Err(response)], ResolverOpts::default())
         })
         .collect();
@@ -617,8 +613,10 @@ fn test_return_error_from_highest_priority_nameserver() {
         "DNS query should result in a `ResolveError` since all name servers return error responses",
     );
     let expected_response_code = ERROR_RESPONSE_CODES.first().unwrap();
+    eprintln!("error is: {error}");
+
     match error.kind() {
-        ResolveErrorKind::NoRecordsFound { response_code, .. }
+        ProtoErrorKind::NoRecordsFound { response_code, .. }
             if response_code == expected_response_code => {}
         kind => panic!(
             "got unexpected kind of resolve error; expected `NoRecordsFound` error with response \

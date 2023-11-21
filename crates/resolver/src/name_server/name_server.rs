@@ -16,11 +16,13 @@ use futures_util::stream::{once, Stream};
 
 #[cfg(feature = "mdns")]
 use proto::multicast::MDNS_IPV4;
-use proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
+use proto::{
+    error::ProtoError,
+    xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer},
+};
 use tracing::debug;
 
 use crate::config::{NameServerConfig, ResolverOpts};
-use crate::error::ResolveError;
 use crate::name_server::connection_provider::{ConnectionProvider, GenericConnector};
 use crate::name_server::{NameServerState, NameServerStats};
 #[cfg(feature = "mdns")]
@@ -97,7 +99,7 @@ where
     /// This will return a mutable client to allows for sending messages.
     ///
     /// If the connection is in a failed state, then this will establish a new connection
-    async fn connected_mut_client(&mut self) -> Result<P::Conn, ResolveError> {
+    async fn connected_mut_client(&mut self) -> Result<P::Conn, ProtoError> {
         let mut client = self.client.lock().await;
 
         // if this is in a failure state
@@ -127,7 +129,7 @@ where
     async fn inner_send<R: Into<DnsRequest> + Unpin + Send + 'static>(
         mut self,
         request: R,
-    ) -> Result<DnsResponse, ResolveError> {
+    ) -> Result<DnsResponse, ProtoError> {
         let client = self.connected_mut_client().await?;
         let now = Instant::now();
         let response = client.send(request).first_answer().await;
@@ -140,7 +142,7 @@ where
 
                 // First evaluate if the message succeeded.
                 let response =
-                    ResolveError::from_response(response, self.config.trust_negative_responses)?;
+                    ProtoError::from_response(response, self.config.trust_negative_responses)?;
 
                 // TODO: consider making message::take_edns...
                 let remote_edns = response.extensions().clone();
@@ -175,8 +177,7 @@ impl<P> DnsHandle for NameServer<P>
 where
     P: ConnectionProvider + Clone,
 {
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>>;
-    type Error = ResolveError;
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn is_verifying_dnssec(&self) -> bool {
         self.options.validate
