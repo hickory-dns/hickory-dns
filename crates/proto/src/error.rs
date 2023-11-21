@@ -659,8 +659,6 @@ impl Clone for ProtoErrorKind {
             UnrecognizedLabelCode(value) => UnrecognizedLabelCode(value),
             UnrecognizedNsec3Flags(flags) => UnrecognizedNsec3Flags(flags),
             UnrecognizedCsyncFlags(flags) => UnrecognizedCsyncFlags(flags),
-
-            // foreign
             Io(ref e) => Io(if let Some(raw) = e.raw_os_error() {
                 io::Error::from_raw_os_error(raw)
             } else {
