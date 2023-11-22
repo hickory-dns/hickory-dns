@@ -171,8 +171,24 @@ pub enum ProofErrorKind {
     },
 
     /// A DnsKey was revoked and could not be used for validation
-    #[error("dnskey revoked: {name} key_tag: {key_tag}")]
+    #[error("dnskey revoked: {name}, key_tag: {key_tag}")]
     DnsKeyRevoked { name: Name, key_tag: u16 },
+
+    /// No DNSSEC records returned with for the DS record
+    #[error("ds has no dnssec proof: {name}")]
+    DsHasNoDnssecProof { name: Name },
+
+    /// DS record parent exists, but child does not
+    #[error("ds record is bogus, should exist: {name}")]
+    DsRecordShouldExist { name: Name },
+
+    /// The DS response was empty
+    #[error("ds response empty: {name}")]
+    DsResponseEmpty { name: Name },
+
+    /// DS record doesnot exist, and this was proven with an NSEC
+    #[error("ds record does not exist: {name}")]
+    DsResponseNsec { name: Name },
 
     /// The DnsKey is not marked as a zone key
     #[error("not a zone signing key: {name} key_tag: {key_tag}")]

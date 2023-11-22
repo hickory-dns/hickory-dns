@@ -86,6 +86,7 @@ name = "hickory_proto"
 path = "src/lib.rs"
 
 [dependencies]
+async-recursion.workspace = true
 async-trait.workspace = true
 backtrace = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
