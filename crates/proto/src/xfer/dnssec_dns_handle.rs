@@ -382,7 +382,9 @@ where
     match rrset.record_type {
         // validation of DNSKEY records require different logic as they search for DS record coverage as well
         RecordType::DNSKEY => {
-            verify_dnskey_rrset(handle.clone_with_context(), rrset, options).await
+            verify_dnskey_rrset(handle.clone_with_context(), rrset, options)
+                .map_err(|e| ProtoError::from(format!("failed to validate DNSKEYs: {e}")))
+                .await
         }
         _ => verify_default_rrset(&handle.clone_with_context(), rrset, rrsigs, options).await,
     }
@@ -397,7 +399,7 @@ async fn verify_dnskey_rrset<H>(
     handle: DnssecDnsHandle<H>,
     rrset: Rrset<'_>,
     options: DnsRequestOptions,
-) -> Result<Proof, ProtoError>
+) -> Result<Proof, ProofError>
 where
     H: DnsHandle + Sync + Unpin,
 {
@@ -439,14 +441,7 @@ where
 
     // need to get DS records for each DNSKEY
     //   there will be a DS record for everything under the root keys
-    let ds_records = match find_ds_records(handle, rrset.name.clone(), options).await {
-        Ok(records) => records,
-        Err(err) => {
-            return Err(ProtoError::from(ProtoErrorKind::Msg(format!(
-                "No valid DS records: {err}"
-            ))))
-        }
-    };
+    let ds_records = find_ds_records(handle, rrset.name.clone(), options).await?;
 
     let valid_keys = rrset
         .records
@@ -475,13 +470,32 @@ where
         .map(|(i, _)| i)
         .collect::<Vec<usize>>();
 
+    // FIXME: what if only some are invalid? we should return the good ones?
     if !valid_keys.is_empty() {
+        // If all the keys are valid, then we are secure
         trace!("validated dnskey: {}", rrset.name);
         Ok(Proof::Secure)
+    } else if valid_keys.is_empty() && !ds_records.is_empty() {
+        // there were DS records, but no DNSKEYs, we're in a bogus state
+        trace!("bogus dnskey: {}", rrset.name);
+        Err(ProofError::new(
+            Proof::Bogus,
+            ProofErrorKind::DsRecordsButNoDnskey {
+                name: rrset.name.clone(),
+            },
+        ))
     } else {
-        Err(ProtoError::from(ProtoErrorKind::Message(
-            "Could not validate all DNSKEYs",
-        )))
+        // if rrset.records.is_empty() && ds_records.is_empty()
+        // there were DS records, but no DNSKEYs, we're in a bogus state
+        //   if there was no DS record, it should have gotten an NSEC upstream, and returned early above
+        //   and all other cases...
+        trace!("no dnskey found: {}", rrset.name);
+        Err(ProofError::new(
+            Proof::Indeterminate,
+            ProofErrorKind::DnskeyNotFound {
+                name: rrset.name.clone(),
+            },
+        ))
     }
 }
 
