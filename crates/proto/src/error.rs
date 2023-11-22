@@ -159,7 +159,7 @@ pub enum ProtoErrorKind {
     Msg(String),
 
     /// No resolvers available
-    #[error("No connections available")]
+    #[error("no connections available")]
     NoConnections,
 
     /// No error was specified
@@ -174,7 +174,7 @@ pub enum ProtoErrorKind {
     },
 
     /// No records were found for a query
-    #[error("no record found for {:?}", query)]
+    #[error("no records found for {:?}", query)]
     NoRecordsFound {
         /// The query for which no records were found.
         query: Box<Query>,
@@ -383,27 +383,28 @@ impl ProtoError {
 
     /// A conversion to determine if the response is an error
     pub fn from_response(response: DnsResponse, trust_nx: bool) -> Result<DnsResponse, Self> {
-            debug!("Response:{}", *response);
-    
-            match response.response_code() {
-                response_code @ ResponseCode::ServFail
-                | response_code @ ResponseCode::Refused
-                | response_code @ ResponseCode::FormErr
-                | response_code @ ResponseCode::NotImp
-                | response_code @ ResponseCode::YXDomain
-                | response_code @ ResponseCode::YXRRSet
-                | response_code @ ResponseCode::NXRRSet
-                | response_code @ ResponseCode::NotAuth
-                | response_code @ ResponseCode::NotZone
-                | response_code @ ResponseCode::BADVERS
-                | response_code @ ResponseCode::BADSIG
-                | response_code @ ResponseCode::BADKEY
-                | response_code @ ResponseCode::BADTIME
-                | response_code @ ResponseCode::BADMODE
-                | response_code @ ResponseCode::BADNAME
-                | response_code @ ResponseCode::BADALG
-                | response_code @ ResponseCode::BADTRUNC
-                | response_code @ ResponseCode::BADCOOKIE => {
+        use ResponseCode::*;
+        debug!("Response:{}", *response);
+
+        match response.response_code() {
+                code @ ServFail
+                | code @ Refused
+                | code @ FormErr
+                | code @ NotImp
+                | code @ YXDomain
+                | code @ YXRRSet
+                | code @ NXRRSet
+                | code @ NotAuth
+                | code @ NotZone
+                | code @ BADVERS
+                | code @ BADSIG
+                | code @ BADKEY
+                | code @ BADTIME
+                | code @ BADMODE
+                | code @ BADNAME
+                | code @ BADALG
+                | code @ BADTRUNC
+                | code @ BADCOOKIE => {
                     let response = response;
                     let soa = response.soa().as_ref().map(RecordRef::to_owned);
                     let query = response.queries().iter().next().cloned().unwrap_or_default();
@@ -411,21 +412,23 @@ impl ProtoError {
                         query: Box::new(query),
                         soa: soa.map(Box::new),
                         negative_ttl: None,
-                        response_code,
+                        response_code: code,
+                        // This is marked as false as these are all potentially temporary error Response codes about
+                        //   the client and server interaction, and do not pertain to record existence.
                         trusted: false,
                     };
-    
+
                     Err(Self::from(error_kind))
                 }
                 // Some NXDOMAIN responses contain CNAME referrals, that will not be an error
-                response_code @ ResponseCode::NXDomain |
+                code @ NXDomain |
                 // No answers are available, CNAME referrals are not failures
-                response_code @ ResponseCode::NoError
+                code @ NoError
                 if !response.contains_answer() && !response.truncated() => {
                     // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
                     // let valid_until = if response.authoritative() { now + response.negative_ttl() };
-    
-                    let  response = response;
+
+                    let response = response;
                     let soa = response.soa().as_ref().map(RecordRef::to_owned);
                     let negative_ttl = response.negative_ttl();
                     // Note: improperly configured servers may do recursive lookups and return bad SOA
@@ -438,17 +441,17 @@ impl ProtoError {
                         query: Box::new(query),
                         soa: soa.map(Box::new),
                         negative_ttl,
-                        response_code,
+                        response_code: code,
                         trusted,
                     };
-    
+
                     Err(Self::from(error_kind))
                 }
-                ResponseCode::NXDomain
-                | ResponseCode::NoError
-                | ResponseCode::Unknown(_) => Ok(response),
+                NXDomain
+                | NoError
+                | Unknown(_) => Ok(response),
             }
-        }
+    }
 
     /// Compare two errors to see if one contains a server response.
     pub fn cmp_specificity(&self, other: &Self) -> Ordering {
