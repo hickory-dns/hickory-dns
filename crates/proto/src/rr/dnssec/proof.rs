@@ -170,6 +170,10 @@ pub enum ProofErrorKind {
         error: ProtoError,
     },
 
+    /// There was no DNSKEY found for verifying the DNSSEC of the zone
+    #[error("no dnskey was found")]
+    DnskeyNotFound { name: Name },
+
     /// A DnsKey was revoked and could not be used for validation
     #[error("dnskey revoked: {name}, key_tag: {key_tag}")]
     DnsKeyRevoked { name: Name, key_tag: u16 },
@@ -177,6 +181,10 @@ pub enum ProofErrorKind {
     /// No DNSSEC records returned with for the DS record
     #[error("ds has no dnssec proof: {name}")]
     DsHasNoDnssecProof { name: Name },
+
+    /// DS record exists but not a DNSKEY that matches
+    #[error("ds record exists, but no dnskey: {name}")]
+    DsRecordsButNoDnskey { name: Name },
 
     /// DS record parent exists, but child does not
     #[error("ds record is bogus, should exist: {name}")]
