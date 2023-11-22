@@ -668,7 +668,7 @@ pub mod tests {
         ))
         .expect_err("this should have been a NoRecordsFound")
         .proto()
-        .expect("it sould have been a ProtoError")
+        .expect("it should have been a ProtoError")
         .kind()
         {
             assert_eq!(**query, Query::query(Name::root(), RecordType::A));
