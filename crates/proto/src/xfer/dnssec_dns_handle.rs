@@ -15,6 +15,7 @@ use std::{
     sync::Arc,
 };
 
+use async_recursion::async_recursion;
 use futures_util::{
     future::{self, Future, FutureExt, TryFutureExt},
     stream::{self, Stream, TryStreamExt},
@@ -343,32 +344,13 @@ where
         rrset_proofs.insert((name, record_type), proof);
     }
 
-    // set the proofs of all the records
+    // set the proofs of all the records, all records are returned, it's up to downstream users to check for correctness
     let mut records = records;
-
-    let mut i = 0;
-    while i < records.len() {
-        let record = &mut records[i];
-        let proof = rrset_proofs.get(&(record.name().clone(), record.record_type()));
-
-        match proof {
-            Some(Proof::Secure) => {
-                record.set_proof(Proof::Secure);
-                i += 1;
-            }
-            // no proof or not secure, this is the old/current behavior to remove the record
-            _ => {
-                records.remove(i);
-            }
-        }
+    for record in &mut records {
+        rrset_proofs
+            .get(&(record.name().clone(), record.record_type()))
+            .map(|proof| record.set_proof(*proof));
     }
-
-    // TODO: future code, always return the records...
-    // for record in &mut records {
-    //     rrset_proofs
-    //         .get(&(record.name().clone(), record.record_type()))
-    //         .map(|proof| record.set_proof(*proof));
-    // }
 
     Ok(records)
 }
@@ -426,48 +408,45 @@ where
     );
 
     // check the DNSKEYS against the trust_anchor, if it's approved allow it.
+    //   this includes the root keys
     {
-        let anchored_keys = rrset
+        let anchored_keys: Vec<&DNSKEY> = rrset
             .records
             .iter()
-            .enumerate()
-            .filter_map(|(i, rr)| rr.data().map(|d| (i, d)))
-            .filter_map(|(i, data)| DNSKEY::try_borrow(data).map(|d| (i, d)))
-            .filter_map(|(i, rdata)| {
+            .filter_map(|r| r.data())
+            .filter_map(DNSKEY::try_borrow)
+            .filter(|dnskey| {
                 if handle
                     .trust_anchor
-                    .contains_dnskey_bytes(rdata.public_key())
+                    .contains_dnskey_bytes(dnskey.public_key())
                 {
                     debug!(
                         "validated dnskey with trust_anchor: {}, {}",
-                        rrset.name, rdata
+                        rrset.name, dnskey
                     );
 
-                    Some(i)
+                    true
                 } else {
-                    None
+                    false
                 }
             })
-            .collect::<Vec<usize>>();
+            .collect::<Vec<_>>();
 
         if !anchored_keys.is_empty() {
-            //let mut rrset = rrset;
-            //preserve(&mut rrset.records, anchored_keys);
             return Ok(Proof::Secure);
         }
     }
 
     // need to get DS records for each DNSKEY
-    let ds_message = handle
-        .lookup(Query::query(rrset.name.clone(), RecordType::DS), options)
-        .first_answer()
-        .await?;
-
-    // if DS record query is NSEC then this is
-    Proof::Insecure;
-    // if DS record query is NXdomain or no records found then
-    Proof::Indeterminate;
-    // otherwise, if DS record is Proof::Secure, then continue
+    //   there will be a DS record for everything under the root keys
+    let ds_records = match find_ds_records(handle, rrset.name.clone(), options).await {
+        Ok(records) => records,
+        Err(err) => {
+            return Err(ProtoError::from(ProtoErrorKind::Msg(format!(
+                "No valid DS records: {err}"
+            ))))
+        }
+    };
 
     let valid_keys = rrset
         .records
@@ -476,11 +455,9 @@ where
         .filter_map(|(i, rr)| rr.data().map(|d| (i, d)))
         .filter_map(|(i, data)| DNSKEY::try_borrow(data).map(|d| (i, d)))
         .filter(|&(_, key_rdata)| {
-            ds_message
-                .answers()
+            ds_records
                 .iter()
                 .filter_map(|r| r.data().map(|d| (d, r.name())))
-                .filter_map(|(ds, n)| DS::try_borrow(ds).map(|ds| (ds, n)))
                 // must be covered by at least one DS record
                 .any(|(ds_rdata, ds_name)| {
                     if ds_rdata.covers(&rrset.name, key_rdata).unwrap_or(false) {
@@ -505,6 +482,74 @@ where
         Err(ProtoError::from(ProtoErrorKind::Message(
             "Could not validate all DNSKEYs",
         )))
+    }
+}
+
+#[async_recursion]
+async fn find_ds_records<H>(
+    handle: DnssecDnsHandle<H>,
+    zone: Name,
+    options: DnsRequestOptions,
+) -> Result<Vec<Record<DS>>, ProofError>
+where
+    H: DnsHandle + Sync + Unpin,
+{
+    // need to get DS records for each DNSKEY
+    //   there will be a DS record for everything under the root keys
+    let ds_message = handle
+        .lookup(Query::query(zone.clone(), RecordType::DS), options)
+        .first_answer()
+        .await;
+
+    let error: ProtoError = match ds_message {
+        Ok(mut ds_message)
+            if ds_message
+                .answers()
+                .iter()
+                .filter(|r| r.record_type() == RecordType::DS)
+                .any(|r| r.proof().is_secure()) =>
+        {
+            // this is a secure DS record, perfect
+            let ds_records = ds_message
+                .take_answers()
+                .into_iter()
+                .filter_map(|r| Record::<DS>::try_from(r).ok())
+                .collect::<Vec<_>>();
+
+            return Ok(ds_records);
+        }
+        Ok(_) => ProtoError::from(ProtoErrorKind::NoError),
+        Err(error) => error,
+    };
+
+    // if the DS record was an NSEC then we have an insecure zone
+    if let Some((query, proof)) = error
+        .kind()
+        .as_nsec()
+        .filter(|(_query, proof)| proof.is_secure())
+    {
+        return Err(ProofError::new(
+            Proof::Insecure,
+            ProofErrorKind::DsResponseNsec {
+                name: query.name().to_owned(),
+            },
+        ));
+    }
+
+    // otherwise we need to recursively discover the status of DS up the chain,
+    //   if we find a valid DS, then we're in a Bogus state,
+    //   if we find no records, then we are Indeterminate
+    //   if we get ProofError, our result is the same
+    match find_ds_records(handle, zone.base_name(), options).await {
+        Ok(ds_records) if !ds_records.is_empty() => Err(ProofError::new(
+            Proof::Bogus,
+            ProofErrorKind::DsRecordShouldExist { name: zone },
+        )),
+        Ok(ds_records) if ds_records.is_empty() => Err(ProofError::new(
+            Proof::Indeterminate,
+            ProofErrorKind::DsHasNoDnssecProof { name: zone },
+        )),
+        err => err,
     }
 }
 
