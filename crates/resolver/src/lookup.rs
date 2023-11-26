@@ -360,11 +360,10 @@ impl<'i> Iterator for SrvLookupIter<'i> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let iter: &mut _ = &mut self.0;
-        iter.filter_map(|rdata| match *rdata {
+        iter.find_map(|rdata| match *rdata {
             RData::SRV(ref data) => Some(data),
             _ => None,
         })
-        .next()
     }
 }
 
@@ -387,11 +386,10 @@ impl Iterator for SrvLookupIntoIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         let iter: &mut _ = &mut self.0;
-        iter.filter_map(|rdata| match rdata {
+        iter.find_map(|rdata| match rdata {
             RData::SRV(data) => Some(data),
             _ => None,
         })
-        .next()
     }
 }
 
@@ -446,11 +444,10 @@ macro_rules! lookup_type {
 
             fn next(&mut self) -> Option<Self::Item> {
                 let iter: &mut _ = &mut self.0;
-                iter.filter_map(|rdata| match *rdata {
+                iter.find_map(|rdata| match *rdata {
                     $r(ref data) => Some(data),
                     _ => None,
                 })
-                .next()
             }
         }
 
@@ -473,11 +470,10 @@ macro_rules! lookup_type {
 
             fn next(&mut self) -> Option<Self::Item> {
                 let iter: &mut _ = &mut self.0;
-                iter.filter_map(|rdata| match rdata {
+                iter.find_map(|rdata| match rdata {
                     $r(data) => Some(data),
                     _ => None,
                 })
-                .next()
             }
         }
     };
