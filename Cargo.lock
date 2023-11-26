@@ -969,6 +969,7 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "backtrace",
+ "bitflags 2.4.2",
  "bytes",
  "cfg-if",
  "data-encoding",
