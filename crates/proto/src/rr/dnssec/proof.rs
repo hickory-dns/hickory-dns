@@ -7,8 +7,9 @@
 
 //! DNSSEC related Proof of record authenticity
 
-use std::fmt;
+use std::{fmt, ops::BitOr};
 
+use bitflags::bitflags;
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -133,11 +134,47 @@ impl Ord for Proof {
     }
 }
 
+impl std::error::Error for Proof {}
+
 #[test]
 fn test_order() {
     assert!(Proof::Secure > Proof::Insecure);
     assert!(Proof::Insecure > Proof::Bogus);
     assert!(Proof::Bogus > Proof::Indeterminate);
+}
+
+bitflags! {
+    /// Represents a set of flags.
+    pub struct ProofFlags: u32 {
+        /// Represents Proof::Secure
+        const SECURE = 1 << Proof::Secure as u8;
+        /// Represents Proof::Insecure
+        const INSECURE = 1 << Proof::Insecure as u8;
+        /// Represents Proof::Bogus
+        const BOGUS = 1 << Proof::Bogus as u8;
+        /// Represents Proof::Indeterminate
+        const INDETERMINATE = 1 << Proof::Indeterminate as u8;
+    }
+}
+
+impl From<Proof> for ProofFlags {
+    fn from(proof: Proof) -> Self {
+        match proof {
+            Proof::Secure => Self::SECURE,
+            Proof::Insecure => Self::INSECURE,
+            Proof::Bogus => Self::BOGUS,
+            Proof::Indeterminate => Self::INDETERMINATE,
+        }
+    }
+}
+
+impl BitOr for Proof {
+    type Output = ProofFlags;
+
+    // rhs is the "right-hand side" of the expression `a | b`
+    fn bitor(self, rhs: Self) -> Self::Output {
+        ProofFlags::from(self) | ProofFlags::from(rhs)
+    }
 }
 
 /// The error kind for dnssec errors that get returned in the crate
@@ -298,5 +335,62 @@ impl ProofError {
 impl fmt::Display for ProofError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self.proof, self.kind)
+    }
+}
+
+/// A wrapper type to ensure that the state of a DNSSEC proof is evaluated before use
+#[derive(Debug, Clone)]
+pub struct Proven<T> {
+    proof: Proof,
+    value: T,
+}
+
+impl<T> Proven<T> {
+    /// Wrap the value with the given proof
+    pub fn new(proof: Proof, value: T) -> Self {
+        Self { proof, value }
+    }
+
+    /// Get the associated proof
+    pub fn proof(&self) -> Proof {
+        self.proof
+    }
+
+    /// Attempts to borrow the value only if it matches flags, returning the associated proof on failure
+    ///
+    /// ```
+    /// use hickory_proto::rr::dnssec::{Proof, Proven};
+    ///
+    /// let proven = Proven::new(Proof::Bogus, 42u32);
+    ///
+    /// assert_eq!(*proven.try_borrow(Proof::Bogus).unwrap(), 42_u32);
+    /// assert_eq!(*proven.try_borrow(Proof::Bogus | Proof::Indeterminate).unwrap(), 42_u32);
+    /// assert_eq!(proven.try_borrow(Proof::Secure | Proof::Insecure).unwrap_err(), Proof::Bogus);
+    /// ```
+    pub fn try_borrow<I: Into<ProofFlags>>(&self, flags: I) -> Result<&T, Proof> {
+        if flags.into().contains(ProofFlags::from(self.proof)) {
+            Ok(&self.value)
+        } else {
+            Err(self.proof)
+        }
+    }
+
+    /// Attempts to borrow the value only if it matches flags, returning the associated proof on failure
+    ///
+    /// ```
+    /// use hickory_proto::rr::dnssec::{Proof, Proven};
+    ///
+    /// let proven = Proven::new(Proof::Bogus, 42u32);
+    ///
+    /// assert_eq!(proven.clone().try_take(Proof::Bogus).unwrap(), 42_u32);
+    /// assert_eq!(proven.clone().try_take(Proof::Bogus | Proof::Indeterminate).unwrap(), 42_u32);
+    /// assert!(proven.try_take(Proof::Secure | Proof::Insecure).is_err());
+    /// ```
+    pub fn try_take<I: Into<ProofFlags>>(self, flags: I) -> Result<T, Self> {
+        if flags.into().contains(ProofFlags::from(self.proof)) {
+            Ok(self.value)
+        } else {
+            Err(self)
+        }
     }
 }

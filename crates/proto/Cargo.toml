@@ -58,11 +58,10 @@ dns-over-quic = [
 dns-over-h3 = ["h3", "h3-quinn", "quinn", "http", "dns-over-quic"]
 
 native-certs = ["dep:rustls-native-certs"]
+dnssec = ["bitflags"]
 
 dnssec-openssl = ["dnssec", "openssl"]
 dnssec-ring = ["dnssec", "ring"]
-dnssec = []
-
 testing = []
 
 text-parsing = []
@@ -89,6 +88,7 @@ path = "src/lib.rs"
 async-recursion.workspace = true
 async-trait.workspace = true
 backtrace = { workspace = true, optional = true }
+bitflags = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
 cfg-if.workspace = true
 data-encoding.workspace = true
