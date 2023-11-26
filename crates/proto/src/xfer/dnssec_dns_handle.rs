@@ -386,7 +386,9 @@ where
                 .map_err(|e| ProtoError::from(format!("failed to validate DNSKEYs: {e}")))
                 .await
         }
-        _ => verify_default_rrset(&handle.clone_with_context(), rrset, rrsigs, options).await,
+        _ => verify_default_rrset(&handle.clone_with_context(), rrset, rrsigs, options)
+            .await
+            .map_err(|e| ProtoError::from(format!("failed to validate RRSIGs: {e}"))),
     }
 }
 
@@ -441,7 +443,7 @@ where
 
     // need to get DS records for each DNSKEY
     //   there will be a DS record for everything under the root keys
-    let ds_records = find_ds_records(handle, rrset.name.clone(), options).await?;
+    let ds_records = find_ds_records(&handle, rrset.name.clone(), options).await?;
 
     let valid_keys = rrset
         .records
@@ -501,7 +503,7 @@ where
 
 #[async_recursion]
 async fn find_ds_records<H>(
-    handle: DnssecDnsHandle<H>,
+    handle: &DnssecDnsHandle<H>,
     zone: Name,
     options: DnsRequestOptions,
 ) -> Result<Vec<Record<DS>>, ProofError>
@@ -543,7 +545,7 @@ where
         .filter(|(_query, proof)| proof.is_secure())
     {
         return Err(ProofError::new(
-            Proof::Insecure,
+            *proof,
             ProofErrorKind::DsResponseNsec {
                 name: query.name().to_owned(),
             },
@@ -578,23 +580,33 @@ async fn verify_default_rrset<H>(
     rrset: Rrset<'_>,
     rrsigs: Vec<&RRSIG>,
     options: DnsRequestOptions,
-) -> Result<Proof, ProtoError>
+) -> Result<Proof, ProofError>
 where
     H: DnsHandle + Sync + Unpin,
 {
-    // TODO: if there are no rrsigs, we are not necessarily failed first need to change this from an error return?
     if rrsigs.is_empty() {
-        //let mut rrset = rrset;
-        //assoc_rrset_proof(&mut rrset, Proof::Indeterminate);
-
-        // instead of returning here, first deside if we're:
+        // Decide if we're:
         //    1) "indeterminate", i.e. no DNSSEC records are available back to the root
         //    2) "insecure", the zone has a valid NSEC for the DS record in the parent zone
         //    3) "bogus", the parent zone has a valid DS record, but the child zone didn't have the RRSIGs/DNSKEYs
-        return Err(ProtoError::from(ProtoErrorKind::RrsigsNotPresent {
-            name: rrset.name.clone(),
-            record_type: rrset.record_type,
-        }));
+        let ds_records = find_ds_records(handle, rrset.name.clone(), options).await?; // insecure will return early here
+
+        if !ds_records.is_empty() {
+            return Err(ProofError::new(
+                Proof::Bogus,
+                ProofErrorKind::DsRecordShouldExist {
+                    name: rrset.name.clone(),
+                },
+            ));
+        } else {
+            return Err(ProofError::new(
+                Proof::Indeterminate,
+                ProofErrorKind::RrsigsNotPresent {
+                    name: rrset.name.clone(),
+                    record_type: rrset.record_type,
+                },
+            ));
+        }
     }
 
     // the record set is going to be shared across a bunch of futures, Arc for that.
@@ -613,32 +625,27 @@ where
         //  then return rrset. Like the standard case below, the DNSKEY is validated
         //  after this function. This function is only responsible for validating the signature
         //  the DNSKey validation should come after, see verify_rrset().
-        future::ready(
-            rrsigs
-                .iter()
-                .find_map(|rrsig| {
-                    if rrset
-                        .records
-                        .iter()
-                        .filter_map(|r| r.data().map(|d| (d, r.name())))
-                        .filter_map(|(d, n)| DNSKEY::try_borrow(d).map(|d| (d, n)))
-                        .any(|(dnskey, dnskey_name)| {
-                            // If we had rrsigs to verify, then we want them to be secure, or the result is a Bogus proof
-                            verify_rrset_with_dnskey(dnskey_name, dnskey, rrsig, &rrset)
-                                .unwrap_or(Proof::Bogus)
-                                .is_secure()
-                        })
-                    {
-                        Some(())
-                    } else {
-                        None
-                    }
-                })
-                .ok_or_else(|| {
-                    ProtoError::from(ProtoErrorKind::Message("self-signed dnskey is invalid"))
-                }),
-        )
-        .await?;
+        rrsigs
+            .iter()
+            .find_map(|rrsig| {
+                rrset
+                    .records
+                    .iter()
+                    .filter_map(|r| r.data().map(|d| (d, r.name())))
+                    .filter_map(|(d, n)| DNSKEY::try_borrow(d).map(|d| (d, n)))
+                    .find_map(|(dnskey, dnskey_name)| {
+                        // If we had rrsigs to verify, then we want them to be secure, or the result is a Bogus proof
+                        verify_rrset_with_dnskey(dnskey_name, dnskey, rrsig, &rrset).ok()
+                    })
+            })
+            .ok_or_else(|| {
+                ProofError::new(
+                    Proof::Bogus,
+                    ProofErrorKind::SelfSignedKeyInvalid {
+                        name: rrset.name.clone(),
+                    },
+                )
+            })?;
 
         // Getting here means the rrset (and records), have been verified
         return Ok(Proof::Secure);
@@ -653,66 +660,57 @@ where
     //         susceptible until that algorithm is removed as an option.
     //        dns over TLS will mitigate this.
     //  TODO: strip RRSIGS to accepted algorithms and make algorithms configurable.
-    let verifications = rrsigs.iter()
+    let verifications = rrsigs
+        .iter()
         .map(|rrsig| {
             let handle = handle.clone_with_context();
+            let query = Query::query(rrsig.signer_name().clone(), RecordType::DNSKEY);
 
             // TODO: Should this sig.signer_name should be confirmed to be in the same zone as the rrsigs and rrset?
             handle
-                .lookup(
-                    Query::query(rrsig.signer_name().clone(), RecordType::DNSKEY),
-                    options,
-                )
+                .lookup(query.clone(), options)
                 .first_answer()
-                .and_then(|message|
+                .map_err(|proto| {
+                    ProofError::new(Proof::Indeterminate, ProofErrorKind::Proto { query, proto })
+                })
+                .map_ok(|message| {
                     // DNSKEYs were already validated by the inner query in the above lookup
-                    future::ready(message
+                    message
                         .answers()
                         .iter()
-                        .filter(|r| is_dnssec(r, RecordType::DNSKEY))
                         .filter_map(|r| r.data().map(|data| (r.name(), data)))
-                        .filter_map(|(dnskey_name, data)|
-                           DNSKEY::try_borrow(data).map(|data| (dnskey_name, data)))
-                        .find(|(dnskey_name, dnskey)|
-                                verify_rrset_with_dnskey(dnskey_name, dnskey, rrsig, &rrset).is_ok()
-                        )
-                        .map(|_| ())
-                        .ok_or_else(|| ProtoError::from(ProtoErrorKind::Message("validation failed"))))
-                )
+                        .filter_map(|(dnskey_name, data)| {
+                            DNSKEY::try_borrow(data).map(|data| (dnskey_name, data))
+                        })
+                        .find_map(|(dnskey_name, dnskey)| {
+                            verify_rrset_with_dnskey(dnskey_name, dnskey, rrsig, &rrset).ok()
+                        })
+                })
         })
         .collect::<Vec<_>>();
 
-    // if there some were valid we have a
-    Proof::Secure;
-    // if there were No DNSKey records, and there is a valid NSSEC record for the DNSKey/DS/RRSIG records, then we have a
-    Proof::Insecure;
-    // if there were DNSKeys/DS/RRSIG, but none were verified, we have a Bogus situation
-    Proof::Bogus;
-    // if there were no DNSKeys and there are no NSSEC records for the DNSKeys/DS/RRSIG records then we have a
-    Proof::Indeterminate;
-
     // if there are no available verifications, then we are in a failed state.
     if verifications.is_empty() {
-        // TODO: this is a bogus state, technically we can return the Rrset and make all the records Bogus?
-        return Err(ProtoError::from(ProtoErrorKind::RrsigsNotPresent {
-            name: rrset.name.clone(),
-            record_type: rrset.record_type,
-        }));
+        return Err(ProofError::new(
+            Proof::Bogus,
+            ProofErrorKind::RrsigsNotPresent {
+                name: rrset.name.clone(),
+                record_type: rrset.record_type,
+            },
+        ));
     }
 
     // as long as any of the verifications is good, then the RRSET is valid.
-    let select = future::select_ok(verifications)
-        // getting here means at least one of the rrsigs succeeded...
-        .map_ok(move |((), rest)| {
-            drop(rest); // drop all others, should free up Arc
-        });
+    let select = future::select_ok(verifications);
 
-    select.await?;
+    // this will return either a good result or the errors
+    let (proof, rest) = select.await?;
+    drop(rest);
 
-    // getting here means we have secure and verified records.
-    //let mut rrset = rrset;
-    //assoc_rrset_proof(&mut rrset, Proof::Secure);
-    Ok(Proof::Secure)
+    proof.ok_or_else(||
+        // we are in a bogus state, DS records were available (see beginning of function), but RRSIGs couldn't be verified
+        ProofError::new(Proof::Bogus, ProofErrorKind::RrsigsUnverified{name: rrset.name.clone(), record_type: rrset.record_type})
+    )
 }
 
 /// Verifies the given SIG of the RRSET with the DNSKEY.
