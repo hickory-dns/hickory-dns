@@ -13,8 +13,6 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[cfg(feature = "backtrace")]
-use crate::ExtBacktrace;
 use crate::{
     error::{DnsSecError, ProtoError},
     op::Query,
@@ -157,75 +155,131 @@ pub enum ProofErrorKind {
 
     /// Algorithm mismatch between rrsig and dnskey
     #[error("algorithm mismatch rrsig: {rrsig} dnskey: {dnskey}")]
-    AlgorithmMismatch { rrsig: Algorithm, dnskey: Algorithm },
+    AlgorithmMismatch {
+        /// Algorithm specified in the RRSIG
+        rrsig: Algorithm,
+        /// Algorithm supported in the DNSKEY
+        dnskey: Algorithm,
+    },
 
     /// A DNSSEC validation error, occured
     #[error("ssl error: {0}")]
     DnsSecError(#[from] DnsSecError),
 
-    /// A DnsKey verification of rrset and rrsig faile
+    /// A DnsKey verification of rrset and rrsig failed
     #[error("dnskey and rrset failed to verify: {name} key_tag: {key_tag}")]
     DnsKeyVerifyRrsig {
+        /// The name/label of the DNSKEY
         name: Name,
+        /// The key tag derived from the DNSKEY
         key_tag: u16,
+        /// The Error that occurred during validation
         error: ProtoError,
     },
 
     /// There was no DNSKEY found for verifying the DNSSEC of the zone
     #[error("no dnskey was found: {name}")]
-    DnskeyNotFound { name: Name },
+    DnskeyNotFound {
+        /// The name of the missing DNSKEY
+        name: Name,
+    },
 
     /// A DnsKey was revoked and could not be used for validation
     #[error("dnskey revoked: {name}, key_tag: {key_tag}")]
-    DnsKeyRevoked { name: Name, key_tag: u16 },
+    DnsKeyRevoked {
+        /// The name of the DNSKEY that was revoked
+        name: Name,
+        /// The key tag derived from the DNSKEY
+        key_tag: u16,
+    },
 
     /// No DNSSEC records returned with for the DS record
     #[error("ds has no dnssec proof: {name}")]
-    DsHasNoDnssecProof { name: Name },
+    DsHasNoDnssecProof {
+        /// DS record name
+        name: Name,
+    },
 
     /// DS record exists but not a DNSKEY that matches
     #[error("ds record exists, but no dnskey: {name}")]
-    DsRecordsButNoDnskey { name: Name },
+    DsRecordsButNoDnskey {
+        /// Name of the missing DNSKEY
+        name: Name,
+    },
 
     /// DS record parent exists, but child does not
     #[error("ds record should exist: {name}")]
-    DsRecordShouldExist { name: Name },
+    DsRecordShouldExist {
+        /// Name fo the missing DS key
+        name: Name,
+    },
 
     /// The DS response was empty
     #[error("ds response empty: {name}")]
-    DsResponseEmpty { name: Name },
+    DsResponseEmpty {
+        /// No records for the DS query were returned
+        name: Name,
+    },
 
-    /// DS record doesnot exist, and this was proven with an NSEC
+    /// DS record does not exist, and this was proven with an NSEC
     #[error("ds record does not exist: {name}")]
-    DsResponseNsec { name: Name },
+    DsResponseNsec {
+        /// The name of the DS record
+        name: Name,
+    },
 
     /// The DnsKey is not marked as a zone key
     #[error("not a zone signing key: {name} key_tag: {key_tag}")]
-    NotZoneDnsKey { name: Name, key_tag: u16 },
+    NotZoneDnsKey {
+        /// Name of the DNSKEY
+        name: Name,
+        /// The key tag derived from the DNSKEY
+        key_tag: u16,
+    },
 
     /// There was a protocol error when looking up DNSSEC records
     #[error("communication failure for query: {query}: {proto}")]
-    Proto { query: Query, proto: ProtoError },
+    Proto {
+        /// Query that failed
+        query: Query,
+        /// Resons fo the failure
+        proto: ProtoError,
+    },
 
     /// The RRSIGs for the rrset are not present.
     ///    It's indeterminate if DS records can't be found
     ///    It's bogus if the DS records are present
     #[error("rrsigs are not present for: {name} record_type: {record_type}")]
-    RrsigsNotPresent { name: Name, record_type: RecordType },
+    RrsigsNotPresent {
+        /// Name that RRSIGS are missing for
+        name: Name,
+        /// The record type in question
+        record_type: RecordType,
+    },
 
     /// The RRSIGs could not be verified or failed validation
     #[error("rrsigs were not able to be verified: {name}, type: {record_type}")]
-    RrsigsUnverified { name: Name, record_type: RecordType },
+    RrsigsUnverified {
+        /// Name that RRSIGS failed for
+        name: Name,
+        /// The record type in question
+        record_type: RecordType,
+    },
 
     /// The self-signed dnskey is invalid
     #[error("self-signed dnskey is invalid: {name}")]
-    SelfSignedKeyInvalid { name: Name },
+    SelfSignedKeyInvalid {
+        /// Name of the DNSKEY
+        name: Name,
+    },
 }
 
 /// The error type for dnssec errors that get returned in the crate
 #[derive(Debug, Clone, Error)]
 pub struct ProofError {
+    /// The proof derived from the failed state
     pub proof: Proof,
+    /// The kind of error
     pub kind: ProofErrorKind,
 }
 

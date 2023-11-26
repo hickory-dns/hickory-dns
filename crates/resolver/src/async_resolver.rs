@@ -626,8 +626,6 @@ pub mod testing {
         mut exec: E,
         handle: R,
     ) {
-        use crate::{error::*, lookup};
-        use proto::rr::RecordType;
         let resolver = AsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts {
