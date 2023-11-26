@@ -81,12 +81,11 @@ impl<'i> Iterator for LookupIpIter<'i> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let iter: &mut _ = &mut self.0;
-        iter.filter_map(|rdata| match *rdata {
+        iter.find_map(|rdata| match *rdata {
             RData::A(ip) => Some(IpAddr::from(Ipv4Addr::from(ip))),
             RData::AAAA(ip) => Some(IpAddr::from(Ipv6Addr::from(ip))),
             _ => None,
         })
-        .next()
     }
 }
 
@@ -109,12 +108,11 @@ impl Iterator for LookupIpIntoIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         let iter: &mut _ = &mut self.0;
-        iter.filter_map(|rdata| match rdata {
+        iter.find_map(|rdata| match rdata {
             RData::A(ip) => Some(IpAddr::from(Ipv4Addr::from(ip))),
             RData::AAAA(ip) => Some(IpAddr::from(Ipv6Addr::from(ip))),
             _ => None,
         })
-        .next()
     }
 }
 
