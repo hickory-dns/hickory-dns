@@ -225,8 +225,8 @@ pub enum ProofErrorKind {
 /// The error type for dnssec errors that get returned in the crate
 #[derive(Debug, Clone, Error)]
 pub struct ProofError {
-    proof: Proof,
-    kind: ProofErrorKind,
+    pub proof: Proof,
+    pub kind: ProofErrorKind,
 }
 
 impl ProofError {

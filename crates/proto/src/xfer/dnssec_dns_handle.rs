@@ -193,10 +193,14 @@ where
                             message_response,
                             options,
                         )
+                        .map(Result::<DnsResponse, ProtoError>::Ok)
                     })
                     .and_then(move |verified_message| {
                         // Query should be unowned at this point
                         let query = Arc::clone(&query2);
+
+                        // TODO: I've noticed upstream resolvers don't always return NSEC responses
+                        //   this causes bottom up evaluation to fail
 
                         // at this point all of the message is verified.
                         //  This is where NSEC (and possibly NSEC3) validation occurs
@@ -249,7 +253,7 @@ async fn verify_response<H>(
     query: Arc<Query>,
     mut message: DnsResponse,
     options: DnsRequestOptions,
-) -> Result<DnsResponse, ProtoError>
+) -> DnsResponse
 where
     H: DnsHandle + Sync + Unpin,
 {
@@ -257,15 +261,15 @@ where
     let nameservers = message.take_name_servers();
     let additionals = message.take_additionals();
 
-    let answers = verify_rrsets(handle.clone(), &query, answers, options).await?;
-    let nameservers = verify_rrsets(handle.clone(), &query, nameservers, options).await?;
-    let additionals = verify_rrsets(handle.clone(), &query, additionals, options).await?;
+    let answers = verify_rrsets(handle.clone(), &query, answers, options).await;
+    let nameservers = verify_rrsets(handle.clone(), &query, nameservers, options).await;
+    let additionals = verify_rrsets(handle.clone(), &query, additionals, options).await;
 
     message.insert_answers(answers);
     message.insert_name_servers(nameservers);
     message.insert_additionals(additionals);
 
-    Ok(message)
+    message
 }
 
 /// This pulls all answers returned in a Message response and returns a future which will
@@ -276,7 +280,7 @@ async fn verify_rrsets<H>(
     query: &Query,
     records: Vec<Record>,
     options: DnsRequestOptions,
-) -> Result<Vec<Record>, ProtoError>
+) -> Vec<Record>
 where
     H: DnsHandle + Sync + Unpin,
 {
@@ -302,7 +306,7 @@ where
 
     // there were no records to verify
     if rrset_types.is_empty() {
-        return Ok(records);
+        return records;
     }
 
     // collect all the rrsets to verify
@@ -333,14 +337,24 @@ where
 
         // TODO: support non-IN classes?
         debug!(
-            "verifying: {}, record_type: {:?}, rrsigs: {}",
-            rrset.name,
-            record_type,
-            rrsigs.len()
+            "verifying: {name} record_type: {record_type}, rrsigs: {rrsig_len}",
+            rrsig_len = rrsigs.len()
         );
 
         // verify this rrset
-        let proof = verify_rrset(handle.clone_with_context(), rrset, rrsigs, options).await?;
+        let proof = verify_rrset(handle.clone_with_context(), rrset, rrsigs, options).await;
+
+        let proof = match proof {
+            Ok(proof) => {
+                debug!("verified: {name} record_type: {record_type}",);
+                proof
+            }
+            Err(ProofError { proof, kind }) => {
+                debug!("failed to verify: {name} record_type: {record_type}: {kind}",);
+                proof
+            }
+        };
+
         rrset_proofs.insert((name, record_type), proof);
     }
 
@@ -352,7 +366,7 @@ where
             .map(|proof| record.set_proof(*proof));
     }
 
-    Ok(records)
+    records
 }
 
 // TODO: is this method useful/necessary?
@@ -373,7 +387,7 @@ async fn verify_rrset<H>(
     rrset: Rrset<'_>,
     rrsigs: Vec<&RRSIG>,
     options: DnsRequestOptions,
-) -> Result<Proof, ProtoError>
+) -> Result<Proof, ProofError>
 where
     H: DnsHandle + Sync + Unpin,
 {
@@ -382,13 +396,9 @@ where
     match rrset.record_type {
         // validation of DNSKEY records require different logic as they search for DS record coverage as well
         RecordType::DNSKEY => {
-            verify_dnskey_rrset(handle.clone_with_context(), rrset, options)
-                .map_err(|e| ProtoError::from(format!("failed to validate DNSKEYs: {e}")))
-                .await
+            verify_dnskey_rrset(handle.clone_with_context(), rrset, options).await
         }
-        _ => verify_default_rrset(&handle.clone_with_context(), rrset, rrsigs, options)
-            .await
-            .map_err(|e| ProtoError::from(format!("failed to validate RRSIGs: {e}"))),
+        _ => verify_default_rrset(&handle.clone_with_context(), rrset, rrsigs, options).await,
     }
 }
 
