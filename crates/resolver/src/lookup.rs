@@ -41,7 +41,7 @@ use crate::{
 };
 
 #[cfg(feature = "dnssec")]
-use proto::DnssecDnsHandle;
+use proto::{rr::dnssec::Proven, DnssecDnsHandle};
 
 /// Result of a DNS query when querying for any record type supported by the Hickory DNS Proto library.
 ///
@@ -89,11 +89,23 @@ impl Lookup {
         LookupIter(self.records.iter())
     }
 
+    /// Returns a borrowed iterator of the returned data wrapped in a dnssec Proven type
+    #[cfg(feature = "dnssec")]
+    pub fn dnssec_iter(&self) -> DnssecIter<'_> {
+        DnssecIter(self.dnssec_record_iter())
+    }
+
     /// Returns an iterator over all records returned during the query.
     ///
     /// It may include additional record types beyond the queried type, e.g. CNAME.
     pub fn record_iter(&self) -> LookupRecordIter<'_> {
         LookupRecordIter(self.records.iter())
+    }
+
+    /// Returns a borrowed iterator of the returned records wrapped in a dnssec Proven type
+    #[cfg(feature = "dnssec")]
+    pub fn dnssec_record_iter(&self) -> DnssecLookupRecordIter<'_> {
+        DnssecLookupRecordIter(self.records.iter())
     }
 
     /// Returns the `Instant` at which this `Lookup` is no longer valid.
@@ -139,6 +151,20 @@ impl<'a> Iterator for LookupIter<'a> {
     }
 }
 
+/// An iterator over record data with all data wrapped in a Proven type for dnssec validation
+#[cfg(feature = "dnssec")]
+pub struct DnssecIter<'a>(DnssecLookupRecordIter<'a>);
+
+#[cfg(feature = "dnssec")]
+
+impl<'a> Iterator for DnssecIter<'a> {
+    type Item = Proven<&'a RData>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().and_then(|r| r.map(Record::data).transpose())
+    }
+}
+
 /// Borrowed view of set of [`Record`]s returned from a Lookup
 pub struct LookupRecordIter<'a>(Iter<'a, Record>);
 
@@ -147,6 +173,20 @@ impl<'a> Iterator for LookupRecordIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+}
+
+/// An iterator over record data with all data wrapped in a Proven type for dnssec validation
+#[cfg(feature = "dnssec")]
+pub struct DnssecLookupRecordIter<'a>(Iter<'a, Record>);
+
+#[cfg(feature = "dnssec")]
+
+impl<'a> Iterator for DnssecLookupRecordIter<'a> {
+    type Item = Proven<&'a Record>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(Proven::from)
     }
 }
 
@@ -697,6 +737,44 @@ pub mod tests {
 
         assert_eq!(lookup.next().unwrap(), RData::A(A::new(127, 0, 0, 1)));
         assert_eq!(lookup.next().unwrap(), RData::A(A::new(127, 0, 0, 2)));
+        assert_eq!(lookup.next(), None);
+    }
+
+    #[test]
+    #[cfg(feature = "dnssec")]
+    fn test_dnssec_lookup() {
+        use hickory_proto::rr::dnssec::Proof;
+
+        let mut a1 = Record::from_rdata(
+            Name::from_str("www.example.com.").unwrap(),
+            80,
+            RData::A(A::new(127, 0, 0, 1)),
+        );
+        a1.set_proof(Proof::Secure);
+
+        let mut a2 = Record::from_rdata(
+            Name::from_str("www.example.com.").unwrap(),
+            80,
+            RData::A(A::new(127, 0, 0, 2)),
+        );
+        a2.set_proof(Proof::Insecure);
+
+        let lookup = Lookup {
+            query: Query::default(),
+            records: Arc::from([a1.clone(), a2.clone()]),
+            valid_until: Instant::now(),
+        };
+
+        let mut lookup = lookup.dnssec_iter();
+
+        assert_eq!(
+            *lookup.next().unwrap().try_take(Proof::Secure).unwrap(),
+            *a1.data().unwrap()
+        );
+        assert_eq!(
+            *lookup.next().unwrap().try_take(Proof::Insecure).unwrap(),
+            *a2.data().unwrap()
+        );
         assert_eq!(lookup.next(), None);
     }
 }

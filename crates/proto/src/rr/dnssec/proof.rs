@@ -339,7 +339,7 @@ impl fmt::Display for ProofError {
 }
 
 /// A wrapper type to ensure that the state of a DNSSEC proof is evaluated before use
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Proven<T> {
     proof: Proof,
     value: T,
@@ -391,6 +391,31 @@ impl<T> Proven<T> {
             Ok(self.value)
         } else {
             Err(self)
+        }
+    }
+
+    /// Map the value with the associated function, carrying forward the proof
+    pub fn map<U, F>(self, f: F) -> Proven<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        Proven {
+            proof: self.proof,
+            value: f(self.value),
+        }
+    }
+}
+
+impl<T> Proven<Option<T>> {
+    /// If the inner type is an Option this will transpose them so that it's an option wrapped Proven
+    pub fn transpose(self) -> Option<Proven<T>> {
+        if let Some(value) = self.value {
+            Some(Proven {
+                proof: self.proof,
+                value,
+            })
+        } else {
+            None
         }
     }
 }
