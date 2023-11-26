@@ -17,7 +17,8 @@ use thiserror::Error;
 use crate::ExtBacktrace;
 use crate::{
     error::{DnsSecError, ProtoError},
-    rr::Name,
+    op::Query,
+    rr::{Name, RecordType},
 };
 
 use super::Algorithm;
@@ -171,7 +172,7 @@ pub enum ProofErrorKind {
     },
 
     /// There was no DNSKEY found for verifying the DNSSEC of the zone
-    #[error("no dnskey was found")]
+    #[error("no dnskey was found: {name}")]
     DnskeyNotFound { name: Name },
 
     /// A DnsKey was revoked and could not be used for validation
@@ -187,7 +188,7 @@ pub enum ProofErrorKind {
     DsRecordsButNoDnskey { name: Name },
 
     /// DS record parent exists, but child does not
-    #[error("ds record is bogus, should exist: {name}")]
+    #[error("ds record should exist: {name}")]
     DsRecordShouldExist { name: Name },
 
     /// The DS response was empty
@@ -201,6 +202,24 @@ pub enum ProofErrorKind {
     /// The DnsKey is not marked as a zone key
     #[error("not a zone signing key: {name} key_tag: {key_tag}")]
     NotZoneDnsKey { name: Name, key_tag: u16 },
+
+    /// There was a protocol error when looking up DNSSEC records
+    #[error("communication failure for query: {query}: {proto}")]
+    Proto { query: Query, proto: ProtoError },
+
+    /// The RRSIGs for the rrset are not present.
+    ///    It's indeterminate if DS records can't be found
+    ///    It's bogus if the DS records are present
+    #[error("rrsigs are not present for: {name} record_type: {record_type}")]
+    RrsigsNotPresent { name: Name, record_type: RecordType },
+
+    /// The RRSIGs could not be verified or failed validation
+    #[error("rrsigs were not able to be verified: {name}, type: {record_type}")]
+    RrsigsUnverified { name: Name, record_type: RecordType },
+
+    /// The self-signed dnskey is invalid
+    #[error("self-signed dnskey is invalid: {name}")]
+    SelfSignedKeyInvalid { name: Name },
 }
 
 /// The error type for dnssec errors that get returned in the crate

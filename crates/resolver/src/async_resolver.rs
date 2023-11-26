@@ -640,16 +640,10 @@ pub mod testing {
         assert!(response.is_err());
         let error = response.unwrap_err();
 
-        use proto::error::{ProtoError, ProtoErrorKind};
-
         let error_str = format!("{error}");
         let name = Name::from_str("hickory-dns.org.").unwrap();
         let expected_str = format!(
-            "{}",
-            ResolveError::from(ProtoError::from(ProtoErrorKind::RrsigsNotPresent {
-                name,
-                record_type: RecordType::A
-            }))
+            "proto error: failed to validate RRSIGs: Bogus: ds record should exist: {name}"
         );
         assert_eq!(error_str, expected_str);
         if let ResolveErrorKind::Proto(_) = *error.kind() {

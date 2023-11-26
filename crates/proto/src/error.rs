@@ -200,15 +200,6 @@ pub enum ProtoErrorKind {
         trusted: bool,
     },
 
-    /// Missing rrsigs
-    #[error("rrsigs are not present for record set name: {name} record_type: {record_type}")]
-    RrsigsNotPresent {
-        /// The record set name
-        name: Name,
-        /// The record type
-        record_type: RecordType,
-    },
-
     /// An unknown algorithm type was found
     #[error("algorithm type value unknown: {0}")]
     UnknownAlgorithmTypeValue(u8),
@@ -643,13 +634,6 @@ impl Clone for ProtoErrorKind {
             Nsec { ref query, proof } => Nsec {
                 query: query.clone(),
                 proof,
-            },
-            RrsigsNotPresent {
-                ref name,
-                ref record_type,
-            } => RrsigsNotPresent {
-                name: name.clone(),
-                record_type: *record_type,
             },
             UnknownAlgorithmTypeValue(value) => UnknownAlgorithmTypeValue(value),
             UnknownDnsClassStr(ref value) => UnknownDnsClassStr(value.clone()),
