@@ -612,6 +612,10 @@ pub mod testing {
                 );
             }
         }
+
+        for record in response.as_lookup().record_iter() {
+            assert!(record.proof().is_secure())
+        }
     }
 
     /// Test IP lookup from domains that exist but unsigned with DNSSEC validation.
@@ -622,7 +626,7 @@ pub mod testing {
         mut exec: E,
         handle: R,
     ) {
-        use crate::error::*;
+        use crate::{error::*, lookup};
         use proto::rr::RecordType;
         let resolver = AsyncResolver::new(
             ResolverConfig::default(),
@@ -637,18 +641,9 @@ pub mod testing {
         // needs to be a domain that exists, but is not signed (eventually this will be)
         let response = exec.block_on(resolver.lookup_ip("hickory-dns.org."));
 
-        assert!(response.is_err());
-        let error = response.unwrap_err();
-
-        let error_str = format!("{error}");
-        let name = Name::from_str("hickory-dns.org.").unwrap();
-        let expected_str = format!(
-            "proto error: failed to validate RRSIGs: Bogus: ds record should exist: {name}"
-        );
-        assert_eq!(error_str, expected_str);
-        if let ResolveErrorKind::Proto(_) = *error.kind() {
-        } else {
-            panic!("wrong error")
+        let lookup_ip = response.unwrap();
+        for record in lookup_ip.as_lookup().record_iter() {
+            assert!(record.proof().is_bogus())
         }
     }
 
