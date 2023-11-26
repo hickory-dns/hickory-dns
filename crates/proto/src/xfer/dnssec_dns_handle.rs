@@ -10,14 +10,13 @@
 use std::{
     clone::Clone,
     collections::{HashMap, HashSet},
-    error::Error,
     pin::Pin,
     sync::Arc,
 };
 
 use async_recursion::async_recursion;
 use futures_util::{
-    future::{self, Future, FutureExt, TryFutureExt},
+    future::{self, FutureExt, TryFutureExt},
     stream::{self, Stream, TryStreamExt},
 };
 use tracing::{debug, trace};

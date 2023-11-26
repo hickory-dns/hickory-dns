@@ -25,9 +25,7 @@ use crate::op::{Header, Query, ResponseCode};
 
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::{rdata::tsig::TsigAlgorithm, Proof};
-use crate::rr::rdata::SOA;
-use crate::rr::resource::RecordRef;
-use crate::rr::{Name, Record, RecordType};
+use crate::rr::{rdata::SOA, resource::RecordRef, Record};
 use crate::serialize::binary::DecodeError;
 use crate::xfer::DnsResponse;
 
