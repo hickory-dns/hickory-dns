@@ -19,7 +19,7 @@ use crate::{
 };
 
 #[cfg(feature = "dnssec")]
-use crate::rr::dnssec::Proof;
+use crate::rr::dnssec::{Proof, Proven};
 
 #[allow(deprecated)]
 use crate::rr::IntoRecordSet;
@@ -772,6 +772,22 @@ impl PartialOrd<Self> for Record {
     /// ```
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+#[cfg(feature = "dnssec")]
+impl From<Record> for Proven<Record> {
+    fn from(record: Record) -> Self {
+        let proof = record.proof();
+        Self::new(proof, record)
+    }
+}
+
+#[cfg(feature = "dnssec")]
+impl<'a> From<&'a Record> for Proven<&'a Record> {
+    fn from(record: &'a Record) -> Self {
+        let proof = record.proof();
+        Self::new(proof, record)
     }
 }
 
