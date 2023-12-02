@@ -69,6 +69,9 @@ echo "----> Generating CERT  <----"
 ${OPENSSL:?} req -new -nodes -newkey rsa:4096 -keyout cert.key -out cert.csr \
              -verify \
              -config /tmp/cert.conf
+
+${OPENSSL:?} pkcs8 -in cert.key -inform pem -out cert-key.pk8 -topk8 -nocrypt
+
 ${OPENSSL:?} x509 -in ca.pem -inform pem -pubkey -noout > ca.pubkey
 
 echo "----> Signing Cert <----"
