@@ -131,7 +131,7 @@ coverage-html: coverage
 
 # (Re)generates Test Certificates, if tests are failing, this needs to be run yearly
 generate-test-certs: init-openssl
-    cd {{TEST_DATA}} && rm ca.key ca.pem cert.key cert.csr cert.pem cert.p12
+    cd {{TEST_DATA}} && rm -f ca.key ca.pem cert.key cert-key.pkcs8 cert.csr cert.pem cert.p12
     scripts/gen_certs.sh
 
 # Publish all crates
