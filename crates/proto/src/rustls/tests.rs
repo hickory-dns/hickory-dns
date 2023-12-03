@@ -18,7 +18,7 @@ use std::sync::atomic;
 use std::sync::Arc;
 use std::{thread, time};
 
-use openssl::pkcs12::*;
+use openssl::pkey::PKey;
 use openssl::ssl::*;
 use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::*;
@@ -94,8 +94,17 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let root_cert_der_copy = root_cert_der.clone();
 
     // Generate X509 certificate
+    let ca = X509::from_der(&root_cert_der).expect("could not read CA");
     let dns_name = "ns.example.com";
-    let server_pkcs12_der = read_file(&format!("{server_path}/tests/test-data/cert.p12"));
+    let cert = X509::from_pem(&read_file(&format!(
+        "{server_path}/tests/test-data/cert.pem"
+    )))
+    .expect("could not read cert pem");
+
+    let private_key = PKey::private_key_from_pem(&read_file(&format!(
+        "{server_path}/tests/test-data/cert.key"
+    )))
+    .expect("could not read public key");
 
     // TODO: need a timeout on listen
     let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
@@ -106,25 +115,15 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let server_handle = thread::Builder::new()
         .name("test_tls_client_stream:server".to_string())
         .spawn(move || {
-            let pkcs12 = Pkcs12::from_der(&server_pkcs12_der)
-                .and_then(|p| p.parse2("mypass"))
-                .expect("Pkcs12::from_der");
             let mut tls =
                 SslAcceptor::mozilla_modern(SslMethod::tls()).expect("mozilla_modern failed");
-            if let Some(pkey) = pkcs12.pkey.as_ref() {
-                tls.set_private_key(pkey).expect("failed to associated key");
-            }
-            if let Some(cert) = &pkcs12.cert {
-                tls.set_certificate(cert)
-                    .expect("failed to associated cert");
-            }
+            tls.set_private_key(private_key.as_ref())
+                .expect("failed to associated key");
+            tls.set_certificate(&cert)
+                .expect("failed to associated cert");
 
-            if let Some(ref chain) = pkcs12.ca {
-                for cert in chain {
-                    tls.add_extra_chain_cert(cert.to_owned())
-                        .expect("failed to add chain");
-                }
-            }
+            tls.add_extra_chain_cert(ca.to_owned())
+                .expect("failed to add chain");
 
             {
                 let mut openssl_ctx_builder = &mut tls;
