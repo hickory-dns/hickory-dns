@@ -100,7 +100,11 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
 
     // Generate X509 certificate
     let dns_name = "ns.example.com";
-    let server_pkcs12_der = read_file(&format!("{server_path}/tests/test-data/cert.p12"));
+    let cert = read_file(&format!("{server_path}/tests/test-data/cert.pem"));
+
+    let private_key = read_file(&format!("{server_path}/tests/test-data/cert-key.pk8"));
+    let identity =
+        native_tls::Identity::from_pkcs8(&cert, &private_key).expect("Identity::from_pkcs8");
 
     // TODO: need a timeout on listen
     let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
@@ -111,9 +115,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let server_handle = thread::Builder::new()
         .name("test_tls_client_stream:server".to_string())
         .spawn(move || {
-            let pkcs12 = native_tls::Identity::from_pkcs12(&server_pkcs12_der, "mypass")
-                .expect("Identity::from_pkcs12");
-            let mut tls = TlsAcceptor::builder(pkcs12);
+            let mut tls = TlsAcceptor::builder(identity);
 
             // #[cfg(target_os = "linux")]
             // {
