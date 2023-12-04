@@ -63,7 +63,7 @@ native-tls = "0.2"
 openssl = "0.10.55"
 rustls = "0.21.8"
 rustls-native-certs = "0.6.3"
-rustls-pemfile = "1.0.0"
+rustls-pemfile = "1.0.4"
 webpki-roots = "0.25.0"
 ring = "0.17"
 
