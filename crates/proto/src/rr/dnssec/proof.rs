@@ -340,11 +340,11 @@ impl<T> Proven<T> {
     ///
     /// let proven = Proven::new(Proof::Bogus, 42u32);
     ///
-    /// assert_eq!(*proven.try_borrow(Proof::Bogus).unwrap(), 42_u32);
-    /// assert_eq!(*proven.try_borrow(Proof::Bogus | Proof::Indeterminate).unwrap(), 42_u32);
-    /// assert_eq!(proven.try_borrow(Proof::Secure | Proof::Insecure).unwrap_err(), Proof::Bogus);
+    /// assert_eq!(*proven.require_as_ref(Proof::Bogus).unwrap(), 42_u32);
+    /// assert_eq!(*proven.require_as_ref(Proof::Bogus | Proof::Indeterminate).unwrap(), 42_u32);
+    /// assert_eq!(proven.require_as_ref(Proof::Secure | Proof::Insecure).unwrap_err(), Proof::Bogus);
     /// ```
-    pub fn try_borrow<I: Into<ProofFlags>>(&self, flags: I) -> Result<&T, Proof> {
+    pub fn require_as_ref<I: Into<ProofFlags>>(&self, flags: I) -> Result<&T, Proof> {
         if flags.into().contains(ProofFlags::from(self.proof)) {
             Ok(&self.value)
         } else {
@@ -359,11 +359,11 @@ impl<T> Proven<T> {
     ///
     /// let proven = Proven::new(Proof::Bogus, 42u32);
     ///
-    /// assert_eq!(proven.clone().try_take(Proof::Bogus).unwrap(), 42_u32);
-    /// assert_eq!(proven.clone().try_take(Proof::Bogus | Proof::Indeterminate).unwrap(), 42_u32);
-    /// assert!(proven.try_take(Proof::Secure | Proof::Insecure).is_err());
+    /// assert_eq!(proven.clone().require(Proof::Bogus).unwrap(), 42_u32);
+    /// assert_eq!(proven.clone().require(Proof::Bogus | Proof::Indeterminate).unwrap(), 42_u32);
+    /// assert!(proven.require(Proof::Secure | Proof::Insecure).is_err());
     /// ```
-    pub fn try_take<I: Into<ProofFlags>>(self, flags: I) -> Result<T, Self> {
+    pub fn require<I: Into<ProofFlags>>(self, flags: I) -> Result<T, Self> {
         if flags.into().contains(ProofFlags::from(self.proof)) {
             Ok(self.value)
         } else {
