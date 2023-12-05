@@ -35,7 +35,7 @@ use super::Algorithm;
 /// ```
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[must_use = "Proof is a flag on Record data, it should be interrogated before using a record"]
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
 #[repr(u8)]
 pub enum Proof {
     /// An RRset for which the resolver is able to build a chain of
@@ -66,6 +66,7 @@ pub enum Proof {
     ///   not able to obtain the necessary DNSSEC RRs.  This can occur when
     ///   the security-aware resolver is not able to contact security-aware
     ///   name servers for the relevant zones.
+    #[default]
     Indeterminate = 0,
 }
 
@@ -90,18 +91,10 @@ impl Proof {
         *self == Self::Bogus
     }
 
-    /// Either the record has not been verified or
+    /// Either the record has not been verified or there were network issues fetching DNSSEC records
     #[inline]
     pub fn is_indeterminate(&self) -> bool {
         *self == Self::Indeterminate
-    }
-}
-
-impl Default for Proof {
-    /// Returns `Indeterminate` as the default state for Proof as this is the closest to meaning
-    ///   that no DNSSEC verification has happened.
-    fn default() -> Self {
-        Self::Indeterminate
     }
 }
 
@@ -115,23 +108,6 @@ impl fmt::Display for Proof {
         };
 
         f.write_str(s)
-    }
-}
-
-impl PartialOrd for Proof {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Proof {
-    /// If self is great than other, it has a strong DNSSEC proof, i.e. Secure is the highest
-    ///   Ordering from highest to lowest is: Secure, Insecure, Bogus, Indeterminate
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let this = *self as u8;
-        let other = *other as u8;
-
-        this.cmp(&other)
     }
 }
 
@@ -376,7 +352,7 @@ impl<T> Proven<T> {
         }
     }
 
-    /// Attempts to borrow the value only if it matches flags, returning the associated proof on failure
+    /// Attempts to take the value only if it matches flags, returning the associated proof on failure
     ///
     /// ```
     /// use hickory_proto::rr::dnssec::{Proof, Proven};
