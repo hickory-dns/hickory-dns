@@ -768,11 +768,11 @@ pub mod tests {
         let mut lookup = lookup.dnssec_iter();
 
         assert_eq!(
-            *lookup.next().unwrap().try_take(Proof::Secure).unwrap(),
+            *lookup.next().unwrap().require(Proof::Secure).unwrap(),
             *a1.data().unwrap()
         );
         assert_eq!(
-            *lookup.next().unwrap().try_take(Proof::Insecure).unwrap(),
+            *lookup.next().unwrap().require(Proof::Insecure).unwrap(),
             *a2.data().unwrap()
         );
         assert_eq!(lookup.next(), None);
