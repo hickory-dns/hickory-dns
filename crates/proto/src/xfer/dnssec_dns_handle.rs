@@ -634,7 +634,7 @@ where
         //  then return rrset. Like the standard case below, the DNSKEY is validated
         //  after this function. This function is only responsible for validating the signature
         //  the DNSKey validation should come after, see verify_rrset().
-        rrsigs
+        let proof = rrsigs
             .iter()
             .find_map(|rrsig| {
                 rrset
@@ -657,7 +657,7 @@ where
             })?;
 
         // Getting here means the rrset (and records), have been verified
-        return Ok(Proof::Secure);
+        return Ok(proof);
     }
 
     // we can validate with any of the rrsigs...
