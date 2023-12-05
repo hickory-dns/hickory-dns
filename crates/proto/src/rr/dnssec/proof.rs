@@ -34,6 +34,7 @@ use super::Algorithm;
 ///   cases:
 /// ```
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[must_use = "Proof is a flag on Record data, it should be interrogated before using a record"]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Proof {
@@ -403,6 +404,13 @@ impl<T> Proven<T> {
             proof: self.proof,
             value: f(self.value),
         }
+    }
+
+    /// Unwraps the Proven type into it's parts
+    pub fn into_parts(self) -> (Proof, T) {
+        let Self { proof, value } = self;
+
+        (proof, value)
     }
 }
 
