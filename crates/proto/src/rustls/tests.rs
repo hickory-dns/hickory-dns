@@ -202,10 +202,10 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     // let timeout = Timeout::new(Duration::from_secs(5));
 
     let mut roots = rustls::RootCertStore::empty();
-    let (_, ignored) = roots.add_parsable_certificates(&[root_cert_der]);
+    let (_, ignored) =
+        roots.add_parsable_certificates([root_cert_der].into_iter().map(|x| x.into()));
     assert_eq!(ignored, 0, "bad certificate!");
     let mut config = ClientConfig::builder()
-        .with_safe_defaults()
         .with_root_certificates(roots)
         .with_no_client_auth();
 

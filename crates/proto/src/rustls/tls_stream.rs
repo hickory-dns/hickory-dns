@@ -203,7 +203,7 @@ where
     S: DnsTcpStream,
     F: Future<Output = io::Result<S>> + Send + Unpin,
 {
-    let dns_name = match dns_name.as_str().try_into() {
+    let dns_name = match dns_name.try_into() {
         Ok(name) => name,
         Err(_) => return Err(io::Error::new(io::ErrorKind::InvalidInput, "bad dns_name")),
     };
