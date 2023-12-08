@@ -59,7 +59,7 @@ dns-over-https-rustls = [
 ]
 dns-over-https = ["hickory-proto/dns-over-https"]
 dns-over-quic = [
-    "rustls/quic",
+    "rustls",
     "dns-over-rustls",
     "hickory-proto/dns-over-quic",
 ]

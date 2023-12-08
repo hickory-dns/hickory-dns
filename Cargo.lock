@@ -806,7 +806,7 @@ dependencies = [
  "openssl",
  "radix_trie",
  "rand",
- "rustls",
+ "rustls 0.22.1",
  "serde",
  "thiserror",
  "tokio",
@@ -839,7 +839,7 @@ dependencies = [
  "hickory-server",
  "native-tls",
  "regex",
- "rustls",
+ "rustls 0.22.1",
  "time",
  "tokio",
  "tracing",
@@ -861,7 +861,7 @@ dependencies = [
  "openssl",
  "rand",
  "rusqlite",
- "rustls",
+ "rustls 0.22.1",
  "time",
  "tokio",
  "tracing",
@@ -896,7 +896,7 @@ dependencies = [
  "quinn",
  "rand",
  "ring 0.17.5",
- "rustls",
+ "rustls 0.22.1",
  "rustls-native-certs",
  "rustls-pemfile",
  "serde",
@@ -949,7 +949,7 @@ dependencies = [
  "parking_lot",
  "rand",
  "resolv-conf",
- "rustls",
+ "rustls 0.22.1",
  "rustls-native-certs",
  "serde",
  "smallvec",
@@ -983,7 +983,7 @@ dependencies = [
  "http",
  "openssl",
  "rusqlite",
- "rustls",
+ "rustls 0.22.1",
  "serde",
  "thiserror",
  "time",
@@ -1007,7 +1007,7 @@ dependencies = [
  "hickory-recursor",
  "hickory-resolver",
  "openssl",
- "rustls",
+ "rustls 0.22.1",
  "rustls-native-certs",
  "tokio",
  "tracing",
@@ -1465,7 +1465,7 @@ dependencies = [
  "quinn-proto",
  "quinn-udp",
  "rustc-hash",
- "rustls",
+ "rustls 0.21.8",
  "thiserror",
  "tokio",
  "tracing",
@@ -1481,7 +1481,7 @@ dependencies = [
  "rand",
  "ring 0.16.20",
  "rustc-hash",
- "rustls",
+ "rustls 0.21.8",
  "slab",
  "thiserror",
  "tinyvec",
@@ -1704,8 +1704,22 @@ checksum = "446e14c5cda4f3f30fe71863c34ec70f5ac79d6087097ad0bb433e1be5edf04c"
 dependencies = [
  "log",
  "ring 0.17.5",
- "rustls-webpki",
+ "rustls-webpki 0.101.7",
  "sct",
+]
+
+[[package]]
+name = "rustls"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe6b63262c9fcac8659abfaa96cac103d28166d3ff3eaf8f412e19f3ae9e5a48"
+dependencies = [
+ "log",
+ "ring 0.17.5",
+ "rustls-pki-types",
+ "rustls-webpki 0.102.0",
+ "subtle",
+ "zeroize",
 ]
 
 [[package]]
@@ -1730,12 +1744,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustls-pki-types"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7673e0aa20ee4937c6aacfc12bb8341cfbf054cdd21df6bec5fd0629fe9339b"
+
+[[package]]
 name = "rustls-webpki"
 version = "0.101.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b6275d1ee7a1cd780b64aca7726599a1dbc893b1e64144529e55c3c2f745765"
 dependencies = [
  "ring 0.17.5",
+ "untrusted 0.9.0",
+]
+
+[[package]]
+name = "rustls-webpki"
+version = "0.102.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de2635c8bc2b88d367767c5de8ea1d8db9af3f6219eba28442242d9ab81d1b89"
+dependencies = [
+ "ring 0.17.5",
+ "rustls-pki-types",
  "untrusted 0.9.0",
 ]
 
@@ -1887,6 +1918,12 @@ name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
+
+[[package]]
+name = "subtle"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "syn"
@@ -2052,7 +2089,7 @@ version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c28327cf380ac148141087fbfb9de9d7bd4e84ab5d2c28fbc911d753de8a7081"
 dependencies = [
- "rustls",
+ "rustls 0.21.8",
  "tokio",
 ]
 
@@ -2496,3 +2533,9 @@ dependencies = [
  "quote",
  "syn 2.0.37",
 ]
+
+[[package]]
+name = "zeroize"
+version = "1.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "525b4ec142c6b68a2d10f01f7bbf6755599ca3f81ea53b8431b7dd348f5fdb2d"

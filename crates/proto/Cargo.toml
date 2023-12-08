@@ -50,7 +50,7 @@ dns-over-https-rustls = ["dns-over-https"]
 dns-over-https = ["bytes", "h2", "http", "dns-over-rustls", "tokio-runtime"]
 dns-over-quic = [
     "quinn",
-    "rustls/quic",
+    "rustls",
     "dns-over-rustls",
     "bytes",
     "tokio-runtime",
