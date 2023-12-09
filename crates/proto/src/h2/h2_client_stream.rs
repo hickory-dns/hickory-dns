@@ -760,13 +760,11 @@ mod tests {
             }
         }
         #[cfg(feature = "webpki-roots")]
-        root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-            rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
-                ta.subject,
-                ta.spki,
-                ta.name_constraints,
-            )
-        }));
+        root_store.extend(
+            webpki_roots::TLS_SERVER_ROOTS
+                .iter()
+                .map(|ta| ta.to_owned()),
+        );
 
         let mut client_config = ClientConfig::builder()
             .with_root_certificates(root_store)
