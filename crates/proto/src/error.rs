@@ -9,9 +9,13 @@
 
 #![deny(missing_docs)]
 
-use std::cmp::Ordering;
-use std::{fmt, io, sync};
+use core::cmp::Ordering;
+use core::fmt;
+#[cfg(feature = "std")]
+use std::{io, sync};
 
+use alloc::boxed::Box;
+use alloc::string::{String, ToString};
 #[cfg(feature = "backtrace")]
 #[cfg_attr(docsrs, doc(cfg(feature = "backtrace")))]
 pub use backtrace::Backtrace as ExtBacktrace;
@@ -59,7 +63,7 @@ macro_rules! trace {
 }
 
 /// An alias for results returned by functions of this crate
-pub type ProtoResult<T> = ::std::result::Result<T, ProtoError>;
+pub type ProtoResult<T> = ::core::result::Result<T, ProtoError>;
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, EnumAsInner, Error)]
@@ -233,6 +237,7 @@ pub enum ProtoErrorKind {
 
     // foreign
     /// An error got returned from IO
+    #[cfg(feature = "std")]
     #[error("io error: {0}")]
     Io(io::Error),
 
@@ -272,15 +277,15 @@ pub enum ProtoErrorKind {
 
     /// A utf8 parsing error
     #[error("error parsing utf8 string")]
-    Utf8(#[from] std::str::Utf8Error),
+    Utf8(#[from] alloc::str::Utf8Error),
 
     /// A utf8 parsing error
     #[error("error parsing utf8 string")]
-    FromUtf8(#[from] std::string::FromUtf8Error),
+    FromUtf8(#[from] alloc::string::FromUtf8Error),
 
     /// An int parsing error
     #[error("error parsing int")]
-    ParseInt(#[from] std::num::ParseIntError),
+    ParseInt(#[from] core::num::ParseIntError),
 
     /// A Quinn (Quic) connection error occurred
     #[cfg(feature = "quinn")]
@@ -376,7 +381,7 @@ impl ProtoError {
     pub fn is_no_connections(&self) -> bool {
         matches!(*self.kind, ProtoErrorKind::NoConnections)
     }
-
+    #[cfg(feature = "std")]
     pub(crate) fn as_dyn(&self) -> &(dyn std::error::Error + 'static) {
         self
     }
@@ -468,8 +473,11 @@ impl ProtoError {
         }
 
         match (kind, other) {
+            #[cfg(feature = "std")]
             (ProtoErrorKind::Io { .. }, ProtoErrorKind::Io { .. }) => return Ordering::Equal,
+            #[cfg(feature = "std")]
             (ProtoErrorKind::Io { .. }, _) => return Ordering::Greater,
+            #[cfg(feature = "std")]
             (_, ProtoErrorKind::Io { .. }) => return Ordering::Less,
             _ => (),
         }
@@ -547,6 +555,7 @@ impl From<String> for ProtoError {
     }
 }
 
+#[cfg(feature = "std")]
 impl From<io::Error> for ProtoErrorKind {
     fn from(e: io::Error) -> Self {
         match e.kind() {
@@ -556,12 +565,14 @@ impl From<io::Error> for ProtoErrorKind {
     }
 }
 
+#[cfg(feature = "std")]
 impl<T> From<sync::PoisonError<T>> for ProtoError {
     fn from(_e: sync::PoisonError<T>) -> Self {
         ProtoErrorKind::Poisoned.into()
     }
 }
 
+#[cfg(feature = "std")]
 impl From<ProtoError> for io::Error {
     fn from(e: ProtoError) -> Self {
         match *e.kind() {
@@ -641,6 +652,7 @@ impl Clone for ProtoErrorKind {
             UnrecognizedCsyncFlags(flags) => UnrecognizedCsyncFlags(flags),
 
             // foreign
+            #[cfg(feature = "std")]
             Io(ref e) => Io(if let Some(raw) = e.raw_os_error() {
                 io::Error::from_raw_os_error(raw)
             } else {
@@ -682,9 +694,17 @@ impl Clone for ProtoErrorKind {
 
 /// A trait marking a type which implements From<ProtoError> and
 /// std::error::Error types as well as Clone + Send
+#[cfg(feature = "std")]
 pub trait FromProtoError: From<ProtoError> + std::error::Error + Clone {}
+/// A trait marking a type which implements `From<ProtoError>` and
+/// `core::error::Error` types as well as `Clone` + `Send`
+#[cfg(not(feature = "std"))]
+pub trait FromProtoError: From<ProtoError> + core::error::Error + Clone {}
 
+#[cfg(feature = "std")]
 impl<E> FromProtoError for E where E: From<ProtoError> + std::error::Error + Clone {}
+#[cfg(not(feature = "std"))]
+impl<E> FromProtoError for E where E: From<ProtoError> + core::error::Error + Clone {}
 
 #[cfg(not(feature = "openssl"))]
 use self::not_openssl::SslErrorStack;
@@ -696,7 +716,7 @@ use openssl::error::ErrorStack as SslErrorStack;
 use ring::error::{KeyRejected, Unspecified};
 
 /// An alias for dnssec results returned by functions of this crate
-pub type DnsSecResult<T> = ::std::result::Result<T, DnsSecError>;
+pub type DnsSecResult<T> = ::core::result::Result<T, DnsSecError>;
 
 /// The error kind for dnssec errors that get returned in the crate
 #[allow(unreachable_pub)]
@@ -836,17 +856,23 @@ impl From<SslErrorStack> for DnsSecError {
 #[cfg(not(feature = "openssl"))]
 #[cfg_attr(docsrs, doc(cfg(not(feature = "openssl"))))]
 pub mod not_openssl {
-    use std;
-
     #[derive(Clone, Copy, Debug)]
     pub struct SslErrorStack;
 
-    impl std::fmt::Display for SslErrorStack {
-        fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    impl core::fmt::Display for SslErrorStack {
+        fn fmt(&self, _: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
             Ok(())
         }
     }
 
+    #[cfg(not(feature = "std"))]
+    impl core::error::Error for SslErrorStack {
+        fn description(&self) -> &str {
+            "openssl feature not enabled"
+        }
+    }
+
+    #[cfg(feature = "std")]
     impl std::error::Error for SslErrorStack {
         fn description(&self) -> &str {
             "openssl feature not enabled"
@@ -859,7 +885,10 @@ pub mod not_openssl {
 #[cfg(not(feature = "ring"))]
 #[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
 pub mod not_ring {
-    use std;
+    #[cfg(all(feature = "unstable", not(feature = "std")))]
+    use core::error::Error;
+    #[cfg(feature = "std")]
+    use std::error::Error;
 
     #[derive(Clone, Copy, Debug)]
     pub struct KeyRejected;
@@ -867,25 +896,25 @@ pub mod not_ring {
     #[derive(Clone, Copy, Debug)]
     pub struct Unspecified;
 
-    impl std::fmt::Display for KeyRejected {
-        fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    impl core::fmt::Display for KeyRejected {
+        fn fmt(&self, _: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
             Ok(())
         }
     }
 
-    impl std::error::Error for KeyRejected {
+    impl Error for KeyRejected {
         fn description(&self) -> &str {
             "ring feature not enabled"
         }
     }
 
-    impl std::fmt::Display for Unspecified {
-        fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    impl core::fmt::Display for Unspecified {
+        fn fmt(&self, _: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
             Ok(())
         }
     }
 
-    impl std::error::Error for Unspecified {
+    impl Error for Unspecified {
         fn description(&self) -> &str {
             "ring feature not enabled"
         }

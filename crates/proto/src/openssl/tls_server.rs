@@ -7,6 +7,8 @@
 
 //! DNS over TLS server implementations for OpenSSL
 
+use alloc::borrow::ToOwned;
+use alloc::vec::Vec;
 use std::fs::File;
 use std::io;
 use std::io::Read;

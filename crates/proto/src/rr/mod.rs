@@ -22,7 +22,7 @@ mod rr_key;
 mod rr_set;
 pub mod type_bit_map;
 
-use std::fmt;
+use core::fmt;
 
 use crate::{
     error::ProtoResult,

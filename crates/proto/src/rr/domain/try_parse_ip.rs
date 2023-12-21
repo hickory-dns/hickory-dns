@@ -5,8 +5,9 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::net::IpAddr;
+use alloc::string::String;
 
+use crate::net::IpAddr;
 use crate::rr::{Name, RData};
 
 /// Types of this trait will can be attempted for conversion to an IP address
@@ -50,7 +51,7 @@ where
 
 #[test]
 fn test_try_parse_ip() {
-    use std::net::{Ipv4Addr, Ipv6Addr};
+    use crate::net::{Ipv4Addr, Ipv6Addr};
 
     assert_eq!(
         "127.0.0.1".try_parse_ip().expect("failed"),

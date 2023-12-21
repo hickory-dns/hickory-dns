@@ -7,6 +7,8 @@
 
 //! record data enum variants
 
+use alloc::vec::Vec;
+
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::rdata::DNSSECRData;
 use crate::{
@@ -136,7 +138,7 @@ mod tests {
     use crate::rr::dnssec::rdata::DS;
     use crate::rr::domain::Name;
     use crate::rr::rdata::*;
-    use std::str::FromStr;
+    use alloc::str::FromStr;
 
     #[test]
     fn test_a() {

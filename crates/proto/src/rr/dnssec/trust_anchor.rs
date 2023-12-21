@@ -18,6 +18,8 @@
 
 use std::default::Default;
 
+use alloc::{borrow::ToOwned, vec::Vec};
+
 use crate::rr::dnssec::PublicKey;
 
 const ROOT_ANCHOR_ORIG: &[u8] = include_bytes!("roots/19036.rsa");

@@ -9,6 +9,11 @@
 
 use std::{clone::Clone, collections::HashSet, error::Error, pin::Pin, sync::Arc};
 
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+    vec::Vec,
+};
 use futures_util::{
     future::{self, Future, FutureExt, TryFutureExt},
     stream::{self, Stream, TryStreamExt},

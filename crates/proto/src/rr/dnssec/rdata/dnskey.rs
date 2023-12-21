@@ -9,6 +9,7 @@
 
 use std::fmt;
 
+use alloc::vec::Vec;
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
@@ -489,6 +490,10 @@ mod tests {
     #[test]
     #[cfg(any(feature = "openssl", feature = "ring"))]
     fn test() {
+        use std::println;
+
+        use alloc::vec::Vec;
+
         let rdata = DNSKEY::new(
             true,
             true,

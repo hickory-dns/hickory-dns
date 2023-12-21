@@ -18,8 +18,7 @@
 
 //! All defined response codes in DNS
 
-use std::fmt;
-use std::fmt::{Display, Formatter};
+use core::fmt::{self, Display, Formatter};
 
 /// The status code of the response to a query.
 ///

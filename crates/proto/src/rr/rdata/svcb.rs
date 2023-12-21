@@ -8,12 +8,13 @@
 //! SVCB records, see [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03)
 #![allow(clippy::use_self)]
 
-use std::{
+use core::{
     cmp::{Ord, Ordering, PartialOrd},
     convert::TryFrom,
     fmt,
 };
 
+use alloc::{string::String, vec::Vec};
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
@@ -293,7 +294,7 @@ impl fmt::Display for SvcParamKey {
     }
 }
 
-impl std::str::FromStr for SvcParamKey {
+impl alloc::str::FromStr for SvcParamKey {
     type Err = ProtoError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -1178,6 +1179,8 @@ impl fmt::Display for SVCB {
 
 #[cfg(test)]
 mod tests {
+    use alloc::string::ToString;
+
     use super::*;
 
     #[test]

@@ -1,5 +1,8 @@
 //! Parser for DS text form
 
+use alloc::string::String;
+use alloc::vec::Vec;
+
 use crate::rr::dnssec::rdata::ds::DS;
 use crate::rr::dnssec::{Algorithm, DigestType};
 use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};

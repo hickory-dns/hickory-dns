@@ -5,15 +5,17 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use alloc::sync::Arc;
+use core::marker::PhantomData;
+use core::pin::Pin;
+use core::task::{Context, Poll};
 use std::borrow::Borrow;
 use std::fmt::{self, Display};
-use std::marker::PhantomData;
 use std::net::SocketAddr;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use alloc::boxed::Box;
+use alloc::vec::Vec;
 use futures_util::{future::Future, stream::Stream};
 use tracing::{debug, trace, warn};
 

@@ -7,11 +7,12 @@
 
 //! domain name, aka labels, implementation
 
-use std::borrow::Borrow;
-use std::cmp::{Ordering, PartialEq};
-use std::fmt;
-use std::hash::{Hash, Hasher};
-use std::str::FromStr;
+use alloc::str::FromStr;
+use alloc::string::{String, ToString};
+use core::borrow::Borrow;
+use core::cmp::{Ordering, PartialEq};
+use core::fmt;
+use core::hash::{Hash, Hasher};
 
 use crate::error::*;
 #[cfg(feature = "serde-config")]
@@ -57,7 +58,8 @@ impl LowerName {
     /// # Examples
     ///
     /// ```
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::{LowerName, Name};
     ///
     /// let name = LowerName::from(Name::from_str("www").unwrap());
@@ -78,7 +80,8 @@ impl LowerName {
     /// # Examples
     ///
     /// ```
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::{LowerName, Name};
     ///
     /// let example_com = LowerName::from(Name::from_str("example.com").unwrap());
@@ -95,7 +98,8 @@ impl LowerName {
     /// # Example
     ///
     /// ```rust
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::{LowerName, Name};
     ///
     /// let name = LowerName::from(Name::from_str("www.example.com").unwrap());
@@ -113,7 +117,8 @@ impl LowerName {
     /// # Examples
     ///
     /// ```
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::{LowerName, Name};
     ///
     /// let root = LowerName::from(Name::root());

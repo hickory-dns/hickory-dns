@@ -9,21 +9,24 @@
 #![allow(deprecated, clippy::use_self)] // allows us to deprecate RData types
 
 #[cfg(test)]
-use std::convert::From;
-use std::{cmp::Ordering, fmt, net::IpAddr};
+use core::convert::From;
+use core::{cmp::Ordering, fmt};
 
+use alloc::vec::Vec;
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
 use enum_as_inner::EnumAsInner;
 use tracing::{trace, warn};
 
+use crate::rr::rdata::{SSHFP, TLSA};
 use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
+    net::IpAddr,
     rr::{
         rdata::{
             A, AAAA, ANAME, CAA, CNAME, CSYNC, HINFO, HTTPS, MX, NAPTR, NS, NULL, OPENPGPKEY, OPT,
-            PTR, SOA, SRV, SSHFP, SVCB, TLSA, TXT,
+            PTR, SOA, SRV, SVCB, TXT,
         },
         record_type::RecordType,
         RecordData, RecordDataDecodable,
@@ -1074,7 +1077,11 @@ impl Ord for RData {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    use std::str::FromStr;
+    #[cfg(feature = "std")]
+    use std::println;
+
+    use alloc::str::FromStr;
+    use alloc::string::ToString;
 
     use super::*;
     use crate::rr::domain::Name;
@@ -1232,6 +1239,7 @@ mod tests {
     #[test]
     fn test_read() {
         for (test_pass, (expect, binary)) in get_data().into_iter().enumerate() {
+            #[cfg(feature = "std")]
             println!("test {test_pass}: {binary:?}");
             let length = binary.len() as u16; // pre exclusive borrow
             let mut decoder = BinDecoder::new(&binary);

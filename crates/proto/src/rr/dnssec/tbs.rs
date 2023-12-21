@@ -7,6 +7,8 @@
 
 //! hash functions for DNSSEC operations
 
+use alloc::{borrow::ToOwned, vec::Vec};
+
 use crate::{
     error::*,
     rr::{dnssec::Algorithm, DNSClass, Name, Record, RecordType},

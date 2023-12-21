@@ -7,8 +7,9 @@
 
 //! Public Key implementations for supported key types
 #[cfg(not(any(feature = "openssl", feature = "ring")))]
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
+use alloc::vec::Vec;
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
 use openssl::bn::BigNum;
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
@@ -529,6 +530,8 @@ impl PublicKey for PublicKeyBuf {
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
+
     #[cfg(feature = "openssl")]
     #[test]
     fn test_asn1_emit_integer() {

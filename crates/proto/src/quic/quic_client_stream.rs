@@ -5,6 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use alloc::{boxed::Box, string::String};
 use std::{
     fmt::{self, Display},
     future::Future,

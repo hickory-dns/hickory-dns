@@ -7,7 +7,7 @@
 
 //! HTTPS type and related implementations
 
-use std::{fmt, ops::Deref};
+use core::{fmt, ops::Deref};
 
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};

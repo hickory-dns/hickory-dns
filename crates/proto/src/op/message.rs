@@ -7,8 +7,10 @@
 
 //! Basic protocol message for DNS
 
-use std::{fmt, iter, mem, ops::Deref, sync::Arc};
+use alloc::sync::Arc;
+use core::{fmt, iter, mem, ops::Deref};
 
+use alloc::{boxed::Box, vec::Vec};
 use tracing::{debug, warn};
 
 use crate::{

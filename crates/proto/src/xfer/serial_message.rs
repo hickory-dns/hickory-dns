@@ -5,7 +5,12 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+#[cfg(not(feature = "std"))]
+use core::net::SocketAddr;
+#[cfg(feature = "std")]
 use std::net::SocketAddr;
+
+use alloc::vec::Vec;
 
 use crate::error::ProtoResult;
 use crate::op::Message;

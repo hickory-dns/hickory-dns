@@ -5,6 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use alloc::vec::Vec;
 use std::{io, net::SocketAddr, sync::Arc};
 
 use quinn::{Connection, Endpoint, ServerConfig};

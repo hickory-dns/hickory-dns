@@ -7,17 +7,29 @@
 
 //! `DnsMultiplexer` and associated types implement the state machines for sending DNS messages while using the underlying streams.
 
-use std::{
-    borrow::Borrow,
-    collections::{hash_map::Entry, HashMap},
+use alloc::sync::Arc;
+#[cfg(feature = "std")]
+use core::borrow::Borrow;
+use core::{
     fmt::{self, Display},
     marker::Unpin,
     pin::Pin,
-    sync::Arc,
     task::{Context, Poll},
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::Duration,
 };
 
+#[cfg(not(feature = "std"))]
+use alloc::collections::{btree_map::Entry, BTreeMap};
+#[cfg(feature = "std")]
+use std::{
+    collections::{
+        hash_map::{Entry, RandomState},
+        HashMap,
+    },
+    time::{SystemTime, UNIX_EPOCH},
+};
+
+use alloc::boxed::Box;
 use futures_channel::mpsc;
 use futures_util::{
     future::Future,
@@ -25,27 +37,35 @@ use futures_util::{
     stream::{Stream, StreamExt},
     FutureExt,
 };
+#[cfg(feature = "std")]
 use rand::{
     self,
     distributions::{Distribution, Standard},
 };
 use tracing::debug;
 
+#[cfg(feature = "std")]
+use crate::xfer::{DnsRequest, DnsResponseStream, DnsStreamHandle, Time, CHANNEL_BUFFER_SIZE};
 use crate::{
     error::{ProtoError, ProtoErrorKind},
     op::{MessageFinalizer, MessageVerifier},
     xfer::{
-        ignore_send, BufDnsStreamHandle, DnsClientStream, DnsRequest, DnsRequestSender,
-        DnsResponse, DnsResponseStream, SerialMessage, CHANNEL_BUFFER_SIZE,
+        ignore_send, BufDnsStreamHandle, DnsClientStream, DnsRequestSender, DnsResponse,
+        SerialMessage,
     },
-    DnsStreamHandle, Time,
 };
+
+#[cfg(feature = "std")]
+type Map<K, V, S = RandomState> = HashMap<K, V, S>;
+#[cfg(not(feature = "std"))]
+type Map<K, V> = BTreeMap<K, V>;
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
 
 struct ActiveRequest {
     // the completion is the channel for a response to the original request
     completion: mpsc::Sender<Result<DnsResponse, ProtoError>>,
+    #[cfg(feature = "std")]
     request_id: u16,
     timeout: Box<dyn Future<Output = ()> + Send + Unpin>,
     verifier: Option<MessageVerifier>,
@@ -60,6 +80,7 @@ impl ActiveRequest {
     ) -> Self {
         Self {
             completion,
+            #[cfg(feature = "std")]
             request_id,
             // request,
             timeout,
@@ -78,6 +99,7 @@ impl ActiveRequest {
     }
 
     /// the request id of the message that was sent
+    #[cfg(feature = "std")]
     fn request_id(&self) -> u16 {
         self.request_id
     }
@@ -100,9 +122,11 @@ where
     MF: MessageFinalizer,
 {
     stream: S,
+    #[cfg(feature = "std")]
     timeout_duration: Duration,
+    #[cfg(feature = "std")]
     stream_handle: BufDnsStreamHandle,
-    active_requests: HashMap<u16, ActiveRequest>,
+    active_requests: Map<u16, ActiveRequest>,
     signer: Option<Arc<MF>>,
     is_shutdown: bool,
 }
@@ -162,7 +186,7 @@ where
     /// loop over active_requests and remove cancelled requests
     ///  this should free up space if we already had 4096 active requests
     fn drop_cancelled(&mut self, cx: &mut Context<'_>) {
-        let mut canceled = HashMap::<u16, ProtoError>::new();
+        let mut canceled = Map::<u16, ProtoError>::new();
         for (&id, ref mut active_req) in &mut self.active_requests {
             if active_req.is_canceled() {
                 canceled.insert(id, ProtoError::from("requestor canceled"));
@@ -188,6 +212,7 @@ where
     }
 
     /// creates random query_id, validates against all active queries
+    #[cfg(feature = "std")]
     fn next_random_query_id(&self) -> Result<u16, ProtoError> {
         let mut rand = rand::thread_rng();
 
@@ -206,9 +231,21 @@ where
 
     /// Closes all outstanding completes with a closed stream error
     fn stream_closed_close_all(&mut self, error: ProtoError) {
-        debug!(error = error.as_dyn(), stream = %self.stream);
+        debug!(
+            error = error.as_dyn(),
+            stream = %self.stream);
 
         for (_, active_request) in self.active_requests.drain() {
+            // complete the request, it's failed...
+            active_request.complete_with_error(error.clone());
+        }
+        // `BTreeMap` doesn't support `drain`.
+        #[cfg(not(feature = "std"))]
+        for (_, active_request) in self
+            .active_requests
+            .drain_filter(|_, _| true)
+            .collect::<Vec<_>>()
+        {
             // complete the request, it's failed...
             active_request.complete_with_error(error.clone());
         }
@@ -224,7 +261,9 @@ where
     MF: MessageFinalizer + Send + Sync + 'static,
 {
     stream: F,
+    #[cfg(feature = "std")]
     stream_handle: Option<BufDnsStreamHandle>,
+    #[cfg(feature = "std")]
     timeout_duration: Duration,
     signer: Option<Arc<MF>>,
 }
@@ -242,12 +281,14 @@ where
 
         Poll::Ready(Ok(DnsMultiplexer {
             stream,
+            #[cfg(feature = "std")]
             timeout_duration: self.timeout_duration,
+            #[cfg(feature = "std")]
             stream_handle: self
                 .stream_handle
                 .take()
                 .expect("must not poll after complete"),
-            active_requests: HashMap::new(),
+            active_requests: Map::new(),
             signer: self.signer.clone(),
             is_shutdown: false,
         }))
@@ -269,6 +310,7 @@ where
     S: DnsClientStream + Unpin + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
+    #[cfg(feature = "std")]
     fn send_message(&mut self, request: DnsRequest) -> DnsResponseStream {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
@@ -406,7 +448,9 @@ where
                             Entry::Vacant(..) => debug!("unexpected request_id: {}", message.id()),
                         },
                         // TODO: return src address for diagnostics
-                        Err(error) => debug!(error = error.as_dyn(), "error decoding message"),
+                        Err(error) => {
+                            debug!(error = error.as_dyn(), "error decoding message")
+                        }
                     }
                 }
                 Poll::Ready(err) => {
@@ -448,6 +492,7 @@ mod test {
     use crate::serialize::binary::BinEncodable;
     use crate::xfer::StreamReceiver;
     use crate::xfer::{DnsClientStream, DnsRequestOptions};
+    use alloc::vec::Vec;
     use futures_util::future;
     use futures_util::stream::TryStreamExt;
     use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};

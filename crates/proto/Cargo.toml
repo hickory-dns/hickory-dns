@@ -30,6 +30,27 @@ codecov = { repository = "hickory-dns/hickory-dns", branch = "main", service = "
 maintenance = { status = "actively-developed" }
 
 [features]
+std = [
+    "data-encoding/std",
+    "futures-channel/std",
+    "futures-io/std",
+    "futures-util/std",
+    "ipnet/std",
+    "rand/std",
+    "ring/std",
+    "thiserror/std",
+    "tracing/std",
+    "tracing-subscriber/std",
+    "url/std",
+]
+
+unstable = [
+    #"thiserror/unstable",
+    "const-random",
+    "critical-section",
+    "once_cell/critical-section",
+]
+
 dns-over-tls = []
 dns-over-rustls = [
     "dns-over-tls",
@@ -61,18 +82,18 @@ native-certs = ["dep:rustls-native-certs"]
 
 dnssec-openssl = ["dnssec", "openssl"]
 dnssec-ring = ["dnssec", "ring"]
-dnssec = []
+dnssec = ["std"]
 
 testing = []
 
 text-parsing = []
-tokio-runtime = ["tokio/net", "tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
-default = ["tokio-runtime"]
+tokio-runtime = ["tokio/net", "tokio/rt", "tokio/time", "tokio/rt-multi-thread", "std"]
+default = ["tokio-runtime", "std"]
 
 serde-config = ["serde", "url/serde"]
 
 # enables experimental the mDNS (multicast) feature
-mdns = ["socket2/all"]
+mdns = ["socket2/all", "std"]
 
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
 # mtls = ["tls"]
@@ -90,14 +111,16 @@ async-trait.workspace = true
 backtrace = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
 cfg-if.workspace = true
-data-encoding.workspace = true
+const-random = { version = "0.1.15", optional = true }
+critical-section = { version = "1.1.1", optional = true }
+data-encoding = { workspace = true, features = ["alloc"] }
 enum-as-inner.workspace = true
 futures-channel = { workspace = true, default-features = false, features = [
-    "std",
+    "alloc",
 ] }
-futures-io = { workspace = true, default-features = false, features = ["std"] }
+futures-io = { workspace = true, default-features = false }
 futures-util = { workspace = true, default-features = false, features = [
-    "std",
+    "alloc",
 ] }
 h2 = { workspace = true, features = ["stream"], optional = true }
 h3 = { workspace = true, optional = true }
@@ -123,7 +146,7 @@ serde = { workspace = true, features = ["derive"], optional = true }
 socket2 = { workspace = true, optional = true }
 thiserror.workspace = true
 tinyvec = { workspace = true, features = ["alloc"] }
-tracing.workspace = true
+tracing = { workspace = true, default-features = false }
 tokio = { workspace = true, features = ["io-util"], optional = true }
 tokio-native-tls = { workspace = true, optional = true }
 tokio-openssl = { workspace = true, optional = true }
@@ -139,7 +162,6 @@ futures-executor = { workspace = true, default-features = false, features = [
 openssl = { workspace = true, features = ["v102", "v110"] }
 tokio = { workspace = true, features = ["rt", "time", "macros"] }
 tracing-subscriber = { workspace = true, features = [
-    "std",
     "fmt",
     "env-filter",
 ] }

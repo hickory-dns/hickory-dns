@@ -10,6 +10,7 @@
 
 use std::{convert::TryInto, fmt};
 
+use alloc::vec::Vec;
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
@@ -812,6 +813,10 @@ pub fn make_tsig_record(name: Name, rdata: TSIG) -> Record {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
+    use std::println;
+
+    use alloc::vec::Vec;
 
     use super::*;
     use crate::rr::Record;

@@ -18,6 +18,7 @@
 
 use std::fmt::{self, Display, Formatter};
 
+use alloc::vec::Vec;
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 

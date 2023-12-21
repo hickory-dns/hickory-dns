@@ -8,15 +8,20 @@
 //! option record for passing protocol options between the client and server
 #![allow(clippy::use_self)]
 
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::str::FromStr;
-use std::{collections::HashMap, fmt};
+#[cfg(not(feature = "std"))]
+use alloc::collections::BTreeMap;
+use alloc::str::FromStr;
+use core::fmt;
+#[cfg(feature = "std")]
+use std::collections::{hash_map::RandomState, HashMap};
 
+use alloc::vec::Vec;
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
 use tracing::warn;
 
+use crate::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
@@ -25,6 +30,11 @@ use crate::{
 
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::SupportedAlgorithms;
+
+#[cfg(feature = "std")]
+type Map<K, V, S = RandomState> = HashMap<K, V, S>;
+#[cfg(not(feature = "std"))]
+type Map<K, V> = BTreeMap<K, V>;
 
 /// The OPT record type is used for ExtendedDNS records.
 ///
@@ -165,7 +175,7 @@ use crate::rr::dnssec::SupportedAlgorithms;
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub struct OPT {
-    options: HashMap<EdnsCode, EdnsOption>,
+    options: Map<EdnsCode, EdnsOption>,
 }
 
 impl OPT {
@@ -178,13 +188,13 @@ impl OPT {
     /// # Return value
     ///
     /// The newly created OPT data
-    pub fn new(options: HashMap<EdnsCode, EdnsOption>) -> Self {
+    pub fn new(options: Map<EdnsCode, EdnsOption>) -> Self {
         Self { options }
     }
 
     #[deprecated(note = "Please use as_ref() or as_mut() for shared/mutable references")]
     /// The entire map of options
-    pub fn options(&self) -> &HashMap<EdnsCode, EdnsOption> {
+    pub fn options(&self) -> &Map<EdnsCode, EdnsOption> {
         &self.options
     }
 
@@ -204,14 +214,14 @@ impl OPT {
     }
 }
 
-impl AsMut<HashMap<EdnsCode, EdnsOption>> for OPT {
-    fn as_mut(&mut self) -> &mut HashMap<EdnsCode, EdnsOption> {
+impl AsMut<Map<EdnsCode, EdnsOption>> for OPT {
+    fn as_mut(&mut self) -> &mut Map<EdnsCode, EdnsOption> {
         &mut self.options
     }
 }
 
-impl AsRef<HashMap<EdnsCode, EdnsOption>> for OPT {
-    fn as_ref(&self) -> &HashMap<EdnsCode, EdnsOption> {
+impl AsRef<Map<EdnsCode, EdnsOption>> for OPT {
+    fn as_ref(&self) -> &Map<EdnsCode, EdnsOption> {
         &self.options
     }
 }
@@ -230,7 +240,7 @@ impl BinEncodable for OPT {
 impl<'r> RecordDataDecodable<'r> for OPT {
     fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
         let mut state: OptReadState = OptReadState::ReadCode;
-        let mut options: HashMap<EdnsCode, EdnsOption> = HashMap::new();
+        let mut options: Map<EdnsCode, EdnsOption> = Map::new();
         let start_idx = decoder.index();
 
         // There is no unsafe direct use of the rdata length after this point
@@ -345,7 +355,7 @@ enum OptReadState {
 
 /// The code of the EDNS data option
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
-#[derive(Hash, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Hash, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
 pub enum EdnsCode {
     /// [RFC 6891, Reserved](https://tools.ietf.org/html/rfc6891)
@@ -758,6 +768,11 @@ impl FromStr for ClientSubnet {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    #[cfg(not(feature = "std"))]
+    use alloc::collections::BTreeMap;
+    #[cfg(feature = "std")]
+    use std::println;
+
     use super::*;
 
     #[test]
@@ -771,6 +786,7 @@ mod tests {
         assert!(rdata.emit(&mut encoder).is_ok());
         let bytes = encoder.into_bytes();
 
+        #[cfg(feature = "std")]
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
@@ -795,6 +811,9 @@ mod tests {
         );
 
         let opt = read_rdata.unwrap();
+        #[cfg(not(feature = "std"))]
+        let mut options = BTreeMap::default();
+        #[cfg(feature = "std")]
         let mut options = HashMap::default();
         options.insert(
             EdnsCode::Subnet,
@@ -814,6 +833,7 @@ mod tests {
         let expected_bytes: Vec<u8> = vec![0x00, 0x01, 0x18, 0x00, 0xac, 0x01, 0x01];
         let ecs: ClientSubnet = "172.1.1.1/24".parse().unwrap();
         let bytes = Vec::<u8>::try_from(&ecs).unwrap();
+        #[cfg(feature = "std")]
         println!("bytes: {bytes:?}");
         assert_eq!(bytes, expected_bytes);
     }

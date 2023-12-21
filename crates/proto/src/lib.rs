@@ -6,6 +6,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+#![no_std]
 // LIBRARY WARNINGS
 #![warn(
     clippy::default_trait_access,
@@ -27,19 +28,83 @@
 )]
 #![recursion_limit = "2048"]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(not(feature = "std"), feature(error_in_core))]
+#![cfg_attr(not(feature = "std"), feature(ip_in_core))]
 
 //! Hickory DNS Protocol library
 
+#[cfg(not(any(feature = "std", feature = "unstable")))]
+compile_error!(
+    "Currently, no_std support only works with unstable features. Use a nightly toolchain and the `unstable` feature, or enable the `std` feature."
+);
+
+#[cfg(feature = "std")]
+extern crate std;
+
+#[macro_use]
+extern crate alloc;
+
 use async_trait::async_trait;
+
+#[cfg(not(feature = "std"))]
+use const_random::const_random;
+#[cfg(not(feature = "std"))]
+use core::cell::RefCell;
+#[cfg(not(feature = "std"))]
+use critical_section::Mutex;
+#[cfg(not(feature = "std"))]
+use once_cell::sync::Lazy;
+
 use futures_util::future::Future;
 
-use std::marker::Send;
-use std::time::Duration;
+use alloc::boxed::Box;
+#[cfg(feature = "std")]
+use core::marker::Send;
+use core::time::Duration;
+
 #[cfg(any(test, feature = "tokio-runtime"))]
 use tokio::runtime::Runtime;
 #[cfg(any(test, feature = "tokio-runtime"))]
 use tokio::task::JoinHandle;
 
+#[cfg(not(feature = "std"))]
+use rand::{rngs::StdRng, Rng, SeedableRng};
+
+#[cfg(not(feature = "std"))]
+pub(crate) use core::net;
+#[cfg(feature = "std")]
+pub(crate) use rand::random;
+#[cfg(feature = "std")]
+pub(crate) use std::net;
+
+#[cfg(not(feature = "std"))]
+use rand::distributions::{Distribution, Standard};
+
+#[cfg(not(feature = "std"))]
+static SEEDED_RNG: Lazy<Mutex<RefCell<StdRng>>> =
+    Lazy::new(|| Mutex::new(RefCell::new(StdRng::seed_from_u64(const_random!(u64)))));
+
+/// Seed the RNG used to create random DNS IDs throughout the lib (no_std-only).
+#[cfg(not(feature = "std"))]
+pub fn seed_rng(seed: u64) {
+    critical_section::with(|cs| *SEEDED_RNG.borrow(cs).borrow_mut() = StdRng::seed_from_u64(seed));
+}
+
+/// Generates a random value on `no_std`.
+/// The random value is predictable for each compilation unit (using [`const_random`],
+/// unless seeded using [`crate::seed_rng`]!
+/// Depending on the usage of this library, this may yield predictable DNS requests that attackers can
+/// use to feed wrong responses to hickory.
+/// Always seed this library before using in `no_std` environments, if possible.
+#[cfg(not(feature = "std"))]
+pub(crate) fn random<T>() -> T
+where
+    Standard: Distribution<T>,
+{
+    critical_section::with(|cs| SEEDED_RNG.borrow(cs).borrow_mut().gen())
+}
+
+#[cfg(feature = "std")]
 macro_rules! try_ready_stream {
     ($e:expr) => {{
         match $e {
@@ -95,16 +160,20 @@ pub mod rr;
 #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
 pub mod rustls;
 pub mod serialize;
+#[cfg(feature = "std")]
 pub mod tcp;
+#[cfg(feature = "std")]
 #[cfg(any(test, feature = "testing"))]
 #[cfg_attr(docsrs, doc(cfg(feature = "testing")))]
 pub mod tests;
+#[cfg(feature = "std")]
 pub mod udp;
 pub mod xfer;
 
 #[doc(hidden)]
 pub use crate::xfer::dns_handle::{DnsHandle, DnsStreamHandle};
 #[doc(hidden)]
+#[cfg(feature = "std")]
 pub use crate::xfer::dns_multiplexer::DnsMultiplexer;
 #[doc(hidden)]
 #[cfg(feature = "dnssec")]
@@ -112,6 +181,7 @@ pub use crate::xfer::dnssec_dns_handle::DnssecDnsHandle;
 #[doc(hidden)]
 pub use crate::xfer::retry_dns_handle::RetryDnsHandle;
 #[doc(hidden)]
+#[cfg(feature = "std")]
 pub use crate::xfer::BufDnsStreamHandle;
 #[cfg(feature = "backtrace")]
 #[cfg_attr(docsrs, doc(cfg(feature = "backtrace")))]
@@ -120,9 +190,9 @@ pub use error::ExtBacktrace;
 #[cfg(feature = "tokio-runtime")]
 #[doc(hidden)]
 pub mod iocompat {
+    use core::pin::Pin;
+    use core::task::{Context, Poll};
     use std::io;
-    use std::pin::Pin;
-    use std::task::{Context, Poll};
 
     use futures_io::{AsyncRead, AsyncWrite};
     use tokio::io::{AsyncRead as TokioAsyncRead, AsyncWrite as TokioAsyncWrite, ReadBuf};
@@ -231,6 +301,7 @@ pub trait Time {
     async fn delay_for(duration: Duration);
 
     /// Return a type that implement `Future` to complete before the specified duration has elapsed.
+    #[cfg(feature = "std")]
     async fn timeout<F: 'static + Future + Send>(
         duration: Duration,
         future: F,
@@ -238,11 +309,13 @@ pub trait Time {
 }
 
 /// New type which is implemented using tokio::time::{Delay, Timeout}
+#[cfg(feature = "std")]
 #[cfg(any(test, feature = "tokio-runtime"))]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 #[derive(Clone, Copy, Debug)]
 pub struct TokioTime;
 
+#[cfg(feature = "std")]
 #[cfg(any(test, feature = "tokio-runtime"))]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 #[async_trait]

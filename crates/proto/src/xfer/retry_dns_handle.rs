@@ -7,9 +7,10 @@
 
 //! `RetryDnsHandle` allows for DnsQueries to be reattempted on failure
 
-use std::pin::Pin;
-use std::task::{Context, Poll};
+use core::pin::Pin;
+use core::task::{Context, Poll};
 
+use alloc::boxed::Box;
 use futures_util::stream::{Stream, StreamExt};
 
 use crate::error::{ProtoError, ProtoErrorKind};
@@ -135,6 +136,7 @@ impl RetryableError for ProtoError {
     }
 }
 
+#[cfg(feature = "std")]
 #[cfg(test)]
 mod test {
     use super::*;

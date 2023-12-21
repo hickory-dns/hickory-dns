@@ -7,10 +7,11 @@
 
 //! Update related operations for Messages
 
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 use crate::{
     op::{Edns, Message, MessageType, OpCode, Query},
+    random,
     rr::{
         rdata::{NULL, SOA},
         DNSClass, Name, RData, Record, RecordSet, RecordType,
@@ -175,7 +176,7 @@ pub fn create(rrset: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
     // build the message
     let mut message: Message = Message::new();
     message
-        .set_id(rand::random())
+        .set_id(random())
         .set_message_type(MessageType::Query)
         .set_op_code(OpCode::Update)
         .set_recursion_desired(false);
@@ -244,7 +245,7 @@ pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool, use_edns: b
     // build the message
     let mut message: Message = Message::new();
     message
-        .set_id(rand::random())
+        .set_id(random())
         .set_message_type(MessageType::Query)
         .set_op_code(OpCode::Update)
         .set_recursion_desired(false);
@@ -329,7 +330,7 @@ pub fn compare_and_swap(
     // build the message
     let mut message: Message = Message::new();
     message
-        .set_id(rand::random())
+        .set_id(random())
         .set_message_type(MessageType::Query)
         .set_op_code(OpCode::Update)
         .set_recursion_desired(false);
@@ -411,7 +412,7 @@ pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name, use_edns: bool) 
     // build the message
     let mut message: Message = Message::new();
     message
-        .set_id(rand::random())
+        .set_id(random())
         .set_message_type(MessageType::Query)
         .set_op_code(OpCode::Update)
         .set_recursion_desired(false);
@@ -481,7 +482,7 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Me
     // build the message
     let mut message: Message = Message::new();
     message
-        .set_id(rand::random())
+        .set_id(random())
         .set_message_type(MessageType::Query)
         .set_op_code(OpCode::Update)
         .set_recursion_desired(false);
@@ -548,7 +549,7 @@ pub fn delete_all(
     // build the message
     let mut message: Message = Message::new();
     message
-        .set_id(rand::random())
+        .set_id(random())
         .set_message_type(MessageType::Query)
         .set_op_code(OpCode::Update)
         .set_recursion_desired(false);
@@ -600,7 +601,7 @@ pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
     // build the message
     let mut message: Message = Message::new();
     message
-        .set_id(rand::random())
+        .set_id(random())
         .set_message_type(MessageType::Query)
         .set_recursion_desired(false);
     message.add_zone(zone);

@@ -9,6 +9,7 @@
 
 use std::fmt::{self, Display, Formatter};
 
+use alloc::vec::Vec;
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
@@ -309,6 +310,11 @@ impl Display for DS {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    #[cfg(feature = "std")]
+    use std::println;
+
+    use alloc::vec::Vec;
+
     use super::*;
 
     #[test]
@@ -325,6 +331,7 @@ mod tests {
         assert!(rdata.emit(&mut encoder).is_ok());
         let bytes = encoder.into_bytes();
 
+        #[cfg(feature = "std")]
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
@@ -336,6 +343,8 @@ mod tests {
     #[test]
     #[cfg(any(feature = "openssl", feature = "ring"))]
     pub(crate) fn test_covers() {
+        use alloc::borrow::ToOwned;
+
         use crate::rr::dnssec::rdata::DNSKEY;
 
         let name = Name::parse("www.example.com.", None).unwrap();

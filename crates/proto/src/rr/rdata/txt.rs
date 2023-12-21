@@ -6,9 +6,10 @@
 // copied, modified, or distributed except according to those terms.
 
 //! text records for storing arbitrary data
-use std::fmt;
-use std::slice::Iter;
+use core::fmt;
+use core::slice::Iter;
 
+use alloc::{boxed::Box, string::String, vec::Vec};
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
@@ -178,6 +179,11 @@ impl fmt::Display for TXT {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    #[cfg(feature = "std")]
+    use std::println;
+
+    use alloc::string::ToString;
+
     use super::*;
 
     #[test]
@@ -189,6 +195,7 @@ mod tests {
         assert!(rdata.emit(&mut encoder).is_ok());
         let bytes = encoder.into_bytes();
 
+        #[cfg(feature = "std")]
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
@@ -207,6 +214,7 @@ mod tests {
         assert!(rdata.emit(&mut encoder).is_ok());
         let bytes = encoder.into_bytes();
 
+        #[cfg(feature = "std")]
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);

@@ -8,8 +8,9 @@
 //! TLSA records for storing TLS certificate validation information
 #![allow(clippy::use_self)]
 
-use std::fmt;
+use core::fmt;
 
+use alloc::vec::Vec;
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
@@ -477,6 +478,9 @@ impl fmt::Display for TLSA {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    #[cfg(feature = "std")]
+    use std::println;
+
     use super::*;
 
     #[test]
@@ -536,6 +540,7 @@ mod tests {
         rdata.emit(&mut encoder).expect("failed to emit tlsa");
         let bytes = encoder.into_bytes();
 
+        #[cfg(feature = "std")]
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);

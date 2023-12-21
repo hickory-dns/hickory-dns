@@ -7,7 +7,7 @@
 
 //! Operation code for queries, updates, and responses
 
-use std::{convert::From, fmt};
+use core::{convert::From, fmt};
 
 use crate::error::*;
 

@@ -21,8 +21,12 @@
 //! ```
 #![allow(clippy::use_self)]
 
-use std::{fmt, str};
+use core::{fmt, str};
 
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -684,7 +688,7 @@ fn emit_tag(buf: &mut [u8], tag: &Property) -> ProtoResult<u8> {
     let property = property.as_bytes();
 
     let len = property.len();
-    if len > ::std::u8::MAX as usize {
+    if len > ::core::u8::MAX as usize {
         return Err(format!("CAA property too long: {len}").into());
     }
     if buf.len() < len {
@@ -713,7 +717,7 @@ impl BinEncodable for CAA {
 
         encoder.emit(flags)?;
         // TODO: it might be interesting to use the new place semantics here to output all the data, then place the length back to the beginning...
-        let mut tag_buf = [0_u8; ::std::u8::MAX as usize];
+        let mut tag_buf = [0_u8; ::core::u8::MAX as usize];
         let len = emit_tag(&mut tag_buf, &self.tag)?;
 
         // now write to the encoder
@@ -919,7 +923,10 @@ impl fmt::Display for CAA {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    use std::str;
+    use alloc::str;
+
+    #[cfg(feature = "std")]
+    use std::println;
 
     use crate::error::ProtoErrorKind;
 
@@ -1052,6 +1059,7 @@ mod tests {
         rdata.emit(&mut encoder).expect("failed to emit caa");
         let bytes = encoder.into_bytes();
 
+        #[cfg(feature = "std")]
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);

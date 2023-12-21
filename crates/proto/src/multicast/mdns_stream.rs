@@ -5,12 +5,13 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use alloc::boxed::Box;
+use alloc::sync::Arc;
+use core::pin::Pin;
+use core::task::{Context, Poll};
 use std;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll};
 
 use futures_util::stream::{Stream, StreamExt};
 use futures_util::{future, future::Future, ready, FutureExt, TryFutureExt};
@@ -428,8 +429,11 @@ pub(crate) mod tests {
 
     use super::*;
     use crate::xfer::dns_handle::DnsStreamHandle;
+    use alloc::string::ToString;
     use futures_util::future::Either;
     use tokio::runtime;
+
+    use std::println;
 
     // TODO: is there a better way?
     const BASE_TEST_PORT: u16 = 5379;

@@ -7,36 +7,47 @@
 
 //! `DnsResponse` wraps a `Message` and any associated connection details
 
-use std::{
-    convert::TryFrom,
+#[cfg(feature = "std")]
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+use core::{convert::TryFrom, ops::Deref};
+#[cfg(feature = "std")]
+use core::{
     future::Future,
-    io,
-    ops::Deref,
     pin::Pin,
     task::{Context, Poll},
 };
+#[cfg(feature = "std")]
+use std::io;
 
+#[cfg(feature = "std")]
 use futures_channel::mpsc;
+#[cfg(feature = "std")]
 use futures_util::{ready, stream::Stream};
 
+#[cfg(feature = "std")]
+use crate::error::{ProtoErrorKind, ProtoResult};
 use crate::{
-    error::{ProtoError, ProtoErrorKind, ProtoResult},
+    error::ProtoError,
     op::{Message, ResponseCode},
     rr::{rdata::SOA, resource::RecordRef, RData, RecordType},
 };
 
 /// A stream returning DNS responses
+#[cfg(feature = "std")]
 pub struct DnsResponseStream {
     inner: DnsResponseStreamInner,
     done: bool,
 }
 
+#[cfg(feature = "std")]
 impl DnsResponseStream {
     fn new(inner: DnsResponseStreamInner) -> Self {
         Self { inner, done: false }
     }
 }
 
+#[cfg(feature = "std")]
 impl Stream for DnsResponseStream {
     type Item = Result<DnsResponse, ProtoError>;
 
@@ -85,24 +96,28 @@ impl Stream for DnsResponseStream {
     }
 }
 
+#[cfg(feature = "std")]
 impl From<TimeoutFuture> for DnsResponseStream {
     fn from(f: TimeoutFuture) -> Self {
         Self::new(DnsResponseStreamInner::Timeout(f))
     }
 }
 
+#[cfg(feature = "std")]
 impl From<mpsc::Receiver<ProtoResult<DnsResponse>>> for DnsResponseStream {
     fn from(receiver: mpsc::Receiver<ProtoResult<DnsResponse>>) -> Self {
         Self::new(DnsResponseStreamInner::Receiver(receiver))
     }
 }
 
+#[cfg(feature = "std")]
 impl From<ProtoError> for DnsResponseStream {
     fn from(e: ProtoError) -> Self {
         Self::new(DnsResponseStreamInner::Error(Some(e)))
     }
 }
 
+#[cfg(feature = "std")]
 impl<F> From<Pin<Box<F>>> for DnsResponseStream
 where
     F: Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static,
@@ -114,6 +129,7 @@ where
     }
 }
 
+#[cfg(feature = "std")]
 enum DnsResponseStreamInner {
     Timeout(TimeoutFuture),
     Receiver(mpsc::Receiver<ProtoResult<DnsResponse>>),
@@ -121,6 +137,7 @@ enum DnsResponseStreamInner {
     Boxed(Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>),
 }
 
+#[cfg(feature = "std")]
 type TimeoutFuture = Pin<
     Box<dyn Future<Output = Result<Result<DnsResponse, ProtoError>, io::Error>> + Send + 'static>,
 >;

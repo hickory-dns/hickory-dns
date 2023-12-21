@@ -8,6 +8,7 @@
 //! NSEC record types
 use std::fmt;
 
+use alloc::vec::Vec;
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
@@ -234,12 +235,16 @@ impl fmt::Display for NSEC {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    use std::println;
+
+    use alloc::vec::Vec;
+
     use super::*;
 
     #[test]
     fn test() {
         use crate::rr::RecordType;
-        use std::str::FromStr;
+        use alloc::str::FromStr;
 
         let rdata = NSEC::new(
             Name::from_str("www.example.com").unwrap(),

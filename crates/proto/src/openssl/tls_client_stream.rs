@@ -5,10 +5,12 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use alloc::boxed::Box;
+use alloc::string::{String, ToString};
+use core::pin::Pin;
 use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
-use std::pin::Pin;
 
 use futures_util::TryFutureExt;
 #[cfg(feature = "mtls")]

@@ -5,6 +5,8 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use alloc::boxed::Box;
+use alloc::string::String;
 use std::fmt::{self, Display};
 use std::future::Future;
 use std::net::SocketAddr;
@@ -448,6 +450,7 @@ impl Future for H3ClientResponse {
 
 #[cfg(all(test, any(feature = "native-certs", feature = "webpki-roots")))]
 mod tests {
+    use alloc::string::ToString;
     use std::net::SocketAddr;
     use std::str::FromStr;
 

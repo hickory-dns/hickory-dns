@@ -6,8 +6,9 @@
 // copied, modified, or distributed except according to those terms.
 
 //! OPENPGPKEY records for OpenPGP public keys
-use std::fmt;
+use core::fmt;
 
+use alloc::vec::Vec;
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 

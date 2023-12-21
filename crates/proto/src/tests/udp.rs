@@ -1,5 +1,7 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::println;
 
+use alloc::string::ToString;
 use futures_util::stream::StreamExt;
 use tracing::debug;
 
@@ -122,7 +124,7 @@ pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor>(
     use crate::rr::rdata::NULL;
     use crate::rr::{Name, RData, Record, RecordType};
     use crate::xfer::{DnsRequest, DnsRequestSender};
-    use std::str::FromStr;
+    use alloc::str::FromStr;
     use std::time::Duration;
 
     // use env_logger;

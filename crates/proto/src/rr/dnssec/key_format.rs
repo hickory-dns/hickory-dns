@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 #[cfg(feature = "openssl")]
 use openssl::ec::EcKey;
 #[cfg(feature = "openssl")]
@@ -368,6 +369,8 @@ mod tests {
         encode: bool,
         decode: bool,
     ) {
+        use std::println;
+
         println!(
             "test params: format: {key_format:?}, en_pass: {en_pass:?}, de_pass: {de_pass:?}, alg: {algorithm:?}, encode: {encode}, decode: {decode}"
         );
