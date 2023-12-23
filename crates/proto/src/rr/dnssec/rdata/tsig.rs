@@ -895,6 +895,7 @@ mod tests {
         assert_eq!(tbs, tbv);
     }
 
+    #[cfg(any(feature = "dnssec-ring", feature = "dnssec-openssl"))]
     #[test]
     fn test_sign_encode_id_changed() {
         let mut message = Message::new();
