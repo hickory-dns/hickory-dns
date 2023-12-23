@@ -34,7 +34,6 @@ hickory-resolver = { version = "0.24.0", path = "crates/resolver", default-featu
 hickory-server = { version = "0.24.0", path = "crates/server", default-features = false }
 hickory-proto = { version = "0.24.0", path = "crates/proto", default-features = false }
 
-
 # logging
 tracing = "0.1.30"
 tracing-subscriber = "0.3"

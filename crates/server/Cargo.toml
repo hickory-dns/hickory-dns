@@ -53,6 +53,8 @@ dnssec = []
 recursor = ["hickory-recursor"]
 resolver = ["hickory-resolver"]
 sqlite = ["rusqlite"]
+blocklist = ["resolver"]
+
 toml = ["dep:basic-toml"]
 
 # TODO: Need to figure out how to be consistent with ring/openssl usage...
