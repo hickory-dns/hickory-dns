@@ -289,11 +289,12 @@ impl<S: DnsUdpSocket + Send> Future for NextRandomUdpSocket<S> {
     /// if there is no port available after 10 attempts, returns NotReady
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         if self.bind_address.port() == 0 {
-            // Per RFC 6056 Section 2.1:
+            // Per RFC 6056 Section 3.2:
             //
-            //    The dynamic port range defined by IANA consists of the 49152-65535
-            //    range, and is meant for the selection of ephemeral ports.
-            let rand_port_range = Uniform::new_inclusive(49152_u16, u16::max_value());
+            // As mentioned in Section 2.1, the dynamic ports consist of the range
+            // 49152-65535.  However, ephemeral port selection algorithms should use
+            // the whole range 1024-65535.
+            let rand_port_range = Uniform::new_inclusive(1024_u16, u16::max_value());
             let mut rand = rand::thread_rng();
 
             for attempt in 0..10 {
