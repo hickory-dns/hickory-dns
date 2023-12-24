@@ -37,4 +37,4 @@ zone_type = "Hint"
 
 ## remember the port, defaults: 53 for Udp & Tcp, 853 for Tls and 443 for Https.
 ##   Tls and/or Https require features dns-over-tls and/or dns-over-https
-stores = { type = "recursor", roots = "default/root.zone" }
+stores = { type = "recursor", roots = "default/root.zone", ns_cache_size = 1024, record_cache_size = 1048576 }
