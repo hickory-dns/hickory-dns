@@ -27,6 +27,14 @@ use crate::resolver::Name;
 pub struct RecursiveConfig {
     /// File with roots, aka hints
     pub roots: PathBuf,
+
+    /// Maximum nameserver cache size
+    #[serde(default = "ns_cache_size_default")]
+    pub ns_cache_size: usize,
+
+    /// Maximum DNS record cache size
+    #[serde(default = "record_cache_size_default")]
+    pub record_cache_size: usize,
 }
 
 impl RecursiveConfig {
@@ -57,3 +65,6 @@ impl RecursiveConfig {
             .collect())
     }
 }
+
+fn ns_cache_size_default() -> usize { 1024 }
+fn record_cache_size_default() -> usize { 1048576 }

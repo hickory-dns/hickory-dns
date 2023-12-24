@@ -49,18 +49,19 @@ impl Recursor {
     /// # Panics
     ///
     /// This will panic if the roots are empty.
-    pub fn new(roots: impl Into<NameServerConfigGroup>) -> Result<Self, ResolveError> {
+    pub fn new(roots: impl Into<NameServerConfigGroup>, ns_cache_size: usize, record_cache_size: usize) -> Result<Self, ResolveError> {
         // configure the hickory-resolver
         let roots: NameServerConfigGroup = roots.into();
 
         assert!(!roots.is_empty(), "roots must not be empty");
 
+        debug!("Using cache sizes {}/{}", ns_cache_size, record_cache_size);
         let opts = recursor_opts();
         let roots =
             GenericNameServerPool::from_config(roots, opts, TokioConnectionProvider::default());
         let roots = RecursorPool::from(Name::root(), roots);
-        let name_server_cache = Mutex::new(NameServerCache::new(100)); // TODO: make this configurable
-        let record_cache = DnsLru::new(100, TtlConfig::default());
+        let name_server_cache = Mutex::new(NameServerCache::new(ns_cache_size));
+        let record_cache = DnsLru::new(record_cache_size, TtlConfig::default());
 
         Ok(Self {
             roots,
@@ -301,7 +302,6 @@ impl Recursor {
                     .into_iter()
                     .chain(r.take_name_servers())
                     .chain(r.take_additionals());
-
                 let lookup = self.record_cache.insert_records(query, records, now);
 
                 lookup.ok_or_else(|| Error::from("no records found"))
