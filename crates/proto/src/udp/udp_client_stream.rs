@@ -340,10 +340,44 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
             continue;
         }
 
-        // TODO: match query strings from request and response?
-
         match Message::from_vec(&buffer) {
             Ok(message) => {
+                // Make sure the query name in the response matches the original query.
+                //
+                // References:
+                //
+                // RFC 1035 7.3:
+                //
+                // The next step is to match the response to a current resolver request.
+                // The recommended strategy is to do a preliminary matching using the ID
+                // field in the domain header, and then to verify that the question section
+                // corresponds to the information currently desired.
+                //
+                // RFC 1035 7.4:
+                //
+                // In general, we expect a resolver to cache all data which it receives in
+                // responses since it may be useful in answering future client requests.
+                // However, there are several types of data which should not be cached:
+                //
+                // ...
+                //
+                //  - RR data in responses of dubious reliability.  When a resolver
+                // receives unsolicited responses or RR data other than that
+                // requested, it should discard it without caching it.
+                let request_message = Message::from_vec(msg.bytes())?;
+                let request_queries = request_message.queries();
+                let response_queries = message.queries();
+
+                if !response_queries.is_empty()
+                    && !response_queries
+                        .iter()
+                        .any(|elem| request_queries.contains(elem))
+                {
+                    warn!("detected forged question section: we expected '{:?}', but received '{:?}' from server {}",
+                        &request_queries, &response_queries, src);
+                    continue;
+                }
+
                 if msg_id == message.id() {
                     debug!("received message id: {}", message.id());
                     if let Some(mut verifier) = verifier {
