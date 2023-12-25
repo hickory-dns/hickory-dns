@@ -368,10 +368,9 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
                 let request_queries = request_message.queries();
                 let response_queries = message.queries();
 
-                if !response_queries.is_empty()
-                    && !response_queries
-                        .iter()
-                        .any(|elem| request_queries.contains(elem))
+                if !response_queries
+                    .iter()
+                    .all(|elem| request_queries.contains(elem))
                 {
                     warn!("detected forged question section: we expected '{:?}', but received '{:?}' from server {}",
                         &request_queries, &response_queries, src);
