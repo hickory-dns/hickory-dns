@@ -49,7 +49,11 @@ impl Recursor {
     /// # Panics
     ///
     /// This will panic if the roots are empty.
-    pub fn new(roots: impl Into<NameServerConfigGroup>, ns_cache_size: usize, record_cache_size: usize) -> Result<Self, ResolveError> {
+    pub fn new(
+        roots: impl Into<NameServerConfigGroup>,
+        ns_cache_size: usize,
+        record_cache_size: usize,
+    ) -> Result<Self, ResolveError> {
         // configure the hickory-resolver
         let roots: NameServerConfigGroup = roots.into();
 
