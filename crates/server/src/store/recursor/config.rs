@@ -66,5 +66,9 @@ impl RecursiveConfig {
     }
 }
 
-fn ns_cache_size_default() -> usize { 1024 }
-fn record_cache_size_default() -> usize { 1048576 }
+fn ns_cache_size_default() -> usize {
+    1024
+}
+fn record_cache_size_default() -> usize {
+    1048576
+}
