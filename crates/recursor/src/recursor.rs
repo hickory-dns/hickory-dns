@@ -14,6 +14,9 @@ use lru_cache::LruCache;
 use parking_lot::Mutex;
 use tracing::{debug, info, warn};
 
+#[cfg(test)]
+use std::str::FromStr;
+
 use crate::{
     proto::{
         op::Query,
@@ -305,7 +308,19 @@ impl Recursor {
                     .take_answers()
                     .into_iter()
                     .chain(r.take_name_servers())
-                    .chain(r.take_additionals());
+                    .chain(r.take_additionals())
+                    .filter(|x| {
+                        if !in_bailiwick(ns.zone().clone(), x.name().clone()) {
+                            warn!(
+                                "Dropping out of bailiwick record {x} for zone {}",
+                                ns.zone().clone()
+                            );
+                            false
+                        } else {
+                            true
+                        }
+                    });
+
                 let lookup = self.record_cache.insert_records(query, records, now);
 
                 lookup.ok_or_else(|| Error::from("no records found"))
@@ -360,6 +375,15 @@ impl Recursor {
                 //     .filter(|g| g.name() == ns_data)
                 //     .filter_map(Record::data)
                 //     .filter_map(RData::to_ip_addr);
+
+                if !in_bailiwick(zone.base_name().clone(), zns.name().clone()) {
+                    warn!(
+                        "Dropping out of bailiwick record for {:?} with parent {:?}",
+                        zns.name().clone(),
+                        zone.base_name().clone()
+                    );
+                    continue;
+                }
 
                 let cached_a = self.record_cache.get(
                     &Query::query(ns_data.0.clone(), RecordType::A),
@@ -465,4 +489,103 @@ fn recursor_opts() -> ResolverOpts {
     options.num_concurrent_reqs = 1;
 
     options
+}
+
+//
+// Bailiwick Checking.
+// The basic idea is to split the supplied parent and child string by '.' and verify each token in the
+// parent string is present in the same position in the child string.
+//
+//           Parent           Child                Expected Result
+//           ================ ==================== ========================
+// Examples: .                com.                 In-bailiwick (true)
+//           com.             example.net.         Out-of-bailiwick (false)
+//           example.com.     www.example.com.     In-bailiwick (true)
+//           example.com.     www.otherdomain.com. Out-of-bailiwick (false)
+//           example.com      www.example.com.     Out-of-bailiwick (false, note the parent is not fully qualified)
+//
+// If the caller doesn't provide a parent at all, we'll return false.
+//
+// ".".split('.') will evaluate to ["", ""], which for our purposes doesn't work -- that's the reason for the ends_with tests and
+// manually pushing the root entry onto the parent/child vectors, as well as skipping the first list element if the name was already
+// fully qualified.
+//
+fn in_bailiwick(parent: Name, child: Name) -> bool {
+    let parent_str = parent.to_string();
+    let child_str = child.to_string();
+
+    if parent_str.is_empty() {
+        return false;
+    }
+
+    let mut rev_parent: Vec<&str> = vec![];
+    let mut rev_child: Vec<&str> = vec![];
+    let mut parent_offset = 0;
+    let mut child_offset = 0;
+
+    if child_str.ends_with('.') {
+        rev_child.push(".");
+        child_offset = 1;
+    }
+    child_str
+        .rsplit('.')
+        .skip(child_offset)
+        .collect::<Vec<_>>()
+        .iter()
+        .filter(|x| !x.is_empty())
+        .for_each(|x| rev_child.push(x));
+
+    if parent_str.ends_with('.') {
+        rev_parent.push(".");
+        parent_offset = 1;
+    }
+    parent_str
+        .rsplit('.')
+        .skip(parent_offset)
+        .collect::<Vec<_>>()
+        .iter()
+        .filter(|x| !x.is_empty())
+        .for_each(|x| rev_parent.push(x));
+
+    rev_parent
+        .into_iter()
+        .enumerate()
+        .all(|(i, elem)| rev_child[i] == elem)
+}
+
+#[test]
+fn in_bailiwick_test() {
+    assert!(in_bailiwick(
+        Name::from_str(".").unwrap(),
+        Name::from_str("com.").unwrap()
+    ));
+    assert!(in_bailiwick(
+        Name::from_str("com.").unwrap(),
+        Name::from_str("example.com.").unwrap()
+    ));
+    assert!(in_bailiwick(
+        Name::from_str("example.com.").unwrap(),
+        Name::from_str("host.example.com.").unwrap()
+    ));
+    assert!(in_bailiwick(
+        Name::from_str("example.com.").unwrap(),
+        Name::from_str("host.multilevel.example.com.").unwrap()
+    ));
+
+    assert!(!in_bailiwick(
+        Name::from_str("").unwrap(),
+        Name::from_str("example.com.").unwrap()
+    ));
+    assert!(!in_bailiwick(
+        Name::from_str("com.").unwrap(),
+        Name::from_str("example.net.").unwrap()
+    ));
+    assert!(!in_bailiwick(
+        Name::from_str("example.com.").unwrap(),
+        Name::from_str("otherdomain.com.").unwrap()
+    ));
+    assert!(!in_bailiwick(
+        Name::from_str("com").unwrap(),
+        Name::from_str("example.com.").unwrap()
+    ));
 }
