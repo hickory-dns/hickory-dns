@@ -310,7 +310,7 @@ impl Recursor {
                     .chain(r.take_name_servers())
                     .chain(r.take_additionals())
                     .filter(|x| {
-                        if !in_bailiwick(ns.zone().clone(), x.name().clone()) {
+                        if !is_subzone(ns.zone().clone(), x.name().clone()) {
                             warn!(
                                 "Dropping out of bailiwick record {x} for zone {}",
                                 ns.zone().clone()
@@ -376,7 +376,7 @@ impl Recursor {
                 //     .filter_map(Record::data)
                 //     .filter_map(RData::to_ip_addr);
 
-                if !in_bailiwick(zone.base_name().clone(), zns.name().clone()) {
+                if !is_subzone(zone.base_name().clone(), zns.name().clone()) {
                     warn!(
                         "Dropping out of bailiwick record for {:?} with parent {:?}",
                         zns.name().clone(),
@@ -492,7 +492,12 @@ fn recursor_opts() -> ResolverOpts {
 }
 
 //
-// Bailiwick Checking.
+// Bailiwick/sub zone checking.
+//
+// A resolver should not return answers outside of its delegated authority -- if we receive a delegation from the root servers for
+// "example.com", that server should only return answers related to example.com or a sub-domain thereof.  This function checks that a
+// domain is a child of a specified parent.
+//
 // The basic idea is to split the supplied parent and child string by '.' and verify each token in the
 // parent string is present in the same position in the child string.
 //
@@ -510,7 +515,7 @@ fn recursor_opts() -> ResolverOpts {
 // manually pushing the root entry onto the parent/child vectors, as well as skipping the first list element if the name was already
 // fully qualified.
 //
-fn in_bailiwick(parent: Name, child: Name) -> bool {
+fn is_subzone(parent: Name, child: Name) -> bool {
     let parent_str = parent.to_string();
     let child_str = child.to_string();
 
@@ -554,37 +559,37 @@ fn in_bailiwick(parent: Name, child: Name) -> bool {
 }
 
 #[test]
-fn in_bailiwick_test() {
-    assert!(in_bailiwick(
+fn is_subzone_test() {
+    assert!(is_subzone(
         Name::from_str(".").unwrap(),
         Name::from_str("com.").unwrap()
     ));
-    assert!(in_bailiwick(
+    assert!(is_subzone(
         Name::from_str("com.").unwrap(),
         Name::from_str("example.com.").unwrap()
     ));
-    assert!(in_bailiwick(
+    assert!(is_subzone(
         Name::from_str("example.com.").unwrap(),
         Name::from_str("host.example.com.").unwrap()
     ));
-    assert!(in_bailiwick(
+    assert!(is_subzone(
         Name::from_str("example.com.").unwrap(),
         Name::from_str("host.multilevel.example.com.").unwrap()
     ));
 
-    assert!(!in_bailiwick(
+    assert!(!is_subzone(
         Name::from_str("").unwrap(),
         Name::from_str("example.com.").unwrap()
     ));
-    assert!(!in_bailiwick(
+    assert!(!is_subzone(
         Name::from_str("com.").unwrap(),
         Name::from_str("example.net.").unwrap()
     ));
-    assert!(!in_bailiwick(
+    assert!(!is_subzone(
         Name::from_str("example.com.").unwrap(),
         Name::from_str("otherdomain.com.").unwrap()
     ));
-    assert!(!in_bailiwick(
+    assert!(!is_subzone(
         Name::from_str("com").unwrap(),
         Name::from_str("example.com.").unwrap()
     ));
