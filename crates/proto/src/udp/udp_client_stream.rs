@@ -342,7 +342,22 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
 
         match Message::from_vec(&buffer) {
             Ok(message) => {
-                // Make sure the query name in the response matches the original query.
+                // Validate the message id in the response matches the value chosen for the query.
+                if msg_id != message.id() {
+                    // on wrong id, attempted poison?
+                    warn!(
+                        "expected message id: {} got: {}, dropped",
+                        msg_id,
+                        message.id()
+                    );
+
+                    continue;
+                }
+
+                // Validate the returned query name.
+                //
+                // This currently checks that each response query name was present in the original query, but not that
+                // every original question is present.
                 //
                 // References:
                 //
@@ -372,27 +387,15 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
                     .iter()
                     .all(|elem| request_queries.contains(elem))
                 {
-                    warn!("detected forged question section: we expected '{:?}', but received '{:?}' from server {}",
-                        &request_queries, &response_queries, src);
+                    warn!("detected forged question section: we expected '{request_queries:?}', but received '{response_queries:?}' from server {src}");
                     continue;
                 }
 
-                if msg_id == message.id() {
-                    debug!("received message id: {}", message.id());
-                    if let Some(mut verifier) = verifier {
-                        return verifier(&buffer);
-                    } else {
-                        return Ok(DnsResponse::new(message, buffer));
-                    }
+                debug!("received message id: {}", message.id());
+                if let Some(mut verifier) = verifier {
+                    return verifier(&buffer);
                 } else {
-                    // on wrong id, attempted poison?
-                    warn!(
-                        "expected message id: {} got: {}, dropped",
-                        msg_id,
-                        message.id()
-                    );
-
-                    continue;
+                    return Ok(DnsResponse::new(message, buffer));
                 }
             }
             Err(e) => {
