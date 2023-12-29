@@ -293,7 +293,7 @@ impl RecordSet {
             RecordType::SOA => {
                 assert!(self.records.len() <= 1);
 
-                if let Some(soa_record) = self.records.get(0) {
+                if let Some(soa_record) = self.records.first() {
                     match soa_record.data() {
                         Some(RData::SOA(ref existing_soa)) => {
                             if let Some(RData::SOA(ref new_soa)) = record.data() {

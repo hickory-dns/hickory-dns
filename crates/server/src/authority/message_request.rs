@@ -277,7 +277,7 @@ impl Queries {
             length: self.queries.len(),
             // We don't generally support more than one query, but this will at least give us one
             // cache entry.
-            first_query: self.queries.get(0),
+            first_query: self.queries.first(),
             cached_serialized: self.original.as_ref(),
         }
     }
