@@ -557,6 +557,7 @@ impl<'a> From<&'a EdnsOption> for EdnsCode {
 
 /// [RFC 7871, Client Subnet, Optional](https://tools.ietf.org/html/rfc7871)
 ///
+/// ```text
 /// +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 /// 0: |                            FAMILY                             |
 ///    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
@@ -583,6 +584,7 @@ impl<'a> From<&'a EdnsOption> for EdnsCode {
 ///    SOURCE PREFIX-LENGTH, SHOULD return FORMERR to reject the packet,
 ///    as a signal to the software developer making the request to fix
 ///    their implementation.
+/// ```
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct ClientSubnet {

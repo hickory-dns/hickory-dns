@@ -158,7 +158,7 @@ impl Clone for ErrorKind {
     }
 }
 
-/// A trait marking a type which implements From<Error> and
+/// A trait marking a type which implements `From<Error>` and
 /// std::error::Error types as well as Clone + Send
 pub trait FromError: From<Error> + std::error::Error + Clone {}
 
