@@ -56,8 +56,8 @@ impl HINFO {
     ///
     /// # Arguments
     ///
-    /// * `cpu` - A <character-string> which specifies the CPU type.
-    /// * `os` - A <character-string> which specifies the operating system type.
+    /// * `cpu` - A `character-string` which specifies the CPU type.
+    /// * `os` - A `character-string` which specifies the operating system type.
     ///
     /// # Return value
     ///
@@ -74,8 +74,8 @@ impl HINFO {
     ///
     /// # Arguments
     ///
-    /// * `cpu` - A <character-string> which specifies the CPU type.
-    /// * `os` - A <character-string> which specifies the operating system type.
+    /// * `cpu` - A `character-string` which specifies the CPU type.
+    /// * `os` - A `character-string` which specifies the operating system type.
     ///
     /// # Return value
     ///
@@ -84,12 +84,12 @@ impl HINFO {
         Self { cpu, os }
     }
 
-    /// A <character-string> which specifies the CPU type.
+    /// A `character-string` which specifies the CPU type.
     pub fn cpu(&self) -> &[u8] {
         &self.cpu
     }
 
-    /// A <character-string> which specifies the operating system type.
+    /// A `character-string` which specifies the operating system type.
     pub fn os(&self) -> &[u8] {
         &self.os
     }

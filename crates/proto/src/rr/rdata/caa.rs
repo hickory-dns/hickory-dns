@@ -224,14 +224,14 @@ impl CAA {
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Property {
     /// The issue property
-    ///    entry authorizes the holder of the domain name <Issuer Domain
-    ///    Name> or a party acting under the explicit authority of the holder
+    ///    entry authorizes the holder of the domain name `Issuer Domain
+    ///    Name`` or a party acting under the explicit authority of the holder
     ///    of that domain name to issue certificates for the domain in which
     ///    the property is published.
     Issue,
     /// The issuewild
-    ///    property entry authorizes the holder of the domain name <Issuer
-    ///    Domain Name> or a party acting under the explicit authority of the
+    ///    property entry authorizes the holder of the domain name `Issuer
+    ///    Domain Name` or a party acting under the explicit authority of the
     ///    holder of that domain name to issue wildcard certificates for the
     ///    domain in which the property is published.
     IssueWild,
@@ -470,7 +470,7 @@ enum ParseNameKeyPairState {
 ///
 /// Updated parsing rules:
 ///
-/// [RFC8659] Canonical presentation form and ABNF](https://www.rfc-editor.org/rfc/rfc8659#name-canonical-presentation-form)
+/// [RFC8659 Canonical presentation form and ABNF](https://www.rfc-editor.org/rfc/rfc8659#name-canonical-presentation-form)
 ///
 /// This explicitly allows `-` in key names, diverging from the original RFC. To support this, key names will
 /// allow `-` as non-starting characters. Additionally, this significantly relaxes the characters allowed in the value

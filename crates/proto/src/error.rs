@@ -680,7 +680,7 @@ impl Clone for ProtoErrorKind {
     }
 }
 
-/// A trait marking a type which implements From<ProtoError> and
+/// A trait marking a type which implements `From<ProtoError>` and
 /// std::error::Error types as well as Clone + Send
 pub trait FromProtoError: From<ProtoError> + std::error::Error + Clone {}
 
