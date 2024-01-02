@@ -491,30 +491,41 @@ fn recursor_opts() -> ResolverOpts {
     options
 }
 
-//
-// Bailiwick/sub zone checking.
-//
-// A resolver should not return answers outside of its delegated authority -- if we receive a delegation from the root servers for
-// "example.com", that server should only return answers related to example.com or a sub-domain thereof.  This function checks that a
-// domain is a child of a specified parent.
-//
-// The basic idea is to split the supplied parent and child string by '.' and verify each token in the
-// parent string is present in the same position in the child string.
-//
-//           Parent           Child                Expected Result
-//           ================ ==================== ========================
-// Examples: .                com.                 In-bailiwick (true)
-//           com.             example.net.         Out-of-bailiwick (false)
-//           example.com.     www.example.com.     In-bailiwick (true)
-//           example.com.     www.otherdomain.com. Out-of-bailiwick (false)
-//           example.com      www.example.com.     Out-of-bailiwick (false, note the parent is not fully qualified)
-//
-// If the caller doesn't provide a parent at all, we'll return false.
-//
-// ".".split('.') will evaluate to ["", ""], which for our purposes doesn't work -- that's the reason for the ends_with tests and
-// manually pushing the root entry onto the parent/child vectors, as well as skipping the first list element if the name was already
-// fully qualified.
-//
+/// Bailiwick/sub zone checking.
+///
+/// # Overview
+///
+/// This function checks that two host names have a parent/child relationship.
+///
+/// A resolver should not return answers outside of its delegated authority -- if we receive a delegation from the root servers for
+/// "example.com", that server should only return answers related to example.com or a sub-domain thereof.  Note that record data may point
+/// to out-of-bailwick records (e.g., example.com could return a CNAME record for www.example.com that points to example.cdnprovider.net,)
+/// but it should not return a record name that is out-of-bailiwick (e.g., we ask for www.example.com and it returns www.otherdomain.com.)
+///
+/// Out-of-bailiwick responses have been used in cache poisoning attacks.
+///
+/// ## Examples
+///
+/// | Parent       | Child                | Expected Result                                                  |
+/// |--------------|----------------------|------------------------------------------------------------------|
+/// | .            | com.                 | In-bailiwick (true)                                              |
+/// | com.         | example.net.         | Out-of-bailiwick (false)                                         |
+/// | example.com. | www.example.com.     | In-bailiwick (true)                                              |
+/// | example.com. | www.otherdomain.com. | Out-of-bailiwick (false)                                         |
+/// | example.com  | www.example.com.     | Out-of-bailiwick (false, note the parent is not fully qualified) |
+///
+/// # Implementation Notes
+///
+/// * If the caller doesn't provide a parent at all, we'll return false.
+/// * ".".split('.') will evaluate to ["", ""], which for our purposes doesn't work -- that's the reason for the ends_with tests and
+/// manually pushing the root entry onto the parent/child vectors, as well as skipping the first list element if the name was already
+/// fully qualified.
+///
+/// # References
+///
+/// * [RFC 8499](https://datatracker.ietf.org/doc/html/rfc8499) -- DNS Terminology (see page 25)
+/// * [The Hitchiker's Guide to DNS Cache Poisoning](https://www.cs.utexas.edu/%7Eshmat/shmat_securecomm10.pdf) -- for a more in-depth
+/// discussion of DNS cache poisoning attacks, see section 4, specifically, for a discussion of the Bailiwick rule.
 fn is_subzone(parent: Name, child: Name) -> bool {
     let parent_str = parent.to_string();
     let child_str = child.to_string();
