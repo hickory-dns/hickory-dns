@@ -495,7 +495,8 @@ fn recursor_opts() -> ResolverOpts {
 ///
 /// # Overview
 ///
-/// This function checks that two host names have a parent/child relationship.
+/// This function checks that two host names have a parent/child relationship, but does so more strictly than elsewhere in the libraries
+/// (see implementation notes.)
 ///
 /// A resolver should not return answers outside of its delegated authority -- if we receive a delegation from the root servers for
 /// "example.com", that server should only return answers related to example.com or a sub-domain thereof.  Note that record data may point
@@ -516,10 +517,10 @@ fn recursor_opts() -> ResolverOpts {
 ///
 /// # Implementation Notes
 ///
+/// * This function is nominally a wrapper around Name::zone_of, with two additional checks:
 /// * If the caller doesn't provide a parent at all, we'll return false.
-/// * ".".split('.') will evaluate to ["", ""], which for our purposes doesn't work -- that's the reason for the ends_with tests and
-/// manually pushing the root entry onto the parent/child vectors, as well as skipping the first list element if the name was already
-/// fully qualified.
+/// * If the domains have mixed qualification -- that is, if one is fully-qualified and the other partially-qualified, we'll return
+///    false.
 ///
 /// # References
 ///
@@ -527,46 +528,15 @@ fn recursor_opts() -> ResolverOpts {
 /// * [The Hitchiker's Guide to DNS Cache Poisoning](https://www.cs.utexas.edu/%7Eshmat/shmat_securecomm10.pdf) -- for a more in-depth
 /// discussion of DNS cache poisoning attacks, see section 4, specifically, for a discussion of the Bailiwick rule.
 fn is_subzone(parent: Name, child: Name) -> bool {
-    let parent_str = parent.to_string();
-    let child_str = child.to_string();
-
-    if parent_str.is_empty() {
+    if parent.is_empty() {
         return false;
     }
 
-    let mut rev_parent: Vec<&str> = vec![];
-    let mut rev_child: Vec<&str> = vec![];
-    let mut parent_offset = 0;
-    let mut child_offset = 0;
-
-    if child_str.ends_with('.') {
-        rev_child.push(".");
-        child_offset = 1;
+    if (parent.is_fqdn() && !child.is_fqdn()) || (!parent.is_fqdn() && child.is_fqdn()) {
+        return false;
     }
-    child_str
-        .rsplit('.')
-        .skip(child_offset)
-        .collect::<Vec<_>>()
-        .iter()
-        .filter(|x| !x.is_empty())
-        .for_each(|x| rev_child.push(x));
 
-    if parent_str.ends_with('.') {
-        rev_parent.push(".");
-        parent_offset = 1;
-    }
-    parent_str
-        .rsplit('.')
-        .skip(parent_offset)
-        .collect::<Vec<_>>()
-        .iter()
-        .filter(|x| !x.is_empty())
-        .for_each(|x| rev_parent.push(x));
-
-    rev_parent
-        .into_iter()
-        .enumerate()
-        .all(|(i, elem)| rev_child[i] == elem)
+    parent.zone_of(&child)
 }
 
 #[test]
@@ -587,7 +557,6 @@ fn is_subzone_test() {
         Name::from_str("example.com.").unwrap(),
         Name::from_str("host.multilevel.example.com.").unwrap()
     ));
-
     assert!(!is_subzone(
         Name::from_str("").unwrap(),
         Name::from_str("example.com.").unwrap()
