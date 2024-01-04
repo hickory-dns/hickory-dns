@@ -3,6 +3,7 @@ pub mod mut_message_client;
 use std::{
     env,
     io::{stdout, BufRead, BufReader, Write},
+    net::SocketAddr,
     panic::{catch_unwind, UnwindSafe},
     process::{Command, Stdio},
     str::FromStr,
@@ -116,11 +117,10 @@ where
     let wait_for_start_until = Instant::now() + Duration::from_secs(60);
 
     // Search strings for the ports used during testing
-    let udp_regex = Regex::new(r"listening for UDP on (?:V4\()?0\.0\.0\.0:(\d+)\)?").unwrap();
-    let tcp_regex = Regex::new(r"listening for TCP on (?:V4\()?0\.0\.0\.0:(\d+)\)?").unwrap();
-    let tls_regex = Regex::new(r"listening for TLS on (?:V4\()?0\.0\.0\.0:(\d+)\)?").unwrap();
-    let https_regex = Regex::new(r"listening for HTTPS on (?:V4\()?0\.0\.0\.0:(\d+)\)?").unwrap();
-    let quic_regex = Regex::new(r"listening for QUIC on (?:V4\()?0\.0\.0\.0:(\d+)\)?").unwrap();
+    let addr_regex = Regex::new(
+        r"listening for (UDP|TCP|TLS|HTTPS|QUIC) on ((?:(?:0\.0\.0\.0)|(?:\[::\])):\d+)",
+    )
+    .unwrap();
 
     while Instant::now() < wait_for_start_until {
         {
@@ -136,47 +136,22 @@ where
 
         collect_and_print(&mut named_out, &mut output);
 
-        if let Some(udp) = udp_regex.captures(&output) {
-            test_udp_port = Some(
-                udp.get(1)
-                    .expect("udp missing port")
-                    .as_str()
-                    .parse()
-                    .expect("could not parse udp port"),
-            );
-        } else if let Some(tcp) = tcp_regex.captures(&output) {
-            test_tcp_port = Some(
-                tcp.get(1)
-                    .expect("tcp missing port")
-                    .as_str()
-                    .parse()
-                    .expect("could not parse tcp port"),
-            );
-        } else if let Some(tls) = tls_regex.captures(&output) {
-            test_tls_port = Some(
-                tls.get(1)
-                    .expect("tls missing port")
-                    .as_str()
-                    .parse()
-                    .expect("could not parse tls port"),
-            );
-        } else if let Some(https) = https_regex.captures(&output) {
-            test_https_port = Some(
-                https
-                    .get(1)
-                    .expect("https missing port")
-                    .as_str()
-                    .parse()
-                    .expect("could not parse https port"),
-            );
-        } else if let Some(quic) = quic_regex.captures(&output) {
-            test_quic_port = Some(
-                quic.get(1)
-                    .expect("quic missing port")
-                    .as_str()
-                    .parse()
-                    .expect("could not parse quic port"),
-            );
+        if let Some(addr) = addr_regex.captures(&output) {
+            let proto = dbg!(dbg!(&addr).get(1).expect("missing protocol").as_str());
+            let socket_addr = dbg!(addr.get(2).expect("missing socket addr").as_str());
+
+            let socket_addr = SocketAddr::from_str(socket_addr)
+                .expect("could not parse socket_addr")
+                .port();
+
+            match proto {
+                "UDP" => test_udp_port = Some(socket_addr),
+                "TCP" => test_tcp_port = Some(socket_addr),
+                "TLS" => test_tls_port = Some(socket_addr),
+                "HTTPS" => test_https_port = Some(socket_addr),
+                "QUIC" => test_quic_port = Some(socket_addr),
+                _ => panic!("unknown protocol: {proto}"),
+            }
         } else if output.contains("awaiting connections...") {
             found = true;
             break;
