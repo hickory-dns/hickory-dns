@@ -14,6 +14,7 @@ use std::{env, fs::File, io::*, net::*};
 
 use hickory_client::client::*;
 use hickory_proto::quic::QuicClientStream;
+use hickory_server::server::Protocol;
 use rustls::{Certificate, ClientConfig, OwnedTrustAnchor, RootCertStore};
 use tokio::runtime::Runtime;
 
@@ -23,8 +24,9 @@ use server_harness::{named_test_harness, query_a};
 fn test_example_quic_toml_startup() {
     // env_logger::try_init().ok();
 
-    named_test_harness("dns_over_quic.toml", move |_, _, _, _, quic_port| {
+    named_test_harness("dns_over_quic.toml", move |socket_ports| {
         let mut cert_der = vec![];
+        let quic_port = socket_ports.get_v4(Protocol::Quic);
         let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
         println!("using server src path: {server_path} and quic_port: {quic_port:?}");
 

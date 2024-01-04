@@ -19,6 +19,7 @@ use std::sync::Arc;
 use hickory_client::client::*;
 use hickory_proto::h2::HttpsClientStreamBuilder;
 use hickory_proto::iocompat::AsyncIoTokioAsStd;
+use hickory_server::server::Protocol;
 use rustls::{Certificate, ClientConfig, OwnedTrustAnchor, RootCertStore};
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
@@ -31,8 +32,9 @@ fn test_example_https_toml_startup() {
 
     const ALPN_H2: &[u8] = b"h2";
 
-    named_test_harness("dns_over_https.toml", move |_, _, _, https_port, _| {
+    named_test_harness("dns_over_https.toml", move |socket_ports| {
         let mut cert_der = vec![];
+        let https_port = socket_ports.get_v4(Protocol::Https);
         let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
         println!("using server src path: {server_path}");
 

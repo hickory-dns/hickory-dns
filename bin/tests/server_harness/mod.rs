@@ -1,6 +1,7 @@
 pub mod mut_message_client;
 
 use std::{
+    collections::HashMap,
     env,
     io::{stdout, BufRead, BufReader, Write},
     net::SocketAddr,
@@ -16,9 +17,49 @@ use hickory_client::{client::*, proto::xfer::DnsResponse};
 #[cfg(feature = "dnssec")]
 use hickory_proto::rr::dnssec::*;
 use hickory_proto::rr::{rdata::A, *};
+use hickory_server::server::Protocol;
 use regex::Regex;
 use tokio::runtime::Runtime;
 use tracing::{info, warn};
+
+#[derive(Debug, Default)]
+pub struct SocketPort {
+    v4: u16,
+    v6: u16,
+}
+
+#[derive(Debug, Default)]
+pub struct SocketPorts(HashMap<Protocol, SocketPort>);
+
+impl SocketPorts {
+    /// This will overwrite the existing value
+    pub fn put(&mut self, protocol: Protocol, addr: SocketAddr) {
+        let entry = self.0.entry(protocol).or_default();
+
+        if addr.is_ipv4() {
+            entry.v4 = addr.port();
+        } else {
+            entry.v6 = addr.port();
+        }
+    }
+
+    /// Assumes there is only one V4 addr for the IP based on the usage in the Server
+    pub fn get_v4(&self, protocol: Protocol) -> Option<u16> {
+        self.0
+            .get(&protocol)
+            .iter()
+            .find_map(|ports| if ports.v4 == 0 { None } else { Some(ports.v4) })
+    }
+
+    /// Assumes there is only one V4 addr for the IP based on the usage in the Server
+    #[allow(unused)]
+    pub fn get_v6(&self, protocol: Protocol) -> Option<u16> {
+        self.0
+            .get(&protocol)
+            .iter()
+            .find_map(|ports| if ports.v6 == 0 { None } else { Some(ports.v6) })
+    }
+}
 
 #[cfg(feature = "dnssec")]
 use self::mut_message_client::MutMessageHandle;
@@ -37,7 +78,7 @@ fn collect_and_print<R: BufRead>(read: &mut R, output: &mut String) {
 #[allow(dead_code)]
 pub fn named_test_harness<F, R>(toml: &str, test: F)
 where
-    F: FnOnce(Option<u16>, Option<u16>, Option<u16>, Option<u16>, Option<u16>) -> R + UnwindSafe,
+    F: FnOnce(SocketPorts) -> R + UnwindSafe,
 {
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     println!("using server src path: {server_path}");
@@ -104,12 +145,7 @@ where
         .expect("could not start thread killer");
 
     // These will be collected from the server startup'
-    // FIXME: create a wrapper type for all of these params
-    let mut test_udp_port = Option::<u16>::None;
-    let mut test_tcp_port = Option::<u16>::None;
-    let mut test_tls_port = Option::<u16>::None;
-    let mut test_https_port = Option::<u16>::None;
-    let mut test_quic_port = Option::<u16>::None;
+    let mut socket_ports = SocketPorts::default();
 
     // we should get the correct output before 1000 lines...
     let mut output = String::new();
@@ -137,20 +173,19 @@ where
         collect_and_print(&mut named_out, &mut output);
 
         if let Some(addr) = addr_regex.captures(&output) {
-            let proto = dbg!(dbg!(&addr).get(1).expect("missing protocol").as_str());
-            let socket_addr = dbg!(addr.get(2).expect("missing socket addr").as_str());
+            let proto = addr.get(1).expect("missing protocol").as_str();
+            let socket_addr = addr.get(2).expect("missing socket addr").as_str();
 
-            let socket_addr = SocketAddr::from_str(socket_addr)
-                .expect("could not parse socket_addr")
-                .port();
+            let socket_addr =
+                SocketAddr::from_str(socket_addr).expect("could not parse socket_addr");
 
             match proto {
-                "UDP" => test_udp_port = Some(socket_addr),
-                "TCP" => test_tcp_port = Some(socket_addr),
-                "TLS" => test_tls_port = Some(socket_addr),
-                "HTTPS" => test_https_port = Some(socket_addr),
-                "QUIC" => test_quic_port = Some(socket_addr),
-                _ => panic!("unknown protocol: {proto}"),
+                "UDP" => socket_ports.put(Protocol::Udp, socket_addr),
+                "TCP" => socket_ports.put(Protocol::Tcp, socket_addr),
+                "TLS" => socket_ports.put(Protocol::Tls, socket_addr),
+                "HTTPS" => socket_ports.put(Protocol::Https, socket_addr),
+                "QUIC" => socket_ports.put(Protocol::Quic, socket_addr),
+                _ => panic!("unsupported protocol: {proto}"),
             }
         } else if output.contains("awaiting connections...") {
             found = true;
@@ -160,9 +195,7 @@ where
 
     stdout().flush().unwrap();
     assert!(found);
-    println!(
-        "Test server started. ports: udp {test_udp_port:?}, tcp {test_tcp_port:?}, tls {test_tls_port:?}, https {test_https_port:?}, quic {test_quic_port:?}",
-    );
+    println!("Test server started. ports: {socket_ports:?}",);
 
     // spawn a thread to capture stdout
     let succeeded_clone = succeeded.clone();
@@ -188,15 +221,7 @@ where
 
     println!("running test...");
 
-    let result = catch_unwind(move || {
-        test(
-            test_udp_port,
-            test_tcp_port,
-            test_tls_port,
-            test_https_port,
-            test_quic_port,
-        )
-    });
+    let result = catch_unwind(move || test(socket_ports));
 
     println!("test completed");
     succeeded.store(true, atomic::Ordering::Relaxed);
