@@ -9,6 +9,7 @@ use std::io::Read;
 use std::net::*;
 use std::path::Path;
 
+use hickory_server::server::Protocol;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
@@ -81,8 +82,9 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     let server_path = Path::new(&server_path);
 
-    named_test_harness(config_toml, |_, tcp_port, _, _, _| {
+    named_test_harness(config_toml, |socket_ports| {
         let mut io_loop = Runtime::new().unwrap();
+        let tcp_port = socket_ports.get_v4(Protocol::Tcp);
 
         // verify all records are present
         let client = standard_tcp_conn(tcp_port.expect("no tcp port"));

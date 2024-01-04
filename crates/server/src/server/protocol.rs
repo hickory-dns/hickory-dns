@@ -9,7 +9,7 @@ use std::fmt;
 
 /// For tracking purposes of inbound requests, which protocol was used
 #[non_exhaustive]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Hash, Eq, PartialEq)]
 pub enum Protocol {
     /// User Datagram Protocol, the default for all DNS requests
     Udp,

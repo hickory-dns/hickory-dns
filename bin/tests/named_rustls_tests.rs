@@ -16,6 +16,7 @@ use std::io::*;
 use std::net::*;
 use std::sync::Arc;
 
+use hickory_server::server::Protocol;
 use rustls::Certificate;
 use rustls::ClientConfig;
 use rustls::RootCertStore;
@@ -32,8 +33,9 @@ use server_harness::{named_test_harness, query_a};
 fn test_example_tls_toml_startup() {
     named_test_harness(
         "dns_over_tls_rustls_and_openssl.toml",
-        move |_, _, tls_port, _, _| {
+        move |socket_ports| {
             let mut cert_der = vec![];
+            let tls_port = socket_ports.get_v4(Protocol::Tls);
             let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
             println!("using server src path: {server_path}");
 
