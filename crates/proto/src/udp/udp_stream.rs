@@ -400,9 +400,7 @@ impl DnsUdpSocket for tokio::net::UdpSocket {
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
 mod tests {
-    #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
-    use std::net::Ipv6Addr;
-    use std::net::{IpAddr, Ipv4Addr};
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
     use tokio::{net::UdpSocket as TokioUdpSocket, runtime::Runtime};
 
     #[test]
@@ -422,7 +420,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
     fn test_udp_stream_ipv6() {
         use crate::tests::udp_stream_test;
         let io_loop = Runtime::new().expect("failed to create tokio runtime");

@@ -193,9 +193,7 @@ impl Connect for AsyncIoTokioAsStd<TokioTcpStream> {
 #[cfg(feature = "tokio-runtime")]
 mod tests {
     use super::AsyncIoTokioAsStd;
-    #[cfg(not(target_os = "linux"))]
-    use std::net::Ipv6Addr;
-    use std::net::{IpAddr, Ipv4Addr};
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
     use tokio::net::TcpStream as TokioTcpStream;
     use tokio::runtime::Runtime;
 
@@ -210,7 +208,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
     fn test_tcp_stream_ipv6() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
         tcp_client_stream_test::<AsyncIoTokioAsStd<TokioTcpStream>, Runtime>(
