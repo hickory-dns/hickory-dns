@@ -8,10 +8,8 @@
 #![cfg(feature = "dns-over-openssl")]
 
 use std::io::{Read, Write};
-#[cfg(not(target_os = "linux"))]
-use std::net::Ipv6Addr;
 use std::net::SocketAddr;
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::sync::atomic;
 use std::sync::Arc;
 use std::{thread, time};
@@ -56,7 +54,6 @@ fn test_tls_client_stream_ipv4_mtls() {
 }
 
 #[test]
-#[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
 fn test_tls_client_stream_ipv6() {
     tls_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), false)
 }
