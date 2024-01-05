@@ -36,7 +36,9 @@ use crate::lookup::{Lookup, LookupIntoIter, LookupIter};
 pub struct LookupIp(Lookup);
 
 impl LookupIp {
-    /// Returns a borrowed iterator of the returned IPs
+    /// Returns an iterator over the response records.
+    ///
+    /// Only IP records will be returned, either A or AAAA record types.
     pub fn iter(&self) -> LookupIpIter<'_> {
         LookupIpIter(self.0.iter())
     }
