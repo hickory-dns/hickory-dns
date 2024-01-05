@@ -84,12 +84,14 @@ impl Lookup {
         &self.query
     }
 
-    /// Returns a borrowed iterator of the returned IPs
+    /// Returns an iterator over the matching the queried record type.
     pub fn iter(&self) -> LookupIter<'_> {
         LookupIter(self.records.iter())
     }
 
-    /// Returns a borrowed iterator of the returned IPs
+    /// Returns an iterator over all records returned during the query.
+    ///
+    /// It may include additional record types beyond the queried type, e.g. CNAME.
     pub fn record_iter(&self) -> LookupRecordIter<'_> {
         LookupRecordIter(self.records.iter())
     }
@@ -108,7 +110,8 @@ impl Lookup {
         self.records.len()
     }
 
-    /// Returns the records list
+    /// Returns an slice over all records that were returned during the query, this can include
+    ///   additional record types beyond the queried type, e.g. CNAME.
     pub fn records(&self) -> &[Record] {
         self.records.as_ref()
     }
@@ -400,7 +403,7 @@ macro_rules! lookup_type {
         pub struct $l(Lookup);
 
         impl $l {
-            /// Returns an iterator over the RData
+            #[doc = stringify!(Returns an iterator over the records that match $r)]
             pub fn iter(&self) -> $i<'_> {
                 $i(self.0.iter())
             }
