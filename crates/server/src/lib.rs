@@ -54,6 +54,7 @@ pub use hickory_recursor as recursor;
 #[cfg_attr(docsrs, doc(cfg(feature = "resolver")))]
 pub use hickory_resolver as resolver;
 
+mod access;
 pub mod authority;
 pub mod config;
 pub mod error;
