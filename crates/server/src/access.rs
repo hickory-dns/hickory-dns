@@ -1,5 +1,6 @@
 use std::net::IpAddr;
 
+use hickory_proto::error::{ProtoError, ProtoErrorKind};
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use prefix_trie::PrefixSet;
 
@@ -36,18 +37,24 @@ impl Access {
     /// # Return
     ///
     /// Ok if access is granted, Err otherwise
-    pub(crate) fn allow(&self, ip: IpAddr) -> Result<(), ()> {
+    pub(crate) fn allow(&self, ip: IpAddr) -> Result<(), ProtoError> {
         match ip {
             IpAddr::V4(v4) => {
                 let v4 = Ipv4Net::from(v4);
                 self.allow_ipv4.as_ref().map_or(Ok(()), |allow_ipv4| {
-                    allow_ipv4.get_lpm(&v4).map(|_| ()).ok_or(())
+                    allow_ipv4
+                        .get_lpm(&v4)
+                        .map(|_| ())
+                        .ok_or(ProtoErrorKind::RequestRefused.into())
                 })
             }
             IpAddr::V6(v6) => {
                 let v6 = Ipv6Net::from(v6);
                 self.allow_ipv6.as_ref().map_or(Ok(()), |allow_ipv6| {
-                    allow_ipv6.get_lpm(&v6).map(|_| ()).ok_or(())
+                    allow_ipv6
+                        .get_lpm(&v6)
+                        .map(|_| ())
+                        .ok_or(ProtoErrorKind::RequestRefused.into())
                 })
             }
         }
