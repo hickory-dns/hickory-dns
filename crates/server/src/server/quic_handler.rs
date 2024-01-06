@@ -18,6 +18,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, warn};
 
 use crate::{
+    access::Access,
     authority::MessageResponse,
     proto::quic::QuicStreams,
     server::{
@@ -27,6 +28,7 @@ use crate::{
 };
 
 pub(crate) async fn quic_handler<T>(
+    access: Arc<Access>,
     handler: Arc<T>,
     mut quic_streams: QuicStreams,
     src_addr: SocketAddr,
@@ -65,10 +67,11 @@ where
             request.len()
         );
         let handler = handler.clone();
+        let access = access.clone();
         let stream = Arc::new(Mutex::new(request_stream));
         let responder = QuicResponseHandle(stream.clone());
 
-        handle_request(request, src_addr, handler, responder).await;
+        handle_request(request, src_addr, access, handler, responder).await;
 
         max_requests -= 1;
         if max_requests == 0 {
@@ -86,12 +89,14 @@ where
 async fn handle_request<T>(
     bytes: BytesMut,
     src_addr: SocketAddr,
+    access: Arc<Access>,
     handler: Arc<T>,
     responder: QuicResponseHandle,
 ) where
     T: RequestHandler,
 {
-    server_future::handle_request(&bytes, src_addr, Protocol::Quic, handler, responder).await
+    server_future::handle_request(&bytes, src_addr, Protocol::Quic, access, handler, responder)
+        .await
 }
 
 #[derive(Clone)]

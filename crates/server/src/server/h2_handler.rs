@@ -16,6 +16,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, warn};
 
 use crate::{
+    access::Access,
     authority::MessageResponse,
     proto::h2::h2_server,
     server::{
@@ -25,6 +26,7 @@ use crate::{
 };
 
 pub(crate) async fn h2_handler<T, I>(
+    access: Arc<Access>,
     handler: Arc<T>,
     io: I,
     src_addr: SocketAddr,
@@ -68,11 +70,12 @@ pub(crate) async fn h2_handler<T, I>(
         debug!("Received request: {:#?}", request);
         let dns_hostname = dns_hostname.clone();
         let handler = handler.clone();
+        let access = access.clone();
         let responder = HttpsResponseHandle(Arc::new(Mutex::new(respond)));
 
         tokio::spawn(async move {
             match h2_server::message_from(dns_hostname, request).await {
-                Ok(bytes) => handle_request(bytes, src_addr, handler, responder).await,
+                Ok(bytes) => handle_request(bytes, src_addr, access, handler, responder).await,
                 Err(err) => warn!("error while handling request from {}: {}", src_addr, err),
             };
         });
@@ -84,12 +87,21 @@ pub(crate) async fn h2_handler<T, I>(
 async fn handle_request<T>(
     bytes: BytesMut,
     src_addr: SocketAddr,
+    access: Arc<Access>,
     handler: Arc<T>,
     responder: HttpsResponseHandle,
 ) where
     T: RequestHandler,
 {
-    server_future::handle_request(&bytes, src_addr, Protocol::Https, handler, responder).await
+    server_future::handle_request(
+        &bytes,
+        src_addr,
+        Protocol::Https,
+        access,
+        handler,
+        responder,
+    )
+    .await
 }
 
 #[derive(Clone)]

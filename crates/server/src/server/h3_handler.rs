@@ -18,6 +18,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, warn};
 
 use crate::{
+    access::Access,
     authority::MessageResponse,
     server::{
         request_handler::RequestHandler, response_handler::ResponseHandler, server_future,
@@ -26,6 +27,7 @@ use crate::{
 };
 
 pub(crate) async fn h3_handler<T>(
+    access: Arc<Access>,
     handler: Arc<T>,
     mut connection: H3Connection,
     src_addr: SocketAddr,
@@ -71,10 +73,13 @@ where
             request.remaining()
         );
         let handler = handler.clone();
+        let access = access.clone();
         let stream = Arc::new(Mutex::new(stream));
         let responder = H3ResponseHandle(stream.clone());
 
-        tokio::spawn(handle_request(request, src_addr, handler, responder));
+        tokio::spawn(handle_request(
+            request, src_addr, access, handler, responder,
+        ));
 
         max_requests -= 1;
         if max_requests == 0 {
@@ -91,12 +96,13 @@ where
 async fn handle_request<T>(
     bytes: Bytes,
     src_addr: SocketAddr,
+    access: Arc<Access>,
     handler: Arc<T>,
     responder: H3ResponseHandle,
 ) where
     T: RequestHandler,
 {
-    server_future::handle_request(&bytes, src_addr, Protocol::H3, handler, responder).await
+    server_future::handle_request(&bytes, src_addr, Protocol::H3, access, handler, responder).await
 }
 
 #[derive(Clone)]

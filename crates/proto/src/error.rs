@@ -240,6 +240,10 @@ pub enum ProtoErrorKind {
     #[error("lock poisoned error")]
     Poisoned,
 
+    /// A request was Refused due to some access check
+    #[error("request refused")]
+    RequestRefused,
+
     /// A ring error
     #[error("ring error: {0}")]
     Ring(#[from] Unspecified),
@@ -624,6 +628,7 @@ impl Clone for ProtoErrorKind {
                 response_code,
                 trusted,
             },
+            RequestRefused => RequestRefused,
             RrsigsNotPresent {
                 ref name,
                 ref record_type,
