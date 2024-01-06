@@ -1074,7 +1074,9 @@ dependencies = [
  "hickory-recursor",
  "hickory-resolver",
  "http",
+ "ipnet",
  "openssl",
+ "prefix-trie",
  "rusqlite",
  "rustls",
  "serde",
@@ -1371,6 +1373,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-traits"
+version = "0.2.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39e3200413f237f41ab11ad6d161bc7239c84dcb631773ccd7de3dfe4b5c267c"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
 name = "num_cpus"
 version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1550,6 +1561,16 @@ name = "ppv-lite86"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b40af805b3121feab8a3c29f04d8ad262fa8e0561883e7653e024ae4479e6de"
+
+[[package]]
+name = "prefix-trie"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e27ac3b8f918b78293e43b30307c6f7fd3fd6144ba9b27a2f553e3adddde5812"
+dependencies = [
+ "ipnet",
+ "num-traits",
+]
 
 [[package]]
 name = "proc-macro2"
