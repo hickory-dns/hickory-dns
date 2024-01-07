@@ -32,6 +32,12 @@ impl Access {
         }
     }
 
+    pub(crate) fn insert_all(&mut self, networks: &[IpNet]) {
+        for net in networks {
+            self.insert(*net);
+        }
+    }
+
     /// Evaluate the IP address against the allowed networks
     ///
     /// # Return
@@ -67,7 +73,7 @@ mod tests {
 
     #[test]
     fn test_none() {
-        let mut access = Access::default();
+        let access = Access::default();
         assert!(access.allow("192.168.1.1".parse().unwrap()).is_ok());
         assert!(access.allow("fd00::1".parse().unwrap()).is_ok());
     }

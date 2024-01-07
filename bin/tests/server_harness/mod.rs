@@ -16,7 +16,10 @@ use std::{
 use hickory_client::{client::*, proto::xfer::DnsResponse};
 #[cfg(feature = "dnssec")]
 use hickory_proto::rr::dnssec::*;
-use hickory_proto::rr::{rdata::A, *};
+use hickory_proto::{
+    op::ResponseCode,
+    rr::{rdata::A, *},
+};
 use hickory_server::server::Protocol;
 use regex::Regex;
 use tokio::runtime::Runtime;
@@ -255,6 +258,15 @@ pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
     } else {
         panic!("wrong RDATA")
     }
+}
+
+// This only validates that a query to the server works, it shouldn't be used for more than this.
+//  i.e. more complex checks live with the clients and authorities to validate deeper functionality
+#[allow(dead_code)]
+pub fn query_a_refused<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
+    let name = Name::from_str("www.example.com").unwrap();
+    let response = query_message(io_loop, client, name, RecordType::A);
+    assert_eq!(response.response_code(), ResponseCode::Refused);
 }
 
 // This only validates that a query to the server works, it shouldn't be used for more than this.

@@ -1,0 +1,10 @@
+listen_addrs_ipv4 = ["0.0.0.0"]
+listen_addrs_ipv6 = ["::0"]
+
+## Allowed networks, only the 0 address is allowed, which means everything is denied
+allow_networks = ["0.0.0.0/8", "::/128"]
+
+[[zones]]
+zone = "example.com"
+zone_type = "Primary"
+file = "example.com.zone"
