@@ -1,0 +1,12 @@
+listen_addrs_ipv4 = ["0.0.0.0"]
+listen_addrs_ipv6 = ["::0"]
+
+## Half o the 127 ipv4 space is denied, but there are no denied ipv6 addresses
+deny_networks = ["127.0.0.0/8"]
+## The 127.0.0.1 address is allowed, overriding the deny, but the ipv6 allow is effectively none, so all are denied
+allow_networks = ["127.0.0.1/32", "::/128"]
+
+[[zones]]
+zone = "example.com"
+zone_type = "Primary"
+file = "example.com.zone"

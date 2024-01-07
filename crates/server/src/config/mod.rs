@@ -69,6 +69,9 @@ pub struct Config {
     /// Certificate to associate to TLS connections (currently the same is used for HTTPS and TLS)
     #[cfg(feature = "dnssec")]
     tls_cert: Option<dnssec::TlsCertConfig>,
+    /// Networks denied to access the server
+    #[serde(default)]
+    deny_networks: Vec<IpNet>,
     /// Networks allowed to access the server
     #[serde(default)]
     allow_networks: Vec<IpNet>,
@@ -163,6 +166,11 @@ impl Config {
                 None
             }
         }
+    }
+
+    /// get the networks denied access to this server
+    pub fn get_deny_networks(&self) -> &[IpNet] {
+        &self.deny_networks
     }
 
     /// get the networks allowed to connect to this server
