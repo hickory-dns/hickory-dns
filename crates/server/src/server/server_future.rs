@@ -50,12 +50,13 @@ pub struct ServerFuture<T: RequestHandler> {
 impl<T: RequestHandler> ServerFuture<T> {
     /// Creates a new ServerFuture with the specified Handler.
     pub fn new(handler: T) -> Self {
-        Self::with_access(handler, &[])
+        Self::with_access(handler, &[], &[])
     }
 
     /// Creates a new ServerFuture with the specified Handler and Access
-    pub fn with_access(handler: T, allowed_networks: &[IpNet]) -> Self {
+    pub fn with_access(handler: T, denied_networks: &[IpNet], allowed_networks: &[IpNet]) -> Self {
         let mut access = Access::default();
+        access.insert_deny_all(denied_networks);
         access.insert_allow_all(allowed_networks);
 
         Self {

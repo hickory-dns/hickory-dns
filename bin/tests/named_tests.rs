@@ -402,3 +402,35 @@ fn test_deny_networks_toml_startup() {
         query_a_refused(&mut io_loop, &mut client);
     })
 }
+
+#[test]
+fn test_deny_allow_networks_toml_startup() {
+    named_test_harness("example_deny_allow_networks.toml", |socket_ports| {
+        let mut io_loop = Runtime::new().unwrap();
+        let tcp_port = socket_ports.get_v4(Protocol::Tcp);
+        let addr: SocketAddr = SocketAddr::new(
+            Ipv4Addr::new(127, 0, 0, 1).into(),
+            tcp_port.expect("no tcp_port"),
+        );
+        let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
+        let client = AsyncClient::new(Box::new(stream), sender, None);
+
+        let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+        hickory_proto::spawn_bg(&io_loop, bg);
+        // ipv4 should succeed
+        query_a(&mut io_loop, &mut client);
+
+        let tcp_port = socket_ports.get_v6(Protocol::Tcp);
+        let addr: SocketAddr = SocketAddr::new(
+            Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into(),
+            tcp_port.expect("no tcp_port"),
+        );
+        let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
+        let client = AsyncClient::new(Box::new(stream), sender, None);
+        let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+        hickory_proto::spawn_bg(&io_loop, bg);
+
+        // ipv6 should be refused
+        query_a_refused(&mut io_loop, &mut client);
+    })
+}

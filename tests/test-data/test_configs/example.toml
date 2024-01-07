@@ -40,8 +40,15 @@
 ## directory: path on the host filesystem to where zone files are stored.
 # directory = "/var/named"
 
+## Denied networks, a list of CIDRs in IPv4 or IPv6 formats,
+##  any request that does not originate from the specified networks will be allowed
+# deny_networks = ["127/8", "::1/128"]
+
 ## Allowed networks, a list of CIDRs in IPv4 or IPv6 formats,
-##  any request that does not originate from the specified networks will be denied
+##  any request that does not originate from the specified networks will be denied, unless
+##  there are deny_networks specified, in that case, the allow list will be processed as
+##  an override to the deny_networks. That is, if there is a deny_list and the network does
+##  not appear there, even if does not appear in the allow list the request will be allowd.
 # allow_networks = ["127/8", "::1/128"]
 
 ## Default zones, these should be present on all nameservers, except in rare
