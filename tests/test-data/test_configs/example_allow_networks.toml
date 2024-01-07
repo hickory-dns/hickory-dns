@@ -1,0 +1,10 @@
+listen_addrs_ipv4 = ["0.0.0.0"]
+listen_addrs_ipv6 = ["::0"]
+
+## Allowed networks, all of the 127 network space is allowed (local), and only the localhost in ipv6 is allowed.
+allow_networks = ["127.0.0.0/8", "::1/128"]
+
+[[zones]]
+zone = "example.com"
+zone_type = "Primary"
+file = "example.com.zone"

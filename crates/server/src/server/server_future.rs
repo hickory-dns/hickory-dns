@@ -13,6 +13,7 @@ use std::{
 
 use futures_util::{FutureExt, StreamExt};
 use hickory_proto::{op::MessageType, rr::Record};
+use ipnet::IpNet;
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey, ServerConfig};
 use tokio::{net, task::JoinSet};
@@ -49,11 +50,19 @@ pub struct ServerFuture<T: RequestHandler> {
 impl<T: RequestHandler> ServerFuture<T> {
     /// Creates a new ServerFuture with the specified Handler.
     pub fn new(handler: T) -> Self {
+        Self::with_access(handler, &[])
+    }
+
+    /// Creates a new ServerFuture with the specified Handler and Access
+    pub fn with_access(handler: T, allowed_networks: &[IpNet]) -> Self {
+        let mut access = Access::default();
+        access.insert_all(allowed_networks);
+
         Self {
             handler: Arc::new(handler),
             join_set: JoinSet::new(),
             shutdown_token: CancellationToken::new(),
-            access: Arc::new(Access::default()),
+            access: Arc::new(access),
         }
     }
 

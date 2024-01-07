@@ -19,6 +19,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use cfg_if::cfg_if;
+use ipnet::IpNet;
 use serde::{self, Deserialize};
 
 use crate::proto::error::ProtoResult;
@@ -68,6 +69,9 @@ pub struct Config {
     /// Certificate to associate to TLS connections (currently the same is used for HTTPS and TLS)
     #[cfg(feature = "dnssec")]
     tls_cert: Option<dnssec::TlsCertConfig>,
+    /// Networks allowed to access the server
+    #[serde(default)]
+    allow_networks: Vec<IpNet>,
 }
 
 impl Config {
@@ -159,6 +163,11 @@ impl Config {
                 None
             }
         }
+    }
+
+    /// get the networks allowed to connect to this server
+    pub fn get_allow_networks(&self) -> &[IpNet] {
+        &self.allow_networks
     }
 }
 

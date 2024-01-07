@@ -391,10 +391,11 @@ fn main() {
         .iter()
         .flat_map(|x| (*x, listen_port).to_socket_addrs().unwrap())
         .collect();
+    let allow_networks = config.get_allow_networks();
 
     // now, run the server, based on the config
     #[cfg_attr(not(feature = "dns-over-tls"), allow(unused_mut))]
-    let mut server = ServerFuture::new(catalog);
+    let mut server = ServerFuture::with_access(catalog, allow_networks);
 
     // load all the listeners
     for udp_socket in &sockaddrs {

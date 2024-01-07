@@ -40,6 +40,10 @@
 ## directory: path on the host filesystem to where zone files are stored.
 # directory = "/var/named"
 
+## Allowed networks, a list of CIDRs in IPv4 or IPv6 formats,
+##  any request that does not originate from the specified networks will be denied
+# allow_networks = ["127/8", "::1/128"]
+
 ## Default zones, these should be present on all nameservers, except in rare
 ##  configuration cases
 [[zones]]
