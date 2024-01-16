@@ -24,18 +24,14 @@ impl Access {
     pub(crate) fn insert_deny(&mut self, network: IpNet) {
         match network {
             IpNet::V4(v4) => {
-                if self.deny_ipv4.is_none() {
-                    self.deny_ipv4 = Some(PrefixSet::default());
-                }
-
-                self.deny_ipv4.as_mut().unwrap().insert(v4);
+                self.deny_ipv4
+                    .get_or_insert_with(PrefixSet::default)
+                    .insert(v4);
             }
             IpNet::V6(v6) => {
-                if self.deny_ipv6.is_none() {
-                    self.deny_ipv6 = Some(PrefixSet::default());
-                }
-
-                self.deny_ipv6.as_mut().unwrap().insert(v6);
+                self.deny_ipv6
+                    .get_or_insert_with(PrefixSet::default)
+                    .insert(v6);
             }
         }
     }
@@ -44,18 +40,14 @@ impl Access {
     pub(crate) fn insert_allow(&mut self, network: IpNet) {
         match network {
             IpNet::V4(v4) => {
-                if self.allow_ipv4.is_none() {
-                    self.allow_ipv4 = Some(PrefixSet::default());
-                }
-
-                self.allow_ipv4.as_mut().unwrap().insert(v4);
+                self.allow_ipv4
+                    .get_or_insert_with(PrefixSet::default)
+                    .insert(v4);
             }
             IpNet::V6(v6) => {
-                if self.allow_ipv6.is_none() {
-                    self.allow_ipv6 = Some(PrefixSet::default());
-                }
-
-                self.allow_ipv6.as_mut().unwrap().insert(v6);
+                self.allow_ipv6
+                    .get_or_insert_with(PrefixSet::default)
+                    .insert(v6);
             }
         }
     }
