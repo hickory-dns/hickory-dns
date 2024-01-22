@@ -77,10 +77,9 @@ async fn test_quic_stream() {
     // now construct the client
     let mut roots = rustls::RootCertStore::empty();
     ca.iter()
-        .try_for_each(|ca| roots.add(ca))
+        .try_for_each(|ca| roots.add(ca.to_owned()))
         .expect("failed to build roots");
     let mut client_config = ClientConfig::builder()
-        .with_safe_defaults()
         .with_root_certificates(roots)
         .with_no_client_auth();
 

@@ -444,7 +444,7 @@ where
                         .expect("programming error, tls should not be None here");
                     let name_server_name = Arc::clone(&tls.dns_name);
 
-                    match tls.dns_name.as_ref().try_into() {
+                    match tls.dns_name.as_ref().to_owned().try_into() {
                         Ok(dns_name) => {
                             let tls = TlsConnector::from(tls.client_config);
                             let tls = tls.connect(dns_name, AsyncIoStdAsTokio(tcp));
@@ -746,7 +746,7 @@ mod tests {
         #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
         {
             let (added, ignored) = root_store
-                .add_parsable_certificates(&rustls_native_certs::load_native_certs().unwrap());
+                .add_parsable_certificates(rustls_native_certs::load_native_certs().unwrap());
 
             if ignored > 0 {
                 warn!(
@@ -760,19 +760,13 @@ mod tests {
             }
         }
         #[cfg(feature = "webpki-roots")]
-        root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-            rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
-                ta.subject,
-                ta.spki,
-                ta.name_constraints,
-            )
-        }));
+        root_store.extend(
+            webpki_roots::TLS_SERVER_ROOTS
+                .iter()
+                .map(|ta| ta.to_owned()),
+        );
 
         let mut client_config = ClientConfig::builder()
-            .with_safe_default_cipher_suites()
-            .with_safe_default_kx_groups()
-            .with_safe_default_protocol_versions()
-            .unwrap()
             .with_root_certificates(root_store)
             .with_no_client_auth();
 
