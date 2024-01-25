@@ -86,7 +86,7 @@ fn hickory_process() -> (NamedProcess, u16) {
     let test_port = find_test_port();
 
     let ws_root = env::var("WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
-    let named_path = format!("{}/target/release/hickory-dns", ws_root);
+    let named_path = env!("CARGO_BIN_EXE_hickory-dns");
     let config_path = format!("{}/tests/test-data/test_configs/example.toml", ws_root);
     let zone_dir = format!("{}/tests/test-data/test_configs", ws_root);
 
