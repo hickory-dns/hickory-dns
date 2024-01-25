@@ -181,7 +181,7 @@ impl DS {
     #[cfg_attr(docsrs, doc(cfg(any(feature = "openssl", feature = "ring"))))]
     pub fn covers(&self, name: &Name, key: &DNSKEY) -> ProtoResult<bool> {
         key.to_digest(name, self.digest_type())
-            .map(|hash| hash.as_ref() == self.digest())
+            .map(|hash| key.zone_key() && hash.as_ref() == self.digest())
     }
 
     /// This will always return an error unless the Ring or OpenSSL features are enabled
@@ -353,5 +353,27 @@ mod tests {
         );
 
         assert!(ds_rdata.covers(&name, &dnskey_rdata).unwrap());
+    }
+
+    #[test]
+    #[cfg(any(feature = "openssl", feature = "ring"))]
+    pub(crate) fn test_covers_fails_with_non_zone_key() {
+        use crate::rr::dnssec::rdata::DNSKEY;
+
+        let name = Name::parse("www.example.com.", None).unwrap();
+
+        let dnskey_rdata = DNSKEY::new(false, true, false, Algorithm::RSASHA256, vec![1, 2, 3, 4]);
+        let ds_rdata = DS::new(
+            0,
+            Algorithm::RSASHA256,
+            DigestType::SHA256,
+            dnskey_rdata
+                .to_digest(&name, DigestType::SHA256)
+                .unwrap()
+                .as_ref()
+                .to_owned(),
+        );
+
+        assert!(!ds_rdata.covers(&name, &dnskey_rdata).unwrap());
     }
 }
