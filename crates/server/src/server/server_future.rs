@@ -284,7 +284,6 @@ impl<T: RequestHandler> ServerFuture<T> {
         let ((cert, chain), key) = certificate_and_key;
 
         let handler = self.handler.clone();
-        let acces = self.access.clone();
         debug!("registered tcp: {:?}", listener);
 
         let tls_acceptor = Box::pin(tls_server::new_acceptor(cert, chain, key)?);
