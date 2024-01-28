@@ -18,7 +18,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, warn};
 
 use crate::{
-    access::Access,
+    access::AccessControl,
     authority::MessageResponse,
     proto::quic::QuicStreams,
     server::{
@@ -28,7 +28,7 @@ use crate::{
 };
 
 pub(crate) async fn quic_handler<T>(
-    access: Arc<Access>,
+    access: Arc<AccessControl>,
     handler: Arc<T>,
     mut quic_streams: QuicStreams,
     src_addr: SocketAddr,
@@ -89,7 +89,7 @@ where
 async fn handle_request<T>(
     bytes: BytesMut,
     src_addr: SocketAddr,
-    access: Arc<Access>,
+    access: Arc<AccessControl>,
     handler: Arc<T>,
     responder: QuicResponseHandle,
 ) where
