@@ -16,7 +16,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, warn};
 
 use crate::{
-    access::Access,
+    access::AccessControl,
     authority::MessageResponse,
     proto::h2::h2_server,
     server::{
@@ -26,7 +26,7 @@ use crate::{
 };
 
 pub(crate) async fn h2_handler<T, I>(
-    access: Arc<Access>,
+    access: Arc<AccessControl>,
     handler: Arc<T>,
     io: I,
     src_addr: SocketAddr,
@@ -87,7 +87,7 @@ pub(crate) async fn h2_handler<T, I>(
 async fn handle_request<T>(
     bytes: BytesMut,
     src_addr: SocketAddr,
-    access: Arc<Access>,
+    access: Arc<AccessControl>,
     handler: Arc<T>,
     responder: HttpsResponseHandle,
 ) where

@@ -12,26 +12,20 @@ use prefix_trie::{Prefix, PrefixSet};
 ///   denied networks are specified, then allowed networks will only apply if the deny rule matched, but otherwise the
 ///   address will be allowed.
 #[derive(Default)]
-pub(crate) struct Access {
-    deny_ipv4: Option<PrefixSet<Ipv4Net>>,
-    deny_ipv6: Option<PrefixSet<Ipv6Net>>,
-    allow_ipv4: Option<PrefixSet<Ipv4Net>>,
-    allow_ipv6: Option<PrefixSet<Ipv6Net>>,
+pub(crate) struct AccessControl {
+    ipv4: InnerAccessControl<Ipv4Net>,
+    ipv6: InnerAccessControl<Ipv6Net>,
 }
 
-impl Access {
+impl AccessControl {
     /// Insert a new network that is denied access to the server
     pub(crate) fn insert_deny(&mut self, network: IpNet) {
         match network {
             IpNet::V4(v4) => {
-                self.deny_ipv4
-                    .get_or_insert_with(PrefixSet::default)
-                    .insert(v4);
+                self.ipv4.deny.insert(v4);
             }
             IpNet::V6(v6) => {
-                self.deny_ipv6
-                    .get_or_insert_with(PrefixSet::default)
-                    .insert(v6);
+                self.ipv6.deny.insert(v6);
             }
         }
     }
@@ -40,14 +34,10 @@ impl Access {
     pub(crate) fn insert_allow(&mut self, network: IpNet) {
         match network {
             IpNet::V4(v4) => {
-                self.allow_ipv4
-                    .get_or_insert_with(PrefixSet::default)
-                    .insert(v4);
+                self.ipv4.allow.insert(v4);
             }
             IpNet::V6(v6) => {
-                self.allow_ipv6
-                    .get_or_insert_with(PrefixSet::default)
-                    .insert(v6);
+                self.ipv6.allow.insert(v6);
             }
         }
     }
@@ -74,40 +64,63 @@ impl Access {
             IpAddr::V4(v4) => {
                 let v4 = Ipv4Net::from(v4);
 
-                allow_internal(&v4, self.allow_ipv4.as_ref(), self.deny_ipv4.as_ref())
+                self.ipv4.allow(&v4)
             }
             IpAddr::V6(v6) => {
                 let v6 = Ipv6Net::from(v6);
 
-                allow_internal(&v6, self.allow_ipv6.as_ref(), self.deny_ipv6.as_ref())
+                self.ipv6.allow(&v6)
             }
         }
     }
 }
 
-fn allow_internal<I: Prefix>(
-    ip: &I,
-    allow: Option<&PrefixSet<I>>,
-    deny: Option<&PrefixSet<I>>,
-) -> Result<(), ProtoError> {
-    // First check the deny list
-    let result: Option<Result<(), ProtoError>> = deny.map(|allow_ip| {
-        allow_ip
-            .get_lpm(ip)
-            .map(|_| Err(ProtoErrorKind::RequestRefused.into()))
-            .unwrap_or(Ok(()))
-    });
+#[derive(Default)]
+struct InnerAccessControl<I: Prefix> {
+    allow: PrefixSet<I>,
+    deny: PrefixSet<I>,
+}
 
-    // If the IP is denied, there might be an override, otherwise we default to the result of the deny
-    //   Allows are the in the context of deny, so if there are any networks in the deny, then allow is only applied
-    //   if the network is denied. If there were no denies, then allow is applied and only those networks specified
-    //   are allowed
-    allow.map_or(result.clone().unwrap_or(Ok(())), |allow_ip| {
-        allow_ip
-            .get_lpm(ip)
-            .map(|_| Ok(()))
-            .unwrap_or(result.unwrap_or(Err(ProtoErrorKind::RequestRefused.into())))
-    })
+impl<I: Prefix> InnerAccessControl<I> {
+    /// Evaluate the IP address against the allowed networks
+    ///
+    /// This allows for generic evaluation over IPv4 or IPv6 address spaces
+    ///
+    /// # Arguments
+    ///
+    /// * `ip` - source ip address to evaluate
+    /// * `allow` - allowed prefix list, if this contains values then the IP address must exist in the set
+    /// * `deny` - denied prefix list, if this contains values then the IP address must not exist in the set (or must be in the allowed set)
+    ///
+    /// # Return
+    ///
+    /// Ok if access is granted, Err otherwise
+    fn allow(&self, ip: &I) -> Result<(), ProtoError> {
+        // First check the deny list
+        let result: Option<Result<(), ProtoError>> = if self.deny.iter().next().is_none() {
+            None
+        } else {
+            Some(
+                self.deny
+                    .get_lpm(ip)
+                    .map(|_| Err(ProtoErrorKind::RequestRefused.into()))
+                    .unwrap_or(Ok(())),
+            )
+        };
+
+        // If the IP is denied, there might be an override, otherwise we default to the result of the deny
+        //   Allows are the in the context of deny, so if there are any networks in the deny, then allow is only applied
+        //   if the network is denied. If there were no denies, then allow is applied and only those networks specified
+        //   are allowed
+        if self.allow.iter().next().is_none() {
+            result.unwrap_or(Ok(()))
+        } else {
+            self.allow
+                .get_lpm(ip)
+                .map(|_| Ok(()))
+                .unwrap_or(result.unwrap_or(Err(ProtoErrorKind::RequestRefused.into())))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -116,14 +129,14 @@ mod tests {
 
     #[test]
     fn test_none() {
-        let access = Access::default();
+        let access = AccessControl::default();
         assert!(access.allow("192.168.1.1".parse().unwrap()).is_ok());
         assert!(access.allow("fd00::1".parse().unwrap()).is_ok());
     }
 
     #[test]
     fn test_v4() {
-        let mut access = Access::default();
+        let mut access = AccessControl::default();
         access.insert_allow("192.168.1.0/24".parse().unwrap());
 
         assert!(access.allow("192.168.1.1".parse().unwrap()).is_ok());
@@ -134,7 +147,7 @@ mod tests {
 
     #[test]
     fn test_v6() {
-        let mut access = Access::default();
+        let mut access = AccessControl::default();
         access.insert_allow("fd00::/120".parse().unwrap());
 
         assert!(access.allow("fd00::1".parse().unwrap()).is_ok());
@@ -145,7 +158,7 @@ mod tests {
 
     #[test]
     fn test_deny_v4() {
-        let mut access = Access::default();
+        let mut access = AccessControl::default();
         access.insert_deny("192.168.1.0/24".parse().unwrap());
 
         assert!(access.allow("192.168.1.1".parse().unwrap()).is_err());
@@ -156,7 +169,7 @@ mod tests {
 
     #[test]
     fn test_deny_v6() {
-        let mut access = Access::default();
+        let mut access = AccessControl::default();
         access.insert_deny("fd00::/120".parse().unwrap());
 
         assert!(access.allow("fd00::1".parse().unwrap()).is_err());
@@ -167,7 +180,7 @@ mod tests {
 
     #[test]
     fn test_deny_allow_v4() {
-        let mut access = Access::default();
+        let mut access = AccessControl::default();
         access.insert_deny("192.168.0.0/16".parse().unwrap());
         access.insert_allow("192.168.1.0/24".parse().unwrap());
 

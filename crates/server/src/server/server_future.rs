@@ -23,7 +23,7 @@ use tracing::{debug, info, warn};
 #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 use crate::proto::openssl::tls_server::*;
 use crate::{
-    access::Access,
+    access::AccessControl,
     authority::{MessageRequest, MessageResponseBuilder},
     proto::{
         error::ProtoError,
@@ -44,7 +44,7 @@ pub struct ServerFuture<T: RequestHandler> {
     handler: Arc<T>,
     join_set: JoinSet<Result<(), ProtoError>>,
     shutdown_token: CancellationToken,
-    access: Arc<Access>,
+    access: Arc<AccessControl>,
 }
 
 impl<T: RequestHandler> ServerFuture<T> {
@@ -55,7 +55,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
     /// Creates a new ServerFuture with the specified Handler and Access
     pub fn with_access(handler: T, denied_networks: &[IpNet], allowed_networks: &[IpNet]) -> Self {
-        let mut access = Access::default();
+        let mut access = AccessControl::default();
         access.insert_deny_all(denied_networks);
         access.insert_allow_all(allowed_networks);
 
@@ -954,7 +954,7 @@ fn reap_tasks(join_set: &mut JoinSet<()>) {
 pub(crate) async fn handle_raw_request<T: RequestHandler>(
     message: SerialMessage,
     protocol: Protocol,
-    access: Arc<Access>,
+    access: Arc<AccessControl>,
     request_handler: Arc<T>,
     response_handler: BufDnsStreamHandle,
 ) {
@@ -1036,7 +1036,7 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
     message_bytes: &[u8],
     src_addr: SocketAddr,
     protocol: Protocol,
-    access: Arc<Access>,
+    access: Arc<AccessControl>,
     request_handler: Arc<T>,
     response_handler: R,
 ) {
