@@ -56,6 +56,10 @@ impl AccessControl {
 
     /// Evaluate the IP address against the allowed networks
     ///
+    /// # Arguments
+    ///
+    /// * `ip` - source ip address to evaluate
+    ///
     /// # Return
     ///
     /// Ok if access is granted, Err otherwise
@@ -89,36 +93,33 @@ impl<I: Prefix> InnerAccessControl<I> {
     /// # Arguments
     ///
     /// * `ip` - source ip address to evaluate
-    /// * `allow` - allowed prefix list, if this contains values then the IP address must exist in the set
-    /// * `deny` - denied prefix list, if this contains values then the IP address must not exist in the set (or must be in the allowed set)
     ///
     /// # Return
     ///
     /// Ok if access is granted, Err otherwise
     fn allow(&self, ip: &I) -> Result<(), ProtoError> {
-        // First check the deny list
-        let result: Option<Result<(), ProtoError>> = if self.deny.iter().next().is_none() {
-            None
-        } else {
-            Some(
-                self.deny
-                    .get_lpm(ip)
-                    .map(|_| Err(ProtoErrorKind::RequestRefused.into()))
-                    .unwrap_or(Ok(())),
-            )
-        };
-
         // If the IP is denied, there might be an override, otherwise we default to the result of the deny
         //   Allows are the in the context of deny, so if there are any networks in the deny, then allow is only applied
         //   if the network is denied. If there were no denies, then allow is applied and only those networks specified
         //   are allowed
-        if self.allow.iter().next().is_none() {
-            result.unwrap_or(Ok(()))
+        let allowed = match (self.deny.get_lpm(ip), self.allow.get_lpm(ip)) {
+            (Some(denied), Some(allowed)) => allowed.prefix_len() > denied.prefix_len(),
+            (Some(_denied), None) => false,
+            (None, Some(_allowed)) => true,
+            (None, None) => match (
+                self.deny.iter().next().is_some(),
+                self.allow.iter().next().is_some(),
+            ) {
+                (true, _) => true,      // there are deny entries, but this isn't one
+                (false, true) => false, // there are only allow entries, but this isn't one
+                (false, false) => true, // there are no entries
+            },
+        };
+
+        if allowed {
+            Ok(())
         } else {
-            self.allow
-                .get_lpm(ip)
-                .map(|_| Ok(()))
-                .unwrap_or(result.unwrap_or(Err(ProtoErrorKind::RequestRefused.into())))
+            Err(ProtoErrorKind::RequestRefused.into())
         }
     }
 }
