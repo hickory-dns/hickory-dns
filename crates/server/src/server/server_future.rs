@@ -56,8 +56,8 @@ impl<T: RequestHandler> ServerFuture<T> {
     /// Creates a new ServerFuture with the specified Handler and Access
     pub fn with_access(handler: T, denied_networks: &[IpNet], allowed_networks: &[IpNet]) -> Self {
         let mut access = AccessControl::default();
-        access.insert_deny_all(denied_networks);
-        access.insert_allow_all(allowed_networks);
+        access.insert_deny(denied_networks);
+        access.insert_allow(allowed_networks);
 
         Self {
             handler: Arc::new(handler),
