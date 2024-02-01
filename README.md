@@ -84,6 +84,24 @@ remote-control:
 - `/etc/unbound/root.hints`. NOTE IP address of docker container
 
 ``` text
-.                        3600000      NS    MY.ROOT-SERVERS.NET.
-MY.ROOT-SERVERS.NET.     3600000      A     172.17.0.2
+.                        3600000      NS    primary.root-server.com.
+primary.root-server.com. 3600000      A     172.17.0.2
 ```
+
+#### `client`
+
+Container is `docker/client.Dockerfile`, build with: `docker build -t dnssec-tests-client -f docker/client.Dockerfile docker`, with `tshark`.
+
+Run the client container with extra capabilities
+
+```shell
+docker run --rm -it --cap-add=NET_RAW --cap-add=NET_ADMIN dnssec-tests-client /bin/bash
+```
+
+Then run `tshark` inside the container:
+
+```shell
+tshark -f 'host 172.17.0.3' -O dns
+```
+
+to filter DNS messages for host `172.17.0.3` (`unbound`).

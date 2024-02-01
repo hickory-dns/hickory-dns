@@ -1,4 +1,4 @@
 FROM ubuntu:22.04
 
 RUN apt-get update && \
-  apt-get install -y unbound
+  apt-get install -y unbound iputils
