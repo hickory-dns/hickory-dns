@@ -31,6 +31,11 @@ each name server has
 
 ### exploration
 
+Notes:
+
+- run all containers with ` --cap-add=NET_RAW --cap-add=NET_ADMIN`
+- use `docker exec` to run `tshark` on network nodes ( containers ) of interest
+
 #### `nsd` for root name server
 
 run: `nsd -d`
@@ -43,10 +48,10 @@ remote-control:
 
 zone:
   name: .
-  zonefile: /etc/nsd/zones/root.zone
+  zonefile: /etc/nsd/zones/main.zone
 ```
 
-- `/etc/nsd/zones/root.zone`
+- `/etc/nsd/zones/main.zone`
 
 ``` text
 $ORIGIN .
@@ -58,9 +63,42 @@ $TTL 1800
                         1209600
                         1800
                         )
+@       IN      NS      primary.root-server.com.
 
+; referral
+com.    IN      NS      primary.tld-server.com.
+primary.tld-server.com. IN A 172.17.0.$TLD_NS_IP_ADDRESS
 ```
 
+#### `nsd` for the TLD name server
+
+run: `nsd -d`
+
+- `/etc/nsd/nsd.conf`
+
+``` text
+remote-control:
+  control-enable: no
+
+zone:
+  name: .
+  zonefile: /etc/nsd/zones/main.zone
+```
+
+- `/etc/nsd/zones/main.zone`
+
+``` text
+$ORIGIN com.
+$TTL 1800
+@       IN      SOA     primary.tld-server.com.    admin.tld-server.com. (
+                        2014080301
+                        3600
+                        900
+                        1209600
+                        1800
+                        )
+@       IN      NS      primary.tld-server.com.
+```
 #### `unbound` 
 
 run `unbound -d`
@@ -85,7 +123,7 @@ remote-control:
 
 ``` text
 .                        3600000      NS    primary.root-server.com.
-primary.root-server.com. 3600000      A     172.17.0.2
+primary.root-server.com. 3600000      A     172.17.0.$ROOT_NS_IP_ADDRESS
 ```
 
 #### `client`
