@@ -1,10 +1,10 @@
 use core::fmt;
-use std::process::Output;
+use std::process::{self, ExitStatus, Output};
 use std::sync::atomic;
 use std::{
     fs,
     path::Path,
-    process::{Command, ExitStatus, Stdio},
+    process::{Command, Stdio},
     sync::atomic::AtomicUsize,
 };
 
@@ -49,7 +49,11 @@ impl Container {
         // `docker run --rm -it $IMAGE sleep infinity`
 
         let mut command = Command::new("docker");
-        let container_name = format!("{image}-{}", COUNT.fetch_add(1, atomic::Ordering::Relaxed));
+        let pid = process::id();
+        let container_name = format!(
+            "{image}-{pid}-{}",
+            COUNT.fetch_add(1, atomic::Ordering::Relaxed)
+        );
         command.args(&["run", "--rm", "--detach", "--name", &container_name]);
         let output = command
             .arg("-it")
@@ -95,6 +99,16 @@ impl Container {
         let output = command.output()?;
 
         Ok(output)
+    }
+
+    // FIXME
+    pub fn exec2(&self, cmd: &[&str]) -> Result<ExitStatus> {
+        let mut command = Command::new("docker");
+        command.args(&["exec", "-t", &self.id]).args(cmd);
+
+        let status = command.status()?;
+
+        Ok(status)
     }
 
     pub fn ip_addr(&self) -> Result<String> {
@@ -193,14 +207,51 @@ mod tests {
         Ok(())
     }
 
-    #[ignore = "TODO"]
+    use minijinja::{context, Environment};
+
+    fn tld_zone(domain: &str) -> String {
+        assert!(domain.ends_with("."));
+
+        let mut env = Environment::new();
+        let name = "main.zone";
+        env.add_template(name, include_str!("templates/tld.zone.jinja"))
+            .unwrap();
+        let template = env.get_template(name).unwrap();
+        template.render(context! { tld => domain }).unwrap()
+    }
+
+    fn root_zone() -> String {
+        let mut env = Environment::new();
+        let name = "main.zone";
+        env.add_template(name, include_str!("templates/root.zone.jinja"))
+            .unwrap();
+        let template = env.get_template(name).unwrap();
+        template.render(context! {}).unwrap()
+    }
+
+    // TODO create `nsd.conf` file at runtime
     #[test]
     fn tld_setup() -> Result<()> {
-        let container = Container::run(Image::Nsd)?;
+        let tld_ns = Container::run(Image::Nsd)?;
 
-        container.cp("/etc/nsd/zones/main.zone", "TODO")?;
+        tld_ns.exec(&["mkdir", "-p", "/etc/nsd/zones"])?;
+        tld_ns.cp("/etc/nsd/zones/main.zone", &tld_zone("."))?;
 
-        container.exec(&["nsd", "-d"])?;
+        tld_ns.exec(&["nsd", "-d"])?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn root_setup() -> Result<()> {
+        let tld_ns = Container::run(Image::Nsd)?;
+
+        tld_ns.exec(&["mkdir", "-p", "/etc/nsd/zones"])?;
+        let zone_path = "/etc/nsd/zones/main.zone";
+        tld_ns.cp(zone_path, &root_zone())?;
+        tld_ns.exec(&["chmod", "666", zone_path])?;
+
+        tld_ns.exec2(&["nsd", "-d"])?;
 
         Ok(())
     }

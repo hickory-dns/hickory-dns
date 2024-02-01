@@ -1,0 +1,10 @@
+$ORIGIN {{ tld }}
+$TTL 1800
+@       IN      SOA     primary.tld-server.{{ tld }}    admin.tld-server.{{ tld }} (
+                        2014010100 ; Serial
+                        10800      ; Refresh (3 hours)
+                        900        ; Retry (15 minutes)
+                        604800     ; Expire (1 week)
+                        86400      ; Minimum (1 day)
+                        )
+@       IN      NS      primary.tld-server.{{ tld }}
