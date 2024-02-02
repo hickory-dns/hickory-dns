@@ -1,14 +1,12 @@
-use core::fmt;
-
-pub use crate::nsd::NsdContainer;
+pub use crate::authoritative_name_server::AuthoritativeNameServer;
 
 pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = core::result::Result<T, Error>;
 
 const CHMOD_RW_EVERYONE: &str = "666";
 
+mod authoritative_name_server;
 mod container;
-mod nsd;
 
 pub enum Domain<'a> {
     Root,

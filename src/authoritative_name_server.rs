@@ -4,12 +4,12 @@ use minijinja::{context, Environment};
 
 use crate::{container::Container, Domain, Result, CHMOD_RW_EVERYONE};
 
-pub struct NsdContainer {
+pub struct AuthoritativeNameServer {
     child: Child,
     container: Container,
 }
 
-impl NsdContainer {
+impl AuthoritativeNameServer {
     pub fn start(domain: Domain) -> Result<Self> {
         let container = Container::run()?;
 
@@ -39,7 +39,7 @@ impl NsdContainer {
     }
 }
 
-impl Drop for NsdContainer {
+impl Drop for AuthoritativeNameServer {
     fn drop(&mut self) {
         let _ = self.child.kill();
     }
@@ -83,7 +83,7 @@ mod tests {
 
     #[test]
     fn tld_setup() -> Result<()> {
-        let tld_ns = NsdContainer::start(Domain::Tld { domain: "com." })?;
+        let tld_ns = AuthoritativeNameServer::start(Domain::Tld { domain: "com." })?;
         let ip_addr = tld_ns.ip_addr()?;
 
         let client = Container::run()?;
@@ -99,7 +99,7 @@ mod tests {
 
     #[test]
     fn root_setup() -> Result<()> {
-        let root_ns = NsdContainer::start(Domain::Root)?;
+        let root_ns = AuthoritativeNameServer::start(Domain::Root)?;
         let ip_addr = root_ns.ip_addr()?;
 
         let client = Container::run()?;
