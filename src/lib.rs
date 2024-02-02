@@ -67,14 +67,16 @@ impl Container {
 
         let id = core::str::from_utf8(&output.stdout)?.trim().to_string();
         dbg!(&id);
-
-        Ok(Self {
+        let container = Self {
             id,
             name: container_name,
-        })
+        };
+        dbg!(container.ip_addr()?);
+
+        Ok(container)
     }
 
-    pub fn cp(&self, path_in_container: &str, file_contents: &str) -> Result<()> {
+    pub fn cp(&self, path_in_container: &str, file_contents: &str, chmod: &str) -> Result<()> {
         let mut temp_file = NamedTempFile::new()?;
         fs::write(&mut temp_file, file_contents)?;
 
@@ -86,6 +88,12 @@ impl Container {
 
         let status = command.status()?;
         if !status.success() {
+            return Err(format!("`{command:?}` failed").into());
+        }
+
+        let command = &["chmod", chmod, path_in_container];
+        let output = self.exec(command)?;
+        if !output.status.success() {
             return Err(format!("`{command:?}` failed").into());
         }
 
@@ -195,7 +203,7 @@ mod tests {
 
         let path = "/tmp/somefile";
         let contents = "hello";
-        container.cp(path, contents)?;
+        container.cp(path, contents, CHMOD_RW_EVERYONE)?;
 
         let output = container.exec(&["cat", path])?;
         dbg!(&output);
@@ -211,6 +219,7 @@ mod tests {
 
     fn tld_zone(domain: &str) -> String {
         assert!(domain.ends_with("."));
+        assert!(!domain.starts_with("."));
 
         let mut env = Environment::new();
         let name = "main.zone";
@@ -218,6 +227,17 @@ mod tests {
             .unwrap();
         let template = env.get_template(name).unwrap();
         template.render(context! { tld => domain }).unwrap()
+    }
+
+    fn nsd_conf(domain: &str) -> String {
+        assert!(domain.ends_with("."));
+
+        let mut env = Environment::new();
+        let name = "nsd.conf";
+        env.add_template(name, include_str!("templates/nsd.conf.jinja"))
+            .unwrap();
+        let template = env.get_template(name).unwrap();
+        template.render(context! { domain => domain }).unwrap()
     }
 
     fn root_zone() -> String {
@@ -229,29 +249,39 @@ mod tests {
         template.render(context! {}).unwrap()
     }
 
+    const CHMOD_RW_EVERYONE: &str = "666";
+
     // TODO create `nsd.conf` file at runtime
     #[test]
     fn tld_setup() -> Result<()> {
         let tld_ns = Container::run(Image::Nsd)?;
 
         tld_ns.exec(&["mkdir", "-p", "/etc/nsd/zones"])?;
-        tld_ns.cp("/etc/nsd/zones/main.zone", &tld_zone("."))?;
+        tld_ns.cp(
+            "/etc/nsd/zones/main.zone",
+            &tld_zone("com."),
+            CHMOD_RW_EVERYONE,
+        )?;
+        tld_ns.cp("/etc/nsd/nsd.conf", &nsd_conf("com."), CHMOD_RW_EVERYONE)?;
 
-        tld_ns.exec(&["nsd", "-d"])?;
+        let status = tld_ns.exec2(&["nsd", "-d"])?;
+        // println!("stdout: {}", core::str::from_utf8(&output.stdout).unwrap());
+        // println!("stderr: {}", core::str::from_utf8(&output.stderr).unwrap());
+        assert!(status.success());
 
         Ok(())
     }
 
     #[test]
     fn root_setup() -> Result<()> {
-        let tld_ns = Container::run(Image::Nsd)?;
+        let root_ns = Container::run(Image::Nsd)?;
 
-        tld_ns.exec(&["mkdir", "-p", "/etc/nsd/zones"])?;
+        root_ns.exec(&["mkdir", "-p", "/etc/nsd/zones"])?;
         let zone_path = "/etc/nsd/zones/main.zone";
-        tld_ns.cp(zone_path, &root_zone())?;
-        tld_ns.exec(&["chmod", "666", zone_path])?;
+        root_ns.cp("/etc/nsd/nsd.conf", &nsd_conf("."), CHMOD_RW_EVERYONE)?;
+        root_ns.cp(zone_path, &root_zone(), CHMOD_RW_EVERYONE)?;
 
-        tld_ns.exec2(&["nsd", "-d"])?;
+        root_ns.exec2(&["nsd", "-d"])?;
 
         Ok(())
     }
