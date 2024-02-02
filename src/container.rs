@@ -2,8 +2,8 @@ use std::fs;
 use std::path::Path;
 use std::process::{self, Child, Output};
 use std::process::{Command, Stdio};
-use std::sync::atomic;
 use std::sync::atomic::AtomicUsize;
+use std::sync::{atomic, Once};
 
 use tempfile::NamedTempFile;
 
@@ -17,6 +17,7 @@ pub struct Container {
 impl Container {
     /// Starts the container in a "parked" state
     pub fn run() -> Result<Self> {
+        static ONCE: Once = Once::new();
         static COUNT: AtomicUsize = AtomicUsize::new(0);
 
         // TODO configurable: hickory; bind
@@ -37,11 +38,11 @@ impl Container {
             .arg("-f")
             .arg(dockerfile_path)
             .arg(docker_dir_path);
-        let status = command.status()?;
 
-        if !status.success() {
-            return Err(format!("`{command:?}` failed").into());
-        }
+        ONCE.call_once(|| {
+            let status = command.status().unwrap();
+            assert!(status.success());
+        });
 
         let mut command = Command::new("docker");
         let pid = process::id();
