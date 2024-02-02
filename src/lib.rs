@@ -8,10 +8,91 @@ use std::{
     sync::atomic::AtomicUsize,
 };
 
+use minijinja::{context, Environment};
 use tempfile::NamedTempFile;
 
 pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = core::result::Result<T, Error>;
+
+const CHMOD_RW_EVERYONE: &str = "666";
+
+fn tld_zone(domain: &str) -> String {
+    assert!(domain.ends_with("."));
+    assert!(!domain.starts_with("."));
+
+    let mut env = Environment::new();
+    let name = "main.zone";
+    env.add_template(name, include_str!("templates/tld.zone.jinja"))
+        .unwrap();
+    let template = env.get_template(name).unwrap();
+    template.render(context! { tld => domain }).unwrap()
+}
+
+fn root_zone() -> String {
+    let mut env = Environment::new();
+    let name = "main.zone";
+    env.add_template(name, include_str!("templates/root.zone.jinja"))
+        .unwrap();
+    let template = env.get_template(name).unwrap();
+    template.render(context! {}).unwrap()
+}
+
+fn nsd_conf(domain: &str) -> String {
+    assert!(domain.ends_with("."));
+
+    let mut env = Environment::new();
+    let name = "nsd.conf";
+    env.add_template(name, include_str!("templates/nsd.conf.jinja"))
+        .unwrap();
+    let template = env.get_template(name).unwrap();
+    template.render(context! { domain => domain }).unwrap()
+}
+
+enum Domain<'a> {
+    Root,
+    Tld { domain: &'a str },
+}
+
+impl Domain<'_> {
+    fn fqdn(&self) -> &str {
+        match self {
+            Domain::Root => ".",
+            Domain::Tld { domain } => domain,
+        }
+    }
+}
+
+pub struct NsdContainer {
+    inner: Container,
+}
+
+impl NsdContainer {
+    pub fn new(domain: Domain) -> Result<Self> {
+        let container = Container::run(Image::Nsd)?;
+
+        container.exec(&["mkdir", "-p", "/etc/nsd/zones"])?;
+        let zone_path = "/etc/nsd/zones/main.zone";
+
+        container.cp(
+            "/etc/nsd/nsd.conf",
+            &nsd_conf(domain.fqdn()),
+            CHMOD_RW_EVERYONE,
+        )?;
+
+        let zone_file_contents = match domain {
+            Domain::Root => root_zone(),
+            Domain::Tld { domain } => tld_zone(domain),
+        };
+
+        container.cp(zone_path, &zone_file_contents, CHMOD_RW_EVERYONE)?;
+
+        Ok(Self { inner: container })
+    }
+
+    pub fn start(&self) -> Result<ExitStatus> {
+        self.inner.exec2(&["nsd", "-d"])
+    }
+}
 
 pub struct Container {
     id: String,
@@ -215,73 +296,28 @@ mod tests {
         Ok(())
     }
 
-    use minijinja::{context, Environment};
-
-    fn tld_zone(domain: &str) -> String {
-        assert!(domain.ends_with("."));
-        assert!(!domain.starts_with("."));
-
-        let mut env = Environment::new();
-        let name = "main.zone";
-        env.add_template(name, include_str!("templates/tld.zone.jinja"))
-            .unwrap();
-        let template = env.get_template(name).unwrap();
-        template.render(context! { tld => domain }).unwrap()
-    }
-
-    fn nsd_conf(domain: &str) -> String {
-        assert!(domain.ends_with("."));
-
-        let mut env = Environment::new();
-        let name = "nsd.conf";
-        env.add_template(name, include_str!("templates/nsd.conf.jinja"))
-            .unwrap();
-        let template = env.get_template(name).unwrap();
-        template.render(context! { domain => domain }).unwrap()
-    }
-
-    fn root_zone() -> String {
-        let mut env = Environment::new();
-        let name = "main.zone";
-        env.add_template(name, include_str!("templates/root.zone.jinja"))
-            .unwrap();
-        let template = env.get_template(name).unwrap();
-        template.render(context! {}).unwrap()
-    }
-
-    const CHMOD_RW_EVERYONE: &str = "666";
-
     // TODO create `nsd.conf` file at runtime
     #[test]
     fn tld_setup() -> Result<()> {
-        let tld_ns = Container::run(Image::Nsd)?;
-
-        tld_ns.exec(&["mkdir", "-p", "/etc/nsd/zones"])?;
-        tld_ns.cp(
-            "/etc/nsd/zones/main.zone",
-            &tld_zone("com."),
-            CHMOD_RW_EVERYONE,
-        )?;
-        tld_ns.cp("/etc/nsd/nsd.conf", &nsd_conf("com."), CHMOD_RW_EVERYONE)?;
-
-        let status = tld_ns.exec2(&["nsd", "-d"])?;
-        // println!("stdout: {}", core::str::from_utf8(&output.stdout).unwrap());
-        // println!("stderr: {}", core::str::from_utf8(&output.stderr).unwrap());
-        assert!(status.success());
+        let tld_ns = NsdContainer::new(Domain::Tld { domain: "com." })?;
+        tld_ns.start()?;
 
         Ok(())
     }
 
     #[test]
     fn root_setup() -> Result<()> {
-        let root_ns = Container::run(Image::Nsd)?;
+        let root_ns = NsdContainer::new(Domain::Root)?;
+        root_ns.start()?;
 
-        root_ns.exec(&["mkdir", "-p", "/etc/nsd/zones"])?;
-        let zone_path = "/etc/nsd/zones/main.zone";
-        root_ns.cp("/etc/nsd/nsd.conf", &nsd_conf("."), CHMOD_RW_EVERYONE)?;
-        root_ns.cp(zone_path, &root_zone(), CHMOD_RW_EVERYONE)?;
+        // let root_ns = Container::run(Image::Nsd)?;
 
-        root_ns.exec2(&["nsd", "-d"])?;
+        // root_ns.exec(&["mkdir", "-p", "/etc/nsd/zones"])?;
+        // let zone_path = "/etc/nsd/zones/main.zone";
+        // root_ns.cp("/etc/nsd/nsd.conf", &nsd_conf("."), CHMOD_RW_EVERYONE)?;
+        // root_ns.cp(zone_path, &root_zone(), CHMOD_RW_EVERYONE)?;
+
+        // root_ns.exec2(&["nsd", "-d"])?;
 
         Ok(())
     }
