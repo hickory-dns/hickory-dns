@@ -2,7 +2,7 @@ use std::process::Child;
 
 use minijinja::{context, Environment};
 
-use crate::{container::Container, Domain, Image, Result, CHMOD_RW_EVERYONE};
+use crate::{container::Container, Domain, Result, CHMOD_RW_EVERYONE};
 
 pub struct NsdContainer {
     child: Child,
@@ -11,7 +11,7 @@ pub struct NsdContainer {
 
 impl NsdContainer {
     pub fn start(domain: Domain) -> Result<Self> {
-        let container = Container::run(Image::Nsd)?;
+        let container = Container::run()?;
 
         container.exec(&["mkdir", "-p", "/etc/nsd/zones"])?;
         let zone_path = "/etc/nsd/zones/main.zone";
@@ -86,7 +86,7 @@ mod tests {
         let tld_ns = NsdContainer::start(Domain::Tld { domain: "com." })?;
         let ip_addr = tld_ns.ip_addr()?;
 
-        let client = Container::run(Image::Client)?;
+        let client = Container::run()?;
         let output = client.exec(&["dig", &format!("@{ip_addr}"), "SOA", "com."])?;
 
         assert!(output.status.success());
@@ -102,7 +102,7 @@ mod tests {
         let root_ns = NsdContainer::start(Domain::Root)?;
         let ip_addr = root_ns.ip_addr()?;
 
-        let client = Container::run(Image::Client)?;
+        let client = Container::run()?;
         let output = client.exec(&["dig", &format!("@{ip_addr}"), "SOA", "."])?;
 
         assert!(output.status.success());

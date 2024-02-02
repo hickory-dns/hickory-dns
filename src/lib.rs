@@ -23,20 +23,3 @@ impl Domain<'_> {
         }
     }
 }
-
-pub enum Image {
-    Nsd, // for ROOT, TLD, DOMAIN
-    Unbound,
-    Client,
-}
-
-impl fmt::Display for Image {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let name = match self {
-            Image::Nsd => "nsd",
-            Image::Unbound => "unbound",
-            Image::Client => "client",
-        };
-        f.write_str(name)
-    }
-}

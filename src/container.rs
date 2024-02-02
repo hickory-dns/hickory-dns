@@ -7,7 +7,7 @@ use std::sync::atomic::AtomicUsize;
 
 use tempfile::NamedTempFile;
 
-use crate::{Image, Result};
+use crate::Result;
 
 pub struct Container {
     id: String,
@@ -16,15 +16,17 @@ pub struct Container {
 
 impl Container {
     /// Starts the container in a "parked" state
-    pub fn run(image: Image) -> Result<Self> {
+    pub fn run() -> Result<Self> {
         static COUNT: AtomicUsize = AtomicUsize::new(0);
 
-        let image_tag = format!("dnssec-tests-{image}");
+        // TODO configurable: hickory; bind
+        let binary = "unbound";
+        let image_tag = format!("dnssec-tests-{binary}");
 
         let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
         let dockerfile_path = manifest_dir
             .join("docker")
-            .join(format!("{image}.Dockerfile"));
+            .join(format!("{binary}.Dockerfile"));
         let docker_dir_path = manifest_dir.join("docker");
         dbg!(&image_tag);
 
@@ -44,7 +46,7 @@ impl Container {
         let mut command = Command::new("docker");
         let pid = process::id();
         let container_name = format!(
-            "{image}-{pid}-{}",
+            "{binary}-{pid}-{}",
             COUNT.fetch_add(1, atomic::Ordering::Relaxed)
         );
         command.args(&["run", "--rm", "--detach", "--name", &container_name]);
@@ -156,7 +158,7 @@ mod tests {
 
     #[test]
     fn run_works() -> Result<()> {
-        let container = Container::run(Image::Client)?;
+        let container = Container::run()?;
 
         let output = container.exec(&["true"])?;
         assert!(output.status.success());
@@ -166,7 +168,7 @@ mod tests {
 
     #[test]
     fn ip_addr_works() -> Result<()> {
-        let container = Container::run(Image::Client)?;
+        let container = Container::run()?;
 
         let ip_addr = container.ip_addr()?;
         assert!(ip_addr.parse::<Ipv4Addr>().is_ok());
@@ -176,7 +178,7 @@ mod tests {
 
     #[test]
     fn cp_works() -> Result<()> {
-        let container = Container::run(Image::Client)?;
+        let container = Container::run()?;
 
         let path = "/tmp/somefile";
         let contents = "hello";
