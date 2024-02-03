@@ -12,7 +12,7 @@ use std::{
 };
 
 use futures_util::{FutureExt, StreamExt};
-use hickory_proto::{op::MessageType, rr::Record};
+use hickory_proto::{error::ProtoErrorKind, op::MessageType, rr::Record};
 use ipnet::IpNet;
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey, ServerConfig};
@@ -1135,10 +1135,12 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
         MessageRequest::read(&mut decoder),
         access.allow(src_addr.ip()),
     ) {
-        (Ok(message), Ok(())) => {
+        (Ok(message), true) => {
             inner_handle_request(message, response_handler).await;
         }
-        (Ok(message), Err(error)) => {
+        (Ok(message), false) => {
+            let error = ProtoErrorKind::RequestRefused.into();
+
             // The message will be refused from an non-allowed network
             error_response_handler(
                 protocol,
