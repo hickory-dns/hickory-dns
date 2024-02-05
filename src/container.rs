@@ -1,4 +1,6 @@
+use core::str;
 use std::fs;
+use std::net::Ipv4Addr;
 use std::path::Path;
 use std::process::{self, Child, Output};
 use std::process::{Command, Stdio};
@@ -10,8 +12,10 @@ use tempfile::NamedTempFile;
 use crate::Result;
 
 pub struct Container {
-    id: String,
     _name: String,
+    id: String,
+    // TODO probably also want the IPv6 address
+    ipv4_addr: Ipv4Addr,
 }
 
 impl Container {
@@ -61,15 +65,16 @@ impl Container {
             return Err(format!("`{command:?}` failed").into());
         }
 
-        let id = core::str::from_utf8(&output.stdout)?.trim().to_string();
+        let id = str::from_utf8(&output.stdout)?.trim().to_string();
         dbg!(&id);
-        let container = Self {
+
+        let ipv4_addr = get_ipv4_addr(&id)?;
+
+        Ok(Self {
             id,
             _name: container_name,
-        };
-        dbg!(container.ip_addr()?);
-
-        Ok(container)
+            ipv4_addr,
+        })
     }
 
     pub fn cp(&self, path_in_container: &str, file_contents: &str, chmod: &str) -> Result<()> {
@@ -114,27 +119,31 @@ impl Container {
         Ok(child)
     }
 
-    // TODO cache this to avoid calling `docker inspect` every time
-    pub fn ip_addr(&self) -> Result<String> {
-        let mut command = Command::new("docker");
-        command
-            .args([
-                "inspect",
-                "-f",
-                "{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}",
-            ])
-            .arg(&self.id);
-
-        let output = command.output()?;
-        if !output.status.success() {
-            return Err(format!("`{command:?}` failed").into());
-        }
-
-        let ip_addr = core::str::from_utf8(&output.stdout)?.trim().to_string();
-        dbg!(&ip_addr);
-
-        Ok(ip_addr)
+    pub fn ipv4_addr(&self) -> Ipv4Addr {
+        self.ipv4_addr
     }
+}
+
+// TODO cache this to avoid calling `docker inspect` every time
+fn get_ipv4_addr(container_id: &str) -> Result<Ipv4Addr> {
+    let mut command = Command::new("docker");
+    command
+        .args([
+            "inspect",
+            "-f",
+            "{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}",
+        ])
+        .arg(container_id);
+
+    let output = command.output()?;
+    if !output.status.success() {
+        return Err(format!("`{command:?}` failed").into());
+    }
+
+    let ipv4_addr = str::from_utf8(&output.stdout)?.trim().to_string();
+    dbg!(&ipv4_addr);
+
+    Ok(ipv4_addr.parse()?)
 }
 
 // ensure the container gets deleted
@@ -152,8 +161,6 @@ impl Drop for Container {
 
 #[cfg(test)]
 mod tests {
-    use std::net::Ipv4Addr;
-
     use crate::CHMOD_RW_EVERYONE;
 
     use super::*;
@@ -169,11 +176,12 @@ mod tests {
     }
 
     #[test]
-    fn ip_addr_works() -> Result<()> {
+    fn ipv4_addr_works() -> Result<()> {
         let container = Container::run()?;
+        let ipv4_addr = container.ipv4_addr();
 
-        let ip_addr = container.ip_addr()?;
-        assert!(ip_addr.parse::<Ipv4Addr>().is_ok());
+        let output = container.exec(&["ping", "-c1", &format!("{ipv4_addr}")])?;
+        assert!(output.status.success());
 
         Ok(())
     }

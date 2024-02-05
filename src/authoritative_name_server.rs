@@ -1,4 +1,4 @@
-use std::process::Child;
+use std::{net::Ipv4Addr, process::Child};
 
 use minijinja::{context, Environment};
 
@@ -34,8 +34,8 @@ impl AuthoritativeNameServer {
         Ok(Self { child, container })
     }
 
-    pub fn ip_addr(&self) -> Result<String> {
-        self.container.ip_addr()
+    pub fn ipv4_addr(&self) -> Ipv4Addr {
+        self.container.ipv4_addr()
     }
 }
 
@@ -84,7 +84,7 @@ mod tests {
     #[test]
     fn tld_setup() -> Result<()> {
         let tld_ns = AuthoritativeNameServer::start(Domain::Tld { domain: "com." })?;
-        let ip_addr = tld_ns.ip_addr()?;
+        let ip_addr = tld_ns.ipv4_addr();
 
         let client = Container::run()?;
         let output = client.exec(&["dig", &format!("@{ip_addr}"), "SOA", "com."])?;
@@ -100,7 +100,7 @@ mod tests {
     #[test]
     fn root_setup() -> Result<()> {
         let root_ns = AuthoritativeNameServer::start(Domain::Root)?;
-        let ip_addr = root_ns.ip_addr()?;
+        let ip_addr = root_ns.ipv4_addr();
 
         let client = Container::run()?;
         let output = client.exec(&["dig", &format!("@{ip_addr}"), "SOA", "."])?;
