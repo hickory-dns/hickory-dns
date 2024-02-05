@@ -12,7 +12,7 @@ use std::{
 };
 
 use futures_util::{FutureExt, StreamExt};
-use hickory_proto::{error::ProtoErrorKind, op::MessageType, rr::Record};
+use hickory_proto::{op::MessageType, rr::Record};
 use ipnet::IpNet;
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey, ServerConfig};
@@ -1130,30 +1130,22 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
         }
     };
 
+    if !access.allow(src_addr.ip()) {
+        info!(
+            "request:Refused src:{proto}://{addr}#{port}",
+            proto = protocol,
+            addr = src_addr.ip(),
+            port = src_addr.port(),
+        );
+        return;
+    }
+
     // Attempt to decode the message
-    match (
-        MessageRequest::read(&mut decoder),
-        access.allow(src_addr.ip()),
-    ) {
-        (Ok(message), true) => {
+    match MessageRequest::read(&mut decoder) {
+        Ok(message) => {
             inner_handle_request(message, response_handler).await;
         }
-        (Ok(message), false) => {
-            let error = ProtoErrorKind::RequestRefused.into();
-
-            // The message will be refused from an non-allowed network
-            error_response_handler(
-                protocol,
-                src_addr,
-                *message.header(),
-                message.query().clone(),
-                ResponseCode::Refused,
-                Box::new(error),
-                response_handler,
-            )
-            .await;
-        }
-        (Err(ProtoError { kind, .. }), _) if kind.as_form_error().is_some() => {
+        Err(ProtoError { kind, .. }) if kind.as_form_error().is_some() => {
             // We failed to parse the request due to some issue in the message, but the header is available, so we can respond
             let (header, error) = kind
                 .into_form_error()
@@ -1171,7 +1163,12 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
             )
             .await;
         }
-        (Err(e), _) => warn!("failed to read message: {}", e),
+        Err(error) => info!(
+            "request:Failed src:{proto}://{addr}#{port} error:{error}",
+            proto = protocol,
+            addr = src_addr.ip(),
+            port = src_addr.port(),
+        ),
     }
 }
 

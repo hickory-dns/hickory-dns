@@ -308,7 +308,8 @@ fn test_forward() {
             &mut client,
             Name::from_str("www.example.com").unwrap(),
             RecordType::A,
-        );
+        )
+        .unwrap();
         assert_eq!(
             *response.answers()[0].data().and_then(RData::as_a).unwrap(),
             A::new(93, 184, 216, 34)
@@ -330,7 +331,8 @@ fn test_forward() {
             &mut client,
             Name::from_str("www.example.com").unwrap(),
             RecordType::A,
-        );
+        )
+        .unwrap();
         assert_eq!(
             *response.answers()[0].data().and_then(RData::as_a).unwrap(),
             A::new(93, 184, 216, 34)
