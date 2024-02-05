@@ -11,7 +11,7 @@ use crate::Result;
 
 pub struct Container {
     id: String,
-    name: String,
+    _name: String,
 }
 
 impl Container {
@@ -33,7 +33,7 @@ impl Container {
 
         let mut command = Command::new("docker");
         command
-            .args(&["build", "-t"])
+            .args(["build", "-t"])
             .arg(&image_tag)
             .arg("-f")
             .arg(dockerfile_path)
@@ -50,7 +50,7 @@ impl Container {
             "{binary}-{pid}-{}",
             COUNT.fetch_add(1, atomic::Ordering::Relaxed)
         );
-        command.args(&["run", "--rm", "--detach", "--name", &container_name]);
+        command.args(["run", "--rm", "--detach", "--name", &container_name]);
         let output = command
             .arg("-it")
             .arg(image_tag)
@@ -65,7 +65,7 @@ impl Container {
         dbg!(&id);
         let container = Self {
             id,
-            name: container_name,
+            _name: container_name,
         };
         dbg!(container.ip_addr()?);
 
@@ -98,7 +98,7 @@ impl Container {
 
     pub fn exec(&self, cmd: &[&str]) -> Result<Output> {
         let mut command = Command::new("docker");
-        command.args(&["exec", "-t", &self.id]).args(cmd);
+        command.args(["exec", "-t", &self.id]).args(cmd);
 
         let output = command.output()?;
 
@@ -107,7 +107,7 @@ impl Container {
 
     pub fn spawn(&self, cmd: &[&str]) -> Result<Child> {
         let mut command = Command::new("docker");
-        command.args(&["exec", "-t", &self.id]).args(cmd);
+        command.args(["exec", "-t", &self.id]).args(cmd);
 
         let child = command.spawn()?;
 
@@ -118,7 +118,7 @@ impl Container {
     pub fn ip_addr(&self) -> Result<String> {
         let mut command = Command::new("docker");
         command
-            .args(&[
+            .args([
                 "inspect",
                 "-f",
                 "{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}",

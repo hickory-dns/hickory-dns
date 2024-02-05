@@ -46,8 +46,8 @@ impl Drop for AuthoritativeNameServer {
 }
 
 fn tld_zone(domain: &str) -> String {
-    assert!(domain.ends_with("."));
-    assert!(!domain.starts_with("."));
+    assert!(domain.ends_with('.'));
+    assert!(!domain.starts_with('.'));
 
     let mut env = Environment::new();
     let name = "main.zone";
@@ -67,7 +67,7 @@ fn root_zone() -> String {
 }
 
 fn nsd_conf(domain: &str) -> String {
-    assert!(domain.ends_with("."));
+    assert!(domain.ends_with('.'));
 
     let mut env = Environment::new();
     let name = "nsd.conf";
