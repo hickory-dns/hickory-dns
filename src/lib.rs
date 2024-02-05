@@ -7,7 +7,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 const CHMOD_RW_EVERYONE: &str = "666";
 
 mod authoritative_name_server;
-mod container;
+pub mod container;
 mod recursive_resolver;
 
 pub enum Domain<'a> {

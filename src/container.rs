@@ -2,17 +2,17 @@ use core::str;
 use std::fs;
 use std::net::Ipv4Addr;
 use std::path::Path;
-use std::process::{self, Child, Output};
+use std::process::{self, Child, ExitStatus};
 use std::process::{Command, Stdio};
 use std::sync::atomic::AtomicUsize;
 use std::sync::{atomic, Once};
 
 use tempfile::NamedTempFile;
 
-use crate::Result;
+use crate::{Error, Result};
 
 pub struct Container {
-    _name: String,
+    name: String,
     id: String,
     // TODO probably also want the IPv6 address
     ipv4_addr: Ipv4Addr,
@@ -33,7 +33,6 @@ impl Container {
             .join("docker")
             .join(format!("{binary}.Dockerfile"));
         let docker_dir_path = manifest_dir.join("docker");
-        dbg!(&image_tag);
 
         let mut command = Command::new("docker");
         command
@@ -50,29 +49,23 @@ impl Container {
 
         let mut command = Command::new("docker");
         let pid = process::id();
-        let container_name = format!(
-            "{binary}-{pid}-{}",
-            COUNT.fetch_add(1, atomic::Ordering::Relaxed)
-        );
-        command.args(["run", "--rm", "--detach", "--name", &container_name]);
-        let output = command
+        let count = COUNT.fetch_add(1, atomic::Ordering::Relaxed);
+        let name = format!("{binary}-{pid}-{count}");
+        command
+            .args(["run", "--rm", "--detach", "--name", &name])
             .arg("-it")
             .arg(image_tag)
-            .args(["sleep", "infinity"])
-            .output()?;
+            .args(["sleep", "infinity"]);
 
-        if !output.status.success() {
-            return Err(format!("`{command:?}` failed").into());
-        }
-
-        let id = str::from_utf8(&output.stdout)?.trim().to_string();
+        let output: Output = checked_output(&mut command)?.try_into()?;
+        let id = output.stdout;
         dbg!(&id);
 
         let ipv4_addr = get_ipv4_addr(&id)?;
 
         Ok(Self {
             id,
-            _name: container_name,
+            name,
             ipv4_addr,
         })
     }
@@ -86,37 +79,49 @@ impl Container {
 
         let mut command = Command::new("docker");
         command.args(["cp", &src_path, &dest_path]);
+        checked_output(&mut command)?;
 
-        let status = command.status()?;
-        if !status.success() {
-            return Err(format!("`{command:?}` failed").into());
-        }
-
-        let command = &["chmod", chmod, path_in_container];
-        let output = self.exec(command)?;
-        if !output.status.success() {
-            return Err(format!("`{command:?}` failed").into());
-        }
+        self.status_ok(&["chmod", chmod, path_in_container])?;
 
         Ok(())
     }
 
-    pub fn exec(&self, cmd: &[&str]) -> Result<Output> {
+    /// Similar to `std::process::Command::output` but runs `command_and_args` in the container
+    pub fn output(&self, command_and_args: &[&str]) -> Result<Output> {
         let mut command = Command::new("docker");
-        command.args(["exec", "-t", &self.id]).args(cmd);
+        command
+            .args(["exec", "-t", &self.id])
+            .args(command_and_args);
 
-        let output = command.output()?;
+        command.output()?.try_into()
+    }
 
-        Ok(output)
+    /// Similar to `std::process::Command::status` but runs `command_and_args` in the container
+    pub fn status(&self, command_and_args: &[&str]) -> Result<ExitStatus> {
+        let mut command = Command::new("docker");
+        command
+            .args(["exec", "-t", &self.id])
+            .args(command_and_args);
+
+        Ok(command.status()?)
+    }
+
+    /// Like `Self::status` but checks that `command_and_args` executed successfully
+    pub fn status_ok(&self, command_and_args: &[&str]) -> Result<()> {
+        let status = self.status(command_and_args)?;
+
+        if status.success() {
+            Ok(())
+        } else {
+            Err(format!("[{}] `{command_and_args:?}` failed", self.name).into())
+        }
     }
 
     pub fn spawn(&self, cmd: &[&str]) -> Result<Child> {
         let mut command = Command::new("docker");
         command.args(["exec", "-t", &self.id]).args(cmd);
 
-        let child = command.spawn()?;
-
-        Ok(child)
+        Ok(command.spawn()?)
     }
 
     pub fn ipv4_addr(&self) -> Ipv4Addr {
@@ -124,7 +129,44 @@ impl Container {
     }
 }
 
-// TODO cache this to avoid calling `docker inspect` every time
+#[derive(Debug)]
+pub struct Output {
+    pub status: ExitStatus,
+    pub stderr: String,
+    pub stdout: String,
+}
+
+impl TryFrom<process::Output> for Output {
+    type Error = Error;
+
+    fn try_from(output: process::Output) -> Result<Self> {
+        let mut stderr = String::from_utf8(output.stderr)?;
+        while stderr.ends_with('\n') {
+            stderr.pop();
+        }
+
+        let mut stdout = String::from_utf8(output.stdout)?;
+        while stdout.ends_with('\n') {
+            stdout.pop();
+        }
+
+        Ok(Self {
+            status: output.status,
+            stderr,
+            stdout,
+        })
+    }
+}
+
+fn checked_output(command: &mut Command) -> Result<process::Output> {
+    let output = command.output()?;
+    if output.status.success() {
+        Ok(output)
+    } else {
+        Err(format!("`{command:?}` failed").into())
+    }
+}
+
 fn get_ipv4_addr(container_id: &str) -> Result<Ipv4Addr> {
     let mut command = Command::new("docker");
     command
@@ -169,7 +211,7 @@ mod tests {
     fn run_works() -> Result<()> {
         let container = Container::run()?;
 
-        let output = container.exec(&["true"])?;
+        let output = container.output(&["true"])?;
         assert!(output.status.success());
 
         Ok(())
@@ -180,7 +222,7 @@ mod tests {
         let container = Container::run()?;
         let ipv4_addr = container.ipv4_addr();
 
-        let output = container.exec(&["ping", "-c1", &format!("{ipv4_addr}")])?;
+        let output = container.output(&["ping", "-c1", &format!("{ipv4_addr}")])?;
         assert!(output.status.success());
 
         Ok(())
@@ -194,12 +236,11 @@ mod tests {
         let contents = "hello";
         container.cp(path, contents, CHMOD_RW_EVERYONE)?;
 
-        let output = container.exec(&["cat", path])?;
+        let output = container.output(&["cat", path])?;
         dbg!(&output);
 
         assert!(output.status.success());
-
-        assert_eq!(contents, core::str::from_utf8(&output.stdout)?);
+        assert_eq!(contents, output.stdout);
 
         Ok(())
     }

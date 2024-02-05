@@ -68,10 +68,11 @@ mod tests {
         let resolver_ip_addr = resolver.ipv4_addr();
 
         let container = Container::run()?;
-        let output = container.exec(&["dig", &format!("@{}", resolver_ip_addr), "example.com"])?;
+        let output =
+            container.output(&["dig", &format!("@{}", resolver_ip_addr), "example.com"])?;
 
-        let stdout = core::str::from_utf8(&output.stdout)?;
-        assert!(stdout.contains("status: NOERROR"));
+        assert!(output.status.success());
+        assert!(output.stdout.contains("status: NOERROR"));
 
         Ok(())
     }

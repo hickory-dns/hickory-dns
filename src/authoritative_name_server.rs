@@ -13,9 +13,9 @@ impl AuthoritativeNameServer {
     pub fn start(domain: Domain) -> Result<Self> {
         let container = Container::run()?;
 
-        container.exec(&["mkdir", "-p", "/etc/nsd/zones"])?;
-        let zone_path = "/etc/nsd/zones/main.zone";
+        container.status_ok(&["mkdir", "-p", "/etc/nsd/zones"])?;
 
+        let zone_path = "/etc/nsd/zones/main.zone";
         container.cp(
             "/etc/nsd/nsd.conf",
             &nsd_conf(domain.fqdn()),
@@ -87,12 +87,11 @@ mod tests {
         let ip_addr = tld_ns.ipv4_addr();
 
         let client = Container::run()?;
-        let output = client.exec(&["dig", &format!("@{ip_addr}"), "SOA", "com."])?;
+        let output = client.output(&["dig", &format!("@{ip_addr}"), "SOA", "com."])?;
 
         assert!(output.status.success());
-        let stdout = core::str::from_utf8(&output.stdout)?;
-        println!("{stdout}");
-        assert!(stdout.contains("status: NOERROR"));
+        eprintln!("{}", output.stdout);
+        assert!(output.stdout.contains("status: NOERROR"));
 
         Ok(())
     }
@@ -103,12 +102,11 @@ mod tests {
         let ip_addr = root_ns.ipv4_addr();
 
         let client = Container::run()?;
-        let output = client.exec(&["dig", &format!("@{ip_addr}"), "SOA", "."])?;
+        let output = client.output(&["dig", &format!("@{ip_addr}"), "SOA", "."])?;
 
         assert!(output.status.success());
-        let stdout = core::str::from_utf8(&output.stdout)?;
-        println!("{stdout}");
-        assert!(stdout.contains("status: NOERROR"));
+        eprintln!("{}", output.stdout);
+        assert!(output.stdout.contains("status: NOERROR"));
 
         Ok(())
     }
