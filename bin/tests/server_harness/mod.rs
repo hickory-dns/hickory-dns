@@ -13,13 +13,14 @@ use std::{
     time::*,
 };
 
-use hickory_client::{client::*, proto::xfer::DnsResponse};
+use hickory_client::{
+    client::*,
+    error::{ClientError, ClientErrorKind},
+    proto::xfer::DnsResponse,
+};
 #[cfg(feature = "dnssec")]
 use hickory_proto::rr::dnssec::*;
-use hickory_proto::{
-    op::ResponseCode,
-    rr::{rdata::A, *},
-};
+use hickory_proto::rr::{rdata::A, *};
 use hickory_server::server::Protocol;
 use regex::Regex;
 use tokio::runtime::Runtime;
@@ -238,11 +239,9 @@ pub fn query_message<C: ClientHandle>(
     client: &mut C,
     name: Name,
     record_type: RecordType,
-) -> DnsResponse {
+) -> Result<DnsResponse, ClientError> {
     println!("sending request: {name} for: {record_type}");
-    let response = io_loop.block_on(client.query(name, DNSClass::IN, record_type));
-    //println!("got response: {}");
-    response.expect("request failed")
+    io_loop.block_on(client.query(name, DNSClass::IN, record_type))
 }
 
 // This only validates that a query to the server works, it shouldn't be used for more than this.
@@ -250,7 +249,7 @@ pub fn query_message<C: ClientHandle>(
 #[allow(dead_code)]
 pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
     let name = Name::from_str("www.example.com").unwrap();
-    let response = query_message(io_loop, client, name, RecordType::A);
+    let response = query_message(io_loop, client, name, RecordType::A).unwrap();
     let record = &response.answers()[0];
 
     if let Some(RData::A(ref address)) = record.data() {
@@ -265,8 +264,8 @@ pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
 #[allow(dead_code)]
 pub fn query_a_refused<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
     let name = Name::from_str("www.example.com").unwrap();
-    let response = query_message(io_loop, client, name, RecordType::A);
-    assert_eq!(response.response_code(), ResponseCode::Refused);
+    let error = query_message(io_loop, client, name, RecordType::A).unwrap_err();
+    assert!(matches!(*error.kind(), ClientErrorKind::Timeout));
 }
 
 // This only validates that a query to the server works, it shouldn't be used for more than this.
@@ -290,7 +289,7 @@ pub fn query_all_dnssec(
             .set_supported_algorithms(SupportedAlgorithms::from_vec(&[algorithm]));
     }
 
-    let response = query_message(io_loop, &mut client, name.clone(), RecordType::DNSKEY);
+    let response = query_message(io_loop, &mut client, name.clone(), RecordType::DNSKEY).unwrap();
 
     let dnskey = response
         .answers()
@@ -300,7 +299,7 @@ pub fn query_all_dnssec(
         .find(|d| d.algorithm() == algorithm);
     assert!(dnskey.is_some(), "DNSKEY not found");
 
-    let response = query_message(io_loop, &mut client, name, RecordType::DNSKEY);
+    let response = query_message(io_loop, &mut client, name, RecordType::DNSKEY).unwrap();
 
     let rrsig = response
         .answers()
