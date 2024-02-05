@@ -1,2 +1,4 @@
-.                        3600000      NS    primary.root-server.com.
-primary.root-server.com. 3600000      A     {{ root_ns_ip_addr }} 
+{%- for root in roots -%}
+.               3600000      NS  {{ root.name }}
+{{ root.name }} 3600000      A   {{ root.ip_addr }}
+{% endfor %}

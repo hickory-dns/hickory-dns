@@ -8,4 +8,5 @@ license = "MIT or Apache 2.0"
 
 [dependencies]
 minijinja = "1.0.12"
+serde = { version = "1.0.196", features = ["derive"] }
 tempfile = "3.9.0"

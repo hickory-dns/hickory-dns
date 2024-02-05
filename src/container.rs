@@ -114,6 +114,7 @@ impl Container {
         Ok(child)
     }
 
+    // TODO cache this to avoid calling `docker inspect` every time
     pub fn ip_addr(&self) -> Result<String> {
         let mut command = Command::new("docker");
         command
