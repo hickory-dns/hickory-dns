@@ -2,13 +2,13 @@ use std::net::Ipv4Addr;
 use std::process::Child;
 
 use crate::container::Container;
-use crate::record::{self, Referral, SoaSettings, Zone};
+use crate::record::{self, Referral, SoaSettings, ZoneFile};
 use crate::{Domain, Result, CHMOD_RW_EVERYONE};
 
 pub struct AuthoritativeNameServer<'a> {
     child: Child,
     container: Container,
-    zone: Zone<'a>,
+    zone_file: ZoneFile<'a>,
 }
 
 impl<'a> AuthoritativeNameServer<'a> {
@@ -24,6 +24,7 @@ impl<'a> AuthoritativeNameServer<'a> {
         })
     }
 
+    /// This is short-hand for `Self::reserve().start(/* .. */)`
     pub fn start(
         domain: Domain<'a>,
         referrals: &[Referral<'a>],
@@ -37,11 +38,11 @@ impl<'a> AuthoritativeNameServer<'a> {
     }
 
     pub fn nameserver(&self) -> &Domain<'a> {
-        &self.zone.soa.ns
+        &self.zone_file.soa.ns
     }
 
-    pub fn zone(&self) -> &Zone<'a> {
-        &self.zone
+    pub fn zone_file(&self) -> &ZoneFile<'a> {
+        &self.zone_file
     }
 }
 
@@ -74,9 +75,22 @@ impl StoppedAuthoritativeNameServer {
         &self.nameserver
     }
 
+    /// Starts a primary name server that has authority over the given `zone`
+    ///
+    /// The domain of the name server will have the form `primary{count}.nameservers.com.` where
+    /// `{count}` is a unique, monotonically increasing integer
+    ///
+    /// The zone will contain these records
+    ///
+    /// - one SOA record, with the primary name server set to the name server domain
+    /// - one NS record, with the name server domain set as the only available name server for
+    /// `zone`
+    /// - one A record, that maps the name server domain to its IPv4 address
+    /// - one NS + A record pair, for each referral in the `referrals` list
+    /// - the A records in the `a_records` list
     pub fn start<'a>(
         self,
-        domain: Domain<'a>,
+        zone: Domain<'a>,
         referrals: &[Referral<'a>],
         a_records: &[record::A<'a>],
     ) -> Result<AuthoritativeNameServer<'a>> {
@@ -90,42 +104,42 @@ impl StoppedAuthoritativeNameServer {
         container.status_ok(&["mkdir", "-p", "/run/nsd/"])?;
 
         container.status_ok(&["mkdir", "-p", "/etc/nsd/zones"])?;
-        let zone_path = "/etc/nsd/zones/main.zone";
-        container.cp("/etc/nsd/nsd.conf", &nsd_conf(&domain), CHMOD_RW_EVERYONE)?;
+        let zone_file_path = "/etc/nsd/zones/main.zone";
+        container.cp("/etc/nsd/nsd.conf", &nsd_conf(&zone), CHMOD_RW_EVERYONE)?;
 
         let soa = record::Soa {
-            domain: domain.clone(),
+            domain: zone.clone(),
             ns: nameserver.clone(),
             admin: admin_ns(ns_count),
             settings: SoaSettings::default(),
         };
-        let mut zone = Zone::new(domain.clone(), soa);
+        let mut zone_file = ZoneFile::new(zone.clone(), soa);
 
-        zone.record(record::Ns {
-            domain: domain.clone(),
-            ns: nameserver,
+        zone_file.record(record::Ns {
+            domain: zone.clone(),
+            ns: nameserver.clone(),
         });
-        zone.record(record::A {
-            domain,
+        zone_file.record(record::A {
+            domain: nameserver,
             ipv4_addr: container.ipv4_addr(),
         });
 
         for referral in referrals {
-            zone.referral(referral)
+            zone_file.referral(referral)
         }
 
         for a in a_records {
-            zone.record(a.clone())
+            zone_file.record(a.clone())
         }
 
-        container.cp(zone_path, &zone.to_string(), CHMOD_RW_EVERYONE)?;
+        container.cp(zone_file_path, &zone_file.to_string(), CHMOD_RW_EVERYONE)?;
 
         let child = container.spawn(&["nsd", "-d"])?;
 
         Ok(AuthoritativeNameServer {
             child,
             container,
-            zone,
+            zone_file,
         })
     }
 }

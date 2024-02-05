@@ -7,14 +7,14 @@ use std::net::Ipv4Addr;
 
 use crate::Domain;
 
-pub struct Zone<'a> {
+pub struct ZoneFile<'a> {
     pub origin: Domain<'a>,
     pub ttl: u32,
     pub soa: Soa<'a>,
     pub records: Vec<Record<'a>>,
 }
 
-impl<'a> Zone<'a> {
+impl<'a> ZoneFile<'a> {
     /// Convenience constructor that uses "reasonable" defaults
     pub fn new(origin: Domain<'a>, soa: Soa<'a>) -> Self {
         Self {
@@ -49,7 +49,7 @@ impl<'a> Zone<'a> {
     }
 }
 
-impl fmt::Display for Zone<'_> {
+impl fmt::Display for ZoneFile<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self {
             origin,
@@ -260,7 +260,7 @@ $TTL 1800
 com.	IN	NS	e.gtld-servers.net.
 e.gtld-servers.net.	IN	A	192.12.94.30
 ";
-        let mut zone = Zone::new(Domain::ROOT, example_soa()?);
+        let mut zone = ZoneFile::new(Domain::ROOT, example_soa()?);
         zone.record(example_ns()?);
         zone.record(example_a()?);
 

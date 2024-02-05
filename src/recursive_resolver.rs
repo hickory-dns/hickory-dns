@@ -74,7 +74,7 @@ mod tests {
             ],
         )?;
 
-        eprintln!("nameservers.com.zone:\n{}", nameservers_ns.zone());
+        eprintln!("nameservers.com.zone:\n{}", nameservers_ns.zone_file());
 
         let com_domain = Domain("com.")?;
         let com_ns = com_ns.start(
@@ -87,7 +87,7 @@ mod tests {
             &[],
         )?;
 
-        eprintln!("com.zone:\n{}", com_ns.zone());
+        eprintln!("com.zone:\n{}", com_ns.zone_file());
 
         let root_ns = root_ns.start(
             Domain::ROOT,
@@ -99,7 +99,7 @@ mod tests {
             &[],
         )?;
 
-        eprintln!("root.zone:\n{}", root_ns.zone());
+        eprintln!("root.zone:\n{}", root_ns.zone_file());
 
         let roots = &[Root::new(root_ns.nameserver().clone(), root_ns.ipv4_addr())];
         let resolver = RecursiveResolver::start(roots)?;
