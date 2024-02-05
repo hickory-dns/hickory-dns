@@ -1,4 +1,5 @@
-use std::{net::Ipv4Addr, process::Child};
+use std::net::Ipv4Addr;
+use std::process::Child;
 
 use crate::{container::Container, Domain, Result, CHMOD_RW_EVERYONE};
 
@@ -14,15 +15,12 @@ impl AuthoritativeNameServer {
         container.status_ok(&["mkdir", "-p", "/etc/nsd/zones"])?;
 
         let zone_path = "/etc/nsd/zones/main.zone";
-        container.cp(
-            "/etc/nsd/nsd.conf",
-            &nsd_conf(domain.fqdn()),
-            CHMOD_RW_EVERYONE,
-        )?;
+        container.cp("/etc/nsd/nsd.conf", &nsd_conf(domain), CHMOD_RW_EVERYONE)?;
 
-        let zone_file_contents = match domain {
-            Domain::Root => root_zone(),
-            Domain::Tld { domain } => tld_zone(domain),
+        let zone_file_contents = if domain.is_root() {
+            root_zone()
+        } else {
+            tld_zone(domain)
         };
 
         container.cp(zone_path, &zone_file_contents, CHMOD_RW_EVERYONE)?;
@@ -43,13 +41,12 @@ impl Drop for AuthoritativeNameServer {
     }
 }
 
-fn tld_zone(domain: &str) -> String {
-    assert!(domain.ends_with('.'));
-    assert!(!domain.starts_with('.'));
+fn tld_zone(domain: Domain) -> String {
+    assert!(!domain.is_root());
 
     minijinja::render!(
         include_str!("templates/tld.zone.jinja"),
-        tld => domain,
+        tld => domain.as_str()
     )
 }
 
@@ -57,12 +54,10 @@ fn root_zone() -> String {
     minijinja::render!(include_str!("templates/root.zone.jinja"),)
 }
 
-fn nsd_conf(domain: &str) -> String {
-    assert!(domain.ends_with('.'));
-
+fn nsd_conf(domain: Domain) -> String {
     minijinja::render!(
         include_str!("templates/nsd.conf.jinja"),
-        domain => domain
+        domain => domain.as_str()
     )
 }
 
@@ -72,7 +67,7 @@ mod tests {
 
     #[test]
     fn tld_setup() -> Result<()> {
-        let tld_ns = AuthoritativeNameServer::start(Domain::Tld { domain: "com." })?;
+        let tld_ns = AuthoritativeNameServer::start(Domain("com.")?)?;
         let ip_addr = tld_ns.ipv4_addr();
 
         let client = Container::run()?;
@@ -87,7 +82,7 @@ mod tests {
 
     #[test]
     fn root_setup() -> Result<()> {
-        let root_ns = AuthoritativeNameServer::start(Domain::Root)?;
+        let root_ns = AuthoritativeNameServer::start(Domain::ROOT)?;
         let ip_addr = root_ns.ipv4_addr();
 
         let client = Container::run()?;

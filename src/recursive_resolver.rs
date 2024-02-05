@@ -52,14 +52,14 @@ impl Drop for RecursiveResolver {
 
 #[cfg(test)]
 mod tests {
-    use crate::AuthoritativeNameServer;
+    use crate::{AuthoritativeNameServer, Domain};
 
     use super::*;
 
     #[test]
     #[ignore = "FIXME"]
     fn can_resolve() -> Result<()> {
-        let root_ns = AuthoritativeNameServer::start(crate::Domain::Root)?;
+        let root_ns = AuthoritativeNameServer::start(Domain::ROOT)?;
         let roots = &[RootServer {
             name: "my.root-server.com".to_string(),
             ip_addr: root_ns.ipv4_addr(),
