@@ -43,7 +43,7 @@ impl<'a> Zone<'a> {
             ns: ns.clone(),
         });
         self.record(A {
-            domain: domain.clone(),
+            domain: ns.clone(),
             ipv4_addr: *ipv4_addr,
         });
     }
@@ -128,6 +128,7 @@ impl fmt::Display for Record<'_> {
     }
 }
 
+#[derive(Clone)]
 pub struct A<'a> {
     pub domain: Domain<'a>,
     pub ipv4_addr: Ipv4Addr,
