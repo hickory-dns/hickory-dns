@@ -1,7 +1,5 @@
 use std::{net::Ipv4Addr, process::Child};
 
-use minijinja::{context, Environment};
-
 use crate::{container::Container, Domain, Result, CHMOD_RW_EVERYONE};
 
 pub struct AuthoritativeNameServer {
@@ -49,32 +47,23 @@ fn tld_zone(domain: &str) -> String {
     assert!(domain.ends_with('.'));
     assert!(!domain.starts_with('.'));
 
-    let mut env = Environment::new();
-    let name = "main.zone";
-    env.add_template(name, include_str!("templates/tld.zone.jinja"))
-        .unwrap();
-    let template = env.get_template(name).unwrap();
-    template.render(context! { tld => domain }).unwrap()
+    minijinja::render!(
+        include_str!("templates/tld.zone.jinja"),
+        tld => domain,
+    )
 }
 
 fn root_zone() -> String {
-    let mut env = Environment::new();
-    let name = "main.zone";
-    env.add_template(name, include_str!("templates/root.zone.jinja"))
-        .unwrap();
-    let template = env.get_template(name).unwrap();
-    template.render(context! {}).unwrap()
+    minijinja::render!(include_str!("templates/root.zone.jinja"),)
 }
 
 fn nsd_conf(domain: &str) -> String {
     assert!(domain.ends_with('.'));
 
-    let mut env = Environment::new();
-    let name = "nsd.conf";
-    env.add_template(name, include_str!("templates/nsd.conf.jinja"))
-        .unwrap();
-    let template = env.get_template(name).unwrap();
-    template.render(context! { domain => domain }).unwrap()
+    minijinja::render!(
+        include_str!("templates/nsd.conf.jinja"),
+        domain => domain
+    )
 }
 
 #[cfg(test)]
