@@ -1,3 +1,5 @@
+use std::sync::atomic::{self, AtomicUsize};
+
 pub use crate::authoritative_name_server::AuthoritativeNameServer;
 pub use crate::domain::Domain;
 pub use crate::recursive_resolver::RecursiveResolver;
@@ -10,4 +12,10 @@ const CHMOD_RW_EVERYONE: &str = "666";
 mod authoritative_name_server;
 pub mod container;
 mod domain;
+pub mod record;
 mod recursive_resolver;
+
+fn nameserver_count() -> usize {
+    static COUNT: AtomicUsize = AtomicUsize::new(0);
+    COUNT.fetch_add(1, atomic::Ordering::Relaxed)
+}

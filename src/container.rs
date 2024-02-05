@@ -59,7 +59,6 @@ impl Container {
 
         let output: Output = checked_output(&mut command)?.try_into()?;
         let id = output.stdout;
-        dbg!(&id);
 
         let ipv4_addr = get_ipv4_addr(&id)?;
 
@@ -183,7 +182,6 @@ fn get_ipv4_addr(container_id: &str) -> Result<Ipv4Addr> {
     }
 
     let ipv4_addr = str::from_utf8(&output.stdout)?.trim().to_string();
-    dbg!(&ipv4_addr);
 
     Ok(ipv4_addr.parse()?)
 }

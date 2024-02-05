@@ -25,7 +25,6 @@ name = "dnssec-tests"
 version = "0.1.0"
 dependencies = [
  "minijinja",
- "serde",
  "tempfile",
 ]
 
