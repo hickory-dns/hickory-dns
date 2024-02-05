@@ -12,8 +12,10 @@ impl AuthoritativeNameServer {
     pub fn start(domain: Domain) -> Result<Self> {
         let container = Container::run()?;
 
-        container.status_ok(&["mkdir", "-p", "/etc/nsd/zones"])?;
+        // for PID file
+        container.status_ok(&["mkdir", "-p", "/run/nsd/"])?;
 
+        container.status_ok(&["mkdir", "-p", "/etc/nsd/zones"])?;
         let zone_path = "/etc/nsd/zones/main.zone";
         container.cp("/etc/nsd/nsd.conf", &nsd_conf(domain), CHMOD_RW_EVERYONE)?;
 
