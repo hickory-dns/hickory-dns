@@ -42,7 +42,7 @@ impl Drop for RecursiveResolver {
 mod tests {
     use crate::{
         client::{RecordType, Recurse},
-        record::{self, Referral},
+        record::Referral,
         AuthoritativeNameServer, Client, Domain,
     };
 
@@ -53,53 +53,34 @@ mod tests {
         let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
         let needle = Domain("example.nameservers.com.")?;
 
-        let root_ns = AuthoritativeNameServer::reserve()?;
-        let com_ns = AuthoritativeNameServer::reserve()?;
+        let mut root_ns = AuthoritativeNameServer::new(Domain::ROOT)?;
+        let mut com_ns = AuthoritativeNameServer::new(Domain::COM)?;
 
         let nameservers_domain = Domain("nameservers.com.")?;
-        let nameservers_ns = AuthoritativeNameServer::start(
-            nameservers_domain.clone(),
-            &[],
-            &[
-                record::A {
-                    domain: root_ns.nameserver().clone(),
-                    ipv4_addr: root_ns.ipv4_addr(),
-                },
-                record::A {
-                    domain: com_ns.nameserver().clone(),
-                    ipv4_addr: com_ns.ipv4_addr(),
-                },
-                record::A {
-                    domain: needle.clone(),
-                    ipv4_addr: expected_ipv4_addr,
-                },
-            ],
-        )?;
+        let mut nameservers_ns = AuthoritativeNameServer::new(nameservers_domain.clone())?;
+        nameservers_ns
+            .a(root_ns.nameserver().clone(), root_ns.ipv4_addr())
+            .a(com_ns.nameserver().clone(), com_ns.ipv4_addr())
+            .a(needle.clone(), expected_ipv4_addr);
+        let nameservers_ns = nameservers_ns.start()?;
 
         eprintln!("nameservers.com.zone:\n{}", nameservers_ns.zone_file());
 
-        let com_domain = Domain("com.")?;
-        let com_ns = com_ns.start(
-            com_domain.clone(),
-            &[Referral {
-                domain: nameservers_domain,
-                ipv4_addr: nameservers_ns.ipv4_addr(),
-                ns: nameservers_ns.nameserver().clone(),
-            }],
-            &[],
-        )?;
+        com_ns.referral(&Referral {
+            domain: nameservers_domain,
+            ipv4_addr: nameservers_ns.ipv4_addr(),
+            ns: nameservers_ns.nameserver().clone(),
+        });
+        let com_ns = com_ns.start()?;
 
         eprintln!("com.zone:\n{}", com_ns.zone_file());
 
-        let root_ns = root_ns.start(
-            Domain::ROOT,
-            &[Referral {
-                domain: com_domain,
-                ipv4_addr: com_ns.ipv4_addr(),
-                ns: com_ns.nameserver().clone(),
-            }],
-            &[],
-        )?;
+        root_ns.referral(&Referral {
+            domain: Domain::COM,
+            ipv4_addr: com_ns.ipv4_addr(),
+            ns: com_ns.nameserver().clone(),
+        });
+        let root_ns = root_ns.start()?;
 
         eprintln!("root.zone:\n{}", root_ns.zone_file());
 

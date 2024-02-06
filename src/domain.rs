@@ -29,6 +29,10 @@ impl<'a> Domain<'a> {
         inner: Cow::Borrowed("."),
     };
 
+    pub const COM: Domain<'static> = Domain {
+        inner: Cow::Borrowed("com."),
+    };
+
     pub fn is_root(&self) -> bool {
         self.inner == "."
     }
