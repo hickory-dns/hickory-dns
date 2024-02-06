@@ -41,7 +41,7 @@ impl Drop for RecursiveResolver {
 #[cfg(test)]
 mod tests {
     use crate::{
-        client::{Client, Recurse},
+        client::{Client, Dnssec, Recurse},
         name_server::NameServer,
         record::RecordType,
         FQDN,
@@ -85,7 +85,13 @@ mod tests {
         let resolver_ip_addr = resolver.ipv4_addr();
 
         let client = Client::new()?;
-        let output = client.dig(Recurse::Yes, resolver_ip_addr, RecordType::A, &needle)?;
+        let output = client.dig(
+            Recurse::Yes,
+            Dnssec::No,
+            resolver_ip_addr,
+            RecordType::A,
+            &needle,
+        )?;
 
         assert!(output.status.is_noerror());
 

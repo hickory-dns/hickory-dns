@@ -19,6 +19,7 @@ impl Client {
     pub fn dig(
         &self,
         recurse: Recurse,
+        dnssec: Dnssec,
         server: Ipv4Addr,
         record_type: RecordType,
         fqdn: &FQDN<'_>,
@@ -26,12 +27,28 @@ impl Client {
         let output = self.inner.stdout(&[
             "dig",
             recurse.as_str(),
+            dnssec.as_str(),
             &format!("@{server}"),
             record_type.as_str(),
             fqdn.as_str(),
         ])?;
 
         output.parse()
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum Dnssec {
+    Yes,
+    No,
+}
+
+impl Dnssec {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::Yes => "+dnssec",
+            Self::No => "+nodnssec",
+        }
     }
 }
 
@@ -44,8 +61,8 @@ pub enum Recurse {
 impl Recurse {
     fn as_str(&self) -> &'static str {
         match self {
-            Recurse::Yes => "+recurse",
-            Recurse::No => "+norecurse",
+            Self::Yes => "+recurse",
+            Self::No => "+norecurse",
         }
     }
 }
