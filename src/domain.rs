@@ -1,9 +1,10 @@
 use core::fmt;
+use core::str::FromStr;
 use std::borrow::Cow;
 
-use crate::Result;
+use crate::{Error, Result};
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Domain<'a> {
     inner: Cow<'a, str>,
 }
@@ -45,6 +46,20 @@ impl<'a> Domain<'a> {
         Domain {
             inner: Cow::Owned(owned),
         }
+    }
+}
+
+impl FromStr for Domain<'static> {
+    type Err = Error;
+
+    fn from_str(input: &str) -> Result<Self> {
+        Ok(Domain(input)?.into_owned())
+    }
+}
+
+impl fmt::Debug for Domain<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
     }
 }
 

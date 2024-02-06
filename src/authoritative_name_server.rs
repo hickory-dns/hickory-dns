@@ -85,7 +85,6 @@ impl StoppedAuthoritativeNameServer {
     /// - one SOA record, with the primary name server set to the name server domain
     /// - one NS record, with the name server domain set as the only available name server for
     /// `zone`
-    /// - one A record, that maps the name server domain to its IPv4 address
     /// - one NS + A record pair, for each referral in the `referrals` list
     /// - the A records in the `a_records` list
     pub fn start<'a>(
@@ -119,10 +118,6 @@ impl StoppedAuthoritativeNameServer {
             domain: zone.clone(),
             ns: nameserver.clone(),
         });
-        zone_file.record(record::A {
-            domain: nameserver,
-            ipv4_addr: container.ipv4_addr(),
-        });
 
         for referral in referrals {
             zone_file.referral(referral)
@@ -153,45 +148,35 @@ fn nsd_conf(domain: &Domain) -> String {
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        client::{RecordType, Recurse},
+        Client,
+    };
+
     use super::*;
 
     #[test]
-    fn tld_ns() -> Result<()> {
-        let tld_ns = AuthoritativeNameServer::start(Domain("com.")?, &[], &[])?;
+    fn simplest() -> Result<()> {
+        let com_domain = Domain("com.")?;
+        let tld_ns = AuthoritativeNameServer::start(com_domain.clone(), &[], &[])?;
         let ip_addr = tld_ns.ipv4_addr();
 
-        let client = Container::run()?;
-        let output = client.output(&["dig", &format!("@{ip_addr}"), "SOA", "com."])?;
+        let client = Client::new()?;
+        let output = client.dig(Recurse::No, ip_addr, RecordType::SOA, &com_domain)?;
 
-        assert!(output.status.success());
-        eprintln!("{}", output.stdout);
-        assert!(output.stdout.contains("status: NOERROR"));
+        assert!(output.status.is_noerror());
 
         Ok(())
     }
 
     #[test]
-    fn root_ns() -> Result<()> {
-        let root_ns = AuthoritativeNameServer::start(Domain::ROOT, &[], &[])?;
-        let ip_addr = root_ns.ipv4_addr();
-
-        let client = Container::run()?;
-        let output = client.output(&["dig", &format!("@{ip_addr}"), "SOA", "."])?;
-
-        assert!(output.status.success());
-        eprintln!("{}", output.stdout);
-        assert!(output.stdout.contains("status: NOERROR"));
-
-        Ok(())
-    }
-
-    #[test]
-    fn root_ns_with_referral() -> Result<()> {
+    fn with_referral() -> Result<()> {
         let expected_ip_addr = Ipv4Addr::new(172, 17, 200, 1);
+        let com_domain = Domain("com.")?;
         let root_ns = AuthoritativeNameServer::start(
             Domain::ROOT,
             &[Referral {
-                domain: Domain("com.")?,
+                domain: com_domain.clone(),
                 ipv4_addr: expected_ip_addr,
                 ns: Domain("primary.tld-server.com.")?,
             }],
@@ -199,12 +184,10 @@ mod tests {
         )?;
         let ip_addr = root_ns.ipv4_addr();
 
-        let client = Container::run()?;
-        let output = client.output(&["dig", &format!("@{ip_addr}"), "NS", "com."])?;
+        let client = Client::new()?;
+        let output = client.dig(Recurse::No, ip_addr, RecordType::NS, &com_domain)?;
 
-        assert!(output.status.success());
-        eprintln!("{}", output.stdout);
-        assert!(output.stdout.contains("status: NOERROR"));
+        assert!(output.status.is_noerror());
 
         Ok(())
     }

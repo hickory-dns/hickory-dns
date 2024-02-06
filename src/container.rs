@@ -95,6 +95,18 @@ impl Container {
         command.output()?.try_into()
     }
 
+    /// Similar to `Self::output` but checks `command_and_args` ran successfully and only
+    /// returns the stdout
+    pub fn stdout(&self, command_and_args: &[&str]) -> Result<String> {
+        let output = self.output(command_and_args)?;
+
+        if output.status.success() {
+            Ok(output.stdout)
+        } else {
+            Err(format!("[{}] `{command_and_args:?}` failed", self.name).into())
+        }
+    }
+
     /// Similar to `std::process::Command::status` but runs `command_and_args` in the container
     pub fn status(&self, command_and_args: &[&str]) -> Result<ExitStatus> {
         let mut command = Command::new("docker");

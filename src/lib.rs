@@ -1,6 +1,7 @@
 use std::sync::atomic::{self, AtomicUsize};
 
 pub use crate::authoritative_name_server::AuthoritativeNameServer;
+pub use crate::client::Client;
 pub use crate::domain::Domain;
 pub use crate::recursive_resolver::RecursiveResolver;
 
@@ -10,6 +11,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 const CHMOD_RW_EVERYONE: &str = "666";
 
 mod authoritative_name_server;
+mod client;
 pub mod container;
 mod domain;
 pub mod record;

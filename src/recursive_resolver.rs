@@ -41,8 +41,9 @@ impl Drop for RecursiveResolver {
 #[cfg(test)]
 mod tests {
     use crate::{
+        client::{RecordType, Recurse},
         record::{self, Referral},
-        AuthoritativeNameServer, Domain,
+        AuthoritativeNameServer, Client, Domain,
     };
 
     use super::*;
@@ -51,6 +52,7 @@ mod tests {
     fn can_resolve() -> Result<()> {
         let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
         let needle = Domain("example.nameservers.com.")?;
+
         let root_ns = AuthoritativeNameServer::reserve()?;
         let com_ns = AuthoritativeNameServer::reserve()?;
 
@@ -105,28 +107,16 @@ mod tests {
         let resolver = RecursiveResolver::start(roots)?;
         let resolver_ip_addr = resolver.ipv4_addr();
 
-        let container = Container::run()?;
-        let output = container.output(&[
-            "dig",
-            &format!("@{}", resolver_ip_addr),
-            &needle.to_string(),
-        ])?;
+        let client = Client::new()?;
+        let output = client.dig(Recurse::Yes, resolver_ip_addr, RecordType::A, &needle)?;
 
-        eprintln!("{}", output.stdout);
+        assert!(output.status.is_noerror());
 
-        assert!(output.status.success());
-        assert!(output.stdout.contains("status: NOERROR"));
+        let [answer] = output.answer.try_into().unwrap();
+        let a = answer.try_into_a().unwrap();
 
-        let mut found = false;
-        let needle = needle.to_string();
-        for line in output.stdout.lines() {
-            if line.starts_with(&needle) {
-                found = true;
-                assert!(line.ends_with(&expected_ipv4_addr.to_string()));
-            }
-        }
-
-        assert!(found);
+        assert_eq!(needle, a.domain);
+        assert_eq!(expected_ipv4_addr, a.ipv4_addr);
 
         Ok(())
     }
