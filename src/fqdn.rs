@@ -14,11 +14,11 @@ pub struct FQDN<'a> {
 pub fn FQDN<'a>(input: impl Into<Cow<'a, str>>) -> Result<FQDN<'a>> {
     let input = input.into();
     if !input.ends_with('.') {
-        return Err("domain must end with a `.`".into());
+        return Err("FQDN must end with a `.`".into());
     }
 
     if input != "." && input.starts_with('.') {
-        return Err("non-root domain cannot start with a `.`".into());
+        return Err("non-root FQDN cannot start with a `.`".into());
     }
 
     Ok(FQDN { inner: input })

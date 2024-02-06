@@ -3,7 +3,7 @@ use std::net::Ipv4Addr;
 use std::process::Child;
 
 use crate::container::Container;
-use crate::record::Root;
+use crate::zone_file::Root;
 use crate::{Result, CHMOD_RW_EVERYONE};
 
 pub struct RecursiveResolver {
@@ -41,9 +41,10 @@ impl Drop for RecursiveResolver {
 #[cfg(test)]
 mod tests {
     use crate::{
-        client::{RecordType, Recurse},
-        record::Referral,
-        Client, NameServer, FQDN,
+        client::{Client, Recurse},
+        name_server::NameServer,
+        record::RecordType,
+        FQDN,
     };
 
     use super::*;
@@ -56,35 +57,30 @@ mod tests {
         let mut root_ns = NameServer::new(FQDN::ROOT)?;
         let mut com_ns = NameServer::new(FQDN::COM)?;
 
-        let nameservers_domain = FQDN("nameservers.com.")?;
-        let mut nameservers_ns = NameServer::new(nameservers_domain.clone())?;
+        let mut nameservers_ns = NameServer::new(FQDN("nameservers.com.")?)?;
         nameservers_ns
-            .a(root_ns.nameserver().clone(), root_ns.ipv4_addr())
-            .a(com_ns.nameserver().clone(), com_ns.ipv4_addr())
+            .a(root_ns.fqdn().clone(), root_ns.ipv4_addr())
+            .a(com_ns.fqdn().clone(), com_ns.ipv4_addr())
             .a(needle.clone(), expected_ipv4_addr);
         let nameservers_ns = nameservers_ns.start()?;
 
         eprintln!("nameservers.com.zone:\n{}", nameservers_ns.zone_file());
 
-        com_ns.referral(&Referral {
-            domain: nameservers_domain,
-            ipv4_addr: nameservers_ns.ipv4_addr(),
-            ns: nameservers_ns.nameserver().clone(),
-        });
+        com_ns.referral(
+            nameservers_ns.zone().clone(),
+            nameservers_ns.fqdn().clone(),
+            nameservers_ns.ipv4_addr(),
+        );
         let com_ns = com_ns.start()?;
 
         eprintln!("com.zone:\n{}", com_ns.zone_file());
 
-        root_ns.referral(&Referral {
-            domain: FQDN::COM,
-            ipv4_addr: com_ns.ipv4_addr(),
-            ns: com_ns.nameserver().clone(),
-        });
+        root_ns.referral(FQDN::COM, com_ns.fqdn().clone(), com_ns.ipv4_addr());
         let root_ns = root_ns.start()?;
 
         eprintln!("root.zone:\n{}", root_ns.zone_file());
 
-        let roots = &[Root::new(root_ns.nameserver().clone(), root_ns.ipv4_addr())];
+        let roots = &[Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr())];
         let resolver = RecursiveResolver::start(roots)?;
         let resolver_ip_addr = resolver.ipv4_addr();
 
@@ -96,7 +92,7 @@ mod tests {
         let [answer] = output.answer.try_into().unwrap();
         let a = answer.try_into_a().unwrap();
 
-        assert_eq!(needle, a.domain);
+        assert_eq!(needle, a.fqdn);
         assert_eq!(expected_ipv4_addr, a.ipv4_addr);
 
         Ok(())

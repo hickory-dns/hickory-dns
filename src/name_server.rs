@@ -1,8 +1,9 @@
+use core::sync::atomic::{self, AtomicUsize};
 use std::net::Ipv4Addr;
 use std::process::Child;
 
 use crate::container::Container;
-use crate::record::{self, Referral, SoaSettings, ZoneFile};
+use crate::zone_file::{self, SoaSettings, ZoneFile};
 use crate::{Result, CHMOD_RW_EVERYONE, FQDN};
 
 pub struct NameServer<'a, State> {
@@ -21,23 +22,24 @@ impl<'a> NameServer<'a, Stopped> {
     ///
     /// The zone file will contain these records
     ///
-    /// - one SOA record, with the primary name server set to the name server domain
-    /// - one NS record, with the name server domain set as the only available name server for
+    /// - one SOA record, with the primary name server field set to this name server's FQDN
+    /// - one NS record, with this name server's FQDN set as the only available name server for
+    /// the zone
     pub fn new(zone: FQDN<'a>) -> Result<Self> {
-        let ns_count = crate::nameserver_count();
+        let ns_count = ns_count();
         let nameserver = primary_ns(ns_count);
 
-        let soa = record::Soa {
-            domain: zone.clone(),
-            ns: nameserver.clone(),
+        let soa = zone_file::SOA {
+            zone: zone.clone(),
+            nameserver: nameserver.clone(),
             admin: admin_ns(ns_count),
             settings: SoaSettings::default(),
         };
         let mut zone_file = ZoneFile::new(zone.clone(), soa);
 
-        zone_file.record(record::Ns {
-            domain: zone,
-            ns: nameserver.clone(),
+        zone_file.entry(zone_file::NS {
+            zone,
+            nameserver: nameserver.clone(),
         });
 
         Ok(Self {
@@ -48,14 +50,19 @@ impl<'a> NameServer<'a, Stopped> {
     }
 
     /// Adds a NS + A record pair to the zone file
-    pub fn referral(&mut self, referral: &Referral<'a>) -> &mut Self {
-        self.zone_file.referral(referral);
+    pub fn referral(
+        &mut self,
+        zone: FQDN<'a>,
+        nameserver: FQDN<'a>,
+        ipv4_addr: Ipv4Addr,
+    ) -> &mut Self {
+        self.zone_file.referral(zone, nameserver, ipv4_addr);
         self
     }
 
     /// Adds an A record pair to the zone file
-    pub fn a(&mut self, domain: FQDN<'a>, ipv4_addr: Ipv4Addr) -> &mut Self {
-        self.zone_file.record(record::A { domain, ipv4_addr });
+    pub fn a(&mut self, fqdn: FQDN<'a>, ipv4_addr: Ipv4Addr) -> &mut Self {
+        self.zone_file.entry(zone_file::A { fqdn, ipv4_addr });
         self
     }
 
@@ -93,6 +100,11 @@ impl<'a> NameServer<'a, Stopped> {
     }
 }
 
+fn ns_count() -> usize {
+    static COUNT: AtomicUsize = AtomicUsize::new(0);
+    COUNT.fetch_add(1, atomic::Ordering::Relaxed)
+}
+
 impl<'a, S> NameServer<'a, S> {
     pub fn ipv4_addr(&self) -> Ipv4Addr {
         self.container.ipv4_addr()
@@ -102,8 +114,12 @@ impl<'a, S> NameServer<'a, S> {
         &self.zone_file
     }
 
-    pub fn nameserver(&self) -> &FQDN<'a> {
-        &self.zone_file.soa.ns
+    pub fn zone(&self) -> &FQDN<'a> {
+        &self.zone_file.origin
+    }
+
+    pub fn fqdn(&self) -> &FQDN<'a> {
+        &self.zone_file.soa.nameserver
     }
 }
 
@@ -127,19 +143,17 @@ fn admin_ns(ns_count: usize) -> FQDN<'static> {
     FQDN(format!("admin{ns_count}.nameservers.com.")).unwrap()
 }
 
-fn nsd_conf(domain: &FQDN) -> String {
+fn nsd_conf(fqdn: &FQDN) -> String {
     minijinja::render!(
         include_str!("templates/nsd.conf.jinja"),
-        domain => domain.as_str()
+        fqdn => fqdn.as_str()
     )
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        client::{RecordType, Recurse},
-        Client,
-    };
+    use crate::client::{Client, Recurse};
+    use crate::record::RecordType;
 
     use super::*;
 
@@ -160,11 +174,11 @@ mod tests {
     fn with_referral() -> Result<()> {
         let expected_ip_addr = Ipv4Addr::new(172, 17, 200, 1);
         let mut root_ns = NameServer::new(FQDN::ROOT)?;
-        root_ns.referral(&Referral {
-            domain: FQDN::COM,
-            ipv4_addr: expected_ip_addr,
-            ns: FQDN("primary.tld-server.com.")?,
-        });
+        root_ns.referral(
+            FQDN::COM,
+            FQDN("primary.tld-server.com.")?,
+            expected_ip_addr,
+        );
         let root_ns = root_ns.start()?;
 
         eprintln!("root.zone:\n{}", root_ns.zone_file());
