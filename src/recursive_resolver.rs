@@ -4,7 +4,7 @@ use std::process::Child;
 
 use crate::container::Container;
 use crate::zone_file::Root;
-use crate::{Result, CHMOD_RW_EVERYONE};
+use crate::Result;
 
 pub struct RecursiveResolver {
     container: Container,
@@ -20,7 +20,7 @@ impl RecursiveResolver {
             writeln!(hints, "{root}").unwrap();
         }
 
-        container.cp("/etc/unbound/root.hints", &hints, CHMOD_RW_EVERYONE)?;
+        container.cp("/etc/unbound/root.hints", &hints)?;
 
         let child = container.spawn(&["unbound", "-d"])?;
 

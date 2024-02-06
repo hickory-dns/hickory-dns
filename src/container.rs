@@ -69,7 +69,9 @@ impl Container {
         })
     }
 
-    pub fn cp(&self, path_in_container: &str, file_contents: &str, chmod: &str) -> Result<()> {
+    pub fn cp(&self, path_in_container: &str, file_contents: &str) -> Result<()> {
+        const CHMOD_RW_EVERYONE: &str = "666";
+
         let mut temp_file = NamedTempFile::new()?;
         fs::write(&mut temp_file, file_contents)?;
 
@@ -80,7 +82,7 @@ impl Container {
         command.args(["cp", &src_path, &dest_path]);
         checked_output(&mut command)?;
 
-        self.status_ok(&["chmod", chmod, path_in_container])?;
+        self.status_ok(&["chmod", CHMOD_RW_EVERYONE, path_in_container])?;
 
         Ok(())
     }
@@ -213,8 +215,6 @@ impl Drop for Container {
 
 #[cfg(test)]
 mod tests {
-    use crate::CHMOD_RW_EVERYONE;
-
     use super::*;
 
     #[test]
@@ -244,7 +244,7 @@ mod tests {
 
         let path = "/tmp/somefile";
         let contents = "hello";
-        container.cp(path, contents, CHMOD_RW_EVERYONE)?;
+        container.cp(path, contents)?;
 
         let output = container.output(&["cat", path])?;
         dbg!(&output);

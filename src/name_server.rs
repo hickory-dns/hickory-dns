@@ -4,7 +4,7 @@ use std::process::Child;
 
 use crate::container::Container;
 use crate::zone_file::{self, SoaSettings, ZoneFile};
-use crate::{Result, CHMOD_RW_EVERYONE, FQDN};
+use crate::{Result, FQDN};
 
 pub struct NameServer<'a, State> {
     container: Container,
@@ -77,18 +77,10 @@ impl<'a> NameServer<'a, Stopped> {
         // for PID file
         container.status_ok(&["mkdir", "-p", "/run/nsd/"])?;
 
-        container.cp(
-            "/etc/nsd/nsd.conf",
-            &nsd_conf(&zone_file.origin),
-            CHMOD_RW_EVERYONE,
-        )?;
+        container.cp("/etc/nsd/nsd.conf", &nsd_conf(&zone_file.origin))?;
 
         container.status_ok(&["mkdir", "-p", "/etc/nsd/zones"])?;
-        container.cp(
-            "/etc/nsd/zones/main.zone",
-            &zone_file.to_string(),
-            CHMOD_RW_EVERYONE,
-        )?;
+        container.cp("/etc/nsd/zones/main.zone", &zone_file.to_string())?;
 
         let child = container.spawn(&["nsd", "-d"])?;
 

@@ -4,8 +4,6 @@ pub use crate::recursive_resolver::RecursiveResolver;
 pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = core::result::Result<T, Error>;
 
-const CHMOD_RW_EVERYONE: &str = "666";
-
 pub mod client;
 mod container;
 mod fqdn;
