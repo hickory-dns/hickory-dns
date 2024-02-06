@@ -5,10 +5,10 @@
 use core::fmt;
 use std::net::Ipv4Addr;
 
-use crate::Domain;
+use crate::FQDN;
 
 pub struct ZoneFile<'a> {
-    pub origin: Domain<'a>,
+    pub origin: FQDN<'a>,
     pub ttl: u32,
     pub soa: Soa<'a>,
     pub records: Vec<Record<'a>>,
@@ -16,7 +16,7 @@ pub struct ZoneFile<'a> {
 
 impl<'a> ZoneFile<'a> {
     /// Convenience constructor that uses "reasonable" defaults
-    pub fn new(origin: Domain<'a>, soa: Soa<'a>) -> Self {
+    pub fn new(origin: FQDN<'a>, soa: Soa<'a>) -> Self {
         Self {
             origin,
             ttl: 1800,
@@ -71,20 +71,20 @@ impl fmt::Display for ZoneFile<'_> {
 }
 
 pub struct Referral<'a> {
-    pub domain: Domain<'a>,
+    pub domain: FQDN<'a>,
     pub ipv4_addr: Ipv4Addr,
-    pub ns: Domain<'a>,
+    pub ns: FQDN<'a>,
 }
 
 pub struct Root<'a> {
     pub ipv4_addr: Ipv4Addr,
-    pub ns: Domain<'a>,
+    pub ns: FQDN<'a>,
     pub ttl: u32,
 }
 
 impl<'a> Root<'a> {
     /// Convenience constructor that uses "reasonable" defaults
-    pub fn new(ns: Domain<'a>, ipv4_addr: Ipv4Addr) -> Self {
+    pub fn new(ns: FQDN<'a>, ipv4_addr: Ipv4Addr) -> Self {
         Self {
             ipv4_addr,
             ns,
@@ -130,7 +130,7 @@ impl fmt::Display for Record<'_> {
 
 #[derive(Clone)]
 pub struct A<'a> {
-    pub domain: Domain<'a>,
+    pub domain: FQDN<'a>,
     pub ipv4_addr: Ipv4Addr,
 }
 
@@ -143,8 +143,8 @@ impl fmt::Display for A<'_> {
 }
 
 pub struct Ns<'a> {
-    pub domain: Domain<'a>,
-    pub ns: Domain<'a>,
+    pub domain: FQDN<'a>,
+    pub ns: FQDN<'a>,
 }
 
 impl fmt::Display for Ns<'_> {
@@ -156,9 +156,9 @@ impl fmt::Display for Ns<'_> {
 }
 
 pub struct Soa<'a> {
-    pub domain: Domain<'a>,
-    pub ns: Domain<'a>,
-    pub admin: Domain<'a>,
+    pub domain: FQDN<'a>,
+    pub ns: FQDN<'a>,
+    pub admin: FQDN<'a>,
     pub settings: SoaSettings,
 }
 
@@ -237,7 +237,7 @@ mod tests {
     fn root_to_string() -> Result<()> {
         let expected = ".	3600000	NS	a.root-servers.net.
 a.root-servers.net.	3600000	A	198.41.0.4";
-        let root = Root::new(Domain("a.root-servers.net.")?, Ipv4Addr::new(198, 41, 0, 4));
+        let root = Root::new(FQDN("a.root-servers.net.")?, Ipv4Addr::new(198, 41, 0, 4));
         assert_eq!(expected, root.to_string());
         Ok(())
     }
@@ -260,7 +260,7 @@ $TTL 1800
 com.	IN	NS	e.gtld-servers.net.
 e.gtld-servers.net.	IN	A	192.12.94.30
 ";
-        let mut zone = ZoneFile::new(Domain::ROOT, example_soa()?);
+        let mut zone = ZoneFile::new(FQDN::ROOT, example_soa()?);
         zone.record(example_ns()?);
         zone.record(example_a()?);
 
@@ -271,23 +271,23 @@ e.gtld-servers.net.	IN	A	192.12.94.30
 
     fn example_a() -> Result<A<'static>> {
         Ok(A {
-            domain: Domain("e.gtld-servers.net.")?,
+            domain: FQDN("e.gtld-servers.net.")?,
             ipv4_addr: Ipv4Addr::new(192, 12, 94, 30),
         })
     }
 
     fn example_ns() -> Result<Ns<'static>> {
         Ok(Ns {
-            domain: Domain("com.")?,
-            ns: Domain("e.gtld-servers.net.")?,
+            domain: FQDN::COM,
+            ns: FQDN("e.gtld-servers.net.")?,
         })
     }
 
     fn example_soa() -> Result<Soa<'static>> {
         Ok(Soa {
-            domain: Domain(".")?,
-            ns: Domain("a.root-servers.net.")?,
-            admin: Domain("nstld.verisign-grs.com.")?,
+            domain: FQDN::ROOT,
+            ns: FQDN("a.root-servers.net.")?,
+            admin: FQDN("nstld.verisign-grs.com.")?,
             settings: SoaSettings::default(),
         })
     }

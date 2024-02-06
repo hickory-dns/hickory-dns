@@ -3,7 +3,7 @@ use std::process::Child;
 
 use crate::container::Container;
 use crate::record::{self, Referral, SoaSettings, ZoneFile};
-use crate::{Domain, Result, CHMOD_RW_EVERYONE};
+use crate::{Result, CHMOD_RW_EVERYONE, FQDN};
 
 pub struct NameServer<'a, State> {
     container: Container,
@@ -23,7 +23,7 @@ impl<'a> NameServer<'a, Stopped> {
     ///
     /// - one SOA record, with the primary name server set to the name server domain
     /// - one NS record, with the name server domain set as the only available name server for
-    pub fn new(zone: Domain<'a>) -> Result<Self> {
+    pub fn new(zone: FQDN<'a>) -> Result<Self> {
         let ns_count = crate::nameserver_count();
         let nameserver = primary_ns(ns_count);
 
@@ -54,7 +54,7 @@ impl<'a> NameServer<'a, Stopped> {
     }
 
     /// Adds an A record pair to the zone file
-    pub fn a(&mut self, domain: Domain<'a>, ipv4_addr: Ipv4Addr) -> &mut Self {
+    pub fn a(&mut self, domain: FQDN<'a>, ipv4_addr: Ipv4Addr) -> &mut Self {
         self.zone_file.record(record::A { domain, ipv4_addr });
         self
     }
@@ -102,7 +102,7 @@ impl<'a, S> NameServer<'a, S> {
         &self.zone_file
     }
 
-    pub fn nameserver(&self) -> &Domain<'a> {
+    pub fn nameserver(&self) -> &FQDN<'a> {
         &self.zone_file.soa.ns
     }
 }
@@ -119,15 +119,15 @@ impl Drop for Running {
     }
 }
 
-fn primary_ns(ns_count: usize) -> Domain<'static> {
-    Domain(format!("primary{ns_count}.nameservers.com.")).unwrap()
+fn primary_ns(ns_count: usize) -> FQDN<'static> {
+    FQDN(format!("primary{ns_count}.nameservers.com.")).unwrap()
 }
 
-fn admin_ns(ns_count: usize) -> Domain<'static> {
-    Domain(format!("admin{ns_count}.nameservers.com.")).unwrap()
+fn admin_ns(ns_count: usize) -> FQDN<'static> {
+    FQDN(format!("admin{ns_count}.nameservers.com.")).unwrap()
 }
 
-fn nsd_conf(domain: &Domain) -> String {
+fn nsd_conf(domain: &FQDN) -> String {
     minijinja::render!(
         include_str!("templates/nsd.conf.jinja"),
         domain => domain.as_str()
@@ -145,11 +145,11 @@ mod tests {
 
     #[test]
     fn simplest() -> Result<()> {
-        let tld_ns = NameServer::new(Domain::COM)?.start()?;
+        let tld_ns = NameServer::new(FQDN::COM)?.start()?;
         let ip_addr = tld_ns.ipv4_addr();
 
         let client = Client::new()?;
-        let output = client.dig(Recurse::No, ip_addr, RecordType::SOA, &Domain::COM)?;
+        let output = client.dig(Recurse::No, ip_addr, RecordType::SOA, &FQDN::COM)?;
 
         assert!(output.status.is_noerror());
 
@@ -159,11 +159,11 @@ mod tests {
     #[test]
     fn with_referral() -> Result<()> {
         let expected_ip_addr = Ipv4Addr::new(172, 17, 200, 1);
-        let mut root_ns = NameServer::new(Domain::ROOT)?;
+        let mut root_ns = NameServer::new(FQDN::ROOT)?;
         root_ns.referral(&Referral {
-            domain: Domain::COM,
+            domain: FQDN::COM,
             ipv4_addr: expected_ip_addr,
-            ns: Domain("primary.tld-server.com.")?,
+            ns: FQDN("primary.tld-server.com.")?,
         });
         let root_ns = root_ns.start()?;
 
@@ -172,7 +172,7 @@ mod tests {
         let ipv4_addr = root_ns.ipv4_addr();
 
         let client = Client::new()?;
-        let output = client.dig(Recurse::No, ipv4_addr, RecordType::NS, &Domain::COM)?;
+        let output = client.dig(Recurse::No, ipv4_addr, RecordType::NS, &FQDN::COM)?;
 
         assert!(output.status.is_noerror());
 

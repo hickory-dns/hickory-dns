@@ -43,7 +43,7 @@ mod tests {
     use crate::{
         client::{RecordType, Recurse},
         record::Referral,
-        Client, Domain, NameServer,
+        Client, NameServer, FQDN,
     };
 
     use super::*;
@@ -51,12 +51,12 @@ mod tests {
     #[test]
     fn can_resolve() -> Result<()> {
         let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
-        let needle = Domain("example.nameservers.com.")?;
+        let needle = FQDN("example.nameservers.com.")?;
 
-        let mut root_ns = NameServer::new(Domain::ROOT)?;
-        let mut com_ns = NameServer::new(Domain::COM)?;
+        let mut root_ns = NameServer::new(FQDN::ROOT)?;
+        let mut com_ns = NameServer::new(FQDN::COM)?;
 
-        let nameservers_domain = Domain("nameservers.com.")?;
+        let nameservers_domain = FQDN("nameservers.com.")?;
         let mut nameservers_ns = NameServer::new(nameservers_domain.clone())?;
         nameservers_ns
             .a(root_ns.nameserver().clone(), root_ns.ipv4_addr())
@@ -76,7 +76,7 @@ mod tests {
         eprintln!("com.zone:\n{}", com_ns.zone_file());
 
         root_ns.referral(&Referral {
-            domain: Domain::COM,
+            domain: FQDN::COM,
             ipv4_addr: com_ns.ipv4_addr(),
             ns: com_ns.nameserver().clone(),
         });

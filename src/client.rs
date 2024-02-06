@@ -4,7 +4,7 @@ use core::str::FromStr;
 use std::net::Ipv4Addr;
 
 use crate::container::Container;
-use crate::{Domain, Error, Result};
+use crate::{Error, Result, FQDN};
 
 pub struct Client {
     inner: Container,
@@ -22,7 +22,7 @@ impl Client {
         recurse: Recurse,
         server: Ipv4Addr,
         record_type: RecordType,
-        domain: &Domain<'_>,
+        domain: &FQDN<'_>,
     ) -> Result<DigOutput> {
         let output = self.inner.stdout(&[
             "dig",
@@ -252,7 +252,7 @@ impl FromStr for Record {
 
 #[derive(Debug)]
 pub struct A {
-    pub domain: Domain<'static>,
+    pub domain: FQDN<'static>,
     pub ttl: u32,
     pub ipv4_addr: Ipv4Addr,
 }
@@ -288,10 +288,10 @@ impl FromStr for A {
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug)]
 pub struct SOA {
-    pub domain: Domain<'static>,
+    pub domain: FQDN<'static>,
     pub ttl: u32,
-    pub nameserver: Domain<'static>,
-    pub admin: Domain<'static>,
+    pub nameserver: FQDN<'static>,
+    pub admin: FQDN<'static>,
     pub serial: u32,
     pub refresh: u32,
     pub retry: u32,
