@@ -5,13 +5,13 @@ use crate::container::Container;
 use crate::record::{self, Referral, SoaSettings, ZoneFile};
 use crate::{Domain, Result, CHMOD_RW_EVERYONE};
 
-pub struct AuthoritativeNameServer<'a, State> {
+pub struct NameServer<'a, State> {
     container: Container,
     zone_file: ZoneFile<'a>,
     _state: State,
 }
 
-impl<'a> AuthoritativeNameServer<'a, Stopped> {
+impl<'a> NameServer<'a, Stopped> {
     /// Spins up a primary name server that has authority over the given `zone`
     ///
     /// The initial state of the server is the "Stopped" state where it won't answer any query.
@@ -60,7 +60,7 @@ impl<'a> AuthoritativeNameServer<'a, Stopped> {
     }
 
     /// Moves the server to the "Start" state where it can answer client queries
-    pub fn start(self) -> Result<AuthoritativeNameServer<'a, Running>> {
+    pub fn start(self) -> Result<NameServer<'a, Running>> {
         let Self {
             container,
             zone_file,
@@ -85,7 +85,7 @@ impl<'a> AuthoritativeNameServer<'a, Stopped> {
 
         let child = container.spawn(&["nsd", "-d"])?;
 
-        Ok(AuthoritativeNameServer {
+        Ok(NameServer {
             container,
             zone_file,
             _state: Running { child },
@@ -93,7 +93,7 @@ impl<'a> AuthoritativeNameServer<'a, Stopped> {
     }
 }
 
-impl<'a, S> AuthoritativeNameServer<'a, S> {
+impl<'a, S> NameServer<'a, S> {
     pub fn ipv4_addr(&self) -> Ipv4Addr {
         self.container.ipv4_addr()
     }
@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     fn simplest() -> Result<()> {
-        let tld_ns = AuthoritativeNameServer::new(Domain::COM)?.start()?;
+        let tld_ns = NameServer::new(Domain::COM)?.start()?;
         let ip_addr = tld_ns.ipv4_addr();
 
         let client = Client::new()?;
@@ -159,7 +159,7 @@ mod tests {
     #[test]
     fn with_referral() -> Result<()> {
         let expected_ip_addr = Ipv4Addr::new(172, 17, 200, 1);
-        let mut root_ns = AuthoritativeNameServer::new(Domain::ROOT)?;
+        let mut root_ns = NameServer::new(Domain::ROOT)?;
         root_ns.referral(&Referral {
             domain: Domain::COM,
             ipv4_addr: expected_ip_addr,

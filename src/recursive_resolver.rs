@@ -43,7 +43,7 @@ mod tests {
     use crate::{
         client::{RecordType, Recurse},
         record::Referral,
-        AuthoritativeNameServer, Client, Domain,
+        Client, Domain, NameServer,
     };
 
     use super::*;
@@ -53,11 +53,11 @@ mod tests {
         let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
         let needle = Domain("example.nameservers.com.")?;
 
-        let mut root_ns = AuthoritativeNameServer::new(Domain::ROOT)?;
-        let mut com_ns = AuthoritativeNameServer::new(Domain::COM)?;
+        let mut root_ns = NameServer::new(Domain::ROOT)?;
+        let mut com_ns = NameServer::new(Domain::COM)?;
 
         let nameservers_domain = Domain("nameservers.com.")?;
-        let mut nameservers_ns = AuthoritativeNameServer::new(nameservers_domain.clone())?;
+        let mut nameservers_ns = NameServer::new(nameservers_domain.clone())?;
         nameservers_ns
             .a(root_ns.nameserver().clone(), root_ns.ipv4_addr())
             .a(com_ns.nameserver().clone(), com_ns.ipv4_addr())
