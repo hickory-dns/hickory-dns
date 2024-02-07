@@ -16,6 +16,22 @@ impl Client {
         })
     }
 
+    // FIXME this needs to use the same trust anchor as `RecursiveResolver` or validation will fail
+    pub fn delv(
+        &self,
+        server: Ipv4Addr,
+        record_type: RecordType,
+        fqdn: &FQDN<'_>,
+    ) -> Result<String> {
+        self.inner.stdout(&[
+            "delv",
+            "+mtrace",
+            &format!("@{server}"),
+            record_type.as_str(),
+            fqdn.as_str(),
+        ])
+    }
+
     pub fn dig(
         &self,
         recurse: Recurse,
@@ -153,6 +169,7 @@ pub struct DigFlags {
     pub recursion_desired: bool,
     pub recursion_available: bool,
     pub authoritative_answer: bool,
+    pub authenticated_data: bool,
 }
 
 impl FromStr for DigFlags {
@@ -163,6 +180,7 @@ impl FromStr for DigFlags {
         let mut recursion_desired = false;
         let mut recursion_available = false;
         let mut authoritative_answer = false;
+        let mut authenticated_data = false;
 
         for flag in input.split_whitespace() {
             match flag {
@@ -170,6 +188,7 @@ impl FromStr for DigFlags {
                 "rd" => recursion_desired = true,
                 "ra" => recursion_available = true,
                 "aa" => authoritative_answer = true,
+                "ad" => authenticated_data = true,
                 _ => return Err(format!("unknown flag: {flag}").into()),
             }
         }
@@ -179,6 +198,7 @@ impl FromStr for DigFlags {
             recursion_desired,
             recursion_available,
             authoritative_answer,
+            authenticated_data,
         })
     }
 }

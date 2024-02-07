@@ -1,12 +1,10 @@
-use core::array;
-use core::str::FromStr;
 use core::sync::atomic::{self, AtomicUsize};
 use std::net::Ipv4Addr;
 use std::process::Child;
 
 use crate::container::Container;
-use crate::zone_file::{self, SoaSettings, ZoneFile};
-use crate::{Error, Result, FQDN};
+use crate::zone_file::{self, SoaSettings, ZoneFile, DNSKEY, DS};
+use crate::{Result, FQDN};
 
 pub struct NameServer<'a, State> {
     container: Container,
@@ -68,6 +66,12 @@ impl<'a> NameServer<'a, Stopped> {
         self
     }
 
+    /// Adds a DS record to the zone file
+    pub fn ds(&mut self, ds: DS) -> &mut Self {
+        self.zone_file.entry(ds);
+        self
+    }
+
     /// Freezes and signs the name server's zone file
     pub fn sign(self) -> Result<NameServer<'a, Signed>> {
         // TODO do we want to make these settings configurable?
@@ -90,13 +94,13 @@ impl<'a> NameServer<'a, Stopped> {
             format!("cd {ZONES_DIR} && ldns-keygen -a {ALGORITHM} -b {ZSK_BITS} {zone}");
         let zsk_filename = container.stdout(&["sh", "-c", &zsk_keygen])?;
         let zsk_path = format!("{ZONES_DIR}/{zsk_filename}.key");
-        let zsk: Key = container.stdout(&["cat", &zsk_path])?.parse()?;
+        let zsk: DNSKEY = container.stdout(&["cat", &zsk_path])?.parse()?;
 
         let ksk_keygen =
             format!("cd {ZONES_DIR} && ldns-keygen -k -a {ALGORITHM} -b {KSK_BITS} {zone}");
         let ksk_filename = container.stdout(&["sh", "-c", &ksk_keygen])?;
         let ksk_path = format!("{ZONES_DIR}/{ksk_filename}.key");
-        let ksk: Key = container.stdout(&["cat", &ksk_path])?.parse()?;
+        let ksk: DNSKEY = container.stdout(&["cat", &ksk_path])?.parse()?;
 
         // -n = use NSEC3 instead of NSEC
         // -p = set the opt-out flag on all nsec3 rrs
@@ -104,6 +108,11 @@ impl<'a> NameServer<'a, Stopped> {
             "cd {ZONES_DIR} && ldns-signzone -n -p {ZONE_FILENAME} {zsk_filename} {ksk_filename}"
         );
         container.status_ok(&["sh", "-c", &signzone])?;
+
+        // TODO do we want to make the hashing algorithm configurable?
+        // -2 = use SHA256 for the DS hash
+        let key2ds = format!("cd {ZONES_DIR} && ldns-key2ds -n -2 {ZONE_FILENAME}.signed");
+        let ds: DS = container.stdout(&["sh", "-c", &key2ds])?.parse()?;
 
         // we have an in-memory representation of the zone file so we just delete the on-disk version
         let zone_file_path = zone_file_path();
@@ -115,9 +124,10 @@ impl<'a> NameServer<'a, Stopped> {
             container,
             zone_file,
             state: Signed {
-                zsk,
+                ds,
                 ksk,
                 signed_zone_file,
+                zsk,
             },
         })
     }
@@ -144,62 +154,6 @@ impl<'a> NameServer<'a, Stopped> {
             container,
             zone_file,
             state: Running { child },
-        })
-    }
-}
-
-#[derive(Debug)]
-pub struct Key {
-    pub bits: u16,
-    pub encoded: String,
-    pub id: u32,
-}
-
-impl FromStr for Key {
-    type Err = Error;
-
-    fn from_str(input: &str) -> Result<Self> {
-        let (before, after) = input.split_once(';').ok_or("comment was not found")?;
-        let mut columns = before.split_whitespace();
-
-        let [Some(_zone), Some(class), Some(record_type), Some(_flags), Some(_protocol), Some(_algorithm), Some(encoded), None] =
-            array::from_fn(|_| columns.next())
-        else {
-            return Err("expected 7 columns".into());
-        };
-
-        if record_type != "DNSKEY" {
-            return Err(format!("tried to parse `{record_type}` record as a DNSKEY record").into());
-        }
-
-        if class != "IN" {
-            return Err(format!("unknown class: {class}").into());
-        }
-
-        // {id = 24975 (zsk), size = 1024b}
-        let error = "invalid comment syntax";
-        let (id_expr, size_expr) = after.split_once(',').ok_or(error)?;
-
-        // {id = 24975 (zsk)
-        let (id_lhs, id_rhs) = id_expr.split_once('=').ok_or(error)?;
-        if id_lhs.trim() != "{id" {
-            return Err(error.into());
-        }
-
-        // 24975 (zsk)
-        let (id, _key_type) = id_rhs.trim().split_once(' ').ok_or(error)?;
-
-        //  size = 1024b}
-        let (size_lhs, size_rhs) = size_expr.split_once('=').ok_or(error)?;
-        if size_lhs.trim() != "size" {
-            return Err(error.into());
-        }
-        let bits = size_rhs.trim().strip_suffix("b}").ok_or(error)?.parse()?;
-
-        Ok(Self {
-            bits,
-            encoded: encoded.to_string(),
-            id: id.parse()?,
         })
     }
 }
@@ -239,16 +193,20 @@ impl<'a> NameServer<'a, Signed> {
         })
     }
 
-    pub fn key_signing_key(&self) -> &Key {
+    pub fn key_signing_key(&self) -> &DNSKEY {
         &self.state.ksk
     }
 
-    pub fn zone_signing_key(&self) -> &Key {
+    pub fn zone_signing_key(&self) -> &DNSKEY {
         &self.state.zsk
     }
 
     pub fn signed_zone_file(&self) -> &str {
         &self.state.signed_zone_file
+    }
+
+    pub fn ds(&self) -> &DS {
+        &self.state.ds
     }
 }
 
@@ -257,6 +215,7 @@ impl<'a, S> NameServer<'a, S> {
         self.container.ipv4_addr()
     }
 
+    /// Zone file BEFORE signing
     pub fn zone_file(&self) -> &ZoneFile<'a> {
         &self.zone_file
     }
@@ -273,8 +232,9 @@ impl<'a, S> NameServer<'a, S> {
 pub struct Stopped;
 
 pub struct Signed {
-    zsk: Key,
-    ksk: Key,
+    ds: DS,
+    zsk: DNSKEY,
+    ksk: DNSKEY,
     signed_zone_file: String,
 }
 
@@ -360,21 +320,21 @@ mod tests {
 
     #[test]
     fn signed() -> Result<()> {
-        let tld_ns = NameServer::new(FQDN::ROOT)?.sign()?;
+        let ns = NameServer::new(FQDN::ROOT)?.sign()?;
 
-        eprintln!("KSK: {:?}", tld_ns.key_signing_key());
-        eprintln!("ZSK: {:?}", tld_ns.zone_signing_key());
-        eprintln!("root.zone.signed:\n{}", tld_ns.signed_zone_file());
+        eprintln!("KSK:\n{}", ns.key_signing_key());
+        eprintln!("ZSK:\n{}", ns.zone_signing_key());
+        eprintln!("root.zone.signed:\n{}", ns.signed_zone_file());
 
-        let tld_ns = tld_ns.start()?;
+        let tld_ns = ns.start()?;
 
-        let ipv4_addr = tld_ns.ipv4_addr();
+        let ns_addr = tld_ns.ipv4_addr();
 
         let client = Client::new()?;
         let output = client.dig(
             Recurse::No,
             Dnssec::Yes,
-            ipv4_addr,
+            ns_addr,
             RecordType::SOA,
             &FQDN::ROOT,
         )?;
@@ -389,20 +349,6 @@ mod tests {
         assert!(soa.is_soa());
         let rrsig = rrsig.try_into_rrsig().unwrap();
         assert_eq!(RecordType::SOA, rrsig.type_covered);
-
-        Ok(())
-    }
-
-    #[test]
-    fn can_parse_ldns_keygen_output() -> Result<()> {
-        let input = "example.com.	IN	DNSKEY	256 3 7 AwEAAdIpMlio4GJas7GbIZ9xRpzpB2pf4SxBJcsquN/0yNBPGNE2rzcFykqMAKmLwypk1/1q/EdHVa4tQ5RlK0w09CRhgSXfCaph+yLNJKpiPyuVcXKl2k0RnO4p835sgVEUIvx8qGTDo7c7DA9UBje+/3ViFKqVhOBaWyT6gHAmNVpb ;{id = 24975 (zsk), size = 1024b}";
-
-        let key: Key = input.parse()?;
-
-        assert_eq!(1024, key.bits);
-        assert_eq!(24975, key.id);
-        let expected = "AwEAAdIpMlio4GJas7GbIZ9xRpzpB2pf4SxBJcsquN/0yNBPGNE2rzcFykqMAKmLwypk1/1q/EdHVa4tQ5RlK0w09CRhgSXfCaph+yLNJKpiPyuVcXKl2k0RnO4p835sgVEUIvx8qGTDo7c7DA9UBje+/3ViFKqVhOBaWyT6gHAmNVpb";
-        assert_eq!(expected, key.encoded);
 
         Ok(())
     }

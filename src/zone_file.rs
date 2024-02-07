@@ -4,10 +4,11 @@
 //! - the `@` syntax is not used to avoid relying on the order of the entries
 //! - relative domain names are not used; all domain names must be in fully-qualified form
 
-use core::fmt;
+use core::{array, fmt};
 use std::net::Ipv4Addr;
+use std::str::FromStr;
 
-use crate::FQDN;
+use crate::{Error, FQDN};
 
 pub struct ZoneFile<'a> {
     pub origin: FQDN<'a>,
@@ -94,7 +95,15 @@ impl fmt::Display for Root<'_> {
 
 pub enum Entry<'a> {
     A(A<'a>),
+    DNSKEY(DNSKEY),
+    DS(DS),
     NS(NS<'a>),
+}
+
+impl<'a> From<DS> for Entry<'a> {
+    fn from(v: DS) -> Self {
+        Self::DS(v)
+    }
 }
 
 impl<'a> From<A<'a>> for Entry<'a> {
@@ -113,6 +122,8 @@ impl fmt::Display for Entry<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Entry::A(a) => a.fmt(f),
+            Entry::DNSKEY(dnskey) => dnskey.fmt(f),
+            Entry::DS(ds) => ds.fmt(f),
             Entry::NS(ns) => ns.fmt(f),
         }
     }
@@ -129,6 +140,166 @@ impl fmt::Display for A<'_> {
         let Self { fqdn, ipv4_addr } = self;
 
         write!(f, "{fqdn}\tIN\tA\t{ipv4_addr}")
+    }
+}
+
+// integer types chosen based on bit sizes in section 2.1 of RFC4034
+#[derive(Clone, Debug)]
+pub struct DNSKEY {
+    zone: FQDN<'static>,
+    flags: u16,
+    protocol: u8,
+    algorithm: u8,
+    public_key: String,
+
+    // extra information in `+multiline` format and `ldns-keygen`'s output
+    bits: u16,
+    key_tag: u16,
+}
+
+impl DNSKEY {
+    pub fn bits(&self) -> u16 {
+        self.bits
+    }
+
+    pub fn key_tag(&self) -> u16 {
+        self.key_tag
+    }
+}
+
+impl FromStr for DNSKEY {
+    type Err = Error;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let (before, after) = input.split_once(';').ok_or("comment was not found")?;
+        let mut columns = before.split_whitespace();
+
+        let [Some(zone), Some(class), Some(record_type), Some(flags), Some(protocol), Some(algorithm), Some(public_key), None] =
+            array::from_fn(|_| columns.next())
+        else {
+            return Err("expected 7 columns".into());
+        };
+
+        if record_type != "DNSKEY" {
+            return Err(format!("tried to parse `{record_type}` record as a DNSKEY record").into());
+        }
+
+        if class != "IN" {
+            return Err(format!("unknown class: {class}").into());
+        }
+
+        // {id = 24975 (zsk), size = 1024b}
+        let error = "invalid comment syntax";
+        let (id_expr, size_expr) = after.split_once(',').ok_or(error)?;
+
+        // {id = 24975 (zsk)
+        let (id_lhs, id_rhs) = id_expr.split_once('=').ok_or(error)?;
+        if id_lhs.trim() != "{id" {
+            return Err(error.into());
+        }
+
+        // 24975 (zsk)
+        let (key_tag, _key_type) = id_rhs.trim().split_once(' ').ok_or(error)?;
+
+        //  size = 1024b}
+        let (size_lhs, size_rhs) = size_expr.split_once('=').ok_or(error)?;
+        if size_lhs.trim() != "size" {
+            return Err(error.into());
+        }
+        let bits = size_rhs.trim().strip_suffix("b}").ok_or(error)?.parse()?;
+
+        Ok(Self {
+            zone: zone.parse()?,
+            flags: flags.parse()?,
+            protocol: protocol.parse()?,
+            algorithm: algorithm.parse()?,
+            public_key: public_key.to_string(),
+
+            key_tag: key_tag.parse()?,
+            bits,
+        })
+    }
+}
+
+impl fmt::Display for DNSKEY {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            zone,
+            flags,
+            protocol,
+            algorithm,
+            public_key,
+            bits: _,
+            key_tag: _,
+        } = self;
+
+        write!(
+            f,
+            "{zone}\tIN\tDNSKEY\t{flags}\t{protocol}\t{algorithm}\t{public_key}"
+        )
+    }
+}
+
+#[derive(Clone)]
+pub struct DS {
+    zone: FQDN<'static>,
+    _ttl: u32,
+    key_tag: u16,
+    algorithm: u8,
+    digest_type: u8,
+    digest: String,
+}
+
+impl FromStr for DS {
+    type Err = Error;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let mut columns = input.split_whitespace();
+
+        let [Some(zone), Some(ttl), Some(class), Some(record_type), Some(key_tag), Some(algorithm), Some(digest_type), Some(digest), None] =
+            array::from_fn(|_| columns.next())
+        else {
+            return Err("expected 8 columns".into());
+        };
+
+        let expected = "DS";
+        if record_type != expected {
+            return Err(
+                format!("tried to parse `{record_type}` entry as a {expected} entry").into(),
+            );
+        }
+
+        if class != "IN" {
+            return Err(format!("unknown class: {class}").into());
+        }
+
+        Ok(Self {
+            zone: zone.parse()?,
+            _ttl: ttl.parse()?,
+            key_tag: key_tag.parse()?,
+            algorithm: algorithm.parse()?,
+            digest_type: digest_type.parse()?,
+            digest: digest.to_string(),
+        })
+    }
+}
+
+/// NOTE does NOT include the TTL field
+impl fmt::Display for DS {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            zone,
+            _ttl,
+            key_tag,
+            algorithm,
+            digest_type,
+            digest,
+        } = self;
+
+        write!(
+            f,
+            "{zone}\tIN\tDS\t{key_tag}\t{algorithm}\t{digest_type}\t{digest}"
+        )
     }
 }
 
@@ -258,6 +429,41 @@ e.gtld-servers.net.	IN	A	192.12.94.30
         zone.entry(example_a()?);
 
         assert_eq!(expected, zone.to_string());
+
+        Ok(())
+    }
+
+    // not quite roundtrip because we drop the TTL field when doing `to_string`
+    #[test]
+    fn ds_roundtrip() -> Result<()> {
+        let input =
+            ".	1800	IN	DS	31153	7	2	7846338aaacde9cc9518f1f450082adc015a207c45a1e69d6e660e6836f4ef3b";
+        let ds: DS = input.parse()?;
+        let output = ds.to_string();
+
+        let expected =
+            ".	IN	DS	31153	7	2	7846338aaacde9cc9518f1f450082adc015a207c45a1e69d6e660e6836f4ef3b";
+        assert_eq!(expected, output);
+
+        Ok(())
+    }
+
+    #[test]
+    fn dnskey_roundtrip() -> Result<()> {
+        let input = "example.com.	IN	DNSKEY	256	3	7	AwEAAdIpMlio4GJas7GbIZ9xRpzpB2pf4SxBJcsquN/0yNBPGNE2rzcFykqMAKmLwypk1/1q/EdHVa4tQ5RlK0w09CRhgSXfCaph+yLNJKpiPyuVcXKl2k0RnO4p835sgVEUIvx8qGTDo7c7DA9UBje+/3ViFKqVhOBaWyT6gHAmNVpb ;{id = 24975 (zsk), size = 1024b}";
+
+        let dnskey: DNSKEY = input.parse()?;
+
+        assert_eq!(256, dnskey.flags);
+        assert_eq!(3, dnskey.protocol);
+        assert_eq!(7, dnskey.algorithm);
+        let expected = "AwEAAdIpMlio4GJas7GbIZ9xRpzpB2pf4SxBJcsquN/0yNBPGNE2rzcFykqMAKmLwypk1/1q/EdHVa4tQ5RlK0w09CRhgSXfCaph+yLNJKpiPyuVcXKl2k0RnO4p835sgVEUIvx8qGTDo7c7DA9UBje+/3ViFKqVhOBaWyT6gHAmNVpb";
+        assert_eq!(expected, dnskey.public_key);
+        assert_eq!(1024, dnskey.bits());
+        assert_eq!(24975, dnskey.key_tag());
+
+        let output = dnskey.to_string();
+        assert!(input.starts_with(&output));
 
         Ok(())
     }
