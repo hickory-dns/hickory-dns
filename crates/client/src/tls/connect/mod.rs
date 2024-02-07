@@ -10,6 +10,7 @@ pub mod rustls;
 pub trait TlsConnect<S: Connect> {
     type TlsStream: DnsTcpStream;
 
+    fn server_name(&self) -> String;
     fn tls_connect(
         &self,
         stream: S,

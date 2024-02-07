@@ -58,6 +58,19 @@ impl Display for HttpsClientStream {
 }
 
 impl HttpsClientStream {
+    pub fn new(
+        name_server_name: Arc<str>,
+        name_server: SocketAddr,
+        h2: SendRequest<Bytes>,
+    ) -> Self {
+        HttpsClientStream {
+            name_server_name,
+            name_server,
+            h2,
+            is_shutdown: false,
+        }
+    }
+
     async fn inner_send(
         h2: SendRequest<Bytes>,
         message: Bytes,

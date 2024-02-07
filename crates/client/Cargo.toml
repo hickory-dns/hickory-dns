@@ -43,7 +43,7 @@ dns-over-https-rustls = [
     "dns-over-rustls",
     "hickory-proto/dns-over-https-rustls",
 ]
-dns-over-https = ["hickory-proto/dns-over-https"]
+dns-over-https = ["dns-over-tls", "h2", "bytes", "hickory-proto/dns-over-https"]
 
 dns-over-quic = ["dns-over-rustls", "hickory-proto/dns-over-quic"]
 
@@ -88,6 +88,8 @@ radix_trie.workspace = true
 rand.workspace = true
 rustls = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true }
+h2 = { workspace = true, features = ["stream"], optional = true }
+bytes = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 thiserror.workspace = true
 tracing.workspace = true

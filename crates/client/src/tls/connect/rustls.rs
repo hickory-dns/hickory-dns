@@ -20,6 +20,14 @@ pub struct RustlsConnector {
 impl<S: Connect> TlsConnect<S> for RustlsConnector {
     type TlsStream = AsyncIoTokioAsStd<TlsStream<AsyncIoStdAsTokio<S>>>;
 
+    fn server_name(&self) -> String {
+        match &self.tls_name {
+            ServerName::DnsName(domain) => domain.as_ref().to_string(),
+            ServerName::IpAddress(ip) => ip.to_string(),
+            _ => panic!("unsupported server name"),
+        }
+    }
+
     fn tls_connect(
         &self,
         stream: S,

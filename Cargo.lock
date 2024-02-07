@@ -889,11 +889,13 @@ checksum = "5d3d0e0f38255e7fa3cf31335b3a56f05febd18025f4db5ef7a0cfb4f8da651f"
 name = "hickory-client"
 version = "0.24.0"
 dependencies = [
+ "bytes",
  "cfg-if",
  "data-encoding",
  "futures",
  "futures-channel",
  "futures-util",
+ "h2",
  "hickory-proto",
  "once_cell",
  "openssl",

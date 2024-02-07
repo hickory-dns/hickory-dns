@@ -271,6 +271,9 @@
 
 pub mod client;
 pub mod error;
+#[cfg(feature = "dns-over-https")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
+pub mod h2;
 #[cfg(feature = "mdns")]
 #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
 pub mod multicast;
@@ -279,21 +282,11 @@ pub mod rr;
 pub mod serialize;
 pub mod tcp;
 #[cfg(feature = "dns-over-tls")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-tls")))]
 pub mod tls;
 pub mod udp;
 
-// TODO: consider removing tcp/udp/https modules...
-#[cfg(feature = "dns-over-https")]
-mod h2_client_connection;
-
 pub use hickory_proto as proto;
-
-/// The https module which contains all https related connection types
-#[cfg(feature = "dns-over-https")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
-pub mod h2 {
-    pub use super::h2_client_connection::HttpsClientConnection;
-}
 
 /// Returns a version as specified in Cargo.toml
 pub fn version() -> &'static str {
