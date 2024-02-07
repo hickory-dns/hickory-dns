@@ -359,7 +359,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "FIXME need to parse RRSIG record in dig's output"]
     fn signed() -> Result<()> {
         let tld_ns = NameServer::new(FQDN::ROOT)?.sign()?;
 
@@ -382,6 +381,15 @@ mod tests {
 
         assert!(output.status.is_noerror());
 
+        let [soa, rrsig] = output
+            .answer
+            .try_into()
+            .expect("two records in answer section");
+
+        assert!(soa.is_soa());
+        let rrsig = rrsig.try_into_rrsig().unwrap();
+        assert_eq!(RecordType::SOA, rrsig.type_covered);
+
         Ok(())
     }
 
@@ -392,6 +400,7 @@ mod tests {
         let key: Key = input.parse()?;
 
         assert_eq!(1024, key.bits);
+        assert_eq!(24975, key.id);
         let expected = "AwEAAdIpMlio4GJas7GbIZ9xRpzpB2pf4SxBJcsquN/0yNBPGNE2rzcFykqMAKmLwypk1/1q/EdHVa4tQ5RlK0w09CRhgSXfCaph+yLNJKpiPyuVcXKl2k0RnO4p835sgVEUIvx8qGTDo7c7DA9UBje+/3ViFKqVhOBaWyT6gHAmNVpb";
         assert_eq!(expected, key.encoded);
 

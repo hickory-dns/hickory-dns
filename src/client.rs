@@ -67,6 +67,7 @@ impl Recurse {
     }
 }
 
+#[derive(Debug)]
 pub struct DigOutput {
     pub flags: DigFlags,
     pub status: DigStatus,
