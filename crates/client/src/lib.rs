@@ -278,6 +278,8 @@ pub mod op;
 pub mod rr;
 pub mod serialize;
 pub mod tcp;
+#[cfg(feature = "dns-over-tls")]
+pub mod tls;
 pub mod udp;
 
 // TODO: consider removing tcp/udp/https modules...

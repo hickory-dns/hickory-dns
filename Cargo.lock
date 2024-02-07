@@ -903,6 +903,7 @@ dependencies = [
  "serde",
  "thiserror",
  "tokio",
+ "tokio-rustls",
  "tracing",
  "tracing-subscriber",
  "webpki-roots",

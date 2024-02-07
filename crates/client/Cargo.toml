@@ -41,7 +41,6 @@ dns-over-https-openssl = ["dns-over-https", "dns-over-openssl"]
 dns-over-https-rustls = [
     "dns-over-https",
     "dns-over-rustls",
-    "rustls",
     "hickory-proto/dns-over-https-rustls",
 ]
 dns-over-https = ["hickory-proto/dns-over-https"]
@@ -53,6 +52,8 @@ dns-over-openssl = ["dns-over-tls", "dnssec-openssl"]
 dns-over-rustls = [
     "dns-over-tls",
     "dnssec-ring",
+    "rustls",
+    "tokio-rustls",
     "hickory-proto/dns-over-rustls",
 ]
 dns-over-tls = []
@@ -86,6 +87,7 @@ once_cell.workspace = true
 radix_trie.workspace = true
 rand.workspace = true
 rustls = { workspace = true, optional = true }
+tokio-rustls = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 thiserror.workspace = true
 tracing.workspace = true
