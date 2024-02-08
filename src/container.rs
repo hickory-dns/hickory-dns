@@ -43,8 +43,13 @@ impl Container {
             .arg(docker_dir_path);
 
         ONCE.call_once(|| {
-            let status = command.status().unwrap();
-            assert!(status.success());
+            let output = command.output().unwrap();
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert!(
+                output.status.success(),
+                "--- STDOUT ---\n{stdout}\n--- STDERR ---\n{stderr}"
+            );
         });
 
         let mut command = Command::new("docker");
