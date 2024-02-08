@@ -1,0 +1,11 @@
+[package]
+edition = "2021"
+name = "conformance-tests"
+publish = false
+version = "0.1.0"
+
+[dependencies]
+dns-test.path = "../dns-test"
+
+[lib]
+doctest = false
