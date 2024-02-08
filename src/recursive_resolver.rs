@@ -7,7 +7,7 @@ use crate::Result;
 
 pub struct RecursiveResolver {
     container: Container,
-    _child: Child,
+    child: Child,
 }
 
 impl RecursiveResolver {
@@ -37,14 +37,32 @@ impl RecursiveResolver {
 
         let child = container.spawn(&["unbound", "-d"])?;
 
-        Ok(Self {
-            _child: child,
-            container,
-        })
+        Ok(Self { child, container })
     }
 
     pub fn ipv4_addr(&self) -> Ipv4Addr {
         self.container.ipv4_addr()
+    }
+
+    /// gracefully terminates the name server collecting all logs
+    pub fn terminate(self) -> Result<String> {
+        let pidfile = "/run/unbound.pid";
+        let kill = format!(
+            "test -f {pidfile} || sleep 1
+kill -TERM $(cat {pidfile})"
+        );
+        self.container.status_ok(&["sh", "-c", &kill])?;
+        let output = self.child.wait()?;
+
+        if !output.status.success() {
+            return Err("could not terminate the `unbound` process".into());
+        }
+
+        assert!(
+            output.stderr.is_empty(),
+            "stderr should be returned if not empty"
+        );
+        Ok(output.stdout)
     }
 }
 
@@ -226,6 +244,17 @@ mod tests {
 
         assert_eq!(needle, a.fqdn);
         assert_eq!(expected_ipv4_addr, a.ipv4_addr);
+
+        Ok(())
+    }
+
+    #[test]
+    fn terminate_works() -> Result<()> {
+        let resolver = RecursiveResolver::start(&[], &[])?;
+        let logs = resolver.terminate()?;
+
+        eprintln!("{logs}");
+        assert!(logs.contains("start of service"));
 
         Ok(())
     }

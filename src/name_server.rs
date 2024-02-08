@@ -152,7 +152,7 @@ impl<'a> NameServer<'a, Stopped> {
         Ok(NameServer {
             container,
             zone_file,
-            state: Running { _child: child },
+            state: Running { child },
         })
     }
 }
@@ -188,7 +188,7 @@ impl<'a> NameServer<'a, Signed> {
         Ok(NameServer {
             container,
             zone_file,
-            state: Running { _child: child },
+            state: Running { child },
         })
     }
 
@@ -206,6 +206,31 @@ impl<'a> NameServer<'a, Signed> {
 
     pub fn ds(&self) -> &DS {
         &self.state.ds
+    }
+}
+
+impl<'a> NameServer<'a, Running> {
+    /// gracefully terminates the name server collecting all logs
+    pub fn terminate(self) -> Result<String> {
+        let pidfile = "/run/nsd/nsd.pid";
+        // if `terminate` is called right after `start` NSD may not have had the chance to create
+        // the PID file so if it doesn't exist wait for a bit before invoking `kill`
+        let kill = format!(
+            "test -f {pidfile} || sleep 1
+kill -TERM $(cat {pidfile})"
+        );
+        self.container.status_ok(&["sh", "-c", &kill])?;
+        let output = self.state.child.wait()?;
+
+        if !output.status.success() {
+            return Err("could not terminate the `unbound` process".into());
+        }
+
+        assert!(
+            output.stderr.is_empty(),
+            "stderr should be returned if not empty"
+        );
+        Ok(output.stdout)
     }
 }
 
@@ -238,7 +263,7 @@ pub struct Signed {
 }
 
 pub struct Running {
-    _child: Child,
+    child: Child,
 }
 
 fn primary_ns(ns_count: usize) -> FQDN<'static> {
@@ -342,6 +367,16 @@ mod tests {
         assert!(soa.is_soa());
         let rrsig = rrsig.try_into_rrsig().unwrap();
         assert_eq!(RecordType::SOA, rrsig.type_covered);
+
+        Ok(())
+    }
+
+    #[test]
+    fn terminate_works() -> Result<()> {
+        let ns = NameServer::new(FQDN::ROOT)?.start()?;
+        let logs = ns.terminate()?;
+
+        assert!(logs.contains("nsd starting"));
 
         Ok(())
     }

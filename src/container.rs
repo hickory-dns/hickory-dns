@@ -137,11 +137,12 @@ impl Container {
 
     pub fn spawn(&self, cmd: &[&str]) -> Result<Child> {
         let mut command = Command::new("docker");
+        command.stdout(Stdio::piped()).stderr(Stdio::piped());
         command.args(["exec", "-t", &self.inner.id]).args(cmd);
 
         let inner = command.spawn()?;
         Ok(Child {
-            inner,
+            inner: Some(inner),
             _container: self.inner.clone(),
         })
     }
@@ -164,13 +165,22 @@ struct Inner {
 // runs inside of, to prevent the scenario of the container being destroyed _before_
 // the child is killed
 pub struct Child {
-    inner: process::Child,
+    inner: Option<process::Child>,
     _container: Arc<Inner>,
+}
+
+impl Child {
+    pub fn wait(mut self) -> Result<Output> {
+        let output = self.inner.take().expect("unreachable").wait_with_output()?;
+        output.try_into()
+    }
 }
 
 impl Drop for Child {
     fn drop(&mut self) {
-        let _ = self.inner.kill();
+        if let Some(mut inner) = self.inner.take() {
+            let _ = inner.kill();
+        }
     }
 }
 
