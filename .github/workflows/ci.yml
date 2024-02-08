@@ -21,10 +21,10 @@ jobs:
           components: clippy, rustfmt
 
       - name: Run tests
-        run: cargo t
+        run: cargo test --workspace
 
       - name: Check that code is formatted
-        run: cargo fmt -- --check
+        run: cargo fmt --all -- --check
 
       - name: Lint code
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --workspace -- -D warnings
