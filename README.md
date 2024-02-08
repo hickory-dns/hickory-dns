@@ -81,7 +81,7 @@ remote-control:
   control-enable: no
 
 zone:
-  name: .
+  name: main
   zonefile: /etc/nsd/zones/main.zone
 ```
 
@@ -91,11 +91,11 @@ zone:
 $ORIGIN com.
 $TTL 1800
 @       IN      SOA     primary.tld-server.com.    admin.tld-server.com. (
-                        2014080301
-                        3600
-                        900
-                        1209600
-                        1800
+                        2014010100 ; Serial
+                        10800      ; Refresh (3 hours)
+                        900        ; Retry (15 minutes)
+                        604800     ; Expire (1 week)
+                        86400      ; Minimum (1 day)
                         )
 @       IN      NS      primary.tld-server.com.
 ```

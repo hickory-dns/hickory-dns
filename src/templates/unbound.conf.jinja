@@ -4,6 +4,9 @@ server:
     interface: 0.0.0.0
     access-control: 172.17.0.0/16 allow
     root-hints: /etc/unbound/root.hints
+{% if use_dnssec %}
+    trust-anchor-file: /etc/trusted-key.key
+{% endif %}
 
 remote-control:
     control-enable: no
