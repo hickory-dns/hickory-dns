@@ -1,3 +1,5 @@
+//! A test framework for all things DNS
+
 pub use crate::fqdn::FQDN;
 pub use crate::recursive_resolver::RecursiveResolver;
 
