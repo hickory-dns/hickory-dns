@@ -1,13 +1,12 @@
 use core::str;
 use std::fs;
 use std::net::Ipv4Addr;
-use std::path::Path;
 use std::process::{self, ExitStatus};
 use std::process::{Command, Stdio};
 use std::sync::atomic::AtomicUsize;
 use std::sync::{atomic, Arc, Once};
 
-use tempfile::NamedTempFile;
+use tempfile::{NamedTempFile, TempDir};
 
 use crate::{Error, Result};
 
@@ -15,29 +14,27 @@ pub struct Container {
     inner: Arc<Inner>,
 }
 
+const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
+
 impl Container {
     /// Starts the container in a "parked" state
     pub fn run() -> Result<Self> {
         static ONCE: Once = Once::new();
-        static COUNT: AtomicUsize = AtomicUsize::new(0);
 
-        // TODO configurable: hickory; bind
-        let binary = "unbound";
-        let image_tag = format!("dnssec-tests-{binary}");
+        // TODO make this configurable and support hickory & bind
+        let implementation = "unbound";
+        let dockerfile = include_str!("docker/unbound.Dockerfile");
+        let docker_build_dir = TempDir::new()?;
+        let docker_build_dir = docker_build_dir.path();
+        fs::write(docker_build_dir.join("Dockerfile"), dockerfile)?;
 
-        let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let dockerfile_path = manifest_dir
-            .join("docker")
-            .join(format!("{binary}.Dockerfile"));
-        let docker_dir_path = manifest_dir.join("docker");
+        let image_tag = format!("{PACKAGE_NAME}-{implementation}");
 
         let mut command = Command::new("docker");
         command
             .args(["build", "-t"])
             .arg(&image_tag)
-            .arg("-f")
-            .arg(dockerfile_path)
-            .arg(docker_dir_path);
+            .arg(docker_build_dir);
 
         ONCE.call_once(|| {
             let output = command.output().unwrap();
@@ -51,8 +48,8 @@ impl Container {
 
         let mut command = Command::new("docker");
         let pid = process::id();
-        let count = COUNT.fetch_add(1, atomic::Ordering::Relaxed);
-        let name = format!("{binary}-{pid}-{count}");
+        let count = container_count();
+        let name = format!("{PACKAGE_NAME}-{implementation}-{pid}-{count}");
         command
             .args(["run", "--rm", "--detach", "--name", &name])
             .arg("-it")
@@ -150,6 +147,12 @@ impl Container {
     pub fn ipv4_addr(&self) -> Ipv4Addr {
         self.inner.ipv4_addr
     }
+}
+
+fn container_count() -> usize {
+    static COUNT: AtomicUsize = AtomicUsize::new(0);
+
+    COUNT.fetch_add(1, atomic::Ordering::Relaxed)
 }
 
 struct Inner {
