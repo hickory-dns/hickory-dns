@@ -1,8 +1,7 @@
 use core::sync::atomic::{self, AtomicUsize};
 use std::net::Ipv4Addr;
-use std::process::Child;
 
-use crate::container::Container;
+use crate::container::{Child, Container};
 use crate::zone_file::{self, SoaSettings, ZoneFile, DNSKEY, DS};
 use crate::{Result, FQDN};
 
@@ -153,7 +152,7 @@ impl<'a> NameServer<'a, Stopped> {
         Ok(NameServer {
             container,
             zone_file,
-            state: Running { child },
+            state: Running { _child: child },
         })
     }
 }
@@ -189,7 +188,7 @@ impl<'a> NameServer<'a, Signed> {
         Ok(NameServer {
             container,
             zone_file,
-            state: Running { child },
+            state: Running { _child: child },
         })
     }
 
@@ -239,13 +238,7 @@ pub struct Signed {
 }
 
 pub struct Running {
-    child: Child,
-}
-
-impl Drop for Running {
-    fn drop(&mut self) {
-        let _ = self.child.kill();
-    }
+    _child: Child,
 }
 
 fn primary_ns(ns_count: usize) -> FQDN<'static> {

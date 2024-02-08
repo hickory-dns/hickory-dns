@@ -1,14 +1,13 @@
 use core::fmt::Write;
 use std::net::Ipv4Addr;
-use std::process::Child;
 
-use crate::container::Container;
+use crate::container::{Child, Container};
 use crate::zone_file::{Root, DNSKEY};
 use crate::Result;
 
 pub struct RecursiveResolver {
     container: Container,
-    child: Child,
+    _child: Child,
 }
 
 impl RecursiveResolver {
@@ -38,17 +37,14 @@ impl RecursiveResolver {
 
         let child = container.spawn(&["unbound", "-d"])?;
 
-        Ok(Self { child, container })
+        Ok(Self {
+            _child: child,
+            container,
+        })
     }
 
     pub fn ipv4_addr(&self) -> Ipv4Addr {
         self.container.ipv4_addr()
-    }
-}
-
-impl Drop for RecursiveResolver {
-    fn drop(&mut self) {
-        let _ = self.child.kill();
     }
 }
 

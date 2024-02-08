@@ -2,20 +2,17 @@ use core::str;
 use std::fs;
 use std::net::Ipv4Addr;
 use std::path::Path;
-use std::process::{self, Child, ExitStatus};
+use std::process::{self, ExitStatus};
 use std::process::{Command, Stdio};
 use std::sync::atomic::AtomicUsize;
-use std::sync::{atomic, Once};
+use std::sync::{atomic, Arc, Once};
 
 use tempfile::NamedTempFile;
 
 use crate::{Error, Result};
 
 pub struct Container {
-    name: String,
-    id: String,
-    // TODO probably also want the IPv6 address
-    ipv4_addr: Ipv4Addr,
+    inner: Arc<Inner>,
 }
 
 impl Container {
@@ -67,10 +64,13 @@ impl Container {
 
         let ipv4_addr = get_ipv4_addr(&id)?;
 
-        Ok(Self {
+        let inner = Inner {
             id,
             name,
             ipv4_addr,
+        };
+        Ok(Self {
+            inner: Arc::new(inner),
         })
     }
 
@@ -81,7 +81,7 @@ impl Container {
         fs::write(&mut temp_file, file_contents)?;
 
         let src_path = temp_file.path().display().to_string();
-        let dest_path = format!("{}:{path_in_container}", self.id);
+        let dest_path = format!("{}:{path_in_container}", self.inner.id);
 
         let mut command = Command::new("docker");
         command.args(["cp", &src_path, &dest_path]);
@@ -96,7 +96,7 @@ impl Container {
     pub fn output(&self, command_and_args: &[&str]) -> Result<Output> {
         let mut command = Command::new("docker");
         command
-            .args(["exec", "-t", &self.id])
+            .args(["exec", "-t", &self.inner.id])
             .args(command_and_args);
 
         command.output()?.try_into()
@@ -110,7 +110,7 @@ impl Container {
         if output.status.success() {
             Ok(output.stdout)
         } else {
-            Err(format!("[{}] `{command_and_args:?}` failed", self.name).into())
+            Err(format!("[{}] `{command_and_args:?}` failed", self.inner.name).into())
         }
     }
 
@@ -118,7 +118,7 @@ impl Container {
     pub fn status(&self, command_and_args: &[&str]) -> Result<ExitStatus> {
         let mut command = Command::new("docker");
         command
-            .args(["exec", "-t", &self.id])
+            .args(["exec", "-t", &self.inner.id])
             .args(command_and_args);
 
         Ok(command.status()?)
@@ -131,19 +131,46 @@ impl Container {
         if status.success() {
             Ok(())
         } else {
-            Err(format!("[{}] `{command_and_args:?}` failed", self.name).into())
+            Err(format!("[{}] `{command_and_args:?}` failed", self.inner.name).into())
         }
     }
 
     pub fn spawn(&self, cmd: &[&str]) -> Result<Child> {
         let mut command = Command::new("docker");
-        command.args(["exec", "-t", &self.id]).args(cmd);
+        command.args(["exec", "-t", &self.inner.id]).args(cmd);
 
-        Ok(command.spawn()?)
+        let inner = command.spawn()?;
+        Ok(Child {
+            inner,
+            _container: self.inner.clone(),
+        })
     }
 
     pub fn ipv4_addr(&self) -> Ipv4Addr {
-        self.ipv4_addr
+        self.inner.ipv4_addr
+    }
+}
+
+struct Inner {
+    name: String,
+    id: String,
+    // TODO probably also want the IPv6 address
+    ipv4_addr: Ipv4Addr,
+}
+
+/// NOTE unlike `std::process::Child`, the drop implementation of this type will `kill` the
+/// child process
+// this wrapper over `std::process::Child` stores a reference to the container the child process
+// runs inside of, to prevent the scenario of the container being destroyed _before_
+// the child is killed
+pub struct Child {
+    inner: process::Child,
+    _container: Arc<Inner>,
+}
+
+impl Drop for Child {
+    fn drop(&mut self) {
+        let _ = self.inner.kill();
     }
 }
 
@@ -205,8 +232,8 @@ fn get_ipv4_addr(container_id: &str) -> Result<Ipv4Addr> {
     Ok(ipv4_addr.parse()?)
 }
 
-// ensure the container gets deleted
-impl Drop for Container {
+// this ensures the container gets deleted and does not linger after the test runner process ends
+impl Drop for Inner {
     fn drop(&mut self) {
         // running this to completion would block the current thread for several seconds so just
         // fire and forget
