@@ -102,11 +102,17 @@ impl Container {
     /// Similar to `Self::output` but checks `command_and_args` ran successfully and only
     /// returns the stdout
     pub fn stdout(&self, command_and_args: &[&str]) -> Result<String> {
-        let output = self.output(command_and_args)?;
+        let Output {
+            status,
+            stderr,
+            stdout,
+        } = self.output(command_and_args)?;
 
-        if output.status.success() {
-            Ok(output.stdout)
+        if status.success() {
+            Ok(stdout)
         } else {
+            eprintln!("STDOUT:\n{stdout}\nSTDERR:\n{stderr}");
+
             Err(format!("[{}] `{command_and_args:?}` failed", self.inner.name).into())
         }
     }

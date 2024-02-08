@@ -2,7 +2,8 @@ use core::fmt::Write;
 use std::net::Ipv4Addr;
 
 use crate::container::{Child, Container};
-use crate::zone_file::{Root, DNSKEY};
+use crate::trust_anchor::TrustAnchor;
+use crate::zone_file::Root;
 use crate::Result;
 
 pub struct RecursiveResolver {
@@ -11,7 +12,7 @@ pub struct RecursiveResolver {
 }
 
 impl RecursiveResolver {
-    pub fn start(roots: &[Root], trust_anchors: &[DNSKEY]) -> Result<Self> {
+    pub fn start(roots: &[Root], trust_anchor: &TrustAnchor) -> Result<Self> {
         const TRUST_ANCHOR_FILE: &str = "/etc/trusted-key.key";
 
         let container = Container::run()?;
@@ -23,16 +24,11 @@ impl RecursiveResolver {
 
         container.cp("/etc/unbound/root.hints", &hints)?;
 
-        let use_dnssec = !trust_anchors.is_empty();
+        let use_dnssec = !trust_anchor.is_empty();
         container.cp("/etc/unbound/unbound.conf", &unbound_conf(use_dnssec))?;
 
         if use_dnssec {
-            let trust_anchor = trust_anchors.iter().fold(String::new(), |mut buf, ds| {
-                writeln!(buf, "{ds}").expect("infallible");
-                buf
-            });
-
-            container.cp(TRUST_ANCHOR_FILE, &trust_anchor)?;
+            container.cp(TRUST_ANCHOR_FILE, &trust_anchor.to_string())?;
         }
 
         let child = container.spawn(&["unbound", "-d"])?;
@@ -76,7 +72,7 @@ mod tests {
 
     #[test]
     fn terminate_works() -> Result<()> {
-        let resolver = RecursiveResolver::start(&[], &[])?;
+        let resolver = RecursiveResolver::start(&[], &TrustAnchor::empty())?;
         let logs = resolver.terminate()?;
 
         eprintln!("{logs}");

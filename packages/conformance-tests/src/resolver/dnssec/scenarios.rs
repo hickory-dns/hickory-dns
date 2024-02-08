@@ -4,7 +4,7 @@ use dns_test::client::{Client, Dnssec, Recurse};
 use dns_test::name_server::NameServer;
 use dns_test::record::RecordType;
 use dns_test::zone_file::Root;
-use dns_test::{RecursiveResolver, Result, FQDN};
+use dns_test::{RecursiveResolver, Result, TrustAnchor, FQDN};
 
 // no DS records are involved; this is a single-link chain of trust
 #[test]
@@ -24,7 +24,7 @@ fn can_validate_without_delegation() -> Result<()> {
 
     let roots = &[Root::new(ns.fqdn().clone(), ns.ipv4_addr())];
 
-    let trust_anchor = [root_ksk.clone(), root_zsk.clone()];
+    let trust_anchor = TrustAnchor::from_iter([root_ksk.clone(), root_zsk.clone()]);
     let resolver = RecursiveResolver::start(roots, &trust_anchor)?;
     let resolver_addr = resolver.ipv4_addr();
 
@@ -40,13 +40,16 @@ fn can_validate_without_delegation() -> Result<()> {
     assert!(output.status.is_noerror());
     assert!(output.flags.authenticated_data);
 
+    let output = client.delv(resolver_addr, RecordType::SOA, &FQDN::ROOT, &trust_anchor)?;
+    assert!(output.starts_with("; fully validated"));
+
     Ok(())
 }
 
 #[test]
 fn can_validate_with_delegation() -> Result<()> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
-    let needle = FQDN("example.nameservers.com.")?;
+    let needle_fqdn = FQDN("example.nameservers.com.")?;
 
     let mut root_ns = NameServer::new(FQDN::ROOT)?;
     let mut com_ns = NameServer::new(FQDN::COM)?;
@@ -55,7 +58,7 @@ fn can_validate_with_delegation() -> Result<()> {
     nameservers_ns
         .a(root_ns.fqdn().clone(), root_ns.ipv4_addr())
         .a(com_ns.fqdn().clone(), com_ns.ipv4_addr())
-        .a(needle.clone(), expected_ipv4_addr);
+        .a(needle_fqdn.clone(), expected_ipv4_addr);
     let nameservers_ns = nameservers_ns.sign()?;
     let nameservers_ds = nameservers_ns.ds().clone();
     let nameservers_ns = nameservers_ns.start()?;
@@ -90,19 +93,18 @@ fn can_validate_with_delegation() -> Result<()> {
 
     let roots = &[Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr())];
 
-    let resolver = RecursiveResolver::start(roots, &[root_ksk.clone(), root_zsk.clone()])?;
-    let resolver_ip_addr = resolver.ipv4_addr();
+    let trust_anchor = TrustAnchor::from_iter([root_ksk.clone(), root_zsk.clone()]);
+    let resolver = RecursiveResolver::start(roots, &trust_anchor)?;
+    let resolver_addr = resolver.ipv4_addr();
 
     let client = Client::new()?;
     let output = client.dig(
         Recurse::Yes,
         Dnssec::Yes,
-        resolver_ip_addr,
+        resolver_addr,
         RecordType::A,
-        &needle,
+        &needle_fqdn,
     )?;
-
-    drop(resolver);
 
     assert!(output.status.is_noerror());
 
@@ -111,8 +113,11 @@ fn can_validate_with_delegation() -> Result<()> {
     let [a, _rrsig] = output.answer.try_into().unwrap();
     let a = a.try_into_a().unwrap();
 
-    assert_eq!(needle, a.fqdn);
+    assert_eq!(needle_fqdn, a.fqdn);
     assert_eq!(expected_ipv4_addr, a.ipv4_addr);
+
+    let output = client.delv(resolver_addr, RecordType::A, &needle_fqdn, &trust_anchor)?;
+    assert!(output.starts_with("; fully validated"));
 
     Ok(())
 }

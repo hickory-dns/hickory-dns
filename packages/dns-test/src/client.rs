@@ -3,6 +3,7 @@ use std::net::Ipv4Addr;
 
 use crate::container::Container;
 use crate::record::{Record, RecordType};
+use crate::trust_anchor::TrustAnchor;
 use crate::{Error, Result, FQDN};
 
 pub struct Client {
@@ -16,19 +17,29 @@ impl Client {
         })
     }
 
-    // FIXME this needs to use the same trust anchor as `RecursiveResolver` or validation will fail
     pub fn delv(
         &self,
         server: Ipv4Addr,
         record_type: RecordType,
         fqdn: &FQDN<'_>,
+        trust_anchor: &TrustAnchor,
     ) -> Result<String> {
+        const TRUST_ANCHOR_PATH: &str = "/etc/bind.keys";
+
+        assert!(
+            !trust_anchor.is_empty(),
+            "`delv` cannot be used with an empty trust anchor"
+        );
+
+        self.inner.cp(TRUST_ANCHOR_PATH, &trust_anchor.delv())?;
+
         self.inner.stdout(&[
             "delv",
-            "+mtrace",
             &format!("@{server}"),
-            record_type.as_str(),
+            "-a",
+            TRUST_ANCHOR_PATH,
             fqdn.as_str(),
+            record_type.as_str(),
         ])
     }
 
