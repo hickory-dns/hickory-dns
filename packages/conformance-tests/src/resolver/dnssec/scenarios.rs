@@ -121,3 +121,6 @@ fn can_validate_with_delegation() -> Result<()> {
 
     Ok(())
 }
+
+// TODO nxdomain with NSEC records
+// TODO nxdomain with NSEC3 records

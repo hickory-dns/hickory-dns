@@ -220,12 +220,18 @@ pub enum DigStatus {
     NOERROR,
     NXDOMAIN,
     REFUSED,
+    SERVFAIL,
 }
 
 impl DigStatus {
     #[must_use]
     pub fn is_noerror(&self) -> bool {
         matches!(self, Self::NOERROR)
+    }
+
+    #[must_use]
+    pub fn is_nxdomain(&self) -> bool {
+        matches!(self, Self::NXDOMAIN)
     }
 }
 
@@ -237,6 +243,7 @@ impl FromStr for DigStatus {
             "NXDOMAIN" => Self::NXDOMAIN,
             "NOERROR" => Self::NOERROR,
             "REFUSED" => Self::REFUSED,
+            "SERVFAIL" => Self::SERVFAIL,
             _ => return Err(format!("unknown status: {input}").into()),
         };
 
