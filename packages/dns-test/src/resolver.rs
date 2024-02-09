@@ -6,12 +6,12 @@ use crate::trust_anchor::TrustAnchor;
 use crate::zone_file::Root;
 use crate::{Implementation, Result};
 
-pub struct RecursiveResolver {
+pub struct Resolver {
     container: Container,
     child: Child,
 }
 
-impl RecursiveResolver {
+impl Resolver {
     pub fn start(
         implementation: Implementation,
         roots: &[Root],
@@ -96,8 +96,7 @@ mod tests {
 
     #[test]
     fn terminate_works() -> Result<()> {
-        let resolver =
-            RecursiveResolver::start(Implementation::Unbound, &[], &TrustAnchor::empty())?;
+        let resolver = Resolver::start(Implementation::Unbound, &[], &TrustAnchor::empty())?;
         let logs = resolver.terminate()?;
 
         eprintln!("{logs}");

@@ -4,7 +4,7 @@ use dns_test::client::{Client, Dnssec, Recurse};
 use dns_test::name_server::NameServer;
 use dns_test::record::RecordType;
 use dns_test::zone_file::Root;
-use dns_test::{RecursiveResolver, Result, TrustAnchor, FQDN};
+use dns_test::{Resolver, Result, TrustAnchor, FQDN};
 
 #[test]
 fn can_resolve() -> Result<()> {
@@ -38,7 +38,7 @@ fn can_resolve() -> Result<()> {
     eprintln!("root.zone:\n{}", root_ns.zone_file());
 
     let roots = &[Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr())];
-    let resolver = RecursiveResolver::start(dns_test::subject(), roots, &TrustAnchor::empty())?;
+    let resolver = Resolver::start(dns_test::subject(), roots, &TrustAnchor::empty())?;
     let resolver_ip_addr = resolver.ipv4_addr();
 
     let client = Client::new()?;

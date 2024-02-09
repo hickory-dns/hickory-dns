@@ -4,7 +4,7 @@ use core::fmt;
 use std::sync::Once;
 
 pub use crate::fqdn::FQDN;
-pub use crate::recursive_resolver::RecursiveResolver;
+pub use crate::resolver::Resolver;
 pub use crate::trust_anchor::TrustAnchor;
 
 pub type Error = Box<dyn std::error::Error>;
@@ -15,7 +15,7 @@ mod container;
 mod fqdn;
 pub mod name_server;
 pub mod record;
-mod recursive_resolver;
+mod resolver;
 mod trust_anchor;
 pub mod zone_file;
 
