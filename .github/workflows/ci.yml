@@ -20,11 +20,20 @@ jobs:
           toolchain: stable
           components: clippy, rustfmt
 
+      - name: Run dns-test tests
+        run: cargo test -p dns-test -- --include-ignored
+
       - name: Run tests against unbound
-        run: cargo test --workspace -- --include-ignored
+        run: cargo test -p conformance-tests -- --include-ignored
 
       - name: Run tests against hickory
-        run: DNS_TEST_SUBJECT=hickory cargo test --workspace
+        run: DNS_TEST_SUBJECT=hickory cargo test -p conformance-tests
+
+      - name: Check that ignored tests fail with hickory
+        run: |
+          tmpfile="$(mktemp)"
+          DNS_TEST_SUBJECT=hickory cargo test -p conformance-tests -- --ignored | tee "$tmpfile"
+          grep 'test result: FAILED. 0 passed' "$tmpfile" || ( echo "expected ALL tests to fail but at least one passed; the passing tests must be un-#[ignore]-d" && exit 1 )
 
       - name: Check that code is formatted
         run: cargo fmt --all -- --check
