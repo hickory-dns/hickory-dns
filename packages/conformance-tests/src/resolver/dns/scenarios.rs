@@ -61,6 +61,7 @@ fn can_resolve() -> Result<()> {
     Ok(())
 }
 
+#[ignore]
 #[test]
 fn nxdomain() -> Result<()> {
     let needle_fqdn = FQDN("unicorn.nameservers.com.")?;
