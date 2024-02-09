@@ -1,56 +1,52 @@
 use core::str;
 use std::fs;
 use std::net::Ipv4Addr;
-use std::path::Path;
-use std::process::{self, Child, ExitStatus};
+use std::process::{self, ExitStatus};
 use std::process::{Command, Stdio};
 use std::sync::atomic::AtomicUsize;
-use std::sync::{atomic, Once};
+use std::sync::{atomic, Arc};
 
-use tempfile::NamedTempFile;
+use tempfile::{NamedTempFile, TempDir};
 
-use crate::{Error, Result};
+use crate::{Error, Implementation, Result};
 
 pub struct Container {
-    name: String,
-    id: String,
-    // TODO probably also want the IPv6 address
-    ipv4_addr: Ipv4Addr,
+    inner: Arc<Inner>,
 }
+
+const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
 
 impl Container {
     /// Starts the container in a "parked" state
-    pub fn run() -> Result<Self> {
-        static ONCE: Once = Once::new();
-        static COUNT: AtomicUsize = AtomicUsize::new(0);
+    pub fn run(implementation: Implementation) -> Result<Self> {
+        // TODO make this configurable and support hickory & bind
+        let dockerfile = implementation.dockerfile();
+        let docker_build_dir = TempDir::new()?;
+        let docker_build_dir = docker_build_dir.path();
+        fs::write(docker_build_dir.join("Dockerfile"), dockerfile)?;
 
-        // TODO configurable: hickory; bind
-        let binary = "unbound";
-        let image_tag = format!("dnssec-tests-{binary}");
-
-        let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let dockerfile_path = manifest_dir
-            .join("docker")
-            .join(format!("{binary}.Dockerfile"));
-        let docker_dir_path = manifest_dir.join("docker");
+        let image_tag = format!("{PACKAGE_NAME}-{implementation}");
 
         let mut command = Command::new("docker");
         command
             .args(["build", "-t"])
             .arg(&image_tag)
-            .arg("-f")
-            .arg(dockerfile_path)
-            .arg(docker_dir_path);
+            .arg(docker_build_dir);
 
-        ONCE.call_once(|| {
-            let status = command.status().unwrap();
-            assert!(status.success());
+        implementation.once().call_once(|| {
+            let output = command.output().unwrap();
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert!(
+                output.status.success(),
+                "--- STDOUT ---\n{stdout}\n--- STDERR ---\n{stderr}"
+            );
         });
 
         let mut command = Command::new("docker");
         let pid = process::id();
-        let count = COUNT.fetch_add(1, atomic::Ordering::Relaxed);
-        let name = format!("{binary}-{pid}-{count}");
+        let count = container_count();
+        let name = format!("{PACKAGE_NAME}-{implementation}-{pid}-{count}");
         command
             .args(["run", "--rm", "--detach", "--name", &name])
             .arg("-it")
@@ -62,10 +58,13 @@ impl Container {
 
         let ipv4_addr = get_ipv4_addr(&id)?;
 
-        Ok(Self {
+        let inner = Inner {
             id,
             name,
             ipv4_addr,
+        };
+        Ok(Self {
+            inner: Arc::new(inner),
         })
     }
 
@@ -76,7 +75,7 @@ impl Container {
         fs::write(&mut temp_file, file_contents)?;
 
         let src_path = temp_file.path().display().to_string();
-        let dest_path = format!("{}:{path_in_container}", self.id);
+        let dest_path = format!("{}:{path_in_container}", self.inner.id);
 
         let mut command = Command::new("docker");
         command.args(["cp", &src_path, &dest_path]);
@@ -91,7 +90,7 @@ impl Container {
     pub fn output(&self, command_and_args: &[&str]) -> Result<Output> {
         let mut command = Command::new("docker");
         command
-            .args(["exec", "-t", &self.id])
+            .args(["exec", "-t", &self.inner.id])
             .args(command_and_args);
 
         command.output()?.try_into()
@@ -100,12 +99,18 @@ impl Container {
     /// Similar to `Self::output` but checks `command_and_args` ran successfully and only
     /// returns the stdout
     pub fn stdout(&self, command_and_args: &[&str]) -> Result<String> {
-        let output = self.output(command_and_args)?;
+        let Output {
+            status,
+            stderr,
+            stdout,
+        } = self.output(command_and_args)?;
 
-        if output.status.success() {
-            Ok(output.stdout)
+        if status.success() {
+            Ok(stdout)
         } else {
-            Err(format!("[{}] `{command_and_args:?}` failed", self.name).into())
+            eprintln!("STDOUT:\n{stdout}\nSTDERR:\n{stderr}");
+
+            Err(format!("[{}] `{command_and_args:?}` failed", self.inner.name).into())
         }
     }
 
@@ -113,7 +118,7 @@ impl Container {
     pub fn status(&self, command_and_args: &[&str]) -> Result<ExitStatus> {
         let mut command = Command::new("docker");
         command
-            .args(["exec", "-t", &self.id])
+            .args(["exec", "-t", &self.inner.id])
             .args(command_and_args);
 
         Ok(command.status()?)
@@ -126,19 +131,62 @@ impl Container {
         if status.success() {
             Ok(())
         } else {
-            Err(format!("[{}] `{command_and_args:?}` failed", self.name).into())
+            Err(format!("[{}] `{command_and_args:?}` failed", self.inner.name).into())
         }
     }
 
     pub fn spawn(&self, cmd: &[&str]) -> Result<Child> {
         let mut command = Command::new("docker");
-        command.args(["exec", "-t", &self.id]).args(cmd);
+        command.stdout(Stdio::piped()).stderr(Stdio::piped());
+        command.args(["exec", "-t", &self.inner.id]).args(cmd);
 
-        Ok(command.spawn()?)
+        let inner = command.spawn()?;
+        Ok(Child {
+            inner: Some(inner),
+            _container: self.inner.clone(),
+        })
     }
 
     pub fn ipv4_addr(&self) -> Ipv4Addr {
-        self.ipv4_addr
+        self.inner.ipv4_addr
+    }
+}
+
+fn container_count() -> usize {
+    static COUNT: AtomicUsize = AtomicUsize::new(0);
+
+    COUNT.fetch_add(1, atomic::Ordering::Relaxed)
+}
+
+struct Inner {
+    name: String,
+    id: String,
+    // TODO probably also want the IPv6 address
+    ipv4_addr: Ipv4Addr,
+}
+
+/// NOTE unlike `std::process::Child`, the drop implementation of this type will `kill` the
+/// child process
+// this wrapper over `std::process::Child` stores a reference to the container the child process
+// runs inside of, to prevent the scenario of the container being destroyed _before_
+// the child is killed
+pub struct Child {
+    inner: Option<process::Child>,
+    _container: Arc<Inner>,
+}
+
+impl Child {
+    pub fn wait(mut self) -> Result<Output> {
+        let output = self.inner.take().expect("unreachable").wait_with_output()?;
+        output.try_into()
+    }
+}
+
+impl Drop for Child {
+    fn drop(&mut self) {
+        if let Some(mut inner) = self.inner.take() {
+            let _ = inner.kill();
+        }
     }
 }
 
@@ -200,8 +248,8 @@ fn get_ipv4_addr(container_id: &str) -> Result<Ipv4Addr> {
     Ok(ipv4_addr.parse()?)
 }
 
-// ensure the container gets deleted
-impl Drop for Container {
+// this ensures the container gets deleted and does not linger after the test runner process ends
+impl Drop for Inner {
     fn drop(&mut self) {
         // running this to completion would block the current thread for several seconds so just
         // fire and forget
@@ -219,7 +267,7 @@ mod tests {
 
     #[test]
     fn run_works() -> Result<()> {
-        let container = Container::run()?;
+        let container = Container::run(Implementation::Unbound)?;
 
         let output = container.output(&["true"])?;
         assert!(output.status.success());
@@ -229,7 +277,7 @@ mod tests {
 
     #[test]
     fn ipv4_addr_works() -> Result<()> {
-        let container = Container::run()?;
+        let container = Container::run(Implementation::Unbound)?;
         let ipv4_addr = container.ipv4_addr();
 
         let output = container.output(&["ping", "-c1", &format!("{ipv4_addr}")])?;
@@ -240,7 +288,7 @@ mod tests {
 
     #[test]
     fn cp_works() -> Result<()> {
-        let container = Container::run()?;
+        let container = Container::run(Implementation::Unbound)?;
 
         let path = "/tmp/somefile";
         let contents = "hello";

@@ -3,7 +3,8 @@ use std::net::Ipv4Addr;
 
 use crate::container::Container;
 use crate::record::{Record, RecordType};
-use crate::{Error, Result, FQDN};
+use crate::trust_anchor::TrustAnchor;
+use crate::{Error, Implementation, Result, FQDN};
 
 pub struct Client {
     inner: Container,
@@ -12,23 +13,33 @@ pub struct Client {
 impl Client {
     pub fn new() -> Result<Self> {
         Ok(Self {
-            inner: Container::run()?,
+            inner: Container::run(Implementation::Unbound)?,
         })
     }
 
-    // FIXME this needs to use the same trust anchor as `RecursiveResolver` or validation will fail
     pub fn delv(
         &self,
         server: Ipv4Addr,
         record_type: RecordType,
         fqdn: &FQDN<'_>,
+        trust_anchor: &TrustAnchor,
     ) -> Result<String> {
+        const TRUST_ANCHOR_PATH: &str = "/etc/bind.keys";
+
+        assert!(
+            !trust_anchor.is_empty(),
+            "`delv` cannot be used with an empty trust anchor"
+        );
+
+        self.inner.cp(TRUST_ANCHOR_PATH, &trust_anchor.delv())?;
+
         self.inner.stdout(&[
             "delv",
-            "+mtrace",
             &format!("@{server}"),
-            record_type.as_str(),
+            "-a",
+            TRUST_ANCHOR_PATH,
             fqdn.as_str(),
+            record_type.as_str(),
         ])
     }
 
@@ -209,12 +220,18 @@ pub enum DigStatus {
     NOERROR,
     NXDOMAIN,
     REFUSED,
+    SERVFAIL,
 }
 
 impl DigStatus {
     #[must_use]
     pub fn is_noerror(&self) -> bool {
         matches!(self, Self::NOERROR)
+    }
+
+    #[must_use]
+    pub fn is_nxdomain(&self) -> bool {
+        matches!(self, Self::NXDOMAIN)
     }
 }
 
@@ -226,6 +243,7 @@ impl FromStr for DigStatus {
             "NXDOMAIN" => Self::NXDOMAIN,
             "NOERROR" => Self::NOERROR,
             "REFUSED" => Self::REFUSED,
+            "SERVFAIL" => Self::SERVFAIL,
             _ => return Err(format!("unknown status: {input}").into()),
         };
 

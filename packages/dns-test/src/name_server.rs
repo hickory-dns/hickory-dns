@@ -1,10 +1,9 @@
 use core::sync::atomic::{self, AtomicUsize};
 use std::net::Ipv4Addr;
-use std::process::Child;
 
-use crate::container::Container;
+use crate::container::{Child, Container};
 use crate::zone_file::{self, SoaSettings, ZoneFile, DNSKEY, DS};
-use crate::{Result, FQDN};
+use crate::{Implementation, Result, FQDN};
 
 pub struct NameServer<'a, State> {
     container: Container,
@@ -43,7 +42,7 @@ impl<'a> NameServer<'a, Stopped> {
         });
 
         Ok(Self {
-            container: Container::run()?,
+            container: Container::run(Implementation::Unbound)?,
             zone_file,
             state: Stopped,
         })
@@ -210,6 +209,31 @@ impl<'a> NameServer<'a, Signed> {
     }
 }
 
+impl<'a> NameServer<'a, Running> {
+    /// gracefully terminates the name server collecting all logs
+    pub fn terminate(self) -> Result<String> {
+        let pidfile = "/run/nsd/nsd.pid";
+        // if `terminate` is called right after `start` NSD may not have had the chance to create
+        // the PID file so if it doesn't exist wait for a bit before invoking `kill`
+        let kill = format!(
+            "test -f {pidfile} || sleep 1
+kill -TERM $(cat {pidfile})"
+        );
+        self.container.status_ok(&["sh", "-c", &kill])?;
+        let output = self.state.child.wait()?;
+
+        if !output.status.success() {
+            return Err("could not terminate the `unbound` process".into());
+        }
+
+        assert!(
+            output.stderr.is_empty(),
+            "stderr should be returned if not empty"
+        );
+        Ok(output.stdout)
+    }
+}
+
 impl<'a, S> NameServer<'a, S> {
     pub fn ipv4_addr(&self) -> Ipv4Addr {
         self.container.ipv4_addr()
@@ -240,12 +264,6 @@ pub struct Signed {
 
 pub struct Running {
     child: Child,
-}
-
-impl Drop for Running {
-    fn drop(&mut self) {
-        let _ = self.child.kill();
-    }
 }
 
 fn primary_ns(ns_count: usize) -> FQDN<'static> {
@@ -349,6 +367,16 @@ mod tests {
         assert!(soa.is_soa());
         let rrsig = rrsig.try_into_rrsig().unwrap();
         assert_eq!(RecordType::SOA, rrsig.type_covered);
+
+        Ok(())
+    }
+
+    #[test]
+    fn terminate_works() -> Result<()> {
+        let ns = NameServer::new(FQDN::ROOT)?.start()?;
+        let logs = ns.terminate()?;
+
+        assert!(logs.contains("nsd starting"));
 
         Ok(())
     }

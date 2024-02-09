@@ -165,6 +165,20 @@ impl DNSKEY {
     pub fn key_tag(&self) -> u16 {
         self.key_tag
     }
+
+    /// formats the `DNSKEY` in the format `delv` expects
+    pub(super) fn delv(&self) -> String {
+        let Self {
+            zone,
+            flags,
+            protocol,
+            algorithm,
+            public_key,
+            ..
+        } = self;
+
+        format!("{zone} static-key {flags} {protocol} {algorithm} \"{public_key}\";\n")
+    }
 }
 
 impl FromStr for DNSKEY {
