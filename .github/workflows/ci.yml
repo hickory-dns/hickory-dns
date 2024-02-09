@@ -21,7 +21,7 @@ jobs:
           components: clippy, rustfmt
 
       - name: Run tests against unbound
-        run: cargo test --workspace --include-ignored
+        run: cargo test --workspace -- --include-ignored
 
       - name: Run tests against hickory
         run: DNS_TEST_SUBJECT=hickory cargo test --workspace
