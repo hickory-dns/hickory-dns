@@ -25,7 +25,7 @@ fn can_validate_without_delegation() -> Result<()> {
     let roots = &[Root::new(ns.fqdn().clone(), ns.ipv4_addr())];
 
     let trust_anchor = TrustAnchor::from_iter([root_ksk.clone(), root_zsk.clone()]);
-    let resolver = RecursiveResolver::start(roots, &trust_anchor)?;
+    let resolver = RecursiveResolver::start(dns_test::subject(), roots, &trust_anchor)?;
     let resolver_addr = resolver.ipv4_addr();
 
     let client = Client::new()?;
@@ -94,7 +94,7 @@ fn can_validate_with_delegation() -> Result<()> {
     let roots = &[Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr())];
 
     let trust_anchor = TrustAnchor::from_iter([root_ksk.clone(), root_zsk.clone()]);
-    let resolver = RecursiveResolver::start(roots, &trust_anchor)?;
+    let resolver = RecursiveResolver::start(dns_test::subject(), roots, &trust_anchor)?;
     let resolver_addr = resolver.ipv4_addr();
 
     let client = Client::new()?;

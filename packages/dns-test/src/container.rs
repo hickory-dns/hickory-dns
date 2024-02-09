@@ -8,7 +8,7 @@ use std::sync::{atomic, Arc, Once};
 
 use tempfile::{NamedTempFile, TempDir};
 
-use crate::{Error, Result};
+use crate::{Error, Implementation, Result};
 
 pub struct Container {
     inner: Arc<Inner>,
@@ -18,12 +18,11 @@ const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
 
 impl Container {
     /// Starts the container in a "parked" state
-    pub fn run() -> Result<Self> {
+    pub fn run(implementation: Implementation) -> Result<Self> {
         static ONCE: Once = Once::new();
 
         // TODO make this configurable and support hickory & bind
-        let implementation = "unbound";
-        let dockerfile = include_str!("docker/unbound.Dockerfile");
+        let dockerfile = implementation.dockerfile();
         let docker_build_dir = TempDir::new()?;
         let docker_build_dir = docker_build_dir.path();
         fs::write(docker_build_dir.join("Dockerfile"), dockerfile)?;
@@ -270,7 +269,7 @@ mod tests {
 
     #[test]
     fn run_works() -> Result<()> {
-        let container = Container::run()?;
+        let container = Container::run(Implementation::Unbound)?;
 
         let output = container.output(&["true"])?;
         assert!(output.status.success());
@@ -280,7 +279,7 @@ mod tests {
 
     #[test]
     fn ipv4_addr_works() -> Result<()> {
-        let container = Container::run()?;
+        let container = Container::run(Implementation::Unbound)?;
         let ipv4_addr = container.ipv4_addr();
 
         let output = container.output(&["ping", "-c1", &format!("{ipv4_addr}")])?;
@@ -291,7 +290,7 @@ mod tests {
 
     #[test]
     fn cp_works() -> Result<()> {
-        let container = Container::run()?;
+        let container = Container::run(Implementation::Unbound)?;
 
         let path = "/tmp/somefile";
         let contents = "hello";

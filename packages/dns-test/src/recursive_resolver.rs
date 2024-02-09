@@ -4,7 +4,7 @@ use std::net::Ipv4Addr;
 use crate::container::{Child, Container};
 use crate::trust_anchor::TrustAnchor;
 use crate::zone_file::Root;
-use crate::Result;
+use crate::{Implementation, Result};
 
 pub struct RecursiveResolver {
     container: Container,
@@ -12,10 +12,14 @@ pub struct RecursiveResolver {
 }
 
 impl RecursiveResolver {
-    pub fn start(roots: &[Root], trust_anchor: &TrustAnchor) -> Result<Self> {
+    pub fn start(
+        implementation: Implementation,
+        roots: &[Root],
+        trust_anchor: &TrustAnchor,
+    ) -> Result<Self> {
         const TRUST_ANCHOR_FILE: &str = "/etc/trusted-key.key";
 
-        let container = Container::run()?;
+        let container = Container::run(implementation)?;
 
         let mut hints = String::new();
         for root in roots {
@@ -72,7 +76,8 @@ mod tests {
 
     #[test]
     fn terminate_works() -> Result<()> {
-        let resolver = RecursiveResolver::start(&[], &TrustAnchor::empty())?;
+        let resolver =
+            RecursiveResolver::start(Implementation::Unbound, &[], &TrustAnchor::empty())?;
         let logs = resolver.terminate()?;
 
         eprintln!("{logs}");

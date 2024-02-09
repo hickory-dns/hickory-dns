@@ -38,7 +38,7 @@ fn can_resolve() -> Result<()> {
     eprintln!("root.zone:\n{}", root_ns.zone_file());
 
     let roots = &[Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr())];
-    let resolver = RecursiveResolver::start(roots, &TrustAnchor::empty())?;
+    let resolver = RecursiveResolver::start(dns_test::subject(), roots, &TrustAnchor::empty())?;
     let resolver_ip_addr = resolver.ipv4_addr();
 
     let client = Client::new()?;

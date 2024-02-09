@@ -4,7 +4,7 @@ use std::net::Ipv4Addr;
 use crate::container::Container;
 use crate::record::{Record, RecordType};
 use crate::trust_anchor::TrustAnchor;
-use crate::{Error, Result, FQDN};
+use crate::{Error, Implementation, Result, FQDN};
 
 pub struct Client {
     inner: Container,
@@ -13,7 +13,7 @@ pub struct Client {
 impl Client {
     pub fn new() -> Result<Self> {
         Ok(Self {
-            inner: Container::run()?,
+            inner: Container::run(Implementation::Unbound)?,
         })
     }
 

@@ -3,7 +3,7 @@ use std::net::Ipv4Addr;
 
 use crate::container::{Child, Container};
 use crate::zone_file::{self, SoaSettings, ZoneFile, DNSKEY, DS};
-use crate::{Result, FQDN};
+use crate::{Implementation, Result, FQDN};
 
 pub struct NameServer<'a, State> {
     container: Container,
@@ -42,7 +42,7 @@ impl<'a> NameServer<'a, Stopped> {
         });
 
         Ok(Self {
-            container: Container::run()?,
+            container: Container::run(Implementation::Unbound)?,
             zone_file,
             state: Stopped,
         })
