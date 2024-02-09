@@ -4,7 +4,7 @@ use std::net::Ipv4Addr;
 use std::process::{self, ExitStatus};
 use std::process::{Command, Stdio};
 use std::sync::atomic::AtomicUsize;
-use std::sync::{atomic, Arc, Once};
+use std::sync::{atomic, Arc};
 
 use tempfile::{NamedTempFile, TempDir};
 
@@ -19,8 +19,6 @@ const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
 impl Container {
     /// Starts the container in a "parked" state
     pub fn run(implementation: Implementation) -> Result<Self> {
-        static ONCE: Once = Once::new();
-
         // TODO make this configurable and support hickory & bind
         let dockerfile = implementation.dockerfile();
         let docker_build_dir = TempDir::new()?;
@@ -35,7 +33,7 @@ impl Container {
             .arg(&image_tag)
             .arg(docker_build_dir);
 
-        ONCE.call_once(|| {
+        implementation.once().call_once(|| {
             let output = command.output().unwrap();
             let stdout = String::from_utf8_lossy(&output.stdout);
             let stderr = String::from_utf8_lossy(&output.stderr);

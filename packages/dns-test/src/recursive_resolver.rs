@@ -26,16 +26,32 @@ impl RecursiveResolver {
             writeln!(hints, "{root}").unwrap();
         }
 
-        container.cp("/etc/unbound/root.hints", &hints)?;
-
         let use_dnssec = !trust_anchor.is_empty();
-        container.cp("/etc/unbound/unbound.conf", &unbound_conf(use_dnssec))?;
+        match implementation {
+            Implementation::Unbound => {
+                container.cp("/etc/unbound/root.hints", &hints)?;
+
+                container.cp("/etc/unbound/unbound.conf", &unbound_conf(use_dnssec))?;
+            }
+
+            Implementation::Hickory => {
+                container.status_ok(&["mkdir", "-p", "/etc/hickory"])?;
+
+                container.cp("/etc/hickory/root.hints", &hints)?;
+
+                container.cp("/etc/named.toml", &hickory_conf(use_dnssec))?;
+            }
+        }
 
         if use_dnssec {
             container.cp(TRUST_ANCHOR_FILE, &trust_anchor.to_string())?;
         }
 
-        let child = container.spawn(&["unbound", "-d"])?;
+        let command: &[_] = match implementation {
+            Implementation::Unbound => &["unbound", "-d"],
+            Implementation::Hickory => &["hickory-dns", "-d"],
+        };
+        let child = container.spawn(command)?;
 
         Ok(Self { child, container })
     }
@@ -68,6 +84,10 @@ kill -TERM $(cat {pidfile})"
 
 fn unbound_conf(use_dnssec: bool) -> String {
     minijinja::render!(include_str!("templates/unbound.conf.jinja"), use_dnssec => use_dnssec)
+}
+
+fn hickory_conf(use_dnssec: bool) -> String {
+    minijinja::render!(include_str!("templates/hickory.resolver.toml.jinja"), use_dnssec => use_dnssec)
 }
 
 #[cfg(test)]

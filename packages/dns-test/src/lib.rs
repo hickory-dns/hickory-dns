@@ -1,6 +1,7 @@
 //! A test framework for all things DNS
 
 use core::fmt;
+use std::sync::Once;
 
 pub use crate::fqdn::FQDN;
 pub use crate::recursive_resolver::RecursiveResolver;
@@ -29,6 +30,19 @@ impl Implementation {
         match self {
             Implementation::Unbound => include_str!("docker/unbound.Dockerfile"),
             Implementation::Hickory => include_str!("docker/hickory.Dockerfile"),
+        }
+    }
+
+    fn once(&self) -> &'static Once {
+        match self {
+            Implementation::Unbound => {
+                static UNBOUND_ONCE: Once = Once::new();
+                &UNBOUND_ONCE
+            }
+            Implementation::Hickory => {
+                static HICKORY_ONCE: Once = Once::new();
+                &HICKORY_ONCE
+            }
         }
     }
 }

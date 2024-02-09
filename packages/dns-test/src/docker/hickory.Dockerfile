@@ -4,4 +4,5 @@ RUN apt-get update && \
     apt-get install -y \
         tshark
 
-RUN cargo install hickory-dns --version 0.24.0
+RUN cargo install hickory-dns --version 0.24.0 --features recursor
+env RUST_LOG=debug
