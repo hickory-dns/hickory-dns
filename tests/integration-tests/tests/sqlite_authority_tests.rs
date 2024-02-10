@@ -1073,7 +1073,7 @@ async fn test_journal() {
 }
 
 #[tokio::test]
-#[allow(clippy::blocks_in_if_conditions)]
+#[allow(clippy::blocks_in_conditions)]
 async fn test_recovery() {
     // test that this message can be inserted
     let conn = Connection::open_in_memory().expect("could not create in memory DB");

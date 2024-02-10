@@ -866,7 +866,7 @@ mod test {
 
     #[test]
     #[cfg(feature = "dnssec")] // This tests RFC 6975, a DNSSEC-specific feature.
-    #[allow(clippy::blocks_in_if_conditions)]
+    #[allow(clippy::blocks_in_conditions)]
     fn test_get_filter() {
         use crate::rr::dnssec::rdata::DNSSECRData;
         use crate::rr::dnssec::rdata::RRSIG;

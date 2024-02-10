@@ -176,10 +176,11 @@ impl DnsHandle for BufDnsRequestStreamHandle {
 
         let (request, oneshot) = OneshotDnsRequest::oneshot(request);
         let mut sender = self.sender.clone();
-        try_oneshot!(sender.try_send(request).map_err(|_| {
+        let try_send = sender.try_send(request).map_err(|_| {
             debug!("unable to enqueue message");
             ProtoError::from(ProtoErrorKind::Busy)
-        }));
+        });
+        try_oneshot!(try_send);
 
         DnsResponseReceiver::Receiver(oneshot)
     }
