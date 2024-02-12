@@ -335,6 +335,7 @@ impl SqliteAuthority {
                                     )
                                     .await
                                     .unwrap_or_default()
+                                    .unwrap_or_default()
                                     .was_empty()
                                 {
                                     return Err(ResponseCode::NXDomain);
@@ -347,6 +348,7 @@ impl SqliteAuthority {
                                 if self
                                     .lookup(&required_name, rrset, LookupOptions::default())
                                     .await
+                                    .unwrap_or_default()
                                     .unwrap_or_default()
                                     .was_empty()
                                 {
@@ -373,6 +375,7 @@ impl SqliteAuthority {
                                     )
                                     .await
                                     .unwrap_or_default()
+                                    .unwrap_or_default()
                                     .was_empty()
                                 {
                                     return Err(ResponseCode::YXDomain);
@@ -385,6 +388,7 @@ impl SqliteAuthority {
                                 if !self
                                     .lookup(&required_name, rrset, LookupOptions::default())
                                     .await
+                                    .unwrap_or_default()
                                     .unwrap_or_default()
                                     .was_empty()
                                 {
@@ -408,6 +412,7 @@ impl SqliteAuthority {
                             LookupOptions::default(),
                         )
                         .await
+                        .unwrap_or_default()
                         .unwrap_or_default()
                         .iter()
                         .any(|rr| rr == require)
@@ -488,7 +493,7 @@ impl SqliteAuthority {
                     .await;
 
                 let keys = match keys {
-                    Ok(keys) => keys,
+                    Ok(keys) => keys.unwrap_or_default(),
                     Err(_) => continue, // error trying to lookup a key by that name, try the next one.
                 };
 
@@ -957,7 +962,7 @@ impl Authority for SqliteAuthority {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> Result<Option<Self::Lookup>, LookupError> {
         self.in_memory.lookup(name, rtype, lookup_options).await
     }
 
@@ -965,7 +970,7 @@ impl Authority for SqliteAuthority {
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> Result<Option<Self::Lookup>, LookupError> {
         self.in_memory.search(request_info, lookup_options).await
     }
 

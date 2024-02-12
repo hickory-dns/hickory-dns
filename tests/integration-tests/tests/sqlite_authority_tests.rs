@@ -47,6 +47,7 @@ async fn test_search() {
     let result = example
         .search(request_info, LookupOptions::default())
         .await
+        .unwrap()
         .unwrap();
     if !result.is_empty() {
         let record = result.iter().next().unwrap();
@@ -77,6 +78,7 @@ async fn test_search_www() {
     let result = example
         .search(request_info, LookupOptions::default())
         .await
+        .unwrap()
         .unwrap();
     if !result.is_empty() {
         let record = result.iter().next().unwrap();
@@ -107,6 +109,7 @@ async fn test_authority() {
     assert!(!authority
         .lookup(authority.origin(), RecordType::NS, LookupOptions::default())
         .await
+        .unwrap()
         .unwrap()
         .was_empty());
 
@@ -156,6 +159,7 @@ async fn test_authority() {
         )
         .await
         .unwrap()
+        .unwrap()
         .was_empty());
 
     let mut lookup: Vec<_> = authority
@@ -165,6 +169,7 @@ async fn test_authority() {
             LookupOptions::default(),
         )
         .await
+        .unwrap()
         .unwrap()
         .iter()
         .cloned()
@@ -190,6 +195,7 @@ async fn test_authority() {
         *authority
             .lookup(authority.origin(), RecordType::A, LookupOptions::default())
             .await
+            .unwrap()
             .unwrap()
             .iter()
             .next()
@@ -690,6 +696,7 @@ async fn test_update() {
             )
             .await
             .unwrap()
+            .unwrap()
             .iter()
             .cloned()
             .collect();
@@ -705,6 +712,7 @@ async fn test_update() {
                 LookupOptions::default()
             )
             .await
+            .unwrap()
             .unwrap()
             .was_empty());
     }
@@ -730,6 +738,7 @@ async fn test_update() {
                 LookupOptions::default()
             )
             .await
+            .unwrap()
             .unwrap()
             .iter()
             .collect::<Vec<_>>(),
@@ -758,6 +767,7 @@ async fn test_update() {
                 LookupOptions::default(),
             )
             .await
+            .unwrap()
             .unwrap()
             .iter()
             .cloned()
@@ -788,6 +798,7 @@ async fn test_update() {
         let lookup = authority
             .lookup(&new_name.into(), RecordType::ANY, LookupOptions::default())
             .await
+            .unwrap()
             .unwrap();
 
         println!("after delete of specific record: {lookup:?}");
@@ -815,6 +826,7 @@ async fn test_update() {
                 LookupOptions::default(),
             )
             .await
+            .unwrap()
             .unwrap()
             .iter()
             .cloned()
@@ -867,6 +879,7 @@ async fn test_update() {
             )
             .await
             .unwrap()
+            .unwrap()
             .iter()
             .cloned()
             .collect();
@@ -895,6 +908,7 @@ async fn test_update() {
         .lookup(&www_name.into(), RecordType::ANY, LookupOptions::default())
         .await
         .unwrap()
+        .unwrap()
         .was_empty());
 
     assert_eq!(serial + 6, authority.serial().await);
@@ -915,6 +929,7 @@ async fn test_zone_signing() {
             LookupOptions::for_dnssec(true, SupportedAlgorithms::all()),
         )
         .await
+        .unwrap()
         .unwrap();
 
     assert!(
@@ -931,6 +946,7 @@ async fn test_zone_signing() {
             LookupOptions::for_dnssec(true, SupportedAlgorithms::all()),
         )
         .await
+        .unwrap()
         .unwrap();
 
     for record in &results {
@@ -948,6 +964,7 @@ async fn test_zone_signing() {
                 LookupOptions::for_dnssec(true, SupportedAlgorithms::all()),
             )
             .await
+            .unwrap()
             .unwrap();
 
         // validate all records have associated RRSIGs after signing
@@ -1027,6 +1044,7 @@ async fn test_journal() {
         )
         .await
         .unwrap()
+        .unwrap()
         .iter()
         .cloned()
         .collect();
@@ -1036,6 +1054,7 @@ async fn test_journal() {
     let delete_rrset = authority
         .lookup(&lower_delete_name, RecordType::A, LookupOptions::default())
         .await
+        .unwrap()
         .unwrap();
     assert!(delete_rrset.was_empty());
 
@@ -1060,6 +1079,7 @@ async fn test_journal() {
         .lookup(&new_name.into(), RecordType::A, LookupOptions::default())
         .await
         .unwrap()
+        .unwrap()
         .iter()
         .cloned()
         .collect();
@@ -1068,6 +1088,7 @@ async fn test_journal() {
     let delete_rrset = authority
         .lookup(&lower_delete_name, RecordType::A, LookupOptions::default())
         .await
+        .unwrap()
         .unwrap();
     assert!(delete_rrset.was_empty());
 }
@@ -1162,6 +1183,7 @@ async fn test_axfr() {
     let result = authority
         .search(request_info, LookupOptions::default())
         .await
+        .unwrap()
         .unwrap();
 
     // just update this if the count goes up in the authority

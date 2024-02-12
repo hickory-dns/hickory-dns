@@ -36,6 +36,7 @@ pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DN
         request_info,
         LookupOptions::for_dnssec(true, SupportedAlgorithms::new()),
     ))
+    .unwrap()
     .unwrap();
 
     let (a_records, other_records): (Vec<_>, Vec<_>) = lookup
@@ -139,6 +140,7 @@ pub fn test_aname_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: 
         request_info,
         LookupOptions::for_dnssec(true, SupportedAlgorithms::new()),
     ))
+    .unwrap()
     .unwrap();
 
     let (a_records, other_records): (Vec<_>, Vec<_>) = lookup
@@ -173,7 +175,8 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DN
         request_info,
         LookupOptions::for_dnssec(true, SupportedAlgorithms::new()),
     ))
-    .expect("lookup of www.wildcard.example.com. failed");
+    .expect("lookup of www.wildcard.example.com. failed")
+    .unwrap();
 
     let (cname_records, other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
@@ -340,6 +343,7 @@ pub fn test_rfc_6975_supported_algorithms<A: Authority<Lookup = AuthLookup>>(
             request_info,
             LookupOptions::for_dnssec(true, SupportedAlgorithms::from(key.algorithm())),
         ))
+        .unwrap()
         .unwrap();
 
         let (a_records, other_records): (Vec<_>, Vec<_>) = lookup

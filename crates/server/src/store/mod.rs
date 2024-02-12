@@ -7,6 +7,7 @@
 
 //! All persistent store implementations
 
+pub mod blocklist;
 mod config;
 pub mod file;
 pub mod forwarder;
@@ -19,3 +20,4 @@ pub mod sqlite;
 // TODO: add a dynamic library option?
 
 pub use self::config::StoreConfig;
+pub use self::config::StoreConfigContainer;

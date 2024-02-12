@@ -156,7 +156,7 @@ impl Authority for FileAuthority {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> Result<Option<Self::Lookup>, LookupError> {
         self.0.lookup(name, rtype, lookup_options).await
     }
 
@@ -175,7 +175,7 @@ impl Authority for FileAuthority {
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> Result<Option<Self::Lookup>, LookupError> {
         self.0.search(request_info, lookup_options).await
     }
 
@@ -272,6 +272,7 @@ mod tests {
         .expect("lookup failed");
 
         match lookup
+            .expect("Lookup returned None")
             .into_iter()
             .next()
             .expect("A record not found in authority")
@@ -290,6 +291,7 @@ mod tests {
         .expect("INCLUDE lookup failed");
 
         match include_lookup
+            .expect("Lookup returned None")
             .into_iter()
             .next()
             .expect("A record not found in authority")

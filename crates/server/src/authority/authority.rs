@@ -129,7 +129,7 @@ pub trait Authority: Send + Sync {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError>;
+    ) -> Result<Option<Self::Lookup>, LookupError>;
 
     /// Using the specified query, perform a lookup against this zone.
     ///
@@ -146,12 +146,17 @@ pub trait Authority: Send + Sync {
         &self,
         request: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError>;
+    ) -> Result<Option<Self::Lookup>, LookupError>;
 
     /// Get the NS, NameServer, record for the zone
     async fn ns(&self, lookup_options: LookupOptions) -> Result<Self::Lookup, LookupError> {
-        self.lookup(self.origin(), RecordType::NS, lookup_options)
-            .await
+        let lookup = self
+            .lookup(self.origin(), RecordType::NS, lookup_options)
+            .await;
+        match lookup {
+            Ok(lookup) => Ok(lookup.expect("")),
+            Err(e) => Err(e),
+        }
     }
 
     /// Return the NSEC records based on the given name
@@ -173,14 +178,26 @@ pub trait Authority: Send + Sync {
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
     async fn soa(&self) -> Result<Self::Lookup, LookupError> {
         // SOA should be origin|SOA
-        self.lookup(self.origin(), RecordType::SOA, LookupOptions::default())
-            .await
+        let lookup = self
+            .lookup(self.origin(), RecordType::SOA, LookupOptions::default())
+            .await;
+
+        match lookup {
+            Ok(lookup) => Ok(lookup.expect("")),
+            Err(e) => Err(e),
+        }
     }
 
     /// Returns the SOA record for the zone
     async fn soa_secure(&self, lookup_options: LookupOptions) -> Result<Self::Lookup, LookupError> {
-        self.lookup(self.origin(), RecordType::SOA, lookup_options)
-            .await
+        let lookup = self
+            .lookup(self.origin(), RecordType::SOA, lookup_options)
+            .await;
+
+        match lookup {
+            Ok(lookup) => Ok(lookup.expect("")),
+            Err(e) => Err(e),
+        }
     }
 }
 

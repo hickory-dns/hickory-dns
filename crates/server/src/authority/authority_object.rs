@@ -54,7 +54,7 @@ pub trait AuthorityObject: Send + Sync {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> Result<Box<dyn LookupObject>, LookupError>;
+    ) -> Result<Option<Box<dyn LookupObject>>, LookupError>;
 
     /// Using the specified query, perform a lookup against this zone.
     ///
@@ -71,13 +71,13 @@ pub trait AuthorityObject: Send + Sync {
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> Result<Box<dyn LookupObject>, LookupError>;
+    ) -> Result<Option<Box<dyn LookupObject>>, LookupError>;
 
     /// Get the NS, NameServer, record for the zone
     async fn ns(
         &self,
         lookup_options: LookupOptions,
-    ) -> Result<Box<dyn LookupObject>, LookupError> {
+    ) -> Result<Option<Box<dyn LookupObject>>, LookupError> {
         self.lookup(self.origin(), RecordType::NS, lookup_options)
             .await
     }
@@ -99,7 +99,7 @@ pub trait AuthorityObject: Send + Sync {
     ///
     /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    async fn soa(&self) -> Result<Box<dyn LookupObject>, LookupError> {
+    async fn soa(&self) -> Result<Option<Box<dyn LookupObject>>, LookupError> {
         // SOA should be origin|SOA
         self.lookup(self.origin(), RecordType::SOA, LookupOptions::default())
             .await
@@ -109,7 +109,7 @@ pub trait AuthorityObject: Send + Sync {
     async fn soa_secure(
         &self,
         lookup_options: LookupOptions,
-    ) -> Result<Box<dyn LookupObject>, LookupError> {
+    ) -> Result<Option<Box<dyn LookupObject>>, LookupError> {
         self.lookup(self.origin(), RecordType::SOA, lookup_options)
             .await
     }
@@ -164,10 +164,17 @@ where
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> Result<Box<dyn LookupObject>, LookupError> {
+    ) -> Result<Option<Box<dyn LookupObject>>, LookupError> {
         let this = self.as_ref();
         let lookup = Authority::lookup(this, name, rtype, lookup_options).await;
-        lookup.map(|l| Box::new(l) as Box<dyn LookupObject>)
+
+        match lookup {
+            Ok(res_l) => match res_l {
+                Some(l) => Ok(Some(Box::new(l))),
+                None => Ok(None),
+            },
+            Err(e) => Err(e),
+        }
     }
 
     /// Using the specified query, perform a lookup against this zone.
@@ -185,11 +192,18 @@ where
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> Result<Box<dyn LookupObject>, LookupError> {
+    ) -> Result<Option<Box<dyn LookupObject>>, LookupError> {
         let this = self.as_ref();
         debug!("performing {} on {}", request_info.query, this.origin());
         let lookup = Authority::search(this, request_info, lookup_options).await;
-        lookup.map(|l| Box::new(l) as Box<dyn LookupObject>)
+
+        match lookup {
+            Ok(lookup) => match lookup {
+                Some(lookup) => Ok(Some(Box::new(lookup))),
+                None => Ok(None),
+            },
+            Err(e) => Err(e),
+        }
     }
 
     /// Return the NSEC records based on the given name

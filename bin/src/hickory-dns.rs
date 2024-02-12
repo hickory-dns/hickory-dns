@@ -62,6 +62,8 @@ use hickory_client::rr::Name;
 use hickory_server::store::blocklist::BlockListAuthority;
 #[cfg(feature = "dns-over-tls")]
 use hickory_server::config::dnssec::{self, TlsCertConfig};
+#[cfg(feature = "blocklist")]
+use hickory_server::store::blocklist::BlocklistAuthority;
 #[cfg(feature = "resolver")]
 use hickory_server::store::forwarder::ForwardAuthority;
 #[cfg(feature = "recursor")]
@@ -74,7 +76,7 @@ use hickory_server::{
     server::ServerFuture,
     store::{
         file::{FileAuthority, FileConfig},
-        StoreConfig,
+        StoreConfig, StoreConfigContainer,
     },
 };
 
@@ -161,19 +163,25 @@ async fn load_zone(
     }
 
     let mut normalized_stores = vec![];
-    if let Some(StoreConfig::Single(store)) = &zone_config.stores {
+    if let Some(StoreConfigContainer::Single(store)) = &zone_config.stores {
         normalized_stores.push(store);
-    } else if let Some(StoreConfig::Chained(chained_stores)) = &zone_config.stores {
+    } else if let Some(StoreConfigContainer::Chained(chained_stores)) = &zone_config.stores {
         for store in chained_stores {
             normalized_stores.push(store);
         }
     } else {
-        normalized_stores.push(&StoreConfigElement::Default);
-        debug!("No stores specified for {}, using default config processing", zone_name.clone());
+        normalized_stores.push(&StoreConfig::Default);
+        debug!(
+            "No stores specified for {}, using default config processing",
+            zone_name.clone()
+        );
     }
 
     // Load the zone and build a vector of associated authorities to load in the catalog.
-    debug!("Loading authorities for {} with stores {:?}", &zone_name, &normalized_stores);
+    debug!(
+        "Loading authorities for {} with stores {:?}",
+        &zone_name, &normalized_stores
+    );
     let mut authorities: Vec<Box<dyn AuthorityObject>> = vec![];
     for store in normalized_stores {
         let authority: Box<dyn AuthorityObject> = match store {

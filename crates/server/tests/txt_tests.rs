@@ -99,6 +99,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         LookupOptions::default(),
     ))
     .unwrap()
+    .unwrap()
     .iter()
     .next()
     .cloned()
@@ -129,6 +130,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         RecordType::NS,
         LookupOptions::default(),
     ))
+    .unwrap()
     .unwrap()
     .iter()
     .cloned()
@@ -163,6 +165,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         LookupOptions::default(),
     ))
     .unwrap()
+    .unwrap()
     .iter()
     .cloned()
     .collect();
@@ -195,6 +198,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         LookupOptions::default(),
     ))
     .unwrap()
+    .unwrap()
     .iter()
     .next()
     .cloned()
@@ -216,6 +220,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         LookupOptions::default(),
     ))
     .unwrap()
+    .unwrap()
     .iter()
     .next()
     .cloned()
@@ -233,6 +238,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         RecordType::A,
         LookupOptions::default(),
     ))
+    .unwrap()
     .unwrap()
     .iter()
     .next()
@@ -255,6 +261,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         RecordType::TXT,
         LookupOptions::default(),
     ))
+    .unwrap()
     .unwrap()
     .iter()
     .cloned()
@@ -300,6 +307,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         LookupOptions::default(),
     ))
     .unwrap()
+    .unwrap()
     .iter()
     .next()
     .cloned()
@@ -316,6 +324,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         RecordType::SRV,
         LookupOptions::default(),
     ))
+    .unwrap()
     .unwrap()
     .iter()
     .next()
@@ -337,6 +346,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         LookupOptions::default(),
     ))
     .unwrap()
+    .unwrap()
     .iter()
     .next()
     .cloned()
@@ -357,6 +367,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         RecordType::CAA,
         LookupOptions::default(),
     ))
+    .unwrap()
     .unwrap()
     .iter()
     .next()
@@ -380,6 +391,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
             LookupOptions::default(),
         ),
     )
+    .unwrap()
     .unwrap()
     .iter()
     .next()

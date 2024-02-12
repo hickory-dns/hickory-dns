@@ -1008,7 +1008,7 @@ impl Authority for InMemoryAuthority {
         name: &LowerName,
         query_type: RecordType,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> Result<Option<Self::Lookup>, LookupError> {
         let inner = self.inner.read().await;
 
         // Collect the records from each rr_set
@@ -1164,14 +1164,14 @@ impl Authority for InMemoryAuthority {
             o => o,
         };
 
-        result.map(|answers| AuthLookup::answers(answers, additionals))
+        result.map(|answers| Some(AuthLookup::answers(answers, additionals)))
     }
 
     async fn search(
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> Result<Option<Self::Lookup>, LookupError> {
         debug!("searching InMemoryAuthority for: {}", request_info.query);
 
         let lookup_name = request_info.query.name();
@@ -1211,12 +1211,13 @@ impl Authority for InMemoryAuthority {
                     l @ AuthLookup::Empty => l,
                     start_soa => AuthLookup::AXFR {
                         start_soa: start_soa.unwrap_records(),
-                        records: records.unwrap_records(),
+                        records: records.expect("").unwrap_records(),
                         end_soa: end_soa.unwrap_records(),
                     },
                 });
 
-                lookup.await
+                let l = lookup.await;
+                l.map(Some)
             }
             // A standard Lookup path
             _ => self.lookup(lookup_name, record_type, lookup_options).await,

@@ -549,7 +549,7 @@ async fn build_response(
 }
 
 async fn send_authoritative_response(
-    response: impl Future<Output = Result<Box<dyn LookupObject>, LookupError>>,
+    future: Result<Option<Box<dyn LookupObject>>, LookupError>,
     authority: &dyn AuthorityObject,
     response_header: &mut Header,
     lookup_options: LookupOptions,
@@ -593,7 +593,7 @@ async fn send_authoritative_response(
             // This was a successful authoritative lookup for SOA:
             //   get the NS records as well.
             match authority.ns(lookup_options).await {
-                Ok(ns) => (Some(ns), None),
+                Ok(ns) => (ns, None),
                 Err(e) => {
                     warn!("ns_lookup errored: {}", e);
                     (None, None)
@@ -631,10 +631,16 @@ async fn send_authoritative_response(
 
     // everything is done, return results.
     let (answers, additionals) = match answers {
-        Some(mut answers) => match answers.take_additionals() {
-            Some(additionals) => (answers, additionals),
+        Some(answers) => match answers {
+            Some(mut answers) => match answers.take_additionals() {
+                Some(additionals) => (answers, additionals),
+                None => (
+                    answers,
+                    Box::<AuthLookup>::default() as Box<dyn LookupObject>,
+                ),
+            },
             None => (
-                answers,
+                Box::<AuthLookup>::default() as Box<dyn LookupObject>,
                 Box::<AuthLookup>::default() as Box<dyn LookupObject>,
             ),
         },
@@ -647,13 +653,15 @@ async fn send_authoritative_response(
     LookupSections {
         answers,
         ns: ns.unwrap_or_else(|| Box::<AuthLookup>::default()),
-        soa: soa.unwrap_or_else(|| Box::<AuthLookup>::default()),
+        soa: soa
+            .unwrap_or_else(|| Some(Box::<AuthLookup>::default()))
+            .expect(""),
         additionals,
     }
 }
 
 async fn send_forwarded_response(
-    response: impl Future<Output = Result<Box<dyn LookupObject>, LookupError>>,
+    future: Result<Option<Box<dyn LookupObject>>, LookupError>,
     request_header: &Header,
     response_header: &mut Header,
 ) -> LookupSections {
@@ -677,7 +685,10 @@ async fn send_forwarded_response(
                 debug!("error resolving: {}", e);
                 Box::new(EmptyLookup)
             }
-            Ok(rsp) => rsp,
+            Ok(rsp) => match rsp {
+                Some(rsp) => rsp,
+                None => Box::new(EmptyLookup),
+            },
         }
     };
 

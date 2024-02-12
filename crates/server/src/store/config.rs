@@ -10,7 +10,7 @@
 use serde::Deserialize;
 
 #[cfg(feature = "blocklist")]
-use crate::store::blocklist::BlockListConfig;
+use crate::store::blocklist::BlocklistConfig;
 use crate::store::file::FileConfig;
 #[cfg(feature = "hickory-resolver")]
 use crate::store::forwarder::ForwardConfig;
@@ -20,6 +20,21 @@ use crate::store::recursor::RecursiveConfig;
 use crate::store::sqlite::SqliteConfig;
 
 /// Enumeration over all Store configurations
+/// This is the outer container enum, covering the single- and chained-store variants.
+/// The chained store variant is a vector of StoreConfigs that should be consulted in-order during the lookup process.
+/// An example of this (currently the only example,) is when the blocklist feature is used: the blocklist should be queried first, then
+/// a recursor or forwarder second if the blocklist authority does not match on the query.
+#[derive(Deserialize, PartialEq, Eq, Debug)]
+#[serde(untagged)]
+#[non_exhaustive]
+pub enum StoreConfigContainer {
+    /// For a zone with a single store
+    Single(StoreConfig),
+    /// For a zone with multiple stores.  E.g., a recursive or forwarding zone with block lists.
+    Chained(Vec<StoreConfig>),
+}
+
+/// Enumeration over all store types.
 #[derive(Deserialize, PartialEq, Eq, Debug)]
 #[serde(tag = "type")]
 #[serde(rename_all = "lowercase")]
@@ -41,7 +56,7 @@ pub enum StoreConfig {
     Recursor(RecursiveConfig),
     /// Blocklist Resolver
     #[cfg(feature = "blocklist")]
-    BlockList(BlockListConfig),
+    Blocklist(BlocklistConfig),
     /// This is used by the configuration processing code to represent a deprecated or main-block config without an associated store.
     Default,
 }
