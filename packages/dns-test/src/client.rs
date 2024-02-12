@@ -17,6 +17,10 @@ impl Client {
         })
     }
 
+    pub fn ipv4_addr(&self) -> Ipv4Addr {
+        self.inner.ipv4_addr()
+    }
+
     pub fn delv(
         &self,
         server: Ipv4Addr,

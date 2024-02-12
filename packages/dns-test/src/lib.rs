@@ -18,6 +18,7 @@ pub mod name_server;
 pub mod record;
 mod resolver;
 mod trust_anchor;
+pub mod tshark;
 pub mod zone_file;
 
 #[derive(Clone, Copy)]

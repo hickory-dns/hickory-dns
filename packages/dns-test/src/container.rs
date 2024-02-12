@@ -3,17 +3,17 @@ mod network;
 use core::str;
 use std::fs;
 use std::net::Ipv4Addr;
-use std::process::{self, ExitStatus};
+use std::process::{self, ChildStdout, ExitStatus};
 use std::process::{Command, Stdio};
 use std::sync::atomic::AtomicUsize;
 use std::sync::{atomic, Arc};
 
 use tempfile::{NamedTempFile, TempDir};
 
+pub use crate::container::network::Network;
 use crate::{Error, Implementation, Result};
 
-pub use crate::container::network::Network;
-
+#[derive(Clone)]
 pub struct Container {
     inner: Arc<Inner>,
 }
@@ -52,9 +52,18 @@ impl Container {
         let count = container_count();
         let name = format!("{PACKAGE_NAME}-{implementation}-{pid}-{count}");
         command
-            .args(["run", "--rm", "--detach", "--name", &name])
-            .arg("-it")
-            .args(["--network", network.name()])
+            .args([
+                "run",
+                "--rm",
+                "--detach",
+                "--cap-add=NET_RAW",
+                "--cap-add=NET_ADMIN",
+                "--network",
+                network.name(),
+                "--name",
+                &name,
+                "-it",
+            ])
             .arg(image_tag)
             .args(["sleep", "infinity"]);
 
@@ -187,6 +196,17 @@ pub struct Child {
 }
 
 impl Child {
+    /// Returns a handle to the child's stdout
+    ///
+    /// This method will succeed at most once
+    pub fn stdout(&mut self) -> Result<ChildStdout> {
+        Ok(self
+            .inner
+            .as_mut()
+            .and_then(|child| child.stdout.take())
+            .ok_or("could not retrieve child's stdout")?)
+    }
+
     pub fn wait(mut self) -> Result<Output> {
         let output = self.inner.take().expect("unreachable").wait_with_output()?;
         output.try_into()
