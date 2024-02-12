@@ -237,6 +237,11 @@ impl DigStatus {
     pub fn is_nxdomain(&self) -> bool {
         matches!(self, Self::NXDOMAIN)
     }
+
+    #[must_use]
+    pub fn is_servfail(&self) -> bool {
+        matches!(self, Self::SERVFAIL)
+    }
 }
 
 impl FromStr for DigStatus {
