@@ -348,7 +348,7 @@ impl Catalog {
         response_handle: R,
     ) -> ResponseInfo {
         let request_info = request.request_info();
-        let authority = self.find(request_info.query.name());
+        let authorities = self.find(request_info.query.name());
 
         if let Some(authorities) = authorities {
             for authority in authorities {

@@ -58,8 +58,6 @@ use tracing_subscriber::{
 };
 
 use hickory_client::rr::Name;
-#[cfg(feature = "blocklist")]
-use hickory_server::store::blocklist::BlockListAuthority;
 #[cfg(feature = "dns-over-tls")]
 use hickory_server::config::dnssec::{self, TlsCertConfig};
 #[cfg(feature = "blocklist")]
@@ -147,7 +145,7 @@ async fn load_keys<T>(
 async fn load_zone(
     zone_dir: &Path,
     zone_config: &ZoneConfig,
-) -> Result<Box<dyn AuthorityObject>, String> {
+) -> Result<Vec<Box<dyn AuthorityObject>>, String> {
     debug!("loading zone with config: {:#?}", zone_config);
 
     let zone_name: Name = zone_config.get_zone().expect("bad zone name");

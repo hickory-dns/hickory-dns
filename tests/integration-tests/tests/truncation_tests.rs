@@ -104,7 +104,7 @@ pub fn new_large_catalog(num_records: u32) -> Catalog {
         InMemoryAuthority::new(Name::root(), records, ZoneType::Primary, false).unwrap();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(Name::root().into(), Box::new(Arc::new(authority)));
+    catalog.upsert(Name::root().into(), vec![Box::new(Arc::new(authority))]);
     catalog
 }
 
