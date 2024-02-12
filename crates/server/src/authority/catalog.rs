@@ -549,7 +549,7 @@ async fn build_response(
 }
 
 async fn send_authoritative_response(
-    future: Result<Option<Box<dyn LookupObject>>, LookupError>,
+    response: Result<Option<Box<dyn LookupObject>>, LookupError>,
     authority: &dyn AuthorityObject,
     response_header: &mut Header,
     lookup_options: LookupOptions,
@@ -560,7 +560,7 @@ async fn send_authoritative_response(
     // NS records, which indicate an authoritative response.
     //
     // On Errors, the transition depends on the type of error.
-    let answers = match response.await {
+    let answers = match response {
         Ok(records) => {
             response_header.set_response_code(ResponseCode::NoError);
             response_header.set_authoritative(true);
@@ -661,7 +661,7 @@ async fn send_authoritative_response(
 }
 
 async fn send_forwarded_response(
-    future: Result<Option<Box<dyn LookupObject>>, LookupError>,
+    response: Result<Option<Box<dyn LookupObject>>, LookupError>,
     request_header: &Header,
     response_header: &mut Header,
 ) -> LookupSections {
@@ -677,7 +677,7 @@ async fn send_forwarded_response(
 
         Box::new(EmptyLookup)
     } else {
-        match response.await {
+        match response {
             Err(e) => {
                 if e.is_nx_domain() {
                     response_header.set_response_code(ResponseCode::NXDomain);
