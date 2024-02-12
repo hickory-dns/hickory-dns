@@ -87,7 +87,7 @@ impl Tshark {
         Err("unexpected EOF".into())
     }
 
-    pub fn terminate(self) -> Result<Vec<Message>> {
+    pub fn terminate(self) -> Result<Vec<Capture>> {
         let pidfile = pid_file(self.id);
         let kill = format!("test -f {pidfile} || sleep 1; kill $(cat {pidfile})");
 
@@ -127,8 +127,8 @@ impl Tshark {
                 );
             };
 
-            messages.push(Message {
-                contents: dns,
+            messages.push(Capture {
+                message: Message { inner: dns },
                 direction,
             });
         }
@@ -138,10 +138,56 @@ impl Tshark {
 }
 
 #[derive(Debug)]
+pub struct Capture {
+    pub message: Message,
+    pub direction: Direction,
+}
+
+#[derive(Debug)]
 pub struct Message {
     // TODO this should be more "cooked", i.e. be deserialized into a `struct`
-    pub contents: serde_json::Value,
-    pub direction: Direction,
+    inner: serde_json::Value,
+}
+
+impl Message {
+    /// Returns `true` if the DO bit is set
+    ///
+    /// Returns `None` if there's no OPT pseudo-RR
+    pub fn is_do_bit_set(&self) -> Option<bool> {
+        let do_bit = match self
+            .opt_record()?
+            .get("dns.resp.z_tree")?
+            .get("dns.resp.z.do")?
+            .as_str()?
+        {
+            "1" => true,
+            "0" => false,
+            _ => return None,
+        };
+
+        Some(do_bit)
+    }
+
+    /// Returns the "sender's UDP payload size" field in the OPT pseudo-RR
+    ///
+    /// Returns `None` if there's no OPT record present
+    pub fn udp_payload_size(&self) -> Option<u16> {
+        self.opt_record()?
+            .get("dns.rr.udp_payload_size")?
+            .as_str()?
+            .parse()
+            .ok()
+    }
+
+    fn opt_record(&self) -> Option<&serde_json::Value> {
+        for (key, value) in self.inner.get("Additional records")?.as_object()? {
+            if key.ends_with(": type OPT") {
+                return Some(value);
+            }
+        }
+
+        None
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
