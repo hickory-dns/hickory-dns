@@ -24,7 +24,7 @@ impl Network {
         let mut command = Command::new("docker");
         command
             .args(["network", "create"])
-            .args(["--internal"])
+            .args(["--internal", "--attachable"])
             .arg(&network_name);
 
         // create network
@@ -48,6 +48,11 @@ impl Network {
     /// Returns the name of the network.
     pub fn name(&self) -> &str {
         self.name.as_str()
+    }
+
+    /// Returns the subnet mask
+    pub fn netmask(&self) -> &str {
+        &self.config.subnet
     }
 }
 
@@ -85,13 +90,55 @@ impl Drop for Network {
     }
 }
 
+/// Removes the given network.
 fn remove_network(network_name: &str) -> Result<ExitStatus> {
+    // Disconnects all attached containers
+    for container_id in get_attached_containers(network_name)? {
+        let mut command = Command::new("docker");
+        let _ = command
+            .args(["network", "disconnect", "--force"])
+            .args([network_name, container_id.as_str()])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()?;
+    }
+
+    // Remove the network
     let mut command = Command::new("docker");
     command
         .args(["network", "rm", "--force", network_name])
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     Ok(command.status()?)
+}
+
+/// Finds the list of connected containers
+fn get_attached_containers(network_name: &str) -> Result<Vec<String>> {
+    let mut command = Command::new("docker");
+    command.args([
+        "network",
+        "inspect",
+        network_name,
+        "-f",
+        r#"{{ range $k, $v := .Containers }}{{ printf "%s\n" $k }}{{ end }}"#,
+    ]);
+
+    let output = command.output()?;
+    let container_ids = match output.status.success() {
+        true => {
+            let container_ids = std::str::from_utf8(&output.stdout)?
+                .trim()
+                .to_string()
+                .lines()
+                .filter(|line| !line.trim().is_empty())
+                .map(|line| line.to_string())
+                .collect::<Vec<_>>();
+            container_ids
+        }
+        false => vec![],
+    };
+
+    Ok(container_ids)
 }
 
 fn network_count() -> usize {
@@ -102,6 +149,8 @@ fn network_count() -> usize {
 
 #[cfg(test)]
 mod tests {
+    use crate::{name_server::NameServer, FQDN};
+
     use super::*;
 
     #[test]
@@ -115,6 +164,24 @@ mod tests {
         let network = Network::new().expect("Failed to create network");
         let config = get_network_config(network.name());
         assert!(config.is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn remove_network_works() -> Result<()> {
+        let network = Network::new().expect("Failed to create network");
+        let network_name = network.name().to_string();
+        let nameserver = NameServer::new(FQDN::ROOT, &network)?;
+
+        let container_ids = get_attached_containers(network.name())?;
+        assert_eq!(1, container_ids.len());
+        assert_eq!(&[nameserver.container_id().to_string()], &container_ids[..]);
+
+        drop(network);
+
+        let container_ids = get_attached_containers(&network_name)?;
+        assert!(container_ids.is_empty());
+
         Ok(())
     }
 }

@@ -44,7 +44,10 @@ impl Resolver {
             Implementation::Unbound => {
                 container.cp("/etc/unbound/root.hints", &hints)?;
 
-                container.cp("/etc/unbound/unbound.conf", &unbound_conf(use_dnssec))?;
+                container.cp(
+                    "/etc/unbound/unbound.conf",
+                    &unbound_conf(use_dnssec, network.netmask()),
+                )?;
             }
 
             Implementation::Hickory => {
@@ -95,8 +98,8 @@ kill -TERM $(cat {pidfile})"
     }
 }
 
-fn unbound_conf(use_dnssec: bool) -> String {
-    minijinja::render!(include_str!("templates/unbound.conf.jinja"), use_dnssec => use_dnssec)
+fn unbound_conf(use_dnssec: bool, netmask: &str) -> String {
+    minijinja::render!(include_str!("templates/unbound.conf.jinja"), use_dnssec => use_dnssec, netmask => netmask)
 }
 
 fn hickory_conf(use_dnssec: bool) -> String {

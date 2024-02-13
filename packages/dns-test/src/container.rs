@@ -54,6 +54,7 @@ impl Container {
         command
             .args(["run", "--rm", "--detach", "--name", &name])
             .arg("-it")
+            .args(["--network", network.name()])
             .arg(image_tag)
             .args(["sleep", "infinity"]);
 
@@ -153,6 +154,10 @@ impl Container {
 
     pub fn ipv4_addr(&self) -> Ipv4Addr {
         self.inner.ipv4_addr
+    }
+
+    pub fn id(&self) -> &str {
+        &self.inner.id
     }
 }
 

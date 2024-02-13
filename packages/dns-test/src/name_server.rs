@@ -155,6 +155,10 @@ impl<'a> NameServer<'a, Stopped> {
             state: Running { child },
         })
     }
+
+    pub fn container_id(&self) -> &str {
+        self.container.id()
+    }
 }
 
 const ZONES_DIR: &str = "/etc/nsd/zones";
