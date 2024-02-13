@@ -104,20 +104,12 @@ impl BlocklistAuthority {
     }
 
     /// Build a wildcard match list for a given host
-    pub fn get_wildcards(&self, host: &LowerName) -> Vec<LowerName> {
-        let mut wildcards = vec![];
-        let mut host = Name::from(host);
-
-        if host.num_labels() > self.min_wildcard_depth {
-            for _ in 0..host.num_labels() - self.min_wildcard_depth {
-                wildcards.push(host.clone().into_wildcard().into());
-                host = host.trim_to((host.num_labels() - 1) as usize);
-            }
-        }
-
-        debug!("Built wildcard list: {wildcards:?}");
-
-        wildcards
+    pub fn get_wildcards(&self, host: &Name) -> Vec<LowerName> {
+        host.iter()
+            .enumerate()
+            .filter(|(i, _x)| *i > (self.min_wildcard_depth - 1) as usize)
+            .map(|(i, _x)| host.trim_to(i + 1).into_wildcard().into())
+            .collect::<Vec<LowerName>>()
     }
 }
 
@@ -159,7 +151,7 @@ impl Authority for BlocklistAuthority {
 
         let mut match_list = vec![name.to_owned()];
         if self.wildcard_match {
-            match_list.append(&mut self.get_wildcards(name));
+            match_list.append(&mut self.get_wildcards(&Name::from(name)));
         }
         debug!("Blocklist match list: {match_list:?}");
 
@@ -239,7 +231,6 @@ mod test {
             Name::from_str(".").unwrap(),
             ZoneType::Hint,
             &config,
-
             Some(Path::new("../../tests/test-data/test_configs/")),
         );
 
@@ -361,7 +352,6 @@ mod test {
             Name::from_str(".").unwrap(),
             ZoneType::Hint,
             &config,
-
             Some(Path::new("../../tests/test-data/test_configs/")),
         );
 
