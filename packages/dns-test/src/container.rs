@@ -12,6 +12,8 @@ use tempfile::{NamedTempFile, TempDir};
 
 use crate::{Error, Implementation, Result};
 
+pub use crate::container::network::Network;
+
 pub struct Container {
     inner: Arc<Inner>,
 }
@@ -20,7 +22,7 @@ const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
 
 impl Container {
     /// Starts the container in a "parked" state
-    pub fn run(implementation: Implementation) -> Result<Self> {
+    pub fn run(implementation: Implementation, network: &Network) -> Result<Self> {
         // TODO make this configurable and support hickory & bind
         let dockerfile = implementation.dockerfile();
         let docker_build_dir = TempDir::new()?;
@@ -269,7 +271,8 @@ mod tests {
 
     #[test]
     fn run_works() -> Result<()> {
-        let container = Container::run(Implementation::Unbound)?;
+        let network = Network::new()?;
+        let container = Container::run(Implementation::Unbound, &network)?;
 
         let output = container.output(&["true"])?;
         assert!(output.status.success());
@@ -279,7 +282,8 @@ mod tests {
 
     #[test]
     fn ipv4_addr_works() -> Result<()> {
-        let container = Container::run(Implementation::Unbound)?;
+        let network = Network::new()?;
+        let container = Container::run(Implementation::Unbound, &network)?;
         let ipv4_addr = container.ipv4_addr();
 
         let output = container.output(&["ping", "-c1", &format!("{ipv4_addr}")])?;
@@ -290,7 +294,8 @@ mod tests {
 
     #[test]
     fn cp_works() -> Result<()> {
-        let container = Container::run(Implementation::Unbound)?;
+        let network = Network::new()?;
+        let container = Container::run(Implementation::Unbound, &network)?;
 
         let path = "/tmp/somefile";
         let contents = "hello";

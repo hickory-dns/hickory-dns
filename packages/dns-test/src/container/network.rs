@@ -1,5 +1,5 @@
 use std::{
-    process::{Command, Stdio},
+    process::{Command, ExitStatus, Stdio},
     sync::atomic::{self, AtomicUsize},
 };
 
@@ -10,12 +10,16 @@ const NETWORK_NAME: &str = "dnssec-network";
 /// Represents a network in which to put containers into.
 pub struct Network {
     name: String,
+    config: NetworkConfig,
 }
 
 impl Network {
     pub fn new() -> Result<Self> {
         let id = network_count();
         let network_name = format!("{NETWORK_NAME}-{id}");
+
+        // A network can exist, for example when a test panics
+        let _ = remove_network(network_name.as_str())?;
 
         let mut command = Command::new("docker");
         command
@@ -33,8 +37,12 @@ impl Network {
         );
 
         // inspect & parse network details
+        let config = get_network_config(&network_name)?;
 
-        Ok(Self { name: network_name })
+        Ok(Self {
+            name: network_name,
+            config,
+        })
     }
 
     /// Returns the name of the network.
@@ -49,7 +57,7 @@ pub struct NetworkConfig {
     subnet: String,
 }
 
-///
+/// Return network config
 fn get_network_config(network_name: &str) -> Result<NetworkConfig> {
     let mut command = Command::new("docker");
     command
@@ -70,17 +78,20 @@ fn get_network_config(network_name: &str) -> Result<NetworkConfig> {
     Ok(NetworkConfig { subnet })
 }
 
-/// This ensure the Docket network is deleted after the test runner process ends.
+/// This ensure the Docker network is deleted after the test runner process ends.
 impl Drop for Network {
     fn drop(&mut self) {
-        // Remove the network
-        // TODO check if all containers need to disconnect first
-        let _ = Command::new("docker")
-            .args(["network", "rm", "--force", self.name.as_str()])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
+        let _ = remove_network(&self.name);
     }
+}
+
+fn remove_network(network_name: &str) -> Result<ExitStatus> {
+    let mut command = Command::new("docker");
+    command
+        .args(["network", "rm", "--force", network_name])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    Ok(command.status()?)
 }
 
 fn network_count() -> usize {

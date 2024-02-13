@@ -4,17 +4,18 @@ use dns_test::client::{Client, Dnssec, Recurse};
 use dns_test::name_server::NameServer;
 use dns_test::record::RecordType;
 use dns_test::zone_file::Root;
-use dns_test::{Resolver, Result, TrustAnchor, FQDN};
+use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
 
 #[test]
 fn can_resolve() -> Result<()> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let needle_fqdn = FQDN("example.nameservers.com.")?;
 
-    let mut root_ns = NameServer::new(FQDN::ROOT)?;
-    let mut com_ns = NameServer::new(FQDN::COM)?;
+    let network = Network::new()?;
+    let mut root_ns = NameServer::new(FQDN::ROOT, &network)?;
+    let mut com_ns = NameServer::new(FQDN::COM, &network)?;
 
-    let mut nameservers_ns = NameServer::new(FQDN("nameservers.com.")?)?;
+    let mut nameservers_ns = NameServer::new(FQDN("nameservers.com.")?, &network)?;
     nameservers_ns
         .a(root_ns.fqdn().clone(), root_ns.ipv4_addr())
         .a(com_ns.fqdn().clone(), com_ns.ipv4_addr())
@@ -38,10 +39,10 @@ fn can_resolve() -> Result<()> {
     eprintln!("root.zone:\n{}", root_ns.zone_file());
 
     let roots = &[Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr())];
-    let resolver = Resolver::start(dns_test::subject(), roots, &TrustAnchor::empty())?;
+    let resolver = Resolver::start(dns_test::subject(), roots, &TrustAnchor::empty(), &network)?;
     let resolver_ip_addr = resolver.ipv4_addr();
 
-    let client = Client::new()?;
+    let client = Client::new(&network)?;
     let output = client.dig(
         Recurse::Yes,
         Dnssec::No,
@@ -66,10 +67,11 @@ fn can_resolve() -> Result<()> {
 fn nxdomain() -> Result<()> {
     let needle_fqdn = FQDN("unicorn.nameservers.com.")?;
 
-    let mut root_ns = NameServer::new(FQDN::ROOT)?;
-    let mut com_ns = NameServer::new(FQDN::COM)?;
+    let network = Network::new()?;
+    let mut root_ns = NameServer::new(FQDN::ROOT, &network)?;
+    let mut com_ns = NameServer::new(FQDN::COM, &network)?;
 
-    let mut nameservers_ns = NameServer::new(FQDN("nameservers.com.")?)?;
+    let mut nameservers_ns = NameServer::new(FQDN("nameservers.com.")?, &network)?;
     nameservers_ns
         .a(root_ns.fqdn().clone(), root_ns.ipv4_addr())
         .a(com_ns.fqdn().clone(), com_ns.ipv4_addr());
@@ -86,10 +88,10 @@ fn nxdomain() -> Result<()> {
     let root_ns = root_ns.start()?;
 
     let roots = &[Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr())];
-    let resolver = Resolver::start(dns_test::subject(), roots, &TrustAnchor::empty())?;
+    let resolver = Resolver::start(dns_test::subject(), roots, &TrustAnchor::empty(), &network)?;
     let resolver_ip_addr = resolver.ipv4_addr();
 
-    let client = Client::new()?;
+    let client = Client::new(&network)?;
     let output = client.dig(
         Recurse::Yes,
         Dnssec::No,
