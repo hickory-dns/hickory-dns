@@ -618,6 +618,35 @@ impl ClientSubnet {
         false
     }
 
+    /// returns the ip address
+    pub fn addr(&self) -> IpAddr {
+        self.address
+    }
+
+    /// set the ip address
+    pub fn set_addr(&mut self, addr: IpAddr) {
+        self.address = addr;
+    }
+
+    /// returns the source prefix
+    pub fn source_prefix(&self) -> u8 {
+        self.source_prefix
+    }
+
+    /// returns the source prefix
+    pub fn set_source_prefix(&mut self, source_prefix: u8) {
+        self.source_prefix = source_prefix;
+    }
+
+    /// returns the scope prefix
+    pub fn scope_prefix(&self) -> u8 {
+        self.scope_prefix
+    }
+    /// returns the scope prefix
+    pub fn set_scope_prefix(&mut self, scope_prefix: u8) {
+        self.scope_prefix = scope_prefix;
+    }
+
     fn addr_len(&self) -> u16 {
         let source_prefix = self.source_prefix as u16;
         source_prefix / 8 + if source_prefix % 8 > 0 { 1 } else { 0 }
