@@ -1,3 +1,5 @@
+mod network;
+
 use core::str;
 use std::fs;
 use std::net::Ipv4Addr;
