@@ -12,12 +12,24 @@ pub struct Resolver {
 }
 
 impl Resolver {
+    /// Starts a DNS server in the recursive resolver role
+    ///
+    /// This server is not an authoritative name server; it does not server a zone file to clients
+    ///
+    /// # Panics
+    ///
+    /// This constructor panics if `roots` is an empty slice
     pub fn start(
         implementation: Implementation,
         roots: &[Root],
         trust_anchor: &TrustAnchor,
     ) -> Result<Self> {
         const TRUST_ANCHOR_FILE: &str = "/etc/trusted-key.key";
+
+        assert!(
+            !roots.is_empty(),
+            "must configure at least one local root server"
+        );
 
         let container = Container::run(implementation)?;
 
@@ -92,11 +104,19 @@ fn hickory_conf(use_dnssec: bool) -> String {
 
 #[cfg(test)]
 mod tests {
+    use crate::{name_server::NameServer, FQDN};
+
     use super::*;
 
     #[test]
     fn terminate_works() -> Result<()> {
-        let resolver = Resolver::start(Implementation::Unbound, &[], &TrustAnchor::empty())?;
+        let ns = NameServer::new(FQDN::ROOT)?.start()?;
+
+        let resolver = Resolver::start(
+            Implementation::Unbound,
+            &[Root::new(ns.fqdn().clone(), ns.ipv4_addr())],
+            &TrustAnchor::empty(),
+        )?;
         let logs = resolver.terminate()?;
 
         eprintln!("{logs}");
