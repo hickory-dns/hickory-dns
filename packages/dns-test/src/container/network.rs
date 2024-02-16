@@ -113,68 +113,47 @@ fn network_count() -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate::{name_server::NameServer, FQDN};
+    use crate::{container::Container, Implementation};
 
     use super::*;
 
-    /// Finds the list of connected containers
-    fn get_attached_containers(network_name: &str) -> Result<Vec<String>> {
+    fn exists_network(network_name: &str) -> bool {
         let mut command = Command::new("docker");
-        command.args([
-            "network",
-            "inspect",
-            network_name,
-            "-f",
-            r#"{{ range $k, $v := .Containers }}{{ printf "%s\n" $k }}{{ end }}"#,
-        ]);
+        command.args(["network", "ls", "--format={{ .Name }}"]);
 
-        let output = command.output()?;
-        let container_ids = match output.status.success() {
-            true => {
-                let container_ids = std::str::from_utf8(&output.stdout)?
-                    .trim()
-                    .to_string()
-                    .lines()
-                    .filter(|line| !line.trim().is_empty())
-                    .map(|line| line.to_string())
-                    .collect::<Vec<_>>();
-                container_ids
-            }
-            false => vec![],
-        };
+        let output = command.output().expect("Failed to get output");
+        let stdout = String::from_utf8_lossy(&output.stdout);
 
-        Ok(container_ids)
+        stdout
+            .trim()
+            .lines()
+            .find(|line| line == &network_name)
+            .is_some()
     }
 
     #[test]
     fn create_works() -> Result<()> {
-        assert!(Network::new().is_ok());
-        Ok(())
-    }
+        let network = Network::new();
+        assert!(network.is_ok());
 
-    #[test]
-    fn network_subnet_works() -> Result<()> {
-        let network = Network::new().expect("Failed to create network");
-        let config = get_network_config(network.name());
-        assert!(config.is_ok());
+        let network = network.expect("Failed to construct network");
+        assert!(exists_network(network.name()));
         Ok(())
     }
 
     #[test]
     fn remove_network_works() -> Result<()> {
         let network = Network::new().expect("Failed to create network");
-        let nameserver = NameServer::new(FQDN::ROOT, &network)?;
+        let network_name = network.name().to_string();
+        let container =
+            Container::run(Implementation::Unbound, &network).expect("Failed to start container");
 
-        let container_ids = get_attached_containers(network.name())?;
-        assert_eq!(1, container_ids.len());
-        assert_eq!(&[nameserver.container_id().to_string()], &container_ids[..]);
-
-        drop(nameserver);
-
-        let container_ids = get_attached_containers(network.name())?;
-        assert_eq!(0, container_ids.len());
-
+        assert!(exists_network(&network_name));
         drop(network);
+        assert!(exists_network(&network_name));
+
+        drop(container);
+        assert!(!exists_network(&network_name));
 
         Ok(())
     }
