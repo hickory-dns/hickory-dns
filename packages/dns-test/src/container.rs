@@ -67,6 +67,7 @@ impl Container {
             id,
             name,
             ipv4_addr,
+            _network: network.clone(),
         };
         Ok(Self {
             inner: Arc::new(inner),
@@ -172,6 +173,7 @@ struct Inner {
     id: String,
     // TODO probably also want the IPv6 address
     ipv4_addr: Ipv4Addr,
+    _network: Network,
 }
 
 /// NOTE unlike `std::process::Child`, the drop implementation of this type will `kill` the
