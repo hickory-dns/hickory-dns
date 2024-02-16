@@ -5,6 +5,9 @@ on:
     branches: [main]
   merge_group:
 
+env:
+  HICKORY_REV: a3669bd80f3f7b97f0c301c15f1cba6368d97b63
+
 jobs:
   ci:
     name: Continuous Integration
@@ -27,7 +30,10 @@ jobs:
         run: cargo test -p conformance-tests -- --include-ignored
 
       - name: Run tests against hickory
-        run: DNS_TEST_SUBJECT=hickory cargo test -p conformance-tests
+        run: |
+          git clone https://github.com/hickory-dns/hickory-dns /tmp/hickory
+          ( cd /tmp/hickory && git reset --hard ${{ env.HICKORY_REV }} )
+          DNS_TEST_SUBJECT="hickory /tmp/hickory" cargo test -p conformance-tests
 
       - name: Check that ignored tests fail with hickory
         run: |
