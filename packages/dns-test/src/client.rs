@@ -29,7 +29,7 @@ impl Client {
         &self,
         server: Ipv4Addr,
         record_type: RecordType,
-        fqdn: &FQDN<'_>,
+        fqdn: &FQDN,
         trust_anchor: &TrustAnchor,
     ) -> Result<String> {
         const TRUST_ANCHOR_PATH: &str = "/etc/bind.keys";
@@ -57,7 +57,7 @@ impl Client {
         dnssec: Dnssec,
         server: Ipv4Addr,
         record_type: RecordType,
-        fqdn: &FQDN<'_>,
+        fqdn: &FQDN,
     ) -> Result<DigOutput> {
         let output = self.inner.stdout(&[
             "dig",

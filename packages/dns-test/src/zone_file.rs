@@ -10,16 +10,16 @@ use std::str::FromStr;
 
 use crate::{Error, FQDN};
 
-pub struct ZoneFile<'a> {
-    pub origin: FQDN<'a>,
+pub struct ZoneFile {
+    pub origin: FQDN,
     pub ttl: u32,
-    pub soa: SOA<'a>,
-    pub entries: Vec<Entry<'a>>,
+    pub soa: SOA,
+    pub entries: Vec<Entry>,
 }
 
-impl<'a> ZoneFile<'a> {
+impl ZoneFile {
     /// Convenience constructor that uses "reasonable" defaults
-    pub fn new(origin: FQDN<'a>, soa: SOA<'a>) -> Self {
+    pub fn new(origin: FQDN, soa: SOA) -> Self {
         Self {
             origin,
             ttl: 1800,
@@ -29,12 +29,12 @@ impl<'a> ZoneFile<'a> {
     }
 
     /// Appends an entry
-    pub fn entry(&mut self, entry: impl Into<Entry<'a>>) {
+    pub fn entry(&mut self, entry: impl Into<Entry>) {
         self.entries.push(entry.into())
     }
 
     /// Appends a NS + A entry pair
-    pub fn referral(&mut self, zone: FQDN<'a>, nameserver: FQDN<'a>, ipv4_addr: Ipv4Addr) {
+    pub fn referral(&mut self, zone: FQDN, nameserver: FQDN, ipv4_addr: Ipv4Addr) {
         self.entry(NS {
             zone: zone.clone(),
             nameserver: nameserver.clone(),
@@ -46,7 +46,7 @@ impl<'a> ZoneFile<'a> {
     }
 }
 
-impl fmt::Display for ZoneFile<'_> {
+impl fmt::Display for ZoneFile {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self {
             origin,
@@ -67,15 +67,15 @@ impl fmt::Display for ZoneFile<'_> {
     }
 }
 
-pub struct Root<'a> {
+pub struct Root {
     pub ipv4_addr: Ipv4Addr,
-    pub ns: FQDN<'a>,
+    pub ns: FQDN,
     pub ttl: u32,
 }
 
-impl<'a> Root<'a> {
+impl Root {
     /// Convenience constructor that uses "reasonable" defaults
-    pub fn new(ns: FQDN<'a>, ipv4_addr: Ipv4Addr) -> Self {
+    pub fn new(ns: FQDN, ipv4_addr: Ipv4Addr) -> Self {
         Self {
             ipv4_addr,
             ns,
@@ -84,7 +84,7 @@ impl<'a> Root<'a> {
     }
 }
 
-impl fmt::Display for Root<'_> {
+impl fmt::Display for Root {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self { ipv4_addr, ns, ttl } = self;
 
@@ -93,32 +93,32 @@ impl fmt::Display for Root<'_> {
     }
 }
 
-pub enum Entry<'a> {
-    A(A<'a>),
+pub enum Entry {
+    A(A),
     DNSKEY(DNSKEY),
     DS(DS),
-    NS(NS<'a>),
+    NS(NS),
 }
 
-impl<'a> From<DS> for Entry<'a> {
+impl From<DS> for Entry {
     fn from(v: DS) -> Self {
         Self::DS(v)
     }
 }
 
-impl<'a> From<A<'a>> for Entry<'a> {
-    fn from(v: A<'a>) -> Self {
+impl From<A> for Entry {
+    fn from(v: A) -> Self {
         Self::A(v)
     }
 }
 
-impl<'a> From<NS<'a>> for Entry<'a> {
-    fn from(v: NS<'a>) -> Self {
+impl From<NS> for Entry {
+    fn from(v: NS) -> Self {
         Self::NS(v)
     }
 }
 
-impl fmt::Display for Entry<'_> {
+impl fmt::Display for Entry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Entry::A(a) => a.fmt(f),
@@ -130,12 +130,12 @@ impl fmt::Display for Entry<'_> {
 }
 
 #[derive(Clone)]
-pub struct A<'a> {
-    pub fqdn: FQDN<'a>,
+pub struct A {
+    pub fqdn: FQDN,
     pub ipv4_addr: Ipv4Addr,
 }
 
-impl fmt::Display for A<'_> {
+impl fmt::Display for A {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self { fqdn, ipv4_addr } = self;
 
@@ -146,7 +146,7 @@ impl fmt::Display for A<'_> {
 // integer types chosen based on bit sizes in section 2.1 of RFC4034
 #[derive(Clone, Debug)]
 pub struct DNSKEY {
-    zone: FQDN<'static>,
+    zone: FQDN,
     flags: u16,
     protocol: u8,
     algorithm: u8,
@@ -256,7 +256,7 @@ impl fmt::Display for DNSKEY {
 
 #[derive(Clone)]
 pub struct DS {
-    zone: FQDN<'static>,
+    zone: FQDN,
     _ttl: u32,
     key_tag: u16,
     algorithm: u8,
@@ -317,12 +317,12 @@ impl fmt::Display for DS {
     }
 }
 
-pub struct NS<'a> {
-    pub zone: FQDN<'a>,
-    pub nameserver: FQDN<'a>,
+pub struct NS {
+    pub zone: FQDN,
+    pub nameserver: FQDN,
 }
 
-impl fmt::Display for NS<'_> {
+impl fmt::Display for NS {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self {
             zone,
@@ -333,14 +333,14 @@ impl fmt::Display for NS<'_> {
     }
 }
 
-pub struct SOA<'a> {
-    pub zone: FQDN<'a>,
-    pub nameserver: FQDN<'a>,
-    pub admin: FQDN<'a>,
+pub struct SOA {
+    pub zone: FQDN,
+    pub nameserver: FQDN,
+    pub admin: FQDN,
     pub settings: SoaSettings,
 }
 
-impl fmt::Display for SOA<'_> {
+impl fmt::Display for SOA {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self {
             zone,
@@ -482,21 +482,21 @@ e.gtld-servers.net.	IN	A	192.12.94.30
         Ok(())
     }
 
-    fn example_a() -> Result<A<'static>> {
+    fn example_a() -> Result<A> {
         Ok(A {
             fqdn: FQDN("e.gtld-servers.net.")?,
             ipv4_addr: Ipv4Addr::new(192, 12, 94, 30),
         })
     }
 
-    fn example_ns() -> Result<NS<'static>> {
+    fn example_ns() -> Result<NS> {
         Ok(NS {
             zone: FQDN::COM,
             nameserver: FQDN("e.gtld-servers.net.")?,
         })
     }
 
-    fn example_soa() -> Result<SOA<'static>> {
+    fn example_soa() -> Result<SOA> {
         Ok(SOA {
             zone: FQDN::ROOT,
             nameserver: FQDN("a.root-servers.net.")?,

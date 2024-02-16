@@ -93,7 +93,7 @@ impl FromStr for Record {
 
 #[derive(Debug)]
 pub struct A {
-    pub fqdn: FQDN<'static>,
+    pub fqdn: FQDN,
     pub ttl: u32,
     pub ipv4_addr: Ipv4Addr,
 }
@@ -132,7 +132,7 @@ impl FromStr for A {
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug)]
 pub struct RRSIG {
-    pub fqdn: FQDN<'static>,
+    pub fqdn: FQDN,
     pub ttl: u32,
     pub type_covered: RecordType,
     pub algorithm: u32,
@@ -141,7 +141,7 @@ pub struct RRSIG {
     pub signature_expiration: u64,
     pub signature_inception: u64,
     pub key_tag: u32,
-    pub signer_name: FQDN<'static>,
+    pub signer_name: FQDN,
     /// base64 encoded
     pub signature: String,
 }
@@ -193,10 +193,10 @@ impl FromStr for RRSIG {
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug)]
 pub struct SOA {
-    pub zone: FQDN<'static>,
+    pub zone: FQDN,
     pub ttl: u32,
-    pub nameserver: FQDN<'static>,
-    pub admin: FQDN<'static>,
+    pub nameserver: FQDN,
+    pub admin: FQDN,
     pub serial: u32,
     pub refresh: u32,
     pub retry: u32,

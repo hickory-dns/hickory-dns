@@ -6,13 +6,13 @@ use crate::tshark::Tshark;
 use crate::zone_file::{self, SoaSettings, ZoneFile, DNSKEY, DS};
 use crate::{Implementation, Result, FQDN};
 
-pub struct NameServer<'a, State> {
+pub struct NameServer<State> {
     container: Container,
-    zone_file: ZoneFile<'a>,
+    zone_file: ZoneFile,
     state: State,
 }
 
-impl<'a> NameServer<'a, Stopped> {
+impl NameServer<Stopped> {
     /// Spins up a primary name server that has authority over the given `zone`
     ///
     /// The initial state of the server is the "Stopped" state where it won't answer any query.
@@ -25,7 +25,7 @@ impl<'a> NameServer<'a, Stopped> {
     /// - one SOA record, with the primary name server field set to this name server's FQDN
     /// - one NS record, with this name server's FQDN set as the only available name server for
     /// the zone
-    pub fn new(implementation: Implementation, zone: FQDN<'a>, network: &Network) -> Result<Self> {
+    pub fn new(implementation: Implementation, zone: FQDN, network: &Network) -> Result<Self> {
         assert!(
             matches!(implementation, Implementation::Unbound),
             "currently only `unbound` (`nsd`) can be used as a `NameServer`"
@@ -56,18 +56,13 @@ impl<'a> NameServer<'a, Stopped> {
     }
 
     /// Adds a NS + A record pair to the zone file
-    pub fn referral(
-        &mut self,
-        zone: FQDN<'a>,
-        nameserver: FQDN<'a>,
-        ipv4_addr: Ipv4Addr,
-    ) -> &mut Self {
+    pub fn referral(&mut self, zone: FQDN, nameserver: FQDN, ipv4_addr: Ipv4Addr) -> &mut Self {
         self.zone_file.referral(zone, nameserver, ipv4_addr);
         self
     }
 
     /// Adds an A record pair to the zone file
-    pub fn a(&mut self, fqdn: FQDN<'a>, ipv4_addr: Ipv4Addr) -> &mut Self {
+    pub fn a(&mut self, fqdn: FQDN, ipv4_addr: Ipv4Addr) -> &mut Self {
         self.zone_file.entry(zone_file::A { fqdn, ipv4_addr });
         self
     }
@@ -79,7 +74,7 @@ impl<'a> NameServer<'a, Stopped> {
     }
 
     /// Freezes and signs the name server's zone file
-    pub fn sign(self) -> Result<NameServer<'a, Signed>> {
+    pub fn sign(self) -> Result<NameServer<Signed>> {
         // TODO do we want to make these settings configurable?
         const ZSK_BITS: usize = 1024;
         const KSK_BITS: usize = 2048;
@@ -139,7 +134,7 @@ impl<'a> NameServer<'a, Stopped> {
     }
 
     /// Moves the server to the "Start" state where it can answer client queries
-    pub fn start(self) -> Result<NameServer<'a, Running>> {
+    pub fn start(self) -> Result<NameServer<Running>> {
         let Self {
             container,
             zone_file,
@@ -176,9 +171,9 @@ fn ns_count() -> usize {
     COUNT.fetch_add(1, atomic::Ordering::Relaxed)
 }
 
-impl<'a> NameServer<'a, Signed> {
+impl NameServer<Signed> {
     /// Moves the server to the "Start" state where it can answer client queries
-    pub fn start(self) -> Result<NameServer<'a, Running>> {
+    pub fn start(self) -> Result<NameServer<Running>> {
         let Self {
             container,
             zone_file,
@@ -216,7 +211,7 @@ impl<'a> NameServer<'a, Signed> {
     }
 }
 
-impl<'a> NameServer<'a, Running> {
+impl NameServer<Running> {
     /// Starts a `tshark` instance that captures DNS messages flowing through this network node
     pub fn eavesdrop(&self) -> Result<Tshark> {
         self.container.eavesdrop()
@@ -246,7 +241,7 @@ kill -TERM $(cat {pidfile})"
     }
 }
 
-impl<'a, S> NameServer<'a, S> {
+impl<S> NameServer<S> {
     pub fn container_id(&self) -> &str {
         self.container.id()
     }
@@ -256,15 +251,15 @@ impl<'a, S> NameServer<'a, S> {
     }
 
     /// Zone file BEFORE signing
-    pub fn zone_file(&self) -> &ZoneFile<'a> {
+    pub fn zone_file(&self) -> &ZoneFile {
         &self.zone_file
     }
 
-    pub fn zone(&self) -> &FQDN<'a> {
+    pub fn zone(&self) -> &FQDN {
         &self.zone_file.origin
     }
 
-    pub fn fqdn(&self) -> &FQDN<'a> {
+    pub fn fqdn(&self) -> &FQDN {
         &self.zone_file.soa.nameserver
     }
 }
@@ -282,11 +277,11 @@ pub struct Running {
     child: Child,
 }
 
-fn primary_ns(ns_count: usize) -> FQDN<'static> {
+fn primary_ns(ns_count: usize) -> FQDN {
     FQDN(format!("primary{ns_count}.nameservers.com.")).unwrap()
 }
 
-fn admin_ns(ns_count: usize) -> FQDN<'static> {
+fn admin_ns(ns_count: usize) -> FQDN {
     FQDN(format!("admin{ns_count}.nameservers.com.")).unwrap()
 }
 
