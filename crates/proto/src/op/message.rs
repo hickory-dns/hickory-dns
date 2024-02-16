@@ -221,6 +221,30 @@ impl Message {
         self
     }
 
+    /// see `Header::set_query_count`
+    pub fn set_query_count(&mut self, query_count: u16) -> &mut Self {
+        self.header.set_query_count(query_count);
+        self
+    }
+
+    /// see `Header::set_answer_count`
+    pub fn set_answer_count(&mut self, answer_count: u16) -> &mut Self {
+        self.header.set_answer_count(answer_count);
+        self
+    }
+
+    /// see `Header::set_name_server_count`
+    pub fn set_name_server_count(&mut self, name_server_count: u16) -> &mut Self {
+        self.header.set_name_server_count(name_server_count);
+        self
+    }
+
+    /// see `Header::set_additional_count`
+    pub fn set_additional_count(&mut self, additional_count: u16) -> &mut Self {
+        self.header.set_additional_count(additional_count);
+        self
+    }
+
     /// Add a query to the Message, either the query response from the server, or the request Query.
     pub fn add_query(&mut self, query: Query) -> &mut Self {
         self.queries.push(query);
