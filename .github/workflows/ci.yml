@@ -39,7 +39,7 @@ jobs:
       - name: Check that ignored tests fail with hickory
         run: |
           tmpfile="$(mktemp)"
-          DNS_TEST_SUBJECT=hickory cargo test -p conformance-tests -- --ignored | tee "$tmpfile"
+          DNS_TEST_SUBJECT="hickory /tmp/hickory" cargo test -p conformance-tests -- --ignored | tee "$tmpfile"
           grep 'test result: FAILED. 0 passed' "$tmpfile" || ( echo "expected ALL tests to fail but at least one passed; the passing tests must be un-#[ignore]-d" && exit 1 )
 
       - name: Check that code is formatted
