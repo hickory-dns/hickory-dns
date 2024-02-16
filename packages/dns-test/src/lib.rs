@@ -1,7 +1,11 @@
 //! A test framework for all things DNS
 
 use core::fmt;
+use std::borrow::Cow;
+use std::path::Path;
 use std::sync::Once;
+
+use url::Url;
 
 pub use crate::container::Network;
 pub use crate::fqdn::FQDN;
@@ -24,7 +28,33 @@ pub mod zone_file;
 #[derive(Clone)]
 pub enum Implementation {
     Unbound,
-    Hickory { url: String },
+    Hickory(Repository<'static>),
+}
+
+#[derive(Clone)]
+pub struct Repository<'a> {
+    inner: Cow<'a, str>,
+}
+
+impl Repository<'_> {
+    fn as_str(&self) -> &str {
+        &self.inner
+    }
+}
+
+/// checks that `input` looks like a valid repository which can be either local or remote
+///
+/// # Panics
+///
+/// this function panics if `input` is not a local `Path` that exists or a well-formed URL
+#[allow(non_snake_case)]
+pub fn Repository(input: impl Into<Cow<'static, str>>) -> Repository<'static> {
+    let input = input.into();
+    assert!(
+        Path::new(&*input).exists() || Url::parse(&input).is_ok(),
+        "{input} is not a valid repository"
+    );
+    Repository { inner: input }
 }
 
 impl Implementation {
@@ -74,9 +104,7 @@ pub fn subject() -> Implementation {
 
         if subject.starts_with("hickory") {
             if let Some(url) = subject.strip_prefix("hickory ") {
-                Implementation::Hickory {
-                    url: url.to_string(),
-                }
+                Implementation::Hickory(Repository(url.to_string()))
             } else {
                 panic!("the syntax of DNS_TEST_SUBJECT is 'hickory $URL', e.g. 'hickory /tmp/hickory' or 'hickory https://github.com/owner/repo'")
             }

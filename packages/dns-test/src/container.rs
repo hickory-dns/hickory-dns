@@ -37,20 +37,20 @@ impl Container {
             .arg(&image_tag)
             .arg(docker_build_dir);
 
-        let srcdir = if let Implementation::Hickory { url } = implementation {
-            Some(url)
+        let repo = if let Implementation::Hickory(repo) = implementation {
+            Some(repo)
         } else {
             None
         };
 
         implementation.once().call_once(|| {
-            if let Some(srcdir) = srcdir {
+            if let Some(repo) = repo {
                 let mut cp_r = Command::new("git");
                 cp_r.args([
                     "clone",
                     "--depth",
                     "1",
-                    srcdir,
+                    repo.as_str(),
                     &docker_build_dir.join("src").display().to_string(),
                 ]);
 
