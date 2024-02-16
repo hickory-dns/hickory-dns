@@ -1,3 +1,5 @@
+mod network;
+
 use core::str;
 use std::fs;
 use std::net::Ipv4Addr;
@@ -10,6 +12,8 @@ use tempfile::{NamedTempFile, TempDir};
 
 use crate::{Error, Implementation, Result};
 
+pub use crate::container::network::Network;
+
 pub struct Container {
     inner: Arc<Inner>,
 }
@@ -18,7 +22,7 @@ const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
 
 impl Container {
     /// Starts the container in a "parked" state
-    pub fn run(implementation: Implementation) -> Result<Self> {
+    pub fn run(implementation: Implementation, network: &Network) -> Result<Self> {
         // TODO make this configurable and support hickory & bind
         let dockerfile = implementation.dockerfile();
         let docker_build_dir = TempDir::new()?;
@@ -50,6 +54,7 @@ impl Container {
         command
             .args(["run", "--rm", "--detach", "--name", &name])
             .arg("-it")
+            .args(["--network", network.name()])
             .arg(image_tag)
             .args(["sleep", "infinity"]);
 
@@ -62,6 +67,7 @@ impl Container {
             id,
             name,
             ipv4_addr,
+            _network: network.clone(),
         };
         Ok(Self {
             inner: Arc::new(inner),
@@ -150,6 +156,10 @@ impl Container {
     pub fn ipv4_addr(&self) -> Ipv4Addr {
         self.inner.ipv4_addr
     }
+
+    pub fn id(&self) -> &str {
+        &self.inner.id
+    }
 }
 
 fn container_count() -> usize {
@@ -163,6 +173,7 @@ struct Inner {
     id: String,
     // TODO probably also want the IPv6 address
     ipv4_addr: Ipv4Addr,
+    _network: Network,
 }
 
 /// NOTE unlike `std::process::Child`, the drop implementation of this type will `kill` the
@@ -267,7 +278,8 @@ mod tests {
 
     #[test]
     fn run_works() -> Result<()> {
-        let container = Container::run(Implementation::Unbound)?;
+        let network = Network::new()?;
+        let container = Container::run(Implementation::Unbound, &network)?;
 
         let output = container.output(&["true"])?;
         assert!(output.status.success());
@@ -277,7 +289,8 @@ mod tests {
 
     #[test]
     fn ipv4_addr_works() -> Result<()> {
-        let container = Container::run(Implementation::Unbound)?;
+        let network = Network::new()?;
+        let container = Container::run(Implementation::Unbound, &network)?;
         let ipv4_addr = container.ipv4_addr();
 
         let output = container.output(&["ping", "-c1", &format!("{ipv4_addr}")])?;
@@ -288,7 +301,8 @@ mod tests {
 
     #[test]
     fn cp_works() -> Result<()> {
-        let container = Container::run(Implementation::Unbound)?;
+        let network = Network::new()?;
+        let container = Container::run(Implementation::Unbound, &network)?;
 
         let path = "/tmp/somefile";
         let contents = "hello";

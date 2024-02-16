@@ -1,7 +1,7 @@
 use core::fmt::Write;
 use std::net::Ipv4Addr;
 
-use crate::container::{Child, Container};
+use crate::container::{Child, Container, Network};
 use crate::trust_anchor::TrustAnchor;
 use crate::zone_file::Root;
 use crate::{Implementation, Result};
@@ -23,6 +23,7 @@ impl Resolver {
         implementation: Implementation,
         roots: &[Root],
         trust_anchor: &TrustAnchor,
+        network: &Network,
     ) -> Result<Self> {
         const TRUST_ANCHOR_FILE: &str = "/etc/trusted-key.key";
 
@@ -31,7 +32,7 @@ impl Resolver {
             "must configure at least one local root server"
         );
 
-        let container = Container::run(implementation)?;
+        let container = Container::run(implementation, network)?;
 
         let mut hints = String::new();
         for root in roots {
@@ -43,7 +44,10 @@ impl Resolver {
             Implementation::Unbound => {
                 container.cp("/etc/unbound/root.hints", &hints)?;
 
-                container.cp("/etc/unbound/unbound.conf", &unbound_conf(use_dnssec))?;
+                container.cp(
+                    "/etc/unbound/unbound.conf",
+                    &unbound_conf(use_dnssec, network.netmask()),
+                )?;
             }
 
             Implementation::Hickory => {
@@ -94,8 +98,8 @@ kill -TERM $(cat {pidfile})"
     }
 }
 
-fn unbound_conf(use_dnssec: bool) -> String {
-    minijinja::render!(include_str!("templates/unbound.conf.jinja"), use_dnssec => use_dnssec)
+fn unbound_conf(use_dnssec: bool, netmask: &str) -> String {
+    minijinja::render!(include_str!("templates/unbound.conf.jinja"), use_dnssec => use_dnssec, netmask => netmask)
 }
 
 fn hickory_conf(use_dnssec: bool) -> String {
@@ -110,12 +114,13 @@ mod tests {
 
     #[test]
     fn terminate_works() -> Result<()> {
-        let ns = NameServer::new(FQDN::ROOT)?.start()?;
-
+        let network = Network::new()?;
+        let ns = NameServer::new(FQDN::ROOT, &network)?.start()?;
         let resolver = Resolver::start(
             Implementation::Unbound,
             &[Root::new(ns.fqdn().clone(), ns.ipv4_addr())],
             &TrustAnchor::empty(),
+            &network,
         )?;
         let logs = resolver.terminate()?;
 

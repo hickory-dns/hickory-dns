@@ -3,6 +3,7 @@
 use core::fmt;
 use std::sync::Once;
 
+pub use crate::container::Network;
 pub use crate::fqdn::FQDN;
 pub use crate::resolver::Resolver;
 pub use crate::trust_anchor::TrustAnchor;

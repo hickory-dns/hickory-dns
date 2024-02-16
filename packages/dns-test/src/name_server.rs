@@ -1,7 +1,7 @@
 use core::sync::atomic::{self, AtomicUsize};
 use std::net::Ipv4Addr;
 
-use crate::container::{Child, Container};
+use crate::container::{Child, Container, Network};
 use crate::zone_file::{self, SoaSettings, ZoneFile, DNSKEY, DS};
 use crate::{Implementation, Result, FQDN};
 
@@ -24,7 +24,7 @@ impl<'a> NameServer<'a, Stopped> {
     /// - one SOA record, with the primary name server field set to this name server's FQDN
     /// - one NS record, with this name server's FQDN set as the only available name server for
     /// the zone
-    pub fn new(zone: FQDN<'a>) -> Result<Self> {
+    pub fn new(zone: FQDN<'a>, network: &Network) -> Result<Self> {
         let ns_count = ns_count();
         let nameserver = primary_ns(ns_count);
 
@@ -42,7 +42,7 @@ impl<'a> NameServer<'a, Stopped> {
         });
 
         Ok(Self {
-            container: Container::run(Implementation::Unbound)?,
+            container: Container::run(Implementation::Unbound, network)?,
             zone_file,
             state: Stopped,
         })
@@ -154,6 +154,10 @@ impl<'a> NameServer<'a, Stopped> {
             zone_file,
             state: Running { child },
         })
+    }
+
+    pub fn container_id(&self) -> &str {
+        self.container.id()
     }
 }
 
@@ -290,10 +294,11 @@ mod tests {
 
     #[test]
     fn simplest() -> Result<()> {
-        let tld_ns = NameServer::new(FQDN::COM)?.start()?;
+        let network = Network::new()?;
+        let tld_ns = NameServer::new(FQDN::COM, &network)?.start()?;
         let ip_addr = tld_ns.ipv4_addr();
 
-        let client = Client::new()?;
+        let client = Client::new(&network)?;
         let output = client.dig(
             Recurse::No,
             Dnssec::No,
@@ -309,8 +314,9 @@ mod tests {
 
     #[test]
     fn with_referral() -> Result<()> {
+        let network = Network::new()?;
         let expected_ip_addr = Ipv4Addr::new(172, 17, 200, 1);
-        let mut root_ns = NameServer::new(FQDN::ROOT)?;
+        let mut root_ns = NameServer::new(FQDN::ROOT, &network)?;
         root_ns.referral(
             FQDN::COM,
             FQDN("primary.tld-server.com.")?,
@@ -322,7 +328,7 @@ mod tests {
 
         let ipv4_addr = root_ns.ipv4_addr();
 
-        let client = Client::new()?;
+        let client = Client::new(&network)?;
         let output = client.dig(
             Recurse::No,
             Dnssec::No,
@@ -338,7 +344,8 @@ mod tests {
 
     #[test]
     fn signed() -> Result<()> {
-        let ns = NameServer::new(FQDN::ROOT)?.sign()?;
+        let network = Network::new()?;
+        let ns = NameServer::new(FQDN::ROOT, &network)?.sign()?;
 
         eprintln!("KSK:\n{}", ns.key_signing_key());
         eprintln!("ZSK:\n{}", ns.zone_signing_key());
@@ -348,7 +355,7 @@ mod tests {
 
         let ns_addr = tld_ns.ipv4_addr();
 
-        let client = Client::new()?;
+        let client = Client::new(&network)?;
         let output = client.dig(
             Recurse::No,
             Dnssec::Yes,
@@ -373,7 +380,8 @@ mod tests {
 
     #[test]
     fn terminate_works() -> Result<()> {
-        let ns = NameServer::new(FQDN::ROOT)?.start()?;
+        let network = Network::new()?;
+        let ns = NameServer::new(FQDN::ROOT, &network)?.start()?;
         let logs = ns.terminate()?;
 
         assert!(logs.contains("nsd starting"));
