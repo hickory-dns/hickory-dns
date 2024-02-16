@@ -1,12 +1,12 @@
 mod network;
 
 use core::str;
-use std::fs;
 use std::net::Ipv4Addr;
 use std::process::{self, ChildStdout, ExitStatus};
 use std::process::{Command, Stdio};
 use std::sync::atomic::AtomicUsize;
 use std::sync::{atomic, Arc};
+use std::{env, fs};
 
 use tempfile::{NamedTempFile, TempDir};
 
@@ -38,13 +38,7 @@ impl Container {
             .arg(docker_build_dir);
 
         implementation.once().call_once(|| {
-            let output = command.output().unwrap();
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            assert!(
-                output.status.success(),
-                "--- STDOUT ---\n{stdout}\n--- STDERR ---\n{stderr}"
-            );
+            exec_or_panic(&mut command, verbose_docker_build());
         });
 
         let mut command = Command::new("docker");
@@ -168,6 +162,25 @@ impl Container {
 
     pub fn id(&self) -> &str {
         &self.inner.id
+    }
+}
+
+fn verbose_docker_build() -> bool {
+    env::var("DNS_TEST_VERBOSE_DOCKER_BUILD").as_deref() == Ok("1")
+}
+
+fn exec_or_panic(command: &mut Command, verbose: bool) {
+    if verbose {
+        let status = command.status().unwrap();
+        assert!(status.success());
+    } else {
+        let output = command.output().unwrap();
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            output.status.success(),
+            "--- STDOUT ---\n{stdout}\n--- STDERR ---\n{stderr}"
+        );
     }
 }
 
