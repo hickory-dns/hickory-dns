@@ -21,17 +21,17 @@ mod trust_anchor;
 pub mod tshark;
 pub mod zone_file;
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub enum Implementation {
     Unbound,
-    Hickory,
+    Hickory { url: String },
 }
 
 impl Implementation {
     fn dockerfile(&self) -> &'static str {
         match self {
             Implementation::Unbound => include_str!("docker/unbound.Dockerfile"),
-            Implementation::Hickory => include_str!("docker/hickory.Dockerfile"),
+            Implementation::Hickory { .. } => include_str!("docker/hickory.Dockerfile"),
         }
     }
 
@@ -41,7 +41,8 @@ impl Implementation {
                 static UNBOUND_ONCE: Once = Once::new();
                 &UNBOUND_ONCE
             }
-            Implementation::Hickory => {
+
+            Implementation::Hickory { .. } => {
                 static HICKORY_ONCE: Once = Once::new();
                 &HICKORY_ONCE
             }
@@ -59,7 +60,7 @@ impl fmt::Display for Implementation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
             Implementation::Unbound => "unbound",
-            Implementation::Hickory => "hickory",
+            Implementation::Hickory { .. } => "hickory",
         };
         f.write_str(s)
     }
@@ -67,10 +68,20 @@ impl fmt::Display for Implementation {
 
 pub fn subject() -> Implementation {
     if let Ok(subject) = std::env::var("DNS_TEST_SUBJECT") {
-        match subject.as_str() {
-            "hickory" => Implementation::Hickory,
-            "unbound" => Implementation::Unbound,
-            _ => panic!("unknown implementation: {subject}"),
+        if subject == "unbound" {
+            return Implementation::Unbound;
+        }
+
+        if subject.starts_with("hickory") {
+            if let Some(url) = subject.strip_prefix("hickory ") {
+                Implementation::Hickory {
+                    url: url.to_string(),
+                }
+            } else {
+                panic!("the syntax of DNS_TEST_SUBJECT is 'hickory $URL', e.g. 'hickory /tmp/hickory' or 'hickory https://github.com/owner/repo'")
+            }
+        } else {
+            panic!("unknown implementation: {subject}")
         }
     } else {
         Implementation::default()

@@ -33,7 +33,7 @@ impl Resolver {
             "must configure at least one local root server"
         );
 
-        let container = Container::run(implementation, network)?;
+        let container = Container::run(&implementation, network)?;
 
         let mut hints = String::new();
         for root in roots {
@@ -51,7 +51,7 @@ impl Resolver {
                 )?;
             }
 
-            Implementation::Hickory => {
+            Implementation::Hickory { .. } => {
                 container.status_ok(&["mkdir", "-p", "/etc/hickory"])?;
 
                 container.cp("/etc/hickory/root.hints", &hints)?;
@@ -66,7 +66,7 @@ impl Resolver {
 
         let command: &[_] = match implementation {
             Implementation::Unbound => &["unbound", "-d"],
-            Implementation::Hickory => &["hickory-dns", "-d"],
+            Implementation::Hickory { .. } => &["hickory-dns", "-d"],
         };
         let child = container.spawn(command)?;
 

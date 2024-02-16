@@ -22,7 +22,7 @@ const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
 
 impl Container {
     /// Starts the container in a "parked" state
-    pub fn run(implementation: Implementation, network: &Network) -> Result<Self> {
+    pub fn run(implementation: &Implementation, network: &Network) -> Result<Self> {
         // TODO make this configurable and support hickory & bind
         let dockerfile = implementation.dockerfile();
         let docker_build_dir = TempDir::new()?;
@@ -37,7 +37,26 @@ impl Container {
             .arg(&image_tag)
             .arg(docker_build_dir);
 
+        let srcdir = if let Implementation::Hickory { url } = implementation {
+            Some(url)
+        } else {
+            None
+        };
+
         implementation.once().call_once(|| {
+            if let Some(srcdir) = srcdir {
+                let mut cp_r = Command::new("git");
+                cp_r.args([
+                    "clone",
+                    "--depth",
+                    "1",
+                    srcdir,
+                    &docker_build_dir.join("src").display().to_string(),
+                ]);
+
+                exec_or_panic(&mut cp_r, false);
+            }
+
             exec_or_panic(&mut command, verbose_docker_build());
         });
 
@@ -312,7 +331,7 @@ mod tests {
     #[test]
     fn run_works() -> Result<()> {
         let network = Network::new()?;
-        let container = Container::run(Implementation::Unbound, &network)?;
+        let container = Container::run(&Implementation::Unbound, &network)?;
 
         let output = container.output(&["true"])?;
         assert!(output.status.success());
@@ -323,7 +342,7 @@ mod tests {
     #[test]
     fn ipv4_addr_works() -> Result<()> {
         let network = Network::new()?;
-        let container = Container::run(Implementation::Unbound, &network)?;
+        let container = Container::run(&Implementation::Unbound, &network)?;
         let ipv4_addr = container.ipv4_addr();
 
         let output = container.output(&["ping", "-c1", &format!("{ipv4_addr}")])?;
@@ -335,7 +354,7 @@ mod tests {
     #[test]
     fn cp_works() -> Result<()> {
         let network = Network::new()?;
-        let container = Container::run(Implementation::Unbound, &network)?;
+        let container = Container::run(&Implementation::Unbound, &network)?;
 
         let path = "/tmp/somefile";
         let contents = "hello";
