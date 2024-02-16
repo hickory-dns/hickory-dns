@@ -57,6 +57,9 @@ impl Container {
                 exec_or_panic(&mut cp_r, false);
             }
 
+            fs::write(docker_build_dir.join(".dockerignore"), "src/.git")
+                .expect("could not create .dockerignore file");
+
             exec_or_panic(&mut command, verbose_docker_build());
         });
 
