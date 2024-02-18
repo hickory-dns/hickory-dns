@@ -222,24 +222,36 @@ impl Message {
     }
 
     /// see `Header::set_query_count`
+    ///
+    /// this count will be ignored during serialization,
+    /// where the length of the associated records will be used instead.
     pub fn set_query_count(&mut self, query_count: u16) -> &mut Self {
         self.header.set_query_count(query_count);
         self
     }
 
     /// see `Header::set_answer_count`
+    ///
+    /// this count will be ignored during serialization,
+    /// where the length of the associated records will be used instead.
     pub fn set_answer_count(&mut self, answer_count: u16) -> &mut Self {
         self.header.set_answer_count(answer_count);
         self
     }
 
     /// see `Header::set_name_server_count`
+    ///
+    /// this count will be ignored during serialization,
+    /// where the length of the associated records will be used instead.
     pub fn set_name_server_count(&mut self, name_server_count: u16) -> &mut Self {
         self.header.set_name_server_count(name_server_count);
         self
     }
 
     /// see `Header::set_additional_count`
+    ///
+    /// this count will be ignored during serialization,
+    /// where the length of the associated records will be used instead.
     pub fn set_additional_count(&mut self, additional_count: u16) -> &mut Self {
         self.header.set_additional_count(additional_count);
         self
