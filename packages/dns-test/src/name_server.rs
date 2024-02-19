@@ -2,9 +2,10 @@ use core::sync::atomic::{self, AtomicUsize};
 use std::net::Ipv4Addr;
 
 use crate::container::{Child, Container, Network};
+use crate::record::{self, Record, SoaSettings, DS, SOA};
 use crate::tshark::Tshark;
-use crate::zone_file::{self, SoaSettings, ZoneFile, DNSKEY, DS};
-use crate::{Implementation, Result, FQDN};
+use crate::zone_file::{self, ZoneFile};
+use crate::{Implementation, Result, DEFAULT_TTL, FQDN};
 
 pub struct NameServer<State> {
     container: Container,
@@ -34,18 +35,16 @@ impl NameServer<Stopped> {
         let ns_count = ns_count();
         let nameserver = primary_ns(ns_count);
 
-        let soa = zone_file::SOA {
+        let soa = SOA {
             zone: zone.clone(),
+            ttl: DEFAULT_TTL,
             nameserver: nameserver.clone(),
             admin: admin_ns(ns_count),
             settings: SoaSettings::default(),
         };
-        let mut zone_file = ZoneFile::new(zone.clone(), soa);
+        let mut zone_file = ZoneFile::new(soa);
 
-        zone_file.entry(zone_file::NS {
-            zone,
-            nameserver: nameserver.clone(),
-        });
+        zone_file.add(Record::ns(zone, nameserver.clone()));
 
         let image = implementation.into();
         Ok(Self {
@@ -61,15 +60,9 @@ impl NameServer<Stopped> {
         self
     }
 
-    /// Adds an A record pair to the zone file
-    pub fn a(&mut self, fqdn: FQDN, ipv4_addr: Ipv4Addr) -> &mut Self {
-        self.zone_file.entry(zone_file::A { fqdn, ipv4_addr });
-        self
-    }
-
-    /// Adds a DS record to the zone file
-    pub fn ds(&mut self, ds: DS) -> &mut Self {
-        self.zone_file.entry(ds);
+    /// Adds a record to the name server's zone file
+    pub fn add(&mut self, record: impl Into<Record>) -> &mut Self {
+        self.zone_file.add(record);
         self
     }
 
@@ -89,19 +82,19 @@ impl NameServer<Stopped> {
         container.status_ok(&["mkdir", "-p", ZONES_DIR])?;
         container.cp("/etc/nsd/zones/main.zone", &zone_file.to_string())?;
 
-        let zone = &zone_file.origin;
+        let zone = zone_file.origin();
 
         let zsk_keygen =
             format!("cd {ZONES_DIR} && ldns-keygen -a {ALGORITHM} -b {ZSK_BITS} {zone}");
         let zsk_filename = container.stdout(&["sh", "-c", &zsk_keygen])?;
         let zsk_path = format!("{ZONES_DIR}/{zsk_filename}.key");
-        let zsk: DNSKEY = container.stdout(&["cat", &zsk_path])?.parse()?;
+        let zsk: zone_file::DNSKEY = container.stdout(&["cat", &zsk_path])?.parse()?;
 
         let ksk_keygen =
             format!("cd {ZONES_DIR} && ldns-keygen -k -a {ALGORITHM} -b {KSK_BITS} {zone}");
         let ksk_filename = container.stdout(&["sh", "-c", &ksk_keygen])?;
         let ksk_path = format!("{ZONES_DIR}/{ksk_filename}.key");
-        let ksk: DNSKEY = container.stdout(&["cat", &ksk_path])?.parse()?;
+        let ksk: zone_file::DNSKEY = container.stdout(&["cat", &ksk_path])?.parse()?;
 
         // -n = use NSEC3 instead of NSEC
         // -p = set the opt-out flag on all nsec3 rrs
@@ -120,15 +113,17 @@ impl NameServer<Stopped> {
         container.status_ok(&["mv", &format!("{zone_file_path}.signed"), &zone_file_path])?;
 
         let signed_zone_file = container.stdout(&["cat", &zone_file_path])?;
+        let ttl = zone_file.soa.ttl;
 
         Ok(NameServer {
             container,
             zone_file,
             state: Signed {
                 ds,
-                ksk,
                 signed_zone_file,
-                zsk,
+                // inherit SOA's TTL value
+                ksk: ksk.with_ttl(ttl),
+                zsk: zsk.with_ttl(ttl),
             },
         })
     }
@@ -144,7 +139,7 @@ impl NameServer<Stopped> {
         // for PID file
         container.status_ok(&["mkdir", "-p", "/run/nsd/"])?;
 
-        container.cp("/etc/nsd/nsd.conf", &nsd_conf(&zone_file.origin))?;
+        container.cp("/etc/nsd/nsd.conf", &nsd_conf(zone_file.origin()))?;
 
         container.status_ok(&["mkdir", "-p", ZONES_DIR])?;
         container.cp(&zone_file_path(), &zone_file.to_string())?;
@@ -183,7 +178,7 @@ impl NameServer<Signed> {
         // for PID file
         container.status_ok(&["mkdir", "-p", "/run/nsd/"])?;
 
-        container.cp("/etc/nsd/nsd.conf", &nsd_conf(&zone_file.origin))?;
+        container.cp("/etc/nsd/nsd.conf", &nsd_conf(zone_file.origin()))?;
 
         let child = container.spawn(&["nsd", "-d"])?;
 
@@ -194,11 +189,11 @@ impl NameServer<Signed> {
         })
     }
 
-    pub fn key_signing_key(&self) -> &DNSKEY {
+    pub fn key_signing_key(&self) -> &record::DNSKEY {
         &self.state.ksk
     }
 
-    pub fn zone_signing_key(&self) -> &DNSKEY {
+    pub fn zone_signing_key(&self) -> &record::DNSKEY {
         &self.state.zsk
     }
 
@@ -256,7 +251,7 @@ impl<S> NameServer<S> {
     }
 
     pub fn zone(&self) -> &FQDN {
-        &self.zone_file.origin
+        self.zone_file.origin()
     }
 
     pub fn fqdn(&self) -> &FQDN {
@@ -268,8 +263,8 @@ pub struct Stopped;
 
 pub struct Signed {
     ds: DS,
-    zsk: DNSKEY,
-    ksk: DNSKEY,
+    zsk: record::DNSKEY,
+    ksk: record::DNSKEY,
     signed_zone_file: String,
 }
 

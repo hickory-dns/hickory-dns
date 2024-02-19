@@ -10,9 +10,6 @@ pub use crate::fqdn::FQDN;
 pub use crate::resolver::Resolver;
 pub use crate::trust_anchor::TrustAnchor;
 
-pub type Error = Box<dyn std::error::Error>;
-pub type Result<T> = core::result::Result<T, Error>;
-
 pub mod client;
 mod container;
 mod fqdn;
@@ -22,6 +19,12 @@ mod resolver;
 mod trust_anchor;
 pub mod tshark;
 pub mod zone_file;
+
+pub type Error = Box<dyn std::error::Error>;
+pub type Result<T> = core::result::Result<T, Error>;
+
+// TODO maybe this should be a TLS variable that each unit test (thread) can override
+const DEFAULT_TTL: u32 = 24 * 60 * 60; // 1 day
 
 #[derive(Clone)]
 pub enum Implementation {

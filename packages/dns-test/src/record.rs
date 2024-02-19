@@ -1,24 +1,29 @@
 //! Text representation of DNS records
 
-use core::array;
 use core::result::Result as CoreResult;
 use core::str::FromStr;
+use core::{array, fmt};
+use std::fmt::Write;
 use std::net::Ipv4Addr;
 
-use crate::{Error, Result, FQDN};
+use crate::{Error, Result, DEFAULT_TTL, FQDN};
 
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, PartialEq)]
 pub enum RecordType {
     A,
+    DS,
     NS,
     SOA,
+    // excluded because cannot appear in RRSIG.type_covered
+    // RRSIG,
 }
 
 impl RecordType {
     pub fn as_str(&self) -> &'static str {
         match self {
             RecordType::A => "A",
+            RecordType::DS => "DS",
             RecordType::SOA => "SOA",
             RecordType::NS => "NS",
         }
@@ -31,6 +36,7 @@ impl FromStr for RecordType {
     fn from_str(input: &str) -> CoreResult<Self, Self::Err> {
         let record_type = match input {
             "A" => Self::A,
+            "DS" => Self::DS,
             "SOA" => Self::SOA,
             "NS" => Self::NS,
             _ => return Err(format!("unknown record type: {input}").into()),
@@ -40,12 +46,57 @@ impl FromStr for RecordType {
     }
 }
 
+impl fmt::Display for RecordType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            RecordType::A => "A",
+            RecordType::DS => "DS",
+            RecordType::NS => "NS",
+            RecordType::SOA => "SOA",
+        };
+
+        f.write_str(s)
+    }
+}
+
 #[derive(Debug)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Record {
     A(A),
+    DS(DS),
+    NS(NS),
     RRSIG(RRSIG),
     SOA(SOA),
+}
+
+impl From<DS> for Record {
+    fn from(v: DS) -> Self {
+        Self::DS(v)
+    }
+}
+
+impl From<A> for Record {
+    fn from(v: A) -> Self {
+        Self::A(v)
+    }
+}
+
+impl From<NS> for Record {
+    fn from(v: NS) -> Self {
+        Self::NS(v)
+    }
+}
+
+impl From<RRSIG> for Record {
+    fn from(v: RRSIG) -> Self {
+        Self::RRSIG(v)
+    }
+}
+
+impl From<SOA> for Record {
+    fn from(v: SOA) -> Self {
+        Self::SOA(v)
+    }
 }
 
 impl Record {
@@ -68,6 +119,24 @@ impl Record {
     pub fn is_soa(&self) -> bool {
         matches!(self, Self::SOA(..))
     }
+
+    pub fn a(fqdn: FQDN, ipv4_addr: Ipv4Addr) -> Self {
+        A {
+            fqdn,
+            ttl: DEFAULT_TTL,
+            ipv4_addr,
+        }
+        .into()
+    }
+
+    pub fn ns(zone: FQDN, nameserver: FQDN) -> Self {
+        NS {
+            zone,
+            ttl: DEFAULT_TTL,
+            nameserver,
+        }
+        .into()
+    }
 }
 
 impl FromStr for Record {
@@ -88,6 +157,18 @@ impl FromStr for Record {
         };
 
         Ok(record)
+    }
+}
+
+impl fmt::Display for Record {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Record::A(a) => write!(f, "{a}"),
+            Record::DS(ds) => write!(f, "{ds}"),
+            Record::NS(ns) => write!(f, "{ns}"),
+            Record::RRSIG(rrsig) => write!(f, "{rrsig}"),
+            Record::SOA(soa) => write!(f, "{soa}"),
+        }
     }
 }
 
@@ -126,6 +207,189 @@ impl FromStr for A {
             ttl: ttl.parse()?,
             ipv4_addr: ipv4_addr.parse()?,
         })
+    }
+}
+
+impl fmt::Display for A {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            fqdn,
+            ttl,
+            ipv4_addr,
+        } = self;
+
+        write!(f, "{fqdn}\t{ttl}\tIN\tA\t{ipv4_addr}")
+    }
+}
+
+// integer types chosen based on bit sizes in section 2.1 of RFC4034
+#[derive(Clone, Debug)]
+pub struct DNSKEY {
+    pub zone: FQDN,
+    pub ttl: u32,
+    pub flags: u16,
+    pub protocol: u8,
+    pub algorithm: u8,
+    pub public_key: String,
+}
+
+impl DNSKEY {
+    /// formats the `DNSKEY` in the format `delv` expects
+    pub(super) fn delv(&self) -> String {
+        let Self {
+            zone,
+            flags,
+            protocol,
+            algorithm,
+            public_key,
+            ..
+        } = self;
+
+        format!("{zone} static-key {flags} {protocol} {algorithm} \"{public_key}\";\n")
+    }
+}
+
+impl FromStr for DNSKEY {
+    type Err = Error;
+
+    fn from_str(input: &str) -> CoreResult<Self, Self::Err> {
+        let mut columns = input.split_whitespace();
+
+        let [Some(zone), Some(ttl), Some(class), Some(record_type), Some(flags), Some(protocol), Some(algorithm)] =
+            array::from_fn(|_| columns.next())
+        else {
+            return Err("expected at least 7 columns".into());
+        };
+
+        if record_type != "DNSKEY" {
+            return Err(format!("tried to parse `{record_type}` record as a DNSKEY record").into());
+        }
+
+        if class != "IN" {
+            return Err(format!("unknown class: {class}").into());
+        }
+
+        let mut public_key = String::new();
+        for column in columns {
+            public_key.push_str(column);
+        }
+
+        Ok(Self {
+            zone: zone.parse()?,
+            ttl: ttl.parse()?,
+            flags: flags.parse()?,
+            protocol: protocol.parse()?,
+            algorithm: algorithm.parse()?,
+            public_key,
+        })
+    }
+}
+
+impl fmt::Display for DNSKEY {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            zone,
+            ttl,
+            flags,
+            protocol,
+            algorithm,
+            public_key,
+        } = self;
+
+        write!(
+            f,
+            "{zone}\t{ttl}\tIN\tDNSKEY\t{flags} {protocol} {algorithm}"
+        )?;
+
+        write_split_long_string(f, public_key)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct DS {
+    zone: FQDN,
+    ttl: u32,
+    key_tag: u16,
+    algorithm: u8,
+    digest_type: u8,
+    digest: String,
+}
+
+impl FromStr for DS {
+    type Err = Error;
+
+    fn from_str(input: &str) -> CoreResult<Self, Self::Err> {
+        let mut columns = input.split_whitespace();
+
+        let [Some(zone), Some(ttl), Some(class), Some(record_type), Some(key_tag), Some(algorithm), Some(digest_type)] =
+            array::from_fn(|_| columns.next())
+        else {
+            return Err("expected at least 7 columns".into());
+        };
+
+        let expected = "DS";
+        if record_type != expected {
+            return Err(
+                format!("tried to parse `{record_type}` entry as a {expected} entry").into(),
+            );
+        }
+
+        if class != "IN" {
+            return Err(format!("unknown class: {class}").into());
+        }
+
+        let mut digest = String::new();
+        for column in columns {
+            digest.push_str(column);
+        }
+
+        Ok(Self {
+            zone: zone.parse()?,
+            ttl: ttl.parse()?,
+            key_tag: key_tag.parse()?,
+            algorithm: algorithm.parse()?,
+            digest_type: digest_type.parse()?,
+            digest,
+        })
+    }
+}
+
+impl fmt::Display for DS {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            zone,
+            ttl,
+            key_tag,
+            algorithm,
+            digest_type,
+            digest,
+        } = self;
+
+        write!(
+            f,
+            "{zone}\t{ttl}\tIN\tDS\t{key_tag} {algorithm} {digest_type}"
+        )?;
+
+        write_split_long_string(f, digest)
+    }
+}
+
+#[derive(Debug)]
+pub struct NS {
+    pub zone: FQDN,
+    pub ttl: u32,
+    pub nameserver: FQDN,
+}
+
+impl fmt::Display for NS {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            zone,
+            ttl,
+            nameserver,
+        } = self;
+
+        write!(f, "{zone}\t{ttl}\tIN\tNS {nameserver}")
     }
 }
 
@@ -190,6 +454,28 @@ impl FromStr for RRSIG {
     }
 }
 
+impl fmt::Display for RRSIG {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            fqdn,
+            ttl,
+            type_covered,
+            algorithm,
+            labels,
+            original_ttl,
+            signature_expiration,
+            signature_inception,
+            key_tag,
+            signer_name,
+            signature,
+        } = self;
+
+        write!(f, "{fqdn}\t{ttl}\tIN\tRRSIG\t{type_covered} {algorithm} {labels} {original_ttl} {signature_expiration} {signature_inception} {key_tag} {signer_name}")?;
+
+        write_split_long_string(f, signature)
+    }
+}
+
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug)]
 pub struct SOA {
@@ -197,11 +483,7 @@ pub struct SOA {
     pub ttl: u32,
     pub nameserver: FQDN,
     pub admin: FQDN,
-    pub serial: u32,
-    pub refresh: u32,
-    pub retry: u32,
-    pub expire: u32,
-    pub minimum: u32,
+    pub settings: SoaSettings,
 }
 
 impl FromStr for SOA {
@@ -229,13 +511,74 @@ impl FromStr for SOA {
             ttl: ttl.parse()?,
             nameserver: nameserver.parse()?,
             admin: admin.parse()?,
-            serial: serial.parse()?,
-            refresh: refresh.parse()?,
-            retry: retry.parse()?,
-            expire: expire.parse()?,
-            minimum: minimum.parse()?,
+            settings: SoaSettings {
+                serial: serial.parse()?,
+                refresh: refresh.parse()?,
+                retry: retry.parse()?,
+                expire: expire.parse()?,
+                minimum: minimum.parse()?,
+            },
         })
     }
+}
+
+impl fmt::Display for SOA {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            zone,
+            ttl,
+            nameserver,
+            admin,
+            settings,
+        } = self;
+
+        write!(f, "{zone}\t{ttl}\tIN\tSOA\t{nameserver} {admin} {settings}")
+    }
+}
+
+#[derive(Debug)]
+pub struct SoaSettings {
+    pub serial: u32,
+    pub refresh: u32,
+    pub retry: u32,
+    pub expire: u32,
+    pub minimum: u32,
+}
+
+impl Default for SoaSettings {
+    fn default() -> Self {
+        Self {
+            serial: 2024010101,
+            refresh: 1800,  // 30 minutes
+            retry: 900,     // 15 minutes
+            expire: 604800, // 1 week
+            minimum: 86400, // 1 day
+        }
+    }
+}
+
+impl fmt::Display for SoaSettings {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            serial,
+            refresh,
+            retry,
+            expire,
+            minimum,
+        } = self;
+
+        write!(f, "{serial} {refresh} {retry} {expire} {minimum}")
+    }
+}
+
+fn write_split_long_string(f: &mut fmt::Formatter<'_>, field: &str) -> fmt::Result {
+    for (index, c) in field.chars().enumerate() {
+        if index % 56 == 0 {
+            f.write_char(' ')?;
+        }
+        f.write_char(c)?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -243,20 +586,123 @@ mod tests {
     use super::*;
 
     #[test]
-    fn can_parse_a_record() -> Result<()> {
-        let input = "a.root-servers.net.	3600000	IN	A	198.41.0.4";
-        let a: A = input.parse()?;
+    fn a() -> Result<()> {
+        // dig A a.root-servers.net
+        let input = "a.root-servers.net.	77859	IN	A	198.41.0.4";
+        let a @ A {
+            fqdn,
+            ttl,
+            ipv4_addr,
+        } = &input.parse()?;
 
-        assert_eq!("a.root-servers.net.", a.fqdn.as_str());
-        assert_eq!(3600000, a.ttl);
-        assert_eq!(Ipv4Addr::new(198, 41, 0, 4), a.ipv4_addr);
+        assert_eq!("a.root-servers.net.", fqdn.as_str());
+        assert_eq!(77859, *ttl);
+        assert_eq!(Ipv4Addr::new(198, 41, 0, 4), *ipv4_addr);
+
+        let output = a.to_string();
+        assert_eq!(output, input);
 
         Ok(())
     }
 
     #[test]
-    fn can_parse_soa_record() -> Result<()> {
-        let input = ".			15633	IN	SOA	a.root-servers.net. nstld.verisign-grs.com. 2024020501 1800 900 604800 86400";
+    fn dnskey() -> Result<()> {
+        // dig DNSKEY .
+        let input = ".	1116	IN	DNSKEY	257 3 8 AwEAAaz/tAm8yTn4Mfeh5eyI96WSVexTBAvkMgJzkKTOiW1vkIbzxeF3 +/4RgWOq7HrxRixHlFlExOLAJr5emLvN7SWXgnLh4+B5xQlNVz8Og8kv ArMtNROxVQuCaSnIDdD5LKyWbRd2n9WGe2R8PzgCmr3EgVLrjyBxWezF 0jLHwVN8efS3rCj/EWgvIWgb9tarpVUDK/b58Da+sqqls3eNbuv7pr+e oZG+SrDK6nWeL3c6H5Apxz7LjVc1uTIdsIXxuOLYA4/ilBmSVIzuDWfd RUfhHdY6+cn8HFRm+2hM8AnXGXws9555KrUB5qihylGa8subX2Nn6UwN R1AkUTV74bU=";
+
+        let dnskey @ DNSKEY {
+            zone,
+            ttl,
+            flags,
+            protocol,
+            algorithm,
+            public_key,
+        } = &input.parse()?;
+
+        assert_eq!(FQDN::ROOT, *zone);
+        assert_eq!(1116, *ttl);
+        assert_eq!(257, *flags);
+        assert_eq!(3, *protocol);
+        assert_eq!(8, *algorithm);
+        let expected = "AwEAAaz/tAm8yTn4Mfeh5eyI96WSVexTBAvkMgJzkKTOiW1vkIbzxeF3+/4RgWOq7HrxRixHlFlExOLAJr5emLvN7SWXgnLh4+B5xQlNVz8Og8kvArMtNROxVQuCaSnIDdD5LKyWbRd2n9WGe2R8PzgCmr3EgVLrjyBxWezF0jLHwVN8efS3rCj/EWgvIWgb9tarpVUDK/b58Da+sqqls3eNbuv7pr+eoZG+SrDK6nWeL3c6H5Apxz7LjVc1uTIdsIXxuOLYA4/ilBmSVIzuDWfdRUfhHdY6+cn8HFRm+2hM8AnXGXws9555KrUB5qihylGa8subX2Nn6UwNR1AkUTV74bU=";
+        assert_eq!(expected, public_key);
+
+        let output = dnskey.to_string();
+        assert_eq!(output, input);
+
+        Ok(())
+    }
+
+    #[test]
+    fn ds() -> Result<()> {
+        // dig DS com.
+        let input = "com.	7612	IN	DS	19718 13 2 8ACBB0CD28F41250A80A491389424D341522D946B0DA0C0291F2D3D7 71D7805A";
+
+        let ds @ DS {
+            zone,
+            ttl,
+            key_tag,
+            algorithm,
+            digest_type,
+            digest,
+        } = &input.parse()?;
+
+        assert_eq!(FQDN::COM, *zone);
+        assert_eq!(7612, *ttl);
+        assert_eq!(19718, *key_tag);
+        assert_eq!(13, *algorithm);
+        assert_eq!(2, *digest_type);
+        let expected = "8ACBB0CD28F41250A80A491389424D341522D946B0DA0C0291F2D3D771D7805A";
+        assert_eq!(expected, digest);
+
+        let output = ds.to_string();
+        assert_eq!(output, input);
+
+        Ok(())
+    }
+
+    #[test]
+    fn rrsig() -> Result<()> {
+        // dig +dnssec SOA .
+        let input = ".	1800	IN	RRSIG	SOA 7 0 1800 20240306132701 20240207132701 11264 . wXpRU4elJPGYm2kgVVsIwGf1IkYJcQ3UE4mwmItWdxj0XWSWY07MO4Ll DMJgsE0u64Q/345Ck7+aQ904uLebwCvpFnsmkyCxk82XIAfHN9FiwzSy qoR/zZEvBONaej3vrvsqPwh8q/pvypLft9647HcFdwY0juzZsbrAaDAX 8WY=";
+
+        let rrsig @ RRSIG {
+            fqdn,
+            ttl,
+            type_covered,
+            algorithm,
+            labels,
+            original_ttl,
+            signature_expiration,
+            signature_inception,
+            key_tag,
+            signer_name,
+            signature,
+        } = &input.parse()?;
+
+        assert_eq!(FQDN::ROOT, *fqdn);
+        assert_eq!(1800, *ttl);
+        assert_eq!(RecordType::SOA, *type_covered);
+        assert_eq!(7, *algorithm);
+        assert_eq!(0, *labels);
+        assert_eq!(1800, *original_ttl);
+        assert_eq!(20240306132701, *signature_expiration);
+        assert_eq!(20240207132701, *signature_inception);
+        assert_eq!(11264, *key_tag);
+        assert_eq!(FQDN::ROOT, *signer_name);
+        let expected = "wXpRU4elJPGYm2kgVVsIwGf1IkYJcQ3UE4mwmItWdxj0XWSWY07MO4LlDMJgsE0u64Q/345Ck7+aQ904uLebwCvpFnsmkyCxk82XIAfHN9FiwzSyqoR/zZEvBONaej3vrvsqPwh8q/pvypLft9647HcFdwY0juzZsbrAaDAX8WY=";
+        assert_eq!(expected, signature);
+
+        let output = rrsig.to_string();
+        assert_eq!(input, output);
+
+        Ok(())
+    }
+
+    #[test]
+    fn soa() -> Result<()> {
+        // dig SOA .
+        let input = ".	15633	IN	SOA	a.root-servers.net. nstld.verisign-grs.com. 2024020501 1800 900 604800 86400";
 
         let soa: SOA = input.parse()?;
 
@@ -264,32 +710,15 @@ mod tests {
         assert_eq!(15633, soa.ttl);
         assert_eq!("a.root-servers.net.", soa.nameserver.as_str());
         assert_eq!("nstld.verisign-grs.com.", soa.admin.as_str());
-        assert_eq!(2024020501, soa.serial);
-        assert_eq!(1800, soa.refresh);
-        assert_eq!(900, soa.retry);
-        assert_eq!(604800, soa.expire);
-        assert_eq!(86400, soa.minimum);
+        let settings = &soa.settings;
+        assert_eq!(2024020501, settings.serial);
+        assert_eq!(1800, settings.refresh);
+        assert_eq!(900, settings.retry);
+        assert_eq!(604800, settings.expire);
+        assert_eq!(86400, settings.minimum);
 
-        Ok(())
-    }
-
-    #[test]
-    fn can_parse_rrsig_record() -> Result<()> {
-        let input = ".			1800	IN	RRSIG	SOA 7 0 1800 20240306132701 20240207132701 11264 . wXpRU4elJPGYm2kgVVsIwGf1IkYJcQ3UE4mwmItWdxj0XWSWY07MO4Ll DMJgsE0u64Q/345Ck7+aQ904uLebwCvpFnsmkyCxk82XIAfHN9FiwzSy qoR/zZEvBONaej3vrvsqPwh8q/pvypLft9647HcFdwY0juzZsbrAaDAX 8WY=";
-
-        let rrsig: RRSIG = input.parse()?;
-
-        assert_eq!(FQDN::ROOT, rrsig.fqdn);
-        assert_eq!(1800, rrsig.ttl);
-        assert_eq!(RecordType::SOA, rrsig.type_covered);
-        assert_eq!(7, rrsig.algorithm);
-        assert_eq!(0, rrsig.labels);
-        assert_eq!(20240306132701, rrsig.signature_expiration);
-        assert_eq!(20240207132701, rrsig.signature_inception);
-        assert_eq!(11264, rrsig.key_tag);
-        assert_eq!(FQDN::ROOT, rrsig.signer_name);
-        let expected = "wXpRU4elJPGYm2kgVVsIwGf1IkYJcQ3UE4mwmItWdxj0XWSWY07MO4LlDMJgsE0u64Q/345Ck7+aQ904uLebwCvpFnsmkyCxk82XIAfHN9FiwzSyqoR/zZEvBONaej3vrvsqPwh8q/pvypLft9647HcFdwY0juzZsbrAaDAX8WY=";
-        assert_eq!(expected, rrsig.signature);
+        let output = soa.to_string();
+        assert_eq!(output, input);
 
         Ok(())
     }

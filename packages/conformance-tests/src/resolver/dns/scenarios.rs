@@ -2,7 +2,7 @@ use std::net::Ipv4Addr;
 
 use dns_test::client::{Client, Dnssec, Recurse};
 use dns_test::name_server::NameServer;
-use dns_test::record::RecordType;
+use dns_test::record::{Record, RecordType};
 use dns_test::zone_file::Root;
 use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
 
@@ -18,9 +18,9 @@ fn can_resolve() -> Result<()> {
     let mut nameservers_ns =
         NameServer::new(dns_test::peer(), FQDN("nameservers.com.")?, &network)?;
     nameservers_ns
-        .a(root_ns.fqdn().clone(), root_ns.ipv4_addr())
-        .a(com_ns.fqdn().clone(), com_ns.ipv4_addr())
-        .a(needle_fqdn.clone(), expected_ipv4_addr);
+        .add(Record::a(root_ns.fqdn().clone(), root_ns.ipv4_addr()))
+        .add(Record::a(com_ns.fqdn().clone(), com_ns.ipv4_addr()))
+        .add(Record::a(needle_fqdn.clone(), expected_ipv4_addr));
     let nameservers_ns = nameservers_ns.start()?;
 
     eprintln!("nameservers.com.zone:\n{}", nameservers_ns.zone_file());
@@ -75,8 +75,8 @@ fn nxdomain() -> Result<()> {
     let mut nameservers_ns =
         NameServer::new(dns_test::peer(), FQDN("nameservers.com.")?, &network)?;
     nameservers_ns
-        .a(root_ns.fqdn().clone(), root_ns.ipv4_addr())
-        .a(com_ns.fqdn().clone(), com_ns.ipv4_addr());
+        .add(Record::a(root_ns.fqdn().clone(), root_ns.ipv4_addr()))
+        .add(Record::a(com_ns.fqdn().clone(), com_ns.ipv4_addr()));
     let nameservers_ns = nameservers_ns.start()?;
 
     com_ns.referral(

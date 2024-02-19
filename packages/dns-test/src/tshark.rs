@@ -246,7 +246,7 @@ struct Ip {
 mod tests {
     use crate::client::{Client, Dnssec, Recurse};
     use crate::name_server::NameServer;
-    use crate::record::RecordType;
+    use crate::record::{Record, RecordType};
     use crate::zone_file::Root;
     use crate::{Implementation, Network, Resolver, TrustAnchor, FQDN};
 
@@ -297,8 +297,8 @@ mod tests {
         let mut nameservers_ns =
             NameServer::new(Implementation::Unbound, FQDN("nameservers.com.")?, network)?;
         nameservers_ns
-            .a(root_ns.fqdn().clone(), root_ns.ipv4_addr())
-            .a(com_ns.fqdn().clone(), com_ns.ipv4_addr());
+            .add(Record::a(root_ns.fqdn().clone(), root_ns.ipv4_addr()))
+            .add(Record::a(com_ns.fqdn().clone(), com_ns.ipv4_addr()));
         let nameservers_ns = nameservers_ns.start()?;
 
         com_ns.referral(
