@@ -367,7 +367,7 @@ impl<P: ConnectionProvider> AsyncResolver<P> {
         L: From<Lookup> + Send + 'static,
     {
         let names = self.build_names(name);
-        LookupFuture::lookup(names, record_type, options, self.client_cache.clone())
+        LookupFuture::lookup_with_hosts(names, record_type, options, self.client_cache.clone(), self.hosts.clone())
             .await
             .map(L::from)
     }
