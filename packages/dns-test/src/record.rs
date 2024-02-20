@@ -542,18 +542,22 @@ impl fmt::Display for NSEC3PARAM {
     }
 }
 
+// integer types chosen based on bit sizes in section 3.1 of RFC4034
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug)]
 pub struct RRSIG {
     pub fqdn: FQDN,
     pub ttl: u32,
     pub type_covered: RecordType,
-    pub algorithm: u32,
-    pub labels: u32,
+    pub algorithm: u8,
+    pub labels: u8,
     pub original_ttl: u32,
+    // NOTE on the wire these are 32-bit UNIX timestamps but in text representation they are
+    // `strftime` formatted
+    // TODO switch these to `chrono::DateTime<Utc>`?
     pub signature_expiration: u64,
     pub signature_inception: u64,
-    pub key_tag: u32,
+    pub key_tag: u16,
     pub signer_name: FQDN,
     /// base64 encoded
     pub signature: String,
