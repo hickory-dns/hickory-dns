@@ -188,7 +188,7 @@ impl Container {
 }
 
 fn verbose_docker_build() -> bool {
-    env::var("DNS_TEST_VERBOSE_DOCKER_BUILD").as_deref() == Ok("1")
+    env::var("DNS_TEST_VERBOSE_DOCKER_BUILD").as_deref().is_ok()
 }
 
 fn exec_or_panic(command: &mut Command, verbose: bool) {
