@@ -15,3 +15,6 @@ url = "2.5.0"
 
 [lib]
 doctest = false
+
+[dev-dependencies]
+ctrlc = "3.4.2"

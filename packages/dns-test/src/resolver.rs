@@ -77,6 +77,10 @@ impl Resolver {
         self.container.eavesdrop()
     }
 
+    pub fn container_id(&self) -> &str {
+        self.container.id()
+    }
+
     pub fn ipv4_addr(&self) -> Ipv4Addr {
         self.container.ipv4_addr()
     }

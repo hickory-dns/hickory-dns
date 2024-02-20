@@ -156,10 +156,6 @@ impl<'a> NameServer<'a, Stopped> {
             state: Running { child },
         })
     }
-
-    pub fn container_id(&self) -> &str {
-        self.container.id()
-    }
 }
 
 const ZONES_DIR: &str = "/etc/nsd/zones";
@@ -245,6 +241,10 @@ kill -TERM $(cat {pidfile})"
 }
 
 impl<'a, S> NameServer<'a, S> {
+    pub fn container_id(&self) -> &str {
+        self.container.id()
+    }
+
     pub fn ipv4_addr(&self) -> Ipv4Addr {
         self.container.ipv4_addr()
     }
