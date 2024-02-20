@@ -295,7 +295,7 @@ fn nsd_conf(fqdn: &FQDN) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::client::{Client, Dnssec, Recurse};
+    use crate::client::{Client, DigSettings};
     use crate::record::RecordType;
 
     use super::*;
@@ -307,13 +307,7 @@ mod tests {
         let ip_addr = tld_ns.ipv4_addr();
 
         let client = Client::new(&network)?;
-        let output = client.dig(
-            Recurse::No,
-            Dnssec::No,
-            ip_addr,
-            RecordType::SOA,
-            &FQDN::COM,
-        )?;
+        let output = client.dig(DigSettings::default(), ip_addr, RecordType::SOA, &FQDN::COM)?;
 
         assert!(output.status.is_noerror());
 
@@ -338,8 +332,7 @@ mod tests {
 
         let client = Client::new(&network)?;
         let output = client.dig(
-            Recurse::No,
-            Dnssec::No,
+            DigSettings::default(),
             ipv4_addr,
             RecordType::NS,
             &FQDN::COM,
@@ -364,13 +357,8 @@ mod tests {
         let ns_addr = tld_ns.ipv4_addr();
 
         let client = Client::new(&network)?;
-        let output = client.dig(
-            Recurse::No,
-            Dnssec::Yes,
-            ns_addr,
-            RecordType::SOA,
-            &FQDN::ROOT,
-        )?;
+        let settings = *DigSettings::default().dnssec();
+        let output = client.dig(settings, ns_addr, RecordType::SOA, &FQDN::ROOT)?;
 
         assert!(output.status.is_noerror());
 

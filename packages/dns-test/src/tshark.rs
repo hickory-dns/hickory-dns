@@ -244,7 +244,7 @@ struct Ip {
 
 #[cfg(test)]
 mod tests {
-    use crate::client::{Client, Dnssec, Recurse};
+    use crate::client::{Client, DigSettings};
     use crate::name_server::NameServer;
     use crate::record::{Record, RecordType};
     use crate::zone_file::Root;
@@ -260,8 +260,7 @@ mod tests {
 
         let client = Client::new(network)?;
         let resp = client.dig(
-            Recurse::No,
-            Dnssec::No,
+            DigSettings::default(),
             ns.ipv4_addr(),
             RecordType::SOA,
             &FQDN::ROOT,
@@ -322,13 +321,8 @@ mod tests {
         let resolver_addr = resolver.ipv4_addr();
 
         let client = Client::new(network)?;
-        let output = client.dig(
-            Recurse::Yes,
-            Dnssec::No,
-            dbg!(resolver_addr),
-            RecordType::A,
-            root_ns.fqdn(),
-        )?;
+        let settings = *DigSettings::default().recurse();
+        let output = client.dig(settings, dbg!(resolver_addr), RecordType::A, root_ns.fqdn())?;
 
         assert!(output.status.is_noerror());
 

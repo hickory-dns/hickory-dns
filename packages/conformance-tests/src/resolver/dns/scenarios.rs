@@ -1,6 +1,6 @@
 use std::net::Ipv4Addr;
 
-use dns_test::client::{Client, Dnssec, Recurse};
+use dns_test::client::{Client, DigSettings};
 use dns_test::name_server::NameServer;
 use dns_test::record::{Record, RecordType};
 use dns_test::zone_file::Root;
@@ -44,13 +44,9 @@ fn can_resolve() -> Result<()> {
     let resolver_ip_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;
-    let output = client.dig(
-        Recurse::Yes,
-        Dnssec::No,
-        resolver_ip_addr,
-        RecordType::A,
-        &needle_fqdn,
-    )?;
+
+    let settings = *DigSettings::default().recurse();
+    let output = client.dig(settings, resolver_ip_addr, RecordType::A, &needle_fqdn)?;
 
     assert!(output.status.is_noerror());
 
@@ -94,13 +90,8 @@ fn nxdomain() -> Result<()> {
     let resolver_ip_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;
-    let output = client.dig(
-        Recurse::Yes,
-        Dnssec::No,
-        resolver_ip_addr,
-        RecordType::A,
-        &needle_fqdn,
-    )?;
+    let settings = *DigSettings::default().recurse();
+    let output = client.dig(settings, resolver_ip_addr, RecordType::A, &needle_fqdn)?;
 
     assert!(dbg!(output).status.is_nxdomain());
 

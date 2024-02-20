@@ -53,16 +53,17 @@ impl Client {
 
     pub fn dig(
         &self,
-        recurse: Recurse,
-        dnssec: Dnssec,
+        settings: DigSettings,
         server: Ipv4Addr,
         record_type: RecordType,
         fqdn: &FQDN,
     ) -> Result<DigOutput> {
         let output = self.inner.stdout(&[
             "dig",
-            recurse.as_str(),
-            dnssec.as_str(),
+            settings.rdflag(),
+            settings.do_bit(),
+            settings.adflag(),
+            settings.cdflag(),
             &format!("@{server}"),
             record_type.as_str(),
             fqdn.as_str(),
@@ -72,32 +73,68 @@ impl Client {
     }
 }
 
-#[derive(Clone, Copy)]
-pub enum Dnssec {
-    Yes,
-    No,
+#[derive(Clone, Copy, Default)]
+pub struct DigSettings {
+    adflag: bool,
+    cdflag: bool,
+    dnssec: bool,
+    recurse: bool,
 }
 
-impl Dnssec {
-    fn as_str(&self) -> &'static str {
-        match self {
-            Self::Yes => "+dnssec",
-            Self::No => "+nodnssec",
+impl DigSettings {
+    /// Sets the AD bit in the query
+    pub fn authentic_data(&mut self) -> &mut Self {
+        self.adflag = true;
+        self
+    }
+
+    fn adflag(&self) -> &'static str {
+        if self.adflag {
+            "+adflag"
+        } else {
+            "+noadflag"
         }
     }
-}
 
-#[derive(Clone, Copy)]
-pub enum Recurse {
-    Yes,
-    No,
-}
+    /// Sets the CD bit in the query
+    pub fn checking_disabled(&mut self) -> &mut Self {
+        self.cdflag = true;
+        self
+    }
 
-impl Recurse {
-    fn as_str(&self) -> &'static str {
-        match self {
-            Self::Yes => "+recurse",
-            Self::No => "+norecurse",
+    fn cdflag(&self) -> &'static str {
+        if self.cdflag {
+            "+cdflag"
+        } else {
+            "+nocdflag"
+        }
+    }
+
+    /// Sets the DO bit in the query
+    pub fn dnssec(&mut self) -> &mut Self {
+        self.dnssec = true;
+        self
+    }
+
+    fn do_bit(&self) -> &'static str {
+        if self.dnssec {
+            "+dnssec"
+        } else {
+            "+nodnssec"
+        }
+    }
+
+    /// Sets the RD bit in the query
+    pub fn recurse(&mut self) -> &mut Self {
+        self.recurse = true;
+        self
+    }
+
+    fn rdflag(&self) -> &'static str {
+        if self.recurse {
+            "+recurse"
+        } else {
+            "+norecurse"
         }
     }
 }
@@ -184,11 +221,12 @@ impl FromStr for DigOutput {
 
 #[derive(Debug, Default, PartialEq)]
 pub struct DigFlags {
-    pub qr: bool,
-    pub recursion_desired: bool,
-    pub recursion_available: bool,
-    pub authoritative_answer: bool,
     pub authenticated_data: bool,
+    pub authoritative_answer: bool,
+    pub checking_disabled: bool,
+    pub qr: bool,
+    pub recursion_available: bool,
+    pub recursion_desired: bool,
 }
 
 impl FromStr for DigFlags {
@@ -200,6 +238,7 @@ impl FromStr for DigFlags {
         let mut recursion_available = false;
         let mut authoritative_answer = false;
         let mut authenticated_data = false;
+        let mut checking_disabled = false;
 
         for flag in input.split_whitespace() {
             match flag {
@@ -208,16 +247,18 @@ impl FromStr for DigFlags {
                 "ra" => recursion_available = true,
                 "aa" => authoritative_answer = true,
                 "ad" => authenticated_data = true,
+                "cd" => checking_disabled = true,
                 _ => return Err(format!("unknown flag: {flag}").into()),
             }
         }
 
         Ok(Self {
-            qr,
-            recursion_desired,
-            recursion_available,
-            authoritative_answer,
             authenticated_data,
+            authoritative_answer,
+            checking_disabled,
+            qr,
+            recursion_available,
+            recursion_desired,
         })
     }
 }

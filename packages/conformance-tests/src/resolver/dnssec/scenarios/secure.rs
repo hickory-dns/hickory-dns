@@ -1,6 +1,6 @@
 use std::net::Ipv4Addr;
 
-use dns_test::client::{Client, Dnssec, Recurse};
+use dns_test::client::{Client, DigSettings};
 use dns_test::name_server::NameServer;
 use dns_test::record::{Record, RecordType};
 use dns_test::zone_file::Root;
@@ -31,13 +31,8 @@ fn can_validate_without_delegation() -> Result<()> {
     let resolver_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;
-    let output = client.dig(
-        Recurse::Yes,
-        Dnssec::Yes,
-        resolver_addr,
-        RecordType::SOA,
-        &FQDN::ROOT,
-    )?;
+    let settings = *DigSettings::default().recurse().authentic_data();
+    let output = client.dig(settings, resolver_addr, RecordType::SOA, &FQDN::ROOT)?;
 
     assert!(output.status.is_noerror());
     assert!(output.flags.authenticated_data);
@@ -103,19 +98,14 @@ fn can_validate_with_delegation() -> Result<()> {
     let resolver_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;
-    let output = client.dig(
-        Recurse::Yes,
-        Dnssec::Yes,
-        resolver_addr,
-        RecordType::A,
-        &needle_fqdn,
-    )?;
+    let settings = *DigSettings::default().recurse().authentic_data();
+    let output = client.dig(settings, resolver_addr, RecordType::A, &needle_fqdn)?;
 
     assert!(output.status.is_noerror());
 
     assert!(output.flags.authenticated_data);
 
-    let [a, _rrsig] = output.answer.try_into().unwrap();
+    let [a] = output.answer.try_into().unwrap();
     let a = a.try_into_a().unwrap();
 
     assert_eq!(needle_fqdn, a.fqdn);
