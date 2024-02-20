@@ -146,7 +146,7 @@ mod tests {
         let network = Network::new().expect("Failed to create network");
         let network_name = network.name().to_string();
         let container =
-            Container::run(Implementation::Unbound, &network).expect("Failed to start container");
+            Container::run(&Implementation::Unbound, &network).expect("Failed to start container");
 
         assert!(exists_network(&network_name));
         drop(network);

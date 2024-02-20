@@ -13,7 +13,7 @@ pub struct Client {
 impl Client {
     pub fn new(network: &Network) -> Result<Self> {
         Ok(Self {
-            inner: Container::run(Implementation::Unbound, network)?,
+            inner: Container::run(&Implementation::Unbound, network)?,
         })
     }
 

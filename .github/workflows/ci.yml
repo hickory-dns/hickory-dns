@@ -5,6 +5,10 @@ on:
     branches: [main]
   merge_group:
 
+env:
+  HICKORY_REV: a3669bd80f3f7b97f0c301c15f1cba6368d97b63
+  DNS_TEST_VERBOSE_DOCKER_BUILD: 1
+
 jobs:
   ci:
     name: Continuous Integration
@@ -27,12 +31,15 @@ jobs:
         run: cargo test -p conformance-tests -- --include-ignored
 
       - name: Run tests against hickory
-        run: DNS_TEST_SUBJECT=hickory cargo test -p conformance-tests
+        run: |
+          git clone https://github.com/hickory-dns/hickory-dns /tmp/hickory
+          ( cd /tmp/hickory && git reset --hard ${{ env.HICKORY_REV }} )
+          DNS_TEST_SUBJECT="hickory /tmp/hickory" cargo test -p conformance-tests
 
       - name: Check that ignored tests fail with hickory
         run: |
           tmpfile="$(mktemp)"
-          DNS_TEST_SUBJECT=hickory cargo test -p conformance-tests -- --ignored | tee "$tmpfile"
+          DNS_TEST_SUBJECT="hickory /tmp/hickory" cargo test -p conformance-tests -- --ignored | tee "$tmpfile"
           grep 'test result: FAILED. 0 passed' "$tmpfile" || ( echo "expected ALL tests to fail but at least one passed; the passing tests must be un-#[ignore]-d" && exit 1 )
 
       - name: Check that code is formatted

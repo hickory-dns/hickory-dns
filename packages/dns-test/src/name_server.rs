@@ -43,7 +43,7 @@ impl<'a> NameServer<'a, Stopped> {
         });
 
         Ok(Self {
-            container: Container::run(Implementation::Unbound, network)?,
+            container: Container::run(&Implementation::Unbound, network)?,
             zone_file,
             state: Stopped,
         })

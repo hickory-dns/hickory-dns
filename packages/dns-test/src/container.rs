@@ -1,12 +1,12 @@
 mod network;
 
 use core::str;
-use std::fs;
 use std::net::Ipv4Addr;
 use std::process::{self, ChildStdout, ExitStatus};
 use std::process::{Command, Stdio};
 use std::sync::atomic::AtomicUsize;
 use std::sync::{atomic, Arc};
+use std::{env, fs};
 
 use tempfile::{NamedTempFile, TempDir};
 
@@ -22,7 +22,7 @@ const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
 
 impl Container {
     /// Starts the container in a "parked" state
-    pub fn run(implementation: Implementation, network: &Network) -> Result<Self> {
+    pub fn run(implementation: &Implementation, network: &Network) -> Result<Self> {
         // TODO make this configurable and support hickory & bind
         let dockerfile = implementation.dockerfile();
         let docker_build_dir = TempDir::new()?;
@@ -37,14 +37,30 @@ impl Container {
             .arg(&image_tag)
             .arg(docker_build_dir);
 
+        let repo = if let Implementation::Hickory(repo) = implementation {
+            Some(repo)
+        } else {
+            None
+        };
+
         implementation.once().call_once(|| {
-            let output = command.output().unwrap();
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            assert!(
-                output.status.success(),
-                "--- STDOUT ---\n{stdout}\n--- STDERR ---\n{stderr}"
-            );
+            if let Some(repo) = repo {
+                let mut cp_r = Command::new("git");
+                cp_r.args([
+                    "clone",
+                    "--depth",
+                    "1",
+                    repo.as_str(),
+                    &docker_build_dir.join("src").display().to_string(),
+                ]);
+
+                exec_or_panic(&mut cp_r, false);
+            }
+
+            fs::write(docker_build_dir.join(".dockerignore"), "src/.git")
+                .expect("could not create .dockerignore file");
+
+            exec_or_panic(&mut command, verbose_docker_build());
         });
 
         let mut command = Command::new("docker");
@@ -168,6 +184,25 @@ impl Container {
 
     pub fn id(&self) -> &str {
         &self.inner.id
+    }
+}
+
+fn verbose_docker_build() -> bool {
+    env::var("DNS_TEST_VERBOSE_DOCKER_BUILD").as_deref() == Ok("1")
+}
+
+fn exec_or_panic(command: &mut Command, verbose: bool) {
+    if verbose {
+        let status = command.status().unwrap();
+        assert!(status.success());
+    } else {
+        let output = command.output().unwrap();
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            output.status.success(),
+            "--- STDOUT ---\n{stdout}\n--- STDERR ---\n{stderr}"
+        );
     }
 }
 
@@ -299,7 +334,7 @@ mod tests {
     #[test]
     fn run_works() -> Result<()> {
         let network = Network::new()?;
-        let container = Container::run(Implementation::Unbound, &network)?;
+        let container = Container::run(&Implementation::Unbound, &network)?;
 
         let output = container.output(&["true"])?;
         assert!(output.status.success());
@@ -310,7 +345,7 @@ mod tests {
     #[test]
     fn ipv4_addr_works() -> Result<()> {
         let network = Network::new()?;
-        let container = Container::run(Implementation::Unbound, &network)?;
+        let container = Container::run(&Implementation::Unbound, &network)?;
         let ipv4_addr = container.ipv4_addr();
 
         let output = container.output(&["ping", "-c1", &format!("{ipv4_addr}")])?;
@@ -322,7 +357,7 @@ mod tests {
     #[test]
     fn cp_works() -> Result<()> {
         let network = Network::new()?;
-        let container = Container::run(Implementation::Unbound, &network)?;
+        let container = Container::run(&Implementation::Unbound, &network)?;
 
         let path = "/tmp/somefile";
         let contents = "hello";
