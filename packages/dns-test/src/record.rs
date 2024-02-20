@@ -3,70 +3,75 @@
 use core::result::Result as CoreResult;
 use core::str::FromStr;
 use core::{array, fmt};
+use std::any;
 use std::fmt::Write;
 use std::net::Ipv4Addr;
 
 use crate::{Error, Result, DEFAULT_TTL, FQDN};
 
-#[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, PartialEq)]
-pub enum RecordType {
-    A,
-    DS,
-    NS,
-    SOA,
-    // excluded because cannot appear in RRSIG.type_covered
-    // RRSIG,
-}
+const CLASS: &str = "IN"; // "internet"
 
-impl RecordType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            RecordType::A => "A",
-            RecordType::DS => "DS",
-            RecordType::SOA => "SOA",
-            RecordType::NS => "NS",
+macro_rules! record_types {
+    ($($variant:ident),*) => {
+        #[allow(clippy::upper_case_acronyms)]
+        #[derive(Debug, PartialEq)]
+        pub enum RecordType {
+            $($variant),*
         }
-    }
+
+        impl RecordType {
+            pub fn as_str(&self) -> &'static str {
+                match self {
+                    $(Self::$variant => stringify!($variant)),*
+                }
+            }
+        }
+
+        impl FromStr for RecordType {
+            type Err = Error;
+
+            fn from_str(input: &str) -> Result<Self> {
+                $(if input == stringify!($variant) {
+                    return Ok(Self::$variant);
+                })*
+
+                Err(format!("unknown record type: {input}").into())
+            }
+        }
+
+        impl fmt::Display for RecordType {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str(self.as_str())
+            }
+        }
+    };
 }
 
-impl FromStr for RecordType {
-    type Err = Error;
-
-    fn from_str(input: &str) -> CoreResult<Self, Self::Err> {
-        let record_type = match input {
-            "A" => Self::A,
-            "DS" => Self::DS,
-            "SOA" => Self::SOA,
-            "NS" => Self::NS,
-            _ => return Err(format!("unknown record type: {input}").into()),
-        };
-
-        Ok(record_type)
-    }
-}
-
-impl fmt::Display for RecordType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            RecordType::A => "A",
-            RecordType::DS => "DS",
-            RecordType::NS => "NS",
-            RecordType::SOA => "SOA",
-        };
-
-        f.write_str(s)
-    }
-}
+record_types!(A, AAAA, DNSKEY, DS, MX, NS, NSEC3, NSEC3PARAM, RRSIG, SOA, TXT);
 
 #[derive(Debug)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Record {
     A(A),
+    DNSKEY(DNSKEY),
     DS(DS),
     NS(NS),
+    NSEC3(NSEC3),
+    NSEC3PARAM(NSEC3PARAM),
     RRSIG(RRSIG),
     SOA(SOA),
+}
+
+impl From<NSEC3> for Record {
+    fn from(v: NSEC3) -> Self {
+        Self::NSEC3(v)
+    }
+}
+
+impl From<DNSKEY> for Record {
+    fn from(v: DNSKEY) -> Self {
+        Self::DNSKEY(v)
+    }
 }
 
 impl From<DS> for Record {
@@ -150,7 +155,11 @@ impl FromStr for Record {
 
         let record = match record_type {
             "A" => Record::A(input.parse()?),
-            "NS" => todo!(),
+            "DNSKEY" => Record::DNSKEY(input.parse()?),
+            "DS" => Record::DS(input.parse()?),
+            "NS" => Record::NS(input.parse()?),
+            "NSEC3" => Record::NSEC3(input.parse()?),
+            "NSEC3PARAM" => Record::NSEC3PARAM(input.parse()?),
             "RRSIG" => Record::RRSIG(input.parse()?),
             "SOA" => Record::SOA(input.parse()?),
             _ => return Err(format!("unknown record type: {record_type}").into()),
@@ -165,7 +174,10 @@ impl fmt::Display for Record {
         match self {
             Record::A(a) => write!(f, "{a}"),
             Record::DS(ds) => write!(f, "{ds}"),
+            Record::DNSKEY(dnskey) => write!(f, "{dnskey}"),
             Record::NS(ns) => write!(f, "{ns}"),
+            Record::NSEC3(nsec3) => write!(f, "{nsec3}"),
+            Record::NSEC3PARAM(nsec3param) => write!(f, "{nsec3param}"),
             Record::RRSIG(rrsig) => write!(f, "{rrsig}"),
             Record::SOA(soa) => write!(f, "{soa}"),
         }
@@ -191,16 +203,8 @@ impl FromStr for A {
             return Err("expected 5 columns".into());
         };
 
-        let expected = "A";
-        if record_type != expected {
-            return Err(
-                format!("tried to parse `{record_type}` record as an {expected} record").into(),
-            );
-        }
-
-        if class != "IN" {
-            return Err(format!("unknown class: {class}").into());
-        }
+        check_record_type::<Self>(record_type)?;
+        check_class(class)?;
 
         Ok(Self {
             fqdn: fqdn.parse()?,
@@ -218,7 +222,8 @@ impl fmt::Display for A {
             ipv4_addr,
         } = self;
 
-        write!(f, "{fqdn}\t{ttl}\tIN\tA\t{ipv4_addr}")
+        let record_type = unqualified_type_name::<Self>();
+        write!(f, "{fqdn}\t{ttl}\t{CLASS}\t{record_type}\t{ipv4_addr}")
     }
 }
 
@@ -252,7 +257,11 @@ impl DNSKEY {
 impl FromStr for DNSKEY {
     type Err = Error;
 
-    fn from_str(input: &str) -> CoreResult<Self, Self::Err> {
+    fn from_str(mut input: &str) -> Result<Self> {
+        if let Some((rr, _comment)) = input.rsplit_once(" ;") {
+            input = rr.trim_end();
+        }
+
         let mut columns = input.split_whitespace();
 
         let [Some(zone), Some(ttl), Some(class), Some(record_type), Some(flags), Some(protocol), Some(algorithm)] =
@@ -261,13 +270,8 @@ impl FromStr for DNSKEY {
             return Err("expected at least 7 columns".into());
         };
 
-        if record_type != "DNSKEY" {
-            return Err(format!("tried to parse `{record_type}` record as a DNSKEY record").into());
-        }
-
-        if class != "IN" {
-            return Err(format!("unknown class: {class}").into());
-        }
+        check_record_type::<Self>(record_type)?;
+        check_class(class)?;
 
         let mut public_key = String::new();
         for column in columns {
@@ -296,9 +300,10 @@ impl fmt::Display for DNSKEY {
             public_key,
         } = self;
 
+        let record_type = unqualified_type_name::<Self>();
         write!(
             f,
-            "{zone}\t{ttl}\tIN\tDNSKEY\t{flags} {protocol} {algorithm}"
+            "{zone}\t{ttl}\t{CLASS}\t{record_type}\t{flags} {protocol} {algorithm}"
         )?;
 
         write_split_long_string(f, public_key)
@@ -318,7 +323,7 @@ pub struct DS {
 impl FromStr for DS {
     type Err = Error;
 
-    fn from_str(input: &str) -> CoreResult<Self, Self::Err> {
+    fn from_str(input: &str) -> Result<Self> {
         let mut columns = input.split_whitespace();
 
         let [Some(zone), Some(ttl), Some(class), Some(record_type), Some(key_tag), Some(algorithm), Some(digest_type)] =
@@ -327,16 +332,8 @@ impl FromStr for DS {
             return Err("expected at least 7 columns".into());
         };
 
-        let expected = "DS";
-        if record_type != expected {
-            return Err(
-                format!("tried to parse `{record_type}` entry as a {expected} entry").into(),
-            );
-        }
-
-        if class != "IN" {
-            return Err(format!("unknown class: {class}").into());
-        }
+        check_record_type::<Self>(record_type)?;
+        check_class(class)?;
 
         let mut digest = String::new();
         for column in columns {
@@ -365,9 +362,10 @@ impl fmt::Display for DS {
             digest,
         } = self;
 
+        let record_type = unqualified_type_name::<Self>();
         write!(
             f,
-            "{zone}\t{ttl}\tIN\tDS\t{key_tag} {algorithm} {digest_type}"
+            "{zone}\t{ttl}\t{CLASS}\t{record_type}\t{key_tag} {algorithm} {digest_type}"
         )?;
 
         write_split_long_string(f, digest)
@@ -389,7 +387,158 @@ impl fmt::Display for NS {
             nameserver,
         } = self;
 
-        write!(f, "{zone}\t{ttl}\tIN\tNS {nameserver}")
+        let record_type = unqualified_type_name::<Self>();
+        write!(f, "{zone}\t{ttl}\t{CLASS}\t{record_type}\t{nameserver}")
+    }
+}
+
+impl FromStr for NS {
+    type Err = Error;
+
+    fn from_str(input: &str) -> Result<Self> {
+        let mut columns = input.split_whitespace();
+
+        let [Some(zone), Some(ttl), Some(class), Some(record_type), Some(nameserver), None] =
+            array::from_fn(|_| columns.next())
+        else {
+            return Err("expected 5 columns".into());
+        };
+
+        check_record_type::<Self>(record_type)?;
+        check_class(class)?;
+
+        Ok(Self {
+            zone: zone.parse()?,
+            ttl: ttl.parse()?,
+            nameserver: nameserver.parse()?,
+        })
+    }
+}
+
+// integer types chosen based on bit sizes in section 3.2 of RFC5155
+#[derive(Debug)]
+pub struct NSEC3 {
+    pub fqdn: FQDN,
+    pub ttl: u32,
+    pub hash_alg: u8,
+    pub flags: u8,
+    pub iterations: u16,
+    pub salt: String,
+    pub next_hashed_owner_name: String,
+    pub record_types: Vec<RecordType>,
+}
+
+impl FromStr for NSEC3 {
+    type Err = Error;
+
+    fn from_str(input: &str) -> Result<Self> {
+        let mut columns = input.split_whitespace();
+
+        let [Some(fqdn), Some(ttl), Some(class), Some(record_type), Some(hash_alg), Some(flags), Some(iterations), Some(salt), Some(next_hashed_owner_name)] =
+            array::from_fn(|_| columns.next())
+        else {
+            return Err("expected at least 9 columns".into());
+        };
+
+        check_record_type::<Self>(record_type)?;
+        check_class(class)?;
+
+        let mut record_types = vec![];
+        for column in columns {
+            record_types.push(column.parse()?);
+        }
+
+        Ok(Self {
+            fqdn: fqdn.parse()?,
+            ttl: ttl.parse()?,
+            hash_alg: hash_alg.parse()?,
+            flags: flags.parse()?,
+            iterations: iterations.parse()?,
+            salt: salt.to_string(),
+            next_hashed_owner_name: next_hashed_owner_name.to_string(),
+            record_types,
+        })
+    }
+}
+
+impl fmt::Display for NSEC3 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            fqdn,
+            ttl,
+            hash_alg,
+            flags,
+            iterations,
+            salt,
+            next_hashed_owner_name,
+            record_types,
+        } = self;
+
+        let record_type = unqualified_type_name::<Self>();
+        write!(f, "{fqdn}\t{ttl}\t{CLASS}\t{record_type}\t{hash_alg} {flags} {iterations} {salt}  {next_hashed_owner_name}")?;
+
+        for record_type in record_types {
+            write!(f, " {record_type}")?;
+        }
+
+        Ok(())
+    }
+}
+
+// integer types chosen based on bit sizes in section 4.2 of RFC5155
+#[derive(Debug)]
+pub struct NSEC3PARAM {
+    pub zone: FQDN,
+    pub ttl: u32,
+    pub hash_alg: u8,
+    pub flags: u8,
+    pub iterations: u16,
+}
+
+impl FromStr for NSEC3PARAM {
+    type Err = Error;
+
+    fn from_str(input: &str) -> Result<Self> {
+        let mut columns = input.split_whitespace();
+
+        let [Some(zone), Some(ttl), Some(class), Some(record_type), Some(hash_alg), Some(flags), Some(iterations), Some(dash), None] =
+            array::from_fn(|_| columns.next())
+        else {
+            return Err("expected 8 columns".into());
+        };
+
+        check_record_type::<Self>(record_type)?;
+        check_class(class)?;
+
+        if dash != "-" {
+            todo!("salt is not implemented")
+        }
+
+        Ok(Self {
+            zone: zone.parse()?,
+            ttl: ttl.parse()?,
+            hash_alg: hash_alg.parse()?,
+            flags: flags.parse()?,
+            iterations: iterations.parse()?,
+        })
+    }
+}
+
+impl fmt::Display for NSEC3PARAM {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            zone,
+            ttl,
+            hash_alg,
+            flags,
+            iterations,
+        } = self;
+
+        let record_type = unqualified_type_name::<Self>();
+        write!(
+            f,
+            "{zone}\t{ttl}\t{CLASS}\t{record_type}\t{hash_alg} {flags} {iterations} -"
+        )
     }
 }
 
@@ -422,16 +571,8 @@ impl FromStr for RRSIG {
             return Err("expected at least 12 columns".into());
         };
 
-        let expected = "RRSIG";
-        if record_type != expected {
-            return Err(
-                format!("tried to parse `{record_type}` record as a {expected} record").into(),
-            );
-        }
-
-        if class != "IN" {
-            return Err(format!("unknown class: {class}").into());
-        }
+        check_record_type::<Self>(record_type)?;
+        check_class(class)?;
 
         let mut signature = String::new();
         for column in columns {
@@ -470,7 +611,8 @@ impl fmt::Display for RRSIG {
             signature,
         } = self;
 
-        write!(f, "{fqdn}\t{ttl}\tIN\tRRSIG\t{type_covered} {algorithm} {labels} {original_ttl} {signature_expiration} {signature_inception} {key_tag} {signer_name}")?;
+        let record_type = unqualified_type_name::<Self>();
+        write!(f, "{fqdn}\t{ttl}\t{CLASS}\t{record_type}\t{type_covered} {algorithm} {labels} {original_ttl} {signature_expiration} {signature_inception} {key_tag} {signer_name}")?;
 
         write_split_long_string(f, signature)
     }
@@ -498,13 +640,8 @@ impl FromStr for SOA {
             return Err("expected 11 columns".into());
         };
 
-        if record_type != "SOA" {
-            return Err(format!("tried to parse `{record_type}` record as a SOA record").into());
-        }
-
-        if class != "IN" {
-            return Err(format!("unknown class: {class}").into());
-        }
+        check_record_type::<Self>(record_type)?;
+        check_class(class)?;
 
         Ok(Self {
             zone: zone.parse()?,
@@ -532,7 +669,11 @@ impl fmt::Display for SOA {
             settings,
         } = self;
 
-        write!(f, "{zone}\t{ttl}\tIN\tSOA\t{nameserver} {admin} {settings}")
+        let record_type = unqualified_type_name::<Self>();
+        write!(
+            f,
+            "{zone}\t{ttl}\t{CLASS}\t{record_type}\t{nameserver} {admin} {settings}"
+        )
     }
 }
 
@@ -571,6 +712,32 @@ impl fmt::Display for SoaSettings {
     }
 }
 
+fn check_class(class: &str) -> Result<()> {
+    if class != "IN" {
+        return Err(format!("unknown class: {class}").into());
+    }
+
+    Ok(())
+}
+
+fn check_record_type<T>(record_type: &str) -> Result<()> {
+    let expected = unqualified_type_name::<T>();
+    if record_type == expected {
+        Ok(())
+    } else {
+        Err(format!("tried to parse `{record_type}` record as an {expected} record").into())
+    }
+}
+
+fn unqualified_type_name<T>() -> &'static str {
+    let name = any::type_name::<T>();
+    if let Some((_rest, component)) = name.rsplit_once(':') {
+        component
+    } else {
+        name
+    }
+}
+
 fn write_split_long_string(f: &mut fmt::Formatter<'_>, field: &str) -> fmt::Result {
     for (index, c) in field.chars().enumerate() {
         if index % 56 == 0 {
@@ -585,31 +752,34 @@ fn write_split_long_string(f: &mut fmt::Formatter<'_>, field: &str) -> fmt::Resu
 mod tests {
     use super::*;
 
+    use pretty_assertions::assert_eq;
+
+    // dig A a.root-servers.net
+    const A_INPUT: &str = "a.root-servers.net.	77859	IN	A	198.41.0.4";
+
     #[test]
     fn a() -> Result<()> {
-        // dig A a.root-servers.net
-        let input = "a.root-servers.net.	77859	IN	A	198.41.0.4";
         let a @ A {
             fqdn,
             ttl,
             ipv4_addr,
-        } = &input.parse()?;
+        } = &A_INPUT.parse()?;
 
         assert_eq!("a.root-servers.net.", fqdn.as_str());
         assert_eq!(77859, *ttl);
         assert_eq!(Ipv4Addr::new(198, 41, 0, 4), *ipv4_addr);
 
         let output = a.to_string();
-        assert_eq!(output, input);
+        assert_eq!(A_INPUT, output);
 
         Ok(())
     }
 
+    // dig DNSKEY .
+    const DNSKEY_INPUT: &str = ".	1116	IN	DNSKEY	257 3 8 AwEAAaz/tAm8yTn4Mfeh5eyI96WSVexTBAvkMgJzkKTOiW1vkIbzxeF3 +/4RgWOq7HrxRixHlFlExOLAJr5emLvN7SWXgnLh4+B5xQlNVz8Og8kv ArMtNROxVQuCaSnIDdD5LKyWbRd2n9WGe2R8PzgCmr3EgVLrjyBxWezF 0jLHwVN8efS3rCj/EWgvIWgb9tarpVUDK/b58Da+sqqls3eNbuv7pr+e oZG+SrDK6nWeL3c6H5Apxz7LjVc1uTIdsIXxuOLYA4/ilBmSVIzuDWfd RUfhHdY6+cn8HFRm+2hM8AnXGXws9555KrUB5qihylGa8subX2Nn6UwN R1AkUTV74bU=";
+
     #[test]
     fn dnskey() -> Result<()> {
-        // dig DNSKEY .
-        let input = ".	1116	IN	DNSKEY	257 3 8 AwEAAaz/tAm8yTn4Mfeh5eyI96WSVexTBAvkMgJzkKTOiW1vkIbzxeF3 +/4RgWOq7HrxRixHlFlExOLAJr5emLvN7SWXgnLh4+B5xQlNVz8Og8kv ArMtNROxVQuCaSnIDdD5LKyWbRd2n9WGe2R8PzgCmr3EgVLrjyBxWezF 0jLHwVN8efS3rCj/EWgvIWgb9tarpVUDK/b58Da+sqqls3eNbuv7pr+e oZG+SrDK6nWeL3c6H5Apxz7LjVc1uTIdsIXxuOLYA4/ilBmSVIzuDWfd RUfhHdY6+cn8HFRm+2hM8AnXGXws9555KrUB5qihylGa8subX2Nn6UwN R1AkUTV74bU=";
-
         let dnskey @ DNSKEY {
             zone,
             ttl,
@@ -617,7 +787,7 @@ mod tests {
             protocol,
             algorithm,
             public_key,
-        } = &input.parse()?;
+        } = &DNSKEY_INPUT.parse()?;
 
         assert_eq!(FQDN::ROOT, *zone);
         assert_eq!(1116, *ttl);
@@ -628,16 +798,30 @@ mod tests {
         assert_eq!(expected, public_key);
 
         let output = dnskey.to_string();
-        assert_eq!(output, input);
+        assert_eq!(DNSKEY_INPUT, output);
 
         Ok(())
     }
 
     #[test]
-    fn ds() -> Result<()> {
-        // dig DS com.
-        let input = "com.	7612	IN	DS	19718 13 2 8ACBB0CD28F41250A80A491389424D341522D946B0DA0C0291F2D3D7 71D7805A";
+    fn parsing_dnskey_ignores_trailing_comment() -> Result<()> {
+        // `ldns-signzone`'s output
+        const DNSKEY_INPUT2: &str = ".	86400	IN	DNSKEY	256 3 7 AwEAAbEzD/uB2WK89f+PJ1Lyg5xvdt9mXge/R5tiQl8SEAUh/kfbn8jQiakH3HbBnBtdNXpjYrsmM7AxMmJLrp75dFMVnl5693/cY5k4dSk0BFJPQtBsZDn/7Q1rviQn0gqKNjaUfISuRpgCIWFKdRtTdq1VRDf3qIn7S/nuhfWE4w15 ;{id = 11387 (zsk), size = 1024b}";
 
+        let DNSKEY { public_key, .. } = DNSKEY_INPUT2.parse()?;
+
+        let expected = "AwEAAbEzD/uB2WK89f+PJ1Lyg5xvdt9mXge/R5tiQl8SEAUh/kfbn8jQiakH3HbBnBtdNXpjYrsmM7AxMmJLrp75dFMVnl5693/cY5k4dSk0BFJPQtBsZDn/7Q1rviQn0gqKNjaUfISuRpgCIWFKdRtTdq1VRDf3qIn7S/nuhfWE4w15";
+        assert_eq!(expected, public_key);
+
+        Ok(())
+    }
+
+    // dig DS com.
+    const DS_INPUT: &str =
+        "com.	7612	IN	DS	19718 13 2 8ACBB0CD28F41250A80A491389424D341522D946B0DA0C0291F2D3D7 71D7805A";
+
+    #[test]
+    fn ds() -> Result<()> {
         let ds @ DS {
             zone,
             ttl,
@@ -645,7 +829,7 @@ mod tests {
             algorithm,
             digest_type,
             digest,
-        } = &input.parse()?;
+        } = &DS_INPUT.parse()?;
 
         assert_eq!(FQDN::COM, *zone);
         assert_eq!(7612, *ttl);
@@ -656,16 +840,109 @@ mod tests {
         assert_eq!(expected, digest);
 
         let output = ds.to_string();
-        assert_eq!(output, input);
+        assert_eq!(DS_INPUT, output);
 
         Ok(())
     }
 
+    // dig NS .
+    const NS_INPUT: &str = ".	86400	IN	NS	f.root-servers.net.";
+
+    #[test]
+    fn ns() -> Result<()> {
+        let ns @ NS {
+            zone,
+            ttl,
+            nameserver,
+        } = &NS_INPUT.parse()?;
+
+        assert_eq!(FQDN::ROOT, *zone);
+        assert_eq!(86400, *ttl);
+        assert_eq!("f.root-servers.net.", nameserver.as_str());
+
+        let output = ns.to_string();
+        assert_eq!(NS_INPUT, output);
+
+        Ok(())
+    }
+
+    // dig +dnssec A unicorn.example.com.
+    const NSEC3_INPUT: &str = "abhif1b25fhcda5amfk5hnrsh6jid2ki.example.com.	3571	IN	NSEC3	1 0 5 53BCBC5805D2B761  GVPMD82B8ER38VUEGP72I721LIH19RGR A NS SOA MX TXT AAAA RRSIG DNSKEY NSEC3PARAM";
+
+    #[test]
+    fn nsec3() -> Result<()> {
+        let nsec3 @ NSEC3 {
+            fqdn,
+            ttl,
+            hash_alg,
+            flags,
+            iterations,
+            salt,
+            next_hashed_owner_name,
+            record_types,
+        } = &NSEC3_INPUT.parse()?;
+
+        assert_eq!(
+            "abhif1b25fhcda5amfk5hnrsh6jid2ki.example.com.",
+            fqdn.as_str()
+        );
+        assert_eq!(3571, *ttl);
+        assert_eq!(1, *hash_alg);
+        assert_eq!(0, *flags);
+        assert_eq!(5, *iterations);
+        assert_eq!("53BCBC5805D2B761", salt);
+        assert_eq!("GVPMD82B8ER38VUEGP72I721LIH19RGR", next_hashed_owner_name);
+        assert_eq!(
+            [
+                RecordType::A,
+                RecordType::NS,
+                RecordType::SOA,
+                RecordType::MX,
+                RecordType::TXT,
+                RecordType::AAAA,
+                RecordType::RRSIG,
+                RecordType::DNSKEY,
+                RecordType::NSEC3PARAM
+            ],
+            record_types.as_slice()
+        );
+
+        let output = nsec3.to_string();
+        assert_eq!(NSEC3_INPUT, output);
+
+        Ok(())
+    }
+
+    // dig NSEC3PARAM com.
+    const NSEC3PARAM_INPUT: &str = "com.	86238	IN	NSEC3PARAM	1 0 0 -";
+
+    #[test]
+    fn nsec3param() -> Result<()> {
+        let nsec3param @ NSEC3PARAM {
+            zone,
+            ttl,
+            hash_alg,
+            flags,
+            iterations,
+        } = &NSEC3PARAM_INPUT.parse()?;
+
+        assert_eq!(FQDN::COM, *zone);
+        assert_eq!(86238, *ttl);
+        assert_eq!(1, *hash_alg);
+        assert_eq!(0, *flags);
+        assert_eq!(0, *iterations);
+
+        let output = nsec3param.to_string();
+        assert_eq!(NSEC3PARAM_INPUT, output);
+
+        Ok(())
+    }
+
+    // dig +dnssec SOA .
+    const RRSIG_INPUT: &str = ".	1800	IN	RRSIG	SOA 7 0 1800 20240306132701 20240207132701 11264 . wXpRU4elJPGYm2kgVVsIwGf1IkYJcQ3UE4mwmItWdxj0XWSWY07MO4Ll DMJgsE0u64Q/345Ck7+aQ904uLebwCvpFnsmkyCxk82XIAfHN9FiwzSy qoR/zZEvBONaej3vrvsqPwh8q/pvypLft9647HcFdwY0juzZsbrAaDAX 8WY=";
+
     #[test]
     fn rrsig() -> Result<()> {
-        // dig +dnssec SOA .
-        let input = ".	1800	IN	RRSIG	SOA 7 0 1800 20240306132701 20240207132701 11264 . wXpRU4elJPGYm2kgVVsIwGf1IkYJcQ3UE4mwmItWdxj0XWSWY07MO4Ll DMJgsE0u64Q/345Ck7+aQ904uLebwCvpFnsmkyCxk82XIAfHN9FiwzSy qoR/zZEvBONaej3vrvsqPwh8q/pvypLft9647HcFdwY0juzZsbrAaDAX 8WY=";
-
         let rrsig @ RRSIG {
             fqdn,
             ttl,
@@ -678,7 +955,7 @@ mod tests {
             key_tag,
             signer_name,
             signature,
-        } = &input.parse()?;
+        } = &RRSIG_INPUT.parse()?;
 
         assert_eq!(FQDN::ROOT, *fqdn);
         assert_eq!(1800, *ttl);
@@ -694,17 +971,18 @@ mod tests {
         assert_eq!(expected, signature);
 
         let output = rrsig.to_string();
-        assert_eq!(input, output);
+        assert_eq!(RRSIG_INPUT, output);
 
         Ok(())
     }
 
+    // dig SOA .
+    const SOA_INPUT: &str =
+        ".	15633	IN	SOA	a.root-servers.net. nstld.verisign-grs.com. 2024020501 1800 900 604800 86400";
+
     #[test]
     fn soa() -> Result<()> {
-        // dig SOA .
-        let input = ".	15633	IN	SOA	a.root-servers.net. nstld.verisign-grs.com. 2024020501 1800 900 604800 86400";
-
-        let soa: SOA = input.parse()?;
+        let soa: SOA = SOA_INPUT.parse()?;
 
         assert_eq!(".", soa.zone.as_str());
         assert_eq!(15633, soa.ttl);
@@ -718,7 +996,21 @@ mod tests {
         assert_eq!(86400, settings.minimum);
 
         let output = soa.to_string();
-        assert_eq!(output, input);
+        assert_eq!(SOA_INPUT, output);
+
+        Ok(())
+    }
+
+    #[test]
+    fn any() -> Result<()> {
+        assert!(matches!(A_INPUT.parse()?, Record::A(..)));
+        assert!(matches!(DNSKEY_INPUT.parse()?, Record::DNSKEY(..)));
+        assert!(matches!(DS_INPUT.parse()?, Record::DS(..)));
+        assert!(matches!(NS_INPUT.parse()?, Record::NS(..)));
+        assert!(matches!(NSEC3_INPUT.parse()?, Record::NSEC3(..)));
+        assert!(matches!(NSEC3PARAM_INPUT.parse()?, Record::NSEC3PARAM(..)));
+        assert!(matches!(RRSIG_INPUT.parse()?, Record::RRSIG(..)));
+        assert!(matches!(SOA_INPUT.parse()?, Record::SOA(..)));
 
         Ok(())
     }

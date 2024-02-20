@@ -57,6 +57,40 @@ impl fmt::Display for ZoneFile {
     }
 }
 
+impl FromStr for ZoneFile {
+    type Err = Error;
+
+    fn from_str(input: &str) -> Result<Self> {
+        let mut records = vec![];
+        let mut maybe_soa = None;
+        for line in input.lines() {
+            let line = line.trim();
+
+            if line.is_empty() {
+                continue;
+            }
+
+            let record: Record = line.parse()?;
+            if let Record::SOA(soa) = record {
+                if maybe_soa.is_some() {
+                    return Err("found more than one SOA record".into());
+                }
+
+                maybe_soa = Some(soa);
+            } else {
+                records.push(record)
+            }
+        }
+
+        let soa = maybe_soa.ok_or("no SOA record found in zone file")?;
+        Ok(Self {
+            origin: soa.zone.clone(),
+            soa,
+            records,
+        })
+    }
+}
+
 /// A root (server) hint
 pub struct Root {
     pub ipv4_addr: Ipv4Addr,
@@ -154,6 +188,8 @@ impl FromStr for DNSKEY {
 mod tests {
     use super::*;
 
+    use pretty_assertions::assert_eq;
+
     #[test]
     fn dnskey() -> Result<()> {
         let input = ".	IN	DNSKEY	256 3 7 AwEAAaCUpg+5lH7vart4WiMw4lbbkTNKfkvoyXWsAj09Cc5lT1bFo6sS7o4evhzXU9+iDGZkWZnnkwWg2thXfGgNdfQNTKW/Owz9UMDGv5yjkANKI3fI4jHn7Xp1qIZAwZG0W3RU26s7vkKWVcmA3mrKlDIX9r4BRIZrBVOtNgiHydbB ;{id = 42933 (zsk), size = 1024b}";
@@ -172,6 +208,17 @@ mod tests {
         assert_eq!(7, algorithm);
         let expected = "AwEAAaCUpg+5lH7vart4WiMw4lbbkTNKfkvoyXWsAj09Cc5lT1bFo6sS7o4evhzXU9+iDGZkWZnnkwWg2thXfGgNdfQNTKW/Owz9UMDGv5yjkANKI3fI4jHn7Xp1qIZAwZG0W3RU26s7vkKWVcmA3mrKlDIX9r4BRIZrBVOtNgiHydbB";
         assert_eq!(expected, public_key);
+
+        Ok(())
+    }
+
+    #[test]
+    fn roundtrip() -> Result<()> {
+        // `ldns-signzone`'s output minus trailing comments; long trailing fields have been split as well
+        let input = include_str!("muster.zone");
+        let zone: ZoneFile = input.parse()?;
+        let output = zone.to_string();
+        assert_eq!(input, output);
 
         Ok(())
     }
