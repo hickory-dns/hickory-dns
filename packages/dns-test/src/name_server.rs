@@ -108,11 +108,11 @@ impl NameServer<Stopped> {
         let key2ds = format!("cd {ZONES_DIR} && ldns-key2ds -n -2 {ZONE_FILENAME}.signed");
         let ds: DS = container.stdout(&["sh", "-c", &key2ds])?.parse()?;
 
-        // we have an in-memory representation of the zone file so we just delete the on-disk version
         let zone_file_path = zone_file_path();
-        container.status_ok(&["mv", &format!("{zone_file_path}.signed"), &zone_file_path])?;
+        let signed: ZoneFile = container
+            .stdout(&["cat", &format!("{zone_file_path}.signed")])?
+            .parse()?;
 
-        let signed_zone_file = container.stdout(&["cat", &zone_file_path])?;
         let ttl = zone_file.soa.ttl;
 
         Ok(NameServer {
@@ -120,7 +120,7 @@ impl NameServer<Stopped> {
             zone_file,
             state: Signed {
                 ds,
-                signed_zone_file,
+                signed,
                 // inherit SOA's TTL value
                 ksk: ksk.with_ttl(ttl),
                 zsk: zsk.with_ttl(ttl),
@@ -172,13 +172,15 @@ impl NameServer<Signed> {
         let Self {
             container,
             zone_file,
-            state: _,
+            state,
         } = self;
 
         // for PID file
         container.status_ok(&["mkdir", "-p", "/run/nsd/"])?;
 
         container.cp("/etc/nsd/nsd.conf", &nsd_conf(zone_file.origin()))?;
+
+        container.cp(&zone_file_path(), &state.signed.to_string())?;
 
         let child = container.spawn(&["nsd", "-d"])?;
 
@@ -197,8 +199,12 @@ impl NameServer<Signed> {
         &self.state.zsk
     }
 
-    pub fn signed_zone_file(&self) -> &str {
-        &self.state.signed_zone_file
+    pub fn signed_zone_file(&self) -> &ZoneFile {
+        &self.state.signed
+    }
+
+    pub fn signed_zone_file_mut(&mut self) -> &mut ZoneFile {
+        &mut self.state.signed
     }
 
     pub fn ds(&self) -> &DS {
@@ -265,7 +271,7 @@ pub struct Signed {
     ds: DS,
     zsk: record::DNSKEY,
     ksk: record::DNSKEY,
-    signed_zone_file: String,
+    signed: ZoneFile,
 }
 
 pub struct Running {
