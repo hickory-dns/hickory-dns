@@ -2,6 +2,7 @@ use core::sync::atomic::{self, AtomicUsize};
 use std::net::Ipv4Addr;
 
 use crate::container::{Child, Container, Network};
+use crate::tshark::Tshark;
 use crate::zone_file::{self, SoaSettings, ZoneFile, DNSKEY, DS};
 use crate::{Implementation, Result, FQDN};
 
@@ -214,6 +215,11 @@ impl<'a> NameServer<'a, Signed> {
 }
 
 impl<'a> NameServer<'a, Running> {
+    /// Starts a `tshark` instance that captures DNS messages flowing through this network node
+    pub fn eavesdrop(&self) -> Result<Tshark> {
+        self.container.eavesdrop()
+    }
+
     /// gracefully terminates the name server collecting all logs
     pub fn terminate(self) -> Result<String> {
         let pidfile = "/run/nsd/nsd.pid";

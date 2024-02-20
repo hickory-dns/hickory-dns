@@ -17,6 +17,10 @@ impl Client {
         })
     }
 
+    pub fn ipv4_addr(&self) -> Ipv4Addr {
+        self.inner.ipv4_addr()
+    }
+
     pub fn delv(
         &self,
         server: Ipv4Addr,
@@ -232,6 +236,11 @@ impl DigStatus {
     #[must_use]
     pub fn is_nxdomain(&self) -> bool {
         matches!(self, Self::NXDOMAIN)
+    }
+
+    #[must_use]
+    pub fn is_servfail(&self) -> bool {
+        matches!(self, Self::SERVFAIL)
     }
 }
 

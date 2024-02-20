@@ -3,6 +3,7 @@ use std::net::Ipv4Addr;
 
 use crate::container::{Child, Container, Network};
 use crate::trust_anchor::TrustAnchor;
+use crate::tshark::Tshark;
 use crate::zone_file::Root;
 use crate::{Implementation, Result};
 
@@ -70,6 +71,10 @@ impl Resolver {
         let child = container.spawn(command)?;
 
         Ok(Self { child, container })
+    }
+
+    pub fn eavesdrop(&self) -> Result<Tshark> {
+        self.container.eavesdrop()
     }
 
     pub fn ipv4_addr(&self) -> Ipv4Addr {
