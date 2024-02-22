@@ -8,6 +8,7 @@
 //! option record for passing protocol options between the client and server
 #![allow(clippy::use_self)]
 
+use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
@@ -185,8 +186,7 @@ impl OPT {
     pub fn get(&self, code: EdnsCode) -> Option<&EdnsOption> {
         self.options
             .iter()
-            .find(|(c, _)| code == *c)
-            .map(|(_, option)| option)
+            .find_map(|(c, option)| if code == *c { Some(option) } else { None })
     }
 
     /// Insert a new option, the key is derived from the `EdnsOption`
@@ -220,8 +220,8 @@ impl AsMut<Vec<(EdnsCode, EdnsOption)>> for OPT {
     }
 }
 
-impl AsRef<Vec<(EdnsCode, EdnsOption)>> for OPT {
-    fn as_ref(&self) -> &Vec<(EdnsCode, EdnsOption)> {
+impl AsRef<[(EdnsCode, EdnsOption)]> for OPT {
+    fn as_ref(&self) -> &[(EdnsCode, EdnsOption)] {
         &self.options
     }
 }
