@@ -846,16 +846,17 @@ mod tests {
         );
 
         let opt = read_rdata.unwrap();
-        let mut options = Vec::default();
-        options.push((
-            EdnsCode::Subnet,
-            EdnsOption::Subnet("0.0.0.0/0".parse().unwrap()),
-        ));
-        options.push((
-            EdnsCode::Cookie,
-            EdnsOption::Unknown(10, vec![0x0b, 0x64, 0xb4, 0xdc, 0xd7, 0xb0, 0xcc, 0x8f]),
-        ));
-        options.push((EdnsCode::Keepalive, EdnsOption::Unknown(11, vec![])));
+        let options = vec![
+            (
+                EdnsCode::Subnet,
+                EdnsOption::Subnet("0.0.0.0/0".parse().unwrap()),
+            ),
+            (
+                EdnsCode::Cookie,
+                EdnsOption::Unknown(10, vec![0x0b, 0x64, 0xb4, 0xdc, 0xd7, 0xb0, 0xcc, 0x8f]),
+            ),
+            (EdnsCode::Keepalive, EdnsOption::Unknown(11, vec![])),
+        ];
         let options = OPT::new(options);
         assert_eq!(opt, options);
     }
