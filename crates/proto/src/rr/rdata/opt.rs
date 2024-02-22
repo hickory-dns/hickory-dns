@@ -8,7 +8,6 @@
 //! option record for passing protocol options between the client and server
 #![allow(clippy::use_self)]
 
-use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
@@ -208,7 +207,6 @@ impl PartialEq for OPT {
             .iter()
             .filter(|entry| other.options.contains(entry))
             .count();
-        println!("Number of matching elements: {}", matching_elements_count);
         matching_elements_count == self.options.len()
             && matching_elements_count == other.options.len()
     }
