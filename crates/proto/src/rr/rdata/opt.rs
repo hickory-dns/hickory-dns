@@ -31,6 +31,8 @@ use crate::rr::dnssec::SupportedAlgorithms;
 /// These allow for additional information to be associated with the DNS request that otherwise
 /// would require changes to the DNS protocol.
 ///
+/// Multiple options with the same code are allowed to appear in this record
+///
 /// [RFC 6891, EDNS(0) Extensions, April 2013](https://tools.ietf.org/html/rfc6891#section-6)
 ///
 /// ```text
@@ -189,12 +191,20 @@ impl OPT {
             .find_map(|(c, option)| if code == *c { Some(option) } else { None })
     }
 
+    /// Get all options based on the code
+    pub fn get_all(&self, code: EdnsCode) -> Vec<&EdnsOption> {
+        self.options
+            .iter()
+            .filter_map(|(c, option)| if code == *c { Some(option) } else { None })
+            .collect()
+    }
+
     /// Insert a new option, the key is derived from the `EdnsOption`
     pub fn insert(&mut self, option: EdnsOption) {
         self.options.push(((&option).into(), option));
     }
 
-    /// Remove an option, the key is derived from the `EdnsOption`
+    /// Removes all options based on the code
     pub fn remove(&mut self, option: EdnsCode) {
         self.options.retain(|(c, _)| *c != option)
     }
