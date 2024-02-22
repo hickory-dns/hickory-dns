@@ -8,9 +8,9 @@
 //! option record for passing protocol options between the client and server
 #![allow(clippy::use_self)]
 
+use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
-use std::{collections::HashMap, fmt};
 
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
@@ -163,9 +163,9 @@ use crate::rr::dnssec::SupportedAlgorithms;
 ///       in a subsequent specification.
 /// ```
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
-#[derive(Default, Debug, PartialEq, Eq, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct OPT {
-    options: HashMap<EdnsCode, EdnsOption>,
+    options: Vec<(EdnsCode, EdnsOption)>,
 }
 
 impl OPT {
@@ -173,45 +173,57 @@ impl OPT {
     ///
     /// # Arguments
     ///
-    /// * `options` - A map of the codes and record types
+    /// * `options` - List of code and record type tuples
     ///
     /// # Return value
     ///
     /// The newly created OPT data
-    pub fn new(options: HashMap<EdnsCode, EdnsOption>) -> Self {
+    pub fn new(options: Vec<(EdnsCode, EdnsOption)>) -> Self {
         Self { options }
-    }
-
-    #[deprecated(note = "Please use as_ref() or as_mut() for shared/mutable references")]
-    /// The entire map of options
-    pub fn options(&self) -> &HashMap<EdnsCode, EdnsOption> {
-        &self.options
     }
 
     /// Get a single option based on the code
     pub fn get(&self, code: EdnsCode) -> Option<&EdnsOption> {
-        self.options.get(&code)
+        self.options
+            .iter()
+            .find(|(c, _)| code == *c)
+            .map(|(_, option)| option)
     }
 
     /// Insert a new option, the key is derived from the `EdnsOption`
     pub fn insert(&mut self, option: EdnsOption) {
-        self.options.insert((&option).into(), option);
+        self.options.push(((&option).into(), option));
     }
 
     /// Remove an option, the key is derived from the `EdnsOption`
     pub fn remove(&mut self, option: EdnsCode) {
-        self.options.remove(&option);
+        self.options.retain(|(c, _)| *c != option)
     }
 }
 
-impl AsMut<HashMap<EdnsCode, EdnsOption>> for OPT {
-    fn as_mut(&mut self) -> &mut HashMap<EdnsCode, EdnsOption> {
+impl PartialEq for OPT {
+    fn eq(&self, other: &Self) -> bool {
+        let matching_elements_count = self
+            .options
+            .iter()
+            .filter(|entry| other.options.contains(entry))
+            .count();
+        println!("Number of matching elements: {}", matching_elements_count);
+        matching_elements_count == self.options.len()
+            && matching_elements_count == other.options.len()
+    }
+}
+
+impl Eq for OPT {}
+
+impl AsMut<Vec<(EdnsCode, EdnsOption)>> for OPT {
+    fn as_mut(&mut self) -> &mut Vec<(EdnsCode, EdnsOption)> {
         &mut self.options
     }
 }
 
-impl AsRef<HashMap<EdnsCode, EdnsOption>> for OPT {
-    fn as_ref(&self) -> &HashMap<EdnsCode, EdnsOption> {
+impl AsRef<Vec<(EdnsCode, EdnsOption)>> for OPT {
+    fn as_ref(&self) -> &Vec<(EdnsCode, EdnsOption)> {
         &self.options
     }
 }
@@ -230,7 +242,7 @@ impl BinEncodable for OPT {
 impl<'r> RecordDataDecodable<'r> for OPT {
     fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
         let mut state: OptReadState = OptReadState::ReadCode;
-        let mut options: HashMap<EdnsCode, EdnsOption> = HashMap::new();
+        let mut options: Vec<(EdnsCode, EdnsOption)> = Vec::new();
         let start_idx = decoder.index();
 
         // There is no unsafe direct use of the rdata length after this point
@@ -255,7 +267,7 @@ impl<'r> RecordDataDecodable<'r> for OPT {
                     // The data state does not process 0-length correctly, since it always reads at
                     // least 1 byte, thus making the length check fail.
                     state = if length == 0 {
-                        options.insert(code, (code, &[] as &[u8]).try_into()?);
+                        options.push((code, (code, &[] as &[u8]).try_into()?));
                         OptReadState::ReadCode
                     } else {
                         OptReadState::Data {
@@ -275,7 +287,7 @@ impl<'r> RecordDataDecodable<'r> for OPT {
                     // TODO: can this be replaced by read_slice()?
                     collected.push(decoder.pop()?.unverified(/*byte array is safe*/));
                     if length == collected.len() {
-                        options.insert(code, (code, &collected as &[u8]).try_into()?);
+                        options.push((code, (code, &collected as &[u8]).try_into()?));
                         state = OptReadState::ReadCode;
                     } else {
                         state = OptReadState::Data {
@@ -826,16 +838,16 @@ mod tests {
         );
 
         let opt = read_rdata.unwrap();
-        let mut options = HashMap::default();
-        options.insert(
+        let mut options = Vec::default();
+        options.push((
             EdnsCode::Subnet,
             EdnsOption::Subnet("0.0.0.0/0".parse().unwrap()),
-        );
-        options.insert(
+        ));
+        options.push((
             EdnsCode::Cookie,
             EdnsOption::Unknown(10, vec![0x0b, 0x64, 0xb4, 0xdc, 0xd7, 0xb0, 0xcc, 0x8f]),
-        );
-        options.insert(EdnsCode::Keepalive, EdnsOption::Unknown(11, vec![]));
+        ));
+        options.push((EdnsCode::Keepalive, EdnsOption::Unknown(11, vec![])));
         let options = OPT::new(options);
         assert_eq!(opt, options);
     }
