@@ -120,7 +120,7 @@ mod tests {
     #[test]
     fn terminate_works() -> Result<()> {
         let network = Network::new()?;
-        let ns = NameServer::new(FQDN::ROOT, &network)?.start()?;
+        let ns = NameServer::new(Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
         let resolver = Resolver::start(
             Implementation::Unbound,
             &[Root::new(ns.fqdn().clone(), ns.ipv4_addr())],

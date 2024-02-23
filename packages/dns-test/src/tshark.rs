@@ -255,7 +255,7 @@ mod tests {
     #[test]
     fn nameserver() -> Result<()> {
         let network = &Network::new()?;
-        let ns = NameServer::new(FQDN::ROOT, network)?.start()?;
+        let ns = NameServer::new(Implementation::Unbound, FQDN::ROOT, network)?.start()?;
         let mut tshark = ns.eavesdrop()?;
 
         let client = Client::new(network)?;
@@ -291,10 +291,11 @@ mod tests {
     #[test]
     fn resolver() -> Result<()> {
         let network = &Network::new()?;
-        let mut root_ns = NameServer::new(FQDN::ROOT, network)?;
-        let mut com_ns = NameServer::new(FQDN::COM, network)?;
+        let mut root_ns = NameServer::new(Implementation::Unbound, FQDN::ROOT, network)?;
+        let mut com_ns = NameServer::new(Implementation::Unbound, FQDN::COM, network)?;
 
-        let mut nameservers_ns = NameServer::new(FQDN("nameservers.com.")?, network)?;
+        let mut nameservers_ns =
+            NameServer::new(Implementation::Unbound, FQDN("nameservers.com.")?, network)?;
         nameservers_ns
             .a(root_ns.fqdn().clone(), root_ns.ipv4_addr())
             .a(com_ns.fqdn().clone(), com_ns.ipv4_addr());

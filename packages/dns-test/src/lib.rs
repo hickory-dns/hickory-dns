@@ -115,3 +115,7 @@ pub fn subject() -> Implementation {
         Implementation::default()
     }
 }
+
+pub fn peer() -> Implementation {
+    Implementation::default()
+}
