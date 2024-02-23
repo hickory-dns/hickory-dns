@@ -1,9 +1,7 @@
 //! A test framework for all things DNS
 
-use core::fmt;
 use std::borrow::Cow;
 use std::path::Path;
-use std::sync::Once;
 
 use url::Url;
 
@@ -57,42 +55,9 @@ pub fn Repository(input: impl Into<Cow<'static, str>>) -> Repository<'static> {
     Repository { inner: input }
 }
 
-impl Implementation {
-    fn dockerfile(&self) -> &'static str {
-        match self {
-            Implementation::Unbound => include_str!("docker/unbound.Dockerfile"),
-            Implementation::Hickory { .. } => include_str!("docker/hickory.Dockerfile"),
-        }
-    }
-
-    fn once(&self) -> &'static Once {
-        match self {
-            Implementation::Unbound => {
-                static UNBOUND_ONCE: Once = Once::new();
-                &UNBOUND_ONCE
-            }
-
-            Implementation::Hickory { .. } => {
-                static HICKORY_ONCE: Once = Once::new();
-                &HICKORY_ONCE
-            }
-        }
-    }
-}
-
 impl Default for Implementation {
     fn default() -> Self {
         Self::Unbound
-    }
-}
-
-impl fmt::Display for Implementation {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Implementation::Unbound => "unbound",
-            Implementation::Hickory { .. } => "hickory",
-        };
-        f.write_str(s)
     }
 }
 
@@ -114,4 +79,8 @@ pub fn subject() -> Implementation {
     } else {
         Implementation::default()
     }
+}
+
+pub fn peer() -> Implementation {
+    Implementation::default()
 }

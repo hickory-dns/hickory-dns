@@ -25,7 +25,12 @@ impl<'a> NameServer<'a, Stopped> {
     /// - one SOA record, with the primary name server field set to this name server's FQDN
     /// - one NS record, with this name server's FQDN set as the only available name server for
     /// the zone
-    pub fn new(zone: FQDN<'a>, network: &Network) -> Result<Self> {
+    pub fn new(implementation: Implementation, zone: FQDN<'a>, network: &Network) -> Result<Self> {
+        assert!(
+            matches!(implementation, Implementation::Unbound),
+            "currently only `unbound` (`nsd`) can be used as a `NameServer`"
+        );
+
         let ns_count = ns_count();
         let nameserver = primary_ns(ns_count);
 
@@ -42,8 +47,9 @@ impl<'a> NameServer<'a, Stopped> {
             nameserver: nameserver.clone(),
         });
 
+        let image = implementation.into();
         Ok(Self {
-            container: Container::run(&Implementation::Unbound, network)?,
+            container: Container::run(&image, network)?,
             zone_file,
             state: Stopped,
         })
@@ -301,7 +307,7 @@ mod tests {
     #[test]
     fn simplest() -> Result<()> {
         let network = Network::new()?;
-        let tld_ns = NameServer::new(FQDN::COM, &network)?.start()?;
+        let tld_ns = NameServer::new(Implementation::Unbound, FQDN::COM, &network)?.start()?;
         let ip_addr = tld_ns.ipv4_addr();
 
         let client = Client::new(&network)?;
@@ -322,7 +328,7 @@ mod tests {
     fn with_referral() -> Result<()> {
         let network = Network::new()?;
         let expected_ip_addr = Ipv4Addr::new(172, 17, 200, 1);
-        let mut root_ns = NameServer::new(FQDN::ROOT, &network)?;
+        let mut root_ns = NameServer::new(Implementation::Unbound, FQDN::ROOT, &network)?;
         root_ns.referral(
             FQDN::COM,
             FQDN("primary.tld-server.com.")?,
@@ -351,7 +357,7 @@ mod tests {
     #[test]
     fn signed() -> Result<()> {
         let network = Network::new()?;
-        let ns = NameServer::new(FQDN::ROOT, &network)?.sign()?;
+        let ns = NameServer::new(Implementation::Unbound, FQDN::ROOT, &network)?.sign()?;
 
         eprintln!("KSK:\n{}", ns.key_signing_key());
         eprintln!("ZSK:\n{}", ns.zone_signing_key());
@@ -387,7 +393,7 @@ mod tests {
     #[test]
     fn terminate_works() -> Result<()> {
         let network = Network::new()?;
-        let ns = NameServer::new(FQDN::ROOT, &network)?.start()?;
+        let ns = NameServer::new(Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
         let logs = ns.terminate()?;
 
         assert!(logs.contains("nsd starting"));

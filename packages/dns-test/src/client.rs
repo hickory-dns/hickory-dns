@@ -1,10 +1,10 @@
 use core::str::FromStr;
 use std::net::Ipv4Addr;
 
-use crate::container::{Container, Network};
+use crate::container::{Container, Image, Network};
 use crate::record::{Record, RecordType};
 use crate::trust_anchor::TrustAnchor;
-use crate::{Error, Implementation, Result, FQDN};
+use crate::{Error, Result, FQDN};
 
 pub struct Client {
     inner: Container,
@@ -13,7 +13,7 @@ pub struct Client {
 impl Client {
     pub fn new(network: &Network) -> Result<Self> {
         Ok(Self {
-            inner: Container::run(&Implementation::Unbound, network)?,
+            inner: Container::run(&Image::Client, network)?,
         })
     }
 
