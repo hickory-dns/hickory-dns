@@ -1,145 +1,101 @@
 # `dnssec-tests`
 
-Test infrastructure for DNSSEC conformance tests.
+This repository contains two packages:
 
-## Design goals
+- `dns-test`. This is a test framework (library) for testing DNS implementations.
+- `conformance-tests`. This is a collection of DNS, mainly DNSSEC, tests.
 
-- Test MUST not depend on external services like `1.1.1.1` or `8.8.8.8`
-  - rationale: it must be possible to run tests locally, without internet access
-- All nodes in the network must not be the subject under test. 
-  - rationale: test inter-operability with other software like `unbound` and `nsd`
-- All test input must be local files or constants
-  - rationale: tests are self-contained
-- 
+## Requirements
 
-## Minimally working DNSSEC-enabled network
+To use the code in this repository you need:
 
-- `.` domain
-  - name server: `nsd` (`my.root-server.com`)
-- TLD domain (`com.`)
-  - name server: `nsd` (`ns.com`)
-- target domain (`example.com.`)
-  - name server: `nsd` (`ns.example.com`)
-- recursive resolver: `unbound`
-  - configured to use `my.root-server.com` as root server
-  - configured with a trust anchor: the public key of `my.root-server.com`
+- a stable Rust toolchain to build the code
+- a working Docker setup that can run *Linux* containers -- the host OS does not need to be Linux 
 
-each name server has
-- a zone signing key pair
-- a key signing key pair
-- signed zone files
+## `dns-test`
 
-### exploration
+This test framework was built with the following design goals and constraints in mind:
 
-Notes:
+- Tests must work without access to the internet. That is, tests cannot rely on external services like `1.1.1.1`, `8.8.8.8`, `a.root-servers.net.`, etc. To this effect, each test runs into its own ephemeral network isolated from the internet and from the networks of other tests running concurrently.
 
-- run all containers with ` --cap-add=NET_RAW --cap-add=NET_ADMIN`
-- use `docker exec` to run `tshark` on network nodes ( containers ) of interest
+- Test code must be decoupled from the API of any DNS implementation. That is, DNS implementation specific details (library/FFI calls, configuration files) must not appear in test code. To this end, interaction with DNS implementations is done at the network level using tools like `dig`, `delv` and `tshark`.
 
-#### `nsd` for root name server
+- It must be possible to switch the 'implementation under test' at runtime. In other words, one should not need to recompile the tests to switch the DNS implementation being tested. To this end, the `DNS_TEST_SUBJECT` environment variable is used to switch the DNS implementation that'll be tested.
 
-run: `nsd -d`
+### Test drive
 
-- `/etc/nsd/nsd.conf`
+To start a small DNS network using the `dns-test` framework run this command and follow the instructions to interact with the DNS network.
 
-``` text
-remote-control:
-  control-enable: no
-
-zone:
-  name: .
-  zonefile: /etc/nsd/zones/main.zone
+``` console
+$ cargo run --example explore
 ```
 
-- `/etc/nsd/zones/main.zone`
+By default, this will use `unbound` as the resolver. You can switch the resolver to `hickory-dns` using the `DNS_TEST_SUBJECT` environment variable:
 
-``` text
-$ORIGIN .
-$TTL 1800
-@       IN      SOA     primary.root-server.com.    admin.root-server.com. (
-                        2014080301
-                        3600
-                        900
-                        1209600
-                        1800
-                        )
-@       IN      NS      primary.root-server.com.
-
-; referral
-com.    IN      NS      primary.tld-server.com.
-primary.tld-server.com. IN A 172.17.0.$TLD_NS_IP_ADDRESS
+``` shell
+$ DNS_TEST_SUBJECT="hickory https://github.com/hickory-dns/hickory-dns" cargo run --example explore
 ```
 
-#### `nsd` for the TLD name server
+### Environment variables
 
-run: `nsd -d`
+- `DNS_TEST_SUBJECT`. This variable controls what the `dns_test::subject` function returns. The variable can contain one of these values:
+  - `unbound`
+  - `hickory $REPOSITORY`. where `$REPOSITORY` is a placeholder for git repository. Examples values for `$REPOSITORY`: `https://github.com/hickory-dns/hickory-dns`; `/home/user/git-repos/hickory-dns`. NOTE: when using a local repository, changes that have not been committed, regardless of whether they are staged or not, will **not** be included in the `hickory-dns` build.
+  
+- `DNS_TEST_VERBOSE_DOCKER_BUILD`. Setting this variable prints the output of the `docker build` invocations that the framework does to the console. This is useful to verify that image caching is working; for example if you set `DNS_TEST_SUBJECT` to a local `hickory-dns` repository then consecutively running the `explore` example and/or `conformance-tests` test suite **must** not rebuild `hickory-dns` provided that you have not *committed* any new change to the local repository.
 
-- `/etc/nsd/nsd.conf`
+## `conformance-tests`
 
-``` text
-remote-control:
-  control-enable: no
+This is a collection of tests that check the conformance of a DNS implementation to the different RFCs around DNS and DNSSEC.
 
-zone:
-  name: main
-  zonefile: /etc/nsd/zones/main.zone
+### Running the test suite
+
+To run the conformance tests against `unbound` run:
+
+``` console
+$ cargo test -p conformance-tests -- --include-ignored
 ```
 
-- `/etc/nsd/zones/main.zone`
+To run the conformance tests against `hickory-dns` run:
 
-``` text
-$ORIGIN com.
-$TTL 1800
-@       IN      SOA     primary.tld-server.com.    admin.tld-server.com. (
-                        2014010100 ; Serial
-                        10800      ; Refresh (3 hours)
-                        900        ; Retry (15 minutes)
-                        604800     ; Expire (1 week)
-                        86400      ; Minimum (1 day)
-                        )
-@       IN      NS      primary.tld-server.com.
-```
-#### `unbound` 
-
-run `unbound -d`
-
-- `/etc/unbound/unbound.conf`
-
-ideally instead of `0.0.0.0`, it should only cover the `docker0` network interface. or disable docker containers' access to the internet
-
-``` text
-server:
-    verbosity: 4
-    use-syslog: no
-    interface: 0.0.0.0
-    access-control: 172.17.0.0/16 allow
-    root-hints: /etc/unbound/root.hints
-
-remote-control:
-    control-enable: no
+``` console
+$ DNS_TEST_SUBJECT="hickory /path/to/repository" cargo test -p conformance-tests
 ```
 
-- `/etc/unbound/root.hints`. NOTE IP address of docker container
+### Test organization
 
-``` text
-.                        3600000      NS    primary.root-server.com.
-primary.root-server.com. 3600000      A     172.17.0.$ROOT_NS_IP_ADDRESS
+The module organization is not yet set in stone but currently uses the following structure:
+
+``` console
+packages/conformance-tests/src
+├── lib.rs
+├── resolver
+│  ├── dns
+│  │  └── scenarios.rs
+│  ├── dns.rs
+│  ├── dnssec
+│  │  ├── rfc4035
+│  │  │  ├── section_4
+│  │  │  │  └── section_4_1.rs
+│  │  │  └── section_4.rs
+│  │  ├── rfc4035.rs
+│  │  └── scenarios.rs
+│  └── dnssec.rs
+└── resolver.rs
 ```
 
-#### `client`
+The modules in the root correspond to the *role* being tested: `resolver` (recursive resolver), `name-server` (authoritative-only name server), etc.
 
-Container is `docker/client.Dockerfile`, build with: `docker build -t dnssec-tests-client -f docker/client.Dockerfile docker`, with `tshark`.
+The next module level contains the *functionality* being tested: (plain) DNS, DNSSEC, NSEC3, etc.
 
-Run the client container with extra capabilities
+The next module level contains the RFC documents, whose requirements are being tested: RFC4035, etc.
 
-```shell
-docker run --rm -it --cap-add=NET_RAW --cap-add=NET_ADMIN dnssec-tests-client /bin/bash
-```
+The next module levels contain sections, subsections and any other subdivision that may be relevant.
 
-Then run `tshark` inside the container:
+At the RFC module level there's a special module called `scenarios`. This module contains tests that map to representative use cases of the parent functionality. Each use case can be tested in successful and failure scenarios, hence the name. The organization within this module will be ad hoc.
 
-```shell
-tshark -f 'host 172.17.0.3' -O dns
-```
+### Adding tests and the use of `#[ignore]`
 
-to filter DNS messages for host `172.17.0.3` (`unbound`).
+When adding a new test to the test suite, it must pass with the `unbound` implementation, which is treated as the *reference* implementation. The CI workflow will check that *all* tests, including the ones that have the `#[ignore]` attribute, pass with the `unbound` implementation.
+
+New tests that don't pass with the `hickory-dns` implementation must be marked as `#[ignore]`-d. The CI workflow will check that non-`#[ignore]`-d tests pass with the `hickory-dns` implementation. Additionally, the CI workflow will check that all `#[ignore]`-d tests *fail* with the `hickory-dns` implementation; this is to ensure that fixed tests get un-`#[ignore]`-d.
