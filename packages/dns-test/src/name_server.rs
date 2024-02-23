@@ -47,8 +47,9 @@ impl<'a> NameServer<'a, Stopped> {
             nameserver: nameserver.clone(),
         });
 
+        let image = implementation.into();
         Ok(Self {
-            container: Container::run(&Implementation::Unbound, network)?,
+            container: Container::run(&image, network)?,
             zone_file,
             state: Stopped,
         })

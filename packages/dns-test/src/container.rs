@@ -1,17 +1,17 @@
 mod network;
 
-use core::str;
+use core::{fmt, str};
 use std::net::Ipv4Addr;
 use std::process::{self, ChildStdout, ExitStatus};
 use std::process::{Command, Stdio};
 use std::sync::atomic::AtomicUsize;
-use std::sync::{atomic, Arc};
+use std::sync::{atomic, Arc, Once};
 use std::{env, fs};
 
 use tempfile::{NamedTempFile, TempDir};
 
 pub use crate::container::network::Network;
-use crate::{Error, Implementation, Result};
+use crate::{Error, Implementation, Repository, Result};
 
 #[derive(Clone)]
 pub struct Container {
@@ -20,16 +20,72 @@ pub struct Container {
 
 const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
 
+#[derive(Clone)]
+pub enum Image {
+    Client,
+    Hickory(Repository<'static>),
+    Unbound,
+}
+
+impl Image {
+    fn dockerfile(&self) -> &'static str {
+        match self {
+            Self::Unbound => include_str!("docker/unbound.Dockerfile"),
+            Self::Hickory { .. } => include_str!("docker/hickory.Dockerfile"),
+            Self::Client => include_str!("docker/client.Dockerfile"),
+        }
+    }
+
+    fn once(&self) -> &'static Once {
+        match self {
+            Self::Client { .. } => {
+                static CLIENT_ONCE: Once = Once::new();
+                &CLIENT_ONCE
+            }
+
+            Self::Hickory { .. } => {
+                static HICKORY_ONCE: Once = Once::new();
+                &HICKORY_ONCE
+            }
+
+            Self::Unbound { .. } => {
+                static UNBOUND_ONCE: Once = Once::new();
+                &UNBOUND_ONCE
+            }
+        }
+    }
+}
+
+impl From<Implementation> for Image {
+    fn from(implementation: Implementation) -> Self {
+        match implementation {
+            Implementation::Unbound => Self::Unbound,
+            Implementation::Hickory(repo) => Self::Hickory(repo),
+        }
+    }
+}
+
+impl fmt::Display for Image {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Self::Client => "client",
+            Self::Hickory { .. } => "hickory",
+            Self::Unbound => "unbound",
+        };
+        f.write_str(s)
+    }
+}
+
 impl Container {
     /// Starts the container in a "parked" state
-    pub fn run(implementation: &Implementation, network: &Network) -> Result<Self> {
+    pub fn run(image: &Image, network: &Network) -> Result<Self> {
         // TODO make this configurable and support hickory & bind
-        let dockerfile = implementation.dockerfile();
+        let dockerfile = image.dockerfile();
         let docker_build_dir = TempDir::new()?;
         let docker_build_dir = docker_build_dir.path();
         fs::write(docker_build_dir.join("Dockerfile"), dockerfile)?;
 
-        let image_tag = format!("{PACKAGE_NAME}-{implementation}");
+        let image_tag = format!("{PACKAGE_NAME}-{image}");
 
         let mut command = Command::new("docker");
         command
@@ -37,13 +93,13 @@ impl Container {
             .arg(&image_tag)
             .arg(docker_build_dir);
 
-        let repo = if let Implementation::Hickory(repo) = implementation {
+        let repo = if let Image::Hickory(repo) = image {
             Some(repo)
         } else {
             None
         };
 
-        implementation.once().call_once(|| {
+        image.once().call_once(|| {
             if let Some(repo) = repo {
                 let mut cp_r = Command::new("git");
                 cp_r.args([
@@ -66,7 +122,7 @@ impl Container {
         let mut command = Command::new("docker");
         let pid = process::id();
         let count = container_count();
-        let name = format!("{PACKAGE_NAME}-{implementation}-{pid}-{count}");
+        let name = format!("{PACKAGE_NAME}-{image}-{pid}-{count}");
         command
             .args([
                 "run",
@@ -334,7 +390,7 @@ mod tests {
     #[test]
     fn run_works() -> Result<()> {
         let network = Network::new()?;
-        let container = Container::run(&Implementation::Unbound, &network)?;
+        let container = Container::run(&Image::Client, &network)?;
 
         let output = container.output(&["true"])?;
         assert!(output.status.success());
@@ -345,7 +401,7 @@ mod tests {
     #[test]
     fn ipv4_addr_works() -> Result<()> {
         let network = Network::new()?;
-        let container = Container::run(&Implementation::Unbound, &network)?;
+        let container = Container::run(&Image::Client, &network)?;
         let ipv4_addr = container.ipv4_addr();
 
         let output = container.output(&["ping", "-c1", &format!("{ipv4_addr}")])?;
@@ -357,7 +413,7 @@ mod tests {
     #[test]
     fn cp_works() -> Result<()> {
         let network = Network::new()?;
-        let container = Container::run(&Implementation::Unbound, &network)?;
+        let container = Container::run(&Image::Client, &network)?;
 
         let path = "/tmp/somefile";
         let contents = "hello";

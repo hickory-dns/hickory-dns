@@ -33,7 +33,8 @@ impl Resolver {
             "must configure at least one local root server"
         );
 
-        let container = Container::run(&implementation, network)?;
+        let image = implementation.clone().into();
+        let container = Container::run(&image, network)?;
 
         let mut hints = String::new();
         for root in roots {
