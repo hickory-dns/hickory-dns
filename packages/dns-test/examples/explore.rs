@@ -8,15 +8,16 @@ use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
 
 fn main() -> Result<()> {
     let network = Network::new()?;
+    let peer = dns_test::peer();
 
     println!("building docker image...");
-    let mut root_ns = NameServer::new(FQDN::ROOT, &network)?;
+    let mut root_ns = NameServer::new(peer.clone(), FQDN::ROOT, &network)?;
     println!("DONE");
 
     println!("setting up name servers...");
-    let mut com_ns = NameServer::new(FQDN::COM, &network)?;
+    let mut com_ns = NameServer::new(peer.clone(), FQDN::COM, &network)?;
 
-    let mut nameservers_ns = NameServer::new(FQDN("nameservers.com.")?, &network)?;
+    let mut nameservers_ns = NameServer::new(peer.clone(), FQDN("nameservers.com.")?, &network)?;
     nameservers_ns
         .a(root_ns.fqdn().clone(), root_ns.ipv4_addr())
         .a(com_ns.fqdn().clone(), com_ns.ipv4_addr());
