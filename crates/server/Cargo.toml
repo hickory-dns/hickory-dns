@@ -100,6 +100,9 @@ dns-over-h3 = [
 tls-openssl = ["dns-over-openssl"]
 tls = ["dns-over-openssl"]
 
+webpki-roots = ["hickory-resolver/webpki-roots"]
+native-certs = ["hickory-resolver/native-certs"]
+
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
 # mtls = ["hickory-client/mtls"]
 
