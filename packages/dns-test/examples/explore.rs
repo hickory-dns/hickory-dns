@@ -11,13 +11,13 @@ fn main() -> Result<()> {
     let peer = dns_test::peer();
 
     println!("building docker image...");
-    let mut root_ns = NameServer::new(peer.clone(), FQDN::ROOT, &network)?;
+    let mut root_ns = NameServer::new(&peer, FQDN::ROOT, &network)?;
     println!("DONE");
 
     println!("setting up name servers...");
-    let mut com_ns = NameServer::new(peer.clone(), FQDN::COM, &network)?;
+    let mut com_ns = NameServer::new(&peer, FQDN::COM, &network)?;
 
-    let mut nameservers_ns = NameServer::new(peer.clone(), FQDN("nameservers.com.")?, &network)?;
+    let mut nameservers_ns = NameServer::new(&peer, FQDN("nameservers.com.")?, &network)?;
     nameservers_ns
         .add(Record::a(root_ns.fqdn().clone(), root_ns.ipv4_addr()))
         .add(Record::a(com_ns.fqdn().clone(), com_ns.ipv4_addr()));

@@ -15,10 +15,10 @@ fn bad_signature_in_leaf_nameserver() -> Result<()> {
 
     let network = Network::new()?;
     let peer = dns_test::peer();
-    let mut root_ns = NameServer::new(peer.clone(), FQDN::ROOT, &network)?;
-    let mut com_ns = NameServer::new(peer.clone(), FQDN::COM, &network)?;
+    let mut root_ns = NameServer::new(&peer, FQDN::ROOT, &network)?;
+    let mut com_ns = NameServer::new(&peer, FQDN::COM, &network)?;
 
-    let mut nameservers_ns = NameServer::new(peer, FQDN("nameservers.com.")?, &network)?;
+    let mut nameservers_ns = NameServer::new(&peer, FQDN("nameservers.com.")?, &network)?;
     nameservers_ns
         .add(Record::a(root_ns.fqdn().clone(), root_ns.ipv4_addr()))
         .add(Record::a(com_ns.fqdn().clone(), com_ns.ipv4_addr()))
