@@ -5,13 +5,13 @@ use std::borrow::Cow;
 use crate::{Error, Result};
 
 #[derive(Clone, PartialEq)]
-pub struct FQDN<'a> {
-    inner: Cow<'a, str>,
+pub struct FQDN {
+    inner: Cow<'static, str>,
 }
 
 // TODO likely needs further validation
 #[allow(non_snake_case)]
-pub fn FQDN<'a>(input: impl Into<Cow<'a, str>>) -> Result<FQDN<'a>> {
+pub fn FQDN(input: impl Into<Cow<'static, str>>) -> Result<FQDN> {
     let input = input.into();
     if !input.ends_with('.') {
         return Err("FQDN must end with a `.`".into());
@@ -24,12 +24,12 @@ pub fn FQDN<'a>(input: impl Into<Cow<'a, str>>) -> Result<FQDN<'a>> {
     Ok(FQDN { inner: input })
 }
 
-impl<'a> FQDN<'a> {
-    pub const ROOT: FQDN<'static> = FQDN {
+impl FQDN {
+    pub const ROOT: FQDN = FQDN {
         inner: Cow::Borrowed("."),
     };
 
-    pub const COM: FQDN<'static> = FQDN {
+    pub const COM: FQDN = FQDN {
         inner: Cow::Borrowed("com."),
     };
 
@@ -41,7 +41,7 @@ impl<'a> FQDN<'a> {
         &self.inner
     }
 
-    pub fn into_owned(self) -> FQDN<'static> {
+    pub fn into_owned(self) -> FQDN {
         let owned = match self.inner {
             Cow::Borrowed(borrowed) => borrowed.to_string(),
             Cow::Owned(owned) => owned,
@@ -53,21 +53,21 @@ impl<'a> FQDN<'a> {
     }
 }
 
-impl FromStr for FQDN<'static> {
+impl FromStr for FQDN {
     type Err = Error;
 
     fn from_str(input: &str) -> Result<Self> {
-        Ok(FQDN(input)?.into_owned())
+        FQDN(input.to_string())
     }
 }
 
-impl fmt::Debug for FQDN<'_> {
+impl fmt::Debug for FQDN {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(self, f)
     }
 }
 
-impl fmt::Display for FQDN<'_> {
+impl fmt::Display for FQDN {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.inner)
     }

@@ -1,4 +1,4 @@
-use dns_test::client::{Client, Dnssec, Recurse};
+use dns_test::client::{Client, DigSettings};
 use dns_test::name_server::NameServer;
 use dns_test::record::RecordType;
 use dns_test::tshark::{Capture, Direction};
@@ -20,13 +20,8 @@ fn edns_support() -> Result<()> {
     let mut tshark = resolver.eavesdrop()?;
 
     let client = Client::new(network)?;
-    let ans = client.dig(
-        Recurse::Yes,
-        Dnssec::Yes,
-        resolver.ipv4_addr(),
-        RecordType::SOA,
-        &FQDN::ROOT,
-    )?;
+    let settings = *DigSettings::default().authentic_data().recurse();
+    let ans = client.dig(settings, resolver.ipv4_addr(), RecordType::SOA, &FQDN::ROOT)?;
     assert!(ans.status.is_servfail());
 
     tshark.wait_for_capture()?;
