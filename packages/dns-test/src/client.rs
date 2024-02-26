@@ -144,6 +144,7 @@ pub struct DigOutput {
     pub flags: DigFlags,
     pub status: DigStatus,
     pub answer: Vec<Record>,
+    pub authority: Vec<Record>,
     // TODO(if needed) other sections
 }
 
@@ -154,6 +155,7 @@ impl FromStr for DigOutput {
         const FLAGS_PREFIX: &str = ";; flags: ";
         const STATUS_PREFIX: &str = ";; ->>HEADER<<- opcode: QUERY, status: ";
         const ANSWER_HEADER: &str = ";; ANSWER SECTION:";
+        const AUTHORITY_HEADER: &str = ";; AUTHORITY SECTION:";
 
         fn not_found(prefix: &str) -> String {
             format!("`{prefix}` line was not found")
@@ -170,6 +172,7 @@ impl FromStr for DigOutput {
         let mut flags = None;
         let mut status = None;
         let mut answer = None;
+        let mut authority = None;
 
         let mut lines = input.lines();
         while let Some(line) = lines.next() {
@@ -208,6 +211,21 @@ impl FromStr for DigOutput {
                 }
 
                 answer = Some(records);
+            } else if line.starts_with(AUTHORITY_HEADER) {
+                if authority.is_some() {
+                    return Err(more_than_once(AUTHORITY_HEADER).into());
+                }
+
+                let mut records = vec![];
+                for line in lines.by_ref() {
+                    if line.is_empty() {
+                        break;
+                    }
+
+                    records.push(line.parse()?);
+                }
+
+                authority = Some(records);
             }
         }
 
@@ -215,6 +233,7 @@ impl FromStr for DigOutput {
             flags: flags.ok_or_else(|| not_found(FLAGS_PREFIX))?,
             status: status.ok_or_else(|| not_found(STATUS_PREFIX))?,
             answer: answer.unwrap_or_default(),
+            authority: authority.unwrap_or_default(),
         })
     }
 }
@@ -343,6 +362,39 @@ mod tests {
             output.flags
         );
         assert!(output.answer.is_empty());
+
+        Ok(())
+    }
+
+    #[test]
+    fn authority_section() -> Result<()> {
+        // $ dig A .
+        let input = "
+; <<>> DiG 9.18.24 <<>> A .
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 39670
+;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 1, ADDITIONAL: 1
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 1232
+;; QUESTION SECTION:
+;.				IN	A
+
+;; AUTHORITY SECTION:
+.			2910	IN	SOA	a.root-servers.net. nstld.verisign-grs.com. 2024022600 1800 900 604800 86400
+
+;; Query time: 43 msec
+;; SERVER: 192.168.1.1#53(192.168.1.1) (UDP)
+;; WHEN: Mon Feb 26 11:55:50 CET 2024
+;; MSG SIZE  rcvd: 103
+";
+
+        let output: DigOutput = input.parse()?;
+
+        let [record] = output.authority.try_into().expect("exactly one record");
+
+        matches!(record, Record::SOA(..));
 
         Ok(())
     }
