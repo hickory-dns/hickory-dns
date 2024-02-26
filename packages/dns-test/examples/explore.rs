@@ -2,7 +2,7 @@ use std::sync::mpsc;
 
 use dns_test::client::Client;
 use dns_test::name_server::NameServer;
-use dns_test::record::RecordType;
+use dns_test::record::{Record, RecordType};
 use dns_test::zone_file::Root;
 use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
 
@@ -19,8 +19,8 @@ fn main() -> Result<()> {
 
     let mut nameservers_ns = NameServer::new(peer.clone(), FQDN("nameservers.com.")?, &network)?;
     nameservers_ns
-        .a(root_ns.fqdn().clone(), root_ns.ipv4_addr())
-        .a(com_ns.fqdn().clone(), com_ns.ipv4_addr());
+        .add(Record::a(root_ns.fqdn().clone(), root_ns.ipv4_addr()))
+        .add(Record::a(com_ns.fqdn().clone(), com_ns.ipv4_addr()));
     let nameservers_ns = nameservers_ns.sign()?;
     let nameservers_ds = nameservers_ns.ds().clone();
     let nameservers_ns = nameservers_ns.start()?;
@@ -31,14 +31,14 @@ fn main() -> Result<()> {
             nameservers_ns.fqdn().clone(),
             nameservers_ns.ipv4_addr(),
         )
-        .ds(nameservers_ds);
+        .add(nameservers_ds);
     let com_ns = com_ns.sign()?;
     let com_ds = com_ns.ds().clone();
     let com_ns = com_ns.start()?;
 
     root_ns
         .referral(FQDN::COM, com_ns.fqdn().clone(), com_ns.ipv4_addr())
-        .ds(com_ds);
+        .add(com_ds);
     let root_ns = root_ns.sign()?;
     let root_ksk = root_ns.key_signing_key().clone();
     let root_zsk = root_ns.zone_signing_key().clone();

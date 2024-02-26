@@ -1,6 +1,6 @@
 use core::fmt;
 
-use crate::zone_file::DNSKEY;
+use crate::record::DNSKEY;
 
 pub struct TrustAnchor {
     keys: Vec<DNSKEY>,
