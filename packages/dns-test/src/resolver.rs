@@ -21,7 +21,7 @@ impl Resolver {
     ///
     /// This constructor panics if `roots` is an empty slice
     pub fn start(
-        implementation: Implementation,
+        implementation: &Implementation,
         roots: &[Root],
         trust_anchor: &TrustAnchor,
         network: &Network,
@@ -125,9 +125,9 @@ mod tests {
     #[test]
     fn terminate_works() -> Result<()> {
         let network = Network::new()?;
-        let ns = NameServer::new(Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
+        let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
         let resolver = Resolver::start(
-            Implementation::Unbound,
+            &Implementation::Unbound,
             &[Root::new(ns.fqdn().clone(), ns.ipv4_addr())],
             &TrustAnchor::empty(),
             &network,

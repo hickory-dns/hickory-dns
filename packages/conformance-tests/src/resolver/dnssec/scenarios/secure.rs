@@ -11,7 +11,7 @@ use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
 #[test]
 fn can_validate_without_delegation() -> Result<()> {
     let network = Network::new()?;
-    let mut ns = NameServer::new(dns_test::peer(), FQDN::ROOT, &network)?;
+    let mut ns = NameServer::new(&dns_test::peer(), FQDN::ROOT, &network)?;
     ns.add(Record::a(ns.fqdn().clone(), ns.ipv4_addr()));
     let ns = ns.sign()?;
 
@@ -27,7 +27,7 @@ fn can_validate_without_delegation() -> Result<()> {
     let roots = &[Root::new(ns.fqdn().clone(), ns.ipv4_addr())];
 
     let trust_anchor = TrustAnchor::from_iter([root_ksk.clone(), root_zsk.clone()]);
-    let resolver = Resolver::start(dns_test::subject(), roots, &trust_anchor, &network)?;
+    let resolver = Resolver::start(&dns_test::subject(), roots, &trust_anchor, &network)?;
     let resolver_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;
@@ -51,10 +51,10 @@ fn can_validate_with_delegation() -> Result<()> {
 
     let peer = dns_test::peer();
     let network = Network::new()?;
-    let mut root_ns = NameServer::new(peer.clone(), FQDN::ROOT, &network)?;
-    let mut com_ns = NameServer::new(peer.clone(), FQDN::COM, &network)?;
+    let mut root_ns = NameServer::new(&peer, FQDN::ROOT, &network)?;
+    let mut com_ns = NameServer::new(&peer, FQDN::COM, &network)?;
 
-    let mut nameservers_ns = NameServer::new(peer, FQDN("nameservers.com.")?, &network)?;
+    let mut nameservers_ns = NameServer::new(&peer, FQDN("nameservers.com.")?, &network)?;
     nameservers_ns
         .add(Record::a(root_ns.fqdn().clone(), root_ns.ipv4_addr()))
         .add(Record::a(com_ns.fqdn().clone(), com_ns.ipv4_addr()))
@@ -94,7 +94,7 @@ fn can_validate_with_delegation() -> Result<()> {
     let roots = &[Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr())];
 
     let trust_anchor = TrustAnchor::from_iter([root_ksk.clone(), root_zsk.clone()]);
-    let resolver = Resolver::start(dns_test::subject(), roots, &trust_anchor, &network)?;
+    let resolver = Resolver::start(&dns_test::subject(), roots, &trust_anchor, &network)?;
     let resolver_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;
