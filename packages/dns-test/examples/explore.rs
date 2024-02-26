@@ -50,7 +50,7 @@ fn main() -> Result<()> {
 
     let trust_anchor = TrustAnchor::from_iter([root_ksk.clone(), root_zsk.clone()]);
     println!("building docker image...");
-    let resolver = Resolver::start(dns_test::subject(), roots, &trust_anchor, &network)?;
+    let resolver = Resolver::start(&dns_test::subject(), roots, &trust_anchor, &network)?;
     println!("DONE\n\n");
 
     let resolver_addr = resolver.ipv4_addr();

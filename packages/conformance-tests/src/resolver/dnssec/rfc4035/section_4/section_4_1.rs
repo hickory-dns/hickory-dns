@@ -11,7 +11,7 @@ fn edns_support() -> Result<()> {
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::peer(), FQDN::ROOT, network)?.start()?;
     let resolver = Resolver::start(
-        dns_test::subject(),
+        &dns_test::subject(),
         &[Root::new(ns.fqdn().clone(), ns.ipv4_addr())],
         &TrustAnchor::empty(),
         network,

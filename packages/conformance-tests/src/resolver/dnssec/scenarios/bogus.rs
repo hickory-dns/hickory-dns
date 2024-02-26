@@ -67,7 +67,7 @@ fn bad_signature_in_leaf_nameserver() -> Result<()> {
     let roots = &[Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr())];
 
     let trust_anchor = TrustAnchor::from_iter([root_ksk.clone(), root_zsk.clone()]);
-    let resolver = Resolver::start(dns_test::subject(), roots, &trust_anchor, &network)?;
+    let resolver = Resolver::start(&dns_test::subject(), roots, &trust_anchor, &network)?;
     let resolver_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;

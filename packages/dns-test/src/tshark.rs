@@ -312,7 +312,7 @@ mod tests {
 
         let roots = &[Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr())];
         let resolver = Resolver::start(
-            Implementation::Unbound,
+            &Implementation::Unbound,
             roots,
             &TrustAnchor::empty(),
             network,

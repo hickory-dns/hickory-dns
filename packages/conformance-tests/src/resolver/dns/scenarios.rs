@@ -40,7 +40,7 @@ fn can_resolve() -> Result<()> {
     eprintln!("root.zone:\n{}", root_ns.zone_file());
 
     let roots = &[Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr())];
-    let resolver = Resolver::start(dns_test::subject(), roots, &TrustAnchor::empty(), &network)?;
+    let resolver = Resolver::start(&dns_test::subject(), roots, &TrustAnchor::empty(), &network)?;
     let resolver_ip_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;
@@ -86,7 +86,7 @@ fn nxdomain() -> Result<()> {
     let root_ns = root_ns.start()?;
 
     let roots = &[Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr())];
-    let resolver = Resolver::start(dns_test::subject(), roots, &TrustAnchor::empty(), &network)?;
+    let resolver = Resolver::start(&dns_test::subject(), roots, &TrustAnchor::empty(), &network)?;
     let resolver_ip_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;
