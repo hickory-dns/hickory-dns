@@ -99,3 +99,12 @@ At the RFC module level there's a special module called `scenarios`. This module
 When adding a new test to the test suite, it must pass with the `unbound` implementation, which is treated as the *reference* implementation. The CI workflow will check that *all* tests, including the ones that have the `#[ignore]` attribute, pass with the `unbound` implementation.
 
 New tests that don't pass with the `hickory-dns` implementation must be marked as `#[ignore]`-d. The CI workflow will check that non-`#[ignore]`-d tests pass with the `hickory-dns` implementation. Additionally, the CI workflow will check that all `#[ignore]`-d tests *fail* with the `hickory-dns` implementation; this is to ensure that fixed tests get un-`#[ignore]`-d.
+
+## License
+
+Licensed under either of
+
+- Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or <https://www.apache.org/licenses/LICENSE-2.0>)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or <https://opensource.org/licenses/MIT>)
+
+at your option.
