@@ -21,6 +21,7 @@ use cfg_if::cfg_if;
 use futures_util::future::{self, TryFutureExt};
 #[cfg(feature = "dnssec")]
 use time::OffsetDateTime;
+#[cfg(feature = "log")]
 use tracing::{debug, error, warn};
 
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -356,6 +357,7 @@ impl InnerInMemory {
         let soa = match soa {
             Some(soa) => soa,
             None => {
+                #[cfg(feature = "log")]
                 error!("could not lookup SOA for authority: {}", origin);
                 return 0;
             }
@@ -371,6 +373,7 @@ impl InnerInMemory {
         let soa = match soa {
             Some(soa) => soa,
             None => {
+                #[cfg(feature = "log")]
                 error!("could not lookup SOA for authority: {}", origin);
                 return 0;
             }
@@ -544,6 +547,7 @@ impl InnerInMemory {
         let mut record = if let Some(record) = record {
             record
         } else {
+            #[cfg(feature = "log")]
             error!("could not lookup SOA for authority: {}", origin);
             return 0;
         };
@@ -573,6 +577,7 @@ impl InnerInMemory {
     /// true if the value was inserted, false otherwise
     fn upsert(&mut self, record: Record, serial: u32, dns_class: DNSClass) -> bool {
         if dns_class != record.dns_class() {
+            #[cfg(feature = "log")]
             warn!(
                 "mismatched dns_class on record insert, zone: {} record: {}",
                 dns_class,
@@ -670,6 +675,7 @@ impl InnerInMemory {
         if self.secure_keys.is_empty() {
             return;
         }
+        #[cfg(feature = "log")]
         debug!("generating nsec records: {}", origin);
 
         // first remove all existing nsec records
@@ -753,6 +759,7 @@ impl InnerInMemory {
         let rrsig_temp = Record::with(rr_set.name().clone(), RecordType::RRSIG, zone_ttl);
 
         for signer in secure_keys {
+            #[cfg(feature = "log")]
             debug!(
                 "signing rr_set: {}, {} with: {}",
                 rr_set.name(),
@@ -784,8 +791,9 @@ impl InnerInMemory {
             // TODO, maybe chain these with some ETL operations instead?
             let tbs = match tbs {
                 Ok(tbs) => tbs,
-                Err(err) => {
-                    error!("could not serialize rrset to sign: {}", err);
+                Err(_err) => {
+                    #[cfg(feature = "log")]
+                    error!("could not serialize rrset to sign: {}", _err);
                     continue;
                 }
             };
@@ -793,8 +801,9 @@ impl InnerInMemory {
             let signature = signer.sign(&tbs);
             let signature = match signature {
                 Ok(signature) => signature,
-                Err(err) => {
-                    error!("could not sign rrset: {}", err);
+                Err(_err) => {
+                    #[cfg(feature = "log")]
+                    error!("could not sign rrset: {}", _err);
                     continue;
                 }
             };
@@ -830,6 +839,7 @@ impl InnerInMemory {
     /// Signs any records in the zone that have serial numbers greater than or equal to `serial`
     #[cfg(feature = "dnssec")]
     fn sign_zone(&mut self, origin: &LowerName, dns_class: DNSClass) -> DnsSecResult<()> {
+        #[cfg(feature = "log")]
         debug!("signing zone: {}", origin);
 
         let minimum_ttl = self.minimum_ttl(origin);
@@ -838,6 +848,7 @@ impl InnerInMemory {
 
         // TODO: should this be an error?
         if secure_keys.is_empty() {
+            #[cfg(feature = "log")]
             warn!(
                 "attempt to sign_zone {} for dnssec, but no keys available!",
                 origin
@@ -1098,8 +1109,6 @@ impl Authority for InMemoryAuthority {
                                 // if DNSSEC is enabled, and the request had the DO set, sign the recordset
                                 #[cfg(feature = "dnssec")]
                                 {
-                                    use tracing::warn;
-
                                     // ANAME's are constructed on demand, so need to be signed before return
                                     if lookup_options.is_dnssec() {
                                         InnerInMemory::sign_rrset(
@@ -1109,7 +1118,10 @@ impl Authority for InMemoryAuthority {
                                             self.class(),
                                         )
                                         // rather than failing the request, we'll just warn
-                                        .map_err(|e| warn!("failed to sign ANAME record: {}", e))
+                                        .map_err(|_e| {
+                                            #[cfg(feature = "log")]
+                                            tracing::warn!("failed to sign ANAME record: {}", _e)
+                                        })
                                         .ok();
                                     }
                                 }
@@ -1172,6 +1184,7 @@ impl Authority for InMemoryAuthority {
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError> {
+        #[cfg(feature = "log")]
         debug!("searching InMemoryAuthority for: {}", request_info.query);
 
         let lookup_name = request_info.query.name();

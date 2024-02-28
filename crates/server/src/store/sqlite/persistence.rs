@@ -14,6 +14,7 @@ use std::sync::{Mutex, MutexGuard};
 use rusqlite::types::ToSql;
 use rusqlite::{self, Connection};
 use time;
+#[cfg(feature = "log")]
 use tracing::error;
 
 use crate::error::{PersistenceErrorKind, PersistenceResult};
@@ -323,8 +324,9 @@ impl<'j> Iterator for JournalIter<'j> {
                 Some(record)
             }
             Ok(None) => None,
-            Err(err) => {
-                error!("persistence error while iterating over journal: {}", err);
+            Err(_err) => {
+                #[cfg(feature = "log")]
+                error!("persistence error while iterating over journal: {}", _err);
                 None
             }
         }

@@ -7,6 +7,7 @@
 
 use std::{iter::Chain, slice::Iter, vec};
 
+#[cfg(feature = "log")]
 use tracing::{info, warn};
 
 use crate::rr::{DNSClass, Name, RData, Record, RecordType};
@@ -298,6 +299,7 @@ impl RecordSet {
                         Some(RData::SOA(ref existing_soa)) => {
                             if let Some(RData::SOA(ref new_soa)) = record.data() {
                                 if new_soa.serial() <= existing_soa.serial() {
+                                    #[cfg(feature = "log")]
                                     info!(
                                         "update ignored serial out of data: {:?} <= {:?}",
                                         new_soa, existing_soa
@@ -306,12 +308,14 @@ impl RecordSet {
                                 }
                             } else {
                                 // not panicking here, b/c this is a bad record from the client or something, ignore
+                                #[cfg(feature = "log")]
                                 info!("wrong rdata for SOA update: {:?}", record.data());
                                 return false;
                             }
                         }
-                        rdata => {
-                            warn!("wrong rdata: {:?}, expected SOA", rdata);
+                        _rdata => {
+                            #[cfg(feature = "log")]
+                            warn!("wrong rdata: {:?}, expected SOA", _rdata);
                             return false;
                         }
                     }
@@ -408,12 +412,14 @@ impl RecordSet {
             // never delete the last NS record
             RecordType::NS => {
                 if self.records.len() <= 1 {
+                    #[cfg(feature = "log")]
                     info!("ignoring delete of last NS record: {:?}", record);
                     return false;
                 }
             }
             // never delete SOA
             RecordType::SOA => {
+                #[cfg(feature = "log")]
                 info!("ignored delete of SOA");
                 return false;
             }

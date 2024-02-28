@@ -16,6 +16,7 @@
 
 //! mail exchange, email, record
 
+#[cfg(feature = "log")]
 use tracing::warn;
 
 use crate::rr::rdata::caa;
@@ -59,6 +60,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
     let issuer_critical = {
         let flags = flags_str.parse::<u8>()?;
         if flags & 0b0111_1111 != 0 {
+            #[cfg(feature = "log")]
             warn!("unexpected flag values in caa (0 or 128): {}", flags);
         }
 
@@ -70,6 +72,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
         // unnecessary clone
         let tag = Property::from(tag_str.to_string());
         if tag.is_unknown() {
+            #[cfg(feature = "log")]
             warn!("unknown tag found for caa: {:?}", tag);
         }
         tag

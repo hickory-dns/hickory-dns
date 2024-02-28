@@ -26,6 +26,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use openssl::pkey::PKey;
+#[cfg(feature = "log")]
 use tracing::info;
 
 use hickory_proto::rr::dnssec::{KeyPair, Public};
@@ -66,6 +67,7 @@ pub fn main() {
     let key_path = args.key;
     let output_path = args.output;
 
+    #[cfg(feature = "log")]
     info!("Reading key from pem: {}", key_path.display());
 
     let mut key_file = File::open(&key_path).unwrap_or_else(|_| {

@@ -14,6 +14,7 @@ use std::{
 };
 
 use futures_util::lock::Mutex;
+#[cfg(feature = "log")]
 use tracing::{error, info, warn};
 
 use crate::{
@@ -93,6 +94,7 @@ impl SqliteAuthority {
 
         // load the zone
         if journal_path.exists() {
+            #[cfg(feature = "log")]
             info!("recovering zone from journal: {:?}", journal_path);
             let journal = Journal::from_file(&journal_path)
                 .map_err(|e| format!("error opening journal: {journal_path:?}: {e}"))?;
@@ -106,11 +108,13 @@ impl SqliteAuthority {
                 .map_err(|e| format!("error recovering from journal: {e}"))?;
 
             authority.set_journal(journal).await;
+            #[cfg(feature = "log")]
             info!("recovered zone: {}", zone_name);
 
             Ok(authority)
         } else if zone_path.exists() {
             // TODO: deprecate this portion of loading, instantiate the journal through a separate tool
+            #[cfg(feature = "log")]
             info!("loading zone file: {:?}", zone_path);
 
             let file_config = FileConfig {
@@ -129,6 +133,7 @@ impl SqliteAuthority {
             let mut authority = Self::new(in_memory, config.allow_update, enable_dnssec);
 
             // if dynamic update is enabled, enable the journal
+            #[cfg(feature = "log")]
             info!("creating new journal: {:?}", journal_path);
             let journal = Journal::from_file(&journal_path)
                 .map_err(|e| format!("error creating journal {journal_path:?}: {e}"))?;
@@ -141,6 +146,7 @@ impl SqliteAuthority {
                 .await
                 .map_err(|e| format!("error persisting to journal {journal_path:?}: {e}"))?;
 
+            #[cfg(feature = "log")]
             info!("zone file loaded: {}", zone_name);
             Ok(authority)
         } else {
@@ -159,6 +165,7 @@ impl SqliteAuthority {
             "records should be empty during a recovery"
         );
 
+        #[cfg(feature = "log")]
         info!("recovering from journal");
         for record in journal.iter() {
             // AXFR is special, it is used to mark the dump of a full zone.
@@ -182,6 +189,7 @@ impl SqliteAuthority {
         if let Some(journal) = self.journal.lock().await.as_ref() {
             let serial = self.in_memory.serial().await;
 
+            #[cfg(feature = "log")]
             info!("persisting zone to journal at SOA.serial: {}", serial);
 
             // TODO: THIS NEEDS TO BE IN A TRANSACTION!!!
@@ -311,12 +319,14 @@ impl SqliteAuthority {
             let required_name = LowerName::from(require.name());
 
             if require.ttl() != 0 {
+                #[cfg(feature = "log")]
                 warn!("ttl must be 0 for: {:?}", require);
                 return Err(ResponseCode::FormErr);
             }
 
             let origin = self.origin();
             if !origin.zone_of(&require.name().into()) {
+                #[cfg(feature = "log")]
                 warn!("{} is not a zone_of {}", require.name(), origin);
                 return Err(ResponseCode::NotZone);
             }
@@ -452,6 +462,7 @@ impl SqliteAuthority {
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     #[allow(clippy::blocks_in_conditions)]
     pub async fn authorize(&self, update_message: &MessageRequest) -> UpdateResult<()> {
+        #[cfg(feature = "log")]
         use tracing::debug;
 
         // 3.3.3 - Pseudocode for Permission Checking
@@ -465,6 +476,7 @@ impl SqliteAuthority {
 
         // does this authority allow_updates?
         if !self.allow_update {
+            #[cfg(feature = "log")]
             warn!(
                 "update attempted on non-updatable Authority: {}",
                 self.origin()
@@ -474,6 +486,7 @@ impl SqliteAuthority {
 
         // verify sig0, currently the only authorization that is accepted.
         let sig0s: &[Record] = update_message.sig0();
+        #[cfg(feature = "log")]
         debug!("authorizing with: {:?}", sig0s);
         if !sig0s.is_empty() {
             let mut found_key = false;
@@ -492,6 +505,7 @@ impl SqliteAuthority {
                     Err(_) => continue, // error trying to lookup a key by that name, try the next one.
                 };
 
+                #[cfg(feature = "log")]
                 debug!("found keys {:?}", keys);
                 // TODO: check key usage flags and restrictions
                 found_key = keys
@@ -505,10 +519,12 @@ impl SqliteAuthority {
                     .any(|key| {
                         key.verify_message(update_message, sig.sig(), sig)
                             .map(|_| {
+                                #[cfg(feature = "log")]
                                 info!("verified sig: {:?} with key: {:?}", sig, key);
                                 true
                             })
                             .unwrap_or_else(|_| {
+                                #[cfg(feature = "log")]
                                 debug!("did not verify sig: {:?} with key: {:?}", sig, key);
                                 false
                             })
@@ -523,6 +539,7 @@ impl SqliteAuthority {
                 return Ok(());
             }
         } else {
+            #[cfg(feature = "log")]
             warn!(
                 "no sig0 matched registered records: id {}",
                 update_message.id()
@@ -661,8 +678,9 @@ impl SqliteAuthority {
         // the persistence act as a write-ahead log. The WAL will also be used for recovery of a zone
         //  subsequent to a failure of the server.
         if let Some(ref journal) = *self.journal.lock().await {
-            if let Err(error) = journal.insert_records(serial, records) {
-                error!("could not persist update records: {}", error);
+            if let Err(_error) = journal.insert_records(serial, records) {
+                #[cfg(feature = "log")]
+                error!("could not persist update records: {}", _error);
                 return Err(ResponseCode::ServFail);
             }
         }
@@ -724,15 +742,17 @@ impl SqliteAuthority {
                     //  RR.
 
                     // zone     rrset    rr       Add to an RRset
+                    #[cfg(feature = "log")]
                     info!("upserting record: {:?}", rr);
                     updated = self.in_memory.upsert(rr.clone(), serial).await || updated;
                 }
                 DNSClass::ANY => {
                     // This is a delete of entire RRSETs, either many or one. In either case, the spec is clear:
                     match rr.record_type() {
-                        t @ RecordType::SOA | t @ RecordType::NS if rr_name == *self.origin() => {
+                        _t @ RecordType::SOA | _t @ RecordType::NS if rr_name == *self.origin() => {
                             // SOA and NS records are not to be deleted if they are the origin records
-                            info!("skipping delete of {:?} see RFC 2136 - 3.4.2.3", t);
+                            #[cfg(feature = "log")]
+                            info!("skipping delete of {:?} see RFC 2136 - 3.4.2.3", _t);
                             continue;
                         }
                         RecordType::ANY => {
@@ -742,6 +762,7 @@ impl SqliteAuthority {
                             //   SOA or NS are deleted.
 
                             // ANY      ANY      empty    Delete all RRsets from a name
+                            #[cfg(feature = "log")]
                             info!(
                                 "deleting all records at name (not SOA or NS at origin): {:?}",
                                 rr_name
@@ -775,9 +796,11 @@ impl SqliteAuthority {
                             // ANY      rrset    empty    Delete an RRset
                             if let None | Some(RData::NULL(..)) = rr.data() {
                                 let deleted = self.in_memory.records_mut().await.remove(&rr_key);
+                                #[cfg(feature = "log")]
                                 info!("deleted rrset: {:?}", deleted);
                                 updated = updated || deleted.is_some();
                             } else {
+                                #[cfg(feature = "log")]
                                 info!("expected empty rdata: {:?}", rr);
                                 return Err(ResponseCode::FormErr);
                             }
@@ -785,12 +808,14 @@ impl SqliteAuthority {
                     }
                 }
                 DNSClass::NONE => {
+                    #[cfg(feature = "log")]
                     info!("deleting specific record: {:?}", rr);
                     // NONE     rrset    rr       Delete an RR from an RRset
                     if let Some(rrset) = self.in_memory.records_mut().await.get_mut(&rr_key) {
                         // b/c this is an Arc, we need to clone, then remove, and replace the node.
                         let mut rrset_clone: RecordSet = RecordSet::clone(&*rrset);
                         let deleted = rrset_clone.remove(rr, serial);
+                        #[cfg(feature = "log")]
                         info!("deleted ({}) specific record: {:?}", deleted, rr);
                         updated = updated || deleted;
 
@@ -799,8 +824,9 @@ impl SqliteAuthority {
                         }
                     }
                 }
-                class => {
-                    info!("unexpected DNS Class: {:?}", class);
+                _class => {
+                    #[cfg(feature = "log")]
+                    info!("unexpected DNS Class: {:?}", _class);
                     return Err(ResponseCode::FormErr);
                 }
             }
@@ -811,11 +837,13 @@ impl SqliteAuthority {
             if self.is_dnssec_enabled {
                 cfg_if::cfg_if! {
                     if #[cfg(feature = "dnssec")] {
-                        self.secure_zone().await.map_err(|e| {
-                            error!("failure securing zone: {}", e);
+                        self.secure_zone().await.map_err(|_e| {
+                            #[cfg(feature = "log")]
+                            error!("failure securing zone: {}", _e);
                             ResponseCode::ServFail
                         })?
                     } else {
+                        #[cfg(feature = "log")]
                         error!("failure securing zone, dnssec feature not enabled");
                         return Err(ResponseCode::ServFail)
                     }

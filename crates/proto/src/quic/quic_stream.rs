@@ -7,6 +7,7 @@
 
 use bytes::{Bytes, BytesMut};
 use quinn::{RecvStream, SendStream, VarInt};
+#[cfg(feature = "log")]
 use tracing::debug;
 
 use crate::{
@@ -145,6 +146,7 @@ impl QuicStream {
         let len = bytes_len.to_be_bytes().to_vec();
         let len = Bytes::from(len);
 
+        #[cfg(feature = "log")]
         debug!("received packet len: {} bytes: {:x?}", bytes_len, bytes);
         self.send_stream.write_all_chunks(&mut [len, bytes]).await?;
         Ok(())
@@ -164,7 +166,10 @@ impl QuicStream {
         // assert that the message id is 0, this is a bad dns-over-quic packet if not
         if message.id() != 0 {
             self.reset(DoqErrorCode::ProtocolError)
-                .map_err(|_| debug!("stream already closed"))
+                .map_err(|_| {
+                    #[cfg(feature = "log")]
+                    debug!("stream already closed")
+                })
                 .ok();
             return Err(ProtoErrorKind::QuicMessageIdNot0(message.id()).into());
         }
@@ -187,14 +192,19 @@ impl QuicStream {
         let mut bytes = BytesMut::with_capacity(len);
         bytes.resize(len, 0);
         if let Err(e) = self.receive_stream.read_exact(&mut bytes[..len]).await {
+            #[cfg(feature = "log")]
             debug!("received bad packet len: {} bytes: {:?}", len, bytes);
 
             self.reset(DoqErrorCode::ProtocolError)
-                .map_err(|_| debug!("stream already closed"))
+                .map_err(|_| {
+                    #[cfg(feature = "log")]
+                    debug!("stream already closed")
+                })
                 .ok();
             return Err(e.into());
         }
 
+        #[cfg(feature = "log")]
         debug!("received packet len: {} bytes: {:x?}", len, bytes);
         Ok(bytes)
     }

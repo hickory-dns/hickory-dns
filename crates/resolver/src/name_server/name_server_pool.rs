@@ -18,6 +18,7 @@ use smallvec::SmallVec;
 
 use proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
 use proto::Time;
+#[cfg(feature = "log")]
 use tracing::debug;
 
 use rand::thread_rng as rng;
@@ -255,16 +256,19 @@ where
         // it wasn't a local query, continue with standard lookup path
         let request = mdns.take_request();
         Box::pin(once(async move {
+            #[cfg(feature = "log")]
             debug!("sending request: {:?}", request.queries());
 
             // First try the UDP connections
             let udp_res: Result<DnsResponse, ProtoError> =
                 match Self::try_send(opts.clone(), datagram_conns, request).await {
                     Ok(response) if response.truncated() => {
+                        #[cfg(feature = "log")]
                         debug!("truncated response received, retrying over TCP");
                         Ok(response)
                     }
                     Err(e) if opts.try_tcp_on_error || e.is_no_connections() => {
+                        #[cfg(feature = "log")]
                         debug!("error from UDP, retrying over TCP: {}", e);
                         Err(e)
                     }
@@ -272,6 +276,7 @@ where
                 };
 
             if stream_conns.is_empty() {
+                #[cfg(feature = "log")]
                 debug!("no TCP connections available");
                 return udp_res.map_err(ProtoError::from);
             }

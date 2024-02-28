@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 
+#[cfg(feature = "log")]
 use tracing::debug;
 
 use crate::{
@@ -187,6 +188,7 @@ where
         lookup_options: LookupOptions,
     ) -> Result<Box<dyn LookupObject>, LookupError> {
         let this = self.as_ref();
+        #[cfg(feature = "log")]
         debug!("performing {} on {}", request_info.query, this.origin());
         let lookup = Authority::search(this, request_info, lookup_options).await;
         lookup.map(|l| Box::new(l) as Box<dyn LookupObject>)

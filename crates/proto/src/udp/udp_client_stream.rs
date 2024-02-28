@@ -15,6 +15,7 @@ use std::task::{Context, Poll};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use futures_util::{future::Future, stream::Stream};
+#[cfg(feature = "log")]
 use tracing::{debug, trace, warn};
 
 use crate::error::ProtoError;
@@ -205,6 +206,7 @@ impl<S: DnsUdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
                 match message.finalize::<MF>(signer.borrow(), now) {
                     Ok(answer_verifier) => verifier = answer_verifier,
                     Err(e) => {
+                        #[cfg(feature = "log")]
                         debug!("could not sign message: {}", e);
                         return e.into();
                     }
@@ -225,6 +227,7 @@ impl<S: DnsUdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
         let message_id = message.id();
         let message = SerialMessage::new(bytes, self.name_server);
 
+        #[cfg(feature = "log")]
         debug!(
             "final message: {}",
             message
@@ -317,6 +320,7 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
     }
 
     // Create the receive buffer.
+    #[cfg(feature = "log")]
     trace!("creating UDP receive buffer with size {recv_buf_size}");
     let mut recv_buf = vec![0; recv_buf_size];
 
@@ -332,6 +336,7 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
 
         // Comparing the IP and Port directly as internal information about the link is stored with the IpAddr, see https://github.com/hickory-dns/hickory-dns/issues/2081
         if src.ip() != request_target.ip() || src.port() != request_target.port() {
+            #[cfg(feature = "log")]
             warn!(
                 "ignoring response from {} because it does not match name_server: {}.",
                 src, request_target,
@@ -346,6 +351,7 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
                 // Validate the message id in the response matches the value chosen for the query.
                 if msg_id != message.id() {
                     // on wrong id, attempted poison?
+                    #[cfg(feature = "log")]
                     warn!(
                         "expected message id: {} got: {}, dropped",
                         msg_id,
@@ -388,10 +394,12 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
                     .iter()
                     .all(|elem| request_queries.contains(elem))
                 {
+                    #[cfg(feature = "log")]
                     warn!("detected forged question section: we expected '{request_queries:?}', but received '{response_queries:?}' from server {src}");
                     continue;
                 }
 
+                #[cfg(feature = "log")]
                 debug!("received message id: {}", message.id());
                 if let Some(mut verifier) = verifier {
                     return verifier(&buffer);
@@ -399,11 +407,12 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
                     return Ok(DnsResponse::new(message, buffer));
                 }
             }
-            Err(e) => {
+            Err(_e) => {
                 // on errors deserializing, continue
+                #[cfg(feature = "log")]
                 warn!(
                     "dropped malformed message waiting for id: {} err: {}",
-                    msg_id, e
+                    msg_id, _e
                 );
 
                 continue;

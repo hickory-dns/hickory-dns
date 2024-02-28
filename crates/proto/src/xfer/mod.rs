@@ -14,6 +14,7 @@ use futures_channel::oneshot;
 use futures_util::future::Future;
 use futures_util::ready;
 use futures_util::stream::{Fuse, Peekable, Stream, StreamExt};
+#[cfg(feature = "log")]
 use tracing::{debug, warn};
 
 use crate::error::*;
@@ -47,10 +48,13 @@ pub use self::serial_message::SerialMessage;
 fn ignore_send<M, T>(result: Result<M, mpsc::TrySendError<T>>) {
     if let Err(error) = result {
         if error.is_disconnected() {
+            #[cfg(feature = "log")]
             debug!("ignoring send error on disconnected stream");
+            #[allow(clippy::needless_return)]
             return;
         }
 
+        #[cfg(feature = "log")]
         warn!("error notifying wait, possible future leak: {:?}", error);
     }
 }
@@ -167,6 +171,7 @@ impl DnsHandle for BufDnsRequestStreamHandle {
 
     fn send<R: Into<DnsRequest>>(&self, request: R) -> Self::Response {
         let request: DnsRequest = request.into();
+        #[cfg(feature = "log")]
         debug!(
             "enqueueing message:{}:{:?}",
             request.op_code(),
@@ -176,6 +181,7 @@ impl DnsHandle for BufDnsRequestStreamHandle {
         let (request, oneshot) = OneshotDnsRequest::oneshot(request);
         let mut sender = self.sender.clone();
         let try_send = sender.try_send(request).map_err(|_| {
+            #[cfg(feature = "log")]
             debug!("unable to enqueue message");
             ProtoError::from(ProtoErrorKind::Busy)
         });

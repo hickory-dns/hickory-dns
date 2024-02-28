@@ -16,6 +16,7 @@ use futures_util::stream::{Stream, StreamExt};
 use h2;
 use http::header::CONTENT_LENGTH;
 use http::{Method, Request};
+#[cfg(feature = "log")]
 use tracing::debug;
 
 use crate::h2::HttpsError;
@@ -32,6 +33,7 @@ pub async fn message_from<R>(
 where
     R: Stream<Item = Result<Bytes, h2::Error>> + 'static + Send + Debug + Unpin,
 {
+    #[cfg(feature = "log")]
     debug!("Received request: {:#?}", request);
 
     let this_server_name = this_server_name.as_deref();
@@ -44,6 +46,7 @@ where
     let mut content_length = None;
     if let Some(length) = request.headers().get(CONTENT_LENGTH) {
         let length = usize::from_str(length.to_str()?)?;
+        #[cfg(feature = "log")]
         debug!("got message length: {}", length);
         content_length = Some(length);
     }

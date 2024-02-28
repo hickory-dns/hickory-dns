@@ -29,6 +29,7 @@ pub mod sig;
 pub mod tsig;
 
 use enum_as_inner::EnumAsInner;
+#[cfg(feature = "log")]
 use tracing::trace;
 
 use crate::{
@@ -581,46 +582,57 @@ impl DNSSECRData {
     ) -> ProtoResult<Self> {
         match record_type {
             RecordType::CDNSKEY => {
+                #[cfg(feature = "log")]
                 trace!("reading CDNSKEY");
                 CDNSKEY::read_data(decoder, rdata_length).map(Self::CDNSKEY)
             }
             RecordType::CDS => {
+                #[cfg(feature = "log")]
                 trace!("reading CDS");
                 CDS::read_data(decoder, rdata_length).map(Self::CDS)
             }
             RecordType::DNSKEY => {
+                #[cfg(feature = "log")]
                 trace!("reading DNSKEY");
                 DNSKEY::read_data(decoder, rdata_length).map(Self::DNSKEY)
             }
             RecordType::DS => {
+                #[cfg(feature = "log")]
                 trace!("reading DS");
                 DS::read_data(decoder, rdata_length).map(Self::DS)
             }
             RecordType::KEY => {
+                #[cfg(feature = "log")]
                 trace!("reading KEY");
                 KEY::read_data(decoder, rdata_length).map(Self::KEY)
             }
             RecordType::NSEC => {
+                #[cfg(feature = "log")]
                 trace!("reading NSEC");
                 NSEC::read_data(decoder, rdata_length).map(Self::NSEC)
             }
             RecordType::NSEC3 => {
+                #[cfg(feature = "log")]
                 trace!("reading NSEC3");
                 NSEC3::read_data(decoder, rdata_length).map(Self::NSEC3)
             }
             RecordType::NSEC3PARAM => {
+                #[cfg(feature = "log")]
                 trace!("reading NSEC3PARAM");
                 NSEC3PARAM::read(decoder).map(Self::NSEC3PARAM)
             }
             RecordType::RRSIG => {
+                #[cfg(feature = "log")]
                 trace!("reading RRSIG");
                 RRSIG::read_data(decoder, rdata_length).map(Self::RRSIG)
             }
             RecordType::SIG => {
+                #[cfg(feature = "log")]
                 trace!("reading SIG");
                 SIG::read_data(decoder, rdata_length).map(Self::SIG)
             }
             RecordType::TSIG => {
+                #[cfg(feature = "log")]
                 trace!("reading TSIG");
                 TSIG::read_data(decoder, rdata_length).map(Self::TSIG)
             }

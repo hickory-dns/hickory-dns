@@ -8,6 +8,7 @@
 use std::{io, net::SocketAddr};
 
 use hickory_proto::rr::Record;
+#[cfg(feature = "log")]
 use tracing::{debug, trace};
 
 use crate::server::Protocol;
@@ -103,6 +104,7 @@ impl ResponseHandler for ResponseHandle {
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
     ) -> io::Result<ResponseInfo> {
+        #[cfg(feature = "log")]
         debug!(
             "response: {} response_code: {}",
             response.header().id(),
@@ -114,6 +116,7 @@ impl ResponseHandler for ResponseHandle {
 
             // Set an appropriate maximum on the encoder.
             let max_size = self.max_size_for_response(&response);
+            #[cfg(feature = "log")]
             trace!(
                 "setting response max size: {max_size} for protocol: {:?}",
                 self.protocol

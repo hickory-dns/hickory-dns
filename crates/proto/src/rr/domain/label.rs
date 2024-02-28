@@ -20,6 +20,7 @@ use std::hash::{Hash, Hasher};
 use tinyvec::TinyVec;
 
 use idna;
+#[cfg(feature = "log")]
 use tracing::debug;
 
 use crate::error::*;
@@ -254,6 +255,7 @@ impl Display for Label {
             if e.is_ok() {
                 return f.write_str(&label);
             } else {
+                #[cfg(feature = "log")]
                 debug!(
                     "xn-- prefixed string did not translate via IDNA properly: {:?}",
                     e

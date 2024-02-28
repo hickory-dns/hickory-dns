@@ -13,6 +13,7 @@ use futures_util::{
     future::{self, Future, FutureExt, TryFutureExt},
     stream::{self, Stream, TryStreamExt},
 };
+#[cfg(feature = "log")]
 use tracing::{debug, trace};
 
 use crate::{
@@ -175,6 +176,7 @@ where
                     .and_then(move |message_response| {
                         // group the record sets by name and type
                         //  each rrset type needs to validated independently
+                        #[cfg(feature = "log")]
                         debug!(
                             "validating message_response: {}, with {} trust_anchors",
                             message_response.id(),
@@ -312,6 +314,7 @@ where
         };
 
         // TODO: support non-IN classes?
+        #[cfg(feature = "log")]
         debug!(
             "verifying: {}, record_type: {:?}, rrsigs: {}",
             rrset.name,
@@ -349,6 +352,7 @@ where
         let (rrset, _, remaining) = rrsets.await;
         match rrset {
             Ok(rrset) => {
+                #[cfg(feature = "log")]
                 debug!(
                     "an rrset was verified: {}, {:?}",
                     rrset.name, rrset.record_type
@@ -367,6 +371,7 @@ where
                         .fold(String::new(), |s, q| format!("{q},{s}"));
 
                     query.truncate(query.len() - 1);
+                    #[cfg(feature = "log")]
                     debug!("an rrset failed to verify ({}): {:?}", query, e);
                 }
 
@@ -446,6 +451,7 @@ where
     //  for self-signed KEYS they will drop through to the standard validation logic.
     if let RecordType::DNSKEY = rrset.record_type {
         if rrsigs.is_empty() {
+            #[cfg(feature = "log")]
             debug!("unsigned key: {}, {:?}", rrset.name, rrset.record_type);
             // TODO: validate that this DNSKEY is stronger than the one lower in the chain,
             //  also, set the min algorithm to this algorithm to prevent downgrade attacks.
@@ -476,6 +482,7 @@ async fn verify_dnskey_rrset<H>(
 where
     H: DnsHandle + Sync + Unpin,
 {
+    #[cfg(feature = "log")]
     trace!(
         "dnskey validation {}, record_type: {:?}",
         rrset.name,
@@ -496,6 +503,7 @@ where
                     .trust_anchor
                     .contains_dnskey_bytes(rdata.public_key())
                 {
+                    #[cfg(feature = "log")]
                     debug!(
                         "validated dnskey with trust_anchor: {}, {}",
                         rrset.name, rdata
@@ -545,11 +553,13 @@ where
                     }
                 })
                 // must be covered by at least one DS record
-                .any(|(ds_name, ds_rdata)| {
+                .any(|(_ds_name, ds_rdata)| {
+                    #[allow(clippy::needless_bool)]
                     if ds_rdata.covers(&rrset.name, key_rdata).unwrap_or(false) {
+                        #[cfg(feature = "log")]
                         debug!(
                             "validated dnskey ({}, {}) with {} {}",
-                            rrset.name, key_rdata, ds_name, ds_rdata
+                            rrset.name, key_rdata, _ds_name, ds_rdata
                         );
 
                         true
@@ -565,6 +575,7 @@ where
         let mut rrset = rrset;
         preserve(&mut rrset.records, valid_keys);
 
+        #[cfg(feature = "log")]
         trace!("validated dnskey: {}", rrset.name);
         Ok(rrset)
     } else {
@@ -650,6 +661,7 @@ where
 {
     // the record set is going to be shared across a bunch of futures, Arc for that.
     let rrset = Arc::new(rrset);
+    #[cfg(feature = "log")]
     trace!(
         "default validation {}, record_type: {:?}",
         rrset.name,
@@ -761,12 +773,13 @@ where
 /// Verifies the given SIG of the RRSET with the DNSKEY.
 #[cfg(feature = "dnssec")]
 fn verify_rrset_with_dnskey(
-    dnskey_name: &Name,
+    _dnskey_name: &Name,
     dnskey: &DNSKEY,
     sig: &RRSIG,
     rrset: &Rrset,
 ) -> ProtoResult<()> {
     if dnskey.revoke() {
+        #[cfg(feature = "log")]
         debug!("revoked");
         return Err(ProtoErrorKind::Message("revoked").into());
     } // TODO: does this need to be validated? RFC 5011
@@ -777,20 +790,23 @@ fn verify_rrset_with_dnskey(
         return Err(ProtoErrorKind::Message("mismatched algorithm").into());
     }
 
+    #[allow(clippy::map_identity)]
     dnskey
         .verify_rrsig(&rrset.name, rrset.record_class, sig, &rrset.records)
         .map(|r| {
+            #[cfg(feature = "log")]
             debug!(
                 "validated ({}, {:?}) with ({}, {})",
-                rrset.name, rrset.record_type, dnskey_name, dnskey
+                rrset.name, rrset.record_type, _dnskey_name, dnskey
             );
             r
         })
         .map_err(Into::into)
         .map_err(|e| {
+            #[cfg(feature = "log")]
             debug!(
                 "failed validation of ({}, {:?}) with ({}, {})",
-                rrset.name, rrset.record_type, dnskey_name, dnskey
+                rrset.name, rrset.record_type, _dnskey_name, dnskey
             );
             e
         })

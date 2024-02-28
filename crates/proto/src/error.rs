@@ -19,6 +19,7 @@ use enum_as_inner::EnumAsInner;
 #[cfg(feature = "backtrace")]
 use once_cell::sync::Lazy;
 use thiserror::Error;
+#[cfg(feature = "log")]
 use tracing::debug;
 
 use crate::op::{Header, Query, ResponseCode};
@@ -381,6 +382,7 @@ impl ProtoError {
         matches!(*self.kind, ProtoErrorKind::NoConnections)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn as_dyn(&self) -> &(dyn std::error::Error + 'static) {
         self
     }
@@ -388,6 +390,7 @@ impl ProtoError {
     /// A conversion to determine if the response is an error
     pub fn from_response(response: DnsResponse, trust_nx: bool) -> Result<DnsResponse, Self> {
         use ResponseCode::*;
+        #[cfg(feature = "log")]
         debug!("Response:{}", *response);
 
         match response.response_code() {

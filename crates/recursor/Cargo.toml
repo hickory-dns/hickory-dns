@@ -99,6 +99,8 @@ serde-config = [
 
 testing = []
 
+log = ["tracing/log"]
+
 [lib]
 name = "hickory_recursor"
 path = "src/lib.rs"

@@ -16,6 +16,7 @@ use proto::rr::domain::usage::ONION;
 use proto::rr::domain::TryParseIp;
 use proto::rr::{IntoName, Name, Record, RecordType};
 use proto::xfer::{DnsRequestOptions, RetryDnsHandle};
+#[cfg(feature = "log")]
 use tracing::{debug, trace};
 
 use crate::caching_client::CachingClient;
@@ -216,6 +217,7 @@ impl<P: ConnectionProvider> AsyncResolver<P> {
             #[cfg(not(feature = "dnssec"))]
             {
                 // TODO: should this just be a panic, or a pinned error?
+                #[cfg(feature = "log")]
                 tracing::warn!("validate option is only available with 'dnssec' feature");
                 either = LookupEither::Retry(client);
             }
@@ -229,6 +231,7 @@ impl<P: ConnectionProvider> AsyncResolver<P> {
             None
         };
 
+        #[cfg(feature = "log")]
         trace!("handle passed back");
         let lru = DnsLru::new(options.cache_size, dns_lru::TtlConfig::from_opts(&options));
         Self {
@@ -328,10 +331,13 @@ impl<P: ConnectionProvider> AsyncResolver<P> {
 
                 match name_search {
                     Ok(name_search) => Self::push_name(name_search, &mut names),
-                    Err(e) => debug!(
-                        "Not adding {} to {} for search due to error: {}",
-                        search, name, e
-                    ),
+                    Err(_e) => {
+                        #[cfg(feature = "log")]
+                        debug!(
+                            "Not adding {} to {} for search due to error: {}",
+                            search, name, _e
+                        )
+                    }
                 }
             }
 
@@ -340,10 +346,13 @@ impl<P: ConnectionProvider> AsyncResolver<P> {
 
                 match name_search {
                     Ok(name_search) => Self::push_name(name_search, &mut names),
-                    Err(e) => debug!(
-                        "Not adding {} to {} for search due to error: {}",
-                        domain, name, e
-                    ),
+                    Err(_e) => {
+                        #[cfg(feature = "log")]
+                        debug!(
+                            "Not adding {} to {} for search due to error: {}",
+                            domain, name, _e
+                        )
+                    }
                 }
             }
 

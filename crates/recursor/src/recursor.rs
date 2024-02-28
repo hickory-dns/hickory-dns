@@ -12,6 +12,7 @@ use futures_util::{future::select_all, FutureExt};
 use hickory_resolver::name_server::TokioConnectionProvider;
 use lru_cache::LruCache;
 use parking_lot::Mutex;
+#[cfg(feature = "log")]
 use tracing::{debug, info, warn};
 
 #[cfg(test)]
@@ -62,6 +63,7 @@ impl Recursor {
 
         assert!(!roots.is_empty(), "roots must not be empty");
 
+        #[cfg(feature = "log")]
         debug!("Using cache sizes {}/{}", ns_cache_size, record_cache_size);
         let opts = recursor_opts();
         let roots =
@@ -265,10 +267,12 @@ impl Recursor {
                     ErrorKind::Forward(name) => {
                         // if we already had this name, don't try again
                         if &zone == name {
+                            #[cfg(feature = "log")]
                             debug!("zone previously searched for {}", name);
                             break 'max_forward;
                         };
 
+                        #[cfg(feature = "log")]
                         debug!("ns forwarded to {}", name);
                         zone = name.clone();
                     }
@@ -278,6 +282,7 @@ impl Recursor {
         }
 
         let ns = ns.ok_or_else(|| Error::from(format!("no nameserver found for {zone}")))?;
+        #[cfg(feature = "log")]
         debug!("found zone {} for {}", ns.zone(), query);
 
         let response = self.lookup(query, ns, request_time).await?;
@@ -291,6 +296,7 @@ impl Recursor {
         now: Instant,
     ) -> Result<Lookup, Error> {
         if let Some(lookup) = self.record_cache.get(&query, now) {
+            #[cfg(feature = "log")]
             debug!("cached data {lookup:?}");
             return lookup.map_err(Into::into);
         }
@@ -303,6 +309,7 @@ impl Recursor {
         match response.await {
             Ok(r) => {
                 let mut r = r.into_message();
+                #[cfg(feature = "log")]
                 info!("response: {}", r.header());
                 let records = r
                     .take_answers()
@@ -310,7 +317,9 @@ impl Recursor {
                     .chain(r.take_name_servers())
                     .chain(r.take_additionals())
                     .filter(|x| {
+                        #[allow(clippy::needless_bool)]
                         if !is_subzone(ns.zone().clone(), x.name().clone()) {
+                            #[cfg(feature = "log")]
                             warn!(
                                 "Dropping out of bailiwick record {x} for zone {}",
                                 ns.zone().clone()
@@ -326,6 +335,7 @@ impl Recursor {
                 lookup.ok_or_else(|| Error::from("no records found"))
             }
             Err(e) => {
+                #[cfg(feature = "log")]
                 warn!("lookup error: {e}");
                 Err(Error::from(e))
             }
@@ -346,6 +356,7 @@ impl Recursor {
         let parent_zone = zone.base_name();
 
         let nameserver_pool = if parent_zone.is_root() {
+            #[cfg(feature = "log")]
             debug!("using roots for {zone} nameservers");
             self.roots.clone()
         } else {
@@ -377,6 +388,7 @@ impl Recursor {
                 //     .filter_map(RData::to_ip_addr);
 
                 if !is_subzone(zone.base_name().clone(), zns.name().clone()) {
+                    #[cfg(feature = "log")]
                     warn!(
                         "Dropping out of bailiwick record for {:?} with parent {:?}",
                         zns.name().clone(),
@@ -417,6 +429,7 @@ impl Recursor {
                 }
 
                 if !had_glue {
+                    #[cfg(feature = "log")]
                     debug!("glue not found for {}", ns_data);
                     need_ips_for_names.push(ns_data);
                 }
@@ -426,6 +439,7 @@ impl Recursor {
         // collect missing IP addresses, select over them all, get the addresses
         // make it configurable to query for all records?
         if config_group.is_empty() && !need_ips_for_names.is_empty() {
+            #[cfg(feature = "log")]
             debug!("need glue for {}", zone);
             let a_resolves = need_ips_for_names.iter().take(1).map(|name| {
                 let a_query = Query::query(name.0.clone(), RecordType::A);
@@ -444,6 +458,7 @@ impl Recursor {
 
                 match next {
                     Ok(response) => {
+                        #[cfg(feature = "log")]
                         debug!("A or AAAA response: {:?}", response);
                         let ips = response.iter().filter_map(RData::ip_addr);
 
@@ -457,8 +472,9 @@ impl Recursor {
                             config_group.push(tcp);
                         }
                     }
-                    Err(e) => {
-                        warn!("resolve failed {}", e);
+                    Err(_e) => {
+                        #[cfg(feature = "log")]
+                        warn!("resolve failed {}", _e);
                     }
                 }
             }
@@ -473,6 +489,7 @@ impl Recursor {
         let ns = RecursorPool::from(zone.clone(), ns);
 
         // store in cache for future usage
+        #[cfg(feature = "log")]
         debug!("found nameservers for {}", zone);
         self.name_server_cache.lock().insert(zone, ns.clone());
         Ok(ns)

@@ -82,6 +82,8 @@ system-config = ["ipconfig", "resolv-conf"]
 testing = []
 tokio-runtime = ["tokio/rt", "hickory-proto/tokio-runtime"]
 
+log = ["tracing/log"]
+
 [lib]
 name = "hickory_resolver"
 path = "src/lib.rs"

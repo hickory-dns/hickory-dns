@@ -25,6 +25,7 @@ use hickory_resolver::{
     Name,
 };
 use parking_lot::Mutex;
+#[cfg(feature = "log")]
 use tracing::info;
 
 /// Active request cache
@@ -87,6 +88,7 @@ where
             .lock()
             .entry(query.clone())
             .or_insert_with(move || {
+                #[cfg(feature = "log")]
                 info!("querying {} for {}", self.zone, query_cpy);
 
                 let mut options = DnsRequestOptions::default();

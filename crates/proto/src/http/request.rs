@@ -10,7 +10,8 @@
 use std::str::FromStr;
 
 use http::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE};
-use http::{header, uri, Request, Uri};
+use http::{uri, Request, Uri};
+#[cfg(feature = "log")]
 use tracing::debug;
 
 use crate::error::ProtoError;
@@ -140,11 +141,12 @@ pub fn verify<T>(version: Version, name_server: Option<&str>, request: &Request<
         return Err(message.into());
     }
 
+    #[cfg(feature = "log")]
     debug!(
         "verified request from: {}",
         request
             .headers()
-            .get(header::USER_AGENT)
+            .get(http::header::USER_AGENT)
             .map(|h| h.to_str().unwrap_or("bad user agent"))
             .unwrap_or("unknown user agent")
     );

@@ -21,6 +21,7 @@ use h3_quinn::OpenStreams;
 use http::header::{self, CONTENT_LENGTH};
 use quinn::{ClientConfig, Endpoint, EndpointConfig, TransportConfig};
 use rustls::ClientConfig as TlsClientConfig;
+#[cfg(feature = "log")]
 use tracing::debug;
 
 use crate::error::ProtoError;
@@ -72,6 +73,7 @@ impl H3ClientStream {
         let request =
             request.map_err(|err| ProtoError::from(format!("bad http request: {err}")))?;
 
+        #[cfg(feature = "log")]
         debug!("request: {:#?}", request);
 
         // Send the request
@@ -95,6 +97,7 @@ impl H3ClientStream {
             .await
             .map_err(|err| ProtoError::from(format!("h3 recv_response error: {err}")))?;
 
+        #[cfg(feature = "log")]
         debug!("got response: {:#?}", response);
 
         // get the length of packet
@@ -119,6 +122,7 @@ impl H3ClientStream {
             .await
             .map_err(|e| ProtoError::from(format!("h3 recv_data error: {e}")))?
         {
+            #[cfg(feature = "log")]
             debug!("got bytes: {}", partial_bytes.remaining());
             response_bytes.put(partial_bytes);
 

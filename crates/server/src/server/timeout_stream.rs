@@ -7,6 +7,7 @@ use std::time::Duration;
 use futures_util::stream::{Stream, StreamExt};
 use futures_util::FutureExt;
 use tokio::time::Sleep;
+#[cfg(feature = "log")]
 use tracing::{debug, warn};
 
 /// This wraps the underlying Stream in a timeout.
@@ -64,6 +65,7 @@ where
                     // ensure that interest in the Timeout is registered
                     match timeout.poll_unpin(cx) {
                         Poll::Ready(_) => {
+                            #[cfg(feature = "log")]
                             warn!("timeout fired immediately!");
                             return Poll::Ready(Some(Err(io::Error::new(
                                 io::ErrorKind::TimedOut,
@@ -87,6 +89,7 @@ where
                     match timeout.poll_unpin(cx) {
                         Poll::Pending => Poll::Pending,
                         Poll::Ready(()) => {
+                            #[cfg(feature = "log")]
                             debug!("timeout on stream");
                             Poll::Ready(Some(Err(io::Error::new(
                                 io::ErrorKind::TimedOut,

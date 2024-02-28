@@ -85,6 +85,7 @@ fn into_resolver_config(
         });
     }
     if nameservers.is_empty() {
+        #[cfg(feature = "log")]
         tracing::warn!("no nameservers found in config");
     }
 

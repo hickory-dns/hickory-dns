@@ -19,6 +19,7 @@ use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
 use socket2::{self, Socket};
 use tokio::net::UdpSocket;
+#[cfg(feature = "log")]
 use tracing::{debug, trace};
 
 use crate::multicast::MdnsQueryType;
@@ -237,6 +238,7 @@ impl MdnsStream {
         socket.set_reuse_port(true)?;
         Self::bind_multicast(&socket, multicast_addr)?;
 
+        #[cfg(feature = "log")]
         debug!("joined {multicast_addr}");
         Ok(Some(std::net::UdpSocket::from(socket)))
     }
@@ -326,6 +328,7 @@ struct NextRandomUdpSocket {
 impl NextRandomUdpSocket {
     fn prepare_sender(&self, socket: std::net::UdpSocket) -> io::Result<std::net::UdpSocket> {
         let addr = socket.local_addr()?;
+        #[cfg(feature = "log")]
         debug!("preparing sender on: {addr}");
 
         let socket = Socket::from(socket);
@@ -370,10 +373,12 @@ impl Future for NextRandomUdpSocket {
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // non-one-shot, i.e. continuous, always use one of the well-known mdns ports and bind to the multicast addr
         if !self.mdns_query_type.sender() {
+            #[cfg(feature = "log")]
             debug!("skipping sending stream");
             Poll::Ready(Ok(None))
         } else if self.mdns_query_type.bind_on_5353() {
             let addr = SocketAddr::new(self.bind_address, MDNS_PORT);
+            #[cfg(feature = "log")]
             debug!("binding sending stream to {}", addr);
             let socket = std::net::UdpSocket::bind(addr)?;
             let socket = self.prepare_sender(socket)?;
@@ -390,18 +395,20 @@ impl Future for NextRandomUdpSocket {
             let rand_port_range = Uniform::new_inclusive(49152_u16, u16::max_value());
             let mut rand = rand::thread_rng();
 
-            for attempt in 0..10 {
+            for _attempt in 0..10 {
                 let port = rand_port_range.sample(&mut rand);
 
                 // see one_shot usage info: https://tools.ietf.org/html/rfc6762#section-5
                 //  the MDNS_PORT is used to signal to remote processes that this is capable of receiving multicast packets
                 //  i.e. is joined to the multicast address.
                 if port == MDNS_PORT {
+                    #[cfg(feature = "log")]
                     trace!("unlucky, got MDNS_PORT");
                     continue;
                 }
 
                 let addr = SocketAddr::new(self.bind_address, port);
+                #[cfg(feature = "log")]
                 debug!("binding sending stream to {}", addr);
 
                 match std::net::UdpSocket::bind(addr) {
@@ -409,10 +416,14 @@ impl Future for NextRandomUdpSocket {
                         let socket = self.prepare_sender(socket)?;
                         return Poll::Ready(Ok(Some(socket)));
                     }
-                    Err(err) => debug!("unable to bind port, attempt: {}: {}", attempt, err),
+                    Err(_err) => {
+                        #[cfg(feature = "log")]
+                        debug!("unable to bind port, attempt: {}: {}", _attempt, _err)
+                    }
                 }
             }
 
+            #[cfg(feature = "log")]
             debug!("could not get next random port, delaying");
 
             // TODO: this replaced a task::current().notify, is it correct?

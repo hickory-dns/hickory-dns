@@ -29,6 +29,7 @@ use rand::{
     self,
     distributions::{Distribution, Standard},
 };
+#[cfg(feature = "log")]
 use tracing::debug;
 
 use crate::{
@@ -171,6 +172,7 @@ where
             // check for timeouts...
             match active_req.poll_timeout(cx) {
                 Poll::Ready(()) => {
+                    #[cfg(feature = "log")]
                     debug!("request timed out: {}", id);
                     canceled.insert(id, ProtoError::from(ProtoErrorKind::Timeout));
                 }
@@ -206,6 +208,7 @@ where
 
     /// Closes all outstanding completes with a closed stream error
     fn stream_closed_close_all(&mut self, error: ProtoError) {
+        #[cfg(feature = "log")]
         debug!(error = error.as_dyn(), stream = %self.stream);
 
         for (_, active_request) in self.active_requests.drain() {
@@ -300,6 +303,7 @@ where
                 match request.finalize::<MF>(signer.borrow(), now) {
                     Ok(answer_verifier) => verifier = answer_verifier,
                     Err(e) => {
+                        #[cfg(feature = "log")]
                         debug!("could not sign message: {}", e);
                         return e.into();
                     }
@@ -318,9 +322,11 @@ where
 
         match request.to_vec() {
             Ok(buffer) => {
+                #[cfg(feature = "log")]
                 debug!(id = %active_request.request_id(), "sending message");
                 let serial_message = SerialMessage::new(buffer, self.stream.name_server_addr());
 
+                #[cfg(feature = "log")]
                 debug!(
                     "final message: {}",
                     serial_message
@@ -338,6 +344,7 @@ where
                 };
             }
             Err(e) => {
+                #[cfg(feature = "log")]
                 debug!(
                     id = %active_request.request_id(),
                     error = e.as_dyn(),
@@ -372,6 +379,7 @@ where
         self.drop_cancelled(cx);
 
         if self.is_shutdown && self.active_requests.is_empty() {
+            #[cfg(feature = "log")]
             debug!("stream is done: {}", self);
             return Poll::Ready(None);
         }
@@ -403,10 +411,16 @@ where
                                     )));
                                 }
                             }
-                            Entry::Vacant(..) => debug!("unexpected request_id: {}", message.id()),
+                            Entry::Vacant(..) => {
+                                #[cfg(feature = "log")]
+                                debug!("unexpected request_id: {}", message.id())
+                            }
                         },
                         // TODO: return src address for diagnostics
-                        Err(error) => debug!(error = error.as_dyn(), "error decoding message"),
+                        Err(_error) => {
+                            #[cfg(feature = "log")]
+                            debug!(error = _error.as_dyn(), "error decoding message")
+                        }
                     }
                 }
                 Poll::Ready(err) => {

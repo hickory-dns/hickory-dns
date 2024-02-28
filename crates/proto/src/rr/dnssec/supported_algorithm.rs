@@ -21,6 +21,7 @@ use std::fmt::{self, Display, Formatter};
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "log")]
 use tracing::warn;
 
 use crate::error::*;
@@ -147,7 +148,10 @@ impl<'a> From<&'a [u8]> for SupportedAlgorithms {
 
         for a in values.iter().map(|i| Algorithm::from_u8(*i)) {
             match a {
-                Algorithm::Unknown(v) => warn!("unrecognized algorithm: {}", v),
+                Algorithm::Unknown(_v) => {
+                    #[cfg(feature = "log")]
+                    warn!("unrecognized algorithm: {}", _v)
+                }
                 a => supported.set(a),
             }
         }

@@ -18,6 +18,7 @@ use async_trait::async_trait;
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_util::stream::Stream;
 use futures_util::{self, future::Future, ready, FutureExt};
+#[cfg(feature = "log")]
 use tracing::debug;
 
 use crate::xfer::{SerialMessage, StreamReceiver};
@@ -254,6 +255,7 @@ impl<S: DnsTcpStream> TcpStream<S> {
                 tcp_stream
                     .and_then(|tcp_stream| tcp_stream)
                     .map(|tcp_stream| {
+                        #[cfg(feature = "log")]
                         debug!("TCP connection established to: {}", name_server);
                         Self {
                             socket: tcp_stream,
@@ -360,6 +362,7 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
                         // the length is 16 bits
                         let len = u16::to_be_bytes(buffer.len() as u16);
 
+                        #[cfg(feature = "log")]
                         debug!("sending message len: {} to: {}", buffer.len(), dst);
                         *send_state = Some(WriteTcpState::LenBytes {
                             pos: 0,
@@ -371,6 +374,7 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
                     // TODO: should we also return None if there are no more messages to send?
                     Poll::Pending => break,
                     Poll::Ready(None) => {
+                        #[cfg(feature = "log")]
                         debug!("no messages to send");
                         break;
                     }
@@ -390,10 +394,12 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
                     ref mut pos,
                     ref mut bytes,
                 } => {
+                    // #[cfg(feature = "log")]
                     // debug!("reading length {}", bytes.len());
                     let read = ready!(socket.as_mut().poll_read(cx, &mut bytes[*pos..]))?;
                     if read == 0 {
                         // the Stream was closed!
+                        #[cfg(feature = "log")]
                         debug!("zero bytes read, stream closed?");
                         //try!(self.socket.shutdown(Shutdown::Both)); // TODO: add generic shutdown function
 
@@ -407,18 +413,22 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
                             ))));
                         }
                     }
+                    #[cfg(feature = "log")]
                     debug!("in ReadTcpState::LenBytes: {}", pos);
                     *pos += read;
 
                     if *pos < bytes.len() {
+                        #[cfg(feature = "log")]
                         debug!("remain ReadTcpState::LenBytes: {}", pos);
                         None
                     } else {
                         let length = u16::from_be_bytes(*bytes);
+                        #[cfg(feature = "log")]
                         debug!("got length: {}", length);
                         let mut bytes = vec![0; length as usize];
                         bytes.resize(length as usize, 0);
 
+                        #[cfg(feature = "log")]
                         debug!("move ReadTcpState::Bytes: {}", bytes.len());
                         Some(ReadTcpState::Bytes { pos: 0, bytes })
                     }
@@ -430,6 +440,7 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
                     let read = ready!(socket.as_mut().poll_read(cx, &mut bytes[*pos..]))?;
                     if read == 0 {
                         // the Stream was closed!
+                        #[cfg(feature = "log")]
                         debug!("zero bytes read for message, stream closed?");
 
                         // Since this is the start of the next message, we have a clean end
@@ -440,13 +451,16 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
                         ))));
                     }
 
+                    #[cfg(feature = "log")]
                     debug!("in ReadTcpState::Bytes: {}", bytes.len());
                     *pos += read;
 
                     if *pos < bytes.len() {
+                        #[cfg(feature = "log")]
                         debug!("remain ReadTcpState::Bytes: {}", bytes.len());
                         None
                     } else {
+                        #[cfg(feature = "log")]
                         debug!("reset ReadTcpState::LenBytes: {}", 0);
                         Some(ReadTcpState::LenBytes {
                             pos: 0,
@@ -460,6 +474,7 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
             //  if it was a completed receipt of bytes, then it will move out the bytes
             if let Some(state) = new_state {
                 if let ReadTcpState::Bytes { pos, bytes } = mem::replace(read_state, state) {
+                    #[cfg(feature = "log")]
                     debug!("returning bytes");
                     assert_eq!(pos, bytes.len());
                     ret_buf = Some(bytes);
@@ -469,10 +484,12 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
 
         // if the buffer is ready, return it, if not we're Pending
         if let Some(buffer) = ret_buf {
+            #[cfg(feature = "log")]
             debug!("returning buffer");
             let src_addr = self.peer_addr;
             Poll::Ready(Some(Ok(SerialMessage::new(buffer, src_addr))))
         } else {
+            #[cfg(feature = "log")]
             debug!("bottomed out");
             // at a minimum the outbound_messages should have been polled,
             //  which will wake this future up later...

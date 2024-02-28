@@ -20,6 +20,7 @@ use futures_util::{future, future::Either, future::Future, FutureExt};
 use proto::op::Query;
 use proto::rr::{Name, RData, Record, RecordType};
 use proto::xfer::{DnsHandle, DnsRequestOptions};
+#[cfg(feature = "log")]
 use tracing::debug;
 
 use crate::caching_client::CachingClient;
@@ -329,17 +330,19 @@ where
             let ips = ips.append(next_ips);
             Ok(ips)
         }
-        (Ok(ips), Err(e)) | (Err(e), Ok(ips)) => {
+        (Ok(ips), Err(_e)) | (Err(_e), Ok(ips)) => {
+            #[cfg(feature = "log")]
             debug!(
                 "one of ipv4 or ipv6 lookup failed in ipv4_and_ipv6 strategy: {}",
-                e
+                _e
             );
             Ok(ips)
         }
-        (Err(e1), Err(e2)) => {
+        (Err(e1), Err(_e2)) => {
+            #[cfg(feature = "log")]
             debug!(
                 "both of ipv4 or ipv6 lookup failed in ipv4_and_ipv6 strategy e1: {}, e2: {}",
-                e1, e2
+                e1, _e2
             );
             Err(e1)
         }

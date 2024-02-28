@@ -40,6 +40,7 @@ pub(crate) static CLIENT_CONFIG: Lazy<Result<Arc<ClientConfig>, ProtoError>> = L
             root_store.add_parsable_certificates(&rustls_native_certs::load_native_certs()?);
 
         if ignored > 0 {
+            #[cfg(feature = "log")]
             tracing::warn!(
                 "failed to parse {} certificate(s) from the native root store",
                 ignored,

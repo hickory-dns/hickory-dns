@@ -8,6 +8,7 @@
 use std::io;
 
 use hickory_resolver::name_server::TokioConnectionProvider;
+#[cfg(feature = "log")]
 use tracing::{debug, info};
 
 use crate::{
@@ -51,6 +52,7 @@ impl ForwardAuthority {
         _zone_type: ZoneType,
         config: &ForwardConfig,
     ) -> Result<Self, String> {
+        #[cfg(feature = "log")]
         info!("loading forwarder config: {}", origin);
 
         let name_servers = config.name_servers.clone();
@@ -68,6 +70,7 @@ impl ForwardAuthority {
         // preserve_intermediates enables when set to true, and disables
         // when set to false. So we set it to true.
         if !options.preserve_intermediates {
+            #[cfg(feature = "log")]
             tracing::warn!(
                 "preserve_intermediates set to false, which is invalid \
                 for a forwarder; switching to true"
@@ -79,6 +82,7 @@ impl ForwardAuthority {
 
         let resolver = TokioAsyncResolver::new(config, options, TokioConnectionProvider::default());
 
+        #[cfg(feature = "log")]
         info!("forward resolver configured: {}: ", origin);
 
         // TODO: this might be infallible?
@@ -126,6 +130,7 @@ impl Authority for ForwardAuthority {
         // TODO: make this an error?
         debug_assert!(self.origin.zone_of(name));
 
+        #[cfg(feature = "log")]
         debug!("forwarding lookup: {} {}", name, rtype);
         let name: LowerName = name.clone();
         let resolve = self.resolver.lookup(name, rtype).await;

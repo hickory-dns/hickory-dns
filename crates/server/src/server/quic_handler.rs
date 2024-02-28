@@ -15,6 +15,7 @@ use hickory_proto::{
     rr::Record,
 };
 use tokio_util::sync::CancellationToken;
+#[cfg(feature = "log")]
 use tracing::{debug, warn};
 
 use crate::{
@@ -47,6 +48,7 @@ where
             result = quic_streams.next() => match result {
                 Some(Ok(next_request)) => next_request,
                 Some(Err(err)) => {
+                    #[cfg(feature = "log")]
                     warn!("error accepting request {}: {}", src_addr, err);
                     return Err(err);
                 }
@@ -62,6 +64,7 @@ where
 
         let request = request_stream.receive_bytes().await?;
 
+        #[cfg(feature = "log")]
         debug!(
             "Received bytes {} from {src_addr} {request:?}",
             request.len()
@@ -75,6 +78,7 @@ where
 
         max_requests -= 1;
         if max_requests == 0 {
+            #[cfg(feature = "log")]
             warn!("exceeded request count, shutting down quic conn: {src_addr}");
             // DOQ_NO_ERROR (0x0): No error. This is used when the connection or stream needs to be closed, but there is no error to signal.
             stream.lock().await.stop(DoqErrorCode::NoError)?;
@@ -128,6 +132,7 @@ impl ResponseHandler for QuicResponseHandle {
         };
         let bytes = Bytes::from(bytes);
 
+        #[cfg(feature = "log")]
         debug!("sending quic response: {}", bytes.len());
         let mut lock = self.0.lock().await;
         lock.send_bytes(bytes).await?;

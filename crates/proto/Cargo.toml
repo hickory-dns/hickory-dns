@@ -81,6 +81,8 @@ wasm-bindgen = ["wasm-bindgen-crate", "js-sys"]
 
 backtrace = ["dep:backtrace"]
 
+log = ["tracing/log"]
+
 [lib]
 name = "hickory_proto"
 path = "src/lib.rs"

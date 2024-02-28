@@ -14,6 +14,7 @@ use std::task::{Context, Poll};
 use futures_channel::mpsc;
 use futures_util::future::{Future, FutureExt};
 use futures_util::stream::{Peekable, Stream, StreamExt};
+#[cfg(feature = "log")]
 use tracing::{debug, warn};
 
 use crate::error::*;
@@ -182,12 +183,14 @@ where
                     ()
                 } // underlying stream is complete.
                 Poll::Ready(None) => {
+                    #[cfg(feature = "log")]
                     debug!("io_stream is done, shutting down");
                     // TODO: return shutdown error to anything in the stream?
 
                     return Poll::Ready(Ok(()));
                 }
                 Poll::Ready(Some(Err(err))) => {
+                    #[cfg(feature = "log")]
                     debug!(
                         error = err.as_dyn(),
                         "io_stream hit an error, shutting down"
@@ -208,11 +211,11 @@ where
                     // it must be because the requesting task has gone away / is no longer
                     // interested. In that case, we can just log a warning, but there's no need
                     // to take any more serious measures (such as shutting down this task).
-                    match serial_response.send_response(io_stream.send_message(dns_request)) {
-                        Ok(()) => (),
-                        Err(_) => {
-                            warn!("failed to associate send_message response to the sender");
-                        }
+                    if let Err(_e) =
+                        serial_response.send_response(io_stream.send_message(dns_request))
+                    {
+                        #[cfg(feature = "log")]
+                        warn!("failed to associate send_message response to the sender");
                     }
                 }
                 // On not ready, this is our time to return...
@@ -337,6 +340,7 @@ where
                         }
                         Poll::Pending => return Poll::Pending,
                         Poll::Ready(Err(error)) => {
+                            #[cfg(feature = "log")]
                             debug!(error = error.as_dyn(), "stream errored while connecting");
                             next = Self::FailAll {
                                 error,

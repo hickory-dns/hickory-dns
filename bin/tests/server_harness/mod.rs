@@ -20,6 +20,7 @@ use hickory_proto::rr::{rdata::A, *};
 use hickory_server::server::Protocol;
 use regex::Regex;
 use tokio::runtime::Runtime;
+#[cfg(feature = "log")]
 use tracing::{info, warn};
 
 #[derive(Debug, Default)]
@@ -121,11 +122,13 @@ where
             let succeeded = succeeded_clone;
 
             let kill_named = || {
+                #[cfg(feature = "log")]
                 info!("killing named");
 
                 let mut named = named_killer.lock().unwrap();
-                if let Err(e) = named.kill() {
-                    warn!("warning: failed to kill named: {:?}", e);
+                if let Err(_e) = named.kill() {
+                    #[cfg(feature = "log")]
+                    warn!("warning: failed to kill named: {:?}", _e);
                 }
             };
 

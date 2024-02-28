@@ -1,6 +1,7 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use futures_util::stream::StreamExt;
+#[cfg(feature = "log")]
 use tracing::debug;
 
 use crate::udp::{UdpClientStream, UdpSocket, UdpStream};
@@ -168,11 +169,13 @@ pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor>(
         .spawn(move || {
             let mut buffer = [0_u8; 512];
 
-            for i in 0..send_recv_times {
+            for _i in 0..send_recv_times {
                 // wait for some bytes...
-                debug!("server receiving request {}", i);
+                #[cfg(feature = "log")]
+                debug!("server receiving request {}", _i);
                 let (len, addr) = server.recv_from(&mut buffer).expect("receive failed");
-                debug!("server received request {} from: {}", i, addr);
+                #[cfg(feature = "log")]
+                debug!("server received request {} from: {}", _i, addr);
 
                 let request = Message::from_vec(&buffer[0..len]).expect("failed parse of request");
                 assert_eq!(*request.queries()[0].name(), test_name_server.clone());
@@ -189,12 +192,14 @@ pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor>(
 
                 // bounce them right back...
                 let bytes = message.to_vec().unwrap();
-                debug!("server sending response {i} to: {addr}");
+                #[cfg(feature = "log")]
+                debug!("server sending response {_i} to: {addr}");
                 assert_eq!(
                     server.send_to(&bytes, addr).expect("send failed"),
                     bytes.len()
                 );
-                debug!("server sent response {i}");
+                #[cfg(feature = "log")]
+                debug!("server sent response {_i}");
                 std::thread::yield_now();
             }
         })
