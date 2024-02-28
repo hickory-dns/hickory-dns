@@ -862,6 +862,42 @@ mod tests {
     }
 
     #[test]
+    fn test_multiple_options_with_same_code() {
+        let bytes: Vec<u8> = vec![
+            0x00, 0x0f, 0x00, 0x02, 0x00, 0x06, 0x00, 0x0f, 0x00, 0x0f, 0x00, 0x09, 0x55, 0x6E,
+            0x6B, 0x6E, 0x6F, 0x77, 0x6E, 0x20, 0x65, 0x72, 0x72, 0x6F, 0x72,
+        ];
+
+        let mut decoder: BinDecoder<'_> = BinDecoder::new(&bytes);
+        let read_rdata = OPT::read_data(&mut decoder, Restrict::new(bytes.len() as u16));
+        assert!(
+            read_rdata.is_ok(),
+            "error decoding: {:?}",
+            read_rdata.unwrap_err()
+        );
+
+        let opt = read_rdata.unwrap();
+        let options = vec![
+            (
+                EdnsCode::Unknown(15u16),
+                EdnsOption::Unknown(15u16, vec![0x00, 0x06]),
+            ),
+            (
+                EdnsCode::Unknown(15u16),
+                EdnsOption::Unknown(
+                    15u16,
+                    vec![
+                        0x00, 0x09, 0x55, 0x6E, 0x6B, 0x6E, 0x6F, 0x77, 0x6E, 0x20, 0x65, 0x72,
+                        0x72, 0x6F, 0x72,
+                    ],
+                ),
+            ),
+        ];
+        let options = OPT::new(options);
+        assert_eq!(opt, options);
+    }
+
+    #[test]
     fn test_write_client_subnet() {
         let expected_bytes: Vec<u8> = vec![0x00, 0x01, 0x18, 0x00, 0xac, 0x01, 0x01];
         let ecs: ClientSubnet = "172.1.1.1/24".parse().unwrap();
