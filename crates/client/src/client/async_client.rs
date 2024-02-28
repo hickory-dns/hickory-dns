@@ -18,6 +18,7 @@ use futures_util::{
     stream::{Stream, StreamExt},
 };
 use rand;
+#[cfg(feature = "log")]
 use tracing::debug;
 
 use crate::{
@@ -252,6 +253,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
     where
         R: Into<RecordSet>,
     {
+        #[cfg(feature = "log")]
         debug!("notifying: {} {:?}", name, query_type);
 
         // build the message

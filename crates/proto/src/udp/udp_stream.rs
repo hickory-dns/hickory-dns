@@ -17,6 +17,7 @@ use futures_util::stream::Stream;
 use futures_util::{future::Future, ready, TryFutureExt};
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
+#[cfg(feature = "log")]
 use tracing::{debug, warn};
 
 use crate::udp::MAX_RECEIVE_BUFFER_SIZE;
@@ -205,11 +206,12 @@ impl<S: DnsUdpSocket + Send + 'static> Stream for UdpStream<S> {
             //   meaning that sending will be preferred over receiving...
 
             // TODO: shouldn't this return the error to send to the sender?
-            if let Err(e) = ready!(socket.poll_send_to(cx, message.bytes(), addr)) {
+            if let Err(_e) = ready!(socket.poll_send_to(cx, message.bytes(), addr)) {
                 // Drop the UDP packet and continue
+                #[cfg(feature = "log")]
                 warn!(
                     "error sending message to {} on udp_socket, dropping response: {}",
-                    addr, e
+                    addr, _e
                 );
             }
 
@@ -297,7 +299,7 @@ impl<S: DnsUdpSocket + Send> Future for NextRandomUdpSocket<S> {
             let rand_port_range = Uniform::new_inclusive(1024_u16, u16::max_value());
             let mut rand = rand::thread_rng();
 
-            for attempt in 0..10 {
+            for _attempt in 0..10 {
                 let port = rand_port_range.sample(&mut rand);
                 let bind_addr = SocketAddr::new(self.bind_address.ip(), port);
 
@@ -308,22 +310,29 @@ impl<S: DnsUdpSocket + Send> Future for NextRandomUdpSocket<S> {
                     .poll(cx)
                 {
                     Poll::Ready(Ok(socket)) => {
+                        #[cfg(feature = "log")]
                         debug!("created socket successfully");
                         return Poll::Ready(Ok(socket));
                     }
                     Poll::Ready(Err(err)) => match err.kind() {
                         io::ErrorKind::AddrInUse => {
-                            debug!("unable to bind port, attempt: {}: {}", attempt, err);
+                            #[cfg(feature = "log")]
+                            debug!("unable to bind port, attempt: {}: {}", _attempt, err);
                         }
                         _ => {
+                            #[cfg(feature = "log")]
                             debug!("failed to bind port: {}", err);
                             return Poll::Ready(Err(err));
                         }
                     },
-                    Poll::Pending => debug!("unable to bind port, attempt: {}", attempt),
+                    Poll::Pending => {
+                        #[cfg(feature = "log")]
+                        debug!("unable to bind port, attempt: {}", _attempt)
+                    }
                 }
             }
 
+            #[cfg(feature = "log")]
             debug!("could not get next random port, delaying");
 
             // TODO: because no interest is registered anywhere, we must awake.

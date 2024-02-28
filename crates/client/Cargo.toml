@@ -69,6 +69,8 @@ serde-config = ["serde", "hickory-proto/serde-config"]
 # enables experimental the mDNS (multicast) feature
 mdns = ["hickory-proto/mdns"]
 
+log = ["tracing/log"]
+
 [lib]
 name = "hickory_client"
 path = "src/lib.rs"

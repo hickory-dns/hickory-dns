@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 //! signer is a structure for performing many of the signing processes of the DNSSEC specification
+#[cfg(feature = "log")]
 use tracing::debug;
 
 #[cfg(feature = "dnssec")]
@@ -525,6 +526,7 @@ impl MessageFinalizer for SigSigner {
         message: &Message,
         current_time: u32,
     ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
+        #[cfg(feature = "log")]
         debug!("signing message: {message:?}");
         let key_tag: u16 = self.calculate_key_tag()?;
 

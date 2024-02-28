@@ -36,7 +36,7 @@ hickory-proto = { version = "0.24.0", path = "crates/proto", default-features = 
 
 
 # logging
-tracing = "0.1.30"
+tracing = { version = "0.1.30", features = ["log"] }
 tracing-subscriber = "0.3"
 thiserror = "1.0.20"
 

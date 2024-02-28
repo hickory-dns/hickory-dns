@@ -15,6 +15,7 @@ use hickory_proto::{
     error::ProtoError, h3::h3_server::H3Connection, h3::H3Error, http::Version, rr::Record,
 };
 use tokio_util::sync::CancellationToken;
+#[cfg(feature = "log")]
 use tracing::{debug, warn};
 
 use crate::{
@@ -46,6 +47,7 @@ where
             result = connection.accept() => match result {
                 Some(Ok(next_request)) => next_request,
                 Some(Err(err)) => {
+                    #[cfg(feature = "log")]
                     warn!("error accepting request {}: {}", src_addr, err);
                     return Err(err);
                 }
@@ -68,6 +70,7 @@ where
             None => continue,
         };
 
+        #[cfg(feature = "log")]
         debug!(
             "Received bytes {} from {src_addr} {request:?}",
             request.remaining()
@@ -83,6 +86,7 @@ where
 
         max_requests -= 1;
         if max_requests == 0 {
+            #[cfg(feature = "log")]
             warn!("exceeded request count, shutting down h3 conn: {src_addr}");
             connection.shutdown().await?;
             break;
@@ -133,6 +137,7 @@ impl ResponseHandler for H3ResponseHandle {
         let bytes = Bytes::from(bytes);
         let response = response::new(Version::Http3, bytes.len())?;
 
+        #[cfg(feature = "log")]
         debug!("sending response: {:#?}", response);
         let mut stream = self.0.lock().await;
         stream

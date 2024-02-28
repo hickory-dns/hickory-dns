@@ -16,6 +16,7 @@
 use std::ops::Range;
 use std::sync::Arc;
 
+#[cfg(feature = "log")]
 use tracing::debug;
 
 use crate::error::ProtoErrorKind;
@@ -184,6 +185,7 @@ impl MessageFinalizer for TSigner {
         message: &Message,
         current_time: u32,
     ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
+        #[cfg(feature = "log")]
         debug!("signing message: {:?}", message);
         let current_time = current_time as u64;
 

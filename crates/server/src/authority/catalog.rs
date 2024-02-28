@@ -11,6 +11,7 @@
 use std::{borrow::Borrow, collections::HashMap, future::Future, io};
 
 use cfg_if::cfg_if;
+#[cfg(feature = "log")]
 use tracing::{debug, error, info, trace, warn};
 
 #[cfg(feature = "dnssec")]
@@ -83,6 +84,7 @@ impl RequestHandler for Catalog {
         request: &Request,
         mut response_handle: R,
     ) -> ResponseInfo {
+        #[cfg(feature = "log")]
         trace!("request: {:?}", request);
 
         let response_edns: Option<Edns>;
@@ -102,6 +104,7 @@ impl RequestHandler for Catalog {
             resp_edns.set_version(our_version);
 
             if req_edns.version() > our_version {
+                #[cfg(feature = "log")]
                 warn!(
                     "request edns version greater than {}: {}",
                     our_version,
@@ -118,8 +121,9 @@ impl RequestHandler for Catalog {
 
                 // couldn't handle the request
                 return match result {
-                    Err(e) => {
-                        error!("request error: {}", e);
+                    Err(_e) => {
+                        #[cfg(feature = "log")]
+                        error!("request error: {}", _e);
                         ResponseInfo::serve_failed()
                     }
                     Ok(info) => info,
@@ -136,17 +140,20 @@ impl RequestHandler for Catalog {
             //  especially for recursive lookups
             MessageType::Query => match request.op_code() {
                 OpCode::Query => {
+                    #[cfg(feature = "log")]
                     debug!("query received: {}", request.id());
                     let info = self.lookup(request, response_edns, response_handle).await;
 
                     Ok(info)
                 }
                 OpCode::Update => {
+                    #[cfg(feature = "log")]
                     debug!("update received: {}", request.id());
                     self.update(request, response_edns, response_handle).await
                 }
-                c => {
-                    warn!("unimplemented op_code: {:?}", c);
+                _c => {
+                    #[cfg(feature = "log")]
+                    warn!("unimplemented op_code: {:?}", _c);
                     let response = MessageResponseBuilder::new(Some(request.raw_query()));
 
                     response_handle
@@ -155,6 +162,7 @@ impl RequestHandler for Catalog {
                 }
             },
             MessageType::Response => {
+                #[cfg(feature = "log")]
                 warn!("got a response as a request from id: {}", request.id());
                 let response = MessageResponseBuilder::new(Some(request.raw_query()));
 
@@ -165,8 +173,9 @@ impl RequestHandler for Catalog {
         };
 
         match result {
-            Err(e) => {
-                error!("request failed: {}", e);
+            Err(_e) => {
+                #[cfg(feature = "log")]
+                error!("request failed: {}", _e);
                 ResponseInfo::serve_failed()
             }
             Ok(info) => info,
@@ -265,6 +274,7 @@ impl Catalog {
             let ztype = request_info.query.query_type();
 
             if ztype != RecordType::SOA {
+                #[cfg(feature = "log")]
                 warn!(
                     "invalid update request zone type must be SOA, ztype: {}",
                     ztype
@@ -288,6 +298,7 @@ impl Catalog {
                 #[allow(deprecated)]
                 match authority.zone_type() {
                     ZoneType::Secondary | ZoneType::Slave => {
+                        #[cfg(feature = "log")]
                         error!("secondary forwarding for update not yet implemented");
                         ResponseCode::NotImp
                     }
@@ -371,8 +382,9 @@ impl Catalog {
             .await;
 
             match result {
-                Err(e) => {
-                    error!("failed to send response: {}", e);
+                Err(_e) => {
+                    #[cfg(feature = "log")]
+                    error!("failed to send response: {}", _e);
                     ResponseInfo::serve_failed()
                 }
                 Ok(r) => r,
@@ -382,6 +394,7 @@ impl Catalog {
 
     /// Recursively searches the catalog for a matching authority
     pub fn find(&self, name: &LowerName) -> Option<&(dyn AuthorityObject + 'static)> {
+        #[cfg(feature = "log")]
         debug!("searching authorities for: {}", name);
         self.authorities
             .get(name)
@@ -405,6 +418,7 @@ async fn lookup<'a, R: ResponseHandler + Unpin>(
     response_handle: R,
 ) -> ResponseInfo {
     let query = request_info.query;
+    #[cfg(feature = "log")]
     debug!(
         "request: {} found authority: {}",
         request.id(),
@@ -432,8 +446,9 @@ async fn lookup<'a, R: ResponseHandler + Unpin>(
     let result = send_response(response_edns.clone(), response, response_handle.clone()).await;
 
     match result {
-        Err(e) => {
-            error!("error sending response: {}", e);
+        Err(_e) => {
+            #[cfg(feature = "log")]
+            error!("error sending response: {}", _e);
             ResponseInfo::serve_failed()
         }
         Ok(i) => i,
@@ -453,7 +468,8 @@ fn lookup_options_for_edns(edns: Option<&Edns>) -> LookupOptions {
             {
                algs
             } else {
-               debug!("no DAU in request, used default SupportAlgorithms");
+                #[cfg(feature = "log")]
+                debug!("no DAU in request, used default SupportAlgorithms");
                SupportedAlgorithms::default()
             };
 
@@ -476,6 +492,7 @@ async fn build_response(
 
     // log algorithms being requested
     if lookup_options.is_dnssec() {
+        #[cfg(feature = "log")]
         info!(
             "request: {} lookup_options: {:?}",
             request_id, lookup_options
@@ -485,6 +502,7 @@ async fn build_response(
     let mut response_header = Header::response_from_request(request_header);
     response_header.set_authoritative(authority.zone_type().is_authoritative());
 
+    #[cfg(feature = "log")]
     debug!("performing {} on {}", query, authority.origin());
     let future = authority.search(request_info, lookup_options);
 
@@ -514,7 +532,7 @@ async fn send_authoritative_response(
     authority: &dyn AuthorityObject,
     response_header: &mut Header,
     lookup_options: LookupOptions,
-    request_id: u16,
+    _request_id: u16,
     query: &LowerQuery,
 ) -> LookupSections {
     // In this state we await the records, on success we transition to getting
@@ -555,8 +573,9 @@ async fn send_authoritative_response(
             //   get the NS records as well.
             match authority.ns(lookup_options).await {
                 Ok(ns) => (Some(ns), None),
-                Err(e) => {
-                    warn!("ns_lookup errored: {}", e);
+                Err(_e) => {
+                    #[cfg(feature = "log")]
+                    warn!("ns_lookup errored: {}", _e);
                     (None, None)
                 }
             }
@@ -566,14 +585,16 @@ async fn send_authoritative_response(
     } else {
         let nsecs = if lookup_options.is_dnssec() {
             // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
-            debug!("request: {} non-existent adding nsecs", request_id);
+            #[cfg(feature = "log")]
+            debug!("request: {} non-existent adding nsecs", _request_id);
             // run the nsec lookup future, and then transition to get soa
             let future = authority.get_nsec_records(query.name(), lookup_options);
             match future.await {
                 // run the soa lookup
                 Ok(nsecs) => Some(nsecs),
-                Err(e) => {
-                    warn!("failed to lookup nsecs: {}", e);
+                Err(_e) => {
+                    #[cfg(feature = "log")]
+                    warn!("failed to lookup nsecs: {}", _e);
                     None
                 }
             }
@@ -583,8 +604,9 @@ async fn send_authoritative_response(
 
         match authority.soa_secure(lookup_options).await {
             Ok(soa) => (nsecs, Some(soa)),
-            Err(e) => {
-                warn!("failed to lookup soa: {}", e);
+            Err(_e) => {
+                #[cfg(feature = "log")]
+                warn!("failed to lookup soa: {}", _e);
                 (nsecs, None)
             }
         }
@@ -627,6 +649,7 @@ async fn send_forwarded_response(
         // future.cancel();
         drop(future);
 
+        #[cfg(feature = "log")]
         info!(
             "request disabled recursion, returning no records: {}",
             request_header.id()
@@ -639,6 +662,7 @@ async fn send_forwarded_response(
                 if e.is_nx_domain() {
                     response_header.set_response_code(ResponseCode::NXDomain);
                 }
+                #[cfg(feature = "log")]
                 debug!("error resolving: {}", e);
                 Box::new(EmptyLookup)
             }

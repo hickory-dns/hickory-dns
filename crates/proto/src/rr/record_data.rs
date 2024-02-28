@@ -16,6 +16,7 @@ use std::{cmp::Ordering, fmt, net::IpAddr};
 use serde::{Deserialize, Serialize};
 
 use enum_as_inner::EnumAsInner;
+#[cfg(feature = "log")]
 use tracing::{trace, warn};
 
 use crate::{
@@ -701,9 +702,10 @@ impl RData {
         let mut buf: Vec<u8> = Vec::new();
         {
             let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut buf);
-            self.emit(&mut encoder).unwrap_or_else(|_| {
-                warn!("could not encode RDATA: {:?}", self);
-            });
+            if let Err(_e) = self.emit(&mut encoder) {
+                #[cfg(feature = "log")]
+                warn!("could not encode RDATA: {:?} with error {:?}", self, _e);
+            }
         }
         buf
     }
@@ -758,14 +760,17 @@ impl RData {
 
         let result = match record_type {
             RecordType::A => {
+                #[cfg(feature = "log")]
                 trace!("reading A");
                 A::read(decoder).map(Self::A)
             }
             RecordType::AAAA => {
+                #[cfg(feature = "log")]
                 trace!("reading AAAA");
                 AAAA::read(decoder).map(Self::AAAA)
             }
             RecordType::ANAME => {
+                #[cfg(feature = "log")]
                 trace!("reading ANAME");
                 ANAME::read(decoder).map(Self::ANAME)
             }
@@ -773,26 +778,32 @@ impl RData {
                 return Err(ProtoErrorKind::UnknownRecordTypeValue(rt.into()).into());
             }
             RecordType::CAA => {
+                #[cfg(feature = "log")]
                 trace!("reading CAA");
                 CAA::read_data(decoder, length).map(Self::CAA)
             }
             RecordType::CNAME => {
+                #[cfg(feature = "log")]
                 trace!("reading CNAME");
                 CNAME::read(decoder).map(Self::CNAME)
             }
             RecordType::CSYNC => {
+                #[cfg(feature = "log")]
                 trace!("reading CSYNC");
                 CSYNC::read_data(decoder, length).map(Self::CSYNC)
             }
             RecordType::HINFO => {
+                #[cfg(feature = "log")]
                 trace!("reading HINFO");
                 HINFO::read_data(decoder, length).map(Self::HINFO)
             }
             RecordType::HTTPS => {
+                #[cfg(feature = "log")]
                 trace!("reading HTTPS");
                 HTTPS::read_data(decoder, length).map(Self::HTTPS)
             }
             RecordType::ZERO => {
+                #[cfg(feature = "log")]
                 trace!("reading EMPTY");
                 // we should never get here, since ZERO should be 0 length, and None in the Record.
                 //   this invariant is verified below, and the decoding will fail with an err.
@@ -800,60 +811,74 @@ impl RData {
                 Ok(Self::ZERO)
             }
             RecordType::MX => {
+                #[cfg(feature = "log")]
                 trace!("reading MX");
                 MX::read_data(decoder, length).map(Self::MX)
             }
             RecordType::NAPTR => {
+                #[cfg(feature = "log")]
                 trace!("reading NAPTR");
                 NAPTR::read_data(decoder, length).map(Self::NAPTR)
             }
             RecordType::NULL => {
+                #[cfg(feature = "log")]
                 trace!("reading NULL");
                 NULL::read_data(decoder, length).map(Self::NULL)
             }
             RecordType::NS => {
+                #[cfg(feature = "log")]
                 trace!("reading NS");
                 NS::read(decoder).map(Self::NS)
             }
             RecordType::OPENPGPKEY => {
+                #[cfg(feature = "log")]
                 trace!("reading OPENPGPKEY");
                 OPENPGPKEY::read_data(decoder, length).map(Self::OPENPGPKEY)
             }
             RecordType::OPT => {
+                #[cfg(feature = "log")]
                 trace!("reading OPT");
                 OPT::read_data(decoder, length).map(Self::OPT)
             }
             RecordType::PTR => {
+                #[cfg(feature = "log")]
                 trace!("reading PTR");
                 PTR::read(decoder).map(Self::PTR)
             }
             RecordType::SOA => {
+                #[cfg(feature = "log")]
                 trace!("reading SOA");
                 SOA::read_data(decoder, length).map(Self::SOA)
             }
             RecordType::SRV => {
+                #[cfg(feature = "log")]
                 trace!("reading SRV");
                 SRV::read_data(decoder, length).map(Self::SRV)
             }
             RecordType::SSHFP => {
+                #[cfg(feature = "log")]
                 trace!("reading SSHFP");
                 SSHFP::read_data(decoder, length).map(Self::SSHFP)
             }
             RecordType::SVCB => {
+                #[cfg(feature = "log")]
                 trace!("reading SVCB");
                 SVCB::read_data(decoder, length).map(Self::SVCB)
             }
             RecordType::TLSA => {
+                #[cfg(feature = "log")]
                 trace!("reading TLSA");
                 TLSA::read_data(decoder, length).map(Self::TLSA)
             }
             RecordType::TXT => {
+                #[cfg(feature = "log")]
                 trace!("reading TXT");
                 TXT::read_data(decoder, length).map(Self::TXT)
             }
             #[cfg(feature = "dnssec")]
             r if r.is_dnssec() => DNSSECRData::read(decoder, record_type, length).map(Self::DNSSEC),
             record_type => {
+                #[cfg(feature = "log")]
                 trace!("reading Unknown record: {}", record_type);
                 NULL::read_data(decoder, length).map(|rdata| Self::Unknown {
                     code: record_type,

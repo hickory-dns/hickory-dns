@@ -259,6 +259,7 @@ impl TlsCertConfig {
 ///  keys = [ "my_rsa_2048|RSASHA256", "/path/to/my_ed25519|ED25519" ]
 #[cfg(feature = "dnssec")]
 fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<SigSigner, String> {
+    #[cfg(feature = "log")]
     use tracing::info;
 
     use std::fs::File;
@@ -276,6 +277,7 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<SigSigner, String
 
     // read the key in
     let key: KeyPair<Private> = {
+        #[cfg(feature = "log")]
         info!("reading key: {:?}", key_path);
 
         let mut file = File::open(key_path)
@@ -316,6 +318,7 @@ pub fn load_cert(
     zone_dir: &Path,
     tls_cert_config: &TlsCertConfig,
 ) -> Result<((X509, Option<Stack<X509>>), PKey<Private>), String> {
+    #[cfg(feature = "log")]
     use tracing::{info, warn};
 
     use crate::proto::openssl::tls_server::{
@@ -333,16 +336,19 @@ pub fn load_cert(
     // if it's pkcs12, we'll be collecting the key and certs from that, otherwise continue processing
     let (cert, cert_chain) = match cert_type {
         CertType::Pem => {
+            #[cfg(feature = "log")]
             info!("loading TLS PEM certificate from: {:?}", path);
             read_cert_pem(&path)?
         }
         CertType::Pkcs12 => {
             if private_key_path.is_some() {
+                #[cfg(feature = "log")]
                 warn!(
                     "ignoring specified key, using the one in the PKCS12 file: {}",
                     path.display()
                 );
             }
+            #[cfg(feature = "log")]
             info!("loading TLS PKCS12 certificate from: {:?}", path);
             return read_cert_pkcs12(&path, password).map_err(Into::into);
         }
@@ -351,10 +357,12 @@ pub fn load_cert(
     // it wasn't plcs12, we need to load the key separately
     let key = match (private_key_path, private_key_type) {
         (Some(private_key_path), PrivateKeyType::Pkcs8) => {
+            #[cfg(feature = "log")]
             info!("loading TLS PKCS8 key from: {}", private_key_path.display());
             read_key_from_pkcs8(&private_key_path, password)?
         }
         (Some(private_key_path), PrivateKeyType::Der) => {
+            #[cfg(feature = "log")]
             info!("loading TLS DER key from: {}", private_key_path.display());
             read_key_from_der(&private_key_path)?
         }
@@ -375,6 +383,7 @@ pub fn load_cert(
     zone_dir: &Path,
     tls_cert_config: &TlsCertConfig,
 ) -> Result<(Vec<Certificate>, PrivateKey), String> {
+    #[cfg(feature = "log")]
     use tracing::{info, warn};
 
     use crate::proto::rustls::tls_server::{read_cert, read_key, read_key_from_der};
@@ -389,6 +398,7 @@ pub fn load_cert(
 
     let cert = match cert_type {
         CertType::Pem => {
+            #[cfg(feature = "log")]
             info!("loading TLS PEM certificate chain from: {}", path.display());
             read_cert(&path).map_err(|e| format!("error reading cert: {e}"))?
         }
@@ -401,14 +411,17 @@ pub fn load_cert(
 
     let key = match (private_key_path, private_key_type) {
         (Some(private_key_path), PrivateKeyType::Pkcs8) => {
+            #[cfg(feature = "log")]
             info!("loading TLS PKCS8 key from: {}", private_key_path.display());
             if password.is_some() {
+                #[cfg(feature = "log")]
                 warn!("Password for key supplied, but Rustls does not support encrypted PKCS8");
             }
 
             read_key(&private_key_path)?
         }
         (Some(private_key_path), PrivateKeyType::Der) => {
+            #[cfg(feature = "log")]
             info!("loading TLS DER key from: {}", private_key_path.display());
             read_key_from_der(&private_key_path)?
         }

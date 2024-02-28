@@ -7,6 +7,7 @@
 
 use std::{io, path::Path, time::Instant};
 
+#[cfg(feature = "log")]
 use tracing::{debug, info};
 
 use crate::{
@@ -42,6 +43,7 @@ impl RecursiveAuthority {
         config: &RecursiveConfig,
         root_dir: Option<&Path>,
     ) -> Result<Self, String> {
+        #[cfg(feature = "log")]
         info!("loading recursor config: {}", origin);
 
         // read the roots
@@ -117,6 +119,7 @@ impl Authority for RecursiveAuthority {
         rtype: RecordType,
         _lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError> {
+        #[cfg(feature = "log")]
         debug!("recursive lookup: {} {}", name, rtype);
 
         let query = Query::query(name.into(), rtype);

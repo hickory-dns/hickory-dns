@@ -13,6 +13,7 @@ use h2::server;
 use hickory_proto::{http::Version, rr::Record};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_util::sync::CancellationToken;
+#[cfg(feature = "log")]
 use tracing::{debug, warn};
 
 use crate::{
@@ -41,8 +42,9 @@ pub(crate) async fn h2_handler<T, I>(
     // Start the HTTP/2.0 connection handshake
     let mut h2 = match server::handshake(io).await {
         Ok(h2) => h2,
-        Err(err) => {
-            warn!("handshake error from {}: {}", src_addr, err);
+        Err(_err) => {
+            #[cfg(feature = "log")]
+            warn!("handshake error from {}: {}", src_addr, _err);
             return;
         }
     };
@@ -53,8 +55,9 @@ pub(crate) async fn h2_handler<T, I>(
         let (request, respond) = tokio::select! {
             result = h2.accept() => match result {
                 Some(Ok(next_request)) => next_request,
-                Some(Err(err)) => {
-                    warn!("error accepting request {}: {}", src_addr, err);
+                Some(Err(_err)) => {
+                    #[cfg(feature = "log")]
+                    warn!("error accepting request {}: {}", src_addr, _err);
                         return;
                 }
                 None => {
@@ -67,6 +70,7 @@ pub(crate) async fn h2_handler<T, I>(
             },
         };
 
+        #[cfg(feature = "log")]
         debug!("Received request: {:#?}", request);
         let dns_hostname = dns_hostname.clone();
         let handler = handler.clone();
@@ -76,7 +80,10 @@ pub(crate) async fn h2_handler<T, I>(
         tokio::spawn(async move {
             match h2_server::message_from(dns_hostname, request).await {
                 Ok(bytes) => handle_request(bytes, src_addr, access, handler, responder).await,
-                Err(err) => warn!("error while handling request from {}: {}", src_addr, err),
+                Err(_err) => {
+                    #[cfg(feature = "log")]
+                    warn!("error while handling request from {}: {}", src_addr, _err)
+                }
             };
         });
 
@@ -133,6 +140,7 @@ impl ResponseHandler for HttpsResponseHandle {
         let bytes = Bytes::from(bytes);
         let response = response::new(Version::Http2, bytes.len())?;
 
+        #[cfg(feature = "log")]
         debug!("sending response: {:#?}", response);
         let mut stream = self
             .0

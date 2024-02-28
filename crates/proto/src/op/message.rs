@@ -9,6 +9,7 @@
 
 use std::{fmt, iter, mem, ops::Deref, sync::Arc};
 
+#[cfg(feature = "log")]
 use tracing::{debug, warn};
 
 use crate::{
@@ -739,6 +740,7 @@ impl Message {
         finalizer: &MF,
         inception_time: u32,
     ) -> ProtoResult<Option<MessageVerifier>> {
+        #[cfg(feature = "log")]
         debug!("finalizing message: {:?}", self);
         let (finals, verifier): (Vec<Record>, Option<MessageVerifier>) =
             finalizer.finalize_message(self, inception_time)?;
@@ -972,6 +974,7 @@ where
         additional_count.0 += count.0;
         additional_count.1 |= count.1;
     } else if header.response_code().high() > 0 {
+        #[cfg(feature = "log")]
         warn!(
             "response code: {} for request: {} requires EDNS but none available",
             header.response_code(),

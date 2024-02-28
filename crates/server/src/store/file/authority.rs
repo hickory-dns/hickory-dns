@@ -14,6 +14,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+#[cfg(feature = "log")]
 use tracing::{debug, info};
 
 #[cfg(feature = "dnssec")]
@@ -71,6 +72,7 @@ impl FileAuthority {
         let root_dir_path = root_dir.map(PathBuf::from).unwrap_or_default();
         let zone_path = root_dir_path.join(&config.zone_file_path);
 
+        #[cfg(feature = "log")]
         info!("loading zone file: {:?}", zone_path);
 
         // TODO: this should really use something to read line by line or some other method to
@@ -82,11 +84,13 @@ impl FileAuthority {
             .parse()
             .map_err(|e| format!("failed to parse {}: {:?}", config.zone_file_path, e))?;
 
+        #[cfg(feature = "log")]
         info!(
             "zone file loaded: {} with {} records",
             origin,
             records.len()
         );
+        #[cfg(feature = "log")]
         debug!("zone: {:#?}", records);
 
         Self::new(origin, records, zone_type, allow_axfr)

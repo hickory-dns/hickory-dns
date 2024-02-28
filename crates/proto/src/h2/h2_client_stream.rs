@@ -25,6 +25,7 @@ use rustls::ClientConfig;
 use tokio_rustls::{
     client::TlsStream as TokioTlsClientStream, Connect as TokioTlsConnect, TlsConnector,
 };
+#[cfg(feature = "log")]
 use tracing::{debug, warn};
 
 use crate::error::ProtoError;
@@ -78,6 +79,7 @@ impl HttpsClientStream {
         let request =
             request.map_err(|err| ProtoError::from(format!("bad http request: {err}")))?;
 
+        #[cfg(feature = "log")]
         debug!("request: {:#?}", request);
 
         // Send the request
@@ -93,6 +95,7 @@ impl HttpsClientStream {
             .await
             .map_err(|err| ProtoError::from(format!("received a stream error: {err}")))?;
 
+        #[cfg(feature = "log")]
         debug!("got response: {:#?}", response_stream);
 
         // get the length of packet
@@ -116,6 +119,7 @@ impl HttpsClientStream {
             let partial_bytes =
                 partial_bytes.map_err(|e| ProtoError::from(format!("bad http request: {e}")))?;
 
+            #[cfg(feature = "log")]
             debug!("got bytes: {}", partial_bytes.len());
             response_bytes.extend(partial_bytes);
 
@@ -438,6 +442,7 @@ where
                 } => {
                     let tcp = ready!(connect.poll_unpin(cx))?;
 
+                    #[cfg(feature = "log")]
                     debug!("tcp connection established to: {}", name_server);
                     let tls = tls
                         .take()
@@ -466,6 +471,7 @@ where
                     ref mut tls,
                 } => {
                     let tls = ready!(tls.poll_unpin(cx))?;
+                    #[cfg(feature = "log")]
                     debug!("tls connection established to: {}", name_server);
                     let mut handshake = h2::client::Builder::new();
                     handshake.enable_push(false);
@@ -487,10 +493,14 @@ where
                         .map_err(|e| ProtoError::from(format!("h2 handshake error: {e}"))))?;
 
                     // TODO: hand this back for others to run rather than spawning here?
+                    #[cfg(feature = "log")]
                     debug!("h2 connection established to: {}", name_server);
                     tokio::spawn(
                         connection
-                            .map_err(|e| warn!("h2 connection failed: {e}"))
+                            .map_err(|_e| {
+                                #[cfg(feature = "log")]
+                                warn!("h2 connection failed: {_e}")
+                            })
                             .map(|_: Result<(), ()>| ()),
                     );
 
@@ -749,6 +759,7 @@ mod tests {
                 .add_parsable_certificates(&rustls_native_certs::load_native_certs().unwrap());
 
             if ignored > 0 {
+                #[cfg(feature = "log")]
                 warn!(
                     "failed to parse {} certificate(s) from the native root store",
                     ignored

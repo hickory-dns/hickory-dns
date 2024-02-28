@@ -49,7 +49,10 @@ use tokio::{
     net::{TcpListener, UdpSocket},
     runtime,
 };
-use tracing::{debug, error, info, warn, Event, Subscriber};
+#[cfg(feature = "log")]
+use tracing::{debug, error, info, warn};
+use tracing::{Event, Subscriber};
+
 use tracing_subscriber::{
     fmt::{format, FmtContext, FormatEvent, FormatFields, FormattedFields},
     layer::SubscriberExt,
@@ -91,6 +94,7 @@ where
 {
     if zone_config.is_dnssec_enabled() {
         for key_config in zone_config.get_keys() {
+            #[cfg(feature = "log")]
             info!(
                 "adding key to zone: {:?}, is_zsk: {}, is_auth: {}",
                 key_config.key_path(),
@@ -122,6 +126,7 @@ where
             }
         }
 
+        #[cfg(feature = "log")]
         info!("signing zone: {}", zone_config.get_zone()?);
         authority.secure_zone().await.expect("failed to sign zone");
     }
@@ -144,6 +149,7 @@ async fn load_zone(
     zone_dir: &Path,
     zone_config: &ZoneConfig,
 ) -> Result<Box<dyn AuthorityObject>, String> {
+    #[cfg(feature = "log")]
     debug!("loading zone with config: {:#?}", zone_config);
 
     let zone_name: Name = zone_config.get_zone().expect("bad zone name");
@@ -155,6 +161,7 @@ async fn load_zone(
     let is_dnssec_enabled = zone_config.is_dnssec_enabled();
 
     if zone_config.is_update_allowed() {
+        #[cfg(feature = "log")]
         warn!("allow_update is deprecated in [[zones]] section, it belongs in [[zones.stores]]");
     }
 
@@ -163,6 +170,7 @@ async fn load_zone(
         #[cfg(feature = "sqlite")]
         Some(StoreConfig::Sqlite(ref config)) => {
             if zone_path.is_some() {
+                #[cfg(feature = "log")]
                 warn!("ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]");
             }
 
@@ -182,6 +190,7 @@ async fn load_zone(
         }
         Some(StoreConfig::File(ref config)) => {
             if zone_path.is_some() {
+                #[cfg(feature = "log")]
                 warn!("ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]");
             }
 
@@ -213,6 +222,7 @@ async fn load_zone(
         }
         #[cfg(feature = "sqlite")]
         None if zone_config.is_update_allowed() => {
+            #[cfg(feature = "log")]
             warn!(
                 "using deprecated SQLite load configuration, please move to [[zones.stores]] form"
             );
@@ -265,6 +275,7 @@ async fn load_zone(
         }
     };
 
+    #[cfg(feature = "log")]
     info!("zone successfully loaded: {}", zone_config.get_zone()?);
     Ok(authority)
 }
@@ -333,11 +344,13 @@ fn main() {
         default();
     }
 
+    #[cfg(feature = "log")]
     info!("Hickory DNS {} starting", hickory_client::version());
     // start up the server for listening
 
     let config = args.config.clone();
     let config_path = Path::new(&config);
+    #[cfg(feature = "log")]
     info!("loading configuration from: {:?}", config_path);
     let config = Config::read_config(config_path)
         .unwrap_or_else(|e| panic!("could not read config {}: {:?}", config_path.display(), e));
@@ -400,11 +413,13 @@ fn main() {
 
     // load all the listeners
     for udp_socket in &sockaddrs {
+        #[cfg(feature = "log")]
         info!("binding UDP to {:?}", udp_socket);
         let udp_socket = runtime
             .block_on(UdpSocket::bind(udp_socket))
             .unwrap_or_else(|err| panic!("could not bind to UDP socket {udp_socket}: {err}"));
 
+        #[cfg(feature = "log")]
         info!(
             "listening for UDP on {:?}",
             udp_socket
@@ -418,11 +433,13 @@ fn main() {
 
     // and TCP as necessary
     for tcp_listener in &sockaddrs {
+        #[cfg(feature = "log")]
         info!("binding TCP to {:?}", tcp_listener);
         let tcp_listener = runtime
             .block_on(TcpListener::bind(tcp_listener))
             .unwrap_or_else(|_| panic!("could not bind to tcp: {}", tcp_listener));
 
+        #[cfg(feature = "log")]
         info!(
             "listening for TCP on {:?}",
             tcp_listener
@@ -478,15 +495,18 @@ fn main() {
 
     // config complete, starting!
     banner();
+    #[cfg(feature = "log")]
     info!("awaiting connections...");
 
     // TODO: how to do threads? should we do a bunch of listener threads and then query threads?
     // Ideally the processing would be n-threads for receiving, which hand off to m-threads for
     //  request handling. It would generally be the case that n <= m.
+    #[cfg(feature = "log")]
     info!("Server starting up");
     match runtime.block_on(server.block_until_done()) {
         Ok(()) => {
             // we're exiting for some reason...
+            #[cfg(feature = "log")]
             info!("Hickory DNS {} stopping", hickory_client::version());
         }
         Err(e) => {
@@ -496,6 +516,7 @@ fn main() {
                 e
             );
 
+            #[cfg(feature = "log")]
             error!("{}", error_msg);
             panic!("{}", error_msg);
         }
@@ -523,10 +544,12 @@ fn config_tls(
         .collect();
 
     if tls_sockaddrs.is_empty() {
+        #[cfg(feature = "log")]
         warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
     }
 
     for tls_listener in &tls_sockaddrs {
+        #[cfg(feature = "log")]
         info!(
             "loading cert for DNS over TLS: {:?}",
             tls_cert_config.get_path()
@@ -535,12 +558,14 @@ fn config_tls(
         let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config)
             .expect("error loading tls certificate file");
 
+        #[cfg(feature = "log")]
         info!("binding TLS to {:?}", tls_listener);
         let tls_listener = runtime.block_on(
             TcpListener::bind(tls_listener)
                 .unwrap_or_else(|_| panic!("could not bind to tls: {}", tls_listener)),
         );
 
+        #[cfg(feature = "log")]
         info!(
             "listening for TLS on {:?}",
             tls_listener
@@ -576,17 +601,20 @@ fn config_https(
         .collect();
 
     if https_sockaddrs.is_empty() {
+        #[cfg(feature = "log")]
         warn!("a tls certificate was specified, but no HTTPS addresses configured to listen on");
     }
 
     for https_listener in &https_sockaddrs {
-        if let Some(endpoint_name) = tls_cert_config.get_endpoint_name() {
+        if let Some(_endpoint_name) = tls_cert_config.get_endpoint_name() {
+            #[cfg(feature = "log")]
             info!(
                 "loading cert for DNS over TLS named {} from {:?}",
-                endpoint_name,
+                _endpoint_name,
                 tls_cert_config.get_path()
             );
         } else {
+            #[cfg(feature = "log")]
             info!(
                 "loading cert for DNS over TLS from {:?}",
                 tls_cert_config.get_path()
@@ -596,12 +624,14 @@ fn config_https(
         let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config)
             .expect("error loading tls certificate file");
 
+        #[cfg(feature = "log")]
         info!("binding HTTPS to {:?}", https_listener);
         let https_listener = runtime.block_on(
             TcpListener::bind(https_listener)
                 .unwrap_or_else(|_| panic!("could not bind to tls: {}", https_listener)),
         );
 
+        #[cfg(feature = "log")]
         info!(
             "listening for HTTPS on {:?}",
             https_listener
@@ -642,17 +672,20 @@ fn config_quic(
         .collect();
 
     if quic_sockaddrs.is_empty() {
+        #[cfg(feature = "log")]
         warn!("a tls certificate was specified, but no QUIC addresses configured to listen on");
     }
 
     for quic_listener in &quic_sockaddrs {
-        if let Some(endpoint_name) = tls_cert_config.get_endpoint_name() {
+        if let Some(_endpoint_name) = tls_cert_config.get_endpoint_name() {
+            #[cfg(feature = "log")]
             info!(
                 "loading cert for DNS over QUIC named {} from {:?}",
-                endpoint_name,
+                _endpoint_name,
                 tls_cert_config.get_path()
             );
         } else {
+            #[cfg(feature = "log")]
             info!(
                 "loading cert for DNS over QUIC from {:?}",
                 tls_cert_config.get_path()
@@ -662,12 +695,14 @@ fn config_quic(
         let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config)
             .expect("error loading tls certificate file");
 
+        #[cfg(feature = "log")]
         info!("binding QUIC to {:?}", quic_listener);
         let quic_listener = runtime.block_on(
             UdpSocket::bind(quic_listener)
                 .unwrap_or_else(|_| panic!("could not bind to tls: {}", quic_listener)),
         );
 
+        #[cfg(feature = "log")]
         info!(
             "listening for QUIC on {:?}",
             quic_listener
@@ -694,10 +729,13 @@ fn banner() {
     #[cfg(not(feature = "ascii-art"))]
     const HICKORY_DNS_LOGO: &str = "Hickory DNS";
 
+    #[cfg(feature = "log")]
     info!("");
-    for line in HICKORY_DNS_LOGO.lines() {
-        info!(" {line}");
+    for _line in HICKORY_DNS_LOGO.lines() {
+        #[cfg(feature = "log")]
+        info!(" {_line}");
     }
+    #[cfg(feature = "log")]
     info!("");
 }
 

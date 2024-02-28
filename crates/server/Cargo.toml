@@ -105,6 +105,8 @@ tls = ["dns-over-openssl"]
 
 testing = []
 
+log = ["tracing/log"]
+
 [lib]
 name = "hickory_server"
 path = "src/lib.rs"

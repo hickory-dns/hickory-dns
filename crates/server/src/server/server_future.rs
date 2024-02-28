@@ -18,6 +18,7 @@ use ipnet::IpNet;
 use rustls::{Certificate, PrivateKey, ServerConfig};
 use tokio::{net, task::JoinSet};
 use tokio_util::sync::CancellationToken;
+#[cfg(feature = "log")]
 use tracing::{debug, info, warn};
 
 #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
@@ -69,6 +70,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
     /// Register a UDP socket. Should be bound before calling this function.
     pub fn register_socket(&mut self, socket: net::UdpSocket) {
+        #[cfg(feature = "log")]
         debug!("registering udp: {:?}", socket);
 
         // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
@@ -93,22 +95,25 @@ impl<T: RequestHandler> ServerFuture<T> {
                     };
 
                     let message = match message {
-                        Err(e) => {
-                            warn!("error receiving message on udp_socket: {}", e);
+                        Err(_e) => {
+                            #[cfg(feature = "log")]
+                            warn!("error receiving message on udp_socket: {}", _e);
                             continue;
                         }
                         Ok(message) => message,
                     };
 
                     let src_addr = message.addr();
+                    #[cfg(feature = "log")]
                     debug!("received udp request from: {}", src_addr);
 
                     // verify that the src address is safe for responses
-                    if let Err(e) = sanitize_src_address(src_addr) {
+                    if let Err(_e) = sanitize_src_address(src_addr) {
+                        #[cfg(feature = "log")]
                         warn!(
                             "address can not be responded to {src_addr}: {e}",
                             src_addr = src_addr,
-                            e = e
+                            e = _e
                         );
                         continue;
                     }
@@ -154,6 +159,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
     pub fn register_listener(&mut self, listener: net::TcpListener, timeout: Duration) {
+        #[cfg(feature = "log")]
         debug!("register tcp: {:?}", listener);
 
         let handler = self.handler.clone();
@@ -167,8 +173,9 @@ impl<T: RequestHandler> ServerFuture<T> {
                 let (tcp_stream, src_addr) = tokio::select! {
                     tcp_stream = listener.accept() => match tcp_stream {
                         Ok((t, s)) => (t, s),
-                        Err(e) => {
-                            debug!("error receiving TCP tcp_stream error: {}", e);
+                        Err(_e) => {
+                            #[cfg(feature = "log")]
+                            debug!("error receiving TCP tcp_stream error: {}", _e);
                             continue;
                         },
                     },
@@ -179,11 +186,12 @@ impl<T: RequestHandler> ServerFuture<T> {
                 };
 
                 // verify that the src address is safe for responses
-                if let Err(e) = sanitize_src_address(src_addr) {
+                if let Err(_e) = sanitize_src_address(src_addr) {
+                    #[cfg(feature = "log")]
                     warn!(
                         "address can not be responded to {src_addr}: {e}",
                         src_addr = src_addr,
-                        e = e
+                        e = _e
                     );
                     continue;
                 }
@@ -193,6 +201,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                 // and spawn to the io_loop
                 inner_join_set.spawn(async move {
+                    #[cfg(feature = "log")]
                     debug!("accepted request from: {}", src_addr);
                     // take the created stream...
                     let (buf_stream, stream_handle) =
@@ -202,10 +211,11 @@ impl<T: RequestHandler> ServerFuture<T> {
                     while let Some(message) = timeout_stream.next().await {
                         let message = match message {
                             Ok(message) => message,
-                            Err(e) => {
+                            Err(_e) => {
+                                #[cfg(feature = "log")]
                                 debug!(
                                     "error in TCP request_stream src: {} error: {}",
-                                    src_addr, e
+                                    src_addr, _e
                                 );
                                 // we're going to bail on this connection...
                                 return;
@@ -284,6 +294,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         let ((cert, chain), key) = certificate_and_key;
 
         let handler = self.handler.clone();
+        #[cfg(feature = "log")]
         debug!("registered tcp: {:?}", listener);
 
         let tls_acceptor = Box::pin(tls_server::new_acceptor(cert, chain, key)?);
@@ -296,8 +307,9 @@ impl<T: RequestHandler> ServerFuture<T> {
                 let (tcp_stream, src_addr) = tokio::select! {
                     tcp_stream = listener.accept() => match tcp_stream {
                         Ok((t, s)) => (t, s),
-                        Err(e) => {
-                            debug!("error receiving TLS tcp_stream error: {}", e);
+                        Err(_e) => {
+                            #[cfg(feature = "log")]
+                            debug!("error receiving TLS tcp_stream error: {}", _e);
                             continue;
                         },
                     },
@@ -308,11 +320,12 @@ impl<T: RequestHandler> ServerFuture<T> {
                 };
 
                 // verify that the src address is safe for responses
-                if let Err(e) = sanitize_src_address(src_addr) {
+                if let Err(_e) = sanitize_src_address(src_addr) {
+                    #[cfg(feature = "log")]
                     warn!(
                         "address can not be responded to {src_addr}: {e}",
                         src_addr = src_addr,
-                        e = e
+                        e = _e
                     );
                     continue;
                 }
@@ -322,6 +335,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                 // kick out to a different task immediately, let them do the TLS handshake
                 inner_join_set.spawn(async move {
+                    #[cfg(feature = "log")]
                     debug!("starting TLS request from: {}", src_addr);
 
                     // perform the TLS
@@ -329,18 +343,21 @@ impl<T: RequestHandler> ServerFuture<T> {
                         .and_then(|ssl| TokioSslStream::new(ssl, tcp_stream))
                     {
                         Ok(tls_stream) => tls_stream,
-                        Err(e) => {
-                            debug!("tls handshake src: {} error: {}", src_addr, e);
+                        Err(_e) => {
+                            #[cfg(feature = "log")]
+                            debug!("tls handshake src: {} error: {}", src_addr, _e);
                             return ();
                         }
                     };
                     match Pin::new(&mut tls_stream).accept().await {
                         Ok(()) => {}
-                        Err(e) => {
-                            debug!("tls handshake src: {} error: {}", src_addr, e);
+                        Err(_e) => {
+                            #[cfg(feature = "log")]
+                            debug!("tls handshake src: {} error: {}", src_addr, _e);
                             return ();
                         }
                     };
+                    #[cfg(feature = "log")]
                     debug!("accepted TLS request from: {}", src_addr);
                     let (buf_stream, stream_handle) =
                         TlsStream::from_stream(AsyncIoTokioAsStd(tls_stream), src_addr);
@@ -348,10 +365,11 @@ impl<T: RequestHandler> ServerFuture<T> {
                     while let Some(message) = timeout_stream.next().await {
                         let message = match message {
                             Ok(message) => message,
-                            Err(e) => {
+                            Err(_e) => {
+                                #[cfg(feature = "log")]
                                 debug!(
                                     "error in TLS request_stream src: {:?} error: {}",
-                                    src_addr, e
+                                    src_addr, _e
                                 );
 
                                 // kill this connection
@@ -437,6 +455,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         let handler = self.handler.clone();
         let access = self.access.clone();
 
+        #[cfg(feature = "log")]
         debug!("registered tcp: {:?}", listener);
 
         let tls_acceptor = TlsAcceptor::from(tls_config);
@@ -449,8 +468,9 @@ impl<T: RequestHandler> ServerFuture<T> {
                 let (tcp_stream, src_addr) = tokio::select! {
                     tcp_stream = listener.accept() => match tcp_stream {
                         Ok((t, s)) => (t, s),
-                        Err(e) => {
-                            debug!("error receiving TLS tcp_stream error: {}", e);
+                        Err(_e) => {
+                            #[cfg(feature = "log")]
+                            debug!("error receiving TLS tcp_stream error: {}", _e);
                             continue;
                         },
                     },
@@ -461,11 +481,12 @@ impl<T: RequestHandler> ServerFuture<T> {
                 };
 
                 // verify that the src address is safe for responses
-                if let Err(e) = sanitize_src_address(src_addr) {
+                if let Err(_e) = sanitize_src_address(src_addr) {
+                    #[cfg(feature = "log")]
                     warn!(
                         "address can not be responded to {src_addr}: {e}",
                         src_addr = src_addr,
-                        e = e
+                        e = _e
                     );
                     continue;
                 }
@@ -476,6 +497,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                 // kick out to a different task immediately, let them do the TLS handshake
                 inner_join_set.spawn(async move {
+                    #[cfg(feature = "log")]
                     debug!("starting TLS request from: {}", src_addr);
 
                     // perform the TLS
@@ -483,21 +505,24 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                     let tls_stream = match tls_stream {
                         Ok(tls_stream) => AsyncIoTokioAsStd(tls_stream),
-                        Err(e) => {
-                            debug!("tls handshake src: {} error: {}", src_addr, e);
+                        Err(_e) => {
+                            #[cfg(feature = "log")]
+                            debug!("tls handshake src: {} error: {}", src_addr, _e);
                             return;
                         }
                     };
+                    #[cfg(feature = "log")]
                     debug!("accepted TLS request from: {}", src_addr);
                     let (buf_stream, stream_handle) = tls_from_stream(tls_stream, src_addr);
                     let mut timeout_stream = TimeoutStream::new(buf_stream, timeout);
                     while let Some(message) = timeout_stream.next().await {
                         let message = match message {
                             Ok(message) => message,
-                            Err(e) => {
+                            Err(_e) => {
+                                #[cfg(feature = "log")]
                                 debug!(
                                     "error in TLS request_stream src: {:?} error: {}",
-                                    src_addr, e
+                                    src_addr, _e
                                 );
 
                                 // kill this connection
@@ -624,6 +649,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
         let handler = self.handler.clone();
         let access = self.access.clone();
+        #[cfg(feature = "log")]
         debug!("registered https: {listener:?}");
 
         let tls_acceptor = tls_server::new_acceptor(certificate_and_key.0, certificate_and_key.1)
@@ -644,8 +670,9 @@ impl<T: RequestHandler> ServerFuture<T> {
                 let (tcp_stream, src_addr) = tokio::select! {
                     tcp_stream = listener.accept() => match tcp_stream {
                         Ok((t, s)) => (t, s),
-                        Err(e) => {
-                            debug!("error receiving HTTPS tcp_stream error: {}", e);
+                        Err(_e) => {
+                            #[cfg(feature = "log")]
+                            debug!("error receiving HTTPS tcp_stream error: {}", _e);
                             continue;
                         },
                     },
@@ -656,8 +683,9 @@ impl<T: RequestHandler> ServerFuture<T> {
                 };
 
                 // verify that the src address is safe for responses
-                if let Err(e) = sanitize_src_address(src_addr) {
-                    warn!("address can not be responded to {src_addr}: {e}");
+                if let Err(_e) = sanitize_src_address(src_addr) {
+                    #[cfg(feature = "log")]
+                    warn!("address can not be responded to {src_addr}: {_e}");
                     continue;
                 }
 
@@ -667,6 +695,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                 let dns_hostname = dns_hostname.clone();
 
                 inner_join_set.spawn(async move {
+                    #[cfg(feature = "log")]
                     debug!("starting HTTPS request from: {src_addr}");
 
                     // TODO: need to consider timeout of total connect...
@@ -675,11 +704,13 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                     let tls_stream = match tls_stream {
                         Ok(tls_stream) => tls_stream,
-                        Err(e) => {
-                            debug!("https handshake src: {src_addr} error: {e}");
+                        Err(_e) => {
+                            #[cfg(feature = "log")]
+                            debug!("https handshake src: {src_addr} error: {_e}");
                             return;
                         }
                     };
+                    #[cfg(feature = "log")]
                     debug!("accepted HTTPS request from: {src_addr}");
 
                     h2_handler(
@@ -733,6 +764,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         let handler = self.handler.clone();
         let access = self.access.clone();
 
+        #[cfg(feature = "log")]
         debug!("registered quic: {:?}", socket);
         let mut server =
             QuicServer::with_socket(socket, certificate_and_key.0, certificate_and_key.1)?;
@@ -747,8 +779,9 @@ impl<T: RequestHandler> ServerFuture<T> {
                     result = server.next() => match result {
                         Ok(Some(c)) => c,
                         Ok(None) => continue,
-                        Err(e) => {
-                            debug!("error receiving quic connection: {e}");
+                        Err(_e) => {
+                            #[cfg(feature = "log")]
+                            debug!("error receiving quic connection: {_e}");
                             continue;
                         }
                     },
@@ -760,11 +793,12 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                 // verify that the src address is safe for responses
                 // TODO: we're relying the quinn library to actually validate responses before we get here, but this check is still worth doing
-                if let Err(e) = sanitize_src_address(src_addr) {
+                if let Err(_e) = sanitize_src_address(src_addr) {
+                    #[cfg(feature = "log")]
                     warn!(
                         "address can not be responded to {src_addr}: {e}",
                         src_addr = src_addr,
-                        e = e
+                        e = _e
                     );
                     continue;
                 }
@@ -774,6 +808,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                 let dns_hostname = dns_hostname.clone();
 
                 inner_join_set.spawn(async move {
+                    #[cfg(feature = "log")]
                     debug!("starting quic stream request from: {src_addr}");
 
                     // TODO: need to consider timeout of total connect...
@@ -787,8 +822,9 @@ impl<T: RequestHandler> ServerFuture<T> {
                     )
                     .await;
 
-                    if let Err(e) = result {
-                        warn!("quic stream processing failed from {src_addr}: {e}")
+                    if let Err(_e) = result {
+                        #[cfg(feature = "log")]
+                        warn!("quic stream processing failed from {src_addr}: {_e}")
                     }
                 });
 
@@ -832,6 +868,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         let handler = self.handler.clone();
         let access = self.access.clone();
 
+        #[cfg(feature = "log")]
         debug!("registered h3: {:?}", socket);
         let mut server =
             H3Server::with_socket(socket, certificate_and_key.0, certificate_and_key.1)?;
@@ -846,8 +883,9 @@ impl<T: RequestHandler> ServerFuture<T> {
                     result = server.accept() => match result {
                         Ok(Some(c)) => c,
                         Ok(None) => continue,
-                        Err(e) => {
-                            debug!("error receiving h3 connection: {e}");
+                        Err(_e) => {
+                            #[cfg(feature = "log")]
+                            debug!("error receiving h3 connection: {_e}");
                             continue;
                         }
                     },
@@ -859,11 +897,12 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                 // verify that the src address is safe for responses
                 // TODO: we're relying the quinn library to actually validate responses before we get here, but this check is still worth doing
-                if let Err(e) = sanitize_src_address(src_addr) {
+                if let Err(_e) = sanitize_src_address(src_addr) {
+                    #[cfg(feature = "log")]
                     warn!(
                         "address can not be responded to {src_addr}: {e}",
                         src_addr = src_addr,
-                        e = e
+                        e = _e
                     );
                     continue;
                 }
@@ -873,6 +912,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                 let dns_hostname = dns_hostname.clone();
 
                 inner_join_set.spawn(async move {
+                    #[cfg(feature = "log")]
                     debug!("starting h3 stream request from: {src_addr}");
 
                     // TODO: need to consider timeout of total connect...
@@ -886,8 +926,9 @@ impl<T: RequestHandler> ServerFuture<T> {
                     )
                     .await;
 
-                    if let Err(e) = result {
-                        warn!("h3 stream processing failed from {src_addr}: {e}")
+                    if let Err(_e) = result {
+                        #[cfg(feature = "log")]
+                        warn!("h3 stream processing failed from {src_addr}: {_e}")
                     }
                 });
 
@@ -920,6 +961,7 @@ async fn block_until_done(
     join_set: &mut JoinSet<Result<(), ProtoError>>,
 ) -> Result<(), ProtoError> {
     if join_set.is_empty() {
+        #[cfg(feature = "log")]
         warn!("block_until_done called with no pending tasks");
         return Ok(());
     }
@@ -972,6 +1014,7 @@ pub(crate) async fn handle_raw_request<T: RequestHandler>(
     .await;
 }
 
+#[allow(dead_code)]
 #[derive(Clone)]
 struct ReportingResponseHandler<R: ResponseHandler> {
     request_header: Header,
@@ -1000,16 +1043,18 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
         let id = self.request_header.id();
         let rid = response_info.id();
         if id != rid {
+            #[cfg(feature = "log")]
             warn!("request id:{id} does not match response id:{rid}");
             debug_assert_eq!(id, rid, "request id and response id should match");
         }
 
-        let rflags = response_info.flags();
-        let answer_count = response_info.answer_count();
-        let authority_count = response_info.name_server_count();
-        let additional_count = response_info.additional_count();
-        let response_code = response_info.response_code();
+        let _rflags = response_info.flags();
+        let _answer_count = response_info.answer_count();
+        let _authority_count = response_info.name_server_count();
+        let _additional_count = response_info.additional_count();
+        let _response_code = response_info.response_code();
 
+        #[cfg(feature = "log")]
         info!("request:{id} src:{proto}://{addr}#{port} {op}:{query}:{qtype}:{class} qflags:{qflags} response:{code:?} rr:{answers}/{authorities}/{additionals} rflags:{rflags}",
             id = rid,
             proto = self.protocol,
@@ -1020,11 +1065,11 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
             qtype = self.query.query_type(),
             class = self.query.query_class(),
             qflags = self.request_header.flags(),
-            code = response_code,
-            answers = answer_count,
-            authorities = authority_count,
-            additionals = additional_count,
-            rflags = rflags
+            code = _response_code,
+            answers = _answer_count,
+            authorities = _authority_count,
+            additionals = _additional_count,
+            rflags = _rflags
         );
 
         Ok(response_info)
@@ -1049,33 +1094,34 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
             return;
         }
 
-        let id = message.id();
-        let qflags = message.header().flags();
-        let qop_code = message.op_code();
-        let message_type = message.message_type();
-        let is_dnssec = message.edns().map_or(false, Edns::dnssec_ok);
+        let _id = message.id();
+        let _qflags = message.header().flags();
+        let _qop_code = message.op_code();
+        let _message_type = message.message_type();
+        let _is_dnssec = message.edns().map_or(false, Edns::dnssec_ok);
 
         let request = Request::new(message, src_addr, protocol);
 
         let info = request.request_info();
         let query = info.query.clone();
-        let query_name = info.query.name();
-        let query_type = info.query.query_type();
-        let query_class = info.query.query_class();
+        let _query_name = info.query.name();
+        let _query_type = info.query.query_type();
+        let _query_class = info.query.query_class();
 
+        #[cfg(feature = "log")]
         debug!(
             "request:{id} src:{proto}://{addr}#{port} type:{message_type} dnssec:{is_dnssec} {op}:{query}:{qtype}:{class} qflags:{qflags}",
-            id = id,
+            id = _id,
             proto = protocol,
             addr = src_addr.ip(),
             port = src_addr.port(),
-            message_type= message_type,
-            is_dnssec = is_dnssec,
-            op = qop_code,
-            query = query_name,
-            qtype = query_type,
-            class = query_class,
-            qflags = qflags,
+            message_type= _message_type,
+            is_dnssec = _is_dnssec,
+            op = _qop_code,
+            query = _query_name,
+            qtype = _query_type,
+            class = _query_class,
+            qflags = _qflags,
         );
 
         // The reporter will handle making sure to log the result of the request
@@ -1096,9 +1142,10 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
                                   header: Header,
                                   query: LowerQuery,
                                   response_code: ResponseCode,
-                                  error: Box<ProtoError>,
+                                  _error: Box<ProtoError>,
                                   response_handler: R| async move {
         // debug for more info on why the message parsing failed
+        #[cfg(feature = "log")]
         debug!(
             "request:{id} src:{proto}://{addr}#{port} type:{message_type} {op}:{response_code}:{error}",
             id = header.id(),
@@ -1108,7 +1155,7 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
             message_type = header.message_type(),
             op = header.op_code(),
             response_code = response_code,
-            error = error,
+            error = _error,
         );
 
         // The reporter will handle making sure to log the result of the request
@@ -1125,12 +1172,14 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
             .send_response(response.error_msg(&header, response_code))
             .await;
 
-        if let Err(e) = result {
-            warn!("failed to return FormError to client: {}", e);
+        if let Err(_e) = result {
+            #[cfg(feature = "log")]
+            warn!("failed to return FormError to client: {}", _e);
         }
     };
 
     if !access.allow(src_addr.ip()) {
+        #[cfg(feature = "log")]
         info!(
             "request:Refused src:{proto}://{addr}#{port}",
             proto = protocol,
@@ -1163,12 +1212,15 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
             )
             .await;
         }
-        Err(error) => info!(
-            "request:Failed src:{proto}://{addr}#{port} error:{error}",
-            proto = protocol,
-            addr = src_addr.ip(),
-            port = src_addr.port(),
-        ),
+        Err(_error) => {
+            #[cfg(feature = "log")]
+            info!(
+                "request:Failed src:{proto}://{addr}#{port} error:{_error}",
+                proto = protocol,
+                addr = src_addr.ip(),
+                port = src_addr.port(),
+            )
+        }
     }
 }
 

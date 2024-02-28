@@ -9,6 +9,7 @@
 
 use futures_util::stream::Stream;
 use rand;
+#[cfg(feature = "log")]
 use tracing::debug;
 
 use crate::op::{Message, MessageType, OpCode, Query};
@@ -61,6 +62,7 @@ pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
     /// * `query` - the query to lookup
     /// * `options` - options to use when constructing the message
     fn lookup(&self, query: Query, options: DnsRequestOptions) -> Self::Response {
+        #[cfg(feature = "log")]
         debug!("querying: {} {:?}", query.name(), query.query_type());
         self.send(DnsRequest::new(build_message(query, options), options))
     }

@@ -20,6 +20,7 @@ use proto::{
     error::ProtoError,
     xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer},
 };
+#[cfg(feature = "log")]
 use tracing::debug;
 
 use crate::config::{NameServerConfig, ResolverOpts};
@@ -104,6 +105,7 @@ where
 
         // if this is in a failure state
         if self.state.is_failed() || client.is_none() {
+            #[cfg(feature = "log")]
             debug!("reconnecting: {:?}", self.config);
 
             // TODO: we need the local EDNS options
@@ -118,6 +120,7 @@ where
             // establish a new connection
             *client = Some(new_client);
         } else {
+            #[cfg(feature = "log")]
             debug!("existing connection: {:?}", self.config);
         }
 
@@ -153,6 +156,7 @@ where
                 Ok(response)
             }
             Err(error) => {
+                #[cfg(feature = "log")]
                 debug!("name_server connection failure: {}", error);
 
                 // this transitions the state to failure
