@@ -7,6 +7,7 @@
 
 //! All persistent store implementations
 
+pub mod blocklist;
 mod config;
 pub mod file;
 pub mod forwarder;

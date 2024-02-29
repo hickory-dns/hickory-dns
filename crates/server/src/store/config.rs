@@ -9,6 +9,8 @@
 
 use serde::Deserialize;
 
+#[cfg(feature = "blocklist")]
+use crate::store::blocklist::BlocklistConfig;
 use crate::store::file::FileConfig;
 #[cfg(feature = "hickory-resolver")]
 use crate::store::forwarder::ForwardConfig;
@@ -53,6 +55,9 @@ pub enum StoreConfig {
     #[cfg(feature = "hickory-recursor")]
     #[cfg_attr(docsrs, doc(cfg(feature = "recursor")))]
     Recursor(RecursiveConfig),
+    /// Blocklist Resolver
+    #[cfg(feature = "blocklist")]
+    Blocklist(BlocklistConfig),
     /// This is used by the configuration processing code to represent a deprecated or main-block config without an associated store.
     Default,
 }

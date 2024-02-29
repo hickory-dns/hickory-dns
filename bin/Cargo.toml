@@ -53,6 +53,7 @@ dnssec = []
 recursor = ["hickory-server/recursor"]
 # Recursive Resolution is Experimental!
 resolver = ["hickory-server/resolver"]
+blocklist = ["hickory-server/blocklist"]
 sqlite = ["hickory-server/sqlite"]
 
 # TODO: Need to figure out how to be consistent with ring/openssl usage...
