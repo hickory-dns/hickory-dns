@@ -31,7 +31,7 @@ use crate::{
 /// Set of authorities, zones, available to this server.
 #[derive(Default)]
 pub struct Catalog {
-    authorities: HashMap<LowerName, Box<dyn AuthorityObject>>,
+    authorities: HashMap<LowerName, Vec<Box<dyn AuthorityObject>>>,
 }
 
 #[allow(unused_mut, unused_variables)]
@@ -188,12 +188,12 @@ impl Catalog {
     ///
     /// * `name` - zone name, e.g. example.com.
     /// * `authority` - the zone data
-    pub fn upsert(&mut self, name: LowerName, authority: Box<dyn AuthorityObject>) {
-        self.authorities.insert(name, authority);
+    pub fn upsert(&mut self, name: LowerName, authorities: Vec<Box<dyn AuthorityObject>>) {
+        self.authorities.insert(name, authorities);
     }
 
     /// Remove a zone from the catalog
-    pub fn remove(&mut self, name: &LowerName) -> Option<Box<dyn AuthorityObject>> {
+    pub fn remove(&mut self, name: &LowerName) -> Option<Vec<Box<dyn AuthorityObject>>> {
         self.authorities.remove(name)
     }
 
@@ -276,17 +276,18 @@ impl Catalog {
         };
 
         // verify the zone type and number of zones in request, then find the zone to update
-        let request_info = verify_request();
-        let authority = request_info.as_ref().map_err(|e| *e).and_then(|info| {
-            self.find(info.query.name())
-                .map(|a| a.box_clone())
-                .ok_or(ResponseCode::Refused)
-        });
-
-        let response_code = match authority {
-            Ok(authority) => {
+        if let Some(authorities) = self.find(
+            verify_request()
+                .as_ref()
+                .expect("Could not get request info")
+                .query
+                .name(),
+        ) {
+            #[allow(clippy::never_loop)]
+            for authority in authorities {
+                let authority = authority.box_clone();
                 #[allow(deprecated)]
-                match authority.zone_type() {
+                let response_code = match authority.zone_type() {
                     ZoneType::Secondary | ZoneType::Slave => {
                         error!("secondary forwarding for update not yet implemented");
                         ResponseCode::NotImp
@@ -300,24 +301,25 @@ impl Catalog {
                         }
                     }
                     _ => ResponseCode::NotAuth,
-                }
+                };
+
+                let response = MessageResponseBuilder::new(Some(update.raw_query()));
+                let mut response_header = Header::default();
+                response_header.set_id(update.id());
+                response_header.set_op_code(OpCode::Update);
+                response_header.set_message_type(MessageType::Response);
+                response_header.set_response_code(response_code);
+
+                return send_response(
+                    response_edns,
+                    response.build_no_records(response_header),
+                    response_handle,
+                )
+                .await;
             }
-            Err(response_code) => response_code,
         };
 
-        let response = MessageResponseBuilder::new(Some(update.raw_query()));
-        let mut response_header = Header::default();
-        response_header.set_id(update.id());
-        response_header.set_op_code(OpCode::Update);
-        response_header.set_message_type(MessageType::Response);
-        response_header.set_response_code(response_code);
-
-        send_response(
-            response_edns,
-            response.build_no_records(response_header),
-            response_handle,
-        )
-        .await
+        Ok(ResponseInfo::serve_failed())
     }
 
     /// Checks whether the `Catalog` contains DNS records for `name`
@@ -346,71 +348,69 @@ impl Catalog {
         response_handle: R,
     ) -> ResponseInfo {
         let request_info = request.request_info();
-        let authority = self.find(request_info.query.name());
+        let authorities = self.find(request_info.query.name());
 
-        if let Some(authority) = authority {
-            let result = lookup(
-                request_info,
-                authority,
-                request,
-                response_edns
-                    .as_ref()
-                    .map(|arc| Borrow::<Edns>::borrow(arc).clone()),
-                response_handle.clone(),
-            )
-            .await;
+        if let Some(authorities) = authorities {
+            for authority in authorities {
+                let result = lookup(
+                    request_info.clone(),
+                    &**authority,
+                    request,
+                    response_edns
+                        .as_ref()
+                        .map(|arc| Borrow::<Edns>::borrow(arc).clone()),
+                    response_handle.clone(),
+                )
+                .await;
 
-            match result {
-                // The current authority in the chain did not handle the request, so we need to try the next one, if any.
-                None => {
-                    debug!("catalog::lookup::authority did not handle request.");
-                    panic!("Correct implementation is part of the chained recursor PR.");
-                }
-                Some(Ok(r)) => {
-                    debug!("Result: {r:?}");
-                    debug!("catalog::lookup::authority DID handle request.  Stopping.");
-                    r
-                }
-                Some(Err(r)) => {
-                    debug!("An unexpected error occured during catalog lookup: {r:?}");
-                    ResponseInfo::serve_failed()
+                match result {
+                    // The current authority in the chain did not handle the request, so we need to try the next one, if any.
+                    None => {
+                        debug!("catalog::lookup::authority did not handle request.");
+                    }
+                    Some(Ok(r)) => {
+                        debug!("Result: {r:?}");
+                        debug!("catalog::lookup::authority DID handle request.  Stopping.");
+                        return r;
+                    }
+                    Some(Err(r)) => {
+                        debug!("An unexpected error occured during catalog lookup: {r:?}");
+                        return ResponseInfo::serve_failed();
+                    }
                 }
             }
-        } else {
-            // if this is empty then the there are no authorities registered that can handle the request
-            let response = MessageResponseBuilder::new(Some(request.raw_query()));
+        }
 
-            let result = send_response(
-                response_edns,
-                response.error_msg(request.header(), ResponseCode::Refused),
-                response_handle,
-            )
-            .await;
+        // if this is empty then the there are no authorities registered that can handle the request
+        let response = MessageResponseBuilder::new(Some(request.raw_query()));
 
-            match result {
-                Err(e) => {
-                    error!("failed to send response: {}", e);
-                    ResponseInfo::serve_failed()
-                }
-                Ok(r) => r,
+        let result = send_response(
+            response_edns,
+            response.error_msg(request.header(), ResponseCode::Refused),
+            response_handle,
+        )
+        .await;
+
+        match result {
+            Err(e) => {
+                error!("failed to send response: {}", e);
+                ResponseInfo::serve_failed()
             }
+            Ok(r) => r,
         }
     }
 
     /// Recursively searches the catalog for a matching authority
-    pub fn find(&self, name: &LowerName) -> Option<&(dyn AuthorityObject + 'static)> {
+    pub fn find(&self, name: &LowerName) -> Option<&Vec<Box<dyn AuthorityObject>>> {
         debug!("searching authorities for: {}", name);
-        self.authorities
-            .get(name)
-            .map(|authority| &**authority)
-            .or_else(|| {
-                if !name.is_root() {
-                    let name = name.base_name();
-                    self.find(&name)
-                } else {
-                    None
-                }
-            })
+        self.authorities.get(name).or_else(|| {
+            if !name.is_root() {
+                let name = name.base_name();
+                self.find(&name)
+            } else {
+                None
+            }
+        })
     }
 }
 

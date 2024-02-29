@@ -72,7 +72,7 @@ use hickory_server::{
     server::ServerFuture,
     store::{
         file::{FileAuthority, FileConfig},
-        StoreConfig,
+        StoreConfig, StoreConfigContainer,
     },
 };
 
@@ -143,7 +143,7 @@ async fn load_keys<T>(
 async fn load_zone(
     zone_dir: &Path,
     zone_config: &ZoneConfig,
-) -> Result<Box<dyn AuthorityObject>, String> {
+) -> Result<Vec<Box<dyn AuthorityObject>>, String> {
     debug!("loading zone with config: {:#?}", zone_config);
 
     let zone_name: Name = zone_config.get_zone().expect("bad zone name");
@@ -158,115 +158,156 @@ async fn load_zone(
         warn!("allow_update is deprecated in [[zones]] section, it belongs in [[zones.stores]]");
     }
 
-    // load the zone
-    let authority: Box<dyn AuthorityObject> = match zone_config.stores {
-        #[cfg(feature = "sqlite")]
-        Some(StoreConfig::Sqlite(ref config)) => {
-            if zone_path.is_some() {
-                warn!("ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]");
+    let mut normalized_stores = vec![];
+    if let Some(StoreConfigContainer::Single(store)) = &zone_config.stores {
+        normalized_stores.push(store);
+    } else if let Some(StoreConfigContainer::Chained(chained_stores)) = &zone_config.stores {
+        for store in chained_stores {
+            normalized_stores.push(store);
+        }
+    } else {
+        normalized_stores.push(&StoreConfig::Default);
+        debug!(
+            "No stores specified for {}, using default config processing",
+            zone_name.clone()
+        );
+    }
+
+    // load the zone and build a vector of associated authorities to load in the catalog.
+    debug!(
+        "Loading authorities for {} with stores {:?}",
+        &zone_name, &normalized_stores
+    );
+    let mut authorities: Vec<Box<dyn AuthorityObject>> = vec![];
+    for store in normalized_stores {
+        let authority: Box<dyn AuthorityObject> = match store {
+            #[cfg(feature = "sqlite")]
+            StoreConfig::Sqlite(ref config) => {
+                if zone_path.is_some() {
+                    warn!("ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]");
+                }
+
+                let mut authority = SqliteAuthority::try_from_config(
+                    zone_name.clone(),
+                    zone_type,
+                    is_axfr_allowed,
+                    is_dnssec_enabled,
+                    Some(zone_dir),
+                    config,
+                )
+                .await?;
+
+                // load any keys for the Zone, if it is a dynamic update zone, then keys are required
+                load_keys(&mut authority, zone_name_for_signer.clone(), zone_config).await?;
+                Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
             }
+            StoreConfig::File(ref config) => {
+                if zone_path.is_some() {
+                    warn!("ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]");
+                }
 
-            let mut authority = SqliteAuthority::try_from_config(
-                zone_name,
-                zone_type,
-                is_axfr_allowed,
-                is_dnssec_enabled,
-                Some(zone_dir),
-                config,
-            )
-            .await?;
+                let mut authority = FileAuthority::try_from_config(
+                    zone_name.clone(),
+                    zone_type,
+                    is_axfr_allowed,
+                    Some(zone_dir),
+                    config,
+                )?;
 
-            // load any keys for the Zone, if it is a dynamic update zone, then keys are required
-            load_keys(&mut authority, zone_name_for_signer, zone_config).await?;
-            Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
-        }
-        Some(StoreConfig::File(ref config)) => {
-            if zone_path.is_some() {
-                warn!("ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]");
+                // load any keys for the Zone, if it is a dynamic update zone, then keys are required
+                load_keys(&mut authority, zone_name_for_signer.clone(), zone_config).await?;
+                Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
             }
+            #[cfg(feature = "resolver")]
+            StoreConfig::Forward(ref config) => {
+                let forwarder =
+                    ForwardAuthority::try_from_config(zone_name.clone(), zone_type, config)?;
 
-            let mut authority = FileAuthority::try_from_config(
-                zone_name,
-                zone_type,
-                is_axfr_allowed,
-                Some(zone_dir),
-                config,
-            )?;
+                Box::new(Arc::new(forwarder)) as Box<dyn AuthorityObject>
+            }
+            #[cfg(feature = "recursor")]
+            StoreConfig::Recursor(ref config) => {
+                let recursor = RecursiveAuthority::try_from_config(
+                    zone_name.clone(),
+                    zone_type,
+                    config,
+                    Some(zone_dir),
+                );
+                let authority = recursor.await?;
 
-            // load any keys for the Zone, if it is a dynamic update zone, then keys are required
-            load_keys(&mut authority, zone_name_for_signer, zone_config).await?;
-            Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
-        }
-        #[cfg(feature = "resolver")]
-        Some(StoreConfig::Forward(ref config)) => {
-            let forwarder = ForwardAuthority::try_from_config(zone_name, zone_type, config)?;
+                Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
+            }
+            #[cfg(feature = "blocklist")]
+            StoreConfig::Blocklist(ref config) => {
+                let blocklist = BlocklistAuthority::try_from_config(
+                    zone_name.clone(),
+                    zone_type,
+                    config,
+                    Some(zone_dir),
+                );
+                let authority = blocklist.await?;
+                Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
+            }
+            #[cfg(feature = "sqlite")]
+            _ if zone_config.is_update_allowed() => {
+                warn!(
+                    "using deprecated SQLite load configuration, please move to [[zones.stores]] form"
+                );
+                let zone_file_path = zone_path
+                    .clone()
+                    .ok_or("file is a necessary parameter of zone_config")?;
+                let journal_file_path = PathBuf::from(zone_file_path.clone())
+                    .with_extension("jrnl")
+                    .to_str()
+                    .map(String::from)
+                    .ok_or("non-unicode characters in file name")?;
 
-            Box::new(Arc::new(forwarder)) as Box<dyn AuthorityObject>
-        }
-        #[cfg(feature = "recursor")]
-        Some(StoreConfig::Recursor(ref config)) => {
-            let recursor =
-                RecursiveAuthority::try_from_config(zone_name, zone_type, config, Some(zone_dir));
-            let authority = recursor.await?;
+                let config = SqliteConfig {
+                    zone_file_path,
+                    journal_file_path,
+                    allow_update: zone_config.is_update_allowed(),
+                };
 
-            Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
-        }
-        #[cfg(feature = "sqlite")]
-        None if zone_config.is_update_allowed() => {
-            warn!(
-                "using deprecated SQLite load configuration, please move to [[zones.stores]] form"
-            );
-            let zone_file_path = zone_path.ok_or("file is a necessary parameter of zone_config")?;
-            let journal_file_path = PathBuf::from(zone_file_path.clone())
-                .with_extension("jrnl")
-                .to_str()
-                .map(String::from)
-                .ok_or("non-unicode characters in file name")?;
+                let mut authority = SqliteAuthority::try_from_config(
+                    zone_name.clone(),
+                    zone_type,
+                    is_axfr_allowed,
+                    is_dnssec_enabled,
+                    Some(zone_dir),
+                    &config,
+                )
+                .await?;
 
-            let config = SqliteConfig {
-                zone_file_path,
-                journal_file_path,
-                allow_update: zone_config.is_update_allowed(),
-            };
+                // load any keys for the Zone, if it is a dynamic update zone, then keys are required
+                load_keys(&mut authority, zone_name_for_signer.clone(), zone_config).await?;
+                Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
+            }
+            _ => {
+                let config = FileConfig {
+                    zone_file_path: zone_path
+                        .clone()
+                        .ok_or("file is a necessary parameter of zone_config")?,
+                };
 
-            let mut authority = SqliteAuthority::try_from_config(
-                zone_name,
-                zone_type,
-                is_axfr_allowed,
-                is_dnssec_enabled,
-                Some(zone_dir),
-                &config,
-            )
-            .await?;
+                let mut authority = FileAuthority::try_from_config(
+                    zone_name.clone(),
+                    zone_type,
+                    is_axfr_allowed,
+                    Some(zone_dir),
+                    &config,
+                )?;
 
-            // load any keys for the Zone, if it is a dynamic update zone, then keys are required
-            load_keys(&mut authority, zone_name_for_signer, zone_config).await?;
-            Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
-        }
-        None => {
-            let config = FileConfig {
-                zone_file_path: zone_path.ok_or("file is a necessary parameter of zone_config")?,
-            };
+                // load any keys for the Zone, if it is a dynamic update zone, then keys are required
+                load_keys(&mut authority, zone_name_for_signer.clone(), zone_config).await?;
+                Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
+            }
+        };
 
-            let mut authority = FileAuthority::try_from_config(
-                zone_name,
-                zone_type,
-                is_axfr_allowed,
-                Some(zone_dir),
-                &config,
-            )?;
-
-            // load any keys for the Zone, if it is a dynamic update zone, then keys are required
-            load_keys(&mut authority, zone_name_for_signer, zone_config).await?;
-            Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
-        }
-        Some(_) => {
-            panic!("unrecognized authority type, check enabled features");
-        }
-    };
+        authorities.push(authority);
+    }
 
     info!("zone successfully loaded: {}", zone_config.get_zone()?);
-    Ok(authority)
+    Ok(authorities)
 }
 
 /// Cli struct for all options managed with clap derive api.
