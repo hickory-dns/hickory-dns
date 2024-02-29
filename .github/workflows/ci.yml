@@ -28,7 +28,7 @@ jobs:
         run: cargo test -p dns-test -- --include-ignored
 
       - name: Run tests against unbound
-        run: cargo test -p conformance-tests -- --include-ignored
+        run: DNS_TEST_PEER=bind cargo test -p conformance-tests -- --include-ignored
 
       - name: Run tests against BIND
         run: DNS_TEST_SUBJECT=bind cargo test -p conformance-tests -- --include-ignored
