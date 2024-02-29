@@ -51,6 +51,7 @@ dnssec = [
 recursor = ["hickory-recursor"]
 resolver = ["hickory-resolver"]
 sqlite = ["rusqlite"]
+blocklist = ["resolver"]
 toml = ["dep:toml"]
 
 dns-over-https-rustls = [

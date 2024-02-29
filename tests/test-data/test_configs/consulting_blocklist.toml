@@ -1,0 +1,63 @@
+## Default zones, these should be present on all nameservers, except in rare
+##  configuration cases
+[[zones]]
+zone = "localhost"
+zone_type = "Primary"
+file = "default/localhost.zone"
+
+[[zones]]
+zone = "0.0.127.in-addr.arpa"
+zone_type = "Primary"
+file = "default/127.0.0.1.zone"
+
+[[zones]]
+zone = "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"
+zone_type = "Primary"
+file = "default/ipv6_1.zone"
+
+[[zones]]
+zone = "255.in-addr.arpa"
+zone_type = "Primary"
+file = "default/255.zone"
+
+[[zones]]
+zone = "0.in-addr.arpa"
+zone_type = "Primary"
+file = "default/0.zone"
+
+[[zones]]
+## zone: this is the ORIGIN of the zone, aka the base name, '.' is implied on the end
+##  specifying something other than '.' here, will restrict this recursor to only queries
+##  where the search name is a subzone of the name, e.g. if zone is "example.com.", then
+##  queries for "www.example.com" or "example.com" would be recursively queried.
+zone = "."
+
+## zone_type: Primary, Secondary, Hint, Forward
+zone_type = "Hint"
+
+[[zones.stores]]
+type = "recursor"
+roots = "default/root.zone"
+ns_cache_size = 1024
+record_cache_size = 1048576
+
+## do_not_query: these networks will not be sent queries during recursive resolution
+do_not_query = ["0.0.0.0/8", "127.0.0.0/8", "::/128", "::1/128"]
+
+## Note that in this example, the recursor comes first and the blocklist is second.  Queries
+## are sent to the authorities in-order, so a user query will go first to the recursor, which
+## will always provide an answer (or error) of some sort.  After the first authority answers,
+## the "lookup" portion of the search is complete, and the "consult" action can begin.  In this
+## case, the blocklist will be consulted immediately after the recursor lookup.
+[[zones.stores]]
+type = "blocklist"
+wildcard_match = true
+min_wildcard_depth = 2
+sinkhole_ipv4 = "192.0.2.1"
+sinkhole_ipv6 = "::ffff:c0:0:2:1"
+
+## This can be "Disabled" (the default,) "Log" (to log queries,) or "Enforce" (to log AND overwrite
+## queries.)
+consult_action = "Log"
+lists = ["default/blocklist.txt", "default/blocklist2.txt"]
+
