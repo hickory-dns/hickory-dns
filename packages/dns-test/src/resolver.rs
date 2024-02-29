@@ -2,6 +2,7 @@ use core::fmt::Write;
 use std::net::Ipv4Addr;
 
 use crate::container::{Child, Container, Network};
+use crate::implementation::{Config, Role};
 use crate::trust_anchor::TrustAnchor;
 use crate::tshark::Tshark;
 use crate::zone_file::Root;
@@ -40,34 +41,17 @@ impl Resolver {
             writeln!(hints, "{root}").unwrap();
         }
 
+        container.cp("/etc/root.hints", &hints)?;
+
         let use_dnssec = !trust_anchor.is_empty();
-        match implementation {
-            Implementation::Bind => {
-                container.cp("/etc/bind/root.hints", &hints)?;
-
-                container.cp(
-                    "/etc/bind/named.conf",
-                    &named_conf(use_dnssec, network.netmask()),
-                )?;
-            }
-
-            Implementation::Unbound => {
-                container.cp("/etc/unbound/root.hints", &hints)?;
-
-                container.cp(
-                    "/etc/unbound/unbound.conf",
-                    &unbound_conf(use_dnssec, network.netmask()),
-                )?;
-            }
-
-            Implementation::Hickory { .. } => {
-                container.status_ok(&["mkdir", "-p", "/etc/hickory"])?;
-
-                container.cp("/etc/hickory/root.hints", &hints)?;
-
-                container.cp("/etc/named.toml", &hickory_conf(use_dnssec))?;
-            }
-        }
+        let config = Config::Resolver {
+            use_dnssec,
+            netmask: network.netmask(),
+        };
+        container.cp(
+            implementation.conf_file_path(config.role()),
+            &implementation.format_config(config),
+        )?;
 
         if use_dnssec {
             let path = if implementation.is_bind() {
@@ -85,12 +69,7 @@ impl Resolver {
             container.cp(path, &contents)?;
         }
 
-        let command: &[_] = match implementation {
-            Implementation::Bind => &["named", "-g", "-d5"],
-            Implementation::Unbound => &["unbound", "-d"],
-            Implementation::Hickory { .. } => &["hickory-dns", "-d"],
-        };
-        let child = container.spawn(command)?;
+        let child = container.spawn(implementation.cmd_args(config.role()))?;
 
         Ok(Self {
             child,
@@ -113,11 +92,7 @@ impl Resolver {
 
     /// gracefully terminates the name server collecting all logs
     pub fn terminate(self) -> Result<String> {
-        let pidfile = match self.implementation {
-            Implementation::Bind => "/tmp/named.pid",
-            Implementation::Unbound => "/run/unbound.pid",
-            Implementation::Hickory(..) => unimplemented!(),
-        };
+        let pidfile = self.implementation.pidfile(Role::Resolver);
         let kill = format!(
             "test -f {pidfile} || sleep 1
 kill -TERM $(cat {pidfile})"
@@ -135,18 +110,6 @@ kill -TERM $(cat {pidfile})"
         );
         Ok(output.stdout)
     }
-}
-
-fn named_conf(use_dnssec: bool, netmask: &str) -> String {
-    minijinja::render!(include_str!("templates/named.resolver.conf.jinja"), use_dnssec => use_dnssec, netmask => netmask)
-}
-
-fn unbound_conf(use_dnssec: bool, netmask: &str) -> String {
-    minijinja::render!(include_str!("templates/unbound.conf.jinja"), use_dnssec => use_dnssec, netmask => netmask)
-}
-
-fn hickory_conf(use_dnssec: bool) -> String {
-    minijinja::render!(include_str!("templates/hickory.resolver.toml.jinja"), use_dnssec => use_dnssec)
 }
 
 #[cfg(test)]

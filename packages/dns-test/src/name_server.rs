@@ -2,6 +2,7 @@ use core::sync::atomic::{self, AtomicUsize};
 use std::net::Ipv4Addr;
 
 use crate::container::{Child, Container, Network};
+use crate::implementation::{Config, Role};
 use crate::record::{self, Record, SoaSettings, DS, SOA};
 use crate::tshark::Tshark;
 use crate::zone_file::{self, ZoneFile};
@@ -147,30 +148,19 @@ impl NameServer<Stopped> {
             state: _,
         } = self;
 
-        let origin = zone_file.origin();
-        let (path, contents, cmd_args) = match &implementation {
-            Implementation::Bind => (
-                "/etc/bind/named.conf",
-                named_conf(origin),
-                &["named", "-g", "-d5"][..],
-            ),
-
-            Implementation::Unbound => {
-                // for PID file
-                container.status_ok(&["mkdir", "-p", "/run/nsd/"])?;
-
-                ("/etc/nsd/nsd.conf", nsd_conf(origin), &["nsd", "-d"][..])
-            }
-
-            Implementation::Hickory(_) => unreachable!(),
+        let config = Config::NameServer {
+            origin: zone_file.origin(),
         };
 
-        container.cp(path, &contents)?;
+        container.cp(
+            implementation.conf_file_path(config.role()),
+            &implementation.format_config(config),
+        )?;
 
         container.status_ok(&["mkdir", "-p", ZONES_DIR])?;
         container.cp(&zone_file_path(), &zone_file.to_string())?;
 
-        let child = container.spawn(cmd_args)?;
+        let child = container.spawn(implementation.cmd_args(config.role()))?;
 
         Ok(NameServer {
             container,
@@ -203,32 +193,16 @@ impl NameServer<Signed> {
             state,
         } = self;
 
-        let (conf_path, conf_contents, cmd_args) = match implementation {
-            Implementation::Bind => (
-                "/etc/bind/named.conf",
-                named_conf(zone_file.origin()),
-                &["named", "-g", "-d5"][..],
-            ),
-
-            Implementation::Unbound => {
-                // for PID file
-                container.status_ok(&["mkdir", "-p", "/run/nsd/"])?;
-
-                (
-                    "/etc/nsd/nsd.conf",
-                    nsd_conf(zone_file.origin()),
-                    &["nsd", "-d"][..],
-                )
-            }
-
-            Implementation::Hickory(..) => unreachable!(),
+        let config = Config::NameServer {
+            origin: zone_file.origin(),
         };
-
-        container.cp(conf_path, &conf_contents)?;
-
+        container.cp(
+            implementation.conf_file_path(config.role()),
+            &implementation.format_config(config),
+        )?;
         container.cp(&zone_file_path(), &state.signed.to_string())?;
 
-        let child = container.spawn(cmd_args)?;
+        let child = container.spawn(implementation.cmd_args(config.role()))?;
 
         Ok(NameServer {
             container,
@@ -267,13 +241,8 @@ impl NameServer<Running> {
 
     /// gracefully terminates the name server collecting all logs
     pub fn terminate(self) -> Result<String> {
-        let pidfile = match &self.implementation {
-            Implementation::Bind => "/tmp/named.pid",
+        let pidfile = self.implementation.pidfile(Role::NameServer);
 
-            Implementation::Unbound => "/run/nsd/nsd.pid",
-
-            Implementation::Hickory(_) => unreachable!(),
-        };
         // if `terminate` is called right after `start` NSD may not have had the chance to create
         // the PID file so if it doesn't exist wait for a bit before invoking `kill`
         let kill = format!(
@@ -284,7 +253,9 @@ kill -TERM $(cat {pidfile})"
         let output = self.state.child.wait()?;
 
         if !output.status.success() {
-            return Err("could not terminate the `unbound` process".into());
+            return Err(
+                format!("could not terminate the `{}` process", self.implementation).into(),
+            );
         }
 
         assert!(
@@ -337,20 +308,6 @@ fn primary_ns(ns_count: usize) -> FQDN {
 
 fn admin_ns(ns_count: usize) -> FQDN {
     FQDN(format!("admin{ns_count}.nameservers.com.")).unwrap()
-}
-
-fn named_conf(fqdn: &FQDN) -> String {
-    minijinja::render!(
-        include_str!("templates/named.name-server.conf.jinja"),
-        fqdn => fqdn.as_str()
-    )
-}
-
-fn nsd_conf(fqdn: &FQDN) -> String {
-    minijinja::render!(
-        include_str!("templates/nsd.conf.jinja"),
-        fqdn => fqdn.as_str()
-    )
 }
 
 #[cfg(test)]
