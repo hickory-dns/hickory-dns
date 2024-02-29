@@ -237,17 +237,6 @@ async fn load_zone(
 
                 Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
             }
-            #[cfg(feature = "blocklist")]
-            StoreConfig::Blocklist(ref config) => {
-                let blocklist = BlocklistAuthority::try_from_config(
-                    zone_name.clone(),
-                    zone_type,
-                    config,
-                    Some(zone_dir),
-                );
-                let authority = blocklist.await?;
-                Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
-            }
             #[cfg(feature = "sqlite")]
             _ if zone_config.is_update_allowed() => {
                 warn!(
