@@ -9,8 +9,9 @@ use crate::{Implementation, Result, DEFAULT_TTL, FQDN};
 
 pub struct NameServer<State> {
     container: Container,
-    zone_file: ZoneFile,
+    implementation: Implementation,
     state: State,
+    zone_file: ZoneFile,
 }
 
 impl NameServer<Stopped> {
@@ -28,12 +29,17 @@ impl NameServer<Stopped> {
     /// the zone
     pub fn new(implementation: &Implementation, zone: FQDN, network: &Network) -> Result<Self> {
         assert!(
-            matches!(implementation, Implementation::Unbound),
-            "currently only `unbound` (`nsd`) can be used as a `NameServer`"
+            matches!(
+                implementation,
+                Implementation::Unbound | Implementation::Bind
+            ),
+            "currently only `unbound` (`nsd`) and BIND can be used as a `NameServer`"
         );
 
         let ns_count = ns_count();
         let nameserver = primary_ns(ns_count);
+        let image = implementation.clone().into();
+        let container = Container::run(&image, network)?;
 
         let soa = SOA {
             zone: zone.clone(),
@@ -45,10 +51,12 @@ impl NameServer<Stopped> {
         let mut zone_file = ZoneFile::new(soa);
 
         zone_file.add(Record::ns(zone, nameserver.clone()));
+        // BIND requires that `nameserver` has an A record
+        zone_file.add(Record::a(nameserver.clone(), container.ipv4_addr()));
 
-        let image = implementation.clone().into();
         Ok(Self {
-            container: Container::run(&image, network)?,
+            container,
+            implementation: implementation.clone(),
             zone_file,
             state: Stopped,
         })
@@ -76,11 +84,13 @@ impl NameServer<Stopped> {
         let Self {
             container,
             zone_file,
+            implementation,
             state: _,
         } = self;
 
         container.status_ok(&["mkdir", "-p", ZONES_DIR])?;
-        container.cp("/etc/nsd/zones/main.zone", &zone_file.to_string())?;
+        let zone_file_path = zone_file_path();
+        container.cp(&zone_file_path, &zone_file.to_string())?;
 
         let zone = zone_file.origin();
 
@@ -108,7 +118,6 @@ impl NameServer<Stopped> {
         let key2ds = format!("cd {ZONES_DIR} && ldns-key2ds -n -2 {ZONE_FILENAME}.signed");
         let ds: DS = container.stdout(&["sh", "-c", &key2ds])?.parse()?;
 
-        let zone_file_path = zone_file_path();
         let signed: ZoneFile = container
             .stdout(&["cat", &format!("{zone_file_path}.signed")])?
             .parse()?;
@@ -117,6 +126,7 @@ impl NameServer<Stopped> {
 
         Ok(NameServer {
             container,
+            implementation,
             zone_file,
             state: Signed {
                 ds,
@@ -133,28 +143,45 @@ impl NameServer<Stopped> {
         let Self {
             container,
             zone_file,
+            implementation,
             state: _,
         } = self;
 
-        // for PID file
-        container.status_ok(&["mkdir", "-p", "/run/nsd/"])?;
+        let origin = zone_file.origin();
+        let (path, contents, cmd_args) = match &implementation {
+            Implementation::Bind => (
+                "/etc/bind/named.conf",
+                named_conf(origin),
+                &["named", "-g", "-d5"][..],
+            ),
 
-        container.cp("/etc/nsd/nsd.conf", &nsd_conf(zone_file.origin()))?;
+            Implementation::Unbound => {
+                // for PID file
+                container.status_ok(&["mkdir", "-p", "/run/nsd/"])?;
+
+                ("/etc/nsd/nsd.conf", nsd_conf(origin), &["nsd", "-d"][..])
+            }
+
+            Implementation::Hickory(_) => unreachable!(),
+        };
+
+        container.cp(path, &contents)?;
 
         container.status_ok(&["mkdir", "-p", ZONES_DIR])?;
         container.cp(&zone_file_path(), &zone_file.to_string())?;
 
-        let child = container.spawn(&["nsd", "-d"])?;
+        let child = container.spawn(cmd_args)?;
 
         Ok(NameServer {
             container,
+            implementation,
             zone_file,
             state: Running { child },
         })
     }
 }
 
-const ZONES_DIR: &str = "/etc/nsd/zones";
+const ZONES_DIR: &str = "/etc/zones";
 const ZONE_FILENAME: &str = "main.zone";
 
 fn zone_file_path() -> String {
@@ -172,20 +199,40 @@ impl NameServer<Signed> {
         let Self {
             container,
             zone_file,
+            implementation,
             state,
         } = self;
 
-        // for PID file
-        container.status_ok(&["mkdir", "-p", "/run/nsd/"])?;
+        let (conf_path, conf_contents, cmd_args) = match implementation {
+            Implementation::Bind => (
+                "/etc/bind/named.conf",
+                named_conf(zone_file.origin()),
+                &["named", "-g", "-d5"][..],
+            ),
 
-        container.cp("/etc/nsd/nsd.conf", &nsd_conf(zone_file.origin()))?;
+            Implementation::Unbound => {
+                // for PID file
+                container.status_ok(&["mkdir", "-p", "/run/nsd/"])?;
+
+                (
+                    "/etc/nsd/nsd.conf",
+                    nsd_conf(zone_file.origin()),
+                    &["nsd", "-d"][..],
+                )
+            }
+
+            Implementation::Hickory(..) => unreachable!(),
+        };
+
+        container.cp(conf_path, &conf_contents)?;
 
         container.cp(&zone_file_path(), &state.signed.to_string())?;
 
-        let child = container.spawn(&["nsd", "-d"])?;
+        let child = container.spawn(cmd_args)?;
 
         Ok(NameServer {
             container,
+            implementation,
             zone_file,
             state: Running { child },
         })
@@ -220,7 +267,13 @@ impl NameServer<Running> {
 
     /// gracefully terminates the name server collecting all logs
     pub fn terminate(self) -> Result<String> {
-        let pidfile = "/run/nsd/nsd.pid";
+        let pidfile = match &self.implementation {
+            Implementation::Bind => "/tmp/named.pid",
+
+            Implementation::Unbound => "/run/nsd/nsd.pid",
+
+            Implementation::Hickory(_) => unreachable!(),
+        };
         // if `terminate` is called right after `start` NSD may not have had the chance to create
         // the PID file so if it doesn't exist wait for a bit before invoking `kill`
         let kill = format!(
@@ -284,6 +337,13 @@ fn primary_ns(ns_count: usize) -> FQDN {
 
 fn admin_ns(ns_count: usize) -> FQDN {
     FQDN(format!("admin{ns_count}.nameservers.com.")).unwrap()
+}
+
+fn named_conf(fqdn: &FQDN) -> String {
+    minijinja::render!(
+        include_str!("templates/named.name-server.conf.jinja"),
+        fqdn => fqdn.as_str()
+    )
 }
 
 fn nsd_conf(fqdn: &FQDN) -> String {
@@ -375,12 +435,24 @@ mod tests {
     }
 
     #[test]
-    fn terminate_works() -> Result<()> {
+    fn terminate_nsd_works() -> Result<()> {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
         let logs = ns.terminate()?;
 
         assert!(logs.contains("nsd starting"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn terminate_named_works() -> Result<()> {
+        let network = Network::new()?;
+        let ns = NameServer::new(&Implementation::Bind, FQDN::ROOT, &network)?.start()?;
+        let logs = ns.terminate()?;
+
+        eprintln!("{logs}");
+        assert!(logs.contains("starting BIND"));
 
         Ok(())
     }
