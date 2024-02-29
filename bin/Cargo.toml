@@ -32,6 +32,7 @@ default = ["sqlite", "resolver", "native-certs", "ascii-art"]
 # if enabled, the hickory-dns binary will print ascii-art on start, disable to reduce the binary size
 ascii-art = []
 
+blocklist = ["hickory-server/blocklist"]
 dnssec-openssl = ["dnssec", "hickory-server/dnssec-openssl"]
 dnssec-ring = ["dnssec", "hickory-server/dnssec-ring"]
 dnssec = []

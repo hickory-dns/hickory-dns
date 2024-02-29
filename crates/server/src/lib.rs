@@ -46,6 +46,9 @@
 //! * Secure dynamic update
 //! * New features for securing public information
 
+#[cfg(feature = "blocklist")]
+#[cfg_attr(docsrs, doc(cfg(feature = "blocklist")))]
+pub use crate::store::blocklist;
 pub use hickory_proto as proto;
 #[cfg(feature = "hickory-recursor")]
 #[cfg_attr(docsrs, doc(cfg(feature = "recursor")))]

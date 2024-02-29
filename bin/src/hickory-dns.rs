@@ -63,6 +63,8 @@ use tracing_subscriber::{
 use hickory_dns::dnssec::{self, TlsCertConfig};
 use hickory_dns::{Config, StoreConfig, StoreConfigContainer, ZoneConfig};
 use hickory_proto::rr::Name;
+#[cfg(feature = "blocklist")]
+use hickory_server::store::blocklist::BlocklistAuthority;
 #[cfg(feature = "resolver")]
 use hickory_server::store::forwarder::ForwardAuthority;
 #[cfg(feature = "recursor")]
@@ -242,6 +244,16 @@ async fn load_zone(
                 let authority = recursor.await?;
                 Arc::new(authority)
             }
+            #[cfg(feature = "blocklist")]
+            StoreConfig::Blocklist(ref config) => Arc::new(
+                BlocklistAuthority::try_from_config(
+                    zone_name.clone(),
+                    zone_type,
+                    config,
+                    Some(zone_dir),
+                )
+                .await?,
+            ),
             #[cfg(feature = "sqlite")]
             _ if zone_config.is_update_allowed() => {
                 warn!(

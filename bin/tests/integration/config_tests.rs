@@ -270,6 +270,10 @@ macro_rules! define_test_config {
 }
 
 define_test_config!(all_supported_dnssec);
+#[cfg(feature = "blocklist")]
+define_test_config!(chained_blocklist);
+#[cfg(feature = "blocklist")]
+define_test_config!(consulting_blocklist);
 #[cfg(feature = "dns-over-https-rustls")]
 define_test_config!(dns_over_https);
 #[cfg(feature = "dns-over-tls")]
@@ -475,6 +479,13 @@ fn test_reject_unknown_fields() {
                 for store in stores {
                     let store = store.as_table().unwrap();
                     let _store_type = store.get("type").unwrap().as_str().unwrap();
+
+                    #[cfg(not(feature = "blocklist"))]
+                    if _store_type == "blocklist" {
+                        println!("skipping due to blocklist store");
+                        skip = true;
+                        break;
+                    }
 
                     #[cfg(not(feature = "sqlite"))]
                     if _store_type == "sqlite" {

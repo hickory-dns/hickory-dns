@@ -26,6 +26,8 @@ use hickory_server::authority::ZoneType;
 #[cfg(feature = "dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::error::ConfigResult;
+#[cfg(feature = "blocklist")]
+use hickory_server::store::blocklist::BlocklistConfig;
 use hickory_server::store::file::FileConfig;
 #[cfg(feature = "resolver")]
 use hickory_server::store::forwarder::ForwardConfig;
@@ -365,6 +367,9 @@ pub enum StoreConfigContainer {
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
 pub enum StoreConfig {
+    /// Blocklist configuration
+    #[cfg(feature = "blocklist")]
+    Blocklist(BlocklistConfig),
     /// File based configuration
     File(FileConfig),
     /// Sqlite based configuration file
