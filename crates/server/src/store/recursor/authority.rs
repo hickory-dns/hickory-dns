@@ -116,7 +116,7 @@ impl Authority for RecursiveAuthority {
         name: &LowerName,
         rtype: RecordType,
         _lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> Result<Option<Self::Lookup>, LookupError> {
         debug!("recursive lookup: {} {}", name, rtype);
 
         let query = Query::query(name.into(), rtype);
@@ -126,6 +126,7 @@ impl Authority for RecursiveAuthority {
             .resolve(query, now)
             .await
             .map(RecursiveLookup)
+            .map(Some)
             .map_err(Into::into)
     }
 
@@ -133,7 +134,7 @@ impl Authority for RecursiveAuthority {
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> Result<Option<Self::Lookup>, LookupError> {
         self.lookup(
             request_info.query.name(),
             request_info.query.query_type(),
@@ -146,7 +147,7 @@ impl Authority for RecursiveAuthority {
         &self,
         _name: &LowerName,
         _lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> Result<Option<Self::Lookup>, LookupError> {
         Err(LookupError::from(io::Error::new(
             io::ErrorKind::Other,
             "Getting NSEC records is unimplemented for the recursor",

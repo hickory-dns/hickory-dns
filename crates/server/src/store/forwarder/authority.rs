@@ -122,7 +122,7 @@ impl Authority for ForwardAuthority {
         name: &LowerName,
         rtype: RecordType,
         _lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> Result<Option<Self::Lookup>, LookupError> {
         // TODO: make this an error?
         debug_assert!(self.origin.zone_of(name));
 
@@ -130,14 +130,17 @@ impl Authority for ForwardAuthority {
         let name: LowerName = name.clone();
         let resolve = self.resolver.lookup(name, rtype).await;
 
-        resolve.map(ForwardLookup).map_err(LookupError::from)
+        resolve
+            .map(ForwardLookup)
+            .map(Some)
+            .map_err(LookupError::from)
     }
 
     async fn search(
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> Result<Option<Self::Lookup>, LookupError> {
         self.lookup(
             request_info.query.name(),
             request_info.query.query_type(),
@@ -150,7 +153,7 @@ impl Authority for ForwardAuthority {
         &self,
         _name: &LowerName,
         _lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> Result<Option<Self::Lookup>, LookupError> {
         Err(LookupError::from(io::Error::new(
             io::ErrorKind::Other,
             "Getting NSEC records is unimplemented for the forwarder",

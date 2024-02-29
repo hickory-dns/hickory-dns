@@ -63,7 +63,9 @@ pub fn test_create<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
             &query,
         );
 
-        let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+        let lookup = block_on(authority.search(request_info, LookupOptions::default()))
+            .unwrap()
+            .unwrap();
 
         match lookup
             .into_iter()
@@ -117,7 +119,9 @@ pub fn test_create_multi<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
             &query,
         );
 
-        let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+        let lookup = block_on(authority.search(request_info, LookupOptions::default()))
+            .unwrap()
+            .unwrap();
 
         assert!(lookup.iter().any(|rr| *rr == record));
         assert!(lookup.iter().any(|rr| *rr == record2));
@@ -173,7 +177,9 @@ pub fn test_append<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
             &query,
         );
 
-        let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+        let lookup = block_on(authority.search(request_info, LookupOptions::default()))
+            .unwrap()
+            .unwrap();
 
         assert_eq!(lookup.iter().count(), 1);
         assert!(lookup.iter().any(|rr| *rr == record));
@@ -198,7 +204,9 @@ pub fn test_append<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
             &query,
         );
 
-        let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+        let lookup = block_on(authority.search(request_info, LookupOptions::default()))
+            .unwrap()
+            .unwrap();
 
         assert_eq!(lookup.iter().count(), 2);
 
@@ -222,7 +230,9 @@ pub fn test_append<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
             &query,
         );
 
-        let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+        let lookup = block_on(authority.search(request_info, LookupOptions::default()))
+            .unwrap()
+            .unwrap();
 
         assert_eq!(lookup.iter().count(), 2);
 
@@ -278,7 +288,9 @@ pub fn test_append_multi<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
             &query,
         );
 
-        let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+        let lookup = block_on(authority.search(request_info, LookupOptions::default()))
+            .unwrap()
+            .unwrap();
 
         assert_eq!(lookup.iter().count(), 3);
 
@@ -304,7 +316,9 @@ pub fn test_append_multi<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
             &query,
         );
 
-        let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+        let lookup = block_on(authority.search(request_info, LookupOptions::default()))
+            .unwrap()
+            .unwrap();
 
         assert_eq!(lookup.iter().count(), 3);
 
@@ -358,7 +372,9 @@ pub fn test_compare_and_swap<A: Authority<Lookup = AuthLookup>>(
             &query,
         );
 
-        let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+        let lookup = block_on(authority.search(request_info, LookupOptions::default()))
+            .unwrap()
+            .unwrap();
 
         assert_eq!(lookup.iter().count(), 1);
         assert!(lookup.iter().any(|rr| *rr == new));
@@ -388,7 +404,9 @@ pub fn test_compare_and_swap<A: Authority<Lookup = AuthLookup>>(
             &query,
         );
 
-        let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+        let lookup = block_on(authority.search(request_info, LookupOptions::default()))
+            .unwrap()
+            .unwrap();
 
         assert_eq!(lookup.iter().count(), 1);
         assert!(lookup.iter().any(|rr| *rr == new));
@@ -447,7 +465,9 @@ pub fn test_compare_and_swap_multi<A: Authority<Lookup = AuthLookup>>(
             &query,
         );
 
-        let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+        let lookup = block_on(authority.search(request_info, LookupOptions::default()))
+            .unwrap()
+            .unwrap();
 
         assert_eq!(lookup.iter().count(), 2);
         assert!(lookup.iter().any(|rr| *rr == new1));
@@ -479,7 +499,9 @@ pub fn test_compare_and_swap_multi<A: Authority<Lookup = AuthLookup>>(
             &query,
         );
 
-        let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+        let lookup = block_on(authority.search(request_info, LookupOptions::default()))
+            .unwrap()
+            .unwrap();
 
         assert_eq!(lookup.iter().count(), 2);
         assert!(lookup.iter().any(|rr| *rr == new1));
@@ -544,7 +566,9 @@ pub fn test_delete_by_rdata<A: Authority<Lookup = AuthLookup>>(
             &query,
         );
 
-        let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+        let lookup = block_on(authority.search(request_info, LookupOptions::default()))
+            .unwrap()
+            .unwrap();
 
         assert_eq!(lookup.iter().count(), 1);
         assert!(lookup.iter().any(|rr| *rr == record1));
@@ -623,7 +647,9 @@ pub fn test_delete_by_rdata_multi<A: Authority<Lookup = AuthLookup>>(
             &query,
         );
 
-        let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+        let lookup = block_on(authority.search(request_info, LookupOptions::default()))
+            .unwrap()
+            .unwrap();
 
         assert_eq!(lookup.iter().count(), 2);
         assert!(!lookup.iter().any(|rr| *rr == record1));
