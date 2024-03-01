@@ -1,3 +1,4 @@
+use std::env;
 use std::sync::mpsc;
 
 use dns_test::client::Client;
@@ -7,6 +8,8 @@ use dns_test::zone_file::Root;
 use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
 
 fn main() -> Result<()> {
+    let args = Args::from_env()?;
+
     let network = Network::new()?;
     let peer = &dns_test::PEER;
 
@@ -21,32 +24,47 @@ fn main() -> Result<()> {
     nameservers_ns
         .add(Record::a(root_ns.fqdn().clone(), root_ns.ipv4_addr()))
         .add(Record::a(com_ns.fqdn().clone(), com_ns.ipv4_addr()));
-    let nameservers_ns = nameservers_ns.sign()?;
-    let nameservers_ds = nameservers_ns.ds().clone();
-    let nameservers_ns = nameservers_ns.start()?;
 
-    com_ns
-        .referral(
-            nameservers_ns.zone().clone(),
-            nameservers_ns.fqdn().clone(),
-            nameservers_ns.ipv4_addr(),
-        )
-        .add(nameservers_ds);
-    let com_ns = com_ns.sign()?;
-    let com_ds = com_ns.ds().clone();
-    let com_ns = com_ns.start()?;
+    let nameservers_ns = if args.dnssec {
+        let nameservers_ns = nameservers_ns.sign()?;
+        com_ns.add(nameservers_ns.ds().clone());
+        nameservers_ns.start()?
+    } else {
+        nameservers_ns.start()?
+    };
 
-    root_ns
-        .referral(FQDN::COM, com_ns.fqdn().clone(), com_ns.ipv4_addr())
-        .add(com_ds);
-    let root_ns = root_ns.sign()?;
-    let root_ksk = root_ns.key_signing_key().clone();
-    let root_zsk = root_ns.zone_signing_key().clone();
+    com_ns.referral(
+        nameservers_ns.zone().clone(),
+        nameservers_ns.fqdn().clone(),
+        nameservers_ns.ipv4_addr(),
+    );
 
-    let root_ns = root_ns.start()?;
+    let com_ns = if args.dnssec {
+        let com_ns = com_ns.sign()?;
+        root_ns.add(com_ns.ds().clone());
+        com_ns.start()?
+    } else {
+        com_ns.start()?
+    };
+
+    root_ns.referral(FQDN::COM, com_ns.fqdn().clone(), com_ns.ipv4_addr());
+
+    let mut trust_anchor = TrustAnchor::empty();
+    let root_ns = if args.dnssec {
+        let root_ns = root_ns.sign()?;
+        let root_ksk = root_ns.key_signing_key();
+        let root_zsk = root_ns.zone_signing_key();
+
+        trust_anchor.add(root_ksk.clone());
+        trust_anchor.add(root_zsk.clone());
+
+        root_ns.start()?
+    } else {
+        root_ns.start()?
+    };
+
     println!("DONE");
 
-    let trust_anchor = TrustAnchor::from_iter([root_ksk.clone(), root_zsk.clone()]);
     println!("building docker image...");
     let resolver = Resolver::new(
         &network,
@@ -58,8 +76,11 @@ fn main() -> Result<()> {
 
     let resolver_addr = resolver.ipv4_addr();
     let client = Client::new(&network)?;
-    // generate `/etc/bind.keys`
-    client.delv(resolver_addr, RecordType::SOA, &FQDN::ROOT, &trust_anchor)?;
+
+    if args.dnssec {
+        // generate `/etc/bind.keys`
+        client.delv(resolver_addr, RecordType::SOA, &FQDN::ROOT, &trust_anchor)?;
+    }
 
     let (tx, rx) = mpsc::channel();
 
@@ -99,10 +120,13 @@ fn main() -> Result<()> {
     );
 
     println!("example queries (run these in the client container):\n");
-    println!("`dig @{resolver_addr} SOA .`\n");
-    println!(
-        "`delv -a /etc/bind.keys @{resolver_addr} SOA .` (you MUST use the `-a` flag with delv)\n\n"
-    );
+    let adflag = if args.dnssec { "+adflag" } else { "+noadflag" };
+    println!("`dig @{resolver_addr} {adflag} SOA .`\n");
+    if args.dnssec {
+        println!(
+            "`delv -a /etc/bind.keys @{resolver_addr} SOA .` (you MUST use the `-a` flag with delv)\n\n"
+        );
+    }
 
     println!(
         "to print the DNS traffic flowing through the resolver run this command in
@@ -117,4 +141,39 @@ the resolver container before performing queries:\n"
     println!("\ntaking down network...");
 
     Ok(())
+}
+
+struct Args {
+    dnssec: bool,
+}
+
+impl Args {
+    fn from_env() -> Result<Self> {
+        let args: Vec<_> = env::args().skip(1).collect();
+        let num_args = args.len();
+
+        let dnssec = if num_args == 0 {
+            false
+        } else if num_args == 1 {
+            if args[0] == "--dnssec" {
+                true
+            } else {
+                return cli_error();
+            }
+        } else {
+            return cli_error();
+        };
+
+        Ok(Self { dnssec })
+    }
+}
+
+fn cli_error<T>() -> Result<T> {
+    eprintln!(
+        "usage: explore [--dnssec]
+Options:
+  --dnssec      sign zone files to enable DNSSEC"
+    );
+
+    Err("CLI error".into())
 }
