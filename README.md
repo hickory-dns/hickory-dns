@@ -44,6 +44,51 @@ $ DNS_TEST_SUBJECT="hickory https://github.com/hickory-dns/hickory-dns" cargo ru
   
 - `DNS_TEST_VERBOSE_DOCKER_BUILD`. Setting this variable prints the output of the `docker build` invocations that the framework does to the console. This is useful to verify that image caching is working; for example if you set `DNS_TEST_SUBJECT` to a local `hickory-dns` repository then consecutively running the `explore` example and/or `conformance-tests` test suite **must** not rebuild `hickory-dns` provided that you have not *committed* any new change to the local repository.
 
+### Writing tests
+
+Here are some considerations when writing tests.
+
+- Both `unbound` and BIND, in the resolver role, will initially query for the A record of their configured root server's FQDN as well as the A records of all the name servers covering the zones required to resolve the root server's FQDN. As of [49c89f7], All the name servers have a FQDN of the form `primaryNNN.nameservers.com.`, where `NNN` is a non-negative integer. These initial `A primaryNNN.nameservers.com.` queries will be sent to the name server that covers the `nameservers.com.` zone. What all this means in practice, is that you'll need to add these A records -- the root server's, `com.`'s name server and `nameservers.com.`'s name server -- to the `nameservers.com.` zone file; if you don't, most queries (expect perhaps for `SOA .`) will fail to resolve with return code SERVFAIL.
+
+[49c89f7]: https://github.com/ferrous-systems/dnssec-tests/commit/49c89f764ede89aefe578b799e7766f051a600cc
+
+``` rust
+let root_ns: NameServer;        // for `.` zone
+let com_ns: NameServer;         // for `com.` zone
+let nameservers_ns: NameServer; // for `nameservers.com.` zone
+
+nameservers_ns
+    .add(Record::a(root_ns.fqdn().clone(), root_ns.ipv4_addr()))
+    .add(Record::a(com_ns.fqdn().clone(), com_ns.ipv4_addr()));
+
+// each `NameServer` will start out with an A record of its FQDN to its own IPv4 address in its
+// zone file so NO need to add that one in the preceding statement
+```
+
+- To get resolution to work, you need referrals -- in the form of NS and A record pairs -- from parent zones to child zones. Check the [`dns::scenarios::can_resolve`] for an example of how to set up referrals.
+
+[`dns::scenarios::can_resolve`]: https://github.com/ferrous-systems/dnssec-tests/blob/49c89f764ede89aefe578b799e7766f051a600cc/packages/conformance-tests/src/resolver/dns/scenarios.rs#L10
+
+- To get DNSSEC validation to work, you need the DS record of the child zone in the parent zone. Furthermore, the DS record needs to be signed using parent zone's key. Check the [`dnssec::scenarios::secure::can_validate_with_delegation`] for an example of how to set up the DS records.
+
+[`dnssec::scenarios::secure::can_validate_with_delegation`]: https://github.com/ferrous-systems/dnssec-tests/blob/49c89f764ede89aefe578b799e7766f051a600cc/packages/conformance-tests/src/resolver/dnssec/scenarios/secure.rs#L48
+
+- You can get the logs of both a `Resolver` and `NameServer` using the `terminate` method. This method terminates the server and returns all the logs. This can be useful when trying to figure out why a query is not producing the expected results.
+
+``` rust
+let resolver: Resolver;
+
+let ans = client.dig(/* .. */);
+
+let logs = resolver.terminate()?;
+
+// print the logs to figure out ...
+eprintln!("{logs}");
+
+// ... why this assertion is not working
+assert!(ans.status.is_noerror());
+```
+
 ## `conformance-tests`
 
 This is a collection of tests that check the conformance of a DNS implementation to the different RFCs around DNS and DNSSEC.
