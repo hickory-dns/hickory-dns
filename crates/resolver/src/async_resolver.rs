@@ -367,9 +367,15 @@ impl<P: ConnectionProvider> AsyncResolver<P> {
         L: From<Lookup> + Send + 'static,
     {
         let names = self.build_names(name);
-        LookupFuture::lookup_with_hosts(names, record_type, options, self.client_cache.clone(), self.hosts.clone())
-            .await
-            .map(L::from)
+        LookupFuture::lookup_with_hosts(
+            names,
+            record_type,
+            options,
+            self.client_cache.clone(),
+            self.hosts.clone(),
+        )
+        .await
+        .map(L::from)
     }
 
     /// Performs a dual-stack DNS lookup for the IP for the given hostname.
