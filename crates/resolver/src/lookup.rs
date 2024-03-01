@@ -319,7 +319,7 @@ where
                 } else {
                     client_cache.lookup(query, options).boxed()
                 }
-            },
+            }
             Err(err) => future::err(err).boxed(),
         };
 
