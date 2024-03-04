@@ -362,7 +362,7 @@ impl Catalog {
 
             match result {
                 // The current authority in the chain did not handle the request, so we need to try the next one, if any.
-                LookupResult::Bypass => {
+                LookupResult::Skip => {
                     debug!("catalog::lookup::authority did not handle request.");
                     panic!("Correct implementation is part of the chained recursor PR.");
                 }
@@ -461,7 +461,7 @@ async fn lookup<'a, R: ResponseHandler + Unpin>(
             }
         }
         LookupResult::Err(e) => LookupResult::Err(e),
-        LookupResult::Bypass => LookupResult::Bypass,
+        LookupResult::Skip => LookupResult::Skip,
     }
 }
 
@@ -517,9 +517,9 @@ async fn build_response(
     let result = authority.search(request_info, lookup_options).await;
 
     // Abort only if the authority declined to handle the request.
-    if let LookupResult::Bypass = result {
+    if let LookupResult::Skip = result {
         trace!("build_response: Aborting search on None");
-        return LookupResult::Bypass;
+        return LookupResult::Skip;
     }
 
     #[allow(deprecated)]
@@ -580,8 +580,8 @@ async fn send_authoritative_response(
             };
             None
         }
-        LookupResult::Bypass => {
-            debug!("Unexpected lookup bypass");
+        LookupResult::Skip => {
+            debug!("Unexpected lookup skip");
             None
         }
     };
@@ -597,8 +597,8 @@ async fn send_authoritative_response(
                     warn!("ns_lookup errored: {}", e);
                     (None, None)
                 }
-                LookupResult::Bypass => {
-                    warn!("ns_lookup unexpected bypass");
+                LookupResult::Skip => {
+                    warn!("ns_lookup unexpected skip");
                     (None, None)
                 }
             }
@@ -618,8 +618,8 @@ async fn send_authoritative_response(
                     warn!("failed to lookup nsecs: {}", e);
                     None
                 }
-                LookupResult::Bypass => {
-                    warn!("Unexpected lookup bypass");
+                LookupResult::Skip => {
+                    warn!("Unexpected lookup skip");
                     None
                 }
             }
@@ -633,8 +633,8 @@ async fn send_authoritative_response(
                 warn!("failed to lookup soa: {}", e);
                 (nsecs, None)
             }
-            LookupResult::Bypass => {
-                warn!("Unexpected lookup bypass");
+            LookupResult::Skip => {
+                warn!("Unexpected lookup skip");
                 (None, None)
             }
         }
@@ -688,8 +688,8 @@ async fn send_forwarded_response(
                 debug!("error resolving: {}", e);
                 Box::new(EmptyLookup)
             }
-            LookupResult::Bypass => {
-                info!("Unexpected lookup bypass");
+            LookupResult::Skip => {
+                info!("Unexpected lookup skip");
                 Box::new(EmptyLookup)
             }
             LookupResult::Ok(rsp) => rsp,

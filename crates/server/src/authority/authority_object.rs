@@ -164,7 +164,7 @@ where
     ) -> LookupResult<Box<dyn LookupObject>> {
         let this = self.as_ref();
         let lookup = Authority::lookup(this, name, rtype, lookup_options).await;
-        lookup.map(|l| Box::new(l) as Box<dyn LookupObject>)
+        lookup.map_dyn() //(|l| Box::new(l) as Box<dyn LookupObject>)
     }
 
     /// Using the specified query, perform a lookup against this zone.
@@ -186,7 +186,7 @@ where
         let this = self.as_ref();
         debug!("performing {} on {}", request_info.query, this.origin());
         let lookup = Authority::search(this, request_info, lookup_options).await;
-        lookup.map(|l| Box::new(l) as Box<dyn LookupObject>)
+        lookup.map_dyn() //(|l| Box::new(l) as Box<dyn LookupObject>)
     }
 
     /// Return the NSEC records based on the given name
@@ -202,7 +202,7 @@ where
         lookup_options: LookupOptions,
     ) -> LookupResult<Box<dyn LookupObject>> {
         let lookup = Authority::get_nsec_records(self.as_ref(), name, lookup_options).await;
-        lookup.map(|l| Box::new(l) as Box<dyn LookupObject>)
+        lookup.map_dyn() //(|l| Box::new(l) as Box<dyn LookupObject>)
     }
 }
 

@@ -15,7 +15,7 @@ use crate::proto::rr::{
     Name,
 };
 use crate::{
-    authority::{LookupError, MessageRequest, UpdateResult, ZoneType},
+    authority::{LookupError, LookupObject, MessageRequest, UpdateResult, ZoneType},
     proto::rr::{LowerName, RecordSet, RecordType, RrsetRecords},
     server::RequestInfo,
 };
@@ -208,13 +208,13 @@ pub enum LookupResult<T, E = LookupError> {
     /// The authority did not answer the query and the next authority in the chain should
     /// be consulted.  Do not use this for any other purpose, in particular, do not use it
     /// to represent an empty lookup (use Ok(EmptyLookup) for that.)
-    Bypass,
+    Skip,
 }
 
 /// The following are a minimal set of methods typically used with Result or Option, and that
 /// were used in the server code or test suite prior to when the LookupResult type was created
 /// (authority lookup functions previously returned a Result over a Lookup or LookupError type.)
-impl<T, E: std::fmt::Display> LookupResult<T, E> {
+impl<T: LookupObject + 'static, E: std::fmt::Display> LookupResult<T, E> {
     /// Return LookupResult::Ok variant or panic with a custom error message.
     pub fn expect(self, msg: &str) -> T {
         match self {
@@ -222,8 +222,8 @@ impl<T, E: std::fmt::Display> LookupResult<T, E> {
             Self::Err(_e) => {
                 panic!("LookupResult expect called on LookupResult::Err: {msg}");
             }
-            Self::Bypass => {
-                panic!("LookupResult expect called on LookupResult::Bypass: {msg}");
+            Self::Skip => {
+                panic!("LookupResult expect called on LookupResult::Skip: {msg}");
             }
         }
     }
@@ -235,8 +235,8 @@ impl<T, E: std::fmt::Display> LookupResult<T, E> {
                 panic!("LookupResult::expect_err called on LookupResult::Ok value: {msg}");
             }
             Self::Err(e) => e,
-            Self::Bypass => {
-                panic!("LookupResult::expect_err called on LookupResult::Bypass value: {msg}");
+            Self::Skip => {
+                panic!("LookupResult::expect_err called on LookupResult::Skip value: {msg}");
             }
         }
     }
@@ -248,8 +248,8 @@ impl<T, E: std::fmt::Display> LookupResult<T, E> {
             Self::Err(e) => {
                 panic!("LookupResult unwrap called on LookupResult::Err: {e}");
             }
-            Self::Bypass => {
-                panic!("LookupResult unwrap called on LookupResult::Bypass");
+            Self::Skip => {
+                panic!("LookupResult unwrap called on LookupResult::Skip");
             }
         }
     }
@@ -261,8 +261,8 @@ impl<T, E: std::fmt::Display> LookupResult<T, E> {
                 panic!("LookupResult::unwrap_err called on LookupResult::Ok value");
             }
             Self::Err(e) => e,
-            Self::Bypass => {
-                panic!("LookupResult::unwrap_err called on LookupResult::Bypass");
+            Self::Skip => {
+                panic!("LookupResult::unwrap_err called on LookupResult::Skip");
             }
         }
     }
@@ -279,22 +279,34 @@ impl<T, E: std::fmt::Display> LookupResult<T, E> {
     }
 
     /// Maps LookupResult::Ok(T) to LookupResult::Ok(U), passing LookupResult::Err and
-    /// LookupResult::Bypass values unchanged.
+    /// LookupResult::Skip values unchanged.
     pub fn map<U, F: FnOnce(T) -> U>(self, op: F) -> LookupResult<U, E> {
         match self {
             Self::Ok(t) => LookupResult::<U, E>::Ok(op(t)),
             Self::Err(e) => LookupResult::<U, E>::Err(e),
-            Self::Bypass => LookupResult::<U, E>::Bypass,
+            Self::Skip => LookupResult::<U, E>::Skip,
+        }
+    }
+
+    /// Maps LookupResult::Ok(T) to LookupResult::Ok(Box<dyn LookupObject>), passing LookupResult::Err and
+    /// LookupResult::Skip values unchanged.
+    pub fn map_dyn(self) -> LookupResult<Box<dyn LookupObject>, E> {
+        match self {
+            Self::Ok(t) => {
+                LookupResult::<Box<dyn LookupObject>, E>::Ok(Box::new(t) as Box<dyn LookupObject>)
+            }
+            Self::Err(e) => LookupResult::<Box<dyn LookupObject>, E>::Err(e),
+            Self::Skip => LookupResult::<Box<dyn LookupObject>, E>::Skip,
         }
     }
 
     /// Maps LookupResult::Err(T) to LookupResult::Err(U), passing LookupResult::Ok and
-    /// LookupResult::Bypass values unchanged.
+    /// LookupResult::Skip values unchanged.
     pub fn map_err<U, F: FnOnce(E) -> U>(self, op: F) -> LookupResult<T, U> {
         match self {
             Self::Ok(t) => LookupResult::<T, U>::Ok(t),
             Self::Err(e) => LookupResult::<T, U>::Err(op(e)),
-            Self::Bypass => LookupResult::<T, U>::Bypass,
+            Self::Skip => LookupResult::<T, U>::Skip,
         }
     }
 }
