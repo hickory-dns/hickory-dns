@@ -1259,7 +1259,7 @@ mod tests {
         }
 
         let mut decoder = BinDecoder::new(&byte_vec);
-        
+
         Message::read(&mut decoder).unwrap()
     }
 
