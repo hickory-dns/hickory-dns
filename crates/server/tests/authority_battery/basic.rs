@@ -33,7 +33,6 @@ pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
 
     match lookup
-        .unwrap()
         .into_iter()
         .next()
         .expect("A record not found in authority")
@@ -50,7 +49,6 @@ pub fn test_soa<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let lookup = block_on(authority.soa()).unwrap();
 
     match lookup
-        .unwrap()
         .into_iter()
         .next()
         .expect("SOA record not found in authority")
@@ -76,7 +74,6 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let lookup = block_on(authority.ns(LookupOptions::default())).unwrap();
 
     match lookup
-        .unwrap()
         .into_iter()
         .next()
         .expect("NS record not found in authority")
@@ -96,14 +93,13 @@ pub fn test_ns_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
         &query,
     );
 
-    let mut lookup = block_on(authority.search(request_info, LookupOptions::default()));
-    let mut binding = lookup.unwrap().unwrap();
+    let mut lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
 
-    let additionals = dbg!(binding
+    let additionals = dbg!(lookup
         .take_additionals()
         .expect("no additionals in response"));
 
-    let ns = binding
+    let ns = lookup
         .into_iter()
         .next()
         .expect("NS record not found in authority")
@@ -132,9 +128,7 @@ pub fn test_mx<A: Authority<Lookup = AuthLookup>>(authority: A) {
         &query,
     );
 
-    let mut lookup = block_on(authority.search(request_info, LookupOptions::default()))
-        .unwrap()
-        .unwrap();
+    let mut lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
 
     let additionals = dbg!(lookup
         .take_additionals()
@@ -194,9 +188,7 @@ pub fn test_mx_to_null<A: Authority<Lookup = AuthLookup>>(authority: A) {
         &query,
     );
 
-    let mut lookup = block_on(authority.search(request_info, LookupOptions::default()))
-        .unwrap()
-        .unwrap();
+    let mut lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
 
     // In this case there should be no additional records
     assert!(lookup.take_additionals().is_none());
@@ -225,9 +217,7 @@ pub fn test_cname<A: Authority<Lookup = AuthLookup>>(authority: A) {
         &query,
     );
 
-    let lookup = block_on(authority.search(request_info, LookupOptions::default()))
-        .unwrap()
-        .unwrap();
+    let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
 
     let cname = lookup
         .into_iter()
@@ -249,15 +239,14 @@ pub fn test_cname_alias<A: Authority<Lookup = AuthLookup>>(authority: A) {
         &query,
     );
 
-    let mut lookup = block_on(authority.search(request_info, LookupOptions::default()));
-    let mut binding = lookup.unwrap().unwrap();
+    let mut lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
 
-    let additionals = binding
+    let additionals = lookup
         .take_additionals()
         .expect("no additionals in response");
 
     // for cname lookups, we have a cname returned in the answer, the catalog will perform additional lookups
-    let cname = binding
+    let cname = lookup
         .into_iter()
         .next()
         .expect("CNAME record not found in authority")
@@ -291,9 +280,7 @@ pub fn test_cname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
         &query,
     );
 
-    let mut lookup = block_on(authority.search(request_info, LookupOptions::default()))
-        .unwrap()
-        .unwrap();
+    let mut lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
 
     let additionals = lookup
         .take_additionals()
@@ -341,9 +328,7 @@ pub fn test_aname<A: Authority<Lookup = AuthLookup>>(authority: A) {
         &query,
     );
 
-    let mut lookup = block_on(authority.search(request_info, LookupOptions::default()))
-        .unwrap()
-        .unwrap();
+    let mut lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
 
     let additionals = lookup
         .take_additionals()
@@ -389,9 +374,7 @@ pub fn test_aname_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
         &query,
     );
 
-    let mut lookup = block_on(authority.search(request_info, LookupOptions::default()))
-        .unwrap()
-        .unwrap();
+    let mut lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
 
     let additionals = lookup.take_additionals().expect("no additionals for aname");
 
@@ -434,9 +417,7 @@ pub fn test_aname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
         &query,
     );
 
-    let mut lookup = block_on(authority.search(request_info, LookupOptions::default()))
-        .unwrap()
-        .unwrap();
+    let mut lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
 
     let additionals = lookup.take_additionals().expect("no additionals");
 
@@ -503,9 +484,7 @@ pub fn test_dots_in_name<A: Authority<Lookup = AuthLookup>>(authority: A) {
         &query,
     );
 
-    let lookup = block_on(authority.search(request_info, LookupOptions::default()))
-        .unwrap()
-        .unwrap();
+    let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
 
     assert_eq!(
         *lookup
@@ -580,9 +559,7 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A) {
         &query,
     );
 
-    let lookup = block_on(authority.search(request_info, LookupOptions::default()))
-        .unwrap()
-        .unwrap();
+    let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
 
     assert_eq!(
         lookup
@@ -614,7 +591,6 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A) {
 
     assert_eq!(
         lookup
-            .unwrap()
             .into_iter()
             .next()
             .map(|r| {
@@ -648,7 +624,6 @@ pub fn test_wildcard_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
     );
 
     let mut lookup = block_on(authority.search(request_info, LookupOptions::default()))
-        .unwrap()
         .expect("lookup of www.wildcard.example.com. failed");
 
     // the name should match the lookup, not the A records
@@ -689,9 +664,7 @@ pub fn test_srv<A: Authority<Lookup = AuthLookup>>(authority: A) {
         &query,
     );
 
-    let mut lookup = block_on(authority.search(request_info, LookupOptions::default()))
-        .unwrap()
-        .unwrap();
+    let mut lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
 
     let additionals = dbg!(lookup
         .take_additionals()

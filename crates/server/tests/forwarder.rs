@@ -26,7 +26,6 @@ fn test_lookup() {
             RecordType::A,
             Default::default(),
         ))
-        .unwrap()
         .unwrap();
 
     let address = lookup.iter().next().expect("no addresses returned!");

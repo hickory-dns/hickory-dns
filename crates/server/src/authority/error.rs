@@ -77,6 +77,3 @@ impl From<LookupError> for io::Error {
         Self::new(io::ErrorKind::Other, Box::new(e))
     }
 }
-
-/// Result of a Lookup in the Catalog and Authority
-pub type LookupResult<T> = Result<T, LookupError>;

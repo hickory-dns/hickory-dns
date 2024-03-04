@@ -68,7 +68,6 @@ fn test_cname_loop() {
             RecordType::A,
             Default::default(),
         ))
-        .unwrap()
         .unwrap();
 
     let records: Vec<&Record> = lookup.iter().collect();
@@ -93,7 +92,6 @@ fn test_cname_loop() {
             RecordType::A,
             Default::default(),
         ))
-        .unwrap()
         .unwrap();
 
     let records: Vec<&Record> = lookup.iter().collect();
@@ -127,7 +125,6 @@ fn test_cname_loop() {
             RecordType::A,
             Default::default(),
         ))
-        .unwrap()
         .unwrap();
 
     let records: Vec<&Record> = lookup.iter().collect();

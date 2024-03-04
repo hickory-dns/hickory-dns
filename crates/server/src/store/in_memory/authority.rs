@@ -18,7 +18,6 @@ use std::{
 };
 
 use cfg_if::cfg_if;
-use futures_util::future::{self, TryFutureExt};
 #[cfg(feature = "dnssec")]
 use time::OffsetDateTime;
 use tracing::{debug, error, warn};
@@ -1008,11 +1007,11 @@ impl Authority for InMemoryAuthority {
         name: &LowerName,
         query_type: RecordType,
         lookup_options: LookupOptions,
-    ) -> Result<Option<Self::Lookup>, LookupError> {
+    ) -> LookupResult<Self::Lookup> {
         let inner = self.inner.read().await;
 
         // Collect the records from each rr_set
-        let (result, additionals): (LookupResult<LookupRecords>, Option<LookupRecords>) =
+        let (result, additionals): (LookupResult<LookupRecords, _>, Option<LookupRecords>) =
             match query_type {
                 RecordType::AXFR | RecordType::ANY => {
                     let result = AnyRecords::new(
@@ -1021,7 +1020,7 @@ impl Authority for InMemoryAuthority {
                         query_type,
                         name.clone(),
                     );
-                    (Ok(LookupRecords::AnyRecords(result)), None)
+                    (LookupResult::Ok(LookupRecords::AnyRecords(result)), None)
                 }
                 _ => {
                     // perform the lookup
@@ -1127,10 +1126,10 @@ impl Authority for InMemoryAuthority {
                         };
 
                     // map the answer to a result
-                    let answer = answer
-                        .map_or(Err(LookupError::from(ResponseCode::NXDomain)), |rr_set| {
-                            Ok(LookupRecords::new(lookup_options, rr_set))
-                        });
+                    let answer = answer.map_or(
+                        LookupResult::Err(LookupError::from(ResponseCode::NXDomain)),
+                        |rr_set| LookupResult::Ok(LookupRecords::new(lookup_options, rr_set)),
+                    );
 
                     let additionals = additionals.map(|a| LookupRecords::many(lookup_options, a));
 
@@ -1144,34 +1143,34 @@ impl Authority for InMemoryAuthority {
         //   generally return NoError and no results when other types exist at the same name. bah.
         // TODO: can we get rid of this?
         let result = match result {
-            Err(LookupError::ResponseCode(ResponseCode::NXDomain)) => {
+            LookupResult::Err(LookupError::ResponseCode(ResponseCode::NXDomain)) => {
                 if inner
                     .records
                     .keys()
                     .any(|key| key.name() == name || name.zone_of(key.name()))
                 {
-                    return Err(LookupError::NameExists);
+                    return LookupResult::Err(LookupError::NameExists);
                 } else {
                     let code = if self.origin().zone_of(name) {
                         ResponseCode::NXDomain
                     } else {
                         ResponseCode::Refused
                     };
-                    return Err(LookupError::from(code));
+                    return LookupResult::Err(LookupError::from(code));
                 }
             }
-            Err(e) => return Err(e),
+            LookupResult::Err(e) => return LookupResult::Err(e),
             o => o,
         };
 
-        result.map(|answers| Some(AuthLookup::answers(answers, additionals)))
+        result.map(|answers| AuthLookup::answers(answers, additionals))
     }
 
     async fn search(
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> Result<Option<Self::Lookup>, LookupError> {
+    ) -> LookupResult<Self::Lookup> {
         debug!("searching InMemoryAuthority for: {}", request_info.query);
 
         let lookup_name = request_info.query.name();
@@ -1182,14 +1181,14 @@ impl Authority for InMemoryAuthority {
         if RecordType::AXFR == record_type {
             // TODO: support more advanced AXFR options
             if !self.is_axfr_allowed() {
-                return Err(LookupError::from(ResponseCode::Refused));
+                return LookupResult::Err(LookupError::from(ResponseCode::Refused));
             }
 
             #[allow(deprecated)]
             match self.zone_type() {
                 ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave => (),
                 // TODO: Forward?
-                _ => return Err(LookupError::from(ResponseCode::NXDomain)),
+                _ => return LookupResult::Err(LookupError::from(ResponseCode::NXDomain)),
             }
         }
 
@@ -1201,22 +1200,31 @@ impl Authority for InMemoryAuthority {
             }
             RecordType::AXFR => {
                 // TODO: shouldn't these SOA's be secure? at least the first, perhaps not the last?
-                let lookup = future::try_join3(
-                    // TODO: maybe switch this to be an soa_inner type call?
-                    self.soa_secure(lookup_options),
-                    self.soa(),
-                    self.lookup(lookup_name, record_type, lookup_options),
-                )
-                .map_ok(|(start_soa, end_soa, records)| match start_soa {
-                    l @ Some(AuthLookup::Empty) => l,
-                    start_soa => Some(AuthLookup::AXFR {
-                        start_soa: start_soa.unwrap_or(AuthLookup::Empty).unwrap_records(),
-                        records: records.unwrap_or(AuthLookup::Empty).unwrap_records(),
-                        end_soa: end_soa.unwrap_or(AuthLookup::Empty).unwrap_records(),
-                    }),
-                });
+                let start_soa = if let LookupResult::Ok(res) = self.soa_secure(lookup_options).await
+                {
+                    res.unwrap_records()
+                } else {
+                    LookupRecords::Empty
+                };
+                let end_soa = if let LookupResult::Ok(res) = self.soa().await {
+                    res.unwrap_records()
+                } else {
+                    LookupRecords::Empty
+                };
 
-                lookup.await
+                let records = if let LookupResult::Ok(res) =
+                    self.lookup(lookup_name, record_type, lookup_options).await
+                {
+                    res.unwrap_records()
+                } else {
+                    LookupRecords::Empty
+                };
+
+                LookupResult::Ok(AuthLookup::AXFR {
+                    start_soa,
+                    end_soa,
+                    records,
+                })
             }
             // A standard Lookup path
             _ => self.lookup(lookup_name, record_type, lookup_options).await,
@@ -1235,7 +1243,7 @@ impl Authority for InMemoryAuthority {
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> Result<Option<Self::Lookup>, LookupError> {
+    ) -> LookupResult<Self::Lookup> {
         let inner = self.inner.read().await;
         fn is_nsec_rrset(rr_set: &RecordSet) -> bool {
             rr_set.record_type() == RecordType::NSEC
@@ -1249,7 +1257,7 @@ impl Authority for InMemoryAuthority {
             .map(|rr_set| LookupRecords::new(lookup_options, rr_set.clone()));
 
         if let Some(no_data) = no_data {
-            return Ok(Some(no_data.into()));
+            return LookupResult::Ok(no_data.into());
         }
 
         let get_closest_nsec = |name: &LowerName| -> Option<Arc<RecordSet>> {
@@ -1310,7 +1318,7 @@ impl Authority for InMemoryAuthority {
             (None, None) => vec![],
         };
 
-        Ok(Some(LookupRecords::many(lookup_options, proofs).into()))
+        LookupResult::Ok(LookupRecords::many(lookup_options, proofs).into())
     }
 
     #[cfg(not(feature = "dnssec"))]
@@ -1318,8 +1326,8 @@ impl Authority for InMemoryAuthority {
         &self,
         _name: &LowerName,
         _lookup_options: LookupOptions,
-    ) -> Result<Option<Self::Lookup>, LookupError> {
-        Ok(Some(AuthLookup::default()))
+    ) -> LookupResult<Self::Lookup> {
+        LookupResult::Ok(AuthLookup::default())
     }
 }
 

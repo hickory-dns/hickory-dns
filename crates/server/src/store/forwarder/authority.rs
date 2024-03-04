@@ -12,7 +12,8 @@ use tracing::{debug, info};
 
 use crate::{
     authority::{
-        Authority, LookupError, LookupObject, LookupOptions, MessageRequest, UpdateResult, ZoneType,
+        Authority, LookupError, LookupObject, LookupOptions, LookupResult, MessageRequest,
+        UpdateResult, ZoneType,
     },
     proto::{
         op::ResponseCode,
@@ -122,25 +123,24 @@ impl Authority for ForwardAuthority {
         name: &LowerName,
         rtype: RecordType,
         _lookup_options: LookupOptions,
-    ) -> Result<Option<Self::Lookup>, LookupError> {
+    ) -> LookupResult<Self::Lookup> {
         // TODO: make this an error?
         debug_assert!(self.origin.zone_of(name));
 
         debug!("forwarding lookup: {} {}", name, rtype);
         let name: LowerName = name.clone();
-        let resolve = self.resolver.lookup(name, rtype).await;
 
-        resolve
-            .map(ForwardLookup)
-            .map(Some)
-            .map_err(LookupError::from)
+        match self.resolver.lookup(name, rtype).await {
+            Ok(lookup) => LookupResult::Ok(ForwardLookup(lookup)),
+            Err(e) => LookupResult::Err(LookupError::from(e)),
+        }
     }
 
     async fn search(
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> Result<Option<Self::Lookup>, LookupError> {
+    ) -> LookupResult<Self::Lookup> {
         self.lookup(
             request_info.query.name(),
             request_info.query.query_type(),
@@ -153,8 +153,8 @@ impl Authority for ForwardAuthority {
         &self,
         _name: &LowerName,
         _lookup_options: LookupOptions,
-    ) -> Result<Option<Self::Lookup>, LookupError> {
-        Err(LookupError::from(io::Error::new(
+    ) -> LookupResult<Self::Lookup> {
+        LookupResult::Err(LookupError::from(io::Error::new(
             io::ErrorKind::Other,
             "Getting NSEC records is unimplemented for the forwarder",
         )))

@@ -36,7 +36,6 @@ pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DN
         request_info,
         LookupOptions::for_dnssec(true, SupportedAlgorithms::new()),
     ))
-    .unwrap()
     .unwrap();
 
     let (a_records, other_records): (Vec<_>, Vec<_>) = lookup
@@ -60,7 +59,6 @@ pub fn test_soa<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]
             .unwrap();
 
     let (soa_records, other_records): (Vec<_>, Vec<_>) = lookup
-        .unwrap()
         .into_iter()
         .cloned()
         .partition(|r| r.record_type() == RecordType::SOA);
@@ -100,7 +98,6 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY])
             .unwrap();
 
     let (ns_records, other_records): (Vec<_>, Vec<_>) = lookup
-        .unwrap()
         .into_iter()
         .cloned()
         .partition(|r| r.record_type() == RecordType::NS);
@@ -142,7 +139,6 @@ pub fn test_aname_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: 
         request_info,
         LookupOptions::for_dnssec(true, SupportedAlgorithms::new()),
     ))
-    .unwrap()
     .unwrap();
 
     let (a_records, other_records): (Vec<_>, Vec<_>) = lookup
@@ -177,7 +173,6 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DN
         request_info,
         LookupOptions::for_dnssec(true, SupportedAlgorithms::new()),
     ))
-    .unwrap()
     .expect("lookup of www.wildcard.example.com. failed");
 
     let (cname_records, other_records): (Vec<_>, Vec<_>) = lookup
@@ -208,7 +203,6 @@ pub fn test_nsec_nodata<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &
     .unwrap();
 
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
-        .unwrap()
         .into_iter()
         .cloned()
         .partition(|r| r.record_type() == RecordType::NSEC);
@@ -239,7 +233,6 @@ pub fn test_nsec_nxdomain_start<A: Authority<Lookup = AuthLookup>>(authority: A,
     .unwrap();
 
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
-        .unwrap()
         .into_iter()
         .cloned()
         .partition(|r| r.record_type() == RecordType::NSEC);
@@ -272,7 +265,6 @@ pub fn test_nsec_nxdomain_middle<A: Authority<Lookup = AuthLookup>>(authority: A
     .unwrap();
 
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
-        .unwrap()
         .into_iter()
         .cloned()
         .partition(|r| r.record_type() == RecordType::NSEC);
@@ -307,7 +299,6 @@ pub fn test_nsec_nxdomain_wraps_end<A: Authority<Lookup = AuthLookup>>(
     .unwrap();
 
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
-        .unwrap()
         .into_iter()
         .cloned()
         .partition(|r| r.record_type() == RecordType::NSEC);
@@ -349,7 +340,6 @@ pub fn test_rfc_6975_supported_algorithms<A: Authority<Lookup = AuthLookup>>(
             request_info,
             LookupOptions::for_dnssec(true, SupportedAlgorithms::from(key.algorithm())),
         ))
-        .unwrap()
         .unwrap();
 
         let (a_records, other_records): (Vec<_>, Vec<_>) = lookup

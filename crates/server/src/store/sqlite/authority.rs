@@ -17,7 +17,7 @@ use futures_util::lock::Mutex;
 use tracing::{error, info, warn};
 
 use crate::{
-    authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType},
+    authority::{Authority, LookupOptions, LookupResult, MessageRequest, UpdateResult, ZoneType},
     error::{PersistenceErrorKind, PersistenceResult},
     proto::{
         op::ResponseCode,
@@ -335,7 +335,6 @@ impl SqliteAuthority {
                                     )
                                     .await
                                     .unwrap_or_default()
-                                    .unwrap_or_default()
                                     .was_empty()
                                 {
                                     return Err(ResponseCode::NXDomain);
@@ -348,7 +347,6 @@ impl SqliteAuthority {
                                 if self
                                     .lookup(&required_name, rrset, LookupOptions::default())
                                     .await
-                                    .unwrap_or_default()
                                     .unwrap_or_default()
                                     .was_empty()
                                 {
@@ -375,7 +373,6 @@ impl SqliteAuthority {
                                     )
                                     .await
                                     .unwrap_or_default()
-                                    .unwrap_or_default()
                                     .was_empty()
                                 {
                                     return Err(ResponseCode::YXDomain);
@@ -388,7 +385,6 @@ impl SqliteAuthority {
                                 if !self
                                     .lookup(&required_name, rrset, LookupOptions::default())
                                     .await
-                                    .unwrap_or_default()
                                     .unwrap_or_default()
                                     .was_empty()
                                 {
@@ -412,7 +408,6 @@ impl SqliteAuthority {
                             LookupOptions::default(),
                         )
                         .await
-                        .unwrap_or_default()
                         .unwrap_or_default()
                         .iter()
                         .any(|rr| rr == require)
@@ -493,8 +488,8 @@ impl SqliteAuthority {
                     .await;
 
                 let keys = match keys {
-                    Ok(keys) => keys.unwrap_or_default(),
-                    Err(_) => continue, // error trying to lookup a key by that name, try the next one.
+                    LookupResult::Ok(keys) => keys,
+                    _ => continue, // error trying to lookup a key by that name, try the next one.
                 };
 
                 debug!("found keys {:?}", keys);
@@ -962,7 +957,7 @@ impl Authority for SqliteAuthority {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> Result<Option<Self::Lookup>, LookupError> {
+    ) -> LookupResult<Self::Lookup> {
         self.in_memory.lookup(name, rtype, lookup_options).await
     }
 
@@ -970,7 +965,7 @@ impl Authority for SqliteAuthority {
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> Result<Option<Self::Lookup>, LookupError> {
+    ) -> LookupResult<Self::Lookup> {
         self.in_memory.search(request_info, lookup_options).await
     }
 
@@ -985,7 +980,7 @@ impl Authority for SqliteAuthority {
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> Result<Option<Self::Lookup>, LookupError> {
+    ) -> LookupResult<Self::Lookup> {
         self.in_memory.get_nsec_records(name, lookup_options).await
     }
 }

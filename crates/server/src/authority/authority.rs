@@ -129,7 +129,7 @@ pub trait Authority: Send + Sync {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> Result<Option<Self::Lookup>, LookupError>;
+    ) -> LookupResult<Self::Lookup>;
 
     /// Using the specified query, perform a lookup against this zone.
     ///
@@ -146,10 +146,10 @@ pub trait Authority: Send + Sync {
         &self,
         request: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> Result<Option<Self::Lookup>, LookupError>;
+    ) -> LookupResult<Self::Lookup>;
 
     /// Get the NS, NameServer, record for the zone
-    async fn ns(&self, lookup_options: LookupOptions) -> Result<Option<Self::Lookup>, LookupError> {
+    async fn ns(&self, lookup_options: LookupOptions) -> LookupResult<Self::Lookup> {
         self.lookup(self.origin(), RecordType::NS, lookup_options)
             .await
     }
@@ -165,23 +165,20 @@ pub trait Authority: Send + Sync {
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> Result<Option<Self::Lookup>, LookupError>;
+    ) -> LookupResult<Self::Lookup>;
 
     /// Returns the SOA of the authority.
     ///
     /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    async fn soa(&self) -> Result<Option<Self::Lookup>, LookupError> {
+    async fn soa(&self) -> LookupResult<Self::Lookup> {
         // SOA should be origin|SOA
         self.lookup(self.origin(), RecordType::SOA, LookupOptions::default())
             .await
     }
 
     /// Returns the SOA record for the zone
-    async fn soa_secure(
-        &self,
-        lookup_options: LookupOptions,
-    ) -> Result<Option<Self::Lookup>, LookupError> {
+    async fn soa_secure(&self, lookup_options: LookupOptions) -> LookupResult<Self::Lookup> {
         self.lookup(self.origin(), RecordType::SOA, lookup_options)
             .await
     }
@@ -200,4 +197,104 @@ pub trait DnssecAuthority: Authority {
 
     /// Sign the zone for DNSSEC
     async fn secure_zone(&self) -> DnsSecResult<()>;
+}
+
+/// Result of a Lookup in the Catalog and Authority
+pub enum LookupResult<T, E = LookupError> {
+    /// A successful lookup result.
+    Ok(T),
+    /// An error was encountered during the lookup.
+    Err(E),
+    /// The authority did not answer the query and the next authority in the chain should
+    /// be consulted.  Do not use this for any other purpose, in particular, do not use it
+    /// to represent an empty lookup (use Ok(EmptyLookup) for that.)
+    Bypass,
+}
+
+/// The following are a minimal set of methods typically used with Result or Option, and that
+/// were used in the server code or test suite prior to when the LookupResult type was created
+/// (authority lookup functions previously returned a Result over a Lookup or LookupError type.)
+impl<T, E: std::fmt::Display> LookupResult<T, E> {
+    /// Return LookupResult::Ok variant or panic with a custom error message.
+    pub fn expect(self, msg: &str) -> T {
+        match self {
+            Self::Ok(lookup) => lookup,
+            Self::Err(_e) => {
+                panic!("LookupResult expect called on LookupResult::Err: {msg}");
+            }
+            Self::Bypass => {
+                panic!("LookupResult expect called on LookupResult::Bypass: {msg}");
+            }
+        }
+    }
+
+    /// Return LookupResult::Err variant or panic with a custom error message.
+    pub fn expect_err(self, msg: &str) -> E {
+        match self {
+            Self::Ok(_) => {
+                panic!("LookupResult::expect_err called on LookupResult::Ok value: {msg}");
+            }
+            Self::Err(e) => e,
+            Self::Bypass => {
+                panic!("LookupResult::expect_err called on LookupResult::Bypass value: {msg}");
+            }
+        }
+    }
+
+    /// Return LookupResult::Ok variant or panic
+    pub fn unwrap(self) -> T {
+        match self {
+            Self::Ok(lookup) => lookup,
+            Self::Err(e) => {
+                panic!("LookupResult unwrap called on LookupResult::Err: {e}");
+            }
+            Self::Bypass => {
+                panic!("LookupResult unwrap called on LookupResult::Bypass");
+            }
+        }
+    }
+
+    /// Return LookupResult::Err variant or panic
+    pub fn unwrap_err(self) -> E {
+        match self {
+            Self::Ok(_) => {
+                panic!("LookupResult::unwrap_err called on LookupResult::Ok value");
+            }
+            Self::Err(e) => e,
+            Self::Bypass => {
+                panic!("LookupResult::unwrap_err called on LookupResult::Bypass");
+            }
+        }
+    }
+
+    /// Return Ok Variant or default value
+    pub fn unwrap_or_default(self) -> T
+    where
+        T: Default,
+    {
+        match self {
+            Self::Ok(lookup) => lookup,
+            _ => T::default(),
+        }
+    }
+
+    /// Maps LookupResult::Ok(T) to LookupResult::Ok(U), passing LookupResult::Err and
+    /// LookupResult::Bypass values unchanged.
+    pub fn map<U, F: FnOnce(T) -> U>(self, op: F) -> LookupResult<U, E> {
+        match self {
+            Self::Ok(t) => LookupResult::<U, E>::Ok(op(t)),
+            Self::Err(e) => LookupResult::<U, E>::Err(e),
+            Self::Bypass => LookupResult::<U, E>::Bypass,
+        }
+    }
+
+    /// Maps LookupResult::Err(T) to LookupResult::Err(U), passing LookupResult::Ok and
+    /// LookupResult::Bypass values unchanged.
+    pub fn map_err<U, F: FnOnce(E) -> U>(self, op: F) -> LookupResult<T, U> {
+        match self {
+            Self::Ok(t) => LookupResult::<T, U>::Ok(t),
+            Self::Err(e) => LookupResult::<T, U>::Err(op(e)),
+            Self::Bypass => LookupResult::<T, U>::Bypass,
+        }
+    }
 }
