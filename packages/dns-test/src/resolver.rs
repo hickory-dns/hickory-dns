@@ -19,6 +19,7 @@ impl Resolver {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(network: &Network, root: Root) -> ResolverSettings {
         ResolverSettings {
+            ede: false,
             network: network.clone(),
             roots: vec![root],
             trust_anchor: TrustAnchor::empty(),
@@ -60,6 +61,8 @@ kill -TERM $(cat {pidfile})"
 }
 
 pub struct ResolverSettings {
+    /// Extended DNS Errors (RFC8914)
+    ede: bool,
     network: Network,
     roots: Vec<Root>,
     trust_anchor: TrustAnchor,
@@ -84,6 +87,7 @@ impl ResolverSettings {
         let config = Config::Resolver {
             use_dnssec,
             netmask: self.network.netmask(),
+            ede: self.ede,
         };
         container.cp(
             implementation.conf_file_path(config.role()),
@@ -113,6 +117,12 @@ impl ResolverSettings {
             container,
             implementation: implementation.clone(),
         })
+    }
+
+    /// Enables the Extended DNS Errors (RFC8914) feature
+    pub fn extended_dns_errors(&mut self) -> &mut Self {
+        self.ede = true;
+        self
     }
 
     /// Adds a root hint

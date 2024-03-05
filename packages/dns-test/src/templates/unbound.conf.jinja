@@ -5,6 +5,7 @@ server:
     access-control: {{ netmask }} allow
     root-hints: /etc/root.hints
     pidfile: /tmp/unbound.pid
+    ede: {% if ede %} yes {% else %} no {% endif %}
 {% if use_dnssec %}
     trust-anchor-file: /etc/trusted-key.key
 {% endif %}
