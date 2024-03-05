@@ -4,7 +4,7 @@ use dns_test::client::{Client, DigSettings};
 use dns_test::name_server::NameServer;
 use dns_test::record::{Record, RecordType};
 use dns_test::zone_file::Root;
-use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
+use dns_test::{Network, Resolver, Result, FQDN};
 
 #[test]
 fn can_resolve() -> Result<()> {
@@ -39,8 +39,11 @@ fn can_resolve() -> Result<()> {
 
     eprintln!("root.zone:\n{}", root_ns.zone_file());
 
-    let roots = &[Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr())];
-    let resolver = Resolver::start(&dns_test::subject(), roots, &TrustAnchor::empty(), &network)?;
+    let resolver = Resolver::new(
+        &network,
+        Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr()),
+    )
+    .start(&dns_test::subject())?;
     let resolver_ip_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;
@@ -85,8 +88,11 @@ fn nxdomain() -> Result<()> {
     root_ns.referral(FQDN::COM, com_ns.fqdn().clone(), com_ns.ipv4_addr());
     let root_ns = root_ns.start()?;
 
-    let roots = &[Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr())];
-    let resolver = Resolver::start(&dns_test::subject(), roots, &TrustAnchor::empty(), &network)?;
+    let resolver = Resolver::new(
+        &network,
+        Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr()),
+    )
+    .start(&dns_test::subject())?;
     let resolver_ip_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;

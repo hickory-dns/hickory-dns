@@ -248,7 +248,7 @@ mod tests {
     use crate::name_server::NameServer;
     use crate::record::{Record, RecordType};
     use crate::zone_file::Root;
-    use crate::{Implementation, Network, Resolver, TrustAnchor, FQDN};
+    use crate::{Implementation, Network, Resolver, FQDN};
 
     use super::*;
 
@@ -310,13 +310,11 @@ mod tests {
         root_ns.referral(FQDN::COM, com_ns.fqdn().clone(), com_ns.ipv4_addr());
         let root_ns = root_ns.start()?;
 
-        let roots = &[Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr())];
-        let resolver = Resolver::start(
-            &Implementation::Unbound,
-            roots,
-            &TrustAnchor::empty(),
+        let resolver = Resolver::new(
             network,
-        )?;
+            Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr()),
+        )
+        .start(&Implementation::Unbound)?;
         let mut tshark = resolver.eavesdrop()?;
         let resolver_addr = resolver.ipv4_addr();
 

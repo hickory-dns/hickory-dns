@@ -44,13 +44,16 @@ fn main() -> Result<()> {
     let root_zsk = root_ns.zone_signing_key().clone();
 
     let root_ns = root_ns.start()?;
-
-    let roots = &[Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr())];
     println!("DONE");
 
     let trust_anchor = TrustAnchor::from_iter([root_ksk.clone(), root_zsk.clone()]);
     println!("building docker image...");
-    let resolver = Resolver::start(&dns_test::subject(), roots, &trust_anchor, &network)?;
+    let resolver = Resolver::new(
+        &network,
+        Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr()),
+    )
+    .trust_anchor(&trust_anchor)
+    .start(&dns_test::subject())?;
     println!("DONE\n\n");
 
     let resolver_addr = resolver.ipv4_addr();

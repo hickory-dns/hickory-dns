@@ -5,7 +5,7 @@ use dns_test::client::{Client, DigSettings};
 use dns_test::name_server::NameServer;
 use dns_test::record::{Record, RecordType};
 use dns_test::zone_file::Root;
-use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
+use dns_test::{Network, Resolver, Result, FQDN};
 
 #[ignore]
 #[test]
@@ -64,10 +64,13 @@ fn bad_signature_in_leaf_nameserver() -> Result<()> {
 
     let root_ns = root_ns.start()?;
 
-    let roots = &[Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr())];
-
-    let trust_anchor = TrustAnchor::from_iter([root_ksk.clone(), root_zsk.clone()]);
-    let resolver = Resolver::start(&dns_test::subject(), roots, &trust_anchor, &network)?;
+    let resolver = Resolver::new(
+        &network,
+        Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr()),
+    )
+    .trust_anchor_key(root_ksk)
+    .trust_anchor_key(root_zsk)
+    .start(&dns_test::subject())?;
     let resolver_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;
