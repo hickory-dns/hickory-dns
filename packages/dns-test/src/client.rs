@@ -141,6 +141,7 @@ impl DigSettings {
 
 #[derive(Debug)]
 pub struct DigOutput {
+    pub ede: Option<ExtendedDnsError>,
     pub flags: DigFlags,
     pub status: DigStatus,
     pub answer: Vec<Record>,
@@ -154,6 +155,7 @@ impl FromStr for DigOutput {
     fn from_str(input: &str) -> Result<Self> {
         const FLAGS_PREFIX: &str = ";; flags: ";
         const STATUS_PREFIX: &str = ";; ->>HEADER<<- opcode: QUERY, status: ";
+        const EDE_PREFIX: &str = "; EDE: ";
         const ANSWER_HEADER: &str = ";; ANSWER SECTION:";
         const AUTHORITY_HEADER: &str = ";; AUTHORITY SECTION:";
 
@@ -173,6 +175,7 @@ impl FromStr for DigOutput {
         let mut status = None;
         let mut answer = None;
         let mut authority = None;
+        let mut ede = None;
 
         let mut lines = input.lines();
         while let Some(line) = lines.next() {
@@ -196,6 +199,17 @@ impl FromStr for DigOutput {
                 }
 
                 status = Some(status_text.parse()?);
+            } else if let Some(unprefixed) = line.strip_prefix(EDE_PREFIX) {
+                let code = unprefixed
+                    .split_once(' ')
+                    .map(|(code, _rest)| code)
+                    .unwrap_or(unprefixed);
+
+                if ede.is_some() {
+                    return Err(more_than_once(EDE_PREFIX).into());
+                }
+
+                ede = Some(code.parse()?);
             } else if line.starts_with(ANSWER_HEADER) {
                 if answer.is_some() {
                     return Err(more_than_once(ANSWER_HEADER).into());
@@ -230,11 +244,34 @@ impl FromStr for DigOutput {
         }
 
         Ok(Self {
-            flags: flags.ok_or_else(|| not_found(FLAGS_PREFIX))?,
-            status: status.ok_or_else(|| not_found(STATUS_PREFIX))?,
             answer: answer.unwrap_or_default(),
             authority: authority.unwrap_or_default(),
+            ede,
+            flags: flags.ok_or_else(|| not_found(FLAGS_PREFIX))?,
+            status: status.ok_or_else(|| not_found(STATUS_PREFIX))?,
         })
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ExtendedDnsError {
+    DnssecBogus,
+    DnskeyMissing,
+}
+
+impl FromStr for ExtendedDnsError {
+    type Err = Error;
+
+    fn from_str(input: &str) -> std::prelude::v1::Result<Self, Self::Err> {
+        let code: u16 = input.parse()?;
+
+        let code = match code {
+            6 => Self::DnssecBogus,
+            9 => Self::DnskeyMissing,
+            _ => todo!("EDE {code} has not yet been implemented"),
+        };
+
+        Ok(code)
     }
 }
 
@@ -395,6 +432,34 @@ mod tests {
         let [record] = output.authority.try_into().expect("exactly one record");
 
         matches!(record, Record::SOA(..));
+
+        Ok(())
+    }
+
+    #[test]
+    fn ede() -> Result<()> {
+        let input = "; <<>> DiG 9.18.24-1-Debian <<>> +recurse +nodnssec +adflag +nocdflag @192.168.176.5 A example.nameservers.com.
+; (1 server found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: SERVFAIL, id: 49801
+;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 1
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 1232
+; EDE: 9 (DNSKEY Missing)
+;; QUESTION SECTION:
+;example.nameservers.com.	IN	A
+
+;; Query time: 26 msec
+;; SERVER: 192.168.176.5#53(192.168.176.5) (UDP)
+;; WHEN: Tue Mar 05 17:45:29 UTC 2024
+;; MSG SIZE  rcvd: 58
+";
+
+        let output: DigOutput = input.parse()?;
+
+        assert_eq!(Some(ExtendedDnsError::DnskeyMissing), output.ede);
 
         Ok(())
     }
