@@ -239,6 +239,8 @@ pub struct DNSKEY {
 }
 
 impl DNSKEY {
+    const KSK_BIT: u16 = 1;
+
     /// formats the `DNSKEY` in the format `delv` expects
     pub(super) fn delv(&self) -> String {
         let Self {
@@ -251,6 +253,19 @@ impl DNSKEY {
         } = self;
 
         format!("{zone} static-key {flags} {protocol} {algorithm} \"{public_key}\";\n")
+    }
+
+    pub fn clear_key_signing_key_bit(&mut self) {
+        self.flags &= !Self::KSK_BIT;
+    }
+
+    pub fn is_key_signing_key(&self) -> bool {
+        let mask = Self::KSK_BIT;
+        self.flags & mask == mask
+    }
+
+    pub fn is_zone_signing_key(&self) -> bool {
+        !self.is_key_signing_key()
     }
 }
 
