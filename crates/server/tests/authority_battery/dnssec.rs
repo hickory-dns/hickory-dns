@@ -1,7 +1,7 @@
 #![cfg(feature = "dnssec")]
 
-use std::future::Future;
 use std::str::FromStr;
+use std::{future::Future, sync::Arc};
 
 use futures_executor::block_on;
 
@@ -40,11 +40,11 @@ pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DN
 
     let (a_records, other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
-        .cloned()
         .partition(|r| r.record_type() == RecordType::A);
 
     let rrsig_records: Vec<_> = other_records
         .into_iter()
+        .cloned()
         .filter_map(|r| Record::<RRSIG>::try_from(r).ok())
         .collect();
 
@@ -60,7 +60,6 @@ pub fn test_soa<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]
 
     let (soa_records, other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
-        .cloned()
         .partition(|r| r.record_type() == RecordType::SOA);
 
     assert_eq!(soa_records.len(), 1);
@@ -85,6 +84,7 @@ pub fn test_soa<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]
 
     let rrsig_records: Vec<_> = other_records
         .into_iter()
+        .cloned()
         .filter_map(|r| Record::<RRSIG>::try_from(r).ok())
         .collect();
 
@@ -99,7 +99,6 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY])
 
     let (ns_records, other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
-        .cloned()
         .partition(|r| r.record_type() == RecordType::NS);
 
     assert_eq!(
@@ -115,6 +114,7 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY])
 
     let rrsig_records: Vec<_> = other_records
         .into_iter()
+        .cloned()
         .filter_map(|r| Record::<RRSIG>::try_from(r).ok())
         .collect();
 
@@ -143,11 +143,11 @@ pub fn test_aname_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: 
 
     let (a_records, other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
-        .cloned()
         .partition(|r| r.record_type() == RecordType::A);
 
     let rrsig_records: Vec<_> = other_records
         .into_iter()
+        .cloned()
         .filter_map(|r| Record::<RRSIG>::try_from(r).ok())
         .collect();
 
@@ -177,7 +177,6 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DN
 
     let (cname_records, other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
-        .cloned()
         .partition(|r| r.record_type() == RecordType::CNAME);
 
     assert!(cname_records
@@ -186,6 +185,7 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DN
 
     let rrsig_records: Vec<_> = other_records
         .into_iter()
+        .cloned()
         .filter_map(|r| Record::<RRSIG>::try_from(r).ok())
         .collect();
 
@@ -216,11 +216,13 @@ pub fn test_nsec_nodata<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::TXT);
+    let query = Arc::new(query);
     assert!(xfer::dnssec_dns_handle::verify_nsec(
-        &query,
+        query,
         &Name::from_str("example.com.").unwrap(),
         &nsecs
-    ));
+    )
+    .is_secure());
 }
 
 pub fn test_nsec_nxdomain_start<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
@@ -248,11 +250,13 @@ pub fn test_nsec_nxdomain_start<A: Authority<Lookup = AuthLookup>>(authority: A,
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::A);
+    let query = Arc::new(query);
     assert!(xfer::dnssec_dns_handle::verify_nsec(
-        &query,
+        query,
         &Name::from_str("example.com.").unwrap(),
         &nsecs
-    ));
+    )
+    .is_secure());
 }
 
 pub fn test_nsec_nxdomain_middle<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
@@ -279,11 +283,13 @@ pub fn test_nsec_nxdomain_middle<A: Authority<Lookup = AuthLookup>>(authority: A
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::A);
+    let query = Arc::new(query);
     assert!(xfer::dnssec_dns_handle::verify_nsec(
-        &query,
+        query,
         &Name::from_str("example.com.").unwrap(),
         &nsecs
-    ));
+    )
+    .is_secure());
 }
 
 pub fn test_nsec_nxdomain_wraps_end<A: Authority<Lookup = AuthLookup>>(
@@ -313,11 +319,13 @@ pub fn test_nsec_nxdomain_wraps_end<A: Authority<Lookup = AuthLookup>>(
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::A);
+    let query = Arc::new(query);
     assert!(xfer::dnssec_dns_handle::verify_nsec(
-        &query,
+        query,
         &Name::from_str("example.com.").unwrap(),
         &nsecs
-    ));
+    )
+    .is_secure());
 }
 
 pub fn test_rfc_6975_supported_algorithms<A: Authority<Lookup = AuthLookup>>(
@@ -344,11 +352,11 @@ pub fn test_rfc_6975_supported_algorithms<A: Authority<Lookup = AuthLookup>>(
 
         let (a_records, other_records): (Vec<_>, Vec<_>) = lookup
             .into_iter()
-            .cloned()
             .partition(|r| r.record_type() == RecordType::A);
 
         let rrsig_records: Vec<_> = other_records
             .into_iter()
+            .cloned()
             .filter_map(|r| Record::<RRSIG>::try_from(r).ok())
             .collect();
 
@@ -357,7 +365,7 @@ pub fn test_rfc_6975_supported_algorithms<A: Authority<Lookup = AuthLookup>>(
     }
 }
 
-pub fn verify(records: &[Record], rrsig_records: &[Record<RRSIG>], keys: &[DNSKEY]) {
+pub fn verify(records: &[&Record], rrsig_records: &[Record<RRSIG>], keys: &[DNSKEY]) {
     let record_name = records.first().unwrap().name();
     let record_type = records.first().unwrap().record_type();
     println!("record_name: {record_name}, type: {record_type}");

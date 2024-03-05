@@ -19,7 +19,7 @@ pub fn create_example() -> InMemoryAuthority {
         Record::new()
             .set_name(origin.clone())
             .set_ttl(3600)
-            .set_rr_type(RecordType::SOA)
+            .set_record_type(RecordType::SOA)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::SOA(SOA::new(
                 Name::parse("sns.dns.icann.org.", None).unwrap(),
@@ -38,7 +38,7 @@ pub fn create_example() -> InMemoryAuthority {
         Record::new()
             .set_name(origin.clone())
             .set_ttl(86400)
-            .set_rr_type(RecordType::NS)
+            .set_record_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::NS(NS(Name::parse(
                 "a.iana-servers.net.",
@@ -52,7 +52,7 @@ pub fn create_example() -> InMemoryAuthority {
         Record::new()
             .set_name(origin.clone())
             .set_ttl(86400)
-            .set_rr_type(RecordType::NS)
+            .set_record_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::NS(NS(Name::parse(
                 "b.iana-servers.net.",
@@ -70,7 +70,7 @@ pub fn create_example() -> InMemoryAuthority {
         Record::new()
             .set_name(origin.clone())
             .set_ttl(60)
-            .set_rr_type(RecordType::TXT)
+            .set_record_type(RecordType::TXT)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::TXT(TXT::new(vec![
                 "$Id: example.com 4415 2015-08-24 \
@@ -86,7 +86,7 @@ pub fn create_example() -> InMemoryAuthority {
         Record::new()
             .set_name(origin.clone())
             .set_ttl(86400)
-            .set_rr_type(RecordType::A)
+            .set_record_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::A(A::new(93, 184, 216, 34))))
             .clone(),
@@ -98,7 +98,7 @@ pub fn create_example() -> InMemoryAuthority {
         Record::new()
             .set_name(origin)
             .set_ttl(86400)
-            .set_rr_type(RecordType::AAAA)
+            .set_record_type(RecordType::AAAA)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::AAAA(AAAA::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
@@ -129,7 +129,7 @@ pub fn create_example() -> InMemoryAuthority {
         Record::new()
             .set_name(www_name.clone())
             .set_ttl(86400)
-            .set_rr_type(RecordType::TXT)
+            .set_record_type(RecordType::TXT)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::TXT(TXT::new(vec!["v=spf1 -all".to_string()]))))
             .clone(),
@@ -141,7 +141,7 @@ pub fn create_example() -> InMemoryAuthority {
         Record::new()
             .set_name(www_name.clone())
             .set_ttl(86400)
-            .set_rr_type(RecordType::A)
+            .set_record_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::A(A::new(93, 184, 216, 34))))
             .clone(),
@@ -153,7 +153,7 @@ pub fn create_example() -> InMemoryAuthority {
         Record::new()
             .set_name(www_name.clone())
             .set_ttl(86400)
-            .set_rr_type(RecordType::AAAA)
+            .set_record_type(RecordType::AAAA)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::AAAA(AAAA::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
@@ -167,7 +167,7 @@ pub fn create_example() -> InMemoryAuthority {
         Record::new()
             .set_name(Name::from_str("alias.example.com.").unwrap())
             .set_ttl(86400)
-            .set_rr_type(RecordType::CNAME)
+            .set_record_type(RecordType::CNAME)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::CNAME(CNAME(www_name))))
             .clone(),
@@ -179,7 +179,7 @@ pub fn create_example() -> InMemoryAuthority {
         Record::new()
             .set_name(Name::from_str("alias2.example.com.").unwrap())
             .set_ttl(86400)
-            .set_rr_type(RecordType::CNAME)
+            .set_record_type(RecordType::CNAME)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::CNAME(CNAME(
                 Name::from_str("alias.example.com.").unwrap(),

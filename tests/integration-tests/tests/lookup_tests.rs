@@ -102,7 +102,7 @@ fn create_ip_like_example() -> InMemoryAuthority {
         Record::new()
             .set_name(Name::from_str("1.2.3.4.example.com.").unwrap())
             .set_ttl(86400)
-            .set_rr_type(RecordType::A)
+            .set_record_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::A(A::new(198, 51, 100, 35))))
             .clone(),

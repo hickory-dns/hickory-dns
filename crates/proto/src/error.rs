@@ -24,10 +24,8 @@ use tracing::debug;
 use crate::op::{Header, Query, ResponseCode};
 
 #[cfg(feature = "dnssec")]
-use crate::rr::dnssec::rdata::tsig::TsigAlgorithm;
-use crate::rr::rdata::SOA;
-use crate::rr::resource::RecordRef;
-use crate::rr::{Name, Record, RecordType};
+use crate::rr::dnssec::{rdata::tsig::TsigAlgorithm, Proof};
+use crate::rr::{rdata::SOA, resource::RecordRef, Record};
 use crate::serialize::binary::DecodeError;
 use crate::xfer::DnsResponse;
 
@@ -97,6 +95,16 @@ pub enum ProtoErrorKind {
         label: usize,
         /// Start of the other label
         other: usize,
+    },
+
+    /// No Records and there is a corresponding DNSSEC Proof for NSEC
+    #[cfg(feature = "dnssec")]
+    #[error("DNSSEC Negative Record Response for {query}, {proof}")]
+    Nsec {
+        /// Query for which the NSEC was returned
+        query: crate::op::Query,
+        /// DNSSEC proof of the record
+        proof: Proof,
     },
 
     /// DNS protocol version doesn't have the expected version 3
@@ -188,15 +196,6 @@ pub enum ProtoErrorKind {
         response_code: ResponseCode,
         /// If we trust `NXDOMAIN` errors from this server
         trusted: bool,
-    },
-
-    /// Missing rrsigs
-    #[error("rrsigs are not present for record set name: {name} record_type: {record_type}")]
-    RrsigsNotPresent {
-        /// The record set name
-        name: Name,
-        /// The record type
-        record_type: RecordType,
     },
 
     /// An unknown algorithm type was found
@@ -629,12 +628,10 @@ impl Clone for ProtoErrorKind {
                 trusted,
             },
             RequestRefused => RequestRefused,
-            RrsigsNotPresent {
-                ref name,
-                ref record_type,
-            } => RrsigsNotPresent {
-                name: name.clone(),
-                record_type: *record_type,
+            #[cfg(feature = "dnssec")]
+            Nsec { ref query, proof } => Nsec {
+                query: query.clone(),
+                proof,
             },
             UnknownAlgorithmTypeValue(value) => UnknownAlgorithmTypeValue(value),
             UnknownDnsClassStr(ref value) => UnknownDnsClassStr(value.clone()),
@@ -644,8 +641,6 @@ impl Clone for ProtoErrorKind {
             UnrecognizedLabelCode(value) => UnrecognizedLabelCode(value),
             UnrecognizedNsec3Flags(flags) => UnrecognizedNsec3Flags(flags),
             UnrecognizedCsyncFlags(flags) => UnrecognizedCsyncFlags(flags),
-
-            // foreign
             Io(ref e) => Io(if let Some(raw) = e.raw_os_error() {
                 io::Error::from_raw_os_error(raw)
             } else {

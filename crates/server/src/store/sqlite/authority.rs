@@ -185,7 +185,7 @@ impl SqliteAuthority {
             info!("persisting zone to journal at SOA.serial: {}", serial);
 
             // TODO: THIS NEEDS TO BE IN A TRANSACTION!!!
-            journal.insert_record(serial, Record::new().set_rr_type(RecordType::AXFR))?;
+            journal.insert_record(serial, Record::new().set_record_type(RecordType::AXFR))?;
 
             for rr_set in self.in_memory.records().await.values() {
                 // TODO: should we preserve rr_sets or not?

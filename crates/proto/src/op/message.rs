@@ -221,6 +221,42 @@ impl Message {
         self
     }
 
+    /// see `Header::set_query_count`
+    ///
+    /// this count will be ignored during serialization,
+    /// where the length of the associated records will be used instead.
+    pub fn set_query_count(&mut self, query_count: u16) -> &mut Self {
+        self.header.set_query_count(query_count);
+        self
+    }
+
+    /// see `Header::set_answer_count`
+    ///
+    /// this count will be ignored during serialization,
+    /// where the length of the associated records will be used instead.
+    pub fn set_answer_count(&mut self, answer_count: u16) -> &mut Self {
+        self.header.set_answer_count(answer_count);
+        self
+    }
+
+    /// see `Header::set_name_server_count`
+    ///
+    /// this count will be ignored during serialization,
+    /// where the length of the associated records will be used instead.
+    pub fn set_name_server_count(&mut self, name_server_count: u16) -> &mut Self {
+        self.header.set_name_server_count(name_server_count);
+        self
+    }
+
+    /// see `Header::set_additional_count`
+    ///
+    /// this count will be ignored during serialization,
+    /// where the length of the associated records will be used instead.
+    pub fn set_additional_count(&mut self, additional_count: u16) -> &mut Self {
+        self.header.set_additional_count(additional_count);
+        self
+    }
+
     /// Add a query to the Message, either the query response from the server, or the request Query.
     pub fn add_query(&mut self, query: Query) -> &mut Self {
         self.queries.push(query);
@@ -1158,7 +1194,7 @@ mod tests {
         message.add_answer(Record::new());
         message.add_name_server(Record::new());
         message.add_additional(Record::new());
-        message.update_counts(); // needed for the comparison...
+        message.update_counts();
 
         test_emit_and_read(message);
     }
@@ -1175,6 +1211,56 @@ mod tests {
         let got = Message::read(&mut decoder).unwrap();
 
         assert_eq!(got, message);
+    }
+
+    #[test]
+    fn test_header_counts_correction_after_emit_read() {
+        let mut message = Message::new();
+
+        message
+            .set_id(10)
+            .set_message_type(MessageType::Response)
+            .set_op_code(OpCode::Update)
+            .set_authoritative(true)
+            .set_truncated(true)
+            .set_recursion_desired(true)
+            .set_recursion_available(true)
+            .set_authentic_data(true)
+            .set_checking_disabled(true)
+            .set_response_code(ResponseCode::ServFail);
+
+        message.add_answer(Record::new());
+        message.add_name_server(Record::new());
+        message.add_additional(Record::new());
+
+        // at here, we don't call update_counts and we even set wrong count,
+        // because we are trying to test whether the counts in the header
+        // are correct after the message is emitted and read.
+        message.set_query_count(1);
+        message.set_answer_count(5);
+        message.set_name_server_count(5);
+        // message.set_additional_count(1);
+
+        let got = get_message_after_emitting_and_reading(message);
+
+        // make comparison
+        assert_eq!(got.query_count(), 0);
+        assert_eq!(got.answer_count(), 1);
+        assert_eq!(got.name_server_count(), 1);
+        assert_eq!(got.additional_count(), 1);
+    }
+
+    #[cfg(test)]
+    fn get_message_after_emitting_and_reading(message: Message) -> Message {
+        let mut byte_vec: Vec<u8> = Vec::with_capacity(512);
+        {
+            let mut encoder = BinEncoder::new(&mut byte_vec);
+            message.emit(&mut encoder).unwrap();
+        }
+
+        let mut decoder = BinDecoder::new(&byte_vec);
+
+        Message::read(&mut decoder).unwrap()
     }
 
     #[test]

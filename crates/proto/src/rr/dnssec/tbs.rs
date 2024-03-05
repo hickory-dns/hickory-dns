@@ -7,6 +7,8 @@
 
 //! hash functions for DNSSEC operations
 
+use std::borrow::Borrow;
+
 use crate::{
     error::*,
     rr::{dnssec::Algorithm, DNSClass, Name, Record, RecordType},
@@ -84,7 +86,7 @@ pub fn message_tbs<M: BinEncodable>(message: &M, pre_sig0: &SIG) -> ProtoResult<
 /// the binary hash of the specified RRSet and associated information
 // FIXME: OMG, there are a ton of asserts in here...
 #[allow(clippy::too_many_arguments)]
-pub fn rrset_tbs(
+pub fn rrset_tbs<B: Borrow<Record>>(
     name: &Name,
     dns_class: DNSClass,
     num_labels: u8,
@@ -95,13 +97,14 @@ pub fn rrset_tbs(
     sig_inception: u32,
     key_tag: u16,
     signer_name: &Name,
-    records: &[Record],
+    records: &[B],
 ) -> ProtoResult<TBS> {
     // TODO: change this to a BTreeSet so that it's preordered, no sort necessary
     let mut rrset: Vec<&Record> = Vec::new();
 
     // collect only the records for this rrset
     for record in records {
+        let record = record.borrow();
         if dns_class == record.dns_class()
             && type_covered == record.record_type()
             && name == record.name()
@@ -192,7 +195,10 @@ pub fn rrset_tbs(
 /// # Return
 ///
 /// binary hash of the RRSet with the information from the RRSIG record
-pub fn rrset_tbs_with_rrsig(rrsig: &Record<RRSIG>, records: &[Record]) -> ProtoResult<TBS> {
+pub fn rrset_tbs_with_rrsig<B: Borrow<Record>>(
+    rrsig: &Record<RRSIG>,
+    records: &[B],
+) -> ProtoResult<TBS> {
     if let Some(sig) = rrsig.data() {
         rrset_tbs_with_sig(rrsig.name(), rrsig.dns_class(), sig, records)
     } else {
@@ -213,11 +219,11 @@ pub fn rrset_tbs_with_rrsig(rrsig: &Record<RRSIG>, records: &[Record]) -> ProtoR
 /// # Return
 ///
 /// binary hash of the RRSet with the information from the RRSIG record
-pub fn rrset_tbs_with_sig(
+pub fn rrset_tbs_with_sig<B: Borrow<Record>>(
     name: &Name,
     dns_class: DNSClass,
     sig: &SIG,
-    records: &[Record],
+    records: &[B],
 ) -> ProtoResult<TBS> {
     rrset_tbs(
         name,

@@ -18,6 +18,9 @@ use crate::{
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict},
 };
 
+#[cfg(feature = "dnssec")]
+use crate::rr::dnssec::{Proof, Proven};
+
 #[allow(deprecated)]
 use crate::rr::IntoRecordSet;
 
@@ -78,12 +81,14 @@ pub struct Record<R: RecordData = RData> {
     rdata: Option<R>,
     #[cfg(feature = "mdns")]
     mdns_cache_flush: bool,
+    #[cfg(feature = "dnssec")]
+    proof: Proof,
 }
 
-impl<R: RecordData> Default for Record<R> {
+impl Default for Record<RData> {
     fn default() -> Self {
         Self {
-            // TODO: these really should all be Optionals, I was lazy.
+            // TODO: make these part of a Builder instead to cleanup Records at runtime?
             name_labels: Name::new(),
             rr_type: RecordType::NULL,
             dns_class: DNSClass::IN,
@@ -91,11 +96,13 @@ impl<R: RecordData> Default for Record<R> {
             rdata: None,
             #[cfg(feature = "mdns")]
             mdns_cache_flush: false,
+            #[cfg(feature = "dnssec")]
+            proof: Proof::default(),
         }
     }
 }
 
-impl<R: RecordData> Record<R> {
+impl Record<RData> {
     /// Creates a default record, use the setters to build a more useful object.
     ///
     /// There are no optional elements in this object, defaults are an empty name, type A, class IN,
@@ -111,6 +118,8 @@ impl<R: RecordData> Record<R> {
     /// * `name` - name of the resource records
     /// * `rr_type` - the record type
     /// * `ttl` - time-to-live is the amount of time this record should be cached before refreshing
+    // TODO: maybe deprecate in the future, there are valid use cases for null data...
+    // #[deprecated = "consider using the typed variant `from_rdata`"]
     pub fn with(name: Name, rr_type: RecordType, ttl: u32) -> Self {
         Self {
             name_labels: name,
@@ -120,9 +129,38 @@ impl<R: RecordData> Record<R> {
             rdata: None,
             #[cfg(feature = "mdns")]
             mdns_cache_flush: false,
+            #[cfg(feature = "dnssec")]
+            proof: Proof::default(),
         }
     }
 
+    /// ```text
+    /// TYPE            two octets containing one of the RR type codes.  This
+    ///                 field specifies the meaning of the data in the RDATA
+    ///                 field.
+    /// ```
+    #[deprecated(note = "use `set_record_type`")]
+    pub fn set_rr_type(&mut self, rr_type: RecordType) -> &mut Self {
+        self.rr_type = rr_type;
+        self
+    }
+
+    /// Generally Speaking, this is redundant to the RecordType stored in the associated RData and not recommended
+    ///   to set this separately. Exceptions to this are for Update Messages, where the RecordType is used distinctly
+    ///   as a means to express certain Update instructions. For queries and responses, it will always match the RData
+    ///
+    /// ```text
+    /// TYPE            two octets containing one of the RR type codes.  This
+    ///                 field specifies the meaning of the data in the RDATA
+    ///                 field.
+    /// ```
+    pub fn set_record_type(&mut self, rr_type: RecordType) -> &mut Self {
+        self.rr_type = rr_type;
+        self
+    }
+}
+
+impl<R: RecordData> Record<R> {
     /// Create a record with the specified initial values.
     ///
     /// # Arguments
@@ -139,6 +177,8 @@ impl<R: RecordData> Record<R> {
             rdata: Some(rdata),
             #[cfg(feature = "mdns")]
             mdns_cache_flush: false,
+            #[cfg(feature = "dnssec")]
+            proof: Proof::default(),
         }
     }
 
@@ -153,10 +193,12 @@ impl<R: RecordData> Record<R> {
             rdata,
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
+            #[cfg(feature = "dnssec")]
+            proof,
         } = record;
 
         match rdata.map(R::try_from_rdata) {
-            None => Ok(Self {
+            None => Err(Record {
                 name_labels,
                 rr_type,
                 dns_class,
@@ -164,15 +206,19 @@ impl<R: RecordData> Record<R> {
                 rdata: None,
                 #[cfg(feature = "mdns")]
                 mdns_cache_flush,
+                #[cfg(feature = "dnssec")]
+                proof,
             }),
             Some(Ok(rdata)) => Ok(Self {
                 name_labels,
-                rr_type,
+                rr_type: rdata.record_type(),
                 dns_class,
                 ttl,
                 rdata: Some(rdata),
                 #[cfg(feature = "mdns")]
                 mdns_cache_flush,
+                #[cfg(feature = "dnssec")]
+                proof,
             }),
             Some(Err(rdata)) => Err(Record {
                 name_labels,
@@ -182,6 +228,8 @@ impl<R: RecordData> Record<R> {
                 rdata: Some(rdata),
                 #[cfg(feature = "mdns")]
                 mdns_cache_flush,
+                #[cfg(feature = "dnssec")]
+                proof,
             }),
         }
     }
@@ -196,6 +244,8 @@ impl<R: RecordData> Record<R> {
             rdata,
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
+            #[cfg(feature = "dnssec")]
+            proof,
         } = self;
 
         let rdata: Option<RData> = rdata.map(RecordData::into_rdata);
@@ -208,6 +258,8 @@ impl<R: RecordData> Record<R> {
             rdata,
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
+            #[cfg(feature = "dnssec")]
+            proof,
         }
     }
 
@@ -216,27 +268,6 @@ impl<R: RecordData> Record<R> {
     /// ```
     pub fn set_name(&mut self, name: Name) -> &mut Self {
         self.name_labels = name;
-        self
-    }
-
-    /// ```text
-    /// TYPE            two octets containing one of the RR type codes.  This
-    ///                 field specifies the meaning of the data in the RDATA
-    ///                 field.
-    /// ```
-    // #[deprecated(note = "use `Record::set_record_type`")]
-    pub fn set_rr_type(&mut self, rr_type: RecordType) -> &mut Self {
-        self.rr_type = rr_type;
-        self
-    }
-
-    /// ```text
-    /// TYPE            two octets containing one of the RR type codes.  This
-    ///                 field specifies the meaning of the data in the RDATA
-    ///                 field.
-    /// ```
-    pub fn set_record_type(&mut self, rr_type: RecordType) -> &mut Self {
-        self.rr_type = rr_type;
         self
     }
 
@@ -272,12 +303,12 @@ impl<R: RecordData> Record<R> {
     pub fn set_data(&mut self, rdata: Option<R>) -> &mut Self {
         debug_assert!(
             if let Some(rdata) = &rdata {
-                rdata.record_type() == self.record_type() || rdata.record_type() == RecordType::NULL
+                rdata.record_type() == self.rr_type || rdata.record_type() == RecordType::NULL
             } else {
                 true
             },
             "record types do not match, {} <> {:?}",
-            self.record_type(),
+            self.rr_type,
             rdata.map(|r| r.record_type())
         );
 
@@ -291,6 +322,14 @@ impl<R: RecordData> Record<R> {
     #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
     pub fn set_mdns_cache_flush(&mut self, flag: bool) -> &mut Self {
         self.mdns_cache_flush = flag;
+        self
+    }
+
+    /// Set the DNSSEC Proof for this record, after it's been verified
+    #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+    pub fn set_proof(&mut self, proof: Proof) -> &mut Self {
+        self.proof = proof;
         self
     }
 
@@ -351,6 +390,14 @@ impl<R: RecordData> Record<R> {
     pub fn mdns_cache_flush(&self) -> bool {
         self.mdns_cache_flush
     }
+
+    /// The Proof of DNSSEC validation for this record, this is only valid if some form of validation has occurred
+    #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+    #[inline]
+    pub fn proof(&self) -> Proof {
+        self.proof
+    }
 }
 
 /// Consumes `Record` giving public access to fields of `Record` so they can
@@ -370,30 +417,25 @@ pub struct RecordParts<R: RecordData = RData> {
     #[cfg(feature = "mdns")]
     #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
     pub mdns_cache_flush: bool,
+    /// mDNS cache flush
+    #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+    pub proof: Proof,
 }
 
 impl<R: RecordData> From<Record<R>> for RecordParts<R> {
     fn from(record: Record<R>) -> Self {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "mdns")] {
-                let Record {
-                    name_labels,
-                    rr_type,
-                    dns_class,
-                    ttl,
-                    rdata,
-                    mdns_cache_flush,
-                } = record;
-            } else {
-                let Record {
-                    name_labels,
-                    rr_type,
-                    dns_class,
-                    ttl,
-                    rdata,
-                } = record;
-            }
-        }
+        let Record {
+            name_labels,
+            rr_type,
+            dns_class,
+            ttl,
+            rdata,
+            #[cfg(feature = "mdns")]
+            mdns_cache_flush,
+            #[cfg(feature = "dnssec")]
+            proof,
+        } = record;
 
         Self {
             name_labels,
@@ -403,6 +445,8 @@ impl<R: RecordData> From<Record<R>> for RecordParts<R> {
             rdata,
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
+            #[cfg(feature = "dnssec")]
+            proof,
         }
     }
 }
@@ -553,6 +597,8 @@ impl<'r> BinDecodable<'r> for Record<RData> {
             rdata,
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
+            #[cfg(feature = "dnssec")]
+            proof: Proof::default(),
         })
     }
 }
@@ -729,6 +775,22 @@ impl PartialOrd<Self> for Record {
     }
 }
 
+#[cfg(feature = "dnssec")]
+impl From<Record> for Proven<Record> {
+    fn from(record: Record) -> Self {
+        let proof = record.proof();
+        Self::new(proof, record)
+    }
+}
+
+#[cfg(feature = "dnssec")]
+impl<'a> From<&'a Record> for Proven<&'a Record> {
+    fn from(record: &'a Record) -> Self {
+        let proof = record.proof();
+        Self::new(proof, record)
+    }
+}
+
 /// A Record where the RecordData type is already known
 pub struct RecordRef<'a, R: RecordData> {
     name_labels: &'a Name,
@@ -738,6 +800,8 @@ pub struct RecordRef<'a, R: RecordData> {
     rdata: Option<&'a R>,
     #[cfg(feature = "mdns")]
     mdns_cache_flush: bool,
+    #[cfg(feature = "dnssec")]
+    proof: Proof,
 }
 
 impl<'a, R: RecordData> RecordRef<'a, R> {
@@ -751,6 +815,8 @@ impl<'a, R: RecordData> RecordRef<'a, R> {
             rdata: self.rdata.cloned(),
             #[cfg(feature = "mdns")]
             mdns_cache_flush: self.mdns_cache_flush,
+            #[cfg(feature = "dnssec")]
+            proof: self.proof,
         }
     }
 
@@ -792,6 +858,14 @@ impl<'a, R: RecordData> RecordRef<'a, R> {
     pub fn mdns_cache_flush(&self) -> bool {
         self.mdns_cache_flush
     }
+
+    /// The Proof of DNSSEC validation for this record, this is only valid if some form of validation has occurred
+    #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+    #[inline]
+    pub fn proof(&self) -> Proof {
+        self.proof
+    }
 }
 
 impl<'a, R: RecordData> TryFrom<&'a Record> for RecordRef<'a, R> {
@@ -806,6 +880,8 @@ impl<'a, R: RecordData> TryFrom<&'a Record> for RecordRef<'a, R> {
             rdata,
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
+            #[cfg(feature = "dnssec")]
+            proof,
         } = record;
 
         match rdata.as_ref().and_then(R::try_borrow) {
@@ -817,6 +893,8 @@ impl<'a, R: RecordData> TryFrom<&'a Record> for RecordRef<'a, R> {
                 rdata: None,
                 #[cfg(feature = "mdns")]
                 mdns_cache_flush: *mdns_cache_flush,
+                #[cfg(feature = "dnssec")]
+                proof: *proof,
             }),
             Some(rdata) => Ok(Self {
                 name_labels,
@@ -826,6 +904,8 @@ impl<'a, R: RecordData> TryFrom<&'a Record> for RecordRef<'a, R> {
                 rdata: Some(rdata),
                 #[cfg(feature = "mdns")]
                 mdns_cache_flush: *mdns_cache_flush,
+                #[cfg(feature = "dnssec")]
+                proof: *proof,
             }),
         }
     }
@@ -853,7 +933,7 @@ mod tests {
         let mut record = Record::new();
         record
             .set_name(Name::from_str("www.example.com").unwrap())
-            .set_rr_type(RecordType::A)
+            .set_record_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
             .set_ttl(5)
             .set_data(Some(RData::A(A::new(192, 168, 0, 1))));
@@ -876,7 +956,7 @@ mod tests {
         let mut record = Record::new();
         record
             .set_name(Name::from_str("www.example.com").unwrap())
-            .set_rr_type(RecordType::A)
+            .set_record_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
             .set_ttl(5)
             .set_data(Some(RData::A(A::new(192, 168, 0, 1))));
@@ -884,8 +964,8 @@ mod tests {
         let mut greater_name = record.clone();
         greater_name.set_name(Name::from_str("zzz.example.com").unwrap());
 
-        let mut greater_type = record.clone();
-        greater_type.set_rr_type(RecordType::AAAA);
+        let mut greater_type = record.clone().into_record_of_rdata();
+        greater_type.set_record_type(RecordType::AAAA);
 
         let mut greater_class = record.clone();
         greater_class.set_dns_class(DNSClass::NONE);
