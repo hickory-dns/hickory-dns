@@ -157,7 +157,7 @@ impl Container {
             id,
             name,
             ipv4_addr,
-            _network: network.clone(),
+            network: network.clone(),
         };
         Ok(Self {
             inner: Arc::new(inner),
@@ -250,6 +250,10 @@ impl Container {
     pub fn id(&self) -> &str {
         &self.inner.id
     }
+
+    pub(crate) fn network(&self) -> &Network {
+        &self.inner.network
+    }
 }
 
 fn verbose_docker_build() -> bool {
@@ -282,7 +286,7 @@ struct Inner {
     id: String,
     // TODO probably also want the IPv6 address
     ipv4_addr: Ipv4Addr,
-    _network: Network,
+    network: Network,
 }
 
 /// NOTE unlike `std::process::Child`, the drop implementation of this type will `kill` the

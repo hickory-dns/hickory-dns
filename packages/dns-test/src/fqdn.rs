@@ -33,6 +33,10 @@ impl FQDN {
         inner: Cow::Borrowed("com."),
     };
 
+    pub const NAMESERVERS: FQDN = FQDN {
+        inner: Cow::Borrowed("nameservers.com."),
+    };
+
     pub fn is_root(&self) -> bool {
         self.inner == "."
     }
@@ -50,6 +54,28 @@ impl FQDN {
         FQDN {
             inner: Cow::Owned(owned),
         }
+    }
+
+    pub fn parent(&self) -> Option<FQDN> {
+        let (fragment, parent) = self.inner.split_once('.').unwrap();
+
+        if fragment.is_empty() {
+            None
+        } else {
+            let parent = if parent.is_empty() {
+                FQDN::ROOT
+            } else {
+                FQDN(parent.to_string()).unwrap()
+            };
+            Some(parent)
+        }
+    }
+
+    pub fn num_labels(&self) -> usize {
+        self.inner
+            .split('.')
+            .filter(|label| !label.is_empty())
+            .count()
     }
 }
 
@@ -70,5 +96,39 @@ impl fmt::Debug for FQDN {
 impl fmt::Display for FQDN {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.inner)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parent() -> Result<()> {
+        let mut fqdn = FQDN("example.nameservers.com.")?;
+        assert_eq!(3, fqdn.num_labels());
+
+        let parent = fqdn.parent();
+        assert_eq!(
+            Some("nameservers.com."),
+            parent.as_ref().map(|fqdn| fqdn.as_str())
+        );
+        fqdn = parent.unwrap();
+        assert_eq!(2, fqdn.num_labels());
+
+        let parent = fqdn.parent();
+        assert_eq!(Some(FQDN::COM), parent);
+        fqdn = parent.unwrap();
+        assert_eq!(1, fqdn.num_labels());
+
+        let parent = fqdn.parent();
+        assert_eq!(Some(FQDN::ROOT), parent);
+        fqdn = parent.unwrap();
+        assert_eq!(0, fqdn.num_labels());
+
+        let parent = fqdn.parent();
+        assert!(parent.is_none());
+
+        Ok(())
     }
 }

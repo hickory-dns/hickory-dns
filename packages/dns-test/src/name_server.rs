@@ -5,8 +5,135 @@ use crate::container::{Child, Container, Network};
 use crate::implementation::{Config, Role};
 use crate::record::{self, Record, SoaSettings, DS, SOA};
 use crate::tshark::Tshark;
-use crate::zone_file::{self, ZoneFile};
-use crate::{Implementation, Result, DEFAULT_TTL, FQDN};
+use crate::zone_file::{self, Root, ZoneFile};
+use crate::{Implementation, Result, TrustAnchor, DEFAULT_TTL, FQDN};
+
+pub struct Graph {
+    pub nameservers: Vec<NameServer<Running>>,
+    pub root: Root,
+    pub trust_anchor: Option<TrustAnchor>,
+}
+
+/// Whether to sign the zone files
+pub enum Sign<'a> {
+    No,
+    Yes,
+    /// Signs the zone files and then modifies the records produced by the signing process
+    // XXX if captures are needed use `&dyn Fn(..)` instead of a function pointer
+    AndAmend(&'a dyn Fn(&FQDN, &mut Vec<Record>)),
+}
+
+impl Graph {
+    /// Builds up a minimal DNS graph from `leaf` up to a root name server and returns all the
+    /// name servers in the graph
+    ///
+    /// All new name servers will share the `Implementation` of `leaf`.
+    ///
+    /// The returned name servers are sorted from leaf zone to root zone.
+    ///
+    /// both `Sign::Yes` and `Sign::AndAmend` will add a DS record with the hash of the child's
+    /// key to the parent's zone file
+    ///
+    /// a non-empty `TrustAnchor` is returned only when `Sign::Yes` or `Sign::AndAmend` is used
+    pub fn build(leaf: NameServer<Stopped>, sign: Sign) -> Result<Self> {
+        // TODO if `leaf` is not authoritative over `nameservers.com.`, we would need two "lines" to
+        // root. for example, if `leaf` is authoritative over `example.net.` we would need these two
+        // lines:
+        // - `nameservers.com.`, `com.`, `.` to cover the `primaryNNN.nameservers.com.` domains that
+        // `NameServer` implicitly uses
+        // - `example.net.`, `net.`, `.` to cover the requested `leaf` name server
+        assert_eq!(&FQDN::NAMESERVERS, leaf.zone(), "not yet implemented");
+
+        // first pass: create nameservers for parent zones
+        let mut zone = leaf.zone().clone();
+        let mut nameservers = vec![leaf];
+        while let Some(parent) = zone.parent() {
+            let leaf = &mut nameservers[0];
+            let nameserver = NameServer::new(
+                &leaf.implementation,
+                parent.clone(),
+                leaf.container.network(),
+            )?;
+
+            leaf.add(Record::a(nameserver.fqdn().clone(), nameserver.ipv4_addr()));
+            nameservers.push(nameserver);
+
+            zone = parent;
+        }
+
+        // XXX will not hold when `leaf` is not authoritative over `nameservers.com.`
+        assert_eq!(3, nameservers.len());
+
+        // second pass: add referrals from parent to child
+        // `windows_mut` is not a thing in `core::iter` so use indexing as a workaround
+        for index in 0..nameservers.len() - 1 {
+            let [child, parent] = &mut nameservers[index..][..2] else {
+                unreachable!()
+            };
+
+            parent.referral(
+                child.zone().clone(),
+                child.fqdn().clone(),
+                child.ipv4_addr(),
+            );
+        }
+
+        let root = nameservers.last().unwrap();
+        let root = Root::new(root.fqdn().clone(), root.ipv4_addr());
+
+        // start name servers
+        let (nameservers, trust_anchor) = match sign {
+            Sign::No => (
+                nameservers
+                    .into_iter()
+                    .map(|nameserver| nameserver.start())
+                    .collect::<Result<_>>()?,
+                None,
+            ),
+
+            _ => {
+                let mut trust_anchor = TrustAnchor::empty();
+                let maybe_mutate = match sign {
+                    Sign::No => unreachable!(),
+                    Sign::Yes => None,
+                    Sign::AndAmend(f) => Some(f),
+                };
+
+                let mut running = vec![];
+                let mut child_ds = None;
+                let len = nameservers.len();
+                for (index, mut nameserver) in nameservers.into_iter().enumerate() {
+                    if let Some(ds) = child_ds.take() {
+                        nameserver.add(ds);
+                    }
+
+                    let mut nameserver = nameserver.sign()?;
+                    child_ds = Some(nameserver.ds().clone());
+                    if let Some(mutate) = maybe_mutate {
+                        let zone = nameserver.zone().clone();
+                        mutate(&zone, &mut nameserver.signed_zone_file_mut().records);
+                    }
+
+                    if index == len - 1 {
+                        // the last nameserver covers `.`
+                        trust_anchor.add(nameserver.key_signing_key().clone());
+                        trust_anchor.add(nameserver.zone_signing_key().clone());
+                    }
+
+                    running.push(nameserver.start()?);
+                }
+
+                (running, Some(trust_anchor))
+            }
+        };
+
+        Ok(Graph {
+            nameservers,
+            root,
+            trust_anchor,
+        })
+    }
+}
 
 pub struct NameServer<State> {
     container: Container,
