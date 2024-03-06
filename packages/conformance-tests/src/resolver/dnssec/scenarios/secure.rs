@@ -1,7 +1,7 @@
 use std::net::Ipv4Addr;
 
 use dns_test::client::{Client, DigSettings};
-use dns_test::name_server::NameServer;
+use dns_test::name_server::{Graph, NameServer, Sign};
 use dns_test::record::{Record, RecordType};
 use dns_test::zone_file::Root;
 use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
@@ -51,53 +51,20 @@ fn can_validate_with_delegation() -> Result<()> {
 
     let peer = dns_test::peer();
     let network = Network::new()?;
-    let mut root_ns = NameServer::new(&peer, FQDN::ROOT, &network)?;
-    let mut com_ns = NameServer::new(&peer, FQDN::COM, &network)?;
 
-    let mut nameservers_ns = NameServer::new(&peer, FQDN("nameservers.com.")?, &network)?;
-    nameservers_ns
-        .add(Record::a(root_ns.fqdn().clone(), root_ns.ipv4_addr()))
-        .add(Record::a(com_ns.fqdn().clone(), com_ns.ipv4_addr()))
-        .add(Record::a(needle_fqdn.clone(), expected_ipv4_addr));
-    let nameservers_ns = nameservers_ns.sign()?;
-    let nameservers_ds = nameservers_ns.ds().clone();
-    let nameservers_ns = nameservers_ns.start()?;
+    let mut leaf_ns = NameServer::new(&peer, FQDN::NAMESERVERS, &network)?;
+    leaf_ns.add(Record::a(needle_fqdn.clone(), expected_ipv4_addr));
 
-    eprintln!("nameservers.com.zone:\n{}", nameservers_ns.zone_file());
+    let Graph {
+        nameservers: _nameservers,
+        root,
+        trust_anchor,
+    } = Graph::build(leaf_ns, Sign::Yes)?;
 
-    com_ns
-        .referral(
-            nameservers_ns.zone().clone(),
-            nameservers_ns.fqdn().clone(),
-            nameservers_ns.ipv4_addr(),
-        )
-        .add(nameservers_ds);
-    let com_ns = com_ns.sign()?;
-    let com_ds = com_ns.ds().clone();
-    let com_ns = com_ns.start()?;
-
-    eprintln!("com.zone:\n{}", com_ns.zone_file());
-
-    root_ns
-        .referral(FQDN::COM, com_ns.fqdn().clone(), com_ns.ipv4_addr())
-        .add(com_ds);
-    let root_ns = root_ns.sign()?;
-    let root_ksk = root_ns.key_signing_key().clone();
-    let root_zsk = root_ns.zone_signing_key().clone();
-
-    eprintln!("root.zone.signed:\n{}", root_ns.signed_zone_file());
-
-    let root_ns = root_ns.start()?;
-
-    eprintln!("root.zone:\n{}", root_ns.zone_file());
-
-    let trust_anchor = &TrustAnchor::from_iter([root_ksk, root_zsk]);
-    let resolver = Resolver::new(
-        &network,
-        Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr()),
-    )
-    .trust_anchor(trust_anchor)
-    .start(&dns_test::subject())?;
+    let trust_anchor = &trust_anchor.unwrap();
+    let resolver = Resolver::new(&network, root)
+        .trust_anchor(trust_anchor)
+        .start(&dns_test::subject())?;
     let resolver_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;
