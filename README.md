@@ -44,6 +44,18 @@ $ DNS_TEST_SUBJECT="hickory https://github.com/hickory-dns/hickory-dns" cargo ru
   
 - `DNS_TEST_VERBOSE_DOCKER_BUILD`. Setting this variable prints the output of the `docker build` invocations that the framework does to the console. This is useful to verify that image caching is working; for example if you set `DNS_TEST_SUBJECT` to a local `hickory-dns` repository then consecutively running the `explore` example and/or `conformance-tests` test suite **must** not rebuild `hickory-dns` provided that you have not *committed* any new change to the local repository.
 
+### Automatic clean-up
+
+`dns-test` has been designed to clean up, that is remove, the Docker containers and Docker networks that it creates.
+If you use `dns-test` and it does not clean up Docker resources, that's a bug that should be reported.
+
+`dns-test` uses destructors (the `Drop` trait) to clean up resources.
+If you forcefully terminate a process, e.g. using Ctrl+C or a signal like SIGINT, that uses `dns-test` then the destructors won't run and Docker resources won't be cleaned up.
+
+Note that `cargo watch` terminates the last process using signals before starting a new instance of it.
+Therefore we advise against using `cargo watch` to *run* tests that use the `dns-test` framework;
+using `cargo-watch` to `check` such tests is perfectly fine, however.
+
 ### Writing tests
 
 Here are some considerations when writing tests.
