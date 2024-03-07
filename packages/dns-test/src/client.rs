@@ -255,8 +255,10 @@ impl FromStr for DigOutput {
 
 #[derive(Debug, PartialEq)]
 pub enum ExtendedDnsError {
-    DnssecBogus,
     DnskeyMissing,
+    DnssecBogus,
+    RrsigsMissing,
+    UnsupportedDnskeyAlgorithm,
 }
 
 impl FromStr for ExtendedDnsError {
@@ -266,8 +268,10 @@ impl FromStr for ExtendedDnsError {
         let code: u16 = input.parse()?;
 
         let code = match code {
+            1 => Self::UnsupportedDnskeyAlgorithm,
             6 => Self::DnssecBogus,
             9 => Self::DnskeyMissing,
+            10 => Self::RrsigsMissing,
             _ => todo!("EDE {code} has not yet been implemented"),
         };
 
