@@ -28,8 +28,16 @@ const DEFAULT_TTL: u32 = 24 * 60 * 60; // 1 day
 
 #[derive(Clone)]
 pub enum Implementation {
-    Unbound,
+    Bind,
     Hickory(Repository<'static>),
+    Unbound,
+}
+
+impl Implementation {
+    #[must_use]
+    pub fn is_bind(&self) -> bool {
+        matches!(self, Self::Bind)
+    }
 }
 
 #[derive(Clone)]
@@ -70,6 +78,10 @@ pub fn subject() -> Implementation {
             return Implementation::Unbound;
         }
 
+        if subject == "bind" {
+            return Implementation::Bind;
+        }
+
         if subject.starts_with("hickory") {
             if let Some(url) = subject.strip_prefix("hickory ") {
                 Implementation::Hickory(Repository(url.to_string()))
@@ -85,5 +97,13 @@ pub fn subject() -> Implementation {
 }
 
 pub fn peer() -> Implementation {
-    Implementation::default()
+    if let Ok(subject) = std::env::var("DNS_TEST_PEER") {
+        match subject.as_str() {
+            "unbound" => Implementation::Unbound,
+            "bind" => Implementation::Bind,
+            _ => panic!("`{subject}` is not supported as a test peer implementation"),
+        }
+    } else {
+        Implementation::default()
+    }
 }

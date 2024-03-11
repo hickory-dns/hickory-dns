@@ -10,6 +10,7 @@ use crate::{Implementation, Result};
 pub struct Resolver {
     container: Container,
     child: Child,
+    implementation: Implementation,
 }
 
 impl Resolver {
@@ -26,8 +27,6 @@ impl Resolver {
         trust_anchor: &TrustAnchor,
         network: &Network,
     ) -> Result<Self> {
-        const TRUST_ANCHOR_FILE: &str = "/etc/trusted-key.key";
-
         assert!(
             !roots.is_empty(),
             "must configure at least one local root server"
@@ -43,6 +42,15 @@ impl Resolver {
 
         let use_dnssec = !trust_anchor.is_empty();
         match implementation {
+            Implementation::Bind => {
+                container.cp("/etc/bind/root.hints", &hints)?;
+
+                container.cp(
+                    "/etc/bind/named.conf",
+                    &named_conf(use_dnssec, network.netmask()),
+                )?;
+            }
+
             Implementation::Unbound => {
                 container.cp("/etc/unbound/root.hints", &hints)?;
 
@@ -62,16 +70,33 @@ impl Resolver {
         }
 
         if use_dnssec {
-            container.cp(TRUST_ANCHOR_FILE, &trust_anchor.to_string())?;
+            let path = if implementation.is_bind() {
+                "/etc/bind/bind.keys"
+            } else {
+                "/etc/trusted-key.key"
+            };
+
+            let contents = if implementation.is_bind() {
+                trust_anchor.delv()
+            } else {
+                trust_anchor.to_string()
+            };
+
+            container.cp(path, &contents)?;
         }
 
         let command: &[_] = match implementation {
+            Implementation::Bind => &["named", "-g", "-d5"],
             Implementation::Unbound => &["unbound", "-d"],
             Implementation::Hickory { .. } => &["hickory-dns", "-d"],
         };
         let child = container.spawn(command)?;
 
-        Ok(Self { child, container })
+        Ok(Self {
+            child,
+            container,
+            implementation: implementation.clone(),
+        })
     }
 
     pub fn eavesdrop(&self) -> Result<Tshark> {
@@ -88,7 +113,11 @@ impl Resolver {
 
     /// gracefully terminates the name server collecting all logs
     pub fn terminate(self) -> Result<String> {
-        let pidfile = "/run/unbound.pid";
+        let pidfile = match self.implementation {
+            Implementation::Bind => "/tmp/named.pid",
+            Implementation::Unbound => "/run/unbound.pid",
+            Implementation::Hickory(..) => unimplemented!(),
+        };
         let kill = format!(
             "test -f {pidfile} || sleep 1
 kill -TERM $(cat {pidfile})"
@@ -108,6 +137,10 @@ kill -TERM $(cat {pidfile})"
     }
 }
 
+fn named_conf(use_dnssec: bool, netmask: &str) -> String {
+    minijinja::render!(include_str!("templates/named.resolver.conf.jinja"), use_dnssec => use_dnssec, netmask => netmask)
+}
+
 fn unbound_conf(use_dnssec: bool, netmask: &str) -> String {
     minijinja::render!(include_str!("templates/unbound.conf.jinja"), use_dnssec => use_dnssec, netmask => netmask)
 }
@@ -123,7 +156,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn terminate_works() -> Result<()> {
+    fn terminate_unbound_works() -> Result<()> {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
         let resolver = Resolver::start(
@@ -136,6 +169,24 @@ mod tests {
 
         eprintln!("{logs}");
         assert!(logs.contains("start of service"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn terminate_bind_works() -> Result<()> {
+        let network = Network::new()?;
+        let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
+        let resolver = Resolver::start(
+            &Implementation::Bind,
+            &[Root::new(ns.fqdn().clone(), ns.ipv4_addr())],
+            &TrustAnchor::empty(),
+            &network,
+        )?;
+        let logs = resolver.terminate()?;
+
+        eprintln!("{logs}");
+        assert!(logs.contains("starting BIND"));
 
         Ok(())
     }

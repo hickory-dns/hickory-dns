@@ -30,6 +30,9 @@ jobs:
       - name: Run tests against unbound
         run: cargo test -p conformance-tests -- --include-ignored
 
+      - name: Run tests against BIND
+        run: DNS_TEST_SUBJECT=bind cargo test -p conformance-tests -- --include-ignored
+
       - name: Run tests against hickory
         run: |
           git clone https://github.com/hickory-dns/hickory-dns /tmp/hickory

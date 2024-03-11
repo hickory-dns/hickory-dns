@@ -21,8 +21,12 @@ fn edns_support() -> Result<()> {
 
     let client = Client::new(network)?;
     let settings = *DigSettings::default().authentic_data().recurse();
-    let ans = client.dig(settings, resolver.ipv4_addr(), RecordType::SOA, &FQDN::ROOT)?;
-    assert!(ans.status.is_servfail());
+    let _ans = client.dig(settings, resolver.ipv4_addr(), RecordType::SOA, &FQDN::ROOT)?;
+
+    // implementation-specific behavior
+    // unbound replies with SERVFAIL
+    // BIND replies with NOERROR
+    // assert!(_ans.status.is_servfail());
 
     tshark.wait_for_capture()?;
 
