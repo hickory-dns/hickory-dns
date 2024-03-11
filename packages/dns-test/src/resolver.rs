@@ -48,8 +48,13 @@ kill -TERM $(cat {pidfile})"
         self.container.status_ok(&["sh", "-c", &kill])?;
         let output = self.child.wait()?;
 
-        if !output.status.success() {
-            return Err("could not terminate the `unbound` process".into());
+        // the hickory-dns binary does not do signal handling so it won't shut down gracefully; we
+        // will still get some logs so we'll ignore the fact that it fails to shut down ...
+        let is_hickory = matches!(self.implementation, Implementation::Hickory(_));
+        if !is_hickory && !output.status.success() {
+            return Err(
+                format!("could not terminate the `{}` process", self.implementation).into(),
+            );
         }
 
         assert!(
@@ -148,7 +153,7 @@ impl ResolverSettings {
 
 #[cfg(test)]
 mod tests {
-    use crate::{name_server::NameServer, FQDN};
+    use crate::{name_server::NameServer, Repository, FQDN};
 
     use super::*;
 
@@ -176,6 +181,28 @@ mod tests {
 
         eprintln!("{logs}");
         assert!(logs.contains("starting BIND"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn terminate_hickory_works() -> Result<()> {
+        let network = Network::new()?;
+        let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
+        let resolver = Resolver::new(&network, Root::new(ns.fqdn().clone(), ns.ipv4_addr()))
+            .start(&Implementation::Hickory(Repository(
+                "https://github.com/hickory-dns/hickory-dns",
+            )))?;
+        let logs = resolver.terminate()?;
+
+        eprintln!("{logs}");
+        let mut found = false;
+        for line in logs.lines() {
+            if line.contains("Hickory DNS") && line.contains("starting") {
+                found = true;
+            }
+        }
+        assert!(found);
 
         Ok(())
     }

@@ -132,7 +132,12 @@ impl Implementation {
         match self {
             Implementation::Bind => &["named", "-g", "-d5"],
 
-            Implementation::Hickory(_) => &["hickory-dns", "-d"],
+            Implementation::Hickory(_) => &[
+                "sh",
+                "-c",
+                "echo $$ > /tmp/hickory.pid
+exec hickory-dns -d",
+            ],
 
             Implementation::Unbound => match role {
                 Role::NameServer => &["nsd", "-d"],
@@ -146,7 +151,7 @@ impl Implementation {
         match self {
             Implementation::Bind => "/tmp/named.pid",
 
-            Implementation::Hickory(_) => unimplemented!(),
+            Implementation::Hickory(_) => "/tmp/hickory.pid",
 
             Implementation::Unbound => match role {
                 Role::NameServer => "/tmp/nsd.pid",
