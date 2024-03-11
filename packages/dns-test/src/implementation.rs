@@ -34,7 +34,7 @@ pub enum Role {
     Resolver,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Implementation {
     Bind,
     Hickory(Repository<'static>),
@@ -178,7 +178,7 @@ impl fmt::Display for Implementation {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Repository<'a> {
     inner: Cow<'a, str>,
 }

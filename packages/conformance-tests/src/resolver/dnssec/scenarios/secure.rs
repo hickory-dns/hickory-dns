@@ -11,7 +11,7 @@ use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
 #[test]
 fn can_validate_without_delegation() -> Result<()> {
     let network = Network::new()?;
-    let mut ns = NameServer::new(&dns_test::peer(), FQDN::ROOT, &network)?;
+    let mut ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, &network)?;
     ns.add(Record::a(ns.fqdn().clone(), ns.ipv4_addr()));
     let ns = ns.sign()?;
 
@@ -27,7 +27,7 @@ fn can_validate_without_delegation() -> Result<()> {
     let trust_anchor = &TrustAnchor::from_iter([root_ksk.clone(), root_zsk.clone()]);
     let resolver = Resolver::new(&network, Root::new(ns.fqdn().clone(), ns.ipv4_addr()))
         .trust_anchor(trust_anchor)
-        .start(&dns_test::subject())?;
+        .start(&dns_test::SUBJECT)?;
     let resolver_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;
@@ -49,10 +49,9 @@ fn can_validate_with_delegation() -> Result<()> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let needle_fqdn = FQDN("example.nameservers.com.")?;
 
-    let peer = dns_test::peer();
     let network = Network::new()?;
 
-    let mut leaf_ns = NameServer::new(&peer, FQDN::NAMESERVERS, &network)?;
+    let mut leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network)?;
     leaf_ns.add(Record::a(needle_fqdn.clone(), expected_ipv4_addr));
 
     let Graph {
@@ -64,7 +63,7 @@ fn can_validate_with_delegation() -> Result<()> {
     let trust_anchor = &trust_anchor.unwrap();
     let resolver = Resolver::new(&network, root)
         .trust_anchor(trust_anchor)
-        .start(&dns_test::subject())?;
+        .start(&dns_test::SUBJECT)?;
     let resolver_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;

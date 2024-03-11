@@ -9,9 +9,9 @@ use dns_test::{Network, Resolver, Result, FQDN};
 #[ignore]
 fn edns_support() -> Result<()> {
     let network = &Network::new()?;
-    let ns = NameServer::new(&dns_test::peer(), FQDN::ROOT, network)?.start()?;
+    let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?.start()?;
     let resolver = Resolver::new(network, Root::new(ns.fqdn().clone(), ns.ipv4_addr()))
-        .start(&dns_test::subject())?;
+        .start(&dns_test::SUBJECT)?;
 
     let mut tshark = resolver.eavesdrop()?;
 

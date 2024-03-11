@@ -125,14 +125,14 @@ fn fixture(
     expected: ExtendedDnsError,
     amend: fn(needle_fqdn: &FQDN, zone: &FQDN, records: &mut Vec<Record>),
 ) -> Result<()> {
-    let subject = dns_test::subject();
+    let subject = &dns_test::SUBJECT;
     let supports_ede = subject.supports_ede();
 
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let needle_fqdn = FQDN("example.nameservers.com.")?;
 
     let network = Network::new()?;
-    let mut leaf_ns = NameServer::new(&dns_test::peer(), FQDN::NAMESERVERS, &network)?;
+    let mut leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network)?;
     leaf_ns.add(Record::a(needle_fqdn.clone(), expected_ipv4_addr));
 
     let Graph {
@@ -153,7 +153,7 @@ fn fixture(
     }
 
     let trust_anchor = &trust_anchor.unwrap();
-    let resolver = resolver.trust_anchor(trust_anchor).start(&subject)?;
+    let resolver = resolver.trust_anchor(trust_anchor).start(subject)?;
     let resolver_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;
