@@ -81,6 +81,9 @@ impl<T: RequestHandler> ServerFuture<T> {
                     let message = match message {
                         Err(e) => {
                             warn!("error receiving message on udp_socket: {}", e);
+                            if is_unrecoverable_socket_error(&e) {
+                                break;
+                            }
                             continue;
                         }
                         Ok(message) => message,
@@ -152,6 +155,9 @@ impl<T: RequestHandler> ServerFuture<T> {
                         Ok((t, s)) => (t, s),
                         Err(e) => {
                             debug!("error receiving TCP tcp_stream error: {}", e);
+                            if is_unrecoverable_socket_error(&e) {
+                                break;
+                            }
                             continue;
                         },
                     },
@@ -208,7 +214,11 @@ impl<T: RequestHandler> ServerFuture<T> {
                 reap_tasks(&mut inner_join_set);
             }
 
-            Ok(())
+            if shutdown.is_cancelled() {
+                Ok(())
+            } else {
+                Err(ProtoError::from("unexpected close of socket"))
+            }
         });
     }
 
@@ -279,6 +289,9 @@ impl<T: RequestHandler> ServerFuture<T> {
                         Ok((t, s)) => (t, s),
                         Err(e) => {
                             debug!("error receiving TLS tcp_stream error: {}", e);
+                            if is_unrecoverable_socket_error(&e) {
+                                break;
+                            }
                             continue;
                         },
                     },
@@ -353,7 +366,11 @@ impl<T: RequestHandler> ServerFuture<T> {
                 reap_tasks(&mut inner_join_set);
             }
 
-            Ok(())
+            if shutdown.is_cancelled() {
+                Ok(())
+            } else {
+                Err(ProtoError::from("unexpected close of socket"))
+            }
         });
 
         Ok(())
@@ -430,6 +447,9 @@ impl<T: RequestHandler> ServerFuture<T> {
                         Ok((t, s)) => (t, s),
                         Err(e) => {
                             debug!("error receiving TLS tcp_stream error: {}", e);
+                            if is_unrecoverable_socket_error(&e) {
+                                break;
+                            }
                             continue;
                         },
                     },
@@ -496,7 +516,11 @@ impl<T: RequestHandler> ServerFuture<T> {
                 reap_tasks(&mut inner_join_set);
             }
 
-            Ok(())
+            if shutdown.is_cancelled() {
+                Ok(())
+            } else {
+                Err(ProtoError::from("unexpected close of socket"))
+            }
         });
 
         Ok(())
@@ -622,6 +646,9 @@ impl<T: RequestHandler> ServerFuture<T> {
                         Ok((t, s)) => (t, s),
                         Err(e) => {
                             debug!("error receiving HTTPS tcp_stream error: {}", e);
+                            if is_unrecoverable_socket_error(&e) {
+                                break;
+                            }
                             continue;
                         },
                     },
@@ -670,7 +697,11 @@ impl<T: RequestHandler> ServerFuture<T> {
                 reap_tasks(&mut inner_join_set);
             }
 
-            Ok(())
+            if shutdown.is_cancelled() {
+                Ok(())
+            } else {
+                Err(ProtoError::from("unexpected close of socket"))
+            }
         });
 
         Ok(())
@@ -1131,6 +1162,13 @@ fn sanitize_src_address(src: SocketAddr) -> Result<(), String> {
         IpAddr::V4(v4) => verify_v4(v4),
         IpAddr::V6(v6) => verify_v6(v6),
     }
+}
+
+fn is_unrecoverable_socket_error(err: &io::Error) -> bool {
+    matches!(
+        err.kind(),
+        io::ErrorKind::NotConnected | io::ErrorKind::ConnectionAborted
+    )
 }
 
 #[cfg(test)]
