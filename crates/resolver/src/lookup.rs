@@ -272,23 +272,6 @@ impl<C> LookupFuture<C>
 where
     C: DnsHandle + 'static,
 {
-    /// Perform a lookup from a name and type to a set of RDatas
-    ///
-    /// # Arguments
-    ///
-    /// * `names` - a set of DNS names to attempt to resolve, they will be attempted in queue order, i.e. the first is `names.pop()`. Upon each failure, the next will be attempted.
-    /// * `record_type` - type of record being sought
-    /// * `client_cache` - cache with a connection to use for performing all lookups
-    #[doc(hidden)]
-    pub fn lookup(
-        names: Vec<Name>,
-        record_type: RecordType,
-        options: DnsRequestOptions,
-        client_cache: CachingClient<C>,
-    ) -> Self {
-        Self::lookup_with_hosts(names, record_type, options, client_cache, None)
-    }
-
     /// Perform a lookup from a name and type to a set of RDatas, taking the local
     /// hosts file into account.
     ///
@@ -299,7 +282,7 @@ where
     /// * `client_cache` - cache with a connection to use for performing all lookups
     /// * `hosts` - the local host file, the records inside it will be prioritized over the upstream DNS server
     #[doc(hidden)]
-    pub fn lookup_with_hosts(
+    pub fn lookup(
         mut names: Vec<Name>,
         record_type: RecordType,
         options: DnsRequestOptions,
@@ -663,6 +646,7 @@ pub mod tests {
                 RecordType::A,
                 DnsRequestOptions::default(),
                 CachingClient::new(0, mock(vec![v4_message()]), false),
+                None,
             ))
             .unwrap()
             .iter()
@@ -681,6 +665,7 @@ pub mod tests {
                     RecordType::A,
                     DnsRequestOptions::default(),
                     CachingClient::new(0, mock(vec![v4_message()]), false),
+                    None,
                 ))
                 .unwrap()
                 .records()[0]
@@ -700,6 +685,7 @@ pub mod tests {
                 RecordType::A,
                 DnsRequestOptions::default(),
                 CachingClient::new(0, mock(vec![v4_message()]), false),
+                None,
             ))
             .unwrap()
             .into_iter()
@@ -716,6 +702,7 @@ pub mod tests {
             RecordType::A,
             DnsRequestOptions::default(),
             CachingClient::new(0, mock(vec![error()]), false),
+            None,
         ))
         .is_err());
     }
@@ -731,6 +718,7 @@ pub mod tests {
             RecordType::A,
             DnsRequestOptions::default(),
             CachingClient::new(0, mock(vec![empty()]), false),
+            None,
         ))
         .expect_err("this should have been a NoRecordsFound")
         .proto()

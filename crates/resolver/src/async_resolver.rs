@@ -367,7 +367,7 @@ impl<P: ConnectionProvider> AsyncResolver<P> {
         L: From<Lookup> + Send + 'static,
     {
         let names = self.build_names(name);
-        LookupFuture::lookup_with_hosts(
+        LookupFuture::lookup(
             names,
             record_type,
             options,
