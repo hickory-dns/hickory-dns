@@ -29,7 +29,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: extractions/setup-just@v1
+      - uses: extractions/setup-just@v2
 
       - name: cargo install cargo-workspaces
         uses: baptiste0928/cargo-install@v3
@@ -52,7 +52,7 @@ jobs:
         with:
           components: llvm-tools-preview
 
-      - uses: extractions/setup-just@v1
+      - uses: extractions/setup-just@v2
 
       - name: cargo install cargo-llvm-cov
         uses: baptiste0928/cargo-install@v3
@@ -96,7 +96,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: extractions/setup-just@v1
+      - uses: extractions/setup-just@v2
 
       - name: cargo install cargo-workspaces
         uses: baptiste0928/cargo-install@v3
@@ -124,7 +124,7 @@ jobs:
         with:
           toolchain: ${{ matrix.version }}
 
-      - uses: extractions/setup-just@v1
+      - uses: extractions/setup-just@v2
 
       - name: cargo install cargo-workspaces
         uses: baptiste0928/cargo-install@v3
@@ -162,7 +162,7 @@ jobs:
           toolchain: stable
           components: rustfmt, clippy
 
-      - uses: extractions/setup-just@v1
+      - uses: extractions/setup-just@v2
 
       - name: cargo install cargo-workspaces
         uses: baptiste0928/cargo-install@v3
@@ -191,7 +191,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: extractions/setup-just@v1
+      - uses: extractions/setup-just@v2
 
       - name: target/bind cache
         uses: actions/cache@v4
