@@ -20,7 +20,7 @@ jobs:
 
     - uses: dtolnay/rust-toolchain@stable
 
-    - uses: extractions/setup-just@v1
+    - uses: extractions/setup-just@v2
 
     - name: cargo install cargo-workspaces
       uses: baptiste0928/cargo-install@v3
