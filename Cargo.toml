@@ -73,7 +73,7 @@ quinn = { version = "0.10", default-features = false }
 h2 = "0.4.0"
 h3 = "0.0.4"
 h3-quinn = "0.0.5"
-http = "1.0"
+http = "1.1"
 
 
 # others
