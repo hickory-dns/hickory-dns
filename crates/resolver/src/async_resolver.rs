@@ -19,7 +19,7 @@ use proto::xfer::{DnsRequestOptions, RetryDnsHandle};
 use tracing::{debug, trace};
 
 use crate::caching_client::CachingClient;
-use crate::config::{ResolverConfig, ResolverOpts};
+use crate::config::{ResolveHosts, ResolverConfig, ResolverOpts};
 use crate::dns_lru::{self, DnsLru};
 use crate::error::*;
 use crate::lookup::{self, Lookup, LookupEither, LookupFuture};
@@ -223,10 +223,9 @@ impl<P: ConnectionProvider> AsyncResolver<P> {
             either = LookupEither::Retry(client);
         }
 
-        let hosts = if options.use_hosts_file {
-            Some(Arc::new(Hosts::new()))
-        } else {
-            None
+        let hosts = match options.use_hosts_file {
+            ResolveHosts::Always | ResolveHosts::Auto => Some(Arc::new(Hosts::new())),
+            ResolveHosts::Never => None,
         };
 
         trace!("handle passed back");
