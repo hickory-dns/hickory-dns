@@ -7,7 +7,7 @@
 
 use std::io;
 
-use hickory_resolver::name_server::TokioConnectionProvider;
+use hickory_resolver::{config::ResolveHosts, name_server::TokioConnectionProvider};
 use tracing::{debug, info};
 
 use crate::{
@@ -73,6 +73,12 @@ impl ForwardAuthority {
                 for a forwarder; switching to true"
             );
             options.preserve_intermediates = true;
+        }
+
+        // Require people to explicitly request for /etc/hosts usage in forwarder
+        // configs
+        if options.use_hosts_file == ResolveHosts::Auto {
+            options.use_hosts_file = ResolveHosts::Never;
         }
 
         let config = ResolverConfig::from_parts(None, vec![], name_servers);

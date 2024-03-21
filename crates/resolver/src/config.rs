@@ -886,6 +886,21 @@ impl Default for ServerOrderingStrategy {
     }
 }
 
+/// Whether the system hosts file should be respected by the resolver.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum ResolveHosts {
+    /// Always attempt to look up IP addresses from the system hosts file.
+    /// If the hostname cannot be found, query the DNS.
+    Always,
+    /// The DNS will always be queried.
+    Never,
+    /// Use local resolver configurations only when this resolver is not used in
+    /// a DNS forwarder. This is the default.
+    #[default]
+    Auto,
+}
+
 /// Configuration for the Resolver
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(default))]
@@ -913,8 +928,8 @@ pub struct ResolverOpts {
     pub ip_strategy: LookupIpStrategy,
     /// Cache size is in number of records (some records can be large)
     pub cache_size: usize,
-    /// Check /ect/hosts file before dns requery (only works for unix like OS)
-    pub use_hosts_file: bool,
+    /// Check /etc/hosts file before dns requery (only works for unix like OS)
+    pub use_hosts_file: ResolveHosts,
     /// Optional minimum TTL for positive responses.
     ///
     /// If this is set, any positive responses with a TTL lower than this value will have a TTL of
@@ -975,7 +990,7 @@ impl Default for ResolverOpts {
             validate: false,
             ip_strategy: LookupIpStrategy::default(),
             cache_size: 32,
-            use_hosts_file: true,
+            use_hosts_file: ResolveHosts::default(),
             positive_min_ttl: None,
             negative_min_ttl: None,
             positive_max_ttl: None,
