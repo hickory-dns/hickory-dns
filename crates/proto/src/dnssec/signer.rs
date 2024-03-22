@@ -643,7 +643,7 @@ mod tests {
             ),
         );
 
-        let rrset = vec![
+        let rrset = [
             Record::from_rdata(
                 origin.clone(),
                 86400,
@@ -706,7 +706,7 @@ mod tests {
                 vec![],
             ),
         );
-        let rrset = vec![
+        let rrset = [
             Record::from_rdata(
                 origin.clone(),
                 86400,
@@ -726,7 +726,7 @@ mod tests {
         let tbs = TBS::from_rrsig(&rrsig, rrset.iter()).unwrap();
         assert!(!tbs.as_ref().is_empty());
 
-        let rrset = vec![
+        let rrset = [
             Record::from_rdata(
                 origin.clone(),
                 86400,
