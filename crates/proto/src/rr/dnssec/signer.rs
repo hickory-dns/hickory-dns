@@ -745,7 +745,7 @@ mod tests {
     #[allow(deprecated)]
     #[allow(clippy::unreadable_literal)]
     fn test_calculate_key_tag() {
-        let test_vectors = vec![
+        let test_vectors = [
             (vec![33, 3, 21, 11, 3, 1, 1, 1], 9739),
             (
                 vec![
