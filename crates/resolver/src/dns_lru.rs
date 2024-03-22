@@ -807,7 +807,7 @@ mod tests {
                 2,
             ),
         ];
-        let ips = vec![
+        let ips = [
             RData::A(A::new(127, 0, 0, 1)),
             RData::A(A::new(127, 0, 0, 2)),
         ];
@@ -843,7 +843,7 @@ mod tests {
                 2,
             ),
         ];
-        let ips = vec![
+        let ips = [
             RData::A(A::new(127, 0, 0, 1)),
             RData::A(A::new(127, 0, 0, 2)),
         ];
@@ -906,7 +906,7 @@ mod tests {
                 500,
             ),
         ];
-        let ips = vec![
+        let ips = [
             RData::A(A::new(127, 0, 0, 1)),
             RData::A(A::new(127, 0, 0, 2)),
         ];
