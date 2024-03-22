@@ -1008,7 +1008,7 @@ impl Authority for InMemoryAuthority {
         name: &LowerName,
         query_type: RecordType,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> Result<Option<Self::Lookup>, LookupError> {
         let inner = self.inner.read().await;
 
         // Collect the records from each rr_set
@@ -1164,14 +1164,14 @@ impl Authority for InMemoryAuthority {
             o => o,
         };
 
-        result.map(|answers| AuthLookup::answers(answers, additionals))
+        result.map(|answers| Some(AuthLookup::answers(answers, additionals)))
     }
 
     async fn search(
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> Result<Option<Self::Lookup>, LookupError> {
         debug!("searching InMemoryAuthority for: {}", request_info.query);
 
         let lookup_name = request_info.query.name();
@@ -1208,12 +1208,12 @@ impl Authority for InMemoryAuthority {
                     self.lookup(lookup_name, record_type, lookup_options),
                 )
                 .map_ok(|(start_soa, end_soa, records)| match start_soa {
-                    l @ AuthLookup::Empty => l,
-                    start_soa => AuthLookup::AXFR {
-                        start_soa: start_soa.unwrap_records(),
-                        records: records.unwrap_records(),
-                        end_soa: end_soa.unwrap_records(),
-                    },
+                    l @ Some(AuthLookup::Empty) => l,
+                    start_soa => Some(AuthLookup::AXFR {
+                        start_soa: start_soa.unwrap_or(AuthLookup::Empty).unwrap_records(),
+                        records: records.unwrap_or(AuthLookup::Empty).unwrap_records(),
+                        end_soa: end_soa.unwrap_or(AuthLookup::Empty).unwrap_records(),
+                    }),
                 });
 
                 lookup.await
@@ -1235,7 +1235,7 @@ impl Authority for InMemoryAuthority {
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> Result<Option<Self::Lookup>, LookupError> {
         let inner = self.inner.read().await;
         fn is_nsec_rrset(rr_set: &RecordSet) -> bool {
             rr_set.record_type() == RecordType::NSEC
@@ -1249,7 +1249,7 @@ impl Authority for InMemoryAuthority {
             .map(|rr_set| LookupRecords::new(lookup_options, rr_set.clone()));
 
         if let Some(no_data) = no_data {
-            return Ok(no_data.into());
+            return Ok(Some(no_data.into()));
         }
 
         let get_closest_nsec = |name: &LowerName| -> Option<Arc<RecordSet>> {
@@ -1310,7 +1310,7 @@ impl Authority for InMemoryAuthority {
             (None, None) => vec![],
         };
 
-        Ok(LookupRecords::many(lookup_options, proofs).into())
+        Ok(Some(LookupRecords::many(lookup_options, proofs).into()))
     }
 
     #[cfg(not(feature = "dnssec"))]
@@ -1318,8 +1318,8 @@ impl Authority for InMemoryAuthority {
         &self,
         _name: &LowerName,
         _lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
-        Ok(AuthLookup::default())
+    ) -> Result<Option<Self::Lookup>, LookupError> {
+        Ok(Some(AuthLookup::default()))
     }
 }
 

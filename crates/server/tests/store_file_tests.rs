@@ -90,6 +90,7 @@ async fn test_ttl_wilcard() {
     let rr = authority
         .lookup(&name, RecordType::A, LookupOptions::default())
         .await
+        .unwrap()
         .unwrap();
     let data = rr
         .into_iter()
