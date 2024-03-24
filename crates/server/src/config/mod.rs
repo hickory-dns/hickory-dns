@@ -28,7 +28,7 @@ use crate::proto::rr::Name;
 use crate::authority::ZoneType;
 #[cfg(feature = "toml")]
 use crate::error::ConfigResult;
-use crate::store::StoreConfig;
+use crate::store::StoreConfigContainer;
 
 static DEFAULT_PATH: &str = "/var/named"; // TODO what about windows (do I care? ;)
 static DEFAULT_PORT: u16 = 53;
@@ -199,7 +199,7 @@ pub struct ZoneConfig {
     pub keys: Vec<dnssec::KeyConfig>,
     /// Store configurations, TODO: allow chained Stores
     #[serde(default)]
-    pub stores: Option<StoreConfig>,
+    pub stores: Option<StoreConfigContainer>,
 }
 
 impl ZoneConfig {

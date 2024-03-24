@@ -362,7 +362,7 @@ fn new_catalog() -> Catalog {
     let origin = example.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin, Box::new(Arc::new(example)));
+    catalog.upsert(origin, vec![Box::new(Arc::new(example))]);
     catalog
 }
 
