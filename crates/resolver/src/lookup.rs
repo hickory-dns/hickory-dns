@@ -26,6 +26,7 @@ use crate::{
     caching_client::CachingClient,
     dns_lru::MAX_TTL,
     error::*,
+    hosts::Hosts,
     lookup_ip::LookupIpIter,
     name_server::{ConnectionProvider, NameServerPool},
     proto::{
@@ -271,28 +272,37 @@ impl<C> LookupFuture<C>
 where
     C: DnsHandle + 'static,
 {
-    /// Perform a lookup from a name and type to a set of RDatas
+    /// Perform a lookup from a name and type to a set of RDatas, taking the local
+    /// hosts file into account.
     ///
     /// # Arguments
     ///
     /// * `names` - a set of DNS names to attempt to resolve, they will be attempted in queue order, i.e. the first is `names.pop()`. Upon each failure, the next will be attempted.
     /// * `record_type` - type of record being sought
     /// * `client_cache` - cache with a connection to use for performing all lookups
+    /// * `hosts` - the local host file, the records inside it will be prioritized over the upstream DNS server
     #[doc(hidden)]
     pub fn lookup(
         mut names: Vec<Name>,
         record_type: RecordType,
         options: DnsRequestOptions,
         mut client_cache: CachingClient<C>,
+        hosts: Option<Arc<Hosts>>,
     ) -> Self {
         let name = names.pop().ok_or_else(|| {
             ResolveError::from(ResolveErrorKind::Message("can not lookup for no names"))
         });
 
         let query: Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>> = match name {
-            Ok(name) => client_cache
-                .lookup(Query::query(name, record_type), options)
-                .boxed(),
+            Ok(name) => {
+                let query = Query::query(name, record_type);
+
+                if let Some(lookup) = hosts.and_then(|h| h.lookup_static_host(&query)) {
+                    future::ok(lookup).boxed()
+                } else {
+                    client_cache.lookup(query, options).boxed()
+                }
+            }
             Err(err) => future::err(err).boxed(),
         };
 
@@ -636,6 +646,7 @@ pub mod tests {
                 RecordType::A,
                 DnsRequestOptions::default(),
                 CachingClient::new(0, mock(vec![v4_message()]), false),
+                None,
             ))
             .unwrap()
             .iter()
@@ -654,6 +665,7 @@ pub mod tests {
                     RecordType::A,
                     DnsRequestOptions::default(),
                     CachingClient::new(0, mock(vec![v4_message()]), false),
+                    None,
                 ))
                 .unwrap()
                 .records()[0]
@@ -673,6 +685,7 @@ pub mod tests {
                 RecordType::A,
                 DnsRequestOptions::default(),
                 CachingClient::new(0, mock(vec![v4_message()]), false),
+                None,
             ))
             .unwrap()
             .into_iter()
@@ -689,6 +702,7 @@ pub mod tests {
             RecordType::A,
             DnsRequestOptions::default(),
             CachingClient::new(0, mock(vec![error()]), false),
+            None,
         ))
         .is_err());
     }
@@ -704,6 +718,7 @@ pub mod tests {
             RecordType::A,
             DnsRequestOptions::default(),
             CachingClient::new(0, mock(vec![empty()]), false),
+            None,
         ))
         .expect_err("this should have been a NoRecordsFound")
         .proto()

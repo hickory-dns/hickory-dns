@@ -45,6 +45,7 @@ fn test_lookup() {
         RecordType::A,
         Default::default(),
         CachingClient::new(0, client, false),
+        None,
     );
     let lookup = io_loop.block_on(lookup).unwrap();
 
@@ -188,6 +189,7 @@ fn test_mock_lookup() {
         RecordType::A,
         Default::default(),
         CachingClient::new(0, client, false),
+        None,
     );
 
     let io_loop = Runtime::new().unwrap();
@@ -219,6 +221,7 @@ fn test_cname_lookup() {
         RecordType::A,
         Default::default(),
         CachingClient::new(0, client, false),
+        None,
     );
 
     let io_loop = Runtime::new().unwrap();
@@ -255,6 +258,7 @@ fn test_cname_lookup_preserve() {
         RecordType::A,
         Default::default(),
         CachingClient::new(0, client, true),
+        None,
     );
 
     let io_loop = Runtime::new().unwrap();
@@ -292,6 +296,7 @@ fn test_chained_cname_lookup() {
         RecordType::A,
         Default::default(),
         CachingClient::new(0, client, false),
+        None,
     );
 
     let io_loop = Runtime::new().unwrap();
@@ -335,6 +340,7 @@ fn test_chained_cname_lookup_preserve() {
         RecordType::A,
         Default::default(),
         CachingClient::new(0, client, true),
+        None,
     );
 
     let io_loop = Runtime::new().unwrap();
@@ -421,6 +427,7 @@ fn test_max_chained_lookup_depth() {
         RecordType::A,
         Default::default(),
         client.clone(),
+        None,
     );
 
     let io_loop = Runtime::new().unwrap();
@@ -434,6 +441,7 @@ fn test_max_chained_lookup_depth() {
         RecordType::A,
         Default::default(),
         client,
+        None,
     );
 
     println!("performing followup resolve, should work");
