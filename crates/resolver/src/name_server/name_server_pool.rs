@@ -382,6 +382,12 @@ where
                 _ if e.is_busy() => {
                     busy.push(conn);
                 }
+                // If our current error is the default err we start with, replace it with the
+                // new error under consideration. It was produced trying to make a connection
+                // and is more specific than the default.
+                _ if matches!(err.kind(), ProtoErrorKind::NoConnections) => {
+                    err = e;
+                }
                 _ if err.cmp_specificity(&e) == Ordering::Less => {
                     err = e;
                 }
