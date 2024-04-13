@@ -5,9 +5,13 @@
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE-APACHE)
 [![Discord](https://img.shields.io/discord/590067103822774272.svg)](https://discord.gg/89nxE4n)
 
+<div class="oranda-hide">
+
 ![Hickory DNS](logo.png)
 
 # Hickory DNS
+
+</div>
 
 A Rust based DNS client, server, and Resolver, built to be safe and secure from the
 ground up.
