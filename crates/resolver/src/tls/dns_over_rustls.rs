@@ -59,6 +59,16 @@ pub(crate) static CLIENT_CONFIG: Lazy<Result<Arc<ClientConfig>, ProtoError>> = L
         )
     }));
 
+    // If by the time we reach this point the root store remains empty then
+    // our feature config hasn't resulted in a populated root store. Return an
+    // early error rather than trying to validate a peer certificate without any
+    // trust anchors.
+    if root_store.is_empty() {
+        return Err(ProtoError::from(
+         "no root certificates configured: you must enable the webpki-roots or native-certs feature".to_owned(),
+        ));
+    }
+
     let mut client_config = ClientConfig::builder()
         .with_safe_default_cipher_suites()
         .with_safe_default_kx_groups()
