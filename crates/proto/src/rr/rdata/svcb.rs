@@ -214,8 +214,8 @@ pub enum SvcParamKey {
     Port,
     /// IPv4 address hints
     Ipv4Hint,
-    /// Encrypted ClientHello info
-    EchConfig,
+    /// Encrypted Client Hello configuration list
+    EchConfigList,
     /// IPv6 address hints
     Ipv6Hint,
     /// Private Use
@@ -234,7 +234,7 @@ impl From<u16> for SvcParamKey {
             2 => Self::NoDefaultAlpn,
             3 => Self::Port,
             4 => Self::Ipv4Hint,
-            5 => Self::EchConfig,
+            5 => Self::EchConfigList,
             6 => Self::Ipv6Hint,
             65280..=65534 => Self::Key(val),
             65535 => Self::Key65535,
@@ -251,7 +251,7 @@ impl From<SvcParamKey> for u16 {
             SvcParamKey::NoDefaultAlpn => 2,
             SvcParamKey::Port => 3,
             SvcParamKey::Ipv4Hint => 4,
-            SvcParamKey::EchConfig => 5,
+            SvcParamKey::EchConfigList => 5,
             SvcParamKey::Ipv6Hint => 6,
             SvcParamKey::Key(val) => val,
             SvcParamKey::Key65535 => 65535,
@@ -284,7 +284,7 @@ impl fmt::Display for SvcParamKey {
             Self::NoDefaultAlpn => f.write_str("no-default-alpn")?,
             Self::Port => f.write_str("port")?,
             Self::Ipv4Hint => f.write_str("ipv4hint")?,
-            Self::EchConfig => f.write_str("ech")?,
+            Self::EchConfigList => f.write_str("ech")?,
             Self::Ipv6Hint => f.write_str("ipv6hint")?,
             Self::Key(val) => write!(f, "key{val}")?,
             Self::Key65535 => f.write_str("key65535")?,
@@ -318,7 +318,7 @@ impl std::str::FromStr for SvcParamKey {
             "no-default-alpn" => Self::NoDefaultAlpn,
             "port" => Self::Port,
             "ipv4hint" => Self::Ipv4Hint,
-            "ech" => Self::EchConfig,
+            "ech" => Self::EchConfigList,
             "ipv6hint" => Self::Ipv6Hint,
             "key65535" => Self::Key65535,
             _ => parse_unknown_key(s)?,
@@ -423,7 +423,7 @@ pub enum SvcParamValue {
     ///   (including DTLS [RFC9147] and QUIC version 1 [RFC9001]) unless otherwise
     ///   specified.
     /// ```
-    EchConfig(EchConfig),
+    EchConfigList(EchConfigList),
     /// See `IpHint`
     Ipv6Hint(IpHint<AAAA>),
     /// Unparsed network data. Refer to documents on the associated key value
@@ -471,7 +471,7 @@ impl SvcParamValue {
                 Self::Port(port)
             }
             SvcParamKey::Ipv4Hint => Self::Ipv4Hint(IpHint::<A>::read(&mut decoder)?),
-            SvcParamKey::EchConfig => Self::EchConfig(EchConfig::read(&mut decoder)?),
+            SvcParamKey::EchConfigList => Self::EchConfigList(EchConfigList::read(&mut decoder)?),
             SvcParamKey::Ipv6Hint => Self::Ipv6Hint(IpHint::<AAAA>::read(&mut decoder)?),
             SvcParamKey::Key(_) | SvcParamKey::Key65535 | SvcParamKey::Unknown(_) => {
                 Self::Unknown(Unknown::read(&mut decoder)?)
@@ -496,7 +496,7 @@ impl BinEncodable for SvcParamValue {
             Self::NoDefaultAlpn => (),
             Self::Port(port) => encoder.emit_u16(*port)?,
             Self::Ipv4Hint(ip_hint) => ip_hint.emit(encoder)?,
-            Self::EchConfig(ech_config) => ech_config.emit(encoder)?,
+            Self::EchConfigList(ech_config) => ech_config.emit(encoder)?,
             Self::Ipv6Hint(ip_hint) => ip_hint.emit(encoder)?,
             Self::Unknown(unknown) => unknown.emit(encoder)?,
         }
@@ -518,7 +518,7 @@ impl fmt::Display for SvcParamValue {
             Self::NoDefaultAlpn => (),
             Self::Port(port) => write!(f, "{port}")?,
             Self::Ipv4Hint(ip_hint) => write!(f, "{ip_hint}")?,
-            Self::EchConfig(ech_config) => write!(f, "{ech_config}")?,
+            Self::EchConfigList(ech_config) => write!(f, "{ech_config}")?,
             Self::Ipv6Hint(ip_hint) => write!(f, "{ip_hint}")?,
             Self::Unknown(unknown) => write!(f, "{unknown}")?,
         }
@@ -817,13 +817,19 @@ impl fmt::Display for Alpn {
 ///   of an alternative endpoint. It is applicable to all TLS-based protocols
 ///   (including DTLS [RFC9147] and QUIC version 1 [RFC9001]) unless
 ///   otherwise specified.
+///
+///   In wire format, the value of the parameter is an ECHConfigList (Section 4 of draft-ietf-tls-esni-18),
+///   including the redundant length prefix. In presentation format, the value is the ECHConfigList
+///   in Base 64 Encoding (Section 4 of [RFC4648]). Base 64 is used here to simplify integration
+///   with TLS server software. To enable simpler parsing, this SvcParam MUST NOT contain escape
+///   sequences.
 /// ```
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(PartialEq, Eq, Hash, Clone)]
 #[repr(transparent)]
-pub struct EchConfig(pub Vec<u8>);
+pub struct EchConfigList(pub Vec<u8>);
 
-impl<'r> BinDecodable<'r> for EchConfig {
+impl<'r> BinDecodable<'r> for EchConfigList {
     /// In wire format, the value of the parameter is an ECHConfigList (Section 4 of draft-ietf-tls-esni-18),
     /// including the redundant length prefix. In presentation format, the value is the
     /// ECHConfigList in Base 64 Encoding (Section 4 of RFC4648).
@@ -843,7 +849,7 @@ impl<'r> BinDecodable<'r> for EchConfig {
     }
 }
 
-impl BinEncodable for EchConfig {
+impl BinEncodable for EchConfigList {
     /// In wire format, the value of the parameter is an ECHConfigList (Section 4 of draft-ietf-tls-esni-18),
     /// including the redundant length prefix. In presentation format, the value is the
     /// ECHConfigList in Base 64 Encoding (Section 4 of RFC4648).
@@ -861,7 +867,7 @@ impl BinEncodable for EchConfig {
     }
 }
 
-impl fmt::Display for EchConfig {
+impl fmt::Display for EchConfigList {
     /// As the documentation states, the presentation format (what this function outputs) must be a BASE64 encoded string.
     ///   hickory-dns will encode to BASE64 during formatting of the internal data, and output the BASE64 value.
     ///
@@ -881,7 +887,7 @@ impl fmt::Display for EchConfig {
     }
 }
 
-impl fmt::Debug for EchConfig {
+impl fmt::Debug for EchConfigList {
     /// The debug format for EchConfig will output the value in BASE64 like Display, but will the addition of the type-name.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
@@ -1197,7 +1203,7 @@ mod tests {
         assert_eq!(SvcParamKey::NoDefaultAlpn, 2.into());
         assert_eq!(SvcParamKey::Port, 3.into());
         assert_eq!(SvcParamKey::Ipv4Hint, 4.into());
-        assert_eq!(SvcParamKey::EchConfig, 5.into());
+        assert_eq!(SvcParamKey::EchConfigList, 5.into());
         assert_eq!(SvcParamKey::Ipv6Hint, 6.into());
         assert_eq!(SvcParamKey::Key(65280), 65280.into());
         assert_eq!(SvcParamKey::Key(65534), 65534.into());
@@ -1212,7 +1218,7 @@ mod tests {
         assert_eq!(u16::from(SvcParamKey::NoDefaultAlpn), 2);
         assert_eq!(u16::from(SvcParamKey::Port), 3);
         assert_eq!(u16::from(SvcParamKey::Ipv4Hint), 4);
-        assert_eq!(u16::from(SvcParamKey::EchConfig), 5);
+        assert_eq!(u16::from(SvcParamKey::EchConfigList), 5);
         assert_eq!(u16::from(SvcParamKey::Ipv6Hint), 6);
         assert_eq!(u16::from(SvcParamKey::Key(65280)), 65280);
         assert_eq!(u16::from(SvcParamKey::Key(65534)), 65534);
