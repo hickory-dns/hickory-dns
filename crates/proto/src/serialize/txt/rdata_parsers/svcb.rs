@@ -120,8 +120,8 @@ fn parse_value(key: SvcParamKey, value: Option<&str>) -> Result<SvcParamValue, P
         SvcParamKey::NoDefaultAlpn => parse_no_default_alpn(value),
         SvcParamKey::Port => parse_port(value),
         SvcParamKey::Ipv4Hint => parse_ipv4_hint(value),
-        SvcParamKey::EchConfig => parse_ech_config(value),
         SvcParamKey::Ipv6Hint => parse_ipv6_hint(value),
+        SvcParamKey::EchConfig => parse_ech_config(value),
         SvcParamKey::Key(_) => parse_unknown(value),
         SvcParamKey::Key65535 | SvcParamKey::Unknown(_) => {
             Err(ParseError::from(ParseErrorKind::Message(
@@ -248,6 +248,23 @@ fn parse_ipv4_hint(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     Ok(SvcParamValue::Ipv4Hint(IpHint(hints)))
 }
 
+/// [RFC 9460 SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-7.3)
+///
+/// ```text
+///   The presentation value SHALL be a comma-separated list
+///   (Appendix A.1) of one or more IP addresses of the appropriate family
+///   in standard textual format [RFC5952].  To enable simpler parsing,
+///   this SvcParamValue MUST NOT contain escape sequences.
+/// ```
+fn parse_ipv6_hint(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
+    let value = value.ok_or_else(|| {
+        ParseError::from(ParseErrorKind::Message("expected at least one ipv6 hint"))
+    })?;
+
+    let hints = parse_list::<AAAA>(value)?;
+    Ok(SvcParamValue::Ipv6Hint(IpHint(hints)))
+}
+
 /// As the documentation states, the presentation format (what this function outputs) must be a BASE64 encoded string.
 ///   hickory-dns will encode to BASE64 during formatting of the internal data, and output the BASE64 value.
 ///
@@ -268,23 +285,6 @@ fn parse_ech_config(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     let value = parse_char_data(value)?;
     let ech_config_bytes = data_encoding::BASE64.decode(value.as_bytes())?;
     Ok(SvcParamValue::EchConfig(EchConfig(ech_config_bytes)))
-}
-
-/// [RFC 9460 SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-7.3)
-///
-/// ```text
-///   The presentation value SHALL be a comma-separated list
-///   (Appendix A.1) of one or more IP addresses of the appropriate family
-///   in standard textual format [RFC5952].  To enable simpler parsing,
-///   this SvcParamValue MUST NOT contain escape sequences.
-/// ```
-fn parse_ipv6_hint(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
-    let value = value.ok_or_else(|| {
-        ParseError::from(ParseErrorKind::Message("expected at least one ipv6 hint"))
-    })?;
-
-    let hints = parse_list::<AAAA>(value)?;
-    Ok(SvcParamValue::Ipv6Hint(IpHint(hints)))
 }
 
 ///  [RFC 9460 SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-2.1)
