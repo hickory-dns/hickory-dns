@@ -284,7 +284,7 @@ impl fmt::Display for SvcParamKey {
             Self::NoDefaultAlpn => f.write_str("no-default-alpn")?,
             Self::Port => f.write_str("port")?,
             Self::Ipv4Hint => f.write_str("ipv4hint")?,
-            Self::EchConfig => f.write_str("echconfig")?,
+            Self::EchConfig => f.write_str("ech")?,
             Self::Ipv6Hint => f.write_str("ipv6hint")?,
             Self::Key(val) => write!(f, "key{val}")?,
             Self::Key65535 => f.write_str("key65535")?,
@@ -318,7 +318,7 @@ impl std::str::FromStr for SvcParamKey {
             "no-default-alpn" => Self::NoDefaultAlpn,
             "port" => Self::Port,
             "ipv4hint" => Self::Ipv4Hint,
-            "echconfig" => Self::EchConfig,
+            "ech" => Self::EchConfig,
             "ipv6hint" => Self::Ipv6Hint,
             "key65535" => Self::Key65535,
             _ => parse_unknown_key(s)?,
@@ -1164,8 +1164,8 @@ impl RecordData for SVCB {
 ///
 /// ```text
 /// simple.example. 7200 IN HTTPS 1 . alpn=h3
-/// pool  7200 IN HTTPS 1 h3pool alpn=h2,h3 echconfig="123..."
-///               HTTPS 2 .      alpn=h2 echconfig="abc..."
+/// pool  7200 IN HTTPS 1 h3pool alpn=h2,h3 ech="123..."
+///               HTTPS 2 .      alpn=h2 ech="abc..."
 /// @     7200 IN HTTPS 0 www
 /// _8765._baz.api.example.com. 7200 IN SVCB 0 svc4-baz.example.net.
 /// ```
