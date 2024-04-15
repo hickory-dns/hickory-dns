@@ -836,14 +836,8 @@ impl<'r> BinDecodable<'r> for EchConfigList {
     /// Base 64 is used here to simplify integration with TLS server software.
     /// To enable simpler parsing, this SvcParam MUST NOT contain escape sequences.
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
-        let redundant_len = decoder
-            .read_u16()?
-            .map(|len| len as usize)
-            .verify_unwrap(|len| *len <= decoder.len())
-            .map_err(|_| ProtoError::from("ECH value length exceeds max size of u16::MAX"))?;
-
         let data =
-            decoder.read_vec(redundant_len)?.unverified(/*up to consumer to validate this data*/);
+            decoder.read_vec(decoder.len())?.unverified(/*up to consumer to validate this data*/);
 
         Ok(Self(data))
     }
@@ -856,11 +850,6 @@ impl BinEncodable for EchConfigList {
     /// Base 64 is used here to simplify integration with TLS server software.
     /// To enable simpler parsing, this SvcParam MUST NOT contain escape sequences.
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        let len = u16::try_from(self.0.len())
-            .map_err(|_| ProtoError::from("ECH value length exceeds max size of u16::MAX"))?;
-
-        // redundant length...
-        encoder.emit_u16(len)?;
         encoder.emit_vec(&self.0)?;
 
         Ok(())
@@ -878,10 +867,6 @@ impl fmt::Display for EchConfigList {
     ///  TLS server software. To enable simpler parsing, this SvcParam MUST NOT
     ///  contain escape sequences.
     /// ```
-    ///
-    /// *note* while the on the wire the EchConfig has a redundant length,
-    ///   the RFC is not explicit about including it in the BASE64 encoded value,
-    ///   hickory-dns will encode the data as it is stored, i.e. without the length encoding.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "\"{}\"", data_encoding::BASE64.encode(&self.0))
     }
