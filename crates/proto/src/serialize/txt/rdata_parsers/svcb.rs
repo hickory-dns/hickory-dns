@@ -20,49 +20,50 @@ use crate::{
     },
 };
 
-/// [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-2.2)
+/// [RFC 9460 SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-2.1)
 ///
 /// ```text
 /// 2.1.  Zone file presentation format
 ///
-///   The presentation format of the record is:
+///   The presentation format <RDATA> of the record ([RFC1035]) has the form:
 ///
-///   Name TTL IN SVCB SvcPriority TargetName SvcParams
+///   SvcPriority TargetName SvcParams
 ///
 ///   The SVCB record is defined specifically within the Internet ("IN")
 ///   Class ([RFC1035]).
 ///
-///   SvcPriority is a number in the range 0-65535, TargetName is a domain
-///   name, and the SvcParams are a whitespace-separated list, with each
-///   SvcParam consisting of a SvcParamKey=SvcParamValue pair or a
-///   standalone SvcParamKey.  SvcParamKeys are subject to IANA control
-///   (Section 14.3).
+///   SvcPriority is a number in the range 0-65535, TargetName is a
+///   <domain-name> ([RFC1035], Section 5.1), and the SvcParams are
+///   a whitespace-separated list, with each SvcParam consisting of a
+///   SvcParamKey=SvcParamValue pair or a standalone SvcParamKey.  
+///   SvcParamKeys are registered by IANA  (Section 14.3).
 ///
 ///   Each SvcParamKey SHALL appear at most once in the SvcParams.  In
-///   presentation format, SvcParamKeys are lower-case alphanumeric
+///   presentation format, SvcParamKeys are lowercase alphanumeric
 ///   strings.  Key names should contain 1-63 characters from the ranges
 ///   "a"-"z", "0"-"9", and "-".  In ABNF [RFC5234],
 ///
 ///   alpha-lc      = %x61-7A   ;  a-z
 ///   SvcParamKey   = 1*63(alpha-lc / DIGIT / "-")
 ///   SvcParam      = SvcParamKey ["=" SvcParamValue]
-///   SvcParamValue = char-string
-///   value         = *OCTET
+///   SvcParamValue = char-string ; See Appendix A.
+///   value         = *OCTET ; Value before key-specific parsing
 ///
 ///   The SvcParamValue is parsed using the character-string decoding
-///   algorithm (Appendix A), producing a "value".  The "value" is then
+///   algorithm (Appendix A), producing a value.  The value is then
 ///   validated and converted into wire-format in a manner specific to each
 ///   key.
 ///
-///   When the "=" is omitted, the "value" is interpreted as empty.
+///   When the optional "=" and SvcParamValue are omitted, the value is
+///   interpreted as empty.
 ///
-///   Unrecognized keys are represented in presentation format as
-///   "keyNNNNN" where NNNNN is the numeric value of the key type without
-///   leading zeros.  A SvcParam in this form SHALL be parsed as specified
-///   above, and the decoded "value" SHALL be used as its wire format
+///   Arbitrary keys can be represented using the unknown-key presentation
+///   format "keyNNNNN" where NNNNN is the numeric value of the key type
+///   without leading zeros. A SvcParam in this form SHALL be parsed as
+///   specified above, and the decoded value SHALL be used as its wire-format
 ///   encoding.
 ///
-///   For some SvcParamKeys, the "value" corresponds to a list or set of
+///   For some SvcParamKeys, the value corresponds to a list or set of
 ///   items.  Presentation formats for such keys SHOULD use a comma-
 ///   separated list (Appendix A.1).
 ///
@@ -144,9 +145,10 @@ fn parse_char_data(value: &str) -> Result<String, ParseError> {
     }
 }
 
-/// [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-7)
+/// [RFC 9460 SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-8)
+///
 /// ```text
-/// The presentation "value" SHALL be a comma-separated list
+///   The presentation value SHALL be a comma-separated list
 ///   (Appendix A.1) of one or more valid SvcParamKeys, either by their
 ///   registered name or in the unknown-key format (Section 2.1).  Keys MAY
 ///   appear in any order, but MUST NOT appear more than once.  For self-
@@ -158,7 +160,7 @@ fn parse_char_data(value: &str) -> Result<String, ParseError> {
 ///
 ///   For example, the following is a valid list of SvcParams:
 ///
-///   echconfig=... key65333=ex1 key65444=ex2 mandatory=key65444,echconfig
+///   ipv6hint=... key65333=ex1 key65444=ex2 mandatory=key65444,ipv6hint
 /// ```
 ///
 /// Currently this does not validate that the mandatory section matches the other keys
@@ -173,15 +175,16 @@ fn parse_mandatory(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     Ok(SvcParamValue::Mandatory(Mandatory(mandatories)))
 }
 
-/// [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-6.1)
+/// [RFC 9460 SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-7.1.1)
+///
 /// ```text
-/// ALPNs are identified by their registered "Identification Sequence"
+///   ALPNs are identified by their registered "Identification Sequence"
 ///   ("alpn-id"), which is a sequence of 1-255 octets.
 ///
 ///   alpn-id = 1*255OCTET
 ///
-///   The presentation "value" SHALL be a comma-separated list
-///   (Appendix A.1) of one or more "alpn-id"s.
+///   For "alpn", the presentation value SHALL be a comma-separated list
+///   (Appendix A.1) of one or more alpn-ids.
 /// ```
 ///
 /// This does not currently check to see if the ALPN code is legitimate
@@ -194,9 +197,10 @@ fn parse_alpn(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     Ok(SvcParamValue::Alpn(Alpn(alpns)))
 }
 
-/// [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-6.1)
+/// [RFC 9460 SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-7.1.1)
+///
 /// ```text
-/// For "no-default-alpn", the presentation and wire format values MUST
+///   For "no-default-alpn", the presentation and wire format values MUST
 ///   be empty.  When "no-default-alpn" is specified in an RR, "alpn" must
 ///   also be specified in order for the RR to be "self-consistent"
 ///   (Section 2.4.3).
@@ -209,10 +213,11 @@ fn parse_no_default_alpn(value: Option<&str>) -> Result<SvcParamValue, ParseErro
     Ok(SvcParamValue::NoDefaultAlpn)
 }
 
-/// [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-6.2)
+/// [RFC 9460 SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-7.2)
+///
 /// ```text
-/// The presentation "value" of the SvcParamValue is a single decimal
-///   integer between 0 and 65535 in ASCII.  Any other "value" (e.g. an
+///   The presentation value of the SvcParamValue is a single decimal
+///   integer between 0 and 65535 in ASCII.  Any other value (e.g. an
 ///   empty value) is a syntax error.  To enable simpler parsing, this
 ///   SvcParam MUST NOT contain escape sequences.
 /// ```
@@ -226,9 +231,10 @@ fn parse_port(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     Ok(SvcParamValue::Port(port))
 }
 
-/// [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-6.4)
+/// [RFC 9460 SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-7.3)
+///
 /// ```text
-/// The presentation "value" SHALL be a comma-separated list
+///   The presentation value SHALL be a comma-separated list
 ///   (Appendix A.1) of one or more IP addresses of the appropriate family
 ///   in standard textual format [RFC5952].  To enable simpler parsing,
 ///   this SvcParamValue MUST NOT contain escape sequences.
@@ -242,15 +248,15 @@ fn parse_ipv4_hint(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     Ok(SvcParamValue::Ipv4Hint(IpHint(hints)))
 }
 
-/// As the documentation states, the presentation format (what this function reads) must be a BASE64 encoded string.
-///   hickory-dns will decode the BASE64 during parsing and stores the internal data as the raw bytes.
+/// As the documentation states, the presentation format (what this function outputs) must be a BASE64 encoded string.
+///   hickory-dns will encode to BASE64 during formatting of the internal data, and output the BASE64 value.
 ///
-/// [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-9)
+/// [draft-ietf-tls-svcb-ech-01 Bootstrapping TLS Encrypted ClientHello with DNS Service Bindings, Sep 2024](https://datatracker.ietf.org/doc/html/draft-ietf-tls-svcb-ech-01)
 /// ```text
-/// In presentation format, the value is a
-///   single ECHConfigs encoded in Base64 [base64].  Base64 is used here to
-///   simplify integration with TLS server software.  To enable simpler
-///   parsing, this SvcParam MUST NOT contain escape sequences.
+///  In presentation format, the value is the ECHConfigList in Base 64 Encoding
+///  (Section 4 of [RFC4648]). Base 64 is used here to simplify integration with
+///  TLS server software. To enable simpler parsing, this SvcParam MUST NOT
+///  contain escape sequences.
 /// ```
 fn parse_ech_config(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     let value = value.ok_or_else(|| {
@@ -264,9 +270,10 @@ fn parse_ech_config(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     Ok(SvcParamValue::EchConfig(EchConfig(ech_config_bytes)))
 }
 
-/// [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-6.4)
+/// [RFC 9460 SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-7.3)
+///
 /// ```text
-/// The presentation "value" SHALL be a comma-separated list
+///   The presentation value SHALL be a comma-separated list
 ///   (Appendix A.1) of one or more IP addresses of the appropriate family
 ///   in standard textual format [RFC5952].  To enable simpler parsing,
 ///   this SvcParamValue MUST NOT contain escape sequences.
@@ -280,15 +287,15 @@ fn parse_ipv6_hint(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     Ok(SvcParamValue::Ipv6Hint(IpHint(hints)))
 }
 
-/// [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-2.1)
-/// ```text
-/// Unrecognized keys are represented in presentation format as
-///   "keyNNNNN" where NNNNN is the numeric value of the key type without
-///   leading zeros.  A SvcParam in this form SHALL be parsed as specified
-///   above, and the decoded "value" SHALL be used as its wire format
-///   encoding.
+///  [RFC 9460 SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-2.1)
 ///
-///   For some SvcParamKeys, the "value" corresponds to a list or set of
+/// ```text
+///   Arbitrary keys can be represented using the unknown-key presentation
+///   format "keyNNNNN" where NNNNN is the numeric value of the key type
+///   without leading zeros. A SvcParam in this form SHALL be parsed as specified
+///   above, and the decoded value SHALL be used as its wire-format encoding.
+///
+///   For some SvcParamKeys, the value corresponds to a list or set of
 ///   items.  Presentation formats for such keys SHOULD use a comma-
 ///   separated list (Appendix A.1).
 ///
