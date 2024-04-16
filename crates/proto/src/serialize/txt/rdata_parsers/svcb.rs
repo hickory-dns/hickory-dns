@@ -452,7 +452,7 @@ mod tests {
 
         // NOTE: In each case the test vector from the RFC was augmented with a TTL (42 in each
         //       case). The parser requires this but the test vectors do not include it.
-        let vectors: [TestVector; 6] = [
+        let vectors: [TestVector; 8] = [
             // https://datatracker.ietf.org/doc/html/rfc9460#appendix-D.1
             // Figure 2: AliasMode
             TestVector {
@@ -479,8 +479,6 @@ mod tests {
                 priority: 16,
                 params: vec![(SvcParamKey::Port, SvcParamValue::Port(53))],
             },
-            /*
-             * TODO(XXX): ParseError { kind: Message("Bad Key type or unsupported, see generic key option, e.g. key1234"), backtrack: None }
             // Figure 5: A Generic Key and Unquoted Value
             TestVector {
                 record: "example.com. 42  SVCB   1 foo.example.com. key667=hello",
@@ -503,7 +501,6 @@ mod tests {
                     SvcParamValue::Unknown(Unknown(b"hello\\210qoo".into())),
                 )],
             },
-             */
             // Figure 7: Two Quoted IPv6 Hints
             TestVector {
                 record: r#"example.com. 42  SVCB   1 foo.example.com. (ipv6hint="2001:db8::1,2001:db8::53:1")"#,

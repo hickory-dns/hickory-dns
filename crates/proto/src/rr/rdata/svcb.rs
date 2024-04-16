@@ -307,9 +307,7 @@ impl std::str::FromStr for SvcParamKey {
                 )))
             })?;
 
-            let key_value = u16::from_str(key_value)?;
-            let key = SvcParamKey::from(key_value);
-            Ok(key)
+            Ok(SvcParamKey::Key(u16::from_str(key_value)?))
         }
 
         let key = match s {
