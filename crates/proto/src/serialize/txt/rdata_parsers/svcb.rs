@@ -83,7 +83,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
         .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("Target".to_string())))
         .and_then(|s| Name::from_str(s).map_err(ParseError::from))?;
 
-    // Loop over all of the
+    // Loop over all of the service parameters
     let mut svc_params = Vec::new();
     for token in tokens {
         // first need to split the key and (optional) value
@@ -95,7 +95,12 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
         })?;
 
         // get the value, and remove any quotes
-        let value = key_value.next();
+        let mut value = key_value.next();
+        if let Some(value) = value.as_mut() {
+            if value.starts_with('"') && value.ends_with('"') {
+                *value = &value[1..value.len() - 1];
+            }
+        }
         svc_params.push(into_svc_param(key, value)?);
     }
 
@@ -360,7 +365,7 @@ mod tests {
 
     #[test]
     fn test_parsing() {
-        let svcb: SVCB = parse_record("crypto.cloudflare.com. 299 IN SVCB 1 . alpn=h2, ipv4hint=162.159.135.79,162.159.136.79, ech=\"/gkAQwATY2xvdWRmbGFyZS1lc25pLmNvbQAgUbBtC3UeykwwE6C87TffqLJ/1CeaAvx3iESGyds85l8AIAAEAAEAAQAAAAA=\" ipv6hint=2606:4700:7::a29f:874f,2606:4700:7::a29f:884f,");
+        let svcb: HTTPS = parse_record(CF_HTTPS_RECORD);
 
         assert_eq!(svcb.svc_priority(), 1);
         assert_eq!(*svcb.target_name(), Name::root());
@@ -370,14 +375,14 @@ mod tests {
         // alpn
         let param = params.next().expect("not alpn");
         assert_eq!(param.0, SvcParamKey::Alpn);
-        assert_eq!(param.1.as_alpn().expect("not alpn").0, &["h2"]);
+        assert_eq!(param.1.as_alpn().expect("not alpn").0, &["http/1.1", "h2"]);
 
         // ipv4 hint
         let param = params.next().expect("ipv4hint");
         assert_eq!(SvcParamKey::Ipv4Hint, param.0);
         assert_eq!(
             param.1.as_ipv4_hint().expect("ipv4hint").0,
-            &[A::new(162, 159, 135, 79), A::new(162, 159, 136, 79)]
+            &[A::new(162, 159, 137, 85), A::new(162, 159, 138, 85)]
         );
 
         // echconfig
@@ -385,7 +390,7 @@ mod tests {
         assert_eq!(SvcParamKey::EchConfigList, param.0);
         assert_eq!(
             param.1.as_ech_config_list().expect("ech").0,
-            data_encoding::BASE64.decode("/gkAQwATY2xvdWRmbGFyZS1lc25pLmNvbQAgUbBtC3UeykwwE6C87TffqLJ/1CeaAvx3iESGyds85l8AIAAEAAEAAQAAAAA=".as_bytes()).unwrap()
+            data_encoding::BASE64.decode(b"AEX+DQBBtgAgACBMmGJQR02doup+5VPMjYpe5HQQ/bpntFCxDa8LT2PLAgAEAAEAAQASY2xvdWRmbGFyZS1lY2guY29tAAA=").unwrap()
         );
 
         // ipv6 hint
@@ -394,15 +399,15 @@ mod tests {
         assert_eq!(
             param.1.as_ipv6_hint().expect("ipv6hint").0,
             &[
-                AAAA::new(0x2606, 0x4700, 0x7, 0, 0, 0, 0xa29f, 0x874f),
-                AAAA::new(0x2606, 0x4700, 0x7, 0, 0, 0, 0xa29f, 0x884f)
+                AAAA::new(0x2606, 0x4700, 0x7, 0, 0, 0, 0xa29f, 0x8955),
+                AAAA::new(0x2606, 0x4700, 0x7, 0, 0, 0, 0xa29f, 0x8a5)
             ]
         );
     }
 
     #[test]
     fn test_parse_display() {
-        let svcb: SVCB = parse_record("crypto.cloudflare.com. 299 IN SVCB 1 . alpn=h2, ipv4hint=162.159.135.79,162.159.136.79, ech=\"/gkAQwATY2xvdWRmbGFyZS1lc25pLmNvbQAgUbBtC3UeykwwE6C87TffqLJ/1CeaAvx3iESGyds85l8AIAAEAAEAAQAAAAA=\" ipv6hint=2606:4700:7::a29f:874f,2606:4700:7::a29f:884f,");
+        let svcb: SVCB = parse_record(CF_SVCB_RECORD);
 
         let svcb_display = svcb.to_string();
 
@@ -416,9 +421,16 @@ mod tests {
     /// sanity check for https
     #[test]
     fn test_parsing_https() {
-        let svcb: HTTPS = parse_record("crypto.cloudflare.com. 299 IN HTTPS 1 . alpn=h2, ipv4hint=162.159.135.79,162.159.136.79, ech=\"/gkAQwATY2xvdWRmbGFyZS1lc25pLmNvbQAgUbBtC3UeykwwE6C87TffqLJ/1CeaAvx3iESGyds85l8AIAAEAAEAAQAAAAA=\" ipv6hint=2606:4700:7::a29f:874f,2606:4700:7::a29f:884f,");
+        let records = [GOOGLE_HTTPS_RECORD, CF_HTTPS_RECORD];
+        for record in records.iter() {
+            let svcb: HTTPS = parse_record(record);
 
-        assert_eq!(svcb.svc_priority(), 1);
-        assert_eq!(*svcb.target_name(), Name::root());
+            assert_eq!(svcb.svc_priority(), 1);
+            assert_eq!(*svcb.target_name(), Name::root());
+        }
     }
+
+    const CF_SVCB_RECORD: &str = "crypto.cloudflare.com. 1664 IN SVCB 1 . alpn=\"http/1.1,h2\" ipv4hint=162.159.137.85,162.159.138.85 ech=AEX+DQBBtgAgACBMmGJQR02doup+5VPMjYpe5HQQ/bpntFCxDa8LT2PLAgAEAAEAAQASY2xvdWRmbGFyZS1lY2guY29tAAA= ipv6hint=2606:4700:7::a29f:8955,2606:4700:7::a29f:8a5";
+    const CF_HTTPS_RECORD: &str = "crypto.cloudflare.com. 1664 IN HTTPS 1 . alpn=\"http/1.1,h2\" ipv4hint=162.159.137.85,162.159.138.85 ech=AEX+DQBBtgAgACBMmGJQR02doup+5VPMjYpe5HQQ/bpntFCxDa8LT2PLAgAEAAEAAQASY2xvdWRmbGFyZS1lY2guY29tAAA= ipv6hint=2606:4700:7::a29f:8955,2606:4700:7::a29f:8a5";
+    const GOOGLE_HTTPS_RECORD: &str = "google.com 21132 IN HTTPS 1 . alpn=\"h2,h3\"";
 }
