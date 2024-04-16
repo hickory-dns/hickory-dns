@@ -430,7 +430,177 @@ mod tests {
         }
     }
 
-    const CF_SVCB_RECORD: &str = "crypto.cloudflare.com. 1664 IN SVCB 1 . alpn=\"http/1.1,h2\" ipv4hint=162.159.137.85,162.159.138.85 ech=AEX+DQBBtgAgACBMmGJQR02doup+5VPMjYpe5HQQ/bpntFCxDa8LT2PLAgAEAAEAAQASY2xvdWRmbGFyZS1lY2guY29tAAA= ipv6hint=2606:4700:7::a29f:8955,2606:4700:7::a29f:8a5";
+    /// Test with RFC 9460 Appendix D test vectors
+    /// <https://datatracker.ietf.org/doc/html/rfc9460#appendix-D>
+    // TODO(XXX): Consider adding the negative "Failure Cases" from D.3.
+    #[test]
+    fn test_rfc9460_vectors() {
+        #[derive(Debug)]
+        struct TestVector {
+            record: &'static str,
+            record_type: RecordType,
+            target_name: Name,
+            priority: u16,
+            params: Vec<(SvcParamKey, SvcParamValue)>,
+        }
+
+        #[derive(Debug)]
+        enum RecordType {
+            SVCB,
+            HTTPS,
+        }
+
+        // NOTE: In each case the test vector from the RFC was augmented with a TTL (42 in each
+        //       case). The parser requires this but the test vectors do not include it.
+        let vectors: [TestVector; 6] = [
+            // https://datatracker.ietf.org/doc/html/rfc9460#appendix-D.1
+            // Figure 2: AliasMode
+            TestVector {
+                record: "example.com. 42  HTTPS   0 foo.example.com.",
+                record_type: RecordType::HTTPS,
+                target_name: Name::from_str("foo.example.com.").unwrap(),
+                priority: 0,
+                params: Vec::new(),
+            },
+            // https://datatracker.ietf.org/doc/html/rfc9460#appendix-D.2
+            // Figure 3: TargetName Is "."
+            TestVector {
+                record: "example.com. 42  SVCB   1 .",
+                record_type: RecordType::SVCB,
+                target_name: Name::from_str(".").unwrap(),
+                priority: 1,
+                params: Vec::new(),
+            },
+            // Figure 4: Specifies a Port
+            TestVector {
+                record: "example.com. 42  SVCB   16 foo.example.com. port=53",
+                record_type: RecordType::SVCB,
+                target_name: Name::from_str("foo.example.com").unwrap(),
+                priority: 16,
+                params: vec![(SvcParamKey::Port, SvcParamValue::Port(53))],
+            },
+            /*
+             * TODO(XXX): ParseError { kind: Message("Bad Key type or unsupported, see generic key option, e.g. key1234"), backtrack: None }
+            // Figure 5: A Generic Key and Unquoted Value
+            TestVector {
+                record: "example.com. 42  SVCB   1 foo.example.com. key667=hello",
+                record_type: RecordType::SVCB,
+                target_name: Name::from_str("foo.example.com.").unwrap(),
+                priority: 1,
+                params: vec![(
+                    SvcParamKey::Key(667),
+                    SvcParamValue::Unknown(Unknown(b"hello".into())),
+                )],
+            },
+            // Figure 6: A Generic Key and Quoted Value with a Decimal Escape
+            TestVector {
+                record: r#"example.com. 42  SVCB   1 foo.example.com. key667="hello\210qoo""#,
+                record_type: RecordType::SVCB,
+                target_name: Name::from_str("foo.example.com.").unwrap(),
+                priority: 1,
+                params: vec![(
+                    SvcParamKey::Key(667),
+                    SvcParamValue::Unknown(Unknown(b"hello\\210qoo".into())),
+                )],
+            },
+             */
+            // Figure 7: Two Quoted IPv6 Hints
+            TestVector {
+                record: r#"example.com. 42  SVCB   1 foo.example.com. (ipv6hint="2001:db8::1,2001:db8::53:1")"#,
+                record_type: RecordType::SVCB,
+                target_name: Name::from_str("foo.example.com.").unwrap(),
+                priority: 1,
+                params: vec![(
+                    SvcParamKey::Ipv6Hint,
+                    SvcParamValue::Ipv6Hint(IpHint(vec![
+                        AAAA::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1),
+                        AAAA::new(0x2001, 0xdb8, 0, 0, 0, 0, 0x53, 1),
+                    ])),
+                )],
+            },
+            // Figure 8: An IPv6 Hint Using the Embedded IPv4 Syntax
+            TestVector {
+                record: r#"example.com.  42 SVCB   1 example.com. (ipv6hint="2001:db8:122:344::192.0.2.33")"#,
+                record_type: RecordType::SVCB,
+                target_name: Name::from_str("example.com.").unwrap(),
+                priority: 1,
+                params: vec![(
+                    SvcParamKey::Ipv6Hint,
+                    SvcParamValue::Ipv6Hint(IpHint(vec![AAAA::new(
+                        0x2001, 0xdb8, 0x122, 0x344, 0, 0, 0xc000, 0x221,
+                    )])),
+                )],
+            },
+            // Figure 9: SvcParamKey Ordering Is Arbitrary in Presentation Format but Sorted in Wire Format
+            TestVector {
+                record: r#"example.com. 42  SVCB   16 foo.example.org. (alpn=h2,h3-19 mandatory=ipv4hint,alpn ipv4hint=192.0.2.1)"#,
+                record_type: RecordType::SVCB,
+                target_name: Name::from_str("foo.example.org.").unwrap(),
+                priority: 16,
+                params: vec![
+                    (
+                        SvcParamKey::Alpn,
+                        SvcParamValue::Alpn(Alpn(vec!["h2".to_owned(), "h3-19".to_owned()])),
+                    ),
+                    (
+                        SvcParamKey::Mandatory,
+                        SvcParamValue::Mandatory(Mandatory(vec![
+                            SvcParamKey::Ipv4Hint,
+                            SvcParamKey::Alpn,
+                        ])),
+                    ),
+                    (
+                        SvcParamKey::Ipv4Hint,
+                        SvcParamValue::Ipv4Hint(IpHint(vec![A::new(192, 0, 2, 1)])),
+                    ),
+                ],
+            },
+            // Figure 10: An "alpn" Value with an Escaped Comma and an Escaped Backslash in Two Presentation Formats
+            /*
+             * TODO(XXX): Parser does not support escaped list delimiter.
+            TestVector {
+                record: r#"example.com.  42  SVCB   16 foo.example.org. alpn="f\\\\oo\,bar,h2""#,
+                record_type: RecordType::SVCB,
+                target_name: Name::from_str("foo.example.org.").unwrap(),
+                priority: 16,
+                params: vec![(
+                    SvcParamKey::Alpn,
+                    SvcParamValue::Alpn(Alpn(vec![r#"f\\oo,bar"#.to_owned(), "h2".to_owned()])),
+                )],
+            },
+             */
+            /*
+             * TODO(XXX): Parser does not replace escaped characters, does not see "\092," as
+             *            an escaped delim.
+            TestVector {
+                record: r#"example.com.  42  SVCB   116 foo.example.org. alpn=f\\\092oo\092,bar,h2""#,
+                record_type: RecordType::SVCB,
+                target_name: Name::from_str("foo.example.org.").unwrap(),
+                priority: 16,
+                params: vec![(
+                    SvcParamKey::Alpn,
+                    SvcParamValue::Alpn(Alpn(vec![r#"f\\oo,bar"#.to_owned(), "h2".to_owned()])),
+                )],
+            },
+            */
+        ];
+
+        for record in vectors {
+            let expected_scvb = SVCB::new(record.priority, record.target_name, record.params);
+            match record.record_type {
+                RecordType::SVCB => {
+                    let parsed: SVCB = parse_record(record.record);
+                    assert_eq!(parsed, expected_scvb);
+                }
+                RecordType::HTTPS => {
+                    let parsed: HTTPS = parse_record(record.record);
+                    assert_eq!(parsed, HTTPS(expected_scvb));
+                }
+            };
+        }
+    }
+
+    const CF_SVCB_RECORD: & str = "crypto.cloudflare.com. 1664 IN SVCB 1 . alpn=\"http/1.1,h2\" ipv4hint=162.159.137.85,162.159.138.85 ech=AEX+DQBBtgAgACBMmGJQR02doup+5VPMjYpe5HQQ/bpntFCxDa8LT2PLAgAEAAEAAQASY2xvdWRmbGFyZS1lY2guY29tAAA= ipv6hint=2606:4700:7::a29f:8955,2606:4700:7::a29f:8a5";
     const CF_HTTPS_RECORD: &str = "crypto.cloudflare.com. 1664 IN HTTPS 1 . alpn=\"http/1.1,h2\" ipv4hint=162.159.137.85,162.159.138.85 ech=AEX+DQBBtgAgACBMmGJQR02doup+5VPMjYpe5HQQ/bpntFCxDa8LT2PLAgAEAAEAAQASY2xvdWRmbGFyZS1lY2guY29tAAA= ipv6hint=2606:4700:7::a29f:8955,2606:4700:7::a29f:8a5";
     const GOOGLE_HTTPS_RECORD: &str = "google.com 21132 IN HTTPS 1 . alpn=\"h2,h3\"";
 }
