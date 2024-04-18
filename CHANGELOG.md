@@ -7,7 +7,9 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ## 0.24.1
 
-- Break when socket is unexpectedly shut down #2171 by dlon
+### Fixed
+
+- (proto) Break when socket is unexpectedly shut down #2171 by dlon
 
 ## 0.24.0
 
