@@ -126,7 +126,7 @@ where
     assert_eq!(record.dns_class(), DNSClass::IN);
 
     if let RData::A(ref address) = *record.data().unwrap() {
-        assert_eq!(address, &A::new(93, 184, 216, 34))
+        assert_eq!(address, &A::new(93, 184, 215, 14))
     } else {
         panic!();
     }
@@ -184,7 +184,7 @@ where
     );
 
     if let RData::A(ref address) = *record.data().unwrap() {
-        assert_eq!(address, &A::new(93, 184, 216, 34))
+        assert_eq!(address, &A::new(93, 184, 215, 14))
     } else {
         panic!();
     }
@@ -243,7 +243,7 @@ where
     assert_eq!(record.dns_class(), DNSClass::IN);
 
     if let RData::A(ref address) = *record.data().unwrap() {
-        assert_eq!(address, &A::new(93, 184, 216, 34))
+        assert_eq!(address, &A::new(93, 184, 215, 14))
     } else {
         panic!();
     }

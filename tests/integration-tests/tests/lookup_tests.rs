@@ -50,7 +50,7 @@ fn test_lookup() {
 
     assert_eq!(
         *lookup.iter().next().unwrap(),
-        RData::A(A::new(93, 184, 216, 34))
+        RData::A(A::new(93, 184, 215, 14))
     );
 }
 
@@ -177,7 +177,7 @@ fn test_mock_lookup() {
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let v4_record = v4_record(
         Name::from_str("www.example.com.").unwrap(),
-        Ipv4Addr::new(93, 184, 216, 34),
+        Ipv4Addr::new(93, 184, 215, 14),
     );
     let message = message(resp_query, vec![v4_record], vec![], vec![]);
     let client: MockClientHandle<_> =
@@ -195,7 +195,7 @@ fn test_mock_lookup() {
 
     assert_eq!(
         *lookup.iter().next().unwrap(),
-        RData::A(A::new(93, 184, 216, 34))
+        RData::A(A::new(93, 184, 215, 14))
     );
 }
 
@@ -208,7 +208,7 @@ fn test_cname_lookup() {
     );
     let v4_record = v4_record(
         Name::from_str("v4.example.com.").unwrap(),
-        Ipv4Addr::new(93, 184, 216, 34),
+        Ipv4Addr::new(93, 184, 215, 14),
     );
     let message = message(resp_query, vec![cname_record, v4_record], vec![], vec![]);
     let client: MockClientHandle<_> =
@@ -226,7 +226,7 @@ fn test_cname_lookup() {
 
     assert_eq!(
         *lookup.iter().next().unwrap(),
-        RData::A(A::new(93, 184, 216, 34))
+        RData::A(A::new(93, 184, 215, 14))
     );
 }
 
@@ -239,7 +239,7 @@ fn test_cname_lookup_preserve() {
     );
     let v4_record = v4_record(
         Name::from_str("v4.example.com.").unwrap(),
-        Ipv4Addr::new(93, 184, 216, 34),
+        Ipv4Addr::new(93, 184, 215, 14),
     );
     let message = message(
         resp_query,
@@ -262,7 +262,7 @@ fn test_cname_lookup_preserve() {
 
     let mut iter = lookup.iter();
     assert_eq!(iter.next().unwrap(), cname_record.data().unwrap());
-    assert_eq!(*iter.next().unwrap(), RData::A(A::new(93, 184, 216, 34)));
+    assert_eq!(*iter.next().unwrap(), RData::A(A::new(93, 184, 215, 14)));
 }
 
 #[test]
@@ -274,7 +274,7 @@ fn test_chained_cname_lookup() {
     );
     let v4_record = v4_record(
         Name::from_str("v4.example.com.").unwrap(),
-        Ipv4Addr::new(93, 184, 216, 34),
+        Ipv4Addr::new(93, 184, 215, 14),
     );
 
     // The first response should be a cname, the second will be the actual record
@@ -299,7 +299,7 @@ fn test_chained_cname_lookup() {
 
     assert_eq!(
         *lookup.iter().next().unwrap(),
-        RData::A(A::new(93, 184, 216, 34))
+        RData::A(A::new(93, 184, 215, 14))
     );
 }
 
@@ -312,7 +312,7 @@ fn test_chained_cname_lookup_preserve() {
     );
     let v4_record = v4_record(
         Name::from_str("v4.example.com.").unwrap(),
-        Ipv4Addr::new(93, 184, 216, 34),
+        Ipv4Addr::new(93, 184, 215, 14),
     );
 
     // The first response should be a cname, the second will be the actual record
@@ -342,7 +342,7 @@ fn test_chained_cname_lookup_preserve() {
 
     let mut iter = lookup.iter();
     assert_eq!(iter.next().unwrap(), cname_record.data().unwrap());
-    assert_eq!(*iter.next().unwrap(), RData::A(A::new(93, 184, 216, 34)));
+    assert_eq!(*iter.next().unwrap(), RData::A(A::new(93, 184, 215, 14)));
 }
 
 #[test]
@@ -386,7 +386,7 @@ fn test_max_chained_lookup_depth() {
     );
     let v4_record = v4_record(
         Name::from_str("v4.example.com.").unwrap(),
-        Ipv4Addr::new(93, 184, 216, 34),
+        Ipv4Addr::new(93, 184, 215, 14),
     );
 
     // The first response should be a cname, the second will be the actual record
@@ -441,6 +441,6 @@ fn test_max_chained_lookup_depth() {
 
     assert_eq!(
         *lookup.iter().next().unwrap(),
-        RData::A(A::new(93, 184, 216, 34))
+        RData::A(A::new(93, 184, 215, 14))
     );
 }
