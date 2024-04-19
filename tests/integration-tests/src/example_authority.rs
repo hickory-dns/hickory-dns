@@ -81,19 +81,19 @@ pub fn create_example() -> InMemoryAuthority {
         0,
     );
 
-    // example.com.		86400	IN	A	93.184.216.34
+    // example.com.		86400	IN	A	93.184.215.14
     records.upsert_mut(
         Record::new()
             .set_name(origin.clone())
             .set_ttl(86400)
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(A::new(93, 184, 216, 34))))
+            .set_data(Some(RData::A(A::new(93, 184, 215, 14))))
             .clone(),
         0,
     );
 
-    // example.com.		86400	IN	AAAA	2606:2800:220:1:248:1893:25c8:1946
+    // example.com.		86400	IN	AAAA	2606:2800:21f:cb07:6820:80da:af6b:8b2c
     records.upsert_mut(
         Record::new()
             .set_name(origin)
@@ -101,7 +101,7 @@ pub fn create_example() -> InMemoryAuthority {
             .set_rr_type(RecordType::AAAA)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::AAAA(AAAA::new(
-                0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
+                0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c,
             ))))
             .clone(),
         0,
@@ -136,19 +136,19 @@ pub fn create_example() -> InMemoryAuthority {
         0,
     );
 
-    // www.example.com.	86400	IN	A	93.184.216.34
+    // www.example.com.	86400	IN	A	93.184.215.14
     records.upsert_mut(
         Record::new()
             .set_name(www_name.clone())
             .set_ttl(86400)
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(A::new(93, 184, 216, 34))))
+            .set_data(Some(RData::A(A::new(93, 184, 215, 14))))
             .clone(),
         0,
     );
 
-    // www.example.com.	86400	IN	AAAA	2606:2800:220:1:248:1893:25c8:1946
+    // www.example.com.	86400	IN	AAAA	2606:2800:21f:cb07:6820:80da:af6b:8b2c
     records.upsert_mut(
         Record::new()
             .set_name(www_name.clone())
@@ -156,7 +156,7 @@ pub fn create_example() -> InMemoryAuthority {
             .set_rr_type(RecordType::AAAA)
             .set_dns_class(DNSClass::IN)
             .set_data(Some(RData::AAAA(AAAA::new(
-                0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
+                0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c,
             ))))
             .clone(),
         0,
