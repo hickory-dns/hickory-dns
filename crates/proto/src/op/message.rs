@@ -1195,7 +1195,7 @@ mod tests {
             0x00, 0x01, 0x00, 0x01, // RecordType = A, Class = IN
             0x00, 0x00, 0x00, 0x02, // TTL = 2 seconds
             0x00, 0x04,             // record length = 4 (ipv4 address)
-            0x5D, 0xB8, 0xD8, 0x22, // address = 93.184.216.34
+            0x5D, 0xB8, 0xD7, 0x0E, // address = 93.184.215.14
         ];
 
         let mut decoder = BinDecoder::new(&buf);
