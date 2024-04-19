@@ -40,9 +40,9 @@ let mut response = resolver.lookup_ip("www.example.com.").unwrap();
 //  this can return IPv4 and/or IPv6 addresses
 let address = response.iter().next().expect("no addresses returned!");
 if address.is_ipv4() {
-    assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+    assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 215, 14)));
 } else {
-    assert_eq!(address, IpAddr::V6(Ipv6Addr::new(0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946)));
+    assert_eq!(address, IpAddr::V6(Ipv6Addr::new(0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c)));
 }
 ```
 
@@ -95,7 +95,7 @@ cargo install --bin resolve hickory-util
 $ resolve www.example.com.
 Querying for www.example.com. A from udp:8.8.8.8:53, tcp:8.8.8.8:53, udp:8.8.4.4:53, tcp:8.8.4.4:53, udp:[2001:4860:4860::8888]:53, tcp:[2001:4860:4860::8888]:53, udp:[2001:4860:4860::8844]:53, tcp:[2001:4860:4860::8844]:53
 Success for query name: www.example.com. type: A class: IN
-        www.example.com. 21063 IN A 93.184.216.34
+        www.example.com. 21063 IN A 93.184.215.14
 ```
 
 ## Minimum Rust Version
