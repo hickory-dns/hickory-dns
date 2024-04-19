@@ -291,7 +291,7 @@ example:
 $ resolve www.example.com.
 Querying for www.example.com. A from udp:8.8.8.8:53, tcp:8.8.8.8:53, udp:8.8.4.4:53, tcp:8.8.4.4:53, udp:[2001:4860:4860::8888]:53, tcp:[2001:4860:4860::8888]:53, udp:[2001:4860:4860::8844]:53, tcp:[2001:4860:4860::8844]:53
 Success for query name: www.example.com. type: A class: IN
-        www.example.com. 21063 IN A 93.184.216.34
+        www.example.com. 21063 IN A 93.184.215.14
 ```
 
 ## Using as a dependency and custom features
