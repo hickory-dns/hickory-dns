@@ -24,10 +24,10 @@ fn can_validate_without_delegation() -> Result<()> {
 
     eprintln!("root.zone:\n{}", ns.zone_file());
 
-    let roots = &[Root::new(ns.fqdn().clone(), ns.ipv4_addr())];
-
-    let trust_anchor = TrustAnchor::from_iter([root_ksk.clone(), root_zsk.clone()]);
-    let resolver = Resolver::start(&dns_test::subject(), roots, &trust_anchor, &network)?;
+    let trust_anchor = &TrustAnchor::from_iter([root_ksk.clone(), root_zsk.clone()]);
+    let resolver = Resolver::new(&network, Root::new(ns.fqdn().clone(), ns.ipv4_addr()))
+        .trust_anchor(trust_anchor)
+        .start(&dns_test::subject())?;
     let resolver_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;
@@ -37,7 +37,7 @@ fn can_validate_without_delegation() -> Result<()> {
     assert!(output.status.is_noerror());
     assert!(output.flags.authenticated_data);
 
-    let output = client.delv(resolver_addr, RecordType::SOA, &FQDN::ROOT, &trust_anchor)?;
+    let output = client.delv(resolver_addr, RecordType::SOA, &FQDN::ROOT, trust_anchor)?;
     assert!(output.starts_with("; fully validated"));
 
     Ok(())
@@ -91,10 +91,13 @@ fn can_validate_with_delegation() -> Result<()> {
 
     eprintln!("root.zone:\n{}", root_ns.zone_file());
 
-    let roots = &[Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr())];
-
-    let trust_anchor = TrustAnchor::from_iter([root_ksk.clone(), root_zsk.clone()]);
-    let resolver = Resolver::start(&dns_test::subject(), roots, &trust_anchor, &network)?;
+    let trust_anchor = &TrustAnchor::from_iter([root_ksk, root_zsk]);
+    let resolver = Resolver::new(
+        &network,
+        Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr()),
+    )
+    .trust_anchor(trust_anchor)
+    .start(&dns_test::subject())?;
     let resolver_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;
@@ -111,7 +114,7 @@ fn can_validate_with_delegation() -> Result<()> {
     assert_eq!(needle_fqdn, a.fqdn);
     assert_eq!(expected_ipv4_addr, a.ipv4_addr);
 
-    let output = client.delv(resolver_addr, RecordType::A, &needle_fqdn, &trust_anchor)?;
+    let output = client.delv(resolver_addr, RecordType::A, &needle_fqdn, trust_anchor)?;
     assert!(output.starts_with("; fully validated"));
 
     Ok(())

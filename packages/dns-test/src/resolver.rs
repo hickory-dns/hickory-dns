@@ -3,6 +3,7 @@ use std::net::Ipv4Addr;
 
 use crate::container::{Child, Container, Network};
 use crate::implementation::{Config, Role};
+use crate::record::DNSKEY;
 use crate::trust_anchor::TrustAnchor;
 use crate::tshark::Tshark;
 use crate::zone_file::Root;
@@ -15,67 +16,13 @@ pub struct Resolver {
 }
 
 impl Resolver {
-    /// Starts a DNS server in the recursive resolver role
-    ///
-    /// This server is not an authoritative name server; it does not server a zone file to clients
-    ///
-    /// # Panics
-    ///
-    /// This constructor panics if `roots` is an empty slice
-    pub fn start(
-        implementation: &Implementation,
-        roots: &[Root],
-        trust_anchor: &TrustAnchor,
-        network: &Network,
-    ) -> Result<Self> {
-        assert!(
-            !roots.is_empty(),
-            "must configure at least one local root server"
-        );
-
-        let image = implementation.clone().into();
-        let container = Container::run(&image, network)?;
-
-        let mut hints = String::new();
-        for root in roots {
-            writeln!(hints, "{root}").unwrap();
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new(network: &Network, root: Root) -> ResolverSettings {
+        ResolverSettings {
+            network: network.clone(),
+            roots: vec![root],
+            trust_anchor: TrustAnchor::empty(),
         }
-
-        container.cp("/etc/root.hints", &hints)?;
-
-        let use_dnssec = !trust_anchor.is_empty();
-        let config = Config::Resolver {
-            use_dnssec,
-            netmask: network.netmask(),
-        };
-        container.cp(
-            implementation.conf_file_path(config.role()),
-            &implementation.format_config(config),
-        )?;
-
-        if use_dnssec {
-            let path = if implementation.is_bind() {
-                "/etc/bind/bind.keys"
-            } else {
-                "/etc/trusted-key.key"
-            };
-
-            let contents = if implementation.is_bind() {
-                trust_anchor.delv()
-            } else {
-                trust_anchor.to_string()
-            };
-
-            container.cp(path, &contents)?;
-        }
-
-        let child = container.spawn(implementation.cmd_args(config.role()))?;
-
-        Ok(Self {
-            child,
-            container,
-            implementation: implementation.clone(),
-        })
     }
 
     pub fn eavesdrop(&self) -> Result<Tshark> {
@@ -112,6 +59,83 @@ kill -TERM $(cat {pidfile})"
     }
 }
 
+pub struct ResolverSettings {
+    network: Network,
+    roots: Vec<Root>,
+    trust_anchor: TrustAnchor,
+}
+
+impl ResolverSettings {
+    /// Starts a DNS server in the recursive resolver role
+    ///
+    /// This server is not an authoritative name server; it does not serve a zone file to clients
+    pub fn start(&self, implementation: &Implementation) -> Result<Resolver> {
+        let image = implementation.clone().into();
+        let container = Container::run(&image, &self.network)?;
+
+        let mut hints = String::new();
+        for root in &self.roots {
+            writeln!(hints, "{root}").unwrap();
+        }
+
+        container.cp("/etc/root.hints", &hints)?;
+
+        let use_dnssec = !self.trust_anchor.is_empty();
+        let config = Config::Resolver {
+            use_dnssec,
+            netmask: self.network.netmask(),
+        };
+        container.cp(
+            implementation.conf_file_path(config.role()),
+            &implementation.format_config(config),
+        )?;
+
+        if use_dnssec {
+            let path = if implementation.is_bind() {
+                "/etc/bind/bind.keys"
+            } else {
+                "/etc/trusted-key.key"
+            };
+
+            let contents = if implementation.is_bind() {
+                self.trust_anchor.delv()
+            } else {
+                self.trust_anchor.to_string()
+            };
+
+            container.cp(path, &contents)?;
+        }
+
+        let child = container.spawn(implementation.cmd_args(config.role()))?;
+
+        Ok(Resolver {
+            child,
+            container,
+            implementation: implementation.clone(),
+        })
+    }
+
+    /// Adds a root hint
+    pub fn root(&mut self, root: Root) -> &mut Self {
+        self.roots.push(root);
+        self
+    }
+
+    /// Adds a DNSKEY record to the trust anchor
+    pub fn trust_anchor_key(&mut self, key: DNSKEY) -> &mut Self {
+        self.trust_anchor.add(key.clone());
+        self
+    }
+
+    /// Adds all the keys in the `other` trust anchor to ours
+    pub fn trust_anchor(&mut self, other: &TrustAnchor) -> &mut Self {
+        for key in other.keys() {
+            self.trust_anchor.add(key.clone());
+        }
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{name_server::NameServer, FQDN};
@@ -122,12 +146,8 @@ mod tests {
     fn terminate_unbound_works() -> Result<()> {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
-        let resolver = Resolver::start(
-            &Implementation::Unbound,
-            &[Root::new(ns.fqdn().clone(), ns.ipv4_addr())],
-            &TrustAnchor::empty(),
-            &network,
-        )?;
+        let resolver = Resolver::new(&network, Root::new(ns.fqdn().clone(), ns.ipv4_addr()))
+            .start(&Implementation::Unbound)?;
         let logs = resolver.terminate()?;
 
         eprintln!("{logs}");
@@ -140,12 +160,8 @@ mod tests {
     fn terminate_bind_works() -> Result<()> {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
-        let resolver = Resolver::start(
-            &Implementation::Bind,
-            &[Root::new(ns.fqdn().clone(), ns.ipv4_addr())],
-            &TrustAnchor::empty(),
-            &network,
-        )?;
+        let resolver = Resolver::new(&network, Root::new(ns.fqdn().clone(), ns.ipv4_addr()))
+            .start(&Implementation::Bind)?;
         let logs = resolver.terminate()?;
 
         eprintln!("{logs}");
