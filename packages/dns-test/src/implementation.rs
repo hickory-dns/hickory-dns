@@ -8,8 +8,15 @@ use crate::FQDN;
 
 #[derive(Clone, Copy)]
 pub enum Config<'a> {
-    NameServer { origin: &'a FQDN },
-    Resolver { use_dnssec: bool, netmask: &'a str },
+    NameServer {
+        origin: &'a FQDN,
+    },
+    Resolver {
+        use_dnssec: bool,
+        netmask: &'a str,
+        /// Extended DNS error (RFC8914)
+        ede: bool,
+    },
 }
 
 impl Config<'_> {
@@ -42,6 +49,14 @@ pub enum Implementation {
 }
 
 impl Implementation {
+    pub fn supports_ede(&self) -> bool {
+        match self {
+            Implementation::Bind => false,
+            Implementation::Hickory(_) => true,
+            Implementation::Unbound => true,
+        }
+    }
+
     #[must_use]
     pub fn is_bind(&self) -> bool {
         matches!(self, Self::Bind)
@@ -52,8 +67,11 @@ impl Implementation {
             Config::Resolver {
                 use_dnssec,
                 netmask,
+                ede,
             } => match self {
                 Self::Bind => {
+                    assert!(!ede, "the BIND resolver does not support EDE (RFC8914)");
+
                     minijinja::render!(
                         include_str!("templates/named.resolver.conf.jinja"),
                         use_dnssec => use_dnssec,
@@ -62,6 +80,7 @@ impl Implementation {
                 }
 
                 Self::Hickory(_) => {
+                    // TODO enable EDE in Hickory when supported
                     minijinja::render!(
                         include_str!("templates/hickory.resolver.toml.jinja"),
                         use_dnssec => use_dnssec,
@@ -73,6 +92,7 @@ impl Implementation {
                         include_str!("templates/unbound.conf.jinja"),
                         use_dnssec => use_dnssec,
                         netmask => netmask,
+                        ede => ede,
                     )
                 }
             },
