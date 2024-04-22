@@ -1,7 +1,9 @@
 FROM rust:1-slim-bookworm
 
+# ldns-utils = ldns-{key2ds,keygen,signzone}
 RUN apt-get update && \
     apt-get install -y \
+        ldnsutils \
         tshark
 
 # `dns-test` will invoke `docker build` from a temporary directory that contains

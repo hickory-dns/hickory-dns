@@ -156,14 +156,6 @@ impl NameServer<Stopped> {
     /// - one NS record, with this name server's FQDN set as the only available name server for
     /// the zone
     pub fn new(implementation: &Implementation, zone: FQDN, network: &Network) -> Result<Self> {
-        assert!(
-            matches!(
-                implementation,
-                Implementation::Unbound | Implementation::Bind
-            ),
-            "currently only `unbound` (`nsd`) and BIND can be used as a `NameServer`"
-        );
-
         let ns_count = ns_count();
         let nameserver = primary_ns(ns_count);
         let image = implementation.clone().into();

@@ -34,13 +34,6 @@ pub enum Role {
     Resolver,
 }
 
-impl Role {
-    #[must_use]
-    pub fn is_resolver(&self) -> bool {
-        matches!(self, Self::Resolver)
-    }
-}
-
 #[derive(Clone)]
 pub enum Implementation {
     Bind,
@@ -112,7 +105,12 @@ impl Implementation {
                     )
                 }
 
-                Self::Hickory(_) => unimplemented!(),
+                Self::Hickory(_) => {
+                    minijinja::render!(
+                        include_str!("templates/hickory.name-server.toml.jinja"),
+                        fqdn => origin.as_str()
+                    )
+                }
             },
         }
     }
@@ -134,14 +132,7 @@ impl Implementation {
         match self {
             Implementation::Bind => &["named", "-g", "-d5"],
 
-            Implementation::Hickory(_) => {
-                assert!(
-                    role.is_resolver(),
-                    "hickory acting in `NameServer` role is currently not supported"
-                );
-
-                &["hickory-dns", "-d"]
-            }
+            Implementation::Hickory(_) => &["hickory-dns", "-d"],
 
             Implementation::Unbound => match role {
                 Role::NameServer => &["nsd", "-d"],
