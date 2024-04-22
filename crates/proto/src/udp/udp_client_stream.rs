@@ -36,6 +36,7 @@ where
     MF: MessageFinalizer,
 {
     name_server: SocketAddr,
+    bind_server: Option<SocketAddr>,
     timeout: Duration,
     is_shutdown: bool,
     signer: Option<Arc<MF>>,
@@ -100,6 +101,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> UdpClientStream<S, MF>
     ) -> UdpClientConnect<S, MF> {
         UdpClientConnect {
             name_server,
+            bind_addr: None,
             timeout,
             signer,
             creator: Arc::new(|local_addr: _, server_addr: _| {
@@ -127,6 +129,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> UdpClientStream<S, MF>
     ) -> UdpClientConnect<S, MF> {
         UdpClientConnect {
             name_server,
+            bind_addr,
             timeout,
             signer,
             creator: Arc::new(move |local_addr: _, server_addr: _| {
@@ -151,12 +154,14 @@ impl<S: DnsUdpSocket + Send, MF: MessageFinalizer> UdpClientStream<S, MF> {
     /// * `creator` - function that binds a local address to a newly created UDP socket
     pub fn with_creator(
         name_server: SocketAddr,
+        bind_addr: Option<SocketAddr>,
         signer: Option<Arc<MF>>,
         timeout: Duration,
         creator: UdpCreator<S>,
     ) -> UdpClientConnect<S, MF> {
         UdpClientConnect {
             name_server,
+            bind_addr,
             timeout,
             signer,
             creator,
@@ -233,11 +238,13 @@ impl<S: DnsUdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
         );
         let creator = self.creator.clone();
         let addr = message.addr();
+        let bind_addr = self.bind_server.clone();
 
         S::Time::timeout::<Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>>(
             self.timeout,
             Box::pin(async move {
-                let socket: S = NextRandomUdpSocket::new_with_closure(&addr, creator).await?;
+                let socket: S =
+                    NextRandomUdpSocket::new_with_closure(&addr, &bind_addr, creator).await?;
                 send_serial_message_inner(message, message_id, verifier, socket, recv_buf_size)
                     .await
             }),
@@ -275,6 +282,7 @@ where
     MF: MessageFinalizer,
 {
     name_server: SocketAddr,
+    bind_addr: Option<SocketAddr>,
     timeout: Duration,
     signer: Option<Arc<MF>>,
     creator: UdpCreator<S>,
@@ -288,6 +296,7 @@ impl<S: Send + Unpin, MF: MessageFinalizer> Future for UdpClientConnect<S, MF> {
         // TODO: this doesn't need to be a future?
         Poll::Ready(Ok(UdpClientStream::<S, MF> {
             name_server: self.name_server,
+            bind_server: self.bind_addr,
             is_shutdown: false,
             timeout: self.timeout,
             signer: self.signer.take(),

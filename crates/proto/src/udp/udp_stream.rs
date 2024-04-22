@@ -264,12 +264,19 @@ impl<S: UdpSocket + 'static> NextRandomUdpSocket<S> {
 
 impl<S: DnsUdpSocket> NextRandomUdpSocket<S> {
     /// Create a future with generator
-    pub(crate) fn new_with_closure(name_server: &SocketAddr, func: UdpCreator<S>) -> Self {
-        let bind_address = match *name_server {
-            SocketAddr::V4(..) => SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0),
-            SocketAddr::V6(..) => {
-                SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)), 0)
-            }
+    pub(crate) fn new_with_closure(
+        name_server: &SocketAddr,
+        bind_addr: &Option<SocketAddr>,
+        func: UdpCreator<S>,
+    ) -> Self {
+        let bind_address = match bind_addr {
+            Some(ba) => *ba,
+            None => match *name_server {
+                SocketAddr::V4(..) => SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0),
+                SocketAddr::V6(..) => {
+                    SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)), 0)
+                }
+            },
         };
         Self {
             name_server: *name_server,

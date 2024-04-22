@@ -284,6 +284,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 };
                 let stream = UdpClientStream::with_creator(
                     config.socket_addr,
+                    config.bind_addr,
                     None,
                     options.timeout,
                     Arc::new(closure),
