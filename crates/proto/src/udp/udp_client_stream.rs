@@ -36,7 +36,7 @@ where
     MF: MessageFinalizer,
 {
     name_server: SocketAddr,
-    bind_server: Option<SocketAddr>,
+    bind_addr: Option<SocketAddr>,
     timeout: Duration,
     is_shutdown: bool,
     signer: Option<Arc<MF>>,
@@ -238,7 +238,7 @@ impl<S: DnsUdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
         );
         let creator = self.creator.clone();
         let addr = message.addr();
-        let bind_addr = self.bind_server.clone();
+        let bind_addr = self.bind_addr;
 
         S::Time::timeout::<Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>>(
             self.timeout,
@@ -297,7 +297,7 @@ impl<S: Send + Unpin, MF: MessageFinalizer> Future for UdpClientConnect<S, MF> {
         // TODO: this doesn't need to be a future?
         Poll::Ready(Ok(UdpClientStream::<S, MF> {
             name_server: self.name_server,
-            bind_server: self.bind_addr,
+            bind_addr: self.bind_addr,
             is_shutdown: false,
             timeout: self.timeout,
             signer: self.signer.take(),
