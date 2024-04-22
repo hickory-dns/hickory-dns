@@ -264,7 +264,12 @@ impl<S: UdpSocket + 'static> NextRandomUdpSocket<S> {
 
 impl<S: DnsUdpSocket> NextRandomUdpSocket<S> {
     /// Create a future with generator
-    pub(crate) fn new_with_closure(
+    pub(crate) fn new_with_closure(name_server: &SocketAddr, func: UdpCreator<S>) -> Self {
+        NextRandomUdpSocket::<S>::new_with_bind_addr_and_closure(name_server, &None, func)
+    }
+
+    /// Create a future with generator
+    pub(crate) fn new_with_bind_addr_and_closure(
         name_server: &SocketAddr,
         bind_addr: &Option<SocketAddr>,
         func: UdpCreator<S>,

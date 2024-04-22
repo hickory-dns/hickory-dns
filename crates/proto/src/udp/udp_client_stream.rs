@@ -244,7 +244,8 @@ impl<S: DnsUdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
             self.timeout,
             Box::pin(async move {
                 let socket: S =
-                    NextRandomUdpSocket::new_with_closure(&addr, &bind_addr, creator).await?;
+                    NextRandomUdpSocket::new_with_bind_addr_and_closure(&addr, &bind_addr, creator)
+                        .await?;
                 send_serial_message_inner(message, message_id, verifier, socket, recv_buf_size)
                     .await
             }),
