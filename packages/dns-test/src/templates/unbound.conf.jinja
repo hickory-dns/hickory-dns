@@ -3,7 +3,8 @@ server:
     use-syslog: no
     interface: 0.0.0.0
     access-control: {{ netmask }} allow
-    root-hints: /etc/unbound/root.hints
+    root-hints: /etc/root.hints
+    pidfile: /tmp/unbound.pid
 {% if use_dnssec %}
     trust-anchor-file: /etc/trusted-key.key
 {% endif %}
