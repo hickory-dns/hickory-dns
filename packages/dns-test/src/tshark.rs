@@ -179,6 +179,10 @@ impl Message {
             .ok()
     }
 
+    pub fn as_value(&self) -> &serde_json::Value {
+        &self.inner
+    }
+
     fn opt_record(&self) -> Option<&serde_json::Value> {
         for (key, value) in self.inner.get("Additional records")?.as_object()? {
             if key.ends_with(": type OPT") {
