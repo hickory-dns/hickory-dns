@@ -17,7 +17,7 @@ pub struct FileConfig {
 impl FileConfig {
     /// Create a new [`FileConfig`] from a path.
     pub fn new(path: impl Into<String>) -> Self {
-        FileConfig {
+        Self {
             zone_file_path: path.into(),
         }
     }
