@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::{net::SocketAddr, time::Instant};
+use std::{net::SocketAddr, sync::Arc, time::Instant};
 
 use async_recursion::async_recursion;
 use futures_util::{future::select_all, FutureExt};
@@ -239,7 +239,11 @@ impl Recursor {
     /// contiguous zone at ISI.EDU.
     /// ```
     pub async fn resolve(&self, query: Query, request_time: Instant) -> Result<Lookup, Error> {
-        if let Some(lookup) = self.record_cache.get(&query, request_time) {
+        if crate::is_security_aware() {
+            // TODO RFC4035 section 4.5 recommends caching "each response as a single atomic entry
+            // containing the entire answer, including the named RRset and any associated DNSSEC
+            // RRs"
+        } else if let Some(lookup) = self.record_cache.get(&query, request_time) {
             return lookup.map_err(Into::into);
         }
 
@@ -280,7 +284,9 @@ impl Recursor {
         let ns = ns.ok_or_else(|| Error::from(format!("no nameserver found for {zone}")))?;
         debug!("found zone {} for {}", ns.zone(), query);
 
-        let response = self.lookup(query, ns, request_time).await?;
+        let response = self
+            .lookup(query, ns, request_time, crate::is_security_aware())
+            .await?;
         Ok(response)
     }
 
@@ -289,10 +295,13 @@ impl Recursor {
         query: Query,
         ns: RecursorPool<TokioRuntimeProvider>,
         now: Instant,
+        security_aware: bool,
     ) -> Result<Lookup, Error> {
-        if let Some(lookup) = self.record_cache.get(&query, now) {
-            debug!("cached data {lookup:?}");
-            return lookup.map_err(Into::into);
+        if !security_aware {
+            if let Some(lookup) = self.record_cache.get(&query, now) {
+                debug!("cached data {lookup:?}");
+                return lookup.map_err(Into::into);
+            }
         }
 
         let response = ns.lookup(query.clone());
@@ -304,26 +313,34 @@ impl Recursor {
             Ok(r) => {
                 let mut r = r.into_message();
                 info!("response: {}", r.header());
-                let records = r
-                    .take_answers()
-                    .into_iter()
-                    .chain(r.take_name_servers())
-                    .chain(r.take_additionals())
-                    .filter(|x| {
-                        if !is_subzone(ns.zone().clone(), x.name().clone()) {
-                            warn!(
-                                "Dropping out of bailiwick record {x} for zone {}",
-                                ns.zone().clone()
-                            );
-                            false
-                        } else {
-                            true
-                        }
-                    });
 
-                let lookup = self.record_cache.insert_records(query, records, now);
+                if security_aware {
+                    // TODO: validation must be performed if the CD (Checking Disabled) is not set
+                    // TODO: if DO bit is not set then DNSSEC records must be stripped unless
+                    // explicitly requested in the query
+                    Ok(Lookup::new_with_max_ttl(query, Arc::from(r.take_answers())))
+                } else {
+                    let records = r
+                        .take_answers()
+                        .into_iter()
+                        .chain(r.take_name_servers())
+                        .chain(r.take_additionals())
+                        .filter(|x| {
+                            if !is_subzone(ns.zone().clone(), x.name().clone()) {
+                                warn!(
+                                    "Dropping out of bailiwick record {x} for zone {}",
+                                    ns.zone().clone()
+                                );
+                                false
+                            } else {
+                                true
+                            }
+                        });
 
-                lookup.ok_or_else(|| Error::from("no records found"))
+                    let lookup = self.record_cache.insert_records(query, records, now);
+
+                    lookup.ok_or_else(|| Error::from("no records found"))
+                }
             }
             Err(e) => {
                 warn!("lookup error: {e}");
@@ -356,7 +373,7 @@ impl Recursor {
 
         let lookup = Query::query(zone.clone(), RecordType::NS);
         let response = self
-            .lookup(lookup.clone(), nameserver_pool.clone(), request_time)
+            .lookup(lookup.clone(), nameserver_pool.clone(), request_time, false)
             .await?;
 
         // let zone_nameservers = response.name_servers();
