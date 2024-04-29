@@ -238,7 +238,12 @@ impl Recursor {
     /// has contiguous zones at the root and MIL domains, but also has a non-
     /// contiguous zone at ISI.EDU.
     /// ```
-    pub async fn resolve(&self, query: Query, request_time: Instant) -> Result<Lookup, Error> {
+    pub async fn resolve(
+        &self,
+        query: Query,
+        request_time: Instant,
+        query_has_dnssec_ok: bool,
+    ) -> Result<Lookup, Error> {
         if crate::is_security_aware() {
             // TODO RFC4035 section 4.5 recommends caching "each response as a single atomic entry
             // containing the entire answer, including the named RRset and any associated DNSSEC
@@ -284,9 +289,14 @@ impl Recursor {
         let ns = ns.ok_or_else(|| Error::from(format!("no nameserver found for {zone}")))?;
         debug!("found zone {} for {}", ns.zone(), query);
 
-        let response = self
-            .lookup(query, ns, request_time, crate::is_security_aware())
-            .await?;
+        let dnssec = if crate::is_security_aware() {
+            Dnssec::Aware {
+                query_has_dnssec_ok,
+            }
+        } else {
+            Dnssec::Unaware
+        };
+        let response = self.lookup(query, ns, request_time, dnssec).await?;
         Ok(response)
     }
 
@@ -295,9 +305,9 @@ impl Recursor {
         query: Query,
         ns: RecursorPool<TokioRuntimeProvider>,
         now: Instant,
-        security_aware: bool,
+        dnssec: Dnssec,
     ) -> Result<Lookup, Error> {
-        if !security_aware {
+        if !dnssec.is_security_aware() {
             if let Some(lookup) = self.record_cache.get(&query, now) {
                 debug!("cached data {lookup:?}");
                 return lookup.map_err(Into::into);
@@ -314,11 +324,22 @@ impl Recursor {
                 let mut r = r.into_message();
                 info!("response: {}", r.header());
 
-                if security_aware {
+                if let Dnssec::Aware {
+                    query_has_dnssec_ok,
+                } = dnssec
+                {
                     // TODO: validation must be performed if the CD (Checking Disabled) is not set
-                    // TODO: if DO bit is not set then DNSSEC records must be stripped unless
-                    // explicitly requested in the query
-                    Ok(Lookup::new_with_max_ttl(query, Arc::from(r.take_answers())))
+                    let mut answers = r.take_answers();
+                    if !query_has_dnssec_ok {
+                        answers.retain(|rrset| {
+                            // RFC 4035 section 3.2.1 if DO bit not set, strip DNSSEC records
+                            // unless explicitly requested
+                            let record_type = rrset.record_type();
+                            record_type == query.query_type() || !record_type.is_dnssec()
+                        });
+                    }
+
+                    Ok(Lookup::new_with_max_ttl(query, Arc::from(answers)))
                 } else {
                     let records = r
                         .take_answers()
@@ -373,7 +394,12 @@ impl Recursor {
 
         let lookup = Query::query(zone.clone(), RecordType::NS);
         let response = self
-            .lookup(lookup.clone(), nameserver_pool.clone(), request_time, false)
+            .lookup(
+                lookup.clone(),
+                nameserver_pool.clone(),
+                request_time,
+                Dnssec::Unaware,
+            )
             .await?;
 
         // let zone_nameservers = response.name_servers();
@@ -446,12 +472,12 @@ impl Recursor {
             debug!("need glue for {}", zone);
             let a_resolves = need_ips_for_names.iter().take(1).map(|name| {
                 let a_query = Query::query(name.0.clone(), RecordType::A);
-                self.resolve(a_query, request_time).boxed()
+                self.resolve(a_query, request_time, false).boxed()
             });
 
             let aaaa_resolves = need_ips_for_names.iter().take(1).map(|name| {
                 let aaaa_query = Query::query(name.0.clone(), RecordType::AAAA);
-                self.resolve(aaaa_query, request_time).boxed()
+                self.resolve(aaaa_query, request_time, false).boxed()
             });
 
             let mut a_resolves: Vec<_> = a_resolves.chain(aaaa_resolves).collect();
@@ -493,6 +519,18 @@ impl Recursor {
         debug!("found nameservers for {}", zone);
         self.name_server_cache.lock().insert(zone, ns.clone());
         Ok(ns)
+    }
+}
+
+enum Dnssec {
+    Unaware,
+    Aware { query_has_dnssec_ok: bool },
+}
+
+impl Dnssec {
+    #[must_use]
+    fn is_security_aware(&self) -> bool {
+        matches!(self, Self::Aware { .. })
     }
 }
 
