@@ -317,7 +317,8 @@ impl Recursor {
 
         // not in cache, let's look for an ns record for lookup
         let zone = match query.query_type() {
-            RecordType::NS => query.name().base_name(),
+            // (RFC4035 section 3.1.4.1) the DS record needs to be queried in the parent zone
+            RecordType::NS | RecordType::DS => query.name().base_name(),
             // look for the NS records "inside" the zone
             _ => query.name().clone(),
         };
