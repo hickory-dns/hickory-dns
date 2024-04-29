@@ -13,3 +13,12 @@ pub struct FileConfig {
     /// path to the zone file
     pub zone_file_path: String,
 }
+
+impl FileConfig {
+    /// Create a new [`FileConfig`] from a path.
+    pub fn new(path: impl Into<String>) -> Self {
+        FileConfig {
+            zone_file_path: path.into(),
+        }
+    }
+}

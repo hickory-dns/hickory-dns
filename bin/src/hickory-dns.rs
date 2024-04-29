@@ -65,15 +65,12 @@ use hickory_server::store::forwarder::ForwardAuthority;
 #[cfg(feature = "recursor")]
 use hickory_server::store::recursor::RecursiveAuthority;
 #[cfg(feature = "sqlite")]
-use hickory_server::store::sqlite::{SqliteAuthority, SqliteConfig};
+use hickory_server::store::sqlite::SqliteAuthority;
 use hickory_server::{
     authority::{AuthorityObject, Catalog, ZoneType},
     config::{Config, ZoneConfig},
     server::ServerFuture,
-    store::{
-        file::{FileAuthority, FileConfig},
-        StoreConfig,
-    },
+    store::{file::FileAuthority, StoreConfig},
 };
 
 #[cfg(feature = "dnssec")]
@@ -148,7 +145,6 @@ async fn load_zone(
 
     let zone_name: Name = zone_config.get_zone().expect("bad zone name");
     let zone_name_for_signer = zone_name.clone();
-    let zone_path: Option<String> = zone_config.file.clone();
     let zone_type: ZoneType = zone_config.get_zone_type();
     let is_axfr_allowed = zone_config.is_axfr_allowed();
     #[allow(unused_variables)]
@@ -162,10 +158,6 @@ async fn load_zone(
     let authority: Box<dyn AuthorityObject> = match zone_config.stores {
         #[cfg(feature = "sqlite")]
         Some(StoreConfig::Sqlite(ref config)) => {
-            if zone_path.is_some() {
-                warn!("ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]");
-            }
-
             let mut authority = SqliteAuthority::try_from_config(
                 zone_name,
                 zone_type,
@@ -181,10 +173,6 @@ async fn load_zone(
             Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
         }
         Some(StoreConfig::File(ref config)) => {
-            if zone_path.is_some() {
-                warn!("ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]");
-            }
-
             let mut authority = FileAuthority::try_from_config(
                 zone_name,
                 zone_type,
@@ -211,55 +199,7 @@ async fn load_zone(
 
             Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
         }
-        #[cfg(feature = "sqlite")]
-        None if zone_config.is_update_allowed() => {
-            warn!(
-                "using deprecated SQLite load configuration, please move to [[zones.stores]] form"
-            );
-            let zone_file_path = zone_path.ok_or("file is a necessary parameter of zone_config")?;
-            let journal_file_path = PathBuf::from(zone_file_path.clone())
-                .with_extension("jrnl")
-                .to_str()
-                .map(String::from)
-                .ok_or("non-unicode characters in file name")?;
-
-            let config = SqliteConfig {
-                zone_file_path,
-                journal_file_path,
-                allow_update: zone_config.is_update_allowed(),
-            };
-
-            let mut authority = SqliteAuthority::try_from_config(
-                zone_name,
-                zone_type,
-                is_axfr_allowed,
-                is_dnssec_enabled,
-                Some(zone_dir),
-                &config,
-            )
-            .await?;
-
-            // load any keys for the Zone, if it is a dynamic update zone, then keys are required
-            load_keys(&mut authority, zone_name_for_signer, zone_config).await?;
-            Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
-        }
-        None => {
-            let config = FileConfig {
-                zone_file_path: zone_path.ok_or("file is a necessary parameter of zone_config")?,
-            };
-
-            let mut authority = FileAuthority::try_from_config(
-                zone_name,
-                zone_type,
-                is_axfr_allowed,
-                Some(zone_dir),
-                &config,
-            )?;
-
-            // load any keys for the Zone, if it is a dynamic update zone, then keys are required
-            load_keys(&mut authority, zone_name_for_signer, zone_config).await?;
-            Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
-        }
+        None => return Err("missing [[zones.store]] in config".into()),
         Some(_) => {
             panic!("unrecognized authority type, check enabled features");
         }
