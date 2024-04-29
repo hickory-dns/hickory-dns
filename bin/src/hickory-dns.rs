@@ -157,7 +157,7 @@ async fn load_zone(
     // load the zone
     let authority: Box<dyn AuthorityObject> = match zone_config.stores {
         #[cfg(feature = "sqlite")]
-        Some(StoreConfig::Sqlite(ref config)) => {
+        StoreConfig::Sqlite(ref config) => {
             let mut authority = SqliteAuthority::try_from_config(
                 zone_name,
                 zone_type,
@@ -172,7 +172,7 @@ async fn load_zone(
             load_keys(&mut authority, zone_name_for_signer, zone_config).await?;
             Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
         }
-        Some(StoreConfig::File(ref config)) => {
+        StoreConfig::File(ref config) => {
             let mut authority = FileAuthority::try_from_config(
                 zone_name,
                 zone_type,
@@ -186,21 +186,20 @@ async fn load_zone(
             Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
         }
         #[cfg(feature = "resolver")]
-        Some(StoreConfig::Forward(ref config)) => {
+        StoreConfig::Forward(ref config) => {
             let forwarder = ForwardAuthority::try_from_config(zone_name, zone_type, config)?;
 
             Box::new(Arc::new(forwarder)) as Box<dyn AuthorityObject>
         }
         #[cfg(feature = "recursor")]
-        Some(StoreConfig::Recursor(ref config)) => {
+        StoreConfig::Recursor(ref config) => {
             let recursor =
                 RecursiveAuthority::try_from_config(zone_name, zone_type, config, Some(zone_dir));
             let authority = recursor.await?;
 
             Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
         }
-        None => return Err("missing [[zones.store]] in config".into()),
-        Some(_) => {
+        _ => {
             panic!("unrecognized authority type, check enabled features");
         }
     };

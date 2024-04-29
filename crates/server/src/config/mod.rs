@@ -197,8 +197,7 @@ pub struct ZoneConfig {
     #[serde(default)]
     pub keys: Vec<dnssec::KeyConfig>,
     /// Store configurations, TODO: allow chained Stores
-    #[serde(default)]
-    pub stores: Option<StoreConfig>,
+    pub stores: StoreConfig,
 }
 
 impl ZoneConfig {
@@ -230,7 +229,7 @@ impl ZoneConfig {
             allow_axfr,
             enable_dnssec,
             keys,
-            stores: Some(StoreConfig::File(FileConfig::new(file))),
+            stores: StoreConfig::File(FileConfig::new(file)),
         }
     }
 
@@ -250,7 +249,7 @@ impl ZoneConfig {
     /// this is ony used on first load, if dynamic update is enabled for the zone, then the journal
     /// file is the actual source of truth for the zone.
     pub fn get_file(&self) -> Option<PathBuf> {
-        let str_path = match self.stores.as_ref()? {
+        let str_path = match &self.stores {
             StoreConfig::File(file_config) => &file_config.zone_file_path,
             #[cfg(feature = "sqlite")]
             StoreConfig::Sqlite(sqlite_config) => &sqlite_config.zone_file_path,
