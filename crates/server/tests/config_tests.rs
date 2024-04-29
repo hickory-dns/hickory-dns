@@ -264,7 +264,6 @@ define_test_config!(dns_over_tls_rustls_and_openssl);
 define_test_config!(dns_over_tls);
 #[cfg(feature = "sqlite")]
 define_test_config!(dnssec_with_update);
-define_test_config!(dnssec_with_update_deprecated);
 define_test_config!(example);
 define_test_config!(ipv4_and_ipv6);
 define_test_config!(ipv4_only);
