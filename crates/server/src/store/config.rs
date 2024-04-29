@@ -19,7 +19,7 @@ use crate::store::sqlite::SqliteConfig;
 
 /// Enumeration over all Store configurations
 #[derive(Deserialize, PartialEq, Eq, Debug)]
-#[serde(tag = "type")]
+#[serde(untagged)]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
 pub enum StoreConfig {

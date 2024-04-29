@@ -3,27 +3,27 @@
 [[zones]]
 zone = "localhost"
 zone_type = "Primary"
-file = "default/localhost.zone"
+stores.zone_file_path = "default/localhost.zone"
 
 [[zones]]
 zone = "0.0.127.in-addr.arpa"
 zone_type = "Primary"
-file = "default/127.0.0.1.zone"
+stores.zone_file_path = "default/127.0.0.1.zone"
 
 [[zones]]
 zone = "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"
 zone_type = "Primary"
-file = "default/ipv6_1.zone"
+stores.zone_file_path = "default/ipv6_1.zone"
 
 [[zones]]
 zone = "255.in-addr.arpa"
 zone_type = "Primary"
-file = "default/255.zone"
+stores.zone_file_path = "default/255.zone"
 
 [[zones]]
 zone = "0.in-addr.arpa"
 zone_type = "Primary"
-file = "default/0.zone"
+stores.zone_file_path = "default/0.zone"
 
 [[zones]]
 ## zone: this is the ORIGIN of the zone, aka the base name, '.' is implied on the end
@@ -37,5 +37,5 @@ zone_type = "Forward"
 
 ## remember the port, defaults: 53 for Udp & Tcp, 853 for Tls and 443 for Https.
 ##   Tls and/or Https require features dns-over-tls and/or dns-over-https
-stores = { type = "forward", name_servers = [{ socket_addr = "8.8.8.8:53", protocol = "udp", trust_nx_responses = false },
-                                             { socket_addr = "8.8.8.8:53", protocol = "tcp", trust_nx_responses = false }] }
+stores = { name_servers = [{ socket_addr = "8.8.8.8:53", protocol = "udp", trust_nx_responses = false },
+                           { socket_addr = "8.8.8.8:53", protocol = "tcp", trust_nx_responses = false }] }
