@@ -159,7 +159,7 @@ fn test_parse_zone_keys() {
 [[zones]]
 zone = \"example.com\"
 zone_type = \"Primary\"
-file = \"example.com.zone\"
+stores = { type = \"file\", zone_file_path = \"example.com.zone\"}
 
 \
          [[zones.keys]]
