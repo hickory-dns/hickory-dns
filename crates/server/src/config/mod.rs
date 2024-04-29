@@ -213,7 +213,7 @@ impl ZoneConfig {
     /// * `allow_axfr` - enable AXFR transfers
     /// * `enable_dnssec` - enable signing of the zone for DNSSEC
     /// * `keys` - list of private and public keys used to sign a zone
-    pub fn new(
+    pub fn new_with_file_zone(
         zone: String,
         zone_type: ZoneType,
         file: String,

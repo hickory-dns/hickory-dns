@@ -46,7 +46,7 @@ fn test_read_config() {
     assert_eq!(
         config.get_zones(),
         [
-            ZoneConfig::new(
+            ZoneConfig::new_with_file_zone(
                 "localhost".into(),
                 ZoneType::Primary,
                 "default/localhost.zone".into(),
@@ -55,7 +55,7 @@ fn test_read_config() {
                 None,
                 vec![],
             ),
-            ZoneConfig::new(
+            ZoneConfig::new_with_file_zone(
                 "0.0.127.in-addr.arpa".into(),
                 ZoneType::Primary,
                 "default/127.0.0.1.zone".into(),
@@ -64,7 +64,7 @@ fn test_read_config() {
                 None,
                 vec![],
             ),
-            ZoneConfig::new(
+            ZoneConfig::new_with_file_zone(
                 "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.\
                  ip6.arpa"
                     .into(),
@@ -75,7 +75,7 @@ fn test_read_config() {
                 None,
                 vec![],
             ),
-            ZoneConfig::new(
+            ZoneConfig::new_with_file_zone(
                 "255.in-addr.arpa".into(),
                 ZoneType::Primary,
                 "default/255.zone".into(),
@@ -84,7 +84,7 @@ fn test_read_config() {
                 None,
                 vec![],
             ),
-            ZoneConfig::new(
+            ZoneConfig::new_with_file_zone(
                 "0.in-addr.arpa".into(),
                 ZoneType::Primary,
                 "default/0.zone".into(),
@@ -93,7 +93,7 @@ fn test_read_config() {
                 None,
                 vec![],
             ),
-            ZoneConfig::new(
+            ZoneConfig::new_with_file_zone(
                 "example.com".into(),
                 ZoneType::Primary,
                 "example.com.zone".into(),
