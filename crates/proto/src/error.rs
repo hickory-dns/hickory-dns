@@ -381,6 +381,14 @@ impl ProtoError {
         matches!(*self.kind, ProtoErrorKind::NoConnections)
     }
 
+    /// Returns the `io::ErrorKind` if this is an IO error
+    pub fn io_kind(&self) -> Option<io::ErrorKind> {
+        match self.kind() {
+            ProtoErrorKind::Io(e) => Some(e.kind()),
+            _ => None,
+        }
+    }
+
     pub(crate) fn as_dyn(&self) -> &(dyn std::error::Error + 'static) {
         self
     }

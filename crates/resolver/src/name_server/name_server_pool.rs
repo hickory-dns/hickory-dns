@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::cmp::Ordering;
+use std::io;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -263,9 +264,15 @@ where
                     debug!("truncated response received, retrying over TCP");
                     Ok(response)
                 }
-                Err(e) if opts.try_tcp_on_error || e.is_no_connections() => {
-                    debug!("error from UDP, retrying over TCP: {}", e);
-                    Err(e)
+                Err(e) if opts.try_tcp_on_error => {
+                    if e.is_no_connections()
+                        || matches!(e.io_kind(), Some(io::ErrorKind::InvalidData))
+                    {
+                        debug!("error from UDP, retrying over TCP: {e}");
+                        Err(e)
+                    } else {
+                        return Err(ProtoError::from(e));
+                    }
                 }
                 result => return result.map_err(ProtoError::from),
             };
