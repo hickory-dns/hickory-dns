@@ -258,18 +258,17 @@ where
             debug!("sending request: {:?}", request.queries());
 
             // First try the UDP connections
-            let udp_res: Result<DnsResponse, ProtoError> =
-                match Self::try_send(opts.clone(), datagram_conns, request).await {
-                    Ok(response) if response.truncated() => {
-                        debug!("truncated response received, retrying over TCP");
-                        Ok(response)
-                    }
-                    Err(e) if opts.try_tcp_on_error || e.is_no_connections() => {
-                        debug!("error from UDP, retrying over TCP: {}", e);
-                        Err(e)
-                    }
-                    result => return result.map_err(ProtoError::from),
-                };
+            let udp_res = match Self::try_send(opts.clone(), datagram_conns, request).await {
+                Ok(response) if response.truncated() => {
+                    debug!("truncated response received, retrying over TCP");
+                    Ok(response)
+                }
+                Err(e) if opts.try_tcp_on_error || e.is_no_connections() => {
+                    debug!("error from UDP, retrying over TCP: {}", e);
+                    Err(e)
+                }
+                result => return result.map_err(ProtoError::from),
+            };
 
             if stream_conns.is_empty() {
                 debug!("no TCP connections available");
