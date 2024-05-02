@@ -233,7 +233,10 @@ where
     };
 
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), Box::new(Arc::new(authority)));
+    catalog.upsert(
+        authority.origin().clone(),
+        vec![Box::new(Arc::new(authority))],
+    );
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
