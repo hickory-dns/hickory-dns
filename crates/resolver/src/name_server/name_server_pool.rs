@@ -79,7 +79,7 @@ where
                 #[cfg(feature = "dns-over-rustls")]
                 let ns_config = {
                     let mut ns_config = ns_config.clone();
-                    ns_config.tls_config = config.client_config().clone();
+                    ns_config.tls_config.clone_from(config.client_config());
                     ns_config
                 };
                 #[cfg(not(feature = "dns-over-rustls"))]
@@ -97,7 +97,7 @@ where
                 #[cfg(feature = "dns-over-rustls")]
                 let ns_config = {
                     let mut ns_config = ns_config.clone();
-                    ns_config.tls_config = config.client_config().clone();
+                    ns_config.tls_config.clone_from(config.client_config());
                     ns_config
                 };
                 #[cfg(not(feature = "dns-over-rustls"))]
