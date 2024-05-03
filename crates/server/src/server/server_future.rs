@@ -15,7 +15,10 @@ use futures_util::{FutureExt, StreamExt};
 use hickory_proto::{op::MessageType, rr::Record};
 use ipnet::IpNet;
 #[cfg(feature = "dns-over-rustls")]
-use rustls::{Certificate, PrivateKey, ServerConfig};
+use rustls::{
+    pki_types::{CertificateDer, PrivateKeyDer},
+    ServerConfig,
+};
 use tokio::{net, task::JoinSet};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
@@ -568,7 +571,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         &mut self,
         listener: net::TcpListener,
         timeout: Duration,
-        certificate_and_key: (Vec<Certificate>, PrivateKey),
+        certificate_and_key: (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>),
     ) -> io::Result<()> {
         use crate::proto::rustls::tls_server;
 
@@ -636,7 +639,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         listener: net::TcpListener,
         // TODO: need to set a timeout between requests.
         _timeout: Duration,
-        certificate_and_key: (Vec<Certificate>, PrivateKey),
+        certificate_and_key: (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>),
         dns_hostname: Option<String>,
     ) -> io::Result<()> {
         use tokio_rustls::TlsAcceptor;
@@ -753,7 +756,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         socket: net::UdpSocket,
         // TODO: need to set a timeout between requests.
         _timeout: Duration,
-        certificate_and_key: (Vec<Certificate>, PrivateKey),
+        certificate_and_key: (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>),
         dns_hostname: Option<String>,
     ) -> io::Result<()> {
         use crate::proto::quic::QuicServer;
@@ -852,7 +855,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         socket: net::UdpSocket,
         // TODO: need to set a timeout between requests.
         _timeout: Duration,
-        certificate_and_key: (Vec<Certificate>, PrivateKey),
+        certificate_and_key: (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>),
         dns_hostname: Option<String>,
     ) -> io::Result<()> {
         use crate::proto::h3::h3_server::H3Server;
@@ -1258,7 +1261,7 @@ mod tests {
     use crate::authority::Catalog;
     use futures_util::future;
     #[cfg(feature = "dns-over-rustls")]
-    use rustls::{Certificate, PrivateKey};
+    use rustls::pki_types::{CertificateDer, PrivateKeyDer};
     use std::net::SocketAddr;
     use tokio::net::{TcpListener, UdpSocket};
     use tokio::time::timeout;
@@ -1450,7 +1453,7 @@ mod tests {
     }
 
     #[cfg(feature = "dns-over-rustls")]
-    fn rustls_cert_key() -> (Vec<Certificate>, PrivateKey) {
+    fn rustls_cert_key() -> (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>) {
         use hickory_proto::rustls::tls_server;
         use std::env;
         use std::path::Path;
@@ -1463,7 +1466,7 @@ mod tests {
         )))
         .map_err(|e| format!("error reading cert: {e}"))
         .unwrap();
-        let key = tls_server::read_key_from_pem(Path::new(&format!(
+        let key = tls_server::read_key(Path::new(&format!(
             "{}/tests/test-data/cert.key",
             server_path
         )))

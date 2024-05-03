@@ -132,7 +132,7 @@ fn test_query_tcp_ipv6() {
 #[cfg(feature = "dns-over-https-rustls")]
 fn test_query_https() {
     use hickory_proto::h2::HttpsClientStreamBuilder;
-    use rustls::{ClientConfig, OwnedTrustAnchor, RootCertStore};
+    use rustls::{ClientConfig, RootCertStore};
 
     const ALPN_H2: &[u8] = b"h2";
 
@@ -141,21 +141,14 @@ fn test_query_https() {
 
     // using the mozilla default root store
     let mut root_store = RootCertStore::empty();
-    root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-        OwnedTrustAnchor::from_subject_spki_name_constraints(
-            ta.subject,
-            ta.spki,
-            ta.name_constraints,
-        )
-    }));
+    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
 
-    let mut client_config = ClientConfig::builder()
-        .with_safe_default_cipher_suites()
-        .with_safe_default_kx_groups()
-        .with_safe_default_protocol_versions()
-        .unwrap()
-        .with_root_certificates(root_store)
-        .with_no_client_auth();
+    let mut client_config =
+        ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+            .with_safe_default_protocol_versions()
+            .unwrap()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
     client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));

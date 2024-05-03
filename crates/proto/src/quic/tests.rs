@@ -59,7 +59,7 @@ async fn test_quic_stream() {
     )))
     .map_err(|e| format!("error reading cert: {e}"))
     .unwrap();
-    let key = tls_server::read_key_from_pem(Path::new(&format!(
+    let key = tls_server::read_key(Path::new(&format!(
         "{server_path}/tests/test-data/cert.key"
     )))
     .unwrap();
@@ -76,13 +76,15 @@ async fn test_quic_stream() {
 
     // now construct the client
     let mut roots = rustls::RootCertStore::empty();
-    ca.iter()
-        .try_for_each(|ca| roots.add(ca))
-        .expect("failed to build roots");
-    let mut client_config = ClientConfig::builder()
-        .with_safe_defaults()
-        .with_root_certificates(roots)
-        .with_no_client_auth();
+    let (_, ignored) = roots.add_parsable_certificates(ca.into_iter());
+    assert_eq!(ignored, 0);
+
+    let mut client_config =
+        ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+            .with_safe_default_protocol_versions()
+            .unwrap()
+            .with_root_certificates(roots)
+            .with_no_client_auth();
 
     client_config.key_log = Arc::new(KeyLogFile::new());
 

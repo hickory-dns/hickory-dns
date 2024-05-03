@@ -27,7 +27,10 @@ use hickory_integration::example_authority::create_example;
 #[cfg(feature = "dns-over-rustls")]
 use hickory_integration::tls_client_connection::TlsClientConnection;
 #[cfg(feature = "dns-over-rustls")]
-use rustls::RootCertStore;
+use rustls::{
+    pki_types::{CertificateDer, PrivateKeyDer},
+    RootCertStore,
+};
 
 #[test]
 #[allow(clippy::uninlined_format_args)]
@@ -255,7 +258,7 @@ fn test_server_www_tls() {
     )))
     .map_err(|e| format!("error reading cert: {e}"))
     .unwrap();
-    let key = tls_server::read_key_from_pem(Path::new(&format!(
+    let key = tls_server::read_key(Path::new(&format!(
         "{}/tests/test-data/cert.key",
         server_path
     )))
@@ -302,25 +305,20 @@ fn lazy_tcp_client(ipaddr: SocketAddr) -> TcpClientConnection {
 fn lazy_tls_client(
     ipaddr: SocketAddr,
     dns_name: String,
-    cert_chain: Vec<rustls::Certificate>,
+    cert_chain: Vec<CertificateDer<'static>>,
 ) -> TlsClientConnection<hickory_proto::iocompat::AsyncIoTokioAsStd<tokio::net::TcpStream>> {
     use rustls::ClientConfig;
 
     let mut root_store = RootCertStore::empty();
-    let der_certs = cert_chain
-        .into_iter()
-        .map(|cert| cert.0)
-        .collect::<Vec<_>>();
-    let (_, ignored) = root_store.add_parsable_certificates(&der_certs);
+    let (_, ignored) = root_store.add_parsable_certificates(cert_chain);
     assert_eq!(ignored, 0, "bad certificate!");
 
-    let config = ClientConfig::builder()
-        .with_safe_default_cipher_suites()
-        .with_safe_default_kx_groups()
-        .with_safe_default_protocol_versions()
-        .unwrap()
-        .with_root_certificates(root_store)
-        .with_no_client_auth();
+    let config =
+        ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+            .with_safe_default_protocol_versions()
+            .unwrap()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
 
     TlsClientConnection::new(ipaddr, None, dns_name, Arc::new(config))
 }
@@ -406,7 +404,7 @@ fn server_thread_tcp(
 fn server_thread_tls(
     tls_listener: TcpListener,
     server_continue: Arc<AtomicBool>,
-    cert_chain: (Vec<rustls::Certificate>, rustls::PrivateKey),
+    cert_chain: (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>),
     io_loop: Runtime,
 ) {
     use hickory_server::config::dnssec::{self, CertType, PrivateKeyType, TlsCertConfig};

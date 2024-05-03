@@ -53,26 +53,27 @@ async-std = "1.6"
 tokio = "1.21"
 tokio-native-tls = "0.3.0"
 tokio-openssl = "0.6.0"
-tokio-rustls = "0.24.0"
+tokio-rustls = { version = "0.26", default-features = false }
 tokio-util = "0.7.9"
 parking_lot = "0.12"
+pin-project-lite = "0.2"
 
 
 # ssl
 native-tls = "0.2"
 openssl = "0.10.55"
-rustls = "0.21.8"
-rustls-native-certs = "0.6.3"
-rustls-pemfile = "1.0.0"
-webpki-roots = "0.25.0"
+rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12"] }
+rustls-native-certs = "0.7"
+rustls-pemfile = "2"
+webpki-roots = "0.26"
 ring = "0.17"
 
 
 # net proto
-quinn = { version = "0.10", default-features = false }
+quinn = { version = "0.11.2", default-features = false }
 h2 = "0.4.0"
-h3 = "0.0.4"
-h3-quinn = "0.0.5"
+h3 = "0.0.5"
+h3-quinn = "0.0.6"
 http = "1.1"
 
 

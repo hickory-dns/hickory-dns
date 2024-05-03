@@ -306,10 +306,20 @@ pub enum ProtoErrorKind {
     #[error("error writing to quic read: {0}")]
     QuinnReadError(#[from] quinn::ReadExactError),
 
+    /// A Quinn (QUIC) read error occurred
+    #[cfg(feature = "quinn")]
+    #[error("referenced a closed QUIC stream: {0}")]
+    QuinnStreamError(#[from] quinn::ClosedStream),
+
     /// A Quinn (QUIC) configuration error occurred
     #[cfg(feature = "quinn")]
     #[error("error constructing quic configuration: {0}")]
     QuinnConfigError(#[from] quinn::ConfigError),
+
+    /// QUIC TLS config must include an AES-128-GCM cipher suite
+    #[cfg(feature = "quinn")]
+    #[error("QUIC TLS config must include an AES-128-GCM cipher suite")]
+    QuinnTlsConfigError(#[from] quinn::crypto::rustls::NoInitialCipherSuite),
 
     /// Unknown QUIC stream used
     #[cfg(feature = "quinn")]
@@ -672,7 +682,11 @@ impl Clone for ProtoErrorKind {
             #[cfg(feature = "quinn")]
             QuinnReadError(ref e) => QuinnReadError(e.clone()),
             #[cfg(feature = "quinn")]
+            QuinnStreamError(ref e) => QuinnStreamError(e.clone()),
+            #[cfg(feature = "quinn")]
             QuinnConfigError(ref e) => QuinnConfigError(e.clone()),
+            #[cfg(feature = "quinn")]
+            QuinnTlsConfigError(ref e) => QuinnTlsConfigError(e.clone()),
             #[cfg(feature = "quinn")]
             QuinnUnknownStreamError => QuinnUnknownStreamError,
             #[cfg(feature = "rustls")]

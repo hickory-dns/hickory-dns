@@ -15,13 +15,13 @@ use std::{
 };
 
 use futures_util::{future::FutureExt, stream::Stream};
-use quinn::{ClientConfig, Connection, Endpoint, TransportConfig, VarInt};
+use quinn::{
+    crypto::rustls::QuicClientConfig, ClientConfig, Connection, Endpoint, TransportConfig, VarInt,
+};
 use rustls::{version::TLS13, ClientConfig as TlsClientConfig};
 
-use crate::udp::{DnsUdpSocket, QuicLocalAddr};
 use crate::{
     error::ProtoError,
-    quic::quic_socket::QuinnAsyncUdpSocketAdapter,
     quic::quic_stream::{DoqErrorCode, QuicStream},
     udp::UdpSocket,
     xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream},
@@ -178,36 +178,26 @@ impl QuicClientStreamBuilder {
     }
 
     /// Create a QuicStream with existing connection
-    pub fn build_with_future<S, F>(
+    pub fn build_with_future(
         self,
-        future: F,
+        socket: Arc<dyn quinn::AsyncUdpSocket>,
         name_server: SocketAddr,
         dns_name: String,
-    ) -> QuicClientConnect
-    where
-        S: DnsUdpSocket + QuicLocalAddr + 'static,
-        F: Future<Output = std::io::Result<S>> + Send + 'static,
-    {
-        QuicClientConnect(Box::pin(self.connect_with_future(future, name_server, dns_name)) as _)
+    ) -> QuicClientConnect {
+        QuicClientConnect(Box::pin(self.connect_with_future(socket, name_server, dns_name)) as _)
     }
 
-    async fn connect_with_future<S, F>(
+    async fn connect_with_future(
         self,
-        future: F,
+        socket: Arc<dyn quinn::AsyncUdpSocket>,
         name_server: SocketAddr,
         dns_name: String,
-    ) -> Result<QuicClientStream, ProtoError>
-    where
-        S: DnsUdpSocket + QuicLocalAddr + 'static,
-        F: Future<Output = std::io::Result<S>> + Send,
-    {
-        let socket = future.await?;
+    ) -> Result<QuicClientStream, ProtoError> {
         let endpoint_config = quic_config::endpoint();
-        let wrapper = QuinnAsyncUdpSocketAdapter { io: socket };
         let endpoint = Endpoint::new_with_abstract_socket(
             endpoint_config,
             None,
-            wrapper,
+            socket,
             Arc::new(quinn::TokioRuntime),
         )?;
         self.connect_inner(endpoint, name_server, dns_name).await
@@ -248,7 +238,8 @@ impl QuicClientStreamBuilder {
         }
         let early_data_enabled = crypto_config.enable_early_data;
 
-        let mut client_config = ClientConfig::new(Arc::new(crypto_config));
+        let mut client_config =
+            ClientConfig::new(Arc::new(QuicClientConfig::try_from(crypto_config)?));
         client_config.transport_config(self.transport_config.clone());
 
         endpoint.set_default_client_config(client_config);
@@ -287,7 +278,7 @@ pub fn client_config_tls13() -> Result<TlsClientConfig, ProtoError> {
         use crate::error::ProtoErrorKind;
 
         let (added, ignored) =
-            root_store.add_parsable_certificates(&rustls_native_certs::load_native_certs()?);
+            root_store.add_parsable_certificates(rustls_native_certs::load_native_certs()?);
 
         if ignored > 0 {
             tracing::warn!(
@@ -301,21 +292,15 @@ pub fn client_config_tls13() -> Result<TlsClientConfig, ProtoError> {
         }
     }
     #[cfg(feature = "webpki-roots")]
-    root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-        rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
-            ta.subject,
-            ta.spki,
-            ta.name_constraints,
-        )
-    }));
+    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
 
-    Ok(TlsClientConfig::builder()
-        .with_safe_default_cipher_suites()
-        .with_safe_default_kx_groups()
-        .with_protocol_versions(&[&TLS13])
-        .expect("TLS 1.3 not supported")
-        .with_root_certificates(root_store)
-        .with_no_client_auth())
+    Ok(
+        TlsClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+            .with_protocol_versions(&[&TLS13])
+            .unwrap() // The ring default provider is guaranteed to support TLS 1.3
+            .with_root_certificates(root_store)
+            .with_no_client_auth(),
+    )
 }
 
 impl Default for QuicClientStreamBuilder {

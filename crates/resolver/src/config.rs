@@ -273,26 +273,16 @@ impl ResolverConfig {
     /// ```
     /// use std::sync::Arc;
     ///
-    /// use rustls::{ClientConfig, ProtocolVersion, RootCertStore, OwnedTrustAnchor};
+    /// use rustls::{ClientConfig, ProtocolVersion, RootCertStore};
     /// use hickory_resolver::config::ResolverConfig;
     /// # #[cfg(feature = "webpki-roots")]
     /// use webpki_roots;
     ///
     /// let mut root_store = RootCertStore::empty();
     /// # #[cfg(feature = "webpki-roots")]
-    /// root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-    ///     OwnedTrustAnchor::from_subject_spki_name_constraints(
-    ///         ta.subject,
-    ///         ta.spki,
-    ///         ta.name_constraints,
-    ///     )
-    /// }));
+    /// root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
     ///
     /// let mut client_config = ClientConfig::builder()
-    ///     .with_safe_default_cipher_suites()
-    ///     .with_safe_default_kx_groups()
-    ///     .with_protocol_versions(&[&rustls::version::TLS12])
-    ///     .unwrap()
     ///     .with_root_certificates(root_store)
     ///     .with_no_client_auth();
     ///

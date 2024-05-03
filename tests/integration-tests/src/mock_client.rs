@@ -5,6 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
@@ -19,8 +20,6 @@ use hickory_client::rr::{Name, RData, Record};
 use hickory_proto::error::ProtoError;
 use hickory_proto::tcp::DnsTcpStream;
 use hickory_proto::udp::DnsUdpSocket;
-#[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
-use hickory_proto::udp::QuicLocalAddr;
 use hickory_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 use hickory_proto::TokioTime;
 use hickory_resolver::config::{NameServerConfig, ResolverOpts};
@@ -62,16 +61,6 @@ impl DnsTcpStream for TcpPlaceholder {
 }
 
 pub struct UdpPlaceholder;
-
-#[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
-impl QuicLocalAddr for UdpPlaceholder {
-    fn local_addr(&self) -> std::io::Result<SocketAddr> {
-        Ok(SocketAddr::new(
-            IpAddr::V4(Ipv4Addr::new(255, 255, 255, 255)),
-            9999,
-        ))
-    }
-}
 
 impl DnsUdpSocket for UdpPlaceholder {
     type Time = TokioTime;
@@ -141,12 +130,12 @@ impl<O: OnSend + Unpin> ConnectionProvider for MockConnProvider<O> {
         &self,
         _config: &NameServerConfig,
         _options: &ResolverOpts,
-    ) -> Self::FutureConn {
+    ) -> Result<Self::FutureConn, io::Error> {
         println!("MockConnProvider::new_connection");
-        Box::pin(future::ok(MockClientHandle::mock_on_send(
+        Ok(Box::pin(future::ok(MockClientHandle::mock_on_send(
             vec![],
             self.on_send.clone(),
-        )))
+        ))))
     }
 }
 

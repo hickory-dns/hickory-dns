@@ -13,6 +13,7 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 
+use rustls::pki_types::ServerName;
 use rustls::ClientConfig;
 use tokio;
 use tokio::net::TcpStream as TokioTcpStream;
@@ -196,14 +197,14 @@ async fn connect_tls_with_future<S, F>(
     tls_connector: TlsConnector,
     future: F,
     name_server: SocketAddr,
-    dns_name: String,
+    server_name: String,
     outbound_messages: StreamReceiver,
 ) -> io::Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>>
 where
     S: DnsTcpStream,
     F: Future<Output = io::Result<S>> + Send + Unpin,
 {
-    let dns_name = match dns_name.as_str().try_into() {
+    let dns_name = match ServerName::try_from(server_name) {
         Ok(name) => name,
         Err(_) => return Err(io::Error::new(io::ErrorKind::InvalidInput, "bad dns_name")),
     };

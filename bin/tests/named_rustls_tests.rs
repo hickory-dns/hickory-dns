@@ -17,7 +17,7 @@ use std::net::*;
 use std::sync::Arc;
 
 use hickory_server::server::Protocol;
-use rustls::Certificate;
+use rustls::pki_types::CertificateDer;
 use rustls::ClientConfig;
 use rustls::RootCertStore;
 use tokio::net::TcpStream as TokioTcpStream;
@@ -53,14 +53,18 @@ fn test_example_tls_toml_startup() {
                 .next()
                 .unwrap();
 
-            let cert = to_trust_anchor(&cert_der);
             let mut root_store = RootCertStore::empty();
-            root_store.add(&cert).expect("bad certificate");
+            root_store
+                .add(CertificateDer::from(cert_der))
+                .expect("bad certificate");
 
-            let config = ClientConfig::builder()
-                .with_safe_defaults()
-                .with_root_certificates(root_store)
-                .with_no_client_auth();
+            let config = ClientConfig::builder_with_provider(Arc::new(
+                rustls::crypto::ring::default_provider(),
+            ))
+            .with_safe_default_protocol_versions()
+            .unwrap()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
 
             let config = Arc::new(config);
 
@@ -96,8 +100,4 @@ fn test_example_tls_toml_startup() {
             query_a(&mut io_loop, &mut client);
         },
     )
-}
-
-fn to_trust_anchor(cert_der: &[u8]) -> Certificate {
-    Certificate(cert_der.to_vec())
 }
