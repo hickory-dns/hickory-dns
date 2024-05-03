@@ -37,7 +37,7 @@ pub(crate) static CLIENT_CONFIG: Lazy<Result<Arc<ClientConfig>, ProtoError>> = L
         use proto::error::ProtoErrorKind;
 
         let (added, ignored) =
-            root_store.add_parsable_certificates(&rustls_native_certs::load_native_certs()?);
+            root_store.add_parsable_certificates(rustls_native_certs::load_native_certs()?);
 
         if ignored > 0 {
             tracing::warn!(
@@ -51,13 +51,7 @@ pub(crate) static CLIENT_CONFIG: Lazy<Result<Arc<ClientConfig>, ProtoError>> = L
         }
     }
     #[cfg(feature = "webpki-roots")]
-    root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-        rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
-            ta.subject,
-            ta.spki,
-            ta.name_constraints,
-        )
-    }));
+    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
 
     // If by the time we reach this point the root store remains empty then
     // our feature config hasn't resulted in a populated root store. Return an
@@ -69,13 +63,12 @@ pub(crate) static CLIENT_CONFIG: Lazy<Result<Arc<ClientConfig>, ProtoError>> = L
         ));
     }
 
-    let mut client_config = ClientConfig::builder()
-        .with_safe_default_cipher_suites()
-        .with_safe_default_kx_groups()
-        .with_safe_default_protocol_versions()
-        .unwrap()
-        .with_root_certificates(root_store)
-        .with_no_client_auth();
+    let mut client_config =
+        ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+            .with_safe_default_protocol_versions()
+            .unwrap()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
 
     // The port (853) of DOT is for dns dedicated, SNI is unnecessary. (ISP block by the SNI name)
     client_config.enable_sni = false;

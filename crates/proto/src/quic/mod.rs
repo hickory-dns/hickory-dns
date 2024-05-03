@@ -10,7 +10,6 @@
 mod quic_client_stream;
 mod quic_config;
 mod quic_server;
-pub(crate) mod quic_socket;
 mod quic_stream;
 
 pub use self::quic_client_stream::{
@@ -19,7 +18,6 @@ pub use self::quic_client_stream::{
 };
 pub use self::quic_server::{QuicServer, QuicStreams};
 pub use self::quic_stream::{DoqErrorCode, QuicStream};
-pub use crate::udp::QuicLocalAddr;
 
 #[cfg(test)]
 mod tests;

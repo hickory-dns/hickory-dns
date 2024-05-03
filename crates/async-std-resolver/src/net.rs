@@ -15,7 +15,7 @@ use async_trait::async_trait;
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_util::future::FutureExt;
 use hickory_resolver::proto::tcp::{Connect, DnsTcpStream};
-use hickory_resolver::proto::udp::{DnsUdpSocket, QuicLocalAddr, UdpSocket};
+use hickory_resolver::proto::udp::{DnsUdpSocket, UdpSocket};
 use pin_utils::pin_mut;
 use socket2::{Domain, Protocol, Socket, Type};
 
@@ -55,12 +55,6 @@ impl DnsUdpSocket for AsyncStdUdpSocket {
 
     async fn send_to(&self, buf: &[u8], target: SocketAddr) -> io::Result<usize> {
         self.0.send_to(buf, target).await
-    }
-}
-
-impl QuicLocalAddr for AsyncStdUdpSocket {
-    fn local_addr(&self) -> io::Result<SocketAddr> {
-        self.0.local_addr()
     }
 }
 

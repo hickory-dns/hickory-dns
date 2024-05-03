@@ -111,7 +111,7 @@ where
 
             let new_client = Box::pin(
                 self.connection_provider
-                    .new_connection(&self.config, &self.options),
+                    .new_connection(&self.config, &self.options)?,
             )
             .await?;
 

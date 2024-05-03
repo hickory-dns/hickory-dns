@@ -5,13 +5,11 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use hickory_proto::udp::QuicLocalAddr;
 use rustls::ClientConfig as CryptoConfig;
-use std::future::Future;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use hickory_proto::quic::{QuicClientConnect, QuicClientStream};
-use proto::udp::DnsUdpSocket;
 use proto::xfer::{DnsExchange, DnsExchangeConnect};
 use proto::TokioTime;
 
@@ -48,16 +46,12 @@ pub(crate) fn new_quic_stream(
 }
 
 #[allow(clippy::type_complexity)]
-pub(crate) fn new_quic_stream_with_future<S, F>(
-    future: F,
+pub(crate) fn new_quic_stream_with_future(
+    socket: Arc<dyn quinn::AsyncUdpSocket>,
     socket_addr: SocketAddr,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
-) -> DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime>
-where
-    S: DnsUdpSocket + QuicLocalAddr + 'static,
-    F: Future<Output = std::io::Result<S>> + Send + 'static,
-{
+) -> DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime> {
     let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
         client_config
     } else {
@@ -73,7 +67,7 @@ where
     let crypto_config: CryptoConfig = (*client_config).clone();
 
     quic_builder.crypto_config(crypto_config);
-    DnsExchange::connect(quic_builder.build_with_future(future, socket_addr, dns_name))
+    DnsExchange::connect(quic_builder.build_with_future(socket, socket_addr, dns_name))
 }
 
 #[cfg(all(test, any(feature = "native-certs", feature = "webpki-roots")))]

@@ -21,6 +21,7 @@ use futures_util::ready;
 use futures_util::stream::Stream;
 use h2::client::{Connection, SendRequest};
 use http::header::{self, CONTENT_LENGTH};
+use rustls::pki_types::ServerName;
 use rustls::ClientConfig;
 use tokio_rustls::{
     client::TlsStream as TokioTlsClientStream, Connect as TokioTlsConnect, TlsConnector,
@@ -444,10 +445,10 @@ where
                         .expect("programming error, tls should not be None here");
                     let name_server_name = Arc::clone(&tls.dns_name);
 
-                    match tls.dns_name.as_ref().try_into() {
+                    match ServerName::try_from(&*tls.dns_name) {
                         Ok(dns_name) => {
                             let tls = TlsConnector::from(tls.client_config);
-                            let tls = tls.connect(dns_name, AsyncIoStdAsTokio(tcp));
+                            let tls = tls.connect(dns_name.to_owned(), AsyncIoStdAsTokio(tcp));
                             Self::TlsConnecting {
                                 name_server_name,
                                 name_server,
@@ -754,21 +755,14 @@ mod tests {
             }
         }
         #[cfg(feature = "webpki-roots")]
-        root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-            rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
-                ta.subject,
-                ta.spki,
-                ta.name_constraints,
-            )
-        }));
+        root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
 
-        let mut client_config = ClientConfig::builder()
-            .with_safe_default_cipher_suites()
-            .with_safe_default_kx_groups()
-            .with_safe_default_protocol_versions()
-            .unwrap()
-            .with_root_certificates(root_store)
-            .with_no_client_auth();
+        let mut client_config =
+            ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+                .with_safe_default_protocol_versions()
+                .unwrap()
+                .with_root_certificates(root_store)
+                .with_no_client_auth();
 
         client_config.alpn_protocols = vec![ALPN_H2.to_vec()];
         client_config

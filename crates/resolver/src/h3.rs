@@ -5,8 +5,8 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::future::Future;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use crate::config::TlsClientConfig;
 use crate::tls::CLIENT_CONFIG;
@@ -15,7 +15,6 @@ use proto::h3::{H3ClientConnect, H3ClientStream};
 use proto::xfer::{DnsExchange, DnsExchangeConnect};
 use proto::TokioTime;
 
-use hickory_proto::udp::{DnsUdpSocket, QuicLocalAddr};
 use rustls::ClientConfig as CryptoConfig;
 
 #[allow(clippy::type_complexity)]
@@ -48,16 +47,12 @@ pub(crate) fn new_h3_stream(
 }
 
 #[allow(clippy::type_complexity)]
-pub(crate) fn new_h3_stream_with_future<S, F>(
-    future: F,
+pub(crate) fn new_h3_stream_with_future(
+    socket: Arc<dyn quinn::AsyncUdpSocket>,
     socket_addr: SocketAddr,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
-) -> DnsExchangeConnect<H3ClientConnect, H3ClientStream, TokioTime>
-where
-    S: DnsUdpSocket + QuicLocalAddr + 'static,
-    F: Future<Output = std::io::Result<S>> + Send + Unpin + 'static,
-{
+) -> DnsExchangeConnect<H3ClientConnect, H3ClientStream, TokioTime> {
     let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
         client_config
     } else {
@@ -73,7 +68,7 @@ where
     let crypto_config: CryptoConfig = (*client_config).clone();
 
     h3_builder.crypto_config(crypto_config);
-    DnsExchange::connect(h3_builder.build_with_future(future, socket_addr, dns_name))
+    DnsExchange::connect(h3_builder.build_with_future(socket, socket_addr, dns_name))
 }
 
 #[cfg(all(test, any(feature = "native-certs", feature = "webpki-roots")))]

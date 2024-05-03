@@ -12,7 +12,7 @@ use std::path::Path;
 #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 use openssl::{pkey::PKey, stack::Stack, x509::X509};
 #[cfg(feature = "dns-over-rustls")]
-use rustls::{Certificate, PrivateKey};
+use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use serde::Deserialize;
 
 use crate::proto::rr::domain::Name;
@@ -374,7 +374,7 @@ pub fn load_cert(
 pub fn load_cert(
     zone_dir: &Path,
     tls_cert_config: &TlsCertConfig,
-) -> Result<(Vec<Certificate>, PrivateKey), String> {
+) -> Result<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>), String> {
     use tracing::{info, warn};
 
     use crate::proto::rustls::tls_server::{read_cert, read_key, read_key_from_der};

@@ -20,7 +20,8 @@ use hickory_client::client::*;
 use hickory_proto::h2::HttpsClientStreamBuilder;
 use hickory_proto::iocompat::AsyncIoTokioAsStd;
 use hickory_server::server::Protocol;
-use rustls::{Certificate, ClientConfig, OwnedTrustAnchor, RootCertStore};
+use rustls::pki_types::CertificateDer;
+use rustls::{ClientConfig, RootCertStore};
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
@@ -56,24 +57,16 @@ fn test_example_https_toml_startup() {
 
         // using the mozilla default root store
         let mut root_store = RootCertStore::empty();
-        root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-            OwnedTrustAnchor::from_subject_spki_name_constraints(
-                ta.subject,
-                ta.spki,
-                ta.name_constraints,
-            )
-        }));
+        root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
 
-        let cert = to_trust_anchor(&cert_der);
-        root_store.add(&cert).unwrap();
+        root_store.add(CertificateDer::from(cert_der)).unwrap();
 
-        let mut client_config = ClientConfig::builder()
-            .with_safe_default_cipher_suites()
-            .with_safe_default_kx_groups()
-            .with_safe_default_protocol_versions()
-            .unwrap()
-            .with_root_certificates(root_store)
-            .with_no_client_auth();
+        let mut client_config =
+            ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+                .with_safe_default_protocol_versions()
+                .unwrap()
+                .with_root_certificates(root_store)
+                .with_no_client_auth();
         client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
         let client_config = Arc::new(client_config);
@@ -93,8 +86,4 @@ fn test_example_https_toml_startup() {
         // a second request should work...
         query_a(&mut io_loop, &mut client);
     })
-}
-
-fn to_trust_anchor(cert_der: &[u8]) -> Certificate {
-    Certificate(cert_der.to_vec())
 }
