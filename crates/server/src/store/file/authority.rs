@@ -156,7 +156,7 @@ impl Authority for FileAuthority {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> Result<Option<Self::Lookup>, LookupError> {
         self.0.lookup(name, rtype, lookup_options).await
     }
 
@@ -175,12 +175,12 @@ impl Authority for FileAuthority {
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> Result<Option<Self::Lookup>, LookupError> {
         self.0.search(request_info, lookup_options).await
     }
 
     /// Get the NS, NameServer, record for the zone
-    async fn ns(&self, lookup_options: LookupOptions) -> Result<Self::Lookup, LookupError> {
+    async fn ns(&self, lookup_options: LookupOptions) -> Result<Option<Self::Lookup>, LookupError> {
         self.0.ns(lookup_options).await
     }
 
@@ -195,7 +195,7 @@ impl Authority for FileAuthority {
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> Result<Option<Self::Lookup>, LookupError> {
         self.0.get_nsec_records(name, lookup_options).await
     }
 
@@ -203,12 +203,15 @@ impl Authority for FileAuthority {
     ///
     /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    async fn soa(&self) -> Result<Self::Lookup, LookupError> {
+    async fn soa(&self) -> Result<Option<Self::Lookup>, LookupError> {
         self.0.soa().await
     }
 
     /// Returns the SOA record for the zone
-    async fn soa_secure(&self, lookup_options: LookupOptions) -> Result<Self::Lookup, LookupError> {
+    async fn soa_secure(
+        &self,
+        lookup_options: LookupOptions,
+    ) -> Result<Option<Self::Lookup>, LookupError> {
         self.0.soa_secure(lookup_options).await
     }
 }
@@ -272,6 +275,7 @@ mod tests {
         .expect("lookup failed");
 
         match lookup
+            .expect("Lookup returned None")
             .into_iter()
             .next()
             .expect("A record not found in authority")
@@ -290,6 +294,7 @@ mod tests {
         .expect("INCLUDE lookup failed");
 
         match include_lookup
+            .expect("Lookup returned None")
             .into_iter()
             .next()
             .expect("A record not found in authority")
