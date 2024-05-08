@@ -157,7 +157,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let name = opts.domainname;
     let ty = opts.ty;
 
-    let recursor = Recursor::new(roots, 1024, 1048576)?;
+    let recursor = Recursor::new().build(roots)?;
 
     // execute query
     println!(

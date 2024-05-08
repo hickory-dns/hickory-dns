@@ -73,7 +73,10 @@ impl RecursiveAuthority {
             });
         }
 
-        let recursor = Recursor::new(roots, config.ns_cache_size, config.record_cache_size)
+        let recursor = Recursor::new()
+            .ns_cache_size(config.ns_cache_size)
+            .record_cache_size(config.record_cache_size)
+            .build(roots)
             .map_err(|e| format!("failed to initialize recursor: {e}"))?;
 
         Ok(Self {

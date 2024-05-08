@@ -37,6 +37,66 @@ use crate::{
 /// Set of nameservers by the zone name
 type NameServerCache<P> = LruCache<Name, RecursorPool<P>>;
 
+/// A `Recursor` builder
+#[derive(Clone, Copy)]
+pub struct RecursorBuilder {
+    ns_cache_size: usize,
+    record_cache_size: usize,
+    #[cfg(feature = "dnssec")]
+    security_aware: bool,
+}
+
+impl Default for RecursorBuilder {
+    fn default() -> Self {
+        Self {
+            ns_cache_size: 1024,
+            record_cache_size: 1048576,
+            #[cfg(feature = "dnssec")]
+            security_aware: false,
+        }
+    }
+}
+
+impl RecursorBuilder {
+    /// Sets the size of the list of cached name servers
+    pub fn ns_cache_size(&mut self, size: usize) -> &mut Self {
+        self.ns_cache_size = size;
+        self
+    }
+
+    /// Sets the size of the list of cached records
+    pub fn record_cache_size(&mut self, size: usize) -> &mut Self {
+        self.record_cache_size = size;
+        self
+    }
+
+    /// Enables or disables (DNSSEC) security awareness
+    #[cfg(feature = "dnssec")]
+    pub fn security_aware(&mut self, security_aware: bool) -> &mut Self {
+        self.security_aware = security_aware;
+        self
+    }
+
+    /// Construct a new recursor using the list of NameServerConfigs for the root node list
+    ///
+    /// # Panics
+    ///
+    /// This will panic if the roots are empty.
+    pub fn build(&self, roots: impl Into<NameServerConfigGroup>) -> Result<Recursor, ResolveError> {
+        #[cfg(not(feature = "dnssec"))]
+        let security_aware = false;
+        #[cfg(feature = "dnssec")]
+        let security_aware = self.security_aware;
+
+        Recursor::build(
+            roots,
+            self.ns_cache_size,
+            self.record_cache_size,
+            security_aware,
+        )
+    }
+}
+
 /// A top down recursive resolver which operates off a list of roots for initial recursive requests.
 ///
 /// This is the well known root nodes, referred to as hints in RFCs. See the IANA [Root Servers](https://www.iana.org/domains/root/servers) list.
@@ -44,18 +104,21 @@ pub struct Recursor {
     roots: RecursorPool<TokioRuntimeProvider>,
     name_server_cache: Mutex<NameServerCache<TokioRuntimeProvider>>,
     record_cache: DnsLru,
+    security_aware: bool,
 }
 
 impl Recursor {
-    /// Construct a new recursor using the list of NameServerConfigs for the root node list
-    ///
-    /// # Panics
-    ///
-    /// This will panic if the roots are empty.
-    pub fn new(
+    /// Short-hand for `RecursorBuilder::default`
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new() -> RecursorBuilder {
+        RecursorBuilder::default()
+    }
+
+    fn build(
         roots: impl Into<NameServerConfigGroup>,
         ns_cache_size: usize,
         record_cache_size: usize,
+        security_aware: bool,
     ) -> Result<Self, ResolveError> {
         // configure the hickory-resolver
         let roots: NameServerConfigGroup = roots.into();
@@ -74,6 +137,7 @@ impl Recursor {
             roots,
             name_server_cache,
             record_cache,
+            security_aware,
         })
     }
 
@@ -244,7 +308,7 @@ impl Recursor {
         request_time: Instant,
         query_has_dnssec_ok: bool,
     ) -> Result<Lookup, Error> {
-        if crate::is_security_aware() {
+        if self.security_aware {
             // TODO RFC4035 section 4.5 recommends caching "each response as a single atomic entry
             // containing the entire answer, including the named RRset and any associated DNSSEC
             // RRs"
@@ -289,7 +353,7 @@ impl Recursor {
         let ns = ns.ok_or_else(|| Error::from(format!("no nameserver found for {zone}")))?;
         debug!("found zone {} for {}", ns.zone(), query);
 
-        let dnssec = if crate::is_security_aware() {
+        let dnssec = if self.security_aware {
             Dnssec::Aware {
                 query_has_dnssec_ok,
             }
