@@ -1,10 +1,12 @@
 use std::net::Ipv4Addr;
 
 use dns_test::client::{Client, DigSettings};
-use dns_test::name_server::{Graph, NameServer, Sign};
+use dns_test::name_server::NameServer;
 use dns_test::record::{Record, RecordType};
 use dns_test::zone_file::Root;
 use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
+
+use crate::resolver::dnssec::fixtures;
 
 // no DS records are involved; this is a single-link chain of trust
 #[ignore]
@@ -49,24 +51,12 @@ fn can_validate_with_delegation() -> Result<()> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let needle_fqdn = FQDN("example.nameservers.com.")?;
 
-    let network = Network::new()?;
+    let (resolver, _nameservers, trust_anchor) =
+        fixtures::minimally_secure(needle_fqdn.clone(), expected_ipv4_addr)?;
 
-    let mut leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network)?;
-    leaf_ns.add(Record::a(needle_fqdn.clone(), expected_ipv4_addr));
-
-    let Graph {
-        nameservers: _nameservers,
-        root,
-        trust_anchor,
-    } = Graph::build(leaf_ns, Sign::Yes)?;
-
-    let trust_anchor = &trust_anchor.unwrap();
-    let resolver = Resolver::new(&network, root)
-        .trust_anchor(trust_anchor)
-        .start(&dns_test::SUBJECT)?;
     let resolver_addr = resolver.ipv4_addr();
 
-    let client = Client::new(&network)?;
+    let client = Client::new(resolver.network())?;
     let settings = *DigSettings::default().recurse().authentic_data();
     let output = client.dig(settings, resolver_addr, RecordType::A, &needle_fqdn)?;
 
@@ -80,7 +70,7 @@ fn can_validate_with_delegation() -> Result<()> {
     assert_eq!(needle_fqdn, a.fqdn);
     assert_eq!(expected_ipv4_addr, a.ipv4_addr);
 
-    let output = client.delv(resolver_addr, RecordType::A, &needle_fqdn, trust_anchor)?;
+    let output = client.delv(resolver_addr, RecordType::A, &needle_fqdn, &trust_anchor)?;
     assert!(output.starts_with("; fully validated"));
 
     Ok(())

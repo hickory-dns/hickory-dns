@@ -2,9 +2,9 @@ use std::net::Ipv4Addr;
 
 use base64::prelude::*;
 use dns_test::{
-    name_server::{Graph, NameServer, Sign},
+    name_server::{Graph, NameServer, Running, Sign},
     record::Record,
-    Network, Resolver, Result, FQDN,
+    Network, Resolver, Result, TrustAnchor, FQDN,
 };
 
 pub fn bad_signature_in_leaf_nameserver(
@@ -47,4 +47,29 @@ pub fn bad_signature_in_leaf_nameserver(
         .start(&dns_test::SUBJECT)?;
 
     Ok((resolver, graph))
+}
+
+pub fn minimally_secure(
+    leaf_fqdn: FQDN,
+    leaf_ipv4_addr: Ipv4Addr,
+) -> Result<(Resolver, Vec<NameServer<Running>>, TrustAnchor)> {
+    assert_eq!(Some(FQDN::NAMESERVERS), leaf_fqdn.parent());
+
+    let network = Network::new()?;
+
+    let mut leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network)?;
+    leaf_ns.add(Record::a(leaf_fqdn.clone(), leaf_ipv4_addr));
+
+    let Graph {
+        nameservers,
+        root,
+        trust_anchor,
+    } = Graph::build(leaf_ns, Sign::Yes)?;
+
+    let trust_anchor = trust_anchor.unwrap();
+    let resolver = Resolver::new(&network, root)
+        .trust_anchor(&trust_anchor)
+        .start(&dns_test::SUBJECT)?;
+
+    Ok((resolver, nameservers, trust_anchor))
 }
