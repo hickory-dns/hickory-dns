@@ -108,9 +108,8 @@ pub struct Recursor {
 }
 
 impl Recursor {
-    /// Short-hand for `RecursorBuilder::default`
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new() -> RecursorBuilder {
+    /// Construct the new [`Recursor`] via the [`RecursorBuilder`]
+    pub fn builder() -> RecursorBuilder {
         RecursorBuilder::default()
     }
 
