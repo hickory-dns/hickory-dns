@@ -73,7 +73,7 @@ impl RecursiveAuthority {
             });
         }
 
-        let mut recursor = Recursor::new();
+        let mut recursor = Recursor::builder();
         recursor
             .ns_cache_size(config.ns_cache_size)
             .record_cache_size(config.record_cache_size);
