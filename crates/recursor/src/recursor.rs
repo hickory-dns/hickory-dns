@@ -378,7 +378,7 @@ impl Recursor {
             }
         }
 
-        let response = ns.lookup(query.clone());
+        let response = ns.lookup(query.clone(), self.security_aware);
 
         // TODO: we are only expecting one response
         // TODO: should we change DnsHandle to always be a single response? And build a totally custom handler for other situations?
