@@ -55,7 +55,7 @@ impl Graph {
                 leaf.container.network(),
             )?;
 
-            leaf.add(Record::a(nameserver.fqdn().clone(), nameserver.ipv4_addr()));
+            leaf.add(nameserver.a());
             nameservers.push(nameserver);
 
             zone = parent;
@@ -408,6 +408,11 @@ impl<S> NameServer<S> {
 
     pub fn fqdn(&self) -> &FQDN {
         &self.zone_file.soa.nameserver
+    }
+
+    /// Returns the [`Record::A`] record for this server.
+    pub fn a(&self) -> Record {
+        Record::a(self.fqdn().clone(), self.ipv4_addr())
     }
 }
 

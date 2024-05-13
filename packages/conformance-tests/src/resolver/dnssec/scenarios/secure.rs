@@ -2,7 +2,7 @@ use std::net::Ipv4Addr;
 
 use dns_test::client::{Client, DigSettings};
 use dns_test::name_server::NameServer;
-use dns_test::record::{Record, RecordType};
+use dns_test::record::RecordType;
 use dns_test::zone_file::Root;
 use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
 
@@ -14,7 +14,7 @@ use crate::resolver::dnssec::fixtures;
 fn can_validate_without_delegation() -> Result<()> {
     let network = Network::new()?;
     let mut ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, &network)?;
-    ns.add(Record::a(ns.fqdn().clone(), ns.ipv4_addr()));
+    ns.add(ns.a());
     let ns = ns.sign()?;
 
     let root_ksk = ns.key_signing_key().clone();

@@ -4,7 +4,7 @@ use std::sync::mpsc;
 
 use dns_test::client::Client;
 use dns_test::name_server::NameServer;
-use dns_test::record::{Record, RecordType};
+use dns_test::record::RecordType;
 use dns_test::zone_file::Root;
 use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
 
@@ -22,9 +22,7 @@ fn main() -> Result<()> {
     let mut com_ns = NameServer::new(peer, FQDN::COM, &network)?;
 
     let mut nameservers_ns = NameServer::new(peer, FQDN("nameservers.com.")?, &network)?;
-    nameservers_ns
-        .add(Record::a(root_ns.fqdn().clone(), root_ns.ipv4_addr()))
-        .add(Record::a(com_ns.fqdn().clone(), com_ns.ipv4_addr()));
+    nameservers_ns.add(root_ns.a()).add(com_ns.a());
 
     let nameservers_ns = if args.dnssec {
         let nameservers_ns = nameservers_ns.sign()?;

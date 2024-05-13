@@ -264,7 +264,7 @@ struct Ip {
 mod tests {
     use crate::client::{Client, DigSettings};
     use crate::name_server::NameServer;
-    use crate::record::{Record, RecordType};
+    use crate::record::RecordType;
     use crate::zone_file::Root;
     use crate::{Implementation, Network, Resolver, FQDN};
 
@@ -313,9 +313,7 @@ mod tests {
 
         let mut nameservers_ns =
             NameServer::new(&Implementation::Unbound, FQDN("nameservers.com.")?, network)?;
-        nameservers_ns
-            .add(Record::a(root_ns.fqdn().clone(), root_ns.ipv4_addr()))
-            .add(Record::a(com_ns.fqdn().clone(), com_ns.ipv4_addr()));
+        nameservers_ns.add(root_ns.a()).add(com_ns.a());
         let nameservers_ns = nameservers_ns.start()?;
 
         com_ns.referral(
