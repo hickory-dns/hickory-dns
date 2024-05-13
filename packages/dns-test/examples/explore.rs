@@ -5,7 +5,6 @@ use std::sync::mpsc;
 use dns_test::client::Client;
 use dns_test::name_server::NameServer;
 use dns_test::record::RecordType;
-use dns_test::zone_file::Root;
 use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
 
 fn main() -> Result<()> {
@@ -74,12 +73,9 @@ fn main() -> Result<()> {
     }
 
     println!("building docker image...");
-    let resolver = Resolver::new(
-        &network,
-        Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr()),
-    )
-    .trust_anchor(&trust_anchor)
-    .start(&dns_test::SUBJECT)?;
+    let resolver = Resolver::new(&network, root_ns.root_hint())
+        .trust_anchor(&trust_anchor)
+        .start(&dns_test::SUBJECT)?;
     println!("DONE\n\n");
 
     let (tx, rx) = mpsc::channel();

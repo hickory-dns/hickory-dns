@@ -265,7 +265,6 @@ mod tests {
     use crate::client::{Client, DigSettings};
     use crate::name_server::NameServer;
     use crate::record::RecordType;
-    use crate::zone_file::Root;
     use crate::{Implementation, Network, Resolver, FQDN};
 
     use super::*;
@@ -322,11 +321,8 @@ mod tests {
         root_ns.referral_nameserver(&com_ns);
         let root_ns = root_ns.start()?;
 
-        let resolver = Resolver::new(
-            network,
-            Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr()),
-        )
-        .start(&Implementation::Unbound)?;
+        let resolver =
+            Resolver::new(network, root_ns.root_hint()).start(&Implementation::Unbound)?;
         let mut tshark = resolver.eavesdrop()?;
         let resolver_addr = resolver.ipv4_addr();
 

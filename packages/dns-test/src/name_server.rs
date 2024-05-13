@@ -419,6 +419,11 @@ impl<S> NameServer<S> {
     pub fn a(&self) -> Record {
         Record::a(self.fqdn().clone(), self.ipv4_addr())
     }
+
+    /// Returns the [`Root`] hint for this server.
+    pub fn root_hint(&self) -> Root {
+        Root::new(self.fqdn().clone(), self.ipv4_addr())
+    }
 }
 
 pub struct Stopped;
