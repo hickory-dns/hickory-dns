@@ -71,11 +71,7 @@ impl Graph {
                 unreachable!()
             };
 
-            parent.referral(
-                child.zone().clone(),
-                child.fqdn().clone(),
-                child.ipv4_addr(),
-            );
+            parent.referral_nameserver(child);
         }
 
         let root = nameservers.last().unwrap();
@@ -186,6 +182,15 @@ impl NameServer<Stopped> {
     pub fn referral(&mut self, zone: FQDN, nameserver: FQDN, ipv4_addr: Ipv4Addr) -> &mut Self {
         self.zone_file.referral(zone, nameserver, ipv4_addr);
         self
+    }
+
+    /// Adds a NS + A record pair to the zone file from another NameServer
+    pub fn referral_nameserver<T>(&mut self, nameserver: &NameServer<T>) -> &mut Self {
+        self.referral(
+            nameserver.zone().clone(),
+            nameserver.fqdn().clone(),
+            nameserver.ipv4_addr(),
+        )
     }
 
     /// Adds a record to the name server's zone file

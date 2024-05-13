@@ -316,14 +316,10 @@ mod tests {
         nameservers_ns.add(root_ns.a()).add(com_ns.a());
         let nameservers_ns = nameservers_ns.start()?;
 
-        com_ns.referral(
-            nameservers_ns.zone().clone(),
-            nameservers_ns.fqdn().clone(),
-            nameservers_ns.ipv4_addr(),
-        );
+        com_ns.referral_nameserver(&nameservers_ns);
         let com_ns = com_ns.start()?;
 
-        root_ns.referral(FQDN::COM, com_ns.fqdn().clone(), com_ns.ipv4_addr());
+        root_ns.referral_nameserver(&com_ns);
         let root_ns = root_ns.start()?;
 
         let resolver = Resolver::new(

@@ -32,11 +32,7 @@ fn main() -> Result<()> {
         nameservers_ns.start()?
     };
 
-    com_ns.referral(
-        nameservers_ns.zone().clone(),
-        nameservers_ns.fqdn().clone(),
-        nameservers_ns.ipv4_addr(),
-    );
+    com_ns.referral_nameserver(&nameservers_ns);
 
     let com_ns = if args.dnssec {
         let com_ns = com_ns.sign()?;
@@ -46,7 +42,7 @@ fn main() -> Result<()> {
         com_ns.start()?
     };
 
-    root_ns.referral(FQDN::COM, com_ns.fqdn().clone(), com_ns.ipv4_addr());
+    root_ns.referral_nameserver(&com_ns);
 
     let mut trust_anchor = TrustAnchor::empty();
     let root_ns = if args.dnssec {
