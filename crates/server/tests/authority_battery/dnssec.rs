@@ -205,9 +205,8 @@ pub fn test_nsec_nodata<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::TXT);
-    let query = Arc::new(query);
     assert!(xfer::dnssec_dns_handle::verify_nsec(
-        query,
+        &query,
         &Name::from_str("example.com.").unwrap(),
         &nsecs
     )
@@ -239,9 +238,8 @@ pub fn test_nsec_nxdomain_start<A: Authority<Lookup = AuthLookup>>(authority: A,
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::A);
-    let query = Arc::new(query);
     assert!(xfer::dnssec_dns_handle::verify_nsec(
-        query,
+        &query,
         &Name::from_str("example.com.").unwrap(),
         &nsecs
     )
@@ -272,9 +270,8 @@ pub fn test_nsec_nxdomain_middle<A: Authority<Lookup = AuthLookup>>(authority: A
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::A);
-    let query = Arc::new(query);
     assert!(xfer::dnssec_dns_handle::verify_nsec(
-        query,
+        &query,
         &Name::from_str("example.com.").unwrap(),
         &nsecs
     )
@@ -308,9 +305,8 @@ pub fn test_nsec_nxdomain_wraps_end<A: Authority<Lookup = AuthLookup>>(
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::A);
-    let query = Arc::new(query);
     assert!(xfer::dnssec_dns_handle::verify_nsec(
-        query,
+        &query,
         &Name::from_str("example.com.").unwrap(),
         &nsecs
     )

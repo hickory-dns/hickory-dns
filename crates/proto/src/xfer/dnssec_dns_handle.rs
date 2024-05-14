@@ -30,7 +30,7 @@ use crate::{
             Algorithm, Proof, ProofError, ProofErrorKind, SupportedAlgorithms, TrustAnchor,
         },
         rdata::opt::EdnsOption,
-        DNSClass, Name, Record, RecordData, RecordType,
+        Name, Record, RecordData, RecordType,
     },
     xfer::{dns_handle::DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer},
 };
@@ -38,14 +38,7 @@ use crate::{
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::Verifier;
 
-// TODO: combine this with crate::rr::RecordSet?
-#[derive(Debug)]
-struct Rrset<'r> {
-    pub(crate) name: Name,
-    pub(crate) record_type: RecordType,
-    pub(crate) record_class: DNSClass,
-    pub(crate) records: Vec<&'r Record>,
-}
+use self::rrset::Rrset;
 
 /// Performs DNSSEC validation of all DNS responses from the wrapped DnsHandle
 ///
@@ -143,9 +136,6 @@ where
                 ))));
             };
 
-            let query: Arc<Query> = Arc::new(query);
-            let query2: Arc<Query> = Arc::clone(&query);
-
             let handle: Self = self.clone_with_context();
 
             // TODO: cache response of the server about understood algorithms
@@ -186,18 +176,10 @@ where
                             message_response.id(),
                             handle.trust_anchor.len(),
                         );
-                        verify_response(
-                            handle.clone(),
-                            Arc::clone(&query),
-                            message_response,
-                            options,
-                        )
-                        .map(Result::<DnsResponse, ProtoError>::Ok)
+                        verify_response(handle.clone(), message_response, options)
+                            .map(Result::<DnsResponse, ProtoError>::Ok)
                     })
                     .and_then(move |verified_message| {
-                        // Query should be unowned at this point
-                        let query = Arc::clone(&query2);
-
                         // TODO: I've noticed upstream resolvers don't always return NSEC responses
                         //   this causes bottom up evaluation to fail
 
@@ -226,12 +208,11 @@ where
                                 .filter(|rr| is_dnssec(rr, RecordType::NSEC))
                                 .collect::<Vec<_>>();
 
-                            let nsec_proof =
-                                verify_nsec(Arc::clone(&query), soa_name, nsecs.as_slice());
+                            let nsec_proof = verify_nsec(&query, soa_name, nsecs.as_slice());
                             if !nsec_proof.is_secure() {
                                 // TODO change this to remove the NSECs, like we do for the others?
                                 return future::err(ProtoError::from(ProtoErrorKind::Nsec {
-                                    query: (*query).clone(),
+                                    query: query.clone(),
                                     proof: nsec_proof,
                                 }));
                             }
@@ -249,7 +230,6 @@ where
 /// Extracts the different sections of a message and verifies the RRSIGs
 async fn verify_response<H>(
     handle: DnssecDnsHandle<H>,
-    query: Arc<Query>,
     mut message: DnsResponse,
     options: DnsRequestOptions,
 ) -> DnsResponse
@@ -260,9 +240,9 @@ where
     let nameservers = message.take_name_servers();
     let additionals = message.take_additionals();
 
-    let answers = verify_rrsets(handle.clone(), &query, answers, options).await;
-    let nameservers = verify_rrsets(handle.clone(), &query, nameservers, options).await;
-    let additionals = verify_rrsets(handle.clone(), &query, additionals, options).await;
+    let answers = verify_rrsets(handle.clone(), answers, options).await;
+    let nameservers = verify_rrsets(handle.clone(), nameservers, options).await;
+    let additionals = verify_rrsets(handle.clone(), additionals, options).await;
 
     message.insert_answers(answers);
     message.insert_name_servers(nameservers);
@@ -276,7 +256,6 @@ where
 #[allow(clippy::type_complexity)]
 async fn verify_rrsets<H>(
     handle: DnssecDnsHandle<H>,
-    query: &Query,
     records: Vec<Record>,
     options: DnsRequestOptions,
 ) -> Vec<Record>
@@ -311,10 +290,12 @@ where
     // collect all the rrsets to verify
     // TODO: is there a way to get rid of this clone() safely?
     for (name, record_type) in rrset_types {
-        let rrs_to_verify: Vec<&Record> = records
+        let mut rrs_to_verify = records
             .iter()
-            .filter(|rr| rr.record_type() == record_type && rr.name() == &name)
-            .collect();
+            .filter(|rr| rr.record_type() == record_type && rr.name() == &name);
+
+        let mut rrset = Rrset::new(rrs_to_verify.next().unwrap());
+        rrs_to_verify.for_each(|rr| rrset.add(rr));
 
         // RRSIGS are never modified after this point
         let rrsigs: Vec<&RRSIG> = records
@@ -327,12 +308,6 @@ where
 
         // if there is already an active validation going on, assume the other validation will
         //  complete properly or error if it is invalid
-        let rrset = Rrset {
-            name: name.clone(),
-            record_type,
-            record_class: query.query_class(),
-            records: rrs_to_verify,
-        };
 
         // TODO: support non-IN classes?
         debug!(
@@ -392,7 +367,7 @@ where
 {
     // wrapper for some of the type conversion for typed DNSKEY fn calls.
 
-    match rrset.record_type {
+    match rrset.record_type() {
         // validation of DNSKEY records require different logic as they search for DS record coverage as well
         RecordType::DNSKEY => {
             verify_dnskey_rrset(handle.clone_with_context(), rrset, options).await
@@ -416,15 +391,15 @@ where
 {
     trace!(
         "dnskey validation {}, record_type: {:?}",
-        rrset.name,
-        rrset.record_type
+        rrset.name(),
+        rrset.record_type()
     );
 
     // check the DNSKEYS against the trust_anchor, if it's approved allow it.
     //   this includes the root keys
     {
         let anchored_keys: Vec<&DNSKEY> = rrset
-            .records
+            .records()
             .iter()
             .map(|r| r.data())
             .filter_map(DNSKEY::try_borrow)
@@ -435,7 +410,8 @@ where
                 {
                     debug!(
                         "validated dnskey with trust_anchor: {}, {}",
-                        rrset.name, dnskey
+                        rrset.name(),
+                        dnskey
                     );
 
                     true
@@ -452,10 +428,10 @@ where
 
     // need to get DS records for each DNSKEY
     //   there will be a DS record for everything under the root keys
-    let ds_records = find_ds_records(&handle, rrset.name.clone(), options).await?;
+    let ds_records = find_ds_records(&handle, rrset.name().clone(), options).await?;
 
     let valid_keys = rrset
-        .records
+        .records()
         .iter()
         .enumerate()
         .map(|(i, rr)| (i, rr.data()))
@@ -466,10 +442,10 @@ where
                 .map(|r| (r.data(), r.name()))
                 // must be covered by at least one DS record
                 .any(|(ds_rdata, ds_name)| {
-                    if ds_rdata.covers(&rrset.name, key_rdata).unwrap_or(false) {
+                    if ds_rdata.covers(rrset.name(), key_rdata).unwrap_or(false) {
                         debug!(
                             "validated dnskey ({}, {key_rdata}) with {ds_name} {ds_rdata}",
-                            rrset.name
+                            rrset.name()
                         );
 
                         true
@@ -484,15 +460,15 @@ where
     // FIXME: what if only some are invalid? we should return the good ones?
     if !valid_keys.is_empty() {
         // If all the keys are valid, then we are secure
-        trace!("validated dnskey: {}", rrset.name);
+        trace!("validated dnskey: {}", rrset.name());
         Ok(Proof::Secure)
     } else if valid_keys.is_empty() && !ds_records.is_empty() {
         // there were DS records, but no DNSKEYs, we're in a bogus state
-        trace!("bogus dnskey: {}", rrset.name);
+        trace!("bogus dnskey: {}", rrset.name());
         Err(ProofError::new(
             Proof::Bogus,
             ProofErrorKind::DsRecordsButNoDnskey {
-                name: rrset.name.clone(),
+                name: rrset.name().clone(),
             },
         ))
     } else {
@@ -500,11 +476,11 @@ where
         // there were DS records, but no DNSKEYs, we're in a bogus state
         //   if there was no DS record, it should have gotten an NSEC upstream, and returned early above
         //   and all other cases...
-        trace!("no dnskey found: {}", rrset.name);
+        trace!("no dnskey found: {}", rrset.name());
         Err(ProofError::new(
             Proof::Indeterminate,
             ProofErrorKind::DnskeyNotFound {
-                name: rrset.name.clone(),
+                name: rrset.name().clone(),
             },
         ))
     }
@@ -598,21 +574,21 @@ where
         //    1) "indeterminate", i.e. no DNSSEC records are available back to the root
         //    2) "insecure", the zone has a valid NSEC for the DS record in the parent zone
         //    3) "bogus", the parent zone has a valid DS record, but the child zone didn't have the RRSIGs/DNSKEYs
-        let ds_records = find_ds_records(handle, rrset.name.clone(), options).await?; // insecure will return early here
+        let ds_records = find_ds_records(handle, rrset.name().clone(), options).await?; // insecure will return early here
 
         if !ds_records.is_empty() {
             return Err(ProofError::new(
                 Proof::Bogus,
                 ProofErrorKind::DsRecordShouldExist {
-                    name: rrset.name.clone(),
+                    name: rrset.name().clone(),
                 },
             ));
         } else {
             return Err(ProofError::new(
                 Proof::Indeterminate,
                 ProofErrorKind::RrsigsNotPresent {
-                    name: rrset.name.clone(),
-                    record_type: rrset.record_type,
+                    name: rrset.name().clone(),
+                    record_type: rrset.record_type(),
                 },
             ));
         }
@@ -621,15 +597,14 @@ where
     // the record set is going to be shared across a bunch of futures, Arc for that.
     trace!(
         "default validation {}, record_type: {:?}",
-        rrset.name,
-        rrset.record_type
+        rrset.name(),
+        rrset.record_type()
     );
 
     // Special case for self-signed DNSKEYS, validate with itself...
-    if rrsigs
-        .iter()
-        .any(|rrsig| RecordType::DNSKEY == rrset.record_type && rrsig.signer_name() == &rrset.name)
-    {
+    if rrsigs.iter().any(|rrsig| {
+        RecordType::DNSKEY == rrset.record_type() && rrsig.signer_name() == rrset.name()
+    }) {
         // in this case it was looks like a self-signed key, first validate the signature
         //  then return rrset. Like the standard case below, the DNSKEY is validated
         //  after this function. This function is only responsible for validating the signature
@@ -638,7 +613,7 @@ where
             .iter()
             .find_map(|rrsig| {
                 rrset
-                    .records
+                    .records()
                     .iter()
                     .map(|r| (r.data(), r.name()))
                     .filter_map(|(d, n)| DNSKEY::try_borrow(d).map(|d| (d, n)))
@@ -651,7 +626,7 @@ where
                 ProofError::new(
                     Proof::Bogus,
                     ProofErrorKind::SelfSignedKeyInvalid {
-                        name: rrset.name.clone(),
+                        name: rrset.name().clone(),
                     },
                 )
             })?;
@@ -703,8 +678,8 @@ where
         return Err(ProofError::new(
             Proof::Bogus,
             ProofErrorKind::RrsigsNotPresent {
-                name: rrset.name.clone(),
-                record_type: rrset.record_type,
+                name: rrset.name().clone(),
+                record_type: rrset.record_type(),
             },
         ));
     }
@@ -718,7 +693,7 @@ where
 
     proof.ok_or_else(||
         // we are in a bogus state, DS records were available (see beginning of function), but RRSIGs couldn't be verified
-        ProofError::new(Proof::Bogus, ProofErrorKind::RrsigsUnverified{name: rrset.name.clone(), record_type: rrset.record_type})
+        ProofError::new(Proof::Bogus, ProofErrorKind::RrsigsUnverified{name: rrset.name().clone(), record_type: rrset.record_type()})
     )
 }
 
@@ -760,18 +735,24 @@ fn verify_rrset_with_dnskey(
     }
 
     dnskey
-        .verify_rrsig(&rrset.name, rrset.record_class, rrsig, &rrset.records)
+        .verify_rrsig(rrset.name(), rrset.record_class(), rrsig, rrset.records())
         .map(|_| {
             debug!(
                 "validated ({}, {:?}) with ({}, {})",
-                rrset.name, rrset.record_type, dnskey_name, dnskey
+                rrset.name(),
+                rrset.record_type(),
+                dnskey_name,
+                dnskey
             );
             Proof::Secure
         })
         .map_err(|e| {
             debug!(
                 "failed validation of ({}, {:?}) with ({}, {})",
-                rrset.name, rrset.record_type, dnskey_name, dnskey
+                rrset.name(),
+                rrset.record_type(),
+                dnskey_name,
+                dnskey
             );
             ProofError::new(
                 Proof::Bogus,
@@ -844,7 +825,7 @@ fn verify_rrset_with_dnskey(_: &DNSKEY, _: &RRSIG, _: &Rrset) -> ProtoResult<()>
 /// ```
 #[allow(clippy::blocks_in_conditions)]
 #[doc(hidden)]
-pub fn verify_nsec(query: Arc<Query>, soa_name: &Name, nsecs: &[&Record]) -> Proof {
+pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> Proof {
     // TODO: consider converting this to Result, and giving explicit reason for the failure
 
     // first look for a record with the same name
@@ -909,6 +890,56 @@ pub fn verify_nsec(query: Arc<Query>, soa_name: &Name, nsecs: &[&Record]) -> Pro
             Proof::Secure
         } else {
             Proof::Bogus
+        }
+    }
+}
+
+mod rrset {
+    use crate::rr::{DNSClass, Name, Record, RecordType};
+
+    // TODO: combine this with crate::rr::RecordSet?
+    #[derive(Debug)]
+    pub(super) struct Rrset<'r> {
+        name: Name,
+        record_class: DNSClass,
+        record_type: RecordType,
+        records: Vec<&'r Record>,
+    }
+
+    impl<'r> Rrset<'r> {
+        pub(super) fn new(record: &'r Record) -> Self {
+            Self {
+                name: record.name().clone(),
+                record_class: record.dns_class(),
+                record_type: record.record_type(),
+                records: vec![record],
+            }
+        }
+
+        /// Adds `record` to this RRset IFF it belongs to it
+        pub(super) fn add(&mut self, record: &'r Record) {
+            if self.name == *record.name()
+                && self.record_type == record.record_type()
+                && self.record_class == record.dns_class()
+            {
+                self.records.push(record);
+            }
+        }
+
+        pub(super) fn name(&self) -> &Name {
+            &self.name
+        }
+
+        pub(super) fn record_class(&self) -> DNSClass {
+            self.record_class
+        }
+
+        pub(super) fn record_type(&self) -> RecordType {
+            self.record_type
+        }
+
+        pub(super) fn records(&self) -> &[&Record] {
+            &self.records
         }
     }
 }
