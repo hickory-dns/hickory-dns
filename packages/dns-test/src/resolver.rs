@@ -1,4 +1,5 @@
 use core::fmt::Write;
+use std::io::{BufRead, BufReader};
 use std::net::Ipv4Addr;
 
 use crate::container::{Child, Container, Network};
@@ -38,23 +39,26 @@ impl Resolver {
         self.container.ipv4_addr()
     }
 
-    /// gracefully terminates the name server collecting all logs
+    /// Gracefully terminates the name server collecting all logs
     pub fn terminate(self) -> Result<String> {
-        let pidfile = self.implementation.pidfile(Role::Resolver);
+        let Resolver {
+            implementation,
+            container,
+            child,
+        } = self;
+
+        let pidfile = implementation.pidfile(Role::Resolver);
         let kill = format!(
             "test -f {pidfile} || sleep 1
 kill -TERM $(cat {pidfile})"
         );
-        self.container.status_ok(&["sh", "-c", &kill])?;
-        let output = self.child.wait()?;
+        container.status_ok(&["sh", "-c", &kill])?;
+        let output = child.wait()?;
 
         // the hickory-dns binary does not do signal handling so it won't shut down gracefully; we
         // will still get some logs so we'll ignore the fact that it fails to shut down ...
-        let is_hickory = matches!(self.implementation, Implementation::Hickory(_));
-        if !is_hickory && !output.status.success() {
-            return Err(
-                format!("could not terminate the `{}` process", self.implementation).into(),
-            );
+        if !implementation.is_hickory() && !output.status.success() {
+            return Err(format!("could not terminate the `{}` process", implementation).into());
         }
 
         assert!(
@@ -115,7 +119,21 @@ impl ResolverSettings {
             container.cp(path, &contents)?;
         }
 
-        let child = container.spawn(implementation.cmd_args(config.role()))?;
+        let mut child = container.spawn(implementation.cmd_args(config.role()))?;
+
+        // For HickoryDNS we need to wait until its start sequence finished. Only then the server is able
+        // to accept connections. The start sequence logs are consumed here.
+        if implementation.is_hickory() {
+            let stdout = child.stdout()?;
+            let lines = BufReader::new(stdout).lines();
+
+            for line in lines {
+                let line = line?;
+                if line.contains("Server starting up") {
+                    break;
+                }
+            }
+        }
 
         Ok(Resolver {
             child,
@@ -195,14 +213,8 @@ mod tests {
             )))?;
         let logs = resolver.terminate()?;
 
-        eprintln!("{logs}");
-        let mut found = false;
-        for line in logs.lines() {
-            if line.contains("Hickory DNS") && line.contains("starting") {
-                found = true;
-            }
-        }
-        assert!(found);
+        // Hickory-DNS start sequence log has been consumed in `ResolverSettings.start`.
+        assert!(logs.is_empty());
 
         Ok(())
     }
