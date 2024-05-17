@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::{net::SocketAddr, time::Instant};
+use std::{net::SocketAddr, sync::Arc, time::Instant};
 
 use async_recursion::async_recursion;
 use futures_util::{future::select_all, FutureExt};
@@ -37,6 +37,66 @@ use crate::{
 /// Set of nameservers by the zone name
 type NameServerCache<P> = LruCache<Name, RecursorPool<P>>;
 
+/// A `Recursor` builder
+#[derive(Clone, Copy)]
+pub struct RecursorBuilder {
+    ns_cache_size: usize,
+    record_cache_size: usize,
+    #[cfg(feature = "dnssec")]
+    security_aware: bool,
+}
+
+impl Default for RecursorBuilder {
+    fn default() -> Self {
+        Self {
+            ns_cache_size: 1024,
+            record_cache_size: 1048576,
+            #[cfg(feature = "dnssec")]
+            security_aware: false,
+        }
+    }
+}
+
+impl RecursorBuilder {
+    /// Sets the size of the list of cached name servers
+    pub fn ns_cache_size(&mut self, size: usize) -> &mut Self {
+        self.ns_cache_size = size;
+        self
+    }
+
+    /// Sets the size of the list of cached records
+    pub fn record_cache_size(&mut self, size: usize) -> &mut Self {
+        self.record_cache_size = size;
+        self
+    }
+
+    /// Enables or disables (DNSSEC) security awareness
+    #[cfg(feature = "dnssec")]
+    pub fn security_aware(&mut self, security_aware: bool) -> &mut Self {
+        self.security_aware = security_aware;
+        self
+    }
+
+    /// Construct a new recursor using the list of NameServerConfigs for the root node list
+    ///
+    /// # Panics
+    ///
+    /// This will panic if the roots are empty.
+    pub fn build(&self, roots: impl Into<NameServerConfigGroup>) -> Result<Recursor, ResolveError> {
+        #[cfg(not(feature = "dnssec"))]
+        let security_aware = false;
+        #[cfg(feature = "dnssec")]
+        let security_aware = self.security_aware;
+
+        Recursor::build(
+            roots,
+            self.ns_cache_size,
+            self.record_cache_size,
+            security_aware,
+        )
+    }
+}
+
 /// A top down recursive resolver which operates off a list of roots for initial recursive requests.
 ///
 /// This is the well known root nodes, referred to as hints in RFCs. See the IANA [Root Servers](https://www.iana.org/domains/root/servers) list.
@@ -44,18 +104,21 @@ pub struct Recursor {
     roots: RecursorPool<TokioRuntimeProvider>,
     name_server_cache: Mutex<NameServerCache<TokioRuntimeProvider>>,
     record_cache: DnsLru,
+    security_aware: bool,
 }
 
 impl Recursor {
-    /// Construct a new recursor using the list of NameServerConfigs for the root node list
-    ///
-    /// # Panics
-    ///
-    /// This will panic if the roots are empty.
-    pub fn new(
+    /// Short-hand for `RecursorBuilder::default`
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new() -> RecursorBuilder {
+        RecursorBuilder::default()
+    }
+
+    fn build(
         roots: impl Into<NameServerConfigGroup>,
         ns_cache_size: usize,
         record_cache_size: usize,
+        security_aware: bool,
     ) -> Result<Self, ResolveError> {
         // configure the hickory-resolver
         let roots: NameServerConfigGroup = roots.into();
@@ -74,6 +137,7 @@ impl Recursor {
             roots,
             name_server_cache,
             record_cache,
+            security_aware,
         })
     }
 
@@ -238,8 +302,17 @@ impl Recursor {
     /// has contiguous zones at the root and MIL domains, but also has a non-
     /// contiguous zone at ISI.EDU.
     /// ```
-    pub async fn resolve(&self, query: Query, request_time: Instant) -> Result<Lookup, Error> {
-        if let Some(lookup) = self.record_cache.get(&query, request_time) {
+    pub async fn resolve(
+        &self,
+        query: Query,
+        request_time: Instant,
+        query_has_dnssec_ok: bool,
+    ) -> Result<Lookup, Error> {
+        if self.security_aware {
+            // TODO RFC4035 section 4.5 recommends caching "each response as a single atomic entry
+            // containing the entire answer, including the named RRset and any associated DNSSEC
+            // RRs"
+        } else if let Some(lookup) = self.record_cache.get(&query, request_time) {
             return lookup.map_err(Into::into);
         }
 
@@ -280,7 +353,14 @@ impl Recursor {
         let ns = ns.ok_or_else(|| Error::from(format!("no nameserver found for {zone}")))?;
         debug!("found zone {} for {}", ns.zone(), query);
 
-        let response = self.lookup(query, ns, request_time).await?;
+        let dnssec = if self.security_aware {
+            Dnssec::Aware {
+                query_has_dnssec_ok,
+            }
+        } else {
+            Dnssec::Unaware
+        };
+        let response = self.lookup(query, ns, request_time, dnssec).await?;
         Ok(response)
     }
 
@@ -289,10 +369,13 @@ impl Recursor {
         query: Query,
         ns: RecursorPool<TokioRuntimeProvider>,
         now: Instant,
+        dnssec: Dnssec,
     ) -> Result<Lookup, Error> {
-        if let Some(lookup) = self.record_cache.get(&query, now) {
-            debug!("cached data {lookup:?}");
-            return lookup.map_err(Into::into);
+        if !dnssec.is_security_aware() {
+            if let Some(lookup) = self.record_cache.get(&query, now) {
+                debug!("cached data {lookup:?}");
+                return lookup.map_err(Into::into);
+            }
         }
 
         let response = ns.lookup(query.clone());
@@ -304,26 +387,45 @@ impl Recursor {
             Ok(r) => {
                 let mut r = r.into_message();
                 info!("response: {}", r.header());
-                let records = r
-                    .take_answers()
-                    .into_iter()
-                    .chain(r.take_name_servers())
-                    .chain(r.take_additionals())
-                    .filter(|x| {
-                        if !is_subzone(ns.zone().clone(), x.name().clone()) {
-                            warn!(
-                                "Dropping out of bailiwick record {x} for zone {}",
-                                ns.zone().clone()
-                            );
-                            false
-                        } else {
-                            true
-                        }
-                    });
 
-                let lookup = self.record_cache.insert_records(query, records, now);
+                if let Dnssec::Aware {
+                    query_has_dnssec_ok,
+                } = dnssec
+                {
+                    // TODO: validation must be performed if the CD (Checking Disabled) is not set
+                    let mut answers = r.take_answers();
+                    if !query_has_dnssec_ok {
+                        answers.retain(|rrset| {
+                            // RFC 4035 section 3.2.1 if DO bit not set, strip DNSSEC records
+                            // unless explicitly requested
+                            let record_type = rrset.record_type();
+                            record_type == query.query_type() || !record_type.is_dnssec()
+                        });
+                    }
 
-                lookup.ok_or_else(|| Error::from("no records found"))
+                    Ok(Lookup::new_with_max_ttl(query, Arc::from(answers)))
+                } else {
+                    let records = r
+                        .take_answers()
+                        .into_iter()
+                        .chain(r.take_name_servers())
+                        .chain(r.take_additionals())
+                        .filter(|x| {
+                            if !is_subzone(ns.zone().clone(), x.name().clone()) {
+                                warn!(
+                                    "Dropping out of bailiwick record {x} for zone {}",
+                                    ns.zone().clone()
+                                );
+                                false
+                            } else {
+                                true
+                            }
+                        });
+
+                    let lookup = self.record_cache.insert_records(query, records, now);
+
+                    lookup.ok_or_else(|| Error::from("no records found"))
+                }
             }
             Err(e) => {
                 warn!("lookup error: {e}");
@@ -356,7 +458,12 @@ impl Recursor {
 
         let lookup = Query::query(zone.clone(), RecordType::NS);
         let response = self
-            .lookup(lookup.clone(), nameserver_pool.clone(), request_time)
+            .lookup(
+                lookup.clone(),
+                nameserver_pool.clone(),
+                request_time,
+                Dnssec::Unaware,
+            )
             .await?;
 
         // let zone_nameservers = response.name_servers();
@@ -429,12 +536,12 @@ impl Recursor {
             debug!("need glue for {}", zone);
             let a_resolves = need_ips_for_names.iter().take(1).map(|name| {
                 let a_query = Query::query(name.0.clone(), RecordType::A);
-                self.resolve(a_query, request_time).boxed()
+                self.resolve(a_query, request_time, false).boxed()
             });
 
             let aaaa_resolves = need_ips_for_names.iter().take(1).map(|name| {
                 let aaaa_query = Query::query(name.0.clone(), RecordType::AAAA);
-                self.resolve(aaaa_query, request_time).boxed()
+                self.resolve(aaaa_query, request_time, false).boxed()
             });
 
             let mut a_resolves: Vec<_> = a_resolves.chain(aaaa_resolves).collect();
@@ -476,6 +583,18 @@ impl Recursor {
         debug!("found nameservers for {}", zone);
         self.name_server_cache.lock().insert(zone, ns.clone());
         Ok(ns)
+    }
+}
+
+enum Dnssec {
+    Unaware,
+    Aware { query_has_dnssec_ok: bool },
+}
+
+impl Dnssec {
+    #[must_use]
+    fn is_security_aware(&self) -> bool {
+        matches!(self, Self::Aware { .. })
     }
 }
 

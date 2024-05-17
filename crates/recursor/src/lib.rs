@@ -34,4 +34,8 @@ pub use error::{Error, ErrorKind};
 pub use hickory_proto as proto;
 pub use hickory_resolver as resolver;
 pub use hickory_resolver::config::NameServerConfig;
-pub use recursor::Recursor;
+pub use recursor::{Recursor, RecursorBuilder};
+
+fn is_security_aware() -> bool {
+    cfg!(feature = "dnssec")
+}

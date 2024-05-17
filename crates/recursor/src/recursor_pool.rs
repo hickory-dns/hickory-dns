@@ -90,8 +90,8 @@ where
                 info!("querying {} for {}", self.zone, query_cpy);
 
                 let mut options = DnsRequestOptions::default();
-                options.use_edns = false; // TODO: this should be configurable
-                options.recursion_desired = false;
+                options.use_edns = crate::is_security_aware();
+                options.edns_set_dnssec_ok = crate::is_security_aware();
 
                 // convert the lookup into a shared future
                 let lookup = ns

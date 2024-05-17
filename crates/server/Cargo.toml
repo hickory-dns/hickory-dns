@@ -48,7 +48,7 @@ dnssec-ring = [
     "hickory-proto/dnssec-ring",
     "hickory-resolver/dnssec-ring",
 ]
-dnssec = []
+dnssec = ["hickory-recursor?/dnssec"]
 # Recursive Resolution is Experimental!
 recursor = ["hickory-recursor"]
 resolver = ["hickory-resolver"]
