@@ -264,7 +264,7 @@ where
                         debug!("truncated response received, retrying over TCP");
                         Ok(response)
                     }
-                    Err(e) if opts.try_tcp_on_error || e.is_no_connections() => {
+                    Err(e) if opts.try_tcp_on_error || e.is_no_connections() || e.is_io() => {
                         debug!("error from UDP, retrying over TCP: {}", e);
                         Err(e)
                     }
