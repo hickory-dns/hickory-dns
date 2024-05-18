@@ -136,6 +136,7 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 
 ### Secure DNS operations
 
+- [RFC 2931](https://datatracker.ietf.org/doc/html/rfc2931): SIG(0)
 - [RFC 3007](https://tools.ietf.org/html/rfc3007): Secure Dynamic Update
 - [RFC 4034](https://tools.ietf.org/html/rfc4034): DNSSEC Resource Records
 - [RFC 4035](https://tools.ietf.org/html/rfc4035): Protocol Modifications for DNSSEC
