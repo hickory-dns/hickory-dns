@@ -76,7 +76,11 @@ where
         &self.zone
     }
 
-    pub(crate) async fn lookup(&self, query: Query) -> Result<DnsResponse, ResolveError> {
+    pub(crate) async fn lookup(
+        &self,
+        query: Query,
+        security_aware: bool,
+    ) -> Result<DnsResponse, ResolveError> {
         let ns = self.ns.clone();
 
         let query_cpy = query.clone();
@@ -90,8 +94,8 @@ where
                 info!("querying {} for {}", self.zone, query_cpy);
 
                 let mut options = DnsRequestOptions::default();
-                options.use_edns = false; // TODO: this should be configurable
-                options.recursion_desired = false;
+                options.use_edns = security_aware;
+                options.edns_set_dnssec_ok = security_aware;
 
                 // convert the lookup into a shared future
                 let lookup = ns

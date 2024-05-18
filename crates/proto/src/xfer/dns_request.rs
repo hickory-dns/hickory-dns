@@ -25,6 +25,8 @@ pub struct DnsRequestOptions {
     // TODO: add EDNS options here?
     /// When true, will add EDNS options to the request.
     pub use_edns: bool,
+    /// When true, sets the DO bit in the EDNS options
+    pub edns_set_dnssec_ok: bool,
     /// Specifies maximum request depth for DNSSEC validation.
     pub max_request_depth: usize,
     /// set recursion desired (or not) for any requests
@@ -38,6 +40,7 @@ impl Default for DnsRequestOptions {
             max_request_depth: 26,
             expects_multiple_responses: false,
             use_edns: false,
+            edns_set_dnssec_ok: false,
             recursion_desired: true,
         }
     }

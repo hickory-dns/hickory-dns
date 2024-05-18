@@ -24,6 +24,7 @@ use crate::resolver::Name;
 
 /// Configuration for file based zones
 #[derive(Clone, Deserialize, Eq, PartialEq, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct RecursiveConfig {
     /// File with roots, aka hints
     pub roots: PathBuf,
@@ -35,6 +36,11 @@ pub struct RecursiveConfig {
     /// Maximum DNS record cache size
     #[serde(default = "record_cache_size_default")]
     pub record_cache_size: usize,
+
+    /// Whether the recursor is security-aware (RFC4035 section 3.2)
+    #[cfg(feature = "dnssec")]
+    #[serde(default)]
+    pub security_aware: bool,
 }
 
 impl RecursiveConfig {

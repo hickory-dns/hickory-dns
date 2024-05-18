@@ -10,6 +10,7 @@
 #![deny(missing_docs)]
 
 use std::cmp::Ordering;
+use std::sync::Arc;
 use std::{fmt, io, sync};
 
 #[cfg(feature = "backtrace")]
@@ -233,7 +234,7 @@ pub enum ProtoErrorKind {
     // foreign
     /// An error got returned from IO
     #[error("io error: {0}")]
-    Io(io::Error),
+    Io(Arc<io::Error>),
 
     /// Any sync poised error
     #[error("lock poisoned error")]
@@ -378,6 +379,12 @@ impl ProtoError {
     #[inline]
     pub fn is_no_connections(&self) -> bool {
         matches!(*self.kind, ProtoErrorKind::NoConnections)
+    }
+
+    /// Returns true if this is a std::io::Error
+    #[inline]
+    pub fn is_io(&self) -> bool {
+        matches!(*self.kind, ProtoErrorKind::Io(..))
     }
 
     pub(crate) fn as_dyn(&self) -> &(dyn std::error::Error + 'static) {
@@ -554,7 +561,7 @@ impl From<io::Error> for ProtoErrorKind {
     fn from(e: io::Error) -> Self {
         match e.kind() {
             io::ErrorKind::TimedOut => Self::Timeout,
-            _ => Self::Io(e),
+            _ => Self::Io(e.into()),
         }
     }
 }
@@ -641,11 +648,7 @@ impl Clone for ProtoErrorKind {
             UnrecognizedLabelCode(value) => UnrecognizedLabelCode(value),
             UnrecognizedNsec3Flags(flags) => UnrecognizedNsec3Flags(flags),
             UnrecognizedCsyncFlags(flags) => UnrecognizedCsyncFlags(flags),
-            Io(ref e) => Io(if let Some(raw) = e.raw_os_error() {
-                io::Error::from_raw_os_error(raw)
-            } else {
-                io::Error::from(e.kind())
-            }),
+            Io(ref e) => Io(e.clone()),
             Poisoned => Poisoned,
             Ring(ref _e) => Ring(Unspecified),
             SSL(ref e) => Msg(format!("there was an SSL error: {e}")),

@@ -5,6 +5,12 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.24.1
+
+### Fixed
+
+- (proto) Break when socket is unexpectedly shut down #2171 by dlon
+
 ## 0.24.0
 
 **NOTICE** This project has been rebranded to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, from 0.24.0 onward. This [blog post](https://bluejekyll.github.io/blog/posts/announcing-hickory-dns/) explains the reasoning behind this move.

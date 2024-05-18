@@ -179,7 +179,7 @@ impl<'a> Parser<'a> {
 
                             // @ is a placeholder for specifying the current origin
                             Token::At => {
-                                current_name = origin.clone(); // TODO a COW or RC would reduce copies...
+                                current_name.clone_from(&origin); // TODO a COW or RC would reduce copies...
                                 State::TtlClassType
                             }
 
