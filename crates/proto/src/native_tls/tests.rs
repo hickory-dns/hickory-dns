@@ -42,15 +42,7 @@ use crate::{iocompat::AsyncIoTokioAsStd, DnsStreamHandle};
 #[test]
 #[cfg_attr(target_os = "macos", ignore)] // TODO: add back once https://github.com/sfackler/rust-native-tls/issues/143 is fixed
 fn test_tls_client_stream_ipv4() {
-    tls_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), false)
-}
-
-// FIXME: mtls is disabled at the moment, it causes a hang on Linux, and is currently not supported on macOS
-#[cfg(feature = "mtls")]
-#[test]
-#[cfg(not(target_os = "macos"))]
-fn test_tls_client_stream_ipv4_mtls() {
-    tls_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), true)
+    tls_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))
 }
 
 #[test]
@@ -74,7 +66,7 @@ fn read_file(path: &str) -> Vec<u8> {
 }
 
 #[allow(unused, unused_mut)]
-fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
+fn tls_client_stream_test(server_addr: IpAddr) {
     let succeeded = Arc::new(atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
     thread::Builder::new()
@@ -116,28 +108,6 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
         .name("test_tls_client_stream:server".to_string())
         .spawn(move || {
             let mut tls = TlsAcceptor::builder(identity);
-
-            // #[cfg(target_os = "linux")]
-            // {
-            //   let mut openssl_builder = tls.builder_mut();
-            //   let mut openssl_ctx_builder = openssl_builder.builder_mut();
-
-            //   let mut mode = openssl::ssl::SslVerifyMode::empty();
-
-            //   // TODO: mtls tests hang on Linux...
-            //   if mtls {
-            //     //   mode = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
-
-            //     // let mut store = X509StoreBuilder::new().unwrap();
-            //     // let root_ca = X509::from_der(&root_cert_der_copy).unwrap();
-            //     // store.add_cert(root_ca).unwrap();
-            //     // openssl_ctx_builder.set_verify_cert_store(store.build()).unwrap();
-            //   } else {
-            //     mode.insert(SSL_VERIFY_NONE);
-            //   }
-
-            //   openssl_ctx_builder.set_verify(mode);
-            // }
 
             // TODO: add CA on macOS
 
@@ -199,11 +169,6 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let mut builder = TlsStreamBuilder::<AsyncIoTokioAsStd<TokioTcpStream>>::new();
     builder.add_ca(trust_chain);
 
-    // fix MTLS
-    // if mtls {
-    //     config_mtls(&root_pkey, &root_name, &root_cert, &mut builder);
-    // }
-
     let (stream, mut sender) = builder.build(server_addr, dns_name.to_string());
 
     // TODO: there is a race failure here... a race with the server thread most likely...
@@ -226,20 +191,3 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
     server_handle.join().expect("server thread failed");
 }
-
-// TODO: fix MTLS
-// #[allow(unused_variables)]
-// fn config_mtls(root_pkey: &PKey,
-//                root_name: &X509Name,
-//                root_cert: &X509,
-//                builder: &mut TlsStreamBuilder) {
-//     // signed by the same root cert
-//     let client_name = "resolv.example.com";
-//     let (_ /*client_pkey*/, _ /*client_cert*/, client_identity) =
-//         cert(client_name, root_pkey, root_name, root_cert);
-//     let client_identity =
-//         native_tls::Pkcs12::from_der(&client_identity.to_der().unwrap(), "mypass").unwrap();
-
-//     #[cfg(feature = "mtls")]
-//     builder.identity(client_identity);
-// }

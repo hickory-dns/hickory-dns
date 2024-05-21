@@ -170,12 +170,6 @@ impl<S: DnsTcpStream> TlsStreamBuilder<S> {
         self.ca_chain.push(ca);
     }
 
-    /// Client side identity for client auth in TLS (aka mutual TLS auth)
-    #[cfg(feature = "mtls")]
-    pub fn identity(&mut self, pkcs12: ParsedPkcs12) {
-        self.identity = Some(pkcs12);
-    }
-
     /// Sets the address to connect from.
     pub fn bind_addr(&mut self, bind_addr: SocketAddr) {
         self.bind_addr = Some(bind_addr);

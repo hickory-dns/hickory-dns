@@ -11,8 +11,6 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 
 use futures_util::TryFutureExt;
-#[cfg(feature = "mtls")]
-use openssl::pkcs12::Pkcs12;
 use openssl::x509::X509;
 use tokio_openssl::SslStream as TokioTlsStream;
 
@@ -52,12 +50,6 @@ impl<S: DnsTcpStream> TlsClientStreamBuilder<S> {
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
         self.add_ca(ca);
         Ok(())
-    }
-
-    /// Client side identity for client auth in TLS (aka mutual TLS auth)
-    #[cfg(feature = "mtls")]
-    pub fn identity(&mut self, pkcs12: Pkcs12) {
-        self.0.identity(pkcs12);
     }
 
     /// Sets the address to connect from.
