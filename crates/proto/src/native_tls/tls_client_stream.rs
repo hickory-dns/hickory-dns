@@ -13,8 +13,6 @@ use std::pin::Pin;
 
 use futures_util::TryFutureExt;
 use native_tls::Certificate;
-#[cfg(feature = "mtls")]
-use native_tls::Pkcs12;
 use tokio_native_tls::TlsStream as TokioTlsStream;
 
 use crate::error::ProtoError;
@@ -44,12 +42,6 @@ impl<S: DnsTcpStream> TlsClientStreamBuilder<S> {
     /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
     pub fn add_ca(&mut self, ca: Certificate) {
         self.0.add_ca(ca);
-    }
-
-    /// Client side identity for client auth in TLS (aka mutual TLS auth)
-    #[cfg(feature = "mtls")]
-    pub fn identity(&mut self, pkcs12: Pkcs12) {
-        self.0.identity(pkcs12);
     }
 
     /// Sets the address to connect from.

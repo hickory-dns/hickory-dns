@@ -17,7 +17,6 @@ use std::{thread, time};
 use futures_util::stream::StreamExt;
 use openssl::pkey::*;
 use openssl::ssl::*;
-use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::*;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
@@ -30,7 +29,6 @@ use openssl::pkcs12::*;
 use openssl::rsa::*;
 use openssl::x509::extension::*;
 
-use hickory_proto::tcp::Connect;
 use hickory_proto::xfer::SerialMessage;
 use hickory_proto::{iocompat::AsyncIoTokioAsStd, DnsStreamHandle};
 
@@ -42,27 +40,19 @@ use hickory_proto::openssl::TlsStreamBuilder;
 // #[cfg(not(target_os = "linux"))]
 #[test]
 fn test_tls_client_stream_ipv4() {
-    tls_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), false)
-}
-
-// FIXME: mtls is disabled at the moment, it causes a hang on Linux, and is currently not supported on macOS
-#[cfg(feature = "mtls")]
-#[test]
-#[cfg(not(target_os = "macos"))] // ignored until Travis-CI fixes IPv6
-fn test_tls_client_stream_ipv4_mtls() {
-    tls_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), true)
+    tls_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))
 }
 
 #[test]
 fn test_tls_client_stream_ipv6() {
-    tls_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), false)
+    tls_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
 }
 
 const TEST_BYTES: &[u8; 8] = b"DEADBEEF";
 const TEST_BYTES_LEN: usize = 8;
 
 #[allow(unused_mut)]
-fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
+fn tls_client_stream_test(server_addr: IpAddr) {
     let succeeded = Arc::new(atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
     thread::Builder::new()
@@ -97,9 +87,6 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
 
     let send_recv_times = 4;
 
-    // an in and out server
-    let root_cert_der_copy = root_cert_der.clone();
-
     let server_handle = thread::Builder::new()
         .name("test_tls_client_stream:server".to_string())
         .spawn(move || {
@@ -126,23 +113,8 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
 
             {
                 let mut openssl_ctx_builder = &mut tls;
-
                 let mut mode = SslVerifyMode::empty();
-
-                // FIXME: mtls tests hang on Linux...
-                if mtls {
-                    mode = SslVerifyMode::PEER | SslVerifyMode::FAIL_IF_NO_PEER_CERT;
-
-                    let mut store = X509StoreBuilder::new().unwrap();
-                    let root_ca = X509::from_der(&root_cert_der_copy).unwrap();
-                    store.add_cert(root_ca).unwrap();
-                    openssl_ctx_builder
-                        .set_verify_cert_store(store.build())
-                        .unwrap();
-                } else {
-                    mode.insert(SslVerifyMode::NONE);
-                }
-
+                mode.insert(SslVerifyMode::NONE);
                 openssl_ctx_builder.set_verify(mode);
             }
 
@@ -206,10 +178,6 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let mut builder = TlsStreamBuilder::<AsyncIoTokioAsStd<TokioTcpStream>>::new();
     builder.add_ca(trust_chain);
 
-    if mtls {
-        config_mtls(&root_pkey, &root_name, &root_cert, &mut builder);
-    }
-
     let (stream, mut sender) = builder.build(server_addr, subject_name.to_string());
 
     // TODO: there is a race failure here... a race with the server thread most likely...
@@ -230,30 +198,6 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
 
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
     server_handle.join().expect("server thread failed");
-}
-
-#[allow(unused_variables)]
-fn config_mtls<S: Connect>(
-    root_pkey: &PKey<Private>,
-    root_name: &X509Name,
-    root_cert: &X509,
-    builder: &mut TlsStreamBuilder<S>,
-) {
-    #[cfg(feature = "mtls")]
-    {
-        // signed by the same root cert
-        let client_name = "resolv.example.com";
-        let (_ /*client_pkey*/, _ /*client_cert*/, client_identity) =
-            cert(client_name, root_pkey, root_name, root_cert);
-
-        let client_identity = Pkcs12::from_der(&client_identity)
-            .and_then(|p| p.parse("mypass"))
-            .expect("Pkcs12::from_der");
-        let client_identity =
-            Pkcs12::from_der(&client_identity.to_der().unwrap(), "mypass").unwrap();
-
-        builder.identity(client_identity);
-    }
 }
 
 /// Generates a root certificate
