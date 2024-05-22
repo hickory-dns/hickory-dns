@@ -31,6 +31,10 @@ impl Resolver {
         self.container.eavesdrop()
     }
 
+    pub fn network(&self) -> &Network {
+        self.container.network()
+    }
+
     pub fn container_id(&self) -> &str {
         self.container.id()
     }

@@ -92,6 +92,7 @@ impl FromStr for ZoneFile {
 }
 
 /// A root (server) hint
+#[derive(Clone)]
 pub struct Root {
     pub ipv4_addr: Ipv4Addr,
     pub ns: FQDN,

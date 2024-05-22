@@ -1,3 +1,5 @@
+mod section_3_2_2;
+
 use dns_test::{
     client::{Client, DigSettings},
     name_server::NameServer,
