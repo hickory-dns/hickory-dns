@@ -124,11 +124,7 @@ mod tests {
         let output = command.output().expect("Failed to get output");
         let stdout = String::from_utf8_lossy(&output.stdout);
 
-        stdout
-            .trim()
-            .lines()
-            .find(|line| line == &network_name)
-            .is_some()
+        stdout.trim().lines().any(|line| line == network_name)
     }
 
     #[test]
