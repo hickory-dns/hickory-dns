@@ -183,6 +183,20 @@ impl Message {
         &self.inner
     }
 
+    pub fn is_ad_flag_set(&self) -> bool {
+        let Some(authenticated) = self.inner["dns.flags_tree"]
+            .as_object()
+            .unwrap()
+            .get("dns.flags.authenticated")
+        else {
+            return false;
+        };
+
+        let authenticated = authenticated.as_str().unwrap();
+        assert_eq!("1", authenticated);
+        true
+    }
+
     fn opt_record(&self) -> Option<&serde_json::Value> {
         for (key, value) in self.inner.get("Additional records")?.as_object()? {
             if key.ends_with(": type OPT") {
