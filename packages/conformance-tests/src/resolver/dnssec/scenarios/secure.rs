@@ -2,8 +2,7 @@ use std::net::Ipv4Addr;
 
 use dns_test::client::{Client, DigSettings};
 use dns_test::name_server::NameServer;
-use dns_test::record::{Record, RecordType};
-use dns_test::zone_file::Root;
+use dns_test::record::RecordType;
 use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
 
 use crate::resolver::dnssec::fixtures;
@@ -14,7 +13,7 @@ use crate::resolver::dnssec::fixtures;
 fn can_validate_without_delegation() -> Result<()> {
     let network = Network::new()?;
     let mut ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, &network)?;
-    ns.add(Record::a(ns.fqdn().clone(), ns.ipv4_addr()));
+    ns.add(ns.a());
     let ns = ns.sign()?;
 
     let root_ksk = ns.key_signing_key().clone();
@@ -27,7 +26,7 @@ fn can_validate_without_delegation() -> Result<()> {
     eprintln!("root.zone:\n{}", ns.zone_file());
 
     let trust_anchor = &TrustAnchor::from_iter([root_ksk.clone(), root_zsk.clone()]);
-    let resolver = Resolver::new(&network, Root::new(ns.fqdn().clone(), ns.ipv4_addr()))
+    let resolver = Resolver::new(&network, ns.root_hint())
         .trust_anchor(trust_anchor)
         .start(&dns_test::SUBJECT)?;
     let resolver_addr = resolver.ipv4_addr();

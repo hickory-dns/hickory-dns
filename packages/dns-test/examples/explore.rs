@@ -4,8 +4,7 @@ use std::sync::mpsc;
 
 use dns_test::client::Client;
 use dns_test::name_server::NameServer;
-use dns_test::record::{Record, RecordType};
-use dns_test::zone_file::Root;
+use dns_test::record::RecordType;
 use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
 
 fn main() -> Result<()> {
@@ -22,9 +21,7 @@ fn main() -> Result<()> {
     let mut com_ns = NameServer::new(peer, FQDN::COM, &network)?;
 
     let mut nameservers_ns = NameServer::new(peer, FQDN("nameservers.com.")?, &network)?;
-    nameservers_ns
-        .add(Record::a(root_ns.fqdn().clone(), root_ns.ipv4_addr()))
-        .add(Record::a(com_ns.fqdn().clone(), com_ns.ipv4_addr()));
+    nameservers_ns.add(root_ns.a()).add(com_ns.a());
 
     let nameservers_ns = if args.dnssec {
         let nameservers_ns = nameservers_ns.sign()?;
@@ -34,11 +31,7 @@ fn main() -> Result<()> {
         nameservers_ns.start()?
     };
 
-    com_ns.referral(
-        nameservers_ns.zone().clone(),
-        nameservers_ns.fqdn().clone(),
-        nameservers_ns.ipv4_addr(),
-    );
+    com_ns.referral_nameserver(&nameservers_ns);
 
     let com_ns = if args.dnssec {
         let com_ns = com_ns.sign()?;
@@ -48,7 +41,7 @@ fn main() -> Result<()> {
         com_ns.start()?
     };
 
-    root_ns.referral(FQDN::COM, com_ns.fqdn().clone(), com_ns.ipv4_addr());
+    root_ns.referral_nameserver(&com_ns);
 
     let mut trust_anchor = TrustAnchor::empty();
     let root_ns = if args.dnssec {
@@ -80,12 +73,9 @@ fn main() -> Result<()> {
     }
 
     println!("building docker image...");
-    let resolver = Resolver::new(
-        &network,
-        Root::new(root_ns.fqdn().clone(), root_ns.ipv4_addr()),
-    )
-    .trust_anchor(&trust_anchor)
-    .start(&dns_test::SUBJECT)?;
+    let resolver = Resolver::new(&network, root_ns.root_hint())
+        .trust_anchor(&trust_anchor)
+        .start(&dns_test::SUBJECT)?;
     println!("DONE\n\n");
 
     let (tx, rx) = mpsc::channel();

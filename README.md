@@ -70,8 +70,8 @@ let com_ns: NameServer;         // for `com.` zone
 let nameservers_ns: NameServer; // for `nameservers.com.` zone
 
 nameservers_ns
-    .add(Record::a(root_ns.fqdn().clone(), root_ns.ipv4_addr()))
-    .add(Record::a(com_ns.fqdn().clone(), com_ns.ipv4_addr()));
+    .add(root_ns.a())
+    .add(com_ns.a());
 
 // each `NameServer` will start out with an A record of its FQDN to its own IPv4 address in its
 // zone file so NO need to add that one in the preceding statement

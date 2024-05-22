@@ -5,7 +5,6 @@ use dns_test::{
     name_server::NameServer,
     record::{Record, RecordType},
     tshark::{Capture, Direction},
-    zone_file::Root,
     Network, Resolver, Result, FQDN,
 };
 
@@ -16,8 +15,7 @@ fn do_bit_not_set_in_request() -> Result<()> {
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
         .sign()?
         .start()?;
-    let resolver = Resolver::new(network, Root::new(ns.fqdn().clone(), ns.ipv4_addr()))
-        .start(&dns_test::SUBJECT)?;
+    let resolver = Resolver::new(network, ns.root_hint()).start(&dns_test::SUBJECT)?;
 
     let mut tshark = resolver.eavesdrop()?;
 
@@ -61,8 +59,7 @@ fn if_do_bit_not_set_in_request_then_requested_dnssec_record_is_not_stripped() -
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
         .sign()?
         .start()?;
-    let resolver = Resolver::new(network, Root::new(ns.fqdn().clone(), ns.ipv4_addr()))
-        .start(&dns_test::SUBJECT)?;
+    let resolver = Resolver::new(network, ns.root_hint()).start(&dns_test::SUBJECT)?;
 
     let client = Client::new(network)?;
     let settings = *DigSettings::default().recurse();
@@ -88,8 +85,7 @@ fn do_bit_set_in_request() -> Result<()> {
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
         .sign()?
         .start()?;
-    let resolver = Resolver::new(network, Root::new(ns.fqdn().clone(), ns.ipv4_addr()))
-        .start(&dns_test::SUBJECT)?;
+    let resolver = Resolver::new(network, ns.root_hint()).start(&dns_test::SUBJECT)?;
 
     let mut tshark = resolver.eavesdrop()?;
 
