@@ -142,6 +142,14 @@ impl Record {
         }
         .into()
     }
+
+    pub fn try_into_ds(self) -> CoreResult<DS, Self> {
+        if let Self::DS(v) = self {
+            Ok(v)
+        } else {
+            Err(self)
+        }
+    }
 }
 
 impl FromStr for Record {
@@ -327,12 +335,12 @@ impl fmt::Display for DNSKEY {
 
 #[derive(Clone, Debug)]
 pub struct DS {
-    zone: FQDN,
-    ttl: u32,
-    key_tag: u16,
-    algorithm: u8,
-    digest_type: u8,
-    digest: String,
+    pub zone: FQDN,
+    pub ttl: u32,
+    pub key_tag: u16,
+    pub algorithm: u8,
+    pub digest_type: u8,
+    pub digest: String,
 }
 
 impl FromStr for DS {
