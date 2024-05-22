@@ -13,9 +13,8 @@ fn bad_signature_in_leaf_nameserver() -> Result<()> {
     let needle_fqdn = FQDN("example.nameservers.com.")?;
 
     let network = Network::new()?;
-    let peer = dns_test::peer();
 
-    let mut leaf_ns = NameServer::new(&peer, FQDN::NAMESERVERS, &network)?;
+    let mut leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network)?;
     leaf_ns.add(Record::a(needle_fqdn.clone(), expected_ipv4_addr));
 
     let Graph {
@@ -48,7 +47,7 @@ fn bad_signature_in_leaf_nameserver() -> Result<()> {
     let trust_anchor = &trust_anchor.unwrap();
     let resolver = Resolver::new(&network, root)
         .trust_anchor(trust_anchor)
-        .start(&dns_test::subject())?;
+        .start(&dns_test::SUBJECT)?;
     let resolver_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;

@@ -11,9 +11,8 @@ fn can_resolve() -> Result<()> {
     let needle_fqdn = FQDN("example.nameservers.com.")?;
 
     let network = Network::new()?;
-    let peer = dns_test::peer();
 
-    let mut leaf_ns = NameServer::new(&peer, FQDN::NAMESERVERS, &network)?;
+    let mut leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network)?;
     leaf_ns.add(Record::a(needle_fqdn.clone(), expected_ipv4_addr));
 
     let Graph {
@@ -22,7 +21,7 @@ fn can_resolve() -> Result<()> {
         ..
     } = Graph::build(leaf_ns, Sign::No)?;
 
-    let resolver = Resolver::new(&network, root).start(&dns_test::subject())?;
+    let resolver = Resolver::new(&network, root).start(&dns_test::SUBJECT)?;
     let resolver_ip_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;
@@ -47,9 +46,8 @@ fn nxdomain() -> Result<()> {
     let needle_fqdn = FQDN("unicorn.nameservers.com.")?;
 
     let network = Network::new()?;
-    let peer = dns_test::peer();
 
-    let leaf_ns = NameServer::new(&peer, FQDN::NAMESERVERS, &network)?;
+    let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network)?;
 
     let Graph {
         nameservers: _nameservers,
@@ -57,7 +55,7 @@ fn nxdomain() -> Result<()> {
         ..
     } = Graph::build(leaf_ns, Sign::No)?;
 
-    let resolver = Resolver::new(&network, root).start(&dns_test::subject())?;
+    let resolver = Resolver::new(&network, root).start(&dns_test::SUBJECT)?;
     let resolver_ip_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;
