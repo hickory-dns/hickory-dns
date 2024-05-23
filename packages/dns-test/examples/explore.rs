@@ -3,9 +3,9 @@ use std::net::Ipv4Addr;
 use std::sync::mpsc;
 
 use dns_test::client::Client;
-use dns_test::name_server::NameServer;
+use dns_test::name_server::{Graph, NameServer, Sign};
 use dns_test::record::RecordType;
-use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
+use dns_test::{Network, Resolver, Result, FQDN};
 
 fn main() -> Result<()> {
     let args = Args::from_env()?;
@@ -14,49 +14,16 @@ fn main() -> Result<()> {
     let peer = &dns_test::PEER;
 
     println!("building docker image...");
-    let mut root_ns = NameServer::new(peer, FQDN::ROOT, &network)?;
+    let leaf_ns = NameServer::new(peer, FQDN("mydomain.com.")?, &network)?;
     println!("DONE");
 
     println!("setting up name servers...");
-    let mut com_ns = NameServer::new(peer, FQDN::COM, &network)?;
-
-    let mut nameservers_ns = NameServer::new(peer, FQDN("nameservers.com.")?, &network)?;
-    nameservers_ns.add(root_ns.a()).add(com_ns.a());
-
-    let nameservers_ns = if args.dnssec {
-        let nameservers_ns = nameservers_ns.sign()?;
-        com_ns.add(nameservers_ns.ds().clone());
-        nameservers_ns.start()?
-    } else {
-        nameservers_ns.start()?
-    };
-
-    com_ns.referral_nameserver(&nameservers_ns);
-
-    let com_ns = if args.dnssec {
-        let com_ns = com_ns.sign()?;
-        root_ns.add(com_ns.ds().clone());
-        com_ns.start()?
-    } else {
-        com_ns.start()?
-    };
-
-    root_ns.referral_nameserver(&com_ns);
-
-    let mut trust_anchor = TrustAnchor::empty();
-    let root_ns = if args.dnssec {
-        let root_ns = root_ns.sign()?;
-        let root_ksk = root_ns.key_signing_key();
-        let root_zsk = root_ns.zone_signing_key();
-
-        trust_anchor.add(root_ksk.clone());
-        trust_anchor.add(root_zsk.clone());
-
-        root_ns.start()?
-    } else {
-        root_ns.start()?
-    };
-
+    let sign = if args.dnssec { Sign::Yes } else { Sign::No };
+    let Graph {
+        root,
+        trust_anchor,
+        nameservers,
+    } = Graph::build(leaf_ns, sign)?;
     println!("DONE");
 
     let client = Client::new(&network)?;
@@ -68,40 +35,29 @@ fn main() -> Result<()> {
             Ipv4Addr::new(127, 0, 0, 1),
             RecordType::SOA,
             &FQDN::ROOT,
-            &trust_anchor,
+            trust_anchor.as_ref().unwrap(),
         )?;
     }
 
     println!("building docker image...");
-    let resolver = Resolver::new(&network, root_ns.root_hint())
-        .trust_anchor(&trust_anchor)
-        .start(&dns_test::SUBJECT)?;
+    let mut builder = Resolver::new(&network, root);
+    if let Some(trust_anchor) = trust_anchor {
+        builder.trust_anchor(&trust_anchor);
+    }
+    let resolver = builder.start(&dns_test::SUBJECT)?;
     println!("DONE\n\n");
 
     let (tx, rx) = mpsc::channel();
 
     ctrlc::set_handler(move || tx.send(()).expect("could not forward signal"))?;
 
-    println!(". (root) name server's IP address: {}", root_ns.ipv4_addr());
-    println!(
-        "attach to this container with: `docker exec -it {} bash`\n",
-        root_ns.container_id()
-    );
-
-    println!("com. name server's IP address: {}", com_ns.ipv4_addr());
-    println!(
-        "attach to this container with: `docker exec -it {} bash`\n",
-        com_ns.container_id()
-    );
-
-    println!(
-        "nameservers.com. name server's IP address: {}",
-        nameservers_ns.ipv4_addr()
-    );
-    println!(
-        "attach to this container with: `docker exec -it {} bash`\n",
-        nameservers_ns.container_id()
-    );
+    for ns in &nameservers {
+        println!("{} name server's IP address: {}", ns.zone(), ns.ipv4_addr());
+        println!(
+            "attach to this container with: `docker exec -it {} bash`\n",
+            ns.container_id()
+        );
+    }
 
     let resolver_addr = resolver.ipv4_addr();
     println!("resolver's IP address: {resolver_addr}",);

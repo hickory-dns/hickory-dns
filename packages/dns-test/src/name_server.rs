@@ -19,7 +19,6 @@ pub enum Sign<'a> {
     No,
     Yes,
     /// Signs the zone files and then modifies the records produced by the signing process
-    // XXX if captures are needed use `&dyn Fn(..)` instead of a function pointer
     AndAmend(&'a dyn Fn(&FQDN, &mut Vec<Record>)),
 }
 
@@ -36,46 +35,54 @@ impl Graph {
     ///
     /// a non-empty `TrustAnchor` is returned only when `Sign::Yes` or `Sign::AndAmend` is used
     pub fn build(leaf: NameServer<Stopped>, sign: Sign) -> Result<Self> {
-        // TODO if `leaf` is not authoritative over `nameservers.com.`, we would need two "lines" to
-        // root. for example, if `leaf` is authoritative over `example.net.` we would need these two
-        // lines:
-        // - `nameservers.com.`, `com.`, `.` to cover the `primaryNNN.nameservers.com.` domains that
-        // `NameServer` implicitly uses
-        // - `example.net.`, `net.`, `.` to cover the requested `leaf` name server
-        assert_eq!(&FQDN::NAMESERVERS, leaf.zone(), "not yet implemented");
+        assert_eq!(2, leaf.zone().num_labels(), "not yet implemented");
+        assert_eq!(Some(FQDN::COM), leaf.zone().parent(), "not yet implemented");
 
         // first pass: create nameservers for parent zones
         let mut zone = leaf.zone().clone();
-        let mut nameservers = vec![leaf];
-        while let Some(parent) = zone.parent() {
-            let leaf = &mut nameservers[0];
-            let nameserver = NameServer::new(
-                &leaf.implementation,
-                parent.clone(),
-                leaf.container.network(),
-            )?;
+        let network = leaf.container.network().clone();
+        let implementation = leaf.implementation.clone();
 
-            leaf.add(nameserver.a());
+        let (mut nameservers_ns, leaf) = if leaf.zone() != &FQDN::NAMESERVERS {
+            let nameservers_ns = NameServer::new(&implementation, FQDN::NAMESERVERS, &network)?;
+            (nameservers_ns, Some(leaf))
+        } else {
+            (leaf, None)
+        };
+
+        // the nameserver covering `FQDN::NAMESERVERS` needs A records about all the nameservers in the graph
+        let mut nameservers = vec![];
+        while let Some(parent) = zone.parent() {
+            let nameserver = NameServer::new(&implementation, parent.clone(), &network)?;
+
+            nameservers_ns.add(nameserver.a());
             nameservers.push(nameserver);
 
             zone = parent;
         }
+        drop((network, implementation));
 
-        // XXX will not hold when `leaf` is not authoritative over `nameservers.com.`
-        assert_eq!(3, nameservers.len());
+        if let Some(leaf) = leaf {
+            nameservers.insert(0, leaf);
+        }
+        nameservers.insert(0, nameservers_ns);
 
         // second pass: add referrals from parent to child
-        // `windows_mut` is not a thing in `core::iter` so use indexing as a workaround
-        for index in 0..nameservers.len() - 1 {
-            let [child, parent] = &mut nameservers[index..][..2] else {
-                unreachable!()
-            };
-
-            parent.referral_nameserver(child);
+        // the nameservers are sorted leaf-most zone first but siblings may be next to each other
+        // for each child (e.g. `nameservers.com.`), do a linear search for its parent (`com.`)
+        for index in 1..nameservers.len() {
+            let (left, right) = nameservers.split_at_mut(index);
+            let child = left.last_mut().unwrap();
+            for maybe_parent in right {
+                if Some(maybe_parent.zone()) == child.zone().parent().as_ref() {
+                    let parent = maybe_parent;
+                    parent.referral_nameserver(child);
+                    break;
+                }
+            }
         }
 
-        let root = nameservers.last().unwrap();
-        let root = Root::new(root.fqdn().clone(), root.ipv4_addr());
+        let root = nameservers.last().unwrap().root_hint();
 
         // start name servers
         let (nameservers, trust_anchor) = match sign {
@@ -96,15 +103,22 @@ impl Graph {
                 };
 
                 let mut running = vec![];
-                let mut child_ds = None;
+                let mut children_ds = vec![];
+                let mut children_num_labels = 0;
                 let len = nameservers.len();
                 for (index, mut nameserver) in nameservers.into_iter().enumerate() {
-                    if let Some(ds) = child_ds.take() {
-                        nameserver.add(ds);
+                    if !children_ds.is_empty() {
+                        let is_parent = nameserver.zone().num_labels() + 1 == children_num_labels;
+                        if is_parent {
+                            for ds in children_ds.drain(..) {
+                                nameserver.add(ds);
+                            }
+                        }
                     }
 
                     let mut nameserver = nameserver.sign()?;
-                    child_ds = Some(nameserver.ds().clone());
+                    children_ds.push(nameserver.ds().clone());
+                    children_num_labels = nameserver.zone().num_labels();
                     if let Some(mutate) = maybe_mutate {
                         let zone = nameserver.zone().clone();
                         mutate(&zone, &mut nameserver.signed_zone_file_mut().records);
@@ -153,7 +167,7 @@ impl NameServer<Stopped> {
     /// the zone
     pub fn new(implementation: &Implementation, zone: FQDN, network: &Network) -> Result<Self> {
         let ns_count = ns_count();
-        let nameserver = primary_ns(ns_count);
+        let nameserver = primary_ns(ns_count, &zone);
         let image = implementation.clone().into();
         let container = Container::run(&image, network)?;
 
@@ -161,7 +175,7 @@ impl NameServer<Stopped> {
             zone: zone.clone(),
             ttl: DEFAULT_TTL,
             nameserver: nameserver.clone(),
-            admin: admin_ns(ns_count),
+            admin: admin_ns(ns_count, &zone),
             settings: SoaSettings::default(),
         };
         let mut zone_file = ZoneFile::new(soa);
@@ -439,12 +453,22 @@ pub struct Running {
     child: Child,
 }
 
-fn primary_ns(ns_count: usize) -> FQDN {
-    FQDN(format!("primary{ns_count}.nameservers.com.")).unwrap()
+fn primary_ns(ns_count: usize, zone: &FQDN) -> FQDN {
+    FQDN(format!("primary{ns_count}.{}", expand_zone(zone))).unwrap()
 }
 
-fn admin_ns(ns_count: usize) -> FQDN {
-    FQDN(format!("admin{ns_count}.nameservers.com.")).unwrap()
+fn admin_ns(ns_count: usize, zone: &FQDN) -> FQDN {
+    FQDN(format!("admin{ns_count}.{}", expand_zone(zone))).unwrap()
+}
+
+fn expand_zone(zone: &FQDN) -> String {
+    if zone == &FQDN::ROOT {
+        "nameservers.com.".to_string()
+    } else if zone.num_labels() == 1 {
+        format!("nameservers.{}", zone.as_str())
+    } else {
+        zone.to_string()
+    }
 }
 
 #[cfg(test)]
