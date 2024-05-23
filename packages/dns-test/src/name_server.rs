@@ -153,7 +153,7 @@ impl NameServer<Stopped> {
     /// the zone
     pub fn new(implementation: &Implementation, zone: FQDN, network: &Network) -> Result<Self> {
         let ns_count = ns_count();
-        let nameserver = primary_ns(ns_count);
+        let nameserver = primary_ns(ns_count, &zone);
         let image = implementation.clone().into();
         let container = Container::run(&image, network)?;
 
@@ -161,7 +161,7 @@ impl NameServer<Stopped> {
             zone: zone.clone(),
             ttl: DEFAULT_TTL,
             nameserver: nameserver.clone(),
-            admin: admin_ns(ns_count),
+            admin: admin_ns(ns_count, &zone),
             settings: SoaSettings::default(),
         };
         let mut zone_file = ZoneFile::new(soa);
@@ -439,12 +439,22 @@ pub struct Running {
     child: Child,
 }
 
-fn primary_ns(ns_count: usize) -> FQDN {
-    FQDN(format!("primary{ns_count}.nameservers.com.")).unwrap()
+fn primary_ns(ns_count: usize, zone: &FQDN) -> FQDN {
+    FQDN(format!("primary{ns_count}.{}", expand_zone(zone))).unwrap()
 }
 
-fn admin_ns(ns_count: usize) -> FQDN {
-    FQDN(format!("admin{ns_count}.nameservers.com.")).unwrap()
+fn admin_ns(ns_count: usize, zone: &FQDN) -> FQDN {
+    FQDN(format!("admin{ns_count}.{}", expand_zone(zone))).unwrap()
+}
+
+fn expand_zone(zone: &FQDN) -> String {
+    if zone == &FQDN::ROOT {
+        "nameservers.com.".to_string()
+    } else if zone.num_labels() == 1 {
+        format!("nameservers.{}", zone.as_str())
+    } else {
+        zone.to_string()
+    }
 }
 
 #[cfg(test)]
