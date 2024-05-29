@@ -3,6 +3,8 @@ export TARGET_DIR := join(justfile_directory(), "target")
 export TDNS_BIND_PATH := join(TARGET_DIR, "bind")
 export TEST_DATA := join(join(justfile_directory(), "tests"), "test-data")
 
+NIGHTLY_DATE := "2024-05-23"
+
 ## MSRV
 MSRV := env_var_or_default('MSRV', "")
 
@@ -71,7 +73,7 @@ compatibility: init-bind9
 
 # Build all bench marking tools, i.e. check that they work, but don't run
 build-bench:
-    cargo ws exec cargo +nightly bench --no-run
+    cargo ws exec cargo +nightly-{{NIGHTLY_DATE}} bench --no-run
 
 [private]
 clippy-inner feature='':
