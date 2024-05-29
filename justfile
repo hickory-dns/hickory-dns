@@ -144,6 +144,33 @@ publish:
 clean:
     rm -rf {{TARGET_DIR}}
 
+conformance: (conformance-framework) (conformance-unbound) (conformance-bind) (conformance-hickory) (conformance-ignored) (conformance-clippy) (conformance-fmt)
+
+conformance-framework:
+    DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo t --manifest-path conformance/Cargo.toml -p dns-test
+
+conformance-unbound filter='':
+    DNS_TEST_VERBOSE_DOCKER_BUILD=1 DNS_TEST_PEER=bind DNS_TEST_SUBJECT=unbound cargo t --manifest-path conformance/Cargo.toml -p conformance-tests -- --include-ignored {{filter}}
+
+conformance-bind filter='':
+    DNS_TEST_VERBOSE_DOCKER_BUILD=1 DNS_TEST_PEER=unbound DNS_TEST_SUBJECT=bind cargo t --manifest-path conformance/Cargo.toml -p conformance-tests -- --include-ignored {{filter}}
+
+conformance-hickory filter='':
+    DNS_TEST_VERBOSE_DOCKER_BUILD=1 DNS_TEST_PEER=unbound DNS_TEST_SUBJECT="hickory {{justfile_directory()}}" cargo t --manifest-path conformance/Cargo.toml -p conformance-tests -- {{filter}}
+
+conformance-ignored:
+    #!/usr/bin/env bash
+
+    tmpfile="$(mktemp)"
+    DNS_TEST_VERBOSE_DOCKER_BUILD=1 DNS_TEST_PEER=unbound DNS_TEST_SUBJECT="hickory {{justfile_directory()}}" cargo test --manifest-path conformance/Cargo.toml -p conformance-tests -- --ignored | tee "$tmpfile"
+    grep 'test result: FAILED. 0 passed' "$tmpfile" || ( echo "expected ALL tests to fail but at least one passed; the passing tests must be un-#[ignore]-d" && exit 1 )
+
+conformance-clippy:
+    cargo clippy --manifest-path conformance/Cargo.toml --workspace --all-targets -- -D warnings
+
+conformance-fmt:
+    cargo fmt --manifest-path conformance/Cargo.toml --all -- --check
+
 [private]
 [macos]
 init-openssl:
@@ -219,3 +246,4 @@ init: init-cargo-workspaces init-audit init-bind9
 # Run the server with example config, for manual testing purposes
 run-example:
     @cargo {{MSRV}} run --bin hickory-dns -- -d -c {{TEST_DATA}}/test_configs/example.toml -z {{TEST_DATA}}/test_configs -p 2053
+
