@@ -6,10 +6,14 @@ on:
       - main
       - release/**
       - "*_dev"
+    paths-ignore:
+      - "conformance/**"
   pull_request:
     branches:
       - main
       - release/**
+    paths-ignore:
+      - "conformance/**"
   schedule:
     - cron: "0 3 * * 4"
 
