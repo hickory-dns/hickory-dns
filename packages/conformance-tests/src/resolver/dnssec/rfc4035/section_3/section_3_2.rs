@@ -9,7 +9,6 @@ use dns_test::{
 };
 
 #[test]
-#[ignore]
 fn do_bit_not_set_in_request() -> Result<()> {
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
@@ -79,7 +78,6 @@ fn if_do_bit_not_set_in_request_then_requested_dnssec_record_is_not_stripped() -
 }
 
 #[test]
-#[ignore]
 fn do_bit_set_in_request() -> Result<()> {
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?

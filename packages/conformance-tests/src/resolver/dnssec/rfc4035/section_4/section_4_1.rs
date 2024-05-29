@@ -5,7 +5,6 @@ use dns_test::tshark::{Capture, Direction};
 use dns_test::{Network, Resolver, Result, FQDN};
 
 #[test]
-#[ignore]
 fn edns_support() -> Result<()> {
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?.start()?;
