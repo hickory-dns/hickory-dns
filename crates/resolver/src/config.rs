@@ -991,7 +991,7 @@ impl Default for ResolverOpts {
     fn default() -> Self {
         Self {
             ndots: 1,
-            timeout: Duration::from_secs(5),
+            timeout: Duration::from_millis(100),
             attempts: 2,
             rotate: false,
             check_names: true,
