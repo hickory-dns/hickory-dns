@@ -426,7 +426,7 @@ impl<P: ConnectionProvider> AsyncResolver<P> {
             self.client_cache.clone(),
             self.request_options(),
             hosts,
-            finally_ip_addr.and_then(Record::into_data),
+            finally_ip_addr.map(Record::into_data),
         )
         .await
     }

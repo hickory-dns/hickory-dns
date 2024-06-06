@@ -1191,9 +1191,9 @@ mod tests {
             .set_checking_disabled(true)
             .set_response_code(ResponseCode::ServFail);
 
-        message.add_answer(Record::new());
-        message.add_name_server(Record::new());
-        message.add_additional(Record::new());
+        message.add_answer(Record::stub());
+        message.add_name_server(Record::stub());
+        message.add_additional(Record::stub());
         message.update_counts();
 
         test_emit_and_read(message);
@@ -1229,9 +1229,9 @@ mod tests {
             .set_checking_disabled(true)
             .set_response_code(ResponseCode::ServFail);
 
-        message.add_answer(Record::new());
-        message.add_name_server(Record::new());
-        message.add_additional(Record::new());
+        message.add_answer(Record::stub());
+        message.add_name_server(Record::stub());
+        message.add_additional(Record::stub());
 
         // at here, we don't call update_counts and we even set wrong count,
         // because we are trying to test whether the counts in the header

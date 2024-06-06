@@ -57,6 +57,11 @@ pub trait RecordData: Clone + Sized + PartialEq + Eq + Display + Debug + BinEnco
 
     /// Converts this RecordData into generic RecordData
     fn into_rdata(self) -> RData;
+
+    /// RDLENGTH = 0
+    fn is_update(&self) -> bool {
+        false
+    }
 }
 
 trait RecordDataDecodable<'r>: Sized {

@@ -191,7 +191,7 @@ fn test_query(client: &mut AsyncClient) -> impl Future<Output = ()> {
             assert_eq!(record.record_type(), RecordType::A);
             assert_eq!(record.dns_class(), DNSClass::IN);
 
-            if let RData::A(ref address) = record.data().unwrap() {
+            if let RData::A(ref address) = record.data() {
                 assert_eq!(address, &A::new(93, 184, 215, 14))
             } else {
                 panic!();
@@ -250,7 +250,7 @@ fn test_query_edns(client: &mut AsyncClient) -> impl Future<Output = ()> {
                     .unwrap(),
                 &EdnsOption::Subnet("1.2.0.0/16".parse().unwrap())
             );
-            if let RData::A(ref address) = *record.data().unwrap() {
+            if let RData::A(ref address) = *record.data() {
                 assert_eq!(address, &A::new(93, 184, 215, 14))
             } else {
                 panic!();
@@ -315,12 +315,11 @@ async fn create_sig0_ready_client() -> (
     let signer = SigSigner::sig0(sig0_key.clone(), key, trusted_name.clone());
 
     // insert the KEY for the trusted.example.com
-    let mut auth_key = Record::with(
+    let auth_key = Record::from_rdata(
         trusted_name,
-        RecordType::KEY,
         Duration::minutes(5).whole_seconds() as u32,
+        RData::DNSSEC(DNSSECRData::KEY(sig0_key)),
     );
-    auth_key.set_data(Some(RData::DNSSEC(DNSSECRData::KEY(sig0_key))));
     authority.upsert_mut(auth_key, 0);
 
     // setup the catalog
@@ -344,13 +343,11 @@ fn test_create() {
     hickory_proto::spawn_bg(&io_loop, bg);
 
     // create a record
-    let mut record = Record::with(
+    let record = Record::from_rdata(
         Name::from_str("new.example.com").unwrap(),
-        RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
+        RData::A(A::new(100, 10, 100, 10)),
     );
-    record.set_data(Some(RData::A(A::new(100, 10, 100, 10))));
-    let record = record;
 
     let result = io_loop
         .block_on(client.create(record.clone(), origin.clone()))
@@ -376,7 +373,7 @@ fn test_create() {
 
     // will fail if already set and not the same value.
     let mut record = record;
-    record.set_data(Some(RData::A(A::new(101, 11, 101, 11))));
+    record.set_data(RData::A(A::new(101, 11, 101, 11)));
 
     let result = io_loop
         .block_on(client.create(record, origin))
@@ -392,16 +389,15 @@ fn test_create_multi() {
     hickory_proto::spawn_bg(&io_loop, bg);
 
     // create a record
-    let mut record = Record::with(
+    let record = Record::from_rdata(
         Name::from_str("new.example.com").unwrap(),
-        RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
+        RData::A(A::new(100, 10, 100, 10)),
     );
-    record.set_data(Some(RData::A(A::new(100, 10, 100, 10))));
     let record = record;
 
     let mut record2 = record.clone();
-    record2.set_data(Some(RData::A(A::new(100, 10, 100, 11))));
+    record2.set_data(RData::A(A::new(100, 10, 100, 11)));
     let record2 = record2;
 
     let mut rrset = RecordSet::from(record.clone());
@@ -434,7 +430,7 @@ fn test_create_multi() {
 
     // will fail if already set and not the same value.
     let mut record = record;
-    record.set_data(Some(RData::A(A::new(101, 11, 101, 12))));
+    record.set_data(RData::A(A::new(101, 11, 101, 12)));
 
     let result = io_loop
         .block_on(client.create(record, origin))
@@ -450,13 +446,11 @@ fn test_append() {
     hickory_proto::spawn_bg(&io_loop, bg);
 
     // append a record
-    let mut record = Record::with(
+    let record = Record::from_rdata(
         Name::from_str("new.example.com").unwrap(),
-        RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
+        RData::A(A::new(100, 10, 100, 10)),
     );
-    record.set_data(Some(RData::A(A::new(100, 10, 100, 10))));
-    let record = record;
 
     // first check the must_exist option
     let result = io_loop
@@ -484,7 +478,7 @@ fn test_append() {
 
     // will fail if already set and not the same value.
     let mut record2 = record.clone();
-    record2.set_data(Some(RData::A(A::new(101, 11, 101, 11))));
+    record2.set_data(RData::A(A::new(101, 11, 101, 11)));
     let record2 = record2;
 
     let result = io_loop
@@ -530,12 +524,11 @@ fn test_append_multi() {
     hickory_proto::spawn_bg(&io_loop, bg);
 
     // append a record
-    let mut record = Record::with(
+    let record = Record::from_rdata(
         Name::from_str("new.example.com").unwrap(),
-        RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
+        RData::A(A::new(100, 10, 100, 10)),
     );
-    record.set_data(Some(RData::A(A::new(100, 10, 100, 10))));
 
     // first check the must_exist option
     let result = io_loop
@@ -563,9 +556,9 @@ fn test_append_multi() {
 
     // will fail if already set and not the same value.
     let mut record2 = record.clone();
-    record2.set_data(Some(RData::A(A::new(101, 11, 101, 11))));
+    record2.set_data(RData::A(A::new(101, 11, 101, 11)));
     let mut record3 = record.clone();
-    record3.set_data(Some(RData::A(A::new(101, 11, 101, 12))));
+    record3.set_data(RData::A(A::new(101, 11, 101, 12)));
 
     // build the append set
     let mut rrset = RecordSet::from(record2.clone());
@@ -616,13 +609,11 @@ fn test_compare_and_swap() {
     hickory_proto::spawn_bg(&io_loop, bg);
 
     // create a record
-    let mut record = Record::with(
+    let record = Record::from_rdata(
         Name::from_str("new.example.com").unwrap(),
-        RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
+        RData::A(A::new(100, 10, 100, 10)),
     );
-    record.set_data(Some(RData::A(A::new(100, 10, 100, 10))));
-    let record = record;
 
     let result = io_loop
         .block_on(client.create(record.clone(), origin.clone()))
@@ -631,7 +622,7 @@ fn test_compare_and_swap() {
 
     let current = record;
     let mut new = current.clone();
-    new.set_data(Some(RData::A(A::new(101, 11, 101, 11))));
+    new.set_data(RData::A(A::new(101, 11, 101, 11)));
     let new = new;
 
     let result = io_loop
@@ -649,7 +640,7 @@ fn test_compare_and_swap() {
 
     // check the it fails if tried again.
     let mut not = new.clone();
-    not.set_data(Some(RData::A(A::new(102, 12, 102, 12))));
+    not.set_data(RData::A(A::new(102, 12, 102, 12)));
     let not = not;
 
     let result = io_loop
@@ -715,7 +706,7 @@ fn test_compare_and_swap_multi() {
 
     // check the it fails if tried again.
     let mut not = new1.clone();
-    not.set_data(Some(RData::A(A::new(102, 12, 102, 12))));
+    not.set_data(RData::A(A::new(102, 12, 102, 12)));
     let not = not;
 
     let result = io_loop
@@ -740,12 +731,11 @@ fn test_delete_by_rdata() {
     hickory_proto::spawn_bg(&io_loop, bg);
 
     // append a record
-    let mut record1 = Record::with(
+    let record1 = Record::from_rdata(
         Name::from_str("new.example.com").unwrap(),
-        RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
+        RData::A(A::new(100, 10, 100, 10)),
     );
-    record1.set_data(Some(RData::A(A::new(100, 10, 100, 10))));
 
     // first check the must_exist option
     let result = io_loop
@@ -760,7 +750,7 @@ fn test_delete_by_rdata() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let mut record2 = record1.clone();
-    record2.set_data(Some(RData::A(A::new(101, 11, 101, 11))));
+    record2.set_data(RData::A(A::new(101, 11, 101, 11)));
     let result = io_loop
         .block_on(client.append(record2.clone(), origin.clone(), true))
         .expect("create failed");
@@ -831,8 +821,8 @@ fn test_delete_by_rdata_multi() {
         Duration::minutes(5).whole_seconds() as u32,
     );
 
-    let record1 = rrset.new_record(record1.data().unwrap()).clone();
-    let record3 = rrset.new_record(record3.data().unwrap()).clone();
+    let record1 = rrset.new_record(record1.data()).clone();
+    let record3 = rrset.new_record(record3.data()).clone();
     let rrset = rrset;
 
     let result = io_loop
@@ -869,12 +859,11 @@ fn test_delete_rrset() {
     hickory_proto::spawn_bg(&io_loop, bg);
 
     // append a record
-    let mut record = Record::with(
+    let mut record = Record::from_rdata(
         Name::from_str("new.example.com").unwrap(),
-        RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
+        RData::A(A::new(100, 10, 100, 10)),
     );
-    record.set_data(Some(RData::A(A::new(100, 10, 100, 10))));
 
     // first check the must_exist option
     let result = io_loop
@@ -888,7 +877,7 @@ fn test_delete_rrset() {
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    record.set_data(Some(RData::A(A::new(101, 11, 101, 11))));
+    record.set_data(RData::A(A::new(101, 11, 101, 11)));
     let result = io_loop
         .block_on(client.append(record.clone(), origin.clone(), true))
         .expect("create failed");
@@ -921,12 +910,11 @@ fn test_delete_all() {
     hickory_proto::spawn_bg(&io_loop, bg);
 
     // append a record
-    let mut record = Record::with(
+    let mut record = Record::from_rdata(
         Name::from_str("new.example.com").unwrap(),
-        RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
+        RData::A(A::new(100, 10, 100, 10)),
     );
-    record.set_data(Some(RData::A(A::new(100, 10, 100, 10))));
 
     // first check the must_exist option
     let result = io_loop
@@ -940,8 +928,7 @@ fn test_delete_all() {
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    record.set_record_type(RecordType::AAAA);
-    record.set_data(Some(RData::AAAA(AAAA::new(1, 2, 3, 4, 5, 6, 7, 8))));
+    record.set_data(RData::AAAA(AAAA::new(1, 2, 3, 4, 5, 6, 7, 8)));
     let result = io_loop
         .block_on(client.create(record.clone(), origin.clone()))
         .expect("create failed");

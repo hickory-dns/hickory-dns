@@ -99,13 +99,13 @@ fn test_lookup_hosts() {
 fn create_ip_like_example() -> InMemoryAuthority {
     let mut authority = create_example();
     authority.upsert_mut(
-        Record::new()
-            .set_name(Name::from_str("1.2.3.4.example.com.").unwrap())
-            .set_ttl(86400)
-            .set_record_type(RecordType::A)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(A::new(198, 51, 100, 35))))
-            .clone(),
+        Record::from_rdata(
+            Name::from_str("1.2.3.4.example.com.").unwrap(),
+            86400,
+            RData::A(A::new(198, 51, 100, 35)),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
         0,
     );
 
@@ -261,7 +261,7 @@ fn test_cname_lookup_preserve() {
     let lookup = io_loop.block_on(lookup).unwrap();
 
     let mut iter = lookup.iter();
-    assert_eq!(iter.next().unwrap(), cname_record.data().unwrap());
+    assert_eq!(iter.next().unwrap(), cname_record.data());
     assert_eq!(*iter.next().unwrap(), RData::A(A::new(93, 184, 215, 14)));
 }
 
@@ -341,7 +341,7 @@ fn test_chained_cname_lookup_preserve() {
     let lookup = io_loop.block_on(lookup).unwrap();
 
     let mut iter = lookup.iter();
-    assert_eq!(iter.next().unwrap(), cname_record.data().unwrap());
+    assert_eq!(iter.next().unwrap(), cname_record.data());
     assert_eq!(*iter.next().unwrap(), RData::A(A::new(93, 184, 215, 14)));
 }
 

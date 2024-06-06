@@ -22,7 +22,7 @@ use futures_util::{ready, stream::Stream};
 use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     op::{Message, ResponseCode},
-    rr::{rdata::SOA, resource::RecordRef, RData, RecordType},
+    rr::{rdata::SOA, resource::RecordRef, RecordType},
 };
 
 /// A stream returning DNS responses
@@ -217,12 +217,7 @@ impl DnsResponse {
         // TODO: should this ensure that the SOA zone matches the Queried Zone?
         self.name_servers()
             .iter()
-            .filter_map(|record| {
-                record
-                    .data()
-                    .and_then(RData::as_soa)
-                    .map(|soa| (record.ttl(), soa))
-            })
+            .filter_map(|record| record.data().as_soa().map(|soa| (record.ttl(), soa)))
             .next()
             .map(|(ttl, soa)| (ttl).min(soa.minimum()))
     }

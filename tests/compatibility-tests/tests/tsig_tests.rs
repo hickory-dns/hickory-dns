@@ -60,12 +60,11 @@ fn test_create() {
     let origin = Name::from_str("example.net.").unwrap();
 
     // create a record
-    let mut record = Record::with(
+    let mut record = Record::from_rdata(
         Name::from_str("new.example.net.").unwrap(),
-        RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
+        RData::A(A::new(100, 10, 100, 10)),
     );
-    record.set_data(Some(RData::A(A::new(100, 10, 100, 10))));
 
     let result = client
         .create(record.clone(), origin.clone())
@@ -86,7 +85,7 @@ fn test_create() {
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 
     // will fail if already set and not the same value.
-    record.set_data(Some(RData::A(A::new(101, 11, 101, 11))));
+    record.set_data(RData::A(A::new(101, 11, 101, 11)));
 
     let result = client.create(record, origin).expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
