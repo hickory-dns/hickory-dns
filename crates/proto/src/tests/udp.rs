@@ -224,7 +224,7 @@ pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor>(
         println!("client got response {i}");
 
         let response = Message::from(response);
-        if let Some(RData::NULL(null)) = response.answers()[0].data() {
+        if let RData::NULL(null) = response.answers()[0].data() {
             assert_eq!(null.anything(), test_bytes);
         } else {
             panic!("not a NULL response");

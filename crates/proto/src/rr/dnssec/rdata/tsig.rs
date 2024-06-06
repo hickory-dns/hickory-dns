@@ -756,7 +756,7 @@ pub fn signed_bitmessage_to_buf(
 
     // parse a tsig record
     let sig = Record::read(&mut decoder)?;
-    let tsig = if let (RecordType::TSIG, Some(RData::DNSSEC(DNSSECRData::TSIG(tsig_data)))) =
+    let tsig = if let (RecordType::TSIG, RData::DNSSEC(DNSSECRData::TSIG(tsig_data))) =
         (sig.record_type(), sig.data())
     {
         tsig_data
@@ -795,17 +795,17 @@ pub fn signed_bitmessage_to_buf(
 pub fn make_tsig_record(name: Name, rdata: TSIG) -> Record {
     // https://tools.ietf.org/html/rfc8945#section-4.2
 
-    let mut tsig = Record::new();
-
-    //   NAME:  The name of the key used, in domain name syntax
-    tsig.set_name(name)
-        //   TYPE:  This MUST be TSIG (250: Transaction SIGnature).
-        .set_record_type(RecordType::TSIG)
-        //   CLASS:  This MUST be ANY.
-        .set_dns_class(DNSClass::ANY)
+    let mut tsig = Record::from_rdata(
+        //   NAME:  The name of the key used, in domain name syntax
+        name,
         //   TTL:  This MUST be 0.
-        .set_ttl(0)
-        .set_data(Some(DNSSECRData::TSIG(rdata).into()));
+        0,
+        //   TYPE:  This MUST be TSIG (250: Transaction SIGnature).
+        DNSSECRData::TSIG(rdata).into(),
+    );
+
+    //   CLASS:  This MUST be ANY.
+    tsig.set_dns_class(DNSClass::ANY);
     tsig
 }
 
@@ -864,7 +864,7 @@ mod tests {
     #[test]
     fn test_sign_encode() {
         let mut message = Message::new();
-        message.add_answer(Record::new());
+        message.add_answer(Record::stub());
 
         let key_name = Name::from_ascii("some.name").unwrap();
 
@@ -899,7 +899,7 @@ mod tests {
     #[test]
     fn test_sign_encode_id_changed() {
         let mut message = Message::new();
-        message.set_id(123).add_answer(Record::new());
+        message.set_id(123).add_answer(Record::stub());
 
         let key_name = Name::from_ascii("some.name").unwrap();
 

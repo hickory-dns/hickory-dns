@@ -185,7 +185,10 @@ impl SqliteAuthority {
             info!("persisting zone to journal at SOA.serial: {}", serial);
 
             // TODO: THIS NEEDS TO BE IN A TRANSACTION!!!
-            journal.insert_record(serial, Record::new().set_record_type(RecordType::AXFR))?;
+            journal.insert_record(
+                serial,
+                &Record::update0(Name::new(), 0, RecordType::AXFR).into_record_of_rdata(),
+            )?;
 
             for rr_set in self.in_memory.records().await.values() {
                 // TODO: should we preserve rr_sets or not?
@@ -323,7 +326,7 @@ impl SqliteAuthority {
 
             match require.dns_class() {
                 DNSClass::ANY => {
-                    if let None | Some(RData::NULL(..)) = require.data() {
+                    if let RData::Update0(_) | RData::NULL(..) = require.data() {
                         match require.record_type() {
                             // ANY      ANY      empty    Name is in use
                             RecordType::ANY => {
@@ -361,7 +364,7 @@ impl SqliteAuthority {
                     }
                 }
                 DNSClass::NONE => {
-                    if let None | Some(RData::NULL(..)) = require.data() {
+                    if let RData::Update0(_) | RData::NULL(..) = require.data() {
                         match require.record_type() {
                             // NONE     ANY      empty    Name is not in use
                             RecordType::ANY => {
@@ -477,11 +480,10 @@ impl SqliteAuthority {
         debug!("authorizing with: {:?}", sig0s);
         if !sig0s.is_empty() {
             let mut found_key = false;
-            for sig in sig0s.iter().filter_map(|sig0| {
-                sig0.data()
-                    .and_then(RData::as_dnssec)
-                    .and_then(DNSSECRData::as_sig)
-            }) {
+            for sig in sig0s
+                .iter()
+                .filter_map(|sig0| sig0.data().as_dnssec().and_then(DNSSECRData::as_sig))
+            {
                 let name = LowerName::from(sig.signer_name());
                 let keys = self
                     .lookup(&name, RecordType::KEY, LookupOptions::default())
@@ -496,12 +498,7 @@ impl SqliteAuthority {
                 // TODO: check key usage flags and restrictions
                 found_key = keys
                     .iter()
-                    .filter_map(|rr_set| {
-                        rr_set
-                            .data()
-                            .and_then(RData::as_dnssec)
-                            .and_then(DNSSECRData::as_key)
-                    })
+                    .filter_map(|rr_set| rr_set.data().as_dnssec().and_then(DNSSECRData::as_key))
                     .any(|key| {
                         key.verify_message(update_message, sig.sig(), sig)
                             .map(|_| {
@@ -598,7 +595,7 @@ impl SqliteAuthority {
                         if rr.ttl() != 0 {
                             return Err(ResponseCode::FormErr);
                         }
-                        if let None | Some(RData::NULL(..)) = rr.data() {
+                        if let RData::Update0(_) | RData::NULL(..) = rr.data() {
                             ()
                         } else {
                             return Err(ResponseCode::FormErr);
@@ -773,7 +770,7 @@ impl SqliteAuthority {
                             //   SOA or NS RRs will be deleted.
 
                             // ANY      rrset    empty    Delete an RRset
-                            if let None | Some(RData::NULL(..)) = rr.data() {
+                            if let RData::Update0(_) | RData::NULL(..) = rr.data() {
                                 let deleted = self.in_memory.records_mut().await.remove(&rr_key);
                                 info!("deleted rrset: {:?}", deleted);
                                 updated = updated || deleted.is_some();

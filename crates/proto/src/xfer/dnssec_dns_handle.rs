@@ -30,7 +30,7 @@ use crate::{
             Algorithm, Proof, ProofError, ProofErrorKind, SupportedAlgorithms, TrustAnchor,
         },
         rdata::opt::EdnsOption,
-        DNSClass, Name, RData, Record, RecordData, RecordType,
+        DNSClass, Name, Record, RecordData, RecordType,
     },
     xfer::{dns_handle::DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer},
 };
@@ -320,7 +320,7 @@ where
         let rrsigs: Vec<&RRSIG> = records
             .iter()
             .filter(|rr| rr.record_type() == RecordType::RRSIG && rr.name() == &name)
-            .filter_map(|rr| rr.data())
+            .map(|rr| rr.data())
             .filter_map(|rrsig| RRSIG::try_borrow(rrsig))
             .filter(|rrsig| rrsig.type_covered() == record_type)
             .collect();
@@ -426,7 +426,7 @@ where
         let anchored_keys: Vec<&DNSKEY> = rrset
             .records
             .iter()
-            .filter_map(|r| r.data())
+            .map(|r| r.data())
             .filter_map(DNSKEY::try_borrow)
             .filter(|dnskey| {
                 if handle
@@ -458,12 +458,12 @@ where
         .records
         .iter()
         .enumerate()
-        .filter_map(|(i, rr)| rr.data().map(|d| (i, d)))
+        .map(|(i, rr)| (i, rr.data()))
         .filter_map(|(i, data)| DNSKEY::try_borrow(data).map(|d| (i, d)))
         .filter(|&(_, key_rdata)| {
             ds_records
                 .iter()
-                .filter_map(|r| r.data().map(|d| (d, r.name())))
+                .map(|r| (r.data(), r.name()))
                 // must be covered by at least one DS record
                 .any(|(ds_rdata, ds_name)| {
                     if ds_rdata.covers(&rrset.name, key_rdata).unwrap_or(false) {
@@ -640,7 +640,7 @@ where
                 rrset
                     .records
                     .iter()
-                    .filter_map(|r| r.data().map(|d| (d, r.name())))
+                    .map(|r| (r.data(), r.name()))
                     .filter_map(|(d, n)| DNSKEY::try_borrow(d).map(|d| (d, n)))
                     .find_map(|(dnskey, dnskey_name)| {
                         // If we had rrsigs to verify, then we want them to be secure, or the result is a Bogus proof
@@ -687,7 +687,7 @@ where
                     message
                         .answers()
                         .iter()
-                        .filter_map(|r| r.data().map(|data| (r.name(), data)))
+                        .map(|r| (r.name(), r.data()))
                         .filter_map(|(dnskey_name, data)| {
                             DNSKEY::try_borrow(data).map(|data| (dnskey_name, data))
                         })
@@ -854,7 +854,7 @@ pub fn verify_nsec(query: Arc<Query>, soa_name: &Name, nsecs: &[&Record]) -> Pro
     if let Some(nsec) = nsecs.iter().find(|nsec| query.name() == nsec.name()) {
         if nsec
             .data()
-            .and_then(RData::as_dnssec)
+            .as_dnssec()
             .and_then(DNSSECRData::as_nsec)
             .map_or(false, |rdata| {
                 // this should not be in the covered list
@@ -872,7 +872,7 @@ pub fn verify_nsec(query: Arc<Query>, soa_name: &Name, nsecs: &[&Record]) -> Pro
             // the query name must be greater than nsec's label (or equal in the case of wildcard)
             name >= nsec.name() && {
                 nsec.data()
-                    .and_then(RData::as_dnssec)
+                    .as_dnssec()
                     .and_then(DNSSECRData::as_nsec)
                     .map_or(false, |rdata| {
                         // the query name is less than the next name

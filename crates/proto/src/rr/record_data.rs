@@ -691,6 +691,9 @@ pub enum RData {
         rdata: NULL,
     },
 
+    /// Update record with RDLENGTH = 0 (RFC2136)
+    Update0(RecordType),
+
     /// This corresponds to a record type of 0, unspecified
     #[deprecated(note = "Use None for the RData in the resource record instead")]
     ZERO,
@@ -735,6 +738,7 @@ impl RData {
             #[cfg(feature = "dnssec")]
             Self::DNSSEC(ref rdata) => DNSSECRData::to_record_type(rdata),
             Self::Unknown { code, .. } => code,
+            Self::Update0(record_type) => record_type,
             Self::ZERO => RecordType::ZERO,
         }
     }
@@ -975,6 +979,7 @@ impl BinEncodable for RData {
             #[cfg(feature = "dnssec")]
             Self::DNSSEC(ref rdata) => encoder.with_canonical_names(|encoder| rdata.emit(encoder)),
             Self::Unknown { ref rdata, .. } => rdata.emit(encoder),
+            Self::Update0(_) => Ok(()),
         }
     }
 }
@@ -994,6 +999,10 @@ impl RecordData for RData {
 
     fn into_rdata(self) -> RData {
         self
+    }
+
+    fn is_update(&self) -> bool {
+        matches!(self, RData::Update0(_))
     }
 }
 
@@ -1034,6 +1043,7 @@ impl fmt::Display for RData {
             #[cfg(feature = "dnssec")]
             Self::DNSSEC(ref rdata) => w(f, rdata),
             Self::Unknown { ref rdata, .. } => w(f, rdata),
+            Self::Update0(_) => w(f, "UPDATE"),
         }
     }
 }
@@ -1274,6 +1284,7 @@ mod tests {
             #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => rdata.to_record_type(),
             RData::Unknown { code, .. } => code,
+            RData::Update0(record_type) => record_type,
             RData::ZERO => RecordType::ZERO,
         }
     }

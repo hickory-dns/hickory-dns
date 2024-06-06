@@ -475,7 +475,7 @@ mod tests {
 
     use crate::op::{Message, Query, ResponseCode};
     use crate::rr::rdata::{A, AAAA};
-    use crate::rr::{Name, RData, RecordType};
+    use crate::rr::{Name, RecordType};
     use crate::xfer::{DnsRequestOptions, FirstAnswer};
 
     use super::*;
@@ -507,10 +507,7 @@ mod tests {
             .expect("send_message failed");
 
         let record = &response.answers()[0];
-        let addr = record
-            .data()
-            .and_then(RData::as_a)
-            .expect("Expected A record");
+        let addr = record.data().as_a().expect("Expected A record");
 
         assert_eq!(addr, &A::new(93, 184, 215, 14));
 
@@ -535,7 +532,7 @@ mod tests {
             let record = &response.answers()[0];
             let addr = record
                 .data()
-                .and_then(RData::as_aaaa)
+                .as_aaaa()
                 .expect("invalid response, expected A record");
 
             assert_eq!(
@@ -572,10 +569,7 @@ mod tests {
             .expect("send_message failed");
 
         let record = &response.answers()[0];
-        let addr = record
-            .data()
-            .and_then(RData::as_a)
-            .expect("Expected A record");
+        let addr = record.data().as_a().expect("Expected A record");
 
         assert_eq!(addr, &A::new(93, 184, 215, 14));
 
@@ -600,7 +594,7 @@ mod tests {
             let record = &response.answers()[0];
             let addr = record
                 .data()
-                .and_then(RData::as_aaaa)
+                .as_aaaa()
                 .expect("invalid response, expected A record");
 
             assert_eq!(
@@ -641,7 +635,7 @@ mod tests {
         let record = &response.answers()[0];
         let addr = record
             .data()
-            .and_then(RData::as_a)
+            .as_a()
             .expect("invalid response, expected A record");
 
         assert_eq!(addr, &A::new(93, 184, 215, 14));
@@ -663,7 +657,7 @@ mod tests {
         let record = &response.answers()[0];
         let addr = record
             .data()
-            .and_then(RData::as_aaaa)
+            .as_aaaa()
             .expect("invalid response, expected A record");
 
         assert_eq!(

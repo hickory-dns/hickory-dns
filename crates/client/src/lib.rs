@@ -128,7 +128,7 @@
 //! // Records are generic objects which can contain any data.
 //! //  In order to access it we need to first check what type of record it is
 //! //  In this case we are interested in A, IPv4 address
-//! if let Some(RData::A(ref ip)) = answers[0].data() {
+//! if let RData::A(ref ip) = answers[0].data() {
 //!     assert_eq!(*ip, A::new(93, 184, 215, 14))
 //! } else {
 //!     assert!(false, "unexpected result")
@@ -263,7 +263,7 @@
 //!     let response = query.await.unwrap();
 //!
 //!     // validate it's what we expected
-//!     if let Some(RData::A(addr)) = response.answers()[0].data() {
+//!     if let RData::A(addr) = response.answers()[0].data() {
 //!         assert_eq!(*addr, A::new(93, 184, 215, 14));
 //!     }
 //! }
