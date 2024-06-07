@@ -171,6 +171,14 @@ conformance-clippy:
 conformance-fmt:
     cargo fmt --manifest-path conformance/Cargo.toml --all -- --check
 
+conformance-clean: (conformance-clean-containers) (conformance-clean-networks)
+
+conformance-clean-containers:
+    docker rm -f $(docker ps | grep dns-test | cut -f 1 -d " ")
+
+conformance-clean-networks:
+    docker network rm $(docker network ls | grep dns-test | cut -f 1 -d " ")
+
 [private]
 [macos]
 init-openssl:
