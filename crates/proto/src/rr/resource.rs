@@ -114,6 +114,14 @@ impl Record {
             proof: Proof::default(),
         }
     }
+
+    /// Tries the borrow this record as the specific record type, T
+    pub fn try_borrow<T>(&self) -> Option<RecordRef<'_, T>>
+    where
+        T: RecordData,
+    {
+        RecordRef::try_from(self).ok()
+    }
 }
 
 impl<R: RecordData> Record<R> {
@@ -713,6 +721,14 @@ pub struct RecordRef<'a, R: RecordData> {
     #[cfg(feature = "dnssec")]
     proof: Proof,
 }
+
+impl<'a, R: RecordData> Clone for RecordRef<'a, R> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<'a, R: RecordData> Copy for RecordRef<'a, R> {}
 
 impl<'a, R: RecordData> RecordRef<'a, R> {
     /// Allocates space for a Record with the same fields

@@ -37,6 +37,8 @@ use crate::{
 
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::Verifier;
+#[cfg(feature = "dnssec")]
+use crate::rr::resource::RecordRef;
 
 use self::rrset::Rrset;
 
@@ -298,12 +300,11 @@ where
         rrs_to_verify.for_each(|rr| rrset.add(rr));
 
         // RRSIGS are never modified after this point
-        let rrsigs: Vec<&RRSIG> = records
+        let rrsigs: Vec<_> = records
             .iter()
-            .filter(|rr| rr.record_type() == RecordType::RRSIG && rr.name() == &name)
-            .map(|rr| rr.data())
-            .filter_map(|rrsig| RRSIG::try_borrow(rrsig))
-            .filter(|rrsig| rrsig.type_covered() == record_type)
+            .filter_map(|rr| rr.try_borrow::<RRSIG>())
+            .filter(|rr| rr.name() == &name)
+            .filter(|rrsig| rrsig.data().type_covered() == record_type)
             .collect();
 
         // if there is already an active validation going on, assume the other validation will
@@ -359,7 +360,7 @@ fn is_dnssec<D: RecordData>(rr: &Record<D>, dnssec_type: RecordType) -> bool {
 async fn verify_rrset<H>(
     handle: DnssecDnsHandle<H>,
     rrset: Rrset<'_>,
-    rrsigs: Vec<&RRSIG>,
+    rrsigs: Vec<RecordRef<'_, RRSIG>>,
     options: DnsRequestOptions,
 ) -> Result<Proof, ProofError>
 where
@@ -563,7 +564,7 @@ where
 async fn verify_default_rrset<H>(
     handle: &DnssecDnsHandle<H>,
     rrset: Rrset<'_>,
-    rrsigs: Vec<&RRSIG>,
+    rrsigs: Vec<RecordRef<'_, RRSIG>>,
     options: DnsRequestOptions,
 ) -> Result<Proof, ProofError>
 where
@@ -603,7 +604,7 @@ where
 
     // Special case for self-signed DNSKEYS, validate with itself...
     if rrsigs.iter().any(|rrsig| {
-        RecordType::DNSKEY == rrset.record_type() && rrsig.signer_name() == rrset.name()
+        RecordType::DNSKEY == rrset.record_type() && rrsig.data().signer_name() == rrset.name()
     }) {
         // in this case it was looks like a self-signed key, first validate the signature
         //  then return rrset. Like the standard case below, the DNSKEY is validated
@@ -615,11 +616,10 @@ where
                 rrset
                     .records()
                     .iter()
-                    .map(|r| (r.data(), r.name()))
-                    .filter_map(|(d, n)| DNSKEY::try_borrow(d).map(|d| (d, n)))
-                    .find_map(|(dnskey, dnskey_name)| {
+                    .filter_map(|r| r.try_borrow::<DNSKEY>())
+                    .find_map(|dnskey| {
                         // If we had rrsigs to verify, then we want them to be secure, or the result is a Bogus proof
-                        verify_rrset_with_dnskey(dnskey_name, dnskey, rrsig, &rrset).ok()
+                        verify_rrset_with_dnskey(dnskey, *rrsig, &rrset).ok()
                     })
             })
             .ok_or_else(|| {
@@ -648,7 +648,7 @@ where
         .iter()
         .map(|rrsig| {
             let handle = handle.clone_with_context();
-            let query = Query::query(rrsig.signer_name().clone(), RecordType::DNSKEY);
+            let query = Query::query(rrsig.data().signer_name().clone(), RecordType::DNSKEY);
 
             // TODO: Should this sig.signer_name should be confirmed to be in the same zone as the rrsigs and rrset?
             handle
@@ -662,13 +662,8 @@ where
                     message
                         .answers()
                         .iter()
-                        .map(|r| (r.name(), r.data()))
-                        .filter_map(|(dnskey_name, data)| {
-                            DNSKEY::try_borrow(data).map(|data| (dnskey_name, data))
-                        })
-                        .find_map(|(dnskey_name, dnskey)| {
-                            verify_rrset_with_dnskey(dnskey_name, dnskey, rrsig, &rrset).ok()
-                        })
+                        .filter_map(|r| r.try_borrow::<DNSKEY>())
+                        .find_map(|dnskey| verify_rrset_with_dnskey(dnskey, *rrsig, &rrset).ok())
                 })
         })
         .collect::<Vec<_>>();
@@ -700,49 +695,54 @@ where
 /// Verifies the given SIG of the RRSET with the DNSKEY.
 #[cfg(feature = "dnssec")]
 fn verify_rrset_with_dnskey(
-    dnskey_name: &Name,
-    dnskey: &DNSKEY,
-    rrsig: &RRSIG,
+    dnskey: RecordRef<'_, DNSKEY>,
+    rrsig: RecordRef<'_, RRSIG>,
     rrset: &Rrset<'_>,
 ) -> Result<Proof, ProofError> {
-    if dnskey.revoke() {
+    if dnskey.data().revoke() {
         debug!("revoked");
         return Err(ProofError::new(
             Proof::Bogus,
             ProofErrorKind::DnsKeyRevoked {
-                name: dnskey_name.clone(),
-                key_tag: rrsig.key_tag(),
+                name: dnskey.name().clone(),
+                key_tag: rrsig.data().key_tag(),
             },
         ));
     } // TODO: does this need to be validated? RFC 5011
-    if !dnskey.zone_key() {
+    if !dnskey.data().zone_key() {
         return Err(ProofError::new(
             Proof::Bogus,
             ProofErrorKind::NotZoneDnsKey {
-                name: dnskey_name.clone(),
-                key_tag: rrsig.key_tag(),
+                name: dnskey.name().clone(),
+                key_tag: rrsig.data().key_tag(),
             },
         ));
     }
-    if dnskey.algorithm() != rrsig.algorithm() {
+    if dnskey.data().algorithm() != rrsig.data().algorithm() {
         return Err(ProofError::new(
             Proof::Bogus,
             ProofErrorKind::AlgorithmMismatch {
-                rrsig: rrsig.algorithm(),
-                dnskey: dnskey.algorithm(),
+                rrsig: rrsig.data().algorithm(),
+                dnskey: dnskey.data().algorithm(),
             },
         ));
     }
 
     dnskey
-        .verify_rrsig(rrset.name(), rrset.record_class(), rrsig, rrset.records())
+        .data()
+        .verify_rrsig(
+            rrset.name(),
+            rrset.record_class(),
+            rrsig.data(),
+            rrset.records(),
+        )
         .map(|_| {
             debug!(
                 "validated ({}, {:?}) with ({}, {})",
                 rrset.name(),
                 rrset.record_type(),
-                dnskey_name,
-                dnskey
+                dnskey.name(),
+                dnskey.data()
             );
             Proof::Secure
         })
@@ -751,14 +751,14 @@ fn verify_rrset_with_dnskey(
                 "failed validation of ({}, {:?}) with ({}, {})",
                 rrset.name(),
                 rrset.record_type(),
-                dnskey_name,
-                dnskey
+                dnskey.name(),
+                dnskey.data()
             );
             ProofError::new(
                 Proof::Bogus,
                 ProofErrorKind::DnsKeyVerifyRrsig {
-                    name: dnskey_name.clone(),
-                    key_tag: rrsig.key_tag(),
+                    name: dnskey.name().clone(),
+                    key_tag: rrsig.data().key_tag(),
                     error: e,
                 },
             )
