@@ -699,6 +699,8 @@ fn verify_rrset_with_dnskey(
     rrsig: RecordRef<'_, RRSIG>,
     rrset: &Rrset<'_>,
 ) -> Result<Proof, ProofError> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
     if dnskey.data().revoke() {
         debug!("revoked");
         return Err(ProofError::new(
@@ -725,6 +727,21 @@ fn verify_rrset_with_dnskey(
                 rrsig: rrsig.data().algorithm(),
                 dnskey: dnskey.data().algorithm(),
             },
+        ));
+    }
+
+    let current_time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as u32;
+
+    let validity = check_rrsig_validity(rrsig, rrset, dnskey, current_time);
+    if !matches!(validity, RrsigValidity::ValidRrsig) {
+        // TODO better error handling when the error payload is not immediately discarded by
+        // the caller
+        return Err(ProofError::new(
+            Proof::Bogus,
+            ProofErrorKind::Msg(format!("{:?}", validity)),
         ));
     }
 
@@ -763,6 +780,78 @@ fn verify_rrset_with_dnskey(
                 },
             )
         })
+}
+
+// see section 5.3.1 of RFC4035 "Checking the RRSIG RR Validity"
+fn check_rrsig_validity(
+    rrsig: RecordRef<'_, RRSIG>,
+    rrset: &Rrset<'_>,
+    dnskey: RecordRef<'_, DNSKEY>,
+    current_time: u32,
+) -> RrsigValidity {
+    let Ok(dnskey_key_tag) = dnskey.data().calculate_key_tag() else {
+        return RrsigValidity::WrongDnskey;
+    };
+
+    if !(
+        // "The RRSIG RR and the RRset MUST have the same owner name and the same class"
+        rrsig.name() == rrset.name() &&
+        rrsig.dns_class() == rrset.record_class() &&
+
+        // "The RRSIG RR's Signer's Name field MUST be the name of the zone that contains the RRset"
+        // TODO(^) the zone name is in the SOA record, which is not accessible from here
+
+        // "The RRSIG RR's Type Covered field MUST equal the RRset's type"
+        rrsig.data().type_covered() == rrset.record_type() &&
+
+        // "The number of labels in the RRset owner name MUST be greater than or equal to the value
+        // in the RRSIG RR's Labels field"
+        rrset.name().num_labels() >= rrsig.data().num_labels()
+    ) {
+        return RrsigValidity::WrongRrsig;
+    }
+
+    // TODO section 3.1.5 of RFC4034 states that 'all comparisons involving these fields MUST use
+    // "Serial number arithmetic", as defined in RFC1982'
+    if !(
+        // "The validator's notion of the current time MUST be less than or equal to the time listed
+        // in the RRSIG RR's Expiration field"
+        current_time <= rrsig.data().sig_expiration() &&
+
+        // "The validator's notion of the current time MUST be greater than or equal to the time
+        // listed in the RRSIG RR's Inception field"
+        current_time >= rrsig.data().sig_inception()
+    ) {
+        return RrsigValidity::ExpiredRrsig;
+    }
+
+    if !(
+        // "The RRSIG RR's Signer's Name, Algorithm, and Key Tag fields MUST match the owner name,
+        // algorithm, and key tag for some DNSKEY RR in the zone's apex DNSKEY RRset"
+        rrsig.data().signer_name() == dnskey.name() &&
+        rrsig.data().algorithm() == dnskey.data().algorithm() &&
+        rrsig.data().key_tag() == dnskey_key_tag &&
+
+        // "The matching DNSKEY RR MUST be present in the zone's apex DNSKEY RRset, and MUST have the
+        // Zone Flag bit (DNSKEY RDATA Flag bit 7) set"
+        dnskey.data().zone_key()
+    ) {
+        return RrsigValidity::WrongDnskey;
+    }
+
+    RrsigValidity::ValidRrsig
+}
+
+#[derive(Clone, Copy, Debug)]
+enum RrsigValidity {
+    /// RRSIG has already expired
+    ExpiredRrsig,
+    /// RRSIG is valid
+    ValidRrsig,
+    /// DNSKEY does not match RRSIG
+    WrongDnskey,
+    /// RRSIG does not match RRset
+    WrongRrsig,
 }
 
 /// Will always return an error. To enable record verification compile with the openssl feature.
