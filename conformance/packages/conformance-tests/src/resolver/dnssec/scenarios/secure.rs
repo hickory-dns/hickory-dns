@@ -12,7 +12,7 @@ use crate::resolver::dnssec::fixtures;
 #[test]
 fn can_validate_without_delegation() -> Result<()> {
     let network = Network::new()?;
-    let mut ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, &network)?;
+    let mut ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, &network, None)?;
     ns.add(ns.a());
     let ns = ns.sign()?;
 

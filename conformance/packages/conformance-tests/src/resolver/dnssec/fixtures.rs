@@ -15,7 +15,7 @@ pub fn bad_signature_in_leaf_nameserver(
 
     let network = Network::new()?;
 
-    let mut leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network)?;
+    let mut leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network, None)?;
     leaf_ns.add(Record::a(leaf_fqdn.clone(), leaf_ipv4_addr));
 
     let graph = Graph::build(
@@ -57,7 +57,7 @@ pub fn minimally_secure(
 
     let network = Network::new()?;
 
-    let mut leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network)?;
+    let mut leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network, None)?;
     leaf_ns.add(Record::a(leaf_fqdn.clone(), leaf_ipv4_addr));
 
     let Graph {

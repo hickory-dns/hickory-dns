@@ -11,7 +11,7 @@ use dns_test::{
 #[test]
 fn do_bit_not_set_in_request() -> Result<()> {
     let network = &Network::new()?;
-    let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
+    let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network, None)?
         .sign()?
         .start()?;
     let resolver = Resolver::new(network, ns.root_hint()).start(&dns_test::SUBJECT)?;
@@ -55,7 +55,7 @@ fn do_bit_not_set_in_request() -> Result<()> {
 #[test]
 fn if_do_bit_not_set_in_request_then_requested_dnssec_record_is_not_stripped() -> Result<()> {
     let network = &Network::new()?;
-    let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
+    let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network, None)?
         .sign()?
         .start()?;
     let resolver = Resolver::new(network, ns.root_hint()).start(&dns_test::SUBJECT)?;
@@ -80,7 +80,7 @@ fn if_do_bit_not_set_in_request_then_requested_dnssec_record_is_not_stripped() -
 #[test]
 fn do_bit_set_in_request() -> Result<()> {
     let network = &Network::new()?;
-    let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
+    let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network, None)?
         .sign()?
         .start()?;
     let resolver = Resolver::new(network, ns.root_hint()).start(&dns_test::SUBJECT)?;

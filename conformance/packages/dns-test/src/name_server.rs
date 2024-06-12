@@ -44,7 +44,8 @@ impl Graph {
         let implementation = leaf.implementation.clone();
 
         let (mut nameservers_ns, leaf) = if leaf.zone() != &FQDN::NAMESERVERS {
-            let nameservers_ns = NameServer::new(&implementation, FQDN::NAMESERVERS, &network)?;
+            let nameservers_ns =
+                NameServer::new(&implementation, FQDN::NAMESERVERS, &network, None)?;
             (nameservers_ns, Some(leaf))
         } else {
             (leaf, None)
@@ -53,7 +54,7 @@ impl Graph {
         // the nameserver covering `FQDN::NAMESERVERS` needs A records about all the nameservers in the graph
         let mut nameservers = vec![];
         while let Some(parent) = zone.parent() {
-            let nameserver = NameServer::new(&implementation, parent.clone(), &network)?;
+            let nameserver = NameServer::new(&implementation, parent.clone(), &network, None)?;
 
             nameservers_ns.add(nameserver.a());
             nameservers.push(nameserver);
@@ -157,17 +158,29 @@ impl NameServer<Stopped> {
     ///
     /// The initial state of the server is the "Stopped" state where it won't answer any query.
     ///
-    /// The FQDN of the name server will have the form `primary{count}.nameservers.com.` where
-    /// `{count}` is a (process-wide) unique, monotonically increasing integer
+    /// The FQDN of the name server will have the form `primary{count}.{zone}` where
+    /// `{count}` is a (process-wide) unique, monotonically increasing integer; unless the `label`
+    /// parameter is provided then it will have the form `{label}.{zone}`
     ///
     /// The zone file will contain these records
     ///
     /// - one SOA record, with the primary name server field set to this name server's FQDN
     /// - one NS record, with this name server's FQDN set as the only available name server for
     /// the zone
-    pub fn new(implementation: &Implementation, zone: FQDN, network: &Network) -> Result<Self> {
+    pub fn new(
+        implementation: &Implementation,
+        zone: FQDN,
+        network: &Network,
+        label: Option<&str>,
+    ) -> Result<Self> {
         let ns_count = ns_count();
-        let nameserver = primary_ns(ns_count, &zone);
+        let nameserver = if let Some(label) = label {
+            assert!(!label.contains('.'));
+
+            FQDN(format!("{label}.{}", expand_zone(&zone)))?
+        } else {
+            primary_ns(ns_count, &zone)
+        };
         let image = implementation.clone().into();
         let container = Container::run(&image, network)?;
 
@@ -485,7 +498,8 @@ mod tests {
     #[test]
     fn simplest() -> Result<()> {
         let network = Network::new()?;
-        let tld_ns = NameServer::new(&Implementation::Unbound, FQDN::COM, &network)?.start()?;
+        let tld_ns =
+            NameServer::new(&Implementation::Unbound, FQDN::COM, &network, None)?.start()?;
         let ip_addr = tld_ns.ipv4_addr();
 
         let client = Client::new(&network)?;
@@ -497,10 +511,30 @@ mod tests {
     }
 
     #[test]
+    fn fixed_name() -> Result<()> {
+        let label = "we-expect-this-label";
+        let network = Network::new()?;
+        let tld_ns =
+            NameServer::new(&Implementation::Unbound, FQDN::COM, &network, Some(label))?.start()?;
+        let ip_addr = tld_ns.ipv4_addr();
+
+        let client = Client::new(&network)?;
+        let output = client.dig(DigSettings::default(), ip_addr, RecordType::SOA, &FQDN::COM)?;
+
+        assert!(output.status.is_noerror());
+
+        let [record] = output.answer.try_into().unwrap();
+        let soa = record.try_into_soa().unwrap();
+        assert!(soa.nameserver.as_str().starts_with(&format!("{label}.")));
+
+        Ok(())
+    }
+
+    #[test]
     fn with_referral() -> Result<()> {
         let network = Network::new()?;
         let expected_ip_addr = Ipv4Addr::new(172, 17, 200, 1);
-        let mut root_ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?;
+        let mut root_ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network, None)?;
         root_ns.referral(
             FQDN::COM,
             FQDN("primary.tld-server.com.")?,
@@ -528,7 +562,7 @@ mod tests {
     #[test]
     fn signed() -> Result<()> {
         let network = Network::new()?;
-        let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.sign()?;
+        let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network, None)?.sign()?;
 
         eprintln!("KSK:\n{}", ns.key_signing_key());
         eprintln!("ZSK:\n{}", ns.zone_signing_key());
@@ -559,7 +593,7 @@ mod tests {
     #[test]
     fn terminate_nsd_works() -> Result<()> {
         let network = Network::new()?;
-        let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
+        let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network, None)?.start()?;
         let logs = ns.terminate()?;
 
         assert!(logs.contains("nsd starting"));
@@ -570,7 +604,7 @@ mod tests {
     #[test]
     fn terminate_named_works() -> Result<()> {
         let network = Network::new()?;
-        let ns = NameServer::new(&Implementation::Bind, FQDN::ROOT, &network)?.start()?;
+        let ns = NameServer::new(&Implementation::Bind, FQDN::ROOT, &network, None)?.start()?;
         let logs = ns.terminate()?;
 
         eprintln!("{logs}");
@@ -586,6 +620,7 @@ mod tests {
             &Implementation::Hickory(Repository("https://github.com/hickory-dns/hickory-dns")),
             FQDN::ROOT,
             &network,
+            None,
         )?
         .start()?;
 

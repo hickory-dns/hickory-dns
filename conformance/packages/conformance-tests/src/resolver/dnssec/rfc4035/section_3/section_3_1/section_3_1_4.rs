@@ -10,7 +10,7 @@ use dns_test::{
 fn on_clients_ds_query_it_queries_the_parent_zone() -> Result<()> {
     let network = Network::new()?;
 
-    let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network)?;
+    let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network, None)?;
 
     let Graph {
         nameservers,

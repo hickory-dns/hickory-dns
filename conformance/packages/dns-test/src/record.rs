@@ -150,6 +150,14 @@ impl Record {
             Err(self)
         }
     }
+
+    pub fn try_into_soa(self) -> CoreResult<SOA, Self> {
+        if let Self::SOA(v) = self {
+            Ok(v)
+        } else {
+            Err(self)
+        }
+    }
 }
 
 impl FromStr for Record {

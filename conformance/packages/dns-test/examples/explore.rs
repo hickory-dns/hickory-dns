@@ -14,7 +14,7 @@ fn main() -> Result<()> {
     let peer = &dns_test::PEER;
 
     println!("building docker image...");
-    let leaf_ns = NameServer::new(peer, FQDN("mydomain.com.")?, &network)?;
+    let leaf_ns = NameServer::new(peer, FQDN("mydomain.com.")?, &network, None)?;
     println!("DONE");
 
     println!("setting up name servers...");

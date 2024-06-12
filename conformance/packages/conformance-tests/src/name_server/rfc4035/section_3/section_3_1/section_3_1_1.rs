@@ -8,7 +8,7 @@ use dns_test::{Network, Result, FQDN};
 fn rrsig_in_answer_section() -> Result<()> {
     let network = Network::new()?;
 
-    let ns = NameServer::new(&dns_test::SUBJECT, FQDN::ROOT, &network)?
+    let ns = NameServer::new(&dns_test::SUBJECT, FQDN::ROOT, &network, None)?
         .sign()?
         .start()?;
 
@@ -37,7 +37,7 @@ fn rrsig_in_answer_section() -> Result<()> {
 fn rrsig_in_authority_section() -> Result<()> {
     let network = Network::new()?;
 
-    let ns = NameServer::new(&dns_test::SUBJECT, FQDN::ROOT, &network)?
+    let ns = NameServer::new(&dns_test::SUBJECT, FQDN::ROOT, &network, None)?
         .sign()?
         .start()?;
 

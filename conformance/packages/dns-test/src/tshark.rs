@@ -272,7 +272,7 @@ mod tests {
     #[test]
     fn nameserver() -> Result<()> {
         let network = &Network::new()?;
-        let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, network)?.start()?;
+        let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, network, None)?.start()?;
         let mut tshark = ns.eavesdrop()?;
 
         let client = Client::new(network)?;
@@ -307,11 +307,15 @@ mod tests {
     #[test]
     fn resolver() -> Result<()> {
         let network = &Network::new()?;
-        let mut root_ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, network)?;
-        let mut com_ns = NameServer::new(&Implementation::Unbound, FQDN::COM, network)?;
+        let mut root_ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, network, None)?;
+        let mut com_ns = NameServer::new(&Implementation::Unbound, FQDN::COM, network, None)?;
 
-        let mut nameservers_ns =
-            NameServer::new(&Implementation::Unbound, FQDN("nameservers.com.")?, network)?;
+        let mut nameservers_ns = NameServer::new(
+            &Implementation::Unbound,
+            FQDN("nameservers.com.")?,
+            network,
+            None,
+        )?;
         nameservers_ns.add(root_ns.a()).add(com_ns.a());
         let nameservers_ns = nameservers_ns.start()?;
 

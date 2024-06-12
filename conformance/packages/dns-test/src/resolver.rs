@@ -182,7 +182,7 @@ mod tests {
     #[test]
     fn terminate_unbound_works() -> Result<()> {
         let network = Network::new()?;
-        let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
+        let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network, None)?.start()?;
         let resolver = Resolver::new(&network, ns.root_hint()).start(&Implementation::Unbound)?;
         let logs = resolver.terminate()?;
 
@@ -195,7 +195,7 @@ mod tests {
     #[test]
     fn terminate_bind_works() -> Result<()> {
         let network = Network::new()?;
-        let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
+        let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network, None)?.start()?;
         let resolver = Resolver::new(&network, ns.root_hint()).start(&Implementation::Bind)?;
         let logs = resolver.terminate()?;
 
@@ -208,7 +208,7 @@ mod tests {
     #[test]
     fn terminate_hickory_works() -> Result<()> {
         let network = Network::new()?;
-        let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
+        let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network, None)?.start()?;
         let resolver = Resolver::new(&network, ns.root_hint()).start(&Implementation::Hickory(
             Repository("https://github.com/hickory-dns/hickory-dns"),
         ))?;
