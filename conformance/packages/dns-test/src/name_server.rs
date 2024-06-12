@@ -317,8 +317,10 @@ fn zone_file_path() -> String {
 }
 
 fn ns_count() -> usize {
-    static COUNT: AtomicUsize = AtomicUsize::new(0);
-    COUNT.fetch_add(1, atomic::Ordering::Relaxed)
+    thread_local! {
+        static COUNT: AtomicUsize = const { AtomicUsize::new(0) };
+    }
+    COUNT.with(|count| count.fetch_add(1, atomic::Ordering::Relaxed))
 }
 
 impl NameServer<Signed> {
