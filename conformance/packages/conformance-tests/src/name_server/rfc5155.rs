@@ -101,7 +101,6 @@ fn find_records<'a>(
 }
 
 const ALICE_FQDN: &str = "alice.com.";
-const BOB_FQDN: &str = "bob.alice.com.";
 const CHARLIE_FQDN: &str = "charlie.alice.com.";
 const WILDCARD_FQDN: &str = "*.alice.com.";
 
@@ -117,14 +116,12 @@ const WILDCARD_HASH: &str = "19GBV5V1BO0P51H34JQDH1C8CIAA5RAQ"; /* h(*.alice.com
 #[ignore]
 fn name_error_response() -> Result<()> {
     let alice_fqdn = FQDN(ALICE_FQDN)?;
-    let bob_fqdn = FQDN(BOB_FQDN)?;
     // The queried name
     let qname = FQDN(CHARLIE_FQDN)?;
 
     let (nsec3_rrs, status, nsec3_rrs_response) = query_nameserver(
         [
             Record::a(alice_fqdn, Ipv4Addr::new(1, 2, 3, 4)),
-            Record::a(bob_fqdn, Ipv4Addr::new(1, 2, 3, 5)),
         ],
         &qname,
         RecordType::A,
