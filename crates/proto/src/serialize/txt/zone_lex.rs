@@ -18,8 +18,8 @@ pub(crate) struct Lexer<'a> {
 
 impl<'a> Lexer<'a> {
     /// Creates a new lexer with the given data to parse
-    pub(crate) fn new(txt: impl Into<Cow<'a, str>>) -> Lexer<'a> {
-        Lexer {
+    pub(crate) fn new(txt: impl Into<Cow<'a, str>>) -> Self {
+        Self {
             txt: CowChars {
                 data: txt.into(),
                 offset: 0,

@@ -5,6 +5,7 @@ use hickory_client::{op::Edns, rr::rdata::opt::EdnsOption};
 use hickory_server::authority::LookupOptions;
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct MutMessageHandle<C: ClientHandle + Unpin> {
     client: C,
     pub lookup_options: LookupOptions,

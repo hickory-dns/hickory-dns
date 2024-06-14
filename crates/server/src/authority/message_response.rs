@@ -133,8 +133,8 @@ impl<'q> MessageResponseBuilder<'q> {
     /// # Arguments
     ///
     /// * `query` - any optional query (from the Request) to associate with the Response
-    pub(crate) fn new(query: Option<&'q WireQuery>) -> MessageResponseBuilder<'q> {
-        MessageResponseBuilder {
+    pub(crate) fn new(query: Option<&'q WireQuery>) -> Self {
+        Self {
             query,
             sig0: None,
             edns: None,
