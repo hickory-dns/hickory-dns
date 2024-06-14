@@ -15,6 +15,7 @@ mod container;
 mod fqdn;
 mod implementation;
 pub mod name_server;
+pub mod nsec3;
 pub mod record;
 mod resolver;
 mod trust_anchor;
