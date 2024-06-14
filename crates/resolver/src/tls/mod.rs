@@ -5,8 +5,6 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#![cfg(feature = "dns-over-tls")]
-
 mod dns_over_native_tls;
 mod dns_over_openssl;
 mod dns_over_rustls;
