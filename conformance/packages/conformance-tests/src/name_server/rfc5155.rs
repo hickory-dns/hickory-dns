@@ -6,14 +6,14 @@ use dns_test::nsec3::NSEC3Records;
 use dns_test::record::{Record, RecordType, NSEC3};
 use dns_test::{Network, Result, FQDN};
 
-const ALICE_FQDN: &str = "alice.com.";
-const CHARLIE_FQDN: &str = "charlie.alice.com.";
+const TLD_FQDN: &str = "alice.com.";
+const NON_EXISTENT_FQDN: &str = "charlie.alice.com.";
 const WILDCARD_FQDN: &str = "*.alice.com.";
 
 // These hashes are computed with 1 iteration of SHA-1 without salt and must be recomputed if
 // those parameters were to change.
-const ALICE_HASH: &str = "LLKH4L6I60VHAPP6VRM3DFR9RI8AK9I0"; /* h(alice.com.) */
-const CHARLIE_HASH: &str = "99P1CCPQ2N64LIRMT2838O4HK0QFA51B"; /* h(charlie.alice.com.) */
+const TLD_HASH: &str = "LLKH4L6I60VHAPP6VRM3DFR9RI8AK9I0"; /* h(alice.com.) */
+const NON_EXISTENT_HASH: &str = "99P1CCPQ2N64LIRMT2838O4HK0QFA51B"; /* h(charlie.alice.com.) */
 const WILDCARD_HASH: &str = "19GBV5V1BO0P51H34JQDH1C8CIAA5RAQ"; /* h(*.alice.com.) */
 
 // This test checks that name servers produce a name error response compliant with section 7.2.2.
@@ -21,9 +21,9 @@ const WILDCARD_HASH: &str = "19GBV5V1BO0P51H34JQDH1C8CIAA5RAQ"; /* h(*.alice.com
 #[test]
 #[ignore]
 fn name_error_response() -> Result<()> {
-    let alice_fqdn = FQDN(ALICE_FQDN)?;
+    let alice_fqdn = FQDN(TLD_FQDN)?;
     // The queried name
-    let qname = FQDN(CHARLIE_FQDN)?;
+    let qname = FQDN(NON_EXISTENT_FQDN)?;
 
     let (nsec3_rrs, status, nsec3_rrs_response) = query_nameserver(
         [Record::a(alice_fqdn, Ipv4Addr::new(1, 2, 3, 4))],
@@ -44,7 +44,7 @@ fn name_error_response() -> Result<()> {
 
     // If this panics, it probably means that the precomputed hashes must be recomputed.
     let (closest_encloser_rr, next_closer_name_rr) = nsec3_rrs
-        .closest_encloser_proof(ALICE_HASH, CHARLIE_HASH)
+        .closest_encloser_proof(TLD_HASH, NON_EXISTENT_HASH)
         .expect("Cannot find a closest encloser proof in the zonefile");
 
     // Wildcard at the closet encloser RR: Must cover the wildcard at the closest encloser of
@@ -84,7 +84,7 @@ fn name_error_response() -> Result<()> {
 #[test]
 #[ignore]
 fn no_data_response_not_ds() -> Result<()> {
-    let alice_fqdn = FQDN(ALICE_FQDN)?;
+    let alice_fqdn = FQDN(TLD_FQDN)?;
     // The queried name
     let qname = alice_fqdn.clone();
 
@@ -98,7 +98,7 @@ fn no_data_response_not_ds() -> Result<()> {
 
     // if this panics, it probably means that the precomputed hashes must be recomputed.
     let qname_rr = nsec3_rrs
-        .find_match(ALICE_HASH)
+        .find_match(TLD_HASH)
         .expect("No RR in the zonefile matches QNAME");
 
     find_records(
@@ -114,7 +114,7 @@ fn no_data_response_not_ds() -> Result<()> {
 #[test]
 #[ignore]
 fn no_data_response_ds_match() -> Result<()> {
-    let alice_fqdn = FQDN(ALICE_FQDN)?;
+    let alice_fqdn = FQDN(TLD_FQDN)?;
     // The queried name
     let qname = alice_fqdn.clone();
 
@@ -128,7 +128,7 @@ fn no_data_response_ds_match() -> Result<()> {
 
     // if this panics, it probably means that the precomputed hashes must be recomputed.
     let qname_rr = nsec3_rrs
-        .find_match(ALICE_HASH)
+        .find_match(TLD_HASH)
         .expect("No RR in the zonefile matches QNAME");
 
     find_records(
@@ -144,9 +144,9 @@ fn no_data_response_ds_match() -> Result<()> {
 #[test]
 #[ignore]
 fn no_data_response_ds_no_match() -> Result<()> {
-    let alice_fqdn = FQDN(ALICE_FQDN)?;
+    let alice_fqdn = FQDN(TLD_FQDN)?;
     // The queried name
-    let qname = FQDN(CHARLIE_FQDN)?;
+    let qname = FQDN(NON_EXISTENT_FQDN)?;
 
     let (nsec3_rrs, _status, nsec3_rrs_response) = query_nameserver(
         [Record::a(alice_fqdn, Ipv4Addr::new(1, 2, 3, 4))],
@@ -168,7 +168,7 @@ fn no_data_response_ds_no_match() -> Result<()> {
 
     // If this panics, it probably means that the precomputed hashes must be recomputed.
     let (closest_encloser_rr, next_closer_name_rr) = nsec3_rrs
-        .closest_encloser_proof(ALICE_HASH, CHARLIE_HASH)
+        .closest_encloser_proof(TLD_HASH, NON_EXISTENT_HASH)
         .expect("Cannot find a closest encloser proof in the zonefile");
 
     find_records(
@@ -194,7 +194,7 @@ fn no_data_response_ds_no_match() -> Result<()> {
 fn wildcard_no_data_response() -> Result<()> {
     let wildcard_fqdn = FQDN(WILDCARD_FQDN)?;
     // The queried name
-    let qname = FQDN(CHARLIE_FQDN)?;
+    let qname = FQDN(NON_EXISTENT_FQDN)?;
 
     let (nsec3_rrs, _status, nsec3_rrs_response) = query_nameserver(
         [Record::a(wildcard_fqdn, Ipv4Addr::new(1, 2, 3, 4))],
@@ -217,7 +217,7 @@ fn wildcard_no_data_response() -> Result<()> {
 
     // If this panics, it probably means that the precomputed hashes must be recomputed.
     let (closest_encloser_rr, next_closer_name_rr) = nsec3_rrs
-        .closest_encloser_proof(ALICE_HASH, CHARLIE_HASH)
+        .closest_encloser_proof(TLD_HASH, NON_EXISTENT_HASH)
         .expect("Cannot find a closest encloser proof in the zonefile");
 
     // Wildcard RR: This NSEC3 RR must match `*.alice.com`.
@@ -251,7 +251,7 @@ fn wildcard_no_data_response() -> Result<()> {
 fn wildcard_answer_response() -> Result<()> {
     let wildcard_fqdn = FQDN(WILDCARD_FQDN)?;
     // The queried name
-    let qname = FQDN(CHARLIE_FQDN)?;
+    let qname = FQDN(NON_EXISTENT_FQDN)?;
 
     let (nsec3_rrs, _status, nsec3_rrs_response) = query_nameserver(
         [Record::a(wildcard_fqdn, Ipv4Addr::new(1, 2, 3, 4))],
@@ -269,7 +269,7 @@ fn wildcard_answer_response() -> Result<()> {
 
     // If this panics, it probably means that the precomputed hashes must be recomputed.
     let next_closer_name_rr = nsec3_rrs
-        .find_cover(CHARLIE_HASH)
+        .find_cover(NON_EXISTENT_HASH)
         .expect("No RR in the zonefile covers the next closer name");
 
     find_records(
