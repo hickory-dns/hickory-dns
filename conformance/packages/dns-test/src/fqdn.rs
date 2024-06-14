@@ -4,7 +4,7 @@ use std::borrow::Cow;
 
 use crate::{Error, Result};
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, PartialEq)]
 pub struct FQDN {
     inner: Cow<'static, str>,
 }
