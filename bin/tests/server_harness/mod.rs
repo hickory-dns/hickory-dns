@@ -248,7 +248,7 @@ pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
     let response = query_message(io_loop, client, name, RecordType::A).unwrap();
     let record = &response.answers()[0];
 
-    if let Some(RData::A(ref address)) = record.data() {
+    if let RData::A(ref address) = record.data() {
         assert_eq!(address, &A::new(127, 0, 0, 1))
     } else {
         panic!("wrong RDATA")
@@ -296,7 +296,7 @@ pub fn query_all_dnssec(
     let dnskey = response
         .answers()
         .iter()
-        .filter_map(Record::data)
+        .map(Record::data)
         .filter_map(DNSKEY::try_borrow)
         .find(|d| d.algorithm() == algorithm);
     assert!(dnskey.is_some(), "DNSKEY not found");
@@ -306,7 +306,7 @@ pub fn query_all_dnssec(
     let rrsig = response
         .answers()
         .iter()
-        .filter_map(Record::data)
+        .map(Record::data)
         .filter_map(RRSIG::try_borrow)
         .filter(|rrsig| rrsig.algorithm() == algorithm)
         .find(|rrsig| rrsig.type_covered() == RecordType::DNSKEY);

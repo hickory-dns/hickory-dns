@@ -483,7 +483,6 @@ mod tests {
 
     use tokio::runtime::Runtime;
 
-    use hickory_proto::rr::RData;
     use proto::op::Query;
     use proto::rr::{Name, RecordType};
     use proto::xfer::{DnsHandle, DnsRequestOptions};
@@ -619,7 +618,7 @@ mod tests {
         assert_eq!(
             *response.answers()[0]
                 .data()
-                .and_then(RData::as_a)
+                .as_a()
                 .expect("no a record available"),
             Ipv4Addr::new(93, 184, 215, 14).into()
         );
@@ -643,7 +642,7 @@ mod tests {
         assert_eq!(
             *response.answers()[0]
                 .data()
-                .and_then(RData::as_aaaa)
+                .as_aaaa()
                 .expect("no aaaa record available"),
             Ipv6Addr::new(0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c).into()
         );

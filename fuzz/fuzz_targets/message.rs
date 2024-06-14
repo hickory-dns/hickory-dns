@@ -101,7 +101,7 @@ fn record_equal(record1: &Record, record2: &Record) -> bool {
 
     // custom rules to match..
     match (record1.data(), record2.data()) {
-        (None, Some(RData::OPT(opt))) | (Some(RData::OPT(opt)), None) => {
+        (RData::Update0(_), RData::OPT(opt)) | (RData::OPT(opt), RData::Update0(_)) => {
             if opt.as_ref().is_empty() {
                 return true;
             }

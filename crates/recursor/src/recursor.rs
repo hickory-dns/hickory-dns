@@ -476,7 +476,7 @@ impl Recursor {
 
         // unpack all glued records
         for zns in response.record_iter() {
-            if let Some(ns_data) = zns.data().and_then(RData::as_ns) {
+            if let Some(ns_data) = zns.data().as_ns() {
                 // let glue_ips = glue
                 //     .iter()
                 //     .filter(|g| g.name() == ns_data)
