@@ -1770,7 +1770,7 @@ mod tests {
         use crate::error::ProtoErrorKind;
 
         // u16 max value is where issues start being tickled...
-        let mut buf = Vec::with_capacity(u16::max_value() as usize);
+        let mut buf = Vec::with_capacity(u16::MAX as usize);
         let mut encoder = BinEncoder::new(&mut buf);
 
         let mut result = Ok(());

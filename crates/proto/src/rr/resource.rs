@@ -413,7 +413,7 @@ impl<R: RecordData> BinEncodable for Record<R> {
 
         // get the length written
         let len = encoder.len_since_place(&place);
-        assert!(len <= u16::max_value() as usize);
+        assert!(len <= u16::MAX as usize);
 
         // replace the location with the length
         place.replace(encoder, len as u16)?;

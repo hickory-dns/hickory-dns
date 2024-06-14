@@ -294,7 +294,7 @@ impl<S: DnsUdpSocket + Send> Future for NextRandomUdpSocket<S> {
             // As mentioned in Section 2.1, the dynamic ports consist of the range
             // 49152-65535.  However, ephemeral port selection algorithms should use
             // the whole range 1024-65535.
-            let rand_port_range = Uniform::new_inclusive(1024_u16, u16::max_value());
+            let rand_port_range = Uniform::new_inclusive(1024_u16, u16::MAX);
             let mut rand = rand::thread_rng();
 
             for attempt in 0..10 {
