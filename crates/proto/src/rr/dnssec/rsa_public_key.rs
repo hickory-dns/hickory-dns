@@ -13,7 +13,7 @@ pub(crate) struct RSAPublicKey<'a> {
 }
 
 impl<'a> RSAPublicKey<'a> {
-    pub(crate) fn try_from(encoded: &'a [u8]) -> ProtoResult<RSAPublicKey<'a>> {
+    pub(crate) fn try_from(encoded: &'a [u8]) -> ProtoResult<Self> {
         let (e_len_len, e_len) = match encoded.first() {
             Some(&0) if encoded.len() >= 3 => {
                 (3, (usize::from(encoded[1]) << 8) | usize::from(encoded[2]))
