@@ -28,11 +28,11 @@ license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
 # hickory
-hickory-client = { version = "0.24.0", path = "crates/client", default-features = false }
-hickory-recursor = { version = "0.24.0", path = "crates/recursor", default-features = false }
-hickory-resolver = { version = "0.24.0", path = "crates/resolver", default-features = false }
-hickory-server = { version = "0.24.0", path = "crates/server", default-features = false }
-hickory-proto = { version = "0.24.0", path = "crates/proto", default-features = false }
+hickory-client = { version = "0.25.0-alpha.1", path = "crates/client", default-features = false }
+hickory-recursor = { version = "0.25.0-alpha.1", path = "crates/recursor", default-features = false }
+hickory-resolver = { version = "0.25.0-alpha.1", path = "crates/resolver", default-features = false }
+hickory-server = { version = "0.25.0-alpha.1", path = "crates/server", default-features = false }
+hickory-proto = { version = "0.25.0-alpha.1", path = "crates/proto", default-features = false }
 
 
 # logging
