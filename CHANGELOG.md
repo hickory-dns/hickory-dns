@@ -17,6 +17,8 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (all) Update mio to 0.8.11 to fix RUSTSEC-2024-0019 #2166 by marcus0x62
 - (proto) Fix formatting issue in crates/proto/src/op/message.rs #2165 by marcus0x62
 - (proto) fix internal representation of OPT #2151 by esensar
+- (proto) ECH service parameter key corrected from  "echconfig" to "ech" #2183 by cpu
+- (proto) SVCB/HTTPS record parsing fixes (quoted values, arbitrary numeric keys, lists containing delim) #2183 by cpu
 
 ### Changed
 
@@ -45,6 +47,8 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (all) get(0) to first() and zerocopy package updates to fix clippy and cargo audit errors #2121 by marcus0x62
 - (resolver) Add getters for resolver config and options #2093 by hoxxep
 - (client) updated h2_client_connection and web-pki-roots config #2088 by marcbrevoort-cyberhive
+- (proto) EchConfig renamed to EchConfigList to match content #2183 by cpu
+- (proto) EchConfigList updated to wrap TLS presentation language encoding of content #2183 by cpu
 
 ### Added
 
