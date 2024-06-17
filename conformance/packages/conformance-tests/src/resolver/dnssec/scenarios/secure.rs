@@ -3,6 +3,7 @@ use std::net::Ipv4Addr;
 use dns_test::client::{Client, DigSettings};
 use dns_test::name_server::NameServer;
 use dns_test::record::RecordType;
+use dns_test::tshark::Capture;
 use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
 
 use crate::resolver::dnssec::fixtures;
@@ -69,6 +70,54 @@ fn can_validate_with_delegation() -> Result<()> {
 
     let output = client.delv(resolver_addr, RecordType::A, &needle_fqdn, &trust_anchor)?;
     assert!(output.starts_with("; fully validated"));
+
+    Ok(())
+}
+
+#[test]
+fn caches_answer() -> Result<()> {
+    let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
+    let needle_fqdn = FQDN("example.nameservers.com.")?;
+
+    let (resolver, nameservers, _trust_anchor) =
+        fixtures::minimally_secure(needle_fqdn.clone(), expected_ipv4_addr)?;
+
+    let resolver_addr = resolver.ipv4_addr();
+
+    let client = Client::new(resolver.network())?;
+    let settings = *DigSettings::default().recurse().authentic_data();
+
+    let mut tshark = None;
+    for i in 0..2 {
+        if i == 1 {
+            tshark = Some(resolver.eavesdrop()?);
+        }
+
+        let output = client.dig(settings, resolver_addr, RecordType::A, &needle_fqdn)?;
+
+        assert!(output.status.is_noerror());
+        assert!(output.flags.authenticated_data);
+
+        let [a] = output.answer.try_into().unwrap();
+        let a = a.try_into_a().unwrap();
+
+        assert_eq!(needle_fqdn, a.fqdn);
+        assert_eq!(expected_ipv4_addr, a.ipv4_addr);
+    }
+
+    let mut tshark = tshark.unwrap();
+    tshark.wait_for_capture()?;
+    let captures = tshark.terminate()?;
+
+    // we validate caching behavior by eavesdropping on the second query and expecting no
+    // communication between the resolver and the nameservers
+    let ns_addrs = nameservers
+        .iter()
+        .map(|ns| ns.ipv4_addr())
+        .collect::<Vec<_>>();
+    for Capture { direction, .. } in captures {
+        assert!(!ns_addrs.contains(&direction.peer_addr()));
+    }
 
     Ok(())
 }
