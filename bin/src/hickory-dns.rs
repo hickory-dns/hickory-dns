@@ -273,6 +273,14 @@ async fn load_zone(
 #[derive(Debug, Parser)]
 #[clap(name = "Hickory DNS named server", version, about)]
 struct Cli {
+    /// Test validation of configuration files
+    #[clap(long = "validate", conflicts_with = "quiet")]
+    pub(crate) validate: bool,
+
+    /// Number of runtime workers, defaults to the number of CPU cores
+    #[clap(long = "workers")]
+    pub(crate) workers: Option<usize>,
+
     /// Disable INFO messages, WARN and ERROR will remain
     #[clap(short = 'q', long = "quiet", conflicts_with = "debug")]
     pub(crate) quiet: bool,
@@ -316,6 +324,31 @@ struct Cli {
     /// overrides any value in config file
     #[clap(long = "quic-port", value_name = "QUIC-PORT")]
     pub(crate) quic_port: Option<u16>,
+
+    /// Disable TCP protocol,
+    /// overrides any value in config file
+    #[clap(long = "disable-tcp")]
+    pub(crate) disable_tcp: bool,
+
+    /// Disable UDP protocol,
+    /// overrides any value in config file
+    #[clap(long = "disable-udp")]
+    pub(crate) disable_udp: bool,
+
+    /// Disable TLS protocol,
+    /// overrides any value in config file
+    #[clap(long = "disable-tls", conflicts_with = "tls_port")]
+    pub(crate) disable_tls: bool,
+
+    /// Disable HTTPS protocol,
+    /// overrides any value in config file
+    #[clap(long = "disable-https", conflicts_with = "https_port")]
+    pub(crate) disable_https: bool,
+
+    /// Disable QUIC protocol,
+    /// overrides any value in config file
+    #[clap(long = "disable-quic", conflicts_with = "quick_port")]
+    pub(crate) disable_quic: bool,
 }
 
 /// Main method for running the named server.
@@ -333,14 +366,16 @@ fn main() {
         default();
     }
 
-    info!("Hickory DNS {} starting", hickory_client::version());
-    // start up the server for listening
+    info!("Hickory DNS {} starting...", hickory_client::version());
+
+    // Load configuration files
 
     let config = args.config.clone();
     let config_path = Path::new(&config);
-    info!("loading configuration from: {:?}", config_path);
-    let config = Config::read_config(config_path)
-        .unwrap_or_else(|e| panic!("could not read config {}: {:?}", config_path.display(), e));
+
+    info!("Loading configuration from: {config_path:?}");
+
+    let config = Config::read_config(config_path).expect("Valid configuration files");
     let directory_config = config.get_directory().to_path_buf();
     let zonedir = args.zonedir.clone();
     let zone_dir: PathBuf = zonedir
@@ -348,132 +383,165 @@ fn main() {
         .map(PathBuf::from)
         .unwrap_or_else(|| directory_config.clone());
 
-    // TODO: allow for num threads configured...
-    let mut runtime = runtime::Builder::new_multi_thread()
-        .enable_all()
-        .worker_threads(4)
-        .thread_name("hickory-server-runtime")
-        .build()
-        .expect("failed to initialize Tokio Runtime");
+    let mut runtime = runtime::Builder::new_multi_thread();
+    runtime.enable_all().thread_name("hickory-server-runtime");
+    if let Some(workers) = args.workers {
+        runtime.worker_threads(workers);
+    }
+    let mut runtime = runtime.build().expect("Running Tokio runtime");
+
     let mut catalog: Catalog = Catalog::new();
     // configure our server based on the config_path
     for zone in config.get_zones() {
         let zone_name = zone
             .get_zone()
-            .unwrap_or_else(|_| panic!("bad zone name in {:?}", config_path));
+            .expect("Valid zone definition in configuration file");
 
         match runtime.block_on(load_zone(&zone_dir, zone)) {
             Ok(authority) => catalog.upsert(zone_name.into(), authority),
-            Err(error) => panic!("could not load zone {}: {}", zone_name, error),
+            Err(error) => panic!("Could not load zone {zone_name}: {error}"),
         }
     }
 
-    // TODO: support all the IPs asked to listen on...
-    // TODO:, there should be the option to listen on any port, IP and protocol option...
     let v4addr = config
         .get_listen_addrs_ipv4()
-        .expect("Error with parsing provided by configuration Ipv4");
+        .expect("Valid IPv4 addresses in configuration file");
     let v6addr = config
         .get_listen_addrs_ipv6()
-        .expect("Error with parsing provided by configuration Ipv6");
+        .expect("Valid IPv6 addresses in configuration file");
     let mut listen_addrs: Vec<IpAddr> = v4addr
         .into_iter()
         .map(IpAddr::V4)
         .chain(v6addr.into_iter().map(IpAddr::V6))
         .collect();
+
     let listen_port: u16 = args.port.unwrap_or_else(|| config.get_listen_port());
-    let tcp_request_timeout = config.get_tcp_request_timeout();
 
     if listen_addrs.is_empty() {
         listen_addrs.push(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
     }
     let sockaddrs: Vec<SocketAddr> = listen_addrs
         .iter()
-        .flat_map(|x| (*x, listen_port).to_socket_addrs().unwrap())
+        .flat_map(|x| {
+            (*x, listen_port)
+                .to_socket_addrs()
+                .expect("Valid socket address")
+        })
         .collect();
+
+    if args.validate {
+        info!("Configuration files are validated.");
+        return;
+    }
+
     let deny_networks = config.get_deny_networks();
     let allow_networks = config.get_allow_networks();
+
+    let tcp_request_timeout = config.get_tcp_request_timeout();
 
     // now, run the server, based on the config
     #[cfg_attr(not(feature = "dns-over-tls"), allow(unused_mut))]
     let mut server = ServerFuture::with_access(catalog, deny_networks, allow_networks);
 
-    // load all the listeners
-    for udp_socket in &sockaddrs {
-        info!("binding UDP to {:?}", udp_socket);
-        let udp_socket = runtime
-            .block_on(UdpSocket::bind(udp_socket))
-            .unwrap_or_else(|err| panic!("could not bind to UDP socket {udp_socket}: {err}"));
-
-        info!(
-            "listening for UDP on {:?}",
-            udp_socket
-                .local_addr()
-                .expect("could not lookup local address")
-        );
-
-        let _guard = runtime.enter();
-        server.register_socket(udp_socket);
-    }
-
-    // and TCP as necessary
-    for tcp_listener in &sockaddrs {
-        info!("binding TCP to {:?}", tcp_listener);
-        let tcp_listener = runtime
-            .block_on(TcpListener::bind(tcp_listener))
-            .unwrap_or_else(|_| panic!("could not bind to tcp: {}", tcp_listener));
-
-        info!(
-            "listening for TCP on {:?}",
-            tcp_listener
-                .local_addr()
-                .expect("could not lookup local address")
-        );
-
-        let _guard = runtime.enter();
-        server.register_listener(tcp_listener, tcp_request_timeout);
-    }
-
     let tls_cert_config = config.get_tls_cert();
 
-    // and TLS as necessary
-    // TODO: we should add some more control from configs to enable/disable TLS/HTTPS/QUIC
+    if !args.disable_udp {
+        // load all udp listeners
+        for udp_socket in &sockaddrs {
+            info!("binding UDP to {:?}", udp_socket);
+            let udp_socket = runtime
+                .block_on(UdpSocket::bind(udp_socket))
+                .unwrap_or_else(|err| panic!("could not bind to UDP socket {udp_socket}: {err}"));
+
+            info!(
+                "listening for UDP on {:?}",
+                udp_socket
+                    .local_addr()
+                    .expect("could not lookup local address")
+            );
+
+            let _guard = runtime.enter();
+            server.register_socket(udp_socket);
+        }
+    } else {
+        info!("UDP protocol is disabled");
+    }
+
+    if !args.disable_tcp {
+        // load all tcp listeners
+        for tcp_listener in &sockaddrs {
+            info!("binding TCP to {:?}", tcp_listener);
+            let tcp_listener = runtime
+                .block_on(TcpListener::bind(tcp_listener))
+                .unwrap_or_else(|_| panic!("could not bind to tcp: {}", tcp_listener));
+
+            info!(
+                "listening for TCP on {:?}",
+                tcp_listener
+                    .local_addr()
+                    .expect("could not lookup local address")
+            );
+
+            let _guard = runtime.enter();
+            server.register_listener(tcp_listener, tcp_request_timeout);
+        }
+    } else {
+        info!("TCP protocol is disabled");
+    }
+
     if let Some(_tls_cert_config) = tls_cert_config {
-        // setup TLS listeners
-        #[cfg(feature = "dns-over-tls")]
-        config_tls(
-            &args,
-            &mut server,
-            &config,
-            _tls_cert_config,
-            &zone_dir,
-            &listen_addrs,
-            &mut runtime,
-        );
+        if !args.disable_tls {
+            // setup TLS listeners
+            #[cfg(feature = "dns-over-tls")]
+            config_tls(
+                &args,
+                &mut server,
+                &config,
+                _tls_cert_config,
+                &zone_dir,
+                &listen_addrs,
+                &mut runtime,
+            );
+        } else {
+            info!("TLS protocol is disabled");
+        }
 
-        // setup HTTPS listeners
-        #[cfg(feature = "dns-over-https")]
-        config_https(
-            &args,
-            &mut server,
-            &config,
-            _tls_cert_config,
-            &zone_dir,
-            &listen_addrs,
-            &mut runtime,
-        );
+        if !args.disable_https {
+            // setup HTTPS listeners
+            #[cfg(feature = "dns-over-https")]
+            config_https(
+                &args,
+                &mut server,
+                &config,
+                _tls_cert_config,
+                &zone_dir,
+                &listen_addrs,
+                &mut runtime,
+            );
+        } else {
+            info!("HTTPS protocol is disabled");
+        }
 
-        // setup QUIC listeners
-        #[cfg(feature = "dns-over-quic")]
-        config_quic(
-            &args,
-            &mut server,
-            &config,
-            _tls_cert_config,
-            &zone_dir,
-            &listen_addrs,
-            &mut runtime,
-        );
+        if !args.disable_quic {
+            // setup QUIC listeners
+            #[cfg(feature = "dns-over-quic")]
+            config_quic(
+                &args,
+                &mut server,
+                &config,
+                _tls_cert_config,
+                &zone_dir,
+                &listen_addrs,
+                &mut runtime,
+            );
+        } else {
+            info!("QUIC protocol is disabled");
+        }
+    } else {
+        if !(args.disable_tls && args.disable_quic && args.disable_https) {
+            warn!("TLS certificate are not provided");
+        }
+        info!("TLS related protocoles (TLS, HTTPS and QUIC) are disabled");
     }
 
     // config complete, starting!
