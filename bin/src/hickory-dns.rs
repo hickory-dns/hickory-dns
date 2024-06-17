@@ -312,16 +312,19 @@ struct Cli {
 
     /// Listening port for DNS over TLS queries,
     /// overrides any value in config file
+    #[cfg(feature = "dns-over-tls")]
     #[clap(long = "tls-port", value_name = "TLS-PORT")]
     pub(crate) tls_port: Option<u16>,
 
     /// Listening port for DNS over HTTPS queries,
     /// overrides any value in config file
+    #[cfg(feature = "dns-over-https")]
     #[clap(long = "https-port", value_name = "HTTPS-PORT")]
     pub(crate) https_port: Option<u16>,
 
     /// Listening port for DNS over QUIC queries,
     /// overrides any value in config file
+    #[cfg(feature = "dns-over-quic")]
     #[clap(long = "quic-port", value_name = "QUIC-PORT")]
     pub(crate) quic_port: Option<u16>,
 
@@ -337,16 +340,19 @@ struct Cli {
 
     /// Disable TLS protocol,
     /// overrides any value in config file
+    #[cfg(feature = "dns-over-tls")]
     #[clap(long = "disable-tls", conflicts_with = "tls_port")]
     pub(crate) disable_tls: bool,
 
     /// Disable HTTPS protocol,
     /// overrides any value in config file
+    #[cfg(feature = "dns-over-https")]
     #[clap(long = "disable-https", conflicts_with = "https_port")]
     pub(crate) disable_https: bool,
 
     /// Disable QUIC protocol,
     /// overrides any value in config file
+    #[cfg(feature = "dns-over-quic")]
     #[clap(long = "disable-quic", conflicts_with = "quick_port")]
     pub(crate) disable_quic: bool,
 }
@@ -436,14 +442,11 @@ fn main() {
 
     let deny_networks = config.get_deny_networks();
     let allow_networks = config.get_allow_networks();
-
     let tcp_request_timeout = config.get_tcp_request_timeout();
 
     // now, run the server, based on the config
     #[cfg_attr(not(feature = "dns-over-tls"), allow(unused_mut))]
     let mut server = ServerFuture::with_access(catalog, deny_networks, allow_networks);
-
-    let tls_cert_config = config.get_tls_cert();
 
     if !args.disable_udp {
         // load all udp listeners
@@ -489,15 +492,20 @@ fn main() {
         info!("TCP protocol is disabled");
     }
 
-    if let Some(_tls_cert_config) = tls_cert_config {
+    #[cfg(any(
+        feature = "dns-over-tls",
+        feature = "dns-over-https",
+        feature = "dns-over-quic"
+    ))]
+    if let Some(tls_cert_config) = config.get_tls_cert() {
+        #[cfg(feature = "dns-over-tls")]
         if !args.disable_tls {
             // setup TLS listeners
-            #[cfg(feature = "dns-over-tls")]
             config_tls(
                 &args,
                 &mut server,
                 &config,
-                _tls_cert_config,
+                tls_cert_config,
                 &zone_dir,
                 &listen_addrs,
                 &mut runtime,
@@ -506,14 +514,14 @@ fn main() {
             info!("TLS protocol is disabled");
         }
 
+        #[cfg(feature = "dns-over-https")]
         if !args.disable_https {
             // setup HTTPS listeners
-            #[cfg(feature = "dns-over-https")]
             config_https(
                 &args,
                 &mut server,
                 &config,
-                _tls_cert_config,
+                tls_cert_config,
                 &zone_dir,
                 &listen_addrs,
                 &mut runtime,
@@ -522,14 +530,14 @@ fn main() {
             info!("HTTPS protocol is disabled");
         }
 
+        #[cfg(feature = "dns-over-quic")]
         if !args.disable_quic {
             // setup QUIC listeners
-            #[cfg(feature = "dns-over-quic")]
             config_quic(
                 &args,
                 &mut server,
                 &config,
-                _tls_cert_config,
+                tls_cert_config,
                 &zone_dir,
                 &listen_addrs,
                 &mut runtime,
