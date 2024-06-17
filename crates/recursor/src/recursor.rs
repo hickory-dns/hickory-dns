@@ -307,11 +307,7 @@ impl Recursor {
         request_time: Instant,
         query_has_dnssec_ok: bool,
     ) -> Result<Lookup, Error> {
-        if self.security_aware {
-            // TODO RFC4035 section 4.5 recommends caching "each response as a single atomic entry
-            // containing the entire answer, including the named RRset and any associated DNSSEC
-            // RRs"
-        } else if let Some(lookup) = self.record_cache.get(&query, request_time) {
+        if let Some(lookup) = self.record_cache.get(&query, request_time) {
             return lookup.map_err(Into::into);
         }
 
