@@ -307,6 +307,10 @@ impl Recursor {
         request_time: Instant,
         query_has_dnssec_ok: bool,
     ) -> Result<Lookup, Error> {
+        if !query.name().is_fqdn() {
+            return Err(Error::from("query's domain name must be fully qualified"));
+        }
+
         if let Some(lookup) = self.record_cache.get(&query, request_time) {
             let lookup = maybe_strip_dnssec_records(query_has_dnssec_ok, lookup?, query);
 
@@ -669,4 +673,19 @@ fn is_subzone_test() {
         Name::from_str("com").unwrap(),
         Name::from_str("example.com.").unwrap()
     ));
+}
+
+#[tokio::test]
+async fn not_fully_qualified_domain_name_in_query() -> Result<(), Error> {
+    let recursor = Recursor::builder().build(NameServerConfigGroup::cloudflare())?;
+    let name = Name::from_ascii("example.com")?;
+    assert!(!name.is_fqdn());
+    let query = Query::query(name, RecordType::A);
+    let res = recursor
+        .resolve(query, Instant::now(), false)
+        .await
+        .unwrap_err();
+    assert!(res.to_string().contains("fully qualified"));
+
+    Ok(())
 }
