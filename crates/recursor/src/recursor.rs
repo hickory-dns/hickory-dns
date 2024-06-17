@@ -308,7 +308,9 @@ impl Recursor {
         query_has_dnssec_ok: bool,
     ) -> Result<Lookup, Error> {
         if let Some(lookup) = self.record_cache.get(&query, request_time) {
-            return lookup.map_err(Into::into);
+            let lookup = maybe_strip_dnssec_records(query_has_dnssec_ok, lookup?, query);
+
+            return Ok(lookup);
         }
 
         // not in cache, let's look for an ns record for lookup
@@ -353,21 +355,7 @@ impl Recursor {
 
         // RFC 4035 section 3.2.1 if DO bit not set, strip DNSSEC records unless
         // explicitly requested
-        let lookup = if !query_has_dnssec_ok {
-            let records = response
-                .records()
-                .iter()
-                .filter(|rrset| {
-                    let record_type = rrset.record_type();
-                    record_type == query.query_type() || !record_type.is_dnssec()
-                })
-                .cloned()
-                .collect();
-
-            Lookup::new_with_deadline(query, records, response.valid_until())
-        } else {
-            response
-        };
+        let lookup = maybe_strip_dnssec_records(query_has_dnssec_ok, response, query);
 
         Ok(lookup)
     }
@@ -566,6 +554,25 @@ impl Recursor {
         self.name_server_cache.lock().insert(zone, ns.clone());
         Ok(ns)
     }
+}
+
+// as per section 3.2.1 of RFC4035
+fn maybe_strip_dnssec_records(query_has_dnssec_ok: bool, lookup: Lookup, query: Query) -> Lookup {
+    if query_has_dnssec_ok {
+        return lookup;
+    }
+
+    let records = lookup
+        .records()
+        .iter()
+        .filter(|rrset| {
+            let record_type = rrset.record_type();
+            record_type == query.query_type() || !record_type.is_dnssec()
+        })
+        .cloned()
+        .collect();
+
+    Lookup::new_with_deadline(query, records, lookup.valid_until())
 }
 
 fn recursor_opts() -> ResolverOpts {

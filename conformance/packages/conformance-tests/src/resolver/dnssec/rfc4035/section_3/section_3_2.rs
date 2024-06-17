@@ -55,7 +55,6 @@ fn do_bit_not_set_in_request() -> Result<()> {
 // this ensures that even in the presence of a cached (answer+rrsig) we strip the dnssec records as
 // per the RFC
 #[test]
-#[ignore]
 fn on_do_0_query_strips_dnssec_records_even_if_it_cached_a_previous_do_1_query() -> Result<()> {
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
