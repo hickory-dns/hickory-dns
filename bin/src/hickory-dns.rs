@@ -289,8 +289,7 @@ struct Cli {
     #[clap(short = 'd', long = "debug", conflicts_with = "quiet")]
     pub(crate) debug: bool,
 
-    /// Path to configuration file of named server,
-    /// by default `/etc/named.toml`
+    /// Path to configuration file of named server
     #[clap(
         short = 'c',
         long = "config",
