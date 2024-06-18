@@ -360,7 +360,7 @@ struct Cli {
     /// Disable QUIC protocol,
     /// overrides any value in config file
     #[cfg(feature = "dns-over-quic")]
-    #[clap(long = "disable-quic", conflicts_with = "quick_port")]
+    #[clap(long = "disable-quic", conflicts_with = "quic_port")]
     pub(crate) disable_quic: bool,
 }
 
@@ -410,7 +410,7 @@ fn run() -> Result<(), String> {
     if let Some(workers) = args.workers {
         runtime.worker_threads(workers);
     }
-    let mut runtime = runtime
+    let runtime = runtime
         .build()
         .map_err(|err| format!("failed to initialize Tokio runtime: {err}"))?;
 
@@ -527,7 +527,7 @@ fn run() -> Result<(), String> {
                 tls_cert_config,
                 &zone_dir,
                 &listen_addrs,
-                &mut runtime,
+                &runtime,
             )?;
         } else {
             info!("TLS protocol is disabled");
@@ -543,7 +543,7 @@ fn run() -> Result<(), String> {
                 tls_cert_config,
                 &zone_dir,
                 &listen_addrs,
-                &mut runtime,
+                &runtime,
             )?;
         } else {
             info!("HTTPS protocol is disabled");
@@ -559,7 +559,7 @@ fn run() -> Result<(), String> {
                 tls_cert_config,
                 &zone_dir,
                 &listen_addrs,
-                &mut runtime,
+                &runtime,
             )?;
         } else {
             info!("QUIC protocol is disabled");
@@ -605,7 +605,7 @@ fn config_tls(
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
-    runtime: &mut runtime::Runtime,
+    runtime: &runtime::Runtime,
 ) -> Result<(), String> {
     let tls_listen_port: u16 = args
         .tls_port
@@ -658,7 +658,7 @@ fn config_https(
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
-    runtime: &mut runtime::Runtime,
+    runtime: &runtime::Runtime,
 ) -> Result<(), String> {
     let https_listen_port: u16 = args
         .https_port
@@ -721,7 +721,7 @@ fn config_quic(
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
-    runtime: &mut runtime::Runtime,
+    runtime: &runtime::Runtime,
 ) -> Result<(), String> {
     let quic_listen_port: u16 = args
         .quic_port
