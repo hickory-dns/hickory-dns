@@ -388,14 +388,16 @@ fn main() {
     let zone_dir: PathBuf = zonedir
         .as_ref()
         .map(PathBuf::from)
-        .unwrap_or_else(|| directory_config.clone());
+        .unwrap_or(directory_config);
 
-    let mut runtime = runtime::Builder::new_multi_thread();
-    runtime.enable_all().thread_name("hickory-server-runtime");
-    if let Some(workers) = args.workers {
-        runtime.worker_threads(workers);
-    }
-    let mut runtime = runtime.build().expect("running Tokio runtime");
+    let mut runtime = {
+        let mut builder = runtime::Builder::new_multi_thread();
+        builder.enable_all().thread_name("hickory-server-runtime");
+        if let Some(workers) = args.workers {
+            builder.worker_threads(workers);
+        }
+        builder.build().expect("running Tokio runtime")
+    };
 
     let mut catalog: Catalog = Catalog::new();
     // configure our server based on the config_path
@@ -597,6 +599,7 @@ fn config_tls(
 
     if tls_sockaddrs.is_empty() {
         warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
+        return;
     }
 
     for tls_listener in &tls_sockaddrs {
@@ -646,6 +649,7 @@ fn config_https(
 
     if https_sockaddrs.is_empty() {
         warn!("a tls certificate was specified, but no HTTPS addresses configured to listen on");
+        return;
     }
 
     for https_listener in &https_sockaddrs {
@@ -708,6 +712,7 @@ fn config_quic(
 
     if quic_sockaddrs.is_empty() {
         warn!("a tls certificate was specified, but no QUIC addresses configured to listen on");
+        return;
     }
 
     for quic_listener in &quic_sockaddrs {
