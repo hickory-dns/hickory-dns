@@ -545,10 +545,8 @@ fn main() {
             info!("QUIC protocol is disabled");
         }
     } else {
-        if !(args.disable_tls && args.disable_quic && args.disable_https) {
-            warn!("TLS certificate are not provided");
-        }
-        info!("TLS related protocols (TLS, HTTPS and QUIC) are disabled");
+        info!("TLS certificates are not provided");
+        info!("TLS related protocols (TLS, HTTPS and QUIC) are disabled")
     }
 
     // config complete, starting!
