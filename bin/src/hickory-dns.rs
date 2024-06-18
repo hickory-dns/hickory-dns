@@ -104,7 +104,7 @@ where
                 authority
                     .add_zone_signing_key(zone_signer)
                     .await
-                    .expect("failed to add zone signing key to authority");
+                    .expect("adding zone signing key to authority");
             }
             if key_config.is_zone_update_auth() {
                 let update_auth_signer =
@@ -114,16 +114,16 @@ where
                 let public_key = update_auth_signer
                     .key()
                     .to_sig0key_with_usage(update_auth_signer.algorithm(), KeyUsage::Host)
-                    .expect("failed to get sig0 key");
+                    .expect("getting sig0 key");
                 authority
                     .add_update_auth_key(zone_name.clone(), public_key)
                     .await
-                    .expect("failed to add update auth key to authority");
+                    .expect("adding update auth key to authority");
             }
         }
 
         info!("signing zone: {}", zone_config.get_zone()?);
-        authority.secure_zone().await.expect("failed to sign zone");
+        authority.secure_zone().await.expect("signing zone");
     }
     Ok(())
 }
@@ -146,7 +146,9 @@ async fn load_zone(
 ) -> Result<Box<dyn AuthorityObject>, String> {
     debug!("loading zone with config: {:#?}", zone_config);
 
-    let zone_name: Name = zone_config.get_zone().expect("bad zone name");
+    let zone_name: Name = zone_config
+        .get_zone()
+        .expect("valid zone definition in configuration file");
     let zone_name_for_signer = zone_name.clone();
     let zone_path: Option<String> = zone_config.file.clone();
     let zone_type: ZoneType = zone_config.get_zone_type();
@@ -378,9 +380,9 @@ fn main() {
     let config = args.config.clone();
     let config_path = Path::new(&config);
 
-    info!("Loading configuration from: {config_path:?}");
+    info!("loading configuration from: {config_path:?}");
 
-    let config = Config::read_config(config_path).expect("Valid configuration files");
+    let config = Config::read_config(config_path).expect("valid configuration files");
     let directory_config = config.get_directory().to_path_buf();
     let zonedir = args.zonedir.clone();
     let zone_dir: PathBuf = zonedir
@@ -393,27 +395,27 @@ fn main() {
     if let Some(workers) = args.workers {
         runtime.worker_threads(workers);
     }
-    let mut runtime = runtime.build().expect("Running Tokio runtime");
+    let mut runtime = runtime.build().expect("running Tokio runtime");
 
     let mut catalog: Catalog = Catalog::new();
     // configure our server based on the config_path
     for zone in config.get_zones() {
         let zone_name = zone
             .get_zone()
-            .expect("Valid zone definition in configuration file");
+            .expect("valid zone definition in configuration file");
 
         match runtime.block_on(load_zone(&zone_dir, zone)) {
             Ok(authority) => catalog.upsert(zone_name.into(), authority),
-            Err(error) => panic!("Could not load zone {zone_name}: {error}"),
+            Err(error) => panic!("could not load zone {zone_name}: {error}"),
         }
     }
 
     let v4addr = config
         .get_listen_addrs_ipv4()
-        .expect("Valid IPv4 addresses in configuration file");
+        .expect("valid IPv4 addresses in configuration file");
     let v6addr = config
         .get_listen_addrs_ipv6()
-        .expect("Valid IPv6 addresses in configuration file");
+        .expect("valid IPv6 addresses in configuration file");
     let mut listen_addrs: Vec<IpAddr> = v4addr
         .into_iter()
         .map(IpAddr::V4)
@@ -430,12 +432,12 @@ fn main() {
         .flat_map(|x| {
             (*x, listen_port)
                 .to_socket_addrs()
-                .expect("Valid socket address")
+                .expect("valid socket address")
         })
         .collect();
 
     if args.validate {
-        info!("Configuration files are validated.");
+        info!("configuration files are validated.");
         return;
     }
 
@@ -453,13 +455,11 @@ fn main() {
             info!("binding UDP to {:?}", udp_socket);
             let udp_socket = runtime
                 .block_on(UdpSocket::bind(udp_socket))
-                .unwrap_or_else(|err| panic!("could not bind to UDP socket {udp_socket}: {err}"));
+                .expect("bind to UDP socket address");
 
             info!(
                 "listening for UDP on {:?}",
-                udp_socket
-                    .local_addr()
-                    .expect("could not lookup local address")
+                udp_socket.local_addr().expect("lookup local address")
             );
 
             let _guard = runtime.enter();
@@ -475,13 +475,11 @@ fn main() {
             info!("binding TCP to {:?}", tcp_listener);
             let tcp_listener = runtime
                 .block_on(TcpListener::bind(tcp_listener))
-                .unwrap_or_else(|_| panic!("could not bind to tcp: {}", tcp_listener));
+                .expect("bind to TCP socket address");
 
             info!(
                 "listening for TCP on {:?}",
-                tcp_listener
-                    .local_addr()
-                    .expect("could not lookup local address")
+                tcp_listener.local_addr().expect("lookup local address")
             );
 
             let _guard = runtime.enter();
@@ -548,17 +546,17 @@ fn main() {
         if !(args.disable_tls && args.disable_quic && args.disable_https) {
             warn!("TLS certificate are not provided");
         }
-        info!("TLS related protocoles (TLS, HTTPS and QUIC) are disabled");
+        info!("TLS related protocols (TLS, HTTPS and QUIC) are disabled");
     }
 
     // config complete, starting!
     banner();
-    info!("awaiting connections...");
 
     // TODO: how to do threads? should we do a bunch of listener threads and then query threads?
     // Ideally the processing would be n-threads for receiving, which hand off to m-threads for
     //  request handling. It would generally be the case that n <= m.
     info!("Server starting up");
+    info!("awaiting connections...");
     match runtime.block_on(server.block_until_done()) {
         Ok(()) => {
             // we're exiting for some reason...
@@ -607,26 +605,22 @@ fn config_tls(
             tls_cert_config.get_path()
         );
 
-        let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config)
-            .expect("error loading tls certificate file");
+        let tls_cert =
+            dnssec::load_cert(zone_dir, tls_cert_config).expect("loading tls certificate files");
 
         info!("binding TLS to {:?}", tls_listener);
-        let tls_listener = runtime.block_on(
-            TcpListener::bind(tls_listener)
-                .unwrap_or_else(|_| panic!("could not bind to tls: {}", tls_listener)),
-        );
+        let tls_listener =
+            runtime.block_on(TcpListener::bind(tls_listener).expect("bind to TLS socket address"));
 
         info!(
             "listening for TLS on {:?}",
-            tls_listener
-                .local_addr()
-                .expect("could not lookup local address")
+            tls_listener.local_addr().expect("lookup local address")
         );
 
         let _guard = runtime.enter();
         server
             .register_tls_listener(tls_listener, config.get_tcp_request_timeout(), tls_cert)
-            .expect("could not register TLS listener");
+            .expect("registering TLS listener");
     }
 }
 
@@ -668,20 +662,16 @@ fn config_https(
             );
         }
         // TODO: see about modifying native_tls to impl Clone for Pkcs12
-        let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config)
-            .expect("error loading tls certificate file");
+        let tls_cert =
+            dnssec::load_cert(zone_dir, tls_cert_config).expect("loading tls certificate files");
 
         info!("binding HTTPS to {:?}", https_listener);
-        let https_listener = runtime.block_on(
-            TcpListener::bind(https_listener)
-                .unwrap_or_else(|_| panic!("could not bind to tls: {}", https_listener)),
-        );
+        let https_listener = runtime
+            .block_on(TcpListener::bind(https_listener).expect("bind to HTTPS socket address"));
 
         info!(
             "listening for HTTPS on {:?}",
-            https_listener
-                .local_addr()
-                .expect("could not lookup local address")
+            https_listener.local_addr().expect("lookup local address")
         );
 
         let _guard = runtime.enter();
@@ -692,7 +682,7 @@ fn config_https(
                 tls_cert,
                 tls_cert_config.get_endpoint_name().map(|s| s.to_string()),
             )
-            .expect("could not register HTTPS listener");
+            .expect("registering HTTPS listener");
     }
 }
 
@@ -734,20 +724,16 @@ fn config_quic(
             );
         }
         // TODO: see about modifying native_tls to impl Clone for Pkcs12
-        let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config)
-            .expect("error loading tls certificate file");
+        let tls_cert =
+            dnssec::load_cert(zone_dir, tls_cert_config).expect("loading tls certificate files");
 
-        info!("binding QUIC to {:?}", quic_listener);
-        let quic_listener = runtime.block_on(
-            UdpSocket::bind(quic_listener)
-                .unwrap_or_else(|_| panic!("could not bind to tls: {}", quic_listener)),
-        );
+        info!("Binding QUIC to {:?}", quic_listener);
+        let quic_listener =
+            runtime.block_on(UdpSocket::bind(quic_listener).expect("bind to QUIC socket address"));
 
         info!(
             "listening for QUIC on {:?}",
-            quic_listener
-                .local_addr()
-                .expect("could not lookup local address")
+            quic_listener.local_addr().expect("lookup local address")
         );
 
         let _guard = runtime.enter();
@@ -758,7 +744,7 @@ fn config_quic(
                 tls_cert,
                 tls_cert_config.get_endpoint_name().map(|s| s.to_string()),
             )
-            .expect("could not register QUIC listener");
+            .expect("registering QUIC listener");
     }
 }
 
@@ -864,7 +850,7 @@ fn logger(level: tracing::Level) {
     let filter = tracing_subscriber::EnvFilter::builder()
         .with_default_directive(tracing::Level::WARN.into())
         .parse(all_hickory_dns(level))
-        .expect("failed to configure tracing/logging");
+        .expect("configuring tracing/logging");
 
     let formatter = tracing_subscriber::fmt::layer().event_format(TdnsFormatter);
 
