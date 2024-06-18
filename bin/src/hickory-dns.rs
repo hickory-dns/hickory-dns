@@ -104,7 +104,7 @@ where
                 authority
                     .add_zone_signing_key(zone_signer)
                     .await
-                    .expect("adding zone signing key to authority");
+                    .map_err(|err| format!("failed to add zone signing key to authority: {err}"))?;
             }
             if key_config.is_zone_update_auth() {
                 let update_auth_signer =
@@ -114,16 +114,22 @@ where
                 let public_key = update_auth_signer
                     .key()
                     .to_sig0key_with_usage(update_auth_signer.algorithm(), KeyUsage::Host)
-                    .expect("getting sig0 key");
+                    .map_err(|err| format!("failed to get sig0 key: {err}"))?;
                 authority
                     .add_update_auth_key(zone_name.clone(), public_key)
                     .await
-                    .expect("adding update auth key to authority");
+                    .map_err(|err| format!("failed to update auth key to authority: {err}"))?;
             }
         }
 
-        info!("signing zone: {}", zone_config.get_zone()?);
-        authority.secure_zone().await.expect("signing zone");
+        let zone_name = zone_config
+            .get_zone()
+            .map_err(|err| format!("failed to read zone name: {err}"))?;
+        info!("signing zone: {zone_name}");
+        authority
+            .secure_zone()
+            .await
+            .map_err(|err| format!("failed to sign zone {zone_name}: {err}"))?;
     }
     Ok(())
 }
@@ -148,7 +154,7 @@ async fn load_zone(
 
     let zone_name: Name = zone_config
         .get_zone()
-        .expect("valid zone definition in configuration file");
+        .map_err(|err| format!("failed to read zone name: {err}"))?;
     let zone_name_for_signer = zone_name.clone();
     let zone_path: Option<String> = zone_config.file.clone();
     let zone_type: ZoneType = zone_config.get_zone_type();
@@ -276,7 +282,7 @@ async fn load_zone(
 #[clap(name = "Hickory DNS named server", version, about)]
 struct Cli {
     /// Test validation of configuration files
-    #[clap(long = "validate", conflicts_with = "quiet")]
+    #[clap(long = "validate")]
     pub(crate) validate: bool,
 
     /// Number of runtime workers, defaults to the number of CPU cores
@@ -359,18 +365,26 @@ struct Cli {
 }
 
 /// Main method for running the named server.
-///
-/// `Note`: Tries to avoid panics, in favor of always starting.
-#[allow(unused_mut)]
-fn main() {
+fn main() -> Result<(), String> {
+    // this is essential for custom formatting the returned error message.
+    // the displayed message of termination impl trait is not pretty.
+    // https://doc.rust-lang.org/stable/src/std/process.rs.html#2439
+    if let Err(e) = run() {
+        eprintln!("Error: {e}");
+        std::process::exit(1);
+    }
+    Ok(())
+}
+
+fn run() -> Result<(), String> {
     let args = Cli::parse();
     // TODO: this should be set after loading config, but it's necessary for initial log lines, no?
     if args.quiet {
-        quiet();
+        quiet()?;
     } else if args.debug {
-        debug();
+        debug()?;
     } else {
-        default();
+        default()?;
     }
 
     info!("Hickory DNS {} starting...", hickory_client::version());
@@ -382,7 +396,8 @@ fn main() {
 
     info!("loading configuration from: {config_path:?}");
 
-    let config = Config::read_config(config_path).expect("valid configuration files");
+    let config = Config::read_config(config_path)
+        .map_err(|err| format!("failed to read config file from {config_path:?}: {err}"))?;
     let directory_config = config.get_directory().to_path_buf();
     let zonedir = args.zonedir.clone();
     let zone_dir: PathBuf = zonedir
@@ -390,34 +405,34 @@ fn main() {
         .map(PathBuf::from)
         .unwrap_or(directory_config);
 
-    let mut runtime = {
-        let mut builder = runtime::Builder::new_multi_thread();
-        builder.enable_all().thread_name("hickory-server-runtime");
-        if let Some(workers) = args.workers {
-            builder.worker_threads(workers);
-        }
-        builder.build().expect("running Tokio runtime")
-    };
+    let mut runtime = runtime::Builder::new_multi_thread();
+    runtime.enable_all().thread_name("hickory-server-runtime");
+    if let Some(workers) = args.workers {
+        runtime.worker_threads(workers);
+    }
+    let mut runtime = runtime
+        .build()
+        .map_err(|err| format!("failed to initialize Tokio runtime: {err}"))?;
 
     let mut catalog: Catalog = Catalog::new();
     // configure our server based on the config_path
     for zone in config.get_zones() {
         let zone_name = zone
             .get_zone()
-            .expect("valid zone definition in configuration file");
+            .map_err(|err| format!("failed to read zone name from {config_path:?}: {err}"))?;
 
         match runtime.block_on(load_zone(&zone_dir, zone)) {
             Ok(authority) => catalog.upsert(zone_name.into(), authority),
-            Err(error) => panic!("could not load zone {zone_name}: {error}"),
+            Err(err) => return Err(format!("could not load zone {zone_name}: {err}")),
         }
     }
 
     let v4addr = config
         .get_listen_addrs_ipv4()
-        .expect("valid IPv4 addresses in configuration file");
+        .map_err(|err| format!("failed to parse IPv4 addresses from {config_path:?}: {err}"))?;
     let v6addr = config
         .get_listen_addrs_ipv6()
-        .expect("valid IPv6 addresses in configuration file");
+        .map_err(|err| format!("failed to parse IPv6 addresses from {config_path:?}: {err}"))?;
     let mut listen_addrs: Vec<IpAddr> = v4addr
         .into_iter()
         .map(IpAddr::V4)
@@ -431,16 +446,12 @@ fn main() {
     }
     let sockaddrs: Vec<SocketAddr> = listen_addrs
         .iter()
-        .flat_map(|x| {
-            (*x, listen_port)
-                .to_socket_addrs()
-                .expect("valid socket address")
-        })
+        .flat_map(|x| (*x, listen_port).to_socket_addrs().unwrap())
         .collect();
 
     if args.validate {
         info!("configuration files are validated.");
-        return;
+        return Ok(());
     }
 
     let deny_networks = config.get_deny_networks();
@@ -457,11 +468,15 @@ fn main() {
             info!("binding UDP to {:?}", udp_socket);
             let udp_socket = runtime
                 .block_on(UdpSocket::bind(udp_socket))
-                .expect("bind to UDP socket address");
+                .map_err(|err| {
+                    format!("failed to bind to UDP socket address {udp_socket:?}: {err}")
+                })?;
 
             info!(
                 "listening for UDP on {:?}",
-                udp_socket.local_addr().expect("lookup local address")
+                udp_socket
+                    .local_addr()
+                    .map_err(|err| format!("failed to lookup local address: {err}"))?
             );
 
             let _guard = runtime.enter();
@@ -475,13 +490,18 @@ fn main() {
         // load all tcp listeners
         for tcp_listener in &sockaddrs {
             info!("binding TCP to {:?}", tcp_listener);
-            let tcp_listener = runtime
-                .block_on(TcpListener::bind(tcp_listener))
-                .expect("bind to TCP socket address");
+            let tcp_listener =
+                runtime
+                    .block_on(TcpListener::bind(tcp_listener))
+                    .map_err(|err| {
+                        format!("failed to bind to TCP socket address {tcp_listener:?}: {err}")
+                    })?;
 
             info!(
                 "listening for TCP on {:?}",
-                tcp_listener.local_addr().expect("lookup local address")
+                tcp_listener
+                    .local_addr()
+                    .map_err(|err| format!("failed to lookup local address: {err}"))?
             );
 
             let _guard = runtime.enter();
@@ -508,7 +528,7 @@ fn main() {
                 &zone_dir,
                 &listen_addrs,
                 &mut runtime,
-            );
+            )?;
         } else {
             info!("TLS protocol is disabled");
         }
@@ -524,7 +544,7 @@ fn main() {
                 &zone_dir,
                 &listen_addrs,
                 &mut runtime,
-            );
+            )?;
         } else {
             info!("HTTPS protocol is disabled");
         }
@@ -540,7 +560,7 @@ fn main() {
                 &zone_dir,
                 &listen_addrs,
                 &mut runtime,
-            );
+            )?;
         } else {
             info!("QUIC protocol is disabled");
         }
@@ -573,6 +593,8 @@ fn main() {
             panic!("{}", error_msg);
         }
     };
+
+    Ok(())
 }
 
 #[cfg(feature = "dns-over-tls")]
@@ -584,9 +606,7 @@ fn config_tls(
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
     runtime: &mut runtime::Runtime,
-) {
-    use futures_util::TryFutureExt;
-
+) -> Result<(), String> {
     let tls_listen_port: u16 = args
         .tls_port
         .unwrap_or_else(|| config.get_tls_listen_port());
@@ -597,32 +617,37 @@ fn config_tls(
 
     if tls_sockaddrs.is_empty() {
         warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
-        return;
+        return Ok(());
     }
 
     for tls_listener in &tls_sockaddrs {
-        info!(
-            "loading cert for DNS over TLS: {:?}",
-            tls_cert_config.get_path()
-        );
+        let tls_cert_path = tls_cert_config.get_path();
+        info!("loading cert for DNS over TLS: {tls_cert_path:?}");
 
-        let tls_cert =
-            dnssec::load_cert(zone_dir, tls_cert_config).expect("loading tls certificate files");
+        let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config).map_err(|err| {
+            format!("failed to load tls certificate files from {tls_cert_path:?}: {err}")
+        })?;
 
         info!("binding TLS to {:?}", tls_listener);
-        let tls_listener =
-            runtime.block_on(TcpListener::bind(tls_listener).expect("bind to TLS socket address"));
+        let tls_listener = runtime
+            .block_on(TcpListener::bind(tls_listener))
+            .map_err(|err| {
+                format!("failed to bind to TLS socket address {tls_listener:?}: {err}")
+            })?;
 
         info!(
             "listening for TLS on {:?}",
-            tls_listener.local_addr().expect("lookup local address")
+            tls_listener
+                .local_addr()
+                .map_err(|err| format!("failed to lookup local address: {err}"))?
         );
 
         let _guard = runtime.enter();
         server
             .register_tls_listener(tls_listener, config.get_tcp_request_timeout(), tls_cert)
-            .expect("registering TLS listener");
+            .map_err(|err| format!("failed to register TLS listener: {err}"))?;
     }
+    Ok(())
 }
 
 #[cfg(feature = "dns-over-https")]
@@ -634,9 +659,7 @@ fn config_https(
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
     runtime: &mut runtime::Runtime,
-) {
-    use futures_util::TryFutureExt;
-
+) -> Result<(), String> {
     let https_listen_port: u16 = args
         .https_port
         .unwrap_or_else(|| config.get_https_listen_port());
@@ -647,33 +670,33 @@ fn config_https(
 
     if https_sockaddrs.is_empty() {
         warn!("a tls certificate was specified, but no HTTPS addresses configured to listen on");
-        return;
+        return Ok(());
     }
 
     for https_listener in &https_sockaddrs {
+        let tls_cert_path = tls_cert_config.get_path();
         if let Some(endpoint_name) = tls_cert_config.get_endpoint_name() {
-            info!(
-                "loading cert for DNS over TLS named {} from {:?}",
-                endpoint_name,
-                tls_cert_config.get_path()
-            );
+            info!("loading cert for DNS over TLS named {endpoint_name} from {tls_cert_path:?}");
         } else {
-            info!(
-                "loading cert for DNS over TLS from {:?}",
-                tls_cert_config.get_path()
-            );
+            info!("loading cert for DNS over TLS from {tls_cert_path:?}");
         }
         // TODO: see about modifying native_tls to impl Clone for Pkcs12
-        let tls_cert =
-            dnssec::load_cert(zone_dir, tls_cert_config).expect("loading tls certificate files");
+        let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config).map_err(|err| {
+            format!("failed to load tls certificate files from {tls_cert_path:?}: {err}")
+        })?;
 
         info!("binding HTTPS to {:?}", https_listener);
         let https_listener = runtime
-            .block_on(TcpListener::bind(https_listener).expect("bind to HTTPS socket address"));
+            .block_on(TcpListener::bind(https_listener))
+            .map_err(|err| {
+                format!("failed to bind to HTTPS socket address {https_listener:?}: {err}")
+            })?;
 
         info!(
             "listening for HTTPS on {:?}",
-            https_listener.local_addr().expect("lookup local address")
+            https_listener
+                .local_addr()
+                .map_err(|err| format!("failed to lookup local address: {err}"))?
         );
 
         let _guard = runtime.enter();
@@ -684,8 +707,10 @@ fn config_https(
                 tls_cert,
                 tls_cert_config.get_endpoint_name().map(|s| s.to_string()),
             )
-            .expect("registering HTTPS listener");
+            .map_err(|err| format!("failed to register HTTPS listener: {err}"))?;
     }
+
+    Ok(())
 }
 
 #[cfg(feature = "dns-over-quic")]
@@ -697,9 +722,7 @@ fn config_quic(
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
     runtime: &mut runtime::Runtime,
-) {
-    use futures_util::TryFutureExt;
-
+) -> Result<(), String> {
     let quic_listen_port: u16 = args
         .quic_port
         .unwrap_or_else(|| config.get_quic_listen_port());
@@ -710,33 +733,33 @@ fn config_quic(
 
     if quic_sockaddrs.is_empty() {
         warn!("a tls certificate was specified, but no QUIC addresses configured to listen on");
-        return;
+        return Ok(());
     }
 
     for quic_listener in &quic_sockaddrs {
+        let tls_cert_path = tls_cert_config.get_path();
         if let Some(endpoint_name) = tls_cert_config.get_endpoint_name() {
-            info!(
-                "loading cert for DNS over QUIC named {} from {:?}",
-                endpoint_name,
-                tls_cert_config.get_path()
-            );
+            info!("loading cert for DNS over QUIC named {endpoint_name} from {tls_cert_path:?}");
         } else {
-            info!(
-                "loading cert for DNS over QUIC from {:?}",
-                tls_cert_config.get_path()
-            );
+            info!("loading cert for DNS over QUIC from {tls_cert_path:?}",);
         }
         // TODO: see about modifying native_tls to impl Clone for Pkcs12
-        let tls_cert =
-            dnssec::load_cert(zone_dir, tls_cert_config).expect("loading tls certificate files");
+        let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config).map_err(|err| {
+            format!("failed to load tls certificate files from {tls_cert_path:?}: {err}")
+        })?;
 
         info!("Binding QUIC to {:?}", quic_listener);
-        let quic_listener =
-            runtime.block_on(UdpSocket::bind(quic_listener).expect("bind to QUIC socket address"));
+        let quic_listener = runtime
+            .block_on(UdpSocket::bind(quic_listener))
+            .map_err(|err| {
+                format!("failed to bind to QUIC socket address {quic_listener:?}: {err}")
+            })?;
 
         info!(
             "listening for QUIC on {:?}",
-            quic_listener.local_addr().expect("lookup local address")
+            quic_listener
+                .local_addr()
+                .map_err(|err| format!("failed to lookup local address: {err}"))?
         );
 
         let _guard = runtime.enter();
@@ -747,8 +770,9 @@ fn config_quic(
                 tls_cert,
                 tls_cert_config.get_endpoint_name().map(|s| s.to_string()),
             )
-            .expect("registering QUIC listener");
+            .map_err(|err| format!("failed to register QUIC listener: {err}"))?;
     }
+    Ok(())
 }
 
 fn banner() {
@@ -833,27 +857,27 @@ fn all_hickory_dns(level: impl ToString) -> String {
 }
 
 /// appends hickory-server debug to RUST_LOG
-pub fn debug() {
-    logger(tracing::Level::DEBUG);
+pub fn debug() -> Result<(), String> {
+    logger(tracing::Level::DEBUG)
 }
 
 /// appends hickory-server info to RUST_LOG
-pub fn default() {
-    logger(tracing::Level::INFO);
+pub fn default() -> Result<(), String> {
+    logger(tracing::Level::INFO)
 }
 
 /// appends hickory-server error to RUST_LOG
-pub fn quiet() {
-    logger(tracing::Level::ERROR);
+pub fn quiet() -> Result<(), String> {
+    logger(tracing::Level::ERROR)
 }
 
 // TODO: add dep on util crate, share logging config...
-fn logger(level: tracing::Level) {
+fn logger(level: tracing::Level) -> Result<(), String> {
     // Setup tracing for logging based on input
     let filter = tracing_subscriber::EnvFilter::builder()
         .with_default_directive(tracing::Level::WARN.into())
         .parse(all_hickory_dns(level))
-        .expect("configuring tracing/logging");
+        .map_err(|err| format!("failed to configure tracing/logging: {err}"))?;
 
     let formatter = tracing_subscriber::fmt::layer().event_format(TdnsFormatter);
 
@@ -861,4 +885,6 @@ fn logger(level: tracing::Level) {
         .with(formatter)
         .with(filter)
         .init();
+
+    Ok(())
 }
