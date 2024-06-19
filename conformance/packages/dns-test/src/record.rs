@@ -14,7 +14,7 @@ const CLASS: &str = "IN"; // "internet"
 macro_rules! record_types {
     ($($variant:ident),*) => {
         #[allow(clippy::upper_case_acronyms)]
-        #[derive(Debug, PartialEq)]
+        #[derive(Debug, PartialEq, Clone)]
         pub enum RecordType {
             $($variant),*
         }
@@ -49,7 +49,7 @@ macro_rules! record_types {
 
 record_types!(A, AAAA, DNSKEY, DS, MX, NS, NSEC3, NSEC3PARAM, RRSIG, SOA, TXT);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Record {
     A(A),
@@ -150,6 +150,14 @@ impl Record {
             Err(self)
         }
     }
+
+    pub fn try_into_nsec3(self) -> CoreResult<NSEC3, Self> {
+        if let Self::NSEC3(v) = self {
+            Ok(v)
+        } else {
+            Err(self)
+        }
+    }
 }
 
 impl FromStr for Record {
@@ -192,7 +200,7 @@ impl fmt::Display for Record {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct A {
     pub fqdn: FQDN,
     pub ttl: u32,
@@ -395,7 +403,7 @@ impl fmt::Display for DS {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NS {
     pub zone: FQDN,
     pub ttl: u32,
@@ -439,7 +447,7 @@ impl FromStr for NS {
 }
 
 // integer types chosen based on bit sizes in section 3.2 of RFC5155
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct NSEC3 {
     pub fqdn: FQDN,
     pub ttl: u32,
@@ -509,7 +517,7 @@ impl fmt::Display for NSEC3 {
 }
 
 // integer types chosen based on bit sizes in section 4.2 of RFC5155
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NSEC3PARAM {
     pub zone: FQDN,
     pub ttl: u32,
@@ -567,7 +575,7 @@ impl fmt::Display for NSEC3PARAM {
 
 // integer types chosen based on bit sizes in section 3.1 of RFC4034
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RRSIG {
     pub fqdn: FQDN,
     pub ttl: u32,
@@ -646,7 +654,7 @@ impl fmt::Display for RRSIG {
 }
 
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SOA {
     pub zone: FQDN,
     pub ttl: u32,
@@ -704,7 +712,7 @@ impl fmt::Display for SOA {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SoaSettings {
     pub serial: u32,
     pub refresh: u32,

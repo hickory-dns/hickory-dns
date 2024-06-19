@@ -13,6 +13,7 @@ pub struct FQDN {
 #[allow(non_snake_case)]
 pub fn FQDN(input: impl Into<Cow<'static, str>>) -> Result<FQDN> {
     let input = input.into();
+
     if !input.ends_with('.') {
         return Err("FQDN must end with a `.`".into());
     }
@@ -76,6 +77,10 @@ impl FQDN {
             .split('.')
             .filter(|label| !label.is_empty())
             .count()
+    }
+
+    pub fn last_label(&self) -> &str {
+        self.inner.split_once('.').map(|(label, _)| label).unwrap()
     }
 }
 
