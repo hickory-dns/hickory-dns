@@ -462,7 +462,7 @@ fn run() -> Result<(), String> {
     #[cfg_attr(not(feature = "dns-over-tls"), allow(unused_mut))]
     let mut server = ServerFuture::with_access(catalog, deny_networks, allow_networks);
 
-    if !args.disable_udp {
+    if !args.disable_udp && !config.get_disable_udp() {
         // load all udp listeners
         for udp_socket in &sockaddrs {
             info!("binding UDP to {:?}", udp_socket);
@@ -486,7 +486,7 @@ fn run() -> Result<(), String> {
         info!("UDP protocol is disabled");
     }
 
-    if !args.disable_tcp {
+    if !args.disable_tcp && !config.get_disable_tcp() {
         // load all tcp listeners
         for tcp_listener in &sockaddrs {
             info!("binding TCP to {:?}", tcp_listener);
@@ -518,7 +518,7 @@ fn run() -> Result<(), String> {
     ))]
     if let Some(tls_cert_config) = config.get_tls_cert() {
         #[cfg(feature = "dns-over-tls")]
-        if !args.disable_tls {
+        if !args.disable_tls && !config.get_disable_tls() {
             // setup TLS listeners
             config_tls(
                 &args,
@@ -534,7 +534,7 @@ fn run() -> Result<(), String> {
         }
 
         #[cfg(feature = "dns-over-https")]
-        if !args.disable_https {
+        if !args.disable_https && !config.get_disable_https() {
             // setup HTTPS listeners
             config_https(
                 &args,
@@ -550,7 +550,7 @@ fn run() -> Result<(), String> {
         }
 
         #[cfg(feature = "dns-over-quic")]
-        if !args.disable_quic {
+        if !args.disable_quic && !config.get_disable_quic() {
             // setup QUIC listeners
             config_quic(
                 &args,
