@@ -193,12 +193,12 @@ init-openssl:
 [macos]
 init-bind9-deps: init-openssl
     pip install ply
-    brew install wget
+    brew install wget libuv userspace-rcu openssl
 
 [private]
 [linux]
 init-bind9-deps:
-    if apt-get --version ; then sudo apt-get install -y python3-ply ; fi
+    if apt-get --version ; then sudo apt-get install -y python3-ply libuv1-dev liburcu-dev libssl-dev libcap-dev ; fi
 
 # Install BIND9, needed for compatability tests
 [unix]
