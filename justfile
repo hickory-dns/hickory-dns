@@ -103,18 +103,18 @@ cleanliness: clippy fmt audit
 coverage: init-llvm-cov
     #!/usr/bin/env bash
     set -euxo pipefail
-    
+
     export RUSTFLAGS="{{COV_RUSTFLAGS}}"
     export CARGO_LLVM_COV={{COV_CARGO_LLVM_COV}}
     export CARGO_LLVM_COV_TARGET_DIR={{COV_CARGO_LLVM_COV_TARGET_DIR}}
     export LLVM_PROFILE_FILE={{COV_LLVM_PROFILE_FILE}}
 
     echo $RUSTFLAGS
-    
+
     cargo +nightly llvm-cov clean
     mkdir -p {{COV_CARGO_LLVM_COV_TARGET_DIR}}
-    
-    cargo +nightly build --workspace --all-targets --all-features 
+
+    cargo +nightly build --workspace --all-targets --all-features
     cargo +nightly llvm-cov test --workspace --no-report --all-targets --benches --examples --bins --tests --all-features
     cargo +nightly llvm-cov test --workspace --no-report --doc --doctests --all-features
     cargo +nightly llvm-cov report --codecov --output-path {{join(COV_CARGO_LLVM_COV_TARGET_DIR, "hickory-dns-coverage.json")}}
@@ -123,7 +123,7 @@ coverage: init-llvm-cov
 coverage-html: coverage
     #!/usr/bin/env bash
     set -euxo pipefail
-    
+
     export RUSTFLAGS="{{COV_RUSTFLAGS}}"
     export CARGO_LLVM_COV={{COV_CARGO_LLVM_COV}}
     export CARGO_LLVM_COV_TARGET_DIR={{COV_CARGO_LLVM_COV_TARGET_DIR}}
@@ -202,35 +202,35 @@ init-bind9-deps:
 
 # Install BIND9, needed for compatability tests
 [unix]
-init-bind9:    
+init-bind9:
     #!/usr/bin/env bash
     set -euxo pipefail
-    
+
     if {{TDNS_BIND_PATH}}/sbin/named -v ; then exit 0 ; fi
-    
+
     just init-bind9-deps
 
-    ## This must run after OpenSSL installation    
+    ## This must run after OpenSSL installation
     if openssl version ; then WITH_OPENSSL="--with-openssl=$(dirname $(dirname $(which openssl)))" ; fi
-    
+
     mkdir -p {{TARGET_DIR}}
-    
+
     echo "----> downloading bind"
     rm -rf {{TARGET_DIR}}/bind-{{BIND_VER}}
     wget -O {{TARGET_DIR}}/bind-{{BIND_VER}}.tar.xz https://downloads.isc.org/isc/bind9/{{BIND_VER}}/bind-{{BIND_VER}}.tar.xz
 
     ls -la {{TARGET_DIR}}/bind-{{BIND_VER}}.tar.xz
     tar -xJf {{TARGET_DIR}}/bind-{{BIND_VER}}.tar.xz -C {{TARGET_DIR}}
-    
+
     echo "----> compiling bind"
     cd {{TARGET_DIR}}/bind-{{BIND_VER}}
-    
+
     ./configure --prefix {{TDNS_BIND_PATH}} ${WITH_OPENSSL}
     make install
     cd -
-    
+
     {{TDNS_BIND_PATH}}/sbin/named -v
-    
+
     rm {{TARGET_DIR}}/bind-{{BIND_VER}}.tar.xz
     rm -rf {{TARGET_DIR}}/bind-{{BIND_VER}}
 
