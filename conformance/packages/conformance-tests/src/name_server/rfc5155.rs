@@ -88,11 +88,13 @@ fn no_data_response_not_ds() -> Result<()> {
     // The queried name
     let qname = alice_fqdn.clone();
 
-    let (nsec3_rrs, _status, nsec3_rrs_response) = query_nameserver(
+    let (nsec3_rrs, status, nsec3_rrs_response) = query_nameserver(
         [Record::a(alice_fqdn, Ipv4Addr::new(1, 2, 3, 4))],
         &qname,
         RecordType::MX,
     )?;
+
+    assert!(status.is_noerror());
 
     // The server MUST include the NSEC3 RR that matches QNAME.
 
@@ -118,11 +120,13 @@ fn no_data_response_ds_match() -> Result<()> {
     // The queried name
     let qname = alice_fqdn.clone();
 
-    let (nsec3_rrs, _status, nsec3_rrs_response) = query_nameserver(
+    let (nsec3_rrs, status, nsec3_rrs_response) = query_nameserver(
         [Record::a(alice_fqdn, Ipv4Addr::new(1, 2, 3, 4))],
         &qname,
         RecordType::DS,
     )?;
+
+    assert!(status.is_noerror());
 
     // If there is an NSEC3 RR that matches QNAME, the server MUST return it in the response.
 
@@ -148,11 +152,13 @@ fn no_data_response_ds_no_match() -> Result<()> {
     // The queried name
     let qname = FQDN(NON_EXISTENT_FQDN)?;
 
-    let (nsec3_rrs, _status, nsec3_rrs_response) = query_nameserver(
+    let (nsec3_rrs, status, nsec3_rrs_response) = query_nameserver(
         [Record::a(alice_fqdn, Ipv4Addr::new(1, 2, 3, 4))],
         &qname,
         RecordType::DS,
     )?;
+
+    assert!(status.is_nxdomain());
 
     // If no NSEC3 RR matches QNAME, the server MUST return a closest provable encloser proof for
     // QNAME.
@@ -196,11 +202,13 @@ fn wildcard_no_data_response() -> Result<()> {
     // The queried name
     let qname = FQDN(NON_EXISTENT_FQDN)?;
 
-    let (nsec3_rrs, _status, nsec3_rrs_response) = query_nameserver(
+    let (nsec3_rrs, status, nsec3_rrs_response) = query_nameserver(
         [Record::a(wildcard_fqdn, Ipv4Addr::new(1, 2, 3, 4))],
         &qname,
         RecordType::MX,
     )?;
+
+    assert!(status.is_noerror());
 
     // If there is a wildcard match for QNAME, but QTYPE is not present at that name, the response MUST
     // include a closest encloser proof for QNAME and MUST include the NSEC3 RR that matches the
@@ -253,11 +261,13 @@ fn wildcard_answer_response() -> Result<()> {
     // The queried name
     let qname = FQDN(NON_EXISTENT_FQDN)?;
 
-    let (nsec3_rrs, _status, nsec3_rrs_response) = query_nameserver(
+    let (nsec3_rrs, status, nsec3_rrs_response) = query_nameserver(
         [Record::a(wildcard_fqdn, Ipv4Addr::new(1, 2, 3, 4))],
         &qname,
         RecordType::A,
     )?;
+
+    assert!(status.is_noerror());
 
     // If there is a wildcard match for QNAME and QTYPE, then, in addition to the expanded wildcard
     // RRSet returned in the answer section of the response, proof that the wildcard match was
