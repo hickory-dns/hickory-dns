@@ -19,6 +19,8 @@
 mod errors;
 mod parse_rdata;
 mod rdata_parsers;
+#[cfg(feature = "dnssec")]
+pub mod trust_anchor;
 mod zone;
 mod zone_lex;
 
