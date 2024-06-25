@@ -12,7 +12,7 @@ use futures_util::{future::select_all, FutureExt};
 use hickory_resolver::name_server::TokioConnectionProvider;
 use lru_cache::LruCache;
 use parking_lot::Mutex;
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 
 use crate::{
     proto::{
@@ -378,31 +378,7 @@ impl Recursor {
         // TODO: should we change DnsHandle to always be a single response? And build a totally custom handler for other situations?
         // TODO: check if data is "authentic"
         match response.await {
-            Ok(r) => {
-                let mut r = r.into_message();
-                info!("response: {}", r.header());
-
-                let records = r
-                    .take_answers()
-                    .into_iter()
-                    .chain(r.take_name_servers())
-                    .chain(r.take_additionals())
-                    .filter(|x| {
-                        if !super::is_subzone(ns.zone().clone(), x.name().clone()) {
-                            warn!(
-                                "Dropping out of bailiwick record {x} for zone {}",
-                                ns.zone().clone()
-                            );
-                            false
-                        } else {
-                            true
-                        }
-                    });
-
-                let lookup = self.record_cache.insert_records(query, records, now);
-
-                lookup.ok_or_else(|| Error::from("no records found"))
-            }
+            Ok(r) => super::cache_response(r, Some(ns.zone()), &self.record_cache, query, now),
             Err(e) => {
                 warn!("lookup error: {e}");
                 Err(Error::from(e))
