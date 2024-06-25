@@ -79,6 +79,25 @@ fn cache_response(
     lookup.ok_or_else(|| Error::from("no records found"))
 }
 
+// as per section 3.2.1 of RFC4035
+fn maybe_strip_dnssec_records(query_has_dnssec_ok: bool, lookup: Lookup, query: Query) -> Lookup {
+    if query_has_dnssec_ok {
+        return lookup;
+    }
+
+    let records = lookup
+        .records()
+        .iter()
+        .filter(|rrset| {
+            let record_type = rrset.record_type();
+            record_type == query.query_type() || !record_type.is_dnssec()
+        })
+        .cloned()
+        .collect();
+
+    Lookup::new_with_deadline(query, records, lookup.valid_until())
+}
+
 /// Bailiwick/sub zone checking.
 ///
 /// # Overview
