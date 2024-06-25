@@ -9,6 +9,8 @@ use std::{io, path::Path, time::Instant};
 
 use tracing::{debug, info};
 
+#[cfg(feature = "dnssec")]
+use crate::recursor::DnssecPolicy;
 use crate::{
     authority::{
         Authority, LookupError, LookupObject, LookupOptions, MessageRequest, UpdateResult, ZoneType,
@@ -78,7 +80,9 @@ impl RecursiveAuthority {
             .ns_cache_size(config.ns_cache_size)
             .record_cache_size(config.record_cache_size);
         #[cfg(feature = "dnssec")]
-        recursor.security_aware(config.security_aware);
+        if config.security_aware {
+            recursor.dnssec_policy(DnssecPolicy::ValidationDisabled);
+        }
         let recursor = recursor
             .build(roots)
             .map_err(|e| format!("failed to initialize recursor: {e}"))?;

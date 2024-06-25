@@ -11,16 +11,15 @@ use crate::{
     proto::op::Query,
     recursor_dns_handle::RecursorDnsHandle,
     resolver::{config::NameServerConfigGroup, error::ResolveError, lookup::Lookup},
-    Error,
+    DnssecPolicy, Error,
 };
 
 /// A `Recursor` builder
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct RecursorBuilder {
     ns_cache_size: usize,
     record_cache_size: usize,
-    #[cfg(feature = "dnssec")]
-    security_aware: bool,
+    dnssec_policy: DnssecPolicy,
 }
 
 impl Default for RecursorBuilder {
@@ -28,8 +27,7 @@ impl Default for RecursorBuilder {
         Self {
             ns_cache_size: 1024,
             record_cache_size: 1048576,
-            #[cfg(feature = "dnssec")]
-            security_aware: false,
+            dnssec_policy: DnssecPolicy::SecurityUnaware,
         }
     }
 }
@@ -47,10 +45,9 @@ impl RecursorBuilder {
         self
     }
 
-    /// Enables or disables (DNSSEC) security awareness
-    #[cfg(feature = "dnssec")]
-    pub fn security_aware(&mut self, security_aware: bool) -> &mut Self {
-        self.security_aware = security_aware;
+    /// Sets the DNSSEC policy
+    pub fn dnssec_policy(&mut self, dnssec_policy: DnssecPolicy) -> &mut Self {
+        self.dnssec_policy = dnssec_policy;
         self
     }
 
@@ -60,16 +57,11 @@ impl RecursorBuilder {
     ///
     /// This will panic if the roots are empty.
     pub fn build(&self, roots: impl Into<NameServerConfigGroup>) -> Result<Recursor, ResolveError> {
-        #[cfg(not(feature = "dnssec"))]
-        let security_aware = false;
-        #[cfg(feature = "dnssec")]
-        let security_aware = self.security_aware;
-
         Recursor::build(
             roots,
             self.ns_cache_size,
             self.record_cache_size,
-            security_aware,
+            self.dnssec_policy.clone(),
         )
     }
 }
@@ -91,10 +83,15 @@ impl Recursor {
         roots: impl Into<NameServerConfigGroup>,
         ns_cache_size: usize,
         record_cache_size: usize,
-        security_aware: bool,
+        dnssec_policy: DnssecPolicy,
     ) -> Result<Self, ResolveError> {
-        RecursorDnsHandle::new(roots, ns_cache_size, record_cache_size, security_aware)
-            .map(|handle| Self { handle })
+        RecursorDnsHandle::new(
+            roots,
+            ns_cache_size,
+            record_cache_size,
+            dnssec_policy.is_security_aware(),
+        )
+        .map(|handle| Self { handle })
     }
 
     /// Perform a recursive resolution
