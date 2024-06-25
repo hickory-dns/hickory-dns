@@ -37,6 +37,8 @@ pub use error::{Error, ErrorKind};
 pub use hickory_proto as proto;
 pub use hickory_resolver as resolver;
 pub use hickory_resolver::config::NameServerConfig;
+#[cfg(feature = "dnssec")]
+use proto::rr::dnssec::TrustAnchor;
 use proto::{op::Query, xfer::DnsResponse};
 pub use recursor::{Recursor, RecursorBuilder};
 use resolver::{dns_lru::DnsLru, lookup::Lookup, Name};
@@ -54,6 +56,15 @@ pub enum DnssecPolicy {
     /// DNSSEC validation is disabled; DNSSEC records will be requested and processed
     #[cfg(feature = "dnssec")]
     ValidationDisabled,
+
+    /// DNSSEC validation is enabled and will use the chosen `trust_anchor` set of keys
+    #[cfg(feature = "dnssec")]
+    ValidateWithStaticKey {
+        /// set to `None` to use built-in trust anchor
+        trust_anchor: Option<TrustAnchor>,
+    },
+    // TODO RFC5011
+    // ValidateWithInitialKey { ..  },}
 }
 
 impl DnssecPolicy {

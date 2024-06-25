@@ -7,6 +7,13 @@
 
 use std::time::Instant;
 
+#[cfg(feature = "dnssec")]
+use crate::{
+    proto::xfer::{DnsHandle as _, DnsRequestOptions, DnssecDnsHandle, FirstAnswer as _},
+    resolver::dns_lru::DnsLru,
+    resolver::error::ResolveErrorKind,
+};
+
 use crate::{
     proto::op::Query,
     recursor_dns_handle::RecursorDnsHandle,
@@ -70,7 +77,7 @@ impl RecursorBuilder {
 ///
 /// This is the well known root nodes, referred to as hints in RFCs. See the IANA [Root Servers](https://www.iana.org/domains/root/servers) list.
 pub struct Recursor {
-    handle: RecursorDnsHandle,
+    mode: RecursorMode,
 }
 
 impl Recursor {
@@ -85,13 +92,42 @@ impl Recursor {
         record_cache_size: usize,
         dnssec_policy: DnssecPolicy,
     ) -> Result<Self, ResolveError> {
-        RecursorDnsHandle::new(
+        let handle = RecursorDnsHandle::new(
             roots,
             ns_cache_size,
             record_cache_size,
             dnssec_policy.is_security_aware(),
-        )
-        .map(|handle| Self { handle })
+        )?;
+
+        let mode = match dnssec_policy {
+            DnssecPolicy::SecurityUnaware => RecursorMode::NonValidating { handle },
+
+            #[cfg(feature = "dnssec")]
+            DnssecPolicy::ValidationDisabled => RecursorMode::NonValidating { handle },
+
+            #[cfg(feature = "dnssec")]
+            DnssecPolicy::ValidateWithStaticKey { trust_anchor } => {
+                let record_cache = handle.record_cache().clone();
+                let handle = if let Some(trust_anchor) = trust_anchor {
+                    if trust_anchor.is_empty() {
+                        return Err(ResolveError::from(ResolveErrorKind::Message(
+                            "trust anchor must not be empty",
+                        )));
+                    }
+
+                    DnssecDnsHandle::with_trust_anchor(handle, trust_anchor.clone())
+                } else {
+                    DnssecDnsHandle::new(handle)
+                };
+
+                RecursorMode::Validating {
+                    record_cache,
+                    handle,
+                }
+            }
+        };
+
+        Ok(Self { mode })
     }
 
     /// Perform a recursive resolution
@@ -265,10 +301,54 @@ impl Recursor {
             return Err(Error::from("query's domain name must be fully qualified"));
         }
 
-        self.handle
-            .resolve(query, request_time, query_has_dnssec_ok)
-            .await
+        match &self.mode {
+            RecursorMode::NonValidating { handle } => {
+                handle
+                    .resolve(query, request_time, query_has_dnssec_ok)
+                    .await
+            }
+
+            #[cfg(feature = "dnssec")]
+            RecursorMode::Validating {
+                handle,
+                record_cache,
+            } => {
+                let mut options = DnsRequestOptions::default();
+                // a validating recursor must be security aware
+                options.use_edns = true;
+                options.edns_set_dnssec_ok = true;
+
+                let response = handle.lookup(query.clone(), options).first_answer().await?;
+                // do not perform is_subzone filtering as it already happened in `handle.lookup`
+                let no_subzone_filtering = None;
+                let lookup = super::cache_response(
+                    response,
+                    no_subzone_filtering,
+                    record_cache,
+                    query.clone(),
+                    request_time,
+                )?;
+                Ok(super::maybe_strip_dnssec_records(
+                    query_has_dnssec_ok,
+                    lookup,
+                    query,
+                ))
+            }
+        }
     }
+}
+
+enum RecursorMode {
+    NonValidating {
+        handle: RecursorDnsHandle,
+    },
+
+    #[cfg(feature = "dnssec")]
+    Validating {
+        handle: DnssecDnsHandle<RecursorDnsHandle>,
+        // this is a handle to the record cache in `RecursorDnsHandle`; not a whole separate cache
+        record_cache: DnsLru,
+    },
 }
 
 #[tokio::test]
@@ -286,4 +366,66 @@ async fn not_fully_qualified_domain_name_in_query() -> Result<(), Error> {
     assert!(res.to_string().contains("fully qualified"));
 
     Ok(())
+}
+
+#[cfg(feature = "dnssec")]
+mod for_dnssec {
+    use std::time::Instant;
+
+    use futures_util::{
+        future,
+        stream::{self, BoxStream},
+        StreamExt as _, TryFutureExt as _,
+    };
+
+    use crate::proto::{
+        error::ProtoError, op::Message, op::OpCode, xfer::DnsHandle, xfer::DnsResponse,
+    };
+    use crate::recursor_dns_handle::RecursorDnsHandle;
+
+    impl DnsHandle for RecursorDnsHandle {
+        type Response = BoxStream<'static, Result<DnsResponse, ProtoError>>;
+
+        fn send<R: Into<hickory_proto::xfer::DnsRequest> + Unpin + Send + 'static>(
+            &self,
+            request: R,
+        ) -> Self::Response {
+            let request = request.into();
+
+            let query = if let OpCode::Query = request.op_code() {
+                if let Some(query) = request.queries().first().cloned() {
+                    query
+                } else {
+                    return Box::pin(stream::once(future::err(ProtoError::from(
+                        "no query in request",
+                    ))));
+                }
+            } else {
+                return Box::pin(stream::once(future::err(ProtoError::from(
+                    "request is not a query",
+                ))));
+            };
+
+            let this = self.clone();
+            stream::once(async move {
+                // request the DNSSEC records; we'll strip them if not needed on the caller side
+                let do_bit = true;
+                this.resolve(query, Instant::now(), do_bit)
+                    .map_ok(|lookup| {
+                        // `DnssecDnsHandle` will only look at the answer section of the message so
+                        // we can put "stubs" in the other fields
+                        let mut msg = Message::new();
+
+                        // XXX this effectively merges the original nameservers and additional
+                        // sections into the answers section
+                        msg.add_answers(lookup.records().iter().cloned());
+
+                        DnsResponse::new(msg, vec![])
+                    })
+                    .map_err(|e| ProtoError::from(e.to_string()))
+                    .await
+            })
+            .boxed()
+        }
+    }
 }

@@ -1,5 +1,4 @@
-use std::net::SocketAddr;
-use std::time::Instant;
+use std::{net::SocketAddr, sync::Arc, time::Instant};
 
 use async_recursion::async_recursion;
 use futures_util::{future::select_all, FutureExt};
@@ -27,9 +26,10 @@ use crate::{
 /// Set of nameservers by the zone name
 type NameServerCache<P> = LruCache<Name, RecursorPool<P>>;
 
+#[derive(Clone)]
 pub(crate) struct RecursorDnsHandle {
     roots: RecursorPool<TokioRuntimeProvider>,
-    name_server_cache: Mutex<NameServerCache<TokioRuntimeProvider>>,
+    name_server_cache: Arc<Mutex<NameServerCache<TokioRuntimeProvider>>>,
     record_cache: DnsLru,
     security_aware: bool,
 }
@@ -51,7 +51,7 @@ impl RecursorDnsHandle {
         let roots =
             GenericNameServerPool::from_config(roots, opts, TokioConnectionProvider::default());
         let roots = RecursorPool::from(Name::root(), roots);
-        let name_server_cache = Mutex::new(NameServerCache::new(ns_cache_size));
+        let name_server_cache = Arc::new(Mutex::new(NameServerCache::new(ns_cache_size)));
         let record_cache = DnsLru::new(record_cache_size, TtlConfig::default());
 
         Ok(Self {
@@ -290,6 +290,11 @@ impl RecursorDnsHandle {
         debug!("found nameservers for {}", zone);
         self.name_server_cache.lock().insert(zone, ns.clone());
         Ok(ns)
+    }
+
+    #[cfg(feature = "dnssec")]
+    pub(crate) fn record_cache(&self) -> &DnsLru {
+        &self.record_cache
     }
 }
 
