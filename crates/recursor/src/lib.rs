@@ -28,6 +28,7 @@
 
 pub mod error;
 mod recursor;
+mod recursor_dns_handle;
 pub(crate) mod recursor_pool;
 
 use std::time::Instant;
