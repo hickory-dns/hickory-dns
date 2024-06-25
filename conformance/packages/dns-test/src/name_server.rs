@@ -216,9 +216,10 @@ impl NameServer<Stopped> {
     /// Freezes and signs the name server's zone file
     pub fn sign(self) -> Result<NameServer<Signed>> {
         // TODO do we want to make these settings configurable?
-        const ZSK_BITS: usize = 1024;
+        // 2048-bit SHA256 matches `$ dig DNSKEY .` in length
+        const ZSK_BITS: usize = 2048;
         const KSK_BITS: usize = 2048;
-        const ALGORITHM: &str = "RSASHA1-NSEC3-SHA1";
+        const ALGORITHM: &str = "RSASHA256";
 
         let Self {
             container,
