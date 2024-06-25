@@ -30,12 +30,54 @@ pub mod error;
 mod recursor;
 pub(crate) mod recursor_pool;
 
+use std::time::Instant;
+
 pub use error::{Error, ErrorKind};
 pub use hickory_proto as proto;
 pub use hickory_resolver as resolver;
 pub use hickory_resolver::config::NameServerConfig;
+use proto::{op::Query, xfer::DnsResponse};
 pub use recursor::{Recursor, RecursorBuilder};
-use resolver::Name;
+use resolver::{dns_lru::DnsLru, lookup::Lookup, Name};
+use tracing::{info, warn};
+
+/// caches the `response` to `query` in `record_cache`
+///
+/// `now` indicates when the `response` was obtained
+///
+/// if `zone` is present, records in `response` that do not belong to `zone` will be discarded
+fn cache_response(
+    response: DnsResponse,
+    zone: Option<&Name>,
+    record_cache: &DnsLru,
+    query: Query,
+    now: Instant,
+) -> Result<Lookup, Error> {
+    let mut response = response.into_message();
+    info!("response: {}", response.header());
+
+    let records = response
+        .take_answers()
+        .into_iter()
+        .chain(response.take_name_servers())
+        .chain(response.take_additionals())
+        .filter(|x| {
+            if let Some(zone) = zone {
+                if !is_subzone(zone.clone(), x.name().clone()) {
+                    warn!("Dropping out of bailiwick record {x} for zone {}", zone);
+                    false
+                } else {
+                    true
+                }
+            } else {
+                true
+            }
+        });
+
+    let lookup = record_cache.insert_records(query, records, now);
+
+    lookup.ok_or_else(|| Error::from("no records found"))
+}
 
 /// Bailiwick/sub zone checking.
 ///
