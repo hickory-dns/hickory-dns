@@ -8,7 +8,6 @@ use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
 use crate::resolver::dnssec::fixtures;
 
 // no DS records are involved; this is a single-link chain of trust
-#[ignore]
 #[test]
 fn can_validate_without_delegation() -> Result<()> {
     let network = Network::new()?;
@@ -44,7 +43,6 @@ fn can_validate_without_delegation() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
 #[test]
 fn can_validate_with_delegation() -> Result<()> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
