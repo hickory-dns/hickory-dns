@@ -646,6 +646,8 @@ async fn send_forwarded_response(
         }
     };
 
+    response_header.set_authentic_data(answers.dnssec_validated());
+
     LookupSections {
         answers,
         ns: Box::<AuthLookup>::default(),

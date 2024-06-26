@@ -221,6 +221,11 @@ pub trait LookupObject: Send {
     ///
     /// it is acceptable for this to return None after the first call.
     fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>>;
+
+    /// Whether the records have been DNSSEC validated or not
+    fn dnssec_validated(&self) -> bool {
+        false
+    }
 }
 
 /// A lookup that returns no records
