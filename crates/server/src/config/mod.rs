@@ -100,7 +100,7 @@ impl Config {
     /// Read a [`Config`] from the given TOML string.
     #[cfg(feature = "toml")]
     pub fn from_toml(toml: &str) -> ConfigResult<Self> {
-        Ok(basic_toml::from_str(toml)?)
+        Ok(toml::from_str(toml)?)
     }
 
     /// set of listening ipv4 addresses (for TCP and UDP)
