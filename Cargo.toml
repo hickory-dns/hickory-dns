@@ -78,7 +78,6 @@ http = "1.1"
 
 # others
 backtrace = "0.3.50"
-basic-toml = "0.1"
 bitflags = "2.4.1"
 bytes = "1"
 cfg-if = "1"
@@ -104,6 +103,7 @@ smallvec = "1.6"
 socket2 = "0.5"
 time = "0.3"
 tinyvec = "1.1.1"
+toml = "0.8.14"
 url = "2.4.0"
 wasm-bindgen-crate = { version = "0.2.58", package = "wasm-bindgen" }
 

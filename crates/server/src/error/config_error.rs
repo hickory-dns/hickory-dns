@@ -27,7 +27,7 @@ pub enum ErrorKind {
     /// An error occurred while decoding toml data
     #[cfg(feature = "toml")]
     #[error("toml decode error: {0}")]
-    TomlDecode(#[from] basic_toml::Error),
+    TomlDecode(#[from] toml::de::Error),
 
     /// An error occurred while parsing a zone file
     #[error("failed to parse the zone file: {0}")]
