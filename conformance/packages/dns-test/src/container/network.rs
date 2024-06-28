@@ -2,7 +2,7 @@ use std::{
     process::{self, Command, Stdio},
     sync::{
         atomic::{self, AtomicUsize},
-        Arc,
+        Arc, Mutex,
     },
 };
 
@@ -50,6 +50,8 @@ impl Drop for NetworkInner {
 
 impl NetworkInner {
     pub fn new(pid: u32, network_name: &str) -> Result<Self> {
+        static CRITICAL_SECTION: Mutex<()> = Mutex::new(());
+
         let count = network_count();
         let network_name = format!("{network_name}-{pid}-{count}");
 
@@ -60,7 +62,13 @@ impl NetworkInner {
             .arg(&network_name);
 
         // create network
-        let output = command.output()?;
+        let output = {
+            // `docker network create` is racy in some versions of Docker. this `Mutex` ensure that
+            // multiple test threads do not run the command in parallel
+            let _guard = CRITICAL_SECTION.lock()?;
+
+            command.output()?
+        };
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
