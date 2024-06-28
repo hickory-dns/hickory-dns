@@ -8,6 +8,7 @@ use std::fs::File;
 use std::io::Read;
 use std::net::*;
 use std::path::Path;
+use std::sync::Arc;
 
 use hickory_server::server::Protocol;
 use tokio::net::TcpStream as TokioTcpStream;
@@ -37,7 +38,11 @@ fn confg_toml() -> &'static str {
     "all_supported_dnssec.toml"
 }
 
-fn trust_anchor(public_key_path: &Path, format: KeyFormat, algorithm: Algorithm) -> TrustAnchor {
+fn trust_anchor(
+    public_key_path: &Path,
+    format: KeyFormat,
+    algorithm: Algorithm,
+) -> Arc<TrustAnchor> {
     let mut file = File::open(public_key_path).expect("key not found");
     let mut buf = Vec::<u8>::new();
 
@@ -50,7 +55,7 @@ fn trust_anchor(public_key_path: &Path, format: KeyFormat, algorithm: Algorithm)
     let mut trust_anchor = TrustAnchor::new();
 
     trust_anchor.insert_trust_anchor(&public_key);
-    trust_anchor
+    Arc::new(trust_anchor)
 }
 
 #[allow(clippy::type_complexity)]

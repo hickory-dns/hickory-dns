@@ -5,6 +5,8 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+#[cfg(feature = "dnssec")]
+use std::sync::Arc;
 use std::{
     borrow::Cow,
     fs::File,
@@ -110,7 +112,8 @@ impl DnssecPolicyConfig {
                 trust_anchor: path
                     .as_ref()
                     .map(|path| read_trust_anchor(path))
-                    .transpose()?,
+                    .transpose()?
+                    .map(Arc::new),
             },
         })
     }

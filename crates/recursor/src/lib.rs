@@ -31,6 +31,8 @@ mod recursor;
 mod recursor_dns_handle;
 pub(crate) mod recursor_pool;
 
+#[cfg(feature = "dnssec")]
+use std::sync::Arc;
 use std::time::Instant;
 
 pub use error::{Error, ErrorKind};
@@ -61,7 +63,7 @@ pub enum DnssecPolicy {
     #[cfg(feature = "dnssec")]
     ValidateWithStaticKey {
         /// set to `None` to use built-in trust anchor
-        trust_anchor: Option<TrustAnchor>,
+        trust_anchor: Option<Arc<TrustAnchor>>,
     },
     // TODO RFC5011
     // ValidateWithInitialKey { ..  },}
