@@ -144,20 +144,26 @@ publish:
 clean:
     rm -rf {{TARGET_DIR}}
 
+# runs all other conformance-* tasks
 conformance: (conformance-framework) (conformance-unbound) (conformance-bind) (conformance-hickory) (conformance-ignored) (conformance-clippy) (conformance-fmt)
 
+# tests the conformance test framework
 conformance-framework:
     DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo t --manifest-path conformance/Cargo.toml -p dns-test
 
+# runs the conformance test suite against unbound
 conformance-unbound filter='':
     DNS_TEST_VERBOSE_DOCKER_BUILD=1 DNS_TEST_PEER=bind DNS_TEST_SUBJECT=unbound cargo t --manifest-path conformance/Cargo.toml -p conformance-tests -- --include-ignored {{filter}}
 
+# runs the conformance test suite against BIND
 conformance-bind filter='':
     DNS_TEST_VERBOSE_DOCKER_BUILD=1 DNS_TEST_PEER=unbound DNS_TEST_SUBJECT=bind cargo t --manifest-path conformance/Cargo.toml -p conformance-tests -- --include-ignored {{filter}}
 
+# runs the conformance test suite against the latest local hickory-dns commit -- changes that have not been commited will be ignored!
 conformance-hickory filter='':
     DNS_TEST_VERBOSE_DOCKER_BUILD=1 DNS_TEST_PEER=unbound DNS_TEST_SUBJECT="hickory {{justfile_directory()}}" cargo t --manifest-path conformance/Cargo.toml -p conformance-tests -- {{filter}}
 
+# checks that all conformance tests that pass with hickory-dns have been un-#[ignore]-d
 conformance-ignored:
     #!/usr/bin/env bash
 
@@ -165,17 +171,22 @@ conformance-ignored:
     DNS_TEST_VERBOSE_DOCKER_BUILD=1 DNS_TEST_PEER=unbound DNS_TEST_SUBJECT="hickory {{justfile_directory()}}" cargo test --manifest-path conformance/Cargo.toml -p conformance-tests -- --ignored | tee "$tmpfile"
     grep 'test result: FAILED. 0 passed' "$tmpfile" || ( echo "expected ALL tests to fail but at least one passed; the passing tests must be un-#[ignore]-d" && exit 1 )
 
+# lints the conformance test suite
 conformance-clippy:
     cargo clippy --manifest-path conformance/Cargo.toml --workspace --all-targets -- -D warnings
 
+# formats the conformance test suite code
 conformance-fmt:
     cargo fmt --manifest-path conformance/Cargo.toml --all -- --check
 
+# removes leftover Docker containers and networks that the test framework failed to remove
 conformance-clean: (conformance-clean-containers) (conformance-clean-networks)
 
+# removes leftover Docker containers that the test framework failed to remove
 conformance-clean-containers:
     docker rm -f $(docker ps | grep dns-test | cut -f 1 -d " ")
 
+# removes leftover Docker networks that the test framework failed to remove
 conformance-clean-networks:
     docker network rm $(docker network ls | grep dns-test | cut -f 1 -d " ")
 
