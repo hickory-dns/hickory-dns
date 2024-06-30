@@ -450,7 +450,7 @@ fn run() -> Result<(), String> {
         .collect();
 
     if args.validate {
-        info!("configuration files are validated.");
+        info!("configuration files are validated");
         return Ok(());
     }
 
@@ -575,8 +575,7 @@ fn run() -> Result<(), String> {
     // TODO: how to do threads? should we do a bunch of listener threads and then query threads?
     // Ideally the processing would be n-threads for receiving, which hand off to m-threads for
     //  request handling. It would generally be the case that n <= m.
-    info!("Server starting up");
-    info!("awaiting connections...");
+    info!("server starting up, awaiting connections...");
     match runtime.block_on(server.block_until_done()) {
         Ok(()) => {
             // we're exiting for some reason...
