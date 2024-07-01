@@ -586,7 +586,7 @@ mod tests {
     fn terminate_hickory_works() -> Result<()> {
         let network = Network::new()?;
         let ns = NameServer::new(
-            &Implementation::Hickory(Repository("https://github.com/hickory-dns/hickory-dns")),
+            &Implementation::Hickory(Repository(crate::repo_root())),
             FQDN::ROOT,
             &network,
         )?

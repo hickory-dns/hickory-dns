@@ -70,6 +70,17 @@ fn parse_peer() -> Implementation {
 }
 
 #[cfg(test)]
+fn repo_root() -> String {
+    use std::path::PathBuf;
+
+    let mut repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")); // /conformance/packages/dns-test
+    repo_root.pop(); // /conformance/packages/
+    repo_root.pop(); // /conformance
+    repo_root.pop(); // /
+    repo_root.display().to_string()
+}
+
+#[cfg(test)]
 mod tests {
     use std::env;
 
