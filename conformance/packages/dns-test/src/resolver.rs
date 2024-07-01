@@ -209,9 +209,8 @@ mod tests {
     fn terminate_hickory_works() -> Result<()> {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
-        let resolver = Resolver::new(&network, ns.root_hint()).start(&Implementation::Hickory(
-            Repository("https://github.com/hickory-dns/hickory-dns"),
-        ))?;
+        let resolver = Resolver::new(&network, ns.root_hint())
+            .start(&Implementation::Hickory(Repository(crate::repo_root())))?;
         let logs = resolver.terminate()?;
 
         // Hickory-DNS start sequence log has been consumed in `ResolverSettings.start`.
