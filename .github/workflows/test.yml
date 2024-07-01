@@ -6,14 +6,16 @@ on:
       - main
       - release/**
       - "*_dev"
-    paths-ignore:
-      - "conformance/**"
+    # does not work properly due to an issue in GitHub's branch protection
+    # rules: https://github.com/orgs/community/discussions/13690
+    # paths-ignore:
+    #   - "conformance/**"
   pull_request:
     branches:
       - main
       - release/**
-    paths-ignore:
-      - "conformance/**"
+    # paths-ignore:
+    #   - "conformance/**"
   schedule:
     - cron: "0 3 * * 4"
 
