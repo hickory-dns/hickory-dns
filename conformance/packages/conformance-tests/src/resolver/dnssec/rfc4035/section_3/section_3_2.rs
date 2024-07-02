@@ -88,7 +88,7 @@ fn on_do_0_query_strips_dnssec_records_even_if_it_cached_a_previous_do_1_query()
 fn on_do_1_query_return_dnssec_records_even_if_it_cached_a_previous_do_0_query() -> Result<()> {
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
-        .sign()?
+        .sign(SignSettings::default())?
         .start()?;
     let resolver = Resolver::new(network, ns.root_hint()).start()?;
 
