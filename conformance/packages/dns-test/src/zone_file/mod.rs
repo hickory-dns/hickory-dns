@@ -12,6 +12,8 @@ use std::str::FromStr;
 use crate::record::{self, Record, SOA};
 use crate::{Error, Result, DEFAULT_TTL, FQDN};
 
+pub(crate) mod signer;
+
 #[derive(Clone)]
 pub struct ZoneFile {
     origin: FQDN,

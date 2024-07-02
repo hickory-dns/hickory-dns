@@ -5,7 +5,8 @@ use crate::container::{Child, Container, Network};
 use crate::implementation::{Config, Role};
 use crate::record::{self, Record, SoaSettings, DS, SOA};
 use crate::tshark::Tshark;
-use crate::zone_file::{self, Root, ZoneFile};
+use crate::zone_file::signer::{KeyAlgorithm, Signer};
+use crate::zone_file::{Root, ZoneFile};
 use crate::{Implementation, Result, TrustAnchor, DEFAULT_TTL, FQDN};
 
 pub struct Graph {
@@ -215,12 +216,6 @@ impl NameServer<Stopped> {
 
     /// Freezes and signs the name server's zone file
     pub fn sign(self) -> Result<NameServer<Signed>> {
-        // TODO do we want to make these settings configurable?
-        // 2048-bit SHA256 matches `$ dig DNSKEY .` in length
-        const ZSK_BITS: usize = 2048;
-        const KSK_BITS: usize = 2048;
-        const ALGORITHM: &str = "RSASHA256";
-
         let Self {
             container,
             zone_file,
@@ -228,39 +223,13 @@ impl NameServer<Stopped> {
             state: _,
         } = self;
 
-        container.status_ok(&["mkdir", "-p", ZONES_DIR])?;
-        let zone_file_path = zone_file_path();
-        container.cp(&zone_file_path, &zone_file.to_string())?;
+        // TODO do we want to make these settings configurable?
+        // 2048-bit SHA256 matches `$ dig DNSKEY .` in length
+        let mut signer = Signer::copy_zone_file(&container, &zone_file)?;
+        let zsk = signer.gen_zsk_key(&container, 2048, KeyAlgorithm::RSASHA256)?;
+        let ksk = signer.gen_ksk_key(&container, 2048, KeyAlgorithm::RSASHA256)?;
 
-        let zone = zone_file.origin();
-
-        let zsk_keygen =
-            format!("cd {ZONES_DIR} && ldns-keygen -a {ALGORITHM} -b {ZSK_BITS} {zone}");
-        let zsk_filename = container.stdout(&["sh", "-c", &zsk_keygen])?;
-        let zsk_path = format!("{ZONES_DIR}/{zsk_filename}.key");
-        let zsk: zone_file::DNSKEY = container.stdout(&["cat", &zsk_path])?.parse()?;
-
-        let ksk_keygen =
-            format!("cd {ZONES_DIR} && ldns-keygen -k -a {ALGORITHM} -b {KSK_BITS} {zone}");
-        let ksk_filename = container.stdout(&["sh", "-c", &ksk_keygen])?;
-        let ksk_path = format!("{ZONES_DIR}/{ksk_filename}.key");
-        let ksk: zone_file::DNSKEY = container.stdout(&["cat", &ksk_path])?.parse()?;
-
-        // -n = use NSEC3 instead of NSEC
-        // -p = set the opt-out flag on all nsec3 rrs
-        let signzone = format!(
-            "cd {ZONES_DIR} && ldns-signzone -n -p {ZONE_FILENAME} {zsk_filename} {ksk_filename}"
-        );
-        container.status_ok(&["sh", "-c", &signzone])?;
-
-        // TODO do we want to make the hashing algorithm configurable?
-        // -2 = use SHA256 for the DS hash
-        let key2ds = format!("cd {ZONES_DIR} && ldns-key2ds -n -2 {ZONE_FILENAME}.signed");
-        let ds: DS = container.stdout(&["sh", "-c", &key2ds])?.parse()?;
-
-        let signed: ZoneFile = container
-            .stdout(&["cat", &format!("{zone_file_path}.signed")])?
-            .parse()?;
+        let (signed, ds) = signer.sign(&container)?;
 
         let ttl = zone_file.soa.ttl;
 
