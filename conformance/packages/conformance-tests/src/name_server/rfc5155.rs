@@ -1,7 +1,7 @@
 use std::net::Ipv4Addr;
 
 use dns_test::client::{Client, DigSettings, DigStatus};
-use dns_test::name_server::NameServer;
+use dns_test::name_server::{NameServer, SignSettings};
 use dns_test::nsec3::NSEC3Records;
 use dns_test::record::{Record, RecordType, NSEC3};
 use dns_test::{Network, Result, FQDN};
@@ -305,7 +305,7 @@ fn query_nameserver(
         ns.add(record);
     }
 
-    let ns = ns.sign()?;
+    let ns = ns.sign(SignSettings::default())?;
 
     let nsec3_rrs = NSEC3Records::new(ns.signed_zone_file());
 

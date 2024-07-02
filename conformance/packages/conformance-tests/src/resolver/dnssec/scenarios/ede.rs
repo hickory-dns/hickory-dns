@@ -1,7 +1,7 @@
 use std::net::Ipv4Addr;
 
 use dns_test::client::{Client, DigSettings, ExtendedDnsError};
-use dns_test::name_server::{Graph, NameServer, Sign};
+use dns_test::name_server::{Graph, NameServer, Sign, SignSettings};
 use dns_test::record::{Record, RecordType};
 use dns_test::{Network, Resolver, Result, FQDN};
 
@@ -141,9 +141,12 @@ fn fixture(
         trust_anchor,
     } = Graph::build(
         leaf_ns,
-        Sign::AndAmend(&|zone, records| {
-            amend(&needle_fqdn, zone, records);
-        }),
+        Sign::AndAmend {
+            settings: SignSettings::default(),
+            mutate: &|zone, records| {
+                amend(&needle_fqdn, zone, records);
+            },
+        },
     )?;
 
     let mut resolver = Resolver::new(&network, root);

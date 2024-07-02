@@ -1,7 +1,7 @@
 use std::net::Ipv4Addr;
 
 use dns_test::client::{Client, DigSettings};
-use dns_test::name_server::NameServer;
+use dns_test::name_server::{NameServer, SignSettings};
 use dns_test::record::RecordType;
 use dns_test::tshark::Capture;
 use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
@@ -14,7 +14,7 @@ fn can_validate_without_delegation() -> Result<()> {
     let network = Network::new()?;
     let mut ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, &network)?;
     ns.add(ns.a());
-    let ns = ns.sign()?;
+    let ns = ns.sign(SignSettings::default())?;
 
     let root_ksk = ns.key_signing_key().clone();
     let root_zsk = ns.zone_signing_key().clone();

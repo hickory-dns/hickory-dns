@@ -2,7 +2,7 @@ mod section_3_2_2;
 
 use dns_test::{
     client::{Client, DigSettings},
-    name_server::NameServer,
+    name_server::{NameServer, SignSettings},
     record::{Record, RecordType},
     tshark::{Capture, Direction},
     Network, Resolver, Result, FQDN,
@@ -12,7 +12,7 @@ use dns_test::{
 fn do_bit_not_set_in_request() -> Result<()> {
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
-        .sign()?
+        .sign(SignSettings::default())?
         .start()?;
     let resolver = Resolver::new(network, ns.root_hint()).start()?;
 
@@ -58,7 +58,7 @@ fn do_bit_not_set_in_request() -> Result<()> {
 fn on_do_0_query_strips_dnssec_records_even_if_it_cached_a_previous_do_1_query() -> Result<()> {
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
-        .sign()?
+        .sign(SignSettings::default())?
         .start()?;
     let resolver = Resolver::new(network, ns.root_hint()).start()?;
 
@@ -116,7 +116,7 @@ fn on_do_1_query_return_dnssec_records_even_if_it_cached_a_previous_do_0_query()
 fn if_do_bit_not_set_in_request_then_requested_dnssec_record_is_not_stripped() -> Result<()> {
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
-        .sign()?
+        .sign(SignSettings::default())?
         .start()?;
     let resolver = Resolver::new(network, ns.root_hint()).start()?;
 
@@ -141,7 +141,7 @@ fn if_do_bit_not_set_in_request_then_requested_dnssec_record_is_not_stripped() -
 fn do_bit_set_in_request() -> Result<()> {
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
-        .sign()?
+        .sign(SignSettings::default())?
         .start()?;
     let resolver = Resolver::new(network, ns.root_hint()).start()?;
 

@@ -1,6 +1,6 @@
 use dns_test::{
     client::{Client, DigSettings},
-    name_server::{Graph, NameServer, Sign},
+    name_server::{Graph, NameServer, Sign, SignSettings},
     record::RecordType,
     tshark::{Capture, Direction},
     Network, Resolver, Result, FQDN,
@@ -16,7 +16,12 @@ fn on_clients_ds_query_it_queries_the_parent_zone() -> Result<()> {
         nameservers,
         root,
         trust_anchor,
-    } = Graph::build(leaf_ns, Sign::Yes)?;
+    } = Graph::build(
+        leaf_ns,
+        Sign::Yes {
+            settings: SignSettings::default(),
+        },
+    )?;
 
     let mut com_ns_addr = None;
     for nameserver in &nameservers {

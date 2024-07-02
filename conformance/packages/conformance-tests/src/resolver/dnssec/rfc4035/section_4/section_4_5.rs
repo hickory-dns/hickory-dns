@@ -1,6 +1,6 @@
 use dns_test::{
     client::{Client, DigSettings},
-    name_server::NameServer,
+    name_server::{NameServer, SignSettings},
     record::{Record, RecordType},
     tshark::Capture,
     Network, Resolver, Result, FQDN,
@@ -11,7 +11,7 @@ use dns_test::{
 fn caches_dnssec_records() -> Result<()> {
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
-        .sign()?
+        .sign(SignSettings::default())?
         .start()?;
     let resolver = Resolver::new(network, ns.root_hint()).start()?;
 
