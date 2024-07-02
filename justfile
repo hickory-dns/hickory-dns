@@ -194,6 +194,33 @@ conformance-clean-containers:
 conformance-clean-networks:
     docker network rm $(docker network ls | grep dns-test | cut -f 1 -d " ")
 
+# runs all other e2e-tests-* tasks
+e2e-tests: (e2e-tests-run) (e2e-tests-ignored) (e2e-tests-clippy) (e2e-tests-fmt)
+
+# runs hickory-specific end-to-end tests that use the dns-test framework
+e2e-tests-run:
+    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes will NOT be tested" || true'
+    DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo test --manifest-path tests/e2e-tests/Cargo.toml
+    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes were NOT tested" || true'
+
+# check that any fixed e2e-test has not been left marked as `#[ignore]`
+e2e-tests-ignored:
+    #!/usr/bin/env bash
+
+    tmpfile="$(mktemp)"
+    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes will NOT be tested" || true'
+    DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo test --manifest-path tests/e2e-tests/Cargo.toml -- --ignored | tee "$tmpfile"
+    grep 'test result: FAILED. 0 passed' "$tmpfile" || ( echo "expected ALL tests to fail but at least one passed; the passing tests must be un-#[ignore]-d" && exit 1 )
+    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes were NOT tested" || true'
+
+# lints the end-to-end test suite
+e2e-tests-clippy:
+    cargo clippy --manifest-path tests/e2e-tests/Cargo.toml --all-targets -- -D warnings
+
+# formats the end-to-end test suite code
+e2e-tests-fmt:
+    cargo fmt --manifest-path tests/e2e-tests/Cargo.toml --all -- --check
+
 [private]
 [macos]
 init-openssl:

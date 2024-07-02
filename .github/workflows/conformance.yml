@@ -35,6 +35,9 @@ jobs:
       - name: check that all the tests that now pass with hickory-dns are not marked as `#[ignore]`-d
         run: just conformance-ignored
 
+      - name: run end-to-end tests that use the `dns-test` framework
+        run: just e2e-tests
+
       - name: lint code
         run: just conformance-clippy
 
