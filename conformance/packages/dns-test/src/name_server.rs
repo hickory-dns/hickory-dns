@@ -468,6 +468,14 @@ pub struct SignSettings {
 }
 
 impl SignSettings {
+    pub fn rsasha1_nsec3() -> Self {
+        Self {
+            algorithm: Algorithm::RSASHA1_NSEC3,
+            zsk_bits: 1024,
+            ksk_bits: 2048,
+        }
+    }
+
     fn rsasha256() -> Self {
         Self {
             algorithm: Algorithm::RSASHA256,
@@ -487,6 +495,7 @@ impl Default for SignSettings {
 #[derive(Debug, Clone, Copy)]
 #[allow(non_camel_case_types)]
 enum Algorithm {
+    RSASHA1_NSEC3,
     RSASHA256,
 }
 

@@ -5,5 +5,8 @@ publish = false
 description = "end-to-end tests at the binary level"
 
 [workspace]
+# don't accidentally run `dns-test` with `cargo t [--workspace]`
+exclude = ["../../conformance/package/dns-test"]
 
-[dependencies]
+[dev-dependencies]
+dns-test.path = "../../conformance/packages/dns-test"
