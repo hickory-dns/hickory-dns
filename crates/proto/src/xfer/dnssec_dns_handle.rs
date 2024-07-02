@@ -542,7 +542,18 @@ where
     //   if we find a valid DS, then we're in a Bogus state,
     //   if we find no records, then we are Indeterminate
     //   if we get ProofError, our result is the same
-    match find_ds_records(handle, zone.base_name(), options).await {
+
+    let parent = zone.base_name();
+    if zone == parent {
+        // zone is `.`. do not call `find_ds_records(.., parent, ..)` or that will lead to infinite
+        // recursion
+        return Err(ProofError::new(
+            Proof::Bogus,
+            ProofErrorKind::DsRecordShouldExist { name: zone },
+        ));
+    }
+
+    match find_ds_records(handle, parent, options).await {
         Ok(ds_records) if !ds_records.is_empty() => Err(ProofError::new(
             Proof::Bogus,
             ProofErrorKind::DsRecordShouldExist { name: zone },

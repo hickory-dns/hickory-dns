@@ -9,7 +9,6 @@ use dns_test::{
 
 /// regression test for https://github.com/hickory-dns/hickory-dns/issues/2252
 #[test]
-#[ignore]
 fn infinite_recursion_with_deprecated_algorithm() -> Result<()> {
     let needle_fqdn = FQDN("example.nameservers.com.")?;
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
