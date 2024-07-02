@@ -2,7 +2,7 @@ use std::net::Ipv4Addr;
 
 use base64::prelude::*;
 use dns_test::{
-    name_server::{Graph, NameServer, Running, Sign},
+    name_server::{Graph, NameServer, Running, Sign, SignSettings},
     record::Record,
     Network, Resolver, Result, TrustAnchor, FQDN,
 };
@@ -20,25 +20,29 @@ pub fn bad_signature_in_leaf_nameserver(
 
     let graph = Graph::build(
         leaf_ns,
-        Sign::AndAmend(&|zone, records| {
-            if zone == &FQDN::NAMESERVERS {
-                let mut modified = 0;
-                for record in records {
-                    if let Record::RRSIG(rrsig) = record {
-                        if rrsig.fqdn == *leaf_fqdn {
-                            let mut signature = BASE64_STANDARD.decode(&rrsig.signature).unwrap();
-                            let last = signature.last_mut().expect("empty signature");
-                            *last = !*last;
+        Sign::AndAmend {
+            settings: SignSettings::default(),
+            mutate: &|zone, records| {
+                if zone == &FQDN::NAMESERVERS {
+                    let mut modified = 0;
+                    for record in records {
+                        if let Record::RRSIG(rrsig) = record {
+                            if rrsig.fqdn == *leaf_fqdn {
+                                let mut signature =
+                                    BASE64_STANDARD.decode(&rrsig.signature).unwrap();
+                                let last = signature.last_mut().expect("empty signature");
+                                *last = !*last;
 
-                            rrsig.signature = BASE64_STANDARD.encode(&signature);
-                            modified += 1;
+                                rrsig.signature = BASE64_STANDARD.encode(&signature);
+                                modified += 1;
+                            }
                         }
                     }
-                }
 
-                assert_eq!(modified, 1, "sanity check");
-            }
-        }),
+                    assert_eq!(modified, 1, "sanity check");
+                }
+            },
+        },
     )?;
 
     let trust_anchor = graph.trust_anchor.as_ref().unwrap();
@@ -64,7 +68,12 @@ pub fn minimally_secure(
         nameservers,
         root,
         trust_anchor,
-    } = Graph::build(leaf_ns, Sign::Yes)?;
+    } = Graph::build(
+        leaf_ns,
+        Sign::Yes {
+            settings: SignSettings::default(),
+        },
+    )?;
 
     let trust_anchor = trust_anchor.unwrap();
     let resolver = Resolver::new(&network, root)

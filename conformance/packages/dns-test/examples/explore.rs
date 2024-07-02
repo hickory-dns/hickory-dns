@@ -3,7 +3,7 @@ use std::net::Ipv4Addr;
 use std::sync::mpsc;
 
 use dns_test::client::Client;
-use dns_test::name_server::{Graph, NameServer, Sign};
+use dns_test::name_server::{Graph, NameServer, Sign, SignSettings};
 use dns_test::record::RecordType;
 use dns_test::{Network, Resolver, Result, FQDN};
 
@@ -18,7 +18,13 @@ fn main() -> Result<()> {
     println!("DONE");
 
     println!("setting up name servers...");
-    let sign = if args.dnssec { Sign::Yes } else { Sign::No };
+    let sign = if args.dnssec {
+        Sign::Yes {
+            settings: SignSettings::default(),
+        }
+    } else {
+        Sign::No
+    };
     let Graph {
         root,
         trust_anchor,

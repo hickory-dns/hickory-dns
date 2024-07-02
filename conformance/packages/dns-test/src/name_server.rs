@@ -1,3 +1,4 @@
+use core::fmt;
 use core::sync::atomic::{self, AtomicUsize};
 use std::net::Ipv4Addr;
 
@@ -17,9 +18,14 @@ pub struct Graph {
 /// Whether to sign the zone files
 pub enum Sign<'a> {
     No,
-    Yes,
+    Yes {
+        settings: SignSettings,
+    },
     /// Signs the zone files and then modifies the records produced by the signing process
-    AndAmend(&'a dyn Fn(&FQDN, &mut Vec<Record>)),
+    AndAmend {
+        settings: SignSettings,
+        mutate: &'a dyn Fn(&FQDN, &mut Vec<Record>),
+    },
 }
 
 impl Graph {
@@ -96,10 +102,10 @@ impl Graph {
 
             _ => {
                 let mut trust_anchor = TrustAnchor::empty();
-                let maybe_mutate = match sign {
+                let (settings, maybe_mutate) = match sign {
                     Sign::No => unreachable!(),
-                    Sign::Yes => None,
-                    Sign::AndAmend(f) => Some(f),
+                    Sign::Yes { settings } => (settings, None),
+                    Sign::AndAmend { settings, mutate } => (settings, Some(mutate)),
                 };
 
                 let mut running = vec![];
@@ -116,7 +122,7 @@ impl Graph {
                         }
                     }
 
-                    let mut nameserver = nameserver.sign()?;
+                    let mut nameserver = nameserver.sign(settings)?;
                     children_ds.push(nameserver.ds().clone());
                     children_num_labels = nameserver.zone().num_labels();
                     if let Some(mutate) = maybe_mutate {
@@ -214,13 +220,7 @@ impl NameServer<Stopped> {
     }
 
     /// Freezes and signs the name server's zone file
-    pub fn sign(self) -> Result<NameServer<Signed>> {
-        // TODO do we want to make these settings configurable?
-        // 2048-bit SHA256 matches `$ dig DNSKEY .` in length
-        const ZSK_BITS: usize = 2048;
-        const KSK_BITS: usize = 2048;
-        const ALGORITHM: &str = "RSASHA256";
-
+    pub fn sign(self, settings: SignSettings) -> Result<NameServer<Signed>> {
         let Self {
             container,
             zone_file,
@@ -234,14 +234,18 @@ impl NameServer<Stopped> {
 
         let zone = zone_file.origin();
 
-        let zsk_keygen =
-            format!("cd {ZONES_DIR} && ldns-keygen -a {ALGORITHM} -b {ZSK_BITS} {zone}");
+        let zsk_keygen = format!(
+            "cd {ZONES_DIR} && ldns-keygen -a {} -b {} {zone}",
+            settings.algorithm, settings.zsk_bits
+        );
         let zsk_filename = container.stdout(&["sh", "-c", &zsk_keygen])?;
         let zsk_path = format!("{ZONES_DIR}/{zsk_filename}.key");
         let zsk: zone_file::DNSKEY = container.stdout(&["cat", &zsk_path])?.parse()?;
 
-        let ksk_keygen =
-            format!("cd {ZONES_DIR} && ldns-keygen -k -a {ALGORITHM} -b {KSK_BITS} {zone}");
+        let ksk_keygen = format!(
+            "cd {ZONES_DIR} && ldns-keygen -k -a {} -b {} {zone}",
+            settings.algorithm, settings.ksk_bits
+        );
         let ksk_filename = container.stdout(&["sh", "-c", &ksk_keygen])?;
         let ksk_path = format!("{ZONES_DIR}/{ksk_filename}.key");
         let ksk: zone_file::DNSKEY = container.stdout(&["cat", &ksk_path])?.parse()?;
@@ -456,6 +460,42 @@ pub struct Running {
     child: Child,
 }
 
+#[derive(Clone, Copy)]
+pub struct SignSettings {
+    zsk_bits: u16,
+    ksk_bits: u16,
+    algorithm: Algorithm,
+}
+
+impl SignSettings {
+    fn rsasha256() -> Self {
+        Self {
+            algorithm: Algorithm::RSASHA256,
+            // 2048-bit SHA256 matches `$ dig DNSKEY .` in length
+            zsk_bits: 2048,
+            ksk_bits: 2048,
+        }
+    }
+}
+
+impl Default for SignSettings {
+    fn default() -> Self {
+        Self::rsasha256()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+#[allow(non_camel_case_types)]
+enum Algorithm {
+    RSASHA256,
+}
+
+impl fmt::Display for Algorithm {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
+}
+
 fn primary_ns(ns_count: usize, zone: &FQDN) -> FQDN {
     FQDN(format!("primary{ns_count}.{}", expand_zone(zone))).unwrap()
 }
@@ -531,7 +571,8 @@ mod tests {
     #[test]
     fn signed() -> Result<()> {
         let network = Network::new()?;
-        let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.sign()?;
+        let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?
+            .sign(SignSettings::default())?;
 
         eprintln!("KSK:\n{}", ns.key_signing_key());
         eprintln!("ZSK:\n{}", ns.zone_signing_key());

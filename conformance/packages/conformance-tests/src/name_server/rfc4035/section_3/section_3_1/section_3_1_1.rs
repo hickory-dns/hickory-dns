@@ -1,5 +1,5 @@
 use dns_test::client::{Client, DigSettings};
-use dns_test::name_server::NameServer;
+use dns_test::name_server::{NameServer, SignSettings};
 use dns_test::record::{Record, RecordType};
 use dns_test::{Network, Result, FQDN};
 
@@ -9,7 +9,7 @@ fn rrsig_in_answer_section() -> Result<()> {
     let network = Network::new()?;
 
     let ns = NameServer::new(&dns_test::SUBJECT, FQDN::ROOT, &network)?
-        .sign()?
+        .sign(SignSettings::default())?
         .start()?;
 
     let client = Client::new(&network)?;
@@ -38,7 +38,7 @@ fn rrsig_in_authority_section() -> Result<()> {
     let network = Network::new()?;
 
     let ns = NameServer::new(&dns_test::SUBJECT, FQDN::ROOT, &network)?
-        .sign()?
+        .sign(SignSettings::default())?
         .start()?;
 
     let client = Client::new(&network)?;
