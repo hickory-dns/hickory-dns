@@ -55,6 +55,11 @@ impl Implementation {
         Self::Hickory(Repository(crate::repo_root()))
     }
 
+    /// A test peer that cannot be changed using the `DNS_TEST_PEER` env variable
+    pub const fn test_peer() -> Implementation {
+        Implementation::Unbound
+    }
+
     #[must_use]
     pub fn is_bind(&self) -> bool {
         matches!(self, Self::Bind)

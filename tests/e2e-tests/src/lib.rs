@@ -2,6 +2,8 @@
 
 use std::env;
 
+mod resolver;
+
 #[test]
 fn sanity_check() {
     for var in ["DNS_TEST_SUBJECT", "DNS_TEST_PEER"] {
