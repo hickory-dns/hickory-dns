@@ -521,7 +521,6 @@ mod tests {
 
     use crate::client::{Client, DigSettings};
     use crate::record::RecordType;
-    use crate::Repository;
 
     use super::*;
 
@@ -626,12 +625,7 @@ mod tests {
     #[test]
     fn terminate_hickory_works() -> Result<()> {
         let network = Network::new()?;
-        let ns = NameServer::new(
-            &Implementation::Hickory(Repository(crate::repo_root())),
-            FQDN::ROOT,
-            &network,
-        )?
-        .start()?;
+        let ns = NameServer::new(&Implementation::hickory(), FQDN::ROOT, &network)?.start()?;
 
         // hickory-dns does not do signal handling so we need to wait until it prints something to
         // the console

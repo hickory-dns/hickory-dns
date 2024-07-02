@@ -69,7 +69,6 @@ fn parse_peer() -> Implementation {
     }
 }
 
-#[cfg(test)]
 fn repo_root() -> String {
     use std::path::PathBuf;
 

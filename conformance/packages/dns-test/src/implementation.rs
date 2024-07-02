@@ -50,6 +50,11 @@ impl Implementation {
         }
     }
 
+    /// Returns the latest hickory-dns local revision
+    pub fn hickory() -> Self {
+        Self::Hickory(Repository(crate::repo_root()))
+    }
+
     #[must_use]
     pub fn is_bind(&self) -> bool {
         matches!(self, Self::Bind)

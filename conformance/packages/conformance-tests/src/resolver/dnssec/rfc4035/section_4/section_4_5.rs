@@ -53,7 +53,7 @@ fn caches_dnssec_records() -> Result<()> {
 fn caches_query_without_dnssec_to_return_all_dnssec_records_in_subsequent_query() -> Result<()> {
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
-        .sign()?
+        .sign(SignSettings::default())?
         .start()?;
     let resolver = Resolver::new(network, ns.root_hint()).start()?;
 

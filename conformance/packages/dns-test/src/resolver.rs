@@ -182,7 +182,7 @@ impl ResolverSettings {
 
 #[cfg(test)]
 mod tests {
-    use crate::{name_server::NameServer, Repository, FQDN};
+    use crate::{name_server::NameServer, FQDN};
 
     use super::*;
 
@@ -219,7 +219,7 @@ mod tests {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
         let resolver = Resolver::new(&network, ns.root_hint())
-            .start_with_subject(&Implementation::Hickory(Repository(crate::repo_root())))?;
+            .start_with_subject(&Implementation::hickory())?;
         let logs = resolver.terminate()?;
 
         // Hickory-DNS start sequence log has been consumed in `ResolverSettings.start`.
