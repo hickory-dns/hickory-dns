@@ -84,8 +84,15 @@ pub struct ResolverSettings {
 impl ResolverSettings {
     /// Starts a DNS server in the recursive resolver role
     ///
+    /// The server uses the implementation based on `$DNS_TEST_SUBJECT` env var.
+    pub fn start(&self) -> Result<Resolver> {
+        self.start_with_subject(&crate::SUBJECT)
+    }
+
+    /// Starts a DNS server in the recursive resolver role
+    ///
     /// This server is not an authoritative name server; it does not serve a zone file to clients
-    pub fn start(&self, implementation: &Implementation) -> Result<Resolver> {
+    pub fn start_with_subject(&self, implementation: &Implementation) -> Result<Resolver> {
         let image = implementation.clone().into();
         let container = Container::run(&image, &self.network)?;
 
@@ -183,7 +190,8 @@ mod tests {
     fn terminate_unbound_works() -> Result<()> {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
-        let resolver = Resolver::new(&network, ns.root_hint()).start(&Implementation::Unbound)?;
+        let resolver =
+            Resolver::new(&network, ns.root_hint()).start_with_subject(&Implementation::Unbound)?;
         let logs = resolver.terminate()?;
 
         eprintln!("{logs}");
@@ -196,7 +204,8 @@ mod tests {
     fn terminate_bind_works() -> Result<()> {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
-        let resolver = Resolver::new(&network, ns.root_hint()).start(&Implementation::Bind)?;
+        let resolver =
+            Resolver::new(&network, ns.root_hint()).start_with_subject(&Implementation::Bind)?;
         let logs = resolver.terminate()?;
 
         eprintln!("{logs}");
@@ -210,7 +219,7 @@ mod tests {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
         let resolver = Resolver::new(&network, ns.root_hint())
-            .start(&Implementation::Hickory(Repository(crate::repo_root())))?;
+            .start_with_subject(&Implementation::Hickory(Repository(crate::repo_root())))?;
         let logs = resolver.terminate()?;
 
         // Hickory-DNS start sequence log has been consumed in `ResolverSettings.start`.

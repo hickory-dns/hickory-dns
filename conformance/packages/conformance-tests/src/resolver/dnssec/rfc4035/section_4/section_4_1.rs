@@ -8,7 +8,7 @@ use dns_test::{Network, Resolver, Result, FQDN};
 fn edns_support() -> Result<()> {
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?.start()?;
-    let resolver = Resolver::new(network, ns.root_hint()).start(&dns_test::SUBJECT)?;
+    let resolver = Resolver::new(network, ns.root_hint()).start()?;
 
     let mut tshark = resolver.eavesdrop()?;
 

@@ -13,7 +13,7 @@ fn caches_dnssec_records() -> Result<()> {
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
         .sign()?
         .start()?;
-    let resolver = Resolver::new(network, ns.root_hint()).start(&dns_test::SUBJECT)?;
+    let resolver = Resolver::new(network, ns.root_hint()).start()?;
 
     let client = Client::new(network)?;
     let settings = *DigSettings::default().dnssec().recurse();
@@ -55,7 +55,7 @@ fn caches_query_without_dnssec_to_return_all_dnssec_records_in_subsequent_query(
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
         .sign()?
         .start()?;
-    let resolver = Resolver::new(network, ns.root_hint()).start(&dns_test::SUBJECT)?;
+    let resolver = Resolver::new(network, ns.root_hint()).start()?;
 
     let client = Client::new(network)?;
 

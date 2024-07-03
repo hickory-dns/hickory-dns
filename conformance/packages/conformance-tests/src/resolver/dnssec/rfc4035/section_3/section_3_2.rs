@@ -14,7 +14,7 @@ fn do_bit_not_set_in_request() -> Result<()> {
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
         .sign()?
         .start()?;
-    let resolver = Resolver::new(network, ns.root_hint()).start(&dns_test::SUBJECT)?;
+    let resolver = Resolver::new(network, ns.root_hint()).start()?;
 
     let mut tshark = resolver.eavesdrop()?;
 
@@ -60,7 +60,7 @@ fn on_do_0_query_strips_dnssec_records_even_if_it_cached_a_previous_do_1_query()
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
         .sign()?
         .start()?;
-    let resolver = Resolver::new(network, ns.root_hint()).start(&dns_test::SUBJECT)?;
+    let resolver = Resolver::new(network, ns.root_hint()).start()?;
 
     let client = Client::new(network)?;
     let settings = *DigSettings::default().dnssec().recurse();
@@ -90,7 +90,7 @@ fn on_do_1_query_return_dnssec_records_even_if_it_cached_a_previous_do_0_query()
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
         .sign()?
         .start()?;
-    let resolver = Resolver::new(network, ns.root_hint()).start(&dns_test::SUBJECT)?;
+    let resolver = Resolver::new(network, ns.root_hint()).start()?;
 
     let client = Client::new(network)?;
     let settings = *DigSettings::default().recurse();
@@ -118,7 +118,7 @@ fn if_do_bit_not_set_in_request_then_requested_dnssec_record_is_not_stripped() -
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
         .sign()?
         .start()?;
-    let resolver = Resolver::new(network, ns.root_hint()).start(&dns_test::SUBJECT)?;
+    let resolver = Resolver::new(network, ns.root_hint()).start()?;
 
     let client = Client::new(network)?;
     let settings = *DigSettings::default().recurse();
@@ -143,7 +143,7 @@ fn do_bit_set_in_request() -> Result<()> {
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
         .sign()?
         .start()?;
-    let resolver = Resolver::new(network, ns.root_hint()).start(&dns_test::SUBJECT)?;
+    let resolver = Resolver::new(network, ns.root_hint()).start()?;
 
     let mut tshark = resolver.eavesdrop()?;
 

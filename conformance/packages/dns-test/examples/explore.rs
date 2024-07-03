@@ -44,7 +44,7 @@ fn main() -> Result<()> {
     if let Some(trust_anchor) = trust_anchor {
         builder.trust_anchor(&trust_anchor);
     }
-    let resolver = builder.start(&dns_test::SUBJECT)?;
+    let resolver = builder.start()?;
     println!("DONE\n\n");
 
     let (tx, rx) = mpsc::channel();

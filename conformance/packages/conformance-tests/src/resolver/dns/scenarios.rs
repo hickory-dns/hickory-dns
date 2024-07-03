@@ -21,7 +21,7 @@ fn can_resolve() -> Result<()> {
         ..
     } = Graph::build(leaf_ns, Sign::No)?;
 
-    let resolver = Resolver::new(&network, root).start(&dns_test::SUBJECT)?;
+    let resolver = Resolver::new(&network, root).start()?;
     let resolver_ip_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;
@@ -55,7 +55,7 @@ fn nxdomain() -> Result<()> {
         ..
     } = Graph::build(leaf_ns, Sign::No)?;
 
-    let resolver = Resolver::new(&network, root).start(&dns_test::SUBJECT)?;
+    let resolver = Resolver::new(&network, root).start()?;
     let resolver_ip_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;

@@ -153,7 +153,7 @@ fn fixture(
     }
 
     let trust_anchor = &trust_anchor.unwrap();
-    let resolver = resolver.trust_anchor(trust_anchor).start(subject)?;
+    let resolver = resolver.trust_anchor(trust_anchor).start()?;
     let resolver_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;
