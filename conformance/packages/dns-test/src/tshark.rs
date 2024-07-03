@@ -329,8 +329,8 @@ mod tests {
         root_ns.referral_nameserver(&com_ns);
         let root_ns = root_ns.start()?;
 
-        let resolver =
-            Resolver::new(network, root_ns.root_hint()).start(&Implementation::Unbound)?;
+        let resolver = Resolver::new(network, root_ns.root_hint())
+            .start_with_subject(&Implementation::Unbound)?;
         let mut tshark = resolver.eavesdrop()?;
         let resolver_addr = resolver.ipv4_addr();
 

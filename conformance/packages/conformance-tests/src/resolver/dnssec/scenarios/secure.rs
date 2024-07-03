@@ -28,7 +28,7 @@ fn can_validate_without_delegation() -> Result<()> {
     let trust_anchor = &TrustAnchor::from_iter([root_ksk.clone(), root_zsk.clone()]);
     let resolver = Resolver::new(&network, ns.root_hint())
         .trust_anchor(trust_anchor)
-        .start(&dns_test::SUBJECT)?;
+        .start()?;
     let resolver_addr = resolver.ipv4_addr();
 
     let client = Client::new(&network)?;

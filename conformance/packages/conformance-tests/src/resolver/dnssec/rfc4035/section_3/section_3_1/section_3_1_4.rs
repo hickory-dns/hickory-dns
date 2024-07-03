@@ -29,7 +29,7 @@ fn on_clients_ds_query_it_queries_the_parent_zone() -> Result<()> {
     let trust_anchor = &trust_anchor.unwrap();
     let resolver = Resolver::new(&network, root)
         .trust_anchor(trust_anchor)
-        .start(&dns_test::SUBJECT)?;
+        .start()?;
 
     let mut tshark = resolver.eavesdrop()?;
 

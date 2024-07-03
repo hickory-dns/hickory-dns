@@ -44,7 +44,7 @@ pub fn bad_signature_in_leaf_nameserver(
     let trust_anchor = graph.trust_anchor.as_ref().unwrap();
     let resolver = Resolver::new(&network, graph.root.clone())
         .trust_anchor(trust_anchor)
-        .start(&dns_test::SUBJECT)?;
+        .start()?;
 
     Ok((resolver, graph))
 }
@@ -69,7 +69,7 @@ pub fn minimally_secure(
     let trust_anchor = trust_anchor.unwrap();
     let resolver = Resolver::new(&network, root)
         .trust_anchor(&trust_anchor)
-        .start(&dns_test::SUBJECT)?;
+        .start()?;
 
     Ok((resolver, nameservers, trust_anchor))
 }
