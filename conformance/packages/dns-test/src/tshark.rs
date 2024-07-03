@@ -215,6 +215,14 @@ pub enum Direction {
 }
 
 impl Direction {
+    /// The address of the peer, independent of the direction of the packet
+    pub fn peer_addr(&self) -> Ipv4Addr {
+        match self {
+            Direction::Incoming { source } => *source,
+            Direction::Outgoing { destination } => *destination,
+        }
+    }
+
     pub fn try_into_incoming(self) -> CoreResult<Ipv4Addr, Self> {
         if let Self::Incoming { source } = self {
             Ok(source)
