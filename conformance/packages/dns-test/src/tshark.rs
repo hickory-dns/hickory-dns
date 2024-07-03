@@ -69,6 +69,20 @@ pub struct Tshark {
 }
 
 impl Tshark {
+    /// Blocks until `tshark` reports the number of expected captured packets.
+    pub fn wait_for_new_packets(&mut self, expected: usize) -> Result<usize> {
+        let mut captured = 0;
+
+        loop {
+            captured += self.wait_for_capture()?;
+            if captured >= expected {
+                break;
+            }
+        }
+
+        Ok(captured)
+    }
+
     /// Blocks until `tshark` reports that it has captured new DNS messages
     ///
     /// This method returns the number of newly captured messages
@@ -293,8 +307,7 @@ mod tests {
 
         assert!(resp.status.is_noerror());
 
-        let captured = tshark.wait_for_capture()?;
-        assert_eq!(2, captured);
+        tshark.wait_for_new_packets(2)?;
 
         let messages = tshark.terminate()?;
 
