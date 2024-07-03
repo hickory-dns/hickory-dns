@@ -626,7 +626,7 @@ fn recursor_opts() -> ResolverOpts {
 ///
 /// * [RFC 8499](https://datatracker.ietf.org/doc/html/rfc8499) -- DNS Terminology (see page 25)
 /// * [The Hitchiker's Guide to DNS Cache Poisoning](https://www.cs.utexas.edu/%7Eshmat/shmat_securecomm10.pdf) -- for a more in-depth
-/// discussion of DNS cache poisoning attacks, see section 4, specifically, for a discussion of the Bailiwick rule.
+///   discussion of DNS cache poisoning attacks, see section 4, specifically, for a discussion of the Bailiwick rule.
 fn is_subzone(parent: Name, child: Name) -> bool {
     if parent.is_empty() {
         return false;

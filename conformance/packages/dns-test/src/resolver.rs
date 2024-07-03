@@ -133,7 +133,7 @@ impl ResolverSettings {
 
             for line in lines {
                 let line = line?;
-                if line.contains("Server starting up") {
+                if line.contains("server starting up") {
                     break;
                 }
             }

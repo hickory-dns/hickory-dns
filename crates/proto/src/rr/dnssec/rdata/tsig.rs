@@ -687,13 +687,13 @@ impl fmt::Display for TsigAlgorithm {
 /// # Arguments
 ///
 /// * `previous_hash` - hash of previous message in case of message chaining, or of query in case
-/// of response. Should be None for query
+///   of response. Should be None for query
 /// * `message` - the message to authenticate. Should not be modified after calling message_tbs
-/// except for adding the TSIG record
+///   except for adding the TSIG record
 /// * `pre_tsig` - TSIG rrdata, possibly with missing mac. Should not be modified in any other way
-/// after calling message_tbs
+///   after calling message_tbs
 /// * `key_name` - name of they key, should be the same as the name known by the remove
-/// server/client
+///   server/client
 pub fn message_tbs<M: BinEncodable>(
     previous_hash: Option<&[u8]>,
     message: &M,
@@ -717,7 +717,7 @@ pub fn message_tbs<M: BinEncodable>(
 /// # Arguments
 ///
 /// * `previous_hash` - hash of previous message in case of message chaining, or of query in case
-/// of response. Should be None for query
+///   of response. Should be None for query
 /// * `message` - the byte-message to authenticate, with included TSIG
 pub fn signed_bitmessage_to_buf(
     previous_hash: Option<&[u8]>,
