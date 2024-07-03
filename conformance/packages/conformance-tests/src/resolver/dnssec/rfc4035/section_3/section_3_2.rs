@@ -82,6 +82,36 @@ fn on_do_0_query_strips_dnssec_records_even_if_it_cached_a_previous_do_1_query()
     Ok(())
 }
 
+// this ensures that in the presence of a cached entry (answer), the dnssec records (answer+rrsig) are still
+// returned as per the RFC
+#[test]
+fn on_do_1_query_return_dnssec_records_even_if_it_cached_a_previous_do_0_query() -> Result<()> {
+    let network = &Network::new()?;
+    let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
+        .sign()?
+        .start()?;
+    let resolver = Resolver::new(network, ns.root_hint()).start(&dns_test::SUBJECT)?;
+
+    let client = Client::new(network)?;
+    let settings = *DigSettings::default().recurse();
+    let resolver_addr = resolver.ipv4_addr();
+    let ans = client.dig(settings, resolver_addr, RecordType::SOA, &FQDN::ROOT)?;
+
+    let [answer] = ans.answer.try_into().unwrap();
+
+    assert!(matches!(answer, Record::SOA(_)));
+
+    let settings = *DigSettings::default().dnssec().recurse();
+    let ans = client.dig(settings, resolver_addr, RecordType::SOA, &FQDN::ROOT)?;
+
+    let [answer, rrsig] = ans.answer.try_into().unwrap();
+
+    assert!(matches!(answer, Record::SOA(_)));
+    assert!(matches!(rrsig, Record::RRSIG(_)));
+
+    Ok(())
+}
+
 #[test]
 fn if_do_bit_not_set_in_request_then_requested_dnssec_record_is_not_stripped() -> Result<()> {
     let network = &Network::new()?;
