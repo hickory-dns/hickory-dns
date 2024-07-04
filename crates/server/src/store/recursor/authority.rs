@@ -129,7 +129,7 @@ impl Authority for RecursiveAuthority {
         let now = Instant::now();
 
         self.recursor
-            .resolve(query, now, lookup_options.is_dnssec())
+            .resolve(query, now, lookup_options.dnssec_ok())
             .await
             .map(RecursiveLookup)
             .map_err(Into::into)

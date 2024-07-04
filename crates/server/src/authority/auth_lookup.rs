@@ -274,7 +274,7 @@ impl<'r> Iterator for AnyRecordsIter<'r> {
                     self.records = Some(
                         self.rrset
                             .expect("rrset should not be None at this point")
-                            .records(self.lookup_options.is_dnssec(), self.lookup_options.supported_algorithms()),
+                            .records(self.lookup_options.dnssec_ok(), self.lookup_options.supported_algorithms()),
                     );
                 } else {
                     self.records = Some(self.rrset.expect("rrset should not be None at this point").records_without_rrsigs());
