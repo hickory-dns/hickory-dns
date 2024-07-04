@@ -2,9 +2,10 @@ use std::net::Ipv4Addr;
 
 use dns_test::{
     client::{Client, DigSettings},
-    name_server::{NameServer, SignSettings},
+    name_server::NameServer,
     record::{Record, RecordType},
     tshark::Capture,
+    zone_file::SignSettings,
     Network, Resolver, Result, FQDN,
 };
 

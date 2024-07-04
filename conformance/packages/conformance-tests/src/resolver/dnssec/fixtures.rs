@@ -2,8 +2,9 @@ use std::net::Ipv4Addr;
 
 use base64::prelude::*;
 use dns_test::{
-    name_server::{Graph, NameServer, Running, Sign, SignSettings},
+    name_server::{Graph, NameServer, Running, Sign},
     record::Record,
+    zone_file::SignSettings,
     Network, Resolver, Result, TrustAnchor, FQDN,
 };
 

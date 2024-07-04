@@ -2,9 +2,10 @@ mod section_3_2_2;
 
 use dns_test::{
     client::{Client, DigSettings},
-    name_server::{NameServer, SignSettings},
+    name_server::NameServer,
     record::{Record, RecordType},
     tshark::{Capture, Direction},
+    zone_file::SignSettings,
     Network, Resolver, Result, FQDN,
 };
 
