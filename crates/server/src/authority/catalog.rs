@@ -475,7 +475,7 @@ async fn build_response(
     let lookup_options = lookup_options_for_edns(edns);
 
     // log algorithms being requested
-    if lookup_options.is_dnssec() {
+    if lookup_options.dnssec_ok() {
         info!(
             "request: {} lookup_options: {:?}",
             request_id, lookup_options
@@ -564,7 +564,7 @@ async fn send_authoritative_response(
             (None, None)
         }
     } else {
-        let nsecs = if lookup_options.is_dnssec() {
+        let nsecs = if lookup_options.dnssec_ok() {
             // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
             debug!("request: {} non-existent adding nsecs", request_id);
             // run the nsec lookup future, and then transition to get soa

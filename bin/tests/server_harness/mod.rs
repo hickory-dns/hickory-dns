@@ -287,7 +287,7 @@ pub fn query_all_dnssec(
 
     let name = Name::from_str("example.com.").unwrap();
     let mut client = MutMessageHandle::new(client);
-    client.lookup_options.set_is_dnssec(true);
+    client.lookup_options.set_dnssec_ok(true);
     if with_rfc6975 {
         client
             .lookup_options

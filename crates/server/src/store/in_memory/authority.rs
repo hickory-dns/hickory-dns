@@ -437,7 +437,7 @@ impl InnerInMemory {
                 cfg_if! {
                     if #[cfg(feature = "dnssec")] {
                         let (records_tmp, rrsigs_tmp) = rrset
-                            .records(lookup_options.is_dnssec(), lookup_options.supported_algorithms())
+                            .records(lookup_options.dnssec_ok(), lookup_options.supported_algorithms())
                             .partition(|r| r.record_type() != RecordType::RRSIG);
                         records = records_tmp;
                         _rrsigs = rrsigs_tmp;
@@ -1092,7 +1092,7 @@ impl Authority for InMemoryAuthority {
                                     use tracing::warn;
 
                                     // ANAME's are constructed on demand, so need to be signed before return
-                                    if lookup_options.is_dnssec() {
+                                    if lookup_options.dnssec_ok() {
                                         InnerInMemory::sign_rrset(
                                             &mut new_answer,
                                             inner.secure_keys(),
