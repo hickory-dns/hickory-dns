@@ -103,6 +103,10 @@ impl Authority for RecursiveAuthority {
         false
     }
 
+    fn can_validate_dnssec(&self) -> bool {
+        self.recursor.is_validating()
+    }
+
     async fn update(&self, _update: &MessageRequest) -> UpdateResult<bool> {
         Err(ResponseCode::NotImp)
     }

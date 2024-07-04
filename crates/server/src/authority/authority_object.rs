@@ -29,6 +29,9 @@ pub trait AuthorityObject: Send + Sync {
     /// Return true if AXFR is allowed
     fn is_axfr_allowed(&self) -> bool;
 
+    /// Whether the authority can perform DNSSEC validation
+    fn can_validate_dnssec(&self) -> bool;
+
     /// Perform a dynamic update of a zone
     async fn update(&self, update: &MessageRequest) -> UpdateResult<bool>;
 
@@ -133,6 +136,10 @@ where
     /// Return true if AXFR is allowed
     fn is_axfr_allowed(&self) -> bool {
         Authority::is_axfr_allowed(self.as_ref())
+    }
+
+    fn can_validate_dnssec(&self) -> bool {
+        Authority::can_validate_dnssec(self.as_ref())
     }
 
     /// Perform a dynamic update of a zone
