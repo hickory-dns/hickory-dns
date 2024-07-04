@@ -6,8 +6,6 @@ use dns_test::{Result, FQDN};
 
 use crate::resolver::dnssec::fixtures;
 
-// TODO find out which RFC section states this
-#[ignore]
 #[test]
 fn if_cd_bit_is_clear_and_data_is_not_authentic_then_respond_with_servfail() -> Result<()> {
     let needle_fqdn = FQDN("example.nameservers.com.")?;
