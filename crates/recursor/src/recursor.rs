@@ -86,6 +86,12 @@ impl Recursor {
         RecursorBuilder::default()
     }
 
+    /// Whether the recursive resolver is a validating resolver
+    pub fn is_validating(&self) -> bool {
+        // matching on `NonValidating` to avoid conditional compilation (`#[cfg]`)
+        !matches!(self.mode, RecursorMode::NonValidating { .. })
+    }
+
     fn build(
         roots: impl Into<NameServerConfigGroup>,
         ns_cache_size: usize,

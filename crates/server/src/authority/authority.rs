@@ -104,6 +104,11 @@ pub trait Authority: Send + Sync {
     /// Return true if AXFR is allowed
     fn is_axfr_allowed(&self) -> bool;
 
+    /// Whether the authority can perform DNSSEC validation
+    fn can_validate_dnssec(&self) -> bool {
+        false
+    }
+
     /// Perform a dynamic update of a zone
     async fn update(&self, update: &MessageRequest) -> UpdateResult<bool>;
 
