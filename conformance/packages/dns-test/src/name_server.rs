@@ -1,4 +1,3 @@
-use core::fmt;
 use core::sync::atomic::{self, AtomicUsize};
 use std::net::Ipv4Addr;
 
@@ -6,7 +5,8 @@ use crate::container::{Child, Container, Network};
 use crate::implementation::{Config, Role};
 use crate::record::{self, Record, SoaSettings, DS, SOA};
 use crate::tshark::Tshark;
-use crate::zone_file::{self, Root, ZoneFile};
+use crate::zone_file::{Root, ZoneFile};
+use crate::zone_file::{SignSettings, Signer};
 use crate::{Implementation, Result, TrustAnchor, DEFAULT_TTL, FQDN};
 
 pub struct Graph {
@@ -122,7 +122,7 @@ impl Graph {
                         }
                     }
 
-                    let mut nameserver = nameserver.sign(settings)?;
+                    let mut nameserver = nameserver.sign(settings.clone())?;
                     children_ds.push(nameserver.ds().clone());
                     children_num_labels = nameserver.zone().num_labels();
                     if let Some(mutate) = maybe_mutate {
@@ -228,57 +228,13 @@ impl NameServer<Stopped> {
             state: _,
         } = self;
 
-        container.status_ok(&["mkdir", "-p", ZONES_DIR])?;
-        let zone_file_path = zone_file_path();
-        container.cp(&zone_file_path, &zone_file.to_string())?;
-
-        let zone = zone_file.origin();
-
-        let zsk_keygen = format!(
-            "cd {ZONES_DIR} && ldns-keygen -a {} -b {} {zone}",
-            settings.algorithm, settings.zsk_bits
-        );
-        let zsk_filename = container.stdout(&["sh", "-c", &zsk_keygen])?;
-        let zsk_path = format!("{ZONES_DIR}/{zsk_filename}.key");
-        let zsk: zone_file::DNSKEY = container.stdout(&["cat", &zsk_path])?.parse()?;
-
-        let ksk_keygen = format!(
-            "cd {ZONES_DIR} && ldns-keygen -k -a {} -b {} {zone}",
-            settings.algorithm, settings.ksk_bits
-        );
-        let ksk_filename = container.stdout(&["sh", "-c", &ksk_keygen])?;
-        let ksk_path = format!("{ZONES_DIR}/{ksk_filename}.key");
-        let ksk: zone_file::DNSKEY = container.stdout(&["cat", &ksk_path])?.parse()?;
-
-        // -n = use NSEC3 instead of NSEC
-        // -p = set the opt-out flag on all nsec3 rrs
-        let signzone = format!(
-            "cd {ZONES_DIR} && ldns-signzone -n -p {ZONE_FILENAME} {zsk_filename} {ksk_filename}"
-        );
-        container.status_ok(&["sh", "-c", &signzone])?;
-
-        // TODO do we want to make the hashing algorithm configurable?
-        // -2 = use SHA256 for the DS hash
-        let key2ds = format!("cd {ZONES_DIR} && ldns-key2ds -n -2 {ZONE_FILENAME}.signed");
-        let ds: DS = container.stdout(&["sh", "-c", &key2ds])?.parse()?;
-
-        let signed: ZoneFile = container
-            .stdout(&["cat", &format!("{zone_file_path}.signed")])?
-            .parse()?;
-
-        let ttl = zone_file.soa.ttl;
+        let state = Signer::new(&container, settings)?.sign_zone(&zone_file)?;
 
         Ok(NameServer {
             container,
             implementation,
             zone_file,
-            state: Signed {
-                ds,
-                signed,
-                // inherit SOA's TTL value
-                ksk: ksk.with_ttl(ttl),
-                zsk: zsk.with_ttl(ttl),
-            },
+            state,
         })
     }
 
@@ -464,10 +420,10 @@ impl<S> NameServer<S> {
 pub struct Stopped;
 
 pub struct Signed {
-    ds: DS,
-    zsk: record::DNSKEY,
-    ksk: record::DNSKEY,
-    signed: ZoneFile,
+    pub(crate) ds: DS,
+    pub(crate) zsk: record::DNSKEY,
+    pub(crate) ksk: record::DNSKEY,
+    pub(crate) signed: ZoneFile,
 }
 
 impl Signed {
@@ -483,51 +439,6 @@ impl Signed {
 pub struct Running {
     child: Child,
     trust_anchor: Option<TrustAnchor>,
-}
-
-#[derive(Clone, Copy)]
-pub struct SignSettings {
-    zsk_bits: u16,
-    ksk_bits: u16,
-    algorithm: Algorithm,
-}
-
-impl SignSettings {
-    pub fn rsasha1_nsec3() -> Self {
-        Self {
-            algorithm: Algorithm::RSASHA1_NSEC3,
-            zsk_bits: 1024,
-            ksk_bits: 2048,
-        }
-    }
-
-    fn rsasha256() -> Self {
-        Self {
-            algorithm: Algorithm::RSASHA256,
-            // 2048-bit SHA256 matches `$ dig DNSKEY .` in length
-            zsk_bits: 2048,
-            ksk_bits: 2048,
-        }
-    }
-}
-
-impl Default for SignSettings {
-    fn default() -> Self {
-        Self::rsasha256()
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-#[allow(non_camel_case_types)]
-enum Algorithm {
-    RSASHA1_NSEC3,
-    RSASHA256,
-}
-
-impl fmt::Display for Algorithm {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(self, f)
-    }
 }
 
 fn primary_ns(ns_count: usize, zone: &FQDN) -> FQDN {

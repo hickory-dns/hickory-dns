@@ -1,8 +1,9 @@
 use dns_test::{
     client::{Client, DigSettings},
-    name_server::{Graph, NameServer, Sign, SignSettings},
+    name_server::{Graph, NameServer, Sign},
     record::RecordType,
     tshark::{Capture, Direction},
+    zone_file::SignSettings,
     Network, Resolver, Result, FQDN,
 };
 

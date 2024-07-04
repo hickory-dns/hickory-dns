@@ -1,6 +1,7 @@
 use dns_test::client::{Client, DigSettings};
-use dns_test::name_server::{NameServer, SignSettings};
+use dns_test::name_server::NameServer;
 use dns_test::record::{Record, RecordType};
+use dns_test::zone_file::SignSettings;
 use dns_test::{Network, Result, FQDN};
 
 #[test]

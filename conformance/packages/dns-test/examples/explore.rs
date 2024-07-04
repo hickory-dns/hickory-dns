@@ -3,8 +3,9 @@ use std::net::Ipv4Addr;
 use std::sync::mpsc;
 
 use dns_test::client::Client;
-use dns_test::name_server::{Graph, NameServer, Sign, SignSettings};
+use dns_test::name_server::{Graph, NameServer, Sign};
 use dns_test::record::RecordType;
+use dns_test::zone_file::SignSettings;
 use dns_test::{Network, Resolver, Result, FQDN};
 
 fn main() -> Result<()> {

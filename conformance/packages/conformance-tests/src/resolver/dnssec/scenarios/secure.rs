@@ -1,9 +1,10 @@
 use std::net::Ipv4Addr;
 
 use dns_test::client::{Client, DigSettings};
-use dns_test::name_server::{NameServer, SignSettings};
+use dns_test::name_server::NameServer;
 use dns_test::record::RecordType;
 use dns_test::tshark::Capture;
+use dns_test::zone_file::SignSettings;
 use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
 
 use crate::resolver::dnssec::fixtures;
