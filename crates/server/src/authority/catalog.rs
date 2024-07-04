@@ -502,7 +502,13 @@ async fn build_response(
             .await
         }
         ZoneType::Forward | ZoneType::Hint => {
-            send_forwarded_response(future, request_header, &mut response_header).await
+            send_forwarded_response(
+                future,
+                request_header,
+                &mut response_header,
+                authority.can_validate_dnssec(),
+            )
+            .await
         }
     };
 
@@ -617,6 +623,7 @@ async fn send_forwarded_response(
     future: impl Future<Output = Result<Box<dyn LookupObject>, LookupError>>,
     request_header: &Header,
     response_header: &mut Header,
+    can_validate_dnssec: bool,
 ) -> LookupSections {
     response_header.set_recursion_available(true);
     response_header.set_authoritative(false);
@@ -646,7 +653,9 @@ async fn send_forwarded_response(
         }
     };
 
-    response_header.set_authentic_data(answers.dnssec_validated());
+    if can_validate_dnssec {
+        response_header.set_authentic_data(answers.dnssec_validated());
+    }
 
     LookupSections {
         answers,
