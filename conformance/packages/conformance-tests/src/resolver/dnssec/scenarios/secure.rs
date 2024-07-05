@@ -68,6 +68,44 @@ fn can_validate_with_delegation() -> Result<()> {
     Ok(())
 }
 
+// the inclusion of RRSIGs records in the answer should not change the outcome of validation
+// if the chain of trust was valid then the RRSIGs, which are part of the chain, must also be secure
+#[ignore]
+#[test]
+fn also_secure_when_do_is_set() -> Result<()> {
+    let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
+    let needle_fqdn = FQDN("example.nameservers.com.")?;
+
+    let (resolver, _nameservers, _trust_anchor) =
+        fixtures::minimally_secure(needle_fqdn.clone(), expected_ipv4_addr)?;
+
+    let resolver_addr = resolver.ipv4_addr();
+
+    let client = Client::new(resolver.network())?;
+    let settings = *DigSettings::default()
+        .recurse()
+        .dnssec() // DO = 1
+        .authentic_data();
+    let output = client.dig(settings, resolver_addr, RecordType::A, &needle_fqdn)?;
+
+    assert!(output.status.is_noerror());
+
+    // main assertion
+    assert!(output.flags.authenticated_data);
+
+    let [a, rrsig] = output.answer.try_into().unwrap();
+    let a = a.try_into_a().unwrap();
+
+    assert_eq!(needle_fqdn, a.fqdn);
+    assert_eq!(expected_ipv4_addr, a.ipv4_addr);
+
+    // sanity check that the RRSIG makes sense
+    let rrsig = rrsig.try_into_rrsig().unwrap();
+    assert_eq!(RecordType::A, rrsig.type_covered);
+
+    Ok(())
+}
+
 #[test]
 fn caches_answer() -> Result<()> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
