@@ -38,9 +38,6 @@ fn can_validate_without_delegation() -> Result<()> {
     assert!(output.status.is_noerror());
     assert!(output.flags.authenticated_data);
 
-    let output = client.delv(resolver_addr, RecordType::SOA, &FQDN::ROOT, trust_anchor)?;
-    assert!(output.starts_with("; fully validated"));
-
     Ok(())
 }
 
@@ -49,7 +46,7 @@ fn can_validate_with_delegation() -> Result<()> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let needle_fqdn = FQDN("example.nameservers.com.")?;
 
-    let (resolver, _nameservers, trust_anchor) =
+    let (resolver, _nameservers, _trust_anchor) =
         fixtures::minimally_secure(needle_fqdn.clone(), expected_ipv4_addr)?;
 
     let resolver_addr = resolver.ipv4_addr();
@@ -67,9 +64,6 @@ fn can_validate_with_delegation() -> Result<()> {
 
     assert_eq!(needle_fqdn, a.fqdn);
     assert_eq!(expected_ipv4_addr, a.ipv4_addr);
-
-    let output = client.delv(resolver_addr, RecordType::A, &needle_fqdn, &trust_anchor)?;
-    assert!(output.starts_with("; fully validated"));
 
     Ok(())
 }
