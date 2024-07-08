@@ -357,6 +357,7 @@ enum RecursorMode {
     },
 }
 
+#[cfg(test)]
 #[tokio::test]
 async fn not_fully_qualified_domain_name_in_query() -> Result<(), Error> {
     use crate::{proto::rr::RecordType, resolver::Name};
