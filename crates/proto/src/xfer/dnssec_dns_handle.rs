@@ -30,7 +30,7 @@ use crate::{
             Algorithm, Proof, ProofError, ProofErrorKind, SupportedAlgorithms, TrustAnchor,
         },
         rdata::opt::EdnsOption,
-        Name, Record, RecordData, RecordType,
+        Name, RData, Record, RecordData, RecordType,
     },
     xfer::{dns_handle::DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer},
 };
@@ -336,8 +336,17 @@ where
     // set the proofs of all the records, all records are returned, it's up to downstream users to check for correctness
     let mut records = records;
     for record in &mut records {
+        // the RRSIG used to validate a record inherits the outcome of the validation
+        // for RRSIGs, we need to use their TYPE_COVERED field instead of `RecordType::RRSIG` as the
+        // `RecordType` key in `rrset_proofs`
+        let record_type = if let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = record.data() {
+            rrsig.type_covered()
+        } else {
+            record.record_type()
+        };
+
         rrset_proofs
-            .get(&(record.name().clone(), record.record_type()))
+            .get(&(record.name().clone(), record_type))
             .map(|proof| record.set_proof(*proof));
     }
 
