@@ -71,7 +71,6 @@ fn can_validate_with_delegation() -> Result<()> {
 
 // the inclusion of RRSIGs records in the answer should not change the outcome of validation
 // if the chain of trust was valid then the RRSIGs, which are part of the chain, must also be secure
-#[ignore]
 #[test]
 fn also_secure_when_do_is_set() -> Result<()> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
