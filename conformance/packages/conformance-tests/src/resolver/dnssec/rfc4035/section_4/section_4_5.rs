@@ -1,3 +1,5 @@
+use std::net::Ipv4Addr;
+
 use dns_test::{
     client::{Client, DigSettings},
     name_server::{NameServer, SignSettings},
@@ -5,6 +7,8 @@ use dns_test::{
     tshark::Capture,
     Network, Resolver, Result, FQDN,
 };
+
+use crate::resolver::dnssec::fixtures;
 
 /// Two queries are sent with DNSSEC enabled, the second query should take the answer from the cache.
 #[test]
@@ -79,6 +83,55 @@ fn caches_query_without_dnssec_to_return_all_dnssec_records_in_subsequent_query(
     let ns_addr = ns.ipv4_addr();
     for Capture { direction, .. } in captures {
         assert_ne!(ns_addr, direction.peer_addr());
+    }
+
+    Ok(())
+}
+
+/// The chain of trust used to validate `A example.nameservers.com.` includes records within the
+/// `nameservers.com.`, `com.` and `.` domains. Those records should be cached in the "Secure"
+/// cache as part of the validation of `A example.com.`.
+///
+/// Therefore, a second query for a record like `DS com.` should be a cache hit.
+#[test]
+fn caches_intermediate_records() -> Result<()> {
+    let leaf_fqdn = FQDN("example.nameservers.com.")?;
+    let leaf_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
+    let (resolver, nameservers, _trust_anchor) =
+        fixtures::minimally_secure(leaf_fqdn.clone(), leaf_ipv4_addr)?;
+
+    let resolver_addr = resolver.ipv4_addr();
+
+    let client = Client::new(resolver.network())?;
+    let settings = *DigSettings::default().recurse().authentic_data();
+
+    let output = client.dig(settings, resolver_addr, RecordType::A, &leaf_fqdn)?;
+
+    assert!(output.status.is_noerror());
+    assert!(output.flags.authenticated_data);
+
+    let [a] = output.answer.try_into().unwrap();
+    let a = a.try_into_a().unwrap();
+
+    assert_eq!(leaf_fqdn, a.fqdn);
+    assert_eq!(leaf_ipv4_addr, a.ipv4_addr);
+
+    let mut tshark = resolver.eavesdrop()?;
+
+    let output = client.dig(settings, resolver_addr, RecordType::DS, &FQDN::COM)?;
+
+    assert!(output.status.is_noerror());
+    assert!(output.flags.authenticated_data);
+
+    tshark.wait_for_capture()?;
+    let captures = tshark.terminate()?;
+
+    let ns_addrs = nameservers
+        .iter()
+        .map(|ns| ns.ipv4_addr())
+        .collect::<Vec<_>>();
+    for Capture { direction, .. } in captures {
+        assert!(!ns_addrs.contains(&direction.peer_addr()));
     }
 
     Ok(())
