@@ -119,7 +119,9 @@ impl RecursorDnsHandle {
         let ns = ns.ok_or_else(|| Error::from(format!("no nameserver found for {zone}")))?;
         debug!("found zone {} for {}", ns.zone(), query);
 
-        let response = self.lookup(query.clone(), ns, request_time).await?;
+        let response = self
+            .lookup(query.clone(), ns, request_time, query_has_dnssec_ok)
+            .await?;
 
         // RFC 4035 section 3.2.1 if DO bit not set, strip DNSSEC records unless
         // explicitly requested
@@ -133,10 +135,26 @@ impl RecursorDnsHandle {
         query: Query,
         ns: RecursorPool<TokioRuntimeProvider>,
         now: Instant,
+        expect_dnssec_in_cached_response: bool,
     ) -> Result<Lookup, Error> {
         if let Some(lookup) = self.record_cache.get(&query, now) {
-            debug!("cached data {lookup:?}");
-            return lookup.map_err(Into::into);
+            let lookup = lookup?;
+
+            // we may have cached a referral (NS+A record pair) from a parent zone while looking for
+            // the nameserver to send the query to. that parent zone response won't include RRSIG
+            // records. if DO=1 we want to fall through and send the query to the child zone to
+            // retrieve the missing RRSIG record
+            if expect_dnssec_in_cached_response
+                && lookup
+                    .records()
+                    .iter()
+                    .all(|rrset| !rrset.record_type().is_dnssec())
+            {
+                // fall through to send query to child zone
+            } else {
+                debug!("cached data {lookup:?}");
+                return Ok(lookup);
+            }
         }
 
         let response = ns.lookup(query.clone(), self.security_aware);
@@ -177,7 +195,7 @@ impl RecursorDnsHandle {
 
         let lookup = Query::query(zone.clone(), RecordType::NS);
         let response = self
-            .lookup(lookup.clone(), nameserver_pool.clone(), request_time)
+            .lookup(lookup.clone(), nameserver_pool.clone(), request_time, false)
             .await?;
 
         // let zone_nameservers = response.name_servers();
