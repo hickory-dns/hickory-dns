@@ -319,6 +319,23 @@ impl Recursor {
                 handle,
                 record_cache,
             } => {
+                if let Some(Ok(lookup)) = record_cache.get(&query, request_time) {
+                    let none_indeterminate = lookup
+                        .records()
+                        .iter()
+                        .all(|record| !record.proof().is_indeterminate());
+
+                    // if any cached record is indeterminate, fall through and perform
+                    // DNSSEC validation
+                    if none_indeterminate {
+                        return Ok(super::maybe_strip_dnssec_records(
+                            query_has_dnssec_ok,
+                            lookup,
+                            query,
+                        ));
+                    }
+                }
+
                 let mut options = DnsRequestOptions::default();
                 // a validating recursor must be security aware
                 options.use_edns = true;
