@@ -8,7 +8,6 @@ use dns_test::{
 
 /// regression test for https://github.com/hickory-dns/hickory-dns/issues/2299
 #[test]
-#[ignore]
 fn includes_rrsig_record_in_ns_query() -> Result<()> {
     let network = Network::new()?;
     let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network)?;
@@ -53,7 +52,6 @@ fn includes_rrsig_record_in_ns_query() -> Result<()> {
 
 /// This is a regression test for https://github.com/hickory-dns/hickory-dns/issues/2285
 #[test]
-#[ignore]
 fn can_validate_ns_query() -> Result<()> {
     let network = Network::new()?;
     let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network)?;
