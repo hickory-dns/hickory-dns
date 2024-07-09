@@ -309,7 +309,10 @@ impl NameServer<Stopped> {
             container,
             implementation,
             zone_file,
-            state: Running { child },
+            state: Running {
+                child,
+                trust_anchor: None,
+            },
         })
     }
 }
@@ -353,7 +356,10 @@ impl NameServer<Signed> {
             container,
             implementation,
             zone_file,
-            state: Running { child },
+            state: Running {
+                child,
+                trust_anchor: Some(state.trust_anchor()),
+            },
         })
     }
 
@@ -371,6 +377,10 @@ impl NameServer<Signed> {
 
     pub fn signed_zone_file_mut(&mut self) -> &mut ZoneFile {
         &mut self.state.signed
+    }
+
+    pub fn trust_anchor(&self) -> TrustAnchor {
+        self.state.trust_anchor()
     }
 
     pub fn ds(&self) -> &DS {
@@ -411,6 +421,10 @@ kill -TERM $(cat {pidfile})"
             "stderr should be returned if not empty"
         );
         Ok(output.stdout)
+    }
+
+    pub fn trust_anchor(&self) -> Option<&TrustAnchor> {
+        self.state.trust_anchor.as_ref()
     }
 }
 
@@ -456,8 +470,19 @@ pub struct Signed {
     signed: ZoneFile,
 }
 
+impl Signed {
+    /// Return a [`TrustAnchor`] active on this NameServer.
+    pub fn trust_anchor(&self) -> TrustAnchor {
+        let mut trust_anchor = TrustAnchor::empty();
+        trust_anchor.add(self.ksk.clone());
+        trust_anchor.add(self.zsk.clone());
+        trust_anchor
+    }
+}
+
 pub struct Running {
     child: Child,
+    trust_anchor: Option<TrustAnchor>,
 }
 
 #[derive(Clone, Copy)]
