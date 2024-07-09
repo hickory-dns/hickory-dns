@@ -121,6 +121,14 @@ impl Record {
         }
     }
 
+    pub fn try_into_soa(self) -> CoreResult<SOA, Self> {
+        if let Self::SOA(soa) = self {
+            Ok(soa)
+        } else {
+            Err(self)
+        }
+    }
+
     pub fn is_soa(&self) -> bool {
         matches!(self, Self::SOA(..))
     }
