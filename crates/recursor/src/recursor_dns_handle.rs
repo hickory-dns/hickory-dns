@@ -77,7 +77,14 @@ impl RecursorDnsHandle {
         // not in cache, let's look for an ns record for lookup
         let zone = match query.query_type() {
             // (RFC4035 section 3.1.4.1) the DS record needs to be queried in the parent zone
-            RecordType::NS | RecordType::DS => query.name().base_name(),
+            RecordType::DS => query.name().base_name(),
+
+            // if DO=1 then we need to send the `NS $ZONE` query to `$ZONE` to get the
+            // RRSIG records associated to the NS record
+            // if DO=0 then we can send the query to the parent zone. its response won't include
+            // RRSIG records but that's fine
+            RecordType::NS if !query_has_dnssec_ok => query.name().base_name(),
+
             // look for the NS records "inside" the zone
             _ => query.name().clone(),
         };
