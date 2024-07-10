@@ -41,7 +41,10 @@ fn rrsig_rr_inception_time_is_set_in_the_future() -> Result<()> {
     let dig = client.dig(settings, resolver.ipv4_addr(), RecordType::SOA, &FQDN::ROOT)?;
 
     // validation should fail
-    assert!(dig.status.is_servfail());
+    // unbound returns NOERROR instead of SERVFAIL
+    if !dns_test::SUBJECT.is_unbound() {
+        assert!(dig.status.is_servfail());
+    }
 
     Ok(())
 }

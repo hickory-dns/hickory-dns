@@ -70,6 +70,11 @@ impl Implementation {
         matches!(self, Self::Hickory(_))
     }
 
+    #[must_use]
+    pub fn is_unbound(&self) -> bool {
+        matches!(self, Self::Unbound)
+    }
+
     pub(crate) fn format_config(&self, config: Config) -> String {
         match config {
             Config::Resolver {
