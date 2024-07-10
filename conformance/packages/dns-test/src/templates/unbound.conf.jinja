@@ -7,6 +7,7 @@ server:
     pidfile: /tmp/unbound.pid
     ede: {% if ede %} yes {% else %} no {% endif %}
 {% if use_dnssec %}
+    val-sig-skew-min: 3600
     trust-anchor-file: /etc/trusted-key.key
 {% endif %}
 
