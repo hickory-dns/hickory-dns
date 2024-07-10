@@ -629,7 +629,7 @@ async fn send_forwarded_response(
     response_header.set_authoritative(false);
 
     // Don't perform the recursive query if this is disabled...
-    let answers = if !request_header.recursion_desired() {
+    let mut answers = if !request_header.recursion_desired() {
         // cancel the future??
         // future.cancel();
         drop(future);
@@ -682,6 +682,8 @@ async fn send_forwarded_response(
             response_header.set_authentic_data(true);
         } else if !request_header.checking_disabled() {
             response_header.set_response_code(ResponseCode::ServFail);
+            // do not return (Insecure | Bogus) records when CD=0
+            answers = Box::new(EmptyLookup);
         }
     }
 
