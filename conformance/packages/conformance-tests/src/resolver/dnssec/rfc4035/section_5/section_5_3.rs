@@ -18,8 +18,9 @@ const ONE_HOUR: Duration = Duration::from_secs(60 * 60);
 /// Check that inception > current_time results in an invalid response.
 #[test]
 fn rrsig_rr_inception_time_is_set_in_the_future() -> Result<()> {
-    let inception = SystemTime::now() + ONE_HOUR;
-    let expiration = SystemTime::now() + 4 * ONE_HOUR;
+    // `unbound` allows a skew / delta around inception time in `val-sig-skew-min` option
+    let inception = SystemTime::now() + 4 * ONE_HOUR;
+    let expiration = SystemTime::now() + 10 * ONE_HOUR;
     let settings = SignSettings::default()
         .inception(inception)
         .expiration(expiration);
@@ -41,10 +42,7 @@ fn rrsig_rr_inception_time_is_set_in_the_future() -> Result<()> {
     let dig = client.dig(settings, resolver.ipv4_addr(), RecordType::SOA, &FQDN::ROOT)?;
 
     // validation should fail
-    // unbound returns NOERROR instead of SERVFAIL
-    if !dns_test::SUBJECT.is_unbound() {
-        assert!(dig.status.is_servfail());
-    }
+    assert!(dig.status.is_servfail());
 
     Ok(())
 }
@@ -52,8 +50,8 @@ fn rrsig_rr_inception_time_is_set_in_the_future() -> Result<()> {
 /// Check that expiration timestamp < current_time results in an invalid lookup.
 #[test]
 fn rrsig_rr_expiration_time_is_before_current_time() -> Result<()> {
-    let expiration = SystemTime::now() - ONE_HOUR;
-    let inception = SystemTime::now() - 4 * ONE_HOUR;
+    let expiration = SystemTime::now() - 4 * ONE_HOUR;
+    let inception = SystemTime::now() - 10 * ONE_HOUR;
 
     let settings = SignSettings::default()
         .expiration(expiration)
