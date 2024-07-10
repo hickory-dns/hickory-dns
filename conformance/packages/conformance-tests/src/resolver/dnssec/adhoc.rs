@@ -12,7 +12,6 @@ use dns_test::{
 use super::fixtures;
 
 #[test]
-#[ignore]
 fn empty_answer_section_on_failed_dnssec_validation_and_cd_flag_unset() -> Result<()> {
     let leaf_fqdn = FQDN("example.nameservers.com.")?;
     let leaf_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
