@@ -2,8 +2,9 @@ use dns_test::{
     client::{Client, DigSettings},
     name_server::{Graph, NameServer, Sign},
     record::{Record, RecordType},
+    tshark::{Capture, Direction},
     zone_file::SignSettings,
-    Network, Resolver, Result, FQDN,
+    Implementation, Network, Resolver, Result, FQDN,
 };
 
 /// regression test for https://github.com/hickory-dns/hickory-dns/issues/2299
@@ -90,6 +91,69 @@ fn can_validate_ns_query() -> Result<()> {
     // check that the record type is what we expect
     let [ns] = output.answer.try_into().unwrap();
     assert!(matches!(ns, Record::NS(_)));
+
+    Ok(())
+}
+
+/// regression test for https://github.com/hickory-dns/hickory-dns/issues/2306
+#[test]
+#[ignore]
+fn single_node_dns_graph_with_bind_as_peer() -> Result<()> {
+    let network = Network::new()?;
+    let peer = Implementation::Bind;
+    let nameserver = NameServer::new(&peer, FQDN::ROOT, &network)?
+        .sign(SignSettings::default())?
+        .start()?;
+
+    let client = Client::new(&network)?;
+
+    let nameserver_addr = nameserver.ipv4_addr();
+    let ans = client.dig(
+        DigSettings::default(),
+        nameserver_addr,
+        RecordType::NS,
+        &FQDN::ROOT,
+    )?;
+
+    // sanity check
+    assert!(ans.status.is_noerror());
+    let [ns] = ans.answer.try_into().unwrap();
+    assert!(matches!(ns, Record::NS(_)));
+
+    // pre-condition: BIND does NOT include a glue record (A record) in the additional section
+    assert!(ans.additional.is_empty());
+
+    let resolver = Resolver::new(&network, nameserver.root_hint()).start()?;
+
+    let mut tshark = resolver.eavesdrop()?;
+
+    let ans = client.dig(
+        *DigSettings::default().recurse(),
+        resolver.ipv4_addr(),
+        RecordType::SOA,
+        &FQDN::ROOT,
+    )?;
+
+    tshark.wait_for_capture()?;
+    let captures = tshark.terminate()?;
+
+    dbg!(captures.len());
+
+    assert!(ans.status.is_noerror());
+
+    let [soa] = ans.answer.try_into().unwrap();
+    assert!(matches!(soa, Record::SOA(_)));
+
+    // bug: hickory-dns goes into an infinite loop until it exhausts its network resources
+    assert!(captures.len() < 20);
+
+    for Capture { message, direction } in captures {
+        if let Direction::Outgoing { destination } = direction {
+            if destination == nameserver_addr {
+                eprintln!("{message:#?}\n");
+            }
+        }
+    }
 
     Ok(())
 }
