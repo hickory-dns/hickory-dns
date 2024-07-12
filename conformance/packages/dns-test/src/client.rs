@@ -146,6 +146,7 @@ pub struct DigOutput {
     pub status: DigStatus,
     pub answer: Vec<Record>,
     pub authority: Vec<Record>,
+    pub additional: Vec<Record>,
     // TODO(if needed) other sections
 }
 
@@ -158,6 +159,7 @@ impl FromStr for DigOutput {
         const EDE_PREFIX: &str = "; EDE: ";
         const ANSWER_HEADER: &str = ";; ANSWER SECTION:";
         const AUTHORITY_HEADER: &str = ";; AUTHORITY SECTION:";
+        const ADDITIONAL_HEADER: &str = ";; ADDITIONAL SECTION:";
 
         fn not_found(prefix: &str) -> String {
             format!("`{prefix}` line was not found")
@@ -175,6 +177,7 @@ impl FromStr for DigOutput {
         let mut status = None;
         let mut answer = None;
         let mut authority = None;
+        let mut additional = None;
         let mut ede = None;
 
         let mut lines = input.lines();
@@ -240,12 +243,28 @@ impl FromStr for DigOutput {
                 }
 
                 authority = Some(records);
+            } else if line.starts_with(ADDITIONAL_HEADER) {
+                if additional.is_some() {
+                    return Err(more_than_once(ADDITIONAL_HEADER).into());
+                }
+
+                let mut records = vec![];
+                for line in lines.by_ref() {
+                    if line.is_empty() {
+                        break;
+                    }
+
+                    records.push(line.parse()?);
+                }
+
+                additional = Some(records);
             }
         }
 
         Ok(Self {
             answer: answer.unwrap_or_default(),
             authority: authority.unwrap_or_default(),
+            additional: additional.unwrap_or_default(),
             ede,
             flags: flags.ok_or_else(|| not_found(FLAGS_PREFIX))?,
             status: status.ok_or_else(|| not_found(STATUS_PREFIX))?,
@@ -436,6 +455,44 @@ mod tests {
         let [record] = output.authority.try_into().expect("exactly one record");
 
         matches!(record, Record::SOA(..));
+
+        Ok(())
+    }
+
+    #[test]
+    fn additional_section() -> Result<()> {
+        // $ dig @a.root-servers.net. +norecurse NS .
+        // but with most records removed from each section to keep this short
+        let input =
+            "; <<>> DiG 9.18.24-0ubuntu0.22.04.1-Ubuntu <<>> @a.root-servers.net. +norecurse NS .
+; (2 servers found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 3739
+;; flags: qr aa; QUERY: 1, ANSWER: 13, AUTHORITY: 0, ADDITIONAL: 27
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 4096
+;; QUESTION SECTION:
+;.              IN  NS
+
+;; ANSWER SECTION:
+.           518400  IN  NS  l.root-servers.net.
+
+;; ADDITIONAL SECTION:
+l.root-servers.net. 518400  IN  A   199.7.83.42
+
+;; Query time: 20 msec
+;; SERVER: 198.41.0.4#53(a.root-servers.net.) (UDP)
+;; WHEN: Fri Jul 12 18:14:04 CEST 2024
+;; MSG SIZE  rcvd: 811
+";
+
+        let output: DigOutput = input.parse()?;
+
+        let [record] = output.additional.try_into().expect("exactly one record");
+
+        matches!(record, Record::A(..));
 
         Ok(())
     }
