@@ -74,7 +74,13 @@ impl RecursiveAuthority {
             });
         }
 
-        let recursor = Recursor::new(roots, config.ns_cache_size, config.record_cache_size)
+        let mut recursor = Recursor::builder();
+        recursor
+            .ns_cache_size(config.ns_cache_size)
+            .record_cache_size(config.record_cache_size)
+            .dnssec_policy(config.dnssec_policy.load()?);
+        let recursor = recursor
+            .build(roots)
             .map_err(|e| format!("failed to initialize recursor: {e}"))?;
 
         Ok(Self {
@@ -96,6 +102,10 @@ impl Authority for RecursiveAuthority {
     /// Always false for Forward zones
     fn is_axfr_allowed(&self) -> bool {
         false
+    }
+
+    fn can_validate_dnssec(&self) -> bool {
+        self.recursor.is_validating()
     }
 
     async fn update(&self, _update: &MessageRequest) -> UpdateResult<bool> {
@@ -169,5 +179,14 @@ impl LookupObject for RecursiveLookup {
 
     fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>> {
         None
+    }
+
+    fn dnssec_validated(&self) -> bool {
+        // TODO research what spec / other impls do when the answer section is empty, DNSSEC
+        // validation is enabled but nameservers provided no NSEC3 records
+        self.0
+            .records()
+            .iter()
+            .all(|record| record.proof().is_secure())
     }
 }

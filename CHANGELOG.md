@@ -5,6 +5,74 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.25.0
+
+### Fixed
+
+- (recursor) send DS queries to the parent zone #2203 by japaric
+- (docs) add RFC2931 SIG(0) as supported #2216 by bluejekyll
+- (recursor) respect DO bit in incoming queries #2196 by japaric
+- (docs) doc: fix misc typos in md files #2198 by divagant-martian
+- (test) update ip of example.com #2187 by situ2001
+- (all) Update mio to 0.8.11 to fix RUSTSEC-2024-0019 #2166 by marcus0x62
+- (proto) Fix formatting issue in crates/proto/src/op/message.rs #2165 by marcus0x62
+- (proto) fix internal representation of OPT #2151 by esensar
+- (proto) ECH service parameter key corrected from  "echconfig" to "ech" #2183 by cpu
+- (proto) SVCB/HTTPS record parsing fixes (quoted values, arbitrary numeric keys, lists containing delim) #2183 by cpu
+
+### Changed
+
+- (proto) dns-test: make NameServer's FQDN more stable #2235 by japaric
+- (proto) refactor the Resource data structure #2231 by japaric
+- (tests) Add just recipes to clean leftover containers and networks #2232 by pvdrz
+- (tests) ci: pin nightly version #2224 by japaric
+- (server) cargo: Enable LTO on release build #2141 by jpds
+- (resolver) Retry tcp on udp io errors #2215 by bluejekyll
+- (recursor) tweaks for security awareness #2208 by djc
+- (all) address new clippy lint assigning-clones #2205 by divagant-martian
+- (proto) error: wrap io::Error in Arc for clone #2181 by cpu
+- (resolver) err for dns-over-rustls w/o roots #2179 by cpu
+- (resolver) Forward hickory-dns's root cert features to hickory-resolver #2153 by hch12907
+- (proto) Better DNSSEC proofs #2084 by bluejekyll
+- (proto) update version for http/h2/h3 #2138 by zh-jq
+- (server) Use cargo environment variables for path to executable #2130 by sjbronner
+- (proto) Only DNSKEY zone keys are allowed to match DS RR #2131 by justahero
+- (docs) Fix a typo in crate description #2132 by wiktor-k
+- (all) Gate tests on required features #2114 by alexanderkjall
+- (resolver) Fixup lookup docs #2123 by bluejekyll
+- (proto) when comparing IP addresses for UDP, only check IP and Port #2124 by bluejekyll
+- (recursor) Recursor: make nameserver and record cache sizes configurable #2117 by marcus0x62
+- (proto) Validate response query section #2118 by marcus0x62
+- (proto) Increase source port entropy in UDP client #2116 by marcus0x62
+- (all) get(0) to first() and zerocopy package updates to fix clippy and cargo audit errors #2121 by marcus0x62
+- (resolver) Add getters for resolver config and options #2093 by hoxxep
+- (client) updated h2_client_connection and web-pki-roots config #2088 by marcbrevoort-cyberhive
+- (proto) EchConfig renamed to EchConfigList to match content #2183 by cpu
+- (proto) EchConfigList updated to wrap TLS presentation language encoding of content #2183 by cpu
+
+### Added
+
+- (tests) import DNSSEC conformance test suite repository #2222 by japaric
+- (client) Adds deref call in assertion for hickory-client README example #2173 by akappel
+- (proto) Make hickory_proto::h3::H3ClientStream Clonable #2182 by 0xffffharry
+- (proto) Make hickory_proto::quic::QuicClientStream Clonable #2176 by 0xffffharry
+- (proto) feat: add setter methods for Message struct to improve configurability #2147 by situ2001
+- (proto) add getter/setter methods to ClientSubnet #2146 by leshow
+- (server) Add option to specify a restricted set of networks capable of accessing the Hickory DNS server #2126 by bluejekyll
+- (recursor) Bailiwick checking for the recursor #2119 by marcus0x62
+- (proto) Support getting and setting the EDNS Z flags #2111 by mattias-p
+
+### Removed
+
+- (all) Remove broken mtls code to fix CI #2218 by djc
+- (proto) Remove generic Error from DnsHandle #2094 by bluejekyll
+
+## 0.24.1
+
+### Fixed
+
+- (proto) Break when socket is unexpectedly shut down #2171 by dlon
+
 ## 0.24.0
 
 **NOTICE** This project has been rebranded to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, from 0.24.0 onward. This [blog post](https://bluejekyll.github.io/blog/posts/announcing-hickory-dns/) explains the reasoning behind this move.

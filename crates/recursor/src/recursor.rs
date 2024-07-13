@@ -5,76 +5,135 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::{net::SocketAddr, time::Instant};
+use std::time::Instant;
 
-use async_recursion::async_recursion;
-use futures_util::{future::select_all, FutureExt};
-use hickory_resolver::name_server::TokioConnectionProvider;
-use lru_cache::LruCache;
-use parking_lot::Mutex;
-use tracing::{debug, info, warn};
-
-#[cfg(test)]
-use std::str::FromStr;
-
+#[cfg(feature = "dnssec")]
 use crate::{
-    proto::{
-        op::Query,
-        rr::{RData, RecordType},
-    },
-    recursor_pool::RecursorPool,
-    resolver::{
-        config::{NameServerConfig, NameServerConfigGroup, Protocol, ResolverOpts},
-        dns_lru::{DnsLru, TtlConfig},
-        error::ResolveError,
-        lookup::Lookup,
-        name_server::{GenericNameServerPool, TokioRuntimeProvider},
-        Name,
-    },
-    Error, ErrorKind,
+    proto::xfer::{DnsHandle as _, DnsRequestOptions, DnssecDnsHandle, FirstAnswer as _},
+    resolver::dns_lru::DnsLru,
+    resolver::error::ResolveErrorKind,
 };
 
-/// Set of nameservers by the zone name
-type NameServerCache<P> = LruCache<Name, RecursorPool<P>>;
+use crate::{
+    proto::op::Query,
+    recursor_dns_handle::RecursorDnsHandle,
+    resolver::{config::NameServerConfigGroup, error::ResolveError, lookup::Lookup},
+    DnssecPolicy, Error,
+};
 
-/// A top down recursive resolver which operates off a list of roots for initial recursive requests.
-///
-/// This is the well known root nodes, referred to as hints in RFCs. See the IANA [Root Servers](https://www.iana.org/domains/root/servers) list.
-pub struct Recursor {
-    roots: RecursorPool<TokioRuntimeProvider>,
-    name_server_cache: Mutex<NameServerCache<TokioRuntimeProvider>>,
-    record_cache: DnsLru,
+/// A `Recursor` builder
+#[derive(Clone)]
+pub struct RecursorBuilder {
+    ns_cache_size: usize,
+    record_cache_size: usize,
+    dnssec_policy: DnssecPolicy,
 }
 
-impl Recursor {
+impl Default for RecursorBuilder {
+    fn default() -> Self {
+        Self {
+            ns_cache_size: 1024,
+            record_cache_size: 1048576,
+            dnssec_policy: DnssecPolicy::SecurityUnaware,
+        }
+    }
+}
+
+impl RecursorBuilder {
+    /// Sets the size of the list of cached name servers
+    pub fn ns_cache_size(&mut self, size: usize) -> &mut Self {
+        self.ns_cache_size = size;
+        self
+    }
+
+    /// Sets the size of the list of cached records
+    pub fn record_cache_size(&mut self, size: usize) -> &mut Self {
+        self.record_cache_size = size;
+        self
+    }
+
+    /// Sets the DNSSEC policy
+    pub fn dnssec_policy(&mut self, dnssec_policy: DnssecPolicy) -> &mut Self {
+        self.dnssec_policy = dnssec_policy;
+        self
+    }
+
     /// Construct a new recursor using the list of NameServerConfigs for the root node list
     ///
     /// # Panics
     ///
     /// This will panic if the roots are empty.
-    pub fn new(
+    pub fn build(&self, roots: impl Into<NameServerConfigGroup>) -> Result<Recursor, ResolveError> {
+        Recursor::build(
+            roots,
+            self.ns_cache_size,
+            self.record_cache_size,
+            self.dnssec_policy.clone(),
+        )
+    }
+}
+
+/// A top down recursive resolver which operates off a list of roots for initial recursive requests.
+///
+/// This is the well known root nodes, referred to as hints in RFCs. See the IANA [Root Servers](https://www.iana.org/domains/root/servers) list.
+pub struct Recursor {
+    mode: RecursorMode,
+}
+
+impl Recursor {
+    /// Construct the new [`Recursor`] via the [`RecursorBuilder`]
+    pub fn builder() -> RecursorBuilder {
+        RecursorBuilder::default()
+    }
+
+    /// Whether the recursive resolver is a validating resolver
+    pub fn is_validating(&self) -> bool {
+        // matching on `NonValidating` to avoid conditional compilation (`#[cfg]`)
+        !matches!(self.mode, RecursorMode::NonValidating { .. })
+    }
+
+    fn build(
         roots: impl Into<NameServerConfigGroup>,
         ns_cache_size: usize,
         record_cache_size: usize,
+        dnssec_policy: DnssecPolicy,
     ) -> Result<Self, ResolveError> {
-        // configure the hickory-resolver
-        let roots: NameServerConfigGroup = roots.into();
-
-        assert!(!roots.is_empty(), "roots must not be empty");
-
-        debug!("Using cache sizes {}/{}", ns_cache_size, record_cache_size);
-        let opts = recursor_opts();
-        let roots =
-            GenericNameServerPool::from_config(roots, opts, TokioConnectionProvider::default());
-        let roots = RecursorPool::from(Name::root(), roots);
-        let name_server_cache = Mutex::new(NameServerCache::new(ns_cache_size));
-        let record_cache = DnsLru::new(record_cache_size, TtlConfig::default());
-
-        Ok(Self {
+        let handle = RecursorDnsHandle::new(
             roots,
-            name_server_cache,
-            record_cache,
-        })
+            ns_cache_size,
+            record_cache_size,
+            dnssec_policy.is_security_aware(),
+        )?;
+
+        let mode = match dnssec_policy {
+            DnssecPolicy::SecurityUnaware => RecursorMode::NonValidating { handle },
+
+            #[cfg(feature = "dnssec")]
+            DnssecPolicy::ValidationDisabled => RecursorMode::NonValidating { handle },
+
+            #[cfg(feature = "dnssec")]
+            DnssecPolicy::ValidateWithStaticKey { trust_anchor } => {
+                let record_cache = handle.record_cache().clone();
+                let handle = if let Some(trust_anchor) = trust_anchor {
+                    if trust_anchor.is_empty() {
+                        return Err(ResolveError::from(ResolveErrorKind::Message(
+                            "trust anchor must not be empty",
+                        )));
+                    }
+
+                    DnssecDnsHandle::with_trust_anchor(handle, trust_anchor.clone())
+                } else {
+                    DnssecDnsHandle::new(handle)
+                };
+
+                RecursorMode::Validating {
+                    record_cache,
+                    handle,
+                }
+            }
+        };
+
+        Ok(Self { mode })
     }
 
     /// Perform a recursive resolution
@@ -238,339 +297,159 @@ impl Recursor {
     /// has contiguous zones at the root and MIL domains, but also has a non-
     /// contiguous zone at ISI.EDU.
     /// ```
-    pub async fn resolve(&self, query: Query, request_time: Instant) -> Result<Lookup, Error> {
-        if let Some(lookup) = self.record_cache.get(&query, request_time) {
-            return lookup.map_err(Into::into);
-        }
-
-        // not in cache, let's look for an ns record for lookup
-        let zone = match query.query_type() {
-            RecordType::NS => query.name().base_name(),
-            // look for the NS records "inside" the zone
-            _ => query.name().clone(),
-        };
-
-        let mut zone = zone;
-        let mut ns = None;
-
-        // max number of forwarding processes
-        'max_forward: for _ in 0..20 {
-            match self.ns_pool_for_zone(zone.clone(), request_time).await {
-                Ok(found) => {
-                    // found the nameserver
-                    ns = Some(found);
-                    break 'max_forward;
-                }
-                Err(e) => match e.kind() {
-                    ErrorKind::Forward(name) => {
-                        // if we already had this name, don't try again
-                        if &zone == name {
-                            debug!("zone previously searched for {}", name);
-                            break 'max_forward;
-                        };
-
-                        debug!("ns forwarded to {}", name);
-                        zone = name.clone();
-                    }
-                    _ => return Err(e),
-                },
-            }
-        }
-
-        let ns = ns.ok_or_else(|| Error::from(format!("no nameserver found for {zone}")))?;
-        debug!("found zone {} for {}", ns.zone(), query);
-
-        let response = self.lookup(query, ns, request_time).await?;
-        Ok(response)
-    }
-
-    async fn lookup(
+    pub async fn resolve(
         &self,
         query: Query,
-        ns: RecursorPool<TokioRuntimeProvider>,
-        now: Instant,
-    ) -> Result<Lookup, Error> {
-        if let Some(lookup) = self.record_cache.get(&query, now) {
-            debug!("cached data {lookup:?}");
-            return lookup.map_err(Into::into);
-        }
-
-        let response = ns.lookup(query.clone());
-
-        // TODO: we are only expecting one response
-        // TODO: should we change DnsHandle to always be a single response? And build a totally custom handler for other situations?
-        // TODO: check if data is "authentic"
-        match response.await {
-            Ok(r) => {
-                let mut r = r.into_message();
-                info!("response: {}", r.header());
-                let records = r
-                    .take_answers()
-                    .into_iter()
-                    .chain(r.take_name_servers())
-                    .chain(r.take_additionals())
-                    .filter(|x| {
-                        if !is_subzone(ns.zone().clone(), x.name().clone()) {
-                            warn!(
-                                "Dropping out of bailiwick record {x} for zone {}",
-                                ns.zone().clone()
-                            );
-                            false
-                        } else {
-                            true
-                        }
-                    });
-
-                let lookup = self.record_cache.insert_records(query, records, now);
-
-                lookup.ok_or_else(|| Error::from("no records found"))
-            }
-            Err(e) => {
-                warn!("lookup error: {e}");
-                Err(Error::from(e))
-            }
-        }
-    }
-
-    #[async_recursion]
-    async fn ns_pool_for_zone(
-        &self,
-        zone: Name,
         request_time: Instant,
-    ) -> Result<RecursorPool<TokioRuntimeProvider>, Error> {
-        // TODO: need to check TTLs here.
-        if let Some(ns) = self.name_server_cache.lock().get_mut(&zone) {
-            return Ok(ns.clone());
-        };
-
-        let parent_zone = zone.base_name();
-
-        let nameserver_pool = if parent_zone.is_root() {
-            debug!("using roots for {zone} nameservers");
-            self.roots.clone()
-        } else {
-            self.ns_pool_for_zone(parent_zone, request_time).await?
-        };
-
-        // TODO: check for cached ns pool for this zone
-
-        let lookup = Query::query(zone.clone(), RecordType::NS);
-        let response = self
-            .lookup(lookup.clone(), nameserver_pool.clone(), request_time)
-            .await?;
-
-        // let zone_nameservers = response.name_servers();
-        // let glue = response.additionals();
-
-        // TODO: grab TTL and use for cache
-        // get all the NS records and glue
-        let mut config_group = NameServerConfigGroup::new();
-        let mut need_ips_for_names = Vec::new();
-
-        // unpack all glued records
-        for zns in response.record_iter() {
-            if let Some(ns_data) = zns.data().and_then(RData::as_ns) {
-                // let glue_ips = glue
-                //     .iter()
-                //     .filter(|g| g.name() == ns_data)
-                //     .filter_map(Record::data)
-                //     .filter_map(RData::to_ip_addr);
-
-                if !is_subzone(zone.base_name().clone(), zns.name().clone()) {
-                    warn!(
-                        "Dropping out of bailiwick record for {:?} with parent {:?}",
-                        zns.name().clone(),
-                        zone.base_name().clone()
-                    );
-                    continue;
-                }
-
-                let cached_a = self.record_cache.get(
-                    &Query::query(ns_data.0.clone(), RecordType::A),
-                    request_time,
-                );
-                let cached_aaaa = self.record_cache.get(
-                    &Query::query(ns_data.0.clone(), RecordType::AAAA),
-                    request_time,
-                );
-
-                let cached_a = cached_a.and_then(Result::ok).map(Lookup::into_iter);
-                let cached_aaaa = cached_aaaa.and_then(Result::ok).map(Lookup::into_iter);
-
-                let glue_ips = cached_a
-                    .into_iter()
-                    .flatten()
-                    .chain(cached_aaaa.into_iter().flatten())
-                    .filter_map(|r| RData::ip_addr(&r));
-
-                let mut had_glue = false;
-                for ip in glue_ips {
-                    let mut udp = NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Udp);
-                    let mut tcp = NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Tcp);
-
-                    udp.trust_negative_responses = true;
-                    tcp.trust_negative_responses = true;
-
-                    config_group.push(udp);
-                    config_group.push(tcp);
-                    had_glue = true;
-                }
-
-                if !had_glue {
-                    debug!("glue not found for {}", ns_data);
-                    need_ips_for_names.push(ns_data);
-                }
-            }
+        query_has_dnssec_ok: bool,
+    ) -> Result<Lookup, Error> {
+        if !query.name().is_fqdn() {
+            return Err(Error::from("query's domain name must be fully qualified"));
         }
 
-        // collect missing IP addresses, select over them all, get the addresses
-        // make it configurable to query for all records?
-        if config_group.is_empty() && !need_ips_for_names.is_empty() {
-            debug!("need glue for {}", zone);
-            let a_resolves = need_ips_for_names.iter().take(1).map(|name| {
-                let a_query = Query::query(name.0.clone(), RecordType::A);
-                self.resolve(a_query, request_time).boxed()
-            });
+        match &self.mode {
+            RecursorMode::NonValidating { handle } => {
+                handle
+                    .resolve(query, request_time, query_has_dnssec_ok)
+                    .await
+            }
 
-            let aaaa_resolves = need_ips_for_names.iter().take(1).map(|name| {
-                let aaaa_query = Query::query(name.0.clone(), RecordType::AAAA);
-                self.resolve(aaaa_query, request_time).boxed()
-            });
+            #[cfg(feature = "dnssec")]
+            RecursorMode::Validating {
+                handle,
+                record_cache,
+            } => {
+                if let Some(Ok(lookup)) = record_cache.get(&query, request_time) {
+                    let none_indeterminate = lookup
+                        .records()
+                        .iter()
+                        .all(|record| !record.proof().is_indeterminate());
 
-            let mut a_resolves: Vec<_> = a_resolves.chain(aaaa_resolves).collect();
-            while !a_resolves.is_empty() {
-                let (next, _, rest) = select_all(a_resolves).await;
-                a_resolves = rest;
-
-                match next {
-                    Ok(response) => {
-                        debug!("A or AAAA response: {:?}", response);
-                        let ips = response.iter().filter_map(RData::ip_addr);
-
-                        for ip in ips {
-                            let udp =
-                                NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Udp);
-                            let tcp =
-                                NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Tcp);
-
-                            config_group.push(udp);
-                            config_group.push(tcp);
-                        }
-                    }
-                    Err(e) => {
-                        warn!("resolve failed {}", e);
+                    // if any cached record is indeterminate, fall through and perform
+                    // DNSSEC validation
+                    if none_indeterminate {
+                        return Ok(super::maybe_strip_dnssec_records(
+                            query_has_dnssec_ok,
+                            lookup,
+                            query,
+                        ));
                     }
                 }
+
+                let mut options = DnsRequestOptions::default();
+                // a validating recursor must be security aware
+                options.use_edns = true;
+                options.edns_set_dnssec_ok = true;
+
+                let response = handle.lookup(query.clone(), options).first_answer().await?;
+                // do not perform is_subzone filtering as it already happened in `handle.lookup`
+                let no_subzone_filtering = None;
+                let lookup = super::cache_response(
+                    response,
+                    no_subzone_filtering,
+                    record_cache,
+                    query.clone(),
+                    request_time,
+                )?;
+                Ok(super::maybe_strip_dnssec_records(
+                    query_has_dnssec_ok,
+                    lookup,
+                    query,
+                ))
             }
         }
-
-        // now construct a namesever pool based off the NS and glue records
-        let ns = GenericNameServerPool::from_config(
-            config_group,
-            recursor_opts(),
-            TokioConnectionProvider::default(),
-        );
-        let ns = RecursorPool::from(zone.clone(), ns);
-
-        // store in cache for future usage
-        debug!("found nameservers for {}", zone);
-        self.name_server_cache.lock().insert(zone, ns.clone());
-        Ok(ns)
     }
 }
 
-fn recursor_opts() -> ResolverOpts {
-    let mut options = ResolverOpts::default();
-    options.ndots = 0;
-    options.edns0 = true;
-    options.validate = false; // we'll need to do any dnssec validation differently in a recursor (top-down rather than bottom-up)
-    options.preserve_intermediates = true;
-    options.recursion_desired = false;
-    options.num_concurrent_reqs = 1;
+enum RecursorMode {
+    NonValidating {
+        handle: RecursorDnsHandle,
+    },
 
-    options
+    #[cfg(feature = "dnssec")]
+    Validating {
+        handle: DnssecDnsHandle<RecursorDnsHandle>,
+        // this is a handle to the record cache in `RecursorDnsHandle`; not a whole separate cache
+        record_cache: DnsLru,
+    },
 }
 
-/// Bailiwick/sub zone checking.
-///
-/// # Overview
-///
-/// This function checks that two host names have a parent/child relationship, but does so more strictly than elsewhere in the libraries
-/// (see implementation notes.)
-///
-/// A resolver should not return answers outside of its delegated authority -- if we receive a delegation from the root servers for
-/// "example.com", that server should only return answers related to example.com or a sub-domain thereof.  Note that record data may point
-/// to out-of-bailwick records (e.g., example.com could return a CNAME record for www.example.com that points to example.cdnprovider.net,)
-/// but it should not return a record name that is out-of-bailiwick (e.g., we ask for www.example.com and it returns www.otherdomain.com.)
-///
-/// Out-of-bailiwick responses have been used in cache poisoning attacks.
-///
-/// ## Examples
-///
-/// | Parent       | Child                | Expected Result                                                  |
-/// |--------------|----------------------|------------------------------------------------------------------|
-/// | .            | com.                 | In-bailiwick (true)                                              |
-/// | com.         | example.net.         | Out-of-bailiwick (false)                                         |
-/// | example.com. | www.example.com.     | In-bailiwick (true)                                              |
-/// | example.com. | www.otherdomain.com. | Out-of-bailiwick (false)                                         |
-/// | example.com  | www.example.com.     | Out-of-bailiwick (false, note the parent is not fully qualified) |
-///
-/// # Implementation Notes
-///
-/// * This function is nominally a wrapper around Name::zone_of, with two additional checks:
-/// * If the caller doesn't provide a parent at all, we'll return false.
-/// * If the domains have mixed qualification -- that is, if one is fully-qualified and the other partially-qualified, we'll return
-///    false.
-///
-/// # References
-///
-/// * [RFC 8499](https://datatracker.ietf.org/doc/html/rfc8499) -- DNS Terminology (see page 25)
-/// * [The Hitchiker's Guide to DNS Cache Poisoning](https://www.cs.utexas.edu/%7Eshmat/shmat_securecomm10.pdf) -- for a more in-depth
-/// discussion of DNS cache poisoning attacks, see section 4, specifically, for a discussion of the Bailiwick rule.
-fn is_subzone(parent: Name, child: Name) -> bool {
-    if parent.is_empty() {
-        return false;
-    }
+#[cfg(test)]
+#[tokio::test]
+async fn not_fully_qualified_domain_name_in_query() -> Result<(), Error> {
+    use crate::{proto::rr::RecordType, resolver::Name};
 
-    if (parent.is_fqdn() && !child.is_fqdn()) || (!parent.is_fqdn() && child.is_fqdn()) {
-        return false;
-    }
+    let recursor = Recursor::builder().build(NameServerConfigGroup::cloudflare())?;
+    let name = Name::from_ascii("example.com")?;
+    assert!(!name.is_fqdn());
+    let query = Query::query(name, RecordType::A);
+    let res = recursor
+        .resolve(query, Instant::now(), false)
+        .await
+        .unwrap_err();
+    assert!(res.to_string().contains("fully qualified"));
 
-    parent.zone_of(&child)
+    Ok(())
 }
 
-#[test]
-fn is_subzone_test() {
-    assert!(is_subzone(
-        Name::from_str(".").unwrap(),
-        Name::from_str("com.").unwrap()
-    ));
-    assert!(is_subzone(
-        Name::from_str("com.").unwrap(),
-        Name::from_str("example.com.").unwrap()
-    ));
-    assert!(is_subzone(
-        Name::from_str("example.com.").unwrap(),
-        Name::from_str("host.example.com.").unwrap()
-    ));
-    assert!(is_subzone(
-        Name::from_str("example.com.").unwrap(),
-        Name::from_str("host.multilevel.example.com.").unwrap()
-    ));
-    assert!(!is_subzone(
-        Name::from_str("").unwrap(),
-        Name::from_str("example.com.").unwrap()
-    ));
-    assert!(!is_subzone(
-        Name::from_str("com.").unwrap(),
-        Name::from_str("example.net.").unwrap()
-    ));
-    assert!(!is_subzone(
-        Name::from_str("example.com.").unwrap(),
-        Name::from_str("otherdomain.com.").unwrap()
-    ));
-    assert!(!is_subzone(
-        Name::from_str("com").unwrap(),
-        Name::from_str("example.com.").unwrap()
-    ));
+#[cfg(feature = "dnssec")]
+mod for_dnssec {
+    use std::time::Instant;
+
+    use futures_util::{
+        future,
+        stream::{self, BoxStream},
+        StreamExt as _, TryFutureExt as _,
+    };
+
+    use crate::proto::{
+        error::ProtoError, op::Message, op::OpCode, xfer::DnsHandle, xfer::DnsResponse,
+    };
+    use crate::recursor_dns_handle::RecursorDnsHandle;
+
+    impl DnsHandle for RecursorDnsHandle {
+        type Response = BoxStream<'static, Result<DnsResponse, ProtoError>>;
+
+        fn send<R: Into<hickory_proto::xfer::DnsRequest> + Unpin + Send + 'static>(
+            &self,
+            request: R,
+        ) -> Self::Response {
+            let request = request.into();
+
+            let query = if let OpCode::Query = request.op_code() {
+                if let Some(query) = request.queries().first().cloned() {
+                    query
+                } else {
+                    return Box::pin(stream::once(future::err(ProtoError::from(
+                        "no query in request",
+                    ))));
+                }
+            } else {
+                return Box::pin(stream::once(future::err(ProtoError::from(
+                    "request is not a query",
+                ))));
+            };
+
+            let this = self.clone();
+            stream::once(async move {
+                // request the DNSSEC records; we'll strip them if not needed on the caller side
+                let do_bit = true;
+                this.resolve(query, Instant::now(), do_bit)
+                    .map_ok(|lookup| {
+                        // `DnssecDnsHandle` will only look at the answer section of the message so
+                        // we can put "stubs" in the other fields
+                        let mut msg = Message::new();
+
+                        // XXX this effectively merges the original nameservers and additional
+                        // sections into the answers section
+                        msg.add_answers(lookup.records().iter().cloned());
+
+                        DnsResponse::new(msg, vec![])
+                    })
+                    .map_err(|e| ProtoError::from(e.to_string()))
+                    .await
+            })
+            .boxed()
+        }
+    }
 }

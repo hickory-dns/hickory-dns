@@ -79,7 +79,7 @@ where
                 #[cfg(feature = "dns-over-rustls")]
                 let ns_config = {
                     let mut ns_config = ns_config.clone();
-                    ns_config.tls_config = config.client_config().clone();
+                    ns_config.tls_config.clone_from(config.client_config());
                     ns_config
                 };
                 #[cfg(not(feature = "dns-over-rustls"))]
@@ -97,7 +97,7 @@ where
                 #[cfg(feature = "dns-over-rustls")]
                 let ns_config = {
                     let mut ns_config = ns_config.clone();
-                    ns_config.tls_config = config.client_config().clone();
+                    ns_config.tls_config.clone_from(config.client_config());
                     ns_config
                 };
                 #[cfg(not(feature = "dns-over-rustls"))]
@@ -264,7 +264,7 @@ where
                         debug!("truncated response received, retrying over TCP");
                         Ok(response)
                     }
-                    Err(e) if opts.try_tcp_on_error || e.is_no_connections() => {
+                    Err(e) if opts.try_tcp_on_error || e.is_no_connections() || e.is_io() => {
                         debug!("error from UDP, retrying over TCP: {}", e);
                         Err(e)
                     }
@@ -382,6 +382,12 @@ where
                 _ if e.is_busy() => {
                     busy.push(conn);
                 }
+                // If our current error is the default err we start with, replace it with the
+                // new error under consideration. It was produced trying to make a connection
+                // and is more specific than the default.
+                _ if matches!(err.kind(), ProtoErrorKind::NoConnections) => {
+                    err = e;
+                }
                 _ if err.cmp_specificity(&e) == Ordering::Less => {
                     err = e;
                 }
@@ -477,7 +483,6 @@ mod tests {
 
     use tokio::runtime::Runtime;
 
-    use hickory_proto::rr::RData;
     use proto::op::Query;
     use proto::rr::{Name, RecordType};
     use proto::xfer::{DnsHandle, DnsRequestOptions};
@@ -613,9 +618,9 @@ mod tests {
         assert_eq!(
             *response.answers()[0]
                 .data()
-                .and_then(RData::as_a)
+                .as_a()
                 .expect("no a record available"),
-            Ipv4Addr::new(93, 184, 216, 34).into()
+            Ipv4Addr::new(93, 184, 215, 14).into()
         );
 
         assert!(
@@ -637,9 +642,9 @@ mod tests {
         assert_eq!(
             *response.answers()[0]
                 .data()
-                .and_then(RData::as_aaaa)
+                .as_aaaa()
                 .expect("no aaaa record available"),
-            Ipv6Addr::new(0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946).into()
+            Ipv6Addr::new(0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c).into()
         );
 
         assert!(

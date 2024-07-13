@@ -170,9 +170,7 @@ pub fn rrset_tbs<B: Borrow<Record>>(
             {
                 let mut rdata_encoder = BinEncoder::new(&mut rdata_buf);
                 rdata_encoder.set_canonical_names(true);
-                if let Some(rdata) = record.data() {
-                    assert!(rdata.emit(&mut rdata_encoder).is_ok());
-                }
+                assert!(record.data().emit(&mut rdata_encoder).is_ok());
             }
             assert!(encoder.emit_u16(rdata_buf.len() as u16).is_ok());
             //
@@ -199,11 +197,7 @@ pub fn rrset_tbs_with_rrsig<B: Borrow<Record>>(
     rrsig: &Record<RRSIG>,
     records: &[B],
 ) -> ProtoResult<TBS> {
-    if let Some(sig) = rrsig.data() {
-        rrset_tbs_with_sig(rrsig.name(), rrsig.dns_class(), sig, records)
-    } else {
-        Err(format!("could not determine name from {}", rrsig.name()).into())
-    }
+    rrset_tbs_with_sig(rrsig.name(), rrsig.dns_class(), rrsig.data(), records)
 }
 
 /// Returns the to-be-signed serialization of the given record set using the information

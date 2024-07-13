@@ -285,8 +285,6 @@ impl<S: DnsUdpSocket + Send> Future for NextRandomUdpSocket<S> {
 
     /// polls until there is an available next random UDP port,
     /// if no port has been specified in bind_addr.
-    ///
-    /// if there is no port available after 10 attempts, returns NotReady
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         if self.bind_address.port() == 0 {
             // Per RFC 6056 Section 3.2:
@@ -294,7 +292,7 @@ impl<S: DnsUdpSocket + Send> Future for NextRandomUdpSocket<S> {
             // As mentioned in Section 2.1, the dynamic ports consist of the range
             // 49152-65535.  However, ephemeral port selection algorithms should use
             // the whole range 1024-65535.
-            let rand_port_range = Uniform::new_inclusive(1024_u16, u16::max_value());
+            let rand_port_range = Uniform::new_inclusive(1024_u16, u16::MAX);
             let mut rand = rand::thread_rng();
 
             for attempt in 0..10 {
@@ -324,19 +322,16 @@ impl<S: DnsUdpSocket + Send> Future for NextRandomUdpSocket<S> {
                 }
             }
 
-            debug!("could not get next random port, delaying");
-
-            // TODO: because no interest is registered anywhere, we must awake.
-            cx.waker().wake_by_ref();
-
-            // returning NotReady here, perhaps the next poll there will be some more socket available.
-            Poll::Pending
-        } else {
-            // Use port that was specified in bind address.
-            (*self.closure)(self.bind_address, self.name_server)
-                .as_mut()
-                .poll(cx)
+            debug!("could not get next random port, falling back to OS assignment");
+            // When no free port was found after 10 tries let the OS assign one.
+            // This is needed in cases where almost all udp ports are in use on the host
+            // so the chance of finding a free is very low and it could spam 1000s of bind
+            // calls without finding a free one until the future is canceled.
         }
+        // Use port that was specified in bind address.
+        (*self.closure)(self.bind_address, self.name_server)
+            .as_mut()
+            .poll(cx)
     }
 }
 

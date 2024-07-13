@@ -157,7 +157,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let name = opts.domainname;
     let ty = opts.ty;
 
-    let recursor = Recursor::new(roots, 1024, 1048576)?;
+    let recursor = Recursor::builder().build(roots)?;
 
     // execute query
     println!(
@@ -168,7 +168,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let now = Instant::now();
     let query = Query::query(name, ty);
-    let lookup = recursor.resolve(query, now).await?;
+    let lookup = recursor.resolve(query, now, false).await?;
 
     // report response, TODO: better display of errors
     println!(
@@ -179,18 +179,13 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for r in lookup.record_iter().filter(|r| r.record_type() == ty) {
         print!(
-            "\t{name} {ttl} {class} {ty}",
+            "\t{name} {ttl} {class} {ty} {rdata}",
             name = style(r.name()).blue(),
             ttl = style(r.ttl()).blue(),
             class = style(r.dns_class()).blue(),
             ty = style(r.record_type()).blue(),
+            rdata = r.data()
         );
-
-        if let Some(rdata) = r.data() {
-            println!(" {rdata}");
-        } else {
-            println!("NULL")
-        }
     }
 
     Ok(())

@@ -179,7 +179,7 @@ impl<'a> Parser<'a> {
 
                             // @ is a placeholder for specifying the current origin
                             Token::At => {
-                                current_name = origin.clone(); // TODO a COW or RC would reduce copies...
+                                current_name.clone_from(&origin); // TODO a COW or RC would reduce copies...
                                 State::TtlClassType
                             }
 
@@ -369,44 +369,41 @@ impl<'a> Parser<'a> {
         )?;
 
         // verify that we have everything we need for the record
-        let mut record = Record::new();
         // TODO COW or RC would reduce mem usage, perhaps Name should have an intern()...
         //  might want to wait until RC.weak() stabilizes, as that would be needed for global
         //  memory where you want
-        record.set_name(current_name.clone().ok_or_else(|| {
+        let name = current_name.clone().ok_or_else(|| {
             ParseError::from(ParseErrorKind::Message("record name not specified"))
-        })?);
-        record.set_record_type(rtype);
-        record.set_dns_class(class);
+        })?;
 
         // slightly annoying, need to grab the TTL, then move rdata into the record,
         //  then check the Type again and have custom add logic.
-        match rtype {
+        let set_ttl = match rtype {
             RecordType::SOA => {
                 // TTL for the SOA is set internally...
                 // expire is for the SOA, minimum is default for records
                 if let RData::SOA(ref soa) = rdata {
                     // TODO, this looks wrong, get_expire() should be get_minimum(), right?
-                    record.set_ttl(soa.expire() as u32); // the spec seems a little inaccurate with u32 and i32
+                    let set_ttl = soa.expire() as u32; // the spec seems a little inaccurate with u32 and i32
                     if ttl.is_none() {
                         *ttl = Some(soa.minimum());
                     } // TODO: should this only set it if it's not set?
+                    set_ttl
                 } else {
                     let msg = format!("Invalid RData here, expected SOA: {rdata:?}");
                     return ParseResult::Err(ParseError::from(ParseErrorKind::Msg(msg)));
                 }
             }
-            _ => {
-                record.set_ttl(ttl.ok_or_else(|| {
-                    ParseError::from(ParseErrorKind::Message("record ttl not specified"))
-                })?);
-            }
-        }
+            _ => ttl.ok_or_else(|| {
+                ParseError::from(ParseErrorKind::Message("record ttl not specified"))
+            })?,
+        };
 
         // TODO: validate record, e.g. the name of SRV record allows _ but others do not.
 
         // move the rdata into record...
-        record.set_data(Some(rdata));
+        let mut record = Record::from_rdata(name, set_ttl, rdata);
+        record.set_dns_class(class);
 
         // add to the map
         let key = RrKey::new(LowerName::new(record.name()), record.record_type());

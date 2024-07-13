@@ -1,0 +1,45 @@
+name: conformance
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  everything:
+    # host is irrelevant because everything will run in Docker containers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+      - uses: extractions/setup-just@v2
+
+      - name: run test-framework tests
+        run: just conformance-framework
+
+      - name: run conformance tests against unbound
+        run: just conformance-unbound
+
+      - name: run conformance tests against BIND
+        run: just conformance-bind
+
+      - name: run conformance tests against hickory-dns
+        run: just conformance-hickory
+
+      - name: check that all the tests that now pass with hickory-dns are not marked as `#[ignore]`-d
+        run: just conformance-ignored
+
+      - name: run end-to-end tests that use the `dns-test` framework
+        run: just e2e-tests
+
+      - name: lint code
+        run: just conformance-clippy
+
+      - name: check that code is formatted
+        run: just conformance-fmt

@@ -133,7 +133,7 @@ impl<'q> MessageResponseBuilder<'q> {
     /// # Arguments
     ///
     /// * `query` - any optional query (from the Request) to associate with the Response
-    pub(crate) fn new(query: Option<&'q WireQuery>) -> MessageResponseBuilder<'q> {
+    pub(crate) fn new(query: Option<&'q WireQuery>) -> Self {
         MessageResponseBuilder {
             query,
             sig0: None,
@@ -257,7 +257,7 @@ mod tests {
     use std::str::FromStr;
 
     use crate::proto::op::{Header, Message};
-    use crate::proto::rr::{DNSClass, Name, RData, Record, RecordType};
+    use crate::proto::rr::{DNSClass, Name, RData, Record};
     use crate::proto::serialize::binary::BinEncoder;
 
     use super::*;
@@ -269,12 +269,13 @@ mod tests {
             let mut encoder = BinEncoder::new(&mut buf);
             encoder.set_max_size(512);
 
-            let answer = Record::new()
-                .set_record_type(RecordType::A)
-                .set_name(Name::from_str("www.example.com.").unwrap())
-                .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 34).into())))
-                .set_dns_class(DNSClass::NONE)
-                .clone();
+            let answer = Record::from_rdata(
+                Name::from_str("www.example.com.").unwrap(),
+                0,
+                RData::A(Ipv4Addr::new(93, 184, 215, 14).into()),
+            )
+            .set_dns_class(DNSClass::NONE)
+            .clone();
 
             let message = MessageResponse {
                 header: Header::new(),
@@ -306,12 +307,13 @@ mod tests {
             let mut encoder = BinEncoder::new(&mut buf);
             encoder.set_max_size(512);
 
-            let answer = Record::new()
-                .set_record_type(RecordType::A)
-                .set_name(Name::from_str("www.example.com.").unwrap())
-                .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 34).into())))
-                .set_dns_class(DNSClass::NONE)
-                .clone();
+            let answer = Record::from_rdata(
+                Name::from_str("www.example.com.").unwrap(),
+                0,
+                RData::A(Ipv4Addr::new(93, 184, 215, 14).into()),
+            )
+            .set_dns_class(DNSClass::NONE)
+            .clone();
 
             let message = MessageResponse {
                 header: Header::new(),

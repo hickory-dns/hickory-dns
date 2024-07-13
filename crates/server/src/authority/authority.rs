@@ -22,11 +22,11 @@ use crate::{
 
 /// LookupOptions that specify different options from the client to include or exclude various records in the response.
 ///
-/// For example, `is_dnssec` will include `RRSIG` in the response, `supported_algorithms` will only include a subset of
+/// For example, `dnssec_ok` (DO) will include `RRSIG` in the response, `supported_algorithms` will only include a subset of
 ///    `RRSIG` based on the algorithms supported by the request.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct LookupOptions {
-    is_dnssec: bool,
+    dnssec_ok: bool,
     #[cfg(feature = "dnssec")]
     supported_algorithms: SupportedAlgorithms,
 }
@@ -36,25 +36,25 @@ impl LookupOptions {
     /// Return a new LookupOptions
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
-    pub fn for_dnssec(is_dnssec: bool, supported_algorithms: SupportedAlgorithms) -> Self {
+    pub fn for_dnssec(dnssec_ok: bool, supported_algorithms: SupportedAlgorithms) -> Self {
         Self {
-            is_dnssec,
+            dnssec_ok,
             supported_algorithms,
         }
     }
 
     /// Specify that this lookup should return DNSSEC related records as well, e.g. RRSIG
     #[allow(clippy::needless_update)]
-    pub fn set_is_dnssec(self, val: bool) -> Self {
+    pub fn set_dnssec_ok(self, val: bool) -> Self {
         Self {
-            is_dnssec: val,
+            dnssec_ok: val,
             ..self
         }
     }
 
     /// If true this lookup should return DNSSEC related records as well, e.g. RRSIG
-    pub fn is_dnssec(&self) -> bool {
-        self.is_dnssec
+    pub fn dnssec_ok(&self) -> bool {
+        self.dnssec_ok
     }
 
     /// Specify the algorithms for which DNSSEC records should be returned
@@ -82,7 +82,7 @@ impl LookupOptions {
         cfg_if! {
             if #[cfg(feature = "dnssec")] {
                 record_set.records(
-                    self.is_dnssec(),
+                    self.dnssec_ok(),
                     self.supported_algorithms(),
                 )
             } else {
@@ -103,6 +103,11 @@ pub trait Authority: Send + Sync {
 
     /// Return true if AXFR is allowed
     fn is_axfr_allowed(&self) -> bool;
+
+    /// Whether the authority can perform DNSSEC validation
+    fn can_validate_dnssec(&self) -> bool {
+        false
+    }
 
     /// Perform a dynamic update of a zone
     async fn update(&self, update: &MessageRequest) -> UpdateResult<bool>;

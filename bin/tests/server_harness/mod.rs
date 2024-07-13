@@ -97,10 +97,13 @@ where
         .arg(&format!(
             "--zonedir={server_path}/tests/test-data/test_configs"
         ))
-        .arg(&format!("--port={}", 0))
-        .arg(&format!("--tls-port={}", 0))
-        .arg(&format!("--https-port={}", 0))
-        .arg(&format!("--quic-port={}", 0));
+        .arg(&format!("--port={}", 0));
+    #[cfg(feature = "dns-over-tls")]
+    command.arg(&format!("--tls-port={}", 0));
+    #[cfg(feature = "dns-over-https")]
+    command.arg(&format!("--https-port={}", 0));
+    #[cfg(feature = "dns-over-quic")]
+    command.arg(&format!("--quic-port={}", 0));
 
     println!("named cli options: {command:#?}");
 
@@ -248,7 +251,7 @@ pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
     let response = query_message(io_loop, client, name, RecordType::A).unwrap();
     let record = &response.answers()[0];
 
-    if let Some(RData::A(ref address)) = record.data() {
+    if let RData::A(ref address) = record.data() {
         assert_eq!(address, &A::new(127, 0, 0, 1))
     } else {
         panic!("wrong RDATA")
@@ -284,7 +287,7 @@ pub fn query_all_dnssec(
 
     let name = Name::from_str("example.com.").unwrap();
     let mut client = MutMessageHandle::new(client);
-    client.lookup_options.set_is_dnssec(true);
+    client.lookup_options.set_dnssec_ok(true);
     if with_rfc6975 {
         client
             .lookup_options
@@ -296,7 +299,7 @@ pub fn query_all_dnssec(
     let dnskey = response
         .answers()
         .iter()
-        .filter_map(Record::data)
+        .map(Record::data)
         .filter_map(DNSKEY::try_borrow)
         .find(|d| d.algorithm() == algorithm);
     assert!(dnskey.is_some(), "DNSKEY not found");
@@ -306,7 +309,7 @@ pub fn query_all_dnssec(
     let rrsig = response
         .answers()
         .iter()
-        .filter_map(Record::data)
+        .map(Record::data)
         .filter_map(RRSIG::try_borrow)
         .filter(|rrsig| rrsig.algorithm() == algorithm)
         .find(|rrsig| rrsig.type_covered() == RecordType::DNSKEY);

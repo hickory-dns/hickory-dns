@@ -548,13 +548,13 @@ mod test {
 
         let query = msg.clone();
         msg.set_message_type(MessageType::Response).add_answer(
-            Record::new()
-                .set_name(name)
-                .set_ttl(86400)
-                .set_record_type(RecordType::A)
-                .set_dns_class(DNSClass::IN)
-                .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 34).into())))
-                .clone(),
+            Record::from_rdata(
+                name,
+                86400,
+                RData::A(Ipv4Addr::new(93, 184, 215, 14).into()),
+            )
+            .set_dns_class(DNSClass::IN)
+            .clone(),
         );
         (
             DnsRequest::new(query, DnsRequestOptions::default()),
@@ -580,12 +580,10 @@ mod test {
     fn axfr_response() -> Vec<Record> {
         use crate::rr::rdata::*;
         let origin = Name::from_ascii("example.com").unwrap();
-        let soa = Record::new()
-            .set_name(origin.clone())
-            .set_ttl(3600)
-            .set_record_type(RecordType::SOA)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::SOA(SOA::new(
+        let soa = Record::from_rdata(
+            origin.clone(),
+            3600,
+            RData::SOA(SOA::new(
                 Name::parse("sns.dns.icann.org.", None).unwrap(),
                 Name::parse("noc.dns.icann.org.", None).unwrap(),
                 2015082403,
@@ -593,49 +591,46 @@ mod test {
                 3600,
                 1209600,
                 3600,
-            ))))
-            .clone();
+            )),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone();
 
         vec![
             soa.clone(),
-            Record::new()
-                .set_name(origin.clone())
-                .set_ttl(86400)
-                .set_record_type(RecordType::NS)
-                .set_dns_class(DNSClass::IN)
-                .set_data(Some(RData::NS(NS(Name::parse(
-                    "a.iana-servers.net.",
-                    None,
-                )
-                .unwrap()))))
-                .clone(),
-            Record::new()
-                .set_name(origin.clone())
-                .set_ttl(86400)
-                .set_record_type(RecordType::NS)
-                .set_dns_class(DNSClass::IN)
-                .set_data(Some(RData::NS(NS(Name::parse(
-                    "b.iana-servers.net.",
-                    None,
-                )
-                .unwrap()))))
-                .clone(),
-            Record::new()
-                .set_name(origin.clone())
-                .set_ttl(86400)
-                .set_record_type(RecordType::A)
-                .set_dns_class(DNSClass::IN)
-                .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 34).into())))
-                .clone(),
-            Record::new()
-                .set_name(origin)
-                .set_ttl(86400)
-                .set_record_type(RecordType::AAAA)
-                .set_dns_class(DNSClass::IN)
-                .set_data(Some(RData::AAAA(
-                    Ipv6Addr::new(0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946).into(),
-                )))
-                .clone(),
+            Record::from_rdata(
+                origin.clone(),
+                86400,
+                RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
+            )
+            .set_dns_class(DNSClass::IN)
+            .clone(),
+            Record::from_rdata(
+                origin.clone(),
+                86400,
+                RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
+            )
+            .set_dns_class(DNSClass::IN)
+            .clone(),
+            Record::from_rdata(
+                origin.clone(),
+                86400,
+                RData::A(Ipv4Addr::new(93, 184, 215, 14).into()),
+            )
+            .set_dns_class(DNSClass::IN)
+            .clone(),
+            Record::from_rdata(
+                origin,
+                86400,
+                RData::AAAA(
+                    Ipv6Addr::new(
+                        0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c,
+                    )
+                    .into(),
+                ),
+            )
+            .set_dns_class(DNSClass::IN)
+            .clone(),
             soa,
         ]
     }

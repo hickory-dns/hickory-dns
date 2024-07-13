@@ -16,12 +16,10 @@ pub fn create_example() -> InMemoryAuthority {
 
     // example.com.		3600	IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2015082403 7200 3600 1209600 3600
     records.upsert_mut(
-        Record::new()
-            .set_name(origin.clone())
-            .set_ttl(3600)
-            .set_record_type(RecordType::SOA)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::SOA(SOA::new(
+        Record::from_rdata(
+            origin.clone(),
+            3600,
+            RData::SOA(SOA::new(
                 Name::parse("sns.dns.icann.org.", None).unwrap(),
                 Name::parse("noc.dns.icann.org.", None).unwrap(),
                 2015082403,
@@ -29,37 +27,31 @@ pub fn create_example() -> InMemoryAuthority {
                 3600,
                 1209600,
                 3600,
-            ))))
-            .clone(),
+            )),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
         0,
     );
 
     records.upsert_mut(
-        Record::new()
-            .set_name(origin.clone())
-            .set_ttl(86400)
-            .set_record_type(RecordType::NS)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::NS(NS(Name::parse(
-                "a.iana-servers.net.",
-                None,
-            )
-            .unwrap()))))
-            .clone(),
+        Record::from_rdata(
+            origin.clone(),
+            86400,
+            RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
         0,
     );
     records.upsert_mut(
-        Record::new()
-            .set_name(origin.clone())
-            .set_ttl(86400)
-            .set_record_type(RecordType::NS)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::NS(NS(Name::parse(
-                "b.iana-servers.net.",
-                None,
-            )
-            .unwrap()))))
-            .clone(),
+        Record::from_rdata(
+            origin.clone(),
+            86400,
+            RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
         0,
     );
 
@@ -67,43 +59,37 @@ pub fn create_example() -> InMemoryAuthority {
     //records.upsert(origin.clone(), Record::new().name(origin.clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["v=spf1 -all".to_string()] }).clone());
     // example.com.		60	IN	TXT	"$Id: example.com 4415 2015-08-24 20:12:23Z davids $"
     records.upsert_mut(
-        Record::new()
-            .set_name(origin.clone())
-            .set_ttl(60)
-            .set_record_type(RecordType::TXT)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::TXT(TXT::new(vec![
-                "$Id: example.com 4415 2015-08-24 \
+        Record::from_rdata(
+            origin.clone(),
+            60,
+            RData::TXT(TXT::new(vec!["$Id: example.com 4415 2015-08-24 \
                  20:12:23Z davids $"
-                    .to_string(),
-            ]))))
+                .to_string()])),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
+        0,
+    );
+
+    // example.com.		86400	IN	A	93.184.215.14
+    records.upsert_mut(
+        Record::from_rdata(origin.clone(), 86400, RData::A(A::new(93, 184, 215, 14)))
+            .set_dns_class(DNSClass::IN)
             .clone(),
         0,
     );
 
-    // example.com.		86400	IN	A	93.184.216.34
+    // example.com.		86400	IN	AAAA	2606:2800:21f:cb07:6820:80da:af6b:8b2c
     records.upsert_mut(
-        Record::new()
-            .set_name(origin.clone())
-            .set_ttl(86400)
-            .set_record_type(RecordType::A)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(A::new(93, 184, 216, 34))))
-            .clone(),
-        0,
-    );
-
-    // example.com.		86400	IN	AAAA	2606:2800:220:1:248:1893:25c8:1946
-    records.upsert_mut(
-        Record::new()
-            .set_name(origin)
-            .set_ttl(86400)
-            .set_record_type(RecordType::AAAA)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::AAAA(AAAA::new(
-                0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            ))))
-            .clone(),
+        Record::from_rdata(
+            origin,
+            86400,
+            RData::AAAA(AAAA::new(
+                0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c,
+            )),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
         0,
     );
 
@@ -126,65 +112,59 @@ pub fn create_example() -> InMemoryAuthority {
 
     // www.example.com.	86400	IN	TXT	"v=spf1 -all"
     records.upsert_mut(
-        Record::new()
-            .set_name(www_name.clone())
-            .set_ttl(86400)
-            .set_record_type(RecordType::TXT)
+        Record::from_rdata(
+            www_name.clone(),
+            86400,
+            RData::TXT(TXT::new(vec!["v=spf1 -all".to_string()])),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
+        0,
+    );
+
+    // www.example.com.	86400	IN	A	93.184.215.14
+    records.upsert_mut(
+        Record::from_rdata(www_name.clone(), 86400, RData::A(A::new(93, 184, 215, 14)))
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::TXT(TXT::new(vec!["v=spf1 -all".to_string()]))))
             .clone(),
         0,
     );
 
-    // www.example.com.	86400	IN	A	93.184.216.34
+    // www.example.com.	86400	IN	AAAA	2606:2800:21f:cb07:6820:80da:af6b:8b2c
     records.upsert_mut(
-        Record::new()
-            .set_name(www_name.clone())
-            .set_ttl(86400)
-            .set_record_type(RecordType::A)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(A::new(93, 184, 216, 34))))
-            .clone(),
-        0,
-    );
-
-    // www.example.com.	86400	IN	AAAA	2606:2800:220:1:248:1893:25c8:1946
-    records.upsert_mut(
-        Record::new()
-            .set_name(www_name.clone())
-            .set_ttl(86400)
-            .set_record_type(RecordType::AAAA)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::AAAA(AAAA::new(
-                0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            ))))
-            .clone(),
+        Record::from_rdata(
+            www_name.clone(),
+            86400,
+            RData::AAAA(AAAA::new(
+                0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c,
+            )),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
         0,
     );
 
     // alias 86400 IN www
     records.upsert_mut(
-        Record::new()
-            .set_name(Name::from_str("alias.example.com.").unwrap())
-            .set_ttl(86400)
-            .set_record_type(RecordType::CNAME)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::CNAME(CNAME(www_name))))
-            .clone(),
+        Record::from_rdata(
+            Name::from_str("alias.example.com.").unwrap(),
+            86400,
+            RData::CNAME(CNAME(www_name)),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
         0,
     );
 
     // alias2 86400 IN www, multiple cname chains
     records.upsert_mut(
-        Record::new()
-            .set_name(Name::from_str("alias2.example.com.").unwrap())
-            .set_ttl(86400)
-            .set_record_type(RecordType::CNAME)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::CNAME(CNAME(
-                Name::from_str("alias.example.com.").unwrap(),
-            ))))
-            .clone(),
+        Record::from_rdata(
+            Name::from_str("alias2.example.com.").unwrap(),
+            86400,
+            RData::CNAME(CNAME(Name::from_str("alias.example.com.").unwrap())),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
         0,
     );
 

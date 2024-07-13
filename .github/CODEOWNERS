@@ -1,0 +1,9 @@
+# who must review changes to this file
+/.github/CODEOWNERS @bluejekyll @djc
+
+# default owners for the whole repository
+* @bluejekyll @djc
+
+# Ferrous team can review changes to the E2E / integration tests
+/tests @japaric @justahero @listochkin @pvdrz
+/conformance @japaric @justahero @listochkin @pvdrz

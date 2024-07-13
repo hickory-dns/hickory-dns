@@ -1,0 +1,4 @@
+[[zones]]
+zone = "."
+zone_type = "Hint"
+stores = { type = "recursor" , roots = "/etc/root.hints" {% if use_dnssec %}, dnssec_policy.ValidateWithStaticKey.path = "/etc/trusted-key.key" {% else %}, dnssec_policy = "ValidationDisabled" {% endif %}  }

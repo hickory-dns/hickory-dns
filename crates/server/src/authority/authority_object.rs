@@ -29,6 +29,9 @@ pub trait AuthorityObject: Send + Sync {
     /// Return true if AXFR is allowed
     fn is_axfr_allowed(&self) -> bool;
 
+    /// Whether the authority can perform DNSSEC validation
+    fn can_validate_dnssec(&self) -> bool;
+
     /// Perform a dynamic update of a zone
     async fn update(&self, update: &MessageRequest) -> UpdateResult<bool>;
 
@@ -132,6 +135,10 @@ where
         Authority::is_axfr_allowed(self.as_ref())
     }
 
+    fn can_validate_dnssec(&self) -> bool {
+        Authority::can_validate_dnssec(self.as_ref())
+    }
+
     /// Perform a dynamic update of a zone
     async fn update(&self, update: &MessageRequest) -> UpdateResult<bool> {
         Authority::update(self.as_ref(), update).await
@@ -218,6 +225,11 @@ pub trait LookupObject: Send {
     ///
     /// it is acceptable for this to return None after the first call.
     fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>>;
+
+    /// Whether the records have been DNSSEC validated or not
+    fn dnssec_validated(&self) -> bool {
+        false
+    }
 }
 
 /// A lookup that returns no records

@@ -15,7 +15,7 @@ members = [
 exclude = ["fuzz"]
 
 [workspace.package]
-version = "0.24.0"
+version = "0.25.0-alpha.1"
 authors = ["The contributors to Hickory DNS"]
 edition = "2021"
 rust-version = "1.67.0"
@@ -28,11 +28,11 @@ license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
 # hickory
-hickory-client = { version = "0.24.0", path = "crates/client", default-features = false }
-hickory-recursor = { version = "0.24.0", path = "crates/recursor", default-features = false }
-hickory-resolver = { version = "0.24.0", path = "crates/resolver", default-features = false }
-hickory-server = { version = "0.24.0", path = "crates/server", default-features = false }
-hickory-proto = { version = "0.24.0", path = "crates/proto", default-features = false }
+hickory-client = { version = "0.25.0-alpha.1", path = "crates/client", default-features = false }
+hickory-recursor = { version = "0.25.0-alpha.1", path = "crates/recursor", default-features = false }
+hickory-resolver = { version = "0.25.0-alpha.1", path = "crates/resolver", default-features = false }
+hickory-server = { version = "0.25.0-alpha.1", path = "crates/server", default-features = false }
+hickory-proto = { version = "0.25.0-alpha.1", path = "crates/proto", default-features = false }
 
 
 # logging
@@ -73,12 +73,11 @@ quinn = { version = "0.10", default-features = false }
 h2 = "0.4.0"
 h3 = "0.0.4"
 h3-quinn = "0.0.5"
-http = "1.0"
+http = "1.1"
 
 
 # others
 backtrace = "0.3.50"
-basic-toml = "0.1"
 bitflags = "2.4.1"
 bytes = "1"
 cfg-if = "1"
@@ -93,17 +92,18 @@ js-sys = "0.3.44"
 once_cell = "1.18.0"
 lru-cache = "0.1.2"
 pin-utils = "0.1.0"
-prefix-trie = "0.2.4"
+prefix-trie = "0.3"
 radix_trie = "0.2.0"
 rand = "0.8"
 regex = "1.3.4"
 resolv-conf = "0.7.0"
-rusqlite = "0.30"
+rusqlite = "0.31"
 serde = "1.0"
 smallvec = "1.6"
 socket2 = "0.5"
 time = "0.3"
 tinyvec = "1.1.1"
+toml = "0.8.14"
 url = "2.4.0"
 wasm-bindgen-crate = { version = "0.2.58", package = "wasm-bindgen" }
 
@@ -111,3 +111,9 @@ wasm-bindgen-crate = { version = "0.2.58", package = "wasm-bindgen" }
 # tokio = { path = "../tokio/tokio" }
 # mio = { git = "https://github.com/tokio-rs/mio.git" }
 # h2 = { git = "https://github.com/hyperium/h2.git" }
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+strip = "symbols"

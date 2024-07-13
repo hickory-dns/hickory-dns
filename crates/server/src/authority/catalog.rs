@@ -500,7 +500,7 @@ async fn build_response(
     let lookup_options = lookup_options_for_edns(edns);
 
     // log algorithms being requested
-    if lookup_options.is_dnssec() {
+    if lookup_options.dnssec_ok() {
         info!(
             "request: {} lookup_options: {:?}",
             request_id, lookup_options
@@ -606,7 +606,7 @@ async fn send_authoritative_response(
             (None, None)
         }
     } else {
-        let nsecs = if lookup_options.is_dnssec() {
+        let nsecs = if lookup_options.dnssec_ok() {
             // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
             debug!("request: {} non-existent adding nsecs", request_id);
             // run the nsec lookup future, and then transition to get soa
@@ -667,6 +667,7 @@ async fn send_forwarded_response(
     response: LookupResult<Box<dyn LookupObject>>,
     request_header: &Header,
     response_header: &mut Header,
+    can_validate_dnssec: bool,
 ) -> LookupSections {
     response_header.set_recursion_available(true);
     response_header.set_authoritative(false);
@@ -695,6 +696,40 @@ async fn send_forwarded_response(
             LookupResult::Ok(rsp) => rsp,
         }
     };
+
+    if can_validate_dnssec {
+        // section 3.2.2 ("the CD bit") of RFC4035 is a bit underspecified because it does not use
+        // RFC2119 vocabulary ("MUST", "MAY", etc.) in some sentences that describe the resolver's
+        // behavior.
+        //
+        // A. it is clear that if CD=1 in the query then data that fails DNSSEC validation SHOULD
+        //   be returned
+        //
+        // B. it also clear that if CD=0 and DNSSEC validation fails then the status MUST be
+        //   SERVFAIL
+        //
+        // C. it's less clear if DNSSEC validation can be skippped altogether when CD=1
+        //
+        // the logic here follows `unbound`'s interpretation of that section
+        //
+        // 0. the requirements A and B are implemented
+        // 1. DNSSEC validation happens regardless of the state of the CD bit
+        // 2. the AD bit gets set if DNSSEC validation succeeded regardless of the state of the
+        //   CD bit
+        //
+        // this last point can result in responses that have both AD=1 and CD=1. RFC4035 is unclear
+        // whether that's a valid state but that's what `unbound` does
+        //
+        // we may want to interpret (B) as allowed ("MAY be skipped") as a form of optimization in
+        // the future to reduce the number of network transactions that a CD=1 query needs.
+        if answers.dnssec_validated() {
+            response_header.set_authentic_data(true);
+        } else if !request_header.checking_disabled() {
+            response_header.set_response_code(ResponseCode::ServFail);
+            // do not return (Insecure | Bogus) records when CD=0
+            answers = Box::new(EmptyLookup);
+        }
+    }
 
     LookupSections {
         answers,

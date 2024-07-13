@@ -57,6 +57,16 @@ pub struct Config {
     quic_listen_port: Option<u16>,
     /// HTTP/3 port to listen on
     h3_listen_port: Option<u16>,
+    /// Disable TCP protocol
+    disable_tcp: Option<bool>,
+    /// Disable UDP protocol
+    disable_udp: Option<bool>,
+    /// Disable TLS protocol
+    disable_tls: Option<bool>,
+    /// Disable HTTPS protocol
+    disable_https: Option<bool>,
+    /// Disable QUIC protocol
+    disable_quic: Option<bool>,
     /// Timeout associated to a request before it is closed.
     tcp_request_timeout: Option<u64>,
     /// Level at which to log, default is INFO
@@ -90,7 +100,7 @@ impl Config {
     /// Read a [`Config`] from the given TOML string.
     #[cfg(feature = "toml")]
     pub fn from_toml(toml: &str) -> ConfigResult<Self> {
-        Ok(basic_toml::from_str(toml)?)
+        Ok(toml::from_str(toml)?)
     }
 
     /// set of listening ipv4 addresses (for TCP and UDP)
@@ -126,6 +136,31 @@ impl Config {
     /// port on which to listen for HTTP/3 connections
     pub fn get_h3_listen_port(&self) -> u16 {
         self.h3_listen_port.unwrap_or(DEFAULT_H3_PORT)
+    }
+
+    /// get if TCP protocol should be disabled
+    pub fn get_disable_tcp(&self) -> bool {
+        self.disable_tcp.unwrap_or_default()
+    }
+
+    /// get if UDP protocol should be disabled
+    pub fn get_disable_udp(&self) -> bool {
+        self.disable_udp.unwrap_or_default()
+    }
+
+    /// get if TLS protocol should be disabled
+    pub fn get_disable_tls(&self) -> bool {
+        self.disable_tls.unwrap_or_default()
+    }
+
+    /// get if HTTPS protocol should be disabled
+    pub fn get_disable_https(&self) -> bool {
+        self.disable_https.unwrap_or_default()
+    }
+
+    /// get if QUIC protocol should be disabled
+    pub fn get_disable_quic(&self) -> bool {
+        self.disable_quic.unwrap_or_default()
     }
 
     /// default timeout for all TCP connections before forcibly shutdown

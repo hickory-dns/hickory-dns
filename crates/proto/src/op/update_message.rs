@@ -11,10 +11,7 @@ use std::fmt::Debug;
 
 use crate::{
     op::{Edns, Message, MessageType, OpCode, Query},
-    rr::{
-        rdata::{NULL, SOA},
-        DNSClass, Name, RData, Record, RecordSet, RecordType,
-    },
+    rr::{rdata::SOA, DNSClass, Name, RData, Record, RecordSet, RecordType},
 };
 
 /// To reduce errors in using the Message struct as an Update, this will do the call throughs
@@ -181,9 +178,9 @@ pub fn create(rrset: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
         .set_recursion_desired(false);
     message.add_zone(zone);
 
-    let mut prerequisite = Record::with(rrset.name().clone(), rrset.record_type(), 0);
+    let mut prerequisite = Record::update0(rrset.name().clone(), 0, rrset.record_type());
     prerequisite.set_dns_class(DNSClass::NONE);
-    message.add_pre_requisite(prerequisite);
+    message.add_pre_requisite(prerequisite.into_record_of_rdata());
     message.add_updates(rrset);
 
     // Extended dns
@@ -251,9 +248,9 @@ pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool, use_edns: b
     message.add_zone(zone);
 
     if must_exist {
-        let mut prerequisite = Record::with(rrset.name().clone(), rrset.record_type(), 0);
+        let mut prerequisite = Record::update0(rrset.name().clone(), 0, rrset.record_type());
         prerequisite.set_dns_class(DNSClass::ANY);
-        message.add_pre_requisite(prerequisite);
+        message.add_pre_requisite(prerequisite.into_record_of_rdata());
     }
 
     message.add_updates(rrset);
@@ -492,7 +489,7 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Me
     // the TTL should be 0
     record.set_ttl(0);
     // the rdata must be null to delete all rrsets
-    record.set_data(Some(RData::NULL(NULL::new())));
+    record.set_data(RData::Update0(record.record_type()));
     message.add_update(record);
 
     // Extended dns
@@ -557,12 +554,12 @@ pub fn delete_all(
     // the TTL should be 0
     // the rdata must be null to delete all rrsets
     // the record type must be any
-    let mut record = Record::with(name_of_records, RecordType::ANY, 0);
+    let mut record = Record::update0(name_of_records, 0, RecordType::ANY);
 
     // the class must be none for an rrset delete
     record.set_dns_class(DNSClass::ANY);
 
-    message.add_update(record);
+    message.add_update(record.into_record_of_rdata());
 
     // Extended dns
     if use_edns {

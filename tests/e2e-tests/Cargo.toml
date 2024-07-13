@@ -1,0 +1,12 @@
+[package]
+name = "e2e-tests"
+edition = "2021"
+publish = false
+description = "end-to-end tests at the binary level"
+
+[workspace]
+# don't accidentally run `dns-test` with `cargo t [--workspace]`
+exclude = ["../../conformance/package/dns-test"]
+
+[dev-dependencies]
+dns-test.path = "../../conformance/packages/dns-test"

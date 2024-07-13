@@ -1,0 +1,14 @@
+options {
+    directory "/var/cache/bind";
+    pid-file "/tmp/named.pid";
+    recursion no;
+    dnssec-validation no;
+    allow-transfer { none; };
+    # significantly reduces noise in logs
+    empty-zones-enable no;
+};
+
+zone "{{ fqdn }}" IN {
+     type primary;
+     file "/etc/zones/main.zone";
+};

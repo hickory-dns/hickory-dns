@@ -110,17 +110,17 @@ impl TSigner {
     ///
     /// # Arguments
     /// * `previous_hash` - Hash of the last message received before this one, or of the query for
-    /// the first message
+    ///   the first message
     /// * `message` - byte buffer containing current message
     /// * `first_message` - is this the first response message
     ///
     /// # Returns
     /// Return Ok(_) on valid signature. Inner tuple contain the following values, in order:
     /// * a byte buffer containing the hash of this message. Need to be passed back when
-    /// authenticating next message
+    ///   authenticating next message
     /// * a Range of time that is acceptable
     /// * the time the signature was emitted. It must be greater or equal to the time of previous
-    /// messages, if any
+    ///   messages, if any
     pub fn verify_message_byte(
         &self,
         previous_hash: Option<&[u8]>,
@@ -128,7 +128,7 @@ impl TSigner {
         first_message: bool,
     ) -> ProtoResult<(Vec<u8>, Range<u64>, u64)> {
         let (tbv, record) = signed_bitmessage_to_buf(previous_hash, message, first_message)?;
-        let tsig = if let Some(RData::DNSSEC(DNSSECRData::TSIG(tsig))) = record.data() {
+        let tsig = if let RData::DNSSEC(DNSSECRData::TSIG(tsig)) = record.data() {
             tsig
         } else {
             unreachable!("tsig::signed_message_to_buff always returns a TSIG record")

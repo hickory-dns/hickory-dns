@@ -1,0 +1,9 @@
+server:
+    pidfile: /tmp/nsd.pid
+
+remote-control:
+  control-enable: no
+
+zone:
+  name: {{ fqdn }}
+  zonefile: /etc/zones/main.zone

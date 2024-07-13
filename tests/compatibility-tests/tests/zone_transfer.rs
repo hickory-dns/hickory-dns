@@ -26,7 +26,7 @@ use hickory_compatibility::named_process;
 macro_rules! assert_serial {
     ( $record:expr, $serial:expr  ) => {{
         let rdata = $record.data();
-        if let Some(RData::SOA(soa)) = rdata {
+        if let RData::SOA(soa) = rdata {
             assert_eq!(soa.serial(), $serial);
         } else {
             assert!(false, "record was not a SOA");
@@ -54,7 +54,7 @@ fn test_zone_transfer() {
         2000 + 3
     );
 
-    let soa = if let Some(RData::SOA(soa)) = result[0].answers()[0].data() {
+    let soa = if let RData::SOA(soa) = result[0].answers()[0].data() {
         soa
     } else {
         panic!("First answer was not an SOA record")
@@ -72,12 +72,11 @@ fn test_zone_transfer() {
         RecordType::SOA
     );
 
-    let mut record = Record::with(
+    let mut record = Record::from_rdata(
         Name::from_str("new.example.net.").unwrap(),
-        RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
+        RData::A(A::new(100, 10, 100, 10)),
     );
-    record.set_data(Some(RData::A(A::new(100, 10, 100, 10))));
 
     client.create(record, name.clone()).expect("create failed");
 

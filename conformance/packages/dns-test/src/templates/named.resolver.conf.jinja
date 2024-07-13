@@ -1,0 +1,14 @@
+options {
+    directory "/var/cache/bind";
+    pid-file "/tmp/named.pid";
+    recursion yes;
+    dnssec-validation {% if use_dnssec %} auto {% else %} no {% endif %};
+    allow-transfer { none; };
+    # significantly reduces noise in logs
+    empty-zones-enable no;
+};
+
+zone "." {
+     type hint;
+     file "/etc/root.hints";
+};

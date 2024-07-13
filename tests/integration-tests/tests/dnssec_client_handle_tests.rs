@@ -64,8 +64,8 @@ where
     assert_eq!(record.dns_class(), DNSClass::IN);
     assert_eq!(record.proof(), Proof::Secure);
 
-    if let RData::A(ref address) = *record.data().unwrap() {
-        assert_eq!(address, &A::new(93, 184, 216, 34))
+    if let RData::A(ref address) = *record.data() {
+        assert_eq!(address, &A::new(93, 184, 215, 14))
     } else {
         panic!();
     }
@@ -229,7 +229,7 @@ where
         let mut trust_anchor = TrustAnchor::new();
         trust_anchor.insert_trust_anchor(&public_key);
 
-        trust_anchor
+        Arc::new(trust_anchor)
     };
 
     let mut catalog = Catalog::new();

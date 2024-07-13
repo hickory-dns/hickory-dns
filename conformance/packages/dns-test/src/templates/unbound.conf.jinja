@@ -1,0 +1,15 @@
+server:
+    verbosity: 4
+    use-syslog: no
+    interface: 0.0.0.0
+    access-control: {{ netmask }} allow
+    root-hints: /etc/root.hints
+    pidfile: /tmp/unbound.pid
+    ede: {% if ede %} yes {% else %} no {% endif %}
+{% if use_dnssec %}
+    val-sig-skew-min: 3600
+    trust-anchor-file: /etc/trusted-key.key
+{% endif %}
+
+remote-control:
+    control-enable: no

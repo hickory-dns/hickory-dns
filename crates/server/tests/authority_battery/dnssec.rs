@@ -64,12 +64,7 @@ pub fn test_soa<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]
 
     assert_eq!(soa_records.len(), 1);
 
-    let soa = soa_records
-        .first()
-        .unwrap()
-        .data()
-        .and_then(RData::as_soa)
-        .unwrap();
+    let soa = soa_records.first().unwrap().data().as_soa().unwrap();
 
     assert_eq!(Name::from_str("hickory-dns.org.").unwrap(), *soa.mname());
     assert_eq!(
@@ -102,13 +97,7 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY])
         .partition(|r| r.record_type() == RecordType::NS);
 
     assert_eq!(
-        ns_records
-            .first()
-            .unwrap()
-            .data()
-            .and_then(RData::as_ns)
-            .unwrap()
-            .0,
+        ns_records.first().unwrap().data().as_ns().unwrap().0,
         Name::from_str("bbb.example.com.").unwrap()
     );
 
@@ -216,9 +205,8 @@ pub fn test_nsec_nodata<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::TXT);
-    let query = Arc::new(query);
     assert!(xfer::dnssec_dns_handle::verify_nsec(
-        query,
+        &query,
         &Name::from_str("example.com.").unwrap(),
         &nsecs
     )
@@ -250,9 +238,8 @@ pub fn test_nsec_nxdomain_start<A: Authority<Lookup = AuthLookup>>(authority: A,
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::A);
-    let query = Arc::new(query);
     assert!(xfer::dnssec_dns_handle::verify_nsec(
-        query,
+        &query,
         &Name::from_str("example.com.").unwrap(),
         &nsecs
     )
@@ -283,9 +270,8 @@ pub fn test_nsec_nxdomain_middle<A: Authority<Lookup = AuthLookup>>(authority: A
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::A);
-    let query = Arc::new(query);
     assert!(xfer::dnssec_dns_handle::verify_nsec(
-        query,
+        &query,
         &Name::from_str("example.com.").unwrap(),
         &nsecs
     )
@@ -319,9 +305,8 @@ pub fn test_nsec_nxdomain_wraps_end<A: Authority<Lookup = AuthLookup>>(
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::A);
-    let query = Arc::new(query);
     assert!(xfer::dnssec_dns_handle::verify_nsec(
-        query,
+        &query,
         &Name::from_str("example.com.").unwrap(),
         &nsecs
     )
@@ -373,7 +358,7 @@ pub fn verify(records: &[&Record], rrsig_records: &[Record<RRSIG>], keys: &[DNSK
     // should be signed with all the keys
     assert!(keys.iter().all(|key| rrsig_records
         .iter()
-        .filter_map(|rrsig| rrsig.data())
+        .map(|rrsig| rrsig.data())
         .filter(|rrsig| rrsig.algorithm() == key.algorithm())
         .filter(|rrsig| rrsig.key_tag() == key.calculate_key_tag().unwrap())
         .filter(|rrsig| rrsig.type_covered() == record_type)

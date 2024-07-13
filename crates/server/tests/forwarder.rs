@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 use tokio::runtime::Runtime;
 
-use hickory_proto::rr::{Name, RData, RecordType};
+use hickory_proto::rr::{Name, RecordType};
 use hickory_resolver::name_server::TokioConnectionProvider;
 use hickory_server::{
     authority::{Authority, LookupObject},
@@ -29,9 +29,6 @@ fn test_lookup() {
         .unwrap();
 
     let address = lookup.iter().next().expect("no addresses returned!");
-    let address = address
-        .data()
-        .and_then(RData::as_a)
-        .expect("not an A record");
-    assert_eq!(*address, Ipv4Addr::new(93, 184, 216, 34).into());
+    let address = address.data().as_a().expect("not an A record");
+    assert_eq!(*address, Ipv4Addr::new(93, 184, 215, 14).into());
 }

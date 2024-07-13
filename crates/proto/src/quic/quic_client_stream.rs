@@ -31,6 +31,7 @@ use super::{quic_config, quic_stream};
 
 /// A DNS client connection for DNS-over-QUIC
 #[must_use = "futures do nothing unless polled"]
+#[derive(Clone)]
 pub struct QuicClientStream {
     quic_connection: Connection,
     name_server_name: Arc<str>,

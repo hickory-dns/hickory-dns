@@ -12,11 +12,15 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use hickory_proto::error::{ProtoError, ProtoErrorKind};
+#[cfg(feature = "dnssec")]
+use hickory_proto::rr::dnssec::rdata::RRSIG;
 use lru_cache::LruCache;
 use parking_lot::Mutex;
 
 use proto::op::Query;
 use proto::rr::Record;
+#[cfg(feature = "dnssec")]
+use proto::rr::RecordData;
 
 use crate::config;
 use crate::lookup::Lookup;
@@ -242,7 +246,44 @@ impl DnsLru {
         let records = records.fold(
             HashMap::<Query, Vec<(Record, u32)>>::new(),
             |mut map, record| {
-                let mut query = Query::query(record.name().clone(), record.record_type());
+                // it's not useful to cache RRSIGs on their own using `name()` as a key because
+                // there can be multiple RRSIG associated to the same domain name where each
+                // RRSIG is *covering* a different record type
+                //
+                // an example of this is shown below
+                //
+                // ``` console
+                // $ dig @a.iana-servers.net. +norecurse +dnssec A example.com.
+                // example.com.     3600    IN  A   93.184.215.14
+                // example.com.     3600    IN  RRSIG   A 13 2 3600 20240705065834 (..)
+                //
+                // $ dig @a.iana-servers.net. +norecurse +dnssec A example.com.
+                // example.com.     86400   IN  NS  a.iana-servers.net.
+                // example.com.     86400   IN  NS  b.iana-servers.net.
+                // example.com.     86400   IN  RRSIG   NS 13 2 86400 20240705060635 (..)
+                // ```
+                //
+                // note that there are two RRSIG records associated to `example.com.` but they are
+                // covering different record types. the first RRSIG covers the
+                // `A example.com.` record. the second RRSIG covers two `NS example.com.` records
+                //
+                // if we use ("example.com.", RecordType::RRSIG) as a key in our cache these two
+                // consecutive queries will cause the entry to be overwriten, losing the RRSIG
+                // covering the A record
+                //
+                // to avoid this problem, we'll cache the RRSIG along the record it covers using
+                // the record's type along the record's `name()` as the key in the cache
+
+                #[cfg(feature = "dnssec")]
+                let rtype = if let Some(rrsig) = RRSIG::try_borrow(record.data()) {
+                    rrsig.type_covered()
+                } else {
+                    record.record_type()
+                };
+                #[cfg(not(feature = "dnssec"))]
+                let rtype = record.record_type();
+
+                let mut query = Query::query(record.name().clone(), rtype);
                 query.set_query_class(record.dns_class());
 
                 let ttl = record.ttl();
@@ -401,7 +442,7 @@ mod tests {
             Record::from_rdata(name.clone(), 1, RData::A(A::new(127, 0, 0, 1))),
             1,
         )];
-        let ips = vec![RData::A(A::new(127, 0, 0, 1))];
+        let ips = [RData::A(A::new(127, 0, 0, 1))];
 
         // configure the cache with a minimum TTL of 2 seconds.
         let ttls = TtlConfig {
@@ -491,7 +532,7 @@ mod tests {
             Record::from_rdata(name.clone(), 62, RData::A(A::new(127, 0, 0, 1))),
             62,
         )];
-        let ips = vec![RData::A(A::new(127, 0, 0, 1))];
+        let ips = [RData::A(A::new(127, 0, 0, 1))];
 
         // configure the cache with a maximum TTL of 60 seconds.
         let ttls = TtlConfig {
@@ -580,7 +621,7 @@ mod tests {
             Record::from_rdata(name, 1, RData::A(A::new(127, 0, 0, 1))),
             1,
         )];
-        let ips = vec![RData::A(A::new(127, 0, 0, 1))];
+        let ips = [RData::A(A::new(127, 0, 0, 1))];
         let lru = DnsLru::new(1, TtlConfig::default());
 
         let rc_ips = lru.insert(query.clone(), ips_ttl, now);
@@ -600,7 +641,7 @@ mod tests {
             Record::from_rdata(name, 10, RData::A(A::new(127, 0, 0, 1))),
             10,
         )];
-        let ips = vec![RData::A(A::new(127, 0, 0, 1))];
+        let ips = [RData::A(A::new(127, 0, 0, 1))];
         let lru = DnsLru::new(1, TtlConfig::default());
 
         let rc_ips = lru.insert(query.clone(), ips_ttl, now);

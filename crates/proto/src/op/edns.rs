@@ -156,11 +156,11 @@ impl<'a> From<&'a Record> for Edns {
         let max_payload: u16 = u16::from(value.dns_class());
 
         let options: OPT = match value.data() {
-            Some(RData::NULL(..)) | None => {
+            RData::Update0(..) | RData::NULL(..) => {
                 // NULL, there was no data in the OPT
                 OPT::default()
             }
-            Some(RData::OPT(ref option_data)) => {
+            RData::OPT(ref option_data) => {
                 option_data.clone() // TODO: Edns should just refer to this, have the same lifetime as the Record
             }
             _ => {
@@ -183,24 +183,18 @@ impl<'a> From<&'a Edns> for Record {
     /// This returns a Resource Record that is formatted for Edns(0).
     /// Note: the rcode_high value is only part of the rcode, the rest is part of the base
     fn from(value: &'a Edns) -> Self {
-        let mut record = Self::new();
-
-        record.set_name(Name::root());
-        record.set_record_type(RecordType::OPT);
-        record.set_dns_class(DNSClass::for_opt(value.max_payload()));
-
         // rebuild the TTL field
         let mut ttl: u32 = u32::from(value.rcode_high()) << 24;
         ttl |= u32::from(value.version()) << 16;
         ttl |= u32::from(value.flags);
 
-        record.set_ttl(ttl);
-
         // now for each option, write out the option array
         //  also, since this is a hash, there is no guarantee that ordering will be preserved from
         //  the original binary format.
         // maybe switch to: https://crates.io/crates/linked-hash-map/
-        record.set_data(Some(RData::OPT(value.options().clone())));
+        let mut record = Self::from_rdata(Name::root(), ttl, RData::OPT(value.options().clone()));
+
+        record.set_dns_class(DNSClass::for_opt(value.max_payload()));
 
         record
     }
@@ -223,7 +217,7 @@ impl BinEncodable for Edns {
         let place = encoder.place::<u16>()?;
         self.options.emit(encoder)?;
         let len = encoder.len_since_place(&place);
-        assert!(len <= u16::max_value() as usize);
+        assert!(len <= u16::MAX as usize);
 
         place.replace(encoder, len as u16)?;
         Ok(())

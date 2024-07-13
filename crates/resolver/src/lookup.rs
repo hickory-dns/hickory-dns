@@ -147,7 +147,7 @@ impl<'a> Iterator for LookupIter<'a> {
     type Item = &'a RData;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().and_then(Record::data)
+        self.0.next().map(Record::data)
     }
 }
 
@@ -161,7 +161,7 @@ impl<'a> Iterator for DnssecIter<'a> {
     type Item = Proven<&'a RData>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().and_then(|r| r.map(Record::data).transpose())
+        self.0.next().map(|r| r.map(Record::data))
     }
 }
 
@@ -218,7 +218,7 @@ impl Iterator for LookupIntoIter {
     type Item = RData;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let rdata = self.records.get(self.index).and_then(Record::data);
+        let rdata = self.records.get(self.index).map(Record::data);
         self.index += 1;
         rdata.cloned()
     }
@@ -658,7 +658,6 @@ pub mod tests {
                 .unwrap()
                 .records()[0]
             )
-            .unwrap()
             .ip_addr()
             .unwrap(),
             Ipv4Addr::new(127, 0, 0, 1)
@@ -769,11 +768,11 @@ pub mod tests {
 
         assert_eq!(
             *lookup.next().unwrap().require(Proof::Secure).unwrap(),
-            *a1.data().unwrap()
+            *a1.data()
         );
         assert_eq!(
             *lookup.next().unwrap().require(Proof::Insecure).unwrap(),
-            *a2.data().unwrap()
+            *a2.data()
         );
         assert_eq!(lookup.next(), None);
     }

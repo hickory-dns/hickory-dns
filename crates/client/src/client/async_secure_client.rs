@@ -4,10 +4,10 @@
 // https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-#![cfg(feature = "dnssec")]
 
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use futures_util::stream::Stream;
 
@@ -52,7 +52,7 @@ impl AsyncDnssecClient {
         Self::builder(connect_future).build().await
     }
 
-    fn from_client(client: AsyncClient, trust_anchor: TrustAnchor) -> Self {
+    fn from_client(client: AsyncClient, trust_anchor: Arc<TrustAnchor>) -> Self {
         Self {
             client: DnssecDnsHandle::with_trust_anchor(client, trust_anchor),
         }
@@ -108,11 +108,7 @@ where
     pub async fn build(
         mut self,
     ) -> Result<(AsyncDnssecClient, DnsExchangeBackground<S, TokioTime>), ProtoError> {
-        let trust_anchor = if let Some(trust_anchor) = self.trust_anchor.take() {
-            trust_anchor
-        } else {
-            TrustAnchor::default()
-        };
+        let trust_anchor = Arc::new(self.trust_anchor.take().unwrap_or_default());
         let result = AsyncClient::connect(self.connect_future).await;
 
         result.map(|(client, bg)| (AsyncDnssecClient::from_client(client, trust_anchor), bg))

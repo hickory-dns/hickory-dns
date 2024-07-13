@@ -125,8 +125,8 @@ where
     assert_eq!(record.record_type(), RecordType::A);
     assert_eq!(record.dns_class(), DNSClass::IN);
 
-    if let RData::A(ref address) = *record.data().unwrap() {
-        assert_eq!(address, &A::new(93, 184, 216, 34))
+    if let RData::A(ref address) = *record.data() {
+        assert_eq!(address, &A::new(93, 184, 215, 14))
     } else {
         panic!();
     }
@@ -183,8 +183,8 @@ where
         &EdnsOption::Subnet("1.2.0.0/16".parse().unwrap())
     );
 
-    if let RData::A(ref address) = *record.data().unwrap() {
-        assert_eq!(address, &A::new(93, 184, 216, 34))
+    if let RData::A(ref address) = *record.data() {
+        assert_eq!(address, &A::new(93, 184, 215, 14))
     } else {
         panic!();
     }
@@ -242,8 +242,8 @@ where
     assert_eq!(record.record_type(), RecordType::A);
     assert_eq!(record.dns_class(), DNSClass::IN);
 
-    if let RData::A(ref address) = *record.data().unwrap() {
-        assert_eq!(address, &A::new(93, 184, 216, 34))
+    if let RData::A(ref address) = *record.data() {
+        assert_eq!(address, &A::new(93, 184, 215, 14))
     } else {
         panic!();
     }
@@ -462,19 +462,18 @@ fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConne
     );
 
     // insert the KEY for the trusted.example.com
-    let mut auth_key = Record::with(
+    let auth_key = Record::from_rdata(
         Name::from_str("trusted.example.com").unwrap(),
-        RecordType::KEY,
         Duration::minutes(5).whole_seconds() as u32,
+        RData::DNSSEC(DNSSECRData::KEY(KEY::new(
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            signer.algorithm(),
+            signer.key().to_public_bytes().expect("to_vec failed"),
+        ))),
     );
-    auth_key.set_data(Some(RData::DNSSEC(DNSSECRData::KEY(KEY::new(
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        signer.algorithm(),
-        signer.key().to_public_bytes().expect("to_vec failed"),
-    )))));
     authority.upsert_mut(auth_key, 0);
 
     catalog.upsert(authority.origin().clone(), Box::new(Arc::new(authority)));
@@ -490,12 +489,11 @@ fn test_create() {
     let (client, origin) = create_sig0_ready_client(catalog);
 
     // create a record
-    let mut record = Record::with(
+    let mut record = Record::from_rdata(
         Name::from_str("new.example.com").unwrap(),
-        RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
+        RData::A(A::new(100, 10, 100, 10)),
     );
-    record.set_data(Some(RData::A(A::new(100, 10, 100, 10))));
 
     let result = client
         .create(record.clone(), origin.clone())
@@ -516,7 +514,7 @@ fn test_create() {
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 
     // will fail if already set and not the same value.
-    record.set_data(Some(RData::A(A::new(101, 11, 101, 11))));
+    record.set_data(RData::A(A::new(101, 11, 101, 11)));
 
     let result = client.create(record, origin).expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
@@ -529,12 +527,11 @@ fn test_append() {
     let (client, origin) = create_sig0_ready_client(catalog);
 
     // append a record
-    let mut record = Record::with(
+    let mut record = Record::from_rdata(
         Name::from_str("new.example.com").unwrap(),
-        RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
+        RData::A(A::new(100, 10, 100, 10)),
     );
-    record.set_data(Some(RData::A(A::new(100, 10, 100, 10))));
 
     // first check the must_exist option
     let result = client
@@ -557,7 +554,7 @@ fn test_append() {
     assert_eq!(result.answers()[0], record);
 
     // will fail if already set and not the same value.
-    record.set_data(Some(RData::A(A::new(101, 11, 101, 11))));
+    record.set_data(RData::A(A::new(101, 11, 101, 11)));
 
     let result = client
         .append(record.clone(), origin.clone(), true)
@@ -573,7 +570,7 @@ fn test_append() {
     assert!(result
         .answers()
         .iter()
-        .any(|rr| if let RData::A(ip) = *rr.data().unwrap() {
+        .any(|rr| if let RData::A(ip) = *rr.data() {
             ip == A::new(100, 10, 100, 10)
         } else {
             false
@@ -581,7 +578,7 @@ fn test_append() {
     assert!(result
         .answers()
         .iter()
-        .any(|rr| if let RData::A(ip) = rr.data().unwrap() {
+        .any(|rr| if let RData::A(ip) = rr.data() {
             *ip == A::new(101, 11, 101, 11)
         } else {
             false
@@ -607,12 +604,11 @@ fn test_compare_and_swap() {
     let (client, origin) = create_sig0_ready_client(catalog);
 
     // create a record
-    let mut record = Record::with(
+    let record = Record::from_rdata(
         Name::from_str("new.example.com").unwrap(),
-        RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
+        RData::A(A::new(100, 10, 100, 10)),
     );
-    record.set_data(Some(RData::A(A::new(100, 10, 100, 10))));
 
     let result = client
         .create(record.clone(), origin.clone())
@@ -621,7 +617,7 @@ fn test_compare_and_swap() {
 
     let current = record;
     let mut new = current.clone();
-    new.set_data(Some(RData::A(A::new(101, 11, 101, 11))));
+    new.set_data(RData::A(A::new(101, 11, 101, 11)));
 
     let result = client
         .compare_and_swap(current.clone(), new.clone(), origin.clone())
@@ -636,14 +632,14 @@ fn test_compare_and_swap() {
     assert!(result
         .answers()
         .iter()
-        .any(|rr| if let RData::A(ip) = rr.data().unwrap() {
+        .any(|rr| if let RData::A(ip) = rr.data() {
             *ip == A::new(101, 11, 101, 11)
         } else {
             false
         }));
 
     // check the it fails if tried again.
-    new.set_data(Some(RData::A(A::new(102, 12, 102, 12))));
+    new.set_data(RData::A(A::new(102, 12, 102, 12)));
 
     let result = client
         .compare_and_swap(current, new.clone(), origin)
@@ -658,7 +654,7 @@ fn test_compare_and_swap() {
     assert!(result
         .answers()
         .iter()
-        .any(|rr| if let RData::A(ip) = rr.data().unwrap() {
+        .any(|rr| if let RData::A(ip) = rr.data() {
             *ip == A::new(101, 11, 101, 11)
         } else {
             false
@@ -672,12 +668,11 @@ fn test_delete_by_rdata() {
     let (client, origin) = create_sig0_ready_client(catalog);
 
     // append a record
-    let mut record = Record::with(
+    let mut record = Record::from_rdata(
         Name::from_str("new.example.com").unwrap(),
-        RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
+        RData::A(A::new(100, 10, 100, 10)),
     );
-    record.set_data(Some(RData::A(A::new(100, 10, 100, 10))));
 
     // first check the must_exist option
     let result = client
@@ -691,7 +686,7 @@ fn test_delete_by_rdata() {
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    record.set_data(Some(RData::A(A::new(101, 11, 101, 11))));
+    record.set_data(RData::A(A::new(101, 11, 101, 11)));
     let result = client
         .append(record.clone(), origin.clone(), true)
         .expect("create failed");
@@ -711,7 +706,7 @@ fn test_delete_by_rdata() {
     assert!(result
         .answers()
         .iter()
-        .any(|rr| if let RData::A(ip) = rr.data().unwrap() {
+        .any(|rr| if let RData::A(ip) = rr.data() {
             *ip == A::new(100, 10, 100, 10)
         } else {
             false
@@ -725,12 +720,11 @@ fn test_delete_rrset() {
     let (client, origin) = create_sig0_ready_client(catalog);
 
     // append a record
-    let mut record = Record::with(
+    let mut record = Record::from_rdata(
         Name::from_str("new.example.com").unwrap(),
-        RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
+        RData::A(A::new(100, 10, 100, 10)),
     );
-    record.set_data(Some(RData::A(A::new(100, 10, 100, 10))));
 
     // first check the must_exist option
     let result = client
@@ -744,7 +738,7 @@ fn test_delete_rrset() {
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    record.set_data(Some(RData::A(A::new(101, 11, 101, 11))));
+    record.set_data(RData::A(A::new(101, 11, 101, 11)));
     let result = client
         .append(record.clone(), origin.clone(), true)
         .expect("create failed");
@@ -772,12 +766,11 @@ fn test_delete_all() {
     let (client, origin) = create_sig0_ready_client(catalog);
 
     // append a record
-    let mut record = Record::with(
+    let mut record = Record::from_rdata(
         Name::from_str("new.example.com").unwrap(),
-        RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
+        RData::A(A::new(100, 10, 100, 10)),
     );
-    record.set_data(Some(RData::A(A::new(100, 10, 100, 10))));
 
     // first check the must_exist option
     let result = client
@@ -791,8 +784,7 @@ fn test_delete_all() {
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    record.set_record_type(RecordType::AAAA);
-    record.set_data(Some(RData::AAAA(AAAA::new(1, 2, 3, 4, 5, 6, 7, 8))));
+    record.set_data(RData::AAAA(AAAA::new(1, 2, 3, 4, 5, 6, 7, 8)));
     let result = client
         .create(record.clone(), origin.clone())
         .expect("create failed");

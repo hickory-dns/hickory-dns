@@ -311,8 +311,8 @@ fn test_forward() {
         )
         .unwrap();
         assert_eq!(
-            *response.answers()[0].data().and_then(RData::as_a).unwrap(),
-            A::new(93, 184, 216, 34)
+            *response.answers()[0].data().as_a().unwrap(),
+            A::new(93, 184, 215, 14)
         );
 
         // just tests that multiple queries work
@@ -334,8 +334,8 @@ fn test_forward() {
         )
         .unwrap();
         assert_eq!(
-            *response.answers()[0].data().and_then(RData::as_a).unwrap(),
-            A::new(93, 184, 216, 34)
+            *response.answers()[0].data().as_a().unwrap(),
+            A::new(93, 184, 215, 14)
         );
         assert!(!response.header().authoritative());
     })

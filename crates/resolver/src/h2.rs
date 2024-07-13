@@ -102,12 +102,12 @@ mod tests {
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 215, 14)));
             } else {
                 assert_eq!(
                     address,
                     IpAddr::V6(Ipv6Addr::new(
-                        0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
+                        0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c,
                     ))
                 );
             }
@@ -121,12 +121,12 @@ mod tests {
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 215, 14)));
             } else {
                 assert_eq!(
                     address,
                     IpAddr::V6(Ipv6Addr::new(
-                        0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
+                        0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c,
                     ))
                 );
             }

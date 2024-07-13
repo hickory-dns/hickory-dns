@@ -21,12 +21,10 @@ pub fn create_test() -> InMemoryAuthority {
     let mut records = InMemoryAuthority::empty(origin.clone(), ZoneType::Primary, false);
 
     records.upsert_mut(
-        Record::new()
-            .set_name(origin.clone())
-            .set_ttl(3600)
-            .set_record_type(RecordType::SOA)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::SOA(SOA::new(
+        Record::from_rdata(
+            origin.clone(),
+            3600,
+            RData::SOA(SOA::new(
                 Name::parse("sns.dns.icann.org.", None).unwrap(),
                 Name::parse("noc.dns.icann.org.", None).unwrap(),
                 2015082403,
@@ -34,84 +32,70 @@ pub fn create_test() -> InMemoryAuthority {
                 3600,
                 1209600,
                 3600,
-            ))))
-            .clone(),
+            )),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
         0,
     );
 
     records.upsert_mut(
-        Record::new()
-            .set_name(origin.clone())
-            .set_ttl(86400)
-            .set_record_type(RecordType::NS)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::NS(NS(Name::parse(
-                "a.iana-servers.net.",
-                None,
-            )
-            .unwrap()))))
-            .clone(),
+        Record::from_rdata(
+            origin.clone(),
+            86400,
+            RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
         0,
     );
     records.upsert_mut(
-        Record::new()
-            .set_name(origin.clone())
-            .set_ttl(86400)
-            .set_record_type(RecordType::NS)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::NS(NS(Name::parse(
-                "b.iana-servers.net.",
-                None,
-            )
-            .unwrap()))))
-            .clone(),
+        Record::from_rdata(
+            origin.clone(),
+            86400,
+            RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
         0,
     );
 
     records.upsert_mut(
-        Record::new()
-            .set_name(origin.clone())
-            .set_ttl(86400)
-            .set_record_type(RecordType::A)
+        Record::from_rdata(origin.clone(), 86400, RData::A(A::new(94, 184, 216, 34)))
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(A::new(94, 184, 216, 34))))
             .clone(),
         0,
     );
     records.upsert_mut(
-        Record::new()
-            .set_name(origin)
-            .set_ttl(86400)
-            .set_record_type(RecordType::AAAA)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::AAAA(AAAA::new(
-                0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            ))))
-            .clone(),
+        Record::from_rdata(
+            origin,
+            86400,
+            RData::AAAA(AAAA::new(
+                0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c,
+            )),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
         0,
     );
 
     let www_name: Name = Name::parse("www.test.com.", None).unwrap();
     records.upsert_mut(
-        Record::new()
-            .set_name(www_name.clone())
-            .set_ttl(86400)
-            .set_record_type(RecordType::A)
+        Record::from_rdata(www_name.clone(), 86400, RData::A(A::new(94, 184, 216, 34)))
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(A::new(94, 184, 216, 34))))
             .clone(),
         0,
     );
     records.upsert_mut(
-        Record::new()
-            .set_name(www_name)
-            .set_ttl(86400)
-            .set_record_type(RecordType::AAAA)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::AAAA(AAAA::new(
-                0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            ))))
-            .clone(),
+        Record::from_rdata(
+            www_name,
+            86400,
+            RData::AAAA(AAAA::new(
+                0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c,
+            )),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
         0,
     );
 
@@ -156,8 +140,8 @@ async fn test_catalog_lookup() {
     assert!(!answers.is_empty());
     assert_eq!(answers.first().unwrap().record_type(), RecordType::A);
     assert_eq!(
-        answers.first().unwrap().data().unwrap(),
-        &RData::A(A::new(93, 184, 216, 34))
+        answers.first().unwrap().data(),
+        &RData::A(A::new(93, 184, 215, 14))
     );
 
     let ns = result.name_servers();
@@ -190,7 +174,7 @@ async fn test_catalog_lookup() {
     assert!(!answers.is_empty());
     assert_eq!(answers.first().unwrap().record_type(), RecordType::A);
     assert_eq!(
-        answers.first().unwrap().data().unwrap(),
+        answers.first().unwrap().data(),
         &RData::A(A::new(94, 184, 216, 34))
     );
 }
@@ -234,7 +218,7 @@ async fn test_catalog_lookup_soa() {
     assert!(!answers.is_empty());
     assert_eq!(answers.first().unwrap().record_type(), RecordType::SOA);
     assert_eq!(
-        answers.first().unwrap().data().unwrap(),
+        answers.first().unwrap().data(),
         &RData::SOA(SOA::new(
             Name::parse("sns.dns.icann.org.", None).unwrap(),
             Name::parse("noc.dns.icann.org.", None).unwrap(),
@@ -253,12 +237,12 @@ async fn test_catalog_lookup_soa() {
     assert_eq!(ns.len(), 2);
     assert_eq!(ns.first().unwrap().record_type(), RecordType::NS);
     assert_eq!(
-        ns.first().unwrap().data().unwrap(),
+        ns.first().unwrap().data(),
         &RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap()))
     );
     assert_eq!(ns.last().unwrap().record_type(), RecordType::NS);
     assert_eq!(
-        ns.last().unwrap().data().unwrap(),
+        ns.last().unwrap().data(),
         &RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap()))
     );
 }
@@ -299,7 +283,7 @@ async fn test_catalog_nx_soa() {
     assert_eq!(ns.len(), 1);
     assert_eq!(ns.first().unwrap().record_type(), RecordType::SOA);
     assert_eq!(
-        ns.first().unwrap().data().unwrap(),
+        ns.first().unwrap().data(),
         &RData::SOA(SOA::new(
             Name::parse("sns.dns.icann.org.", None).unwrap(),
             Name::parse("noc.dns.icann.org.", None).unwrap(),
@@ -355,12 +339,10 @@ async fn test_axfr() {
     test.set_allow_axfr(true);
 
     let origin = test.origin().clone();
-    let soa = Record::new()
-        .set_name(origin.clone().into())
-        .set_ttl(3600)
-        .set_record_type(RecordType::SOA)
-        .set_dns_class(DNSClass::IN)
-        .set_data(Some(RData::SOA(SOA::new(
+    let soa = Record::from_rdata(
+        origin.clone().into(),
+        3600,
+        RData::SOA(SOA::new(
             Name::parse("sns.dns.icann.org.", None).unwrap(),
             Name::parse("noc.dns.icann.org.", None).unwrap(),
             2015082403,
@@ -368,8 +350,10 @@ async fn test_axfr() {
             3600,
             1209600,
             3600,
-        ))))
-        .clone();
+        )),
+    )
+    .set_dns_class(DNSClass::IN)
+    .clone();
 
     let mut catalog: Catalog = Catalog::new();
     catalog.upsert(origin.clone(), Box::new(Arc::new(test)));
@@ -401,12 +385,10 @@ async fn test_axfr() {
 
     let www_name: Name = Name::parse("www.test.com.", None).unwrap();
     let mut expected_set = vec![
-        Record::new()
-            .set_name(origin.clone().into())
-            .set_ttl(3600)
-            .set_record_type(RecordType::SOA)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::SOA(SOA::new(
+        Record::from_rdata(
+            origin.clone().into(),
+            3600,
+            RData::SOA(SOA::new(
                 Name::parse("sns.dns.icann.org.", None).unwrap(),
                 Name::parse("noc.dns.icann.org.", None).unwrap(),
                 2015082403,
@@ -414,68 +396,56 @@ async fn test_axfr() {
                 3600,
                 1209600,
                 3600,
-            ))))
-            .clone(),
-        Record::new()
-            .set_name(origin.clone().into())
-            .set_ttl(86400)
-            .set_record_type(RecordType::NS)
+            )),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
+        Record::from_rdata(
+            origin.clone().into(),
+            86400,
+            RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
+        Record::from_rdata(
+            origin.clone().into(),
+            86400,
+            RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
+        Record::from_rdata(
+            origin.clone().into(),
+            86400,
+            RData::A(A::new(94, 184, 216, 34)),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
+        Record::from_rdata(
+            origin.clone().into(),
+            86400,
+            RData::AAAA(AAAA::new(
+                0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c,
+            )),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
+        Record::from_rdata(www_name.clone(), 86400, RData::A(A::new(94, 184, 216, 34)))
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::NS(NS(Name::parse(
-                "a.iana-servers.net.",
-                None,
-            )
-            .unwrap()))))
             .clone(),
-        Record::new()
-            .set_name(origin.clone().into())
-            .set_ttl(86400)
-            .set_record_type(RecordType::NS)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::NS(NS(Name::parse(
-                "b.iana-servers.net.",
-                None,
-            )
-            .unwrap()))))
-            .clone(),
-        Record::new()
-            .set_name(origin.clone().into())
-            .set_ttl(86400)
-            .set_record_type(RecordType::A)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(A::new(94, 184, 216, 34))))
-            .clone(),
-        Record::new()
-            .set_name(origin.clone().into())
-            .set_ttl(86400)
-            .set_record_type(RecordType::AAAA)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::AAAA(AAAA::new(
-                0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            ))))
-            .clone(),
-        Record::new()
-            .set_name(www_name.clone())
-            .set_ttl(86400)
-            .set_record_type(RecordType::A)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(A::new(94, 184, 216, 34))))
-            .clone(),
-        Record::new()
-            .set_name(www_name)
-            .set_ttl(86400)
-            .set_record_type(RecordType::AAAA)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::AAAA(AAAA::new(
-                0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            ))))
-            .clone(),
-        Record::new()
-            .set_name(origin.into())
-            .set_ttl(3600)
-            .set_record_type(RecordType::SOA)
-            .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::SOA(SOA::new(
+        Record::from_rdata(
+            www_name,
+            86400,
+            RData::AAAA(AAAA::new(
+                0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c,
+            )),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
+        Record::from_rdata(
+            origin.into(),
+            3600,
+            RData::SOA(SOA::new(
                 Name::parse("sns.dns.icann.org.", None).unwrap(),
                 Name::parse("noc.dns.icann.org.", None).unwrap(),
                 2015082403,
@@ -483,8 +453,10 @@ async fn test_axfr() {
                 3600,
                 1209600,
                 3600,
-            ))))
-            .clone(),
+            )),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone(),
     ];
 
     expected_set.sort();
@@ -567,7 +539,7 @@ async fn test_cname_additionals() {
     assert_eq!(answers.len(), 1);
     assert_eq!(answers.first().unwrap().record_type(), RecordType::CNAME);
     assert_eq!(
-        answers.first().unwrap().data().unwrap(),
+        answers.first().unwrap().data(),
         &RData::CNAME(CNAME(Name::from_str("www.example.com.").unwrap()))
     );
 
@@ -575,8 +547,8 @@ async fn test_cname_additionals() {
     assert!(!additionals.is_empty());
     assert_eq!(additionals.first().unwrap().record_type(), RecordType::A);
     assert_eq!(
-        additionals.first().unwrap().data().unwrap(),
-        &RData::A(A::new(93, 184, 216, 34))
+        additionals.first().unwrap().data(),
+        &RData::A(A::new(93, 184, 215, 14))
     );
 }
 
@@ -614,7 +586,7 @@ async fn test_multiple_cname_additionals() {
     assert_eq!(answers.len(), 1);
     assert_eq!(answers.first().unwrap().record_type(), RecordType::CNAME);
     assert_eq!(
-        answers.first().unwrap().data().unwrap(),
+        answers.first().unwrap().data(),
         &RData::CNAME(CNAME(Name::from_str("alias.example.com.").unwrap()))
     );
 
@@ -626,7 +598,7 @@ async fn test_multiple_cname_additionals() {
         RecordType::CNAME
     );
     assert_eq!(
-        additionals.first().unwrap().data().unwrap(),
+        additionals.first().unwrap().data(),
         &RData::CNAME(CNAME(Name::from_str("www.example.com.").unwrap()))
     );
 
@@ -635,7 +607,7 @@ async fn test_multiple_cname_additionals() {
     assert!(!additionals.is_empty());
     assert_eq!(additionals.last().unwrap().record_type(), RecordType::A);
     assert_eq!(
-        additionals.last().unwrap().data().unwrap(),
-        &RData::A(A::new(93, 184, 216, 34))
+        additionals.last().unwrap().data(),
+        &RData::A(A::new(93, 184, 215, 14))
     );
 }

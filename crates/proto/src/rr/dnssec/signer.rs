@@ -530,23 +530,15 @@ impl MessageFinalizer for SigSigner {
 
         // this is based on RFCs 2535, 2931 and 3007
 
-        // 'For all SIG(0) RRs, the owner name, class, TTL, and original TTL, are
-        //  meaningless.' - 2931
-        let mut sig0 = Record::new();
-
-        // The TTL fields SHOULD be zero
-        sig0.set_ttl(0);
-
-        // The CLASS field SHOULD be ANY
-        sig0.set_dns_class(DNSClass::ANY);
-
         // The owner name SHOULD be root (a single zero octet).
-        sig0.set_name(Name::root());
-        let num_labels = sig0.name().num_labels();
+        let name = Name::root();
+        // The TTL fields SHOULD be zero
+        let ttl = 0;
+
+        let num_labels = name.num_labels();
 
         let expiration_time: u32 = current_time + (5 * 60); // +5 minutes in seconds
 
-        sig0.set_record_type(RecordType::SIG);
         let pre_sig0 = SIG::new(
             // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
             RecordType::ZERO,
@@ -565,9 +557,14 @@ impl MessageFinalizer for SigSigner {
             Vec::new(),
         );
         let signature: Vec<u8> = self.sign_message(message, &pre_sig0)?;
-        sig0.set_data(Some(RData::DNSSEC(DNSSECRData::SIG(
-            pre_sig0.set_sig(signature),
-        ))));
+        let rdata = RData::DNSSEC(DNSSECRData::SIG(pre_sig0.set_sig(signature)));
+
+        // 'For all SIG(0) RRs, the owner name, class, TTL, and original TTL, are
+        //  meaningless.' - 2931
+        let mut sig0 = Record::from_rdata(name, ttl, rdata);
+
+        // The CLASS field SHOULD be ANY
+        sig0.set_dns_class(DNSClass::ANY);
 
         Ok((vec![sig0], None))
     }
@@ -659,7 +656,7 @@ mod tests {
         let sig = signer.sign_message(&question, &pre_sig0);
         println!("sig after sign: {sig:?}");
 
-        if let Some(RData::DNSSEC(DNSSECRData::SIG(ref sig))) = question.sig0()[0].data() {
+        if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = question.sig0()[0].data() {
             assert!(sig0key.verify_message(&question, sig.sig(), sig).is_ok());
         }
     }
@@ -692,28 +689,20 @@ mod tests {
         );
 
         let rrset = vec![
-            Record::new()
-                .set_name(origin.clone())
-                .set_ttl(86400)
-                .set_record_type(RecordType::NS)
-                .set_dns_class(DNSClass::IN)
-                .set_data(Some(RData::NS(NS(Name::parse(
-                    "a.iana-servers.net.",
-                    None,
-                )
-                .unwrap()))))
-                .clone(),
-            Record::new()
-                .set_name(origin)
-                .set_ttl(86400)
-                .set_record_type(RecordType::NS)
-                .set_dns_class(DNSClass::IN)
-                .set_data(Some(RData::NS(NS(Name::parse(
-                    "b.iana-servers.net.",
-                    None,
-                )
-                .unwrap()))))
-                .clone(),
+            Record::from_rdata(
+                origin.clone(),
+                86400,
+                RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
+            )
+            .set_dns_class(DNSClass::IN)
+            .clone(),
+            Record::from_rdata(
+                origin,
+                86400,
+                RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
+            )
+            .set_dns_class(DNSClass::IN)
+            .clone(),
         ];
 
         let tbs = tbs::rrset_tbs_with_rrsig(&rrsig, &rrset).unwrap();
@@ -744,7 +733,7 @@ mod tests {
     #[allow(deprecated)]
     #[allow(clippy::unreadable_literal)]
     fn test_calculate_key_tag() {
-        let test_vectors = vec![
+        let test_vectors = [
             (vec![33, 3, 21, 11, 3, 1, 1, 1], 9739),
             (
                 vec![
@@ -829,87 +818,61 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
                 ),
             );
             let rrset = vec![
-                Record::new()
-                    .set_name(origin.clone())
-                    .set_ttl(86400)
-                    .set_record_type(RecordType::NS)
-                    .set_dns_class(DNSClass::IN)
-                    .set_data(Some(RData::NS(NS(Name::parse(
-                        "a.iana-servers.net.",
-                        None,
-                    )
-                    .unwrap()))))
-                    .clone(),
-                Record::new()
-                    .set_name(origin.clone())
-                    .set_ttl(86400)
-                    .set_record_type(RecordType::NS)
-                    .set_dns_class(DNSClass::IN)
-                    .set_data(Some(RData::NS(NS(Name::parse(
-                        "b.iana-servers.net.",
-                        None,
-                    )
-                    .unwrap()))))
-                    .clone(),
+                Record::from_rdata(
+                    origin.clone(),
+                    86400,
+                    RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
+                )
+                .set_dns_class(DNSClass::IN)
+                .clone(),
+                Record::from_rdata(
+                    origin.clone(),
+                    86400,
+                    RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
+                )
+                .set_dns_class(DNSClass::IN)
+                .clone(),
             ];
 
             let tbs = rrset_tbs_with_rrsig(&rrsig, &rrset).unwrap();
             assert!(!tbs.as_ref().is_empty());
 
             let rrset = vec![
-                Record::new()
-                    .set_name(origin.clone())
-                    .set_ttl(86400)
-                    .set_record_type(RecordType::CNAME)
-                    .set_dns_class(DNSClass::IN)
-                    .set_data(Some(RData::CNAME(CNAME(
-                        Name::parse("a.iana-servers.net.", None).unwrap(),
-                    ))))
-                    .clone(), // different type
-                Record::new()
-                    .set_name(Name::parse("www.example.com.", None).unwrap())
-                    .set_ttl(86400)
-                    .set_record_type(RecordType::NS)
-                    .set_dns_class(DNSClass::IN)
-                    .set_data(Some(RData::NS(NS(Name::parse(
-                        "a.iana-servers.net.",
-                        None,
-                    )
-                    .unwrap()))))
-                    .clone(), // different name
-                Record::new()
-                    .set_name(origin.clone())
-                    .set_ttl(86400)
-                    .set_record_type(RecordType::NS)
-                    .set_dns_class(DNSClass::CH)
-                    .set_data(Some(RData::NS(NS(Name::parse(
-                        "a.iana-servers.net.",
-                        None,
-                    )
-                    .unwrap()))))
-                    .clone(), // different class
-                Record::new()
-                    .set_name(origin.clone())
-                    .set_ttl(86400)
-                    .set_record_type(RecordType::NS)
-                    .set_dns_class(DNSClass::IN)
-                    .set_data(Some(RData::NS(NS(Name::parse(
-                        "a.iana-servers.net.",
-                        None,
-                    )
-                    .unwrap()))))
-                    .clone(),
-                Record::new()
-                    .set_name(origin)
-                    .set_ttl(86400)
-                    .set_record_type(RecordType::NS)
-                    .set_dns_class(DNSClass::IN)
-                    .set_data(Some(RData::NS(NS(Name::parse(
-                        "b.iana-servers.net.",
-                        None,
-                    )
-                    .unwrap()))))
-                    .clone(),
+                Record::from_rdata(
+                    origin.clone(),
+                    86400,
+                    RData::CNAME(CNAME(Name::parse("a.iana-servers.net.", None).unwrap())),
+                )
+                .set_dns_class(DNSClass::IN)
+                .clone(), // different type
+                Record::from_rdata(
+                    Name::parse("www.example.com.", None).unwrap(),
+                    86400,
+                    RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
+                )
+                .set_dns_class(DNSClass::IN)
+                .clone(), // different name
+                Record::from_rdata(
+                    origin.clone(),
+                    86400,
+                    RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
+                )
+                .set_dns_class(DNSClass::CH)
+                .clone(), // different class
+                Record::from_rdata(
+                    origin.clone(),
+                    86400,
+                    RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
+                )
+                .set_dns_class(DNSClass::IN)
+                .clone(),
+                Record::from_rdata(
+                    origin,
+                    86400,
+                    RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
+                )
+                .set_dns_class(DNSClass::IN)
+                .clone(),
             ];
 
             let filtered_tbs = rrset_tbs_with_rrsig(&rrsig, &rrset).unwrap();
