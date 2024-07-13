@@ -512,8 +512,9 @@ async fn build_response(
 
     debug!("performing {} on {}", query, authority.origin());
 
-    // Wait so we can determine if we need to fire a request to the next authority in a chained configuration if the current authority
-    // declines to answer. NOTE: This is in preparation for the chained authority PR.
+    // Wait so we can determine if we need to fire a request to the next authority in a chained
+    // configuration if the current authority declines to answer. NOTE: This is in preparation
+    // for the chained authority PR.
     let result = authority.search(request_info, lookup_options).await;
 
     // Abort only if the authority declined to handle the request.
@@ -536,7 +537,13 @@ async fn build_response(
             .await
         }
         ZoneType::Forward | ZoneType::Hint => {
-            send_forwarded_response(result, request_header, &mut response_header).await
+            send_forwarded_response(
+                result,
+                request_header,
+                &mut response_header,
+                authority.can_validate_dnssec(),
+            )
+            .await
         }
     };
 
@@ -673,7 +680,7 @@ async fn send_forwarded_response(
     response_header.set_authoritative(false);
 
     // Don't perform the recursive query if this is disabled...
-    let answers = if !request_header.recursion_desired() {
+    let mut answers = if !request_header.recursion_desired() {
         info!(
             "request disabled recursion, returning no records: {}",
             request_header.id()

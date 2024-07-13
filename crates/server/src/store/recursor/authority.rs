@@ -126,14 +126,17 @@ impl Authority for RecursiveAuthority {
         &self,
         name: &LowerName,
         rtype: RecordType,
-        _lookup_options: LookupOptions,
+        lookup_options: LookupOptions,
     ) -> LookupResult<Self::Lookup> {
         debug!("recursive lookup: {} {}", name, rtype);
 
         let query = Query::query(name.into(), rtype);
         let now = Instant::now();
 
-        let result = self.recursor.resolve(query, now).await;
+        let result = self
+            .recursor
+            .resolve(query, now, lookup_options.dnssec_ok())
+            .await;
 
         match result {
             Ok(lookup) => LookupResult::Ok(RecursiveLookup(lookup)),
