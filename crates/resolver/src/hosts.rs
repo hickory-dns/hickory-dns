@@ -2,11 +2,13 @@
 
 use std::collections::HashMap;
 use std::io;
+use std::net::IpAddr;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
 
 use proto::op::Query;
+use proto::rr::rdata::PTR;
 use proto::rr::{Name, RecordType};
 use proto::rr::{RData, Record};
 use tracing::warn;
@@ -46,18 +48,57 @@ impl Hosts {
 
     /// Look up the addresses for the given host from the system hosts file.
     pub fn lookup_static_host(&self, query: &Query) -> Option<Lookup> {
-        if !self.by_name.is_empty() {
-            if let Some(val) = self.by_name.get(query.name()) {
-                let result = match query.query_type() {
+        if self.by_name.is_empty() {
+            return None;
+        }
+        match query.query_type() {
+            RecordType::A | RecordType::AAAA => {
+                let val = self.by_name.get(query.name())?;
+
+                match query.query_type() {
                     RecordType::A => val.a.clone(),
                     RecordType::AAAA => val.aaaa.clone(),
                     _ => None,
-                };
-
-                return result;
+                }
             }
+            RecordType::PTR => {
+                let ip = query.name().parse_arpa_name().ok()?;
+
+                let ip_addr = ip.addr();
+                let records = self
+                    .by_name
+                    .iter()
+                    .filter(|(_, v)| match ip_addr {
+                        IpAddr::V4(ip) => match v.a.as_ref() {
+                            Some(lookup) => lookup
+                                .iter()
+                                .any(|r| r.ip_addr().map(|it| it == ip).unwrap_or_default()),
+                            None => false,
+                        },
+                        IpAddr::V6(ip) => match v.aaaa.as_ref() {
+                            Some(lookup) => lookup
+                                .iter()
+                                .any(|r| r.ip_addr().map(|it| it == ip).unwrap_or_default()),
+                            None => false,
+                        },
+                    })
+                    .map(|(n, _)| {
+                        Record::from_rdata(
+                            query.name().clone(),
+                            dns_lru::MAX_TTL,
+                            RData::PTR(PTR(n.clone())),
+                        )
+                    })
+                    .collect::<Arc<[Record]>>();
+
+                if records.is_empty() {
+                    return None;
+                }
+
+                Some(Lookup::new_with_max_ttl(query.clone(), records))
+            }
+            _ => None,
         }
-        None
     }
 
     /// Insert a new Lookup for the associated `Name` and `RecordType`
@@ -254,5 +295,33 @@ mod tests {
             .map(ToOwned::to_owned)
             .collect::<Vec<RData>>();
         assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(10, 0, 1, 111).into())]);
+
+        let name = Name::from_str("111.1.0.10.in-addr.arpa.").unwrap();
+        let mut rdatas = hosts
+            .lookup_static_host(&Query::query(name, RecordType::PTR))
+            .unwrap()
+            .iter()
+            .map(ToOwned::to_owned)
+            .collect::<Vec<RData>>();
+        rdatas.sort_by_key(|r| r.as_ptr().as_ref().map(|p| p.0.clone()));
+        assert_eq!(
+            rdatas,
+            vec![
+                RData::PTR(PTR("a.example.com".parse().unwrap())),
+                RData::PTR(PTR("b.example.com".parse().unwrap()))
+            ]
+        );
+
+        let name = Name::from_str(
+            "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa.",
+        )
+        .unwrap();
+        let rdatas = hosts
+            .lookup_static_host(&Query::query(name, RecordType::PTR))
+            .unwrap()
+            .iter()
+            .map(ToOwned::to_owned)
+            .collect::<Vec<RData>>();
+        assert_eq!(rdatas, vec![RData::PTR(PTR("localhost".parse().unwrap())),]);
     }
 }
