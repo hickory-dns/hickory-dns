@@ -12,6 +12,7 @@ use std::{
     collections::{HashMap, HashSet},
     pin::Pin,
     sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use async_recursion::async_recursion;
@@ -719,8 +720,6 @@ fn verify_rrset_with_dnskey(
     rrsig: RecordRef<'_, RRSIG>,
     rrset: &Rrset<'_>,
 ) -> Result<Proof, ProofError> {
-    use std::time::{SystemTime, UNIX_EPOCH};
-
     if dnskey.data().revoke() {
         debug!("revoked");
         return Err(ProofError::new(
@@ -750,12 +749,7 @@ fn verify_rrset_with_dnskey(
         ));
     }
 
-    let current_time = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs() as u32;
-
-    let validity = check_rrsig_validity(rrsig, rrset, dnskey, current_time);
+    let validity = check_rrsig_validity(rrsig, rrset, dnskey, current_time());
     if !matches!(validity, RrsigValidity::ValidRrsig) {
         // TODO better error handling when the error payload is not immediately discarded by
         // the caller
@@ -1001,6 +995,14 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> Proof {
             Proof::Bogus
         }
     }
+}
+
+/// Returns the current system time as Unix timestamp in seconds.
+fn current_time() -> u32 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as u32
 }
 
 mod rrset {
