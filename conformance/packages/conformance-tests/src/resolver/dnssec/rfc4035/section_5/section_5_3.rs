@@ -81,7 +81,6 @@ fn rrsig_rr_expiration_time_is_before_current_time() -> Result<()> {
 
 /// Check that the validating resolver sets the TTL to a value between "now" and expiration time.
 /// See Github issue: https://github.com/hickory-dns/hickory-dns/issues/2292
-#[ignore]
 #[test]
 fn rrsig_rr_ttl_is_not_greater_than_duration_between_current_time_and_signature_expiration_timestamp(
 ) -> Result<()> {

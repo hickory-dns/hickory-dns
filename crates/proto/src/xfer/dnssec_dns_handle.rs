@@ -243,9 +243,10 @@ where
     let nameservers = message.take_name_servers();
     let additionals = message.take_additionals();
 
-    let answers = verify_rrsets(handle.clone(), answers, options).await;
-    let nameservers = verify_rrsets(handle.clone(), nameservers, options).await;
-    let additionals = verify_rrsets(handle.clone(), additionals, options).await;
+    let current_time = current_time();
+    let answers = verify_rrsets(handle.clone(), answers, options, current_time).await;
+    let nameservers = verify_rrsets(handle.clone(), nameservers, options, current_time).await;
+    let additionals = verify_rrsets(handle.clone(), additionals, options, current_time).await;
 
     message.insert_answers(answers);
     message.insert_name_servers(nameservers);
@@ -261,6 +262,7 @@ async fn verify_rrsets<H>(
     handle: DnssecDnsHandle<H>,
     records: Vec<Record>,
     options: DnsRequestOptions,
+    current_time: u32,
 ) -> Vec<Record>
 where
     H: DnsHandle + Sync + Unpin,
@@ -334,21 +336,38 @@ where
         rrset_proofs.insert((name, record_type), proof);
     }
 
+    // assign TTL for all records that match name and record type.
+    let mut rrsig_ttls: HashMap<(Name, RecordType), u32> = HashMap::new();
+
     // set the proofs of all the records, all records are returned, it's up to downstream users to check for correctness
     let mut records = records;
     for record in &mut records {
         // the RRSIG used to validate a record inherits the outcome of the validation
         // for RRSIGs, we need to use their TYPE_COVERED field instead of `RecordType::RRSIG` as the
         // `RecordType` key in `rrset_proofs`
-        let record_type = if let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = record.data() {
-            rrsig.type_covered()
+        //
+        // The adjusted TTL is determined by RRSIG + RR record it covers.
+        let (record_type, new_ttl) = if let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = record.data()
+        {
+            (rrsig.type_covered(), authenticated_ttl(rrsig, record, current_time))
         } else {
-            record.record_type()
+            (record.record_type(), record.ttl())
         };
 
-        rrset_proofs
-            .get(&(record.name().clone(), record_type))
-            .map(|proof| record.set_proof(*proof));
+        if let Some(proof) = rrset_proofs.get(&(record.name().clone(), record_type)) {
+            record.set_proof(*proof);
+            if proof.is_secure() {
+                record.set_ttl(new_ttl);
+                rrsig_ttls.insert((record.name().clone(), record_type), new_ttl);
+            }
+        }
+    }
+
+    // update TTL for all associated RRs that the RRSIG record covers.
+    for record in &mut records {
+        rrsig_ttls
+            .get(&(record.name().clone(), record.record_type()))
+            .map(|ttl| record.set_ttl(*ttl));
     }
 
     records
@@ -995,6 +1014,34 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> Proof {
             Proof::Bogus
         }
     }
+}
+
+/// Returns the authenticated TTL for RRSIG + RR.
+///
+/// ```text
+/// RFC 4035             DNSSEC Protocol Modifications            March 2005
+///
+/// If the resolver accepts the RRset as authentic, the validator MUST
+/// set the TTL of the RRSIG RR and each RR in the authenticated RRset to
+/// a value no greater than the minimum of:
+///
+///   o  the RRset's TTL as received in the response;
+///
+///   o  the RRSIG RR's TTL as received in the response;
+///
+///   o  the value in the RRSIG RR's Original TTL field; and
+///
+///   o  the difference of the RRSIG RR's Signature Expiration time and the
+///      current time.
+/// ```
+///
+/// See RFC 4035, section 5.3.3: https://datatracker.ietf.org/doc/html/rfc4035#section-5.3.3
+///
+fn authenticated_ttl(rrsig: &RRSIG, record: &Record, current_time: u32) -> u32 {
+    record
+        .ttl()
+        .min(rrsig.original_ttl())
+        .min(rrsig.sig_expiration().saturating_sub(current_time))
 }
 
 /// Returns the current system time as Unix timestamp in seconds.
