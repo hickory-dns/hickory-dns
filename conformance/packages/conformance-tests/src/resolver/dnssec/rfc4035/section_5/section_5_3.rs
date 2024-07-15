@@ -8,7 +8,7 @@ use std::time::{Duration, SystemTime};
 use dns_test::{
     client::{Client, DigSettings},
     name_server::NameServer,
-    record::RecordType,
+    record::{RecordType, RRSIG, SOA},
     zone_file::SignSettings,
     Network, Resolver, Result, FQDN,
 };
@@ -109,6 +109,39 @@ fn rrsig_rr_ttl_is_not_greater_than_duration_between_current_time_and_signature_
     let soa_ttl = answer.try_into_soa().unwrap().ttl as u64;
 
     assert!(soa_ttl <= ttl_delta.as_secs());
+
+    Ok(())
+}
+
+/// Check that both RRSIG and RR use the same TTL, section 5.3.3 of RFC 4035 defines conditions how to adjust the TTL
+/// while section 2.2 states "The RRSIG RR's TTL is equal to the TTL of the RRset."
+#[test]
+fn rrsgig_and_rr_return_the_same_adjusted_ttl() -> Result<()> {
+    let ttl_delta = 4 * ONE_HOUR;
+    let settings = SignSettings::default().expiration(SystemTime::now() + ttl_delta);
+
+    let network = &Network::new()?;
+    let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
+        .sign(settings)?
+        .start()?;
+
+    let resolver = Resolver::new(network, ns.root_hint())
+        .trust_anchor(ns.trust_anchor().expect("Failed to get trust anchor"))
+        .start()?;
+
+    // Fetch RRSIG + RR
+    let client = Client::new(network)?;
+    let settings = *DigSettings::default().dnssec().recurse();
+
+    let resolver_addr = resolver.ipv4_addr();
+    let dig = client.dig(settings, resolver_addr, RecordType::SOA, &FQDN::ROOT)?;
+
+    let [soa, rrsig] = dig.answer.try_into().unwrap();
+    let soa: SOA = soa.try_into_soa().unwrap();
+    let rrsig: RRSIG = rrsig.try_into_rrsig().unwrap();
+
+    assert_eq!(soa.ttl, rrsig.ttl);
+    assert!(soa.ttl <= ttl_delta.as_secs() as u32);
 
     Ok(())
 }
