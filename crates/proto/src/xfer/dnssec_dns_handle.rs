@@ -26,8 +26,9 @@ use crate::{
     op::{Edns, OpCode, Query},
     rr::{
         dnssec::{
-            rdata::{DNSSECRData, DNSKEY, DS, RRSIG},
-            Algorithm, Proof, ProofError, ProofErrorKind, SupportedAlgorithms, TrustAnchor,
+            rdata::{DNSSECRData, DNSKEY, DS, NSEC3, RRSIG},
+            Algorithm, Nsec3HashAlgorithm, Proof, ProofError, ProofErrorKind, SupportedAlgorithms,
+            TrustAnchor,
         },
         rdata::opt::EdnsOption,
         Name, RData, Record, RecordData, RecordType,
@@ -187,7 +188,8 @@ where
 
                         // at this point all of the message is verified.
                         //  This is where NSEC (and possibly NSEC3) validation occurs
-                        // As of now, only NSEC is supported.
+                        // Both NSEC and NSEC3 records cannot coexist during
+                        // transition periods, as per RFC 5515 10.4.3 and 10.5.2
                         if verified_message.answers().is_empty() {
                             // get SOA name
                             let soa_name = if let Some(soa_name) = verified_message
@@ -204,13 +206,25 @@ where
                                 ));
                             };
 
+                            let nsec3s = verified_message
+                                .name_servers()
+                                .iter()
+                                .filter(|rr| is_dnssec(rr, RecordType::NSEC3))
+                                .collect::<Vec<_>>();
+
                             let nsecs = verified_message
                                 .name_servers()
                                 .iter()
                                 .filter(|rr| is_dnssec(rr, RecordType::NSEC))
                                 .collect::<Vec<_>>();
 
-                            let nsec_proof = verify_nsec(&query, soa_name, nsecs.as_slice());
+                            let nsec_proof = match (nsec3s.is_empty(), nsecs.is_empty()) {
+                                (false, true) => verify_nsec3(&query, soa_name, nsec3s.as_slice()),
+                                (true, false) => verify_nsec(&query, soa_name, nsecs.as_slice()),
+                                (true, true) => Proof::Bogus,
+                                (false, false) => Proof::Bogus,
+                            };
+
                             if !nsec_proof.is_secure() {
                                 // TODO change this to remove the NSECs, like we do for the others?
                                 return future::err(ProtoError::from(ProtoErrorKind::Nsec {
@@ -1000,6 +1014,260 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> Proof {
         } else {
             Proof::Bogus
         }
+    }
+}
+
+/// RFC 5155                         NSEC3                        March 2008
+///
+/// 8.  Validator Considerations
+///
+/// 8.1.  Responses with Unknown Hash Types
+///
+///    A validator MUST ignore NSEC3 RRs with unknown hash types.  The
+///    practical result of this is that responses containing only such NSEC3
+///    RRs will generally be considered bogus.
+///
+/// 8.2.  Verifying NSEC3 RRs
+///
+///    A validator MUST ignore NSEC3 RRs with a Flag fields value other than
+///    zero or one.
+///
+///    A validator MAY treat a response as bogus if the response contains
+///    NSEC3 RRs that contain different values for hash algorithm,
+///    iterations, or salt from each other for that zone.
+///
+/// 8.3.  Closest Encloser Proof
+///
+///    In order to verify a closest encloser proof, the validator MUST find
+///    the longest name, X, such that
+///
+///    o  X is an ancestor of QNAME that is matched by an NSEC3 RR present
+///       in the response.  This is a candidate for the closest encloser,
+///       and
+///
+///    o  The name one label longer than X (but still an ancestor of -- or
+///       equal to -- QNAME) is covered by an NSEC3 RR present in the
+///       response.
+///
+///    One possible algorithm for verifying this proof is as follows:
+///
+///    1.  Set SNAME=QNAME.  Clear the flag.
+///
+///    2.  Check whether SNAME exists:
+///
+///        *  If there is no NSEC3 RR in the response that matches SNAME
+///           (i.e., an NSEC3 RR whose owner name is the same as the hash of
+///           SNAME, prepended as a single label to the zone name), clear
+///           the flag.
+///
+///        *  If there is an NSEC3 RR in the response that covers SNAME, set
+///           the flag.
+///
+///        *  If there is a matching NSEC3 RR in the response and the flag
+///           was set, then the proof is complete, and SNAME is the closest
+///           encloser.
+///
+///        *  If there is a matching NSEC3 RR in the response, but the flag
+///           is not set, then the response is bogus.
+///
+///    3.  Truncate SNAME by one label from the left, go to step 2.
+///
+///    Once the closest encloser has been discovered, the validator MUST
+///    check that the NSEC3 RR that has the closest encloser as the original
+///    owner name is from the proper zone.  The DNAME type bit must not be
+///    set and the NS type bit may only be set if the SOA type bit is set.
+///    If this is not the case, it would be an indication that an attacker
+///    is using them to falsely deny the existence of RRs for which the
+///    server is not authoritative.
+///
+///    In the following descriptions, the phrase "a closest (provable)
+///    encloser proof for X" means that the algorithm above (or an
+///    equivalent algorithm) proves that X does not exist by proving that an
+///    ancestor of X is its closest encloser.
+///
+/// 8.4.  Validating Name Error Responses
+///
+///    A validator MUST verify that there is a closest encloser proof for
+///    QNAME present in the response and that there is an NSEC3 RR that
+///    covers the wildcard at the closest encloser (i.e., the name formed by
+///    prepending the asterisk label to the closest encloser).
+///
+/// 8.5.  Validating No Data Responses, QTYPE is not DS
+///
+///    The validator MUST verify that an NSEC3 RR that matches QNAME is
+///    present and that both the QTYPE and the CNAME type are not set in its
+///    Type Bit Maps field.
+///
+///    Note that this test also covers the case where the NSEC3 RR exists
+///    because it corresponds to an empty non-terminal, in which case the
+///    NSEC3 RR will have an empty Type Bit Maps field.
+///
+/// 8.6.  Validating No Data Responses, QTYPE is DS
+///
+///    If there is an NSEC3 RR that matches QNAME present in the response,
+///    then that NSEC3 RR MUST NOT have the bits corresponding to DS and
+///    CNAME set in its Type Bit Maps field.
+///
+///    If there is no such NSEC3 RR, then the validator MUST verify that a
+///    closest provable encloser proof for QNAME is present in the response,
+///    and that the NSEC3 RR that covers the "next closer" name has the Opt-
+///    Out bit set.
+///
+/// 8.7.  Validating Wildcard No Data Responses
+///
+///    The validator MUST verify a closest encloser proof for QNAME and MUST
+///    find an NSEC3 RR present in the response that matches the wildcard
+///    name generated by prepending the asterisk label to the closest
+///    encloser.  Furthermore, the bits corresponding to both QTYPE and
+///    CNAME MUST NOT be set in the wildcard matching NSEC3 RR.
+///
+/// 8.8.  Validating Wildcard Answer Responses
+///
+///    The verified wildcard answer RRSet in the response provides the
+///    validator with a (candidate) closest encloser for QNAME.  This
+///    closest encloser is the immediate ancestor to the generating
+///    wildcard.
+///
+///    Validators MUST verify that there is an NSEC3 RR that covers the
+///    "next closer" name to QNAME present in the response.  This proves
+///    that QNAME itself did not exist and that the correct wildcard was
+///    used to generate the response.
+///
+/// 8.9.  Validating Referrals to Unsigned Subzones
+///
+///    The delegation name in a referral is the owner name of the NS RRSet
+///    present in the authority section of the referral response.
+///
+///    If there is an NSEC3 RR present in the response that matches the
+///    delegation name, then the validator MUST ensure that the NS bit is
+///    set and that the DS bit is not set in the Type Bit Maps field of the
+///    NSEC3 RR.  The validator MUST also ensure that the NSEC3 RR is from
+///    the correct (i.e., parent) zone.  This is done by ensuring that the
+///    SOA bit is not set in the Type Bit Maps field of this NSEC3 RR.
+///
+///    Note that the presence of an NS bit implies the absence of a DNAME
+///    bit, so there is no need to check for the DNAME bit in the Type Bit
+///    Maps field of the NSEC3 RR.
+///
+///    If there is no NSEC3 RR present that matches the delegation name,
+///    then the validator MUST verify a closest provable encloser proof for
+///    the delegation name.  The validator MUST verify that the Opt-Out bit
+///    is set in the NSEC3 RR that covers the "next closer" name to the
+///    delegation name.
+///
+#[doc(hidden)]
+pub fn verify_nsec3(query: &Query, _soa_name: &Name, nsec3s: &[&Record]) -> Proof {
+    fn hash(name: &Name, salt: &[u8], iterations: u16) -> Vec<u8> {
+        Nsec3HashAlgorithm::SHA1
+            .hash(salt, name, iterations)
+            .expect("SHA1 Hashing of a domanin name failed")
+            .to_vec()
+    }
+
+    debug_assert!(!nsec3s.is_empty());
+    debug_assert!(nsec3s.iter().all(|rr| is_dnssec(rr, RecordType::NSEC3)));
+
+    let nsec3s: Vec<_> = nsec3s
+        .iter()
+        .filter_map(|r| r.data().as_dnssec())
+        .filter_map(|r| r.as_nsec3())
+        .collect();
+
+    // RFC 5155 8.2 - all NSEC3 records share the same NSEC3 params
+    let first = nsec3s[0];
+    let hash_algorithm = first.hash_algorithm();
+    let salt = first.salt();
+    let iterations = first.iterations();
+    if nsec3s.iter().any(|r| {
+        r.hash_algorithm() != hash_algorithm || r.salt() != salt || r.iterations() != iterations
+    }) {
+        return Proof::Bogus;
+    }
+
+    // 3 situations are possible
+    //
+    // 1. There's only one NSEC3 record matching the QNAME, valid for NO_DATA
+    //    responses
+    // 2. There's **1 or 2** records present aka "Closest Encloser Proof"
+    // 3. In addition to "Closest Encloser Proof" records pair there's a third
+    //    record for an encopassing wildcard
+
+    if nsec3s.len() == 1 {
+        let nsec3: &NSEC3 = nsec3s[0];
+        let hashed_qname = hash(query.name(), salt, iterations);
+        if hashed_qname == nsec3.next_hashed_owner_name() {
+            // TODO: It's valid for NO_DATA responses only
+            return Proof::Secure;
+        }
+    }
+
+    // Search for Closest Encloser Proof
+
+    // Situation 1: `x.exmaple.com` doesn't exist but `exmaple.com` does
+    // Situation 2: `x.exmaple.com` doesn't exist but `exmaple.com` and
+    //              `*.example.com` do
+    // Situation 3: `x.a.b.c.exmaple.com` doesn't exist but `c.exmaple.com` does
+    // Situation 4: `x.a.b.c.exmaple.com` doesn't exist but both
+    //              `c.exmaple.com` and `*.c.exmaple.com` do
+
+    let next_closer_candidate = loop {
+        let next_closer = query.name().base_name();
+        if next_closer == Name::root() {
+            // no enclosing names?
+            return Proof::Bogus;
+        }
+        let hashed_next_closer = hash(&next_closer, salt, iterations);
+        let record = nsec3s
+            .iter()
+            .find(|n| n.next_hashed_owner_name() == hashed_next_closer);
+        if record.is_some() {
+            break next_closer;
+        }
+    };
+    let closest_encloser_candidate = next_closer_candidate.base_name();
+    let hashed_closest_encloser_candidate = hash(&closest_encloser_candidate, salt, iterations);
+    let record = nsec3s
+        .iter()
+        .find(|n| n.next_hashed_owner_name() == hashed_closest_encloser_candidate);
+
+    // is it a two-record proof or a single-record proof?
+    let (closest_encloser, next_closer) = if record.is_some() {
+        (closest_encloser_candidate, Some(next_closer_candidate))
+    } else if query.name().base_name() == closest_encloser_candidate {
+        // The single-record proof means for `x.a.example.com` `a.example.com`
+        // exists. Having an NSEC3 for `example.com` and not `a.example.com`
+        // would be an error
+        (next_closer_candidate, None)
+    } else {
+        return Proof::Bogus;
+    };
+
+    // There may be a wildcard for a closest encloser proof
+    let wildcard_encloser = Name::new()
+        .append_label("*")
+        .unwrap()
+        .append_domain(&closest_encloser)
+        .unwrap();
+    let hashed_wildcard_encloser = hash(&wildcard_encloser, salt, iterations);
+
+    let wildcard_record = nsec3s
+        .iter()
+        .find(|n| n.next_hashed_owner_name() == hashed_wildcard_encloser);
+
+    // Check for number of records matching the expectation based on proof
+    // type:
+
+    let expected_record_count = match (next_closer, wildcard_record) {
+        (Some(_), Some(_)) => 3,
+        (Some(_), None) => 2,
+        (None, Some(_)) => 2,
+        (None, None) => 1,
+    };
+
+    if expected_record_count == nsec3s.len() {
+        Proof::Secure
+    } else {
+        Proof::Bogus
     }
 }
 
