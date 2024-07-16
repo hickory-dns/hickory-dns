@@ -243,10 +243,9 @@ where
     let nameservers = message.take_name_servers();
     let additionals = message.take_additionals();
 
-    let current_time = current_time();
-    let answers = verify_rrsets(handle.clone(), answers, options, current_time).await;
-    let nameservers = verify_rrsets(handle.clone(), nameservers, options, current_time).await;
-    let additionals = verify_rrsets(handle.clone(), additionals, options, current_time).await;
+    let answers = verify_rrsets(handle.clone(), answers, options).await;
+    let nameservers = verify_rrsets(handle.clone(), nameservers, options).await;
+    let additionals = verify_rrsets(handle.clone(), additionals, options).await;
 
     message.insert_answers(answers);
     message.insert_name_servers(nameservers);
@@ -262,13 +261,12 @@ async fn verify_rrsets<H>(
     handle: DnssecDnsHandle<H>,
     records: Vec<Record>,
     options: DnsRequestOptions,
-    current_time: u32,
 ) -> Vec<Record>
 where
     H: DnsHandle + Sync + Unpin,
 {
     let mut rrset_types: HashSet<(Name, RecordType)> = HashSet::new();
-    let mut rrset_proofs: HashMap<(Name, RecordType), Proof> = HashMap::new();
+    let mut rrset_proofs: HashMap<(Name, RecordType), (Proof, Option<u32>)> = HashMap::new();
 
     for rrset in records
         .iter()
@@ -322,22 +320,19 @@ where
         // verify this rrset
         let proof = verify_rrset(handle.clone_with_context(), rrset, rrsigs, options).await;
 
-        let proof = match proof {
-            Ok(proof) => {
+        let (proof, adjusted_ttl) = match proof {
+            Ok((proof, adjusted_ttl)) => {
                 debug!("verified: {name} record_type: {record_type}",);
-                proof
+                (proof, adjusted_ttl)
             }
             Err(ProofError { proof, kind }) => {
                 debug!("failed to verify: {name} record_type: {record_type}: {kind}",);
-                proof
+                (proof, None)
             }
         };
 
-        rrset_proofs.insert((name, record_type), proof);
+        rrset_proofs.insert((name, record_type), (proof, adjusted_ttl));
     }
-
-    // assign TTL for all records that match name and record type.
-    let mut rrsig_ttls: HashMap<(Name, RecordType), u32> = HashMap::new();
 
     // set the proofs of all the records, all records are returned, it's up to downstream users to check for correctness
     let mut records = records;
@@ -345,32 +340,19 @@ where
         // the RRSIG used to validate a record inherits the outcome of the validation
         // for RRSIGs, we need to use their TYPE_COVERED field instead of `RecordType::RRSIG` as the
         // `RecordType` key in `rrset_proofs`
-        //
-        // The adjusted TTL is determined by RRSIG + RR record it covers.
-        let (record_type, new_ttl) = if let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = record.data()
-        {
-            (
-                rrsig.type_covered(),
-                rrsig.authenticated_ttl(record, current_time),
-            )
+        let record_type = if let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = record.data() {
+            rrsig.type_covered()
         } else {
-            (record.record_type(), record.ttl())
+            record.record_type()
         };
 
-        if let Some(proof) = rrset_proofs.get(&(record.name().clone(), record_type)) {
+        if let Some((proof, adjusted_ttl)) = rrset_proofs.get(&(record.name().clone(), record_type))
+        {
             record.set_proof(*proof);
-            if proof.is_secure() {
-                record.set_ttl(new_ttl);
-                rrsig_ttls.insert((record.name().clone(), record_type), new_ttl);
+            if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
+                record.set_ttl(*ttl);
             }
         }
-    }
-
-    // update TTL for all associated RRs that the RRSIG record covers.
-    for record in &mut records {
-        rrsig_ttls
-            .get(&(record.name().clone(), record.record_type()))
-            .map(|ttl| record.set_ttl(*ttl));
     }
 
     records
@@ -394,7 +376,7 @@ async fn verify_rrset<H>(
     rrset: Rrset<'_>,
     rrsigs: Vec<RecordRef<'_, RRSIG>>,
     options: DnsRequestOptions,
-) -> Result<Proof, ProofError>
+) -> Result<(Proof, Option<u32>), ProofError>
 where
     H: DnsHandle + Sync + Unpin,
 {
@@ -402,9 +384,9 @@ where
 
     match rrset.record_type() {
         // validation of DNSKEY records require different logic as they search for DS record coverage as well
-        RecordType::DNSKEY => {
-            verify_dnskey_rrset(handle.clone_with_context(), rrset, options).await
-        }
+        RecordType::DNSKEY => verify_dnskey_rrset(handle.clone_with_context(), rrset, options)
+            .await
+            .map(|proof| (proof, None)),
         _ => verify_default_rrset(&handle.clone_with_context(), rrset, rrsigs, options).await,
     }
 }
@@ -609,7 +591,7 @@ async fn verify_default_rrset<H>(
     rrset: Rrset<'_>,
     rrsigs: Vec<RecordRef<'_, RRSIG>>,
     options: DnsRequestOptions,
-) -> Result<Proof, ProofError>
+) -> Result<(Proof, Option<u32>), ProofError>
 where
     H: DnsHandle + Sync + Unpin,
 {
@@ -645,6 +627,9 @@ where
         rrset.record_type()
     );
 
+    // use the same current time value for all rrsig + rrset pairs.
+    let current_time = current_time();
+
     // Special case for self-signed DNSKEYS, validate with itself...
     if rrsigs.iter().any(|rrsig| {
         RecordType::DNSKEY == rrset.record_type() && rrsig.data().signer_name() == rrset.name()
@@ -653,7 +638,7 @@ where
         //  then return rrset. Like the standard case below, the DNSKEY is validated
         //  after this function. This function is only responsible for validating the signature
         //  the DNSKey validation should come after, see verify_rrset().
-        let proof = rrsigs
+        let (proof, adjusted_ttl) = rrsigs
             .iter()
             .find_map(|rrsig| {
                 rrset
@@ -662,7 +647,7 @@ where
                     .filter_map(|r| r.try_borrow::<DNSKEY>())
                     .find_map(|dnskey| {
                         // If we had rrsigs to verify, then we want them to be secure, or the result is a Bogus proof
-                        verify_rrset_with_dnskey(dnskey, *rrsig, &rrset).ok()
+                        verify_rrset_with_dnskey(dnskey, *rrsig, &rrset, current_time).ok()
                     })
             })
             .ok_or_else(|| {
@@ -675,7 +660,7 @@ where
             })?;
 
         // Getting here means the rrset (and records), have been verified
-        return Ok(proof);
+        return Ok((proof, adjusted_ttl));
     }
 
     // we can validate with any of the rrsigs...
@@ -706,7 +691,9 @@ where
                         .answers()
                         .iter()
                         .filter_map(|r| r.try_borrow::<DNSKEY>())
-                        .find_map(|dnskey| verify_rrset_with_dnskey(dnskey, *rrsig, &rrset).ok())
+                        .find_map(|dnskey| {
+                            verify_rrset_with_dnskey(dnskey, *rrsig, &rrset, current_time).ok()
+                        })
                 })
         })
         .collect::<Vec<_>>();
@@ -741,7 +728,8 @@ fn verify_rrset_with_dnskey(
     dnskey: RecordRef<'_, DNSKEY>,
     rrsig: RecordRef<'_, RRSIG>,
     rrset: &Rrset<'_>,
-) -> Result<Proof, ProofError> {
+    current_time: u32,
+) -> Result<(Proof, Option<u32>), ProofError> {
     if dnskey.data().revoke() {
         debug!("revoked");
         return Err(ProofError::new(
@@ -771,7 +759,7 @@ fn verify_rrset_with_dnskey(
         ));
     }
 
-    let validity = check_rrsig_validity(rrsig, rrset, dnskey, current_time());
+    let validity = check_rrsig_validity(rrsig, rrset, dnskey, current_time);
     if !matches!(validity, RrsigValidity::ValidRrsig) {
         // TODO better error handling when the error payload is not immediately discarded by
         // the caller
@@ -797,7 +785,10 @@ fn verify_rrset_with_dnskey(
                 dnskey.name(),
                 dnskey.data()
             );
-            Proof::Secure
+            (
+                Proof::Secure,
+                Some(rrsig.data().authenticated_ttl(rrset.record(), current_time)),
+            )
         })
         .map_err(|e| {
             debug!(
@@ -1057,6 +1048,11 @@ mod rrset {
             {
                 self.records.push(record);
             }
+        }
+
+        /// Returns the first (main) record.
+        pub(super) fn record(&self) -> &Record {
+            self.records[0]
         }
 
         pub(super) fn name(&self) -> &Name {
