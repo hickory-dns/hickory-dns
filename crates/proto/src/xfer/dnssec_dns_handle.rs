@@ -349,7 +349,10 @@ where
         // The adjusted TTL is determined by RRSIG + RR record it covers.
         let (record_type, new_ttl) = if let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = record.data()
         {
-            (rrsig.type_covered(), authenticated_ttl(rrsig, record, current_time))
+            (
+                rrsig.type_covered(),
+                rrsig.authenticated_ttl(record, current_time),
+            )
         } else {
             (record.record_type(), record.ttl())
         };
@@ -1014,34 +1017,6 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> Proof {
             Proof::Bogus
         }
     }
-}
-
-/// Returns the authenticated TTL for RRSIG + RR.
-///
-/// ```text
-/// RFC 4035             DNSSEC Protocol Modifications            March 2005
-///
-/// If the resolver accepts the RRset as authentic, the validator MUST
-/// set the TTL of the RRSIG RR and each RR in the authenticated RRset to
-/// a value no greater than the minimum of:
-///
-///   o  the RRset's TTL as received in the response;
-///
-///   o  the RRSIG RR's TTL as received in the response;
-///
-///   o  the value in the RRSIG RR's Original TTL field; and
-///
-///   o  the difference of the RRSIG RR's Signature Expiration time and the
-///      current time.
-/// ```
-///
-/// See RFC 4035, section 5.3.3: https://datatracker.ietf.org/doc/html/rfc4035#section-5.3.3
-///
-fn authenticated_ttl(rrsig: &RRSIG, record: &Record, current_time: u32) -> u32 {
-    record
-        .ttl()
-        .min(rrsig.original_ttl())
-        .min(rrsig.sig_expiration().saturating_sub(current_time))
 }
 
 /// Returns the current system time as Unix timestamp in seconds.
