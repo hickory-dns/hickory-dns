@@ -5,6 +5,7 @@ server:
     access-control: {{ netmask }} allow
     root-hints: /etc/root.hints
     pidfile: /tmp/unbound.pid
+    cache-max-ttl: 60
     ede: {% if ede %} yes {% else %} no {% endif %}
 {% if use_dnssec %}
     val-sig-skew-min: 3600
