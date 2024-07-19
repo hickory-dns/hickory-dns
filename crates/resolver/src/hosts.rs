@@ -135,7 +135,7 @@ impl Hosts {
     }
 
     /// parse configuration from `src`
-    pub fn read_hosts_conf(mut self, src: impl io::Read) -> io::Result<Self> {
+    pub fn read_hosts_conf(&mut self, src: impl io::Read) -> io::Result<()> {
         use std::io::{BufRead, BufReader};
 
         use proto::rr::domain::TryParseIp;
@@ -191,7 +191,7 @@ impl Hosts {
             }
         }
 
-        Ok(self)
+        Ok(())
     }
 }
 
@@ -215,7 +215,9 @@ pub(crate) fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
     use std::fs::File;
 
     let file = File::open(path)?;
-    Hosts::default().read_hosts_conf(file)
+    let mut hosts = Hosts::default();
+    hosts.read_hosts_conf(file)?;
+    Ok(hosts)
 }
 
 #[cfg(any(unix, windows))]
