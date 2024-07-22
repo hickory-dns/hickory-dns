@@ -136,6 +136,8 @@ fn rrsgig_and_rr_return_the_same_adjusted_ttl() -> Result<()> {
     let resolver_addr = resolver.ipv4_addr();
     let dig = client.dig(settings, resolver_addr, RecordType::SOA, &FQDN::ROOT)?;
 
+    assert!(dig.status.is_noerror());
+
     let [soa, rrsig] = dig.answer.try_into().unwrap();
     let soa: SOA = soa.try_into_soa().unwrap();
     let rrsig: RRSIG = rrsig.try_into_rrsig().unwrap();
