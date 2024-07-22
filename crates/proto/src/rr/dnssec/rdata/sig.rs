@@ -371,7 +371,7 @@ impl SIG {
         self.sig_expiration
     }
 
-    /// see `get_sig_expiration`
+    /// see [`Self::sig_expiration`]
     pub fn sig_inception(&self) -> u32 {
         self.sig_inception
     }

@@ -20,6 +20,7 @@ pub mod record_type;
 pub mod resource;
 mod rr_key;
 mod rr_set;
+pub mod serial_number;
 pub mod type_bit_map;
 
 use std::fmt::{Debug, Display};
