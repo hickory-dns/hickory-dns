@@ -9,7 +9,7 @@ use std::array;
 use std::net::Ipv4Addr;
 use std::str::FromStr;
 
-use crate::record::{self, Record, SOA};
+use crate::record::{self, Record, RecordType, RRSIG, SOA};
 use crate::{Error, Result, DEFAULT_TTL, FQDN};
 
 mod signer;
@@ -36,6 +36,14 @@ impl ZoneFile {
     /// Adds the given `record` to the zone file
     pub fn add(&mut self, record: impl Into<Record>) {
         self.records.push(record.into())
+    }
+
+    /// Modify the RRSIG for the covered record type.
+    pub fn rrsig_mut(&mut self, covered_type: RecordType) -> Option<&mut RRSIG> {
+        self.records
+            .iter_mut()
+            .filter_map(|r| r.as_rrsig_mut())
+            .find(|rrsig| rrsig.type_covered == covered_type)
     }
 
     /// Shortcut method for adding a referral (NS + A record pair)
