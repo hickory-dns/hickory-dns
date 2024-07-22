@@ -105,6 +105,14 @@ impl From<SOA> for Record {
 }
 
 impl Record {
+    pub fn as_rrsig_mut(&mut self) -> Option<&mut RRSIG> {
+        if let Self::RRSIG(rrsig) = self {
+            Some(rrsig)
+        } else {
+            None
+        }
+    }
+
     pub fn try_into_a(self) -> CoreResult<A, Self> {
         if let Self::A(v) = self {
             Ok(v)
