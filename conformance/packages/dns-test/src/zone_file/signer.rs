@@ -19,8 +19,8 @@ pub struct SignSettings {
     zsk_bits: u16,
     ksk_bits: u16,
     algorithm: Algorithm,
-    expiration: Option<SystemTime>,
-    inception: Option<SystemTime>,
+    expiration: Option<u64>,
+    inception: Option<u64>,
     nsec_salt: Option<String>,
 }
 
@@ -48,15 +48,21 @@ impl SignSettings {
         }
     }
 
+    /// Set the expiration parameter from a `u64`.
+    pub fn expiration_from_u64(mut self, timestamp: u64) -> Self {
+        self.expiration = Some(timestamp);
+        self
+    }
+
     /// Set the expiration parameter.
     pub fn expiration(mut self, expiraton: SystemTime) -> Self {
-        self.expiration = Some(expiraton);
+        self.expiration = Some(unix_timestamp(&expiraton));
         self
     }
 
     /// Set the inception parameter.
     pub fn inception(mut self, inception: SystemTime) -> Self {
-        self.inception = Some(inception);
+        self.inception = Some(unix_timestamp(&inception));
         self
     }
 
@@ -186,10 +192,10 @@ impl<'a> Signer<'a> {
         let mut args = vec![String::from("ldns-signzone")];
 
         if let Some(expiration) = self.settings.expiration {
-            args.push(format!("-e {}", unix_timestamp(&expiration)));
+            args.push(format!("-e {}", expiration));
         }
         if let Some(inception) = self.settings.inception {
-            args.push(format!("-i {}", unix_timestamp(&inception)));
+            args.push(format!("-i {}", inception));
         }
 
         // NSEC3 related options
