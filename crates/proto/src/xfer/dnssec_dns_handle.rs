@@ -1202,6 +1202,17 @@ pub fn verify_nsec3(query: &Query, _soa_name: &Name, nsec3s: &[&Record]) -> Proo
     }
 
     // Search for Closest Encloser Proof
+    //
+    // Let's say `e.example.com` exists, but we requested `a.b.c.e.example.com`
+    // Then the "closest encloser" would be `e.example.com`,
+    // and "next closer" would be `c.e.example.com` itself. We should expect
+    // two NSEC3 records for them to signify that one exists and the other
+    // doesn't.
+    //
+    // In addition there may be wildcards matching the enclosing domain name.
+    // For example, `a.b.c.e.example.com` doesn't exist, but there's a wildcard
+    // that would cover it (like `*.e.example.com`). If so than we should expect
+    // an extra NSEC3 record corresponding to this wildcard.
 
     // Situation 1: `x.exmaple.com` doesn't exist but `exmaple.com` does
     // Situation 2: `x.exmaple.com` doesn't exist but `exmaple.com` and
@@ -1210,20 +1221,24 @@ pub fn verify_nsec3(query: &Query, _soa_name: &Name, nsec3s: &[&Record]) -> Proo
     // Situation 4: `x.a.b.c.exmaple.com` doesn't exist but both
     //              `c.exmaple.com` and `*.c.exmaple.com` do
 
-    let next_closer_candidate = loop {
-        let next_closer = query.name().base_name();
-        if next_closer == Name::root() {
-            // no enclosing names?
-            return Proof::Bogus;
-        }
-        let hashed_next_closer = hash(&next_closer, salt, iterations);
-        let record = nsec3s
-            .iter()
-            .find(|n| n.next_hashed_owner_name() == hashed_next_closer);
-        if record.is_some() {
-            break next_closer;
+    let next_closer_candidate = {
+        let mut next_closer = query.name().base_name();
+        loop {
+            if next_closer == Name::root() {
+                // no enclosing names?
+                return Proof::Bogus;
+            }
+            let hashed_next_closer = hash(&next_closer, salt, iterations);
+            let record = nsec3s
+                .iter()
+                .find(|n| n.next_hashed_owner_name() == hashed_next_closer);
+            if record.is_some() {
+                break next_closer;
+            }
+            next_closer = next_closer.base_name();
         }
     };
+
     let closest_encloser_candidate = next_closer_candidate.base_name();
     let hashed_closest_encloser_candidate = hash(&closest_encloser_candidate, salt, iterations);
     let record = nsec3s
