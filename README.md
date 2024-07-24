@@ -204,7 +204,7 @@ presume that the hickory-dns repos have already been synced to the local system:
 
 ## Testing
 
-Hickory DNS uses `just` for build workflow management. While running `cargo test` at the project root will work, this is not exhaustive. Install `just` with `cargo install just`.
+Hickory DNS uses `just` for build workflow management. While running `cargo test` at the project root will work, this is not exhaustive. Install `just` with `cargo install just`. A few of the `just` recipes require [`cargo-workspaces`](https://github.com/pksunkara/cargo-workspaces) to be installed, a plugin to optimize the workflow around cargo workspaces. Install the plugin with `cargo install cargo-workspaces`.
 
 - Default tests
 
