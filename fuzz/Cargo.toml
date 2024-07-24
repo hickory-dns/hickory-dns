@@ -4,7 +4,7 @@ version = "0.0.0"
 authors = ["Automatically generated"]
 publish = false
 edition = "2021"
-rust-version = "1.67.0"
+rust-version = "1.70"
 
 [package.metadata]
 cargo-fuzz = true
