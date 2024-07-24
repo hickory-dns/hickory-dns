@@ -52,32 +52,32 @@ dnssec-ring: (default "--features=dnssec-ring" "--ignore=\\{async-std-resolver,h
 
 # Run check on all projects in the workspace
 check feature='' ignore='':
-    cargo ws exec {{ignore}} cargo {{MSRV}} check --all-targets {{feature}}
+    cargo ws exec {{ignore}} cargo {{MSRV}} check --locked --all-targets {{feature}}
     cargo {{MSRV}} check --manifest-path fuzz/Cargo.toml --all-targets
 
 # Run build on all projects in the workspace
 build feature='' ignore='':
-    cargo ws exec {{ignore}} cargo {{MSRV}} build --all-targets {{feature}}
+    cargo ws exec {{ignore}} cargo {{MSRV}} build --locked --all-targets {{feature}}
 
 # Run tests on all projects in the workspace
 test feature='' ignore='':
-    cargo ws exec {{ignore}} cargo {{MSRV}} test --all-targets {{feature}}
+    cargo ws exec {{ignore}} cargo {{MSRV}} test --locked --all-targets {{feature}}
 
 doc feature='':
-    cargo ws exec --ignore=hickory-dns cargo {{MSRV}} test --doc {{feature}}
+    cargo ws exec --ignore=hickory-dns cargo {{MSRV}} test --locked --doc {{feature}}
 
 # This tests compatibility with BIND9, TODO: support other feature sets besides openssl for tests
 compatibility: init-bind9
-    cargo test --manifest-path tests/compatibility-tests/Cargo.toml --all-targets --no-default-features --features=none;
-    cargo test --manifest-path tests/compatibility-tests/Cargo.toml --all-targets --no-default-features --features=bind;
+    cargo test --manifest-path tests/compatibility-tests/Cargo.toml --locked --all-targets --no-default-features --features=none;
+    cargo test --manifest-path tests/compatibility-tests/Cargo.toml --locked --all-targets --no-default-features --features=bind;
 
 # Build all bench marking tools, i.e. check that they work, but don't run
 build-bench:
-    cargo ws exec cargo +nightly-{{NIGHTLY_DATE}} bench --no-run
+    cargo ws exec cargo +nightly-{{NIGHTLY_DATE}} bench --locked --no-run
 
 [private]
 clippy-inner feature='':
-    cargo ws exec cargo {{MSRV}} clippy --all-targets {{feature}} -- -D warnings
+    cargo ws exec cargo {{MSRV}} clippy --locked --all-targets {{feature}} -- -D warnings
 
 # Run clippy on all targets and all sources
 clippy:
@@ -177,7 +177,7 @@ conformance-ignored:
 
 # lints the conformance test suite
 conformance-clippy:
-    cargo clippy --manifest-path conformance/Cargo.toml --workspace --all-targets -- -D warnings
+    cargo clippy --locked --manifest-path conformance/Cargo.toml --workspace --all-targets -- -D warnings
 
 # formats the conformance test suite code
 conformance-fmt:
@@ -295,4 +295,4 @@ init: init-cargo-workspaces init-audit init-bind9
 
 # Run the server with example config, for manual testing purposes
 run-example:
-    @cargo {{MSRV}} run --bin hickory-dns -- -d -c {{TEST_DATA}}/test_configs/example.toml -z {{TEST_DATA}}/test_configs -p 2053
+    @cargo {{MSRV}} run --bin hickory-dns --locked -- -d -c {{TEST_DATA}}/test_configs/example.toml -z {{TEST_DATA}}/test_configs -p 2053
