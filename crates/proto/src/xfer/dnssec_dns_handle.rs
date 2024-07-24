@@ -31,8 +31,7 @@ use crate::{
             Algorithm, Proof, ProofError, ProofErrorKind, SupportedAlgorithms, TrustAnchor,
         },
         rdata::opt::EdnsOption,
-        serial_number::SerialNumber,
-        Name, RData, Record, RecordData, RecordType,
+        Name, RData, Record, RecordData, RecordType, SerialNumber,
     },
     xfer::{dns_handle::DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer},
 };
@@ -818,8 +817,8 @@ fn check_rrsig_validity(
     current_time: u32,
 ) -> RrsigValidity {
     let current_time = SerialNumber(current_time);
-    let expiration = SerialNumber(rrsig.data().sig_expiration());
-    let inception = SerialNumber(rrsig.data().sig_inception());
+    let expiration = rrsig.data().sig_expiration();
+    let inception = rrsig.data().sig_inception();
 
     let Ok(dnskey_key_tag) = dnskey.data().calculate_key_tag() else {
         return RrsigValidity::WrongDnskey;

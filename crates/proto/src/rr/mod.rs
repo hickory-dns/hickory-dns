@@ -41,6 +41,7 @@ pub use self::rr_set::RecordSet;
 pub use self::rr_set::RrsetRecords;
 pub use lower_name::LowerName;
 pub use rr_key::RrKey;
+pub use serial_number::SerialNumber;
 
 /// RecordData that is stored in a DNS Record.
 ///

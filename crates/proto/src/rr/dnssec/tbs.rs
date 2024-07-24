@@ -11,7 +11,7 @@ use std::borrow::Borrow;
 
 use crate::{
     error::*,
-    rr::{dnssec::Algorithm, DNSClass, Name, Record, RecordType},
+    rr::{dnssec::Algorithm, DNSClass, Name, Record, RecordType, SerialNumber},
     serialize::binary::{BinEncodable, BinEncoder, EncodeMode},
 };
 
@@ -93,8 +93,8 @@ pub fn rrset_tbs<B: Borrow<Record>>(
     type_covered: RecordType,
     algorithm: Algorithm,
     original_ttl: u32,
-    sig_expiration: u32,
-    sig_inception: u32,
+    sig_expiration: SerialNumber,
+    sig_inception: SerialNumber,
     key_tag: u16,
     signer_name: &Name,
     records: &[B],
