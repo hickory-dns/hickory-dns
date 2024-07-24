@@ -50,7 +50,7 @@ futures-executor = { version = "0.3.5", default-features = false }
 futures-io = { version = "0.3.5", default-features = false }
 futures-util = { version = "0.3.5", default-features = false }
 async-std = "1.6"
-tokio = "1.21"
+tokio = "= 1.38.1"
 tokio-native-tls = "0.3.0"
 tokio-openssl = "0.6.0"
 tokio-rustls = "0.24.0"
