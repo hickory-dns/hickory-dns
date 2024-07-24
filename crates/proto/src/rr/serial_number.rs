@@ -6,7 +6,7 @@ use std::{cmp::Ordering, ops::Add};
 /// in RFC 1982. The signaure fields (expireation, inception) defined in RFC 4034, section 3.1.5
 /// are serial numbers.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub(crate) struct SerialNumber(pub(crate) u32);
+pub struct SerialNumber(pub u32);
 
 /// Serial Number Addition, see RFC 1982, section 3.1
 ///
