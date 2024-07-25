@@ -118,3 +118,6 @@ lto = true
 codegen-units = 1
 opt-level = 3
 strip = "symbols"
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(nightly)'] }

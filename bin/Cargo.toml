@@ -134,3 +134,6 @@ hickory-proto = { workspace = true, features = [
 ] }
 hickory-resolver.workspace = true
 webpki-roots.workspace = true
+
+[lints]
+workspace = true
