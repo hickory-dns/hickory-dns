@@ -906,6 +906,7 @@ version = "0.24.1"
 dependencies = [
  "async-recursion",
  "async-trait",
+ "backtrace",
  "bytes",
  "cfg-if",
  "enum-as-inner",
@@ -925,6 +926,7 @@ dependencies = [
 name = "hickory-resolver"
 version = "0.24.1"
 dependencies = [
+ "backtrace",
  "cfg-if",
  "futures-executor",
  "futures-util",
