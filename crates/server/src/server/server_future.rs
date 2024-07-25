@@ -586,39 +586,6 @@ impl<T: RequestHandler> ServerFuture<T> {
         Self::register_tls_listener_with_tls_config(self, listener, timeout, Arc::new(tls_acceptor))
     }
 
-    /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
-    /// IPv6 or an IPv4 address.
-    ///
-    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
-    ///  to not make this too low depending on use cases.
-    ///
-    /// # Arguments
-    /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
-    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
-    ///               requests within this time period will be closed. In the future it should be
-    ///               possible to create long-lived queries, but these should be from trusted sources
-    ///               only, this would require some type of whitelisting.
-    /// * `pkcs12` - certificate used to announce to clients
-    #[cfg(all(
-        feature = "dns-over-https-openssl",
-        not(feature = "dns-over-https-rustls")
-    ))]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(all(
-            feature = "dns-over-https-openssl",
-            not(feature = "dns-over-https-rustls")
-        )))
-    )]
-    pub fn register_https_listener(
-        &self,
-        listener: tcp::TcpListener,
-        timeout: Duration,
-        pkcs12: ParsedPkcs12,
-    ) -> io::Result<()> {
-        unimplemented!("openssl based `dns-over-https` not yet supported. see the `dns-over-https-rustls` feature")
-    }
-
     /// Register a TcpListener for HTTPS (h2) to the Server for supporting DoH (dns-over-https). The TcpListener should already be bound to either an
     /// IPv6 or an IPv4 address.
     ///
