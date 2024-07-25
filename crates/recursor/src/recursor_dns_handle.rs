@@ -92,6 +92,9 @@ impl RecursorDnsHandle {
         let mut zone = zone;
         let mut ns = None;
 
+        // Recursively search for authoritative name servers for the queried record to build an NS
+        // pool to use for queries for a given zone.
+
         // max number of forwarding processes
         'max_forward: for _ in 0..20 {
             match self.ns_pool_for_zone(zone.clone(), request_time).await {
