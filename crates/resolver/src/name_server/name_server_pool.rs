@@ -24,8 +24,6 @@ use rand::thread_rng as rng;
 use rand::Rng;
 
 use crate::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts, ServerOrderingStrategy};
-#[cfg(feature = "mdns")]
-use crate::name_server;
 use crate::name_server::connection_provider::{ConnectionProvider, GenericConnector};
 use crate::name_server::name_server::NameServer;
 use crate::name_server::RuntimeProvider;
@@ -40,8 +38,6 @@ pub struct NameServerPool<P: ConnectionProvider + Send + 'static> {
     // TODO: switch to FuturesMutex (Mutex will have some undesirable locking)
     datagram_conns: Arc<[NameServer<P>]>, /* All NameServers must be the same type */
     stream_conns: Arc<[NameServer<P>]>,   /* All NameServers must be the same type */
-    #[cfg(feature = "mdns")]
-    mdns_conns: NameServer<P>, /* All NameServers must be the same type */
     options: ResolverOpts,
 }
 
@@ -110,8 +106,6 @@ where
         Self {
             datagram_conns: Arc::from(datagram_conns),
             stream_conns: Arc::from(stream_conns),
-            #[cfg(feature = "mdns")]
-            mdns_conns: name_server::mdns_nameserver(options, conn_provider.clone(), false),
             options,
         }
     }
@@ -136,14 +130,11 @@ where
         Self {
             datagram_conns: Arc::from(datagram_conns),
             stream_conns: Arc::from(stream_conns),
-            #[cfg(feature = "mdns")]
-            mdns_conns: name_server::mdns_nameserver(*options, conn_provider.clone(), false),
             options,
         }
     }
 
     #[doc(hidden)]
-    #[cfg(not(feature = "mdns"))]
     pub fn from_nameservers(
         options: ResolverOpts,
         datagram_conns: Vec<NameServer<P>>,
@@ -156,24 +147,7 @@ where
         }
     }
 
-    #[doc(hidden)]
-    #[cfg(feature = "mdns")]
-    pub fn from_nameservers(
-        options: ResolverOpts,
-        datagram_conns: Vec<NameServer<P>>,
-        stream_conns: Vec<NameServer<P>>,
-        mdns_conns: NameServer<P>,
-    ) -> Self {
-        GenericNameServerPool {
-            datagram_conns: Arc::from(datagram_conns),
-            stream_conns: Arc::from(stream_conns),
-            mdns_conns,
-            options,
-        }
-    }
-
     #[cfg(test)]
-    #[cfg(not(feature = "mdns"))]
     #[allow(dead_code)]
     fn from_nameservers_test(
         options: ResolverOpts,
@@ -184,22 +158,6 @@ where
             datagram_conns,
             stream_conns,
             options,
-        }
-    }
-
-    #[cfg(test)]
-    #[cfg(feature = "mdns")]
-    fn from_nameservers_test(
-        options: &ResolverOpts,
-        datagram_conns: Arc<[NameServer<P>]>,
-        stream_conns: Arc<[NameServer<P>]>,
-        mdns_conns: NameServer<P>,
-    ) -> Self {
-        GenericNameServerPool {
-            datagram_conns,
-            stream_conns,
-            mdns_conns,
-            options: *options,
         }
     }
 
@@ -237,12 +195,7 @@ where
         // TODO: remove this clone, return the Message in the error?
         let tcp_message = request.clone();
 
-        // if it's a .local. query, then we *only* query mDNS, these should never be sent on to upstream resolvers
-        #[cfg(feature = "mdns")]
-        let mdns = mdns::maybe_local(&mut self.mdns_conns, request);
-
         // TODO: limited to only when mDNS is enabled, but this should probably always be enforced?
-        #[cfg(not(feature = "mdns"))]
         let mdns = Local::NotMdns(request);
 
         // local queries are queried through mDNS
@@ -393,35 +346,6 @@ where
                 }
                 _ => {}
             }
-        }
-    }
-}
-
-#[cfg(feature = "mdns")]
-mod mdns {
-    use super::*;
-
-    use proto::rr::domain::usage;
-    use proto::DnsHandle;
-
-    /// Returns true
-    pub(crate) fn maybe_local<C, P>(
-        name_server: &mut NameServer<C, P>,
-        request: DnsRequest,
-    ) -> Local
-    where
-        C: DnsHandle<Error = ResolveError> + 'static,
-        P: ConnectionProvider<Conn = C> + 'static,
-        P: ConnectionProvider,
-    {
-        if request
-            .queries()
-            .iter()
-            .any(|query| usage::LOCAL.name().zone_of(query.name()))
-        {
-            Local::ResolveStream(name_server.send(request))
-        } else {
-            Local::NotMdns(request)
         }
     }
 }
@@ -588,18 +512,10 @@ mod tests {
         let name_server = GenericNameServer::new(ns_config, opts.clone(), conn_provider);
         let name_servers: Arc<[_]> = Arc::from([name_server]);
 
-        #[cfg(not(feature = "mdns"))]
         let pool = GenericNameServerPool::from_nameservers_test(
             opts,
             Arc::from([]),
             Arc::clone(&name_servers),
-        );
-        #[cfg(feature = "mdns")]
-        let mut pool = GenericNameServerPool::from_nameservers_test(
-            &opts,
-            Arc::from([]),
-            Arc::clone(&name_servers),
-            name_server::mdns_nameserver(opts, TokioConnectionProvider::default(), false),
         );
 
         let name = Name::from_str("www.example.com.").unwrap();

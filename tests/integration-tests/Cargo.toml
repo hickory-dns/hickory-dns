@@ -53,10 +53,6 @@ dnssec-ring = [
 ]
 dnssec = ["dep:openssl"]
 
-# enables experimental the mDNS (multicast) feature
-# TODO: revisit how mdns is implemented in resolver
-# mdns = ["hickory-client/mdns", "hickory-proto/mdns", "hickory-resolver/mdns"]
-
 dns-over-https-rustls = [
     "hickory-client/dns-over-https-rustls",
     "hickory-resolver/dns-over-https-rustls",
