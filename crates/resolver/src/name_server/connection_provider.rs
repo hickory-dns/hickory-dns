@@ -35,8 +35,6 @@ use crate::config::{NameServerConfig, Protocol, ResolverOpts};
 use proto::h2::{HttpsClientConnect, HttpsClientStream};
 #[cfg(feature = "dns-over-h3")]
 use proto::h3::{H3ClientConnect, H3ClientStream};
-#[cfg(feature = "mdns")]
-use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
 #[cfg(feature = "dns-over-quic")]
 use proto::quic::{QuicClientConnect, QuicClientStream};
 use proto::tcp::DnsTcpStream;
@@ -186,14 +184,6 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
     Quic(DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime>),
     #[cfg(all(feature = "dns-over-h3", feature = "tokio-runtime"))]
     H3(DnsExchangeConnect<H3ClientConnect, H3ClientStream, TokioTime>),
-    #[cfg(feature = "mdns")]
-    Mdns(
-        DnsExchangeConnect<
-            DnsMultiplexerConnect<MdnsClientConnect, MdnsClientStream, NoopMessageFinalizer>,
-            DnsMultiplexer<MdnsClientStream, NoopMessageFinalizer>,
-            TokioTime,
-        >,
-    ),
 }
 
 /// Resolves to a new Connection
@@ -238,12 +228,6 @@ impl<R: RuntimeProvider> Future for ConnectionFuture<R> {
             }
             #[cfg(feature = "dns-over-h3")]
             ConnectionConnect::H3(ref mut conn) => {
-                let (conn, bg) = ready!(conn.poll_unpin(cx))?;
-                self.spawner.spawn_bg(bg);
-                GenericConnection(conn)
-            }
-            #[cfg(feature = "mdns")]
-            ConnectionConnect::Mdns(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
                 GenericConnection(conn)
@@ -420,24 +404,6 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                     client_config,
                 );
                 ConnectionConnect::H3(exchange)
-            }
-            #[cfg(feature = "mdns")]
-            (Protocol::Mdns, _) => {
-                let socket_addr = config.socket_addr;
-                let timeout = options.timeout;
-
-                let (stream, handle) =
-                    MdnsClientStream::new(socket_addr, MdnsQueryType::OneShot, None, None, None);
-                // TODO: need config for Signer...
-                let dns_conn = DnsMultiplexer::with_timeout(
-                    stream,
-                    handle,
-                    timeout,
-                    NoopMessageFinalizer::new(),
-                );
-
-                let exchange = DnsExchange::connect(dns_conn);
-                ConnectionConnect::Mdns(exchange)
             }
             #[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
             (protocol, _) => {

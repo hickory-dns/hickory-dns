@@ -156,12 +156,8 @@ where
                         ))
                     } // Are there any other types we can use?
                 },
-                // when mdns is enabled we will follow a standard query path
-                #[cfg(feature = "mdns")]
-                ResolverUsage::LinkLocal => (),
                 // TODO: this requires additional config, as Kubernetes and other systems misuse the .local. zone.
                 // when mdns is not enabled we will return errors on LinkLocal ("*.local.") names
-                #[cfg(not(feature = "mdns"))]
                 ResolverUsage::LinkLocal => (),
                 ResolverUsage::NxDomain => {
                     return Err(ProtoError::nx_error(
