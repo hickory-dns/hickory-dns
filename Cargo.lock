@@ -869,11 +869,13 @@ checksum = "fbf6a919d6cf397374f7dfeeea91d974c7c0a7221d0d0f4f20d859d329e53fcc"
 name = "hickory-client"
 version = "0.25.0-alpha.1"
 dependencies = [
+ "bytes",
  "cfg-if",
  "data-encoding",
  "futures",
  "futures-channel",
  "futures-util",
+ "h2",
  "hickory-proto",
  "once_cell",
  "openssl",
@@ -883,6 +885,7 @@ dependencies = [
  "serde",
  "thiserror",
  "tokio",
+ "tokio-rustls",
  "tracing",
  "tracing-subscriber",
  "webpki-roots",
