@@ -34,7 +34,7 @@ codecov = { repository = "hickory-dns/hickory-dns", branch = "main", service = "
 maintenance = { status = "actively-developed" }
 
 [features]
-#backtrace = ["dep:backtrace", "hickory-proto/backtrace", "hickory-resolver/backtrace"]
+backtrace = ["dep:backtrace", "hickory-proto/backtrace", "hickory-resolver/backtrace"]
 
 dnssec-openssl = [
     "dnssec",
@@ -106,7 +106,7 @@ path = "src/lib.rs"
 [dependencies]
 async-trait.workspace = true
 async-recursion.workspace = true
-#backtrace = { version = "0.3.50", optional = true }
+backtrace = { version = "0.3.50", optional = true }
 bytes.workspace = true
 cfg-if.workspace = true
 enum-as-inner.workspace = true

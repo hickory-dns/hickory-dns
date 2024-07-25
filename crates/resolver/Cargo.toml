@@ -31,7 +31,7 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = ["system-config", "tokio-runtime"]
-#backtrace = ["dep:backtrace", "hickory-proto/backtrace"]
+backtrace = ["dep:backtrace", "hickory-proto/backtrace"]
 dns-over-native-tls = [
     "dns-over-tls",
     "tokio-native-tls",
@@ -83,7 +83,7 @@ name = "hickory_resolver"
 path = "src/lib.rs"
 
 [dependencies]
-#backtrace = { version = "0.3.50", optional = true }
+backtrace = { version = "0.3.50", optional = true }
 cfg-if.workspace = true
 futures-util = { workspace = true, default-features = false, features = [
     "std",
