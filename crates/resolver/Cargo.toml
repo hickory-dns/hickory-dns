@@ -141,3 +141,6 @@ required-features = ["tokio-runtime", "system-config"]
 [[example]]
 name = "multithreaded_runtime"
 required-features = ["tokio-runtime", "system-config"]
+
+[lints]
+workspace = true

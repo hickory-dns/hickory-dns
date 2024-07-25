@@ -110,3 +110,6 @@ wasm-bindgen-crate = { version = "0.2.58", package = "wasm-bindgen" }
 # tokio = { path = "../tokio/tokio" }
 # mio = { git = "https://github.com/tokio-rs/mio.git" }
 # h2 = { git = "https://github.com/hyperium/h2.git" }
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(nightly)'] }
