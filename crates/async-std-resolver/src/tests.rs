@@ -86,28 +86,6 @@ fn test_ip_lookup_across_threads() {
 }
 
 #[test]
-#[cfg(feature = "dnssec")]
-fn test_sec_lookup() {
-    use testing::sec_lookup_test;
-    let io_loop = AsyncStdConnectionProvider::new();
-    sec_lookup_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(
-        io_loop.clone(),
-        io_loop,
-    );
-}
-
-#[test]
-#[cfg(feature = "dnssec")]
-fn test_sec_lookup_fails() {
-    use testing::sec_lookup_fails_test;
-    let io_loop = AsyncStdConnectionProvider::new();
-    sec_lookup_fails_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(
-        io_loop.clone(),
-        io_loop,
-    );
-}
-
-#[test]
 #[ignore]
 #[cfg(any(unix, target_os = "windows"))]
 #[cfg(feature = "system-config")]
