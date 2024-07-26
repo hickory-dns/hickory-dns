@@ -487,6 +487,7 @@ mod tests {
         let err = ProtoErrorKind::NoRecordsFound {
             query: Box::new(name.clone()),
             soa: None,
+            ns: None,
             negative_ttl: Some(1),
             response_code: ResponseCode::NoError,
             trusted: false,
@@ -505,6 +506,7 @@ mod tests {
         let err = ProtoErrorKind::NoRecordsFound {
             query: Box::new(name.clone()),
             soa: None,
+            ns: None,
             negative_ttl: Some(3),
             response_code: ResponseCode::NoError,
             trusted: false,
@@ -577,6 +579,7 @@ mod tests {
         let err: ProtoErrorKind = ProtoErrorKind::NoRecordsFound {
             query: Box::new(name.clone()),
             soa: None,
+            ns: None,
             negative_ttl: Some(62),
             response_code: ResponseCode::NoError,
             trusted: false,
@@ -595,6 +598,7 @@ mod tests {
         let err = ProtoErrorKind::NoRecordsFound {
             query: Box::new(name.clone()),
             soa: None,
+            ns: None,
             negative_ttl: Some(59),
             response_code: ResponseCode::NoError,
             trusted: false,

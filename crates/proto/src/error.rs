@@ -189,6 +189,9 @@ pub enum ProtoErrorKind {
         query: Box<Query>,
         /// If an SOA is present, then this is an authoritative response or a referral to another nameserver, see the negative_type field.
         soa: Option<Box<Record<SOA>>>,
+        /// Nameservers may be present in addition to or in lieu of an SOA for a referral
+        /// The tuple struct layout is vec[(Nameserver, [vec of glue records])]
+        ns: Option<Vec<ForwardNSData>>,
         /// negative ttl, as determined from DnsResponse::negative_ttl
         ///  this will only be present if the SOA was also present.
         negative_ttl: Option<u32>,
@@ -342,6 +345,15 @@ pub enum ProtoErrorKind {
     NativeCerts,
 }
 
+/// Data needed to process a NS-record-based referral.
+#[derive(Clone, Debug)]
+pub struct ForwardNSData {
+    /// The referant NS record
+    pub ns: Record,
+    /// Any glue records associated with the referant NS record.
+    pub glue: Vec<Record>,
+}
+
 /// The error type for errors that get returned in the crate
 #[derive(Error, Clone, Debug)]
 #[non_exhaustive]
@@ -359,6 +371,7 @@ impl ProtoError {
     pub fn nx_error(
         query: Query,
         soa: Option<Record<SOA>>,
+        ns: Option<Vec<ForwardNSData>>,
         negative_ttl: Option<u32>,
         response_code: ResponseCode,
         trusted: bool,
@@ -366,6 +379,7 @@ impl ProtoError {
         ProtoErrorKind::NoRecordsFound {
             query: Box::new(query),
             soa: soa.map(Box::new),
+            ns,
             negative_ttl,
             response_code,
             trusted,
@@ -430,6 +444,7 @@ impl ProtoError {
                     let query = response.queries().iter().next().cloned().unwrap_or_default();
                     let error_kind = ProtoErrorKind::NoRecordsFound {
                         query: Box::new(query),
+                        ns: None,
                         soa: soa.map(Box::new),
                         negative_ttl: None,
                         response_code: code,
@@ -450,6 +465,34 @@ impl ProtoError {
 
                     let response = response;
                     let soa = response.soa().as_ref().map(RecordRef::to_owned);
+
+                    // Collect any referral nameservers and associated glue records
+                    let mut referral_name_servers = vec![];
+                    for ns in response.name_servers().iter() {
+                        let glue = response
+                            .additionals()
+                            .iter()
+                            .filter_map(|record| {
+                                if let Some(ns_data) = ns.data().as_ns() {
+                                    if *record.name() == **ns_data &&
+                                       (record.data().as_a().is_some() || record.data().as_aaaa().is_some()) {
+                                           return Some(Record::to_owned(record));
+                                       }
+                                }
+
+                                None
+                            })
+                            .collect::<Vec<Record>>();
+
+                        referral_name_servers.push(ForwardNSData { ns: Record::to_owned(ns), glue })
+                    }
+
+                    let option_ns = if !referral_name_servers.is_empty() {
+                        Some(referral_name_servers)
+                    } else {
+                        None
+                    };
+
                     let negative_ttl = response.negative_ttl();
                     // Note: improperly configured servers may do recursive lookups and return bad SOA
                     // records here via AS112 (blackhole-1.iana.org. etc)
@@ -460,6 +503,7 @@ impl ProtoError {
                     let error_kind = ProtoErrorKind::NoRecordsFound {
                         query: Box::new(query),
                         soa: soa.map(Box::new),
+                        ns: option_ns,
                         negative_ttl,
                         response_code: code,
                         trusted,
@@ -634,12 +678,14 @@ impl Clone for ProtoErrorKind {
             NoRecordsFound {
                 ref query,
                 ref soa,
+                ref ns,
                 negative_ttl,
                 response_code,
                 trusted,
             } => NoRecordsFound {
                 query: query.clone(),
                 soa: soa.clone(),
+                ns: ns.clone(),
                 negative_ttl,
                 response_code,
                 trusted,
