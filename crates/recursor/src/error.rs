@@ -11,6 +11,7 @@
 
 use std::{fmt, io};
 
+use crate::proto::error::ForwardNSData;
 use enum_as_inner::EnumAsInner;
 use hickory_proto::error::ProtoErrorKind;
 use hickory_resolver::Name;
@@ -32,9 +33,14 @@ pub enum ErrorKind {
     #[error("{0}")]
     Msg(String),
 
-    /// Upstream DNS authority returned a Referral to another nameserver
+    /// Upstream DNS authority returned a Referral to another nameserver in the form of an SOA record
     #[error("forward response: {0}")]
     Forward(Name),
+
+    /// Upstream DNS authority returned a referral to another set of nameservers in the form of
+    /// additional NS records.
+    #[error("forward NS Response")]
+    ForwardNS(Vec<ForwardNSData>),
 
     /// An error got returned from IO
     #[error("io error: {0}")]
@@ -132,10 +138,15 @@ impl From<Error> for String {
 
 impl From<ResolveError> for Error {
     fn from(e: ResolveError) -> Self {
-        if let Some(ProtoErrorKind::NoRecordsFound { soa, .. }) = e.proto().map(ProtoError::kind) {
-            match soa {
-                Some(soa) => ErrorKind::Forward(soa.name().clone()).into(),
-                _ => ErrorKind::Resolve(e).into(),
+        if let Some(ProtoErrorKind::NoRecordsFound { soa, ns, .. }) =
+            e.proto().map(ProtoError::kind)
+        {
+            if let Some(ns) = ns {
+                ErrorKind::ForwardNS(ns.clone()).into()
+            } else if let Some(soa) = soa {
+                ErrorKind::Forward(soa.name().clone()).into()
+            } else {
+                ErrorKind::Resolve(e).into()
             }
         } else {
             ErrorKind::Resolve(e).into()
@@ -150,6 +161,7 @@ impl Clone for ErrorKind {
             Message(msg) => Message(msg),
             Msg(ref msg) => Msg(msg.clone()),
             Forward(ref ns) => Forward(ns.clone()),
+            ForwardNS(ref ns) => ForwardNS(ns.clone()),
             Io(ref io) => Io(std::io::Error::from(io.kind())),
             Proto(ref proto) => Proto(proto.clone()),
             Resolve(ref resolve) => Resolve(resolve.clone()),

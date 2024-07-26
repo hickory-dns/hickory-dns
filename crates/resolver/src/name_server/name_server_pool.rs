@@ -376,7 +376,9 @@ where
             };
 
             match e.kind() {
-                ProtoErrorKind::NoRecordsFound { trusted, .. } if *trusted => {
+                ProtoErrorKind::NoRecordsFound {
+                    trusted, soa, ns, ..
+                } if *trusted || soa.is_some() || ns.is_some() => {
                     return Err(e);
                 }
                 _ if e.is_busy() => {

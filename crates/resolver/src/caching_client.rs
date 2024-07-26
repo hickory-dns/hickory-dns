@@ -151,6 +151,7 @@ where
                             query,
                             None,
                             None,
+                            None,
                             ResponseCode::NoError,
                             false,
                         ))
@@ -166,6 +167,7 @@ where
                 ResolverUsage::NxDomain => {
                     return Err(ProtoError::nx_error(
                         query,
+                        None,
                         None,
                         None,
                         ResponseCode::NXDomain,
@@ -211,6 +213,7 @@ where
                         negative_ttl,
                         response_code,
                         trusted,
+                        ..
                     } => {
                         Err(Self::handle_nxdomain(
                             is_dnssec,
@@ -290,6 +293,7 @@ where
             ProtoErrorKind::NoRecordsFound {
                 query: Box::new(query),
                 soa: soa.map(Box::new),
+                ns: None,
                 negative_ttl,
                 response_code,
                 trusted: true,
@@ -300,6 +304,7 @@ where
             ProtoErrorKind::NoRecordsFound {
                 query: Box::new(query),
                 soa: soa.map(Box::new),
+                ns: None,
                 negative_ttl: None,
                 response_code,
                 trusted,
