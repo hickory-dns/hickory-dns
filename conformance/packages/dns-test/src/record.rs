@@ -47,7 +47,7 @@ macro_rules! record_types {
     };
 }
 
-record_types!(A, AAAA, DNSKEY, DS, MX, NS, NSEC3, NSEC3PARAM, RRSIG, SOA, TXT);
+record_types!(A, AAAA, DNSKEY, DS, MX, NS, NSEC3, NSEC3PARAM, RRSIG, SOA, TXT, ANY);
 
 #[derive(Debug, Clone)]
 #[allow(clippy::upper_case_acronyms)]
