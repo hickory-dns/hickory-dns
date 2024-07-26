@@ -1,3 +1,5 @@
+use std::net::Ipv4Addr;
+
 use dns_test::client::{Client, DigSettings};
 use dns_test::name_server::NameServer;
 use dns_test::record::{Record, RecordType};
@@ -63,3 +65,34 @@ fn rrsig_in_authority_section() -> Result<()> {
 
 // TODO Additional section
 // TODO TC bit
+
+#[test]
+#[ignore]
+fn tc_bit_set_for_large_response() -> Result<()> {
+    let fqdns = (b'a'..=b'm')
+        .map(|label| FQDN(format!("{}.nameservers.com.", char::from(label))))
+        .collect::<Result<Vec<_>>>()?;
+
+    // main name server
+    let network = Network::new()?;
+    let mut ns = NameServer::new(&dns_test::SUBJECT, FQDN::ROOT, &network)?;
+    fqdns.iter().for_each(|fqdn| {
+        let ip = Ipv4Addr::new(1, 2, 3, 4);
+        ns.referral(FQDN::ROOT, fqdn.clone(), ip);
+    });
+
+    let ns = ns.sign(SignSettings::default())?.start()?;
+
+    // fetch all records for zone '.'
+    let client = Client::new(&network)?;
+    let answer = client.dig(
+        *DigSettings::default().dnssec(),
+        ns.ipv4_addr(),
+        RecordType::ANY,
+        &FQDN::ROOT,
+    )?;
+
+    dbg!(&answer);
+
+    Ok(())
+}
