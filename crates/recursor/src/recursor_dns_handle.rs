@@ -75,24 +75,6 @@ impl RecursorDnsHandle {
             return Ok(lookup);
         }
 
-        // not in cache, let's look for an ns record for lookup
-        let zone = match query.query_type() {
-            // (RFC4035 section 3.1.4.1) the DS record needs to be queried in the parent zone
-            RecordType::DS => query.name().base_name(),
-
-            // if DO=1 then we need to send the `NS $ZONE` query to `$ZONE` to get the
-            // RRSIG records associated to the NS record
-            // if DO=0 then we can send the query to the parent zone. its response won't include
-            // RRSIG records but that's fine
-            RecordType::NS if !query_has_dnssec_ok => query.name().base_name(),
-
-            // look for the NS records "inside" the zone
-            _ => query.name().clone(),
-        };
-
-        let mut zone = zone;
-        let mut ns = None;
-
         // Recursively search for authoritative name servers for the queried record to build an NS
         // pool to use for queries for a given zone. By searching for zone.base_name() (e.g.,
         // example.com if the query is 'www.example.com'), we should end up with the following set
@@ -129,13 +111,25 @@ impl RecursorDnsHandle {
         // query NS . for com. -> NS list + glue for com.
         // query A com. for example.com. -> Effectively an NS list + glue for example.com.
         // query A example.com. for example.com. -> authoritative record set.
-        //
+
+        let mut zone = match query.query_type() {
+            // For DNSSEC queries for NS records, if DO=1 then we need to send the `NS $ZONE`
+            // query to `$ZONE` to get the RRSIG records associated to the NS record
+            // if DO=0 then we can send the query to the parent zone. its response won't include
+            // RRSIG records but that's fine
+            RecordType::NS if query_has_dnssec_ok => query.name().clone(),
+
+            // For all other records, we want to set the NS Pool based on the parent zone to
+            // avoid extra NS queries as outlined above.  Note that for DS records
+            // (RFC4035 section 3.1.4.1) this is an explicit requirement and not an optimization.
+            _ => query.name().base_name(),
+        };
+
+        let mut ns = None;
+
         // The for _ in .. range controls maximum number of forwarding processes
         'max_forward: for _ in 0..20 {
-            match self
-                .ns_pool_for_zone(zone.clone().base_name(), request_time)
-                .await
-            {
+            match self.ns_pool_for_zone(zone.clone(), request_time).await {
                 Ok(found) => {
                     // found the nameserver
                     ns = Some(found);
