@@ -766,8 +766,8 @@ impl InnerInMemory {
                 rr_set.record_type(),
                 signer.algorithm(),
                 rr_set.ttl(),
-                SerialNumber(expiration.unix_timestamp() as u32),
-                SerialNumber(inception.unix_timestamp() as u32),
+                SerialNumber::new(expiration.unix_timestamp() as u32),
+                SerialNumber::new(inception.unix_timestamp() as u32),
                 signer.calculate_key_tag()?,
                 signer.signer_name(),
                 // TODO: this is a nasty clone... the issue is that the vec
