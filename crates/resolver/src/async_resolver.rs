@@ -364,7 +364,7 @@ impl<P: ConnectionProvider> AsyncResolver<P> {
         options: DnsRequestOptions,
     ) -> Result<L, ResolveError>
     where
-        L: From<Lookup> + Send + 'static,
+        L: From<Lookup> + Send + Sync + 'static,
     {
         let names = self.build_names(name);
         LookupFuture::lookup(names, record_type, options, self.client_cache.clone())
