@@ -69,6 +69,8 @@ impl Client {
             fqdn.as_str(),
         ])?;
 
+        println!("DIG OUTPUT: {}", output);
+
         output.parse()
     }
 }

@@ -69,11 +69,11 @@ fn rrsig_in_authority_section() -> Result<()> {
 #[test]
 #[ignore]
 fn tc_bit_set_for_large_response() -> Result<()> {
-    let fqdns = (b'a'..=b'm')
-        .map(|label| FQDN(format!("{}.nameservers.com.", char::from(label))))
+    let fqdns = (0u8..=32)
+        .map(|label| FQDN(format!("{0}.abcdefghijklmnopqrstuvwxyz{0}.com.", label)))
         .collect::<Result<Vec<_>>>()?;
 
-    // main name server
+    // main name server, add referals to other (non-existent) nameservers
     let network = Network::new()?;
     let mut ns = NameServer::new(&dns_test::SUBJECT, FQDN::ROOT, &network)?;
     fqdns.iter().for_each(|fqdn| {
@@ -83,16 +83,19 @@ fn tc_bit_set_for_large_response() -> Result<()> {
 
     let ns = ns.sign(SignSettings::default())?.start()?;
 
-    // fetch all records for zone '.'
     let client = Client::new(&network)?;
+    std::thread::sleep(std::time::Duration::from_secs(3600));
+
+    // fetch ALL records for zone '.'
     let answer = client.dig(
         *DigSettings::default().dnssec(),
         ns.ipv4_addr(),
-        RecordType::ANY,
+        RecordType::SOA,
         &FQDN::ROOT,
     )?;
 
     dbg!(&answer);
+
 
     Ok(())
 }
