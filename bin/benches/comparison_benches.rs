@@ -5,6 +5,7 @@ extern crate test;
 
 use std::env;
 use std::fs::{DirBuilder, File};
+use std::future::Future;
 use std::mem;
 use std::net::{Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::Path;
@@ -14,7 +15,6 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-use futures::Future;
 use test::Bencher;
 use tokio::net::TcpStream;
 use tokio::net::UdpSocket;
@@ -22,6 +22,7 @@ use tokio::runtime::Runtime;
 
 use hickory_client::client::*;
 use hickory_client::op::*;
+use hickory_client::rr::rdata::A;
 use hickory_client::rr::*;
 use hickory_client::tcp::*;
 use hickory_client::udp::*;
@@ -130,8 +131,8 @@ where
     assert_eq!(response.response_code(), ResponseCode::NoError);
 
     let record = &response.answers()[0];
-    if let Some(RData::A(ref address)) = record.data() {
-        assert_eq!(address, &Ipv4Addr::new(127, 0, 0, 1));
+    if let RData::A(ref address) = record.data() {
+        assert_eq!(address, &A(Ipv4Addr::new(127, 0, 0, 1)));
     } else {
         unreachable!();
     }

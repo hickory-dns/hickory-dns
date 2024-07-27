@@ -170,7 +170,7 @@ impl NameServer<Stopped> {
     ///
     /// - one SOA record, with the primary name server field set to this name server's FQDN
     /// - one NS record, with this name server's FQDN set as the only available name server for
-    /// the zone
+    ///   the zone
     pub fn new(implementation: &Implementation, zone: FQDN, network: &Network) -> Result<Self> {
         let ns_count = ns_count();
         let nameserver = primary_ns(ns_count, &zone);

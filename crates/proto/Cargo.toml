@@ -34,6 +34,7 @@ dns-over-tls = []
 dns-over-rustls = [
     "dns-over-tls",
     "rustls",
+    "rustls/ring",
     "rustls-pemfile",
     "tokio-rustls",
     "tokio-runtime",
@@ -50,9 +51,9 @@ dns-over-https-rustls = ["dns-over-https"]
 dns-over-https = ["bytes", "h2", "http", "dns-over-rustls", "tokio-runtime"]
 dns-over-quic = [
     "quinn",
-    "rustls/quic",
     "dns-over-rustls",
     "bytes",
+    "dep:pin-project-lite",
     "tokio-runtime",
 ]
 dns-over-h3 = ["h3", "h3-quinn", "quinn", "http", "dns-over-quic"]
@@ -107,14 +108,15 @@ js-sys = { workspace = true, optional = true }
 native-tls = { workspace = true, optional = true }
 once_cell.workspace = true
 openssl = { workspace = true, features = ["v102", "v110"], optional = true }
+pin-project-lite = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true, features = [
     "log",
     "runtime-tokio",
-    "tls-rustls",
+    "rustls",
 ] }
 rand.workspace = true
 ring = { workspace = true, optional = true, features = ["std"] }
-rustls = { workspace = true, optional = true }
+rustls = { workspace = true, optional = true, default-features = false }
 rustls-native-certs = { workspace = true, optional = true }
 rustls-pemfile = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
@@ -122,7 +124,7 @@ socket2 = { workspace = true, optional = true }
 thiserror.workspace = true
 tinyvec = { workspace = true, features = ["alloc"] }
 tracing.workspace = true
-tokio = { workspace = true, features = ["io-util"], optional = true }
+tokio = { workspace = true, features = ["io-util", "macros"], optional = true }
 tokio-native-tls = { workspace = true, optional = true }
 tokio-openssl = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true, features = ["early-data"] }
@@ -147,3 +149,6 @@ all-features = true
 default-target = "x86_64-unknown-linux-gnu"
 targets = ["x86_64-apple-darwin", "x86_64-pc-windows-msvc"]
 rustdoc-args = ["--cfg", "docsrs"]
+
+[lints]
+workspace = true

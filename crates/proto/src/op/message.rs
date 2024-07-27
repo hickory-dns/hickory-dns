@@ -144,15 +144,26 @@ impl Message {
 
     /// Truncates a Message, this blindly removes all response fields and sets truncated to `true`
     pub fn truncate(&self) -> Self {
-        let mut truncated = self.clone();
-        truncated.set_truncated(true);
-        // drops additional/answer/queries so len is 0
-        truncated.take_additionals();
-        truncated.take_answers();
-        truncated.take_queries();
+        // copy header
+        let mut header = self.header;
+        header.set_truncated(true);
+        header
+            .set_additional_count(0)
+            .set_answer_count(0)
+            .set_name_server_count(0);
+
+        let mut msg = Self::new();
+        // drops additional/answer/nameservers/signature
+        // adds query/OPT
+        msg.add_queries(self.queries().iter().cloned());
+        if let Some(edns) = self.extensions().clone() {
+            msg.set_edns(edns);
+        }
+        // set header
+        msg.set_header(header);
 
         // TODO, perhaps just quickly add a few response records here? that we know would fit?
-        truncated
+        msg
     }
 
     /// Sets the `Header` with provided

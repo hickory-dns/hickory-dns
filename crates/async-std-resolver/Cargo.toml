@@ -73,3 +73,6 @@ async-std = { workspace = true, features = ["attributes"] }
 hickory-resolver = { workspace = true, default-features = false, features = [
     "testing",
 ] }
+
+[lints]
+workspace = true

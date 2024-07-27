@@ -14,11 +14,10 @@ mod name_server_pool;
 mod name_server_state;
 mod name_server_stats;
 
+#[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
+pub use self::connection_provider::QuicSocketBinder;
 pub use self::connection_provider::{ConnectionProvider, RuntimeProvider, Spawn};
 pub use self::connection_provider::{GenericConnection, GenericConnector};
-#[cfg(feature = "mdns")]
-#[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
-pub(crate) use self::name_server::mdns_nameserver;
 pub use self::name_server::{GenericNameServer, NameServer};
 pub use self::name_server_pool::{GenericNameServerPool, NameServerPool};
 use self::name_server_state::NameServerState;
