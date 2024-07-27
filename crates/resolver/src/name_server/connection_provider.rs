@@ -100,6 +100,8 @@ pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
 #[cfg(not(any(feature = "dns-over-quic", feature = "dns-over-h3")))]
 pub trait QuicSocketBinder {}
 
+/// Create a UDP socket for QUIC usage.
+/// This trait is designed for customization.
 #[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
 pub trait QuicSocketBinder {
     /// Create a UDP socket for QUIC usage.
