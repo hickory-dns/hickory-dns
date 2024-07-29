@@ -104,7 +104,7 @@ smallvec = "1.6"
 socket2 = "0.5"
 time = "0.3"
 tinyvec = "1.1.1"
-toml = "0.8.14"
+toml = "0.8.16"
 url = "2.4.0"
 wasm-bindgen-crate = { version = "0.2.58", package = "wasm-bindgen" }
 
