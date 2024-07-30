@@ -990,6 +990,14 @@ impl Authority for SqliteAuthority {
     ) -> Result<Self::Lookup, LookupError> {
         self.in_memory.get_nsec_records(name, lookup_options).await
     }
+
+    async fn get_nsec3_records(
+        &self,
+        name: &LowerName,
+        lookup_options: LookupOptions,
+    ) -> Result<Self::Lookup, LookupError> {
+        self.in_memory.get_nsec3_records(name, lookup_options).await
+    }
 }
 
 #[cfg(feature = "dnssec")]

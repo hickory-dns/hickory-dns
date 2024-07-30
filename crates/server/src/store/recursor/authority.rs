@@ -162,6 +162,17 @@ impl Authority for RecursiveAuthority {
             "Getting NSEC records is unimplemented for the recursor",
         )))
     }
+
+    async fn get_nsec3_records(
+        &self,
+        _name: &LowerName,
+        _lookup_options: LookupOptions,
+    ) -> Result<Self::Lookup, LookupError> {
+        Err(LookupError::from(io::Error::new(
+            io::ErrorKind::Other,
+            "Getting NSEC3 records is unimplemented for the recursor",
+        )))
+    }
 }
 
 pub struct RecursiveLookup(Lookup);

@@ -24,8 +24,10 @@ use crate::{
 };
 use crate::{
     authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType},
-    proto::rr::{LowerName, Name, RecordSet, RecordType, RrKey},
-    proto::serialize::txt::Parser,
+    proto::{
+        rr::{LowerName, Name, RecordSet, RecordType, RrKey},
+        serialize::txt::Parser,
+    },
     server::RequestInfo,
     store::{file::FileConfig, in_memory::InMemoryAuthority},
 };
@@ -215,6 +217,14 @@ impl Authority for FileAuthority {
         lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError> {
         self.0.get_nsec_records(name, lookup_options).await
+    }
+
+    async fn get_nsec3_records(
+        &self,
+        name: &LowerName,
+        lookup_options: LookupOptions,
+    ) -> Result<Self::Lookup, LookupError> {
+        self.0.get_nsec3_records(name, lookup_options).await
     }
 
     /// Returns the SOA of the authority.

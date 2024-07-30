@@ -574,7 +574,7 @@ async fn send_authoritative_response(
             // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
             debug!("request: {} non-existent adding nsecs", request_id);
             // run the nsec lookup future, and then transition to get soa
-            let future = authority.get_nsec_records(query.name(), lookup_options);
+            let future = authority.get_nsec3_records(query.name(), lookup_options);
             match future.await {
                 // run the soa lookup
                 Ok(nsecs) => Some(nsecs),

@@ -12,7 +12,7 @@ use tracing::{debug, info};
 
 use crate::{
     authority::{
-        Authority, LookupError, LookupObject, LookupOptions, MessageRequest, UpdateResult, ZoneType,
+        Authority, LookupError, LookupObject, LookupOptions, MessageRequest, UpdateResult, ZoneType
     },
     proto::{
         op::ResponseCode,
@@ -154,6 +154,17 @@ impl Authority for ForwardAuthority {
         Err(LookupError::from(io::Error::new(
             io::ErrorKind::Other,
             "Getting NSEC records is unimplemented for the forwarder",
+        )))
+    }
+
+    async fn get_nsec3_records(
+        &self,
+        _name: &LowerName,
+        _lookup_options: LookupOptions,
+    ) -> Result<Self::Lookup, LookupError> {
+        Err(LookupError::from(io::Error::new(
+            io::ErrorKind::Other,
+            "Getting NSEC3 records is unimplemented for the forwarder",
         )))
     }
 }

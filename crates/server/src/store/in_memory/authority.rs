@@ -44,10 +44,7 @@ use crate::{
     },
     proto::{
         op::ResponseCode,
-        rr::{
-            rdata::SOA,
-            {DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
-        },
+        rr::{rdata::SOA, DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
     },
     server::RequestInfo,
 };
@@ -1441,6 +1438,119 @@ impl Authority for InMemoryAuthority {
 
     #[cfg(not(feature = "dnssec"))]
     async fn get_nsec_records(
+        &self,
+        _name: &LowerName,
+        _lookup_options: LookupOptions,
+    ) -> Result<Self::Lookup, LookupError> {
+        Ok(AuthLookup::default())
+    }
+
+    #[cfg(feature = "dnssec")]
+    async fn get_nsec3_records(
+        &self,
+        name: &LowerName,
+        lookup_options: LookupOptions,
+    ) -> Result<Self::Lookup, LookupError> {
+        let hash_name = |name: &Name| {
+            let Nsec3Config {
+                hash_algorithm,
+                ref salt,
+                iterations,
+                ..
+            } = self.nsec3_config;
+            hash_algorithm.hash(salt, name, iterations.into()).unwrap()
+        };
+
+        let get_owner_name = |name: &LowerName| -> LowerName {
+            let hash = hash_name(name.borrow());
+            let label = data_encoding::BASE32_DNSSEC.encode(hash.as_ref());
+            LowerName::new(
+                &Name::new()
+                    .append_label(label)
+                    .unwrap()
+                    .append_name(self.origin().borrow())
+                    .unwrap(),
+            )
+        };
+
+        let inner = self.inner.read().await;
+        fn is_nsec3_rrset(rr_set: &RecordSet) -> bool {
+            rr_set.record_type() == RecordType::NSEC3
+        }
+
+        // TODO: need a BorrowdRrKey
+        let rr_key = RrKey::new(get_owner_name(name), RecordType::NSEC3);
+        let no_data = inner
+            .records
+            .get(&rr_key)
+            .map(|rr_set| LookupRecords::new(lookup_options, rr_set.clone()));
+
+        if let Some(no_data) = no_data {
+            // FIXME: If QTYPE is DS and there's no NSEC3 RR for QNAME, we must return a closest
+            // encloser proof.
+            // FIXME: if the name is a wildcard we need to provide a closest encloser proof
+            // instead.
+            return Ok(no_data.into());
+        }
+
+        let find_cover = |name: &LowerName| -> Option<Arc<RecordSet>> {
+            let hash = hash_name(name.borrow());
+            let label = data_encoding::BASE32_DNSSEC.encode(hash.as_ref());
+            let owner_name = LowerName::new(
+                &Name::new()
+                    .append_label(label)
+                    .unwrap()
+                    .append_name(self.origin().borrow())
+                    .unwrap(),
+            );
+
+            let records = inner
+                .records
+                .values()
+                .filter(|rr_set| is_nsec3_rrset(rr_set));
+
+            records
+                .clone()
+                .filter(|rr_set| rr_set.name() < owner_name.borrow())
+                .min_by_key(|rr_set| rr_set.name())
+                .or_else(|| records.max_by_key(|rr_set| rr_set.name()))
+                .cloned()
+        };
+
+        let get_closest_encloser_proof = |name: &LowerName| -> Option<(LowerName, Arc<RecordSet>)> {
+            let mut next_closer_name = name.clone();
+            let mut closest_encloser = next_closer_name.base_name();
+
+            while !closest_encloser.is_root() {
+                let rr_key = RrKey::new(get_owner_name(&closest_encloser), RecordType::NSEC3);
+                if let Some(rrs) = inner.records.get(&rr_key) {
+                    return Some((next_closer_name, rrs.clone()));
+                }
+
+                next_closer_name = next_closer_name.base_name();
+                closest_encloser = closest_encloser.base_name();
+            }
+
+            None
+        };
+
+        let (next_closer_name, closest_encloser_record) = get_closest_encloser_proof(name).unzip();
+
+        let next_closer_name_cover = next_closer_name.as_ref().and_then(find_cover);
+
+        let wildcard_cover = next_closer_name.and_then(|n| find_cover(&n.into_wildcard()));
+
+        let proofs = closest_encloser_record
+            .into_iter()
+            .chain(next_closer_name_cover)
+            .chain(wildcard_cover)
+            .collect();
+
+        Ok(LookupRecords::many(lookup_options, proofs).into())
+    }
+
+    #[cfg(not(feature = "dnssec"))]
+    async fn get_nsec3_records(
         &self,
         _name: &LowerName,
         _lookup_options: LookupOptions,
