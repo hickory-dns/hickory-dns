@@ -270,6 +270,7 @@ impl RecursorDnsHandle {
         // TODO: check for cached ns pool for this zone
 
         let lookup = Query::query(zone.clone(), RecordType::NS);
+
         let response = self
             .lookup(lookup.clone(), nameserver_pool.clone(), request_time, false)
             .await?;
@@ -338,19 +339,32 @@ impl RecursorDnsHandle {
             }
         }
 
-        // collect missing IP addresses, select over them all, get the addresses
-        // make it configurable to query for all records?
+        // If we have no glue, collect missing IP addresses for non-child NS servers
+        // Querying for child NS servers can result in infinite recursion if the
+        // parent nameserver never returns glue records for child NS records, or does
+        // so based on cache freshness (observed with BIND)
+        //
+        // TODO: make it configurable to query for all records?
         if config_group.is_empty() && !need_ips_for_names.is_empty() {
-            debug!("need glue for {}", zone);
-            let a_resolves = need_ips_for_names.iter().take(1).map(|name| {
-                let a_query = Query::query(name.0.clone(), RecordType::A);
-                self.resolve(a_query, request_time, false).boxed()
-            });
+            debug!("need glue for {zone}");
 
-            let aaaa_resolves = need_ips_for_names.iter().take(1).map(|name| {
-                let aaaa_query = Query::query(name.0.clone(), RecordType::AAAA);
-                self.resolve(aaaa_query, request_time, false).boxed()
-            });
+            let a_resolves = need_ips_for_names
+                .iter()
+                .filter(|name| !crate::is_subzone(zone.clone(), name.0.clone()))
+                .take(1)
+                .map(|name| {
+                    let a_query = Query::query(name.0.clone(), RecordType::A);
+                    self.resolve(a_query, request_time, false).boxed()
+                });
+
+            let aaaa_resolves = need_ips_for_names
+                .iter()
+                .filter(|name| !crate::is_subzone(zone.clone(), name.0.clone()))
+                .take(1)
+                .map(|name| {
+                    let aaaa_query = Query::query(name.0.clone(), RecordType::AAAA);
+                    self.resolve(aaaa_query, request_time, false).boxed()
+                });
 
             let mut a_resolves: Vec<_> = a_resolves.chain(aaaa_resolves).collect();
             while !a_resolves.is_empty() {
@@ -374,6 +388,67 @@ impl RecursorDnsHandle {
                     }
                     Err(e) => {
                         warn!("resolve failed {}", e);
+                    }
+                }
+            }
+        }
+
+        // If we still have no NS records, try to query the parent zone for child NS servers
+        if config_group.is_empty() && !need_ips_for_names.is_empty() {
+            debug!("Priming zone {zone} via parent zone {}", zone.base_name());
+
+            let a_primes = need_ips_for_names
+                .iter()
+                .filter(|name| crate::is_subzone(zone.clone(), name.0.clone()))
+                .take(1)
+                .map(|name| {
+                    nameserver_pool
+                        .lookup(
+                            Query::query(name.0.clone(), RecordType::A),
+                            self.security_aware,
+                        )
+                        .boxed()
+                });
+
+            let aaaa_primes = need_ips_for_names
+                .iter()
+                .filter(|name| crate::is_subzone(zone.clone(), name.0.clone()))
+                .take(1)
+                .map(|name| {
+                    nameserver_pool
+                        .lookup(
+                            Query::query(name.0.clone(), RecordType::AAAA),
+                            self.security_aware,
+                        )
+                        .boxed()
+                });
+
+            let mut primes: Vec<_> = a_primes.chain(aaaa_primes).collect();
+
+            while !primes.is_empty() {
+                let (next, _, rest) = select_all(primes).await;
+                primes = rest;
+
+                match next {
+                    Ok(response) => {
+                        debug!("Priming A or AAAA response: {:?}", response);
+                        let ips = response
+                            .answers()
+                            .iter()
+                            .filter_map(|answer| RData::ip_addr(answer.data()));
+
+                        for ip in ips {
+                            let udp =
+                                NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Udp);
+                            let tcp =
+                                NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Tcp);
+
+                            config_group.push(udp);
+                            config_group.push(tcp);
+                        }
+                    }
+                    Err(e) => {
+                        warn!("Priming resolve failed {}", e);
                     }
                 }
             }

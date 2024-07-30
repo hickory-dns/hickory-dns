@@ -97,7 +97,6 @@ fn can_validate_ns_query() -> Result<()> {
 
 /// regression test for https://github.com/hickory-dns/hickory-dns/issues/2306
 #[test]
-#[ignore]
 fn single_node_dns_graph_with_bind_as_peer() -> Result<()> {
     let network = Network::new()?;
     let peer = Implementation::Bind;
