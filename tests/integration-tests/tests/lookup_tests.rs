@@ -444,3 +444,101 @@ fn test_max_chained_lookup_depth() {
         RData::A(A::new(93, 184, 215, 14))
     );
 }
+
+// This test expects a no-answer query which returns a SOA record in the nameservers section to
+// contain a ProtoErrorKind::NoRecordsFound error with a SOA record present (soa.is_some()) and
+// no NS records present (!ns.is_some())
+#[test]
+fn test_forward_soa() {
+    use hickory_proto::error::ProtoErrorKind;
+    use hickory_resolver::error::ResolveErrorKind;
+    let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::NS);
+    let soa_record = soa_record(
+        Name::from_str("www.example.com").unwrap(),
+        Name::from_str("ns1.example.com").unwrap(),
+    );
+    let message = message(resp_query.clone(), vec![], vec![soa_record], vec![]);
+
+    let client: MockClientHandle<_> =
+        MockClientHandle::mock(vec![Ok(DnsResponse::from_message(message).unwrap())]);
+
+    let client = CachingClient::new(0, client, false);
+    let lookup = LookupFuture::lookup(
+        vec![Name::from_str("www.example.com.").unwrap()],
+        RecordType::NS,
+        Default::default(),
+        client.clone(),
+    );
+
+    let io_loop = Runtime::new().unwrap();
+    let lookup = io_loop.block_on(lookup);
+
+    match lookup {
+        Ok(_) => {
+            panic!("Expected Error type for {lookup:?}");
+        }
+        Err(e) => match e.kind() {
+            ResolveErrorKind::Proto(e) => match e.kind() {
+                ProtoErrorKind::NoRecordsFound { soa, ns, .. } => {
+                    assert!(soa.is_some());
+                    assert!(ns.is_none());
+                }
+                _ => {
+                    panic!("Unexpected kind: {e:?}");
+                }
+            },
+            _ => {
+                panic!("Unexpected kind: {e:?}");
+            }
+        },
+    }
+}
+
+// This test expects a no-answer query which returns an NS record in the nameservers section to
+// contain a ProtoErrorKind::NoRecordsFound error with an NS record present (ns.is_some()) and
+// no SOA records present (!soa.is_some())
+#[test]
+fn test_forward_ns() {
+    use hickory_proto::error::ProtoErrorKind;
+    use hickory_resolver::error::ResolveErrorKind;
+    let resp_query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::A);
+    let ns1 = ns_record(
+        Default::default(),
+        Name::from_str("ns1.example.com").unwrap(),
+    );
+    let message = message(resp_query.clone(), vec![], vec![ns1], vec![]);
+
+    let client: MockClientHandle<_> =
+        MockClientHandle::mock(vec![Ok(DnsResponse::from_message(message).unwrap())]);
+
+    let client = CachingClient::new(0, client, false);
+    let lookup = LookupFuture::lookup(
+        vec![Name::from_str("example.com.").unwrap()],
+        RecordType::A,
+        Default::default(),
+        client.clone(),
+    );
+
+    let io_loop = Runtime::new().unwrap();
+    let lookup = io_loop.block_on(lookup);
+
+    match lookup {
+        Ok(_) => {
+            panic!("Expected Error type for {lookup:?}");
+        }
+        Err(e) => match e.kind() {
+            ResolveErrorKind::Proto(e) => match e.kind() {
+                ProtoErrorKind::NoRecordsFound { soa, ns, .. } => {
+                    assert!(!soa.is_some());
+                    assert!(ns.is_some());
+                }
+                _ => {
+                    panic!("Unexpected kind: {e:?}");
+                }
+            },
+            _ => {
+                panic!("Unexpected kind: {e:?}");
+            }
+        },
+    }
+}
