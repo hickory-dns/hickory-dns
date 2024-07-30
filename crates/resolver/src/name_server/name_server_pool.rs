@@ -16,6 +16,7 @@ use futures_util::stream::{once, FuturesUnordered, Stream, StreamExt};
 use hickory_proto::error::ProtoErrorKind;
 use smallvec::SmallVec;
 
+use proto::op::ResponseCode;
 use proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
 use proto::Time;
 use tracing::debug;
@@ -216,6 +217,10 @@ where
                     Ok(response) if response.truncated() => {
                         debug!("truncated response received, retrying over TCP");
                         Ok(response)
+                    }
+                    Err(e) if matches!(e.kind(), ProtoErrorKind::NoRecordsFound{ response_code, .. } if *response_code == ResponseCode::NXDomain ) => {
+                        debug!("NoRecordsFound with NXDomain, not retrying over TCP");
+                        return Err(e).map_err(ProtoError::from)
                     }
                     Err(e) if opts.try_tcp_on_error || e.is_no_connections() || e.is_io() => {
                         debug!("error from UDP, retrying over TCP: {}", e);
