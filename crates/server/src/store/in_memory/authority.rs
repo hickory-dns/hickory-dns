@@ -739,7 +739,7 @@ impl InnerInMemory {
         zone_ttl: u32,
         zone_class: DNSClass,
     ) -> DnsSecResult<()> {
-        use hickory_proto::rr::{dnssec::TBS, SerialNumber};
+        use hickory_proto::rr::dnssec::TBS;
 
         use crate::proto::rr::dnssec::rdata::RRSIG;
 
@@ -758,20 +758,7 @@ impl InnerInMemory {
             );
 
             let expiration = inception + signer.sig_duration();
-
-            let tbs = TBS::new(
-                rr_set.name(),
-                zone_class,
-                rr_set.name().num_labels(),
-                rr_set.record_type(),
-                signer.algorithm(),
-                rr_set.ttl(),
-                SerialNumber::new(expiration.unix_timestamp() as u32),
-                SerialNumber::new(inception.unix_timestamp() as u32),
-                signer.calculate_key_tag()?,
-                signer.signer_name(),
-                rr_set.records_without_rrsigs(),
-            );
+            let tbs = TBS::from_rrset(rr_set, zone_class, inception, expiration, signer);
 
             // TODO, maybe chain these with some ETL operations instead?
             let tbs = match tbs {
