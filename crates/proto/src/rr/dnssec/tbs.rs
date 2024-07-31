@@ -7,13 +7,18 @@
 
 //! hash functions for DNSSEC operations
 
+use time::OffsetDateTime;
+
 use crate::{
     error::*,
-    rr::{dnssec::Algorithm, DNSClass, Name, Record, RecordType, SerialNumber},
+    rr::{dnssec::Algorithm, DNSClass, Name, Record, RecordSet, RecordType, SerialNumber},
     serialize::binary::{BinEncodable, BinEncoder, EncodeMode},
 };
 
-use super::rdata::{sig, RRSIG, SIG};
+use super::{
+    rdata::{sig, RRSIG, SIG},
+    SigSigner,
+};
 
 /// Data To Be Signed.
 pub struct TBS(Vec<u8>);
@@ -75,6 +80,41 @@ impl TBS {
     ///
     /// # Arguments
     ///
+    /// * `rr_set` - RRSet to sign
+    /// * `zone_class` - DNSClass, i.e. IN, of the records
+    /// * `inception` - the date/time when this hashed signature will become valid
+    /// * `expiration` - the date/time when this hashed signature will expire
+    /// * `signer` - the signer to use for signing the RRSet
+    ///
+    /// # Returns
+    ///
+    /// the binary hash of the specified RRSet and associated information
+    pub fn from_rrset(
+        rr_set: &RecordSet,
+        zone_class: DNSClass,
+        inception: OffsetDateTime,
+        expiration: OffsetDateTime,
+        signer: &SigSigner,
+    ) -> ProtoResult<Self> {
+        Self::new(
+            rr_set.name(),
+            zone_class,
+            rr_set.name().num_labels(),
+            rr_set.record_type(),
+            signer.algorithm(),
+            rr_set.ttl(),
+            SerialNumber(expiration.unix_timestamp() as u32),
+            SerialNumber(inception.unix_timestamp() as u32),
+            signer.calculate_key_tag()?,
+            signer.signer_name(),
+            rr_set.records_without_rrsigs(),
+        )
+    }
+
+    /// Returns the to-be-signed serialization of the given record set.
+    ///
+    /// # Arguments
+    ///
     /// * `name` - RRset record name
     /// * `dns_class` - DNSClass, i.e. IN, of the records
     /// * `num_labels` - number of labels in the name, needed to deal with `*.example.com`
@@ -91,7 +131,7 @@ impl TBS {
     /// the binary hash of the specified RRSet and associated information
     // FIXME: OMG, there are a ton of asserts in here...
     #[allow(clippy::too_many_arguments)]
-    pub fn new<'a>(
+    fn new<'a>(
         name: &Name,
         dns_class: DNSClass,
         num_labels: u8,
