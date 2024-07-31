@@ -72,12 +72,12 @@ pub trait Verifier {
     /// * `dns_class` - DNSClass of the records, generally IN
     /// * `sig` - signature record being validated
     /// * `records` - Records covered by SIG
-    fn verify_rrsig(
+    fn verify_rrsig<'a>(
         &self,
         name: &Name,
         dns_class: DNSClass,
         sig: &RRSIG,
-        records: &[&Record],
+        records: impl Iterator<Item = &'a Record>,
     ) -> ProtoResult<()> {
         let rrset_tbs = TBS::from_sig(name, dns_class, sig, records)?;
         self.verify(rrset_tbs.as_ref(), sig.sig())

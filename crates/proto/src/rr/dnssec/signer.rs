@@ -705,7 +705,7 @@ mod tests {
             .clone(),
         ];
 
-        let tbs = TBS::from_rrsig(&rrsig, &rrset).unwrap();
+        let tbs = TBS::from_rrsig(&rrsig, rrset.iter()).unwrap();
         let sig = signer.sign(&tbs).unwrap();
 
         let pub_key = signer.key().to_public_bytes().unwrap();
@@ -833,7 +833,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
                 .clone(),
             ];
 
-            let tbs = TBS::from_rrsig(&rrsig, &rrset).unwrap();
+            let tbs = TBS::from_rrsig(&rrsig, rrset.iter()).unwrap();
             assert!(!tbs.as_ref().is_empty());
 
             let rrset = vec![
@@ -874,7 +874,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
                 .clone(),
             ];
 
-            let filtered_tbs = TBS::from_rrsig(&rrsig, &rrset).unwrap();
+            let filtered_tbs = TBS::from_rrsig(&rrsig, rrset.iter()).unwrap();
             assert!(!filtered_tbs.as_ref().is_empty());
             assert_eq!(tbs.as_ref(), filtered_tbs.as_ref());
         }
