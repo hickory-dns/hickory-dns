@@ -19,6 +19,8 @@ use crate::{
     serialize::binary::BinEncodable,
 };
 
+use super::TBS;
+
 /// Types which are able to verify DNS based signatures
 pub trait Verifier {
     /// Return the algorithm which this Verifier covers
@@ -77,7 +79,7 @@ pub trait Verifier {
         sig: &RRSIG,
         records: &[&Record],
     ) -> ProtoResult<()> {
-        let rrset_tbs = tbs::rrset_tbs_with_sig(name, dns_class, sig, records)?;
+        let rrset_tbs = TBS::from_sig(name, dns_class, sig, records)?;
         self.verify(rrset_tbs.as_ref(), sig.sig())
     }
 }

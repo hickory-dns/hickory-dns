@@ -30,7 +30,7 @@ use crate::{
     authority::DnssecAuthority,
     proto::rr::dnssec::{
         rdata::{key::KEY, DNSSECRData, NSEC},
-        {tbs, DnsSecResult, SigSigner, SupportedAlgorithms},
+        {DnsSecResult, SigSigner, SupportedAlgorithms},
     },
 };
 
@@ -739,7 +739,7 @@ impl InnerInMemory {
         zone_ttl: u32,
         zone_class: DNSClass,
     ) -> DnsSecResult<()> {
-        use hickory_proto::rr::SerialNumber;
+        use hickory_proto::rr::{dnssec::TBS, SerialNumber};
 
         use crate::proto::rr::dnssec::rdata::RRSIG;
 
@@ -759,7 +759,7 @@ impl InnerInMemory {
 
             let expiration = inception + signer.sig_duration();
 
-            let tbs = tbs::rrset_tbs(
+            let tbs = TBS::new(
                 rr_set.name(),
                 zone_class,
                 rr_set.name().num_labels(),
