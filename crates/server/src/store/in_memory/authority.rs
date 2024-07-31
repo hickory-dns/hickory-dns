@@ -770,12 +770,7 @@ impl InnerInMemory {
                 SerialNumber::new(inception.unix_timestamp() as u32),
                 signer.calculate_key_tag()?,
                 signer.signer_name(),
-                // TODO: this is a nasty clone... the issue is that the vec
-                //  from records is of Vec<&R>, but we really want &[R]
-                &rr_set
-                    .records_without_rrsigs()
-                    .cloned()
-                    .collect::<Vec<Record>>(),
+                rr_set.records_without_rrsigs(),
             );
 
             // TODO, maybe chain these with some ETL operations instead?

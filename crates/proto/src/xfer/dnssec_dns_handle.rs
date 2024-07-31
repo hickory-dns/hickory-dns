@@ -775,7 +775,7 @@ fn verify_rrset_with_dnskey(
             rrset.name(),
             rrset.record_class(),
             rrsig.data(),
-            rrset.records(),
+            rrset.records().iter().copied(),
         )
         .map(|_| {
             debug!(

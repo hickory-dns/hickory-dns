@@ -7,8 +7,6 @@
 
 //! hash functions for DNSSEC operations
 
-use std::borrow::Borrow;
-
 use crate::{
     error::*,
     rr::{dnssec::Algorithm, DNSClass, Name, Record, RecordType, SerialNumber},
@@ -32,9 +30,9 @@ impl TBS {
     /// # Return
     ///
     /// binary hash of the RRSet with the information from the RRSIG record
-    pub fn from_rrsig<B: Borrow<Record>>(
+    pub fn from_rrsig<'a>(
         rrsig: &Record<RRSIG>,
-        records: &[B],
+        records: impl Iterator<Item = &'a Record>,
     ) -> ProtoResult<Self> {
         Self::from_sig(rrsig.name(), rrsig.dns_class(), rrsig.data(), records)
     }
@@ -52,11 +50,11 @@ impl TBS {
     /// # Return
     ///
     /// binary hash of the RRSet with the information from the RRSIG record
-    pub fn from_sig<B: Borrow<Record>>(
+    pub fn from_sig<'a>(
         name: &Name,
         dns_class: DNSClass,
         sig: &SIG,
-        records: &[B],
+        records: impl Iterator<Item = &'a Record>,
     ) -> ProtoResult<Self> {
         Self::new(
             name,
@@ -93,7 +91,7 @@ impl TBS {
     /// the binary hash of the specified RRSet and associated information
     // FIXME: OMG, there are a ton of asserts in here...
     #[allow(clippy::too_many_arguments)]
-    pub fn new<B: Borrow<Record>>(
+    pub fn new<'a>(
         name: &Name,
         dns_class: DNSClass,
         num_labels: u8,
@@ -104,14 +102,13 @@ impl TBS {
         sig_inception: SerialNumber,
         key_tag: u16,
         signer_name: &Name,
-        records: &[B],
+        records: impl Iterator<Item = &'a Record>,
     ) -> ProtoResult<Self> {
         // TODO: change this to a BTreeSet so that it's preordered, no sort necessary
         let mut rrset: Vec<&Record> = Vec::new();
 
         // collect only the records for this rrset
         for record in records {
-            let record = record.borrow();
             if dns_class == record.dns_class()
                 && type_covered == record.record_type()
                 && name == record.name()
