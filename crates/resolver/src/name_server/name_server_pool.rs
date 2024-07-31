@@ -218,9 +218,9 @@ where
                         debug!("truncated response received, retrying over TCP");
                         Ok(response)
                     }
-                    Err(e) if matches!(e.kind(), ProtoErrorKind::NoRecordsFound{ response_code, .. } if *response_code == ResponseCode::NXDomain ) => {
+                    Err(e) if matches!(e.kind(), ProtoErrorKind::NoRecordsFound{ response_code: ResponseCode::NXDomain, .. }) => {
                         debug!("NoRecordsFound with NXDomain, not retrying over TCP");
-                        return Err(e).map_err(ProtoError::from)
+                        return Err(e)
                     }
                     Err(e) if opts.try_tcp_on_error || e.is_no_connections() || e.is_io() => {
                         debug!("error from UDP, retrying over TCP: {}", e);
