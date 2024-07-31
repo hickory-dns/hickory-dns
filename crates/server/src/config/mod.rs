@@ -14,11 +14,15 @@ use std::fs::File;
 #[cfg(feature = "toml")]
 use std::io::Read;
 use std::net::{AddrParseError, Ipv4Addr, Ipv6Addr};
+#[cfg(feature = "dnssec")]
+use std::num::NonZeroU16;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::Duration;
 
 use cfg_if::cfg_if;
+#[cfg(feature = "dnssec")]
+use hickory_proto::rr::dnssec::Nsec3HashAlgorithm;
 use ipnet::IpNet;
 use serde::{self, Deserialize};
 
@@ -229,6 +233,10 @@ pub struct ZoneConfig {
     pub allow_axfr: Option<bool>,
     /// Enable DnsSec TODO: should this move to StoreConfig?
     pub enable_dnssec: Option<bool>,
+    #[cfg(feature = "dnssec")]
+    /// NSEC3 configuration
+    #[serde(default)]
+    pub nsec3: Nsec3Config,
     /// Keys for use by the zone
     #[serde(default)]
     pub keys: Vec<dnssec::KeyConfig>,
@@ -248,6 +256,7 @@ impl ZoneConfig {
     /// * `allow_update` - enable dynamic updates
     /// * `allow_axfr` - enable AXFR transfers
     /// * `enable_dnssec` - enable signing of the zone for DNSSEC
+    /// * `nsec3` - NSEC3 Related configuration
     /// * `keys` - list of private and public keys used to sign a zone
     pub fn new(
         zone: String,
@@ -256,6 +265,7 @@ impl ZoneConfig {
         allow_update: Option<bool>,
         allow_axfr: Option<bool>,
         enable_dnssec: Option<bool>,
+        #[cfg(feature = "dnssec")] nsec3_config: Option<Nsec3Config>,
         keys: Vec<dnssec::KeyConfig>,
     ) -> Self {
         Self {
@@ -265,6 +275,8 @@ impl ZoneConfig {
             allow_update,
             allow_axfr,
             enable_dnssec,
+            #[cfg(feature = "dnssec")]
+            nsec3: nsec3_config.unwrap_or_default(),
             keys,
             stores: None,
         }
@@ -316,5 +328,40 @@ impl ZoneConfig {
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn get_keys(&self) -> &[dnssec::KeyConfig] {
         &self.keys
+    }
+}
+
+#[cfg(feature = "dnssec")]
+/// NSEC3 related configuration.
+#[derive(Deserialize, PartialEq, Eq, Debug, Clone)]
+pub struct Nsec3Config {
+    /// Use NSEC3 instead of NSEC
+    #[serde(default)]
+    pub enable: bool,
+    /// Algorithm used to create the hashed NSEC3 owner names
+    #[serde(default)]
+    pub hash_algorithm: Nsec3HashAlgorithm,
+    /// Salt used to create the hashed NSEC3 owner names
+    #[serde(default)]
+    pub salt: Vec<u8>,
+    /// Number of iterations used to create the hashed NSEC3 owner names
+    #[serde(default = "default_iterations")]
+    pub iterations: NonZeroU16,
+}
+
+#[cfg(feature = "dnssec")]
+const fn default_iterations() -> NonZeroU16 {
+    NonZeroU16::MIN
+}
+
+#[cfg(feature = "dnssec")]
+impl Default for Nsec3Config {
+    fn default() -> Self {
+        Self {
+            enable: Default::default(),
+            hash_algorithm: Default::default(),
+            salt: Default::default(),
+            iterations: default_iterations(),
+        }
     }
 }

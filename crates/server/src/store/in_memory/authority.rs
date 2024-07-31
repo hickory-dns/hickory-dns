@@ -30,6 +30,7 @@ use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 #[cfg(feature = "dnssec")]
 use crate::{
     authority::DnssecAuthority,
+    config::Nsec3Config,
     proto::rr::dnssec::{
         rdata::{key::KEY, DNSSECRData, NSEC, NSEC3, NSEC3PARAM},
         {DnsSecResult, Nsec3HashAlgorithm, SigSigner, SupportedAlgorithms},
@@ -61,6 +62,8 @@ pub struct InMemoryAuthority {
     zone_type: ZoneType,
     allow_axfr: bool,
     inner: RwLock<InnerInMemory>,
+    #[cfg(feature = "dnssec")]
+    nsec3_config: Nsec3Config,
 }
 
 impl InMemoryAuthority {
@@ -84,8 +87,15 @@ impl InMemoryAuthority {
         records: BTreeMap<RrKey, RecordSet>,
         zone_type: ZoneType,
         allow_axfr: bool,
+        #[cfg(feature = "dnssec")] nsec3_config: Nsec3Config,
     ) -> Result<Self, String> {
-        let mut this = Self::empty(origin.clone(), zone_type, allow_axfr);
+        let mut this = Self::empty(
+            origin.clone(),
+            zone_type,
+            allow_axfr,
+            #[cfg(feature = "dnssec")]
+            nsec3_config,
+        );
         let inner = this.inner.get_mut();
 
         // SOA must be present
@@ -122,13 +132,20 @@ impl InMemoryAuthority {
     /// # Warning
     ///
     /// This is an invalid zone, SOA must be added
-    pub fn empty(origin: Name, zone_type: ZoneType, allow_axfr: bool) -> Self {
+    pub fn empty(
+        origin: Name,
+        zone_type: ZoneType,
+        allow_axfr: bool,
+        #[cfg(feature = "dnssec")] nsec3_config: Nsec3Config,
+    ) -> Self {
         Self {
             origin: LowerName::new(&origin),
             class: DNSClass::IN,
             zone_type,
             allow_axfr,
             inner: RwLock::new(InnerInMemory::default()),
+            #[cfg(feature = "dnssec")]
+            nsec3_config,
         }
     }
 
@@ -298,9 +315,12 @@ impl InMemoryAuthority {
         let Self {
             ref origin,
             ref mut inner,
+            ref nsec3_config,
             ..
         } = self;
-        inner.get_mut().secure_zone_mut(origin, self.class)
+        inner
+            .get_mut()
+            .secure_zone_mut(origin, self.class, nsec3_config)
     }
 
     /// (Re)generates the nsec records, increments the serial number and signs the zone
@@ -649,11 +669,25 @@ impl InnerInMemory {
     /// (Re)generates the nsec records, increments the serial number and signs the zone
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
-    fn secure_zone_mut(&mut self, origin: &LowerName, dns_class: DNSClass) -> DnsSecResult<()> {
+    fn secure_zone_mut(
+        &mut self,
+        origin: &LowerName,
+        dns_class: DNSClass,
+        nsec3_config: &Nsec3Config,
+    ) -> DnsSecResult<()> {
         // TODO: only call nsec_zone after adds/deletes
         // needs to be called before incrementing the soa serial, to make sure IXFR works properly
-        self.nsec_zone(origin, dns_class);
-        self.nsec3_zone(origin, dns_class);
+        if nsec3_config.enable {
+            self.nsec3_zone(
+                origin,
+                dns_class,
+                nsec3_config.hash_algorithm,
+                &nsec3_config.salt,
+                nsec3_config.iterations.into(),
+            );
+        } else {
+            self.nsec_zone(origin, dns_class);
+        }
 
         // need to resign any records at the current serial number and bump the number.
         // first bump the serial number on the SOA, so that it is resigned with the new serial.
@@ -725,7 +759,14 @@ impl InnerInMemory {
     }
 
     #[cfg(feature = "dnssec")]
-    fn nsec3_zone(&mut self, origin: &LowerName, dns_class: DNSClass) {
+    fn nsec3_zone(
+        &mut self,
+        origin: &LowerName,
+        dns_class: DNSClass,
+        hash_alg: Nsec3HashAlgorithm,
+        salt: &[u8],
+        iterations: u16,
+    ) {
         // FIXME: Implement collision detection.
         // only create nsec records for secure zones
         if self.secure_keys.is_empty() {
@@ -748,10 +789,7 @@ impl InnerInMemory {
         // now go through and generate the nsec3 records
         let ttl = self.minimum_ttl(origin);
         let serial = self.serial(origin);
-        // FIXME: These should be configurable
-        let hash_alg = Nsec3HashAlgorithm::SHA1;
-        let salt = vec![];
-        let iterations = 1;
+        // FIXME: Should be configurable
         let opt_out = false;
 
         let mut records: Vec<Record> = vec![];
@@ -808,7 +846,7 @@ impl InnerInMemory {
                 hash_alg,
                 opt_out,
                 iterations,
-                salt.clone(),
+                salt.to_vec(),
                 next_hashed_name,
                 type_bit_maps,
             );
@@ -824,7 +862,7 @@ impl InnerInMemory {
         }
 
         // Include the NSEC3PARAM record.
-        let rdata = NSEC3PARAM::new(hash_alg, opt_out, iterations, salt.clone());
+        let rdata = NSEC3PARAM::new(hash_alg, opt_out, iterations, salt.to_vec());
         let record = Record::from_rdata(origin.into(), ttl, rdata);
         records.push(record.into_record_of_rdata());
 
@@ -1437,6 +1475,6 @@ impl DnssecAuthority for InMemoryAuthority {
     async fn secure_zone(&self) -> DnsSecResult<()> {
         let mut inner = self.inner.write().await;
 
-        inner.secure_zone_mut(self.origin(), self.class)
+        inner.secure_zone_mut(self.origin(), self.class, &self.nsec3_config)
     }
 }

@@ -19,6 +19,7 @@ use tracing::{debug, info};
 #[cfg(feature = "dnssec")]
 use crate::{
     authority::DnssecAuthority,
+    config::Nsec3Config,
     proto::rr::dnssec::{rdata::key::KEY, DnsSecResult, SigSigner},
 };
 use crate::{
@@ -56,8 +57,17 @@ impl FileAuthority {
         records: BTreeMap<RrKey, RecordSet>,
         zone_type: ZoneType,
         allow_axfr: bool,
+        #[cfg(feature = "dnssec")] nsec3_config: Nsec3Config,
     ) -> Result<Self, String> {
-        InMemoryAuthority::new(origin, records, zone_type, allow_axfr).map(Self)
+        InMemoryAuthority::new(
+            origin,
+            records,
+            zone_type,
+            allow_axfr,
+            #[cfg(feature = "dnssec")]
+            nsec3_config,
+        )
+        .map(Self)
     }
 
     /// Read the Authority for the origin from the specified configuration
@@ -67,6 +77,7 @@ impl FileAuthority {
         allow_axfr: bool,
         root_dir: Option<&Path>,
         config: &FileConfig,
+        #[cfg(feature = "dnssec")] nsec3_config: Nsec3Config,
     ) -> Result<Self, String> {
         let root_dir_path = root_dir.map(PathBuf::from).unwrap_or_default();
         let zone_path = root_dir_path.join(&config.zone_file_path);
@@ -89,7 +100,14 @@ impl FileAuthority {
         );
         debug!("zone: {:#?}", records);
 
-        Self::new(origin, records, zone_type, allow_axfr)
+        Self::new(
+            origin,
+            records,
+            zone_type,
+            allow_axfr,
+            #[cfg(feature = "dnssec")]
+            nsec3_config,
+        )
     }
 
     /// Unwrap the InMemoryAuthority
@@ -260,6 +278,7 @@ mod tests {
             false,
             None,
             &config,
+            Nsec3Config::default(),
         )
         .expect("failed to load file");
 

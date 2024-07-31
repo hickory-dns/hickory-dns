@@ -53,6 +53,8 @@ fn test_read_config() {
                 None,
                 None,
                 None,
+                #[cfg(feature = "dnssec")]
+                None,
                 vec![],
             ),
             ZoneConfig::new(
@@ -61,6 +63,8 @@ fn test_read_config() {
                 "default/127.0.0.1.zone".into(),
                 None,
                 None,
+                None,
+                #[cfg(feature = "dnssec")]
                 None,
                 vec![],
             ),
@@ -73,6 +77,8 @@ fn test_read_config() {
                 None,
                 None,
                 None,
+                #[cfg(feature = "dnssec")]
+                None,
                 vec![],
             ),
             ZoneConfig::new(
@@ -81,6 +87,8 @@ fn test_read_config() {
                 "default/255.zone".into(),
                 None,
                 None,
+                None,
+                #[cfg(feature = "dnssec")]
                 None,
                 vec![],
             ),
@@ -91,6 +99,8 @@ fn test_read_config() {
                 None,
                 None,
                 None,
+                #[cfg(feature = "dnssec")]
+                None,
                 vec![],
             ),
             ZoneConfig::new(
@@ -99,6 +109,8 @@ fn test_read_config() {
                 "example.com.zone".into(),
                 None,
                 None,
+                None,
+                #[cfg(feature = "dnssec")]
                 None,
                 vec![],
             )
