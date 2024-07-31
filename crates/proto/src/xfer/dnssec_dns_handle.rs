@@ -31,7 +31,7 @@ use crate::{
             Algorithm, Proof, ProofError, ProofErrorKind, SupportedAlgorithms, TrustAnchor,
         },
         rdata::opt::EdnsOption,
-        Name, RData, Record, RecordData, RecordType,
+        Name, RData, Record, RecordData, RecordType, SerialNumber,
     },
     xfer::{dns_handle::DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer},
 };
@@ -816,6 +816,10 @@ fn check_rrsig_validity(
     dnskey: RecordRef<'_, DNSKEY>,
     current_time: u32,
 ) -> RrsigValidity {
+    let current_time = SerialNumber(current_time);
+    let expiration = rrsig.data().sig_expiration();
+    let inception = rrsig.data().sig_inception();
+
     let Ok(dnskey_key_tag) = dnskey.data().calculate_key_tag() else {
         return RrsigValidity::WrongDnskey;
     };
@@ -838,16 +842,16 @@ fn check_rrsig_validity(
         return RrsigValidity::WrongRrsig;
     }
 
-    // TODO section 3.1.5 of RFC4034 states that 'all comparisons involving these fields MUST use
+    // Section 3.1.5 of RFC4034 states that 'all comparisons involving these fields MUST use
     // "Serial number arithmetic", as defined in RFC1982'
     if !(
         // "The validator's notion of the current time MUST be less than or equal to the time listed
         // in the RRSIG RR's Expiration field"
-        current_time <= rrsig.data().sig_expiration() &&
+        current_time <= expiration &&
 
         // "The validator's notion of the current time MUST be greater than or equal to the time
         // listed in the RRSIG RR's Inception field"
-        current_time >= rrsig.data().sig_inception()
+        current_time >= inception
     ) {
         return RrsigValidity::ExpiredRrsig;
     }
