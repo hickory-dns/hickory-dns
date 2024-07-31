@@ -9,6 +9,8 @@
 
 #[cfg(feature = "dnssec")]
 use std::borrow::Borrow;
+#[cfg(feature = "dnssec")]
+use std::collections::{hash_map::Entry, HashMap};
 #[cfg(all(feature = "dnssec", feature = "testing"))]
 use std::ops::Deref;
 use std::{
@@ -29,8 +31,8 @@ use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::{
     authority::DnssecAuthority,
     proto::rr::dnssec::{
-        rdata::{key::KEY, DNSSECRData, NSEC},
-        {DnsSecResult, SigSigner, SupportedAlgorithms},
+        rdata::{key::KEY, DNSSECRData, NSEC, NSEC3, NSEC3PARAM},
+        {DnsSecResult, Nsec3HashAlgorithm, SigSigner, SupportedAlgorithms},
     },
 };
 
@@ -651,6 +653,7 @@ impl InnerInMemory {
         // TODO: only call nsec_zone after adds/deletes
         // needs to be called before incrementing the soa serial, to make sure IXFR works properly
         self.nsec_zone(origin, dns_class);
+        self.nsec3_zone(origin, dns_class);
 
         // need to resign any records at the current serial number and bump the number.
         // first bump the serial number on the SOA, so that it is resigned with the new serial.
@@ -660,7 +663,6 @@ impl InnerInMemory {
         self.sign_zone(origin, dns_class)
     }
 
-    /// Dummy implementation for when DNSSEC is disabled.
     #[cfg(feature = "dnssec")]
     fn nsec_zone(&mut self, origin: &LowerName, dns_class: DNSClass) {
         // only create nsec records for secure zones
@@ -716,6 +718,117 @@ impl InnerInMemory {
         }
 
         // insert all the nsec records
+        for record in records {
+            let upserted = self.upsert(record, serial, dns_class);
+            debug_assert!(upserted);
+        }
+    }
+
+    #[cfg(feature = "dnssec")]
+    fn nsec3_zone(&mut self, origin: &LowerName, dns_class: DNSClass) {
+        // FIXME: Implement collision detection.
+        // only create nsec records for secure zones
+        if self.secure_keys.is_empty() {
+            return;
+        }
+        debug!("generating nsec3 records: {}", origin);
+
+        // first remove all existing nsec records
+        let delete_keys: Vec<RrKey> = self
+            .records
+            .keys()
+            .filter(|k| k.record_type == RecordType::NSEC3)
+            .cloned()
+            .collect();
+
+        for key in delete_keys {
+            self.records.remove(&key);
+        }
+
+        // now go through and generate the nsec3 records
+        let ttl = self.minimum_ttl(origin);
+        let serial = self.serial(origin);
+        // FIXME: These should be configurable
+        let hash_alg = Nsec3HashAlgorithm::SHA1;
+        let salt = vec![];
+        let iterations = 1;
+        let opt_out = false;
+
+        let mut records: Vec<Record> = vec![];
+
+        // Store the record types of each domain name so we can generate NSEC3 records for each
+        // domain name.
+        let mut record_types = HashMap::<LowerName, HashSet<RecordType>>::new();
+
+        for key in self.records.keys() {
+            // Store the type of the current record under its domain name
+            match record_types.entry(key.name.clone()) {
+                Entry::Occupied(mut entry) => {
+                    entry.get_mut().insert(key.record_type);
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(HashSet::from([key.record_type]));
+                }
+            }
+
+            // For every domain name between the current name and the origin, add it to
+            // `record_types` without any record types. This covers all the empty non-terminals
+            // that must have an NSEC3 record as well.
+            let mut name = key.name.base_name();
+
+            for _ in origin.num_labels()..name.num_labels() {
+                if let Entry::Vacant(entry) = record_types.entry(name.clone()) {
+                    entry.insert(HashSet::new());
+                }
+                name = name.base_name();
+            }
+        }
+
+        // Compute the hash of all the names.
+        let mut record_types = record_types
+            .into_iter()
+            .map(|(name, type_bit_maps)| {
+                let hashed_name = hash_alg.hash(&salt, name.borrow(), iterations).unwrap();
+                (hashed_name, type_bit_maps)
+            })
+            .collect::<Vec<_>>();
+        // Sort by hash.
+        record_types.sort_by(|(a, _), (b, _)| a.as_ref().cmp(b.as_ref()));
+
+        // Generate an NSEC3 record for every name
+        for (i, (hashed_name, type_bit_maps)) in record_types.iter().enumerate() {
+            // Get the next hashed name following the hash order.
+            let next_index = (i + 1) % record_types.len();
+            let next_hashed_name = record_types[next_index].0.as_ref().to_vec();
+
+            let mut type_bit_maps: Vec<RecordType> = type_bit_maps.iter().copied().collect();
+            type_bit_maps.push(RecordType::NSEC3);
+
+            let rdata = NSEC3::new(
+                hash_alg,
+                opt_out,
+                iterations,
+                salt.clone(),
+                next_hashed_name,
+                type_bit_maps,
+            );
+
+            let name = Name::new()
+                .append_label(data_encoding::BASE32_DNSSEC.encode(hashed_name.as_ref()))
+                .unwrap()
+                .append_name(origin.borrow())
+                .unwrap();
+
+            let record = Record::from_rdata(name, ttl, rdata);
+            records.push(record.into_record_of_rdata());
+        }
+
+        // Include the NSEC3PARAM record.
+        let rdata = NSEC3PARAM::new(hash_alg, opt_out, iterations, salt.clone());
+        let record = Record::from_rdata(origin.into(), ttl, rdata);
+        records.push(record.into_record_of_rdata());
+
+        // insert all the nsec3 records
         for record in records {
             let upserted = self.upsert(record, serial, dns_class);
             debug_assert!(upserted);
