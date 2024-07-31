@@ -9,11 +9,6 @@ use std::{cmp::Ordering, ops::Add};
 pub struct SerialNumber(pub(crate) u32);
 
 impl SerialNumber {
-    /// Constructs a new [`SerialNumber`]
-    pub fn new(value: u32) -> Self {
-        Self(value)
-    }
-
     /// Returns internal value
     pub fn get(&self) -> u32 {
         self.0
