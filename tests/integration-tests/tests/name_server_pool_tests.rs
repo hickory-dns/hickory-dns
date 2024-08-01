@@ -304,25 +304,33 @@ fn test_tcp_fallback_only_on_truncated() {
 }
 
 #[test]
-fn test_no_tcp_fallback_on_nxdomain() {
-    // Lookup to UDP resulting in NXDOMAIN should not retry over TCP when
+fn test_no_tcp_fallback_on_trusted_nxdomain() {
+    // Lookup to UDP resulting in a trusted NXDOMAIN should not retry over TCP when
     // `try_tcp_on_error` is set to true.
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let mut udp_message = message(query.clone(), vec![], vec![], vec![]);
+    // A SOA record is required for the NXDOMAIN to be trusted
+    let soa_record = soa_record(
+        query.name().clone(),
+        Name::from_str("example.com.").unwrap(),
+    );
+
+    let mut udp_message = message(query.clone(), vec![], vec![soa_record], vec![]);
     udp_message.set_response_code(ResponseCode::NXDomain);
 
     let mut tcp_message = message(query.clone(), vec![], vec![], vec![]);
-    tcp_message.set_response_code(ResponseCode::ServFail); // assuming a ServFail to distinguish with UDP reponse
+    tcp_message.set_response_code(ResponseCode::NotImp); // assuming a NotImp to distinguish with UDP response
 
-    let udp_nameserver = mock_nameserver(
+    let udp_nameserver = mock_nameserver_trust_nx(
         vec![ProtoError::from_response(
             DnsResponse::from_message(udp_message).unwrap(),
-            false,
+            true,
         )],
         Default::default(),
+        true,
     );
+
     let tcp_nameserver = mock_nameserver(
         vec![ProtoError::from_response(
             DnsResponse::from_message(tcp_message).unwrap(),
@@ -350,25 +358,28 @@ fn test_no_tcp_fallback_on_nxdomain() {
 }
 
 #[test]
-fn test_tcp_fallback_on_no_records_found_non_nxdomain() {
-    // Lookup to UDP resulting in NoRecordsFound other than NXDOMAIN should retry over TCP when
+fn test_tcp_fallback_on_untrusted_nxdomain() {
+    // Lookup to UDP resulting in an untrusted NXDOMAIN should retry over TCP when
     // `try_tcp_on_error` is set to true.
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
+    // No SOA record, response is not trusted and a retry is expected
     let mut udp_message = message(query.clone(), vec![], vec![], vec![]);
-    udp_message.set_response_code(ResponseCode::ServFail); // UDP with ServFail, should retry
+    udp_message.set_response_code(ResponseCode::NXDomain);
 
     let mut tcp_message = message(query.clone(), vec![], vec![], vec![]);
-    tcp_message.set_response_code(ResponseCode::NXDomain);
+    tcp_message.set_response_code(ResponseCode::NotImp); // assuming a NotImp to distinguish with UDP response
 
-    let udp_nameserver = mock_nameserver(
+    let udp_nameserver = mock_nameserver_trust_nx(
         vec![ProtoError::from_response(
             DnsResponse::from_message(udp_message).unwrap(),
-            false,
+            true,
         )],
         Default::default(),
+        true,
     );
+
     let tcp_nameserver = mock_nameserver(
         vec![ProtoError::from_response(
             DnsResponse::from_message(tcp_message).unwrap(),
@@ -386,9 +397,9 @@ fn test_tcp_fallback_on_no_records_found_non_nxdomain() {
     let error = block_on(future).expect_err("DNS query should result in a `NXDomain`");
     match error.kind() {
         ProtoErrorKind::NoRecordsFound { response_code, .. }
-            if *response_code == ResponseCode::NXDomain => {}
+            if *response_code == ResponseCode::NotImp => {}
         kind => panic!(
-            "expected `NoRecordsFound` with `response_code: NXDomain`,
+            "expected `NoRecordsFound` with `response_code: NotImp`,
             got {:#?}",
             kind,
         ),

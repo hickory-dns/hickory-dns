@@ -223,11 +223,12 @@ where
                             e.kind(),
                             ProtoErrorKind::NoRecordsFound {
                                 response_code: ResponseCode::NXDomain,
+                                trusted: true,
                                 ..
                             }
                         ) =>
                     {
-                        debug!("NoRecordsFound with NXDomain, not retrying over TCP");
+                        debug!("trusted NXDomain, not retrying over TCP");
                         return Err(e);
                     }
                     Err(e) if opts.try_tcp_on_error || e.is_no_connections() || e.is_io() => {
