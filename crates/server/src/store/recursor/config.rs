@@ -41,6 +41,10 @@ pub struct RecursiveConfig {
     #[serde(default = "record_cache_size_default")]
     pub record_cache_size: usize,
 
+    /// Maximum recursion depth for queries. Set to 0 for unlimited recursion depth.
+    #[serde(default = "recursion_limit_default")]
+    pub recursion_limit: u8,
+
     /// DNSSEC policy
     #[cfg(feature = "dnssec")]
     #[serde(default)]
@@ -81,6 +85,9 @@ fn ns_cache_size_default() -> usize {
 }
 fn record_cache_size_default() -> usize {
     1048576
+}
+fn recursion_limit_default() -> u8 {
+    12
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]

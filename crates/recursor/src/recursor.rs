@@ -26,6 +26,7 @@ use crate::{
 pub struct RecursorBuilder {
     ns_cache_size: usize,
     record_cache_size: usize,
+    recursion_limit: u8,
     dnssec_policy: DnssecPolicy,
 }
 
@@ -34,6 +35,7 @@ impl Default for RecursorBuilder {
         Self {
             ns_cache_size: 1024,
             record_cache_size: 1048576,
+            recursion_limit: 12,
             dnssec_policy: DnssecPolicy::SecurityUnaware,
         }
     }
@@ -49,6 +51,13 @@ impl RecursorBuilder {
     /// Sets the size of the list of cached records
     pub fn record_cache_size(&mut self, size: usize) -> &mut Self {
         self.record_cache_size = size;
+        self
+    }
+
+    /// Sets the maximum recursion depth for queries; set to 0 for unlimited
+    /// recursion.
+    pub fn recursion_limit(&mut self, limit: u8) -> &mut Self {
+        self.recursion_limit = limit;
         self
     }
 
@@ -68,6 +77,7 @@ impl RecursorBuilder {
             roots,
             self.ns_cache_size,
             self.record_cache_size,
+            self.recursion_limit,
             self.dnssec_policy.clone(),
         )
     }
@@ -96,12 +106,14 @@ impl Recursor {
         roots: impl Into<NameServerConfigGroup>,
         ns_cache_size: usize,
         record_cache_size: usize,
+        recursion_limit: u8,
         dnssec_policy: DnssecPolicy,
     ) -> Result<Self, ResolveError> {
         let handle = RecursorDnsHandle::new(
             roots,
             ns_cache_size,
             record_cache_size,
+            recursion_limit,
             dnssec_policy.is_security_aware(),
         )?;
 
@@ -310,7 +322,7 @@ impl Recursor {
         match &self.mode {
             RecursorMode::NonValidating { handle } => {
                 handle
-                    .resolve(query, request_time, query_has_dnssec_ok)
+                    .resolve(query, request_time, query_has_dnssec_ok, 0)
                     .await
             }
 
@@ -434,7 +446,7 @@ mod for_dnssec {
             stream::once(async move {
                 // request the DNSSEC records; we'll strip them if not needed on the caller side
                 let do_bit = true;
-                this.resolve(query, Instant::now(), do_bit)
+                this.resolve(query, Instant::now(), do_bit, 0)
                     .map_ok(|lookup| {
                         // `DnssecDnsHandle` will only look at the answer section of the message so
                         // we can put "stubs" in the other fields

@@ -129,7 +129,7 @@ impl Lookup {
     }
 
     /// Clones the inner vec, appends the other vec
-    pub(crate) fn append(&self, other: Self) -> Self {
+    pub fn append(&self, other: Self) -> Self {
         let mut records = Vec::with_capacity(self.len() + other.len());
         records.extend_from_slice(&self.records);
         records.extend_from_slice(&other.records);
