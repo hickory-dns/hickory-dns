@@ -217,6 +217,15 @@ where
                         debug!("truncated response received, retrying over TCP");
                         Ok(response)
                     }
+                    Err(e)
+                        if opts.try_tcp_on_io_error_only
+                            && opts.try_tcp_on_error
+                            && !e.is_no_connections()
+                            && !e.is_io() =>
+                    {
+                        debug!("not an I/O error, not retrying over TCP: {}", e);
+                        return Err(e);
+                    }
                     Err(e) if opts.try_tcp_on_error || e.is_no_connections() || e.is_io() => {
                         debug!("error from UDP, retrying over TCP: {}", e);
                         Err(e)
