@@ -34,19 +34,19 @@ default = ["system-config", "tokio-runtime"]
 backtrace = ["dep:backtrace", "hickory-proto/backtrace"]
 dns-over-native-tls = [
     "dns-over-tls",
-    "tokio-native-tls",
+    "dep:tokio-native-tls",
     "hickory-proto/dns-over-native-tls",
 ]
 # DNS over TLS with OpenSSL currently needs a good way to set default CAs, use rustls or native-tls
 dns-over-openssl = [
     "dns-over-tls",
     "hickory-proto/dns-over-openssl",
-    "tokio-openssl",
+    "dep:tokio-openssl",
 ]
 dns-over-rustls = [
     "dns-over-tls",
-    "rustls",
-    "tokio-rustls",
+    "dep:rustls",
+    "dep:tokio-rustls",
     "hickory-proto/dns-over-rustls",
 ]
 dns-over-tls = ["tokio-runtime"]
@@ -68,8 +68,8 @@ dnssec-openssl = ["dnssec", "hickory-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "hickory-proto/dnssec-ring"]
 dnssec = []
 
-serde-config = ["serde", "hickory-proto/serde-config"]
-system-config = ["ipconfig", "resolv-conf"]
+serde-config = ["dep:serde", "hickory-proto/serde-config"]
+system-config = ["dep:ipconfig", "dep:resolv-conf"]
 
 testing = []
 tokio-runtime = ["tokio/rt", "hickory-proto/tokio-runtime"]
