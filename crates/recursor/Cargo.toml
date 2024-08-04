@@ -92,7 +92,7 @@ tls-openssl = ["dns-over-openssl"]
 tls = ["dns-over-openssl"]
 
 serde-config = [
-    "serde",
+    "dep:serde",
     "hickory-proto/serde-config",
     "hickory-resolver/serde-config",
 ]
