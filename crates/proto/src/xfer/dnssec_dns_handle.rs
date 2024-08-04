@@ -149,7 +149,7 @@ where
 
                 // send along the algorithms which are supported by this handle
                 let mut algorithms = SupportedAlgorithms::new();
-                #[cfg(feature = "ring")]
+                #[cfg(feature = "dnssec-ring")]
                 {
                     algorithms.set(Algorithm::ED25519);
                 }

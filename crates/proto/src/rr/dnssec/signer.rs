@@ -583,7 +583,7 @@ impl MessageFinalizer for SigSigner {
 }
 
 #[cfg(test)]
-#[cfg(feature = "openssl")]
+#[cfg(feature = "dnssec-openssl")]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
@@ -782,7 +782,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
     }
 
     // TODO: these tests technically came from TBS in hickory_proto
-    #[cfg(feature = "openssl")]
+    #[cfg(feature = "dnssec-openssl")]
     #[allow(clippy::module_inception)]
     #[cfg(test)]
     mod tests {

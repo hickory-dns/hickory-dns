@@ -6,34 +6,34 @@
 // copied, modified, or distributed except according to those terms.
 
 //! Public Key implementations for supported key types
-#[cfg(not(any(feature = "openssl", feature = "ring")))]
+#[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
 use std::marker::PhantomData;
 
-#[cfg(all(not(feature = "ring"), feature = "openssl"))]
+#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 use openssl::bn::BigNum;
-#[cfg(all(not(feature = "ring"), feature = "openssl"))]
+#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 use openssl::bn::BigNumContext;
-#[cfg(all(not(feature = "ring"), feature = "openssl"))]
+#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 use openssl::ec::{EcGroup, EcKey, EcPoint};
-#[cfg(all(not(feature = "ring"), feature = "openssl"))]
+#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 use openssl::nid::Nid;
-#[cfg(all(not(feature = "ring"), feature = "openssl"))]
+#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 use openssl::pkey::{PKey, Public};
-#[cfg(all(not(feature = "ring"), feature = "openssl"))]
+#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 use openssl::rsa::Rsa as OpenSslRsa;
-#[cfg(all(not(feature = "ring"), feature = "openssl"))]
+#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 use openssl::sign::Verifier;
-#[cfg(feature = "ring")]
+#[cfg(feature = "dnssec-ring")]
 use ring::signature::{self, ED25519_PUBLIC_KEY_LEN};
 
 use crate::error::*;
 use crate::rr::dnssec::Algorithm;
-#[cfg(all(not(feature = "ring"), feature = "openssl"))]
+#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 use crate::rr::dnssec::DigestType;
 
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 use crate::rr::dnssec::ec_public_key::ECPublicKey;
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 use crate::rr::dnssec::rsa_public_key::RSAPublicKey;
 
 /// PublicKeys implement the ability to ideally be zero copy abstractions over public keys for verifying signed content.
@@ -59,7 +59,7 @@ pub trait PublicKey {
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()>;
 }
 
-#[cfg(all(not(feature = "ring"), feature = "openssl"))]
+#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 fn verify_with_pkey(
     pkey: &PKey<Public>,
     algorithm: Algorithm,
@@ -82,15 +82,21 @@ fn verify_with_pkey(
 }
 
 /// Elyptic Curve public key type
-#[cfg(all(not(feature = "ring"), feature = "openssl"))]
-#[cfg_attr(docsrs, doc(cfg(all(not(feature = "ring"), feature = "openssl"))))]
+#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl")))
+)]
 pub struct Ec<'k> {
     raw: &'k [u8],
     pkey: PKey<Public>,
 }
 
-#[cfg(all(not(feature = "ring"), feature = "openssl"))]
-#[cfg_attr(docsrs, doc(cfg(all(not(feature = "ring"), feature = "openssl"))))]
+#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl")))
+)]
 impl<'k> Ec<'k> {
     /// ```text
     /// RFC 6605                    ECDSA for DNSSEC                  April 2012
@@ -149,7 +155,7 @@ impl<'k> Ec<'k> {
     }
 }
 
-#[cfg(all(not(feature = "ring"), feature = "openssl"))]
+#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 fn asn1_emit_integer(output: &mut Vec<u8>, int: &[u8]) {
     assert!(!int.is_empty());
     output.push(0x02); // INTEGER
@@ -181,8 +187,11 @@ fn asn1_emit_integer(output: &mut Vec<u8>, int: &[u8]) {
 }
 
 /// Convert raw DNSSEC ECDSA signature to ASN.1 DER format
-#[cfg(all(not(feature = "ring"), feature = "openssl"))]
-#[cfg_attr(docsrs, doc(cfg(all(not(feature = "ring"), feature = "openssl"))))]
+#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl")))
+)]
 pub fn dnssec_ecdsa_signature_to_der(signature: &[u8]) -> ProtoResult<Vec<u8>> {
     if signature.is_empty() || signature.len() & 1 != 0 || signature.len() > 127 {
         return Err("invalid signature length".into());
@@ -196,8 +205,11 @@ pub fn dnssec_ecdsa_signature_to_der(signature: &[u8]) -> ProtoResult<Vec<u8>> {
     Ok(signature_asn1)
 }
 
-#[cfg(all(not(feature = "ring"), feature = "openssl"))]
-#[cfg_attr(docsrs, doc(cfg(all(not(feature = "ring"), feature = "openssl"))))]
+#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl")))
+)]
 impl<'k> PublicKey for Ec<'k> {
     fn public_bytes(&self) -> &[u8] {
         self.raw
@@ -210,11 +222,11 @@ impl<'k> PublicKey for Ec<'k> {
 }
 
 /// Elyptic Curve public key type
-#[cfg(feature = "ring")]
-#[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
+#[cfg(feature = "dnssec-ring")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec-ring")))]
 pub type Ec = ECPublicKey;
 
-#[cfg(feature = "ring")]
+#[cfg(feature = "dnssec-ring")]
 impl Ec {
     /// ```text
     /// RFC 6605                    ECDSA for DNSSEC                  April 2012
@@ -253,8 +265,8 @@ impl Ec {
     }
 }
 
-#[cfg(feature = "ring")]
-#[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
+#[cfg(feature = "dnssec-ring")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec-ring")))]
 impl PublicKey for Ec {
     fn public_bytes(&self) -> &[u8] {
         self.unprefixed_bytes()
@@ -273,14 +285,14 @@ impl PublicKey for Ec {
 }
 
 /// Ed25519 Public key
-#[cfg(feature = "ring")]
-#[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
+#[cfg(feature = "dnssec-ring")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec-ring")))]
 pub struct Ed25519<'k> {
     raw: &'k [u8],
 }
 
-#[cfg(feature = "ring")]
-#[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
+#[cfg(feature = "dnssec-ring")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec-ring")))]
 impl<'k> Ed25519<'k> {
     /// ```text
     ///  Internet-Draft              EdDSA for DNSSEC               December 2016
@@ -305,7 +317,7 @@ impl<'k> Ed25519<'k> {
     }
 }
 
-#[cfg(feature = "ring")]
+#[cfg(feature = "dnssec-ring")]
 impl<'k> PublicKey for Ed25519<'k> {
     // TODO: just store reference to public key bytes in ctor...
     fn public_bytes(&self) -> &[u8] {
@@ -319,20 +331,26 @@ impl<'k> PublicKey for Ed25519<'k> {
 }
 
 /// Rsa public key
-#[cfg(any(feature = "openssl", feature = "ring"))]
-#[cfg_attr(docsrs, doc(cfg(any(feature = "openssl", feature = "ring"))))]
+#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring")))
+)]
 pub struct Rsa<'k> {
     raw: &'k [u8],
 
-    #[cfg(all(not(feature = "ring"), feature = "openssl"))]
+    #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
     pkey: PKey<Public>,
 
-    #[cfg(feature = "ring")]
+    #[cfg(feature = "dnssec-ring")]
     pkey: RSAPublicKey<'k>,
 }
 
-#[cfg(any(feature = "openssl", feature = "ring"))]
-#[cfg_attr(docsrs, doc(cfg(any(feature = "openssl", feature = "ring"))))]
+#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring")))
+)]
 impl<'k> Rsa<'k> {
     /// ```text
     /// RFC 3110              RSA SIGs and KEYs in the DNS              May 2001
@@ -373,7 +391,7 @@ impl<'k> Rsa<'k> {
     }
 }
 
-#[cfg(all(not(feature = "ring"), feature = "openssl"))]
+#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 fn into_pkey(parsed: RSAPublicKey<'_>) -> ProtoResult<PKey<Public>> {
     // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
     let e = BigNum::from_slice(parsed.e())?;
@@ -384,24 +402,24 @@ fn into_pkey(parsed: RSAPublicKey<'_>) -> ProtoResult<PKey<Public>> {
         .map_err(Into::into)
 }
 
-#[cfg(feature = "ring")]
+#[cfg(feature = "dnssec-ring")]
 #[allow(clippy::unnecessary_wraps)]
 fn into_pkey(parsed: RSAPublicKey<'_>) -> ProtoResult<RSAPublicKey<'_>> {
     Ok(parsed)
 }
 
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 impl<'k> PublicKey for Rsa<'k> {
     fn public_bytes(&self) -> &[u8] {
         self.raw
     }
 
-    #[cfg(all(not(feature = "ring"), feature = "openssl"))]
+    #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
         verify_with_pkey(&self.pkey, algorithm, message, signature)
     }
 
-    #[cfg(feature = "ring")]
+    #[cfg(feature = "dnssec-ring")]
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
         #[allow(deprecated)]
         let alg = match algorithm {
@@ -427,24 +445,33 @@ impl<'k> PublicKey for Rsa<'k> {
 #[non_exhaustive]
 pub enum PublicKeyEnum<'k> {
     /// RSA keypair, supported by OpenSSL
-    #[cfg(any(feature = "openssl", feature = "ring"))]
-    #[cfg_attr(docsrs, doc(cfg(any(feature = "openssl", feature = "ring"))))]
+    #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+    #[cfg_attr(
+        docsrs,
+        doc(cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring")))
+    )]
     Rsa(Rsa<'k>),
     /// Elliptic curve keypair
-    #[cfg(all(not(feature = "ring"), feature = "openssl"))]
-    #[cfg_attr(docsrs, doc(cfg(any(all(not(feature = "ring"), feature = "openssl")))))]
+    #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
+    #[cfg_attr(
+        docsrs,
+        doc(cfg(any(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))))
+    )]
     Ec(Ec<'k>),
     /// Elliptic curve keypair
-    #[cfg(feature = "ring")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
+    #[cfg(feature = "dnssec-ring")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec-ring")))]
     Ec(Ec),
     /// Ed25519 public key for the Algorithm::ED25519
-    #[cfg(feature = "ring")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
+    #[cfg(feature = "dnssec-ring")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec-ring")))]
     Ed25519(Ed25519<'k>),
     /// PhatomData for compiler when ring and or openssl not defined, do not use...
-    #[cfg(not(any(feature = "ring", feature = "openssl")))]
-    #[cfg_attr(docsrs, doc(cfg(not(any(feature = "ring", feature = "openssl")))))]
+    #[cfg(not(any(feature = "dnssec-ring", feature = "dnssec-openssl")))]
+    #[cfg_attr(
+        docsrs,
+        doc(cfg(not(any(feature = "dnssec-ring", feature = "dnssec-openssl"))))
+    )]
     Phantom(&'k PhantomData<()>),
 }
 
@@ -454,15 +481,15 @@ impl<'k> PublicKeyEnum<'k> {
     pub fn from_public_bytes(public_key: &'k [u8], algorithm: Algorithm) -> ProtoResult<Self> {
         #[allow(deprecated)]
         match algorithm {
-            #[cfg(any(feature = "openssl", feature = "ring"))]
+            #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
             Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => Ok(PublicKeyEnum::Ec(
                 Ec::from_public_bytes(public_key, algorithm)?,
             )),
-            #[cfg(feature = "ring")]
+            #[cfg(feature = "dnssec-ring")]
             Algorithm::ED25519 => Ok(PublicKeyEnum::Ed25519(Ed25519::from_public_bytes(
                 public_key,
             )?)),
-            #[cfg(any(feature = "openssl", feature = "ring"))]
+            #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
             Algorithm::RSASHA1
             | Algorithm::RSASHA1NSEC3SHA1
             | Algorithm::RSASHA256
@@ -476,13 +503,13 @@ impl<'k> PublicKey for PublicKeyEnum<'k> {
     #[allow(clippy::match_single_binding, clippy::match_single_binding)]
     fn public_bytes(&self) -> &[u8] {
         match *self {
-            #[cfg(any(feature = "openssl", feature = "ring"))]
+            #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
             PublicKeyEnum::Ec(ref ec) => ec.public_bytes(),
-            #[cfg(feature = "ring")]
+            #[cfg(feature = "dnssec-ring")]
             PublicKeyEnum::Ed25519(ref ed) => ed.public_bytes(),
-            #[cfg(any(feature = "openssl", feature = "ring"))]
+            #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
             PublicKeyEnum::Rsa(ref rsa) => rsa.public_bytes(),
-            #[cfg(not(any(feature = "ring", feature = "openssl")))]
+            #[cfg(not(any(feature = "dnssec-ring", feature = "dnssec-openssl")))]
             _ => panic!("no public keys registered, enable ring or openssl features"),
         }
     }
@@ -490,13 +517,13 @@ impl<'k> PublicKey for PublicKeyEnum<'k> {
     #[allow(unused_variables, clippy::match_single_binding)]
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
         match *self {
-            #[cfg(any(feature = "openssl", feature = "ring"))]
+            #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
             PublicKeyEnum::Ec(ref ec) => ec.verify(algorithm, message, signature),
-            #[cfg(feature = "ring")]
+            #[cfg(feature = "dnssec-ring")]
             PublicKeyEnum::Ed25519(ref ed) => ed.verify(algorithm, message, signature),
-            #[cfg(any(feature = "openssl", feature = "ring"))]
+            #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
             PublicKeyEnum::Rsa(ref rsa) => rsa.verify(algorithm, message, signature),
-            #[cfg(not(any(feature = "ring", feature = "openssl")))]
+            #[cfg(not(any(feature = "dnssec-ring", feature = "dnssec-openssl")))]
             _ => panic!("no public keys registered, enable ring or openssl features"),
         }
     }
@@ -526,10 +553,10 @@ impl PublicKey for PublicKeyBuf {
     }
 }
 
-#[cfg(all(not(feature = "ring"), feature = "openssl"))]
+#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "openssl")]
+    #[cfg(feature = "dnssec-openssl")]
     #[test]
     fn test_asn1_emit_integer() {
         fn test_case(source: &[u8], expected_data: &[u8]) {

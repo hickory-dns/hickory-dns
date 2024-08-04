@@ -1,12 +1,12 @@
-#[cfg(feature = "openssl")]
+#[cfg(feature = "dnssec-openssl")]
 use openssl::ec::EcKey;
-#[cfg(feature = "openssl")]
+#[cfg(feature = "dnssec-openssl")]
 use openssl::rsa::Rsa;
-#[cfg(feature = "openssl")]
+#[cfg(feature = "dnssec-openssl")]
 use openssl::symm::Cipher;
-#[cfg(feature = "ring")]
+#[cfg(feature = "dnssec-ring")]
 use ring::rand::SystemRandom;
-#[cfg(feature = "ring")]
+#[cfg(feature = "dnssec-ring")]
 use ring::signature::{
     EcdsaKeyPair, Ed25519KeyPair, ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING,
 };
@@ -41,11 +41,11 @@ impl KeyFormat {
         #[allow(deprecated)]
         match algorithm {
             Algorithm::Unknown(v) => Err(format!("unknown algorithm: {v}").into()),
-            #[cfg(feature = "openssl")]
+            #[cfg(feature = "dnssec-openssl")]
             e @ Algorithm::RSASHA1 | e @ Algorithm::RSASHA1NSEC3SHA1 => {
                 Err(format!("unsupported Algorithm (insecure): {e:?}").into())
             }
-            #[cfg(feature = "openssl")]
+            #[cfg(feature = "dnssec-openssl")]
             Algorithm::RSASHA256 | Algorithm::RSASHA512 => {
                 let key = match self {
                     Self::Der => Rsa::private_key_from_der(bytes)
@@ -70,7 +70,7 @@ impl KeyFormat {
                     .map_err(|e| format!("could not translate RSA to KeyPair: {e}"))?)
             }
             Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => match self {
-                #[cfg(feature = "openssl")]
+                #[cfg(feature = "dnssec-openssl")]
                 Self::Der => {
                     let key = EcKey::private_key_from_der(bytes)
                         .map_err(|e| format!("error reading EC as DER: {e}"))?;
@@ -78,7 +78,7 @@ impl KeyFormat {
                     Ok(KeyPair::from_ec_key(key)
                         .map_err(|e| format!("could not translate RSA to KeyPair: {e}"))?)
                 }
-                #[cfg(feature = "openssl")]
+                #[cfg(feature = "dnssec-openssl")]
                 Self::Pem => {
                     let key = EcKey::private_key_from_pem_passphrase(bytes, password)
                         .map_err(|e| format!("could not decode EC from PEM, bad password?: {e}"))?;
@@ -86,7 +86,7 @@ impl KeyFormat {
                     Ok(KeyPair::from_ec_key(key)
                         .map_err(|e| format!("could not translate RSA to KeyPair: {e}"))?)
                 }
-                #[cfg(feature = "ring")]
+                #[cfg(feature = "dnssec-ring")]
                 Self::Pkcs8 => {
                     let rng = SystemRandom::new();
                     let ring_algorithm = if algorithm == Algorithm::ECDSAP256SHA256 {
@@ -101,7 +101,7 @@ impl KeyFormat {
                 e => Err(format!("unsupported key format with EC: {e:?}").into()),
             },
             Algorithm::ED25519 => match self {
-                #[cfg(feature = "ring")]
+                #[cfg(feature = "dnssec-ring")]
                 Self::Pkcs8 => {
                     let key = Ed25519KeyPair::from_pkcs8(bytes)?;
 
@@ -136,20 +136,20 @@ impl KeyFormat {
         #[allow(unused, deprecated)]
         let key_pair: KeyPair<Private> = match algorithm {
             Algorithm::Unknown(v) => return Err(format!("unknown algorithm: {v}").into()),
-            #[cfg(feature = "openssl")]
+            #[cfg(feature = "dnssec-openssl")]
             e @ Algorithm::RSASHA1 | e @ Algorithm::RSASHA1NSEC3SHA1 => {
                 return Err(format!("unsupported Algorithm (insecure): {e:?}").into())
             }
-            #[cfg(feature = "openssl")]
+            #[cfg(feature = "dnssec-openssl")]
             Algorithm::RSASHA256 | Algorithm::RSASHA512 => KeyPair::generate(algorithm)?,
             Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => match self {
-                #[cfg(feature = "openssl")]
+                #[cfg(feature = "dnssec-openssl")]
                 Self::Der | Self::Pem => KeyPair::generate(algorithm)?,
-                #[cfg(feature = "ring")]
+                #[cfg(feature = "dnssec-ring")]
                 Self::Pkcs8 => return KeyPair::generate_pkcs8(algorithm),
                 e => return Err(format!("unsupported key format with EC: {e:?}").into()),
             },
-            #[cfg(feature = "ring")]
+            #[cfg(feature = "dnssec-ring")]
             Algorithm::ED25519 => return KeyPair::generate_pkcs8(algorithm),
             e => {
                 return Err(
@@ -161,7 +161,7 @@ impl KeyFormat {
         // encode the key
         #[allow(unreachable_code)]
         match key_pair {
-            #[cfg(feature = "openssl")]
+            #[cfg(feature = "dnssec-openssl")]
             KeyPair::EC(ref pkey) | KeyPair::RSA(ref pkey) => {
                 match self {
                     Self::Der => {
@@ -191,11 +191,11 @@ impl KeyFormat {
                     .into()),
                 }
             }
-            #[cfg(feature = "ring")]
+            #[cfg(feature = "dnssec-ring")]
             KeyPair::ECDSA(..) | KeyPair::ED25519(..) => panic!("should have returned early"),
-            #[cfg(not(feature = "openssl"))]
+            #[cfg(not(feature = "dnssec-openssl"))]
             KeyPair::Phantom(..) => panic!("Phantom disallowed"),
-            #[cfg(not(any(feature = "openssl", feature = "ring")))]
+            #[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
             _ => Err(format!(
                 "unsupported Algorithm, enable openssl feature (encode not supported with ring)"
             )
@@ -219,7 +219,7 @@ impl KeyFormat {
             .next();
 
         match *key_pair {
-            #[cfg(feature = "openssl")]
+            #[cfg(feature = "dnssec-openssl")]
             KeyPair::EC(ref pkey) | KeyPair::RSA(ref pkey) => {
                 match self {
                     Self::Der => {
@@ -249,7 +249,7 @@ impl KeyFormat {
                     .into()),
                 }
             }
-            #[cfg(any(feature = "ring", not(feature = "openssl")))]
+            #[cfg(any(feature = "dnssec-ring", not(feature = "dnssec-openssl")))]
             _ => Err(
                 "unsupported Algorithm, enable openssl feature (encode not supported with ring)"
                     .into(),
@@ -265,42 +265,42 @@ mod tests {
     use super::*;
 
     #[test]
-    #[cfg(feature = "openssl")]
+    #[cfg(feature = "dnssec-openssl")]
     fn test_rsa_encode_decode_der() {
         let algorithm = Algorithm::RSASHA256;
         encode_decode_with_format(KeyFormat::Der, algorithm, false, true);
     }
 
     #[test]
-    #[cfg(feature = "openssl")]
+    #[cfg(feature = "dnssec-openssl")]
     fn test_rsa_encode_decode_pem() {
         let algorithm = Algorithm::RSASHA256;
         encode_decode_with_format(KeyFormat::Pem, algorithm, true, true);
     }
 
     #[test]
-    #[cfg(feature = "openssl")]
+    #[cfg(feature = "dnssec-openssl")]
     fn test_ec_encode_decode_der() {
         let algorithm = Algorithm::ECDSAP256SHA256;
         encode_decode_with_format(KeyFormat::Der, algorithm, false, true);
     }
 
     #[test]
-    #[cfg(feature = "openssl")]
+    #[cfg(feature = "dnssec-openssl")]
     fn test_ec_encode_decode_pem() {
         let algorithm = Algorithm::ECDSAP256SHA256;
         encode_decode_with_format(KeyFormat::Pem, algorithm, true, true);
     }
 
     #[test]
-    #[cfg(feature = "ring")]
+    #[cfg(feature = "dnssec-ring")]
     fn test_ec_encode_decode_pkcs8() {
         let algorithm = Algorithm::ECDSAP256SHA256;
         encode_decode_with_format(KeyFormat::Pkcs8, algorithm, true, true);
     }
 
     #[test]
-    #[cfg(feature = "ring")]
+    #[cfg(feature = "dnssec-ring")]
     fn test_ed25519_encode_decode_pkcs8() {
         let algorithm = Algorithm::ED25519;
         encode_decode_with_format(KeyFormat::Pkcs8, algorithm, true, true);
