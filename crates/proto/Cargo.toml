@@ -33,48 +33,47 @@ maintenance = { status = "actively-developed" }
 dns-over-tls = []
 dns-over-rustls = [
     "dns-over-tls",
-    "rustls",
     "rustls/ring",
-    "rustls-pemfile",
-    "tokio-rustls",
+    "dep:rustls-pemfile",
+    "dep:tokio-rustls",
     "tokio-runtime",
 ]
 dns-over-native-tls = [
     "dns-over-tls",
-    "native-tls",
-    "tokio-native-tls",
+    "dep:native-tls",
+    "dep:tokio-native-tls",
     "tokio-runtime",
 ]
-dns-over-openssl = ["dns-over-tls", "openssl", "tokio-openssl", "tokio-runtime"]
+dns-over-openssl = ["dns-over-tls", "dep:openssl", "dep:tokio-openssl", "tokio-runtime"]
 
 dns-over-https-rustls = ["dns-over-https"]
-dns-over-https = ["bytes", "h2", "http", "dns-over-rustls", "tokio-runtime"]
+dns-over-https = ["dep:bytes", "dep:h2", "dep:http", "dns-over-rustls", "tokio-runtime"]
 dns-over-quic = [
-    "quinn",
+    "dep:quinn",
     "dns-over-rustls",
-    "bytes",
+    "dep:bytes",
     "dep:pin-project-lite",
     "tokio-runtime",
 ]
-dns-over-h3 = ["h3", "h3-quinn", "quinn", "http", "dns-over-quic"]
+dns-over-h3 = ["dep:h3", "dep:h3-quinn", "dep:quinn", "dep:http", "dns-over-quic"]
 
 native-certs = ["dep:rustls-native-certs"]
-dnssec = ["bitflags"]
+dnssec = ["dep:bitflags"]
 
-dnssec-openssl = ["dnssec", "openssl"]
-dnssec-ring = ["dnssec", "ring"]
+dnssec-openssl = ["dnssec", "dep:openssl"]
+dnssec-ring = ["dnssec", "dep:ring"]
 testing = []
 
 text-parsing = []
 tokio-runtime = ["tokio/net", "tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
 default = ["tokio-runtime"]
 
-serde-config = ["serde", "url/serde"]
+serde-config = ["dep:serde", "url/serde"]
 
 # enables experimental the mDNS (multicast) feature
 mdns = ["socket2/all"]
 
-wasm-bindgen = ["wasm-bindgen-crate", "js-sys"]
+wasm-bindgen = ["dep:wasm-bindgen-crate", "dep:js-sys"]
 
 backtrace = ["dep:backtrace"]
 

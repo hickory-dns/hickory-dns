@@ -949,7 +949,7 @@ mod tests {
         let restrict = Restrict::new(bytes.len() as u16);
         let read_rdata = KEY::read_data(&mut decoder, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
-        // #[cfg(any(feature = "openssl", feature = "ring"))]
+        // #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
         // assert!(rdata
         //             .to_digest(&Name::parse("www.example.com.", None).unwrap(),
         //                        DigestType::SHA256)

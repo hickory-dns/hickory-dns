@@ -21,12 +21,12 @@
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 use super::{Digest, DigestType};
 use crate::error::*;
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 use crate::rr::Name;
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 use crate::serialize::binary::{BinEncodable, BinEncoder};
 
 /// ```text
@@ -150,8 +150,11 @@ impl Nsec3HashAlgorithm {
     ///        original unexpanded form, including the "*" label (no wildcard
     ///        substitution);
     /// ```
-    #[cfg(any(feature = "openssl", feature = "ring"))]
-    #[cfg_attr(docsrs, doc(cfg(any(feature = "openssl", feature = "ring"))))]
+    #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+    #[cfg_attr(
+        docsrs,
+        doc(cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring")))
+    )]
     pub fn hash(self, salt: &[u8], name: &Name, iterations: u16) -> ProtoResult<Digest> {
         match self {
             // if there ever is more than just SHA1 support, this should be a genericized method
@@ -169,7 +172,7 @@ impl Nsec3HashAlgorithm {
     }
 
     /// until there is another supported algorithm, just hardcoded to this.
-    #[cfg(any(feature = "openssl", feature = "ring"))]
+    #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
     fn sha1_recursive_hash(salt: &[u8], bytes: Vec<u8>, iterations: u16) -> ProtoResult<Digest> {
         let digested: Digest;
         let to_digest = if iterations > 0 {
@@ -191,7 +194,7 @@ impl From<Nsec3HashAlgorithm> for u8 {
 }
 
 #[test]
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 fn test_hash() {
     use std::str::FromStr;
 
@@ -225,7 +228,7 @@ fn test_hash() {
 }
 
 #[test]
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 fn test_known_hashes() {
     // H(example)       = 0p9mhaveqvm6t7vbl5lop2u3t2rp3tom
     assert_eq!(
@@ -295,7 +298,7 @@ fn test_known_hashes() {
 }
 
 #[cfg(test)]
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 fn hash_with_base32(name: &str) -> String {
     use data_encoding::BASE32_DNSSEC;
 
