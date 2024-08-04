@@ -38,9 +38,12 @@ use std::time::Instant;
 pub use error::{Error, ErrorKind};
 pub use hickory_proto as proto;
 pub use hickory_resolver as resolver;
-pub use hickory_resolver::config::NameServerConfig;
+pub use hickory_resolver::config::{NameServerConfig, NameServerConfigGroup};
 #[cfg(feature = "dnssec")]
 use proto::rr::dnssec::TrustAnchor;
+use resolver::config::Protocol;
+use std::net::{IpAddr, SocketAddr};
+
 use proto::{op::Query, xfer::DnsResponse};
 pub use recursor::{Recursor, RecursorBuilder};
 use resolver::{dns_lru::DnsLru, lookup::Lookup, Name};
@@ -130,6 +133,21 @@ fn maybe_strip_dnssec_records(query_has_dnssec_ok: bool, lookup: Lookup, query: 
         .collect();
 
     Lookup::new_with_deadline(query, records, lookup.valid_until())
+}
+
+/// Add discovered IP addresses to a NameServerConfigGroup.  This function is used by ns_pool_for_zone
+/// to build the ConfigGroup for a NameServerPool.
+fn add_config_group_recs(ips: Vec<IpAddr>, config_group: &mut NameServerConfigGroup) {
+    for ip in ips {
+        let mut udp = NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Udp);
+        let mut tcp = NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Tcp);
+
+        udp.trust_negative_responses = true;
+        tcp.trust_negative_responses = true;
+
+        config_group.push(udp);
+        config_group.push(tcp);
+    }
 }
 
 /// Bailiwick/sub zone checking.

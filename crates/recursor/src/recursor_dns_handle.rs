@@ -1,4 +1,8 @@
-use std::{net::SocketAddr, sync::Arc, time::Instant};
+use std::{
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+    time::Instant,
+};
 
 use async_recursion::async_recursion;
 use futures_util::{future::select_all, FutureExt};
@@ -294,7 +298,7 @@ impl RecursorDnsHandle {
 
                 if !super::is_subzone(&zone.base_name(), zns.name()) {
                     warn!(
-                        "Dropping out of bailiwick record for {:?} with parent {:?}",
+                        "dropping out of bailiwick record for {:?} with parent {:?}",
                         zns.name().clone(),
                         zone.base_name().clone()
                     );
@@ -313,29 +317,19 @@ impl RecursorDnsHandle {
                 let cached_a = cached_a.and_then(Result::ok).map(Lookup::into_iter);
                 let cached_aaaa = cached_aaaa.and_then(Result::ok).map(Lookup::into_iter);
 
-                let glue_ips = cached_a
+                let glue_ips: Vec<IpAddr> = cached_a
                     .into_iter()
                     .flatten()
                     .chain(cached_aaaa.into_iter().flatten())
-                    .filter_map(|r| RData::ip_addr(&r));
+                    .filter_map(|r| RData::ip_addr(&r))
+                    .collect();
 
-                let mut had_glue = false;
-                for ip in glue_ips {
-                    let mut udp = NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Udp);
-                    let mut tcp = NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Tcp);
-
-                    udp.trust_negative_responses = true;
-                    tcp.trust_negative_responses = true;
-
-                    config_group.push(udp);
-                    config_group.push(tcp);
-                    had_glue = true;
-                }
-
-                if !had_glue {
+                if glue_ips.is_empty() {
                     debug!("glue not found for {}", ns_data);
                     need_ips_for_names.push(ns_data);
                 }
+
+                super::add_config_group_recs(glue_ips, &mut config_group);
             }
         }
 
@@ -343,14 +337,12 @@ impl RecursorDnsHandle {
         // Querying for child NS servers can result in infinite recursion if the
         // parent nameserver never returns glue records for child NS records, or does
         // so based on cache freshness (observed with BIND)
-        //
-        // TODO: make it configurable to query for all records?
         if config_group.is_empty() && !need_ips_for_names.is_empty() {
             debug!("need glue for {zone}");
 
             let a_resolves = need_ips_for_names
                 .iter()
-                .filter(|name| !crate::is_subzone(zone.clone(), name.0.clone()))
+                .filter(|name| !crate::is_subzone(&zone, &name.0))
                 .take(1)
                 .map(|name| {
                     let a_query = Query::query(name.0.clone(), RecordType::A);
@@ -359,7 +351,7 @@ impl RecursorDnsHandle {
 
             let aaaa_resolves = need_ips_for_names
                 .iter()
-                .filter(|name| !crate::is_subzone(zone.clone(), name.0.clone()))
+                .filter(|name| !crate::is_subzone(&zone, &name.0))
                 .take(1)
                 .map(|name| {
                     let aaaa_query = Query::query(name.0.clone(), RecordType::AAAA);
@@ -372,34 +364,22 @@ impl RecursorDnsHandle {
                 a_resolves = rest;
 
                 match next {
-                    Ok(response) => {
-                        debug!("A or AAAA response: {:?}", response);
-                        let ips = response.iter().filter_map(RData::ip_addr);
-
-                        for ip in ips {
-                            let udp =
-                                NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Udp);
-                            let tcp =
-                                NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Tcp);
-
-                            config_group.push(udp);
-                            config_group.push(tcp);
-                        }
+                    Ok(res) => {
+                        let ips = res.iter().filter_map(RData::ip_addr).collect();
+                        super::add_config_group_recs(ips, &mut config_group);
                     }
-                    Err(e) => {
-                        warn!("resolve failed {}", e);
-                    }
+                    Err(e) => warn!("unable to resolve NS: {e}"),
                 }
             }
         }
 
         // If we still have no NS records, try to query the parent zone for child NS servers
         if config_group.is_empty() && !need_ips_for_names.is_empty() {
-            debug!("Priming zone {zone} via parent zone {}", zone.base_name());
+            debug!("priming zone {zone} via parent zone {}", zone.base_name());
 
             let a_primes = need_ips_for_names
                 .iter()
-                .filter(|name| crate::is_subzone(zone.clone(), name.0.clone()))
+                .filter(|name| crate::is_subzone(&zone, &name.0))
                 .take(1)
                 .map(|name| {
                     nameserver_pool
@@ -412,7 +392,7 @@ impl RecursorDnsHandle {
 
             let aaaa_primes = need_ips_for_names
                 .iter()
-                .filter(|name| crate::is_subzone(zone.clone(), name.0.clone()))
+                .filter(|name| crate::is_subzone(&zone, &name.0))
                 .take(1)
                 .map(|name| {
                     nameserver_pool
@@ -430,26 +410,15 @@ impl RecursorDnsHandle {
                 primes = rest;
 
                 match next {
-                    Ok(response) => {
-                        debug!("Priming A or AAAA response: {:?}", response);
-                        let ips = response
+                    Ok(res) => {
+                        let ips = res
                             .answers()
                             .iter()
-                            .filter_map(|answer| RData::ip_addr(answer.data()));
-
-                        for ip in ips {
-                            let udp =
-                                NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Udp);
-                            let tcp =
-                                NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Tcp);
-
-                            config_group.push(udp);
-                            config_group.push(tcp);
-                        }
+                            .filter_map(|answer| RData::ip_addr(answer.data()))
+                            .collect();
+                        super::add_config_group_recs(ips, &mut config_group);
                     }
-                    Err(e) => {
-                        warn!("Priming resolve failed {}", e);
-                    }
+                    Err(e) => warn!("unable to resolve NS: {e}"),
                 }
             }
         }
