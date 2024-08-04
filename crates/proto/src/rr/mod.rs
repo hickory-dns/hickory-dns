@@ -20,6 +20,7 @@ pub mod record_type;
 pub mod resource;
 mod rr_key;
 mod rr_set;
+pub mod serial_number;
 pub mod type_bit_map;
 
 use std::fmt::{Debug, Display};
@@ -40,6 +41,7 @@ pub use self::rr_set::RecordSet;
 pub use self::rr_set::RrsetRecords;
 pub use lower_name::LowerName;
 pub use rr_key::RrKey;
+pub use serial_number::SerialNumber;
 
 /// RecordData that is stored in a DNS Record.
 ///

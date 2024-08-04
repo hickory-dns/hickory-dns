@@ -13,7 +13,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::*,
-    rr::{dnssec::Algorithm, Name, RData, RecordData, RecordDataDecodable, RecordType},
+    rr::{
+        dnssec::Algorithm, Name, RData, RecordData, RecordDataDecodable, RecordType, SerialNumber,
+    },
     serialize::binary::*,
 };
 
@@ -367,13 +369,21 @@ impl SIG {
     ///  purposes not only when its data is updated but also when new SIG RRs
     ///  are inserted (ie, the zone or any part of it is re-signed).
     /// ```
-    pub fn sig_expiration(&self) -> u32 {
-        self.sig_expiration
+    ///
+    /// [RFC 2535](https://datatracker.ietf.org/doc/html/rfc2535#appendix-C), Appendix B: Changes from RFC 2065, 3.
+    ///
+    /// ```text
+    /// (3b) clarifying that signature expiration and inception use
+    /// serial number ring arithmetic
+    /// ```
+
+    pub fn sig_expiration(&self) -> SerialNumber {
+        SerialNumber(self.sig_expiration)
     }
 
-    /// see `get_sig_expiration`
-    pub fn sig_inception(&self) -> u32 {
-        self.sig_inception
+    /// see [`Self::sig_expiration`]
+    pub fn sig_inception(&self) -> SerialNumber {
+        SerialNumber(self.sig_inception)
     }
 
     /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.6), Domain Name System Security Extensions, March 1999
@@ -474,8 +484,8 @@ impl BinEncodable for SIG {
         self.algorithm().emit(encoder)?;
         encoder.emit(self.num_labels())?;
         encoder.emit_u32(self.original_ttl())?;
-        encoder.emit_u32(self.sig_expiration())?;
-        encoder.emit_u32(self.sig_inception())?;
+        encoder.emit_u32(self.sig_expiration().0)?;
+        encoder.emit_u32(self.sig_inception().0)?;
         encoder.emit_u16(self.key_tag())?;
         self.signer_name()
             .emit_with_lowercase(encoder, is_canonical_names)?;
@@ -554,8 +564,8 @@ pub fn emit_pre_sig(
     algorithm: Algorithm,
     num_labels: u8,
     original_ttl: u32,
-    sig_expiration: u32,
-    sig_inception: u32,
+    sig_expiration: SerialNumber,
+    sig_inception: SerialNumber,
     key_tag: u16,
     signer_name: &Name,
 ) -> ProtoResult<()> {
@@ -563,8 +573,8 @@ pub fn emit_pre_sig(
     algorithm.emit(encoder)?;
     encoder.emit(num_labels)?;
     encoder.emit_u32(original_ttl)?;
-    encoder.emit_u32(sig_expiration)?;
-    encoder.emit_u32(sig_inception)?;
+    encoder.emit_u32(sig_expiration.0)?;
+    encoder.emit_u32(sig_inception.0)?;
     encoder.emit_u16(key_tag)?;
     signer_name.emit_as_canonical(encoder, true)?;
     Ok(())
