@@ -47,12 +47,13 @@ macro_rules! record_types {
     };
 }
 
-record_types!(A, AAAA, DNSKEY, DS, MX, NS, NSEC3, NSEC3PARAM, RRSIG, SOA, TXT);
+record_types!(A, AAAA, CNAME, DNSKEY, DS, MX, NS, NSEC3, NSEC3PARAM, RRSIG, SOA, TXT);
 
 #[derive(Debug, Clone)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Record {
     A(A),
+    CNAME(CNAME),
     DNSKEY(DNSKEY),
     DS(DS),
     NS(NS),
@@ -83,6 +84,12 @@ impl From<DS> for Record {
 impl From<A> for Record {
     fn from(v: A) -> Self {
         Self::A(v)
+    }
+}
+
+impl From<CNAME> for Record {
+    fn from(v: CNAME) -> Self {
+        Self::CNAME(v)
     }
 }
 
@@ -121,6 +128,14 @@ impl Record {
         }
     }
 
+    pub fn try_into_cname(self) -> CoreResult<CNAME, Self> {
+        if let Self::CNAME(v) = self {
+            Ok(v)
+        } else {
+            Err(self)
+        }
+    }
+
     pub fn try_into_rrsig(self) -> CoreResult<RRSIG, Self> {
         if let Self::RRSIG(v) = self {
             Ok(v)
@@ -146,6 +161,15 @@ impl Record {
             fqdn,
             ttl: DEFAULT_TTL,
             ipv4_addr,
+        }
+        .into()
+    }
+
+    pub fn cname(fqdn: FQDN, target: FQDN) -> Self {
+        CNAME {
+            fqdn,
+            target,
+            ttl: DEFAULT_TTL,
         }
         .into()
     }
@@ -187,6 +211,7 @@ impl FromStr for Record {
 
         let record = match record_type {
             "A" => Record::A(input.parse()?),
+            "CNAME" => Record::CNAME(input.parse()?),
             "DNSKEY" => Record::DNSKEY(input.parse()?),
             "DS" => Record::DS(input.parse()?),
             "NS" => Record::NS(input.parse()?),
@@ -205,6 +230,7 @@ impl fmt::Display for Record {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Record::A(a) => write!(f, "{a}"),
+            Record::CNAME(cname) => write!(f, "{cname}"),
             Record::DS(ds) => write!(f, "{ds}"),
             Record::DNSKEY(dnskey) => write!(f, "{dnskey}"),
             Record::NS(ns) => write!(f, "{ns}"),
@@ -256,6 +282,45 @@ impl fmt::Display for A {
 
         let record_type = unqualified_type_name::<Self>();
         write!(f, "{fqdn}\t{ttl}\t{CLASS}\t{record_type}\t{ipv4_addr}")
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CNAME {
+    pub fqdn: FQDN,
+    pub ttl: u32,
+    pub target: FQDN,
+}
+
+impl FromStr for CNAME {
+    type Err = Error;
+
+    fn from_str(input: &str) -> Result<Self> {
+        let mut columns = input.split_whitespace();
+
+        let [Some(fqdn), Some(ttl), Some(class), Some(record_type), Some(target), None] =
+            array::from_fn(|_| columns.next())
+        else {
+            return Err("expected 5 columns".into());
+        };
+
+        check_record_type::<Self>(record_type)?;
+        check_class(class)?;
+
+        Ok(Self {
+            fqdn: fqdn.parse()?,
+            ttl: ttl.parse()?,
+            target: target.parse()?,
+        })
+    }
+}
+
+impl fmt::Display for CNAME {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { fqdn, ttl, target } = self;
+
+        let record_type = unqualified_type_name::<Self>();
+        write!(f, "{fqdn}\t{ttl}\t{CLASS}\t{record_type}\t{target}")
     }
 }
 
@@ -822,6 +887,23 @@ mod tests {
 
         let output = a.to_string();
         assert_eq!(A_INPUT, output);
+
+        Ok(())
+    }
+
+    // dig CNAME www.isc.org
+    const CNAME_INPUT: &str = "www.isc.org.	277	IN	CNAME	isc.map.fastlydns.net.";
+
+    #[test]
+    fn cname() -> Result<()> {
+        let cname @ CNAME { fqdn, ttl, target } = &CNAME_INPUT.parse()?;
+
+        assert_eq!("www.isc.org.", fqdn.as_str());
+        assert_eq!(277, *ttl);
+        assert_eq!("isc.map.fastlydns.net.", target.as_str());
+
+        let output = cname.to_string();
+        assert_eq!(CNAME_INPUT, output);
 
         Ok(())
     }
