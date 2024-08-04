@@ -875,7 +875,6 @@ dependencies = [
  "futures-util",
  "hickory-proto",
  "once_cell",
- "openssl",
  "radix_trie",
  "rand",
  "rustls",

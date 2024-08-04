@@ -41,7 +41,7 @@ dns-over-https-openssl = ["dns-over-https", "dns-over-openssl"]
 dns-over-https-rustls = [
     "dns-over-https",
     "dns-over-rustls",
-    "rustls",
+    "dep:rustls",
     "hickory-proto/dns-over-https-rustls",
 ]
 dns-over-https = ["hickory-proto/dns-over-https"]
@@ -64,7 +64,7 @@ dnssec-openssl = ["dnssec", "hickory-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "hickory-proto/dnssec-ring"]
 dnssec = ["hickory-proto/dnssec"]
 
-serde-config = ["serde", "hickory-proto/serde-config"]
+serde-config = ["dep:serde", "hickory-proto/serde-config"]
 
 # enables experimental the mDNS (multicast) feature
 mdns = ["hickory-proto/mdns"]
@@ -100,7 +100,6 @@ futures = { workspace = true, default-features = false, features = [
     "std",
     "executor",
 ] }
-openssl = { workspace = true, features = ["v102", "v110"], optional = false }
 tokio = { workspace = true, features = ["rt", "macros"] }
 tracing-subscriber = { workspace = true, features = [
     "std",
