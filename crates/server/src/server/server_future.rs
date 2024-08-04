@@ -294,6 +294,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         use std::pin::Pin;
         use tokio_openssl::SslStream as TokioSslStream;
 
+        let access = self.access.clone();
         let ((cert, chain), key) = certificate_and_key;
 
         let handler = self.handler.clone();
@@ -302,10 +303,12 @@ impl<T: RequestHandler> ServerFuture<T> {
         let tls_acceptor = Box::pin(tls_server::new_acceptor(cert, chain, key)?);
 
         // for each incoming request...
-        let shutdown = self.shutdown_watch.clone();
+        let shutdown = self.shutdown_token.clone();
         self.join_set.spawn(async move {
             let mut inner_join_set = JoinSet::new();
             loop {
+                let access = access.clone();
+                let shutdown = shutdown.clone();
                 let (tcp_stream, src_addr) = tokio::select! {
                     tcp_stream = listener.accept() => match tcp_stream {
                         Ok((t, s)) => (t, s),
@@ -317,7 +320,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                             continue;
                         },
                     },
-                    _ = shutdown.clone().signaled() => {
+                    _ = shutdown.cancelled() => {
                         // A graceful shutdown was initiated. Break out of the loop.
                         break;
                     },
