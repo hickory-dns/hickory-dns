@@ -952,12 +952,6 @@ pub struct ResolverOpts {
     pub preserve_intermediates: bool,
     /// Try queries over TCP if they fail over UDP.
     pub try_tcp_on_error: bool,
-    /// Try queries over TCP for I/O errors only.
-    ///
-    /// Requires `try_tcp_on_error` to be `true` as well. When enabled, "errors" such as NXDomain
-    /// or NoError are not retried over TCP as they would result in the same response.
-    /// Defaults to false to preserve the existing behavior of retrying all errors.
-    pub try_tcp_on_io_error_only: bool,
     /// The server ordering strategy that the resolver should use.
     pub server_ordering_strategy: ServerOrderingStrategy,
     /// Request upstream recursive resolvers to not perform any recursion.
@@ -996,7 +990,6 @@ impl Default for ResolverOpts {
             preserve_intermediates: true,
 
             try_tcp_on_error: false,
-            try_tcp_on_io_error_only: false,
             server_ordering_strategy: ServerOrderingStrategy::default(),
             recursion_desired: true,
             authentic_data: false,
