@@ -26,7 +26,7 @@ use crate::{
     error::ResolveError,
     lookup::Lookup,
     proto::{
-        error::ProtoError,
+        error::{ForwardNSData, ProtoError},
         op::{Query, ResponseCode},
         rr::{
             domain::usage::{
@@ -209,13 +209,14 @@ where
                         negative_ttl,
                         response_code,
                         trusted,
-                        ..
+                        ns,
                     } => {
                         Err(Self::handle_nxdomain(
                             is_dnssec,
                             false, /*tbd*/
                             query.as_ref().clone(),
                             soa.as_ref().map(Box::as_ref).cloned(),
+                            ns.clone(),
                             *negative_ttl,
                             *response_code,
                             *trusted,
@@ -275,11 +276,13 @@ where
     /// * `message` - message to extract SOA, etc, from for caching failed requests
     /// * `valid_nsec` - species that in DNSSEC mode, this request is safe to cache
     /// * `negative_ttl` - this should be the SOA minimum for negative ttl
+    #[allow(clippy::too_many_arguments)]
     fn handle_nxdomain(
         is_dnssec: bool,
         valid_nsec: bool,
         query: Query,
         soa: Option<Record<SOA>>,
+        ns: Option<Vec<ForwardNSData>>,
         negative_ttl: Option<u32>,
         response_code: ResponseCode,
         trusted: bool,
@@ -289,7 +292,7 @@ where
             ProtoErrorKind::NoRecordsFound {
                 query: Box::new(query),
                 soa: soa.map(Box::new),
-                ns: None,
+                ns,
                 negative_ttl,
                 response_code,
                 trusted: true,
@@ -300,7 +303,7 @@ where
             ProtoErrorKind::NoRecordsFound {
                 query: Box::new(query),
                 soa: soa.map(Box::new),
-                ns: None,
+                ns,
                 negative_ttl: None,
                 response_code,
                 trusted,
@@ -460,6 +463,7 @@ where
                 true,
                 query.clone(),
                 soa,
+                None,
                 negative_ttl,
                 response_code,
                 false,

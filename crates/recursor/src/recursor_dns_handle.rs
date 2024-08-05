@@ -291,7 +291,7 @@ impl RecursorDnsHandle {
                 //     .filter_map(Record::data)
                 //     .filter_map(RData::to_ip_addr);
 
-                if !super::is_subzone(zone.base_name().clone(), zns.name().clone()) {
+                if !super::is_subzone(&zone.base_name(), zns.name()) {
                     warn!(
                         "Dropping out of bailiwick record for {:?} with parent {:?}",
                         zns.name().clone(),

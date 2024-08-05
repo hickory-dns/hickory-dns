@@ -97,7 +97,7 @@ fn cache_response(
         .chain(response.take_additionals())
         .filter(|x| {
             if let Some(zone) = zone {
-                if !is_subzone(zone.clone(), x.name().clone()) {
+                if !is_subzone(zone, x.name()) {
                     warn!("Dropping out of bailiwick record {x} for zone {}", zone);
                     false
                 } else {
@@ -168,7 +168,7 @@ fn maybe_strip_dnssec_records(query_has_dnssec_ok: bool, lookup: Lookup, query: 
 /// * [RFC 8499](https://datatracker.ietf.org/doc/html/rfc8499) -- DNS Terminology (see page 25)
 /// * [The Hitchiker's Guide to DNS Cache Poisoning](https://www.cs.utexas.edu/%7Eshmat/shmat_securecomm10.pdf) -- for a more in-depth
 ///   discussion of DNS cache poisoning attacks, see section 4, specifically, for a discussion of the Bailiwick rule.
-fn is_subzone(parent: Name, child: Name) -> bool {
+fn is_subzone(parent: &Name, child: &Name) -> bool {
     if parent.is_empty() {
         return false;
     }
@@ -177,7 +177,7 @@ fn is_subzone(parent: Name, child: Name) -> bool {
         return false;
     }
 
-    parent.zone_of(&child)
+    parent.zone_of(child)
 }
 
 #[test]
@@ -185,35 +185,35 @@ fn is_subzone_test() {
     use core::str::FromStr;
 
     assert!(is_subzone(
-        Name::from_str(".").unwrap(),
-        Name::from_str("com.").unwrap()
+        &Name::from_str(".").unwrap(),
+        &Name::from_str("com.").unwrap(),
     ));
     assert!(is_subzone(
-        Name::from_str("com.").unwrap(),
-        Name::from_str("example.com.").unwrap()
+        &Name::from_str("com.").unwrap(),
+        &Name::from_str("example.com.").unwrap(),
     ));
     assert!(is_subzone(
-        Name::from_str("example.com.").unwrap(),
-        Name::from_str("host.example.com.").unwrap()
+        &Name::from_str("example.com.").unwrap(),
+        &Name::from_str("host.example.com.").unwrap(),
     ));
     assert!(is_subzone(
-        Name::from_str("example.com.").unwrap(),
-        Name::from_str("host.multilevel.example.com.").unwrap()
+        &Name::from_str("example.com.").unwrap(),
+        &Name::from_str("host.multilevel.example.com.").unwrap(),
     ));
     assert!(!is_subzone(
-        Name::from_str("").unwrap(),
-        Name::from_str("example.com.").unwrap()
+        &Name::from_str("").unwrap(),
+        &Name::from_str("example.com.").unwrap(),
     ));
     assert!(!is_subzone(
-        Name::from_str("com.").unwrap(),
-        Name::from_str("example.net.").unwrap()
+        &Name::from_str("com.").unwrap(),
+        &Name::from_str("example.net.").unwrap(),
     ));
     assert!(!is_subzone(
-        Name::from_str("example.com.").unwrap(),
-        Name::from_str("otherdomain.com.").unwrap()
+        &Name::from_str("example.com.").unwrap(),
+        &Name::from_str("otherdomain.com.").unwrap(),
     ));
     assert!(!is_subzone(
-        Name::from_str("com").unwrap(),
-        Name::from_str("example.com.").unwrap()
+        &Name::from_str("com").unwrap(),
+        &Name::from_str("example.com.").unwrap(),
     ));
 }

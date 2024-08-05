@@ -122,6 +122,7 @@ rustls-pemfile = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 socket2 = { workspace = true, optional = true }
 thiserror.workspace = true
+time.workspace = true
 tinyvec = { workspace = true, features = ["alloc"] }
 tracing.workspace = true
 tokio = { workspace = true, features = ["io-util", "macros"], optional = true }
