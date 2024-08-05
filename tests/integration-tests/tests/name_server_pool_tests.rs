@@ -238,7 +238,8 @@ fn test_datagram_fails_to_stream() {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
     let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
-    let udp_message: Result<DnsResponse, _> = Err(ProtoError::from("Forced Testing Error"));
+    let io_error = std::io::Error::new(std::io::ErrorKind::Other, "Some I/O Error");
+    let udp_message: Result<DnsResponse, _> = Err(ProtoError::from(io_error));
 
     let tcp_message = message(query.clone(), vec![tcp_record.clone()], vec![], vec![]);
 
