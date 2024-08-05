@@ -15,7 +15,7 @@ members = [
 exclude = ["fuzz"]
 
 [workspace.package]
-version = "0.25.0-alpha.1"
+version = "0.25.0-alpha.2"
 authors = ["The contributors to Hickory DNS"]
 edition = "2021"
 rust-version = "1.70"
@@ -28,11 +28,11 @@ license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
 # hickory
-hickory-client = { version = "0.25.0-alpha.1", path = "crates/client", default-features = false }
-hickory-recursor = { version = "0.25.0-alpha.1", path = "crates/recursor", default-features = false }
-hickory-resolver = { version = "0.25.0-alpha.1", path = "crates/resolver", default-features = false }
-hickory-server = { version = "0.25.0-alpha.1", path = "crates/server", default-features = false }
-hickory-proto = { version = "0.25.0-alpha.1", path = "crates/proto", default-features = false }
+hickory-client = { version = "0.25.0-alpha.2", path = "crates/client", default-features = false }
+hickory-recursor = { version = "0.25.0-alpha.2", path = "crates/recursor", default-features = false }
+hickory-resolver = { version = "0.25.0-alpha.2", path = "crates/resolver", default-features = false }
+hickory-server = { version = "0.25.0-alpha.2", path = "crates/server", default-features = false }
+hickory-proto = { version = "0.25.0-alpha.2", path = "crates/proto", default-features = false }
 
 
 # logging
@@ -62,7 +62,11 @@ pin-project-lite = "0.2"
 # ssl
 native-tls = "0.2"
 openssl = "0.10.55"
-rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12"] }
+rustls = { version = "0.23", default-features = false, features = [
+    "logging",
+    "std",
+    "tls12",
+] }
 rustls-native-certs = "0.7"
 rustls-pemfile = "2"
 webpki-roots = "0.26"
