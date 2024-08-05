@@ -340,28 +340,27 @@ impl RecursorDnsHandle {
         if config_group.is_empty() && !need_ips_for_names.is_empty() {
             debug!("need glue for {zone}");
 
-            let a_resolves = need_ips_for_names
+            let mut resolve_futures = vec![];
+            need_ips_for_names
                 .iter()
                 .filter(|name| !crate::is_subzone(&zone, &name.0))
                 .take(1)
-                .map(|name| {
-                    let a_query = Query::query(name.0.clone(), RecordType::A);
-                    self.resolve(a_query, request_time, false).boxed()
+                .for_each(|name| {
+                    for rec_type in [RecordType::A, RecordType::AAAA] {
+                        resolve_futures.push(
+                            self.resolve(
+                                Query::query(name.0.clone(), rec_type),
+                                request_time,
+                                self.security_aware,
+                            )
+                            .boxed(),
+                        );
+                    }
                 });
 
-            let aaaa_resolves = need_ips_for_names
-                .iter()
-                .filter(|name| !crate::is_subzone(&zone, &name.0))
-                .take(1)
-                .map(|name| {
-                    let aaaa_query = Query::query(name.0.clone(), RecordType::AAAA);
-                    self.resolve(aaaa_query, request_time, false).boxed()
-                });
-
-            let mut a_resolves: Vec<_> = a_resolves.chain(aaaa_resolves).collect();
-            while !a_resolves.is_empty() {
-                let (next, _, rest) = select_all(a_resolves).await;
-                a_resolves = rest;
+            while !resolve_futures.is_empty() {
+                let (next, _, rest) = select_all(resolve_futures).await;
+                resolve_futures = rest;
 
                 match next {
                     Ok(res) => {
@@ -374,40 +373,32 @@ impl RecursorDnsHandle {
         }
 
         // If we still have no NS records, try to query the parent zone for child NS servers
+        // Note that while this section looks very similar to the previous section, there is
+        // a very important difference: the use of lookup to resolve NS addresses, vs resolve
+        // in the previous section.  Using resolve here will cause an infinite loop for these
+        // nameservers. Using lookup with nameserver_pool in the previous section would almost
+        // always cause resolution failures.
         if config_group.is_empty() && !need_ips_for_names.is_empty() {
             debug!("priming zone {zone} via parent zone {}", zone.base_name());
 
-            let a_primes = need_ips_for_names
+            let mut lookup_futures = vec![];
+            need_ips_for_names
                 .iter()
                 .filter(|name| crate::is_subzone(&zone, &name.0))
                 .take(1)
-                .map(|name| {
-                    nameserver_pool
-                        .lookup(
-                            Query::query(name.0.clone(), RecordType::A),
-                            self.security_aware,
-                        )
-                        .boxed()
+                .for_each(|name| {
+                    for rec_type in [RecordType::A, RecordType::AAAA] {
+                        lookup_futures.push(
+                            nameserver_pool
+                                .lookup(Query::query(name.0.clone(), rec_type), self.security_aware)
+                                .boxed(),
+                        );
+                    }
                 });
 
-            let aaaa_primes = need_ips_for_names
-                .iter()
-                .filter(|name| crate::is_subzone(&zone, &name.0))
-                .take(1)
-                .map(|name| {
-                    nameserver_pool
-                        .lookup(
-                            Query::query(name.0.clone(), RecordType::AAAA),
-                            self.security_aware,
-                        )
-                        .boxed()
-                });
-
-            let mut primes: Vec<_> = a_primes.chain(aaaa_primes).collect();
-
-            while !primes.is_empty() {
-                let (next, _, rest) = select_all(primes).await;
-                primes = rest;
+            while !lookup_futures.is_empty() {
+                let (next, _, rest) = select_all(lookup_futures).await;
+                lookup_futures = rest;
 
                 match next {
                     Ok(res) => {
