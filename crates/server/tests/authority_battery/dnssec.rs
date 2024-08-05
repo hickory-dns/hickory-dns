@@ -363,7 +363,7 @@ pub fn verify(records: &[&Record], rrsig_records: &[Record<RRSIG>], keys: &[DNSK
         .filter(|rrsig| rrsig.key_tag() == key.calculate_key_tag().unwrap())
         .filter(|rrsig| rrsig.type_covered() == record_type)
         .any(|rrsig| key
-            .verify_rrsig(record_name, DNSClass::IN, rrsig, records)
+            .verify_rrsig(record_name, DNSClass::IN, rrsig, records.iter().copied())
             .map_err(|e| println!("failed to verify: {e}"))
             .is_ok())));
 }

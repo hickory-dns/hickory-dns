@@ -95,7 +95,7 @@ impl RRSIG {
         record
             .ttl()
             .min(self.original_ttl())
-            .min(self.sig_expiration().saturating_sub(current_time))
+            .min(self.sig_expiration().0.saturating_sub(current_time))
     }
 }
 

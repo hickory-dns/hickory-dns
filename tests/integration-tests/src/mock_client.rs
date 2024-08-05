@@ -15,7 +15,7 @@ use futures::stream::{once, Stream};
 use futures::{future, AsyncRead, AsyncWrite, Future};
 
 use hickory_client::op::{Message, Query};
-use hickory_client::rr::rdata::{CNAME, SOA};
+use hickory_client::rr::rdata::{CNAME, NS, SOA};
 use hickory_client::rr::{Name, RData, Record};
 use hickory_proto::error::ProtoError;
 use hickory_proto::tcp::DnsTcpStream;
@@ -185,6 +185,10 @@ impl<O: OnSend + Unpin> DnsHandle for MockClientHandle<O> {
             || error(ProtoError::from("Messages exhausted in MockClientHandle")),
         ))))
     }
+}
+
+pub fn ns_record(name: Name, nsname: Name) -> Record {
+    Record::from_rdata(name, 86400, RData::NS(NS(nsname)))
 }
 
 pub fn cname_record(name: Name, cname: Name) -> Record {

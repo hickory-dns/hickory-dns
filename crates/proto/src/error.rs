@@ -26,7 +26,7 @@ use crate::op::{Header, Query, ResponseCode};
 
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::{rdata::tsig::TsigAlgorithm, Proof};
-use crate::rr::{rdata::SOA, resource::RecordRef, Record};
+use crate::rr::{rdata::SOA, resource::RecordRef, Record, RecordType};
 use crate::serialize::binary::DecodeError;
 use crate::xfer::DnsResponse;
 
@@ -468,7 +468,7 @@ impl ProtoError {
 
                     // Collect any referral nameservers and associated glue records
                     let mut referral_name_servers = vec![];
-                    for ns in response.name_servers().iter() {
+                    for ns in response.name_servers().iter().filter(|ns| ns.record_type() == RecordType::NS) {
                         let glue = response
                             .additionals()
                             .iter()
@@ -483,7 +483,6 @@ impl ProtoError {
                                 None
                             })
                             .collect::<Vec<Record>>();
-
                         referral_name_servers.push(ForwardNSData { ns: Record::to_owned(ns), glue })
                     }
 
