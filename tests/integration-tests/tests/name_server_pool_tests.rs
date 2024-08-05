@@ -306,7 +306,7 @@ fn test_tcp_fallback_only_on_truncated() {
 #[test]
 fn test_no_tcp_fallback_on_non_io_error() {
     // Lookup to UDP should fail with a non I/O error, and the resolver should not retry
-    // the query over TCP because `try_tcp_on_io_error_only` is set to true.
+    // the query over TCP when `try_tcp_on_error` is set to true.
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
@@ -334,7 +334,6 @@ fn test_no_tcp_fallback_on_non_io_error() {
 
     let mut options = ResolverOpts::default();
     options.try_tcp_on_error = true;
-    options.try_tcp_on_io_error_only = true;
     let pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
 
     let request = message(query, vec![], vec![], vec![]);
@@ -354,7 +353,7 @@ fn test_no_tcp_fallback_on_non_io_error() {
 #[test]
 fn test_tcp_fallback_on_io_error() {
     // Lookup to UDP should fail with an I/O error, and the resolver should then try
-    // the query over TCP when `try_tcp_on_io_error_only` is set to true.
+    // the query over TCP when `try_tcp_on_error` is set to true.
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
@@ -376,7 +375,6 @@ fn test_tcp_fallback_on_io_error() {
 
     let mut options = ResolverOpts::default();
     options.try_tcp_on_error = true;
-    options.try_tcp_on_io_error_only = true;
     let pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
 
     let request = message(query, vec![], vec![], vec![]);
@@ -396,7 +394,7 @@ fn test_tcp_fallback_on_io_error() {
 #[test]
 fn test_tcp_fallback_on_no_connections() {
     // Lookup to UDP should fail with a NoConnections error, and the resolver should then try
-    // the query over TCP when `try_tcp_on_io_error_only` is set to true.
+    // the query over TCP whether `try_tcp_on_error` is set to true or not.
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
@@ -417,7 +415,6 @@ fn test_tcp_fallback_on_no_connections() {
 
     let mut options = ResolverOpts::default();
     options.try_tcp_on_error = true;
-    options.try_tcp_on_io_error_only = true;
     let pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
 
     let request = message(query, vec![], vec![], vec![]);
