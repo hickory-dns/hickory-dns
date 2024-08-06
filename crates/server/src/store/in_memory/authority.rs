@@ -1452,6 +1452,7 @@ impl Authority for InMemoryAuthority {
         query_type: RecordType,
         lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError> {
+        // Function to compute the hash of a given name.
         let hash_name = |name: &Name| {
             let Nsec3Config {
                 hash_algorithm,
@@ -1462,7 +1463,9 @@ impl Authority for InMemoryAuthority {
             hash_algorithm.hash(salt, name, iterations.into()).unwrap()
         };
 
-        let get_owner_name = |name: &LowerName| -> LowerName {
+        // Compute the hashed owner name from a given name. This is, the hash of the given name,
+        // followed by the zone name.
+        let get_hashed_name = |name: &LowerName| -> LowerName {
             let hash = hash_name(name.borrow());
             let label = data_encoding::BASE32_DNSSEC.encode(hash.as_ref());
             LowerName::new(
@@ -1480,7 +1483,7 @@ impl Authority for InMemoryAuthority {
         }
 
         // TODO: need a BorrowdRrKey
-        let rr_key = RrKey::new(get_owner_name(name), RecordType::NSEC3);
+        let rr_key = RrKey::new(get_hashed_name(name), RecordType::NSEC3);
         let no_data = inner
             .records
             .get(&rr_key)
@@ -1490,12 +1493,18 @@ impl Authority for InMemoryAuthority {
 
         if let Some(no_data) = no_data {
             if query_type == RecordType::DS || name.is_wildcard() {
+                // If the QTYPE is DS or the QNAME is a wildcard, we only need to return a closest
+                // encloser proof.
                 include_wildcard = false;
             } else {
+                // Otherwise we return the NSEC3 record matching the QNAME.
                 return Ok(no_data.into());
             }
         }
 
+        // Find a record that covers the given name. This is, an NSEC3 record such that the hashed owner
+        // name of the given name falls between the record's owner name and its next hashed owner
+        // name.
         let find_cover = |name: &LowerName| -> Option<Arc<RecordSet>> {
             let hash = hash_name(name.borrow());
             let label = data_encoding::BASE32_DNSSEC.encode(hash.as_ref());
@@ -1507,11 +1516,16 @@ impl Authority for InMemoryAuthority {
                     .unwrap(),
             );
 
+            // Find all the RRsets with NSEC3 records.
             let records = inner
                 .records
                 .values()
                 .filter(|rr_set| is_nsec3_rrset(rr_set));
 
+            // Find the record with the smallest owner name such that its owner name is before the
+            // hashed QNAME. If this record exist, it already covers QNAME. Otherwise, the QNAME
+            // preceeds all the existing NSEC3 records' owner names, meaning that it is covered by
+            // the NSEC3 record with the largest owner name.
             records
                 .clone()
                 .filter(|rr_set| rr_set.name() < owner_name.borrow())
@@ -1520,12 +1534,14 @@ impl Authority for InMemoryAuthority {
                 .cloned()
         };
 
+        // Return the next closer name and the record that matches the closest
+        // encloser of a given name.
         let get_closest_encloser_proof = |name: &LowerName| -> Option<(LowerName, Arc<RecordSet>)> {
             let mut next_closer_name = name.clone();
             let mut closest_encloser = next_closer_name.base_name();
 
             while !closest_encloser.is_root() {
-                let rr_key = RrKey::new(get_owner_name(&closest_encloser), RecordType::NSEC3);
+                let rr_key = RrKey::new(get_hashed_name(&closest_encloser), RecordType::NSEC3);
                 if let Some(rrs) = inner.records.get(&rr_key) {
                     return Some((next_closer_name, rrs.clone()));
                 }
@@ -1537,10 +1553,11 @@ impl Authority for InMemoryAuthority {
             None
         };
 
+        // Compute a closest encloser proof for QNAME.
         let (next_closer_name, closest_encloser_record) = get_closest_encloser_proof(name).unzip();
-
         let next_closer_name_cover = next_closer_name.as_ref().and_then(find_cover);
 
+        // If required, find a cover for the wildcard at the next closer name.
         let wildcard_cover = if include_wildcard {
             next_closer_name.and_then(|n| find_cover(&n.into_wildcard()))
         } else {
