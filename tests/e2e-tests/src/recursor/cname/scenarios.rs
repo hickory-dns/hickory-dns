@@ -54,11 +54,11 @@ fn single_level_cname_tests() -> Result<()> {
     let client = Client::new(resolver.network())?;
 
     let a_settings = *DigSettings::default().recurse().authentic_data();
-    let res = client.dig(a_settings, resolver_addr, RecordType::A, &cname_fqdn);
+    let res = client.dig(a_settings.clone(), resolver_addr, RecordType::A, &cname_fqdn);
 
     if let Ok(ref res) = res {
         assert!(res.status.is_noerror());
-        assert_eq!(res.answer.len(), 2); // Expecting two records
+        assert_eq!(res.answer.len(), 2);
     } else {
         panic!("Error");
     }
@@ -75,6 +75,23 @@ fn single_level_cname_tests() -> Result<()> {
             }
             _ => panic!("Unexpected record type in response: {answer:?}"),
         }
+    }
+
+    let res = client.dig(a_settings.clone(), resolver_addr, RecordType::CNAME, &cname_fqdn);
+
+    if let Ok(ref res) = res {
+        assert!(res.status.is_noerror());
+        assert_eq!(res.answer.len(), 1);
+    } else {
+        panic!("Error");
+    }
+
+    match res.unwrap().answer.get(0).unwrap() {
+        Record::CNAME(cname) => {
+            assert_eq!(cname.fqdn, cname_fqdn);
+            assert_eq!(cname.target, cname_target);
+        }
+        _ => { panic!("Unexpected record type"); }
     }
 
     let res = resolver.terminate();
@@ -146,10 +163,10 @@ fn multi_level_cname_tests() -> Result<()> {
     leaf_example_ns.add(Record::cname(example_three_fqdn.clone(), example_three_target.clone()));
 
     let mut leaf_example2_ns = NameServer::new(&Implementation::test_peer(), FQDN("example2.com.")?, &network)?;
-    leaf_example_ns.add(Record::a(example2_two_fqdn.clone(), example2_two_ipv4.clone()));
-    leaf_example_ns.add(Record::cname(example2_three_fqdn.clone(), example2_three_target.clone()));
+    leaf_example2_ns.add(Record::a(example2_two_fqdn.clone(), example2_two_ipv4.clone()));
+    leaf_example2_ns.add(Record::cname(example2_three_fqdn.clone(), example2_three_target.clone()));
 
-    let mut leaf_example3_ns = NameServer::new(&Implementation::test_peer(), FQDN("example2.com.")?, &network)?;
+    let mut leaf_example3_ns = NameServer::new(&Implementation::test_peer(), FQDN("example3.com.")?, &network)?;
     leaf_example3_ns.add(Record::a(example3_three_fqdn.clone(), example3_three_ipv4.clone()));
 
     root_ns.referral(FQDN::COM, FQDN("primary.tld-server.com.")?, com_ns.ipv4_addr());
@@ -158,12 +175,16 @@ fn multi_level_cname_tests() -> Result<()> {
     com_ns.referral(FQDN("example3.com.")?, FQDN("ns.example3.com.")?, leaf_example3_ns.ipv4_addr());
 
     let mut root_hint: Root = root_ns.root_hint();
+    let mut ns_running = vec![];
     for ns in [root_ns, com_ns, leaf_example_ns, leaf_example2_ns, leaf_example3_ns] {
         match ns.start() {
             Ok(ns) => {
+                println!("Starting {}", ns.zone());
                 if *ns.zone() == FQDN::ROOT {
+                    println!("Resetting root hint");
                     root_hint = ns.root_hint();
                 }
+                ns_running.push(ns);
             }
             Err(e) => {
                 panic!("ERROR Starting NS: {e:?}");
@@ -179,11 +200,34 @@ fn multi_level_cname_tests() -> Result<()> {
     let client = Client::new(resolver.network())?;
 
     let a_settings = *DigSettings::default().recurse().authentic_data();
+
+    let res = client.dig(a_settings, resolver_addr, RecordType::A, &example_two_fqdn);
+    if let Ok(ref res) = res {
+        assert!(res.status.is_noerror());
+        assert_eq!(res.answer.len(), 2);
+    } else {
+        panic!("Error");
+    }
+
+    for answer in res.unwrap().answer {
+        match answer {
+            Record::A(rec) => {
+                assert_eq!(rec.fqdn, example2_two_fqdn);
+                assert_eq!(rec.ipv4_addr, example2_two_ipv4);
+            }
+            Record::CNAME(rec) => {
+                assert_eq!(example_two_target, rec.target);
+                assert_eq!(example_two_fqdn, rec.fqdn);
+            }
+            _ => panic!("Unexpected record type in response: {answer:?}"),
+        }
+    }
+
     let res = client.dig(a_settings, resolver_addr, RecordType::A, &example_three_fqdn);
 
     if let Ok(ref res) = res {
         assert!(res.status.is_noerror());
-        assert_eq!(res.answer.len(), 3); // Expecting three records
+        assert_eq!(res.answer.len(), 3);
     } else {
         panic!("Error");
     }
@@ -207,6 +251,68 @@ fn multi_level_cname_tests() -> Result<()> {
             }
             _ => panic!("Unexpected record type in response: {answer:?}"),
         }
+    }
+
+    let res = client.dig(a_settings, resolver_addr, RecordType::A, &example2_three_fqdn);
+    if let Ok(ref res) = res {
+        assert!(res.status.is_noerror());
+        assert_eq!(res.answer.len(), 2);
+    } else {
+        panic!("Error");
+    }
+
+    for answer in res.unwrap().answer {
+        match answer {
+            Record::A(rec) => {
+                assert_eq!(rec.fqdn, example3_three_fqdn);
+                assert_eq!(rec.ipv4_addr, example3_three_ipv4);
+            }
+            Record::CNAME(rec) => {
+                assert_eq!(example2_three_target, rec.target);
+                assert_eq!(example2_three_fqdn, rec.fqdn);
+            }
+            _ => panic!("Unexpected record type in response: {answer:?}"),
+        }
+    }
+
+    let res = client.dig(a_settings, resolver_addr, RecordType::CNAME, &example_three_fqdn);
+    if let Ok(ref res) = res {
+        assert!(res.status.is_noerror());
+        assert_eq!(res.answer.len(), 1);
+    } else {
+        panic!("Error");
+    }
+
+    match res.unwrap().answer.get(0).unwrap() {
+        Record::CNAME(rec) => {
+            assert_eq!(example_three_target, rec.target);
+            assert_eq!(example_three_fqdn, rec.fqdn);
+        }
+        _ => { panic!("Unexpected record type in response"); }
+    }
+
+    let res = client.dig(a_settings, resolver_addr, RecordType::CNAME, &example_two_fqdn);
+    if let Ok(ref res) = res {
+        assert!(res.status.is_noerror());
+        assert_eq!(res.answer.len(), 1);
+    } else {
+        panic!("Error");
+    }
+
+    match res.unwrap().answer.get(0).unwrap() {
+        Record::CNAME(rec) => {
+            assert_eq!(example_two_target, rec.target);
+            assert_eq!(example_two_fqdn, rec.fqdn);
+        }
+        _ => { panic!("Unexpected record type in response"); }
+    }
+
+    let res = client.dig(a_settings, resolver_addr, RecordType::CNAME, &example2_two_fqdn);
+    if let Ok(ref res) = res {
+        assert!(res.status.is_nxdomain());
+        assert_eq!(res.answer.len(), 0);
+    } else {
+        panic!("Error");
     }
 
     let res = resolver.terminate();
