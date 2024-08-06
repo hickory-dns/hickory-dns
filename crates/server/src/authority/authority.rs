@@ -202,6 +202,9 @@ pub trait Authority: Send + Sync {
         self.lookup(self.origin(), RecordType::SOA, lookup_options)
             .await
     }
+    
+    /// Whether NSEC3 should be used instead of NSEC
+    fn is_nsec3_enabled(&self) -> bool;
 }
 
 /// Extension to Authority to allow for DNSSEC features

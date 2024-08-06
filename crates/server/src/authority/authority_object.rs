@@ -130,6 +130,9 @@ pub trait AuthorityObject: Send + Sync {
         self.lookup(self.origin(), RecordType::SOA, lookup_options)
             .await
     }
+
+    /// Whether NSEC3 should be used instead of NSEC
+    fn is_nsec3_enabled(&self) -> bool;
 }
 
 #[async_trait::async_trait]
@@ -238,6 +241,10 @@ where
         let lookup =
             Authority::get_nsec3_records(self.as_ref(), name, query_type, lookup_options).await;
         lookup.map(|l| Box::new(l) as Box<dyn LookupObject>)
+    }
+
+    fn is_nsec3_enabled(&self) -> bool {
+        Authority::is_nsec3_enabled(self.as_ref())
     }
 }
 

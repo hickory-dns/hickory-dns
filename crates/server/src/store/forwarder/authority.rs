@@ -168,6 +168,10 @@ impl Authority for ForwardAuthority {
             "Getting NSEC3 records is unimplemented for the forwarder",
         )))
     }
+
+    fn is_nsec3_enabled(&self) -> bool {
+        false
+    }
 }
 
 /// A structure that holds the results of a forwarding lookup.

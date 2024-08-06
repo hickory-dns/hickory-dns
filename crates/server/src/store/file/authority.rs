@@ -240,6 +240,10 @@ impl Authority for FileAuthority {
     async fn soa_secure(&self, lookup_options: LookupOptions) -> Result<Self::Lookup, LookupError> {
         self.0.soa_secure(lookup_options).await
     }
+
+    fn is_nsec3_enabled(&self) -> bool {
+        self.0.is_nsec3_enabled()
+    }
 }
 
 #[cfg(feature = "dnssec")]

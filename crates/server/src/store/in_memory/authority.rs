@@ -1581,6 +1581,16 @@ impl Authority for InMemoryAuthority {
     ) -> Result<Self::Lookup, LookupError> {
         Ok(AuthLookup::default())
     }
+
+    #[cfg(feature = "dnssec")]
+    fn is_nsec3_enabled(&self) -> bool {
+        self.nsec3_config.enable
+    }
+
+    #[cfg(not(feature = "dnssec"))]
+    fn is_nsec3_enabled(&self) -> bool {
+        false
+    }
 }
 
 #[cfg(feature = "dnssec")]
