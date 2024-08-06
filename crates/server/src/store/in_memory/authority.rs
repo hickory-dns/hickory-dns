@@ -1449,6 +1449,7 @@ impl Authority for InMemoryAuthority {
     async fn get_nsec3_records(
         &self,
         name: &LowerName,
+        query_type: RecordType,
         lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError> {
         let hash_name = |name: &Name| {
@@ -1485,12 +1486,14 @@ impl Authority for InMemoryAuthority {
             .get(&rr_key)
             .map(|rr_set| LookupRecords::new(lookup_options, rr_set.clone()));
 
+        let mut include_wildcard = true;
+
         if let Some(no_data) = no_data {
-            // FIXME: If QTYPE is DS and there's no NSEC3 RR for QNAME, we must return a closest
-            // encloser proof.
-            // FIXME: if the name is a wildcard we need to provide a closest encloser proof
-            // instead.
-            return Ok(no_data.into());
+            if query_type == RecordType::DS || name.is_wildcard() {
+                include_wildcard = false;
+            } else {
+                return Ok(no_data.into());
+            }
         }
 
         let find_cover = |name: &LowerName| -> Option<Arc<RecordSet>> {
@@ -1538,7 +1541,11 @@ impl Authority for InMemoryAuthority {
 
         let next_closer_name_cover = next_closer_name.as_ref().and_then(find_cover);
 
-        let wildcard_cover = next_closer_name.and_then(|n| find_cover(&n.into_wildcard()));
+        let wildcard_cover = if include_wildcard {
+            next_closer_name.and_then(|n| find_cover(&n.into_wildcard()))
+        } else {
+            None
+        };
 
         let proofs = closest_encloser_record
             .into_iter()

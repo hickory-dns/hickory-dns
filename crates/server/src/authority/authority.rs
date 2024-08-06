@@ -183,6 +183,7 @@ pub trait Authority: Send + Sync {
     async fn get_nsec3_records(
         &self,
         name: &LowerName,
+        query_type: RecordType,
         lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError>;
 

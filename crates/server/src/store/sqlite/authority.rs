@@ -994,9 +994,10 @@ impl Authority for SqliteAuthority {
     async fn get_nsec3_records(
         &self,
         name: &LowerName,
+        query_type: RecordType,
         lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError> {
-        self.in_memory.get_nsec3_records(name, lookup_options).await
+        self.in_memory.get_nsec3_records(name, query_type, lookup_options).await
     }
 }
 

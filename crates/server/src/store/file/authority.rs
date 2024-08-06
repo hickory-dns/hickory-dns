@@ -222,9 +222,10 @@ impl Authority for FileAuthority {
     async fn get_nsec3_records(
         &self,
         name: &LowerName,
+        query_type: RecordType,
         lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError> {
-        self.0.get_nsec3_records(name, lookup_options).await
+        self.0.get_nsec3_records(name, query_type, lookup_options).await
     }
 
     /// Returns the SOA of the authority.

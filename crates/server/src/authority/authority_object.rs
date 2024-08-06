@@ -108,6 +108,7 @@ pub trait AuthorityObject: Send + Sync {
     async fn get_nsec3_records(
         &self,
         name: &LowerName,
+        query_type: RecordType,
         lookup_options: LookupOptions,
     ) -> Result<Box<dyn LookupObject>, LookupError>;
 
@@ -231,11 +232,12 @@ where
     async fn get_nsec3_records(
         &self,
         name: &LowerName,
+        query_type: RecordType,
         lookup_options: LookupOptions,
     ) -> Result<Box<dyn LookupObject>, LookupError> {
-        let lookup = Authority::get_nsec3_records(self.as_ref(), name, lookup_options).await;
+        let lookup =
+            Authority::get_nsec3_records(self.as_ref(), name, query_type, lookup_options).await;
         lookup.map(|l| Box::new(l) as Box<dyn LookupObject>)
-
     }
 }
 
