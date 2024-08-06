@@ -9,6 +9,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Fixed
 
+- (build) Suppress implicit features from optional dependencies #2337 by djc
 - (recursor) Fix SOA referrals #2331 by marcus0x62
 - (all) Update OpenSSL to fix security issue #2316 by justahero
 - (recursor) fix DNSSEC validation of NS somedomain.com. #2300 by japaric
@@ -57,6 +58,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (tests) dns-test: use non-deprecated algorithm (RSASHA256) #2258 by japaric
 - (recursor) Recursor::resolve: reject queries with relative domain names #2246
 - (tests) CI: also run hickory unit tests when only /conformance changes #2269 by japaric
+- (all) Upgrade to rustls 0.23, quinn 0.11, etc #2217 by djc
 - (proto) DnssecDnsHandle: check RRSIG validity as per RFC4035 #2213 by japaric
 - (proto) NextRandomUdpSocket: fall back to port 0 if no port was found #2260 by Luap99
 - (tests) dns-test: do not run docker network create in parallel #2265 by japaric
