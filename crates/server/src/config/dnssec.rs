@@ -12,7 +12,7 @@ use std::path::Path;
 #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 use openssl::{pkey::PKey, stack::Stack, x509::X509};
 #[cfg(feature = "dns-over-rustls")]
-use rustls::{Certificate, PrivateKey};
+use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use serde::Deserialize;
 
 use crate::proto::rr::domain::Name;
@@ -315,7 +315,7 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<SigSigner, String
 pub fn load_cert(
     zone_dir: &Path,
     tls_cert_config: &TlsCertConfig,
-) -> Result<((X509, Option<Stack<X509>>), PKey<Private>), String> {
+) -> Result<((Option<X509>, Option<Stack<X509>>), Option<PKey<Private>>), String> {
     use tracing::{info, warn};
 
     use crate::proto::openssl::tls_server::{
@@ -365,7 +365,7 @@ pub fn load_cert(
         }
     };
 
-    Ok(((cert, cert_chain), key))
+    Ok(((Some(cert), cert_chain), Some(key)))
 }
 
 /// Load a Certificate from the path (with rustls)
@@ -374,7 +374,7 @@ pub fn load_cert(
 pub fn load_cert(
     zone_dir: &Path,
     tls_cert_config: &TlsCertConfig,
-) -> Result<(Vec<Certificate>, PrivateKey), String> {
+) -> Result<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>), String> {
     use tracing::{info, warn};
 
     use crate::proto::rustls::tls_server::{read_cert, read_key, read_key_from_der};

@@ -21,6 +21,7 @@ use openssl::ssl::*;
 use openssl::x509::*;
 
 use futures_util::stream::StreamExt;
+use rustls::pki_types::CertificateDer;
 use rustls::ClientConfig;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
@@ -78,7 +79,8 @@ fn tls_client_stream_test(server_addr: IpAddr) {
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
     println!("using server src path: {server_path}");
 
-    let root_cert_der = read_file(&format!("{server_path}/tests/test-data/ca.der"));
+    let root_cert_der =
+        CertificateDer::from(read_file(&format!("{server_path}/tests/test-data/ca.der")));
 
     // Generate X509 certificate
     let ca = X509::from_der(&root_cert_der).expect("could not read CA");
@@ -174,12 +176,14 @@ fn tls_client_stream_test(server_addr: IpAddr) {
     // let timeout = Timeout::new(Duration::from_secs(5));
 
     let mut roots = rustls::RootCertStore::empty();
-    let (_, ignored) = roots.add_parsable_certificates(&[root_cert_der]);
+    let (_, ignored) = roots.add_parsable_certificates([root_cert_der]);
     assert_eq!(ignored, 0, "bad certificate!");
-    let mut config = ClientConfig::builder()
-        .with_safe_defaults()
-        .with_root_certificates(roots)
-        .with_no_client_auth();
+    let mut config =
+        ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+            .with_safe_default_protocol_versions()
+            .unwrap()
+            .with_root_certificates(roots)
+            .with_no_client_auth();
 
     let (stream, mut sender) = tls_connect::<AsyncIoTokioAsStd<TokioTcpStream>>(
         server_addr,

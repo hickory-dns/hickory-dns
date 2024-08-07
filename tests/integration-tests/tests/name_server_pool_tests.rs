@@ -111,15 +111,7 @@ fn mock_nameserver_pool_on_send<O: OnSend + Unpin>(
     _mdns: Option<MockedNameServer<O>>,
     options: ResolverOpts,
 ) -> MockedNameServerPool<O> {
-    #[cfg(not(feature = "mdns"))]
-    return NameServerPool::from_nameservers(options, udp, tcp);
-
-    #[cfg(feature = "mdns")]
-    return NameServerPool::from_nameservers(
-        &options, udp,
-        tcp,
-        //_mdns.unwrap_or_else(move || mock_nameserver_on_send(vec![], options, on_send)),
-    );
+    NameServerPool::from_nameservers(options, udp, tcp)
 }
 
 #[test]
@@ -246,7 +238,8 @@ fn test_datagram_fails_to_stream() {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
     let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
-    let udp_message: Result<DnsResponse, _> = Err(ProtoError::from("Forced Testing Error"));
+    let io_error = std::io::Error::new(std::io::ErrorKind::Other, "Some I/O Error");
+    let udp_message: Result<DnsResponse, _> = Err(ProtoError::from(io_error));
 
     let tcp_message = message(query.clone(), vec![tcp_record.clone()], vec![], vec![]);
 
@@ -312,39 +305,131 @@ fn test_tcp_fallback_only_on_truncated() {
 }
 
 #[test]
-#[cfg(feature = "mdns")]
-fn test_local_mdns() {
-    // lookup to UDP should fail
-    // then lookup on TCP
+fn test_no_tcp_fallback_on_non_io_error() {
+    // Lookup to UDP should fail with a non I/O error, and the resolver should not retry
+    // the query over TCP when `try_tcp_on_error` is set to true.
 
-    let query = Query::query(Name::from_str("www.example.local.").unwrap(), RecordType::A);
+    let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let tcp_message: Result<DnsResponse, _> = Err(ResolveError::from("Forced Testing Error"));
-    let udp_message: Result<DnsResponse, _> = Err(ResolveError::from("Forced Testing Error"));
-    let mdns_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
+    let mut udp_message = message(query.clone(), vec![], vec![], vec![]);
+    udp_message.set_response_code(ResponseCode::NXDomain);
 
-    let mdns_message = message(query.clone(), vec![mdns_record.clone()], vec![], vec![]);
+    let mut tcp_message = message(query.clone(), vec![], vec![], vec![]);
+    tcp_message.set_response_code(ResponseCode::NotImp); // assuming a NotImp to distinguish with UDP response
 
-    let udp_nameserver = mock_nameserver(vec![udp_message.map(Into::into)], Default::default());
-    let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)], Default::default());
-    let mdns_nameserver = mock_nameserver(
-        vec![Ok(DnsResponse::from_message(mdns_message).unwrap())],
+    let udp_nameserver = mock_nameserver(
+        vec![ProtoError::from_response(
+            DnsResponse::from_message(udp_message).unwrap(),
+            false,
+        )],
         Default::default(),
     );
 
-    let mut pool = mock_nameserver_pool(
-        vec![udp_nameserver],
-        vec![tcp_nameserver],
-        Some(mdns_nameserver),
+    let tcp_nameserver = mock_nameserver(
+        vec![ProtoError::from_response(
+            DnsResponse::from_message(tcp_message).unwrap(),
+            false,
+        )],
         Default::default(),
     );
 
-    // lookup on UDP succeeds, any other would fail
+    let mut options = ResolverOpts::default();
+    options.try_tcp_on_error = true;
+    let pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
+
     let request = message(query, vec![], vec![], vec![]);
-    let future = pool.send(request);
+    let future = pool.send(request).first_answer();
+    let error = block_on(future).expect_err("DNS query should result in a `NXDomain`");
+    match error.kind() {
+        ProtoErrorKind::NoRecordsFound { response_code, .. }
+            if *response_code == ResponseCode::NXDomain => {}
+        kind => panic!(
+            "expected `NoRecordsFound` with `response_code: NXDomain`,
+            got {:#?}",
+            kind,
+        ),
+    }
+}
 
-    let response = block_on(future).unwrap();
-    assert_eq!(response.answers()[0], mdns_record);
+#[test]
+fn test_tcp_fallback_on_io_error() {
+    // Lookup to UDP should fail with an I/O error, and the resolver should then try
+    // the query over TCP when `try_tcp_on_error` is set to true.
+
+    let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+
+    let io_error = std::io::Error::new(std::io::ErrorKind::Other, "Some I/O Error");
+    let udp_message: Result<DnsResponse, _> = Err(ProtoError::from(io_error));
+
+    let mut tcp_message = message(query.clone(), vec![], vec![], vec![]);
+    tcp_message.set_response_code(ResponseCode::NotImp);
+
+    let udp_nameserver = mock_nameserver(vec![udp_message], Default::default());
+
+    let tcp_nameserver = mock_nameserver(
+        vec![ProtoError::from_response(
+            DnsResponse::from_message(tcp_message).unwrap(),
+            false,
+        )],
+        Default::default(),
+    );
+
+    let mut options = ResolverOpts::default();
+    options.try_tcp_on_error = true;
+    let pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
+
+    let request = message(query, vec![], vec![], vec![]);
+    let future = pool.send(request).first_answer();
+    let error = block_on(future).expect_err("DNS query should result in a `NotImp`");
+    match error.kind() {
+        ProtoErrorKind::NoRecordsFound { response_code, .. }
+            if *response_code == ResponseCode::NotImp => {}
+        kind => panic!(
+            "expected `NoRecordsFound` with `response_code: NotImp`,
+            got {:#?}",
+            kind,
+        ),
+    }
+}
+
+#[test]
+fn test_tcp_fallback_on_no_connections() {
+    // Lookup to UDP should fail with a NoConnections error, and the resolver should then try
+    // the query over TCP whether `try_tcp_on_error` is set to true or not.
+
+    let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+
+    let udp_message: Result<DnsResponse, _> = Err(ProtoError::from(ProtoErrorKind::NoConnections));
+
+    let mut tcp_message = message(query.clone(), vec![], vec![], vec![]);
+    tcp_message.set_response_code(ResponseCode::NotImp);
+
+    let udp_nameserver = mock_nameserver(vec![udp_message], Default::default());
+
+    let tcp_nameserver = mock_nameserver(
+        vec![ProtoError::from_response(
+            DnsResponse::from_message(tcp_message).unwrap(),
+            false,
+        )],
+        Default::default(),
+    );
+
+    let mut options = ResolverOpts::default();
+    options.try_tcp_on_error = true;
+    let pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
+
+    let request = message(query, vec![], vec![], vec![]);
+    let future = pool.send(request).first_answer();
+    let error = block_on(future).expect_err("DNS query should result in a `NotImp`");
+    match error.kind() {
+        ProtoErrorKind::NoRecordsFound { response_code, .. }
+            if *response_code == ResponseCode::NotImp => {}
+        kind => panic!(
+            "expected `NoRecordsFound` with `response_code: NotImp`,
+            got {:#?}",
+            kind,
+        ),
+    }
 }
 
 #[test]

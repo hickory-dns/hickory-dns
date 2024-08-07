@@ -12,6 +12,7 @@ use std::{
     collections::{HashMap, HashSet},
     pin::Pin,
     sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use async_recursion::async_recursion;
@@ -30,7 +31,7 @@ use crate::{
             Algorithm, Proof, ProofError, ProofErrorKind, SupportedAlgorithms, TrustAnchor,
         },
         rdata::opt::EdnsOption,
-        Name, RData, Record, RecordData, RecordType,
+        Name, RData, Record, RecordData, RecordType, SerialNumber,
     },
     xfer::{dns_handle::DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer},
 };
@@ -148,7 +149,7 @@ where
 
                 // send along the algorithms which are supported by this handle
                 let mut algorithms = SupportedAlgorithms::new();
-                #[cfg(feature = "ring")]
+                #[cfg(feature = "dnssec-ring")]
                 {
                     algorithms.set(Algorithm::ED25519);
                 }
@@ -265,7 +266,7 @@ where
     H: DnsHandle + Sync + Unpin,
 {
     let mut rrset_types: HashSet<(Name, RecordType)> = HashSet::new();
-    let mut rrset_proofs: HashMap<(Name, RecordType), Proof> = HashMap::new();
+    let mut rrset_proofs: HashMap<(Name, RecordType), (Proof, Option<u32>)> = HashMap::new();
 
     for rrset in records
         .iter()
@@ -319,18 +320,18 @@ where
         // verify this rrset
         let proof = verify_rrset(handle.clone_with_context(), rrset, rrsigs, options).await;
 
-        let proof = match proof {
-            Ok(proof) => {
+        let (proof, adjusted_ttl) = match proof {
+            Ok((proof, adjusted_ttl)) => {
                 debug!("verified: {name} record_type: {record_type}",);
-                proof
+                (proof, adjusted_ttl)
             }
             Err(ProofError { proof, kind }) => {
                 debug!("failed to verify: {name} record_type: {record_type}: {kind}",);
-                proof
+                (proof, None)
             }
         };
 
-        rrset_proofs.insert((name, record_type), proof);
+        rrset_proofs.insert((name, record_type), (proof, adjusted_ttl));
     }
 
     // set the proofs of all the records, all records are returned, it's up to downstream users to check for correctness
@@ -345,9 +346,13 @@ where
             record.record_type()
         };
 
-        rrset_proofs
-            .get(&(record.name().clone(), record_type))
-            .map(|proof| record.set_proof(*proof));
+        if let Some((proof, adjusted_ttl)) = rrset_proofs.get(&(record.name().clone(), record_type))
+        {
+            record.set_proof(*proof);
+            if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
+                record.set_ttl(*ttl);
+            }
+        }
     }
 
     records
@@ -371,7 +376,7 @@ async fn verify_rrset<H>(
     rrset: Rrset<'_>,
     rrsigs: Vec<RecordRef<'_, RRSIG>>,
     options: DnsRequestOptions,
-) -> Result<Proof, ProofError>
+) -> Result<(Proof, Option<u32>), ProofError>
 where
     H: DnsHandle + Sync + Unpin,
 {
@@ -379,9 +384,9 @@ where
 
     match rrset.record_type() {
         // validation of DNSKEY records require different logic as they search for DS record coverage as well
-        RecordType::DNSKEY => {
-            verify_dnskey_rrset(handle.clone_with_context(), rrset, options).await
-        }
+        RecordType::DNSKEY => verify_dnskey_rrset(handle.clone_with_context(), rrset, options)
+            .await
+            .map(|proof| (proof, None)),
         _ => verify_default_rrset(&handle.clone_with_context(), rrset, rrsigs, options).await,
     }
 }
@@ -586,7 +591,7 @@ async fn verify_default_rrset<H>(
     rrset: Rrset<'_>,
     rrsigs: Vec<RecordRef<'_, RRSIG>>,
     options: DnsRequestOptions,
-) -> Result<Proof, ProofError>
+) -> Result<(Proof, Option<u32>), ProofError>
 where
     H: DnsHandle + Sync + Unpin,
 {
@@ -622,6 +627,9 @@ where
         rrset.record_type()
     );
 
+    // use the same current time value for all rrsig + rrset pairs.
+    let current_time = current_time();
+
     // Special case for self-signed DNSKEYS, validate with itself...
     if rrsigs.iter().any(|rrsig| {
         RecordType::DNSKEY == rrset.record_type() && rrsig.data().signer_name() == rrset.name()
@@ -630,7 +638,7 @@ where
         //  then return rrset. Like the standard case below, the DNSKEY is validated
         //  after this function. This function is only responsible for validating the signature
         //  the DNSKey validation should come after, see verify_rrset().
-        let proof = rrsigs
+        let (proof, adjusted_ttl) = rrsigs
             .iter()
             .find_map(|rrsig| {
                 rrset
@@ -639,7 +647,7 @@ where
                     .filter_map(|r| r.try_borrow::<DNSKEY>())
                     .find_map(|dnskey| {
                         // If we had rrsigs to verify, then we want them to be secure, or the result is a Bogus proof
-                        verify_rrset_with_dnskey(dnskey, *rrsig, &rrset).ok()
+                        verify_rrset_with_dnskey(dnskey, *rrsig, &rrset, current_time).ok()
                     })
             })
             .ok_or_else(|| {
@@ -652,7 +660,7 @@ where
             })?;
 
         // Getting here means the rrset (and records), have been verified
-        return Ok(proof);
+        return Ok((proof, adjusted_ttl));
     }
 
     // we can validate with any of the rrsigs...
@@ -683,7 +691,9 @@ where
                         .answers()
                         .iter()
                         .filter_map(|r| r.try_borrow::<DNSKEY>())
-                        .find_map(|dnskey| verify_rrset_with_dnskey(dnskey, *rrsig, &rrset).ok())
+                        .find_map(|dnskey| {
+                            verify_rrset_with_dnskey(dnskey, *rrsig, &rrset, current_time).ok()
+                        })
                 })
         })
         .collect::<Vec<_>>();
@@ -718,9 +728,8 @@ fn verify_rrset_with_dnskey(
     dnskey: RecordRef<'_, DNSKEY>,
     rrsig: RecordRef<'_, RRSIG>,
     rrset: &Rrset<'_>,
-) -> Result<Proof, ProofError> {
-    use std::time::{SystemTime, UNIX_EPOCH};
-
+    current_time: u32,
+) -> Result<(Proof, Option<u32>), ProofError> {
     if dnskey.data().revoke() {
         debug!("revoked");
         return Err(ProofError::new(
@@ -750,11 +759,6 @@ fn verify_rrset_with_dnskey(
         ));
     }
 
-    let current_time = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs() as u32;
-
     let validity = check_rrsig_validity(rrsig, rrset, dnskey, current_time);
     if !matches!(validity, RrsigValidity::ValidRrsig) {
         // TODO better error handling when the error payload is not immediately discarded by
@@ -771,7 +775,7 @@ fn verify_rrset_with_dnskey(
             rrset.name(),
             rrset.record_class(),
             rrsig.data(),
-            rrset.records(),
+            rrset.records().iter().copied(),
         )
         .map(|_| {
             debug!(
@@ -781,7 +785,10 @@ fn verify_rrset_with_dnskey(
                 dnskey.name(),
                 dnskey.data()
             );
-            Proof::Secure
+            (
+                Proof::Secure,
+                Some(rrsig.data().authenticated_ttl(rrset.record(), current_time)),
+            )
         })
         .map_err(|e| {
             debug!(
@@ -809,6 +816,10 @@ fn check_rrsig_validity(
     dnskey: RecordRef<'_, DNSKEY>,
     current_time: u32,
 ) -> RrsigValidity {
+    let current_time = SerialNumber(current_time);
+    let expiration = rrsig.data().sig_expiration();
+    let inception = rrsig.data().sig_inception();
+
     let Ok(dnskey_key_tag) = dnskey.data().calculate_key_tag() else {
         return RrsigValidity::WrongDnskey;
     };
@@ -831,16 +842,16 @@ fn check_rrsig_validity(
         return RrsigValidity::WrongRrsig;
     }
 
-    // TODO section 3.1.5 of RFC4034 states that 'all comparisons involving these fields MUST use
+    // Section 3.1.5 of RFC4034 states that 'all comparisons involving these fields MUST use
     // "Serial number arithmetic", as defined in RFC1982'
     if !(
         // "The validator's notion of the current time MUST be less than or equal to the time listed
         // in the RRSIG RR's Expiration field"
-        current_time <= rrsig.data().sig_expiration() &&
+        current_time <= expiration &&
 
         // "The validator's notion of the current time MUST be greater than or equal to the time
         // listed in the RRSIG RR's Inception field"
-        current_time >= rrsig.data().sig_inception()
+        current_time >= inception
     ) {
         return RrsigValidity::ExpiredRrsig;
     }
@@ -1003,6 +1014,14 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> Proof {
     }
 }
 
+/// Returns the current system time as Unix timestamp in seconds.
+fn current_time() -> u32 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as u32
+}
+
 mod rrset {
     use crate::rr::{DNSClass, Name, Record, RecordType};
 
@@ -1033,6 +1052,11 @@ mod rrset {
             {
                 self.records.push(record);
             }
+        }
+
+        /// Returns the first (main) record.
+        pub(super) fn record(&self) -> &Record {
+            self.records[0]
         }
 
         pub(super) fn name(&self) -> &Name {

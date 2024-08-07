@@ -15,7 +15,10 @@ use futures_util::{FutureExt, StreamExt};
 use hickory_proto::{op::MessageType, rr::Record};
 use ipnet::IpNet;
 #[cfg(feature = "dns-over-rustls")]
-use rustls::{Certificate, PrivateKey, ServerConfig};
+use rustls::{
+    pki_types::{CertificateDer, PrivateKeyDer},
+    ServerConfig,
+};
 use tokio::{net, task::JoinSet};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
@@ -291,6 +294,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         use std::pin::Pin;
         use tokio_openssl::SslStream as TokioSslStream;
 
+        let access = self.access.clone();
         let ((cert, chain), key) = certificate_and_key;
 
         let handler = self.handler.clone();
@@ -299,10 +303,12 @@ impl<T: RequestHandler> ServerFuture<T> {
         let tls_acceptor = Box::pin(tls_server::new_acceptor(cert, chain, key)?);
 
         // for each incoming request...
-        let shutdown = self.shutdown_watch.clone();
+        let shutdown = self.shutdown_token.clone();
         self.join_set.spawn(async move {
             let mut inner_join_set = JoinSet::new();
             loop {
+                let access = access.clone();
+                let shutdown = shutdown.clone();
                 let (tcp_stream, src_addr) = tokio::select! {
                     tcp_stream = listener.accept() => match tcp_stream {
                         Ok((t, s)) => (t, s),
@@ -314,7 +320,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                             continue;
                         },
                     },
-                    _ = shutdown.clone().signaled() => {
+                    _ = shutdown.cancelled() => {
                         // A graceful shutdown was initiated. Break out of the loop.
                         break;
                     },
@@ -568,7 +574,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         &mut self,
         listener: net::TcpListener,
         timeout: Duration,
-        certificate_and_key: (Vec<Certificate>, PrivateKey),
+        certificate_and_key: (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>),
     ) -> io::Result<()> {
         use crate::proto::rustls::tls_server;
 
@@ -581,39 +587,6 @@ impl<T: RequestHandler> ServerFuture<T> {
         })?;
 
         Self::register_tls_listener_with_tls_config(self, listener, timeout, Arc::new(tls_acceptor))
-    }
-
-    /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
-    /// IPv6 or an IPv4 address.
-    ///
-    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
-    ///  to not make this too low depending on use cases.
-    ///
-    /// # Arguments
-    /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
-    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
-    ///               requests within this time period will be closed. In the future it should be
-    ///               possible to create long-lived queries, but these should be from trusted sources
-    ///               only, this would require some type of whitelisting.
-    /// * `pkcs12` - certificate used to announce to clients
-    #[cfg(all(
-        feature = "dns-over-https-openssl",
-        not(feature = "dns-over-https-rustls")
-    ))]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(all(
-            feature = "dns-over-https-openssl",
-            not(feature = "dns-over-https-rustls")
-        )))
-    )]
-    pub fn register_https_listener(
-        &self,
-        listener: tcp::TcpListener,
-        timeout: Duration,
-        pkcs12: ParsedPkcs12,
-    ) -> io::Result<()> {
-        unimplemented!("openssl based `dns-over-https` not yet supported. see the `dns-over-https-rustls` feature")
     }
 
     /// Register a TcpListener for HTTPS (h2) to the Server for supporting DoH (dns-over-https). The TcpListener should already be bound to either an
@@ -636,7 +609,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         listener: net::TcpListener,
         // TODO: need to set a timeout between requests.
         _timeout: Duration,
-        certificate_and_key: (Vec<Certificate>, PrivateKey),
+        certificate_and_key: (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>),
         dns_hostname: Option<String>,
     ) -> io::Result<()> {
         use tokio_rustls::TlsAcceptor;
@@ -753,7 +726,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         socket: net::UdpSocket,
         // TODO: need to set a timeout between requests.
         _timeout: Duration,
-        certificate_and_key: (Vec<Certificate>, PrivateKey),
+        certificate_and_key: (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>),
         dns_hostname: Option<String>,
     ) -> io::Result<()> {
         use crate::proto::quic::QuicServer;
@@ -852,7 +825,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         socket: net::UdpSocket,
         // TODO: need to set a timeout between requests.
         _timeout: Duration,
-        certificate_and_key: (Vec<Certificate>, PrivateKey),
+        certificate_and_key: (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>),
         dns_hostname: Option<String>,
     ) -> io::Result<()> {
         use crate::proto::h3::h3_server::H3Server;
@@ -1258,7 +1231,7 @@ mod tests {
     use crate::authority::Catalog;
     use futures_util::future;
     #[cfg(feature = "dns-over-rustls")]
-    use rustls::{Certificate, PrivateKey};
+    use rustls::pki_types::{CertificateDer, PrivateKeyDer};
     use std::net::SocketAddr;
     use tokio::net::{TcpListener, UdpSocket};
     use tokio::time::timeout;
@@ -1450,7 +1423,7 @@ mod tests {
     }
 
     #[cfg(feature = "dns-over-rustls")]
-    fn rustls_cert_key() -> (Vec<Certificate>, PrivateKey) {
+    fn rustls_cert_key() -> (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>) {
         use hickory_proto::rustls::tls_server;
         use std::env;
         use std::path::Path;
@@ -1463,7 +1436,7 @@ mod tests {
         )))
         .map_err(|e| format!("error reading cert: {e}"))
         .unwrap();
-        let key = tls_server::read_key_from_pem(Path::new(&format!(
+        let key = tls_server::read_key(Path::new(&format!(
             "{}/tests/test-data/cert.key",
             server_path
         )))

@@ -53,7 +53,7 @@ async fn main() {
 
 ## Minimum Rust Version
 
-The current minimum rustc version for this project is `1.67`
+The current minimum rustc version for this project is `1.70`
 
 ## Versioning
 

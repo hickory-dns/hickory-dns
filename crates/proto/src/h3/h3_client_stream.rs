@@ -19,6 +19,7 @@ use futures_util::stream::Stream;
 use h3::client::SendRequest;
 use h3_quinn::OpenStreams;
 use http::header::{self, CONTENT_LENGTH};
+use quinn::crypto::rustls::QuicClientConfig;
 use quinn::{ClientConfig, Endpoint, EndpointConfig, TransportConfig};
 use rustls::ClientConfig as TlsClientConfig;
 use tokio::sync::mpsc;
@@ -27,9 +28,7 @@ use tracing::{debug, warn};
 use crate::error::ProtoError;
 use crate::http::Version;
 use crate::op::Message;
-use crate::quic::quic_socket::QuinnAsyncUdpSocketAdapter;
-use crate::quic::QuicLocalAddr;
-use crate::udp::{DnsUdpSocket, UdpSocket};
+use crate::udp::UdpSocket;
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
 
 use super::ALPN_H3;
@@ -313,38 +312,28 @@ impl H3ClientStreamBuilder {
     }
 
     /// Creates a new H3Stream with existing connection
-    pub fn build_with_future<S, F>(
+    pub fn build_with_future(
         self,
-        future: F,
+        socket: Arc<dyn quinn::AsyncUdpSocket>,
         name_server: SocketAddr,
         dns_name: String,
-    ) -> H3ClientConnect
-    where
-        S: DnsUdpSocket + QuicLocalAddr + 'static,
-        F: Future<Output = std::io::Result<S>> + Send + Unpin + 'static,
-    {
-        H3ClientConnect(Box::pin(self.connect_with_future(future, name_server, dns_name)) as _)
+    ) -> H3ClientConnect {
+        H3ClientConnect(Box::pin(self.connect_with_future(socket, name_server, dns_name)) as _)
     }
 
-    async fn connect_with_future<S, F>(
+    async fn connect_with_future(
         self,
-        future: F,
+        socket: Arc<dyn quinn::AsyncUdpSocket>,
         name_server: SocketAddr,
-        dns_name: String,
-    ) -> Result<H3ClientStream, ProtoError>
-    where
-        S: DnsUdpSocket + QuicLocalAddr + 'static,
-        F: Future<Output = std::io::Result<S>> + Send,
-    {
-        let socket = future.await?;
-        let wrapper = QuinnAsyncUdpSocketAdapter { io: socket };
+        server_name: String,
+    ) -> Result<H3ClientStream, ProtoError> {
         let endpoint = Endpoint::new_with_abstract_socket(
             EndpointConfig::default(),
             None,
-            wrapper,
+            socket,
             Arc::new(quinn::TokioRuntime),
         )?;
-        self.connect_inner(endpoint, name_server, dns_name).await
+        self.connect_inner(endpoint, name_server, server_name).await
     }
 
     async fn connect(
@@ -382,7 +371,8 @@ impl H3ClientStreamBuilder {
         }
         let early_data_enabled = crypto_config.enable_early_data;
 
-        let mut client_config = ClientConfig::new(Arc::new(crypto_config));
+        let mut client_config =
+            ClientConfig::new(Arc::new(QuicClientConfig::try_from(crypto_config)?));
         client_config.transport_config(self.transport_config.clone());
 
         endpoint.set_default_client_config(client_config);

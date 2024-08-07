@@ -85,7 +85,10 @@ fn into_resolver_config(
         });
     }
     if nameservers.is_empty() {
-        tracing::warn!("no nameservers found in config");
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "no nameservers found in config",
+        ))?;
     }
 
     // search
@@ -124,8 +127,8 @@ mod tests {
     use std::net::*;
     use std::str::FromStr;
 
-    fn empty_config() -> ResolverConfig {
-        ResolverConfig::from_parts(None, vec![], vec![])
+    fn empty_config(name_servers: Vec<NameServerConfig>) -> ResolverConfig {
+        ResolverConfig::from_parts(None, vec![], name_servers)
     }
 
     fn nameserver_config(ip: &str) -> [NameServerConfig; 2] {
@@ -161,18 +164,15 @@ mod tests {
     #[allow(clippy::redundant_clone)]
     fn test_name_server() {
         let parsed = parse_resolv_conf("nameserver 127.0.0.1").expect("failed");
-        let mut cfg = empty_config();
-        let nameservers = nameserver_config("127.0.0.1");
-        cfg.add_name_server(nameservers[0].clone());
-        cfg.add_name_server(nameservers[1].clone());
+        let cfg = empty_config(nameserver_config("127.0.0.1").to_vec());
         assert_eq!(cfg.name_servers(), parsed.0.name_servers());
         assert_eq!(ResolverOpts::default(), parsed.1);
     }
 
     #[test]
     fn test_search() {
-        let parsed = parse_resolv_conf("search localnet.").expect("failed");
-        let mut cfg = empty_config();
+        let parsed = parse_resolv_conf("search localnet.\nnameserver 127.0.0.1").expect("failed");
+        let mut cfg = empty_config(nameserver_config("127.0.0.1").to_vec());
         cfg.add_search(Name::from_str("localnet.").unwrap());
         assert_eq!(cfg.search(), parsed.0.search());
         assert_eq!(ResolverOpts::default(), parsed.1);
@@ -183,12 +183,9 @@ mod tests {
         let parsed =
             parse_resolv_conf("\n\nnameserver 127.0.0.53\noptions edns0 trust-ad\nsearch -- lan\n")
                 .expect("failed");
-        let mut cfg = empty_config();
+        let mut cfg = empty_config(nameserver_config("127.0.0.53").to_vec());
 
         {
-            let nameservers = nameserver_config("127.0.0.53");
-            cfg.add_name_server(nameservers[0].clone());
-            cfg.add_name_server(nameservers[1].clone());
             assert_eq!(cfg.name_servers(), parsed.0.name_servers());
             assert_eq!(ResolverOpts::default(), parsed.1);
         }
@@ -203,8 +200,9 @@ mod tests {
 
     #[test]
     fn test_underscore_in_search() {
-        let parsed = parse_resolv_conf("search Speedport_000").expect("failed");
-        let mut cfg = empty_config();
+        let parsed =
+            parse_resolv_conf("search Speedport_000\nnameserver 127.0.0.1").expect("failed");
+        let mut cfg = empty_config(nameserver_config("127.0.0.1").to_vec());
         cfg.add_search(Name::from_str_relaxed("Speedport_000.").unwrap());
         assert_eq!(cfg.search(), parsed.0.search());
         assert_eq!(ResolverOpts::default(), parsed.1);
@@ -212,8 +210,8 @@ mod tests {
 
     #[test]
     fn test_domain() {
-        let parsed = parse_resolv_conf("domain example.com").expect("failed");
-        let mut cfg = empty_config();
+        let parsed = parse_resolv_conf("domain example.com\nnameserver 127.0.0.1").expect("failed");
+        let mut cfg = empty_config(nameserver_config("127.0.0.1").to_vec());
         cfg.set_domain(Name::from_str("example.com").unwrap());
         assert_eq!(cfg, parsed.0);
         assert_eq!(ResolverOpts::default(), parsed.1);

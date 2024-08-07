@@ -31,22 +31,22 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = ["system-config", "tokio-runtime"]
-#backtrace = ["dep:backtrace", "hickory-proto/backtrace"]
+backtrace = ["dep:backtrace", "hickory-proto/backtrace"]
 dns-over-native-tls = [
     "dns-over-tls",
-    "tokio-native-tls",
+    "dep:tokio-native-tls",
     "hickory-proto/dns-over-native-tls",
 ]
 # DNS over TLS with OpenSSL currently needs a good way to set default CAs, use rustls or native-tls
 dns-over-openssl = [
     "dns-over-tls",
     "hickory-proto/dns-over-openssl",
-    "tokio-openssl",
+    "dep:tokio-openssl",
 ]
 dns-over-rustls = [
     "dns-over-tls",
-    "rustls",
-    "tokio-rustls",
+    "dep:rustls",
+    "dep:tokio-rustls",
     "hickory-proto/dns-over-rustls",
 ]
 dns-over-tls = ["tokio-runtime"]
@@ -58,12 +58,8 @@ dns-over-https-rustls = [
     "dns-over-https",
 ]
 dns-over-https = ["hickory-proto/dns-over-https"]
-dns-over-quic = [
-    "rustls/quic",
-    "dns-over-rustls",
-    "hickory-proto/dns-over-quic",
-]
-dns-over-h3 = ["dns-over-rustls", "hickory-proto/dns-over-h3"]
+dns-over-quic = ["dep:quinn", "dns-over-rustls", "hickory-proto/dns-over-quic"]
+dns-over-h3 = ["dep:quinn", "dns-over-rustls", "hickory-proto/dns-over-h3"]
 
 webpki-roots = ["dep:webpki-roots", "hickory-proto/webpki-roots"]
 native-certs = ["dep:rustls-native-certs", "hickory-proto/native-certs"]
@@ -72,12 +68,8 @@ dnssec-openssl = ["dnssec", "hickory-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "hickory-proto/dnssec-ring"]
 dnssec = []
 
-serde-config = ["serde", "hickory-proto/serde-config"]
-system-config = ["ipconfig", "resolv-conf"]
-
-# # enables experimental the mDNS (multicast) feature
-# TODO: we will be revisiting how mdns is built into the resolver...
-#mdns = ["hickory-proto/mdns"]
+serde-config = ["dep:serde", "hickory-proto/serde-config"]
+system-config = ["dep:ipconfig", "dep:resolv-conf"]
 
 testing = []
 tokio-runtime = ["tokio/rt", "hickory-proto/tokio-runtime"]
@@ -87,7 +79,7 @@ name = "hickory_resolver"
 path = "src/lib.rs"
 
 [dependencies]
-#backtrace = { version = "0.3.50", optional = true }
+backtrace = { version = "0.3.50", optional = true }
 cfg-if.workspace = true
 futures-util = { workspace = true, default-features = false, features = [
     "std",
@@ -95,6 +87,11 @@ futures-util = { workspace = true, default-features = false, features = [
 lru-cache.workspace = true
 once_cell.workspace = true
 parking_lot.workspace = true
+quinn = { workspace = true, optional = true, features = [
+    "log",
+    "runtime-tokio",
+    "rustls",
+] }
 rand.workspace = true
 resolv-conf = { workspace = true, optional = true, features = ["system"] }
 rustls = { workspace = true, optional = true }
@@ -145,3 +142,6 @@ required-features = ["tokio-runtime", "system-config"]
 [[example]]
 name = "multithreaded_runtime"
 required-features = ["tokio-runtime", "system-config"]
+
+[lints]
+workspace = true

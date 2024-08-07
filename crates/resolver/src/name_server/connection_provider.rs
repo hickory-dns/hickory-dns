@@ -31,14 +31,10 @@ use tokio_openssl::SslStream as TokioTlsStream;
 use tokio_rustls::client::TlsStream as TokioTlsStream;
 
 use crate::config::{NameServerConfig, Protocol, ResolverOpts};
-#[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
-use hickory_proto::udp::QuicLocalAddr;
 #[cfg(feature = "dns-over-https")]
 use proto::h2::{HttpsClientConnect, HttpsClientStream};
 #[cfg(feature = "dns-over-h3")]
 use proto::h3::{H3ClientConnect, H3ClientStream};
-#[cfg(feature = "mdns")]
-use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
 #[cfg(feature = "dns-over-quic")]
 use proto::quic::{QuicClientConnect, QuicClientStream};
 use proto::tcp::DnsTcpStream;
@@ -68,12 +64,8 @@ pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
     /// Timer
     type Timer: Time + Send + Unpin;
 
-    #[cfg(not(any(feature = "dns-over-quic", feature = "dns-over-h3")))]
     /// UdpSocket
     type Udp: DnsUdpSocket + Send;
-    #[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
-    /// UdpSocket, where `QuicLocalAddr` is for `quinn` crate.
-    type Udp: DnsUdpSocket + QuicLocalAddr + Send;
 
     /// TcpStream
     type Tcp: DnsTcpStream;
@@ -94,6 +86,30 @@ pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
         local_addr: SocketAddr,
         server_addr: SocketAddr,
     ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Udp>>>>;
+
+    /// Yields an object that knows how to bind a QUIC socket.
+    //
+    // Use some indirection here to avoid exposing the `quinn` crate in the public API
+    // even for runtimes that might not (want to) provide QUIC support.
+    fn quic_binder(&self) -> Option<&dyn QuicSocketBinder> {
+        None
+    }
+}
+
+/// Noop trait for when the `quinn` dependency is not available.
+#[cfg(not(any(feature = "dns-over-quic", feature = "dns-over-h3")))]
+pub trait QuicSocketBinder {}
+
+/// Create a UDP socket for QUIC usage.
+/// This trait is designed for customization.
+#[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
+pub trait QuicSocketBinder {
+    /// Create a UDP socket for QUIC usage.
+    fn bind_quic(
+        &self,
+        _local_addr: SocketAddr,
+        _server_addr: SocketAddr,
+    ) -> Result<Arc<dyn quinn::AsyncUdpSocket>, io::Error>;
 }
 
 /// Create `DnsHandle` with the help of `RuntimeProvider`.
@@ -107,8 +123,11 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
     type RuntimeProvider: RuntimeProvider;
 
     /// Create a new connection.
-    fn new_connection(&self, config: &NameServerConfig, options: &ResolverOpts)
-        -> Self::FutureConn;
+    fn new_connection(
+        &self,
+        config: &NameServerConfig,
+        options: &ResolverOpts,
+    ) -> Result<Self::FutureConn, io::Error>;
 }
 
 /// A type defines the Handle which can spawn future.
@@ -167,14 +186,6 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
     Quic(DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime>),
     #[cfg(all(feature = "dns-over-h3", feature = "tokio-runtime"))]
     H3(DnsExchangeConnect<H3ClientConnect, H3ClientStream, TokioTime>),
-    #[cfg(feature = "mdns")]
-    Mdns(
-        DnsExchangeConnect<
-            DnsMultiplexerConnect<MdnsClientConnect, MdnsClientStream, NoopMessageFinalizer>,
-            DnsMultiplexer<MdnsClientStream, NoopMessageFinalizer>,
-            TokioTime,
-        >,
-    ),
 }
 
 /// Resolves to a new Connection
@@ -219,12 +230,6 @@ impl<R: RuntimeProvider> Future for ConnectionFuture<R> {
             }
             #[cfg(feature = "dns-over-h3")]
             ConnectionConnect::H3(ref mut conn) => {
-                let (conn, bg) = ready!(conn.poll_unpin(cx))?;
-                self.spawner.spawn_bg(bg);
-                GenericConnection(conn)
-            }
-            #[cfg(feature = "mdns")]
-            ConnectionConnect::Mdns(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
                 GenericConnection(conn)
@@ -275,9 +280,9 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
         &self,
         config: &NameServerConfig,
         options: &ResolverOpts,
-    ) -> Self::FutureConn {
-        let dns_connect = match config.protocol {
-            Protocol::Udp => {
+    ) -> Result<Self::FutureConn, io::Error> {
+        let dns_connect = match (config.protocol, self.runtime_provider.quic_binder()) {
+            (Protocol::Udp, _) => {
                 let provider_handle = self.runtime_provider.clone();
                 let closure = move |local_addr: SocketAddr, server_addr: SocketAddr| {
                     provider_handle.bind_udp(local_addr, server_addr)
@@ -291,7 +296,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let exchange = DnsExchange::connect(stream);
                 ConnectionConnect::Udp(exchange)
             }
-            Protocol::Tcp => {
+            (Protocol::Tcp, _) => {
                 let socket_addr = config.socket_addr;
                 let timeout = options.timeout;
                 let tcp_future = self.runtime_provider.connect_tcp(socket_addr);
@@ -310,7 +315,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 ConnectionConnect::Tcp(exchange)
             }
             #[cfg(feature = "dns-over-tls")]
-            Protocol::Tls => {
+            (Protocol::Tls, _) => {
                 let socket_addr = config.socket_addr;
                 let timeout = options.timeout;
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
@@ -344,7 +349,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 ConnectionConnect::Tls(exchange)
             }
             #[cfg(feature = "dns-over-https")]
-            Protocol::Https => {
+            (Protocol::Https, _) => {
                 let socket_addr = config.socket_addr;
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
                 #[cfg(feature = "dns-over-rustls")]
@@ -360,7 +365,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 ConnectionConnect::Https(exchange)
             }
             #[cfg(feature = "dns-over-quic")]
-            Protocol::Quic => {
+            (Protocol::Quic, Some(binder)) => {
                 let socket_addr = config.socket_addr;
                 let bind_addr = config.bind_addr.unwrap_or(match socket_addr {
                     SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0),
@@ -371,10 +376,10 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
                 #[cfg(feature = "dns-over-rustls")]
                 let client_config = config.tls_config.clone();
-                let udp_future = self.runtime_provider.bind_udp(bind_addr, socket_addr);
+                let socket = binder.bind_quic(bind_addr, socket_addr)?;
 
                 let exchange = crate::quic::new_quic_stream_with_future(
-                    udp_future,
+                    socket,
                     socket_addr,
                     tls_dns_name,
                     client_config,
@@ -382,7 +387,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 ConnectionConnect::Quic(exchange)
             }
             #[cfg(feature = "dns-over-h3")]
-            Protocol::H3 => {
+            (Protocol::H3, Some(binder)) => {
                 let socket_addr = config.socket_addr;
                 let bind_addr = config.bind_addr.unwrap_or(match socket_addr {
                     SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0),
@@ -392,40 +397,29 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 });
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
                 let client_config = config.tls_config.clone();
-                let udp_future = self.runtime_provider.bind_udp(bind_addr, socket_addr);
+                let socket = binder.bind_quic(bind_addr, socket_addr)?;
 
                 let exchange = crate::h3::new_h3_stream_with_future(
-                    udp_future,
+                    socket,
                     socket_addr,
                     tls_dns_name,
                     client_config,
                 );
                 ConnectionConnect::H3(exchange)
             }
-            #[cfg(feature = "mdns")]
-            Protocol::Mdns => {
-                let socket_addr = config.socket_addr;
-                let timeout = options.timeout;
-
-                let (stream, handle) =
-                    MdnsClientStream::new(socket_addr, MdnsQueryType::OneShot, None, None, None);
-                // TODO: need config for Signer...
-                let dns_conn = DnsMultiplexer::with_timeout(
-                    stream,
-                    handle,
-                    timeout,
-                    NoopMessageFinalizer::new(),
-                );
-
-                let exchange = DnsExchange::connect(dns_conn);
-                ConnectionConnect::Mdns(exchange)
+            #[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
+            (protocol, _) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("unsupported protocol: {protocol:?}"),
+                ));
             }
         };
 
-        ConnectionFuture::<P> {
+        Ok(ConnectionFuture::<P> {
             connect: dns_connect,
             spawner: self.runtime_provider.create_handle(),
-        }
+        })
     }
 }
 
@@ -446,6 +440,8 @@ impl Stream for ConnectionResponse {
 #[allow(unreachable_pub)]
 pub mod tokio_runtime {
     use super::*;
+    #[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
+    use quinn::Runtime;
     use std::sync::{Arc, Mutex};
     use tokio::net::UdpSocket as TokioUdpSocket;
     use tokio::task::JoinSet;
@@ -506,6 +502,11 @@ pub mod tokio_runtime {
         ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Udp>>>> {
             Box::pin(tokio::net::UdpSocket::bind(local_addr))
         }
+
+        #[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
+        fn quic_binder(&self) -> Option<&dyn QuicSocketBinder> {
+            Some(&TokioQuicSocketBinder)
+        }
     }
 
     /// Reap finished tasks from a `JoinSet`, without awaiting or blocking.
@@ -514,6 +515,21 @@ pub mod tokio_runtime {
             .flatten()
             .is_some()
         {}
+    }
+
+    #[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
+    struct TokioQuicSocketBinder;
+
+    #[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
+    impl QuicSocketBinder for TokioQuicSocketBinder {
+        fn bind_quic(
+            &self,
+            local_addr: SocketAddr,
+            _server_addr: SocketAddr,
+        ) -> Result<Arc<dyn quinn::AsyncUdpSocket>, io::Error> {
+            let socket = std::net::UdpSocket::bind(local_addr)?;
+            quinn::TokioRuntime.wrap_udp_socket(socket)
+        }
     }
 
     /// Default ConnectionProvider with `GenericConnection`.

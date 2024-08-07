@@ -8,7 +8,7 @@ This library can be used to perform DNS resolution beginning with a set of root 
 
 ## Minimum Rust Version
 
-The current minimum rustc version for this project is `1.67`
+The current minimum rustc version for this project is `1.70`
 
 ## Versioning
 

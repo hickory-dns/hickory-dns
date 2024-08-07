@@ -273,26 +273,16 @@ impl ResolverConfig {
     /// ```
     /// use std::sync::Arc;
     ///
-    /// use rustls::{ClientConfig, ProtocolVersion, RootCertStore, OwnedTrustAnchor};
+    /// use rustls::{ClientConfig, ProtocolVersion, RootCertStore};
     /// use hickory_resolver::config::ResolverConfig;
     /// # #[cfg(feature = "webpki-roots")]
     /// use webpki_roots;
     ///
     /// let mut root_store = RootCertStore::empty();
     /// # #[cfg(feature = "webpki-roots")]
-    /// root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-    ///     OwnedTrustAnchor::from_subject_spki_name_constraints(
-    ///         ta.subject,
-    ///         ta.spki,
-    ///         ta.name_constraints,
-    ///     )
-    /// }));
+    /// root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
     ///
     /// let mut client_config = ClientConfig::builder()
-    ///     .with_safe_default_cipher_suites()
-    ///     .with_safe_default_kx_groups()
-    ///     .with_protocol_versions(&[&rustls::version::TLS12])
-    ///     .unwrap()
     ///     .with_root_certificates(root_store)
     ///     .with_no_client_auth();
     ///
@@ -344,10 +334,6 @@ pub enum Protocol {
     #[cfg(feature = "dns-over-h3")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-h3")))]
     H3,
-    /// mDNS protocol for performing multicast lookups
-    #[cfg(feature = "mdns")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
-    Mdns,
 }
 
 impl fmt::Display for Protocol {
@@ -363,8 +349,6 @@ impl fmt::Display for Protocol {
             Self::Quic => "quic",
             #[cfg(feature = "dns-over-h3")]
             Self::H3 => "h3",
-            #[cfg(feature = "mdns")]
-            Self::Mdns => "mdns",
         };
 
         f.write_str(protocol)
@@ -386,8 +370,6 @@ impl Protocol {
             Self::Quic => true,
             #[cfg(feature = "dns-over-h3")]
             Self::H3 => true,
-            #[cfg(feature = "mdns")]
-            Self::Mdns => true,
         }
     }
 
@@ -409,8 +391,6 @@ impl Protocol {
             Self::Quic => true,
             #[cfg(feature = "dns-over-h3")]
             Self::H3 => true,
-            #[cfg(feature = "mdns")]
-            Self::Mdns => false,
         }
     }
 }

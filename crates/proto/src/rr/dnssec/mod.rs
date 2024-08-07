@@ -9,7 +9,7 @@
 
 mod algorithm;
 mod digest_type;
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 mod ec_public_key;
 mod key_format;
 mod keypair;
@@ -17,7 +17,7 @@ mod nsec3;
 pub mod proof;
 pub mod public_key;
 pub mod rdata;
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 mod rsa_public_key;
 mod signer;
 mod supported_algorithm;
@@ -39,22 +39,31 @@ pub use self::trust_anchor::TrustAnchor;
 pub use self::verifier::Verifier;
 pub use crate::error::DnsSecResult;
 
-#[cfg(all(not(feature = "ring"), feature = "openssl"))]
-#[cfg_attr(docsrs, doc(cfg(all(not(feature = "ring"), feature = "openssl"))))]
+#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl")))
+)]
 pub use openssl::hash::DigestBytes as Digest;
 
-#[cfg(feature = "ring")]
-#[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
+#[cfg(feature = "dnssec-ring")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec-ring")))]
 pub use ring::digest::Digest;
 
 /// This is an empty type, enable Ring or OpenSSL for this feature
-#[cfg(not(any(feature = "openssl", feature = "ring")))]
-#[cfg_attr(docsrs, doc(cfg(not(any(feature = "openssl", feature = "ring")))))]
+#[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring"))))
+)]
 #[derive(Clone, Copy, Debug)]
 pub struct Digest;
 
-#[cfg(not(any(feature = "openssl", feature = "ring")))]
-#[cfg_attr(docsrs, doc(cfg(not(any(feature = "openssl", feature = "ring")))))]
+#[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring"))))
+)]
 #[allow(clippy::should_implement_trait)]
 impl Digest {
     /// This is an empty type, enable Ring or OpenSSL for this feature
@@ -69,23 +78,26 @@ impl Digest {
     }
 }
 
-#[cfg(any(feature = "openssl", feature = "ring"))]
-#[cfg_attr(docsrs, doc(cfg(any(feature = "openssl", feature = "ring"))))]
+#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring")))
+)]
 pub use self::key_format::KeyFormat;
 pub use self::keypair::KeyPair;
 #[allow(deprecated)]
 pub use self::signer::{SigSigner, Signer};
 
-#[cfg(feature = "openssl")]
-#[cfg_attr(docsrs, doc(cfg(feature = "openssl")))]
+#[cfg(feature = "dnssec-openssl")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec-openssl")))]
 pub use openssl::pkey::{HasPrivate, HasPublic, Private, Public};
 
-#[cfg(not(feature = "openssl"))]
-#[cfg_attr(docsrs, doc(cfg(not(feature = "openssl"))))]
+#[cfg(not(feature = "dnssec-openssl"))]
+#[cfg_attr(docsrs, doc(cfg(not(feature = "dnssec-openssl"))))]
 pub use self::faux_key_type::{HasPrivate, HasPublic, Private, Public};
 
-#[cfg(not(feature = "openssl"))]
-#[cfg_attr(docsrs, doc(cfg(not(feature = "openssl"))))]
+#[cfg(not(feature = "dnssec-openssl"))]
+#[cfg_attr(docsrs, doc(cfg(not(feature = "dnssec-openssl"))))]
 mod faux_key_type {
     /// A key that contains public key material
     pub trait HasPublic {}

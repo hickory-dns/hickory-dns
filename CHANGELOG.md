@@ -9,6 +9,17 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Fixed
 
+- (build) Suppress implicit features from optional dependencies #2337 by djc
+- (recursor) Fix SOA referrals #2331 by marcus0x62
+- (all) Update OpenSSL to fix security issue #2316 by justahero
+- (recursor) fix DNSSEC validation of NS somedomain.com. #2300 by japaric
+- (recursor) DnssecDnsHandle: do not recurse infinitely when query DS . fails #2271 by japaric
+- (recursor) answer with SERVFAIL when DNSSEC validation fails #2286 by japaric
+- (tests) Assert status for every NSEC3 test #2254 by pvdrz
+- (tests) dns-test: make unit tests use the checked out version of this repo #2268 by japaric
+- (tests) just: warn when the index is dirty and DNS_TEST_SUBJECT=hickory #2267 by japaric
+- (recursor) strip dnssec records on cache hit #2245 by japaric
+- (build) make just to compile bind #2248 by sabify
 - (recursor) send DS queries to the parent zone #2203 by japaric
 - (docs) add RFC2931 SIG(0) as supported #2216 by bluejekyll
 - (recursor) respect DO bit in incoming queries #2196 by japaric
@@ -22,6 +33,36 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Changed
 
+- (resolver) only retry I/O errors over TCP #2336 by lrouquette
+- (proto) Simplify TBS construction API #2335 by djc
+- (recursor) take is_subzone() arguments as &Name #2334 by djc
+- (proto) Use SerialNumber type for signature timestamps #2318 by justahero
+- (recursor) Improve recursor logic by eliminating redundant NS requests and adding recursor support for NS referrals. #2325 by marcus0x62
+- (resolver) Return error when no nameservers in resolv.conf #2327 by dav1do
+- (resolver) Make QuicSocketBinder as public as RuntimeProvider #2328 by mokeyish
+- (resolver) Make sure Lookup futures are Sync #2326 by djc
+- (server) leave query/opt in truncated msg #2307 by leshow
+- (tests) justfile: use --locked to stick with Cargo.lock dependencies #2323 by djc
+- (proto) Allow to modify a RRSIG record before signing #2315 by justahero
+- (all) Bump MSRV to 1.70 #2322 by djc
+- (recursor) Adjust TTL of RRSIG + RR during validation #2311 by justahero
+- (resolver) avoid moving self in read_hosts_conf（reading from multiple files）#2314 by mokeyish
+- (tests) dns-test: cache target directory across docker build invocations #2305 by japaric
+- (server) empty the answer section when DNSSEC validation fails #2304 by japaric
+- (tests) Adjust timestamps to pass unbound validation result #2303 by justahero
+- (recursor) validating recursor: return answer from cache #2297 by japaric
+- (proto) DnssecDnsHandle: also update the RRSIG's proof #2293 by japaric
+- (recursor) put tokio::test behind cfg attribute #2291 by japaric
+- (resolver) Refactor start method in Resolver #2281 by justahero
+- (server) improved server binary, added config validation and control over protocols #2247 by sabify
+- (tests) dns-test: use non-deprecated algorithm (RSASHA256) #2258 by japaric
+- (recursor) Recursor::resolve: reject queries with relative domain names #2246
+- (tests) CI: also run hickory unit tests when only /conformance changes #2269 by japaric
+- (all) Upgrade to rustls 0.23, quinn 0.11, etc #2217 by djc
+- (proto) DnssecDnsHandle: check RRSIG validity as per RFC4035 #2213 by japaric
+- (proto) NextRandomUdpSocket: fall back to port 0 if no port was found #2260 by Luap99
+- (tests) dns-test: do not run docker network create in parallel #2265 by japaric
+- (resolver) DnsLru: cache RRSIG records together with the record they cover #2239 by japaric
 - (proto) dns-test: make NameServer's FQDN more stable #2235 by japaric
 - (proto) refactor the Resource data structure #2231 by japaric
 - (tests) Add just recipes to clean leftover containers and networks #2232 by pvdrz
@@ -52,6 +93,20 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Added
 
+- (tests) Add information on cargo ws plugin #2319 by justahero
+- (recursor) Add support for PTR query #2308 by mokeyish
+- (tests) add regression test for #2306, #2309 by japaric
+- (tests) Add method to capture expected number of packets #2278 by justahero
+- (tests) test that answer section is empty on failed DNSSEC validation #2302 by japaric
+- (tests) Test invalid signature timestamps in DNSSEC validation #2298 by justahero
+- (tests) test caching of chain of trust link #2289 by japaric
+- (tests) test that DO=1 does not change the outcome of DNSSEC validation #2287 by japaric
+- (tests) Add test to check cache hit with DO bit #2280 by justahero
+- (tests) test caching of DNSSEC validation and of DNSSEC records #2244 by japaric
+- (recursor) add DNSSEC validation to the recursive resolver #2253
+- (proto) add a trust anchor file parser #2257 by japaric
+- (tests) just: document conformance-* tasks #2266 by japaric
+- (tests) Add conformance tests for NSEC3 #2238 by pvdrz
 - (tests) import DNSSEC conformance test suite repository #2222 by japaric
 - (client) Adds deref call in assertion for hickory-client README example #2173 by akappel
 - (proto) Make hickory_proto::h3::H3ClientStream Clonable #2182 by 0xffffharry

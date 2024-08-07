@@ -33,47 +33,47 @@ maintenance = { status = "actively-developed" }
 dns-over-tls = []
 dns-over-rustls = [
     "dns-over-tls",
-    "rustls",
-    "rustls-pemfile",
-    "tokio-rustls",
+    "rustls/ring",
+    "dep:rustls-pemfile",
+    "dep:tokio-rustls",
     "tokio-runtime",
 ]
 dns-over-native-tls = [
     "dns-over-tls",
-    "native-tls",
-    "tokio-native-tls",
+    "dep:native-tls",
+    "dep:tokio-native-tls",
     "tokio-runtime",
 ]
-dns-over-openssl = ["dns-over-tls", "openssl", "tokio-openssl", "tokio-runtime"]
+dns-over-openssl = ["dns-over-tls", "dep:openssl", "dep:tokio-openssl", "tokio-runtime"]
 
 dns-over-https-rustls = ["dns-over-https"]
-dns-over-https = ["bytes", "h2", "http", "dns-over-rustls", "tokio-runtime"]
+dns-over-https = ["dep:bytes", "dep:h2", "dep:http", "dns-over-rustls", "tokio-runtime"]
 dns-over-quic = [
-    "quinn",
-    "rustls/quic",
+    "dep:quinn",
     "dns-over-rustls",
-    "bytes",
+    "dep:bytes",
+    "dep:pin-project-lite",
     "tokio-runtime",
 ]
-dns-over-h3 = ["h3", "h3-quinn", "quinn", "http", "dns-over-quic"]
+dns-over-h3 = ["dep:h3", "dep:h3-quinn", "dep:quinn", "dep:http", "dns-over-quic"]
 
 native-certs = ["dep:rustls-native-certs"]
-dnssec = ["bitflags"]
+dnssec = ["dep:bitflags"]
 
-dnssec-openssl = ["dnssec", "openssl"]
-dnssec-ring = ["dnssec", "ring"]
+dnssec-openssl = ["dnssec", "dep:openssl"]
+dnssec-ring = ["dnssec", "dep:ring"]
 testing = []
 
 text-parsing = []
 tokio-runtime = ["tokio/net", "tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
 default = ["tokio-runtime"]
 
-serde-config = ["serde", "url/serde"]
+serde-config = ["dep:serde", "url/serde"]
 
 # enables experimental the mDNS (multicast) feature
 mdns = ["socket2/all"]
 
-wasm-bindgen = ["wasm-bindgen-crate", "js-sys"]
+wasm-bindgen = ["dep:wasm-bindgen-crate", "dep:js-sys"]
 
 backtrace = ["dep:backtrace"]
 
@@ -107,22 +107,24 @@ js-sys = { workspace = true, optional = true }
 native-tls = { workspace = true, optional = true }
 once_cell.workspace = true
 openssl = { workspace = true, features = ["v102", "v110"], optional = true }
+pin-project-lite = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true, features = [
     "log",
     "runtime-tokio",
-    "tls-rustls",
+    "rustls",
 ] }
 rand.workspace = true
 ring = { workspace = true, optional = true, features = ["std"] }
-rustls = { workspace = true, optional = true }
+rustls = { workspace = true, optional = true, default-features = false }
 rustls-native-certs = { workspace = true, optional = true }
 rustls-pemfile = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 socket2 = { workspace = true, optional = true }
 thiserror.workspace = true
+time.workspace = true
 tinyvec = { workspace = true, features = ["alloc"] }
 tracing.workspace = true
-tokio = { workspace = true, features = ["io-util"], optional = true }
+tokio = { workspace = true, features = ["io-util", "macros"], optional = true }
 tokio-native-tls = { workspace = true, optional = true }
 tokio-openssl = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true, features = ["early-data"] }
@@ -147,3 +149,6 @@ all-features = true
 default-target = "x86_64-unknown-linux-gnu"
 targets = ["x86_64-apple-darwin", "x86_64-pc-windows-msvc"]
 rustdoc-args = ["--cfg", "docsrs"]
+
+[lints]
+workspace = true

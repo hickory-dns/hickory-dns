@@ -7,6 +7,7 @@
 
 use hickory_resolver::config::{NameServerConfig, ResolverOpts};
 use std::future::Future;
+use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 
@@ -126,7 +127,7 @@ impl ConnectionProvider for AsyncStdConnectionProvider {
         &self,
         config: &NameServerConfig,
         options: &ResolverOpts,
-    ) -> Self::FutureConn {
+    ) -> Result<Self::FutureConn, io::Error> {
         self.connection_provider.new_connection(config, options)
     }
 }

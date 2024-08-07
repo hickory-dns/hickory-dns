@@ -22,13 +22,14 @@
 
 use std::net::SocketAddr;
 #[cfg(feature = "dns-over-rustls")]
-use std::{sync::Arc, time::SystemTime};
+use std::sync::Arc;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{
-    client::{HandshakeSignatureValid, ServerCertVerified},
-    Certificate, ClientConfig, DigitallySignedStruct, RootCertStore,
+    client::danger::{HandshakeSignatureValid, ServerCertVerified},
+    pki_types::{CertificateDer, ServerName, UnixTime},
+    ClientConfig, DigitallySignedStruct, RootCertStore,
 };
 use tokio::net::{TcpStream as TokioTcpStream, UdpSocket};
 use tracing::Level;
@@ -540,40 +541,40 @@ fn tls_config() -> Result<ClientConfig, Box<dyn std::error::Error>> {
         }
     }
     #[cfg(feature = "webpki-roots")]
-    root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-        rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
-            ta.subject,
-            ta.spki,
-            ta.name_constraints,
-        )
-    }));
+    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
 
-    Ok(ClientConfig::builder()
-        .with_safe_defaults()
-        .with_root_certificates(root_store)
-        .with_no_client_auth())
+    Ok(
+        ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+            .with_safe_default_protocol_versions()
+            .unwrap()
+            .with_root_certificates(root_store)
+            .with_no_client_auth(),
+    )
 }
 
 #[cfg(feature = "dns-over-rustls")]
 fn do_not_verify_nameserver_cert(tls_config: &mut ClientConfig) {
+    let provider = tls_config.crypto_provider().clone();
     tls_config
         .dangerous()
-        .set_certificate_verifier(Arc::new(DangerousVerifier));
+        .set_certificate_verifier(Arc::new(DangerousVerifier { provider }));
 }
 
 #[cfg(feature = "dns-over-rustls")]
-struct DangerousVerifier;
+#[derive(Debug)]
+struct DangerousVerifier {
+    provider: Arc<rustls::crypto::CryptoProvider>,
+}
 
 #[cfg(feature = "dns-over-rustls")]
-impl rustls::client::ServerCertVerifier for DangerousVerifier {
+impl rustls::client::danger::ServerCertVerifier for DangerousVerifier {
     fn verify_server_cert(
         &self,
-        _end_entity: &Certificate,
-        _intermediates: &[Certificate],
-        _server_name: &rustls::ServerName,
-        _scts: &mut dyn Iterator<Item = &[u8]>,
+        _end_entity: &CertificateDer<'_>,
+        _intermediates: &[CertificateDer<'_>],
+        _server_name: &ServerName<'_>,
         _ocsp_response: &[u8],
-        _now: SystemTime,
+        _now: UnixTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
         println!(";!!!NOT VERIFYING THE SERVER TLS CERTIFICATE!!!");
         Ok(ServerCertVerified::assertion())
@@ -582,7 +583,7 @@ impl rustls::client::ServerCertVerifier for DangerousVerifier {
     fn verify_tls12_signature(
         &self,
         _message: &[u8],
-        _cert: &Certificate,
+        _cert: &CertificateDer<'_>,
         _dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, rustls::Error> {
         println!(";!!!NOT VERIFYING THE SERVER TLS CERTIFICATE!!!");
@@ -592,10 +593,16 @@ impl rustls::client::ServerCertVerifier for DangerousVerifier {
     fn verify_tls13_signature(
         &self,
         _message: &[u8],
-        _cert: &Certificate,
+        _cert: &CertificateDer<'_>,
         _dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, rustls::Error> {
         println!(";!!!NOT VERIFYING THE SERVER TLS CERTIFICATE!!!");
         Ok(HandshakeSignatureValid::assertion())
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        self.provider
+            .signature_verification_algorithms
+            .supported_schemes()
     }
 }

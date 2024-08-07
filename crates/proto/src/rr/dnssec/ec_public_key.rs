@@ -42,8 +42,8 @@ impl ECPublicKey {
         &self.buf[..self.len]
     }
 
-    #[cfg(feature = "ring")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
+    #[cfg(feature = "dnssec-ring")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec-ring")))]
     pub fn unprefixed_bytes(&self) -> &[u8] {
         &self.buf[1..self.len]
     }

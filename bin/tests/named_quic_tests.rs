@@ -10,12 +10,12 @@
 
 mod server_harness;
 
-use std::{env, fs::File, io::*, net::*};
+use std::{env, fs::File, io::*, net::*, sync::Arc};
 
 use hickory_client::client::*;
 use hickory_proto::quic::QuicClientStream;
 use hickory_server::server::Protocol;
-use rustls::{Certificate, ClientConfig, OwnedTrustAnchor, RootCertStore};
+use rustls::{pki_types::CertificateDer, ClientConfig, RootCertStore};
 use tokio::runtime::Runtime;
 
 use server_harness::{named_test_harness, query_a};
@@ -48,21 +48,15 @@ fn test_example_quic_toml_startup() {
 
         // using the mozilla default root store
         let mut root_store = RootCertStore::empty();
-        root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-            OwnedTrustAnchor::from_subject_spki_name_constraints(
-                ta.subject,
-                ta.spki,
-                ta.name_constraints,
-            )
-        }));
+        root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+        root_store.add(CertificateDer::from(cert_der)).unwrap();
 
-        let cert = to_trust_anchor(&cert_der);
-        root_store.add(&cert).unwrap();
-
-        let client_config = ClientConfig::builder()
-            .with_safe_defaults()
-            .with_root_certificates(root_store)
-            .with_no_client_auth();
+        let client_config =
+            ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+                .with_safe_default_protocol_versions()
+                .unwrap()
+                .with_root_certificates(root_store)
+                .with_no_client_auth();
 
         let mut quic_builder = QuicClientStream::builder();
         quic_builder.crypto_config(client_config);
@@ -79,8 +73,4 @@ fn test_example_quic_toml_startup() {
         // a second request should work...
         query_a(&mut io_loop, &mut client);
     })
-}
-
-fn to_trust_anchor(cert_der: &[u8]) -> Certificate {
-    Certificate(cert_der.to_vec())
 }

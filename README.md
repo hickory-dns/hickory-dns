@@ -1,4 +1,4 @@
-[![minimum rustc: 1.67](https://img.shields.io/badge/minimum%20rustc-1.67-green?logo=rust)](https://www.whatrustisit.com)
+[![minimum rustc: 1.70](https://img.shields.io/badge/minimum%20rustc-1.70-green?logo=rust)](https://www.whatrustisit.com)
 [![Build Status](https://github.com/hickory-dns/hickory-dns/workflows/test/badge.svg?branch=main)](https://github.com/hickory-dns/hickory-dns/actions?query=workflow%3Atest)
 [![codecov](https://codecov.io/gh/hickory-dns/hickory-dns/branch/main/graph/badge.svg)](https://codecov.io/gh/hickory-dns/hickory-dns)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE-MIT)
@@ -182,7 +182,7 @@ presume that the hickory-dns repos have already been synced to the local system:
 
 ### Minimum Rust Version
 
-- The current minimum rustc version for this project is `1.67`
+- The current minimum rustc version for this project is `1.70`
 - OpenSSL development libraries (optional in client and resolver, min version 1.0.2)
 
 ### Mac OS X: using homebrew
@@ -204,7 +204,7 @@ presume that the hickory-dns repos have already been synced to the local system:
 
 ## Testing
 
-Hickory DNS uses `just` for build workflow management. While running `cargo test` at the project root will work, this is not exhaustive. Install `just` with `cargo install just`.
+Hickory DNS uses `just` for build workflow management. While running `cargo test` at the project root will work, this is not exhaustive. Install `just` with `cargo install just`. A few of the `just` recipes require [`cargo-workspaces`](https://github.com/pksunkara/cargo-workspaces) to be installed, a plugin to optimize the workflow around cargo workspaces. Install the plugin with `cargo install cargo-workspaces`.
 
 - Default tests
 

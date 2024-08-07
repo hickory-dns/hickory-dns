@@ -14,7 +14,7 @@ use std::str::FromStr;
 
 use test::Bencher;
 
-use hickory_client::rr::*;
+use hickory_proto::rr::{LowerName, Name};
 
 #[bench]
 fn name_cmp_short(b: &mut Bencher) {

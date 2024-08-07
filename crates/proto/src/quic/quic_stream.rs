@@ -152,7 +152,7 @@ impl QuicStream {
 
     /// finishes the send stream, i.e. there will be no more data sent to the remote
     pub async fn finish(&mut self) -> Result<(), ProtoError> {
-        self.send_stream.finish().await?;
+        self.send_stream.finish()?;
         Ok(())
     }
 

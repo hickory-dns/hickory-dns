@@ -29,7 +29,7 @@ use crate::{
     authority::DnssecAuthority,
     proto::rr::dnssec::{
         rdata::{key::KEY, DNSSECRData, NSEC},
-        {tbs, DnsSecResult, SigSigner, SupportedAlgorithms},
+        {DnsSecResult, SigSigner, SupportedAlgorithms},
     },
 };
 
@@ -738,6 +738,8 @@ impl InnerInMemory {
         zone_ttl: u32,
         zone_class: DNSClass,
     ) -> DnsSecResult<()> {
+        use hickory_proto::rr::dnssec::TBS;
+
         use crate::proto::rr::dnssec::rdata::RRSIG;
 
         let inception = OffsetDateTime::now_utc();
@@ -755,25 +757,7 @@ impl InnerInMemory {
             );
 
             let expiration = inception + signer.sig_duration();
-
-            let tbs = tbs::rrset_tbs(
-                rr_set.name(),
-                zone_class,
-                rr_set.name().num_labels(),
-                rr_set.record_type(),
-                signer.algorithm(),
-                rr_set.ttl(),
-                expiration.unix_timestamp() as u32,
-                inception.unix_timestamp() as u32,
-                signer.calculate_key_tag()?,
-                signer.signer_name(),
-                // TODO: this is a nasty clone... the issue is that the vec
-                //  from records is of Vec<&R>, but we really want &[R]
-                &rr_set
-                    .records_without_rrsigs()
-                    .cloned()
-                    .collect::<Vec<Record>>(),
-            );
+            let tbs = TBS::from_rrset(rr_set, zone_class, inception, expiration, signer);
 
             // TODO, maybe chain these with some ETL operations instead?
             let tbs = match tbs {

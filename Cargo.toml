@@ -15,10 +15,10 @@ members = [
 exclude = ["fuzz"]
 
 [workspace.package]
-version = "0.25.0-alpha.1"
+version = "0.25.0-alpha.2"
 authors = ["The contributors to Hickory DNS"]
 edition = "2021"
-rust-version = "1.67.0"
+rust-version = "1.70"
 homepage = "https://hickory-dns.org/"
 repository = "https://github.com/hickory-dns/hickory-dns"
 keywords = ["DNS", "BIND", "dig", "named", "dnssec"]
@@ -28,11 +28,11 @@ license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
 # hickory
-hickory-client = { version = "0.25.0-alpha.1", path = "crates/client", default-features = false }
-hickory-recursor = { version = "0.25.0-alpha.1", path = "crates/recursor", default-features = false }
-hickory-resolver = { version = "0.25.0-alpha.1", path = "crates/resolver", default-features = false }
-hickory-server = { version = "0.25.0-alpha.1", path = "crates/server", default-features = false }
-hickory-proto = { version = "0.25.0-alpha.1", path = "crates/proto", default-features = false }
+hickory-client = { version = "0.25.0-alpha.2", path = "crates/client", default-features = false }
+hickory-recursor = { version = "0.25.0-alpha.2", path = "crates/recursor", default-features = false }
+hickory-resolver = { version = "0.25.0-alpha.2", path = "crates/resolver", default-features = false }
+hickory-server = { version = "0.25.0-alpha.2", path = "crates/server", default-features = false }
+hickory-proto = { version = "0.25.0-alpha.2", path = "crates/proto", default-features = false }
 
 
 # logging
@@ -53,26 +53,31 @@ async-std = "1.6"
 tokio = "1.21"
 tokio-native-tls = "0.3.0"
 tokio-openssl = "0.6.0"
-tokio-rustls = "0.24.0"
+tokio-rustls = { version = "0.26", default-features = false }
 tokio-util = "0.7.9"
 parking_lot = "0.12"
+pin-project-lite = "0.2"
 
 
 # ssl
 native-tls = "0.2"
 openssl = "0.10.55"
-rustls = "0.21.8"
-rustls-native-certs = "0.6.3"
-rustls-pemfile = "1.0.0"
-webpki-roots = "0.25.0"
+rustls = { version = "0.23", default-features = false, features = [
+    "logging",
+    "std",
+    "tls12",
+] }
+rustls-native-certs = "0.7"
+rustls-pemfile = "2"
+webpki-roots = "0.26"
 ring = "0.17"
 
 
 # net proto
-quinn = { version = "0.10", default-features = false }
+quinn = { version = "0.11.2", default-features = false }
 h2 = "0.4.0"
-h3 = "0.0.4"
-h3-quinn = "0.0.5"
+h3 = "0.0.5"
+h3-quinn = "0.0.6"
 http = "1.1"
 
 
@@ -117,3 +122,6 @@ lto = true
 codegen-units = 1
 opt-level = 3
 strip = "symbols"
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(nightly)'] }

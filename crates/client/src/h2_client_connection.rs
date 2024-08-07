@@ -40,31 +40,22 @@ pub struct HttpsClientConnection<T> {
 /// use hickory_client::h2::HttpsClientConnection;
 /// use hickory_client::rr::{DNSClass, Name, RecordType};
 /// use hickory_proto::iocompat::AsyncIoTokioAsStd;
-/// use rustls::{ClientConfig, OwnedTrustAnchor, RootCertStore};
+/// use rustls::{ClientConfig, RootCertStore};
 /// use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+/// use std::sync::Arc;
 /// use webpki_roots;
 ///
 /// let name_server = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 443);
 /// let host_to_lookup = "example.com".to_string();
 ///
 /// let mut root_store = RootCertStore::empty();
-/// root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-///     OwnedTrustAnchor::from_subject_spki_name_constraints(
-///         ta.subject,
-///         ta.spki,
-///         ta.name_constraints,
-///     )
-/// }));
+/// root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
 ///
 /// let client_config = ClientConfig::builder()
-///     .with_safe_default_cipher_suites()
-///     .with_safe_default_kx_groups()
-///     .with_safe_default_protocol_versions()
-///     .unwrap()
 ///     .with_root_certificates(root_store)
 ///     .with_no_client_auth();
 ///
-/// let shared_client_config = std::sync::Arc::new(client_config);
+/// let shared_client_config = Arc::new(client_config);
 /// let conn: HttpsClientConnection<AsyncIoTokioAsStd<tokio::net::TcpStream>> =
 ///     HttpsClientConnection::new(name_server, "dns.google".to_string(), shared_client_config);
 ///
@@ -114,7 +105,7 @@ impl<T> HttpsClientConnection<T> {
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `bind_addr` - IP and port to connect from
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
-    /// * `client_config` - The TLS config    
+    /// * `client_config` - The TLS config
     #[allow(clippy::new_ret_no_self)]
     pub fn new_with_bind_addr(
         name_server: SocketAddr,

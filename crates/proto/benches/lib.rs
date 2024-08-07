@@ -4,7 +4,7 @@
 extern crate test;
 
 use hickory_proto::op::{Header, Message, MessageType, OpCode, ResponseCode};
-use hickory_proto::rr::Record;
+use hickory_proto::rr::{Name, Record, RecordType};
 use hickory_proto::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
 
 use test::Bencher;
@@ -60,9 +60,9 @@ fn bench_emit_message(b: &mut Bencher) {
         .set_authentic_data(true)
         .set_checking_disabled(true)
         .set_response_code(ResponseCode::ServFail);
-    message.add_answer(Record::new());
-    message.add_name_server(Record::new());
-    message.add_additional(Record::new());
+    message.add_answer(stub_record());
+    message.add_name_server(stub_record());
+    message.add_additional(stub_record());
     b.iter(|| {
         let mut byte_vec: Vec<u8> = Vec::with_capacity(512);
         let mut encoder = BinEncoder::new(&mut byte_vec);
@@ -84,9 +84,9 @@ fn bench_emit_message_no_reservation(b: &mut Bencher) {
         .set_authentic_data(true)
         .set_checking_disabled(true)
         .set_response_code(ResponseCode::ServFail);
-    message.add_answer(Record::new());
-    message.add_name_server(Record::new());
-    message.add_additional(Record::new());
+    message.add_answer(stub_record());
+    message.add_name_server(stub_record());
+    message.add_additional(stub_record());
     b.iter(|| {
         let mut byte_vec: Vec<u8> = Vec::with_capacity(0);
         let mut encoder = BinEncoder::new(&mut byte_vec);
@@ -109,9 +109,9 @@ fn bench_parse_message(b: &mut Bencher) {
         .set_checking_disabled(true)
         .set_response_code(ResponseCode::ServFail);
 
-    message.add_answer(Record::new());
-    message.add_name_server(Record::new());
-    message.add_additional(Record::new());
+    message.add_answer(stub_record());
+    message.add_name_server(stub_record());
+    message.add_additional(stub_record());
     let mut byte_vec: Vec<u8> = Vec::with_capacity(512);
     {
         let mut encoder = BinEncoder::new(&mut byte_vec);
@@ -121,6 +121,10 @@ fn bench_parse_message(b: &mut Bencher) {
         let mut decoder = BinDecoder::new(&byte_vec);
         Message::read(&mut decoder)
     })
+}
+
+fn stub_record() -> Record {
+    Record::update0(Name::new(), 0, RecordType::NULL)
 }
 
 #[bench]
