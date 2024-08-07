@@ -147,7 +147,7 @@ struct Opts {
 }
 
 fn print_record<D: RecordData, R: Deref<Target = Record<D>>>(r: &R) {
-    print!(
+    println!(
         "\t{name} {ttl} {class} {ty} {rdata}",
         name = style(r.name()).blue(),
         ttl = style(r.ttl()).blue(),
