@@ -106,15 +106,9 @@ webpki-roots = { workspace = true, optional = true }
 ipconfig = { workspace = true, optional = true }
 
 [dev-dependencies]
-futures-executor = { workspace = true, default-features = false, features = [
-    "std",
-] }
+futures-executor = { workspace = true, default-features = false, features = ["std"] }
 tokio = { workspace = true, features = ["macros", "test-util"] }
-tracing-subscriber = { workspace = true, features = [
-    "std",
-    "fmt",
-    "env-filter",
-] }
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
 
 [package.metadata.docs.rs]
 all-features = true
