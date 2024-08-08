@@ -166,12 +166,17 @@ impl Authority for RecursiveAuthority {
     async fn get_nsec3_records(
         &self,
         _name: &LowerName,
+        _query_type: RecordType,
         _lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError> {
         Err(LookupError::from(io::Error::new(
             io::ErrorKind::Other,
             "Getting NSEC3 records is unimplemented for the recursor",
         )))
+    }
+
+    fn is_nsec3_enabled(&self) -> bool {
+        false
     }
 }
 

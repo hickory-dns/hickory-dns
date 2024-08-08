@@ -12,7 +12,7 @@ use tracing::{debug, info};
 
 use crate::{
     authority::{
-        Authority, LookupError, LookupObject, LookupOptions, MessageRequest, UpdateResult, ZoneType
+        Authority, LookupError, LookupObject, LookupOptions, MessageRequest, UpdateResult, ZoneType,
     },
     proto::{
         op::ResponseCode,

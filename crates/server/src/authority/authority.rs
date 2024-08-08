@@ -172,7 +172,6 @@ pub trait Authority: Send + Sync {
         lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError>;
 
-
     /// Return the NSEC3 records based on the given name
     ///
     /// # Arguments
@@ -202,7 +201,7 @@ pub trait Authority: Send + Sync {
         self.lookup(self.origin(), RecordType::SOA, lookup_options)
             .await
     }
-    
+
     /// Whether NSEC3 should be used instead of NSEC
     fn is_nsec3_enabled(&self) -> bool;
 }

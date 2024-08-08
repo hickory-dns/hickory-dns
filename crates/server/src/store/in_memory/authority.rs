@@ -1577,6 +1577,7 @@ impl Authority for InMemoryAuthority {
     async fn get_nsec3_records(
         &self,
         _name: &LowerName,
+        _query_type: RecordType,
         _lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError> {
         Ok(AuthLookup::default())

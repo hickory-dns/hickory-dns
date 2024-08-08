@@ -225,7 +225,9 @@ impl Authority for FileAuthority {
         query_type: RecordType,
         lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError> {
-        self.0.get_nsec3_records(name, query_type, lookup_options).await
+        self.0
+            .get_nsec3_records(name, query_type, lookup_options)
+            .await
     }
 
     /// Returns the SOA of the authority.
@@ -293,6 +295,7 @@ mod tests {
             false,
             None,
             &config,
+            #[cfg(feature = "dnssec")]
             Nsec3Config::default(),
         )
         .expect("failed to load file");

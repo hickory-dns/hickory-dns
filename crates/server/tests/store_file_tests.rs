@@ -2,6 +2,8 @@ use std::str::FromStr;
 
 use hickory_proto::rr::{LowerName, Name, RecordType, RrKey};
 use hickory_server::authority::{Authority, LookupOptions, ZoneType};
+#[cfg(feature = "dnssec")]
+use hickory_server::config::Nsec3Config;
 use hickory_server::store::file::{FileAuthority, FileConfig};
 
 #[macro_use]
@@ -18,6 +20,8 @@ fn file(master_file_path: &str, _module: &str, _test_name: &str) -> FileAuthorit
         false,
         None,
         &config,
+        #[cfg(feature = "dnssec")]
+        Nsec3Config::default(),
     )
     .expect("failed to load file")
 }
@@ -38,6 +42,8 @@ fn test_all_lines_are_loaded() {
         false,
         None,
         &config,
+        #[cfg(feature = "dnssec")]
+        Nsec3Config::default(),
     )
     .expect("failed to load");
     let rrkey = RrKey {
@@ -59,6 +65,8 @@ fn test_implicit_in_class() {
         false,
         None,
         &config,
+        #[cfg(feature = "dnssec")]
+        Nsec3Config::default(),
     );
     assert!(authority.is_ok());
 }
@@ -76,6 +84,8 @@ async fn test_ttl_wilcard() {
         false,
         None,
         &config,
+        #[cfg(feature = "dnssec")]
+        Nsec3Config::default(),
     )
     .unwrap();
 
