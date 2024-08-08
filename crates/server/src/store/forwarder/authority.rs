@@ -7,7 +7,7 @@
 
 use std::io;
 
-use hickory_resolver::name_server::TokioConnectionProvider;
+use hickory_resolver::{config::ResolveHosts, name_server::TokioConnectionProvider};
 use tracing::{debug, info};
 
 use crate::{
@@ -75,6 +75,12 @@ impl ForwardAuthority {
             options.preserve_intermediates = true;
         }
 
+        // Require people to explicitly request for /etc/hosts usage in forwarder
+        // configs
+        if options.use_hosts_file == ResolveHosts::Auto {
+            options.use_hosts_file = ResolveHosts::Never;
+        }
+
         let config = ResolverConfig::from_parts(None, vec![], name_servers);
 
         let resolver = TokioAsyncResolver::new(config, options, TokioConnectionProvider::default());
@@ -127,7 +133,11 @@ impl Authority for ForwardAuthority {
         debug_assert!(self.origin.zone_of(name));
 
         debug!("forwarding lookup: {} {}", name, rtype);
-        let name: LowerName = name.clone();
+
+        // Ignore FQDN when we forward DNS queries. Without this we can't look
+        // up addresses from system hosts file.
+        let mut name: Name = name.clone().into();
+        name.set_fqdn(false);
         let resolve = self.resolver.lookup(name, rtype).await;
 
         resolve.map(ForwardLookup).map_err(LookupError::from)
