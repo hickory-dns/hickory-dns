@@ -29,10 +29,6 @@ keywords.workspace = true
 categories.workspace = true
 license.workspace = true
 
-[badges]
-codecov = { repository = "hickory-dns/hickory-dns", branch = "main", service = "github" }
-maintenance = { status = "actively-developed" }
-
 [features]
 backtrace = ["dep:backtrace", "hickory-proto/backtrace", "hickory-resolver/backtrace"]
 
