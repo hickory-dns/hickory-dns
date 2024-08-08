@@ -77,6 +77,7 @@ impl RecursiveAuthority {
         recursor
             .ns_cache_size(config.ns_cache_size)
             .record_cache_size(config.record_cache_size)
+            .recursion_limit(config.recursion_limit)
             .dnssec_policy(config.dnssec_policy.load()?);
         let recursor = recursor
             .build(roots)

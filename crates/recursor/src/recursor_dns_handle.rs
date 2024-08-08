@@ -8,9 +8,9 @@ use tracing::{debug, trace, warn};
 
 use crate::{
     proto::{
-        error::ForwardNSData,
+        error::{ForwardNSData, ProtoErrorKind},
         op::Query,
-        rr::{RData, RecordType},
+        rr::{RData, RData::CNAME, Record, RecordType},
     },
     recursor_pool::RecursorPool,
     resolver::{
@@ -32,6 +32,7 @@ pub(crate) struct RecursorDnsHandle {
     roots: RecursorPool<TokioRuntimeProvider>,
     name_server_cache: Arc<Mutex<NameServerCache<TokioRuntimeProvider>>>,
     record_cache: DnsLru,
+    recursion_limit: u8,
     security_aware: bool,
 }
 
@@ -40,6 +41,7 @@ impl RecursorDnsHandle {
         roots: impl Into<NameServerConfigGroup>,
         ns_cache_size: usize,
         record_cache_size: usize,
+        recursion_limit: u8,
         security_aware: bool,
     ) -> Result<Self, ResolveError> {
         // configure the hickory-resolver
@@ -59,6 +61,7 @@ impl RecursorDnsHandle {
             roots,
             name_server_cache,
             record_cache,
+            recursion_limit,
             security_aware,
         })
     }
@@ -68,11 +71,33 @@ impl RecursorDnsHandle {
         query: Query,
         request_time: Instant,
         query_has_dnssec_ok: bool,
+        mut depth: u8,
     ) -> Result<Lookup, Error> {
         if let Some(lookup) = self.record_cache.get(&query, request_time) {
-            let lookup = super::maybe_strip_dnssec_records(query_has_dnssec_ok, lookup?, query);
+            return Ok(super::maybe_strip_dnssec_records(
+                query_has_dnssec_ok,
+                self.resolve_cnames(
+                    lookup?,
+                    query.clone(),
+                    request_time,
+                    query_has_dnssec_ok,
+                    depth,
+                )
+                .await?,
+                query,
+            ));
+        }
 
-            return Ok(lookup);
+        depth += 1;
+        if self.recursion_limit > 0 && depth > self.recursion_limit {
+            debug!("Recursion depth exceeded for {query:?}");
+            return Err(ErrorKind::Proto(
+                ProtoErrorKind::NotAllRecordsWritten {
+                    count: (depth - 1) as usize,
+                }
+                .into(),
+            )
+            .into());
         }
 
         // Recursively search for authoritative name servers for the queried record to build an NS
@@ -167,7 +192,14 @@ impl RecursorDnsHandle {
                 // explicitly requested
                 Ok(super::maybe_strip_dnssec_records(
                     query_has_dnssec_ok,
-                    response,
+                    self.resolve_cnames(
+                        response,
+                        query.clone(),
+                        request_time,
+                        query_has_dnssec_ok,
+                        depth,
+                    )
+                    .await?,
                     query,
                 ))
             }
@@ -193,8 +225,15 @@ impl RecursorDnsHandle {
                                 // records unless explicitly requested
                                 Ok(super::maybe_strip_dnssec_records(
                                     query_has_dnssec_ok,
-                                    response,
-                                    query.clone(),
+                                    self.resolve_cnames(
+                                        response,
+                                        query.clone(),
+                                        request_time,
+                                        query_has_dnssec_ok,
+                                        depth,
+                                    )
+                                    .await?,
+                                    query,
                                 ))
                             }
                             Err(e) => Err(e),
@@ -204,6 +243,71 @@ impl RecursorDnsHandle {
                 }
             }
         }
+    }
+
+    /// Handle CNAME expansion.
+    ///
+    /// The algorithm here is pretty simple: if the original query type was for anything
+    /// except CNAME or ANY, attempt to chase CNAME expansion terminally.
+    #[async_recursion]
+    async fn resolve_cnames(
+        &self,
+        lookup: Lookup,
+        query: Query,
+        now: Instant,
+        query_has_dnssec_ok: bool,
+        depth: u8,
+    ) -> Result<Lookup, Error> {
+        let query_type = query.query_type();
+
+        if query_type != RecordType::CNAME && query_type != RecordType::ANY {
+            let mut cname_chain = vec![];
+
+            self.record_cache.insert_records(
+                query.clone(),
+                lookup.records().iter().map(Record::to_owned),
+                now,
+            );
+
+            for cname in lookup
+                .records()
+                .iter()
+                .filter(|record| record.record_type() == RecordType::CNAME)
+            {
+                if let CNAME(name) = cname.data() {
+                    let cname_query = Query::query(name.0.clone(), query_type);
+
+                    match self
+                        .resolve(cname_query, now, query_has_dnssec_ok, depth)
+                        .await
+                    {
+                        Ok(cname_r) => {
+                            // Collect CNAME and/or records matching the original query
+                            // type to append to the response.
+                            cname_r.records().iter().for_each(|r| {
+                                if r.record_type() == query_type
+                                    || r.record_type() == RecordType::CNAME
+                                {
+                                    cname_chain.push(Record::to_owned(r));
+                                }
+                            });
+                        }
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    }
+                }
+            }
+
+            // If there are records to append, convert into a Message, add the records, then convert
+            // back into a DnsResponse to return as a lookup.
+            if !cname_chain.is_empty() {
+                let lookup =
+                    lookup.append(Lookup::new_with_deadline(query, cname_chain.into(), now));
+                return Ok(lookup);
+            }
+        }
+        return Ok(lookup);
     }
 
     async fn lookup(
@@ -344,12 +448,12 @@ impl RecursorDnsHandle {
             debug!("need glue for {}", zone);
             let a_resolves = need_ips_for_names.iter().take(1).map(|name| {
                 let a_query = Query::query(name.0.clone(), RecordType::A);
-                self.resolve(a_query, request_time, false).boxed()
+                self.resolve(a_query, request_time, false, 0).boxed()
             });
 
             let aaaa_resolves = need_ips_for_names.iter().take(1).map(|name| {
                 let aaaa_query = Query::query(name.0.clone(), RecordType::AAAA);
-                self.resolve(aaaa_query, request_time, false).boxed()
+                self.resolve(aaaa_query, request_time, false, 0).boxed()
             });
 
             let mut a_resolves: Vec<_> = a_resolves.chain(aaaa_resolves).collect();
@@ -492,13 +596,13 @@ impl RecursorDnsHandle {
             debug!("ns_pool_for_referral need glue for {}", query_name);
             let a_resolves = need_ips_for_names.iter().take(1).map(|name| {
                 let a_query = Query::query(name.data().as_ns().unwrap().0.clone(), RecordType::A);
-                self.resolve(a_query, request_time, false).boxed()
+                self.resolve(a_query, request_time, false, 0).boxed()
             });
 
             let aaaa_resolves = need_ips_for_names.iter().take(1).map(|name| {
                 let aaaa_query =
                     Query::query(name.data().as_ns().unwrap().0.clone(), RecordType::AAAA);
-                self.resolve(aaaa_query, request_time, false).boxed()
+                self.resolve(aaaa_query, request_time, false, 0).boxed()
             });
 
             let mut a_resolves: Vec<_> = a_resolves.chain(aaaa_resolves).collect();

@@ -2,6 +2,7 @@
 
 use std::env;
 
+mod recursor;
 mod resolver;
 
 #[test]
