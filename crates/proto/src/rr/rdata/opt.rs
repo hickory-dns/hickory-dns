@@ -12,7 +12,7 @@ use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use tracing::warn;
@@ -164,7 +164,7 @@ use crate::rr::dnssec::SupportedAlgorithms;
 ///       Set to zero by senders and ignored by receivers, unless modified
 ///       in a subsequent specification.
 /// ```
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Default, Debug, Clone)]
 pub struct OPT {
     options: Vec<(EdnsCode, EdnsOption)>,
@@ -364,7 +364,7 @@ enum OptReadState {
 }
 
 /// The code of the EDNS data option
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Hash, Debug, Copy, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum EdnsCode {
@@ -461,7 +461,7 @@ impl From<EdnsCode> for u16 {
 /// `note: Not all EdnsOptions are supported at this time.`
 ///
 /// <https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-13>
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Hash)]
 #[non_exhaustive]
 pub enum EdnsOption {
@@ -605,7 +605,7 @@ impl<'a> From<&'a EdnsOption> for EdnsCode {
 ///    as a signal to the software developer making the request to fix
 ///    their implementation.
 /// ```
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct ClientSubnet {
     address: IpAddr,

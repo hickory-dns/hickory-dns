@@ -63,7 +63,7 @@ dnssec-openssl = ["dnssec", "hickory-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "hickory-proto/dnssec-ring"]
 dnssec = []
 
-serde-config = ["dep:serde", "hickory-proto/serde-config"]
+serde = ["dep:serde", "hickory-proto/serde"]
 system-config = ["dep:ipconfig", "dep:resolv-conf"]
 
 testing = []

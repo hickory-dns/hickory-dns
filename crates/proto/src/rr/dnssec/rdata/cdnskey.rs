@@ -9,7 +9,7 @@
 
 use std::{fmt, ops::Deref};
 
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -21,7 +21,7 @@ use crate::{
 use super::{DNSSECRData, DNSKEY};
 
 /// RRSIG is really a derivation of the original SIG record data. See SIG for more documentation
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct CDNSKEY(DNSKEY);
 

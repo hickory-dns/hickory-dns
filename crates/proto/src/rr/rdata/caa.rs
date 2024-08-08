@@ -23,7 +23,7 @@
 
 use std::{fmt, str};
 
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -132,7 +132,7 @@ use crate::{
 /// domain will change between the time a certificate was issued and
 /// validation by a relying party.
 /// ```
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct CAA {
     #[doc(hidden)]
@@ -220,7 +220,7 @@ impl CAA {
 }
 
 /// Specifies in what contexts this key may be trusted for use
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Property {
     /// The issue property
@@ -301,7 +301,7 @@ impl From<String> for Property {
 /// `Issue` and `IssueWild` => `Issuer`,
 /// `Iodef` => `Url`,
 /// `Unknown` => `Unknown`,
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Value {
     /// Issuer authorized to issue certs for this zone, and any associated parameters
@@ -630,7 +630,7 @@ pub fn read_iodef(url: &[u8]) -> ProtoResult<Url> {
 ///
 /// [RFC 8659, DNS Certification Authority Authorization, November 2019](https://www.rfc-editor.org/rfc/rfc8659#section-4.2)
 /// for more explanation.
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct KeyValue {
     key: String,

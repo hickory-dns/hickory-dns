@@ -9,7 +9,7 @@
 
 use std::fmt::{self, Display, Formatter};
 
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -66,7 +66,7 @@ use super::DNSSECRData;
 ///    hexadecimal digits.  Whitespace is allowed within the hexadecimal
 ///    text.
 /// ```
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct DS {
     key_tag: u16,

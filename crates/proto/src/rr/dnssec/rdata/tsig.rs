@@ -10,7 +10,7 @@
 
 use std::{convert::TryInto, fmt};
 
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -135,7 +135,7 @@ use crate::{
 ///      seconds (see Section 5.2.3).  This document assigns no meaning to
 ///      its contents in requests.
 /// ```
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct TSIG {
     algorithm: TsigAlgorithm,
@@ -175,7 +175,7 @@ pub struct TSIG {
 ///      | hmac-sha512-256          | MAY            | MAY             |
 ///      +--------------------------+----------------+-----------------+
 /// ```
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum TsigAlgorithm {
     /// HMAC-MD5.SIG-ALG.REG.INT (not supported for cryptographic operations)

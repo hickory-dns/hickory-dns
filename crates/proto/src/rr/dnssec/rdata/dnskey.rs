@@ -9,7 +9,7 @@
 
 use std::fmt;
 
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -72,7 +72,7 @@ use super::DNSSECRData;
 ///    backward compatibility with early versions of the KEY record.
 ///
 /// ```
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct DNSKEY {
     zone_key: bool,

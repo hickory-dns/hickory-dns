@@ -59,7 +59,7 @@ dnssec-openssl = ["dnssec", "hickory-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "hickory-proto/dnssec-ring"]
 dnssec = ["hickory-proto/dnssec"]
 
-serde-config = ["dep:serde", "hickory-proto/serde-config"]
+serde = ["dep:serde", "hickory-proto/serde"]
 
 # enables experimental the mDNS (multicast) feature
 mdns = ["hickory-proto/mdns"]
