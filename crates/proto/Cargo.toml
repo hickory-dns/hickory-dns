@@ -85,13 +85,9 @@ bytes = { workspace = true, optional = true }
 cfg-if.workspace = true
 data-encoding.workspace = true
 enum-as-inner.workspace = true
-futures-channel = { workspace = true, default-features = false, features = [
-    "std",
-] }
+futures-channel = { workspace = true, default-features = false, features = ["std"] }
 futures-io = { workspace = true, default-features = false, features = ["std"] }
-futures-util = { workspace = true, default-features = false, features = [
-    "std",
-] }
+futures-util = { workspace = true, default-features = false, features = ["std"] }
 h2 = { workspace = true, features = ["stream"], optional = true }
 h3 = { workspace = true, optional = true }
 h3-quinn = { workspace = true, optional = true }
@@ -103,11 +99,7 @@ native-tls = { workspace = true, optional = true }
 once_cell.workspace = true
 openssl = { workspace = true, features = ["v102", "v110"], optional = true }
 pin-project-lite = { workspace = true, optional = true }
-quinn = { workspace = true, optional = true, features = [
-    "log",
-    "runtime-tokio",
-    "rustls",
-] }
+quinn = { workspace = true, optional = true, features = ["log", "runtime-tokio", "rustls"] }
 rand.workspace = true
 ring = { workspace = true, optional = true, features = ["std"] }
 rustls = { workspace = true, optional = true, default-features = false }
@@ -128,16 +120,10 @@ wasm-bindgen-crate = { workspace = true, optional = true }
 webpki-roots = { workspace = true, optional = true }
 
 [dev-dependencies]
-futures-executor = { workspace = true, default-features = false, features = [
-    "std",
-] }
+futures-executor = { workspace = true, default-features = false, features = ["std"] }
 openssl = { workspace = true, features = ["v102", "v110"] }
 tokio = { workspace = true, features = ["rt", "time", "macros"] }
-tracing-subscriber = { workspace = true, features = [
-    "std",
-    "fmt",
-    "env-filter",
-] }
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
 
 [package.metadata.docs.rs]
 all-features = true

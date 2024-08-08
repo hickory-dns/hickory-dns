@@ -56,18 +56,14 @@ path = "src/lib.rs"
 async-std = { workspace = true, features = ["unstable"] }
 async-trait.workspace = true
 futures-io = { workspace = true, default-features = false, features = ["std"] }
-futures-util = { workspace = true, default-features = false, features = [
-    "std",
-] }
+futures-util = { workspace = true, default-features = false, features = ["std"] }
 pin-utils.workspace = true
 hickory-resolver = { workspace = true, default-features = false }
 socket2.workspace = true
 
 [dev-dependencies]
 async-std = { workspace = true, features = ["attributes"] }
-hickory-resolver = { workspace = true, default-features = false, features = [
-    "testing",
-] }
+hickory-resolver = { workspace = true, default-features = false, features = ["testing"] }
 
 [lints]
 workspace = true
