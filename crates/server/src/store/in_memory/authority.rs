@@ -35,8 +35,8 @@ use crate::{
 
 use crate::{
     authority::{
-        AnyRecords, AuthLookup, Authority, LookupError, LookupOptions, LookupRecords, LookupResult,
-        MessageRequest, UpdateResult, ZoneType,
+        AnyRecords, AuthLookup, Authority, LookupControlFlow, LookupError, LookupOptions,
+        LookupRecords, MessageRequest, UpdateResult, ZoneType,
     },
     proto::{
         op::ResponseCode,
@@ -986,11 +986,11 @@ impl Authority for InMemoryAuthority {
         name: &LowerName,
         query_type: RecordType,
         lookup_options: LookupOptions,
-    ) -> LookupResult<Self::Lookup> {
+    ) -> LookupControlFlow<Self::Lookup> {
         let inner = self.inner.read().await;
 
         // Collect the records from each rr_set
-        let (result, additionals): (LookupResult<LookupRecords, _>, Option<LookupRecords>) =
+        let (result, additionals): (LookupControlFlow<LookupRecords, _>, Option<LookupRecords>) =
             match query_type {
                 RecordType::AXFR | RecordType::ANY => {
                     let result = AnyRecords::new(
@@ -999,7 +999,10 @@ impl Authority for InMemoryAuthority {
                         query_type,
                         name.clone(),
                     );
-                    (LookupResult::Ok(LookupRecords::AnyRecords(result)), None)
+                    (
+                        LookupControlFlow::Continue(Ok(LookupRecords::AnyRecords(result))),
+                        None,
+                    )
                 }
                 _ => {
                     // perform the lookup
@@ -1102,8 +1105,13 @@ impl Authority for InMemoryAuthority {
 
                     // map the answer to a result
                     let answer = answer.map_or(
-                        LookupResult::Err(LookupError::from(ResponseCode::NXDomain)),
-                        |rr_set| LookupResult::Ok(LookupRecords::new(lookup_options, rr_set)),
+                        LookupControlFlow::Continue(Err(LookupError::from(ResponseCode::NXDomain))),
+                        |rr_set| {
+                            LookupControlFlow::Continue(Ok(LookupRecords::new(
+                                lookup_options,
+                                rr_set,
+                            )))
+                        },
                     );
 
                     let additionals = additionals.map(|a| LookupRecords::many(lookup_options, a));
@@ -1118,23 +1126,23 @@ impl Authority for InMemoryAuthority {
         //   generally return NoError and no results when other types exist at the same name. bah.
         // TODO: can we get rid of this?
         let result = match result {
-            LookupResult::Err(LookupError::ResponseCode(ResponseCode::NXDomain)) => {
+            LookupControlFlow::Continue(Err(LookupError::ResponseCode(ResponseCode::NXDomain))) => {
                 if inner
                     .records
                     .keys()
                     .any(|key| key.name() == name || name.zone_of(key.name()))
                 {
-                    return LookupResult::Err(LookupError::NameExists);
+                    return LookupControlFlow::Continue(Err(LookupError::NameExists));
                 } else {
                     let code = if self.origin().zone_of(name) {
                         ResponseCode::NXDomain
                     } else {
                         ResponseCode::Refused
                     };
-                    return LookupResult::Err(LookupError::from(code));
+                    return LookupControlFlow::Continue(Err(LookupError::from(code)));
                 }
             }
-            LookupResult::Err(e) => return LookupResult::Err(e),
+            LookupControlFlow::Continue(Err(e)) => return LookupControlFlow::Continue(Err(e)),
             o => o,
         };
 
@@ -1145,7 +1153,7 @@ impl Authority for InMemoryAuthority {
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> LookupResult<Self::Lookup> {
+    ) -> LookupControlFlow<Self::Lookup> {
         debug!("searching InMemoryAuthority for: {}", request_info.query);
 
         let lookup_name = request_info.query.name();
@@ -1156,14 +1164,18 @@ impl Authority for InMemoryAuthority {
         if RecordType::AXFR == record_type {
             // TODO: support more advanced AXFR options
             if !self.is_axfr_allowed() {
-                return LookupResult::Err(LookupError::from(ResponseCode::Refused));
+                return LookupControlFlow::Continue(Err(LookupError::from(ResponseCode::Refused)));
             }
 
             #[allow(deprecated)]
             match self.zone_type() {
                 ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave => (),
                 // TODO: Forward?
-                _ => return LookupResult::Err(LookupError::from(ResponseCode::NXDomain)),
+                _ => {
+                    return LookupControlFlow::Continue(Err(LookupError::from(
+                        ResponseCode::NXDomain,
+                    )))
+                }
             }
         }
 
@@ -1175,19 +1187,20 @@ impl Authority for InMemoryAuthority {
             }
             RecordType::AXFR => {
                 // TODO: shouldn't these SOA's be secure? at least the first, perhaps not the last?
-                let start_soa = if let LookupResult::Ok(res) = self.soa_secure(lookup_options).await
+                let start_soa = if let LookupControlFlow::Continue(Ok(res)) =
+                    self.soa_secure(lookup_options).await
                 {
                     res.unwrap_records()
                 } else {
                     LookupRecords::Empty
                 };
-                let end_soa = if let LookupResult::Ok(res) = self.soa().await {
+                let end_soa = if let LookupControlFlow::Continue(Ok(res)) = self.soa().await {
                     res.unwrap_records()
                 } else {
                     LookupRecords::Empty
                 };
 
-                let records = if let LookupResult::Ok(res) =
+                let records = if let LookupControlFlow::Continue(Ok(res)) =
                     self.lookup(lookup_name, record_type, lookup_options).await
                 {
                     res.unwrap_records()
@@ -1195,11 +1208,11 @@ impl Authority for InMemoryAuthority {
                     LookupRecords::Empty
                 };
 
-                LookupResult::Ok(AuthLookup::AXFR {
+                LookupControlFlow::Continue(Ok(AuthLookup::AXFR {
                     start_soa,
                     end_soa,
                     records,
-                })
+                }))
             }
             // A standard Lookup path
             _ => self.lookup(lookup_name, record_type, lookup_options).await,
@@ -1218,7 +1231,7 @@ impl Authority for InMemoryAuthority {
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> LookupResult<Self::Lookup> {
+    ) -> LookupControlFlow<Self::Lookup> {
         let inner = self.inner.read().await;
         fn is_nsec_rrset(rr_set: &RecordSet) -> bool {
             rr_set.record_type() == RecordType::NSEC
@@ -1232,7 +1245,7 @@ impl Authority for InMemoryAuthority {
             .map(|rr_set| LookupRecords::new(lookup_options, rr_set.clone()));
 
         if let Some(no_data) = no_data {
-            return LookupResult::Ok(no_data.into());
+            return LookupControlFlow::Continue(Ok(no_data.into()));
         }
 
         let get_closest_nsec = |name: &LowerName| -> Option<Arc<RecordSet>> {
@@ -1293,7 +1306,7 @@ impl Authority for InMemoryAuthority {
             (None, None) => vec![],
         };
 
-        LookupResult::Ok(LookupRecords::many(lookup_options, proofs).into())
+        LookupControlFlow::Continue(Ok(LookupRecords::many(lookup_options, proofs).into()))
     }
 
     #[cfg(not(feature = "dnssec"))]
@@ -1301,8 +1314,8 @@ impl Authority for InMemoryAuthority {
         &self,
         _name: &LowerName,
         _lookup_options: LookupOptions,
-    ) -> LookupResult<Self::Lookup> {
-        LookupResult::Ok(AuthLookup::default())
+    ) -> LookupControlFlow<Self::Lookup> {
+        LookupControlFlow::Continue(Ok(AuthLookup::default()))
     }
 }
 

@@ -11,7 +11,7 @@ use tracing::{debug, info};
 
 use crate::{
     authority::{
-        Authority, LookupError, LookupObject, LookupOptions, LookupResult, MessageRequest,
+        Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, MessageRequest,
         UpdateResult, ZoneType,
     },
     proto::{
@@ -127,7 +127,7 @@ impl Authority for RecursiveAuthority {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> LookupResult<Self::Lookup> {
+    ) -> LookupControlFlow<Self::Lookup> {
         debug!("recursive lookup: {} {}", name, rtype);
 
         let query = Query::query(name.into(), rtype);
@@ -139,8 +139,8 @@ impl Authority for RecursiveAuthority {
             .await;
 
         match result {
-            Ok(lookup) => LookupResult::Ok(RecursiveLookup(lookup)),
-            Err(error) => LookupResult::Err(LookupError::from(error)),
+            Ok(lookup) => LookupControlFlow::Continue(Ok(RecursiveLookup(lookup))),
+            Err(error) => LookupControlFlow::Continue(Err(LookupError::from(error))),
         }
     }
 
@@ -148,7 +148,7 @@ impl Authority for RecursiveAuthority {
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> LookupResult<Self::Lookup> {
+    ) -> LookupControlFlow<Self::Lookup> {
         self.lookup(
             request_info.query.name(),
             request_info.query.query_type(),
@@ -161,11 +161,11 @@ impl Authority for RecursiveAuthority {
         &self,
         _name: &LowerName,
         _lookup_options: LookupOptions,
-    ) -> LookupResult<Self::Lookup> {
-        LookupResult::Err(LookupError::from(io::Error::new(
+    ) -> LookupControlFlow<Self::Lookup> {
+        LookupControlFlow::Continue(Err(LookupError::from(io::Error::new(
             io::ErrorKind::Other,
             "Getting NSEC records is unimplemented for the recursor",
-        )))
+        ))))
     }
 }
 

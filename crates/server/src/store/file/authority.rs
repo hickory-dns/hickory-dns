@@ -22,7 +22,9 @@ use crate::{
     proto::rr::dnssec::{rdata::key::KEY, DnsSecResult, SigSigner},
 };
 use crate::{
-    authority::{Authority, LookupOptions, LookupResult, MessageRequest, UpdateResult, ZoneType},
+    authority::{
+        Authority, LookupControlFlow, LookupOptions, MessageRequest, UpdateResult, ZoneType,
+    },
     proto::rr::{LowerName, Name, RecordSet, RecordType, RrKey},
     proto::serialize::txt::Parser,
     server::RequestInfo,
@@ -156,7 +158,7 @@ impl Authority for FileAuthority {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> LookupResult<Self::Lookup> {
+    ) -> LookupControlFlow<Self::Lookup> {
         self.0.lookup(name, rtype, lookup_options).await
     }
 
@@ -175,12 +177,12 @@ impl Authority for FileAuthority {
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> LookupResult<Self::Lookup> {
+    ) -> LookupControlFlow<Self::Lookup> {
         self.0.search(request_info, lookup_options).await
     }
 
     /// Get the NS, NameServer, record for the zone
-    async fn ns(&self, lookup_options: LookupOptions) -> LookupResult<Self::Lookup> {
+    async fn ns(&self, lookup_options: LookupOptions) -> LookupControlFlow<Self::Lookup> {
         self.0.ns(lookup_options).await
     }
 
@@ -195,7 +197,7 @@ impl Authority for FileAuthority {
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> LookupResult<Self::Lookup> {
+    ) -> LookupControlFlow<Self::Lookup> {
         self.0.get_nsec_records(name, lookup_options).await
     }
 
@@ -203,12 +205,12 @@ impl Authority for FileAuthority {
     ///
     /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    async fn soa(&self) -> LookupResult<Self::Lookup> {
+    async fn soa(&self) -> LookupControlFlow<Self::Lookup> {
         self.0.soa().await
     }
 
     /// Returns the SOA record for the zone
-    async fn soa_secure(&self, lookup_options: LookupOptions) -> LookupResult<Self::Lookup> {
+    async fn soa_secure(&self, lookup_options: LookupOptions) -> LookupControlFlow<Self::Lookup> {
         self.0.soa_secure(lookup_options).await
     }
 }
