@@ -58,7 +58,7 @@ dns-over-quic = [
 dns-over-h3 = ["dep:h3", "dep:h3-quinn", "dep:quinn", "dep:http", "dns-over-quic"]
 
 native-certs = ["dep:rustls-native-certs"]
-dnssec = ["dep:bitflags"]
+dnssec = ["dep:bitflags", "dep:time"]
 
 dnssec-openssl = ["dnssec", "dep:openssl"]
 dnssec-ring = ["dnssec", "dep:ring"]
@@ -121,7 +121,7 @@ rustls-pemfile = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 socket2 = { workspace = true, optional = true }
 thiserror.workspace = true
-time.workspace = true
+time = { workspace = true, optional = true }
 tinyvec = { workspace = true, features = ["alloc"] }
 tracing.workspace = true
 tokio = { workspace = true, features = ["io-util", "macros"], optional = true }
