@@ -32,6 +32,7 @@ use crate::{
 #[cfg(feature = "dnssec")]
 use crate::{
     authority::{DnssecAuthority, UpdateRequest},
+    config::Nsec3Config,
     proto::rr::dnssec::{
         rdata::{key::KEY, DNSSECRData},
         DnsSecResult, SigSigner, Verifier,
@@ -80,6 +81,7 @@ impl SqliteAuthority {
         enable_dnssec: bool,
         root_dir: Option<&Path>,
         config: &SqliteConfig,
+        #[cfg(feature = "dnssec")] nsec3_config: Nsec3Config,
     ) -> Result<Self, String> {
         use crate::store::file::{FileAuthority, FileConfig};
 
@@ -97,7 +99,13 @@ impl SqliteAuthority {
             let journal = Journal::from_file(&journal_path)
                 .map_err(|e| format!("error opening journal: {journal_path:?}: {e}"))?;
 
-            let in_memory = InMemoryAuthority::empty(zone_name.clone(), zone_type, allow_axfr);
+            let in_memory = InMemoryAuthority::empty(
+                zone_name.clone(),
+                zone_type,
+                allow_axfr,
+                #[cfg(feature = "dnssec")]
+                nsec3_config,
+            );
             let mut authority = Self::new(in_memory, config.allow_update, enable_dnssec);
 
             authority
@@ -123,6 +131,8 @@ impl SqliteAuthority {
                 allow_axfr,
                 root_dir,
                 &file_config,
+                #[cfg(feature = "dnssec")]
+                nsec3_config,
             )?
             .unwrap();
 
@@ -979,6 +989,21 @@ impl Authority for SqliteAuthority {
         lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError> {
         self.in_memory.get_nsec_records(name, lookup_options).await
+    }
+
+    async fn get_nsec3_records(
+        &self,
+        name: &LowerName,
+        query_type: RecordType,
+        lookup_options: LookupOptions,
+    ) -> Result<Self::Lookup, LookupError> {
+        self.in_memory
+            .get_nsec3_records(name, query_type, lookup_options)
+            .await
+    }
+
+    fn is_nsec3_enabled(&self) -> bool {
+        self.in_memory.is_nsec3_enabled()
     }
 }
 

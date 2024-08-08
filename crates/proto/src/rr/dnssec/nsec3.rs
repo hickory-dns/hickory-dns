@@ -103,8 +103,9 @@ use crate::serialize::binary::{BinEncodable, BinEncoder};
 ///    requires IETF Standards Action [RFC2434].
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Default)]
 pub enum Nsec3HashAlgorithm {
+    #[default]
     /// Hash for the Nsec3 records
     SHA1,
 }

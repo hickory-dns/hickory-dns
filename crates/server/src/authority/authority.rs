@@ -172,6 +172,20 @@ pub trait Authority: Send + Sync {
         lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError>;
 
+    /// Return the NSEC3 records based on the given name
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - given this name (i.e. the lookup name), return the NSEC record that is less than
+    ///            this
+    /// * `is_secure` - if true then it will return RRSIG records as well
+    async fn get_nsec3_records(
+        &self,
+        name: &LowerName,
+        query_type: RecordType,
+        lookup_options: LookupOptions,
+    ) -> Result<Self::Lookup, LookupError>;
+
     /// Returns the SOA of the authority.
     ///
     /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
@@ -187,6 +201,9 @@ pub trait Authority: Send + Sync {
         self.lookup(self.origin(), RecordType::SOA, lookup_options)
             .await
     }
+
+    /// Whether NSEC3 should be used instead of NSEC
+    fn is_nsec3_enabled(&self) -> bool;
 }
 
 /// Extension to Authority to allow for DNSSEC features

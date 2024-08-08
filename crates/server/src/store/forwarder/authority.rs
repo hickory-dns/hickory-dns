@@ -156,6 +156,22 @@ impl Authority for ForwardAuthority {
             "Getting NSEC records is unimplemented for the forwarder",
         )))
     }
+
+    async fn get_nsec3_records(
+        &self,
+        _name: &LowerName,
+        _query_type: RecordType,
+        _lookup_options: LookupOptions,
+    ) -> Result<Self::Lookup, LookupError> {
+        Err(LookupError::from(io::Error::new(
+            io::ErrorKind::Other,
+            "Getting NSEC3 records is unimplemented for the forwarder",
+        )))
+    }
+
+    fn is_nsec3_enabled(&self) -> bool {
+        false
+    }
 }
 
 /// A structure that holds the results of a forwarding lookup.

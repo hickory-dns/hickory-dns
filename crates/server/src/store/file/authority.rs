@@ -19,12 +19,15 @@ use tracing::{debug, info};
 #[cfg(feature = "dnssec")]
 use crate::{
     authority::DnssecAuthority,
+    config::Nsec3Config,
     proto::rr::dnssec::{rdata::key::KEY, DnsSecResult, SigSigner},
 };
 use crate::{
     authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType},
-    proto::rr::{LowerName, Name, RecordSet, RecordType, RrKey},
-    proto::serialize::txt::Parser,
+    proto::{
+        rr::{LowerName, Name, RecordSet, RecordType, RrKey},
+        serialize::txt::Parser,
+    },
     server::RequestInfo,
     store::{file::FileConfig, in_memory::InMemoryAuthority},
 };
@@ -56,8 +59,17 @@ impl FileAuthority {
         records: BTreeMap<RrKey, RecordSet>,
         zone_type: ZoneType,
         allow_axfr: bool,
+        #[cfg(feature = "dnssec")] nsec3_config: Nsec3Config,
     ) -> Result<Self, String> {
-        InMemoryAuthority::new(origin, records, zone_type, allow_axfr).map(Self)
+        InMemoryAuthority::new(
+            origin,
+            records,
+            zone_type,
+            allow_axfr,
+            #[cfg(feature = "dnssec")]
+            nsec3_config,
+        )
+        .map(Self)
     }
 
     /// Read the Authority for the origin from the specified configuration
@@ -67,6 +79,7 @@ impl FileAuthority {
         allow_axfr: bool,
         root_dir: Option<&Path>,
         config: &FileConfig,
+        #[cfg(feature = "dnssec")] nsec3_config: Nsec3Config,
     ) -> Result<Self, String> {
         let root_dir_path = root_dir.map(PathBuf::from).unwrap_or_default();
         let zone_path = root_dir_path.join(&config.zone_file_path);
@@ -89,7 +102,14 @@ impl FileAuthority {
         );
         debug!("zone: {:#?}", records);
 
-        Self::new(origin, records, zone_type, allow_axfr)
+        Self::new(
+            origin,
+            records,
+            zone_type,
+            allow_axfr,
+            #[cfg(feature = "dnssec")]
+            nsec3_config,
+        )
     }
 
     /// Unwrap the InMemoryAuthority
@@ -199,6 +219,17 @@ impl Authority for FileAuthority {
         self.0.get_nsec_records(name, lookup_options).await
     }
 
+    async fn get_nsec3_records(
+        &self,
+        name: &LowerName,
+        query_type: RecordType,
+        lookup_options: LookupOptions,
+    ) -> Result<Self::Lookup, LookupError> {
+        self.0
+            .get_nsec3_records(name, query_type, lookup_options)
+            .await
+    }
+
     /// Returns the SOA of the authority.
     ///
     /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
@@ -210,6 +241,10 @@ impl Authority for FileAuthority {
     /// Returns the SOA record for the zone
     async fn soa_secure(&self, lookup_options: LookupOptions) -> Result<Self::Lookup, LookupError> {
         self.0.soa_secure(lookup_options).await
+    }
+
+    fn is_nsec3_enabled(&self) -> bool {
+        self.0.is_nsec3_enabled()
     }
 }
 
@@ -260,6 +295,8 @@ mod tests {
             false,
             None,
             &config,
+            #[cfg(feature = "dnssec")]
+            Nsec3Config::default(),
         )
         .expect("failed to load file");
 
