@@ -258,6 +258,7 @@ impl ZoneConfig {
     /// * `enable_dnssec` - enable signing of the zone for DNSSEC
     /// * `nsec3` - NSEC3 Related configuration
     /// * `keys` - list of private and public keys used to sign a zone
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         zone: String,
         zone_type: ZoneType,
@@ -358,9 +359,9 @@ const fn default_iterations() -> NonZeroU16 {
 impl Default for Nsec3Config {
     fn default() -> Self {
         Self {
-            enable: Default::default(),
-            hash_algorithm: Default::default(),
-            salt: Default::default(),
+            enable: bool::default(),
+            hash_algorithm: Nsec3HashAlgorithm::default(),
+            salt: Vec::default(),
             iterations: default_iterations(),
         }
     }

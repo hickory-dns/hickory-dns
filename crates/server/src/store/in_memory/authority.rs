@@ -823,7 +823,7 @@ impl InnerInMemory {
         let mut record_types = record_types
             .into_iter()
             .map(|(name, type_bit_maps)| {
-                let hashed_name = hash_alg.hash(&salt, name.borrow(), iterations).unwrap();
+                let hashed_name = hash_alg.hash(salt, name.borrow(), iterations).unwrap();
                 (hashed_name, type_bit_maps)
             })
             .collect::<Vec<_>>();
