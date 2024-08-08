@@ -20,7 +20,7 @@ use proto::rr::Name;
 #[cfg(feature = "dns-over-rustls")]
 use rustls::ClientConfig;
 
-#[cfg(all(feature = "serde-config", feature = "dns-over-rustls"))]
+#[cfg(all(feature = "serde", feature = "dns-over-rustls"))]
 use serde::{
     de::{Deserialize as DeserializeT, Deserializer},
     ser::{Serialize as SerializeT, Serializer},
@@ -28,13 +28,13 @@ use serde::{
 
 /// Configuration for the upstream nameservers to use for resolution
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde-config", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ResolverConfig {
     // base search domain
-    #[cfg_attr(feature = "serde-config", serde(default))]
+    #[cfg_attr(feature = "serde", serde(default))]
     domain: Option<Name>,
     // search domains
-    #[cfg_attr(feature = "serde-config", serde(default))]
+    #[cfg_attr(feature = "serde", serde(default))]
     search: Vec<Name>,
     // nameservers to use for resolution.
     name_servers: NameServerConfigGroup,
@@ -308,7 +308,7 @@ impl Default for ResolverConfig {
 /// The protocol on which a NameServer should be communicated with
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(
-    feature = "serde-config",
+    feature = "serde",
     derive(Serialize, Deserialize),
     serde(rename_all = "lowercase")
 )]
@@ -428,15 +428,15 @@ impl std::fmt::Debug for TlsClientConfig {
 
 /// Configuration for the NameServer
 #[derive(Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "serde-config", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct NameServerConfig {
     /// The address which the DNS NameServer is registered at.
     pub socket_addr: SocketAddr,
     /// The protocol to use when communicating with the NameServer.
-    #[cfg_attr(feature = "serde-config", serde(default))]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub protocol: Protocol,
     /// SPKI name, only relevant for TLS connections
-    #[cfg_attr(feature = "serde-config", serde(default))]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub tls_dns_name: Option<String>,
     /// Whether to trust `NXDOMAIN` responses from upstream nameservers.
     ///
@@ -450,11 +450,11 @@ pub struct NameServerConfig {
     /// configuration setting.)
     ///
     /// Defaults to false.
-    #[cfg_attr(feature = "serde-config", serde(default))]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub trust_negative_responses: bool,
     #[cfg(feature = "dns-over-rustls")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
-    #[cfg_attr(feature = "serde-config", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(skip))]
     /// Optional configuration for the TLS client.
     ///
     /// The correct ALPN for the corresponding protocol is automatically
@@ -494,7 +494,7 @@ impl fmt::Display for NameServerConfig {
 /// A set of name_servers to associate with a [`ResolverConfig`].
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(
-    all(feature = "serde-config", not(feature = "dns-over-rustls")),
+    all(feature = "serde", not(feature = "dns-over-rustls")),
     derive(Serialize, Deserialize)
 )]
 pub struct NameServerConfigGroup(
@@ -502,7 +502,7 @@ pub struct NameServerConfigGroup(
     #[cfg(feature = "dns-over-rustls")] Option<TlsClientConfig>,
 );
 
-#[cfg(all(feature = "serde-config", feature = "dns-over-rustls"))]
+#[cfg(all(feature = "serde", feature = "dns-over-rustls"))]
 impl SerializeT for NameServerConfigGroup {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -512,7 +512,7 @@ impl SerializeT for NameServerConfigGroup {
     }
 }
 
-#[cfg(all(feature = "serde-config", feature = "dns-over-rustls"))]
+#[cfg(all(feature = "serde", feature = "dns-over-rustls"))]
 impl<'de> DeserializeT<'de> for NameServerConfigGroup {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -846,7 +846,7 @@ impl From<Vec<NameServerConfig>> for NameServerConfigGroup {
 
 /// The lookup ip strategy
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde-config", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum LookupIpStrategy {
     /// Only query for A (Ipv4) records
     Ipv4Only,
@@ -869,7 +869,7 @@ impl Default for LookupIpStrategy {
 
 /// The strategy for establishing the query order of name servers in a pool.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde-config", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum ServerOrderingStrategy {
     /// Servers are ordered based on collected query statistics. The ordering
     /// may vary over time.
@@ -888,11 +888,7 @@ impl Default for ServerOrderingStrategy {
 
 /// Configuration for the Resolver
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(
-    feature = "serde-config",
-    derive(Serialize, Deserialize),
-    serde(default)
-)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(default))]
 #[allow(missing_copy_implementations)]
 #[non_exhaustive]
 pub struct ResolverOpts {

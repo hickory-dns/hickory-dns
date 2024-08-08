@@ -63,7 +63,7 @@ text-parsing = []
 tokio-runtime = ["tokio/net", "tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
 default = ["tokio-runtime"]
 
-serde-config = ["dep:serde", "url/serde"]
+serde = ["dep:serde", "url/serde"]
 
 # enables experimental the mDNS (multicast) feature
 mdns = ["socket2/all"]

@@ -19,7 +19,7 @@ use crate::rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label,
 use crate::rr::domain::usage::LOCALHOST as LOCALHOST_usage;
 use crate::serialize::binary::*;
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use tinyvec::TinyVec;
 
@@ -1328,7 +1328,7 @@ where
     }
 }
 
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 impl Serialize for Name {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1338,7 +1338,7 @@ impl Serialize for Name {
     }
 }
 
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for Name {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

@@ -32,7 +32,7 @@
 
 use std::{fmt, ops::Deref};
 
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -75,7 +75,7 @@ pub fn emit(encoder: &mut BinEncoder<'_>, name_data: &Name) -> ProtoResult<()> {
 macro_rules! name_rdata {
     ($name: ident) => {
         #[doc = stringify!(new type for the RecordData of $name)]
-        #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+        #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
         #[derive(Debug, PartialEq, Eq, Hash, Clone)]
         pub struct $name(pub Name);
 

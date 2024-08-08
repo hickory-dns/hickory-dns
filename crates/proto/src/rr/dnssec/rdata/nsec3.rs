@@ -9,7 +9,7 @@
 
 use std::fmt;
 
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -108,7 +108,7 @@ use super::DNSSECRData;
 ///  does not include the name of the containing zone.  The length of this
 ///  field is determined by the preceding Hash Length field.
 /// ```
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct NSEC3 {
     hash_algorithm: Nsec3HashAlgorithm,

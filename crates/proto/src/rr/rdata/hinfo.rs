@@ -9,7 +9,7 @@
 
 use std::fmt;
 
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -44,7 +44,7 @@ use crate::{
 /// ```
 ///
 /// [rfc1035]: https://tools.ietf.org/html/rfc1035
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct HINFO {
     cpu: Box<[u8]>,

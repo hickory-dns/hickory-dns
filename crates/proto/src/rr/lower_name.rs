@@ -14,7 +14,7 @@ use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 
 use crate::error::*;
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::rr::Name;
@@ -291,7 +291,7 @@ impl FromStr for LowerName {
     }
 }
 
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 impl Serialize for LowerName {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -301,7 +301,7 @@ impl Serialize for LowerName {
     }
 }
 
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for LowerName {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

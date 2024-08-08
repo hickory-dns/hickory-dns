@@ -129,8 +129,8 @@ tokio-openssl = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true }
 tokio-util.workspace = true
 hickory-proto = { workspace = true, features = ["text-parsing", "tokio-runtime"] }
-hickory-recursor = { workspace = true, features = ["serde-config"], optional = true }
-hickory-resolver = { workspace = true, features = ["serde-config", "system-config", "tokio-runtime"], optional = true }
+hickory-recursor = { workspace = true, features = ["serde"], optional = true }
+hickory-resolver = { workspace = true, features = ["serde", "system-config", "tokio-runtime"], optional = true }
 
 [dev-dependencies]
 futures-executor = { workspace = true, default-features = false, features = ["std"] }

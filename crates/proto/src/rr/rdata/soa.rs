@@ -9,7 +9,7 @@
 
 use std::fmt;
 
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -62,7 +62,7 @@ use crate::{
 /// reason for this provision is to allow future dynamic update facilities to
 /// change the SOA RR with known semantics.
 /// ```
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct SOA {
     mname: Name,
