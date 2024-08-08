@@ -28,6 +28,7 @@ use crate::proto::rr::Name;
 use crate::authority::ZoneType;
 #[cfg(feature = "toml")]
 use crate::error::ConfigResult;
+use crate::store::file::FileConfig;
 use crate::store::StoreConfig;
 
 static DEFAULT_PATH: &str = "/var/named"; // TODO what about windows (do I care? ;)
@@ -221,8 +222,6 @@ pub struct ZoneConfig {
     pub zone: String, // TODO: make Domain::Name decodable
     /// type of the zone
     pub zone_type: ZoneType,
-    /// location of the file (short for StoreConfig::FileConfig{zone_file_path})
-    pub file: Option<String>,
     /// Deprecated allow_update, this is a Store option
     pub allow_update: Option<bool>,
     /// Allow AXFR (TODO: need auth)
@@ -233,8 +232,7 @@ pub struct ZoneConfig {
     #[serde(default)]
     pub keys: Vec<dnssec::KeyConfig>,
     /// Store configurations, TODO: allow chained Stores
-    #[serde(default)]
-    pub stores: Option<StoreConfig>,
+    pub stores: StoreConfig,
 }
 
 impl ZoneConfig {
@@ -244,12 +242,13 @@ impl ZoneConfig {
     ///
     /// * `zone` - name of a zone, e.g. example.com
     /// * `zone_type` - Type of zone, e.g. Primary, Secondary, etc.
-    /// * `file` - relative to Config base path, to the zone file
+    /// * `file` - relative to Config base path, to the zone file. This translates to a
+    ///    [`Store::FileConfig`] with the given path.
     /// * `allow_update` - enable dynamic updates
     /// * `allow_axfr` - enable AXFR transfers
     /// * `enable_dnssec` - enable signing of the zone for DNSSEC
     /// * `keys` - list of private and public keys used to sign a zone
-    pub fn new(
+    pub fn new_with_file_zone(
         zone: String,
         zone_type: ZoneType,
         file: String,
@@ -261,12 +260,11 @@ impl ZoneConfig {
         Self {
             zone,
             zone_type,
-            file: Some(file),
             allow_update,
             allow_axfr,
             enable_dnssec,
             keys,
-            stores: None,
+            stores: StoreConfig::File(FileConfig::new(file)),
         }
     }
 
@@ -285,9 +283,17 @@ impl ZoneConfig {
     ///
     /// this is ony used on first load, if dynamic update is enabled for the zone, then the journal
     /// file is the actual source of truth for the zone.
-    pub fn get_file(&self) -> PathBuf {
-        // TODO: Option on PathBuf
-        PathBuf::from(self.file.as_ref().expect("file was none"))
+    pub fn get_file(&self) -> Option<PathBuf> {
+        let str_path = match &self.stores {
+            StoreConfig::File(file_config) => &file_config.zone_file_path,
+            #[cfg(feature = "sqlite")]
+            StoreConfig::Sqlite(sqlite_config) => &sqlite_config.zone_file_path,
+            #[cfg(feature = "hickory-resolver")]
+            StoreConfig::Forward(_) => return None,
+            #[cfg(feature = "hickory-recursor")]
+            StoreConfig::Recursor(_) => return None,
+        };
+        Some(PathBuf::from(str_path))
     }
 
     /// enable dynamic updates for the zone (see SIG0 and the registered keys)
