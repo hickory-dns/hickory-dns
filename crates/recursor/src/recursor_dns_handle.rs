@@ -1,4 +1,8 @@
-use std::{net::SocketAddr, sync::Arc, time::Instant};
+use std::{
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+    time::Instant,
+};
 
 use async_recursion::async_recursion;
 use futures_util::{future::select_all, FutureExt};
@@ -270,6 +274,7 @@ impl RecursorDnsHandle {
         // TODO: check for cached ns pool for this zone
 
         let lookup = Query::query(zone.clone(), RecordType::NS);
+
         let response = self
             .lookup(lookup.clone(), nameserver_pool.clone(), request_time, false)
             .await?;
@@ -293,7 +298,7 @@ impl RecursorDnsHandle {
 
                 if !super::is_subzone(&zone.base_name(), zns.name()) {
                     warn!(
-                        "Dropping out of bailiwick record for {:?} with parent {:?}",
+                        "dropping out of bailiwick record for {:?} with parent {:?}",
                         zns.name().clone(),
                         zone.base_name().clone()
                     );
@@ -312,69 +317,99 @@ impl RecursorDnsHandle {
                 let cached_a = cached_a.and_then(Result::ok).map(Lookup::into_iter);
                 let cached_aaaa = cached_aaaa.and_then(Result::ok).map(Lookup::into_iter);
 
-                let glue_ips = cached_a
+                let glue_ips: Vec<IpAddr> = cached_a
                     .into_iter()
                     .flatten()
                     .chain(cached_aaaa.into_iter().flatten())
-                    .filter_map(|r| RData::ip_addr(&r));
+                    .filter_map(|r| RData::ip_addr(&r))
+                    .collect();
 
-                let mut had_glue = false;
-                for ip in glue_ips {
-                    let mut udp = NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Udp);
-                    let mut tcp = NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Tcp);
-
-                    udp.trust_negative_responses = true;
-                    tcp.trust_negative_responses = true;
-
-                    config_group.push(udp);
-                    config_group.push(tcp);
-                    had_glue = true;
-                }
-
-                if !had_glue {
+                if glue_ips.is_empty() {
                     debug!("glue not found for {}", ns_data);
                     need_ips_for_names.push(ns_data);
+                }
+
+                super::add_config_group_recs(glue_ips, &mut config_group);
+            }
+        }
+
+        // If we have no glue, collect missing IP addresses for non-child NS servers
+        // Querying for child NS servers can result in infinite recursion if the
+        // parent nameserver never returns glue records for child NS records, or does
+        // so based on cache freshness (observed with BIND)
+        if config_group.is_empty() && !need_ips_for_names.is_empty() {
+            debug!("need glue for {zone}");
+
+            let mut resolve_futures = vec![];
+            need_ips_for_names
+                .iter()
+                .filter(|name| !crate::is_subzone(&zone, &name.0))
+                .take(1)
+                .for_each(|name| {
+                    for rec_type in [RecordType::A, RecordType::AAAA] {
+                        resolve_futures.push(
+                            self.resolve(
+                                Query::query(name.0.clone(), rec_type),
+                                request_time,
+                                self.security_aware,
+                            )
+                            .boxed(),
+                        );
+                    }
+                });
+
+            while !resolve_futures.is_empty() {
+                let (next, _, rest) = select_all(resolve_futures).await;
+                resolve_futures = rest;
+
+                match next {
+                    Ok(res) => {
+                        let ips = res.iter().filter_map(RData::ip_addr).collect();
+                        super::add_config_group_recs(ips, &mut config_group);
+                    }
+                    Err(e) => warn!("unable to resolve NS: {e}"),
                 }
             }
         }
 
-        // collect missing IP addresses, select over them all, get the addresses
-        // make it configurable to query for all records?
+        // If we still have no NS records, try to query the parent zone for child NS servers
+        // Note that while this section looks very similar to the previous section, there is
+        // a very important difference: the use of lookup to resolve NS addresses, vs resolve
+        // in the previous section.  Using resolve here will cause an infinite loop for these
+        // nameservers. Using lookup with nameserver_pool in the previous section would almost
+        // always cause resolution failures.
         if config_group.is_empty() && !need_ips_for_names.is_empty() {
-            debug!("need glue for {}", zone);
-            let a_resolves = need_ips_for_names.iter().take(1).map(|name| {
-                let a_query = Query::query(name.0.clone(), RecordType::A);
-                self.resolve(a_query, request_time, false).boxed()
-            });
+            debug!("priming zone {zone} via parent zone {}", zone.base_name());
 
-            let aaaa_resolves = need_ips_for_names.iter().take(1).map(|name| {
-                let aaaa_query = Query::query(name.0.clone(), RecordType::AAAA);
-                self.resolve(aaaa_query, request_time, false).boxed()
-            });
+            let mut lookup_futures = vec![];
+            need_ips_for_names
+                .iter()
+                .filter(|name| crate::is_subzone(&zone, &name.0))
+                .take(1)
+                .for_each(|name| {
+                    for rec_type in [RecordType::A, RecordType::AAAA] {
+                        lookup_futures.push(
+                            nameserver_pool
+                                .lookup(Query::query(name.0.clone(), rec_type), self.security_aware)
+                                .boxed(),
+                        );
+                    }
+                });
 
-            let mut a_resolves: Vec<_> = a_resolves.chain(aaaa_resolves).collect();
-            while !a_resolves.is_empty() {
-                let (next, _, rest) = select_all(a_resolves).await;
-                a_resolves = rest;
+            while !lookup_futures.is_empty() {
+                let (next, _, rest) = select_all(lookup_futures).await;
+                lookup_futures = rest;
 
                 match next {
-                    Ok(response) => {
-                        debug!("A or AAAA response: {:?}", response);
-                        let ips = response.iter().filter_map(RData::ip_addr);
-
-                        for ip in ips {
-                            let udp =
-                                NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Udp);
-                            let tcp =
-                                NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Tcp);
-
-                            config_group.push(udp);
-                            config_group.push(tcp);
-                        }
+                    Ok(res) => {
+                        let ips = res
+                            .answers()
+                            .iter()
+                            .filter_map(|answer| RData::ip_addr(answer.data()))
+                            .collect();
+                        super::add_config_group_recs(ips, &mut config_group);
                     }
-                    Err(e) => {
-                        warn!("resolve failed {}", e);
-                    }
+                    Err(e) => warn!("unable to resolve NS: {e}"),
                 }
             }
         }
