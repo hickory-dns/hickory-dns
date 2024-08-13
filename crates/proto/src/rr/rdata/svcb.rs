@@ -1019,10 +1019,7 @@ impl<'r> BinDecodable<'r> for Unknown {
 
 impl BinEncodable for Unknown {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        // draft-ietf-dnsop-svcb-https-11#appendix-A: The algorithm is the same as used by
-        // <character-string> in RFC 1035, although the output length in this
-        // document is not limited to 255 octets.
-        encoder.emit_character_data_unrestricted(&self.0)?;
+        encoder.emit_vec(&self.0)?;
 
         Ok(())
     }
@@ -1295,5 +1292,30 @@ mod tests {
         let mut buf = Vec::new();
         let mut encoder = BinEncoder::new(&mut buf);
         svcb.emit(&mut encoder).unwrap();
+    }
+
+    #[test]
+    fn test_unknown_value_round_trip() {
+        let svcb = SVCB::new(
+            8224,
+            Name::from_utf8(".").unwrap(),
+            vec![(
+                SvcParamKey::Unknown(8224),
+                SvcParamValue::Unknown(Unknown(vec![32; 10])),
+            )],
+        );
+
+        let mut buf = Vec::new();
+        let mut encoder = BinEncoder::new(&mut buf);
+        svcb.emit(&mut encoder).unwrap();
+
+        let mut decoder = BinDecoder::new(&buf);
+        let decoded = SVCB::read_data(
+            &mut decoder,
+            Restrict::new(u16::try_from(buf.len()).unwrap()),
+        )
+        .unwrap();
+
+        assert_eq!(svcb, decoded);
     }
 }
