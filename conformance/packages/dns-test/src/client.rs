@@ -280,6 +280,8 @@ pub enum ExtendedDnsError {
     DnssecBogus,
     RrsigsMissing,
     UnsupportedDnskeyAlgorithm,
+    NotAuhoritative,
+    SignatureExpired,
 }
 
 impl FromStr for ExtendedDnsError {
@@ -291,8 +293,10 @@ impl FromStr for ExtendedDnsError {
         let code = match code {
             1 => Self::UnsupportedDnskeyAlgorithm,
             6 => Self::DnssecBogus,
+            7 => Self::SignatureExpired,
             9 => Self::DnskeyMissing,
             10 => Self::RrsigsMissing,
+            20 => Self::NotAuhoritative,
             _ => todo!("EDE {code} has not yet been implemented"),
         };
 
