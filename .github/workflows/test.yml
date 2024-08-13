@@ -47,7 +47,7 @@ jobs:
       - name: just all-features
         run: just all-features
 
-  ## Run all default oriented feature sets across all platforms.
+  ## Measure test coverage, only on linux.
   code-coverage:
     name: coverage
     needs: platform-matrix
