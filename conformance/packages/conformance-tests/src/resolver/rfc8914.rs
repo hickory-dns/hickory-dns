@@ -93,20 +93,19 @@ fn unsupported_dnskey_algorithm() -> Result<()> {
     )
 }
 
-const ONE_HOUR: Duration = Duration::from_secs(60 * 60);
+const ONE_DAY: Duration = Duration::from_secs(60 * 60 * 24);
 
 #[ignore]
 #[test]
 fn signature_expired() -> Result<()> {
-    let ttl_delta = 4 * ONE_HOUR;
-    let settings = SignSettings::default();
-        // .inception(SystemTime::now() - 2 * ttl_delta)
-        // .expiration(SystemTime::now() - ttl_delta);
+    let settings = SignSettings::default()
+        .inception(SystemTime::now() - 30 * ONE_DAY)
+        .expiration(SystemTime::now() - 10 * ONE_DAY);
 
     let network = &Network::new()?;
-    let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
-        .sign(settings)?
-        .start()?;
+    let mut ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?;
+    ns.add(Record::txt(FQDN::COM, "Something here"));
+    let ns = ns.sign(settings)?.start()?;
 
     let resolver = Resolver::new(network, ns.root_hint())
         .trust_anchor(ns.trust_anchor().expect("Failed to get trust anchor"))
@@ -114,11 +113,16 @@ fn signature_expired() -> Result<()> {
         .start()?;
 
     let client = Client::new(network)?;
-    let settings = *DigSettings::default().recurse();
+    let settings = *DigSettings::default().dnssec();
 
-    let dig = client.dig(settings, resolver.ipv4_addr(), RecordType::SOA, &FQDN::ROOT)?;
+    let dig = client.dig(
+        settings,
+        resolver.ipv4_addr(),
+        RecordType::TXT,
+        &FQDN::COM,
+    )?;
 
-    std::thread::sleep(std::time::Duration::from_secs(3600));
+    std::thread::sleep(Duration::from_secs(3600));
 
     assert!(dig.status.is_servfail());
     assert_eq!(Some(ExtendedDnsError::SignatureExpired), dig.ede);
