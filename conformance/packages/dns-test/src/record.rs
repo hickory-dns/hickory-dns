@@ -60,6 +60,7 @@ pub enum Record {
     NSEC3PARAM(NSEC3PARAM),
     RRSIG(RRSIG),
     SOA(SOA),
+    TXT(TXT),
 }
 
 impl From<NSEC3> for Record {
@@ -104,6 +105,12 @@ impl From<SOA> for Record {
     }
 }
 
+impl From<TXT> for Record {
+    fn from(v: TXT) -> Self {
+        Self::TXT(v)
+    }
+}
+
 impl Record {
     pub fn as_rrsig_mut(&mut self) -> Option<&mut RRSIG> {
         if let Self::RRSIG(rrsig) = self {
@@ -139,6 +146,15 @@ impl Record {
 
     pub fn is_soa(&self) -> bool {
         matches!(self, Self::SOA(..))
+    }
+
+    pub fn txt(zone: FQDN, description: &str) -> Self {
+        TXT {
+            zone,
+            ttl: DEFAULT_TTL,
+            content: description.to_string(),
+        }
+        .into()
     }
 
     pub fn a(fqdn: FQDN, ipv4_addr: Ipv4Addr) -> Self {
@@ -194,6 +210,7 @@ impl FromStr for Record {
             "NSEC3PARAM" => Record::NSEC3PARAM(input.parse()?),
             "RRSIG" => Record::RRSIG(input.parse()?),
             "SOA" => Record::SOA(input.parse()?),
+            "TXT" => Record::TXT(input.parse()?),
             _ => return Err(format!("unknown record type: {record_type}").into()),
         };
 
@@ -212,6 +229,7 @@ impl fmt::Display for Record {
             Record::NSEC3PARAM(nsec3param) => write!(f, "{nsec3param}"),
             Record::RRSIG(rrsig) => write!(f, "{rrsig}"),
             Record::SOA(soa) => write!(f, "{soa}"),
+            Record::TXT(txt) => write!(f, "{txt}"),
         }
     }
 }
@@ -763,6 +781,48 @@ impl fmt::Display for SoaSettings {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct TXT {
+    pub zone: FQDN,
+    pub ttl: u32,
+    pub content: String,
+}
+
+impl FromStr for TXT {
+    type Err = Error;
+
+    fn from_str(input: &str) -> Result<Self> {
+        let mut columns = input.split_whitespace();
+
+        let [Some(zone), Some(ttl), Some(class), Some(record_type)] = array::from_fn(|_| columns.next())
+        else {
+            return Err("expected at least 4 columns".into());
+        };
+
+        check_record_type::<Self>(record_type)?;
+        check_class(class)?;
+
+        // collect all remaining words as single string.
+        let content = columns.collect::<Vec<_>>().join(" ");
+
+        Ok(Self {
+            zone: zone.parse()?,
+            ttl: ttl.parse()?,
+            content,
+        })
+    }
+}
+
+impl fmt::Display for TXT {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { ttl, zone, content } = self;
+
+        let record_type = unqualified_type_name::<Self>();
+
+        write!(f, "{zone}\t{ttl}\t{CLASS}\t{record_type}\t{content}")
+    }
+}
+
 fn check_class(class: &str) -> Result<()> {
     if class != "IN" {
         return Err(format!("unknown class: {class}").into());
@@ -1062,6 +1122,23 @@ mod tests {
         assert!(matches!(NSEC3PARAM_INPUT.parse()?, Record::NSEC3PARAM(..)));
         assert!(matches!(RRSIG_INPUT.parse()?, Record::RRSIG(..)));
         assert!(matches!(SOA_INPUT.parse()?, Record::SOA(..)));
+
+        Ok(())
+    }
+
+    // dig TXT .
+    const TXT_INPUT: &str = ".	3600	IN	TXT	\"Signature Missing\"";
+
+    #[test]
+    fn txt() -> Result<()> {
+        let txt: TXT = TXT_INPUT.parse()?;
+
+        assert_eq!(".", txt.zone.as_str());
+        assert_eq!(3600, txt.ttl);
+        assert_eq!("\"Signature Missing\"", txt.content.as_str());
+
+        let output = txt.to_string();
+        assert_eq!(TXT_INPUT, output);
 
         Ok(())
     }
