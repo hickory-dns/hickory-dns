@@ -6,4 +6,6 @@ RUN apt-get update && \
         ldnsutils \
         nsd \
         tshark \
+        procps \
+        vim \
         unbound
