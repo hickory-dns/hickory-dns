@@ -329,10 +329,10 @@ mod tests {
     fn resolver() -> Result<()> {
         let network = &Network::new()?;
         let mut root_ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, network)?;
-        let mut com_ns = NameServer::new(&Implementation::Unbound, FQDN::COM, network)?;
+        let mut com_ns = NameServer::new(&Implementation::Unbound, FQDN::TEST_TLD, network)?;
 
         let mut nameservers_ns =
-            NameServer::new(&Implementation::Unbound, FQDN("nameservers.com.")?, network)?;
+            NameServer::new(&Implementation::Unbound, FQDN::TEST_DOMAIN, network)?;
         nameservers_ns.add(root_ns.a()).add(com_ns.a());
         let nameservers_ns = nameservers_ns.start()?;
 

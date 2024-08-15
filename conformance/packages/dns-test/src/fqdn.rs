@@ -30,16 +30,16 @@ impl FQDN {
         inner: Cow::Borrowed("."),
     };
 
-    pub const COM: FQDN = FQDN {
-        inner: Cow::Borrowed("com."),
+    pub const TEST_TLD: FQDN = FQDN {
+        inner: Cow::Borrowed("testing."),
     };
 
     pub const TEST_DOMAIN: FQDN = FQDN {
-        inner: Cow::Borrowed("nameservers.com."),
+        inner: Cow::Borrowed("hickory-dns.testing."),
     };
 
     pub const EXAMPLE_SUBDOMAIN: FQDN = FQDN {
-        inner: Cow::Borrowed("example.nameservers.com."),
+        inner: Cow::Borrowed("example.hickory-dns.testing."),
     };
 
     pub fn is_root(&self) -> bool {
@@ -123,7 +123,7 @@ mod tests {
         assert_eq!(2, fqdn.num_labels());
 
         let parent = fqdn.parent();
-        assert_eq!(Some(FQDN::COM), parent);
+        assert_eq!(Some(FQDN::TEST_TLD), parent);
         fqdn = parent.unwrap();
         assert_eq!(1, fqdn.num_labels());
 

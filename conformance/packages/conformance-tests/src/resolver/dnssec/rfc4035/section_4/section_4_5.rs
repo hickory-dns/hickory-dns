@@ -119,7 +119,7 @@ fn caches_intermediate_records() -> Result<()> {
 
     let mut tshark = resolver.eavesdrop()?;
 
-    let output = client.dig(settings, resolver_addr, RecordType::DS, &FQDN::COM)?;
+    let output = client.dig(settings, resolver_addr, RecordType::DS, &FQDN::TEST_TLD)?;
 
     assert!(output.status.is_noerror());
     assert!(output.flags.authenticated_data);
