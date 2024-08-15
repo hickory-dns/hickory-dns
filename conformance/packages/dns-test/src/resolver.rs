@@ -1,5 +1,4 @@
 use core::fmt::Write;
-use std::io::{BufRead, BufReader};
 use std::net::Ipv4Addr;
 
 use crate::container::{Child, Container, Network};
@@ -12,7 +11,7 @@ use crate::{Implementation, Result};
 
 pub struct Resolver {
     container: Container,
-    child: Child,
+    _child: Child,
     implementation: Implementation,
 }
 
@@ -47,33 +46,23 @@ impl Resolver {
         self.container.ipv4_addr()
     }
 
-    /// Gracefully terminates the name server collecting all logs
-    pub fn terminate(self) -> Result<String> {
-        let Resolver {
-            implementation,
-            container,
-            child,
-        } = self;
-
-        let pidfile = implementation.pidfile(Role::Resolver);
-        let kill = format!(
-            "test -f {pidfile} || sleep 1
-kill -TERM $(cat {pidfile})"
-        );
-        container.status_ok(&["sh", "-c", &kill])?;
-        let output = child.wait()?;
-
-        // the hickory-dns binary does not do signal handling so it won't shut down gracefully; we
-        // will still get some logs so we'll ignore the fact that it fails to shut down ...
-        if !implementation.is_hickory() && !output.status.success() {
-            return Err(format!("could not terminate the `{}` process", implementation).into());
+    /// Returns the logs collected so far
+    pub fn logs(&self) -> Result<String> {
+        if self.implementation.is_hickory() {
+            self.stdout()
+        } else {
+            self.stderr()
         }
+    }
 
-        assert!(
-            output.stderr.is_empty(),
-            "stderr should be returned if not empty"
-        );
-        Ok(output.stdout)
+    fn stdout(&self) -> Result<String> {
+        self.container
+            .stdout(&["cat", &self.implementation.stdout_logfile(Role::Resolver)])
+    }
+
+    fn stderr(&self) -> Result<String> {
+        self.container
+            .stdout(&["cat", &self.implementation.stderr_logfile(Role::Resolver)])
     }
 }
 
@@ -134,24 +123,10 @@ impl ResolverSettings {
             container.cp(path, &contents)?;
         }
 
-        let mut child = container.spawn(implementation.cmd_args(config.role()))?;
-
-        // For HickoryDNS we need to wait until its start sequence finished. Only then the server is able
-        // to accept connections. The start sequence logs are consumed here.
-        if implementation.is_hickory() {
-            let stdout = child.stdout()?;
-            let lines = BufReader::new(stdout).lines();
-
-            for line in lines {
-                let line = line?;
-                if line.contains("server starting up") {
-                    break;
-                }
-            }
-        }
+        let child = container.spawn(&implementation.cmd_args(config.role()))?;
 
         Ok(Resolver {
-            child,
+            _child: child,
             container,
             implementation: implementation.clone(),
         })
@@ -186,17 +161,22 @@ impl ResolverSettings {
 
 #[cfg(test)]
 mod tests {
+    use std::{thread, time::Duration};
+
     use crate::{name_server::NameServer, FQDN};
 
     use super::*;
 
     #[test]
-    fn terminate_unbound_works() -> Result<()> {
+    fn unbound_logs_works() -> Result<()> {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
         let resolver =
             Resolver::new(&network, ns.root_hint()).start_with_subject(&Implementation::Unbound)?;
-        let logs = resolver.terminate()?;
+        // no way to block until the server has finished starting up so we just give it some
+        // arbitrary amount of time
+        thread::sleep(Duration::from_secs(1));
+        let logs = resolver.logs()?;
 
         eprintln!("{logs}");
         assert!(logs.contains("start of service"));
@@ -205,12 +185,15 @@ mod tests {
     }
 
     #[test]
-    fn terminate_bind_works() -> Result<()> {
+    fn bind_logs_works() -> Result<()> {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
         let resolver =
             Resolver::new(&network, ns.root_hint()).start_with_subject(&Implementation::Bind)?;
-        let logs = resolver.terminate()?;
+        // no way to block until the server has finished starting up so we just give it some
+        // arbitrary amount of time
+        thread::sleep(Duration::from_secs(1));
+        let logs = resolver.logs()?;
 
         eprintln!("{logs}");
         assert!(logs.contains("starting BIND"));
@@ -219,15 +202,24 @@ mod tests {
     }
 
     #[test]
-    fn terminate_hickory_works() -> Result<()> {
+    fn hickory_logs_works() -> Result<()> {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
         let resolver = Resolver::new(&network, ns.root_hint())
             .start_with_subject(&Implementation::hickory())?;
-        let logs = resolver.terminate()?;
+        // no way to block until the server has finished starting up so we just give it some
+        // arbitrary amount of time
+        thread::sleep(Duration::from_secs(1));
+        let logs = resolver.logs()?;
 
-        // Hickory-DNS start sequence log has been consumed in `ResolverSettings.start`.
-        assert!(logs.is_empty());
+        eprintln!("{logs}");
+        let mut found = false;
+        for line in logs.lines() {
+            if line.contains("Hickory DNS") && line.contains("starting") {
+                found = true;
+            }
+        }
+        assert!(found);
 
         Ok(())
     }

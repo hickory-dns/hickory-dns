@@ -51,12 +51,10 @@ fn infinite_recursion_with_deprecated_algorithm() -> Result<()> {
     // we are not interested in the actual answer; just that the server does not crash
     assert!(res.is_ok(), "server did not answer query");
 
-    let res = resolver.terminate();
+    let logs = resolver.logs()?;
 
-    assert!(res.is_ok(), "server process not found");
-
-    let logs = res.unwrap();
     assert!(!logs.contains("stack overflow"));
+    assert!(!logs.contains("panicked"));
 
     Ok(())
 }

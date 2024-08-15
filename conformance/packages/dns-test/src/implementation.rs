@@ -148,35 +148,68 @@ impl Implementation {
         }
     }
 
-    pub(crate) fn cmd_args(&self, role: Role) -> &[&'static str] {
-        match self {
-            Implementation::Bind => &["named", "-g", "-d5"],
+    pub(crate) fn cmd_args(&self, role: Role) -> Vec<String> {
+        let base = match self {
+            Implementation::Bind => "named -g -d5",
 
-            Implementation::Hickory(_) => &[
-                "sh",
-                "-c",
+            Implementation::Hickory(_) => {
                 "echo $$ > /tmp/hickory.pid
-exec hickory-dns -d",
-            ],
-
+exec hickory-dns -d"
+            }
             Implementation::Unbound => match role {
-                Role::NameServer => &["nsd", "-d"],
-
-                Role::Resolver => &["unbound", "-d"],
+                Role::NameServer => "nsd -d",
+                Role::Resolver => "unbound -d",
             },
-        }
+        };
+
+        vec![
+            "sh".into(),
+            "-c".into(),
+            format!(
+                "{base} >{} 2>{}",
+                self.stdout_logfile(role),
+                self.stderr_logfile(role)
+            ),
+        ]
     }
 
-    pub(crate) fn pidfile(&self, role: Role) -> &'static str {
-        match self {
-            Implementation::Bind => "/tmp/named.pid",
+    pub(crate) fn stdout_logfile(&self, role: Role) -> String {
+        self.logfile(role, Stream::Stdout)
+    }
 
-            Implementation::Hickory(_) => "/tmp/hickory.pid",
+    pub(crate) fn stderr_logfile(&self, role: Role) -> String {
+        self.logfile(role, Stream::Stderr)
+    }
+
+    fn logfile(&self, role: Role, stream: Stream) -> String {
+        let suffix = stream.as_str();
+
+        let path = match self {
+            Implementation::Bind => "/tmp/named",
+
+            Implementation::Hickory(_) => "/tmp/hickory",
 
             Implementation::Unbound => match role {
-                Role::NameServer => "/tmp/nsd.pid",
-                Role::Resolver => "/tmp/unbound.pid",
+                Role::NameServer => "/tmp/nsd",
+                Role::Resolver => "/tmp/unbound",
             },
+        };
+
+        format!("{path}.{suffix}")
+    }
+}
+
+#[derive(Clone, Copy)]
+enum Stream {
+    Stdout,
+    Stderr,
+}
+
+impl Stream {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::Stdout => "stdout",
+            Self::Stderr => "stderr",
         }
     }
 }
