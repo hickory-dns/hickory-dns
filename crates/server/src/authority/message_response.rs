@@ -336,4 +336,59 @@ mod tests {
         assert_eq!(response.answer_count(), 0);
         assert!(response.name_server_count() > 1);
     }
+
+    // https://github.com/hickory-dns/hickory-dns/issues/2210
+    // If a client sends this DNS request to the hickory 0.24.0 DNS server:
+    //
+    // 08 00 00 00 00 01 00 00 00 00 00 00 c0 00 00 00 00 00 00 00 00 00 00
+    // 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    // 00 00
+    //
+    // i.e.:
+    // 08 00 ID
+    // 00 00 flags
+    // 00 01 QDCOUNT
+    // 00 00 ANCOUNT
+    // 00 00 NSCOUNT
+    // 00 00 ARCOUNT
+    // c0 00 QNAME
+    // 00 00 QTYPE
+    // 00 00 QCLASS
+    //
+    // hickory-dns fails the 2nd assert here while building the reply message
+    // (really while remembering names for pointers):
+    //
+    // pub fn slice_of(&self, start: usize, end: usize) -> &[u8] {
+    //     assert!(start < self.offset);
+    //     assert!(end <= self.buffer.len());
+    //     &self.buffer.buffer()[start..end]
+    // }
+    // The name is eight bytes long, but the current message size (after the
+    // current offset of 12) is only six, because QueriesEmitAndCount::emit()
+    // stored just the six bytes of the original encoded query:
+    //
+    //     encoder.emit_vec(self.cached_serialized)?;
+    #[test]
+    fn bad_length_of_named_pointers() {
+        use hickory_proto::serialize::binary::BinDecodable;
+
+        let mut buf = Vec::with_capacity(512);
+        let mut encoder = BinEncoder::new(&mut buf);
+
+        let data: &[u8] = &[
+            0x08u8, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
+
+        let msg = MessageRequest::from_bytes(data).unwrap();
+
+        eprintln!("query: {}", msg.query());
+
+        MessageResponseBuilder::new(Some(msg.raw_query()))
+            .build_no_records(Header::response_from_request(msg.header()))
+            .destructive_emit(&mut encoder)
+            .unwrap();
+    }
 }
