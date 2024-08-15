@@ -151,11 +151,7 @@ impl Implementation {
     pub(crate) fn cmd_args(&self, role: Role) -> Vec<String> {
         let base = match self {
             Implementation::Bind => "named -g -d5",
-
-            Implementation::Hickory(_) => {
-                "echo $$ > /tmp/hickory.pid
-exec hickory-dns -d"
-            }
+            Implementation::Hickory(_) => "hickory-dns -d",
             Implementation::Unbound => match role {
                 Role::NameServer => "nsd -d",
                 Role::Resolver => "unbound -d",
