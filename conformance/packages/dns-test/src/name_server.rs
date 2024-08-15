@@ -42,7 +42,11 @@ impl Graph {
     /// a non-empty `TrustAnchor` is returned only when `Sign::Yes` or `Sign::AndAmend` is used
     pub fn build(leaf: NameServer<Stopped>, sign: Sign) -> Result<Self> {
         assert_eq!(2, leaf.zone().num_labels(), "not yet implemented");
-        assert_eq!(Some(FQDN::COM), leaf.zone().parent(), "not yet implemented");
+        assert_eq!(
+            Some(FQDN::TEST_TLD),
+            leaf.zone().parent(),
+            "not yet implemented"
+        );
 
         // first pass: create nameservers for parent zones
         let mut zone = leaf.zone().clone();
@@ -451,9 +455,13 @@ fn admin_ns(ns_count: usize, zone: &FQDN) -> FQDN {
 
 fn expand_zone(zone: &FQDN) -> String {
     if zone == &FQDN::ROOT {
-        "nameservers.com.".to_string()
+        FQDN::TEST_DOMAIN.as_str().to_string()
     } else if zone.num_labels() == 1 {
-        format!("nameservers.{}", zone.as_str())
+        if *zone == FQDN::TEST_TLD {
+            FQDN::TEST_DOMAIN.as_str().to_string()
+        } else {
+            unimplemented!()
+        }
     } else {
         zone.to_string()
     }
@@ -472,11 +480,17 @@ mod tests {
     #[test]
     fn simplest() -> Result<()> {
         let network = Network::new()?;
-        let tld_ns = NameServer::new(&Implementation::Unbound, FQDN::COM, &network)?.start()?;
+        let tld_ns =
+            NameServer::new(&Implementation::Unbound, FQDN::TEST_TLD, &network)?.start()?;
         let ip_addr = tld_ns.ipv4_addr();
 
         let client = Client::new(&network)?;
-        let output = client.dig(DigSettings::default(), ip_addr, RecordType::SOA, &FQDN::COM)?;
+        let output = client.dig(
+            DigSettings::default(),
+            ip_addr,
+            RecordType::SOA,
+            &FQDN::TEST_TLD,
+        )?;
 
         assert!(output.status.is_noerror());
 
@@ -489,7 +503,7 @@ mod tests {
         let expected_ip_addr = Ipv4Addr::new(172, 17, 200, 1);
         let mut root_ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?;
         root_ns.referral(
-            FQDN::COM,
+            FQDN::TEST_TLD,
             FQDN("primary.tld-server.com.")?,
             expected_ip_addr,
         );
@@ -504,7 +518,7 @@ mod tests {
             DigSettings::default(),
             ipv4_addr,
             RecordType::NS,
-            &FQDN::COM,
+            &FQDN::TEST_TLD,
         )?;
 
         assert!(output.status.is_noerror());

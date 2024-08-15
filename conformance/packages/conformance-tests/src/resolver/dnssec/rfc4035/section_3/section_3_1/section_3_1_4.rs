@@ -26,7 +26,7 @@ fn on_clients_ds_query_it_queries_the_parent_zone() -> Result<()> {
 
     let mut com_ns_addr = None;
     for nameserver in &nameservers {
-        if nameserver.zone() == &FQDN::COM {
+        if nameserver.zone() == &FQDN::TEST_TLD {
             com_ns_addr = Some(nameserver.ipv4_addr());
         }
     }
@@ -66,7 +66,11 @@ fn on_clients_ds_query_it_queries_the_parent_zone() -> Result<()> {
                     .expect("expected Object");
                 for query in queries.keys() {
                     if query.contains("type DS") {
-                        assert!(query.contains("nameservers.com"));
+                        // the domain name in the query omits the last `.` so strip it from
+                        // FQDN::TEST_DOMAIN
+                        let test_domain = FQDN::TEST_DOMAIN.as_str();
+                        let test_domain = test_domain.strip_suffix('.').unwrap_or(test_domain);
+                        assert!(query.contains(test_domain));
                         assert_eq!(com_ns_addr, destination);
 
                         outgoing_ds_query_count += 1;

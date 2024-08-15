@@ -882,7 +882,7 @@ mod tests {
             digest,
         } = &DS_INPUT.parse()?;
 
-        assert_eq!(FQDN::COM, *zone);
+        assert_eq!(FQDN("com.")?, *zone);
         assert_eq!(7612, *ttl);
         assert_eq!(19718, *key_tag);
         assert_eq!(13, *algorithm);
@@ -977,7 +977,7 @@ mod tests {
             iterations,
         } = &NSEC3PARAM_INPUT.parse()?;
 
-        assert_eq!(FQDN::COM, *zone);
+        assert_eq!(FQDN("com.")?, *zone);
         assert_eq!(86238, *ttl);
         assert_eq!(1, *hash_alg);
         assert_eq!(0, *flags);
