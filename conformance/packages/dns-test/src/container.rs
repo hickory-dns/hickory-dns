@@ -311,6 +311,13 @@ impl Child {
             .ok_or("could not retrieve child's stdout")?)
     }
 
+    /// Returns a reference to the child's stdout.
+    ///
+    /// This method will succeed multiple times.
+    pub fn stdout_ref(&mut self) -> Option<&mut ChildStdout> {
+        self.inner.as_mut().and_then(|child| child.stdout.as_mut())
+    }
+
     pub fn wait(mut self) -> Result<Output> {
         let output = self.inner.take().expect("unreachable").wait_with_output()?;
         output.try_into()
