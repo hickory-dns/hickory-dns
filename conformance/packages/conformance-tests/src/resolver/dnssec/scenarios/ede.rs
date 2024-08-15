@@ -130,7 +130,7 @@ fn fixture(
     let supports_ede = subject.supports_ede();
 
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
-    let needle_fqdn = FQDN("example.nameservers.com.")?;
+    let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
 
     let network = Network::new()?;
     let mut leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network)?;

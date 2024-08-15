@@ -96,7 +96,7 @@ fn caches_query_without_dnssec_to_return_all_dnssec_records_in_subsequent_query(
 /// Therefore, a second query for a record like `DS com.` should be a cache hit.
 #[test]
 fn caches_intermediate_records() -> Result<()> {
-    let leaf_fqdn = FQDN("example.nameservers.com.")?;
+    let leaf_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
     let leaf_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let (resolver, nameservers, _trust_anchor) =
         fixtures::minimally_secure(leaf_fqdn.clone(), leaf_ipv4_addr)?;

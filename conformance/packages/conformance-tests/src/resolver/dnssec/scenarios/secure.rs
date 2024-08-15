@@ -45,7 +45,7 @@ fn can_validate_without_delegation() -> Result<()> {
 #[test]
 fn can_validate_with_delegation() -> Result<()> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
-    let needle_fqdn = FQDN("example.nameservers.com.")?;
+    let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
 
     let (resolver, _nameservers, _trust_anchor) =
         fixtures::minimally_secure(needle_fqdn.clone(), expected_ipv4_addr)?;
@@ -74,7 +74,7 @@ fn can_validate_with_delegation() -> Result<()> {
 #[test]
 fn also_secure_when_do_is_set() -> Result<()> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
-    let needle_fqdn = FQDN("example.nameservers.com.")?;
+    let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
 
     let (resolver, _nameservers, _trust_anchor) =
         fixtures::minimally_secure(needle_fqdn.clone(), expected_ipv4_addr)?;
@@ -109,7 +109,7 @@ fn also_secure_when_do_is_set() -> Result<()> {
 #[test]
 fn caches_answer() -> Result<()> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
-    let needle_fqdn = FQDN("example.nameservers.com.")?;
+    let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
 
     let (resolver, nameservers, _trust_anchor) =
         fixtures::minimally_secure(needle_fqdn.clone(), expected_ipv4_addr)?;

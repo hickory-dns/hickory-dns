@@ -12,7 +12,7 @@ use crate::resolver::dnssec::fixtures;
 #[test]
 fn clears_ad_bit_in_outgoing_queries() -> Result<()> {
     let leaf_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
-    let leaf_fqdn = FQDN("example.nameservers.com.")?;
+    let leaf_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
 
     let (resolver, nameservers, _trust_anchor) =
         fixtures::minimally_secure(leaf_fqdn.clone(), leaf_ipv4_addr)?;

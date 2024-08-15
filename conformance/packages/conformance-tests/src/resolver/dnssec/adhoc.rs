@@ -13,7 +13,7 @@ use super::fixtures;
 
 #[test]
 fn empty_answer_section_on_failed_dnssec_validation_and_cd_flag_unset() -> Result<()> {
-    let leaf_fqdn = FQDN("example.nameservers.com.")?;
+    let leaf_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
     let leaf_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
 
     let (resolver, _graph) =
