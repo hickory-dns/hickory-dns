@@ -15,7 +15,7 @@ fn infinite_recursion_with_deprecated_algorithm() -> Result<()> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let network = Network::new()?;
 
-    let mut leaf_ns = NameServer::new(&Implementation::test_peer(), FQDN::NAMESERVERS, &network)?;
+    let mut leaf_ns = NameServer::new(&Implementation::test_peer(), FQDN::TEST_DOMAIN, &network)?;
     leaf_ns.add(Record::a(needle_fqdn.clone(), expected_ipv4_addr));
 
     let Graph {

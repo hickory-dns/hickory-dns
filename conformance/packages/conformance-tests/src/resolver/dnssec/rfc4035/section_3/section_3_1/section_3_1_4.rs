@@ -11,7 +11,7 @@ use dns_test::{
 fn on_clients_ds_query_it_queries_the_parent_zone() -> Result<()> {
     let network = Network::new()?;
 
-    let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network)?;
+    let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
 
     let Graph {
         nameservers,
@@ -43,7 +43,7 @@ fn on_clients_ds_query_it_queries_the_parent_zone() -> Result<()> {
 
     let client = Client::new(&network)?;
     let settings = *DigSettings::default().recurse();
-    let output = client.dig(settings, resolver_addr, RecordType::DS, &FQDN::NAMESERVERS)?;
+    let output = client.dig(settings, resolver_addr, RecordType::DS, &FQDN::TEST_DOMAIN)?;
 
     tshark.wait_for_capture()?;
 
@@ -53,7 +53,7 @@ fn on_clients_ds_query_it_queries_the_parent_zone() -> Result<()> {
     assert!(output.status.is_noerror());
     let [record] = output.answer.try_into().unwrap();
     let ds = record.try_into_ds().unwrap();
-    assert_eq!(ds.zone, FQDN::NAMESERVERS);
+    assert_eq!(ds.zone, FQDN::TEST_DOMAIN);
 
     // check that DS query was forwarded to the `com.` (parent zone) nameserver
     let client_addr = client.ipv4_addr();

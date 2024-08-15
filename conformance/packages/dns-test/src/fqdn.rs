@@ -34,7 +34,7 @@ impl FQDN {
         inner: Cow::Borrowed("com."),
     };
 
-    pub const NAMESERVERS: FQDN = FQDN {
+    pub const TEST_DOMAIN: FQDN = FQDN {
         inner: Cow::Borrowed("nameservers.com."),
     };
 
@@ -118,10 +118,7 @@ mod tests {
         assert_eq!(3, fqdn.num_labels());
 
         let parent = fqdn.parent();
-        assert_eq!(
-            Some("nameservers.com."),
-            parent.as_ref().map(|fqdn| fqdn.as_str())
-        );
+        assert_eq!(Some(FQDN::TEST_DOMAIN), parent);
         fqdn = parent.unwrap();
         assert_eq!(2, fqdn.num_labels());
 

@@ -12,11 +12,11 @@ pub fn bad_signature_in_leaf_nameserver(
     leaf_fqdn: &FQDN,
     leaf_ipv4_addr: Ipv4Addr,
 ) -> Result<(Resolver, Graph)> {
-    assert_eq!(Some(FQDN::NAMESERVERS), leaf_fqdn.parent());
+    assert_eq!(Some(FQDN::TEST_DOMAIN), leaf_fqdn.parent());
 
     let network = Network::new()?;
 
-    let mut leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network)?;
+    let mut leaf_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
     leaf_ns.add(Record::a(leaf_fqdn.clone(), leaf_ipv4_addr));
 
     let graph = Graph::build(
@@ -24,7 +24,7 @@ pub fn bad_signature_in_leaf_nameserver(
         Sign::AndAmend {
             settings: SignSettings::default(),
             mutate: &|zone, records| {
-                if zone == &FQDN::NAMESERVERS {
+                if zone == &FQDN::TEST_DOMAIN {
                     let mut modified = 0;
                     for record in records {
                         if let Record::RRSIG(rrsig) = record {
@@ -58,11 +58,11 @@ pub fn minimally_secure(
     leaf_fqdn: FQDN,
     leaf_ipv4_addr: Ipv4Addr,
 ) -> Result<(Resolver, Vec<NameServer<Running>>, TrustAnchor)> {
-    assert_eq!(Some(FQDN::NAMESERVERS), leaf_fqdn.parent());
+    assert_eq!(Some(FQDN::TEST_DOMAIN), leaf_fqdn.parent());
 
     let network = Network::new()?;
 
-    let mut leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network)?;
+    let mut leaf_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
     leaf_ns.add(Record::a(leaf_fqdn.clone(), leaf_ipv4_addr));
 
     let Graph {
