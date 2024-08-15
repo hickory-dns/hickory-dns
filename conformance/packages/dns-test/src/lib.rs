@@ -1,8 +1,11 @@
 //! A test framework for all things DNS
 
-use std::env;
+use std::io::{Read as _, Write as _};
+use std::{env, io};
 
+use client::Client;
 use lazy_static::lazy_static;
+use name_server::{NameServer, Running};
 
 pub use crate::container::Network;
 pub use crate::fqdn::FQDN;
@@ -31,6 +34,61 @@ const DEFAULT_TTL: u32 = 24 * 60 * 60; // 1 day
 lazy_static! {
     pub static ref SUBJECT: Implementation = parse_subject();
     pub static ref PEER: Implementation = parse_peer();
+}
+
+/// Helper to prevent a unit test from immediately terminating so its associated containers can be
+/// manually inspected
+pub fn inspect(clients: &[Client], resolvers: &[Resolver], nameservers: &[NameServer<Running>]) {
+    use core::fmt::Write as _;
+
+    let mut output = String::new();
+
+    if !clients.is_empty() {
+        output.push_str("\n\nCLIENTS");
+    }
+
+    for client in clients {
+        write!(output, "\n{} {}", client.container_id(), client.ipv4_addr()).unwrap();
+    }
+
+    if !resolvers.is_empty() {
+        output.push_str("\n\nRESOLVERS");
+    }
+
+    for resolver in resolvers {
+        write!(
+            output,
+            "\n{} {}",
+            resolver.container_id(),
+            resolver.ipv4_addr()
+        )
+        .unwrap();
+    }
+
+    if !nameservers.is_empty() {
+        output.push_str("\n\nNAME SERVERS");
+    }
+
+    for nameserver in nameservers {
+        write!(
+            output,
+            "\n{} {} {}",
+            nameserver.container_id(),
+            nameserver.ipv4_addr(),
+            nameserver.zone(),
+        )
+        .unwrap();
+    }
+
+    output.push_str("\n\ntest paused. press ENTER to continue\n\n");
+
+    // try to write everything in a single system call to avoid this output interleaving with the
+    // output of other tests (when `--nocapture` is used)
+    io::stdout().write_all(output.as_bytes()).unwrap();
+
+    // block this thread until user provides some input
+    let mut buf = [0];
+    let _ = io::stdin().read(&mut buf).unwrap();
 }
 
 fn parse_subject() -> Implementation {
