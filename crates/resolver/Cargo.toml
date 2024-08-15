@@ -24,11 +24,6 @@ keywords.workspace = true
 categories.workspace = true
 license.workspace = true
 
-[badges]
-#github-actions = { repository = "bluejekyll/hickory", branch = "main", workflow = "test" }
-codecov = { repository = "hickory-dns/hickory-dns", branch = "main", service = "github" }
-maintenance = { status = "actively-developed" }
-
 [features]
 default = ["system-config", "tokio-runtime"]
 backtrace = ["dep:backtrace", "hickory-proto/backtrace"]
@@ -68,7 +63,7 @@ dnssec-openssl = ["dnssec", "hickory-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "hickory-proto/dnssec-ring"]
 dnssec = []
 
-serde-config = ["dep:serde", "hickory-proto/serde-config"]
+serde = ["dep:serde", "hickory-proto/serde"]
 system-config = ["dep:ipconfig", "dep:resolv-conf"]
 
 testing = []
@@ -111,15 +106,9 @@ webpki-roots = { workspace = true, optional = true }
 ipconfig = { workspace = true, optional = true }
 
 [dev-dependencies]
-futures-executor = { workspace = true, default-features = false, features = [
-    "std",
-] }
+futures-executor = { workspace = true, default-features = false, features = ["std"] }
 tokio = { workspace = true, features = ["macros", "test-util"] }
-tracing-subscriber = { workspace = true, features = [
-    "std",
-    "fmt",
-    "env-filter",
-] }
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
 
 [package.metadata.docs.rs]
 all-features = true

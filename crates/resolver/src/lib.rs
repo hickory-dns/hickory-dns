@@ -248,7 +248,7 @@
 #[cfg(feature = "dns-over-tls")]
 #[macro_use]
 extern crate cfg_if;
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 #[macro_use]
 extern crate serde;
 pub extern crate hickory_proto as proto;

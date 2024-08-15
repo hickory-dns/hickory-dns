@@ -29,11 +29,6 @@ keywords.workspace = true
 categories.workspace = true
 license.workspace = true
 
-[badges]
-#github-actions = { repository = "bluejekyll/hickory", branch = "main", workflow = "test" }
-codecov = { repository = "hickory-dns/hickory-dns", branch = "main", service = "github" }
-maintenance = { status = "actively-developed" }
-
 [features]
 backtrace = ["hickory-proto/backtrace"]
 
@@ -64,7 +59,7 @@ dnssec-openssl = ["dnssec", "hickory-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "hickory-proto/dnssec-ring"]
 dnssec = ["hickory-proto/dnssec"]
 
-serde-config = ["dep:serde", "hickory-proto/serde-config"]
+serde = ["dep:serde", "hickory-proto/serde"]
 
 # enables experimental the mDNS (multicast) feature
 mdns = ["hickory-proto/mdns"]
@@ -76,12 +71,8 @@ path = "src/lib.rs"
 [dependencies]
 cfg-if.workspace = true
 data-encoding.workspace = true
-futures-channel = { workspace = true, default-features = false, features = [
-    "std",
-] }
-futures-util = { workspace = true, default-features = false, features = [
-    "std",
-] }
+futures-channel = { workspace = true, default-features = false, features = ["std"] }
+futures-util = { workspace = true, default-features = false, features = ["std"] }
 once_cell.workspace = true
 radix_trie.workspace = true
 rand.workspace = true
@@ -90,22 +81,12 @@ serde = { workspace = true, features = ["derive"], optional = true }
 thiserror.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, features = ["rt", "net"] }
-hickory-proto = { workspace = true, features = [
-    "text-parsing",
-    "tokio-runtime",
-] }
+hickory-proto = { workspace = true, features = ["text-parsing", "tokio-runtime"] }
 
 [dev-dependencies]
-futures = { workspace = true, default-features = false, features = [
-    "std",
-    "executor",
-] }
+futures = { workspace = true, default-features = false, features = ["std", "executor"] }
 tokio = { workspace = true, features = ["rt", "macros"] }
-tracing-subscriber = { workspace = true, features = [
-    "std",
-    "fmt",
-    "env-filter",
-] }
+tracing-subscriber = { workspace = true, features = ["fmt", "env-filter", "std"] }
 webpki-roots = { workspace = true }
 
 [package.metadata.docs.rs]

@@ -10,7 +10,7 @@
 use std::{fmt, ops::BitOr};
 
 use bitflags::bitflags;
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -33,7 +33,7 @@ use super::Algorithm;
 ///   security-aware resolver must be able to distinguish between four
 ///   cases:
 /// ```
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[must_use = "Proof is a flag on Record data, it should be interrogated before using a record"]
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
 #[repr(u8)]

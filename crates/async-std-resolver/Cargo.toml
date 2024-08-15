@@ -24,11 +24,6 @@ keywords.workspace = true
 categories.workspace = true
 license.workspace = true
 
-[badges]
-#github-actions = { repository = "bluejekyll/hickory", branch = "main", workflow = "test" }
-codecov = { repository = "hickory-dns/hickory-dns", branch = "main", service = "github" }
-maintenance = { status = "actively-developed" }
-
 [features]
 default = ["system-config"]
 
@@ -61,18 +56,14 @@ path = "src/lib.rs"
 async-std = { workspace = true, features = ["unstable"] }
 async-trait.workspace = true
 futures-io = { workspace = true, default-features = false, features = ["std"] }
-futures-util = { workspace = true, default-features = false, features = [
-    "std",
-] }
+futures-util = { workspace = true, default-features = false, features = ["std"] }
 pin-utils.workspace = true
 hickory-resolver = { workspace = true, default-features = false }
 socket2.workspace = true
 
 [dev-dependencies]
 async-std = { workspace = true, features = ["attributes"] }
-hickory-resolver = { workspace = true, default-features = false, features = [
-    "testing",
-] }
+hickory-resolver = { workspace = true, default-features = false, features = ["testing"] }
 
 [lints]
 workspace = true

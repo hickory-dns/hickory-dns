@@ -12,7 +12,7 @@
 use std::convert::From;
 use std::{cmp::Ordering, fmt, net::IpAddr};
 
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use enum_as_inner::EnumAsInner;
@@ -55,7 +55,7 @@ use super::dnssec::rdata::DNSSECRData;
 /// is treated as binary information, and can be up to 256 characters in
 /// length (including the length octet).
 /// ```
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, EnumAsInner, PartialEq, Clone, Eq)]
 #[non_exhaustive]
 pub enum RData {

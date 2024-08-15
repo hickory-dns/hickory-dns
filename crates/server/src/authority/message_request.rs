@@ -328,13 +328,11 @@ impl<'q> EmitAndCount for QueriesEmitAndCount<'q> {
     fn emit(&mut self, encoder: &mut BinEncoder<'_>) -> ProtoResult<usize> {
         let original_offset = encoder.offset();
         encoder.emit_vec(self.cached_serialized)?;
-        if !encoder.is_canonical_names() {
-            if let Some(query) = self.first_query {
-                encoder.store_label_pointer(
-                    original_offset,
-                    original_offset + query.original().name().len(),
-                )
-            }
+        if !encoder.is_canonical_names() && self.first_query.is_some() {
+            encoder.store_label_pointer(
+                original_offset,
+                original_offset + self.cached_serialized.len(),
+            )
         }
         Ok(self.length)
     }

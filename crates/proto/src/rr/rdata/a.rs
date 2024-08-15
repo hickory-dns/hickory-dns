@@ -34,7 +34,7 @@
 pub use std::net::Ipv4Addr;
 use std::{fmt, net::AddrParseError, ops::Deref, str};
 
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -44,7 +44,7 @@ use crate::{
 };
 
 /// The DNS A record type, an IPv4 address
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct A(pub Ipv4Addr);
 

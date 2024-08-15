@@ -18,7 +18,7 @@
 //! NSEC3 related record types
 #![allow(clippy::use_self)]
 
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
@@ -102,7 +102,7 @@ use crate::serialize::binary::{BinEncodable, BinEncoder};
 ///    Assignment of additional NSEC3 hash algorithms in this registry
 ///    requires IETF Standards Action [RFC2434].
 /// ```
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Nsec3HashAlgorithm {
     /// Hash for the Nsec3 records

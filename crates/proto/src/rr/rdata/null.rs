@@ -8,7 +8,7 @@
 //! null record type, generally not used except as an internal tool for representing null data
 use std::fmt;
 
-#[cfg(feature = "serde-config")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -34,7 +34,7 @@ use crate::{
 /// allowed in Zone Files.  NULLs are used as placeholders in some
 /// experimental extensions of the DNS.
 /// ```
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Default, Debug, PartialEq, Eq, Hash, Clone)]
 pub struct NULL {
     anything: Vec<u8>,

@@ -26,11 +26,6 @@ keywords.workspace = true
 categories.workspace = true
 license.workspace = true
 
-[badges]
-#github-actions = { repository = "bluejekyll/hickory", branch = "main", workflow = "test" }
-codecov = { repository = "hickory-dns/hickory-dns", branch = "main", service = "github" }
-maintenance = { status = "actively-developed" }
-
 [features]
 default = ["sqlite", "resolver", "native-certs", "ascii-art"]
 
@@ -99,27 +94,15 @@ path = "src/hickory-dns.rs"
 
 [dependencies]
 # clap features:
-# - suggestion for advanced help with error in cli
-# - derive for clap derive api
-# - help to generate --help
-clap = { workspace = true, default-features = false, features = [
-    "std",
-    "cargo",
-    "help",
-    "derive",
-    "suggestions",
-] }
-futures-util = { workspace = true, default-features = false, features = [
-    "std",
-] }
+# - `suggestions` for advanced help with error in cli
+# - `derive` for clap derive api
+# - `help` to generate --help
+clap = { workspace = true, default-features = false, features = ["cargo", "derive", "help", "std", "suggestions"] }
+futures-util = { workspace = true, default-features = false, features = ["std"] }
 rustls = { workspace = true, optional = true }
 time.workspace = true
 tracing.workspace = true
-tracing-subscriber = { workspace = true, features = [
-    "std",
-    "fmt",
-    "env-filter",
-] }
+tracing-subscriber = { workspace = true, features = ["fmt", "env-filter", "std"] }
 tokio = { workspace = true, features = ["time", "rt"] }
 hickory-client.workspace = true
 hickory-proto.workspace = true
@@ -128,10 +111,7 @@ hickory-server = { workspace = true, features = ["toml"] }
 [dev-dependencies]
 native-tls.workspace = true
 regex.workspace = true
-hickory-proto = { workspace = true, features = [
-    "testing",
-    "dns-over-native-tls",
-] }
+hickory-proto = { workspace = true, features = ["dns-over-native-tls", "testing"] }
 hickory-resolver.workspace = true
 webpki-roots.workspace = true
 
