@@ -138,9 +138,10 @@ impl Authority for RecursiveAuthority {
             .resolve(query, now, lookup_options.dnssec_ok())
             .await;
 
+        use LookupControlFlow::*;
         match result {
-            Ok(lookup) => LookupControlFlow::Continue(Ok(RecursiveLookup(lookup))),
-            Err(error) => LookupControlFlow::Continue(Err(LookupError::from(error))),
+            Ok(lookup) => Continue(Ok(RecursiveLookup(lookup))),
+            Err(error) => Continue(Err(LookupError::from(error))),
         }
     }
 

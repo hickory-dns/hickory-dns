@@ -360,23 +360,21 @@ impl Catalog {
             )
             .await;
 
+            use LookupControlFlow::*;
             match result {
                 // The current authority in the chain did not handle the request, so we need to try the next one, if any.
-                LookupControlFlow::Skip => {
-                    debug!("catalog::lookup::authority DID NOT handle request.");
-                    panic!("Correct implementation is part of the chained recursor PR.");
+                Skip => {
+                    debug!("catalog::lookup::authority did not handle request");
+                    panic!("correct implementation is part of the chained recursor PR");
                 }
-                LookupControlFlow::Continue(Ok(lookup)) | LookupControlFlow::Break(Ok(lookup)) => {
+                Continue(Ok(lookup)) | Break(Ok(lookup)) => {
                     debug!("result: {lookup:?}");
-                    debug!(
-                        "catalog::lookup::authority did handle request with {}. Stopping.",
-                        result.variant_as_str(),
-                    );
+                    debug!("catalog::lookup::authority did handle request with {result}. stopping");
 
                     lookup
                 }
-                LookupControlFlow::Continue(Err(e)) | LookupControlFlow::Break(Err(e)) => {
-                    debug!("An unexpected error occured during catalog lookup: {e:?}");
+                Continue(Err(e)) | Break(Err(e)) => {
+                    debug!("an unexpected error occured during catalog lookup: {e:?}");
                     ResponseInfo::serve_failed()
                 }
             }
@@ -444,45 +442,45 @@ async fn lookup<'a, R: ResponseHandler + Unpin>(
 
     let is_continue = response.is_continue();
 
-    match response {
-        LookupControlFlow::Continue(Ok(lookup)) | LookupControlFlow::Break(Ok(lookup)) => {
-            let (response_header, sections) = lookup;
-            let message_response = MessageResponseBuilder::new(Some(request.raw_query())).build(
-                response_header,
-                sections.answers.iter(),
-                sections.ns.iter(),
-                sections.soa.iter(),
-                sections.additionals.iter(),
-            );
+    let (response_header, sections) = match response {
+        Continue(Ok(lookup)) | Break(Ok(lookup)) => lookup,
+        Continue(Err(e)) => return Continue(Err(e)),
+        Break(Err(e)) => return Break(Err(e)),
+        Skip => return Skip,
+    };
 
-            let result = send_response(
-                response_edns.clone(),
-                message_response,
-                response_handle.clone(),
-            )
-            .await;
+    let message_response = MessageResponseBuilder::new(Some(request.raw_query())).build(
+        response_header,
+        sections.answers.iter(),
+        sections.ns.iter(),
+        sections.soa.iter(),
+        sections.additionals.iter(),
+    );
 
-            match result {
-                Err(e) => {
-                    error!("error sending response: {}", e);
-                    if is_continue {
-                        LookupControlFlow::Continue(Err(LookupError::Io(e)))
-                    } else {
-                        LookupControlFlow::Break(Err(LookupError::Io(e)))
-                    }
-                }
-                Ok(l) => {
-                    if is_continue {
-                        LookupControlFlow::Continue(Ok(l))
-                    } else {
-                        LookupControlFlow::Break(Ok(l))
-                    }
-                }
+    let result = send_response(
+        response_edns.clone(),
+        message_response,
+        response_handle.clone(),
+    )
+    .await;
+
+    use LookupControlFlow::*;
+    match result {
+        Err(e) => {
+            error!("error sending response: {}", e);
+            if is_continue {
+                Continue(Err(LookupError::Io(e)))
+            } else {
+                Break(Err(LookupError::Io(e)))
             }
         }
-        LookupControlFlow::Continue(Err(e)) => LookupControlFlow::Continue(Err(e)),
-        LookupControlFlow::Break(Err(e)) => LookupControlFlow::Break(Err(e)),
-        LookupControlFlow::Skip => LookupControlFlow::Skip,
+        Ok(l) => {
+            if is_continue {
+                Continue(Ok(l))
+            } else {
+                Break(Ok(l))
+            }
+        }
     }
 }
 
@@ -540,7 +538,7 @@ async fn build_response(
 
     // Abort only if the authority declined to handle the request.
     if let LookupControlFlow::Skip = result {
-        trace!("build_response: Aborting search on None");
+        trace!("build_response: aborting search on lookupcontrolflow::skip");
         return LookupControlFlow::Skip;
     }
 
@@ -583,16 +581,18 @@ async fn send_authoritative_response(
     // NS records, which indicate an authoritative response.
     //
     // On Errors, the transition depends on the type of error.
+
+    use LookupControlFlow::*;
     let answers = match response {
-        LookupControlFlow::Continue(Ok(records)) | LookupControlFlow::Break(Ok(records)) => {
+        Continue(Ok(records)) | Break(Ok(records)) => {
             response_header.set_response_code(ResponseCode::NoError);
             response_header.set_authoritative(true);
             Some(records)
         }
         // This request was refused
         // TODO: there are probably other error cases that should just drop through (FormErr, ServFail)
-        LookupControlFlow::Continue(Err(LookupError::ResponseCode(ResponseCode::Refused)))
-        | LookupControlFlow::Break(Err(LookupError::ResponseCode(ResponseCode::Refused))) => {
+        Continue(Err(LookupError::ResponseCode(ResponseCode::Refused)))
+        | Break(Err(LookupError::ResponseCode(ResponseCode::Refused))) => {
             response_header.set_response_code(ResponseCode::Refused);
             return LookupSections {
                 answers: Box::<AuthLookup>::default(),
@@ -601,7 +601,7 @@ async fn send_authoritative_response(
                 additionals: Box::<AuthLookup>::default(),
             };
         }
-        LookupControlFlow::Continue(Err(e)) | LookupControlFlow::Break(Err(e)) => {
+        Continue(Err(e)) | Break(Err(e)) => {
             if e.is_nx_domain() {
                 response_header.set_response_code(ResponseCode::NXDomain);
             } else if e.is_name_exists() {
@@ -609,8 +609,8 @@ async fn send_authoritative_response(
             };
             None
         }
-        LookupControlFlow::Skip => {
-            debug!("Unexpected lookup skip");
+        Skip => {
+            debug!("unexpected lookup skip");
             None
         }
     };
@@ -620,15 +620,15 @@ async fn send_authoritative_response(
         if query.query_type().is_soa() {
             // This was a successful authoritative lookup for SOA:
             //   get the NS records as well.
+
+            use LookupControlFlow::*;
             match authority.ns(lookup_options).await {
-                LookupControlFlow::Continue(Ok(ns)) | LookupControlFlow::Break(Ok(ns)) => {
-                    (Some(ns), None)
-                }
-                LookupControlFlow::Continue(Err(e)) | LookupControlFlow::Break(Err(e)) => {
+                Continue(Ok(ns)) | Break(Ok(ns)) => (Some(ns), None),
+                Continue(Err(e)) | Break(Err(e)) => {
                     warn!("ns_lookup errored: {}", e);
                     (None, None)
                 }
-                LookupControlFlow::Skip => {
+                Skip => {
                     warn!("ns_lookup unexpected skip");
                     (None, None)
                 }
@@ -644,15 +644,13 @@ async fn send_authoritative_response(
             let future = authority.get_nsec_records(query.name(), lookup_options);
             match future.await {
                 // run the soa lookup
-                LookupControlFlow::Continue(Ok(nsecs)) | LookupControlFlow::Break(Ok(nsecs)) => {
-                    Some(nsecs)
-                }
-                LookupControlFlow::Continue(Err(e)) | LookupControlFlow::Break(Err(e)) => {
+                Continue(Ok(nsecs)) | Break(Ok(nsecs)) => Some(nsecs),
+                Continue(Err(e)) | Break(Err(e)) => {
                     warn!("failed to lookup nsecs: {}", e);
                     None
                 }
-                LookupControlFlow::Skip => {
-                    warn!("Unexpected lookup skip");
+                Skip => {
+                    warn!("unexpected lookup skip");
                     None
                 }
             }
@@ -660,16 +658,15 @@ async fn send_authoritative_response(
             None
         };
 
+        use LookupControlFlow::*;
         match authority.soa_secure(lookup_options).await {
-            LookupControlFlow::Continue(Ok(soa)) | LookupControlFlow::Break(Ok(soa)) => {
-                (nsecs, Some(soa))
-            }
-            LookupControlFlow::Continue(Err(e)) | LookupControlFlow::Break(Err(e)) => {
+            Continue(Ok(soa)) | Break(Ok(soa)) => (nsecs, Some(soa)),
+            Continue(Err(e)) | Break(Err(e)) => {
                 warn!("failed to lookup soa: {}", e);
                 (nsecs, None)
             }
-            LookupControlFlow::Skip => {
-                warn!("Unexpected lookup skip");
+            Skip => {
+                warn!("unexpected lookup skip");
                 (None, None)
             }
         }
@@ -716,19 +713,18 @@ async fn send_forwarded_response(
 
         Box::new(EmptyLookup)
     } else {
+        use LookupControlFlow::*;
         match response {
-            LookupControlFlow::Continue(Ok(lookup)) | LookupControlFlow::Break(Ok(lookup)) => {
-                lookup
-            }
-            LookupControlFlow::Continue(Err(e)) | LookupControlFlow::Break(Err(e)) => {
+            Continue(Ok(lookup)) | Break(Ok(lookup)) => lookup,
+            Continue(Err(e)) | Break(Err(e)) => {
                 if e.is_nx_domain() {
                     response_header.set_response_code(ResponseCode::NXDomain);
                 }
                 debug!("error resolving: {}", e);
                 Box::new(EmptyLookup)
             }
-            LookupControlFlow::Skip => {
-                info!("Unexpected lookup skip");
+            Skip => {
+                info!("unexpected lookup skip");
                 Box::new(EmptyLookup)
             }
         }

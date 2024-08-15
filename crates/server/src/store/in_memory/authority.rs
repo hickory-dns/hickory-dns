@@ -1125,24 +1125,25 @@ impl Authority for InMemoryAuthority {
         //   always return empty sets. This is only important in the negative case, where other DNS authorities
         //   generally return NoError and no results when other types exist at the same name. bah.
         // TODO: can we get rid of this?
+        use LookupControlFlow::*;
         let result = match result {
-            LookupControlFlow::Continue(Err(LookupError::ResponseCode(ResponseCode::NXDomain))) => {
+            Continue(Err(LookupError::ResponseCode(ResponseCode::NXDomain))) => {
                 if inner
                     .records
                     .keys()
                     .any(|key| key.name() == name || name.zone_of(key.name()))
                 {
-                    return LookupControlFlow::Continue(Err(LookupError::NameExists));
+                    return Continue(Err(LookupError::NameExists));
                 } else {
                     let code = if self.origin().zone_of(name) {
                         ResponseCode::NXDomain
                     } else {
                         ResponseCode::Refused
                     };
-                    return LookupControlFlow::Continue(Err(LookupError::from(code)));
+                    return Continue(Err(LookupError::from(code)));
                 }
             }
-            LookupControlFlow::Continue(Err(e)) => return LookupControlFlow::Continue(Err(e)),
+            Continue(Err(e)) => return Continue(Err(e)),
             o => o,
         };
 
@@ -1187,20 +1188,19 @@ impl Authority for InMemoryAuthority {
             }
             RecordType::AXFR => {
                 // TODO: shouldn't these SOA's be secure? at least the first, perhaps not the last?
-                let start_soa = if let LookupControlFlow::Continue(Ok(res)) =
-                    self.soa_secure(lookup_options).await
-                {
+                use LookupControlFlow::Continue;
+                let start_soa = if let Continue(Ok(res)) = self.soa_secure(lookup_options).await {
                     res.unwrap_records()
                 } else {
                     LookupRecords::Empty
                 };
-                let end_soa = if let LookupControlFlow::Continue(Ok(res)) = self.soa().await {
+                let end_soa = if let Continue(Ok(res)) = self.soa().await {
                     res.unwrap_records()
                 } else {
                     LookupRecords::Empty
                 };
 
-                let records = if let LookupControlFlow::Continue(Ok(res)) =
+                let records = if let Continue(Ok(res)) =
                     self.lookup(lookup_name, record_type, lookup_options).await
                 {
                     res.unwrap_records()

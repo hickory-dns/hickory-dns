@@ -8,6 +8,7 @@
 //! All authority related types
 
 use cfg_if::cfg_if;
+use std::fmt;
 
 #[cfg(feature = "dnssec")]
 use crate::proto::rr::{
@@ -231,6 +232,22 @@ pub enum LookupControlFlow<T, E = LookupError> {
     Skip,
 }
 
+impl<T, E> fmt::Display for LookupControlFlow<T, E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Continue(cont) => match cont {
+                Ok(_) => write!(f, "LookupControlFlow::Continue(Ok)"),
+                Err(_) => write!(f, "LookupControlFlow::Continue(Err)"),
+            },
+            Self::Break(b) => match b {
+                Ok(_) => write!(f, "LookupControlFlow::Break(Ok)"),
+                Err(_) => write!(f, "LookupControlFlow::Break(Err)"),
+            },
+            Self::Skip => write!(f, "LookupControlFlow::Skip"),
+        }
+    }
+}
+
 /// The following are a minimal set of methods typically used with Result or Option, and that
 /// were used in the server code or test suite prior to when the LookupControlFlow type was created
 /// (authority lookup functions previously returned a Result over a Lookup or LookupError type.)
@@ -244,20 +261,6 @@ impl<T, E> LookupControlFlow<T, E> {
     pub fn is_break(&self) -> bool {
         matches!(self, Self::Break(_))
     }
-    /// Return an &str representation of the current variant of self
-    pub fn variant_as_str(&self) -> &str {
-        match self {
-            Self::Continue(cont) => match cont {
-                Ok(_) => "LookupControlFlow::Continue(Ok)",
-                Err(_) => "LookupControlFlow::Continue(Err)",
-            },
-            Self::Break(b) => match b {
-                Ok(_) => "LookupControlFlow::Break(Ok)",
-                Err(_) => "LookupControlFlow::Break(Err)",
-            },
-            Self::Skip => "LookupControlFlow::Skip",
-        }
-    }
 }
 
 impl<T: LookupObject + 'static, E: std::fmt::Display> LookupControlFlow<T, E> {
@@ -266,10 +269,7 @@ impl<T: LookupObject + 'static, E: std::fmt::Display> LookupControlFlow<T, E> {
         match self {
             Self::Continue(Ok(ok)) | Self::Break(Ok(ok)) => ok,
             _ => {
-                panic!(
-                    "LookupControlFlow::expect called on unexpected variant {}: {msg}",
-                    self.variant_as_str()
-                );
+                panic!("lookupcontrolflow::expect() called on unexpected variant {self}: {msg}");
             }
         }
     }
@@ -280,8 +280,7 @@ impl<T: LookupObject + 'static, E: std::fmt::Display> LookupControlFlow<T, E> {
             Self::Continue(Err(e)) | Self::Break(Err(e)) => e,
             _ => {
                 panic!(
-                    "LookupControlFlow::expect_err called on unexpected variant {}: {msg}",
-                    self.variant_as_str()
+                    "lookupcontrolflow::expect_err() called on unexpected variant {self}: {msg}"
                 );
             }
         }
@@ -292,16 +291,10 @@ impl<T: LookupObject + 'static, E: std::fmt::Display> LookupControlFlow<T, E> {
         match self {
             Self::Continue(Ok(ok)) | Self::Break(Ok(ok)) => ok,
             Self::Continue(Err(ref e)) | Self::Break(Err(ref e)) => {
-                panic!(
-                    "LookupControlFlow::unwrap called on unexpected variant {}: {e}",
-                    self.variant_as_str()
-                );
+                panic!("lookupcontrolflow::unwrap() called on unexpected variant {self}: {e}");
             }
             _ => {
-                panic!(
-                    "LookupControlFlow::unwrap called on unexpected variant: {}",
-                    self.variant_as_str()
-                );
+                panic!("lookupcontrolflow::unwrap() called on unexpected variant: {self}");
             }
         }
     }
@@ -311,10 +304,7 @@ impl<T: LookupObject + 'static, E: std::fmt::Display> LookupControlFlow<T, E> {
         match self {
             Self::Continue(Err(e)) | Self::Break(Err(e)) => e,
             _ => {
-                panic!(
-                    "LookupControlFlow::unwrap_err called on unexpected variant: {}",
-                    self.variant_as_str()
-                );
+                panic!("lookupcontrolflow::unwrap_err() called on unexpected variant: {self}");
             }
         }
     }
@@ -376,7 +366,7 @@ impl<T: LookupObject + 'static, E: std::fmt::Display> LookupControlFlow<T, E> {
                 Ok(lookup) => LookupControlFlow::Break(Ok(lookup)),
                 Err(e) => LookupControlFlow::Break(Err(op(e))),
             },
-            Self::Skip => LookupControlFlow::<T, U>::Skip,
+            Self::Skip => LookupControlFlow::Skip,
         }
     }
 }

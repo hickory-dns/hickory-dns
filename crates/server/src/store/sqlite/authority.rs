@@ -16,6 +16,9 @@ use std::{
 use futures_util::lock::Mutex;
 use tracing::{error, info, warn};
 
+#[cfg(feature = "dnssec")]
+use LookupControlFlow::Continue;
+
 use crate::{
     authority::{
         Authority, LookupControlFlow, LookupOptions, MessageRequest, UpdateResult, ZoneType,
@@ -492,7 +495,7 @@ impl SqliteAuthority {
                     .await;
 
                 let keys = match keys {
-                    LookupControlFlow::Continue(Ok(keys)) => keys,
+                    Continue(Ok(keys)) => keys,
                     _ => continue, // error trying to lookup a key by that name, try the next one.
                 };
 

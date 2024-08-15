@@ -128,11 +128,16 @@ impl Authority for ForwardAuthority {
         debug_assert!(self.origin.zone_of(name));
 
         debug!("forwarding lookup: {} {}", name, rtype);
-        let name: LowerName = name.clone();
 
+        // Ignore FQDN when we forward DNS queries. Without this we can't look
+        // up addresses from system hosts file.
+        let mut name: Name = name.clone().into();
+        name.set_fqdn(false);
+
+        use LookupControlFlow::*;
         match self.resolver.lookup(name, rtype).await {
-            Ok(lookup) => LookupControlFlow::Continue(Ok(ForwardLookup(lookup))),
-            Err(e) => LookupControlFlow::Continue(Err(LookupError::from(e))),
+            Ok(lookup) => Continue(Ok(ForwardLookup(lookup))),
+            Err(e) => Continue(Err(LookupError::from(e))),
         }
     }
 
