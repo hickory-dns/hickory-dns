@@ -26,7 +26,7 @@ fn copies_cd_bit_from_query_to_response() -> Result<()> {
 
 #[test]
 fn if_cd_bit_is_set_then_respond_with_data_that_fails_authentication() -> Result<()> {
-    let needle_fqdn = FQDN("example.nameservers.com.")?;
+    let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
     let needle_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
 
     let (resolver, _graph) =
@@ -56,7 +56,7 @@ fn if_cd_bit_is_set_then_respond_with_data_that_fails_authentication() -> Result
 
 #[test]
 fn if_cd_bit_is_clear_and_data_is_not_authentic_then_respond_with_servfail() -> Result<()> {
-    let needle_fqdn = FQDN("example.nameservers.com.")?;
+    let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
     let needle_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
 
     let (resolver, _graph) =

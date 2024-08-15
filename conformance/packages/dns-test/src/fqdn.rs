@@ -38,6 +38,10 @@ impl FQDN {
         inner: Cow::Borrowed("nameservers.com."),
     };
 
+    pub const EXAMPLE_SUBDOMAIN: FQDN = FQDN {
+        inner: Cow::Borrowed("example.nameservers.com."),
+    };
+
     pub fn is_root(&self) -> bool {
         self.inner == "."
     }
@@ -110,7 +114,7 @@ mod tests {
 
     #[test]
     fn parent() -> Result<()> {
-        let mut fqdn = FQDN("example.nameservers.com.")?;
+        let mut fqdn = FQDN::EXAMPLE_SUBDOMAIN;
         assert_eq!(3, fqdn.num_labels());
 
         let parent = fqdn.parent();

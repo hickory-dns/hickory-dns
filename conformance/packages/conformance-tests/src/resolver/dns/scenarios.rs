@@ -8,7 +8,7 @@ use dns_test::{Network, Resolver, Result, FQDN};
 #[test]
 fn can_resolve() -> Result<()> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
-    let needle_fqdn = FQDN("example.nameservers.com.")?;
+    let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
 
     let network = Network::new()?;
 
