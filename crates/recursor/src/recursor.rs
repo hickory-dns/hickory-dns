@@ -7,6 +7,8 @@
 
 use std::time::Instant;
 
+use ipnet::IpNet;
+
 #[cfg(feature = "dnssec")]
 use crate::{
     proto::xfer::{DnsHandle as _, DnsRequestOptions, DnssecDnsHandle, FirstAnswer as _},
@@ -27,6 +29,7 @@ pub struct RecursorBuilder {
     ns_cache_size: usize,
     record_cache_size: usize,
     dnssec_policy: DnssecPolicy,
+    do_not_query: Vec<IpNet>,
 }
 
 impl Default for RecursorBuilder {
@@ -35,6 +38,7 @@ impl Default for RecursorBuilder {
             ns_cache_size: 1024,
             record_cache_size: 1048576,
             dnssec_policy: DnssecPolicy::SecurityUnaware,
+            do_not_query: vec![],
         }
     }
 }
@@ -58,6 +62,12 @@ impl RecursorBuilder {
         self
     }
 
+    /// Add networks that should not be queried during recursive resolution
+    pub fn do_not_query(&mut self, networks: &[IpNet]) -> &mut Self {
+        self.do_not_query.extend(networks.iter().copied());
+        self
+    }
+
     /// Construct a new recursor using the list of NameServerConfigs for the root node list
     ///
     /// # Panics
@@ -69,6 +79,7 @@ impl RecursorBuilder {
             self.ns_cache_size,
             self.record_cache_size,
             self.dnssec_policy.clone(),
+            self.do_not_query.clone(),
         )
     }
 }
@@ -97,12 +108,14 @@ impl Recursor {
         ns_cache_size: usize,
         record_cache_size: usize,
         dnssec_policy: DnssecPolicy,
+        do_not_query: Vec<IpNet>,
     ) -> Result<Self, ResolveError> {
         let handle = RecursorDnsHandle::new(
             roots,
             ns_cache_size,
             record_cache_size,
             dnssec_policy.is_security_aware(),
+            do_not_query,
         )?;
 
         let mode = match dnssec_policy {
