@@ -11,7 +11,7 @@ use dns_test::{
 #[test]
 fn includes_rrsig_record_in_ns_query() -> Result<()> {
     let network = Network::new()?;
-    let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network)?;
+    let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
 
     let Graph {
         nameservers: _nameservers,
@@ -35,7 +35,7 @@ fn includes_rrsig_record_in_ns_query() -> Result<()> {
         *DigSettings::default().dnssec().recurse(),
         resolver_addr,
         RecordType::NS,
-        &FQDN::NAMESERVERS,
+        &FQDN::TEST_DOMAIN,
     )?;
 
     assert!(output.status.is_noerror());
@@ -55,7 +55,7 @@ fn includes_rrsig_record_in_ns_query() -> Result<()> {
 #[test]
 fn can_validate_ns_query() -> Result<()> {
     let network = Network::new()?;
-    let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network)?;
+    let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
 
     let Graph {
         nameservers: _nameservers,
@@ -81,7 +81,7 @@ fn can_validate_ns_query() -> Result<()> {
         *DigSettings::default().authentic_data().recurse(),
         resolver_addr,
         RecordType::NS,
-        &FQDN::NAMESERVERS,
+        &FQDN::TEST_DOMAIN,
     )?;
 
     // bug: this returned SERVFAIL instead of NOERROR with AD=1

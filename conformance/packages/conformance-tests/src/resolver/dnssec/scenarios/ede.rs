@@ -12,7 +12,7 @@ fn dnskey_missing() -> Result<()> {
     fixture(
         ExtendedDnsError::DnskeyMissing,
         |_needle_fqdn, zone, records| {
-            if zone == &FQDN::NAMESERVERS {
+            if zone == &FQDN::TEST_DOMAIN {
                 // remove the DNSKEY record that contains the ZSK
                 let mut remove_count = 0;
                 *records = records
@@ -43,7 +43,7 @@ fn rrsigs_missing() -> Result<()> {
     fixture(
         ExtendedDnsError::RrsigsMissing,
         |needle_fqdn, zone, records| {
-            if zone == &FQDN::NAMESERVERS {
+            if zone == &FQDN::TEST_DOMAIN {
                 // remove the RRSIG records that covers the needle record
                 let mut remove_count = 0;
                 *records = records
@@ -74,7 +74,7 @@ fn unsupported_dnskey_algorithm() -> Result<()> {
     fixture(
         ExtendedDnsError::UnsupportedDnskeyAlgorithm,
         |needle_fqdn, zone, records| {
-            if zone == &FQDN::NAMESERVERS {
+            if zone == &FQDN::TEST_DOMAIN {
                 // lie about the algorithm that was used to sign the needle record
                 let mut modified_count = 0;
                 for record in records {
@@ -98,7 +98,7 @@ fn dnssec_bogus() -> Result<()> {
     fixture(
         ExtendedDnsError::DnssecBogus,
         |needle_fqdn, zone, records| {
-            if zone == &FQDN::NAMESERVERS {
+            if zone == &FQDN::TEST_DOMAIN {
                 // corrupt the RRSIG record that covers the needle record
                 let mut modified_count = 0;
                 for record in records {
@@ -133,7 +133,7 @@ fn fixture(
     let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
 
     let network = Network::new()?;
-    let mut leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network)?;
+    let mut leaf_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
     leaf_ns.add(Record::a(needle_fqdn.clone(), expected_ipv4_addr));
 
     let Graph {

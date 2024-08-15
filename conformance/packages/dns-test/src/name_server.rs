@@ -49,8 +49,8 @@ impl Graph {
         let network = leaf.container.network().clone();
         let implementation = leaf.implementation.clone();
 
-        let (mut nameservers_ns, leaf) = if leaf.zone() != &FQDN::NAMESERVERS {
-            let nameservers_ns = NameServer::new(&implementation, FQDN::NAMESERVERS, &network)?;
+        let (mut nameservers_ns, leaf) = if leaf.zone() != &FQDN::TEST_DOMAIN {
+            let nameservers_ns = NameServer::new(&implementation, FQDN::TEST_DOMAIN, &network)?;
             (nameservers_ns, Some(leaf))
         } else {
             (leaf, None)

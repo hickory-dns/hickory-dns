@@ -12,7 +12,7 @@ fn can_resolve() -> Result<()> {
 
     let network = Network::new()?;
 
-    let mut leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network)?;
+    let mut leaf_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
     leaf_ns.add(Record::a(needle_fqdn.clone(), expected_ipv4_addr));
 
     let Graph {
@@ -47,7 +47,7 @@ fn nxdomain() -> Result<()> {
 
     let network = Network::new()?;
 
-    let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::NAMESERVERS, &network)?;
+    let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
 
     let Graph {
         nameservers: _nameservers,
