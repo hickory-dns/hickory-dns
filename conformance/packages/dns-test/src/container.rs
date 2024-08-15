@@ -1,6 +1,7 @@
 mod network;
 
 use core::{fmt, str};
+use std::ffi::OsStr;
 use std::net::Ipv4Addr;
 use std::process::{self, ChildStdout, ExitStatus};
 use std::process::{Command, Stdio};
@@ -231,7 +232,7 @@ impl Container {
         }
     }
 
-    pub fn spawn(&self, cmd: &[&str]) -> Result<Child> {
+    pub fn spawn(&self, cmd: &[impl AsRef<OsStr>]) -> Result<Child> {
         let mut command = Command::new("docker");
         command.stdout(Stdio::piped()).stderr(Stdio::piped());
         command.args(["exec", "-t", &self.inner.id]).args(cmd);

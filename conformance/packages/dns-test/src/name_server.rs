@@ -263,14 +263,14 @@ impl NameServer<Stopped> {
         container.status_ok(&["mkdir", "-p", ZONES_DIR])?;
         container.cp(&zone_file_path(), &zone_file.to_string())?;
 
-        let child = container.spawn(implementation.cmd_args(config.role()))?;
+        let child = container.spawn(&implementation.cmd_args(config.role()))?;
 
         Ok(NameServer {
             container,
             implementation,
             zone_file,
             state: Running {
-                child,
+                _child: child,
                 trust_anchor: None,
             },
         })
@@ -310,14 +310,14 @@ impl NameServer<Signed> {
         )?;
         container.cp(&zone_file_path(), &state.signed.to_string())?;
 
-        let child = container.spawn(implementation.cmd_args(config.role()))?;
+        let child = container.spawn(&implementation.cmd_args(config.role()))?;
 
         Ok(NameServer {
             container,
             implementation,
             zone_file,
             state: Running {
-                child,
+                _child: child,
                 trust_anchor: Some(state.trust_anchor()),
             },
         })
@@ -354,37 +354,27 @@ impl NameServer<Running> {
         self.container.eavesdrop()
     }
 
-    /// gracefully terminates the name server collecting all logs
-    pub fn terminate(self) -> Result<String> {
-        let pidfile = self.implementation.pidfile(Role::NameServer);
-
-        // if `terminate` is called right after `start` NSD may not have had the chance to create
-        // the PID file so if it doesn't exist wait for a bit before invoking `kill`
-        let kill = format!(
-            "test -f {pidfile} || sleep 1
-kill -TERM $(cat {pidfile})"
-        );
-        self.container.status_ok(&["sh", "-c", &kill])?;
-        let output = self.state.child.wait()?;
-
-        // the hickory-dns binary does not do signal handling so it won't shut down gracefully; we
-        // will still get some logs so we'll ignore the fact that it fails to shut down ...
-        let is_hickory = matches!(self.implementation, Implementation::Hickory(_));
-        if !is_hickory && !output.status.success() {
-            return Err(
-                format!("could not terminate the `{}` process", self.implementation).into(),
-            );
-        }
-
-        assert!(
-            output.stderr.is_empty(),
-            "stderr should be returned if not empty"
-        );
-        Ok(output.stdout)
-    }
-
     pub fn trust_anchor(&self) -> Option<&TrustAnchor> {
         self.state.trust_anchor.as_ref()
+    }
+
+    /// Returns the logs collected so far
+    pub fn logs(&self) -> Result<String> {
+        if self.implementation.is_hickory() {
+            self.stdout()
+        } else {
+            self.stderr()
+        }
+    }
+
+    fn stdout(&self) -> Result<String> {
+        self.container
+            .stdout(&["cat", &self.implementation.stdout_logfile(Role::NameServer)])
+    }
+
+    fn stderr(&self) -> Result<String> {
+        self.container
+            .stdout(&["cat", &self.implementation.stderr_logfile(Role::NameServer)])
     }
 }
 
@@ -445,7 +435,7 @@ impl Signed {
 }
 
 pub struct Running {
-    child: Child,
+    _child: Child,
     trust_anchor: Option<TrustAnchor>,
 }
 
@@ -563,10 +553,13 @@ mod tests {
     }
 
     #[test]
-    fn terminate_nsd_works() -> Result<()> {
+    fn nsd_logs_works() -> Result<()> {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
-        let logs = ns.terminate()?;
+        // no way to block until the server has finished starting up so we just give it some
+        // arbitrary amount of time
+        thread::sleep(Duration::from_secs(1));
+        let logs = ns.logs()?;
 
         assert!(logs.contains("nsd starting"));
 
@@ -574,10 +567,13 @@ mod tests {
     }
 
     #[test]
-    fn terminate_named_works() -> Result<()> {
+    fn named_logs_works() -> Result<()> {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::Bind, FQDN::ROOT, &network)?.start()?;
-        let logs = ns.terminate()?;
+        // no way to block until the server has finished starting up so we just give it some
+        // arbitrary amount of time
+        thread::sleep(Duration::from_secs(1));
+        let logs = ns.logs()?;
 
         eprintln!("{logs}");
         assert!(logs.contains("starting BIND"));
@@ -586,15 +582,15 @@ mod tests {
     }
 
     #[test]
-    fn terminate_hickory_works() -> Result<()> {
+    fn hickory_logs_works() -> Result<()> {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::hickory(), FQDN::ROOT, &network)?.start()?;
 
-        // hickory-dns does not do signal handling so we need to wait until it prints something to
-        // the console
-        thread::sleep(Duration::from_millis(500));
+        // no way to block until the server has finished starting up so we just give it some
+        // arbitrary amount of time
+        thread::sleep(Duration::from_secs(1));
 
-        let logs = ns.terminate()?;
+        let logs = ns.logs()?;
 
         eprintln!("{logs}");
         let mut found = false;
