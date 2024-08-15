@@ -2,8 +2,10 @@ use std::{fmt, net::IpAddr, sync::Arc, time::Instant};
 
 use async_recursion::async_recursion;
 use futures_util::{stream::FuturesUnordered, Stream, StreamExt};
+use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use lru_cache::LruCache;
 use parking_lot::Mutex;
+use prefix_trie::PrefixSet;
 use tracing::{debug, trace, warn};
 
 use crate::{
@@ -33,6 +35,8 @@ pub(crate) struct RecursorDnsHandle {
     name_server_cache: Arc<Mutex<NameServerCache<TokioRuntimeProvider>>>,
     record_cache: DnsLru,
     security_aware: bool,
+    do_not_query_v4: PrefixSet<Ipv4Net>,
+    do_not_query_v6: PrefixSet<Ipv6Net>,
 }
 
 impl RecursorDnsHandle {
@@ -41,6 +45,7 @@ impl RecursorDnsHandle {
         ns_cache_size: usize,
         record_cache_size: usize,
         security_aware: bool,
+        do_not_query: Vec<IpNet>,
     ) -> Result<Self, ResolveError> {
         // configure the hickory-resolver
         let roots: NameServerConfigGroup = roots.into();
@@ -55,11 +60,26 @@ impl RecursorDnsHandle {
         let name_server_cache = Arc::new(Mutex::new(NameServerCache::new(ns_cache_size)));
         let record_cache = DnsLru::new(record_cache_size, TtlConfig::default());
 
+        let mut do_not_query_v4 = PrefixSet::new();
+        let mut do_not_query_v6 = PrefixSet::new();
+        for network in do_not_query {
+            match network {
+                IpNet::V4(network) => {
+                    do_not_query_v4.insert(network);
+                }
+                IpNet::V6(network) => {
+                    do_not_query_v6.insert(network);
+                }
+            }
+        }
+
         Ok(Self {
             roots,
             name_server_cache,
             record_cache,
             security_aware,
+            do_not_query_v4,
+            do_not_query_v6,
         })
     }
 
@@ -312,6 +332,13 @@ impl RecursorDnsHandle {
                     .flatten()
                     .chain(cached_aaaa.into_iter().flatten())
                     .filter_map(|r| r.ip_addr())
+                    .filter(|ip| {
+                        let matches = self.matches_do_not_query(*ip);
+                        if matches {
+                            debug!(name = %ns_data, %ip, "ignoring address due to do_not_query");
+                        }
+                        !matches
+                    })
                     .peekable();
 
                 if glue_ips.peek().is_none() {
@@ -345,7 +372,7 @@ impl RecursorDnsHandle {
                     }
                 });
 
-            append_ips_from_lookup(
+            self.append_ips_from_lookup(
                 |rsp| rsp.into_iter().filter_map(|r| r.ip_addr()),
                 &mut resolve_futures,
                 &mut config_group,
@@ -379,7 +406,7 @@ impl RecursorDnsHandle {
                     }
                 });
 
-            append_ips_from_lookup(
+            self.append_ips_from_lookup(
                 |mut rsp| {
                     rsp.take_answers()
                         .into_iter()
@@ -470,6 +497,13 @@ impl RecursorDnsHandle {
                 .chain(cached_aaaa.into_iter().flatten())
                 .filter_map(|r| RData::ip_addr(&r))
                 .chain(glue.filter_map(|r| RData::ip_addr(r.data())))
+                .filter(|ip| {
+                    let matches = self.matches_do_not_query(*ip);
+                    if matches {
+                        debug!(name = %ns_name, %ip, "ignoring address due to do_not_query");
+                    }
+                    !matches
+                })
                 .peekable();
 
             if glue_ips.peek().is_some() {
@@ -498,7 +532,7 @@ impl RecursorDnsHandle {
                 });
             }
 
-            append_ips_from_lookup(
+            self.append_ips_from_lookup(
                 |rsp| rsp.into_iter().filter_map(|r| r.ip_addr()),
                 &mut resolve_futures,
                 &mut config_group,
@@ -526,26 +560,43 @@ impl RecursorDnsHandle {
         Ok(ns)
     }
 
+    /// Check if an IP address matches any networks listed in the configuration that should not be
+    /// sent recursive queries.
+    fn matches_do_not_query(&self, ip: IpAddr) -> bool {
+        match ip {
+            IpAddr::V4(ip) => self.do_not_query_v4.contains(&ip.into()),
+            IpAddr::V6(ip) => self.do_not_query_v6.contains(&ip.into()),
+        }
+    }
+
     #[cfg(feature = "dnssec")]
     pub(crate) fn record_cache(&self) -> &DnsLru {
         &self.record_cache
     }
-}
 
-async fn append_ips_from_lookup<E: fmt::Display, R: fmt::Debug, I: Iterator<Item = IpAddr>>(
-    extract_ips: impl Fn(R) -> I,
-    futures: &mut (impl Stream<Item = Result<R, E>> + Unpin),
-    config: &mut NameServerConfigGroup,
-    activity: &str,
-) {
-    while let Some(next) = futures.next().await {
-        match next {
-            Ok(response) => {
-                debug!("{activity} A or AAAA response: {response:?}");
-                config.append_ips(extract_ips(response), true);
-            }
-            Err(e) => {
-                warn!("{activity} resolution failed failed: {e}");
+    async fn append_ips_from_lookup<E: fmt::Display, R: fmt::Debug, I: Iterator<Item = IpAddr>>(
+        &self,
+        extract_ips: impl Fn(R) -> I,
+        futures: &mut (impl Stream<Item = Result<R, E>> + Unpin),
+        config: &mut NameServerConfigGroup,
+        activity: &str,
+    ) {
+        while let Some(next) = futures.next().await {
+            match next {
+                Ok(response) => {
+                    debug!("{activity} A or AAAA response: {response:?}");
+                    let ip_iter = extract_ips(response).filter(|ip| {
+                        let matches = self.matches_do_not_query(*ip);
+                        if matches {
+                            debug!(activity, %ip, "ignoring address due to do_not_query");
+                        }
+                        !matches
+                    });
+                    config.append_ips(ip_iter, true);
+                }
+                Err(e) => {
+                    warn!("{activity} resolution failed failed: {e}");
+                }
             }
         }
     }

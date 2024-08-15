@@ -78,7 +78,8 @@ impl RecursiveAuthority {
         recursor
             .ns_cache_size(config.ns_cache_size)
             .record_cache_size(config.record_cache_size)
-            .dnssec_policy(config.dnssec_policy.load()?);
+            .dnssec_policy(config.dnssec_policy.load()?)
+            .do_not_query(&config.do_not_query);
         let recursor = recursor
             .build(roots)
             .map_err(|e| format!("failed to initialize recursor: {e}"))?;

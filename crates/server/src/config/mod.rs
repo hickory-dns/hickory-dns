@@ -320,3 +320,15 @@ impl ZoneConfig {
         &self.keys
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[cfg(feature = "toml")]
+    #[test]
+    fn example_recursor_config() {
+        toml::from_str::<super::Config>(include_str!(
+            "../../../../tests/test-data/test_configs/example_recursor.toml"
+        ))
+        .unwrap();
+    }
+}

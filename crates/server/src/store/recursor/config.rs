@@ -15,6 +15,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use ipnet::IpNet;
 use serde::Deserialize;
 
 use crate::error::ConfigError;
@@ -45,6 +46,10 @@ pub struct RecursiveConfig {
     #[cfg(feature = "dnssec")]
     #[serde(default)]
     pub dnssec_policy: DnssecPolicyConfig,
+
+    /// Networks that will not be queried during resolution
+    #[serde(default)]
+    pub do_not_query: Vec<IpNet>,
 }
 
 impl RecursiveConfig {
