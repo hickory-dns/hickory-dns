@@ -47,7 +47,7 @@ macro_rules! record_types {
     };
 }
 
-record_types!(A, AAAA, DNSKEY, DS, MX, NS, NSEC3, NSEC3PARAM, RRSIG, SOA, TXT, ANY);
+record_types!(A, AAAA, DNSKEY, DS, MX, NS, NSEC, NSEC3, NSEC3PARAM, RRSIG, SOA, TXT, ANY);
 
 #[derive(Debug, Clone)]
 #[allow(clippy::upper_case_acronyms)]
@@ -56,11 +56,18 @@ pub enum Record {
     DNSKEY(DNSKEY),
     DS(DS),
     NS(NS),
+    NSEC(NSEC),
     NSEC3(NSEC3),
     NSEC3PARAM(NSEC3PARAM),
     RRSIG(RRSIG),
     SOA(SOA),
     TXT(TXT),
+}
+
+impl From<NSEC> for Record {
+    fn from(v: NSEC) -> Self {
+        Self::NSEC(v)
+    }
 }
 
 impl From<NSEC3> for Record {
@@ -206,6 +213,7 @@ impl FromStr for Record {
             "DNSKEY" => Record::DNSKEY(input.parse()?),
             "DS" => Record::DS(input.parse()?),
             "NS" => Record::NS(input.parse()?),
+            "NSEC" => Record::NSEC(input.parse()?),
             "NSEC3" => Record::NSEC3(input.parse()?),
             "NSEC3PARAM" => Record::NSEC3PARAM(input.parse()?),
             "RRSIG" => Record::RRSIG(input.parse()?),
@@ -225,6 +233,7 @@ impl fmt::Display for Record {
             Record::DS(ds) => write!(f, "{ds}"),
             Record::DNSKEY(dnskey) => write!(f, "{dnskey}"),
             Record::NS(ns) => write!(f, "{ns}"),
+            Record::NSEC(nsec) => write!(f, "{nsec}"),
             Record::NSEC3(nsec3) => write!(f, "{nsec3}"),
             Record::NSEC3PARAM(nsec3param) => write!(f, "{nsec3param}"),
             Record::RRSIG(rrsig) => write!(f, "{rrsig}"),
@@ -477,6 +486,67 @@ impl FromStr for NS {
             ttl: ttl.parse()?,
             nameserver: nameserver.parse()?,
         })
+    }
+}
+
+// See https://datatracker.ietf.org/doc/html/rfc4034#section-4
+#[derive(Debug, Clone, PartialEq)]
+pub struct NSEC {
+    pub fqdn: FQDN,
+    pub ttl: u32,
+    pub next_domain_name: FQDN,
+    pub type_bit_maps: Vec<RecordType>,
+}
+
+impl FromStr for NSEC {
+    type Err = Error;
+
+    fn from_str(input: &str) -> Result<Self> {
+        let mut columns = input.split_whitespace();
+
+        let [Some(fqdn), Some(ttl), Some(class), Some(record_type), Some(next_domain_name)] =
+            array::from_fn(|_| columns.next())
+        else {
+            return Err("expected at least 5 columns".into());
+        };
+
+        check_record_type::<Self>(record_type)?;
+        check_class(class)?;
+
+        let mut type_bit_maps = vec![];
+        for column in columns {
+            type_bit_maps.push(column.parse()?);
+        }
+
+        Ok(Self {
+            fqdn: fqdn.parse()?,
+            ttl: ttl.parse()?,
+            next_domain_name: next_domain_name.parse()?,
+            type_bit_maps,
+        })
+    }
+}
+
+impl fmt::Display for NSEC {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            fqdn,
+            ttl,
+            next_domain_name,
+            type_bit_maps,
+        } = self;
+
+        let record_type = unqualified_type_name::<Self>();
+        write!(
+            f,
+            "{fqdn}\t{ttl}\t{CLASS}\t{record_type}\t{next_domain_name}"
+        )?;
+
+        for record_type in type_bit_maps {
+            write!(f, " {record_type}")?;
+        }
+
+        Ok(())
     }
 }
 
@@ -794,7 +864,8 @@ impl FromStr for TXT {
     fn from_str(input: &str) -> Result<Self> {
         let mut columns = input.split_whitespace();
 
-        let [Some(zone), Some(ttl), Some(class), Some(record_type)] = array::from_fn(|_| columns.next())
+        let [Some(zone), Some(ttl), Some(class), Some(record_type)] =
+            array::from_fn(|_| columns.next())
         else {
             return Err("expected at least 4 columns".into());
         };
@@ -973,6 +1044,37 @@ mod tests {
 
         let output = ns.to_string();
         assert_eq!(NS_INPUT, output);
+
+        Ok(())
+    }
+
+    const NSEC_INPUT: &str = "example.com.	300	IN	NSEC	sub.example.com. NS SOA RRSIG NSEC DNSKEY";
+
+    #[test]
+    fn nsec() -> Result<()> {
+        let nsec @ NSEC {
+            fqdn,
+            ttl,
+            next_domain_name,
+            type_bit_maps,
+        } = &NSEC_INPUT.parse()?;
+
+        assert_eq!("example.com.", fqdn.as_str());
+        assert_eq!(300, *ttl);
+        assert_eq!("sub.example.com.", next_domain_name.as_str());
+        assert_eq!(
+            vec![
+                RecordType::NS,
+                RecordType::SOA,
+                RecordType::RRSIG,
+                RecordType::NSEC,
+                RecordType::DNSKEY
+            ],
+            *type_bit_maps
+        );
+
+        let output = nsec.to_string();
+        assert_eq!(NSEC_INPUT, output);
 
         Ok(())
     }

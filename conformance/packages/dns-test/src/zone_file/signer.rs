@@ -22,6 +22,7 @@ pub struct SignSettings {
     expiration: Option<u64>,
     inception: Option<u64>,
     nsec_salt: Option<String>,
+    nsec3: bool,
 }
 
 impl SignSettings {
@@ -33,6 +34,7 @@ impl SignSettings {
             expiration: None,
             inception: None,
             nsec_salt: None,
+            nsec3: true,
         }
     }
 
@@ -45,6 +47,7 @@ impl SignSettings {
             expiration: None,
             inception: None,
             nsec_salt: None,
+            nsec3: true,
         }
     }
 
@@ -69,6 +72,12 @@ impl SignSettings {
     /// Sets the NSEC3 salt string.
     pub fn salt(mut self, salt: &str) -> Self {
         self.nsec_salt = Some(salt.to_string());
+        self
+    }
+
+    /// Disables the NSEC3 option, falls back to NSEC
+    pub fn nsec(mut self) -> Self {
+        self.nsec3 = false;
         self
     }
 }
@@ -201,9 +210,14 @@ impl<'a> Signer<'a> {
         // NSEC3 related options
         // -n = use NSEC3 instead of NSEC
         // -p = set the opt-out flag on all nsec3 rrs
-        args.push(format!("-n -p {ZONE_FILENAME}"));
-        if let Some(salt) = &self.settings.nsec_salt {
-            args.push(format!("-s {}", salt));
+        if self.settings.nsec3 {
+            args.push(format!("-n -p {ZONE_FILENAME}"));
+            if let Some(salt) = &self.settings.nsec_salt {
+                args.push(format!("-s {}", salt));
+            }
+        } else {
+            // fall back to NSEC
+            args.push(format!("{ZONE_FILENAME}"));
         }
 
         args.extend(keys);
