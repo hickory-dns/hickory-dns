@@ -280,7 +280,7 @@ pub enum ExtendedDnsError {
     DnssecBogus,
     RrsigsMissing,
     UnsupportedDnskeyAlgorithm,
-    NotAuhoritative,
+    NotAuthoritative,
     SignatureExpired,
 }
 
@@ -296,7 +296,7 @@ impl FromStr for ExtendedDnsError {
             7 => Self::SignatureExpired,
             9 => Self::DnskeyMissing,
             10 => Self::RrsigsMissing,
-            20 => Self::NotAuhoritative,
+            20 => Self::NotAuthoritative,
             _ => todo!("EDE {code} has not yet been implemented"),
         };
 
@@ -371,6 +371,11 @@ impl DigStatus {
     #[must_use]
     pub fn is_servfail(&self) -> bool {
         matches!(self, Self::SERVFAIL)
+    }
+
+    #[must_use]
+    pub fn is_refused(&self) -> bool {
+        matches!(self, Self::REFUSED)
     }
 }
 
