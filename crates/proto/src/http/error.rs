@@ -42,7 +42,7 @@ pub enum ErrorKind {
     ProtoError(#[from] ProtoError),
 
     #[error("h2: {0}")]
-    #[cfg(feature = "dns-over-https")]
+    #[cfg(feature = "dns-over-https-rustls")]
     H2(#[from] h2::Error),
 
     #[error("h3: {0}")]
@@ -122,7 +122,7 @@ impl From<ProtoError> for Error {
     }
 }
 
-#[cfg(feature = "dns-over-https")]
+#[cfg(feature = "dns-over-https-rustls")]
 impl From<h2::Error> for Error {
     fn from(msg: h2::Error) -> Self {
         ErrorKind::H2(msg).into()

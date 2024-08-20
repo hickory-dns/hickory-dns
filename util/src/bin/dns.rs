@@ -308,12 +308,12 @@ async fn tls(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[cfg(not(feature = "dns-over-https"))]
+#[cfg(not(feature = "dns-over-https-rustls"))]
 async fn https(_opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     panic!("`dns-over-https` feature is required during compilation");
 }
 
-#[cfg(feature = "dns-over-https")]
+#[cfg(feature = "dns-over-https-rustls")]
 async fn https(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     use hickory_proto::h2::HttpsClientStreamBuilder;
 

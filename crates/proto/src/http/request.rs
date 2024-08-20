@@ -132,7 +132,7 @@ pub fn verify<T>(version: Version, name_server: Option<&str>, request: &Request<
 
     if request.version() != version.to_http() {
         let message = match version {
-            #[cfg(feature = "dns-over-https")]
+            #[cfg(feature = "dns-over-https-rustls")]
             Version::Http2 => "only HTTP/2 supported",
             #[cfg(feature = "dns-over-h3")]
             Version::Http3 => "only HTTP/3 supported",
@@ -157,7 +157,7 @@ mod tests {
     use super::*;
 
     #[test]
-    #[cfg(feature = "dns-over-https")]
+    #[cfg(feature = "dns-over-https-rustls")]
     fn test_new_verify_h2() {
         let request = new(Version::Http2, "ns.example.com", 512).expect("error converting to http");
         assert!(verify(Version::Http2, Some("ns.example.com"), &request).is_ok());

@@ -50,16 +50,14 @@ resolver = ["hickory-resolver"]
 sqlite = ["rusqlite"]
 toml = ["dep:toml"]
 
-# TODO: Need to figure out how to be consistent with ring/openssl usage...
-# dns-over-https-openssl = ["dns-over-openssl", "hickory-client/dns-over-https-openssl", "dns-over-https"]
 dns-over-https-rustls = [
-    "dns-over-https",
     "hickory-proto/dns-over-https-rustls",
     "hickory-resolver/dns-over-https-rustls",
     "dns-over-rustls",
+    "dep:h2",
+    "dep:http",
     "dep:tokio-rustls",
 ]
-dns-over-https = ["h2", "http", "hickory-proto/dns-over-https"]
 
 # TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
 dns-over-openssl = [

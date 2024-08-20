@@ -31,7 +31,7 @@ use tokio_openssl::SslStream as TokioTlsStream;
 use tokio_rustls::client::TlsStream as TokioTlsStream;
 
 use crate::config::{NameServerConfig, Protocol, ResolverOpts};
-#[cfg(feature = "dns-over-https")]
+#[cfg(feature = "dns-over-https-rustls")]
 use proto::h2::{HttpsClientConnect, HttpsClientStream};
 #[cfg(feature = "dns-over-h3")]
 use proto::h3::{H3ClientConnect, H3ClientStream};
@@ -180,7 +180,7 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
             TokioTime,
         >,
     ),
-    #[cfg(all(feature = "dns-over-https", feature = "tokio-runtime"))]
+    #[cfg(all(feature = "dns-over-https-rustls", feature = "tokio-runtime"))]
     Https(DnsExchangeConnect<HttpsClientConnect<R::Tcp>, HttpsClientStream, TokioTime>),
     #[cfg(all(feature = "dns-over-quic", feature = "tokio-runtime"))]
     Quic(DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime>),
@@ -216,7 +216,7 @@ impl<R: RuntimeProvider> Future for ConnectionFuture<R> {
                 self.spawner.spawn_bg(bg);
                 GenericConnection(conn)
             }
-            #[cfg(feature = "dns-over-https")]
+            #[cfg(feature = "dns-over-https-rustls")]
             ConnectionConnect::Https(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
@@ -348,7 +348,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let exchange = DnsExchange::connect(dns_conn);
                 ConnectionConnect::Tls(exchange)
             }
-            #[cfg(feature = "dns-over-https")]
+            #[cfg(feature = "dns-over-https-rustls")]
             (Protocol::Https, _) => {
                 let socket_addr = config.socket_addr;
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();

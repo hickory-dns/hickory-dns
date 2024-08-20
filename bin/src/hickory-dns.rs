@@ -325,7 +325,7 @@ struct Cli {
 
     /// Listening port for DNS over HTTPS queries,
     /// overrides any value in config file
-    #[cfg(feature = "dns-over-https")]
+    #[cfg(feature = "dns-over-https-rustls")]
     #[clap(long = "https-port", value_name = "HTTPS-PORT")]
     pub(crate) https_port: Option<u16>,
 
@@ -353,7 +353,7 @@ struct Cli {
 
     /// Disable HTTPS protocol,
     /// overrides any value in config file
-    #[cfg(feature = "dns-over-https")]
+    #[cfg(feature = "dns-over-https-rustls")]
     #[clap(long = "disable-https", conflicts_with = "https_port")]
     pub(crate) disable_https: bool,
 
@@ -513,7 +513,7 @@ fn run() -> Result<(), String> {
 
     #[cfg(any(
         feature = "dns-over-tls",
-        feature = "dns-over-https",
+        feature = "dns-over-https-rustls",
         feature = "dns-over-quic"
     ))]
     if let Some(tls_cert_config) = config.get_tls_cert() {
@@ -533,7 +533,7 @@ fn run() -> Result<(), String> {
             info!("TLS protocol is disabled");
         }
 
-        #[cfg(feature = "dns-over-https")]
+        #[cfg(feature = "dns-over-https-rustls")]
         if !args.disable_https && !config.get_disable_https() {
             // setup HTTPS listeners
             config_https(
@@ -649,7 +649,7 @@ fn config_tls(
     Ok(())
 }
 
-#[cfg(feature = "dns-over-https")]
+#[cfg(feature = "dns-over-https-rustls")]
 fn config_https(
     args: &Cli,
     server: &mut ServerFuture<Catalog>,
