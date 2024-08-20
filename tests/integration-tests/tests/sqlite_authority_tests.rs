@@ -13,6 +13,7 @@ use hickory_server::authority::LookupOptions;
 use hickory_server::authority::{Authority, ZoneType};
 #[cfg(feature = "dnssec")]
 use hickory_server::config::Nsec3Config;
+use hickory_server::config::NxProof;
 use hickory_server::server::Protocol;
 use hickory_server::server::RequestInfo;
 use hickory_server::store::in_memory::InMemoryAuthority;
@@ -930,6 +931,7 @@ async fn test_journal() {
         authority.origin().clone().into(),
         ZoneType::Primary,
         false,
+        NxProof::None,
         #[cfg(feature = "dnssec")]
         Nsec3Config::default(),
     );
@@ -983,6 +985,7 @@ async fn test_recovery() {
         authority.origin().clone().into(),
         ZoneType::Primary,
         false,
+        NxProof::None,
         #[cfg(feature = "dnssec")]
         Nsec3Config::default(),
     );

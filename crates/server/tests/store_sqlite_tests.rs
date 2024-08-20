@@ -10,8 +10,7 @@ use hickory_proto::rr::Name;
 #[cfg(feature = "dnssec")]
 use hickory_server::config::Nsec3Config;
 use hickory_server::{
-    authority::ZoneType,
-    store::sqlite::{SqliteAuthority, SqliteConfig},
+    authority::ZoneType, config::NxProof, store::sqlite::{SqliteAuthority, SqliteConfig}
 };
 
 #[macro_use]
@@ -40,6 +39,7 @@ fn sqlite(master_file_path: &str, module: &str, test_name: &str) -> SqliteAuthor
         true,
         None,
         &config,
+        NxProof::default(),
         #[cfg(feature = "dnssec")]
         Nsec3Config::default(),
     ))
@@ -70,6 +70,7 @@ fn sqlite_update(master_file_path: &str, module: &str, test_name: &str) -> Sqlit
         true,
         None,
         &config,
+        NxProof::default(),
         #[cfg(feature = "dnssec")]
         Nsec3Config::default(),
     ))

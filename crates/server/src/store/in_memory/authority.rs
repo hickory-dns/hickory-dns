@@ -27,6 +27,7 @@ use tracing::{debug, error, warn};
 
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
+use crate::config::NxProof;
 #[cfg(feature = "dnssec")]
 use crate::{
     authority::DnssecAuthority,
@@ -59,6 +60,7 @@ pub struct InMemoryAuthority {
     zone_type: ZoneType,
     allow_axfr: bool,
     inner: RwLock<InnerInMemory>,
+    nx_proof: NxProof,
     #[cfg(feature = "dnssec")]
     nsec3_config: Nsec3Config,
 }
@@ -84,12 +86,14 @@ impl InMemoryAuthority {
         records: BTreeMap<RrKey, RecordSet>,
         zone_type: ZoneType,
         allow_axfr: bool,
+        nx_proof: NxProof,
         #[cfg(feature = "dnssec")] nsec3_config: Nsec3Config,
     ) -> Result<Self, String> {
         let mut this = Self::empty(
             origin.clone(),
             zone_type,
             allow_axfr,
+            nx_proof,
             #[cfg(feature = "dnssec")]
             nsec3_config,
         );
@@ -133,6 +137,7 @@ impl InMemoryAuthority {
         origin: Name,
         zone_type: ZoneType,
         allow_axfr: bool,
+        nx_proof: NxProof,
         #[cfg(feature = "dnssec")] nsec3_config: Nsec3Config,
     ) -> Self {
         Self {
@@ -141,6 +146,7 @@ impl InMemoryAuthority {
             zone_type,
             allow_axfr,
             inner: RwLock::new(InnerInMemory::default()),
+            nx_proof,
             #[cfg(feature = "dnssec")]
             nsec3_config,
         }
@@ -313,11 +319,12 @@ impl InMemoryAuthority {
             ref origin,
             ref mut inner,
             ref nsec3_config,
+            nx_proof,
             ..
         } = self;
         inner
             .get_mut()
-            .secure_zone_mut(origin, self.class, nsec3_config)
+            .secure_zone_mut(origin, self.class, *nx_proof, nsec3_config)
     }
 
     /// (Re)generates the nsec records, increments the serial number and signs the zone
@@ -670,20 +677,25 @@ impl InnerInMemory {
         &mut self,
         origin: &LowerName,
         dns_class: DNSClass,
+        nx_proof: NxProof,
         nsec3_config: &Nsec3Config,
     ) -> DnsSecResult<()> {
         // TODO: only call nsec_zone after adds/deletes
         // needs to be called before incrementing the soa serial, to make sure IXFR works properly
-        if nsec3_config.enable {
-            self.nsec3_zone(
-                origin,
-                dns_class,
-                nsec3_config.hash_algorithm,
-                &nsec3_config.salt,
-                nsec3_config.iterations.into(),
-            );
-        } else {
-            self.nsec_zone(origin, dns_class);
+        match nx_proof {
+            NxProof::Nsec => {
+                self.nsec_zone(origin, dns_class);
+            }
+            NxProof::Nsec3 => {
+                self.nsec3_zone(
+                    origin,
+                    dns_class,
+                    nsec3_config.hash_algorithm,
+                    &nsec3_config.salt,
+                    nsec3_config.iterations.into(),
+                );
+            }
+            NxProof::None => {}
         }
 
         // need to resign any records at the current serial number and bump the number.
@@ -1583,14 +1595,8 @@ impl Authority for InMemoryAuthority {
         Ok(AuthLookup::default())
     }
 
-    #[cfg(feature = "dnssec")]
-    fn is_nsec3_enabled(&self) -> bool {
-        self.nsec3_config.enable
-    }
-
-    #[cfg(not(feature = "dnssec"))]
-    fn is_nsec3_enabled(&self) -> bool {
-        false
+    fn nx_proof(&self) -> NxProof {
+        self.nx_proof
     }
 }
 
@@ -1620,6 +1626,6 @@ impl DnssecAuthority for InMemoryAuthority {
     async fn secure_zone(&self) -> DnsSecResult<()> {
         let mut inner = self.inner.write().await;
 
-        inner.secure_zone_mut(self.origin(), self.class, &self.nsec3_config)
+        inner.secure_zone_mut(self.origin(), self.class, self.nx_proof, &self.nsec3_config)
     }
 }

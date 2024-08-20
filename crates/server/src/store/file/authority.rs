@@ -24,6 +24,7 @@ use crate::{
 };
 use crate::{
     authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType},
+    config::NxProof,
     proto::{
         rr::{LowerName, Name, RecordSet, RecordType, RrKey},
         serialize::txt::Parser,
@@ -59,6 +60,7 @@ impl FileAuthority {
         records: BTreeMap<RrKey, RecordSet>,
         zone_type: ZoneType,
         allow_axfr: bool,
+        nx_proof: NxProof,
         #[cfg(feature = "dnssec")] nsec3_config: Nsec3Config,
     ) -> Result<Self, String> {
         InMemoryAuthority::new(
@@ -66,6 +68,7 @@ impl FileAuthority {
             records,
             zone_type,
             allow_axfr,
+            nx_proof,
             #[cfg(feature = "dnssec")]
             nsec3_config,
         )
@@ -79,6 +82,7 @@ impl FileAuthority {
         allow_axfr: bool,
         root_dir: Option<&Path>,
         config: &FileConfig,
+        nx_proof: NxProof,
         #[cfg(feature = "dnssec")] nsec3_config: Nsec3Config,
     ) -> Result<Self, String> {
         let root_dir_path = root_dir.map(PathBuf::from).unwrap_or_default();
@@ -107,6 +111,7 @@ impl FileAuthority {
             records,
             zone_type,
             allow_axfr,
+            nx_proof,
             #[cfg(feature = "dnssec")]
             nsec3_config,
         )
@@ -243,8 +248,8 @@ impl Authority for FileAuthority {
         self.0.soa_secure(lookup_options).await
     }
 
-    fn is_nsec3_enabled(&self) -> bool {
-        self.0.is_nsec3_enabled()
+    fn nx_proof(&self) -> NxProof {
+        self.0.nx_proof()
     }
 }
 
@@ -295,6 +300,7 @@ mod tests {
             false,
             None,
             &config,
+            NxProof::None,
             #[cfg(feature = "dnssec")]
             Nsec3Config::default(),
         )

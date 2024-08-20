@@ -8,6 +8,7 @@ use hickory_proto::serialize::txt::*;
 use hickory_server::authority::{Authority, LookupOptions, ZoneType};
 #[cfg(feature = "dnssec")]
 use hickory_server::config::Nsec3Config;
+use hickory_server::config::NxProof;
 use hickory_server::store::in_memory::InMemoryAuthority;
 
 // TODO: split this test up to test each thing separately
@@ -69,6 +70,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         records,
         ZoneType::Primary,
         false,
+        NxProof::None,
         #[cfg(feature = "dnssec")]
         Nsec3Config::default(),
     )
@@ -439,6 +441,7 @@ a       A       127.0.0.1
         records,
         ZoneType::Primary,
         false,
+        NxProof::None,
         #[cfg(feature = "dnssec")]
         Nsec3Config::default(),
     )
@@ -473,6 +476,7 @@ b       A       127.0.0.2
         records,
         ZoneType::Primary,
         false,
+        NxProof::None,
         #[cfg(feature = "dnssec")]
         Nsec3Config::default(),
     )
@@ -506,6 +510,7 @@ a       A       127.0.0.1
         records,
         ZoneType::Primary,
         false,
+        NxProof::None,
         #[cfg(feature = "dnssec")]
         Nsec3Config::default(),
     )

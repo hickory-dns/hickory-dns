@@ -6,8 +6,7 @@ use hickory_proto::rr::{rdata::CNAME, Name, RData, Record, RecordType};
 #[cfg(feature = "dnssec")]
 use hickory_server::config::Nsec3Config;
 use hickory_server::{
-    authority::{Authority, ZoneType},
-    store::in_memory::InMemoryAuthority,
+    authority::{Authority, ZoneType}, config::NxProof, store::in_memory::InMemoryAuthority
 };
 
 #[test]
@@ -17,6 +16,7 @@ fn test_cname_loop() {
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
         false,
+        NxProof::None,
         #[cfg(feature = "dnssec")]
         Nsec3Config::default(),
     );

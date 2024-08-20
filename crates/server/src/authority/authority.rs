@@ -15,9 +15,7 @@ use crate::proto::rr::{
     Name,
 };
 use crate::{
-    authority::{LookupError, MessageRequest, UpdateResult, ZoneType},
-    proto::rr::{LowerName, RecordSet, RecordType, RrsetRecords},
-    server::RequestInfo,
+    authority::{LookupError, MessageRequest, UpdateResult, ZoneType}, config::NxProof, proto::rr::{LowerName, RecordSet, RecordType, RrsetRecords}, server::RequestInfo
 };
 
 /// LookupOptions that specify different options from the client to include or exclude various records in the response.
@@ -202,8 +200,8 @@ pub trait Authority: Send + Sync {
             .await
     }
 
-    /// Whether NSEC3 should be used instead of NSEC
-    fn is_nsec3_enabled(&self) -> bool;
+    /// What kind of non-existence proof should be provided 
+    fn nx_proof(&self) -> NxProof;
 }
 
 /// Extension to Authority to allow for DNSSEC features

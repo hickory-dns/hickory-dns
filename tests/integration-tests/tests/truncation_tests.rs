@@ -8,6 +8,7 @@ use hickory_proto::DnsHandle;
 use hickory_server::authority::{Catalog, ZoneType};
 #[cfg(any(feature = "dns-over-rustls", feature = "dnssec"))]
 use hickory_server::config::Nsec3Config;
+use hickory_server::config::NxProof;
 use hickory_server::store::in_memory::InMemoryAuthority;
 use hickory_server::ServerFuture;
 use std::collections::BTreeMap;
@@ -107,6 +108,7 @@ pub fn new_large_catalog(num_records: u32) -> Catalog {
         records,
         ZoneType::Primary,
         false,
+        NxProof::default(),
         #[cfg(any(feature = "dns-over-rustls", feature = "dnssec"))]
         Nsec3Config::default(),
     )

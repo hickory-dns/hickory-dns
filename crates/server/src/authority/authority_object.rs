@@ -12,9 +12,7 @@ use std::sync::Arc;
 use tracing::debug;
 
 use crate::{
-    authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType},
-    proto::rr::{LowerName, Record, RecordType},
-    server::RequestInfo,
+    authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType}, config::NxProof, proto::rr::{LowerName, Record, RecordType}, server::RequestInfo
 };
 
 /// An Object safe Authority
@@ -131,8 +129,8 @@ pub trait AuthorityObject: Send + Sync {
             .await
     }
 
-    /// Whether NSEC3 should be used instead of NSEC
-    fn is_nsec3_enabled(&self) -> bool;
+    /// What kind of non-existence proof should be provided
+    fn nx_proof(&self) -> NxProof;
 }
 
 #[async_trait::async_trait]
@@ -243,8 +241,8 @@ where
         lookup.map(|l| Box::new(l) as Box<dyn LookupObject>)
     }
 
-    fn is_nsec3_enabled(&self) -> bool {
-        Authority::is_nsec3_enabled(self.as_ref())
+    fn nx_proof(&self) -> NxProof {
+        Authority::nx_proof(self.as_ref())
     }
 }
 

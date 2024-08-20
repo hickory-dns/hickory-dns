@@ -181,6 +181,7 @@ async fn load_zone(
                 is_dnssec_enabled,
                 Some(zone_dir),
                 config,
+                zone_config.nx_proof,
                 #[cfg(feature = "dnssec")]
                 zone_config.nsec3.clone(),
             )
@@ -201,6 +202,7 @@ async fn load_zone(
                 is_axfr_allowed,
                 Some(zone_dir),
                 config,
+                zone_config.nx_proof,
                 #[cfg(feature = "dnssec")]
                 zone_config.nsec3.clone(),
             )?;
@@ -248,6 +250,7 @@ async fn load_zone(
                 is_dnssec_enabled,
                 Some(zone_dir),
                 &config,
+                zone_config.nx_proof,
                 #[cfg(feature = "dnssec")]
                 zone_config.nsec3.clone(),
             )
@@ -268,6 +271,7 @@ async fn load_zone(
                 is_axfr_allowed,
                 Some(zone_dir),
                 &config,
+                zone_config.nx_proof,
                 #[cfg(feature = "dnssec")]
                 zone_config.nsec3.clone(),
             )?;

@@ -53,6 +53,7 @@ fn test_read_config() {
                 None,
                 None,
                 None,
+                None,
                 #[cfg(feature = "dnssec")]
                 None,
                 vec![],
@@ -61,6 +62,7 @@ fn test_read_config() {
                 "0.0.127.in-addr.arpa".into(),
                 ZoneType::Primary,
                 "default/127.0.0.1.zone".into(),
+                None,
                 None,
                 None,
                 None,
@@ -77,6 +79,7 @@ fn test_read_config() {
                 None,
                 None,
                 None,
+                None,
                 #[cfg(feature = "dnssec")]
                 None,
                 vec![],
@@ -85,6 +88,7 @@ fn test_read_config() {
                 "255.in-addr.arpa".into(),
                 ZoneType::Primary,
                 "default/255.zone".into(),
+                None,
                 None,
                 None,
                 None,
@@ -99,6 +103,7 @@ fn test_read_config() {
                 None,
                 None,
                 None,
+                None,
                 #[cfg(feature = "dnssec")]
                 None,
                 vec![],
@@ -107,6 +112,7 @@ fn test_read_config() {
                 "example.com".into(),
                 ZoneType::Primary,
                 "example.com.zone".into(),
+                None,
                 None,
                 None,
                 None,

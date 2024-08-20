@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use hickory_proto::rr::{LowerName, Name, RecordType, RrKey};
-use hickory_server::authority::{Authority, LookupOptions, ZoneType};
+use hickory_server::{authority::{Authority, LookupOptions, ZoneType}, config::NxProof};
 #[cfg(feature = "dnssec")]
 use hickory_server::config::Nsec3Config;
 use hickory_server::store::file::{FileAuthority, FileConfig};
@@ -20,6 +20,7 @@ fn file(master_file_path: &str, _module: &str, _test_name: &str) -> FileAuthorit
         false,
         None,
         &config,
+        NxProof::default(),
         #[cfg(feature = "dnssec")]
         Nsec3Config::default(),
     )
@@ -42,6 +43,7 @@ fn test_all_lines_are_loaded() {
         false,
         None,
         &config,
+        NxProof::default(),
         #[cfg(feature = "dnssec")]
         Nsec3Config::default(),
     )
@@ -65,6 +67,7 @@ fn test_implicit_in_class() {
         false,
         None,
         &config,
+        NxProof::default(),
         #[cfg(feature = "dnssec")]
         Nsec3Config::default(),
     );
@@ -84,6 +87,7 @@ async fn test_ttl_wilcard() {
         false,
         None,
         &config,
+        NxProof::default(),
         #[cfg(feature = "dnssec")]
         Nsec3Config::default(),
     )

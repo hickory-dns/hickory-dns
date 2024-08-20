@@ -9,9 +9,7 @@ use hickory_client::{
 #[cfg(any(feature = "dns-over-rustls", feature = "dnssec"))]
 use hickory_server::config::Nsec3Config;
 use hickory_server::{
-    authority::{Authority, Catalog, MessageRequest, ZoneType},
-    server::{Protocol, Request},
-    store::in_memory::InMemoryAuthority,
+    authority::{Authority, Catalog, MessageRequest, ZoneType}, config::NxProof, server::{Protocol, Request}, store::in_memory::InMemoryAuthority
 };
 
 use hickory_integration::{example_authority::create_example, *};
@@ -24,6 +22,7 @@ pub fn create_test() -> InMemoryAuthority {
         origin.clone(),
         ZoneType::Primary,
         false,
+        NxProof::default(),
         #[cfg(any(feature = "dns-over-rustls", feature = "dnssec"))]
         Nsec3Config::default(),
     );

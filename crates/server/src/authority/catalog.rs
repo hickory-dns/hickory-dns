@@ -574,10 +574,18 @@ async fn send_authoritative_response(
             // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
             debug!("request: {} non-existent adding nsecs", request_id);
             // run the nsec lookup future, and then transition to get soa
-            let future = if authority.is_nsec3_enabled() {
-                authority.get_nsec3_records(query.name(), query.query_type(), lookup_options)
-            } else {
-                authority.get_nsec_records(query.name(), lookup_options)
+            let future = match authority.nx_proof() {
+                #[cfg(feature = "dnssec")]
+                crate::config::NxProof::Nsec => {
+                    authority.get_nsec_records(query.name(), lookup_options)
+                }
+                #[cfg(feature = "dnssec")]
+                crate::config::NxProof::Nsec3 => {
+                    authority.get_nsec3_records(query.name(), query.query_type(), lookup_options)
+                }
+                crate::config::NxProof::None => {
+                    Box::pin(async { Ok::<_, LookupError>(Box::new(EmptyLookup) as Box<dyn LookupObject>) })
+                }
             };
 
             match future.await {

@@ -10,6 +10,7 @@ use std::{io, path::Path, time::Instant};
 use tracing::{debug, info};
 
 use crate::{
+    config::NxProof,
     authority::{
         Authority, LookupError, LookupObject, LookupOptions, MessageRequest, UpdateResult, ZoneType,
     },
@@ -175,8 +176,8 @@ impl Authority for RecursiveAuthority {
         )))
     }
 
-    fn is_nsec3_enabled(&self) -> bool {
-        false
+    fn nx_proof(&self) -> NxProof {
+        NxProof::None
     }
 }
 

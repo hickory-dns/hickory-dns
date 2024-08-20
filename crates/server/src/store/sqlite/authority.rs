@@ -18,6 +18,7 @@ use tracing::{error, info, warn};
 
 use crate::{
     authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType},
+    config::NxProof,
     error::{PersistenceErrorKind, PersistenceResult},
     proto::{
         op::ResponseCode,
@@ -74,6 +75,7 @@ impl SqliteAuthority {
     }
 
     /// load the authority from the configuration
+    #[allow(clippy::too_many_arguments)]
     pub async fn try_from_config(
         origin: Name,
         zone_type: ZoneType,
@@ -81,6 +83,7 @@ impl SqliteAuthority {
         enable_dnssec: bool,
         root_dir: Option<&Path>,
         config: &SqliteConfig,
+        nx_proof: NxProof,
         #[cfg(feature = "dnssec")] nsec3_config: Nsec3Config,
     ) -> Result<Self, String> {
         use crate::store::file::{FileAuthority, FileConfig};
@@ -103,6 +106,7 @@ impl SqliteAuthority {
                 zone_name.clone(),
                 zone_type,
                 allow_axfr,
+                nx_proof,
                 #[cfg(feature = "dnssec")]
                 nsec3_config,
             );
@@ -131,6 +135,7 @@ impl SqliteAuthority {
                 allow_axfr,
                 root_dir,
                 &file_config,
+                nx_proof,
                 #[cfg(feature = "dnssec")]
                 nsec3_config,
             )?
@@ -1002,8 +1007,8 @@ impl Authority for SqliteAuthority {
             .await
     }
 
-    fn is_nsec3_enabled(&self) -> bool {
-        self.in_memory.is_nsec3_enabled()
+    fn nx_proof(&self) -> NxProof {
+        self.in_memory.nx_proof()
     }
 }
 

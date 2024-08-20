@@ -233,6 +233,9 @@ pub struct ZoneConfig {
     pub allow_axfr: Option<bool>,
     /// Enable DnsSec TODO: should this move to StoreConfig?
     pub enable_dnssec: Option<bool>,
+    /// The kind of non-existence proof used by the server
+    #[serde(default)]
+    pub nx_proof: NxProof,
     #[cfg(feature = "dnssec")]
     /// NSEC3 configuration
     #[serde(default)]
@@ -266,6 +269,7 @@ impl ZoneConfig {
         allow_update: Option<bool>,
         allow_axfr: Option<bool>,
         enable_dnssec: Option<bool>,
+        nx_proof: Option<NxProof>,
         #[cfg(feature = "dnssec")] nsec3_config: Option<Nsec3Config>,
         keys: Vec<dnssec::KeyConfig>,
     ) -> Self {
@@ -276,6 +280,7 @@ impl ZoneConfig {
             allow_update,
             allow_axfr,
             enable_dnssec,
+            nx_proof: nx_proof.unwrap_or_default(),
             #[cfg(feature = "dnssec")]
             nsec3: nsec3_config.unwrap_or_default(),
             keys,
@@ -336,9 +341,6 @@ impl ZoneConfig {
 /// NSEC3 related configuration.
 #[derive(Deserialize, PartialEq, Eq, Debug, Clone)]
 pub struct Nsec3Config {
-    /// Use NSEC3 instead of NSEC
-    #[serde(default)]
-    pub enable: bool,
     /// Algorithm used to create the hashed NSEC3 owner names
     #[serde(default)]
     pub hash_algorithm: Nsec3HashAlgorithm,
@@ -359,10 +361,24 @@ const fn default_iterations() -> NonZeroU16 {
 impl Default for Nsec3Config {
     fn default() -> Self {
         Self {
-            enable: bool::default(),
             hash_algorithm: Nsec3HashAlgorithm::default(),
             salt: Vec::default(),
             iterations: default_iterations(),
         }
     }
+}
+
+/// The kind of non-existence proof provided by the server.
+#[derive(Debug, Default, Deserialize, Clone, Copy, PartialEq, Eq)]
+pub enum NxProof {
+    #[cfg(feature = "dnssec")]
+    #[cfg_attr(feature = "dnssec", default)]
+    /// Use NSEC
+    Nsec,
+    #[cfg(feature = "dnssec")]
+    /// Use NSEC3
+    Nsec3,
+    #[cfg_attr(not(feature = "dnssec"), default)]
+    /// Do not provide non-existence proofs
+    None,
 }
