@@ -1,0 +1,13 @@
+[[zones]]
+zone = "."
+zone_type = "Hint"
+
+[zones.stores]
+type = "recursor"
+roots = "/etc/root.hints"
+dnssec_policy = "ValidationDisabled"
+do_not_query = [
+    {% for network in do_not_query %}
+    "{{ network }}",
+    {% endfor %}
+]
