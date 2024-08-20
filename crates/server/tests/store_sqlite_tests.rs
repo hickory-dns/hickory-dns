@@ -10,7 +10,9 @@ use hickory_proto::rr::Name;
 #[cfg(feature = "dnssec")]
 use hickory_server::config::Nsec3Config;
 use hickory_server::{
-    authority::ZoneType, config::NxProof, store::sqlite::{SqliteAuthority, SqliteConfig}
+    authority::ZoneType,
+    config::NxProof,
+    store::sqlite::{SqliteAuthority, SqliteConfig},
 };
 
 #[macro_use]

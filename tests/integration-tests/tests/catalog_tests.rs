@@ -9,7 +9,10 @@ use hickory_client::{
 #[cfg(any(feature = "dns-over-rustls", feature = "dnssec"))]
 use hickory_server::config::Nsec3Config;
 use hickory_server::{
-    authority::{Authority, Catalog, MessageRequest, ZoneType}, config::NxProof, server::{Protocol, Request}, store::in_memory::InMemoryAuthority
+    authority::{Authority, Catalog, MessageRequest, ZoneType},
+    config::NxProof,
+    server::{Protocol, Request},
+    store::in_memory::InMemoryAuthority,
 };
 
 use hickory_integration::{example_authority::create_example, *};

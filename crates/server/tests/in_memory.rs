@@ -6,7 +6,9 @@ use hickory_proto::rr::{rdata::CNAME, Name, RData, Record, RecordType};
 #[cfg(feature = "dnssec")]
 use hickory_server::config::Nsec3Config;
 use hickory_server::{
-    authority::{Authority, ZoneType}, config::NxProof, store::in_memory::InMemoryAuthority
+    authority::{Authority, ZoneType},
+    config::NxProof,
+    store::in_memory::InMemoryAuthority,
 };
 
 #[test]

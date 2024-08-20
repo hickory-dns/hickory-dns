@@ -1,10 +1,13 @@
 use std::str::FromStr;
 
 use hickory_proto::rr::{LowerName, Name, RecordType, RrKey};
-use hickory_server::{authority::{Authority, LookupOptions, ZoneType}, config::NxProof};
 #[cfg(feature = "dnssec")]
 use hickory_server::config::Nsec3Config;
 use hickory_server::store::file::{FileAuthority, FileConfig};
+use hickory_server::{
+    authority::{Authority, LookupOptions, ZoneType},
+    config::NxProof,
+};
 
 #[macro_use]
 mod authority_battery;

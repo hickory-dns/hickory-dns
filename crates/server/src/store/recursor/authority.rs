@@ -10,10 +10,10 @@ use std::{io, path::Path, time::Instant};
 use tracing::{debug, info};
 
 use crate::{
-    config::NxProof,
     authority::{
         Authority, LookupError, LookupObject, LookupOptions, MessageRequest, UpdateResult, ZoneType,
     },
+    config::NxProof,
     proto::{
         op::{Query, ResponseCode},
         rr::{LowerName, Name, Record, RecordType},

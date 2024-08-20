@@ -12,7 +12,10 @@ use std::sync::Arc;
 use tracing::debug;
 
 use crate::{
-    authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType}, config::NxProof, proto::rr::{LowerName, Record, RecordType}, server::RequestInfo
+    authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType},
+    config::NxProof,
+    proto::rr::{LowerName, Record, RecordType},
+    server::RequestInfo,
 };
 
 /// An Object safe Authority

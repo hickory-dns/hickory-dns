@@ -13,10 +13,15 @@ use tracing::{debug, info};
 use crate::{
     authority::{
         Authority, LookupError, LookupObject, LookupOptions, MessageRequest, UpdateResult, ZoneType,
-    }, config::NxProof, proto::{
+    },
+    config::NxProof,
+    proto::{
         op::ResponseCode,
         rr::{LowerName, Name, Record, RecordType},
-    }, resolver::{config::ResolverConfig, lookup::Lookup as ResolverLookup, TokioAsyncResolver}, server::RequestInfo, store::forwarder::ForwardConfig
+    },
+    resolver::{config::ResolverConfig, lookup::Lookup as ResolverLookup, TokioAsyncResolver},
+    server::RequestInfo,
+    store::forwarder::ForwardConfig,
 };
 
 /// An authority that will forward resolutions to upstream resolvers.

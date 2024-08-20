@@ -583,9 +583,9 @@ async fn send_authoritative_response(
                 crate::config::NxProof::Nsec3 => {
                     authority.get_nsec3_records(query.name(), query.query_type(), lookup_options)
                 }
-                crate::config::NxProof::None => {
-                    Box::pin(async { Ok::<_, LookupError>(Box::new(EmptyLookup) as Box<dyn LookupObject>) })
-                }
+                crate::config::NxProof::None => Box::pin(async {
+                    Ok::<_, LookupError>(Box::new(EmptyLookup) as Box<dyn LookupObject>)
+                }),
             };
 
             match future.await {

@@ -2,10 +2,10 @@ use std::str::FromStr;
 
 use hickory_proto::rr::*;
 
-use hickory_server::{authority::ZoneType, config::NxProof};
 #[cfg(any(feature = "dns-over-rustls", feature = "dnssec"))]
 use hickory_server::config::Nsec3Config;
 use hickory_server::store::in_memory::InMemoryAuthority;
+use hickory_server::{authority::ZoneType, config::NxProof};
 
 #[allow(unused)]
 #[allow(clippy::unreadable_literal)]
