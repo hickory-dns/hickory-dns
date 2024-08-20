@@ -258,7 +258,7 @@ pub mod caching_client;
 pub mod config;
 pub mod dns_lru;
 pub mod error;
-#[cfg(feature = "dns-over-https")]
+#[cfg(feature = "dns-over-https-rustls")]
 mod h2;
 #[cfg(feature = "dns-over-h3")]
 mod h3;

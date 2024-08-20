@@ -18,7 +18,7 @@ pub mod response;
 #[derive(Clone, Copy, Debug)]
 pub enum Version {
     /// HTTP/2 for DoH.
-    #[cfg(feature = "dns-over-https")]
+    #[cfg(feature = "dns-over-https-rustls")]
     Http2,
     /// HTTP/3 for DoH3.
     #[cfg(feature = "dns-over-h3")]
@@ -28,7 +28,7 @@ pub enum Version {
 impl Version {
     fn to_http(self) -> http::Version {
         match self {
-            #[cfg(feature = "dns-over-https")]
+            #[cfg(feature = "dns-over-https-rustls")]
             Self::Http2 => http::Version::HTTP_2,
             #[cfg(feature = "dns-over-h3")]
             Self::Http3 => http::Version::HTTP_3,
