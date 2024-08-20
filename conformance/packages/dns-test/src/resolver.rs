@@ -23,6 +23,7 @@ impl Resolver {
             network: network.clone(),
             roots: vec![root],
             trust_anchor: TrustAnchor::empty(),
+            custom_config: None,
         }
     }
 
@@ -72,6 +73,7 @@ pub struct ResolverSettings {
     network: Network,
     roots: Vec<Root>,
     trust_anchor: TrustAnchor,
+    custom_config: Option<String>,
 }
 
 impl ResolverSettings {
@@ -97,14 +99,19 @@ impl ResolverSettings {
         container.cp("/etc/root.hints", &hints)?;
 
         let use_dnssec = !self.trust_anchor.is_empty();
-        let config = Config::Resolver {
-            use_dnssec,
-            netmask: self.network.netmask(),
-            ede: self.ede,
+        let config_contents = if let Some(custom_config) = &self.custom_config {
+            custom_config
+        } else {
+            let config = Config::Resolver {
+                use_dnssec,
+                netmask: self.network.netmask(),
+                ede: self.ede,
+            };
+            &implementation.format_config(config)
         };
         container.cp(
-            implementation.conf_file_path(config.role()),
-            &implementation.format_config(config),
+            implementation.conf_file_path(Role::Resolver),
+            config_contents,
         )?;
 
         if use_dnssec {
@@ -123,7 +130,7 @@ impl ResolverSettings {
             container.cp(path, &contents)?;
         }
 
-        let child = container.spawn(&implementation.cmd_args(config.role()))?;
+        let child = container.spawn(&implementation.cmd_args(Role::Resolver))?;
 
         Ok(Resolver {
             _child: child,
@@ -137,7 +144,6 @@ impl ResolverSettings {
         self.ede = true;
         self
     }
-
     /// Adds a root hint
     pub fn root(&mut self, root: Root) -> &mut Self {
         self.roots.push(root);
@@ -155,6 +161,12 @@ impl ResolverSettings {
         for key in other.keys() {
             self.trust_anchor.add(key.clone());
         }
+        self
+    }
+
+    /// Overrides the automatically-generated configuration file.
+    pub fn custom_config(&mut self, config: String) -> &mut Self {
+        self.custom_config = Some(config);
         self
     }
 }
