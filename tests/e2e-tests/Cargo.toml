@@ -10,3 +10,4 @@ exclude = ["../../conformance/package/dns-test"]
 
 [dev-dependencies]
 dns-test.path = "../../conformance/packages/dns-test"
+minijinja = "1.0.12"
