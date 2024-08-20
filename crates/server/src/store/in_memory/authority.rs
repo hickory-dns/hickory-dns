@@ -692,7 +692,7 @@ impl InnerInMemory {
                     dns_class,
                     nsec3_config.hash_algorithm,
                     &nsec3_config.salt,
-                    nsec3_config.iterations.into(),
+                    nsec3_config.iterations,
                 );
             }
             NxProof::None => {}
@@ -1472,7 +1472,7 @@ impl Authority for InMemoryAuthority {
                 iterations,
                 ..
             } = self.nsec3_config;
-            hash_algorithm.hash(salt, name, iterations.into()).unwrap()
+            hash_algorithm.hash(salt, name, iterations).unwrap()
         };
 
         // Compute the hashed owner name from a given name. This is, the hash of the given name,

@@ -14,8 +14,6 @@ use std::fs::File;
 #[cfg(feature = "toml")]
 use std::io::Read;
 use std::net::{AddrParseError, Ipv4Addr, Ipv6Addr};
-#[cfg(feature = "dnssec")]
-use std::num::NonZeroU16;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::Duration;
@@ -339,7 +337,7 @@ impl ZoneConfig {
 
 #[cfg(feature = "dnssec")]
 /// NSEC3 related configuration.
-#[derive(Deserialize, PartialEq, Eq, Debug, Clone)]
+#[derive(Deserialize, PartialEq, Eq, Debug, Clone, Default)]
 pub struct Nsec3Config {
     /// Algorithm used to create the hashed NSEC3 owner names
     #[serde(default)]
@@ -348,24 +346,8 @@ pub struct Nsec3Config {
     #[serde(default)]
     pub salt: Vec<u8>,
     /// Number of iterations used to create the hashed NSEC3 owner names
-    #[serde(default = "default_iterations")]
-    pub iterations: NonZeroU16,
-}
-
-#[cfg(feature = "dnssec")]
-const fn default_iterations() -> NonZeroU16 {
-    NonZeroU16::MIN
-}
-
-#[cfg(feature = "dnssec")]
-impl Default for Nsec3Config {
-    fn default() -> Self {
-        Self {
-            hash_algorithm: Nsec3HashAlgorithm::default(),
-            salt: Vec::default(),
-            iterations: default_iterations(),
-        }
-    }
+    #[serde(default)]
+    pub iterations: u16,
 }
 
 /// The kind of non-existence proof provided by the server.
