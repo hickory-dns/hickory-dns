@@ -407,7 +407,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
     // initial state is looking for a key ';' is valid...
     let mut state = ParseNameKeyPairState::BeforeKey(vec![]);
 
-    // run the state machine through all remaining data, collecting all key/value pairs.
+    // run the state machine through all remaining data, collecting all parameter tag/value pairs.
     for ch in byte_iter {
         match state {
             // Name was already successfully parsed, otherwise we couldn't get here.
@@ -470,8 +470,10 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
                         key_values.push(KeyValue { key, value });
                         state = ParseNameKeyPairState::BeforeKey(key_values);
                     }
-                    // push onto the existing key
-                    ch if !ch.is_control() && !ch.is_whitespace() => {
+                    // If the next byte is a visible character, excluding ';', push it onto the
+                    // existing value. See the ABNF production rule for `parameter-value` in the
+                    // documentation above.
+                    ch if ('\x21'..='\x3A').contains(&ch) || ('\x3C'..='\x7E').contains(&ch) => {
                         value.push(ch);
 
                         state = ParseNameKeyPairState::Value {
@@ -946,6 +948,7 @@ mod tests {
             )
         );
         assert_eq!(read_issuer(b";").unwrap(), (None, vec![]));
+        read_issuer(b"example.com; param=\xff").unwrap_err();
     }
 
     #[test]
