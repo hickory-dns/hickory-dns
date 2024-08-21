@@ -62,7 +62,7 @@ fn main() -> Result<()> {
         println!("{} name server's IP address: {}", ns.zone(), ns.ipv4_addr());
         println!(
             "attach to this container with: `docker exec -it {} bash`\n",
-            ns.container_id()
+            ns.container_name()
         );
     }
 
@@ -70,13 +70,13 @@ fn main() -> Result<()> {
     println!("resolver's IP address: {resolver_addr}",);
     println!(
         "attach to this container with: `docker exec -it {} bash`\n",
-        resolver.container_id()
+        resolver.container_name()
     );
 
     println!("client's IP address: {}", client.ipv4_addr());
     println!(
         "attach to this container with: `docker exec -it {} bash`\n\n",
-        client.container_id()
+        client.container_name()
     );
 
     println!("example queries (run these in the client container):\n");

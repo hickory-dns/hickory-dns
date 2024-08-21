@@ -254,6 +254,10 @@ impl Container {
     pub(crate) fn network(&self) -> &Network {
         &self.inner.network
     }
+
+    pub fn name(&self) -> &str {
+        &self.inner.name
+    }
 }
 
 fn verbose_docker_build() -> bool {
