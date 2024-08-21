@@ -40,7 +40,7 @@ $ DNS_TEST_SUBJECT="hickory https://github.com/hickory-dns/hickory-dns" cargo ru
 
 - `DNS_TEST_SUBJECT`. This variable controls what the `dns_test::subject` function returns. The variable can contain one of these values:
   - `unbound`
-  - `hickory $REPOSITORY`. where `$REPOSITORY` is a placeholder for git repository. Examples values for `$REPOSITORY`: `https://github.com/hickory-dns/hickory-dns`; `/home/user/git-repos/hickory-dns`. NOTE: when using a local repository, changes that have not been committed, regardless of whether they are staged or not, will **not** be included in the `hickory-dns` build.
+  - `hickory $REPOSITORY`. where `$REPOSITORY` is a placeholder for a git repository. Examples values for `$REPOSITORY`: `https://github.com/hickory-dns/hickory-dns`; `/home/user/git-repos/hickory-dns`. NOTE: when using a local repository, changes that have not been committed, regardless of whether they are staged or not, will **not** be included in the `hickory-dns` build.
   
 - `DNS_TEST_VERBOSE_DOCKER_BUILD`. Setting this variable prints the output of the `docker build` invocations that the framework does to the console. This is useful to verify that image caching is working; for example if you set `DNS_TEST_SUBJECT` to a local `hickory-dns` repository then consecutively running the `explore` example and/or `conformance-tests` test suite **must** not rebuild `hickory-dns` provided that you have not *committed* any new change to the local repository.
 
