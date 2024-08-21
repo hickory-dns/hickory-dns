@@ -13,4 +13,4 @@ COPY ./src /usr/src/hickory
 RUN --mount=type=cache,target=/usr/src/hickory/target cargo build --manifest-path /usr/src/hickory/Cargo.toml -p hickory-dns --features recursor,dnssec-ring && \
     cp /usr/src/hickory/target/debug/hickory-dns /usr/bin/ && \
     mkdir /etc/hickory
-env RUST_LOG=debug
+ENV RUST_LOG=debug
