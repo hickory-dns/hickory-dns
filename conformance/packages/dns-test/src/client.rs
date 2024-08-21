@@ -21,6 +21,10 @@ impl Client {
         self.inner.id()
     }
 
+    pub fn container_name(&self) -> &str {
+        self.inner.name()
+    }
+
     pub fn ipv4_addr(&self) -> Ipv4Addr {
         self.inner.ipv4_addr()
     }

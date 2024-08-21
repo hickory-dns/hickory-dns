@@ -393,6 +393,10 @@ impl<S> NameServer<S> {
         self.container.id()
     }
 
+    pub fn container_name(&self) -> &str {
+        self.container.name()
+    }
+
     pub fn ipv4_addr(&self) -> Ipv4Addr {
         self.container.ipv4_addr()
     }
