@@ -1,13 +1,13 @@
-# `dnssec-tests`
+# Conformance tests
 
-This repository contains two packages:
+This workspace contains two packages:
 
 - `dns-test`. This is a test framework (library) for testing DNS implementations.
 - `conformance-tests`. This is a collection of DNS, mainly DNSSEC, tests.
 
 ## Requirements
 
-To use the code in this repository you need:
+To use the code in this workspace you need:
 
 - a stable Rust toolchain to build the code
 - a working Docker setup that can run *Linux* containers -- the host OS does not need to be Linux 
