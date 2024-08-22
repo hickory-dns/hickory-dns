@@ -163,7 +163,7 @@ impl Nsec3HashAlgorithm {
                 {
                     let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut buf);
                     encoder.set_canonical_names(true);
-                    name.emit(&mut encoder).expect("could not encode Name");
+                    name.emit(&mut encoder)?;
                 }
 
                 Self::sha1_recursive_hash(salt, buf, iterations)
@@ -225,6 +225,12 @@ fn test_hash() {
             .len(),
         20
     );
+
+    let name = Name::from_str("foo.a012345678901.a01234567890123456789012.a01234567890123456789012.a01234567890123456789012.a01234567890123456789012.a01234567890123456789012.a01234567890123456789912.a01234567890123456789012.a01234567890123456789012.a01234567890123456789012.example.com.").unwrap();
+
+    Nsec3HashAlgorithm::SHA1
+        .hash(&salt, &name, 0)
+        .expect_err("Expected ProtoError(DomainNameTooLong");
 }
 
 #[test]
