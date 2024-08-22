@@ -17,12 +17,18 @@
 #![cfg(feature = "toml")]
 
 use std::env;
+use std::fs::{read_dir, File};
+use std::io::Read;
 use std::net::{Ipv4Addr, Ipv6Addr};
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use hickory_server::authority::ZoneType;
 use hickory_server::config::*;
+use toml::map::Keys;
+use toml::value::Array;
+use toml::{Table, Value};
 
 #[test]
 fn test_read_config() {
@@ -273,3 +279,224 @@ define_test_config!(openssl_dnssec);
 define_test_config!(ring_dnssec);
 #[cfg(feature = "hickory-resolver")]
 define_test_config!(example_forwarder);
+
+/// Iterator that yields modified TOML tables with an extra field added, and recurses down the
+/// table's values.
+struct TableMutator<'a> {
+    original: &'a Table,
+    yielded_base_case: bool,
+    key_iter: Keys<'a>,
+    nested_table_mutator: Option<(&'a str, Box<TableMutator<'a>>)>,
+    nested_array_mutator: Option<(&'a str, Box<ArrayMutator<'a>>)>,
+}
+
+impl<'a> TableMutator<'a> {
+    fn new(table: &'a Table) -> Self {
+        Self {
+            original: table,
+            yielded_base_case: false,
+            key_iter: table.keys(),
+            nested_table_mutator: None,
+            nested_array_mutator: None,
+        }
+    }
+}
+
+impl<'a> Iterator for TableMutator<'a> {
+    type Item = Table;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if !self.yielded_base_case {
+            self.yielded_base_case = true;
+            let mut table = self.original.clone();
+            table.insert("test_only_invalid_config_key".into(), Value::Integer(1));
+            return Some(table);
+        }
+
+        loop {
+            if let Some((key, iter)) = self.nested_table_mutator.as_mut() {
+                if let Some(table) = iter.next() {
+                    let mut output = self.original.clone();
+                    output[*key] = Value::Table(table);
+                    return Some(output);
+                } else {
+                    self.nested_table_mutator = None;
+                }
+            }
+            if let Some((key, iter)) = self.nested_array_mutator.as_mut() {
+                if let Some(array) = iter.next() {
+                    let mut output = self.original.clone();
+                    output[*key] = Value::Array(array);
+                    return Some(output);
+                } else {
+                    self.nested_array_mutator = None;
+                }
+            }
+            if let Some(key) = self.key_iter.next() {
+                match self.original.get(key).unwrap() {
+                    Value::String(_)
+                    | Value::Integer(_)
+                    | Value::Float(_)
+                    | Value::Boolean(_)
+                    | Value::Datetime(_) => {}
+                    Value::Array(array) => {
+                        self.nested_array_mutator = Some((key, Box::new(ArrayMutator::new(array))));
+                    }
+                    Value::Table(table) => {
+                        self.nested_table_mutator = Some((key, Box::new(TableMutator::new(table))));
+                    }
+                }
+            } else {
+                return None;
+            }
+        }
+    }
+}
+
+/// Iterator that yields modified TOML arrays, working with [`TableMutator`], and recurses down the
+/// array's contents.
+struct ArrayMutator<'a> {
+    original: &'a Array,
+    index_iter: Range<usize>,
+    nested_table_mutator: Option<(usize, Box<TableMutator<'a>>)>,
+    nested_array_mutator: Option<(usize, Box<ArrayMutator<'a>>)>,
+}
+
+impl<'a> ArrayMutator<'a> {
+    fn new(array: &'a Array) -> Self {
+        Self {
+            original: array,
+            index_iter: 0..array.len(),
+            nested_table_mutator: None,
+            nested_array_mutator: None,
+        }
+    }
+}
+
+impl<'a> Iterator for ArrayMutator<'a> {
+    type Item = Array;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some((key, iter)) = self.nested_table_mutator.as_mut() {
+                if let Some(table) = iter.next() {
+                    let mut output = self.original.clone();
+                    output[*key] = Value::Table(table);
+                    return Some(output);
+                } else {
+                    self.nested_table_mutator = None;
+                }
+            }
+            if let Some((key, iter)) = self.nested_array_mutator.as_mut() {
+                if let Some(array) = iter.next() {
+                    let mut output = self.original.clone();
+                    output[*key] = Value::Array(array);
+                    return Some(output);
+                } else {
+                    self.nested_array_mutator = None;
+                }
+            }
+            if let Some(index) = self.index_iter.next() {
+                match self.original.get(index).unwrap() {
+                    Value::String(_)
+                    | Value::Integer(_)
+                    | Value::Float(_)
+                    | Value::Boolean(_)
+                    | Value::Datetime(_) => {}
+                    Value::Array(array) => {
+                        self.nested_array_mutator =
+                            Some((index, Box::new(ArrayMutator::new(array))));
+                    }
+                    Value::Table(table) => {
+                        self.nested_table_mutator =
+                            Some((index, Box::new(TableMutator::new(table))));
+                    }
+                }
+            } else {
+                return None;
+            }
+        }
+    }
+}
+
+/// Check that unknown fields in configuration files are rejected. This uses each example
+/// configuration file as a seed, and tries adding invalid fields to each table.
+#[test]
+fn test_reject_unknown_fields() {
+    let test_configs_dir =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/test-data/test_configs");
+    for result in read_dir(test_configs_dir).unwrap() {
+        let entry = result.unwrap();
+        let file_name = entry.file_name().into_string().unwrap();
+        if !file_name.ends_with(".toml") {
+            continue;
+        }
+        println!("seed file: {file_name}");
+
+        let mut file = File::open(entry.path()).unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+        let value = toml::from_str::<toml::Value>(&contents).unwrap();
+        let config_table = value.as_table().unwrap();
+
+        // Skip over configs that can't be read with the current set of features.
+        #[allow(unused_mut)]
+        let mut skip = false;
+        #[cfg(not(feature = "dnssec"))]
+        if config_table.contains_key("tls_cert") {
+            println!("skipping due to tls_cert setting");
+            skip = true;
+        }
+        let zones = config_table.get("zones").unwrap().as_array().unwrap();
+        for zone in zones {
+            if let Some(stores) = zone.get("stores") {
+                let stores = stores.as_table().unwrap();
+                let _store_type = stores.get("type").unwrap().as_str().unwrap();
+
+                #[cfg(not(feature = "sqlite"))]
+                if _store_type == "sqlite" {
+                    println!("skipping due to sqlite store");
+                    skip = true;
+                    break;
+                }
+
+                #[cfg(not(feature = "hickory-resolver"))]
+                if _store_type == "forward" {
+                    println!("skipping due to forward store");
+                    skip = true;
+                    break;
+                }
+
+                #[cfg(not(feature = "hickory-recursor"))]
+                if _store_type != "recursor" {
+                    println!("skipping due to recursor store");
+                    skip = true;
+                    break;
+                }
+            }
+        }
+
+        if skip {
+            continue;
+        }
+
+        // Confirm the example config file can be read as-is.
+        toml::from_str::<Config>(&contents).unwrap();
+
+        // Recursively add a key to every table in the configuration file, and confirm that each
+        // modified config file is rejected.
+        for modified_config in TableMutator::new(config_table) {
+            let serialized = toml::to_string(&modified_config).unwrap();
+            match toml::from_str::<Config>(&serialized) {
+                Ok(_) => panic!(
+                    "config with spurious key was accepted:\n{}",
+                    toml::to_string_pretty(&modified_config).unwrap()
+                ),
+                Err(error) => assert!(
+                    error.message().starts_with("unknown field"),
+                    "unexpected error: {error:?}"
+                ),
+            }
+        }
+    }
+}
