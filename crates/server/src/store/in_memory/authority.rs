@@ -22,6 +22,8 @@ use std::{
 use cfg_if::cfg_if;
 use futures_util::future::{self, TryFutureExt};
 #[cfg(feature = "dnssec")]
+use hickory_proto::{error::ProtoError, rr::domain::IntoLabel};
+#[cfg(feature = "dnssec")]
 use time::OffsetDateTime;
 use tracing::{debug, error, warn};
 
@@ -693,7 +695,7 @@ impl InnerInMemory {
                     nsec3_config.hash_algorithm,
                     &nsec3_config.salt,
                     nsec3_config.iterations,
-                );
+                )?;
             }
             NxProof::None => {}
         }
@@ -775,11 +777,11 @@ impl InnerInMemory {
         hash_alg: Nsec3HashAlgorithm,
         salt: &[u8],
         iterations: u16,
-    ) {
+    ) -> DnsSecResult<()> {
         // FIXME: Implement collision detection.
         // only create nsec records for secure zones
         if self.secure_keys.is_empty() {
-            return;
+            return Ok(());
         }
         debug!("generating nsec3 records: {}", origin);
 
@@ -835,10 +837,10 @@ impl InnerInMemory {
         let mut record_types = record_types
             .into_iter()
             .map(|(name, type_bit_maps)| {
-                let hashed_name = hash_alg.hash(salt, name.borrow(), iterations).unwrap();
-                (hashed_name, type_bit_maps)
+                let hashed_name = hash_alg.hash(salt, name.borrow(), iterations)?;
+                Ok((hashed_name, type_bit_maps))
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>, ProtoError>>()?;
         // Sort by hash.
         record_types.sort_by(|(a, _), (b, _)| a.as_ref().cmp(b.as_ref()));
 
@@ -860,11 +862,10 @@ impl InnerInMemory {
                 type_bit_maps,
             );
 
-            let name = Name::new()
-                .append_label(data_encoding::BASE32_DNSSEC.encode(hashed_name.as_ref()))
-                .unwrap()
-                .append_name(origin.borrow())
-                .unwrap();
+            let name = join_label_and_name(
+                data_encoding::BASE32_DNSSEC.encode(hashed_name.as_ref()),
+                origin.borrow(),
+            )?;
 
             let record = Record::from_rdata(name, ttl, rdata);
             records.push(record.into_record_of_rdata());
@@ -880,6 +881,8 @@ impl InnerInMemory {
             let upserted = self.upsert(record, serial, dns_class);
             debug_assert!(upserted);
         }
+
+        Ok(())
     }
 
     /// Signs an RecordSet, and stores the RRSIGs in the RecordSet
@@ -1472,21 +1475,18 @@ impl Authority for InMemoryAuthority {
                 iterations,
                 ..
             } = self.nsec3_config;
-            hash_algorithm.hash(salt, name, iterations).unwrap()
+            hash_algorithm.hash(salt, name, iterations)
         };
 
         // Compute the hashed owner name from a given name. This is, the hash of the given name,
         // followed by the zone name.
-        let get_hashed_name = |name: &LowerName| -> LowerName {
-            let hash = hash_name(name.borrow());
+        let get_hashed_name = |name: &LowerName| -> Result<LowerName, ProtoError> {
+            let hash = hash_name(name.borrow())?;
             let label = data_encoding::BASE32_DNSSEC.encode(hash.as_ref());
-            LowerName::new(
-                &Name::new()
-                    .append_label(label)
-                    .unwrap()
-                    .append_name(self.origin().borrow())
-                    .unwrap(),
-            )
+            Ok(LowerName::new(&join_label_and_name(
+                label,
+                self.origin().borrow(),
+            )?))
         };
 
         let inner = self.inner.read().await;
@@ -1495,7 +1495,7 @@ impl Authority for InMemoryAuthority {
         }
 
         // TODO: need a BorrowdRrKey
-        let rr_key = RrKey::new(get_hashed_name(name), RecordType::NSEC3);
+        let rr_key = RrKey::new(get_hashed_name(name)?, RecordType::NSEC3);
         let no_data = inner
             .records
             .get(&rr_key)
@@ -1517,16 +1517,10 @@ impl Authority for InMemoryAuthority {
         // Find a record that covers the given name. This is, an NSEC3 record such that the hashed owner
         // name of the given name falls between the record's owner name and its next hashed owner
         // name.
-        let find_cover = |name: &LowerName| -> Option<Arc<RecordSet>> {
-            let hash = hash_name(name.borrow());
+        let find_cover = |name: &LowerName| -> Result<Option<Arc<RecordSet>>, ProtoError> {
+            let hash = hash_name(name.borrow())?;
             let label = data_encoding::BASE32_DNSSEC.encode(hash.as_ref());
-            let owner_name = LowerName::new(
-                &Name::new()
-                    .append_label(label)
-                    .unwrap()
-                    .append_name(self.origin().borrow())
-                    .unwrap(),
-            );
+            let owner_name = LowerName::new(&join_label_and_name(label, self.origin().borrow())?);
 
             // Find all the RRsets with NSEC3 records.
             let records = inner
@@ -1538,40 +1532,47 @@ impl Authority for InMemoryAuthority {
             // hashed QNAME. If this record exist, it already covers QNAME. Otherwise, the QNAME
             // preceeds all the existing NSEC3 records' owner names, meaning that it is covered by
             // the NSEC3 record with the largest owner name.
-            records
+            Ok(records
                 .clone()
                 .filter(|rr_set| rr_set.name() < owner_name.borrow())
                 .min_by_key(|rr_set| rr_set.name())
                 .or_else(|| records.max_by_key(|rr_set| rr_set.name()))
-                .cloned()
+                .cloned())
         };
 
         // Return the next closer name and the record that matches the closest
         // encloser of a given name.
-        let get_closest_encloser_proof = |name: &LowerName| -> Option<(LowerName, Arc<RecordSet>)> {
-            let mut next_closer_name = name.clone();
-            let mut closest_encloser = next_closer_name.base_name();
+        let get_closest_encloser_proof =
+            |name: &LowerName| -> Result<Option<(LowerName, Arc<RecordSet>)>, ProtoError> {
+                let mut next_closer_name = name.clone();
+                let mut closest_encloser = next_closer_name.base_name();
 
-            while !closest_encloser.is_root() {
-                let rr_key = RrKey::new(get_hashed_name(&closest_encloser), RecordType::NSEC3);
-                if let Some(rrs) = inner.records.get(&rr_key) {
-                    return Some((next_closer_name, rrs.clone()));
+                while !closest_encloser.is_root() {
+                    let rr_key = RrKey::new(get_hashed_name(&closest_encloser)?, RecordType::NSEC3);
+                    if let Some(rrs) = inner.records.get(&rr_key) {
+                        return Ok(Some((next_closer_name, rrs.clone())));
+                    }
+
+                    next_closer_name = next_closer_name.base_name();
+                    closest_encloser = closest_encloser.base_name();
                 }
 
-                next_closer_name = next_closer_name.base_name();
-                closest_encloser = closest_encloser.base_name();
-            }
-
-            None
-        };
+                Ok(None)
+            };
 
         // Compute a closest encloser proof for QNAME.
-        let (next_closer_name, closest_encloser_record) = get_closest_encloser_proof(name).unzip();
-        let next_closer_name_cover = next_closer_name.as_ref().and_then(find_cover);
+        let (next_closer_name, closest_encloser_record) = get_closest_encloser_proof(name)?.unzip();
+        let next_closer_name_cover = match next_closer_name.as_ref() {
+            Some(n) => find_cover(n)?,
+            None => None,
+        };
 
         // If required, find a cover for the wildcard at the next closer name.
         let wildcard_cover = if include_wildcard {
-            next_closer_name.and_then(|n| find_cover(&n.into_wildcard()))
+            match next_closer_name {
+                Some(n) => find_cover(&n.into_wildcard())?,
+                None => None,
+            }
         } else {
             None
         };
@@ -1628,4 +1629,9 @@ impl DnssecAuthority for InMemoryAuthority {
 
         inner.secure_zone_mut(self.origin(), self.class, self.nx_proof, &self.nsec3_config)
     }
+}
+
+#[cfg(feature = "dnssec")]
+fn join_label_and_name(label: impl IntoLabel, name: &Name) -> Result<Name, ProtoError> {
+    Name::new().append_label(label)?.append_name(name)
 }

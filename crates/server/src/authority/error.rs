@@ -8,6 +8,7 @@
 use std::io;
 
 use enum_as_inner::EnumAsInner;
+use hickory_proto::error::ProtoError;
 use thiserror::Error;
 
 use crate::proto::op::ResponseCode;
@@ -39,6 +40,9 @@ pub enum LookupError {
     /// An underlying IO error occurred
     #[error("io error: {0}")]
     Io(io::Error),
+    /// An underlying serialization error ocurred
+    #[error("serialization error: {0}")]
+    Proto(#[from] ProtoError),
 }
 
 impl LookupError {
