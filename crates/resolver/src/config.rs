@@ -428,7 +428,11 @@ impl std::fmt::Debug for TlsClientConfig {
 
 /// Configuration for the NameServer
 #[derive(Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    derive(Serialize, Deserialize),
+    serde(deny_unknown_fields)
+)]
 pub struct NameServerConfig {
     /// The address which the DNS NameServer is registered at.
     pub socket_addr: SocketAddr,
@@ -903,7 +907,11 @@ pub enum ResolveHosts {
 
 /// Configuration for the Resolver
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(default))]
+#[cfg_attr(
+    feature = "serde",
+    derive(Serialize, Deserialize),
+    serde(default, deny_unknown_fields)
+)]
 #[allow(missing_copy_implementations)]
 #[non_exhaustive]
 pub struct ResolverOpts {

@@ -25,6 +25,7 @@ use crate::proto::serialize::txt::ParseResult;
 
 /// Key pair configuration for DNSSEC keys for signing a zone
 #[derive(Deserialize, PartialEq, Eq, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct KeyConfig {
     /// file path to the key
     pub key_path: String,
@@ -202,6 +203,7 @@ impl Default for PrivateKeyType {
 
 /// Configuration for a TLS certificate
 #[derive(Deserialize, PartialEq, Eq, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct TlsCertConfig {
     path: String,
     endpoint_name: Option<String>,

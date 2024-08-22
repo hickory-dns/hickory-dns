@@ -40,6 +40,7 @@ static DEFAULT_TCP_REQUEST_TIMEOUT: u64 = 5;
 
 /// Server configuration
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct Config {
     /// The list of IPv4 addresses to listen on
     #[serde(default)]
@@ -216,6 +217,7 @@ impl Config {
 
 /// Configuration for a zone
 #[derive(Deserialize, PartialEq, Eq, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct ZoneConfig {
     /// name of the zone
     pub zone: String, // TODO: make Domain::Name decodable
