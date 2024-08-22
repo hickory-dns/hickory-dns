@@ -352,6 +352,7 @@ pub struct Nsec3Config {
 
 /// The kind of non-existence proof provided by the server.
 #[derive(Debug, Default, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
 pub enum NxProof {
     #[cfg(feature = "dnssec")]
     #[cfg_attr(feature = "dnssec", default)]
