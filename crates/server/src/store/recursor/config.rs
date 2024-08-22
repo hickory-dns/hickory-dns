@@ -84,6 +84,7 @@ fn record_cache_size_default() -> usize {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub enum DnssecPolicyConfig {
     /// security unaware; DNSSEC records will not be requested nor processed
     #[default]
