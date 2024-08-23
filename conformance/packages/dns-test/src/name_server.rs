@@ -275,9 +275,13 @@ impl NameServer<Stopped> {
 
 const ZONES_DIR: &str = "/etc/zones";
 const ZONE_FILENAME: &str = "main.zone";
+const ZSK_PRIVATE_FILENAME: &str = "zsk.key";
 
 fn zone_file_path() -> String {
     format!("{ZONES_DIR}/{ZONE_FILENAME}")
+}
+fn zsk_private_path() -> String {
+    format!("{ZONES_DIR}/{ZSK_PRIVATE_FILENAME}")
 }
 
 fn ns_count() -> usize {
@@ -304,7 +308,27 @@ impl NameServer<Signed> {
             implementation.conf_file_path(config.role()),
             &implementation.format_config(config),
         )?;
-        container.cp(&zone_file_path(), &state.signed.to_string())?;
+
+        match implementation {
+            Implementation::Bind | Implementation::Unbound => {
+                container.cp(&zone_file_path(), &state.signed.to_string())?;
+            }
+            Implementation::Hickory { .. } => {
+                // FIXME: Hickory does not support pre-signed zonefiles. We copy the unsigned
+                // zonefile so hickory can sign the zonefile itself.
+                container.cp(&zone_file_path(), &zone_file.to_string())?;
+                // FIXME: Given that hickory doesn't support the key format produced by
+                // `ldns-keygen` we generate a new zsk from scratch. This is fine as long as we
+                // don't compare signatures in any of the conformance tests.
+                let zsk = container.stdout(&[
+                    "openssl",
+                    "genpkey",
+                    "-algorithm",
+                    "RSA",
+                ])?;
+                container.cp(&zsk_private_path(), &zsk)?;
+            }
+        }
 
         let child = container.spawn(implementation.cmd_args(config.role()))?;
 
