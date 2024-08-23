@@ -200,8 +200,7 @@ impl<'a> Signer<'a> {
 
         // NSEC3 related options
         // -n = use NSEC3 instead of NSEC
-        // -p = set the opt-out flag on all nsec3 rrs
-        args.push(format!("-n -p {ZONE_FILENAME}"));
+        args.push(format!("-n {ZONE_FILENAME}"));
         if let Some(salt) = &self.settings.nsec_salt {
             args.push(format!("-s {}", salt));
         }
