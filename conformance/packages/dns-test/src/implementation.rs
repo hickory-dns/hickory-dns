@@ -37,7 +37,10 @@ pub enum Role {
 #[derive(Clone, Debug)]
 pub enum Implementation {
     Bind,
-    Hickory(Repository<'static>),
+    Hickory {
+        repository: Repository<'static>,
+        enable_dnssec: bool,
+    },
     Unbound,
 }
 
@@ -45,14 +48,17 @@ impl Implementation {
     pub fn supports_ede(&self) -> bool {
         match self {
             Implementation::Bind => false,
-            Implementation::Hickory(_) => true,
+            Implementation::Hickory { .. } => true,
             Implementation::Unbound => true,
         }
     }
 
     /// Returns the latest hickory-dns local revision
     pub fn hickory() -> Self {
-        Self::Hickory(Repository(crate::repo_root()))
+        Self::Hickory {
+            repository: Repository(crate::repo_root()),
+            enable_dnssec: false,
+        }
     }
 
     /// A test peer that cannot be changed using the `DNS_TEST_PEER` env variable
@@ -67,7 +73,7 @@ impl Implementation {
 
     #[must_use]
     pub fn is_hickory(&self) -> bool {
-        matches!(self, Self::Hickory(_))
+        matches!(self, Self::Hickory { .. })
     }
 
     #[must_use]
@@ -92,7 +98,7 @@ impl Implementation {
                     )
                 }
 
-                Self::Hickory(_) => {
+                Self::Hickory { .. } => {
                     // TODO enable EDE in Hickory when supported
                     minijinja::render!(
                         include_str!("templates/hickory.resolver.toml.jinja"),
@@ -125,10 +131,11 @@ impl Implementation {
                     )
                 }
 
-                Self::Hickory(_) => {
+                Self::Hickory { enable_dnssec, .. } => {
                     minijinja::render!(
                         include_str!("templates/hickory.name-server.toml.jinja"),
-                        fqdn => origin.as_str()
+                        fqdn => origin.as_str(),
+                        enable_dnssec => enable_dnssec.to_string(), 
                     )
                 }
             },
@@ -139,7 +146,7 @@ impl Implementation {
         match self {
             Self::Bind => "/etc/bind/named.conf",
 
-            Self::Hickory(_) => "/etc/named.toml",
+            Self::Hickory { .. } => "/etc/named.toml",
 
             Self::Unbound => match role {
                 Role::NameServer => "/etc/nsd/nsd.conf",
@@ -152,7 +159,7 @@ impl Implementation {
         match self {
             Implementation::Bind => &["named", "-g", "-d5"],
 
-            Implementation::Hickory(_) => &[
+            Implementation::Hickory { .. } => &[
                 "sh",
                 "-c",
                 "echo $$ > /tmp/hickory.pid
@@ -171,7 +178,7 @@ exec hickory-dns -d",
         match self {
             Implementation::Bind => "/tmp/named.pid",
 
-            Implementation::Hickory(_) => "/tmp/hickory.pid",
+            Implementation::Hickory { .. } => "/tmp/hickory.pid",
 
             Implementation::Unbound => match role {
                 Role::NameServer => "/tmp/nsd.pid",
@@ -185,7 +192,7 @@ impl fmt::Display for Implementation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
             Implementation::Bind => "bind",
-            Implementation::Hickory(_) => "hickory",
+            Implementation::Hickory { .. } => "hickory",
             Implementation::Unbound => "unbound",
         };
 

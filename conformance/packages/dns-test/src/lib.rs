@@ -45,7 +45,10 @@ fn parse_subject() -> Implementation {
 
         if subject.starts_with("hickory") {
             if let Some(url) = subject.strip_prefix("hickory ") {
-                Implementation::Hickory(Repository(url.to_string()))
+                Implementation::Hickory {
+                    repository: Repository(url.to_string()),
+                    enable_dnssec: false,
+                }
             } else {
                 panic!("the syntax of DNS_TEST_SUBJECT is 'hickory $URL', e.g. 'hickory /tmp/hickory' or 'hickory https://github.com/owner/repo'")
             }
@@ -88,7 +91,7 @@ mod tests {
     impl PartialEq for Implementation {
         fn eq(&self, other: &Self) -> bool {
             match (self, other) {
-                (Self::Hickory(_), Self::Hickory(_)) => true,
+                (Self::Hickory { .. }, Self::Hickory { .. }) => true,
                 _ => core::mem::discriminant(self) == core::mem::discriminant(other),
             }
         }

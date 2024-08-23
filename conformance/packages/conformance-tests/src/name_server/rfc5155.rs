@@ -300,7 +300,12 @@ fn query_nameserver(
     qtype: RecordType,
 ) -> Result<(NSEC3Records, DigStatus, Vec<NSEC3>)> {
     let network = Network::new()?;
-    let mut ns = NameServer::new(&dns_test::SUBJECT, FQDN::ROOT, &network)?;
+    let mut subject: Implementation = dns_test::SUBJECT.clone();
+    if let Implementation::Hickory { enable_dnssec, .. } = &mut subject {
+        *enable_dnssec = true;
+    }
+
+    let mut ns = NameServer::new(&subject, FQDN::ROOT, &network)?;
 
     for record in records {
         ns.add(record);

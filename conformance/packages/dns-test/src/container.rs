@@ -68,7 +68,7 @@ impl From<Implementation> for Image {
         match implementation {
             Implementation::Bind => Self::Bind,
             Implementation::Unbound => Self::Unbound,
-            Implementation::Hickory(repo) => Self::Hickory(repo),
+            Implementation::Hickory { repository, .. } => Self::Hickory(repository),
         }
     }
 }

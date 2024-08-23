@@ -365,7 +365,7 @@ kill -TERM $(cat {pidfile})"
 
         // the hickory-dns binary does not do signal handling so it won't shut down gracefully; we
         // will still get some logs so we'll ignore the fact that it fails to shut down ...
-        let is_hickory = matches!(self.implementation, Implementation::Hickory(_));
+        let is_hickory = matches!(self.implementation, Implementation::Hickory { .. });
         if !is_hickory && !output.status.success() {
             return Err(
                 format!("could not terminate the `{}` process", self.implementation).into(),
