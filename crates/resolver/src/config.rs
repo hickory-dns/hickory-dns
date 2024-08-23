@@ -796,6 +796,21 @@ impl NameServerConfigGroup {
         }
     }
 
+    /// Append nameservers to a NameServerConfigGroup.
+    pub fn append_ips(
+        &mut self,
+        nameserver_ips: impl Iterator<Item = IpAddr>,
+        trust_negative_response: bool,
+    ) {
+        for ip in nameserver_ips {
+            for proto in [Protocol::Udp, Protocol::Tcp] {
+                let mut config = NameServerConfig::new(SocketAddr::from((ip, 53)), proto);
+                config.trust_negative_responses = trust_negative_response;
+                self.push(config);
+            }
+        }
+    }
+
     /// add a [`rustls::ClientConfig`]
     #[cfg(feature = "dns-over-rustls")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
