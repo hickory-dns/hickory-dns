@@ -46,12 +46,10 @@ dnssec = []
 
 # TODO: Need to figure out how to be consistent with ring/openssl usage...
 dns-over-https-rustls = [
-    "dns-over-https",
     "hickory-proto/dns-over-https-rustls",
     "hickory-resolver/dns-over-https-rustls",
     "dns-over-rustls",
 ]
-dns-over-https = ["hickory-proto/dns-over-https"]
 dns-over-quic = [
     "dns-over-rustls",
     "hickory-proto/dns-over-quic",

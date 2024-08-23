@@ -13,11 +13,11 @@
 //! ```text
 //! The Certification Authority Authorization (CAA) DNS Resource Record
 //! allows a DNS domain name holder to specify one or more Certification
-//! Authorities (CAs) authorized to issue certificates for that domain.
-//! CAA Resource Records allow a public Certification Authority to
-//! implement additional controls to reduce the risk of unintended
-//! certificate mis-issue.  This document defines the syntax of the CAA
-//! record and rules for processing CAA records by certificate issuers.
+//! Authorities (CAs) authorized to issue certificates for that domain
+//! name.  CAA Resource Records allow a public CA to implement additional
+//! controls to reduce the risk of unintended certificate mis-issue.
+//! This document defines the syntax of the CAA record and rules for
+//! processing CAA records by CAs.
 //! ```
 #![allow(clippy::use_self)]
 
@@ -36,102 +36,6 @@ use crate::{
 /// The CAA RR Type
 ///
 /// [RFC 8659, DNS Certification Authority Authorization, November 2019](https://www.rfc-editor.org/rfc/rfc8659)
-///
-/// ```text
-/// 3.  The CAA RR Type
-///
-/// A CAA RR consists of a flags byte and a tag-value pair referred to as
-/// a property.  Multiple properties MAY be associated with the same
-/// domain name by publishing multiple CAA RRs at that domain name.  The
-/// following flag is defined:
-///
-/// Issuer Critical:  If set to '1', indicates that the corresponding
-///    property tag MUST be understood if the semantics of the CAA record
-///    are to be correctly interpreted by an issuer.
-///
-///    Issuers MUST NOT issue certificates for a domain if the relevant
-///    CAA Resource Record set contains unknown property tags that have
-///    the Critical bit set.
-///
-/// The following property tags are defined:
-///
-/// issue <Issuer Domain Name> [; <name>=<value> ]* :  The issue property
-///    entry authorizes the holder of the domain name <Issuer Domain
-///    Name> or a party acting under the explicit authority of the holder
-///    of that domain name to issue certificates for the domain in which
-///    the property is published.
-///
-/// issuewild <Issuer Domain Name> [; <name>=<value> ]* :  The issuewild
-///    property entry authorizes the holder of the domain name <Issuer
-///    Domain Name> or a party acting under the explicit authority of the
-///    holder of that domain name to issue wildcard certificates for the
-///    domain in which the property is published.
-///
-/// iodef <URL> :  Specifies a URL to which an issuer MAY report
-///    certificate issue requests that are inconsistent with the issuer's
-///    Certification Practices or Certificate Policy, or that a
-///    Certificate Evaluator may use to report observation of a possible
-///    policy violation.  The Incident Object Description Exchange Format
-///    (IODEF) format is used [RFC5070].
-///
-/// The following example is a DNS zone file (see [RFC1035]) that informs
-/// CAs that certificates are not to be issued except by the holder of
-/// the domain name 'ca.example.net' or an authorized agent thereof.
-/// This policy applies to all subordinate domains under example.com.
-///
-/// $ORIGIN example.com
-/// .       CAA 0 issue "ca.example.net"
-///
-/// If the domain name holder specifies one or more iodef properties, a
-/// certificate issuer MAY report invalid certificate requests to that
-/// address.  In the following example, the domain name holder specifies
-/// that reports may be made by means of email with the IODEF data as an
-/// attachment, a Web service [RFC6546], or both:
-///
-/// $ORIGIN example.com
-/// .       CAA 0 issue "ca.example.net"
-/// .       CAA 0 iodef "mailto:security@example.com"
-/// .       CAA 0 iodef "https://iodef.example.com/"
-///
-/// A certificate issuer MAY specify additional parameters that allow
-/// customers to specify additional parameters governing certificate
-/// issuance.  This might be the Certificate Policy under which the
-/// certificate is to be issued, the authentication process to be used
-/// might be specified, or an account number specified by the CA to
-/// enable these parameters to be retrieved.
-///
-/// For example, the CA 'ca.example.net' has requested its customer
-/// 'example.com' to specify the CA's account number '230123' in each of
-/// the customer's CAA records.
-///
-/// $ORIGIN example.com
-/// .       CAA 0 issue "ca.example.net; account=230123"
-///
-/// The syntax of additional parameters is a sequence of name-value pairs
-/// as defined in Section 5.2.  The semantics of such parameters is left
-/// to site policy and is outside the scope of this document.
-///
-/// The critical flag is intended to permit future versions CAA to
-/// introduce new semantics that MUST be understood for correct
-/// processing of the record, preventing conforming CAs that do not
-/// recognize the new semantics from issuing certificates for the
-/// indicated domains.
-///
-/// In the following example, the property 'tbs' is flagged as critical.
-/// Neither the example.net CA nor any other issuer is authorized to
-/// issue under either policy unless the processing rules for the 'tbs'
-/// property tag are understood.
-///
-/// $ORIGIN example.com
-/// .       CAA 0 issue "ca.example.net; policy=ev"
-/// .       CAA 128 tbs "Unknown"
-///
-/// Note that the above restrictions only apply at certificate issue.
-/// Since the validity of an end entity certificate is typically a year
-/// or more, it is quite possible that the CAA records published at a
-/// domain will change between the time a certificate was issued and
-/// validation by a relying party.
-/// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct CAA {
@@ -281,7 +185,7 @@ impl Property {
 impl From<String> for Property {
     fn from(tag: String) -> Self {
         // [RFC 8659 section 4.1-11](https://www.rfc-editor.org/rfc/rfc8659#section-4.1-11)
-        // states that "Matching of tag values is case insensitive."
+        // states that "Matching of tags is case insensitive."
         let lower = tag.to_ascii_lowercase();
         match &lower as &str {
             "issue" => return Self::Issue,
@@ -401,80 +305,89 @@ enum ParseNameKeyPairState {
 
 /// Reads the issuer field according to the spec
 ///
-/// [RFC 8659, DNS Certification Authority Authorization, November 2019](https://www.rfc-editor.org/rfc/rfc8659)
+/// [RFC 8659, DNS Certification Authority Authorization, November 2019](https://www.rfc-editor.org/rfc/rfc8659),
+/// and [errata 7139](https://www.rfc-editor.org/errata/eid7139)
 ///
 /// ```text
-/// 5.2.  CAA issue Property
+/// 4.2.  CAA issue Property
 ///
-///    The issue property tag is used to request that certificate issuers
-///    perform CAA issue restriction processing for the domain and to grant
-///    authorization to specific certificate issuers.
+///    If the issue Property Tag is present in the Relevant RRset for an
+///    FQDN, it is a request that Issuers:
 ///
-///    The CAA issue property value has the following sub-syntax (specified
+///    1.  Perform CAA issue restriction processing for the FQDN, and
+///
+///    2.  Grant authorization to issue certificates containing that FQDN to
+///        the holder of the issuer-domain-name or a party acting under the
+///        explicit authority of the holder of the issuer-domain-name.
+///
+///    The CAA issue Property Value has the following sub-syntax (specified
 ///    in ABNF as per [RFC5234]).
 ///
-///    issuevalue  = space [domain] space [";" *(space parameter) space]
+///    issue-value = *WSP [issuer-domain-name *WSP]
+///       [";" *WSP [parameters *WSP]]
 ///
-///    domain = label *("." label)
+///    issuer-domain-name = label *("." label)
 ///    label = (ALPHA / DIGIT) *( *("-") (ALPHA / DIGIT))
 ///
-///    space = *(SP / HTAB)
+///    parameters = (parameter *WSP ";" *WSP parameters) / parameter
+///    parameter = parameter-tag *WSP "=" *WSP parameter-value
+///    parameter-tag = (ALPHA / DIGIT) *( *("-") (ALPHA / DIGIT))
+///    parameter-value = *(%x21-3A / %x3C-7E)
 ///
-///    parameter =  tag "=" value
+///    For consistency with other aspects of DNS administration, FQDN values
+///    are specified in letter-digit-hyphen Label (LDH-Label) form.
 ///
-///    tag = 1*(ALPHA / DIGIT)
+///    The following CAA RRset requests that no certificates be issued for
+///    the FQDN "certs.example.com" by any Issuer other than ca1.example.net
+///    or ca2.example.org.
 ///
-///    value = *VCHAR
+///    certs.example.com         CAA 0 issue "ca1.example.net"
+///    certs.example.com         CAA 0 issue "ca2.example.org"
 ///
-///    For consistency with other aspects of DNS administration, domain name
-///    values are specified in letter-digit-hyphen Label (LDH-Label) form.
+///    Because the presence of an issue Property Tag in the Relevant RRset
+///    for an FQDN restricts issuance, FQDN owners can use an issue Property
+///    Tag with no issuer-domain-name to request no issuance.
 ///
-///    A CAA record with an issue parameter tag that does not specify a
-///    domain name is a request that certificate issuers perform CAA issue
-///    restriction processing for the corresponding domain without granting
-///    authorization to any certificate issuer.
-///
-///    This form of issue restriction would be appropriate to specify that
-///    no certificates are to be issued for the domain in question.
-///
-///    For example, the following CAA record set requests that no
-///    certificates be issued for the domain 'nocerts.example.com' by any
-///    certificate issuer.
+///    For example, the following RRset requests that no certificates be
+///    issued for the FQDN "nocerts.example.com" by any Issuer.
 ///
 ///    nocerts.example.com       CAA 0 issue ";"
 ///
-///    A CAA record with an issue parameter tag that specifies a domain name
-///    is a request that certificate issuers perform CAA issue restriction
-///    processing for the corresponding domain and grants authorization to
-///    the certificate issuer specified by the domain name.
+///    An issue Property Tag where the issue-value does not match the ABNF
+///    grammar MUST be treated the same as one specifying an empty
+///    issuer-domain-name.  For example, the following malformed CAA RRset
+///    forbids issuance:
 ///
-///    For example, the following CAA record set requests that no
-///    certificates be issued for the domain 'certs.example.com' by any
-///    certificate issuer other than the example.net certificate issuer.
-///
-///    certs.example.com       CAA 0 issue "example.net"
+///    malformed.example.com     CAA 0 issue "%%%%%"
 ///
 ///    CAA authorizations are additive; thus, the result of specifying both
-///    the empty issuer and a specified issuer is the same as specifying
-///    just the specified issuer alone.
+///    an empty issuer-domain-name and a non-empty issuer-domain-name is the
+///    same as specifying just the non-empty issuer-domain-name.
 ///
-///    An issuer MAY choose to specify issuer-parameters that further
-///    constrain the issue of certificates by that issuer, for example,
-///    specifying that certificates are to be subject to specific validation
-///    polices, billed to certain accounts, or issued under specific trust
-///    anchors.
+///    An Issuer MAY choose to specify parameters that further constrain the
+///    issue of certificates by that Issuer -- for example, specifying that
+///    certificates are to be subject to specific validation policies,
+///    billed to certain accounts, or issued under specific trust anchors.
 ///
-///    The semantics of issuer-parameters are determined by the issuer
-///    alone.
+///    For example, if ca1.example.net has requested that its customer
+///    account.example.com specify their account number "230123" in each of
+///    the customer's CAA records using the (CA-defined) "account"
+///    parameter, it would look like this:
+///
+///    account.example.com   CAA 0 issue "ca1.example.net; account=230123"
+///
+///    The semantics of parameters to the issue Property Tag are determined
+///    by the Issuer alone.
 /// ```
 ///
 /// Updated parsing rules:
 ///
 /// [RFC8659 Canonical presentation form and ABNF](https://www.rfc-editor.org/rfc/rfc8659#name-canonical-presentation-form)
 ///
-/// This explicitly allows `-` in key names, diverging from the original RFC. To support this, key names will
-/// allow `-` as non-starting characters. Additionally, this significantly relaxes the characters allowed in the value
-/// to allow URL like characters (it does not validate URL syntax).
+/// This explicitly allows `-` in property tags, diverging from the original RFC. To support this,
+/// property tags will allow `-` as non-starting characters. Additionally, this significantly
+/// relaxes the characters allowed in the value to allow URL like characters (it does not validate
+/// URL syntax).
 pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
     let mut byte_iter = bytes.iter();
 
@@ -494,7 +407,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
     // initial state is looking for a key ';' is valid...
     let mut state = ParseNameKeyPairState::BeforeKey(vec![]);
 
-    // run the state machine through all remaining data, collecting all key/value pairs.
+    // run the state machine through all remaining data, collecting all parameter tag/value pairs.
     for ch in byte_iter {
         match state {
             // Name was already successfully parsed, otherwise we couldn't get here.
@@ -557,8 +470,10 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
                         key_values.push(KeyValue { key, value });
                         state = ParseNameKeyPairState::BeforeKey(key_values);
                     }
-                    // push onto the existing key
-                    ch if !ch.is_control() && !ch.is_whitespace() => {
+                    // If the next byte is a visible character, excluding ';', push it onto the
+                    // existing value. See the ABNF production rule for `parameter-value` in the
+                    // documentation above.
+                    ch if ('\x21'..='\x3A').contains(&ch) || ('\x3C'..='\x7E').contains(&ch) => {
                         value.push(ch);
 
                         state = ParseNameKeyPairState::Value {
@@ -598,27 +513,38 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
 /// [RFC 8659, DNS Certification Authority Authorization, November 2019](https://www.rfc-editor.org/rfc/rfc8659#section-4.4)
 ///
 /// ```text
-/// 5.4.  CAA iodef Property
+/// 4.4.  CAA iodef Property
 ///
-///    The iodef property specifies a means of reporting certificate issue
-///    requests or cases of certificate issue for the corresponding domain
-///    that violate the security policy of the issuer or the domain name
+///    The iodef Property specifies a means of reporting certificate issue
+///    requests or cases of certificate issue for domains for which the
+///    Property appears in the Relevant RRset, when those requests or
+///    issuances violate the security policy of the Issuer or the FQDN
 ///    holder.
 ///
-///    The Incident Object Description Exchange Format (IODEF) [RFC7970](https://www.rfc-editor.org/info/rfc7970) is
+///    The Incident Object Description Exchange Format (IODEF) [RFC7970] is
 ///    used to present the incident report in machine-readable form.
 ///
-///    The iodef property takes a URL as its parameter.  The URL scheme type
-///    determines the method used for reporting:
+///    The iodef Property Tag takes a URL as its Property Value.  The URL
+///    scheme type determines the method used for reporting:
 ///
-///    mailto:  The IODEF incident report is reported as a MIME email
-///       attachment to an SMTP email that is submitted to the mail address
-///       specified.  The mail message sent SHOULD contain a brief text
-///       message to alert the recipient to the nature of the attachment.
+///    mailto:  The IODEF report is reported as a MIME email attachment to
+///       an SMTP email that is submitted to the mail address specified.
+///       The mail message sent SHOULD contain a brief text message to alert
+///       the recipient to the nature of the attachment.
 ///
-///    http or https:  The IODEF report is submitted as a Web service
+///    http or https:  The IODEF report is submitted as a web service
 ///       request to the HTTP address specified using the protocol specified
 ///       in [RFC6546].
+///
+///    These are the only supported URL schemes.
+///
+///    The following RRset specifies that reports may be made by means of
+///    email with the IODEF data as an attachment, a web service [RFC6546],
+///    or both:
+///
+///    report.example.com         CAA 0 issue "ca1.example.net"
+///    report.example.com         CAA 0 iodef "mailto:security@example.com"
+///    report.example.com         CAA 0 iodef "https://iodef.example.com/"
 /// ```
 pub fn read_iodef(url: &[u8]) -> ProtoResult<Url> {
     let url = str::from_utf8(url)?;
@@ -626,7 +552,7 @@ pub fn read_iodef(url: &[u8]) -> ProtoResult<Url> {
     Ok(url)
 }
 
-/// Issuer key and value pairs.
+/// Issuer parameter key-value pairs.
 ///
 /// [RFC 8659, DNS Certification Authority Authorization, November 2019](https://www.rfc-editor.org/rfc/rfc8659#section-4.2)
 /// for more explanation.
@@ -731,78 +657,68 @@ impl<'r> RecordDataDecodable<'r> for CAA {
     /// [RFC 8659, DNS Certification Authority Authorization, November 2019](https://www.rfc-editor.org/rfc/rfc8659#section-4.1)
     ///
     /// ```text
-    /// 5.1.  Syntax
+    /// 4.1.  Syntax
     ///
-    ///   A CAA RR contains a single property entry consisting of a tag-value
-    ///   pair.  Each tag represents a property of the CAA record.  The value
-    ///   of a CAA property is that specified in the corresponding value field.
+    /// A CAA RR contains a single Property consisting of a tag-value pair.
+    /// An FQDN MAY have multiple CAA RRs associated with it, and a given
+    /// Property Tag MAY be specified more than once across those RRs.
     ///
-    ///   A domain name MAY have multiple CAA RRs associated with it and a
-    ///   given property MAY be specified more than once.
+    /// The RDATA section for a CAA RR contains one Property.  A Property
+    /// consists of the following:
     ///
-    ///   The CAA data field contains one property entry.  A property entry
-    ///   consists of the following data fields:
+    /// +0-1-2-3-4-5-6-7-|0-1-2-3-4-5-6-7-|
+    /// | Flags          | Tag Length = n |
+    /// +----------------|----------------+...+---------------+
+    /// | Tag char 0     | Tag char 1     |...| Tag char n-1  |
+    /// +----------------|----------------+...+---------------+
+    /// +----------------|----------------+.....+----------------+
+    /// | Value byte 0   | Value byte 1   |.....| Value byte m-1 |
+    /// +----------------|----------------+.....+----------------+
     ///
-    ///   +0-1-2-3-4-5-6-7-|0-1-2-3-4-5-6-7-|
-    ///   | Flags          | Tag Length = n |
-    ///   +----------------+----------------+...+---------------+
-    ///   | Tag char 0     | Tag char 1     |...| Tag char n-1  |
-    ///   +----------------+----------------+...+---------------+
-    ///   +----------------+----------------+.....+----------------+
-    ///   | Value byte 0   | Value byte 1   |.....| Value byte m-1 |
-    ///   +----------------+----------------+.....+----------------+
+    /// Where n is the length specified in the Tag Length field and m is the
+    /// number of remaining octets in the Value field.  They are related by
+    /// (m = d - n - 2) where d is the length of the RDATA section.
     ///
-    ///   Where n is the length specified in the Tag length field and m is the
-    ///   remaining octets in the Value field (m = d - n - 2) where d is the
-    ///   length of the RDATA section.
+    /// The fields are defined as follows:
     ///
-    ///   The data fields are defined as follows:
+    /// Flags:  One octet containing the following field:
     ///
-    ///   Flags:  One octet containing the following fields:
+    ///    Bit 0, Issuer Critical Flag:  If the value is set to "1", the
+    ///       Property is critical.  A CA MUST NOT issue certificates for any
+    ///       FQDN if the Relevant RRset for that FQDN contains a CAA
+    ///       critical Property for an unknown or unsupported Property Tag.
     ///
-    ///      Bit 0, Issuer Critical Flag:  If the value is set to '1', the
-    ///         critical flag is asserted and the property MUST be understood
-    ///         if the CAA record is to be correctly processed by a certificate
-    ///         issuer.
+    /// Note that according to the conventions set out in [RFC1035], bit 0 is
+    /// the Most Significant Bit and bit 7 is the Least Significant Bit.
+    /// Thus, according to those conventions, the Flags value 1 means that
+    /// bit 7 is set, while a value of 128 means that bit 0 is set.
     ///
-    ///         A Certification Authority MUST NOT issue certificates for any
-    ///         Domain that contains a CAA critical property for an unknown or
-    ///         unsupported property tag that for which the issuer critical
-    ///         flag is set.
+    /// All other bit positions are reserved for future use.
     ///
-    ///      Note that according to the conventions set out in [RFC1035], bit 0
-    ///      is the Most Significant Bit and bit 7 is the Least Significant
-    ///      Bit. Thus, the Flags value 1 means that bit 7 is set while a value
-    ///      of 128 means that bit 0 is set according to this convention.
+    /// To ensure compatibility with future extensions to CAA, DNS records
+    /// compliant with this version of the CAA specification MUST clear (set
+    /// to "0") all reserved flag bits.  Applications that interpret CAA
+    /// records MUST ignore the value of all reserved flag bits.
     ///
-    ///      All other bit positions are reserved for future use.
+    /// Tag Length:  A single octet containing an unsigned integer specifying
+    ///    the tag length in octets.  The tag length MUST be at least 1.
     ///
-    ///      To ensure compatibility with future extensions to CAA, DNS records
-    ///      compliant with this version of the CAA specification MUST clear
-    ///      (set to "0") all reserved flags bits.  Applications that interpret
-    ///      CAA records MUST ignore the value of all reserved flag bits.
+    /// Tag:  The Property identifier -- a sequence of ASCII characters.
     ///
-    ///   Tag Length:  A single octet containing an unsigned integer specifying
-    ///      the tag length in octets.  The tag length MUST be at least 1 and
-    ///      SHOULD be no more than 15.
+    /// Tags MAY contain ASCII characters "a" through "z", "A" through "Z",
+    /// and the numbers 0 through 9.  Tags MUST NOT contain any other
+    /// characters.  Matching of tags is case insensitive.
     ///
-    ///   Tag:  The property identifier, a sequence of US-ASCII characters.
+    /// Tags submitted for registration by IANA MUST NOT contain any
+    /// characters other than the (lowercase) ASCII characters "a" through
+    /// "z" and the numbers 0 through 9.
     ///
-    ///      Tag values MAY contain US-ASCII characters 'a' through 'z', 'A'
-    ///      through 'Z', and the numbers 0 through 9.  Tag values SHOULD NOT
-    ///      contain any other characters.  Matching of tag values is case
-    ///      insensitive.
+    /// Value:  A sequence of octets representing the Property Value.
+    ///    Property Values are encoded as binary values and MAY employ
+    ///    sub-formats.
     ///
-    ///      Tag values submitted for registration by IANA MUST NOT contain any
-    ///      characters other than the (lowercase) US-ASCII characters 'a'
-    ///      through 'z' and the numbers 0 through 9.
-    ///
-    ///   Value:  A sequence of octets representing the property value.
-    ///      Property values are encoded as binary values and MAY employ sub-
-    ///      formats.
-    ///
-    ///      The length of the value field is specified implicitly as the
-    ///      remaining length of the enclosing Resource Record data field.
+    /// The length of the Value field is specified implicitly as the
+    /// remaining length of the enclosing RDATA section.
     /// ```
     fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<CAA> {
         // the spec declares that other flags should be ignored for future compatibility...
@@ -1032,6 +948,7 @@ mod tests {
             )
         );
         assert_eq!(read_issuer(b";").unwrap(), (None, vec![]));
+        read_issuer(b"example.com; param=\xff").unwrap_err();
     }
 
     #[test]

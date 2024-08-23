@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 #![cfg(not(windows))]
-#![cfg(feature = "dns-over-https")]
+#![cfg(feature = "dns-over-https-rustls")]
 
 mod server_harness;
 

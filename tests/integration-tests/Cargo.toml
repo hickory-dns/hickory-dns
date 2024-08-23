@@ -56,11 +56,9 @@ dnssec = ["dep:openssl"]
 dns-over-https-rustls = [
     "hickory-client/dns-over-https-rustls",
     "hickory-resolver/dns-over-https-rustls",
-    "dns-over-https",
     "dep:rustls",
     "dep:webpki-roots",
 ]
-dns-over-https = ["hickory-proto/dns-over-https"]
 dns-over-quic = [
     "dns-over-rustls",
     "hickory-proto/dns-over-quic",

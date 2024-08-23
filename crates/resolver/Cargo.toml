@@ -50,9 +50,7 @@ dns-over-tls = ["tokio-runtime"]
 dns-over-https-rustls = [
     "hickory-proto/dns-over-https-rustls",
     "dns-over-rustls",
-    "dns-over-https",
 ]
-dns-over-https = ["hickory-proto/dns-over-https"]
 dns-over-quic = ["dep:quinn", "dns-over-rustls", "hickory-proto/dns-over-quic"]
 dns-over-h3 = ["dep:quinn", "dns-over-rustls", "hickory-proto/dns-over-h3"]
 

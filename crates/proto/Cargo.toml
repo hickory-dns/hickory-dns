@@ -41,8 +41,7 @@ dns-over-native-tls = [
 ]
 dns-over-openssl = ["dns-over-tls", "dep:openssl", "dep:tokio-openssl", "tokio-runtime"]
 
-dns-over-https-rustls = ["dns-over-https"]
-dns-over-https = ["dep:bytes", "dep:h2", "dep:http", "dns-over-rustls", "tokio-runtime"]
+dns-over-https-rustls = ["dep:bytes", "dep:h2", "dep:http", "dns-over-rustls", "tokio-runtime"]
 dns-over-quic = [
     "dep:quinn",
     "dns-over-rustls",

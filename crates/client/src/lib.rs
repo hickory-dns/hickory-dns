@@ -281,14 +281,14 @@ pub mod tcp;
 pub mod udp;
 
 // TODO: consider removing tcp/udp/https modules...
-#[cfg(feature = "dns-over-https")]
+#[cfg(feature = "dns-over-https-rustls")]
 mod h2_client_connection;
 
 pub use hickory_proto as proto;
 
 /// The https module which contains all https related connection types
-#[cfg(feature = "dns-over-https")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
+#[cfg(feature = "dns-over-https-rustls")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https-rustls")))]
 pub mod h2 {
     pub use super::h2_client_connection::HttpsClientConnection;
 }

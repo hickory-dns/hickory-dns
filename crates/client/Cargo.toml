@@ -32,15 +32,11 @@ license.workspace = true
 [features]
 backtrace = ["hickory-proto/backtrace"]
 
-dns-over-https-openssl = ["dns-over-https", "dns-over-openssl"]
 dns-over-https-rustls = [
-    "dns-over-https",
     "dns-over-rustls",
     "dep:rustls",
     "hickory-proto/dns-over-https-rustls",
 ]
-dns-over-https = ["hickory-proto/dns-over-https"]
-
 dns-over-quic = ["dns-over-rustls", "hickory-proto/dns-over-quic"]
 
 dns-over-native-tls = ["dns-over-tls", "hickory-proto/dns-over-native-tls"]

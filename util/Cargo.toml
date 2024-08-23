@@ -37,16 +37,10 @@ dns-over-rustls = [
     "hickory-resolver/dns-over-rustls",
 ]
 dns-over-https-rustls = [
-    "dns-over-https",
     "dns-over-rustls",
     "hickory-proto/dns-over-https-rustls",
     "hickory-client/dns-over-https-rustls",
     "hickory-resolver/dns-over-https-rustls",
-]
-dns-over-https = [
-    "hickory-proto/dns-over-https",
-    "hickory-client/dns-over-https",
-    "hickory-resolver/dns-over-https",
 ]
 dns-over-quic = ["dns-over-rustls", "hickory-resolver/dns-over-quic"]
 dns-over-h3 = ["dns-over-rustls", "hickory-resolver/dns-over-h3"]

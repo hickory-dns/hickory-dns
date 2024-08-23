@@ -6,7 +6,12 @@ server:
     root-hints: /etc/root.hints
     pidfile: /tmp/unbound.pid
     cache-max-ttl: 60
-    ede: {% if ede %} yes {% else %} no {% endif %}
+{% if ede %}
+    # For details check https://blog.nlnetlabs.nl/extended-dns-error-support-for-unbound/
+    ede: yes
+    val-log-level: 2
+{% endif %}
+
 {% if use_dnssec %}
     val-sig-skew-min: 3600
     trust-anchor-file: /etc/trusted-key.key
