@@ -107,7 +107,7 @@ impl<'a> RequestInfo<'a> {
 }
 
 /// Information about the response sent for a request
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
 pub struct ResponseInfo(Header);
 

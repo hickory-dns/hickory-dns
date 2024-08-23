@@ -16,8 +16,13 @@ use std::{
 use futures_util::lock::Mutex;
 use tracing::{error, info, warn};
 
+#[cfg(feature = "dnssec")]
+use LookupControlFlow::Continue;
+
 use crate::{
-    authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType},
+    authority::{
+        Authority, LookupControlFlow, LookupOptions, MessageRequest, UpdateResult, ZoneType,
+    },
     error::{PersistenceErrorKind, PersistenceResult},
     proto::{
         op::ResponseCode,
@@ -490,8 +495,8 @@ impl SqliteAuthority {
                     .await;
 
                 let keys = match keys {
-                    Ok(keys) => keys,
-                    Err(_) => continue, // error trying to lookup a key by that name, try the next one.
+                    Continue(Ok(keys)) => keys,
+                    _ => continue, // error trying to lookup a key by that name, try the next one.
                 };
 
                 debug!("found keys {:?}", keys);
@@ -954,7 +959,7 @@ impl Authority for SqliteAuthority {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> LookupControlFlow<Self::Lookup> {
         self.in_memory.lookup(name, rtype, lookup_options).await
     }
 
@@ -962,7 +967,7 @@ impl Authority for SqliteAuthority {
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> LookupControlFlow<Self::Lookup> {
         self.in_memory.search(request_info, lookup_options).await
     }
 
@@ -977,7 +982,7 @@ impl Authority for SqliteAuthority {
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> LookupControlFlow<Self::Lookup> {
         self.in_memory.get_nsec_records(name, lookup_options).await
     }
 }

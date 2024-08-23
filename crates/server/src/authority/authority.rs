@@ -8,6 +8,7 @@
 //! All authority related types
 
 use cfg_if::cfg_if;
+use std::fmt;
 
 #[cfg(feature = "dnssec")]
 use crate::proto::rr::{
@@ -15,7 +16,7 @@ use crate::proto::rr::{
     Name,
 };
 use crate::{
-    authority::{LookupError, MessageRequest, UpdateResult, ZoneType},
+    authority::{LookupError, LookupObject, MessageRequest, UpdateResult, ZoneType},
     proto::rr::{LowerName, RecordSet, RecordType, RrsetRecords},
     server::RequestInfo,
 };
@@ -134,7 +135,7 @@ pub trait Authority: Send + Sync {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError>;
+    ) -> LookupControlFlow<Self::Lookup>;
 
     /// Using the specified query, perform a lookup against this zone.
     ///
@@ -151,10 +152,10 @@ pub trait Authority: Send + Sync {
         &self,
         request: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError>;
+    ) -> LookupControlFlow<Self::Lookup>;
 
     /// Get the NS, NameServer, record for the zone
-    async fn ns(&self, lookup_options: LookupOptions) -> Result<Self::Lookup, LookupError> {
+    async fn ns(&self, lookup_options: LookupOptions) -> LookupControlFlow<Self::Lookup> {
         self.lookup(self.origin(), RecordType::NS, lookup_options)
             .await
     }
@@ -170,20 +171,20 @@ pub trait Authority: Send + Sync {
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError>;
+    ) -> LookupControlFlow<Self::Lookup>;
 
     /// Returns the SOA of the authority.
     ///
     /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    async fn soa(&self) -> Result<Self::Lookup, LookupError> {
+    async fn soa(&self) -> LookupControlFlow<Self::Lookup> {
         // SOA should be origin|SOA
         self.lookup(self.origin(), RecordType::SOA, LookupOptions::default())
             .await
     }
 
     /// Returns the SOA record for the zone
-    async fn soa_secure(&self, lookup_options: LookupOptions) -> Result<Self::Lookup, LookupError> {
+    async fn soa_secure(&self, lookup_options: LookupOptions) -> LookupControlFlow<Self::Lookup> {
         self.lookup(self.origin(), RecordType::SOA, lookup_options)
             .await
     }
@@ -202,4 +203,170 @@ pub trait DnssecAuthority: Authority {
 
     /// Sign the zone for DNSSEC
     async fn secure_zone(&self) -> DnsSecResult<()>;
+}
+
+/// Result of a Lookup in the Catalog and Authority
+///
+/// * **All authorities should default to using LookupControlFlow::Continue to wrap their responses.**
+///   These responses may be passed to other authorities for analysis or requery purposes.
+/// * Authorities may use LookupControlFlow::Break to indicate the response must be returned
+///   immediately to the client, without consulting any other authorities.  For example, if the
+///   the user configures a blocklist authority, it would not be appropriate to pass the query to
+///   any additional authorities to try to resolve, as that might be used to leak information to a
+///   hostile party, and so a blocklist (or similar) authority should wrap responses for any
+///   blocklist hits in LookupControlFlow::Break.
+/// * Authorities may use LookupControlFlow::Skip to indicate the authority did not attempt to
+///   process a particular query.  This might be used, for example, in a block list authority for
+///   any queries that **did not** match the blocklist, to allow the recursor or forwarder to
+///   resolve the query. Skip must not be used to represent an empty lookup; (use
+///   Continue(EmptyLookup) or Break(EmptyLookup) for that.)
+pub enum LookupControlFlow<T, E = LookupError> {
+    /// A lookup response that may be passed to one or more additional authorities before
+    /// being returned to the client.
+    Continue(Result<T, E>),
+    /// A lookup response that must be immediately returned to the client without consulting
+    /// any other authorities.
+    Break(Result<T, E>),
+    /// The authority did not answer the query and the next authority in the chain should
+    /// be consulted.
+    Skip,
+}
+
+impl<T, E> fmt::Display for LookupControlFlow<T, E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Continue(cont) => match cont {
+                Ok(_) => write!(f, "LookupControlFlow::Continue(Ok)"),
+                Err(_) => write!(f, "LookupControlFlow::Continue(Err)"),
+            },
+            Self::Break(b) => match b {
+                Ok(_) => write!(f, "LookupControlFlow::Break(Ok)"),
+                Err(_) => write!(f, "LookupControlFlow::Break(Err)"),
+            },
+            Self::Skip => write!(f, "LookupControlFlow::Skip"),
+        }
+    }
+}
+
+/// The following are a minimal set of methods typically used with Result or Option, and that
+/// were used in the server code or test suite prior to when the LookupControlFlow type was created
+/// (authority lookup functions previously returned a Result over a Lookup or LookupError type.)
+impl<T, E> LookupControlFlow<T, E> {
+    /// Return true if self is LookupControlFlow::Continue
+    pub fn is_continue(&self) -> bool {
+        matches!(self, Self::Continue(_))
+    }
+
+    /// Return true if self is LookupControlFlow::Break
+    pub fn is_break(&self) -> bool {
+        matches!(self, Self::Break(_))
+    }
+}
+
+impl<T: LookupObject + 'static, E: std::fmt::Display> LookupControlFlow<T, E> {
+    /// Return inner Ok variant or panic with a custom error message.
+    pub fn expect(self, msg: &str) -> T {
+        match self {
+            Self::Continue(Ok(ok)) | Self::Break(Ok(ok)) => ok,
+            _ => {
+                panic!("lookupcontrolflow::expect() called on unexpected variant {self}: {msg}");
+            }
+        }
+    }
+
+    /// Return inner Err variant or panic with a custom error message.
+    pub fn expect_err(self, msg: &str) -> E {
+        match self {
+            Self::Continue(Err(e)) | Self::Break(Err(e)) => e,
+            _ => {
+                panic!(
+                    "lookupcontrolflow::expect_err() called on unexpected variant {self}: {msg}"
+                );
+            }
+        }
+    }
+
+    /// Return inner Ok variant or panic
+    pub fn unwrap(self) -> T {
+        match self {
+            Self::Continue(Ok(ok)) | Self::Break(Ok(ok)) => ok,
+            Self::Continue(Err(ref e)) | Self::Break(Err(ref e)) => {
+                panic!("lookupcontrolflow::unwrap() called on unexpected variant {self}: {e}");
+            }
+            _ => {
+                panic!("lookupcontrolflow::unwrap() called on unexpected variant: {self}");
+            }
+        }
+    }
+
+    /// Return inner Err variant or panic
+    pub fn unwrap_err(self) -> E {
+        match self {
+            Self::Continue(Err(e)) | Self::Break(Err(e)) => e,
+            _ => {
+                panic!("lookupcontrolflow::unwrap_err() called on unexpected variant: {self}");
+            }
+        }
+    }
+
+    /// Return inner Ok Variant or default value
+    pub fn unwrap_or_default(self) -> T
+    where
+        T: Default,
+    {
+        match self {
+            Self::Continue(Ok(ok)) | Self::Break(Ok(ok)) => ok,
+            _ => T::default(),
+        }
+    }
+
+    /// Maps inner Ok(T) to Ok(U), passing inner Err and Skip values unchanged.
+    pub fn map<U, F: FnOnce(T) -> U>(self, op: F) -> LookupControlFlow<U, E> {
+        match self {
+            Self::Continue(cont) => match cont {
+                Ok(t) => LookupControlFlow::Continue(Ok(op(t))),
+                Err(e) => LookupControlFlow::Continue(Err(e)),
+            },
+            Self::Break(b) => match b {
+                Ok(t) => LookupControlFlow::Break(Ok(op(t))),
+                Err(e) => LookupControlFlow::Break(Err(e)),
+            },
+            Self::Skip => LookupControlFlow::<U, E>::Skip,
+        }
+    }
+
+    /// Maps inner Ok(T) to Ok(Box&lt;dyn LookupObject&gt;), passing inner Err and Skip values unchanged.
+    pub fn map_dyn(self) -> LookupControlFlow<Box<dyn LookupObject>, E> {
+        match self {
+            Self::Continue(cont) => match cont {
+                Ok(lookup) => {
+                    LookupControlFlow::Continue(Ok(Box::new(lookup) as Box<dyn LookupObject>))
+                }
+                Err(e) => LookupControlFlow::Continue(Err(e)),
+            },
+            Self::Break(b) => match b {
+                Ok(lookup) => {
+                    LookupControlFlow::Break(Ok(Box::new(lookup) as Box<dyn LookupObject>))
+                }
+                Err(e) => LookupControlFlow::Break(Err(e)),
+            },
+
+            Self::Skip => LookupControlFlow::<Box<dyn LookupObject>, E>::Skip,
+        }
+    }
+
+    /// Maps inner Err(T) to Err(U), passing Ok and Skip values unchanged.
+    pub fn map_err<U, F: FnOnce(E) -> U>(self, op: F) -> LookupControlFlow<T, U> {
+        match self {
+            Self::Continue(cont) => match cont {
+                Ok(lookup) => LookupControlFlow::Continue(Ok(lookup)),
+                Err(e) => LookupControlFlow::Continue(Err(op(e))),
+            },
+            Self::Break(b) => match b {
+                Ok(lookup) => LookupControlFlow::Break(Ok(lookup)),
+                Err(e) => LookupControlFlow::Break(Err(op(e))),
+            },
+            Self::Skip => LookupControlFlow::Skip,
+        }
+    }
 }

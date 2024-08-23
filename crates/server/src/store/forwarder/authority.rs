@@ -12,7 +12,8 @@ use tracing::{debug, info};
 
 use crate::{
     authority::{
-        Authority, LookupError, LookupObject, LookupOptions, MessageRequest, UpdateResult, ZoneType,
+        Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, MessageRequest,
+        UpdateResult, ZoneType,
     },
     proto::{
         op::ResponseCode,
@@ -128,7 +129,7 @@ impl Authority for ForwardAuthority {
         name: &LowerName,
         rtype: RecordType,
         _lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> LookupControlFlow<Self::Lookup> {
         // TODO: make this an error?
         debug_assert!(self.origin.zone_of(name));
 
@@ -138,16 +139,19 @@ impl Authority for ForwardAuthority {
         // up addresses from system hosts file.
         let mut name: Name = name.clone().into();
         name.set_fqdn(false);
-        let resolve = self.resolver.lookup(name, rtype).await;
 
-        resolve.map(ForwardLookup).map_err(LookupError::from)
+        use LookupControlFlow::*;
+        match self.resolver.lookup(name, rtype).await {
+            Ok(lookup) => Continue(Ok(ForwardLookup(lookup))),
+            Err(e) => Continue(Err(LookupError::from(e))),
+        }
     }
 
     async fn search(
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
+    ) -> LookupControlFlow<Self::Lookup> {
         self.lookup(
             request_info.query.name(),
             request_info.query.query_type(),
@@ -160,11 +164,11 @@ impl Authority for ForwardAuthority {
         &self,
         _name: &LowerName,
         _lookup_options: LookupOptions,
-    ) -> Result<Self::Lookup, LookupError> {
-        Err(LookupError::from(io::Error::new(
+    ) -> LookupControlFlow<Self::Lookup> {
+        LookupControlFlow::Continue(Err(LookupError::from(io::Error::new(
             io::ErrorKind::Other,
             "Getting NSEC records is unimplemented for the forwarder",
-        )))
+        ))))
     }
 }
 
