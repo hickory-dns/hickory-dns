@@ -8,7 +8,7 @@
 // TODO, I've implemented this as a separate entity from the cache, but I wonder if the cache
 //  should be the only "front-end" for lookups, where if that misses, then we go to the catalog
 //  then, if requested, do a recursive lookup... i.e. the catalog would only point to files.
-use std::{borrow::Borrow, collections::HashMap, io};
+use std::{borrow::Borrow, collections::HashMap, io, sync::Arc};
 
 use cfg_if::cfg_if;
 use tracing::{debug, error, info, trace, warn};
@@ -21,10 +21,10 @@ use crate::proto::rr::{
 use crate::{
     authority::{
         AuthLookup, AuthorityObject, EmptyLookup, LookupControlFlow, LookupError, LookupObject,
-        LookupOptions, MessageResponse, MessageResponseBuilder, ZoneType,
+        LookupOptions, LookupRecords, MessageResponse, MessageResponseBuilder, ZoneType,
     },
     proto::op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode},
-    proto::rr::{LowerName, Record, RecordType},
+    proto::rr::{LowerName, Record, RecordSet, RecordType},
     server::{Request, RequestHandler, RequestInfo, ResponseHandler, ResponseInfo},
 };
 
@@ -704,6 +704,11 @@ async fn send_forwarded_response(
     response_header.set_recursion_available(true);
     response_header.set_authoritative(false);
 
+    enum Answer {
+        Normal(Box<dyn LookupObject>),
+        NoRecords(Box<AuthLookup>),
+    }
+
     // Don't perform the recursive query if this is disabled...
     let mut answers = if !request_header.recursion_desired() {
         info!(
@@ -711,21 +716,33 @@ async fn send_forwarded_response(
             request_header.id()
         );
 
-        Box::new(EmptyLookup)
+        Answer::Normal(Box::new(EmptyLookup))
     } else {
         use LookupControlFlow::*;
         match response {
-            Continue(Ok(lookup)) | Break(Ok(lookup)) => lookup,
-            Continue(Err(e)) | Break(Err(e)) => {
+            Continue(Ok(lookup)) | Break(Ok(lookup)) => Answer::Normal(lookup),
+            Continue(Err(e)) | Break(Err(e)) if e.is_no_records_found() => {
                 if e.is_nx_domain() {
                     response_header.set_response_code(ResponseCode::NXDomain);
                 }
                 debug!("error resolving: {}", e);
-                Box::new(EmptyLookup)
+
+                if let Some(soa) = e.into_soa() {
+                    let soa = soa.into_record_of_rdata();
+                    let record_set = Arc::new(RecordSet::from(soa));
+                    let records = LookupRecords::new(LookupOptions::default(), record_set);
+                    Answer::NoRecords(Box::new(AuthLookup::SOA(records)))
+                } else {
+                    Answer::Normal(Box::new(EmptyLookup))
+                }
+            }
+            Continue(Err(e)) | Break(Err(e)) => {
+                debug!("error resolving: {}", e);
+                Answer::Normal(Box::new(EmptyLookup))
             }
             Skip => {
                 info!("unexpected lookup skip");
-                Box::new(EmptyLookup)
+                Answer::Normal(Box::new(EmptyLookup))
             }
         }
     };
@@ -755,20 +772,30 @@ async fn send_forwarded_response(
         //
         // we may want to interpret (B) as allowed ("MAY be skipped") as a form of optimization in
         // the future to reduce the number of network transactions that a CD=1 query needs.
-        if answers.dnssec_validated() {
-            response_header.set_authentic_data(true);
-        } else if !request_header.checking_disabled() {
-            response_header.set_response_code(ResponseCode::ServFail);
-            // do not return (Insecure | Bogus) records when CD=0
-            answers = Box::new(EmptyLookup);
+        if let Answer::Normal(ref mut answers) = answers {
+            if answers.dnssec_validated() {
+                response_header.set_authentic_data(true);
+            } else if !request_header.checking_disabled() {
+                response_header.set_response_code(ResponseCode::ServFail);
+                // do not return (Insecure | Bogus) records when CD=0
+                *answers = Box::new(EmptyLookup);
+            }
         }
     }
 
-    LookupSections {
-        answers,
-        ns: Box::<AuthLookup>::default(),
-        soa: Box::<AuthLookup>::default(),
-        additionals: Box::<AuthLookup>::default(),
+    match answers {
+        Answer::Normal(answers) => LookupSections {
+            answers,
+            ns: Box::<AuthLookup>::default(),
+            soa: Box::<AuthLookup>::default(),
+            additionals: Box::<AuthLookup>::default(),
+        },
+        Answer::NoRecords(soa) => LookupSections {
+            answers: Box::new(EmptyLookup),
+            ns: Box::<AuthLookup>::default(),
+            soa,
+            additionals: Box::<AuthLookup>::default(),
+        },
     }
 }
 
