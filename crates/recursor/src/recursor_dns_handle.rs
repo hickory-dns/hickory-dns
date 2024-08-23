@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, sync::Arc, time::Instant};
+use std::{sync::Arc, time::Instant};
 
 use async_recursion::async_recursion;
 use futures_util::{future::select_all, FutureExt};
@@ -14,7 +14,7 @@ use crate::{
     },
     recursor_pool::RecursorPool,
     resolver::{
-        config::{NameServerConfig, NameServerConfigGroup, Protocol, ResolverOpts},
+        config::{NameServerConfigGroup, ResolverOpts},
         dns_lru::{DnsLru, TtlConfig},
         error::ResolveError,
         lookup::Lookup,
@@ -312,29 +312,19 @@ impl RecursorDnsHandle {
                 let cached_a = cached_a.and_then(Result::ok).map(Lookup::into_iter);
                 let cached_aaaa = cached_aaaa.and_then(Result::ok).map(Lookup::into_iter);
 
-                let glue_ips = cached_a
+                let mut glue_ips = cached_a
                     .into_iter()
                     .flatten()
                     .chain(cached_aaaa.into_iter().flatten())
-                    .filter_map(|r| RData::ip_addr(&r));
+                    .filter_map(|r| r.ip_addr())
+                    .peekable();
 
-                let mut had_glue = false;
-                for ip in glue_ips {
-                    let mut udp = NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Udp);
-                    let mut tcp = NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Tcp);
-
-                    udp.trust_negative_responses = true;
-                    tcp.trust_negative_responses = true;
-
-                    config_group.push(udp);
-                    config_group.push(tcp);
-                    had_glue = true;
-                }
-
-                if !had_glue {
-                    debug!("glue not found for {}", ns_data);
+                if glue_ips.peek().is_none() {
+                    debug!("glue not found for {ns_data}");
                     need_ips_for_names.push(ns_data);
                 }
+
+                config_group.append_ips(glue_ips, true);
             }
         }
 
@@ -362,15 +352,7 @@ impl RecursorDnsHandle {
                         debug!("A or AAAA response: {:?}", response);
                         let ips = response.iter().filter_map(RData::ip_addr);
 
-                        for ip in ips {
-                            let udp =
-                                NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Udp);
-                            let tcp =
-                                NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Tcp);
-
-                            config_group.push(udp);
-                            config_group.push(tcp);
-                        }
+                        config_group.append_ips(ips, true);
                     }
                     Err(e) => {
                         warn!("resolve failed {}", e);
@@ -451,34 +433,17 @@ impl RecursorDnsHandle {
             let cached_a = cached_a.and_then(Result::ok).map(Lookup::into_iter);
             let cached_aaaa = cached_aaaa.and_then(Result::ok).map(Lookup::into_iter);
 
-            let mut glue_ips: Vec<_> = cached_a
+            let mut glue_ips = cached_a
                 .into_iter()
                 .flatten()
                 .chain(cached_aaaa.into_iter().flatten())
                 .filter_map(|r| RData::ip_addr(&r))
                 .chain(glue.filter_map(|r| RData::ip_addr(r.data())))
-                .collect();
+                .peekable();
 
-            // It is possible to get duplicate IPs when an NS is in the cache or if
-            // multiple nameservers in the referral list were configured with the same IP
-            // for some reason, but in any case, strip any duplicates out.
-            glue_ips.sort();
-            glue_ips.dedup();
-
-            let mut had_glue = false;
-            for ip in glue_ips {
-                let mut udp = NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Udp);
-                let mut tcp = NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Tcp);
-
-                udp.trust_negative_responses = true;
-                tcp.trust_negative_responses = true;
-
-                config_group.push(udp);
-                config_group.push(tcp);
-                had_glue = true;
-            }
-
-            if !had_glue {
+            if glue_ips.peek().is_some() {
+                config_group.append_ips(glue_ips, true);
+            } else {
                 debug!("ns_pool_for_referral glue not found for {}", ns);
                 need_ips_for_names.push(ns);
             }
@@ -511,15 +476,7 @@ impl RecursorDnsHandle {
                         debug!("ns_pool_for_referral A or AAAA response: {:?}", response);
                         let ips = response.iter().filter_map(RData::ip_addr);
 
-                        for ip in ips {
-                            let udp =
-                                NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Udp);
-                            let tcp =
-                                NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Tcp);
-
-                            config_group.push(udp);
-                            config_group.push(tcp);
-                        }
+                        config_group.append_ips(ips, true);
                     }
                     Err(e) => {
                         warn!("ns_pool_for_referral resolve failed {}", e);
