@@ -17,6 +17,7 @@ use hickory_proto::error::ProtoErrorKind;
 use hickory_resolver::Name;
 use thiserror::Error;
 
+use crate::proto::rr::{rdata::SOA, Record};
 #[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
 use crate::{proto::error::ProtoError, resolver::error::ResolveError};
@@ -74,6 +75,33 @@ impl Error {
     /// Get the kind of the error
     pub fn kind(&self) -> &ErrorKind {
         &self.kind
+    }
+
+    /// Returns true if the domain does not exist
+    pub fn is_nx_domain(&self) -> bool {
+        match &*self.kind {
+            ErrorKind::Proto(proto) => proto.is_nx_domain(),
+            ErrorKind::Resolve(err) => err.is_nx_domain(),
+            _ => false,
+        }
+    }
+
+    /// Returns true if no records were returned
+    pub fn is_no_records_found(&self) -> bool {
+        match &*self.kind {
+            ErrorKind::Proto(proto) => proto.is_no_records_found(),
+            ErrorKind::Resolve(err) => err.is_no_records_found(),
+            _ => false,
+        }
+    }
+
+    /// Returns the SOA record, if the error contains one
+    pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
+        match *self.kind {
+            ErrorKind::Proto(proto) => proto.into_soa(),
+            ErrorKind::Resolve(err) => err.into_soa(),
+            _ => None,
+        }
     }
 }
 

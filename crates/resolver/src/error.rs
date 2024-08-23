@@ -11,6 +11,7 @@ use std::{fmt, io, sync};
 
 use thiserror::Error;
 
+use crate::proto::rr::{rdata::SOA, Record};
 use crate::proto::{error::ProtoError, xfer::retry_dns_handle::RetryableError};
 
 #[cfg(feature = "backtrace")]
@@ -67,6 +68,28 @@ impl ResolveError {
     pub fn proto(&self) -> Option<&ProtoError> {
         match self.kind {
             ResolveErrorKind::Proto(ref proto) => Some(proto),
+            _ => None,
+        }
+    }
+
+    /// Returns true if the domain does not exist
+    pub fn is_nx_domain(&self) -> bool {
+        self.proto()
+            .map(|proto| proto.is_nx_domain())
+            .unwrap_or(false)
+    }
+
+    /// Returns true if no records were returned
+    pub fn is_no_records_found(&self) -> bool {
+        self.proto()
+            .map(|proto| proto.is_no_records_found())
+            .unwrap_or(false)
+    }
+
+    /// Returns the SOA record, if the error contains one
+    pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
+        match self.kind {
+            ResolveErrorKind::Proto(proto) => proto.into_soa(),
             _ => None,
         }
     }

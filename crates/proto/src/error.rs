@@ -405,6 +405,33 @@ impl ProtoError {
         matches!(*self.kind, ProtoErrorKind::NoConnections)
     }
 
+    /// Returns true if the domain does not exist
+    #[inline]
+    pub fn is_nx_domain(&self) -> bool {
+        matches!(
+            *self.kind,
+            ProtoErrorKind::NoRecordsFound {
+                response_code: ResponseCode::NXDomain,
+                ..
+            }
+        )
+    }
+
+    /// Returns true if the error represents NoRecordsFound
+    #[inline]
+    pub fn is_no_records_found(&self) -> bool {
+        matches!(*self.kind, ProtoErrorKind::NoRecordsFound { .. })
+    }
+
+    /// Returns the SOA record, if the error contains one
+    #[inline]
+    pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
+        match *self.kind {
+            ProtoErrorKind::NoRecordsFound { soa, .. } => soa,
+            _ => None,
+        }
+    }
+
     /// Returns true if this is a std::io::Error
     #[inline]
     pub fn is_io(&self) -> bool {

@@ -11,6 +11,7 @@ use enum_as_inner::EnumAsInner;
 use thiserror::Error;
 
 use crate::proto::op::ResponseCode;
+use crate::proto::rr::{rdata::SOA, Record};
 #[cfg(feature = "hickory-resolver")]
 use crate::resolver::error::ResolveError;
 
@@ -49,7 +50,36 @@ impl LookupError {
 
     /// This is a non-existent domain name
     pub fn is_nx_domain(&self) -> bool {
-        matches!(*self, Self::ResponseCode(ResponseCode::NXDomain))
+        match self {
+            Self::ResponseCode(ResponseCode::NXDomain) => true,
+            #[cfg(feature = "hickory-resolver")]
+            Self::ResolveError(e) if e.is_nx_domain() => true,
+            #[cfg(feature = "hickory-recursor")]
+            Self::RecursiveError(e) if e.is_nx_domain() => true,
+            _ => false,
+        }
+    }
+
+    /// Returns true if no records were returned
+    pub fn is_no_records_found(&self) -> bool {
+        match self {
+            #[cfg(feature = "hickory-resolver")]
+            Self::ResolveError(e) if e.is_no_records_found() => true,
+            #[cfg(feature = "hickory-recursor")]
+            Self::RecursiveError(e) if e.is_no_records_found() => true,
+            _ => false,
+        }
+    }
+
+    /// Returns the SOA record, if the error contains one
+    pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
+        match self {
+            #[cfg(feature = "hickory-resolver")]
+            Self::ResolveError(e) => e.into_soa(),
+            #[cfg(feature = "hickory-recursor")]
+            Self::RecursiveError(e) => e.into_soa(),
+            _ => None,
+        }
     }
 
     /// This is a non-existent domain name
