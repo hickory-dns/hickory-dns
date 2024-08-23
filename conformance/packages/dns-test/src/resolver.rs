@@ -1,5 +1,5 @@
 use core::fmt::Write;
-use std::io::Read;
+use std::io::{BufRead, BufReader};
 use std::net::Ipv4Addr;
 
 use crate::container::{Child, Container, Network};
@@ -135,15 +135,11 @@ impl ResolverSettings {
         // For HickoryDNS we need to wait until its start sequence finished. Only then the server is able
         // to accept connections. The start sequence logs are consumed here.
         if implementation.is_hickory() {
-            let stdout = child.stdout_ref().expect("Failed to get stdout");
+            let stdout = child.stdout()?;
+            let lines = BufReader::new(stdout).lines();
 
-            // read current available output
-            let mut output = Vec::new();
-            let _ = stdout.read(&mut output)?;
-            let output = std::str::from_utf8(&output[..])?;
-
-            let lines = output.lines();
             for line in lines {
+                let line = line?;
                 if line.contains("server starting up") {
                     break;
                 }
@@ -226,7 +222,8 @@ mod tests {
             .start_with_subject(&Implementation::hickory())?;
         let logs = resolver.terminate()?;
 
-        assert!(logs.contains("server starting up"));
+        // Hickory-DNS start sequence log has been consumed in `ResolverSettings.start`.
+        assert!(logs.is_empty());
 
         Ok(())
     }
