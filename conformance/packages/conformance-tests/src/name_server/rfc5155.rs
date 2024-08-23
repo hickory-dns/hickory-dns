@@ -5,7 +5,7 @@ use dns_test::name_server::NameServer;
 use dns_test::nsec3::NSEC3Records;
 use dns_test::record::{Record, RecordType, NSEC3};
 use dns_test::zone_file::SignSettings;
-use dns_test::{Network, Result, FQDN};
+use dns_test::{Implementation, Network, Result, FQDN};
 
 const TLD_FQDN: &str = "alice.com.";
 const NON_EXISTENT_FQDN: &str = "charlie.alice.com.";
@@ -20,7 +20,6 @@ const WILDCARD_HASH: &str = "19GBV5V1BO0P51H34JQDH1C8CIAA5RAQ"; /* h(*.alice.com
 // This test checks that name servers produce a name error response compliant with section 7.2.2.
 // of RFC5155.
 #[test]
-#[ignore]
 fn name_error_response() -> Result<()> {
     let alice_fqdn = FQDN(TLD_FQDN)?;
     // The queried name
@@ -60,6 +59,9 @@ fn name_error_response() -> Result<()> {
     let wildcard_rr = nsec3_rrs
         .find_cover(WILDCARD_HASH)
         .expect("No RR in the zonefile covers the wildcard");
+
+    dbg!(&nsec3_rrs_response);
+    dbg!(&[&closest_encloser_rr, &next_closer_name_rr, &wildcard_rr]);
 
     // Now we check that the response has the three NSEC3 RRs.
     find_records(
