@@ -1,4 +1,5 @@
 use core::str::FromStr;
+use std::collections::BTreeSet;
 use std::net::Ipv4Addr;
 
 use crate::container::{Container, Image, Network};
@@ -145,7 +146,7 @@ impl DigSettings {
 
 #[derive(Debug)]
 pub struct DigOutput {
-    pub ede: Option<ExtendedDnsError>,
+    pub ede: BTreeSet<ExtendedDnsError>,
     pub flags: DigFlags,
     pub status: DigStatus,
     pub answer: Vec<Record>,
@@ -182,7 +183,7 @@ impl FromStr for DigOutput {
         let mut answer = None;
         let mut authority = None;
         let mut additional = None;
-        let mut ede = None;
+        let mut ede = BTreeSet::new();
 
         let mut lines = input.lines();
         while let Some(line) = lines.next() {
@@ -212,11 +213,9 @@ impl FromStr for DigOutput {
                     .map(|(code, _rest)| code)
                     .unwrap_or(unprefixed);
 
-                if ede.is_some() {
-                    return Err(more_than_once(EDE_PREFIX).into());
-                }
-
-                ede = Some(code.parse()?);
+                let code = code.parse()?;
+                let inserted = ede.insert(code);
+                assert!(inserted, "unexpected: duplicate EDE {code:?}");
             } else if line.starts_with(ANSWER_HEADER) {
                 if answer.is_some() {
                     return Err(more_than_once(ANSWER_HEADER).into());
@@ -276,12 +275,14 @@ impl FromStr for DigOutput {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum ExtendedDnsError {
-    DnskeyMissing,
-    DnssecBogus,
-    RrsigsMissing,
-    UnsupportedDnskeyAlgorithm,
+    UnsupportedDnskeyAlgorithm = 1,
+    DnssecBogus = 6,
+    DnskeyMissing = 9,
+    RrsigsMissing = 10,
+    Prohibited = 18,
+    NoReachableAuthority = 22,
 }
 
 impl FromStr for ExtendedDnsError {
@@ -295,6 +296,8 @@ impl FromStr for ExtendedDnsError {
             6 => Self::DnssecBogus,
             9 => Self::DnskeyMissing,
             10 => Self::RrsigsMissing,
+            18 => Self::Prohibited,
+            22 => Self::NoReachableAuthority,
             _ => todo!("EDE {code} has not yet been implemented"),
         };
 
@@ -524,7 +527,40 @@ l.root-servers.net. 518400  IN  A   199.7.83.42
 
         let output: DigOutput = input.parse()?;
 
-        assert_eq!(Some(ExtendedDnsError::DnskeyMissing), output.ede);
+        assert!(output.ede.into_iter().eq([ExtendedDnsError::DnskeyMissing]));
+
+        Ok(())
+    }
+
+    #[test]
+    fn multiple_ede() -> Result<()> {
+        let input = "; <<>> DiG 9.18.28-1~deb12u2-Debian <<>> @1.1.1.1 allow-query-none.extended-dns-errors.com.
+; (1 server found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: SERVFAIL, id: 57468
+;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 1
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 1232
+; EDE: 9 (DNSKEY Missing): (no SEP matching the DS found for allow-query-none.extended-dns-errors.com.)
+; EDE: 18 (Prohibited)
+; EDE: 22 (No Reachable Authority): (at delegation allow-query-none.extended-dns-errors.com.)
+;; QUESTION SECTION:
+;allow-query-none.extended-dns-errors.com. IN A
+
+;; Query time: 98 msec
+;; SERVER: 1.1.1.1#53(1.1.1.1) (UDP)
+;; WHEN: Fri Aug 23 14:24:40 UTC 2024
+;; MSG SIZE  rcvd: 216";
+
+        let output: DigOutput = input.parse()?;
+
+        assert!(output.ede.into_iter().eq([
+            ExtendedDnsError::DnskeyMissing,
+            ExtendedDnsError::Prohibited,
+            ExtendedDnsError::NoReachableAuthority,
+        ]));
 
         Ok(())
     }

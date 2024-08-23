@@ -168,7 +168,7 @@ fn fixture(
     assert!(output.status.is_servfail());
 
     if supports_ede {
-        assert_eq!(Some(expected), output.ede);
+        assert!(output.ede.into_iter().eq([expected]));
     }
 
     Ok(())
