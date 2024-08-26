@@ -1,0 +1,12 @@
+[package]
+name = "ede-dot-com"
+edition = "2021"
+publish = false
+description = "tests that rely on the public DNS testing infrastructure extended-dns-errors.com."
+
+[workspace]
+# don't accidentally run `dns-test` with `cargo t [--workspace]`
+exclude = ["../../conformance/package/dns-test"]
+
+[dev-dependencies]
+dns-test.path = "../../conformance/packages/dns-test"
