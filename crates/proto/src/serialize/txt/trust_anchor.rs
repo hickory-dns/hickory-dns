@@ -48,8 +48,16 @@ impl<'a> Parser<'a> {
 
                 State::Ttl { name } => {
                     if let Token::CharData(data) = token {
-                        let ttl = zone::Parser::parse_time(&data)?;
-                        State::Class { name, ttl }
+                        if let Ok(class) = DNSClass::from_str(&data) {
+                            State::Type {
+                                name,
+                                ttl: None,
+                                class,
+                            }
+                        } else {
+                            let ttl = zone::Parser::parse_time(&data)?;
+                            State::Class { name, ttl }
+                        }
                     } else {
                         return Err(ParseErrorKind::UnexpectedToken(token.into()).into());
                     }
@@ -59,7 +67,11 @@ impl<'a> Parser<'a> {
                     if let Token::CharData(mut data) = token {
                         data.make_ascii_uppercase();
                         let class = DNSClass::from_str(&data)?;
-                        State::Type { name, ttl, class }
+                        State::Type {
+                            name,
+                            ttl: Some(ttl),
+                            class,
+                        }
                     } else {
                         return Err(ParseErrorKind::UnexpectedToken(token.into()).into());
                     }
@@ -127,7 +139,7 @@ impl<'a> Parser<'a> {
     fn flush_record(
         rdata_parts: Vec<String>,
         name: Name,
-        ttl: u32,
+        ttl: Option<u32>,
         class: DNSClass,
         records: &mut Vec<Entry>,
     ) -> ParseResult<()> {
@@ -136,7 +148,7 @@ impl<'a> Parser<'a> {
         let record = Record {
             name_labels: name,
             dns_class: class,
-            ttl: Some(ttl),
+            ttl,
             rdata: dnskey,
         };
 
@@ -186,10 +198,7 @@ impl<R> Record<R> {
     }
 }
 
-impl<R> Record<R>
-where
-    R: RecordData,
-{
+impl<R: RecordData> Record<R> {
     /// Returns the type of the RecordData in the record
     pub fn record_type(&self) -> RecordType {
         self.data().record_type()
@@ -197,22 +206,22 @@ where
 }
 
 enum State {
+    /// Initial state
     StartLine,
-    Ttl {
-        name: Name,
-    },
-    Class {
-        name: Name,
-        ttl: u32,
-    },
+    /// Expects TTL field (but it may be omitted)
+    Ttl { name: Name },
+    /// Expects Class field (after TTL has been parsed)
+    Class { name: Name, ttl: u32 },
+    /// Expects RecordType field
     Type {
         name: Name,
-        ttl: u32,
+        ttl: Option<u32>,
         class: DNSClass,
     },
+    /// Expects RDATA field
     RData {
         name: Name,
-        ttl: u32,
+        ttl: Option<u32>,
         class: DNSClass,
         parts: Vec<String>,
     },
@@ -274,6 +283,20 @@ mod tests {
         let [record] = records.try_into().unwrap();
         assert_eq!(&Name::root(), record.name());
         assert_eq!(Some(34076), record.ttl());
+        assert_eq!(DNSClass::IN, record.dns_class());
+        assert_eq!(RecordType::DNSKEY, record.record_type());
+        let expected = DNSKEY::new(true, false, false, Algorithm::RSASHA256, DECODED.to_vec());
+        let actual = record.data();
+        assert_eq!(&expected, actual);
+    }
+
+    #[test]
+    fn no_ttl_field() {
+        let input = format!(". IN DNSKEY 256 3 8 {ENCODED}");
+        let records = parse_ok(&input);
+        let [record] = records.try_into().unwrap();
+        assert_eq!(&Name::root(), record.name());
+        assert_eq!(None, record.ttl());
         assert_eq!(DNSClass::IN, record.dns_class());
         assert_eq!(RecordType::DNSKEY, record.record_type());
         let expected = DNSKEY::new(true, false, false, Algorithm::RSASHA256, DECODED.to_vec());
