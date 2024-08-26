@@ -221,6 +221,36 @@ e2e-tests-clippy:
 e2e-tests-fmt:
     cargo fmt --manifest-path tests/e2e-tests/Cargo.toml --all -- --check
 
+# runs all other ede-dot-com-* tasks
+ede-dot-com: (ede-dot-com-run) (ede-dot-com-ignored) (ede-dot-com-check)
+
+# runs hickory-specific end-to-end tests that use the dns-test framework
+ede-dot-com-run filter='':
+    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes will NOT be tested" || true'
+    DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo test --manifest-path tests/ede-dot-com/Cargo.toml -- {{filter}}
+    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes were NOT tested" || true'
+
+# check that any fixed ede-dot-com test has not been left marked as `#[ignore]`
+ede-dot-com-ignored:
+    #!/usr/bin/env bash
+
+    tmpfile="$(mktemp)"
+    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes will NOT be tested" || true'
+    DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo test --manifest-path tests/ede-dot-com/Cargo.toml -- --ignored | tee "$tmpfile"
+    grep 'test result: FAILED. 0 passed' "$tmpfile" || ( echo "expected ALL tests to fail but at least one passed; the passing tests must be un-#[ignore]-d" && exit 1 )
+    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes were NOT tested" || true'
+
+# checks the ede-dot-com workspace
+ede-dot-com-check: (ede-dot-com-clippy) (ede-dot-com-fmt)
+
+# lints the ede-dot-com test suite
+ede-dot-com-clippy:
+    cargo clippy --manifest-path tests/ede-dot-com/Cargo.toml --all-targets -- -D warnings
+
+# formats the ede-dot-com test suite code
+ede-dot-com-fmt:
+    cargo fmt --manifest-path tests/ede-dot-com/Cargo.toml --all -- --check
+
 [private]
 [macos]
 init-openssl:
