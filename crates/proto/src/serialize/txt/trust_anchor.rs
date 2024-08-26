@@ -6,7 +6,7 @@
 use std::{borrow::Cow, str::FromStr as _};
 
 use crate::{
-    rr::{dnssec::rdata::DNSKEY, DNSClass, Name, Record, RecordType},
+    rr::{dnssec::rdata::DNSKEY, DNSClass, Name, RecordData, RecordType},
     serialize::txt::{
         rdata_parsers::dnskey,
         zone,
@@ -133,8 +133,12 @@ impl<'a> Parser<'a> {
     ) -> ParseResult<()> {
         let dnskey = dnskey::parse(rdata_parts.iter().map(AsRef::as_ref))?;
 
-        let mut record = Record::from_rdata(name, ttl, dnskey);
-        record.set_dns_class(class);
+        let record = Record {
+            name_labels: name,
+            dns_class: class,
+            ttl: Some(ttl),
+            rdata: dnskey,
+        };
 
         records.push(Entry::DNSKEY(record));
 
@@ -148,6 +152,48 @@ impl<'a> Parser<'a> {
 pub enum Entry {
     /// A DNSKEY record
     DNSKEY(Record<DNSKEY>),
+}
+
+/// A resource record as it appears in a zone file
+// like `rr::Record` but with optional TTL field
+#[derive(Debug)]
+pub struct Record<R> {
+    name_labels: Name,
+    dns_class: DNSClass,
+    ttl: Option<u32>,
+    rdata: R,
+}
+
+impl<R> Record<R> {
+    /// Returns the Record Data, i.e. the record information
+    pub fn data(&self) -> &R {
+        &self.rdata
+    }
+
+    /// Returns the DNSClass of the Record, generally IN for internet
+    pub fn dns_class(&self) -> DNSClass {
+        self.dns_class
+    }
+
+    /// Returns the time-to-live of the record, if present
+    pub fn ttl(&self) -> Option<u32> {
+        self.ttl
+    }
+
+    /// Returns the name of the record
+    pub fn name(&self) -> &Name {
+        &self.name_labels
+    }
+}
+
+impl<R> Record<R>
+where
+    R: RecordData,
+{
+    /// Returns the type of the RecordData in the record
+    pub fn record_type(&self) -> RecordType {
+        self.data().record_type()
+    }
 }
 
 enum State {
@@ -227,7 +273,7 @@ mod tests {
         let records = parse_ok(&input);
         let [record] = records.try_into().unwrap();
         assert_eq!(&Name::root(), record.name());
-        assert_eq!(34076, record.ttl());
+        assert_eq!(Some(34076), record.ttl());
         assert_eq!(DNSClass::IN, record.dns_class());
         assert_eq!(RecordType::DNSKEY, record.record_type());
         let expected = DNSKEY::new(true, false, false, Algorithm::RSASHA256, DECODED.to_vec());
