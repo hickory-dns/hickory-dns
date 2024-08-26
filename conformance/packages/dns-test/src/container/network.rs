@@ -33,7 +33,13 @@ impl Network {
     pub fn new() -> Result<Self> {
         let pid = process::id();
         let network_name = env!("CARGO_PKG_NAME");
-        Ok(Self(Arc::new(NetworkInner::new(pid, network_name)?)))
+        Ok(Self(Arc::new(NetworkInner::new(pid, network_name, true)?)))
+    }
+
+    pub fn with_internet_access() -> Result<Self> {
+        let pid = process::id();
+        let network_name = env!("CARGO_PKG_NAME");
+        Ok(Self(Arc::new(NetworkInner::new(pid, network_name, false)?)))
     }
 }
 
@@ -49,17 +55,18 @@ impl Drop for NetworkInner {
 }
 
 impl NetworkInner {
-    pub fn new(pid: u32, network_name: &str) -> Result<Self> {
+    pub fn new(pid: u32, network_name: &str, internal: bool) -> Result<Self> {
         static CRITICAL_SECTION: Mutex<()> = Mutex::new(());
 
         let count = network_count();
         let network_name = format!("{network_name}-{pid}-{count}");
 
         let mut command = Command::new("docker");
-        command
-            .args(["network", "create"])
-            .args(["--internal", "--attachable"])
-            .arg(&network_name);
+        command.args(["network", "create"]);
+        if internal {
+            command.arg("--internal");
+        }
+        command.arg("--attachable").arg(&network_name);
 
         // create network
         let output = {
