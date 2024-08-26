@@ -121,6 +121,14 @@ impl Root {
             ttl: DEFAULT_TTL,
         }
     }
+
+    pub fn public_dns() -> Root {
+        Root {
+            ipv4_addr: Ipv4Addr::new(198, 41, 0, 4),
+            ns: FQDN("a.root-servers.net.").unwrap(),
+            ttl: DEFAULT_TTL,
+        }
+    }
 }
 
 impl fmt::Display for Root {
