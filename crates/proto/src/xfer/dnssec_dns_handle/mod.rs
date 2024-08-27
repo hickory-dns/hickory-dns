@@ -20,7 +20,7 @@ use futures_util::{
     future::{self, FutureExt, TryFutureExt},
     stream::{self, Stream, TryStreamExt},
 };
-use tracing::{debug, trace};
+use tracing::{debug, trace, warn};
 
 use crate::{
     error::{ProtoError, ProtoErrorKind},
@@ -42,6 +42,9 @@ use crate::rr::dnssec::Verifier;
 use crate::rr::resource::RecordRef;
 
 use self::rrset::Rrset;
+
+use nsec3_validation::verify_nsec3;
+mod nsec3_validation;
 
 /// Performs DNSSEC validation of all DNS responses from the wrapped DnsHandle
 ///
@@ -187,8 +190,8 @@ where
                         //   this causes bottom up evaluation to fail
 
                         // at this point all of the message is verified.
-                        //  This is where NSEC (and possibly NSEC3) validation occurs
-                        // As of now, only NSEC is supported.
+                        // This is where NSEC and NSEC3 validation occurs
+
                         if verified_message.answers().is_empty() {
                             // get SOA name
                             let soa_name = if let Some(soa_name) = verified_message
@@ -205,13 +208,44 @@ where
                                 ));
                             };
 
+                            let nsec3s = verified_message
+                                .name_servers()
+                                .iter()
+                                .filter_map(|rr| {
+                                    rr.data()
+                                        .as_dnssec()?
+                                        .as_nsec3()
+                                        .map(|data| (rr.name(), data))
+                                })
+                                .collect::<Vec<_>>();
+
                             let nsecs = verified_message
                                 .name_servers()
                                 .iter()
                                 .filter(|rr| is_dnssec(rr, RecordType::NSEC))
                                 .collect::<Vec<_>>();
 
-                            let nsec_proof = verify_nsec(&query, soa_name, nsecs.as_slice());
+                            // Both NSEC and NSEC3 records cannot coexist during
+                            // transition periods, as per RFC 5515 10.4.3 and
+                            // 10.5.2
+                            let nsec_proof = match (nsec3s.is_empty(), nsecs.is_empty()) {
+                                (false, true) => verify_nsec3(
+                                    &query,
+                                    soa_name,
+                                    verified_message.response_code(),
+                                    verified_message.answers(),
+                                    &nsec3s,
+                                ),
+                                (true, false) => verify_nsec(&query, soa_name, nsecs.as_slice()),
+                                (true, true) => {
+                                    warn!(
+                                        "response contains both NSEC and NSEC3 records\nQuery:\n{query:?}\nResponse:\n{verified_message:?}"
+                                    );
+                                    Proof::Bogus
+                                },
+                                (false, false) => Proof::Bogus,
+                            };
+
                             if !nsec_proof.is_secure() {
                                 // TODO change this to remove the NSECs, like we do for the others?
                                 return future::err(ProtoError::from(ProtoErrorKind::Nsec {
