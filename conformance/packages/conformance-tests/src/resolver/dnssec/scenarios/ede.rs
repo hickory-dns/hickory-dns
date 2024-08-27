@@ -10,7 +10,7 @@ use dns_test::{Network, Resolver, Result, FQDN};
 #[test]
 fn dnskey_missing() -> Result<()> {
     fixture(
-        ExtendedDnsError::DnskeyMissing,
+        ExtendedDnsError::DnssecBogus,
         |_needle_fqdn, zone, records| {
             if zone == &FQDN::TEST_DOMAIN {
                 // remove the DNSKEY record that contains the ZSK
