@@ -50,6 +50,15 @@ impl FQDN {
         &self.inner
     }
 
+    pub fn push_label(&self, label: &str) -> Self {
+        assert!(!label.is_empty());
+        assert!(!label.contains('.'));
+
+        Self {
+            inner: format!("{label}.{}", self.inner).into(),
+        }
+    }
+
     pub fn into_owned(self) -> FQDN {
         let owned = match self.inner {
             Cow::Borrowed(borrowed) => borrowed.to_string(),
