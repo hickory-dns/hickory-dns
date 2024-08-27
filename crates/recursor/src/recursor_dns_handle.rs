@@ -323,10 +323,12 @@ impl RecursorDnsHandle {
             }
         }
 
-        // collect missing IP addresses, select over them all, get the addresses
-        // make it configurable to query for all records?
+        // If we have no glue, collect missing IP addresses for non-child NS servers
+        // Querying for child NS servers can result in infinite recursion if the
+        // parent nameserver never returns glue records for child NS records, or does
+        // so based on cache freshness (observed with BIND)
         if config_group.is_empty() && !need_ips_for_names.is_empty() {
-            debug!("need glue for {}", zone);
+            debug!("need glue for {zone}");
 
             let mut resolve_futures = FuturesUnordered::new();
             need_ips_for_names
@@ -348,6 +350,44 @@ impl RecursorDnsHandle {
                 &mut resolve_futures,
                 &mut config_group,
                 "ns_pool_for_zone:resolve",
+            )
+            .await;
+        }
+
+        // If we still have no NS records, try to query the parent zone for child NS servers
+        // Note that while this section looks very similar to the previous section, there is
+        // a very important difference: the use of lookup to resolve NS addresses, vs resolve
+        // in the previous section.  Using resolve here will cause an infinite loop for these
+        // nameservers. Using lookup with nameserver_pool in the previous section would almost
+        // always cause resolution failures.
+        if config_group.is_empty() && !need_ips_for_names.is_empty() {
+            debug!("priming zone {zone} via parent zone {}", zone.base_name());
+
+            let mut lookup_futures = FuturesUnordered::new();
+            need_ips_for_names
+                .iter()
+                .filter(|name| crate::is_subzone(&zone, &name.0))
+                .take(1)
+                .for_each(|name| {
+                    for rec_type in [RecordType::A, RecordType::AAAA] {
+                        lookup_futures.push(
+                            nameserver_pool.lookup(
+                                Query::query(name.0.clone(), rec_type),
+                                self.security_aware,
+                            ),
+                        );
+                    }
+                });
+
+            append_ips_from_lookup(
+                |mut rsp| {
+                    rsp.take_answers()
+                        .into_iter()
+                        .filter_map(|answer| answer.data().ip_addr())
+                },
+                &mut lookup_futures,
+                &mut config_group,
+                "ns_pool_for_zone:lookup",
             )
             .await;
         }
