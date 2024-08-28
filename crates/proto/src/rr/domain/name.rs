@@ -131,6 +131,28 @@ impl Name {
         Ok(self)
     }
 
+    /// Prepends the label to the beginning of this name
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::str::FromStr;
+    /// use hickory_proto::rr::domain::Name;
+    ///
+    /// let name = Name::from_str("example.com").unwrap();
+    /// let name = name.prepend_label("www").unwrap();
+    /// assert_eq!(name, Name::from_str("www.example.com").unwrap());
+    /// ```
+    pub fn prepend_label<L: IntoLabel>(&self, label: L) -> ProtoResult<Self> {
+        let mut name = Self::new().append_label(label)?;
+
+        for label in self.into_iter() {
+            name.extend_name(label)?;
+        }
+
+        Ok(name)
+    }
+
     /// Creates a new Name from the specified labels
     ///
     /// # Arguments
