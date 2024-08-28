@@ -237,6 +237,9 @@ pub struct ZoneConfig {
     /// Store configurations, TODO: allow chained Stores
     #[serde(default)]
     pub stores: Option<StoreConfig>,
+    /// The kind of non-existence proof provided by the nameserver
+    #[cfg(feature = "dnssec")]
+    pub nx_proof_kind: Option<dnssec::NxProofKind>,
 }
 
 impl ZoneConfig {
@@ -251,6 +254,8 @@ impl ZoneConfig {
     /// * `allow_axfr` - enable AXFR transfers
     /// * `enable_dnssec` - enable signing of the zone for DNSSEC
     /// * `keys` - list of private and public keys used to sign a zone
+    /// * `nx_proof_kind` - the kind of non-existence proof provided by the nameserver
+    #[cfg_attr(feature = "dnssec", allow(clippy::too_many_arguments))]
     pub fn new(
         zone: String,
         zone_type: ZoneType,
@@ -259,6 +264,7 @@ impl ZoneConfig {
         allow_axfr: Option<bool>,
         enable_dnssec: Option<bool>,
         keys: Vec<dnssec::KeyConfig>,
+        #[cfg(feature = "dnssec")] nx_proof_kind: Option<dnssec::NxProofKind>,
     ) -> Self {
         Self {
             zone,
@@ -269,6 +275,8 @@ impl ZoneConfig {
             enable_dnssec,
             keys,
             stores: None,
+            #[cfg(feature = "dnssec")]
+            nx_proof_kind,
         }
     }
 

@@ -6,6 +6,8 @@ use hickory_proto::udp::UdpClientStream;
 use hickory_proto::xfer::FirstAnswer;
 use hickory_proto::DnsHandle;
 use hickory_server::authority::{Catalog, ZoneType};
+#[cfg(any(feature = "dnssec", feature = "dns-over-rustls"))]
+use hickory_server::config::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryAuthority;
 use hickory_server::ServerFuture;
 use std::collections::BTreeMap;
@@ -100,8 +102,15 @@ pub fn new_large_catalog(num_records: u32) -> Catalog {
     let mut records = BTreeMap::new();
     records.insert(RrKey::new(name.clone().into(), RecordType::A), record_set);
     records.insert(RrKey::new(name.into(), RecordType::SOA), soa_record_set);
-    let authority =
-        InMemoryAuthority::new(Name::root(), records, ZoneType::Primary, false).unwrap();
+    let authority = InMemoryAuthority::new(
+        Name::root(),
+        records,
+        ZoneType::Primary,
+        false,
+        #[cfg(any(feature = "dnssec", feature = "dns-over-rustls"))]
+        Some(NxProofKind::Nsec),
+    )
+    .unwrap();
 
     let mut catalog: Catalog = Catalog::new();
     catalog.upsert(Name::root().into(), Box::new(Arc::new(authority)));

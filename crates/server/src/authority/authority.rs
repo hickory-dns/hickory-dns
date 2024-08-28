@@ -10,15 +10,18 @@
 use cfg_if::cfg_if;
 use std::fmt;
 
-#[cfg(feature = "dnssec")]
-use crate::proto::rr::{
-    dnssec::{rdata::key::KEY, DnsSecResult, SigSigner, SupportedAlgorithms},
-    Name,
-};
 use crate::{
     authority::{LookupError, LookupObject, MessageRequest, UpdateResult, ZoneType},
     proto::rr::{LowerName, RecordSet, RecordType, RrsetRecords},
     server::RequestInfo,
+};
+#[cfg(feature = "dnssec")]
+use crate::{
+    config::dnssec::NxProofKind,
+    proto::rr::{
+        dnssec::{rdata::key::KEY, DnsSecResult, SigSigner, SupportedAlgorithms},
+        Name,
+    },
 };
 
 /// LookupOptions that specify different options from the client to include or exclude various records in the response.
@@ -188,6 +191,10 @@ pub trait Authority: Send + Sync {
         self.lookup(self.origin(), RecordType::SOA, lookup_options)
             .await
     }
+
+    /// Returns the kind of non-existence proof used for this zone.
+    #[cfg(feature = "dnssec")]
+    fn nx_proof_kind(&self) -> Option<&NxProofKind>;
 }
 
 /// Extension to Authority to allow for DNSSEC features

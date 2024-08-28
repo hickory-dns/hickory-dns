@@ -7,6 +7,8 @@ use std::str::FromStr;
 use futures_executor::block_on;
 
 use hickory_proto::rr::Name;
+#[cfg(feature = "dnssec")]
+use hickory_server::config::dnssec::NxProofKind;
 use hickory_server::{
     authority::ZoneType,
     store::sqlite::{SqliteAuthority, SqliteConfig},
@@ -38,6 +40,8 @@ fn sqlite(master_file_path: &str, module: &str, test_name: &str) -> SqliteAuthor
         true,
         None,
         &config,
+        #[cfg(feature = "dnssec")]
+        Some(NxProofKind::Nsec),
     ))
     .expect("failed to load file")
 }
@@ -66,6 +70,8 @@ fn sqlite_update(master_file_path: &str, module: &str, test_name: &str) -> Sqlit
         true,
         None,
         &config,
+        #[cfg(feature = "dnssec")]
+        Some(NxProofKind::Nsec),
     ))
     .expect("failed to load file")
 }

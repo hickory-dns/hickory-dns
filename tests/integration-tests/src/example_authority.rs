@@ -3,6 +3,8 @@ use std::str::FromStr;
 use hickory_proto::rr::*;
 
 use hickory_server::authority::ZoneType;
+#[cfg(any(feature = "dnssec", feature = "dns-over-rustls"))]
+use hickory_server::config::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryAuthority;
 
 #[allow(unused)]
@@ -12,7 +14,13 @@ pub fn create_example() -> InMemoryAuthority {
     use std::net::*;
 
     let origin: Name = Name::parse("example.com.", None).unwrap();
-    let mut records = InMemoryAuthority::empty(origin.clone(), ZoneType::Primary, false);
+    let mut records = InMemoryAuthority::empty(
+        origin.clone(),
+        ZoneType::Primary,
+        false,
+        #[cfg(any(feature = "dnssec", feature = "dns-over-rustls"))]
+        Some(NxProofKind::Nsec),
+    );
 
     // example.com.		3600	IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2015082403 7200 3600 1209600 3600
     records.upsert_mut(

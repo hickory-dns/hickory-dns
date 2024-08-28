@@ -27,6 +27,7 @@ use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 #[cfg(feature = "dnssec")]
 use crate::{
     authority::DnssecAuthority,
+    config::dnssec::NxProofKind,
     proto::rr::dnssec::{
         rdata::{key::KEY, DNSSECRData, NSEC},
         {DnsSecResult, SigSigner, SupportedAlgorithms},
@@ -40,10 +41,7 @@ use crate::{
     },
     proto::{
         op::ResponseCode,
-        rr::{
-            rdata::SOA,
-            {DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
-        },
+        rr::{rdata::SOA, DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
     },
     server::RequestInfo,
 };
@@ -58,6 +56,8 @@ pub struct InMemoryAuthority {
     zone_type: ZoneType,
     allow_axfr: bool,
     inner: RwLock<InnerInMemory>,
+    #[cfg(feature = "dnssec")]
+    nx_proof_kind: Option<NxProofKind>,
 }
 
 impl InMemoryAuthority {
@@ -72,6 +72,7 @@ impl InMemoryAuthority {
     /// * `allow_update` - If true, then this zone accepts dynamic updates.
     /// * `is_dnssec_enabled` - If true, then the zone will sign the zone with all registered keys,
     ///                         (see `add_zone_signing_key()`)
+    /// * `nx_proof_kind` - The kind of non-existence proof to be used by the server.
     ///
     /// # Return value
     ///
@@ -81,8 +82,15 @@ impl InMemoryAuthority {
         records: BTreeMap<RrKey, RecordSet>,
         zone_type: ZoneType,
         allow_axfr: bool,
+        #[cfg(feature = "dnssec")] nx_proof_kind: Option<NxProofKind>,
     ) -> Result<Self, String> {
-        let mut this = Self::empty(origin.clone(), zone_type, allow_axfr);
+        let mut this = Self::empty(
+            origin.clone(),
+            zone_type,
+            allow_axfr,
+            #[cfg(feature = "dnssec")]
+            nx_proof_kind,
+        );
         let inner = this.inner.get_mut();
 
         // SOA must be present
@@ -119,13 +127,21 @@ impl InMemoryAuthority {
     /// # Warning
     ///
     /// This is an invalid zone, SOA must be added
-    pub fn empty(origin: Name, zone_type: ZoneType, allow_axfr: bool) -> Self {
+    pub fn empty(
+        origin: Name,
+        zone_type: ZoneType,
+        allow_axfr: bool,
+        #[cfg(feature = "dnssec")] nx_proof_kind: Option<NxProofKind>,
+    ) -> Self {
         Self {
             origin: LowerName::new(&origin),
             class: DNSClass::IN,
             zone_type,
             allow_axfr,
             inner: RwLock::new(InnerInMemory::default()),
+
+            #[cfg(feature = "dnssec")]
+            nx_proof_kind,
         }
     }
 
@@ -297,7 +313,9 @@ impl InMemoryAuthority {
             ref mut inner,
             ..
         } = self;
-        inner.get_mut().secure_zone_mut(origin, self.class)
+        inner
+            .get_mut()
+            .secure_zone_mut(origin, self.class, self.nx_proof_kind.as_ref())
     }
 
     /// (Re)generates the nsec records, increments the serial number and signs the zone
@@ -646,10 +664,19 @@ impl InnerInMemory {
     /// (Re)generates the nsec records, increments the serial number and signs the zone
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
-    fn secure_zone_mut(&mut self, origin: &LowerName, dns_class: DNSClass) -> DnsSecResult<()> {
+    fn secure_zone_mut(
+        &mut self,
+        origin: &LowerName,
+        dns_class: DNSClass,
+        nx_proof_kind: Option<&NxProofKind>,
+    ) -> DnsSecResult<()> {
         // TODO: only call nsec_zone after adds/deletes
         // needs to be called before incrementing the soa serial, to make sure IXFR works properly
-        self.nsec_zone(origin, dns_class);
+        match nx_proof_kind {
+            Some(NxProofKind::Nsec) => self.nsec_zone(origin, dns_class),
+            Some(NxProofKind::Nsec3 { .. }) => (),
+            None => (),
+        }
 
         // need to resign any records at the current serial number and bump the number.
         // first bump the serial number on the SOA, so that it is resigned with the new serial.
@@ -1317,6 +1344,11 @@ impl Authority for InMemoryAuthority {
     ) -> LookupControlFlow<Self::Lookup> {
         LookupControlFlow::Continue(Ok(AuthLookup::default()))
     }
+
+    #[cfg(feature = "dnssec")]
+    fn nx_proof_kind(&self) -> Option<&NxProofKind> {
+        self.nx_proof_kind.as_ref()
+    }
 }
 
 #[cfg(feature = "dnssec")]
@@ -1345,6 +1377,6 @@ impl DnssecAuthority for InMemoryAuthority {
     async fn secure_zone(&self) -> DnsSecResult<()> {
         let mut inner = self.inner.write().await;
 
-        inner.secure_zone_mut(self.origin(), self.class)
+        inner.secure_zone_mut(self.origin(), self.class, self.nx_proof_kind.as_ref())
     }
 }
