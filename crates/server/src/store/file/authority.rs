@@ -16,12 +16,6 @@ use std::{
 
 use tracing::{debug, info};
 
-#[cfg(feature = "dnssec")]
-use crate::{
-    authority::DnssecAuthority,
-    config::dnssec::NxProofKind,
-    proto::rr::dnssec::{rdata::key::KEY, DnsSecResult, SigSigner},
-};
 use crate::{
     authority::{
         Authority, LookupControlFlow, LookupOptions, MessageRequest, UpdateResult, ZoneType,
@@ -30,6 +24,12 @@ use crate::{
     proto::serialize::txt::Parser,
     server::RequestInfo,
     store::{file::FileConfig, in_memory::InMemoryAuthority},
+};
+#[cfg(feature = "dnssec")]
+use crate::{
+    authority::{DnssecAuthority, Nsec3QueryInfo},
+    config::dnssec::NxProofKind,
+    proto::rr::dnssec::{rdata::key::KEY, DnsSecResult, SigSigner},
 };
 
 /// FileAuthority is responsible for storing the resource records for a particular zone.
@@ -217,6 +217,15 @@ impl Authority for FileAuthority {
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup> {
         self.0.get_nsec_records(name, lookup_options).await
+    }
+
+    #[cfg(feature = "dnssec")]
+    async fn get_nsec3_records(
+        &self,
+        info: Nsec3QueryInfo<'_>,
+        lookup_options: LookupOptions,
+    ) -> LookupControlFlow<Self::Lookup> {
+        self.0.get_nsec3_records(info, lookup_options).await
     }
 
     /// Returns the SOA of the authority.

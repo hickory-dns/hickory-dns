@@ -10,7 +10,7 @@ use std::{io, path::Path, time::Instant};
 use tracing::{debug, info};
 
 #[cfg(feature = "dnssec")]
-use crate::config::dnssec::NxProofKind;
+use crate::{authority::Nsec3QueryInfo, config::dnssec::NxProofKind};
 use crate::{
     authority::{
         Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, MessageRequest,
@@ -169,6 +169,18 @@ impl Authority for RecursiveAuthority {
         LookupControlFlow::Continue(Err(LookupError::from(io::Error::new(
             io::ErrorKind::Other,
             "Getting NSEC records is unimplemented for the recursor",
+        ))))
+    }
+
+    #[cfg(feature = "dnssec")]
+    async fn get_nsec3_records(
+        &self,
+        _info: Nsec3QueryInfo<'_>,
+        _lookup_options: LookupOptions,
+    ) -> LookupControlFlow<Self::Lookup> {
+        LookupControlFlow::Continue(Err(LookupError::from(io::Error::new(
+            io::ErrorKind::Other,
+            "getting NSEC3 records is unimplemented for the recursor",
         ))))
     }
 

@@ -20,7 +20,6 @@ const WILDCARD_HASH: &str = "19GBV5V1BO0P51H34JQDH1C8CIAA5RAQ"; /* h(*.alice.com
 // This test checks that name servers produce a name error response compliant with section 7.2.2.
 // of RFC5155.
 #[test]
-#[ignore]
 fn name_error_response() -> Result<()> {
     let alice_fqdn = FQDN(TLD_FQDN)?;
     // The queried name
@@ -83,7 +82,6 @@ fn name_error_response() -> Result<()> {
 // This test checks that name servers produce a no data response compliant with section 7.2.3.
 // of RFC5155 when the query type is not DS.
 #[test]
-#[ignore]
 fn no_data_response_not_ds() -> Result<()> {
     let alice_fqdn = FQDN(TLD_FQDN)?;
     // The queried name
@@ -115,7 +113,6 @@ fn no_data_response_not_ds() -> Result<()> {
 // This test checks that name servers produce a no data response compliant with section 7.2.4.
 // of RFC5155 when the query type is DS and there is an NSEC3 RR that matches the queried name.
 #[test]
-#[ignore]
 fn no_data_response_ds_match() -> Result<()> {
     let alice_fqdn = FQDN(TLD_FQDN)?;
     // The queried name
@@ -147,7 +144,6 @@ fn no_data_response_ds_match() -> Result<()> {
 // This test checks that name servers produce a no data response compliant with section 7.2.4.
 // of RFC5155 when the query type is DS and no NSEC3 RR matches the queried name.
 #[test]
-#[ignore]
 fn no_data_response_ds_no_match() -> Result<()> {
     let alice_fqdn = FQDN(TLD_FQDN)?;
     // The queried name
@@ -256,7 +252,6 @@ fn wildcard_no_data_response() -> Result<()> {
 
 // This test checks that name servers produce a wildcard answer response compliant with section 7.2.6.
 #[test]
-#[ignore]
 fn wildcard_answer_response() -> Result<()> {
     let wildcard_fqdn = FQDN(WILDCARD_FQDN)?;
     // The queried name

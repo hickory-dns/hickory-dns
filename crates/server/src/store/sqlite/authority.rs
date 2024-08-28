@@ -36,7 +36,7 @@ use crate::{
 };
 #[cfg(feature = "dnssec")]
 use crate::{
-    authority::{DnssecAuthority, UpdateRequest},
+    authority::{DnssecAuthority, Nsec3QueryInfo, UpdateRequest},
     config::dnssec::NxProofKind,
     proto::rr::dnssec::{
         rdata::{key::KEY, DNSSECRData},
@@ -994,6 +994,15 @@ impl Authority for SqliteAuthority {
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup> {
         self.in_memory.get_nsec_records(name, lookup_options).await
+    }
+
+    #[cfg(feature = "dnssec")]
+    async fn get_nsec3_records(
+        &self,
+        info: Nsec3QueryInfo<'_>,
+        lookup_options: LookupOptions,
+    ) -> LookupControlFlow<Self::Lookup> {
+        self.in_memory.get_nsec3_records(info, lookup_options).await
     }
 
     #[cfg(feature = "dnssec")]

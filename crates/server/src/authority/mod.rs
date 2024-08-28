@@ -35,4 +35,4 @@ pub use self::zone_type::ZoneType;
 
 #[cfg(feature = "dnssec")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
-pub use self::authority::DnssecAuthority;
+pub use self::authority::{DnssecAuthority, Nsec3QueryInfo};

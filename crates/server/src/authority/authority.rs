@@ -10,6 +10,9 @@
 use cfg_if::cfg_if;
 use std::fmt;
 
+#[cfg(feature = "dnssec")]
+use hickory_resolver::error::ResolveError;
+
 use crate::{
     authority::{LookupError, LookupObject, MessageRequest, UpdateResult, ZoneType},
     proto::rr::{LowerName, RecordSet, RecordType, RrsetRecords},
@@ -18,9 +21,15 @@ use crate::{
 #[cfg(feature = "dnssec")]
 use crate::{
     config::dnssec::NxProofKind,
-    proto::rr::{
-        dnssec::{rdata::key::KEY, DnsSecResult, SigSigner, SupportedAlgorithms},
-        Name,
+    proto::{
+        error::ProtoResult,
+        rr::{
+            dnssec::{
+                rdata::key::KEY, Digest, DnsSecResult, Nsec3HashAlgorithm, SigSigner,
+                SupportedAlgorithms,
+            },
+            Name,
+        },
     },
 };
 
@@ -173,6 +182,14 @@ pub trait Authority: Send + Sync {
     async fn get_nsec_records(
         &self,
         name: &LowerName,
+        lookup_options: LookupOptions,
+    ) -> LookupControlFlow<Self::Lookup>;
+
+    /// Return the NSEC3 records based on the information available for a query.
+    #[cfg(feature = "dnssec")]
+    async fn get_nsec3_records(
+        &self,
+        info: Nsec3QueryInfo<'_>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup>;
 
@@ -375,5 +392,42 @@ impl<T: LookupObject + 'static, E: std::fmt::Display> LookupControlFlow<T, E> {
             },
             Self::Skip => LookupControlFlow::Skip,
         }
+    }
+}
+
+/// Information required to compute the NSEC3 records that should be sent for a query.
+#[cfg(feature = "dnssec")]
+pub struct Nsec3QueryInfo<'q> {
+    /// The queried name.
+    pub qname: &'q LowerName,
+    /// The queried record type.
+    pub qtype: RecordType,
+    /// Whether there was a wildcard match for `qname` regardless of `qtype`.
+    pub has_wildcard_match: bool,
+    /// The algorithm used to hash the names.
+    pub algorithm: Nsec3HashAlgorithm,
+    /// The salt used for hashing.
+    pub salt: &'q [u8],
+    /// The number of hashing iterations.
+    pub iterations: u16,
+}
+
+#[cfg(feature = "dnssec")]
+impl<'q> Nsec3QueryInfo<'q> {
+    /// Computes the hash of a given name.
+    pub(crate) fn hash_name(&self, name: &Name) -> ProtoResult<Digest> {
+        self.algorithm.hash(self.salt, name, self.iterations)
+    }
+
+    /// Computes the hashed owner name from a given name. This is, the hash of the given name,
+    /// followed by the zone name.
+    pub(crate) fn get_hashed_owner_name(
+        &self,
+        name: &LowerName,
+        zone: &Name,
+    ) -> Result<LowerName, ResolveError> {
+        let hash = self.hash_name(name)?;
+        let label = data_encoding::BASE32_DNSSEC.encode(hash.as_ref());
+        Ok(LowerName::new(&zone.prepend_label(label)?))
     }
 }
