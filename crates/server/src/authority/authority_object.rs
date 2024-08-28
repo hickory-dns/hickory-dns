@@ -11,6 +11,8 @@ use std::sync::Arc;
 
 use tracing::debug;
 
+#[cfg(feature = "dnssec")]
+use crate::config::dnssec::NxProofKind;
 use crate::{
     authority::{
         Authority, LookupControlFlow, LookupOptions, MessageRequest, UpdateResult, ZoneType,
@@ -115,6 +117,10 @@ pub trait AuthorityObject: Send + Sync {
         self.lookup(self.origin(), RecordType::SOA, lookup_options)
             .await
     }
+
+    #[cfg(feature = "dnssec")]
+    /// Returns the kind of non-existence proof used for this zone.
+    fn nx_proof_kind(&self) -> Option<&NxProofKind>;
 }
 
 #[async_trait::async_trait]
@@ -212,6 +218,11 @@ where
     ) -> LookupControlFlow<Box<dyn LookupObject>> {
         let lookup = Authority::get_nsec_records(self.as_ref(), name, lookup_options).await;
         lookup.map_dyn()
+    }
+
+    #[cfg(feature = "dnssec")]
+    fn nx_proof_kind(&self) -> Option<&NxProofKind> {
+        Authority::nx_proof_kind(self.as_ref())
     }
 }
 

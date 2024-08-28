@@ -6,6 +6,8 @@ use hickory_proto::rr::rdata::{tlsa::*, A, AAAA};
 use hickory_proto::rr::*;
 use hickory_proto::serialize::txt::*;
 use hickory_server::authority::{Authority, LookupOptions, ZoneType};
+#[cfg(feature = "dnssec")]
+use hickory_server::config::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryAuthority;
 
 // TODO: split this test up to test each thing separately
@@ -62,7 +64,15 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     let (origin, records) = records.unwrap();
 
-    let authority = InMemoryAuthority::new(origin, records, ZoneType::Primary, false).unwrap();
+    let authority = InMemoryAuthority::new(
+        origin,
+        records,
+        ZoneType::Primary,
+        false,
+        #[cfg(feature = "dnssec")]
+        Some(NxProofKind::Nsec),
+    )
+    .unwrap();
 
     // not validating everything, just one of each...
 
@@ -424,7 +434,15 @@ a       A       127.0.0.1
 
     let (origin, records) = records.unwrap();
 
-    assert!(InMemoryAuthority::new(origin, records, ZoneType::Primary, false).is_err());
+    assert!(InMemoryAuthority::new(
+        origin,
+        records,
+        ZoneType::Primary,
+        false,
+        #[cfg(feature = "dnssec")]
+        Some(NxProofKind::Nsec),
+    )
+    .is_err());
 }
 
 #[test]
@@ -450,7 +468,15 @@ b       A       127.0.0.2
 
     let (origin, records) = records.unwrap();
 
-    assert!(InMemoryAuthority::new(origin, records, ZoneType::Primary, false).is_err());
+    assert!(InMemoryAuthority::new(
+        origin,
+        records,
+        ZoneType::Primary,
+        false,
+        #[cfg(feature = "dnssec")]
+        Some(NxProofKind::Nsec),
+    )
+    .is_err());
 }
 
 #[test]
@@ -475,7 +501,15 @@ a       A       127.0.0.1
 
     let (origin, records) = records.unwrap();
 
-    assert!(InMemoryAuthority::new(origin, records, ZoneType::Primary, false).is_ok());
+    assert!(InMemoryAuthority::new(
+        origin,
+        records,
+        ZoneType::Primary,
+        false,
+        #[cfg(feature = "dnssec")]
+        Some(NxProofKind::Nsec),
+    )
+    .is_ok());
 }
 
 #[test]

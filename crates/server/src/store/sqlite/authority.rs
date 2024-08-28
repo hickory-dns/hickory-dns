@@ -37,6 +37,7 @@ use crate::{
 #[cfg(feature = "dnssec")]
 use crate::{
     authority::{DnssecAuthority, UpdateRequest},
+    config::dnssec::NxProofKind,
     proto::rr::dnssec::{
         rdata::{key::KEY, DNSSECRData},
         DnsSecResult, SigSigner, Verifier,
@@ -85,6 +86,7 @@ impl SqliteAuthority {
         enable_dnssec: bool,
         root_dir: Option<&Path>,
         config: &SqliteConfig,
+        #[cfg(feature = "dnssec")] nx_proof_kind: Option<NxProofKind>,
     ) -> Result<Self, String> {
         use crate::store::file::{FileAuthority, FileConfig};
 
@@ -102,7 +104,13 @@ impl SqliteAuthority {
             let journal = Journal::from_file(&journal_path)
                 .map_err(|e| format!("error opening journal: {journal_path:?}: {e}"))?;
 
-            let in_memory = InMemoryAuthority::empty(zone_name.clone(), zone_type, allow_axfr);
+            let in_memory = InMemoryAuthority::empty(
+                zone_name.clone(),
+                zone_type,
+                allow_axfr,
+                #[cfg(feature = "dnssec")]
+                nx_proof_kind,
+            );
             let mut authority = Self::new(in_memory, config.allow_update, enable_dnssec);
 
             authority
@@ -128,6 +136,8 @@ impl SqliteAuthority {
                 allow_axfr,
                 root_dir,
                 &file_config,
+                #[cfg(feature = "dnssec")]
+                nx_proof_kind,
             )?
             .unwrap();
 
@@ -984,6 +994,11 @@ impl Authority for SqliteAuthority {
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup> {
         self.in_memory.get_nsec_records(name, lookup_options).await
+    }
+
+    #[cfg(feature = "dnssec")]
+    fn nx_proof_kind(&self) -> Option<&NxProofKind> {
+        self.in_memory.nx_proof_kind()
     }
 }
 

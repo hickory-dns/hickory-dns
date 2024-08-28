@@ -8,6 +8,8 @@
 //! Configuration types for all security options in hickory-dns
 
 use std::path::Path;
+#[cfg(feature = "dnssec")]
+use std::sync::Arc;
 
 #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 use openssl::{pkey::PKey, stack::Stack, x509::X509};
@@ -18,7 +20,7 @@ use serde::Deserialize;
 use crate::proto::rr::domain::Name;
 #[cfg(feature = "dnssec")]
 use crate::proto::rr::{
-    dnssec::{Algorithm, KeyFormat, KeyPair, Private, SigSigner},
+    dnssec::{Algorithm, KeyFormat, KeyPair, Nsec3HashAlgorithm, Private, SigSigner},
     domain::IntoName,
 };
 use crate::proto::serialize::txt::ParseResult;
@@ -243,6 +245,27 @@ impl TlsCertConfig {
     pub fn get_private_key_type(&self) -> PrivateKeyType {
         self.private_key_type.unwrap_or_default()
     }
+}
+
+/// The kind of non-existence proof provided by the nameserver
+#[cfg(feature = "dnssec")]
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum NxProofKind {
+    /// Use NSEC
+    Nsec,
+    /// Use NSEC3
+    Nsec3 {
+        /// The algorithm used to hash the names.
+        #[serde(default)]
+        algorithm: Nsec3HashAlgorithm,
+        /// The salt used for hashing.
+        #[serde(default)]
+        salt: Arc<[u8]>,
+        /// The number of hashing iterations.
+        #[serde(default)]
+        iterations: u16,
+    },
 }
 
 /// set of DNSSEC algorithms to use to sign the zone. enable_dnssec must be true.

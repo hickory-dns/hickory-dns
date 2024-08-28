@@ -10,6 +10,8 @@ use std::io;
 use hickory_resolver::{config::ResolveHosts, name_server::TokioConnectionProvider};
 use tracing::{debug, info};
 
+#[cfg(feature = "dnssec")]
+use crate::config::dnssec::NxProofKind;
 use crate::{
     authority::{
         Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, MessageRequest,
@@ -169,6 +171,11 @@ impl Authority for ForwardAuthority {
             io::ErrorKind::Other,
             "Getting NSEC records is unimplemented for the forwarder",
         ))))
+    }
+
+    #[cfg(feature = "dnssec")]
+    fn nx_proof_kind(&self) -> Option<&NxProofKind> {
+        None
     }
 }
 

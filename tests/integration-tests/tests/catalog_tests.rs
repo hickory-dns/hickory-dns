@@ -6,6 +6,8 @@ use hickory_client::{
     serialize::binary::{BinDecodable, BinEncodable},
 };
 
+#[cfg(any(feature = "dnssec", feature = "dns-over-rustls"))]
+use hickory_server::config::dnssec::NxProofKind;
 use hickory_server::{
     authority::{Authority, Catalog, MessageRequest, ZoneType},
     server::{Protocol, Request},
@@ -18,7 +20,13 @@ use hickory_integration::{example_authority::create_example, *};
 pub fn create_test() -> InMemoryAuthority {
     let origin: Name = Name::parse("test.com.", None).unwrap();
 
-    let mut records = InMemoryAuthority::empty(origin.clone(), ZoneType::Primary, false);
+    let mut records = InMemoryAuthority::empty(
+        origin.clone(),
+        ZoneType::Primary,
+        false,
+        #[cfg(any(feature = "dnssec", feature = "dns-over-rustls"))]
+        Some(NxProofKind::Nsec),
+    );
 
     records.upsert_mut(
         Record::from_rdata(

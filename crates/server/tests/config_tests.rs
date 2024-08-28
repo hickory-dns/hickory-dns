@@ -60,6 +60,8 @@ fn test_read_config() {
                 None,
                 None,
                 vec![],
+                #[cfg(feature = "dnssec")]
+                None,
             ),
             ZoneConfig::new(
                 "0.0.127.in-addr.arpa".into(),
@@ -69,6 +71,8 @@ fn test_read_config() {
                 None,
                 None,
                 vec![],
+                #[cfg(feature = "dnssec")]
+                None,
             ),
             ZoneConfig::new(
                 "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.\
@@ -80,6 +84,8 @@ fn test_read_config() {
                 None,
                 None,
                 vec![],
+                #[cfg(feature = "dnssec")]
+                None,
             ),
             ZoneConfig::new(
                 "255.in-addr.arpa".into(),
@@ -89,6 +95,8 @@ fn test_read_config() {
                 None,
                 None,
                 vec![],
+                #[cfg(feature = "dnssec")]
+                None,
             ),
             ZoneConfig::new(
                 "0.in-addr.arpa".into(),
@@ -98,6 +106,8 @@ fn test_read_config() {
                 None,
                 None,
                 vec![],
+                #[cfg(feature = "dnssec")]
+                None,
             ),
             ZoneConfig::new(
                 "example.com".into(),
@@ -107,6 +117,8 @@ fn test_read_config() {
                 None,
                 None,
                 vec![],
+                #[cfg(feature = "dnssec")]
+                None,
             )
         ]
     );

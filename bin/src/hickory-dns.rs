@@ -181,6 +181,8 @@ async fn load_zone(
                 is_dnssec_enabled,
                 Some(zone_dir),
                 config,
+                #[cfg(feature = "dnssec")]
+                zone_config.nx_proof_kind.clone(),
             )
             .await?;
 
@@ -199,6 +201,8 @@ async fn load_zone(
                 is_axfr_allowed,
                 Some(zone_dir),
                 config,
+                #[cfg(feature = "dnssec")]
+                zone_config.nx_proof_kind.clone(),
             )?;
 
             // load any keys for the Zone, if it is a dynamic update zone, then keys are required
@@ -244,6 +248,8 @@ async fn load_zone(
                 is_dnssec_enabled,
                 Some(zone_dir),
                 &config,
+                #[cfg(feature = "dnssec")]
+                zone_config.nx_proof_kind.clone(),
             )
             .await?;
 
@@ -262,6 +268,8 @@ async fn load_zone(
                 is_axfr_allowed,
                 Some(zone_dir),
                 &config,
+                #[cfg(feature = "dnssec")]
+                zone_config.nx_proof_kind.clone(),
             )?;
 
             // load any keys for the Zone, if it is a dynamic update zone, then keys are required
