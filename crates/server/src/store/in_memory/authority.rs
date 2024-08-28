@@ -7,13 +7,10 @@
 
 //! All authority related types
 
+#[cfg(feature = "dnssec")]
+use std::collections::{hash_map::Entry, HashMap};
 #[cfg(all(feature = "dnssec", feature = "testing"))]
 use std::ops::Deref;
-#[cfg(feature = "dnssec")]
-use std::{
-    borrow::Borrow,
-    collections::{hash_map::Entry, HashMap},
-};
 use std::{
     collections::{BTreeMap, HashSet},
     ops::DerefMut,
@@ -28,8 +25,11 @@ use tracing::{debug, error, warn};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 #[cfg(feature = "dnssec")]
+use hickory_resolver::error::ResolveError;
+
+#[cfg(feature = "dnssec")]
 use crate::{
-    authority::DnssecAuthority,
+    authority::{DnssecAuthority, Nsec3QueryInfo},
     config::dnssec::NxProofKind,
     proto::{
         error::ProtoResult,
@@ -726,7 +726,7 @@ impl InnerInMemory {
             let mut nsec_info: Option<(&Name, Vec<RecordType>)> = None;
             for key in self.records.keys() {
                 match nsec_info {
-                    None => nsec_info = Some((key.name.borrow(), vec![key.record_type])),
+                    None => nsec_info = Some((&key.name, vec![key.record_type])),
                     Some((name, ref mut vec)) if LowerName::new(name) == key.name => {
                         vec.push(key.record_type)
                     }
@@ -737,7 +737,7 @@ impl InnerInMemory {
                         records.push(record.into_record_of_rdata());
 
                         // new record...
-                        nsec_info = Some((key.name.borrow(), vec![key.record_type]))
+                        nsec_info = Some((&key.name, vec![key.record_type]))
                     }
                 }
             }
@@ -825,7 +825,7 @@ impl InnerInMemory {
         let mut record_types = record_types
             .into_iter()
             .map(|(name, (type_bit_maps, exists))| {
-                let hashed_name = hash_alg.hash(salt, name.borrow(), iterations)?;
+                let hashed_name = hash_alg.hash(salt, &name, iterations)?;
                 Ok((hashed_name, (type_bit_maps, exists)))
             })
             .collect::<ProtoResult<Vec<_>>>()?;
@@ -982,6 +982,62 @@ impl InnerInMemory {
         }
 
         Ok(())
+    }
+
+    /// Find a record that covers the given name. This is, an NSEC3 record such that the hashed owner
+    /// name of the given name falls between the record's owner name and its next hashed owner
+    /// name.
+    #[cfg(feature = "dnssec")]
+    pub(crate) fn find_cover(
+        &self,
+        name: &LowerName,
+        zone: &Name,
+        info: &Nsec3QueryInfo<'_>,
+    ) -> Result<Option<Arc<RecordSet>>, ResolveError> {
+        let owner_name = info.get_hashed_owner_name(name, zone)?;
+        let records = self
+            .records
+            .values()
+            .filter(|rr_set| rr_set.record_type() == RecordType::NSEC3);
+
+        // Find the record with the largest owner name such that its owner name is before the
+        // hashed QNAME. If this record exist, it already covers QNAME. Otherwise, the QNAME
+        // preceeds all the existing NSEC3 records' owner names, meaning that it is covered by
+        // the NSEC3 record with the largest owner name.
+        Ok(records
+            .clone()
+            .filter(|rr_set| rr_set.record_type() == RecordType::NSEC3)
+            .filter(|rr_set| rr_set.name() < &*owner_name)
+            .max_by_key(|rr_set| rr_set.name())
+            .or_else(|| records.max_by_key(|rr_set| rr_set.name()))
+            .cloned())
+    }
+
+    /// Return the next closer name and the record that matches the closest encloser of a given name.
+    #[cfg(feature = "dnssec")]
+    pub(crate) fn get_closest_encloser_proof(
+        &self,
+        name: &LowerName,
+        zone: &Name,
+        info: &Nsec3QueryInfo<'_>,
+    ) -> Result<Option<(LowerName, Arc<RecordSet>)>, ResolveError> {
+        let mut next_closer_name = name.clone();
+        let mut closest_encloser = next_closer_name.base_name();
+
+        while !closest_encloser.is_root() {
+            let rr_key = RrKey::new(
+                info.get_hashed_owner_name(&closest_encloser, zone)?,
+                RecordType::NSEC3,
+            );
+            if let Some(rrs) = self.records.get(&rr_key) {
+                return Ok(Some((next_closer_name, rrs.clone())));
+            }
+
+            next_closer_name = next_closer_name.base_name();
+            closest_encloser = closest_encloser.base_name();
+        }
+
+        Ok(None)
     }
 }
 
@@ -1468,6 +1524,105 @@ impl Authority for InMemoryAuthority {
         _lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup> {
         LookupControlFlow::Continue(Ok(AuthLookup::default()))
+    }
+
+    #[cfg(feature = "dnssec")]
+    async fn get_nsec3_records(
+        &self,
+        info: Nsec3QueryInfo<'_>,
+        lookup_options: LookupOptions,
+    ) -> LookupControlFlow<Self::Lookup> {
+        let zone = self.origin();
+
+        let inner = self.inner.read().await;
+
+        let Nsec3QueryInfo {
+            qname,
+            qtype,
+            has_wildcard_match,
+            ..
+        } = info;
+
+        let compute_proof = || -> Result<Vec<Arc<RecordSet>>, LookupError> {
+            let rr_key = RrKey::new(info.get_hashed_owner_name(qname, zone)?, RecordType::NSEC3);
+            let qname_match = inner.records.get(&rr_key);
+
+            if has_wildcard_match {
+                // - Wildcard answer response.
+                let closest_encloser_name = inner
+                    .get_closest_encloser_proof(qname, zone, &info)?
+                    .map(|(name, _)| name);
+
+                let closest_encloser_cover = match closest_encloser_name {
+                    Some(closest_encloser_name) => {
+                        inner.find_cover(&closest_encloser_name, zone, &info)?
+                    }
+                    None => None,
+                };
+
+                Ok(closest_encloser_cover.into_iter().collect())
+            } else {
+                match qname_match {
+                    Some(rr_set) => {
+                        // - No data response if the QTYPE is not DS.
+                        // - No data response if the QTYPE is DS and there is an NSEC3 record matching QNAME.
+                        Ok(vec![rr_set.clone()])
+                    }
+                    None => {
+                        // - Name error response.
+                        // - No data response if QTYPE is DS and there is not an NSEC3 record matching QNAME.
+                        // - Wildcard no data response.
+                        let (next_closer_name, closest_encloser_match) = inner
+                            .get_closest_encloser_proof(qname, zone, &info)?
+                            .unzip();
+
+                        let next_closer_name_cover = match &next_closer_name {
+                            Some(name) => inner.find_cover(name, zone, &info)?,
+                            None => None,
+                        };
+
+                        let wildcard_record = match next_closer_name {
+                            Some(next_closer_name) => {
+                                let wildcard_match = {
+                                    let wildcard = qname.clone().into_wildcard();
+                                    inner.records.keys().any(|rr_key| rr_key.name == wildcard)
+                                };
+
+                                if wildcard_match {
+                                    let wildcard_at_closest_encloser =
+                                        next_closer_name.into_wildcard();
+                                    let rr_key = RrKey::new(
+                                        info.get_hashed_owner_name(
+                                            &wildcard_at_closest_encloser,
+                                            zone,
+                                        )?,
+                                        RecordType::NSEC3,
+                                    );
+                                    inner.records.get(&rr_key).cloned()
+                                } else if qtype != RecordType::DS {
+                                    let wildcard_at_closest_encloser =
+                                        next_closer_name.into_wildcard();
+                                    inner.find_cover(&wildcard_at_closest_encloser, zone, &info)?
+                                } else {
+                                    None
+                                }
+                            }
+                            _ => None,
+                        };
+
+                        Ok(closest_encloser_match
+                            .into_iter()
+                            .chain(next_closer_name_cover)
+                            .chain(wildcard_record)
+                            .collect())
+                    }
+                }
+            }
+        };
+
+        LookupControlFlow::Continue(
+            compute_proof().map(|proof| LookupRecords::many(lookup_options, proof).into()),
+        )
     }
 
     #[cfg(feature = "dnssec")]

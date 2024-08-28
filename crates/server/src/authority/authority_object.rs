@@ -12,7 +12,7 @@ use std::sync::Arc;
 use tracing::debug;
 
 #[cfg(feature = "dnssec")]
-use crate::config::dnssec::NxProofKind;
+use crate::{authority::Nsec3QueryInfo, config::dnssec::NxProofKind};
 use crate::{
     authority::{
         Authority, LookupControlFlow, LookupOptions, MessageRequest, UpdateResult, ZoneType,
@@ -96,6 +96,14 @@ pub trait AuthorityObject: Send + Sync {
     async fn get_nsec_records(
         &self,
         name: &LowerName,
+        lookup_options: LookupOptions,
+    ) -> LookupControlFlow<Box<dyn LookupObject>>;
+
+    /// Return the NSEC3 records based on the given query information.
+    #[cfg(feature = "dnssec")]
+    async fn get_nsec3_records(
+        &self,
+        info: Nsec3QueryInfo<'_>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Box<dyn LookupObject>>;
 
@@ -217,6 +225,16 @@ where
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Box<dyn LookupObject>> {
         let lookup = Authority::get_nsec_records(self.as_ref(), name, lookup_options).await;
+        lookup.map_dyn()
+    }
+
+    #[cfg(feature = "dnssec")]
+    async fn get_nsec3_records(
+        &self,
+        info: Nsec3QueryInfo<'_>,
+        lookup_options: LookupOptions,
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
+        let lookup = Authority::get_nsec3_records(self.as_ref(), info, lookup_options).await;
         lookup.map_dyn()
     }
 

@@ -14,9 +14,13 @@ use cfg_if::cfg_if;
 use tracing::{debug, error, info, trace, warn};
 
 #[cfg(feature = "dnssec")]
-use crate::proto::rr::{
-    dnssec::{Algorithm, SupportedAlgorithms},
-    rdata::opt::{EdnsCode, EdnsOption},
+use crate::{
+    authority::Nsec3QueryInfo,
+    config::dnssec::NxProofKind,
+    proto::rr::{
+        dnssec::{Algorithm, SupportedAlgorithms},
+        rdata::opt::{EdnsCode, EdnsOption},
+    },
 };
 use crate::{
     authority::{
@@ -574,7 +578,7 @@ async fn send_authoritative_response(
     authority: &dyn AuthorityObject,
     response_header: &mut Header,
     lookup_options: LookupOptions,
-    request_id: u16,
+    _request_id: u16,
     query: &LowerQuery,
 ) -> LookupSections {
     // In this state we await the records, on success we transition to getting
@@ -634,26 +638,99 @@ async fn send_authoritative_response(
                 }
             }
         } else {
+            #[cfg(feature = "dnssec")]
+            {
+                if let Some(NxProofKind::Nsec3 {
+                    algorithm,
+                    salt,
+                    iterations,
+                }) = authority.nx_proof_kind()
+                {
+                    // This unwrap will not panic as we know that `answers` is `Some`.
+                    let has_wildcard_match =
+                        answers.as_ref().unwrap().iter().any(|rr| {
+                            rr.record_type() == RecordType::RRSIG && rr.name().is_wildcard()
+                        });
+                    match authority
+                        .get_nsec3_records(
+                            Nsec3QueryInfo {
+                                qname: query.name(),
+                                qtype: query.query_type(),
+                                has_wildcard_match,
+                                algorithm: *algorithm,
+                                salt,
+                                iterations: *iterations,
+                            },
+                            lookup_options,
+                        )
+                        .await
+                    {
+                        // run the soa lookup
+                        Continue(Ok(nsecs)) | Break(Ok(nsecs)) => (Some(nsecs), None),
+                        Continue(Err(e)) | Break(Err(e)) => {
+                            warn!("failed to lookup nsecs: {}", e);
+                            (None, None)
+                        }
+                        Skip => {
+                            warn!("unexpected lookup skip");
+                            (None, None)
+                        }
+                    }
+                } else {
+                    (None, None)
+                }
+            }
+            #[cfg(not(feature = "dnssec"))]
             (None, None)
         }
     } else {
         let nsecs = if lookup_options.dnssec_ok() {
-            // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
-            debug!("request: {} non-existent adding nsecs", request_id);
-            // run the nsec lookup future, and then transition to get soa
-            let future = authority.get_nsec_records(query.name(), lookup_options);
-            match future.await {
-                // run the soa lookup
-                Continue(Ok(nsecs)) | Break(Ok(nsecs)) => Some(nsecs),
-                Continue(Err(e)) | Break(Err(e)) => {
-                    warn!("failed to lookup nsecs: {}", e);
-                    None
-                }
-                Skip => {
-                    warn!("unexpected lookup skip");
-                    None
+            #[cfg(feature = "dnssec")]
+            {
+                // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
+                debug!("request: {_request_id} non-existent adding nsecs");
+                match authority.nx_proof_kind() {
+                    Some(nx_proof_kind) => {
+                        // run the nsec lookup future, and then transition to get soa
+                        let future = match nx_proof_kind {
+                            NxProofKind::Nsec => {
+                                authority.get_nsec_records(query.name(), lookup_options)
+                            }
+                            NxProofKind::Nsec3 {
+                                algorithm,
+                                salt,
+                                iterations,
+                            } => authority.get_nsec3_records(
+                                Nsec3QueryInfo {
+                                    qname: query.name(),
+                                    qtype: query.query_type(),
+                                    has_wildcard_match: false,
+                                    algorithm: *algorithm,
+                                    salt,
+                                    iterations: *iterations,
+                                },
+                                lookup_options,
+                            ),
+                        };
+
+                        match future.await {
+                            // run the soa lookup
+                            Continue(Ok(nsecs)) | Break(Ok(nsecs)) => Some(nsecs),
+                            Continue(Err(e)) | Break(Err(e)) => {
+                                warn!("failed to lookup nsecs: {e}");
+                                None
+                            }
+                            Skip => {
+                                warn!("unexpected lookup skip");
+                                None
+                            }
+                        }
+                    }
+                    None => None,
                 }
             }
+            #[cfg(not(feature = "dnssec"))]
+            None
         } else {
             None
         };
