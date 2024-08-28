@@ -306,7 +306,13 @@ fn query_nameserver(
         ns.add(record);
     }
 
-    let ns = ns.sign(SignSettings::default())?;
+    let mut sign_settings = SignSettings::default();
+
+    if dns_test::SUBJECT.is_hickory() {
+        sign_settings = sign_settings.use_dnssec(true);
+    }
+
+    let ns = ns.sign(sign_settings)?;
 
     let nsec3_rrs = NSEC3Records::new(ns.signed_zone_file());
 

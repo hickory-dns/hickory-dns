@@ -253,6 +253,7 @@ impl NameServer<Stopped> {
 
         let config = Config::NameServer {
             origin: zone_file.origin(),
+            use_dnssec: false,
         };
 
         container.cp(
@@ -279,9 +280,13 @@ impl NameServer<Stopped> {
 
 const ZONES_DIR: &str = "/etc/zones";
 const ZONE_FILENAME: &str = "main.zone";
+const ZSK_PRIVATE_FILENAME: &str = "zsk.key";
 
 fn zone_file_path() -> String {
     format!("{ZONES_DIR}/{ZONE_FILENAME}")
+}
+fn zsk_private_path() -> String {
+    format!("{ZONES_DIR}/{ZSK_PRIVATE_FILENAME}")
 }
 
 fn ns_count() -> usize {
@@ -303,12 +308,26 @@ impl NameServer<Signed> {
 
         let config = Config::NameServer {
             origin: zone_file.origin(),
+            use_dnssec: state.use_dnssec,
         };
+
         container.cp(
             implementation.conf_file_path(config.role()),
             &implementation.format_config(config),
         )?;
-        container.cp(&zone_file_path(), &state.signed.to_string())?;
+
+        if implementation.is_hickory() && state.use_dnssec {
+            // FIXME: Hickory does not support pre-signed zonefiles. We copy the unsigned
+            // zonefile so hickory can sign the zonefile itself.
+            container.cp(&zone_file_path(), &zone_file.to_string())?;
+            // FIXME: Given that hickory doesn't support the key format produced by
+            // `ldns-keygen` we generate a new zsk from scratch. This is fine as long as we
+            // don't compare signatures in any of the conformance tests.
+            let zsk = container.stdout(&["openssl", "genpkey", "-algorithm", "RSA"])?;
+            container.cp(&zsk_private_path(), &zsk)?;
+        } else {
+            container.cp(&zone_file_path(), &state.signed.to_string())?;
+        }
 
         let child = container.spawn(&implementation.cmd_args(config.role()))?;
 
@@ -422,6 +441,7 @@ pub struct Signed {
     pub(crate) zsk: record::DNSKEY,
     pub(crate) ksk: record::DNSKEY,
     pub(crate) signed: ZoneFile,
+    pub(crate) use_dnssec: bool,
 }
 
 impl Signed {
