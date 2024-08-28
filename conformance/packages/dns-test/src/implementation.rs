@@ -10,6 +10,7 @@ use crate::FQDN;
 pub enum Config<'a> {
     NameServer {
         origin: &'a FQDN,
+        use_dnssec: bool,
     },
     Resolver {
         use_dnssec: bool,
@@ -110,7 +111,7 @@ impl Implementation {
                 }
             },
 
-            Config::NameServer { origin } => match self {
+            Config::NameServer { origin, use_dnssec } => match self {
                 Self::Bind => {
                     minijinja::render!(
                         include_str!("templates/named.name-server.conf.jinja"),
@@ -128,7 +129,8 @@ impl Implementation {
                 Self::Hickory(_) => {
                     minijinja::render!(
                         include_str!("templates/hickory.name-server.toml.jinja"),
-                        fqdn => origin.as_str()
+                        fqdn => origin.as_str(),
+                        use_dnssec => use_dnssec,
                     )
                 }
             },

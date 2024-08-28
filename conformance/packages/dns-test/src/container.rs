@@ -238,6 +238,7 @@ impl Container {
         command.args(["exec", "-t", &self.inner.id]).args(cmd);
 
         let inner = command.spawn()?;
+
         Ok(Child {
             inner: Some(inner),
             _container: self.inner.clone(),
