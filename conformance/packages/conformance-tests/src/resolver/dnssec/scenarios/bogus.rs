@@ -8,7 +8,6 @@ use dns_test::{
 
 // the RRSIGs that cover the DNSKEY have been removed
 #[test]
-#[ignore]
 fn no_rrsig_dnskey() -> Result<()> {
     let network = Network::new()?;
 

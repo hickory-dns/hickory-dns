@@ -382,25 +382,33 @@ where
 {
     // wrapper for some of the type conversion for typed DNSKEY fn calls.
 
-    match rrset.record_type() {
-        // validation of DNSKEY records require different logic as they search for DS record coverage as well
-        RecordType::DNSKEY => verify_dnskey_rrset(handle.clone_with_context(), rrset, options)
-            .await
-            .map(|proof| (proof, None)),
-        _ => verify_default_rrset(&handle.clone_with_context(), rrset, rrsigs, options).await,
+    if matches!(rrset.record_type(), RecordType::DNSKEY) {
+        let is_trust_anchor =
+            verify_dnskey_rrset(handle.clone_with_context(), &rrset, options).await?;
+
+        if is_trust_anchor {
+            return Ok((Proof::Secure, None));
+        }
     }
+
+    verify_default_rrset(&handle.clone_with_context(), rrset, rrsigs, options).await
 }
 
-/// Verifies a dnskey rrset
+/// Additional, DNSKEY-specific verification
 ///
-/// This first checks to see if the key is in the set of trust_anchors. If so then it's returned
-///  as a success. Otherwise, a query is sent to get the DS record, and the DNSKEY is validated
-///  against the DS record.
+/// In addition to RRSIG validation, which happens in `verify_default_rrset`, a DNSKEY needs to be
+/// checked against a DS record provided by the parent zone.
+///
+/// A DNSKEY that's part of the trust anchor does not need to have its DS record (which may
+/// not exist as it's the case of the root zone) nor its RRSIG validated.
+///
+/// This function returns `true` when the DNSKEY is in the trust anchor; `false` when it's not and
+/// its DS was validated; or an error when DS validation failed.
 async fn verify_dnskey_rrset<H>(
     handle: DnssecDnsHandle<H>,
-    rrset: Rrset<'_>,
+    rrset: &Rrset<'_>,
     options: DnsRequestOptions,
-) -> Result<Proof, ProofError>
+) -> Result<bool, ProofError>
 where
     H: DnsHandle + Sync + Unpin,
 {
@@ -437,7 +445,7 @@ where
             .collect::<Vec<_>>();
 
         if !anchored_keys.is_empty() {
-            return Ok(Proof::Secure);
+            return Ok(true);
         }
     }
 
@@ -476,7 +484,7 @@ where
     if !valid_keys.is_empty() {
         // If all the keys are valid, then we are secure
         trace!("validated dnskey: {}", rrset.name());
-        Ok(Proof::Secure)
+        Ok(false)
     } else if valid_keys.is_empty() && !ds_records.is_empty() {
         // there were DS records, but no DNSKEYs, we're in a bogus state
         trace!("bogus dnskey: {}", rrset.name());
