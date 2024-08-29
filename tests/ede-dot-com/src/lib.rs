@@ -24,7 +24,6 @@ fn allow_query_none() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn bad_ksk() -> Result<()> {
     compare("bad-ksk").map(drop)
 }
@@ -50,7 +49,6 @@ fn bad_nsec3param_salt() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn bad_rrsig_dnskey() -> Result<()> {
     compare("bad-rrsig-dnskey").map(drop)
 }
@@ -84,7 +82,6 @@ fn ds_bad_tag() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn ds_bogus_digest_value() -> Result<()> {
     compare("ds-bogus-digest-value").map(drop)
 }
@@ -130,7 +127,6 @@ fn no_dnskey_256_257() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn no_dnskey_257() -> Result<()> {
     compare("no-dnskey-257").map(drop)
 }
@@ -142,7 +138,6 @@ fn no_ds() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn no_ksk() -> Result<()> {
     compare("no-ksk").map(drop)
 }
@@ -153,7 +148,6 @@ fn no_nsec3param_nsec3() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn no_rrsig_dnskey() -> Result<()> {
     compare("no-rrsig-dnskey").map(drop)
 }
