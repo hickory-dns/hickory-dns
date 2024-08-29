@@ -7,6 +7,7 @@ use std::{future::Future, sync::Arc};
 
 use futures_executor::block_on;
 
+use hickory_proto::dnssec::rdata::NSEC;
 use hickory_proto::{
     dnssec::{
         Algorithm, Verifier,
@@ -188,10 +189,15 @@ pub fn test_nsec_nodata<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &
     assert_eq!(nsec_records.len(), 1);
     assert_eq!(nsec_records.first().unwrap().name(), &name);
 
-    let nsecs: Vec<&Record> = nsec_records.iter().collect();
-
     let query = Query::query(name, RecordType::TXT);
-    assert!(verify_nsec(&query, &Name::from_str("example.com.").unwrap(), &nsecs).is_secure());
+    assert!(
+        verify_nsec(
+            &query,
+            &Name::from_str("example.com.").unwrap(),
+            &nsecs(&nsec_records)
+        )
+        .is_secure()
+    );
 }
 
 pub fn test_nsec_nxdomain_start<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
@@ -214,10 +220,15 @@ pub fn test_nsec_nxdomain_start<A: Authority<Lookup = AuthLookup>>(authority: A,
     //  that is `example.com.` -> `bbb.example.com.` proves there is no wildcard.
     assert_eq!(nsec_records.len(), 1);
 
-    let nsecs: Vec<&Record> = nsec_records.iter().collect();
-
     let query = Query::query(name, RecordType::A);
-    assert!(verify_nsec(&query, &Name::from_str("example.com.").unwrap(), &nsecs).is_secure());
+    assert!(
+        verify_nsec(
+            &query,
+            &Name::from_str("example.com.").unwrap(),
+            &nsecs(&nsec_records)
+        )
+        .is_secure()
+    );
 }
 
 pub fn test_nsec_nxdomain_middle<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
@@ -239,10 +250,15 @@ pub fn test_nsec_nxdomain_middle<A: Authority<Lookup = AuthLookup>>(authority: A
     // one record covers between the names, the other is for the wildcard proof.
     assert_eq!(nsec_records.len(), 2);
 
-    let nsecs: Vec<&Record> = nsec_records.iter().collect();
-
     let query = Query::query(name, RecordType::A);
-    assert!(verify_nsec(&query, &Name::from_str("example.com.").unwrap(), &nsecs).is_secure());
+    assert!(
+        verify_nsec(
+            &query,
+            &Name::from_str("example.com.").unwrap(),
+            &nsecs(&nsec_records)
+        )
+        .is_secure()
+    );
 }
 
 pub fn test_nsec_nxdomain_wraps_end<A: Authority<Lookup = AuthLookup>>(
@@ -267,10 +283,27 @@ pub fn test_nsec_nxdomain_wraps_end<A: Authority<Lookup = AuthLookup>>(
     // one record covers between the names, the other is for the wildcard proof.
     assert_eq!(nsec_records.len(), 2);
 
-    let nsecs: Vec<&Record> = nsec_records.iter().collect();
-
     let query = Query::query(name, RecordType::A);
-    assert!(verify_nsec(&query, &Name::from_str("example.com.").unwrap(), &nsecs).is_secure());
+    assert!(
+        verify_nsec(
+            &query,
+            &Name::from_str("example.com.").unwrap(),
+            &nsecs(&nsec_records)
+        )
+        .is_secure()
+    );
+}
+
+fn nsecs<'a>(records: impl IntoIterator<Item = &'a Record>) -> Vec<(&'a Name, &'a NSEC)> {
+    records
+        .into_iter()
+        .filter_map(|rr| {
+            rr.data()
+                .as_dnssec()?
+                .as_nsec()
+                .map(|data| (rr.name(), data))
+        })
+        .collect()
 }
 
 pub fn verify(records: &[&Record], rrsig_records: &[Record<RRSIG>], keys: &[DNSKEY]) {
