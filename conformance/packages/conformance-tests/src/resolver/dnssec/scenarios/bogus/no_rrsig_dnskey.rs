@@ -75,7 +75,6 @@ fn query_dnskey_record() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn query_other_record() -> Result<()> {
     let network = Network::new()?;
 

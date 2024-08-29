@@ -699,6 +699,8 @@ where
                         .answers()
                         .iter()
                         .filter_map(|r| r.try_borrow::<DNSKEY>())
+                        // skip DNSKEY that have failed validation
+                        .filter(|r| r.proof().is_secure())
                         .find_map(|dnskey| {
                             verify_rrset_with_dnskey(dnskey, *rrsig, &rrset, current_time).ok()
                         })
