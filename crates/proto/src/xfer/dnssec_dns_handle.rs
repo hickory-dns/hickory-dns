@@ -420,33 +420,24 @@ where
 
     // check the DNSKEYS against the trust_anchor, if it's approved allow it.
     //   this includes the root keys
-    {
-        let anchored_keys: Vec<&DNSKEY> = rrset
-            .records()
-            .iter()
-            .map(|r| r.data())
-            .filter_map(DNSKEY::try_borrow)
-            .filter(|dnskey| {
-                if handle
-                    .trust_anchor
-                    .contains_dnskey_bytes(dnskey.public_key())
-                {
-                    debug!(
-                        "validated dnskey with trust_anchor: {}, {}",
-                        rrset.name(),
-                        dnskey
-                    );
+    for r in rrset.records().iter() {
+        let Some(key_rdata) = DNSKEY::try_borrow(r.data()) else {
+            continue;
+        };
 
-                    true
-                } else {
-                    false
-                }
-            })
-            .collect::<Vec<_>>();
-
-        if !anchored_keys.is_empty() {
-            return Ok(true);
+        if !handle
+            .trust_anchor
+            .contains_dnskey_bytes(key_rdata.public_key())
+        {
+            continue;
         }
+
+        debug!(
+            "validated dnskey with trust_anchor: {}, {key_rdata}",
+            rrset.name(),
+        );
+
+        return Ok(true);
     }
 
     // need to get DS records for each DNSKEY
