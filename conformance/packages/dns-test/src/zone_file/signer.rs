@@ -189,7 +189,7 @@ impl<'a> Signer<'a> {
     where
         T: Iterator<Item = String>,
     {
-        let mut args = vec![String::from("ldns-signzone")];
+        let mut args = vec![String::from("ldns-signzone"), "-A".to_string()];
 
         if let Some(expiration) = self.settings.expiration {
             args.push(format!("-e {}", expiration));
