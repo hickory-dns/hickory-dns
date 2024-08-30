@@ -448,7 +448,19 @@ where
             continue;
         };
 
+        let key_algorithm = key_rdata.algorithm();
         for r in ds_records.iter() {
+            if r.data().algorithm() != key_algorithm {
+                trace!(
+                    "skipping DS record due to algorithm mismatch, expected algorithm {}: ({}, {})",
+                    key_algorithm,
+                    r.name(),
+                    r.data(),
+                );
+
+                continue;
+            }
+
             if !r.data().covers(rrset.name(), key_rdata).unwrap_or(false) {
                 continue;
             }

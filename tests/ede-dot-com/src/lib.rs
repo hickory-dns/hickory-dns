@@ -70,7 +70,6 @@ fn bad_zsk_algo() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn ds_bad_key_algo() -> Result<()> {
     compare("ds-bad-key-algo").map(drop)
 }
