@@ -452,40 +452,31 @@ where
     // need to get DS records for each DNSKEY
     //   there will be a DS record for everything under the root keys
     let ds_records = find_ds_records(&handle, rrset.name().clone(), options).await?;
+    for rr in rrset.records().iter() {
+        let Some(key_rdata) = DNSKEY::try_borrow(rr.data()) else {
+            continue;
+        };
 
-    let valid_keys = rrset
-        .records()
-        .iter()
-        .enumerate()
-        .map(|(i, rr)| (i, rr.data()))
-        .filter_map(|(i, data)| DNSKEY::try_borrow(data).map(|d| (i, d)))
-        .filter(|&(_, key_rdata)| {
-            ds_records
-                .iter()
-                .map(|r| (r.data(), r.name()))
-                // must be covered by at least one DS record
-                .any(|(ds_rdata, ds_name)| {
-                    if ds_rdata.covers(rrset.name(), key_rdata).unwrap_or(false) {
-                        debug!(
-                            "validated dnskey ({}, {key_rdata}) with {ds_name} {ds_rdata}",
-                            rrset.name()
-                        );
+        for r in ds_records.iter() {
+            if !r.data().covers(rrset.name(), key_rdata).unwrap_or(false) {
+                continue;
+            }
 
-                        true
-                    } else {
-                        false
-                    }
-                })
-        })
-        .map(|(i, _)| i)
-        .collect::<Vec<usize>>();
+            debug!(
+                "validated dnskey ({}, {key_rdata}) with {} {}",
+                rrset.name(),
+                r.name(),
+                r.data(),
+            );
 
-    // FIXME: what if only some are invalid? we should return the good ones?
-    if !valid_keys.is_empty() {
-        // If all the keys are valid, then we are secure
-        trace!("validated dnskey: {}", rrset.name());
-        Ok(false)
-    } else if valid_keys.is_empty() && !ds_records.is_empty() {
+            // If all the keys are valid, then we are secure
+            // FIXME: what if only some are invalid? we should return the good ones?
+            trace!("validated dnskey: {}", rrset.name());
+            return Ok(false);
+        }
+    }
+
+    if !ds_records.is_empty() {
         // there were DS records, but no DNSKEYs, we're in a bogus state
         trace!("bogus dnskey: {}", rrset.name());
         Err(ProofError::new(
