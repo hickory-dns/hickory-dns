@@ -2,8 +2,8 @@ mod no_rrsig_dnskey;
 
 use dns_test::{
     client::{Client, DigOutput, DigSettings, ExtendedDnsError},
-    name_server::NameServer,
-    record::{RecordType, DS},
+    name_server::{Graph, NameServer, Sign},
+    record::{Record, RecordType, DS},
     zone_file::SignSettings,
     Network, Resolver, Result, TrustAnchor, FQDN,
 };
@@ -82,6 +82,102 @@ fn ds_bad_key_algo() -> Result<()> {
     assert!(output.status.is_servfail());
 
     if dns_test::SUBJECT.is_unbound() {
+        assert!(output.ede.iter().eq([&ExtendedDnsError::DnssecBogus]));
+    }
+
+    Ok(())
+}
+
+// the RRSIG covering the DNSKEYs generated using the KSK has been removed
+// but there's an RRSIG covering the DNSKEYs generated using the ZSK
+#[test]
+#[ignore]
+fn no_rrsig_ksk() -> Result<()> {
+    let network = Network::new()?;
+    let leaf_zone = FQDN::TEST_TLD.push_label("no-rrsig-ksk");
+    let leaf_ns = NameServer::new(&dns_test::PEER, leaf_zone.clone(), &network)?;
+
+    let Graph {
+        nameservers: _nameservers,
+        root,
+        trust_anchor,
+    } = Graph::build(
+        leaf_ns,
+        Sign::AndAmend {
+            settings: SignSettings::default(),
+            mutate: &|zone, records| {
+                if zone == &leaf_zone {
+                    let mut ksk_tag = None;
+                    let mut zsk_tag = None;
+                    for record in records.iter() {
+                        if let Record::DNSKEY(dnskey) = record {
+                            if dnskey.is_key_signing_key() {
+                                assert!(ksk_tag.is_none(), "more than one KSK");
+                                ksk_tag = Some(dnskey.calculate_key_tag());
+                            } else {
+                                assert!(zsk_tag.is_none(), "more than one ZSK");
+                                zsk_tag = Some(dnskey.calculate_key_tag());
+                            }
+                        }
+                    }
+
+                    let ksk_tag = ksk_tag.expect("did not find the KSK");
+                    let mut did_remove = false;
+                    for (index, record) in records.iter().enumerate() {
+                        if let Record::RRSIG(rrsig) = record {
+                            if rrsig.type_covered == RecordType::DNSKEY && rrsig.key_tag == ksk_tag
+                            {
+                                records.remove(index);
+                                did_remove = true;
+                                break;
+                            }
+                        }
+                    }
+                    assert!(
+                        did_remove,
+                        "did not find an RRSIG covering DNSKEY generated using the KSK"
+                    );
+
+                    // PRE-CONDITION there must be a RRSIG covering DNSKEY but generated using
+                    // the ZSK
+                    let zsk_tag = zsk_tag.expect("did not find the ZSK");
+                    let mut found = false;
+                    for record in records.iter() {
+                        if let Record::RRSIG(rrsig) = record {
+                            if rrsig.type_covered == RecordType::DNSKEY && rrsig.key_tag == zsk_tag
+                            {
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                    assert!(
+                        found,
+                        "did not find an RRSIG covering DNSKEY generated using the ZSK"
+                    );
+                }
+            },
+        },
+    )?;
+
+    let mut resolver = Resolver::new(&network, root);
+
+    let supports_ede = dns_test::SUBJECT.is_unbound();
+    if supports_ede {
+        resolver.extended_dns_errors();
+    }
+
+    let resolver = resolver.trust_anchor(&trust_anchor.unwrap()).start()?;
+
+    let client = Client::new(resolver.network())?;
+    let settings = *DigSettings::default().recurse().authentic_data();
+    let output = client.dig(settings, resolver.ipv4_addr(), RecordType::NS, &leaf_zone)?;
+
+    dbg!(&output);
+
+    assert!(output.status.is_servfail());
+
+    if supports_ede {
         assert!(output.ede.iter().eq([&ExtendedDnsError::DnssecBogus]));
     }
 
