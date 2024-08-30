@@ -75,7 +75,6 @@ fn ds_bad_key_algo() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn ds_bad_tag() -> Result<()> {
     compare("ds-bad-tag").map(drop)
 }

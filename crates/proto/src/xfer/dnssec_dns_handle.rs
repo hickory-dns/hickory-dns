@@ -448,12 +448,25 @@ where
             continue;
         };
 
+        let Ok(key_tag) = key_rdata.calculate_key_tag() else {
+            continue;
+        };
         let key_algorithm = key_rdata.algorithm();
         for r in ds_records.iter() {
             if r.data().algorithm() != key_algorithm {
                 trace!(
                     "skipping DS record due to algorithm mismatch, expected algorithm {}: ({}, {})",
                     key_algorithm,
+                    r.name(),
+                    r.data(),
+                );
+
+                continue;
+            }
+
+            if r.data().key_tag() != key_tag {
+                trace!(
+                    "skipping DS record due to key tag mismatch, expected tag {key_tag}: ({}, {})",
                     r.name(),
                     r.data(),
                 );
