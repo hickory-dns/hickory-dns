@@ -520,9 +520,14 @@ where
                 .take_answers()
                 .into_iter()
                 .filter_map(|r| Record::<DS>::try_from(r).ok())
+                .filter(|r| !matches!(r.data().algorithm(), Algorithm::Unknown(_)))
                 .collect::<Vec<_>>();
 
-            return Ok(ds_records);
+            if !ds_records.is_empty() {
+                return Ok(ds_records);
+            } else {
+                ProtoError::from(ProtoErrorKind::NoError)
+            }
         }
         Ok(_) => ProtoError::from(ProtoErrorKind::NoError),
         Err(error) => error,

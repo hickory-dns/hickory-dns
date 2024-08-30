@@ -9,7 +9,6 @@ use dns_test::{
 };
 
 #[test]
-#[ignore]
 fn ds_unassigned_key_algo() -> Result<()> {
     let output =
         malformed_ds_fixture(&FQDN::TEST_TLD.push_label("ds-unassigned-key-algo"), |ds| {
@@ -18,6 +17,7 @@ fn ds_unassigned_key_algo() -> Result<()> {
 
     dbg!(&output);
 
+    // TODO change assert to only NOERROR+AD=0 when Hickory properly reports the Insecure outcome
     assert!(
         output.status.is_servfail()
             || (output.status.is_noerror() && !output.flags.authenticated_data)
@@ -31,7 +31,6 @@ fn ds_unassigned_key_algo() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn ds_reserved_key_algo() -> Result<()> {
     let output = malformed_ds_fixture(&FQDN::TEST_TLD.push_label("ds-reserved-key-algo"), |ds| {
         ds.algorithm = 200
@@ -39,6 +38,7 @@ fn ds_reserved_key_algo() -> Result<()> {
 
     dbg!(&output);
 
+    // TODO change assert to only NOERROR+AD=0 when Hickory properly reports the Insecure outcome
     assert!(
         output.status.is_servfail()
             || (output.status.is_noerror() && !output.flags.authenticated_data)
