@@ -7,10 +7,10 @@
 
 //! domain name, aka labels, implementation
 
-use std::borrow::Borrow;
 use std::cmp::{Ordering, PartialEq};
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::ops::Deref;
 use std::str::FromStr;
 
 use crate::error::*;
@@ -266,8 +266,10 @@ impl<'a> From<&'a LowerName> for Name {
     }
 }
 
-impl Borrow<Name> for LowerName {
-    fn borrow(&self) -> &Name {
+impl Deref for LowerName {
+    type Target = Name;
+
+    fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
