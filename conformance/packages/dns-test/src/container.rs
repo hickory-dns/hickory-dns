@@ -99,7 +99,7 @@ impl Container {
 
         let mut command = Command::new("docker");
         command
-            .args(["build", "-t"])
+            .args(["build", "--load", "-t"])
             .arg(&image_tag)
             .arg(docker_build_dir);
 

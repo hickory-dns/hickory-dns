@@ -21,6 +21,23 @@ jobs:
           components: clippy, rustfmt
       - uses: extractions/setup-just@v2
 
+      - name: setup docker buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+          use: true
+          install: true
+      - name: build unbound
+        uses: docker/build-push-action@v6
+        with:
+          file: conformance/packages/dns-test/src/docker/unbound.Dockerfile
+          context: conformance/packages/dns-test/src/docker
+          tags: dns-test-unbound
+          push: false
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha
+
       - name: run test-framework tests
         run: just conformance-framework
 
