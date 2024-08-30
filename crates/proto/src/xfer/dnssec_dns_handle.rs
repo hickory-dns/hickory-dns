@@ -664,6 +664,8 @@ where
                     .records()
                     .iter()
                     .filter_map(|r| r.try_borrow::<DNSKEY>())
+                    // DNSKEY must be signed using a KSK
+                    .filter(|r| r.data().is_key_signing_key())
                     .find_map(|dnskey| {
                         // If we had rrsigs to verify, then we want them to be secure, or the result is a Bogus proof
                         verify_rrset_with_dnskey(dnskey, *rrsig, &rrset, current_time).ok()
