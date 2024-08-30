@@ -400,6 +400,23 @@ fn test_nsec_query_type() {
     assert!(response.answers().is_empty());
 }
 
+// NSEC3 tests
+#[test]
+#[cfg(feature = "dnssec")]
+fn test_nsec3_nxdomain() {
+    let name = Name::from_labels(vec!["a", "b", "c", "example", "com"]).unwrap();
+
+    let addr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
+    let conn = TcpClientConnection::new(addr).unwrap();
+    let client = SyncDnssecClient::new(conn).build();
+
+    let response = client
+        .query(&name, DNSClass::IN, RecordType::NS)
+        .expect("Query failed");
+
+    assert_eq!(response.response_code(), ResponseCode::NXDomain);
+}
+
 // TODO: disabled until I decide what to do with NSEC3 see issue #10
 //
 // TODO these NSEC3 tests don't work, it seems that the zone is not signed properly.
