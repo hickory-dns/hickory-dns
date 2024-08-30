@@ -75,7 +75,6 @@ fn ds_bad_tag() -> Result<()> {
 
 // the algorithm field in the DS record does not match the algorithm field in the DNSKEY record
 #[test]
-#[ignore]
 fn ds_bad_key_algo() -> Result<()> {
     let output = malformed_ds_fixture(&FQDN::TEST_TLD.push_label("ds-bad-key-algo"), |ds| {
         assert_eq!(8, ds.algorithm, "number below may need to change");
@@ -84,10 +83,7 @@ fn ds_bad_key_algo() -> Result<()> {
 
     dbg!(&output);
 
-    assert!(
-        output.status.is_servfail()
-            || (output.status.is_noerror() && !output.flags.authenticated_data)
-    );
+    assert!(output.status.is_servfail());
 
     if dns_test::SUBJECT.is_unbound() {
         assert!(output.ede.iter().eq([&ExtendedDnsError::DnssecBogus]));
