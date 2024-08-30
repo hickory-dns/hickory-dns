@@ -417,6 +417,40 @@ fn test_nsec3_nxdomain() {
     assert_eq!(response.response_code(), ResponseCode::NXDomain);
 }
 
+#[test]
+#[cfg(feature = "dnssec")]
+fn test_nsec3_no_data() {
+    let name = Name::from_labels(vec!["www", "example", "com"]).unwrap();
+
+    let addr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
+    let conn = TcpClientConnection::new(addr).unwrap();
+    let client = SyncDnssecClient::new(conn).build();
+
+    let response = client
+        .query(&name, DNSClass::IN, RecordType::PTR)
+        .expect("Query failed");
+
+    // the name "www.example.com" exists but there's no PTR record on it
+    assert_eq!(response.response_code(), ResponseCode::NoError);
+}
+
+#[test]
+#[cfg(feature = "dnssec")]
+fn test_nsec3_query_name_is_soa_name() {
+    let name = Name::from_labels("valid.extended-dns-errors.com".split(".")).unwrap();
+
+    let addr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
+    let conn = TcpClientConnection::new(addr).unwrap();
+    let client = SyncDnssecClient::new(conn).build();
+
+    let response = client
+        .query(&name, DNSClass::IN, RecordType::PTR)
+        .expect("Query failed");
+
+    // the name "valid.extended-dns-errors.com" exists but there's no PTR record on it
+    assert_eq!(response.response_code(), ResponseCode::NoError);
+}
+
 // TODO: disabled until I decide what to do with NSEC3 see issue #10
 //
 // TODO these NSEC3 tests don't work, it seems that the zone is not signed properly.
