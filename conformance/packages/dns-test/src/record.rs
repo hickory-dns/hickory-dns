@@ -364,6 +364,36 @@ impl DNSKEY {
     pub fn is_zone_signing_key(&self) -> bool {
         !self.is_key_signing_key()
     }
+
+    // as per appendix B of RFC4034
+    pub fn calculate_key_tag(&self) -> u16 {
+        use base64::prelude::*;
+
+        assert_ne!(1, self.algorithm, "not implemented");
+
+        let mut rdata = Vec::<u8>::new();
+        rdata.extend_from_slice(self.flags.to_be_bytes().as_slice());
+        rdata.push(3); // protocol
+        rdata.push(self.algorithm);
+        rdata.extend_from_slice(
+            &BASE64_STANDARD
+                .decode(self.public_key.as_bytes())
+                .expect("base64 decoding failed"),
+        );
+
+        let mut acc = 0u32;
+        for chunk in rdata.chunks(2) {
+            let halfword = if let Ok(array) = chunk.try_into() {
+                u16::from_be_bytes(array)
+            } else {
+                chunk[0].into()
+            };
+            acc += u32::from(halfword);
+        }
+        acc += acc >> 16;
+
+        acc as u16
+    }
 }
 
 impl FromStr for DNSKEY {
@@ -929,6 +959,8 @@ mod tests {
         assert_eq!(8, *algorithm);
         let expected = "AwEAAaz/tAm8yTn4Mfeh5eyI96WSVexTBAvkMgJzkKTOiW1vkIbzxeF3+/4RgWOq7HrxRixHlFlExOLAJr5emLvN7SWXgnLh4+B5xQlNVz8Og8kvArMtNROxVQuCaSnIDdD5LKyWbRd2n9WGe2R8PzgCmr3EgVLrjyBxWezF0jLHwVN8efS3rCj/EWgvIWgb9tarpVUDK/b58Da+sqqls3eNbuv7pr+eoZG+SrDK6nWeL3c6H5Apxz7LjVc1uTIdsIXxuOLYA4/ilBmSVIzuDWfdRUfhHdY6+cn8HFRm+2hM8AnXGXws9555KrUB5qihylGa8subX2Nn6UwNR1AkUTV74bU=";
         assert_eq!(expected, public_key);
+        // `dig +multi DNSKEY .`
+        assert_eq!(20326, dnskey.calculate_key_tag());
 
         let output = dnskey.to_string();
         assert_eq!(DNSKEY_INPUT, output);

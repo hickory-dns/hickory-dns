@@ -6,6 +6,7 @@ publish = false
 version = "0.1.0"
 
 [dependencies]
+base64 = "0.22.1"
 lazy_static = "1.4.0"
 minijinja = "1.0.12"
 serde = { version = "1.0.196", features = ["derive"] }
