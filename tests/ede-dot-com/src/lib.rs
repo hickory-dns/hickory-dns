@@ -54,7 +54,6 @@ fn bad_rrsig_dnskey() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn bad_rrsig_ksk() -> Result<()> {
     compare("bad-rrsig-ksk").map(drop)
 }
@@ -151,7 +150,6 @@ fn no_rrsig_dnskey() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn no_rrsig_ksk() -> Result<()> {
     compare("no-rrsig-ksk").map(drop)
 }

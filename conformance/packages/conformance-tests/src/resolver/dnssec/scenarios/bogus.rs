@@ -91,7 +91,6 @@ fn ds_bad_key_algo() -> Result<()> {
 // the RRSIG covering the DNSKEYs generated using the KSK has been removed
 // but there's an RRSIG covering the DNSKEYs generated using the ZSK
 #[test]
-#[ignore]
 fn no_rrsig_ksk() -> Result<()> {
     let network = Network::new()?;
     let leaf_zone = FQDN::TEST_TLD.push_label("no-rrsig-ksk");

@@ -152,6 +152,12 @@ impl DNSKEY {
         self.secure_entry_point
     }
 
+    /// A KSK has a `flags` value of `257`
+    pub fn is_key_signing_key(&self) -> bool {
+        // a flags value of 257
+        self.secure_entry_point() && self.zone_key() && !self.revoke()
+    }
+
     /// [RFC 5011, Trust Anchor Update, September 2007](https://tools.ietf.org/html/rfc5011#section-3)
     ///
     /// ```text
