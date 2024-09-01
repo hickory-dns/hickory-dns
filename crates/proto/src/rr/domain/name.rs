@@ -56,6 +56,31 @@ impl Name {
         Ok(())
     }
 
+    /// Randomize the case of ASCII alpha characters in a name
+    pub fn randomize_label_case(&mut self) {
+        use rand::distributions::{Distribution, Standard};
+        let mut rand = rand::thread_rng();
+
+        // 16 bits should be enough to cover *most* queries without making another call to the RNG.
+        // Using u16 here resulted in repeated cases of the most-significant bit always being zero
+        let mut rand_bits: i16 = 0;
+
+        for (i, b) in self.label_data.iter_mut().enumerate() {
+            // Generate fresh random bits on the zeroth and then every 16th iteration.
+            if i % 16 == 0 {
+                rand_bits = Standard.sample(&mut rand);
+            }
+
+            let flip_case = rand_bits & 1 == 1;
+
+            if b.is_ascii_alphabetic() && flip_case {
+                *b ^= 0x20; // toggle the case bit (0x20)
+            }
+
+            rand_bits >>= 1;
+        }
+    }
+
     /// Returns true if there are no labels, i.e. it's empty.
     ///
     /// In DNS the root is represented by `.`
@@ -1927,5 +1952,123 @@ mod tests {
         assert_eq!(iter.size_hint().0, 0);
         assert!(iter.next().is_none());
         assert_eq!(iter.size_hint().0, 0);
+    }
+
+    #[test]
+    fn test_label_randomization() {
+        let mut name = Name::root();
+        name.randomize_label_case();
+        assert!(name.eq_case(&Name::root()));
+
+        for qname in [
+            "x",
+            "0",
+            "aaaaaaaaaaaaaaaa",
+            "AAAAAAAAAAAAAAAA",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.",
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.",
+            "abcdefghijklmnopqrstuvwxyz0123456789A.",
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.",
+            "www01.example-site.com",
+            "1234567890.e-1204089_043820-5.com.",
+        ] {
+            let mut name = Name::from_ascii(qname).unwrap();
+            let name2 = name.clone();
+            name.randomize_label_case();
+            assert_eq!(name, name2);
+            println!("{name2} == {name}: {}", name == name2);
+        }
+
+        // 50k iterations gets us very close to a 50/50 uppercase/lowercase distribution in testing
+        // without a long test runtime.
+        let iterations = 50_000;
+
+        // This is a max length name (255 bytes) with the maximum number of possible flippable bytes
+        // (nominal label length 63, except the last, with all label characters ASCII alpha)
+        let test_str = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijk.lmnopqrstuvwxyzabcdefghjijklmnopqrstuvwxyzabcdefghijklmnopqrstu.vwxyzABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEF.GHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP";
+        let mut name = Name::from_ascii(test_str).unwrap();
+        let name2 = name.clone();
+
+        let len = name.label_data.len();
+        let mut cap_table: [u32; 255] = [0; 255];
+        let mut lower_table: [u32; 255] = [0; 255];
+        let mut mean_table: [f64; 255] = [0.0; 255];
+
+        for _ in 0..iterations {
+            name.randomize_label_case();
+            assert_eq!(name, name2);
+
+            for (j, &cbyte) in name.label_data.iter().enumerate() {
+                if cbyte.is_ascii_lowercase() {
+                    lower_table[j] += 1;
+                } else if cbyte.is_ascii_uppercase() {
+                    cap_table[j] += 1;
+                }
+            }
+            name = Name::from_ascii(test_str).unwrap();
+        }
+
+        println!("Distribution of lower case values by label offset");
+        println!("-------------------------------------------------");
+        for i in 0..len {
+            let cap_ratio = cap_table[i] as f64 / iterations as f64;
+            let lower_ratio = lower_table[i] as f64 / iterations as f64;
+            let total_ratio = cap_ratio + lower_ratio;
+            mean_table[i] = lower_ratio;
+            println!(
+                "{i:03} {:.3}% {:.3}% {:.3}%",
+                cap_ratio * 100.0,
+                lower_ratio * 100.0,
+                total_ratio * 100.0,
+            );
+        }
+        println!("-------------------------------------------------");
+
+        let data_mean = mean_table.iter().sum::<f64>() / len as f64;
+        let data_std_deviation = std_deviation(data_mean, &mean_table);
+
+        let mut max_zscore = 0.0;
+        for elem in mean_table.iter() {
+            let zscore = (elem - data_mean) / data_std_deviation;
+
+            if zscore > max_zscore {
+                max_zscore = zscore;
+            }
+        }
+
+        println!("μ: {data_mean:.4} σ: {data_std_deviation:.4}, max variance: {max_zscore:.4}σ");
+
+        // These levels are from observed test behavior; typical values for 50k iterations are:
+        //
+        //   mean: ~ 50% (this is the % of test iterations where the value is lower case)
+        //   standard deviation: ~ 0.063
+        //   largest z-score: ~ 0.10 (i.e., around 1/10 of a standard deviation)
+        //
+        // The values below are designed to avoid random CI test failures, but alert on any
+        // significant variation from the observed randomization behavior during test development.
+        //
+        // Specifically, this test will fail if there is a single bit hole in the random bit stream
+        assert!(data_mean > 0.485 && data_mean < 0.515);
+        assert!(data_std_deviation < 0.18);
+        assert!(max_zscore < 0.33);
+    }
+
+    fn std_deviation(mean: f64, data: &[f64]) -> f64 {
+        match (mean, data.len()) {
+            (data_mean, count) if count > 0 => {
+                let variance = data
+                    .iter()
+                    .map(|value| {
+                        let diff = data_mean - *value;
+
+                        diff * diff
+                    })
+                    .sum::<f64>()
+                    / count as f64;
+
+                variance.sqrt()
+            }
+            _ => 0.0,
+        }
     }
 }
