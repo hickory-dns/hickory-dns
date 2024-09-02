@@ -97,3 +97,75 @@ fn unsigned_zone_fixture(nsec: Nsec) -> Result<()> {
 
     Ok(())
 }
+
+// the `no-ds.testing.` zone is signed but no DS record exists in the parent `testing.` zone.
+// importantly, the `testing.` zone must contain NSEC3 records to deny the existence of
+// `no-ds.testing./DS` (which is why we cannot use `Graph::build` + `Sign::AndAmend` to produce
+// this network)
+#[test]
+#[ignore = "hickory-dns responds with SERVFAIL"]
+fn no_ds_record() -> Result<()> {
+    let sign_settings = SignSettings::default();
+
+    let network = Network::new()?;
+
+    let no_ds_zone = FQDN::TEST_TLD.push_label("no-ds");
+    let needle_fqdn = no_ds_zone.push_label("example");
+    let needle_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
+
+    let mut no_ds_ns = NameServer::new(&dns_test::PEER, no_ds_zone.clone(), &network)?;
+    no_ds_ns.add(Record::a(needle_fqdn.clone(), needle_ipv4_addr));
+
+    let mut sibling_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
+    let mut tld_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_TLD, &network)?;
+    let mut root_ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, &network)?;
+
+    sibling_ns.add(root_ns.a());
+    sibling_ns.add(tld_ns.a());
+    sibling_ns.add(no_ds_ns.a());
+    sibling_ns.add(sibling_ns.a());
+
+    root_ns.referral_nameserver(&tld_ns);
+    tld_ns.referral_nameserver(&sibling_ns);
+    tld_ns.referral_nameserver(&no_ds_ns);
+
+    let no_ds_ns = no_ds_ns.sign(sign_settings.clone())?;
+    let sibling_ns = sibling_ns.sign(sign_settings.clone())?;
+
+    tld_ns.add(sibling_ns.ds().ksk.clone());
+    // IMPORTANT omit this! this is the DS that connects `testing.` to `no-ds.testing.` in
+    // the chain of trust. `no-ds.testing.` is correctly signed but the lack of the DS record turns
+    // it into an "island of security"
+    if false {
+        tld_ns.add(no_ds_ns.ds().ksk.clone());
+    }
+    let tld_ns = tld_ns.sign(sign_settings.clone())?;
+
+    root_ns.add(tld_ns.ds().ksk.clone());
+
+    let mut trust_anchor = TrustAnchor::empty();
+    let root_ns = root_ns.sign(sign_settings)?;
+    trust_anchor.add(root_ns.key_signing_key().clone());
+    trust_anchor.add(root_ns.zone_signing_key().clone());
+
+    let root_hint = root_ns.root_hint();
+    let _root_ns = root_ns.start()?;
+    let _com_ns = tld_ns.start()?;
+    let _sibling_ns = sibling_ns.start()?;
+    let _no_ds_ns = no_ds_ns.start()?;
+
+    let resolver = Resolver::new(&network, root_hint)
+        .trust_anchor(&trust_anchor)
+        .start()?;
+
+    let client = Client::new(&network)?;
+    let settings = *DigSettings::default().recurse().authentic_data();
+    let output = client.dig(settings, resolver.ipv4_addr(), RecordType::A, &needle_fqdn)?;
+
+    dbg!(&output);
+
+    assert!(output.status.is_noerror());
+    assert!(!output.flags.authenticated_data);
+
+    Ok(())
+}
