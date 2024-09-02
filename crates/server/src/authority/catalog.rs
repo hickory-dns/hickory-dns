@@ -668,11 +668,11 @@ async fn send_authoritative_response(
                         // run the soa lookup
                         Continue(Ok(nsecs)) | Break(Ok(nsecs)) => (Some(nsecs), None),
                         Continue(Err(e)) | Break(Err(e)) => {
-                            warn!("failed to lookup nsecs: {}", e);
+                            warn!("failed to lookup nsecs for request {_request_id}: {e}");
                             (None, None)
                         }
                         Skip => {
-                            warn!("unexpected lookup skip");
+                            warn!("unexpected lookup skip for request {_request_id}");
                             (None, None)
                         }
                     }
@@ -717,11 +717,11 @@ async fn send_authoritative_response(
                             // run the soa lookup
                             Continue(Ok(nsecs)) | Break(Ok(nsecs)) => Some(nsecs),
                             Continue(Err(e)) | Break(Err(e)) => {
-                                warn!("failed to lookup nsecs: {e}");
+                                warn!("failed to lookup nsecs for request {_request_id}: {e}");
                                 None
                             }
                             Skip => {
-                                warn!("unexpected lookup skip");
+                                warn!("unexpected lookup skip for request {_request_id}");
                                 None
                             }
                         }
