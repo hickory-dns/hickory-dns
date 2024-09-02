@@ -24,13 +24,13 @@ fn on_clients_ds_query_it_queries_the_parent_zone() -> Result<()> {
         },
     )?;
 
-    let mut com_ns_addr = None;
+    let mut tld_ns_addr = None;
     for nameserver in &nameservers {
         if nameserver.zone() == &FQDN::TEST_TLD {
-            com_ns_addr = Some(nameserver.ipv4_addr());
+            tld_ns_addr = Some(nameserver.ipv4_addr());
         }
     }
-    let com_ns_addr = com_ns_addr.expect("com. NS not found");
+    let tld_ns_addr = tld_ns_addr.expect("NS for TLD not found");
 
     let trust_anchor = &trust_anchor.unwrap();
     let resolver = Resolver::new(&network, root)
@@ -55,7 +55,7 @@ fn on_clients_ds_query_it_queries_the_parent_zone() -> Result<()> {
     let ds = record.try_into_ds().unwrap();
     assert_eq!(ds.zone, FQDN::TEST_DOMAIN);
 
-    // check that DS query was forwarded to the `com.` (parent zone) nameserver
+    // check that DS query was forwarded to the `testing.` (parent zone) nameserver
     let client_addr = client.ipv4_addr();
     let mut outgoing_ds_query_count = 0;
     for Capture { message, direction } in captures {
@@ -71,7 +71,7 @@ fn on_clients_ds_query_it_queries_the_parent_zone() -> Result<()> {
                         let test_domain = FQDN::TEST_DOMAIN.as_str();
                         let test_domain = test_domain.strip_suffix('.').unwrap_or(test_domain);
                         assert!(query.contains(test_domain));
-                        assert_eq!(com_ns_addr, destination);
+                        assert_eq!(tld_ns_addr, destination);
 
                         outgoing_ds_query_count += 1;
                     }
