@@ -487,7 +487,6 @@ where
 
             // If all the keys are valid, then we are secure
             // FIXME: what if only some are invalid? we should return the good ones?
-            trace!("validated dnskey: {}", rrset.name());
             return Ok(false);
         }
     }
