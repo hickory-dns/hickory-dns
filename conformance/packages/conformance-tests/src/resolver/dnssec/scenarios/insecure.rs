@@ -17,13 +17,13 @@ mod deprecated_algorithm;
 #[ignore]
 fn unsigned_zone() -> Result<()> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
-    let needle_fqdn = FQDN("example.unsigned.testing.")?;
+    let unsigned_zone = FQDN::TEST_TLD.push_label("unsigned");
+    let needle_fqdn = unsigned_zone.push_label("example");
 
     let sign_settings = SignSettings::default();
     let network = Network::new()?;
 
-    let unsigned_fqdn = FQDN("unsigned.testing.")?;
-    let mut unsigned_ns = NameServer::new(&dns_test::PEER, unsigned_fqdn.clone(), &network)?;
+    let mut unsigned_ns = NameServer::new(&dns_test::PEER, unsigned_zone.clone(), &network)?;
     unsigned_ns.add(Record::a(needle_fqdn.clone(), expected_ipv4_addr));
     let mut nameservers_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
     let mut tld_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_TLD, &network)?;
