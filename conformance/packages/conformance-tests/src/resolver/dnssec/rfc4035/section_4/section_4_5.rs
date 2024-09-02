@@ -89,11 +89,11 @@ fn caches_query_without_dnssec_to_return_all_dnssec_records_in_subsequent_query(
     Ok(())
 }
 
-/// The chain of trust used to validate `A example.nameservers.com.` includes records within the
-/// `nameservers.com.`, `com.` and `.` domains. Those records should be cached in the "Secure"
-/// cache as part of the validation of `A example.com.`.
+/// The chain of trust used to validate `A example.hickory-dns.testing.` includes records within the
+/// `hickory-dns.testing.`, `testing` and `.` zones. Those records should be cached in the "Secure"
+/// cache as part of the validation of `A example.hickory-dns.testing.`.
 ///
-/// Therefore, a second query for a record like `DS com.` should be a cache hit.
+/// Therefore, a second query for a record like `DS testing.` should be a cache hit.
 #[test]
 fn caches_intermediate_records() -> Result<()> {
     let leaf_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
