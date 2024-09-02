@@ -25,22 +25,22 @@ fn unsigned_zone() -> Result<()> {
 
     let mut unsigned_ns = NameServer::new(&dns_test::PEER, unsigned_zone.clone(), &network)?;
     unsigned_ns.add(Record::a(needle_fqdn.clone(), expected_ipv4_addr));
-    let mut nameservers_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
+    let mut sibling_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
     let mut tld_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_TLD, &network)?;
     let mut root_ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, &network)?;
 
-    nameservers_ns.add(root_ns.a());
-    nameservers_ns.add(tld_ns.a());
-    nameservers_ns.add(unsigned_ns.a());
-    nameservers_ns.add(nameservers_ns.a());
+    sibling_ns.add(root_ns.a());
+    sibling_ns.add(tld_ns.a());
+    sibling_ns.add(unsigned_ns.a());
+    sibling_ns.add(sibling_ns.a());
 
     root_ns.referral_nameserver(&tld_ns);
-    tld_ns.referral_nameserver(&nameservers_ns);
+    tld_ns.referral_nameserver(&sibling_ns);
     tld_ns.referral_nameserver(&unsigned_ns);
 
-    let nameservers_ns = nameservers_ns.sign(sign_settings.clone())?;
+    let sibling_ns = sibling_ns.sign(sign_settings.clone())?;
 
-    tld_ns.add(nameservers_ns.ds().ksk.clone());
+    tld_ns.add(sibling_ns.ds().ksk.clone());
     let tld_ns = tld_ns.sign(sign_settings.clone())?;
 
     root_ns.add(tld_ns.ds().ksk.clone());
@@ -53,7 +53,7 @@ fn unsigned_zone() -> Result<()> {
     let root_hint = root_ns.root_hint();
     let _root_ns = root_ns.start()?;
     let _tld_ns = tld_ns.start()?;
-    let _nameservers_ns = nameservers_ns.start()?;
+    let _sibling_ns = sibling_ns.start()?;
     let _unsigned_ns = unsigned_ns.start()?;
 
     let resolver = Resolver::new(&network, root_hint)
