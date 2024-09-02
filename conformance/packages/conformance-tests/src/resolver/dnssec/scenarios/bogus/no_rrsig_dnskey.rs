@@ -68,7 +68,7 @@ fn query_dnskey_record() -> Result<()> {
 
     if dns_test::SUBJECT.is_unbound() {
         // check that this failed for the right reason
-        assert_eq!(Some(ExtendedDnsError::RrsigsMissing), output.ede);
+        assert!(output.ede.iter().eq(&[ExtendedDnsError::RrsigsMissing]));
     }
 
     Ok(())
@@ -143,7 +143,7 @@ fn query_other_record() -> Result<()> {
 
     if dns_test::SUBJECT.is_unbound() {
         // check that this failed for the right reason
-        assert_eq!(Some(ExtendedDnsError::RrsigsMissing), output.ede);
+        assert!(output.ede.iter().eq(&[ExtendedDnsError::RrsigsMissing]));
     }
 
     Ok(())
