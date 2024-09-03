@@ -22,8 +22,8 @@ use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     rr::{
         rdata::{
-            A, AAAA, ANAME, CAA, CERT, CNAME, CSYNC, HINFO, HTTPS, MX, NAPTR, NS, NULL, OPENPGPKEY, OPT,
-            PTR, SOA, SRV, SSHFP, SVCB, TLSA, TXT,
+            A, AAAA, ANAME, CAA, CERT, CNAME, CSYNC, HINFO, HTTPS, MX, NAPTR, NS, NULL, OPENPGPKEY,
+            OPT, PTR, SOA, SRV, SSHFP, SVCB, TLSA, TXT,
         },
         record_type::RecordType,
         RecordData, RecordDataDecodable,
@@ -1147,12 +1147,12 @@ mod tests {
             ),
             (
                 RData::SOA(SOA::new(
-                        Name::from_str("www.example.com").unwrap(),
-                        Name::from_str("xxx.example.com").unwrap(),
-                        u32::MAX,
-                        -1,
-                        -1,
-                        -1,
+                    Name::from_str("www.example.com").unwrap(),
+                    Name::from_str("xxx.example.com").unwrap(),
+                    u32::MAX,
+                    -1,
+                    -1,
+                    -1,
                     u32::MAX,
                 )),
                 vec![
@@ -1164,9 +1164,9 @@ mod tests {
             ),
             (
                 RData::TXT(TXT::new(vec![
-                            "abcdef".to_string(),
-                            "ghi".to_string(),
-                            "".to_string(),
+                    "abcdef".to_string(),
+                    "ghi".to_string(),
+                    "".to_string(),
                     "j".to_string(),
                 ])),
                 vec![
@@ -1214,12 +1214,12 @@ mod tests {
             RData::PTR(PTR(Name::from_str("www.example.com").unwrap())),
             RData::NS(NS(Name::from_str("www.example.com").unwrap())),
             RData::SOA(SOA::new(
-                    Name::from_str("www.example.com").unwrap(),
-                    Name::from_str("xxx.example.com").unwrap(),
-                    u32::MAX,
-                    -1,
-                    -1,
-                    -1,
+                Name::from_str("www.example.com").unwrap(),
+                Name::from_str("xxx.example.com").unwrap(),
+                u32::MAX,
+                -1,
+                -1,
+                -1,
                 u32::MAX,
             )),
             RData::TXT(TXT::new(vec![
@@ -1235,12 +1235,12 @@ mod tests {
             RData::PTR(PTR(Name::from_str("www.example.com").unwrap())),
             RData::NS(NS(Name::from_str("www.example.com").unwrap())),
             RData::SOA(SOA::new(
-                    Name::from_str("www.example.com").unwrap(),
-                    Name::from_str("xxx.example.com").unwrap(),
-                    u32::MAX,
-                    -1,
-                    -1,
-                    -1,
+                Name::from_str("www.example.com").unwrap(),
+                Name::from_str("xxx.example.com").unwrap(),
+                u32::MAX,
+                -1,
+                -1,
+                -1,
                 u32::MAX,
             )),
             RData::TXT(TXT::new(vec![
