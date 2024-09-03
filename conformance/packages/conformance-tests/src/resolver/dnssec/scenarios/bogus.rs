@@ -112,10 +112,10 @@ fn no_rrsig_ksk() -> Result<()> {
                         if let Record::DNSKEY(dnskey) = record {
                             if dnskey.is_key_signing_key() {
                                 assert!(ksk_tag.is_none(), "more than one KSK");
-                                ksk_tag = Some(dnskey.calculate_key_tag());
+                                ksk_tag = Some(dnskey.rdata.calculate_key_tag());
                             } else {
                                 assert!(zsk_tag.is_none(), "more than one ZSK");
-                                zsk_tag = Some(dnskey.calculate_key_tag());
+                                zsk_tag = Some(dnskey.rdata.calculate_key_tag());
                             }
                         }
                     }
