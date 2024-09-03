@@ -36,6 +36,28 @@ impl SignSettings {
         }
     }
 
+    pub fn dsa() -> Self {
+        Self {
+            algorithm: Algorithm::DSA,
+            zsk_bits: 1024,
+            ksk_bits: 1024,
+            expiration: None,
+            inception: None,
+            nsec_salt: None,
+        }
+    }
+
+    pub fn rsamd5() -> Self {
+        Self {
+            algorithm: Algorithm::RSAMD5,
+            zsk_bits: 2048,
+            ksk_bits: 2048,
+            expiration: None,
+            inception: None,
+            nsec_salt: None,
+        }
+    }
+
     fn rsasha256() -> Self {
         Self {
             algorithm: Algorithm::RSASHA256,
@@ -81,7 +103,10 @@ impl Default for SignSettings {
 
 #[derive(Debug, Clone, Copy)]
 #[allow(non_camel_case_types)]
+#[allow(clippy::upper_case_acronyms)]
 enum Algorithm {
+    DSA,
+    RSAMD5,
     RSASHA1_NSEC3,
     RSASHA256,
 }
