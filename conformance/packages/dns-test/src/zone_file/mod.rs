@@ -153,6 +153,10 @@ impl DNSKEY {
 
         record::DNSKEY { zone, ttl, rdata }
     }
+
+    pub(crate) fn rdata(&self) -> &DNSKEYRData {
+        &self.rdata
+    }
 }
 
 impl FromStr for DNSKEY {

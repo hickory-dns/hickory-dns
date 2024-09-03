@@ -5,7 +5,7 @@ use crate::container::{Child, Container, Network};
 use crate::implementation::{Config, Role};
 use crate::record::{self, Record, SoaSettings, DS, SOA};
 use crate::tshark::Tshark;
-use crate::zone_file::{Root, ZoneFile};
+use crate::zone_file::{self, Root, ZoneFile};
 use crate::zone_file::{SignSettings, Signer};
 use crate::{Implementation, Result, TrustAnchor, DEFAULT_TTL, FQDN};
 
@@ -127,7 +127,7 @@ impl Graph {
                     }
 
                     let mut nameserver = nameserver.sign(settings.clone())?;
-                    children_ds.push(nameserver.ds().clone());
+                    children_ds.push(nameserver.ds().ksk.clone());
                     children_num_labels = nameserver.zone().num_labels();
                     if let Some(mutate) = maybe_mutate {
                         let zone = nameserver.zone().clone();
@@ -343,7 +343,7 @@ impl NameServer<Signed> {
         self.state.trust_anchor()
     }
 
-    pub fn ds(&self) -> &DS {
+    pub fn ds(&self) -> &DS2 {
         &self.state.ds
     }
 }
@@ -417,8 +417,39 @@ impl<S> NameServer<S> {
 
 pub struct Stopped;
 
+/// DS records for both the KSK and the ZSK
+#[derive(Debug)]
+pub struct DS2 {
+    pub ksk: DS,
+    pub zsk: DS,
+}
+
+impl DS2 {
+    pub(crate) fn classify(dses: Vec<DS>, zsk: &zone_file::DNSKEY, ksk: &zone_file::DNSKEY) -> DS2 {
+        let mut ksk_ds = None;
+        let mut zsk_ds = None;
+
+        let zsk_tag = zsk.rdata().calculate_key_tag();
+        let ksk_tag = ksk.rdata().calculate_key_tag();
+        for ds in dses {
+            if ds.key_tag == zsk_tag {
+                assert!(zsk_ds.is_none());
+                zsk_ds = Some(ds);
+            } else if ds.key_tag == ksk_tag {
+                assert!(ksk_ds.is_none());
+                ksk_ds = Some(ds);
+            }
+        }
+
+        DS2 {
+            ksk: ksk_ds.expect("DS for KSK not found"),
+            zsk: zsk_ds.expect("DS for ZSK not found"),
+        }
+    }
+}
+
 pub struct Signed {
-    pub(crate) ds: DS,
+    pub(crate) ds: DS2,
     pub(crate) zsk: record::DNSKEY,
     pub(crate) ksk: record::DNSKEY,
     pub(crate) signed: ZoneFile,
