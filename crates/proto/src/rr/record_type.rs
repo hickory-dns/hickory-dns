@@ -48,7 +48,8 @@ pub enum RecordType {
     CDS,
     /// [RFC 7344](https://tools.ietf.org/html/rfc7344) Child DNSKEY
     CDNSKEY,
-    //  CERT,       // 37 RFC 4398 Certificate record
+    /// [RFC 4398](https://tools.ietf.org/html/rfc4398) Storing Certificates in the Domain Name System (DNS)
+    CERT,
     /// [RFC 1035](https://tools.ietf.org/html/rfc1035) Canonical name record
     CNAME,
     //  DHCID,      // 49 RFC 4701 DHCP identifier
@@ -125,6 +126,12 @@ impl RecordType {
     #[inline]
     pub fn is_any(self) -> bool {
         self == Self::ANY
+    }
+
+    /// Returns true if this is a CERT
+    #[inline]
+    pub fn is_cert(self) -> bool {
+        self == Self::CERT
     }
 
     /// Returns true if this is a CNAME
@@ -205,6 +212,7 @@ impl FromStr for RecordType {
             "AXFR" => Ok(Self::AXFR),
             "CAA" => Ok(Self::CAA),
             "CDNSKEY" => Ok(Self::CDNSKEY),
+            "CERT" => Ok(Self::CERT),
             "CDS" => Ok(Self::CDS),
             "CNAME" => Ok(Self::CNAME),
             "CSYNC" => Ok(Self::CSYNC),
@@ -258,6 +266,7 @@ impl From<u16> for RecordType {
             257 => Self::CAA,
             59 => Self::CDS,
             60 => Self::CDNSKEY,
+            37 => Self::CERT,
             5 => Self::CNAME,
             62 => Self::CSYNC,
             48 => Self::DNSKEY,
@@ -300,10 +309,10 @@ impl BinEncodable for RecordType {
 impl<'r> BinDecodable<'r> for RecordType {
     fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
         Ok(decoder
-            .read_u16()
+                .read_u16()
             .map(
                 Restrict::unverified, /*RecordType is safe with any u16*/
-            )
+        )
             .map(Self::from)?)
     }
 }
@@ -331,6 +340,7 @@ impl From<RecordType> for &'static str {
             RecordType::AXFR => "AXFR",
             RecordType::CAA => "CAA",
             RecordType::CDNSKEY => "CDNSKEY",
+            RecordType::CERT => "CERT",
             RecordType::CDS => "CDS",
             RecordType::CNAME => "CNAME",
             RecordType::CSYNC => "CSYNC",
@@ -384,6 +394,7 @@ impl From<RecordType> for u16 {
             RecordType::AXFR => 252,
             RecordType::CAA => 257,
             RecordType::CDNSKEY => 60,
+            RecordType::CERT => 37,
             RecordType::CDS => 59,
             RecordType::CNAME => 5,
             RecordType::CSYNC => 62,
@@ -450,6 +461,7 @@ mod tests {
             RecordType::A,
             RecordType::NS,
             RecordType::CNAME,
+            RecordType::CERT,
             RecordType::SOA,
             RecordType::NULL,
             RecordType::PTR,
@@ -460,7 +472,7 @@ mod tests {
             RecordType::SRV,
             RecordType::CSYNC,
             RecordType::AXFR,
-            RecordType::ANY,
+            RecordType::ANY
         ];
 
         let mut unordered = vec![
@@ -474,6 +486,7 @@ mod tests {
             RecordType::PTR,
             RecordType::MX,
             RecordType::CNAME,
+            RecordType::CERT,
             RecordType::TXT,
             RecordType::AAAA,
             RecordType::HINFO,
@@ -498,6 +511,7 @@ mod tests {
             "AAAA",
             "ANAME",
             "CAA",
+            "CERT",
             "CNAME",
             "CSYNC",
             "HINFO",

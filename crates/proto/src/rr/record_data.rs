@@ -22,7 +22,7 @@ use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     rr::{
         rdata::{
-            A, AAAA, ANAME, CAA, CNAME, CSYNC, HINFO, HTTPS, MX, NAPTR, NS, NULL, OPENPGPKEY, OPT,
+            A, AAAA, ANAME, CAA, CERT, CNAME, CSYNC, HINFO, HTTPS, MX, NAPTR, NS, NULL, OPENPGPKEY, OPT,
             PTR, SOA, SRV, SSHFP, SVCB, TLSA, TXT,
         },
         record_type::RecordType,
@@ -138,6 +138,23 @@ pub enum RData {
     /// length of the RDATA section.
     /// ```
     CAA(CAA),
+
+    /// ```text
+    /// -- RFC 4398 -- Storing Certificates in DNS       November 1987
+    /// The CERT resource record (RR) has the structure given below.  Its RR
+    /// type code is 37.
+    ///
+    ///    1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+    /// 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    /// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /// |             type              |             key tag           |
+    /// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /// |   algorithm   |                                               /
+    /// +---------------+            certificate or CRL                 /
+    /// /                                                               /
+    /// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
+    //// ```
+    CERT(CERT),
 
     /// ```text
     ///   3.3. Standard RRs
@@ -718,6 +735,7 @@ impl RData {
             Self::AAAA(..) => RecordType::AAAA,
             Self::ANAME(..) => RecordType::ANAME,
             Self::CAA(..) => RecordType::CAA,
+            Self::CERT(..) => RecordType::CERT,
             Self::CNAME(..) => RecordType::CNAME,
             Self::CSYNC(..) => RecordType::CSYNC,
             Self::HINFO(..) => RecordType::HINFO,
@@ -779,6 +797,10 @@ impl RData {
             RecordType::CAA => {
                 trace!("reading CAA");
                 CAA::read_data(decoder, length).map(Self::CAA)
+            }
+            RecordType::CERT => {
+                trace!("reading CERT");
+                CERT::read_data(decoder, length).map(Self::CERT)
             }
             RecordType::CNAME => {
                 trace!("reading CNAME");
@@ -956,6 +978,7 @@ impl BinEncodable for RData {
             Self::AAAA(ref address) => address.emit(encoder),
             Self::ANAME(ref name) => encoder.with_canonical_names(|encoder| name.emit(encoder)),
             Self::CAA(ref caa) => encoder.with_canonical_names(|encoder| caa.emit(encoder)),
+            Self::CERT(ref cert) => cert.emit(encoder),
             Self::CNAME(ref cname) => cname.emit(encoder),
             Self::NS(ref ns) => ns.emit(encoder),
             Self::PTR(ref ptr) => ptr.emit(encoder),
@@ -1017,6 +1040,7 @@ impl fmt::Display for RData {
             Self::AAAA(ref address) => w(f, address),
             Self::ANAME(ref name) => w(f, name),
             Self::CAA(ref caa) => w(f, caa),
+            Self::CERT(ref cert) => w(f, cert),
             // to_lowercase for rfc4034 and rfc6840
             Self::CNAME(ref cname) => w(f, cname),
             Self::NS(ref ns) => w(f, ns),
@@ -1123,12 +1147,12 @@ mod tests {
             ),
             (
                 RData::SOA(SOA::new(
-                    Name::from_str("www.example.com").unwrap(),
-                    Name::from_str("xxx.example.com").unwrap(),
-                    u32::MAX,
-                    -1,
-                    -1,
-                    -1,
+                        Name::from_str("www.example.com").unwrap(),
+                        Name::from_str("xxx.example.com").unwrap(),
+                        u32::MAX,
+                        -1,
+                        -1,
+                        -1,
                     u32::MAX,
                 )),
                 vec![
@@ -1140,9 +1164,9 @@ mod tests {
             ),
             (
                 RData::TXT(TXT::new(vec![
-                    "abcdef".to_string(),
-                    "ghi".to_string(),
-                    "".to_string(),
+                            "abcdef".to_string(),
+                            "ghi".to_string(),
+                            "".to_string(),
                     "j".to_string(),
                 ])),
                 vec![
@@ -1190,12 +1214,12 @@ mod tests {
             RData::PTR(PTR(Name::from_str("www.example.com").unwrap())),
             RData::NS(NS(Name::from_str("www.example.com").unwrap())),
             RData::SOA(SOA::new(
-                Name::from_str("www.example.com").unwrap(),
-                Name::from_str("xxx.example.com").unwrap(),
-                u32::MAX,
-                -1,
-                -1,
-                -1,
+                    Name::from_str("www.example.com").unwrap(),
+                    Name::from_str("xxx.example.com").unwrap(),
+                    u32::MAX,
+                    -1,
+                    -1,
+                    -1,
                 u32::MAX,
             )),
             RData::TXT(TXT::new(vec![
@@ -1211,12 +1235,12 @@ mod tests {
             RData::PTR(PTR(Name::from_str("www.example.com").unwrap())),
             RData::NS(NS(Name::from_str("www.example.com").unwrap())),
             RData::SOA(SOA::new(
-                Name::from_str("www.example.com").unwrap(),
-                Name::from_str("xxx.example.com").unwrap(),
-                u32::MAX,
-                -1,
-                -1,
-                -1,
+                    Name::from_str("www.example.com").unwrap(),
+                    Name::from_str("xxx.example.com").unwrap(),
+                    u32::MAX,
+                    -1,
+                    -1,
+                    -1,
                 u32::MAX,
             )),
             RData::TXT(TXT::new(vec![
@@ -1264,6 +1288,7 @@ mod tests {
             RData::AAAA(..) => RecordType::AAAA,
             RData::ANAME(..) => RecordType::ANAME,
             RData::CAA(..) => RecordType::CAA,
+            RData::CERT(..) => RecordType::CERT,
             RData::CNAME(..) => RecordType::CNAME,
             RData::CSYNC(..) => RecordType::CSYNC,
             RData::HINFO(..) => RecordType::HINFO,
