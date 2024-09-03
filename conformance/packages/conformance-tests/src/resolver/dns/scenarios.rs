@@ -5,6 +5,8 @@ use dns_test::name_server::{Graph, NameServer, Sign};
 use dns_test::record::{Record, RecordType};
 use dns_test::{Network, Resolver, Result, FQDN};
 
+mod bad_referral;
+
 #[test]
 fn can_resolve() -> Result<()> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
