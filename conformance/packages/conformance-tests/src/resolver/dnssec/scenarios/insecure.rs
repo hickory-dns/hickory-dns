@@ -40,10 +40,10 @@ fn unsigned_zone() -> Result<()> {
 
     let nameservers_ns = nameservers_ns.sign(sign_settings.clone())?;
 
-    tld_ns.add(nameservers_ns.ds().clone());
+    tld_ns.add(nameservers_ns.ds().ksk.clone());
     let tld_ns = tld_ns.sign(sign_settings.clone())?;
 
-    root_ns.add(tld_ns.ds().clone());
+    root_ns.add(tld_ns.ds().ksk.clone());
 
     let mut trust_anchor = TrustAnchor::empty();
     let root_ns = root_ns.sign(sign_settings)?;
