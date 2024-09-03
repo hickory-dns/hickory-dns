@@ -584,6 +584,13 @@ lookup_type!(
     rdata::TXT
 );
 lookup_type!(
+    CertLookup,
+    CertLookupIter,
+    CertLookupIntoIter,
+    RData::CERT,
+    rdata::CERT
+);
+lookup_type!(
     SoaLookup,
     SoaLookupIter,
     SoaLookupIntoIter,

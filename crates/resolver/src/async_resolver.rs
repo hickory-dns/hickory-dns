@@ -455,6 +455,7 @@ impl<P: ConnectionProvider> AsyncResolver<P> {
     lookup_fn!(srv_lookup, lookup::SrvLookup, RecordType::SRV);
     lookup_fn!(tlsa_lookup, lookup::TlsaLookup, RecordType::TLSA);
     lookup_fn!(txt_lookup, lookup::TxtLookup, RecordType::TXT);
+    lookup_fn!(cert_lookup, lookup::CertLookup, RecordType::CERT);
 }
 
 impl<P: ConnectionProvider> fmt::Debug for AsyncResolver<P> {
