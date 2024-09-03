@@ -52,7 +52,7 @@ fn test_read_config() {
     assert_eq!(
         config.get_zones(),
         [
-            ZoneConfig::new(
+            ZoneConfig::new_with_file_zone(
                 "localhost".into(),
                 ZoneType::Primary,
                 "default/localhost.zone".into(),
@@ -61,7 +61,7 @@ fn test_read_config() {
                 None,
                 vec![],
             ),
-            ZoneConfig::new(
+            ZoneConfig::new_with_file_zone(
                 "0.0.127.in-addr.arpa".into(),
                 ZoneType::Primary,
                 "default/127.0.0.1.zone".into(),
@@ -70,7 +70,7 @@ fn test_read_config() {
                 None,
                 vec![],
             ),
-            ZoneConfig::new(
+            ZoneConfig::new_with_file_zone(
                 "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.\
                  ip6.arpa"
                     .into(),
@@ -81,7 +81,7 @@ fn test_read_config() {
                 None,
                 vec![],
             ),
-            ZoneConfig::new(
+            ZoneConfig::new_with_file_zone(
                 "255.in-addr.arpa".into(),
                 ZoneType::Primary,
                 "default/255.zone".into(),
@@ -90,7 +90,7 @@ fn test_read_config() {
                 None,
                 vec![],
             ),
-            ZoneConfig::new(
+            ZoneConfig::new_with_file_zone(
                 "0.in-addr.arpa".into(),
                 ZoneType::Primary,
                 "default/0.zone".into(),
@@ -99,7 +99,7 @@ fn test_read_config() {
                 None,
                 vec![],
             ),
-            ZoneConfig::new(
+            ZoneConfig::new_with_file_zone(
                 "example.com".into(),
                 ZoneType::Primary,
                 "example.com.zone".into(),
@@ -165,7 +165,7 @@ fn test_parse_zone_keys() {
 [[zones]]
 zone = \"example.com\"
 zone_type = \"Primary\"
-file = \"example.com.zone\"
+stores = { type = \"file\", zone_file_path = \"example.com.zone\"}
 
 \
          [[zones.keys]]
@@ -270,7 +270,6 @@ define_test_config!(dns_over_tls_rustls_and_openssl);
 define_test_config!(dns_over_tls);
 #[cfg(feature = "sqlite")]
 define_test_config!(dnssec_with_update);
-define_test_config!(dnssec_with_update_deprecated);
 define_test_config!(example);
 define_test_config!(ipv4_and_ipv6);
 define_test_config!(ipv4_only);

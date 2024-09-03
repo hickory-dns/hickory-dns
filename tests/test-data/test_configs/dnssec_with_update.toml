@@ -5,27 +5,27 @@
 [[zones]]
 zone = "localhost"
 zone_type = "Primary"
-file = "default/localhost.zone"
+stores = { type = "file", zone_file_path = "default/localhost.zone" }
 
 [[zones]]
 zone = "0.0.127.in-addr.arpa"
 zone_type = "Primary"
-file = "default/127.0.0.1.zone"
+stores = { type = "file", zone_file_path = "default/127.0.0.1.zone" }
 
 [[zones]]
 zone = "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"
 zone_type = "Primary"
-file = "default/ipv6_1.zone"
+stores = { type = "file", zone_file_path = "default/ipv6_1.zone" }
 
 [[zones]]
 zone = "255.in-addr.arpa"
 zone_type = "Primary"
-file = "default/255.zone"
+stores = { type = "file", zone_file_path = "default/255.zone" }
 
 [[zones]]
 zone = "0.in-addr.arpa"
 zone_type = "Primary"
-file = "default/0.zone"
+stores = { type = "file", zone_file_path = "default/0.zone" }
 
 [[zones]]
 ## zone: this is the ORIGIN of the zone, aka the base name, '.' is implied on the end
