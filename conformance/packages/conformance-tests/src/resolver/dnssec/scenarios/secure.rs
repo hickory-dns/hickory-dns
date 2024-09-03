@@ -2,7 +2,7 @@ use std::net::Ipv4Addr;
 
 use dns_test::client::{Client, DigSettings};
 use dns_test::name_server::NameServer;
-use dns_test::record::RecordType;
+use dns_test::record::{Record, RecordType};
 use dns_test::tshark::Capture;
 use dns_test::zone_file::SignSettings;
 use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
@@ -150,6 +150,102 @@ fn caches_answer() -> Result<()> {
     for Capture { direction, .. } in captures {
         assert!(!ns_addrs.contains(&direction.peer_addr()));
     }
+
+    Ok(())
+}
+
+// all the zones are correctly signed but the parent of the leaf zone contains a DS record that
+// corresponds to the child's ZSK. usually, the DS record contains the digest of the KSK and the
+// KSK is used to sign the ZSK, which is the key used to sign the records in the child zone.
+// however, it appears to also be fine to have the parent zone directly vouch for the child's ZSK,
+// eliminating the need for a KSK, so long the ZSK is self-signed in the child zone
+#[test]
+#[ignore = "hickory responds with SERVFAIL"]
+fn ds_of_zsk() -> Result<()> {
+    let sign_settings = SignSettings::default();
+
+    let network = Network::new()?;
+
+    let no_ds_zone = FQDN::TEST_TLD.push_label("ds-of-zsk");
+    let needle_fqdn = no_ds_zone.push_label("example");
+    let needle_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
+
+    let mut leaf_ns = NameServer::new(&dns_test::PEER, no_ds_zone.clone(), &network)?;
+    leaf_ns.add(Record::a(needle_fqdn.clone(), needle_ipv4_addr));
+
+    let mut sibling_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
+    let mut tld_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_TLD, &network)?;
+    let mut root_ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, &network)?;
+
+    sibling_ns.add(root_ns.a());
+    sibling_ns.add(tld_ns.a());
+    sibling_ns.add(leaf_ns.a());
+    sibling_ns.add(sibling_ns.a());
+
+    root_ns.referral_nameserver(&tld_ns);
+    tld_ns.referral_nameserver(&sibling_ns);
+    tld_ns.referral_nameserver(&leaf_ns);
+
+    let mut leaf_ns = leaf_ns.sign(sign_settings.clone())?;
+    let sibling_ns = sibling_ns.sign(sign_settings.clone())?;
+
+    tld_ns.add(sibling_ns.ds().ksk.clone());
+    let ds2 = leaf_ns.ds();
+    let ksk_tag = ds2.ksk.key_tag;
+    let zsk_tag = ds2.zsk.key_tag;
+    dbg!(&ds2);
+    // sanity checks
+    assert_ne!(ds2.zsk.key_tag, ds2.ksk.key_tag, "DS records are equal");
+    assert_ne!(ds2.zsk.digest, ds2.ksk.digest, "DS records are equal");
+    // IMPORTANT here we use the DS that corresponds to the _Zone_ Signing Key (ZSK)
+    tld_ns.add(ds2.zsk.clone());
+
+    // remove the RRSIG over DNSKEY that was produced using the KSK
+    // check that there's a RRSIG over DNSKEY produced with the ZSK
+    let zone_file_records = &mut leaf_ns.signed_zone_file_mut().records;
+    let mut remove_count = 0;
+    let mut dnskey_signed_with_zsk = false;
+    for index in (0..zone_file_records.len()).rev() {
+        if let Record::RRSIG(rrsig) = &zone_file_records[index] {
+            if rrsig.key_tag == ksk_tag {
+                assert_eq!(RecordType::DNSKEY, rrsig.type_covered);
+                remove_count += 1;
+                zone_file_records.remove(index);
+            } else if rrsig.key_tag == zsk_tag && rrsig.type_covered == RecordType::DNSKEY {
+                dnskey_signed_with_zsk = true;
+            }
+        }
+    }
+    assert_eq!(1, remove_count);
+    assert!(dnskey_signed_with_zsk);
+
+    let tld_ns = tld_ns.sign(sign_settings.clone())?;
+
+    root_ns.add(tld_ns.ds().ksk.clone());
+
+    let mut trust_anchor = TrustAnchor::empty();
+    let root_ns = root_ns.sign(sign_settings)?;
+    trust_anchor.add(root_ns.key_signing_key().clone());
+    trust_anchor.add(root_ns.zone_signing_key().clone());
+
+    let root_hint = root_ns.root_hint();
+    let _root_ns = root_ns.start()?;
+    let _com_ns = tld_ns.start()?;
+    let _sibling_ns = sibling_ns.start()?;
+    let _no_ds_ns = leaf_ns.start()?;
+
+    let resolver = Resolver::new(&network, root_hint)
+        .trust_anchor(&trust_anchor)
+        .start()?;
+
+    let client = Client::new(&network)?;
+    let settings = *DigSettings::default().recurse().authentic_data();
+    let output = client.dig(settings, resolver.ipv4_addr(), RecordType::A, &needle_fqdn)?;
+
+    dbg!(&output);
+
+    assert!(output.status.is_noerror());
+    assert!(output.flags.authenticated_data);
 
     Ok(())
 }
