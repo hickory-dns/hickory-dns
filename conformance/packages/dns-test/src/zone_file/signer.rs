@@ -46,6 +46,7 @@ impl SignSettings {
             expiration: None,
             inception: None,
             nsec_salt: None,
+            use_dnssec: false,
         }
     }
 
@@ -57,6 +58,7 @@ impl SignSettings {
             expiration: None,
             inception: None,
             nsec_salt: None,
+            use_dnssec: false,
         }
     }
 
