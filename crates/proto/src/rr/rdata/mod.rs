@@ -13,6 +13,7 @@
 pub mod a;
 pub mod aaaa;
 pub mod caa;
+pub mod cert;
 pub mod csync;
 pub mod hinfo;
 pub mod https;
@@ -32,6 +33,7 @@ pub mod txt;
 pub use self::a::A;
 pub use self::aaaa::AAAA;
 pub use self::caa::CAA;
+pub use self::cert::CERT;
 pub use self::csync::CSYNC;
 pub use self::hinfo::HINFO;
 pub use self::https::HTTPS;

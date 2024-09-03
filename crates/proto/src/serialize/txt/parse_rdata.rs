@@ -69,6 +69,7 @@ impl RDataParser for RData {
             RecordType::ANY => return Err(ParseError::from("parsing ANY doesn't make sense")),
             RecordType::AXFR => return Err(ParseError::from("parsing AXFR doesn't make sense")),
             RecordType::CAA => caa::parse(tokens).map(Self::CAA)?,
+            RecordType::CERT => Self::CERT(cert::parse(tokens)?),
             RecordType::CNAME => Self::CNAME(CNAME(name::parse(tokens, origin)?)),
             RecordType::CSYNC => csync::parse(tokens).map(Self::CSYNC)?,
             RecordType::HINFO => Self::HINFO(hinfo::parse(tokens)?),
