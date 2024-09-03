@@ -9,11 +9,11 @@
 use std::fmt;
 
 #[cfg(feature = "serde")]
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
 
 use crate::{
     error::*,
-    rr::{ RData, RecordData, RecordDataDecodable, RecordType },
+    rr::{RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::*,
 };
 

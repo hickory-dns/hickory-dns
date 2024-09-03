@@ -161,25 +161,25 @@ impl<R: RecordData> Record<R> {
 
         match R::try_from_rdata(rdata) {
             Ok(rdata) => Ok(Self {
-                    name_labels,
-                    dns_class,
-                    ttl,
-                    rdata,
+                name_labels,
+                dns_class,
+                ttl,
+                rdata,
                 #[cfg(feature = "mdns")]
                 mdns_cache_flush,
                 #[cfg(feature = "dnssec")]
                 proof,
-                }),
+            }),
             Err(rdata) => Err(Record {
-                    name_labels,
-                    dns_class,
-                    ttl,
-                    rdata,
+                name_labels,
+                dns_class,
+                ttl,
+                rdata,
                 #[cfg(feature = "mdns")]
                 mdns_cache_flush,
                 #[cfg(feature = "dnssec")]
                 proof,
-                }),
+            }),
         }
     }
 
@@ -491,9 +491,9 @@ impl<'r> BinDecodable<'r> for Record<RData> {
             .verify_unwrap(|u| (*u as usize) <= decoder.len())
             .map_err(|u| {
                 ProtoError::from(format!(
-                        "rdata length too large for remaining bytes, need: {} remain: {}",
-                        u,
-                        decoder.len()
+                    "rdata length too large for remaining bytes, need: {} remain: {}",
+                    u,
+                    decoder.len()
                 ))
             })?;
 
@@ -811,15 +811,15 @@ impl<'a, R: RecordData> TryFrom<&'a Record> for RecordRef<'a, R> {
         match R::try_borrow(rdata) {
             None => Err(record),
             Some(rdata) => Ok(Self {
-                    name_labels,
-                    dns_class: *dns_class,
-                    ttl: *ttl,
-                    rdata,
-                    #[cfg(feature = "mdns")]
-                    mdns_cache_flush: *mdns_cache_flush,
-                    #[cfg(feature = "dnssec")]
-                    proof: *proof,
-                }),
+                name_labels,
+                dns_class: *dns_class,
+                ttl: *ttl,
+                rdata,
+                #[cfg(feature = "mdns")]
+                mdns_cache_flush: *mdns_cache_flush,
+                #[cfg(feature = "dnssec")]
+                proof: *proof,
+            }),
         }
     }
 }
