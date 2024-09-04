@@ -402,15 +402,10 @@ impl CERT {
             return Err(ProtoError::from("invalid cert_record length".to_string()));
         }
 
-        let cert_data_b64: Vec<u8> = cert_record[5..].to_vec();
-        let cert_data: Vec<u8> = match data_encoding::BASE64.decode(&cert_data_b64) {
-            Ok(data) => data,
-            Err(_) => return Err(ProtoError::from("Invalid Base64 data".to_string())),
-        };
-
         let cert_type: u16 = ((cert_record[0] as u16) << 8) | (cert_record[1] as u16);
         let key_tag: u16 = ((cert_record[2] as u16) << 8) | (cert_record[3] as u16);
         let algorithm: u8 = cert_record[4].into();
+        let cert_data: Vec<u8> = cert_record[5..].to_vec();
 
         Ok(Self {
             cert_type: cert_type.into(),
@@ -620,7 +615,7 @@ mod tests {
 
     #[test]
     fn test_valid_cert_data_length() {
-        let valid_cert_data = vec![1, 2, 3, 4, 5]; // At least 5 bytes
+        let valid_cert_data = vec![1, 2, 3, 4, 5, 6]; // At least 6 bytes
         let result = CERT::from(valid_cert_data);
         assert!(
             result.is_ok(),
@@ -690,7 +685,7 @@ mod tests {
         assert_eq!(cert.cert_type, CertType::PKIX);
         assert_eq!(cert.key_tag, 12345);
         assert_eq!(cert.algorithm, Algorithm::RSASHA256); // Assuming this is algorithm 8
-        assert_eq!(cert.cert_data, vec![1, 2, 3]);
+        assert_eq!(cert.cert_data, vec![65, 81, 73, 68]);
     }
 
     #[test]
@@ -705,23 +700,6 @@ mod tests {
 
         if let Err(e) = result {
             assert_eq!(e.to_string(), "invalid cert_record length".to_string());
-        }
-    }
-
-    #[test]
-    fn test_invalid_base64_data() {
-        let invalid_cert_record = vec![
-            0x00, 0x01, // cert_type
-            0x30, 0x39, // key_tag
-            0x08, // algorithm
-            255, 255, // Invalid Base64 sequence
-        ];
-
-        let result = CERT::from(invalid_cert_record);
-        assert!(result.is_err(), "Expected error due to invalid Base64 data");
-
-        if let Err(e) = result {
-            assert_eq!(e.to_string(), "Invalid Base64 data".to_string());
         }
     }
 }
