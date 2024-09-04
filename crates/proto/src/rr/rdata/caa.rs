@@ -204,7 +204,9 @@ impl From<String> for Property {
 ///
 /// `Issue` and `IssueWild` => `Issuer`,
 /// `Iodef` => `Url`,
-/// `Unknown` => `Unknown`,
+/// `Unknown` => `Unknown`.
+///
+/// `Unknown` is also used for invalid values of known Tag types that cannot be parsed.
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Value {
@@ -212,7 +214,7 @@ pub enum Value {
     Issuer(Option<Name>, Vec<KeyValue>),
     /// Url to which to send CA errors
     Url(Url),
-    /// Unrecognized tag and value by Hickory DNS
+    /// Uninterpreted data, either for a tag that is not known to Hickory DNS, or an invalid value
     Unknown(Vec<u8>),
 }
 
@@ -242,13 +244,17 @@ fn read_value(
     match *tag {
         Property::Issue | Property::IssueWild => {
             let slice = decoder.read_slice(value_len)?.unverified(/*read_issuer verified as safe*/);
-            let value = read_issuer(slice)?;
-            Ok(Value::Issuer(value.0, value.1))
+            Ok(match read_issuer(slice) {
+                Ok(value) => Value::Issuer(value.0, value.1),
+                Err(_) => Value::Unknown(slice.to_vec()),
+            })
         }
         Property::Iodef => {
             let url = decoder.read_slice(value_len)?.unverified(/*read_iodef verified as safe*/);
-            let url = read_iodef(url)?;
-            Ok(Value::Url(url))
+            Ok(match read_iodef(url) {
+                Ok(url) => Value::Url(url),
+                Err(_) => Value::Unknown(url.to_vec()),
+            })
         }
         Property::Unknown(_) => Ok(Value::Unknown(
             decoder.read_vec(value_len)?.unverified(/*unknown will fail in usage*/),
@@ -837,8 +843,6 @@ mod tests {
 
     use std::str;
 
-    use crate::error::ProtoErrorKind;
-
     use super::*;
 
     #[test]
@@ -1002,6 +1006,12 @@ mod tests {
             Some(Name::parse("example.com.", None).unwrap()),
             vec![],
         ));
+        // invalid name
+        test_encode_decode(CAA {
+            issuer_critical: false,
+            tag: Property::Issue,
+            value: Value::Unknown(b"%%%%%".to_vec()),
+        });
     }
 
     #[test]
@@ -1020,6 +1030,21 @@ mod tests {
             false,
             Url::parse("mailto:root@example.com").unwrap(),
         ));
+        // invalid UTF-8
+        test_encode_decode(CAA {
+            issuer_critical: false,
+            tag: Property::Iodef,
+            value: Value::Unknown(b"\xff".to_vec()),
+        });
+    }
+
+    #[test]
+    fn test_encode_decode_unknown() {
+        test_encode_decode(CAA {
+            issuer_critical: true,
+            tag: Property::Unknown("tbs".to_string()),
+            value: Value::Unknown(b"Unknown".to_vec()),
+        });
     }
 
     fn test_encode(rdata: CAA, encoded: &[u8]) {
@@ -1152,10 +1177,14 @@ mod tests {
         ];
 
         let mut decoder = BinDecoder::new(MESSAGE);
-        let err = CAA::read_data(&mut decoder, Restrict::new(MESSAGE.len() as u16)).unwrap_err();
-        match err.kind() {
-            ProtoErrorKind::Msg(msg) => assert_eq!(msg, "bad character in CAA issuer key: ÿ"),
-            _ => panic!("unexpected error: {:?}", err),
+        let caa = CAA::read_data(&mut decoder, Restrict::new(MESSAGE.len() as u16)).unwrap();
+        assert!(!caa.issuer_critical());
+        assert_eq!(*caa.tag(), Property::Issue);
+        match caa.value() {
+            Value::Unknown(bytes) => {
+                assert_eq!(bytes, &MESSAGE[7..]);
+            }
+            _ => panic!("wrong value type: {:?}", caa.value()),
         }
     }
 }
