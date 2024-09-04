@@ -16,12 +16,108 @@
 
 //! cert records for storing certificate data
 
+use crate::rr::rdata::cert::{Algorithm, CertType};
 use crate::rr::rdata::CERT;
-use crate::serialize::txt::errors::ParseResult;
+use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
+
+fn to_u16(data: &str) -> ParseResult<u16> {
+    data.parse().map_err(ParseError::from)
+}
+
+fn to_u8(data: &str) -> ParseResult<u8> {
+    data.parse().map_err(ParseError::from)
+}
 
 /// Parse the RData from a set of Tokens
 #[allow(clippy::unnecessary_wraps)]
-pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(_tokens: I) -> ParseResult<CERT> {
-    // let txt_data: Vec<String> = tokens.map(ToString::to_string).collect();
-    Ok(CERT::new())
+pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<CERT> {
+    let mut iter = tokens;
+
+    let token: &str = iter
+        .next()
+        .ok_or_else(|| ParseError::from(ParseErrorKind::Message("CERT cert type field missing")))?;
+    let cert_type = CertType::from(to_u16(token)?);
+
+    let token: &str = iter
+        .next()
+        .ok_or_else(|| ParseError::from(ParseErrorKind::Message("CERT key tag field missing")))?;
+    let key_tag = to_u16(token)?;
+
+    let token: &str = iter
+        .next()
+        .ok_or_else(|| ParseError::from(ParseErrorKind::Message("CERT algorithm field missing")))?;
+    let algorithm = Algorithm::from(to_u8(token)?);
+
+    let token: &str = iter
+        .next()
+        .ok_or_else(|| ParseError::from(ParseErrorKind::Message("CERT data missing")))?;
+
+    let cert_data: Vec<u8> = data_encoding::BASE64
+        .decode(token.as_bytes())
+        .map_err(|_| ParseError::from(ParseErrorKind::Message("Invalid base64 CERT data")))?;
+
+    Ok(CERT::new(cert_type, key_tag, algorithm, cert_data))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_valid_cert_data() {
+        // Base64-encoded dummy certificate data.
+        let tokens = vec!["1", "123", "3", "Q2VydGlmaWNhdGUgZGF0YQ=="].into_iter();
+
+        let result = parse(tokens);
+
+        assert!(result.is_ok());
+
+        let cert = result.unwrap();
+        assert_eq!(cert.cert_type(), CertType::from(1));
+        assert_eq!(cert.key_tag(), 123);
+        assert_eq!(cert.algorithm(), Algorithm::from(3));
+        assert_eq!(cert.cert_data(), b"Certificate data".to_vec()); // Decoded base64 data.
+    }
+
+    #[test]
+    fn test_invalid_base64_data() {
+        // Invalid base64 data (contains invalid characters).
+        let tokens = vec!["1", "123", "3", "Invalid_base64"].into_iter();
+
+        let result = parse(tokens);
+
+        // Expecting an error for invalid base64 data.
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(format!("{}", err), "ParseError: Invalid base64 CERT data");
+    }
+
+    #[test]
+    fn test_missing_cert_type() {
+        // Missing cert_type (first token)
+        let tokens = vec!["123", "3", "Q2VydGlmaWNhdGUgZGF0YQ=="].into_iter();
+
+        let result = parse(tokens);
+
+        // Expecting an error due to missing cert type.
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(
+            format!("{}", err),
+            "ParseError: CERT cert type field missing"
+        );
+    }
+
+    #[test]
+    fn test_missing_cert_data() {
+        // Missing cert_data (last token)
+        let tokens = vec!["1", "123", "3"].into_iter();
+
+        let result = parse(tokens);
+
+        // Expecting an error due to missing cert data.
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(format!("{}", err), "ParseError: CERT data missing");
+    }
 }
