@@ -109,25 +109,27 @@ impl Container {
             None
         };
 
-        image.once().call_once(|| {
-            if let Some(repo) = repo {
-                let mut cp_r = Command::new("git");
-                cp_r.args([
-                    "clone",
-                    "--depth",
-                    "1",
-                    repo.as_str(),
-                    &docker_build_dir.join("src").display().to_string(),
-                ]);
+        if !skip_docker_build() {
+            image.once().call_once(|| {
+                if let Some(repo) = repo {
+                    let mut cp_r = Command::new("git");
+                    cp_r.args([
+                        "clone",
+                        "--depth",
+                        "1",
+                        repo.as_str(),
+                        &docker_build_dir.join("src").display().to_string(),
+                    ]);
 
-                exec_or_panic(&mut cp_r, false);
-            }
+                    exec_or_panic(&mut cp_r, false);
+                }
 
-            fs::write(docker_build_dir.join(".dockerignore"), "src/.git")
-                .expect("could not create .dockerignore file");
+                fs::write(docker_build_dir.join(".dockerignore"), "src/.git")
+                    .expect("could not create .dockerignore file");
 
-            exec_or_panic(&mut command, verbose_docker_build());
-        });
+                exec_or_panic(&mut command, verbose_docker_build());
+            });
+        }
 
         let mut command = Command::new("docker");
         let pid = process::id();
@@ -264,6 +266,10 @@ impl Container {
 
 fn verbose_docker_build() -> bool {
     env::var("DNS_TEST_VERBOSE_DOCKER_BUILD").as_deref().is_ok()
+}
+
+fn skip_docker_build() -> bool {
+    env::var("DNS_TEST_SKIP_DOCKER_BUILD").is_ok()
 }
 
 fn exec_or_panic(command: &mut Command, verbose: bool) {
