@@ -1777,6 +1777,15 @@ mod tests {
     }
 
     #[test]
+    fn test_utf8_round_trip_escaped_dot() {
+        let name = Name::from_utf8("ben\\.fry").unwrap();
+        assert_eq!(name.to_utf8(), "ben\\.fry");
+
+        let name = Name::from_utf8("🦀ben\\.fry").unwrap();
+        assert_eq!(name.to_utf8(), "🦀ben\\.fry");
+    }
+
+    #[test]
     fn test_into_name() {
         let name = Name::from_utf8("www.example.com").unwrap();
         assert_eq!(Name::from_utf8("www.example.com").unwrap(), name);

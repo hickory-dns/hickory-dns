@@ -245,11 +245,15 @@ impl Display for Label {
         if self.as_bytes().starts_with(IDNA_PREFIX) {
             // this should never be outside the ascii codes...
             let label = String::from_utf8_lossy(self.borrow());
-            let (label, e) = idna::Config::default()
+            let (mut label, e) = idna::Config::default()
                 .use_std3_ascii_rules(false)
                 .transitional_processing(false)
                 .verify_dns_length(false)
                 .to_unicode(&label);
+
+            if label.contains('.') {
+                label = label.replace('.', "\\.");
+            }
 
             if e.is_ok() {
                 return f.write_str(&label);
