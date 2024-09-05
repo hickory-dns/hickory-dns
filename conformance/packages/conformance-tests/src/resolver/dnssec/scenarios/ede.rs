@@ -168,7 +168,11 @@ fn fixture(
     assert!(output.status.is_servfail());
 
     if supports_ede {
-        assert!(output.ede.into_iter().eq([expected]));
+        assert!(
+            output.ede.iter().eq([&expected]),
+            "output: {:?}, expected: {expected:?}",
+            &output.ede
+        );
     }
 
     Ok(())
