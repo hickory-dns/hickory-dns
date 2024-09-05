@@ -6,8 +6,6 @@ use dns_test::record::{Record, RecordType};
 use dns_test::zone_file::SignSettings;
 use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
 
-mod deprecated_algorithm;
-
 // in this DNS network all zones except one are signed. and importantly, the referral to the
 // unsigned zone (the NS+A records in the parent zone) is also signed
 //
