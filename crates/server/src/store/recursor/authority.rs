@@ -10,11 +10,11 @@ use std::{io, path::Path, time::Instant};
 use tracing::{debug, info};
 
 #[cfg(feature = "dnssec")]
-use crate::{authority::Nsec3QueryInfo, config::dnssec::NxProofKind};
+use crate::{authority::Nsec3QueryInfo, config::dnssec::NxProofKind, proto::rr::dnssec::Proof};
 use crate::{
     authority::{
-        Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, MessageRequest,
-        UpdateResult, ZoneType,
+        Authority, DnssecSummary, LookupControlFlow, LookupError, LookupObject, LookupOptions,
+        MessageRequest, UpdateResult, ZoneType,
     },
     proto::{
         op::{Query, ResponseCode},
@@ -205,12 +205,22 @@ impl LookupObject for RecursiveLookup {
         None
     }
 
-    fn dnssec_validated(&self) -> bool {
-        // TODO research what spec / other impls do when the answer section is empty, DNSSEC
-        // validation is enabled but nameservers provided no NSEC3 records
-        self.0
-            .records()
-            .iter()
-            .all(|record| record.proof().is_secure())
+    fn dnssec_summary(&self) -> DnssecSummary {
+        let mut all_secure = None;
+        for record in self.0.records().iter() {
+            match record.proof() {
+                Proof::Secure => {
+                    all_secure.get_or_insert(true);
+                }
+                Proof::Bogus => return DnssecSummary::Bogus,
+                _ => all_secure = Some(false),
+            }
+        }
+
+        if all_secure.unwrap_or(false) {
+            DnssecSummary::Secure
+        } else {
+            DnssecSummary::Insecure
+        }
     }
 }

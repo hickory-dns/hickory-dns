@@ -24,11 +24,14 @@ use crate::{
 };
 use crate::{
     authority::{
-        AuthLookup, AuthorityObject, EmptyLookup, LookupControlFlow, LookupError, LookupObject,
-        LookupOptions, LookupRecords, MessageResponse, MessageResponseBuilder, ZoneType,
+        authority_object::DnssecSummary, AuthLookup, AuthorityObject, EmptyLookup,
+        LookupControlFlow, LookupError, LookupObject, LookupOptions, LookupRecords,
+        MessageResponse, MessageResponseBuilder, ZoneType,
     },
-    proto::op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode},
-    proto::rr::{LowerName, Record, RecordSet, RecordType},
+    proto::{
+        op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode},
+        rr::{LowerName, Record, RecordSet, RecordType},
+    },
     server::{Request, RequestHandler, RequestInfo, ResponseHandler, ResponseInfo},
 };
 
@@ -850,12 +853,16 @@ async fn send_forwarded_response(
         // we may want to interpret (B) as allowed ("MAY be skipped") as a form of optimization in
         // the future to reduce the number of network transactions that a CD=1 query needs.
         if let Answer::Normal(ref mut answers) = answers {
-            if answers.dnssec_validated() {
-                response_header.set_authentic_data(true);
-            } else if !request_header.checking_disabled() {
-                response_header.set_response_code(ResponseCode::ServFail);
-                // do not return (Insecure | Bogus) records when CD=0
-                *answers = Box::new(EmptyLookup);
+            match answers.dnssec_summary() {
+                DnssecSummary::Secure => {
+                    response_header.set_authentic_data(true);
+                }
+                DnssecSummary::Bogus if !request_header.checking_disabled() => {
+                    response_header.set_response_code(ResponseCode::ServFail);
+                    // do not return Bogus records when CD=0
+                    *answers = Box::new(EmptyLookup);
+                }
+                _ => {}
             }
         }
     }

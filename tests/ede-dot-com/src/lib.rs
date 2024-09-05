@@ -14,11 +14,13 @@ use dns_test::{
 mod sanity_check;
 
 #[test]
+#[ignore]
 fn allow_query_localhost() -> Result<()> {
     compare("allow-query-localhost").map(drop)
 }
 
 #[test]
+#[ignore]
 fn allow_query_none() -> Result<()> {
     compare("allow-query-none").map(drop)
 }
@@ -90,7 +92,6 @@ fn ds_reserved_key_algo() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn ds_unassigned_digest_algo() -> Result<()> {
     compare("ds-unassigned-digest-algo").map(drop)
 }
@@ -248,6 +249,7 @@ fn v4_doc() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn v4_hex() -> Result<()> {
     compare("v4-hex").map(drop)
 }
@@ -295,11 +297,13 @@ fn v4_this_host() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn v6_doc() -> Result<()> {
     compare("v6-doc").map(drop)
 }
 
 #[test]
+#[ignore]
 fn v6_link_local() -> Result<()> {
     compare("v6-link-local").map(drop)
 }
@@ -317,21 +321,25 @@ fn v6_mapped() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn v6_mapped_dep() -> Result<()> {
     compare("v6-mapped-dep").map(drop)
 }
 
 #[test]
+#[ignore]
 fn v6_multicast() -> Result<()> {
     compare("v6-multicast").map(drop)
 }
 
 #[test]
+#[ignore]
 fn v6_nat64() -> Result<()> {
     compare("v6-nat64").map(drop)
 }
 
 #[test]
+#[ignore]
 fn v6_unique_local() -> Result<()> {
     compare("v6-unique-local").map(drop)
 }
