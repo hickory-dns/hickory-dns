@@ -440,17 +440,21 @@ impl DNSKEYRData {
     pub fn calculate_key_tag(&self) -> u16 {
         use base64::prelude::*;
 
-        assert_ne!(1, self.algorithm, "not implemented");
+        let public_key = &BASE64_STANDARD
+            .decode(self.public_key.as_bytes())
+            .expect("base64 decoding failed");
+
+        if self.algorithm == 1 {
+            let len = public_key.len();
+            let start = len - 3;
+            return u16::from_be_bytes(public_key[start..start + 2].try_into().unwrap());
+        }
 
         let mut rdata = Vec::<u8>::new();
         rdata.extend_from_slice(self.flags.to_be_bytes().as_slice());
         rdata.push(3); // protocol
         rdata.push(self.algorithm);
-        rdata.extend_from_slice(
-            &BASE64_STANDARD
-                .decode(self.public_key.as_bytes())
-                .expect("base64 decoding failed"),
-        );
+        rdata.extend_from_slice(public_key);
 
         let mut acc = 0u32;
         for chunk in rdata.chunks(2) {
@@ -982,6 +986,24 @@ mod tests {
 
         let output = dnskey.to_string();
         assert_eq!(DNSKEY_INPUT, output);
+
+        Ok(())
+    }
+
+    #[test]
+    fn rsamd5_key_tag() -> Result<()> {
+        // dig @1.1.1.1 +recurse +cdflag DNSKEY rsamd5.extended-dns-errors.com.
+        const INPUT: &str = "rsamd5.extended-dns-errors.com.    268 IN DNSKEY 257 3 1 \
+                             AwEAAcpRn4ct2tt2a6RRqOYEDMtK8zETcLvpSoHhthWF \
+                             8WBvko0XodJJYlstLN6JMb5NwRAgcfddH3sR/ELdw2Hk \
+                             Hrp/jRRBW4wAHiVZU1uDRml0pD9ZEWQ3It+eDp/lG+Cp \
+                             Q3e5BGibTPCoWtOvx5uZQDkLlQBAXu2vTn1w2VXCMuwP";
+
+        let dnskey: DNSKEY = INPUT.parse()?;
+
+        // dig @1.1.1.1 +recurse +cdflag DS rsamd5.extended-dns-errors.com.
+        // NB `dig +multi` (dnsutils 9.18.28) reports a wrong key tag
+        assert_eq!(13036, dnskey.rdata.calculate_key_tag());
 
         Ok(())
     }
