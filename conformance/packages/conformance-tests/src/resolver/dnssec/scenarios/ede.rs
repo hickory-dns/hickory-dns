@@ -104,7 +104,10 @@ fn dnssec_bogus() -> Result<()> {
                 for record in records {
                     if let Record::RRSIG(rrsig) = record {
                         if rrsig.type_covered == RecordType::A && rrsig.fqdn == *needle_fqdn {
-                            rrsig.signature_expiration = rrsig.signature_inception - 1;
+                            let seconds = rrsig.signature_inception % 100;
+                            let rest = rrsig.signature_inception - seconds;
+                            let modified_seconds = (seconds + 59).rem_euclid(60);
+                            rrsig.signature_expiration = rest + modified_seconds;
                             modified_count += 1;
                         }
                     }
