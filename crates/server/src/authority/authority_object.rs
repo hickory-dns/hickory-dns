@@ -244,6 +244,17 @@ where
     }
 }
 
+/// DNSSEC status of an answer
+#[derive(Clone, Copy, Debug)]
+pub enum DnssecSummary {
+    /// All records have been DNSSEC validated
+    Secure,
+    /// At least one record is in the Bogus state
+    Bogus,
+    /// Insecure / Indeterminate (e.g. "Island of security")
+    Insecure,
+}
+
 /// An Object Safe Lookup for Authority
 pub trait LookupObject: Send {
     /// Returns true if either the associated Records are empty, or this is a NameExists or NxDomain
@@ -258,8 +269,8 @@ pub trait LookupObject: Send {
     fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>>;
 
     /// Whether the records have been DNSSEC validated or not
-    fn dnssec_validated(&self) -> bool {
-        false
+    fn dnssec_summary(&self) -> DnssecSummary {
+        DnssecSummary::Insecure
     }
 }
 
