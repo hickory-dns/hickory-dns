@@ -461,7 +461,7 @@ impl DNSKEYRData {
             let halfword = if let Ok(array) = chunk.try_into() {
                 u16::from_be_bytes(array)
             } else {
-                chunk[0].into()
+                u16::from(chunk[0]) << 8
             };
             acc += u32::from(halfword);
         }
@@ -1004,6 +1004,32 @@ mod tests {
         // dig @1.1.1.1 +recurse +cdflag DS rsamd5.extended-dns-errors.com.
         // NB `dig +multi` (dnsutils 9.18.28) reports a wrong key tag
         assert_eq!(13036, dnskey.rdata.calculate_key_tag());
+
+        Ok(())
+    }
+
+    #[test]
+    fn dsa_key_tag() -> Result<()> {
+        // dig @1.1.1.1 +recurse +cdflag +multi DNSKEY rsamd5.extended-dns-errors.com.
+        const INPUT: &str = "dsa.extended-dns-errors.com. 600 IN DNSKEY 257 3 3 \
+                             CPn4bkeyFLewxmOnFPoNLE1dTSHh/sDgPPPtKvXgtp9N \
+                             3r8Z4TEOKzrtmTf/+7o09GFQPApzqabgU2Wx3mxbgawJ \
+                             jbu1JEp1nkYuu0tdHcndLKnPjJpkQx5kOZveQ8ggxUiX \
+                             iq9Q8plA3n/k8UZXmnf1BC3kb9FEDH7v9SIrn7tyE1Z+ \
+                             H5MXxw5Z+Qn4n34v3Z/L7UdQ9+aY70l5Maip0fhQksGZ \
+                             CbPqZeuKGvUIA4HR70HGvrrXZ/Bti/h1i92JCZRxnKrq \
+                             rBKN7tz6L2iWRrAuOnznbuc+yKbBQC+hw0a9SqB3cxFz \
+                             CjXekaZ5XX99c+QZCXQdqTa44bE2WsLbSgv4JfCeLzLS \
+                             5ChYMHvqnCoe33wC6yvB967+9OxPoH5Ctndtc8SOW2bE \
+                             dI4njhw/27k9Z5zN6B/QgIFEPwY3nHkduNif3ugOHmEY \
+                             IefHyDDZq8NcZfFVM7Hu27utxxZhv2NkGsFLqKMuUi5i \
+                             AX7BO7BglvRnPRq31BQ0vpiw8vJzAbx6p+jdKXvpa1tG \
+                             zG4m3iwDQacz";
+
+        let dnskey: DNSKEY = INPUT.parse()?;
+
+        // from `dig +multi`
+        assert_eq!(49845, dnskey.rdata.calculate_key_tag());
 
         Ok(())
     }
