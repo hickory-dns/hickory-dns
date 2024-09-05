@@ -5,6 +5,7 @@ name = "dns-test"
 publish = false
 version = "0.1.0"
 
+
 [dependencies]
 base64 = "0.22.1"
 lazy_static = "1.4.0"
