@@ -343,12 +343,12 @@ impl TryFrom<process::Output> for Output {
 
     fn try_from(output: process::Output) -> Result<Self> {
         let mut stderr = String::from_utf8(output.stderr)?;
-        while stderr.ends_with(|c| matches!(c, '\n' | '\r')) {
+        while stderr.ends_with(['\n', '\r']) {
             stderr.pop();
         }
 
         let mut stdout = String::from_utf8(output.stdout)?;
-        while stdout.ends_with(|c| matches!(c, '\n' | '\r')) {
+        while stdout.ends_with(['\n', '\r']) {
             stdout.pop();
         }
 
