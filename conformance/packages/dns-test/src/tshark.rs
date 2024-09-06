@@ -1,10 +1,11 @@
 //! `tshark` JSON output parser
 
 use core::result::Result as CoreResult;
-use std::io::{BufRead, BufReader, Lines};
+use std::io::{self, BufRead, BufReader, Lines, Read};
 use std::net::Ipv4Addr;
-use std::process::ChildStdout;
+use std::process::ChildStderr;
 use std::sync::atomic::{self, AtomicUsize};
+use std::thread::{self, JoinHandle};
 
 use serde::Deserialize;
 use serde_with::{serde_as, DisplayFromStr};
@@ -20,23 +21,28 @@ impl Container {
     pub fn eavesdrop(&self) -> Result<Tshark> {
         let id = ID.fetch_add(1, atomic::Ordering::Relaxed);
         let pidfile = pid_file(id);
-        let capture_file = capture_file(id);
 
-        // `docker exec $child` merges the child's stderr and stdout streams and pipes them into
-        // its stdout. as we cannot tell stdout (JSON) from stderr (log message) from the host side,
-        // we'll redirect the JSON output to a file inside the container and read the log messages
-        // from the host side
-        // --log-level info --log-domain main
         let tshark = format!(
             "echo $$ > {pidfile}
-exec tshark --log-level debug --log-domain main,capture -l -i eth0 -T json -O dns -f 'udp port {UDP_PORT}' > {capture_file}"
+exec tshark --log-level debug --log-domain main,capture -l -i eth0 -T json -O dns -f 'udp port {UDP_PORT}'"
         );
         let mut child = self.spawn(&["sh", "-c", &tshark])?;
 
-        let stdout = child.stdout()?;
-        let mut stdout = BufReader::new(stdout).lines();
+        let stderr = child.stderr()?;
+        let mut stderr = BufReader::new(stderr).lines();
 
-        for res in stdout.by_ref() {
+        // Read from stdout on another thread. This ensures the subprocess won't block when writing
+        // to stdout due to full pipe buffers, and means we can read from stderr in
+        // `wait_for_capture()`, `wait_for_new_packets()`, or `terminate()` at our own pace without
+        // causing a deadlock.
+        let mut stdout = child.stdout()?;
+        let stdout_handle = thread::spawn(move || -> CoreResult<String, io::Error> {
+            let mut buf = String::new();
+            stdout.read_to_string(&mut buf)?;
+            Ok(buf)
+        });
+
+        for res in stderr.by_ref() {
             let line = res?;
 
             if line.contains("Capture started") {
@@ -47,7 +53,8 @@ exec tshark --log-level debug --log-domain main,capture -l -i eth0 -T json -O dn
         Ok(Tshark {
             container: self.clone(),
             child,
-            stdout,
+            stdout_handle,
+            stderr,
             id,
         })
     }
@@ -57,15 +64,12 @@ fn pid_file(id: usize) -> String {
     format!("/tmp/tshark{id}.pid")
 }
 
-fn capture_file(id: usize) -> String {
-    format!("/tmp/tshark{id}.json")
-}
-
 pub struct Tshark {
     child: Child,
     container: Container,
     id: usize,
-    stdout: Lines<BufReader<ChildStdout>>,
+    stdout_handle: JoinHandle<CoreResult<String, io::Error>>,
+    stderr: Lines<BufReader<ChildStderr>>,
 }
 
 impl Tshark {
@@ -89,7 +93,7 @@ impl Tshark {
     // XXX maybe do this automatically / always in `terminate`?
     pub fn wait_for_capture(&mut self) -> Result<usize> {
         // sync_pipe_input_cb(): new packets NN
-        for res in self.stdout.by_ref() {
+        for res in self.stderr.by_ref() {
             let line = res?;
 
             if line.contains(": new packets ") {
@@ -115,12 +119,14 @@ impl Tshark {
         // wait until the message "NN packets captured" appears
         // wireshark will close stderr after printing that so exhausting
         // the file descriptor produces the same result
-        for res in self.stdout {
+        for res in self.stderr {
             res?;
         }
 
-        let capture_file = capture_file(self.id);
-        let output = self.container.stdout(&["cat", &capture_file])?;
+        let output = self
+            .stdout_handle
+            .join()
+            .map_err(|_| "stdout thread panicked")??;
 
         let mut messages = vec![];
         let entries: Vec<Entry> = serde_json::from_str(&output)?;

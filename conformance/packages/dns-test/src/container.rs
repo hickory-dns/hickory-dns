@@ -3,7 +3,7 @@ mod network;
 use core::{fmt, str};
 use std::ffi::OsStr;
 use std::net::Ipv4Addr;
-use std::process::{self, ChildStdout, ExitStatus};
+use std::process::{self, ChildStderr, ChildStdout, ExitStatus};
 use std::process::{Command, Stdio};
 use std::sync::atomic::AtomicUsize;
 use std::sync::{atomic, Arc, Once};
@@ -146,7 +146,6 @@ impl Container {
                 network.name(),
                 "--name",
                 &name,
-                "-it",
             ])
             .arg(image_tag)
             .args(["sleep", "infinity"]);
@@ -189,7 +188,7 @@ impl Container {
     pub fn output(&self, command_and_args: &[&str]) -> Result<Output> {
         let mut command = Command::new("docker");
         command
-            .args(["exec", "-t", &self.inner.id])
+            .args(["exec", &self.inner.id])
             .args(command_and_args);
 
         command.output()?.try_into()
@@ -217,7 +216,7 @@ impl Container {
     pub fn status(&self, command_and_args: &[&str]) -> Result<ExitStatus> {
         let mut command = Command::new("docker");
         command
-            .args(["exec", "-t", &self.inner.id])
+            .args(["exec", &self.inner.id])
             .args(command_and_args);
 
         Ok(command.status()?)
@@ -237,7 +236,7 @@ impl Container {
     pub fn spawn(&self, cmd: &[impl AsRef<OsStr>]) -> Result<Child> {
         let mut command = Command::new("docker");
         command.stdout(Stdio::piped()).stderr(Stdio::piped());
-        command.args(["exec", "-t", &self.inner.id]).args(cmd);
+        command.args(["exec", &self.inner.id]).args(cmd);
 
         let inner = command.spawn()?;
 
@@ -321,6 +320,17 @@ impl Child {
             .as_mut()
             .and_then(|child| child.stdout.take())
             .ok_or("could not retrieve child's stdout")?)
+    }
+
+    /// Returns a handle to the child's stderr
+    ///
+    /// This method will succeed at most once
+    pub fn stderr(&mut self) -> Result<ChildStderr> {
+        Ok(self
+            .inner
+            .as_mut()
+            .and_then(|child| child.stderr.take())
+            .ok_or("could not retrieve child's stderr")?)
     }
 
     pub fn wait(mut self) -> Result<Output> {
