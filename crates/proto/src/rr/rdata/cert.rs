@@ -18,33 +18,6 @@ use crate::{
 };
 
 /// [RFC 4398, Storing Certificates in DNS, November 1987][rfc4398]
-/// https://tools.ietf.org/html/rfc4398
-///
-/// ```text
-///
-/// The CERT resource record (RR) has the structure given below.  Its RR
-/// type code is 37.
-///
-///    1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
-/// 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/// |             type              |             key tag           |
-/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/// |   algorithm   |                                               /
-/// +---------------+            certificate or CRL                 /
-/// /                                                               /
-/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
-/// ```
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct CERT {
-    cert_type: CertType,
-    key_tag: u16,
-    algorithm: Algorithm,
-    cert_data: Vec<u8>,
-}
-
-/// [RFC 4398, Storing Certificates in DNS, November 1987][rfc4398]
 /// https://tools.ietf.org/html/rfc4398#section-2.1
 ///
 /// ```text
@@ -109,7 +82,7 @@ pub enum CertType {
     OID,
 
     /// 9-252, 256-65279            Available for IANA assignment
-    AvailableIANAAssignment(u16),
+    Unassigned(u16),
 
     /// 65280-65534            Experimental
     Experimental(u16),
@@ -118,22 +91,22 @@ pub enum CertType {
 impl From<u16> for CertType {
     fn from(cert_type: u16) -> Self {
         match cert_type {
-            0 => CertType::Reserved,
-            1 => CertType::PKIX,
-            2 => CertType::SPKI,
-            3 => CertType::PGP,
-            4 => CertType::IPKIX,
-            5 => CertType::ISPKI,
-            6 => CertType::IPGP,
-            7 => CertType::ACPKIX,
-            8 => CertType::IACPKIX,
-            9_u16..=252_u16 => CertType::AvailableIANAAssignment(cert_type),
-            253 => CertType::URI,
-            254 => CertType::OID,
-            255 => CertType::Reserved,
-            256_u16..=65279_u16 => CertType::AvailableIANAAssignment(cert_type),
-            65280_u16..=65534_u16 => CertType::Experimental(cert_type),
-            65535 => CertType::Reserved,
+            0 => Self::Reserved,
+            1 => Self::PKIX,
+            2 => Self::SPKI,
+            3 => Self::PGP,
+            4 => Self::IPKIX,
+            5 => Self::ISPKI,
+            6 => Self::IPGP,
+            7 => Self::ACPKIX,
+            8 => Self::IACPKIX,
+            9_u16..=252_u16 => Self::Unassigned(cert_type),
+            253 => Self::URI,
+            254 => Self::OID,
+            255 => Self::Reserved,
+            256_u16..=65279_u16 => Self::Unassigned(cert_type),
+            65280_u16..=65534_u16 => Self::Experimental(cert_type),
+            65535 => Self::Reserved,
         }
     }
 }
@@ -152,7 +125,7 @@ impl From<CertType> for u16 {
             CertType::IACPKIX => 8,
             CertType::URI => 253,
             CertType::OID => 254,
-            CertType::AvailableIANAAssignment(cert_type) => cert_type,
+            CertType::Unassigned(cert_type) => cert_type,
             CertType::Experimental(cert_type) => cert_type,
         }
     }
@@ -312,31 +285,31 @@ pub enum Algorithm {
 impl From<u8> for Algorithm {
     fn from(algorithm: u8) -> Self {
         match algorithm {
-            0 => Algorithm::Reserved(0),
-            1 => Algorithm::RSAMD5,
-            2 => Algorithm::DH,
-            3 => Algorithm::DSA,
-            4 => Algorithm::ECC,
-            5 => Algorithm::RSASHA1,
-            6 => Algorithm::DSANSEC3SHA1,
-            7 => Algorithm::RSASHA1NSEC3SHA1,
-            8 => Algorithm::RSASHA256,
-            9 => Algorithm::Reserved(9),
-            10 => Algorithm::RSASHA512,
-            11 => Algorithm::Reserved(11),
-            12 => Algorithm::ECCGOST,
-            13 => Algorithm::ECDSAP256SHA256,
-            14 => Algorithm::ECDSAP384SHA384,
-            15 => Algorithm::ED25519,
-            16 => Algorithm::ED448,
-            17 => Algorithm::SM2SM3,
-            18..=22 => Algorithm::Unassigned(algorithm),
-            23 => Algorithm::ECCGOST12,
-            24..=122 => Algorithm::Unassigned(algorithm),
-            252 => Algorithm::INDIRECT,
-            253 => Algorithm::PRIVATEDNS,
-            254 => Algorithm::PRIVATEOID,
-            _ => Algorithm::Unassigned(algorithm),
+            0 => Self::Reserved(0),
+            1 => Self::RSAMD5,
+            2 => Self::DH,
+            3 => Self::DSA,
+            4 => Self::ECC,
+            5 => Self::RSASHA1,
+            6 => Self::DSANSEC3SHA1,
+            7 => Self::RSASHA1NSEC3SHA1,
+            8 => Self::RSASHA256,
+            9 => Self::Reserved(9),
+            10 => Self::RSASHA512,
+            11 => Self::Reserved(11),
+            12 => Self::ECCGOST,
+            13 => Self::ECDSAP256SHA256,
+            14 => Self::ECDSAP384SHA384,
+            15 => Self::ED25519,
+            16 => Self::ED448,
+            17 => Self::SM2SM3,
+            18..=22 => Self::Unassigned(algorithm),
+            23 => Self::ECCGOST12,
+            24..=122 => Self::Unassigned(algorithm),
+            252 => Self::INDIRECT,
+            253 => Self::PRIVATEDNS,
+            254 => Self::PRIVATEOID,
+            _ => Self::Unassigned(algorithm),
         }
     }
 }
@@ -380,6 +353,33 @@ impl fmt::Display for Algorithm {
     }
 }
 
+/// [RFC 4398, Storing Certificates in DNS, November 1987][rfc4398]
+/// https://tools.ietf.org/html/rfc4398
+///
+/// ```text
+///
+/// The CERT resource record (RR) has the structure given below.  Its RR
+/// type code is 37.
+///
+///    1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+/// 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/// |             type              |             key tag           |
+/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/// |   algorithm   |                                               /
+/// +---------------+            certificate or CRL                 /
+/// /                                                               /
+/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
+/// ```
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct CERT {
+    cert_type: CertType,
+    key_tag: u16,
+    algorithm: Algorithm,
+    cert_data: Vec<u8>,
+}
+
 impl CERT {
     /// Construct a new CERT RData
     pub const fn new(
@@ -394,25 +394,6 @@ impl CERT {
             algorithm,
             cert_data,
         }
-    }
-
-    /// Constructs a new CERT RData with the associated data
-    pub fn from(cert_record: Vec<u8>) -> Result<Self, ProtoError> {
-        if cert_record.len() <= 5 {
-            return Err(ProtoError::from("invalid cert_record length".to_string()));
-        }
-
-        let cert_type: u16 = ((cert_record[0] as u16) << 8) | (cert_record[1] as u16);
-        let key_tag: u16 = ((cert_record[2] as u16) << 8) | (cert_record[3] as u16);
-        let algorithm: u8 = cert_record[4].into();
-        let cert_data: Vec<u8> = cert_record[5..].to_vec();
-
-        Ok(Self {
-            cert_type: cert_type.into(),
-            key_tag,
-            algorithm: algorithm.into(),
-            cert_data,
-        })
     }
 
     /// Returns the CERT type
@@ -441,6 +422,29 @@ impl CERT {
     }
 }
 
+
+impl TryFrom<&[u8]> for CERT {
+    type Error = ProtoError;
+
+    fn try_from(cert_record: &[u8]) -> Result<Self, Self::Error> {
+        if cert_record.len() <= 5 {
+            return Err(ProtoError::from("invalid cert_record length".to_string()));
+        }
+
+        let cert_type = ((cert_record[0] as u16) << 8) | (cert_record[1] as u16);
+        let key_tag = ((cert_record[2] as u16) << 8) | (cert_record[3] as u16);
+        let algorithm = cert_record[4] as u8;
+        let cert_data = cert_record[5..].to_vec();
+
+        Ok(Self {
+            cert_type: cert_type.into(),
+            key_tag,
+            algorithm: algorithm.into(),
+            cert_data,
+        })
+    }
+}
+
 impl BinEncodable for CERT {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.emit_u16(self.cert_type.into())?;
@@ -457,7 +461,7 @@ impl<'r> RecordDataDecodable<'r> for CERT {
         let rdata_length = length.map(|u| u as usize).unverified();
         if rdata_length > 0 {
             let cert_data = decoder.read_vec(rdata_length)?.unverified(/*any byte array is good*/);
-            Ok(Self::from(cert_data)?)
+            Ok(Self::try_from(&cert_data[..])?)
         } else {
             Ok(Self::new(
                 CertType::Reserved,
@@ -529,13 +533,13 @@ mod tests {
         assert_eq!(CertType::IACPKIX, CertType::from(8));
         assert_eq!(CertType::URI, CertType::from(253));
         assert_eq!(CertType::OID, CertType::from(254));
-        assert_eq!(CertType::AvailableIANAAssignment(9), CertType::from(9));
-        assert_eq!(CertType::AvailableIANAAssignment(90), CertType::from(90));
+        assert_eq!(CertType::Unassigned(9), CertType::from(9));
+        assert_eq!(CertType::Unassigned(90), CertType::from(90));
         assert_eq!(CertType::Experimental(65280), CertType::from(65280));
         assert_eq!(CertType::Experimental(65390), CertType::from(65390));
 
-        let cert_type_ianna_9 = CertType::AvailableIANAAssignment(9);
-        let cert_type_ianna_90 = CertType::AvailableIANAAssignment(90);
+        let cert_type_ianna_9 = CertType::Unassigned(9);
+        let cert_type_ianna_90 = CertType::Unassigned(90);
         let cert_type_experimental_80 = CertType::Experimental(65280);
         let cert_type_experimental_90 = CertType::Experimental(65290);
 
@@ -616,7 +620,7 @@ mod tests {
     #[test]
     fn test_valid_cert_data_length() {
         let valid_cert_data = vec![1, 2, 3, 4, 5, 6]; // At least 6 bytes
-        let result = CERT::from(valid_cert_data);
+        let result = CERT::try_from(&valid_cert_data[..]);
         assert!(
             result.is_ok(),
             "Expected a valid result with sufficient cert_data length"
@@ -678,7 +682,7 @@ mod tests {
             65, 81, 73, 68, // "AQID" = [1, 2, 3]
         ];
 
-        let cert = CERT::from(valid_cert_record);
+        let cert = CERT::try_from(&valid_cert_record[..]);
         assert!(cert.is_ok(), "Expected valid cert_record");
 
         let cert = cert.unwrap();
@@ -692,7 +696,7 @@ mod tests {
     fn test_invalid_cert_record_length() {
         let invalid_cert_record = vec![1, 2, 3, 4]; // Less than 5 bytes
 
-        let result = CERT::from(invalid_cert_record);
+        let result = CERT::try_from(&invalid_cert_record[..]);
         assert!(
             result.is_err(),
             "Expected error due to invalid cert_record length"

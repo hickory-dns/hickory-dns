@@ -33,26 +33,26 @@ fn to_u8(data: &str) -> ParseResult<u8> {
 pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<CERT> {
     let mut iter = tokens;
 
-    let token: &str = iter
+    let token = iter
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::Message("CERT cert type field missing")))?;
     let cert_type = CertType::from(to_u16(token)?);
 
-    let token: &str = iter
+    let token = iter
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::Message("CERT key tag field missing")))?;
     let key_tag = to_u16(token)?;
 
-    let token: &str = iter
+    let token = iter
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::Message("CERT algorithm field missing")))?;
     let algorithm = Algorithm::from(to_u8(token)?);
 
-    let token: &str = iter
+    let token = iter
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::Message("CERT data missing")))?;
 
-    let cert_data: Vec<u8> = data_encoding::BASE64
+    let cert_data = data_encoding::BASE64
         .decode(token.as_bytes())
         .map_err(|_| ParseError::from(ParseErrorKind::Message("Invalid base64 CERT data")))?;
 
