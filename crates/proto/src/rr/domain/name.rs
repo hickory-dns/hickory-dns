@@ -632,7 +632,8 @@ impl Name {
             name = name.append_label(E::to_label(&label)?)?;
         }
 
-        if local.ends_with('.') {
+        // Check if the last character processed was an unescaped `.`
+        if label.is_empty() && !local.is_empty() {
             name.set_fqdn(true);
         } else if let Some(other) = origin {
             return name.append_domain(other);
@@ -2092,5 +2093,20 @@ mod tests {
             }
             _ => 0.0,
         }
+    }
+
+    #[test]
+    fn test_fqdn_escaped_dot() {
+        let name = Name::from_utf8("test.").unwrap();
+        assert!(name.is_fqdn());
+
+        let name = Name::from_utf8("test\\.").unwrap();
+        assert!(!name.is_fqdn());
+
+        let name = Name::from_utf8("").unwrap();
+        assert!(!name.is_fqdn());
+
+        let name = Name::from_utf8(".").unwrap();
+        assert!(name.is_fqdn());
     }
 }

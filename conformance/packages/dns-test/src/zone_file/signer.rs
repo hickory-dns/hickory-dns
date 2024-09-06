@@ -3,7 +3,12 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::{container::Container, name_server::Signed, record::DS, FQDN};
+use crate::{
+    container::Container,
+    name_server::{Signed, DS2},
+    record::DS,
+    FQDN,
+};
 
 use super::{ZoneFile, DNSKEY};
 
@@ -184,8 +189,14 @@ impl<'a> Signer<'a> {
 
         // TODO do we want to make the hashing algorithm configurable?
         // -2 = use SHA256 for the DS hash
-        let key2ds = format!("cd {ZONES_DIR} && ldns-key2ds -n -2 {ZONE_FILENAME}.signed");
-        let ds: DS = self.container.stdout(&["sh", "-c", &key2ds])?.parse()?;
+        let key2ds = format!("cd {ZONES_DIR} && ldns-key2ds -f -n -2 {ZONE_FILENAME}.signed");
+        let dses = self
+            .container
+            .stdout(&["sh", "-c", &key2ds])?
+            .lines()
+            .map(|line| line.parse())
+            .collect::<Result<Vec<DS>, _>>()?;
+        let ds = DS2::classify(dses, &zsk, &ksk);
 
         let signed: ZoneFile = self
             .container

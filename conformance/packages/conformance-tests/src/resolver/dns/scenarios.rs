@@ -45,7 +45,7 @@ fn can_resolve() -> Result<()> {
 #[ignore]
 #[test]
 fn nxdomain() -> Result<()> {
-    let needle_fqdn = FQDN("unicorn.nameservers.com.")?;
+    let needle_fqdn = FQDN::TEST_DOMAIN.push_label("unicorn");
 
     let network = Network::new()?;
 
