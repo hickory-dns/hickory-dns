@@ -267,7 +267,7 @@ fn emit_value(encoder: &mut BinEncoder<'_>, value: &Value) -> ProtoResult<()> {
         Value::Issuer(ref name, ref key_values) => {
             // output the name
             if let Some(ref name) = *name {
-                let name = name.to_string();
+                let name = name.to_ascii();
                 encoder.emit_vec(name.as_bytes())?;
             }
 
@@ -404,7 +404,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
 
         if !name_str.is_empty() {
             let name_str = str::from_utf8(&name_str)?;
-            Some(Name::parse(name_str, None)?)
+            Some(Name::from_ascii(name_str)?)
         } else {
             None
         }
@@ -1186,5 +1186,28 @@ mod tests {
             }
             _ => panic!("wrong value type: {:?}", caa.value()),
         }
+    }
+
+    #[test]
+    fn test_name_non_ascii_character_escaped_dots_roundtrip() {
+        const MESSAGE: &[u8] = b"\x00\x05issue\xe5\x85\x9edomain\\.\\.name";
+        let caa = CAA::read_data(
+            &mut BinDecoder::new(MESSAGE),
+            Restrict::new(u16::try_from(MESSAGE.len()).unwrap()),
+        )
+        .unwrap();
+        dbg!(caa.value());
+
+        let mut encoded = Vec::new();
+        caa.emit(&mut BinEncoder::new(&mut encoded)).unwrap();
+
+        let caa_round_trip = CAA::read_data(
+            &mut BinDecoder::new(&encoded),
+            Restrict::new(u16::try_from(encoded.len()).unwrap()),
+        )
+        .unwrap();
+        dbg!(caa_round_trip.value());
+
+        assert_eq!(caa, caa_round_trip);
     }
 }

@@ -88,11 +88,11 @@ fn fixture(label: &str, deprecated_settings: SignSettings) -> Result<DigOutput> 
     // IMPORTANT! only this zone uses the deprecated algorithm
     let leaf_ns = leaf_ns.sign(deprecated_settings.clone())?;
 
-    tld_ns.add(sibling_ns.ds().clone());
-    tld_ns.add(leaf_ns.ds().clone());
+    tld_ns.add(sibling_ns.ds().ksk.clone());
+    tld_ns.add(leaf_ns.ds().ksk.clone());
     let tld_ns = tld_ns.sign(good_settings.clone())?;
 
-    root_ns.add(tld_ns.ds().clone());
+    root_ns.add(tld_ns.ds().ksk.clone());
 
     let mut trust_anchor = TrustAnchor::empty();
     let root_ns = root_ns.sign(good_settings)?;

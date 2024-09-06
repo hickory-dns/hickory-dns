@@ -112,10 +112,10 @@ fn no_rrsig_ksk() -> Result<()> {
                         if let Record::DNSKEY(dnskey) = record {
                             if dnskey.is_key_signing_key() {
                                 assert!(ksk_tag.is_none(), "more than one KSK");
-                                ksk_tag = Some(dnskey.calculate_key_tag());
+                                ksk_tag = Some(dnskey.rdata.calculate_key_tag());
                             } else {
                                 assert!(zsk_tag.is_none(), "more than one ZSK");
-                                zsk_tag = Some(dnskey.calculate_key_tag());
+                                zsk_tag = Some(dnskey.rdata.calculate_key_tag());
                             }
                         }
                     }
@@ -203,13 +203,13 @@ fn malformed_ds_fixture(leaf_zone: &FQDN, mutate: impl FnOnce(&mut DS)) -> Resul
     let nameservers_ns = nameservers_ns.sign(sign_settings.clone())?;
     let leaf_ns = leaf_ns.sign(sign_settings.clone())?;
 
-    tld_ns.add(nameservers_ns.ds().clone());
-    let mut ds = leaf_ns.ds().clone();
+    tld_ns.add(nameservers_ns.ds().ksk.clone());
+    let mut ds = leaf_ns.ds().ksk.clone();
     mutate(&mut ds);
     tld_ns.add(ds);
 
     let tld_ns = tld_ns.sign(sign_settings.clone())?;
-    root_ns.add(tld_ns.ds().clone());
+    root_ns.add(tld_ns.ds().ksk.clone());
 
     let mut trust_anchor = TrustAnchor::empty();
     let root_ns = root_ns.sign(sign_settings)?;

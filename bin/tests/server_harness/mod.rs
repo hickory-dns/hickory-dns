@@ -91,19 +91,19 @@ where
             "hickory_dns=debug,hickory_client=debug,hickory_proto=debug,hickory_resolver=debug,hickory_server=debug",
         )
         .arg("-d")
-        .arg(&format!(
+        .arg(format!(
             "--config={server_path}/tests/test-data/test_configs/{toml}"
         ))
-        .arg(&format!(
+        .arg(format!(
             "--zonedir={server_path}/tests/test-data/test_configs"
         ))
-        .arg(&format!("--port={}", 0));
+        .arg(format!("--port={}", 0));
     #[cfg(feature = "dns-over-tls")]
-    command.arg(&format!("--tls-port={}", 0));
+    command.arg(format!("--tls-port={}", 0));
     #[cfg(feature = "dns-over-https-rustls")]
-    command.arg(&format!("--https-port={}", 0));
+    command.arg(format!("--https-port={}", 0));
     #[cfg(feature = "dns-over-quic")]
-    command.arg(&format!("--quic-port={}", 0));
+    command.arg(format!("--quic-port={}", 0));
 
     println!("named cli options: {command:#?}");
 

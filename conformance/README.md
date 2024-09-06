@@ -44,6 +44,8 @@ $ DNS_TEST_SUBJECT="hickory https://github.com/hickory-dns/hickory-dns" cargo ru
   
 - `DNS_TEST_VERBOSE_DOCKER_BUILD`. Setting this variable prints the output of the `docker build` invocations that the framework does to the console. This is useful to verify that image caching is working; for example if you set `DNS_TEST_SUBJECT` to a local `hickory-dns` repository then consecutively running the `explore` example and/or `conformance-tests` test suite **must** not rebuild `hickory-dns` provided that you have not *committed* any new change to the local repository.
 
+- `DNS_TEST_SKIP_DOCKER_BUILD`. Setting this variable skips running `docker build`. This should only be used if containers have been built recently.
+
 ### Automatic clean-up
 
 `dns-test` has been designed to clean up, that is remove, the Docker containers and Docker networks that it creates.
