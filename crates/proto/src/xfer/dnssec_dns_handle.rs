@@ -724,15 +724,35 @@ where
                 })
                 .map_ok(|message| {
                     // DNSKEYs were already validated by the inner query in the above lookup
-                    message
+                    let dnskeys = message
                         .answers()
                         .iter()
-                        .filter_map(|r| r.try_borrow::<DNSKEY>())
-                        // skip DNSKEY that have failed validation
-                        .filter(|r| r.proof().is_secure())
-                        .find_map(|dnskey| {
-                            verify_rrset_with_dnskey(dnskey, *rrsig, &rrset, current_time).ok()
-                        })
+                        .filter_map(|r| r.try_borrow::<DNSKEY>());
+
+                    let mut all_insecure = None;
+                    for dnskey in dnskeys {
+                        match dnskey.proof() {
+                            Proof::Secure => {
+                                all_insecure = Some(false);
+                                if let Ok(proof) =
+                                    verify_rrset_with_dnskey(dnskey, *rrsig, &rrset, current_time)
+                                {
+                                    return Some(proof);
+                                }
+                            }
+                            Proof::Insecure => {
+                                all_insecure.get_or_insert(true);
+                            }
+                            _ => all_insecure = Some(false),
+                        }
+                    }
+
+                    if all_insecure.unwrap_or(false) {
+                        // inherit Insecure state
+                        Some((Proof::Insecure, None))
+                    } else {
+                        None
+                    }
                 })
         })
         .collect::<Vec<_>>();
