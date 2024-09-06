@@ -14,7 +14,7 @@ use crate::{Error, Result, DEFAULT_TTL, FQDN};
 
 mod signer;
 
-pub use signer::{SignSettings, Signer};
+pub use signer::{Nsec, SignSettings, Signer};
 
 #[derive(Clone)]
 pub struct ZoneFile {
