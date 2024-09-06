@@ -26,7 +26,7 @@ pub struct SignSettings {
     algorithm: Algorithm,
     expiration: Option<u64>,
     inception: Option<u64>,
-    nsec_salt: Option<String>,
+    nsec: Nsec,
 }
 
 impl SignSettings {
@@ -37,7 +37,7 @@ impl SignSettings {
             ksk_bits: 2_048,
             expiration: None,
             inception: None,
-            nsec_salt: None,
+            nsec: Nsec::default(),
         }
     }
 
@@ -48,7 +48,7 @@ impl SignSettings {
             ksk_bits: 1_024,
             expiration: None,
             inception: None,
-            nsec_salt: None,
+            nsec: Nsec::default(),
         }
     }
 
@@ -59,7 +59,7 @@ impl SignSettings {
             ksk_bits: 2_048,
             expiration: None,
             inception: None,
-            nsec_salt: None,
+            nsec: Nsec::default(),
         }
     }
 
@@ -71,7 +71,7 @@ impl SignSettings {
             ksk_bits: 2_048,
             expiration: None,
             inception: None,
-            nsec_salt: None,
+            nsec: Nsec::default(),
         }
     }
 
@@ -93,9 +93,9 @@ impl SignSettings {
         self
     }
 
-    /// Sets the NSEC3 salt string.
-    pub fn salt(mut self, salt: &str) -> Self {
-        self.nsec_salt = Some(salt.to_string());
+    /// Changes the NSEC policy (default is NSEC3; see `Nsec::default`)
+    pub fn nsec(mut self, nsec: Nsec) -> Self {
+        self.nsec = nsec;
         self
     }
 }
@@ -103,6 +103,18 @@ impl SignSettings {
 impl Default for SignSettings {
     fn default() -> Self {
         Self::rsasha256()
+    }
+}
+
+#[derive(Clone)]
+pub enum Nsec {
+    _1,
+    _3 { salt: Option<String> },
+}
+
+impl Default for Nsec {
+    fn default() -> Self {
+        Self::_3 { salt: None }
     }
 }
 
@@ -237,10 +249,14 @@ impl<'a> Signer<'a> {
 
         // NSEC3 related options
         // -n = use NSEC3 instead of NSEC
-        args.push(format!("-n {ZONE_FILENAME}"));
-        if let Some(salt) = &self.settings.nsec_salt {
-            args.push(format!("-s {}", salt));
+        if let Nsec::_3 { salt } = &self.settings.nsec {
+            args.push("-n".to_string());
+
+            if let Some(salt) = salt {
+                args.push(format!("-s {}", salt));
+            }
         }
+        args.push(ZONE_FILENAME.to_string());
 
         args.extend(keys);
         args.join(" ")
