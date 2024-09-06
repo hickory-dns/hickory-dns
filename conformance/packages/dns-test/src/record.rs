@@ -47,7 +47,7 @@ macro_rules! record_types {
     };
 }
 
-record_types!(A, AAAA, CNAME, DNSKEY, DS, MX, NS, NSEC3, NSEC3PARAM, RRSIG, SOA, TXT);
+record_types!(A, AAAA, CNAME, DNSKEY, DS, MX, NS, NSEC, NSEC3, NSEC3PARAM, RRSIG, SOA, TXT);
 
 #[derive(Debug, Clone)]
 #[allow(clippy::upper_case_acronyms)]
@@ -57,6 +57,7 @@ pub enum Record {
     DNSKEY(DNSKEY),
     DS(DS),
     NS(NS),
+    NSEC(NSEC),
     NSEC3(NSEC3),
     NSEC3PARAM(NSEC3PARAM),
     RRSIG(RRSIG),
@@ -215,6 +216,7 @@ impl FromStr for Record {
             "DNSKEY" => Record::DNSKEY(input.parse()?),
             "DS" => Record::DS(input.parse()?),
             "NS" => Record::NS(input.parse()?),
+            "NSEC" => Record::NSEC(input.parse()?),
             "NSEC3" => Record::NSEC3(input.parse()?),
             "NSEC3PARAM" => Record::NSEC3PARAM(input.parse()?),
             "RRSIG" => Record::RRSIG(input.parse()?),
@@ -234,6 +236,7 @@ impl fmt::Display for Record {
             Record::DS(ds) => write!(f, "{ds}"),
             Record::DNSKEY(dnskey) => write!(f, "{dnskey}"),
             Record::NS(ns) => write!(f, "{ns}"),
+            Record::NSEC(nsec) => write!(f, "{nsec}"),
             Record::NSEC3(nsec3) => write!(f, "{nsec3}"),
             Record::NSEC3PARAM(nsec3param) => write!(f, "{nsec3param}"),
             Record::RRSIG(rrsig) => write!(f, "{rrsig}"),
@@ -573,6 +576,63 @@ impl FromStr for NS {
             ttl: ttl.parse()?,
             nameserver: nameserver.parse()?,
         })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NSEC {
+    pub fqdn: FQDN,
+    pub ttl: u32,
+    pub next_domain: FQDN,
+    pub record_types: Vec<RecordType>,
+}
+
+impl FromStr for NSEC {
+    type Err = Error;
+
+    fn from_str(input: &str) -> Result<Self> {
+        let mut columns = input.split_whitespace();
+
+        let [Some(fqdn), Some(ttl), Some(class), Some(record_type), Some(next_domain)] =
+            array::from_fn(|_| columns.next())
+        else {
+            return Err("expected at least 5 columns".into());
+        };
+
+        check_record_type::<Self>(record_type)?;
+        check_class(class)?;
+
+        let mut record_types = vec![];
+        for column in columns {
+            record_types.push(column.parse()?);
+        }
+
+        Ok(Self {
+            fqdn: fqdn.parse()?,
+            ttl: ttl.parse()?,
+            next_domain: next_domain.parse()?,
+            record_types,
+        })
+    }
+}
+
+impl fmt::Display for NSEC {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            fqdn,
+            ttl,
+            next_domain,
+            record_types,
+        } = self;
+
+        let record_type = unqualified_type_name::<Self>();
+        write!(f, "{fqdn}\t{ttl}\t{CLASS}\t{record_type}\t{next_domain}")?;
+
+        for record_type in record_types {
+            write!(f, " {record_type}")?;
+        }
+
+        Ok(())
     }
 }
 
@@ -1100,6 +1160,38 @@ mod tests {
         Ok(())
     }
 
+    const NSEC_INPUT: &str =
+        "hickory-dns.testing.	86400	IN	NSEC	primary1.hickory-dns.testing. NS SOA RRSIG NSEC DNSKEY";
+
+    #[test]
+    fn nsec() -> Result<()> {
+        let nsec @ NSEC {
+            fqdn,
+            ttl,
+            next_domain,
+            record_types,
+        } = &NSEC_INPUT.parse()?;
+
+        assert_eq!("hickory-dns.testing.", fqdn.as_str());
+        assert_eq!(86400, *ttl);
+        assert_eq!("primary1.hickory-dns.testing.", next_domain.as_str());
+        assert_eq!(
+            [
+                RecordType::NS,
+                RecordType::SOA,
+                RecordType::RRSIG,
+                RecordType::NSEC,
+                RecordType::DNSKEY,
+            ],
+            record_types.as_slice()
+        );
+
+        let output = nsec.to_string();
+        assert_eq!(NSEC_INPUT, output);
+
+        Ok(())
+    }
+
     // dig +dnssec A unicorn.example.com.
     const NSEC3_INPUT: &str = "abhif1b25fhcda5amfk5hnrsh6jid2ki.example.com.	3571	IN	NSEC3	1 0 5 53BCBC5805D2B761  GVPMD82B8ER38VUEGP72I721LIH19RGR A NS SOA MX TXT AAAA RRSIG DNSKEY NSEC3PARAM";
 
@@ -1241,6 +1333,7 @@ mod tests {
         assert!(matches!(DNSKEY_INPUT.parse()?, Record::DNSKEY(..)));
         assert!(matches!(DS_INPUT.parse()?, Record::DS(..)));
         assert!(matches!(NS_INPUT.parse()?, Record::NS(..)));
+        assert!(matches!(NSEC_INPUT.parse()?, Record::NSEC(..)));
         assert!(matches!(NSEC3_INPUT.parse()?, Record::NSEC3(..)));
         assert!(matches!(NSEC3PARAM_INPUT.parse()?, Record::NSEC3PARAM(..)));
         assert!(matches!(RRSIG_INPUT.parse()?, Record::RRSIG(..)));
