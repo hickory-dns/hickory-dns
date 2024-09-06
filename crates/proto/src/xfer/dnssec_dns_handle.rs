@@ -540,15 +540,31 @@ where
                 .any(|r| r.proof().is_secure()) =>
         {
             // this is a secure DS record, perfect
-            let ds_records = ds_message
+
+            let all_records = ds_message
                 .take_answers()
                 .into_iter()
-                .filter_map(|r| Record::<DS>::try_from(r).ok())
-                .filter(|r| !matches!(r.data().algorithm(), Algorithm::Unknown(_)))
-                .collect::<Vec<_>>();
+                .filter_map(|r| Record::<DS>::try_from(r).ok());
 
-            if !ds_records.is_empty() {
-                return Ok(ds_records);
+            let mut supported_records = vec![];
+            let mut all_unknown = None;
+            for record in all_records {
+                if matches!(record.data().algorithm(), Algorithm::Unknown(_)) {
+                    all_unknown.get_or_insert(true);
+                    continue;
+                }
+                all_unknown = Some(false);
+
+                supported_records.push(record);
+            }
+
+            if all_unknown.unwrap_or(false) {
+                return Err(ProofError::new(
+                    Proof::Insecure,
+                    ProofErrorKind::UnknownKeyAlgorithm,
+                ));
+            } else if !supported_records.is_empty() {
+                return Ok(supported_records);
             } else {
                 ProtoError::from(ProtoErrorKind::NoError)
             }
