@@ -86,7 +86,6 @@ fn ds_bogus_digest_value() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn ds_reserved_key_algo() -> Result<()> {
     compare("ds-reserved-key-algo").map(drop)
 }
@@ -97,7 +96,6 @@ fn ds_unassigned_digest_algo() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn ds_unassigned_key_algo() -> Result<()> {
     compare("ds-unassigned-key-algo").map(drop)
 }
