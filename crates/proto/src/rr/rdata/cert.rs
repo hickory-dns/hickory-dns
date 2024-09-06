@@ -422,7 +422,6 @@ impl CERT {
     }
 }
 
-
 impl TryFrom<&[u8]> for CERT {
     type Error = ProtoError;
 
