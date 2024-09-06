@@ -3,7 +3,7 @@ use std::net::Ipv4Addr;
 use dns_test::client::{Client, DigSettings};
 use dns_test::name_server::NameServer;
 use dns_test::record::{Record, RecordType};
-use dns_test::zone_file::SignSettings;
+use dns_test::zone_file::{Nsec, SignSettings};
 use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
 
 mod deprecated_algorithm;
@@ -15,12 +15,23 @@ mod deprecated_algorithm;
 // the security status of the whole zone is "Insecure", not "Bogus"
 #[test]
 #[ignore]
-fn unsigned_zone() -> Result<()> {
+fn unsigned_zone_nsec3() -> Result<()> {
+    unsigned_zone_fixture(Nsec::_3 { salt: None })
+}
+
+#[test]
+#[ignore]
+fn unsigned_zone_nsec() -> Result<()> {
+    unsigned_zone_fixture(Nsec::_1)
+}
+
+fn unsigned_zone_fixture(nsec: Nsec) -> Result<()> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let unsigned_zone = FQDN::TEST_TLD.push_label("unsigned");
     let needle_fqdn = unsigned_zone.push_label("example");
 
-    let sign_settings = SignSettings::default();
+    let mut sign_settings = SignSettings::default();
+    sign_settings = sign_settings.nsec(nsec);
     let network = Network::new()?;
 
     let mut unsigned_ns = NameServer::new(&dns_test::PEER, unsigned_zone.clone(), &network)?;
@@ -51,10 +62,12 @@ fn unsigned_zone() -> Result<()> {
     trust_anchor.add(root_ns.zone_signing_key().clone());
 
     let root_hint = root_ns.root_hint();
-    let _root_ns = root_ns.start()?;
-    let _tld_ns = tld_ns.start()?;
-    let _sibling_ns = sibling_ns.start()?;
-    let _unsigned_ns = unsigned_ns.start()?;
+    let _nameservers = [
+        root_ns.start()?,
+        tld_ns.start()?,
+        sibling_ns.start()?,
+        unsigned_ns.start()?,
+    ];
 
     let resolver = Resolver::new(&network, root_hint)
         .trust_anchor(&trust_anchor)
