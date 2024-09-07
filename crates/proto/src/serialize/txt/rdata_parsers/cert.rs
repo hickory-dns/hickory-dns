@@ -29,24 +29,35 @@ fn to_u8(data: &str) -> ParseResult<u8> {
 }
 
 /// Parse the RData from a set of Tokens
-#[allow(clippy::unnecessary_wraps)]
 pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<CERT> {
     let mut iter = tokens;
 
     let token = iter
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::Message("CERT cert type field missing")))?;
-    let cert_type = CertType::from(to_u16(token)?);
+    let cert_type = CertType::from(to_u16(token).map_err(|_| {
+        ParseError::from(ParseErrorKind::Message(
+            "Invalid digit found in cert_type token",
+        ))
+    })?);
 
     let token = iter
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::Message("CERT key tag field missing")))?;
-    let key_tag = to_u16(token)?;
+    let key_tag = to_u16(token).map_err(|_| {
+        ParseError::from(ParseErrorKind::Message(
+            "Invalid digit found in key_tag token",
+        ))
+    })?;
 
     let token = iter
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::Message("CERT algorithm field missing")))?;
-    let algorithm = Algorithm::from(to_u8(token)?);
+    let algorithm = Algorithm::from(to_u8(token).map_err(|_| {
+        ParseError::from(ParseErrorKind::Message(
+            "Invalid digit found in algorithm token",
+        ))
+    })?);
 
     let token = iter
         .next()
@@ -89,12 +100,12 @@ mod tests {
         // Expecting an error for invalid base64 data.
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert_eq!(format!("{}", err), "ParseError: Invalid base64 CERT data");
+        assert_eq!(format!("{}", err), "Invalid base64 CERT data");
     }
 
     #[test]
-    fn test_missing_cert_type() {
-        // Missing cert_type (first token)
+    fn test_invalid_token_digit() {
+        // Missing cert_type (first token) will try to decode cert leading to invalid digit
         let tokens = vec!["123", "3", "Q2VydGlmaWNhdGUgZGF0YQ=="].into_iter();
 
         let result = parse(tokens);
@@ -102,10 +113,7 @@ mod tests {
         // Expecting an error due to missing cert type.
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert_eq!(
-            format!("{}", err),
-            "ParseError: CERT cert type field missing"
-        );
+        assert_eq!(format!("{}", err), "Invalid digit found in algorithm token");
     }
 
     #[test]
@@ -118,6 +126,6 @@ mod tests {
         // Expecting an error due to missing cert data.
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert_eq!(format!("{}", err), "ParseError: CERT data missing");
+        assert_eq!(format!("{}", err), "CERT data missing");
     }
 }
