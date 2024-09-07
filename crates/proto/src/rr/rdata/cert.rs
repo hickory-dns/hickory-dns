@@ -618,7 +618,7 @@ mod tests {
 
     #[test]
     fn test_valid_cert_data_length() {
-        let valid_cert_data = vec![1, 2, 3, 4, 5, 6]; // At least 6 bytes
+        let valid_cert_data = [1, 2, 3, 4, 5, 6]; // At least 6 bytes
         let result = CERT::try_from(&valid_cert_data[..]);
         assert!(
             result.is_ok(),
@@ -632,14 +632,14 @@ mod tests {
         let cert_type = CertType::PKIX;
         let key_tag = 12345;
         let algorithm = Algorithm::RSASHA256; // Replace with an actual variant from Algorithm
-        let cert_data = vec![1, 2, 3, 4, 5];
+        let cert_data = [1, 2, 3, 4, 5];
 
         // Create an instance of the CERT struct
         let cert = CERT {
-            cert_type: cert_type.clone(),
+            cert_type,
             key_tag,
-            algorithm: algorithm.clone(),
-            cert_data: cert_data.clone(),
+            algorithm,
+            cert_data: cert_data.to_vec(),
         };
 
         // Assert that the fields are correctly set
@@ -658,10 +658,10 @@ mod tests {
 
         // Create an instance of the CERT struct
         let cert = CERT {
-            cert_type: cert_type.clone(),
+            cert_type,
             key_tag,
-            algorithm: algorithm.clone(),
-            cert_data: cert_data.clone(),
+            algorithm,
+            cert_data,
         };
 
         // Assert that cert_data is empty and other fields are correctly set
@@ -674,7 +674,7 @@ mod tests {
     #[test]
     fn test_valid_cert_record() {
         // Create a mock cert_data with 5 initial bytes + valid Base64 string for the rest
-        let valid_cert_record = vec![
+        let valid_cert_record = [
             0x00, 0x01, // cert_type: 1 (PKIX)
             0x30, 0x39, // key_tag: 12345
             0x08, // algorithm: 8 (e.g., RSASHA256)
@@ -688,12 +688,12 @@ mod tests {
         assert_eq!(cert.cert_type, CertType::PKIX);
         assert_eq!(cert.key_tag, 12345);
         assert_eq!(cert.algorithm, Algorithm::RSASHA256); // Assuming this is algorithm 8
-        assert_eq!(cert.cert_data, vec![65, 81, 73, 68]);
+        assert_eq!(cert.cert_data, [65, 81, 73, 68]);
     }
 
     #[test]
     fn test_invalid_cert_record_length() {
-        let invalid_cert_record = vec![1, 2, 3, 4]; // Less than 5 bytes
+        let invalid_cert_record = [1, 2, 3, 4]; // Less than 5 bytes
 
         let result = CERT::try_from(&invalid_cert_record[..]);
         assert!(
