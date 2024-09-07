@@ -212,7 +212,7 @@ impl fmt::Display for CertType {
 ///   18-22    Unassigned
 ///      23    GOST R 34.10-2012 [ECC-GOST12]                     Y       [RFC9558][informational]
 ///  24-122    Unassigned
-/// 123-251    reserved  
+/// 123-251    reserved
 ///
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
@@ -432,7 +432,7 @@ impl TryFrom<&[u8]> for CERT {
 
         let cert_type = ((cert_record[0] as u16) << 8) | (cert_record[1] as u16);
         let key_tag = ((cert_record[2] as u16) << 8) | (cert_record[3] as u16);
-        let algorithm = cert_record[4] as u8;
+        let algorithm = cert_record[4];
         let cert_data = cert_record[5..].to_vec();
 
         Ok(Self {
