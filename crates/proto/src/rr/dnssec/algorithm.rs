@@ -155,6 +155,22 @@ impl Algorithm {
         }
     }
 
+    /// Whether this algorithm is supported by hickory's build settings
+    pub fn is_supported(&self) -> bool {
+        match self {
+            #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+            Algorithm::ECDSAP256SHA256
+            | Algorithm::ECDSAP384SHA384
+            | Algorithm::RSASHA1
+            | Algorithm::RSASHA1NSEC3SHA1
+            | Algorithm::RSASHA256
+            | Algorithm::RSASHA512 => true,
+            #[cfg(feature = "dnssec-ring")]
+            Algorithm::ED25519 => true,
+            _ => false,
+        }
+    }
+
     /// length in bytes that the hash portion of this function will produce
     pub fn hash_len(self) -> Option<usize> {
         match self {
