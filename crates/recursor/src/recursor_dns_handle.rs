@@ -10,9 +10,9 @@ use tracing::{debug, trace, warn};
 
 use crate::{
     proto::{
-        error::ForwardNSData,
+        error::{ForwardNSData, ProtoErrorKind},
         op::Query,
-        rr::{RData, RecordType},
+        rr::{RData, RData::CNAME, Record, RecordType},
     },
     recursor_pool::RecursorPool,
     resolver::{
@@ -34,6 +34,7 @@ pub(crate) struct RecursorDnsHandle {
     roots: RecursorPool<TokioRuntimeProvider>,
     name_server_cache: Arc<Mutex<NameServerCache<TokioRuntimeProvider>>>,
     record_cache: DnsLru,
+    recursion_limit: u8,
     security_aware: bool,
     do_not_query_v4: PrefixSet<Ipv4Net>,
     do_not_query_v6: PrefixSet<Ipv6Net>,
@@ -44,6 +45,7 @@ impl RecursorDnsHandle {
         roots: impl Into<NameServerConfigGroup>,
         ns_cache_size: usize,
         record_cache_size: usize,
+        recursion_limit: u8,
         security_aware: bool,
         do_not_query: Vec<IpNet>,
     ) -> Result<Self, ResolveError> {
@@ -77,6 +79,7 @@ impl RecursorDnsHandle {
             roots,
             name_server_cache,
             record_cache,
+            recursion_limit,
             security_aware,
             do_not_query_v4,
             do_not_query_v6,
@@ -88,11 +91,24 @@ impl RecursorDnsHandle {
         query: Query,
         request_time: Instant,
         query_has_dnssec_ok: bool,
+        depth: u8,
     ) -> Result<Lookup, Error> {
         if let Some(lookup) = self.record_cache.get(&query, request_time) {
-            let lookup = super::maybe_strip_dnssec_records(query_has_dnssec_ok, lookup?, query);
+            let response = self
+                .resolve_cnames(
+                    lookup?,
+                    query.clone(),
+                    request_time,
+                    query_has_dnssec_ok,
+                    depth,
+                )
+                .await?;
 
-            return Ok(lookup);
+            return Ok(super::maybe_strip_dnssec_records(
+                query_has_dnssec_ok,
+                response,
+                query,
+            ));
         }
 
         // Recursively search for authoritative name servers for the queried record to build an NS
@@ -183,6 +199,16 @@ impl RecursorDnsHandle {
             .await
         {
             Ok(response) => {
+                let response = self
+                    .resolve_cnames(
+                        response,
+                        query.clone(),
+                        request_time,
+                        query_has_dnssec_ok,
+                        depth,
+                    )
+                    .await?;
+
                 // RFC 4035 section 3.2.1 if DO bit not set, strip DNSSEC records unless
                 // explicitly requested
                 Ok(super::maybe_strip_dnssec_records(
@@ -209,12 +235,22 @@ impl RecursorDnsHandle {
                             .await
                         {
                             Ok(response) => {
+                                let response = self
+                                    .resolve_cnames(
+                                        response,
+                                        query.clone(),
+                                        request_time,
+                                        query_has_dnssec_ok,
+                                        depth,
+                                    )
+                                    .await?;
+
                                 // RFC 4035 section 3.2.1 if DO bit not set, strip DNSSEC
                                 // records unless explicitly requested
                                 Ok(super::maybe_strip_dnssec_records(
                                     query_has_dnssec_ok,
                                     response,
-                                    query.clone(),
+                                    query,
                                 ))
                             }
                             Err(e) => Err(e),
@@ -224,6 +260,79 @@ impl RecursorDnsHandle {
                 }
             }
         }
+    }
+
+    /// Handle CNAME expansion for the current query
+    #[async_recursion]
+    async fn resolve_cnames(
+        &self,
+        mut lookup: Lookup,
+        query: Query,
+        now: Instant,
+        query_has_dnssec_ok: bool,
+        mut depth: u8,
+    ) -> Result<Lookup, Error> {
+        let query_type = query.query_type();
+        let query_name = query.name().clone();
+
+        self.record_cache
+            .insert_records(query, lookup.records().iter().map(Record::to_owned), now);
+
+        // Don't resolve CNAME lookups for a CNAME (or ANY) query
+        if query_type == RecordType::CNAME || query_type == RecordType::ANY {
+            return Ok(lookup);
+        }
+
+        depth += 1;
+        if self.recursion_limit > 0 && depth > self.recursion_limit {
+            warn!("recursion depth exceeded for {query_name:?}");
+            return Err(ErrorKind::Proto(
+                ProtoErrorKind::NotAllRecordsWritten {
+                    count: depth as usize,
+                }
+                .into(),
+            )
+            .into());
+        }
+
+        let mut cname_chain = vec![];
+        for rec in lookup.records().iter() {
+            let CNAME(name) = rec.data() else {
+                continue;
+            };
+
+            let cname_query = Query::query(name.0.clone(), query_type);
+
+            // Note that we aren't worried about whether the intermediates are local or remote
+            // to the original queried name, or included or not included in the original
+            // response.  Resolve will either pull the intermediates out of the cache or query
+            // the appropriate nameservers if necessary.
+            let records = match self
+                .resolve(cname_query, now, query_has_dnssec_ok, depth)
+                .await
+            {
+                Ok(cname_r) => cname_r,
+                Err(e) => {
+                    return Err(e);
+                }
+            };
+
+            // Here, we're looking for either the terminal record type (matching the
+            // original query, or another CNAME.
+            cname_chain.extend(records.records().iter().filter_map(|r| {
+                if r.record_type() == query_type || r.record_type() == RecordType::CNAME {
+                    Some(r.to_owned())
+                } else {
+                    None
+                }
+            }));
+        }
+
+        if !cname_chain.is_empty() {
+            lookup.extend_records(cname_chain);
+        }
+
+        Ok(lookup)
     }
 
     async fn lookup(
@@ -368,6 +477,7 @@ impl RecursorDnsHandle {
                             Query::query(name.0.clone(), rec_type),
                             request_time,
                             self.security_aware,
+                            0,
                         ));
                     }
                 });
@@ -527,7 +637,8 @@ impl RecursorDnsHandle {
                     resolve_futures.push(self.resolve(
                         Query::query(name.data().as_ns().unwrap().0.clone(), rec_type),
                         request_time,
-                        false,
+                        self.security_aware,
+                        0,
                     ));
                 });
             }

@@ -87,6 +87,7 @@ impl RecursiveAuthority {
         let recursor = builder
             .dnssec_policy(config.dnssec_policy.load()?)
             .do_not_query(&config.do_not_query)
+            .recursion_limit(config.recursion_limit)
             .build(roots)
             .map_err(|e| format!("failed to initialize recursor: {e}"))?;
 
