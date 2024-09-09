@@ -17,25 +17,20 @@ use futures_util::{
     ready,
     stream::{Stream, StreamExt},
 };
+use hickory_proto::{
+    error::{ProtoError, ProtoErrorKind},
+    op::{update_message, Edns, Message, MessageType, OpCode, Query},
+    rr::{rdata::SOA, DNSClass, Name, Record, RecordSet, RecordType},
+    xfer::{
+        BufDnsStreamHandle, DnsClientStream, DnsExchange, DnsExchangeBackground, DnsExchangeSend,
+        DnsHandle, DnsMultiplexer, DnsRequest, DnsRequestOptions, DnsRequestSender, DnsResponse,
+    },
+    TokioTime,
+};
 use rand;
 use tracing::debug;
 
-use crate::{
-    client::Signer,
-    error::*,
-    op::{Message, MessageType, OpCode, Query},
-    proto::{
-        error::{ProtoError, ProtoErrorKind},
-        op::{update_message, Edns},
-        xfer::{
-            BufDnsStreamHandle, DnsClientStream, DnsExchange, DnsExchangeBackground,
-            DnsExchangeSend, DnsHandle, DnsMultiplexer, DnsRequest, DnsRequestOptions,
-            DnsRequestSender, DnsResponse,
-        },
-        TokioTime,
-    },
-    rr::{rdata::SOA, DNSClass, Name, Record, RecordSet, RecordType},
-};
+use crate::{client::Signer, error::*};
 
 /// A DNS Client implemented over futures-rs.
 ///
@@ -862,9 +857,11 @@ where
 mod tests {
     use super::*;
 
-    use crate::rr::rdata::{A, SOA};
     use futures_util::stream::iter;
-    use hickory_proto::rr::RData;
+    use hickory_proto::rr::{
+        rdata::{A, SOA},
+        RData,
+    };
     use ClientStreamXfrState::*;
 
     fn soa_record(serial: u32) -> Record {
@@ -1083,9 +1080,11 @@ mod tests {
     #[tokio::test]
     async fn async_client() {
         use crate::client::{AsyncClient, ClientHandle};
-        use crate::proto::iocompat::AsyncIoTokioAsStd;
-        use crate::rr::{DNSClass, Name, RData, RecordType};
-        use crate::tcp::TcpClientStream;
+        use hickory_proto::{
+            iocompat::AsyncIoTokioAsStd,
+            rr::{DNSClass, Name, RData, RecordType},
+            tcp::TcpClientStream,
+        };
         use std::str::FromStr;
         use tokio::net::TcpStream as TokioTcpStream;
 

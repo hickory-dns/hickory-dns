@@ -10,14 +10,13 @@ use tokio::net::UdpSocket as TokioUdpSocket;
 use tokio::runtime::Runtime;
 
 use hickory_client::client::{AsyncClient, ClientHandle, MemoizeClientHandle};
-use hickory_client::tcp::TcpClientStream;
-
 use hickory_proto::iocompat::AsyncIoTokioAsStd;
 use hickory_proto::op::ResponseCode;
 use hickory_proto::rr::dnssec::{Proof, TrustAnchor};
 use hickory_proto::rr::rdata::A;
 use hickory_proto::rr::Name;
 use hickory_proto::rr::{DNSClass, RData, RecordType};
+use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::{UdpClientConnect, UdpClientStream};
 use hickory_proto::DnssecDnsHandle;
 use hickory_server::authority::{Authority, Catalog};

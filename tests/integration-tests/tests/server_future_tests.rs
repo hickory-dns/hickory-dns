@@ -11,12 +11,12 @@ use tokio::net::UdpSocket;
 use tokio::runtime::Runtime;
 
 use hickory_client::client::*;
-use hickory_client::op::*;
-use hickory_client::rr::*;
 use hickory_client::tcp::TcpClientConnection;
 use hickory_client::udp::UdpClientConnection;
 use hickory_proto::error::ProtoError;
+use hickory_proto::op::{Message, MessageType, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::A;
+use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
 use hickory_proto::xfer::DnsRequestSender;
 
 use hickory_server::authority::{Authority, Catalog};

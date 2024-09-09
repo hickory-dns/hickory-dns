@@ -10,10 +10,10 @@ use std::task::Poll;
 use futures::executor::block_on;
 use futures::{future, Future};
 
-use hickory_client::op::{Query, ResponseCode};
-use hickory_client::rr::{Name, RecordType};
 use hickory_integration::mock_client::*;
 use hickory_proto::error::{ProtoError, ProtoErrorKind};
+use hickory_proto::op::{Query, ResponseCode};
+use hickory_proto::rr::{Name, RecordType};
 use hickory_proto::xfer::{DnsHandle, DnsResponse, FirstAnswer};
 use hickory_resolver::config::*;
 use hickory_resolver::name_server::{NameServer, NameServerPool};

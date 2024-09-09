@@ -1,7 +1,7 @@
 use hickory_client::client::*;
-use hickory_client::proto::xfer::{DnsHandle, DnsRequest};
+use hickory_proto::xfer::{DnsHandle, DnsRequest};
 #[cfg(feature = "dnssec")]
-use hickory_client::{op::Edns, rr::rdata::opt::EdnsOption};
+use hickory_proto::{op::Edns, rr::rdata::opt::EdnsOption};
 #[cfg(feature = "dnssec")]
 use hickory_server::authority::LookupOptions;
 

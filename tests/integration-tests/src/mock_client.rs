@@ -14,10 +14,10 @@ use std::task::{Context, Poll};
 use futures::stream::{once, Stream};
 use futures::{future, AsyncRead, AsyncWrite, Future};
 
-use hickory_client::op::{Message, Query};
-use hickory_client::rr::rdata::{CNAME, NS, SOA};
-use hickory_client::rr::{Name, RData, Record};
 use hickory_proto::error::ProtoError;
+use hickory_proto::op::{Message, Query};
+use hickory_proto::rr::rdata::{CNAME, NS, SOA};
+use hickory_proto::rr::{Name, RData, Record};
 use hickory_proto::tcp::DnsTcpStream;
 use hickory_proto::udp::DnsUdpSocket;
 use hickory_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};

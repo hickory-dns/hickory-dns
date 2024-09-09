@@ -34,16 +34,16 @@ use rustls::{
 use tokio::net::{TcpStream as TokioTcpStream, UdpSocket};
 use tracing::Level;
 
-use hickory_client::{
-    client::{AsyncClient, ClientHandle},
-    rr::{DNSClass, RData, RecordSet, RecordType},
+use hickory_client::client::{AsyncClient, ClientHandle};
+#[cfg(feature = "dns-over-rustls")]
+use hickory_proto::rustls::tls_client_connect;
+use hickory_proto::{
+    iocompat::AsyncIoTokioAsStd,
+    rr::{DNSClass, Name, RData, RecordSet, RecordType},
     serialize::txt::RDataParser,
     tcp::TcpClientStream,
     udp::UdpClientStream,
 };
-#[cfg(feature = "dns-over-rustls")]
-use hickory_proto::rustls::tls_client_connect;
-use hickory_proto::{iocompat::AsyncIoTokioAsStd, rr::Name};
 
 /// A CLI interface for the hickory-client.
 ///

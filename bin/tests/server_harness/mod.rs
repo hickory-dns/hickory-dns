@@ -283,7 +283,7 @@ pub fn query_all_dnssec(
     algorithm: Algorithm,
     with_rfc6975: bool,
 ) {
-    use hickory_client::rr::rdata::{DNSKEY, RRSIG};
+    use hickory_proto::rr::dnssec::rdata::{DNSKEY, RRSIG};
 
     let name = Name::from_str("example.com.").unwrap();
     let mut client = MutMessageHandle::new(client);

@@ -17,6 +17,15 @@ use hickory_client::client::Signer;
 use hickory_client::{
     client::{AsyncClient, ClientHandle},
     error::ClientErrorKind,
+};
+#[cfg(feature = "dnssec")]
+use hickory_proto::rr::{dnssec::SigSigner, Record};
+#[cfg(feature = "dnssec")]
+use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+use hickory_proto::TokioTime;
+use hickory_proto::{
+    iocompat::AsyncIoTokioAsStd,
     op::{Edns, Message, MessageType, OpCode, Query, ResponseCode},
     rr::{
         rdata::{
@@ -27,15 +36,9 @@ use hickory_client::{
     },
     tcp::TcpClientStream,
     udp::UdpClientStream,
+    xfer::FirstAnswer,
+    DnsHandle,
 };
-#[cfg(feature = "dnssec")]
-use hickory_proto::rr::{dnssec::SigSigner, Record};
-#[cfg(feature = "dnssec")]
-use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
-use hickory_proto::TokioTime;
-use hickory_proto::{iocompat::AsyncIoTokioAsStd, xfer::FirstAnswer, DnsHandle};
-
 use hickory_server::authority::{Authority, Catalog};
 
 use hickory_integration::{

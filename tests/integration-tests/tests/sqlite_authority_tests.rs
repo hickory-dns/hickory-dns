@@ -199,7 +199,7 @@ async fn test_authority() {
 #[cfg(feature = "dnssec")]
 #[tokio::test]
 async fn test_authorize() {
-    use hickory_client::serialize::binary::{BinDecodable, BinEncodable};
+    use hickory_proto::serialize::binary::{BinDecodable, BinEncodable};
     use hickory_server::authority::MessageRequest;
 
     let authority = create_example();
