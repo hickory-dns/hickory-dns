@@ -454,10 +454,21 @@ where
 
     // check the DNSKEYS against the trust_anchor, if it's approved allow it.
     //   this includes the root keys
+    let mut all_unsupported = None;
     for r in rrset.records().iter() {
         let Some(key_rdata) = DNSKEY::try_borrow(r.data()) else {
             continue;
         };
+
+        let algorithm = key_rdata.algorithm();
+        if algorithm.is_supported() {
+            all_unsupported = Some(false);
+        } else {
+            debug!("unsupported key algorithm {algorithm} in {key_rdata}",);
+
+            all_unsupported.get_or_insert(true);
+            continue;
+        }
 
         if !handle
             .trust_anchor
@@ -472,6 +483,14 @@ where
         );
 
         return Ok(true);
+    }
+
+    if all_unsupported.unwrap_or_default() {
+        // cannot validate; mark as insecure
+        return Err(ProofError::new(
+            Proof::Insecure,
+            ProofErrorKind::UnsupportedKeyAlgorithm,
+        ));
     }
 
     // need to get DS records for each DNSKEY
