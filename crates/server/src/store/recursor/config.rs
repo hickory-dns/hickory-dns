@@ -40,6 +40,10 @@ pub struct RecursiveConfig {
     /// Maximum DNS record cache size
     pub record_cache_size: Option<usize>,
 
+    /// Maximum recursion depth for queries. Set to 0 for unlimited recursion depth.
+    #[serde(default = "recursion_limit_default")]
+    pub recursion_limit: u8,
+
     /// DNSSEC policy
     #[cfg(feature = "dnssec")]
     #[serde(default)]
@@ -77,6 +81,10 @@ impl RecursiveConfig {
             .map(|ip| SocketAddr::from((ip, 53))) // all the roots only have tradition DNS ports
             .collect())
     }
+}
+
+fn recursion_limit_default() -> u8 {
+    12
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
