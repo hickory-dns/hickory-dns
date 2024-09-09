@@ -62,7 +62,6 @@ dns-over-https-rustls = [
     "dep:tokio-rustls",
 ]
 
-# TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
 dns-over-openssl = [
     "dns-over-tls",
     "dnssec-openssl",
@@ -91,10 +90,6 @@ dns-over-h3 = [
     "hickory-proto/dns-over-h3",
     "hickory-resolver?/dns-over-h3",
 ]
-
-# This is a deprecated feature...
-tls-openssl = ["dns-over-openssl"]
-tls = ["dns-over-openssl"]
 
 webpki-roots = ["hickory-resolver?/webpki-roots"]
 native-certs = ["hickory-resolver?/native-certs"]
