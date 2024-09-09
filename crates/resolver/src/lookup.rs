@@ -139,6 +139,14 @@ impl Lookup {
         let valid_until = min(self.valid_until(), other.valid_until());
         Self::new_with_deadline(self.query.clone(), Arc::from(records), valid_until)
     }
+
+    /// Add new records to this lookup, without creating a new Lookup
+    pub fn extend_records(&mut self, other: Vec<Record>) {
+        let mut records = Vec::with_capacity(self.len() + other.len());
+        records.extend_from_slice(&self.records);
+        records.extend(other);
+        self.records = Arc::from(records);
+    }
 }
 
 /// Borrowed view of set of [`RData`]s returned from a Lookup
