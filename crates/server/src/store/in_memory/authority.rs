@@ -25,9 +25,6 @@ use tracing::{debug, error, warn};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 #[cfg(feature = "dnssec")]
-use hickory_resolver::error::ResolveError;
-
-#[cfg(feature = "dnssec")]
 use crate::{
     authority::{DnssecAuthority, Nsec3QueryInfo},
     config::dnssec::NxProofKind,
@@ -993,7 +990,7 @@ impl InnerInMemory {
         name: &LowerName,
         zone: &Name,
         info: &Nsec3QueryInfo<'_>,
-    ) -> Result<Option<Arc<RecordSet>>, ResolveError> {
+    ) -> ProtoResult<Option<Arc<RecordSet>>> {
         let owner_name = info.get_hashed_owner_name(name, zone)?;
         let records = self
             .records
@@ -1020,7 +1017,7 @@ impl InnerInMemory {
         name: &LowerName,
         zone: &Name,
         info: &Nsec3QueryInfo<'_>,
-    ) -> Result<Option<(LowerName, Arc<RecordSet>)>, ResolveError> {
+    ) -> ProtoResult<Option<(LowerName, Arc<RecordSet>)>> {
         let mut next_closer_name = name.clone();
         let mut closest_encloser = next_closer_name.base_name();
 

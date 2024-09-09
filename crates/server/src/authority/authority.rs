@@ -11,7 +11,7 @@ use cfg_if::cfg_if;
 use std::fmt;
 
 #[cfg(feature = "dnssec")]
-use hickory_resolver::error::ResolveError;
+use hickory_proto::error::ProtoError;
 
 use crate::{
     authority::{LookupError, LookupObject, MessageRequest, UpdateResult, ZoneType},
@@ -425,7 +425,7 @@ impl<'q> Nsec3QueryInfo<'q> {
         &self,
         name: &LowerName,
         zone: &Name,
-    ) -> Result<LowerName, ResolveError> {
+    ) -> Result<LowerName, ProtoError> {
         let hash = self.hash_name(name)?;
         let label = data_encoding::BASE32_DNSSEC.encode(hash.as_ref());
         Ok(LowerName::new(&zone.prepend_label(label)?))

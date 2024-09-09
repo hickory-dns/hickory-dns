@@ -10,6 +10,7 @@ use std::io;
 use enum_as_inner::EnumAsInner;
 use thiserror::Error;
 
+use crate::proto::error::ProtoError;
 use crate::proto::op::ResponseCode;
 use crate::proto::rr::{rdata::SOA, Record};
 #[cfg(feature = "hickory-resolver")]
@@ -27,6 +28,9 @@ pub enum LookupError {
     /// There was an error performing the lookup
     #[error("Error performing lookup: {0}")]
     ResponseCode(ResponseCode),
+    /// Proto error
+    #[error("Proto error: {0}")]
+    ProtoError(#[from] ProtoError),
     /// Resolve Error
     #[cfg(feature = "hickory-resolver")]
     #[cfg_attr(docsrs, doc(cfg(feature = "resolver")))]
