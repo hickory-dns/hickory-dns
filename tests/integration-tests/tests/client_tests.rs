@@ -13,16 +13,16 @@ use hickory_client::client::Signer;
 use hickory_client::client::SyncDnssecClient;
 #[allow(deprecated)]
 use hickory_client::client::{Client, ClientConnection, SyncClient};
+use hickory_client::error::ClientErrorKind;
 use hickory_client::tcp::TcpClientConnection;
 use hickory_client::udp::UdpClientConnection;
-use hickory_client::{
-    error::ClientErrorKind,
-    rr::rdata::opt::{EdnsCode, EdnsOption},
-};
 use hickory_integration::example_authority::create_example;
 use hickory_integration::{NeverReturnsClientConnection, TestClientStream};
 use hickory_proto::error::ProtoError;
-use hickory_proto::op::*;
+#[cfg(feature = "dnssec")]
+use hickory_proto::op::ResponseCode;
+use hickory_proto::op::{Edns, Message, MessageType, OpCode, Query};
+use hickory_proto::rr::rdata::opt::{EdnsCode, EdnsOption};
 #[cfg(feature = "dnssec")]
 use hickory_proto::rr::Record;
 use hickory_proto::rr::{rdata::A, DNSClass, Name, RData, RecordType};

@@ -16,7 +16,7 @@ use time::Duration;
 #[cfg(not(feature = "none"))]
 use hickory_client::client::{Client, SyncClient};
 #[cfg(not(feature = "none"))]
-use hickory_client::rr::{Name, RData, Record, RecordType};
+use hickory_client::proto::rr::{Name, RData, Record, RecordType};
 #[cfg(not(feature = "none"))]
 use hickory_client::tcp::TcpClientConnection;
 #[cfg(not(feature = "none"))]
@@ -38,7 +38,7 @@ macro_rules! assert_serial {
 #[test]
 #[allow(unused)]
 fn test_zone_transfer() {
-    use hickory_client::rr::rdata::A;
+    use hickory_client::proto::rr::rdata::A;
 
     let (process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);

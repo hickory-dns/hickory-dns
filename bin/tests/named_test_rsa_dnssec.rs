@@ -15,10 +15,10 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
 use hickory_client::client::{Signer, *};
-use hickory_client::proto::tcp::TcpClientStream;
-use hickory_client::proto::DnssecDnsHandle;
 use hickory_proto::rr::dnssec::*;
+use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
+use hickory_proto::DnssecDnsHandle;
 use hickory_proto::{iocompat::AsyncIoTokioAsStd, TokioTime};
 
 use server_harness::*;

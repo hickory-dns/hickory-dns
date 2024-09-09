@@ -50,7 +50,7 @@ where
 #[cfg(not(feature = "none"))]
 #[test]
 fn test_create() {
-    use hickory_client::rr::rdata::A;
+    use hickory_client::proto::rr::rdata::A;
 
     let (_process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);

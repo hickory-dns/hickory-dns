@@ -5,24 +5,23 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-mod server_harness;
-
 use std::io::Write;
 use std::net::*;
 use std::str::FromStr;
 
+use hickory_proto::iocompat::AsyncIoTokioAsStd;
+use hickory_proto::op::ResponseCode;
+use hickory_proto::rr::{DNSClass, Name, RecordType};
+use hickory_proto::tcp::TcpClientStream;
+use hickory_proto::udp::UdpClientStream;
+
+use hickory_client::client::*;
+use hickory_server::server::Protocol;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::net::UdpSocket as TokioUdpSocket;
 use tokio::runtime::Runtime;
 
-use hickory_client::client::*;
-use hickory_client::op::ResponseCode;
-use hickory_client::rr::*;
-use hickory_client::tcp::TcpClientStream;
-use hickory_client::udp::UdpClientStream;
-use hickory_server::server::Protocol;
-
-use hickory_proto::iocompat::AsyncIoTokioAsStd;
+mod server_harness;
 use server_harness::{named_test_harness, query_a, query_a_refused};
 
 #[test]

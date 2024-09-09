@@ -1,11 +1,10 @@
 use std::{str::FromStr, sync::Arc};
 
-use hickory_client::{
+use hickory_proto::{
     op::*,
     rr::{rdata::*, *},
     serialize::binary::{BinDecodable, BinEncodable},
 };
-
 #[cfg(any(feature = "dnssec", feature = "dns-over-rustls"))]
 use hickory_server::config::dnssec::NxProofKind;
 use hickory_server::{

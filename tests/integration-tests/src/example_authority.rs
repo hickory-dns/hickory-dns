@@ -10,7 +10,7 @@ use hickory_server::store::in_memory::InMemoryAuthority;
 #[allow(unused)]
 #[allow(clippy::unreadable_literal)]
 pub fn create_example() -> InMemoryAuthority {
-    use hickory_client::rr::rdata::*;
+    use hickory_proto::rr::rdata::*;
     use std::net::*;
 
     let origin: Name = Name::parse("example.com.", None).unwrap();

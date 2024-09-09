@@ -17,6 +17,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use futures_util::stream::{Stream, StreamExt};
+use hickory_proto::rr::{rdata::SOA, DNSClass, Name, Record, RecordSet, RecordType};
 use tokio::runtime::{self, Runtime};
 
 use crate::client::async_client::ClientStreamXfr;
@@ -26,8 +27,6 @@ use crate::proto::{
     error::ProtoError,
     xfer::{DnsExchangeSend, DnsHandle, DnsRequest, DnsResponse},
 };
-use crate::rr::rdata::SOA;
-use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 #[cfg(feature = "dnssec")]
 use crate::{
     client::AsyncDnssecClient,

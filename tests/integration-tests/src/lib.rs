@@ -22,12 +22,12 @@ use tokio::time::{Duration, Instant, Sleep};
 use hickory_client::{
     client::{ClientConnection, Signer},
     error::ClientResult,
-    op::*,
-    serialize::binary::*,
 };
 use hickory_proto::{
     error::ProtoError,
+    op::Message,
     rr::Record,
+    serialize::binary::{BinDecodable, BinDecoder, BinEncoder},
     xfer::{DnsClientStream, DnsMultiplexer, DnsMultiplexerConnect, SerialMessage, StreamReceiver},
     BufDnsStreamHandle, TokioTime,
 };
