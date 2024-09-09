@@ -101,7 +101,6 @@ fn ds_unassigned_key_algo() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn dsa() -> Result<()> {
     compare("dsa").map(drop)
 }
@@ -224,7 +223,6 @@ fn rrsig_not_yet_all() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn rsamd5() -> Result<()> {
     compare("rsamd5").map(drop)
 }

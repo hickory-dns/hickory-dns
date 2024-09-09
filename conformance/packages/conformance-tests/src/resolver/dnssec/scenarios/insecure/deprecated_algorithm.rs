@@ -28,7 +28,6 @@ fn sanity_check() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory answers with SERVFAIL"]
 fn dsa() -> Result<()> {
     let output = fixture("dsa", SignSettings::dsa())?;
 
@@ -45,7 +44,6 @@ fn dsa() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory answers with SERVFAIL"]
 fn rsamd5() -> Result<()> {
     let output = fixture("rsamd5", SignSettings::rsamd5())?;
 
