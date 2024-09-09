@@ -140,9 +140,13 @@ generate-test-certs: init-openssl
 publish:
     cargo ws publish --from-git --token $CRATES_IO_TOKEN
 
-# Removes the target directory cleaning all built artifacts
+# Removes the target directories cleaning all built artifacts
 clean:
     rm -rf {{TARGET_DIR}}
+    rm -rf {{join(justfile_directory(), "conformance/target")}}
+    rm -rf {{join(justfile_directory(), "tests/e2e-tests/target")}}
+    rm -rf {{join(justfile_directory(), "tests/ede-dot-com/target")}}
+    rm -rf {{join(justfile_directory(), "fuzz/target")}}
 
 # runs all other conformance-* tasks
 conformance: (conformance-framework) (conformance-unbound) (conformance-bind) (conformance-hickory) (conformance-ignored) (conformance-clippy) (conformance-fmt)
