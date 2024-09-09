@@ -44,14 +44,9 @@ dns-over-https-rustls = ["dns-over-rustls", "hickory-server/dns-over-https-rustl
 dns-over-quic = ["dns-over-rustls", "hickory-server/dns-over-quic"]
 dns-over-h3 = ["dns-over-rustls", "hickory-server/dns-over-h3"]
 
-# TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
 dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "hickory-server/dns-over-openssl"]
 dns-over-rustls = ["dns-over-tls", "dnssec-ring", "dep:rustls", "hickory-server/dns-over-rustls"]
 dns-over-tls = []
-
-# This is a deprecated feature...
-tls-openssl = ["dns-over-openssl"]
-tls = ["dns-over-openssl"]
 
 webpki-roots = ["hickory-server/webpki-roots"]
 native-certs = ["hickory-server/native-certs"]
