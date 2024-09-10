@@ -6,9 +6,6 @@ use hickory_server::authority::{Authority, LookupOptions, ZoneType};
 use hickory_server::config::dnssec::NxProofKind;
 use hickory_server::store::file::{FileAuthority, FileConfig};
 
-#[macro_use]
-mod authority_battery;
-
 fn file(master_file_path: &str, _module: &str, _test_name: &str) -> FileAuthority {
     let config = FileConfig {
         zone_file_path: master_file_path.to_string(),
@@ -26,9 +23,9 @@ fn file(master_file_path: &str, _module: &str, _test_name: &str) -> FileAuthorit
     .expect("failed to load file")
 }
 
-basic_battery!(file);
+basic_battery!(file, crate::store_file_tests::file);
 #[cfg(feature = "dnssec")]
-dnssec_battery!(file);
+dnssec_battery!(file, crate::store_file_tests::file);
 
 #[test]
 fn test_all_lines_are_loaded() {

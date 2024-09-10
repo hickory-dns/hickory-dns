@@ -866,11 +866,11 @@ pub fn add_auth<A: DnssecAuthority>(authority: &mut A) -> Vec<SigSigner> {
 }
 
 macro_rules! define_update_test {
-    ($new:ident; $( $f:ident, )*) => {
+    ($new:expr; $( $f:ident, )*) => {
         $(
             #[test]
             fn $f () {
-                let mut authority = crate::$new("../../tests/test-data/test_configs/example.com.zone", module_path!(), stringify!($f));
+                let mut authority = $new("../../tests/test-data/test_configs/example.com.zone", module_path!(), stringify!($f));
                 let keys = crate::authority_battery::dynamic_update::add_auth(&mut authority);
                 crate::authority_battery::dynamic_update::$f(authority, &keys);
             }
@@ -879,10 +879,10 @@ macro_rules! define_update_test {
 }
 
 macro_rules! dynamic_update {
-    ($new:ident) => {
+    ($name:ident, $new:expr) => {
         #[cfg(test)]
         mod dynamic_update {
-            mod $new {
+            mod $name {
                 define_update_test!($new;
                     test_create,
                     test_create_multi,

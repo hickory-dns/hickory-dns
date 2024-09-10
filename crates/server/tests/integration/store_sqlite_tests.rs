@@ -14,9 +14,6 @@ use hickory_server::{
     store::sqlite::{SqliteAuthority, SqliteConfig},
 };
 
-#[macro_use]
-mod authority_battery;
-
 fn sqlite(master_file_path: &str, module: &str, test_name: &str) -> SqliteAuthority {
     let journal_path = PathBuf::from("target/tests")
         .join(module.replace("::", "_"))
@@ -76,8 +73,8 @@ fn sqlite_update(master_file_path: &str, module: &str, test_name: &str) -> Sqlit
     .expect("failed to load file")
 }
 
-basic_battery!(sqlite);
+basic_battery!(sqlite, crate::store_sqlite_tests::sqlite);
 #[cfg(feature = "dnssec")]
-dnssec_battery!(sqlite);
+dnssec_battery!(sqlite, crate::store_sqlite_tests::sqlite);
 #[cfg(feature = "dnssec")]
-dynamic_update!(sqlite_update);
+dynamic_update!(sqlite_update, crate::store_sqlite_tests::sqlite_update);

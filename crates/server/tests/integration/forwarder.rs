@@ -1,4 +1,3 @@
-#![recursion_limit = "128"]
 #![cfg(feature = "hickory-resolver")]
 
 use std::net::Ipv4Addr;
