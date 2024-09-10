@@ -18,6 +18,7 @@ use std::fs::File;
 use std::io::*;
 use std::net::*;
 
+use hickory_server::server::Protocol;
 use native_tls::Certificate;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
@@ -39,8 +40,9 @@ fn test_example_tls_rustls_and_openssl_toml_startup() {
 }
 
 fn test_startup(toml: &'static str) {
-    named_test_harness(toml, move |_, _, tls_port, _, _| {
+    named_test_harness(toml, move |socket_ports| {
         let mut cert_der = vec![];
+        let tls_port = socket_ports.get_v4(Protocol::Tls);
         let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
         println!("using server src path: {}", server_path);
 
