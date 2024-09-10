@@ -12,10 +12,10 @@ fn test_dnskey_display() {
         false,
         false,
         Algorithm::RSASHA1,
-        include_bytes!("test-data/rfc4034-2.3.key").to_vec(),
+        include_bytes!("../test-data/rfc4034-2.3.key").to_vec(),
     );
     let result = format!("{dnskey}");
-    let exp_result = include_str!("test-data/rfc4034-2.3.rdata");
+    let exp_result = include_str!("../test-data/rfc4034-2.3.rdata");
     assert_eq!(result, exp_result);
 
     let dnskey = DNSKEY::new(
@@ -23,10 +23,10 @@ fn test_dnskey_display() {
         false,
         false,
         Algorithm::RSASHA1,
-        include_bytes!("test-data/rfc4034-5.4.key").to_vec(),
+        include_bytes!("../test-data/rfc4034-5.4.key").to_vec(),
     );
     let result = format!("{dnskey}");
-    let exp_result = include_str!("test-data/rfc4034-5.4.rdata");
+    let exp_result = include_str!("../test-data/rfc4034-5.4.rdata");
     assert_eq!(result, exp_result);
 }
 
@@ -39,7 +39,7 @@ fn test_ds_display() {
         false,
         false,
         Algorithm::RSASHA1,
-        include_bytes!("test-data/rfc4034-5.4.key").to_vec(),
+        include_bytes!("../test-data/rfc4034-5.4.key").to_vec(),
     );
     let digest = dnskey
         .to_digest(
