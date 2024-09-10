@@ -27,7 +27,7 @@ use crate::{
     op::{Edns, OpCode, Query},
     rr::{
         dnssec::{
-            rdata::{DNSSECRData, DNSKEY, DS, RRSIG},
+            rdata::{DNSSECRData, DNSKEY, DS, NSEC, RRSIG},
             Algorithm, Proof, ProofError, ProofErrorKind, SupportedAlgorithms, TrustAnchor,
         },
         rdata::opt::EdnsOption,
@@ -208,7 +208,12 @@ where
                             let nsecs = verified_message
                                 .name_servers()
                                 .iter()
-                                .filter(|rr| is_dnssec(rr, RecordType::NSEC))
+                                .filter_map(|rr| {
+                                    rr.data()
+                                        .as_dnssec()?
+                                        .as_nsec()
+                                        .map(|data| (rr.name(), data))
+                                })
                                 .collect::<Vec<_>>();
 
                             let nsec_proof = verify_nsec(&query, soa_name, nsecs.as_slice());
@@ -1004,41 +1009,29 @@ fn verify_rrset_with_dnskey(_: &DNSKEY, _: &RRSIG, _: &Rrset) -> ProtoResult<()>
 /// ```
 #[allow(clippy::blocks_in_conditions)]
 #[doc(hidden)]
-pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> Proof {
+pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[(&Name, &NSEC)]) -> Proof {
     // TODO: consider converting this to Result, and giving explicit reason for the failure
 
     // first look for a record with the same name
     //  if they are, then the query_type should not exist in the NSEC record.
     //  if we got an NSEC record of the same name, but it is listed in the NSEC types,
     //    WTF? is that bad server, bad record
-    if let Some(nsec) = nsecs.iter().find(|nsec| query.name() == nsec.name()) {
-        if nsec
-            .data()
-            .as_dnssec()
-            .and_then(DNSSECRData::as_nsec)
-            .map_or(false, |rdata| {
-                // this should not be in the covered list
-                !rdata.type_bit_maps().contains(&query.query_type())
-            })
-        {
+    if let Some((_, nsec_data)) = nsecs.iter().find(|(name, _)| query.name() == *name) {
+        if !nsec_data.type_bit_maps().contains(&query.query_type()) {
             return Proof::Secure;
         } else {
             return Proof::Bogus;
         }
     }
 
-    let verify_nsec_coverage = |name: &Name| -> bool {
-        nsecs.iter().any(|nsec| {
+    let verify_nsec_coverage = |query_name: &Name| -> bool {
+        nsecs.iter().any(|(nsec_name, nsec_data)| {
             // the query name must be greater than nsec's label (or equal in the case of wildcard)
-            name >= nsec.name() && {
-                nsec.data()
-                    .as_dnssec()
-                    .and_then(DNSSECRData::as_nsec)
-                    .map_or(false, |rdata| {
-                        // the query name is less than the next name
-                        // or this record wraps the end, i.e. is the last record
-                        name < rdata.next_domain_name() || rdata.next_domain_name() < nsec.name()
-                    })
+            query_name >= nsec_name && {
+                // the query name is less than the next name
+                // or this record wraps the end, i.e. is the last record
+                query_name < nsec_data.next_domain_name()
+                    || nsec_data.next_domain_name() < nsec_name
             }
         })
     };
