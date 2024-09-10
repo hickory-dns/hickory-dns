@@ -8,8 +8,6 @@
 #![cfg(not(windows))]
 #![cfg(feature = "dns-over-rustls")]
 
-mod server_harness;
-
 use std::env;
 use std::fs::File;
 use std::io::*;
@@ -27,7 +25,7 @@ use hickory_client::client::*;
 use hickory_proto::iocompat::AsyncIoTokioAsStd;
 use hickory_proto::rustls::tls_client_connect;
 
-use server_harness::{named_test_harness, query_a};
+use crate::server_harness::{named_test_harness, query_a};
 
 #[test]
 fn test_example_tls_toml_startup() {
