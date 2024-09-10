@@ -454,11 +454,11 @@ pub fn add_signers<A: DnssecAuthority>(authority: &mut A) -> Vec<DNSKEY> {
 }
 
 macro_rules! define_dnssec_test {
-    ($new:ident; $( $f:ident, )*) => {
+    ($new:expr; $( $f:ident, )*) => {
         $(
             #[test]
             fn $f () {
-                let mut authority = crate::$new("../../tests/test-data/test_configs/example.com.zone", module_path!(), stringify!($f));
+                let mut authority = $new("../../tests/test-data/test_configs/example.com.zone", module_path!(), stringify!($f));
                 let keys = crate::authority_battery::dnssec::add_signers(&mut authority);
                 crate::authority_battery::dnssec::$f(authority, &keys);
             }
@@ -467,10 +467,10 @@ macro_rules! define_dnssec_test {
 }
 
 macro_rules! dnssec_battery {
-    ($new:ident) => {
+    ($name:ident, $new:expr) => {
         #[cfg(test)]
         mod dnssec {
-            mod $new {
+            mod $name {
                 define_dnssec_test!($new;
                     test_a_lookup,
                     test_soa,
