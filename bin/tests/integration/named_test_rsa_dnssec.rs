@@ -1,8 +1,6 @@
 #![cfg(feature = "dnssec")]
 #![cfg(not(windows))]
 
-mod server_harness;
-
 use std::env;
 use std::fs::File;
 use std::io::Read;
@@ -21,7 +19,7 @@ use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
 use hickory_proto::DnssecDnsHandle;
 use hickory_proto::{iocompat::AsyncIoTokioAsStd, TokioTime};
 
-use server_harness::*;
+use crate::server_harness::*;
 
 #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 fn confg_toml() -> &'static str {

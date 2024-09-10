@@ -21,8 +21,7 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio::net::UdpSocket as TokioUdpSocket;
 use tokio::runtime::Runtime;
 
-mod server_harness;
-use server_harness::{named_test_harness, query_a, query_a_refused};
+use crate::server_harness::{named_test_harness, query_a, query_a_refused};
 
 #[test]
 fn test_example_toml_startup() {
@@ -284,8 +283,8 @@ fn test_server_continues_on_bad_data_tcp() {
 #[test]
 #[cfg(feature = "resolver")]
 fn test_forward() {
+    use crate::server_harness::query_message;
     use hickory_proto::rr::rdata::A;
-    use server_harness::query_message;
 
     //env_logger::init();
 

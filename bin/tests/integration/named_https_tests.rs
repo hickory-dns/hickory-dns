@@ -8,8 +8,6 @@
 #![cfg(not(windows))]
 #![cfg(feature = "dns-over-https-rustls")]
 
-mod server_harness;
-
 use std::env;
 use std::fs::File;
 use std::io::*;
@@ -25,7 +23,7 @@ use rustls::{ClientConfig, RootCertStore};
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
-use server_harness::{named_test_harness, query_a};
+use crate::server_harness::{named_test_harness, query_a};
 
 #[test]
 fn test_example_https_toml_startup() {

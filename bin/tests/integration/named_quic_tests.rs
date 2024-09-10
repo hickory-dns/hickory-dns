@@ -8,8 +8,6 @@
 #![cfg(not(windows))]
 #![cfg(feature = "dns-over-quic")]
 
-mod server_harness;
-
 use std::{env, fs::File, io::*, net::*, sync::Arc};
 
 use hickory_client::client::*;
@@ -18,7 +16,7 @@ use hickory_server::server::Protocol;
 use rustls::{pki_types::CertificateDer, ClientConfig, RootCertStore};
 use tokio::runtime::Runtime;
 
-use server_harness::{named_test_harness, query_a};
+use crate::server_harness::{named_test_harness, query_a};
 
 #[test]
 fn test_example_quic_toml_startup() {

@@ -11,8 +11,6 @@
 // TODO: enable this test for rustls as well using below config
 // #![cfg(feature = "dns-over-tls")]
 
-mod server_harness;
-
 use std::env;
 use std::fs::File;
 use std::io::*;
@@ -26,8 +24,8 @@ use tokio::runtime::Runtime;
 use hickory_client::client::*;
 use hickory_proto::native_tls::TlsClientStreamBuilder;
 
+use crate::server_harness::{named_test_harness, query_a};
 use hickory_proto::iocompat::AsyncIoTokioAsStd;
-use server_harness::{named_test_harness, query_a};
 
 #[test]
 fn test_example_tls_toml_startup() {
