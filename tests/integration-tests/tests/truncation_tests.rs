@@ -6,7 +6,11 @@ use hickory_proto::udp::UdpClientStream;
 use hickory_proto::xfer::FirstAnswer;
 use hickory_proto::DnsHandle;
 use hickory_server::authority::{Catalog, ZoneType};
-#[cfg(any(feature = "dnssec", feature = "dns-over-rustls"))]
+#[cfg(any(
+    feature = "dnssec",
+    feature = "dns-over-rustls",
+    feature = "dns-over-openssl"
+))]
 use hickory_server::config::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryAuthority;
 use hickory_server::ServerFuture;
@@ -107,7 +111,11 @@ pub fn new_large_catalog(num_records: u32) -> Catalog {
         records,
         ZoneType::Primary,
         false,
-        #[cfg(any(feature = "dnssec", feature = "dns-over-rustls"))]
+        #[cfg(any(
+            feature = "dnssec",
+            feature = "dns-over-rustls",
+            feature = "dns-over-openssl"
+        ))]
         Some(NxProofKind::Nsec),
     )
     .unwrap();

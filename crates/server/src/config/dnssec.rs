@@ -340,7 +340,7 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<SigSigner, String
 pub fn load_cert(
     zone_dir: &Path,
     tls_cert_config: &TlsCertConfig,
-) -> Result<((Option<X509>, Option<Stack<X509>>), Option<PKey<Private>>), String> {
+) -> Result<((X509, Option<Stack<X509>>), PKey<Private>), String> {
     use tracing::{info, warn};
 
     use crate::proto::openssl::tls_server::{
@@ -369,11 +369,15 @@ pub fn load_cert(
                 );
             }
             info!("loading TLS PKCS12 certificate from: {:?}", path);
-            return read_cert_pkcs12(&path, password).map_err(Into::into);
+            let ((cert_opt, cert_chain), private_key_opt) = read_cert_pkcs12(&path, password)?;
+            let cert = cert_opt.ok_or_else(|| format!("no certificate in {path:?}"))?;
+            let private_key =
+                private_key_opt.ok_or_else(|| format!("no private key in {path:?}"))?;
+            return Ok(((cert, cert_chain), private_key));
         }
     };
 
-    // it wasn't plcs12, we need to load the key separately
+    // it wasn't pkcs12, we need to load the key separately
     let key = match (private_key_path, private_key_type) {
         (Some(private_key_path), PrivateKeyType::Pkcs8) => {
             info!("loading TLS PKCS8 key from: {}", private_key_path.display());
@@ -390,7 +394,7 @@ pub fn load_cert(
         }
     };
 
-    Ok(((Some(cert), cert_chain), Some(key)))
+    Ok(((cert, cert_chain), key))
 }
 
 /// Load a Certificate from the path (with rustls)

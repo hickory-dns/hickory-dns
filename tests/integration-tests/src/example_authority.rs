@@ -3,7 +3,11 @@ use std::str::FromStr;
 use hickory_proto::rr::*;
 
 use hickory_server::authority::ZoneType;
-#[cfg(any(feature = "dnssec", feature = "dns-over-rustls"))]
+#[cfg(any(
+    feature = "dnssec",
+    feature = "dns-over-rustls",
+    feature = "dns-over-openssl"
+))]
 use hickory_server::config::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryAuthority;
 
@@ -18,7 +22,11 @@ pub fn create_example() -> InMemoryAuthority {
         origin.clone(),
         ZoneType::Primary,
         false,
-        #[cfg(any(feature = "dnssec", feature = "dns-over-rustls"))]
+        #[cfg(any(
+            feature = "dnssec",
+            feature = "dns-over-rustls",
+            feature = "dns-over-openssl"
+        ))]
         Some(NxProofKind::Nsec),
     );
 
