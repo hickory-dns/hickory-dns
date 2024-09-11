@@ -203,7 +203,7 @@ fn tls_client_stream_test(server_addr: IpAddr) {
 /// Generates a root certificate
 fn root_ca() -> (PKey<Private>, X509Name, X509) {
     let subject_name = "root.example.com";
-    let rsa = Rsa::generate(2048).unwrap();
+    let rsa = Rsa::generate(2_048).unwrap();
     let pkey = PKey::from_rsa(rsa).unwrap();
 
     let mut x509_name = X509NameBuilder::new().unwrap();
@@ -254,7 +254,7 @@ fn cert(
     ca_name: &X509Name,
     _: &X509,
 ) -> (PKey<Private>, X509, Pkcs12) {
-    let rsa = Rsa::generate(2048).unwrap();
+    let rsa = Rsa::generate(2_048).unwrap();
     let pkey = PKey::from_rsa(rsa).unwrap();
 
     let mut x509_name = X509NameBuilder::new().unwrap();

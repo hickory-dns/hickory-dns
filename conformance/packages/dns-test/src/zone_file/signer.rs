@@ -34,8 +34,8 @@ impl SignSettings {
     pub fn rsasha1_nsec3() -> Self {
         Self {
             algorithm: Algorithm::RSASHA1_NSEC3,
-            zsk_bits: 1024,
-            ksk_bits: 2048,
+            zsk_bits: 1_024,
+            ksk_bits: 2_048,
             expiration: None,
             inception: None,
             nsec_salt: None,
@@ -46,8 +46,8 @@ impl SignSettings {
     pub fn dsa() -> Self {
         Self {
             algorithm: Algorithm::DSA,
-            zsk_bits: 1024,
-            ksk_bits: 1024,
+            zsk_bits: 1_024,
+            ksk_bits: 1_024,
             expiration: None,
             inception: None,
             nsec_salt: None,
@@ -58,8 +58,8 @@ impl SignSettings {
     pub fn rsamd5() -> Self {
         Self {
             algorithm: Algorithm::RSAMD5,
-            zsk_bits: 2048,
-            ksk_bits: 2048,
+            zsk_bits: 2_048,
+            ksk_bits: 2_048,
             expiration: None,
             inception: None,
             nsec_salt: None,
@@ -71,8 +71,8 @@ impl SignSettings {
         Self {
             algorithm: Algorithm::RSASHA256,
             // 2048-bit SHA256 matches `$ dig DNSKEY .` in length
-            zsk_bits: 2048,
-            ksk_bits: 2048,
+            zsk_bits: 2_048,
+            ksk_bits: 2_048,
             expiration: None,
             inception: None,
             nsec_salt: None,

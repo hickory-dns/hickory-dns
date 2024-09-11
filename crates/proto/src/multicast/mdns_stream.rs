@@ -299,7 +299,7 @@ impl Stream for MdnsStream {
                 let socket = Arc::clone(socket);
                 let receive_future = async {
                     let socket = socket;
-                    let mut buf = [0u8; 2048];
+                    let mut buf = [0u8; 2_048];
                     let (len, src) = socket.recv_from(&mut buf).await?;
 
                     Ok(SerialMessage::new(
