@@ -82,10 +82,10 @@ impl RecursiveConfig {
 }
 
 fn ns_cache_size_default() -> usize {
-    1024
+    1_024
 }
 fn record_cache_size_default() -> usize {
-    1048576
+    1_048_576
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]

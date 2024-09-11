@@ -366,8 +366,8 @@ impl Recursor {
 impl Default for RecursorBuilder {
     fn default() -> Self {
         Self {
-            ns_cache_size: 1024,
-            record_cache_size: 1048576,
+            ns_cache_size: 1_024,
+            record_cache_size: 1_048_576,
             dnssec_policy: DnssecPolicy::SecurityUnaware,
             do_not_query: vec![],
         }

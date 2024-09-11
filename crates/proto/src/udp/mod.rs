@@ -24,4 +24,4 @@ pub use self::udp_stream::{DnsUdpSocket, UdpSocket, UdpStream};
 
 /// Max size for the UDP receive buffer as recommended by
 /// [RFC6891](https://datatracker.ietf.org/doc/html/rfc6891#section-6.2.5).
-pub const MAX_RECEIVE_BUFFER_SIZE: usize = 4096;
+pub const MAX_RECEIVE_BUFFER_SIZE: usize = 4_096;

@@ -113,7 +113,7 @@ impl H3ClientStream {
         // clamp(512, 4096) says make sure it is at least 512 bytes, and min 4096 says it is at most 4k
         // just a little protection from malicious actors.
         let mut response_bytes =
-            BytesMut::with_capacity(content_length.unwrap_or(512).clamp(512, 4096));
+            BytesMut::with_capacity(content_length.unwrap_or(512).clamp(512, 4_096));
 
         while let Some(partial_bytes) = stream
             .recv_data()
