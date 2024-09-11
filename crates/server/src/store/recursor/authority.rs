@@ -76,13 +76,17 @@ impl RecursiveAuthority {
             });
         }
 
-        let mut recursor = Recursor::builder();
-        recursor
-            .ns_cache_size(config.ns_cache_size)
-            .record_cache_size(config.record_cache_size)
+        let mut builder = Recursor::builder();
+        if let Some(ns_cache_size) = config.ns_cache_size {
+            builder.ns_cache_size(ns_cache_size);
+        }
+        if let Some(record_cache_size) = config.record_cache_size {
+            builder.record_cache_size(record_cache_size);
+        }
+
+        let recursor = builder
             .dnssec_policy(config.dnssec_policy.load()?)
-            .do_not_query(&config.do_not_query);
-        let recursor = recursor
+            .do_not_query(&config.do_not_query)
             .build(roots)
             .map_err(|e| format!("failed to initialize recursor: {e}"))?;
 

@@ -35,12 +35,10 @@ pub struct RecursiveConfig {
     pub roots: PathBuf,
 
     /// Maximum nameserver cache size
-    #[serde(default = "ns_cache_size_default")]
-    pub ns_cache_size: usize,
+    pub ns_cache_size: Option<usize>,
 
     /// Maximum DNS record cache size
-    #[serde(default = "record_cache_size_default")]
-    pub record_cache_size: usize,
+    pub record_cache_size: Option<usize>,
 
     /// DNSSEC policy
     #[cfg(feature = "dnssec")]
@@ -79,13 +77,6 @@ impl RecursiveConfig {
             .map(|ip| SocketAddr::from((ip, 53))) // all the roots only have tradition DNS ports
             .collect())
     }
-}
-
-fn ns_cache_size_default() -> usize {
-    1_024
-}
-fn record_cache_size_default() -> usize {
-    1_048_576
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
