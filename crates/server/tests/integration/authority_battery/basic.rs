@@ -733,8 +733,7 @@ macro_rules! define_basic_test {
         $(
             #[test]
             fn $f () {
-                // Useful for getting debug logs
-                // env_logger::try_init().ok();
+                subscribe();
 
                 let authority = $new("../../tests/test-data/test_configs/example.com.zone", module_path!(), stringify!($f));
                 crate::authority_battery::basic::$f(authority);
@@ -748,6 +747,8 @@ macro_rules! basic_battery {
         #[cfg(test)]
         mod basic {
             mod $name {
+                use crate::subscribe;
+
                 define_basic_test!($new;
                     test_a_lookup,
                     test_soa,

@@ -122,7 +122,7 @@ webpki-roots = { workspace = true, optional = true }
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
 openssl = { workspace = true, features = ["v102", "v110"] }
 tokio = { workspace = true, features = ["rt", "time", "macros"] }
-tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
+tracing-subscriber.workspace = true
 
 [package.metadata.docs.rs]
 all-features = true

@@ -24,10 +24,11 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
 use crate::server_harness::{named_test_harness, query_a};
+use crate::subscribe;
 
 #[test]
 fn test_example_https_toml_startup() {
-    // env_logger::try_init().ok();
+    subscribe();
 
     const ALPN_H2: &[u8] = b"h2";
 

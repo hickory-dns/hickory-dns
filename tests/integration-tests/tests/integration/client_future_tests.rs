@@ -45,9 +45,11 @@ use hickory_integration::{
     example_authority::create_example, NeverReturnsClientStream, TestClientStream,
 };
 
+use crate::subscribe;
+
 #[test]
 fn test_query_nonet() {
-    // env_logger::init();
+    subscribe();
 
     let authority = create_example();
     let mut catalog = Catalog::new();
@@ -977,7 +979,7 @@ fn test_timeout_query(mut client: AsyncClient, io_loop: Runtime) {
 
 #[test]
 fn test_timeout_query_nonet() {
-    //env_logger::try_init().ok();
+    subscribe();
     let io_loop = Runtime::new().expect("failed to create Tokio Runtime");
     let (stream, sender) = NeverReturnsClientStream::new();
     let client =
@@ -990,7 +992,7 @@ fn test_timeout_query_nonet() {
 
 #[test]
 fn test_timeout_query_udp() {
-    //env_logger::try_init().ok();
+    subscribe();
     let io_loop = Runtime::new().unwrap();
 
     // this is a test network, it should NOT be in use
@@ -1011,7 +1013,7 @@ fn test_timeout_query_udp() {
 
 #[test]
 fn test_timeout_query_tcp() {
-    //env_logger::try_init().ok();
+    subscribe();
     let io_loop = Runtime::new().unwrap();
 
     // this is a test network, it should NOT be in use

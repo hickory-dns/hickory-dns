@@ -65,7 +65,7 @@ futures-util = { workspace = true, default-features = false, features = ["std"] 
 rustls = { workspace = true, optional = true }
 time.workspace = true
 tracing.workspace = true
-tracing-subscriber = { workspace = true, features = ["fmt", "env-filter", "std"] }
+tracing-subscriber.workspace = true
 tokio = { workspace = true, features = ["time", "rt"] }
 hickory-client.workspace = true
 hickory-proto.workspace = true

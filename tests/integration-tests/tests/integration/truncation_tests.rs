@@ -20,9 +20,11 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tokio::net::UdpSocket;
 
+use crate::subscribe;
+
 #[tokio::test]
 async fn test_truncation() {
-    let _guard = subscribe();
+    subscribe();
 
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
     let udp_socket = UdpSocket::bind(&addr).await.unwrap();
@@ -65,14 +67,6 @@ async fn test_truncation() {
     assert_eq!(max_payload, result.max_payload());
 
     server.shutdown_gracefully().await.unwrap();
-}
-
-// TODO: should we do this for all of the integration tests?
-fn subscribe() -> tracing::subscriber::DefaultGuard {
-    let sub = tracing_subscriber::FmtSubscriber::builder()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .finish();
-    tracing::subscriber::set_default(sub)
 }
 
 pub fn new_large_catalog(num_records: u32) -> Catalog {
