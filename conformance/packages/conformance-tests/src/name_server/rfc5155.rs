@@ -301,11 +301,7 @@ fn query_nameserver(
         ns.add(record);
     }
 
-    let mut sign_settings = SignSettings::default();
-
-    if dns_test::SUBJECT.is_hickory() {
-        sign_settings = sign_settings.use_dnssec(true);
-    }
+    let sign_settings = SignSettings::default();
 
     let ns = ns.sign(sign_settings)?;
 
