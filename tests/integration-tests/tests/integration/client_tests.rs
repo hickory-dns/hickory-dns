@@ -29,6 +29,8 @@ use hickory_proto::rr::{rdata::A, DNSClass, Name, RData, RecordType};
 use hickory_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
 use hickory_server::authority::{Authority, Catalog};
 
+use crate::subscribe;
+
 pub struct TestClientConnection {
     catalog: Arc<StdMutex<Catalog>>,
 }
@@ -195,7 +197,7 @@ where
 #[allow(deprecated)]
 #[cfg(feature = "dnssec")]
 fn test_secure_query_example_udp() {
-    // env_logger::init();
+    subscribe();
 
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let conn = UdpClientConnection::new(addr).unwrap();
@@ -208,7 +210,7 @@ fn test_secure_query_example_udp() {
 #[allow(deprecated)]
 #[cfg(feature = "dnssec")]
 fn test_secure_query_example_tcp() {
-    // env_logger::init();
+    subscribe();
 
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let conn = TcpClientConnection::new(addr).unwrap();
@@ -222,7 +224,7 @@ fn test_secure_query_example<CC>(client: SyncDnssecClient<CC>)
 where
     CC: ClientConnection,
 {
-    // env_logger::try_init().ok();
+    subscribe();
 
     let name = Name::from_str("www.example.com").unwrap();
 
@@ -268,7 +270,7 @@ where
 
 #[test]
 fn test_timeout_query_nonet() {
-    // env_logger::try_init().ok();
+    subscribe();
     // TODO: need to add timeout length to SyncClient
     let client = SyncClient::new(NeverReturnsClientConnection::new().unwrap());
     test_timeout_query(client);

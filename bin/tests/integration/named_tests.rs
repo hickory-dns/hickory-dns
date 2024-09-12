@@ -22,9 +22,12 @@ use tokio::net::UdpSocket as TokioUdpSocket;
 use tokio::runtime::Runtime;
 
 use crate::server_harness::{named_test_harness, query_a, query_a_refused};
+use crate::subscribe;
 
 #[test]
 fn test_example_toml_startup() {
+    subscribe();
+
     named_test_harness("example.toml", |socket_ports| {
         let mut io_loop = Runtime::new().unwrap();
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
@@ -283,10 +286,10 @@ fn test_server_continues_on_bad_data_tcp() {
 #[test]
 #[cfg(feature = "resolver")]
 fn test_forward() {
-    use crate::server_harness::query_message;
+    use crate::{server_harness::query_message, subscribe};
     use hickory_proto::rr::rdata::A;
 
-    //env_logger::init();
+    subscribe();
 
     named_test_harness("example_forwarder.toml", |socket_ports| {
         let mut io_loop = Runtime::new().unwrap();

@@ -16,11 +16,14 @@ use hickory_server::server::Protocol;
 use rustls::{pki_types::CertificateDer, ClientConfig, RootCertStore};
 use tokio::runtime::Runtime;
 
-use crate::server_harness::{named_test_harness, query_a};
+use crate::{
+    server_harness::{named_test_harness, query_a},
+    subscribe,
+};
 
 #[test]
 fn test_example_quic_toml_startup() {
-    // env_logger::try_init().ok();
+    subscribe();
 
     named_test_harness("dns_over_quic.toml", move |socket_ports| {
         let mut cert_der = vec![];

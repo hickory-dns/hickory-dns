@@ -101,11 +101,7 @@ openssl = { workspace = true, features = ["v102", "v110"], optional = true }
 rustls = { workspace = true, optional = true }
 rustls-native-certs = { workspace = true, optional = true }
 tracing.workspace = true
-tracing-subscriber = { workspace = true, features = [
-    "std",
-    "fmt",
-    "env-filter",
-] }
+tracing-subscriber. workspace = true
 hickory-client.workspace = true
 hickory-proto.workspace = true
 hickory-recursor.workspace = true

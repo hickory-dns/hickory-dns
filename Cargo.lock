@@ -266,6 +266,8 @@ dependencies = [
  "hickory-resolver",
  "pin-utils",
  "socket2",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

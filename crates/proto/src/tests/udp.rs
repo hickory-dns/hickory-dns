@@ -125,9 +125,6 @@ pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor>(
     use std::str::FromStr;
     use std::time::Duration;
 
-    // use env_logger;
-    // env_logger::try_init().ok();
-
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
     std::thread::Builder::new()

@@ -118,7 +118,7 @@ hickory-resolver = { workspace = true, features = ["tokio-runtime"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt"] }
-tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
+tracing-subscriber.workspace = true
 
 [package.metadata.docs.rs]
 all-features = true

@@ -587,8 +587,6 @@ pub mod testing {
         mut exec: E,
         handle: R,
     ) {
-        //env_logger::try_init().ok();
-
         let resolver = AsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts {
@@ -816,8 +814,6 @@ pub mod testing {
         mut exec: E,
         handle: R,
     ) {
-        //env_logger::try_init().ok();
-
         // domain is good now, should be combined with the name to form www.example.com
         let domain = Name::from_str("example.com.").unwrap();
         let search = vec![
@@ -1043,7 +1039,24 @@ pub mod testing {
             IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0xc633, 0x6423))
         );
     }
+
+    /// Registers a global default tracing subscriber when called for the first time. This is intended
+    /// for use in tests.
+    #[cfg(test)]
+    pub(crate) fn subscribe() {
+        use std::sync::Once;
+
+        static INSTALL_TRACING_SUBSCRIBER: Once = Once::new();
+        INSTALL_TRACING_SUBSCRIBER.call_once(|| {
+            let subscriber = tracing_subscriber::FmtSubscriber::builder()
+                .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+                .with_test_writer()
+                .finish();
+            tracing::subscriber::set_global_default(subscriber).unwrap();
+        });
+    }
 }
+
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
 #[allow(clippy::extra_unused_type_parameters)]
@@ -1126,7 +1139,8 @@ mod tests {
     #[test]
     #[cfg(feature = "dnssec")]
     fn test_sec_lookup() {
-        use super::testing::sec_lookup_test;
+        use super::testing::{sec_lookup_test, subscribe};
+        subscribe();
         let io_loop = Runtime::new().expect("failed to create tokio runtime io_loop");
         let handle = TokioConnectionProvider::default();
         sec_lookup_test::<Runtime, TokioConnectionProvider>(io_loop, handle);
@@ -1190,7 +1204,8 @@ mod tests {
 
     #[test]
     fn test_domain_search() {
-        use super::testing::domain_search_test;
+        use super::testing::{domain_search_test, subscribe};
+        subscribe();
         let io_loop = Runtime::new().expect("failed to create tokio runtime io_loop");
         let handle = TokioConnectionProvider::default();
         domain_search_test::<Runtime, TokioConnectionProvider>(io_loop, handle);
