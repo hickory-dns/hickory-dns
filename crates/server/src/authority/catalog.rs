@@ -430,25 +430,40 @@ async fn lookup<'a, R: ResponseHandler + Unpin>(
     response_edns: Option<Edns>,
     response_handle: R,
 ) -> LookupControlFlow<ResponseInfo> {
+    let edns = request.edns();
+    let lookup_options = lookup_options_for_edns(edns);
+    let request_id = request.id();
+
+    // log algorithms being requested
+    if lookup_options.dnssec_ok() {
+        info!("request: {request_id} lookup_options: {lookup_options:?}");
+    }
+
     let query = request_info.query;
+
     debug!(
-        "request: {} found authority: {}",
-        request.id(),
-        authority.origin()
+        "request: {request_id} found authority: {origin}; performing {query}",
+        origin = authority.origin()
     );
 
-    let response = build_response(
-        authority,
-        request_info,
-        request.id(),
-        request.header(),
-        query,
-        request.edns(),
-    )
-    .await;
+    // Wait so we can determine if we need to fire a request to the next authority in a chained
+    // configuration if the current authority declines to answer. NOTE: This is in preparation
+    // for the chained authority PR.
+    let result = authority.search(request_info, lookup_options).await;
+
+    // Abort only if the authority declined to handle the request.
+    if let LookupControlFlow::Skip = result {
+        trace!("build_response: aborting search on LookupControlFlow::Skip");
+        // This will change in the chained authority PR
+        return LookupControlFlow::Continue(Err(LookupError::ResponseCode(ResponseCode::ServFail)));
+    }
+
+    let response =
+        build_response(result, authority, request_id, request.header(), query, edns).await;
 
     let is_continue = response.is_continue();
 
+    use LookupControlFlow::*;
     let (response_header, sections) = match response {
         Continue(Ok(lookup)) | Break(Ok(lookup)) => lookup,
         Continue(Err(e)) => return Continue(Err(e)),
@@ -464,14 +479,8 @@ async fn lookup<'a, R: ResponseHandler + Unpin>(
         sections.additionals.iter(),
     );
 
-    let result = send_response(
-        response_edns.clone(),
-        message_response,
-        response_handle.clone(),
-    )
-    .await;
+    let result = send_response(response_edns, message_response, response_handle).await;
 
-    use LookupControlFlow::*;
     match result {
         Err(e) => {
             error!("error sending response: {}", e);
@@ -516,8 +525,8 @@ fn lookup_options_for_edns(edns: Option<&Edns>) -> LookupOptions {
 }
 
 async fn build_response(
+    result: LookupControlFlow<Box<dyn LookupObject>>,
     authority: &dyn AuthorityObject,
-    request_info: RequestInfo<'_>,
     request_id: u16,
     request_header: &Header,
     query: &LowerQuery,
@@ -525,29 +534,8 @@ async fn build_response(
 ) -> LookupControlFlow<(Header, LookupSections)> {
     let lookup_options = lookup_options_for_edns(edns);
 
-    // log algorithms being requested
-    if lookup_options.dnssec_ok() {
-        info!(
-            "request: {} lookup_options: {:?}",
-            request_id, lookup_options
-        );
-    }
-
     let mut response_header = Header::response_from_request(request_header);
     response_header.set_authoritative(authority.zone_type().is_authoritative());
-
-    debug!("performing {} on {}", query, authority.origin());
-
-    // Wait so we can determine if we need to fire a request to the next authority in a chained
-    // configuration if the current authority declines to answer. NOTE: This is in preparation
-    // for the chained authority PR.
-    let result = authority.search(request_info, lookup_options).await;
-
-    // Abort only if the authority declined to handle the request.
-    if let LookupControlFlow::Skip = result {
-        trace!("build_response: aborting search on lookupcontrolflow::skip");
-        return LookupControlFlow::Skip;
-    }
 
     #[allow(deprecated)]
     let sections = match authority.zone_type() {
