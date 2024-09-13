@@ -462,30 +462,38 @@ fn test_reject_unknown_fields() {
         let zones = config_table.get("zones").unwrap().as_array().unwrap();
         for zone in zones {
             if let Some(stores) = zone.get("stores") {
-                let stores = stores.as_table().unwrap();
-                let _store_type = stores.get("type").unwrap().as_str().unwrap();
+                let stores = if !stores.is_array() {
+                    &vec![stores.clone()]
+                } else {
+                    stores.as_array().unwrap()
+                };
 
-                #[cfg(not(feature = "sqlite"))]
-                if _store_type == "sqlite" {
-                    println!("skipping due to sqlite store");
-                    skip = true;
-                    break;
-                }
+                for store in stores {
+                    let store = store.as_table().unwrap();
+                    let _store_type = store.get("type").unwrap().as_str().unwrap();
 
-                #[cfg(not(feature = "hickory-resolver"))]
-                if _store_type == "forward" {
-                    println!("skipping due to forward store");
-                    skip = true;
-                    break;
-                }
+                    #[cfg(not(feature = "sqlite"))]
+                    if _store_type == "sqlite" {
+                        println!("skipping due to sqlite store");
+                        skip = true;
+                        break;
+                    }
 
-                #[cfg(not(feature = "hickory-recursor"))]
-                if _store_type != "recursor" {
-                    println!("skipping due to recursor store");
-                    skip = true;
-                    break;
+                    #[cfg(not(feature = "hickory-resolver"))]
+                    if _store_type == "forward" {
+                        println!("skipping due to forward store");
+                        skip = true;
+                        break;
+                    }
+
+                    #[cfg(not(feature = "hickory-recursor"))]
+                    if _store_type != "recursor" {
+                        println!("skipping due to recursor store");
+                        skip = true;
+                        break;
+                    }
                 }
-            }
+            };
         }
 
         if skip {
@@ -505,8 +513,11 @@ fn test_reject_unknown_fields() {
                     toml::to_string_pretty(&modified_config).unwrap()
                 ),
                 Err(error) => assert!(
-                    error.message().starts_with("unknown field"),
-                    "unexpected error: {error:?}"
+                    error
+                        .message()
+                        .starts_with("data did not match any variant")
+                        || error.message().starts_with("unknown field"),
+                    "unexpected error: {error:?} for {modified_config:?}"
                 ),
             }
         }

@@ -48,7 +48,7 @@ fn test_query_nonet() {
 
     let authority = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), Arc::new(authority));
+    catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
@@ -261,7 +261,7 @@ fn test_notify() {
     let io_loop = Runtime::new().unwrap();
     let authority = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), Arc::new(authority));
+    catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
 
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let client = AsyncClient::new(stream, sender, None);
@@ -321,7 +321,7 @@ async fn create_sig0_ready_client() -> (
 
     // setup the catalog
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), Arc::new(authority));
+    catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
 
     let signer = Arc::new(signer.into());
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
