@@ -1,9 +1,8 @@
 #![allow(clippy::extra_unused_type_parameters)]
 
-use std::sync::Once;
-
 use hickory_resolver::name_server::GenericConnection;
 use hickory_resolver::testing;
+use test_support::subscribe;
 
 use crate::config::{ResolverConfig, ResolverOpts};
 use crate::lookup::LookupFuture;
@@ -219,17 +218,4 @@ fn test_search_ipv6_name_parse_fails() {
         io_loop.clone(),
         io_loop,
     );
-}
-
-/// Registers a global default tracing subscriber when called for the first time. This is intended
-/// for use in tests.
-fn subscribe() {
-    static INSTALL_TRACING_SUBSCRIBER: Once = Once::new();
-    INSTALL_TRACING_SUBSCRIBER.call_once(|| {
-        let subscriber = tracing_subscriber::FmtSubscriber::builder()
-            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-            .with_test_writer()
-            .finish();
-        tracing::subscriber::set_global_default(subscriber).unwrap();
-    });
 }

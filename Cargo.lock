@@ -266,8 +266,7 @@ dependencies = [
  "hickory-resolver",
  "pin-utils",
  "socket2",
- "tracing",
- "tracing-subscriber",
+ "test-support",
 ]
 
 [[package]]
@@ -854,6 +853,7 @@ dependencies = [
  "native-tls",
  "regex",
  "rustls",
+ "test-support",
  "time",
  "tokio",
  "tracing",
@@ -876,6 +876,7 @@ dependencies = [
  "rand",
  "rusqlite",
  "rustls",
+ "test-support",
  "time",
  "tokio",
  "tracing",
@@ -918,6 +919,7 @@ dependencies = [
  "rustls-pemfile",
  "serde",
  "socket2",
+ "test-support",
  "thiserror",
  "time",
  "tinyvec",
@@ -976,6 +978,7 @@ dependencies = [
  "rustls-native-certs",
  "serde",
  "smallvec",
+ "test-support",
  "thiserror",
  "tokio",
  "tokio-native-tls",
@@ -1010,6 +1013,7 @@ dependencies = [
  "rusqlite",
  "rustls",
  "serde",
+ "test-support",
  "thiserror",
  "time",
  "tokio",
@@ -1922,6 +1926,14 @@ dependencies = [
  "once_cell",
  "rustix",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "test-support"
+version = "0.25.0-alpha.2"
+dependencies = [
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

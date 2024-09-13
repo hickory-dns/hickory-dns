@@ -20,11 +20,11 @@ use hickory_proto::iocompat::AsyncIoTokioAsStd;
 use hickory_server::server::Protocol;
 use rustls::pki_types::CertificateDer;
 use rustls::{ClientConfig, RootCertStore};
+use test_support::subscribe;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
 use crate::server_harness::{named_test_harness, query_a};
-use crate::subscribe;
 
 #[test]
 fn test_example_https_toml_startup() {

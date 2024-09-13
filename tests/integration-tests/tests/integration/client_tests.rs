@@ -5,6 +5,7 @@ use std::str::FromStr;
 use std::sync::{Arc, Mutex as StdMutex};
 
 use futures::Future;
+use test_support::subscribe;
 #[cfg(feature = "dnssec")]
 use time::Duration;
 
@@ -28,8 +29,6 @@ use hickory_proto::rr::Record;
 use hickory_proto::rr::{rdata::A, DNSClass, Name, RData, RecordType};
 use hickory_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
 use hickory_server::authority::{Authority, Catalog};
-
-use crate::subscribe;
 
 pub struct TestClientConnection {
     catalog: Arc<StdMutex<Catalog>>,

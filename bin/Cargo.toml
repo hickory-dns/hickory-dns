@@ -76,6 +76,7 @@ native-tls.workspace = true
 regex.workspace = true
 hickory-proto = { workspace = true, features = ["dns-over-native-tls", "testing"] }
 hickory-resolver.workspace = true
+test-support.workspace = true
 webpki-roots.workspace = true
 
 [lints]

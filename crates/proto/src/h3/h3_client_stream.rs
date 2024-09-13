@@ -460,13 +460,13 @@ mod tests {
     use std::str::FromStr;
 
     use rustls::KeyLogFile;
+    use test_support::subscribe;
     use tokio::runtime::Runtime;
     use tokio::task::JoinSet;
 
     use crate::op::{Message, Query, ResponseCode};
     use crate::rr::rdata::{A, AAAA};
     use crate::rr::{Name, RecordType};
-    use crate::tests::subscribe;
     use crate::xfer::{DnsRequestOptions, FirstAnswer};
 
     use super::*;

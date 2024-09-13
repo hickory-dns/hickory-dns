@@ -1039,22 +1039,6 @@ pub mod testing {
             IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0xc633, 0x6423))
         );
     }
-
-    /// Registers a global default tracing subscriber when called for the first time. This is intended
-    /// for use in tests.
-    #[cfg(test)]
-    pub(crate) fn subscribe() {
-        use std::sync::Once;
-
-        static INSTALL_TRACING_SUBSCRIBER: Once = Once::new();
-        INSTALL_TRACING_SUBSCRIBER.call_once(|| {
-            let subscriber = tracing_subscriber::FmtSubscriber::builder()
-                .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-                .with_test_writer()
-                .finish();
-            tracing::subscriber::set_global_default(subscriber).unwrap();
-        });
-    }
 }
 
 #[cfg(test)]
@@ -1062,6 +1046,7 @@ pub mod testing {
 #[allow(clippy::extra_unused_type_parameters)]
 mod tests {
     use proto::xfer::DnsRequest;
+    use test_support::subscribe;
     use tokio::runtime::Runtime;
 
     use crate::config::{ResolverConfig, ResolverOpts};
@@ -1139,7 +1124,8 @@ mod tests {
     #[test]
     #[cfg(feature = "dnssec")]
     fn test_sec_lookup() {
-        use super::testing::{sec_lookup_test, subscribe};
+        use super::testing::sec_lookup_test;
+        use test_support::subscribe;
         subscribe();
         let io_loop = Runtime::new().expect("failed to create tokio runtime io_loop");
         let handle = TokioConnectionProvider::default();
@@ -1204,7 +1190,7 @@ mod tests {
 
     #[test]
     fn test_domain_search() {
-        use super::testing::{domain_search_test, subscribe};
+        use super::testing::domain_search_test;
         subscribe();
         let io_loop = Runtime::new().expect("failed to create tokio runtime io_loop");
         let handle = TokioConnectionProvider::default();

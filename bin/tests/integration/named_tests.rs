@@ -17,12 +17,12 @@ use hickory_proto::udp::UdpClientStream;
 
 use hickory_client::client::*;
 use hickory_server::server::Protocol;
+use test_support::subscribe;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::net::UdpSocket as TokioUdpSocket;
 use tokio::runtime::Runtime;
 
 use crate::server_harness::{named_test_harness, query_a, query_a_refused};
-use crate::subscribe;
 
 #[test]
 fn test_example_toml_startup() {
@@ -286,7 +286,7 @@ fn test_server_continues_on_bad_data_tcp() {
 #[test]
 #[cfg(feature = "resolver")]
 fn test_forward() {
-    use crate::{server_harness::query_message, subscribe};
+    use crate::server_harness::query_message;
     use hickory_proto::rr::rdata::A;
 
     subscribe();

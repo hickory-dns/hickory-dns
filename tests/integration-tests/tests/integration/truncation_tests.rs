@@ -18,9 +18,8 @@ use std::collections::BTreeMap;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::str::FromStr;
 use std::sync::Arc;
+use test_support::subscribe;
 use tokio::net::UdpSocket;
-
-use crate::subscribe;
 
 #[tokio::test]
 async fn test_truncation() {
