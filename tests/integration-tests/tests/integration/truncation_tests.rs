@@ -115,7 +115,7 @@ pub fn new_large_catalog(num_records: u32) -> Catalog {
     .unwrap();
 
     let mut catalog = Catalog::new();
-    catalog.upsert(Name::root().into(), Arc::new(authority));
+    catalog.upsert(Name::root().into(), vec![Arc::new(authority)]);
     catalog
 }
 
