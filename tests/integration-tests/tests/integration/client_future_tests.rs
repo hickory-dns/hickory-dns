@@ -5,6 +5,7 @@ use std::{
 };
 
 use futures::{Future, FutureExt, TryFutureExt};
+use test_support::subscribe;
 #[cfg(feature = "dnssec")]
 use time::Duration;
 use tokio::{
@@ -44,8 +45,6 @@ use hickory_server::authority::{Authority, Catalog};
 use hickory_integration::{
     example_authority::create_example, NeverReturnsClientStream, TestClientStream,
 };
-
-use crate::subscribe;
 
 #[test]
 fn test_query_nonet() {

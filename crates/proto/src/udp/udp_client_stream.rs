@@ -416,8 +416,9 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
 #[cfg(feature = "tokio-runtime")]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
-    use crate::tests::{subscribe, udp_client_stream_test};
+    use crate::tests::udp_client_stream_test;
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+    use test_support::subscribe;
     use tokio::{net::UdpSocket as TokioUdpSocket, runtime::Runtime};
 
     #[test]

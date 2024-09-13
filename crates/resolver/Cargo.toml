@@ -105,6 +105,7 @@ ipconfig = { workspace = true, optional = true }
 
 [dev-dependencies]
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
+test-support.workspace = true
 tokio = { workspace = true, features = ["macros", "test-util"] }
 tracing-subscriber.workspace = true
 

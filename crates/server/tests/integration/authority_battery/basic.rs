@@ -747,7 +747,7 @@ macro_rules! basic_battery {
         #[cfg(test)]
         mod basic {
             mod $name {
-                use crate::subscribe;
+                use test_support::subscribe;
 
                 define_basic_test!($new;
                     test_a_lookup,

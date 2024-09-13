@@ -11,6 +11,7 @@ members = [
     "util",
     "tests/compatibility-tests",
     "tests/integration-tests",
+    "tests/test-support",
 ]
 exclude = ["fuzz"]
 
@@ -33,6 +34,7 @@ hickory-recursor = { version = "0.25.0-alpha.2", path = "crates/recursor", defau
 hickory-resolver = { version = "0.25.0-alpha.2", path = "crates/resolver", default-features = false }
 hickory-server = { version = "0.25.0-alpha.2", path = "crates/server", default-features = false }
 hickory-proto = { version = "0.25.0-alpha.2", path = "crates/proto", default-features = false }
+test-support.path = "tests/test-support"
 
 
 # logging

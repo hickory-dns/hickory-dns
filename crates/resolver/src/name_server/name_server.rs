@@ -230,6 +230,7 @@ mod tests {
     use std::time::Duration;
 
     use futures_util::{future, FutureExt};
+    use test_support::subscribe;
     use tokio::runtime::Runtime;
 
     use proto::op::{Query, ResponseCode};
@@ -237,7 +238,6 @@ mod tests {
     use proto::xfer::{DnsHandle, DnsRequestOptions, FirstAnswer};
 
     use super::*;
-    use crate::async_resolver::testing::subscribe;
     use crate::config::Protocol;
     use crate::name_server::TokioConnectionProvider;
 

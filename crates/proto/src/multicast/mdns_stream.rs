@@ -427,8 +427,9 @@ pub(crate) mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use super::*;
-    use crate::{tests::subscribe, xfer::dns_handle::DnsStreamHandle};
+    use crate::xfer::dns_handle::DnsStreamHandle;
     use futures_util::future::Either;
+    use test_support::subscribe;
     use tokio::runtime;
 
     // TODO: is there a better way?

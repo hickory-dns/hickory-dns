@@ -131,6 +131,7 @@ hickory-resolver = { workspace = true, features = ["serde", "system-config", "to
 
 [dev-dependencies]
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
+test-support.workspace = true
 tokio = { workspace = true, features = ["macros", "rt"] }
 tracing-subscriber.workspace = true
 
