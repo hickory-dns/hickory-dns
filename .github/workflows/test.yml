@@ -56,8 +56,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: nightly-2024-09-12
           components: llvm-tools-preview
 
       - uses: extractions/setup-just@v2

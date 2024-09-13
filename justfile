@@ -4,6 +4,7 @@ export TDNS_BIND_PATH := join(TARGET_DIR, "bind")
 export TEST_DATA := join(join(justfile_directory(), "tests"), "test-data")
 
 NIGHTLY_DATE := "2024-05-23"
+COVERAGE_NIGHTLY_DATE := "2024-09-12"
 
 ## MSRV
 MSRV := env_var_or_default('MSRV', "")
@@ -111,13 +112,13 @@ coverage: init-llvm-cov
 
     echo $RUSTFLAGS
 
-    cargo +nightly llvm-cov clean
+    cargo +nightly-{{COVERAGE_NIGHTLY_DATE}} llvm-cov clean
     mkdir -p {{COV_CARGO_LLVM_COV_TARGET_DIR}}
 
-    cargo +nightly build --workspace --all-targets --all-features
-    cargo +nightly llvm-cov test --workspace --no-report --all-targets --all-features
-    cargo +nightly llvm-cov test --workspace --no-report --doc --doctests --all-features
-    cargo +nightly llvm-cov report --codecov --output-path {{join(COV_CARGO_LLVM_COV_TARGET_DIR, "hickory-dns-coverage.json")}}
+    cargo +nightly-{{COVERAGE_NIGHTLY_DATE}} build --workspace --all-targets --all-features
+    cargo +nightly-{{COVERAGE_NIGHTLY_DATE}} llvm-cov test --workspace --no-report --all-targets --all-features
+    cargo +nightly-{{COVERAGE_NIGHTLY_DATE}} llvm-cov test --workspace --no-report --doc --doctests --all-features
+    cargo +nightly-{{COVERAGE_NIGHTLY_DATE}} llvm-cov report --codecov --output-path {{join(COV_CARGO_LLVM_COV_TARGET_DIR, "hickory-dns-coverage.json")}}
 
 # Open the html view of the coverage report
 coverage-html: coverage
@@ -129,7 +130,7 @@ coverage-html: coverage
     export CARGO_LLVM_COV_TARGET_DIR={{COV_CARGO_LLVM_COV_TARGET_DIR}}
     export LLVM_PROFILE_FILE={{COV_LLVM_PROFILE_FILE}}
 
-    cargo +nightly llvm-cov report --html --open --output-dir {{COV_CARGO_LLVM_COV_TARGET_DIR}}
+    cargo +nightly-{{COVERAGE_NIGHTLY_DATE}} llvm-cov report --html --open --output-dir {{COV_CARGO_LLVM_COV_TARGET_DIR}}
 
 # (Re)generates Test Certificates, if tests are failing, this needs to be run yearly
 generate-test-certs: init-openssl
