@@ -1,4 +1,5 @@
 mod catalog_tests;
+mod chained_authority_tests;
 mod client_future_tests;
 mod client_tests;
 mod dnssec_client_handle_tests;

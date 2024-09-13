@@ -80,6 +80,7 @@ dns-over-openssl = [
 ]
 dns-over-rustls = [
     "dns-over-tls",
+    "dnssec-ring",
     "hickory-proto/dns-over-rustls",
     "hickory-resolver/dns-over-rustls",
     "hickory-server/dns-over-rustls",
