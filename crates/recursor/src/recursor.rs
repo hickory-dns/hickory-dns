@@ -28,6 +28,9 @@ use crate::{
 pub struct RecursorBuilder {
     ns_cache_size: usize,
     record_cache_size: usize,
+    /// This controls how many nested lookups will be attempted to resolve a CNAME chain. Setting it
+    /// to 0 will disable the recursion limit check, and is not recommended.
+    recursion_limit: u8,
     dnssec_policy: DnssecPolicy,
     do_not_query: Vec<IpNet>,
 }
@@ -42,6 +45,13 @@ impl RecursorBuilder {
     /// Sets the size of the list of cached records
     pub fn record_cache_size(&mut self, size: usize) -> &mut Self {
         self.record_cache_size = size;
+        self
+    }
+
+    /// Sets the maximum recursion depth for queries; set to 0 for unlimited
+    /// recursion.
+    pub fn recursion_limit(&mut self, limit: u8) -> &mut Self {
+        self.recursion_limit = limit;
         self
     }
 
@@ -67,6 +77,7 @@ impl RecursorBuilder {
             roots,
             self.ns_cache_size,
             self.record_cache_size,
+            self.recursion_limit,
             self.dnssec_policy.clone(),
             self.do_not_query.clone(),
         )
@@ -96,6 +107,7 @@ impl Recursor {
         roots: impl Into<NameServerConfigGroup>,
         ns_cache_size: usize,
         record_cache_size: usize,
+        recursion_limit: u8,
         dnssec_policy: DnssecPolicy,
         do_not_query: Vec<IpNet>,
     ) -> Result<Self, ResolveError> {
@@ -103,6 +115,7 @@ impl Recursor {
             roots,
             ns_cache_size,
             record_cache_size,
+            recursion_limit,
             dnssec_policy.is_security_aware(),
             do_not_query,
         )?;
@@ -312,7 +325,7 @@ impl Recursor {
         match &self.mode {
             RecursorMode::NonValidating { handle } => {
                 handle
-                    .resolve(query, request_time, query_has_dnssec_ok)
+                    .resolve(query, request_time, query_has_dnssec_ok, 0)
                     .await
             }
 
@@ -368,6 +381,10 @@ impl Default for RecursorBuilder {
         Self {
             ns_cache_size: 1_024,
             record_cache_size: 1_048_576,
+            // This default is based on CNAME recursion failures of long (> 8 records) CNAME chains
+            // that users of Unbound encountered (see https://github.com/NLnetLabs/unbound/issues/438)
+            // with a small safety margin added.
+            recursion_limit: 12,
             dnssec_policy: DnssecPolicy::SecurityUnaware,
             do_not_query: vec![],
         }
@@ -447,7 +464,7 @@ mod for_dnssec {
             stream::once(async move {
                 // request the DNSSEC records; we'll strip them if not needed on the caller side
                 let do_bit = true;
-                this.resolve(query, Instant::now(), do_bit)
+                this.resolve(query, Instant::now(), do_bit, 0)
                     .map_ok(|lookup| {
                         // `DnssecDnsHandle` will only look at the answer section of the message so
                         // we can put "stubs" in the other fields

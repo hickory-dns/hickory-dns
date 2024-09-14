@@ -18,9 +18,9 @@ use lru_cache::LruCache;
 use parking_lot::Mutex;
 
 use proto::op::Query;
-use proto::rr::Record;
 #[cfg(feature = "dnssec")]
 use proto::rr::RecordData;
+use proto::rr::{Record, RecordType};
 
 use crate::config;
 use crate::lookup::Lookup;
@@ -273,15 +273,18 @@ impl DnsLru {
                 //
                 // to avoid this problem, we'll cache the RRSIG along the record it covers using
                 // the record's type along the record's `name()` as the key in the cache
-
-                #[cfg(feature = "dnssec")]
-                let rtype = if let Some(rrsig) = RRSIG::try_borrow(record.data()) {
-                    rrsig.type_covered()
-                } else {
-                    record.record_type()
+                //
+                // For CNAME records, we want to preserve the original request query type, since
+                // that's what would be used to retrieve the cached query.
+                let rtype = match record.record_type() {
+                    RecordType::CNAME => original_query.query_type(),
+                    #[cfg(feature = "dnssec")]
+                    RecordType::RRSIG => match RRSIG::try_borrow(record.data()) {
+                        Some(rrsig) => rrsig.type_covered(),
+                        None => record.record_type(),
+                    },
+                    _ => record.record_type(),
                 };
-                #[cfg(not(feature = "dnssec"))]
-                let rtype = record.record_type();
 
                 let mut query = Query::query(record.name().clone(), rtype);
                 query.set_query_class(record.dns_class());
