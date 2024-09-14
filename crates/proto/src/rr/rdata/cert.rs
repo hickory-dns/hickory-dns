@@ -9,19 +9,19 @@
 use std::fmt;
 
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use serde::{ Deserialize, Serialize };
 
 use crate::{
-    error::{ProtoError, ProtoResult},
-    rr::{RData, RecordData, RecordDataDecodable, RecordType},
-    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict},
+    error::{ ProtoError, ProtoResult },
+    rr::{ RData, RecordData, RecordDataDecodable, RecordType },
+    serialize::binary::{ BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath },
 };
 
 /// [RFC 4398, Storing Certificates in DNS, November 1987][rfc4398]
 /// https://tools.ietf.org/html/rfc4398#section-2.1
 ///
 /// ```text
-/// 2.1.  Certificate Type Values
+/// [2.1](https://datatracker.ietf.org/doc/html/rfc4398#section-2.1).  Certificate Type Values
 ///
 ///    The following values are defined or reserved:
 ///
@@ -142,17 +142,16 @@ impl fmt::Display for CertType {
 ///
 /// ```text
 ///
-///
-/// 2.2.  Text Representation of CERT RRs
+/// [2.2](https://datatracker.ietf.org/doc/html/rfc4398#section-2.2).  Text Representation of CERT RRs
 ///
 ///    The RDATA portion of a CERT RR has the type field as an unsigned
-///    decimal integer or as a mnemonic symbol as listed in Section 2.1,
+///    decimal integer or as a mnemonic symbol as listed in [Section 2.1](https://datatracker.ietf.org/doc/html/rfc4398#section-2.1),
 ///    above.
 ///
 ///    The key tag field is represented as an unsigned decimal integer.
 ///
 ///    The algorithm field is represented as an unsigned decimal integer or
-///    a mnemonic symbol as listed in [12].
+///    a mnemonic symbol as listed in [[12](https://datatracker.ietf.org/doc/html/rfc4398#ref-12)].
 ///
 /// [12]  Arends, R., Austein, R., Larson, M., Massey, D., and S. Rose,
 /// "Resource Records for the DNS Security Extensions", RFC 4034,
@@ -162,7 +161,7 @@ impl fmt::Display for CertType {
 /// [RFC 4034, Resource Records for the DNS Security Extensions, March 2005][rfc4034]
 /// https://tools.ietf.org/html/rfc4034#appendix-A.1
 ///
-/// A.1.  DNSSEC Algorithm Types
+/// [A.1](https://datatracker.ietf.org/doc/html/rfc4034#appendix-A.1).  DNSSEC Algorithm Types
 ///
 ///    The DNSKEY, RRSIG, and DS RRs use an 8-bit number to identify the
 ///    security algorithm being used.  These values are stored in the
@@ -358,18 +357,20 @@ impl fmt::Display for Algorithm {
 ///
 /// ```text
 ///
-/// The CERT resource record (RR) has the structure given below.  Its RR
-/// type code is 37.
+/// [2](https://datatracker.ietf.org/doc/html/rfc4398#section-2).  The CERT Resource Record
 ///
-///    1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
-/// 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/// |             type              |             key tag           |
-/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/// |   algorithm   |                                               /
-/// +---------------+            certificate or CRL                 /
-/// /                                                               /
-/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
+///    The CERT resource record (RR) has the structure given below.  Its RR
+///    type code is 37.
+///
+///       1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+///    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///    |             type              |             key tag           |
+///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///    |   algorithm   |                                               /
+///    +---------------+            certificate or CRL                 /
+///    /                                                               /
+///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -386,7 +387,7 @@ impl CERT {
         cert_type: CertType,
         key_tag: u16,
         algorithm: Algorithm,
-        cert_data: Vec<u8>,
+        cert_data: Vec<u8>
     ) -> Self {
         Self {
             cert_type,
@@ -426,21 +427,9 @@ impl TryFrom<&[u8]> for CERT {
     type Error = ProtoError;
 
     fn try_from(cert_record: &[u8]) -> Result<Self, Self::Error> {
-        if cert_record.len() <= 5 {
-            return Err(ProtoError::from("invalid cert_record length".to_string()));
-        }
-
-        let cert_type = ((cert_record[0] as u16) << 8) | (cert_record[1] as u16);
-        let key_tag = ((cert_record[2] as u16) << 8) | (cert_record[3] as u16);
-        let algorithm = cert_record[4];
-        let cert_data = cert_record[5..].to_vec();
-
-        Ok(Self {
-            cert_type: cert_type.into(),
-            key_tag,
-            algorithm: algorithm.into(),
-            cert_data,
-        })
+        let mut decoder = BinDecoder::new(cert_record);
+        let length = Restrict::new(cert_record.len() as u16); // You can use the full length here
+        CERT::read_data(&mut decoder, length) // Reuse the read_data method for parsing
     }
 }
 
@@ -457,18 +446,32 @@ impl BinEncodable for CERT {
 
 impl<'r> RecordDataDecodable<'r> for CERT {
     fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
-        let rdata_length = length.map(|u| u as usize).unverified();
-        if rdata_length > 0 {
-            let cert_data = decoder.read_vec(rdata_length)?.unverified(/*any byte array is good*/);
-            Ok(Self::try_from(&cert_data[..])?)
-        } else {
-            Ok(Self::new(
-                CertType::Reserved,
-                0,
-                Algorithm::Reserved(0),
-                vec![],
-            ))
+        let rdata_length = length.map(|u| u as usize).unverified(/*used only as length safely*/);
+
+        if rdata_length <= 5 {
+            return Err(ProtoError::from("invalid cert_record length".to_string()));
         }
+
+        let start_idx = decoder.index();
+
+        let cert_type = decoder.read_u16()?.unverified(/*valid as any u16*/);
+        let key_tag = decoder.read_u16()?.unverified(/*valid as any u16*/);
+        let algorithm = decoder.read_u8()?.unverified(/*valid as any u8*/);
+
+        let cert_len = length
+            .map(|u| u as usize)
+            .checked_sub(decoder.index() - start_idx)
+            .map_err(|_| ProtoError::from("invalid rdata length in CERT"))?
+            .unverified(/*used only as length safely*/);
+
+        let cert_data = decoder.read_vec(cert_len)?.unverified(/*will fail in usage if invalid*/);
+
+        Ok(Self {
+            cert_type: cert_type.into(),
+            key_tag,
+            algorithm: algorithm.into(),
+            cert_data,
+        })
     }
 }
 
@@ -496,6 +499,35 @@ impl RecordData for CERT {
     }
 }
 
+/// [RFC 4398, Storing Certificates in DNS, November 1987][rfc4398]
+/// https://tools.ietf.org/html/rfc4398#section-2.2
+///
+/// ```text
+///
+/// [2.2](https://datatracker.ietf.org/doc/html/rfc4398#section-2.2).  Text Representation of CERT RRs
+///
+///    The RDATA portion of a CERT RR has the type field as an unsigned
+///    decimal integer or as a mnemonic symbol as listed in [Section 2.1](https://datatracker.ietf.org/doc/html/rfc4398#section-2.1),
+///    above.
+///
+///    The key tag field is represented as an unsigned decimal integer.
+///
+///    The algorithm field is represented as an unsigned decimal integer or
+///    a mnemonic symbol as listed in [[12](https://datatracker.ietf.org/doc/html/rfc4398#ref-12)].
+///
+///    The certificate/CRL portion is represented in base 64 [[16](https://datatracker.ietf.org/doc/html/rfc4398#ref-16)] and may be
+///    divided into any number of white-space-separated substrings, down to
+///    single base-64 digits, which are concatenated to obtain the full
+///    signature.  These substrings can span lines using the standard
+///    parenthesis.
+///
+///    Note that the certificate/CRL portion may have internal sub-fields,
+///    but these do not appear in the master file representation.  For
+///    example, with type 254, there will be an OID size, an OID, and then
+///    the certificate/CRL proper.  However, only a single logical base-64
+///    string will appear in the text representation.
+///
+/// ```
 impl fmt::Display for CERT {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         let cert_data = &data_encoding::BASE64.encode(&self.cert_data);
@@ -620,10 +652,7 @@ mod tests {
     fn test_valid_cert_data_length() {
         let valid_cert_data = [1, 2, 3, 4, 5, 6]; // At least 6 bytes
         let result = CERT::try_from(&valid_cert_data[..]);
-        assert!(
-            result.is_ok(),
-            "Expected a valid result with sufficient cert_data length"
-        );
+        assert!(result.is_ok(), "Expected a valid result with sufficient cert_data length");
     }
 
     #[test]
@@ -675,10 +704,15 @@ mod tests {
     fn test_valid_cert_record() {
         // Create a mock cert_data with 5 initial bytes + valid Base64 string for the rest
         let valid_cert_record = [
-            0x00, 0x01, // cert_type: 1 (PKIX)
-            0x30, 0x39, // key_tag: 12345
+            0x00,
+            0x01, // cert_type: 1 (PKIX)
+            0x30,
+            0x39, // key_tag: 12345
             0x08, // algorithm: 8 (e.g., RSASHA256)
-            65, 81, 73, 68, // "AQID" = [1, 2, 3]
+            65,
+            81,
+            73,
+            68, // "AQID" = [1, 2, 3]
         ];
 
         let cert = CERT::try_from(&valid_cert_record[..]);
@@ -696,10 +730,7 @@ mod tests {
         let invalid_cert_record = [1, 2, 3, 4]; // Less than 5 bytes
 
         let result = CERT::try_from(&invalid_cert_record[..]);
-        assert!(
-            result.is_err(),
-            "Expected error due to invalid cert_record length"
-        );
+        assert!(result.is_err(), "Expected error due to invalid cert_record length");
 
         if let Err(e) = result {
             assert_eq!(e.to_string(), "invalid cert_record length".to_string());
