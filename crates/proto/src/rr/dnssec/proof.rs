@@ -286,6 +286,14 @@ pub enum ProofErrorKind {
         /// Name of the DNSKEY
         name: Name,
     },
+
+    /// Unknown or reserved key algorithm
+    #[error("unknown or reserved key algorithm")]
+    UnknownKeyAlgorithm,
+
+    /// Unsupported key algorithms
+    #[error("unsupported key algorithms")]
+    UnsupportedKeyAlgorithm,
 }
 
 /// The error type for dnssec errors that get returned in the crate

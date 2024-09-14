@@ -29,7 +29,7 @@ use std::{
 use clap::Parser;
 use console::style;
 
-use hickory_client::op::Query;
+use hickory_proto::op::Query;
 use hickory_recursor::Recursor;
 use hickory_resolver::{
     config::{NameServerConfig, NameServerConfigGroup, Protocol},

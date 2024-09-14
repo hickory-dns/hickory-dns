@@ -57,7 +57,7 @@ use tracing_subscriber::{
     util::SubscriberInitExt,
 };
 
-use hickory_client::rr::Name;
+use hickory_proto::rr::Name;
 #[cfg(feature = "dns-over-tls")]
 use hickory_server::config::dnssec::{self, TlsCertConfig};
 #[cfg(feature = "resolver")]
@@ -77,7 +77,7 @@ use hickory_server::{
 };
 
 #[cfg(feature = "dnssec")]
-use {hickory_client::rr::rdata::key::KeyUsage, hickory_server::authority::DnssecAuthority};
+use {hickory_proto::rr::dnssec::rdata::key::KeyUsage, hickory_server::authority::DnssecAuthority};
 
 #[cfg(feature = "dnssec")]
 async fn load_keys<A, L>(

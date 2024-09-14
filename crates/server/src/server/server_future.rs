@@ -1270,21 +1270,21 @@ mod tests {
     #[test]
     fn test_sanitize_src_addr() {
         // ipv4 tests
-        assert!(sanitize_src_address(SocketAddr::from(([192, 168, 1, 1], 4096))).is_ok());
+        assert!(sanitize_src_address(SocketAddr::from(([192, 168, 1, 1], 4_096))).is_ok());
         assert!(sanitize_src_address(SocketAddr::from(([127, 0, 0, 1], 53))).is_ok());
 
         assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0], 0))).is_err());
         assert!(sanitize_src_address(SocketAddr::from(([192, 168, 1, 1], 0))).is_err());
-        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0], 4096))).is_err());
-        assert!(sanitize_src_address(SocketAddr::from(([255, 255, 255, 255], 4096))).is_err());
+        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0], 4_096))).is_err());
+        assert!(sanitize_src_address(SocketAddr::from(([255, 255, 255, 255], 4_096))).is_err());
 
         // ipv6 tests
         assert!(
-            sanitize_src_address(SocketAddr::from(([0x20, 0, 0, 0, 0, 0, 0, 0x1], 4096))).is_ok()
+            sanitize_src_address(SocketAddr::from(([0x20, 0, 0, 0, 0, 0, 0, 0x1], 4_096))).is_ok()
         );
-        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 1], 4096))).is_ok());
+        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 1], 4_096))).is_ok());
 
-        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], 4096))).is_err());
+        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], 4_096))).is_err());
         assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], 0))).is_err());
         assert!(
             sanitize_src_address(SocketAddr::from(([0x20, 0, 0, 0, 0, 0, 0, 0x1], 0))).is_err()

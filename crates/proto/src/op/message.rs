@@ -1298,7 +1298,7 @@ mod tests {
         let mut decoder = BinDecoder::new(&buf);
         let message = Message::read(&mut decoder).unwrap();
 
-        assert_eq!(message.id(), 4096);
+        assert_eq!(message.id(), 4_096);
 
         let mut buf: Vec<u8> = Vec::with_capacity(512);
         {
@@ -1309,7 +1309,7 @@ mod tests {
         let mut decoder = BinDecoder::new(&buf);
         let message = Message::read(&mut decoder).unwrap();
 
-        assert_eq!(message.id(), 4096);
+        assert_eq!(message.id(), 4_096);
     }
 
     #[test]

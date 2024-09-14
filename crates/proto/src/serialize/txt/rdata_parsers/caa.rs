@@ -56,14 +56,12 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
         .ok_or_else(|| ParseError::from(ParseErrorKind::Message("caa value not present")))?;
 
     // parse the flags
-    let issuer_critical = {
-        let flags = flags_str.parse::<u8>()?;
-        if flags & 0b0111_1111 != 0 {
-            warn!("unexpected flag values in caa (0 or 128): {}", flags);
-        }
-
-        flags & 0b1000_0000 != 0
-    };
+    let flags = flags_str.parse::<u8>()?;
+    let issuer_critical = (flags & 0b1000_0000) != 0;
+    let reserved_flags = flags & 0b0111_1111;
+    if reserved_flags != 0 {
+        warn!("unexpected flag values in caa (0 or 128): {}", flags);
+    }
 
     // parse the tag
     let tag = {
@@ -94,6 +92,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
     // return the new CAA record
     Ok(CAA {
         issuer_critical,
+        reserved_flags,
         tag,
         value,
     })

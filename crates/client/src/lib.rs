@@ -103,9 +103,9 @@
 //! use std::str::FromStr;
 //! # use hickory_client::client::{Client, SyncClient};
 //! # use hickory_client::udp::UdpClientConnection;
-//! use hickory_client::op::DnsResponse;
-//! use hickory_client::rr::{DNSClass, Name, RData, Record, RecordType};
-//! use hickory_client::rr::rdata::A;
+//! use hickory_client::proto::xfer::DnsResponse;
+//! use hickory_client::proto::rr::{DNSClass, Name, RData, Record, RecordType};
+//! use hickory_client::proto::rr::rdata::A;
 //! #
 //! # let address = "8.8.8.8:53".parse().unwrap();
 //! # let conn = UdpClientConnection::new(address).unwrap();
@@ -155,11 +155,11 @@
 //! # #[cfg(feature = "openssl")]
 //! use openssl::rsa::Rsa;
 //! use hickory_client::client::{Client, SyncClient};
-//! use hickory_client::udp::UdpClientConnection;
-//! use hickory_client::rr::{Name, RData, Record, RecordType};
+//! use hickory_client::proto::udp::UdpClientConnection;
+//! use hickory_client::proto::rr::{Name, RData, Record, RecordType};
 //! use hickory_client::proto::rr::dnssec::{Algorithm, SigSigner, KeyPair};
-//! use hickory_client::op::ResponseCode;
-//! use hickory_client::rr::rdata::{A, key::KEY};
+//! use hickory_client::proto::op::ResponseCode;
+//! use hickory_client::proto::rr::rdata::{A, key::KEY};
 //!
 //! # let address = "0.0.0.0:53".parse().unwrap();
 //! # let conn = UdpClientConnection::new(address).unwrap();
@@ -229,9 +229,9 @@
 //! use tokio::net::TcpStream as TokioTcpStream;
 //! use hickory_client::client::{AsyncClient, ClientHandle};
 //! use hickory_client::proto::iocompat::AsyncIoTokioAsStd;
-//! use hickory_client::rr::{DNSClass, Name, RData, RecordType};
-//! use hickory_client::rr::rdata::A;
-//! use hickory_client::tcp::TcpClientStream;
+//! use hickory_client::proto::rr::{DNSClass, Name, RData, RecordType};
+//! use hickory_client::proto::rr::rdata::A;
+//! use hickory_client::proto::tcp::TcpClientStream;
 //!
 //! #[tokio::main]
 //! async fn main() {
@@ -274,9 +274,7 @@ pub mod error;
 #[cfg(feature = "mdns")]
 #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
 pub mod multicast;
-pub mod op;
 pub mod rr;
-pub mod serialize;
 pub mod tcp;
 pub mod udp;
 

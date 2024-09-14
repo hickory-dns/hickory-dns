@@ -479,6 +479,9 @@ impl<'k> PublicKeyEnum<'k> {
     /// Converts the bytes into a PulbicKey of the specified algorithm
     #[allow(unused_variables, clippy::match_single_binding)]
     pub fn from_public_bytes(public_key: &'k [u8], algorithm: Algorithm) -> ProtoResult<Self> {
+        // try to keep this and `Algorithm::is_supported` in sync
+        debug_assert!(algorithm.is_supported());
+
         #[allow(deprecated)]
         match algorithm {
             #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]

@@ -111,7 +111,7 @@ impl HttpsClientStream {
         // clamp(512, 4096) says make sure it is at least 512 bytes, and min 4096 says it is at most 4k
         // just a little protection from malicious actors.
         let mut response_bytes =
-            BytesMut::with_capacity(content_length.unwrap_or(512).clamp(512, 4096));
+            BytesMut::with_capacity(content_length.unwrap_or(512).clamp(512, 4_096));
 
         while let Some(partial_bytes) = response_stream.body_mut().data().await {
             let partial_bytes =
@@ -542,13 +542,14 @@ mod tests {
     use crate::op::{Message, Query, ResponseCode};
     use crate::rr::rdata::{A, AAAA};
     use crate::rr::{Name, RecordType};
+    use crate::tests::subscribe;
     use crate::xfer::{DnsRequestOptions, FirstAnswer};
 
     use super::*;
 
     #[test]
     fn test_https_google() {
-        //env_logger::try_init().ok();
+        subscribe();
 
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
         let mut request = Message::new();
@@ -610,7 +611,7 @@ mod tests {
 
     #[test]
     fn test_https_google_with_pure_ip_address_server() {
-        //env_logger::try_init().ok();
+        subscribe();
 
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
         let mut request = Message::new();
@@ -673,7 +674,7 @@ mod tests {
     #[test]
     #[ignore] // cloudflare has been unreliable as a public test service.
     fn test_https_cloudflare() {
-        // self::env_logger::try_init().ok();
+        subscribe();
 
         let cloudflare = SocketAddr::from(([1, 1, 1, 1], 443));
         let mut request = Message::new();

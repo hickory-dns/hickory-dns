@@ -17,11 +17,7 @@ fn ds_unassigned_key_algo() -> Result<()> {
 
     dbg!(&output);
 
-    // TODO change assert to only NOERROR+AD=0 when Hickory properly reports the Insecure outcome
-    assert!(
-        output.status.is_servfail()
-            || (output.status.is_noerror() && !output.flags.authenticated_data)
-    );
+    assert!(output.status.is_noerror() && !output.flags.authenticated_data);
 
     if dns_test::SUBJECT.is_unbound() {
         assert!(output.ede.is_empty());
@@ -38,11 +34,7 @@ fn ds_reserved_key_algo() -> Result<()> {
 
     dbg!(&output);
 
-    // TODO change assert to only NOERROR+AD=0 when Hickory properly reports the Insecure outcome
-    assert!(
-        output.status.is_servfail()
-            || (output.status.is_noerror() && !output.flags.authenticated_data)
-    );
+    assert!(output.status.is_noerror() && !output.flags.authenticated_data);
 
     if dns_test::SUBJECT.is_unbound() {
         assert!(output.ede.is_empty());

@@ -20,16 +20,16 @@ use tokio::net::TcpStream;
 use tokio::net::UdpSocket;
 use tokio::runtime::Runtime;
 
-use hickory_client::client::*;
-use hickory_client::op::*;
-use hickory_client::rr::rdata::A;
-use hickory_client::rr::*;
-use hickory_client::tcp::*;
-use hickory_client::udp::*;
-use hickory_proto::error::*;
+use hickory_client::client::{AsyncClient, ClientHandle};
+use hickory_proto::error::ProtoError;
 use hickory_proto::iocompat::AsyncIoTokioAsStd;
 use hickory_proto::op::NoopMessageFinalizer;
-use hickory_proto::xfer::*;
+use hickory_proto::op::ResponseCode;
+use hickory_proto::rr::rdata::A;
+use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
+use hickory_proto::tcp::TcpClientStream;
+use hickory_proto::udp::UdpClientStream;
+use hickory_proto::xfer::{DnsMultiplexer, DnsRequestSender};
 
 fn find_test_port() -> u16 {
     let server = std::net::UdpSocket::bind(("0.0.0.0", 0)).unwrap();
@@ -63,7 +63,7 @@ fn wrap_process(named: Child, server_port: u16) -> NamedProcess {
         let (mut client, bg) = io_loop.block_on(client).expect("failed to create client");
         io_loop.spawn(bg);
 
-        let name = domain::Name::from_str("www.example.com.").unwrap();
+        let name = Name::from_str("www.example.com.").unwrap();
         let response = io_loop.block_on(client.query(name.clone(), DNSClass::IN, RecordType::A));
 
         if response.is_ok() {
@@ -122,7 +122,7 @@ where
     let (mut client, bg) = io_loop.block_on(client).expect("failed to create client");
     io_loop.spawn(bg);
 
-    let name = domain::Name::from_str("www.example.com.").unwrap();
+    let name = Name::from_str("www.example.com.").unwrap();
 
     // validate the request
     let query = client.query(name.clone(), DNSClass::IN, RecordType::A);

@@ -20,7 +20,7 @@ pub mod tls {
     /// Generates a root certificate
     pub fn root_ca() -> (PKey, X509Name, X509) {
         let subject_name = "root.example.com";
-        let rsa = Rsa::generate(2048).unwrap();
+        let rsa = Rsa::generate(2_048).unwrap();
         let pkey = PKey::from_rsa(rsa).unwrap();
 
         let mut x509_name = X509NameBuilder::new().unwrap();
@@ -69,7 +69,7 @@ pub mod tls {
         ca_name: &X509Name,
         _: &X509,
     ) -> (PKey, X509, Pkcs12) {
-        let rsa = Rsa::generate(2048).unwrap();
+        let rsa = Rsa::generate(2_048).unwrap();
         let pkey = PKey::from_rsa(rsa).unwrap();
 
         let mut x509_name = X509NameBuilder::new().unwrap();

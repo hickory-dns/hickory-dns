@@ -36,12 +36,12 @@ dnssec-openssl = [
     "dnssec",
     "openssl",
     "hickory-proto/dnssec-openssl",
-    "hickory-resolver/dnssec-openssl",
+    "hickory-resolver?/dnssec-openssl",
 ]
 dnssec-ring = [
     "dnssec",
     "hickory-proto/dnssec-ring",
-    "hickory-resolver/dnssec-ring",
+    "hickory-resolver?/dnssec-ring",
 ]
 dnssec = [
     "hickory-recursor?/dnssec",
@@ -55,49 +55,44 @@ toml = ["dep:toml"]
 
 dns-over-https-rustls = [
     "hickory-proto/dns-over-https-rustls",
-    "hickory-resolver/dns-over-https-rustls",
+    "hickory-resolver?/dns-over-https-rustls",
     "dns-over-rustls",
     "dep:h2",
     "dep:http",
     "dep:tokio-rustls",
 ]
 
-# TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
 dns-over-openssl = [
     "dns-over-tls",
     "dnssec-openssl",
     "hickory-proto/dns-over-openssl",
     "dep:tokio-openssl",
-    "hickory-resolver/dns-over-openssl",
+    "hickory-resolver?/dns-over-openssl",
 ]
 dns-over-rustls = [
     "dns-over-tls",
     "dnssec-ring",
     "dep:rustls",
     "hickory-proto/dns-over-rustls",
-    "hickory-resolver/dns-over-rustls",
+    "hickory-resolver?/dns-over-rustls",
     "dep:tokio-rustls",
 ]
 dns-over-tls = []
 dns-over-quic = [
     "dns-over-rustls",
     "hickory-proto/dns-over-quic",
-    "hickory-resolver/dns-over-quic",
+    "hickory-resolver?/dns-over-quic",
 ]
 dns-over-h3 = [
     "dns-over-rustls",
     "dep:h3",
     "dep:h3-quinn",
     "hickory-proto/dns-over-h3",
-    "hickory-resolver/dns-over-h3",
+    "hickory-resolver?/dns-over-h3",
 ]
 
-# This is a deprecated feature...
-tls-openssl = ["dns-over-openssl"]
-tls = ["dns-over-openssl"]
-
-webpki-roots = ["hickory-resolver/webpki-roots"]
-native-certs = ["hickory-resolver/native-certs"]
+webpki-roots = ["hickory-resolver?/webpki-roots"]
+native-certs = ["hickory-resolver?/native-certs"]
 
 testing = []
 
@@ -130,14 +125,14 @@ tokio = { workspace = true, features = ["macros", "net", "sync"] }
 tokio-openssl = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true }
 tokio-util.workspace = true
-hickory-proto = { workspace = true, features = ["text-parsing", "tokio-runtime"] }
+hickory-proto = { workspace = true, features = ["serde", "text-parsing", "tokio-runtime"] }
 hickory-recursor = { workspace = true, features = ["serde"], optional = true }
 hickory-resolver = { workspace = true, features = ["serde", "system-config", "tokio-runtime"], optional = true }
 
 [dev-dependencies]
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
 tokio = { workspace = true, features = ["macros", "rt"] }
-tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
+tracing-subscriber.workspace = true
 
 [package.metadata.docs.rs]
 all-features = true

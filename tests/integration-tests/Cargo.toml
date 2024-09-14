@@ -109,8 +109,4 @@ webpki-roots = { workspace = true, optional = true }
 [dev-dependencies]
 futures = { workspace = true, features = ["thread-pool"] }
 tokio = { workspace = true, features = ["macros", "rt"] }
-tracing-subscriber = { workspace = true, features = [
-    "std",
-    "fmt",
-    "env-filter",
-] }
+tracing-subscriber.workspace = true
