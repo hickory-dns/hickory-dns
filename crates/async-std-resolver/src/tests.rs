@@ -1,5 +1,7 @@
 #![allow(clippy::extra_unused_type_parameters)]
 
+use std::sync::Once;
+
 use hickory_resolver::name_server::GenericConnection;
 use hickory_resolver::testing;
 
@@ -139,6 +141,7 @@ fn test_large_ndots() {
 #[test]
 fn test_domain_search() {
     use testing::domain_search_test;
+    subscribe();
     let io_loop = AsyncStdConnectionProvider::new();
     domain_search_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(
         io_loop.clone(),
@@ -216,4 +219,17 @@ fn test_search_ipv6_name_parse_fails() {
         io_loop.clone(),
         io_loop,
     );
+}
+
+/// Registers a global default tracing subscriber when called for the first time. This is intended
+/// for use in tests.
+fn subscribe() {
+    static INSTALL_TRACING_SUBSCRIBER: Once = Once::new();
+    INSTALL_TRACING_SUBSCRIBER.call_once(|| {
+        let subscriber = tracing_subscriber::FmtSubscriber::builder()
+            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+            .with_test_writer()
+            .finish();
+        tracing::subscriber::set_global_default(subscriber).unwrap();
+    });
 }

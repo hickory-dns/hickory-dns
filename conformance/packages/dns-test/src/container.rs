@@ -3,7 +3,7 @@ mod network;
 use core::{fmt, str};
 use std::ffi::OsStr;
 use std::net::Ipv4Addr;
-use std::process::{self, ChildStdout, ExitStatus};
+use std::process::{self, ChildStderr, ChildStdout, ExitStatus};
 use std::process::{Command, Stdio};
 use std::sync::atomic::AtomicUsize;
 use std::sync::{atomic, Arc, Once};
@@ -109,25 +109,27 @@ impl Container {
             None
         };
 
-        image.once().call_once(|| {
-            if let Some(repo) = repo {
-                let mut cp_r = Command::new("git");
-                cp_r.args([
-                    "clone",
-                    "--depth",
-                    "1",
-                    repo.as_str(),
-                    &docker_build_dir.join("src").display().to_string(),
-                ]);
+        if !skip_docker_build() {
+            image.once().call_once(|| {
+                if let Some(repo) = repo {
+                    let mut cp_r = Command::new("git");
+                    cp_r.args([
+                        "clone",
+                        "--depth",
+                        "1",
+                        repo.as_str(),
+                        &docker_build_dir.join("src").display().to_string(),
+                    ]);
 
-                exec_or_panic(&mut cp_r, false);
-            }
+                    exec_or_panic(&mut cp_r, false);
+                }
 
-            fs::write(docker_build_dir.join(".dockerignore"), "src/.git")
-                .expect("could not create .dockerignore file");
+                fs::write(docker_build_dir.join(".dockerignore"), "src/.git")
+                    .expect("could not create .dockerignore file");
 
-            exec_or_panic(&mut command, verbose_docker_build());
-        });
+                exec_or_panic(&mut command, verbose_docker_build());
+            });
+        }
 
         let mut command = Command::new("docker");
         let pid = process::id();
@@ -144,7 +146,6 @@ impl Container {
                 network.name(),
                 "--name",
                 &name,
-                "-it",
             ])
             .arg(image_tag)
             .args(["sleep", "infinity"]);
@@ -187,7 +188,7 @@ impl Container {
     pub fn output(&self, command_and_args: &[&str]) -> Result<Output> {
         let mut command = Command::new("docker");
         command
-            .args(["exec", "-t", &self.inner.id])
+            .args(["exec", &self.inner.id])
             .args(command_and_args);
 
         command.output()?.try_into()
@@ -215,7 +216,7 @@ impl Container {
     pub fn status(&self, command_and_args: &[&str]) -> Result<ExitStatus> {
         let mut command = Command::new("docker");
         command
-            .args(["exec", "-t", &self.inner.id])
+            .args(["exec", &self.inner.id])
             .args(command_and_args);
 
         Ok(command.status()?)
@@ -235,7 +236,7 @@ impl Container {
     pub fn spawn(&self, cmd: &[impl AsRef<OsStr>]) -> Result<Child> {
         let mut command = Command::new("docker");
         command.stdout(Stdio::piped()).stderr(Stdio::piped());
-        command.args(["exec", "-t", &self.inner.id]).args(cmd);
+        command.args(["exec", &self.inner.id]).args(cmd);
 
         let inner = command.spawn()?;
 
@@ -264,6 +265,10 @@ impl Container {
 
 fn verbose_docker_build() -> bool {
     env::var("DNS_TEST_VERBOSE_DOCKER_BUILD").as_deref().is_ok()
+}
+
+fn skip_docker_build() -> bool {
+    env::var("DNS_TEST_SKIP_DOCKER_BUILD").is_ok()
 }
 
 fn exec_or_panic(command: &mut Command, verbose: bool) {
@@ -317,6 +322,17 @@ impl Child {
             .ok_or("could not retrieve child's stdout")?)
     }
 
+    /// Returns a handle to the child's stderr
+    ///
+    /// This method will succeed at most once
+    pub fn stderr(&mut self) -> Result<ChildStderr> {
+        Ok(self
+            .inner
+            .as_mut()
+            .and_then(|child| child.stderr.take())
+            .ok_or("could not retrieve child's stderr")?)
+    }
+
     pub fn wait(mut self) -> Result<Output> {
         let output = self.inner.take().expect("unreachable").wait_with_output()?;
         output.try_into()
@@ -343,12 +359,12 @@ impl TryFrom<process::Output> for Output {
 
     fn try_from(output: process::Output) -> Result<Self> {
         let mut stderr = String::from_utf8(output.stderr)?;
-        while stderr.ends_with(|c| matches!(c, '\n' | '\r')) {
+        while stderr.ends_with(['\n', '\r']) {
             stderr.pop();
         }
 
         let mut stdout = String::from_utf8(output.stdout)?;
-        while stdout.ends_with(|c| matches!(c, '\n' | '\r')) {
+        while stdout.ends_with(['\n', '\r']) {
             stdout.pop();
         }
 

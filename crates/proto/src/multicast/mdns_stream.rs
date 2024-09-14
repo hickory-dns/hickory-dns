@@ -299,7 +299,7 @@ impl Stream for MdnsStream {
                 let socket = Arc::clone(socket);
                 let receive_future = async {
                     let socket = socket;
-                    let mut buf = [0u8; 2048];
+                    let mut buf = [0u8; 2_048];
                     let (len, src) = socket.recv_from(&mut buf).await?;
 
                     Ok(SerialMessage::new(
@@ -427,7 +427,7 @@ pub(crate) mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use super::*;
-    use crate::xfer::dns_handle::DnsStreamHandle;
+    use crate::{tests::subscribe, xfer::dns_handle::DnsStreamHandle};
     use futures_util::future::Either;
     use tokio::runtime;
 
@@ -443,8 +443,7 @@ pub(crate) mod tests {
     // one_shot tests are basically clones from the udp tests
     #[test]
     fn test_next_random_socket() {
-        // use env_logger;
-        // env_logger::init();
+        subscribe();
 
         let io_loop = runtime::Runtime::new().unwrap();
         let (stream, _) = MdnsStream::new(

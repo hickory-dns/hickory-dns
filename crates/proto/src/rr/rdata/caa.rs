@@ -39,12 +39,10 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct CAA {
-    #[doc(hidden)]
-    pub issuer_critical: bool,
-    #[doc(hidden)]
-    pub tag: Property,
-    #[doc(hidden)]
-    pub value: Value,
+    pub(crate) issuer_critical: bool,
+    pub(crate) reserved_flags: u8,
+    pub(crate) tag: Property,
+    pub(crate) value: Value,
 }
 
 impl CAA {
@@ -58,6 +56,7 @@ impl CAA {
 
         Self {
             issuer_critical,
+            reserved_flags: 0,
             tag,
             value: Value::Issuer(name, options),
         }
@@ -102,6 +101,7 @@ impl CAA {
     pub fn new_iodef(issuer_critical: bool, url: Url) -> Self {
         Self {
             issuer_critical,
+            reserved_flags: 0,
             tag: Property::Iodef,
             value: Value::Url(url),
         }
@@ -112,14 +112,39 @@ impl CAA {
         self.issuer_critical
     }
 
+    /// Set the Issuer Critical Flag. This indicates that the corresponding property tag MUST be
+    /// understood if the semantics of the CAA record are to be correctly interpreted by an issuer.
+    pub fn set_issuer_critical(&mut self, issuer_critical: bool) {
+        self.issuer_critical = issuer_critical;
+    }
+
+    /// Returns the Flags field of the resource record
+    pub fn flags(&self) -> u8 {
+        let mut flags = self.reserved_flags & 0b0111_1111;
+        if self.issuer_critical {
+            flags |= 0b1000_0000;
+        }
+        flags
+    }
+
     /// The property tag, see struct documentation
     pub fn tag(&self) -> &Property {
         &self.tag
     }
 
+    /// Set the property tag, see struct documentation
+    pub fn set_tag(&mut self, tag: Property) {
+        self.tag = tag;
+    }
+
     /// a potentially associated value with the property tag, see struct documentation
     pub fn value(&self) -> &Value {
         &self.value
+    }
+
+    /// Set the value associated with the property tag, see struct documentation
+    pub fn set_value(&mut self, value: Value) {
+        self.value = value;
     }
 }
 
@@ -204,7 +229,9 @@ impl From<String> for Property {
 ///
 /// `Issue` and `IssueWild` => `Issuer`,
 /// `Iodef` => `Url`,
-/// `Unknown` => `Unknown`,
+/// `Unknown` => `Unknown`.
+///
+/// `Unknown` is also used for invalid values of known Tag types that cannot be parsed.
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Value {
@@ -212,7 +239,7 @@ pub enum Value {
     Issuer(Option<Name>, Vec<KeyValue>),
     /// Url to which to send CA errors
     Url(Url),
-    /// Unrecognized tag and value by Hickory DNS
+    /// Uninterpreted data, either for a tag that is not known to Hickory DNS, or an invalid value
     Unknown(Vec<u8>),
 }
 
@@ -242,13 +269,17 @@ fn read_value(
     match *tag {
         Property::Issue | Property::IssueWild => {
             let slice = decoder.read_slice(value_len)?.unverified(/*read_issuer verified as safe*/);
-            let value = read_issuer(slice)?;
-            Ok(Value::Issuer(value.0, value.1))
+            Ok(match read_issuer(slice) {
+                Ok(value) => Value::Issuer(value.0, value.1),
+                Err(_) => Value::Unknown(slice.to_vec()),
+            })
         }
         Property::Iodef => {
             let url = decoder.read_slice(value_len)?.unverified(/*read_iodef verified as safe*/);
-            let url = read_iodef(url)?;
-            Ok(Value::Url(url))
+            Ok(match read_iodef(url) {
+                Ok(url) => Value::Url(url),
+                Err(_) => Value::Unknown(url.to_vec()),
+            })
         }
         Property::Unknown(_) => Ok(Value::Unknown(
             decoder.read_vec(value_len)?.unverified(/*unknown will fail in usage*/),
@@ -261,7 +292,7 @@ fn emit_value(encoder: &mut BinEncoder<'_>, value: &Value) -> ProtoResult<()> {
         Value::Issuer(ref name, ref key_values) => {
             // output the name
             if let Some(ref name) = *name {
-                let name = name.to_string();
+                let name = name.to_ascii();
                 encoder.emit_vec(name.as_bytes())?;
             }
 
@@ -398,7 +429,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
 
         if !name_str.is_empty() {
             let name_str = str::from_utf8(&name_str)?;
-            Some(Name::parse(name_str, None)?)
+            Some(Name::from_ascii(name_str)?)
         } else {
             None
         }
@@ -631,13 +662,7 @@ fn emit_tag(buf: &mut [u8], tag: &Property) -> ProtoResult<u8> {
 
 impl BinEncodable for CAA {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        let mut flags = 0_u8;
-
-        if self.issuer_critical {
-            flags |= 0b1000_0000;
-        }
-
-        encoder.emit(flags)?;
+        encoder.emit(self.flags())?;
         // TODO: it might be interesting to use the new place semantics here to output all the data, then place the length back to the beginning...
         let mut tag_buf = [0_u8; u8::MAX as usize];
         let len = emit_tag(&mut tag_buf, &self.tag)?;
@@ -721,9 +746,10 @@ impl<'r> RecordDataDecodable<'r> for CAA {
     /// remaining length of the enclosing RDATA section.
     /// ```
     fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<CAA> {
-        // the spec declares that other flags should be ignored for future compatibility...
-        let issuer_critical: bool =
-            decoder.read_u8()?.unverified(/*used as bitfield*/) & 0b1000_0000 != 0;
+        let flags = decoder.read_u8()?.unverified(/*used as bitfield*/);
+
+        let issuer_critical = (flags & 0b1000_0000) != 0;
+        let reserved_flags = flags & 0b0111_1111;
 
         let tag_len = decoder.read_u8()?;
         let value_len: Restrict<u16> = length
@@ -737,6 +763,7 @@ impl<'r> RecordDataDecodable<'r> for CAA {
 
         Ok(CAA {
             issuer_critical,
+            reserved_flags,
             tag,
             value,
         })
@@ -819,12 +846,10 @@ impl fmt::Display for KeyValue {
 // FIXME: this needs to be verified to be correct, add tests...
 impl fmt::Display for CAA {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        let critical = if self.issuer_critical { "128" } else { "0" };
-
         write!(
             f,
-            "{critical} {tag} {value}",
-            critical = critical,
+            "{flags} {tag} {value}",
+            flags = self.flags(),
             tag = self.tag,
             value = self.value
         )
@@ -836,8 +861,6 @@ mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use std::str;
-
-    use crate::error::ProtoErrorKind;
 
     use super::*;
 
@@ -1002,6 +1025,13 @@ mod tests {
             Some(Name::parse("example.com.", None).unwrap()),
             vec![],
         ));
+        // invalid name
+        test_encode_decode(CAA {
+            issuer_critical: false,
+            reserved_flags: 0,
+            tag: Property::Issue,
+            value: Value::Unknown(b"%%%%%".to_vec()),
+        });
     }
 
     #[test]
@@ -1020,6 +1050,23 @@ mod tests {
             false,
             Url::parse("mailto:root@example.com").unwrap(),
         ));
+        // invalid UTF-8
+        test_encode_decode(CAA {
+            issuer_critical: false,
+            reserved_flags: 0,
+            tag: Property::Iodef,
+            value: Value::Unknown(b"\xff".to_vec()),
+        });
+    }
+
+    #[test]
+    fn test_encode_decode_unknown() {
+        test_encode_decode(CAA {
+            issuer_critical: true,
+            reserved_flags: 0,
+            tag: Property::Unknown("tbs".to_string()),
+            value: Value::Unknown(b"Unknown".to_vec()),
+        });
     }
 
     fn test_encode(rdata: CAA, encoded: &[u8]) {
@@ -1137,6 +1184,7 @@ mod tests {
         );
         let unknown = CAA {
             issuer_critical: true,
+            reserved_flags: 0,
             tag: Property::from("tbs".to_string()),
             value: Value::Unknown("Unknown".as_bytes().to_vec()),
         };
@@ -1152,10 +1200,54 @@ mod tests {
         ];
 
         let mut decoder = BinDecoder::new(MESSAGE);
-        let err = CAA::read_data(&mut decoder, Restrict::new(MESSAGE.len() as u16)).unwrap_err();
-        match err.kind() {
-            ProtoErrorKind::Msg(msg) => assert_eq!(msg, "bad character in CAA issuer key: ÿ"),
-            _ => panic!("unexpected error: {:?}", err),
+        let caa = CAA::read_data(&mut decoder, Restrict::new(MESSAGE.len() as u16)).unwrap();
+        assert!(!caa.issuer_critical());
+        assert_eq!(*caa.tag(), Property::Issue);
+        match caa.value() {
+            Value::Unknown(bytes) => {
+                assert_eq!(bytes, &MESSAGE[7..]);
+            }
+            _ => panic!("wrong value type: {:?}", caa.value()),
+        }
+    }
+
+    #[test]
+    fn test_name_non_ascii_character_escaped_dots_roundtrip() {
+        const MESSAGE: &[u8] = b"\x00\x05issue\xe5\x85\x9edomain\\.\\.name";
+        let caa = CAA::read_data(
+            &mut BinDecoder::new(MESSAGE),
+            Restrict::new(u16::try_from(MESSAGE.len()).unwrap()),
+        )
+        .unwrap();
+        dbg!(caa.value());
+
+        let mut encoded = Vec::new();
+        caa.emit(&mut BinEncoder::new(&mut encoded)).unwrap();
+
+        let caa_round_trip = CAA::read_data(
+            &mut BinDecoder::new(&encoded),
+            Restrict::new(u16::try_from(encoded.len()).unwrap()),
+        )
+        .unwrap();
+        dbg!(caa_round_trip.value());
+
+        assert_eq!(caa, caa_round_trip);
+    }
+
+    #[test]
+    fn test_reserved_flags_round_trip() {
+        let mut original = *b"\x00\x05issueexample.com";
+        for flags in 0..=u8::MAX {
+            original[0] = flags;
+            let caa = CAA::read_data(
+                &mut BinDecoder::new(&original),
+                Restrict::new(u16::try_from(original.len()).unwrap()),
+            )
+            .unwrap();
+
+            let mut encoded = Vec::new();
+            caa.emit(&mut BinEncoder::new(&mut encoded)).unwrap();
+            assert_eq!(original.as_slice(), &encoded);
         }
     }
 }

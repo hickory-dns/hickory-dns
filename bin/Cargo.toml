@@ -32,57 +32,24 @@ default = ["sqlite", "resolver", "native-certs", "ascii-art"]
 # if enabled, the hickory-dns binary will print ascii-art on start, disable to reduce the binary size
 ascii-art = []
 
-dnssec-openssl = [
-    "dnssec",
-    "hickory-client/dnssec-openssl",
-    "hickory-proto/dnssec-openssl",
-    "hickory-server/dnssec-openssl",
-]
-dnssec-ring = [
-    "dnssec",
-    "hickory-client/dnssec-ring",
-    "hickory-proto/dnssec-ring",
-    "hickory-server/dnssec-ring",
-]
+dnssec-openssl = ["dnssec", "hickory-server/dnssec-openssl"]
+dnssec-ring = ["dnssec", "hickory-server/dnssec-ring"]
 dnssec = []
 recursor = ["hickory-server/recursor"]
 # Recursive Resolution is Experimental!
 resolver = ["hickory-server/resolver"]
 sqlite = ["hickory-server/sqlite"]
 
-dns-over-https-rustls = [
-    "dns-over-rustls",
-    "hickory-proto/dns-over-https-rustls",
-    "hickory-client/dns-over-https-rustls",
-    "hickory-server/dns-over-https-rustls",
-]
+dns-over-https-rustls = ["dns-over-rustls", "hickory-server/dns-over-https-rustls"]
 dns-over-quic = ["dns-over-rustls", "hickory-server/dns-over-quic"]
 dns-over-h3 = ["dns-over-rustls", "hickory-server/dns-over-h3"]
 
-# TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
-dns-over-openssl = [
-    "dns-over-tls",
-    "dnssec-openssl",
-    "hickory-proto/dns-over-openssl",
-    "hickory-client/dns-over-openssl",
-    "hickory-server/dns-over-openssl",
-]
-dns-over-rustls = [
-    "dns-over-tls",
-    "dnssec-ring",
-    "rustls",
-    "hickory-proto/dns-over-rustls",
-    "hickory-client/dns-over-rustls",
-    "hickory-server/dns-over-rustls",
-]
+dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "hickory-server/dns-over-openssl"]
+dns-over-rustls = ["dns-over-tls", "dnssec-ring", "dep:rustls", "hickory-server/dns-over-rustls"]
 dns-over-tls = []
 
-# This is a deprecated feature...
-tls-openssl = ["dns-over-openssl"]
-tls = ["dns-over-openssl"]
-
-webpki-roots = ["hickory-client/webpki-roots", "hickory-server/webpki-roots"]
-native-certs = ["hickory-client/native-certs", "hickory-server/native-certs"]
+webpki-roots = ["hickory-server/webpki-roots"]
+native-certs = ["hickory-server/native-certs"]
 
 [[bin]]
 name = "hickory-dns"
@@ -98,7 +65,7 @@ futures-util = { workspace = true, default-features = false, features = ["std"] 
 rustls = { workspace = true, optional = true }
 time.workspace = true
 tracing.workspace = true
-tracing-subscriber = { workspace = true, features = ["fmt", "env-filter", "std"] }
+tracing-subscriber.workspace = true
 tokio = { workspace = true, features = ["time", "rt"] }
 hickory-client.workspace = true
 hickory-proto.workspace = true

@@ -35,7 +35,7 @@ use console::style;
 use hickory_proto::error::{ProtoError, ProtoErrorKind};
 use tokio::task::JoinSet;
 
-use hickory_client::rr::{Record, RecordData};
+use hickory_proto::rr::{Record, RecordData};
 use hickory_resolver::{
     config::{NameServerConfig, NameServerConfigGroup, Protocol, ResolverConfig, ResolverOpts},
     error::ResolveError,

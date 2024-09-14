@@ -3,7 +3,12 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::{container::Container, name_server::Signed, record::DS, FQDN};
+use crate::{
+    container::Container,
+    name_server::{Signed, DS2},
+    record::DS,
+    FQDN,
+};
 
 use super::{ZoneFile, DNSKEY};
 
@@ -29,8 +34,8 @@ impl SignSettings {
     pub fn rsasha1_nsec3() -> Self {
         Self {
             algorithm: Algorithm::RSASHA1_NSEC3,
-            zsk_bits: 1024,
-            ksk_bits: 2048,
+            zsk_bits: 1_024,
+            ksk_bits: 2_048,
             expiration: None,
             inception: None,
             nsec_salt: None,
@@ -41,8 +46,8 @@ impl SignSettings {
     pub fn dsa() -> Self {
         Self {
             algorithm: Algorithm::DSA,
-            zsk_bits: 1024,
-            ksk_bits: 1024,
+            zsk_bits: 1_024,
+            ksk_bits: 1_024,
             expiration: None,
             inception: None,
             nsec_salt: None,
@@ -53,8 +58,8 @@ impl SignSettings {
     pub fn rsamd5() -> Self {
         Self {
             algorithm: Algorithm::RSAMD5,
-            zsk_bits: 2048,
-            ksk_bits: 2048,
+            zsk_bits: 2_048,
+            ksk_bits: 2_048,
             expiration: None,
             inception: None,
             nsec_salt: None,
@@ -66,8 +71,8 @@ impl SignSettings {
         Self {
             algorithm: Algorithm::RSASHA256,
             // 2048-bit SHA256 matches `$ dig DNSKEY .` in length
-            zsk_bits: 2048,
-            ksk_bits: 2048,
+            zsk_bits: 2_048,
+            ksk_bits: 2_048,
             expiration: None,
             inception: None,
             nsec_salt: None,
@@ -184,8 +189,14 @@ impl<'a> Signer<'a> {
 
         // TODO do we want to make the hashing algorithm configurable?
         // -2 = use SHA256 for the DS hash
-        let key2ds = format!("cd {ZONES_DIR} && ldns-key2ds -n -2 {ZONE_FILENAME}.signed");
-        let ds: DS = self.container.stdout(&["sh", "-c", &key2ds])?.parse()?;
+        let key2ds = format!("cd {ZONES_DIR} && ldns-key2ds -f -n -2 {ZONE_FILENAME}.signed");
+        let dses = self
+            .container
+            .stdout(&["sh", "-c", &key2ds])?
+            .lines()
+            .map(|line| line.parse())
+            .collect::<Result<Vec<DS>, _>>()?;
+        let ds = DS2::classify(dses, &zsk, &ksk);
 
         let signed: ZoneFile = self
             .container

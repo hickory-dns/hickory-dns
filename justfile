@@ -42,7 +42,7 @@ dns-over-h3: (default "--features=dns-over-h3" "--ignore=\\{async-std-resolver,h
 dns-over-native-tls: (default "--features=dns-over-native-tls" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-server,hickory-dns,hickory-util,hickory-integration\\}")
 
 # Check, build, and test all crates with dns-over-openssl enabled
-dns-over-openssl: (default "--features=dnssec-openssl" "--ignore=\\{async-std-resolver,hickory-compatibility\\}")
+dns-over-openssl: (default "--features=dns-over-openssl" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-util\\}")
 
 # Check, build, and test all crates with dnssec-openssl enabled
 dnssec-openssl: (default "--features=dnssec-openssl" "--ignore=\\{async-std-resolver,hickory-compatibility\\}")
@@ -140,9 +140,13 @@ generate-test-certs: init-openssl
 publish:
     cargo ws publish --from-git --token $CRATES_IO_TOKEN
 
-# Removes the target directory cleaning all built artifacts
+# Removes the target directories cleaning all built artifacts
 clean:
     rm -rf {{TARGET_DIR}}
+    rm -rf {{join(justfile_directory(), "conformance/target")}}
+    rm -rf {{join(justfile_directory(), "tests/e2e-tests/target")}}
+    rm -rf {{join(justfile_directory(), "tests/ede-dot-com/target")}}
+    rm -rf {{join(justfile_directory(), "fuzz/target")}}
 
 # runs all other conformance-* tasks
 conformance: (conformance-framework) (conformance-unbound) (conformance-bind) (conformance-hickory) (conformance-ignored) (conformance-clippy) (conformance-fmt)
@@ -224,7 +228,7 @@ e2e-tests-fmt:
 # runs all other ede-dot-com-* tasks
 ede-dot-com: (ede-dot-com-run) (ede-dot-com-ignored) (ede-dot-com-check)
 
-# runs hickory-specific end-to-end tests that use the dns-test framework
+# runs hickory-specific ede-dot-com tests that use the dns-test framework
 ede-dot-com-run filter='':
     bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes will NOT be tested" || true'
     DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo test --manifest-path tests/ede-dot-com/Cargo.toml -- {{filter}}

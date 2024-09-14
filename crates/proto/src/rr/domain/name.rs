@@ -61,13 +61,13 @@ impl Name {
         use rand::distributions::{Distribution, Standard};
         let mut rand = rand::thread_rng();
 
-        // 16 bits should be enough to cover *most* queries without making another call to the RNG.
-        // Using u16 here resulted in repeated cases of the most-significant bit always being zero
-        let mut rand_bits: i16 = 0;
+        // Generate randomness 32 bits at a time, because this is the smallest unit on which the
+        // `rand` crate operates. One RNG call should be enough for most queries.
+        let mut rand_bits: u32 = 0;
 
         for (i, b) in self.label_data.iter_mut().enumerate() {
-            // Generate fresh random bits on the zeroth and then every 16th iteration.
-            if i % 16 == 0 {
+            // Generate fresh random bits on the zeroth and then every 32nd iteration.
+            if i % 32 == 0 {
                 rand_bits = Standard.sample(&mut rand);
             }
 
@@ -632,7 +632,8 @@ impl Name {
             name = name.append_label(E::to_label(&label)?)?;
         }
 
-        if local.ends_with('.') {
+        // Check if the last character processed was an unescaped `.`
+        if label.is_empty() && !local.is_empty() {
             name.set_fqdn(true);
         } else if let Some(other) = origin {
             return name.append_domain(other);
@@ -2092,5 +2093,20 @@ mod tests {
             }
             _ => 0.0,
         }
+    }
+
+    #[test]
+    fn test_fqdn_escaped_dot() {
+        let name = Name::from_utf8("test.").unwrap();
+        assert!(name.is_fqdn());
+
+        let name = Name::from_utf8("test\\.").unwrap();
+        assert!(!name.is_fqdn());
+
+        let name = Name::from_utf8("").unwrap();
+        assert!(!name.is_fqdn());
+
+        let name = Name::from_utf8(".").unwrap();
+        assert!(name.is_fqdn());
     }
 }

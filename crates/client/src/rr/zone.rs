@@ -1,8 +1,10 @@
 //! Reserved Zone and related information
 
-pub use crate::proto::rr::domain::usage::*;
-use crate::proto::rr::domain::{Label, Name};
-use crate::proto::serialize::binary::BinEncodable;
+use hickory_proto::rr::domain::usage::{
+    ZoneUsage, DEFAULT, INVALID, IN_ADDR_ARPA, IN_ADDR_ARPA_127, IP6_ARPA_1, LOCALHOST, ONION,
+};
+use hickory_proto::rr::domain::{Label, Name};
+use hickory_proto::serialize::binary::BinEncodable;
 
 use once_cell::sync::Lazy;
 use radix_trie::{Trie, TrieKey};

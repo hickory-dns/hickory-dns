@@ -237,12 +237,13 @@ mod tests {
     use proto::xfer::{DnsHandle, DnsRequestOptions, FirstAnswer};
 
     use super::*;
+    use crate::async_resolver::testing::subscribe;
     use crate::config::Protocol;
     use crate::name_server::TokioConnectionProvider;
 
     #[test]
     fn test_name_server() {
-        //env_logger::try_init().ok();
+        subscribe();
 
         let config = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),

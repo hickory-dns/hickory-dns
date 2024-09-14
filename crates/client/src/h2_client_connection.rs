@@ -38,8 +38,8 @@ pub struct HttpsClientConnection<T> {
 /// use hickory_client::client::SyncClient;
 /// use hickory_client::client::Client;
 /// use hickory_client::h2::HttpsClientConnection;
-/// use hickory_client::rr::{DNSClass, Name, RecordType};
-/// use hickory_proto::iocompat::AsyncIoTokioAsStd;
+/// use hickory_client::proto::rr::{DNSClass, Name, RecordType};
+/// use hickory_client::proto::iocompat::AsyncIoTokioAsStd;
 /// use rustls::{ClientConfig, RootCertStore};
 /// use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 /// use std::sync::Arc;

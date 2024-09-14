@@ -32,17 +32,6 @@ pub struct RecursorBuilder {
     do_not_query: Vec<IpNet>,
 }
 
-impl Default for RecursorBuilder {
-    fn default() -> Self {
-        Self {
-            ns_cache_size: 1024,
-            record_cache_size: 1048576,
-            dnssec_policy: DnssecPolicy::SecurityUnaware,
-            do_not_query: vec![],
-        }
-    }
-}
-
 impl RecursorBuilder {
     /// Sets the size of the list of cached name servers
     pub fn ns_cache_size(&mut self, size: usize) -> &mut Self {
@@ -370,6 +359,17 @@ impl Recursor {
                     query,
                 ))
             }
+        }
+    }
+}
+
+impl Default for RecursorBuilder {
+    fn default() -> Self {
+        Self {
+            ns_cache_size: 1_024,
+            record_cache_size: 1_048_576,
+            dnssec_policy: DnssecPolicy::SecurityUnaware,
+            do_not_query: vec![],
         }
     }
 }

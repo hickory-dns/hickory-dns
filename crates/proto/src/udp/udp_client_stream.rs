@@ -416,12 +416,13 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
 #[cfg(feature = "tokio-runtime")]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
-    use crate::tests::udp_client_stream_test;
+    use crate::tests::{subscribe, udp_client_stream_test};
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
     use tokio::{net::UdpSocket as TokioUdpSocket, runtime::Runtime};
 
     #[test]
     fn test_udp_client_stream_ipv4() {
+        subscribe();
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
         udp_client_stream_test::<TokioUdpSocket, Runtime>(
             IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
@@ -431,6 +432,7 @@ mod tests {
 
     #[test]
     fn test_udp_client_stream_ipv6() {
+        subscribe();
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
         udp_client_stream_test::<TokioUdpSocket, Runtime>(
             IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),

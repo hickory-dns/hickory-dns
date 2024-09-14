@@ -9,7 +9,7 @@ use std::array;
 use std::net::Ipv4Addr;
 use std::str::FromStr;
 
-use crate::record::{self, Record, RecordType, RRSIG, SOA};
+use crate::record::{self, DNSKEYRData, Record, RecordType, RRSIG, SOA};
 use crate::{Error, Result, DEFAULT_TTL, FQDN};
 
 mod signer;
@@ -144,30 +144,18 @@ impl fmt::Display for Root {
 #[allow(clippy::upper_case_acronyms)]
 pub(crate) struct DNSKEY {
     zone: FQDN,
-    flags: u16,
-    protocol: u8,
-    algorithm: u8,
-    public_key: String,
+    rdata: DNSKEYRData,
 }
 
 impl DNSKEY {
     pub fn with_ttl(self, ttl: u32) -> record::DNSKEY {
-        let Self {
-            zone,
-            flags,
-            protocol,
-            algorithm,
-            public_key,
-        } = self;
+        let Self { zone, rdata } = self;
 
-        record::DNSKEY {
-            zone,
-            ttl,
-            flags,
-            protocol,
-            algorithm,
-            public_key,
-        }
+        record::DNSKEY { zone, ttl, rdata }
+    }
+
+    pub(crate) fn rdata(&self) -> &DNSKEYRData {
+        &self.rdata
     }
 }
 
@@ -198,10 +186,12 @@ impl FromStr for DNSKEY {
 
         Ok(Self {
             zone: zone.parse()?,
-            flags: flags.parse()?,
-            protocol: protocol.parse()?,
-            algorithm: algorithm.parse()?,
-            public_key: public_key.to_string(),
+            rdata: DNSKEYRData {
+                flags: flags.parse()?,
+                protocol: protocol.parse()?,
+                algorithm: algorithm.parse()?,
+                public_key: public_key.to_string(),
+            },
         })
     }
 }
@@ -218,10 +208,13 @@ mod tests {
 
         let DNSKEY {
             zone,
-            flags,
-            protocol,
-            algorithm,
-            public_key,
+            rdata:
+                DNSKEYRData {
+                    flags,
+                    protocol,
+                    algorithm,
+                    public_key,
+                },
         } = input.parse()?;
 
         assert_eq!(FQDN::ROOT, zone);

@@ -3,14 +3,18 @@ use std::str::FromStr;
 use hickory_proto::rr::*;
 
 use hickory_server::authority::ZoneType;
-#[cfg(any(feature = "dnssec", feature = "dns-over-rustls"))]
+#[cfg(any(
+    feature = "dnssec",
+    feature = "dns-over-rustls",
+    feature = "dns-over-openssl"
+))]
 use hickory_server::config::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryAuthority;
 
 #[allow(unused)]
 #[allow(clippy::unreadable_literal)]
 pub fn create_example() -> InMemoryAuthority {
-    use hickory_client::rr::rdata::*;
+    use hickory_proto::rr::rdata::*;
     use std::net::*;
 
     let origin: Name = Name::parse("example.com.", None).unwrap();
@@ -18,7 +22,11 @@ pub fn create_example() -> InMemoryAuthority {
         origin.clone(),
         ZoneType::Primary,
         false,
-        #[cfg(any(feature = "dnssec", feature = "dns-over-rustls"))]
+        #[cfg(any(
+            feature = "dnssec",
+            feature = "dns-over-rustls",
+            feature = "dns-over-openssl"
+        ))]
         Some(NxProofKind::Nsec),
     );
 
@@ -194,7 +202,7 @@ pub fn create_secure_example() -> InMemoryAuthority {
     use time::Duration;
 
     let mut authority = create_example();
-    let rsa = Rsa::generate(2048).unwrap();
+    let rsa = Rsa::generate(2_048).unwrap();
     let key = KeyPair::from_rsa(rsa).unwrap();
     let dnskey = key.to_dnskey(Algorithm::RSASHA256).unwrap();
     let signer = SigSigner::dnssec(

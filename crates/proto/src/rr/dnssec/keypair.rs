@@ -463,7 +463,7 @@ impl KeyPair<Private> {
             | Algorithm::RSASHA256
             | Algorithm::RSASHA512 => {
                 // TODO: the only keysize right now, would be better for people to use other algorithms...
-                OpenSslRsa::generate(2048)
+                OpenSslRsa::generate(2_048)
                     .map_err(Into::into)
                     .and_then(Self::from_rsa)
             }

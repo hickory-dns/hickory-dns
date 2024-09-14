@@ -64,6 +64,8 @@ socket2.workspace = true
 [dev-dependencies]
 async-std = { workspace = true, features = ["attributes"] }
 hickory-resolver = { workspace = true, default-features = false, features = ["testing"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
 
 [lints]
 workspace = true

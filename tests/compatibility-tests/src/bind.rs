@@ -41,7 +41,7 @@ pub fn named_process() -> (NamedProcess, u16) {
         .arg("Hickory DNS compatibility")
         .arg("-g")
         .arg("-p")
-        .arg(&format!("{test_port}"))
+        .arg(format!("{test_port}"))
         .spawn()
         .expect("failed to start named");
 
