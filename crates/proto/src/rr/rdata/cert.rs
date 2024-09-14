@@ -9,18 +9,13 @@
 use std::fmt;
 
 #[cfg(feature = "serde")]
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    error::{ ProtoError, ProtoResult },
-    rr::{ RData, RecordData, RecordDataDecodable, RecordType },
+    error::{ProtoError, ProtoResult},
+    rr::{RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
-        BinDecodable,
-        BinDecoder,
-        BinEncodable,
-        BinEncoder,
-        Restrict,
-        RestrictedMath,
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
     },
 };
 
@@ -413,7 +408,7 @@ impl CERT {
         cert_type: CertType,
         key_tag: u16,
         algorithm: Algorithm,
-        cert_data: Vec<u8>
+        cert_data: Vec<u8>,
     ) -> Self {
         Self {
             cert_type,
@@ -455,7 +450,7 @@ impl TryFrom<&[u8]> for CERT {
     fn try_from(cert_record: &[u8]) -> Result<Self, Self::Error> {
         let mut decoder = BinDecoder::new(cert_record);
         let length = Restrict::new(cert_record.len() as u16); // You can use the full length here
-        CERT::read_data(&mut decoder, length) // Reuse the read_data method for parsing
+        Self::read_data(&mut decoder, length) // Reuse the read_data method for parsing
     }
 }
 
@@ -494,9 +489,9 @@ impl<'r> RecordDataDecodable<'r> for CERT {
         let cert_data = decoder.read_vec(cert_len)?.unverified(/*will fail in usage if invalid*/);
 
         Ok(Self {
-            cert_type: cert_type.into(),
+            cert_type,
             key_tag,
-            algorithm: algorithm.into(),
+            algorithm,
             cert_data,
         })
     }
@@ -679,7 +674,10 @@ mod tests {
     fn test_valid_cert_data_length() {
         let valid_cert_data = [1, 2, 3, 4, 5, 6]; // At least 6 bytes
         let result = CERT::try_from(&valid_cert_data[..]);
-        assert!(result.is_ok(), "Expected a valid result with sufficient cert_data length");
+        assert!(
+            result.is_ok(),
+            "Expected a valid result with sufficient cert_data length"
+        );
     }
 
     #[test]
@@ -731,15 +729,10 @@ mod tests {
     fn test_valid_cert_record() {
         // Create a mock cert_data with 5 initial bytes + valid Base64 string for the rest
         let valid_cert_record = [
-            0x00,
-            0x01, // cert_type: 1 (PKIX)
-            0x30,
-            0x39, // key_tag: 12345
+            0x00, 0x01, // cert_type: 1 (PKIX)
+            0x30, 0x39, // key_tag: 12345
             0x08, // algorithm: 8 (e.g., RSASHA256)
-            65,
-            81,
-            73,
-            68, // "AQID" = [1, 2, 3]
+            65, 81, 73, 68, // "AQID" = [1, 2, 3]
         ];
 
         let cert = CERT::try_from(&valid_cert_record[..]);
@@ -757,7 +750,10 @@ mod tests {
         let invalid_cert_record = [1, 2, 3, 4]; // Less than 5 bytes
 
         let result = CERT::try_from(&invalid_cert_record[..]);
-        assert!(result.is_err(), "Expected error due to invalid cert_record length");
+        assert!(
+            result.is_err(),
+            "Expected error due to invalid cert_record length"
+        );
 
         if let Err(e) = result {
             assert_eq!(e.to_string(), "invalid cert_record length".to_string());
