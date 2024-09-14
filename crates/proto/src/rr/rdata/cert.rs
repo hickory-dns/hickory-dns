@@ -14,7 +14,14 @@ use serde::{ Deserialize, Serialize };
 use crate::{
     error::{ ProtoError, ProtoResult },
     rr::{ RData, RecordData, RecordDataDecodable, RecordType },
-    serialize::binary::{ BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath },
+    serialize::binary::{
+        BinDecodable,
+        BinDecoder,
+        BinEncodable,
+        BinEncoder,
+        Restrict,
+        RestrictedMath,
+    },
 };
 
 /// [RFC 4398, Storing Certificates in DNS, November 1987][rfc4398]
@@ -128,6 +135,15 @@ impl From<CertType> for u16 {
             CertType::Unassigned(cert_type) => cert_type,
             CertType::Experimental(cert_type) => cert_type,
         }
+    }
+}
+
+impl<'r> BinDecodable<'r> for CertType {
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+        let algorithm_id = decoder
+            .read_u16()?
+            .unverified(/*CertType is verified as safe in processing this*/);
+        Ok(Self::from(algorithm_id))
     }
 }
 
@@ -346,6 +362,16 @@ impl From<Algorithm> for u8 {
     }
 }
 
+impl<'r> BinDecodable<'r> for Algorithm {
+    // https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+        let algorithm_id = decoder
+            .read_u8()?
+            .unverified(/*Algorithm is verified as safe in processing this*/);
+        Ok(Self::from(algorithm_id))
+    }
+}
+
 impl fmt::Display for Algorithm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self)
@@ -454,9 +480,10 @@ impl<'r> RecordDataDecodable<'r> for CERT {
 
         let start_idx = decoder.index();
 
-        let cert_type = decoder.read_u16()?.unverified(/*valid as any u16*/);
+        // let cert_type = decoder.read_u16()?.unverified(/*valid as any u16*/);
+        let cert_type = CertType::read(decoder)?;
         let key_tag = decoder.read_u16()?.unverified(/*valid as any u16*/);
-        let algorithm = decoder.read_u8()?.unverified(/*valid as any u8*/);
+        let algorithm = Algorithm::read(decoder)?;
 
         let cert_len = length
             .map(|u| u as usize)
