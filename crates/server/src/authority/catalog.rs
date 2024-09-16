@@ -374,15 +374,9 @@ impl Catalog {
             }
         };
 
-        // Temporarily just take the first authority in the list; full implemented in chained
-        // authority commit.
-        let Some(authority) = authorities.first() else {
-            return ResponseInfo::serve_failed();
-        };
-
         let result = lookup(
             request_info.clone(),
-            &**authority,
+            authorities,
             request,
             response_edns
                 .as_ref()
@@ -429,50 +423,83 @@ async fn lookup<'a, R: ResponseHandler + Unpin>(
 
     let query = request_info.query;
 
-    debug!(
-        "request: {request_id} found authority: {origin}; performing {query}",
-        origin = authority.origin()
-    );
+    for (authority_index, authority) in authorities.iter().enumerate() {
+        debug!(
+            "performing {query} on authority {origin} with request id {request_id}",
+            origin = authority.origin(),
+        );
 
-    // Wait so we can determine if we need to fire a request to the next authority in a chained
-    // configuration if the current authority declines to answer. NOTE: This is in preparation
-    // for the chained authority PR.
-    let result = authority.search(request_info, lookup_options).await;
+        // Wait so we can determine if we need to fire a request to the next authority in a chained
+        // configuration if the current authority declines to answer.
+        let mut result = authority.search(request_info.clone(), lookup_options).await;
 
-    // Abort only if the authority declined to handle the request.
-    if let LookupControlFlow::Skip = result {
-        trace!("build_response: aborting search on LookupControlFlow::Skip");
-        // This will change in the chained authority PR
-        return Err(LookupError::ResponseCode(ResponseCode::ServFail));
-    }
+        if let LookupControlFlow::Skip = result {
+            trace!("catalog::lookup::authority did not handle request");
+            continue;
+        } else if result.is_continue() {
+            trace!("catalog::lookup::authority did handle request with continue");
 
-    // We no longer need the context from LookupControlFlow, so decompose into a standard Result
-    // to clean up the rest of the match conditions
-    let Some(result) = result.map_result() else {
-        debug!("impossible skip detected after final lookup result");
-        return Err(LookupError::ResponseCode(ResponseCode::ServFail));
-    };
+            // For LookupControlFlow::Continue results, we'll call consult on every
+            // authority, except the authority that returned the Continue result.
+            for (continue_index, consult_authority) in authorities.iter().enumerate() {
+                if continue_index == authority_index {
+                    trace!("skipping current authority consult (index {continue_index})");
+                    continue;
+                } else {
+                    trace!("calling authority consult (index {continue_index})");
+                }
 
-    let (response_header, sections) =
-        build_response(result, authority, request_id, request.header(), query, edns).await;
-
-    let message_response = MessageResponseBuilder::new(Some(request.raw_query())).build(
-        response_header,
-        sections.answers.iter(),
-        sections.ns.iter(),
-        sections.soa.iter(),
-        sections.additionals.iter(),
-    );
-
-    let result = send_response(response_edns, message_response, response_handle).await;
-
-    match result {
-        Err(e) => {
-            error!("error sending response: {e}");
-            Err(LookupError::Io(e))
+                result = consult_authority
+                    .consult(
+                        request_info.query.name(),
+                        request_info.query.query_type(),
+                        lookup_options_for_edns(response_edns.as_ref()),
+                        result,
+                    )
+                    .await;
+            }
+        } else {
+            trace!("catalog::lookup::authority did handle request with break");
         }
-        Ok(l) => Ok(l),
+
+        // We no longer need the context from LookupControlFlow, so decompose into a standard Result
+        // to clean up the rest of the match conditions
+        let Some(result) = result.map_result() else {
+            error!("impossible skip detected after final lookup result");
+            return Err(LookupError::ResponseCode(ResponseCode::ServFail));
+        };
+
+        let (response_header, sections) = build_response(
+            result,
+            &**authority,
+            request_id,
+            request.header(),
+            query,
+            edns,
+        )
+        .await;
+
+        let message_response = MessageResponseBuilder::new(Some(request.raw_query())).build(
+            response_header,
+            sections.answers.iter(),
+            sections.ns.iter(),
+            sections.soa.iter(),
+            sections.additionals.iter(),
+        );
+
+        let result = send_response(response_edns, message_response, response_handle).await;
+
+        match result {
+            Err(e) => {
+                error!("error sending response: {e}");
+                return Err(LookupError::Io(e));
+            }
+            Ok(l) => return Ok(l),
+        }
     }
+
+    error!("end of chained authority loop reached with all authorities not answering");
+    Err(LookupError::ResponseCode(ResponseCode::ServFail))
 }
 
 #[allow(unused_variables)]

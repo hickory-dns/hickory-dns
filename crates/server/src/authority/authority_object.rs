@@ -58,6 +58,39 @@ pub trait AuthorityObject: Send + Sync {
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Box<dyn LookupObject>>;
 
+    /// Consulting lookup for all Resource Records matching the giving `Name` and `RecordType`.
+    /// This will be called in a chained authority configuration after an authority in the chain
+    /// has returned a lookup with a LookupControlFlow::Continue action. Every other authority in
+    /// the chain will be called via this consult method, until one either returns a
+    /// LookupControlFlow::Break action, or all authorities have been consulted.  The authority that
+    /// generated the primary lookup (the one returned via 'lookup') will not be consulted.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The `Name`, label, to lookup.
+    /// * `rtype` - The `RecordType`, to lookup. `RecordType::ANY` will return all records matching
+    ///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
+    ///             due to the requirements that on zone transfers the `RecordType::SOA` must both
+    ///             precede and follow all other records.
+    /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
+    ///                      algorithms, etc.)
+    /// * `last_result` - The lookup returned by a previous authority in a chained configuration.
+    ///                   If a subsequent authority does not modify this lookup, it will be returned
+    ///                   to the client after consulting all authorities in the chain.
+    ///
+    /// # Return value
+    ///
+    /// A LookupControlFlow containing the lookup that should be returned to the client.  This can
+    /// be the same last_result that was passed in, or a new lookup, depending on the logic of the
+    /// authority in question.
+    async fn consult(
+        &self,
+        name: &LowerName,
+        rtype: RecordType,
+        lookup_options: LookupOptions,
+        last_result: LookupControlFlow<Box<dyn LookupObject>>,
+    ) -> LookupControlFlow<Box<dyn LookupObject>>;
+
     /// Using the specified query, perform a lookup against this zone.
     ///
     /// # Arguments
@@ -179,6 +212,41 @@ where
         Authority::lookup(self, name, rtype, lookup_options)
             .await
             .map_dyn()
+    }
+
+    /// Consulting lookup for all Resource Records matching the giving `Name` and `RecordType`.
+    /// This will be called in a chained authority configuration after an authority in the chain
+    /// has returned a lookup with a LookupControlFlow::Continue action. Every other authority in
+    /// the chain will be called via this consult method, until one either returns a
+    /// LookupControlFlow::Break action, or all authorities have been consulted.  The authority that
+    /// generated the primary lookup (the one returned via 'lookup') will not be consulted.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The `Name`, label, to lookup.
+    /// * `rtype` - The `RecordType`, to lookup. `RecordType::ANY` will return all records matching
+    ///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
+    ///             due to the requirements that on zone transfers the `RecordType::SOA` must both
+    ///             precede and follow all other records.
+    /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
+    ///                      algorithms, etc.)
+    /// * `last_result` - The lookup returned by a previous authority in a chained configuration.
+    ///                   If a subsequent authority does not modify this lookup, it will be returned
+    ///                   to the client after consulting all authorities in the chain.
+    ///
+    /// # Return value
+    ///
+    /// A LookupControlFlow containing the lookup that should be returned to the client.  This can
+    /// be the same last_result that was passed in, or a new lookup, depending on the logic of the
+    /// authority in question.
+    async fn consult(
+        &self,
+        name: &LowerName,
+        rtype: RecordType,
+        lookup_options: LookupOptions,
+        last_result: LookupControlFlow<Box<dyn LookupObject>>,
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
+        Authority::consult(self, name, rtype, lookup_options, last_result).await
     }
 
     /// Using the specified query, perform a lookup against this zone.
