@@ -319,14 +319,14 @@ mod tests {
         assert_eq!(Algorithm::Unassigned(17), 17.into());
         assert_eq!(Algorithm::Unassigned(42), 42.into());
 
-        assert_eq!(0u8, Algorithm::Reserved.into());
-        assert_eq!(1u8, Algorithm::RSA.into());
-        assert_eq!(2u8, Algorithm::DSA.into());
-        assert_eq!(3u8, Algorithm::ECDSA.into());
-        assert_eq!(4u8, Algorithm::Ed25519.into());
-        assert_eq!(6u8, Algorithm::Ed448.into());
-        assert_eq!(17u8, Algorithm::Unassigned(17).into());
-        assert_eq!(42u8, Algorithm::Unassigned(42).into());
+        assert_eq!(0u8, u8::from(Algorithm::Reserved));
+        assert_eq!(1u8, u8::from(Algorithm::RSA));
+        assert_eq!(2u8, u8::from(Algorithm::DSA));
+        assert_eq!(3u8, u8::from(Algorithm::ECDSA));
+        assert_eq!(4u8, u8::from(Algorithm::Ed25519));
+        assert_eq!(6u8, u8::from(Algorithm::Ed448));
+        assert_eq!(17u8, u8::from(Algorithm::Unassigned(17)));
+        assert_eq!(42u8, u8::from(Algorithm::Unassigned(42)));
     }
 
     #[test]
@@ -337,11 +337,11 @@ mod tests {
         assert_eq!(FingerprintType::Unassigned(12), 12.into());
         assert_eq!(FingerprintType::Unassigned(89), 89.into());
 
-        assert_eq!(0u8, FingerprintType::Reserved.into());
-        assert_eq!(1u8, FingerprintType::SHA1.into());
-        assert_eq!(2u8, FingerprintType::SHA256.into());
-        assert_eq!(12u8, FingerprintType::Unassigned(12).into());
-        assert_eq!(89u8, FingerprintType::Unassigned(89).into());
+        assert_eq!(0u8, u8::from(FingerprintType::Reserved));
+        assert_eq!(1u8, u8::from(FingerprintType::SHA1));
+        assert_eq!(2u8, u8::from(FingerprintType::SHA256));
+        assert_eq!(12u8, u8::from(FingerprintType::Unassigned(12)));
+        assert_eq!(89u8, u8::from(FingerprintType::Unassigned(89)));
     }
 
     fn test_encode_decode(rdata: SSHFP, result: &[u8]) {
