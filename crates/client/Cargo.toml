@@ -82,6 +82,7 @@ hickory-proto = { workspace = true, features = ["text-parsing", "tokio-runtime"]
 [dev-dependencies]
 futures = { workspace = true, default-features = false, features = ["std", "executor"] }
 tokio = { workspace = true, features = ["rt", "macros"] }
+test-support.workspace = true
 tracing-subscriber.workspace = true
 webpki-roots = { workspace = true }
 

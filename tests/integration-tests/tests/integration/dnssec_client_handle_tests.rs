@@ -1,10 +1,13 @@
 #![cfg(feature = "dnssec")]
 
 use std::net::*;
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex as StdMutex};
 
 use futures::executor::block_on;
+use test_support::recorder::DnsRecorder;
+use test_support::subscribe;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
@@ -30,14 +33,35 @@ fn test_secure_query_example_nonet() {
 }
 
 #[test]
-#[ignore] // this getting finnicky responses with UDP
 fn test_secure_query_example_udp() {
-    with_udp(test_secure_query_example);
+    subscribe();
+    #[cfg(feature = "dnssec-ring")]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+        "../test-data/recordings/dnssec_client_handle_tests_test_secure_query_example_udp_all_algos.json",
+    );
+    #[cfg(not(feature = "dnssec-ring"))]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+        "../test-data/recordings/dnssec_client_handle_tests_test_secure_query_example_udp_no_ed25519.json",
+    );
+    let recorder = DnsRecorder::new_udp((Ipv4Addr::new(8, 8, 8, 8), 53).into(), path).unwrap();
+    with_udp(test_secure_query_example, recorder.local_address());
+    recorder.stop().unwrap();
 }
 
 #[test]
 fn test_secure_query_example_tcp() {
-    with_tcp(test_secure_query_example);
+    subscribe();
+    #[cfg(feature = "dnssec-ring")]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+        "../test-data/recordings/dnssec_client_handle_tests_test_secure_query_example_tcp_all_algos.json",
+    );
+    #[cfg(not(feature = "dnssec-ring"))]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+        "../test-data/recordings/dnssec_client_handle_tests_test_secure_query_example_tcp_no_ed25519.json",
+    );
+    let recorder = DnsRecorder::new_tcp((Ipv4Addr::new(8, 8, 8, 8), 53).into(), path).unwrap();
+    with_tcp(test_secure_query_example, recorder.local_address());
+    recorder.stop().unwrap();
 }
 
 fn test_secure_query_example<H>(mut client: DnssecDnsHandle<H>, io_loop: Runtime)
@@ -76,15 +100,35 @@ fn test_nsec_query_example_nonet() {
 }
 
 #[test]
-#[ignore]
 fn test_nsec_query_example_udp() {
-    with_udp(test_nsec_query_example);
+    subscribe();
+    #[cfg(feature = "dnssec-ring")]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+        "../test-data/recordings/dnssec_client_handle_tests_test_nsec_query_example_udp_all_algos.json",
+    );
+    #[cfg(not(feature = "dnssec-ring"))]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+        "../test-data/recordings/dnssec_client_handle_tests_test_nsec_query_example_udp_no_ed25519.json",
+    );
+    let recorder = DnsRecorder::new_udp((Ipv4Addr::new(8, 8, 8, 8), 53).into(), path).unwrap();
+    with_udp(test_nsec_query_example, recorder.local_address());
+    recorder.stop().unwrap();
 }
 
 #[test]
-#[ignore]
 fn test_nsec_query_example_tcp() {
-    with_tcp(test_nsec_query_example);
+    subscribe();
+    #[cfg(feature = "dnssec-ring")]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+        "../test-data/recordings/dnssec_client_handle_tests_test_nsec_query_example_tcp_all_algos.json",
+    );
+    #[cfg(not(feature = "dnssec-ring"))]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+        "../test-data/recordings/dnssec_client_handle_tests_test_nsec_query_example_tcp_no_ed25519.json",
+    );
+    let recorder = DnsRecorder::new_tcp((Ipv4Addr::new(8, 8, 8, 8), 53).into(), path).unwrap();
+    with_tcp(test_nsec_query_example, recorder.local_address());
+    recorder.stop().unwrap();
 }
 
 fn test_nsec_query_example<H>(mut client: DnssecDnsHandle<H>, io_loop: Runtime)
@@ -99,22 +143,37 @@ where
     assert_eq!(response.response_code(), ResponseCode::NXDomain);
 }
 
-// TODO: NSEC response code wrong in Hickory DNS? Issue #53
-// #[test]
-// fn test_nsec_query_type_nonet() {
-//   with_nonet(test_nsec_query_type);
-// }
-
 #[test]
-#[ignore]
-fn test_nsec_query_type_udp() {
-    with_udp(test_nsec_query_type);
+fn test_nsec_query_type_nonet() {
+    with_nonet(test_nsec_query_type);
 }
 
 #[test]
-#[ignore]
+fn test_nsec_query_type_udp() {
+    subscribe();
+    #[cfg(feature = "dnssec-ring")]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/dnssec_client_handle_tests_test_nsec_query_type_udp_all_algos.json");
+    #[cfg(not(feature = "dnssec-ring"))]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/dnssec_client_handle_tests_test_nsec_query_type_udp_no_ed25519.json");
+    let recorder = DnsRecorder::new_udp((Ipv4Addr::new(8, 8, 8, 8), 53).into(), path).unwrap();
+    with_udp(test_nsec_query_type, recorder.local_address());
+    recorder.stop().unwrap();
+}
+
+#[test]
 fn test_nsec_query_type_tcp() {
-    with_tcp(test_nsec_query_type);
+    subscribe();
+    #[cfg(feature = "dnssec-ring")]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/dnssec_client_handle_tests_test_nsec_query_type_tcp_all_algos.json");
+    #[cfg(not(feature = "dnssec-ring"))]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/dnssec_client_handle_tests_test_nsec_query_type_tcp_no_ed25519.json");
+    let recorder = DnsRecorder::new_tcp((Ipv4Addr::new(8, 8, 8, 8), 53).into(), path).unwrap();
+    with_tcp(test_nsec_query_type, recorder.local_address());
+    recorder.stop().unwrap();
 }
 
 fn test_nsec_query_type<H>(mut client: DnssecDnsHandle<H>, io_loop: Runtime)
@@ -251,7 +310,7 @@ where
     join.join().unwrap();
 }
 
-fn with_udp<F>(test: F)
+fn with_udp<F>(test: F, addr: SocketAddr)
 where
     F: Fn(DnssecDnsHandle<MemoizeClientHandle<AsyncClient>>, Runtime),
 {
@@ -274,7 +333,6 @@ where
         .unwrap();
 
     let io_loop = Runtime::new().unwrap();
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let stream = UdpClientStream::new(addr, TokioRuntimeProvider::new());
     let client = AsyncClient::connect(stream);
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
@@ -289,7 +347,7 @@ where
 }
 
 // TODO: just make this a Tokio test?
-fn with_tcp<F>(test: F)
+fn with_tcp<F>(test: F, addr: SocketAddr)
 where
     F: Fn(DnssecDnsHandle<MemoizeClientHandle<AsyncClient>>, Runtime),
 {
@@ -312,7 +370,6 @@ where
         .unwrap();
 
     let io_loop = Runtime::new().unwrap();
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
     let client = AsyncClient::new(Box::new(stream), sender, None);
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");

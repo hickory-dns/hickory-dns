@@ -404,8 +404,11 @@ impl Stream for Local {
 #[cfg(feature = "tokio-runtime")]
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+    use std::path::PathBuf;
     use std::str::FromStr;
 
+    use test_support::recorder::DnsRecorder;
+    use test_support::subscribe;
     use tokio::runtime::Runtime;
 
     use proto::op::Query;
@@ -492,11 +495,21 @@ mod tests {
 
     #[test]
     fn test_multi_use_conns() {
+        subscribe();
+
+        let recorder = DnsRecorder::new_tcp(
+            (Ipv4Addr::new(8, 8, 8, 8), 53).into(),
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+                "../../tests/test-data/recordings/test_multi_use_conns_google_example_com.json",
+            ),
+        )
+        .unwrap();
+
         let io_loop = Runtime::new().unwrap();
         let conn_provider = TokioConnectionProvider::default();
 
         let tcp = NameServerConfig {
-            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
+            socket_addr: recorder.local_address(),
             protocol: Protocol::Tcp,
             tls_dns_name: None,
             trust_negative_responses: false,
@@ -568,5 +581,7 @@ mod tests {
             name_servers[0].is_connected(),
             "if this is failing then the NameServers aren't being properly shared."
         );
+
+        recorder.stop().unwrap();
     }
 }

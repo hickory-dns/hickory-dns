@@ -835,6 +835,7 @@ dependencies = [
  "rand",
  "rustls",
  "serde",
+ "test-support",
  "thiserror",
  "tokio",
  "tracing",

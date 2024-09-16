@@ -1,11 +1,12 @@
 use std::{
     net::*,
+    path::PathBuf,
     str::FromStr,
     sync::{Arc, Mutex as StdMutex},
 };
 
 use futures::{Future, FutureExt, TryFutureExt};
-use test_support::subscribe;
+use test_support::{recorder::DnsRecorder, subscribe};
 #[cfg(feature = "dnssec")]
 use time::Duration;
 use tokio::{net::TcpStream as TokioTcpStream, runtime::Runtime};
@@ -62,8 +63,18 @@ fn test_query_nonet() {
 
 #[test]
 fn test_query_udp_ipv4() {
+    subscribe();
+
+    #[cfg(feature = "dnssec-ring")]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_future_tests_test_query_udp_ipv4_all_algos.json");
+    #[cfg(not(feature = "dnssec-ring"))]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_future_tests_test_query_udp_ipv4_no_ed25519.json");
+    let recorder = DnsRecorder::new_udp((Ipv4Addr::new(8, 8, 8, 8), 53).into(), path).unwrap();
+
     let io_loop = Runtime::new().unwrap();
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
+    let addr = recorder.local_address();
     let stream = UdpClientStream::new(addr, TokioRuntimeProvider::new());
     let client = AsyncClient::connect(stream);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
@@ -73,6 +84,8 @@ fn test_query_udp_ipv4() {
     io_loop.block_on(test_query(&mut client));
     io_loop.block_on(test_query(&mut client));
     io_loop.block_on(test_query_edns(&mut client));
+
+    recorder.stop().unwrap();
 }
 
 #[test]
@@ -97,8 +110,18 @@ fn test_query_udp_ipv6() {
 
 #[test]
 fn test_query_tcp_ipv4() {
+    subscribe();
+
+    #[cfg(feature = "dnssec-ring")]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_future_tests_test_query_tcp_ipv4_all_algos.json");
+    #[cfg(not(feature = "dnssec-ring"))]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_future_tests_test_query_tcp_ipv4_no_ed25519.json");
+    let recorder = DnsRecorder::new_tcp((Ipv4Addr::new(8, 8, 8, 8), 53).into(), path).unwrap();
+
     let io_loop = Runtime::new().unwrap();
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
+    let addr = recorder.local_address();
     let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
     let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
@@ -107,6 +130,8 @@ fn test_query_tcp_ipv4() {
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client));
     io_loop.block_on(test_query(&mut client));
+
+    recorder.stop().unwrap();
 }
 
 #[test]

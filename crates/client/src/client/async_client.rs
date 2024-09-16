@@ -855,6 +855,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::{net::Ipv4Addr, path::PathBuf};
+
     use super::*;
 
     use futures_util::stream::iter;
@@ -862,6 +864,7 @@ mod tests {
         rdata::{A, SOA},
         RData,
     };
+    use test_support::recorder::DnsRecorder;
     use ClientStreamXfrState::*;
 
     fn soa_record(serial: u32) -> Record {
@@ -1089,8 +1092,14 @@ mod tests {
         use tokio::net::TcpStream as TokioTcpStream;
 
         // Since we used UDP in the previous examples, let's change things up a bit and use TCP here
+        let recorder = DnsRecorder::new_tcp(
+            (Ipv4Addr::new(8, 8, 8, 8), 53).into(),
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../tests/test-data/recordings/async_client_google_example_com.json"),
+        )
+        .unwrap();
         let (stream, sender) =
-            TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(([8, 8, 8, 8], 53).into());
+            TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(recorder.local_address());
 
         // Create a new client, the bg is a background future which handles
         //   the multiplexing of the DNS requests to the server.
@@ -1127,5 +1136,7 @@ mod tests {
         if let RData::A(addr) = message_parsed.answers()[0].data() {
             assert_eq!(*addr, A::new(93, 184, 215, 14));
         }
+
+        recorder.stop().unwrap();
     }
 }

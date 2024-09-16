@@ -1,10 +1,12 @@
 use std::net::*;
+use std::path::PathBuf;
 use std::pin::Pin;
 #[cfg(feature = "dnssec")]
 use std::str::FromStr;
 use std::sync::{Arc, Mutex as StdMutex};
 
 use futures::Future;
+use test_support::recorder::DnsRecorder;
 use test_support::subscribe;
 #[cfg(feature = "dnssec")]
 use time::Duration;
@@ -71,35 +73,66 @@ fn test_query_nonet() {
 }
 
 #[test]
-#[ignore]
-#[allow(deprecated)]
 fn test_query_udp() {
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
+    subscribe();
+
+    #[cfg(feature = "dnssec-ring")]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_tests_test_query_udp_all_algos.json");
+    #[cfg(not(feature = "dnssec-ring"))]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_tests_test_query_udp_no_ed25519.json");
+    let recorder = DnsRecorder::new_udp((Ipv4Addr::new(8, 8, 8, 8), 53).into(), path).unwrap();
+
+    let addr: SocketAddr = recorder.local_address();
     let conn = UdpClientConnection::new(addr).unwrap();
     let client = SyncClient::new(conn);
 
     test_query(client);
+
+    recorder.stop().unwrap();
 }
 
 #[test]
-#[allow(deprecated)]
 fn test_query_udp_edns() {
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
+    subscribe();
+
+    #[cfg(feature = "dnssec-ring")]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_tests_test_query_udp_edns_all_algos.json");
+    #[cfg(not(feature = "dnssec-ring"))]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_tests_test_query_udp_edns_no_ed25519.json");
+    let recorder = DnsRecorder::new_udp((Ipv4Addr::new(8, 8, 8, 8), 53).into(), path).unwrap();
+
+    let addr: SocketAddr = recorder.local_address();
     let conn = UdpClientConnection::new(addr).unwrap();
     let client = SyncClient::new(conn);
 
     test_query_edns(client);
+
+    recorder.stop().unwrap();
 }
 
 #[test]
-#[ignore]
-#[allow(deprecated)]
 fn test_query_tcp() {
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
+    subscribe();
+
+    #[cfg(feature = "dnssec-ring")]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_tests_test_query_tcp_all_algos.json");
+    #[cfg(not(feature = "dnssec-ring"))]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_tests_test_query_tcp_no_ed25519.json");
+    let recorder = DnsRecorder::new_tcp((Ipv4Addr::new(8, 8, 8, 8), 53).into(), path).unwrap();
+
+    let addr: SocketAddr = recorder.local_address();
     let conn = TcpClientConnection::new(addr).unwrap();
     let client = SyncClient::new(conn);
 
     test_query(client);
+
+    recorder.stop().unwrap();
 }
 
 #[allow(deprecated)]
@@ -192,30 +225,47 @@ where
 }
 
 #[test]
-#[ignore] // this getting finnicky responses with UDP
-#[allow(deprecated)]
 #[cfg(feature = "dnssec")]
 fn test_secure_query_example_udp() {
     subscribe();
 
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
+    #[cfg(feature = "dnssec-ring")]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_tests_test_secure_query_example_udp_all_algos.json");
+    #[cfg(not(feature = "dnssec-ring"))]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_tests_test_secure_query_example_udp_no_ed25519.json");
+    let recorder = DnsRecorder::new_udp((Ipv4Addr::new(8, 8, 8, 8), 53).into(), path).unwrap();
+
+    let addr = recorder.local_address();
     let conn = UdpClientConnection::new(addr).unwrap();
     let client = SyncDnssecClient::new(conn).build();
 
     test_secure_query_example(client);
+
+    recorder.stop().unwrap();
 }
 
 #[test]
-#[allow(deprecated)]
 #[cfg(feature = "dnssec")]
 fn test_secure_query_example_tcp() {
     subscribe();
 
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
+    #[cfg(feature = "dnssec-ring")]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_tests_test_secure_query_example_tcp_all_algos.json");
+    #[cfg(not(feature = "dnssec-ring"))]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_tests_test_secure_query_example_tcp_no_ed25519.json");
+    let recorder = DnsRecorder::new_tcp((Ipv4Addr::new(8, 8, 8, 8), 53).into(), path).unwrap();
+
+    let addr = recorder.local_address();
     let conn = TcpClientConnection::new(addr).unwrap();
     let client = SyncDnssecClient::new(conn).build();
 
     test_secure_query_example(client);
+
+    recorder.stop().unwrap();
 }
 
 #[cfg(feature = "dnssec")]
@@ -347,25 +397,39 @@ fn test_timeout_query_tcp() {
 // }
 
 #[test]
-#[ignore]
-#[allow(deprecated)]
 #[cfg(feature = "dnssec")]
 fn test_nsec_query_example_udp() {
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
+    subscribe();
+    #[cfg(feature = "dnssec-ring")]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_tests_test_nsec_query_example_udp_all_algos.json");
+    #[cfg(not(feature = "dnssec-ring"))]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_tests_test_nsec_query_example_udp_no_ed25519.json");
+    let recorder = DnsRecorder::new_udp((Ipv4Addr::new(8, 8, 8, 8), 53).into(), path).unwrap();
+    let addr = recorder.local_address();
     let conn = UdpClientConnection::new(addr).unwrap();
     let client = SyncDnssecClient::new(conn).build();
     test_nsec_query_example::<UdpClientConnection>(client);
+    recorder.stop().unwrap();
 }
 
 #[test]
-#[ignore]
-#[allow(deprecated)]
 #[cfg(feature = "dnssec")]
 fn test_nsec_query_example_tcp() {
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
+    subscribe();
+    #[cfg(feature = "dnssec-ring")]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_tests_test_nsec_query_example_tcp_all_algos.json");
+    #[cfg(not(feature = "dnssec-ring"))]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_tests_test_nsec_query_example_tcp_no_ed25519.json");
+    let recorder = DnsRecorder::new_tcp((Ipv4Addr::new(8, 8, 8, 8), 53).into(), path).unwrap();
+    let addr = recorder.local_address();
     let conn = TcpClientConnection::new(addr).unwrap();
     let client = SyncDnssecClient::new(conn).build();
     test_nsec_query_example::<TcpClientConnection>(client);
+    recorder.stop().unwrap();
 }
 
 #[cfg(feature = "dnssec")]
@@ -383,12 +447,21 @@ where
 }
 
 #[test]
-#[ignore]
 #[cfg(feature = "dnssec")]
 fn test_nsec_query_type() {
+    subscribe();
+
+    #[cfg(feature = "dnssec-ring")]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_tests_test_nsec_query_type_all_algos.json");
+    #[cfg(not(feature = "dnssec-ring"))]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_tests_test_nsec_query_type_no_ed25519.json");
+    let recorder = DnsRecorder::new_tcp((Ipv4Addr::new(8, 8, 8, 8), 53).into(), path).unwrap();
+
     let name = Name::from_str("www.example.com").unwrap();
 
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
+    let addr = recorder.local_address();
     let conn = TcpClientConnection::new(addr).unwrap();
     let client = SyncDnssecClient::new(conn).build();
 
@@ -399,15 +472,27 @@ fn test_nsec_query_type() {
     // TODO: it would be nice to verify that the NSEC records were validated...
     assert_eq!(response.response_code(), ResponseCode::NoError);
     assert!(response.answers().is_empty());
+
+    recorder.stop().unwrap();
 }
 
 // NSEC3 tests
 #[test]
 #[cfg(feature = "dnssec")]
 fn test_nsec3_nxdomain() {
+    subscribe();
+
+    #[cfg(feature = "dnssec-ring")]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_tests_test_nsec3_nxdomain_all_algos.json");
+    #[cfg(not(feature = "dnssec-ring"))]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_tests_test_nsec3_nxdomain_no_ed25519.json");
+    let recorder = DnsRecorder::new_tcp((Ipv4Addr::new(8, 8, 8, 8), 53).into(), path).unwrap();
+
     let name = Name::from_labels(vec!["a", "b", "c", "example", "com"]).unwrap();
 
-    let addr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
+    let addr = recorder.local_address();
     let conn = TcpClientConnection::new(addr).unwrap();
     let client = SyncDnssecClient::new(conn).build();
 
@@ -416,14 +501,26 @@ fn test_nsec3_nxdomain() {
         .expect("Query failed");
 
     assert_eq!(response.response_code(), ResponseCode::NXDomain);
+
+    recorder.stop().unwrap();
 }
 
 #[test]
 #[cfg(feature = "dnssec")]
 fn test_nsec3_no_data() {
+    subscribe();
+
+    #[cfg(feature = "dnssec-ring")]
+    let join = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_tests_test_nsec3_no_data_all_algos.json");
+    #[cfg(not(feature = "dnssec-ring"))]
+    let join = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-data/recordings/client_tests_test_nsec3_no_data_no_ed25519.json");
+    let recorder = DnsRecorder::new_tcp((Ipv4Addr::new(8, 8, 8, 8), 53).into(), join).unwrap();
+
     let name = Name::from_labels(vec!["www", "example", "com"]).unwrap();
 
-    let addr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
+    let addr = recorder.local_address();
     let conn = TcpClientConnection::new(addr).unwrap();
     let client = SyncDnssecClient::new(conn).build();
 
@@ -433,14 +530,28 @@ fn test_nsec3_no_data() {
 
     // the name "www.example.com" exists but there's no PTR record on it
     assert_eq!(response.response_code(), ResponseCode::NoError);
+
+    recorder.stop().unwrap();
 }
 
 #[test]
 #[cfg(feature = "dnssec")]
 fn test_nsec3_query_name_is_soa_name() {
+    subscribe();
+
+    #[cfg(feature = "dnssec-ring")]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+        "../test-data/recordings/client_tests_test_nsec3_query_name_is_soa_name_all_algos.json",
+    );
+    #[cfg(not(feature = "dnssec-ring"))]
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+        "../test-data/recordings/client_tests_test_nsec3_query_name_is_soa_name_no_ed25519.json",
+    );
+    let recorder = DnsRecorder::new_tcp((Ipv4Addr::new(8, 8, 8, 8), 53).into(), path).unwrap();
+
     let name = Name::from_labels("valid.extended-dns-errors.com".split(".")).unwrap();
 
-    let addr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
+    let addr = recorder.local_address();
     let conn = TcpClientConnection::new(addr).unwrap();
     let client = SyncDnssecClient::new(conn).build();
 
@@ -450,6 +561,8 @@ fn test_nsec3_query_name_is_soa_name() {
 
     // the name "valid.extended-dns-errors.com" exists but there's no PTR record on it
     assert_eq!(response.response_code(), ResponseCode::NoError);
+
+    recorder.stop().unwrap();
 }
 
 // TODO: disabled until I decide what to do with NSEC3 see issue #10

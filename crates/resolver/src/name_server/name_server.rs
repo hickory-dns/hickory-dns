@@ -227,9 +227,11 @@ impl<P> Eq for NameServer<P> where P: ConnectionProvider + Send {}
 #[cfg(feature = "tokio-runtime")]
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    use std::path::PathBuf;
     use std::time::Duration;
 
     use futures_util::{future, FutureExt};
+    use test_support::recorder::DnsRecorder;
     use test_support::subscribe;
     use tokio::runtime::Runtime;
 
@@ -245,8 +247,15 @@ mod tests {
     fn test_name_server() {
         subscribe();
 
+        let recorder = DnsRecorder::new_udp(
+            (Ipv4Addr::new(8, 8, 8, 8), 53).into(),
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../tests/test-data/recordings/test_name_server_google_example_com.json"),
+        )
+        .unwrap();
+
         let config = NameServerConfig {
-            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
+            socket_addr: recorder.local_address(),
             protocol: Protocol::Udp,
             tls_dns_name: None,
             trust_negative_responses: false,
@@ -275,6 +284,8 @@ mod tests {
             }))
             .expect("query failed");
         assert_eq!(response.response_code(), ResponseCode::NoError);
+
+        recorder.stop().unwrap();
     }
 
     #[test]
