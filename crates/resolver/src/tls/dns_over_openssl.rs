@@ -10,8 +10,7 @@
 
 use std::net::SocketAddr;
 use std::pin::Pin;
-
-use futures_util::future::Future;
+use std::future::Future;
 
 use proto::error::ProtoError;
 use proto::openssl::{TlsClientStream, TlsClientStreamBuilder};

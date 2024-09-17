@@ -5,6 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::future::Future;
 use std::io;
 use std::marker::Unpin;
 use std::net::SocketAddr;
@@ -14,7 +15,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use futures_util::future::{Future, FutureExt};
+use futures_util::future::FutureExt;
 use futures_util::ready;
 use futures_util::stream::{Stream, StreamExt};
 #[cfg(feature = "tokio-runtime")]

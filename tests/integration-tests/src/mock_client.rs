@@ -5,6 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::future::{ready, Future};
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::Pin;
@@ -12,7 +13,7 @@ use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 
 use futures::stream::{once, Stream};
-use futures::{future, AsyncRead, AsyncWrite, Future};
+use futures::{future, AsyncRead, AsyncWrite};
 
 use hickory_proto::error::ProtoError;
 use hickory_proto::op::{Message, Query};
@@ -234,7 +235,7 @@ pub trait OnSend: Clone + Send + Sync + 'static {
     where
         E: From<ProtoError> + Send + 'static,
     {
-        Box::pin(future::ready(response))
+        Box::pin(ready(response))
     }
 }
 

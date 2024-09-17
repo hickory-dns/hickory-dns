@@ -9,12 +9,12 @@
 #![allow(dead_code)]
 
 use std::future;
+use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use futures_util::future::Future;
 use once_cell::sync::Lazy;
 use rustls::{ClientConfig, RootCertStore};
 

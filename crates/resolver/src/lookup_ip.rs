@@ -9,18 +9,19 @@
 //!
 //! At it's heart LookupIp uses Lookup for performing all lookups. It is unlike other standard lookups in that there are customizations around A and AAAA resolutions.
 
+use std::future::Future;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Instant;
 
-use futures_util::{future, future::Either, future::Future, FutureExt};
+use futures_util::{future, future::Either, FutureExt};
+use tracing::debug;
 
 use proto::op::Query;
 use proto::rr::{Name, RData, Record, RecordType};
 use proto::xfer::{DnsHandle, DnsRequestOptions};
-use tracing::debug;
 
 use crate::caching_client::CachingClient;
 use crate::config::LookupIpStrategy;

@@ -1,3 +1,4 @@
+use std::future::{poll_fn, Future};
 use std::net::*;
 use std::pin::Pin;
 use std::str::FromStr;
@@ -8,7 +9,6 @@ use std::sync::{
 use std::task::Poll;
 
 use futures::executor::block_on;
-use futures::{future, Future};
 
 use hickory_integration::mock_client::*;
 use hickory_proto::error::{ProtoError, ProtoErrorKind};
@@ -750,7 +750,7 @@ async fn wait_for<E>(
 where
     E: From<ProtoError> + Send + 'static,
 {
-    future::poll_fn(move |_| {
+    poll_fn(move |_| {
         if barrier.load(Ordering::Relaxed) > 0 {
             Poll::Pending
         } else {

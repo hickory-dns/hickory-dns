@@ -142,7 +142,7 @@ mod test {
     use crate::op::*;
     use crate::xfer::FirstAnswer;
     use futures_executor::block_on;
-    use futures_util::future::*;
+    use futures_util::future::{err, ok};
     use futures_util::stream::*;
     use std::sync::{
         atomic::{AtomicU16, Ordering},

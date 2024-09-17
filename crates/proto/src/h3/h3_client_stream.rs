@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::fmt::{self, Display};
-use std::future::{self, Future};
+use std::future::{poll_fn, Future};
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::str::FromStr;
@@ -400,7 +400,7 @@ impl H3ClientStreamBuilder {
         debug!("h3 connection is ready: {}", name_server);
         tokio::spawn(async move {
             tokio::select! {
-                res = future::poll_fn(|cx| driver.poll_close(cx)) => {
+                res = poll_fn(|cx| driver.poll_close(cx)) => {
                     res.map_err(|e| warn!("h3 connection failed: {e}"))
                 }
                 _ = shutdown_rx.recv() => {

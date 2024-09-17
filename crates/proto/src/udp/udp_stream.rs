@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::io;
+use std::future::poll_fn;
 use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
@@ -52,7 +53,7 @@ where
     /// Receive data from the socket and returns the number of bytes read and the address from
     /// where the data came on success.
     async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-        futures_util::future::poll_fn(|cx| self.poll_recv_from(cx, buf)).await
+        poll_fn(|cx| self.poll_recv_from(cx, buf)).await
     }
 
     /// Poll once to send data to the given address.
@@ -65,7 +66,7 @@ where
 
     /// Send data to the given address.
     async fn send_to(&self, buf: &[u8], target: SocketAddr) -> io::Result<usize> {
-        futures_util::future::poll_fn(|cx| self.poll_send_to(cx, buf, target)).await
+        poll_fn(|cx| self.poll_send_to(cx, buf, target)).await
     }
 }
 
