@@ -4,8 +4,7 @@
 use {
     hickory_resolver::config::{ResolverConfig, ResolverOpts},
     hickory_resolver::name_server::{ConnectionProvider, GenericConnector, RuntimeProvider},
-    hickory_resolver::proto::iocompat::AsyncIoTokioAsStd,
-    hickory_resolver::proto::TokioTime,
+    hickory_resolver::proto::runtime::{iocompat::AsyncIoTokioAsStd, TokioTime},
     hickory_resolver::{AsyncResolver, TokioHandle},
     std::future::Future,
     std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},

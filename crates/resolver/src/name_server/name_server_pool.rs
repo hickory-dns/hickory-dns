@@ -16,8 +16,9 @@ use futures_util::stream::{once, FuturesUnordered, Stream, StreamExt};
 use hickory_proto::error::ProtoErrorKind;
 use smallvec::SmallVec;
 
+use proto::error::ProtoError;
+use proto::runtime::Time;
 use proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
-use proto::Time;
 use tracing::debug;
 
 use rand::thread_rng as rng;
@@ -30,7 +31,6 @@ use crate::name_server::RuntimeProvider;
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
 use crate::name_server::TokioRuntimeProvider;
-use crate::proto::error::ProtoError;
 
 /// Abstract interface for mocking purpose
 #[derive(Clone)]

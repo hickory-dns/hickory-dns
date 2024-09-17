@@ -3,7 +3,7 @@ use std::sync::{
     Arc,
 };
 
-use futures::{future, executor::block_on, stream, Stream};
+use futures::{executor::block_on, future, stream, Stream};
 
 use hickory_proto::{
     error::ProtoError,

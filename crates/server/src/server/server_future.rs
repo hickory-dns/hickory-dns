@@ -30,8 +30,8 @@ use crate::{
     authority::{MessageRequest, MessageResponseBuilder},
     proto::{
         error::ProtoError,
-        iocompat::AsyncIoTokioAsStd,
         op::{Edns, Header, LowerQuery, Query, ResponseCode},
+        runtime::iocompat::AsyncIoTokioAsStd,
         serialize::binary::{BinDecodable, BinDecoder},
         tcp::TcpStream,
         udp::UdpStream,

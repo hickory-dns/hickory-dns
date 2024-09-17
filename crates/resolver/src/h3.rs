@@ -12,8 +12,8 @@ use crate::config::TlsClientConfig;
 use crate::tls::CLIENT_CONFIG;
 
 use proto::h3::{H3ClientConnect, H3ClientStream};
+use proto::runtime::TokioTime;
 use proto::xfer::{DnsExchange, DnsExchangeConnect};
-use proto::TokioTime;
 
 use rustls::ClientConfig as CryptoConfig;
 

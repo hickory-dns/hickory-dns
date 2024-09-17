@@ -34,11 +34,12 @@ use tracing::debug;
 use crate::{
     error::{ProtoError, ProtoErrorKind},
     op::{MessageFinalizer, MessageVerifier},
+    runtime::Time,
     xfer::{
         ignore_send, BufDnsStreamHandle, DnsClientStream, DnsRequest, DnsRequestSender,
         DnsResponse, DnsResponseStream, SerialMessage, CHANNEL_BUFFER_SIZE,
     },
-    DnsStreamHandle, Time,
+    DnsStreamHandle,
 };
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
@@ -510,7 +511,7 @@ mod test {
     }
 
     impl DnsClientStream for MockClientStream {
-        type Time = crate::TokioTime;
+        type Time = crate::runtime::TokioTime;
 
         fn name_server_addr(&self) -> SocketAddr {
             self.addr

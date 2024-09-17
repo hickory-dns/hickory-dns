@@ -29,9 +29,10 @@ use hickory_proto::{
     error::ProtoError,
     op::Message,
     rr::Record,
+    runtime::TokioTime,
     serialize::binary::{BinDecodable, BinDecoder, BinEncoder},
     xfer::{DnsClientStream, DnsMultiplexer, DnsMultiplexerConnect, SerialMessage, StreamReceiver},
-    BufDnsStreamHandle, TokioTime,
+    BufDnsStreamHandle,
 };
 use hickory_server::{
     authority::{Catalog, MessageRequest, MessageResponse},

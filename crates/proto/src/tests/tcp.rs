@@ -4,10 +4,10 @@ use std::sync::{atomic::AtomicBool, Arc};
 
 use futures_util::stream::StreamExt;
 
+use crate::runtime::Executor;
 use crate::tcp::{Connect, TcpClientStream, TcpStream};
 use crate::xfer::dns_handle::DnsStreamHandle;
 use crate::xfer::SerialMessage;
-use crate::Executor;
 
 const TEST_BYTES: &[u8; 8] = b"DEADBEEF";
 const TEST_BYTES_LEN: usize = 8;

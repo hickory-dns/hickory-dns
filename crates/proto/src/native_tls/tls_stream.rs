@@ -17,7 +17,7 @@ use native_tls::Protocol::Tlsv12;
 use native_tls::{Certificate, Identity, TlsConnector};
 use tokio_native_tls::{TlsConnector as TokioTlsConnector, TlsStream as TokioTlsStream};
 
-use crate::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
+use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
 use crate::tcp::TcpStream;
 use crate::tcp::{Connect, DnsTcpStream};
 use crate::xfer::{BufDnsStreamHandle, StreamReceiver};

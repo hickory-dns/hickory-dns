@@ -21,11 +21,11 @@ use hickory_proto::{
     error::{ProtoError, ProtoErrorKind},
     op::{update_message, Edns, Message, MessageType, OpCode, Query},
     rr::{rdata::SOA, DNSClass, Name, Record, RecordSet, RecordType},
+    runtime::TokioTime,
     xfer::{
         BufDnsStreamHandle, DnsClientStream, DnsExchange, DnsExchangeBackground, DnsExchangeSend,
         DnsHandle, DnsMultiplexer, DnsRequest, DnsRequestOptions, DnsRequestSender, DnsResponse,
     },
-    TokioTime,
 };
 use rand;
 use tracing::debug;
@@ -1081,8 +1081,8 @@ mod tests {
     async fn async_client() {
         use crate::client::{AsyncClient, ClientHandle};
         use hickory_proto::{
-            iocompat::AsyncIoTokioAsStd,
             rr::{DNSClass, Name, RData, RecordType},
+            runtime::iocompat::AsyncIoTokioAsStd,
             tcp::TcpClientStream,
         };
         use std::str::FromStr;

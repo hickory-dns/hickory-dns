@@ -20,10 +20,10 @@ use tracing::{debug, trace, warn};
 use crate::error::ProtoError;
 use crate::op::message::NoopMessageFinalizer;
 use crate::op::{Message, MessageFinalizer, MessageVerifier};
+use crate::runtime::Time;
 use crate::udp::udp_stream::{NextRandomUdpSocket, UdpCreator, UdpSocket};
 use crate::udp::{DnsUdpSocket, MAX_RECEIVE_BUFFER_SIZE};
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, SerialMessage};
-use crate::Time;
 
 /// A UDP client stream of DNS binary packets
 ///

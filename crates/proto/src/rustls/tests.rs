@@ -26,9 +26,10 @@ use rustls::ClientConfig;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
+use crate::runtime::iocompat::AsyncIoTokioAsStd;
 use crate::rustls::tls_connect;
 use crate::xfer::SerialMessage;
-use crate::{iocompat::AsyncIoTokioAsStd, DnsStreamHandle};
+use crate::DnsStreamHandle;
 
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty
 //  and subsequent reads of a message buffer reads the wrong length. It works for 2 iterations

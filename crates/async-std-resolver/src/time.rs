@@ -9,7 +9,7 @@ use std::future::Future;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use hickory_resolver::proto::Time;
+use hickory_resolver::proto::runtime::Time;
 
 /// AsyncStd backed timer implementation
 #[derive(Clone, Copy)]

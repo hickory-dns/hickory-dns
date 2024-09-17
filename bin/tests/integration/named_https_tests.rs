@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 use hickory_client::client::*;
 use hickory_proto::h2::HttpsClientStreamBuilder;
-use hickory_proto::iocompat::AsyncIoTokioAsStd;
+use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
 use hickory_server::server::Protocol;
 use rustls::pki_types::CertificateDer;
 use rustls::{ClientConfig, RootCertStore};
@@ -78,7 +78,7 @@ fn test_example_https_toml_startup() {
 
         // ipv4 should succeed
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        hickory_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
         query_a(&mut io_loop, &mut client);
 

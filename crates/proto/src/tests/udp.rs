@@ -3,10 +3,10 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use futures_util::stream::StreamExt;
 use tracing::debug;
 
+use crate::runtime::Executor;
 use crate::udp::{UdpClientStream, UdpSocket, UdpStream};
 use crate::xfer::dns_handle::DnsStreamHandle;
 use crate::xfer::{DnsRequestOptions, FirstAnswer};
-use crate::Executor;
 
 /// Test next random udpsocket.
 pub fn next_random_socket_test<S: UdpSocket + Send + 'static, E: Executor>(mut exec: E) {

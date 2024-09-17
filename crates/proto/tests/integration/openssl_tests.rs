@@ -15,24 +15,23 @@ use std::sync::Arc;
 use std::{thread, time};
 
 use futures_util::stream::StreamExt;
-use openssl::pkey::*;
-use openssl::ssl::*;
-use openssl::x509::*;
-use tokio::net::TcpStream as TokioTcpStream;
-use tokio::runtime::Runtime;
-
 use openssl::asn1::*;
 use openssl::bn::*;
 use openssl::hash::MessageDigest;
 use openssl::nid::Nid;
 use openssl::pkcs12::*;
+use openssl::pkey::*;
 use openssl::rsa::*;
+use openssl::ssl::*;
 use openssl::x509::extension::*;
-
-use hickory_proto::xfer::SerialMessage;
-use hickory_proto::{iocompat::AsyncIoTokioAsStd, DnsStreamHandle};
+use openssl::x509::*;
+use tokio::net::TcpStream as TokioTcpStream;
+use tokio::runtime::Runtime;
 
 use hickory_proto::openssl::TlsStreamBuilder;
+use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
+use hickory_proto::xfer::SerialMessage;
+use hickory_proto::DnsStreamHandle;
 
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty
 //  and subsequent reads of a message buffer reads the wrong length. It works for 2 iterations

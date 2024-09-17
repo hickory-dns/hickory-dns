@@ -19,7 +19,7 @@ use tokio;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio_rustls::TlsConnector;
 
-use crate::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
+use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
 use crate::tcp::Connect;
 use crate::tcp::{DnsTcpStream, TcpStream};
 use crate::xfer::{BufDnsStreamHandle, StreamReceiver};

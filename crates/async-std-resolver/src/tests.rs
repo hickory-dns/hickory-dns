@@ -7,8 +7,8 @@ use test_support::subscribe;
 use crate::config::{ResolverConfig, ResolverOpts};
 use crate::lookup::LookupFuture;
 use crate::lookup_ip::LookupIpFuture;
+use crate::proto::runtime::Executor;
 use crate::proto::xfer::DnsRequest;
-use crate::proto::Executor;
 use crate::runtime::AsyncStdConnectionProvider;
 use crate::AsyncStdResolver;
 

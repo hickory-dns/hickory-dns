@@ -19,12 +19,12 @@ use tracing::warn;
 
 use crate::error::ProtoError;
 #[cfg(feature = "tokio-runtime")]
-use crate::iocompat::AsyncIoTokioAsStd;
+use crate::runtime::iocompat::AsyncIoTokioAsStd;
+#[cfg(feature = "tokio-runtime")]
+use crate::runtime::TokioTime;
 use crate::tcp::{Connect, DnsTcpStream, TcpStream};
 use crate::xfer::{DnsClientStream, SerialMessage};
 use crate::BufDnsStreamHandle;
-#[cfg(feature = "tokio-runtime")]
-use crate::TokioTime;
 
 /// Tcp client stream
 ///
