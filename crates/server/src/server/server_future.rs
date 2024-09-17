@@ -12,7 +12,7 @@ use std::{
 };
 
 use futures_util::{FutureExt, StreamExt};
-use hickory_proto::{op::MessageType, rr::Record};
+use hickory_proto::{op::MessageType, rr::Record, runtime::TokioRuntimeProvider};
 use ipnet::IpNet;
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{
@@ -77,7 +77,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
         //   the address used is acquired from the inbound queries
         let (mut stream, stream_handle) =
-            UdpStream::with_bound(socket, ([127, 255, 255, 254], 0).into());
+            UdpStream::<TokioRuntimeProvider>::with_bound(socket, ([127, 255, 255, 254], 0).into());
         let shutdown = self.shutdown_token.clone();
         let handler = self.handler.clone();
         let access = self.access.clone();

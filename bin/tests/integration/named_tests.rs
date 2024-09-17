@@ -12,14 +12,14 @@ use std::str::FromStr;
 use hickory_proto::op::ResponseCode;
 use hickory_proto::rr::{DNSClass, Name, RecordType};
 use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
+use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
 
-use hickory_client::client::*;
+use hickory_client::client::{AsyncClient, ClientHandle};
 use hickory_server::server::Protocol;
 use test_support::subscribe;
 use tokio::net::TcpStream as TokioTcpStream;
-use tokio::net::UdpSocket as TokioUdpSocket;
 use tokio::runtime::Runtime;
 
 use crate::server_harness::{named_test_harness, query_a, query_a_refused};
@@ -215,7 +215,9 @@ fn test_server_continues_on_bad_data_udp() {
             Ipv4Addr::new(127, 0, 0, 1).into(),
             udp_port.expect("no udp_port"),
         );
-        let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
+
+        let provider = TokioRuntimeProvider::new();
+        let stream = UdpClientStream::new(addr, provider.clone());
         let client = AsyncClient::connect(stream);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -235,7 +237,7 @@ fn test_server_continues_on_bad_data_udp() {
             Ipv4Addr::new(127, 0, 0, 1).into(),
             udp_port.expect("no udp_port"),
         );
-        let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
+        let stream = UdpClientStream::new(addr, provider);
         let client = AsyncClient::connect(stream);
 
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");

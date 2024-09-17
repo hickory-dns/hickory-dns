@@ -11,7 +11,6 @@ use std::marker::Unpin;
 #[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
-use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use futures_util::future::FutureExt;
@@ -40,8 +39,11 @@ use proto::h2::{HttpsClientConnect, HttpsClientStream};
 use proto::h3::{H3ClientConnect, H3ClientStream};
 #[cfg(feature = "dns-over-quic")]
 use proto::quic::{QuicClientConnect, QuicClientStream};
+#[cfg(feature = "dns-over-tls")]
+use proto::runtime::iocompat::AsyncIoTokioAsStd;
 #[cfg(feature = "tokio-runtime")]
-use proto::runtime::{iocompat::AsyncIoTokioAsStd, TokioTime};
+#[allow(unused_imports)] // Complicated cfg for which protocols are enabled
+use proto::runtime::TokioTime;
 use proto::{
     self,
     error::ProtoError,
@@ -80,7 +82,7 @@ type TlsClientStream<S> = TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<Async
 /// The variants of all supported connections for the Resolver
 #[allow(clippy::large_enum_variant, clippy::type_complexity)]
 pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
-    Udp(DnsExchangeConnect<UdpClientConnect<R::Udp>, UdpClientStream<R::Udp>, R::Timer>),
+    Udp(DnsExchangeConnect<UdpClientConnect<R>, UdpClientStream<R>, R::Timer>),
     Tcp(
         DnsExchangeConnect<
             DnsMultiplexerConnect<
@@ -222,14 +224,11 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
         let dns_connect = match (config.protocol, self.runtime_provider.quic_binder()) {
             (Protocol::Udp, _) => {
                 let provider_handle = self.runtime_provider.clone();
-                let closure = move |local_addr: SocketAddr, server_addr: SocketAddr| {
-                    provider_handle.bind_udp(local_addr, server_addr)
-                };
-                let stream = UdpClientStream::with_creator(
+                let stream = UdpClientStream::with_provider(
                     config.socket_addr,
                     None,
                     options.timeout,
-                    Arc::new(closure),
+                    provider_handle,
                 );
                 let exchange = DnsExchange::connect(stream);
                 ConnectionConnect::Udp(exchange)

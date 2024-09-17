@@ -7,7 +7,6 @@
 
 use std::borrow::Borrow;
 use std::fmt::{self, Display};
-use std::marker::PhantomData;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -20,8 +19,8 @@ use tracing::{debug, trace, warn};
 use crate::error::ProtoError;
 use crate::op::message::NoopMessageFinalizer;
 use crate::op::{Message, MessageFinalizer, MessageVerifier};
-use crate::runtime::Time;
-use crate::udp::udp_stream::{NextRandomUdpSocket, UdpCreator, UdpSocket};
+use crate::runtime::{RuntimeProvider, Time};
+use crate::udp::udp_stream::NextRandomUdpSocket;
 use crate::udp::{DnsUdpSocket, MAX_RECEIVE_BUFFER_SIZE};
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, SerialMessage};
 
@@ -30,20 +29,19 @@ use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, 
 /// This stream will create a new UDP socket for every request. This is to avoid potential cache
 ///   poisoning during use by UDP based attacks.
 #[must_use = "futures do nothing unless polled"]
-pub struct UdpClientStream<S, MF = NoopMessageFinalizer>
+pub struct UdpClientStream<P, MF = NoopMessageFinalizer>
 where
-    S: Send,
     MF: MessageFinalizer,
 {
     name_server: SocketAddr,
     timeout: Duration,
     is_shutdown: bool,
     signer: Option<Arc<MF>>,
-    creator: UdpCreator<S>,
-    marker: PhantomData<S>,
+    bind_addr: Option<SocketAddr>,
+    provider: P,
 }
 
-impl<S: UdpSocket + Send + 'static> UdpClientStream<S, NoopMessageFinalizer> {
+impl<P: RuntimeProvider> UdpClientStream<P, NoopMessageFinalizer> {
     /// it is expected that the resolver wrapper will be responsible for creating and managing
     ///  new UdpClients such that each new client would have a random port (reduce chance of cache
     ///  poisoning)
@@ -53,8 +51,8 @@ impl<S: UdpSocket + Send + 'static> UdpClientStream<S, NoopMessageFinalizer> {
     /// a tuple of a Future Stream which will handle sending and receiving messages, and a
     ///  handle which can be used to send messages into the stream.
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(name_server: SocketAddr) -> UdpClientConnect<S, NoopMessageFinalizer> {
-        Self::with_timeout(name_server, Duration::from_secs(5))
+    pub fn new(name_server: SocketAddr, provider: P) -> UdpClientConnect<P> {
+        Self::with_timeout(name_server, Duration::from_secs(5), provider)
     }
 
     /// Constructs a new UdpStream for a client to the specified SocketAddr.
@@ -66,8 +64,9 @@ impl<S: UdpSocket + Send + 'static> UdpClientStream<S, NoopMessageFinalizer> {
     pub fn with_timeout(
         name_server: SocketAddr,
         timeout: Duration,
-    ) -> UdpClientConnect<S, NoopMessageFinalizer> {
-        Self::with_bind_addr_and_timeout(name_server, None, timeout)
+        provider: P,
+    ) -> UdpClientConnect<P> {
+        Self::with_bind_addr_and_timeout(name_server, None, timeout, provider)
     }
 
     /// Constructs a new UdpStream for a client to the specified SocketAddr.
@@ -81,12 +80,13 @@ impl<S: UdpSocket + Send + 'static> UdpClientStream<S, NoopMessageFinalizer> {
         name_server: SocketAddr,
         bind_addr: Option<SocketAddr>,
         timeout: Duration,
-    ) -> UdpClientConnect<S, NoopMessageFinalizer> {
-        Self::with_timeout_and_signer_and_bind_addr(name_server, timeout, None, bind_addr)
+        provider: P,
+    ) -> UdpClientConnect<P> {
+        Self::with_timeout_and_signer_and_bind_addr(name_server, timeout, None, bind_addr, provider)
     }
 }
 
-impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> UdpClientStream<S, MF> {
+impl<P: RuntimeProvider, MF: MessageFinalizer> UdpClientStream<P, MF> {
     /// Constructs a new UdpStream for a client to the specified SocketAddr.
     ///
     /// # Arguments
@@ -97,18 +97,14 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> UdpClientStream<S, MF>
         name_server: SocketAddr,
         timeout: Duration,
         signer: Option<Arc<MF>>,
-    ) -> UdpClientConnect<S, MF> {
+        provider: P,
+    ) -> UdpClientConnect<P, MF> {
         UdpClientConnect {
             name_server,
             timeout,
             signer,
-            creator: Arc::new(|local_addr: _, server_addr: _| {
-                Box::pin(NextRandomUdpSocket::<S>::new(
-                    &server_addr,
-                    &Some(local_addr),
-                ))
-            }),
-            marker: PhantomData::<S>,
+            bind_addr: None,
+            provider,
         }
     }
 
@@ -124,23 +120,19 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> UdpClientStream<S, MF>
         timeout: Duration,
         signer: Option<Arc<MF>>,
         bind_addr: Option<SocketAddr>,
-    ) -> UdpClientConnect<S, MF> {
+        provider: P,
+    ) -> UdpClientConnect<P, MF> {
         UdpClientConnect {
             name_server,
             timeout,
             signer,
-            creator: Arc::new(move |local_addr: _, server_addr: _| {
-                Box::pin(NextRandomUdpSocket::<S>::new(
-                    &server_addr,
-                    &Some(bind_addr.unwrap_or(local_addr)),
-                ))
-            }),
-            marker: PhantomData::<S>,
+            bind_addr,
+            provider,
         }
     }
 }
 
-impl<S: DnsUdpSocket + Send, MF: MessageFinalizer> UdpClientStream<S, MF> {
+impl<P: RuntimeProvider, MF: MessageFinalizer> UdpClientStream<P, MF> {
     /// Constructs a new UdpStream for a client to the specified SocketAddr.
     ///
     /// # Arguments
@@ -149,23 +141,23 @@ impl<S: DnsUdpSocket + Send, MF: MessageFinalizer> UdpClientStream<S, MF> {
     /// * `signer` - optional final amendment
     /// * `timeout` - connection timeout
     /// * `creator` - function that binds a local address to a newly created UDP socket
-    pub fn with_creator(
+    pub fn with_provider(
         name_server: SocketAddr,
         signer: Option<Arc<MF>>,
         timeout: Duration,
-        creator: UdpCreator<S>,
-    ) -> UdpClientConnect<S, MF> {
+        provider: P,
+    ) -> UdpClientConnect<P, MF> {
         UdpClientConnect {
             name_server,
             timeout,
             signer,
-            creator,
-            marker: PhantomData::<S>,
+            bind_addr: None,
+            provider,
         }
     }
 }
 
-impl<S: Send, MF: MessageFinalizer> Display for UdpClientStream<S, MF> {
+impl<P, MF: MessageFinalizer> Display for UdpClientStream<P, MF> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(formatter, "UDP({})", self.name_server)
     }
@@ -179,9 +171,7 @@ fn random_query_id() -> u16 {
     Standard.sample(&mut rand)
 }
 
-impl<S: DnsUdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
-    for UdpClientStream<S, MF>
-{
+impl<P: RuntimeProvider, MF: MessageFinalizer> DnsRequestSender for UdpClientStream<P, MF> {
     fn send_message(&mut self, mut message: DnsRequest) -> DnsResponseStream {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
@@ -231,13 +221,14 @@ impl<S: DnsUdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
                 .to_message()
                 .expect("bizarre we just made this message")
         );
-        let creator = self.creator.clone();
+        let provider = self.provider.clone();
         let addr = message.addr();
+        let bind_addr = self.bind_addr;
 
-        S::Time::timeout::<Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>>(
+        P::Timer::timeout::<Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>>(
             self.timeout,
             Box::pin(async move {
-                let socket: S = NextRandomUdpSocket::new_with_closure(&addr, creator).await?;
+                let socket = NextRandomUdpSocket::new(addr, bind_addr, provider).await?;
                 send_serial_message_inner(message, message_id, verifier, socket, recv_buf_size)
                     .await
             }),
@@ -255,7 +246,7 @@ impl<S: DnsUdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
 }
 
 // TODO: is this impl necessary? there's nothing being driven here...
-impl<S: Send, MF: MessageFinalizer> Stream for UdpClientStream<S, MF> {
+impl<P, MF: MessageFinalizer> Stream for UdpClientStream<P, MF> {
     type Item = Result<(), ProtoError>;
 
     fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -269,30 +260,29 @@ impl<S: Send, MF: MessageFinalizer> Stream for UdpClientStream<S, MF> {
 }
 
 /// A future that resolves to an UdpClientStream
-pub struct UdpClientConnect<S, MF = NoopMessageFinalizer>
+pub struct UdpClientConnect<P, MF = NoopMessageFinalizer>
 where
-    S: Send,
     MF: MessageFinalizer,
 {
     name_server: SocketAddr,
     timeout: Duration,
     signer: Option<Arc<MF>>,
-    creator: UdpCreator<S>,
-    marker: PhantomData<S>,
+    bind_addr: Option<SocketAddr>,
+    provider: P,
 }
 
-impl<S: Send + Unpin, MF: MessageFinalizer> Future for UdpClientConnect<S, MF> {
-    type Output = Result<UdpClientStream<S, MF>, ProtoError>;
+impl<P: RuntimeProvider, MF: MessageFinalizer> Future for UdpClientConnect<P, MF> {
+    type Output = Result<UdpClientStream<P, MF>, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
         // TODO: this doesn't need to be a future?
-        Poll::Ready(Ok(UdpClientStream::<S, MF> {
+        Poll::Ready(Ok(UdpClientStream {
             name_server: self.name_server,
             is_shutdown: false,
             timeout: self.timeout,
             signer: self.signer.take(),
-            creator: self.creator.clone(),
-            marker: PhantomData,
+            bind_addr: self.bind_addr,
+            provider: self.provider.clone(),
         }))
     }
 }
@@ -416,28 +406,28 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
 #[cfg(feature = "tokio-runtime")]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
-    use crate::tests::udp_client_stream_test;
+    use crate::{runtime::TokioRuntimeProvider, tests::udp_client_stream_test};
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
     use test_support::subscribe;
-    use tokio::{net::UdpSocket as TokioUdpSocket, runtime::Runtime};
+    use tokio::runtime::Runtime;
 
     #[test]
     fn test_udp_client_stream_ipv4() {
         subscribe();
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        udp_client_stream_test::<TokioUdpSocket, Runtime>(
-            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-            io_loop,
-        )
+        let provider = TokioRuntimeProvider::new();
+        udp_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), io_loop, provider)
     }
 
     #[test]
     fn test_udp_client_stream_ipv6() {
         subscribe();
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        udp_client_stream_test::<TokioUdpSocket, Runtime>(
+        let provider = TokioRuntimeProvider::new();
+        udp_client_stream_test(
             IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
             io_loop,
+            provider,
         )
     }
 }
