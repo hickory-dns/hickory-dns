@@ -16,8 +16,8 @@ use futures_util::ready;
 use futures_util::stream::{Fuse, Peekable, Stream, StreamExt};
 use tracing::{debug, warn};
 
-use crate::error::*;
-use crate::Time;
+use crate::error::{ProtoError, ProtoErrorKind};
+use crate::runtime::Time;
 
 mod dns_exchange;
 pub mod dns_handle;

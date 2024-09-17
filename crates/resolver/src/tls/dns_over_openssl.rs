@@ -8,9 +8,9 @@
 #![cfg(feature = "dns-over-openssl")]
 #![allow(dead_code)]
 
+use std::future::Future;
 use std::net::SocketAddr;
 use std::pin::Pin;
-use std::future::Future;
 
 use proto::error::ProtoError;
 use proto::openssl::{TlsClientStream, TlsClientStreamBuilder};

@@ -19,7 +19,7 @@ use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
 use tokio_openssl::{self, SslStream as TokioTlsStream};
 
-use crate::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
+use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
 use crate::tcp::TcpStream;
 use crate::tcp::{Connect, DnsTcpStream};
 use crate::xfer::BufDnsStreamHandle;

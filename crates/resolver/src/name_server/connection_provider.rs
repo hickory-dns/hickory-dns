@@ -18,6 +18,8 @@ use std::task::{Context, Poll};
 use futures_util::future::FutureExt;
 use futures_util::ready;
 use futures_util::stream::{Stream, StreamExt};
+#[cfg(feature = "dns-over-tls")]
+use proto::runtime::iocompat::AsyncIoStdAsTokio;
 #[cfg(feature = "tokio-runtime")]
 use tokio::net::TcpStream as TokioTcpStream;
 #[cfg(all(feature = "dns-over-native-tls", not(feature = "dns-over-rustls")))]
@@ -38,24 +40,20 @@ use proto::h2::{HttpsClientConnect, HttpsClientStream};
 use proto::h3::{H3ClientConnect, H3ClientStream};
 #[cfg(feature = "dns-over-quic")]
 use proto::quic::{QuicClientConnect, QuicClientStream};
-use proto::tcp::DnsTcpStream;
-use proto::udp::DnsUdpSocket;
+#[cfg(feature = "tokio-runtime")]
+use proto::runtime::{iocompat::AsyncIoTokioAsStd, TokioTime};
 use proto::{
     self,
     error::ProtoError,
     op::NoopMessageFinalizer,
-    tcp::TcpClientConnect,
-    tcp::TcpClientStream,
-    udp::UdpClientConnect,
-    udp::UdpClientStream,
+    runtime::Time,
+    tcp::{DnsTcpStream, TcpClientConnect, TcpClientStream},
+    udp::{DnsUdpSocket, UdpClientConnect, UdpClientStream},
     xfer::{
         DnsExchange, DnsExchangeConnect, DnsExchangeSend, DnsHandle, DnsMultiplexer,
         DnsMultiplexerConnect, DnsRequest, DnsResponse,
     },
-    Time,
 };
-#[cfg(feature = "tokio-runtime")]
-use proto::{iocompat::AsyncIoTokioAsStd, TokioTime};
 
 /// RuntimeProvider defines which async runtime that handles IO and timers.
 pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
@@ -141,8 +139,7 @@ pub trait Spawn {
 
 #[cfg(feature = "dns-over-tls")]
 /// Predefined type for TLS client stream
-type TlsClientStream<S> =
-    TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<proto::iocompat::AsyncIoStdAsTokio<S>>>>;
+type TlsClientStream<S> = TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<AsyncIoStdAsTokio<S>>>>;
 
 /// The variants of all supported connections for the Resolver
 #[allow(clippy::large_enum_variant, clippy::type_complexity)]

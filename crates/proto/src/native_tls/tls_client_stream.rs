@@ -16,9 +16,8 @@ use native_tls::Certificate;
 use tokio_native_tls::TlsStream as TokioTlsStream;
 
 use crate::error::ProtoError;
-use crate::iocompat::AsyncIoStdAsTokio;
-use crate::iocompat::AsyncIoTokioAsStd;
 use crate::native_tls::TlsStreamBuilder;
+use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
 use crate::tcp::{Connect, DnsTcpStream, TcpClientStream};
 use crate::xfer::BufDnsStreamHandle;
 

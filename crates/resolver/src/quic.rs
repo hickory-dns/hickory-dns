@@ -10,8 +10,8 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use hickory_proto::quic::{QuicClientConnect, QuicClientStream};
+use proto::runtime::TokioTime;
 use proto::xfer::{DnsExchange, DnsExchangeConnect};
-use proto::TokioTime;
 
 use crate::config::TlsClientConfig;
 use crate::tls::CLIENT_CONFIG;

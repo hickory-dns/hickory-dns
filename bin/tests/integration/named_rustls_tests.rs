@@ -21,8 +21,8 @@ use rustls::RootCertStore;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
-use hickory_client::client::*;
-use hickory_proto::iocompat::AsyncIoTokioAsStd;
+use hickory_client::client::AsyncClient;
+use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
 use hickory_proto::rustls::tls_client_connect;
 
 use crate::server_harness::{named_test_harness, query_a};
@@ -74,7 +74,7 @@ fn test_example_tls_toml_startup() {
             let client = AsyncClient::new(stream, sender, None);
 
             let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-            hickory_proto::spawn_bg(&io_loop, bg);
+            hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
             // ipv4 should succeed
             query_a(&mut io_loop, &mut client);
@@ -92,7 +92,7 @@ fn test_example_tls_toml_startup() {
             let client = AsyncClient::new(stream, sender, None);
 
             let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-            hickory_proto::spawn_bg(&io_loop, bg);
+            hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
             // ipv6 should succeed
             query_a(&mut io_loop, &mut client);

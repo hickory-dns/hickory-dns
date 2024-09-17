@@ -30,8 +30,8 @@ use tracing::{debug, warn};
 
 use crate::error::ProtoError;
 use crate::http::Version;
-use crate::iocompat::AsyncIoStdAsTokio;
 use crate::op::Message;
+use crate::runtime::iocompat::AsyncIoStdAsTokio;
 use crate::tcp::{Connect, DnsTcpStream};
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
 
@@ -539,10 +539,10 @@ mod tests {
     use tokio::net::TcpStream as TokioTcpStream;
     use tokio::runtime::Runtime;
 
-    use crate::iocompat::AsyncIoTokioAsStd;
     use crate::op::{Message, Query, ResponseCode};
     use crate::rr::rdata::{A, AAAA};
     use crate::rr::{Name, RecordType};
+    use crate::runtime::iocompat::AsyncIoTokioAsStd;
     use crate::xfer::{DnsRequestOptions, FirstAnswer};
 
     use super::*;

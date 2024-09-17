@@ -11,9 +11,9 @@ use std::net::SocketAddr;
 use crate::tls::CLIENT_CONFIG;
 
 use proto::h2::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
+use proto::runtime::TokioTime;
 use proto::tcp::{Connect, DnsTcpStream};
 use proto::xfer::{DnsExchange, DnsExchangeConnect};
-use proto::TokioTime;
 
 use crate::config::TlsClientConfig;
 

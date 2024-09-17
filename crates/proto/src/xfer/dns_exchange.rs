@@ -18,13 +18,13 @@ use futures_util::stream::{Peekable, Stream, StreamExt};
 use tracing::{debug, warn};
 
 use crate::error::*;
+use crate::runtime::Time;
 use crate::xfer::dns_handle::DnsHandle;
 use crate::xfer::DnsResponseReceiver;
 use crate::xfer::{
     BufDnsRequestStreamHandle, DnsRequest, DnsRequestSender, DnsResponse, OneshotDnsRequest,
     CHANNEL_BUFFER_SIZE,
 };
-use crate::Time;
 
 /// This is a generic Exchange implemented over multiplexed DNS connection providers.
 ///

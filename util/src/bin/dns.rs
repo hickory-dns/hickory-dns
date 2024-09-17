@@ -38,8 +38,8 @@ use hickory_client::client::{AsyncClient, ClientHandle};
 #[cfg(feature = "dns-over-rustls")]
 use hickory_proto::rustls::tls_client_connect;
 use hickory_proto::{
-    iocompat::AsyncIoTokioAsStd,
     rr::{DNSClass, Name, RData, RecordSet, RecordType},
+    runtime::iocompat::AsyncIoTokioAsStd,
     serialize::txt::RDataParser,
     tcp::TcpClientStream,
     udp::UdpClientStream,

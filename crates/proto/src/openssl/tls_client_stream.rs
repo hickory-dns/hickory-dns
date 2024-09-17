@@ -15,8 +15,7 @@ use openssl::x509::X509;
 use tokio_openssl::SslStream as TokioTlsStream;
 
 use crate::error::ProtoError;
-use crate::iocompat::AsyncIoStdAsTokio;
-use crate::iocompat::AsyncIoTokioAsStd;
+use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
 use crate::tcp::{Connect, DnsTcpStream, TcpClientStream};
 use crate::xfer::BufDnsStreamHandle;
 

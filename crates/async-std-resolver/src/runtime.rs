@@ -11,10 +11,9 @@ use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 
-use hickory_resolver::proto::error::ProtoError;
-use hickory_resolver::proto::Executor;
-
 use hickory_resolver::name_server::{ConnectionProvider, GenericConnector, RuntimeProvider, Spawn};
+use hickory_resolver::proto::error::ProtoError;
+use hickory_resolver::proto::runtime::Executor;
 
 use crate::net::{AsyncStdTcpStream, AsyncStdUdpSocket};
 use crate::proto::tcp::Connect;

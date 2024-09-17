@@ -476,7 +476,7 @@ pub mod testing {
     use crate::config::{LookupIpStrategy, NameServerConfig, ResolverConfig, ResolverOpts};
     use crate::name_server::ConnectionProvider;
     use crate::AsyncResolver;
-    use proto::{rr::Name, Executor};
+    use proto::{rr::Name, runtime::Executor};
 
     /// Test IP lookup from URLs.
     pub fn lookup_test<E: Executor, R: ConnectionProvider>(

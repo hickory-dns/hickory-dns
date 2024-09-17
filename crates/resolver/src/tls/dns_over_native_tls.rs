@@ -8,9 +8,9 @@
 #![cfg(feature = "dns-over-native-tls")]
 #![allow(dead_code)]
 
+use std::future::Future;
 use std::net::SocketAddr;
 use std::pin::Pin;
-use std::future::Future;
 
 use proto::error::ProtoError;
 use proto::native_tls::{TlsClientStream, TlsClientStreamBuilder};

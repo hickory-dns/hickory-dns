@@ -20,9 +20,9 @@ use futures_util::stream::Stream;
 use futures_util::{self, future::Future, ready, FutureExt};
 use tracing::debug;
 
+use crate::runtime::Time;
 use crate::xfer::{SerialMessage, StreamReceiver};
 use crate::BufDnsStreamHandle;
-use crate::Time;
 
 /// Trait for TCP connection
 pub trait DnsTcpStream: AsyncRead + AsyncWrite + Unpin + Send + Sync + Sized + 'static {
@@ -488,9 +488,9 @@ mod tests {
     use tokio::net::TcpStream as TokioTcpStream;
     use tokio::runtime::Runtime;
 
-    use crate::iocompat::AsyncIoTokioAsStd;
-
+    use crate::runtime::iocompat::AsyncIoTokioAsStd;
     use crate::tests::tcp_stream_test;
+
     #[test]
     fn test_tcp_stream_ipv4() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");

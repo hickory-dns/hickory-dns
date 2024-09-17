@@ -5,8 +5,8 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::io;
 use std::future::poll_fn;
+use std::io;
 use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
@@ -20,9 +20,9 @@ use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
 use tracing::{debug, warn};
 
+use crate::runtime::Time;
 use crate::udp::MAX_RECEIVE_BUFFER_SIZE;
 use crate::xfer::{BufDnsStreamHandle, SerialMessage, StreamReceiver};
-use crate::Time;
 
 pub(crate) type UdpCreator<S> = Arc<
     dyn Send
@@ -351,7 +351,7 @@ impl UdpSocket for tokio::net::UdpSocket {
 #[cfg(feature = "tokio-runtime")]
 #[async_trait]
 impl DnsUdpSocket for tokio::net::UdpSocket {
-    type Time = crate::TokioTime;
+    type Time = crate::runtime::TokioTime;
 
     fn poll_recv_from(
         &self,

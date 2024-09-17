@@ -9,8 +9,8 @@ use tokio::runtime::Runtime;
 use hickory_proto::{
     op::{NoopMessageFinalizer, Query},
     rr::{rdata::A, DNSClass, Name, RData, Record, RecordType},
+    runtime::TokioTime,
     xfer::{DnsExchange, DnsMultiplexer, DnsResponse},
-    TokioTime,
 };
 use hickory_resolver::{
     caching_client::CachingClient,
@@ -38,7 +38,7 @@ fn test_lookup() {
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
 
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    hickory_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
@@ -66,7 +66,7 @@ fn test_lookup_hosts() {
 
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
     let (client, bg) = io_loop.block_on(client).expect("client connect failed");
-    hickory_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
     let mut hosts = Hosts::default();
     let record = Record::from_rdata(
@@ -124,7 +124,7 @@ fn test_lookup_ipv4_like() {
 
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
     let (client, bg) = io_loop.block_on(client).expect("client connect failed");
-    hickory_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
     let lookup = LookupIpFuture::lookup(
         vec![Name::from_str("1.2.3.4.example.com.").unwrap()],
@@ -154,7 +154,7 @@ fn test_lookup_ipv4_like_fall_through() {
 
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
     let (client, bg) = io_loop.block_on(client).expect("client connect failed");
-    hickory_proto::spawn_bg(&io_loop, bg);
+    hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
     let lookup = LookupIpFuture::lookup(
         vec![Name::from_str("198.51.100.35.example.com.").unwrap()],
