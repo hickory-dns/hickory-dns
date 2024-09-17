@@ -285,6 +285,15 @@ impl<T, E> LookupControlFlow<T, E> {
     pub fn is_break(&self) -> bool {
         matches!(self, Self::Break(_))
     }
+
+    /// Maps inner Ok(T) and Err(E) to Some(Result<T,E>) and Skip to None
+    pub fn map_result(self) -> Option<Result<T, E>> {
+        match self {
+            Self::Continue(Ok(lookup)) | Self::Break(Ok(lookup)) => Some(Ok(lookup)),
+            Self::Continue(Err(e)) | Self::Break(Err(e)) => Some(Err(e)),
+            Self::Skip => None,
+        }
+    }
 }
 
 impl<T: LookupObject + 'static, E: std::fmt::Display> LookupControlFlow<T, E> {
