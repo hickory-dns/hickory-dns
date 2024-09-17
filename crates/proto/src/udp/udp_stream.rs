@@ -203,13 +203,16 @@ impl<P: RuntimeProvider> Stream for UdpStream<P> {
 }
 
 #[must_use = "futures do nothing unless polled"]
-pub(crate) struct NextRandomUdpSocket<P> {
+pub(crate) struct NextRandomUdpSocket<P: RuntimeProvider> {
     name_server: SocketAddr,
     bind_address: SocketAddr,
     provider: P,
+    attempted: usize,
+    #[allow(clippy::type_complexity)]
+    future: Option<Pin<Box<dyn Send + Future<Output = io::Result<P::Udp>>>>>,
 }
 
-impl<P> NextRandomUdpSocket<P> {
+impl<P: RuntimeProvider> NextRandomUdpSocket<P> {
     /// Creates a future for randomly binding to a local socket address for client connections,
     /// if no port is specified.
     ///
@@ -229,6 +232,8 @@ impl<P> NextRandomUdpSocket<P> {
             name_server,
             bind_address,
             provider,
+            attempted: 0,
+            future: None,
         }
     }
 }
@@ -239,57 +244,59 @@ impl<P: RuntimeProvider> Future for NextRandomUdpSocket<P> {
     /// polls until there is an available next random UDP port,
     /// if no port has been specified in bind_addr.
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if self.bind_address.port() == 0 {
-            // Per RFC 6056 Section 3.2:
-            //
-            // As mentioned in Section 2.1, the dynamic ports consist of the range
-            // 49152-65535.  However, ephemeral port selection algorithms should use
-            // the whole range 1024-65535.
-            let rand_port_range = Uniform::new_inclusive(1_024, u16::MAX);
-            let mut rand = rand::thread_rng();
-
-            for attempt in 0..10 {
-                let port = rand_port_range.sample(&mut rand);
-                let bind_addr = SocketAddr::new(self.bind_address.ip(), port);
-
-                // TODO: allow TTL to be adjusted...
-                // TODO: this immediate poll might be wrong in some cases...
-                match self
-                    .provider
-                    .bind_udp(bind_addr, self.name_server)
-                    .as_mut()
-                    .poll(cx)
-                {
+        let this = self.get_mut();
+        loop {
+            this.future = match this.future.take() {
+                Some(mut future) => match future.as_mut().poll(cx) {
                     Poll::Ready(Ok(socket)) => {
                         debug!("created socket successfully");
                         return Poll::Ready(Ok(socket));
                     }
                     Poll::Ready(Err(err)) => match err.kind() {
-                        io::ErrorKind::AddrInUse => {
-                            debug!("unable to bind port, attempt: {}: {}", attempt, err);
+                        io::ErrorKind::AddrInUse if this.attempted < ATTEMPT_RANDOM + 1 => {
+                            debug!("unable to bind port, attempt: {}: {err}", this.attempted);
+                            this.attempted += 1;
+                            None
                         }
                         _ => {
                             debug!("failed to bind port: {}", err);
                             return Poll::Ready(Err(err));
                         }
                     },
-                    Poll::Pending => debug!("unable to bind port, attempt: {}", attempt),
+                    Poll::Pending => {
+                        debug!("unable to bind port, attempt: {}", this.attempted);
+                        this.future = Some(future);
+                        return Poll::Pending;
+                    }
+                },
+                None => {
+                    let bind_addr = match this.bind_address.port() {
+                        0 if this.attempted < ATTEMPT_RANDOM => {
+                            // Per RFC 6056 Section 3.2:
+                            //
+                            // As mentioned in Section 2.1, the dynamic ports consist of the range
+                            // 49152-65535.  However, ephemeral port selection algorithms should use
+                            // the whole range 1024-65535.
+                            let rand_port_range = Uniform::new_inclusive(1_024, u16::MAX);
+                            let mut rand = rand::thread_rng();
+                            SocketAddr::new(
+                                this.bind_address.ip(),
+                                rand_port_range.sample(&mut rand),
+                            )
+                        }
+                        _ => this.bind_address,
+                    };
+
+                    Some(Box::pin(
+                        this.provider.bind_udp(bind_addr, this.name_server),
+                    ))
                 }
             }
-
-            debug!("could not get next random port, falling back to OS assignment");
-            // When no free port was found after 10 tries let the OS assign one.
-            // This is needed in cases where almost all udp ports are in use on the host
-            // so the chance of finding a free is very low and it could spam 1000s of bind
-            // calls without finding a free one until the future is canceled.
         }
-        // Use port that was specified in bind address.
-        self.provider
-            .bind_udp(self.bind_address, self.name_server)
-            .as_mut()
-            .poll(cx)
     }
 }
+
+const ATTEMPT_RANDOM: usize = 10;
 
 #[cfg(feature = "tokio-runtime")]
 #[async_trait]
