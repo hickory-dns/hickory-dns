@@ -9,6 +9,7 @@
 
 use std::{
     borrow::Cow,
+    future::Future,
     pin::Pin,
     sync::{
         atomic::{AtomicU8, Ordering},
@@ -17,7 +18,7 @@ use std::{
     time::Instant,
 };
 
-use futures_util::future::{Future, TryFutureExt};
+use futures_util::future::TryFutureExt;
 use hickory_proto::error::ProtoErrorKind;
 use once_cell::sync::Lazy;
 

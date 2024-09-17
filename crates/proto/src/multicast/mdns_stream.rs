@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std;
+use std::future::Future;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
@@ -13,7 +13,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use futures_util::stream::{Stream, StreamExt};
-use futures_util::{future, future::Future, ready, FutureExt, TryFutureExt};
+use futures_util::{future, ready, FutureExt, TryFutureExt};
 use once_cell::sync::Lazy;
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};

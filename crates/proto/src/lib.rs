@@ -30,11 +30,12 @@
 
 //! Hickory DNS Protocol library
 
-use async_trait::async_trait;
-use futures_util::future::Future;
-
 use std::marker::Send;
 use std::time::Duration;
+use std::future::Future;
+
+use async_trait::async_trait;
+
 #[cfg(any(test, feature = "tokio-runtime"))]
 use tokio::runtime::Runtime;
 #[cfg(any(test, feature = "tokio-runtime"))]

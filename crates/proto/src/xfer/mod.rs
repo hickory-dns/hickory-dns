@@ -5,13 +5,13 @@
 //! TODO: this module needs some serious refactoring and normalization.
 
 use std::fmt::{Debug, Display};
+use std::future::Future;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use futures_channel::mpsc;
 use futures_channel::oneshot;
-use futures_util::future::Future;
 use futures_util::ready;
 use futures_util::stream::{Fuse, Peekable, Stream, StreamExt};
 use tracing::{debug, warn};

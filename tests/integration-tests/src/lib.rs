@@ -2,7 +2,9 @@
 #![allow(clippy::dbg_macro)]
 
 use std::{
-    fmt, io, mem,
+    fmt,
+    future::poll_fn,
+    io, mem,
     net::SocketAddr,
     pin::Pin,
     sync::{
@@ -81,7 +83,7 @@ impl TestResponseHandler {
     }
 
     fn into_inner(self) -> impl Future<Output = Vec<u8>> {
-        future::poll_fn(move |_| {
+        poll_fn(move |_| {
             if self
                 .message_ready
                 .compare_exchange(true, false, Ordering::Acquire, Ordering::Relaxed)

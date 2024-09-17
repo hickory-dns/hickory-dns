@@ -6,11 +6,12 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::fmt::{self, Display};
+use std::future::Future;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures_util::future::{Future, FutureExt, TryFutureExt};
+use futures_util::future::{FutureExt, TryFutureExt};
 use futures_util::stream::{Stream, StreamExt, TryStreamExt};
 
 use crate::error::ProtoError;

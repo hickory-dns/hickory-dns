@@ -1,16 +1,11 @@
 #![recursion_limit = "128"]
 
-use {
-    futures_util::future,
-    hickory_resolver::name_server::TokioConnectionProvider,
-    hickory_resolver::TokioAsyncResolver,
-    hickory_resolver::{IntoName, TryParseIp},
-    once_cell::sync::Lazy,
-    std::fmt::Display,
-    std::io,
-    std::net::SocketAddr,
-    std::task::Poll,
+use std::{fmt::Display, future::pending, io, net::SocketAddr};
+
+use hickory_resolver::{
+    name_server::TokioConnectionProvider, IntoName, TokioAsyncResolver, TryParseIp,
 };
+use once_cell::sync::Lazy;
 
 // This is an example of registering a static global resolver into any system.
 //
@@ -69,7 +64,7 @@ static GLOBAL_DNS_RESOLVER: Lazy<TokioAsyncResolver> = Lazy::new(|| {
         cvar.notify_one();
         drop(started);
 
-        runtime.block_on(future::poll_fn(|_cx| Poll::<()>::Pending))
+        runtime.block_on(pending::<()>())
     });
 
     // Wait for the thread to start up.
