@@ -131,136 +131,137 @@ where
         }
 
         // dnssec only matters on queries.
-        if let OpCode::Query = request.op_code() {
-            // This will panic on no queries, that is a very odd type of request, isn't it?
-            // TODO: with mDNS there can be multiple queries
-            let query = if let Some(query) = request.queries().first().cloned() {
-                query
-            } else {
-                return Box::pin(stream::once(future::err(ProtoError::from(
-                    "no query in request",
-                ))));
-            };
-
-            let handle: Self = self.clone_with_context();
-
-            // TODO: cache response of the server about understood algorithms
-            #[cfg(feature = "dnssec")]
-            {
-                let edns = request.extensions_mut().get_or_insert_with(Edns::new);
-                edns.set_dnssec_ok(true);
-
-                // send along the algorithms which are supported by this handle
-                let mut algorithms = SupportedAlgorithms::new();
-                #[cfg(feature = "dnssec-ring")]
-                {
-                    algorithms.set(Algorithm::ED25519);
-                }
-                algorithms.set(Algorithm::ECDSAP256SHA256);
-                algorithms.set(Algorithm::ECDSAP384SHA384);
-                algorithms.set(Algorithm::RSASHA256);
-
-                let dau = EdnsOption::DAU(algorithms);
-                let dhu = EdnsOption::DHU(algorithms);
-
-                edns.options_mut().insert(dau);
-                edns.options_mut().insert(dhu);
-            }
-
-            request.set_authentic_data(true);
-            request.set_checking_disabled(false);
-            let options = *request.options();
-
-            return Box::pin(
-                self.handle
-                    .send(request)
-                    .and_then(move |message_response| {
-                        // group the record sets by name and type
-                        //  each rrset type needs to validated independently
-                        debug!(
-                            "validating message_response: {}, with {} trust_anchors",
-                            message_response.id(),
-                            handle.trust_anchor.len(),
-                        );
-                        verify_response(handle.clone(), message_response, options)
-                            .map(Result::<DnsResponse, ProtoError>::Ok)
-                    })
-                    .and_then(move |verified_message| {
-                        // TODO: I've noticed upstream resolvers don't always return NSEC responses
-                        //   this causes bottom up evaluation to fail
-
-                        // at this point all of the message is verified.
-                        // This is where NSEC and NSEC3 validation occurs
-
-                        if verified_message.answers().is_empty() {
-                            // get SOA name
-                            let soa_name = if let Some(soa_name) = verified_message
-                                .name_servers()
-                                .iter()
-                                // there should only be one
-                                .find(|rr| rr.record_type() == RecordType::SOA)
-                                .map(Record::name)
-                            {
-                                soa_name
-                            } else {
-                                return future::err(ProtoError::from(
-                                    "could not validate negative response missing SOA",
-                                ));
-                            };
-
-                            let nsec3s = verified_message
-                                .name_servers()
-                                .iter()
-                                .filter_map(|rr| {
-                                    rr.data()
-                                        .as_dnssec()?
-                                        .as_nsec3()
-                                        .map(|data| (rr.name(), data))
-                                })
-                                .collect::<Vec<_>>();
-
-                            let nsecs = verified_message
-                                .name_servers()
-                                .iter()
-                                .filter(|rr| is_dnssec(rr, RecordType::NSEC))
-                                .collect::<Vec<_>>();
-
-                            // Both NSEC and NSEC3 records cannot coexist during
-                            // transition periods, as per RFC 5515 10.4.3 and
-                            // 10.5.2
-                            let nsec_proof = match (nsec3s.is_empty(), nsecs.is_empty()) {
-                                (false, true) => verify_nsec3(
-                                    &query,
-                                    soa_name,
-                                    verified_message.response_code(),
-                                    verified_message.answers(),
-                                    &nsec3s,
-                                ),
-                                (true, false) => verify_nsec(&query, soa_name, nsecs.as_slice()),
-                                (true, true) => {
-                                    warn!(
-                                        "response contains both NSEC and NSEC3 records\nQuery:\n{query:?}\nResponse:\n{verified_message:?}"
-                                    );
-                                    Proof::Bogus
-                                },
-                                (false, false) => Proof::Bogus,
-                            };
-
-                            if !nsec_proof.is_secure() {
-                                // TODO change this to remove the NSECs, like we do for the others?
-                                return future::err(ProtoError::from(ProtoErrorKind::Nsec {
-                                    query: query.clone(),
-                                    proof: nsec_proof,
-                                }));
-                            }
-                        }
-
-                        future::ok(verified_message)
-                    }),
-            );
+        match request.op_code() {
+            OpCode::Query => {}
+            _ => return Box::pin(self.handle.send(request)),
         }
 
-        Box::pin(self.handle.send(request))
+        // This will panic on no queries, that is a very odd type of request, isn't it?
+        // TODO: with mDNS there can be multiple queries
+        let query = if let Some(query) = request.queries().first().cloned() {
+            query
+        } else {
+            return Box::pin(stream::once(future::err(ProtoError::from(
+                "no query in request",
+            ))));
+        };
+
+        let handle: Self = self.clone_with_context();
+
+        // TODO: cache response of the server about understood algorithms
+        #[cfg(feature = "dnssec")]
+        {
+            let edns = request.extensions_mut().get_or_insert_with(Edns::new);
+            edns.set_dnssec_ok(true);
+
+            // send along the algorithms which are supported by this handle
+            let mut algorithms = SupportedAlgorithms::new();
+            #[cfg(feature = "dnssec-ring")]
+            {
+                algorithms.set(Algorithm::ED25519);
+            }
+            algorithms.set(Algorithm::ECDSAP256SHA256);
+            algorithms.set(Algorithm::ECDSAP384SHA384);
+            algorithms.set(Algorithm::RSASHA256);
+
+            let dau = EdnsOption::DAU(algorithms);
+            let dhu = EdnsOption::DHU(algorithms);
+
+            edns.options_mut().insert(dau);
+            edns.options_mut().insert(dhu);
+        }
+
+        request.set_authentic_data(true);
+        request.set_checking_disabled(false);
+        let options = *request.options();
+
+        Box::pin(
+            self.handle
+                .send(request)
+                .and_then(move |message_response| {
+                    // group the record sets by name and type
+                    //  each rrset type needs to validated independently
+                    debug!(
+                        "validating message_response: {}, with {} trust_anchors",
+                        message_response.id(),
+                        handle.trust_anchor.len(),
+                    );
+                    verify_response(handle.clone(), message_response, options)
+                        .map(Result::<DnsResponse, ProtoError>::Ok)
+                })
+                .and_then(move |verified_message| {
+                    // TODO: I've noticed upstream resolvers don't always return NSEC responses
+                    //   this causes bottom up evaluation to fail
+
+                    // at this point all of the message is verified.
+                    // This is where NSEC and NSEC3 validation occurs
+
+                    if verified_message.answers().is_empty() {
+                        // get SOA name
+                        let soa_name = if let Some(soa_name) = verified_message
+                            .name_servers()
+                            .iter()
+                            // there should only be one
+                            .find(|rr| rr.record_type() == RecordType::SOA)
+                            .map(Record::name)
+                        {
+                            soa_name
+                        } else {
+                            return future::err(ProtoError::from(
+                                "could not validate negative response missing SOA",
+                            ));
+                        };
+
+                        let nsec3s = verified_message
+                            .name_servers()
+                            .iter()
+                            .filter_map(|rr| {
+                                rr.data()
+                                    .as_dnssec()?
+                                    .as_nsec3()
+                                    .map(|data| (rr.name(), data))
+                            })
+                            .collect::<Vec<_>>();
+
+                        let nsecs = verified_message
+                            .name_servers()
+                            .iter()
+                            .filter(|rr| is_dnssec(rr, RecordType::NSEC))
+                            .collect::<Vec<_>>();
+
+                        // Both NSEC and NSEC3 records cannot coexist during
+                        // transition periods, as per RFC 5515 10.4.3 and
+                        // 10.5.2
+                        let nsec_proof = match (nsec3s.is_empty(), nsecs.is_empty()) {
+                            (false, true) => verify_nsec3(
+                                &query,
+                                soa_name,
+                                verified_message.response_code(),
+                                verified_message.answers(),
+                                &nsec3s,
+                            ),
+                            (true, false) => verify_nsec(&query, soa_name, nsecs.as_slice()),
+                            (true, true) => {
+                                warn!(
+                                    "response contains both NSEC and NSEC3 records\nQuery:\n{query:?}\nResponse:\n{verified_message:?}"
+                                );
+                                Proof::Bogus
+                            },
+                            (false, false) => Proof::Bogus,
+                        };
+
+                        if !nsec_proof.is_secure() {
+                            // TODO change this to remove the NSECs, like we do for the others?
+                            return future::err(ProtoError::from(ProtoErrorKind::Nsec {
+                                query: query.clone(),
+                                proof: nsec_proof,
+                            }));
+                        }
+                    }
+
+                    future::ok(verified_message)
+                }),
+        )
     }
 }
 
