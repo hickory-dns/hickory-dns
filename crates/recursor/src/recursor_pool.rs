@@ -15,10 +15,10 @@ use std::{
 use futures_util::{future::Shared, Future, FutureExt, StreamExt};
 use hickory_proto::{
     op::Query,
+    runtime::{RuntimeProvider, TokioRuntimeProvider},
     xfer::{DnsRequestOptions, DnsResponse},
     DnsHandle,
 };
-use hickory_resolver::name_server::{RuntimeProvider, TokioRuntimeProvider};
 use hickory_resolver::{
     error::{ResolveError, ResolveErrorKind},
     name_server::GenericNameServerPool,

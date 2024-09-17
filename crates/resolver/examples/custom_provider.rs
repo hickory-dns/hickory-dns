@@ -2,10 +2,12 @@
 
 #[cfg(any(feature = "webpki-roots", feature = "native-certs"))]
 use {
-    hickory_resolver::config::{ResolverConfig, ResolverOpts},
-    hickory_resolver::name_server::{ConnectionProvider, GenericConnector, RuntimeProvider},
-    hickory_resolver::proto::runtime::{iocompat::AsyncIoTokioAsStd, TokioTime},
-    hickory_resolver::{AsyncResolver, TokioHandle},
+    hickory_resolver::{
+        config::{ResolverConfig, ResolverOpts},
+        name_server::{ConnectionProvider, GenericConnector},
+        proto::runtime::{iocompat::AsyncIoTokioAsStd, RuntimeProvider, TokioHandle, TokioTime},
+        AsyncResolver,
+    },
     std::future::Future,
     std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     std::pin::Pin,

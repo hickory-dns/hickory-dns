@@ -8,9 +8,8 @@
 use std::future::Future;
 use std::io;
 use std::marker::Unpin;
-use std::net::SocketAddr;
 #[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -20,8 +19,9 @@ use futures_util::ready;
 use futures_util::stream::{Stream, StreamExt};
 #[cfg(feature = "dns-over-tls")]
 use proto::runtime::iocompat::AsyncIoStdAsTokio;
+use proto::runtime::Spawn;
 #[cfg(feature = "tokio-runtime")]
-use tokio::net::TcpStream as TokioTcpStream;
+use proto::runtime::TokioRuntimeProvider;
 #[cfg(all(feature = "dns-over-native-tls", not(feature = "dns-over-rustls")))]
 use tokio_native_tls::TlsStream as TokioTlsStream;
 #[cfg(all(
@@ -46,70 +46,14 @@ use proto::{
     self,
     error::ProtoError,
     op::NoopMessageFinalizer,
-    runtime::Time,
-    tcp::{DnsTcpStream, TcpClientConnect, TcpClientStream},
-    udp::{DnsUdpSocket, UdpClientConnect, UdpClientStream},
+    runtime::RuntimeProvider,
+    tcp::{TcpClientConnect, TcpClientStream},
+    udp::{UdpClientConnect, UdpClientStream},
     xfer::{
         DnsExchange, DnsExchangeConnect, DnsExchangeSend, DnsHandle, DnsMultiplexer,
         DnsMultiplexerConnect, DnsRequest, DnsResponse,
     },
 };
-
-/// RuntimeProvider defines which async runtime that handles IO and timers.
-pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
-    /// Handle to the executor;
-    type Handle: Clone + Send + Spawn + Sync + Unpin;
-
-    /// Timer
-    type Timer: Time + Send + Unpin;
-
-    /// UdpSocket
-    type Udp: DnsUdpSocket + Send;
-
-    /// TcpStream
-    type Tcp: DnsTcpStream;
-
-    /// Create a runtime handle
-    fn create_handle(&self) -> Self::Handle;
-
-    /// Create a TCP connection with custom configuration.
-    fn connect_tcp(
-        &self,
-        server_addr: SocketAddr,
-    ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Tcp>>>>;
-
-    /// Create a UDP socket bound to `local_addr`. The returned value should **not** be connected to `server_addr`.
-    /// *Notice: the future should be ready once returned at best effort. Otherwise UDP DNS may need much more retries.*
-    fn bind_udp(
-        &self,
-        local_addr: SocketAddr,
-        server_addr: SocketAddr,
-    ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Udp>>>>;
-
-    /// Yields an object that knows how to bind a QUIC socket.
-    //
-    // Use some indirection here to avoid exposing the `quinn` crate in the public API
-    // even for runtimes that might not (want to) provide QUIC support.
-    fn quic_binder(&self) -> Option<&dyn QuicSocketBinder> {
-        None
-    }
-}
-
-/// Noop trait for when the `quinn` dependency is not available.
-#[cfg(not(any(feature = "dns-over-quic", feature = "dns-over-h3")))]
-pub trait QuicSocketBinder {}
-
-/// Create a UDP socket for QUIC usage.
-/// This trait is designed for customization.
-#[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
-pub trait QuicSocketBinder {
-    /// Create a UDP socket for QUIC usage.
-    fn bind_quic(
-        &self,
-        _local_addr: SocketAddr,
-        _server_addr: SocketAddr,
-    ) -> Result<Arc<dyn quinn::AsyncUdpSocket>, io::Error>;
-}
 
 /// Create `DnsHandle` with the help of `RuntimeProvider`.
 /// This trait is designed for customization.
@@ -127,14 +71,6 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
         config: &NameServerConfig,
         options: &ResolverOpts,
     ) -> Result<Self::FutureConn, io::Error>;
-}
-
-/// A type defines the Handle which can spawn future.
-pub trait Spawn {
-    /// Spawn a future in the background
-    fn spawn_bg<F>(&mut self, future: F)
-    where
-        F: Future<Output = Result<(), ProtoError>> + Send + 'static;
 }
 
 #[cfg(feature = "dns-over-tls")]
@@ -247,6 +183,10 @@ impl DnsHandle for GenericConnection {
         ConnectionResponse(self.0.send(request))
     }
 }
+
+/// Default ConnectionProvider with `GenericConnection`.
+#[cfg(feature = "tokio-runtime")]
+pub type TokioConnectionProvider = GenericConnector<TokioRuntimeProvider>;
 
 /// Default connector for `GenericConnection`
 #[derive(Clone)]
@@ -431,105 +371,4 @@ impl Stream for ConnectionResponse {
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         Poll::Ready(ready!(self.0.poll_next_unpin(cx)))
     }
-}
-
-#[cfg(feature = "tokio-runtime")]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
-#[allow(unreachable_pub)]
-pub mod tokio_runtime {
-    use super::*;
-    #[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
-    use quinn::Runtime;
-    use std::sync::{Arc, Mutex};
-    use tokio::net::UdpSocket as TokioUdpSocket;
-    use tokio::task::JoinSet;
-
-    /// A handle to the Tokio runtime
-    #[derive(Clone, Default)]
-    pub struct TokioHandle {
-        join_set: Arc<Mutex<JoinSet<Result<(), ProtoError>>>>,
-    }
-
-    impl Spawn for TokioHandle {
-        fn spawn_bg<F>(&mut self, future: F)
-        where
-            F: Future<Output = Result<(), ProtoError>> + Send + 'static,
-        {
-            let mut join_set = self.join_set.lock().unwrap();
-            join_set.spawn(future);
-            reap_tasks(&mut join_set);
-        }
-    }
-
-    /// The Tokio Runtime for async execution
-    #[derive(Clone, Default)]
-    pub struct TokioRuntimeProvider(TokioHandle);
-
-    impl TokioRuntimeProvider {
-        /// Create a Tokio runtime
-        pub fn new() -> Self {
-            Self::default()
-        }
-    }
-
-    impl RuntimeProvider for TokioRuntimeProvider {
-        type Handle = TokioHandle;
-        type Timer = TokioTime;
-        type Udp = TokioUdpSocket;
-        type Tcp = AsyncIoTokioAsStd<TokioTcpStream>;
-
-        fn create_handle(&self) -> Self::Handle {
-            self.0.clone()
-        }
-
-        fn connect_tcp(
-            &self,
-            server_addr: SocketAddr,
-        ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Tcp>>>> {
-            Box::pin(async move {
-                TokioTcpStream::connect(server_addr)
-                    .await
-                    .map(AsyncIoTokioAsStd)
-            })
-        }
-
-        fn bind_udp(
-            &self,
-            local_addr: SocketAddr,
-            _server_addr: SocketAddr,
-        ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Udp>>>> {
-            Box::pin(tokio::net::UdpSocket::bind(local_addr))
-        }
-
-        #[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
-        fn quic_binder(&self) -> Option<&dyn QuicSocketBinder> {
-            Some(&TokioQuicSocketBinder)
-        }
-    }
-
-    /// Reap finished tasks from a `JoinSet`, without awaiting or blocking.
-    fn reap_tasks(join_set: &mut JoinSet<Result<(), ProtoError>>) {
-        while FutureExt::now_or_never(join_set.join_next())
-            .flatten()
-            .is_some()
-        {}
-    }
-
-    #[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
-    struct TokioQuicSocketBinder;
-
-    #[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
-    impl QuicSocketBinder for TokioQuicSocketBinder {
-        fn bind_quic(
-            &self,
-            local_addr: SocketAddr,
-            _server_addr: SocketAddr,
-        ) -> Result<Arc<dyn quinn::AsyncUdpSocket>, io::Error> {
-            let socket = std::net::UdpSocket::bind(local_addr)?;
-            quinn::TokioRuntime.wrap_udp_socket(socket)
-        }
-    }
-
-    /// Default ConnectionProvider with `GenericConnection`.
-    pub type TokioConnectionProvider = GenericConnector<TokioRuntimeProvider>;
 }
