@@ -514,7 +514,7 @@ async fn build_response(
     #[allow(deprecated)]
     let sections = match authority.zone_type() {
         ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave => {
-            send_authoritative_response(
+            build_authoritative_response(
                 result,
                 authority,
                 &mut response_header,
@@ -525,7 +525,7 @@ async fn build_response(
             .await
         }
         ZoneType::Forward | ZoneType::Hint => {
-            send_forwarded_response(
+            build_forwarded_response(
                 result,
                 request_header,
                 &mut response_header,
@@ -538,7 +538,8 @@ async fn build_response(
     (response_header, sections)
 }
 
-async fn send_authoritative_response(
+/// Prepare a response for an authoritative zone
+async fn build_authoritative_response(
     response: Result<Box<dyn LookupObject>, LookupError>,
     authority: &dyn AuthorityObject,
     response_header: &mut Header,
@@ -731,7 +732,8 @@ async fn send_authoritative_response(
     }
 }
 
-async fn send_forwarded_response(
+/// Prepare a response for a forwarded zone.
+async fn build_forwarded_response(
     response: Result<Box<dyn LookupObject>, LookupError>,
     request_header: &Header,
     response_header: &mut Header,
