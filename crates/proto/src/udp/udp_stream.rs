@@ -7,10 +7,8 @@
 
 use std::future::poll_fn;
 use std::io;
-use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
-use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use async_trait::async_trait;
@@ -20,18 +18,9 @@ use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
 use tracing::{debug, warn};
 
-use crate::runtime::Time;
+use crate::runtime::{RuntimeProvider, Time};
 use crate::udp::MAX_RECEIVE_BUFFER_SIZE;
 use crate::xfer::{BufDnsStreamHandle, SerialMessage, StreamReceiver};
-
-pub(crate) type UdpCreator<S> = Arc<
-    dyn Send
-        + Sync
-        + (Fn(
-            SocketAddr, // local addr
-            SocketAddr, // server addr
-        ) -> Pin<Box<dyn Send + (Future<Output = Result<S, std::io::Error>>)>>),
->;
 
 /// Trait for DnsUdpSocket
 #[async_trait]
@@ -85,12 +74,12 @@ pub trait UdpSocket: DnsUdpSocket {
 
 /// A UDP stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
-pub struct UdpStream<S: Send> {
-    socket: S,
+pub struct UdpStream<P: RuntimeProvider> {
+    socket: P::Udp,
     outbound_messages: StreamReceiver,
 }
 
-impl<S: UdpSocket + Send + 'static> UdpStream<S> {
+impl<P: RuntimeProvider> UdpStream<P> {
     /// This method is intended for client connections, see `with_bound` for a method better for
     ///  straight listening. It is expected that the resolver wrapper will be responsible for
     ///  creating and managing new UdpStreams such that each new client would have a random port
@@ -108,6 +97,7 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
     pub fn new(
         remote_addr: SocketAddr,
         bind_addr: Option<SocketAddr>,
+        provider: P,
     ) -> (
         Box<dyn Future<Output = Result<Self, io::Error>> + Send + Unpin>,
         BufDnsStreamHandle,
@@ -116,7 +106,7 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
 
         // TODO: allow the bind address to be specified...
         // constructs a future for getting the next randomly bound port to a UdpSocket
-        let next_socket = NextRandomUdpSocket::new(&remote_addr, &bind_addr);
+        let next_socket = NextRandomUdpSocket::new(remote_addr, bind_addr, provider);
 
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
@@ -129,7 +119,7 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
     }
 }
 
-impl<S: DnsUdpSocket + Send + 'static> UdpStream<S> {
+impl<P: RuntimeProvider> UdpStream<P> {
     /// Initialize the Stream with an already bound socket. Generally this should be only used for
     ///  server listening sockets. See `new` for a client oriented socket. Specifically, this there
     ///  is already a bound socket in this context, whereas `new` makes sure to randomize ports
@@ -144,7 +134,7 @@ impl<S: DnsUdpSocket + Send + 'static> UdpStream<S> {
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messages, and a
     ///  handle which can be used to send messages into the stream.
-    pub fn with_bound(socket: S, remote_addr: SocketAddr) -> (Self, BufDnsStreamHandle) {
+    pub fn with_bound(socket: P::Udp, remote_addr: SocketAddr) -> (Self, BufDnsStreamHandle) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(remote_addr);
         let stream = Self {
             socket,
@@ -155,7 +145,7 @@ impl<S: DnsUdpSocket + Send + 'static> UdpStream<S> {
     }
 
     #[allow(unused)]
-    pub(crate) fn from_parts(socket: S, outbound_messages: StreamReceiver) -> Self {
+    pub(crate) fn from_parts(socket: P::Udp, outbound_messages: StreamReceiver) -> Self {
         Self {
             socket,
             outbound_messages,
@@ -163,14 +153,14 @@ impl<S: DnsUdpSocket + Send + 'static> UdpStream<S> {
     }
 }
 
-impl<S: Send> UdpStream<S> {
+impl<P: RuntimeProvider> UdpStream<P> {
     #[allow(clippy::type_complexity)]
-    fn pollable_split(&mut self) -> (&mut S, &mut StreamReceiver) {
+    fn pollable_split(&mut self) -> (&mut P::Udp, &mut StreamReceiver) {
         (&mut self.socket, &mut self.outbound_messages)
     }
 }
 
-impl<S: DnsUdpSocket + Send + 'static> Stream for UdpStream<S> {
+impl<P: RuntimeProvider> Stream for UdpStream<P> {
     type Item = Result<SerialMessage, io::Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -213,22 +203,21 @@ impl<S: DnsUdpSocket + Send + 'static> Stream for UdpStream<S> {
 }
 
 #[must_use = "futures do nothing unless polled"]
-pub(crate) struct NextRandomUdpSocket<S> {
+pub(crate) struct NextRandomUdpSocket<P> {
     name_server: SocketAddr,
     bind_address: SocketAddr,
-    closure: UdpCreator<S>,
-    marker: PhantomData<S>,
+    provider: P,
 }
 
-impl<S: UdpSocket + 'static> NextRandomUdpSocket<S> {
+impl<P> NextRandomUdpSocket<P> {
     /// Creates a future for randomly binding to a local socket address for client connections,
     /// if no port is specified.
     ///
     /// If a port is specified in the bind address it is used.
-    pub(crate) fn new(name_server: &SocketAddr, bind_addr: &Option<SocketAddr>) -> Self {
+    pub(crate) fn new(name_server: SocketAddr, bind_addr: Option<SocketAddr>, provider: P) -> Self {
         let bind_address = match bind_addr {
-            Some(ba) => *ba,
-            None => match *name_server {
+            Some(ba) => ba,
+            None => match name_server {
                 SocketAddr::V4(..) => SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0),
                 SocketAddr::V6(..) => {
                     SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)), 0)
@@ -237,34 +226,15 @@ impl<S: UdpSocket + 'static> NextRandomUdpSocket<S> {
         };
 
         Self {
-            name_server: *name_server,
+            name_server,
             bind_address,
-            closure: Arc::new(|local_addr: _, _server_addr: _| S::bind(local_addr)),
-            marker: PhantomData,
+            provider,
         }
     }
 }
 
-impl<S: DnsUdpSocket> NextRandomUdpSocket<S> {
-    /// Create a future with generator
-    pub(crate) fn new_with_closure(name_server: &SocketAddr, func: UdpCreator<S>) -> Self {
-        let bind_address = match *name_server {
-            SocketAddr::V4(..) => SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0),
-            SocketAddr::V6(..) => {
-                SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)), 0)
-            }
-        };
-        Self {
-            name_server: *name_server,
-            bind_address,
-            closure: func,
-            marker: PhantomData,
-        }
-    }
-}
-
-impl<S: DnsUdpSocket + Send> Future for NextRandomUdpSocket<S> {
-    type Output = Result<S, io::Error>;
+impl<P: RuntimeProvider> Future for NextRandomUdpSocket<P> {
+    type Output = Result<P::Udp, io::Error>;
 
     /// polls until there is an available next random UDP port,
     /// if no port has been specified in bind_addr.
@@ -284,7 +254,9 @@ impl<S: DnsUdpSocket + Send> Future for NextRandomUdpSocket<S> {
 
                 // TODO: allow TTL to be adjusted...
                 // TODO: this immediate poll might be wrong in some cases...
-                match (*self.closure)(bind_addr, self.name_server)
+                match self
+                    .provider
+                    .bind_udp(bind_addr, self.name_server)
                     .as_mut()
                     .poll(cx)
                 {
@@ -312,7 +284,8 @@ impl<S: DnsUdpSocket + Send> Future for NextRandomUdpSocket<S> {
             // calls without finding a free one until the future is canceled.
         }
         // Use port that was specified in bind address.
-        (*self.closure)(self.bind_address, self.name_server)
+        self.provider
+            .bind_udp(self.bind_address, self.name_server)
             .as_mut()
             .poll(cx)
     }
@@ -379,30 +352,37 @@ impl DnsUdpSocket for tokio::net::UdpSocket {
 #[cfg(feature = "tokio-runtime")]
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-    use tokio::{net::UdpSocket as TokioUdpSocket, runtime::Runtime};
+    use tokio::runtime::Runtime;
+
+    use crate::runtime::TokioRuntimeProvider;
 
     #[test]
     fn test_next_random_socket() {
         use crate::tests::next_random_socket_test;
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        next_random_socket_test::<TokioUdpSocket, Runtime>(io_loop)
+        let provider = TokioRuntimeProvider::new();
+        next_random_socket_test(io_loop, provider)
     }
 
     #[test]
     fn test_udp_stream_ipv4() {
         use crate::tests::udp_stream_test;
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        io_loop.block_on(udp_stream_test::<TokioUdpSocket>(IpAddr::V4(
-            Ipv4Addr::new(127, 0, 0, 1),
-        )));
+        let provider = TokioRuntimeProvider::new();
+        io_loop.block_on(udp_stream_test(
+            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            provider,
+        ));
     }
 
     #[test]
     fn test_udp_stream_ipv6() {
         use crate::tests::udp_stream_test;
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        io_loop.block_on(udp_stream_test::<TokioUdpSocket>(IpAddr::V6(
-            Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1),
-        )));
+        let provider = TokioRuntimeProvider::new();
+        io_loop.block_on(udp_stream_test(
+            IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+            provider,
+        ));
     }
 }

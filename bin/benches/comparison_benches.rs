@@ -15,18 +15,18 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
+use hickory_proto::runtime::TokioRuntimeProvider;
 use test::Bencher;
 use tokio::net::TcpStream;
-use tokio::net::UdpSocket;
 use tokio::runtime::Runtime;
 
 use hickory_client::client::{AsyncClient, ClientHandle};
 use hickory_proto::error::ProtoError;
-use hickory_proto::iocompat::AsyncIoTokioAsStd;
 use hickory_proto::op::NoopMessageFinalizer;
 use hickory_proto::op::ResponseCode;
 use hickory_proto::rr::rdata::A;
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
+use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
 use hickory_proto::xfer::{DnsMultiplexer, DnsRequestSender};
@@ -50,6 +50,7 @@ impl Drop for NamedProcess {
 
 fn wrap_process(named: Child, server_port: u16) -> NamedProcess {
     let mut started = false;
+    let provider = TokioRuntimeProvider::new();
 
     for _ in 0..20 {
         let io_loop = Runtime::new().unwrap();
@@ -58,7 +59,7 @@ fn wrap_process(named: Child, server_port: u16) -> NamedProcess {
             .unwrap()
             .next()
             .unwrap();
-        let stream = UdpClientStream::<UdpSocket>::new(addr);
+        let stream = UdpClientStream::new(addr, provider.clone());
         let client = AsyncClient::connect(stream);
         let (mut client, bg) = io_loop.block_on(client).expect("failed to create client");
         io_loop.spawn(bg);
@@ -152,7 +153,7 @@ fn hickory_udp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let stream = UdpClientStream::<UdpSocket>::new(addr);
+    let stream = UdpClientStream::new(addr, TokioRuntimeProvider::new());
     bench(b, stream);
 
     // cleaning up the named process
@@ -169,7 +170,7 @@ fn hickory_udp_bench_prof(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let stream = UdpClientStream::<UdpSocket>::new(addr);
+    let stream = UdpClientStream::new(addr, TokioRuntimeProvider::new());
     bench(b, stream);
 }
 
@@ -240,7 +241,7 @@ fn bind_udp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let stream = UdpClientStream::<UdpSocket>::new(addr);
+    let stream = UdpClientStream::new(addr, TokioRuntimeProvider::new());
     bench(b, stream);
 
     // cleaning up the named process

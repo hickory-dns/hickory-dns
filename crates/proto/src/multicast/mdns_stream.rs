@@ -22,6 +22,7 @@ use tokio::net::UdpSocket;
 use tracing::{debug, trace};
 
 use crate::multicast::MdnsQueryType;
+use crate::runtime::TokioRuntimeProvider;
 use crate::udp::UdpStream;
 use crate::xfer::SerialMessage;
 use crate::BufDnsStreamHandle;
@@ -44,7 +45,7 @@ pub struct MdnsStream {
     /// Multicast address used for mDNS queries
     multicast_addr: SocketAddr,
     /// This is used for sending and (directly) receiving messages
-    datagram: Option<UdpStream<UdpSocket>>,
+    datagram: Option<UdpStream<TokioRuntimeProvider>>,
     // FIXME: like UdpStream, this Arc is unnecessary, only needed for temp async/await capture below
     /// In one-shot multicast, this will not join the multicast group
     multicast: Option<Arc<UdpSocket>>,

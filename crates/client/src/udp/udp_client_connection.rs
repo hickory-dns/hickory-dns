@@ -15,9 +15,9 @@ use crate::proto::udp::{UdpClientConnect, UdpClientStream};
 
 use crate::client::ClientConnection;
 use crate::client::Signer;
-use crate::error::*;
+use crate::error::ClientResult;
 
-use tokio::net::UdpSocket;
+use hickory_proto::runtime::TokioRuntimeProvider;
 
 /// UDP based DNS Client connection
 ///
@@ -65,8 +65,8 @@ impl UdpClientConnection {
 }
 
 impl ClientConnection for UdpClientConnection {
-    type Sender = UdpClientStream<UdpSocket, Signer>;
-    type SenderFuture = UdpClientConnect<UdpSocket, Signer>;
+    type Sender = UdpClientStream<TokioRuntimeProvider, Signer>;
+    type SenderFuture = UdpClientConnect<TokioRuntimeProvider, Signer>;
 
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
         UdpClientStream::with_timeout_and_signer_and_bind_addr(
@@ -74,6 +74,7 @@ impl ClientConnection for UdpClientConnection {
             self.timeout,
             signer,
             self.bind_addr,
+            TokioRuntimeProvider::new(),
         )
     }
 }

@@ -31,7 +31,7 @@ use rustls::{
     pki_types::{CertificateDer, ServerName, UnixTime},
     ClientConfig, DigitallySignedStruct, RootCertStore,
 };
-use tokio::net::{TcpStream as TokioTcpStream, UdpSocket};
+use tokio::net::TcpStream as TokioTcpStream;
 use tracing::Level;
 
 use hickory_client::client::{AsyncClient, ClientHandle};
@@ -39,7 +39,7 @@ use hickory_client::client::{AsyncClient, ClientHandle};
 use hickory_proto::rustls::tls_client_connect;
 use hickory_proto::{
     rr::{DNSClass, Name, RData, RecordSet, RecordType},
-    runtime::iocompat::AsyncIoTokioAsStd,
+    runtime::{iocompat::AsyncIoTokioAsStd, TokioRuntimeProvider},
     serialize::txt::RDataParser,
     tcp::TcpClientStream,
     udp::UdpClientStream,
@@ -250,7 +250,7 @@ async fn udp(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     let nameserver = opts.nameserver;
 
     println!("; using udp:{nameserver}");
-    let stream = UdpClientStream::<UdpSocket>::new(nameserver);
+    let stream = UdpClientStream::new(nameserver, TokioRuntimeProvider::new());
     let (client, bg) = AsyncClient::connect(stream).await?;
     let handle = tokio::spawn(bg);
     handle_request(opts.class, opts.zone, opts.command, client).await?;
