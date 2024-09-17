@@ -239,7 +239,7 @@ mod tests {
 
     use super::*;
     use crate::config::Protocol;
-    use crate::name_server::TokioConnectionProvider;
+    use crate::name_server::connection_provider::TokioConnectionProvider;
 
     #[test]
     fn test_name_server() {

@@ -20,12 +20,12 @@ use hickory_proto::op::{Message, Query};
 use hickory_proto::rr::rdata::{CNAME, NS, SOA};
 use hickory_proto::rr::{Name, RData, Record};
 use hickory_proto::runtime::TokioTime;
+use hickory_proto::runtime::{RuntimeProvider, TokioHandle};
 use hickory_proto::tcp::DnsTcpStream;
 use hickory_proto::udp::DnsUdpSocket;
 use hickory_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 use hickory_resolver::config::{NameServerConfig, ResolverOpts};
-use hickory_resolver::name_server::{ConnectionProvider, RuntimeProvider};
-use hickory_resolver::TokioHandle;
+use hickory_resolver::name_server::ConnectionProvider;
 
 pub struct TcpPlaceholder;
 

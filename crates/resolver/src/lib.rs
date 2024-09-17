@@ -288,9 +288,6 @@ pub use async_resolver::TokioAsyncResolver;
 pub use hosts::Hosts;
 #[cfg(feature = "tokio-runtime")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
-pub use name_server::TokioHandle;
-#[cfg(feature = "tokio-runtime")]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 pub use resolver::Resolver;
 
 /// This is an alias for [`AsyncResolver`], which replaced the type previously

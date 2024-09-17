@@ -228,7 +228,7 @@
 //! use std::str::FromStr;
 //! use tokio::net::TcpStream as TokioTcpStream;
 //! use hickory_client::client::{AsyncClient, ClientHandle};
-//! use hickory_client::proto::iocompat::AsyncIoTokioAsStd;
+//! use hickory_client::proto::runtime::iocompat::AsyncIoTokioAsStd;
 //! use hickory_client::proto::rr::{DNSClass, Name, RData, RecordType};
 //! use hickory_client::proto::rr::rdata::A;
 //! use hickory_client::proto::tcp::TcpClientStream;

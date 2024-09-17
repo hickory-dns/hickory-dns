@@ -13,6 +13,7 @@ use crate::{
         error::{ForwardNSData, ProtoErrorKind},
         op::Query,
         rr::{RData, RData::CNAME, Record, RecordType},
+        runtime::TokioRuntimeProvider,
     },
     recursor_pool::RecursorPool,
     resolver::{
@@ -20,7 +21,7 @@ use crate::{
         dns_lru::{DnsLru, TtlConfig},
         error::ResolveError,
         lookup::Lookup,
-        name_server::{GenericNameServerPool, TokioConnectionProvider, TokioRuntimeProvider},
+        name_server::{GenericNameServerPool, TokioConnectionProvider},
         Name,
     },
     Error, ErrorKind,

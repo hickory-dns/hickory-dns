@@ -14,10 +14,7 @@ mod name_server_pool;
 mod name_server_state;
 mod name_server_stats;
 
-#[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
-pub use self::connection_provider::QuicSocketBinder;
-pub use self::connection_provider::{ConnectionProvider, RuntimeProvider, Spawn};
-pub use self::connection_provider::{GenericConnection, GenericConnector};
+pub use self::connection_provider::{ConnectionProvider, GenericConnection, GenericConnector};
 pub use self::name_server::{GenericNameServer, NameServer};
 pub use self::name_server_pool::{GenericNameServerPool, NameServerPool};
 use self::name_server_state::NameServerState;
@@ -25,6 +22,4 @@ use self::name_server_stats::NameServerStats;
 
 #[cfg(feature = "tokio-runtime")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
-pub use self::connection_provider::tokio_runtime::{
-    TokioConnectionProvider, TokioHandle, TokioRuntimeProvider,
-};
+pub use self::connection_provider::TokioConnectionProvider;
