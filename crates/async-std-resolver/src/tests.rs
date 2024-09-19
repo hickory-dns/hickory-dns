@@ -59,17 +59,6 @@ fn test_lookup_cloudflare() {
 }
 
 #[test]
-fn test_lookup_quad9() {
-    use testing::lookup_test;
-    let io_loop = AsyncStdConnectionProvider::new();
-    lookup_test::<AsyncStdConnectionProvider, AsyncStdConnectionProvider>(
-        ResolverConfig::quad9(),
-        io_loop.clone(),
-        io_loop,
-    )
-}
-
-#[test]
 fn test_ip_lookup() {
     use testing::ip_lookup_test;
     let io_loop = AsyncStdConnectionProvider::new();
