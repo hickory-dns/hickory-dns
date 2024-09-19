@@ -67,13 +67,11 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(windows))] // flakes on AppVeyor...
     fn test_google_tls() {
         tls_test(ResolverConfig::google_tls())
     }
 
     #[test]
-    #[cfg(not(windows))] // flakes on AppVeyor...
     fn test_cloudflare_tls() {
         tls_test(ResolverConfig::cloudflare_tls())
     }
