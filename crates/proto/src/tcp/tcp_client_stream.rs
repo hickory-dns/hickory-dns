@@ -185,7 +185,7 @@ impl Connect for AsyncIoTokioAsStd<TokioTcpStream> {
         bind_addr: Option<SocketAddr>,
     ) -> io::Result<Self> {
         TokioRuntimeProvider::new()
-            .connect_tcp(addr, bind_addr)
+            .connect_tcp(addr, bind_addr, None)
             .await
     }
 }

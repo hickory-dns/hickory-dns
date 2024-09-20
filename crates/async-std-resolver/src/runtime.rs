@@ -9,7 +9,9 @@ use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
+use std::time::Duration;
 
+use async_std::future::timeout;
 use hickory_resolver::config::{NameServerConfig, ResolverOpts};
 use hickory_resolver::name_server::{ConnectionProvider, GenericConnector};
 use hickory_resolver::proto::error::ProtoError;
@@ -85,7 +87,9 @@ impl RuntimeProvider for AsyncStdRuntimeProvider {
         &self,
         server_addr: SocketAddr,
         bind_addr: Option<SocketAddr>,
+        wait_for: Option<Duration>,
     ) -> Pin<Box<dyn Send + Future<Output = std::io::Result<Self::Tcp>>>> {
+        let wait_for = wait_for.unwrap_or_else(|| Duration::from_secs(5));
         Box::pin(async move {
             let stream = match bind_addr {
                 Some(bind_addr) => {
@@ -96,11 +100,24 @@ impl RuntimeProvider for AsyncStdRuntimeProvider {
 
                     let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
                     socket.bind(&bind_addr.into())?;
-                    socket.connect(&server_addr.into())?;
+
+                    socket.connect_timeout(&server_addr.into(), wait_for)?;
                     let std_stream = std::net::TcpStream::from(socket);
                     async_std::net::TcpStream::from(std_stream)
                 }
-                None => async_std::net::TcpStream::connect(server_addr).await?,
+                None => {
+                    let future = async_std::net::TcpStream::connect(server_addr);
+                    match timeout(wait_for, future).await {
+                        Ok(Ok(socket)) => socket,
+                        Ok(Err(e)) => return Err(e),
+                        Err(_) => {
+                            return Err(io::Error::new(
+                                io::ErrorKind::TimedOut,
+                                "connection to {server_addr:?} timed out after {wait_for:?}",
+                            ))
+                        }
+                    }
+                }
             };
 
             stream.set_nodelay(true)?;
