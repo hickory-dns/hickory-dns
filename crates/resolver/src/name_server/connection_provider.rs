@@ -236,7 +236,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
             (Protocol::Tcp, _) => {
                 let socket_addr = config.socket_addr;
                 let timeout = options.timeout;
-                let tcp_future = self.runtime_provider.connect_tcp(socket_addr);
+                let tcp_future = self.runtime_provider.connect_tcp(socket_addr, None);
 
                 let (stream, handle) =
                     TcpClientStream::with_future(tcp_future, socket_addr, timeout);
@@ -256,7 +256,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let socket_addr = config.socket_addr;
                 let timeout = options.timeout;
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
-                let tcp_future = self.runtime_provider.connect_tcp(socket_addr);
+                let tcp_future = self.runtime_provider.connect_tcp(socket_addr, None);
 
                 #[cfg(feature = "dns-over-rustls")]
                 let client_config = config.tls_config.clone();
@@ -291,7 +291,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
                 #[cfg(feature = "dns-over-rustls")]
                 let client_config = config.tls_config.clone();
-                let tcp_future = self.runtime_provider.connect_tcp(socket_addr);
+                let tcp_future = self.runtime_provider.connect_tcp(socket_addr, None);
 
                 let exchange = crate::h2::new_https_stream_with_future(
                     tcp_future,

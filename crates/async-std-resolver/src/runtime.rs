@@ -84,8 +84,19 @@ impl RuntimeProvider for AsyncStdRuntimeProvider {
     fn connect_tcp(
         &self,
         server_addr: SocketAddr,
+        bind_addr: Option<SocketAddr>,
     ) -> Pin<Box<dyn Send + Future<Output = std::io::Result<Self::Tcp>>>> {
-        Box::pin(AsyncStdTcpStream::connect(server_addr))
+        Box::pin(async move {
+            match bind_addr {
+                Some(bind_addr) => Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!(
+                        "bind_addr is not supported by async-std, tried to bind to: {bind_addr}"
+                    ),
+                )),
+                None => AsyncStdTcpStream::connect(server_addr).await,
+            }
+        })
     }
 
     fn bind_udp(
