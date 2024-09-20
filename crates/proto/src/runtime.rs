@@ -121,7 +121,7 @@ mod tokio_runtime {
     #[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
     use quinn::Runtime;
     use std::sync::{Arc, Mutex};
-    use tokio::net::{TcpStream, UdpSocket as TokioUdpSocket};
+    use tokio::net::{TcpSocket, TcpStream, UdpSocket as TokioUdpSocket};
     use tokio::task::JoinSet;
 
     /// A handle to the Tokio runtime
@@ -165,8 +165,20 @@ mod tokio_runtime {
         fn connect_tcp(
             &self,
             server_addr: SocketAddr,
+            bind_addr: Option<SocketAddr>,
         ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Tcp>>>> {
-            Box::pin(async move { TcpStream::connect(server_addr).await.map(AsyncIoTokioAsStd) })
+            Box::pin(async move {
+                let socket = match server_addr {
+                    SocketAddr::V4(_) => TcpSocket::new_v4(),
+                    SocketAddr::V6(_) => TcpSocket::new_v6(),
+                }?;
+
+                if let Some(bind_addr) = bind_addr {
+                    socket.bind(bind_addr)?;
+                }
+
+                socket.connect(server_addr).await.map(AsyncIoTokioAsStd)
+            })
         }
 
         fn bind_udp(
@@ -231,6 +243,7 @@ pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
     fn connect_tcp(
         &self,
         server_addr: SocketAddr,
+        bind_addr: Option<SocketAddr>,
     ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Tcp>>>>;
 
     /// Create a UDP socket bound to `local_addr`. The returned value should **not** be connected to `server_addr`.

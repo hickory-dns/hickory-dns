@@ -104,6 +104,7 @@ impl RuntimeProvider for MockRuntimeProvider {
     fn connect_tcp(
         &self,
         _server_addr: SocketAddr,
+        _bind_addr: Option<SocketAddr>,
     ) -> Pin<Box<dyn Send + Future<Output = std::io::Result<Self::Tcp>>>> {
         Box::pin(async { Ok(TcpPlaceholder) })
     }

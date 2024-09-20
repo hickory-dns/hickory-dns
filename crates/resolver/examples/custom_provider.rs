@@ -11,7 +11,7 @@ use {
     std::future::Future,
     std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     std::pin::Pin,
-    tokio::net::{TcpStream, UdpSocket},
+    tokio::net::{TcpStream, UdpSocket, TcpSocket},
 };
 
 #[cfg(any(feature = "webpki-roots", feature = "native-certs"))]
@@ -34,11 +34,20 @@ impl RuntimeProvider for PrintProvider {
     fn connect_tcp(
         &self,
         server_addr: SocketAddr,
+        bind_addr: Option<SocketAddr>,
     ) -> Pin<Box<dyn Send + Future<Output = std::io::Result<Self::Tcp>>>> {
         println!("Create tcp server_addr: {}", server_addr);
         Box::pin(async move {
-            let tcp = TcpStream::connect(server_addr).await?;
-            Ok(AsyncIoTokioAsStd(tcp))
+            let socket = match server_addr {
+                SocketAddr::V4(_) => TcpSocket::new_v4(),
+                SocketAddr::V6(_) => TcpSocket::new_v6(),
+            }?;
+
+            if let Some(bind_addr) = bind_addr {
+                socket.bind(bind_addr)?;
+            }
+
+            socket.connect(server_addr).await.map(AsyncIoTokioAsStd)
         })
     }
 
