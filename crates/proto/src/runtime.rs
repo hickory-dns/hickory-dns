@@ -123,6 +123,7 @@ mod tokio_runtime {
     use std::sync::{Arc, Mutex};
     use tokio::net::{TcpSocket, TcpStream, UdpSocket as TokioUdpSocket};
     use tokio::task::JoinSet;
+    use tokio::time::timeout;
 
     /// A handle to the Tokio runtime
     #[derive(Clone, Default)]
@@ -166,6 +167,7 @@ mod tokio_runtime {
             &self,
             server_addr: SocketAddr,
             bind_addr: Option<SocketAddr>,
+            wait_for: Option<Duration>,
         ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Tcp>>>> {
             Box::pin(async move {
                 let socket = match server_addr {
@@ -178,7 +180,16 @@ mod tokio_runtime {
                 }
 
                 socket.set_nodelay(true)?;
-                socket.connect(server_addr).await.map(AsyncIoTokioAsStd)
+                let future = socket.connect(server_addr);
+                let wait_for = wait_for.unwrap_or_else(|| Duration::from_secs(5));
+                match timeout(wait_for, future).await {
+                    Ok(Ok(socket)) => Ok(AsyncIoTokioAsStd(socket)),
+                    Ok(Err(e)) => Err(e),
+                    Err(_) => Err(io::Error::new(
+                        io::ErrorKind::TimedOut,
+                        format!("connection to {server_addr:?} timed out after {wait_for:?}"),
+                    )),
+                }
             })
         }
 
@@ -245,6 +256,7 @@ pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
         &self,
         server_addr: SocketAddr,
         bind_addr: Option<SocketAddr>,
+        timeout: Option<Duration>,
     ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Tcp>>>>;
 
     /// Create a UDP socket bound to `local_addr`. The returned value should **not** be connected to `server_addr`.

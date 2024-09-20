@@ -9,9 +9,12 @@ use {
         AsyncResolver,
     },
     std::future::Future,
+    std::io,
     std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     std::pin::Pin,
-    tokio::net::{TcpStream, UdpSocket, TcpSocket},
+    std::time::Duration,
+    tokio::net::{TcpSocket, TcpStream, UdpSocket},
+    tokio::time::timeout,
 };
 
 #[cfg(any(feature = "webpki-roots", feature = "native-certs"))]
@@ -35,8 +38,8 @@ impl RuntimeProvider for PrintProvider {
         &self,
         server_addr: SocketAddr,
         bind_addr: Option<SocketAddr>,
-    ) -> Pin<Box<dyn Send + Future<Output = std::io::Result<Self::Tcp>>>> {
-        println!("Create tcp server_addr: {}", server_addr);
+        wait_for: Option<Duration>,
+    ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Tcp>>>> {
         Box::pin(async move {
             let socket = match server_addr {
                 SocketAddr::V4(_) => TcpSocket::new_v4(),
@@ -47,7 +50,17 @@ impl RuntimeProvider for PrintProvider {
                 socket.bind(bind_addr)?;
             }
 
-            socket.connect(server_addr).await.map(AsyncIoTokioAsStd)
+            socket.set_nodelay(true)?;
+            let future = socket.connect(server_addr);
+            let wait_for = wait_for.unwrap_or_else(|| Duration::from_secs(5));
+            match timeout(wait_for, future).await {
+                Ok(Ok(socket)) => Ok(AsyncIoTokioAsStd(socket)),
+                Ok(Err(e)) => Err(e),
+                Err(_) => Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    format!("connection to {server_addr:?} timed out after {wait_for:?}"),
+                )),
+            }
         })
     }
 

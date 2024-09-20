@@ -96,7 +96,7 @@ impl Connect for AsyncStdTcpStream {
         addr: SocketAddr,
         bind_addr: Option<SocketAddr>,
     ) -> io::Result<Self> {
-        AsyncStdRuntimeProvider.connect_tcp(addr, bind_addr).await
+        AsyncStdRuntimeProvider.connect_tcp(addr, bind_addr, None).await
     }
 }
 
