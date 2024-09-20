@@ -8,7 +8,7 @@ use futures::{Future, FutureExt, TryFutureExt};
 use test_support::subscribe;
 #[cfg(feature = "dnssec")]
 use time::Duration;
-use tokio::{net::TcpStream as TokioTcpStream, runtime::Runtime};
+use tokio::runtime::Runtime;
 
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 use hickory_client::client::Signer;
@@ -34,7 +34,7 @@ use hickory_proto::{
         },
         DNSClass, Name, RData, RecordSet, RecordType,
     },
-    runtime::{iocompat::AsyncIoTokioAsStd, TokioRuntimeProvider},
+    runtime::TokioRuntimeProvider,
     tcp::TcpClientStream,
     udp::UdpClientStream,
     xfer::FirstAnswer,
@@ -99,7 +99,7 @@ fn test_query_udp_ipv6() {
 fn test_query_tcp_ipv4() {
     let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
+    let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
     let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -118,7 +118,7 @@ fn test_query_tcp_ipv6() {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
+    let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
     let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -151,11 +151,11 @@ fn test_query_https() {
             .with_no_client_auth();
     client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
-    let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
-    let client = AsyncClient::connect(
-        https_builder
-            .build::<AsyncIoTokioAsStd<TokioTcpStream>>(addr, "cloudflare-dns.com".to_string()),
+    let https_builder = HttpsClientStreamBuilder::with_client_config(
+        Arc::new(client_config),
+        TokioRuntimeProvider::new(),
     );
+    let client = AsyncClient::connect(https_builder.build(addr, "cloudflare-dns.com".to_string()));
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
@@ -1021,9 +1021,11 @@ fn test_timeout_query_tcp() {
         .next()
         .unwrap();
 
-    let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::with_timeout(
+    let (stream, sender) = TcpClientStream::new(
         addr,
-        std::time::Duration::from_millis(1),
+        None,
+        Some(std::time::Duration::from_millis(1)),
+        TokioRuntimeProvider::new(),
     );
     let client = AsyncClient::with_timeout(
         Box::new(stream),

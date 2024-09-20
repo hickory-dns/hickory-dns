@@ -13,12 +13,10 @@ use std::task::{Context, Poll};
 use async_trait::async_trait;
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_util::future::FutureExt;
-use hickory_resolver::proto::runtime::RuntimeProvider;
-use hickory_resolver::proto::tcp::{Connect, DnsTcpStream};
+use hickory_resolver::proto::tcp::DnsTcpStream;
 use hickory_resolver::proto::udp::{DnsUdpSocket, UdpSocket};
 use pin_utils::pin_mut;
 
-use crate::runtime::AsyncStdRuntimeProvider;
 use crate::time::AsyncStdTime;
 
 pub struct AsyncStdUdpSocket(async_std::net::UdpSocket);
@@ -88,16 +86,6 @@ pub struct AsyncStdTcpStream(pub(crate) async_std::net::TcpStream);
 
 impl DnsTcpStream for AsyncStdTcpStream {
     type Time = AsyncStdTime;
-}
-
-#[async_trait]
-impl Connect for AsyncStdTcpStream {
-    async fn connect_with_bind(
-        addr: SocketAddr,
-        bind_addr: Option<SocketAddr>,
-    ) -> io::Result<Self> {
-        AsyncStdRuntimeProvider.connect_tcp(addr, bind_addr, None).await
-    }
 }
 
 impl AsyncWrite for AsyncStdTcpStream {

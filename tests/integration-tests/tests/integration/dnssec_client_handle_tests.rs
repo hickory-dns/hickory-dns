@@ -5,7 +5,6 @@ use std::str::FromStr;
 use std::sync::{Arc, Mutex as StdMutex};
 
 use futures::executor::block_on;
-use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
 use hickory_client::client::{AsyncClient, ClientHandle, MemoizeClientHandle};
@@ -14,7 +13,6 @@ use hickory_proto::rr::dnssec::{Proof, TrustAnchor};
 use hickory_proto::rr::rdata::A;
 use hickory_proto::rr::Name;
 use hickory_proto::rr::{DNSClass, RData, RecordType};
-use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
@@ -313,7 +311,7 @@ where
 
     let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
+    let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
     let client = AsyncClient::new(Box::new(stream), sender, None);
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);

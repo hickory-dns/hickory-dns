@@ -16,12 +16,11 @@ use std::sync::Arc;
 
 use hickory_client::client::*;
 use hickory_proto::h2::HttpsClientStreamBuilder;
-use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
+use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_server::server::Protocol;
 use rustls::pki_types::CertificateDer;
 use rustls::{ClientConfig, RootCertStore};
 use test_support::subscribe;
-use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
 use crate::server_harness::{named_test_harness, query_a};
@@ -70,10 +69,9 @@ fn test_example_https_toml_startup() {
 
         let client_config = Arc::new(client_config);
 
-        let https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
-
-        let mp = https_builder
-            .build::<AsyncIoTokioAsStd<TokioTcpStream>>(addr, "ns.example.com".to_string());
+        let provider = TokioRuntimeProvider::new();
+        let https_builder = HttpsClientStreamBuilder::with_client_config(client_config, provider);
+        let mp = https_builder.build(addr, "ns.example.com".to_string());
         let client = AsyncClient::connect(mp);
 
         // ipv4 should succeed

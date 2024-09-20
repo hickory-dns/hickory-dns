@@ -8,16 +8,14 @@ use std::net::*;
 use std::path::Path;
 use std::sync::Arc;
 
-use hickory_server::server::Protocol;
-use tokio::net::TcpStream as TokioTcpStream;
-use tokio::runtime::Runtime;
-
 use hickory_client::client::{Signer, *};
 use hickory_proto::rr::dnssec::*;
-use hickory_proto::runtime::{iocompat::AsyncIoTokioAsStd, TokioTime};
+use hickory_proto::runtime::{RuntimeProvider, TokioRuntimeProvider, TokioTime};
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
 use hickory_proto::DnssecDnsHandle;
+use hickory_server::server::Protocol;
+use tokio::runtime::Runtime;
 
 use crate::server_harness::*;
 
@@ -57,21 +55,19 @@ fn trust_anchor(
 }
 
 #[allow(clippy::type_complexity)]
-async fn standard_tcp_conn(
+async fn standard_tcp_conn<P: RuntimeProvider>(
     port: u16,
+    provider: P,
 ) -> (
     AsyncClient,
-    DnsExchangeBackground<
-        DnsMultiplexer<TcpClientStream<AsyncIoTokioAsStd<TokioTcpStream>>, Signer>,
-        TokioTime,
-    >,
+    DnsExchangeBackground<DnsMultiplexer<TcpClientStream<P::Tcp>, Signer>, TokioTime>,
 ) {
     let addr: SocketAddr = ("127.0.0.1", port)
         .to_socket_addrs()
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
+    let (stream, sender) = TcpClientStream::new(addr, None, None, provider);
     AsyncClient::new(stream, sender, None)
         .await
         .expect("new AsyncClient failed")
@@ -84,24 +80,25 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
 
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     let server_path = Path::new(&server_path);
+    let provider = TokioRuntimeProvider::new();
 
     named_test_harness(config_toml, |socket_ports| {
         let mut io_loop = Runtime::new().unwrap();
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
 
         // verify all records are present
-        let client = standard_tcp_conn(tcp_port.expect("no tcp port"));
+        let client = standard_tcp_conn(tcp_port.expect("no tcp port"), provider.clone());
         let (client, bg) = io_loop.block_on(client);
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
         query_all_dnssec_with_rfc6975(&mut io_loop, client, algorithm);
-        let client = standard_tcp_conn(tcp_port.expect("no tcp port"));
+        let client = standard_tcp_conn(tcp_port.expect("no tcp port"), provider.clone());
         let (client, bg) = io_loop.block_on(client);
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
         query_all_dnssec_wo_rfc6975(&mut io_loop, client, algorithm);
 
         // test that request with Dnssec client is successful, i.e. validates chain
         let trust_anchor = trust_anchor(&server_path.join(key_path), key_format, algorithm);
-        let client = standard_tcp_conn(tcp_port.expect("no tcp port"));
+        let client = standard_tcp_conn(tcp_port.expect("no tcp port"), provider);
         let (client, bg) = io_loop.block_on(client);
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
         let mut client = DnssecDnsHandle::with_trust_anchor(client, trust_anchor);

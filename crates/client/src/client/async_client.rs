@@ -855,12 +855,17 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::net::SocketAddr;
+
     use super::*;
 
     use futures_util::stream::iter;
-    use hickory_proto::rr::{
-        rdata::{A, SOA},
-        RData,
+    use hickory_proto::{
+        rr::{
+            rdata::{A, SOA},
+            RData,
+        },
+        runtime::TokioRuntimeProvider,
     };
     use ClientStreamXfrState::*;
 
@@ -1082,15 +1087,13 @@ mod tests {
         use crate::client::{AsyncClient, ClientHandle};
         use hickory_proto::{
             rr::{DNSClass, Name, RData, RecordType},
-            runtime::iocompat::AsyncIoTokioAsStd,
             tcp::TcpClientStream,
         };
         use std::str::FromStr;
-        use tokio::net::TcpStream as TokioTcpStream;
 
         // Since we used UDP in the previous examples, let's change things up a bit and use TCP here
-        let (stream, sender) =
-            TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(([8, 8, 8, 8], 53).into());
+        let addr = SocketAddr::from(([8, 8, 8, 8], 53));
+        let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
 
         // Create a new client, the bg is a background future which handles
         //   the multiplexing of the DNS requests to the server.

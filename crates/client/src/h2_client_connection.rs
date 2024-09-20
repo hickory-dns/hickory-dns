@@ -5,28 +5,27 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! UDP based DNS client connection for Client impls
+//! HTTP/2 based DNS client connection for Client impls
 
-use std::marker::PhantomData;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use hickory_proto::h2::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
-use hickory_proto::tcp::Connect;
+use hickory_proto::runtime::RuntimeProvider;
 use rustls::ClientConfig;
 
 use crate::client::{ClientConnection, Signer};
 
-/// UDP based DNS Client connection
+/// HTTP/2 based DNS Client connection
 ///
 /// Use with `hickory_client::client::Client` impls
 #[derive(Clone)]
-pub struct HttpsClientConnection<T> {
+pub struct HttpsClientConnection<P> {
+    provider: P,
     name_server: SocketAddr,
     bind_addr: Option<SocketAddr>,
     dns_name: String,
     client_config: Arc<ClientConfig>,
-    marker: PhantomData<T>,
 }
 
 /// ## Querying DNS over HTTPS (DoH)
@@ -39,7 +38,7 @@ pub struct HttpsClientConnection<T> {
 /// use hickory_client::client::Client;
 /// use hickory_client::h2::HttpsClientConnection;
 /// use hickory_client::proto::rr::{DNSClass, Name, RecordType};
-/// use hickory_client::proto::runtime::iocompat::AsyncIoTokioAsStd;
+/// use hickory_client::proto::runtime::TokioRuntimeProvider;
 /// use rustls::{ClientConfig, RootCertStore};
 /// use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 /// use std::sync::Arc;
@@ -56,8 +55,8 @@ pub struct HttpsClientConnection<T> {
 ///     .with_no_client_auth();
 ///
 /// let shared_client_config = Arc::new(client_config);
-/// let conn: HttpsClientConnection<AsyncIoTokioAsStd<tokio::net::TcpStream>> =
-///     HttpsClientConnection::new(name_server, "dns.google".to_string(), shared_client_config);
+/// let conn =
+///     HttpsClientConnection::new(name_server, "dns.google".to_string(), shared_client_config, TokioRuntimeProvider::new());
 ///
 /// let client = SyncClient::new(conn);
 /// let name = Name::from_ascii(host_to_lookup).unwrap();
@@ -75,7 +74,7 @@ pub struct HttpsClientConnection<T> {
 /// }
 /// ```
 
-impl<T> HttpsClientConnection<T> {
+impl<P: RuntimeProvider> HttpsClientConnection<P> {
     /// Creates a new client connection.
     ///
     /// *Note* this has side affects of starting the listening event_loop. Expect this to change in
@@ -91,8 +90,9 @@ impl<T> HttpsClientConnection<T> {
         name_server: SocketAddr,
         dns_name: String,
         client_config: Arc<ClientConfig>,
+        provider: P,
     ) -> Self {
-        Self::new_with_bind_addr(name_server, None, dns_name, client_config)
+        Self::new_with_bind_addr(name_server, None, dns_name, client_config, provider)
     }
 
     /// Creates a new client connection with a specified source address.
@@ -112,23 +112,21 @@ impl<T> HttpsClientConnection<T> {
         bind_addr: Option<SocketAddr>,
         dns_name: String,
         client_config: Arc<ClientConfig>,
+        provider: P,
     ) -> Self {
         Self {
+            provider,
             name_server,
             bind_addr,
             dns_name,
             client_config,
-            marker: PhantomData,
         }
     }
 }
 
-impl<T> ClientConnection for HttpsClientConnection<T>
-where
-    T: Connect,
-{
+impl<P: RuntimeProvider> ClientConnection for HttpsClientConnection<P> {
     type Sender = HttpsClientStream;
-    type SenderFuture = HttpsClientConnect<T>;
+    type SenderFuture = HttpsClientConnect<P::Tcp>;
 
     fn new_stream(
         &self,
@@ -136,8 +134,10 @@ where
         _signer: Option<Arc<Signer>>,
     ) -> Self::SenderFuture {
         // TODO: maybe signer needs to be applied in https...
-        let mut https_builder =
-            HttpsClientStreamBuilder::with_client_config(Arc::clone(&self.client_config));
+        let mut https_builder = HttpsClientStreamBuilder::with_client_config(
+            Arc::clone(&self.client_config),
+            self.provider.clone(),
+        );
         if let Some(bind_addr) = self.bind_addr {
             https_builder.bind_addr(bind_addr);
         }

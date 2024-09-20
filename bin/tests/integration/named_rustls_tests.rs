@@ -18,11 +18,10 @@ use hickory_server::server::Protocol;
 use rustls::pki_types::CertificateDer;
 use rustls::ClientConfig;
 use rustls::RootCertStore;
-use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
 use hickory_client::client::AsyncClient;
-use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
+use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::rustls::tls_client_connect;
 
 use crate::server_harness::{named_test_harness, query_a};
@@ -66,10 +65,12 @@ fn test_example_tls_toml_startup() {
 
             let config = Arc::new(config);
 
-            let (stream, sender) = tls_client_connect::<AsyncIoTokioAsStd<TokioTcpStream>>(
+            let provider = TokioRuntimeProvider::new();
+            let (stream, sender) = tls_client_connect(
                 addr,
                 "ns.example.com".to_string(),
                 config.clone(),
+                provider.clone(),
             );
             let client = AsyncClient::new(stream, sender, None);
 
@@ -84,11 +85,8 @@ fn test_example_tls_toml_startup() {
                 .unwrap()
                 .next()
                 .unwrap();
-            let (stream, sender) = tls_client_connect::<AsyncIoTokioAsStd<TokioTcpStream>>(
-                addr,
-                "ns.example.com".to_string(),
-                config,
-            );
+            let (stream, sender) =
+                tls_client_connect(addr, "ns.example.com".to_string(), config, provider);
             let client = AsyncClient::new(stream, sender, None);
 
             let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");

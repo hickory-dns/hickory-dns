@@ -17,7 +17,6 @@ use std::time::Duration;
 
 use hickory_proto::runtime::TokioRuntimeProvider;
 use test::Bencher;
-use tokio::net::TcpStream;
 use tokio::runtime::Runtime;
 
 use hickory_client::client::{AsyncClient, ClientHandle};
@@ -26,7 +25,6 @@ use hickory_proto::op::NoopMessageFinalizer;
 use hickory_proto::op::ResponseCode;
 use hickory_proto::rr::rdata::A;
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
-use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
 use hickory_proto::xfer::{DnsMultiplexer, DnsRequestSender};
@@ -183,7 +181,7 @@ fn hickory_tcp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TcpStream>>::new(addr);
+    let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
     let mp = DnsMultiplexer::new(stream, sender, None::<Arc<NoopMessageFinalizer>>);
     bench(b, mp);
 
@@ -258,7 +256,7 @@ fn bind_tcp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TcpStream>>::new(addr);
+    let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
     let mp = DnsMultiplexer::new(stream, sender, None::<Arc<NoopMessageFinalizer>>);
     bench(b, mp);
 

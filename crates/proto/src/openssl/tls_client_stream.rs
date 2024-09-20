@@ -14,24 +14,24 @@ use futures_util::TryFutureExt;
 use openssl::x509::X509;
 use tokio_openssl::SslStream as TokioTlsStream;
 
+use super::TlsStreamBuilder;
 use crate::error::ProtoError;
 use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
-use crate::tcp::{Connect, DnsTcpStream, TcpClientStream};
+use crate::runtime::RuntimeProvider;
+use crate::tcp::TcpClientStream;
 use crate::xfer::BufDnsStreamHandle;
-
-use super::TlsStreamBuilder;
 
 /// A Type definition for the TLS stream
 pub type TlsClientStream<S> =
     TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<AsyncIoStdAsTokio<S>>>>;
 
 /// A Builder for the TlsClientStream
-pub struct TlsClientStreamBuilder<S>(TlsStreamBuilder<S>);
+pub struct TlsClientStreamBuilder<P>(TlsStreamBuilder<P>);
 
-impl<S: DnsTcpStream> TlsClientStreamBuilder<S> {
+impl<P: RuntimeProvider> TlsClientStreamBuilder<P> {
     /// Creates a builder for the construction of a TlsClientStream.
-    pub fn new() -> Self {
-        Self(TlsStreamBuilder::new())
+    pub fn new(provider: P) -> Self {
+        Self(TlsStreamBuilder::new(provider))
     }
 
     /// Add a custom trusted peer certificate or certificate authority.
@@ -70,11 +70,11 @@ impl<S: DnsTcpStream> TlsClientStreamBuilder<S> {
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
-        Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send>>,
+        Pin<Box<dyn Future<Output = Result<TlsClientStream<P::Tcp>, ProtoError>> + Send>>,
         BufDnsStreamHandle,
     )
     where
-        F: Future<Output = io::Result<S>> + Send + Unpin + 'static,
+        F: Future<Output = io::Result<P::Tcp>> + Send + Unpin + 'static,
     {
         let (stream_future, sender) = self.0.build_with_future(future, name_server, dns_name);
 
@@ -86,15 +86,7 @@ impl<S: DnsTcpStream> TlsClientStreamBuilder<S> {
 
         (new_future, sender)
     }
-}
 
-impl<S: DnsTcpStream> Default for TlsClientStreamBuilder<S> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<S: Connect> TlsClientStreamBuilder<S> {
     /// Creates a new TlsStream to the specified name_server
     ///
     /// # Arguments
@@ -108,7 +100,7 @@ impl<S: Connect> TlsClientStreamBuilder<S> {
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
-        Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send>>,
+        Pin<Box<dyn Future<Output = Result<TlsClientStream<P::Tcp>, ProtoError>> + Send>>,
         BufDnsStreamHandle,
     ) {
         let (stream_future, sender) = self.0.build(name_server, dns_name);

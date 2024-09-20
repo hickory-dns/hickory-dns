@@ -20,7 +20,7 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio_rustls::TlsConnector;
 
 use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
-use crate::tcp::Connect;
+use crate::runtime::RuntimeProvider;
 use crate::tcp::{DnsTcpStream, TcpStream};
 use crate::xfer::{BufDnsStreamHandle, StreamReceiver};
 
@@ -72,16 +72,17 @@ pub fn tls_from_stream<S: DnsTcpStream>(
 /// * `bind_addr` - IP and port to connect from
 /// * `dns_name` - The DNS name,  Subject Public Key Info (SPKI) name, as associated to a certificate
 #[allow(clippy::type_complexity)]
-pub fn tls_connect<S: Connect>(
+pub fn tls_connect<P: RuntimeProvider>(
     name_server: SocketAddr,
     dns_name: String,
     client_config: Arc<ClientConfig>,
+    provider: P,
 ) -> (
     Pin<
         Box<
             dyn Future<
                     Output = Result<
-                        TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>,
+                        TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<P::Tcp>>>,
                         io::Error,
                     >,
                 > + Send,
@@ -89,7 +90,7 @@ pub fn tls_connect<S: Connect>(
     >,
     BufDnsStreamHandle,
 ) {
-    tls_connect_with_bind_addr(name_server, None, dns_name, client_config)
+    tls_connect_with_bind_addr(name_server, None, dns_name, client_config, provider)
 }
 
 /// Creates a new TlsStream to the specified name_server connecting from a specific address.
@@ -100,17 +101,18 @@ pub fn tls_connect<S: Connect>(
 /// * `bind_addr` - IP and port to connect from
 /// * `dns_name` - The DNS name,  Subject Public Key Info (SPKI) name, as associated to a certificate
 #[allow(clippy::type_complexity)]
-pub fn tls_connect_with_bind_addr<S: Connect>(
+pub fn tls_connect_with_bind_addr<P: RuntimeProvider>(
     name_server: SocketAddr,
     bind_addr: Option<SocketAddr>,
     dns_name: String,
     client_config: Arc<ClientConfig>,
+    provider: P,
 ) -> (
     Pin<
         Box<
             dyn Future<
                     Output = Result<
-                        TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>,
+                        TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<P::Tcp>>>,
                         io::Error,
                     >,
                 > + Send,
@@ -130,6 +132,7 @@ pub fn tls_connect_with_bind_addr<S: Connect>(
         bind_addr,
         dns_name,
         outbound_messages,
+        provider,
     ));
 
     (stream, message_sender)
@@ -182,14 +185,15 @@ where
     (stream, message_sender)
 }
 
-async fn connect_tls<S: Connect>(
+async fn connect_tls<P: RuntimeProvider>(
     tls_connector: TlsConnector,
     name_server: SocketAddr,
     bind_addr: Option<SocketAddr>,
     dns_name: String,
     outbound_messages: StreamReceiver,
-) -> io::Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>> {
-    let tcp = S::connect_with_bind(name_server, bind_addr);
+    provider: P,
+) -> io::Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<P::Tcp>>>> {
+    let tcp = provider.connect_tcp(name_server, bind_addr, None);
     connect_tls_with_future(tls_connector, tcp, name_server, dns_name, outbound_messages).await
 }
 

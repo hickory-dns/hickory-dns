@@ -228,7 +228,7 @@
 //! use std::str::FromStr;
 //! use tokio::net::TcpStream as TokioTcpStream;
 //! use hickory_client::client::{AsyncClient, ClientHandle};
-//! use hickory_client::proto::runtime::iocompat::AsyncIoTokioAsStd;
+//! use hickory_client::proto::runtime::TokioRuntimeProvider;
 //! use hickory_client::proto::rr::{DNSClass, Name, RData, RecordType};
 //! use hickory_client::proto::rr::rdata::A;
 //! use hickory_client::proto::tcp::TcpClientStream;
@@ -237,7 +237,7 @@
 //! async fn main() {
 //!     // Since we used UDP in the previous examples, let's change things up a bit and use TCP here
 //!     let (stream, sender) =
-//!         TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(([8, 8, 8, 8], 53).into());
+//!         TcpClientStream::new(([8, 8, 8, 8], 53).into(), None, None, TokioRuntimeProvider::new());
 //!
 //!     // Create a new client, the bg is a background future which handles
 //!     //   the multiplexing of the DNS requests to the server.

@@ -4,8 +4,8 @@ use std::sync::{atomic::AtomicBool, Arc};
 
 use futures_util::stream::StreamExt;
 
-use crate::runtime::Executor;
-use crate::tcp::{Connect, TcpClientStream, TcpStream};
+use crate::runtime::{Executor, RuntimeProvider};
+use crate::tcp::TcpStream;
 use crate::xfer::dns_handle::DnsStreamHandle;
 use crate::xfer::SerialMessage;
 
@@ -85,18 +85,23 @@ fn tcp_server_setup(
 }
 
 /// Test tcp_stream.
-pub fn tcp_stream_test<S: Connect, E: Executor>(server_addr: IpAddr, mut exec: E) {
+pub fn tcp_stream_test<E: Executor>(
+    server_addr: IpAddr,
+    mut exec: E,
+    provider: impl RuntimeProvider,
+) {
     let (succeeded, server_handle, server_addr) =
         tcp_server_setup("test_tcp_stream:server", server_addr);
 
     // setup the client, which is going to run on the testing thread...
 
-    // the tests should run within 5 seconds... right?
-    // TODO: add timeout here, so that test never hangs...
-    // let timeout = Timeout::new(Duration::from_secs(5));
-    let (stream, mut sender) = TcpStream::<S>::new(server_addr);
-
-    let mut stream = exec.block_on(stream).expect("run failed to get stream");
+    let (mut stream, mut sender) = exec.block_on(async move {
+        let tcp = provider
+            .connect_tcp(server_addr, None, None)
+            .await
+            .expect("connect failed");
+        TcpStream::from_stream(tcp, server_addr)
+    });
 
     for _ in 0..SEND_RECV_TIMES {
         // test once
@@ -117,18 +122,23 @@ pub fn tcp_stream_test<S: Connect, E: Executor>(server_addr: IpAddr, mut exec: E
 }
 
 /// Test tcp_client_stream.
-pub fn tcp_client_stream_test<S: Connect, E: Executor>(server_addr: IpAddr, mut exec: E) {
+pub fn tcp_client_stream_test<E: Executor>(
+    server_addr: IpAddr,
+    mut exec: E,
+    provider: impl RuntimeProvider,
+) {
     let (succeeded, server_handle, server_addr) =
         tcp_server_setup("test_tcp_client_stream:server", server_addr);
 
     // setup the client, which is going to run on the testing thread...
 
-    // the tests should run within 5 seconds... right?
-    // TODO: add timeout here, so that test never hangs...
-    // let timeout = Timeout::new(Duration::from_secs(5));
-    let (stream, mut sender) = TcpClientStream::<S>::new(server_addr);
-
-    let mut stream = exec.block_on(stream).expect("run failed to get stream");
+    let (mut stream, mut sender) = exec.block_on(async move {
+        let tcp = provider
+            .connect_tcp(server_addr, None, None)
+            .await
+            .expect("connect failed");
+        TcpStream::from_stream(tcp, server_addr)
+    });
 
     for _ in 0..SEND_RECV_TIMES {
         // test once

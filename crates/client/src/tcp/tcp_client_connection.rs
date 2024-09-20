@@ -7,29 +7,32 @@
 
 //! TCP based DNS client connection for Client impls
 
+use std::future::Future;
 use std::net::SocketAddr;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::net::TcpStream;
+use hickory_proto::error::ProtoError;
+use hickory_proto::runtime::RuntimeProvider;
 
 use crate::client::{ClientConnection, Signer};
 use crate::error::ClientResult;
-use crate::proto::runtime::iocompat::AsyncIoTokioAsStd;
-use crate::proto::tcp::{TcpClientConnect, TcpClientStream};
+use crate::proto::tcp::TcpClientStream;
 use crate::proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
 
 /// Tcp client connection
 ///
 /// Use with `hickory_client::client::Client` impls
 #[derive(Clone, Copy)]
-pub struct TcpClientConnection {
+pub struct TcpClientConnection<P> {
+    provider: P,
     name_server: SocketAddr,
     bind_addr: Option<SocketAddr>,
     timeout: Duration,
 }
 
-impl TcpClientConnection {
+impl<P> TcpClientConnection<P> {
     /// Creates a new client connection.
     ///
     /// *Note* this has side affects of establishing the connection to the specified DNS server and
@@ -40,8 +43,8 @@ impl TcpClientConnection {
     /// # Arguments
     ///
     /// * `name_server` - address of the name server to use for queries
-    pub fn new(name_server: SocketAddr) -> ClientResult<Self> {
-        Self::with_timeout(name_server, Duration::from_secs(5))
+    pub fn new(name_server: SocketAddr, provider: P) -> ClientResult<Self> {
+        Self::with_timeout(name_server, Duration::from_secs(5), provider)
     }
 
     /// Creates a new client connection.
@@ -53,8 +56,12 @@ impl TcpClientConnection {
     ///
     /// * `name_server` - address of the name server to use for queries
     /// * `timeout` - connection timeout
-    pub fn with_timeout(name_server: SocketAddr, timeout: Duration) -> ClientResult<Self> {
-        Self::with_bind_addr_and_timeout(name_server, None, timeout)
+    pub fn with_timeout(
+        name_server: SocketAddr,
+        timeout: Duration,
+        provider: P,
+    ) -> ClientResult<Self> {
+        Self::with_bind_addr_and_timeout(name_server, None, timeout, provider)
     }
 
     /// Creates a new client connection.
@@ -71,8 +78,10 @@ impl TcpClientConnection {
         name_server: SocketAddr,
         bind_addr: Option<SocketAddr>,
         timeout: Duration,
+        provider: P,
     ) -> ClientResult<Self> {
         Ok(Self {
+            provider,
             name_server,
             bind_addr,
             timeout,
@@ -80,21 +89,22 @@ impl TcpClientConnection {
     }
 }
 
-impl ClientConnection for TcpClientConnection {
-    type Sender = DnsMultiplexer<TcpClientStream<AsyncIoTokioAsStd<TcpStream>>, Signer>;
+impl<P: RuntimeProvider> ClientConnection for TcpClientConnection<P> {
+    type Sender = DnsMultiplexer<TcpClientStream<P::Tcp>, Signer>;
     type SenderFuture = DnsMultiplexerConnect<
-        TcpClientConnect<AsyncIoTokioAsStd<TcpStream>>,
-        TcpClientStream<AsyncIoTokioAsStd<TcpStream>>,
+        Pin<Box<dyn Future<Output = Result<TcpClientStream<P::Tcp>, ProtoError>> + Send>>,
+        TcpClientStream<P::Tcp>,
         Signer,
     >;
 
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
-        let (tcp_client_stream, handle) =
-            TcpClientStream::<AsyncIoTokioAsStd<TcpStream>>::with_bind_addr_and_timeout(
-                self.name_server,
-                self.bind_addr,
-                self.timeout,
-            );
-        DnsMultiplexer::new(tcp_client_stream, handle, signer)
+        let provider = self.provider.clone();
+        let (stream, sender) = TcpClientStream::new(
+            self.name_server,
+            self.bind_addr,
+            Some(self.timeout),
+            provider,
+        );
+        DnsMultiplexer::new(stream, sender, signer)
     }
 }
