@@ -10,15 +10,15 @@ use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use async_std::task::spawn_blocking;
 use async_trait::async_trait;
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_util::future::FutureExt;
+use hickory_resolver::proto::runtime::RuntimeProvider;
 use hickory_resolver::proto::tcp::{Connect, DnsTcpStream};
 use hickory_resolver::proto::udp::{DnsUdpSocket, UdpSocket};
 use pin_utils::pin_mut;
-use socket2::{Domain, Protocol, Socket, Type};
 
+use crate::runtime::AsyncStdRuntimeProvider;
 use crate::time::AsyncStdTime;
 
 pub struct AsyncStdUdpSocket(async_std::net::UdpSocket);
@@ -84,7 +84,7 @@ impl UdpSocket for AsyncStdUdpSocket {
     }
 }
 
-pub struct AsyncStdTcpStream(async_std::net::TcpStream);
+pub struct AsyncStdTcpStream(pub(crate) async_std::net::TcpStream);
 
 impl DnsTcpStream for AsyncStdTcpStream {
     type Time = AsyncStdTime;
@@ -96,26 +96,7 @@ impl Connect for AsyncStdTcpStream {
         addr: SocketAddr,
         bind_addr: Option<SocketAddr>,
     ) -> io::Result<Self> {
-        let stream = match bind_addr {
-            Some(bind_addr) => {
-                spawn_blocking(move || {
-                    let domain = match bind_addr {
-                        SocketAddr::V4(_) => Domain::IPV4,
-                        SocketAddr::V6(_) => Domain::IPV6,
-                    };
-                    let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
-                    socket.bind(&bind_addr.into())?;
-                    socket.connect(&addr.into())?;
-                    let std_stream: std::net::TcpStream = socket.into();
-                    let stream = async_std::net::TcpStream::from(std_stream);
-                    Ok::<_, io::Error>(stream)
-                })
-                .await?
-            }
-            None => async_std::net::TcpStream::connect(addr).await?,
-        };
-        stream.set_nodelay(true)?;
-        Ok(Self(stream))
+        AsyncStdRuntimeProvider.connect_tcp(addr, bind_addr).await
     }
 }
 
