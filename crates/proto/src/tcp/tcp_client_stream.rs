@@ -22,6 +22,7 @@ use crate::error::ProtoError;
 use crate::runtime::iocompat::AsyncIoTokioAsStd;
 #[cfg(feature = "tokio-runtime")]
 use crate::runtime::TokioTime;
+use crate::runtime::{RuntimeProvider, TokioRuntimeProvider};
 use crate::tcp::{Connect, DnsTcpStream, TcpStream};
 use crate::xfer::{DnsClientStream, SerialMessage};
 use crate::BufDnsStreamHandle;
@@ -183,9 +184,9 @@ impl Connect for AsyncIoTokioAsStd<TokioTcpStream> {
         addr: SocketAddr,
         bind_addr: Option<SocketAddr>,
     ) -> io::Result<Self> {
-        super::tokio::connect_with_bind(&addr, &bind_addr)
+        TokioRuntimeProvider::new()
+            .connect_tcp(addr, bind_addr)
             .await
-            .map(AsyncIoTokioAsStd)
     }
 }
 

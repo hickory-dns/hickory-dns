@@ -5,18 +5,18 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use hickory_resolver::config::{NameServerConfig, ResolverOpts};
 use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 
+use hickory_resolver::config::{NameServerConfig, ResolverOpts};
 use hickory_resolver::name_server::{ConnectionProvider, GenericConnector};
 use hickory_resolver::proto::error::ProtoError;
 use hickory_resolver::proto::runtime::{Executor, RuntimeProvider, Spawn};
+use socket2::{Domain, Protocol, Socket, Type};
 
 use crate::net::{AsyncStdTcpStream, AsyncStdUdpSocket};
-use crate::proto::tcp::Connect;
 use crate::proto::udp::UdpSocket;
 use crate::time::AsyncStdTime;
 
@@ -87,15 +87,24 @@ impl RuntimeProvider for AsyncStdRuntimeProvider {
         bind_addr: Option<SocketAddr>,
     ) -> Pin<Box<dyn Send + Future<Output = std::io::Result<Self::Tcp>>>> {
         Box::pin(async move {
-            match bind_addr {
-                Some(bind_addr) => Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    format!(
-                        "bind_addr is not supported by async-std, tried to bind to: {bind_addr}"
-                    ),
-                )),
-                None => AsyncStdTcpStream::connect(server_addr).await,
-            }
+            let stream = match bind_addr {
+                Some(bind_addr) => {
+                    let domain = match bind_addr {
+                        SocketAddr::V4(_) => Domain::IPV4,
+                        SocketAddr::V6(_) => Domain::IPV6,
+                    };
+
+                    let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
+                    socket.bind(&bind_addr.into())?;
+                    socket.connect(&server_addr.into())?;
+                    let std_stream = std::net::TcpStream::from(socket);
+                    async_std::net::TcpStream::from(std_stream)
+                }
+                None => async_std::net::TcpStream::connect(server_addr).await?,
+            };
+
+            stream.set_nodelay(true)?;
+            Ok(AsyncStdTcpStream(stream))
         })
     }
 

@@ -177,6 +177,7 @@ mod tokio_runtime {
                     socket.bind(bind_addr)?;
                 }
 
+                socket.set_nodelay(true)?;
                 socket.connect(server_addr).await.map(AsyncIoTokioAsStd)
             })
         }
