@@ -102,34 +102,28 @@ impl Connect for AsyncStdTcpStream {
 
 impl AsyncWrite for AsyncStdTcpStream {
     fn poll_write(
-        mut self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
         bytes: &[u8],
-    ) -> std::task::Poll<std::result::Result<usize, std::io::Error>> {
+    ) -> Poll<Result<usize, io::Error>> {
         Pin::new(&mut self.0).poll_write(cx, bytes)
     }
 
-    fn poll_flush(
-        mut self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<std::result::Result<(), std::io::Error>> {
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
         Pin::new(&mut self.0).poll_flush(cx)
     }
 
-    fn poll_close(
-        mut self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<std::result::Result<(), std::io::Error>> {
+    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
         Pin::new(&mut self.0).poll_close(cx)
     }
 }
 
 impl AsyncRead for AsyncStdTcpStream {
     fn poll_read(
-        mut self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
         bytes: &mut [u8],
-    ) -> std::task::Poll<std::result::Result<usize, std::io::Error>> {
+    ) -> Poll<Result<usize, io::Error>> {
         Pin::new(&mut self.0).poll_read(cx, bytes)
     }
 }
