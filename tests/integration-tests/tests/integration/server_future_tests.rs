@@ -7,6 +7,7 @@ use std::thread;
 use std::time::Duration;
 
 use futures::{future, FutureExt};
+use hickory_proto::runtime::{RuntimeProvider, TokioRuntimeProvider};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{
     pki_types::{CertificateDer, PrivateKeyDer},
@@ -26,8 +27,6 @@ use hickory_proto::error::ProtoError;
 use hickory_proto::op::{Message, MessageType, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::A;
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
-#[cfg(feature = "dns-over-rustls")]
-use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
 use hickory_proto::xfer::DnsRequestSender;
 use hickory_server::authority::{Authority, Catalog};
 use hickory_server::ServerFuture;
@@ -80,7 +79,7 @@ fn test_server_www_tcp() {
 
     let client_thread = thread::Builder::new()
         .name("test_server:tcp:client".to_string())
-        .spawn(move || client_thread_www(lazy_tcp_client(ipaddr)))
+        .spawn(move || client_thread_www(lazy_tcp_client(ipaddr, TokioRuntimeProvider::new())))
         .unwrap();
 
     let client_result = client_thread.join();
@@ -297,8 +296,8 @@ fn lazy_udp_client(ipaddr: SocketAddr) -> UdpClientConnection {
     UdpClientConnection::new(ipaddr).unwrap()
 }
 
-fn lazy_tcp_client(ipaddr: SocketAddr) -> TcpClientConnection {
-    TcpClientConnection::new(ipaddr).unwrap()
+fn lazy_tcp_client<P: RuntimeProvider>(ipaddr: SocketAddr, provider: P) -> TcpClientConnection<P> {
+    TcpClientConnection::new(ipaddr, provider).unwrap()
 }
 
 #[cfg(feature = "dns-over-rustls")]
@@ -306,7 +305,7 @@ fn lazy_tls_client(
     ipaddr: SocketAddr,
     dns_name: String,
     cert_chain: Vec<CertificateDer<'static>>,
-) -> TlsClientConnection<AsyncIoTokioAsStd<tokio::net::TcpStream>> {
+) -> TlsClientConnection<TokioRuntimeProvider> {
     let mut root_store = RootCertStore::empty();
     let (_, ignored) = root_store.add_parsable_certificates(cert_chain);
     assert_eq!(ignored, 0, "bad certificate!");
@@ -318,7 +317,13 @@ fn lazy_tls_client(
             .with_root_certificates(root_store)
             .with_no_client_auth();
 
-    TlsClientConnection::new(ipaddr, None, dns_name, Arc::new(config))
+    TlsClientConnection::new(
+        ipaddr,
+        None,
+        dns_name,
+        Arc::new(config),
+        TokioRuntimeProvider::new(),
+    )
 }
 
 fn client_thread_www<C: ClientConnection>(conn: C)

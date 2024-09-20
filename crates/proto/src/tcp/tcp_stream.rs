@@ -14,7 +14,6 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-use async_trait::async_trait;
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_util::stream::Stream;
 use futures_util::{self, future::Future, ready, FutureExt};
@@ -28,19 +27,6 @@ use crate::BufDnsStreamHandle;
 pub trait DnsTcpStream: AsyncRead + AsyncWrite + Unpin + Send + Sync + Sized + 'static {
     /// Timer type to use with this TCP stream type
     type Time: Time;
-}
-
-/// Trait for TCP connection
-#[async_trait]
-pub trait Connect: DnsTcpStream {
-    /// connect to tcp
-    async fn connect(addr: SocketAddr) -> io::Result<Self> {
-        Self::connect_with_bind(addr, None).await
-    }
-
-    /// connect to tcp with address to connect from
-    async fn connect_with_bind(addr: SocketAddr, bind_addr: Option<SocketAddr>)
-        -> io::Result<Self>;
 }
 
 /// Current state while writing to the remote of the TCP connection
@@ -91,80 +77,6 @@ pub struct TcpStream<S: DnsTcpStream> {
     send_state: Option<WriteTcpState>,
     read_state: ReadTcpState,
     peer_addr: SocketAddr,
-}
-
-impl<S: Connect> TcpStream<S> {
-    /// Creates a new future of the eventually establish a IO stream connection or fail trying.
-    ///
-    /// Defaults to a 5 second timeout
-    ///
-    /// # Arguments
-    ///
-    /// * `name_server` - the IP and Port of the DNS server to connect to
-    #[allow(clippy::new_ret_no_self, clippy::type_complexity)]
-    pub fn new(
-        name_server: SocketAddr,
-    ) -> (
-        impl Future<Output = Result<Self, io::Error>> + Send,
-        BufDnsStreamHandle,
-    ) {
-        Self::with_timeout(name_server, Duration::from_secs(5))
-    }
-
-    /// Creates a new future of the eventually establish a IO stream connection or fail trying
-    ///
-    /// # Arguments
-    ///
-    /// * `name_server` - the IP and Port of the DNS server to connect to
-    /// * `timeout` - connection timeout
-    #[allow(clippy::type_complexity)]
-    pub fn with_timeout(
-        name_server: SocketAddr,
-        timeout: Duration,
-    ) -> (
-        impl Future<Output = Result<Self, io::Error>> + Send,
-        BufDnsStreamHandle,
-    ) {
-        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
-
-        // This set of futures collapses the next tcp socket into a stream which can be used for
-        //  sending and receiving tcp packets.
-        let stream_fut = Self::connect(name_server, None, timeout, outbound_messages);
-
-        (stream_fut, message_sender)
-    }
-
-    /// Creates a new future of the eventually establish a IO stream connection or fail trying
-    ///
-    /// # Arguments
-    ///
-    /// * `name_server` - the IP and Port of the DNS server to connect to
-    /// * `bind_addr` - the IP and port to connect from
-    /// * `timeout` - connection timeout
-    #[allow(clippy::type_complexity)]
-    pub fn with_bind_addr_and_timeout(
-        name_server: SocketAddr,
-        bind_addr: Option<SocketAddr>,
-        timeout: Duration,
-    ) -> (
-        impl Future<Output = Result<Self, io::Error>> + Send,
-        BufDnsStreamHandle,
-    ) {
-        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
-        let stream_fut = Self::connect(name_server, bind_addr, timeout, outbound_messages);
-
-        (stream_fut, message_sender)
-    }
-
-    async fn connect(
-        name_server: SocketAddr,
-        bind_addr: Option<SocketAddr>,
-        timeout: Duration,
-        outbound_messages: StreamReceiver,
-    ) -> Result<Self, io::Error> {
-        let tcp = S::connect_with_bind(name_server, bind_addr);
-        Self::connect_with_future(tcp, name_server, timeout, outbound_messages).await
-    }
 }
 
 impl<S: DnsTcpStream> TcpStream<S> {
@@ -485,27 +397,28 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
 #[cfg(feature = "tokio-runtime")]
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-    use tokio::net::TcpStream as TokioTcpStream;
     use tokio::runtime::Runtime;
 
-    use crate::runtime::iocompat::AsyncIoTokioAsStd;
+    use crate::runtime::TokioRuntimeProvider;
     use crate::tests::tcp_stream_test;
 
     #[test]
     fn test_tcp_stream_ipv4() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        tcp_stream_test::<AsyncIoTokioAsStd<TokioTcpStream>, Runtime>(
+        tcp_stream_test::<Runtime>(
             IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
             io_loop,
+            TokioRuntimeProvider::new(),
         )
     }
 
     #[test]
     fn test_tcp_stream_ipv6() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        tcp_stream_test::<AsyncIoTokioAsStd<TokioTcpStream>, Runtime>(
+        tcp_stream_test::<Runtime>(
             IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
             io_loop,
+            TokioRuntimeProvider::new(),
         )
     }
 }

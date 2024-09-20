@@ -31,7 +31,6 @@ use rustls::{
     pki_types::{CertificateDer, ServerName, UnixTime},
     ClientConfig, DigitallySignedStruct, RootCertStore,
 };
-use tokio::net::TcpStream as TokioTcpStream;
 use tracing::Level;
 
 use hickory_client::client::{AsyncClient, ClientHandle};
@@ -39,7 +38,7 @@ use hickory_client::client::{AsyncClient, ClientHandle};
 use hickory_proto::rustls::tls_client_connect;
 use hickory_proto::{
     rr::{DNSClass, Name, RData, RecordSet, RecordType},
-    runtime::{iocompat::AsyncIoTokioAsStd, TokioRuntimeProvider},
+    runtime::{RuntimeProvider, TokioRuntimeProvider},
     serialize::txt::RDataParser,
     tcp::TcpClientStream,
     udp::UdpClientStream,
@@ -234,11 +233,12 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     hickory_util::logger(env!("CARGO_BIN_NAME"), log_level);
 
     // TODO: need to cleanup all of ClientHandle and the Client in general to make it dynamically usable.
+    let provider = TokioRuntimeProvider::new();
     match opts.protocol {
-        Protocol::Udp => udp(opts).await?,
-        Protocol::Tcp => tcp(opts).await?,
-        Protocol::Tls => tls(opts).await?,
-        Protocol::Https => https(opts).await?,
+        Protocol::Udp => udp(opts, provider).await?,
+        Protocol::Tcp => tcp(opts, provider).await?,
+        Protocol::Tls => tls(opts, provider).await?,
+        Protocol::Https => https(opts, provider).await?,
         Protocol::Quic => quic(opts).await?,
         Protocol::H3 => h3(opts).await?,
     };
@@ -246,11 +246,11 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn udp(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
+async fn udp(opts: Opts, provider: impl RuntimeProvider) -> Result<(), Box<dyn std::error::Error>> {
     let nameserver = opts.nameserver;
 
     println!("; using udp:{nameserver}");
-    let stream = UdpClientStream::new(nameserver, TokioRuntimeProvider::new());
+    let stream = UdpClientStream::new(nameserver, provider);
     let (client, bg) = AsyncClient::connect(stream).await?;
     let handle = tokio::spawn(bg);
     handle_request(opts.class, opts.zone, opts.command, client).await?;
@@ -259,11 +259,11 @@ async fn udp(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn tcp(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
+async fn tcp(opts: Opts, provider: impl RuntimeProvider) -> Result<(), Box<dyn std::error::Error>> {
     let nameserver = opts.nameserver;
 
     println!("; using tcp:{nameserver}");
-    let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(nameserver);
+    let (stream, sender) = TcpClientStream::new(nameserver, None, None, provider);
     let client = AsyncClient::new(stream, sender, None);
     let (client, bg) = client.await?;
 
@@ -275,12 +275,15 @@ async fn tcp(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[cfg(not(feature = "dns-over-rustls"))]
-async fn tls(_opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
+async fn tls(
+    _opts: Opts,
+    _provider: impl RuntimeProvider,
+) -> Result<(), Box<dyn std::error::Error>> {
     panic!("`dns-over-rustls` feature is required during compilation");
 }
 
 #[cfg(feature = "dns-over-rustls")]
-async fn tls(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
+async fn tls(opts: Opts, provider: impl RuntimeProvider) -> Result<(), Box<dyn std::error::Error>> {
     let nameserver = opts.nameserver;
     let alpn = opts.alpn.map(String::into_bytes);
     let dns_name = opts
@@ -297,8 +300,7 @@ async fn tls(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let config = Arc::new(config);
-    let (stream, sender) =
-        tls_client_connect::<AsyncIoTokioAsStd<TokioTcpStream>>(nameserver, dns_name, config);
+    let (stream, sender) = tls_client_connect(nameserver, dns_name, config, provider);
     let (client, bg) = AsyncClient::new(stream, sender, None).await?;
 
     let handle = tokio::spawn(bg);
@@ -309,12 +311,18 @@ async fn tls(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[cfg(not(feature = "dns-over-https-rustls"))]
-async fn https(_opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
+async fn https(
+    _opts: Opts,
+    _provider: impl RuntimeProvider,
+) -> Result<(), Box<dyn std::error::Error>> {
     panic!("`dns-over-https` feature is required during compilation");
 }
 
 #[cfg(feature = "dns-over-https-rustls")]
-async fn https(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
+async fn https(
+    opts: Opts,
+    provider: impl RuntimeProvider,
+) -> Result<(), Box<dyn std::error::Error>> {
     use hickory_proto::h2::HttpsClientStreamBuilder;
 
     let nameserver = opts.nameserver;
@@ -334,11 +342,8 @@ async fn https(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     config.alpn_protocols.push(alpn);
     let config = Arc::new(config);
 
-    let https_builder = HttpsClientStreamBuilder::with_client_config(config);
-    let (client, bg) = AsyncClient::connect(
-        https_builder.build::<AsyncIoTokioAsStd<TokioTcpStream>>(nameserver, dns_name),
-    )
-    .await?;
+    let https_builder = HttpsClientStreamBuilder::with_client_config(config, provider);
+    let (client, bg) = AsyncClient::connect(https_builder.build(nameserver, dns_name)).await?;
 
     let handle = tokio::spawn(bg);
     handle_request(opts.class, opts.zone, opts.command, client).await?;

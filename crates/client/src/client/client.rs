@@ -18,6 +18,8 @@ use std::sync::Arc;
 
 use futures_util::stream::{Stream, StreamExt};
 use hickory_proto::rr::{rdata::SOA, DNSClass, Name, Record, RecordSet, RecordType};
+#[cfg(test)]
+use hickory_proto::runtime::TokioRuntimeProvider;
 use tokio::runtime::{self, Runtime};
 
 use crate::client::async_client::ClientStreamXfr;
@@ -623,7 +625,7 @@ fn test_sync_client_send_and_sync() {
     use crate::tcp::TcpClientConnection;
     use crate::udp::UdpClientConnection;
     assert_send_and_sync::<SyncClient<UdpClientConnection>>();
-    assert_send_and_sync::<SyncClient<TcpClientConnection>>();
+    assert_send_and_sync::<SyncClient<TcpClientConnection<TokioRuntimeProvider>>>();
 }
 
 #[test]
@@ -632,5 +634,5 @@ fn test_secure_client_send_and_sync() {
     use crate::tcp::TcpClientConnection;
     use crate::udp::UdpClientConnection;
     assert_send_and_sync::<SyncDnssecClient<UdpClientConnection>>();
-    assert_send_and_sync::<SyncDnssecClient<TcpClientConnection>>();
+    assert_send_and_sync::<SyncDnssecClient<TcpClientConnection<TokioRuntimeProvider>>>();
 }

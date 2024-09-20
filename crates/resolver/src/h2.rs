@@ -11,23 +11,21 @@ use std::net::SocketAddr;
 use crate::tls::CLIENT_CONFIG;
 
 use proto::h2::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
-use proto::runtime::TokioTime;
-use proto::tcp::{Connect, DnsTcpStream};
+use proto::runtime::{RuntimeProvider, TokioTime};
+use proto::tcp::DnsTcpStream;
 use proto::xfer::{DnsExchange, DnsExchangeConnect};
 
 use crate::config::TlsClientConfig;
 
 #[allow(clippy::type_complexity)]
 #[allow(unused)]
-pub(crate) fn new_https_stream<S>(
+pub(crate) fn new_https_stream<P: RuntimeProvider>(
     socket_addr: SocketAddr,
     bind_addr: Option<SocketAddr>,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
-) -> DnsExchangeConnect<HttpsClientConnect<S>, HttpsClientStream, TokioTime>
-where
-    S: Connect,
-{
+    provider: P,
+) -> DnsExchangeConnect<HttpsClientConnect<P::Tcp>, HttpsClientStream, TokioTime> {
     let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
         client_config
     } else {
@@ -37,11 +35,11 @@ where
         }
     };
 
-    let mut https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
+    let mut https_builder = HttpsClientStreamBuilder::with_client_config(client_config, provider);
     if let Some(bind_addr) = bind_addr {
         https_builder.bind_addr(bind_addr);
     }
-    DnsExchange::connect(https_builder.build::<S>(socket_addr, dns_name))
+    DnsExchange::connect(https_builder.build(socket_addr, dns_name))
 }
 
 #[allow(clippy::type_complexity)]
@@ -52,7 +50,7 @@ pub(crate) fn new_https_stream_with_future<S, F>(
     client_config: Option<TlsClientConfig>,
 ) -> DnsExchangeConnect<HttpsClientConnect<S>, HttpsClientStream, TokioTime>
 where
-    S: DnsTcpStream,
+    S: DnsTcpStream + Send + 'static,
     F: Future<Output = std::io::Result<S>> + Send + Unpin + 'static,
 {
     let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
@@ -64,7 +62,7 @@ where
         }
     };
 
-    DnsExchange::connect(HttpsClientStreamBuilder::build_with_future(
+    DnsExchange::connect(HttpsClientConnect::new(
         future,
         client_config,
         socket_addr,

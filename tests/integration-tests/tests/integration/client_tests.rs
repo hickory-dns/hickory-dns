@@ -5,6 +5,7 @@ use std::str::FromStr;
 use std::sync::{Arc, Mutex as StdMutex};
 
 use futures::Future;
+use hickory_proto::runtime::TokioRuntimeProvider;
 use test_support::subscribe;
 #[cfg(feature = "dnssec")]
 use time::Duration;
@@ -96,7 +97,7 @@ fn test_query_udp_edns() {
 #[allow(deprecated)]
 fn test_query_tcp() {
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let conn = TcpClientConnection::new(addr).unwrap();
+    let conn = TcpClientConnection::new(addr, TokioRuntimeProvider::new()).unwrap();
     let client = SyncClient::new(conn);
 
     test_query(client);
@@ -212,7 +213,7 @@ fn test_secure_query_example_tcp() {
     subscribe();
 
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let conn = TcpClientConnection::new(addr).unwrap();
+    let conn = TcpClientConnection::new(addr, TokioRuntimeProvider::new()).unwrap();
     let client = SyncDnssecClient::new(conn).build();
 
     test_secure_query_example(client);
@@ -299,8 +300,14 @@ fn test_timeout_query_tcp() {
         .unwrap();
 
     // TODO: need to add timeout length to SyncClient
-    let client =
-        SyncClient::new(TcpClientConnection::with_timeout(addr, Duration::from_millis(1)).unwrap());
+    let client = SyncClient::new(
+        TcpClientConnection::with_timeout(
+            addr,
+            Duration::from_millis(1),
+            TokioRuntimeProvider::new(),
+        )
+        .unwrap(),
+    );
     test_timeout_query(client);
 }
 
@@ -363,9 +370,9 @@ fn test_nsec_query_example_udp() {
 #[cfg(feature = "dnssec")]
 fn test_nsec_query_example_tcp() {
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let conn = TcpClientConnection::new(addr).unwrap();
+    let conn = TcpClientConnection::new(addr, TokioRuntimeProvider::new()).unwrap();
     let client = SyncDnssecClient::new(conn).build();
-    test_nsec_query_example::<TcpClientConnection>(client);
+    test_nsec_query_example::<TcpClientConnection<TokioRuntimeProvider>>(client);
 }
 
 #[cfg(feature = "dnssec")]
@@ -389,7 +396,7 @@ fn test_nsec_query_type() {
     let name = Name::from_str("www.example.com").unwrap();
 
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let conn = TcpClientConnection::new(addr).unwrap();
+    let conn = TcpClientConnection::new(addr, TokioRuntimeProvider::new()).unwrap();
     let client = SyncDnssecClient::new(conn).build();
 
     let response = client
@@ -408,7 +415,7 @@ fn test_nsec3_nxdomain() {
     let name = Name::from_labels(vec!["a", "b", "c", "example", "com"]).unwrap();
 
     let addr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let conn = TcpClientConnection::new(addr).unwrap();
+    let conn = TcpClientConnection::new(addr, TokioRuntimeProvider::new()).unwrap();
     let client = SyncDnssecClient::new(conn).build();
 
     let response = client
@@ -424,7 +431,7 @@ fn test_nsec3_no_data() {
     let name = Name::from_labels(vec!["www", "example", "com"]).unwrap();
 
     let addr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let conn = TcpClientConnection::new(addr).unwrap();
+    let conn = TcpClientConnection::new(addr, TokioRuntimeProvider::new()).unwrap();
     let client = SyncDnssecClient::new(conn).build();
 
     let response = client
@@ -441,7 +448,7 @@ fn test_nsec3_query_name_is_soa_name() {
     let name = Name::from_labels("valid.extended-dns-errors.com".split(".")).unwrap();
 
     let addr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let conn = TcpClientConnection::new(addr).unwrap();
+    let conn = TcpClientConnection::new(addr, TokioRuntimeProvider::new()).unwrap();
     let client = SyncDnssecClient::new(conn).build();
 
     let response = client
@@ -459,7 +466,7 @@ fn test_nsec3_query_name_is_soa_name() {
 // #[ignore]
 // fn test_nsec3_sdsmt() {
 //   let addr: SocketAddr = ("75.75.75.75",53).to_socket_addrs().unwrap().next().unwrap();
-//   let conn = TcpClientConnection::new(addr).unwrap();
+//   let conn = TcpClientConnection::new(addr, TokioRuntimeProvider::new()).unwrap();
 //   let name = Name::from_labels(vec!["none", "sdsmt", "edu"]);
 //   let client = Client::new(conn);
 //
@@ -476,7 +483,7 @@ fn test_nsec3_query_name_is_soa_name() {
 // #[ignore]
 // fn test_nsec3_sdsmt_type() {
 //   let addr: SocketAddr = ("75.75.75.75",53).to_socket_addrs().unwrap().next().unwrap();
-//   let conn = TcpClientConnection::new(addr).unwrap();
+//   let conn = TcpClientConnection::new(addr, TokioRuntimeProvider::new()).unwrap();
 //   let name = Name::from_labels(vec!["www", "sdsmt", "edu"]);
 //   let client = Client::new(conn);
 //

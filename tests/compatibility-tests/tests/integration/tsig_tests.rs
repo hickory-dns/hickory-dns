@@ -94,9 +94,11 @@ fn test_create() {
 #[cfg(not(feature = "none"))]
 #[test]
 fn test_tsig_zone_transfer() {
+    use hickory_client::proto::runtime::TokioRuntimeProvider;
+
     let (_process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
-    let conn = TcpClientConnection::new(socket).unwrap();
+    let conn = TcpClientConnection::new(socket, TokioRuntimeProvider::new()).unwrap();
 
     let client = create_tsig_ready_client(conn);
 

@@ -7,10 +7,10 @@
 
 //! Base TlsStream
 
+use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
-use std::{future::Future, marker::PhantomData};
 
 use futures_util::TryFutureExt;
 use native_tls::Protocol::Tlsv12;
@@ -18,8 +18,8 @@ use native_tls::{Certificate, Identity, TlsConnector};
 use tokio_native_tls::{TlsConnector as TokioTlsConnector, TlsStream as TokioTlsStream};
 
 use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
-use crate::tcp::TcpStream;
-use crate::tcp::{Connect, DnsTcpStream};
+use crate::runtime::RuntimeProvider;
+use crate::tcp::{DnsTcpStream, TcpStream};
 use crate::xfer::{BufDnsStreamHandle, StreamReceiver};
 
 /// A TlsStream counterpart to the TcpStream which embeds a secure TlsStream
@@ -61,21 +61,21 @@ pub fn tls_from_stream<S: DnsTcpStream>(
 
 /// A builder for the TlsStream
 #[derive(Default)]
-pub struct TlsStreamBuilder<S> {
+pub struct TlsStreamBuilder<P> {
+    provider: P,
     ca_chain: Vec<Certificate>,
     identity: Option<Identity>,
     bind_addr: Option<SocketAddr>,
-    marker: PhantomData<S>,
 }
 
-impl<S: DnsTcpStream> TlsStreamBuilder<S> {
+impl<P: RuntimeProvider> TlsStreamBuilder<P> {
     /// Constructs a new TlsStreamBuilder
-    pub fn new() -> Self {
+    pub fn new(provider: P) -> Self {
         Self {
+            provider,
             ca_chain: vec![],
             identity: None,
             bind_addr: None,
-            marker: PhantomData,
         }
     }
 
@@ -105,12 +105,11 @@ impl<S: DnsTcpStream> TlsStreamBuilder<S> {
         dns_name: String,
     ) -> (
         // TODO: change to impl?
-        Pin<Box<dyn Future<Output = Result<TlsStream<S>, io::Error>> + Send>>,
+        Pin<Box<dyn Future<Output = Result<TlsStream<P::Tcp>, io::Error>> + Send>>,
         BufDnsStreamHandle,
     )
     where
-        S: DnsTcpStream,
-        F: Future<Output = std::io::Result<S>> + Send + Unpin + 'static,
+        F: Future<Output = std::io::Result<P::Tcp>> + Send + Unpin + 'static,
     {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
 
@@ -124,9 +123,9 @@ impl<S: DnsTcpStream> TlsStreamBuilder<S> {
         name_server: SocketAddr,
         dns_name: String,
         outbound_messages: StreamReceiver,
-    ) -> Result<TlsStream<S>, io::Error>
+    ) -> Result<TlsStream<P::Tcp>, io::Error>
     where
-        F: Future<Output = std::io::Result<S>> + Send + Unpin + 'static,
+        F: Future<Output = std::io::Result<P::Tcp>> + Send + Unpin + 'static,
     {
         use crate::native_tls::tls_stream;
         let tcp_stream = future.await;
@@ -161,9 +160,7 @@ impl<S: DnsTcpStream> TlsStreamBuilder<S> {
             outbound_messages,
         ))
     }
-}
 
-impl<S: Connect> TlsStreamBuilder<S> {
     /// Creates a new TlsStream to the specified name_server
     ///
     /// [RFC 7858](https://tools.ietf.org/html/rfc7858), DNS over TLS, May 2016
@@ -196,11 +193,11 @@ impl<S: Connect> TlsStreamBuilder<S> {
         dns_name: String,
     ) -> (
         // TODO: change to impl?
-        Pin<Box<dyn Future<Output = Result<TlsStream<S>, io::Error>> + Send>>,
+        Pin<Box<dyn Future<Output = Result<TlsStream<P::Tcp>, io::Error>> + Send>>,
         BufDnsStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
-        let conn = S::connect_with_bind(name_server, self.bind_addr);
+        let conn = self.provider.connect_tcp(name_server, self.bind_addr, None);
         let stream = self.inner_build(conn, name_server, dns_name, outbound_messages);
         (Box::pin(stream), message_sender)
     }

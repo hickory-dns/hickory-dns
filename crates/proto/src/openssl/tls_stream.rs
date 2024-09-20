@@ -5,10 +5,10 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
-use std::{future::Future, marker::PhantomData};
 
 use futures_util::{future, TryFutureExt};
 use openssl::pkcs12::ParsedPkcs12_2;
@@ -20,8 +20,8 @@ use openssl::x509::X509;
 use tokio_openssl::{self, SslStream as TokioTlsStream};
 
 use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
-use crate::tcp::TcpStream;
-use crate::tcp::{Connect, DnsTcpStream};
+use crate::runtime::RuntimeProvider;
+use crate::tcp::{DnsTcpStream, TcpStream};
 use crate::xfer::BufDnsStreamHandle;
 
 pub(crate) trait TlsIdentityExt {
@@ -145,21 +145,21 @@ where
 
 /// A builder for the TlsStream
 #[derive(Default)]
-pub struct TlsStreamBuilder<S> {
+pub struct TlsStreamBuilder<P> {
+    provider: P,
     ca_chain: Vec<X509>,
     identity: Option<ParsedPkcs12_2>,
     bind_addr: Option<SocketAddr>,
-    marker: PhantomData<S>,
 }
 
-impl<S: DnsTcpStream> TlsStreamBuilder<S> {
+impl<P: RuntimeProvider> TlsStreamBuilder<P> {
     /// A builder for associating trust information to the `TlsStream`.
-    pub fn new() -> Self {
+    pub fn new(provider: P) -> Self {
         Self {
+            provider,
             ca_chain: vec![],
             identity: None,
             bind_addr: None,
-            marker: PhantomData,
         }
     }
 
@@ -183,11 +183,11 @@ impl<S: DnsTcpStream> TlsStreamBuilder<S> {
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
-        Pin<Box<dyn Future<Output = Result<CompatTlsStream<S>, io::Error>> + Send>>,
+        Pin<Box<dyn Future<Output = Result<CompatTlsStream<P::Tcp>, io::Error>> + Send>>,
         BufDnsStreamHandle,
     )
     where
-        F: Future<Output = std::io::Result<S>> + Send + Unpin + 'static,
+        F: Future<Output = std::io::Result<P::Tcp>> + Send + Unpin + 'static,
     {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
         let tls_config = match new(self.ca_chain, self.identity) {
@@ -229,9 +229,7 @@ impl<S: DnsTcpStream> TlsStreamBuilder<S> {
 
         (stream, message_sender)
     }
-}
 
-impl<S: Connect> TlsStreamBuilder<S> {
     /// Creates a new TlsStream to the specified name_server
     ///
     /// [RFC 7858](https://tools.ietf.org/html/rfc7858), DNS over TLS, May 2016
@@ -263,10 +261,10 @@ impl<S: Connect> TlsStreamBuilder<S> {
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
-        Pin<Box<dyn Future<Output = Result<CompatTlsStream<S>, io::Error>> + Send>>,
+        Pin<Box<dyn Future<Output = Result<CompatTlsStream<P::Tcp>, io::Error>> + Send>>,
         BufDnsStreamHandle,
     ) {
-        let future = S::connect_with_bind(name_server, self.bind_addr);
+        let future = self.provider.connect_tcp(name_server, self.bind_addr, None);
         self.build_with_future(future, name_server, dns_name)
     }
 }

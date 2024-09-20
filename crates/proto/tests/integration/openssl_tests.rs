@@ -25,11 +25,10 @@ use openssl::rsa::*;
 use openssl::ssl::*;
 use openssl::x509::extension::*;
 use openssl::x509::*;
-use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
 use hickory_proto::openssl::TlsStreamBuilder;
-use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
+use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::xfer::SerialMessage;
 use hickory_proto::DnsStreamHandle;
 
@@ -174,7 +173,7 @@ fn tls_client_stream_test(server_addr: IpAddr) {
     let trust_chain = X509::from_der(&root_cert_der).unwrap();
 
     // barrier.wait();
-    let mut builder = TlsStreamBuilder::<AsyncIoTokioAsStd<TokioTcpStream>>::new();
+    let mut builder = TlsStreamBuilder::new(TokioRuntimeProvider::new());
     builder.add_ca(trust_chain);
 
     let (stream, mut sender) = builder.build(server_addr, subject_name.to_string());

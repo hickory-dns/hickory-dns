@@ -10,7 +10,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-
 #[cfg(any(test, feature = "tokio-runtime"))]
 use tokio::runtime::Runtime;
 #[cfg(any(test, feature = "tokio-runtime"))]

@@ -14,21 +14,21 @@ use std::pin::Pin;
 
 use proto::error::ProtoError;
 use proto::openssl::{TlsClientStream, TlsClientStreamBuilder};
-use proto::tcp::DnsTcpStream;
+use proto::runtime::RuntimeProvider;
 use proto::BufDnsStreamHandle;
 
 #[allow(clippy::type_complexity)]
-pub(crate) fn new_tls_stream_with_future<S, F>(
+pub(crate) fn new_tls_stream_with_future<P: RuntimeProvider, F>(
     future: F,
     socket_addr: SocketAddr,
     dns_name: String,
+    provider: P,
 ) -> (
-    Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send>>,
+    Pin<Box<dyn Future<Output = Result<TlsClientStream<P::Tcp>, ProtoError>> + Send>>,
     BufDnsStreamHandle,
 )
 where
-    S: DnsTcpStream,
-    F: Future<Output = std::io::Result<S>> + Send + Unpin + 'static,
+    F: Future<Output = std::io::Result<P::Tcp>> + Send + Unpin + 'static,
 {
-    TlsClientStreamBuilder::new().build_with_future(future, socket_addr, dns_name)
+    TlsClientStreamBuilder::new(provider).build_with_future(future, socket_addr, dns_name)
 }

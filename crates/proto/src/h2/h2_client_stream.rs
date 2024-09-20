@@ -32,7 +32,8 @@ use crate::error::ProtoError;
 use crate::http::Version;
 use crate::op::Message;
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
-use crate::tcp::{Connect, DnsTcpStream};
+use crate::runtime::RuntimeProvider;
+use crate::tcp::DnsTcpStream;
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
 
 const ALPN_H2: &[u8] = b"h2";
@@ -280,15 +281,17 @@ impl Stream for HttpsClientStream {
 
 /// A HTTPS connection builder for DNS-over-HTTPS
 #[derive(Clone)]
-pub struct HttpsClientStreamBuilder {
+pub struct HttpsClientStreamBuilder<P> {
+    provider: P,
     client_config: Arc<ClientConfig>,
     bind_addr: Option<SocketAddr>,
 }
 
-impl HttpsClientStreamBuilder {
+impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
     /// Constructs a new TlsStreamBuilder with the associated ClientConfig
-    pub fn with_client_config(client_config: Arc<ClientConfig>) -> Self {
+    pub fn with_client_config(client_config: Arc<ClientConfig>, provider: P) -> Self {
         Self {
+            provider,
             client_config,
             bind_addr: None,
         }
@@ -305,11 +308,11 @@ impl HttpsClientStreamBuilder {
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
-    pub fn build<S: Connect>(
+    pub fn build(
         mut self,
         name_server: SocketAddr,
         dns_name: String,
-    ) -> HttpsClientConnect<S> {
+    ) -> HttpsClientConnect<P::Tcp> {
         // ensure the ALPN protocol is set correctly
         if self.client_config.alpn_protocols.is_empty() {
             let mut client_config = (*self.client_config).clone();
@@ -323,22 +326,28 @@ impl HttpsClientStreamBuilder {
             dns_name: Arc::from(dns_name),
         };
 
-        let connect = S::connect_with_bind(name_server, self.bind_addr);
-
-        HttpsClientConnect::<S>(HttpsClientConnectState::TcpConnecting {
+        let connect = self.provider.connect_tcp(name_server, self.bind_addr, None);
+        HttpsClientConnect(HttpsClientConnectState::TcpConnecting {
             connect,
             name_server,
             tls: Some(tls),
         })
     }
+}
 
+/// A future that resolves to an HttpsClientStream
+pub struct HttpsClientConnect<S>(HttpsClientConnectState<S>)
+where
+    S: DnsTcpStream;
+
+impl<S: DnsTcpStream> HttpsClientConnect<S> {
     /// Creates a new HttpsStream with existing connection
-    pub fn build_with_future<S, F>(
+    pub fn new<F>(
         future: F,
         mut client_config: Arc<ClientConfig>,
         name_server: SocketAddr,
         dns_name: String,
-    ) -> HttpsClientConnect<S>
+    ) -> Self
     where
         S: DnsTcpStream,
         F: Future<Output = std::io::Result<S>> + Send + Unpin + 'static,
@@ -356,18 +365,13 @@ impl HttpsClientStreamBuilder {
             dns_name: Arc::from(dns_name),
         };
 
-        HttpsClientConnect::<S>(HttpsClientConnectState::TcpConnecting {
+        Self(HttpsClientConnectState::TcpConnecting {
             connect: Box::pin(future),
             name_server,
             tls: Some(tls),
         })
     }
 }
-
-/// A future that resolves to an HttpsClientStream
-pub struct HttpsClientConnect<S>(HttpsClientConnectState<S>)
-where
-    S: DnsTcpStream;
 
 impl<S> Future for HttpsClientConnect<S>
 where
@@ -536,13 +540,12 @@ mod tests {
 
     use rustls::KeyLogFile;
     use test_support::subscribe;
-    use tokio::net::TcpStream as TokioTcpStream;
     use tokio::runtime::Runtime;
 
     use crate::op::{Message, Query, ResponseCode};
     use crate::rr::rdata::{A, AAAA};
     use crate::rr::{Name, RecordType};
-    use crate::runtime::iocompat::AsyncIoTokioAsStd;
+    use crate::runtime::TokioRuntimeProvider;
     use crate::xfer::{DnsRequestOptions, FirstAnswer};
 
     use super::*;
@@ -561,9 +564,10 @@ mod tests {
         let mut client_config = client_config_tls12();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
-        let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
-        let connect = https_builder
-            .build::<AsyncIoTokioAsStd<TokioTcpStream>>(google, "dns.google".to_string());
+        let provider = TokioRuntimeProvider::new();
+        let https_builder =
+            HttpsClientStreamBuilder::with_client_config(Arc::new(client_config), provider);
+        let connect = https_builder.build(google, "dns.google".to_string());
 
         // tokio runtime stuff...
         let runtime = Runtime::new().expect("could not start runtime");
@@ -623,9 +627,10 @@ mod tests {
         let mut client_config = client_config_tls12();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
-        let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
-        let connect = https_builder
-            .build::<AsyncIoTokioAsStd<TokioTcpStream>>(google, google.ip().to_string());
+        let provider = TokioRuntimeProvider::new();
+        let https_builder =
+            HttpsClientStreamBuilder::with_client_config(Arc::new(client_config), provider);
+        let connect = https_builder.build(google, google.ip().to_string());
 
         // tokio runtime stuff...
         let runtime = Runtime::new().expect("could not start runtime");
@@ -684,11 +689,10 @@ mod tests {
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
         let client_config = client_config_tls12();
-        let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
-        let connect = https_builder.build::<AsyncIoTokioAsStd<TokioTcpStream>>(
-            cloudflare,
-            "cloudflare-dns.com".to_string(),
-        );
+        let provider = TokioRuntimeProvider::new();
+        let https_builder =
+            HttpsClientStreamBuilder::with_client_config(Arc::new(client_config), provider);
+        let connect = https_builder.build(cloudflare, "cloudflare-dns.com".to_string());
 
         // tokio runtime stuff...
         let runtime = Runtime::new().expect("could not start runtime");

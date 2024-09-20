@@ -49,7 +49,7 @@ use proto::{
     error::ProtoError,
     op::NoopMessageFinalizer,
     runtime::RuntimeProvider,
-    tcp::{TcpClientConnect, TcpClientStream},
+    tcp::TcpClientStream,
     udp::{UdpClientConnect, UdpClientStream},
     xfer::{
         DnsExchange, DnsExchangeConnect, DnsExchangeSend, DnsHandle, DnsMultiplexer,
@@ -86,7 +86,7 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
     Tcp(
         DnsExchangeConnect<
             DnsMultiplexerConnect<
-                TcpClientConnect<<R as RuntimeProvider>::Tcp>,
+                Pin<Box<dyn Future<Output = Result<TcpClientStream<R::Tcp>, ProtoError>> + Send>>,
                 TcpClientStream<<R as RuntimeProvider>::Tcp>,
                 NoopMessageFinalizer,
             >,
@@ -234,17 +234,18 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 ConnectionConnect::Udp(exchange)
             }
             (Protocol::Tcp, _) => {
-                let socket_addr = config.socket_addr;
-                let timeout = options.timeout;
-                let tcp_future = self.runtime_provider.connect_tcp(socket_addr, None, None);
+                let (future, handle) = TcpClientStream::new(
+                    config.socket_addr,
+                    None,
+                    Some(options.timeout),
+                    self.runtime_provider.clone(),
+                );
 
-                let (stream, handle) =
-                    TcpClientStream::with_future(tcp_future, socket_addr, timeout);
                 // TODO: need config for Signer...
                 let dns_conn = DnsMultiplexer::with_timeout(
-                    stream,
+                    future,
                     handle,
-                    timeout,
+                    options.timeout,
                     NoopMessageFinalizer::new(),
                 );
 
@@ -272,7 +273,12 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 };
                 #[cfg(not(feature = "dns-over-rustls"))]
                 let (stream, handle) = {
-                    crate::tls::new_tls_stream_with_future(tcp_future, socket_addr, tls_dns_name)
+                    crate::tls::new_tls_stream_with_future(
+                        tcp_future,
+                        socket_addr,
+                        tls_dns_name,
+                        self.runtime_provider.clone(),
+                    )
                 };
 
                 let dns_conn = DnsMultiplexer::with_timeout(
