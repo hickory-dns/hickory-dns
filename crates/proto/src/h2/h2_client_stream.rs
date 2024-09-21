@@ -773,7 +773,7 @@ mod tests {
         #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
         {
             let (added, ignored) = root_store
-                .add_parsable_certificates(&rustls_native_certs::load_native_certs().unwrap());
+                .add_parsable_certificates(rustls_native_certs::load_native_certs().unwrap());
 
             if ignored > 0 {
                 warn!(
