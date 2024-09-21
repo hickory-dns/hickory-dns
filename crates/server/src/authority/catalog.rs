@@ -38,7 +38,7 @@ use crate::{
 /// Set of authorities, zones, available to this server.
 #[derive(Default)]
 pub struct Catalog {
-    authorities: HashMap<LowerName, Box<dyn AuthorityObject>>,
+    authorities: HashMap<LowerName, Arc<dyn AuthorityObject>>,
 }
 
 #[allow(unused_mut, unused_variables)]
@@ -195,12 +195,12 @@ impl Catalog {
     ///
     /// * `name` - zone name, e.g. example.com.
     /// * `authority` - the zone data
-    pub fn upsert(&mut self, name: LowerName, authority: Box<dyn AuthorityObject>) {
+    pub fn upsert(&mut self, name: LowerName, authority: Arc<dyn AuthorityObject>) {
         self.authorities.insert(name, authority);
     }
 
     /// Remove a zone from the catalog
-    pub fn remove(&mut self, name: &LowerName) -> Option<Box<dyn AuthorityObject>> {
+    pub fn remove(&mut self, name: &LowerName) -> Option<Arc<dyn AuthorityObject>> {
         self.authorities.remove(name)
     }
 
@@ -286,7 +286,7 @@ impl Catalog {
         let request_info = verify_request();
         let authority = request_info.as_ref().map_err(|e| *e).and_then(|info| {
             self.find(info.query.name())
-                .map(|a| a.box_clone())
+                .cloned()
                 .ok_or(ResponseCode::Refused)
         });
 
@@ -377,7 +377,7 @@ impl Catalog {
 
         let result = lookup(
             request_info.clone(),
-            authority,
+            authority.as_ref(),
             request,
             response_edns
                 .as_ref()
@@ -393,19 +393,16 @@ impl Catalog {
     }
 
     /// Recursively searches the catalog for a matching authority
-    pub fn find(&self, name: &LowerName) -> Option<&(dyn AuthorityObject + 'static)> {
+    pub fn find(&self, name: &LowerName) -> Option<&Arc<(dyn AuthorityObject + 'static)>> {
         debug!("searching authorities for: {}", name);
-        self.authorities
-            .get(name)
-            .map(|authority| &**authority)
-            .or_else(|| {
-                if !name.is_root() {
-                    let name = name.base_name();
-                    self.find(&name)
-                } else {
-                    None
-                }
-            })
+        self.authorities.get(name).or_else(|| {
+            if !name.is_root() {
+                let name = name.base_name();
+                self.find(&name)
+            } else {
+                None
+            }
+        })
     }
 }
 
