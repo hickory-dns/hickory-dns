@@ -124,9 +124,9 @@ async fn test_catalog_lookup() {
     let origin = example.origin().clone();
     let test_origin = test.origin().clone();
 
-    let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), Box::new(Arc::new(example)));
-    catalog.upsert(test_origin.clone(), Box::new(Arc::new(test)));
+    let mut catalog = Catalog::new();
+    catalog.upsert(origin.clone(), Arc::new(example));
+    catalog.upsert(test_origin.clone(), Arc::new(test));
 
     let mut question: Message = Message::new();
 
@@ -201,9 +201,9 @@ async fn test_catalog_lookup_soa() {
     let origin = example.origin().clone();
     let test_origin = test.origin().clone();
 
-    let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), Box::new(Arc::new(example)));
-    catalog.upsert(test_origin, Box::new(Arc::new(test)));
+    let mut catalog = Catalog::new();
+    catalog.upsert(origin.clone(), Arc::new(example));
+    catalog.upsert(test_origin, Arc::new(test));
 
     let mut question: Message = Message::new();
 
@@ -268,8 +268,8 @@ async fn test_catalog_nx_soa() {
     let example = create_example();
     let origin = example.origin().clone();
 
-    let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin, Box::new(Arc::new(example)));
+    let mut catalog = Catalog::new();
+    catalog.upsert(origin, Arc::new(example));
 
     let mut question: Message = Message::new();
 
@@ -316,8 +316,8 @@ async fn test_non_authoritive_nx_refused() {
     let example = create_example();
     let origin = example.origin().clone();
 
-    let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin, Box::new(Arc::new(example)));
+    let mut catalog = Catalog::new();
+    catalog.upsert(origin, Arc::new(example));
 
     let mut question: Message = Message::new();
 
@@ -370,8 +370,8 @@ async fn test_axfr() {
     .set_dns_class(DNSClass::IN)
     .clone();
 
-    let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), Box::new(Arc::new(test)));
+    let mut catalog = Catalog::new();
+    catalog.upsert(origin.clone(), Arc::new(test));
 
     let mut query: Query = Query::new();
     query.set_name(origin.clone().into());
@@ -486,8 +486,8 @@ async fn test_axfr_refused() {
 
     let origin = test.origin().clone();
 
-    let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), Box::new(Arc::new(test)));
+    let mut catalog = Catalog::new();
+    catalog.upsert(origin.clone(), Arc::new(test));
 
     let mut query: Query = Query::new();
     query.set_name(origin.into());
@@ -525,8 +525,8 @@ async fn test_cname_additionals() {
     let example = create_example();
     let origin = example.origin().clone();
 
-    let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin, Box::new(Arc::new(example)));
+    let mut catalog = Catalog::new();
+    catalog.upsert(origin, Arc::new(example));
 
     let mut question: Message = Message::new();
 
@@ -572,8 +572,8 @@ async fn test_multiple_cname_additionals() {
     let example = create_example();
     let origin = example.origin().clone();
 
-    let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin, Box::new(Arc::new(example)));
+    let mut catalog = Catalog::new();
+    catalog.upsert(origin, Arc::new(example));
 
     let mut question: Message = Message::new();
 

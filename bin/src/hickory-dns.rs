@@ -149,7 +149,7 @@ async fn load_keys<T>(
 async fn load_zone(
     zone_dir: &Path,
     zone_config: &ZoneConfig,
-) -> Result<Box<dyn AuthorityObject>, String> {
+) -> Result<Arc<dyn AuthorityObject>, String> {
     debug!("loading zone with config: {:#?}", zone_config);
 
     let zone_name: Name = zone_config
@@ -167,7 +167,7 @@ async fn load_zone(
     }
 
     // load the zone
-    let authority: Box<dyn AuthorityObject> = match zone_config.stores {
+    let authority = match zone_config.stores {
         #[cfg(feature = "sqlite")]
         Some(StoreConfig::Sqlite(ref config)) => {
             if zone_path.is_some() {
@@ -188,7 +188,7 @@ async fn load_zone(
 
             // load any keys for the Zone, if it is a dynamic update zone, then keys are required
             load_keys(&mut authority, zone_name_for_signer, zone_config).await?;
-            Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
+            Arc::new(authority) as Arc<dyn AuthorityObject>
         }
         Some(StoreConfig::File(ref config)) => {
             if zone_path.is_some() {
@@ -207,13 +207,13 @@ async fn load_zone(
 
             // load any keys for the Zone, if it is a dynamic update zone, then keys are required
             load_keys(&mut authority, zone_name_for_signer, zone_config).await?;
-            Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
+            Arc::new(authority)
         }
         #[cfg(feature = "resolver")]
         Some(StoreConfig::Forward(ref config)) => {
             let forwarder = ForwardAuthority::try_from_config(zone_name, zone_type, config)?;
 
-            Box::new(Arc::new(forwarder)) as Box<dyn AuthorityObject>
+            Arc::new(forwarder)
         }
         #[cfg(feature = "recursor")]
         Some(StoreConfig::Recursor(ref config)) => {
@@ -221,7 +221,7 @@ async fn load_zone(
                 RecursiveAuthority::try_from_config(zone_name, zone_type, config, Some(zone_dir));
             let authority = recursor.await?;
 
-            Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
+            Arc::new(authority)
         }
         #[cfg(feature = "sqlite")]
         None if zone_config.is_update_allowed() => {
@@ -255,7 +255,7 @@ async fn load_zone(
 
             // load any keys for the Zone, if it is a dynamic update zone, then keys are required
             load_keys(&mut authority, zone_name_for_signer, zone_config).await?;
-            Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
+            Arc::new(authority)
         }
         None => {
             let config = FileConfig {
@@ -274,7 +274,7 @@ async fn load_zone(
 
             // load any keys for the Zone, if it is a dynamic update zone, then keys are required
             load_keys(&mut authority, zone_name_for_signer, zone_config).await?;
-            Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
+            Arc::new(authority)
         }
         Some(_) => {
             panic!("unrecognized authority type, check enabled features");

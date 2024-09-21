@@ -7,8 +7,6 @@
 
 //! All authority related types
 
-use std::sync::Arc;
-
 use tracing::debug;
 
 #[cfg(feature = "dnssec")]
@@ -24,9 +22,6 @@ use crate::{
 /// An Object safe Authority
 #[async_trait::async_trait]
 pub trait AuthorityObject: Send + Sync {
-    /// Clone the object
-    fn box_clone(&self) -> Box<dyn AuthorityObject>;
-
     /// What type is this zone
     fn zone_type(&self) -> ZoneType;
 
@@ -132,37 +127,33 @@ pub trait AuthorityObject: Send + Sync {
 }
 
 #[async_trait::async_trait]
-impl<A, L> AuthorityObject for Arc<A>
+impl<A, L> AuthorityObject for A
 where
     A: Authority<Lookup = L> + Send + Sync + 'static,
     L: LookupObject + Send + Sync + 'static,
 {
-    fn box_clone(&self) -> Box<dyn AuthorityObject> {
-        Box::new(self.clone())
-    }
-
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
-        Authority::zone_type(self.as_ref())
+        Authority::zone_type(self)
     }
 
     /// Return true if AXFR is allowed
     fn is_axfr_allowed(&self) -> bool {
-        Authority::is_axfr_allowed(self.as_ref())
+        Authority::is_axfr_allowed(self)
     }
 
     fn can_validate_dnssec(&self) -> bool {
-        Authority::can_validate_dnssec(self.as_ref())
+        Authority::can_validate_dnssec(self)
     }
 
     /// Perform a dynamic update of a zone
     async fn update(&self, update: &MessageRequest) -> UpdateResult<bool> {
-        Authority::update(self.as_ref(), update).await
+        Authority::update(self, update).await
     }
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
     fn origin(&self) -> &LowerName {
-        Authority::origin(self.as_ref())
+        Authority::origin(self)
     }
 
     /// Looks up all Resource Records matching the giving `Name` and `RecordType`.
@@ -185,9 +176,9 @@ where
         rtype: RecordType,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Box<dyn LookupObject>> {
-        let this = self.as_ref();
-        let lookup = Authority::lookup(this, name, rtype, lookup_options).await;
-        lookup.map_dyn()
+        Authority::lookup(self, name, rtype, lookup_options)
+            .await
+            .map_dyn()
     }
 
     /// Using the specified query, perform a lookup against this zone.
@@ -206,10 +197,10 @@ where
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Box<dyn LookupObject>> {
-        let this = self.as_ref();
-        debug!("performing {} on {}", request_info.query, this.origin());
-        let lookup = Authority::search(this, request_info, lookup_options).await;
-        lookup.map_dyn()
+        debug!("performing {} on {}", request_info.query, self.origin());
+        Authority::search(self, request_info, lookup_options)
+            .await
+            .map_dyn()
     }
 
     /// Return the NSEC records based on the given name
@@ -224,8 +215,9 @@ where
         name: &LowerName,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Box<dyn LookupObject>> {
-        let lookup = Authority::get_nsec_records(self.as_ref(), name, lookup_options).await;
-        lookup.map_dyn()
+        Authority::get_nsec_records(self, name, lookup_options)
+            .await
+            .map_dyn()
     }
 
     #[cfg(feature = "dnssec")]
@@ -234,13 +226,14 @@ where
         info: Nsec3QueryInfo<'_>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Box<dyn LookupObject>> {
-        let lookup = Authority::get_nsec3_records(self.as_ref(), info, lookup_options).await;
-        lookup.map_dyn()
+        Authority::get_nsec3_records(self, info, lookup_options)
+            .await
+            .map_dyn()
     }
 
     #[cfg(feature = "dnssec")]
     fn nx_proof_kind(&self) -> Option<&NxProofKind> {
-        Authority::nx_proof_kind(self.as_ref())
+        Authority::nx_proof_kind(self)
     }
 }
 
