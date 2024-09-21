@@ -23,6 +23,7 @@ pub(crate) fn new_https_stream<P: RuntimeProvider>(
     socket_addr: SocketAddr,
     bind_addr: Option<SocketAddr>,
     dns_name: String,
+    http_endpoint: String,
     client_config: Option<TlsClientConfig>,
     provider: P,
 ) -> DnsExchangeConnect<HttpsClientConnect<P::Tcp>, HttpsClientStream, TokioTime> {
@@ -39,7 +40,7 @@ pub(crate) fn new_https_stream<P: RuntimeProvider>(
     if let Some(bind_addr) = bind_addr {
         https_builder.bind_addr(bind_addr);
     }
-    DnsExchange::connect(https_builder.build(socket_addr, dns_name))
+    DnsExchange::connect(https_builder.build(socket_addr, dns_name, http_endpoint))
 }
 
 #[allow(clippy::type_complexity)]
@@ -47,6 +48,7 @@ pub(crate) fn new_https_stream_with_future<S, F>(
     future: F,
     socket_addr: SocketAddr,
     dns_name: String,
+    http_endpoint: String,
     client_config: Option<TlsClientConfig>,
 ) -> DnsExchangeConnect<HttpsClientConnect<S>, HttpsClientStream, TokioTime>
 where
@@ -67,6 +69,7 @@ where
         client_config,
         socket_addr,
         dns_name,
+        http_endpoint,
     ))
 }
 

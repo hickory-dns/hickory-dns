@@ -31,12 +31,14 @@ pub(crate) async fn h2_handler<T, I>(
     io: I,
     src_addr: SocketAddr,
     dns_hostname: Option<Arc<str>>,
+    http_endpoint: Arc<str>,
     shutdown: CancellationToken,
 ) where
     T: RequestHandler,
     I: AsyncRead + AsyncWrite + Unpin,
 {
     let dns_hostname = dns_hostname.clone();
+    let http_endpoint = http_endpoint.clone();
 
     // Start the HTTP/2.0 connection handshake
     let mut h2 = match server::handshake(io).await {
@@ -69,12 +71,13 @@ pub(crate) async fn h2_handler<T, I>(
 
         debug!("Received request: {:#?}", request);
         let dns_hostname = dns_hostname.clone();
+        let http_endpoint = http_endpoint.clone();
         let handler = handler.clone();
         let access = access.clone();
         let responder = HttpsResponseHandle(Arc::new(Mutex::new(respond)));
 
         tokio::spawn(async move {
-            match h2_server::message_from(dns_hostname, request).await {
+            match h2_server::message_from(dns_hostname, http_endpoint, request).await {
                 Ok(bytes) => handle_request(bytes, src_addr, access, handler, responder).await,
                 Err(err) => warn!("error while handling request from {}: {}", src_addr, err),
             };

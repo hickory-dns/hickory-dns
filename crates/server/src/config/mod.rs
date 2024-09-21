@@ -80,6 +80,10 @@ pub struct Config {
     /// Certificate to associate to TLS connections (currently the same is used for HTTPS and TLS)
     #[cfg(feature = "dnssec")]
     tls_cert: Option<dnssec::TlsCertConfig>,
+    /// The HTTP endpoint where the DNS-over-HTTPS server provides service. Applicable
+    /// to both HTTP/2 and HTTP/3 servers. Typically `/dns-query`.
+    #[cfg(any(feature = "dns-over-https-rustls", feature = "dns-over-h3"))]
+    http_endpoint: Option<String>,
     /// Networks denied to access the server
     #[serde(default)]
     deny_networks: Vec<IpNet>,
@@ -202,6 +206,14 @@ impl Config {
                 None
             }
         }
+    }
+
+    /// the HTTP endpoint from where requests are received
+    #[cfg(any(feature = "dns-over-https-rustls", feature = "dns-over-h3"))]
+    pub fn get_http_endpoint(&self) -> &str {
+        self.http_endpoint
+            .as_deref()
+            .unwrap_or(hickory_proto::http::DEFAULT_DNS_QUERY_PATH)
     }
 
     /// get the networks denied access to this server

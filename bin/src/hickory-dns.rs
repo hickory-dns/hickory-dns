@@ -674,6 +674,7 @@ fn config_https(
         .iter()
         .flat_map(|x| (*x, https_listen_port).to_socket_addrs().unwrap())
         .collect();
+    let endpoint_path = config.get_http_endpoint();
 
     if https_sockaddrs.is_empty() {
         warn!("a tls certificate was specified, but no HTTPS addresses configured to listen on");
@@ -713,6 +714,7 @@ fn config_https(
                 config.get_tcp_request_timeout(),
                 tls_cert,
                 tls_cert_config.get_endpoint_name().map(|s| s.to_string()),
+                endpoint_path.into(),
             )
             .map_err(|err| format!("failed to register HTTPS listener: {err}"))?;
     }
