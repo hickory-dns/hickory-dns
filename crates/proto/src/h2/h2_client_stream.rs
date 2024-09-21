@@ -44,6 +44,7 @@ const ALPN_H2: &[u8] = b"h2";
 pub struct HttpsClientStream {
     // Corresponds to the dns-name of the HTTPS server
     name_server_name: Arc<str>,
+    query_path: Arc<str>,
     name_server: SocketAddr,
     h2: SendRequest<Bytes>,
     is_shutdown: bool,
@@ -64,6 +65,7 @@ impl HttpsClientStream {
         h2: SendRequest<Bytes>,
         message: Bytes,
         name_server_name: Arc<str>,
+        query_path: Arc<str>,
     ) -> Result<DnsResponse, ProtoError> {
         let mut h2 = match h2.ready().await {
             Ok(h2) => h2,
@@ -74,8 +76,12 @@ impl HttpsClientStream {
         };
 
         // build up the http request
-        let request =
-            crate::http::request::new(Version::Http2, &name_server_name, message.remaining());
+        let request = crate::http::request::new(
+            Version::Http2,
+            &name_server_name,
+            &query_path,
+            message.remaining(),
+        );
 
         let request =
             request.map_err(|err| ProtoError::from(format!("bad http request: {err}")))?;
@@ -247,6 +253,7 @@ impl DnsRequestSender for HttpsClientStream {
             self.h2.clone(),
             Bytes::from(bytes),
             Arc::clone(&self.name_server_name),
+            Arc::clone(&self.query_path),
         ))
         .into()
     }
@@ -308,10 +315,12 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
+    /// * `http_endpoint` - The HTTP endpoint where the remote DNS resolver provides service, typically `/dns-query`
     pub fn build(
         mut self,
         name_server: SocketAddr,
         dns_name: String,
+        http_endpoint: String,
     ) -> HttpsClientConnect<P::Tcp> {
         // ensure the ALPN protocol is set correctly
         if self.client_config.alpn_protocols.is_empty() {
@@ -324,6 +333,7 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
         let tls = TlsConfig {
             client_config: self.client_config,
             dns_name: Arc::from(dns_name),
+            http_endpoint: Arc::from(http_endpoint),
         };
 
         let connect = self.provider.connect_tcp(name_server, self.bind_addr, None);
@@ -347,6 +357,7 @@ impl<S: DnsTcpStream> HttpsClientConnect<S> {
         mut client_config: Arc<ClientConfig>,
         name_server: SocketAddr,
         dns_name: String,
+        http_endpoint: String,
     ) -> Self
     where
         S: DnsTcpStream,
@@ -363,6 +374,7 @@ impl<S: DnsTcpStream> HttpsClientConnect<S> {
         let tls = TlsConfig {
             client_config,
             dns_name: Arc::from(dns_name),
+            http_endpoint: Arc::from(http_endpoint),
         };
 
         Self(HttpsClientConnectState::TcpConnecting {
@@ -387,6 +399,7 @@ where
 struct TlsConfig {
     client_config: Arc<ClientConfig>,
     dns_name: Arc<str>,
+    http_endpoint: Arc<str>,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -405,6 +418,7 @@ where
         tls: TokioTlsConnect<AsyncIoStdAsTokio<S>>,
         name_server_name: Arc<str>,
         name_server: SocketAddr,
+        query_path: Arc<str>,
     },
     H2Handshake {
         handshake: Pin<
@@ -422,6 +436,7 @@ where
         >,
         name_server_name: Arc<str>,
         name_server: SocketAddr,
+        query_path: Arc<str>,
     },
     Connected(Option<HttpsClientStream>),
     Errored(Option<ProtoError>),
@@ -448,6 +463,7 @@ where
                         .take()
                         .expect("programming error, tls should not be None here");
                     let name_server_name = Arc::clone(&tls.dns_name);
+                    let query_path = Arc::clone(&tls.http_endpoint);
 
                     match ServerName::try_from(&*tls.dns_name) {
                         Ok(dns_name) => {
@@ -457,6 +473,7 @@ where
                                 name_server_name,
                                 name_server,
                                 tls,
+                                query_path,
                             }
                         }
                         Err(_) => Self::Errored(Some(ProtoError::from(format!(
@@ -468,6 +485,7 @@ where
                 Self::TlsConnecting {
                     ref name_server_name,
                     name_server,
+                    ref query_path,
                     ref mut tls,
                 } => {
                     let tls = ready!(tls.poll_unpin(cx))?;
@@ -479,12 +497,14 @@ where
                     Self::H2Handshake {
                         name_server_name: Arc::clone(name_server_name),
                         name_server,
+                        query_path: Arc::clone(query_path),
                         handshake: Box::pin(handshake),
                     }
                 }
                 Self::H2Handshake {
                     ref name_server_name,
                     name_server,
+                    ref query_path,
                     ref mut handshake,
                 } => {
                     let (send_request, connection) = ready!(handshake
@@ -502,6 +522,7 @@ where
                     Self::Connected(Some(HttpsClientStream {
                         name_server_name: Arc::clone(name_server_name),
                         name_server,
+                        query_path: Arc::clone(query_path),
                         h2: send_request,
                         is_shutdown: false,
                     }))
@@ -567,7 +588,8 @@ mod tests {
         let provider = TokioRuntimeProvider::new();
         let https_builder =
             HttpsClientStreamBuilder::with_client_config(Arc::new(client_config), provider);
-        let connect = https_builder.build(google, "dns.google".to_string());
+        let connect =
+            https_builder.build(google, "dns.google".to_string(), "/dns-query".to_string());
 
         // tokio runtime stuff...
         let runtime = Runtime::new().expect("could not start runtime");
@@ -630,7 +652,8 @@ mod tests {
         let provider = TokioRuntimeProvider::new();
         let https_builder =
             HttpsClientStreamBuilder::with_client_config(Arc::new(client_config), provider);
-        let connect = https_builder.build(google, google.ip().to_string());
+        let connect =
+            https_builder.build(google, google.ip().to_string(), "/dns-query".to_string());
 
         // tokio runtime stuff...
         let runtime = Runtime::new().expect("could not start runtime");
@@ -692,7 +715,11 @@ mod tests {
         let provider = TokioRuntimeProvider::new();
         let https_builder =
             HttpsClientStreamBuilder::with_client_config(Arc::new(client_config), provider);
-        let connect = https_builder.build(cloudflare, "cloudflare-dns.com".to_string());
+        let connect = https_builder.build(
+            cloudflare,
+            "cloudflare-dns.com".to_string(),
+            "/dns-query".to_string(),
+        );
 
         // tokio runtime stuff...
         let runtime = Runtime::new().expect("could not start runtime");

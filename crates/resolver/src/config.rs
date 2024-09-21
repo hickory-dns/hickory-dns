@@ -442,6 +442,9 @@ pub struct NameServerConfig {
     /// SPKI name, only relevant for TLS connections
     #[cfg_attr(feature = "serde", serde(default))]
     pub tls_dns_name: Option<String>,
+    /// The HTTP endpoint where the DNS NameServer provides service. Only
+    /// relevant to DNS-over-HTTPS. Defaults to `/dns-query` if unspecified.
+    pub http_endpoint: Option<String>,
     /// Whether to trust `NXDOMAIN` responses from upstream nameservers.
     ///
     /// When this is `true`, and an empty `NXDOMAIN` response or `NOERROR`
@@ -476,6 +479,7 @@ impl NameServerConfig {
             protocol,
             trust_negative_responses: true,
             tls_dns_name: None,
+            http_endpoint: None,
             #[cfg(feature = "dns-over-rustls")]
             tls_config: None,
             bind_addr: None,
@@ -560,6 +564,7 @@ impl NameServerConfigGroup {
                 socket_addr,
                 protocol: Protocol::Udp,
                 tls_dns_name: None,
+                http_endpoint: None,
                 trust_negative_responses,
                 #[cfg(feature = "dns-over-rustls")]
                 tls_config: None,
@@ -569,6 +574,7 @@ impl NameServerConfigGroup {
                 socket_addr,
                 protocol: Protocol::Tcp,
                 tls_dns_name: None,
+                http_endpoint: None,
                 trust_negative_responses,
                 #[cfg(feature = "dns-over-rustls")]
                 tls_config: None,
@@ -599,6 +605,7 @@ impl NameServerConfigGroup {
                 socket_addr: SocketAddr::new(*ip, port),
                 protocol,
                 tls_dns_name: Some(tls_dns_name.clone()),
+                http_endpoint: None,
                 trust_negative_responses,
                 #[cfg(feature = "dns-over-rustls")]
                 tls_config: None,

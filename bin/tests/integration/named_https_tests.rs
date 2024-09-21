@@ -71,7 +71,7 @@ fn test_example_https_toml_startup() {
 
         let provider = TokioRuntimeProvider::new();
         let https_builder = HttpsClientStreamBuilder::with_client_config(client_config, provider);
-        let mp = https_builder.build(addr, "ns.example.com".to_string());
+        let mp = https_builder.build(addr, "ns.example.com".to_string(), "/dns-query".to_string());
         let client = AsyncClient::connect(mp);
 
         // ipv4 should succeed

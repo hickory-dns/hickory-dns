@@ -8,7 +8,9 @@
 //! HTTP protocol related components for DNS over HTTP/2 (DoH) and HTTP/3 (DoH3)
 
 pub(crate) const MIME_APPLICATION_DNS: &str = "application/dns-message";
-pub(crate) const DNS_QUERY_PATH: &str = "/dns-query";
+
+/// The default query path for DNS-over-HTTPS if none was given.
+pub const DEFAULT_DNS_QUERY_PATH: &str = "/dns-query";
 
 pub(crate) mod error;
 pub mod request;

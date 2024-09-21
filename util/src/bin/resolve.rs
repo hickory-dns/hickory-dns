@@ -275,6 +275,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
             socket_addr: *socket_addr,
             protocol: Protocol::Tcp,
             tls_dns_name: None,
+            http_endpoint: None,
             trust_negative_responses: false,
             #[cfg(feature = "dns-over-rustls")]
             tls_config: None,
@@ -285,6 +286,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
             socket_addr: *socket_addr,
             protocol: Protocol::Udp,
             tls_dns_name: None,
+            http_endpoint: None,
             trust_negative_responses: false,
             #[cfg(feature = "dns-over-rustls")]
             tls_config: None,

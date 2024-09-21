@@ -295,6 +295,10 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
             (Protocol::Https, _) => {
                 let socket_addr = config.socket_addr;
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
+                let http_endpoint = config
+                    .http_endpoint
+                    .clone()
+                    .unwrap_or_else(|| proto::http::DEFAULT_DNS_QUERY_PATH.to_owned());
                 #[cfg(feature = "dns-over-rustls")]
                 let client_config = config.tls_config.clone();
                 let tcp_future = self.runtime_provider.connect_tcp(socket_addr, None, None);
@@ -303,6 +307,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                     tcp_future,
                     socket_addr,
                     tls_dns_name,
+                    http_endpoint,
                     client_config,
                 );
                 ConnectionConnect::Https(exchange)
@@ -339,6 +344,10 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                     }
                 });
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
+                let http_endpoint = config
+                    .http_endpoint
+                    .clone()
+                    .unwrap_or_else(|| proto::http::DEFAULT_DNS_QUERY_PATH.to_owned());
                 let client_config = config.tls_config.clone();
                 let socket = binder.bind_quic(bind_addr, socket_addr)?;
 
@@ -346,6 +355,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                     socket,
                     socket_addr,
                     tls_dns_name,
+                    http_endpoint,
                     client_config,
                 );
                 ConnectionConnect::H3(exchange)

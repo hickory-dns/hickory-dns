@@ -155,7 +155,11 @@ fn test_query_https() {
         Arc::new(client_config),
         TokioRuntimeProvider::new(),
     );
-    let client = AsyncClient::connect(https_builder.build(addr, "cloudflare-dns.com".to_string()));
+    let client = AsyncClient::connect(https_builder.build(
+        addr,
+        "cloudflare-dns.com".to_string(),
+        "/dns-query".to_string(),
+    ));
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
 

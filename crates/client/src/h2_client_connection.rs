@@ -25,6 +25,7 @@ pub struct HttpsClientConnection<P> {
     name_server: SocketAddr,
     bind_addr: Option<SocketAddr>,
     dns_name: String,
+    http_endpoint: String,
     client_config: Arc<ClientConfig>,
 }
 
@@ -56,7 +57,13 @@ pub struct HttpsClientConnection<P> {
 ///
 /// let shared_client_config = Arc::new(client_config);
 /// let conn =
-///     HttpsClientConnection::new(name_server, "dns.google".to_string(), shared_client_config, TokioRuntimeProvider::new());
+///     HttpsClientConnection::new(
+///         name_server,
+///         "dns.google".to_string(),
+///         None,
+///         shared_client_config,
+///         TokioRuntimeProvider::new(),
+///     );
 ///
 /// let client = SyncClient::new(conn);
 /// let name = Name::from_ascii(host_to_lookup).unwrap();
@@ -84,15 +91,24 @@ impl<P: RuntimeProvider> HttpsClientConnection<P> {
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
+    /// * `http_endpoint` - The HTTP endpoint where the resolver provides service, defaults to `/dns-query`
     /// * `client_config` - The TLS config
     #[allow(clippy::new_ret_no_self)]
     pub fn new(
         name_server: SocketAddr,
         dns_name: String,
+        http_endpoint: Option<String>,
         client_config: Arc<ClientConfig>,
         provider: P,
     ) -> Self {
-        Self::new_with_bind_addr(name_server, None, dns_name, client_config, provider)
+        Self::new_with_bind_addr(
+            name_server,
+            None,
+            dns_name,
+            http_endpoint,
+            client_config,
+            provider,
+        )
     }
 
     /// Creates a new client connection with a specified source address.
@@ -105,12 +121,14 @@ impl<P: RuntimeProvider> HttpsClientConnection<P> {
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `bind_addr` - IP and port to connect from
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
+    /// * `http_endpoint` - The HTTP endpoint where the resolver provides service, defaults to `/dns-query`
     /// * `client_config` - The TLS config
     #[allow(clippy::new_ret_no_self)]
     pub fn new_with_bind_addr(
         name_server: SocketAddr,
         bind_addr: Option<SocketAddr>,
         dns_name: String,
+        http_endpoint: Option<String>,
         client_config: Arc<ClientConfig>,
         provider: P,
     ) -> Self {
@@ -119,6 +137,8 @@ impl<P: RuntimeProvider> HttpsClientConnection<P> {
             name_server,
             bind_addr,
             dns_name,
+            http_endpoint: http_endpoint
+                .unwrap_or_else(|| hickory_proto::http::DEFAULT_DNS_QUERY_PATH.to_owned()),
             client_config,
         }
     }
@@ -141,6 +161,10 @@ impl<P: RuntimeProvider> ClientConnection for HttpsClientConnection<P> {
         if let Some(bind_addr) = self.bind_addr {
             https_builder.bind_addr(bind_addr);
         }
-        https_builder.build(self.name_server, self.dns_name.clone())
+        https_builder.build(
+            self.name_server,
+            self.dns_name.clone(),
+            self.http_endpoint.clone(),
+        )
     }
 }

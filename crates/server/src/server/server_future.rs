@@ -611,6 +611,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         _timeout: Duration,
         certificate_and_key: (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>),
         dns_hostname: Option<String>,
+        http_endpoint: String,
     ) -> io::Result<()> {
         use tokio_rustls::TlsAcceptor;
 
@@ -618,6 +619,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         use crate::server::h2_handler::h2_handler;
 
         let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
+        let http_endpoint: Arc<str> = Arc::from(http_endpoint);
 
         let handler = self.handler.clone();
         let access = self.access.clone();
@@ -665,6 +667,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                 let access = access.clone();
                 let tls_acceptor = tls_acceptor.clone();
                 let dns_hostname = dns_hostname.clone();
+                let http_endpoint = http_endpoint.clone();
 
                 inner_join_set.spawn(async move {
                     debug!("starting HTTPS request from: {src_addr}");
@@ -688,6 +691,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                         tls_stream,
                         src_addr,
                         dns_hostname,
+                        http_endpoint,
                         shutdown.clone(),
                     )
                     .await;
@@ -1375,6 +1379,7 @@ mod tests {
                         Duration::from_secs(1),
                         cert_key,
                         None,
+                        "/dns-query".into(),
                     )
                     .unwrap();
             }

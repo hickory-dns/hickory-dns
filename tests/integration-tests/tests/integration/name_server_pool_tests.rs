@@ -82,6 +82,7 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
             socket_addr: SocketAddr::new(addr, 0),
             protocol: Protocol::Udp,
             tls_dns_name: None,
+            http_endpoint: None,
             trust_negative_responses,
             #[cfg(any(feature = "dns-over-rustls", feature = "dns-over-https-rustls"))]
             tls_config: None,
