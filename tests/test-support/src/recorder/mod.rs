@@ -3,9 +3,10 @@
 use std::{
     env::{self, VarError},
     fs::{File, OpenOptions},
-    io::{self, BufWriter, ErrorKind, Write},
-    net::{Ipv4Addr, SocketAddr, UdpSocket},
-    path::PathBuf,
+    io::{self, BufWriter, ErrorKind, Read, Write},
+    marker::PhantomData,
+    net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream, UdpSocket},
+    path::{Path, PathBuf},
     process::{Command, Stdio},
     string::FromUtf8Error,
     sync::{
@@ -20,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use tempfile::NamedTempFile;
 use tracing::{debug, error, warn};
 
-/// Records and plays back DNS-over-UDP transactions with DNS servers on the internet.
+/// Records and plays back DNS transactions with DNS servers on the internet.
 ///
 /// This is intended to enable realistic tests against a wide variety of DNS servers, while being
 /// reproducible and allowing tests to be re-run offline. It operates in one of two modes, on
@@ -33,63 +34,57 @@ use tracing::{debug, error, warn};
 /// If `DNS_RECORDER` is not set, then no internet connections are made, and incoming queries are
 /// compared against the transactions previously saved in the file. If there is a matching query,
 /// then its response will be sent back.
-pub struct UdpDnsRecorder {
+pub struct DnsRecorder<T: RecorderTransport> {
     local_addr: SocketAddr,
-    path: PathBuf,
-    inner: Arc<Mutex<RecorderInner>>,
+    state: Arc<Mutex<RecorderState<T>>>,
     handle: JoinHandle<()>,
     stop: Arc<AtomicBool>,
+    _phantom: PhantomData<T>,
 }
 
-impl UdpDnsRecorder {
-    /// Construct a new instance that acts as a proxy for the given remote address, and loads from
-    /// or saves to the given filename.
-    pub fn new(remote_addr: SocketAddr, path: PathBuf) -> Result<Self, Error> {
-        Self::with_record(remote_addr, path, is_recording())
-    }
-
-    fn with_record(remote_addr: SocketAddr, path: PathBuf, record: bool) -> Result<Self, Error> {
-        let source = if record {
-            let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0))?;
-            socket.set_read_timeout(Some(DNS_TIMEOUT))?;
-            Source::Upstream {
-                remote_addr,
-                socket,
-                transactions: Vec::new(),
-            }
+impl DnsRecorder<UdpTransport> {
+    /// Construct a new instance that acts as a proxy for the given remote UDP DNS server, and loads
+    /// from or saves to the given filename.
+    pub fn new_udp(remote_addr: SocketAddr, path: PathBuf) -> Result<Self, Error> {
+        let source = if is_recording() {
+            Source::new_upstream_udp(path, remote_addr)?
         } else {
-            let file = match File::open(&path) {
-                Ok(file) => file,
-                Err(err) if err.kind() == ErrorKind::NotFound => return Err(Error::NoFile),
-                Err(err) => return Err(err.into()),
-            };
-            let recording = serde_json::from_reader(&file)?;
-            Source::Replay(recording)
+            Source::new_replay(path)?
         };
+        Self::with_source(source)
+    }
+}
 
-        let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))?;
-        socket.set_read_timeout(Some(RECV_TIMEOUT))?;
-        let local_addr = socket.local_addr()?;
+impl DnsRecorder<TcpTransport> {
+    /// Construct a new instance that acts as a proxy for the given remote TCP DNS server, and loads
+    /// from or saves to the given filename.
+    pub fn new_tcp(remote_addr: SocketAddr, path: PathBuf) -> Result<Self, Error> {
+        let source = if is_recording() {
+            Source::new_upstream_tcp(path, remote_addr)?
+        } else {
+            Source::new_replay(path)?
+        };
+        Self::with_source(source)
+    }
+}
 
-        let inner = Arc::new(Mutex::new(RecorderInner {
+impl<T: RecorderTransport> DnsRecorder<T> {
+    fn with_source(source: Source<T::Upstream>) -> Result<Self, Error> {
+        let state = Arc::new(Mutex::new(RecorderState {
             source,
             error: None,
         }));
         let stop = Arc::new(AtomicBool::new(false));
 
-        debug!(%local_addr, %remote_addr, "starting proxy server");
-        let handle = thread::spawn({
-            let inner = Arc::clone(&inner);
-            let stop = Arc::clone(&stop);
-            move || RecorderInner::run(inner, stop, socket)
-        });
+        let (local_addr, handle) = T::serve(Arc::clone(&state), Arc::clone(&stop))?;
+        debug!(%local_addr, "started proxy server");
 
         Ok(Self {
             local_addr,
-            path,
-            inner,
+            state,
             handle,
             stop,
+            _phantom: PhantomData,
         })
     }
 
@@ -106,17 +101,13 @@ impl UdpDnsRecorder {
 
         self.handle.join().map_err(|_| Error::Panic)?;
 
-        let mut guard = self.inner.lock().unwrap();
-        if let Source::Upstream {
-            remote_addr,
-            transactions,
-            ..
-        } = &guard.source
-        {
+        let mut guard = self.state.lock().unwrap();
+        if let Source::Upstream(upstream) = &guard.source {
             let recording = Recording {
-                protocol: "UDP".to_owned(),
-                remote_address: *remote_addr,
-                transactions: transactions
+                protocol: T::protocol_name().to_owned(),
+                remote_address: upstream.remote_address(),
+                transactions: upstream
+                    .recorded_transactions()
                     .iter()
                     .map(|(query, response)| {
                         let mut query_hex = query.clone();
@@ -139,7 +130,7 @@ impl UdpDnsRecorder {
                 .create(true)
                 .write(true)
                 .truncate(true)
-                .open(&self.path)?;
+                .open(upstream.path())?;
             serde_json::to_writer_pretty(&file, &recording)?;
             file.flush()?;
         }
@@ -151,78 +142,369 @@ impl UdpDnsRecorder {
     }
 }
 
-struct RecorderInner {
-    source: Source,
-    error: Option<Error>,
+/// A proxy implementation of a transport protocol for DNS.
+pub trait RecorderTransport: Sized {
+    /// An upstream connection for the proxy.
+    type Upstream: RecorderUpstream;
+
+    /// Starts a thread serving DNS over a particular transport, and returns the proxy server's
+    /// socket address and the thread's JoinHandle.
+    fn serve(
+        state: Arc<Mutex<RecorderState<Self>>>,
+        stop: Arc<AtomicBool>,
+    ) -> Result<(SocketAddr, JoinHandle<()>), Error>;
+
+    /// Returns the name of this transport protocol, for use in annotations in recording files.
+    fn protocol_name() -> &'static str;
 }
 
-impl RecorderInner {
-    fn run(inner: Arc<Mutex<Self>>, stop: Arc<AtomicBool>, socket: UdpSocket) {
-        let mut buffer = [0; u16::MAX as usize];
-        while !stop.load(Ordering::Relaxed) {
-            match socket.recv_from(&mut buffer) {
-                Ok((bytes_read, socket_addr)) => {
-                    let mut guard = inner.lock().unwrap();
-                    let query = &buffer[..bytes_read];
-                    let response = match guard.handle_query(query) {
-                        Ok(response) => response,
-                        Err(error) => {
-                            error!(%error, "error handling query");
-                            guard.error = Some(error);
+/// UDP implementation of the recording proxy.
+pub struct UdpTransport;
+
+impl UdpTransport {}
+
+impl RecorderTransport for UdpTransport {
+    type Upstream = UdpUpstream;
+
+    fn serve(
+        state: Arc<Mutex<RecorderState<Self>>>,
+        stop: Arc<AtomicBool>,
+    ) -> Result<(SocketAddr, JoinHandle<()>), Error> {
+        let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))?;
+        socket.set_read_timeout(Some(RECV_TIMEOUT))?;
+        let local_addr = socket.local_addr()?;
+
+        let handle = thread::spawn(move || {
+            let mut buffer = [0; u16::MAX as usize];
+            while !stop.load(Ordering::Relaxed) {
+                match socket.recv_from(&mut buffer) {
+                    Ok((bytes_read, socket_addr)) => {
+                        let mut guard = state.lock().unwrap();
+                        let query = &buffer[..bytes_read];
+                        let response = match guard.handle_query(query) {
+                            Ok(response) => response,
+                            Err(error) => {
+                                error!(%error, "error handling query");
+                                guard.error = Some(error);
+                                break;
+                            }
+                        };
+                        if let Err(error) = socket.send_to(&response, socket_addr) {
+                            error!(%error, "error sending response");
+                            guard.error = Some(error.into());
                             break;
                         }
-                    };
-                    if let Err(error) = socket.send_to(&response, socket_addr) {
-                        error!(%error, "error sending response");
-                        guard.error = Some(error.into());
+                    }
+                    Err(err)
+                        if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {}
+                    Err(error) => {
+                        error!(%error, "error receiving datagram");
+                        state.lock().unwrap().error = Some(error.into());
                         break;
                     }
                 }
-                Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {}
+            }
+            debug!("stopping proxy server");
+        });
+
+        Ok((local_addr, handle))
+    }
+
+    fn protocol_name() -> &'static str {
+        "UDP"
+    }
+}
+
+/// TCP implementation of the recording proxy.
+pub struct TcpTransport;
+
+impl TcpTransport {
+    fn run_socket(
+        mut socket: TcpStream,
+        state: Arc<Mutex<RecorderState<Self>>>,
+        stop: Arc<AtomicBool>,
+    ) {
+        let mut tcp_state = TcpStateMachine::Length { bytes_read: 0 };
+        let mut length_buffer = [0u8; 2];
+        let mut query_buffer = [0; u16::MAX as usize];
+        let mut destination = &mut length_buffer[..];
+        while !stop.load(Ordering::Relaxed) {
+            let n = match socket.read(destination) {
+                Ok(0) => break,
+                Ok(n) => n,
+                Err(e) if matches!(e.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock) => {
+                    continue
+                }
                 Err(error) => {
-                    error!(%error, "error receiving datagram");
-                    inner.lock().unwrap().error = Some(error.into());
+                    error!(%error, "error reading from socket");
+                    state.lock().unwrap().error = Some(error.into());
                     break;
+                }
+            };
+            match tcp_state {
+                TcpStateMachine::Length { bytes_read } => {
+                    let new_bytes_read = bytes_read + n;
+                    if new_bytes_read >= 2 {
+                        let length = u16::from_be_bytes(length_buffer).into();
+                        tcp_state = TcpStateMachine::Message {
+                            bytes_read: 0,
+                            length,
+                        };
+                        destination = &mut query_buffer[0..length];
+                    } else {
+                        tcp_state = TcpStateMachine::Length {
+                            bytes_read: new_bytes_read,
+                        };
+                        destination = &mut length_buffer[new_bytes_read..];
+                    }
+                }
+                TcpStateMachine::Message { bytes_read, length } => {
+                    let new_bytes_read = bytes_read + n;
+                    if new_bytes_read >= length {
+                        let mut guard = state.lock().unwrap();
+                        let query = &query_buffer[..length];
+                        let response = match guard.handle_query(query) {
+                            Ok(response) => response,
+                            Err(error) => {
+                                error!(%error, "error handling query");
+                                break;
+                            }
+                        };
+                        let response_length = u16::to_be_bytes(response.len().try_into().unwrap());
+                        if let Err(error) = socket
+                            .write_all(&response_length)
+                            .and_then(|()| socket.write_all(&response))
+                        {
+                            error!(%error, "error sending response");
+                            guard.error = Some(error.into());
+                            break;
+                        }
+
+                        tcp_state = TcpStateMachine::Length { bytes_read: 0 };
+                        destination = &mut length_buffer[..];
+                    } else {
+                        tcp_state = TcpStateMachine::Message {
+                            bytes_read: new_bytes_read,
+                            length,
+                        };
+                        destination = &mut query_buffer[new_bytes_read..length];
+                    }
                 }
             }
         }
-        debug!("stopping proxy server");
+    }
+}
+
+impl RecorderTransport for TcpTransport {
+    type Upstream = TcpUpstream;
+
+    fn serve(
+        state: Arc<Mutex<RecorderState<Self>>>,
+        stop: Arc<AtomicBool>,
+    ) -> Result<(SocketAddr, JoinHandle<()>), Error> {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
+        listener.set_nonblocking(true)?;
+        let local_addr = listener.local_addr()?;
+
+        let server_handle = thread::spawn(move || {
+            let mut handles = Vec::new();
+
+            while !stop.load(Ordering::Relaxed) {
+                let socket = match listener.accept() {
+                    Ok((socket, _)) => socket,
+                    Err(e) if e.kind() == ErrorKind::WouldBlock => {
+                        thread::sleep(RECV_TIMEOUT);
+                        continue;
+                    }
+                    Err(error) => {
+                        error!(%error, "error accepting connection");
+                        state.lock().unwrap().error = Some(error.into());
+                        return;
+                    }
+                };
+                if let Err(error) = socket.set_read_timeout(Some(RECV_TIMEOUT)) {
+                    error!(%error, "error setting timeout");
+                    state.lock().unwrap().error = Some(error.into());
+                    return;
+                }
+                let state = Arc::clone(&state);
+                let stop = Arc::clone(&stop);
+                let socket_handle = thread::spawn(move || Self::run_socket(socket, state, stop));
+                handles.push(socket_handle);
+            }
+        });
+
+        Ok((local_addr, server_handle))
     }
 
+    fn protocol_name() -> &'static str {
+        "TCP"
+    }
+}
+
+/// An upstream connection to a DNS server using a particular transport protocol.
+pub trait RecorderUpstream {
+    /// Returns the filename to which recorded transactions will be saved.
+    fn path(&self) -> &Path;
+
+    /// Returns the address of the internet-based DNS server.
+    fn remote_address(&self) -> SocketAddr;
+
+    /// Returns all transactions recorded so far, as pairs of query and response messages.
+    fn recorded_transactions(&self) -> &[(Vec<u8>, Vec<u8>)];
+
+    /// Sends a query to the internet-based DNS server and returns the response.
+    fn handle_query(&mut self, query: &[u8]) -> Result<Vec<u8>, Error>;
+}
+
+/// UDP implementation of an upstream connection.
+pub struct UdpUpstream {
+    path: PathBuf,
+    remote_address: SocketAddr,
+    transactions: Vec<(Vec<u8>, Vec<u8>)>,
+    socket: UdpSocket,
+}
+
+impl RecorderUpstream for UdpUpstream {
+    fn path(&self) -> &Path {
+        &self.path
+    }
+
+    fn remote_address(&self) -> SocketAddr {
+        self.remote_address
+    }
+
+    fn recorded_transactions(&self) -> &[(Vec<u8>, Vec<u8>)] {
+        &self.transactions
+    }
+
+    fn handle_query(&mut self, query: &[u8]) -> Result<Vec<u8>, Error> {
+        self.socket.send_to(query, self.remote_address())?;
+        let start = Instant::now();
+        let mut buffer = [0; u16::MAX as usize];
+        while start.elapsed() < DNS_TIMEOUT {
+            match self.socket.recv_from(&mut buffer) {
+                Ok((bytes_read, _)) => {
+                    if bytes_read < 2 {
+                        return Err(Error::InvalidMessage);
+                    } else if buffer[..2] == query[..2] {
+                        let response = &buffer[..bytes_read];
+                        self.transactions.push((query.to_vec(), response.to_vec()));
+                        return Ok(response.to_vec());
+                    }
+                }
+                Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {}
+                Err(err) => return Err(err.into()),
+            }
+        }
+        Err(Error::NoResponse)
+    }
+}
+
+/// TCP implementation of an upstream connection.
+pub struct TcpUpstream {
+    path: PathBuf,
+    remote_address: SocketAddr,
+    transactions: Vec<(Vec<u8>, Vec<u8>)>,
+}
+
+impl RecorderUpstream for TcpUpstream {
+    fn path(&self) -> &Path {
+        &self.path
+    }
+
+    fn remote_address(&self) -> SocketAddr {
+        self.remote_address
+    }
+
+    fn recorded_transactions(&self) -> &[(Vec<u8>, Vec<u8>)] {
+        &self.transactions
+    }
+
+    fn handle_query(&mut self, query: &[u8]) -> Result<Vec<u8>, Error> {
+        let start = Instant::now();
+        let mut socket = TcpStream::connect_timeout(&self.remote_address(), DNS_TIMEOUT)?;
+        socket.set_read_timeout(Some(DNS_TIMEOUT))?;
+        let query_length_bytes = u16::to_be_bytes(query.len().try_into().unwrap());
+        socket.write_all(&query_length_bytes)?;
+        socket.write_all(query)?;
+
+        let mut tcp_state = TcpStateMachine::Length { bytes_read: 0 };
+        let mut length_buffer = [0u8; 2];
+        let mut response_buffer = Vec::new();
+        let mut destination = &mut length_buffer[..];
+        while start.elapsed() < DNS_TIMEOUT {
+            let n = match socket.read(destination) {
+                Ok(0) => break,
+                Ok(n) => n,
+                Err(e) if matches!(e.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock) => {
+                    continue
+                }
+                Err(error) => return Err(error.into()),
+            };
+            match tcp_state {
+                TcpStateMachine::Length { bytes_read } => {
+                    let new_bytes_read = bytes_read + n;
+                    if new_bytes_read >= 2 {
+                        let length = u16::from_be_bytes(length_buffer).into();
+                        tcp_state = TcpStateMachine::Message {
+                            bytes_read: 0,
+                            length,
+                        };
+                        response_buffer = vec![0u8; length];
+                        destination = &mut response_buffer[..];
+                    } else {
+                        tcp_state = TcpStateMachine::Length {
+                            bytes_read: new_bytes_read,
+                        };
+                        destination = &mut length_buffer[new_bytes_read..];
+                    }
+                }
+                TcpStateMachine::Message { bytes_read, length } => {
+                    let new_bytes_read = bytes_read + n;
+                    if new_bytes_read >= length {
+                        if length < 2 {
+                            return Err(Error::InvalidMessage);
+                        } else if response_buffer[..2] == query[..2] {
+                            self.transactions
+                                .push((query.to_vec(), response_buffer.clone()));
+                            return Ok(response_buffer);
+                        } else {
+                            warn!("received response over TCP with wrong transaction ID");
+                            tcp_state = TcpStateMachine::Length { bytes_read: 0 };
+                            destination = &mut length_buffer[..];
+                        }
+                    } else {
+                        tcp_state = TcpStateMachine::Message {
+                            bytes_read: new_bytes_read,
+                            length,
+                        };
+                        destination = &mut response_buffer[new_bytes_read..];
+                    }
+                }
+            }
+        }
+        Err(Error::NoResponse)
+    }
+}
+
+enum TcpStateMachine {
+    Length { bytes_read: usize },
+    Message { bytes_read: usize, length: usize },
+}
+
+pub struct RecorderState<T: RecorderTransport> {
+    source: Source<T::Upstream>,
+    error: Option<Error>,
+}
+
+impl<T: RecorderTransport> RecorderState<T> {
     fn handle_query(&mut self, query: &[u8]) -> Result<Vec<u8>, Error> {
         if query.len() < 2 {
             return Err(Error::InvalidMessage);
         }
         match &mut self.source {
-            Source::Upstream {
-                remote_addr,
-                socket,
-                transactions,
-            } => {
-                socket.send_to(query, *remote_addr)?;
-                let start = Instant::now();
-                let mut buffer = [0; u16::MAX as usize];
-                while start.elapsed() < DNS_TIMEOUT {
-                    match socket.recv_from(&mut buffer) {
-                        Ok((bytes_read, _)) => {
-                            if bytes_read < 2 {
-                                return Err(Error::InvalidMessage);
-                            } else if buffer[..2] == query[..2] {
-                                let response = &buffer[..bytes_read];
-                                transactions.push((query.to_vec(), response.to_vec()));
-                                return Ok(response.to_vec());
-                            }
-                        }
-                        Err(err)
-                            if matches!(
-                                err.kind(),
-                                ErrorKind::WouldBlock | ErrorKind::TimedOut
-                            ) => {}
-                        Err(err) => return Err(err.into()),
-                    }
-                }
-                Err(Error::NoResponse)
-            }
+            Source::Upstream(upstream) => upstream.handle_query(query),
             Source::Replay(recording) => {
                 for transaction in recording.transactions.iter() {
                     if query[2..] == transaction.query_hex[2..] {
@@ -237,13 +519,44 @@ impl RecorderInner {
     }
 }
 
-enum Source {
-    Upstream {
-        remote_addr: SocketAddr,
-        socket: UdpSocket,
-        transactions: Vec<(Vec<u8>, Vec<u8>)>,
-    },
+enum Source<U: RecorderUpstream> {
+    Upstream(U),
     Replay(Recording),
+}
+
+impl Source<UdpUpstream> {
+    fn new_upstream_udp(path: PathBuf, remote_address: SocketAddr) -> Result<Self, io::Error> {
+        let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0))?;
+        socket.set_read_timeout(Some(DNS_TIMEOUT))?;
+        Ok(Source::Upstream(UdpUpstream {
+            path,
+            remote_address,
+            socket,
+            transactions: Vec::new(),
+        }))
+    }
+}
+
+impl Source<TcpUpstream> {
+    fn new_upstream_tcp(path: PathBuf, remote_address: SocketAddr) -> Result<Self, io::Error> {
+        Ok(Source::Upstream(TcpUpstream {
+            path,
+            remote_address,
+            transactions: Vec::new(),
+        }))
+    }
+}
+
+impl<U: RecorderUpstream> Source<U> {
+    fn new_replay(path: PathBuf) -> Result<Self, Error> {
+        let file = match File::open(&path) {
+            Ok(file) => file,
+            Err(err) if err.kind() == ErrorKind::NotFound => return Err(Error::NoFile),
+            Err(err) => return Err(err.into()),
+        };
+        let recording = serde_json::from_reader(&file)?;
+        Ok(Source::Replay(recording))
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -400,7 +713,7 @@ mod tests {
     use serde_json::Value;
     use tempfile::TempDir;
 
-    use super::UdpDnsRecorder;
+    use crate::recorder::{DnsRecorder, Source, UdpTransport};
 
     #[test]
     fn test_udp_recorder() {
@@ -429,7 +742,10 @@ mod tests {
         // Set up an instance as if DNS_RECORDER=record were set.
         let temp_dir = TempDir::new().unwrap();
         let filename = temp_dir.path().join("recording.json");
-        let recorder_1 = UdpDnsRecorder::with_record(server_addr, filename.clone(), true).unwrap();
+        let recorder_1 = DnsRecorder::<UdpTransport>::with_source(
+            Source::new_upstream_udp(filename.clone(), server_addr).unwrap(),
+        )
+        .unwrap();
 
         // Send a request and check the response.
         let client_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
@@ -451,7 +767,8 @@ mod tests {
 
         // Finalize the recording, and check the file that was produced.
         recorder_1.stop().unwrap();
-        let value = serde_json::from_reader::<_, Value>(File::open(&filename).unwrap()).unwrap();
+        let value =
+            serde_json::from_reader::<_, Value>(File::open(filename.clone()).unwrap()).unwrap();
         let top_level_object = value.as_object().unwrap();
         assert_eq!(
             top_level_object.get("protocol").unwrap().as_str().unwrap(),
@@ -482,7 +799,9 @@ mod tests {
         );
 
         // Start a new instance that plays back the recording.
-        let recorder_2 = UdpDnsRecorder::with_record(server_addr, filename.clone(), false).unwrap();
+        let recorder_2 =
+            DnsRecorder::<UdpTransport>::with_source(Source::new_replay(filename).unwrap())
+                .unwrap();
 
         // Send another request and check the response.
         let client_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
