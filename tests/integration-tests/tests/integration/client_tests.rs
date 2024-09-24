@@ -327,11 +327,10 @@ fn test_timeout_query_nonet() {
 
 #[test]
 fn test_timeout_query_udp() {
-    let addr: SocketAddr = ("203.0.113.0", 53)
-        .to_socket_addrs()
-        .unwrap()
-        .next()
-        .unwrap();
+    // bind a UDP socket on localhost and do nothing, so all queries sent to it will receive no
+    // response
+    let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let addr = socket.local_addr().unwrap();
 
     // TODO: need to add timeout length to SyncClient
     let client = SyncClient::new(UdpClientConnection::new(addr).unwrap());

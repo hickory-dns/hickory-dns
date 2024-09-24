@@ -1015,12 +1015,10 @@ fn test_timeout_query_udp() {
     subscribe();
     let io_loop = Runtime::new().unwrap();
 
-    // this is a test network, it should NOT be in use
-    let addr: SocketAddr = ("203.0.113.0", 53)
-        .to_socket_addrs()
-        .unwrap()
-        .next()
-        .unwrap();
+    // bind a UDP socket on localhost and do nothing, so all queries sent to it will receive no
+    // response
+    let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let addr = socket.local_addr().unwrap();
 
     let stream = UdpClientStream::with_timeout(
         addr,
