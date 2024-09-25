@@ -130,6 +130,8 @@ coverage-html: coverage
 generate-test-certs: init-openssl
     cd {{TEST_DATA}} && rm -f ca.key ca.pem cert.key cert-key.pkcs8 cert.csr cert.pem cert.p12
     scripts/gen_certs.sh
+    cd {{TEST_DATA}}/test_configs/sec && rm -f example.key example.key.pem example.cert example.cert.pem example.p12
+    cd {{TEST_DATA}}/test_configs/sec && ./gen-keys.sh
 
 # Publish all crates
 publish:
