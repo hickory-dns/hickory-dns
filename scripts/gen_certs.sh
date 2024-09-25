@@ -80,7 +80,7 @@ ${OPENSSL:?} x509 -req -days 365 -in cert.csr -CA ca.pem -CAkey ca.key  -set_ser
 echo "----> Verifying Cert <----"
 ${OPENSSL:?} verify -CAfile ca.pem cert.pem
 
-echo "----> Createing PCKS12 <----"
+echo "----> Creating PKCS12 <----"
 ${OPENSSL:?} pkcs12 -export -inkey cert.key -in cert.pem -out cert.p12 -passout pass:mypass -name ns.example.com -chain -CAfile ca.pem
 
 
