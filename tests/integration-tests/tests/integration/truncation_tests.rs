@@ -72,14 +72,14 @@ async fn test_truncation() {
 pub fn new_large_catalog(num_records: u32) -> Catalog {
     // Create a large record set.
     let name = large_name();
-    let mut record_set = RecordSet::new(&name, RecordType::A, 0);
+    let mut record_set = RecordSet::new(name.clone(), RecordType::A, 0);
     for i in 1..num_records + 1 {
         let ip = Ipv4Addr::from(i);
         let rdata = RData::A(A(ip));
         record_set.insert(Record::from_rdata(name.clone(), 86400, rdata), 0);
     }
 
-    let mut soa_record_set = RecordSet::new(&name, RecordType::SOA, 0);
+    let mut soa_record_set = RecordSet::new(name.clone(), RecordType::SOA, 0);
     soa_record_set.insert(
         Record::from_rdata(
             name.clone(),

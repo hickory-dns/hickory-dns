@@ -42,9 +42,9 @@ impl RecordSet {
     ///
     /// The newly created Resource Record Set
     /// TODO: make all cloned params pass by value
-    pub fn new(name: &Name, record_type: RecordType, serial: u32) -> Self {
+    pub fn new(name: Name, record_type: RecordType, serial: u32) -> Self {
         Self {
-            name: name.clone(),
+            name,
             record_type,
             dns_class: DNSClass::IN,
             ttl: 0,
@@ -623,7 +623,7 @@ mod test {
     fn test_insert() {
         let name = Name::from_str("www.example.com.").unwrap();
         let record_type = RecordType::A;
-        let mut rr_set = RecordSet::new(&name, record_type, 0);
+        let mut rr_set = RecordSet::new(name.clone(), record_type, 0);
 
         let insert = Record::from_rdata(
             name.clone(),
@@ -661,7 +661,7 @@ mod test {
     fn test_insert_soa() {
         let name = Name::from_str("example.com.").unwrap();
         let record_type = RecordType::SOA;
-        let mut rr_set = RecordSet::new(&name, record_type, 0);
+        let mut rr_set = RecordSet::new(name.clone(), record_type, 0);
 
         let insert = Record::from_rdata(
             name.clone(),
@@ -738,7 +738,7 @@ mod test {
         let new_cname = Name::from_str("w2.example.com.").unwrap();
 
         let record_type = RecordType::CNAME;
-        let mut rr_set = RecordSet::new(&name, record_type, 0);
+        let mut rr_set = RecordSet::new(name.clone(), record_type, 0);
 
         let insert = Record::from_rdata(name.clone(), 3600, RData::CNAME(CNAME(cname)))
             .set_dns_class(DNSClass::IN)
@@ -762,7 +762,7 @@ mod test {
     fn test_remove() {
         let name = Name::from_str("www.example.com.").unwrap();
         let record_type = RecordType::A;
-        let mut rr_set = RecordSet::new(&name, record_type, 0);
+        let mut rr_set = RecordSet::new(name.clone(), record_type, 0);
 
         let insert = Record::from_rdata(
             name.clone(),
@@ -793,7 +793,7 @@ mod test {
     fn test_remove_soa() {
         let name = Name::from_str("www.example.com.").unwrap();
         let record_type = RecordType::SOA;
-        let mut rr_set = RecordSet::new(&name, record_type, 0);
+        let mut rr_set = RecordSet::new(name.clone(), record_type, 0);
 
         let insert = Record::from_rdata(
             name,
@@ -820,7 +820,7 @@ mod test {
     fn test_remove_ns() {
         let name = Name::from_str("example.com.").unwrap();
         let record_type = RecordType::NS;
-        let mut rr_set = RecordSet::new(&name, record_type, 0);
+        let mut rr_set = RecordSet::new(name.clone(), record_type, 0);
 
         let ns1 = Record::from_rdata(
             name.clone(),

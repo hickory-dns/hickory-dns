@@ -651,7 +651,11 @@ impl InnerInMemory {
 
         let rr_key = RrKey::new(record.name().into(), record.record_type());
         let records: &mut Arc<RecordSet> = self.records.entry(rr_key).or_insert_with(|| {
-            Arc::new(RecordSet::new(record.name(), record.record_type(), serial))
+            Arc::new(RecordSet::new(
+                record.name().clone(),
+                record.record_type(),
+                serial,
+            ))
         });
 
         // because this is and Arc, we need to clone and then replace the entry
@@ -1271,7 +1275,8 @@ impl Authority for InMemoryAuthority {
                                 //   according to the rfc the ttl is from the ANAME
                                 //   TODO: technically we should take the min of the potential CNAME chain
                                 let ttl = answer.ttl().min(a_aaaa_ttl);
-                                let mut new_answer = RecordSet::new(answer.name(), query_type, ttl);
+                                let mut new_answer =
+                                    RecordSet::new(answer.name().clone(), query_type, ttl);
 
                                 for rdata in rdatas.into_iter().flatten() {
                                     new_answer.add_rdata(rdata);
