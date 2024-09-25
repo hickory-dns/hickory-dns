@@ -416,9 +416,9 @@ impl<'a> Parser<'a> {
             }
             _ => {
                 // add a Vec if it's not there, then add the record to the list
-                let set = records
-                    .entry(key)
-                    .or_insert_with(|| RecordSet::new(record.name(), record.record_type(), 0));
+                let set = records.entry(key).or_insert_with(|| {
+                    RecordSet::new(record.name().clone(), record.record_type(), 0)
+                });
                 set.insert(record, 0);
             }
         }
