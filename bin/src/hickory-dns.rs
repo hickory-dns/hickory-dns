@@ -39,7 +39,7 @@
 use std::{
     env, fmt,
     io::Error,
-    net::{IpAddr, Ipv4Addr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -477,6 +477,7 @@ fn run() -> Result<(), String> {
 
     if listen_addrs.is_empty() {
         listen_addrs.push(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
+        listen_addrs.push(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)));
     }
 
     if args.validate {
