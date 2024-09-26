@@ -863,6 +863,7 @@ dependencies = [
  "rusqlite",
  "rustls",
  "serde",
+ "socket2",
  "test-support",
  "time",
  "tokio",
