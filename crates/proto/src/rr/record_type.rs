@@ -8,9 +8,10 @@
 //! record type definitions
 #![allow(clippy::use_self)]
 
-use std::cmp::Ordering;
-use std::fmt::{self, Display, Formatter};
-use std::str::FromStr;
+use alloc::str::FromStr;
+use alloc::string::ToString;
+use core::cmp::Ordering;
+use core::fmt::{self, Display, Formatter};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -196,7 +197,8 @@ impl FromStr for RecordType {
     /// Convert `&str` to `RecordType`
     ///
     /// ```
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::record_type::RecordType;
     ///
     /// let var: RecordType = RecordType::from_str("A").unwrap();
@@ -453,6 +455,9 @@ impl Display for RecordType {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    #[cfg(feature = "std")]
+    use std::println;
+
     use super::*;
 
     #[test]
@@ -495,6 +500,7 @@ mod tests {
 
         unordered.sort();
 
+        #[cfg(feature = "std")]
         for rtype in unordered.clone() {
             println!("u16 for {:?}: {}", rtype, u16::from(rtype));
         }
@@ -547,7 +553,10 @@ mod tests {
         #[cfg(not(feature = "dnssec"))]
         let dnssec_record_names = &[];
 
+        #[cfg(feature = "std")]
         let mut rtypes = std::collections::HashSet::new();
+        #[cfg(not(feature = "std"))]
+        let mut rtypes = alloc::collections::BTreeSet::new();
         for name in record_names.iter().chain(dnssec_record_names) {
             let rtype: RecordType = name.parse().unwrap();
             assert_eq!(rtype.to_string().to_ascii_uppercase().as_str(), *name);

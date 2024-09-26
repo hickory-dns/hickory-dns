@@ -13,6 +13,11 @@ use std::{
     str::FromStr,
 };
 
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
+
 use crate::{
     rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
     serialize::txt::{
@@ -527,6 +532,8 @@ const MAX_INCLUDE_LEVEL: usize = 256;
 
 #[cfg(test)]
 mod tests {
+    use alloc::string::ToString;
+
     use super::*;
 
     #[test]

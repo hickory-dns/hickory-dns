@@ -17,6 +17,10 @@
 
 //! NSEC3 related record types
 #![allow(clippy::use_self)]
+#[cfg(all(test, any(feature = "dnssec-openssl")))]
+use alloc::string::String;
+#[cfg(any(feature = "dnssec-openssl"))]
+use alloc::vec::Vec;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -197,7 +201,7 @@ impl From<Nsec3HashAlgorithm> for u8 {
 #[test]
 #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 fn test_hash() {
-    use std::str::FromStr;
+    use alloc::{str::FromStr, vec::Vec};
 
     let name = Name::from_str("www.example.com").unwrap();
     let salt: Vec<u8> = vec![1, 2, 3, 4];

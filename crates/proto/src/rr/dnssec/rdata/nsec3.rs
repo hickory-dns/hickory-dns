@@ -7,7 +7,7 @@
 
 //! NSEC record types
 
-use std::fmt;
+use alloc::{fmt, string::ToString, vec::Vec};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -411,6 +411,10 @@ impl fmt::Display for NSEC3 {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
+    use std::println;
+
+    use alloc::vec::Vec;
 
     use super::*;
 

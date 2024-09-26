@@ -7,6 +7,7 @@
 
 //! DNS over TLS server implementation for Rustls
 
+use alloc::vec::Vec;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;

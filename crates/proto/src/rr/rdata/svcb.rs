@@ -8,7 +8,8 @@
 //! SVCB records, see [RFC 9460 SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460)
 #![allow(clippy::use_self)]
 
-use std::{
+use alloc::{string::String, vec::Vec};
+use core::{
     cmp::{Ord, Ordering, PartialOrd},
     convert::TryFrom,
     fmt,
@@ -295,7 +296,7 @@ impl fmt::Display for SvcParamKey {
     }
 }
 
-impl std::str::FromStr for SvcParamKey {
+impl alloc::str::FromStr for SvcParamKey {
     type Err = ProtoError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -1174,6 +1175,8 @@ impl fmt::Display for SVCB {
 
 #[cfg(test)]
 mod tests {
+    use alloc::string::ToString;
+
     use super::*;
 
     #[test]

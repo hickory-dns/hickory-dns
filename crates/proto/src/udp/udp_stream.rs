@@ -5,12 +5,13 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use crate::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use core::pin::Pin;
+use core::task::{Context, Poll};
 use std::future::poll_fn;
 use std::io;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::pin::Pin;
-use std::task::{Context, Poll};
 
+use alloc::boxed::Box;
 use async_trait::async_trait;
 use futures_util::stream::Stream;
 use futures_util::{future::Future, ready, TryFutureExt};
@@ -18,7 +19,8 @@ use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
 use tracing::{debug, warn};
 
-use crate::runtime::{RuntimeProvider, Time};
+use crate::runtime::RuntimeProvider;
+use crate::runtime::Time;
 use crate::udp::MAX_RECEIVE_BUFFER_SIZE;
 use crate::xfer::{BufDnsStreamHandle, SerialMessage, StreamReceiver};
 

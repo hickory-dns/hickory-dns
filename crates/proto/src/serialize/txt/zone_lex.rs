@@ -8,6 +8,9 @@
 use std::borrow::Cow;
 use std::{char, iter::Peekable};
 
+use alloc::string::String;
+use alloc::vec::Vec;
+
 use crate::serialize::txt::errors::{LexerError, LexerErrorKind, LexerResult};
 
 /// A Lexer for Zone files
@@ -394,6 +397,8 @@ pub enum Token {
 
 #[cfg(test)]
 mod lex_test {
+    use alloc::string::ToString;
+
     use super::*;
 
     #[allow(clippy::uninlined_format_args)]

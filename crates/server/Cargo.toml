@@ -112,7 +112,7 @@ h2 = { workspace = true, features = ["stream"], optional = true }
 h3 = { workspace = true, optional = true }
 h3-quinn = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
-ipnet = { workspace = true, features = ["serde"] }
+ipnet = { workspace = true, features = ["serde", "std"] }
 openssl = { workspace = true, features = ["v102", "v110"], optional = true }
 prefix-trie.workspace = true
 rusqlite = { workspace = true, features = ["bundled", "time"], optional = true }

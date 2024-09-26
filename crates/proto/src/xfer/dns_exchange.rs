@@ -7,10 +7,10 @@
 
 //! This module contains all the types for demuxing DNS oriented streams.
 
-use std::future::Future;
-use std::marker::PhantomData;
-use std::pin::Pin;
-use std::task::{Context, Poll};
+use core::future::Future;
+use core::marker::PhantomData;
+use core::pin::Pin;
+use core::task::{Context, Poll};
 
 use futures_channel::mpsc;
 use futures_util::future::FutureExt;
@@ -18,13 +18,15 @@ use futures_util::stream::{Peekable, Stream, StreamExt};
 use tracing::{debug, warn};
 
 use crate::error::*;
-use crate::runtime::Time;
 use crate::xfer::dns_handle::DnsHandle;
 use crate::xfer::DnsResponseReceiver;
 use crate::xfer::{
     BufDnsRequestStreamHandle, DnsRequest, DnsRequestSender, DnsResponse, OneshotDnsRequest,
     CHANNEL_BUFFER_SIZE,
 };
+
+#[cfg(feature = "std")]
+use crate::runtime::Time;
 
 /// This is a generic Exchange implemented over multiplexed DNS connection providers.
 ///
@@ -73,6 +75,7 @@ impl DnsExchange {
     /// Returns a future, which itself wraps a future which is awaiting connection.
     ///
     /// The connect_future should be lazy.
+    #[cfg(feature = "std")]
     pub fn connect<F, S, TE>(connect_future: F) -> DnsExchangeConnect<F, S, TE>
     where
         F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
@@ -339,6 +342,7 @@ where
                         Poll::Pending => return Poll::Pending,
                         Poll::Ready(Err(error)) => {
                             debug!(error = error.as_dyn(), "stream errored while connecting");
+
                             next = Self::FailAll {
                                 error,
                                 outbound_messages: outbound_messages

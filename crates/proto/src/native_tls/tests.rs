@@ -12,7 +12,10 @@
     clippy::single_component_path_imports
 )]
 
-use std::env;
+use alloc::borrow::ToOwned;
+use alloc::string::ToString;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
 use std::fs::File;
 use std::io::{Read, Write};
 #[cfg(not(target_os = "linux"))]
@@ -20,7 +23,7 @@ use std::net::Ipv6Addr;
 use std::net::SocketAddr;
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::atomic;
-use std::sync::Arc;
+use std::{env, println};
 use std::{thread, time};
 
 use futures_util::stream::StreamExt;

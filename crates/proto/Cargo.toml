@@ -25,6 +25,20 @@ categories.workspace = true
 license.workspace = true
 
 [features]
+std = [
+    "data-encoding/std",
+    "futures-channel/std",
+    "futures-io/std",
+    "futures-util/std",
+    "ipnet/std",
+    "rand/std",
+    "ring/std",
+    "thiserror/std",
+    "tracing/std",
+    "tracing-subscriber/std",
+    "url/std",
+]
+
 dns-over-tls = []
 dns-over-rustls = [
     "dns-over-tls",
@@ -52,20 +66,20 @@ dns-over-quic = [
 dns-over-h3 = ["dep:h3", "dep:h3-quinn", "dep:quinn", "dep:http", "dns-over-quic"]
 
 native-certs = ["dep:rustls-native-certs"]
-dnssec = ["dep:bitflags", "dep:time"]
 
 dnssec-openssl = ["dnssec", "dep:openssl"]
 dnssec-ring = ["dnssec", "dep:ring"]
+dnssec = ["std", "dep:bitflags", "dep:time"]
 testing = []
 
 text-parsing = []
-tokio-runtime = ["tokio/net", "tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
-default = ["tokio-runtime"]
+tokio-runtime = ["tokio/net", "tokio/rt", "tokio/time", "tokio/rt-multi-thread", "std"]
+default = ["tokio-runtime", "std"]
 
 serde = ["dep:serde", "url/serde"]
 
 # enables experimental the mDNS (multicast) feature
-mdns = ["socket2/all"]
+mdns = ["socket2/all", "std"]
 
 wasm-bindgen = ["dep:wasm-bindgen-crate", "dep:js-sys"]
 
@@ -82,11 +96,17 @@ backtrace = { workspace = true, optional = true }
 bitflags = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
 cfg-if.workspace = true
-data-encoding.workspace = true
+const-random = { version = "0.1.15" }
+critical-section = { version = "1.1.1" }
+data-encoding = { workspace = true, features = ["alloc"] }
 enum-as-inner.workspace = true
-futures-channel = { workspace = true, default-features = false, features = ["std"] }
-futures-io = { workspace = true, default-features = false, features = ["std"] }
-futures-util = { workspace = true, default-features = false, features = ["std"] }
+futures-channel = { workspace = true, default-features = false, features = [
+    "alloc",
+] }
+futures-io = { workspace = true, default-features = false }
+futures-util = { workspace = true, default-features = false, features = [
+    "alloc",
+] }
 h2 = { workspace = true, features = ["stream"], optional = true }
 h3 = { workspace = true, optional = true }
 h3-quinn = { workspace = true, optional = true }
@@ -95,7 +115,7 @@ idna.workspace = true
 ipnet.workspace = true
 js-sys = { workspace = true, optional = true }
 native-tls = { workspace = true, optional = true }
-once_cell.workspace = true
+once_cell = { workspace = true, features = ["critical-section"] }
 openssl = { workspace = true, features = ["v102", "v110"], optional = true }
 pin-project-lite = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true, features = ["log", "runtime-tokio", "rustls"] }
@@ -109,7 +129,7 @@ socket2 = { workspace = true, optional = true }
 thiserror.workspace = true
 time = { workspace = true, optional = true }
 tinyvec = { workspace = true, features = ["alloc"] }
-tracing.workspace = true
+tracing = { workspace = true, default-features = false }
 tokio = { workspace = true, features = ["io-util", "macros"], optional = true }
 tokio-native-tls = { workspace = true, optional = true }
 tokio-openssl = { workspace = true, optional = true }

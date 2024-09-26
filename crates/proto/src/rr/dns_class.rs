@@ -8,9 +8,11 @@
 //! class of DNS operations, in general always IN for internet
 #![allow(clippy::use_self)]
 
-use std::cmp::Ordering;
-use std::fmt::{self, Display, Formatter};
-use std::str::FromStr;
+use alloc::{str::FromStr, string::ToString};
+use core::{
+    cmp::Ordering,
+    fmt::{self, Display, Formatter},
+};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -46,7 +48,8 @@ impl FromStr for DNSClass {
     /// Convert from `&str` to `DNSClass`
     ///
     /// ```
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::dns_class::DNSClass;
     ///
     /// let var: DNSClass = DNSClass::from_str("IN").unwrap();

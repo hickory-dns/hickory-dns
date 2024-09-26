@@ -5,11 +5,12 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use alloc::boxed::Box;
+use core::pin::Pin;
+use core::task::{Context, Poll};
 use std::fmt::{self, Display};
 use std::future::Future;
 use std::net::{Ipv4Addr, SocketAddr};
-use std::pin::Pin;
-use std::task::{Context, Poll};
 
 use futures_util::future::{FutureExt, TryFutureExt};
 use futures_util::stream::{Stream, StreamExt, TryStreamExt};

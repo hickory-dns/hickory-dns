@@ -1,19 +1,15 @@
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
-use std::str::FromStr;
+use crate::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
+use alloc::string::ToString;
+use std::println;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
-use std::time::Duration;
 
 use futures_util::stream::StreamExt;
 use tracing::debug;
 
-use crate::op::{Message, Query};
-use crate::rr::rdata::NULL;
-use crate::rr::{Name, RData, Record, RecordType};
 use crate::runtime::{Executor, RuntimeProvider};
 use crate::udp::{UdpClientStream, UdpStream};
 use crate::xfer::dns_handle::DnsStreamHandle;
-use crate::xfer::{DnsRequest, DnsRequestSender};
 use crate::xfer::{DnsRequestOptions, FirstAnswer, SerialMessage};
 
 /// Test next random udpsocket.
@@ -129,7 +125,14 @@ pub fn udp_client_stream_test<E: Executor>(
     mut exec: E,
     provider: impl RuntimeProvider,
 ) {
-    let succeeded = Arc::new(AtomicBool::new(false));
+    use crate::op::{Message, Query};
+    use crate::rr::rdata::NULL;
+    use crate::rr::{Name, RData, Record, RecordType};
+    use crate::xfer::{DnsRequest, DnsRequestSender};
+    use alloc::str::FromStr;
+    use std::time::Duration;
+
+    let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
     std::thread::Builder::new()
         .name("thread_killer".to_string())

@@ -7,8 +7,9 @@
 
 //! public key record data for signing zone records
 
-use std::fmt;
+use core::fmt;
 
+use alloc::vec::Vec;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -501,6 +502,10 @@ mod tests {
     #[test]
     #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
     fn test() {
+        use std::println;
+
+        use alloc::vec::Vec;
+
         let rdata = DNSKEY::new(
             true,
             true,

@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 //! signer is a structure for performing many of the signing processes of the DNSSEC specification
+use alloc::vec::Vec;
 use tracing::debug;
 
 #[cfg(feature = "dnssec")]
@@ -587,6 +588,10 @@ impl MessageFinalizer for SigSigner {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    use std::println;
+
+    use alloc::string::String;
+    use alloc::vec::Vec;
     use openssl::bn::BigNum;
     use openssl::pkey::Private;
     use openssl::rsa::Rsa;

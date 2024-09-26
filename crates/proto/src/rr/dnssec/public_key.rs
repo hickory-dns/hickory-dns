@@ -6,13 +6,13 @@
 // copied, modified, or distributed except according to those terms.
 
 //! Public Key implementations for supported key types
-#[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
-use std::marker::PhantomData;
 
+use alloc::vec::Vec;
+
+#[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
+use core::marker::PhantomData;
 #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
-use openssl::bn::BigNum;
-#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
-use openssl::bn::BigNumContext;
+use openssl::bn::{BigNum, BigNumContext};
 #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 use openssl::ec::{EcGroup, EcKey, EcPoint};
 #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
@@ -559,6 +559,8 @@ impl PublicKey for PublicKeyBuf {
 #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
+
     #[cfg(feature = "dnssec-openssl")]
     #[test]
     fn test_asn1_emit_integer() {

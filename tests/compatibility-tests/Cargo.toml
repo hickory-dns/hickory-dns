@@ -42,7 +42,7 @@ path = "src/lib.rs"
 
 [dependencies]
 data-encoding.workspace = true
-rand.workspace = true
+rand = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 futures.workspace = true

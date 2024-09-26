@@ -7,6 +7,7 @@
 
 //! HTTP/3 related server items
 
+use alloc::vec::Vec;
 use std::{io, net::SocketAddr, sync::Arc};
 
 use bytes::Bytes;

@@ -1,3 +1,4 @@
+use alloc::string::String;
 use core::str::FromStr as _;
 
 use crate::rr::dnssec::rdata::dnskey::DNSKEY;
@@ -61,6 +62,8 @@ fn is_bit_set(value: u16, bit: usize) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use alloc::string::ToString;
+
     use super::*;
 
     const DECODED: &[u8] = b"hello";

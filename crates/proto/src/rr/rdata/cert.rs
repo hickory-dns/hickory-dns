@@ -6,7 +6,10 @@
 // copied, modified, or distributed except according to those terms.
 
 //! CERT record type for storing certificates in DNS
-use std::fmt;
+use alloc::string::String;
+use alloc::string::ToString;
+use alloc::vec::Vec;
+use core::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

@@ -30,7 +30,7 @@
 //! the description of name server logic in [RFC-1034] for details.
 //! ```
 
-use std::{fmt, ops::Deref};
+use core::{fmt, ops::Deref};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -139,6 +139,11 @@ name_rdata!(ANAME);
 #[cfg(test)]
 mod tests {
 
+    #[cfg(feature = "std")]
+    use std::println;
+
+    use alloc::{string::ToString, vec::Vec};
+
     use super::*;
 
     #[test]
@@ -157,6 +162,7 @@ mod tests {
         assert!(emit(&mut encoder, &rdata).is_ok());
         let bytes = encoder.into_bytes();
 
+        #[cfg(feature = "std")]
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);

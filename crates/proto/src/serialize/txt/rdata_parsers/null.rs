@@ -16,6 +16,8 @@
 
 //! null record type, generally not used except as an internal tool for representing null data
 
+use alloc::string::ToString;
+
 use crate::rr::rdata::NULL;
 use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
 

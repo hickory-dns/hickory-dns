@@ -17,7 +17,9 @@
 
 use super::*;
 use crate::error::*;
-use std::fmt::Debug;
+use core::fmt::Debug;
+#[cfg(feature = "std")]
+use std::println;
 
 fn get_character_data() -> Vec<(&'static str, Vec<u8>)> {
     vec![
@@ -124,6 +126,7 @@ where
     F: Fn(BinDecoder<'_>) -> ProtoResult<E>,
 {
     for (test_pass, (expect, binary)) in data_set.into_iter().enumerate() {
+        #[cfg(feature = "std")]
         println!("test {test_pass}: {binary:?}");
 
         let decoder = BinDecoder::new(&binary);
@@ -137,6 +140,7 @@ where
     S: Debug,
 {
     for (test_pass, (data, expect)) in data_set.into_iter().enumerate() {
+        #[cfg(feature = "std")]
         println!("test {test_pass}: {data:?}");
 
         let mut bytes: Vec<u8> = Vec::with_capacity(512);

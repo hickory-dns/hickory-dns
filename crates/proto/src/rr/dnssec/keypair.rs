@@ -5,8 +5,10 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use alloc::vec::Vec;
+
 #[cfg(not(feature = "dnssec-openssl"))]
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 #[cfg(feature = "dnssec-openssl")]
 use openssl::bn::BigNumContext;
@@ -331,6 +333,8 @@ impl<K: HasPublic> KeyPair<K> {
         algorithm: Algorithm,
         digest_type: DigestType,
     ) -> DnsSecResult<DS> {
+        use alloc::borrow::ToOwned;
+
         self.to_dnskey(algorithm)
             .and_then(|dnskey| self.key_tag().map(|key_tag| (key_tag, dnskey)))
             .and_then(|(key_tag, dnskey)| {

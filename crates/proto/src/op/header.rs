@@ -7,7 +7,10 @@
 
 //! Message metadata
 
-use std::{convert::From, fmt};
+use core::{convert::From, fmt};
+
+#[cfg(test)]
+use alloc::vec::Vec;
 
 use crate::{
     error::*,

@@ -7,10 +7,12 @@
 
 //! TlsClientStream for DNS over TLS
 
+use core::pin::Pin;
 use std::future::Future;
 use std::net::SocketAddr;
-use std::pin::Pin;
 
+use alloc::boxed::Box;
+use alloc::string::String;
 use futures_util::TryFutureExt;
 use native_tls::Certificate;
 use tokio_native_tls::TlsStream as TokioTlsStream;

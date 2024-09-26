@@ -7,17 +7,19 @@
 
 //! domain name, aka labels, implementation
 
-use std::char;
-use std::cmp::{Ordering, PartialEq};
-use std::fmt::{self, Write};
-use std::hash::{Hash, Hasher};
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::str::FromStr;
+use core::char;
+use core::cmp::{Ordering, PartialEq};
+use core::fmt::{self, Write};
+use core::hash::{Hash, Hasher};
 
 use crate::error::*;
+use crate::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use crate::rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
 use crate::rr::domain::usage::LOCALHOST as LOCALHOST_usage;
 use crate::serialize::binary::*;
+#[cfg(feature = "serde")]
+use alloc::string::ToString;
+use alloc::{str::FromStr, string::String, vec::Vec};
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -57,6 +59,7 @@ impl Name {
     }
 
     /// Randomize the case of ASCII alpha characters in a name
+    #[cfg(feature = "std")]
     pub fn randomize_label_case(&mut self) {
         use rand::distributions::{Distribution, Standard};
         let mut rand = rand::thread_rng();
@@ -107,7 +110,8 @@ impl Name {
     /// # Examples
     ///
     /// ```
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::domain::Name;
     ///
     /// let name = Name::from_str("www").unwrap();
@@ -144,7 +148,8 @@ impl Name {
     /// # Example
     ///
     /// ```rust
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::domain::Name;
     ///
     /// let name = Name::from_str("www.example").unwrap();
@@ -187,7 +192,8 @@ impl Name {
     /// # Examples
     ///
     /// ```rust
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::domain::Name;
     ///
     /// // From strings, uses utf8 conversion
@@ -238,7 +244,8 @@ impl Name {
     /// # Examples
     ///
     /// ```rust
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::domain::Name;
     ///
     /// let local = Name::from_str("www").unwrap();
@@ -273,7 +280,8 @@ impl Name {
     /// # Examples
     ///
     /// ```rust
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::domain::Name;
     ///
     /// let local = Name::from_str("www").unwrap();
@@ -293,8 +301,9 @@ impl Name {
     /// # Examples
     ///
     /// ```
-    /// use std::cmp::Ordering;
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use core::cmp::Ordering;
+    /// use alloc::str::FromStr;
     ///
     /// use hickory_proto::rr::domain::{Label, Name};
     ///
@@ -320,7 +329,8 @@ impl Name {
     /// # Examples
     ///
     /// ```
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::domain::Name;
     ///
     /// let example_com = Name::from_str("example.com.").unwrap();
@@ -341,7 +351,8 @@ impl Name {
     /// # Examples
     ///
     /// ```
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::domain::Name;
     ///
     /// let example_com = Name::from_str("example.com.").unwrap();
@@ -392,7 +403,8 @@ impl Name {
     /// # Example
     ///
     /// ```rust
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::domain::Name;
     ///
     /// let name = Name::from_str("www.example.com").unwrap();
@@ -415,7 +427,8 @@ impl Name {
     /// # Examples
     ///
     /// ```
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::domain::Name;
     ///
     /// let root = Name::root();
@@ -446,7 +459,8 @@ impl Name {
     /// # Examples
     ///
     /// ```
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::domain::Name;
     ///
     /// assert_eq!(Name::from_str("www.example.com.").unwrap().len(), 16);
@@ -473,7 +487,8 @@ impl Name {
     /// # Examples
     ///
     /// ```rust
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::domain::Name;
     ///
     /// let name = Name::from_str("example.com.").unwrap();
@@ -523,7 +538,8 @@ impl Name {
     /// # Examples
     ///
     /// ```
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::Name;
     ///
     /// let bytes_name = Name::from_labels(vec!["WWW".as_bytes(), "example".as_bytes(), "COM".as_bytes()]).unwrap();
@@ -545,7 +561,8 @@ impl Name {
     /// # Examples
     ///
     /// ```
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::Name;
     ///
     /// // Ok, underscore in the beginning of a name
@@ -787,19 +804,19 @@ impl Name {
         let first = iter
             .next()
             .ok_or_else(|| ProtoError::from("not an arpa address"))?;
-        if !"arpa".eq_ignore_ascii_case(std::str::from_utf8(first)?) {
+        if !"arpa".eq_ignore_ascii_case(alloc::str::from_utf8(first)?) {
             return Err("not an arpa address".into());
         }
         let second = iter
             .next()
             .ok_or_else(|| ProtoError::from("invalid arpa address"))?;
         let mut prefix_len: u8 = 0;
-        match &std::str::from_utf8(second)?.to_ascii_lowercase()[..] {
+        match &alloc::str::from_utf8(second)?.to_ascii_lowercase()[..] {
             "in-addr" => {
                 let mut octets: [u8; 4] = [0; 4];
                 for octet in octets.iter_mut() {
                     match iter.next() {
-                        Some(label) => *octet = std::str::from_utf8(label)?.parse()?,
+                        Some(label) => *octet = alloc::str::from_utf8(label)?.parse()?,
                         None => break,
                     }
                     prefix_len += 8;
@@ -818,7 +835,7 @@ impl Name {
                         Some(label) => {
                             if label.len() == 1 {
                                 prefix_len += 4;
-                                let hex = u8::from_str_radix(std::str::from_utf8(label)?, 16)?;
+                                let hex = u8::from_str_radix(alloc::str::from_utf8(label)?, 16)?;
                                 address |= u128::from(hex) << (128 - prefix_len);
                             } else {
                                 return Err("invalid label length for ip6.arpa".into());
@@ -861,7 +878,8 @@ impl Name {
     /// # Example
     ///
     /// ```
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::Name;
     ///
     /// let name = Name::from_str("localhost").unwrap();
@@ -882,7 +900,8 @@ impl Name {
     /// # Example
     ///
     /// ```
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::Name;
     ///
     /// let name = Name::from_str("www.example.com").unwrap();
@@ -903,7 +922,8 @@ impl Name {
     /// # Example
     ///
     /// ```
-    /// use std::str::FromStr;
+    /// # extern crate alloc;
+    /// use alloc::str::FromStr;
     /// use hickory_proto::rr::Name;
     ///
     /// let name = Name::from_str("www.example.com").unwrap().into_wildcard();
@@ -935,8 +955,8 @@ impl Name {
     }
 }
 
-impl std::fmt::Debug for Name {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for Name {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str("Name(\"")?;
         self.write_labels::<_, LabelEncUtf8>(f)?;
         f.write_str("\")")
@@ -1401,9 +1421,13 @@ impl<'de> Deserialize<'de> for Name {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    use std::cmp::Ordering;
-    use std::iter;
-    use std::str::FromStr;
+    use alloc::str::FromStr;
+    use alloc::string::ToString;
+    use core::cmp::Ordering;
+    use core::iter;
+
+    #[cfg(feature = "std")]
+    use std::println;
 
     use super::*;
 
@@ -1631,6 +1655,7 @@ mod tests {
         ];
 
         for (left, right) in comparisons {
+            #[cfg(feature = "std")]
             println!("left: {left}, right: {right}");
             assert_eq!(left.partial_cmp(&right), Some(Ordering::Equal));
         }
@@ -1674,6 +1699,7 @@ mod tests {
         ];
 
         for (left, right) in comparisons {
+            #[cfg(feature = "std")]
             println!("left: {left}, right: {right}");
             assert_eq!(left.cmp(&right), Ordering::Less);
         }
@@ -1693,6 +1719,7 @@ mod tests {
         ];
 
         for (left, right) in comparisons {
+            #[cfg(feature = "std")]
             println!("left: {left}, right: {right}");
             assert_eq!(left, right);
         }
@@ -1978,6 +2005,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn test_label_randomization() {
         let mut name = Name::root();
         name.randomize_label_case();

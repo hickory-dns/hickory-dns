@@ -7,7 +7,8 @@
 
 #![allow(clippy::print_stdout)] // this is a test module
 
-use std::{env, net::SocketAddr, path::Path, str::FromStr, sync::Arc};
+use alloc::{borrow::ToOwned, string::ToString};
+use std::{env, net::SocketAddr, path::Path, println, str::FromStr, sync::Arc};
 
 use futures_util::StreamExt;
 use rustls::{ClientConfig, KeyLogFile};

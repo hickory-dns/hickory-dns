@@ -5,7 +5,9 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::marker::PhantomData;
+use core::marker::PhantomData;
+
+use alloc::vec::Vec;
 
 use crate::{
     error::{ProtoErrorKind, ProtoResult},
@@ -16,6 +18,8 @@ use super::BinEncodable;
 
 // this is private to make sure there is no accidental access to the inner buffer.
 mod private {
+    use alloc::vec::Vec;
+
     use crate::error::{ProtoErrorKind, ProtoResult};
 
     /// A wrapper for a buffer that guarantees writes never exceed a defined set of bytes
@@ -433,7 +437,7 @@ impl<'a> BinEncoder<'a> {
 
 /// A trait to return the size of a type as it will be encoded in DNS
 ///
-/// it does not necessarily equal `std::mem::size_of`, though it might, especially for primitives
+/// it does not necessarily equal `core::mem::size_of`, though it might, especially for primitives
 pub trait EncodedSize: BinEncodable {
     /// Return the size in bytes of the
     fn size_of() -> usize;
@@ -491,7 +495,7 @@ pub enum EncodeMode {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use alloc::str::FromStr;
 
     use super::*;
     use crate::{

@@ -76,6 +76,8 @@
 //!     `wildcard_encloser` == `*.soa.name`
 //!
 
+use alloc::{string::String, vec::Vec};
+
 use crate::{
     op::{Query, ResponseCode},
     rr::{

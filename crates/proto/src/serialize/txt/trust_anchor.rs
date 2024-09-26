@@ -3,7 +3,7 @@
 //! A trust anchor file largely adheres to the syntax of a zone file but may only contain
 //! DNSKEY or DS records. DS records are currently unsupported
 
-use std::{borrow::Cow, str::FromStr as _};
+use alloc::{borrow::Cow, str::FromStr, string::String, vec::Vec};
 
 use crate::{
     rr::{dnssec::rdata::DNSKEY, DNSClass, Name, RecordData, RecordType},
@@ -263,6 +263,8 @@ impl From<Token> for LexToken {
 
 #[cfg(test)]
 mod tests {
+    use std::vec::Vec;
+
     use crate::rr::dnssec::Algorithm;
 
     use super::*;
