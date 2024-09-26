@@ -167,7 +167,7 @@ async fn load_zone(
     }
 
     // load the zone
-    let authority = match zone_config.stores {
+    let authority: Arc<dyn AuthorityObject> = match zone_config.stores {
         #[cfg(feature = "sqlite")]
         Some(StoreConfig::Sqlite(ref config)) => {
             if zone_path.is_some() {
@@ -188,7 +188,7 @@ async fn load_zone(
 
             // load any keys for the Zone, if it is a dynamic update zone, then keys are required
             load_keys(&mut authority, zone_name_for_signer, zone_config).await?;
-            Arc::new(authority) as Arc<dyn AuthorityObject>
+            Arc::new(authority)
         }
         Some(StoreConfig::File(ref config)) => {
             if zone_path.is_some() {
