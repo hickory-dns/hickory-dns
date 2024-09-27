@@ -7,7 +7,7 @@ use hickory_proto::{
     serialize::binary::{BinDecodable, BinEncodable},
 };
 #[cfg(feature = "dnssec")]
-use hickory_server::{authority::Nsec3QueryInfo, config::dnssec::NxProofKind};
+use hickory_server::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use hickory_server::{
     authority::{
         Authority, Catalog, LookupControlFlow, LookupError, LookupObject, LookupOptions,

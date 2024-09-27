@@ -20,7 +20,7 @@ use crate::{
 };
 #[cfg(feature = "dnssec")]
 use crate::{
-    config::dnssec::NxProofKind,
+    dnssec::NxProofKind,
     proto::{
         error::ProtoResult,
         rr::{

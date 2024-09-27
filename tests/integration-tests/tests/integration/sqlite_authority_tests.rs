@@ -12,7 +12,7 @@ use hickory_proto::rr::*;
 use hickory_server::authority::LookupOptions;
 use hickory_server::authority::{Authority, ZoneType};
 #[cfg(feature = "dnssec")]
-use hickory_server::config::dnssec::NxProofKind;
+use hickory_server::dnssec::NxProofKind;
 use hickory_server::server::Protocol;
 use hickory_server::server::RequestInfo;
 use hickory_server::store::in_memory::InMemoryAuthority;

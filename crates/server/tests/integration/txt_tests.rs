@@ -7,7 +7,7 @@ use hickory_proto::rr::*;
 use hickory_proto::serialize::txt::*;
 use hickory_server::authority::{Authority, LookupOptions, ZoneType};
 #[cfg(feature = "dnssec")]
-use hickory_server::config::dnssec::NxProofKind;
+use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryAuthority;
 
 // TODO: split this test up to test each thing separately

@@ -22,12 +22,13 @@ use cfg_if::cfg_if;
 use ipnet::IpNet;
 use serde::{self, Deserialize};
 
-use crate::proto::error::ProtoResult;
-use crate::proto::rr::Name;
-
 use crate::authority::ZoneType;
+#[cfg(feature = "dnssec")]
+use crate::dnssec::NxProofKind;
 #[cfg(feature = "toml")]
 use crate::error::ConfigResult;
+use crate::proto::error::ProtoResult;
+use crate::proto::rr::Name;
 use crate::store::StoreConfigContainer;
 
 static DEFAULT_PATH: &str = "/var/named"; // TODO what about windows (do I care? ;)
@@ -251,7 +252,7 @@ pub struct ZoneConfig {
     pub stores: Option<StoreConfigContainer>,
     /// The kind of non-existence proof provided by the nameserver
     #[cfg(feature = "dnssec")]
-    pub nx_proof_kind: Option<dnssec::NxProofKind>,
+    pub nx_proof_kind: Option<NxProofKind>,
 }
 
 impl ZoneConfig {
@@ -276,7 +277,7 @@ impl ZoneConfig {
         allow_axfr: Option<bool>,
         enable_dnssec: Option<bool>,
         keys: Vec<dnssec::KeyConfig>,
-        #[cfg(feature = "dnssec")] nx_proof_kind: Option<dnssec::NxProofKind>,
+        #[cfg(feature = "dnssec")] nx_proof_kind: Option<NxProofKind>,
     ) -> Self {
         Self {
             zone,

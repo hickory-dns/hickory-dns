@@ -16,7 +16,7 @@ use tracing::{debug, error, info, trace, warn};
 #[cfg(feature = "dnssec")]
 use crate::{
     authority::Nsec3QueryInfo,
-    config::dnssec::NxProofKind,
+    dnssec::NxProofKind,
     proto::rr::{
         dnssec::{Algorithm, SupportedAlgorithms},
         rdata::opt::{EdnsCode, EdnsOption},
