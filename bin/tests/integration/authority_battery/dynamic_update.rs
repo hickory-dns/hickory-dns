@@ -767,8 +767,8 @@ pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys
 }
 
 pub fn add_auth<A: DnssecAuthority>(authority: &mut A) -> Vec<SigSigner> {
+    use hickory_dns::dnssec::KeyConfig;
     use hickory_proto::rr::dnssec::rdata::key::KeyUsage;
-    use hickory_server::config::dnssec::*;
 
     let update_name = Name::from_str("update")
         .unwrap()

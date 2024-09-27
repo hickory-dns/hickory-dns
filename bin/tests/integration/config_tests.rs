@@ -22,11 +22,12 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use hickory_server::authority::ZoneType;
-use hickory_server::config::*;
 use toml::map::Keys;
 use toml::value::Array;
 use toml::{Table, Value};
+
+use hickory_dns::{Config, ZoneConfig};
+use hickory_server::authority::ZoneType;
 
 #[test]
 fn test_read_config() {

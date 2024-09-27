@@ -60,16 +60,20 @@ path = "src/hickory-dns.rs"
 # - `suggestions` for advanced help with error in cli
 # - `derive` for clap derive api
 # - `help` to generate --help
+cfg-if.workspace = true
 clap = { workspace = true, default-features = false, features = ["cargo", "derive", "help", "std", "suggestions"] }
 futures-util = { workspace = true, default-features = false, features = ["std"] }
+ipnet = { workspace = true, features = ["serde"] }
 # rusqlite is actually only needed for test situations, but we need an optional dependency
 # here so we can disable it for MSRV tests (rusqlite only supports latest stable)
 rusqlite = { workspace = true, features = ["bundled", "time"], optional = true }
 rustls = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive"] }
 time.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 tokio = { workspace = true, features = ["time", "rt"] }
+toml.workspace = true
 hickory-client.workspace = true
 hickory-proto.workspace = true
 hickory-server = { workspace = true, features = ["toml"] }
