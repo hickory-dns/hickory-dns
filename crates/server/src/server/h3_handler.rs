@@ -11,9 +11,6 @@ use bytes::{Buf, Bytes};
 use futures_util::lock::Mutex;
 use h3::server::RequestStream;
 use h3_quinn::BidiStream;
-use hickory_proto::{
-    error::ProtoError, h3::h3_server::H3Connection, h3::H3Error, http::Version, rr::Record,
-};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, warn};
 
@@ -22,8 +19,15 @@ use crate::{
     authority::MessageResponse,
     server::{
         request_handler::RequestHandler, response_handler::ResponseHandler, server_future,
-        Protocol, ResponseInfo,
+        ResponseInfo,
     },
+};
+use hickory_proto::{
+    error::ProtoError,
+    h3::{h3_server::H3Connection, H3Error},
+    http::Version,
+    rr::Record,
+    xfer::Protocol,
 };
 
 pub(crate) async fn h3_handler<T>(

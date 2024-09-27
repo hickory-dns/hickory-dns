@@ -14,17 +14,15 @@ use std::io::*;
 use std::net::*;
 use std::sync::Arc;
 
-use hickory_server::server::Protocol;
 use rustls::pki_types::CertificateDer;
-use rustls::ClientConfig;
-use rustls::RootCertStore;
+use rustls::{ClientConfig, RootCertStore};
 use tokio::runtime::Runtime;
 
+use crate::server_harness::{named_test_harness, query_a};
 use hickory_client::client::AsyncClient;
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::rustls::tls_client_connect;
-
-use crate::server_harness::{named_test_harness, query_a};
+use hickory_proto::xfer::Protocol;
 
 #[test]
 fn test_example_tls_toml_startup() {

@@ -14,11 +14,11 @@ use hickory_proto::{
         },
         DNSClass, Name, RData, Record, RecordType,
     },
-    xfer,
+    xfer::{self, Protocol},
 };
 use hickory_server::{
     authority::{AuthLookup, Authority, DnssecAuthority, LookupOptions},
-    server::{Protocol, RequestInfo},
+    server::RequestInfo,
 };
 
 const TEST_HEADER: &Header = &Header::new();

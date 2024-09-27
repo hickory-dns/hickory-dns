@@ -10,11 +10,12 @@ use std::{io, net::SocketAddr};
 use hickory_proto::rr::Record;
 use tracing::{debug, trace};
 
-use crate::server::Protocol;
 use crate::{
     authority::MessageResponse,
     proto::{
-        serialize::binary::BinEncoder, xfer::SerialMessage, BufDnsStreamHandle, DnsStreamHandle,
+        serialize::binary::BinEncoder,
+        xfer::{Protocol, SerialMessage},
+        BufDnsStreamHandle, DnsStreamHandle,
     },
     server::ResponseInfo,
 };

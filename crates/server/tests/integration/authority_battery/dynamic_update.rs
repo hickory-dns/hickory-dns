@@ -10,19 +10,20 @@ use futures_executor::block_on;
 
 use hickory_proto::{
     op::{update_message, Header, Message, Query, ResponseCode},
-    rr::dnssec::{Algorithm, SigSigner, SupportedAlgorithms, Verifier},
     rr::{
+        dnssec::{Algorithm, SigSigner, SupportedAlgorithms, Verifier},
         rdata::{A as A4, AAAA},
         DNSClass, Name, RData, Record, RecordSet, RecordType,
     },
     serialize::binary::{BinDecodable, BinEncodable},
+    xfer::Protocol,
 };
 use hickory_server::{
     authority::{
         AuthLookup, Authority, DnssecAuthority, LookupError, LookupOptions, MessageRequest,
         UpdateResult,
     },
-    server::{Protocol, RequestInfo},
+    server::RequestInfo,
 };
 
 const TEST_HEADER: &Header = &Header::new();

@@ -5,6 +5,7 @@ use hickory_proto::{
     op::{Message, MessageType, Query, ResponseCode},
     rr::{rdata::A, LowerName, Name, RData, Record, RecordSet, RecordType},
     serialize::binary::{BinDecodable, BinEncodable},
+    xfer::Protocol,
 };
 #[cfg(feature = "dnssec")]
 use hickory_server::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
@@ -13,7 +14,7 @@ use hickory_server::{
         Authority, Catalog, LookupControlFlow, LookupError, LookupObject, LookupOptions,
         LookupRecords, MessageRequest, UpdateResult, ZoneType,
     },
-    server::{Protocol, Request, RequestInfo, ResponseInfo},
+    server::{Request, RequestInfo, ResponseInfo},
 };
 use test_support::subscribe;
 

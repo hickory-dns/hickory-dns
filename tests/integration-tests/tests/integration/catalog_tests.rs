@@ -4,6 +4,7 @@ use hickory_proto::{
     op::*,
     rr::{rdata::*, *},
     serialize::binary::{BinDecodable, BinEncodable},
+    xfer::Protocol,
 };
 #[cfg(any(
     feature = "dnssec",
@@ -13,7 +14,7 @@ use hickory_proto::{
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::{
     authority::{Authority, Catalog, MessageRequest, ZoneType},
-    server::{Protocol, Request},
+    server::Request,
     store::in_memory::InMemoryAuthority,
 };
 

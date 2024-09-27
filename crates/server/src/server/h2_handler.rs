@@ -19,9 +19,10 @@ use crate::{
     access::AccessControl,
     authority::MessageResponse,
     proto::h2::h2_server,
+    proto::xfer::Protocol,
     server::{
         request_handler::RequestHandler, response_handler::ResponseHandler, server_future,
-        Protocol, ResponseInfo,
+        ResponseInfo,
     },
 };
 

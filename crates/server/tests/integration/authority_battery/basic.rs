@@ -13,11 +13,12 @@ use hickory_proto::{
         Name, RData, Record, RecordType,
     },
     serialize::binary::BinDecodable,
+    xfer::Protocol,
 };
-use hickory_server::authority::{
-    AuthLookup, Authority, LookupError, LookupOptions, MessageRequest,
+use hickory_server::{
+    authority::{AuthLookup, Authority, LookupError, LookupOptions, MessageRequest},
+    server::RequestInfo,
 };
-use hickory_server::server::{Protocol, RequestInfo};
 
 const TEST_HEADER: &Header = &Header::new();
 
