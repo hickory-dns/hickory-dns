@@ -410,11 +410,10 @@ mod tests {
 
     use proto::op::Query;
     use proto::rr::{Name, RecordType};
-    use proto::xfer::{DnsHandle, DnsRequestOptions};
+    use proto::xfer::{DnsHandle, DnsRequestOptions, Protocol};
 
     use super::*;
     use crate::config::NameServerConfig;
-    use crate::config::Protocol;
     use crate::name_server::connection_provider::TokioConnectionProvider;
     use crate::name_server::GenericNameServer;
 
