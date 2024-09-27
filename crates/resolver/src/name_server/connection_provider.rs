@@ -224,12 +224,9 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
         let dns_connect = match (config.protocol, self.runtime_provider.quic_binder()) {
             (Protocol::Udp, _) => {
                 let provider_handle = self.runtime_provider.clone();
-                let stream = UdpClientStream::with_provider(
-                    config.socket_addr,
-                    None,
-                    options.timeout,
-                    provider_handle,
-                );
+                let stream = UdpClientStream::builder(config.socket_addr, provider_handle)
+                    .with_timeout(Some(options.timeout))
+                    .build();
                 let exchange = DnsExchange::connect(stream);
                 ConnectionConnect::Udp(exchange)
             }

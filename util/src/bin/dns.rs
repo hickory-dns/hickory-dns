@@ -254,7 +254,7 @@ async fn udp(opts: Opts, provider: impl RuntimeProvider) -> Result<(), Box<dyn s
     let nameserver = opts.nameserver;
 
     println!("; using udp:{nameserver}");
-    let stream = UdpClientStream::new(nameserver, provider);
+    let stream = UdpClientStream::builder(nameserver, provider).build();
     let (client, bg) = AsyncClient::connect(stream).await?;
     let handle = tokio::spawn(bg);
     handle_request(opts.class, opts.zone, opts.command, client).await?;

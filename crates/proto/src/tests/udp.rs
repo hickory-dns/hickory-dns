@@ -206,7 +206,9 @@ pub fn udp_client_stream_test<E: Executor>(
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5));
-    let stream = UdpClientStream::with_timeout(server_addr, Duration::from_millis(500), provider);
+    let stream = UdpClientStream::builder(server_addr, provider)
+        .with_timeout(Some(Duration::from_millis(500)))
+        .build();
     let mut stream = exec.block_on(stream).ok().unwrap();
     let mut worked_once = false;
 

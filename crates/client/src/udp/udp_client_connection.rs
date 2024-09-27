@@ -69,12 +69,10 @@ impl ClientConnection for UdpClientConnection {
     type SenderFuture = UdpClientConnect<TokioRuntimeProvider, Signer>;
 
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
-        UdpClientStream::with_timeout_and_signer_and_bind_addr(
-            self.name_server,
-            self.timeout,
-            signer,
-            self.bind_addr,
-            TokioRuntimeProvider::new(),
-        )
+        UdpClientStream::builder(self.name_server, TokioRuntimeProvider::new())
+            .with_signer(signer)
+            .with_timeout(Some(self.timeout))
+            .with_bind_addr(self.bind_addr)
+            .build()
     }
 }

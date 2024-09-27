@@ -57,7 +57,7 @@ fn wrap_process(named: Child, server_port: u16) -> NamedProcess {
             .unwrap()
             .next()
             .unwrap();
-        let stream = UdpClientStream::new(addr, provider.clone());
+        let stream = UdpClientStream::builder(addr, provider.clone()).build();
         let client = AsyncClient::connect(stream);
         let (mut client, bg) = io_loop.block_on(client).expect("failed to create client");
         io_loop.spawn(bg);
@@ -151,7 +151,7 @@ fn hickory_udp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let stream = UdpClientStream::new(addr, TokioRuntimeProvider::new());
+    let stream = UdpClientStream::builder(addr, TokioRuntimeProvider::new()).build();
     bench(b, stream);
 
     // cleaning up the named process
@@ -168,7 +168,7 @@ fn hickory_udp_bench_prof(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let stream = UdpClientStream::new(addr, TokioRuntimeProvider::new());
+    let stream = UdpClientStream::builder(addr, TokioRuntimeProvider::new()).build();
     bench(b, stream);
 }
 
@@ -239,7 +239,7 @@ fn bind_udp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let stream = UdpClientStream::new(addr, TokioRuntimeProvider::new());
+    let stream = UdpClientStream::builder(addr, TokioRuntimeProvider::new()).build();
     bench(b, stream);
 
     // cleaning up the named process
