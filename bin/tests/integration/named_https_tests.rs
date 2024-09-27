@@ -14,16 +14,16 @@ use std::io::*;
 use std::net::*;
 use std::sync::Arc;
 
-use hickory_client::client::*;
-use hickory_proto::h2::HttpsClientStreamBuilder;
-use hickory_proto::runtime::TokioRuntimeProvider;
-use hickory_server::server::Protocol;
 use rustls::pki_types::CertificateDer;
 use rustls::{ClientConfig, RootCertStore};
-use test_support::subscribe;
 use tokio::runtime::Runtime;
 
 use crate::server_harness::{named_test_harness, query_a};
+use hickory_client::client::*;
+use hickory_proto::h2::HttpsClientStreamBuilder;
+use hickory_proto::runtime::TokioRuntimeProvider;
+use hickory_proto::xfer::Protocol;
+use test_support::subscribe;
 
 #[test]
 fn test_example_https_toml_startup() {

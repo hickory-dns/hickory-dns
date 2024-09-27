@@ -10,14 +10,14 @@
 
 use std::{env, fs::File, io::*, net::*, sync::Arc};
 
-use hickory_client::client::*;
-use hickory_proto::quic::QuicClientStream;
-use hickory_server::server::Protocol;
 use rustls::{pki_types::CertificateDer, ClientConfig, RootCertStore};
-use test_support::subscribe;
 use tokio::runtime::Runtime;
 
 use crate::server_harness::{named_test_harness, query_a};
+use hickory_client::client::*;
+use hickory_proto::quic::QuicClientStream;
+use hickory_proto::xfer::Protocol;
+use test_support::subscribe;
 
 #[test]
 fn test_example_quic_toml_startup() {

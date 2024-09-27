@@ -17,7 +17,7 @@ use hickory_client::{client::*, error::ClientError, proto::xfer::DnsResponse};
 #[cfg(feature = "dnssec")]
 use hickory_proto::rr::dnssec::*;
 use hickory_proto::rr::{rdata::A, *};
-use hickory_server::server::Protocol;
+use hickory_proto::xfer::Protocol;
 use regex::Regex;
 use tokio::runtime::Runtime;
 use tracing::{info, warn};

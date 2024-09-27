@@ -35,10 +35,10 @@ use crate::{
         serialize::binary::{BinDecodable, BinDecoder},
         tcp::TcpStream,
         udp::UdpStream,
-        xfer::SerialMessage,
+        xfer::{Protocol, SerialMessage},
         BufDnsStreamHandle,
     },
-    server::{Protocol, Request, RequestHandler, ResponseHandle, ResponseHandler, TimeoutStream},
+    server::{Request, RequestHandler, ResponseHandle, ResponseHandler, TimeoutStream},
 };
 
 // TODO, would be nice to have a Slab for buffers here...

@@ -31,12 +31,15 @@ use hickory_proto::{
     rr::Record,
     runtime::TokioTime,
     serialize::binary::{BinDecodable, BinDecoder, BinEncoder},
-    xfer::{DnsClientStream, DnsMultiplexer, DnsMultiplexerConnect, SerialMessage, StreamReceiver},
+    xfer::{
+        DnsClientStream, DnsMultiplexer, DnsMultiplexerConnect, Protocol, SerialMessage,
+        StreamReceiver,
+    },
     BufDnsStreamHandle,
 };
 use hickory_server::{
     authority::{Catalog, MessageRequest, MessageResponse},
-    server::{Protocol, Request, RequestHandler, ResponseHandler, ResponseInfo},
+    server::{Request, RequestHandler, ResponseHandler, ResponseInfo},
 };
 
 pub mod example_authority;

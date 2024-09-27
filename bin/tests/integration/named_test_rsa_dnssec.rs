@@ -8,16 +8,15 @@ use std::net::*;
 use std::path::Path;
 use std::sync::Arc;
 
+use tokio::runtime::Runtime;
+
+use crate::server_harness::*;
 use hickory_client::client::{Signer, *};
 use hickory_proto::rr::dnssec::*;
 use hickory_proto::runtime::{RuntimeProvider, TokioRuntimeProvider, TokioTime};
 use hickory_proto::tcp::TcpClientStream;
-use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
+use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer, Protocol};
 use hickory_proto::DnssecDnsHandle;
-use hickory_server::server::Protocol;
-use tokio::runtime::Runtime;
-
-use crate::server_harness::*;
 
 #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 fn confg_toml() -> &'static str {

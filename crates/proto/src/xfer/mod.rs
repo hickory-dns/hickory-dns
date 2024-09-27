@@ -300,7 +300,7 @@ where
 }
 
 /// The protocol on which a NameServer should be communicated with
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serde",
     derive(Serialize, Deserialize),

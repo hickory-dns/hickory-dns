@@ -20,10 +20,10 @@ use tracing::{debug, warn};
 use crate::{
     access::AccessControl,
     authority::MessageResponse,
-    proto::quic::QuicStreams,
+    proto::{quic::QuicStreams, xfer::Protocol},
     server::{
         request_handler::RequestHandler, response_handler::ResponseHandler, server_future,
-        Protocol, ResponseInfo,
+        ResponseInfo,
     },
 };
 

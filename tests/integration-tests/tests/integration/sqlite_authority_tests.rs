@@ -8,12 +8,12 @@ use hickory_proto::op::*;
 use hickory_proto::rr::dnssec::*;
 use hickory_proto::rr::rdata::*;
 use hickory_proto::rr::*;
+use hickory_proto::xfer::Protocol;
 
 use hickory_server::authority::LookupOptions;
 use hickory_server::authority::{Authority, ZoneType};
 #[cfg(feature = "dnssec")]
 use hickory_server::dnssec::NxProofKind;
-use hickory_server::server::Protocol;
 use hickory_server::server::RequestInfo;
 use hickory_server::store::in_memory::InMemoryAuthority;
 use hickory_server::store::sqlite::{Journal, SqliteAuthority};

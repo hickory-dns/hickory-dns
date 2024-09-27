@@ -11,8 +11,11 @@ use std::net::SocketAddr;
 
 use crate::{
     authority::MessageRequest,
-    proto::op::{Header, LowerQuery, ResponseCode},
-    server::{Protocol, ResponseHandler},
+    proto::{
+        op::{Header, LowerQuery, ResponseCode},
+        xfer::Protocol,
+    },
+    server::ResponseHandler,
 };
 
 /// An incoming request to the DNS catalog
@@ -151,10 +154,8 @@ pub trait RequestHandler: Send + Sync + Unpin + 'static {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::proto::op::{Header, Query};
-    use crate::server::Protocol;
-
-    use super::RequestInfo;
 
     #[test]
     fn request_info_clone() {

@@ -9,18 +9,17 @@ use std::io::Write;
 use std::net::*;
 use std::str::FromStr;
 
+use tokio::runtime::Runtime;
+
+use crate::server_harness::{named_test_harness, query_a, query_a_refused};
+use hickory_client::client::{AsyncClient, ClientHandle};
 use hickory_proto::op::ResponseCode;
 use hickory_proto::rr::{DNSClass, Name, RecordType};
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
-
-use hickory_client::client::{AsyncClient, ClientHandle};
-use hickory_server::server::Protocol;
+use hickory_proto::xfer::Protocol;
 use test_support::subscribe;
-use tokio::runtime::Runtime;
-
-use crate::server_harness::{named_test_harness, query_a, query_a_refused};
 
 #[test]
 fn test_example_toml_startup() {
