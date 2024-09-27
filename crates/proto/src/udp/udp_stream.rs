@@ -80,18 +80,22 @@ pub struct UdpStream<P: RuntimeProvider> {
 }
 
 impl<P: RuntimeProvider> UdpStream<P> {
-    /// This method is intended for client connections, see `with_bound` for a method better for
-    ///  straight listening. It is expected that the resolver wrapper will be responsible for
+    /// This method is intended for client connections, see [`Self::with_bound`] for a method better
+    ///  for straight listening. It is expected that the resolver wrapper will be responsible for
     ///  creating and managing new UdpStreams such that each new client would have a random port
-    ///  (reduce chance of cache poisoning). This will return a randomly assigned local port.
+    ///  (reduce chance of cache poisoning). This will return a randomly assigned local port, unless
+    ///  a nonzero port number is specified in `bind_addr`.
     ///
     /// # Arguments
     ///
     /// * `remote_addr` - socket address for the remote connection (used to determine IPv4 or IPv6)
+    /// * `bind_addr` - optional local socket address to connect from (if a nonzero port number is
+    ///                 specified, it will be used instead of randomly selecting a port)
+    /// * `provider` - async runtime provider, for I/O and timers
     ///
     /// # Return
     ///
-    /// a tuple of a Future Stream which will handle sending and receiving messages, and a
+    /// A tuple of a Future of a Stream which will handle sending and receiving messages, and a
     ///  handle which can be used to send messages into the stream.
     #[allow(clippy::type_complexity)]
     pub fn new(
@@ -104,7 +108,6 @@ impl<P: RuntimeProvider> UdpStream<P> {
     ) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(remote_addr);
 
-        // TODO: allow the bind address to be specified...
         // constructs a future for getting the next randomly bound port to a UdpSocket
         let next_socket = NextRandomUdpSocket::new(remote_addr, bind_addr, provider);
 
@@ -121,8 +124,8 @@ impl<P: RuntimeProvider> UdpStream<P> {
 
 impl<P: RuntimeProvider> UdpStream<P> {
     /// Initialize the Stream with an already bound socket. Generally this should be only used for
-    ///  server listening sockets. See `new` for a client oriented socket. Specifically, this there
-    ///  is already a bound socket in this context, whereas `new` makes sure to randomize ports
+    ///  server listening sockets. See [`Self::new`] for a client oriented socket. Specifically,
+    ///  this requires there is already a bound socket, whereas `new` makes sure to randomize ports
     ///  for additional cache poison prevention.
     ///
     /// # Arguments
@@ -132,8 +135,8 @@ impl<P: RuntimeProvider> UdpStream<P> {
     ///
     /// # Return
     ///
-    /// a tuple of a Future Stream which will handle sending and receiving messages, and a
-    ///  handle which can be used to send messages into the stream.
+    /// A tuple of a Stream which will handle sending and receiving messages, and a handle which can
+    ///  be used to send messages into the stream.
     pub fn with_bound(socket: P::Udp, remote_addr: SocketAddr) -> (Self, BufDnsStreamHandle) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(remote_addr);
         let stream = Self {
@@ -301,7 +304,7 @@ const ATTEMPT_RANDOM: usize = 10;
 #[cfg(feature = "tokio-runtime")]
 #[async_trait]
 impl UdpSocket for tokio::net::UdpSocket {
-    /// setups up a "client" udp connection that will only receive packets from the associated address
+    /// sets up up a "client" udp connection that will only receive packets from the associated address
     ///
     /// if the addr is ipv4 then it will bind local addr to 0.0.0.0:0, ipv6 \[::\]0
     async fn connect(addr: SocketAddr) -> io::Result<Self> {
