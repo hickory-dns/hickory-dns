@@ -14,8 +14,8 @@ use hickory_integration::mock_client::*;
 use hickory_proto::error::{ProtoError, ProtoErrorKind};
 use hickory_proto::op::{Query, ResponseCode};
 use hickory_proto::rr::{Name, RecordType};
-use hickory_proto::xfer::{DnsHandle, DnsResponse, FirstAnswer};
-use hickory_resolver::config::*;
+use hickory_proto::xfer::{DnsHandle, DnsResponse, FirstAnswer, Protocol};
+use hickory_resolver::config::{NameServerConfig, ResolverOpts, ServerOrderingStrategy};
 use hickory_resolver::name_server::{NameServer, NameServerPool};
 
 const DEFAULT_SERVER_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));

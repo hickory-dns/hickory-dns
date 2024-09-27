@@ -4,7 +4,7 @@
 //!
 //! TODO: this module needs some serious refactoring and normalization.
 
-use std::fmt::{Debug, Display};
+use std::fmt::{self, Debug, Display};
 use std::future::Future;
 use std::net::SocketAddr;
 use std::pin::Pin;
@@ -14,6 +14,8 @@ use futures_channel::mpsc;
 use futures_channel::oneshot;
 use futures_util::ready;
 use futures_util::stream::{Fuse, Peekable, Stream, StreamExt};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
 use crate::error::{ProtoError, ProtoErrorKind};
@@ -294,5 +296,102 @@ where
         };
         self.stream.take();
         Poll::Ready(item)
+    }
+}
+
+/// The protocol on which a NameServer should be communicated with
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "serde",
+    derive(Serialize, Deserialize),
+    serde(rename_all = "lowercase")
+)]
+#[non_exhaustive]
+pub enum Protocol {
+    /// UDP is the traditional DNS port, this is generally the correct choice
+    Udp,
+    /// TCP can be used for large queries, but not all NameServers support it
+    Tcp,
+    /// Tls for DNS over TLS
+    #[cfg(feature = "dns-over-tls")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-tls")))]
+    Tls,
+    /// Https for DNS over HTTPS
+    #[cfg(feature = "dns-over-https-rustls")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https-rustls")))]
+    Https,
+    /// QUIC for DNS over QUIC
+    #[cfg(feature = "dns-over-quic")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-quic")))]
+    Quic,
+    /// HTTP/3 for DNS over HTTP/3
+    #[cfg(feature = "dns-over-h3")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-h3")))]
+    H3,
+}
+
+impl fmt::Display for Protocol {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let protocol = match self {
+            Self::Udp => "udp",
+            Self::Tcp => "tcp",
+            #[cfg(feature = "dns-over-tls")]
+            Self::Tls => "tls",
+            #[cfg(feature = "dns-over-https-rustls")]
+            Self::Https => "https",
+            #[cfg(feature = "dns-over-quic")]
+            Self::Quic => "quic",
+            #[cfg(feature = "dns-over-h3")]
+            Self::H3 => "h3",
+        };
+
+        f.write_str(protocol)
+    }
+}
+
+impl Protocol {
+    /// Returns true if this is a datagram oriented protocol, e.g. UDP
+    pub fn is_datagram(self) -> bool {
+        match self {
+            Self::Udp => true,
+            Self::Tcp => false,
+            #[cfg(feature = "dns-over-tls")]
+            Self::Tls => false,
+            #[cfg(feature = "dns-over-https-rustls")]
+            Self::Https => false,
+            // TODO: if you squint, this is true...
+            #[cfg(feature = "dns-over-quic")]
+            Self::Quic => true,
+            #[cfg(feature = "dns-over-h3")]
+            Self::H3 => true,
+        }
+    }
+
+    /// Returns true if this is a stream oriented protocol, e.g. TCP
+    pub fn is_stream(self) -> bool {
+        !self.is_datagram()
+    }
+
+    /// Is this an encrypted protocol, i.e. TLS or HTTPS
+    pub fn is_encrypted(self) -> bool {
+        match self {
+            Self::Udp => false,
+            Self::Tcp => false,
+            #[cfg(feature = "dns-over-tls")]
+            Self::Tls => true,
+            #[cfg(feature = "dns-over-https-rustls")]
+            Self::Https => true,
+            #[cfg(feature = "dns-over-quic")]
+            Self::Quic => true,
+            #[cfg(feature = "dns-over-h3")]
+            Self::H3 => true,
+        }
+    }
+}
+
+impl Default for Protocol {
+    /// Default protocol should be UDP, which is supported by all DNS servers
+    fn default() -> Self {
+        Self::Udp
     }
 }

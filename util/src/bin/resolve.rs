@@ -32,18 +32,20 @@ use std::{
 
 use clap::{ArgGroup, Parser};
 use console::style;
-use hickory_proto::error::{ProtoError, ProtoErrorKind};
 use tokio::task::JoinSet;
+use tokio::time::MissedTickBehavior;
 
-use hickory_proto::rr::{Record, RecordData};
+use hickory_proto::{
+    error::{ProtoError, ProtoErrorKind},
+    rr::{Record, RecordData, RecordType},
+    xfer::Protocol,
+};
 use hickory_resolver::{
-    config::{NameServerConfig, NameServerConfigGroup, Protocol, ResolverConfig, ResolverOpts},
+    config::{NameServerConfig, NameServerConfigGroup, ResolverConfig, ResolverOpts},
     error::ResolveError,
     lookup::Lookup,
-    proto::rr::RecordType,
     TokioAsyncResolver,
 };
-use tokio::time::MissedTickBehavior;
 
 /// A CLI interface for the hickory-resolver.
 ///

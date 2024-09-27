@@ -30,10 +30,11 @@ use clap::Parser;
 use console::style;
 
 use hickory_proto::op::Query;
+use hickory_proto::rr::RecordType;
+use hickory_proto::xfer::Protocol;
 use hickory_recursor::Recursor;
 use hickory_resolver::{
-    config::{NameServerConfig, NameServerConfigGroup, Protocol},
-    proto::rr::RecordType,
+    config::{NameServerConfig, NameServerConfigGroup},
     Name,
 };
 

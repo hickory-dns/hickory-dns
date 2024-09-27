@@ -235,10 +235,9 @@ mod tests {
 
     use proto::op::{Query, ResponseCode};
     use proto::rr::{Name, RecordType};
-    use proto::xfer::{DnsHandle, DnsRequestOptions, FirstAnswer};
+    use proto::xfer::{DnsHandle, DnsRequestOptions, FirstAnswer, Protocol};
 
     use super::*;
-    use crate::config::Protocol;
     use crate::name_server::connection_provider::TokioConnectionProvider;
 
     #[test]

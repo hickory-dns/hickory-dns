@@ -19,10 +19,11 @@ use crate::{
     proto::{
         op::{Query, ResponseCode},
         rr::{LowerName, Name, Record, RecordType},
+        xfer::Protocol,
     },
     recursor::Recursor,
     resolver::{
-        config::{NameServerConfig, NameServerConfigGroup, Protocol},
+        config::{NameServerConfig, NameServerConfigGroup},
         lookup::Lookup,
     },
     server::RequestInfo,

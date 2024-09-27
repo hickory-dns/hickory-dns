@@ -32,7 +32,7 @@ use tokio_openssl::SslStream as TokioTlsStream;
 #[cfg(feature = "dns-over-rustls")]
 use tokio_rustls::client::TlsStream as TokioTlsStream;
 
-use crate::config::{NameServerConfig, Protocol, ResolverOpts};
+use crate::config::{NameServerConfig, ResolverOpts};
 #[cfg(feature = "dns-over-https-rustls")]
 use proto::h2::{HttpsClientConnect, HttpsClientStream};
 #[cfg(feature = "dns-over-h3")]
@@ -53,7 +53,7 @@ use proto::{
     udp::{UdpClientConnect, UdpClientStream},
     xfer::{
         DnsExchange, DnsExchangeConnect, DnsExchangeSend, DnsHandle, DnsMultiplexer,
-        DnsMultiplexerConnect, DnsRequest, DnsResponse,
+        DnsMultiplexerConnect, DnsRequest, DnsResponse, Protocol,
     },
 };
 
@@ -360,7 +360,6 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 );
                 ConnectionConnect::H3(exchange)
             }
-            #[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
             (protocol, _) => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
