@@ -410,7 +410,6 @@ fn server_thread_tls(
     cert_chain: (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>),
     io_loop: Runtime,
 ) {
-    use hickory_server::config::dnssec::{self, CertType, PrivateKeyType, TlsCertConfig};
     use std::path::Path;
 
     let catalog = new_catalog();

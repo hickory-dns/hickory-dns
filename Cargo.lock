@@ -849,6 +849,7 @@ dependencies = [
 name = "hickory-dns"
 version = "0.25.0-alpha.2"
 dependencies = [
+ "cfg-if",
  "clap",
  "futures-executor",
  "futures-util",
@@ -856,10 +857,12 @@ dependencies = [
  "hickory-proto",
  "hickory-resolver",
  "hickory-server",
+ "ipnet",
  "native-tls",
  "regex",
  "rusqlite",
  "rustls",
+ "serde",
  "test-support",
  "time",
  "tokio",

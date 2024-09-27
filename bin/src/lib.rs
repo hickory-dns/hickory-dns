@@ -9,9 +9,7 @@
 
 pub mod dnssec;
 
-#[cfg(feature = "toml")]
 use std::fs::File;
-#[cfg(feature = "toml")]
 use std::io::Read;
 use std::net::{AddrParseError, Ipv4Addr, Ipv6Addr};
 use std::path::{Path, PathBuf};
@@ -22,14 +20,13 @@ use cfg_if::cfg_if;
 use ipnet::IpNet;
 use serde::{self, Deserialize};
 
-use crate::authority::ZoneType;
+use hickory_proto::error::ProtoResult;
+use hickory_proto::rr::Name;
+use hickory_server::authority::ZoneType;
 #[cfg(feature = "dnssec")]
-use crate::dnssec::NxProofKind;
-#[cfg(feature = "toml")]
-use crate::error::ConfigResult;
-use crate::proto::error::ProtoResult;
-use crate::proto::rr::Name;
-use crate::store::StoreConfigContainer;
+use hickory_server::dnssec::NxProofKind;
+use hickory_server::error::ConfigResult;
+use hickory_server::store::StoreConfigContainer;
 
 static DEFAULT_PATH: &str = "/var/named"; // TODO what about windows (do I care? ;)
 static DEFAULT_PORT: u16 = 53;
@@ -79,7 +76,7 @@ pub struct Config {
     #[serde(default)]
     zones: Vec<ZoneConfig>,
     /// Certificate to associate to TLS connections (currently the same is used for HTTPS and TLS)
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dns-over-tls")]
     tls_cert: Option<dnssec::TlsCertConfig>,
     /// The HTTP endpoint where the DNS-over-HTTPS server provides service. Applicable
     /// to both HTTP/2 and HTTP/3 servers. Typically `/dns-query`.
@@ -95,7 +92,6 @@ pub struct Config {
 
 impl Config {
     /// read a Config file from the file specified at path.
-    #[cfg(feature = "toml")]
     pub fn read_config(path: &Path) -> ConfigResult<Self> {
         let mut file = File::open(path)?;
         let mut toml = String::new();
@@ -104,7 +100,6 @@ impl Config {
     }
 
     /// Read a [`Config`] from the given TOML string.
-    #[cfg(feature = "toml")]
     pub fn from_toml(toml: &str) -> ConfigResult<Self> {
         Ok(toml::from_str(toml)?)
     }
@@ -201,7 +196,7 @@ impl Config {
     /// the tls certificate to use for accepting tls connections
     pub fn get_tls_cert(&self) -> Option<&dnssec::TlsCertConfig> {
         cfg_if! {
-            if #[cfg(feature = "dnssec")] {
+            if #[cfg(feature = "dns-over-tls")] {
                 self.tls_cert.as_ref()
             } else {
                 None
@@ -344,11 +339,11 @@ impl ZoneConfig {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "toml")]
+    #[cfg(feature = "recursor")]
     #[test]
     fn example_recursor_config() {
         toml::from_str::<super::Config>(include_str!(
-            "../../../../tests/test-data/test_configs/example_recursor.toml"
+            "../../tests/test-data/test_configs/example_recursor.toml"
         ))
         .unwrap();
     }

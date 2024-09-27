@@ -56,7 +56,6 @@ pub use hickory_resolver as resolver;
 
 mod access;
 pub mod authority;
-pub mod config;
 pub mod error;
 pub mod server;
 pub mod store;

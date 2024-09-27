@@ -369,7 +369,7 @@ pub fn verify(records: &[&Record], rrsig_records: &[Record<RRSIG>], keys: &[DNSK
 }
 
 pub fn add_signers<A: DnssecAuthority>(authority: &mut A) -> Vec<DNSKEY> {
-    use hickory_server::config::dnssec::*;
+    use hickory_dns::dnssec::KeyConfig;
     let signer_name = Name::from(authority.origin().to_owned());
 
     let mut keys = Vec::<DNSKEY>::new();

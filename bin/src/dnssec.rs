@@ -15,13 +15,13 @@ use openssl::{pkey::PKey, stack::Stack, x509::X509};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use serde::Deserialize;
 
-use crate::proto::rr::domain::Name;
+use hickory_proto::rr::domain::Name;
 #[cfg(feature = "dnssec")]
-use crate::proto::rr::{
+use hickory_proto::rr::{
     dnssec::{Algorithm, KeyFormat, KeyPair, Private, SigSigner},
     domain::IntoName,
 };
-use crate::proto::serialize::txt::ParseResult;
+use hickory_proto::serialize::txt::ParseResult;
 
 /// Key pair configuration for DNSSEC keys for signing a zone
 #[derive(Deserialize, PartialEq, Eq, Debug)]
@@ -81,7 +81,7 @@ impl KeyConfig {
     #[cfg(any(feature = "dns-over-tls", feature = "dnssec"))]
     #[cfg_attr(docsrs, doc(cfg(any(feature = "dns-over-tls", feature = "dnssec"))))]
     pub fn format(&self) -> ParseResult<KeyFormat> {
-        use crate::proto::serialize::txt::ParseErrorKind;
+        use hickory_proto::serialize::txt::ParseErrorKind;
 
         let extension = self.key_path().extension().ok_or_else(|| {
             ParseErrorKind::Msg(format!(
@@ -383,7 +383,7 @@ pub fn load_cert(
 ) -> Result<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>), String> {
     use tracing::{info, warn};
 
-    use crate::proto::rustls::tls_server::{read_cert, read_key, read_key_from_der};
+    use hickory_proto::rustls::tls_server::{read_cert, read_key, read_key_from_der};
 
     let path = zone_dir.to_owned().join(tls_cert_config.get_path());
     let cert_type = tls_cert_config.get_cert_type();

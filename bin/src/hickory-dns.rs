@@ -57,9 +57,10 @@ use tracing_subscriber::{
     util::SubscriberInitExt,
 };
 
-use hickory_proto::rr::Name;
 #[cfg(feature = "dns-over-tls")]
-use hickory_server::config::dnssec::{self, TlsCertConfig};
+use hickory_dns::dnssec::{self, TlsCertConfig};
+use hickory_dns::{Config, ZoneConfig};
+use hickory_proto::rr::Name;
 #[cfg(feature = "resolver")]
 use hickory_server::store::forwarder::ForwardAuthority;
 #[cfg(feature = "recursor")]
@@ -68,7 +69,6 @@ use hickory_server::store::recursor::RecursiveAuthority;
 use hickory_server::store::sqlite::{SqliteAuthority, SqliteConfig};
 use hickory_server::{
     authority::{AuthorityObject, Catalog, ZoneType},
-    config::{Config, ZoneConfig},
     server::ServerFuture,
     store::{
         file::{FileAuthority, FileConfig},
