@@ -26,8 +26,9 @@ use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, 
 
 /// A UDP client stream of DNS binary packets
 ///
-/// This stream will create a new UDP socket for every request. This is to avoid potential cache
-///   poisoning during use by UDP based attacks.
+/// It is expected that the resolver wrapper will be responsible for creating and managing a new UDP
+/// client stream such that each request would have a random port. This is to avoid potential cache
+/// poisoning due to UDP spoofing attacks.
 #[must_use = "futures do nothing unless polled"]
 pub struct UdpClientStream<P, MF = NoopMessageFinalizer>
 where
@@ -48,8 +49,7 @@ impl<P: RuntimeProvider> UdpClientStream<P, NoopMessageFinalizer> {
     ///
     /// # Return
     ///
-    /// a tuple of a Future Stream which will handle sending and receiving messages, and a
-    ///  handle which can be used to send messages into the stream.
+    /// A Future of a Stream which will handle sending and receiving messages.
     #[allow(clippy::new_ret_no_self)]
     pub fn new(name_server: SocketAddr, provider: P) -> UdpClientConnect<P> {
         Self::with_timeout(name_server, Duration::from_secs(5), provider)
@@ -61,6 +61,7 @@ impl<P: RuntimeProvider> UdpClientStream<P, NoopMessageFinalizer> {
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
     /// * `timeout` - connection timeout
+    /// * `provider` - async runtime provider, for I/O and timers
     pub fn with_timeout(
         name_server: SocketAddr,
         timeout: Duration,
@@ -76,6 +77,7 @@ impl<P: RuntimeProvider> UdpClientStream<P, NoopMessageFinalizer> {
     /// * `name_server` - the IP and Port of the DNS server to connect to
     /// * `bind_addr` - the IP and port to connect from
     /// * `timeout` - connection timeout
+    /// * `provider` - async runtime provider, for I/O and timers
     pub fn with_bind_addr_and_timeout(
         name_server: SocketAddr,
         bind_addr: Option<SocketAddr>,
@@ -93,6 +95,8 @@ impl<P: RuntimeProvider, MF: MessageFinalizer> UdpClientStream<P, MF> {
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
     /// * `timeout` - connection timeout
+    /// * `signer` - optional final amendment
+    /// * `provider` - async runtime provider, for I/O and timers
     pub fn with_timeout_and_signer(
         name_server: SocketAddr,
         timeout: Duration,
@@ -114,7 +118,9 @@ impl<P: RuntimeProvider, MF: MessageFinalizer> UdpClientStream<P, MF> {
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
     /// * `timeout` - connection timeout
+    /// * `signer` - optional final amendment
     /// * `bind_addr` - the IP address and port to connect from
+    /// * `provider` - async runtime provider, for I/O and timers
     pub fn with_timeout_and_signer_and_bind_addr(
         name_server: SocketAddr,
         timeout: Duration,
@@ -140,7 +146,7 @@ impl<P: RuntimeProvider, MF: MessageFinalizer> UdpClientStream<P, MF> {
     /// * `name_server` - the IP and Port of the DNS server to connect to
     /// * `signer` - optional final amendment
     /// * `timeout` - connection timeout
-    /// * `creator` - function that binds a local address to a newly created UDP socket
+    /// * `provider` - async runtime provider, for I/O and timers
     pub fn with_provider(
         name_server: SocketAddr,
         signer: Option<Arc<MF>>,
