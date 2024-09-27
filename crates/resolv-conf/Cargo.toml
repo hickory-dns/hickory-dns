@@ -1,0 +1,25 @@
+[package]
+name = "resolv-conf"
+description = """
+    The resolv.conf file parser
+"""
+license = "MIT/Apache-2.0"
+readme = "README.md"
+keywords = ["dns", "unix", "conf", "resolv"]
+categories = ["parser-implementations"]
+homepage = "http://github.com/tailhook/resolv-conf"
+documentation = "https://docs.rs/resolv-conf/"
+repository = "http://github.com/tailhook/resolv-conf"
+version = "0.7.0"
+authors = ["paul@colomiets.name"]
+
+[dependencies]
+quick-error = "2.0.0"
+hostname = { version = "^0.3", optional = true }
+
+[features]
+system = ["hostname"]
+
+[lib]
+name = "resolv_conf"
+path = "src/lib.rs"

@@ -1,0 +1,19 @@
+# Not all of these are supported by TRust-DNS
+# They are testing that they don't break parsing
+options ndots:8 timeout:8 attempts:8
+
+domain example.com
+search example.com sub.example.com
+
+nameserver 2001:4860:4860::8888
+nameserver 2001:4860:4860::8844
+nameserver 8.8.8.8
+nameserver 8.8.4.4
+
+# some options not supported by TRust-DNS
+options rotate
+options inet6 no-tld-query
+
+# A basic option not supported
+sortlist 130.155.160.0/255.255.240.0 130.155.0.0
+

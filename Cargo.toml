@@ -7,6 +7,7 @@ members = [
     "crates/client",
     "crates/server",
     "crates/async-std-resolver",
+    "crates/resolv-conf",
     "bin",
     "util",
     "tests/compatibility-tests",
