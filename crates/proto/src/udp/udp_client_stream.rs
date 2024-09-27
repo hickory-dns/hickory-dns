@@ -98,55 +98,6 @@ where
 }
 
 impl<P: RuntimeProvider> UdpClientStream<P, NoopMessageFinalizer> {
-    /// it is expected that the resolver wrapper will be responsible for creating and managing
-    ///  new UdpClients such that each new client would have a random port (reduce chance of cache
-    ///  poisoning)
-    ///
-    /// # Return
-    ///
-    /// A Future of a Stream which will handle sending and receiving messages.
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new(name_server: SocketAddr, provider: P) -> UdpClientConnect<P> {
-        Self::builder(name_server, provider).build()
-    }
-
-    /// Constructs a new UdpStream for a client to the specified SocketAddr.
-    ///
-    /// # Arguments
-    ///
-    /// * `name_server` - the IP and Port of the DNS server to connect to
-    /// * `timeout` - connection timeout
-    /// * `provider` - async runtime provider, for I/O and timers
-    pub fn with_timeout(
-        name_server: SocketAddr,
-        timeout: Duration,
-        provider: P,
-    ) -> UdpClientConnect<P> {
-        Self::builder(name_server, provider)
-            .with_timeout(Some(timeout))
-            .build()
-    }
-
-    /// Constructs a new UdpStream for a client to the specified SocketAddr.
-    ///
-    /// # Arguments
-    ///
-    /// * `name_server` - the IP and Port of the DNS server to connect to
-    /// * `bind_addr` - the IP and port to connect from
-    /// * `timeout` - connection timeout
-    /// * `provider` - async runtime provider, for I/O and timers
-    pub fn with_bind_addr_and_timeout(
-        name_server: SocketAddr,
-        bind_addr: Option<SocketAddr>,
-        timeout: Duration,
-        provider: P,
-    ) -> UdpClientConnect<P> {
-        Self::builder(name_server, provider)
-            .with_timeout(Some(timeout))
-            .with_bind_addr(bind_addr)
-            .build()
-    }
-
     /// Construct a new [`UdpClientStream`] via a [`UdpClientStreamBuilder`].
     pub fn builder(
         name_server: SocketAddr,
@@ -159,68 +110,6 @@ impl<P: RuntimeProvider> UdpClientStream<P, NoopMessageFinalizer> {
             bind_addr: None,
             provider,
         }
-    }
-}
-
-impl<P: RuntimeProvider, MF: MessageFinalizer> UdpClientStream<P, MF> {
-    /// Constructs a new UdpStream for a client to the specified SocketAddr.
-    ///
-    /// # Arguments
-    ///
-    /// * `name_server` - the IP and Port of the DNS server to connect to
-    /// * `timeout` - connection timeout
-    /// * `signer` - optional final amendment
-    /// * `provider` - async runtime provider, for I/O and timers
-    pub fn with_timeout_and_signer(
-        name_server: SocketAddr,
-        timeout: Duration,
-        signer: Option<Arc<MF>>,
-        provider: P,
-    ) -> UdpClientConnect<P, MF> {
-        UdpClientStream::builder(name_server, provider)
-            .with_timeout(Some(timeout))
-            .with_signer(signer)
-            .build()
-    }
-
-    /// Constructs a new UdpStream for a client to the specified SocketAddr.
-    ///
-    /// # Arguments
-    ///
-    /// * `name_server` - the IP and Port of the DNS server to connect to
-    /// * `timeout` - connection timeout
-    /// * `signer` - optional final amendment
-    /// * `bind_addr` - the IP address and port to connect from
-    /// * `provider` - async runtime provider, for I/O and timers
-    pub fn with_timeout_and_signer_and_bind_addr(
-        name_server: SocketAddr,
-        timeout: Duration,
-        signer: Option<Arc<MF>>,
-        bind_addr: Option<SocketAddr>,
-        provider: P,
-    ) -> UdpClientConnect<P, MF> {
-        UdpClientStream::builder(name_server, provider)
-            .with_timeout(Some(timeout))
-            .with_signer(signer)
-            .with_bind_addr(bind_addr)
-            .build()
-    }
-
-    /// Constructs a new UdpStream for a client to the specified SocketAddr.
-    ///
-    /// # Arguments
-    ///
-    /// * `name_server` - the IP and Port of the DNS server to connect to
-    /// * `signer` - optional final amendment
-    /// * `timeout` - connection timeout
-    /// * `provider` - async runtime provider, for I/O and timers
-    pub fn with_provider(
-        name_server: SocketAddr,
-        signer: Option<Arc<MF>>,
-        timeout: Duration,
-        provider: P,
-    ) -> UdpClientConnect<P, MF> {
-        Self::with_timeout_and_signer(name_server, timeout, signer, provider)
     }
 }
 
