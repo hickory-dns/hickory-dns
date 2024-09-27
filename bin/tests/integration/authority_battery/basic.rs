@@ -736,7 +736,7 @@ macro_rules! define_basic_test {
             fn $f () {
                 subscribe();
 
-                let authority = $new("../../tests/test-data/test_configs/example.com.zone", module_path!(), stringify!($f));
+                let authority = $new("../tests/test-data/test_configs/example.com.zone", module_path!(), stringify!($f));
                 crate::authority_battery::basic::$f(authority);
             }
         )*

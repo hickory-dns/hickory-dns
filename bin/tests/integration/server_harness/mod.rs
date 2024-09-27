@@ -186,7 +186,9 @@ where
                 "UDP" => socket_ports.put(Protocol::Udp, socket_addr),
                 "TCP" => socket_ports.put(Protocol::Tcp, socket_addr),
                 "TLS" => socket_ports.put(Protocol::Tls, socket_addr),
+                #[cfg(feature = "dns-over-https-rustls")]
                 "HTTPS" => socket_ports.put(Protocol::Https, socket_addr),
+                #[cfg(feature = "dns-over-quic")]
                 "QUIC" => socket_ports.put(Protocol::Quic, socket_addr),
                 _ => panic!("unsupported protocol: {proto}"),
             }
