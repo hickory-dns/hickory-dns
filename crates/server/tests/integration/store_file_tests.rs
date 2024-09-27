@@ -3,7 +3,7 @@ use std::str::FromStr;
 use hickory_proto::rr::{LowerName, Name, RecordType, RrKey};
 use hickory_server::authority::{Authority, LookupOptions, ZoneType};
 #[cfg(feature = "dnssec")]
-use hickory_server::config::dnssec::NxProofKind;
+use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::file::{FileAuthority, FileConfig};
 
 fn file(master_file_path: &str, _module: &str, _test_name: &str) -> FileAuthority {

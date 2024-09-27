@@ -8,7 +8,7 @@ use futures_executor::block_on;
 
 use hickory_proto::rr::Name;
 #[cfg(feature = "dnssec")]
-use hickory_server::config::dnssec::NxProofKind;
+use hickory_server::dnssec::NxProofKind;
 use hickory_server::{
     authority::ZoneType,
     store::sqlite::{SqliteAuthority, SqliteConfig},

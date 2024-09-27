@@ -27,7 +27,7 @@ use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 #[cfg(feature = "dnssec")]
 use crate::{
     authority::{DnssecAuthority, Nsec3QueryInfo},
-    config::dnssec::NxProofKind,
+    dnssec::NxProofKind,
     proto::{
         error::ProtoResult,
         rr::dnssec::{

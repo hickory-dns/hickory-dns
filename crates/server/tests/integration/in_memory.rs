@@ -4,7 +4,7 @@ use tokio::runtime::Runtime;
 
 use hickory_proto::rr::{rdata::CNAME, Name, RData, Record, RecordType};
 #[cfg(feature = "dnssec")]
-use hickory_server::config::dnssec::NxProofKind;
+use hickory_server::dnssec::NxProofKind;
 use hickory_server::{
     authority::{Authority, ZoneType},
     store::in_memory::InMemoryAuthority,

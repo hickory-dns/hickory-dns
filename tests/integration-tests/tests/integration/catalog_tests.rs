@@ -10,7 +10,7 @@ use hickory_proto::{
     feature = "dns-over-rustls",
     feature = "dns-over-openssl"
 ))]
-use hickory_server::config::dnssec::NxProofKind;
+use hickory_server::dnssec::NxProofKind;
 use hickory_server::{
     authority::{Authority, Catalog, MessageRequest, ZoneType},
     server::{Protocol, Request},

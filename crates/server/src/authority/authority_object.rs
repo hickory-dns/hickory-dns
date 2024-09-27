@@ -10,7 +10,7 @@
 use tracing::debug;
 
 #[cfg(feature = "dnssec")]
-use crate::{authority::Nsec3QueryInfo, config::dnssec::NxProofKind};
+use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
         Authority, LookupControlFlow, LookupOptions, MessageRequest, UpdateResult, ZoneType,

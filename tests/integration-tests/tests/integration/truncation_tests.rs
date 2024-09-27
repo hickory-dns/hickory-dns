@@ -12,7 +12,7 @@ use hickory_server::authority::{Catalog, ZoneType};
     feature = "dns-over-rustls",
     feature = "dns-over-openssl"
 ))]
-use hickory_server::config::dnssec::NxProofKind;
+use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryAuthority;
 use hickory_server::ServerFuture;
 use std::collections::BTreeMap;

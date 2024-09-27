@@ -11,7 +11,7 @@ use hickory_resolver::{config::ResolveHosts, name_server::TokioConnectionProvide
 use tracing::{debug, info};
 
 #[cfg(feature = "dnssec")]
-use crate::{authority::Nsec3QueryInfo, config::dnssec::NxProofKind};
+use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
         Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, MessageRequest,

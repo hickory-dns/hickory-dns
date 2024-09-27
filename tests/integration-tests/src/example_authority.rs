@@ -8,7 +8,7 @@ use hickory_server::authority::ZoneType;
     feature = "dns-over-rustls",
     feature = "dns-over-openssl"
 ))]
-use hickory_server::config::dnssec::NxProofKind;
+use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryAuthority;
 
 #[allow(unused)]

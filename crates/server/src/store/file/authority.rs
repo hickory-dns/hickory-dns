@@ -28,7 +28,7 @@ use crate::{
 #[cfg(feature = "dnssec")]
 use crate::{
     authority::{DnssecAuthority, Nsec3QueryInfo},
-    config::dnssec::NxProofKind,
+    dnssec::NxProofKind,
     proto::rr::dnssec::{rdata::key::KEY, DnsSecResult, SigSigner},
 };
 

@@ -63,6 +63,35 @@ pub mod store;
 
 pub use self::server::ServerFuture;
 
+/// Low-level types for DNSSEC operations
+#[cfg(feature = "dnssec")]
+pub mod dnssec {
+    use crate::proto::rr::dnssec::Nsec3HashAlgorithm;
+    use serde::Deserialize;
+    use std::sync::Arc;
+
+    /// The kind of non-existence proof provided by the nameserver
+    #[cfg(feature = "dnssec")]
+    #[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
+    #[serde(rename_all = "lowercase")]
+    pub enum NxProofKind {
+        /// Use NSEC
+        Nsec,
+        /// Use NSEC3
+        Nsec3 {
+            /// The algorithm used to hash the names.
+            #[serde(default)]
+            algorithm: Nsec3HashAlgorithm,
+            /// The salt used for hashing.
+            #[serde(default)]
+            salt: Arc<[u8]>,
+            /// The number of hashing iterations.
+            #[serde(default)]
+            iterations: u16,
+        },
+    }
+}
+
 /// Returns the current version of Hickory DNS
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
