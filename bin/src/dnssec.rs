@@ -168,37 +168,27 @@ impl KeyConfig {
 }
 
 /// Certificate format of the file being read
-#[derive(Deserialize, PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(Default, Deserialize, PartialEq, Eq, Debug, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum CertType {
     /// Pkcs12 formatted certificates and private key (requires OpenSSL)
+    #[default]
     Pkcs12,
     /// PEM formatted Certificate chain
     Pem,
 }
 
-impl Default for CertType {
-    fn default() -> Self {
-        Self::Pkcs12
-    }
-}
-
 /// Format of the private key file to read
-#[derive(Deserialize, PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(Default, Deserialize, PartialEq, Eq, Debug, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum PrivateKeyType {
     /// PKCS8 formatted key file, allows for a password (requires Rustls)
     Pkcs8,
     /// DER formatted key, raw and unencrypted
+    #[default]
     Der,
-}
-
-impl Default for PrivateKeyType {
-    fn default() -> Self {
-        Self::Der
-    }
 }
 
 /// Configuration for a TLS certificate
