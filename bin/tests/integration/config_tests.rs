@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#![cfg(feature = "toml")]
-
 use std::env;
 use std::fs::{read_dir, File};
 use std::io::Read;
@@ -32,7 +30,7 @@ use toml::{Table, Value};
 
 #[test]
 fn test_read_config() {
-    let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
+    let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     let path: PathBuf =
         PathBuf::from(server_path).join("tests/test-data/test_configs/example.toml");
 
@@ -234,7 +232,7 @@ signer_name = \"ns.example.com.\"
 }
 
 #[test]
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dns-over-tls")]
 fn test_parse_tls() {
     // defaults
     let config = Config::from_toml("").unwrap();
@@ -257,7 +255,7 @@ tls_listen_port = 8853
 }
 
 fn test_config(path: &str) {
-    let workspace = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
+    let workspace = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     let path = PathBuf::from(workspace)
         .join("tests/test-data/test_configs")
         .join(path)
@@ -277,8 +275,11 @@ macro_rules! define_test_config {
 }
 
 define_test_config!(all_supported_dnssec);
+#[cfg(feature = "dns-over-https-rustls")]
 define_test_config!(dns_over_https);
+#[cfg(feature = "dns-over-tls")]
 define_test_config!(dns_over_tls_rustls_and_openssl);
+#[cfg(feature = "dns-over-tls")]
 define_test_config!(dns_over_tls);
 #[cfg(feature = "sqlite")]
 define_test_config!(dnssec_with_update);
@@ -289,7 +290,7 @@ define_test_config!(ipv4_only);
 define_test_config!(ipv6_only);
 define_test_config!(openssl_dnssec);
 define_test_config!(ring_dnssec);
-#[cfg(feature = "hickory-resolver")]
+#[cfg(feature = "resolver")]
 define_test_config!(example_forwarder);
 
 /// Iterator that yields modified TOML tables with an extra field added, and recurses down the
@@ -436,7 +437,7 @@ impl<'a> Iterator for ArrayMutator<'a> {
 #[test]
 fn test_reject_unknown_fields() {
     let test_configs_dir =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/test-data/test_configs");
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/test-data/test_configs");
     for result in read_dir(test_configs_dir).unwrap() {
         let entry = result.unwrap();
         let file_name = entry.file_name().into_string().unwrap();
@@ -479,14 +480,14 @@ fn test_reject_unknown_fields() {
                         break;
                     }
 
-                    #[cfg(not(feature = "hickory-resolver"))]
+                    #[cfg(not(feature = "resolver"))]
                     if _store_type == "forward" {
                         println!("skipping due to forward store");
                         skip = true;
                         break;
                     }
 
-                    #[cfg(not(feature = "hickory-recursor"))]
+                    #[cfg(not(feature = "recursor"))]
                     if _store_type == "recursor" {
                         println!("skipping due to recursor store");
                         skip = true;

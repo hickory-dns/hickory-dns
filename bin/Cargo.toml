@@ -38,7 +38,7 @@ dnssec = []
 recursor = ["hickory-server/recursor"]
 # Recursive Resolution is Experimental!
 resolver = ["hickory-server/resolver"]
-sqlite = ["hickory-server/sqlite"]
+sqlite = ["hickory-server/sqlite", "dep:rusqlite"]
 
 dns-over-https-rustls = ["dns-over-rustls", "hickory-server/dns-over-https-rustls"]
 dns-over-quic = ["dns-over-rustls", "hickory-server/dns-over-quic"]
@@ -62,6 +62,9 @@ path = "src/hickory-dns.rs"
 # - `help` to generate --help
 clap = { workspace = true, default-features = false, features = ["cargo", "derive", "help", "std", "suggestions"] }
 futures-util = { workspace = true, default-features = false, features = ["std"] }
+# rusqlite is actually only needed for test situations, but we need an optional dependency
+# here so we can disable it for MSRV tests (rusqlite only supports latest stable)
+rusqlite = { workspace = true, features = ["bundled", "time"], optional = true }
 rustls = { workspace = true, optional = true }
 time.workspace = true
 tracing.workspace = true
@@ -72,11 +75,13 @@ hickory-proto.workspace = true
 hickory-server = { workspace = true, features = ["toml"] }
 
 [dev-dependencies]
+futures-executor = { workspace = true, default-features = false, features = ["std"] }
 native-tls.workspace = true
 regex.workspace = true
 hickory-proto = { workspace = true, features = ["dns-over-native-tls", "testing"] }
 hickory-resolver.workspace = true
 test-support.workspace = true
+toml.workspace = true
 webpki-roots.workspace = true
 
 [lints]
