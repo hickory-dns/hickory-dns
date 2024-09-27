@@ -24,7 +24,62 @@ use crate::udp::udp_stream::NextRandomUdpSocket;
 use crate::udp::{DnsUdpSocket, MAX_RECEIVE_BUFFER_SIZE};
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, SerialMessage};
 
-/// A UDP client stream of DNS binary packets
+/// A builder to create a UDP client stream.
+///
+/// This is created by [`UdpClientStream::builder`].
+pub struct UdpClientStreamBuilder<P, MF = NoopMessageFinalizer> {
+    name_server: SocketAddr,
+    timeout: Option<Duration>,
+    signer: Option<Arc<MF>>,
+    bind_addr: Option<SocketAddr>,
+    provider: P,
+}
+
+impl<P, MF> UdpClientStreamBuilder<P, MF>
+where
+    MF: MessageFinalizer,
+{
+    /// Sets the connection timeout.
+    pub fn with_timeout(mut self, timeout: Option<Duration>) -> Self {
+        self.timeout = timeout;
+        self
+    }
+
+    /// Sets the message finalizer to be applied to queries.
+    pub fn with_signer<MF2>(self, signer: Option<Arc<MF2>>) -> UdpClientStreamBuilder<P, MF2> {
+        UdpClientStreamBuilder {
+            name_server: self.name_server,
+            timeout: self.timeout,
+            signer,
+            bind_addr: self.bind_addr,
+            provider: self.provider,
+        }
+    }
+
+    /// Sets the local socket address to connect from.
+    ///
+    /// If the port number is 0, a random port number will be chosen to defend against spoofing
+    /// attacks. If the port number is nonzero, it will be used instead.
+    pub fn with_bind_addr(mut self, bind_addr: Option<SocketAddr>) -> Self {
+        self.bind_addr = bind_addr;
+        self
+    }
+
+    /// Construct a new UDP client stream.
+    ///
+    /// Returns a future that outputs the client stream.
+    pub fn build(self) -> UdpClientConnect<P, MF> {
+        UdpClientConnect {
+            name_server: self.name_server,
+            timeout: self.timeout.unwrap_or(Duration::from_secs(5)),
+            signer: self.signer,
+            bind_addr: self.bind_addr,
+            provider: self.provider,
+        }
+    }
+}
+
+/// A UDP client stream of DNS binary packets.
 ///
 /// It is expected that the resolver wrapper will be responsible for creating and managing a new UDP
 /// client stream such that each request would have a random port. This is to avoid potential cache
@@ -52,7 +107,7 @@ impl<P: RuntimeProvider> UdpClientStream<P, NoopMessageFinalizer> {
     /// A Future of a Stream which will handle sending and receiving messages.
     #[allow(clippy::new_ret_no_self)]
     pub fn new(name_server: SocketAddr, provider: P) -> UdpClientConnect<P> {
-        Self::with_timeout(name_server, Duration::from_secs(5), provider)
+        Self::builder(name_server, provider).build()
     }
 
     /// Constructs a new UdpStream for a client to the specified SocketAddr.
@@ -67,7 +122,9 @@ impl<P: RuntimeProvider> UdpClientStream<P, NoopMessageFinalizer> {
         timeout: Duration,
         provider: P,
     ) -> UdpClientConnect<P> {
-        Self::with_bind_addr_and_timeout(name_server, None, timeout, provider)
+        Self::builder(name_server, provider)
+            .with_timeout(Some(timeout))
+            .build()
     }
 
     /// Constructs a new UdpStream for a client to the specified SocketAddr.
@@ -84,7 +141,24 @@ impl<P: RuntimeProvider> UdpClientStream<P, NoopMessageFinalizer> {
         timeout: Duration,
         provider: P,
     ) -> UdpClientConnect<P> {
-        Self::with_timeout_and_signer_and_bind_addr(name_server, timeout, None, bind_addr, provider)
+        Self::builder(name_server, provider)
+            .with_timeout(Some(timeout))
+            .with_bind_addr(bind_addr)
+            .build()
+    }
+
+    /// Construct a new [`UdpClientStream`] via a [`UdpClientStreamBuilder`].
+    pub fn builder(
+        name_server: SocketAddr,
+        provider: P,
+    ) -> UdpClientStreamBuilder<P, NoopMessageFinalizer> {
+        UdpClientStreamBuilder {
+            name_server,
+            timeout: None,
+            signer: None,
+            bind_addr: None,
+            provider,
+        }
     }
 }
 
@@ -103,13 +177,10 @@ impl<P: RuntimeProvider, MF: MessageFinalizer> UdpClientStream<P, MF> {
         signer: Option<Arc<MF>>,
         provider: P,
     ) -> UdpClientConnect<P, MF> {
-        UdpClientConnect {
-            name_server,
-            timeout,
-            signer,
-            bind_addr: None,
-            provider,
-        }
+        UdpClientStream::builder(name_server, provider)
+            .with_timeout(Some(timeout))
+            .with_signer(signer)
+            .build()
     }
 
     /// Constructs a new UdpStream for a client to the specified SocketAddr.
@@ -128,17 +199,13 @@ impl<P: RuntimeProvider, MF: MessageFinalizer> UdpClientStream<P, MF> {
         bind_addr: Option<SocketAddr>,
         provider: P,
     ) -> UdpClientConnect<P, MF> {
-        UdpClientConnect {
-            name_server,
-            timeout,
-            signer,
-            bind_addr,
-            provider,
-        }
+        UdpClientStream::builder(name_server, provider)
+            .with_timeout(Some(timeout))
+            .with_signer(signer)
+            .with_bind_addr(bind_addr)
+            .build()
     }
-}
 
-impl<P: RuntimeProvider, MF: MessageFinalizer> UdpClientStream<P, MF> {
     /// Constructs a new UdpStream for a client to the specified SocketAddr.
     ///
     /// # Arguments
@@ -153,13 +220,7 @@ impl<P: RuntimeProvider, MF: MessageFinalizer> UdpClientStream<P, MF> {
         timeout: Duration,
         provider: P,
     ) -> UdpClientConnect<P, MF> {
-        UdpClientConnect {
-            name_server,
-            timeout,
-            signer,
-            bind_addr: None,
-            provider,
-        }
+        Self::with_timeout_and_signer(name_server, timeout, signer, provider)
     }
 }
 
