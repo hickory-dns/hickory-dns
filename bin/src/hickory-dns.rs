@@ -90,7 +90,7 @@ where
     L: Send + Sync + Sized + 'static,
 {
     if zone_config.is_dnssec_enabled() {
-        for key_config in zone_config.get_keys() {
+        for key_config in zone_config.keys() {
             info!(
                 "adding key to zone: {:?}, is_zsk: {}, is_auth: {}",
                 key_config.key_path(),
@@ -123,7 +123,7 @@ where
         }
 
         let zone_name = zone_config
-            .get_zone()
+            .zone()
             .map_err(|err| format!("failed to read zone name: {err}"))?;
         info!("signing zone: {zone_name}");
         authority
@@ -153,11 +153,11 @@ async fn load_zone(
     debug!("loading zone with config: {:#?}", zone_config);
 
     let zone_name: Name = zone_config
-        .get_zone()
+        .zone()
         .map_err(|err| format!("failed to read zone name: {err}"))?;
     let zone_name_for_signer = zone_name.clone();
     let zone_path: Option<String> = zone_config.file.clone();
-    let zone_type: ZoneType = zone_config.get_zone_type();
+    let zone_type: ZoneType = zone_config.zone_type();
     let is_axfr_allowed = zone_config.is_axfr_allowed();
     #[allow(unused_variables)]
     let is_dnssec_enabled = zone_config.is_dnssec_enabled();
@@ -305,7 +305,7 @@ async fn load_zone(
         authorities.push(authority);
     }
 
-    info!("zone successfully loaded: {}", zone_config.get_zone()?);
+    info!("zone successfully loaded: {}", zone_config.zone()?);
     Ok(authorities)
 }
 
@@ -430,7 +430,7 @@ fn run() -> Result<(), String> {
 
     let config = Config::read_config(config_path)
         .map_err(|err| format!("failed to read config file from {config_path:?}: {err}"))?;
-    let directory_config = config.get_directory().to_path_buf();
+    let directory_config = config.directory().to_path_buf();
     let zonedir = args.zonedir.clone();
     let zone_dir: PathBuf = zonedir
         .as_ref()
@@ -448,9 +448,9 @@ fn run() -> Result<(), String> {
 
     let mut catalog: Catalog = Catalog::new();
     // configure our server based on the config_path
-    for zone in config.get_zones() {
+    for zone in config.zones() {
         let zone_name = zone
-            .get_zone()
+            .zone()
             .map_err(|err| format!("failed to read zone name from {config_path:?}: {err}"))?;
 
         match runtime.block_on(load_zone(&zone_dir, zone)) {
@@ -460,10 +460,10 @@ fn run() -> Result<(), String> {
     }
 
     let v4addr = config
-        .get_listen_addrs_ipv4()
+        .listen_addrs_ipv4()
         .map_err(|err| format!("failed to parse IPv4 addresses from {config_path:?}: {err}"))?;
     let v6addr = config
-        .get_listen_addrs_ipv6()
+        .listen_addrs_ipv6()
         .map_err(|err| format!("failed to parse IPv6 addresses from {config_path:?}: {err}"))?;
     let mut listen_addrs: Vec<IpAddr> = v4addr
         .into_iter()
@@ -471,7 +471,7 @@ fn run() -> Result<(), String> {
         .chain(v6addr.into_iter().map(IpAddr::V6))
         .collect();
 
-    let listen_port: u16 = args.port.unwrap_or_else(|| config.get_listen_port());
+    let listen_port: u16 = args.port.unwrap_or_else(|| config.listen_port());
 
     if listen_addrs.is_empty() {
         listen_addrs.push(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
@@ -486,15 +486,15 @@ fn run() -> Result<(), String> {
         return Ok(());
     }
 
-    let deny_networks = config.get_deny_networks();
-    let allow_networks = config.get_allow_networks();
-    let tcp_request_timeout = config.get_tcp_request_timeout();
+    let deny_networks = config.deny_networks();
+    let allow_networks = config.allow_networks();
+    let tcp_request_timeout = config.tcp_request_timeout();
 
     // now, run the server, based on the config
     #[cfg_attr(not(feature = "dns-over-tls"), allow(unused_mut))]
     let mut server = ServerFuture::with_access(catalog, deny_networks, allow_networks);
 
-    if !args.disable_udp && !config.get_disable_udp() {
+    if !args.disable_udp && !config.disable_udp() {
         // load all udp listeners
         for udp_socket in &sockaddrs {
             info!("binding UDP to {:?}", udp_socket);
@@ -518,7 +518,7 @@ fn run() -> Result<(), String> {
         info!("UDP protocol is disabled");
     }
 
-    if !args.disable_tcp && !config.get_disable_tcp() {
+    if !args.disable_tcp && !config.disable_tcp() {
         // load all tcp listeners
         for tcp_listener in &sockaddrs {
             info!("binding TCP to {:?}", tcp_listener);
@@ -548,9 +548,9 @@ fn run() -> Result<(), String> {
         feature = "dns-over-https-rustls",
         feature = "dns-over-quic"
     ))]
-    if let Some(tls_cert_config) = config.get_tls_cert() {
+    if let Some(tls_cert_config) = config.tls_cert() {
         #[cfg(feature = "dns-over-tls")]
-        if !args.disable_tls && !config.get_disable_tls() {
+        if !args.disable_tls && !config.disable_tls() {
             // setup TLS listeners
             config_tls(
                 &args,
@@ -566,7 +566,7 @@ fn run() -> Result<(), String> {
         }
 
         #[cfg(feature = "dns-over-https-rustls")]
-        if !args.disable_https && !config.get_disable_https() {
+        if !args.disable_https && !config.disable_https() {
             // setup HTTPS listeners
             config_https(
                 &args,
@@ -582,7 +582,7 @@ fn run() -> Result<(), String> {
         }
 
         #[cfg(feature = "dns-over-quic")]
-        if !args.disable_quic && !config.get_disable_quic() {
+        if !args.disable_quic && !config.disable_quic() {
             // setup QUIC listeners
             config_quic(
                 &args,
@@ -638,9 +638,7 @@ fn config_tls(
     listen_addrs: &[IpAddr],
     runtime: &runtime::Runtime,
 ) -> Result<(), String> {
-    let tls_listen_port: u16 = args
-        .tls_port
-        .unwrap_or_else(|| config.get_tls_listen_port());
+    let tls_listen_port: u16 = args.tls_port.unwrap_or_else(|| config.tls_listen_port());
     let tls_sockaddrs: Vec<SocketAddr> = listen_addrs
         .iter()
         .flat_map(|x| (*x, tls_listen_port).to_socket_addrs().unwrap())
@@ -652,7 +650,7 @@ fn config_tls(
     }
 
     for tls_listener in &tls_sockaddrs {
-        let tls_cert_path = tls_cert_config.get_path();
+        let tls_cert_path = tls_cert_config.path();
         info!("loading cert for DNS over TLS: {tls_cert_path:?}");
 
         let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config).map_err(|err| {
@@ -675,7 +673,7 @@ fn config_tls(
 
         let _guard = runtime.enter();
         server
-            .register_tls_listener(tls_listener, config.get_tcp_request_timeout(), tls_cert)
+            .register_tls_listener(tls_listener, config.tcp_request_timeout(), tls_cert)
             .map_err(|err| format!("failed to register TLS listener: {err}"))?;
     }
     Ok(())
@@ -693,12 +691,12 @@ fn config_https(
 ) -> Result<(), String> {
     let https_listen_port: u16 = args
         .https_port
-        .unwrap_or_else(|| config.get_https_listen_port());
+        .unwrap_or_else(|| config.https_listen_port());
     let https_sockaddrs: Vec<SocketAddr> = listen_addrs
         .iter()
         .flat_map(|x| (*x, https_listen_port).to_socket_addrs().unwrap())
         .collect();
-    let endpoint_path = config.get_http_endpoint();
+    let endpoint_path = config.http_endpoint();
 
     if https_sockaddrs.is_empty() {
         warn!("a tls certificate was specified, but no HTTPS addresses configured to listen on");
@@ -706,8 +704,8 @@ fn config_https(
     }
 
     for https_listener in &https_sockaddrs {
-        let tls_cert_path = tls_cert_config.get_path();
-        if let Some(endpoint_name) = tls_cert_config.get_endpoint_name() {
+        let tls_cert_path = tls_cert_config.path();
+        if let Some(endpoint_name) = tls_cert_config.endpoint_name() {
             info!("loading cert for DNS over TLS named {endpoint_name} from {tls_cert_path:?}");
         } else {
             info!("loading cert for DNS over TLS from {tls_cert_path:?}");
@@ -735,9 +733,9 @@ fn config_https(
         server
             .register_https_listener(
                 https_listener,
-                config.get_tcp_request_timeout(),
+                config.tcp_request_timeout(),
                 tls_cert,
-                tls_cert_config.get_endpoint_name().map(|s| s.to_string()),
+                tls_cert_config.endpoint_name().map(|s| s.to_string()),
                 endpoint_path.into(),
             )
             .map_err(|err| format!("failed to register HTTPS listener: {err}"))?;
@@ -756,9 +754,7 @@ fn config_quic(
     listen_addrs: &[IpAddr],
     runtime: &runtime::Runtime,
 ) -> Result<(), String> {
-    let quic_listen_port: u16 = args
-        .quic_port
-        .unwrap_or_else(|| config.get_quic_listen_port());
+    let quic_listen_port: u16 = args.quic_port.unwrap_or_else(|| config.quic_listen_port());
     let quic_sockaddrs: Vec<SocketAddr> = listen_addrs
         .iter()
         .flat_map(|x| (*x, quic_listen_port).to_socket_addrs().unwrap())
@@ -770,8 +766,8 @@ fn config_quic(
     }
 
     for quic_listener in &quic_sockaddrs {
-        let tls_cert_path = tls_cert_config.get_path();
-        if let Some(endpoint_name) = tls_cert_config.get_endpoint_name() {
+        let tls_cert_path = tls_cert_config.path();
+        if let Some(endpoint_name) = tls_cert_config.endpoint_name() {
             info!("loading cert for DNS over QUIC named {endpoint_name} from {tls_cert_path:?}");
         } else {
             info!("loading cert for DNS over QUIC from {tls_cert_path:?}",);
@@ -799,9 +795,9 @@ fn config_quic(
         server
             .register_quic_listener(
                 quic_listener,
-                config.get_tcp_request_timeout(),
+                config.tcp_request_timeout(),
                 tls_cert,
-                tls_cert_config.get_endpoint_name().map(|s| s.to_string()),
+                tls_cert_config.endpoint_name().map(|s| s.to_string()),
             )
             .map_err(|err| format!("failed to register QUIC listener: {err}"))?;
     }
