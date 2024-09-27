@@ -9,7 +9,7 @@
 
 #![deny(missing_docs)]
 
-use std::{fmt, io};
+use std::{fmt, io, sync::Arc};
 
 use crate::proto::error::ForwardNSData;
 use enum_as_inner::EnumAsInner;
@@ -41,7 +41,7 @@ pub enum ErrorKind {
     /// Upstream DNS authority returned a referral to another set of nameservers in the form of
     /// additional NS records.
     #[error("forward NS Response")]
-    ForwardNS(Vec<ForwardNSData>),
+    ForwardNS(Arc<[ForwardNSData]>),
 
     /// An error got returned from IO
     #[error("io error: {0}")]

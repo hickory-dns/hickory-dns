@@ -283,7 +283,7 @@ where
         valid_nsec: bool,
         query: Query,
         soa: Option<Record<SOA>>,
-        ns: Option<Vec<ForwardNSData>>,
+        ns: Option<Arc<[ForwardNSData]>>,
         negative_ttl: Option<u32>,
         response_code: ResponseCode,
         trusted: bool,

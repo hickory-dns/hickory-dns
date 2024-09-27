@@ -191,7 +191,7 @@ pub enum ProtoErrorKind {
         soa: Option<Box<Record<SOA>>>,
         /// Nameservers may be present in addition to or in lieu of an SOA for a referral
         /// The tuple struct layout is vec[(Nameserver, [vec of glue records])]
-        ns: Option<Vec<ForwardNSData>>,
+        ns: Option<Arc<[ForwardNSData]>>,
         /// negative ttl, as determined from DnsResponse::negative_ttl
         ///  this will only be present if the SOA was also present.
         negative_ttl: Option<u32>,
@@ -351,7 +351,7 @@ pub struct ForwardNSData {
     /// The referant NS record
     pub ns: Record,
     /// Any glue records associated with the referant NS record.
-    pub glue: Vec<Record>,
+    pub glue: Arc<[Record]>,
 }
 
 /// The error type for errors that get returned in the crate
@@ -371,7 +371,7 @@ impl ProtoError {
     pub fn nx_error(
         query: Query,
         soa: Option<Record<SOA>>,
-        ns: Option<Vec<ForwardNSData>>,
+        ns: Option<Arc<[ForwardNSData]>>,
         negative_ttl: Option<u32>,
         response_code: ResponseCode,
         trusted: bool,
@@ -510,11 +510,11 @@ impl ProtoError {
                                 None
                             })
                             .collect::<Vec<Record>>();
-                        referral_name_servers.push(ForwardNSData { ns: Record::to_owned(ns), glue })
+                        referral_name_servers.push(ForwardNSData { ns: Record::to_owned(ns), glue: glue.into() })
                     }
 
                     let option_ns = if !referral_name_servers.is_empty() {
-                        Some(referral_name_servers)
+                        Some(referral_name_servers.into())
                     } else {
                         None
                     };
