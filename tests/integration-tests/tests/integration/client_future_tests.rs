@@ -64,7 +64,7 @@ fn test_query_nonet() {
 fn test_query_udp_ipv4() {
     let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let stream = UdpClientStream::new(addr, TokioRuntimeProvider::new());
+    let stream = UdpClientStream::builder(addr, TokioRuntimeProvider::new()).build();
     let client = AsyncClient::connect(stream);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -84,7 +84,7 @@ fn test_query_udp_ipv6() {
         .unwrap()
         .next()
         .unwrap();
-    let stream = UdpClientStream::new(addr, TokioRuntimeProvider::new());
+    let stream = UdpClientStream::builder(addr, TokioRuntimeProvider::new()).build();
     let client = AsyncClient::connect(stream);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -1001,11 +1001,9 @@ fn test_timeout_query_udp() {
         .next()
         .unwrap();
 
-    let stream = UdpClientStream::with_timeout(
-        addr,
-        std::time::Duration::from_millis(1),
-        TokioRuntimeProvider::new(),
-    );
+    let stream = UdpClientStream::builder(addr, TokioRuntimeProvider::new())
+        .with_timeout(Some(std::time::Duration::from_millis(1)))
+        .build();
     let client = AsyncClient::connect(stream);
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);

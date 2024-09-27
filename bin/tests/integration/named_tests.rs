@@ -219,7 +219,7 @@ fn test_server_continues_on_bad_data_udp() {
             udp_port.expect("no udp_port"),
         );
 
-        let stream = UdpClientStream::new(addr, provider.clone());
+        let stream = UdpClientStream::builder(addr, provider.clone()).build();
         let client = AsyncClient::connect(stream);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -239,7 +239,7 @@ fn test_server_continues_on_bad_data_udp() {
             Ipv4Addr::new(127, 0, 0, 1).into(),
             udp_port.expect("no udp_port"),
         );
-        let stream = UdpClientStream::new(addr, provider);
+        let stream = UdpClientStream::builder(addr, provider).build();
         let client = AsyncClient::connect(stream);
 
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
