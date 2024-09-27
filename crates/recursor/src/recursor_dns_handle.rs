@@ -562,7 +562,7 @@ impl RecursorDnsHandle {
     async fn ns_pool_for_referral(
         &self,
         query: Query,
-        nameservers: Vec<ForwardNSData>,
+        nameservers: Arc<[ForwardNSData]>,
         request_time: Instant,
     ) -> Result<RecursorPool<TokioRuntimeProvider>, Error> {
         let query_name = query.name().clone();
@@ -572,8 +572,8 @@ impl RecursorDnsHandle {
         let mut config_group = NameServerConfigGroup::new();
         let mut need_ips_for_names = Vec::new();
 
-        for nameserver in nameservers.into_iter() {
-            let ns = nameserver.ns;
+        for nameserver in nameservers.iter() {
+            let ns = &nameserver.ns;
 
             let ns_name = if let Some(ns_name) = ns.data().as_ns() {
                 ns_name.0.clone()
