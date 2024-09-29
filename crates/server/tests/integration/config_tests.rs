@@ -487,7 +487,7 @@ fn test_reject_unknown_fields() {
                     }
 
                     #[cfg(not(feature = "hickory-recursor"))]
-                    if _store_type != "recursor" {
+                    if _store_type == "recursor" {
                         println!("skipping due to recursor store");
                         skip = true;
                         break;
