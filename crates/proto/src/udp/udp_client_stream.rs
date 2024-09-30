@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::borrow::Borrow;
+use std::collections::HashSet;
 use std::fmt::{self, Display};
 use std::net::SocketAddr;
 use std::pin::Pin;
@@ -32,6 +33,7 @@ pub struct UdpClientStreamBuilder<P, MF = NoopMessageFinalizer> {
     timeout: Option<Duration>,
     signer: Option<Arc<MF>>,
     bind_addr: Option<SocketAddr>,
+    avoid_local_ports: Arc<HashSet<u16>>,
     provider: P,
 }
 
@@ -52,6 +54,7 @@ where
             timeout: self.timeout,
             signer,
             bind_addr: self.bind_addr,
+            avoid_local_ports: self.avoid_local_ports,
             provider: self.provider,
         }
     }
@@ -65,6 +68,13 @@ where
         self
     }
 
+    /// Configures a list of local UDP ports that should not be used when making outgoing
+    /// connections.
+    pub fn avoid_local_ports(mut self, avoid_local_ports: Arc<HashSet<u16>>) -> Self {
+        self.avoid_local_ports = avoid_local_ports;
+        self
+    }
+
     /// Construct a new UDP client stream.
     ///
     /// Returns a future that outputs the client stream.
@@ -74,6 +84,7 @@ where
             timeout: self.timeout.unwrap_or(Duration::from_secs(5)),
             signer: self.signer,
             bind_addr: self.bind_addr,
+            avoid_local_ports: self.avoid_local_ports.clone(),
             provider: self.provider,
         }
     }
@@ -94,6 +105,7 @@ where
     is_shutdown: bool,
     signer: Option<Arc<MF>>,
     bind_addr: Option<SocketAddr>,
+    avoid_local_ports: Arc<HashSet<u16>>,
     provider: P,
 }
 
@@ -108,6 +120,7 @@ impl<P: RuntimeProvider> UdpClientStream<P, NoopMessageFinalizer> {
             timeout: None,
             signer: None,
             bind_addr: None,
+            avoid_local_ports: Arc::default(),
             provider,
         }
     }
@@ -180,11 +193,13 @@ impl<P: RuntimeProvider, MF: MessageFinalizer> DnsRequestSender for UdpClientStr
         let provider = self.provider.clone();
         let addr = message.addr();
         let bind_addr = self.bind_addr;
+        let avoid_local_ports = self.avoid_local_ports.clone();
 
         P::Timer::timeout::<Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>>(
             self.timeout,
             Box::pin(async move {
-                let socket = NextRandomUdpSocket::new(addr, bind_addr, provider).await?;
+                let socket =
+                    NextRandomUdpSocket::new(addr, bind_addr, avoid_local_ports, provider).await?;
                 send_serial_message_inner(message, message_id, verifier, socket, recv_buf_size)
                     .await
             }),
@@ -224,6 +239,7 @@ where
     timeout: Duration,
     signer: Option<Arc<MF>>,
     bind_addr: Option<SocketAddr>,
+    avoid_local_ports: Arc<HashSet<u16>>,
     provider: P,
 }
 
@@ -238,6 +254,7 @@ impl<P: RuntimeProvider, MF: MessageFinalizer> Future for UdpClientConnect<P, MF
             timeout: self.timeout,
             signer: self.signer.take(),
             bind_addr: self.bind_addr,
+            avoid_local_ports: self.avoid_local_ports.clone(),
             provider: self.provider.clone(),
         }))
     }
