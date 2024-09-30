@@ -450,16 +450,24 @@ fn test_reject_unknown_fields() {
         // Skip over configs that can't be read with the current set of features.
         #[allow(unused_mut)]
         let mut skip = false;
-        #[cfg(not(feature = "dnssec"))]
+
+        #[cfg(not(any(
+            feature = "dns-over-tls",
+            feature = "dns-over-https-rustls",
+            feature = "dns-over-quic"
+        )))]
         if config_table.contains_key("tls_cert") {
             println!("skipping due to tls_cert setting");
             skip = true;
         }
+
         let zones = config_table.get("zones").unwrap().as_array().unwrap();
         for zone in zones {
             if let Some(stores) = zone.get("stores") {
+                let vec_stores: Vec<Value>;
                 let stores = if !stores.is_array() {
-                    &vec![stores.clone()]
+                    vec_stores = vec![stores.clone()];
+                    &vec_stores
                 } else {
                     stores.as_array().unwrap()
                 };
