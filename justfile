@@ -81,7 +81,6 @@ clippy-inner feature='':
 
 # Run clippy on all targets and all sources
 clippy:
-    find {{justfile_directory()}} -name '*.rs' -exec touch {} \;
     just clippy-inner --no-default-features
     just clippy-inner
     just clippy-inner --all-features
