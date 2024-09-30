@@ -9,6 +9,7 @@
 use std::sync::Arc;
 use std::{
     borrow::Cow,
+    collections::HashSet,
     fs::File,
     io::Read,
     net::SocketAddr,
@@ -52,6 +53,10 @@ pub struct RecursiveConfig {
     /// Networks that will not be queried during resolution
     #[serde(default)]
     pub do_not_query: Vec<IpNet>,
+
+    /// Local UDP ports to avoid when making outgoing queries
+    #[serde(default)]
+    pub avoid_local_udp_ports: HashSet<u16>,
 }
 
 impl RecursiveConfig {

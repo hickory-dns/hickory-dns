@@ -1,4 +1,4 @@
-use std::{fmt, net::IpAddr, sync::Arc, time::Instant};
+use std::{collections::HashSet, fmt, net::IpAddr, sync::Arc, time::Instant};
 
 use async_recursion::async_recursion;
 use futures_util::{stream::FuturesUnordered, Stream, StreamExt};
@@ -39,6 +39,7 @@ pub(crate) struct RecursorDnsHandle {
     security_aware: bool,
     do_not_query_v4: PrefixSet<Ipv4Net>,
     do_not_query_v6: PrefixSet<Ipv6Net>,
+    avoid_local_udp_ports: Arc<HashSet<u16>>,
 }
 
 impl RecursorDnsHandle {
@@ -49,6 +50,7 @@ impl RecursorDnsHandle {
         recursion_limit: u8,
         security_aware: bool,
         do_not_query: Vec<IpNet>,
+        avoid_local_udp_ports: Arc<HashSet<u16>>,
     ) -> Result<Self, ResolveError> {
         // configure the hickory-resolver
         let roots: NameServerConfigGroup = roots.into();
@@ -56,7 +58,7 @@ impl RecursorDnsHandle {
         assert!(!roots.is_empty(), "roots must not be empty");
 
         debug!("Using cache sizes {}/{}", ns_cache_size, record_cache_size);
-        let opts = recursor_opts();
+        let opts = recursor_opts(avoid_local_udp_ports.clone());
         let roots =
             GenericNameServerPool::from_config(roots, opts, TokioConnectionProvider::default());
         let roots = RecursorPool::from(Name::root(), roots);
@@ -84,6 +86,7 @@ impl RecursorDnsHandle {
             security_aware,
             do_not_query_v4,
             do_not_query_v6,
+            avoid_local_udp_ports,
         })
     }
 
@@ -533,7 +536,7 @@ impl RecursorDnsHandle {
         // now construct a namesever pool based off the NS and glue records
         let ns = GenericNameServerPool::from_config(
             config_group,
-            recursor_opts(),
+            recursor_opts(self.avoid_local_udp_ports.clone()),
             TokioConnectionProvider::default(),
         );
         let ns = RecursorPool::from(zone.clone(), ns);
@@ -658,7 +661,7 @@ impl RecursorDnsHandle {
         // now construct a namesever pool based off the NS and glue records
         let ns = GenericNameServerPool::from_config(
             config_group,
-            recursor_opts(),
+            recursor_opts(self.avoid_local_udp_ports.clone()),
             TokioConnectionProvider::default(),
         );
         let ns = RecursorPool::from(query_name.clone(), ns);
@@ -711,7 +714,7 @@ impl RecursorDnsHandle {
     }
 }
 
-fn recursor_opts() -> ResolverOpts {
+fn recursor_opts(avoid_local_udp_ports: Arc<HashSet<u16>>) -> ResolverOpts {
     let mut options = ResolverOpts::default();
     options.ndots = 0;
     options.edns0 = true;
@@ -719,6 +722,7 @@ fn recursor_opts() -> ResolverOpts {
     options.preserve_intermediates = true;
     options.recursion_desired = false;
     options.num_concurrent_reqs = 1;
+    options.avoid_local_udp_ports = avoid_local_udp_ports;
 
     options
 }

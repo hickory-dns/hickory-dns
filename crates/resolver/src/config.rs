@@ -8,13 +8,12 @@
 //! Configuration for a resolver
 #![allow(clippy::use_self)]
 
+use std::collections::HashSet;
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::ops::{Deref, DerefMut};
-use std::time::Duration;
-
-#[cfg(feature = "dns-over-rustls")]
 use std::sync::Arc;
+use std::time::Duration;
 
 use proto::rr::Name;
 use proto::xfer::Protocol;
@@ -907,6 +906,8 @@ pub struct ResolverOpts {
     pub authentic_data: bool,
     /// Shuffle DNS servers before each query.
     pub shuffle_dns_servers: bool,
+    /// Local UDP ports to avoid when making outgoing queries
+    pub avoid_local_udp_ports: Arc<HashSet<u16>>,
 }
 
 impl Default for ResolverOpts {
@@ -939,6 +940,7 @@ impl Default for ResolverOpts {
             recursion_desired: true,
             authentic_data: false,
             shuffle_dns_servers: false,
+            avoid_local_udp_ports: Arc::new(HashSet::new()),
         }
     }
 }
