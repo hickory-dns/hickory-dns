@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::time::Instant;
+use std::{collections::HashSet, sync::Arc, time::Instant};
 
 use ipnet::IpNet;
 
@@ -33,6 +33,7 @@ pub struct RecursorBuilder {
     recursion_limit: u8,
     dnssec_policy: DnssecPolicy,
     do_not_query: Vec<IpNet>,
+    avoid_local_udp_ports: HashSet<u16>,
 }
 
 impl RecursorBuilder {
@@ -67,6 +68,12 @@ impl RecursorBuilder {
         self
     }
 
+    /// Sets local UDP ports that should be avoided when making outgoing queries
+    pub fn avoid_local_udp_ports(&mut self, ports: HashSet<u16>) -> &mut Self {
+        self.avoid_local_udp_ports = ports;
+        self
+    }
+
     /// Construct a new recursor using the list of NameServerConfigs for the root node list
     ///
     /// # Panics
@@ -80,6 +87,7 @@ impl RecursorBuilder {
             self.recursion_limit,
             self.dnssec_policy.clone(),
             self.do_not_query.clone(),
+            self.avoid_local_udp_ports.clone(),
         )
     }
 }
@@ -110,6 +118,7 @@ impl Recursor {
         recursion_limit: u8,
         dnssec_policy: DnssecPolicy,
         do_not_query: Vec<IpNet>,
+        avoid_local_udp_ports: HashSet<u16>,
     ) -> Result<Self, ResolveError> {
         let handle = RecursorDnsHandle::new(
             roots,
@@ -118,6 +127,7 @@ impl Recursor {
             recursion_limit,
             dnssec_policy.is_security_aware(),
             do_not_query,
+            Arc::new(avoid_local_udp_ports),
         )?;
 
         let mode = match dnssec_policy {
@@ -387,6 +397,7 @@ impl Default for RecursorBuilder {
             recursion_limit: 12,
             dnssec_policy: DnssecPolicy::SecurityUnaware,
             do_not_query: vec![],
+            avoid_local_udp_ports: HashSet::new(),
         }
     }
 }
