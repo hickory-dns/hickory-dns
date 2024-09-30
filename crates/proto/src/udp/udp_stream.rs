@@ -5,10 +5,12 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::collections::HashSet;
 use std::future::poll_fn;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use async_trait::async_trait;
@@ -101,6 +103,7 @@ impl<P: RuntimeProvider> UdpStream<P> {
     pub fn new(
         remote_addr: SocketAddr,
         bind_addr: Option<SocketAddr>,
+        avoid_local_ports: Option<Arc<HashSet<u16>>>,
         provider: P,
     ) -> (
         Box<dyn Future<Output = Result<Self, io::Error>> + Send + Unpin>,
@@ -109,7 +112,12 @@ impl<P: RuntimeProvider> UdpStream<P> {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(remote_addr);
 
         // constructs a future for getting the next randomly bound port to a UdpSocket
-        let next_socket = NextRandomUdpSocket::new(remote_addr, bind_addr, provider);
+        let next_socket = NextRandomUdpSocket::new(
+            remote_addr,
+            bind_addr,
+            avoid_local_ports.unwrap_or_default(),
+            provider,
+        );
 
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
@@ -210,9 +218,11 @@ pub(crate) struct NextRandomUdpSocket<P: RuntimeProvider> {
     name_server: SocketAddr,
     bind_address: SocketAddr,
     provider: P,
+    /// Number of unsuccessful attempts to pick a port.
     attempted: usize,
     #[allow(clippy::type_complexity)]
     future: Option<Pin<Box<dyn Send + Future<Output = io::Result<P::Udp>>>>>,
+    avoid_local_ports: Arc<HashSet<u16>>,
 }
 
 impl<P: RuntimeProvider> NextRandomUdpSocket<P> {
@@ -220,7 +230,12 @@ impl<P: RuntimeProvider> NextRandomUdpSocket<P> {
     /// if no port is specified.
     ///
     /// If a port is specified in the bind address it is used.
-    pub(crate) fn new(name_server: SocketAddr, bind_addr: Option<SocketAddr>, provider: P) -> Self {
+    pub(crate) fn new(
+        name_server: SocketAddr,
+        bind_addr: Option<SocketAddr>,
+        avoid_local_ports: Arc<HashSet<u16>>,
+        provider: P,
+    ) -> Self {
         let bind_address = match bind_addr {
             Some(ba) => ba,
             None => match name_server {
@@ -237,6 +252,7 @@ impl<P: RuntimeProvider> NextRandomUdpSocket<P> {
             provider,
             attempted: 0,
             future: None,
+            avoid_local_ports,
         }
     }
 }
@@ -273,8 +289,9 @@ impl<P: RuntimeProvider> Future for NextRandomUdpSocket<P> {
                     }
                 },
                 None => {
-                    let bind_addr = match this.bind_address.port() {
-                        0 if this.attempted < ATTEMPT_RANDOM => {
+                    let mut bind_addr = this.bind_address;
+                    if bind_addr.port() == 0 {
+                        while this.attempted < ATTEMPT_RANDOM {
                             // Per RFC 6056 Section 3.2:
                             //
                             // As mentioned in Section 2.1, the dynamic ports consist of the range
@@ -282,13 +299,21 @@ impl<P: RuntimeProvider> Future for NextRandomUdpSocket<P> {
                             // the whole range 1024-65535.
                             let rand_port_range = Uniform::new_inclusive(1_024, u16::MAX);
                             let mut rand = rand::thread_rng();
-                            SocketAddr::new(
-                                this.bind_address.ip(),
-                                rand_port_range.sample(&mut rand),
-                            )
+                            let port = rand_port_range.sample(&mut rand);
+                            if this.avoid_local_ports.contains(&port) {
+                                // Count this against the total number of attempts to pick a port.
+                                // RFC 6056 Section 3.3.2 notes that this algorithm should find a
+                                // suitable port in one or two attempts with high probability in
+                                // common scenarios. If `avoid_local_ports` is pathologically large,
+                                // then incrementing the counter here will prevent an infinite loop.
+                                this.attempted += 1;
+                                continue;
+                            } else {
+                                bind_addr = SocketAddr::new(bind_addr.ip(), port);
+                                break;
+                            }
                         }
-                        _ => this.bind_address,
-                    };
+                    }
 
                     Some(Box::pin(
                         this.provider.bind_udp(bind_addr, this.name_server),
