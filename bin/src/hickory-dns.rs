@@ -38,12 +38,14 @@
 
 use std::{
     env, fmt,
-    net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs},
+    io::Error,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     path::{Path, PathBuf},
     sync::Arc,
 };
 
 use clap::Parser;
+use socket2::{Domain, Socket, Type};
 use time::OffsetDateTime;
 use tokio::{
     net::{TcpListener, UdpSocket},
@@ -475,11 +477,8 @@ fn run() -> Result<(), String> {
 
     if listen_addrs.is_empty() {
         listen_addrs.push(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
+        listen_addrs.push(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)));
     }
-    let sockaddrs: Vec<SocketAddr> = listen_addrs
-        .iter()
-        .flat_map(|x| (*x, listen_port).to_socket_addrs().unwrap())
-        .collect();
 
     if args.validate {
         info!("configuration files are validated");
@@ -494,15 +493,15 @@ fn run() -> Result<(), String> {
     #[cfg_attr(not(feature = "dns-over-tls"), allow(unused_mut))]
     let mut server = ServerFuture::with_access(catalog, deny_networks, allow_networks);
 
+    let _guard = runtime.enter();
+
     if !args.disable_udp && !config.disable_udp() {
         // load all udp listeners
-        for udp_socket in &sockaddrs {
-            info!("binding UDP to {:?}", udp_socket);
-            let udp_socket = runtime
-                .block_on(UdpSocket::bind(udp_socket))
-                .map_err(|err| {
-                    format!("failed to bind to UDP socket address {udp_socket:?}: {err}")
-                })?;
+        for addr in &listen_addrs {
+            info!("binding UDP to {addr:?}");
+
+            let udp_socket = build_udp_socket(*addr, listen_port)
+                .map_err(|err| format!("failed to bind to UDP socket address {addr:?}: {err}"))?;
 
             info!(
                 "listening for UDP on {:?}",
@@ -511,7 +510,6 @@ fn run() -> Result<(), String> {
                     .map_err(|err| format!("failed to lookup local address: {err}"))?
             );
 
-            let _guard = runtime.enter();
             server.register_socket(udp_socket);
         }
     } else {
@@ -520,14 +518,11 @@ fn run() -> Result<(), String> {
 
     if !args.disable_tcp && !config.disable_tcp() {
         // load all tcp listeners
-        for tcp_listener in &sockaddrs {
-            info!("binding TCP to {:?}", tcp_listener);
-            let tcp_listener =
-                runtime
-                    .block_on(TcpListener::bind(tcp_listener))
-                    .map_err(|err| {
-                        format!("failed to bind to TCP socket address {tcp_listener:?}: {err}")
-                    })?;
+        for addr in &listen_addrs {
+            info!("binding TCP to {addr:?}");
+
+            let tcp_listener = build_tcp_listener(*addr, listen_port)
+                .map_err(|err| format!("failed to bind to TCP socket address {addr:?}: {err}"))?;
 
             info!(
                 "listening for TCP on {:?}",
@@ -536,7 +531,6 @@ fn run() -> Result<(), String> {
                     .map_err(|err| format!("failed to lookup local address: {err}"))?
             );
 
-            let _guard = runtime.enter();
             server.register_listener(tcp_listener, tcp_request_timeout);
         }
     } else {
@@ -559,7 +553,6 @@ fn run() -> Result<(), String> {
                 tls_cert_config,
                 &zone_dir,
                 &listen_addrs,
-                &runtime,
             )?;
         } else {
             info!("TLS protocol is disabled");
@@ -575,7 +568,6 @@ fn run() -> Result<(), String> {
                 tls_cert_config,
                 &zone_dir,
                 &listen_addrs,
-                &runtime,
             )?;
         } else {
             info!("HTTPS protocol is disabled");
@@ -591,7 +583,6 @@ fn run() -> Result<(), String> {
                 tls_cert_config,
                 &zone_dir,
                 &listen_addrs,
-                &runtime,
             )?;
         } else {
             info!("QUIC protocol is disabled");
@@ -636,20 +627,15 @@ fn config_tls(
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
-    runtime: &runtime::Runtime,
 ) -> Result<(), String> {
     let tls_listen_port: u16 = args.tls_port.unwrap_or_else(|| config.tls_listen_port());
-    let tls_sockaddrs: Vec<SocketAddr> = listen_addrs
-        .iter()
-        .flat_map(|x| (*x, tls_listen_port).to_socket_addrs().unwrap())
-        .collect();
 
-    if tls_sockaddrs.is_empty() {
+    if listen_addrs.is_empty() {
         warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
         return Ok(());
     }
 
-    for tls_listener in &tls_sockaddrs {
+    for addr in listen_addrs {
         let tls_cert_path = tls_cert_config.path();
         info!("loading cert for DNS over TLS: {tls_cert_path:?}");
 
@@ -657,12 +643,10 @@ fn config_tls(
             format!("failed to load tls certificate files from {tls_cert_path:?}: {err}")
         })?;
 
-        info!("binding TLS to {:?}", tls_listener);
-        let tls_listener = runtime
-            .block_on(TcpListener::bind(tls_listener))
-            .map_err(|err| {
-                format!("failed to bind to TLS socket address {tls_listener:?}: {err}")
-            })?;
+        info!("binding TLS to {addr:?}");
+
+        let tls_listener = build_tcp_listener(*addr, tls_listen_port)
+            .map_err(|err| format!("failed to bind to TLS socket address {addr:?}: {err}"))?;
 
         info!(
             "listening for TLS on {:?}",
@@ -671,7 +655,6 @@ fn config_tls(
                 .map_err(|err| format!("failed to lookup local address: {err}"))?
         );
 
-        let _guard = runtime.enter();
         server
             .register_tls_listener(tls_listener, config.tcp_request_timeout(), tls_cert)
             .map_err(|err| format!("failed to register TLS listener: {err}"))?;
@@ -687,23 +670,18 @@ fn config_https(
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
-    runtime: &runtime::Runtime,
 ) -> Result<(), String> {
     let https_listen_port: u16 = args
         .https_port
         .unwrap_or_else(|| config.https_listen_port());
-    let https_sockaddrs: Vec<SocketAddr> = listen_addrs
-        .iter()
-        .flat_map(|x| (*x, https_listen_port).to_socket_addrs().unwrap())
-        .collect();
     let endpoint_path = config.http_endpoint();
 
-    if https_sockaddrs.is_empty() {
+    if listen_addrs.is_empty() {
         warn!("a tls certificate was specified, but no HTTPS addresses configured to listen on");
         return Ok(());
     }
 
-    for https_listener in &https_sockaddrs {
+    for addr in listen_addrs {
         let tls_cert_path = tls_cert_config.path();
         if let Some(endpoint_name) = tls_cert_config.endpoint_name() {
             info!("loading cert for DNS over TLS named {endpoint_name} from {tls_cert_path:?}");
@@ -715,12 +693,10 @@ fn config_https(
             format!("failed to load tls certificate files from {tls_cert_path:?}: {err}")
         })?;
 
-        info!("binding HTTPS to {:?}", https_listener);
-        let https_listener = runtime
-            .block_on(TcpListener::bind(https_listener))
-            .map_err(|err| {
-                format!("failed to bind to HTTPS socket address {https_listener:?}: {err}")
-            })?;
+        info!("binding HTTPS to {addr:?}");
+
+        let https_listener = build_tcp_listener(*addr, https_listen_port)
+            .map_err(|err| format!("failed to bind to HTTPS socket address {addr:?}: {err}"))?;
 
         info!(
             "listening for HTTPS on {:?}",
@@ -729,7 +705,6 @@ fn config_https(
                 .map_err(|err| format!("failed to lookup local address: {err}"))?
         );
 
-        let _guard = runtime.enter();
         server
             .register_https_listener(
                 https_listener,
@@ -752,20 +727,15 @@ fn config_quic(
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
-    runtime: &runtime::Runtime,
 ) -> Result<(), String> {
     let quic_listen_port: u16 = args.quic_port.unwrap_or_else(|| config.quic_listen_port());
-    let quic_sockaddrs: Vec<SocketAddr> = listen_addrs
-        .iter()
-        .flat_map(|x| (*x, quic_listen_port).to_socket_addrs().unwrap())
-        .collect();
 
-    if quic_sockaddrs.is_empty() {
+    if listen_addrs.is_empty() {
         warn!("a tls certificate was specified, but no QUIC addresses configured to listen on");
         return Ok(());
     }
 
-    for quic_listener in &quic_sockaddrs {
+    for addr in listen_addrs {
         let tls_cert_path = tls_cert_config.path();
         if let Some(endpoint_name) = tls_cert_config.endpoint_name() {
             info!("loading cert for DNS over QUIC named {endpoint_name} from {tls_cert_path:?}");
@@ -777,12 +747,10 @@ fn config_quic(
             format!("failed to load tls certificate files from {tls_cert_path:?}: {err}")
         })?;
 
-        info!("Binding QUIC to {:?}", quic_listener);
-        let quic_listener = runtime
-            .block_on(UdpSocket::bind(quic_listener))
-            .map_err(|err| {
-                format!("failed to bind to QUIC socket address {quic_listener:?}: {err}")
-            })?;
+        info!("Binding QUIC to {addr:?}");
+
+        let quic_listener = build_udp_socket(*addr, quic_listen_port)
+            .map_err(|err| format!("failed to bind to QUIC socket address {addr:?}: {err}"))?;
 
         info!(
             "listening for QUIC on {:?}",
@@ -791,7 +759,6 @@ fn config_quic(
                 .map_err(|err| format!("failed to lookup local address: {err}"))?
         );
 
-        let _guard = runtime.enter();
         server
             .register_quic_listener(
                 quic_listener,
@@ -916,4 +883,43 @@ fn logger(level: tracing::Level) -> Result<(), String> {
         .init();
 
     Ok(())
+}
+
+/// Build a TcpListener for a given IP, port pair; IPv6 listeners will not accept v4 connections
+fn build_tcp_listener(ip: IpAddr, port: u16) -> Result<TcpListener, Error> {
+    let sock = if ip.is_ipv4() {
+        Socket::new(Domain::IPV4, Type::STREAM, None)?
+    } else {
+        let s = Socket::new(Domain::IPV6, Type::STREAM, None)?;
+        s.set_only_v6(true)?;
+        s
+    };
+
+    sock.set_nonblocking(true)?;
+
+    let s_addr = SocketAddr::new(ip, port);
+    sock.bind(&s_addr.into())?;
+
+    // this is a fairly typical backlog value, but we don't have any good data to support it as of yet
+    sock.listen(128)?;
+
+    TcpListener::from_std(sock.into())
+}
+
+/// Build a UdpSocket for a given IP, port pair; IPv6 sockets will not accept v4 connections
+fn build_udp_socket(ip: IpAddr, port: u16) -> Result<UdpSocket, Error> {
+    let sock = if ip.is_ipv4() {
+        Socket::new(Domain::IPV4, Type::DGRAM, None)?
+    } else {
+        let s = Socket::new(Domain::IPV6, Type::DGRAM, None)?;
+        s.set_only_v6(true)?;
+        s
+    };
+
+    sock.set_nonblocking(true)?;
+
+    let s_addr = SocketAddr::new(ip, port);
+    sock.bind(&s_addr.into())?;
+
+    UdpSocket::from_std(sock.into())
 }

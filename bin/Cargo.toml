@@ -67,6 +67,7 @@ ipnet = { workspace = true, features = ["serde"] }
 # rusqlite is actually only needed for test situations, but we need an optional dependency
 # here so we can disable it for MSRV tests (rusqlite only supports latest stable)
 rusqlite = { workspace = true, features = ["bundled", "time"], optional = true }
+socket2.workspace = true
 rustls = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
 time.workspace = true
