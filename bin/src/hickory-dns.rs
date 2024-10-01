@@ -61,7 +61,7 @@ use tracing_subscriber::{
 
 #[cfg(feature = "dns-over-tls")]
 use hickory_dns::dnssec::{self, TlsCertConfig};
-use hickory_dns::{Config, ZoneConfig};
+use hickory_dns::{Config, StoreConfig, StoreConfigContainer, ZoneConfig};
 use hickory_proto::rr::Name;
 #[cfg(feature = "resolver")]
 use hickory_server::store::forwarder::ForwardAuthority;
@@ -72,10 +72,7 @@ use hickory_server::store::sqlite::{SqliteAuthority, SqliteConfig};
 use hickory_server::{
     authority::{AuthorityObject, Catalog, ZoneType},
     server::ServerFuture,
-    store::{
-        file::{FileAuthority, FileConfig},
-        StoreConfig, StoreConfigContainer,
-    },
+    store::file::{FileAuthority, FileConfig},
 };
 
 #[cfg(feature = "dnssec")]

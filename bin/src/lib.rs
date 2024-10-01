@@ -26,7 +26,13 @@ use hickory_server::authority::ZoneType;
 #[cfg(feature = "dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::error::ConfigResult;
-use hickory_server::store::StoreConfigContainer;
+use hickory_server::store::file::FileConfig;
+#[cfg(feature = "resolver")]
+use hickory_server::store::forwarder::ForwardConfig;
+#[cfg(feature = "recursor")]
+use hickory_server::store::recursor::RecursiveConfig;
+#[cfg(feature = "sqlite")]
+use hickory_server::store::sqlite::SqliteConfig;
 
 static DEFAULT_PATH: &str = "/var/named"; // TODO what about windows (do I care? ;)
 static DEFAULT_PORT: u16 = 53;
@@ -335,6 +341,46 @@ impl ZoneConfig {
     pub fn keys(&self) -> &[dnssec::KeyConfig] {
         &self.keys
     }
+}
+
+/// Enumeration over all Store configurations
+///
+/// This is the outer container enum, covering the single- and chained-store variants.
+/// The chained store variant is a vector of StoreConfigs that should be consulted in-order during the lookup process.
+/// An example of this (currently the only example,) is when the blocklist feature is used: the blocklist should be queried first, then
+/// a recursor or forwarder second if the blocklist authority does not match on the query.
+#[derive(Deserialize, PartialEq, Eq, Debug)]
+#[serde(untagged)]
+#[non_exhaustive]
+pub enum StoreConfigContainer {
+    /// For a zone with a single store
+    Single(StoreConfig),
+    /// For a zone with multiple stores.  E.g., a recursive or forwarding zone with block lists.
+    Chained(Vec<StoreConfig>),
+}
+
+/// Enumeration over all store types
+#[derive(Deserialize, PartialEq, Eq, Debug)]
+#[serde(tag = "type")]
+#[serde(rename_all = "lowercase")]
+#[non_exhaustive]
+pub enum StoreConfig {
+    /// File based configuration
+    File(FileConfig),
+    /// Sqlite based configuration file
+    #[cfg(feature = "sqlite")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "sqlite")))]
+    Sqlite(SqliteConfig),
+    /// Forwarding Resolver
+    #[cfg(feature = "resolver")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "resolver")))]
+    Forward(ForwardConfig),
+    /// Recursive Resolver
+    #[cfg(feature = "recursor")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "recursor")))]
+    Recursor(RecursiveConfig),
+    /// This is used by the configuration processing code to represent a deprecated or main-block config without an associated store.
+    Default,
 }
 
 #[cfg(test)]
