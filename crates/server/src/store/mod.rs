@@ -7,7 +7,6 @@
 
 //! All persistent store implementations
 
-mod config;
 pub mod file;
 pub mod forwarder;
 pub mod in_memory;
@@ -15,8 +14,3 @@ pub mod recursor;
 #[cfg(feature = "sqlite")]
 #[cfg_attr(docsrs, doc(cfg(feature = "sqlite")))]
 pub mod sqlite;
-
-// TODO: add a dynamic library option?
-
-pub use self::config::StoreConfig;
-pub use self::config::StoreConfigContainer;
