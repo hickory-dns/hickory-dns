@@ -31,8 +31,7 @@ jobs:
     continue-on-error: true
     strategy:
       matrix:
-        #os: [ubuntu-latest, macos-latest, windows-latest]
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -47,10 +46,14 @@ jobs:
           version: ${{ env.CARGO_WS_VERSION }}
 
       - name: just all-features
+        if: matrix.os != 'windows-latest'
         run: just all-features
+      - name: just windows-features
+        if: matrix.os == 'windows-latest'
+        run: just windows-features
 
       - name: just test-docs
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.os != 'windows-latest' }} # uses all features, avoid openssl
         run: just test-docs
 
   wasm:
