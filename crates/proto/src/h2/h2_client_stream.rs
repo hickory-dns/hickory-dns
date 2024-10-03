@@ -450,11 +450,11 @@ where
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
-            let next = match *self {
+            let next = match &mut *self.as_mut() {
                 Self::TcpConnecting {
-                    ref mut connect,
+                    connect,
                     name_server,
-                    ref mut tls,
+                    tls,
                 } => {
                     let tcp = ready!(connect.poll_unpin(cx))?;
 
@@ -471,7 +471,7 @@ where
                             let tls = tls.connect(dns_name.to_owned(), AsyncIoStdAsTokio(tcp));
                             Self::TlsConnecting {
                                 name_server_name,
-                                name_server,
+                                name_server: *name_server,
                                 tls,
                                 query_path,
                             }
@@ -483,10 +483,10 @@ where
                     }
                 }
                 Self::TlsConnecting {
-                    ref name_server_name,
+                    name_server_name,
                     name_server,
-                    ref query_path,
-                    ref mut tls,
+                    query_path,
+                    tls,
                 } => {
                     let tls = ready!(tls.poll_unpin(cx))?;
                     debug!("tls connection established to: {}", name_server);
@@ -496,16 +496,16 @@ where
                     let handshake = handshake.handshake(tls);
                     Self::H2Handshake {
                         name_server_name: Arc::clone(name_server_name),
-                        name_server,
+                        name_server: *name_server,
                         query_path: Arc::clone(query_path),
                         handshake: Box::pin(handshake),
                     }
                 }
                 Self::H2Handshake {
-                    ref name_server_name,
+                    name_server_name,
                     name_server,
-                    ref query_path,
-                    ref mut handshake,
+                    query_path,
+                    handshake,
                 } => {
                     let (send_request, connection) = ready!(handshake
                         .poll_unpin(cx)
@@ -521,16 +521,16 @@ where
 
                     Self::Connected(Some(HttpsClientStream {
                         name_server_name: Arc::clone(name_server_name),
-                        name_server,
+                        name_server: *name_server,
                         query_path: Arc::clone(query_path),
                         h2: send_request,
                         is_shutdown: false,
                     }))
                 }
-                Self::Connected(ref mut conn) => {
+                Self::Connected(conn) => {
                     return Poll::Ready(Ok(conn.take().expect("cannot poll after complete")))
                 }
-                Self::Errored(ref mut err) => {
+                Self::Errored(err) => {
                     return Poll::Ready(Err(err.take().expect("cannot poll after complete")))
                 }
             };

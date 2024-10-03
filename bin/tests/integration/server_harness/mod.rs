@@ -253,7 +253,7 @@ pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
     let response = query_message(io_loop, client, name, RecordType::A).unwrap();
     let record = &response.answers()[0];
 
-    if let RData::A(ref address) = record.data() {
+    if let RData::A(address) = record.data() {
         assert_eq!(address, &A::new(127, 0, 0, 1))
     } else {
         panic!("wrong RDATA")

@@ -209,7 +209,7 @@ mod tests {
 
     #[test]
     fn test_read() {
-        test_read_data_set(get_data(), |ref mut d| AAAA::read(d));
+        test_read_data_set(get_data(), |mut d| AAAA::read(&mut d));
     }
 
     #[test]

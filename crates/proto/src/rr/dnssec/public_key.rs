@@ -505,13 +505,13 @@ impl<'k> PublicKeyEnum<'k> {
 impl<'k> PublicKey for PublicKeyEnum<'k> {
     #[allow(clippy::match_single_binding, clippy::match_single_binding)]
     fn public_bytes(&self) -> &[u8] {
-        match *self {
+        match self {
             #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-            PublicKeyEnum::Ec(ref ec) => ec.public_bytes(),
+            PublicKeyEnum::Ec(ec) => ec.public_bytes(),
             #[cfg(feature = "dnssec-ring")]
-            PublicKeyEnum::Ed25519(ref ed) => ed.public_bytes(),
+            PublicKeyEnum::Ed25519(ed) => ed.public_bytes(),
             #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-            PublicKeyEnum::Rsa(ref rsa) => rsa.public_bytes(),
+            PublicKeyEnum::Rsa(rsa) => rsa.public_bytes(),
             #[cfg(not(any(feature = "dnssec-ring", feature = "dnssec-openssl")))]
             _ => panic!("no public keys registered, enable ring or openssl features"),
         }
@@ -519,13 +519,13 @@ impl<'k> PublicKey for PublicKeyEnum<'k> {
 
     #[allow(unused_variables, clippy::match_single_binding)]
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
-        match *self {
+        match self {
             #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-            PublicKeyEnum::Ec(ref ec) => ec.verify(algorithm, message, signature),
+            PublicKeyEnum::Ec(ec) => ec.verify(algorithm, message, signature),
             #[cfg(feature = "dnssec-ring")]
-            PublicKeyEnum::Ed25519(ref ed) => ed.verify(algorithm, message, signature),
+            PublicKeyEnum::Ed25519(ed) => ed.verify(algorithm, message, signature),
             #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-            PublicKeyEnum::Rsa(ref rsa) => rsa.verify(algorithm, message, signature),
+            PublicKeyEnum::Rsa(rsa) => rsa.verify(algorithm, message, signature),
             #[cfg(not(any(feature = "dnssec-ring", feature = "dnssec-openssl")))]
             _ => panic!("no public keys registered, enable ring or openssl features"),
         }

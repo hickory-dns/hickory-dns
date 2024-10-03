@@ -88,10 +88,10 @@ impl Clone for ParseErrorKind {
         match self {
             CharToInt(c) => CharToInt(*c),
             Message(msg) => Message(msg),
-            MissingToken(ref s) => MissingToken(s.clone()),
-            Msg(ref msg) => Msg(msg.clone()),
-            ParseTime(ref s) => ParseTime(s.clone()),
-            UnexpectedToken(ref token) => UnexpectedToken(token.clone()),
+            MissingToken(s) => MissingToken(s.clone()),
+            Msg(msg) => Msg(msg.clone()),
+            ParseTime(s) => ParseTime(s.clone()),
+            UnexpectedToken(token) => UnexpectedToken(token.clone()),
 
             AddrParse(e) => AddrParse(e.clone()),
             DataEncoding(e) => DataEncoding(*e),
@@ -125,7 +125,7 @@ impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         cfg_if::cfg_if! {
             if #[cfg(feature = "backtrace")] {
-                if let Some(ref backtrace) = self.backtrack {
+                if let Some(backtrace) = &self.backtrack {
                     fmt::Display::fmt(&self.kind, f)?;
                     fmt::Debug::fmt(backtrace, f)
                 } else {
@@ -195,7 +195,7 @@ impl From<std::num::ParseIntError> for ParseError {
 
 impl From<ProtoError> for ParseError {
     fn from(e: ProtoError) -> Self {
-        match *e.kind() {
+        match e.kind() {
             ProtoErrorKind::Timeout => ParseErrorKind::Timeout.into(),
             _ => ParseErrorKind::from(e).into(),
         }
@@ -210,7 +210,7 @@ impl From<std::convert::Infallible> for ParseError {
 
 impl From<ParseError> for io::Error {
     fn from(e: ParseError) -> Self {
-        match *e.kind() {
+        match e.kind() {
             ParseErrorKind::Timeout => Self::new(io::ErrorKind::TimedOut, e),
             _ => Self::new(io::ErrorKind::Other, e),
         }
@@ -290,7 +290,7 @@ impl fmt::Display for LexerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         cfg_if::cfg_if! {
             if #[cfg(feature = "backtrace")] {
-                if let Some(ref backtrace) = self.backtrack {
+                if let Some(backtrace) = &self.backtrack {
                     fmt::Display::fmt(&self.kind, f)?;
                     fmt::Debug::fmt(backtrace, f)
                 } else {

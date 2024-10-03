@@ -672,7 +672,7 @@ impl SqliteAuthority {
 
         // the persistence act as a write-ahead log. The WAL will also be used for recovery of a zone
         //  subsequent to a failure of the server.
-        if let Some(ref journal) = *self.journal.lock().await {
+        if let Some(journal) = &*self.journal.lock().await {
             if let Err(error) = journal.insert_records(serial, records) {
                 error!("could not persist update records: {}", error);
                 return Err(ResponseCode::ServFail);

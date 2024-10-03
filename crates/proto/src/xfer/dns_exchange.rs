@@ -312,11 +312,11 @@ where
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
             let next;
-            match *self {
+            match &mut *self {
                 Self::Connecting {
-                    ref mut connect_future,
-                    ref mut outbound_messages,
-                    ref mut sender,
+                    connect_future,
+                    outbound_messages,
+                    sender,
                 } => {
                     let connect_future = Pin::new(connect_future);
                     match connect_future.poll(cx) {
@@ -349,8 +349,8 @@ where
                     };
                 }
                 Self::Connected {
-                    ref exchange,
-                    ref mut background,
+                    exchange,
+                    background,
                 } => {
                     let exchange = exchange.clone();
                     let background = background.take().expect("cannot poll after complete");
@@ -358,8 +358,8 @@ where
                     return Poll::Ready(Ok((exchange, background)));
                 }
                 Self::FailAll {
-                    ref error,
-                    ref mut outbound_messages,
+                    error,
+                    outbound_messages,
                 } => {
                     while let Some(outbound_message) = match outbound_messages.poll_next_unpin(cx) {
                         Poll::Ready(opt) => opt,
@@ -375,7 +375,7 @@ where
 
                     return Poll::Ready(Err(error.clone()));
                 }
-                Self::Error(ref error) => return Poll::Ready(Err(error.clone())),
+                Self::Error(error) => return Poll::Ready(Err(error.clone())),
             }
 
             *self = next;

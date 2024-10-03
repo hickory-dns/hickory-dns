@@ -58,7 +58,7 @@ impl Clone for ErrorKind {
         use self::ErrorKind::*;
         match self {
             Message(msg) => Message(msg),
-            Msg(ref msg) => Msg(msg.clone()),
+            Msg(msg) => Msg(msg.clone()),
             // foreign
             DnsSec(dnssec) => DnsSec(dnssec.clone()),
             Io(io) => Io(std::io::Error::from(io.kind())),
@@ -88,7 +88,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         cfg_if::cfg_if! {
             if #[cfg(feature = "backtrace")] {
-                if let Some(ref backtrace) = self.backtrack {
+                if let Some(backtrace) = &self.backtrack {
                     fmt::Display::fmt(&self.kind, f)?;
                     fmt::Debug::fmt(backtrace, f)
                 } else {
@@ -131,7 +131,7 @@ impl From<String> for Error {
 
 impl From<DnsSecError> for Error {
     fn from(e: DnsSecError) -> Self {
-        match *e.kind() {
+        match e.kind() {
             DnsSecErrorKind::Timeout => ErrorKind::Timeout.into(),
             _ => ErrorKind::from(e).into(),
         }
@@ -149,7 +149,7 @@ impl From<io::Error> for Error {
 
 impl From<ProtoError> for Error {
     fn from(e: ProtoError) -> Self {
-        match *e.kind() {
+        match e.kind() {
             ProtoErrorKind::Timeout => ErrorKind::Timeout.into(),
             _ => ErrorKind::from(e).into(),
         }
@@ -158,7 +158,7 @@ impl From<ProtoError> for Error {
 
 impl From<Error> for io::Error {
     fn from(e: Error) -> Self {
-        match *e.kind() {
+        match e.kind() {
             ErrorKind::Timeout => Self::new(io::ErrorKind::TimedOut, e),
             _ => Self::new(io::ErrorKind::Other, e),
         }
@@ -171,7 +171,7 @@ fn test_conversion() {
 
     let error = Error::from(io_error);
 
-    match *error.kind() {
+    match error.kind() {
         ErrorKind::Timeout => (),
         _ => panic!("incorrect type: {}", error),
     }

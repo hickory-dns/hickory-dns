@@ -188,7 +188,7 @@ fn test_query(client: &mut AsyncClient) -> impl Future<Output = ()> {
             assert_eq!(record.record_type(), RecordType::A);
             assert_eq!(record.dns_class(), DNSClass::IN);
 
-            if let RData::A(ref address) = record.data() {
+            if let RData::A(address) = record.data() {
                 assert_eq!(address, &A::new(93, 184, 215, 14))
             } else {
                 panic!();
@@ -247,8 +247,8 @@ fn test_query_edns(client: &mut AsyncClient) -> impl Future<Output = ()> {
                     .unwrap(),
                 &EdnsOption::Subnet("1.2.0.0/16".parse().unwrap())
             );
-            if let RData::A(ref address) = *record.data() {
-                assert_eq!(address, &A::new(93, 184, 215, 14))
+            if let RData::A(address) = *record.data() {
+                assert_eq!(address, A::new(93, 184, 215, 14))
             } else {
                 panic!();
             }

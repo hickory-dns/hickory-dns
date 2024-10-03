@@ -61,8 +61,8 @@ where
     assert_eq!(record.dns_class(), DNSClass::IN);
     assert_eq!(record.proof(), Proof::Secure);
 
-    if let RData::A(ref address) = *record.data() {
-        assert_eq!(address, &A::new(93, 184, 215, 14))
+    if let RData::A(address) = *record.data() {
+        assert_eq!(address, A::new(93, 184, 215, 14))
     } else {
         panic!();
     }

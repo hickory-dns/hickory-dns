@@ -151,7 +151,7 @@ pub fn new_acceptor(
             | SslOptions::NO_TLSV1_1,
     );
 
-    if let Some(ref chain) = chain {
+    if let Some(chain) = chain {
         for cert in chain {
             builder.add_extra_chain_cert(cert.to_owned())?;
         }

@@ -102,7 +102,7 @@ fn tls_client_stream_test(server_addr: IpAddr) {
                     .expect("failed to associated cert");
             }
 
-            if let Some(ref chain) = pkcs12.ca {
+            if let Some(chain) = pkcs12.ca {
                 for cert in chain {
                     tls.add_extra_chain_cert(cert.to_owned())
                         .expect("failed to add chain");

@@ -656,7 +656,7 @@ mod tests {
         let sig = signer.sign_message(&question, &pre_sig0);
         println!("sig after sign: {sig:?}");
 
-        if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = question.sig0()[0].data() {
+        if let RData::DNSSEC(DNSSECRData::SIG(sig)) = question.sig0()[0].data() {
             assert!(sig0key.verify_message(&question, sig.sig(), sig).is_ok());
         }
     }
@@ -743,8 +743,8 @@ mod tests {
             ),
         ];
 
-        for &(ref input_data, exp_result) in test_vectors.iter() {
-            let rsa = get_rsa_from_vec(input_data).unwrap();
+        for (input_data, exp_result) in test_vectors {
+            let rsa = get_rsa_from_vec(&input_data).unwrap();
             let rsa_pem = rsa.private_key_to_pem().unwrap();
             println!("pkey:\n{}", String::from_utf8(rsa_pem).unwrap());
 

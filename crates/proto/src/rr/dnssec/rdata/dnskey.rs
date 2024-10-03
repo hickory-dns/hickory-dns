@@ -542,8 +542,8 @@ mod tests {
             (test_text.as_bytes().to_vec(), 0x8d5b),
         ];
 
-        for &(ref input_data, exp_result) in test_vectors.iter() {
-            let result = DNSKEY::calculate_key_tag_internal(input_data);
+        for (input_data, exp_result) in test_vectors {
+            let result = DNSKEY::calculate_key_tag_internal(&input_data);
             assert_eq!(result, exp_result);
         }
     }

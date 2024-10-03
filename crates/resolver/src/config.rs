@@ -394,7 +394,7 @@ impl fmt::Display for NameServerConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}:", self.protocol)?;
 
-        if let Some(ref tls_dns_name) = self.tls_dns_name {
+        if let Some(tls_dns_name) = &self.tls_dns_name {
             write!(f, "{tls_dns_name}@")?;
         }
 

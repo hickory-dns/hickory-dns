@@ -109,7 +109,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         cfg_if::cfg_if! {
             if #[cfg(feature = "backtrace")] {
-                if let Some(ref backtrace) = self.backtrack {
+                if let Some(backtrace) = &self.backtrack {
                     fmt::Display::fmt(&self.kind, f)?;
                     fmt::Debug::fmt(backtrace, f)
                 } else {
@@ -151,7 +151,7 @@ impl From<String> for Error {
 
 impl From<Error> for io::Error {
     fn from(e: Error) -> Self {
-        match *e.kind() {
+        match e.kind() {
             ErrorKind::Timeout => Self::new(io::ErrorKind::TimedOut, e),
             _ => Self::new(io::ErrorKind::Other, e),
         }
@@ -185,14 +185,14 @@ impl From<ResolveError> for Error {
 impl Clone for ErrorKind {
     fn clone(&self) -> Self {
         use self::ErrorKind::*;
-        match *self {
+        match self {
             Message(msg) => Message(msg),
-            Msg(ref msg) => Msg(msg.clone()),
-            Forward(ref ns) => Forward(ns.clone()),
-            ForwardNS(ref ns) => ForwardNS(ns.clone()),
-            Io(ref io) => Io(std::io::Error::from(io.kind())),
-            Proto(ref proto) => Proto(proto.clone()),
-            Resolve(ref resolve) => Resolve(resolve.clone()),
+            Msg(msg) => Msg(msg.clone()),
+            Forward(ns) => Forward(ns.clone()),
+            ForwardNS(ns) => ForwardNS(ns.clone()),
+            Io(io) => Io(std::io::Error::from(io.kind())),
+            Proto(proto) => Proto(proto.clone()),
+            Resolve(resolve) => Resolve(resolve.clone()),
             Timeout => Self::Timeout,
         }
     }

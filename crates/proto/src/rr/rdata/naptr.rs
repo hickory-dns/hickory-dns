@@ -274,7 +274,7 @@ impl RecordData for NAPTR {
 ///   care.  See Section 10 for how to correctly enter and escape the
 ///   regular expression.
 ///
-/// ;;      order pref flags service           regexp replacement
+/// ;;      order pflags service           regexp replacement
 /// IN NAPTR 100  50  "a"    "z3950+N2L+N2C"     ""   cidserver.example.com.
 /// IN NAPTR 100  50  "a"    "rcds+N2C"          ""   cidserver.example.com.
 /// IN NAPTR 100  50  "s"    "http+N2L+N2C+N2R"  ""   www.example.com.

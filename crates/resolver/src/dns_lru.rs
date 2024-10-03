@@ -48,8 +48,8 @@ impl LruValue {
     }
 
     fn with_updated_ttl(&self, now: Instant) -> Self {
-        let lookup = match self.lookup {
-            Ok(ref lookup) => {
+        let lookup = match &self.lookup {
+            Ok(lookup) => {
                 let records = lookup
                     .records()
                     .iter()
@@ -65,7 +65,7 @@ impl LruValue {
                     self.valid_until,
                 ))
             }
-            Err(ref e) => Err(e.clone()),
+            Err(e) => Err(e.clone()),
         };
         Self {
             lookup,
@@ -332,17 +332,13 @@ impl DnsLru {
     fn nx_error_with_ttl(error: &mut ProtoError, new_ttl: Duration) {
         let ProtoError { kind, .. } = error;
 
-        if let ProtoErrorKind::NoRecordsFound {
-            ref mut negative_ttl,
-            ..
-        } = kind.as_mut()
-        {
+        if let ProtoErrorKind::NoRecordsFound { negative_ttl, .. } = kind.as_mut() {
             *negative_ttl = Some(u32::try_from(new_ttl.as_secs()).unwrap_or(MAX_TTL));
         }
     }
 
     pub(crate) fn negative(&self, query: Query, mut error: ProtoError, now: Instant) -> ProtoError {
-        let ProtoError { ref kind, .. } = error;
+        let ProtoError { kind, .. } = &error;
 
         // TODO: if we are getting a negative response, should we instead fallback to cache?
         //   this would cache indefinitely, probably not correct
@@ -383,7 +379,7 @@ impl DnsLru {
             if value.is_current(now) {
                 out_of_date = false;
                 let mut result = value.with_updated_ttl(now).lookup;
-                if let Err(ref mut err) = result {
+                if let Err(err) = &mut result {
                     Self::nx_error_with_ttl(err, value.ttl(now));
                 }
                 Some(result)

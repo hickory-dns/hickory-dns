@@ -178,11 +178,11 @@ pub enum Property {
 impl Property {
     /// Convert to string form
     pub fn as_str(&self) -> &str {
-        match *self {
+        match self {
             Self::Issue => "issue",
             Self::IssueWild => "issuewild",
             Self::Iodef => "iodef",
-            Self::Unknown(ref property) => property,
+            Self::Unknown(property) => property,
         }
     }
 
@@ -266,7 +266,7 @@ fn read_value(
     value_len: Restrict<u16>,
 ) -> ProtoResult<Value> {
     let value_len = value_len.map(|u| u as usize).unverified(/*used purely as length safely*/);
-    match *tag {
+    match tag {
         Property::Issue | Property::IssueWild => {
             let slice = decoder.read_slice(value_len)?.unverified(/*read_issuer verified as safe*/);
             Ok(match read_issuer(slice) {
@@ -288,10 +288,10 @@ fn read_value(
 }
 
 fn emit_value(encoder: &mut BinEncoder<'_>, value: &Value) -> ProtoResult<()> {
-    match *value {
-        Value::Issuer(ref name, ref key_values) => {
+    match value {
+        Value::Issuer(name, key_values) => {
             // output the name
-            if let Some(ref name) = *name {
+            if let Some(name) = name {
                 let name = name.to_ascii();
                 encoder.emit_vec(name.as_bytes())?;
             }
@@ -311,12 +311,12 @@ fn emit_value(encoder: &mut BinEncoder<'_>, value: &Value) -> ProtoResult<()> {
 
             Ok(())
         }
-        Value::Url(ref url) => {
+        Value::Url(url) => {
             let url = url.as_str();
             let bytes = url.as_bytes();
             encoder.emit_vec(bytes)
         }
-        Value::Unknown(ref data) => encoder.emit_vec(data),
+        Value::Unknown(data) => encoder.emit_vec(data),
     }
 }
 

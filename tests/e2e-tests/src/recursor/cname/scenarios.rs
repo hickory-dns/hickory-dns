@@ -49,7 +49,7 @@ fn single_level_cname_tests() -> Result<()> {
 
     let res = test.dig(RecordType::A, &cname_fqdn);
 
-    if let Ok(ref res) = res {
+    if let Ok(res) = &res {
         assert!(res.status.is_noerror());
         assert_eq!(res.answer.len(), 2);
     } else {
@@ -72,7 +72,7 @@ fn single_level_cname_tests() -> Result<()> {
 
     let res = test.dig(RecordType::CNAME, &cname_fqdn);
 
-    if let Ok(ref res) = res {
+    if let Ok(res) = &res {
         assert!(res.status.is_noerror());
         assert_eq!(res.answer.len(), 1);
     } else {
@@ -120,7 +120,7 @@ fn multi_level_cname_tests() -> Result<()> {
 
     let res = test.dig(RecordType::A, &FQDN("www.example.testing.")?);
 
-    if let Ok(ref res) = res {
+    if let Ok(res) = res {
         // FIXME Need recursor to pass servfail responses through for this to work.
         //assert!(res.status.is_servfail());
         assert_eq!(res.answer.len(), 0);
@@ -133,7 +133,7 @@ fn multi_level_cname_tests() -> Result<()> {
 
     let res = test.dig(RecordType::A, &FQDN("www2.example2.testing.")?);
 
-    if let Ok(ref res) = res {
+    if let Ok(res) = &res {
         assert!(res.status.is_noerror());
         assert_eq!(res.answer.len(), 12);
     } else {
@@ -158,7 +158,7 @@ fn multi_level_cname_tests() -> Result<()> {
     }
 
     let res = test.dig(RecordType::CNAME, &FQDN("www13.example.testing.")?);
-    if let Ok(ref res) = res {
+    if let Ok(res) = res {
         assert_eq!(res.answer.len(), 0);
     } else {
         panic!("Error");

@@ -83,7 +83,7 @@ where
                 r
             }
             Poll::Pending => {
-                if let Some(ref mut timeout) = self.timeout {
+                if let Some(timeout) = &mut self.timeout {
                     match timeout.poll_unpin(cx) {
                         Poll::Pending => Poll::Pending,
                         Poll::Ready(()) => {

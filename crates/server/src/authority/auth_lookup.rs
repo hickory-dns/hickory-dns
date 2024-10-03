@@ -86,10 +86,7 @@ impl AuthLookup {
     /// Takes the additional records, leaving behind None
     pub fn take_additionals(&mut self) -> Option<LookupRecords> {
         match self {
-            Self::Records {
-                ref mut additionals,
-                ..
-            } => additionals.take(),
+            Self::Records { additionals, .. } => additionals.take(),
             _ => None,
         }
     }
@@ -247,7 +244,7 @@ impl<'r> Iterator for AnyRecordsIter<'r> {
         let query_name = self.query_name;
 
         loop {
-            if let Some(ref mut records) = self.records {
+            if let Some(records) = &mut self.records {
                 let record = records
                     .by_ref()
                     .filter(|rr_set| {
@@ -385,7 +382,7 @@ impl<'r> Iterator for LookupRecordsIter<'r> {
             LookupRecordsIter::Empty => None,
             LookupRecordsIter::AnyRecordsIter(current) => current.next(),
             LookupRecordsIter::RecordsIter(current) => current.next(),
-            LookupRecordsIter::ManyRecordsIter(set, ref mut current) => loop {
+            LookupRecordsIter::ManyRecordsIter(set, current) => loop {
                 if let Some(o) = current.as_mut().and_then(Iterator::next) {
                     return Some(o);
                 }

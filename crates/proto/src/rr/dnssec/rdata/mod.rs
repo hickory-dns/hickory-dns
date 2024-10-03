@@ -631,32 +631,28 @@ impl DNSSECRData {
     }
 
     pub(crate) fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        match *self {
-            Self::CDNSKEY(ref cdnskey) => {
-                encoder.with_canonical_names(|encoder| cdnskey.emit(encoder))
-            }
-            Self::CDS(ref cds) => encoder.with_canonical_names(|encoder| cds.emit(encoder)),
-            Self::DS(ref ds) => encoder.with_canonical_names(|encoder| ds.emit(encoder)),
-            Self::KEY(ref key) => encoder.with_canonical_names(|encoder| key.emit(encoder)),
-            Self::DNSKEY(ref dnskey) => {
-                encoder.with_canonical_names(|encoder| dnskey.emit(encoder))
-            }
-            Self::NSEC(ref nsec) => encoder.with_canonical_names(|encoder| nsec.emit(encoder)),
-            Self::NSEC3(ref nsec3) => encoder.with_canonical_names(|encoder| nsec3.emit(encoder)),
-            Self::NSEC3PARAM(ref nsec3param) => {
+        match self {
+            Self::CDNSKEY(cdnskey) => encoder.with_canonical_names(|encoder| cdnskey.emit(encoder)),
+            Self::CDS(cds) => encoder.with_canonical_names(|encoder| cds.emit(encoder)),
+            Self::DS(ds) => encoder.with_canonical_names(|encoder| ds.emit(encoder)),
+            Self::KEY(key) => encoder.with_canonical_names(|encoder| key.emit(encoder)),
+            Self::DNSKEY(dnskey) => encoder.with_canonical_names(|encoder| dnskey.emit(encoder)),
+            Self::NSEC(nsec) => encoder.with_canonical_names(|encoder| nsec.emit(encoder)),
+            Self::NSEC3(nsec3) => encoder.with_canonical_names(|encoder| nsec3.emit(encoder)),
+            Self::NSEC3PARAM(nsec3param) => {
                 encoder.with_canonical_names(|encoder| nsec3param.emit(encoder))
             }
-            Self::RRSIG(ref rrsig) => encoder.with_canonical_names(|encoder| rrsig.emit(encoder)),
-            Self::SIG(ref sig) => encoder.with_canonical_names(|encoder| sig.emit(encoder)),
-            Self::TSIG(ref tsig) => tsig.emit(encoder),
-            Self::Unknown { ref rdata, .. } => {
+            Self::RRSIG(rrsig) => encoder.with_canonical_names(|encoder| rrsig.emit(encoder)),
+            Self::SIG(sig) => encoder.with_canonical_names(|encoder| sig.emit(encoder)),
+            Self::TSIG(tsig) => tsig.emit(encoder),
+            Self::Unknown { rdata, .. } => {
                 encoder.with_canonical_names(|encoder| rdata.emit(encoder))
             }
         }
     }
 
     pub(crate) fn to_record_type(&self) -> RecordType {
-        match *self {
+        match self {
             Self::CDNSKEY(..) => RecordType::CDNSKEY,
             Self::CDS(..) => RecordType::CDS,
             Self::DS(..) => RecordType::DS,
@@ -668,7 +664,7 @@ impl DNSSECRData {
             Self::SIG(..) => RecordType::SIG,
             Self::RRSIG(..) => RecordType::RRSIG,
             Self::TSIG(..) => RecordType::TSIG,
-            Self::Unknown { code, .. } => RecordType::Unknown(code),
+            Self::Unknown { code, .. } => RecordType::Unknown(*code),
         }
     }
 }
@@ -690,7 +686,7 @@ impl fmt::Display for DNSSECRData {
             Self::NSEC3PARAM(nsec3param) => w(f, nsec3param),
             Self::SIG(sig) => w(f, sig),
             Self::RRSIG(rrsig) => w(f, rrsig),
-            Self::TSIG(ref tsig) => w(f, tsig),
+            Self::TSIG(tsig) => w(f, tsig),
             Self::Unknown { rdata, .. } => w(f, rdata),
         }
     }

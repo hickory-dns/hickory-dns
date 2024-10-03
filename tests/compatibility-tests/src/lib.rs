@@ -43,7 +43,7 @@ pub struct NamedProcess {
 
 impl Drop for NamedProcess {
     fn drop(&mut self) {
-        if let Some(ref mut named) = self.named {
+        if let Some(named) = &mut self.named {
             named.kill().expect("could not kill process");
             named.wait().expect("waiting failed");
         }

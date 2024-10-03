@@ -294,8 +294,8 @@ impl RecordSet {
 
                 if let Some(soa_record) = self.records.first() {
                     match soa_record.data() {
-                        RData::SOA(ref existing_soa) => {
-                            if let RData::SOA(ref new_soa) = record.data() {
+                        RData::SOA(existing_soa) => {
+                            if let RData::SOA(new_soa) = record.data() {
                                 if new_soa.serial() <= existing_soa.serial() {
                                     info!(
                                         "update ignored serial out of data: {:?} <= {:?}",
@@ -560,14 +560,14 @@ impl<'r> Iterator for RrsigsByAlgorithms<'r> {
             self.rrsigs
                 .by_ref()
                 .filter(|record| {
-                    if let RData::DNSSEC(DNSSECRData::RRSIG(ref rrsig)) = record.data() {
+                    if let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = record.data() {
                         supported_algorithms.has(rrsig.algorithm())
                     } else {
                         false
                     }
                 })
                 .max_by_key(|record| {
-                    if let RData::DNSSEC(DNSSECRData::RRSIG(ref rrsig)) = record.data() {
+                    if let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = record.data() {
                         rrsig.algorithm()
                     } else {
                         #[allow(deprecated)]
@@ -635,12 +635,12 @@ mod test {
 
         assert!(rr_set.insert(insert.clone(), 0));
         assert_eq!(rr_set.records_without_rrsigs().count(), 1);
-        assert!(rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
+        assert!(rr_set.records_without_rrsigs().any(|x| x == &insert));
 
         // dups ignored
         assert!(!rr_set.insert(insert.clone(), 0));
         assert_eq!(rr_set.records_without_rrsigs().count(), 1);
-        assert!(rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
+        assert!(rr_set.records_without_rrsigs().any(|x| x == &insert));
 
         // add one
         let insert1 = Record::from_rdata(
@@ -652,8 +652,8 @@ mod test {
         .clone();
         assert!(rr_set.insert(insert1.clone(), 0));
         assert_eq!(rr_set.records_without_rrsigs().count(), 2);
-        assert!(rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
-        assert!(rr_set.records_without_rrsigs().any(|ref x| x == &&insert1));
+        assert!(rr_set.records_without_rrsigs().any(|x| x == &insert));
+        assert!(rr_set.records_without_rrsigs().any(|x| x == &insert1));
     }
 
     #[test]
@@ -710,25 +710,19 @@ mod test {
         .clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
-        assert!(rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
+        assert!(rr_set.records_without_rrsigs().any(|x| x == &insert));
         // same serial number
         assert!(!rr_set.insert(same_serial.clone(), 0));
-        assert!(rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
-        assert!(!rr_set
-            .records_without_rrsigs()
-            .any(|ref x| x == &&same_serial));
+        assert!(rr_set.records_without_rrsigs().any(|x| x == &insert));
+        assert!(!rr_set.records_without_rrsigs().any(|x| x == &same_serial));
 
         assert!(rr_set.insert(new_serial.clone(), 0));
         assert!(!rr_set.insert(same_serial.clone(), 0));
         assert!(!rr_set.insert(insert.clone(), 0));
 
-        assert!(rr_set
-            .records_without_rrsigs()
-            .any(|ref x| x == &&new_serial));
-        assert!(!rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
-        assert!(!rr_set
-            .records_without_rrsigs()
-            .any(|ref x| x == &&same_serial));
+        assert!(rr_set.records_without_rrsigs().any(|x| x == &new_serial));
+        assert!(!rr_set.records_without_rrsigs().any(|x| x == &insert));
+        assert!(!rr_set.records_without_rrsigs().any(|x| x == &same_serial));
     }
 
     #[test]
@@ -748,14 +742,12 @@ mod test {
             .clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
-        assert!(rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
+        assert!(rr_set.records_without_rrsigs().any(|x| x == &insert));
 
         // update the record
         assert!(rr_set.insert(new_record.clone(), 0));
-        assert!(!rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
-        assert!(rr_set
-            .records_without_rrsigs()
-            .any(|ref x| x == &&new_record));
+        assert!(!rr_set.records_without_rrsigs().any(|x| x == &insert));
+        assert!(rr_set.records_without_rrsigs().any(|x| x == &new_record));
     }
 
     #[test]
@@ -813,7 +805,7 @@ mod test {
 
         assert!(rr_set.insert(insert.clone(), 0));
         assert!(!rr_set.remove(&insert, 0));
-        assert!(rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
+        assert!(rr_set.records_without_rrsigs().any(|x| x == &insert));
     }
 
     #[test]
@@ -947,7 +939,7 @@ mod test {
         assert!(rrset
             .records_with_rrsigs(SupportedAlgorithms::all(),)
             .any(
-                |r| if let RData::DNSSEC(DNSSECRData::RRSIG(ref sig)) = r.data() {
+                |r| if let RData::DNSSEC(DNSSECRData::RRSIG(sig)) = r.data() {
                     sig.algorithm() == Algorithm::ED25519
                 } else {
                     false
@@ -957,7 +949,7 @@ mod test {
         let mut supported_algorithms = SupportedAlgorithms::new();
         supported_algorithms.set(Algorithm::ECDSAP384SHA384);
         assert!(rrset.records_with_rrsigs(supported_algorithms).any(|r| {
-            if let RData::DNSSEC(DNSSECRData::RRSIG(ref sig)) = r.data() {
+            if let RData::DNSSEC(DNSSECRData::RRSIG(sig)) = r.data() {
                 sig.algorithm() == Algorithm::ECDSAP384SHA384
             } else {
                 false
@@ -967,7 +959,7 @@ mod test {
         let mut supported_algorithms = SupportedAlgorithms::new();
         supported_algorithms.set(Algorithm::ED25519);
         assert!(rrset.records_with_rrsigs(supported_algorithms).any(|r| {
-            if let RData::DNSSEC(DNSSECRData::RRSIG(ref sig)) = r.data() {
+            if let RData::DNSSEC(DNSSECRData::RRSIG(sig)) = r.data() {
                 sig.algorithm() == Algorithm::ED25519
             } else {
                 false
