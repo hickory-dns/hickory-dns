@@ -834,7 +834,7 @@ async fn build_forwarded_response(
         //
         // we may want to interpret (B) as allowed ("MAY be skipped") as a form of optimization in
         // the future to reduce the number of network transactions that a CD=1 query needs.
-        if let Answer::Normal(ref mut answers) = answers {
+        if let Answer::Normal(answers) = &mut answers {
             match answers.dnssec_summary() {
                 DnssecSummary::Secure => {
                     response_header.set_authentic_data(true);

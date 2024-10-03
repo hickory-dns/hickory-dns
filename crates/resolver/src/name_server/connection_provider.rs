@@ -136,36 +136,36 @@ impl<R: RuntimeProvider> Future for ConnectionFuture<R> {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Poll::Ready(Ok(match &mut self.connect {
-            ConnectionConnect::Udp(ref mut conn) => {
+            ConnectionConnect::Udp(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
                 GenericConnection(conn)
             }
-            ConnectionConnect::Tcp(ref mut conn) => {
+            ConnectionConnect::Tcp(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
                 GenericConnection(conn)
             }
             #[cfg(feature = "dns-over-tls")]
-            ConnectionConnect::Tls(ref mut conn) => {
+            ConnectionConnect::Tls(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
                 GenericConnection(conn)
             }
             #[cfg(feature = "dns-over-https-rustls")]
-            ConnectionConnect::Https(ref mut conn) => {
+            ConnectionConnect::Https(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
                 GenericConnection(conn)
             }
             #[cfg(feature = "dns-over-quic")]
-            ConnectionConnect::Quic(ref mut conn) => {
+            ConnectionConnect::Quic(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
                 GenericConnection(conn)
             }
             #[cfg(feature = "dns-over-h3")]
-            ConnectionConnect::H3(ref mut conn) => {
+            ConnectionConnect::H3(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
                 GenericConnection(conn)

@@ -201,18 +201,11 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
             if send_state.is_some() {
                 // sending...
                 match send_state {
-                    Some(WriteTcpState::LenBytes {
-                        ref mut pos,
-                        ref length,
-                        ..
-                    }) => {
+                    Some(WriteTcpState::LenBytes { pos, length, .. }) => {
                         let wrote = ready!(socket.as_mut().poll_write(cx, &length[*pos..]))?;
                         *pos += wrote;
                     }
-                    Some(WriteTcpState::Bytes {
-                        ref mut pos,
-                        ref bytes,
-                    }) => {
+                    Some(WriteTcpState::Bytes { pos, bytes }) => {
                         let wrote = ready!(socket.as_mut().poll_write(cx, &bytes[*pos..]))?;
                         *pos += wrote;
                     }
@@ -298,10 +291,7 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
             // Evaluates the next state. If None is the result, then no state change occurs,
             //  if Some(_) is returned, then that will be used as the next state.
             let new_state: Option<ReadTcpState> = match read_state {
-                ReadTcpState::LenBytes {
-                    ref mut pos,
-                    ref mut bytes,
-                } => {
+                ReadTcpState::LenBytes { pos, bytes } => {
                     // debug!("reading length {}", bytes.len());
                     let read = ready!(socket.as_mut().poll_read(cx, &mut bytes[*pos..]))?;
                     if read == 0 {
@@ -335,10 +325,7 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
                         Some(ReadTcpState::Bytes { pos: 0, bytes })
                     }
                 }
-                ReadTcpState::Bytes {
-                    ref mut pos,
-                    ref mut bytes,
-                } => {
+                ReadTcpState::Bytes { pos, bytes } => {
                     let read = ready!(socket.as_mut().poll_read(cx, &mut bytes[*pos..]))?;
                     if read == 0 {
                         // the Stream was closed!

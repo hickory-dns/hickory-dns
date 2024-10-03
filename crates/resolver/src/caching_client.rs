@@ -350,7 +350,7 @@ where
                         (Cow::Borrowed(query.name()), INITIAL_TTL, false),
                         |(search_name, cname_ttl, was_cname), r| {
                             match r.data() {
-                                RData::CNAME(CNAME(ref cname)) => {
+                                RData::CNAME(CNAME(cname)) => {
                                     // take the minimum TTL of the cname_ttl and the next record in the chain
                                     let ttl = cname_ttl.min(r.ttl());
                                     debug_assert_eq!(r.record_type(), RecordType::CNAME);
@@ -358,7 +358,7 @@ where
                                         return (Cow::Owned(cname.clone()), ttl, true);
                                     }
                                 }
-                                RData::SRV(ref srv) => {
+                                RData::SRV(srv) => {
                                     // take the minimum TTL of the cname_ttl and the next record in the chain
                                     let ttl = cname_ttl.min(r.ttl());
                                     debug_assert_eq!(r.record_type(), RecordType::SRV);

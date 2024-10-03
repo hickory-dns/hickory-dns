@@ -160,7 +160,7 @@ impl<'a> From<&'a Record> for Edns {
                 // NULL, there was no data in the OPT
                 OPT::default()
             }
-            RData::OPT(ref option_data) => {
+            RData::OPT(option_data) => {
                 option_data.clone() // TODO: Edns should just refer to this, have the same lifetime as the Record
             }
             _ => {

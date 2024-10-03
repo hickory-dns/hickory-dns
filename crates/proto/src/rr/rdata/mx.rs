@@ -164,7 +164,12 @@ impl RecordData for MX {
 ///   anything in FOO.COM, but that it won't match a plain FOO.COM.
 impl fmt::Display for MX {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(f, "{pref} {ex}", pref = self.preference, ex = self.exchange)
+        write!(
+            f,
+            "{pref} {ex}",
+            pref = &self.preference,
+            ex = self.exchange
+        )
     }
 }
 

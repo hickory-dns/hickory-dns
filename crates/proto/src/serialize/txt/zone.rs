@@ -261,7 +261,7 @@ impl<'a> Parser<'a> {
                     State::TtlClassType => {
                         match t {
                             // if number, TTL
-                            // Token::Number(ref num) => ttl = Some(*num),
+                            // Token::Number(num) => ttl = Some(*num),
                             // One of Class or Type (these cannot be overlapping!)
                             Token::CharData(mut data) => {
                                 // if it's a number it's a ttl
@@ -382,7 +382,7 @@ impl<'a> Parser<'a> {
             RecordType::SOA => {
                 // TTL for the SOA is set internally...
                 // expire is for the SOA, minimum is default for records
-                if let RData::SOA(ref soa) = rdata {
+                if let RData::SOA(soa) = &rdata {
                     // TODO, this looks wrong, get_expire() should be get_minimum(), right?
                     let set_ttl = soa.expire() as u32; // the spec seems a little inaccurate with u32 and i32
                     if ttl.is_none() {

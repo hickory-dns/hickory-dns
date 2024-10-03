@@ -391,9 +391,9 @@ impl Local {
 impl Stream for Local {
     type Item = Result<DnsResponse, ProtoError>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        match *self {
-            Self::ResolveStream(ref mut ns) => ns.as_mut().poll_next(cx),
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        match self.get_mut() {
+            Self::ResolveStream(ns) => ns.as_mut().poll_next(cx),
             // TODO: making this a panic for now
             Self::NotMdns(..) => panic!("Local queries that are not mDNS should not be polled"), //Local::NotMdns(message) => return Err(ResolveErrorKind::Message("not mDNS")),
         }

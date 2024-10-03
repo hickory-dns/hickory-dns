@@ -173,22 +173,22 @@ where
     type Value = <R as RestrictedMath>::Value;
 
     fn checked_add(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
-        match *self {
-            Ok(ref r) => r.checked_add(arg),
+        match self {
+            Ok(r) => r.checked_add(arg),
             Err(_) => Err(arg),
         }
     }
 
     fn checked_sub(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
-        match *self {
-            Ok(ref r) => r.checked_sub(arg),
+        match self {
+            Ok(r) => r.checked_sub(arg),
             Err(_) => Err(arg),
         }
     }
 
     fn checked_mul(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
-        match *self {
-            Ok(ref r) => r.checked_mul(arg),
+        match self {
+            Ok(r) => r.checked_mul(arg),
             Err(_) => Err(arg),
         }
     }

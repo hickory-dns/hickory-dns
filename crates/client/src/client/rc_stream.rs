@@ -61,7 +61,7 @@ where
         match stream.poll_next_unpin(cx) {
             Poll::Pending => Poll::Pending,
             Poll::Ready(result) => {
-                if let Some(ref result) = result {
+                if let Some(result) = &result {
                     stored_result.push(result.clone());
                 }
                 Poll::Ready(result)

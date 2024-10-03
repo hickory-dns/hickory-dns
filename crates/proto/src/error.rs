@@ -579,7 +579,7 @@ impl fmt::Display for ProtoError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         cfg_if::cfg_if! {
             if #[cfg(feature = "backtrace")] {
-                if let Some(ref backtrace) = self.backtrack {
+                if let Some(backtrace) = &self.backtrack {
                     fmt::Display::fmt(&self.kind, f)?;
                     fmt::Debug::fmt(backtrace, f)
                 } else {
@@ -654,7 +654,7 @@ impl<T> From<sync::PoisonError<T>> for ProtoError {
 
 impl From<ProtoError> for io::Error {
     fn from(e: ProtoError) -> Self {
-        match *e.kind() {
+        match e.kind() {
             ProtoErrorKind::Timeout => Self::new(io::ErrorKind::TimedOut, e),
             _ => Self::new(io::ErrorKind::Other, e),
         }
@@ -827,7 +827,7 @@ impl Clone for DnsSecErrorKind {
         use DnsSecErrorKind::*;
         match self {
             Message(msg) => Message(msg),
-            Msg(ref msg) => Msg(msg.clone()),
+            Msg(msg) => Msg(msg.clone()),
 
             // foreign
             Proto(proto) => Proto(proto.clone()),
@@ -858,7 +858,7 @@ impl fmt::Display for DnsSecError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         cfg_if::cfg_if! {
             if #[cfg(feature = "backtrace")] {
-                if let Some(ref backtrace) = self.backtrack {
+                if let Some(backtrace) = &self.backtrack {
                     fmt::Display::fmt(&self.kind, f)?;
                     fmt::Debug::fmt(backtrace, f)
                 } else {
@@ -895,7 +895,7 @@ impl From<String> for DnsSecError {
 
 impl From<ProtoError> for DnsSecError {
     fn from(e: ProtoError) -> Self {
-        match *e.kind() {
+        match e.kind() {
             ProtoErrorKind::Timeout => DnsSecErrorKind::Timeout.into(),
             _ => DnsSecErrorKind::from(e).into(),
         }

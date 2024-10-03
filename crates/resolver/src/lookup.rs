@@ -247,18 +247,18 @@ impl<P: ConnectionProvider> DnsHandle for LookupEither<P> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn is_verifying_dnssec(&self) -> bool {
-        match *self {
-            Self::Retry(ref c) => c.is_verifying_dnssec(),
+        match self {
+            Self::Retry(c) => c.is_verifying_dnssec(),
             #[cfg(feature = "dnssec")]
-            Self::Secure(ref c) => c.is_verifying_dnssec(),
+            Self::Secure(c) => c.is_verifying_dnssec(),
         }
     }
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response {
-        match *self {
-            Self::Retry(ref c) => c.send(request),
+        match self {
+            Self::Retry(c) => c.send(request),
             #[cfg(feature = "dnssec")]
-            Self::Secure(ref c) => c.send(request),
+            Self::Secure(c) => c.send(request),
         }
     }
 }
@@ -353,13 +353,13 @@ where
             let query = self.query.as_mut().poll_unpin(cx);
 
             // Determine whether or not we will attempt to retry the query.
-            let should_retry = match query {
+            let should_retry = match &query {
                 // If the query is NotReady, yield immediately.
                 Poll::Pending => return Poll::Pending,
                 // If the query returned a successful lookup, we will attempt
                 // to retry if the lookup is empty. Otherwise, we will return
                 // that lookup.
-                Poll::Ready(Ok(ref lookup)) => lookup.records.len() == 0,
+                Poll::Ready(Ok(lookup)) => lookup.records.len() == 0,
                 // If the query failed, we will attempt to retry.
                 Poll::Ready(Err(_)) => true,
             };
@@ -435,8 +435,8 @@ impl<'i> Iterator for SrvLookupIter<'i> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let iter: &mut _ = &mut self.0;
-        iter.find_map(|rdata| match *rdata {
-            RData::SRV(ref data) => Some(data),
+        iter.find_map(|rdata| match rdata {
+            RData::SRV(data) => Some(data),
             _ => None,
         })
     }
@@ -519,8 +519,8 @@ macro_rules! lookup_type {
 
             fn next(&mut self) -> Option<Self::Item> {
                 let iter: &mut _ = &mut self.0;
-                iter.find_map(|rdata| match *rdata {
-                    $r(ref data) => Some(data),
+                iter.find_map(|rdata| match rdata {
+                    $r(data) => Some(data),
                     _ => None,
                 })
             }

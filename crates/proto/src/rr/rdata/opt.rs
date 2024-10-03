@@ -490,38 +490,38 @@ pub enum EdnsOption {
 impl EdnsOption {
     /// Returns the length in bytes of the EdnsOption
     pub fn len(&self) -> u16 {
-        match *self {
+        match self {
             #[cfg(feature = "dnssec")]
-            EdnsOption::DAU(ref algorithms)
-            | EdnsOption::DHU(ref algorithms)
-            | EdnsOption::N3U(ref algorithms) => algorithms.len(),
-            EdnsOption::Subnet(ref subnet) => subnet.len(),
-            EdnsOption::Unknown(_, ref data) => data.len() as u16, // TODO: should we verify?
+            EdnsOption::DAU(algorithms)
+            | EdnsOption::DHU(algorithms)
+            | EdnsOption::N3U(algorithms) => algorithms.len(),
+            EdnsOption::Subnet(subnet) => subnet.len(),
+            EdnsOption::Unknown(_, data) => data.len() as u16, // TODO: should we verify?
         }
     }
 
     /// Returns `true` if the length in bytes of the EdnsOption is 0
     pub fn is_empty(&self) -> bool {
-        match *self {
+        match self {
             #[cfg(feature = "dnssec")]
-            EdnsOption::DAU(ref algorithms)
-            | EdnsOption::DHU(ref algorithms)
-            | EdnsOption::N3U(ref algorithms) => algorithms.is_empty(),
-            EdnsOption::Subnet(ref subnet) => subnet.is_empty(),
-            EdnsOption::Unknown(_, ref data) => data.is_empty(),
+            EdnsOption::DAU(algorithms)
+            | EdnsOption::DHU(algorithms)
+            | EdnsOption::N3U(algorithms) => algorithms.is_empty(),
+            EdnsOption::Subnet(subnet) => subnet.is_empty(),
+            EdnsOption::Unknown(_, data) => data.is_empty(),
         }
     }
 }
 
 impl BinEncodable for EdnsOption {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        match *self {
+        match self {
             #[cfg(feature = "dnssec")]
-            EdnsOption::DAU(ref algorithms)
-            | EdnsOption::DHU(ref algorithms)
-            | EdnsOption::N3U(ref algorithms) => algorithms.emit(encoder),
-            EdnsOption::Subnet(ref subnet) => subnet.emit(encoder),
-            EdnsOption::Unknown(_, ref data) => encoder.emit_vec(data), // gah, clone needed or make a crazy api.
+            EdnsOption::DAU(algorithms)
+            | EdnsOption::DHU(algorithms)
+            | EdnsOption::N3U(algorithms) => algorithms.emit(encoder),
+            EdnsOption::Subnet(subnet) => subnet.emit(encoder),
+            EdnsOption::Unknown(_, data) => encoder.emit_vec(data), // gah, clone needed or make a crazy api.
         }
     }
 }
@@ -549,20 +549,20 @@ impl<'a> TryFrom<&'a EdnsOption> for Vec<u8> {
     type Error = ProtoError;
 
     fn try_from(value: &'a EdnsOption) -> Result<Self, Self::Error> {
-        Ok(match *value {
+        Ok(match value {
             #[cfg(feature = "dnssec")]
-            EdnsOption::DAU(ref algorithms)
-            | EdnsOption::DHU(ref algorithms)
-            | EdnsOption::N3U(ref algorithms) => algorithms.into(),
-            EdnsOption::Subnet(ref subnet) => subnet.try_into()?,
-            EdnsOption::Unknown(_, ref data) => data.clone(), // gah, clone needed or make a crazy api.
+            EdnsOption::DAU(algorithms)
+            | EdnsOption::DHU(algorithms)
+            | EdnsOption::N3U(algorithms) => algorithms.into(),
+            EdnsOption::Subnet(subnet) => subnet.try_into()?,
+            EdnsOption::Unknown(_, data) => data.clone(), // gah, clone needed or make a crazy api.
         })
     }
 }
 
 impl<'a> From<&'a EdnsOption> for EdnsCode {
     fn from(value: &'a EdnsOption) -> Self {
-        match *value {
+        match value {
             #[cfg(feature = "dnssec")]
             EdnsOption::DAU(..) => Self::DAU,
             #[cfg(feature = "dnssec")]
@@ -570,7 +570,7 @@ impl<'a> From<&'a EdnsOption> for EdnsCode {
             #[cfg(feature = "dnssec")]
             EdnsOption::N3U(..) => Self::N3U,
             EdnsOption::Subnet(..) => Self::Subnet,
-            EdnsOption::Unknown(code, _) => code.into(),
+            EdnsOption::Unknown(code, _) => (*code).into(),
         }
     }
 }

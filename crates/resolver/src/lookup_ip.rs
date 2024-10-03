@@ -82,9 +82,9 @@ impl<'i> Iterator for LookupIpIter<'i> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let iter: &mut _ = &mut self.0;
-        iter.find_map(|rdata| match *rdata {
-            RData::A(ip) => Some(IpAddr::from(Ipv4Addr::from(ip))),
-            RData::AAAA(ip) => Some(IpAddr::from(Ipv6Addr::from(ip))),
+        iter.find_map(|rdata| match rdata {
+            RData::A(ip) => Some(IpAddr::from(Ipv4Addr::from(*ip))),
+            RData::AAAA(ip) => Some(IpAddr::from(Ipv6Addr::from(*ip))),
             _ => None,
         })
     }
@@ -145,13 +145,13 @@ where
             let query = self.query.as_mut().poll(cx);
 
             // Determine whether or not we will attempt to retry the query.
-            let should_retry = match query {
+            let should_retry = match &query {
                 // If the query is NotReady, yield immediately.
                 Poll::Pending => return Poll::Pending,
                 // If the query returned a successful lookup, we will attempt
                 // to retry if the lookup is empty. Otherwise, we will return
                 // that lookup.
-                Poll::Ready(Ok(ref lookup)) => lookup.is_empty(),
+                Poll::Ready(Ok(lookup)) => lookup.is_empty(),
                 // If the query failed, we will attempt to retry.
                 Poll::Ready(Err(_)) => true,
             };

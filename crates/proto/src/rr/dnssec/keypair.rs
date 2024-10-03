@@ -123,10 +123,10 @@ impl<K: HasPublic> KeyPair<K> {
     ///  format. Only the public key material will be included.
     pub fn to_public_bytes(&self) -> DnsSecResult<Vec<u8>> {
         #[allow(unreachable_patterns)]
-        match *self {
+        match self {
             // see from_vec() RSA sections for reference
             #[cfg(feature = "dnssec-openssl")]
-            Self::RSA(ref pkey) => {
+            Self::RSA(pkey) => {
                 let mut bytes: Vec<u8> = Vec::new();
                 // TODO: make these expects a try! and Err()
                 let rsa: OpenSslRsa<K> = pkey
@@ -150,7 +150,7 @@ impl<K: HasPublic> KeyPair<K> {
             }
             // see from_vec() ECDSA sections for reference
             #[cfg(feature = "dnssec-openssl")]
-            Self::EC(ref pkey) => {
+            Self::EC(pkey) => {
                 // TODO: make these expects a try! and Err()
                 let ec_key: EcKey<K> = pkey
                     .ec_key()
@@ -169,13 +169,13 @@ impl<K: HasPublic> KeyPair<K> {
                 Ok(bytes)
             }
             #[cfg(feature = "dnssec-ring")]
-            Self::ECDSA(ref ec_key) => {
+            Self::ECDSA(ec_key) => {
                 let mut bytes: Vec<u8> = ec_key.public_key().as_ref().to_vec();
                 bytes.remove(0);
                 Ok(bytes)
             }
             #[cfg(feature = "dnssec-ring")]
-            Self::ED25519(ref ed_key) => Ok(ed_key.public_key().as_ref().to_vec()),
+            Self::ED25519(ed_key) => Ok(ed_key.public_key().as_ref().to_vec()),
             #[cfg(not(feature = "dnssec-openssl"))]
             Self::Phantom(..) => panic!("Phantom disallowed"),
             #[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
@@ -361,14 +361,14 @@ impl<K: HasPrivate> KeyPair<K> {
     pub fn sign(&self, algorithm: Algorithm, tbs: &TBS) -> DnsSecResult<Vec<u8>> {
         use std::iter;
 
-        match *self {
+        match self {
             #[cfg(feature = "dnssec-openssl")]
-            Self::RSA(ref pkey) | Self::EC(ref pkey) => {
+            Self::RSA(pkey) | Self::EC(pkey) => {
                 let digest_type = DigestType::from(algorithm).to_openssl_digest()?;
                 let mut signer = Signer::new(digest_type, pkey)?;
                 signer.update(tbs.as_ref())?;
                 signer.sign_to_vec().map_err(Into::into).and_then(|bytes| {
-                    if let Self::RSA(_) = *self {
+                    if let Self::RSA(_) = self {
                         return Ok(bytes);
                     }
 
@@ -435,12 +435,12 @@ impl<K: HasPrivate> KeyPair<K> {
                 })
             }
             #[cfg(feature = "dnssec-ring")]
-            Self::ECDSA(ref ec_key) => {
+            Self::ECDSA(ec_key) => {
                 let rng = rand::SystemRandom::new();
                 Ok(ec_key.sign(&rng, tbs.as_ref())?.as_ref().to_vec())
             }
             #[cfg(feature = "dnssec-ring")]
-            Self::ED25519(ref ed_key) => Ok(ed_key.sign(tbs.as_ref()).as_ref().to_vec()),
+            Self::ED25519(ed_key) => Ok(ed_key.sign(tbs.as_ref()).as_ref().to_vec()),
             #[cfg(not(feature = "dnssec-openssl"))]
             Self::Phantom(..) => panic!("Phantom disallowed"),
             #[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]

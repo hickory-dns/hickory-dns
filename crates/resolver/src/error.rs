@@ -43,7 +43,7 @@ impl Clone for ResolveErrorKind {
         use self::ResolveErrorKind::*;
         match self {
             Message(msg) => Message(msg),
-            Msg(ref msg) => Msg(msg.clone()),
+            Msg(msg) => Msg(msg.clone()),
             // foreign
             Proto(proto) => Self::from(proto.clone()),
         }
@@ -66,8 +66,8 @@ impl ResolveError {
 
     /// If this is an underlying proto error, return that
     pub fn proto(&self) -> Option<&ProtoError> {
-        match self.kind {
-            ResolveErrorKind::Proto(ref proto) => Some(proto),
+        match &self.kind {
+            ResolveErrorKind::Proto(proto) => Some(proto),
             _ => None,
         }
     }
@@ -115,7 +115,7 @@ impl fmt::Display for ResolveError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         cfg_if::cfg_if! {
             if #[cfg(feature = "backtrace")] {
-                if let Some(ref backtrace) = self.backtrack {
+                if let Some(backtrace) = &self.backtrack {
                     fmt::Display::fmt(&self.kind, f)?;
                     fmt::Debug::fmt(backtrace, f)
                 } else {

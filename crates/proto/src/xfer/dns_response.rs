@@ -40,7 +40,7 @@ impl DnsResponseStream {
 impl Stream for DnsResponseStream {
     type Item = Result<DnsResponse, ProtoError>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use DnsResponseStreamInner::*;
 
         // if the standard futures are done, don't poll again
@@ -49,10 +49,7 @@ impl Stream for DnsResponseStream {
         }
 
         // split mutable refs to Self
-        let Self {
-            ref mut inner,
-            ref mut done,
-        } = *self.as_mut();
+        let Self { inner, done } = self.get_mut();
 
         let result = match inner {
             Timeout(fut) => {
@@ -63,7 +60,7 @@ impl Stream for DnsResponseStream {
                 *done = true;
                 x
             }
-            Receiver(ref mut fut) => match ready!(Pin::new(fut).poll_next(cx)) {
+            Receiver(fut) => match ready!(Pin::new(fut).poll_next(cx)) {
                 Some(x) => x,
                 None => return Poll::Ready(None),
             },

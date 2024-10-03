@@ -278,7 +278,7 @@ impl BinEncodable for SvcParamKey {
 
 impl fmt::Display for SvcParamKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        match *self {
+        match self {
             Self::Mandatory => f.write_str("mandatory")?,
             Self::Alpn => f.write_str("alpn")?,
             Self::NoDefaultAlpn => f.write_str("no-default-alpn")?,

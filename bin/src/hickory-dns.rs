@@ -184,7 +184,7 @@ async fn load_zone(
     for store in normalized_stores {
         let authority: Arc<dyn AuthorityObject> = match store {
             #[cfg(feature = "sqlite")]
-            StoreConfig::Sqlite(ref config) => {
+            StoreConfig::Sqlite(config) => {
                 if zone_path.is_some() {
                     warn!("ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]");
                 }
@@ -205,7 +205,7 @@ async fn load_zone(
                 load_keys(&mut authority, zone_name_for_signer.clone(), zone_config).await?;
                 Arc::new(authority)
             }
-            StoreConfig::File(ref config) => {
+            StoreConfig::File(config) => {
                 if zone_path.is_some() {
                     warn!("ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]");
                 }
@@ -225,14 +225,14 @@ async fn load_zone(
                 Arc::new(authority)
             }
             #[cfg(feature = "resolver")]
-            StoreConfig::Forward(ref config) => {
+            StoreConfig::Forward(config) => {
                 let forwarder =
                     ForwardAuthority::try_from_config(zone_name.clone(), zone_type, config)?;
 
                 Arc::new(forwarder)
             }
             #[cfg(feature = "recursor")]
-            StoreConfig::Recursor(ref config) => {
+            StoreConfig::Recursor(config) => {
                 let recursor = RecursiveAuthority::try_from_config(
                     zone_name.clone(),
                     zone_type,

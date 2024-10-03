@@ -358,8 +358,8 @@ impl<T: LookupObject + 'static, E: std::fmt::Display> LookupControlFlow<T, E> {
     pub fn unwrap(self) -> T {
         match self {
             Self::Continue(Ok(ok)) | Self::Break(Ok(ok)) => ok,
-            Self::Continue(Err(ref e)) | Self::Break(Err(ref e)) => {
-                panic!("lookupcontrolflow::unwrap() called on unexpected variant {self}: {e}");
+            Self::Continue(Err(e)) | Self::Break(Err(e)) => {
+                panic!("lookupcontrolflow::unwrap() called on unexpected variant _(Err(_)): {e}");
             }
             _ => {
                 panic!("lookupcontrolflow::unwrap() called on unexpected variant: {self}");

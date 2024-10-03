@@ -256,8 +256,8 @@ impl InMemoryAuthority {
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn add_update_auth_key_mut(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
         let Self {
-            ref origin,
-            ref mut inner,
+            origin,
+            inner,
             class,
             ..
         } = self;
@@ -298,8 +298,8 @@ impl InMemoryAuthority {
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn add_zone_signing_key_mut(&mut self, signer: SigSigner) -> DnsSecResult<()> {
         let Self {
-            ref origin,
-            ref mut inner,
+            origin,
+            inner,
             class,
             ..
         } = self;
@@ -311,11 +311,7 @@ impl InMemoryAuthority {
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn secure_zone_mut(&mut self) -> DnsSecResult<()> {
-        let Self {
-            ref origin,
-            ref mut inner,
-            ..
-        } = self;
+        let Self { origin, inner, .. } = self;
         inner
             .get_mut()
             .secure_zone_mut(origin, self.class, self.nx_proof_kind.as_ref())
@@ -566,7 +562,7 @@ impl InnerInMemory {
             return 0;
         };
 
-        let serial = if let RData::SOA(ref mut soa_rdata) = record.data_mut() {
+        let serial = if let RData::SOA(soa_rdata) = record.data_mut() {
             soa_rdata.increment_serial();
             soa_rdata.serial()
         } else {
@@ -701,6 +697,8 @@ impl InnerInMemory {
     #[cfg(feature = "dnssec")]
     fn nsec_zone(&mut self, origin: &LowerName, dns_class: DNSClass) {
         // only create nsec records for secure zones
+
+        use std::mem;
         if self.secure_keys.is_empty() {
             return;
         }
@@ -726,14 +724,14 @@ impl InnerInMemory {
         {
             let mut nsec_info: Option<(&Name, Vec<RecordType>)> = None;
             for key in self.records.keys() {
-                match nsec_info {
+                match &mut nsec_info {
                     None => nsec_info = Some((&key.name, vec![key.record_type])),
-                    Some((name, ref mut vec)) if LowerName::new(name) == key.name => {
-                        vec.push(key.record_type)
+                    Some((name, vec)) if LowerName::new(name) == key.name => {
+                        vec.push(key.record_type);
                     }
                     Some((name, vec)) => {
                         // names aren't equal, create the NSEC record
-                        let rdata = NSEC::new_cover_self(key.name.clone().into(), vec);
+                        let rdata = NSEC::new_cover_self(key.name.clone().into(), mem::take(vec));
                         let record = Record::from_rdata(name.clone(), ttl, rdata);
                         records.push(record.into_record_of_rdata());
 

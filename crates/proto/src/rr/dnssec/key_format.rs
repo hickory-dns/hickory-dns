@@ -162,7 +162,7 @@ impl KeyFormat {
         #[allow(unreachable_code)]
         match key_pair {
             #[cfg(feature = "dnssec-openssl")]
-            KeyPair::EC(ref pkey) | KeyPair::RSA(ref pkey) => {
+            KeyPair::EC(pkey) | KeyPair::RSA(pkey) => {
                 match self {
                     Self::Der => {
                         // to avoid accidentally storing a key where there was an expectation that it was password protected
@@ -218,9 +218,9 @@ impl KeyFormat {
             .map(|s| s.as_bytes())
             .next();
 
-        match *key_pair {
+        match key_pair {
             #[cfg(feature = "dnssec-openssl")]
-            KeyPair::EC(ref pkey) | KeyPair::RSA(ref pkey) => {
+            KeyPair::EC(pkey) | KeyPair::RSA(pkey) => {
                 match self {
                     Self::Der => {
                         // to avoid accidentally storing a key where there was an expectation that it was password protected

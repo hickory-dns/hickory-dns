@@ -582,8 +582,8 @@ pub fn delete_all(
 /// * `zone_origin` - the zone name to update, i.e. SOA name
 /// * `last_soa` - the last SOA known, if any. If provided, name must match `zone_origin`
 pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
-    if let Some(ref soa) = last_soa {
-        assert_eq!(zone_origin, *soa.mname());
+    if let Some(soa) = &last_soa {
+        assert_eq!(&zone_origin, soa.mname());
     }
 
     let mut zone: Query = Query::new();

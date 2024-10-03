@@ -179,7 +179,7 @@ fn print_error(error: ResolveError) {
                 style("NoRecordsFound").red(),
                 style(query).blue()
             );
-            if let Some(ref r) = soa {
+            if let Some(r) = soa {
                 print_record(r);
             }
         }

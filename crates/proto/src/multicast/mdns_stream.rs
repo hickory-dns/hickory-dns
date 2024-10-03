@@ -172,7 +172,7 @@ impl MdnsStream {
     #[cfg(windows)]
     #[cfg_attr(docsrs, doc(cfg(windows)))]
     fn bind_multicast(socket: &Socket, multicast_addr: &SocketAddr) -> io::Result<()> {
-        let multicast_addr = match *multicast_addr {
+        let multicast_addr = match multicast_addr {
             SocketAddr::V4(addr) => SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), addr.port()),
             SocketAddr::V6(addr) => {
                 SocketAddr::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0).into(), addr.port())
@@ -209,8 +209,8 @@ impl MdnsStream {
         // binding the UdpSocket to the multicast address tells the OS to filter all packets on this socket to just this
         //   multicast address
         // TODO: allow the binding interface to be specified
-        let socket = match ip_addr {
-            IpAddr::V4(ref mdns_v4) => {
+        let socket = match &ip_addr {
+            IpAddr::V4(mdns_v4) => {
                 let socket = Socket::new(
                     socket2::Domain::IPV4,
                     socket2::Type::DGRAM,
@@ -219,7 +219,7 @@ impl MdnsStream {
                 socket.join_multicast_v4(mdns_v4, &Ipv4Addr::new(0, 0, 0, 0))?;
                 socket
             }
-            IpAddr::V6(ref mdns_v6) => {
+            IpAddr::V6(mdns_v6) => {
                 let socket = Socket::new(
                     socket2::Domain::IPV6,
                     socket2::Type::DGRAM,
@@ -250,7 +250,7 @@ impl MdnsStream {
         ipv4_if: Option<Ipv4Addr>,
         ipv6_if: Option<u32>,
     ) -> NextRandomUdpSocket {
-        let bind_address: IpAddr = match *multicast_addr {
+        let bind_address: IpAddr = match multicast_addr {
             SocketAddr::V4(..) => IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
             SocketAddr::V6(..) => IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)),
         };
@@ -272,7 +272,7 @@ impl Stream for MdnsStream {
         assert!(self.datagram.is_some() || self.multicast.is_some());
 
         // we poll the datagram socket first, if available, since it's a direct response or direct request
-        if let Some(ref mut datagram) = self.as_mut().datagram {
+        if let Some(datagram) = self.as_mut().datagram.as_mut() {
             match datagram.poll_next_unpin(cx) {
                 Poll::Ready(ready) => return Poll::Ready(ready),
                 Poll::Pending => (), // drop through
@@ -280,7 +280,7 @@ impl Stream for MdnsStream {
         }
 
         loop {
-            let msg = if let Some(ref mut receiving) = self.rcving_mcast {
+            let msg = if let Some(receiving) = self.rcving_mcast.as_mut() {
                 // TODO: should we drop this packet if it's not from the same src as dest?
                 let msg = ready!(receiving.as_mut().poll_unpin(cx))?;
 
@@ -296,7 +296,7 @@ impl Stream for MdnsStream {
             }
 
             // let socket = Arc::clone(socket);
-            if let Some(ref socket) = self.multicast {
+            if let Some(socket) = &self.multicast {
                 let socket = Arc::clone(socket);
                 let receive_future = async {
                     let socket = socket;

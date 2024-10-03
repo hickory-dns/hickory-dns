@@ -1439,7 +1439,7 @@ mod tests {
 
     #[test]
     fn test_read() {
-        test_read_data_set(get_data(), |ref mut d| Name::read(d));
+        test_read_data_set(get_data(), |mut d| Name::read(&mut d));
     }
 
     #[test]
@@ -1831,7 +1831,7 @@ mod tests {
         }
 
         assert!(result.is_err());
-        match *result.unwrap_err().kind() {
+        match result.unwrap_err().kind() {
             ProtoErrorKind::MaxBufferSizeExceeded(_) => (),
             _ => panic!(),
         }

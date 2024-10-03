@@ -159,7 +159,7 @@ impl<P: RuntimeProvider, MF: MessageFinalizer> DnsRequestSender for UdpClientStr
         let now = now as u32;
 
         let mut verifier = None;
-        if let Some(ref signer) = self.signer {
+        if let Some(signer) = &self.signer {
             if signer.should_finalize_message(&message) {
                 match message.finalize::<MF>(signer.borrow(), now) {
                     Ok(answer_verifier) => verifier = answer_verifier,

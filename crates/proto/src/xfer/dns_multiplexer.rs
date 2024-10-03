@@ -164,7 +164,7 @@ where
     ///  this should free up space if we already had 4096 active requests
     fn drop_cancelled(&mut self, cx: &mut Context<'_>) {
         let mut canceled = HashMap::<u16, ProtoError>::new();
-        for (&id, ref mut active_req) in &mut self.active_requests {
+        for (&id, active_req) in &mut self.active_requests {
             if active_req.is_canceled() {
                 canceled.insert(id, ProtoError::from("requestor canceled"));
             }
@@ -296,7 +296,7 @@ where
         let now = now as u32;
 
         let mut verifier = None;
-        if let Some(ref signer) = self.signer {
+        if let Some(signer) = &self.signer {
             if signer.should_finalize_message(&request) {
                 match request.finalize::<MF>(signer.borrow(), now) {
                     Ok(answer_verifier) => verifier = answer_verifier,
@@ -392,7 +392,7 @@ where
                             Entry::Occupied(mut request_entry) => {
                                 // send the response, complete the request...
                                 let active_request = request_entry.get_mut();
-                                if let Some(ref mut verifier) = active_request.verifier {
+                                if let Some(verifier) = &mut active_request.verifier {
                                     ignore_send(
                                         active_request
                                             .completion

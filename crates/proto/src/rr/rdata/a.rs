@@ -173,11 +173,11 @@ mod mytests {
 
     #[test]
     fn test_parse() {
-        test_read_data_set(get_data(), |ref mut d| A::read(d));
+        test_read_data_set(get_data(), |mut d| A::read(&mut d));
     }
 
     #[test]
     fn test_write_to() {
-        test_emit_data_set(get_data(), |ref mut e, d| d.emit(e));
+        test_emit_data_set(get_data(), |e, d| d.emit(e));
     }
 }

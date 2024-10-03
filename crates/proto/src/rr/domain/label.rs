@@ -405,8 +405,8 @@ mod tests {
         // poor man debug since ProtoResult don't implement Partial Eq due to ssl errors.
         eprintln!("{error:?}");
         assert!(error.is_err());
-        match *error.unwrap_err().kind() {
-            ProtoErrorKind::LabelBytesTooLong(n) if n == len => (),
+        match error.unwrap_err().kind() {
+            ProtoErrorKind::LabelBytesTooLong(n) if *n == len => (),
             ProtoErrorKind::LabelBytesTooLong(e) => {
                 panic!(
                     "LabelTooLongError error don't report expected size {} of the label provided.",
