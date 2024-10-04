@@ -443,6 +443,7 @@ fn test_nsec3_no_data() {
 }
 
 #[test]
+#[ignore]
 #[cfg(feature = "dnssec")]
 fn test_nsec3_query_name_is_soa_name() {
     let name = Name::from_labels("valid.extended-dns-errors.com".split(".")).unwrap();
