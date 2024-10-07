@@ -1,5 +1,5 @@
 use core::sync::atomic::{self, AtomicUsize};
-use std::{net::Ipv4Addr, thread, time::Duration};
+use std::{collections::HashMap, net::Ipv4Addr, thread, time::Duration};
 
 use crate::container::{Child, Container, Network};
 use crate::implementation::{Config, Role};
@@ -160,6 +160,7 @@ pub struct NameServer<State> {
     implementation: Implementation,
     state: State,
     zone_file: ZoneFile,
+    additional_zones: HashMap<FQDN, ZoneFile>,
 }
 
 impl NameServer<Stopped> {
@@ -198,6 +199,7 @@ impl NameServer<Stopped> {
             container,
             implementation: implementation.clone(),
             zone_file,
+            additional_zones: HashMap::new(),
             state: Stopped,
         })
     }
@@ -229,12 +231,18 @@ impl NameServer<Stopped> {
         Ok(())
     }
 
+    /// Adds an additional zone to the nameserver
+    pub fn add_zone(&mut self, name: FQDN, zone: ZoneFile) {
+        self.additional_zones.insert(name, zone);
+    }
+
     /// Freezes and signs the name server's zone file
     pub fn sign(self, settings: SignSettings) -> Result<NameServer<Signed>> {
         let Self {
             container,
             zone_file,
             implementation,
+            additional_zones,
             state: _,
         } = self;
 
@@ -245,6 +253,7 @@ impl NameServer<Stopped> {
             implementation,
             zone_file,
             state,
+            additional_zones,
         })
     }
 
@@ -254,21 +263,27 @@ impl NameServer<Stopped> {
             container,
             zone_file,
             implementation,
+            additional_zones,
             state: _,
         } = self;
 
         let config = Config::NameServer {
             origin: zone_file.origin(),
             use_dnssec: false,
+            additional_zones: additional_zones.clone(),
         };
 
         container.cp(
             implementation.conf_file_path(config.role()),
-            &implementation.format_config(config),
+            &implementation.format_config(config.clone()),
         )?;
 
         container.status_ok(&["mkdir", "-p", ZONES_DIR])?;
         container.cp(&zone_file_path(), &zone_file.to_string())?;
+
+        for (key, zone_file) in &additional_zones {
+            container.cp(&format!("{ZONES_DIR}/{key}zone"), &zone_file.to_string())?;
+        }
 
         let mut child = container.spawn(&implementation.cmd_args(config.role()))?;
 
@@ -294,6 +309,7 @@ impl NameServer<Stopped> {
             container,
             implementation,
             zone_file,
+            additional_zones,
             state: Running {
                 _child: child,
                 trust_anchor: None,
@@ -327,17 +343,19 @@ impl NameServer<Signed> {
             container,
             zone_file,
             implementation,
+            additional_zones,
             state,
         } = self;
 
         let config = Config::NameServer {
             origin: zone_file.origin(),
             use_dnssec: state.use_dnssec,
+            additional_zones: additional_zones.clone(),
         };
 
         container.cp(
             implementation.conf_file_path(config.role()),
-            &implementation.format_config(config),
+            &implementation.format_config(config.clone()),
         )?;
 
         if implementation.is_hickory() && state.use_dnssec {
@@ -359,6 +377,7 @@ impl NameServer<Signed> {
             container,
             implementation,
             zone_file,
+            additional_zones,
             state: Running {
                 _child: child,
                 trust_anchor: Some(state.trust_anchor()),
@@ -542,7 +561,7 @@ mod tests {
     use std::time::Duration;
 
     use crate::client::{Client, DigSettings};
-    use crate::record::RecordType;
+    use crate::record::{RecordType, A, NS};
 
     use super::*;
 
@@ -675,6 +694,82 @@ mod tests {
             }
         }
         assert!(found);
+
+        Ok(())
+    }
+
+    #[test]
+    fn bind_multizone_works() -> Result<()> {
+        multizone_test(&Implementation::Bind)?;
+        Ok(())
+    }
+
+    #[test]
+    fn hickory_multizone_works() -> Result<()> {
+        multizone_test(&Implementation::hickory())?;
+        Ok(())
+    }
+
+    #[test]
+    fn unbound_multizone_works() -> Result<()> {
+        multizone_test(&Implementation::Unbound)?;
+        Ok(())
+    }
+
+    #[cfg(test)]
+    fn multizone_test(implementation: &Implementation) -> Result<()> {
+        let network = Network::new()?;
+        let mut ns = NameServer::new(implementation, FQDN::ROOT, &network)?;
+        let mut zone_file = ZoneFile::new(SOA {
+            zone: FQDN("domain.testing.")?,
+            ttl: 86400,
+            nameserver: FQDN("ns.domain.testing.")?,
+            admin: FQDN("admin.domain.testing.")?,
+            settings: SoaSettings::default(),
+        });
+        zone_file.add(Record::NS(NS {
+            zone: FQDN("domain.testing.")?,
+            ttl: 86400,
+            nameserver: FQDN("ns.domain.testing.")?,
+        }));
+        zone_file.add(Record::A(A {
+            fqdn: FQDN("ns.domain.testing.")?,
+            ipv4_addr: Ipv4Addr::new(192, 0, 2, 1),
+            ttl: 86400,
+        }));
+
+        zone_file.add(Record::A(A {
+            fqdn: FQDN("host.domain.testing.")?,
+            ipv4_addr: Ipv4Addr::new(192, 0, 2, 1),
+            ttl: 86400,
+        }));
+
+        ns.add_zone(FQDN("domain.testing.")?, zone_file);
+
+        let ns = ns.start()?;
+        thread::sleep(Duration::from_secs(2));
+
+        let client = Client::new(&network)?;
+        let dig_settings = DigSettings::default();
+        let res = client.dig(
+            dig_settings,
+            ns.ipv4_addr(),
+            RecordType::A,
+            &FQDN("host.domain.testing.")?,
+        );
+
+        if let Ok(res) = &res {
+            assert!(res.status.is_noerror());
+            assert_eq!(res.answer.len(), 1);
+            if let Record::A(rec) = res.answer.first().unwrap() {
+                assert_eq!(rec.fqdn, FQDN("host.domain.testing.")?);
+                assert_eq!(rec.ipv4_addr, Ipv4Addr::new(192, 0, 2, 1));
+            } else {
+                panic!("error");
+            }
+        } else {
+            panic!("error");
+        }
 
         Ok(())
     }
