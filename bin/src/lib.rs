@@ -9,16 +9,20 @@
 
 pub mod dnssec;
 
-use std::fs::File;
-use std::io::Read;
-use std::net::{AddrParseError, Ipv4Addr, Ipv6Addr};
-use std::path::{Path, PathBuf};
-use std::str::FromStr;
-use std::time::Duration;
+use std::{
+    fmt,
+    fs::File,
+    io::Read,
+    net::{AddrParseError, Ipv4Addr, Ipv6Addr},
+    path::{Path, PathBuf},
+    str::FromStr,
+    time::Duration,
+};
 
 use cfg_if::cfg_if;
 use ipnet::IpNet;
-use serde::{self, Deserialize};
+use serde::de::{self, MapAccess, SeqAccess, Visitor};
+use serde::{self, Deserialize, Deserializer};
 
 use hickory_proto::error::ProtoResult;
 use hickory_proto::rr::Name;
@@ -250,9 +254,14 @@ pub struct ZoneConfig {
     /// Keys for use by the zone
     #[serde(default)]
     pub keys: Vec<dnssec::KeyConfig>,
-    /// Store configurations, TODO: allow chained Stores
-    #[serde(default)]
-    pub stores: Option<StoreConfigContainer>,
+    /// Store configurations.  Note: we specify a default handler to get a Vec containing a
+    /// StoreConfig::Default, which is used for authoritative file-based zones and legacy sqlite
+    /// configurations. #[serde(default)] cannot be used, because it will invoke Default for Vec,
+    /// i.e., an empty Vec and we cannot implement Default for StoreConfig and return a Vec.  The
+    /// custom visitor is used to handle map (single store) or sequence (chained store) configurations.
+    #[serde(default = "store_config_default")]
+    #[serde(deserialize_with = "store_config_visitor")]
+    pub stores: Vec<StoreConfig>,
     /// The kind of non-existence proof provided by the nameserver
     #[cfg(feature = "dnssec")]
     pub nx_proof_kind: Option<NxProofKind>,
@@ -290,7 +299,7 @@ impl ZoneConfig {
             allow_axfr,
             enable_dnssec,
             keys,
-            stores: None,
+            stores: store_config_default(),
             #[cfg(feature = "dnssec")]
             nx_proof_kind,
         }
@@ -345,22 +354,6 @@ impl ZoneConfig {
     }
 }
 
-/// Enumeration over all Store configurations
-///
-/// This is the outer container enum, covering the single- and chained-store variants.
-/// The chained store variant is a vector of StoreConfigs that should be consulted in-order during the lookup process.
-/// An example of this (currently the only example,) is when the blocklist feature is used: the blocklist should be queried first, then
-/// a recursor or forwarder second if the blocklist authority does not match on the query.
-#[derive(Deserialize, PartialEq, Eq, Debug)]
-#[serde(untagged)]
-#[non_exhaustive]
-pub enum StoreConfigContainer {
-    /// For a zone with a single store
-    Single(StoreConfig),
-    /// For a zone with multiple stores.  E.g., a recursive or forwarding zone with block lists.
-    Chained(Vec<StoreConfig>),
-}
-
 /// Enumeration over all store types
 #[derive(Deserialize, PartialEq, Eq, Debug)]
 #[serde(tag = "type")]
@@ -388,6 +381,49 @@ pub enum StoreConfig {
     Default,
 }
 
+/// Create a default value for serde for StoreConfig.
+fn store_config_default() -> Vec<StoreConfig> {
+    vec![StoreConfig::Default]
+}
+
+/// Custom serde visitor that can deserialize a map (single configuration store, expressed as a TOML
+/// table) or sequence (chained configuration stores, expressed as a TOML array of tables.)
+/// This is used instead of an untagged enum because serde cannot provide variant-specific error
+/// messages when using an untagged enum.
+fn store_config_visitor<'de, D>(deserializer: D) -> Result<Vec<StoreConfig>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct MapOrSequence;
+
+    impl<'de> Visitor<'de> for MapOrSequence {
+        type Value = Vec<StoreConfig>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("map or sequence")
+        }
+
+        fn visit_seq<S>(self, seq: S) -> Result<Vec<StoreConfig>, S::Error>
+        where
+            S: SeqAccess<'de>,
+        {
+            Deserialize::deserialize(de::value::SeqAccessDeserializer::new(seq))
+        }
+
+        fn visit_map<M>(self, map: M) -> Result<Vec<StoreConfig>, M::Error>
+        where
+            M: MapAccess<'de>,
+        {
+            match Deserialize::deserialize(de::value::MapAccessDeserializer::new(map)) {
+                Ok(seq) => Ok(vec![seq]),
+                Err(e) => Err(e),
+            }
+        }
+    }
+
+    deserializer.deserialize_any(MapOrSequence)
+}
+
 #[cfg(test)]
 mod tests {
     #[cfg(feature = "recursor")]
@@ -397,5 +433,67 @@ mod tests {
             "../../tests/test-data/test_configs/example_recursor.toml"
         ))
         .unwrap();
+    }
+
+    #[cfg(feature = "resolver")]
+    #[test]
+    fn single_store_config_error_message() {
+        match toml::from_str::<super::Config>(
+            r#"[[zones]]
+               zone = "."
+               zone_type = "Forward"
+
+               [zones.stores]
+               ype = "forward""#,
+        ) {
+            Ok(val) => panic!("expected error value; got ok: {val:?}"),
+            Err(e) => assert!(e.to_string().contains("missing field `type`")),
+        }
+    }
+
+    #[cfg(feature = "resolver")]
+    #[test]
+    fn chained_store_config_error_message() {
+        match toml::from_str::<super::Config>(
+            r#"[[zones]]
+               zone = "."
+               zone_type = "Forward"
+
+               [[zones.stores]]
+               type = "forward"
+
+               [[zones.stores.name_servers]]
+               socket_addr = "8.8.8.8:53"
+               protocol = "udp"
+               trust_negative_responses = false
+
+               [[zones.stores]]
+               type = "forward"
+
+               [[zones.stores.name_servers]]
+               socket_addr = "1.1.1.1:53"
+               rotocol = "udp"
+               trust_negative_responses = false"#,
+        ) {
+            Ok(val) => panic!("expected error value; got ok: {val:?}"),
+            Err(e) => assert!(e.to_string().contains("unknown field `rotocol`")),
+        }
+    }
+
+    #[cfg(feature = "resolver")]
+    #[test]
+    fn empty_store_default_value() {
+        match toml::from_str::<super::Config>(
+            r#"[[zones]]
+               zone = "localhost"
+               zone_type = "Primary"
+               file = "default/localhost.zone""#,
+        ) {
+            Ok(val) => {
+                assert_eq!(val.zones[0].stores.len(), 1);
+                assert_eq!(val.zones[0].stores[0], super::StoreConfig::Default);
+            }
+            Err(e) => panic!("expected successful parse: {e:?}"),
+        }
     }
 }
