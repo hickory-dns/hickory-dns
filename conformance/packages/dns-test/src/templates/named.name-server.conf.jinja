@@ -12,3 +12,10 @@ zone "{{ fqdn }}" IN {
      type primary;
      file "/etc/zones/main.zone";
 };
+
+{% for zone in additional_zones -%}
+zone "{{ zone }}" IN {
+    type primary;
+    file "/etc/zones/{{ zone }}zone";
+};
+{% endfor -%}
