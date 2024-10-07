@@ -61,7 +61,7 @@ use tracing_subscriber::{
 
 #[cfg(feature = "dns-over-tls")]
 use hickory_dns::dnssec::{self, TlsCertConfig};
-use hickory_dns::{Config, StoreConfig, StoreConfigContainer, ZoneConfig};
+use hickory_dns::{Config, StoreConfig, ZoneConfig};
 use hickory_proto::rr::Name;
 #[cfg(feature = "blocklist")]
 use hickory_server::store::blocklist::BlocklistAuthority;
@@ -167,23 +167,14 @@ async fn load_zone(
         warn!("allow_update is deprecated in [[zones]] section, it belongs in [[zones.stores]]");
     }
 
-    let mut normalized_stores = vec![];
-    if let Some(StoreConfigContainer::Single(store)) = &zone_config.stores {
-        normalized_stores.push(store);
-    } else if let Some(StoreConfigContainer::Chained(chained_stores)) = &zone_config.stores {
-        for store in chained_stores {
-            normalized_stores.push(store);
-        }
-    } else {
-        normalized_stores.push(&StoreConfig::Default);
-        debug!("No stores specified for {zone_name}, using default config processing");
-    }
-
-    // load the zone and build a vector of associated authorities to load in the catalog.
-    debug!("Loading authorities for {zone_name} with stores {normalized_stores:?}");
+    // load the zone and insert any configured authorities in the catalog.
+    debug!(
+        "loading authorities for {zone_name} with stores {:?}",
+        zone_config.stores
+    );
 
     let mut authorities: Vec<Arc<dyn AuthorityObject>> = vec![];
-    for store in normalized_stores {
+    for store in &zone_config.stores {
         let authority: Arc<dyn AuthorityObject> = match store {
             #[cfg(feature = "sqlite")]
             StoreConfig::Sqlite(config) => {
