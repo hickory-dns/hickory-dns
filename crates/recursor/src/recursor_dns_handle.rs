@@ -178,17 +178,17 @@ impl RecursorDnsHandle {
                 Err(e) => match e.kind() {
                     ErrorKind::Forward(name) => {
                         // if we already had this name, don't try again
-                        if &zone == name {
-                            debug!("zone previously searched for {}", name);
+                        if zone == name.name {
+                            debug!("zone previously searched for {}", name.name);
                             break 'max_forward;
                         };
 
                         debug!(
                             "ns for {} forwarded to {} via SOA record",
                             query.name(),
-                            name
+                            name.name
                         );
-                        zone = name.clone();
+                        zone = name.name.clone();
                     }
                     _ => return Err(e),
                 },

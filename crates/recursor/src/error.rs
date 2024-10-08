@@ -14,13 +14,15 @@ use std::{fmt, io, sync::Arc};
 use crate::proto::error::ForwardNSData;
 use enum_as_inner::EnumAsInner;
 use hickory_proto::error::ProtoErrorKind;
-use hickory_resolver::Name;
 use thiserror::Error;
 
 use crate::proto::rr::{rdata::SOA, Record};
 #[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
-use crate::{proto::error::ProtoError, resolver::error::ResolveError};
+use crate::{
+    proto::error::{ForwardData, ProtoError},
+    resolver::error::ResolveError,
+};
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, EnumAsInner, Error)]
@@ -35,8 +37,8 @@ pub enum ErrorKind {
     Msg(String),
 
     /// Upstream DNS authority returned a Referral to another nameserver in the form of an SOA record
-    #[error("forward response: {0}")]
-    Forward(Name),
+    #[error("forward response:")]
+    Forward(ForwardData),
 
     /// Upstream DNS authority returned a referral to another set of nameservers in the form of
     /// additional NS records.
@@ -82,6 +84,7 @@ impl Error {
         match &*self.kind {
             ErrorKind::Proto(proto) => proto.is_nx_domain(),
             ErrorKind::Resolve(err) => err.is_nx_domain(),
+            ErrorKind::Forward(fwd) => fwd.is_nx_domain(),
             _ => false,
         }
     }
@@ -91,6 +94,7 @@ impl Error {
         match &*self.kind {
             ErrorKind::Proto(proto) => proto.is_no_records_found(),
             ErrorKind::Resolve(err) => err.is_no_records_found(),
+            ErrorKind::Forward(fwd) => fwd.is_no_records_found(),
             _ => false,
         }
     }
@@ -172,7 +176,12 @@ impl From<ResolveError> for Error {
             if let Some(ns) = ns {
                 ErrorKind::ForwardNS(ns.clone()).into()
             } else if let Some(soa) = soa {
-                ErrorKind::Forward(soa.name().clone()).into()
+                ErrorKind::Forward(ForwardData {
+                    name: soa.name().clone(),
+                    is_nx_domain: e.is_nx_domain(),
+                    is_no_records_found: e.is_no_records_found(),
+                })
+                .into()
             } else {
                 ErrorKind::Resolve(e).into()
             }
