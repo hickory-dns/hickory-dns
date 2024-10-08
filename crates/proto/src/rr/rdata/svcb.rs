@@ -205,18 +205,25 @@ impl SVCB {
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum SvcParamKey {
     /// Mandatory keys in this RR
+    #[cfg_attr(feature = "serde", serde(rename = "mandatory"))]
     Mandatory,
     /// Additional supported protocols
+    #[cfg_attr(feature = "serde", serde(rename = "alpn"))]
     Alpn,
     /// No support for default protocol
+    #[cfg_attr(feature = "serde", serde(rename = "no-default-alpn"))]
     NoDefaultAlpn,
     /// Port for alternative endpoint
+    #[cfg_attr(feature = "serde", serde(rename = "port"))]
     Port,
     /// IPv4 address hints
+    #[cfg_attr(feature = "serde", serde(rename = "ipv4hint"))]
     Ipv4Hint,
     /// Encrypted Client Hello configuration list
+    #[cfg_attr(feature = "serde", serde(rename = "ech"))]
     EchConfigList,
     /// IPv6 address hints
+    #[cfg_attr(feature = "serde", serde(rename = "ipv6hint"))]
     Ipv6Hint,
     /// Private Use
     Key(u16),
@@ -359,6 +366,7 @@ pub enum SvcParamValue {
     ///    mandatory keys that are present.
     ///
     /// see `Mandatory`
+    #[cfg_attr(feature = "serde", serde(rename = "mandatory"))]
     Mandatory(Mandatory),
     ///  [RFC 9460 SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-7.1)
     ///
@@ -368,10 +376,12 @@ pub enum SvcParamValue {
     ///    identifiers [Alpn] and associated transport protocols supported by
     ///    this service endpoint (the "SVCB ALPN set").
     /// ```
+    #[cfg_attr(feature = "serde", serde(rename = "alpn"))]
     Alpn(Alpn),
     /// For "no-default-alpn", the presentation and wire format values MUST
     ///    be empty.
     /// See also `Alpn`
+    #[cfg_attr(feature = "serde", serde(rename = "no-default-alpn"))]
     NoDefaultAlpn,
     ///  [RFC 9460 SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-7.2)
     ///
@@ -395,6 +405,7 @@ pub enum SvcParamValue {
     ///   client to lose access to the service, so operators should exercise
     ///   caution when using this SvcParamKey to specify a non-default port.
     /// ```
+    #[cfg_attr(feature = "serde", serde(rename = "port"))]
     Port(u16),
     ///  [RFC 9460 SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-7.2)
     ///
@@ -410,6 +421,7 @@ pub enum SvcParamValue {
     ///   or other geo-aware features and thereby degrade client performance.
     ///
     /// see `IpHint`
+    #[cfg_attr(feature = "serde", serde(rename = "ipv4hint"))]
     Ipv4Hint(IpHint<A>),
     /// [draft-ietf-tls-svcb-ech-01 Bootstrapping TLS Encrypted ClientHello with DNS Service Bindings, Sep 2024](https://datatracker.ietf.org/doc/html/draft-ietf-tls-svcb-ech-01)
     ///
@@ -421,8 +433,10 @@ pub enum SvcParamValue {
     ///   (including DTLS [RFC9147] and QUIC version 1 [RFC9001]) unless otherwise
     ///   specified.
     /// ```
+    #[cfg_attr(feature = "serde", serde(rename = "ech"))]
     EchConfigList(EchConfigList),
     /// See `IpHint`
+    #[cfg_attr(feature = "serde", serde(rename = "ipv6hint"))]
     Ipv6Hint(IpHint<AAAA>),
     /// Unparsed network data. Refer to documents on the associated key value
     ///

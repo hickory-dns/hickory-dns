@@ -92,6 +92,7 @@ pub enum CertUsage {
     ///       the certificate might or might not have the basicConstraints
     ///       extension present.
     /// ```
+    #[cfg_attr(feature = "serde", serde(rename = "PKIX-TA"))]
     CA,
 
     /// ```text
@@ -104,6 +105,7 @@ pub enum CertUsage {
     ///       certificate MUST pass PKIX certification path validation and MUST
     ///       match the TLSA record.
     /// ```
+    #[cfg_attr(feature = "serde", serde(rename = "PKIX-EE"))]
     Service,
 
     /// ```text
@@ -119,6 +121,7 @@ pub enum CertUsage {
     ///       certificate matching the TLSA record considered to be a trust
     ///       anchor for this certification path validation.
     /// ```
+    #[cfg_attr(feature = "serde", serde(rename = "DANE-TA"))]
     TrustAnchor,
 
     /// ```text
@@ -133,6 +136,7 @@ pub enum CertUsage {
     ///       requires that the certificate pass PKIX validation, but PKIX
     ///       validation is not tested for certificate usage 3.
     /// ```
+    #[cfg_attr(feature = "serde", serde(rename = "DANE-EE"))]
     DomainIssued,
 
     /// Unassigned at the time of this implementation
@@ -190,15 +194,18 @@ impl From<CertUsage> for u8 {
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Selector {
     /// Full certificate: the Certificate binary structure as defined in [RFC5280](https://tools.ietf.org/html/rfc5280)
+    #[cfg_attr(feature = "serde", serde(rename = "Cert"))]
     Full,
 
     /// SubjectPublicKeyInfo: DER-encoded binary structure as defined in [RFC5280](https://tools.ietf.org/html/rfc5280)
+    #[cfg_attr(feature = "serde", serde(rename = "SPKI"))]
     Spki,
 
     /// Unassigned at the time of this writing
     Unassigned(u8),
 
     /// Private usage
+    #[cfg_attr(feature = "serde", serde(rename = "PrivSel"))]
     Private,
 }
 
@@ -249,18 +256,22 @@ impl From<Selector> for u8 {
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Matching {
     /// Exact match on selected content
+    #[cfg_attr(feature = "serde", serde(rename = "Full"))]
     Raw,
 
     /// SHA-256 hash of selected content [RFC6234](https://tools.ietf.org/html/rfc6234)
+    #[cfg_attr(feature = "serde", serde(rename = "SHA2-256"))]
     Sha256,
 
     /// SHA-512 hash of selected content [RFC6234](https://tools.ietf.org/html/rfc6234)
+    #[cfg_attr(feature = "serde", serde(rename = "SHA2-512"))]
     Sha512,
 
     /// Unassigned at the time of this writing
     Unassigned(u8),
 
     /// Private usage
+    #[cfg_attr(feature = "serde", serde(rename = "PrivMatch"))]
     Private,
 }
 

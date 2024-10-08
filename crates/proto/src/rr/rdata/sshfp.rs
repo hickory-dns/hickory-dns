@@ -202,9 +202,11 @@ pub enum FingerprintType {
     Reserved,
 
     /// SHA-1
+    #[cfg_attr(feature = "serde", serde(rename = "SHA-1"))]
     SHA1,
 
     /// SHA-256
+    #[cfg_attr(feature = "serde", serde(rename = "SHA-256"))]
     SHA256,
 
     /// Unassigned value
