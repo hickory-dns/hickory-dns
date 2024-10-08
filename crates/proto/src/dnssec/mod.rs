@@ -53,14 +53,16 @@ pub use self::verifier::Verifier;
 
 /// DNSSEC Delegation Signer (DS) Resource Record (RR) Type Digest Algorithms
 ///
-///```text
-/// 0 Reserved - [RFC3658]
-/// 1 SHA-1 MANDATORY [RFC3658]
-/// 2 SHA-256 MANDATORY [RFC4509]
-/// 3 GOST R 34.11-94 OPTIONAL [RFC5933]
-/// 4 SHA-384 OPTIONAL [RFC6605]
-/// 5 ED25519 [RFC draft-ietf-curdle-dnskey-eddsa-03]
-/// 5-255 Unassigned -
+/// [IANA Registry](https://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml)
+/// ```text
+/// Value    Description           Status       Reference
+///  0        Reserved              -            [RFC3658]
+///  1        SHA-1                 MANDATORY    [RFC3658]
+///  2        SHA-256               MANDATORY    [RFC4509]
+///  3        GOST R 34.11-94       DEPRECATED   [RFC5933][Change the status of GOST Signature Algorithms in DNSSEC in the IETF stream to Historic]
+///  4        SHA-384               OPTIONAL     [RFC6605]
+///  5        GOST R 34.11-2012     OPTIONAL     [RFC9558]
+///  6        SM3                   OPTIONAL     [RFC9563]
 /// ```
 ///
 /// <https://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml>
@@ -69,10 +71,13 @@ pub use self::verifier::Verifier;
 #[non_exhaustive]
 pub enum DigestType {
     /// [RFC 3658](https://tools.ietf.org/html/rfc3658)
+    #[cfg_attr(feature = "serde", serde(rename = "SHA-1"))]
     SHA1,
     /// [RFC 4509](https://tools.ietf.org/html/rfc4509)
+    #[cfg_attr(feature = "serde", serde(rename = "SHA-256"))]
     SHA256,
     /// [RFC 6605](https://tools.ietf.org/html/rfc6605)
+    #[cfg_attr(feature = "serde", serde(rename = "SHA-384"))]
     SHA384,
 }
 
