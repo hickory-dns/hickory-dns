@@ -292,16 +292,6 @@ pub use resolver::Resolver;
 
 /// This is an alias for [`AsyncResolver`], which replaced the type previously
 /// called `ResolverFuture`.
-///
-/// # Note
-///
-/// For users of `ResolverFuture`, the return type for `ResolverFuture::new`
-/// has changed since version 0.9 of `hickory-resolver`. It now returns
-/// a tuple of an [`AsyncResolver`] _and_ a background future, which must
-/// be spawned on a reactor before any lookup futures will run.
-///
-/// See the [`AsyncResolver`] documentation for more information on how to
-/// use the background future.
 #[deprecated(note = "use [`hickory_resolver::AsyncResolver`] instead")]
 #[cfg(feature = "tokio-runtime")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]

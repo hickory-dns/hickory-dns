@@ -119,13 +119,6 @@ pub type AsyncStdResolver = AsyncResolver<AsyncStdConnectionProvider>;
 ///
 /// * `config` - configuration, name_servers, etc. for the Resolver
 /// * `options` - basic lookup options for the resolver
-///
-/// # Returns
-///
-/// A tuple containing the new `AsyncResolver` and a future that drives the
-/// background task that runs resolutions for the `AsyncResolver`. See the
-/// documentation for `AsyncResolver` for more information on how to use
-/// the background future.
 pub async fn resolver(
     config: config::ResolverConfig,
     options: config::ResolverOpts,
