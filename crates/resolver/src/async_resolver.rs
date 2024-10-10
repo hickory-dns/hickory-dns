@@ -32,30 +32,17 @@ use crate::Hosts;
 
 /// An asynchronous resolver for DNS generic over async Runtimes.
 ///
-/// Creating a `AsyncResolver` returns a new handle and a future that should
-/// be spawned on an executor to drive the background work. The lookup methods
-/// on `AsyncResolver` request lookups from the background task.
-///
-/// The futures returned by a `AsyncResolver` and the corresponding background
-/// task need not be spawned on the same executor, or be in the same thread.
-///  Additionally, one background task may have any number of handles; calling
-/// `clone()` on a handle will create a new handle linked to the same
-/// background task.
+/// The lookup methods on `AsyncResolver` spawn background tasks to perform
+/// queries. The futures returned by a `AsyncResolver` and the corresponding
+/// background tasks need not be spawned on the same executor, or be in the
+/// same thread.
 ///
 /// *NOTE* If lookup futures returned by a `AsyncResolver` and the background
-/// future are spawned on two separate `CurrentThread` executors, one thread
+/// tasks are spawned on two separate `CurrentThread` executors, one thread
 /// cannot run both executors simultaneously, so the `run` or `block_on`
 /// functions will cause the thread to deadlock. If both the background work
 /// and the lookup futures are intended to be run on the same thread, they
 /// should be spawned on the same executor.
-///
-/// The background task manages the name server pool and other state used
-/// to drive lookups. When this future is spawned on an executor, it will
-/// first construct and configure the necessary client state, before checking
-/// for any incoming lookup requests, handling them, and yielding. It will
-/// continue to do so as long as there are still any [`AsyncResolver`] handle
-/// linked to it. When all of its [`AsyncResolver`]s have been dropped, the
-/// background future will finish.
 #[derive(Clone)]
 pub struct AsyncResolver<P: ConnectionProvider> {
     config: ResolverConfig,
@@ -111,13 +98,6 @@ impl TokioAsyncResolver {
     ///
     /// * `config` - configuration, name_servers, etc. for the Resolver
     /// * `options` - basic lookup options for the resolver
-    ///
-    /// # Returns
-    ///
-    /// A tuple containing the new `AsyncResolver` and a future that drives the
-    /// background task that runs resolutions for the `AsyncResolver`. See the
-    /// documentation for `AsyncResolver` for more information on how to use
-    /// the background future.
     pub fn tokio(config: ResolverConfig, options: ResolverOpts) -> Self {
         Self::new(config, options, TokioConnectionProvider::default())
     }
@@ -145,13 +125,7 @@ impl<R: ConnectionProvider> AsyncResolver<R> {
     ///
     /// * `config` - configuration, name_servers, etc. for the Resolver
     /// * `options` - basic lookup options for the resolver
-    ///
-    /// # Returns
-    ///
-    /// A tuple containing the new `AsyncResolver` and a future that drives the
-    /// background task that runs resolutions for the `AsyncResolver`. See the
-    /// documentation for `AsyncResolver` for more information on how to use
-    /// the background future.
+    /// * `provider` - connection provider, for DNS connections, I/O, and timers
     pub fn new(config: ResolverConfig, options: ResolverOpts, provider: R) -> Self {
         Self::new_with_conn(config, options, provider)
     }
@@ -194,13 +168,7 @@ impl<P: ConnectionProvider> AsyncResolver<P> {
     ///
     /// * `config` - configuration, name_servers, etc. for the Resolver
     /// * `options` - basic lookup options for the resolver
-    ///
-    /// # Returns
-    ///
-    /// A tuple containing the new `AsyncResolver` and a future that drives the
-    /// background task that runs resolutions for the `AsyncResolver`. See the
-    /// documentation for `AsyncResolver` for more information on how to use
-    /// the background future.
+    /// * `conn_provider` - connection provider, for DNS connections, I/O, and timers
     pub fn new_with_conn(config: ResolverConfig, options: ResolverOpts, conn_provider: P) -> Self {
         let pool =
             NameServerPool::from_config_with_provider(&config, options.clone(), conn_provider);
