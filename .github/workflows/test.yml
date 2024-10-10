@@ -30,8 +30,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        #os: [ubuntu-latest, macos-latest, windows-latest]
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -46,7 +45,11 @@ jobs:
           version: ${{ env.CARGO_WS_VERSION }}
 
       - name: just all-features
+        if: matrix.os != 'windows-latest'
         run: just all-features
+      - name: just windows-features
+        if: matrix.os == 'windows-latest'
+        run: just windows-features
 
   ## Measure test coverage, only on linux.
   code-coverage:
