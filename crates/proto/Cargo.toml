@@ -29,7 +29,6 @@ dns-over-tls = []
 dns-over-rustls = [
     "dns-over-tls",
     "rustls/ring",
-    "dep:rustls-pemfile",
     "dep:tokio-rustls",
     "tokio-runtime",
 ]
@@ -103,7 +102,6 @@ rand.workspace = true
 ring = { workspace = true, optional = true, features = ["std"] }
 rustls = { workspace = true, optional = true, default-features = false }
 rustls-native-certs = { workspace = true, optional = true }
-rustls-pemfile = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 socket2 = { workspace = true, optional = true }
 thiserror.workspace = true
