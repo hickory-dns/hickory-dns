@@ -26,7 +26,7 @@ use crate::op::{Header, Query, ResponseCode};
 
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::{rdata::tsig::TsigAlgorithm, Proof};
-use crate::rr::{rdata::SOA, resource::RecordRef, Record, RecordType};
+use crate::rr::{domain::Name, rdata::SOA, resource::RecordRef, Record, RecordType};
 use crate::serialize::binary::DecodeError;
 use crate::xfer::DnsResponse;
 
@@ -343,6 +343,29 @@ pub enum ProtoErrorKind {
     #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
     #[error("no valid certificates found in the native root store")]
     NativeCerts,
+}
+
+/// Data needed to process a SOA-record-based referral.
+#[derive(Clone, Debug)]
+pub struct ForwardData {
+    /// Name
+    pub name: Name,
+    /// No records found?
+    pub is_no_records_found: bool,
+    /// IS nx domain?
+    pub is_nx_domain: bool,
+}
+
+impl ForwardData {
+    /// are there records?
+    pub fn is_no_records_found(&self) -> bool {
+        self.is_no_records_found
+    }
+
+    /// is this nxdomain?
+    pub fn is_nx_domain(&self) -> bool {
+        self.is_nx_domain
+    }
 }
 
 /// Data needed to process a NS-record-based referral.

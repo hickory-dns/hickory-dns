@@ -444,7 +444,7 @@ mod for_dnssec {
     };
 
     use crate::proto::{
-        error::ProtoError, op::Message, op::OpCode, xfer::DnsHandle, xfer::DnsResponse,
+        error::ProtoError, op::Message, op::OpCode, op::ResponseCode, xfer::DnsHandle, xfer::DnsResponse,
     };
     use crate::recursor_dns_handle::RecursorDnsHandle;
 
@@ -475,7 +475,7 @@ mod for_dnssec {
             stream::once(async move {
                 // request the DNSSEC records; we'll strip them if not needed on the caller side
                 let do_bit = true;
-                this.resolve(query, Instant::now(), do_bit, 0)
+                this.resolve(query.clone(), Instant::now(), do_bit, 0)
                     .map_ok(|lookup| {
                         // `DnssecDnsHandle` will only look at the answer section of the message so
                         // we can put "stubs" in the other fields
@@ -487,7 +487,22 @@ mod for_dnssec {
 
                         DnsResponse::new(msg, vec![])
                     })
-                    .map_err(|e| ProtoError::from(e.to_string()))
+                    .map_err(|e| {
+                        // This is a very incomplete mapping, and should be an Into
+                        // implementation...
+                        if e.is_no_records_found() && e.is_nx_domain() {
+                            ProtoError::nx_error(
+                                query.clone(),
+                                None,
+                                None,
+                                None,
+                                ResponseCode::NXDomain,
+                                true
+                            )
+                        } else {
+                            ProtoError::from(e.to_string())
+                        }
+                    })
                     .await
             })
             .boxed()
