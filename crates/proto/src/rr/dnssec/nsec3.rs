@@ -107,6 +107,7 @@ use crate::serialize::binary::{BinEncodable, BinEncoder};
 pub enum Nsec3HashAlgorithm {
     /// Hash for the Nsec3 records
     #[default]
+    #[cfg_attr(feature = "serde", serde(rename = "SHA-1"))]
     SHA1,
 }
 
