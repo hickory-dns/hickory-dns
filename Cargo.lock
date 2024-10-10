@@ -928,7 +928,6 @@ dependencies = [
  "ring",
  "rustls",
  "rustls-native-certs",
- "rustls-pemfile",
  "serde",
  "socket2",
  "test-support",

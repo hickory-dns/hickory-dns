@@ -64,13 +64,12 @@ pin-project-lite = "0.2"
 # ssl
 native-tls = "0.2"
 openssl = "0.10.55"
-rustls = { version = "0.23", default-features = false, features = [
+rustls = { version = "0.23.14", default-features = false, features = [
     "logging",
     "std",
     "tls12",
 ] }
 rustls-native-certs = "0.7"
-rustls-pemfile = "2"
 webpki-roots = "0.26"
 ring = "0.17"
 

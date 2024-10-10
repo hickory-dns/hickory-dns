@@ -8,10 +8,11 @@
 //! DNS over TLS server implementation for Rustls
 
 use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::Read;
 use std::path::Path;
 use std::sync::Arc;
 
+use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::{self, ServerConfig};
 
@@ -21,12 +22,8 @@ use crate::error::{ProtoError, ProtoResult};
 ///
 /// If the password is specified, then it will be used to decode the Certificate
 pub fn read_cert(cert_path: &Path) -> ProtoResult<Vec<CertificateDer<'static>>> {
-    let mut cert_file = File::open(cert_path)
-        .map_err(|e| format!("error opening cert file: {cert_path:?}: {e}"))?;
-
-    let mut reader = BufReader::new(&mut cert_file);
-    rustls_pemfile::certs(&mut reader)
-        .collect::<Result<Vec<_>, _>>()
+    CertificateDer::pem_file_iter(cert_path)
+        .and_then(|iter| iter.collect::<Result<Vec<_>, _>>())
         .map_err(|_| {
             ProtoError::from(format!(
                 "failed to read certs from: {}",
@@ -51,12 +48,8 @@ pub fn read_cert(cert_path: &Path) -> ProtoResult<Vec<CertificateDer<'static>>> 
 /// - Encountered an IO error
 /// - Unable to read key: either no key or no key found in the right format
 pub fn read_key(path: &Path) -> ProtoResult<PrivateKeyDer<'static>> {
-    let mut file = BufReader::new(File::open(path)?);
-    match rustls_pemfile::private_key(&mut file) {
-        Ok(Some(key)) => Ok(key),
-        Ok(None) => Err(format!("no keys available in: {}", path.display()).into()),
-        Err(e) => Err(e.into()),
-    }
+    PrivateKeyDer::from_pem_file(path)
+        .map_err(|_| ProtoError::from(format!("failed to read key from: {}", path.display())))
 }
 
 /// Reads a private key from a DER-encoded file
