@@ -11,9 +11,15 @@ use ipnet::IpNet;
 
 #[cfg(feature = "dnssec")]
 use crate::{
-    proto::xfer::{DnsHandle as _, DnsRequestOptions, DnssecDnsHandle, FirstAnswer as _},
+    proto::{
+        error::ProtoError,
+        op::ResponseCode,
+        rr::{resource::RecordRef, Record, RecordType},
+        xfer::{DnsHandle as _, DnsRequestOptions, DnssecDnsHandle, FirstAnswer as _},
+    },
     resolver::dns_lru::DnsLru,
     resolver::error::ResolveErrorKind,
+    ErrorKind,
 };
 
 use crate::{
@@ -367,20 +373,67 @@ impl Recursor {
                 options.edns_set_dnssec_ok = true;
 
                 let response = handle.lookup(query.clone(), options).first_answer().await?;
-                // do not perform is_subzone filtering as it already happened in `handle.lookup`
-                let no_subzone_filtering = None;
-                let lookup = super::cache_response(
-                    response,
-                    no_subzone_filtering,
-                    record_cache,
-                    query.clone(),
-                    request_time,
-                )?;
-                Ok(super::maybe_strip_dnssec_records(
-                    query_has_dnssec_ok,
-                    lookup,
-                    query,
-                ))
+
+                // Return NXDomain and NoData responses in error form
+                // These need to bypass the cache lookup (and casting to a Lookup object in general)
+                // to preserve SOA and DNSSEC records, and to keep those records in the authorities
+                // section of the response.
+                if response.response_code() == ResponseCode::NXDomain {
+                    let Err(proto_err) = ProtoError::from_response(response, true) else {
+                        return Err(Error::from(
+                            "unable to build ProtoError from response {response:?}",
+                        ));
+                    };
+
+                    Err(Error {
+                        kind: Box::new(ErrorKind::Proto(proto_err)),
+                        #[cfg(feature = "backtrace")]
+                        backtrack: None,
+                    })
+                } else if response.answers().is_empty()
+                    && !response.name_servers().is_empty()
+                    && response.response_code() == ResponseCode::NoError
+                {
+                    let authorities = response
+                        .name_servers()
+                        .iter()
+                        .filter_map(|x| match x.record_type() {
+                            RecordType::SOA => None,
+                            _ => Some(x.clone()),
+                        })
+                        .collect::<Arc<[Record]>>();
+
+                    let soa = response.soa().as_ref().map(RecordRef::to_owned);
+
+                    Err(Error {
+                        kind: Box::new(ErrorKind::Proto(ProtoError::nx_error(
+                            Box::new(query),
+                            soa.map(Box::new),
+                            None,
+                            None,
+                            ResponseCode::NoError,
+                            true,
+                            Some(authorities),
+                        ))),
+                        #[cfg(feature = "backtrace")]
+                        backtrack: None,
+                    })
+                } else {
+                    // do not perform is_subzone filtering as it already happened in `handle.lookup`
+                    let no_subzone_filtering = None;
+                    let lookup = super::cache_response(
+                        response,
+                        no_subzone_filtering,
+                        record_cache,
+                        query.clone(),
+                        request_time,
+                    )?;
+                    Ok(super::maybe_strip_dnssec_records(
+                        query_has_dnssec_ok,
+                        lookup,
+                        query,
+                    ))
+                }
             }
         }
     }
@@ -444,9 +497,13 @@ mod for_dnssec {
     };
 
     use crate::proto::{
-        error::ProtoError, op::Message, op::OpCode, xfer::DnsHandle, xfer::DnsResponse,
+        error::ProtoError,
+        op::{Message, OpCode},
+        xfer::DnsHandle,
+        xfer::DnsResponse,
     };
     use crate::recursor_dns_handle::RecursorDnsHandle;
+    use crate::ErrorKind;
 
     impl DnsHandle for RecursorDnsHandle {
         type Response = BoxStream<'static, Result<DnsResponse, ProtoError>>;
@@ -475,6 +532,7 @@ mod for_dnssec {
             stream::once(async move {
                 // request the DNSSEC records; we'll strip them if not needed on the caller side
                 let do_bit = true;
+
                 this.resolve(query, Instant::now(), do_bit, 0)
                     .map_ok(|lookup| {
                         // `DnssecDnsHandle` will only look at the answer section of the message so
@@ -487,7 +545,11 @@ mod for_dnssec {
 
                         DnsResponse::new(msg, vec![])
                     })
-                    .map_err(|e| ProtoError::from(e.to_string()))
+                    .map_err(|e| match e.kind() {
+                        // Translate back into a ProtoError::NoRecordsFound
+                        ErrorKind::Forward(_fwd) => e.into(),
+                        _ => ProtoError::from(e.to_string()),
+                    })
                     .await
             })
             .boxed()
