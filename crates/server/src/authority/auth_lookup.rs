@@ -11,6 +11,9 @@ use std::sync::Arc;
 
 use cfg_if::cfg_if;
 
+#[cfg(feature = "dnssec")]
+use crate::{authority::DnssecSummary, proto::rr::dnssec::Proof};
+
 use crate::authority::{LookupObject, LookupOptions};
 use crate::proto::rr::{LowerName, Record, RecordSet, RecordType, RrsetRecords};
 
@@ -105,6 +108,25 @@ impl LookupObject for AuthLookup {
     fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>> {
         let additionals = Self::take_additionals(self);
         additionals.map(|a| Box::new(a) as Box<dyn LookupObject>)
+    }
+
+    #[cfg(feature = "dnssec")]
+    fn dnssec_summary(&self) -> DnssecSummary {
+        let mut all_secure = None;
+        for record in self {
+            match record.proof() {
+                Proof::Secure => {
+                    all_secure.get_or_insert(true);
+                }
+                Proof::Bogus => return DnssecSummary::Bogus,
+                _ => all_secure = Some(false),
+            }
+        }
+
+        match all_secure {
+            Some(true) => DnssecSummary::Secure,
+            _ => DnssecSummary::Insecure,
+        }
     }
 }
 
