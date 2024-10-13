@@ -24,7 +24,7 @@ use tracing::{debug, trace, warn};
 
 use crate::{
     error::{ProtoError, ProtoErrorKind},
-    op::{Edns, OpCode, Query},
+    op::{Edns, Message, OpCode, Query},
     rr::{
         dnssec::{
             rdata::{DNSSECRData, DNSKEY, DS, RRSIG},
@@ -178,6 +178,33 @@ where
         Box::pin(
             self.handle
                 .send(request)
+                .or_else(move |res| {
+                    // Translate NoRecordsFound errors into a DnsResponse message so the rest of the
+                    // DNSSEC handler chain can validate negative responses.
+                    match res.kind() {
+                        ProtoErrorKind::NoRecordsFound { query, authorities, response_code, .. } => {
+                            let mut msg = Message::new();
+
+                            debug!("translating NoRecordsFound to DnsResponse for {query}");
+
+                            msg.add_query(*query.clone());
+
+                            msg.set_response_code(*response_code);
+
+                            if let Some(authorities) = authorities {
+                                for ns in authorities.iter() {
+                                    msg.add_name_server(ns.clone());
+                                }
+                            }
+
+                            match DnsResponse::from_message(msg) {
+                                Ok(res) => future::ok(res),
+                                Err(_e) => future::err(ProtoError::from("unable to construct DnsResponse: {_e:?}"))
+                            }
+                        }
+                        _ => future::err(ProtoError::from(res.to_string()))
+                    }
+                })
                 .and_then(move |message_response| {
                     // group the record sets by name and type
                     //  each rrset type needs to validated independently
