@@ -241,13 +241,18 @@ where
                                 &nsec3s,
                             ),
                             (true, false) => verify_nsec(&query, soa_name, nsecs.as_slice()),
-                            (true, true) => {
+                            (false, false) => {
                                 warn!(
                                     "response contains both NSEC and NSEC3 records\nQuery:\n{query:?}\nResponse:\n{verified_message:?}"
                                 );
                                 Proof::Bogus
                             },
-                            (false, false) => Proof::Bogus,
+                            (true, true) => {
+                                warn!(
+                                    "response does not contain NSEC or NSEC3 records. Query: {query:?} response: {verified_message:?}"
+                                );
+                                Proof::Bogus
+                            },
                         };
 
                         if !nsec_proof.is_secure() {
