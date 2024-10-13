@@ -25,7 +25,7 @@ use crate::op::{Header, Query, ResponseCode};
 
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::{rdata::tsig::TsigAlgorithm, Proof};
-use crate::rr::{rdata::SOA, resource::RecordRef, Record, RecordType};
+use crate::rr::{domain::Name, rdata::SOA, resource::RecordRef, Record, RecordType};
 use crate::serialize::binary::DecodeError;
 use crate::xfer::DnsResponse;
 
@@ -197,6 +197,8 @@ pub enum ProtoErrorKind {
         response_code: ResponseCode,
         /// If we trust `NXDOMAIN` errors from this server
         trusted: bool,
+        /// Authority records from the query. These are important to preserve for DNSSEC validation.
+        authorities: Option<Arc<[Record]>>,
     },
 
     /// An unknown algorithm type was found
@@ -342,6 +344,54 @@ pub enum ProtoErrorKind {
     NativeCerts,
 }
 
+/// Data needed to process a SOA-record-based referral.
+#[derive(Clone, Debug)]
+pub struct ForwardData {
+    /// Query
+    pub query: Box<Query>,
+    /// Name
+    pub name: Name,
+    /// SOA
+    pub soa: Box<Record<SOA>>,
+    /// No records found?
+    no_records_found: bool,
+    /// IS nx domain?
+    nx_domain: bool,
+    /// Authority records
+    pub authorities: Option<Arc<[Record]>>,
+}
+
+impl ForwardData {
+    /// Construct a new ForwardData
+    pub fn new(
+        query: Box<Query>,
+        name: Name,
+        soa: Box<Record<SOA>>,
+        no_records_found: bool,
+        nx_domain: bool,
+        authorities: Option<Arc<[Record]>>,
+    ) -> Self {
+        Self {
+            query,
+            name,
+            soa,
+            no_records_found,
+            nx_domain,
+            authorities,
+        }
+    }
+
+    /// are there records?
+    pub fn is_no_records_found(&self) -> bool {
+        self.no_records_found
+    }
+
+    /// is this nxdomain?
+    pub fn is_nx_domain(&self) -> bool {
+        self.nx_domain
+    }
+}
+
 /// Data needed to process a NS-record-based referral.
 #[derive(Clone, Debug)]
 pub struct ForwardNSData {
@@ -366,20 +416,22 @@ impl ProtoError {
     /// Constructor to NX type errors
     #[inline]
     pub fn nx_error(
-        query: Query,
-        soa: Option<Record<SOA>>,
+        query: Box<Query>,
+        soa: Option<Box<Record<SOA>>>,
         ns: Option<Arc<[ForwardNSData]>>,
         negative_ttl: Option<u32>,
         response_code: ResponseCode,
         trusted: bool,
+        authorities: Option<Arc<[Record]>>,
     ) -> Self {
         ProtoErrorKind::NoRecordsFound {
-            query: Box::new(query),
-            soa: soa.map(Box::new),
+            query,
+            soa,
             ns,
             negative_ttl,
             response_code,
             trusted,
+            authorities,
         }
         .into()
     }
@@ -442,7 +494,7 @@ impl ProtoError {
     /// A conversion to determine if the response is an error
     pub fn from_response(response: DnsResponse, trust_nx: bool) -> Result<DnsResponse, Self> {
         use ResponseCode::*;
-        debug!("Response:{}", *response);
+        debug!("response: {}", *response);
 
         match response.response_code() {
                 code @ ServFail
@@ -475,6 +527,7 @@ impl ProtoError {
                         // This is marked as false as these are all potentially temporary error Response codes about
                         //   the client and server interaction, and do not pertain to record existence.
                         trusted: false,
+                        authorities: None,
                     };
 
                     Err(Self::from(error_kind))
@@ -516,6 +569,12 @@ impl ProtoError {
                         None
                     };
 
+                    let authorities = if ! response.name_servers().is_empty() {
+                        Some(response.name_servers().to_owned().into())
+                    } else {
+                        None
+                    };
+
                     let negative_ttl = response.negative_ttl();
                     // Note: improperly configured servers may do recursive lookups and return bad SOA
                     // records here via AS112 (blackhole-1.iana.org. etc)
@@ -523,6 +582,7 @@ impl ProtoError {
                     // for local hosts.
                     let trusted = trust_nx && soa.is_some();
                     let query = response.into_message().take_queries().drain(..).next().unwrap_or_default();
+
                     let error_kind = ProtoErrorKind::NoRecordsFound {
                         query: Box::new(query),
                         soa: soa.map(Box::new),
@@ -530,6 +590,7 @@ impl ProtoError {
                         negative_ttl,
                         response_code: code,
                         trusted,
+                        authorities,
                     };
 
                     Err(Self::from(error_kind))
@@ -704,6 +765,7 @@ impl Clone for ProtoErrorKind {
                 negative_ttl,
                 response_code,
                 trusted,
+                ref authorities,
             } => NoRecordsFound {
                 query: query.clone(),
                 soa: soa.clone(),
@@ -711,6 +773,7 @@ impl Clone for ProtoErrorKind {
                 negative_ttl,
                 response_code,
                 trusted,
+                authorities: authorities.clone(),
             },
             RequestRefused => RequestRefused,
             #[cfg(feature = "dnssec")]
