@@ -490,6 +490,7 @@ mod tests {
             negative_ttl: Some(1),
             response_code: ResponseCode::NoError,
             trusted: false,
+            authorities: None,
         };
         let nx_error = lru.negative(name.clone(), err.into(), now);
         match nx_error.kind() {
@@ -509,6 +510,7 @@ mod tests {
             negative_ttl: Some(3),
             response_code: ResponseCode::NoError,
             trusted: false,
+            authorities: None,
         };
         let nx_error = lru.negative(name, err.into(), now);
         match nx_error.kind() {
@@ -582,6 +584,7 @@ mod tests {
             negative_ttl: Some(62),
             response_code: ResponseCode::NoError,
             trusted: false,
+            authorities: None,
         };
         let nx_error = lru.negative(name.clone(), err.into(), now);
         match nx_error.kind() {
@@ -601,6 +604,7 @@ mod tests {
             negative_ttl: Some(59),
             response_code: ResponseCode::NoError,
             trusted: false,
+            authorities: None,
         };
         let nx_error = lru.negative(name, err.into(), now);
         match nx_error.kind() {

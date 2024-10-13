@@ -149,12 +149,13 @@ where
                     RecordType::PTR => return Ok(Lookup::from_rdata(query, LOCALHOST.clone())),
                     _ => {
                         return Err(ProtoError::nx_error(
-                            query,
+                            Box::new(query),
                             None,
                             None,
                             None,
                             ResponseCode::NoError,
                             false,
+                            None,
                         ))
                     } // Are there any other types we can use?
                 },
@@ -163,12 +164,13 @@ where
                 ResolverUsage::LinkLocal => (),
                 ResolverUsage::NxDomain => {
                     return Err(ProtoError::nx_error(
-                        query,
+                        Box::new(query),
                         None,
                         None,
                         None,
                         ResponseCode::NXDomain,
                         false,
+                        None,
                     ))
                 }
                 ResolverUsage::Normal => (),
@@ -211,6 +213,7 @@ where
                         response_code,
                         trusted,
                         ns,
+                        ..
                     } => {
                         Err(Self::handle_nxdomain(
                             is_dnssec,
@@ -297,6 +300,7 @@ where
                 negative_ttl,
                 response_code,
                 trusted: true,
+                authorities: None,
             }
             .into()
         } else {
@@ -308,6 +312,7 @@ where
                 negative_ttl: None,
                 response_code,
                 trusted,
+                authorities: None,
             }
             .into()
         }
@@ -540,7 +545,7 @@ mod tests {
         .unwrap_err()
         .kind()
         {
-            assert_eq!(**query, Query::new());
+            assert_eq!(*query, Box::new(Query::new()));
             assert_eq!(*negative_ttl, None);
         } else {
             panic!("wrong error received")

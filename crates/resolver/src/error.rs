@@ -12,7 +12,10 @@ use std::{fmt, io, sync};
 use thiserror::Error;
 
 use crate::proto::rr::{rdata::SOA, Record};
-use crate::proto::{error::ProtoError, xfer::retry_dns_handle::RetryableError};
+use crate::proto::{
+    error::{ProtoError, ProtoErrorKind},
+    xfer::retry_dns_handle::RetryableError,
+};
 
 #[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
@@ -62,6 +65,11 @@ impl ResolveError {
     /// Get the kind of the error
     pub fn kind(&self) -> &ResolveErrorKind {
         &self.kind
+    }
+
+    /// Take the kind of the error
+    pub fn into_kind(self) -> ResolveErrorKind {
+        self.kind
     }
 
     /// If this is an underlying proto error, return that
@@ -141,6 +149,16 @@ impl From<ResolveErrorKind> for ResolveError {
 impl From<&'static str> for ResolveError {
     fn from(msg: &'static str) -> Self {
         ResolveErrorKind::Message(msg).into()
+    }
+}
+
+impl TryFrom<ResolveError> for ProtoErrorKind {
+    type Error = ResolveError;
+    fn try_from(error: ResolveError) -> Result<Self, Self::Error> {
+        match error.kind {
+            ResolveErrorKind::Proto(p) => Ok(*p.kind),
+            _ => Err(error),
+        }
     }
 }
 
