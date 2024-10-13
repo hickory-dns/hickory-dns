@@ -559,6 +559,8 @@ async fn build_response(
                 request_header,
                 &mut response_header,
                 authority.can_validate_dnssec(),
+                query,
+                lookup_options,
             )
             .await
         }
@@ -767,6 +769,8 @@ async fn build_forwarded_response(
     request_header: &Header,
     response_header: &mut Header,
     can_validate_dnssec: bool,
+    query: &LowerQuery,
+    lookup_options: LookupOptions,
 ) -> LookupSections {
     response_header.set_recursion_available(true);
     response_header.set_authoritative(false);
@@ -776,36 +780,76 @@ async fn build_forwarded_response(
         NoRecords(Box<AuthLookup>),
     }
 
-    // Don't perform the recursive query if this is disabled...
-    let mut answers = if !request_header.recursion_desired() {
-        info!(
-            "request disabled recursion, returning no records: {}",
-            request_header.id()
-        );
+    let (mut answers, authorities) = match response {
+        Ok(_) | Err(_) if !request_header.recursion_desired() => {
+            info!(
+                "request disabled recursion, returning no records: {}",
+                request_header.id()
+            );
 
-        Answer::Normal(Box::new(EmptyLookup))
-    } else {
-        match response {
-            Ok(lookup) => Answer::Normal(lookup),
-            Err(e) if e.is_no_records_found() => {
-                if e.is_nx_domain() {
-                    response_header.set_response_code(ResponseCode::NXDomain);
-                }
-                debug!("error resolving: {e}");
+            (
+                Answer::Normal(Box::new(EmptyLookup)),
+                Box::<AuthLookup>::default(),
+            )
+        }
+        Ok(l) => (Answer::Normal(l), Box::<AuthLookup>::default()),
+        Err(e) if e.is_no_records_found() || e.is_nx_domain() => {
+            debug!("error resolving: {e:?}");
 
-                if let Some(soa) = e.into_soa() {
-                    let soa = soa.into_record_of_rdata();
-                    let record_set = Arc::new(RecordSet::from(soa));
-                    let records = LookupRecords::new(LookupOptions::default(), record_set);
-                    Answer::NoRecords(Box::new(AuthLookup::SOA(records)))
-                } else {
-                    Answer::Normal(Box::new(EmptyLookup))
-                }
+            if e.is_nx_domain() {
+                response_header.set_response_code(ResponseCode::NXDomain);
             }
-            Err(e) => {
-                debug!("error resolving: {e}");
-                Answer::Normal(Box::new(EmptyLookup))
+
+            // Collect all of the authority records, except the SOA
+            let authorities = if let Some(authorities) = e.authorities() {
+                let authorities = authorities
+                    .iter()
+                    .filter_map(|x| {
+                        // if we have another record (probably a dnssec record) that
+                        // matches the query name, but wasn't included in the answers
+                        // section, change the NXDomain response to NoError
+                        if *x.name() == **query.name() {
+                            debug!(
+                                "changing response code from NXDomain to NoError for {} due to other record {x:?}",
+                                query.name(),
+                            );
+                            response_header.set_response_code(ResponseCode::NoError);
+                        }
+
+                        match x.record_type() {
+                            RecordType::SOA => None,
+                            _ => Some(Arc::new(RecordSet::from(x.clone()))),
+                        }
+                    })
+                    .collect();
+
+                Box::new(AuthLookup::answers(
+                    LookupRecords::many(LookupOptions::default(), authorities),
+                    None,
+                ))
+            } else {
+                Box::<AuthLookup>::default()
+            };
+
+            if let Some(soa) = e.into_soa() {
+                let soa = soa.into_record_of_rdata();
+                let record_set = Arc::new(RecordSet::from(soa));
+                let records = LookupRecords::new(LookupOptions::default(), record_set);
+
+                (
+                    Answer::NoRecords(Box::new(AuthLookup::SOA(records))),
+                    authorities,
+                )
+            } else {
+                (Answer::Normal(Box::new(EmptyLookup)), authorities)
             }
+        }
+        Err(e) => {
+            debug!("error resolving {e:?}");
+            (
+                Answer::Normal(Box::new(EmptyLookup)),
+                Box::<AuthLookup>::default(),
+            )
         }
     };
 
@@ -834,9 +878,10 @@ async fn build_forwarded_response(
         //
         // we may want to interpret (B) as allowed ("MAY be skipped") as a form of optimization in
         // the future to reduce the number of network transactions that a CD=1 query needs.
-        if let Answer::Normal(answers) = &mut answers {
-            match answers.dnssec_summary() {
+        match &mut answers {
+            Answer::Normal(answers) => match answers.dnssec_summary() {
                 DnssecSummary::Secure => {
+                    trace!("setting ad header");
                     response_header.set_authentic_data(true);
                 }
                 DnssecSummary::Bogus if !request_header.checking_disabled() => {
@@ -845,20 +890,55 @@ async fn build_forwarded_response(
                     *answers = Box::new(EmptyLookup);
                 }
                 _ => {}
-            }
+            },
+            Answer::NoRecords(soa) => match authorities.dnssec_summary() {
+                DnssecSummary::Secure => {
+                    trace!("setting ad header");
+                    response_header.set_authentic_data(true);
+                }
+                DnssecSummary::Bogus if !request_header.checking_disabled() => {
+                    response_header.set_response_code(ResponseCode::ServFail);
+                    // do not return Bogus records when CD=0
+                    *soa = Box::<AuthLookup>::default();
+                    trace!("clearing SOA record from response");
+                }
+                _ => {}
+            },
         }
     }
+
+    // Strip out DNSSEC records unless the DO bit is set.
+    let authorities = if !lookup_options.dnssec_ok() {
+        let auth = authorities
+            .into_iter()
+            .filter_map(|rrset| {
+                let record_type = rrset.record_type();
+                if record_type == query.query_type() || !record_type.is_dnssec() {
+                    Some(Arc::new(RecordSet::from(rrset.clone())))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        Box::new(AuthLookup::answers(
+            LookupRecords::many(LookupOptions::default(), auth),
+            None,
+        ))
+    } else {
+        authorities
+    };
 
     match answers {
         Answer::Normal(answers) => LookupSections {
             answers,
-            ns: Box::<AuthLookup>::default(),
+            ns: authorities,
             soa: Box::<AuthLookup>::default(),
             additionals: Box::<AuthLookup>::default(),
         },
         Answer::NoRecords(soa) => LookupSections {
             answers: Box::new(EmptyLookup),
-            ns: Box::<AuthLookup>::default(),
+            ns: authorities,
             soa,
             additionals: Box::<AuthLookup>::default(),
         },
