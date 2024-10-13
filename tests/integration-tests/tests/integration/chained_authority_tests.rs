@@ -148,7 +148,7 @@ async fn chained_authority_test() {
 
     // Eighth test -- Primary returns Break(Err); secondary consult WOULD result in a record
     // returned; verify no records
-    error_test(&catalog, "breakerr.example.com.", ResponseCode::NoError).await;
+    error_test(&catalog, "breakerr.example.com.", ResponseCode::NXDomain).await;
 }
 
 struct TestAuthority {
