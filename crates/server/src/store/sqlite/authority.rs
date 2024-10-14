@@ -225,7 +225,6 @@ impl SqliteAuthority {
 
     /// Returns the associated Journal
     #[cfg(any(test, feature = "testing"))]
-    #[cfg_attr(docsrs, doc(cfg(feature = "testing")))]
     pub async fn journal(&self) -> impl Deref<Target = Option<Journal>> + '_ {
         self.journal.lock().await
     }
@@ -237,7 +236,6 @@ impl SqliteAuthority {
 
     /// Get serial
     #[cfg(any(test, feature = "testing"))]
-    #[cfg_attr(docsrs, doc(cfg(feature = "testing")))]
     pub async fn serial(&self) -> u32 {
         self.in_memory.serial().await
     }
@@ -467,7 +465,6 @@ impl SqliteAuthority {
     /// ```
     ///
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     #[allow(clippy::blocks_in_conditions)]
     pub async fn authorize(&self, update_message: &MessageRequest) -> UpdateResult<()> {
         use tracing::debug;
@@ -1012,7 +1009,6 @@ impl Authority for SqliteAuthority {
 }
 
 #[cfg(feature = "dnssec")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 #[async_trait::async_trait]
 impl DnssecAuthority for SqliteAuthority {
     async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {

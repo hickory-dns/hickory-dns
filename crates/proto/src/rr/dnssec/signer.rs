@@ -232,7 +232,6 @@ use crate::{
 ///    NSEC RRs needed to authenticate the response (see Section 3.1.3).
 /// ```
 #[cfg(feature = "dnssec")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 pub struct SigSigner {
     // TODO: this should really be a trait and generic struct over KEY and DNSKEY
     key_rdata: RData,
@@ -253,7 +252,6 @@ pub struct SigSigner;
 pub type Signer = SigSigner;
 
 #[cfg(feature = "dnssec")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 impl SigSigner {
     /// Version of Signer for verifying RRSIGs and SIG0 records.
     ///

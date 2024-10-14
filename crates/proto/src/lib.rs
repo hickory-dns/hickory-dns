@@ -26,7 +26,7 @@
     clippy::bool_to_int_with_if,
 )]
 #![recursion_limit = "2048"]
-#![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 //! Hickory DNS Protocol library
 
@@ -43,42 +43,27 @@ macro_rules! try_ready_stream {
 
 pub mod error;
 #[cfg(feature = "dns-over-https-rustls")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https-rustls")))]
 pub mod h2;
 #[cfg(feature = "dns-over-h3")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-h3")))]
 pub mod h3;
 #[cfg(any(feature = "dns-over-https-rustls", feature = "dns-over-h3"))]
-#[cfg_attr(
-    docsrs,
-    doc(cfg(any(feature = "dns-over-https-rustls", feature = "dns-over-h3")))
-)]
 pub mod http;
 #[cfg(feature = "mdns")]
-#[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
 pub mod multicast;
 #[cfg(feature = "dns-over-native-tls")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-native-tls")))]
 pub mod native_tls;
 pub mod op;
 #[cfg(feature = "dns-over-openssl")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-openssl")))]
 pub mod openssl;
 #[cfg(all(feature = "dns-over-quic", feature = "tokio-runtime"))]
-#[cfg_attr(
-    docsrs,
-    doc(cfg(all(feature = "dns-over-quic", feature = "tokio-runtime")))
-)]
 pub mod quic;
 pub mod rr;
 pub mod runtime;
 #[cfg(feature = "dns-over-rustls")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
 pub mod rustls;
 pub mod serialize;
 pub mod tcp;
 #[cfg(any(test, feature = "testing"))]
-#[cfg_attr(docsrs, doc(cfg(feature = "testing")))]
 pub mod tests;
 pub mod udp;
 pub mod xfer;
@@ -95,5 +80,4 @@ pub use crate::xfer::retry_dns_handle::RetryDnsHandle;
 #[doc(hidden)]
 pub use crate::xfer::BufDnsStreamHandle;
 #[cfg(feature = "backtrace")]
-#[cfg_attr(docsrs, doc(cfg(feature = "backtrace")))]
 pub use error::ExtBacktrace;

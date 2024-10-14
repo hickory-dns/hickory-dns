@@ -53,64 +53,54 @@ use crate::rr::Name;
 pub enum KeyPair<K> {
     /// RSA keypair, supported by OpenSSL
     #[cfg(feature = "dnssec-openssl")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec-openssl")))]
     RSA(PKey<K>),
     /// Elliptic curve keypair, supported by OpenSSL
     #[cfg(feature = "dnssec-openssl")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec-openssl")))]
     EC(PKey<K>),
     #[cfg(not(feature = "dnssec-openssl"))]
     #[doc(hidden)]
     Phantom(PhantomData<K>),
     /// *ring* ECDSA keypair
     #[cfg(feature = "dnssec-ring")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec-ring")))]
     ECDSA(EcdsaKeyPair),
     /// ED25519 encryption and hash defined keypair
     #[cfg(feature = "dnssec-ring")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec-ring")))]
     ED25519(Ed25519KeyPair),
 }
 
 impl<K> KeyPair<K> {
     /// Creates an RSA type keypair.
     #[cfg(feature = "dnssec-openssl")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec-openssl")))]
     pub fn from_rsa(rsa: OpenSslRsa<K>) -> DnsSecResult<Self> {
         PKey::from_rsa(rsa).map(Self::RSA).map_err(Into::into)
     }
 
     /// Given a known pkey of an RSA key, return the wrapped keypair
     #[cfg(feature = "dnssec-openssl")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec-openssl")))]
     pub fn from_rsa_pkey(pkey: PKey<K>) -> Self {
         Self::RSA(pkey)
     }
 
     /// Creates an EC, elliptic curve, type keypair, only P256 or P384 are supported.
     #[cfg(feature = "dnssec-openssl")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec-openssl")))]
     pub fn from_ec_key(ec_key: EcKey<K>) -> DnsSecResult<Self> {
         PKey::from_ec_key(ec_key).map(Self::EC).map_err(Into::into)
     }
 
     /// Given a known pkey of an EC key, return the wrapped keypair
     #[cfg(feature = "dnssec-openssl")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec-openssl")))]
     pub fn from_ec_pkey(pkey: PKey<K>) -> Self {
         Self::EC(pkey)
     }
 
     /// Creates an ECDSA keypair with ring.
     #[cfg(feature = "dnssec-ring")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec-ring")))]
     pub fn from_ecdsa(ec_key: EcdsaKeyPair) -> Self {
         Self::ECDSA(ec_key)
     }
 
     /// Creates an ED25519 keypair.
     #[cfg(feature = "dnssec-ring")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec-ring")))]
     pub fn from_ed25519(ed_key: Ed25519KeyPair) -> Self {
         Self::ED25519(ed_key)
     }
@@ -321,10 +311,6 @@ impl<K: HasPublic> KeyPair<K> {
     /// * `algorithm` - the algorithm of the DNSKEY
     /// * `digest_type` - the digest_type used to
     #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring")))
-    )]
     pub fn to_ds(
         &self,
         name: &Name,
@@ -488,7 +474,6 @@ impl KeyPair<Private> {
 
     /// Generates a key, securing it with pkcs8
     #[cfg(feature = "dnssec-ring")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec-ring")))]
     pub fn generate_pkcs8(algorithm: Algorithm) -> DnsSecResult<Vec<u8>> {
         #[allow(deprecated)]
         match algorithm {

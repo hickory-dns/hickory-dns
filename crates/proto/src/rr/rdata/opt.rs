@@ -467,17 +467,14 @@ impl From<EdnsCode> for u16 {
 pub enum EdnsOption {
     /// [RFC 6975, DNSSEC Algorithm Understood](https://tools.ietf.org/html/rfc6975)
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     DAU(SupportedAlgorithms),
 
     /// [RFC 6975, DS Hash Understood](https://tools.ietf.org/html/rfc6975)
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     DHU(SupportedAlgorithms),
 
     /// [RFC 6975, NSEC3 Hash Understood](https://tools.ietf.org/html/rfc6975)
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     N3U(SupportedAlgorithms),
 
     /// [RFC 7871, Client Subnet, Optional](https://tools.ietf.org/html/rfc7871)

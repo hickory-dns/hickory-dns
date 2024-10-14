@@ -27,7 +27,6 @@ pub mod dns_multiplexer;
 pub mod dns_request;
 pub mod dns_response;
 #[cfg(feature = "dnssec")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 pub mod dnssec_dns_handle;
 pub mod retry_dns_handle;
 mod serial_message;
@@ -40,7 +39,6 @@ pub use self::dns_multiplexer::{DnsMultiplexer, DnsMultiplexerConnect};
 pub use self::dns_request::{DnsRequest, DnsRequestOptions};
 pub use self::dns_response::{DnsResponse, DnsResponseStream};
 #[cfg(feature = "dnssec")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 pub use self::dnssec_dns_handle::DnssecDnsHandle;
 pub use self::retry_dns_handle::RetryDnsHandle;
 pub use self::serial_message::SerialMessage;
@@ -314,19 +312,15 @@ pub enum Protocol {
     Tcp,
     /// Tls for DNS over TLS
     #[cfg(feature = "dns-over-tls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-tls")))]
     Tls,
     /// Https for DNS over HTTPS
     #[cfg(feature = "dns-over-https-rustls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https-rustls")))]
     Https,
     /// QUIC for DNS over QUIC
     #[cfg(feature = "dns-over-quic")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-quic")))]
     Quic,
     /// HTTP/3 for DNS over HTTP/3
     #[cfg(feature = "dns-over-h3")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-h3")))]
     H3,
 }
 

@@ -67,7 +67,6 @@ impl DigestType {
 
     /// The OpenSSL counterpart for the digest
     #[cfg(feature = "dnssec-openssl")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec-openssl")))]
     pub fn to_openssl_digest(self) -> ProtoResult<hash::MessageDigest> {
         match self {
             Self::SHA1 => Ok(hash::MessageDigest::sha1()),
@@ -80,7 +79,6 @@ impl DigestType {
 
     /// The *ring* counterpart for the digest
     #[cfg(feature = "dnssec-ring")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec-ring")))]
     pub fn to_ring_digest_alg(self) -> ProtoResult<&'static digest::Algorithm> {
         match self {
             Self::SHA1 => Ok(&digest::SHA1_FOR_LEGACY_USE_ONLY),
@@ -93,17 +91,12 @@ impl DigestType {
 
     /// Hash the data
     #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl")))
-    )]
     pub fn hash(self, data: &[u8]) -> ProtoResult<Digest> {
         hash::hash(self.to_openssl_digest()?, data).map_err(Into::into)
     }
 
     /// Hash the data
     #[cfg(feature = "dnssec-ring")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec-ring")))]
     pub fn hash(self, data: &[u8]) -> ProtoResult<Digest> {
         let alg = self.to_ring_digest_alg()?;
         Ok(digest::digest(alg, data))
@@ -111,20 +104,12 @@ impl DigestType {
 
     /// This will always error, enable openssl feature at compile time
     #[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring"))))
-    )]
     pub fn hash(self, _: &[u8]) -> ProtoResult<Vec<u8>> {
         Err("The openssl and ring features are both disabled".into())
     }
 
     /// Digest all the data.
     #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl")))
-    )]
     pub fn digest_all(self, data: &[&[u8]]) -> ProtoResult<Digest> {
         use std::io::Write;
 
@@ -141,7 +126,6 @@ impl DigestType {
 
     /// Digest all the data.
     #[cfg(feature = "dnssec-ring")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec-ring")))]
     pub fn digest_all(self, data: &[&[u8]]) -> ProtoResult<Digest> {
         let alg = self.to_ring_digest_alg()?;
         let mut ctx = digest::Context::new(alg);

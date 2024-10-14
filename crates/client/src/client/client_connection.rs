@@ -24,10 +24,8 @@ use hickory_proto::{
 };
 
 #[cfg(feature = "dnssec")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 use hickory_proto::rr::dnssec::tsig::TSigner;
 #[cfg(feature = "dnssec")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 use hickory_proto::rr::dnssec::SigSigner;
 
 /// List of currently supported signers
@@ -35,16 +33,13 @@ use hickory_proto::rr::dnssec::SigSigner;
 pub enum Signer {
     /// A Sig0 based signer
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     Sig0(Box<SigSigner>),
     /// A TSIG based signer
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     TSIG(TSigner),
 }
 
 #[cfg(feature = "dnssec")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 impl From<SigSigner> for Signer {
     fn from(s: SigSigner) -> Self {
         Self::Sig0(Box::new(s))
@@ -52,7 +47,6 @@ impl From<SigSigner> for Signer {
 }
 
 #[cfg(feature = "dnssec")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 impl From<TSigner> for Signer {
     fn from(s: TSigner) -> Self {
         Self::TSIG(s)
@@ -68,10 +62,8 @@ impl MessageFinalizer for Signer {
     ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
         match self {
             #[cfg(feature = "dnssec")]
-            #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
             Self::Sig0(s0) => s0.finalize_message(message, time),
             #[cfg(feature = "dnssec")]
-            #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
             Self::TSIG(tsig) => tsig.finalize_message(message, time),
             _ => unreachable!("the feature `dnssec` is required for Message signing"),
         }

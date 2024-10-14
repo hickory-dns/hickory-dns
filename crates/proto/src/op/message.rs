@@ -384,7 +384,6 @@ impl Message {
     ///
     /// This must be used only after all records have been associated. Generally this will be handled by the client and not need to be used directly
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn add_sig0(&mut self, record: Record) -> &mut Self {
         assert_eq!(RecordType::SIG, record.record_type());
         self.signature.push(record);
@@ -395,7 +394,6 @@ impl Message {
     ///
     /// This must be used only after all records have been associated. Generally this will be handled by the client and not need to be used directly
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn add_tsig(&mut self, record: Record) -> &mut Self {
         assert_eq!(RecordType::TSIG, record.record_type());
         self.signature.push(record);

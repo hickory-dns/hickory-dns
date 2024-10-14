@@ -348,7 +348,6 @@ impl ZoneConfig {
 
     /// the configuration for the keys used for auth and/or dnssec zone signing.
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn keys(&self) -> &[dnssec::KeyConfig] {
         &self.keys
     }
@@ -367,15 +366,12 @@ pub enum StoreConfig {
     File(FileConfig),
     /// Sqlite based configuration file
     #[cfg(feature = "sqlite")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "sqlite")))]
     Sqlite(SqliteConfig),
     /// Forwarding Resolver
     #[cfg(feature = "resolver")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "resolver")))]
     Forward(ForwardConfig),
     /// Recursive Resolver
     #[cfg(feature = "recursor")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "recursor")))]
     Recursor(RecursiveConfig),
     /// This is used by the configuration processing code to represent a deprecated or main-block config without an associated store.
     Default,

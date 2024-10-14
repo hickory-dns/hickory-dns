@@ -35,7 +35,7 @@
     clippy::bool_to_int_with_if,
 )]
 #![recursion_limit = "1024"]
-#![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 //! Hickory DNS is intended to be a fully compliant domain name server and client library.
 //!
@@ -272,7 +272,6 @@
 pub mod client;
 pub mod error;
 #[cfg(feature = "mdns")]
-#[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
 pub mod multicast;
 pub mod rr;
 pub mod tcp;
@@ -286,7 +285,6 @@ pub use hickory_proto as proto;
 
 /// The https module which contains all https related connection types
 #[cfg(feature = "dns-over-https-rustls")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https-rustls")))]
 pub mod h2 {
     pub use super::h2_client_connection::HttpsClientConnection;
 }

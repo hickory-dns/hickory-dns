@@ -239,7 +239,6 @@ impl Iterator for LookupIntoIter {
 pub enum LookupEither<P: ConnectionProvider + Send> {
     Retry(RetryDnsHandle<NameServerPool<P>>),
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     Secure(DnssecDnsHandle<RetryDnsHandle<NameServerPool<P>>>),
 }
 

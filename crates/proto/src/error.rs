@@ -14,7 +14,6 @@ use std::sync::Arc;
 use std::{fmt, io, sync};
 
 #[cfg(feature = "backtrace")]
-#[cfg_attr(docsrs, doc(cfg(feature = "backtrace")))]
 pub use backtrace::Backtrace as ExtBacktrace;
 use enum_as_inner::EnumAsInner;
 #[cfg(feature = "backtrace")]
@@ -32,7 +31,6 @@ use crate::xfer::DnsResponse;
 
 /// Boolean for checking if backtrace is enabled at runtime
 #[cfg(feature = "backtrace")]
-#[cfg_attr(docsrs, doc(cfg(feature = "backtrace")))]
 pub static ENABLE_BACKTRACE: Lazy<bool> = Lazy::new(|| {
     use std::env;
     let bt = env::var("RUST_BACKTRACE");
@@ -43,7 +41,6 @@ pub static ENABLE_BACKTRACE: Lazy<bool> = Lazy::new(|| {
 ///
 /// If RUST_BACKTRACE is 1 or full then this will return Some(Backtrace), otherwise, NONE.
 #[cfg(feature = "backtrace")]
-#[cfg_attr(docsrs, doc(cfg(feature = "backtrace")))]
 #[macro_export]
 macro_rules! trace {
     () => {{
@@ -668,7 +665,6 @@ impl From<ProtoError> for String {
 }
 
 #[cfg(feature = "wasm-bindgen")]
-#[cfg_attr(docsrs, doc(cfg(feature = "wasm-bindgen")))]
 impl From<ProtoError> for wasm_bindgen_crate::JsValue {
     fn from(e: ProtoError) -> Self {
         js_sys::Error::new(&e.to_string()).into()
@@ -923,10 +919,6 @@ impl From<SslErrorStack> for DnsSecError {
 #[doc(hidden)]
 #[allow(unreachable_pub)]
 #[cfg(not(any(feature = "dns-over-openssl", feature = "dnssec-openssl")))]
-#[cfg_attr(
-    docsrs,
-    doc(cfg(not(any(feature = "dns-over-openssl", feature = "dnssec-openssl"))))
-)]
 pub mod not_openssl {
     use std;
 
@@ -949,7 +941,6 @@ pub mod not_openssl {
 #[doc(hidden)]
 #[allow(unreachable_pub)]
 #[cfg(not(feature = "dnssec-ring"))]
-#[cfg_attr(docsrs, doc(cfg(feature = "dnssec-ring")))]
 pub mod not_ring {
     use std;
 

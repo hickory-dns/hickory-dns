@@ -535,7 +535,6 @@ impl TsigAlgorithm {
     /// Supported algorithm are HmacSha256, HmacSha384, HmacSha512 and HmacSha512_256
     /// Other algorithm return an error.
     #[cfg(feature = "dnssec-ring")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec-ring")))]
     pub fn mac_data(&self, key: &[u8], message: &[u8]) -> ProtoResult<Vec<u8>> {
         use ring::hmac;
         use TsigAlgorithm::*;
@@ -558,10 +557,6 @@ impl TsigAlgorithm {
     /// Supported algorithm are HmacSha256, HmacSha384, HmacSha512 and HmacSha512_256
     /// Other algorithm return an error.
     #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl")))
-    )]
     pub fn mac_data(&self, key: &[u8], message: &[u8]) -> ProtoResult<Vec<u8>> {
         use openssl::{hash::MessageDigest, pkey::PKey, sign::Signer};
         use TsigAlgorithm::*;
@@ -591,7 +586,6 @@ impl TsigAlgorithm {
     ///
     /// This is both faster than independently creating the MAC and also constant time preventing timing attacks
     #[cfg(feature = "dnssec-ring")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec-ring")))]
     pub fn verify_mac(&self, key: &[u8], message: &[u8], tag: &[u8]) -> ProtoResult<()> {
         use ring::hmac;
         use TsigAlgorithm::*;
@@ -610,10 +604,6 @@ impl TsigAlgorithm {
     ///
     /// This is constant time preventing timing attacks
     #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl")))
-    )]
     pub fn verify_mac(&self, key: &[u8], message: &[u8], tag: &[u8]) -> ProtoResult<()> {
         use openssl::memcmp;
 
@@ -635,7 +625,6 @@ impl TsigAlgorithm {
 
     /// Return length in bytes of the algorithms output
     #[cfg(feature = "dnssec-ring")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec-ring")))]
     pub fn output_len(&self) -> ProtoResult<usize> {
         use ring::hmac;
         use TsigAlgorithm::*;
@@ -652,10 +641,6 @@ impl TsigAlgorithm {
 
     /// Return length in bytes of the algorithms output
     #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl")))
-    )]
     pub fn output_len(&self) -> ProtoResult<usize> {
         use openssl::hash::MessageDigest;
         use TsigAlgorithm::*;

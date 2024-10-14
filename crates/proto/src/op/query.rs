@@ -119,7 +119,6 @@ impl Query {
     /// Changes mDNS unicast-response bit
     /// See [RFC 6762](https://tools.ietf.org/html/rfc6762#section-5.4)
     #[cfg(feature = "mdns")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
     pub fn set_mdns_unicast_response(&mut self, flag: bool) -> &mut Self {
         self.mdns_unicast_response = flag;
         self
@@ -158,7 +157,6 @@ impl Query {
     /// Returns if the mDNS unicast-response bit is set or not
     /// See [RFC 6762](https://tools.ietf.org/html/rfc6762#section-5.4)
     #[cfg(feature = "mdns")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
     pub fn mdns_unicast_response(&self) -> bool {
         self.mdns_unicast_response
     }
@@ -181,7 +179,6 @@ pub struct QueryParts {
     pub query_class: DNSClass,
     /// mDNS unicast-response bit set or not
     #[cfg(feature = "mdns")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
     pub mdns_unicast_response: bool,
 }
 

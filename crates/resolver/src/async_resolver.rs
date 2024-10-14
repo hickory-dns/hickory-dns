@@ -53,7 +53,6 @@ pub struct AsyncResolver<P: ConnectionProvider> {
 
 /// An AsyncResolver used with Tokio
 #[cfg(feature = "tokio-runtime")]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 pub type TokioAsyncResolver = AsyncResolver<TokioConnectionProvider>;
 
 macro_rules! lookup_fn {
@@ -90,7 +89,6 @@ macro_rules! lookup_fn {
 }
 
 #[cfg(feature = "tokio-runtime")]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 impl TokioAsyncResolver {
     /// Construct a new Tokio based `AsyncResolver` with the provided configuration.
     ///
@@ -107,10 +105,6 @@ impl TokioAsyncResolver {
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
     #[cfg(feature = "system-config")]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(all(feature = "system-config", any(unix, target_os = "windows"))))
-    )]
     pub fn tokio_from_system_conf() -> Result<Self, ResolveError> {
         Self::from_system_conf(TokioConnectionProvider::default())
     }
@@ -137,10 +131,6 @@ impl<R: ConnectionProvider> AsyncResolver<R> {
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
     #[cfg(feature = "system-config")]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(all(feature = "system-config", any(unix, target_os = "windows"))))
-    )]
     pub fn from_system_conf(runtime: R) -> Result<Self, ResolveError> {
         Self::from_system_conf_with_provider(runtime)
     }
@@ -211,10 +201,6 @@ impl<P: ConnectionProvider> AsyncResolver<P> {
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
     #[cfg(feature = "system-config")]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(all(feature = "system-config", any(unix, target_os = "windows"))))
-    )]
     pub fn from_system_conf_with_provider(conn_provider: P) -> Result<Self, ResolveError> {
         let (config, options) = super::system_conf::read_system_conf()?;
         Ok(Self::new_with_conn(config, options, conn_provider))
@@ -436,7 +422,6 @@ impl<P: ConnectionProvider> fmt::Debug for AsyncResolver<P> {
 
 /// Unit tests compatible with different runtime.
 #[cfg(any(test, feature = "testing"))]
-#[cfg_attr(docsrs, doc(cfg(feature = "testing")))]
 #[allow(dead_code, unreachable_pub)]
 pub mod testing {
     use std::{net::*, str::FromStr};
@@ -551,7 +536,6 @@ pub mod testing {
 
     /// Test IP lookup from URLs with DNSSEC validation.
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn sec_lookup_test<E: Executor + Send + 'static, R: ConnectionProvider>(
         mut exec: E,
         handle: R,
@@ -593,7 +577,6 @@ pub mod testing {
     /// Test IP lookup from domains that exist but unsigned with DNSSEC validation.
     #[allow(deprecated)]
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn sec_lookup_fails_test<E: Executor + Send + 'static, R: ConnectionProvider>(
         mut exec: E,
         handle: R,
@@ -619,7 +602,6 @@ pub mod testing {
 
     /// Test AsyncResolver created from system configuration with IP lookup.
     #[cfg(feature = "system-config")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "system-config")))]
     pub fn system_lookup_test<E: Executor + Send + 'static, R: ConnectionProvider>(
         mut exec: E,
         handle: R,
@@ -648,7 +630,6 @@ pub mod testing {
 
     /// Test AsyncResolver created from system configuration with host lookups.
     #[cfg(feature = "system-config")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "system-config")))]
     pub fn hosts_lookup_test<E: Executor + Send + 'static, R: ConnectionProvider>(
         mut exec: E,
         handle: R,

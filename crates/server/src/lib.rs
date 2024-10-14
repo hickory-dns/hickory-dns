@@ -33,7 +33,7 @@
     clippy::upper_case_acronyms, // can be removed on a major release boundary
 )]
 #![recursion_limit = "2048"]
-#![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 //! Hickory DNS is intended to be a fully compliant domain name server and client library.
 //!
@@ -47,14 +47,11 @@
 //! * New features for securing public information
 
 #[cfg(feature = "blocklist")]
-#[cfg_attr(docsrs, doc(cfg(feature = "blocklist")))]
 pub use crate::store::blocklist;
 pub use hickory_proto as proto;
 #[cfg(feature = "hickory-recursor")]
-#[cfg_attr(docsrs, doc(cfg(feature = "recursor")))]
 pub use hickory_recursor as recursor;
 #[cfg(feature = "hickory-resolver")]
-#[cfg_attr(docsrs, doc(cfg(feature = "resolver")))]
 pub use hickory_resolver as resolver;
 
 mod access;

@@ -170,7 +170,6 @@ impl MdnsStream {
     ///
     /// see https://msdn.microsoft.com/en-us/library/windows/desktop/ms737550(v=vs.85).aspx
     #[cfg(windows)]
-    #[cfg_attr(docsrs, doc(cfg(windows)))]
     fn bind_multicast(socket: &Socket, multicast_addr: &SocketAddr) -> io::Result<()> {
         let multicast_addr = match multicast_addr {
             SocketAddr::V4(addr) => SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), addr.port()),
@@ -183,7 +182,6 @@ impl MdnsStream {
 
     /// On unixes we bind to the multicast address, which causes multicast packets to be filtered
     #[cfg(unix)]
-    #[cfg_attr(docsrs, doc(cfg(unix)))]
     fn bind_multicast(socket: &Socket, multicast_addr: &SocketAddr) -> io::Result<()> {
         socket.bind(&socket2::SockAddr::from(*multicast_addr))
     }

@@ -210,7 +210,6 @@ fn hosts_path() -> std::path::PathBuf {
 
 /// parse configuration from `path`
 #[cfg(any(unix, windows))]
-#[cfg_attr(docsrs, doc(cfg(any(unix, windows))))]
 pub(crate) fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
     use std::fs::File;
 
