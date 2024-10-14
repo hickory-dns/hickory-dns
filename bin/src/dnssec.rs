@@ -53,7 +53,6 @@ impl KeyConfig {
     /// * `is_zone_signing_key` - specify that this key should be used for signing a zone
     /// * `is_zone_update_auth` - specifies that this key can be used for dynamic updates in the zone
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn new(
         key_path: String,
         password: Option<String>,
@@ -79,7 +78,6 @@ impl KeyConfig {
 
     /// Converts key into
     #[cfg(any(feature = "dns-over-tls", feature = "dnssec"))]
-    #[cfg_attr(docsrs, doc(cfg(any(feature = "dns-over-tls", feature = "dnssec"))))]
     pub fn format(&self) -> ParseResult<KeyFormat> {
         use hickory_proto::serialize::txt::ParseErrorKind;
 
@@ -110,7 +108,6 @@ impl KeyConfig {
 
     /// algorithm for for the key, see `Algorithm` for supported algorithms.
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     #[allow(deprecated)]
     pub fn algorithm(&self) -> ParseResult<Algorithm> {
         match self.algorithm.as_str() {
@@ -152,7 +149,6 @@ impl KeyConfig {
 
     /// Tries to read the defined key into a Signer
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn try_into_signer<N: IntoName>(&self, signer_name: N) -> Result<SigSigner, String> {
         let signer_name = signer_name
             .into_name()
@@ -366,7 +362,6 @@ pub fn load_cert(
 
 /// Load a Certificate from the path (with rustls)
 #[cfg(feature = "dns-over-rustls")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
 pub fn load_cert(
     zone_dir: &Path,
     tls_cert_config: &TlsCertConfig,

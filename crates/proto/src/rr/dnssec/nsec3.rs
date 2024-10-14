@@ -152,10 +152,6 @@ impl Nsec3HashAlgorithm {
     ///        substitution);
     /// ```
     #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring")))
-    )]
     pub fn hash(self, salt: &[u8], name: &Name, iterations: u16) -> ProtoResult<Digest> {
         match self {
             // if there ever is more than just SHA1 support, this should be a genericized method

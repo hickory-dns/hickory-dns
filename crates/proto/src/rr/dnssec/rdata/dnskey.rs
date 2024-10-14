@@ -242,10 +242,6 @@ impl DNSKEY {
     /// * `name` - the label of of the DNSKEY record.
     /// * `digest_type` - the `DigestType` with which to create the message digest.
     #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring")))
-    )]
     pub fn to_digest(&self, name: &Name, digest_type: DigestType) -> ProtoResult<Digest> {
         let mut buf: Vec<u8> = Vec::new();
         {
@@ -265,10 +261,6 @@ impl DNSKEY {
 
     /// This will always return an error unless the Ring or OpenSSL features are enabled
     #[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring"))))
-    )]
     pub fn to_digest(&self, _: &Name, _: DigestType) -> ProtoResult<Digest> {
         Err("Ring or OpenSSL must be enabled for this feature".into())
     }

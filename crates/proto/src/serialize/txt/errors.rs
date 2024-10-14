@@ -10,7 +10,6 @@ use crate::{
     serialize::txt::Token,
 };
 #[cfg(feature = "backtrace")]
-#[cfg_attr(docsrs, doc(cfg(feature = "backtrace")))]
 use backtrace::Backtrace as ExtBacktrace;
 
 /// An alias for parse results returned by functions of this crate

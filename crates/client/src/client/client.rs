@@ -462,7 +462,6 @@ impl<CC: ClientConnection> SyncClient<CC> {
     /// * `conn` - the [`ClientConnection`] to use for all communication
     /// * `signer` - signer to use, this needs an associated private key
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn with_signer(conn: CC, signer: SigSigner) -> Self {
         Self {
             conn,
@@ -479,7 +478,6 @@ impl<CC: ClientConnection> SyncClient<CC> {
     /// * `conn` - the [`ClientConnection`] to use for all communication
     /// * `signer` - signer to use
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn with_tsigner(conn: CC, signer: TSigner) -> Self {
         Self {
             conn,
@@ -526,7 +524,6 @@ where
 
 /// A DNS client which will validate DNSSEC records upon receipt
 #[cfg(feature = "dnssec")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 pub struct SyncDnssecClient<CC: ClientConnection> {
     conn: CC,
     signer: Option<Arc<Signer>>,
@@ -576,7 +573,6 @@ impl<CC: ClientConnection> Client for SyncDnssecClient<CC> {
 }
 
 #[cfg(feature = "dnssec")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 pub struct SecureSyncClientBuilder<CC: ClientConnection> {
     conn: CC,
     signer: Option<Arc<Signer>>,

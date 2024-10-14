@@ -243,7 +243,7 @@
 )]
 #![recursion_limit = "128"]
 #![allow(clippy::needless_doctest_main, clippy::single_component_path_imports)]
-#![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[cfg(feature = "dns-over-tls")]
 #[macro_use]
@@ -279,22 +279,18 @@ mod tls;
 pub use self::proto::rr::{IntoName, Name, TryParseIp};
 
 #[cfg(feature = "testing")]
-#[cfg_attr(docsrs, doc(cfg(feature = "testing")))]
 pub use async_resolver::testing;
 pub use async_resolver::AsyncResolver;
 #[cfg(feature = "tokio-runtime")]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 pub use async_resolver::TokioAsyncResolver;
 pub use hosts::Hosts;
 #[cfg(feature = "tokio-runtime")]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 pub use resolver::Resolver;
 
 /// This is an alias for [`AsyncResolver`], which replaced the type previously
 /// called `ResolverFuture`.
 #[deprecated(note = "use [`hickory_resolver::AsyncResolver`] instead")]
 #[cfg(feature = "tokio-runtime")]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 pub type ResolverFuture = TokioAsyncResolver;
 
 /// returns a version as specified in Cargo.toml

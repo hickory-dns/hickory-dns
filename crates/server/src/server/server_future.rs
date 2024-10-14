@@ -279,10 +279,6 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               only, this would require some type of whitelisting.
     /// * `pkcs12` - certificate used to announce to clients
     #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls"))))
-    )]
     pub fn register_tls_listener(
         &mut self,
         listener: net::TcpListener,
@@ -416,10 +412,6 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               only, this would require some type of whitelisting.
     /// * `pkcs12` - certificate used to announce to clients
     #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls"))))
-    )]
     pub fn register_tls_listener_std(
         &mut self,
         listener: std::net::TcpListener,
@@ -447,7 +439,6 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               only, this would require some type of whitelisting.
     /// * `tls_config` - rustls server config
     #[cfg(feature = "dns-over-rustls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
     pub fn register_tls_listener_with_tls_config(
         &mut self,
         listener: net::TcpListener,
@@ -569,7 +560,6 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               only, this would require some type of whitelisting.
     /// * `pkcs12` - certificate used to announce to clients
     #[cfg(feature = "dns-over-rustls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
     pub fn register_tls_listener(
         &mut self,
         listener: net::TcpListener,
@@ -603,7 +593,6 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               only, this would require some type of whitelisting.
     /// * `certificate_and_key` - certificate and key used to announce to clients
     #[cfg(feature = "dns-over-https-rustls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https-rustls")))]
     pub fn register_https_listener(
         &mut self,
         listener: net::TcpListener,
@@ -724,7 +713,6 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               only, this would require some type of whitelisting.
     /// * `pkcs12` - certificate used to announce to clients
     #[cfg(feature = "dns-over-quic")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-quic")))]
     pub fn register_quic_listener(
         &mut self,
         socket: net::UdpSocket,
@@ -823,7 +811,6 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               only, this would require some type of whitelisting.
     /// * `pkcs12` - certificate used to announce to clients
     #[cfg(feature = "dns-over-h3")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-h3")))]
     pub fn register_h3_listener(
         &mut self,
         socket: net::UdpSocket,

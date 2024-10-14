@@ -21,5 +21,4 @@ use self::name_server_state::NameServerState;
 use self::name_server_stats::NameServerStats;
 
 #[cfg(feature = "tokio-runtime")]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 pub use self::connection_provider::TokioConnectionProvider;

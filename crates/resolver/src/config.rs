@@ -71,7 +71,6 @@ impl ResolverConfig {
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     #[cfg(feature = "dns-over-tls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-tls")))]
     pub fn google_tls() -> Self {
         Self {
             // TODO: this should get the hostname and use the basename as the default
@@ -87,7 +86,6 @@ impl ResolverConfig {
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     #[cfg(feature = "dns-over-https-rustls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https-rustls")))]
     pub fn google_https() -> Self {
         Self {
             // TODO: this should get the hostname and use the basename as the default
@@ -103,7 +101,6 @@ impl ResolverConfig {
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     #[cfg(feature = "dns-over-h3")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-h3")))]
     pub fn google_h3() -> Self {
         Self {
             // TODO: this should get the hostname and use the basename as the default
@@ -133,7 +130,6 @@ impl ResolverConfig {
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     #[cfg(feature = "dns-over-tls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-tls")))]
     pub fn cloudflare_tls() -> Self {
         Self {
             // TODO: this should get the hostname and use the basename as the default
@@ -149,7 +145,6 @@ impl ResolverConfig {
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     #[cfg(feature = "dns-over-https-rustls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https-rustls")))]
     pub fn cloudflare_https() -> Self {
         Self {
             // TODO: this should get the hostname and use the basename as the default
@@ -179,7 +174,6 @@ impl ResolverConfig {
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     #[cfg(feature = "dns-over-tls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-tls")))]
     pub fn quad9_tls() -> Self {
         Self {
             // TODO: this should get the hostname and use the basename as the default
@@ -195,7 +189,6 @@ impl ResolverConfig {
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     #[cfg(feature = "dns-over-https-rustls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https-rustls")))]
     pub fn quad9_https() -> Self {
         Self {
             // TODO: this should get the hostname and use the basename as the default
@@ -262,7 +255,6 @@ impl ResolverConfig {
 
     /// return the associated TlsClientConfig
     #[cfg(feature = "dns-over-rustls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
     pub fn client_config(&self) -> &Option<TlsClientConfig> {
         &self.name_servers.1
     }
@@ -290,7 +282,6 @@ impl ResolverConfig {
     /// resolver_config.set_tls_client_config(Arc::new(client_config));
     /// ```
     #[cfg(feature = "dns-over-rustls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
     pub fn set_tls_client_config(&mut self, client_config: Arc<ClientConfig>) {
         self.name_servers = self.name_servers.clone().with_client_config(client_config);
     }
@@ -308,7 +299,6 @@ impl Default for ResolverConfig {
 /// a compatibility wrapper around rustls
 /// ClientConfig
 #[cfg(feature = "dns-over-rustls")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
 #[derive(Clone)]
 pub struct TlsClientConfig(pub Arc<ClientConfig>);
 
@@ -363,7 +353,6 @@ pub struct NameServerConfig {
     #[cfg_attr(feature = "serde", serde(default))]
     pub trust_negative_responses: bool,
     #[cfg(feature = "dns-over-rustls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
     #[cfg_attr(feature = "serde", serde(skip))]
     /// Optional configuration for the TLS client.
     ///
@@ -525,7 +514,6 @@ impl NameServerConfigGroup {
     ///
     /// This will create a TLS connections.
     #[cfg(feature = "dns-over-tls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-tls")))]
     pub fn from_ips_tls(
         ips: &[IpAddr],
         port: u16,
@@ -545,7 +533,6 @@ impl NameServerConfigGroup {
     ///
     /// This will create a HTTPS connections.
     #[cfg(feature = "dns-over-https-rustls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https-rustls")))]
     pub fn from_ips_https(
         ips: &[IpAddr],
         port: u16,
@@ -565,7 +552,6 @@ impl NameServerConfigGroup {
     ///
     /// This will create a QUIC connections.
     #[cfg(feature = "dns-over-quic")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-quic")))]
     pub fn from_ips_quic(
         ips: &[IpAddr],
         port: u16,
@@ -585,7 +571,6 @@ impl NameServerConfigGroup {
     ///
     /// This will create a HTTP/3 connection.
     #[cfg(feature = "dns-over-h3")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-h3")))]
     pub fn from_ips_h3(
         ips: &[IpAddr],
         port: u16,
@@ -612,7 +597,6 @@ impl NameServerConfigGroup {
     ///
     /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `AsyncResolver::from_system_conf`
     #[cfg(feature = "dns-over-tls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-tls")))]
     pub fn google_tls() -> Self {
         Self::from_ips_tls(GOOGLE_IPS, 853, "dns.google".to_string(), true)
     }
@@ -621,7 +605,6 @@ impl NameServerConfigGroup {
     ///
     /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `AsyncResolver::from_system_conf`
     #[cfg(feature = "dns-over-https-rustls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https-rustls")))]
     pub fn google_https() -> Self {
         Self::from_ips_https(GOOGLE_IPS, 443, "dns.google".to_string(), true)
     }
@@ -630,7 +613,6 @@ impl NameServerConfigGroup {
     ///
     /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `AsyncResolver::from_system_conf`
     #[cfg(feature = "dns-over-h3")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-h3")))]
     pub fn google_h3() -> Self {
         Self::from_ips_h3(GOOGLE_IPS, 443, "dns.google".to_string(), true)
     }
@@ -646,7 +628,6 @@ impl NameServerConfigGroup {
     ///
     /// Please see: <https://www.cloudflare.com/dns/>
     #[cfg(feature = "dns-over-tls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-tls")))]
     pub fn cloudflare_tls() -> Self {
         Self::from_ips_tls(CLOUDFLARE_IPS, 853, "cloudflare-dns.com".to_string(), true)
     }
@@ -655,7 +636,6 @@ impl NameServerConfigGroup {
     ///
     /// Please see: <https://www.cloudflare.com/dns/>
     #[cfg(feature = "dns-over-https-rustls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https-rustls")))]
     pub fn cloudflare_https() -> Self {
         Self::from_ips_https(CLOUDFLARE_IPS, 443, "cloudflare-dns.com".to_string(), true)
     }
@@ -671,7 +651,6 @@ impl NameServerConfigGroup {
     ///
     /// Please see: <https://www.quad9.net/faq/>
     #[cfg(feature = "dns-over-tls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-tls")))]
     pub fn quad9_tls() -> Self {
         Self::from_ips_tls(QUAD9_IPS, 853, "dns.quad9.net".to_string(), true)
     }
@@ -680,7 +659,6 @@ impl NameServerConfigGroup {
     ///
     /// Please see: <https://www.quad9.net/faq/>
     #[cfg(feature = "dns-over-https-rustls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https-rustls")))]
     pub fn quad9_https() -> Self {
         Self::from_ips_https(QUAD9_IPS, 443, "dns.quad9.net".to_string(), true)
     }
@@ -727,7 +705,6 @@ impl NameServerConfigGroup {
 
     /// add a [`rustls::ClientConfig`]
     #[cfg(feature = "dns-over-rustls")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
     pub fn with_client_config(self, client_config: Arc<ClientConfig>) -> Self {
         Self(self.0, Some(TlsClientConfig(client_config)))
     }

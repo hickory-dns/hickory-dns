@@ -255,7 +255,6 @@ impl<R: RecordData> Record<R> {
     /// Changes mDNS cache-flush bit
     /// See [RFC 6762](https://tools.ietf.org/html/rfc6762#section-10.2)
     #[cfg(feature = "mdns")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
     pub fn set_mdns_cache_flush(&mut self, flag: bool) -> &mut Self {
         self.mdns_cache_flush = flag;
         self
@@ -263,7 +262,6 @@ impl<R: RecordData> Record<R> {
 
     /// Set the DNSSEC Proof for this record, after it's been verified
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn set_proof(&mut self, proof: Proof) -> &mut Self {
         self.proof = proof;
         self
@@ -321,7 +319,6 @@ impl<R: RecordData> Record<R> {
     /// Returns if the mDNS cache-flush bit is set or not
     /// See [RFC 6762](https://tools.ietf.org/html/rfc6762#section-10.2)
     #[cfg(feature = "mdns")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
     #[inline]
     pub fn mdns_cache_flush(&self) -> bool {
         self.mdns_cache_flush
@@ -329,7 +326,6 @@ impl<R: RecordData> Record<R> {
 
     /// The Proof of DNSSEC validation for this record, this is only valid if some form of validation has occurred
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     #[inline]
     pub fn proof(&self) -> Proof {
         self.proof
@@ -349,11 +345,9 @@ pub struct RecordParts<R: RecordData = RData> {
     pub rdata: R,
     /// mDNS cache flush
     #[cfg(feature = "mdns")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
     pub mdns_cache_flush: bool,
     /// mDNS cache flush
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub proof: Proof,
 }
 
@@ -778,7 +772,6 @@ impl<'a, R: RecordData> RecordRef<'a, R> {
     /// Returns if the mDNS cache-flush bit is set or not
     /// See [RFC 6762](https://tools.ietf.org/html/rfc6762#section-10.2)
     #[cfg(feature = "mdns")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
     #[inline]
     pub fn mdns_cache_flush(&self) -> bool {
         self.mdns_cache_flush
@@ -786,7 +779,6 @@ impl<'a, R: RecordData> RecordRef<'a, R> {
 
     /// The Proof of DNSSEC validation for this record, this is only valid if some form of validation has occurred
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     #[inline]
     pub fn proof(&self) -> Proof {
         self.proof

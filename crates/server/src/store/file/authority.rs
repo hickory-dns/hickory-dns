@@ -248,7 +248,6 @@ impl Authority for FileAuthority {
 }
 
 #[cfg(feature = "dnssec")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 #[async_trait::async_trait]
 impl DnssecAuthority for FileAuthority {
     /// Add a (Sig0) key that is authorized to perform updates against this authority

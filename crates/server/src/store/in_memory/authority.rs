@@ -155,7 +155,6 @@ impl InMemoryAuthority {
 
     /// Allow AXFR's (zone transfers)
     #[cfg(any(test, feature = "testing"))]
-    #[cfg_attr(docsrs, doc(cfg(feature = "testing")))]
     pub fn set_allow_axfr(&mut self, allow_axfr: bool) {
         self.allow_axfr = allow_axfr;
     }
@@ -253,7 +252,6 @@ impl InMemoryAuthority {
 
     /// Non-async method of add_update_auth_key when behind a mutable reference
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn add_update_auth_key_mut(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
         let Self {
             origin,
@@ -295,7 +293,6 @@ impl InMemoryAuthority {
 
     /// Non-async method of add_zone_signing_key when behind a mutable reference
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn add_zone_signing_key_mut(&mut self, signer: SigSigner) -> DnsSecResult<()> {
         let Self {
             origin,
@@ -309,7 +306,6 @@ impl InMemoryAuthority {
 
     /// (Re)generates the nsec records, increments the serial number and signs the zone
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn secure_zone_mut(&mut self) -> DnsSecResult<()> {
         let Self { origin, inner, .. } = self;
         inner
@@ -319,7 +315,6 @@ impl InMemoryAuthority {
 
     /// (Re)generates the nsec records, increments the serial number and signs the zone
     #[cfg(not(feature = "dnssec"))]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn secure_zone_mut(&mut self) -> Result<(), &str> {
         Err("DNSSEC was not enabled during compilation.")
     }
@@ -666,7 +661,6 @@ impl InnerInMemory {
 
     /// (Re)generates the nsec records, increments the serial number and signs the zone
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     fn secure_zone_mut(
         &mut self,
         origin: &LowerName,
@@ -1632,7 +1626,6 @@ impl Authority for InMemoryAuthority {
 }
 
 #[cfg(feature = "dnssec")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 #[async_trait::async_trait]
 impl DnssecAuthority for InMemoryAuthority {
     /// Add a (Sig0) key that is authorized to perform updates against this authority

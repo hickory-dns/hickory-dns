@@ -21,7 +21,6 @@ use crate::udp::DnsUdpSocket;
 
 /// Spawn a background task, if it was present
 #[cfg(any(test, feature = "tokio-runtime"))]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 pub fn spawn_bg<F: Future<Output = R> + Send + 'static, R: Send + 'static>(
     runtime: &Runtime,
     background: F,
@@ -111,7 +110,6 @@ pub mod iocompat {
 }
 
 #[cfg(feature = "tokio-runtime")]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 #[allow(unreachable_pub)]
 mod tokio_runtime {
     use super::iocompat::AsyncIoTokioAsStd;
@@ -312,7 +310,6 @@ pub trait Executor {
 }
 
 #[cfg(feature = "tokio-runtime")]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 impl Executor for Runtime {
     fn new() -> Self {
         Self::new().expect("failed to create tokio runtime")
@@ -340,12 +337,10 @@ pub trait Time {
 
 /// New type which is implemented using tokio::time::{Delay, Timeout}
 #[cfg(any(test, feature = "tokio-runtime"))]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 #[derive(Clone, Copy, Debug)]
 pub struct TokioTime;
 
 #[cfg(any(test, feature = "tokio-runtime"))]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 #[async_trait]
 impl Time for TokioTime {
     async fn delay_for(duration: Duration) {

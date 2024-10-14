@@ -48,7 +48,6 @@ pub struct LookupOptions {
 impl LookupOptions {
     /// Return a new LookupOptions
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn for_dnssec(dnssec_ok: bool, supported_algorithms: SupportedAlgorithms) -> Self {
         Self {
             dnssec_ok,
@@ -72,7 +71,6 @@ impl LookupOptions {
 
     /// Specify the algorithms for which DNSSEC records should be returned
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn set_supported_algorithms(self, val: SupportedAlgorithms) -> Self {
         Self {
             supported_algorithms: val,
@@ -82,7 +80,6 @@ impl LookupOptions {
 
     /// The algorithms for which DNSSEC records should be returned
     #[cfg(feature = "dnssec")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn supported_algorithms(&self) -> SupportedAlgorithms {
         self.supported_algorithms
     }
@@ -251,7 +248,6 @@ pub trait Authority: Send + Sync {
 
 /// Extension to Authority to allow for DNSSEC features
 #[cfg(feature = "dnssec")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 #[async_trait::async_trait]
 pub trait DnssecAuthority: Authority {
     /// Add a (Sig0) key that is authorized to perform updates against this authority

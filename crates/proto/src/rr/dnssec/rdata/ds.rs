@@ -178,10 +178,6 @@ impl DS {
     ///
     /// true if and only if the DNSKEY is covered by the DS record.
     #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring")))
-    )]
     pub fn covers(&self, name: &Name, key: &DNSKEY) -> ProtoResult<bool> {
         key.to_digest(name, self.digest_type())
             .map(|hash| key.zone_key() && hash.as_ref() == self.digest())
@@ -189,10 +185,6 @@ impl DS {
 
     /// This will always return an error unless the Ring or OpenSSL features are enabled
     #[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring"))))
-    )]
     pub fn covers(&self, _: &Name, _: &DNSKEY) -> ProtoResult<bool> {
         Err("Ring or OpenSSL must be enabled for this feature".into())
     }
