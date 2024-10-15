@@ -26,12 +26,12 @@ pub(crate) struct NameServerStats {
     /// recorded latencies. The algorithm for computing this value is based on
     /// the following:
     ///
-    /// https://en.wikipedia.org/wiki/Moving_average#Application_to_measuring_computer_performance
+    /// <https://en.wikipedia.org/wiki/Moving_average#Application_to_measuring_computer_performance>
     ///
     /// It is also partially inspired by the BIND and PowerDNS implementations:
     ///
-    /// - https://github.com/isc-projects/bind9/blob/7bf8a7ab1b280c1021bf1e762a239b07aac3c591/lib/dns/adb.c#L3487
-    /// - https://github.com/PowerDNS/pdns/blob/7c5f9ae6ae4fb17302d933eaeebc8d6f0249aab2/pdns/syncres.cc#L123
+    /// - <https://github.com/isc-projects/bind9/blob/7bf8a7ab1b280c1021bf1e762a239b07aac3c591/lib/dns/adb.c#L3487>
+    /// - <https://github.com/PowerDNS/pdns/blob/7c5f9ae6ae4fb17302d933eaeebc8d6f0249aab2/pdns/syncres.cc#L123>
     ///
     /// The algorithm for computing and using this value can be summarized as
     /// follows:
@@ -46,7 +46,7 @@ pub(crate) struct NameServerStats {
     ///    value. Note that this decay is only applied at read time.
     ///
     /// For the original discussion regarding this algorithm, see
-    /// https://github.com/hickory-dns/hickory-dns/issues/1702.
+    /// <https://github.com/hickory-dns/hickory-dns/issues/1702>.
     srtt_microseconds: AtomicU32,
 
     /// The last time the `srtt_microseconds` value was updated.

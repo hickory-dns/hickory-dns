@@ -19,8 +19,7 @@ use crate::{
     },
 };
 
-/// [RFC 4398, Storing Certificates in DNS, November 1987][rfc4398]
-/// https://tools.ietf.org/html/rfc4398#section-2.1
+/// [RFC 4398, Storing Certificates in DNS, November 1987](https://tools.ietf.org/html/rfc4398#section-2.1)
 ///
 /// ```text
 /// [2.1](https://datatracker.ietf.org/doc/html/rfc4398#section-2.1).  Certificate Type Values
@@ -45,7 +44,6 @@ use crate::{
 ///      256-65279            Available for IANA assignment
 ///    65280-65534            Experimental
 ///          65535            Reserved
-///
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -148,8 +146,7 @@ impl fmt::Display for CertType {
     }
 }
 
-/// [RFC 4398, Storing Certificates in DNS, November 1987][rfc4398]
-/// https://tools.ietf.org/html/rfc4398#section-2.2
+/// [RFC 4398, Storing Certificates in DNS, November 1987](https://tools.ietf.org/html/rfc4398#section-2.2)
 ///
 /// ```text
 ///
@@ -223,7 +220,6 @@ impl fmt::Display for CertType {
 ///      23    GOST R 34.10-2012 [ECC-GOST12]                     Y       [RFC9558][informational]
 ///  24-122    Unassigned
 /// 123-251    reserved
-///
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -231,61 +227,61 @@ pub enum Algorithm {
     /// 0, 9, 11, 123-251, 255   reserved
     Reserved(u8),
 
-    /// 1   RSA/MD5 [RSAMD5] [RFC2537]
+    /// 1   RSA/MD5 ([RFC 2537](https://tools.ietf.org/html/rfc2537))
     RSAMD5,
 
-    /// 2   Diffie-Hellman [DH] [RFC2539]
+    /// 2   Diffie-Hellman ([RFC 2539](https://tools.ietf.org/html/rfc2539))
     DH,
 
-    /// 3   DSA/SHA-1 [DSA] [RFC2536]
+    /// 3   DSA/SHA-1 ([RFC 2536](https://tools.ietf.org/html/rfc2536))
     DSA,
 
-    /// 4   Elliptic Curve [ECC] TBA
+    /// 4   Elliptic Curve
     ECC,
 
-    /// 5   RSA/SHA-1 [RSASHA1] [RFC3110]
+    /// 5   RSA/SHA-1 ([RFC 3110](https://tools.ietf.org/html/rfc3110))
     RSASHA1,
 
-    /// 252   Indirect [INDIRECT]
+    /// 252   Indirect
     INDIRECT,
 
-    /// 253   Private [PRIVATEDNS]
+    /// 253   Private
     PRIVATEDNS,
 
-    /// 254   Private [PRIVATEOID]
+    /// 254   Private
     PRIVATEOID,
 
-    /// 6    DSA-NSEC3-SHA1 [DSA-NSEC3-SHA1]                    Y       [RFC5155][proposed standard]
+    /// 6    DSA-NSEC3-SHA1 ([RFC 5155](https://tools.ietf.org/html/rfc5155))
     DSANSEC3SHA1,
 
-    /// 7    RSASHA1-NSEC3-SHA1 [RSASHA1-NSEC3-SHA1]            Y       [RFC5155][proposed standard]
+    /// 7    RSASHA1-NSEC3-SHA1 (RFC5155)
     RSASHA1NSEC3SHA1,
 
-    /// 8    RSA/SHA-256 [RSASHA256]                            Y       [RFC5702][proposed standard]
+    /// 8    RSA/SHA-256 ([RFC 5702](https://tools.ietf.org/html/rfc5702))
     RSASHA256,
 
-    /// 10    RSA/SHA-512 [RSASHA512]                            Y       [RFC5702][proposed standard]
+    /// 10    RSA/SHA-512 ([RFC 5702](https://tools.ietf.org/html/rfc5702))
     RSASHA512,
 
-    /// 12    GOST R 34.10-2001 [ECC-GOST]                       Y       [RFC5933][proposed standard]
+    /// 12    GOST R 34.10-2001 ([RFC 5933](https://tools.ietf.org/html/rfc5933))
     ECCGOST,
 
-    /// 13    ECDSA Curve P-256 with SHA-256 [ECDSAP256SHA256]   Y       [RFC6605][proposed standard]
+    /// 13    ECDSA Curve P-256 with SHA-256 ([RFC 6605](https://tools.ietf.org/html/rfc6605))
     ECDSAP256SHA256,
 
-    /// 14    ECDSA Curve P-384 with SHA-384 [ECDSAP384SHA384]   Y       [RFC6605][proposed standard]
+    /// 14    ECDSA Curve P-384 with SHA-384 ([RFC 6605](https://tools.ietf.org/html/rfc6605))
     ECDSAP384SHA384,
 
-    /// 15    Ed25519 [ED25519]                                  Y       [RFC8080][proposed standard]
+    /// 15    Ed25519 ([RFC 8080](https://tools.ietf.org/html/rfc8080))
     ED25519,
 
-    /// 16    Ed448 [ED448]                                      Y       [RFC8080][proposed standard]
+    /// 16    Ed448 ([RFC 8080](https://tools.ietf.org/html/rfc8080))
     ED448,
 
-    /// 17    SM2 signing with SM3 hashing [SM2SM3]              Y       [RFC-cuiling-dnsop-sm2-alg-15][informational]
+    /// 17    SM2 signing with SM3 hashing (RFC-cuiling-dnsop-sm2-alg-15)
     SM2SM3,
 
-    /// 23    GOST R 34.10-2012 [ECC-GOST12]                     Y       [RFC9558][informational]
+    /// 23    GOST R 34.10-2012 ([RFC 9558](https://tools.ietf.org/html/rfc9558))
     ECCGOST12,
 
     ///   18-22, 24-122    Unassigned
@@ -373,8 +369,7 @@ impl fmt::Display for Algorithm {
     }
 }
 
-/// [RFC 4398, Storing Certificates in DNS, November 1987][rfc4398]
-/// https://tools.ietf.org/html/rfc4398
+/// [RFC 4398, Storing Certificates in DNS, November 1987](https://tools.ietf.org/html/rfc4398)
 ///
 /// ```text
 ///
@@ -521,8 +516,7 @@ impl RecordData for CERT {
     }
 }
 
-/// [RFC 4398, Storing Certificates in DNS, November 1987][rfc4398]
-/// https://tools.ietf.org/html/rfc4398#section-2.2
+/// [RFC 4398, Storing Certificates in DNS, November 1987](https://tools.ietf.org/html/rfc4398#section-2.2)
 ///
 /// ```text
 ///

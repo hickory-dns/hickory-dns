@@ -48,6 +48,9 @@ jobs:
       - name: just all-features
         run: just all-features
 
+      - name: just test-docs
+        run: just test-docs
+
   ## Measure test coverage, only on linux.
   code-coverage:
     name: coverage
