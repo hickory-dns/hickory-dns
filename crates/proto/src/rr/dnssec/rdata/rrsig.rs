@@ -89,7 +89,7 @@ impl RRSIG {
     ///      current time.
     /// ```
     ///
-    /// See RFC 4035, section 5.3.3: https://datatracker.ietf.org/doc/html/rfc4035#section-5.3.3
+    /// See [RFC 4035, section 5.3.3](https://datatracker.ietf.org/doc/html/rfc4035#section-5.3.3).
     ///
     pub fn authenticated_ttl(&self, record: &Record, current_time: u32) -> u32 {
         record

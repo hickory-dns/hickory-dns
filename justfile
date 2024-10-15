@@ -66,6 +66,9 @@ test feature='' ignore='':
 doc feature='':
     cargo ws exec --ignore=hickory-dns cargo {{MSRV}} test --locked --doc {{feature}}
 
+test-docs:
+    RUSTDOCFLAGS="-Dwarnings" cargo ws exec cargo doc --locked --all-features --no-deps --document-private-items
+
 # This tests compatibility with BIND9, TODO: support other feature sets besides openssl for tests
 compatibility: init-bind9
     cargo test --manifest-path tests/compatibility-tests/Cargo.toml --locked --all-targets --no-default-features --features=none;
