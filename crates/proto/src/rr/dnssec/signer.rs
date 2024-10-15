@@ -247,7 +247,7 @@ pub struct SigSigner {
 #[allow(missing_copy_implementations)]
 pub struct SigSigner;
 
-/// See [`SigSigner`](crate::rr::dnssec::SigSigner)
+/// See [`SigSigner`]
 #[deprecated(note = "renamed to SigSigner")]
 pub type Signer = SigSigner;
 

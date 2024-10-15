@@ -24,7 +24,7 @@ use crate::time::AsyncStdTime;
 
 /// The async_std runtime.
 ///
-/// The runtime provides an I/O [driver], task scheduler, [timer], and blocking
+/// The runtime provides a task scheduler, [timer], and blocking
 /// pool, necessary for running asynchronous tasks.
 ///
 /// Instances of `AsyncStdRuntime` can be created using [`new`]. However, most
@@ -45,7 +45,6 @@ use crate::time::AsyncStdTime;
 /// that reactor will no longer function. Calling any method on them will
 /// result in an error.
 ///
-/// [driver]: crate::io::driver
 /// [timer]: crate::time
 /// [mod]: index.html
 /// [`new`]: #method.new
