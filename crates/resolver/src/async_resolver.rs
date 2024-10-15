@@ -10,11 +10,9 @@ use std::fmt;
 use std::net::IpAddr;
 use std::sync::Arc;
 
-use proto::error::ProtoResult;
 use proto::op::Query;
 use proto::rr::domain::usage::ONION;
-use proto::rr::domain::TryParseIp;
-use proto::rr::{IntoName, Name, Record, RecordType};
+use proto::rr::{IntoName, Name, RData, Record, RecordType};
 use proto::xfer::{DnsRequestOptions, RetryDnsHandle};
 use tracing::{debug, trace};
 
@@ -337,13 +335,10 @@ impl<P: ConnectionProvider> AsyncResolver<P> {
     ///
     /// # Arguments
     /// * `host` - string hostname, if this is an invalid hostname, an error will be returned.
-    pub async fn lookup_ip<N: IntoName + TryParseIp>(
-        &self,
-        host: N,
-    ) -> Result<LookupIp, ResolveError> {
-        let mut finally_ip_addr: Option<Record> = None;
-        let maybe_ip = host.try_parse_ip();
-        let maybe_name: ProtoResult<Name> = host.into_name();
+    pub async fn lookup_ip(&self, host: impl IntoName) -> Result<LookupIp, ResolveError> {
+        let mut finally_ip_addr = None;
+        let maybe_ip = host.to_ip().map(RData::from);
+        let maybe_name = host.into_name();
 
         // if host is a ip address, return directly.
         if let Some(ip_addr) = maybe_ip {

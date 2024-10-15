@@ -10,7 +10,11 @@
 
 #[cfg(test)]
 use std::convert::From;
-use std::{cmp::Ordering, fmt, net::IpAddr};
+use std::{
+    cmp::Ordering,
+    fmt,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
+};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -1100,6 +1104,27 @@ impl Ord for RData {
         //  the decoded data is useful for queries, the encoded data is needed for transfers, signing
         //  and ordering.
         self.to_bytes().cmp(&other.to_bytes())
+    }
+}
+
+impl From<IpAddr> for RData {
+    fn from(ip: IpAddr) -> Self {
+        match ip {
+            IpAddr::V4(ip) => RData::A(A(ip)),
+            IpAddr::V6(ip) => RData::AAAA(AAAA(ip)),
+        }
+    }
+}
+
+impl From<Ipv4Addr> for RData {
+    fn from(ip: Ipv4Addr) -> Self {
+        RData::A(A(ip))
+    }
+}
+
+impl From<Ipv6Addr> for RData {
+    fn from(ip: Ipv6Addr) -> Self {
+        RData::AAAA(AAAA(ip))
     }
 }
 
