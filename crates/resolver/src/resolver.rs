@@ -10,7 +10,6 @@ use std::io;
 use std::net::IpAddr;
 use std::sync::Mutex;
 
-use proto::rr::domain::TryParseIp;
 use proto::rr::IntoName;
 use proto::rr::RecordType;
 use tokio::runtime::{self, Runtime};
@@ -146,7 +145,7 @@ impl Resolver {
     /// # Arguments
     ///
     /// * `host` - string hostname, if this is an invalid hostname, an error will be returned.
-    pub fn lookup_ip<N: IntoName + TryParseIp>(&self, host: N) -> ResolveResult<LookupIp> {
+    pub fn lookup_ip(&self, host: impl IntoName) -> ResolveResult<LookupIp> {
         let lookup = self.async_resolver.lookup_ip(host);
         self.runtime.lock()?.block_on(lookup)
     }

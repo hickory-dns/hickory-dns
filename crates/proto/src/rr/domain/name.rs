@@ -1343,12 +1343,19 @@ impl FromStr for Name {
 pub trait IntoName: Sized {
     /// Convert this into Name
     fn into_name(self) -> ProtoResult<Name>;
+
+    /// Check if this value is a valid IP address
+    fn to_ip(&self) -> Option<IpAddr>;
 }
 
 impl<'a> IntoName for &'a str {
     /// Performs a utf8, IDNA or punycode, translation of the `str` into `Name`
     fn into_name(self) -> ProtoResult<Name> {
         Name::from_utf8(self)
+    }
+
+    fn to_ip(&self) -> Option<IpAddr> {
+        IpAddr::from_str(self).ok()
     }
 }
 
@@ -1357,12 +1364,20 @@ impl IntoName for String {
     fn into_name(self) -> ProtoResult<Name> {
         Name::from_utf8(self)
     }
+
+    fn to_ip(&self) -> Option<IpAddr> {
+        IpAddr::from_str(self).ok()
+    }
 }
 
 impl IntoName for &String {
     /// Performs a utf8, IDNA or punycode, translation of the `&String` into `Name`
     fn into_name(self) -> ProtoResult<Name> {
         Name::from_utf8(self)
+    }
+
+    fn to_ip(&self) -> Option<IpAddr> {
+        IpAddr::from_str(self).ok()
     }
 }
 
@@ -1372,6 +1387,10 @@ where
 {
     fn into_name(self) -> ProtoResult<Name> {
         Ok(self.into())
+    }
+
+    fn to_ip(&self) -> Option<IpAddr> {
+        None
     }
 }
 
