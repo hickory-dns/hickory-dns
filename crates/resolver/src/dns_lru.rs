@@ -25,8 +25,11 @@ use proto::rr::{Record, RecordType};
 use crate::config;
 use crate::lookup::Lookup;
 
-/// Maximum TTL as defined in https://tools.ietf.org/html/rfc2181, 2147483647
-///   Setting this to a value of 1 day, in seconds
+/// Maximum TTL. This is set to one day (in seconds).
+///
+/// [RFC 2181, section 8](https://tools.ietf.org/html/rfc2181#section-8) says
+/// that the maximum TTL value is 2147483647, but implementations may place an
+/// upper bound on received TTLs.
 pub(crate) const MAX_TTL: u32 = 86400_u32;
 
 #[derive(Debug)]
