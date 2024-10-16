@@ -34,7 +34,7 @@ pub(crate) const MAX_TTL: u32 = 86400_u32;
 
 #[derive(Debug)]
 struct LruValue {
-    // In the None case, this represents an NXDomain
+    // In the Err case, this represents an NXDomain
     lookup: Result<Lookup, ProtoError>,
     valid_until: Instant,
 }
@@ -77,14 +77,14 @@ impl LruValue {
     }
 }
 
-/// And LRU eviction cache specifically for storing DNS records
+/// An LRU eviction cache specifically for storing DNS records
 #[derive(Clone, Debug)]
 pub struct DnsLru {
     cache: Arc<Mutex<LruCache<Query, LruValue>>>,
     /// A minimum TTL value for positive responses.
     ///
-    /// Positive responses with TTLs under `positive_max_ttl` will use
-    /// `positive_max_ttl` instead.
+    /// Positive responses with TTLs under `positive_min_ttl` will use
+    /// `positive_min_ttl` instead.
     ///
     /// If this value is not set on the `TtlConfig` used to construct this
     /// `DnsLru`, it will default to 0.
@@ -392,7 +392,7 @@ impl DnsLru {
             }
         });
 
-        // in this case, we can preemptively remove out of data elements
+        // in this case, we can preemptively remove out of date elements
         // this assumes time is always moving forward, this would only not be true in contrived situations where now
         //  is not current time, like tests...
         if out_of_date {
