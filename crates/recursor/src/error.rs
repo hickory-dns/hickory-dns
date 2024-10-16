@@ -166,16 +166,10 @@ impl From<Error> for String {
 
 impl From<ResolveError> for Error {
     fn from(e: ResolveError) -> Self {
-        if let Some(ProtoErrorKind::NoRecordsFound { soa, ns, .. }) =
+        if let Some(ProtoErrorKind::NoRecordsFound { ns: Some(ns), .. }) =
             e.proto().map(ProtoError::kind)
         {
-            if let Some(ns) = ns {
-                ErrorKind::ForwardNS(ns.clone()).into()
-            } else if let Some(soa) = soa {
-                ErrorKind::Forward(soa.name().clone()).into()
-            } else {
-                ErrorKind::Resolve(e).into()
-            }
+            ErrorKind::ForwardNS(ns.clone()).into()
         } else {
             ErrorKind::Resolve(e).into()
         }
