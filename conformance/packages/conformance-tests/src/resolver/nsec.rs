@@ -17,7 +17,6 @@ fn zone_exist_domain_does_not_nsec3() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn zone_exist_domain_does_not_nsec() -> Result<()> {
     zone_exist_domain_does_not(Nsec::_1)
 }
@@ -29,19 +28,16 @@ fn zone_does_not_exist_nsec3() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn zone_does_not_exist_nsec() -> Result<()> {
     zone_does_not_exist(Nsec::_1)
 }
 
 #[test]
-#[ignore]
 fn domain_exists_record_type_does_not_nsec3() -> Result<()> {
     domain_exists_record_type_does_not(Nsec::_3 { salt: None })
 }
 
 #[test]
-#[ignore]
 fn domain_exists_record_type_does_not_nsec() -> Result<()> {
     domain_exists_record_type_does_not(Nsec::_1)
 }

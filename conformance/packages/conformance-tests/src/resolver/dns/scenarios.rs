@@ -42,7 +42,6 @@ fn can_resolve() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
 #[test]
 fn nxdomain() -> Result<()> {
     let needle_fqdn = FQDN::TEST_DOMAIN.push_label("unicorn");

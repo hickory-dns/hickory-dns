@@ -14,13 +14,18 @@ use std::{fmt, io, sync::Arc};
 use crate::proto::error::ForwardNSData;
 use enum_as_inner::EnumAsInner;
 use hickory_proto::error::ProtoErrorKind;
-use hickory_resolver::Name;
 use thiserror::Error;
 
-use crate::proto::rr::{rdata::SOA, Record};
+use crate::proto::{
+    op::ResponseCode,
+    rr::{rdata::SOA, Record},
+};
 #[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
-use crate::{proto::error::ProtoError, resolver::error::ResolveError};
+use crate::{
+    proto::error::{ForwardData, ProtoError},
+    resolver::error::ResolveError,
+};
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, EnumAsInner, Error)]
@@ -35,8 +40,8 @@ pub enum ErrorKind {
     Msg(String),
 
     /// Upstream DNS authority returned a Referral to another nameserver in the form of an SOA record
-    #[error("forward response: {0}")]
-    Forward(Name),
+    #[error("forward response")]
+    Forward(ForwardData),
 
     /// Upstream DNS authority returned a referral to another set of nameservers in the form of
     /// additional NS records.
@@ -77,11 +82,17 @@ impl Error {
         &self.kind
     }
 
+    /// Take kind from the Error
+    pub fn into_kind(self) -> ErrorKind {
+        *self.kind
+    }
+
     /// Returns true if the domain does not exist
     pub fn is_nx_domain(&self) -> bool {
         match &*self.kind {
             ErrorKind::Proto(proto) => proto.is_nx_domain(),
             ErrorKind::Resolve(err) => err.is_nx_domain(),
+            ErrorKind::Forward(fwd) => fwd.is_nx_domain(),
             _ => false,
         }
     }
@@ -91,6 +102,7 @@ impl Error {
         match &*self.kind {
             ErrorKind::Proto(proto) => proto.is_no_records_found(),
             ErrorKind::Resolve(err) => err.is_no_records_found(),
+            ErrorKind::Forward(fwd) => fwd.is_no_records_found(),
             _ => false,
         }
     }
@@ -100,6 +112,15 @@ impl Error {
         match *self.kind {
             ErrorKind::Proto(proto) => proto.into_soa(),
             ErrorKind::Resolve(err) => err.into_soa(),
+            ErrorKind::Forward(fwd) => Some(fwd.soa),
+            _ => None,
+        }
+    }
+
+    /// Return additional records
+    pub fn authorities(self) -> Option<Arc<[Record]>> {
+        match *self.kind {
+            ErrorKind::Forward(fwd) => fwd.authorities,
             _ => None,
         }
     }
@@ -166,18 +187,39 @@ impl From<Error> for String {
 
 impl From<ResolveError> for Error {
     fn from(e: ResolveError) -> Self {
-        if let Some(ProtoErrorKind::NoRecordsFound { soa, ns, .. }) =
-            e.proto().map(ProtoError::kind)
-        {
-            if let Some(ns) = ns {
-                ErrorKind::ForwardNS(ns.clone()).into()
-            } else if let Some(soa) = soa {
-                ErrorKind::Forward(soa.name().clone()).into()
-            } else {
-                ErrorKind::Resolve(e).into()
-            }
+        let nx_domain = e.is_nx_domain();
+        let no_records_found = e.is_no_records_found();
+
+        let proto_err = match ProtoErrorKind::try_from(e) {
+            Ok(res) => res,
+            Err(e) => return ErrorKind::Resolve(e).into(),
+        };
+
+        let ProtoErrorKind::NoRecordsFound {
+            query,
+            soa,
+            ns,
+            authorities,
+            ..
+        } = proto_err
+        else {
+            return ErrorKind::Message("unexpected error kind: not no records found").into();
+        };
+
+        if let Some(ns) = ns {
+            ErrorKind::ForwardNS(ns).into()
+        } else if let Some(soa) = soa {
+            ErrorKind::Forward(ForwardData::new(
+                query,
+                soa.name().clone(),
+                soa,
+                no_records_found,
+                nx_domain,
+                authorities,
+            ))
+            .into()
         } else {
-            ErrorKind::Resolve(e).into()
+            ErrorKind::Message("proto error missing ns and soa").into()
         }
     }
 }
@@ -194,6 +236,28 @@ impl Clone for ErrorKind {
             Proto(proto) => Proto(proto.clone()),
             Resolve(resolve) => Resolve(resolve.clone()),
             Timeout => Self::Timeout,
+        }
+    }
+}
+
+impl From<Error> for ProtoError {
+    fn from(e: Error) -> Self {
+        let is_nx_domain = e.is_nx_domain();
+        match *e.kind {
+            ErrorKind::Forward(fwd) => ProtoError::nx_error(
+                fwd.query,
+                Some(fwd.soa),
+                None,
+                None,
+                if is_nx_domain {
+                    ResponseCode::NXDomain
+                } else {
+                    ResponseCode::NoError
+                },
+                true,
+                fwd.authorities,
+            ),
+            _ => ProtoError::from(e.to_string()),
         }
     }
 }

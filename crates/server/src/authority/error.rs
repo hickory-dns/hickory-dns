@@ -5,16 +5,19 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::io;
+use std::{io, sync::Arc};
 
 use enum_as_inner::EnumAsInner;
 use thiserror::Error;
 
-use crate::proto::error::ProtoError;
+use crate::proto::error::{ProtoError, ProtoErrorKind};
 use crate::proto::op::ResponseCode;
 use crate::proto::rr::{rdata::SOA, Record};
 #[cfg(feature = "hickory-resolver")]
 use crate::resolver::error::ResolveError;
+
+#[cfg(feature = "hickory-recursor")]
+use crate::recursor::error::ErrorKind;
 
 // TODO: should this implement Failure?
 #[allow(clippy::large_enum_variant)]
@@ -80,6 +83,26 @@ impl LookupError {
             Self::ResolveError(e) => e.into_soa(),
             #[cfg(feature = "hickory-recursor")]
             Self::RecursiveError(e) => e.into_soa(),
+            _ => None,
+        }
+    }
+
+    /// Return authority records
+    pub fn authorities(&self) -> Option<Arc<[Record]>> {
+        match self {
+            Self::ProtoError(e) => match e.kind() {
+                ProtoErrorKind::NoRecordsFound { authorities, .. } => authorities.clone(),
+                _ => None,
+            },
+            #[cfg(feature = "hickory-recursor")]
+            Self::RecursiveError(e) => match e.kind() {
+                ErrorKind::Forward(fwd) => fwd.authorities.clone(),
+                ErrorKind::Proto(proto) => match proto.kind() {
+                    ProtoErrorKind::NoRecordsFound { authorities, .. } => authorities.clone(),
+                    _ => None,
+                },
+                _ => None,
+            },
             _ => None,
         }
     }
