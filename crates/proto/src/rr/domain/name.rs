@@ -396,7 +396,6 @@ impl Name {
     /// use hickory_proto::rr::domain::Name;
     ///
     /// let name = Name::from_str("www.example.com").unwrap();
-    /// let name = Name::from_str("www.example.com").unwrap();
     /// let zone = Name::from_str("example.com").unwrap();
     /// let another = Name::from_str("example.net").unwrap();
     /// assert!(zone.zone_of(&name));
