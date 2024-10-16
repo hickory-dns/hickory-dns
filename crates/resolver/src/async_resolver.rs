@@ -414,9 +414,7 @@ impl<P: ConnectionProvider> AsyncResolver<P> {
 
 impl<P: ConnectionProvider> fmt::Debug for AsyncResolver<P> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("AsyncResolver")
-            .field("request_tx", &"...")
-            .finish()
+        f.debug_struct("AsyncResolver").finish()
     }
 }
 
