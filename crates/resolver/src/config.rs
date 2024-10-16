@@ -678,14 +678,7 @@ impl NameServerConfigGroup {
     /// assert!(group.iter().any(|c| c.socket_addr == SocketAddr::new(Ipv4Addr::new(9, 9, 9, 9).into(), 53)));
     /// ```
     pub fn merge(&mut self, mut other: Self) {
-        #[cfg(not(feature = "dns-over-rustls"))]
-        {
-            self.append(&mut other);
-        }
-        #[cfg(feature = "dns-over-rustls")]
-        {
-            self.0.append(&mut other);
-        }
+        self.append(&mut other);
     }
 
     /// Append nameservers to a NameServerConfigGroup.
