@@ -85,7 +85,9 @@ impl Lookup {
         &self.query
     }
 
-    /// Returns an iterator over the matching the queried record type.
+    /// Returns an iterator over the data of all records returned during the query.
+    ///
+    /// It may include additional record types beyond the queried type, e.g. CNAME.
     pub fn iter(&self) -> LookupIter<'_> {
         LookupIter(self.records.iter())
     }
@@ -204,8 +206,7 @@ impl IntoIterator for Lookup {
     type Item = RData;
     type IntoIter = LookupIntoIter;
 
-    /// This is most likely not a free conversion, the `RData`s will be cloned if data is
-    ///  held behind an Arc with more than one reference (which is most likely the case coming from cache)
+    /// This is not a free conversion, because the `RData`s are cloned.
     fn into_iter(self) -> Self::IntoIter {
         LookupIntoIter {
             records: Arc::clone(&self.records),
@@ -216,9 +217,8 @@ impl IntoIterator for Lookup {
 
 /// Borrowed view of set of [`RData`]s returned from a [`Lookup`].
 ///
-/// This is not usually a zero overhead `Iterator`, it may result in clones of the [`RData`].
+/// This is not a zero overhead `Iterator`, because it clones each [`RData`].
 pub struct LookupIntoIter {
-    // the result of the try_unwrap on Arc
     records: Arc<[Record]>,
     index: usize,
 }
@@ -445,8 +445,7 @@ impl IntoIterator for SrvLookup {
     type Item = rdata::SRV;
     type IntoIter = SrvLookupIntoIter;
 
-    /// This is most likely not a free conversion, the RDatas will be cloned if data is
-    ///  held behind an Arc with more than one reference (which is most likely the case coming from cache)
+    /// This is not a free conversion, because the `RData`s are cloned.
     fn into_iter(self) -> Self::IntoIter {
         SrvLookupIntoIter(self.0.into_iter())
     }
@@ -529,8 +528,7 @@ macro_rules! lookup_type {
             type Item = $t;
             type IntoIter = $ii;
 
-            /// This is most likely not a free conversion, the RDatas will be cloned if data is
-            ///  held behind an Arc with more than one reference (which is most likely the case coming from cache)
+            /// This is not a free conversion, because the `RData`s are cloned.
             fn into_iter(self) -> Self::IntoIter {
                 $ii(self.0.into_iter())
             }
