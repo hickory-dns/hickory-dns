@@ -157,12 +157,14 @@ pub enum Property {
     ///    Name`` or a party acting under the explicit authority of the holder
     ///    of that domain name to issue certificates for the domain in which
     ///    the property is published.
+    #[cfg_attr(feature = "serde", serde(rename = "issue"))]
     Issue,
     /// The issuewild
     ///    property entry authorizes the holder of the domain name `Issuer
     ///    Domain Name` or a party acting under the explicit authority of the
     ///    holder of that domain name to issue wildcard certificates for the
     ///    domain in which the property is published.
+    #[cfg_attr(feature = "serde", serde(rename = "issuewild"))]
     IssueWild,
     /// Specifies a URL to which an issuer MAY report
     ///    certificate issue requests that are inconsistent with the issuer's
@@ -170,6 +172,7 @@ pub enum Property {
     ///    Certificate Evaluator may use to report observation of a possible
     ///    policy violation. The Incident Object Description Exchange Format
     ///    (IODEF) format is used [RFC7970](https://www.rfc-editor.org/rfc/rfc7970).
+    #[cfg_attr(feature = "serde", serde(rename = "iodef"))]
     Iodef,
     /// Unknown format to Hickory DNS
     Unknown(String),
