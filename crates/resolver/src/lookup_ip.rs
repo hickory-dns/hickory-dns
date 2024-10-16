@@ -94,8 +94,7 @@ impl IntoIterator for LookupIp {
     type Item = IpAddr;
     type IntoIter = LookupIpIntoIter;
 
-    /// This is most likely not a free conversion, the RDatas will be cloned if data is
-    ///  held behind an Arc with more than one reference (which is most likely the case coming from cache)
+    /// This is not a free conversion, because the `RData`s are cloned.
     fn into_iter(self) -> Self::IntoIter {
         LookupIpIntoIter(self.0.into_iter())
     }
