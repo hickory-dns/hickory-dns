@@ -9,7 +9,7 @@ This library contains basic implementations for DNS zone hosting. It is capable 
 ## Features
 
 - Dynamic Update with sqlite journaling backend (SIG0)
-- DNSSEC online signing (NSEC not NSEC3)
+- DNSSEC online signing (NSEC and NSEC3)
 - DNS over TLS (DoT)
 - DNS over HTTPS (DoH)
 - Forwarding stub resolver
@@ -22,7 +22,7 @@ This library contains basic implementations for DNS zone hosting. It is capable 
 - mTLS based authorization for Dynamic Updates
 - Online NSEC creation for queries
 - Full hint based resolving
-- Maybe NSEC3 and/or NSEC5 support
+- Maybe NSEC5 support
 
 ## Minimum Rust Version
 
