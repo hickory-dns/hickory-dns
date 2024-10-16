@@ -60,7 +60,7 @@ use proto::{
 /// Create `DnsHandle` with the help of `RuntimeProvider`.
 /// This trait is designed for customization.
 pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
-    /// The handle to the connect for sending DNS requests.
+    /// The handle to the connection for sending DNS requests.
     type Conn: DnsHandle + Clone + Send + Sync + 'static;
     /// Ths future is responsible for spawning any background tasks as necessary.
     type FutureConn: Future<Output = Result<Self::Conn, ProtoError>> + Send + 'static;
@@ -374,7 +374,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
 }
 
 /// A stream of response to a DNS request.
-#[must_use = "steam do nothing unless polled"]
+#[must_use = "streams do nothing unless polled"]
 pub struct ConnectionResponse(DnsExchangeSend);
 
 impl Stream for ConnectionResponse {
