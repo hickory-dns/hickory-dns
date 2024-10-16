@@ -138,8 +138,6 @@ impl Hosts {
     pub fn read_hosts_conf(&mut self, src: impl io::Read) -> io::Result<()> {
         use std::io::{BufRead, BufReader};
 
-        use proto::rr::domain::TryParseIp;
-
         // lines in the src should have the form `addr host1 host2 host3 ...`
         // line starts with `#` will be regarded with comments and ignored,
         // also empty line also will be ignored,
@@ -158,8 +156,8 @@ impl Hosts {
             if fields.len() < 2 {
                 continue;
             }
-            let addr = if let Some(a) = fields[0].try_parse_ip() {
-                a
+            let addr = if let Ok(a) = IpAddr::from_str(fields[0]) {
+                RData::from(a)
             } else {
                 warn!("could not parse an IP from hosts file");
                 continue;

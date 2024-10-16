@@ -30,7 +30,7 @@ use crate::{
 };
 
 pub use self::dns_class::DNSClass;
-pub use self::domain::{IntoName, Name, TryParseIp};
+pub use self::domain::{IntoName, Name};
 pub use self::record_data::RData;
 pub use self::record_type::RecordType;
 pub use self::resource::Record;

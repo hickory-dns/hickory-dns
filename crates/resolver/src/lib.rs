@@ -276,7 +276,7 @@ pub mod system_conf;
 mod tls;
 
 // reexports from proto
-pub use self::proto::rr::{IntoName, Name, TryParseIp};
+pub use self::proto::rr::{IntoName, Name};
 
 #[cfg(feature = "testing")]
 pub use async_resolver::testing;
