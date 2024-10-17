@@ -10,23 +10,22 @@ use std::fmt;
 use std::net::IpAddr;
 use std::sync::Arc;
 
-use proto::op::Query;
-use proto::rr::domain::usage::ONION;
-use proto::rr::{IntoName, Name, RData, Record, RecordType};
-use proto::xfer::{DnsRequestOptions, RetryDnsHandle};
 use tracing::{debug, trace};
 
 use crate::caching_client::CachingClient;
 use crate::config::{ResolveHosts, ResolverConfig, ResolverOpts};
 use crate::dns_lru::{self, DnsLru};
-use crate::error::*;
+use crate::error::ResolveError;
+use crate::hosts::Hosts;
 use crate::lookup::{self, Lookup, LookupEither, LookupFuture};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
 #[cfg(feature = "tokio-runtime")]
 use crate::name_server::TokioConnectionProvider;
 use crate::name_server::{ConnectionProvider, NameServerPool};
-
-use crate::Hosts;
+use crate::proto::op::Query;
+use crate::proto::rr::domain::usage::ONION;
+use crate::proto::rr::{IntoName, Name, RData, Record, RecordType};
+use crate::proto::xfer::{DnsRequestOptions, RetryDnsHandle};
 
 /// An asynchronous resolver for DNS generic over async Runtimes.
 ///
@@ -165,7 +164,7 @@ impl<P: ConnectionProvider> AsyncResolver<P> {
         if options.validate {
             #[cfg(feature = "dnssec")]
             {
-                use proto::xfer::DnssecDnsHandle;
+                use crate::proto::xfer::DnssecDnsHandle;
                 either = LookupEither::Secure(DnssecDnsHandle::new(client));
             }
 
@@ -421,8 +420,8 @@ pub mod testing {
 
     use crate::config::{LookupIpStrategy, NameServerConfig, ResolverConfig, ResolverOpts};
     use crate::name_server::ConnectionProvider;
+    use crate::proto::{rr::Name, runtime::Executor};
     use crate::AsyncResolver;
-    use proto::{rr::Name, runtime::Executor};
 
     /// Test IP lookup from URLs.
     pub fn lookup_test<E: Executor, R: ConnectionProvider>(
@@ -988,7 +987,7 @@ pub mod testing {
 #[cfg(feature = "tokio-runtime")]
 #[allow(clippy::extra_unused_type_parameters)]
 mod tests {
-    use proto::xfer::DnsRequest;
+    use crate::proto::xfer::DnsRequest;
     use test_support::subscribe;
     use tokio::runtime::Runtime;
 

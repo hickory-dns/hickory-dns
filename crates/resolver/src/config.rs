@@ -15,8 +15,8 @@ use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use std::time::Duration;
 
-use proto::rr::Name;
-use proto::xfer::Protocol;
+use crate::proto::rr::Name;
+use crate::proto::xfer::Protocol;
 #[cfg(feature = "dns-over-rustls")]
 use rustls::ClientConfig;
 

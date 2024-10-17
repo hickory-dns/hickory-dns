@@ -13,14 +13,14 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+#[cfg(feature = "dns-over-tls")]
+use crate::proto::runtime::iocompat::AsyncIoStdAsTokio;
+use crate::proto::runtime::Spawn;
+#[cfg(feature = "tokio-runtime")]
+use crate::proto::runtime::TokioRuntimeProvider;
 use futures_util::future::FutureExt;
 use futures_util::ready;
 use futures_util::stream::{Stream, StreamExt};
-#[cfg(feature = "dns-over-tls")]
-use proto::runtime::iocompat::AsyncIoStdAsTokio;
-use proto::runtime::Spawn;
-#[cfg(feature = "tokio-runtime")]
-use proto::runtime::TokioRuntimeProvider;
 #[cfg(all(feature = "dns-over-native-tls", not(feature = "dns-over-rustls")))]
 use tokio_native_tls::TlsStream as TokioTlsStream;
 #[cfg(all(
@@ -33,19 +33,20 @@ use tokio_openssl::SslStream as TokioTlsStream;
 use tokio_rustls::client::TlsStream as TokioTlsStream;
 
 use crate::config::{NameServerConfig, ResolverOpts};
+#[cfg(any(feature = "dns-over-h3", feature = "dns-over-https-rustls"))]
+use crate::proto;
 #[cfg(feature = "dns-over-https-rustls")]
-use proto::h2::{HttpsClientConnect, HttpsClientStream};
+use crate::proto::h2::{HttpsClientConnect, HttpsClientStream};
 #[cfg(feature = "dns-over-h3")]
-use proto::h3::{H3ClientConnect, H3ClientStream};
+use crate::proto::h3::{H3ClientConnect, H3ClientStream};
 #[cfg(feature = "dns-over-quic")]
-use proto::quic::{QuicClientConnect, QuicClientStream};
+use crate::proto::quic::{QuicClientConnect, QuicClientStream};
 #[cfg(feature = "dns-over-tls")]
-use proto::runtime::iocompat::AsyncIoTokioAsStd;
+use crate::proto::runtime::iocompat::AsyncIoTokioAsStd;
 #[cfg(feature = "tokio-runtime")]
 #[allow(unused_imports)] // Complicated cfg for which protocols are enabled
-use proto::runtime::TokioTime;
-use proto::{
-    self,
+use crate::proto::runtime::TokioTime;
+use crate::proto::{
     error::ProtoError,
     op::NoopMessageFinalizer,
     runtime::RuntimeProvider,

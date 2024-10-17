@@ -217,7 +217,8 @@ extern crate cfg_if;
 #[cfg(feature = "serde")]
 #[macro_use]
 extern crate serde;
-pub extern crate hickory_proto as proto;
+
+pub use hickory_proto as proto;
 
 mod async_resolver;
 pub mod caching_client;

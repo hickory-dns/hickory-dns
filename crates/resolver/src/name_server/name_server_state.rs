@@ -10,8 +10,8 @@ use std::sync::atomic::{self, AtomicU8};
 use std::sync::Arc;
 use std::time::Instant;
 
+use crate::proto::op::Edns;
 use futures_util::lock::Mutex;
-use proto::op::Edns;
 
 pub(crate) struct NameServerState {
     conn_state: AtomicU8,

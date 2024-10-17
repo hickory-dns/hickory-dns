@@ -17,10 +17,10 @@ use hickory_proto::rr::dnssec::rdata::RRSIG;
 use lru_cache::LruCache;
 use parking_lot::Mutex;
 
-use proto::op::Query;
+use crate::proto::op::Query;
 #[cfg(feature = "dnssec")]
-use proto::rr::RecordData;
-use proto::rr::{Record, RecordType};
+use crate::proto::rr::RecordData;
+use crate::proto::rr::{Record, RecordType};
 
 use crate::config;
 use crate::lookup::Lookup;
@@ -409,9 +409,9 @@ mod tests {
     use std::str::FromStr;
     use std::time::*;
 
-    use proto::op::{Query, ResponseCode};
-    use proto::rr::rdata::A;
-    use proto::rr::{Name, RData, RecordType};
+    use crate::proto::op::{Query, ResponseCode};
+    use crate::proto::rr::rdata::A;
+    use crate::proto::rr::{Name, RData, RecordType};
 
     use super::*;
 
