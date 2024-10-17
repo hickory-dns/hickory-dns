@@ -10,10 +10,10 @@ use std::net::SocketAddr;
 
 use crate::tls::CLIENT_CONFIG;
 
-use proto::h2::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
-use proto::runtime::{RuntimeProvider, TokioTime};
-use proto::tcp::DnsTcpStream;
-use proto::xfer::{DnsExchange, DnsExchangeConnect};
+use crate::proto::h2::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
+use crate::proto::runtime::{RuntimeProvider, TokioTime};
+use crate::proto::tcp::DnsTcpStream;
+use crate::proto::xfer::{DnsExchange, DnsExchangeConnect};
 
 use crate::config::TlsClientConfig;
 

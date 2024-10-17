@@ -14,7 +14,7 @@ use std::time::Instant;
 use futures_util::lock::Mutex;
 use futures_util::stream::{once, Stream};
 
-use proto::{
+use crate::proto::{
     error::ProtoError,
     xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer},
 };
@@ -233,9 +233,9 @@ mod tests {
     use test_support::subscribe;
     use tokio::runtime::Runtime;
 
-    use proto::op::{Query, ResponseCode};
-    use proto::rr::{Name, RecordType};
-    use proto::xfer::{DnsHandle, DnsRequestOptions, FirstAnswer, Protocol};
+    use crate::proto::op::{Query, ResponseCode};
+    use crate::proto::rr::{Name, RecordType};
+    use crate::proto::xfer::{DnsHandle, DnsRequestOptions, FirstAnswer, Protocol};
 
     use super::*;
     use crate::name_server::connection_provider::TokioConnectionProvider;

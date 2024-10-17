@@ -16,12 +16,12 @@ use futures_util::stream::{once, FuturesUnordered, Stream, StreamExt};
 use hickory_proto::error::ProtoErrorKind;
 use smallvec::SmallVec;
 
-use proto::error::ProtoError;
+use crate::proto::error::ProtoError;
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
-use proto::runtime::TokioRuntimeProvider;
-use proto::runtime::{RuntimeProvider, Time};
-use proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
+use crate::proto::runtime::TokioRuntimeProvider;
+use crate::proto::runtime::{RuntimeProvider, Time};
+use crate::proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
 use tracing::debug;
 
 use rand::thread_rng as rng;
@@ -408,9 +408,9 @@ mod tests {
 
     use tokio::runtime::Runtime;
 
-    use proto::op::Query;
-    use proto::rr::{Name, RecordType};
-    use proto::xfer::{DnsHandle, DnsRequestOptions, Protocol};
+    use crate::proto::op::Query;
+    use crate::proto::rr::{Name, RecordType};
+    use crate::proto::xfer::{DnsHandle, DnsRequestOptions, Protocol};
 
     use super::*;
     use crate::config::NameServerConfig;
