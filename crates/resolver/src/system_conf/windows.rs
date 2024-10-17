@@ -13,7 +13,7 @@ use std::str::FromStr;
 use ipconfig::computer::{get_domain, get_search_list, is_round_robin_enabled};
 use ipconfig::get_adapters;
 
-use proto::rr::Name;
+use crate::proto::rr::Name;
 
 use crate::config::{NameServerConfig, ResolverConfig, ResolverOpts};
 use crate::error::ResolveResult;

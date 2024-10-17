@@ -125,7 +125,7 @@ fn into_resolver_config(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use proto::rr::Name;
+    use crate::proto::rr::Name;
     use std::env;
     use std::net::*;
     use std::str::FromStr;

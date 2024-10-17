@@ -19,9 +19,9 @@ use std::time::Instant;
 use futures_util::{future, future::Either, FutureExt};
 use tracing::debug;
 
-use proto::op::Query;
-use proto::rr::{Name, RData, Record, RecordType};
-use proto::xfer::{DnsHandle, DnsRequestOptions};
+use crate::proto::op::Query;
+use crate::proto::rr::{Name, RData, Record, RecordType};
+use crate::proto::xfer::{DnsHandle, DnsRequestOptions};
 
 use crate::caching_client::CachingClient;
 use crate::config::LookupIpStrategy;
@@ -442,10 +442,10 @@ pub mod tests {
     use futures_executor::block_on;
     use futures_util::future;
 
+    use crate::proto::op::Message;
+    use crate::proto::rr::{Name, RData, Record};
+    use crate::proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
     use hickory_proto::error::ProtoError;
-    use proto::op::Message;
-    use proto::rr::{Name, RData, Record};
-    use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
     use futures_util::stream::{once, Stream};
 

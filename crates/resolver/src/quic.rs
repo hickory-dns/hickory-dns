@@ -9,9 +9,9 @@ use rustls::ClientConfig as CryptoConfig;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use crate::proto::runtime::TokioTime;
+use crate::proto::xfer::{DnsExchange, DnsExchangeConnect};
 use hickory_proto::quic::{QuicClientConnect, QuicClientStream};
-use proto::runtime::TokioTime;
-use proto::xfer::{DnsExchange, DnsExchangeConnect};
 
 use crate::config::TlsClientConfig;
 use crate::tls::CLIENT_CONFIG;
