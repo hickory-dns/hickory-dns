@@ -44,7 +44,7 @@ use hickory_resolver::{
     config::{NameServerConfig, NameServerConfigGroup, ResolverConfig, ResolverOpts},
     error::ResolveError,
     lookup::Lookup,
-    TokioAsyncResolver,
+    TokioResolver,
 };
 
 /// A CLI interface for the hickory-resolver.
@@ -222,7 +222,7 @@ fn log_query(name: &str, ty: RecordType, name_servers: &str, opts: &Opts) {
 }
 
 async fn execute_query(
-    resolver: Arc<TokioAsyncResolver>,
+    resolver: Arc<TokioResolver>,
     name: String,
     happy: bool,
     reverse: bool,
@@ -340,7 +340,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         options.ip_strategy = hickory_resolver::config::LookupIpStrategy::Ipv4AndIpv6;
     }
 
-    let resolver_arc = Arc::new(TokioAsyncResolver::tokio(config, options));
+    let resolver_arc = Arc::new(TokioResolver::tokio(config, options));
 
     if let Some(domainname) = &opts.domainname {
         log_query(domainname, opts.ty, &name_servers, &opts);

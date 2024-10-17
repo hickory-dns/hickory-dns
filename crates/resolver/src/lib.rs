@@ -252,9 +252,9 @@ pub use proto::rr::{IntoName, Name, TryParseIp};
 mod async_resolver;
 #[cfg(feature = "testing")]
 pub use async_resolver::testing;
-pub use async_resolver::AsyncResolver;
+pub use async_resolver::Resolver;
 #[cfg(feature = "tokio-runtime")]
-pub use async_resolver::TokioAsyncResolver;
+pub use async_resolver::TokioResolver;
 pub mod caching_client;
 pub mod config;
 pub mod dns_lru;
