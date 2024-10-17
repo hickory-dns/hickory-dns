@@ -269,8 +269,6 @@ pub mod lookup_ip;
 pub mod name_server;
 #[cfg(feature = "dns-over-quic")]
 mod quic;
-#[cfg(feature = "tokio-runtime")]
-mod resolver;
 pub mod system_conf;
 #[cfg(feature = "dns-over-tls")]
 mod tls;
@@ -284,8 +282,6 @@ pub use async_resolver::AsyncResolver;
 #[cfg(feature = "tokio-runtime")]
 pub use async_resolver::TokioAsyncResolver;
 pub use hosts::Hosts;
-#[cfg(feature = "tokio-runtime")]
-pub use resolver::Resolver;
 
 /// This is an alias for [`AsyncResolver`], which replaced the type previously
 /// called `ResolverFuture`.
