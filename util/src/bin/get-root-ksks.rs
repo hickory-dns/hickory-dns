@@ -31,22 +31,24 @@ use hickory_proto::rr::dnssec::rdata::DNSSECRData;
 use hickory_proto::rr::dnssec::Algorithm;
 use hickory_proto::rr::record_data::RData;
 use hickory_proto::rr::record_type::RecordType;
-use hickory_resolver::Resolver;
+use hickory_resolver::TokioAsyncResolver;
 
 fn args() -> ArgMatches {
     command!().bin_name("get-root-ksks").get_matches()
 }
 
 /// Run the get_root_ksks program
-pub fn main() {
+#[tokio::main]
+async fn main() {
     hickory_util::logger(env!("CARGO_BIN_NAME"), Some(tracing::Level::INFO));
 
     let _matches = args();
 
     println!("querying for root key-signing-keys, ie dnskeys");
-    let resolver = Resolver::default().expect("could not create resolver");
+    let resolver = TokioAsyncResolver::tokio_from_system_conf().expect("could not create resolver");
     let lookup = resolver
         .lookup(".", RecordType::DNSKEY)
+        .await
         .expect("query failed");
 
     for r in lookup.iter() {
