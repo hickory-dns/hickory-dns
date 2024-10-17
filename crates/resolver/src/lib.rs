@@ -235,11 +235,22 @@ pub mod lookup;
 pub mod lookup_ip;
 // TODO: consider #[doc(hidden)]
 pub mod name_server;
+#[cfg(feature = "tokio-runtime")]
+use name_server::TokioConnectionProvider;
 #[cfg(feature = "dns-over-quic")]
 mod quic;
 pub mod system_conf;
 #[cfg(feature = "dns-over-tls")]
 mod tls;
+
+#[doc(hidden)]
+#[deprecated(since = "0.25.0", note = "use `Resolver` instead")]
+pub type AsyncResolver<P> = Resolver<P>;
+
+#[doc(hidden)]
+#[deprecated(since = "0.25.0", note = "use `TokioResolver` instead")]
+#[cfg(feature = "tokio-runtime")]
+pub type TokioAsyncResolver = Resolver<TokioConnectionProvider>;
 
 /// returns a version as specified in Cargo.toml
 pub fn version() -> &'static str {
