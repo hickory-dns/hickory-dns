@@ -33,41 +33,6 @@
 //! hickory-resolver = "*"
 //! ```
 //!
-//! ## Using the Synchronous Resolver
-//!
-//! This uses the default configuration, which sets the [Google Public
-//! DNS](https://developers.google.com/speed/public-dns/) as the upstream resolvers. Please see
-//! their [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important
-//! information about what they track, many ISP's track similar information in DNS.
-//!
-//! ```rust
-//! # fn main() {
-//! # #[cfg(feature = "tokio-runtime")]
-//! # {
-//! use std::net::*;
-//! use hickory_resolver::Resolver;
-//! use hickory_resolver::config::*;
-//!
-//! // Construct a new Resolver with default configuration options
-//! let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
-//!
-//! // Lookup the IP addresses associated with a name.
-//! // The final dot forces this to be an FQDN, otherwise the search rules as specified
-//! //  in `ResolverOpts` will take effect. FQDN's are generally cheaper queries.
-//! let response = resolver.lookup_ip("www.example.com.").unwrap();
-//!
-//! // There can be many addresses associated with the name,
-//! //  this can return IPv4 and/or IPv6 addresses
-//! let address = response.iter().next().expect("no addresses returned!");
-//! if address.is_ipv4() {
-//!     assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 215, 14)));
-//! } else {
-//!     assert_eq!(address, IpAddr::V6(Ipv6Addr::new(0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c)));
-//! }
-//! # }
-//! # }
-//! ```
-//!
 //! ## Using the host system config
 //!
 //! On Unix systems, the `/etc/resolv.conf` can be used for configuration. Not all options
@@ -75,16 +40,17 @@
 //! addition there may be additional options supported which the host system does not. Example:
 //!
 //! ```rust,no_run
-//! # fn main() {
+//! # #[tokio::main]
+//! # async fn main() {
 //! # #[cfg(feature = "tokio-runtime")]
 //! # {
 //! # use std::net::*;
-//! # use hickory_resolver::Resolver;
+//! # use hickory_resolver::AsyncResolver;
 //! // Use the host OS'es `/etc/resolv.conf`
 //! # #[cfg(unix)]
-//! let resolver = Resolver::from_system_conf().unwrap();
+//! let resolver = AsyncResolver::tokio_from_system_conf().unwrap();
 //! # #[cfg(unix)]
-//! let response = resolver.lookup_ip("www.example.com.").unwrap();
+//! let response = resolver.lookup_ip("www.example.com.").await.unwrap();
 //! # }
 //! # }
 //! ```
@@ -208,12 +174,12 @@
 //! # fn main() {
 //! # #[cfg(feature = "tokio-runtime")]
 //! # {
-//! use hickory_resolver::Resolver;
+//! use hickory_resolver::TokioAsyncResolver;
 //! use hickory_resolver::config::*;
 //!
 //! // Construct a new Resolver with default configuration options
 //! # #[cfg(feature = "dns-over-tls")]
-//! let mut resolver = Resolver::new(ResolverConfig::cloudflare_tls(), ResolverOpts::default()).unwrap();
+//! let mut resolver = TokioAsyncResolver::tokio(ResolverConfig::cloudflare_tls(), ResolverOpts::default());
 //!
 //! // see example above...
 //! # }
@@ -269,8 +235,6 @@ pub mod lookup_ip;
 pub mod name_server;
 #[cfg(feature = "dns-over-quic")]
 mod quic;
-#[cfg(feature = "tokio-runtime")]
-mod resolver;
 pub mod system_conf;
 #[cfg(feature = "dns-over-tls")]
 mod tls;
@@ -284,8 +248,6 @@ pub use async_resolver::AsyncResolver;
 #[cfg(feature = "tokio-runtime")]
 pub use async_resolver::TokioAsyncResolver;
 pub use hosts::Hosts;
-#[cfg(feature = "tokio-runtime")]
-pub use resolver::Resolver;
 
 /// This is an alias for [`AsyncResolver`], which replaced the type previously
 /// called `ResolverFuture`.
