@@ -42,7 +42,7 @@ use crate::{
 };
 
 #[cfg(feature = "dnssec")]
-use proto::{rr::dnssec::Proven, DnssecDnsHandle};
+use crate::proto::{rr::dnssec::Proven, DnssecDnsHandle};
 
 /// Result of a DNS query when querying for any record type supported by the Hickory DNS Proto library.
 ///
@@ -614,11 +614,11 @@ pub mod tests {
     use futures_util::future;
     use futures_util::stream::once;
 
+    use crate::proto::error::ProtoError;
+    use crate::proto::op::{Message, Query};
+    use crate::proto::rr::{Name, RData, Record, RecordType};
+    use crate::proto::xfer::{DnsRequest, DnsRequestOptions};
     use hickory_proto::error::ProtoErrorKind;
-    use proto::error::ProtoError;
-    use proto::op::{Message, Query};
-    use proto::rr::{Name, RData, Record, RecordType};
-    use proto::xfer::{DnsRequest, DnsRequestOptions};
 
     use super::*;
 

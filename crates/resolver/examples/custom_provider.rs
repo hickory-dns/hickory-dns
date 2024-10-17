@@ -6,7 +6,7 @@ use {
         config::{ResolverConfig, ResolverOpts},
         name_server::{ConnectionProvider, GenericConnector},
         proto::runtime::{iocompat::AsyncIoTokioAsStd, RuntimeProvider, TokioHandle, TokioTime},
-        AsyncResolver,
+        Resolver,
     },
     std::future::Future,
     std::io,
@@ -80,7 +80,7 @@ impl RuntimeProvider for PrintProvider {
 }
 
 #[cfg(any(feature = "webpki-roots", feature = "native-certs"))]
-async fn lookup_test<R: ConnectionProvider>(resolver: AsyncResolver<R>) {
+async fn lookup_test<R: ConnectionProvider>(resolver: Resolver<R>) {
     let response = resolver.lookup_ip("www.example.com.").await.unwrap();
 
     // There can be many addresses associated with the name,
@@ -101,7 +101,7 @@ async fn lookup_test<R: ConnectionProvider>(resolver: AsyncResolver<R>) {
 #[cfg(any(feature = "webpki-roots", feature = "native-certs"))]
 #[tokio::main]
 async fn main() {
-    let resolver = AsyncResolver::new(
+    let resolver = Resolver::new(
         ResolverConfig::google(),
         ResolverOpts::default(),
         GenericConnector::new(PrintProvider::default()),
@@ -110,7 +110,7 @@ async fn main() {
 
     #[cfg(feature = "dns-over-https-rustls")]
     {
-        let resolver2 = AsyncResolver::new(
+        let resolver2 = Resolver::new(
             ResolverConfig::cloudflare_https(),
             ResolverOpts::default(),
             GenericConnector::new(PrintProvider::default()),

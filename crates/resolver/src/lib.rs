@@ -245,15 +245,16 @@
 #![allow(clippy::needless_doctest_main, clippy::single_component_path_imports)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-#[cfg(feature = "dns-over-tls")]
-#[macro_use]
-extern crate cfg_if;
-#[cfg(feature = "serde")]
-#[macro_use]
-extern crate serde;
-pub extern crate hickory_proto as proto;
+pub use hickory_proto as proto;
+// reexports from proto
+pub use proto::rr::{IntoName, Name, TryParseIp};
 
 mod async_resolver;
+#[cfg(feature = "testing")]
+pub use async_resolver::testing;
+pub use async_resolver::Resolver;
+#[cfg(feature = "tokio-runtime")]
+pub use async_resolver::TokioResolver;
 pub mod caching_client;
 pub mod config;
 pub mod dns_lru;
@@ -263,35 +264,27 @@ mod h2;
 #[cfg(feature = "dns-over-h3")]
 mod h3;
 mod hosts;
+pub use hosts::Hosts;
 pub mod lookup;
 pub mod lookup_ip;
 // TODO: consider #[doc(hidden)]
 pub mod name_server;
+#[cfg(feature = "tokio-runtime")]
+use name_server::TokioConnectionProvider;
 #[cfg(feature = "dns-over-quic")]
 mod quic;
-#[cfg(feature = "tokio-runtime")]
-mod resolver;
 pub mod system_conf;
 #[cfg(feature = "dns-over-tls")]
 mod tls;
 
-// reexports from proto
-pub use self::proto::rr::{IntoName, Name, TryParseIp};
+#[doc(hidden)]
+#[deprecated(since = "0.25.0", note = "use `Resolver` instead")]
+pub type AsyncResolver<P> = Resolver<P>;
 
-#[cfg(feature = "testing")]
-pub use async_resolver::testing;
-pub use async_resolver::AsyncResolver;
+#[doc(hidden)]
+#[deprecated(since = "0.25.0", note = "use `TokioResolver` instead")]
 #[cfg(feature = "tokio-runtime")]
-pub use async_resolver::TokioAsyncResolver;
-pub use hosts::Hosts;
-#[cfg(feature = "tokio-runtime")]
-pub use resolver::Resolver;
-
-/// This is an alias for [`AsyncResolver`], which replaced the type previously
-/// called `ResolverFuture`.
-#[deprecated(note = "use [`hickory_resolver::AsyncResolver`] instead")]
-#[cfg(feature = "tokio-runtime")]
-pub type ResolverFuture = TokioAsyncResolver;
+pub type TokioAsyncResolver = Resolver<TokioConnectionProvider>;
 
 /// returns a version as specified in Cargo.toml
 pub fn version() -> &'static str {
