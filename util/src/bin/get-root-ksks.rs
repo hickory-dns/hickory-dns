@@ -31,7 +31,7 @@ use hickory_proto::rr::dnssec::rdata::DNSSECRData;
 use hickory_proto::rr::dnssec::Algorithm;
 use hickory_proto::rr::record_data::RData;
 use hickory_proto::rr::record_type::RecordType;
-use hickory_resolver::TokioAsyncResolver;
+use hickory_resolver::TokioResolver;
 
 fn args() -> ArgMatches {
     command!().bin_name("get-root-ksks").get_matches()
@@ -45,7 +45,7 @@ async fn main() {
     let _matches = args();
 
     println!("querying for root key-signing-keys, ie dnskeys");
-    let resolver = TokioAsyncResolver::tokio_from_system_conf().expect("could not create resolver");
+    let resolver = TokioResolver::tokio_from_system_conf().expect("could not create resolver");
     let lookup = resolver
         .lookup(".", RecordType::DNSKEY)
         .await

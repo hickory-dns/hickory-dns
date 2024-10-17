@@ -81,12 +81,12 @@ mod tests {
 
     use crate::config::{ResolverConfig, ResolverOpts};
     use crate::name_server::TokioConnectionProvider;
-    use crate::TokioAsyncResolver;
+    use crate::TokioResolver;
 
     fn h3_test(config: ResolverConfig) {
         let io_loop = Runtime::new().unwrap();
 
-        let resolver = TokioAsyncResolver::new(
+        let resolver = TokioResolver::new(
             config,
             ResolverOpts::default(),
             TokioConnectionProvider::default(),

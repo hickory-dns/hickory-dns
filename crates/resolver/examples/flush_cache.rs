@@ -11,14 +11,14 @@ fn main() {
 }
 
 async fn tokio_main() {
-    use hickory_resolver::{name_server::TokioConnectionProvider, TokioAsyncResolver};
+    use hickory_resolver::{name_server::TokioConnectionProvider, TokioResolver};
 
     let resolver = {
         // To make this independent, if targeting macOS, BSD, Linux, or Windows, we can use the system's configuration:
         #[cfg(any(unix, windows))]
         {
             // use the system resolver configuration
-            TokioAsyncResolver::from_system_conf(TokioConnectionProvider::default())
+            TokioResolver::from_system_conf(TokioConnectionProvider::default())
         }
 
         // For other operating systems, we can use one of the preconfigured definitions
@@ -57,7 +57,7 @@ async fn tokio_main() {
 
 async fn resolve_list<P: hickory_resolver::name_server::ConnectionProvider>(
     names: &[&str],
-    resolver: &hickory_resolver::AsyncResolver<P>,
+    resolver: &hickory_resolver::Resolver<P>,
 ) -> tokio::time::Duration {
     use tokio::time::Instant;
     let start_time = Instant::now();
