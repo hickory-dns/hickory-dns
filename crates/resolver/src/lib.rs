@@ -249,12 +249,6 @@ pub use async_resolver::AsyncResolver;
 pub use async_resolver::TokioAsyncResolver;
 pub use hosts::Hosts;
 
-/// This is an alias for [`AsyncResolver`], which replaced the type previously
-/// called `ResolverFuture`.
-#[deprecated(note = "use [`hickory_resolver::AsyncResolver`] instead")]
-#[cfg(feature = "tokio-runtime")]
-pub type ResolverFuture = TokioAsyncResolver;
-
 /// returns a version as specified in Cargo.toml
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
