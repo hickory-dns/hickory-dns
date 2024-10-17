@@ -21,7 +21,7 @@ use crate::{
         op::ResponseCode,
         rr::{LowerName, Name, Record, RecordType},
     },
-    resolver::{config::ResolverConfig, lookup::Lookup as ResolverLookup, TokioAsyncResolver},
+    resolver::{config::ResolverConfig, lookup::Lookup as ResolverLookup, TokioResolver},
     server::RequestInfo,
     store::forwarder::ForwardConfig,
 };
@@ -31,7 +31,7 @@ use crate::{
 /// This uses the hickory-resolver for resolving requests.
 pub struct ForwardAuthority {
     origin: LowerName,
-    resolver: TokioAsyncResolver,
+    resolver: TokioResolver,
 }
 
 impl ForwardAuthority {
@@ -39,7 +39,7 @@ impl ForwardAuthority {
     #[allow(clippy::new_without_default)]
     #[doc(hidden)]
     pub fn new(runtime: TokioConnectionProvider) -> Result<Self, String> {
-        let resolver = TokioAsyncResolver::from_system_conf(runtime)
+        let resolver = TokioResolver::from_system_conf(runtime)
             .map_err(|e| format!("error constructing new Resolver: {e}"))?;
 
         Ok(Self {
@@ -86,7 +86,7 @@ impl ForwardAuthority {
 
         let config = ResolverConfig::from_parts(None, vec![], name_servers);
 
-        let resolver = TokioAsyncResolver::new(config, options, TokioConnectionProvider::default());
+        let resolver = TokioResolver::new(config, options, TokioConnectionProvider::default());
 
         info!("forward resolver configured: {}: ", origin);
 

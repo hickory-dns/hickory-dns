@@ -41,7 +41,7 @@ use crate::proto::xfer::{DnsRequestOptions, RetryDnsHandle};
 /// and the lookup futures are intended to be run on the same thread, they
 /// should be spawned on the same executor.
 #[derive(Clone)]
-pub struct AsyncResolver<P: ConnectionProvider> {
+pub struct Resolver<P: ConnectionProvider> {
     config: ResolverConfig,
     options: ResolverOpts,
     client_cache: CachingClient<LookupEither<P>>,
@@ -50,7 +50,7 @@ pub struct AsyncResolver<P: ConnectionProvider> {
 
 /// An AsyncResolver used with Tokio
 #[cfg(feature = "tokio-runtime")]
-pub type TokioAsyncResolver = AsyncResolver<TokioConnectionProvider>;
+pub type TokioResolver = Resolver<TokioConnectionProvider>;
 
 macro_rules! lookup_fn {
     ($p:ident, $l:ty, $r:path) => {
@@ -86,7 +86,7 @@ macro_rules! lookup_fn {
 }
 
 #[cfg(feature = "tokio-runtime")]
-impl TokioAsyncResolver {
+impl TokioResolver {
     /// Construct a new Tokio based `AsyncResolver` with the provided configuration.
     ///
     /// # Arguments
@@ -107,7 +107,7 @@ impl TokioAsyncResolver {
     }
 }
 
-impl<R: ConnectionProvider> AsyncResolver<R> {
+impl<R: ConnectionProvider> Resolver<R> {
     /// Construct a new generic `AsyncResolver` with the provided configuration.
     ///
     /// see [TokioAsyncResolver::tokio(..)] instead.
@@ -148,7 +148,7 @@ impl<R: ConnectionProvider> AsyncResolver<R> {
     }
 }
 
-impl<P: ConnectionProvider> AsyncResolver<P> {
+impl<P: ConnectionProvider> Resolver<P> {
     /// Construct a new `AsyncResolver` with the provided configuration.
     ///
     /// # Arguments
@@ -406,7 +406,7 @@ impl<P: ConnectionProvider> AsyncResolver<P> {
     lookup_fn!(cert_lookup, lookup::CertLookup, RecordType::CERT);
 }
 
-impl<P: ConnectionProvider> fmt::Debug for AsyncResolver<P> {
+impl<P: ConnectionProvider> fmt::Debug for Resolver<P> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("AsyncResolver").finish()
     }
@@ -421,7 +421,7 @@ pub mod testing {
     use crate::config::{LookupIpStrategy, NameServerConfig, ResolverConfig, ResolverOpts};
     use crate::name_server::ConnectionProvider;
     use crate::proto::{rr::Name, runtime::Executor};
-    use crate::AsyncResolver;
+    use crate::Resolver;
 
     /// Test IP lookup from URLs.
     pub fn lookup_test<E: Executor, R: ConnectionProvider>(
@@ -429,7 +429,7 @@ pub mod testing {
         mut exec: E,
         handle: R,
     ) {
-        let resolver = AsyncResolver::<R>::new(config, ResolverOpts::default(), handle);
+        let resolver = Resolver::<R>::new(config, ResolverOpts::default(), handle);
 
         let response = exec
             .block_on(resolver.lookup_ip("www.example.com."))
@@ -453,7 +453,7 @@ pub mod testing {
     /// Test IP lookup from IP literals.
     pub fn ip_lookup_test<E: Executor, R: ConnectionProvider>(mut exec: E, handle: R) {
         let resolver =
-            AsyncResolver::<R>::new(ResolverConfig::default(), ResolverOpts::default(), handle);
+            Resolver::<R>::new(ResolverConfig::default(), ResolverOpts::default(), handle);
 
         let response = exec
             .block_on(resolver.lookup_ip("10.1.0.2"))
@@ -485,12 +485,12 @@ pub mod testing {
         // AsyncResolver works correctly.
         use std::thread;
         let resolver =
-            AsyncResolver::<R>::new(ResolverConfig::default(), ResolverOpts::default(), handle);
+            Resolver::<R>::new(ResolverConfig::default(), ResolverOpts::default(), handle);
 
         let resolver_one = resolver.clone();
         let resolver_two = resolver;
 
-        let test_fn = |resolver: AsyncResolver<R>| {
+        let test_fn = |resolver: Resolver<R>| {
             let mut exec = E::new();
 
             let response = exec
@@ -532,7 +532,7 @@ pub mod testing {
         mut exec: E,
         handle: R,
     ) {
-        let resolver = AsyncResolver::new(
+        let resolver = Resolver::new(
             ResolverConfig::default(),
             ResolverOpts {
                 validate: true,
@@ -573,7 +573,7 @@ pub mod testing {
         mut exec: E,
         handle: R,
     ) {
-        let resolver = AsyncResolver::new(
+        let resolver = Resolver::new(
             ResolverConfig::default(),
             ResolverOpts {
                 validate: true,
@@ -598,8 +598,7 @@ pub mod testing {
         mut exec: E,
         handle: R,
     ) {
-        let resolver =
-            AsyncResolver::<R>::from_system_conf(handle).expect("failed to create resolver");
+        let resolver = Resolver::<R>::from_system_conf(handle).expect("failed to create resolver");
 
         let response = exec
             .block_on(resolver.lookup_ip("www.example.com."))
@@ -626,8 +625,7 @@ pub mod testing {
         mut exec: E,
         handle: R,
     ) {
-        let resolver =
-            AsyncResolver::<R>::from_system_conf(handle).expect("failed to create resolver");
+        let resolver = Resolver::<R>::from_system_conf(handle).expect("failed to create resolver");
 
         let response = exec
             .block_on(resolver.lookup_ip("a.com"))
@@ -653,7 +651,7 @@ pub mod testing {
         let name_servers: Vec<NameServerConfig> =
             ResolverConfig::default().name_servers().to_owned();
 
-        let resolver = AsyncResolver::<R>::new(
+        let resolver = Resolver::<R>::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -686,7 +684,7 @@ pub mod testing {
         let name_servers: Vec<NameServerConfig> =
             ResolverConfig::default().name_servers().to_owned();
 
-        let resolver = AsyncResolver::<R>::new(
+        let resolver = Resolver::<R>::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 // our name does have 2, the default should be fine, let's just narrow the test criteria a bit.
@@ -725,7 +723,7 @@ pub mod testing {
         let name_servers: Vec<NameServerConfig> =
             ResolverConfig::default().name_servers().to_owned();
 
-        let resolver = AsyncResolver::<R>::new(
+        let resolver = Resolver::<R>::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 // matches kubernetes default
@@ -765,7 +763,7 @@ pub mod testing {
         let name_servers: Vec<NameServerConfig> =
             ResolverConfig::default().name_servers().to_owned();
 
-        let resolver = AsyncResolver::<R>::new(
+        let resolver = Resolver::<R>::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -804,7 +802,7 @@ pub mod testing {
         let name_servers: Vec<NameServerConfig> =
             ResolverConfig::default().name_servers().to_owned();
 
-        let resolver = AsyncResolver::<R>::new(
+        let resolver = Resolver::<R>::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -831,7 +829,7 @@ pub mod testing {
     /// Test idna.
     pub fn idna_test<E: Executor + Send + 'static, R: ConnectionProvider>(mut exec: E, handle: R) {
         let resolver =
-            AsyncResolver::<R>::new(ResolverConfig::default(), ResolverOpts::default(), handle);
+            Resolver::<R>::new(ResolverConfig::default(), ResolverOpts::default(), handle);
 
         let response = exec
             .block_on(resolver.lookup_ip("中国.icom.museum."))
@@ -847,7 +845,7 @@ pub mod testing {
         mut exec: E,
         handle: R,
     ) {
-        let resolver = AsyncResolver::<R>::new(
+        let resolver = Resolver::<R>::new(
             ResolverConfig::default(),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4thenIpv6,
@@ -872,7 +870,7 @@ pub mod testing {
         mut exec: E,
         handle: R,
     ) {
-        let resolver = AsyncResolver::<R>::new(
+        let resolver = Resolver::<R>::new(
             ResolverConfig::default(),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv6thenIpv4,
@@ -900,7 +898,7 @@ pub mod testing {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_str("example.com").unwrap());
 
-        let resolver = AsyncResolver::<R>::new(
+        let resolver = Resolver::<R>::new(
             config,
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -929,7 +927,7 @@ pub mod testing {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_str("example.com").unwrap());
 
-        let resolver = AsyncResolver::<R>::new(
+        let resolver = Resolver::<R>::new(
             config,
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -961,7 +959,7 @@ pub mod testing {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_str("example.com").unwrap());
 
-        let resolver = AsyncResolver::<R>::new(
+        let resolver = Resolver::<R>::new(
             config,
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -1011,8 +1009,8 @@ mod tests {
         assert!(is_send_t::<ResolverOpts>());
         assert!(is_sync_t::<ResolverOpts>());
 
-        assert!(is_send_t::<AsyncResolver<TokioConnectionProvider>>());
-        assert!(is_sync_t::<AsyncResolver<TokioConnectionProvider>>());
+        assert!(is_send_t::<Resolver<TokioConnectionProvider>>());
+        assert!(is_sync_t::<Resolver<TokioConnectionProvider>>());
 
         assert!(is_send_t::<DnsRequest>());
         assert!(is_send_t::<LookupIpFuture<GenericConnection>>());
@@ -1193,7 +1191,7 @@ mod tests {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_ascii("example.com.").unwrap());
         let resolver =
-            AsyncResolver::<TokioConnectionProvider>::new(config, ResolverOpts::default(), handle);
+            Resolver::<TokioConnectionProvider>::new(config, ResolverOpts::default(), handle);
         let tor_address = [
             Name::from_ascii("2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.onion")
                 .unwrap(),

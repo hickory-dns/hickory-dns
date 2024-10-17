@@ -4,7 +4,7 @@
 //! you might integrate the resolver into a more complex application.
 
 fn main() {
-    use hickory_resolver::{name_server::TokioConnectionProvider, TokioAsyncResolver};
+    use hickory_resolver::{name_server::TokioConnectionProvider, TokioResolver};
     use tokio::runtime::Runtime;
 
     tracing_subscriber::fmt::init();
@@ -17,7 +17,7 @@ fn main() {
         #[cfg(any(unix, windows))]
         {
             // use the system resolver configuration
-            TokioAsyncResolver::from_system_conf(TokioConnectionProvider::default())
+            TokioResolver::from_system_conf(TokioConnectionProvider::default())
         }
 
         // For other operating systems, we can use one of the preconfigured definitions

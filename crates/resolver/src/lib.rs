@@ -45,10 +45,10 @@
 //! # #[cfg(feature = "tokio-runtime")]
 //! # {
 //! # use std::net::*;
-//! # use hickory_resolver::AsyncResolver;
+//! # use hickory_resolver::Resolver;
 //! // Use the host OS'es `/etc/resolv.conf`
 //! # #[cfg(unix)]
-//! let resolver = AsyncResolver::tokio_from_system_conf().unwrap();
+//! let resolver = Resolver::tokio_from_system_conf().unwrap();
 //! # #[cfg(unix)]
 //! let response = resolver.lookup_ip("www.example.com.").await.unwrap();
 //! # }
@@ -66,7 +66,7 @@
 //! # {
 //! use std::net::*;
 //! use tokio::runtime::Runtime;
-//! use hickory_resolver::TokioAsyncResolver;
+//! use hickory_resolver::TokioResolver;
 //! use hickory_resolver::config::*;
 //!
 //! // We need a Tokio Runtime to run the resolver
@@ -75,7 +75,7 @@
 //!
 //! // Construct a new Resolver with default configuration options
 //! let resolver = io_loop.block_on(async {
-//!     TokioAsyncResolver::tokio(
+//!     TokioResolver::tokio(
 //!         ResolverConfig::default(),
 //!         ResolverOpts::default())
 //! });
@@ -109,14 +109,14 @@
 //! # {
 //! # use std::net::*;
 //! # use tokio::runtime::Runtime;
-//! # use hickory_resolver::TokioAsyncResolver;
+//! # use hickory_resolver::TokioResolver;
 //! # use hickory_resolver::config::*;
 //! # use futures_util::TryFutureExt;
 //! #
 //! # let mut io_loop = Runtime::new().unwrap();
 //! #
 //! # let resolver = io_loop.block_on(async {
-//! #    TokioAsyncResolver::tokio(
+//! #    TokioResolver::tokio(
 //! #        ResolverConfig::default(),
 //! #        ResolverOpts::default())
 //! # });
@@ -174,12 +174,12 @@
 //! # fn main() {
 //! # #[cfg(feature = "tokio-runtime")]
 //! # {
-//! use hickory_resolver::TokioAsyncResolver;
+//! use hickory_resolver::TokioResolver;
 //! use hickory_resolver::config::*;
 //!
 //! // Construct a new Resolver with default configuration options
 //! # #[cfg(feature = "dns-over-tls")]
-//! let mut resolver = TokioAsyncResolver::tokio(ResolverConfig::cloudflare_tls(), ResolverOpts::default());
+//! let mut resolver = TokioResolver::tokio(ResolverConfig::cloudflare_tls(), ResolverOpts::default());
 //!
 //! // see example above...
 //! # }
@@ -218,9 +218,9 @@ pub use proto::rr::{IntoName, Name};
 mod async_resolver;
 #[cfg(feature = "testing")]
 pub use async_resolver::testing;
-pub use async_resolver::AsyncResolver;
+pub use async_resolver::Resolver;
 #[cfg(feature = "tokio-runtime")]
-pub use async_resolver::TokioAsyncResolver;
+pub use async_resolver::TokioResolver;
 pub mod caching_client;
 pub mod config;
 pub mod dns_lru;

@@ -27,7 +27,7 @@
 //!
 //! Unlike the `hickory-client`, this tries to provide a simpler interface to perform DNS queries. For update options, i.e. Dynamic DNS, the `hickory-client` crate must be used instead. The Resolver library is capable of searching multiple domains (this can be disabled by using an FQDN during lookup), dual-stack IPv4/IPv6 lookups, performing chained CNAME lookups, and features connection metric tracking for attempting to pick the best upstream DNS resolver.
 //!
-//! Use [`AsyncResolver`] for performing DNS queries. `AsyncResolver` is a `async-std` based async resolver, and can be used inside any `asyn-std` based system.
+//! Use [`Resolver`] for performing DNS queries. `Resolver` is a `async-std` based async resolver, and can be used inside any `async-std` based system.
 //!
 //! This as best as possible attempts to abide by the DNS RFCs, please file issues at <https://github.com/hickory-dns/hickory-dns>.
 //!
@@ -42,7 +42,7 @@
 //!
 //! ## Using the async-std Resolver
 //!
-//! For more advanced asynchronous usage, the [`AsyncResolver`] is integrated with async-std.
+//! For more advanced asynchronous usage, the [`Resolver`] is integrated with async-std.
 //!
 //! ```rust
 //! use std::net::*;
@@ -94,7 +94,7 @@
 //! }
 //! ```
 
-use hickory_resolver::AsyncResolver;
+use hickory_resolver::Resolver;
 
 use crate::runtime::AsyncStdConnectionProvider;
 
@@ -111,7 +111,7 @@ pub use hickory_resolver::lookup_ip;
 pub use hickory_resolver::proto;
 
 /// An AsyncResolver used with async_std
-pub type AsyncStdResolver = AsyncResolver<AsyncStdConnectionProvider>;
+pub type AsyncStdResolver = Resolver<AsyncStdConnectionProvider>;
 
 /// Construct a new async-std based `AsyncResolver` with the provided configuration.
 ///
