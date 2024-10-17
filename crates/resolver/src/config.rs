@@ -8,6 +8,8 @@
 //! Configuration for a resolver
 #![allow(clippy::use_self)]
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
