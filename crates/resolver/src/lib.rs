@@ -211,13 +211,6 @@
 #![allow(clippy::needless_doctest_main, clippy::single_component_path_imports)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-#[cfg(feature = "dns-over-tls")]
-#[macro_use]
-extern crate cfg_if;
-#[cfg(feature = "serde")]
-#[macro_use]
-extern crate serde;
-
 pub use hickory_proto as proto;
 
 mod async_resolver;
