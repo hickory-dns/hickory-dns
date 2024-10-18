@@ -28,9 +28,8 @@ use crate::{
     rr::{
         dnssec::{
             rdata::{DNSSECRData, DNSKEY, DS, RRSIG},
-            Algorithm, Proof, ProofError, ProofErrorKind, SupportedAlgorithms, TrustAnchor,
+            Algorithm, Proof, ProofError, ProofErrorKind, TrustAnchor,
         },
-        rdata::opt::EdnsOption,
         Name, RData, Record, RecordData, RecordType, SerialNumber,
     },
     xfer::{dns_handle::DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer},
@@ -151,24 +150,10 @@ where
         // TODO: cache response of the server about understood algorithms
         #[cfg(feature = "dnssec")]
         {
-            let edns = request.extensions_mut().get_or_insert_with(Edns::new);
-            edns.set_dnssec_ok(true);
-
-            // send along the algorithms which are supported by this handle
-            let mut algorithms = SupportedAlgorithms::new();
-            #[cfg(feature = "dnssec-ring")]
-            {
-                algorithms.set(Algorithm::ED25519);
-            }
-            algorithms.set(Algorithm::ECDSAP256SHA256);
-            algorithms.set(Algorithm::ECDSAP384SHA384);
-            algorithms.set(Algorithm::RSASHA256);
-
-            let dau = EdnsOption::DAU(algorithms);
-            let dhu = EdnsOption::DHU(algorithms);
-
-            edns.options_mut().insert(dau);
-            edns.options_mut().insert(dhu);
+            request
+                .extensions_mut()
+                .get_or_insert_with(Edns::new)
+                .enable_dnssec();
         }
 
         request.set_authentic_data(true);

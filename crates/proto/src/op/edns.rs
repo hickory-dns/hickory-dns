@@ -9,6 +9,8 @@
 
 use std::fmt;
 
+#[cfg(feature = "dnssec")]
+use crate::rr::dnssec::{Algorithm, SupportedAlgorithms};
 use crate::{
     error::*,
     rr::{
@@ -109,6 +111,28 @@ impl Edns {
     pub fn set_version(&mut self, version: u8) -> &mut Self {
         self.version = version;
         self
+    }
+
+    /// Creates a new extended DNS object prepared for DNSSEC messages.
+    #[cfg(feature = "dnssec")]
+    pub fn enable_dnssec(&mut self) {
+        self.set_dnssec_ok(true);
+
+        // send along the algorithms which are supported by this handle
+        let mut algorithms = SupportedAlgorithms::new();
+        #[cfg(feature = "dnssec-ring")]
+        {
+            algorithms.set(Algorithm::ED25519);
+        }
+        algorithms.set(Algorithm::ECDSAP256SHA256);
+        algorithms.set(Algorithm::ECDSAP384SHA384);
+        algorithms.set(Algorithm::RSASHA256);
+
+        let dau = EdnsOption::DAU(algorithms);
+        let dhu = EdnsOption::DHU(algorithms);
+
+        self.options_mut().insert(dau);
+        self.options_mut().insert(dhu);
     }
 
     /// Set to true if DNSSEC is supported
