@@ -295,9 +295,9 @@ where
     let nameservers = message.take_name_servers();
     let additionals = message.take_additionals();
 
-    let answers = verify_rrsets(handle.clone(), answers, options).await;
-    let nameservers = verify_rrsets(handle.clone(), nameservers, options).await;
-    let additionals = verify_rrsets(handle.clone(), additionals, options).await;
+    let answers = verify_rrsets(&handle, answers, options).await;
+    let nameservers = verify_rrsets(&handle, nameservers, options).await;
+    let additionals = verify_rrsets(&handle, additionals, options).await;
 
     message.insert_answers(answers);
     message.insert_name_servers(nameservers);
@@ -310,7 +310,7 @@ where
 ///  validate all of them.
 #[allow(clippy::type_complexity)]
 async fn verify_rrsets<H>(
-    handle: DnssecDnsHandle<H>,
+    handle: &DnssecDnsHandle<H>,
     records: Vec<Record>,
     options: DnsRequestOptions,
 ) -> Vec<Record>
