@@ -215,12 +215,6 @@ pub use hickory_proto as proto;
 // reexports from proto
 pub use proto::rr::{IntoName, Name};
 
-mod async_resolver;
-#[cfg(feature = "testing")]
-pub use async_resolver::testing;
-pub use async_resolver::Resolver;
-#[cfg(feature = "tokio-runtime")]
-pub use async_resolver::TokioResolver;
 pub mod caching_client;
 pub mod config;
 pub mod dns_lru;
@@ -239,6 +233,12 @@ pub mod name_server;
 use name_server::TokioConnectionProvider;
 #[cfg(feature = "dns-over-quic")]
 mod quic;
+mod resolver;
+#[cfg(feature = "testing")]
+pub use resolver::testing;
+pub use resolver::Resolver;
+#[cfg(feature = "tokio-runtime")]
+pub use resolver::TokioResolver;
 pub mod system_conf;
 #[cfg(feature = "dns-over-tls")]
 mod tls;
