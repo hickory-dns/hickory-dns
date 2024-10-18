@@ -10,10 +10,10 @@ use std::net::SocketAddr;
 
 use crate::tls::CLIENT_CONFIG;
 
-use proto::h2::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
-use proto::runtime::{RuntimeProvider, TokioTime};
-use proto::tcp::DnsTcpStream;
-use proto::xfer::{DnsExchange, DnsExchangeConnect};
+use crate::proto::h2::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
+use crate::proto::runtime::{RuntimeProvider, TokioTime};
+use crate::proto::tcp::DnsTcpStream;
+use crate::proto::xfer::{DnsExchange, DnsExchangeConnect};
 
 use crate::config::TlsClientConfig;
 
@@ -82,12 +82,12 @@ mod tests {
 
     use crate::config::{ResolverConfig, ResolverOpts};
     use crate::name_server::TokioConnectionProvider;
-    use crate::TokioAsyncResolver;
+    use crate::TokioResolver;
 
     fn https_test(config: ResolverConfig) {
         let io_loop = Runtime::new().unwrap();
 
-        let resolver = TokioAsyncResolver::new(
+        let resolver = TokioResolver::new(
             config,
             ResolverOpts {
                 try_tcp_on_error: true,

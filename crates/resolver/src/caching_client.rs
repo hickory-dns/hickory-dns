@@ -513,10 +513,10 @@ mod tests {
     use std::str::FromStr;
     use std::time::*;
 
+    use crate::proto::op::{Message, Query};
+    use crate::proto::rr::rdata::{NS, SRV};
+    use crate::proto::rr::{Name, Record};
     use futures_executor::block_on;
-    use proto::op::{Message, Query};
-    use proto::rr::rdata::{NS, SRV};
-    use proto::rr::{Name, Record};
 
     use super::*;
     use crate::lookup_ip::tests::*;

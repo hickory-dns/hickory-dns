@@ -11,9 +11,9 @@ use std::sync::Arc;
 use crate::config::TlsClientConfig;
 use crate::tls::CLIENT_CONFIG;
 
-use proto::h3::{H3ClientConnect, H3ClientStream};
-use proto::runtime::TokioTime;
-use proto::xfer::{DnsExchange, DnsExchangeConnect};
+use crate::proto::h3::{H3ClientConnect, H3ClientStream};
+use crate::proto::runtime::TokioTime;
+use crate::proto::xfer::{DnsExchange, DnsExchangeConnect};
 
 use rustls::ClientConfig as CryptoConfig;
 
@@ -81,12 +81,12 @@ mod tests {
 
     use crate::config::{ResolverConfig, ResolverOpts};
     use crate::name_server::TokioConnectionProvider;
-    use crate::TokioAsyncResolver;
+    use crate::TokioResolver;
 
     fn h3_test(config: ResolverConfig) {
         let io_loop = Runtime::new().unwrap();
 
-        let resolver = TokioAsyncResolver::new(
+        let resolver = TokioResolver::new(
             config,
             ResolverOpts::default(),
             TokioConnectionProvider::default(),

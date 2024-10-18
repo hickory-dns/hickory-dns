@@ -7,10 +7,10 @@ use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use proto::op::Query;
-use proto::rr::rdata::PTR;
-use proto::rr::{Name, RecordType};
-use proto::rr::{RData, Record};
+use crate::proto::op::Query;
+use crate::proto::rr::rdata::PTR;
+use crate::proto::rr::{Name, RecordType};
+use crate::proto::rr::{RData, Record};
 use tracing::warn;
 
 use crate::dns_lru;
@@ -138,7 +138,7 @@ impl Hosts {
     pub fn read_hosts_conf(&mut self, src: impl io::Read) -> io::Result<()> {
         use std::io::{BufRead, BufReader};
 
-        use proto::rr::domain::TryParseIp;
+        use crate::proto::rr::domain::TryParseIp;
 
         // lines in the src should have the form `addr host1 host2 host3 ...`
         // line starts with `#` will be regarded with comments and ignored,

@@ -12,10 +12,10 @@ use std::future::Future;
 use std::net::SocketAddr;
 use std::pin::Pin;
 
-use proto::error::ProtoError;
-use proto::native_tls::{TlsClientStream, TlsClientStreamBuilder};
-use proto::runtime::RuntimeProvider;
-use proto::BufDnsStreamHandle;
+use crate::proto::error::ProtoError;
+use crate::proto::native_tls::{TlsClientStream, TlsClientStreamBuilder};
+use crate::proto::runtime::RuntimeProvider;
+use crate::proto::BufDnsStreamHandle;
 
 #[allow(clippy::type_complexity)]
 pub(crate) fn new_tls_stream_with_future<P: RuntimeProvider, F>(

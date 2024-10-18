@@ -94,7 +94,7 @@
 //! }
 //! ```
 
-use hickory_resolver::AsyncResolver;
+use hickory_resolver::Resolver;
 
 use crate::runtime::AsyncStdConnectionProvider;
 
@@ -111,7 +111,7 @@ pub use hickory_resolver::lookup_ip;
 pub use hickory_resolver::proto;
 
 /// An AsyncResolver used with async_std
-pub type AsyncStdResolver = AsyncResolver<AsyncStdConnectionProvider>;
+pub type AsyncStdResolver = Resolver<AsyncStdConnectionProvider>;
 
 /// Construct a new async-std based `AsyncResolver` with the provided configuration.
 ///

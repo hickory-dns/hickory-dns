@@ -8,6 +8,8 @@
 //! Configuration for a resolver
 #![allow(clippy::use_self)]
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
@@ -15,8 +17,8 @@ use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use std::time::Duration;
 
-use proto::rr::Name;
-use proto::xfer::Protocol;
+use crate::proto::rr::Name;
+use crate::proto::xfer::Protocol;
 #[cfg(feature = "dns-over-rustls")]
 use rustls::ClientConfig;
 

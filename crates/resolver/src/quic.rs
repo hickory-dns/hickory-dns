@@ -9,9 +9,9 @@ use rustls::ClientConfig as CryptoConfig;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use crate::proto::runtime::TokioTime;
+use crate::proto::xfer::{DnsExchange, DnsExchangeConnect};
 use hickory_proto::quic::{QuicClientConnect, QuicClientStream};
-use proto::runtime::TokioTime;
-use proto::xfer::{DnsExchange, DnsExchangeConnect};
 
 use crate::config::TlsClientConfig;
 use crate::tls::CLIENT_CONFIG;
@@ -79,12 +79,12 @@ mod tests {
 
     use crate::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts};
     use crate::name_server::TokioConnectionProvider;
-    use crate::TokioAsyncResolver;
+    use crate::TokioResolver;
 
     fn quic_test(config: ResolverConfig) {
         let io_loop = Runtime::new().unwrap();
 
-        let resolver = TokioAsyncResolver::new(
+        let resolver = TokioResolver::new(
             config,
             ResolverOpts {
                 try_tcp_on_error: true,

@@ -5,6 +5,8 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use cfg_if::cfg_if;
+
 mod dns_over_native_tls;
 mod dns_over_openssl;
 mod dns_over_rustls;
@@ -33,12 +35,12 @@ mod tests {
 
     use crate::config::{ResolverConfig, ResolverOpts};
     use crate::name_server::TokioConnectionProvider;
-    use crate::TokioAsyncResolver;
+    use crate::TokioResolver;
 
     fn tls_test(config: ResolverConfig) {
         let io_loop = Runtime::new().unwrap();
 
-        let resolver = TokioAsyncResolver::new(
+        let resolver = TokioResolver::new(
             config,
             ResolverOpts {
                 try_tcp_on_error: true,
