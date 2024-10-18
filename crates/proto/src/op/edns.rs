@@ -117,13 +117,18 @@ impl Edns {
     #[cfg(feature = "dnssec")]
     pub fn enable_dnssec(&mut self) {
         self.set_dnssec_ok(true);
+        self.set_default_algorithms();
+    }
 
-        // send along the algorithms which are supported by this handle
+    /// Set the default algorithms which are supported by this handle
+    ///
+    /// Set both Algorithms Understood (DAU) and Hash Understood (DHU) to the same algorithms.
+    #[cfg(feature = "dnssec")]
+    pub fn set_default_algorithms(&mut self) -> &mut Self {
         let mut algorithms = SupportedAlgorithms::new();
+
         #[cfg(feature = "dnssec-ring")]
-        {
-            algorithms.set(Algorithm::ED25519);
-        }
+        algorithms.set(Algorithm::ED25519);
         algorithms.set(Algorithm::ECDSAP256SHA256);
         algorithms.set(Algorithm::ECDSAP384SHA384);
         algorithms.set(Algorithm::RSASHA256);
@@ -133,6 +138,7 @@ impl Edns {
 
         self.options_mut().insert(dau);
         self.options_mut().insert(dhu);
+        self
     }
 
     /// Set to true if DNSSEC is supported
