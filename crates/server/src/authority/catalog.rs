@@ -18,7 +18,7 @@ use crate::{
     authority::Nsec3QueryInfo,
     dnssec::NxProofKind,
     proto::rr::{
-        dnssec::{Algorithm, SupportedAlgorithms},
+        dnssec::SupportedAlgorithms,
         rdata::opt::{EdnsCode, EdnsOption},
     },
 };
@@ -57,19 +57,7 @@ async fn send_response<'a, R: ResponseHandler>(
     if let Some(mut resp_edns) = response_edns {
         #[cfg(feature = "dnssec")]
         {
-            // set edns DAU and DHU
-            // send along the algorithms which are supported by this authority
-            let mut algorithms = SupportedAlgorithms::default();
-            algorithms.set(Algorithm::RSASHA256);
-            algorithms.set(Algorithm::ECDSAP256SHA256);
-            algorithms.set(Algorithm::ECDSAP384SHA384);
-            algorithms.set(Algorithm::ED25519);
-
-            let dau = EdnsOption::DAU(algorithms);
-            let dhu = EdnsOption::DHU(algorithms);
-
-            resp_edns.options_mut().insert(dau);
-            resp_edns.options_mut().insert(dhu);
+            resp_edns.set_default_algorithms();
         }
         response.set_edns(resp_edns);
     }

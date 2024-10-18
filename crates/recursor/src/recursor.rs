@@ -415,24 +415,6 @@ enum RecursorMode {
     },
 }
 
-#[cfg(test)]
-#[tokio::test]
-async fn not_fully_qualified_domain_name_in_query() -> Result<(), Error> {
-    use crate::{proto::rr::RecordType, resolver::Name};
-
-    let recursor = Recursor::builder().build(NameServerConfigGroup::cloudflare())?;
-    let name = Name::from_ascii("example.com")?;
-    assert!(!name.is_fqdn());
-    let query = Query::query(name, RecordType::A);
-    let res = recursor
-        .resolve(query, Instant::now(), false)
-        .await
-        .unwrap_err();
-    assert!(res.to_string().contains("fully qualified"));
-
-    Ok(())
-}
-
 #[cfg(feature = "dnssec")]
 mod for_dnssec {
     use std::time::Instant;
@@ -492,5 +474,27 @@ mod for_dnssec {
             })
             .boxed()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn not_fully_qualified_domain_name_in_query() -> Result<(), Error> {
+        use crate::{proto::rr::RecordType, resolver::Name};
+
+        let recursor = Recursor::builder().build(NameServerConfigGroup::cloudflare())?;
+        let name = Name::from_ascii("example.com")?;
+        assert!(!name.is_fqdn());
+        let query = Query::query(name, RecordType::A);
+        let res = recursor
+            .resolve(query, Instant::now(), false)
+            .await
+            .unwrap_err();
+        assert!(res.to_string().contains("fully qualified"));
+
+        Ok(())
     }
 }

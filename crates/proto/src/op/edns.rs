@@ -9,6 +9,8 @@
 
 use std::fmt;
 
+#[cfg(feature = "dnssec")]
+use crate::rr::dnssec::{Algorithm, SupportedAlgorithms};
 use crate::{
     error::*,
     rr::{
@@ -54,6 +56,15 @@ impl Edns {
     /// Creates a new extended DNS object.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Creates a new extended DNS object prepared for DNSSEC messages.
+    #[cfg(feature = "dnssec")]
+    pub fn for_dnssec() -> Self {
+        let mut new = Self::default();
+        new.set_dnssec_ok(true);
+        new.set_default_algorithms();
+        new
     }
 
     /// The high order bytes for the response code in the DNS Message
@@ -135,6 +146,27 @@ impl Edns {
     /// From RFC 6891: `Values lower than 512 MUST be treated as equal to 512`
     pub fn set_max_payload(&mut self, max_payload: u16) -> &mut Self {
         self.max_payload = max_payload.max(512);
+        self
+    }
+
+    /// Set the default algorithms which are supported by this handle
+    ///
+    /// Set both Algorithms Understood (DAU) and Hash Understood (DHU) to the same algorithms.
+    #[cfg(feature = "dnssec")]
+    pub fn set_default_algorithms(&mut self) -> &mut Self {
+        let mut algorithms = SupportedAlgorithms::new();
+
+        #[cfg(feature = "dnssec-ring")]
+        algorithms.set(Algorithm::ED25519);
+        algorithms.set(Algorithm::ECDSAP256SHA256);
+        algorithms.set(Algorithm::ECDSAP384SHA384);
+        algorithms.set(Algorithm::RSASHA256);
+
+        let dau = EdnsOption::DAU(algorithms);
+        let dhu = EdnsOption::DHU(algorithms);
+
+        self.options_mut().insert(dau);
+        self.options_mut().insert(dhu);
         self
     }
 
