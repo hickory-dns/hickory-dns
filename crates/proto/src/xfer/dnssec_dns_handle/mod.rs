@@ -252,25 +252,21 @@ fn check_nsec(verified_message: DnsResponse, query: &Query) -> Result<DnsRespons
     // Both NSEC and NSEC3 records cannot coexist during
     // transition periods, as per RFC 5515 10.4.3 and
     // 10.5.2
-    let nsec_proof = match (nsec3s.is_empty(), nsecs.is_empty()) {
-        (false, true) => verify_nsec3(
+    let nsec_proof = match (!nsec3s.is_empty(), !nsecs.is_empty()) {
+        (true, false) => verify_nsec3(
             query,
             soa_name,
             verified_message.response_code(),
             verified_message.answers(),
             &nsec3s,
         ),
-        (true, false) => verify_nsec(query, soa_name, nsecs.as_slice()),
-        (false, false) => {
-            warn!(
-            "response contains both NSEC and NSEC3 records\nQuery:\n{query:?}\nResponse:\n{verified_message:?}"
-        );
+        (false, true) => verify_nsec(query, soa_name, nsecs.as_slice()),
+        (true, true) => {
+            warn!("response contains both NSEC and NSEC3 records\nQuery:\n{query:?}\nResponse:\n{verified_message:?}");
             Proof::Bogus
         }
-        (true, true) => {
-            warn!(
-            "response does not contain NSEC or NSEC3 records. Query: {query:?} response: {verified_message:?}"
-        );
+        (false, false) => {
+            warn!("response does not contain NSEC or NSEC3 records. Query: {query:?} response: {verified_message:?}");
             Proof::Bogus
         }
     };
