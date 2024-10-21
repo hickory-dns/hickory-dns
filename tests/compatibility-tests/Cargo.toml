@@ -46,6 +46,7 @@ rand.workspace = true
 
 [dev-dependencies]
 futures.workspace = true
+hickory-client = { workspace = true, features = ["dnssec-openssl"] }
 openssl = { workspace = true, features = ["v102", "v110"] }
 time.workspace = true
-hickory-client = { workspace = true, features = ["dnssec-openssl"] }
+tokio.workspace = true
