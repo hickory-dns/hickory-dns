@@ -48,7 +48,6 @@ use crate::proto::runtime::iocompat::AsyncIoTokioAsStd;
 use crate::proto::runtime::TokioTime;
 use crate::proto::{
     error::ProtoError,
-    op::NoopMessageFinalizer,
     runtime::RuntimeProvider,
     tcp::TcpClientStream,
     udp::{UdpClientConnect, UdpClientStream},
@@ -89,9 +88,8 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
             DnsMultiplexerConnect<
                 Pin<Box<dyn Future<Output = Result<TcpClientStream<R::Tcp>, ProtoError>> + Send>>,
                 TcpClientStream<<R as RuntimeProvider>::Tcp>,
-                NoopMessageFinalizer,
             >,
-            DnsMultiplexer<TcpClientStream<<R as RuntimeProvider>::Tcp>, NoopMessageFinalizer>,
+            DnsMultiplexer<TcpClientStream<<R as RuntimeProvider>::Tcp>>,
             R::Timer,
         >,
     ),
@@ -111,9 +109,8 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
                     >,
                 >,
                 TlsClientStream<<R as RuntimeProvider>::Tcp>,
-                NoopMessageFinalizer,
             >,
-            DnsMultiplexer<TlsClientStream<<R as RuntimeProvider>::Tcp>, NoopMessageFinalizer>,
+            DnsMultiplexer<TlsClientStream<<R as RuntimeProvider>::Tcp>>,
             TokioTime,
         >,
     ),
@@ -241,13 +238,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 );
 
                 // TODO: need config for Signer...
-                let dns_conn = DnsMultiplexer::with_timeout(
-                    future,
-                    handle,
-                    options.timeout,
-                    NoopMessageFinalizer::new(),
-                );
-
+                let dns_conn = DnsMultiplexer::with_timeout(future, handle, options.timeout, None);
                 let exchange = DnsExchange::connect(dns_conn);
                 ConnectionConnect::Tcp(exchange)
             }
@@ -280,13 +271,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                     )
                 };
 
-                let dns_conn = DnsMultiplexer::with_timeout(
-                    stream,
-                    handle,
-                    timeout,
-                    NoopMessageFinalizer::new(),
-                );
-
+                let dns_conn = DnsMultiplexer::with_timeout(stream, handle, timeout, None);
                 let exchange = DnsExchange::connect(dns_conn);
                 ConnectionConnect::Tls(exchange)
             }

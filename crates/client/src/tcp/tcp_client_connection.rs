@@ -13,13 +13,13 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
-use hickory_proto::error::ProtoError;
-use hickory_proto::runtime::RuntimeProvider;
-
-use crate::client::{ClientConnection, Signer};
+use crate::client::ClientConnection;
 use crate::error::ClientResult;
 use crate::proto::tcp::TcpClientStream;
 use crate::proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
+use hickory_proto::error::ProtoError;
+use hickory_proto::op::MessageFinalizer;
+use hickory_proto::runtime::RuntimeProvider;
 
 /// Tcp client connection
 ///
@@ -90,14 +90,13 @@ impl<P> TcpClientConnection<P> {
 }
 
 impl<P: RuntimeProvider> ClientConnection for TcpClientConnection<P> {
-    type Sender = DnsMultiplexer<TcpClientStream<P::Tcp>, Signer>;
+    type Sender = DnsMultiplexer<TcpClientStream<P::Tcp>>;
     type SenderFuture = DnsMultiplexerConnect<
         Pin<Box<dyn Future<Output = Result<TcpClientStream<P::Tcp>, ProtoError>> + Send>>,
         TcpClientStream<P::Tcp>,
-        Signer,
     >;
 
-    fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
+    fn new_stream(&self, signer: Option<Arc<dyn MessageFinalizer>>) -> Self::SenderFuture {
         let provider = self.provider.clone();
         let (stream, sender) = TcpClientStream::new(
             self.name_server,

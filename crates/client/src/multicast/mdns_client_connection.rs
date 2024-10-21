@@ -12,10 +12,11 @@ use std::sync::Arc;
 
 use crate::proto::{
     multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType, MDNS_IPV4, MDNS_IPV6},
+    op::MessageFinalizer,
     xfer::{DnsMultiplexer, DnsMultiplexerConnect},
 };
 
-use crate::client::{ClientConnection, Signer};
+use crate::client::ClientConnection;
 
 /// MDNS based DNS Client connection
 ///
@@ -51,10 +52,10 @@ impl MdnsClientConnection {
 }
 
 impl ClientConnection for MdnsClientConnection {
-    type Sender = DnsMultiplexer<MdnsClientStream, Signer>;
-    type SenderFuture = DnsMultiplexerConnect<MdnsClientConnect, MdnsClientStream, Signer>;
+    type Sender = DnsMultiplexer<MdnsClientStream>;
+    type SenderFuture = DnsMultiplexerConnect<MdnsClientConnect, MdnsClientStream>;
 
-    fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
+    fn new_stream(&self, signer: Option<Arc<dyn MessageFinalizer>>) -> Self::SenderFuture {
         let (mdns_client_stream, handle) = MdnsClientStream::new(
             self.multicast_addr,
             MdnsQueryType::OneShot,

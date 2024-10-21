@@ -7,7 +7,7 @@ use std::{
 use tokio::runtime::Runtime;
 
 use hickory_proto::{
-    op::{NoopMessageFinalizer, Query},
+    op::Query,
     rr::{rdata::A, DNSClass, Name, RData, Record, RecordType},
     runtime::TokioTime,
     xfer::{DnsExchange, DnsMultiplexer, DnsResponse},
@@ -34,7 +34,7 @@ fn test_lookup() {
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
-    let dns_conn = DnsMultiplexer::new(stream, sender, NoopMessageFinalizer::new());
+    let dns_conn = DnsMultiplexer::new(stream, sender, None);
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
 
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
@@ -62,7 +62,7 @@ fn test_lookup_hosts() {
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
-    let dns_conn = DnsMultiplexer::new(stream, sender, NoopMessageFinalizer::new());
+    let dns_conn = DnsMultiplexer::new(stream, sender, None);
 
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
     let (client, bg) = io_loop.block_on(client).expect("client connect failed");
@@ -120,7 +120,7 @@ fn test_lookup_ipv4_like() {
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
-    let dns_conn = DnsMultiplexer::new(stream, sender, NoopMessageFinalizer::new());
+    let dns_conn = DnsMultiplexer::new(stream, sender, None);
 
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
     let (client, bg) = io_loop.block_on(client).expect("client connect failed");
@@ -150,7 +150,7 @@ fn test_lookup_ipv4_like_fall_through() {
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
-    let dns_conn = DnsMultiplexer::new(stream, sender, NoopMessageFinalizer::new());
+    let dns_conn = DnsMultiplexer::new(stream, sender, None);
 
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
     let (client, bg) = io_loop.block_on(client).expect("client connect failed");

@@ -21,13 +21,10 @@ use futures::{
 };
 use tokio::time::{Duration, Instant, Sleep};
 
-use hickory_client::{
-    client::{ClientConnection, Signer},
-    error::ClientResult,
-};
+use hickory_client::{client::ClientConnection, error::ClientResult};
 use hickory_proto::{
     error::ProtoError,
-    op::Message,
+    op::{Message, MessageFinalizer},
     rr::Record,
     runtime::TokioTime,
     serialize::binary::{BinDecodable, BinDecoder, BinEncoder},
@@ -271,14 +268,13 @@ impl NeverReturnsClientConnection {
 
 #[allow(clippy::type_complexity)]
 impl ClientConnection for NeverReturnsClientConnection {
-    type Sender = DnsMultiplexer<NeverReturnsClientStream, Signer>;
+    type Sender = DnsMultiplexer<NeverReturnsClientStream>;
     type SenderFuture = DnsMultiplexerConnect<
         Pin<Box<dyn Future<Output = Result<NeverReturnsClientStream, ProtoError>> + Send>>,
         NeverReturnsClientStream,
-        Signer,
     >;
 
-    fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
+    fn new_stream(&self, signer: Option<Arc<dyn MessageFinalizer>>) -> Self::SenderFuture {
         let (client_stream, handle) = NeverReturnsClientStream::new();
 
         DnsMultiplexer::new(Box::pin(client_stream), handle, signer)

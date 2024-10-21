@@ -95,23 +95,21 @@ impl ActiveRequest {
 ///  implementations. This should be used for underlying protocols that do not natively support
 ///  multiplexed sessions.
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsMultiplexer<S, MF>
+pub struct DnsMultiplexer<S>
 where
     S: DnsClientStream + 'static,
-    MF: MessageFinalizer,
 {
     stream: S,
     timeout_duration: Duration,
     stream_handle: BufDnsStreamHandle,
     active_requests: HashMap<u16, ActiveRequest>,
-    signer: Option<Arc<MF>>,
+    signer: Option<Arc<dyn MessageFinalizer>>,
     is_shutdown: bool,
 }
 
-impl<S, MF> DnsMultiplexer<S, MF>
+impl<S> DnsMultiplexer<S>
 where
     S: DnsClientStream + Unpin + 'static,
-    MF: MessageFinalizer,
 {
     /// Spawns a new DnsMultiplexer Stream. This uses a default timeout of 5 seconds for all requests.
     ///
@@ -125,8 +123,8 @@ where
     pub fn new<F>(
         stream: F,
         stream_handle: BufDnsStreamHandle,
-        signer: Option<Arc<MF>>,
-    ) -> DnsMultiplexerConnect<F, S, MF>
+        signer: Option<Arc<dyn MessageFinalizer>>,
+    ) -> DnsMultiplexerConnect<F, S>
     where
         F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
     {
@@ -147,8 +145,8 @@ where
         stream: F,
         stream_handle: BufDnsStreamHandle,
         timeout_duration: Duration,
-        signer: Option<Arc<MF>>,
-    ) -> DnsMultiplexerConnect<F, S, MF>
+        signer: Option<Arc<dyn MessageFinalizer>>,
+    ) -> DnsMultiplexerConnect<F, S>
     where
         F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
     {
@@ -218,25 +216,23 @@ where
 
 /// A wrapper for a future DnsExchange connection
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsMultiplexerConnect<F, S, MF>
+pub struct DnsMultiplexerConnect<F, S>
 where
     F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
     S: Stream<Item = Result<SerialMessage, ProtoError>> + Unpin,
-    MF: MessageFinalizer + Send + Sync + 'static,
 {
     stream: F,
     stream_handle: Option<BufDnsStreamHandle>,
     timeout_duration: Duration,
-    signer: Option<Arc<MF>>,
+    signer: Option<Arc<dyn MessageFinalizer>>,
 }
 
-impl<F, S, MF> Future for DnsMultiplexerConnect<F, S, MF>
+impl<F, S> Future for DnsMultiplexerConnect<F, S>
 where
     F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
     S: DnsClientStream + Unpin + 'static,
-    MF: MessageFinalizer + Send + Sync + 'static,
 {
-    type Output = Result<DnsMultiplexer<S, MF>, ProtoError>;
+    type Output = Result<DnsMultiplexer<S>, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let stream: S = ready!(self.stream.poll_unpin(cx))?;
@@ -255,20 +251,18 @@ where
     }
 }
 
-impl<S, MF> Display for DnsMultiplexer<S, MF>
+impl<S> Display for DnsMultiplexer<S>
 where
     S: DnsClientStream + 'static,
-    MF: MessageFinalizer + Send + Sync + 'static,
 {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(formatter, "{}", self.stream)
     }
 }
 
-impl<S, MF> DnsRequestSender for DnsMultiplexer<S, MF>
+impl<S> DnsRequestSender for DnsMultiplexer<S>
 where
     S: DnsClientStream + Unpin + 'static,
-    MF: MessageFinalizer + Send + Sync + 'static,
 {
     fn send_message(&mut self, request: DnsRequest) -> DnsResponseStream {
         if self.is_shutdown {
@@ -298,7 +292,7 @@ where
         let mut verifier = None;
         if let Some(signer) = &self.signer {
             if signer.should_finalize_message(&request) {
-                match request.finalize::<MF>(signer.borrow(), now) {
+                match request.finalize(signer.borrow(), now) {
                     Ok(answer_verifier) => verifier = answer_verifier,
                     Err(e) => {
                         debug!("could not sign message: {}", e);
@@ -361,10 +355,9 @@ where
     }
 }
 
-impl<S, MF> Stream for DnsMultiplexer<S, MF>
+impl<S> Stream for DnsMultiplexer<S>
 where
     S: DnsClientStream + Unpin + 'static,
-    MF: MessageFinalizer + Send + Sync + 'static,
 {
     type Item = Result<(), ProtoError>;
 
@@ -441,7 +434,6 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::op::message::NoopMessageFinalizer;
     use crate::op::op_code::OpCode;
     use crate::op::{Message, MessageType, Query};
     use crate::rr::record_type::RecordType;
@@ -520,7 +512,7 @@ mod test {
 
     async fn get_mocked_multiplexer(
         mock_response: Vec<Message>,
-    ) -> DnsMultiplexer<MockClientStream, NoopMessageFinalizer> {
+    ) -> DnsMultiplexer<MockClientStream> {
         let addr = SocketAddr::from(([127, 0, 0, 1], 1234));
         let mock_response = MockClientStream::new(mock_response, addr);
         let (handler, receiver) = BufDnsStreamHandle::new(addr);

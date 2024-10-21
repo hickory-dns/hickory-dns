@@ -10,11 +10,12 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use hickory_proto::h2::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
-use hickory_proto::runtime::RuntimeProvider;
+use hickory_proto::op::MessageFinalizer;
 use rustls::ClientConfig;
 
-use crate::client::{ClientConnection, Signer};
+use crate::client::ClientConnection;
+use hickory_proto::h2::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
+use hickory_proto::runtime::RuntimeProvider;
 
 /// HTTP/2 based DNS Client connection
 ///
@@ -151,7 +152,7 @@ impl<P: RuntimeProvider> ClientConnection for HttpsClientConnection<P> {
     fn new_stream(
         &self,
         // TODO: maybe signer needs to be applied in https...
-        _signer: Option<Arc<Signer>>,
+        _signer: Option<Arc<dyn MessageFinalizer>>,
     ) -> Self::SenderFuture {
         // TODO: maybe signer needs to be applied in https...
         let mut https_builder = HttpsClientStreamBuilder::with_client_config(

@@ -7,7 +7,7 @@
 
 //! Basic protocol message for DNS
 
-use std::{fmt, iter, mem, ops::Deref, sync::Arc};
+use std::{fmt, iter, mem, ops::Deref};
 
 use tracing::{debug, warn};
 
@@ -779,9 +779,9 @@ impl Message {
     ///
     /// Subsequent to calling this, the Message should not change.
     #[allow(clippy::match_single_binding)]
-    pub fn finalize<MF: MessageFinalizer>(
+    pub fn finalize(
         &mut self,
-        finalizer: &MF,
+        finalizer: &dyn MessageFinalizer,
         inception_time: u32,
     ) -> ProtoResult<Option<MessageVerifier>> {
         debug!("finalizing message: {:?}", self);
@@ -924,33 +924,6 @@ pub trait MessageFinalizer: Send + Sync + 'static {
                 .queries()
                 .iter()
                 .any(|q| [RecordType::AXFR, RecordType::IXFR].contains(&q.query_type()))
-    }
-}
-
-/// A MessageFinalizer which does nothing
-///
-/// *WARNING* This should only be used in None context, it will panic in all cases where finalize is called.
-#[derive(Clone, Copy, Debug)]
-pub struct NoopMessageFinalizer;
-
-impl NoopMessageFinalizer {
-    /// Always returns None
-    pub fn new() -> Option<Arc<Self>> {
-        None
-    }
-}
-
-impl MessageFinalizer for NoopMessageFinalizer {
-    fn finalize_message(
-        &self,
-        _: &Message,
-        _: u32,
-    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
-        panic!("Misused NoopMessageFinalizer, None should be used instead")
-    }
-
-    fn should_finalize_message(&self, _: &Message) -> bool {
-        true
     }
 }
 
