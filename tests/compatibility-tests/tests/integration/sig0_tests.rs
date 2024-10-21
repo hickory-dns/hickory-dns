@@ -11,32 +11,36 @@ use std::fs::File;
 use std::io::Read;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::FromStr;
+use std::sync::Arc;
 
 use openssl::rsa::Rsa;
 use time::Duration;
 
-use hickory_client::client::Client;
-use hickory_client::client::SyncClient;
+use hickory_client::client::AsyncClient;
+use hickory_client::client::ClientHandle;
 use hickory_client::proto::op::ResponseCode;
 use hickory_client::proto::rr::dnssec::rdata::key::{KeyUsage, KEY};
 use hickory_client::proto::rr::dnssec::{Algorithm, KeyPair, SigSigner};
 use hickory_client::proto::rr::Name;
 use hickory_client::proto::rr::{DNSClass, RData, Record, RecordType};
-use hickory_client::udp::UdpClientConnection;
+use hickory_client::proto::runtime::TokioRuntimeProvider;
+use hickory_client::proto::udp::UdpClientStream;
 use hickory_compatibility::named_process;
 
-#[test]
-fn test_get() {
+#[tokio::test]
+async fn test_get() {
     use hickory_client::proto::rr::rdata::A;
 
-    let (process, port) = named_process();
+    let (_process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
-    let conn = UdpClientConnection::new(socket).unwrap();
-    let client = SyncClient::new(conn);
+    let conn = UdpClientStream::builder(socket, TokioRuntimeProvider::default()).build();
+    let (mut client, driver) = AsyncClient::connect(conn).await.expect("failed to connect");
+    tokio::spawn(driver);
 
     let name = Name::from_str("www.example.com.").unwrap();
     let result = client
-        .query(&name, DNSClass::IN, RecordType::A)
+        .query(name, DNSClass::IN, RecordType::A)
+        .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
@@ -50,13 +54,9 @@ fn test_get() {
     }
 }
 
-#[test]
-fn test_create() {
+#[tokio::test]
+async fn test_create() {
     use hickory_client::proto::rr::rdata::A;
-
-    let (process, port) = named_process();
-    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
-    let conn = UdpClientConnection::new(socket).unwrap();
 
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
     let pem_path = format!(
@@ -80,7 +80,14 @@ fn test_create() {
 
     let signer = SigSigner::sig0(sig0key, key, Name::from_str("update.example.com").unwrap());
     assert_eq!(signer.calculate_key_tag().unwrap(), 56935_u16);
-    let client = SyncClient::with_signer(conn, signer);
+
+    let (_process, port) = named_process();
+    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
+    let conn = UdpClientStream::builder(socket, TokioRuntimeProvider::default())
+        .with_signer(Some(Arc::new(signer)))
+        .build();
+    let (mut client, driver) = AsyncClient::connect(conn).await.expect("failed to connect");
+    tokio::spawn(driver);
 
     // create a record
     let mut record = Record::from_rdata(
@@ -92,10 +99,16 @@ fn test_create() {
     let origin = Name::from_str("example.com.").unwrap();
     let result = client
         .create(record.clone(), origin.clone())
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     let result = client
-        .query(record.name(), record.dns_class(), record.record_type())
+        .query(
+            record.name().clone(),
+            record.dns_class(),
+            record.record_type(),
+        )
+        .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
@@ -105,13 +118,14 @@ fn test_create() {
     // TODO: it would be cool to make this
     let result = client
         .create(record.clone(), origin.clone())
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 
     // will fail if already set and not the same value.
     record.set_data(RData::A(A::new(101, 11, 101, 11)));
 
-    let result = client.create(record, origin).expect("create failed");
+    let result = client.create(record, origin).await.expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
 
