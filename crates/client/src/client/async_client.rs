@@ -19,7 +19,7 @@ use futures_util::{
 };
 use hickory_proto::{
     error::{ProtoError, ProtoErrorKind},
-    op::{update_message, Edns, Message, MessageType, OpCode, Query},
+    op::{update_message, Edns, Message, MessageFinalizer, MessageType, OpCode, Query},
     rr::{rdata::SOA, DNSClass, Name, Record, RecordSet, RecordType},
     runtime::TokioTime,
     xfer::{
@@ -30,7 +30,7 @@ use hickory_proto::{
 use rand;
 use tracing::debug;
 
-use crate::{client::Signer, error::*};
+use crate::error::*;
 
 #[doc(hidden)]
 #[deprecated(since = "0.25.0", note = "use `AsyncClient` instead")]
@@ -59,14 +59,8 @@ impl AsyncClient {
     pub async fn new<F, S>(
         stream: F,
         stream_handle: BufDnsStreamHandle,
-        signer: Option<Arc<Signer>>,
-    ) -> Result<
-        (
-            Self,
-            DnsExchangeBackground<DnsMultiplexer<S, Signer>, TokioTime>,
-        ),
-        ProtoError,
-    >
+        signer: Option<Arc<dyn MessageFinalizer>>,
+    ) -> Result<(Self, DnsExchangeBackground<DnsMultiplexer<S>, TokioTime>), ProtoError>
     where
         F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
         S: DnsClientStream + 'static + Unpin,
@@ -88,14 +82,8 @@ impl AsyncClient {
         stream: F,
         stream_handle: BufDnsStreamHandle,
         timeout_duration: Duration,
-        signer: Option<Arc<Signer>>,
-    ) -> Result<
-        (
-            Self,
-            DnsExchangeBackground<DnsMultiplexer<S, Signer>, TokioTime>,
-        ),
-        ProtoError,
-    >
+        signer: Option<Arc<dyn MessageFinalizer>>,
+    ) -> Result<(Self, DnsExchangeBackground<DnsMultiplexer<S>, TokioTime>), ProtoError>
     where
         F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
         S: DnsClientStream + 'static + Unpin,

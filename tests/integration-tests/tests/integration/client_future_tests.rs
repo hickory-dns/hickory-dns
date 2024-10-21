@@ -10,8 +10,6 @@ use test_support::subscribe;
 use time::Duration;
 use tokio::runtime::Runtime;
 
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
-use hickory_client::client::Signer;
 use hickory_client::{
     client::{AsyncClient, ClientHandle},
     error::ClientErrorKind,
@@ -290,7 +288,7 @@ fn test_notify() {
 async fn create_sig0_ready_client() -> (
     (
         AsyncClient,
-        DnsExchangeBackground<DnsMultiplexer<TestClientStream, Signer>, TokioTime>,
+        DnsExchangeBackground<DnsMultiplexer<TestClientStream>, TokioTime>,
     ),
     Name,
 ) {
@@ -323,7 +321,7 @@ async fn create_sig0_ready_client() -> (
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
 
-    let signer = Arc::new(signer.into());
+    let signer = Arc::new(signer);
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let client = AsyncClient::new(stream, sender, Some(signer))
         .await

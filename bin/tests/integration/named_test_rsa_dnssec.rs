@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tokio::runtime::Runtime;
 
 use crate::server_harness::*;
-use hickory_client::client::{Signer, *};
+use hickory_client::client::AsyncClient;
 use hickory_proto::rr::dnssec::*;
 use hickory_proto::runtime::{RuntimeProvider, TokioRuntimeProvider, TokioTime};
 use hickory_proto::tcp::TcpClientStream;
@@ -59,7 +59,7 @@ async fn standard_tcp_conn<P: RuntimeProvider>(
     provider: P,
 ) -> (
     AsyncClient,
-    DnsExchangeBackground<DnsMultiplexer<TcpClientStream<P::Tcp>, Signer>, TokioTime>,
+    DnsExchangeBackground<DnsMultiplexer<TcpClientStream<P::Tcp>>, TokioTime>,
 ) {
     let addr: SocketAddr = ("127.0.0.1", port)
         .to_socket_addrs()

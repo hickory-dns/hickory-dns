@@ -13,9 +13,10 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use futures::Future;
+use hickory_proto::op::MessageFinalizer;
 use rustls::ClientConfig;
 
-use hickory_client::client::{ClientConnection, Signer};
+use hickory_client::client::ClientConnection;
 use hickory_proto::error::ProtoError;
 use hickory_proto::runtime::RuntimeProvider;
 use hickory_proto::rustls::{tls_client_connect_with_bind_addr, TlsClientStream};
@@ -52,14 +53,13 @@ impl<P> TlsClientConnection<P> {
 
 #[allow(clippy::type_complexity)]
 impl<P: RuntimeProvider> ClientConnection for TlsClientConnection<P> {
-    type Sender = DnsMultiplexer<TlsClientStream<P::Tcp>, Signer>;
+    type Sender = DnsMultiplexer<TlsClientStream<P::Tcp>>;
     type SenderFuture = DnsMultiplexerConnect<
         Pin<Box<dyn Future<Output = Result<TlsClientStream<P::Tcp>, ProtoError>> + Send>>,
         TlsClientStream<P::Tcp>,
-        Signer,
     >;
 
-    fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
+    fn new_stream(&self, signer: Option<Arc<dyn MessageFinalizer>>) -> Self::SenderFuture {
         let (tls_client_stream, handle) = tls_client_connect_with_bind_addr(
             self.name_server,
             self.bind_addr,

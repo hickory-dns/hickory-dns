@@ -5,12 +5,10 @@ use std::str::FromStr;
 use std::sync::{Arc, Mutex as StdMutex};
 
 use futures::Future;
-use hickory_proto::runtime::TokioRuntimeProvider;
 use test_support::subscribe;
 #[cfg(feature = "dnssec")]
 use time::Duration;
 
-use hickory_client::client::Signer;
 #[cfg(feature = "dnssec")]
 use hickory_client::client::SyncDnssecClient;
 #[allow(deprecated)]
@@ -23,11 +21,12 @@ use hickory_integration::{NeverReturnsClientConnection, TestClientStream};
 use hickory_proto::error::ProtoError;
 #[cfg(feature = "dnssec")]
 use hickory_proto::op::ResponseCode;
-use hickory_proto::op::{Edns, Message, MessageType, OpCode, Query};
+use hickory_proto::op::{Edns, Message, MessageFinalizer, MessageType, OpCode, Query};
 use hickory_proto::rr::rdata::opt::{EdnsCode, EdnsOption};
 #[cfg(feature = "dnssec")]
 use hickory_proto::rr::Record;
 use hickory_proto::rr::{rdata::A, DNSClass, Name, RData, RecordType};
+use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
 use hickory_server::authority::{Authority, Catalog};
 
@@ -45,14 +44,13 @@ impl TestClientConnection {
 
 #[allow(clippy::type_complexity)]
 impl ClientConnection for TestClientConnection {
-    type Sender = DnsMultiplexer<TestClientStream, Signer>;
+    type Sender = DnsMultiplexer<TestClientStream>;
     type SenderFuture = DnsMultiplexerConnect<
         Pin<Box<dyn Future<Output = Result<TestClientStream, ProtoError>> + Send>>,
         TestClientStream,
-        Signer,
     >;
 
-    fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
+    fn new_stream(&self, signer: Option<Arc<dyn MessageFinalizer>>) -> Self::SenderFuture {
         let (client_stream, handle) = TestClientStream::new(self.catalog.clone());
 
         DnsMultiplexer::new(Box::pin(client_stream), handle, signer)

@@ -11,12 +11,10 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::proto::udp::{UdpClientConnect, UdpClientStream};
-
 use crate::client::ClientConnection;
-use crate::client::Signer;
 use crate::error::ClientResult;
-
+use crate::proto::udp::{UdpClientConnect, UdpClientStream};
+use hickory_proto::op::MessageFinalizer;
 use hickory_proto::runtime::TokioRuntimeProvider;
 
 /// UDP based DNS Client connection
@@ -65,10 +63,10 @@ impl UdpClientConnection {
 }
 
 impl ClientConnection for UdpClientConnection {
-    type Sender = UdpClientStream<TokioRuntimeProvider, Signer>;
-    type SenderFuture = UdpClientConnect<TokioRuntimeProvider, Signer>;
+    type Sender = UdpClientStream<TokioRuntimeProvider>;
+    type SenderFuture = UdpClientConnect<TokioRuntimeProvider>;
 
-    fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
+    fn new_stream(&self, signer: Option<Arc<dyn MessageFinalizer>>) -> Self::SenderFuture {
         UdpClientStream::builder(self.name_server, TokioRuntimeProvider::new())
             .with_signer(signer)
             .with_timeout(Some(self.timeout))

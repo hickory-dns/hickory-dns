@@ -17,13 +17,14 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use futures_util::stream::{Stream, StreamExt};
+use hickory_proto::op::MessageFinalizer;
 use hickory_proto::rr::{rdata::SOA, DNSClass, Name, Record, RecordSet, RecordType};
 #[cfg(test)]
 use hickory_proto::runtime::TokioRuntimeProvider;
 use tokio::runtime::{self, Runtime};
 
 use crate::client::async_client::ClientStreamXfr;
-use crate::client::{AsyncClient, ClientConnection, ClientHandle, Signer};
+use crate::client::{AsyncClient, ClientConnection, ClientHandle};
 use crate::error::*;
 use crate::proto::{
     error::ProtoError,
@@ -440,7 +441,7 @@ pub trait Client {
 ///  disallow TCP in some cases, so if TCP double check if UDP works.
 pub struct SyncClient<CC: ClientConnection> {
     conn: CC,
-    signer: Option<Arc<Signer>>,
+    signer: Option<Arc<dyn MessageFinalizer>>,
 }
 
 impl<CC: ClientConnection> SyncClient<CC> {
@@ -465,7 +466,7 @@ impl<CC: ClientConnection> SyncClient<CC> {
     pub fn with_signer(conn: CC, signer: SigSigner) -> Self {
         Self {
             conn,
-            signer: Some(Arc::new(signer.into())),
+            signer: Some(Arc::new(signer)),
         }
     }
 
@@ -481,7 +482,7 @@ impl<CC: ClientConnection> SyncClient<CC> {
     pub fn with_tsigner(conn: CC, signer: TSigner) -> Self {
         Self {
             conn,
-            signer: Some(Arc::new(signer.into())),
+            signer: Some(Arc::new(signer)),
         }
     }
 }
@@ -526,7 +527,7 @@ where
 #[cfg(feature = "dnssec")]
 pub struct SyncDnssecClient<CC: ClientConnection> {
     conn: CC,
-    signer: Option<Arc<Signer>>,
+    signer: Option<Arc<dyn MessageFinalizer>>,
     trust_anchor: Option<TrustAnchor>,
 }
 
@@ -575,7 +576,7 @@ impl<CC: ClientConnection> Client for SyncDnssecClient<CC> {
 #[cfg(feature = "dnssec")]
 pub struct SecureSyncClientBuilder<CC: ClientConnection> {
     conn: CC,
-    signer: Option<Arc<Signer>>,
+    signer: Option<Arc<dyn MessageFinalizer>>,
     trust_anchor: Option<TrustAnchor>,
 }
 
@@ -599,7 +600,7 @@ impl<CC: ClientConnection> SecureSyncClientBuilder<CC> {
     /// # Arguments
     ///
     /// * `signer` - signer to use, this needs an associated private key
-    pub fn signer(mut self, signer: Signer) -> Self {
+    pub fn signer(mut self, signer: impl MessageFinalizer) -> Self {
         self.signer = Some(Arc::new(signer));
         self
     }

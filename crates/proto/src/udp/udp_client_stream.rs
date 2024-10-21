@@ -5,7 +5,6 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::fmt::{self, Display};
 use std::net::SocketAddr;
@@ -18,7 +17,6 @@ use futures_util::{future::Future, stream::Stream};
 use tracing::{debug, trace, warn};
 
 use crate::error::ProtoError;
-use crate::op::message::NoopMessageFinalizer;
 use crate::op::{Message, MessageFinalizer, MessageVerifier};
 use crate::runtime::{RuntimeProvider, Time};
 use crate::udp::udp_stream::NextRandomUdpSocket;
@@ -28,19 +26,16 @@ use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, 
 /// A builder to create a UDP client stream.
 ///
 /// This is created by [`UdpClientStream::builder`].
-pub struct UdpClientStreamBuilder<P, MF = NoopMessageFinalizer> {
+pub struct UdpClientStreamBuilder<P> {
     name_server: SocketAddr,
     timeout: Option<Duration>,
-    signer: Option<Arc<MF>>,
+    signer: Option<Arc<dyn MessageFinalizer>>,
     bind_addr: Option<SocketAddr>,
     avoid_local_ports: Arc<HashSet<u16>>,
     provider: P,
 }
 
-impl<P, MF> UdpClientStreamBuilder<P, MF>
-where
-    MF: MessageFinalizer,
-{
+impl<P> UdpClientStreamBuilder<P> {
     /// Sets the connection timeout.
     pub fn with_timeout(mut self, timeout: Option<Duration>) -> Self {
         self.timeout = timeout;
@@ -48,8 +43,8 @@ where
     }
 
     /// Sets the message finalizer to be applied to queries.
-    pub fn with_signer<MF2>(self, signer: Option<Arc<MF2>>) -> UdpClientStreamBuilder<P, MF2> {
-        UdpClientStreamBuilder {
+    pub fn with_signer(self, signer: Option<Arc<dyn MessageFinalizer>>) -> Self {
+        Self {
             name_server: self.name_server,
             timeout: self.timeout,
             signer,
@@ -78,7 +73,7 @@ where
     /// Construct a new UDP client stream.
     ///
     /// Returns a future that outputs the client stream.
-    pub fn build(self) -> UdpClientConnect<P, MF> {
+    pub fn build(self) -> UdpClientConnect<P> {
         UdpClientConnect {
             name_server: self.name_server,
             timeout: self.timeout.unwrap_or(Duration::from_secs(5)),
@@ -96,25 +91,19 @@ where
 /// client stream such that each request would have a random port. This is to avoid potential cache
 /// poisoning due to UDP spoofing attacks.
 #[must_use = "futures do nothing unless polled"]
-pub struct UdpClientStream<P, MF = NoopMessageFinalizer>
-where
-    MF: MessageFinalizer,
-{
+pub struct UdpClientStream<P> {
     name_server: SocketAddr,
     timeout: Duration,
     is_shutdown: bool,
-    signer: Option<Arc<MF>>,
+    signer: Option<Arc<dyn MessageFinalizer>>,
     bind_addr: Option<SocketAddr>,
     avoid_local_ports: Arc<HashSet<u16>>,
     provider: P,
 }
 
-impl<P: RuntimeProvider> UdpClientStream<P, NoopMessageFinalizer> {
+impl<P: RuntimeProvider> UdpClientStream<P> {
     /// Construct a new [`UdpClientStream`] via a [`UdpClientStreamBuilder`].
-    pub fn builder(
-        name_server: SocketAddr,
-        provider: P,
-    ) -> UdpClientStreamBuilder<P, NoopMessageFinalizer> {
+    pub fn builder(name_server: SocketAddr, provider: P) -> UdpClientStreamBuilder<P> {
         UdpClientStreamBuilder {
             name_server,
             timeout: None,
@@ -126,7 +115,7 @@ impl<P: RuntimeProvider> UdpClientStream<P, NoopMessageFinalizer> {
     }
 }
 
-impl<P, MF: MessageFinalizer> Display for UdpClientStream<P, MF> {
+impl<P> Display for UdpClientStream<P> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(formatter, "UDP({})", self.name_server)
     }
@@ -140,7 +129,7 @@ fn random_query_id() -> u16 {
     Standard.sample(&mut rand)
 }
 
-impl<P: RuntimeProvider, MF: MessageFinalizer> DnsRequestSender for UdpClientStream<P, MF> {
+impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
     fn send_message(&mut self, mut message: DnsRequest) -> DnsResponseStream {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
@@ -161,7 +150,7 @@ impl<P: RuntimeProvider, MF: MessageFinalizer> DnsRequestSender for UdpClientStr
         let mut verifier = None;
         if let Some(signer) = &self.signer {
             if signer.should_finalize_message(&message) {
-                match message.finalize::<MF>(signer.borrow(), now) {
+                match message.finalize(&**signer, now) {
                     Ok(answer_verifier) => verifier = answer_verifier,
                     Err(e) => {
                         debug!("could not sign message: {}", e);
@@ -217,7 +206,7 @@ impl<P: RuntimeProvider, MF: MessageFinalizer> DnsRequestSender for UdpClientStr
 }
 
 // TODO: is this impl necessary? there's nothing being driven here...
-impl<P, MF: MessageFinalizer> Stream for UdpClientStream<P, MF> {
+impl<P> Stream for UdpClientStream<P> {
     type Item = Result<(), ProtoError>;
 
     fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -231,20 +220,17 @@ impl<P, MF: MessageFinalizer> Stream for UdpClientStream<P, MF> {
 }
 
 /// A future that resolves to an UdpClientStream
-pub struct UdpClientConnect<P, MF = NoopMessageFinalizer>
-where
-    MF: MessageFinalizer,
-{
+pub struct UdpClientConnect<P> {
     name_server: SocketAddr,
     timeout: Duration,
-    signer: Option<Arc<MF>>,
+    signer: Option<Arc<dyn MessageFinalizer>>,
     bind_addr: Option<SocketAddr>,
     avoid_local_ports: Arc<HashSet<u16>>,
     provider: P,
 }
 
-impl<P: RuntimeProvider, MF: MessageFinalizer> Future for UdpClientConnect<P, MF> {
-    type Output = Result<UdpClientStream<P, MF>, ProtoError>;
+impl<P: RuntimeProvider> Future for UdpClientConnect<P> {
+    type Output = Result<UdpClientStream<P>, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
         // TODO: this doesn't need to be a future?

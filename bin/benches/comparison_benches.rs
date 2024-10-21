@@ -11,7 +11,6 @@ use std::net::{Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::str::FromStr;
-use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
@@ -21,7 +20,6 @@ use tokio::runtime::Runtime;
 
 use hickory_client::client::{AsyncClient, ClientHandle};
 use hickory_proto::error::ProtoError;
-use hickory_proto::op::NoopMessageFinalizer;
 use hickory_proto::op::ResponseCode;
 use hickory_proto::rr::rdata::A;
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
@@ -182,7 +180,7 @@ fn hickory_tcp_bench(b: &mut Bencher) {
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
-    let mp = DnsMultiplexer::new(stream, sender, None::<Arc<NoopMessageFinalizer>>);
+    let mp = DnsMultiplexer::new(stream, sender, None);
     bench(b, mp);
 
     // cleaning up the named process
@@ -257,7 +255,7 @@ fn bind_tcp_bench(b: &mut Bencher) {
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
-    let mp = DnsMultiplexer::new(stream, sender, None::<Arc<NoopMessageFinalizer>>);
+    let mp = DnsMultiplexer::new(stream, sender, None);
     bench(b, mp);
 
     // cleaning up the named process
