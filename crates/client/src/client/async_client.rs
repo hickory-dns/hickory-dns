@@ -32,10 +32,8 @@ use tracing::debug;
 
 use crate::{client::Signer, error::*};
 
-/// A DNS Client implemented over futures-rs.
-///
-/// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
-///  implementations.
+#[doc(hidden)]
+#[deprecated(since = "0.25.0", note = "use `AsyncClient` instead")]
 pub type ClientFuture = AsyncClient;
 
 /// A DNS Client implemented over futures-rs.
