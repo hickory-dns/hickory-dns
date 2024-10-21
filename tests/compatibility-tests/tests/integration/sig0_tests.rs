@@ -4,36 +4,28 @@
 // https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
+#![cfg(not(feature = "none"))]
 
 use std::env;
 use std::fs::File;
 use std::io::Read;
-#[cfg(not(feature = "none"))]
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 
 use openssl::rsa::Rsa;
-#[cfg(not(feature = "none"))]
 use time::Duration;
 
-#[cfg(not(feature = "none"))]
 use hickory_client::client::Client;
-use hickory_client::client::{ClientConnection, SyncClient};
-#[cfg(not(feature = "none"))]
+use hickory_client::client::SyncClient;
 use hickory_client::proto::op::ResponseCode;
 use hickory_client::proto::rr::dnssec::rdata::key::{KeyUsage, KEY};
 use hickory_client::proto::rr::dnssec::{Algorithm, KeyPair, SigSigner};
 use hickory_client::proto::rr::Name;
-#[cfg(not(feature = "none"))]
 use hickory_client::proto::rr::{DNSClass, RData, Record, RecordType};
-#[cfg(not(feature = "none"))]
 use hickory_client::udp::UdpClientConnection;
-#[cfg(not(feature = "none"))]
 use hickory_compatibility::named_process;
 
-#[cfg(not(feature = "none"))]
 #[test]
-#[allow(unused)]
 fn test_get() {
     use hickory_client::proto::rr::rdata::A;
 
@@ -58,11 +50,14 @@ fn test_get() {
     }
 }
 
-#[allow(unused)]
-fn create_sig0_ready_client<CC>(conn: CC) -> SyncClient<CC>
-where
-    CC: ClientConnection,
-{
+#[test]
+fn test_create() {
+    use hickory_client::proto::rr::rdata::A;
+
+    let (process, port) = named_process();
+    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
+    let conn = UdpClientConnection::new(socket).unwrap();
+
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
     let pem_path = format!(
         "{server_path}/tests/compatibility-tests/tests/conf/Kupdate.example.com.+008+56935.pem"
@@ -84,24 +79,8 @@ where
     );
 
     let signer = SigSigner::sig0(sig0key, key, Name::from_str("update.example.com").unwrap());
-
     assert_eq!(signer.calculate_key_tag().unwrap(), 56935_u16);
-
-    SyncClient::with_signer(conn, signer)
-}
-
-#[cfg(not(feature = "none"))]
-#[test]
-#[allow(unused)]
-fn test_create() {
-    use hickory_client::proto::rr::rdata::A;
-
-    let (process, port) = named_process();
-    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
-    let conn = UdpClientConnection::new(socket).unwrap();
-
-    let client = create_sig0_ready_client(conn);
-    let origin = Name::from_str("example.com.").unwrap();
+    let client = SyncClient::with_signer(conn, signer);
 
     // create a record
     let mut record = Record::from_rdata(
@@ -110,6 +89,7 @@ fn test_create() {
         RData::A(A::new(100, 10, 100, 10)),
     );
 
+    let origin = Name::from_str("example.com.").unwrap();
     let result = client
         .create(record.clone(), origin.clone())
         .expect("create failed");
