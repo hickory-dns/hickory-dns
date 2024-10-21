@@ -38,12 +38,16 @@ use super::Digest;
 #[non_exhaustive]
 pub enum DigestType {
     /// [RFC 3658](https://tools.ietf.org/html/rfc3658)
+    #[cfg_attr(feature = "serde", serde(rename = "SHA-1"))]
     SHA1,
     /// [RFC 4509](https://tools.ietf.org/html/rfc4509)
+    #[cfg_attr(feature = "serde", serde(rename = "SHA-256"))]
     SHA256,
     /// [RFC 5933](https://tools.ietf.org/html/rfc5933)
+    #[cfg_attr(feature = "serde", serde(rename = "GOST R 34.11-94"))]
     GOSTR34_11_94,
     /// [RFC 6605](https://tools.ietf.org/html/rfc6605)
+    #[cfg_attr(feature = "serde", serde(rename = "SHA-384"))]
     SHA384,
     /// Undefined
     SHA512,

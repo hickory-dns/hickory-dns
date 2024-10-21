@@ -179,24 +179,34 @@ pub struct TSIG {
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum TsigAlgorithm {
     /// HMAC-MD5.SIG-ALG.REG.INT (not supported for cryptographic operations)
+    #[cfg_attr(feature = "serde", serde(rename = "HMAC-MD5.SIG-ALG.REG.INT"))]
     HmacMd5,
     /// gss-tsig (not supported for cryptographic operations)
+    #[cfg_attr(feature = "serde", serde(rename = "gss-tsig"))]
     Gss,
     /// hmac-sha1 (not supported for cryptographic operations)
+    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha1"))]
     HmacSha1,
     /// hmac-sha224 (not supported for cryptographic operations)
+    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha224"))]
     HmacSha224,
     /// hmac-sha256
+    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha256"))]
     HmacSha256,
     /// hmac-sha256-128 (not supported for cryptographic operations)
+    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha256-128"))]
     HmacSha256_128,
     /// hmac-sha384
+    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha384"))]
     HmacSha384,
     /// hmac-sha384-192 (not supported for cryptographic operations)
+    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha384-192"))]
     HmacSha384_192,
     /// hmac-sha512
+    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha512"))]
     HmacSha512,
     /// hmac-sha512-256 (not supported for cryptographic operations)
+    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha512-256"))]
     HmacSha512_256,
     /// Unkown algorithm
     Unknown(Name),
