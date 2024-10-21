@@ -133,6 +133,18 @@ coverage-html: coverage
 
     cargo +nightly llvm-cov report --html --open --output-dir {{COV_CARGO_LLVM_COV_TARGET_DIR}}
 
+# Export coverage data in lcov format
+coverage-lcov: coverage
+    #!/usr/bin/env bash
+    set -euxo pipefail
+
+    export RUSTFLAGS="{{COV_RUSTFLAGS}}"
+    export CARGO_LLVM_COV={{COV_CARGO_LLVM_COV}}
+    export CARGO_LLVM_COV_TARGET_DIR={{COV_CARGO_LLVM_COV_TARGET_DIR}}
+    export LLVM_PROFILE_FILE={{COV_LLVM_PROFILE_FILE}}
+
+    cargo +nightly llvm-cov report --lcov --output-path {{join(COV_CARGO_LLVM_COV_TARGET_DIR, "lcov.info")}}
+
 # (Re)generates Test Certificates, if tests are failing, this needs to be run yearly
 generate-test-certs: init-openssl
     cd {{TEST_DATA}} && rm -f ca.key ca.pem cert.key cert-key.pkcs8 cert.csr cert.pem cert.p12
