@@ -16,15 +16,16 @@
 
 //! DNS Client associated classes for performing queries and other operations.
 
-pub(crate) mod async_client;
+#[allow(clippy::module_inception)]
+pub(crate) mod client;
 #[cfg(feature = "dnssec")]
-pub(crate) mod async_secure_client;
+pub(crate) mod dnssec_client;
 
 mod memoize_client_handle;
 mod rc_stream;
 
 #[allow(deprecated)]
-pub use self::async_client::{Client, ClientFuture, ClientHandle, ClientStreamingResponse};
+pub use self::client::{Client, ClientFuture, ClientHandle, ClientStreamingResponse};
 #[cfg(feature = "dnssec")]
-pub use self::async_secure_client::{AsyncSecureClientBuilder, DnssecClient};
+pub use self::dnssec_client::{AsyncSecureClientBuilder, DnssecClient};
 pub use self::memoize_client_handle::MemoizeClientHandle;

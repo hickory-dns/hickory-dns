@@ -137,7 +137,7 @@
 //! ## Dynamic update
 //!
 //! Currently `hickory-client` supports SIG(0) signed records for authentication and authorization
-//! of dynamic DNS updates. Consult the [`client::AsyncDnssecClient`] API for more information.
+//! of dynamic DNS updates. Consult the [`client::DnssecClient`] API for more information.
 
 pub mod client;
 pub mod error;
