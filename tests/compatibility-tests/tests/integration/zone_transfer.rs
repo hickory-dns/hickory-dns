@@ -5,21 +5,16 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#[cfg(not(feature = "none"))]
+#![cfg(not(feature = "none"))]
+
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-#[cfg(not(feature = "none"))]
 use std::str::FromStr;
 
-#[cfg(not(feature = "none"))]
 use time::Duration;
 
-#[cfg(not(feature = "none"))]
 use hickory_client::client::{Client, SyncClient};
-#[cfg(not(feature = "none"))]
 use hickory_client::proto::rr::{Name, RData, Record, RecordType};
-#[cfg(not(feature = "none"))]
 use hickory_client::tcp::TcpClientConnection;
-#[cfg(not(feature = "none"))]
 use hickory_compatibility::named_process;
 
 #[allow(unused)]
@@ -34,13 +29,11 @@ macro_rules! assert_serial {
     }};
 }
 
-#[cfg(not(feature = "none"))]
 #[test]
-#[allow(unused)]
 fn test_zone_transfer() {
     use hickory_client::proto::{rr::rdata::A, runtime::TokioRuntimeProvider};
 
-    let (process, port) = named_process();
+    let (_process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
     let conn = TcpClientConnection::new(socket, TokioRuntimeProvider::new()).unwrap();
     let client = SyncClient::new(conn);
@@ -72,7 +65,7 @@ fn test_zone_transfer() {
         RecordType::SOA
     );
 
-    let mut record = Record::from_rdata(
+    let record = Record::from_rdata(
         Name::from_str("new.example.net.").unwrap(),
         Duration::minutes(5).whole_seconds() as u32,
         RData::A(A::new(100, 10, 100, 10)),
