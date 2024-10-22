@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use futures_util::stream::Stream;
 
-use crate::client::AsyncClient;
+use crate::client::Client;
 use crate::proto::error::ProtoError;
 use crate::proto::rr::dnssec::TrustAnchor;
 use crate::proto::runtime::TokioTime;
@@ -24,11 +24,11 @@ use crate::proto::DnssecDnsHandle;
 ///
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
 ///  implementations.
-pub struct AsyncDnssecClient {
-    client: DnssecDnsHandle<AsyncClient>,
+pub struct DnssecClient {
+    client: DnssecDnsHandle<Client>,
 }
 
-impl AsyncDnssecClient {
+impl DnssecClient {
     /// Returns a DNSSEC verifying client with a TrustAnchor that can be replaced
     pub fn builder<F, S>(connect_future: F) -> AsyncSecureClientBuilder<F, S>
     where
@@ -52,14 +52,14 @@ impl AsyncDnssecClient {
         Self::builder(connect_future).build().await
     }
 
-    fn from_client(client: AsyncClient, trust_anchor: Arc<TrustAnchor>) -> Self {
+    fn from_client(client: Client, trust_anchor: Arc<TrustAnchor>) -> Self {
         Self {
             client: DnssecDnsHandle::with_trust_anchor(client, trust_anchor),
         }
     }
 }
 
-impl Clone for AsyncDnssecClient {
+impl Clone for DnssecClient {
     fn clone(&self) -> Self {
         Self {
             client: self.client.clone(),
@@ -67,7 +67,7 @@ impl Clone for AsyncDnssecClient {
     }
 }
 
-impl DnsHandle for AsyncDnssecClient {
+impl DnsHandle for DnssecClient {
     type Response = Pin<Box<(dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + 'static)>>;
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response {
@@ -106,10 +106,10 @@ where
     /// Construct the new client
     pub async fn build(
         mut self,
-    ) -> Result<(AsyncDnssecClient, DnsExchangeBackground<S, TokioTime>), ProtoError> {
+    ) -> Result<(DnssecClient, DnsExchangeBackground<S, TokioTime>), ProtoError> {
         let trust_anchor = Arc::new(self.trust_anchor.take().unwrap_or_default());
-        let result = AsyncClient::connect(self.connect_future).await;
+        let result = Client::connect(self.connect_future).await;
 
-        result.map(|(client, bg)| (AsyncDnssecClient::from_client(client, trust_anchor), bg))
+        result.map(|(client, bg)| (DnssecClient::from_client(client, trust_anchor), bg))
     }
 }

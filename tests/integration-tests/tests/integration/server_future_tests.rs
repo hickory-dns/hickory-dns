@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use futures::TryStreamExt;
-use hickory_client::client::{AsyncClient, ClientHandle};
+use hickory_client::client::{Client, ClientHandle};
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
@@ -250,17 +250,17 @@ async fn test_server_www_tls() {
     server.await.unwrap();
 }
 
-async fn lazy_udp_client(addr: SocketAddr) -> AsyncClient {
+async fn lazy_udp_client(addr: SocketAddr) -> Client {
     let conn = UdpClientStream::builder(addr, TokioRuntimeProvider::default()).build();
-    let (client, driver) = AsyncClient::connect(conn).await.expect("failed to connect");
+    let (client, driver) = Client::connect(conn).await.expect("failed to connect");
     tokio::spawn(driver);
     client
 }
 
-async fn lazy_tcp_client(addr: SocketAddr) -> AsyncClient {
+async fn lazy_tcp_client(addr: SocketAddr) -> Client {
     let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::default());
     let multiplexer = DnsMultiplexer::new(stream, sender, None);
-    let (client, driver) = AsyncClient::connect(multiplexer)
+    let (client, driver) = Client::connect(multiplexer)
         .await
         .expect("failed to connect");
     tokio::spawn(driver);
@@ -272,7 +272,7 @@ async fn lazy_tls_client(
     ipaddr: SocketAddr,
     dns_name: String,
     cert_chain: Vec<CertificateDer<'static>>,
-) -> AsyncClient {
+) -> Client {
     use hickory_proto::rustls::tls_client_connect_with_bind_addr;
 
     let mut root_store = RootCertStore::empty();
@@ -295,14 +295,14 @@ async fn lazy_tls_client(
     );
 
     let multiplexer = DnsMultiplexer::new(Box::pin(tls_client_stream), handle, None);
-    let (client, driver) = AsyncClient::connect(multiplexer)
+    let (client, driver) = Client::connect(multiplexer)
         .await
         .expect("failed to connect");
     tokio::spawn(driver);
     client
 }
 
-async fn client_thread_www(future: impl Future<Output = AsyncClient>) {
+async fn client_thread_www(future: impl Future<Output = Client>) {
     let name = Name::from_str("www.example.com").unwrap();
 
     let mut client = future.await;

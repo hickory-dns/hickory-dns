@@ -33,7 +33,7 @@ use rustls::{
 };
 use tracing::Level;
 
-use hickory_client::client::{AsyncClient, ClientHandle};
+use hickory_client::client::{Client, ClientHandle};
 #[cfg(feature = "dns-over-rustls")]
 use hickory_proto::rustls::tls_client_connect;
 use hickory_proto::{
@@ -255,7 +255,7 @@ async fn udp(opts: Opts, provider: impl RuntimeProvider) -> Result<(), Box<dyn s
 
     println!("; using udp:{nameserver}");
     let stream = UdpClientStream::builder(nameserver, provider).build();
-    let (client, bg) = AsyncClient::connect(stream).await?;
+    let (client, bg) = Client::connect(stream).await?;
     let handle = tokio::spawn(bg);
     handle_request(opts.class, opts.zone, opts.command, client).await?;
     drop(handle);
@@ -268,7 +268,7 @@ async fn tcp(opts: Opts, provider: impl RuntimeProvider) -> Result<(), Box<dyn s
 
     println!("; using tcp:{nameserver}");
     let (stream, sender) = TcpClientStream::new(nameserver, None, None, provider);
-    let client = AsyncClient::new(stream, sender, None);
+    let client = Client::new(stream, sender, None);
     let (client, bg) = client.await?;
 
     let handle = tokio::spawn(bg);
@@ -305,7 +305,7 @@ async fn tls(opts: Opts, provider: impl RuntimeProvider) -> Result<(), Box<dyn s
 
     let config = Arc::new(config);
     let (stream, sender) = tls_client_connect(nameserver, dns_name, config, provider);
-    let (client, bg) = AsyncClient::new(stream, sender, None).await?;
+    let (client, bg) = Client::new(stream, sender, None).await?;
 
     let handle = tokio::spawn(bg);
     handle_request(opts.class, opts.zone, opts.command, client).await?;
@@ -351,7 +351,7 @@ async fn https(
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(config, provider);
     let (client, bg) =
-        AsyncClient::connect(https_builder.build(nameserver, dns_name, http_endpoint)).await?;
+        Client::connect(https_builder.build(nameserver, dns_name, http_endpoint)).await?;
 
     let handle = tokio::spawn(bg);
     handle_request(opts.class, opts.zone, opts.command, client).await?;
@@ -387,7 +387,7 @@ async fn quic(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
 
     let mut quic_builder = QuicClientStream::builder();
     quic_builder.crypto_config(config);
-    let (client, bg) = AsyncClient::connect(quic_builder.build(nameserver, dns_name)).await?;
+    let (client, bg) = Client::connect(quic_builder.build(nameserver, dns_name)).await?;
 
     let handle = tokio::spawn(bg);
     handle_request(opts.class, opts.zone, opts.command, client).await?;
@@ -427,7 +427,7 @@ async fn h3(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     let mut h3_builder = H3ClientStream::builder();
     h3_builder.crypto_config(config);
     let (client, bg) =
-        AsyncClient::connect(h3_builder.build(nameserver, dns_name, http_endpoint)).await?;
+        Client::connect(h3_builder.build(nameserver, dns_name, http_endpoint)).await?;
 
     let handle = tokio::spawn(bg);
     handle_request(opts.class, opts.zone, opts.command, client).await?;

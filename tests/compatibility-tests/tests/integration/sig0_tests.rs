@@ -17,7 +17,7 @@ use std::sync::Arc;
 use openssl::rsa::Rsa;
 use time::Duration;
 
-use hickory_client::client::AsyncClient;
+use hickory_client::client::Client;
 use hickory_client::client::ClientHandle;
 use hickory_client::proto::op::ResponseCode;
 use hickory_client::proto::rr::dnssec::rdata::key::{KeyUsage, KEY};
@@ -35,7 +35,7 @@ async fn test_get() {
     let (_process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
     let conn = UdpClientStream::builder(socket, TokioRuntimeProvider::default()).build();
-    let (mut client, driver) = AsyncClient::connect(conn).await.expect("failed to connect");
+    let (mut client, driver) = Client::connect(conn).await.expect("failed to connect");
     tokio::spawn(driver);
 
     let name = Name::from_str("www.example.com.").unwrap();
@@ -87,7 +87,7 @@ async fn test_create() {
     let conn = UdpClientStream::builder(socket, TokioRuntimeProvider::default())
         .with_signer(Some(Arc::new(signer)))
         .build();
-    let (mut client, driver) = AsyncClient::connect(conn).await.expect("failed to connect");
+    let (mut client, driver) = Client::connect(conn).await.expect("failed to connect");
     tokio::spawn(driver);
 
     // create a record

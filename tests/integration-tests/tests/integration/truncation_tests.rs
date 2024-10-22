@@ -1,4 +1,4 @@
-use hickory_client::client::AsyncClient;
+use hickory_client::client::Client;
 use hickory_proto::op::{Edns, Message, MessageType, OpCode, Query};
 use hickory_proto::rr::rdata::{A, SOA};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, RrKey};
@@ -38,7 +38,7 @@ async fn test_truncation() {
 
     // Create the UDP client.
     let stream = UdpClientStream::builder(nameserver, TokioRuntimeProvider::new()).build();
-    let (client, bg) = AsyncClient::connect(stream).await.unwrap();
+    let (client, bg) = Client::connect(stream).await.unwrap();
 
     // Run the client exchange in the background.
     tokio::spawn(bg);

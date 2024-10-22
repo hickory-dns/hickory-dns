@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex as StdMutex};
 use futures::executor::block_on;
 use tokio::runtime::Runtime;
 
-use hickory_client::client::{AsyncClient, ClientHandle, MemoizeClientHandle};
+use hickory_client::client::{Client, ClientHandle, MemoizeClientHandle};
 use hickory_proto::op::ResponseCode;
 use hickory_proto::rr::dnssec::{Proof, TrustAnchor};
 use hickory_proto::rr::rdata::A;
@@ -192,7 +192,7 @@ where
 
 fn with_nonet<F>(test: F)
 where
-    F: Fn(DnssecDnsHandle<MemoizeClientHandle<AsyncClient>>, Runtime),
+    F: Fn(DnssecDnsHandle<MemoizeClientHandle<Client>>, Runtime),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -234,7 +234,7 @@ where
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
-    let client = AsyncClient::new(stream, sender, None);
+    let client = Client::new(stream, sender, None);
 
     let (client, bg) = io_loop
         .block_on(client)
@@ -251,7 +251,7 @@ where
 
 fn with_udp<F>(test: F)
 where
-    F: Fn(DnssecDnsHandle<MemoizeClientHandle<AsyncClient>>, Runtime),
+    F: Fn(DnssecDnsHandle<MemoizeClientHandle<Client>>, Runtime),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -274,7 +274,7 @@ where
     let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let stream = UdpClientStream::builder(addr, TokioRuntimeProvider::new()).build();
-    let client = AsyncClient::connect(stream);
+    let client = Client::connect(stream);
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
@@ -289,7 +289,7 @@ where
 // TODO: just make this a Tokio test?
 fn with_tcp<F>(test: F)
 where
-    F: Fn(DnssecDnsHandle<MemoizeClientHandle<AsyncClient>>, Runtime),
+    F: Fn(DnssecDnsHandle<MemoizeClientHandle<Client>>, Runtime),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -312,7 +312,7 @@ where
     let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
-    let client = AsyncClient::new(Box::new(stream), sender, None);
+    let client = Client::new(Box::new(stream), sender, None);
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
 

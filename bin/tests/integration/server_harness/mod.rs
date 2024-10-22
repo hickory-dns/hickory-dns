@@ -281,7 +281,7 @@ pub fn query_a_refused<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
 #[cfg(feature = "dnssec")]
 pub fn query_all_dnssec(
     io_loop: &mut Runtime,
-    client: AsyncClient,
+    client: Client,
     algorithm: Algorithm,
     with_rfc6975: bool,
 ) {
@@ -320,20 +320,12 @@ pub fn query_all_dnssec(
 
 #[allow(dead_code)]
 #[cfg(feature = "dnssec")]
-pub fn query_all_dnssec_with_rfc6975(
-    io_loop: &mut Runtime,
-    client: AsyncClient,
-    algorithm: Algorithm,
-) {
+pub fn query_all_dnssec_with_rfc6975(io_loop: &mut Runtime, client: Client, algorithm: Algorithm) {
     query_all_dnssec(io_loop, client, algorithm, true)
 }
 
 #[allow(dead_code)]
 #[cfg(feature = "dnssec")]
-pub fn query_all_dnssec_wo_rfc6975(
-    io_loop: &mut Runtime,
-    client: AsyncClient,
-    algorithm: Algorithm,
-) {
+pub fn query_all_dnssec_wo_rfc6975(io_loop: &mut Runtime, client: Client, algorithm: Algorithm) {
     query_all_dnssec(io_loop, client, algorithm, false)
 }

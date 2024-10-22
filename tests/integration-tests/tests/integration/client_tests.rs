@@ -13,8 +13,8 @@ use futures::TryStreamExt;
 use time::Duration;
 
 #[cfg(feature = "dnssec")]
-use hickory_client::client::AsyncDnssecClient;
-use hickory_client::client::{AsyncClient, ClientHandle};
+use hickory_client::client::DnssecClient;
+use hickory_client::client::{Client, ClientHandle};
 use hickory_client::error::ClientErrorKind;
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 use hickory_integration::example_authority::create_example;
@@ -67,27 +67,27 @@ impl TestClientConnection {
     }
 }
 
-async fn udp_client(addr: SocketAddr) -> AsyncClient {
+async fn udp_client(addr: SocketAddr) -> Client {
     let conn = UdpClientStream::builder(addr, TokioRuntimeProvider::default()).build();
-    let (client, driver) = AsyncClient::connect(conn).await.expect("failed to connect");
+    let (client, driver) = Client::connect(conn).await.expect("failed to connect");
     tokio::spawn(driver);
     client
 }
 
 #[cfg(feature = "dnssec")]
-async fn udp_dnssec_client(addr: SocketAddr) -> AsyncDnssecClient {
+async fn udp_dnssec_client(addr: SocketAddr) -> DnssecClient {
     let conn = UdpClientStream::builder(addr, TokioRuntimeProvider::default()).build();
-    let (client, driver) = AsyncDnssecClient::connect(conn)
+    let (client, driver) = DnssecClient::connect(conn)
         .await
         .expect("failed to connect");
     tokio::spawn(driver);
     client
 }
 
-async fn tcp_client(addr: SocketAddr) -> AsyncClient {
+async fn tcp_client(addr: SocketAddr) -> Client {
     let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::default());
     let multiplexer = DnsMultiplexer::new(stream, sender, None);
-    let (client, driver) = AsyncClient::connect(multiplexer)
+    let (client, driver) = Client::connect(multiplexer)
         .await
         .expect("failed to connect");
     tokio::spawn(driver);
@@ -95,10 +95,10 @@ async fn tcp_client(addr: SocketAddr) -> AsyncClient {
 }
 
 #[cfg(feature = "dnssec")]
-async fn tcp_dnssec_client(addr: SocketAddr) -> AsyncDnssecClient {
+async fn tcp_dnssec_client(addr: SocketAddr) -> DnssecClient {
     let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::default());
     let multiplexer = DnsMultiplexer::new(stream, sender, None);
-    let (client, driver) = AsyncDnssecClient::connect(multiplexer)
+    let (client, driver) = DnssecClient::connect(multiplexer)
         .await
         .expect("failed to connect");
     tokio::spawn(driver);
@@ -132,7 +132,7 @@ async fn test_query_tcp() {
 }
 
 #[allow(deprecated)]
-async fn test_query(mut client: AsyncClient) {
+async fn test_query(mut client: Client) {
     let name = Name::from_ascii("WWW.example.com").unwrap();
 
     let response = client
@@ -160,7 +160,7 @@ async fn test_query(mut client: AsyncClient) {
     }
 }
 
-async fn test_query_edns(client: AsyncClient) {
+async fn test_query_edns(client: Client) {
     let name = Name::from_ascii("WWW.example.com").unwrap();
     let mut edns = Edns::new();
     // garbage subnet value, but lets check
@@ -244,7 +244,7 @@ async fn test_secure_query_example_tcp() {
 }
 
 #[cfg(feature = "dnssec")]
-async fn test_secure_query_example(mut client: AsyncDnssecClient) {
+async fn test_secure_query_example(mut client: DnssecClient) {
     subscribe();
 
     let name = Name::from_str("www.example.com").unwrap();
@@ -273,7 +273,7 @@ async fn test_secure_query_example(mut client: AsyncDnssecClient) {
     }
 }
 
-async fn test_timeout_query(mut client: AsyncClient) {
+async fn test_timeout_query(mut client: Client) {
     let name = Name::from_ascii("WWW.example.com").unwrap();
 
     let response = client.query(name, DNSClass::IN, RecordType::A).await;
@@ -309,7 +309,7 @@ async fn test_timeout_query_tcp() {
 
     let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::default());
     let multiplexer = DnsMultiplexer::new(stream, sender, None);
-    match AsyncClient::connect(multiplexer).await {
+    match Client::connect(multiplexer).await {
         Err(e) if matches!(e.kind(), ProtoErrorKind::Timeout) => {}
         _ => panic!("expected timeout"),
     }
@@ -378,7 +378,7 @@ async fn test_nsec_query_example_tcp() {
 }
 
 #[cfg(feature = "dnssec")]
-async fn test_nsec_query_example(mut client: AsyncDnssecClient) {
+async fn test_nsec_query_example(mut client: DnssecClient) {
     let name = Name::from_str("none.example.com").unwrap();
 
     let response = client
@@ -497,7 +497,7 @@ async fn test_nsec3_query_name_is_soa_name() {
 
 #[allow(deprecated)]
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
-async fn create_sig0_ready_client(mut catalog: Catalog) -> (AsyncClient, Name) {
+async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
     use hickory_proto::rr::dnssec::rdata::{DNSSECRData, KEY};
     use hickory_proto::rr::dnssec::{Algorithm, KeyPair, Signer as SigSigner};
     use hickory_server::store::sqlite::SqliteAuthority;
@@ -538,7 +538,7 @@ async fn create_sig0_ready_client(mut catalog: Catalog) -> (AsyncClient, Name) {
 
     catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
     let multiplexer = TestClientConnection::new(catalog).to_multiplexer(Some(Arc::new(signer)));
-    let (client, driver) = AsyncClient::connect(multiplexer)
+    let (client, driver) = Client::connect(multiplexer)
         .await
         .expect("failed to connect");
     tokio::spawn(driver);

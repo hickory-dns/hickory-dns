@@ -34,19 +34,19 @@ use crate::error::*;
 
 #[doc(hidden)]
 #[deprecated(since = "0.25.0", note = "use `AsyncClient` instead")]
-pub type ClientFuture = AsyncClient;
+pub type ClientFuture = Client;
 
 /// A DNS Client implemented over futures-rs.
 ///
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
 ///  implementations.
 #[derive(Clone)]
-pub struct AsyncClient {
+pub struct Client {
     exchange: DnsExchange,
     use_edns: bool,
 }
 
-impl AsyncClient {
+impl Client {
     /// Spawns a new AsyncClient Stream. This uses a default timeout of 5 seconds for all requests.
     ///
     /// # Arguments
@@ -124,7 +124,7 @@ impl AsyncClient {
     }
 }
 
-impl DnsHandle for AsyncClient {
+impl DnsHandle for Client {
     type Response = DnsExchangeSend;
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response {
@@ -1070,7 +1070,7 @@ mod tests {
 
     #[tokio::test]
     async fn async_client() {
-        use crate::client::{AsyncClient, ClientHandle};
+        use crate::client::{Client, ClientHandle};
         use hickory_proto::{
             rr::{DNSClass, Name, RData, RecordType},
             tcp::TcpClientStream,
@@ -1086,7 +1086,7 @@ mod tests {
         //   the client is a handle to an unbounded queue for sending requests via the
         //   background. The background must be scheduled to run before the client can
         //   send any dns requests
-        let client = AsyncClient::new(stream, sender, None);
+        let client = Client::new(stream, sender, None);
 
         // await the connection to be established
         let (mut client, bg) = client.await.expect("connection failed");

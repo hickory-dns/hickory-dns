@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tokio::runtime::Runtime;
 
 use crate::server_harness::*;
-use hickory_client::client::AsyncClient;
+use hickory_client::client::Client;
 use hickory_proto::rr::dnssec::*;
 use hickory_proto::runtime::{RuntimeProvider, TokioRuntimeProvider, TokioTime};
 use hickory_proto::tcp::TcpClientStream;
@@ -58,7 +58,7 @@ async fn standard_tcp_conn<P: RuntimeProvider>(
     port: u16,
     provider: P,
 ) -> (
-    AsyncClient,
+    Client,
     DnsExchangeBackground<DnsMultiplexer<TcpClientStream<P::Tcp>>, TokioTime>,
 ) {
     let addr: SocketAddr = ("127.0.0.1", port)
@@ -67,7 +67,7 @@ async fn standard_tcp_conn<P: RuntimeProvider>(
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::new(addr, None, None, provider);
-    AsyncClient::new(stream, sender, None)
+    Client::new(stream, sender, None)
         .await
         .expect("new AsyncClient failed")
 }

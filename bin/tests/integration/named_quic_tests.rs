@@ -61,7 +61,7 @@ fn test_example_quic_toml_startup() {
         quic_builder.crypto_config(client_config);
 
         let mp = quic_builder.build(addr, "ns.example.com".to_string());
-        let client = AsyncClient::connect(mp);
+        let client = Client::connect(mp);
 
         // ipv4 should succeed
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");

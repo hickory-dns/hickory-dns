@@ -11,7 +11,7 @@ use time::Duration;
 use tokio::runtime::Runtime;
 
 use hickory_client::{
-    client::{AsyncClient, ClientHandle},
+    client::{Client, ClientHandle},
     error::ClientErrorKind,
 };
 use hickory_integration::{
@@ -50,7 +50,7 @@ fn test_query_nonet() {
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
-    let client = AsyncClient::new(stream, sender, None);
+    let client = Client::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
@@ -63,7 +63,7 @@ fn test_query_udp_ipv4() {
     let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let stream = UdpClientStream::builder(addr, TokioRuntimeProvider::new()).build();
-    let client = AsyncClient::connect(stream);
+    let client = Client::connect(stream);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
@@ -83,7 +83,7 @@ fn test_query_udp_ipv6() {
         .next()
         .unwrap();
     let stream = UdpClientStream::builder(addr, TokioRuntimeProvider::new()).build();
-    let client = AsyncClient::connect(stream);
+    let client = Client::connect(stream);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
@@ -98,7 +98,7 @@ fn test_query_tcp_ipv4() {
     let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
-    let client = AsyncClient::new(stream, sender, None);
+    let client = Client::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
@@ -117,7 +117,7 @@ fn test_query_tcp_ipv6() {
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
-    let client = AsyncClient::new(stream, sender, None);
+    let client = Client::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
@@ -153,7 +153,7 @@ fn test_query_https() {
         Arc::new(client_config),
         TokioRuntimeProvider::new(),
     );
-    let client = AsyncClient::connect(https_builder.build(
+    let client = Client::connect(https_builder.build(
         addr,
         "cloudflare-dns.com".to_string(),
         "/dns-query".to_string(),
@@ -167,7 +167,7 @@ fn test_query_https() {
 }
 
 #[cfg(test)]
-fn test_query(client: &mut AsyncClient) -> impl Future<Output = ()> {
+fn test_query(client: &mut Client) -> impl Future<Output = ()> {
     let name = Name::from_ascii("WWW.example.com").unwrap();
 
     client
@@ -196,7 +196,7 @@ fn test_query(client: &mut AsyncClient) -> impl Future<Output = ()> {
 }
 
 #[cfg(test)]
-fn test_query_edns(client: &mut AsyncClient) -> impl Future<Output = ()> {
+fn test_query_edns(client: &mut Client) -> impl Future<Output = ()> {
     let name = Name::from_ascii("WWW.example.com").unwrap();
     let mut edns = Edns::new();
     // garbage subnet value, but lets check
@@ -262,7 +262,7 @@ fn test_notify() {
     catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
 
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
-    let client = AsyncClient::new(stream, sender, None);
+    let client = Client::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
@@ -287,7 +287,7 @@ fn test_notify() {
 #[allow(clippy::type_complexity)]
 async fn create_sig0_ready_client() -> (
     (
-        AsyncClient,
+        Client,
         DnsExchangeBackground<DnsMultiplexer<TestClientStream>, TokioTime>,
     ),
     Name,
@@ -323,7 +323,7 @@ async fn create_sig0_ready_client() -> (
 
     let signer = Arc::new(signer);
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
-    let client = AsyncClient::new(stream, sender, Some(signer))
+    let client = Client::new(stream, sender, Some(signer))
         .await
         .expect("failed to get new AsyncClient");
 
@@ -948,7 +948,7 @@ fn test_delete_all() {
     assert_eq!(result.answers().len(), 0);
 }
 
-fn test_timeout_query(mut client: AsyncClient, io_loop: Runtime) {
+fn test_timeout_query(mut client: Client, io_loop: Runtime) {
     let name = Name::from_str("www.example.com").unwrap();
 
     let err = io_loop
@@ -979,8 +979,7 @@ fn test_timeout_query_nonet() {
     subscribe();
     let io_loop = Runtime::new().expect("failed to create Tokio Runtime");
     let (stream, sender) = NeverReturnsClientStream::new();
-    let client =
-        AsyncClient::with_timeout(stream, sender, std::time::Duration::from_millis(1), None);
+    let client = Client::with_timeout(stream, sender, std::time::Duration::from_millis(1), None);
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
@@ -1002,7 +1001,7 @@ fn test_timeout_query_udp() {
     let stream = UdpClientStream::builder(addr, TokioRuntimeProvider::new())
         .with_timeout(Some(std::time::Duration::from_millis(1)))
         .build();
-    let client = AsyncClient::connect(stream);
+    let client = Client::connect(stream);
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
@@ -1027,7 +1026,7 @@ fn test_timeout_query_tcp() {
         Some(std::time::Duration::from_millis(1)),
         TokioRuntimeProvider::new(),
     );
-    let client = AsyncClient::with_timeout(
+    let client = Client::with_timeout(
         Box::new(stream),
         sender,
         std::time::Duration::from_millis(1),
