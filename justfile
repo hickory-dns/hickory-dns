@@ -23,6 +23,8 @@ default feature='' ignore='': (check feature ignore) (build feature ignore) (tes
 # Check, build, and test all crates with all-features enabled
 all-features: (default "--all-features")
 
+windows-features: (default "--features=dns-over-rustls,dns-over-https-rustls,dns-over-quic,dns-over-h3,dns-over-native-tls,dnssec-ring")
+
 # Check, build, and test all crates with no-default-features
 no-default-features: (default "--no-default-features" "--ignore=\\{hickory-compatibility\\}")
 
@@ -70,6 +72,7 @@ test-docs:
     RUSTDOCFLAGS="-Dwarnings" cargo ws exec cargo doc --locked --all-features --no-deps --document-private-items
 
 # This tests compatibility with BIND9, TODO: support other feature sets besides openssl for tests
+[unix]
 compatibility: init-bind9
     cargo test --manifest-path tests/compatibility-tests/Cargo.toml --locked --all-targets --no-default-features --features=none;
     cargo test --manifest-path tests/compatibility-tests/Cargo.toml --locked --all-targets --no-default-features --features=bind;
@@ -146,6 +149,7 @@ coverage-lcov: coverage
     cargo +nightly llvm-cov report --lcov --output-path {{join(COV_CARGO_LLVM_COV_TARGET_DIR, "lcov.info")}}
 
 # (Re)generates Test Certificates, if tests are failing, this needs to be run yearly
+[unix]
 generate-test-certs: init-openssl
     cd {{TEST_DATA}} && rm -f ca.key ca.pem cert.key cert-key.pkcs8 cert.csr cert.pem cert.p12
     scripts/gen_certs.sh
@@ -340,7 +344,7 @@ init-llvm-cov:
     @rustup component add llvm-tools-preview
 
 # Initialize all tools needed for running tests, etc.
-init: init-cargo-workspaces init-audit init-bind9
+init: init-cargo-workspaces init-audit
     @echo 'all tools initialized'
 
 # Run the server with example config, for manual testing purposes
