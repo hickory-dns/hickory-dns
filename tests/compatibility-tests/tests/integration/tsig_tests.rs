@@ -12,24 +12,24 @@ use std::fs::File;
 use std::io::Read;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::FromStr;
+use std::sync::Arc;
 
+use futures::TryStreamExt;
 use time::Duration;
 
-use hickory_client::client::Client;
-use hickory_client::client::{ClientConnection, SyncClient};
-use hickory_client::proto::op::ResponseCode;
+use hickory_client::client::{AsyncClient, ClientHandle};
+use hickory_client::proto::op::{MessageFinalizer, ResponseCode};
 use hickory_client::proto::rr::dnssec::rdata::tsig::TsigAlgorithm;
 use hickory_client::proto::rr::dnssec::tsig::TSigner;
 use hickory_client::proto::rr::Name;
 use hickory_client::proto::rr::{RData, Record};
-use hickory_client::tcp::TcpClientConnection;
-use hickory_client::udp::UdpClientConnection;
+use hickory_client::proto::runtime::TokioRuntimeProvider;
+use hickory_client::proto::tcp::TcpClientStream;
+use hickory_client::proto::udp::UdpClientStream;
+use hickory_client::proto::xfer::DnsMultiplexer;
 use hickory_compatibility::named_process;
 
-pub fn create_tsig_ready_client<CC>(conn: CC) -> SyncClient<CC>
-where
-    CC: ClientConnection,
-{
+fn signer() -> Arc<dyn MessageFinalizer> {
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
     let pem_path = format!("{server_path}/tests/compatibility-tests/tests/conf/tsig.raw");
     println!("loading key from: {pem_path}");
@@ -41,21 +41,22 @@ where
         .expect("error reading key file");
 
     let key_name = Name::from_ascii("tsig-key").unwrap();
-    let signer = TSigner::new(key, TsigAlgorithm::HmacSha512, key_name, 60).unwrap();
-
-    SyncClient::with_tsigner(conn, signer)
+    Arc::new(TSigner::new(key, TsigAlgorithm::HmacSha512, key_name, 60).unwrap())
 }
 
-#[test]
-fn test_create() {
+#[tokio::test]
+async fn test_create() {
     use hickory_client::proto::rr::rdata::A;
 
     let (_process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
-    let conn = UdpClientConnection::new(socket).unwrap();
-
-    let client = create_tsig_ready_client(conn);
-    let origin = Name::from_str("example.net.").unwrap();
+    let stream = UdpClientStream::builder(socket, TokioRuntimeProvider::default())
+        .with_signer(Some(signer()))
+        .build();
+    let (mut client, driver) = AsyncClient::connect(stream)
+        .await
+        .expect("failed to connect");
+    tokio::spawn(driver);
 
     // create a record
     let mut record = Record::from_rdata(
@@ -64,12 +65,19 @@ fn test_create() {
         RData::A(A::new(100, 10, 100, 10)),
     );
 
+    let origin = Name::from_str("example.net.").unwrap();
     let result = client
         .create(record.clone(), origin.clone())
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     let result = client
-        .query(record.name(), record.dns_class(), record.record_type())
+        .query(
+            record.name().clone(),
+            record.dns_class(),
+            record.record_type(),
+        )
+        .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
@@ -79,29 +87,38 @@ fn test_create() {
     // TODO: it would be cool to make this
     let result = client
         .create(record.clone(), origin.clone())
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 
     // will fail if already set and not the same value.
     record.set_data(RData::A(A::new(101, 11, 101, 11)));
 
-    let result = client.create(record, origin).expect("create failed");
+    let result = client.create(record, origin).await.expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
 
-#[test]
-fn test_tsig_zone_transfer() {
+#[tokio::test]
+async fn test_tsig_zone_transfer() {
     use hickory_client::proto::runtime::TokioRuntimeProvider;
 
     let (_process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
-    let conn = TcpClientConnection::new(socket, TokioRuntimeProvider::new()).unwrap();
+    let (stream, sender) =
+        TcpClientStream::new(socket, None, None, TokioRuntimeProvider::default());
+    let multiplexer = DnsMultiplexer::new(stream, sender, Some(signer()));
 
-    let client = create_tsig_ready_client(conn);
+    let (mut client, driver) = AsyncClient::connect(multiplexer)
+        .await
+        .expect("failed to connect");
+    tokio::spawn(driver);
 
     let name = Name::from_str("example.net.").unwrap();
-    let result = client.zone_transfer(&name, None).expect("query failed");
-    let result = result.collect::<Result<Vec<_>, _>>().unwrap();
+    let result = client
+        .zone_transfer(name.clone(), None)
+        .try_collect::<Vec<_>>()
+        .await
+        .expect("query failed");
     assert_ne!(result.len(), 1);
     assert_eq!(
         result.iter().map(|r| r.answers().len()).sum::<usize>(),
