@@ -21,17 +21,13 @@ use futures::{
 };
 use tokio::time::{Duration, Instant, Sleep};
 
-use hickory_client::{client::ClientConnection, error::ClientResult};
 use hickory_proto::{
     error::ProtoError,
-    op::{Message, MessageFinalizer},
+    op::Message,
     rr::Record,
     runtime::TokioTime,
     serialize::binary::{BinDecodable, BinDecoder, BinEncoder},
-    xfer::{
-        DnsClientStream, DnsMultiplexer, DnsMultiplexerConnect, Protocol, SerialMessage,
-        StreamReceiver,
-    },
+    xfer::{DnsClientStream, Protocol, SerialMessage, StreamReceiver},
     BufDnsStreamHandle,
 };
 use hickory_server::{
@@ -254,29 +250,5 @@ impl Stream for NeverReturnsClientStream {
 impl fmt::Debug for NeverReturnsClientStream {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "TestClientStream catalog")
-    }
-}
-
-#[allow(dead_code)]
-pub struct NeverReturnsClientConnection {}
-
-impl NeverReturnsClientConnection {
-    pub fn new() -> ClientResult<Self> {
-        Ok(NeverReturnsClientConnection {})
-    }
-}
-
-#[allow(clippy::type_complexity)]
-impl ClientConnection for NeverReturnsClientConnection {
-    type Sender = DnsMultiplexer<NeverReturnsClientStream>;
-    type SenderFuture = DnsMultiplexerConnect<
-        Pin<Box<dyn Future<Output = Result<NeverReturnsClientStream, ProtoError>> + Send>>,
-        NeverReturnsClientStream,
-    >;
-
-    fn new_stream(&self, signer: Option<Arc<dyn MessageFinalizer>>) -> Self::SenderFuture {
-        let (client_stream, handle) = NeverReturnsClientStream::new();
-
-        DnsMultiplexer::new(Box::pin(client_stream), handle, signer)
     }
 }
