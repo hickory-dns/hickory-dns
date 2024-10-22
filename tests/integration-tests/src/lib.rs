@@ -37,8 +37,6 @@ use hickory_server::{
 
 pub mod example_authority;
 pub mod mock_client;
-#[cfg(feature = "dns-over-rustls")]
-pub mod tls_client_connection;
 
 #[allow(unused)]
 pub struct TestClientStream {
