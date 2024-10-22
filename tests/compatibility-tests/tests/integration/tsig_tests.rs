@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#![allow(unused_imports)]
+#![cfg(not(feature = "none"))]
 
 use std::env;
 use std::fs::File;
@@ -21,12 +21,11 @@ use hickory_client::proto::op::ResponseCode;
 use hickory_client::proto::rr::dnssec::rdata::tsig::TsigAlgorithm;
 use hickory_client::proto::rr::dnssec::tsig::TSigner;
 use hickory_client::proto::rr::Name;
-use hickory_client::proto::rr::{RData, Record, RecordType};
+use hickory_client::proto::rr::{RData, Record};
 use hickory_client::tcp::TcpClientConnection;
 use hickory_client::udp::UdpClientConnection;
 use hickory_compatibility::named_process;
 
-#[allow(dead_code)]
 pub fn create_tsig_ready_client<CC>(conn: CC) -> SyncClient<CC>
 where
     CC: ClientConnection,
@@ -47,7 +46,6 @@ where
     SyncClient::with_tsigner(conn, signer)
 }
 
-#[cfg(not(feature = "none"))]
 #[test]
 fn test_create() {
     use hickory_client::proto::rr::rdata::A;
@@ -91,7 +89,6 @@ fn test_create() {
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
 
-#[cfg(not(feature = "none"))]
 #[test]
 fn test_tsig_zone_transfer() {
     use hickory_client::proto::runtime::TokioRuntimeProvider;
