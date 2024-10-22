@@ -18,7 +18,7 @@ use hickory_proto::runtime::TokioRuntimeProvider;
 use test::Bencher;
 use tokio::runtime::Runtime;
 
-use hickory_client::client::{AsyncClient, ClientHandle};
+use hickory_client::client::{Client, ClientHandle};
 use hickory_proto::error::ProtoError;
 use hickory_proto::op::ResponseCode;
 use hickory_proto::rr::rdata::A;
@@ -56,7 +56,7 @@ fn wrap_process(named: Child, server_port: u16) -> NamedProcess {
             .next()
             .unwrap();
         let stream = UdpClientStream::builder(addr, provider.clone()).build();
-        let client = AsyncClient::connect(stream);
+        let client = Client::connect(stream);
         let (mut client, bg) = io_loop.block_on(client).expect("failed to create client");
         io_loop.spawn(bg);
 
@@ -115,7 +115,7 @@ where
     S: DnsRequestSender,
 {
     let io_loop = Runtime::new().unwrap();
-    let client = AsyncClient::connect(stream);
+    let client = Client::connect(stream);
     let (mut client, bg) = io_loop.block_on(client).expect("failed to create client");
     io_loop.spawn(bg);
 

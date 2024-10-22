@@ -19,7 +19,7 @@ use rustls::{ClientConfig, RootCertStore};
 use tokio::runtime::Runtime;
 
 use crate::server_harness::{named_test_harness, query_a};
-use hickory_client::client::AsyncClient;
+use hickory_client::client::Client;
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::rustls::tls_client_connect;
 use hickory_proto::xfer::Protocol;
@@ -70,7 +70,7 @@ fn test_example_tls_toml_startup() {
                 config.clone(),
                 provider.clone(),
             );
-            let client = AsyncClient::new(stream, sender, None);
+            let client = Client::new(stream, sender, None);
 
             let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
             hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -85,7 +85,7 @@ fn test_example_tls_toml_startup() {
                 .unwrap();
             let (stream, sender) =
                 tls_client_connect(addr, "ns.example.com".to_string(), config, provider);
-            let client = AsyncClient::new(stream, sender, None);
+            let client = Client::new(stream, sender, None);
 
             let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
             hickory_proto::runtime::spawn_bg(&io_loop, bg);

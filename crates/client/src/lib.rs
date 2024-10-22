@@ -74,9 +74,9 @@
 //!
 //! ## Objects
 //!
-//! There are two variations of implementations of the client: the [`client::AsyncClient`], an
-//! async client usually used with the Tokio runtime and the [`client::AsyncDnssecClient`], which
-//! validates. DNSSEC records. For these basic examples we'll only look at the `AsyncClient`.
+//! There are two variations of implementations of the client: the [`client::Client`], an
+//! async client usually used with the Tokio runtime and the [`client::DnssecClient`], which
+//! validates DNSSEC records. For these basic examples we'll only look at the `Client`.
 //!
 //! First we must decide on the type of connection. For the purpose of this example, we'll
 //! show how to set up a TCP-based connection.
@@ -88,7 +88,7 @@
 //! use std::net::Ipv4Addr;
 //! use std::str::FromStr;
 //! use tokio::net::TcpStream as TokioTcpStream;
-//! use hickory_client::client::{AsyncClient, ClientHandle};
+//! use hickory_client::client::{Client, ClientHandle};
 //! use hickory_client::proto::runtime::TokioRuntimeProvider;
 //! use hickory_client::proto::rr::{DNSClass, Name, RData, RecordType};
 //! use hickory_client::proto::rr::rdata::A;
@@ -105,7 +105,7 @@
 //!     //   the client is a handle to an unbounded queue for sending requests via the
 //!     //   background. The background must be scheduled to run before the client can
 //!     //   send any dns requests
-//!     let client = AsyncClient::new(stream, sender, None);
+//!     let client = Client::new(stream, sender, None);
 //!
 //!     // await the connection to be established
 //!     let (mut client, bg) = client.await.expect("connection failed");
