@@ -10,11 +10,13 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 
+use futures::TryStreamExt;
 use time::Duration;
 
-use hickory_client::client::{Client, SyncClient};
+use hickory_client::client::{AsyncClient, ClientHandle};
 use hickory_client::proto::rr::{Name, RData, Record, RecordType};
-use hickory_client::tcp::TcpClientConnection;
+use hickory_client::proto::tcp::TcpClientStream;
+use hickory_client::proto::xfer::DnsMultiplexer;
 use hickory_compatibility::named_process;
 
 #[allow(unused)]
@@ -29,18 +31,27 @@ macro_rules! assert_serial {
     }};
 }
 
-#[test]
-fn test_zone_transfer() {
+#[tokio::test]
+async fn test_zone_transfer() {
     use hickory_client::proto::{rr::rdata::A, runtime::TokioRuntimeProvider};
 
     let (_process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
-    let conn = TcpClientConnection::new(socket, TokioRuntimeProvider::new()).unwrap();
-    let client = SyncClient::new(conn);
+    let (stream, sender) =
+        TcpClientStream::new(socket, None, None, TokioRuntimeProvider::default());
+    let multiplexer = DnsMultiplexer::new(stream, sender, None);
+
+    let (mut client, driver) = AsyncClient::connect(multiplexer)
+        .await
+        .expect("failed to connect");
+    tokio::spawn(driver);
 
     let name = Name::from_str("example.net.").unwrap();
-    let result = client.zone_transfer(&name, None).expect("query failed");
-    let result = result.collect::<Result<Vec<_>, _>>().unwrap();
+    let result = client
+        .zone_transfer(name.clone(), None)
+        .try_collect::<Vec<_>>()
+        .await
+        .expect("query failed");
     assert_ne!(result.len(), 1);
     assert_eq!(
         result.iter().map(|r| r.answers().len()).sum::<usize>(),
@@ -71,12 +82,16 @@ fn test_zone_transfer() {
         RData::A(A::new(100, 10, 100, 10)),
     );
 
-    client.create(record, name.clone()).expect("create failed");
+    client
+        .create(record, name.clone())
+        .await
+        .expect("create failed");
 
     let result = client
-        .zone_transfer(&name, Some(soa.clone()))
+        .zone_transfer(name, Some(soa.clone()))
+        .try_collect::<Vec<_>>()
+        .await
         .expect("query failed");
-    let result = result.collect::<Result<Vec<_>, _>>().unwrap();
     assert_eq!(result.len(), 1);
     let result = &result[0];
     assert_eq!(result.answers().len(), 3 + 2);
