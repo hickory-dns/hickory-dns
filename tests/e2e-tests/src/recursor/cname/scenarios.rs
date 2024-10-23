@@ -121,8 +121,7 @@ fn multi_level_cname_tests() -> Result<()> {
     let res = test.dig(RecordType::A, &FQDN("www.example.testing.")?);
 
     if let Ok(res) = res {
-        // FIXME Need recursor to pass servfail responses through for this to work.
-        //assert!(res.status.is_servfail());
+        assert!(res.status.is_servfail());
         assert_eq!(res.answer.len(), 0);
 
         let logs = test.logs().unwrap();

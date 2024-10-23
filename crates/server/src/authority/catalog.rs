@@ -833,6 +833,7 @@ async fn build_forwarded_response(
             }
         }
         Err(e) => {
+            response_header.set_response_code(ResponseCode::ServFail);
             debug!("error resolving {e:?}");
             (
                 Answer::Normal(Box::new(EmptyLookup)),
