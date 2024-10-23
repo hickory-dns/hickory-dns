@@ -203,7 +203,7 @@ impl From<ResolveError> for Error {
             ..
         } = proto_err
         else {
-            return ErrorKind::Message("unexpected error kind: not no records found").into();
+            return ErrorKind::Proto(proto_err.into()).into();
         };
 
         if let Some(ns) = ns {

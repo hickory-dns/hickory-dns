@@ -1,5 +1,5 @@
 /// These scenarios use a Dnslib-based server which returns invalid answers that should be dropped
-use std::fs;
+use std::{fs, thread, time::Duration};
 
 use dns_test::{
     client::{Client, DigSettings},
@@ -39,6 +39,7 @@ fn tx_id_validation_test() -> Result<()> {
     let _root_ns = root_ns.start()?;
     let _leaf_ns = leaf_ns.start()?;
 
+    thread::sleep(Duration::from_secs(2));
     let a_settings = *DigSettings::default().recurse().authentic_data();
     let res = client.dig(
         a_settings,
@@ -49,8 +50,7 @@ fn tx_id_validation_test() -> Result<()> {
 
     match res {
         Ok(res) => {
-            // FIXME This should be servfail; need the error propagation fix from #2522
-            assert!(res.status.is_noerror());
+            assert!(res.status.is_servfail());
             assert_eq!(res.answer.len(), 0);
         }
         Err(e) => panic!("error {e:?} resolver logs: {}", resolver.logs().unwrap()),
