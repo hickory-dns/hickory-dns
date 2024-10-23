@@ -38,6 +38,9 @@ pub struct RecursorBuilder {
     /// This controls how many nested lookups will be attempted to resolve a CNAME chain. Setting it
     /// to None will disable the recursion limit check, and is not recommended.
     recursion_limit: Option<u8>,
+    /// This controls how many nested lookups will be attempted when trying to build an NS pool.
+    /// Setting it to None will disable the recursion limit check, and is not recommended.
+    ns_recursion_limit: Option<u8>,
     dnssec_policy: DnssecPolicy,
     do_not_query: Vec<IpNet>,
     avoid_local_udp_ports: HashSet<u16>,
@@ -61,6 +64,13 @@ impl RecursorBuilder {
     /// recursion.
     pub fn recursion_limit(mut self, limit: Option<u8>) -> Self {
         self.recursion_limit = limit;
+        self
+    }
+
+    /// Sets the maximum recursion depth for building NS pools; set to None for unlimited
+    /// recursion.
+    pub fn ns_recursion_limit(mut self, limit: Option<u8>) -> Self {
+        self.ns_recursion_limit = limit;
         self
     }
 
@@ -126,6 +136,7 @@ impl Recursor {
             ns_cache_size,
             record_cache_size,
             recursion_limit,
+            ns_recursion_limit,
             dnssec_policy,
             do_not_query,
             avoid_local_udp_ports,
@@ -137,6 +148,7 @@ impl Recursor {
             ns_cache_size,
             record_cache_size,
             recursion_limit,
+            ns_recursion_limit,
             dnssec_policy.is_security_aware(),
             do_not_query,
             Arc::new(avoid_local_udp_ports),
@@ -451,6 +463,7 @@ impl Default for RecursorBuilder {
             // that users of Unbound encountered (see https://github.com/NLnetLabs/unbound/issues/438)
             // with a small safety margin added.
             recursion_limit: Some(12),
+            ns_recursion_limit: Some(16),
             dnssec_policy: DnssecPolicy::SecurityUnaware,
             do_not_query: vec![],
             avoid_local_udp_ports: HashSet::new(),

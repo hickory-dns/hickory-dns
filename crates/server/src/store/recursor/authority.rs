@@ -94,6 +94,10 @@ impl RecursiveAuthority {
                 0 => None,
                 limit => Some(limit),
             })
+            .ns_recursion_limit(match config.ns_recursion_limit {
+                0 => None,
+                limit => Some(limit),
+            })
             .avoid_local_udp_ports(config.avoid_local_udp_ports.clone())
             .ttl_config(config.cache_policy.clone())
             .build(roots)

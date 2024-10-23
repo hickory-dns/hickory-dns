@@ -47,6 +47,10 @@ pub struct RecursiveConfig {
     #[serde(default = "recursion_limit_default")]
     pub recursion_limit: u8,
 
+    /// Maximum recursion depth for building NS pools. Set to 0 for unlimited recursion depth.
+    #[serde(default = "ns_recursion_limit_default")]
+    pub ns_recursion_limit: u8,
+
     /// DNSSEC policy
     #[cfg(feature = "dnssec")]
     #[serde(default)]
@@ -96,6 +100,10 @@ impl RecursiveConfig {
 
 fn recursion_limit_default() -> u8 {
     12
+}
+
+fn ns_recursion_limit_default() -> u8 {
+    16
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
