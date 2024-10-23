@@ -38,6 +38,7 @@ pub enum Role {
 #[derive(Clone, Debug)]
 pub enum Implementation {
     Bind,
+    Dnslib,
     Hickory(Repository<'static>),
     Unbound,
 }
@@ -46,6 +47,7 @@ impl Implementation {
     pub fn supports_ede(&self) -> bool {
         match self {
             Implementation::Bind => false,
+            Implementation::Dnslib => true,
             Implementation::Hickory(_) => true,
             Implementation::Unbound => true,
         }
@@ -64,6 +66,11 @@ impl Implementation {
     #[must_use]
     pub fn is_bind(&self) -> bool {
         matches!(self, Self::Bind)
+    }
+
+    #[must_use]
+    pub fn is_dnslib(&self) -> bool {
+        matches!(self, Self::Dnslib)
     }
 
     #[must_use]
@@ -93,6 +100,11 @@ impl Implementation {
                     )
                 }
 
+                Self::Dnslib => {
+                    // Dnslib resolvers don't have a config
+                    "".into()
+                }
+
                 Self::Hickory(_) => {
                     // TODO enable EDE in Hickory when supported
                     minijinja::render!(
@@ -119,6 +131,11 @@ impl Implementation {
                     )
                 }
 
+                Self::Dnslib => {
+                    // Dnslib name servers don't have a config
+                    "".into()
+                }
+
                 Self::Unbound => {
                     minijinja::render!(
                         include_str!("templates/nsd.conf.jinja"),
@@ -141,6 +158,8 @@ impl Implementation {
         match self {
             Self::Bind => "/etc/bind/named.conf",
 
+            Self::Dnslib => "/dev/null",
+
             Self::Hickory(_) => "/etc/named.toml",
 
             Self::Unbound => match role {
@@ -153,6 +172,7 @@ impl Implementation {
     pub(crate) fn cmd_args(&self, role: Role) -> Vec<String> {
         let base = match self {
             Implementation::Bind => "named -g -d5",
+            Implementation::Dnslib => "python3 /script.py",
             Implementation::Hickory(_) => "hickory-dns -d",
             Implementation::Unbound => match role {
                 Role::NameServer => "nsd -d",
@@ -185,6 +205,8 @@ impl Implementation {
         let path = match self {
             Implementation::Bind => "/tmp/named",
 
+            Implementation::Dnslib => "/tmp/dnslib",
+
             Implementation::Hickory(_) => "/tmp/hickory",
 
             Implementation::Unbound => match role {
@@ -216,6 +238,7 @@ impl fmt::Display for Implementation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
             Implementation::Bind => "bind",
+            Implementation::Dnslib => "dnslib",
             Implementation::Hickory(_) => "hickory",
             Implementation::Unbound => "unbound",
         };
