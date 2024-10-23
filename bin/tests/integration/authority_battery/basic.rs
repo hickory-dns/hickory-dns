@@ -1,7 +1,7 @@
 #![allow(clippy::dbg_macro)]
 
 use std::future::Future;
-use std::net::{Ipv4Addr, Ipv6Addr};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::str::FromStr;
 
 use futures_executor::block_on;
@@ -25,7 +25,7 @@ const TEST_HEADER: &Header = &Header::new();
 pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A).into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -88,7 +88,7 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A) {
 pub fn test_ns_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::NS).into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -123,7 +123,7 @@ pub fn test_ns_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
 pub fn test_mx<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::MX).into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -183,7 +183,7 @@ pub fn test_mx_to_null<A: Authority<Lookup = AuthLookup>>(authority: A) {
     )
     .into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -212,7 +212,7 @@ pub fn test_cname<A: Authority<Lookup = AuthLookup>>(authority: A) {
     )
     .into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -234,7 +234,7 @@ pub fn test_cname<A: Authority<Lookup = AuthLookup>>(authority: A) {
 pub fn test_cname_alias<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let query = Query::query(Name::from_str("alias.example.com.").unwrap(), RecordType::A).into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -275,7 +275,7 @@ pub fn test_cname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
     )
     .into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -323,7 +323,7 @@ pub fn test_cname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
 pub fn test_aname<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::ANAME).into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -369,7 +369,7 @@ pub fn test_aname<A: Authority<Lookup = AuthLookup>>(authority: A) {
 pub fn test_aname_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::A).into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -412,7 +412,7 @@ pub fn test_aname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
     )
     .into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -479,7 +479,7 @@ pub fn test_dots_in_name<A: Authority<Lookup = AuthLookup>>(authority: A) {
     )
     .into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -505,7 +505,7 @@ pub fn test_dots_in_name<A: Authority<Lookup = AuthLookup>>(authority: A) {
     )
     .into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -518,7 +518,7 @@ pub fn test_dots_in_name<A: Authority<Lookup = AuthLookup>>(authority: A) {
     // the rest should all be NameExists
     let query = Query::query(Name::from_str("dots.example.com.").unwrap(), RecordType::A).into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -535,7 +535,7 @@ pub fn test_dots_in_name<A: Authority<Lookup = AuthLookup>>(authority: A) {
     )
     .into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -554,7 +554,7 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A) {
     )
     .into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -581,7 +581,7 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A) {
     )
     .into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -618,7 +618,7 @@ pub fn test_wildcard_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
     )
     .into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -659,7 +659,7 @@ pub fn test_srv<A: Authority<Lookup = AuthLookup>>(authority: A) {
     )
     .into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -712,7 +712,7 @@ pub fn test_srv<A: Authority<Lookup = AuthLookup>>(authority: A) {
 pub fn test_invalid_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let query = Query::query(Name::from_str("www.google.com.").unwrap(), RecordType::A).into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,

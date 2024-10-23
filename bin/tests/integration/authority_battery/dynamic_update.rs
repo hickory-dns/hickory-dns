@@ -2,7 +2,7 @@
 
 use std::{
     future::Future,
-    net::{Ipv4Addr, Ipv6Addr},
+    net::{Ipv4Addr, Ipv6Addr, SocketAddr},
     str::FromStr,
 };
 
@@ -58,7 +58,7 @@ pub fn test_create<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
 
         let query = Query::query(name, RecordType::A).into();
         let request_info = RequestInfo::new(
-            "127.0.0.1:53".parse().unwrap(),
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
             TEST_HEADER,
             &query,
@@ -110,7 +110,7 @@ pub fn test_create_multi<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
 
         let query = Query::query(name, RecordType::A).into();
         let request_info = RequestInfo::new(
-            "127.0.0.1:53".parse().unwrap(),
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
             TEST_HEADER,
             &query,
@@ -165,7 +165,7 @@ pub fn test_append<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
         // verify record contents
         let query = Query::query(name.clone(), RecordType::A).into();
         let request_info = RequestInfo::new(
-            "127.0.0.1:53".parse().unwrap(),
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
             TEST_HEADER,
             &query,
@@ -190,7 +190,7 @@ pub fn test_append<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
 
         let query = Query::query(name.clone(), RecordType::A).into();
         let request_info = RequestInfo::new(
-            "127.0.0.1:53".parse().unwrap(),
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
             TEST_HEADER,
             &query,
@@ -214,7 +214,7 @@ pub fn test_append<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
 
         let query = Query::query(name, RecordType::A).into();
         let request_info = RequestInfo::new(
-            "127.0.0.1:53".parse().unwrap(),
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
             TEST_HEADER,
             &query,
@@ -269,7 +269,7 @@ pub fn test_append_multi<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
 
         let query = Query::query(name.clone(), RecordType::A).into();
         let request_info = RequestInfo::new(
-            "127.0.0.1:53".parse().unwrap(),
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
             TEST_HEADER,
             &query,
@@ -295,7 +295,7 @@ pub fn test_append_multi<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
 
         let query = Query::query(name.clone(), RecordType::A).into();
         let request_info = RequestInfo::new(
-            "127.0.0.1:53".parse().unwrap(),
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
             TEST_HEADER,
             &query,
@@ -348,7 +348,7 @@ pub fn test_compare_and_swap<A: Authority<Lookup = AuthLookup>>(
 
         let query = Query::query(name.clone(), RecordType::A).into();
         let request_info = RequestInfo::new(
-            "127.0.0.1:53".parse().unwrap(),
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
             TEST_HEADER,
             &query,
@@ -378,7 +378,7 @@ pub fn test_compare_and_swap<A: Authority<Lookup = AuthLookup>>(
 
         let query = Query::query(name.clone(), RecordType::A).into();
         let request_info = RequestInfo::new(
-            "127.0.0.1:53".parse().unwrap(),
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
             TEST_HEADER,
             &query,
@@ -437,7 +437,7 @@ pub fn test_compare_and_swap_multi<A: Authority<Lookup = AuthLookup>>(
 
         let query = Query::query(name.clone(), RecordType::A).into();
         let request_info = RequestInfo::new(
-            "127.0.0.1:53".parse().unwrap(),
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
             TEST_HEADER,
             &query,
@@ -469,7 +469,7 @@ pub fn test_compare_and_swap_multi<A: Authority<Lookup = AuthLookup>>(
 
         let query = Query::query(name.clone(), RecordType::A).into();
         let request_info = RequestInfo::new(
-            "127.0.0.1:53".parse().unwrap(),
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
             TEST_HEADER,
             &query,
@@ -533,7 +533,7 @@ pub fn test_delete_by_rdata<A: Authority<Lookup = AuthLookup>>(
 
         let query = Query::query(name.clone(), RecordType::A).into();
         let request_info = RequestInfo::new(
-            "127.0.0.1:53".parse().unwrap(),
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
             TEST_HEADER,
             &query,
@@ -612,7 +612,7 @@ pub fn test_delete_by_rdata_multi<A: Authority<Lookup = AuthLookup>>(
 
         let query = Query::query(name.clone(), RecordType::A).into();
         let request_info = RequestInfo::new(
-            "127.0.0.1:53".parse().unwrap(),
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
             TEST_HEADER,
             &query,
@@ -675,7 +675,7 @@ pub fn test_delete_rrset<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
 
         let query = Query::query(name.clone(), RecordType::A).into();
         let request_info = RequestInfo::new(
-            "127.0.0.1:53".parse().unwrap(),
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
             TEST_HEADER,
             &query,
@@ -738,7 +738,7 @@ pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys
 
         let query = Query::query(name.clone(), RecordType::A).into();
         let request_info = RequestInfo::new(
-            "127.0.0.1:53".parse().unwrap(),
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
             TEST_HEADER,
             &query,
@@ -752,7 +752,7 @@ pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys
 
         let query = Query::query(name.clone(), RecordType::AAAA).into();
         let request_info = RequestInfo::new(
-            "127.0.0.1:53".parse().unwrap(),
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
             TEST_HEADER,
             &query,

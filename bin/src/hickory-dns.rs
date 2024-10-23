@@ -476,8 +476,8 @@ fn run() -> Result<(), String> {
     let listen_port: u16 = args.port.unwrap_or_else(|| config.listen_port());
 
     if listen_addrs.is_empty() {
-        listen_addrs.push(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
-        listen_addrs.push(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)));
+        listen_addrs.push(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
+        listen_addrs.push(IpAddr::V6(Ipv6Addr::UNSPECIFIED));
     }
 
     if args.validate {

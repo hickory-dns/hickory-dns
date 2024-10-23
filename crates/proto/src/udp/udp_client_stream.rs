@@ -375,7 +375,7 @@ mod tests {
         subscribe();
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
         let provider = TokioRuntimeProvider::new();
-        udp_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), io_loop, provider)
+        udp_client_stream_test(IpAddr::V4(Ipv4Addr::LOCALHOST), io_loop, provider)
     }
 
     #[test]

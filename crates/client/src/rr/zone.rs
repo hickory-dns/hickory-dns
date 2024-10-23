@@ -559,7 +559,7 @@ mod tests {
         assert_eq!(usage.name(), LOCALHOST.name());
 
         assert_eq!(
-            USAGE.get(&Name::from(Ipv4Addr::new(127, 0, 0, 1))).name(),
+            USAGE.get(&Name::from(Ipv4Addr::LOCALHOST)).name(),
             IN_ADDR_ARPA_127.name()
         );
         assert_eq!(

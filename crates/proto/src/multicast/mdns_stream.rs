@@ -172,10 +172,8 @@ impl MdnsStream {
     #[cfg(windows)]
     fn bind_multicast(socket: &Socket, multicast_addr: &SocketAddr) -> io::Result<()> {
         let multicast_addr = match multicast_addr {
-            SocketAddr::V4(addr) => SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), addr.port()),
-            SocketAddr::V6(addr) => {
-                SocketAddr::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0).into(), addr.port())
-            }
+            SocketAddr::V4(addr) => SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), addr.port()),
+            SocketAddr::V6(addr) => SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), addr.port()),
         };
         socket.bind(&socket2::SockAddr::from(multicast_addr))
     }
@@ -214,7 +212,7 @@ impl MdnsStream {
                     socket2::Type::DGRAM,
                     Some(socket2::Protocol::UDP),
                 )?;
-                socket.join_multicast_v4(mdns_v4, &Ipv4Addr::new(0, 0, 0, 0))?;
+                socket.join_multicast_v4(mdns_v4, &Ipv4Addr::UNSPECIFIED)?;
                 socket
             }
             IpAddr::V6(mdns_v6) => {
@@ -249,8 +247,8 @@ impl MdnsStream {
         ipv6_if: Option<u32>,
     ) -> NextRandomUdpSocket {
         let bind_address: IpAddr = match multicast_addr {
-            SocketAddr::V4(..) => IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
-            SocketAddr::V6(..) => IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)),
+            SocketAddr::V4(..) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            SocketAddr::V6(..) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
         };
 
         NextRandomUdpSocket {
@@ -333,9 +331,8 @@ impl NextRandomUdpSocket {
         match addr {
             SocketAddr::V4(..) => {
                 socket.set_multicast_loop_v4(true)?;
-                socket.set_multicast_if_v4(
-                    &self.ipv4_if.unwrap_or_else(|| Ipv4Addr::new(0, 0, 0, 0)),
-                )?;
+                socket
+                    .set_multicast_if_v4(&self.ipv4_if.unwrap_or_else(|| Ipv4Addr::UNSPECIFIED))?;
                 if let Some(ttl) = self.packet_ttl {
                     socket.set_ttl(ttl)?;
                     socket.set_multicast_ttl_v4(ttl)?;

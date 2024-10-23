@@ -26,7 +26,7 @@ use tokio::net::UdpSocket;
 async fn test_truncation() {
     subscribe();
 
-    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
+    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
     let udp_socket = UdpSocket::bind(&addr).await.unwrap();
 
     let nameserver = udp_socket.local_addr().unwrap();
