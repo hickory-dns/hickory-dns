@@ -24,6 +24,7 @@ const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
 #[derive(Clone)]
 pub enum Image {
     Bind,
+    Dnslib,
     Client,
     Hickory(Repository<'static>),
     Unbound,
@@ -33,6 +34,7 @@ impl Image {
     fn dockerfile(&self) -> &'static str {
         match self {
             Self::Bind => include_str!("docker/bind.Dockerfile"),
+            Self::Dnslib => include_str!("docker/dnslib.Dockerfile"),
             Self::Client => include_str!("docker/client.Dockerfile"),
             Self::Hickory { .. } => include_str!("docker/hickory.Dockerfile"),
             Self::Unbound => include_str!("docker/unbound.Dockerfile"),
@@ -44,6 +46,11 @@ impl Image {
             Self::Bind => {
                 static BIND_ONCE: Once = Once::new();
                 &BIND_ONCE
+            }
+
+            Self::Dnslib => {
+                static DNSLIB_ONCE: Once = Once::new();
+                &DNSLIB_ONCE
             }
 
             Self::Client => {
@@ -68,6 +75,7 @@ impl From<Implementation> for Image {
     fn from(implementation: Implementation) -> Self {
         match implementation {
             Implementation::Bind => Self::Bind,
+            Implementation::Dnslib => Self::Dnslib,
             Implementation::Unbound => Self::Unbound,
             Implementation::Hickory(repo) => Self::Hickory(repo),
         }
@@ -79,6 +87,7 @@ impl fmt::Display for Image {
         let s = match self {
             Self::Client => "client",
             Self::Bind => "bind",
+            Self::Dnslib => "dnslib",
             Self::Hickory { .. } => "hickory",
             Self::Unbound => "unbound",
         };
@@ -331,6 +340,15 @@ impl Child {
             .as_mut()
             .and_then(|child| child.stderr.take())
             .ok_or("could not retrieve child's stderr")?)
+    }
+
+    /// Returns the child's exit status, if the child process has exited. try_wait will not block
+    /// on a running process.
+    pub fn try_wait(&mut self) -> Result<Option<ExitStatus>> {
+        match self.inner.as_mut() {
+            Some(ref mut child) => Ok(child.try_wait()?),
+            _ => Err("can't borrow child as mut for try_wait".into()),
+        }
     }
 
     pub fn wait(mut self) -> Result<Output> {

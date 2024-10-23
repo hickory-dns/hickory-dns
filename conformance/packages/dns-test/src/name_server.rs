@@ -1,5 +1,5 @@
 use core::sync::atomic::{self, AtomicUsize};
-use std::net::Ipv4Addr;
+use std::{net::Ipv4Addr, thread, time::Duration};
 
 use crate::container::{Child, Container, Network};
 use crate::implementation::{Config, Role};
@@ -223,6 +223,12 @@ impl NameServer<Stopped> {
         self
     }
 
+    /// Copy a file to the name server's filesystem
+    pub fn cp(&self, path: &str, contents: &str) -> Result<()> {
+        self.container.cp(path, contents)?;
+        Ok(())
+    }
+
     /// Freezes and signs the name server's zone file
     pub fn sign(self, settings: SignSettings) -> Result<NameServer<Signed>> {
         let Self {
@@ -264,7 +270,25 @@ impl NameServer<Stopped> {
         container.status_ok(&["mkdir", "-p", ZONES_DIR])?;
         container.cp(&zone_file_path(), &zone_file.to_string())?;
 
-        let child = container.spawn(&implementation.cmd_args(config.role()))?;
+        let mut child = container.spawn(&implementation.cmd_args(config.role()))?;
+
+        // For Dnslib, make sure the python interpreter is still running after two seconds
+        if let Implementation::Dnslib = implementation {
+            thread::sleep(Duration::from_secs(2));
+
+            match child.try_wait() {
+                Ok(None) => {} // the process is still running
+                Ok(Some(status)) => {
+                    return Err(format!(
+                        "unable to start dnslib server: {status:?}; logs: {:?}",
+                        container
+                            .stdout(&["cat", &implementation.stderr_logfile(Role::NameServer)]),
+                    )
+                    .into())
+                }
+                Err(e) => println!("unable to determine if dnslib started: {e}"),
+            }
+        }
 
         Ok(NameServer {
             container,
