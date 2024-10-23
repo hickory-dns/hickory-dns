@@ -9,6 +9,7 @@ use std::str::FromStr;
 use std::sync::{Arc, Mutex as StdMutex};
 
 use futures::TryStreamExt;
+use hickory_integration::{GOOGLE_V4, TEST3_V4};
 #[cfg(feature = "dnssec")]
 use time::Duration;
 
@@ -109,16 +110,14 @@ async fn tcp_dnssec_client(addr: SocketAddr) -> DnssecClient {
 #[ignore]
 #[allow(deprecated)]
 async fn test_query_udp() {
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let client = udp_client(addr).await;
+    let client = udp_client(GOOGLE_V4).await;
     test_query(client).await;
 }
 
 #[tokio::test]
 #[allow(deprecated)]
 async fn test_query_udp_edns() {
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let client = udp_client(addr).await;
+    let client = udp_client(GOOGLE_V4).await;
     test_query_edns(client).await;
 }
 
@@ -126,8 +125,7 @@ async fn test_query_udp_edns() {
 #[ignore]
 #[allow(deprecated)]
 async fn test_query_tcp() {
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let client = tcp_client(addr).await;
+    let client = tcp_client(GOOGLE_V4).await;
     test_query(client).await;
 }
 
@@ -226,9 +224,7 @@ async fn test_query_edns(client: Client) {
 #[cfg(feature = "dnssec")]
 async fn test_secure_query_example_udp() {
     subscribe();
-
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let client = udp_dnssec_client(addr).await;
+    let client = udp_dnssec_client(GOOGLE_V4).await;
     test_secure_query_example(client).await;
 }
 
@@ -237,9 +233,7 @@ async fn test_secure_query_example_udp() {
 #[cfg(feature = "dnssec")]
 async fn test_secure_query_example_tcp() {
     subscribe();
-
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let client = tcp_dnssec_client(addr).await;
+    let client = tcp_dnssec_client(GOOGLE_V4).await;
     test_secure_query_example(client).await;
 }
 
@@ -289,30 +283,19 @@ async fn test_timeout_query(mut client: Client) {
 
 #[tokio::test]
 async fn test_timeout_query_udp() {
-    let addr: SocketAddr = ("203.0.113.0", 53)
-        .to_socket_addrs()
-        .unwrap()
-        .next()
-        .unwrap();
-
-    let client = udp_client(addr).await;
+    let client = udp_client(TEST3_V4).await;
     test_timeout_query(client).await;
 }
 
 #[tokio::test]
 async fn test_timeout_query_tcp() {
-    let addr: SocketAddr = ("203.0.113.0", 53)
-        .to_socket_addrs()
-        .unwrap()
-        .next()
-        .unwrap();
-
     let (stream, sender) = TcpClientStream::new(
-        addr,
+        TEST3_V4,
         None,
         Some(std::time::Duration::from_millis(1)),
         TokioRuntimeProvider::default(),
     );
+
     let multiplexer = DnsMultiplexer::new(stream, sender, None);
     match Client::connect(multiplexer).await {
         Err(e) if matches!(e.kind(), ProtoErrorKind::Timeout) => {}
@@ -367,8 +350,7 @@ async fn test_timeout_query_tcp() {
 #[allow(deprecated)]
 #[cfg(feature = "dnssec")]
 async fn test_nsec_query_example_udp() {
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let client = udp_dnssec_client(addr).await;
+    let client = udp_dnssec_client(GOOGLE_V4).await;
     test_nsec_query_example(client).await;
 }
 
@@ -377,8 +359,7 @@ async fn test_nsec_query_example_udp() {
 #[allow(deprecated)]
 #[cfg(feature = "dnssec")]
 async fn test_nsec_query_example_tcp() {
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let client = tcp_dnssec_client(addr).await;
+    let client = tcp_dnssec_client(GOOGLE_V4).await;
     test_nsec_query_example(client).await;
 }
 
@@ -398,11 +379,9 @@ async fn test_nsec_query_example(mut client: DnssecClient) {
 #[ignore]
 #[cfg(feature = "dnssec")]
 async fn test_nsec_query_type() {
+    let mut client = tcp_dnssec_client(GOOGLE_V4).await;
+
     let name = Name::from_str("www.example.com").unwrap();
-
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let mut client = tcp_dnssec_client(addr).await;
-
     let response = client
         .query(name, DNSClass::IN, RecordType::NS)
         .await
@@ -419,9 +398,7 @@ async fn test_nsec_query_type() {
 async fn test_nsec3_nxdomain() {
     let name = Name::from_labels(vec!["a", "b", "c", "example", "com"]).unwrap();
 
-    let addr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let mut client = tcp_dnssec_client(addr).await;
-
+    let mut client = tcp_dnssec_client(GOOGLE_V4).await;
     let response = client
         .query(name, DNSClass::IN, RecordType::NS)
         .await
@@ -435,9 +412,7 @@ async fn test_nsec3_nxdomain() {
 async fn test_nsec3_no_data() {
     let name = Name::from_labels(vec!["www", "example", "com"]).unwrap();
 
-    let addr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let mut client = tcp_dnssec_client(addr).await;
-
+    let mut client = tcp_dnssec_client(GOOGLE_V4).await;
     let response = client
         .query(name, DNSClass::IN, RecordType::PTR)
         .await
@@ -453,9 +428,7 @@ async fn test_nsec3_no_data() {
 async fn test_nsec3_query_name_is_soa_name() {
     let name = Name::from_labels("valid.extended-dns-errors.com".split(".")).unwrap();
 
-    let addr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let mut client = tcp_dnssec_client(addr).await;
-
+    let mut client = tcp_dnssec_client(GOOGLE_V4).await;
     let response = client
         .query(name, DNSClass::IN, RecordType::PTR)
         .await

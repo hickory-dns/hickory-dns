@@ -43,7 +43,7 @@ use crate::{runtime::iocompat::AsyncIoTokioAsStd, DnsStreamHandle};
 #[test]
 #[cfg_attr(target_os = "macos", ignore)] // TODO: add back once https://github.com/sfackler/rust-native-tls/issues/143 is fixed
 fn test_tls_client_stream_ipv4() {
-    tls_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))
+    tls_client_stream_test(IpAddr::V4(Ipv4Addr::LOCALHOST))
 }
 
 #[test]

@@ -1,5 +1,4 @@
 use std::{
-    net::*,
     str::FromStr,
     sync::{Arc, Mutex as StdMutex},
 };
@@ -15,7 +14,8 @@ use hickory_client::{
     error::ClientErrorKind,
 };
 use hickory_integration::{
-    example_authority::create_example, NeverReturnsClientStream, TestClientStream,
+    example_authority::create_example, NeverReturnsClientStream, TestClientStream, GOOGLE_V4,
+    GOOGLE_V6, TEST3_V4,
 };
 #[cfg(feature = "dnssec")]
 use hickory_proto::rr::{dnssec::SigSigner, Record};
@@ -61,8 +61,7 @@ fn test_query_nonet() {
 #[test]
 fn test_query_udp_ipv4() {
     let io_loop = Runtime::new().unwrap();
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let stream = UdpClientStream::builder(addr, TokioRuntimeProvider::new()).build();
+    let stream = UdpClientStream::builder(GOOGLE_V4, TokioRuntimeProvider::new()).build();
     let client = Client::connect(stream);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -77,12 +76,7 @@ fn test_query_udp_ipv4() {
 #[ignore]
 fn test_query_udp_ipv6() {
     let io_loop = Runtime::new().unwrap();
-    let addr: SocketAddr = ("2001:4860:4860::8888", 53)
-        .to_socket_addrs()
-        .unwrap()
-        .next()
-        .unwrap();
-    let stream = UdpClientStream::builder(addr, TokioRuntimeProvider::new()).build();
+    let stream = UdpClientStream::builder(GOOGLE_V6, TokioRuntimeProvider::new()).build();
     let client = Client::connect(stream);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -96,8 +90,7 @@ fn test_query_udp_ipv6() {
 #[test]
 fn test_query_tcp_ipv4() {
     let io_loop = Runtime::new().unwrap();
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
+    let (stream, sender) = TcpClientStream::new(GOOGLE_V4, None, None, TokioRuntimeProvider::new());
     let client = Client::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -111,12 +104,7 @@ fn test_query_tcp_ipv4() {
 #[ignore]
 fn test_query_tcp_ipv6() {
     let io_loop = Runtime::new().unwrap();
-    let addr: SocketAddr = ("2001:4860:4860::8888", 53)
-        .to_socket_addrs()
-        .unwrap()
-        .next()
-        .unwrap();
-    let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
+    let (stream, sender) = TcpClientStream::new(GOOGLE_V6, None, None, TokioRuntimeProvider::new());
     let client = Client::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -129,13 +117,13 @@ fn test_query_tcp_ipv6() {
 #[test]
 #[cfg(feature = "dns-over-https-rustls")]
 fn test_query_https() {
+    use hickory_integration::CLOUDFLARE_V4_TLS;
     use hickory_proto::h2::HttpsClientStreamBuilder;
     use rustls::{ClientConfig, RootCertStore};
 
     const ALPN_H2: &[u8] = b"h2";
 
     let io_loop = Runtime::new().unwrap();
-    let addr: SocketAddr = ("1.1.1.1", 443).to_socket_addrs().unwrap().next().unwrap();
 
     // using the mozilla default root store
     let mut root_store = RootCertStore::empty();
@@ -154,7 +142,7 @@ fn test_query_https() {
         TokioRuntimeProvider::new(),
     );
     let client = Client::connect(https_builder.build(
-        addr,
+        CLOUDFLARE_V4_TLS,
         "cloudflare-dns.com".to_string(),
         "/dns-query".to_string(),
     ));
@@ -990,17 +978,10 @@ fn test_timeout_query_nonet() {
 fn test_timeout_query_udp() {
     subscribe();
     let io_loop = Runtime::new().unwrap();
-
-    // this is a test network, it should NOT be in use
-    let addr: SocketAddr = ("203.0.113.0", 53)
-        .to_socket_addrs()
-        .unwrap()
-        .next()
-        .unwrap();
-
-    let stream = UdpClientStream::builder(addr, TokioRuntimeProvider::new())
+    let stream = UdpClientStream::builder(TEST3_V4, TokioRuntimeProvider::new())
         .with_timeout(Some(std::time::Duration::from_millis(1)))
         .build();
+
     let client = Client::connect(stream);
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -1013,15 +994,8 @@ fn test_timeout_query_tcp() {
     subscribe();
     let io_loop = Runtime::new().unwrap();
 
-    // this is a test network, it should NOT be in use
-    let addr: SocketAddr = ("203.0.113.0", 53)
-        .to_socket_addrs()
-        .unwrap()
-        .next()
-        .unwrap();
-
     let (stream, sender) = TcpClientStream::new(
-        addr,
+        TEST3_V4,
         None,
         Some(std::time::Duration::from_millis(1)),
         TokioRuntimeProvider::new(),

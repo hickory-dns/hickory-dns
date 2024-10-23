@@ -61,11 +61,7 @@ async fn standard_tcp_conn<P: RuntimeProvider>(
     Client,
     DnsExchangeBackground<DnsMultiplexer<TcpClientStream<P::Tcp>>, TokioTime>,
 ) {
-    let addr: SocketAddr = ("127.0.0.1", port)
-        .to_socket_addrs()
-        .unwrap()
-        .next()
-        .unwrap();
+    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, port));
     let (stream, sender) = TcpClientStream::new(addr, None, None, provider);
     Client::new(stream, sender, None)
         .await

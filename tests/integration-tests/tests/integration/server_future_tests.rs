@@ -29,7 +29,7 @@ use hickory_server::ServerFuture;
 #[tokio::test]
 #[allow(clippy::uninlined_format_args)]
 async fn test_server_www_udp() {
-    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
+    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
     let udp_socket = UdpSocket::bind(&addr).await.unwrap();
 
     let ipaddr = udp_socket.local_addr().unwrap();
@@ -49,7 +49,7 @@ async fn test_server_www_udp() {
 #[tokio::test]
 #[allow(clippy::uninlined_format_args)]
 async fn test_server_www_tcp() {
-    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
+    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
     let tcp_listener = TcpListener::bind(&addr).await.unwrap();
 
     let ipaddr = tcp_listener.local_addr().unwrap();
@@ -68,7 +68,7 @@ async fn test_server_www_tcp() {
 
 #[tokio::test]
 async fn test_server_unknown_type() {
-    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
+    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
     let udp_socket = UdpSocket::bind(&addr).await.unwrap();
 
     let ipaddr = udp_socket.local_addr().unwrap();
@@ -111,7 +111,7 @@ async fn test_server_unknown_type() {
 
 #[tokio::test]
 async fn test_server_form_error_on_multiple_queries() {
-    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
+    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
     let udp_socket = UdpSocket::bind(&addr).await.unwrap();
 
     let ipaddr = udp_socket.local_addr().unwrap();
@@ -153,7 +153,7 @@ async fn test_server_form_error_on_multiple_queries() {
 
 #[tokio::test]
 async fn test_server_no_response_on_response() {
-    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
+    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
     let udp_socket = UdpSocket::bind(&addr).await.unwrap();
 
     let ipaddr = udp_socket.local_addr().unwrap();
@@ -228,7 +228,7 @@ async fn test_server_www_tls() {
     let cert_key = (cert, key);
 
     // Server address
-    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
+    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
     let tcp_listener = TcpListener::bind(&addr).await.unwrap();
 
     let ipaddr = tcp_listener.local_addr().unwrap();

@@ -39,7 +39,7 @@ fn main() -> Result<()> {
         // but as a side-effect it will generate the `/etc/bind.keys` file we want
         // ignore the expected error
         let _ = client.delv(
-            Ipv4Addr::new(127, 0, 0, 1),
+            Ipv4Addr::LOCALHOST,
             RecordType::SOA,
             &FQDN::ROOT,
             trust_anchor.as_ref().unwrap(),

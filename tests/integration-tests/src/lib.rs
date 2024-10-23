@@ -5,7 +5,7 @@ use std::{
     fmt,
     future::poll_fn,
     io, mem,
-    net::SocketAddr,
+    net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
     pin::Pin,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -250,3 +250,15 @@ impl fmt::Debug for NeverReturnsClientStream {
         write!(f, "TestClientStream catalog")
     }
 }
+
+pub const GOOGLE_V4: SocketAddr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(8, 8, 8, 8), 53));
+pub const GOOGLE_V6: SocketAddr = SocketAddr::V6(SocketAddrV6::new(
+    Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8888),
+    53,
+    0,
+    0,
+));
+pub const CLOUDFLARE_V4_TLS: SocketAddr =
+    SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(1, 1, 1, 1), 443));
+pub const TEST3_V4: SocketAddr =
+    SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(203, 0, 113, 1), 53));

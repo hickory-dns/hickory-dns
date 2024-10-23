@@ -18,7 +18,7 @@ use hickory_proto::xfer::{DnsHandle, DnsResponse, FirstAnswer, Protocol};
 use hickory_resolver::config::{NameServerConfig, ResolverOpts, ServerOrderingStrategy};
 use hickory_resolver::name_server::{NameServer, NameServerPool};
 
-const DEFAULT_SERVER_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+const DEFAULT_SERVER_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
 
 type MockedNameServer<O> = NameServer<MockConnProvider<O>>;
 type MockedNameServerPool<O> = NameServerPool<MockConnProvider<O>>;
@@ -119,7 +119,7 @@ fn mock_nameserver_pool_on_send<O: OnSend + Unpin>(
 fn test_datagram() {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let udp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 1));
+    let udp_record = v4_record(query.name().clone(), Ipv4Addr::LOCALHOST);
     let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
 
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
@@ -193,7 +193,7 @@ fn test_datagram_stream_upgrade_on_truncation_despite_udp() {
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let udp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 1));
+    let udp_record = v4_record(query.name().clone(), Ipv4Addr::LOCALHOST);
     let tcp_record1 = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
     let tcp_record2 = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 3));
 
@@ -614,7 +614,7 @@ fn test_user_provided_server_order() {
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let preferred_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 1));
+    let preferred_record = v4_record(query.name().clone(), Ipv4Addr::LOCALHOST);
     let secondary_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
 
     let preferred_server_records = vec![preferred_record; 10];
@@ -777,7 +777,7 @@ fn test_concurrent_requests_2_conns() {
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let udp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 1));
+    let udp_record = v4_record(query.name().clone(), Ipv4Addr::LOCALHOST);
 
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
 
@@ -820,7 +820,7 @@ fn test_concurrent_requests_more_than_conns() {
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let udp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 1));
+    let udp_record = v4_record(query.name().clone(), Ipv4Addr::LOCALHOST);
 
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
 
@@ -863,7 +863,7 @@ fn test_concurrent_requests_1_conn() {
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let udp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 1));
+    let udp_record = v4_record(query.name().clone(), Ipv4Addr::LOCALHOST);
 
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
 
@@ -906,7 +906,7 @@ fn test_concurrent_requests_0_conn() {
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let udp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 1));
+    let udp_record = v4_record(query.name().clone(), Ipv4Addr::LOCALHOST);
 
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
 

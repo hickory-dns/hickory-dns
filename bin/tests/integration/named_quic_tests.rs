@@ -37,12 +37,7 @@ fn test_example_quic_toml_startup() {
         .expect("failed to read cert");
 
         let mut io_loop = Runtime::new().unwrap();
-        let addr: SocketAddr = ("127.0.0.1", quic_port.expect("no quic_port"))
-            .to_socket_addrs()
-            .unwrap()
-            .next()
-            .unwrap();
-
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, quic_port.expect("no quic_port")));
         std::thread::sleep(std::time::Duration::from_secs(1));
 
         // using the mozilla default root store

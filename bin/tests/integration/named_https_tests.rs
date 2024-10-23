@@ -45,12 +45,7 @@ fn test_example_https_toml_startup() {
         .expect("failed to read cert");
 
         let mut io_loop = Runtime::new().unwrap();
-        let addr: SocketAddr = ("127.0.0.1", https_port.expect("no https_port"))
-            .to_socket_addrs()
-            .unwrap()
-            .next()
-            .unwrap();
-
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, https_port.expect("no https_port")));
         std::thread::sleep(std::time::Duration::from_secs(1));
 
         // using the mozilla default root store
