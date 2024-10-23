@@ -300,10 +300,8 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
             (Protocol::Quic, Some(binder)) => {
                 let socket_addr = config.socket_addr;
                 let bind_addr = config.bind_addr.unwrap_or(match socket_addr {
-                    SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0),
-                    SocketAddr::V6(_) => {
-                        SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)), 0)
-                    }
+                    SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
+                    SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
                 });
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
                 #[cfg(feature = "dns-over-rustls")]
@@ -322,10 +320,8 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
             (Protocol::H3, Some(binder)) => {
                 let socket_addr = config.socket_addr;
                 let bind_addr = config.bind_addr.unwrap_or(match socket_addr {
-                    SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0),
-                    SocketAddr::V6(_) => {
-                        SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)), 0)
-                    }
+                    SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
+                    SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
                 });
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
                 let http_endpoint = config

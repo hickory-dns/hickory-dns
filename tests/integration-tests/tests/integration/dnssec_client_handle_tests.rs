@@ -1,6 +1,5 @@
 #![cfg(feature = "dnssec")]
 
-use std::net::*;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex as StdMutex};
 
@@ -20,7 +19,7 @@ use hickory_proto::DnssecDnsHandle;
 use hickory_server::authority::{Authority, Catalog};
 
 use hickory_integration::example_authority::create_secure_example;
-use hickory_integration::TestClientStream;
+use hickory_integration::{TestClientStream, GOOGLE_V4};
 
 #[test]
 fn test_secure_query_example_nonet() {
@@ -272,8 +271,7 @@ where
         .unwrap();
 
     let io_loop = Runtime::new().unwrap();
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let stream = UdpClientStream::builder(addr, TokioRuntimeProvider::new()).build();
+    let stream = UdpClientStream::builder(GOOGLE_V4, TokioRuntimeProvider::new()).build();
     let client = Client::connect(stream);
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -310,8 +308,7 @@ where
         .unwrap();
 
     let io_loop = Runtime::new().unwrap();
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
+    let (stream, sender) = TcpClientStream::new(GOOGLE_V4, None, None, TokioRuntimeProvider::new());
     let client = Client::new(Box::new(stream), sender, None);
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);

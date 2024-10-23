@@ -242,7 +242,7 @@ mod tests {
             .map(ToOwned::to_owned)
             .collect::<Vec<RData>>();
 
-        assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(127, 0, 0, 1).into())]);
+        assert_eq!(rdatas, vec![RData::A(Ipv4Addr::LOCALHOST.into())]);
 
         let rdatas = hosts
             .lookup_static_host(&Query::query(name, RecordType::AAAA))

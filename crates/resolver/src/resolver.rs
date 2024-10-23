@@ -859,10 +859,7 @@ pub mod testing {
             .expect("failed to run lookup");
 
         let mut iter = response.iter();
-        assert_eq!(
-            iter.next().expect("no A"),
-            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))
-        );
+        assert_eq!(iter.next().expect("no A"), IpAddr::V4(Ipv4Addr::LOCALHOST));
     }
 
     /// Test ipv6 localhost.

@@ -1197,9 +1197,9 @@ mod tests {
                     6, b'a', b'b', b'c', b'd', b'e', b'f', 3, b'g', b'h', b'i', 0, 1, b'j',
                 ],
             ),
-            (RData::A(A::from_str("0.0.0.0").unwrap()), vec![0, 0, 0, 0]),
+            (RData::A(A::from(Ipv4Addr::UNSPECIFIED)), vec![0, 0, 0, 0]),
             (
-                RData::AAAA(AAAA::from_str("::").unwrap()),
+                RData::AAAA(AAAA::from(Ipv6Addr::UNSPECIFIED)),
                 vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             ),
             (
@@ -1225,8 +1225,8 @@ mod tests {
     #[test]
     fn test_order() {
         let ordered: Vec<RData> = vec![
-            RData::A(A::from_str("0.0.0.0").unwrap()),
-            RData::AAAA(AAAA::from_str("::").unwrap()),
+            RData::A(A::from(Ipv4Addr::UNSPECIFIED)),
+            RData::AAAA(AAAA::from(Ipv6Addr::UNSPECIFIED)),
             RData::SRV(SRV::new(
                 1,
                 2,
@@ -1273,8 +1273,8 @@ mod tests {
                 "".to_string(),
                 "j".to_string(),
             ])),
-            RData::A(A::from_str("0.0.0.0").unwrap()),
-            RData::AAAA(AAAA::from_str("::").unwrap()),
+            RData::A(A::from(Ipv4Addr::UNSPECIFIED)),
+            RData::AAAA(AAAA::from(Ipv6Addr::UNSPECIFIED)),
             RData::SRV(SRV::new(
                 1,
                 2,

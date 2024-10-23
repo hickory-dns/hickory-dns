@@ -112,10 +112,9 @@ impl BufDnsStreamHandle {
 
 impl DnsStreamHandle for BufDnsStreamHandle {
     fn send(&mut self, buffer: SerialMessage) -> Result<(), ProtoError> {
-        let remote_addr: SocketAddr = self.remote_addr;
         let sender: &mut _ = &mut self.sender;
         sender
-            .try_send(SerialMessage::new(buffer.into_parts().0, remote_addr))
+            .try_send(SerialMessage::new(buffer.into_parts().0, self.remote_addr))
             .map_err(|e| ProtoError::from(format!("mpsc::SendError {e}")))
     }
 }

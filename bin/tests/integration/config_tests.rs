@@ -129,28 +129,22 @@ fn test_parse_toml() {
     assert_eq!(config.listen_port(), 2053);
 
     let config = Config::from_toml("listen_addrs_ipv4 = [\"0.0.0.0\"]").unwrap();
-    assert_eq!(
-        config.listen_addrs_ipv4(),
-        Ok(vec![Ipv4Addr::new(0, 0, 0, 0)])
-    );
+    assert_eq!(config.listen_addrs_ipv4(), Ok(vec![Ipv4Addr::UNSPECIFIED]));
 
     let config = Config::from_toml("listen_addrs_ipv4 = [\"0.0.0.0\", \"127.0.0.1\"]").unwrap();
     assert_eq!(
         config.listen_addrs_ipv4(),
-        Ok(vec![Ipv4Addr::new(0, 0, 0, 0), Ipv4Addr::new(127, 0, 0, 1)])
+        Ok(vec![Ipv4Addr::UNSPECIFIED, Ipv4Addr::LOCALHOST])
     );
 
     let config = Config::from_toml("listen_addrs_ipv6 = [\"::0\"]").unwrap();
-    assert_eq!(
-        config.listen_addrs_ipv6(),
-        Ok(vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)])
-    );
+    assert_eq!(config.listen_addrs_ipv6(), Ok(vec![Ipv6Addr::UNSPECIFIED]));
 
     let config = Config::from_toml("listen_addrs_ipv6 = [\"::0\", \"::1\"]").unwrap();
     assert_eq!(
         config.listen_addrs_ipv6(),
         Ok(vec![
-            Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0),
+            Ipv6Addr::UNSPECIFIED,
             Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1),
         ])
     );

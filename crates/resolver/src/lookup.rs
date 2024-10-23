@@ -680,7 +680,7 @@ pub mod tests {
             .iter()
             .map(|r| r.ip_addr().unwrap())
             .collect::<Vec<IpAddr>>(),
-            vec![Ipv4Addr::new(127, 0, 0, 1)]
+            vec![Ipv4Addr::LOCALHOST]
         );
     }
 
@@ -699,7 +699,7 @@ pub mod tests {
             )
             .ip_addr()
             .unwrap(),
-            Ipv4Addr::new(127, 0, 0, 1)
+            Ipv4Addr::LOCALHOST
         );
     }
 
@@ -716,7 +716,7 @@ pub mod tests {
             .into_iter()
             .map(|r| r.ip_addr().unwrap())
             .collect::<Vec<IpAddr>>(),
-            vec![Ipv4Addr::new(127, 0, 0, 1)]
+            vec![Ipv4Addr::LOCALHOST]
         );
     }
 

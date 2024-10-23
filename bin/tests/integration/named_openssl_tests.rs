@@ -53,11 +53,7 @@ fn test_startup(toml: &'static str) {
         .expect("failed to read cert");
 
         let mut io_loop = Runtime::new().unwrap();
-        let addr: SocketAddr = ("127.0.0.1", tls_port.expect("no tls_port"))
-            .to_socket_addrs()
-            .unwrap()
-            .next()
-            .unwrap();
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tls_port.expect("no tls_port")));
         let mut tls_conn_builder =
             TlsClientStreamBuilder::<AsyncIoTokioAsStd<TokioTcpStream>>::new();
         let cert = to_trust_anchor(&cert_der);
@@ -69,11 +65,7 @@ fn test_startup(toml: &'static str) {
 
         query_a(&mut io_loop, &mut client);
 
-        let addr: SocketAddr = ("127.0.0.1", tls_port.expect("no tls_port"))
-            .to_socket_addrs()
-            .unwrap()
-            .next()
-            .unwrap();
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tls_port.expect("no tls_port")));
         let mut tls_conn_builder =
             TlsClientStreamBuilder::<AsyncIoTokioAsStd<TokioTcpStream>>::new();
         let cert = to_trust_anchor(&cert_der);

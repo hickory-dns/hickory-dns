@@ -239,10 +239,8 @@ impl<P: RuntimeProvider> NextRandomUdpSocket<P> {
         let bind_address = match bind_addr {
             Some(ba) => ba,
             None => match name_server {
-                SocketAddr::V4(..) => SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0),
-                SocketAddr::V6(..) => {
-                    SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)), 0)
-                }
+                SocketAddr::V4(..) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
+                SocketAddr::V6(..) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
             },
         };
 
@@ -404,10 +402,7 @@ mod tests {
         use crate::tests::udp_stream_test;
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
         let provider = TokioRuntimeProvider::new();
-        io_loop.block_on(udp_stream_test(
-            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-            provider,
-        ));
+        io_loop.block_on(udp_stream_test(IpAddr::V4(Ipv4Addr::LOCALHOST), provider));
     }
 
     #[test]

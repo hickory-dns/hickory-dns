@@ -38,7 +38,7 @@ use hickory_proto::DnsStreamHandle;
 // #[cfg(not(target_os = "linux"))]
 #[test]
 fn test_tls_client_stream_ipv4() {
-    tls_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))
+    tls_client_stream_test(IpAddr::V4(Ipv4Addr::LOCALHOST))
 }
 
 #[test]
