@@ -410,49 +410,54 @@ impl RecursorDnsHandle {
 
         // unpack all glued records
         for zns in response.record_iter() {
-            if let Some(ns_data) = zns.data().as_ns() {
-                if !super::is_subzone(&zone.base_name(), zns.name()) {
-                    warn!(
-                        "dropping out of bailiwick record for {:?} with parent {:?}",
-                        zns.name().clone(),
-                        zone.base_name().clone()
-                    );
-                    continue;
-                }
+            let Some(ns_data) = zns.data().as_ns() else {
+                warn!("response is not NS: {:?}; skipping", zns.data());
+                continue;
+            };
 
-                let cached_a = self.record_cache.get(
-                    &Query::query(ns_data.0.clone(), RecordType::A),
-                    request_time,
+            if !super::is_subzone(&zone.base_name(), zns.name()) {
+                warn!(
+                    "dropping out of bailiwick record for {:?} with parent {:?}",
+                    zns.name().clone(),
+                    zone.base_name().clone(),
                 );
-                let cached_aaaa = self.record_cache.get(
-                    &Query::query(ns_data.0.clone(), RecordType::AAAA),
-                    request_time,
-                );
-
-                let cached_a = cached_a.and_then(Result::ok).map(Lookup::into_iter);
-                let cached_aaaa = cached_aaaa.and_then(Result::ok).map(Lookup::into_iter);
-
-                let mut glue_ips = cached_a
-                    .into_iter()
-                    .flatten()
-                    .chain(cached_aaaa.into_iter().flatten())
-                    .filter_map(|r| r.ip_addr())
-                    .filter(|ip| {
-                        let matches = self.matches_do_not_query(*ip);
-                        if matches {
-                            debug!(name = %ns_data, %ip, "ignoring address due to do_not_query");
-                        }
-                        !matches
-                    })
-                    .peekable();
-
-                if glue_ips.peek().is_none() {
-                    debug!("glue not found for {ns_data}");
-                    need_ips_for_names.push(ns_data);
-                }
-
-                config_group.append_ips(glue_ips, true);
+                continue;
             }
+
+            let cached_a = self.record_cache.get(
+                &Query::query(ns_data.0.clone(), RecordType::A),
+                request_time,
+            );
+            let cached_aaaa = self.record_cache.get(
+                &Query::query(ns_data.0.clone(), RecordType::AAAA),
+                request_time,
+            );
+
+            let cached_a = cached_a.and_then(Result::ok).map(Lookup::into_iter);
+            let cached_aaaa = cached_aaaa.and_then(Result::ok).map(Lookup::into_iter);
+
+            let mut glue_ips = cached_a
+                .into_iter()
+                .flatten()
+                .chain(cached_aaaa.into_iter().flatten())
+                .filter_map(|r| {
+                    let ip = r.ip_addr()?;
+
+                    if self.matches_do_not_query(ip) {
+                        debug!(name = %ns_data, %ip, "ignoring address due to do_not_query");
+                        None
+                    } else {
+                        Some(ip)
+                    }
+                })
+                .peekable();
+
+            if glue_ips.peek().is_none() {
+                debug!("glue not found for {ns_data}");
+                need_ips_for_names.push(ns_data);
+            }
+
+            config_group.append_ips(glue_ips, true);
         }
 
         // If we have no glue, collect missing IP addresses for non-child NS servers
