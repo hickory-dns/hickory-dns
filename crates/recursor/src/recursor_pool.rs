@@ -19,11 +19,7 @@ use hickory_proto::{
     xfer::{DnsRequestOptions, DnsResponse},
     DnsHandle,
 };
-use hickory_resolver::{
-    error::{ResolveError, ResolveErrorKind},
-    name_server::GenericNameServerPool,
-    Name,
-};
+use hickory_resolver::{name_server::GenericNameServerPool, Name, ResolveError, ResolveErrorKind};
 use parking_lot::Mutex;
 use tracing::info;
 
