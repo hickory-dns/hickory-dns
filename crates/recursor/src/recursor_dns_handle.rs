@@ -19,7 +19,6 @@ use crate::{
     resolver::{
         config::{NameServerConfigGroup, ResolverOpts},
         dns_lru::{DnsLru, TtlConfig},
-        error::ResolveError,
         lookup::Lookup,
         name_server::{GenericNameServerPool, TokioConnectionProvider},
         Name,
@@ -51,7 +50,7 @@ impl RecursorDnsHandle {
         security_aware: bool,
         do_not_query: Vec<IpNet>,
         avoid_local_udp_ports: Arc<HashSet<u16>>,
-    ) -> Result<Self, ResolveError> {
+    ) -> Self {
         // configure the hickory-resolver
         let roots: NameServerConfigGroup = roots.into();
 
@@ -78,7 +77,7 @@ impl RecursorDnsHandle {
             }
         }
 
-        Ok(Self {
+        Self {
             roots,
             name_server_cache,
             record_cache,
@@ -87,7 +86,7 @@ impl RecursorDnsHandle {
             do_not_query_v4,
             do_not_query_v6,
             avoid_local_udp_ports,
-        })
+        }
     }
 
     pub(crate) async fn resolve(
