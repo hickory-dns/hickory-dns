@@ -43,6 +43,7 @@ pub(crate) struct RecursorDnsHandle {
 }
 
 impl RecursorDnsHandle {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         roots: impl Into<NameServerConfigGroup>,
         ns_cache_size: usize,
@@ -51,6 +52,7 @@ impl RecursorDnsHandle {
         security_aware: bool,
         do_not_query: Vec<IpNet>,
         avoid_local_udp_ports: Arc<HashSet<u16>>,
+        ttl_config: TtlConfig,
     ) -> Result<Self, ResolveError> {
         // configure the hickory-resolver
         let roots: NameServerConfigGroup = roots.into();
@@ -63,7 +65,7 @@ impl RecursorDnsHandle {
             GenericNameServerPool::from_config(roots, opts, TokioConnectionProvider::default());
         let roots = RecursorPool::from(Name::root(), roots);
         let name_server_cache = Arc::new(Mutex::new(NameServerCache::new(ns_cache_size)));
-        let record_cache = DnsLru::new(record_cache_size, TtlConfig::default());
+        let record_cache = DnsLru::new(record_cache_size, ttl_config);
 
         let mut do_not_query_v4 = PrefixSet::new();
         let mut do_not_query_v6 = PrefixSet::new();

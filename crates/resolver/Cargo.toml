@@ -107,6 +107,7 @@ ipconfig = { workspace = true, optional = true }
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
 test-support.workspace = true
 tokio = { workspace = true, features = ["macros", "test-util"] }
+toml.workspace = true
 tracing-subscriber.workspace = true
 
 [package.metadata.docs.rs]
