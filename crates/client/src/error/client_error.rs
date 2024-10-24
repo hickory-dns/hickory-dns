@@ -14,7 +14,9 @@ use thiserror::Error;
 
 #[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
-use hickory_proto::error::{DnsSecError, DnsSecErrorKind, ProtoError, ProtoErrorKind};
+#[cfg(feature = "dnssec")]
+use hickory_proto::{DnsSecError, DnsSecErrorKind};
+use hickory_proto::{ProtoError, ProtoErrorKind};
 
 /// An alias for results returned by functions of this crate
 pub type Result<T> = ::std::result::Result<T, Error>;
@@ -33,6 +35,7 @@ pub enum ErrorKind {
 
     // foreign
     /// A dnssec error
+    #[cfg(feature = "dnssec")]
     #[error("dnssec error")]
     DnsSec(#[from] DnsSecError),
 
@@ -60,6 +63,7 @@ impl Clone for ErrorKind {
             Message(msg) => Message(msg),
             Msg(msg) => Msg(msg.clone()),
             // foreign
+            #[cfg(feature = "dnssec")]
             DnsSec(dnssec) => DnsSec(dnssec.clone()),
             Io(io) => Io(std::io::Error::from(io.kind())),
             Proto(proto) => Proto(proto.clone()),
@@ -129,6 +133,7 @@ impl From<String> for Error {
     }
 }
 
+#[cfg(feature = "dnssec")]
 impl From<DnsSecError> for Error {
     fn from(e: DnsSecError) -> Self {
         match e.kind() {

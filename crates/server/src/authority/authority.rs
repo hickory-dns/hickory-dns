@@ -11,7 +11,7 @@ use cfg_if::cfg_if;
 use std::fmt;
 
 #[cfg(feature = "dnssec")]
-use hickory_proto::error::ProtoError;
+use hickory_proto::ProtoError;
 
 use crate::{
     authority::{LookupError, LookupObject, MessageRequest, UpdateResult, ZoneType},
@@ -21,15 +21,12 @@ use crate::{
 #[cfg(feature = "dnssec")]
 use crate::{
     dnssec::NxProofKind,
-    proto::{
-        error::ProtoResult,
-        rr::{
-            dnssec::{
-                rdata::key::KEY, Digest, DnsSecResult, Nsec3HashAlgorithm, SigSigner,
-                SupportedAlgorithms,
-            },
-            Name,
+    proto::rr::{
+        dnssec::{
+            rdata::key::KEY, Digest, DnsSecResult, Nsec3HashAlgorithm, SigSigner,
+            SupportedAlgorithms,
         },
+        Name,
     },
 };
 
@@ -455,7 +452,7 @@ pub struct Nsec3QueryInfo<'q> {
 #[cfg(feature = "dnssec")]
 impl<'q> Nsec3QueryInfo<'q> {
     /// Computes the hash of a given name.
-    pub(crate) fn hash_name(&self, name: &Name) -> ProtoResult<Digest> {
+    pub(crate) fn hash_name(&self, name: &Name) -> Result<Digest, ProtoError> {
         self.algorithm.hash(self.salt, name, self.iterations)
     }
 

@@ -18,7 +18,6 @@ use futures_util::{
     stream::{Stream, StreamExt},
 };
 use hickory_proto::{
-    error::{ProtoError, ProtoErrorKind},
     op::{update_message, Edns, Message, MessageFinalizer, MessageType, OpCode, Query},
     rr::{rdata::SOA, DNSClass, Name, Record, RecordSet, RecordType},
     runtime::TokioTime,
@@ -26,6 +25,7 @@ use hickory_proto::{
         BufDnsStreamHandle, DnsClientStream, DnsExchange, DnsExchangeBackground, DnsExchangeSend,
         DnsHandle, DnsMultiplexer, DnsRequest, DnsRequestOptions, DnsRequestSender, DnsResponse,
     },
+    ProtoError, ProtoErrorKind,
 };
 use rand;
 use tracing::debug;

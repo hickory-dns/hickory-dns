@@ -18,13 +18,12 @@ use std::sync::Arc;
 use once_cell::sync::Lazy;
 use rustls::{ClientConfig, RootCertStore};
 
-use crate::proto::error::ProtoError;
+use crate::config::TlsClientConfig;
 use crate::proto::rustls::tls_client_stream::tls_client_connect_with_future;
 use crate::proto::rustls::TlsClientStream;
 use crate::proto::tcp::DnsTcpStream;
 use crate::proto::BufDnsStreamHandle;
-
-use crate::config::TlsClientConfig;
+use crate::proto::ProtoError;
 
 pub(crate) static CLIENT_CONFIG: Lazy<Result<Arc<ClientConfig>, ProtoError>> = Lazy::new(|| {
     #[cfg_attr(
@@ -34,7 +33,7 @@ pub(crate) static CLIENT_CONFIG: Lazy<Result<Arc<ClientConfig>, ProtoError>> = L
     let mut root_store = RootCertStore::empty();
     #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
     {
-        use crate::proto::error::ProtoErrorKind;
+        use crate::proto::ProtoErrorKind;
 
         let (added, ignored) =
             root_store.add_parsable_certificates(rustls_native_certs::load_native_certs()?);

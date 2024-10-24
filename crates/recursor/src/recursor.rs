@@ -14,10 +14,10 @@ use hickory_resolver::dns_lru::TtlConfig;
 #[cfg(feature = "dnssec")]
 use crate::{
     proto::{
-        error::ProtoError,
         op::ResponseCode,
         rr::{dnssec::TrustAnchor, resource::RecordRef, Record, RecordType},
         xfer::{DnsHandle as _, DnsRequestOptions, DnssecDnsHandle, FirstAnswer as _},
+        ProtoError,
     },
     resolver::dns_lru::DnsLru,
     ErrorKind,
@@ -496,10 +496,10 @@ mod for_dnssec {
     };
 
     use crate::proto::{
-        error::ProtoError,
         op::{Message, OpCode},
         xfer::DnsHandle,
         xfer::DnsResponse,
+        ProtoError,
     };
     use crate::recursor_dns_handle::RecursorDnsHandle;
     use crate::ErrorKind;

@@ -9,18 +9,19 @@ use std::{io, net::SocketAddr, sync::Arc};
 
 use bytes::{Bytes, BytesMut};
 use futures_util::lock::Mutex;
-use hickory_proto::{
-    error::ProtoError,
-    quic::{DoqErrorCode, QuicStream},
-    rr::Record,
-};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, warn};
 
 use crate::{
     access::AccessControl,
     authority::MessageResponse,
-    proto::{quic::QuicStreams, xfer::Protocol},
+    proto::{
+        quic::QuicStreams,
+        quic::{DoqErrorCode, QuicStream},
+        rr::Record,
+        xfer::Protocol,
+        ProtoError,
+    },
     server::{
         request_handler::RequestHandler, response_handler::ResponseHandler, server_future,
         ResponseInfo,

@@ -30,14 +30,13 @@ use crate::{
     lookup_ip::LookupIpIter,
     name_server::{ConnectionProvider, NameServerPool},
     proto::{
-        error::ProtoError,
         op::Query,
         rr::{
             rdata::{self, A, AAAA, NS, PTR},
             Name, RData, Record, RecordType,
         },
         xfer::{DnsRequest, DnsRequestOptions, DnsResponse},
-        DnsHandle, RetryDnsHandle,
+        DnsHandle, ProtoError, RetryDnsHandle,
     },
 };
 
@@ -614,11 +613,10 @@ pub mod tests {
     use futures_util::future;
     use futures_util::stream::once;
 
-    use crate::proto::error::ProtoError;
     use crate::proto::op::{Message, Query};
     use crate::proto::rr::{Name, RData, Record, RecordType};
     use crate::proto::xfer::{DnsRequest, DnsRequestOptions};
-    use hickory_proto::error::ProtoErrorKind;
+    use crate::proto::{ProtoError, ProtoErrorKind};
 
     use super::*;
 

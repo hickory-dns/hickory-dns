@@ -23,11 +23,11 @@ use crate::{
     },
 };
 use hickory_proto::{
-    error::ProtoError,
     h3::{h3_server::H3Connection, H3Error},
     http::Version,
     rr::Record,
     xfer::Protocol,
+    ProtoError,
 };
 
 pub(crate) async fn h3_handler<T>(
