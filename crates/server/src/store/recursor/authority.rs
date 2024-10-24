@@ -81,10 +81,10 @@ impl RecursiveAuthority {
 
         let mut builder = Recursor::builder();
         if let Some(ns_cache_size) = config.ns_cache_size {
-            builder.ns_cache_size(ns_cache_size);
+            builder = builder.ns_cache_size(ns_cache_size);
         }
         if let Some(record_cache_size) = config.record_cache_size {
-            builder.record_cache_size(record_cache_size);
+            builder = builder.record_cache_size(record_cache_size);
         }
 
         let recursor = builder
