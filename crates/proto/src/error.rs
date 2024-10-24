@@ -828,12 +828,6 @@ impl Clone for ProtoErrorKind {
     }
 }
 
-/// A trait marking a type which implements `From<ProtoError>` and
-/// std::error::Error types as well as Clone + Send
-pub trait FromProtoError: From<ProtoError> + std::error::Error + Clone {}
-
-impl<E> FromProtoError for E where E: From<ProtoError> + std::error::Error + Clone {}
-
 #[cfg(not(any(feature = "dns-over-openssl", feature = "dnssec-openssl")))]
 use self::not_openssl::SslErrorStack;
 #[cfg(not(feature = "dnssec-ring"))]
