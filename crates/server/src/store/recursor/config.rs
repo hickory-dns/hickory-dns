@@ -19,6 +19,8 @@ use std::{
 use ipnet::IpNet;
 use serde::Deserialize;
 
+use hickory_resolver::dns_lru::TtlConfig;
+
 use crate::error::ConfigError;
 use crate::proto::{
     rr::{RData, Record, RecordSet},
@@ -57,6 +59,10 @@ pub struct RecursiveConfig {
     /// Local UDP ports to avoid when making outgoing queries
     #[serde(default)]
     pub avoid_local_udp_ports: HashSet<u16>,
+
+    /// Caching policy, setting minimum and maximum TTLs
+    #[serde(default)]
+    pub cache_policy: TtlConfig,
 }
 
 impl RecursiveConfig {
@@ -188,5 +194,39 @@ dnssec_policy.ValidateWithStaticKey.path = "/etc/trusted-key.key""#;
         } else {
             unreachable!()
         }
+    }
+
+    #[cfg(all(feature = "recursor", feature = "toml"))]
+    #[test]
+    fn can_parse_recursor_cache_policy() {
+        use std::time::Duration;
+
+        use hickory_proto::rr::RecordType;
+
+        let input = r#"roots = "/etc/root.hints"
+
+[cache_policy.default]
+positive_max_ttl = 14400
+
+[cache_policy.A]
+positive_max_ttl = 3600"#;
+
+        let config: RecursiveConfig = toml::from_str(input).unwrap();
+
+        assert_eq!(
+            *config
+                .cache_policy
+                .positive_response_ttl_bounds(RecordType::MX)
+                .end(),
+            Duration::from_secs(14400)
+        );
+
+        assert_eq!(
+            *config
+                .cache_policy
+                .positive_response_ttl_bounds(RecordType::A)
+                .end(),
+            Duration::from_secs(3600)
+        )
     }
 }

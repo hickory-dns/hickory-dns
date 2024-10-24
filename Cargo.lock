@@ -996,6 +996,7 @@ dependencies = [
  "tokio-native-tls",
  "tokio-openssl",
  "tokio-rustls",
+ "toml",
  "tracing",
  "tracing-subscriber",
  "webpki-roots",
