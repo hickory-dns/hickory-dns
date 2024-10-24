@@ -122,6 +122,7 @@ pub enum Algorithm {
     #[deprecated(
         note = "this is a compromised hashing function, it is here for backward compatibility"
     )]
+    #[cfg_attr(feature = "serde", serde(rename = "RSASHA1-NSEC3-SHA1"))]
     RSASHA1NSEC3SHA1,
     /// RSA public key with SHA256 hash
     RSASHA256,
