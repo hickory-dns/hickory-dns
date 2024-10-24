@@ -25,7 +25,7 @@ use crate::{
 use crate::{
     proto::op::Query,
     recursor_dns_handle::RecursorDnsHandle,
-    resolver::{config::NameServerConfigGroup, error::ResolveError, lookup::Lookup},
+    resolver::{config::NameServerConfigGroup, lookup::Lookup},
     DnssecPolicy, Error,
 };
 
@@ -85,7 +85,7 @@ impl RecursorBuilder {
     /// # Panics
     ///
     /// This will panic if the roots are empty.
-    pub fn build(self, roots: impl Into<NameServerConfigGroup>) -> Result<Recursor, ResolveError> {
+    pub fn build(self, roots: impl Into<NameServerConfigGroup>) -> Result<Recursor, Error> {
         Recursor::build(roots, self)
     }
 }
@@ -112,7 +112,7 @@ impl Recursor {
     fn build(
         roots: impl Into<NameServerConfigGroup>,
         builder: RecursorBuilder,
-    ) -> Result<Self, ResolveError> {
+    ) -> Result<Self, Error> {
         let RecursorBuilder {
             ns_cache_size,
             record_cache_size,
@@ -130,7 +130,7 @@ impl Recursor {
             dnssec_policy.is_security_aware(),
             do_not_query,
             Arc::new(avoid_local_udp_ports),
-        )?;
+        );
 
         let mode = match dnssec_policy {
             DnssecPolicy::SecurityUnaware => RecursorMode::NonValidating { handle },
@@ -143,7 +143,7 @@ impl Recursor {
                 let record_cache = handle.record_cache().clone();
                 let trust_anchor = match trust_anchor {
                     Some(anchor) if anchor.is_empty() => {
-                        return Err(ResolveError::from("trust anchor must not be empty"));
+                        return Err(Error::from("trust anchor must not be empty"));
                     }
                     Some(anchor) => anchor,
                     None => Arc::new(TrustAnchor::default()),
