@@ -49,7 +49,7 @@ async fn test_create() {
     use hickory_client::proto::rr::rdata::A;
 
     let (_process, port) = named_process();
-    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
+    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
     let stream = UdpClientStream::builder(socket, TokioRuntimeProvider::default())
         .with_signer(Some(signer()))
         .build();
@@ -101,7 +101,7 @@ async fn test_tsig_zone_transfer() {
     use hickory_client::proto::runtime::TokioRuntimeProvider;
 
     let (_process, port) = named_process();
-    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
+    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
     let (stream, sender) =
         TcpClientStream::new(socket, None, None, TokioRuntimeProvider::default());
     let multiplexer = DnsMultiplexer::new(stream, sender, Some(signer()));

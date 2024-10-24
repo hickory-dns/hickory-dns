@@ -809,7 +809,7 @@ mod tests {
     //             Name::from_str("actual.example.com.").unwrap(),
     //             86400,
     //             RecordType::A,
-    //             RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+    //             RData::A(Ipv4Addr::LOCALHOST),
     //         ),
     //     ]);
 
@@ -835,7 +835,7 @@ mod tests {
     //                 443,
     //                 Name::from_str("www.example.com.").unwrap(),
     //             )),
-    //             RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+    //             RData::A(Ipv4Addr::LOCALHOST),
     //             //RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
     //         ]
     //     );
@@ -965,7 +965,7 @@ mod tests {
         }
 
         {
-            let query = Query::query(Name::from(Ipv4Addr::new(127, 0, 0, 1)), RecordType::PTR);
+            let query = Query::query(Name::from(Ipv4Addr::LOCALHOST), RecordType::PTR);
             let lookup = block_on(client.lookup(query.clone(), DnsRequestOptions::default()))
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
@@ -996,7 +996,7 @@ mod tests {
         .is_err());
 
         assert!(block_on(client.lookup(
-            Query::query(Name::from(Ipv4Addr::new(127, 0, 0, 1)), RecordType::MX),
+            Query::query(Name::from(Ipv4Addr::LOCALHOST), RecordType::MX),
             DnsRequestOptions::default()
         ))
         .is_err());

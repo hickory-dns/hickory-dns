@@ -29,10 +29,7 @@ fn test_example_toml_startup() {
     named_test_harness("example.toml", |socket_ports| {
         let mut io_loop = Runtime::new().unwrap();
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
-        let addr: SocketAddr = SocketAddr::new(
-            Ipv4Addr::new(127, 0, 0, 1).into(),
-            tcp_port.expect("no tcp_port"),
-        );
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
         let client = Client::new(Box::new(stream), sender, None);
 
@@ -42,10 +39,7 @@ fn test_example_toml_startup() {
         query_a(&mut io_loop, &mut client);
 
         // just tests that multiple queries work
-        let addr: SocketAddr = SocketAddr::new(
-            Ipv4Addr::new(127, 0, 0, 1).into(),
-            tcp_port.expect("no tcp_port"),
-        );
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
         let client = Client::new(Box::new(stream), sender, None);
 
@@ -62,10 +56,7 @@ fn test_ipv4_only_toml_startup() {
     named_test_harness("ipv4_only.toml", |socket_ports| {
         let mut io_loop = Runtime::new().unwrap();
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
-        let addr: SocketAddr = SocketAddr::new(
-            Ipv4Addr::new(127, 0, 0, 1).into(),
-            tcp_port.expect("no tcp_port"),
-        );
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
         let client = Client::new(Box::new(stream), sender, None);
 
@@ -75,10 +66,7 @@ fn test_ipv4_only_toml_startup() {
         // ipv4 should succeed
         query_a(&mut io_loop, &mut client);
 
-        let addr: SocketAddr = SocketAddr::new(
-            Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into(),
-            tcp_port.expect("no tcp_port"),
-        );
+        let addr = SocketAddr::from((Ipv6Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
         let client = Client::new(Box::new(stream), sender, None);
 
@@ -127,10 +115,7 @@ fn test_ipv4_and_ipv6_toml_startup() {
     named_test_harness("ipv4_and_ipv6.toml", |socket_ports| {
         let mut io_loop = Runtime::new().unwrap();
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
-        let addr: SocketAddr = SocketAddr::new(
-            Ipv4Addr::new(127, 0, 0, 1).into(),
-            tcp_port.expect("no tcp_port"),
-        );
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
         let client = Client::new(Box::new(stream), sender, None);
 
@@ -140,10 +125,7 @@ fn test_ipv4_and_ipv6_toml_startup() {
         query_a(&mut io_loop, &mut client);
 
         let tcp_port = socket_ports.get_v6(Protocol::Tcp);
-        let addr: SocketAddr = SocketAddr::new(
-            Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into(),
-            tcp_port.expect("no tcp_port"),
-        );
+        let addr = SocketAddr::from((Ipv6Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
         let client = Client::new(Box::new(stream), sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
@@ -160,10 +142,7 @@ fn test_nodata_where_name_exists() {
     named_test_harness("example.toml", |socket_ports| {
         let io_loop = Runtime::new().unwrap();
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
-        let addr: SocketAddr = SocketAddr::new(
-            Ipv4Addr::new(127, 0, 0, 1).into(),
-            tcp_port.expect("no tcp_port"),
-        );
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
         let client = Client::new(Box::new(stream), sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
@@ -187,10 +166,7 @@ fn test_nxdomain_where_no_name_exists() {
     named_test_harness("example.toml", |socket_ports| {
         let io_loop = Runtime::new().unwrap();
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
-        let addr: SocketAddr = SocketAddr::new(
-            Ipv4Addr::new(127, 0, 0, 1).into(),
-            tcp_port.expect("no tcp_port"),
-        );
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
         let client = Client::new(Box::new(stream), sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
@@ -214,10 +190,7 @@ fn test_server_continues_on_bad_data_udp() {
     named_test_harness("example.toml", |socket_ports| {
         let mut io_loop = Runtime::new().unwrap();
         let udp_port = socket_ports.get_v4(Protocol::Udp);
-        let addr: SocketAddr = SocketAddr::new(
-            Ipv4Addr::new(127, 0, 0, 1).into(),
-            udp_port.expect("no udp_port"),
-        );
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, udp_port.expect("no udp_port")));
 
         let stream = UdpClientStream::builder(addr, provider.clone()).build();
         let client = Client::connect(stream);
@@ -227,7 +200,7 @@ fn test_server_continues_on_bad_data_udp() {
         query_a(&mut io_loop, &mut client);
 
         // Send a bad packet, this should get rejected by the server
-        let raw_socket = UdpSocket::bind(SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), 0))
+        let raw_socket = UdpSocket::bind(SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), 0))
             .expect("couldn't bind raw");
 
         raw_socket
@@ -235,10 +208,7 @@ fn test_server_continues_on_bad_data_udp() {
             .expect("raw send failed");
 
         // just tests that multiple queries work
-        let addr: SocketAddr = SocketAddr::new(
-            Ipv4Addr::new(127, 0, 0, 1).into(),
-            udp_port.expect("no udp_port"),
-        );
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, udp_port.expect("no udp_port")));
         let stream = UdpClientStream::builder(addr, provider).build();
         let client = Client::connect(stream);
 
@@ -255,10 +225,7 @@ fn test_server_continues_on_bad_data_tcp() {
     named_test_harness("example.toml", |socket_ports| {
         let mut io_loop = Runtime::new().unwrap();
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
-        let addr: SocketAddr = SocketAddr::new(
-            Ipv4Addr::new(127, 0, 0, 1).into(),
-            tcp_port.expect("no tcp_port"),
-        );
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
         let client = Client::new(Box::new(stream), sender, None);
 
@@ -275,10 +242,7 @@ fn test_server_continues_on_bad_data_tcp() {
             .expect("raw send failed");
 
         // just tests that multiple queries work
-        let addr: SocketAddr = SocketAddr::new(
-            Ipv4Addr::new(127, 0, 0, 1).into(),
-            tcp_port.expect("no tcp_port"),
-        );
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
         let client = Client::new(Box::new(stream), sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
@@ -300,10 +264,7 @@ fn test_forward() {
     named_test_harness("example_forwarder.toml", |socket_ports| {
         let mut io_loop = Runtime::new().unwrap();
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
-        let addr: SocketAddr = SocketAddr::new(
-            Ipv4Addr::new(127, 0, 0, 1).into(),
-            tcp_port.expect("no tcp_port"),
-        );
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
         let client = Client::new(Box::new(stream), sender, None);
 
@@ -323,10 +284,7 @@ fn test_forward() {
         );
 
         // just tests that multiple queries work
-        let addr: SocketAddr = SocketAddr::new(
-            Ipv4Addr::new(127, 0, 0, 1).into(),
-            tcp_port.expect("no tcp_port"),
-        );
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
         let client = Client::new(Box::new(stream), sender, None);
 
@@ -354,10 +312,7 @@ fn test_allow_networks_toml_startup() {
     named_test_harness("example_allow_networks.toml", |socket_ports| {
         let mut io_loop = Runtime::new().unwrap();
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
-        let addr: SocketAddr = SocketAddr::new(
-            Ipv4Addr::new(127, 0, 0, 1).into(),
-            tcp_port.expect("no tcp_port"),
-        );
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
         let client = Client::new(Box::new(stream), sender, None);
 
@@ -367,10 +322,7 @@ fn test_allow_networks_toml_startup() {
         query_a(&mut io_loop, &mut client);
 
         let tcp_port = socket_ports.get_v6(Protocol::Tcp);
-        let addr: SocketAddr = SocketAddr::new(
-            Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into(),
-            tcp_port.expect("no tcp_port"),
-        );
+        let addr = SocketAddr::from((Ipv6Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
         let client = Client::new(Box::new(stream), sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
@@ -387,10 +339,7 @@ fn test_deny_networks_toml_startup() {
     named_test_harness("example_deny_networks.toml", |socket_ports| {
         let mut io_loop = Runtime::new().unwrap();
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
-        let addr: SocketAddr = SocketAddr::new(
-            Ipv4Addr::new(127, 0, 0, 1).into(),
-            tcp_port.expect("no tcp_port"),
-        );
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
         let client = Client::new(Box::new(stream), sender, None);
 
@@ -400,10 +349,7 @@ fn test_deny_networks_toml_startup() {
         query_a_refused(&mut io_loop, &mut client);
 
         let tcp_port = socket_ports.get_v6(Protocol::Tcp);
-        let addr: SocketAddr = SocketAddr::new(
-            Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into(),
-            tcp_port.expect("no tcp_port"),
-        );
+        let addr = SocketAddr::from((Ipv6Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
         let client = Client::new(Box::new(stream), sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
@@ -420,10 +366,7 @@ fn test_deny_allow_networks_toml_startup() {
     named_test_harness("example_deny_allow_networks.toml", |socket_ports| {
         let mut io_loop = Runtime::new().unwrap();
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
-        let addr: SocketAddr = SocketAddr::new(
-            Ipv4Addr::new(127, 0, 0, 1).into(),
-            tcp_port.expect("no tcp_port"),
-        );
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
         let client = Client::new(Box::new(stream), sender, None);
 
@@ -433,10 +376,7 @@ fn test_deny_allow_networks_toml_startup() {
         query_a(&mut io_loop, &mut client);
 
         let tcp_port = socket_ports.get_v6(Protocol::Tcp);
-        let addr: SocketAddr = SocketAddr::new(
-            Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into(),
-            tcp_port.expect("no tcp_port"),
-        );
+        let addr = SocketAddr::from((Ipv6Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
         let client = Client::new(Box::new(stream), sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");

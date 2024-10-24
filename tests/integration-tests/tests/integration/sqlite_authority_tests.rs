@@ -1,5 +1,7 @@
 #![cfg(feature = "sqlite")]
 
+use std::net::Ipv4Addr;
+use std::net::SocketAddr;
 use std::str::FromStr;
 
 use rusqlite::*;
@@ -40,7 +42,7 @@ async fn test_search() {
     query.set_name(origin.into());
     let query = LowerQuery::from(query);
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -70,7 +72,7 @@ async fn test_search_www() {
     query.set_name(www_name);
     let query = LowerQuery::from(query);
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -1049,7 +1051,7 @@ async fn test_axfr() {
         RecordType::AXFR,
     ));
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -1074,7 +1076,7 @@ async fn test_refused_axfr() {
         RecordType::AXFR,
     ));
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,

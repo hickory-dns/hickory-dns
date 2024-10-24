@@ -393,7 +393,7 @@ mod tests {
     fn test_tcp_stream_ipv4() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
         tcp_stream_test::<Runtime>(
-            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            IpAddr::V4(Ipv4Addr::LOCALHOST),
             io_loop,
             TokioRuntimeProvider::new(),
         )

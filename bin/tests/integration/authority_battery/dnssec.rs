@@ -1,5 +1,6 @@
 #![cfg(feature = "dnssec")]
 
+use std::net::{Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 use std::{future::Future, sync::Arc};
 
@@ -26,7 +27,7 @@ const TEST_HEADER: &Header = &Header::new();
 pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A).into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -118,7 +119,7 @@ pub fn test_aname_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: 
     )
     .into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -152,7 +153,7 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DN
     )
     .into();
     let request_info = RequestInfo::new(
-        "127.0.0.1:53".parse().unwrap(),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
         TEST_HEADER,
         &query,
@@ -323,7 +324,7 @@ pub fn test_rfc_6975_supported_algorithms<A: Authority<Lookup = AuthLookup>>(
 
         let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A).into();
         let request_info = RequestInfo::new(
-            "127.0.0.1:53".parse().unwrap(),
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
             TEST_HEADER,
             &query,

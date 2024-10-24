@@ -19,7 +19,7 @@ use crate::xfer::{DnsRequestOptions, FirstAnswer, SerialMessage};
 /// Test next random udpsocket.
 pub fn next_random_socket_test(mut exec: impl Executor, provider: impl RuntimeProvider) {
     let (stream, _) = UdpStream::new(
-        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 52),
+        SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 52),
         None,
         None,
         provider,

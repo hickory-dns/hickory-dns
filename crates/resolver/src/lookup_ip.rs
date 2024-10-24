@@ -472,7 +472,7 @@ pub mod tests {
         message.insert_answers(vec![Record::from_rdata(
             Name::root(),
             86400,
-            RData::A(Ipv4Addr::new(127, 0, 0, 1).into()),
+            RData::A(Ipv4Addr::LOCALHOST.into()),
         )]);
 
         let resp = DnsResponse::from_message(message).unwrap();
@@ -521,7 +521,7 @@ pub mod tests {
             .iter()
             .map(|r| r.ip_addr().unwrap())
             .collect::<Vec<IpAddr>>(),
-            vec![Ipv4Addr::new(127, 0, 0, 1)]
+            vec![Ipv4Addr::LOCALHOST]
         );
     }
 
@@ -558,7 +558,7 @@ pub mod tests {
             .map(|r| r.ip_addr().unwrap())
             .collect::<Vec<IpAddr>>(),
             vec![
-                IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+                IpAddr::V4(Ipv4Addr::LOCALHOST),
                 IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
             ]
         );
@@ -575,7 +575,7 @@ pub mod tests {
             .iter()
             .map(|r| r.ip_addr().unwrap())
             .collect::<Vec<IpAddr>>(),
-            vec![IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))]
+            vec![IpAddr::V4(Ipv4Addr::LOCALHOST)]
         );
 
         // error then ipv4
@@ -590,7 +590,7 @@ pub mod tests {
             .iter()
             .map(|r| r.ip_addr().unwrap())
             .collect::<Vec<IpAddr>>(),
-            vec![IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))]
+            vec![IpAddr::V4(Ipv4Addr::LOCALHOST)]
         );
 
         // only ipv6 available
@@ -653,7 +653,7 @@ pub mod tests {
             .iter()
             .map(|r| r.ip_addr().unwrap())
             .collect::<Vec<IpAddr>>(),
-            vec![Ipv4Addr::new(127, 0, 0, 1)]
+            vec![Ipv4Addr::LOCALHOST]
         );
 
         // ipv4 and error
@@ -668,7 +668,7 @@ pub mod tests {
             .iter()
             .map(|r| r.ip_addr().unwrap())
             .collect::<Vec<IpAddr>>(),
-            vec![Ipv4Addr::new(127, 0, 0, 1)]
+            vec![Ipv4Addr::LOCALHOST]
         );
     }
 
@@ -686,7 +686,7 @@ pub mod tests {
             .iter()
             .map(|r| r.ip_addr().unwrap())
             .collect::<Vec<IpAddr>>(),
-            vec![Ipv4Addr::new(127, 0, 0, 1)]
+            vec![Ipv4Addr::LOCALHOST]
         );
 
         // nothing then ipv6

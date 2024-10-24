@@ -29,7 +29,7 @@ use hickory_client::udp::UdpClientConnection;
 use hickory_client::op::DnsResponse;
 use hickory_client::rr::{rdata::A, DNSClass, Name, RData, Record, RecordType};
 
-let address = "8.8.8.8:53".parse().unwrap();
+let address = SocketAddr::from(([8, 8, 8, 8], 53));
 let conn = UdpClientConnection::new(address).unwrap();
 let client = SyncClient::new(conn);
 

@@ -33,7 +33,7 @@ async fn test_get() {
     use hickory_client::proto::rr::rdata::A;
 
     let (_process, port) = named_process();
-    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
+    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
     let conn = UdpClientStream::builder(socket, TokioRuntimeProvider::default()).build();
     let (mut client, driver) = Client::connect(conn).await.expect("failed to connect");
     tokio::spawn(driver);
@@ -83,7 +83,7 @@ async fn test_create() {
     assert_eq!(signer.calculate_key_tag().unwrap(), 56935_u16);
 
     let (_process, port) = named_process();
-    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
+    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
     let conn = UdpClientStream::builder(socket, TokioRuntimeProvider::default())
         .with_signer(Some(Arc::new(signer)))
         .build();

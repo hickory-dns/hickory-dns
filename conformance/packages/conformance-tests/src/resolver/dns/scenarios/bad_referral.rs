@@ -16,7 +16,7 @@ fn v4_this_host() -> Result<()> {
         return Ok(());
     }
 
-    let output = fixture("v4-this-host", Ipv4Addr::new(0, 0, 0, 0))?;
+    let output = fixture("v4-this-host", Ipv4Addr::UNSPECIFIED)?;
     dbg!(&output);
 
     assert!(output.status.is_servfail());
@@ -60,7 +60,7 @@ fn v4_link_local() -> Result<()> {
 #[test]
 #[ignore = "hickory-dns answers with NOERROR"]
 fn v4_loopback() -> Result<()> {
-    let output = fixture("v4-loopback", Ipv4Addr::new(127, 0, 0, 1))?;
+    let output = fixture("v4-loopback", Ipv4Addr::LOCALHOST)?;
     dbg!(&output);
 
     assert!(output.status.is_servfail());
