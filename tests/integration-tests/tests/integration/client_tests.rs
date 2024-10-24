@@ -16,7 +16,7 @@ use time::Duration;
 #[cfg(feature = "dnssec")]
 use hickory_client::client::DnssecClient;
 use hickory_client::client::{Client, ClientHandle};
-use hickory_client::error::ClientErrorKind;
+use hickory_client::ClientErrorKind;
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 use hickory_integration::example_authority::create_example;
 #[cfg(feature = "dnssec")]

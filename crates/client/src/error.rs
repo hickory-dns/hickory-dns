@@ -18,9 +18,6 @@ use crate::proto::{trace, ExtBacktrace};
 use hickory_proto::{DnsSecError, DnsSecErrorKind};
 use hickory_proto::{ProtoError, ProtoErrorKind};
 
-/// An alias for results returned by functions of this crate
-pub type Result<T> = ::std::result::Result<T, Error>;
-
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, Error)]
 #[non_exhaustive]
