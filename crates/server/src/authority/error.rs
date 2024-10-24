@@ -16,7 +16,7 @@ use crate::proto::{ProtoError, ProtoErrorKind};
 #[cfg(feature = "hickory-recursor")]
 use crate::recursor::error::ErrorKind;
 #[cfg(feature = "hickory-resolver")]
-use crate::resolver::error::ResolveError;
+use crate::resolver::ResolveError;
 
 // TODO: should this implement Failure?
 #[allow(clippy::large_enum_variant)]

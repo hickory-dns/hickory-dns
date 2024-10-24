@@ -105,10 +105,10 @@ mod tests;
 mod time;
 
 pub use hickory_resolver::config;
-pub use hickory_resolver::error::ResolveError;
 pub use hickory_resolver::lookup;
 pub use hickory_resolver::lookup_ip;
 pub use hickory_resolver::proto;
+pub use hickory_resolver::ResolveError;
 
 /// An AsyncResolver used with async_std
 pub type AsyncStdResolver = Resolver<AsyncStdConnectionProvider>;

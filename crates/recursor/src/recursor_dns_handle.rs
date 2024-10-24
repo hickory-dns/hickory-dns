@@ -19,10 +19,9 @@ use crate::{
     resolver::{
         config::{NameServerConfigGroup, ResolverOpts},
         dns_lru::{DnsLru, TtlConfig},
-        error::ResolveError,
         lookup::Lookup,
         name_server::{GenericNameServerPool, TokioConnectionProvider},
-        Name,
+        Name, ResolveError,
     },
     Error, ErrorKind,
 };

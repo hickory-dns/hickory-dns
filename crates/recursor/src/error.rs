@@ -21,7 +21,7 @@ use crate::proto::{
 };
 #[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
-use crate::resolver::error::ResolveError;
+use crate::resolver::ResolveError;
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, EnumAsInner, Error)]

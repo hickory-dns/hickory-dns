@@ -9,6 +9,12 @@ use std::{collections::HashSet, sync::Arc, time::Instant};
 
 use ipnet::IpNet;
 
+use crate::{
+    proto::op::Query,
+    recursor_dns_handle::RecursorDnsHandle,
+    resolver::{config::NameServerConfigGroup, lookup::Lookup, ResolveError},
+    DnssecPolicy, Error,
+};
 #[cfg(feature = "dnssec")]
 use crate::{
     proto::{
@@ -18,15 +24,8 @@ use crate::{
         ProtoError,
     },
     resolver::dns_lru::DnsLru,
-    resolver::error::ResolveErrorKind,
+    resolver::ResolveErrorKind,
     ErrorKind,
-};
-
-use crate::{
-    proto::op::Query,
-    recursor_dns_handle::RecursorDnsHandle,
-    resolver::{config::NameServerConfigGroup, error::ResolveError, lookup::Lookup},
-    DnssecPolicy, Error,
 };
 
 /// A `Recursor` builder
