@@ -193,7 +193,6 @@ fn no_data_response_ds_no_match() -> Result<()> {
 
 // This test checks that name servers produce a wildcard no data response compliant with section 7.2.5.
 #[test]
-#[ignore]
 fn wildcard_no_data_response() -> Result<()> {
     let wildcard_fqdn = FQDN(WILDCARD_FQDN)?;
     // The queried name
