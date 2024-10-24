@@ -90,7 +90,10 @@ impl RecursiveAuthority {
         let recursor = builder
             .dnssec_policy(config.dnssec_policy.load()?)
             .do_not_query(&config.do_not_query)
-            .recursion_limit(config.recursion_limit)
+            .recursion_limit(match config.recursion_limit {
+                0 => None,
+                limit => Some(limit),
+            })
             .avoid_local_udp_ports(config.avoid_local_udp_ports.clone())
             .ttl_config(config.cache_policy.clone())
             .build(roots)
