@@ -23,7 +23,7 @@ use crate::{
     authority::{
         Authority, LookupControlFlow, LookupOptions, MessageRequest, UpdateResult, ZoneType,
     },
-    error::{PersistenceErrorKind, PersistenceResult},
+    error::{PersistenceError, PersistenceErrorKind},
     proto::{
         op::ResponseCode,
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
@@ -168,7 +168,10 @@ impl SqliteAuthority {
     /// # Arguments
     ///
     /// * `journal` - the journal from which to load the persisted zone.
-    pub async fn recover_with_journal(&mut self, journal: &Journal) -> PersistenceResult<()> {
+    pub async fn recover_with_journal(
+        &mut self,
+        journal: &Journal,
+    ) -> Result<(), PersistenceError> {
         assert!(
             self.in_memory.records_get_mut().is_empty(),
             "records should be empty during a recovery"
@@ -193,7 +196,7 @@ impl SqliteAuthority {
     ///  Journal.
     ///
     /// Returns an error if there was an issue writing to the persistence layer.
-    pub async fn persist_to_journal(&self) -> PersistenceResult<()> {
+    pub async fn persist_to_journal(&self) -> Result<(), PersistenceError> {
         if let Some(journal) = self.journal.lock().await.as_ref() {
             let serial = self.in_memory.serial().await;
 
