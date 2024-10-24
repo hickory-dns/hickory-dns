@@ -29,7 +29,6 @@ use hickory_proto::ProtoError;
 use hickory_server::authority::ZoneType;
 #[cfg(feature = "dnssec")]
 use hickory_server::dnssec::NxProofKind;
-use hickory_server::error::ConfigResult;
 #[cfg(feature = "blocklist")]
 use hickory_server::store::blocklist::BlocklistConfig;
 use hickory_server::store::file::FileConfig;
@@ -39,6 +38,7 @@ use hickory_server::store::forwarder::ForwardConfig;
 use hickory_server::store::recursor::RecursiveConfig;
 #[cfg(feature = "sqlite")]
 use hickory_server::store::sqlite::SqliteConfig;
+use hickory_server::ConfigError;
 
 static DEFAULT_PATH: &str = "/var/named"; // TODO what about windows (do I care? ;)
 static DEFAULT_PORT: u16 = 53;
@@ -104,7 +104,7 @@ pub struct Config {
 
 impl Config {
     /// read a Config file from the file specified at path.
-    pub fn read_config(path: &Path) -> ConfigResult<Self> {
+    pub fn read_config(path: &Path) -> Result<Self, ConfigError> {
         let mut file = File::open(path)?;
         let mut toml = String::new();
         file.read_to_string(&mut toml)?;
@@ -112,7 +112,7 @@ impl Config {
     }
 
     /// Read a [`Config`] from the given TOML string.
-    pub fn from_toml(toml: &str) -> ConfigResult<Self> {
+    pub fn from_toml(toml: &str) -> Result<Self, ConfigError> {
         Ok(toml::from_str(toml)?)
     }
 
