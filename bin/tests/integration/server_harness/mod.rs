@@ -13,7 +13,11 @@ use std::{
     time::*,
 };
 
-use hickory_client::{client::*, error::ClientError, proto::xfer::DnsResponse};
+use hickory_client::{
+    client::{Client, ClientHandle},
+    proto::xfer::DnsResponse,
+    ClientError,
+};
 #[cfg(feature = "dnssec")]
 use hickory_proto::rr::dnssec::*;
 use hickory_proto::rr::{rdata::A, *};

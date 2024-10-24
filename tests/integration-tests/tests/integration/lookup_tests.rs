@@ -450,8 +450,8 @@ fn test_max_chained_lookup_depth() {
 // no NS records present (!ns.is_some())
 #[test]
 fn test_forward_soa() {
-    use hickory_proto::error::ProtoErrorKind;
-    use hickory_resolver::error::ResolveErrorKind;
+    use hickory_proto::ProtoErrorKind;
+    use hickory_resolver::ResolveErrorKind;
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::NS);
     let soa_record = soa_record(
         Name::from_str("www.example.com").unwrap(),
@@ -499,8 +499,8 @@ fn test_forward_soa() {
 // no SOA records present (!soa.is_some())
 #[test]
 fn test_forward_ns() {
-    use hickory_proto::error::ProtoErrorKind;
-    use hickory_resolver::error::ResolveErrorKind;
+    use hickory_proto::ProtoErrorKind;
+    use hickory_resolver::ResolveErrorKind;
     let resp_query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::A);
     let ns1 = ns_record(
         Default::default(),

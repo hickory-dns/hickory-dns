@@ -14,10 +14,7 @@ use thiserror::Error;
 
 #[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
-use hickory_proto::error::{DnsSecError, DnsSecErrorKind, ProtoError, ProtoErrorKind};
-
-/// An alias for results returned by functions of this crate
-pub type Result<T> = ::std::result::Result<T, Error>;
+use hickory_proto::{DnsSecError, DnsSecErrorKind, ProtoError, ProtoErrorKind};
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, Error)]

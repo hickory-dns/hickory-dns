@@ -15,14 +15,11 @@ use time::Duration;
 #[cfg(feature = "dnssec")]
 use hickory_client::client::DnssecClient;
 use hickory_client::client::{Client, ClientHandle};
-use hickory_client::error::ClientErrorKind;
+use hickory_client::ClientErrorKind;
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 use hickory_integration::example_authority::create_example;
 #[cfg(feature = "dnssec")]
 use hickory_integration::TestClientStream;
-#[cfg(feature = "dnssec")]
-use hickory_proto::error::ProtoError;
-use hickory_proto::error::ProtoErrorKind;
 use hickory_proto::op::{Edns, Message, MessageType, OpCode, Query};
 #[cfg(feature = "dnssec")]
 use hickory_proto::op::{MessageFinalizer, ResponseCode};
@@ -36,6 +33,9 @@ use hickory_proto::udp::UdpClientStream;
 #[cfg(feature = "dnssec")]
 use hickory_proto::xfer::DnsMultiplexerConnect;
 use hickory_proto::xfer::{DnsHandle, DnsMultiplexer};
+#[cfg(feature = "dnssec")]
+use hickory_proto::ProtoError;
+use hickory_proto::ProtoErrorKind;
 #[cfg(feature = "dnssec")]
 use hickory_server::authority::{Authority, Catalog};
 #[cfg(feature = "dnssec")]

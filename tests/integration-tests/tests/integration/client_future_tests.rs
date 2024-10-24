@@ -12,7 +12,7 @@ use tokio::runtime::Runtime;
 
 use hickory_client::{
     client::{Client, ClientHandle},
-    error::ClientErrorKind,
+    ClientErrorKind,
 };
 use hickory_integration::{
     example_authority::create_example, NeverReturnsClientStream, TestClientStream,

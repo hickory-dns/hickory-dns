@@ -18,7 +18,7 @@ use std::sync::Arc;
 use once_cell::sync::Lazy;
 use rustls::{ClientConfig, RootCertStore};
 
-use crate::proto::error::ProtoError;
+use crate::proto::ProtoError;
 use crate::proto::rustls::tls_client_stream::tls_client_connect_with_future;
 use crate::proto::rustls::TlsClientStream;
 use crate::proto::tcp::DnsTcpStream;

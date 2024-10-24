@@ -44,9 +44,9 @@ pub static ENABLE_BACKTRACE: Lazy<bool> = Lazy::new(|| {
 #[macro_export]
 macro_rules! trace {
     () => {{
-        use $crate::error::ExtBacktrace as Backtrace;
+        use $crate::ExtBacktrace as Backtrace;
 
-        if *$crate::error::ENABLE_BACKTRACE {
+        if *$crate::ENABLE_BACKTRACE {
             Some(Backtrace::new())
         } else {
             None
@@ -55,7 +55,7 @@ macro_rules! trace {
 }
 
 /// An alias for results returned by functions of this crate
-pub type ProtoResult<T> = ::std::result::Result<T, ProtoError>;
+pub(crate) type ProtoResult<T> = ::std::result::Result<T, ProtoError>;
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, EnumAsInner, Error)]
@@ -827,12 +827,6 @@ impl Clone for ProtoErrorKind {
         }
     }
 }
-
-/// A trait marking a type which implements `From<ProtoError>` and
-/// std::error::Error types as well as Clone + Send
-pub trait FromProtoError: From<ProtoError> + std::error::Error + Clone {}
-
-impl<E> FromProtoError for E where E: From<ProtoError> + std::error::Error + Clone {}
 
 #[cfg(not(any(feature = "dns-over-openssl", feature = "dnssec-openssl")))]
 use self::not_openssl::SslErrorStack;

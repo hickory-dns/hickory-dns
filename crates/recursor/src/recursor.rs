@@ -9,24 +9,23 @@ use std::{collections::HashSet, sync::Arc, time::Instant};
 
 use ipnet::IpNet;
 
-#[cfg(feature = "dnssec")]
-use crate::{
-    proto::{
-        error::ProtoError,
-        op::ResponseCode,
-        rr::{resource::RecordRef, Record, RecordType},
-        xfer::{DnsHandle as _, DnsRequestOptions, DnssecDnsHandle, FirstAnswer as _},
-    },
-    resolver::dns_lru::DnsLru,
-    resolver::error::ResolveErrorKind,
-    ErrorKind,
-};
-
 use crate::{
     proto::op::Query,
     recursor_dns_handle::RecursorDnsHandle,
-    resolver::{config::NameServerConfigGroup, error::ResolveError, lookup::Lookup},
+    resolver::{config::NameServerConfigGroup, lookup::Lookup, ResolveError},
     DnssecPolicy, Error,
+};
+#[cfg(feature = "dnssec")]
+use crate::{
+    proto::{
+        op::ResponseCode,
+        rr::{resource::RecordRef, Record, RecordType},
+        xfer::{DnsHandle as _, DnsRequestOptions, DnssecDnsHandle, FirstAnswer as _},
+        ProtoError,
+    },
+    resolver::dns_lru::DnsLru,
+    resolver::ResolveErrorKind,
+    ErrorKind,
 };
 
 /// A `Recursor` builder
@@ -479,10 +478,10 @@ mod for_dnssec {
     };
 
     use crate::proto::{
-        error::ProtoError,
         op::{Message, OpCode},
         xfer::DnsHandle,
         xfer::DnsResponse,
+        ProtoError,
     };
     use crate::recursor_dns_handle::RecursorDnsHandle;
     use crate::ErrorKind;

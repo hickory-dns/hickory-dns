@@ -441,13 +441,12 @@ pub mod tests {
 
     use futures_executor::block_on;
     use futures_util::future;
+    use futures_util::stream::{once, Stream};
 
     use crate::proto::op::Message;
     use crate::proto::rr::{Name, RData, Record};
     use crate::proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
-    use hickory_proto::error::ProtoError;
-
-    use futures_util::stream::{once, Stream};
+    use crate::proto::ProtoError;
 
     use super::*;
 

@@ -22,13 +22,12 @@ use futures::{
 use tokio::time::{Duration, Instant, Sleep};
 
 use hickory_proto::{
-    error::ProtoError,
     op::Message,
     rr::Record,
     runtime::TokioTime,
     serialize::binary::{BinDecodable, BinDecoder, BinEncoder},
     xfer::{DnsClientStream, Protocol, SerialMessage, StreamReceiver},
-    BufDnsStreamHandle,
+    BufDnsStreamHandle, ProtoError,
 };
 use hickory_server::{
     authority::{Catalog, MessageRequest, MessageResponse},

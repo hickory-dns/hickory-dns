@@ -24,6 +24,3 @@ pub use self::persistence_error::Error as PersistenceError;
 
 pub use self::config_error::ErrorKind as ConfigErrorKind;
 pub use self::persistence_error::ErrorKind as PersistenceErrorKind;
-
-pub use self::config_error::Result as ConfigResult;
-pub use self::persistence_error::Result as PersistenceResult;

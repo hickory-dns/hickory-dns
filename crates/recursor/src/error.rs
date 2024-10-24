@@ -11,21 +11,17 @@
 
 use std::{fmt, io, sync::Arc};
 
-use crate::proto::error::ForwardNSData;
 use enum_as_inner::EnumAsInner;
-use hickory_proto::error::ProtoErrorKind;
 use thiserror::Error;
 
 use crate::proto::{
     op::ResponseCode,
     rr::{rdata::SOA, Record},
+    ForwardNSData, ProtoErrorKind, {ForwardData, ProtoError},
 };
 #[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
-use crate::{
-    proto::error::{ForwardData, ProtoError},
-    resolver::error::ResolveError,
-};
+use crate::resolver::ResolveError;
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, EnumAsInner, Error)]
@@ -261,9 +257,3 @@ impl From<Error> for ProtoError {
         }
     }
 }
-
-/// A trait marking a type which implements `From<Error>` and
-/// std::error::Error types as well as Clone + Send
-pub trait FromError: From<Error> + std::error::Error + Clone {}
-
-impl<E> FromError for E where E: From<Error> + std::error::Error + Clone {}

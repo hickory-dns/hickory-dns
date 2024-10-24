@@ -24,12 +24,12 @@ use ipnet::IpNet;
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
 
-use hickory_proto::error::ProtoResult;
 use hickory_proto::rr::Name;
+use hickory_proto::ProtoError;
 use hickory_server::authority::ZoneType;
 #[cfg(feature = "dnssec")]
 use hickory_server::dnssec::NxProofKind;
-use hickory_server::error::ConfigResult;
+use hickory_server::ConfigError;
 #[cfg(feature = "blocklist")]
 use hickory_server::store::blocklist::BlocklistConfig;
 use hickory_server::store::file::FileConfig;
@@ -104,7 +104,7 @@ pub struct Config {
 
 impl Config {
     /// read a Config file from the file specified at path.
-    pub fn read_config(path: &Path) -> ConfigResult<Self> {
+    pub fn read_config(path: &Path) -> Result<Self, ConfigError> {
         let mut file = File::open(path)?;
         let mut toml = String::new();
         file.read_to_string(&mut toml)?;
@@ -112,7 +112,7 @@ impl Config {
     }
 
     /// Read a [`Config`] from the given TOML string.
-    pub fn from_toml(toml: &str) -> ConfigResult<Self> {
+    pub fn from_toml(toml: &str) -> Result<Self, ConfigError> {
         Ok(toml::from_str(toml)?)
     }
 
@@ -307,7 +307,7 @@ impl ZoneConfig {
 
     // TODO this is a little ugly for the parse, b/c there is no terminal char
     /// returns the name of the Zone, i.e. the `example.com` of `www.example.com.`
-    pub fn zone(&self) -> ProtoResult<Name> {
+    pub fn zone(&self) -> Result<Name, ProtoError> {
         Name::parse(&self.zone, Some(&Name::new()))
     }
 

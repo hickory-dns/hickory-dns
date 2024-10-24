@@ -10,19 +10,18 @@ use tracing::{debug, trace, warn};
 
 use crate::{
     proto::{
-        error::{ForwardNSData, ProtoErrorKind},
         op::Query,
         rr::{RData, RData::CNAME, Record, RecordType},
         runtime::TokioRuntimeProvider,
+        ForwardNSData, ProtoErrorKind,
     },
     recursor_pool::RecursorPool,
     resolver::{
         config::{NameServerConfigGroup, ResolverOpts},
         dns_lru::{DnsLru, TtlConfig},
-        error::ResolveError,
         lookup::Lookup,
         name_server::{GenericNameServerPool, TokioConnectionProvider},
-        Name,
+        Name, ResolveError,
     },
     Error, ErrorKind,
 };
