@@ -10,7 +10,7 @@ use tracing::{debug, trace, warn};
 
 use crate::{
     proto::{
-        error::{ForwardNSData, ProtoErrorKind},
+        error::ForwardNSData,
         op::Query,
         rr::{RData, RData::CNAME, Record, RecordType},
         runtime::TokioRuntimeProvider,
@@ -34,7 +34,7 @@ pub(crate) struct RecursorDnsHandle {
     roots: RecursorPool<TokioRuntimeProvider>,
     name_server_cache: Arc<Mutex<NameServerCache<TokioRuntimeProvider>>>,
     record_cache: DnsLru,
-    recursion_limit: u8,
+    recursion_limit: Option<u8>,
     security_aware: bool,
     do_not_query_v4: PrefixSet<Ipv4Net>,
     do_not_query_v6: PrefixSet<Ipv6Net>,
@@ -47,7 +47,7 @@ impl RecursorDnsHandle {
         roots: impl Into<NameServerConfigGroup>,
         ns_cache_size: usize,
         record_cache_size: usize,
-        recursion_limit: u8,
+        recursion_limit: Option<u8>,
         security_aware: bool,
         do_not_query: Vec<IpNet>,
         avoid_local_udp_ports: Arc<HashSet<u16>>,
@@ -289,16 +289,7 @@ impl RecursorDnsHandle {
         }
 
         depth += 1;
-        if self.recursion_limit > 0 && depth > self.recursion_limit {
-            warn!("recursion depth exceeded for {query_name:?}");
-            return Err(ErrorKind::Proto(
-                ProtoErrorKind::NotAllRecordsWritten {
-                    count: depth as usize,
-                }
-                .into(),
-            )
-            .into());
-        }
+        Error::recursion_exceeded(self.recursion_limit, depth, &query_name)?;
 
         let mut cname_chain = vec![];
         for rec in lookup.records().iter() {

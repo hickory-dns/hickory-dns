@@ -36,8 +36,8 @@ pub struct RecursorBuilder {
     ns_cache_size: usize,
     record_cache_size: usize,
     /// This controls how many nested lookups will be attempted to resolve a CNAME chain. Setting it
-    /// to 0 will disable the recursion limit check, and is not recommended.
-    recursion_limit: u8,
+    /// to None will disable the recursion limit check, and is not recommended.
+    recursion_limit: Option<u8>,
     dnssec_policy: DnssecPolicy,
     do_not_query: Vec<IpNet>,
     avoid_local_udp_ports: HashSet<u16>,
@@ -57,9 +57,9 @@ impl RecursorBuilder {
         self
     }
 
-    /// Sets the maximum recursion depth for queries; set to 0 for unlimited
+    /// Sets the maximum recursion depth for queries; set to None for unlimited
     /// recursion.
-    pub fn recursion_limit(mut self, limit: u8) -> Self {
+    pub fn recursion_limit(mut self, limit: Option<u8>) -> Self {
         self.recursion_limit = limit;
         self
     }
@@ -450,7 +450,7 @@ impl Default for RecursorBuilder {
             // This default is based on CNAME recursion failures of long (> 8 records) CNAME chains
             // that users of Unbound encountered (see https://github.com/NLnetLabs/unbound/issues/438)
             // with a small safety margin added.
-            recursion_limit: 12,
+            recursion_limit: Some(12),
             dnssec_policy: DnssecPolicy::SecurityUnaware,
             do_not_query: vec![],
             avoid_local_udp_ports: HashSet::new(),
