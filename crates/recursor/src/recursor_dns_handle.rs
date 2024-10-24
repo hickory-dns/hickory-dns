@@ -477,74 +477,46 @@ impl RecursorDnsHandle {
             config_group.append_ips(glue_ips, true);
         }
 
-        // If we have no glue, collect missing IP addresses for non-child NS servers
-        // Querying for child NS servers can result in infinite recursion if the
-        // parent nameserver never returns glue records for child NS records, or does
-        // so based on cache freshness (observed with BIND)
+        // If we have no glue, collect missing nameserver IP addresses.
+        // For non-child name servers, get a new pool by calling ns_pool_for_zone recursively.
+        // For child child name servers, we can use the existing pool, but we *must* use lookup
+        // to avoid infinite recursion.
         if config_group.is_empty() && !need_ips_for_names.is_empty() {
             debug!("need glue for {zone}");
 
-            let mut resolve_futures = FuturesUnordered::new();
-            need_ips_for_names
-                .iter()
-                .filter(|name| !crate::is_subzone(&zone, &name.0))
-                .take(1)
-                .for_each(|name| {
-                    for rec_type in [RecordType::A, RecordType::AAAA] {
-                        resolve_futures.push(self.resolve(
-                            Query::query(name.0.clone(), rec_type),
-                            request_time,
-                            self.security_aware,
-                            ns_depth,
-                        ));
-                    }
-                });
+            for ns in need_ips_for_names.iter() {
+                let record_name = ns.0.clone();
 
-            self.append_ips_from_lookup(
-                |rsp| rsp.into_iter().filter_map(|r| r.ip_addr()),
-                &mut resolve_futures,
-                &mut config_group,
-                "ns_pool_for_zone:resolve",
-            )
-            .await;
-        }
+                let (new_depth, nameserver_pool) = if !crate::is_subzone(&zone, &ns.0) {
+                    self.ns_pool_for_zone(record_name.clone(), request_time, depth)
+                        .await?
+                } else {
+                    (depth, nameserver_pool.clone())
+                };
 
-        // If we still have no NS records, try to query the parent zone for child NS servers
-        // Note that while this section looks very similar to the previous section, there is
-        // a very important difference: the use of lookup to resolve NS addresses, vs resolve
-        // in the previous section.  Using resolve here will cause an infinite loop for these
-        // nameservers. Using lookup with nameserver_pool in the previous section would almost
-        // always cause resolution failures.
-        if config_group.is_empty() && !need_ips_for_names.is_empty() {
-            debug!("priming zone {zone} via parent zone {}", zone.base_name());
+                depth = new_depth;
 
-            let mut lookup_futures = FuturesUnordered::new();
-            need_ips_for_names
-                .iter()
-                .filter(|name| crate::is_subzone(&zone, &name.0))
-                .take(1)
-                .for_each(|name| {
-                    for rec_type in [RecordType::A, RecordType::AAAA] {
-                        lookup_futures.push(
-                            nameserver_pool.lookup(
-                                Query::query(name.0.clone(), rec_type),
-                                self.security_aware,
-                            ),
-                        );
-                    }
-                });
+                let mut lookup_futures = FuturesUnordered::new();
 
-            self.append_ips_from_lookup(
-                |mut rsp| {
-                    rsp.take_answers()
-                        .into_iter()
-                        .filter_map(|answer| answer.data().ip_addr())
-                },
-                &mut lookup_futures,
-                &mut config_group,
-                "ns_pool_for_zone:lookup",
-            )
-            .await;
+                for rec_type in [RecordType::A, RecordType::AAAA] {
+                    lookup_futures.push(nameserver_pool.lookup(
+                        Query::query(record_name.clone(), rec_type),
+                        self.security_aware,
+                    ));
+                }
+
+                self.append_ips_from_lookup(
+                    |mut rsp| {
+                        rsp.take_answers()
+                            .into_iter()
+                            .filter_map(|answer| answer.data().ip_addr())
+                    },
+                    &mut lookup_futures,
+                    &mut config_group,
+                    "ns_pool_for_zone:lookup",
+                )
+                .await;
+            }
         }
 
         // now construct a namesever pool based off the NS and glue records
@@ -653,25 +625,41 @@ impl RecursorDnsHandle {
         if config_group.is_empty() && !need_ips_for_names.is_empty() {
             debug!("ns_pool_for_referral need glue for {query_name}");
 
-            let mut resolve_futures = FuturesUnordered::new();
-            for rec_type in [RecordType::A, RecordType::AAAA] {
-                need_ips_for_names.iter().take(1).for_each(|name| {
-                    resolve_futures.push(self.resolve(
-                        Query::query(name.data().as_ns().unwrap().0.clone(), rec_type),
-                        request_time,
-                        self.security_aware,
-                        depth,
-                    ));
-                });
-            }
+            for name in need_ips_for_names.iter() {
+                let Some(ns) = name.data().as_ns() else {
+                    warn!("record is not NS: {:?}; skipping", name.data());
+                    continue;
+                };
 
-            self.append_ips_from_lookup(
-                |rsp| rsp.into_iter().filter_map(|r| r.ip_addr()),
-                &mut resolve_futures,
-                &mut config_group,
-                "ns_pool_for_referral:resolve",
-            )
-            .await;
+                let record_name = ns.0.clone();
+
+                let (new_depth, nameserver_pool) = self
+                    .ns_pool_for_zone(record_name.clone(), request_time, depth)
+                    .await?;
+
+                depth = new_depth;
+
+                let mut lookup_futures = FuturesUnordered::new();
+
+                for rec_type in [RecordType::A, RecordType::AAAA] {
+                    lookup_futures.push(nameserver_pool.lookup(
+                        Query::query(record_name.clone(), rec_type),
+                        self.security_aware,
+                    ));
+                }
+
+                self.append_ips_from_lookup(
+                    |mut rsp| {
+                        rsp.take_answers()
+                            .into_iter()
+                            .filter_map(|answer| answer.data().ip_addr())
+                    },
+                    &mut lookup_futures,
+                    &mut config_group,
+                    "ns_pool_for_referral:resolve",
+                )
+                .await;
+            }
         }
 
         debug!("ns_pool_for_referral found nameservers for {query_name}: {config_group:?}");
