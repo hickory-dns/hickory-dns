@@ -12,9 +12,9 @@ use futures_util::future::FutureExt;
 use futures_util::lock::Mutex;
 use futures_util::stream::Stream;
 use hickory_proto::{
-    error::ProtoError,
     op::Query,
     xfer::{DnsHandle, DnsRequest, DnsResponse},
+    ProtoError,
 };
 
 use crate::client::rc_stream::{rc_stream, RcStream};
@@ -100,10 +100,10 @@ mod test {
     use futures::lock::Mutex;
     use futures::*;
     use hickory_proto::{
-        error::ProtoError,
         op::{Message, Query},
         rr::RecordType,
         xfer::{DnsHandle, DnsRequest, DnsResponse},
+        ProtoError,
     };
 
     use crate::client::*;

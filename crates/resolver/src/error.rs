@@ -11,10 +11,10 @@ use std::{fmt, io, sync};
 
 use thiserror::Error;
 
-use crate::proto::rr::{rdata::SOA, Record};
 use crate::proto::{
-    error::{ProtoError, ProtoErrorKind},
+    rr::{rdata::SOA, Record},
     xfer::retry_dns_handle::RetryableError,
+    ProtoError, ProtoErrorKind,
 };
 
 #[cfg(feature = "backtrace")]

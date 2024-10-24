@@ -12,15 +12,15 @@ use std::pin::Pin;
 use std::time::Duration;
 
 use async_std::future::timeout;
-use hickory_resolver::config::{NameServerConfig, ResolverOpts};
-use hickory_resolver::name_server::{ConnectionProvider, GenericConnector};
-use hickory_resolver::proto::error::ProtoError;
-use hickory_resolver::proto::runtime::{Executor, RuntimeProvider, Spawn};
 use socket2::{Domain, Protocol, Socket, Type};
 
 use crate::net::{AsyncStdTcpStream, AsyncStdUdpSocket};
+use crate::proto::runtime::{Executor, RuntimeProvider, Spawn};
 use crate::proto::udp::UdpSocket;
+use crate::proto::ProtoError;
 use crate::time::AsyncStdTime;
+use hickory_resolver::config::{NameServerConfig, ResolverOpts};
+use hickory_resolver::name_server::{ConnectionProvider, GenericConnector};
 
 /// The async_std runtime.
 ///

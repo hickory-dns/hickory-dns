@@ -29,11 +29,11 @@ use crate::{
     authority::{DnssecAuthority, Nsec3QueryInfo},
     dnssec::NxProofKind,
     proto::{
-        error::ProtoResult,
         rr::dnssec::{
             rdata::{key::KEY, DNSSECRData, NSEC, NSEC3, NSEC3PARAM},
             DnsSecResult, Nsec3HashAlgorithm, SigSigner, SupportedAlgorithms,
         },
+        ProtoError,
     },
 };
 
@@ -821,7 +821,7 @@ impl InnerInMemory {
                 let hashed_name = hash_alg.hash(salt, &name, iterations)?;
                 Ok((hashed_name, (type_bit_maps, exists)))
             })
-            .collect::<ProtoResult<Vec<_>>>()?;
+            .collect::<Result<Vec<_>, ProtoError>>()?;
         // Sort by hash.
         record_types.sort_by(|(a, _), (b, _)| a.as_ref().cmp(b.as_ref()));
 
@@ -986,7 +986,7 @@ impl InnerInMemory {
         name: &LowerName,
         zone: &Name,
         info: &Nsec3QueryInfo<'_>,
-    ) -> ProtoResult<Option<Arc<RecordSet>>> {
+    ) -> Result<Option<Arc<RecordSet>>, ProtoError> {
         let owner_name = info.get_hashed_owner_name(name, zone)?;
         let records = self
             .records
@@ -1013,7 +1013,7 @@ impl InnerInMemory {
         name: &LowerName,
         zone: &Name,
         info: &Nsec3QueryInfo<'_>,
-    ) -> ProtoResult<Option<(LowerName, Arc<RecordSet>)>> {
+    ) -> Result<Option<(LowerName, Arc<RecordSet>)>, ProtoError> {
         let mut next_closer_name = name.clone();
         let mut closest_encloser = next_closer_name.base_name();
 

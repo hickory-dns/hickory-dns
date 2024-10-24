@@ -24,8 +24,8 @@ use ipnet::IpNet;
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
 
-use hickory_proto::error::ProtoResult;
 use hickory_proto::rr::Name;
+use hickory_proto::ProtoError;
 use hickory_server::authority::ZoneType;
 #[cfg(feature = "dnssec")]
 use hickory_server::dnssec::NxProofKind;
@@ -307,7 +307,7 @@ impl ZoneConfig {
 
     // TODO this is a little ugly for the parse, b/c there is no terminal char
     /// returns the name of the Zone, i.e. the `example.com` of `www.example.com.`
-    pub fn zone(&self) -> ProtoResult<Name> {
+    pub fn zone(&self) -> Result<Name, ProtoError> {
         Name::parse(&self.zone, Some(&Name::new()))
     }
 

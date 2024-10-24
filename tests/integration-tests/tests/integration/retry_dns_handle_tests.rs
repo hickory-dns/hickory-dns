@@ -6,10 +6,9 @@ use std::sync::{
 use futures::{executor::block_on, future, stream, Stream};
 
 use hickory_proto::{
-    error::ProtoError,
     op::{Message, MessageType, OpCode, ResponseCode},
     xfer::{DnsRequest, DnsResponse, FirstAnswer},
-    DnsHandle, RetryDnsHandle,
+    DnsHandle, ProtoError, RetryDnsHandle,
 };
 
 #[derive(Clone)]

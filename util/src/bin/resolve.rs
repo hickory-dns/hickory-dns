@@ -36,9 +36,9 @@ use tokio::task::JoinSet;
 use tokio::time::MissedTickBehavior;
 
 use hickory_proto::{
-    error::{ProtoError, ProtoErrorKind},
     rr::{Record, RecordData, RecordType},
     xfer::Protocol,
+    ProtoError, ProtoErrorKind,
 };
 use hickory_resolver::{
     config::{NameServerConfig, NameServerConfigGroup, ResolverConfig, ResolverOpts},

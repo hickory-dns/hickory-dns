@@ -7,11 +7,11 @@
 
 use std::fmt;
 
-use crate::proto::error::*;
 use thiserror::Error;
 
 #[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
+use crate::proto::{ProtoError, ProtoErrorKind};
 
 /// An alias for results returned by functions of this crate
 pub type Result<T> = ::std::result::Result<T, Error>;

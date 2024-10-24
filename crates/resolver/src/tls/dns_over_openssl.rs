@@ -12,7 +12,7 @@ use std::future::Future;
 use std::net::SocketAddr;
 use std::pin::Pin;
 
-use crate::proto::error::ProtoError;
+use crate::proto::ProtoError;
 use crate::proto::openssl::{TlsClientStream, TlsClientStreamBuilder};
 use crate::proto::runtime::RuntimeProvider;
 use crate::proto::BufDnsStreamHandle;

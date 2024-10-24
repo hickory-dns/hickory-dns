@@ -21,8 +21,8 @@ use hickory_integration::example_authority::create_example;
 #[cfg(feature = "dnssec")]
 use hickory_integration::TestClientStream;
 #[cfg(feature = "dnssec")]
-use hickory_proto::error::ProtoError;
-use hickory_proto::error::ProtoErrorKind;
+use hickory_proto::ProtoError;
+use hickory_proto::ProtoErrorKind;
 use hickory_proto::op::{Edns, Message, MessageType, OpCode, Query};
 #[cfg(feature = "dnssec")]
 use hickory_proto::op::{MessageFinalizer, ResponseCode};

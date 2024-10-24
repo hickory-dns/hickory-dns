@@ -10,10 +10,10 @@ use tracing::{debug, trace, warn};
 
 use crate::{
     proto::{
-        error::{ForwardNSData, ProtoErrorKind},
         op::Query,
         rr::{RData, RData::CNAME, Record, RecordType},
         runtime::TokioRuntimeProvider,
+        ForwardNSData, ProtoErrorKind,
     },
     recursor_pool::RecursorPool,
     resolver::{

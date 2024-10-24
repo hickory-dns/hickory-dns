@@ -44,9 +44,9 @@ pub static ENABLE_BACKTRACE: Lazy<bool> = Lazy::new(|| {
 #[macro_export]
 macro_rules! trace {
     () => {{
-        use $crate::error::ExtBacktrace as Backtrace;
+        use $crate::ExtBacktrace as Backtrace;
 
-        if *$crate::error::ENABLE_BACKTRACE {
+        if *$crate::ENABLE_BACKTRACE {
             Some(Backtrace::new())
         } else {
             None
@@ -55,7 +55,7 @@ macro_rules! trace {
 }
 
 /// An alias for results returned by functions of this crate
-pub type ProtoResult<T> = ::std::result::Result<T, ProtoError>;
+pub(crate) type ProtoResult<T> = ::std::result::Result<T, ProtoError>;
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, EnumAsInner, Error)]
