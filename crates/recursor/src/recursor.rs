@@ -9,6 +9,8 @@ use std::{collections::HashSet, sync::Arc, time::Instant};
 
 use ipnet::IpNet;
 
+use hickory_resolver::dns_lru::TtlConfig;
+
 #[cfg(feature = "dnssec")]
 use crate::{
     proto::{
@@ -40,6 +42,7 @@ pub struct RecursorBuilder {
     dnssec_policy: DnssecPolicy,
     do_not_query: Vec<IpNet>,
     avoid_local_udp_ports: HashSet<u16>,
+    ttl_config: TtlConfig,
 }
 
 impl RecursorBuilder {
@@ -80,6 +83,12 @@ impl RecursorBuilder {
         self
     }
 
+    /// Sets the minimum and maximum TTL values for cached responses
+    pub fn ttl_config(&mut self, ttl_config: TtlConfig) -> &mut Self {
+        self.ttl_config = ttl_config;
+        self
+    }
+
     /// Construct a new recursor using the list of NameServerConfigs for the root node list
     ///
     /// # Panics
@@ -94,6 +103,7 @@ impl RecursorBuilder {
             self.dnssec_policy.clone(),
             self.do_not_query.clone(),
             self.avoid_local_udp_ports.clone(),
+            self.ttl_config.clone(),
         )
     }
 }
@@ -117,6 +127,7 @@ impl Recursor {
         !matches!(self.mode, RecursorMode::NonValidating { .. })
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn build(
         roots: impl Into<NameServerConfigGroup>,
         ns_cache_size: usize,
@@ -125,6 +136,7 @@ impl Recursor {
         dnssec_policy: DnssecPolicy,
         do_not_query: Vec<IpNet>,
         avoid_local_udp_ports: HashSet<u16>,
+        ttl_config: TtlConfig,
     ) -> Result<Self, ResolveError> {
         let handle = RecursorDnsHandle::new(
             roots,
@@ -134,6 +146,7 @@ impl Recursor {
             dnssec_policy.is_security_aware(),
             do_not_query,
             Arc::new(avoid_local_udp_ports),
+            ttl_config,
         )?;
 
         let mode = match dnssec_policy {
@@ -451,6 +464,7 @@ impl Default for RecursorBuilder {
             dnssec_policy: DnssecPolicy::SecurityUnaware,
             do_not_query: vec![],
             avoid_local_udp_ports: HashSet::new(),
+            ttl_config: TtlConfig::default(),
         }
     }
 }
