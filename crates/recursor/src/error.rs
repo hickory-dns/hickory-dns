@@ -275,9 +275,3 @@ impl From<Error> for ProtoError {
         }
     }
 }
-
-/// A trait marking a type which implements `From<Error>` and
-/// std::error::Error types as well as Clone + Send
-pub trait FromError: From<Error> + std::error::Error + Clone {}
-
-impl<E> FromError for E where E: From<Error> + std::error::Error + Clone {}
