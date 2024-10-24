@@ -17,8 +17,7 @@ use crate::{
         rr::{resource::RecordRef, Record, RecordType},
         xfer::{DnsHandle as _, DnsRequestOptions, DnssecDnsHandle, FirstAnswer as _},
     },
-    resolver::dns_lru::DnsLru,
-    resolver::error::ResolveErrorKind,
+    resolver::{dns_lru::DnsLru, error::ResolveErrorKind},
     ErrorKind,
 };
 
@@ -44,38 +43,38 @@ pub struct RecursorBuilder {
 
 impl RecursorBuilder {
     /// Sets the size of the list of cached name servers
-    pub fn ns_cache_size(&mut self, size: usize) -> &mut Self {
+    pub fn ns_cache_size(mut self, size: usize) -> Self {
         self.ns_cache_size = size;
         self
     }
 
     /// Sets the size of the list of cached records
-    pub fn record_cache_size(&mut self, size: usize) -> &mut Self {
+    pub fn record_cache_size(mut self, size: usize) -> Self {
         self.record_cache_size = size;
         self
     }
 
     /// Sets the maximum recursion depth for queries; set to 0 for unlimited
     /// recursion.
-    pub fn recursion_limit(&mut self, limit: u8) -> &mut Self {
+    pub fn recursion_limit(mut self, limit: u8) -> Self {
         self.recursion_limit = limit;
         self
     }
 
     /// Sets the DNSSEC policy
-    pub fn dnssec_policy(&mut self, dnssec_policy: DnssecPolicy) -> &mut Self {
+    pub fn dnssec_policy(mut self, dnssec_policy: DnssecPolicy) -> Self {
         self.dnssec_policy = dnssec_policy;
         self
     }
 
     /// Add networks that should not be queried during recursive resolution
-    pub fn do_not_query(&mut self, networks: &[IpNet]) -> &mut Self {
+    pub fn do_not_query(mut self, networks: &[IpNet]) -> Self {
         self.do_not_query.extend(networks.iter().copied());
         self
     }
 
     /// Sets local UDP ports that should be avoided when making outgoing queries
-    pub fn avoid_local_udp_ports(&mut self, ports: HashSet<u16>) -> &mut Self {
+    pub fn avoid_local_udp_ports(mut self, ports: HashSet<u16>) -> Self {
         self.avoid_local_udp_ports = ports;
         self
     }
@@ -85,16 +84,8 @@ impl RecursorBuilder {
     /// # Panics
     ///
     /// This will panic if the roots are empty.
-    pub fn build(&self, roots: impl Into<NameServerConfigGroup>) -> Result<Recursor, ResolveError> {
-        Recursor::build(
-            roots,
-            self.ns_cache_size,
-            self.record_cache_size,
-            self.recursion_limit,
-            self.dnssec_policy.clone(),
-            self.do_not_query.clone(),
-            self.avoid_local_udp_ports.clone(),
-        )
+    pub fn build(self, roots: impl Into<NameServerConfigGroup>) -> Result<Recursor, ResolveError> {
+        Recursor::build(roots, self)
     }
 }
 
@@ -119,13 +110,17 @@ impl Recursor {
 
     fn build(
         roots: impl Into<NameServerConfigGroup>,
-        ns_cache_size: usize,
-        record_cache_size: usize,
-        recursion_limit: u8,
-        dnssec_policy: DnssecPolicy,
-        do_not_query: Vec<IpNet>,
-        avoid_local_udp_ports: HashSet<u16>,
+        builder: RecursorBuilder,
     ) -> Result<Self, ResolveError> {
+        let RecursorBuilder {
+            ns_cache_size,
+            record_cache_size,
+            recursion_limit,
+            dnssec_policy,
+            do_not_query,
+            avoid_local_udp_ports,
+        } = builder;
+
         let handle = RecursorDnsHandle::new(
             roots,
             ns_cache_size,
@@ -152,7 +147,7 @@ impl Recursor {
                         )));
                     }
 
-                    DnssecDnsHandle::with_trust_anchor(handle, trust_anchor.clone())
+                    DnssecDnsHandle::with_trust_anchor(handle, trust_anchor)
                 } else {
                     DnssecDnsHandle::new(handle)
                 };
