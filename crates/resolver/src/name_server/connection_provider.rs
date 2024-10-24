@@ -47,7 +47,6 @@ use crate::proto::runtime::iocompat::AsyncIoTokioAsStd;
 #[allow(unused_imports)] // Complicated cfg for which protocols are enabled
 use crate::proto::runtime::TokioTime;
 use crate::proto::{
-    error::ProtoError,
     runtime::RuntimeProvider,
     tcp::TcpClientStream,
     udp::{UdpClientConnect, UdpClientStream},
@@ -55,6 +54,7 @@ use crate::proto::{
         DnsExchange, DnsExchangeConnect, DnsExchangeSend, DnsHandle, DnsMultiplexer,
         DnsMultiplexerConnect, DnsRequest, DnsResponse, Protocol,
     },
+    ProtoError,
 };
 
 /// Create `DnsHandle` with the help of `RuntimeProvider`.

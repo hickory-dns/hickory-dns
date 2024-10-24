@@ -8,13 +8,13 @@
 use std::iter::once;
 
 use crate::proto::{
-    error::*,
     op::{
         message::{self, EmitAndCount},
         Edns, Header, LowerQuery, Message, MessageType, OpCode, ResponseCode,
     },
     rr::Record,
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder},
+    ProtoError, ProtoErrorKind,
 };
 
 /// A Message which captures the data from an inbound request
@@ -185,7 +185,7 @@ impl MessageRequest {
 impl<'q> BinDecodable<'q> for MessageRequest {
     // TODO: generify this with Message?
     /// Reads a MessageRequest from the decoder
-    fn read(decoder: &mut BinDecoder<'q>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'q>) -> Result<Self, ProtoError> {
         let mut header = Header::read(decoder)?;
 
         let mut try_parse_rest = move || {
@@ -237,7 +237,10 @@ pub struct Queries {
 }
 
 impl Queries {
-    fn read_queries(decoder: &mut BinDecoder<'_>, count: usize) -> ProtoResult<Vec<LowerQuery>> {
+    fn read_queries(
+        decoder: &mut BinDecoder<'_>,
+        count: usize,
+    ) -> Result<Vec<LowerQuery>, ProtoError> {
         let mut queries = Vec::with_capacity(count);
         for _ in 0..count {
             queries.push(LowerQuery::read(decoder)?);
@@ -246,7 +249,7 @@ impl Queries {
     }
 
     /// Read queries from a decoder
-    pub fn read(decoder: &mut BinDecoder<'_>, num_queries: usize) -> ProtoResult<Self> {
+    pub fn read(decoder: &mut BinDecoder<'_>, num_queries: usize) -> Result<Self, ProtoError> {
         let queries_start = decoder.index();
         let queries = Self::read_queries(decoder, num_queries)?;
         let original = decoder
@@ -325,7 +328,7 @@ pub(crate) struct QueriesEmitAndCount<'q> {
 }
 
 impl<'q> EmitAndCount for QueriesEmitAndCount<'q> {
-    fn emit(&mut self, encoder: &mut BinEncoder<'_>) -> ProtoResult<usize> {
+    fn emit(&mut self, encoder: &mut BinEncoder<'_>) -> Result<usize, ProtoError> {
         let original_offset = encoder.offset();
         encoder.emit_vec(self.cached_serialized)?;
         if !encoder.is_canonical_names() && self.first_query.is_some() {
@@ -339,7 +342,7 @@ impl<'q> EmitAndCount for QueriesEmitAndCount<'q> {
 }
 
 impl BinEncodable for MessageRequest {
-    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> Result<(), ProtoError> {
         message::emit_message_parts(
             &self.header,
             // we emit the queries, not the raw bytes, in order to guarantee canonical form

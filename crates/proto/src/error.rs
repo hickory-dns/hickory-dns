@@ -44,9 +44,9 @@ pub static ENABLE_BACKTRACE: Lazy<bool> = Lazy::new(|| {
 #[macro_export]
 macro_rules! trace {
     () => {{
-        use $crate::error::ExtBacktrace as Backtrace;
+        use $crate::ExtBacktrace as Backtrace;
 
-        if *$crate::error::ENABLE_BACKTRACE {
+        if *$crate::ENABLE_BACKTRACE {
             Some(Backtrace::new())
         } else {
             None
@@ -55,7 +55,7 @@ macro_rules! trace {
 }
 
 /// An alias for results returned by functions of this crate
-pub type ProtoResult<T> = ::std::result::Result<T, ProtoError>;
+pub(crate) type ProtoResult<T> = ::std::result::Result<T, ProtoError>;
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, EnumAsInner, Error)]
@@ -831,17 +831,18 @@ impl Clone for ProtoErrorKind {
 #[cfg(not(any(feature = "dns-over-openssl", feature = "dnssec-openssl")))]
 use self::not_openssl::SslErrorStack;
 #[cfg(not(feature = "dnssec-ring"))]
-use self::not_ring::{KeyRejected, Unspecified};
+use self::not_ring::Unspecified;
 #[cfg(any(feature = "dns-over-openssl", feature = "dnssec-openssl"))]
 use openssl::error::ErrorStack as SslErrorStack;
 #[cfg(feature = "dnssec-ring")]
 use ring::error::{KeyRejected, Unspecified};
 
 /// An alias for dnssec results returned by functions of this crate
+#[cfg(feature = "dnssec")]
 pub type DnsSecResult<T> = ::std::result::Result<T, DnsSecError>;
 
 /// The error kind for dnssec errors that get returned in the crate
-#[allow(unreachable_pub)]
+#[cfg(feature = "dnssec")]
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum DnsSecErrorKind {
@@ -859,10 +860,12 @@ pub enum DnsSecErrorKind {
     Proto(#[from] ProtoError),
 
     /// A ring error
+    #[cfg(feature = "dnssec-ring")]
     #[error("ring error: {0}")]
     RingKeyRejected(#[from] KeyRejected),
 
     /// A ring error
+    #[cfg(feature = "dnssec-ring")]
     #[error("ring error: {0}")]
     RingUnspecified(#[from] Unspecified),
 
@@ -875,6 +878,7 @@ pub enum DnsSecErrorKind {
     Timeout,
 }
 
+#[cfg(feature = "dnssec")]
 impl Clone for DnsSecErrorKind {
     fn clone(&self) -> Self {
         use DnsSecErrorKind::*;
@@ -884,7 +888,9 @@ impl Clone for DnsSecErrorKind {
 
             // foreign
             Proto(proto) => Proto(proto.clone()),
+            #[cfg(feature = "dnssec-ring")]
             RingKeyRejected(r) => Msg(format!("Ring rejected key: {r}")),
+            #[cfg(feature = "dnssec-ring")]
             RingUnspecified(_r) => RingUnspecified(Unspecified),
             SSL(ssl) => Msg(format!("SSL had an error: {ssl}")),
             Timeout => Timeout,
@@ -892,6 +898,7 @@ impl Clone for DnsSecErrorKind {
     }
 }
 
+#[cfg(feature = "dnssec")]
 /// The error type for dnssec errors that get returned in the crate
 #[derive(Debug, Clone, Error)]
 pub struct DnsSecError {
@@ -900,6 +907,7 @@ pub struct DnsSecError {
     backtrack: Option<ExtBacktrace>,
 }
 
+#[cfg(feature = "dnssec")]
 impl DnsSecError {
     /// Get the kind of the error
     pub fn kind(&self) -> &DnsSecErrorKind {
@@ -907,6 +915,7 @@ impl DnsSecError {
     }
 }
 
+#[cfg(feature = "dnssec")]
 impl fmt::Display for DnsSecError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         cfg_if::cfg_if! {
@@ -924,6 +933,7 @@ impl fmt::Display for DnsSecError {
     }
 }
 
+#[cfg(feature = "dnssec")]
 impl From<DnsSecErrorKind> for DnsSecError {
     fn from(kind: DnsSecErrorKind) -> Self {
         Self {
@@ -934,18 +944,21 @@ impl From<DnsSecErrorKind> for DnsSecError {
     }
 }
 
+#[cfg(feature = "dnssec")]
 impl From<&'static str> for DnsSecError {
     fn from(msg: &'static str) -> Self {
         DnsSecErrorKind::Message(msg).into()
     }
 }
 
+#[cfg(feature = "dnssec")]
 impl From<String> for DnsSecError {
     fn from(msg: String) -> Self {
         DnsSecErrorKind::Msg(msg).into()
     }
 }
 
+#[cfg(feature = "dnssec")]
 impl From<ProtoError> for DnsSecError {
     fn from(e: ProtoError) -> Self {
         match e.kind() {
@@ -955,18 +968,21 @@ impl From<ProtoError> for DnsSecError {
     }
 }
 
+#[cfg(feature = "dnssec-ring")]
 impl From<KeyRejected> for DnsSecError {
     fn from(e: KeyRejected) -> Self {
         DnsSecErrorKind::from(e).into()
     }
 }
 
+#[cfg(feature = "dnssec-ring")]
 impl From<Unspecified> for DnsSecError {
     fn from(e: Unspecified) -> Self {
         DnsSecErrorKind::from(e).into()
     }
 }
 
+#[cfg(feature = "dnssec-openssl")]
 impl From<SslErrorStack> for DnsSecError {
     fn from(e: SslErrorStack) -> Self {
         DnsSecErrorKind::from(e).into()

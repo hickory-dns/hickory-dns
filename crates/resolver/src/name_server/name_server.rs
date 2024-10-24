@@ -13,16 +13,15 @@ use std::time::Instant;
 
 use futures_util::lock::Mutex;
 use futures_util::stream::{once, Stream};
-
-use crate::proto::{
-    error::ProtoError,
-    xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer},
-};
 use tracing::debug;
 
 use crate::config::{NameServerConfig, ResolverOpts};
 use crate::name_server::connection_provider::{ConnectionProvider, GenericConnector};
 use crate::name_server::{NameServerState, NameServerStats};
+use crate::proto::{
+    xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer},
+    ProtoError,
+};
 
 /// This struct is used to create `DnsHandle` with the help of `P`.
 #[derive(Clone)]

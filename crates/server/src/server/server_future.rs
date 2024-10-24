@@ -29,14 +29,13 @@ use crate::{
     access::AccessControl,
     authority::{MessageRequest, MessageResponseBuilder},
     proto::{
-        error::ProtoError,
         op::{Edns, Header, LowerQuery, Query, ResponseCode},
         runtime::iocompat::AsyncIoTokioAsStd,
         serialize::binary::{BinDecodable, BinDecoder},
         tcp::TcpStream,
         udp::UdpStream,
         xfer::{Protocol, SerialMessage},
-        BufDnsStreamHandle,
+        BufDnsStreamHandle, ProtoError,
     },
     server::{Request, RequestHandler, ResponseHandle, ResponseHandler, TimeoutStream},
 };

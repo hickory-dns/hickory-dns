@@ -13,15 +13,14 @@ use std::time::Duration;
 
 use futures_util::future::FutureExt;
 use futures_util::stream::{once, FuturesUnordered, Stream, StreamExt};
-use hickory_proto::error::ProtoErrorKind;
 use smallvec::SmallVec;
 
-use crate::proto::error::ProtoError;
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
 use crate::proto::runtime::TokioRuntimeProvider;
 use crate::proto::runtime::{RuntimeProvider, Time};
 use crate::proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
+use crate::proto::{ProtoError, ProtoErrorKind};
 use tracing::debug;
 
 use rand::thread_rng as rng;

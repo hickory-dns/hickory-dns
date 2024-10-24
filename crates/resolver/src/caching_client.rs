@@ -19,7 +19,6 @@ use std::{
 };
 
 use futures_util::future::TryFutureExt;
-use hickory_proto::error::ProtoErrorKind;
 use once_cell::sync::Lazy;
 
 use crate::{
@@ -27,7 +26,6 @@ use crate::{
     error::ResolveError,
     lookup::Lookup,
     proto::{
-        error::{ForwardNSData, ProtoError},
         op::{Query, ResponseCode},
         rr::{
             domain::usage::{
@@ -39,6 +37,7 @@ use crate::{
             DNSClass, Name, RData, Record, RecordType,
         },
         xfer::{DnsHandle, DnsRequestOptions, DnsResponse, FirstAnswer},
+        {ForwardNSData, ProtoError, ProtoErrorKind},
     },
 };
 

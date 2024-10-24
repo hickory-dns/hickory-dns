@@ -41,7 +41,7 @@ macro_rules! try_ready_stream {
     }};
 }
 
-pub mod error;
+mod error;
 #[cfg(feature = "dns-over-https-rustls")]
 pub mod h2;
 #[cfg(feature = "dns-over-h3")]
@@ -79,5 +79,8 @@ pub use crate::xfer::dnssec_dns_handle::DnssecDnsHandle;
 pub use crate::xfer::retry_dns_handle::RetryDnsHandle;
 #[doc(hidden)]
 pub use crate::xfer::BufDnsStreamHandle;
+#[cfg(feature = "dnssec")]
+pub use error::{DnsSecError, DnsSecErrorKind};
 #[cfg(feature = "backtrace")]
-pub use error::ExtBacktrace;
+pub use error::{ExtBacktrace, ENABLE_BACKTRACE};
+pub use error::{ForwardData, ForwardNSData, ProtoError, ProtoErrorKind};

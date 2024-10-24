@@ -11,22 +11,18 @@
 
 use std::{fmt, io, sync::Arc};
 
-use crate::proto::error::ForwardNSData;
 use enum_as_inner::EnumAsInner;
-use hickory_proto::error::ProtoErrorKind;
 use thiserror::Error;
 use tracing::warn;
 
 use crate::proto::{
     op::ResponseCode,
     rr::{rdata::SOA, Record},
+    ForwardNSData, ProtoErrorKind, {ForwardData, ProtoError},
 };
 #[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
-use crate::{
-    proto::error::{ForwardData, ProtoError},
-    resolver::{error::ResolveError, Name},
-};
+use crate::resolver::{error::ResolveError, Name};
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, EnumAsInner, Error)]

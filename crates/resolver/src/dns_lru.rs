@@ -12,21 +12,20 @@ use std::ops::RangeInclusive;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use hickory_proto::error::{ProtoError, ProtoErrorKind};
-#[cfg(feature = "dnssec")]
-use hickory_proto::rr::dnssec::rdata::RRSIG;
 use lru_cache::LruCache;
 use parking_lot::Mutex;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer};
 
+use crate::config;
+use crate::lookup::Lookup;
 use crate::proto::op::Query;
+#[cfg(feature = "dnssec")]
+use crate::proto::rr::dnssec::rdata::RRSIG;
 #[cfg(feature = "dnssec")]
 use crate::proto::rr::RecordData;
 use crate::proto::rr::{Record, RecordType};
-
-use crate::config;
-use crate::lookup::Lookup;
+use crate::proto::{ProtoError, ProtoErrorKind};
 
 /// Maximum TTL. This is set to one day (in seconds).
 ///
