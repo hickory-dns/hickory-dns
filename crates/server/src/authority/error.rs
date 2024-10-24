@@ -14,7 +14,7 @@ use crate::proto::op::ResponseCode;
 use crate::proto::rr::{rdata::SOA, Record};
 use crate::proto::{ProtoError, ProtoErrorKind};
 #[cfg(feature = "hickory-recursor")]
-use crate::recursor::error::ErrorKind;
+use crate::recursor::ErrorKind;
 #[cfg(feature = "hickory-resolver")]
 use crate::resolver::ResolveError;
 
