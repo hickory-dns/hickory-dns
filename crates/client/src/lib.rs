@@ -140,7 +140,8 @@
 //! of dynamic DNS updates. Consult the [`client::DnssecClient`] API for more information.
 
 pub mod client;
-pub mod error;
+mod error;
+pub use error::{Error as ClientError, ErrorKind as ClientErrorKind};
 
 pub use hickory_proto as proto;
 

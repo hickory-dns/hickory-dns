@@ -1,4 +1,4 @@
-use hickory_client::client::*;
+use hickory_client::client::ClientHandle;
 use hickory_proto::xfer::{DnsHandle, DnsRequest};
 #[cfg(feature = "dnssec")]
 use hickory_proto::{op::Edns, rr::rdata::opt::EdnsOption};

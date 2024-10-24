@@ -17,6 +17,10 @@ use futures_util::{
     ready,
     stream::{Stream, StreamExt},
 };
+use rand;
+use tracing::debug;
+
+use crate::{ClientError, ClientErrorKind};
 use hickory_proto::{
     op::{update_message, Edns, Message, MessageFinalizer, MessageType, OpCode, Query},
     rr::{rdata::SOA, DNSClass, Name, Record, RecordSet, RecordType},
@@ -27,10 +31,6 @@ use hickory_proto::{
     },
     ProtoError, ProtoErrorKind,
 };
-use rand;
-use tracing::debug;
-
-use crate::error::*;
 
 #[doc(hidden)]
 #[deprecated(since = "0.25.0", note = "use `AsyncClient` instead")]

@@ -18,7 +18,7 @@ use hickory_proto::runtime::TokioRuntimeProvider;
 use test::Bencher;
 use tokio::runtime::Runtime;
 
-use hickory_client::client::{Client, ClientHandle};
+use hickory_client::error::{Client, ClientHandle};
 use hickory_proto::error::ProtoError;
 use hickory_proto::op::ResponseCode;
 use hickory_proto::rr::rdata::A;
