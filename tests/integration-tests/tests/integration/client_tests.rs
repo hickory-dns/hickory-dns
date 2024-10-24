@@ -307,7 +307,12 @@ async fn test_timeout_query_tcp() {
         .next()
         .unwrap();
 
-    let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::default());
+    let (stream, sender) = TcpClientStream::new(
+        addr,
+        None,
+        Some(std::time::Duration::from_millis(1)),
+        TokioRuntimeProvider::default(),
+    );
     let multiplexer = DnsMultiplexer::new(stream, sender, None);
     match Client::connect(multiplexer).await {
         Err(e) if matches!(e.kind(), ProtoErrorKind::Timeout) => {}
