@@ -7,6 +7,7 @@
 
 use std::{collections::HashSet, sync::Arc, time::Instant};
 
+use hickory_proto::rr::dnssec::TrustAnchor;
 use ipnet::IpNet;
 
 #[cfg(feature = "dnssec")]
@@ -17,7 +18,7 @@ use crate::{
         rr::{resource::RecordRef, Record, RecordType},
         xfer::{DnsHandle as _, DnsRequestOptions, DnssecDnsHandle, FirstAnswer as _},
     },
-    resolver::{dns_lru::DnsLru, error::ResolveErrorKind},
+    resolver::dns_lru::DnsLru,
     ErrorKind,
 };
 
@@ -140,21 +141,17 @@ impl Recursor {
             #[cfg(feature = "dnssec")]
             DnssecPolicy::ValidateWithStaticKey { trust_anchor } => {
                 let record_cache = handle.record_cache().clone();
-                let handle = if let Some(trust_anchor) = trust_anchor {
-                    if trust_anchor.is_empty() {
-                        return Err(ResolveError::from(ResolveErrorKind::Message(
-                            "trust anchor must not be empty",
-                        )));
+                let trust_anchor = match trust_anchor {
+                    Some(anchor) if anchor.is_empty() => {
+                        return Err(ResolveError::from("trust anchor must not be empty"));
                     }
-
-                    DnssecDnsHandle::with_trust_anchor(handle, trust_anchor)
-                } else {
-                    DnssecDnsHandle::new(handle)
+                    Some(anchor) => anchor,
+                    None => Arc::new(TrustAnchor::default()),
                 };
 
                 RecursorMode::Validating {
                     record_cache,
-                    handle,
+                    handle: DnssecDnsHandle::with_trust_anchor(handle, trust_anchor),
                 }
             }
         };
