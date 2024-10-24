@@ -41,6 +41,7 @@ roots = "default/root.zone"
 ns_cache_size = 1024
 record_cache_size = 1048576
 recursion_limit = 12
+ns_recursion_limit = 16
 
 ## do_not_query: these networks will not be sent queries during recursive resolution
 do_not_query = ["0.0.0.0/8", "127.0.0.0/8", "::/128", "::1/128"]

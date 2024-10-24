@@ -15,6 +15,7 @@ use crate::proto::error::ForwardNSData;
 use enum_as_inner::EnumAsInner;
 use hickory_proto::error::ProtoErrorKind;
 use thiserror::Error;
+use tracing::warn;
 
 use crate::proto::{
     op::ResponseCode,
@@ -24,7 +25,7 @@ use crate::proto::{
 use crate::proto::{trace, ExtBacktrace};
 use crate::{
     proto::error::{ForwardData, ProtoError},
-    resolver::error::ResolveError,
+    resolver::{error::ResolveError, Name},
 };
 
 /// The error kind for errors that get returned in the crate
@@ -124,6 +125,23 @@ impl Error {
             _ => None,
         }
     }
+
+    /// Test if the recursion depth has been exceeded, and return an error if it has.
+    pub fn recursion_exceeded(limit: Option<u8>, depth: u8, name: &Name) -> Result<(), Error> {
+        match limit {
+            Some(limit) if depth > limit => {
+                warn!("recursion depth exceeded for {name:?}");
+                Err(ErrorKind::Proto(
+                    ProtoErrorKind::NotAllRecordsWritten {
+                        count: depth as usize,
+                    }
+                    .into(),
+                )
+                .into())
+            },
+            _ => Ok(()),
+        }
+    }
 }
 
 impl fmt::Display for Error {
@@ -203,7 +221,7 @@ impl From<ResolveError> for Error {
             ..
         } = proto_err
         else {
-            return ErrorKind::Message("unexpected error kind: not no records found").into();
+            return ErrorKind::Proto(proto_err.into()).into();
         };
 
         if let Some(ns) = ns {

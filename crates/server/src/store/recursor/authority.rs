@@ -90,7 +90,20 @@ impl RecursiveAuthority {
         let recursor = builder
             .dnssec_policy(config.dnssec_policy.load()?)
             .do_not_query(&config.do_not_query)
-            .recursion_limit(config.recursion_limit)
+            .recursion_limit(
+                if config.recursion_limit == 0 {
+                    None
+                } else {
+                    Some(config.recursion_limit)
+                }
+            )
+            .ns_recursion_limit(
+                if config.ns_recursion_limit == 0 {
+                    None
+                } else {
+                    Some(config.ns_recursion_limit)
+                }
+            )
             .avoid_local_udp_ports(config.avoid_local_udp_ports.clone())
             .build(roots)
             .map_err(|e| format!("failed to initialize recursor: {e}"))?;
