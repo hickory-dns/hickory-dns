@@ -17,12 +17,12 @@ use tracing::warn;
 
 use crate::proto::{
     op::ResponseCode,
-    rr::{rdata::SOA, Record},
+    rr::{rdata::SOA, Name, Record},
     ForwardNSData, ProtoErrorKind, {ForwardData, ProtoError},
 };
 #[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
-use crate::resolver::{error::ResolveError, Name};
+use crate::resolver::ResolveError;
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, EnumAsInner, Error)]

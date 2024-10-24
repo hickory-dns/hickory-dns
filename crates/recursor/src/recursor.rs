@@ -9,8 +9,12 @@ use std::{collections::HashSet, sync::Arc, time::Instant};
 
 use ipnet::IpNet;
 
-use hickory_resolver::dns_lru::TtlConfig;
-
+use crate::{
+    proto::op::Query,
+    recursor_dns_handle::RecursorDnsHandle,
+    resolver::{config::NameServerConfigGroup, dns_lru::TtlConfig, lookup::Lookup},
+    DnssecPolicy, Error,
+};
 #[cfg(feature = "dnssec")]
 use crate::{
     proto::{
@@ -21,13 +25,6 @@ use crate::{
     },
     resolver::dns_lru::DnsLru,
     ErrorKind,
-};
-
-use crate::{
-    proto::op::Query,
-    recursor_dns_handle::RecursorDnsHandle,
-    resolver::{config::NameServerConfigGroup, lookup::Lookup},
-    DnssecPolicy, Error,
 };
 
 /// A `Recursor` builder

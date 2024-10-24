@@ -42,9 +42,8 @@ use hickory_proto::{
 };
 use hickory_resolver::{
     config::{NameServerConfig, NameServerConfigGroup, ResolverConfig, ResolverOpts},
-    error::ResolveError,
     lookup::Lookup,
-    TokioResolver,
+    ResolveError, TokioResolver,
 };
 
 /// A CLI interface for the hickory-resolver.

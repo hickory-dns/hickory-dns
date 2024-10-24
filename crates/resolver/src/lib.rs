@@ -218,7 +218,8 @@ pub use proto::rr::{IntoName, Name};
 pub mod caching_client;
 pub mod config;
 pub mod dns_lru;
-pub mod error;
+mod error;
+pub use error::{ResolveError, ResolveErrorKind};
 #[cfg(feature = "dns-over-https-rustls")]
 mod h2;
 #[cfg(feature = "dns-over-h3")]
