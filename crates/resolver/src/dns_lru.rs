@@ -80,7 +80,12 @@ impl LruValue {
 /// An LRU eviction cache specifically for storing DNS records
 #[derive(Clone, Debug)]
 pub struct DnsLru {
-    cache: Arc<Mutex<LruCache<Query, LruValue>>>,
+    inner: Arc<DnsLruInner>,
+}
+
+#[derive(Debug)]
+struct DnsLruInner {
+    cache: Mutex<LruCache<Query, LruValue>>,
     /// A minimum TTL value for positive responses.
     ///
     /// Positive responses with TTLs under `positive_min_ttl` will use
@@ -102,7 +107,7 @@ pub struct DnsLru {
     /// Positive responses with TTLs over `positive_max_ttl` will use
     /// `positive_max_ttl` instead.
     ///
-    ///  If this value is not set on the `TtlConfig` used to construct this
+    /// If this value is not set on the `TtlConfig` used to construct this
     /// `DnsLru`, it will default to [`MAX_TTL`] seconds.
     ///
     /// [`MAX_TTL`]: const.MAX_TTL.html
@@ -112,7 +117,7 @@ pub struct DnsLru {
     /// `NXDOMAIN` responses with TTLs over `negative_max_ttl` will use
     /// `negative_max_ttl` instead.
     ///
-    ///  If this value is not set on the `TtlConfig` used to construct this
+    /// If this value is not set on the `TtlConfig` used to construct this
     /// `DnsLru`, it will default to [`MAX_TTL`] seconds.
     ///
     /// [`MAX_TTL`]: const.MAX_TTL.html
@@ -176,20 +181,22 @@ impl DnsLru {
             positive_max_ttl,
             negative_max_ttl,
         } = ttl_cfg;
-        let cache = Arc::new(Mutex::new(LruCache::new(capacity)));
+        let cache = Mutex::new(LruCache::new(capacity));
         Self {
-            cache,
-            positive_min_ttl: positive_min_ttl.unwrap_or_else(|| Duration::from_secs(0)),
-            negative_min_ttl: negative_min_ttl.unwrap_or_else(|| Duration::from_secs(0)),
-            positive_max_ttl: positive_max_ttl
-                .unwrap_or_else(|| Duration::from_secs(u64::from(MAX_TTL))),
-            negative_max_ttl: negative_max_ttl
-                .unwrap_or_else(|| Duration::from_secs(u64::from(MAX_TTL))),
+            inner: Arc::new(DnsLruInner {
+                cache,
+                positive_min_ttl: positive_min_ttl.unwrap_or_else(|| Duration::from_secs(0)),
+                negative_min_ttl: negative_min_ttl.unwrap_or_else(|| Duration::from_secs(0)),
+                positive_max_ttl: positive_max_ttl
+                    .unwrap_or_else(|| Duration::from_secs(u64::from(MAX_TTL))),
+                negative_max_ttl: negative_max_ttl
+                    .unwrap_or_else(|| Duration::from_secs(u64::from(MAX_TTL))),
+            }),
         }
     }
 
     pub(crate) fn clear(&self) {
-        self.cache.lock().clear();
+        self.inner.cache.lock().clear();
     }
 
     pub(crate) fn insert(
@@ -201,7 +208,7 @@ impl DnsLru {
         let len = records_and_ttl.len();
         // collapse the values, we're going to take the Minimum TTL as the correct one
         let (records, ttl): (Vec<Record>, Duration) = records_and_ttl.into_iter().fold(
-            (Vec::with_capacity(len), self.positive_max_ttl),
+            (Vec::with_capacity(len), self.inner.positive_max_ttl),
             |(mut records, mut min_ttl), (record, ttl)| {
                 records.push(record);
                 let ttl = Duration::from_secs(u64::from(ttl));
@@ -212,12 +219,12 @@ impl DnsLru {
 
         // If the cache was configured with a minimum TTL, and that value is higher
         // than the minimum TTL in the values, use it instead.
-        let ttl = self.positive_min_ttl.max(ttl);
+        let ttl = self.inner.positive_min_ttl.max(ttl);
         let valid_until = now + ttl;
 
         // insert into the LRU
         let lookup = Lookup::new_with_deadline(query.clone(), Arc::from(records), valid_until);
-        self.cache.lock().insert(
+        self.inner.cache.lock().insert(
             query,
             LruValue {
                 lookup: Ok(lookup.clone()),
@@ -319,7 +326,7 @@ impl DnsLru {
         let ttl = Duration::from_secs(u64::from(ttl));
         let valid_until = now + ttl;
 
-        self.cache.lock().insert(
+        self.inner.cache.lock().insert(
             query,
             LruValue {
                 lookup: Ok(lookup.clone()),
@@ -353,13 +360,13 @@ impl DnsLru {
             let ttl_duration = Duration::from_secs(u64::from(*ttl))
                 // Clamp the TTL so that it's between the cache's configured
                 // minimum and maximum TTLs for negative responses.
-                .clamp(self.negative_min_ttl, self.negative_max_ttl);
+                .clamp(self.inner.negative_min_ttl, self.inner.negative_max_ttl);
             let valid_until = now + ttl_duration;
 
             {
                 let error = error.clone();
 
-                self.cache.lock().insert(
+                self.inner.cache.lock().insert(
                     query,
                     LruValue {
                         lookup: Err(error),
@@ -377,7 +384,7 @@ impl DnsLru {
     /// Based on the query, see if there are any records available
     pub fn get(&self, query: &Query, now: Instant) -> Option<Result<Lookup, ProtoError>> {
         let mut out_of_date = false;
-        let mut cache = self.cache.lock();
+        let mut cache = self.inner.cache.lock();
         let lookup = cache.get_mut(query).and_then(|value| {
             if value.is_current(now) {
                 out_of_date = false;
