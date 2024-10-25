@@ -1,7 +1,7 @@
-use std::{collections::HashSet, fmt, net::IpAddr, sync::Arc, time::Instant};
+use std::{collections::HashSet, net::IpAddr, sync::Arc, time::Instant};
 
 use async_recursion::async_recursion;
-use futures_util::{stream::FuturesUnordered, Stream, StreamExt};
+use futures_util::{stream::FuturesUnordered, StreamExt};
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use lru_cache::LruCache;
 use parking_lot::Mutex;
@@ -12,7 +12,7 @@ use crate::{
     proto::{
         error::ForwardNSData,
         op::Query,
-        rr::{RData, RData::CNAME, Record, RecordType},
+        rr::{rdata::NS, RData, RData::CNAME, Record, RecordType},
         runtime::TokioRuntimeProvider,
     },
     recursor_pool::RecursorPool,
@@ -370,6 +370,8 @@ impl RecursorDnsHandle {
             return Ok((depth, ns.clone()));
         };
 
+        trace!("ns_pool_for_zone: depth {depth} for {zone}");
+
         depth += 1;
         Error::recursion_exceeded(self.ns_recursion_limit, depth, &zone)?;
 
@@ -471,7 +473,7 @@ impl RecursorDnsHandle {
 
             if glue_ips.peek().is_none() {
                 debug!("glue not found for {ns_data}");
-                need_ips_for_names.push(ns_data);
+                need_ips_for_names.push(ns_data.to_owned());
             }
 
             config_group.append_ips(glue_ips, true);
@@ -484,39 +486,16 @@ impl RecursorDnsHandle {
         if config_group.is_empty() && !need_ips_for_names.is_empty() {
             debug!("need glue for {zone}");
 
-            for ns in need_ips_for_names.iter() {
-                let record_name = ns.0.clone();
-
-                let (new_depth, nameserver_pool) = if !crate::is_subzone(&zone, &ns.0) {
-                    self.ns_pool_for_zone(record_name.clone(), request_time, depth)
-                        .await?
-                } else {
-                    (depth, nameserver_pool.clone())
-                };
-
-                depth = new_depth;
-
-                let mut lookup_futures = FuturesUnordered::new();
-
-                for rec_type in [RecordType::A, RecordType::AAAA] {
-                    lookup_futures.push(nameserver_pool.lookup(
-                        Query::query(record_name.clone(), rec_type),
-                        self.security_aware,
-                    ));
-                }
-
-                self.append_ips_from_lookup(
-                    |mut rsp| {
-                        rsp.take_answers()
-                            .into_iter()
-                            .filter_map(|answer| answer.data().ip_addr())
-                    },
-                    &mut lookup_futures,
+            depth = self
+                .append_ips_from_lookup(
+                    &zone,
+                    depth,
+                    request_time,
+                    nameserver_pool,
+                    need_ips_for_names.iter(),
                     &mut config_group,
-                    "ns_pool_for_zone:lookup",
                 )
-                .await;
-            }
+                .await?;
         }
 
         // now construct a namesever pool based off the NS and glue records
@@ -559,6 +538,8 @@ impl RecursorDnsHandle {
 
         depth += 1;
         Error::recursion_exceeded(self.ns_recursion_limit, depth, &query_name)?;
+
+        trace!("ns_pool_for_referral: depth {depth} for {query}");
 
         // TODO: grab TTL and use for cache
         // get all the NS records and glue
@@ -620,46 +601,26 @@ impl RecursorDnsHandle {
 
         trace!("pre glue config group: {config_group:?} Need IPs: {need_ips_for_names:?}");
 
-        // collect missing IP addresses, select over them all, get the addresses
-        // make it configurable to query for all records?
+        // collect missing IP addresses
         if config_group.is_empty() && !need_ips_for_names.is_empty() {
             debug!("ns_pool_for_referral need glue for {query_name}");
 
-            for name in need_ips_for_names.iter() {
-                let Some(ns) = name.data().as_ns() else {
-                    warn!("record is not NS: {:?}; skipping", name.data());
-                    continue;
-                };
+            let (new_depth, nameserver_pool) = self
+                .ns_pool_for_zone(query_name.clone(), request_time, depth)
+                .await?;
 
-                let record_name = ns.0.clone();
+            depth = new_depth;
 
-                let (new_depth, nameserver_pool) = self
-                    .ns_pool_for_zone(record_name.clone(), request_time, depth)
-                    .await?;
-
-                depth = new_depth;
-
-                let mut lookup_futures = FuturesUnordered::new();
-
-                for rec_type in [RecordType::A, RecordType::AAAA] {
-                    lookup_futures.push(nameserver_pool.lookup(
-                        Query::query(record_name.clone(), rec_type),
-                        self.security_aware,
-                    ));
-                }
-
-                self.append_ips_from_lookup(
-                    |mut rsp| {
-                        rsp.take_answers()
-                            .into_iter()
-                            .filter_map(|answer| answer.data().ip_addr())
-                    },
-                    &mut lookup_futures,
+            depth = self
+                .append_ips_from_lookup(
+                    &query_name,
+                    depth,
+                    request_time,
+                    nameserver_pool,
+                    need_ips_for_names.iter().filter_map(|x| x.data().as_ns()),
                     &mut config_group,
-                    "ns_pool_for_referral:resolve",
                 )
-                .await;
-            }
+                .await?;
         }
 
         debug!("ns_pool_for_referral found nameservers for {query_name}: {config_group:?}");
@@ -692,31 +653,70 @@ impl RecursorDnsHandle {
         &self.record_cache
     }
 
-    async fn append_ips_from_lookup<E: fmt::Display, R: fmt::Debug, I: Iterator<Item = IpAddr>>(
+    async fn append_ips_from_lookup<'a, I: Iterator<Item = &'a NS>>(
         &self,
-        extract_ips: impl Fn(R) -> I,
-        futures: &mut (impl Stream<Item = Result<R, E>> + Unpin),
+        zone: &Name,
+        depth: u8,
+        request_time: Instant,
+        nameserver_pool: RecursorPool<TokioRuntimeProvider>,
+        nameservers: I,
         config: &mut NameServerConfigGroup,
-        activity: &str,
-    ) {
+    ) -> Result<u8, Error> {
+        let mut pool_queries = vec![];
+
+        for ns in nameservers {
+            let record_name = ns.0.clone();
+
+            // For child nameservers of zone, we can reuse the pool that was passed in as
+            // nameserver_pool, but for a non-child nameservers we need to get an appropriate pool.
+            // To avoid incrementing the depth counter for each nameserver, we'll use the passed in
+            // depth as a fixed base for the nameserver lookups
+            let nameserver_pool = if !crate::is_subzone(zone, &record_name) {
+                self.ns_pool_for_zone(record_name.clone(), request_time, depth)
+                    .await?
+                    .1 // discard the depth part of the tuple
+            } else {
+                nameserver_pool.clone()
+            };
+
+            pool_queries.push((nameserver_pool, record_name));
+        }
+
+        let mut futures = FuturesUnordered::new();
+
+        for (pool, query) in pool_queries.iter() {
+            for rec_type in [RecordType::A, RecordType::AAAA] {
+                futures
+                    .push(pool.lookup(Query::query(query.clone(), rec_type), self.security_aware));
+            }
+        }
+
         while let Some(next) = futures.next().await {
             match next {
-                Ok(response) => {
-                    debug!("{activity} A or AAAA response: {response:?}");
-                    let ip_iter = extract_ips(response).filter(|ip| {
-                        let matches = self.matches_do_not_query(*ip);
-                        if matches {
-                            debug!(activity, %ip, "ignoring address due to do_not_query");
-                        }
-                        !matches
-                    });
+                Ok(mut response) => {
+                    debug!("append_ips_from_lookup: A or AAAA response: {response:?}");
+                    let ip_iter = response
+                        .take_answers()
+                        .into_iter()
+                        .filter_map(|answer| {
+                            let ip = answer.data().ip_addr()?;
+
+                            if self.matches_do_not_query(ip) {
+                                debug!(%ip, "append_ips_from_lookup: ignoring address due to do_not_query");
+                                None
+                            } else {
+                                Some(ip)
+                            }
+                        });
                     config.append_ips(ip_iter, true);
                 }
                 Err(e) => {
-                    warn!("{activity} resolution failed failed: {e}");
+                    warn!("append_ips_from_lookup: resolution failed failed: {e}");
                 }
             }
         }
+
+        Ok(depth)
     }
 }
 
