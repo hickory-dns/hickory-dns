@@ -7,7 +7,10 @@
 
 use std::io;
 
-use hickory_resolver::{config::ResolveHosts, name_server::TokioConnectionProvider};
+use hickory_resolver::{
+    config::ResolveHosts,
+    name_server::{ConnectionProvider, TokioConnectionProvider},
+};
 use tracing::{debug, info};
 
 #[cfg(feature = "dnssec")]
@@ -21,7 +24,7 @@ use crate::{
         op::ResponseCode,
         rr::{LowerName, Name, Record, RecordType},
     },
-    resolver::{config::ResolverConfig, lookup::Lookup as ResolverLookup, TokioResolver},
+    resolver::{config::ResolverConfig, lookup::Lookup as ResolverLookup, Resolver},
     server::RequestInfo,
     store::forwarder::ForwardConfig,
 };
@@ -29,17 +32,17 @@ use crate::{
 /// An authority that will forward resolutions to upstream resolvers.
 ///
 /// This uses the hickory-resolver for resolving requests.
-pub struct ForwardAuthority {
+pub struct ForwardAuthority<P: ConnectionProvider = TokioConnectionProvider> {
     origin: LowerName,
-    resolver: TokioResolver,
+    resolver: Resolver<P>,
 }
 
-impl ForwardAuthority {
+impl<P: ConnectionProvider> ForwardAuthority<P> {
     /// TODO: change this name to create or something
     #[allow(clippy::new_without_default)]
     #[doc(hidden)]
-    pub fn new(runtime: TokioConnectionProvider) -> Result<Self, String> {
-        let resolver = TokioResolver::from_system_conf(runtime)
+    pub fn new(runtime: P) -> Result<Self, String> {
+        let resolver = Resolver::from_system_conf(runtime)
             .map_err(|e| format!("error constructing new Resolver: {e}"))?;
 
         Ok(Self {
@@ -49,10 +52,11 @@ impl ForwardAuthority {
     }
 
     /// Read the Authority for the origin from the specified configuration
-    pub fn try_from_config(
+    pub fn try_from_runtime(
         origin: Name,
         _zone_type: ZoneType,
         config: &ForwardConfig,
+        runtime: P,
     ) -> Result<Self, String> {
         info!("loading forwarder config: {}", origin);
 
@@ -86,7 +90,7 @@ impl ForwardAuthority {
 
         let config = ResolverConfig::from_parts(None, vec![], name_servers);
 
-        let resolver = TokioResolver::new(config, options, TokioConnectionProvider::default());
+        let resolver = Resolver::new(config, options, runtime);
 
         info!("forward resolver configured: {}: ", origin);
 
@@ -98,8 +102,24 @@ impl ForwardAuthority {
     }
 }
 
+impl ForwardAuthority<TokioConnectionProvider> {
+    /// Read the Authority for the origin from the specified configuration
+    pub fn try_from_config(
+        origin: Name,
+        zone_type: ZoneType,
+        config: &ForwardConfig,
+    ) -> Result<Self, String> {
+        Self::try_from_runtime(
+            origin,
+            zone_type,
+            config,
+            TokioConnectionProvider::default(),
+        )
+    }
+}
+
 #[async_trait::async_trait]
-impl Authority for ForwardAuthority {
+impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
     type Lookup = ForwardLookup;
 
     /// Always Forward
