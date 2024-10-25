@@ -1,16 +1,19 @@
 use core::fmt;
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::path::Path;
 
 use url::Url;
 
+use crate::zone_file::ZoneFile;
 use crate::FQDN;
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub enum Config<'a> {
     NameServer {
         origin: &'a FQDN,
         use_dnssec: bool,
+        additional_zones: HashMap<FQDN, ZoneFile>,
     },
     Resolver {
         use_dnssec: bool,
@@ -123,11 +126,16 @@ impl Implementation {
                 }
             },
 
-            Config::NameServer { origin, use_dnssec } => match self {
+            Config::NameServer {
+                origin,
+                use_dnssec,
+                additional_zones,
+            } => match self {
                 Self::Bind => {
                     minijinja::render!(
                         include_str!("templates/named.name-server.conf.jinja"),
-                        fqdn => origin.as_str()
+                        fqdn => origin.as_str(),
+                        additional_zones => additional_zones.keys().map(|x| x.as_str()).collect::<Vec<&str>>(),
                     )
                 }
 
@@ -139,7 +147,8 @@ impl Implementation {
                 Self::Unbound => {
                     minijinja::render!(
                         include_str!("templates/nsd.conf.jinja"),
-                        fqdn => origin.as_str()
+                        fqdn => origin.as_str(),
+                        additional_zones => additional_zones.keys().map(|x| x.as_str()).collect::<Vec<&str>>(),
                     )
                 }
 
@@ -148,6 +157,7 @@ impl Implementation {
                         include_str!("templates/hickory.name-server.toml.jinja"),
                         fqdn => origin.as_str(),
                         use_dnssec => use_dnssec,
+                        additional_zones => additional_zones.keys().map(|x| x.as_str()).collect::<Vec<&str>>(),
                     )
                 }
             },
