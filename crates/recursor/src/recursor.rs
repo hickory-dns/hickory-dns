@@ -5,7 +5,11 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::{collections::HashSet, sync::Arc, time::Instant};
+use std::{
+    collections::HashSet,
+    sync::{atomic::AtomicU8, Arc},
+    time::Instant,
+};
 
 use ipnet::IpNet;
 
@@ -353,7 +357,13 @@ impl Recursor {
         match &self.mode {
             RecursorMode::NonValidating { handle } => {
                 handle
-                    .resolve(query, request_time, query_has_dnssec_ok, 0)
+                    .resolve(
+                        query,
+                        request_time,
+                        query_has_dnssec_ok,
+                        0,
+                        Arc::new(AtomicU8::new(0)),
+                    )
                     .await
             }
 
@@ -484,7 +494,10 @@ enum RecursorMode {
 
 #[cfg(feature = "dnssec")]
 mod for_dnssec {
-    use std::time::Instant;
+    use std::{
+        sync::{atomic::AtomicU8, Arc},
+        time::Instant,
+    };
 
     use futures_util::{
         future,
@@ -529,7 +542,7 @@ mod for_dnssec {
                 // request the DNSSEC records; we'll strip them if not needed on the caller side
                 let do_bit = true;
 
-                this.resolve(query, Instant::now(), do_bit, 0)
+                this.resolve(query, Instant::now(), do_bit, 0, Arc::new(AtomicU8::new(0)))
                     .map_ok(|lookup| {
                         // `DnssecDnsHandle` will only look at the answer section of the message so
                         // we can put "stubs" in the other fields

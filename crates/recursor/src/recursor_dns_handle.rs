@@ -1,4 +1,12 @@
-use std::{collections::HashSet, net::IpAddr, sync::Arc, time::Instant};
+use std::{
+    collections::HashSet,
+    net::IpAddr,
+    sync::{
+        atomic::{AtomicU8, Ordering},
+        Arc,
+    },
+    time::Instant,
+};
 
 use async_recursion::async_recursion;
 use futures_util::{stream::FuturesUnordered, StreamExt};
@@ -13,7 +21,7 @@ use crate::{
         op::Query,
         rr::{rdata::NS, RData, RData::CNAME, Record, RecordType},
         runtime::TokioRuntimeProvider,
-        ForwardNSData,
+        ForwardNSData, ProtoErrorKind,
     },
     recursor_pool::RecursorPool,
     resolver::{
@@ -100,6 +108,7 @@ impl RecursorDnsHandle {
         request_time: Instant,
         query_has_dnssec_ok: bool,
         depth: u8,
+        cname_limit: Arc<AtomicU8>,
     ) -> Result<Lookup, Error> {
         if let Some(lookup) = self.record_cache.get(&query, request_time) {
             let response = self
@@ -109,6 +118,7 @@ impl RecursorDnsHandle {
                     request_time,
                     query_has_dnssec_ok,
                     depth,
+                    cname_limit,
                 )
                 .await?;
 
@@ -191,6 +201,7 @@ impl RecursorDnsHandle {
                         request_time,
                         query_has_dnssec_ok,
                         depth,
+                        cname_limit,
                     )
                     .await?;
 
@@ -232,6 +243,7 @@ impl RecursorDnsHandle {
                                         request_time,
                                         query_has_dnssec_ok,
                                         depth,
+                                        cname_limit,
                                     )
                                     .await?;
 
@@ -261,12 +273,16 @@ impl RecursorDnsHandle {
         now: Instant,
         query_has_dnssec_ok: bool,
         mut depth: u8,
+        cname_limit: Arc<AtomicU8>,
     ) -> Result<Lookup, Error> {
         let query_type = query.query_type();
         let query_name = query.name().clone();
 
-        self.record_cache
-            .insert_records(query, lookup.records().iter().map(Record::to_owned), now);
+        self.record_cache.insert_records(
+            query.clone(),
+            lookup.records().iter().map(Record::to_owned),
+            now,
+        );
 
         // Don't resolve CNAME lookups for a CNAME (or ANY) query
         if query_type == RecordType::CNAME || query_type == RecordType::ANY {
@@ -277,6 +293,7 @@ impl RecursorDnsHandle {
         Error::recursion_exceeded(self.recursion_limit, depth, &query_name)?;
 
         let mut cname_chain = vec![];
+
         for rec in lookup.records().iter() {
             let CNAME(name) = rec.data() else {
                 continue;
@@ -284,12 +301,31 @@ impl RecursorDnsHandle {
 
             let cname_query = Query::query(name.0.clone(), query_type);
 
+            let count = cname_limit.fetch_add(1, Ordering::Relaxed) + 1;
+            if count > MAX_CNAME_LOOKUPS {
+                warn!("cname limit exceeded for query {query}");
+                return Err(ErrorKind::Proto(
+                    ProtoErrorKind::MaxRecordLimitExceeded {
+                        count: count as usize,
+                        record_type: RecordType::CNAME,
+                    }
+                    .into(),
+                )
+                .into());
+            }
+
             // Note that we aren't worried about whether the intermediates are local or remote
             // to the original queried name, or included or not included in the original
             // response.  Resolve will either pull the intermediates out of the cache or query
             // the appropriate nameservers if necessary.
             let records = match self
-                .resolve(cname_query, now, query_has_dnssec_ok, depth)
+                .resolve(
+                    cname_query,
+                    now,
+                    query_has_dnssec_ok,
+                    depth,
+                    cname_limit.clone(),
+                )
                 .await
             {
                 Ok(cname_r) => cname_r,
@@ -732,3 +768,7 @@ fn recursor_opts(avoid_local_udp_ports: Arc<HashSet<u16>>) -> ResolverOpts {
 
     options
 }
+
+/// Maximum number of cname records to look up in a CNAME chain, regardless of the recursion
+/// depth limit
+const MAX_CNAME_LOOKUPS: u8 = 64;
