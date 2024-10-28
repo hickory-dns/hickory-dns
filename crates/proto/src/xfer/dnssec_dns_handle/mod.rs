@@ -531,7 +531,12 @@ where
             continue;
         };
         let key_algorithm = key_rdata.algorithm();
-        for r in ds_records.iter() {
+        for (i, r) in ds_records.iter().enumerate() {
+            if i > MAX_KEY_TAG_COLLISIONS {
+                warn!("too many DS records ({i}) with key tag {key_tag}; skipping");
+                continue;
+            }
+
             if r.data().algorithm() != key_algorithm {
                 trace!(
                     "skipping DS record due to algorithm mismatch, expected algorithm {}: ({}, {})",
@@ -790,23 +795,54 @@ where
     //  TODO: strip RRSIGS to accepted algorithms and make algorithms configurable.
     let verifications = rrsigs
         .iter()
-        .map(|rrsig| {
+        .enumerate()
+        .filter_map(|(i, rrsig)| {
             let handle = handle.clone_with_context();
             let query = Query::query(rrsig.data().signer_name().clone(), RecordType::DNSKEY);
 
+            if i > MAX_RRSIGS_PER_RRSET {
+                warn!("too many ({i}) RRSIGs for rrset {rrset:?}; skipping");
+                return None;
+            }
+
             // TODO: Should this sig.signer_name should be confirmed to be in the same zone as the rrsigs and rrset?
-            handle
+            Some(handle
                 .lookup(query.clone(), options)
                 .first_answer()
                 .map_err(|proto| {
                     ProofError::new(Proof::Indeterminate, ProofErrorKind::Proto { query, proto })
                 })
                 .map_ok(|message| {
+                    let mut tag_count = HashMap::<u16, usize>::new();
+
                     // DNSKEYs were already validated by the inner query in the above lookup
                     let dnskeys = message
                         .answers()
                         .iter()
-                        .filter_map(|r| r.try_borrow::<DNSKEY>());
+                        .filter_map(|r| {
+                            let dnskey = r.try_borrow::<DNSKEY>()?;
+
+                            let tag = match dnskey.data().calculate_key_tag() {
+                                Ok(tag) => tag,
+                                Err(e) => {
+                                    warn!("unable to calculate key tag: {e:?}; skipping key");
+                                    return None;
+                                }
+                            };
+
+                            match tag_count.get_mut(&tag) {
+                                Some(n_keys) => {
+                                    *n_keys += 1;
+                                    if *n_keys > MAX_KEY_TAG_COLLISIONS {
+                                        warn!("too many ({n_keys}) DNSKEYs with key tag {tag}; skipping");
+                                        return None;
+                                    }
+                                }
+                                None => _ = tag_count.insert(tag, 1),
+                            }
+
+                            Some(dnskey)
+                        });
 
                     let mut all_insecure = None;
                     for dnskey in dnskeys {
@@ -832,7 +868,7 @@ where
                     } else {
                         None
                     }
-                })
+                }))
         })
         .collect::<Vec<_>>();
 
@@ -1214,3 +1250,14 @@ mod rrset {
         }
     }
 }
+
+/// The maximum number of key tag collisions to accept when:
+///
+/// 1) Retrieving DNSKEY records for a zone
+/// 2) Retrieving DS records from a parent zone
+///
+/// Any colliding records encountered beyond this limit will be discarded.
+const MAX_KEY_TAG_COLLISIONS: usize = 2;
+
+/// The maximum number of RRSIGs to attempt to validate for each RRSET.
+const MAX_RRSIGS_PER_RRSET: usize = 8;
