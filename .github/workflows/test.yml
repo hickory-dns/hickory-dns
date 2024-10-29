@@ -48,9 +48,9 @@ jobs:
 
       - name: just all-features
         run: just all-features
-        continue-on-error: true
 
       - name: just test-docs
+        if: ${{ !cancelled() }}
         run: just test-docs
 
   ## Measure test coverage, only on linux.
@@ -190,13 +190,13 @@ jobs:
       # Clippy
       - name: just clippy
         run: just clippy
-        continue-on-error: true
       # Rustfmt
       - name: just fmt
+        if: ${{ !cancelled() }}
         run: just fmt
-        continue-on-error: true
       # Audit
       - name: cargo audit
+        if: ${{ !cancelled() }}
         run: just audit
 
   # Build and run bind to test our compatibility with standard name servers
