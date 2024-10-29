@@ -11,7 +11,7 @@ use futures_executor::block_on;
 use hickory_proto::{
     op::{update_message, Header, Message, Query, ResponseCode},
     rr::{
-        dnssec::{Algorithm, SigSigner, SupportedAlgorithms, Verifier},
+        dnssec::{Algorithm, PublicKey, SigSigner, SupportedAlgorithms, Verifier},
         rdata::{A as A4, AAAA},
         DNSClass, Name, RData, Record, RecordSet, RecordType,
     },
@@ -795,8 +795,9 @@ pub fn add_auth<A: DnssecAuthority>(authority: &mut A) -> Vec<SigSigner> {
             .expect("failed to read key_config");
         let public_key = signer
             .key()
-            .to_sig0key_with_usage(Algorithm::RSASHA512, KeyUsage::Host)
-            .expect("failed to get sig0 key");
+            .to_public_key()
+            .expect("failed to get public key")
+            .to_sig0key_with_usage(Algorithm::RSASHA512, KeyUsage::Host);
 
         block_on(authority.add_update_auth_key(update_name.clone(), public_key))
             .expect("failed to add signer to zone");
@@ -855,8 +856,9 @@ pub fn add_auth<A: DnssecAuthority>(authority: &mut A) -> Vec<SigSigner> {
             .expect("failed to read key_config");
         let public_key = signer
             .key()
-            .to_sig0key_with_usage(Algorithm::ED25519, KeyUsage::Host)
-            .expect("failed to get sig0 key");
+            .to_public_key()
+            .expect("failed to get public key")
+            .to_sig0key_with_usage(Algorithm::ED25519, KeyUsage::Host);
 
         block_on(authority.add_update_auth_key(update_name, public_key))
             .expect("failed to add signer to zone");

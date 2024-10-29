@@ -620,7 +620,8 @@ mod tests {
 
         let rsa = Rsa::generate(2_048).unwrap();
         let key = KeyPair::from_rsa(rsa).unwrap();
-        let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
+        let pub_key = key.to_public_key().unwrap();
+        let sig0key = pub_key.to_sig0key(Algorithm::RSASHA256);
         let signer = SigSigner::sig0(sig0key.clone(), key, Name::root());
 
         let pre_sig0 = pre_sig0(&signer, 0, 300);
@@ -649,9 +650,8 @@ mod tests {
     fn test_sign_and_verify_rrset() {
         let rsa = Rsa::generate(2_048).unwrap();
         let key = KeyPair::from_rsa(rsa).unwrap();
-        let sig0key = key
-            .to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone)
-            .unwrap();
+        let pub_key = key.to_public_key().unwrap();
+        let sig0key = pub_key.to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone);
         let signer = SigSigner::sig0(sig0key, key, Name::root());
 
         let origin: Name = Name::parse("example.com.", None).unwrap();
@@ -732,9 +732,8 @@ mod tests {
             println!("pkey:\n{}", String::from_utf8(rsa_pem).unwrap());
 
             let key = KeyPair::from_rsa(rsa).unwrap();
-            let sig0key = key
-                .to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone)
-                .unwrap();
+            let pub_key = key.to_public_key().unwrap();
+            let sig0key = pub_key.to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone);
             let signer = SigSigner::sig0(sig0key, key, Name::root());
             let key_tag = signer.calculate_key_tag().unwrap();
 
@@ -755,9 +754,8 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
         println!("pkey:\n{}", String::from_utf8(rsa_pem).unwrap());
 
         let key = KeyPair::from_rsa(rsa).unwrap();
-        let sig0key = key
-            .to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone)
-            .unwrap();
+        let pub_key = key.to_public_key().unwrap();
+        let sig0key = pub_key.to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone);
         let signer = SigSigner::sig0(sig0key, key, Name::root());
         let key_tag = signer.calculate_key_tag().unwrap();
 
@@ -780,7 +778,8 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
         fn test_rrset_tbs() {
             let rsa = Rsa::generate(2_048).unwrap();
             let key = KeyPair::from_rsa(rsa).unwrap();
-            let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
+            let pub_key = key.to_public_key().unwrap();
+            let sig0key = pub_key.to_sig0key(Algorithm::RSASHA256);
             let signer = SigSigner::sig0(sig0key, key, Name::root());
 
             let origin: Name = Name::parse("example.com.", None).unwrap();
