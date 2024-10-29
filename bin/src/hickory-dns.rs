@@ -90,6 +90,8 @@ where
     A: DnssecAuthority<Lookup = L>,
     L: Send + Sync + Sized + 'static,
 {
+    use hickory_proto::rr::dnssec::PublicKey;
+
     if zone_config.is_dnssec_enabled() {
         for key_config in zone_config.keys() {
             info!(
@@ -114,8 +116,9 @@ where
                     })?;
                 let public_key = update_auth_signer
                     .key()
-                    .to_sig0key_with_usage(update_auth_signer.algorithm(), KeyUsage::Host)
-                    .map_err(|err| format!("failed to get sig0 key: {err}"))?;
+                    .to_public_key()
+                    .map_err(|err| format!("failed to get public key: {err}"))?
+                    .to_sig0key_with_usage(update_auth_signer.algorithm(), KeyUsage::Host);
                 authority
                     .add_update_auth_key(zone_name.clone(), public_key)
                     .await

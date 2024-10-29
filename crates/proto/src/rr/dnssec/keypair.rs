@@ -21,8 +21,6 @@ use openssl::rsa::Rsa as OpenSslRsa;
 #[cfg(feature = "dnssec-openssl")]
 use openssl::sign::Signer;
 
-#[allow(deprecated)]
-use crate::rr::dnssec::rdata::key::{KeyTrust, Protocol, UpdateScope};
 #[cfg(feature = "dnssec-ring")]
 use ring::{
     rand,
@@ -32,9 +30,7 @@ use ring::{
     },
 };
 
-use crate::error::*;
-use crate::rr::dnssec::rdata::key::KeyUsage;
-use crate::rr::dnssec::rdata::KEY;
+use crate::error::{DnsSecError, DnsSecErrorKind, DnsSecResult};
 use crate::rr::dnssec::{Algorithm, DigestType, HasPrivate, HasPublic, Private, PublicKeyBuf, TBS};
 
 /// A public and private key pair, the private portion is not required.
@@ -169,49 +165,6 @@ impl<K: HasPublic> KeyPair<K> {
     /// Returns a PublicKeyBuf of the KeyPair
     pub fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf> {
         Ok(PublicKeyBuf::new(self.to_public_bytes()?))
-    }
-
-    /// Convert this keypair into a KEY record type for usage with SIG0
-    /// with key type entity (`KeyUsage::Entity`).
-    ///
-    /// # Arguments
-    ///
-    /// * `algorithm` - algorithm of the KEY
-    ///
-    /// # Return
-    ///
-    /// the KEY record data
-    pub fn to_sig0key(&self, algorithm: Algorithm) -> DnsSecResult<KEY> {
-        self.to_sig0key_with_usage(algorithm, KeyUsage::default())
-    }
-
-    /// Convert this keypair into a KEY record type for usage with SIG0
-    /// with a given key (usage) type.
-    ///
-    /// # Arguments
-    ///
-    /// * `algorithm` - algorithm of the KEY
-    /// * `usage`     - the key type
-    ///
-    /// # Return
-    ///
-    /// the KEY record data
-    pub fn to_sig0key_with_usage(
-        &self,
-        algorithm: Algorithm,
-        usage: KeyUsage,
-    ) -> DnsSecResult<KEY> {
-        self.to_public_bytes().map(|bytes| {
-            KEY::new(
-                KeyTrust::default(),
-                usage,
-                #[allow(deprecated)]
-                UpdateScope::default(),
-                Protocol::default(),
-                algorithm,
-                bytes,
-            )
-        })
     }
 }
 
