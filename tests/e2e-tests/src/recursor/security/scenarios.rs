@@ -47,12 +47,13 @@ fn tx_id_validation_test() -> Result<()> {
         &target_fqdn,
     );
 
-    if let Ok(res) = &res {
-        // FIXME This should be servfail; need the error propagation fix from #2522
-        assert!(res.status.is_noerror());
-        assert_eq!(res.answer.len(), 0);
-    } else {
-        panic!("error");
+    match res {
+        Ok(res) => {
+            // FIXME This should be servfail; need the error propagation fix from #2522
+            assert!(res.status.is_noerror());
+            assert_eq!(res.answer.len(), 0);
+        }
+        Err(e) => panic!("error {e:?} resolver logs: {}", resolver.logs().unwrap()),
     }
 
     assert!(resolver.logs().unwrap().contains("expected message id:"));
