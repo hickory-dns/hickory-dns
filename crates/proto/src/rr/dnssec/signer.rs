@@ -242,15 +242,6 @@ pub struct SigSigner {
     is_zone_signing_key: bool,
 }
 
-/// Placeholder type for when OpenSSL and *ring* are disabled; enable OpenSSL and Ring for support
-#[cfg(not(feature = "dnssec"))]
-#[allow(missing_copy_implementations)]
-pub struct SigSigner;
-
-/// See [`SigSigner`]
-#[deprecated(note = "renamed to SigSigner")]
-pub type Signer = SigSigner;
-
 #[cfg(feature = "dnssec")]
 impl SigSigner {
     /// Version of Signer for verifying RRSIGs and SIG0 records.
