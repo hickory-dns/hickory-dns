@@ -477,7 +477,7 @@ async fn test_nsec3_query_name_is_soa_name() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
     use hickory_proto::rr::dnssec::rdata::{DNSSECRData, KEY};
-    use hickory_proto::rr::dnssec::{Algorithm, KeyPair, Signer as SigSigner};
+    use hickory_proto::rr::dnssec::{Algorithm, KeyPair, SigSigner};
     use hickory_server::store::sqlite::SqliteAuthority;
     use openssl::rsa::Rsa;
 
