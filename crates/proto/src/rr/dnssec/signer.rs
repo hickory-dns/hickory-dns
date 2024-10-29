@@ -30,6 +30,8 @@ use crate::{
     serialize::binary::BinEncodable,
 };
 
+use super::PublicKey;
+
 /// Use for performing signing and validation of DNSSEC based components. The SigSigner can be used for singing requests and responses with SIG0, or DNSSEC RRSIG records. The format is based on the SIG record type.
 ///
 /// TODO: warning this struct and it's impl are under high volatility, expect breaking changes
@@ -304,9 +306,8 @@ impl SigSigner {
         is_zone_signing_key: bool,
         _: bool,
     ) -> Self {
-        let dnskey = key
-            .to_dnskey(algorithm)
-            .expect("something went wrong, use one of the SIG0 or DNSSEC constructors");
+        let pub_key = key.to_public_key().expect("key is not a private key");
+        let dnskey = pub_key.to_dnskey(algorithm);
 
         Self {
             key_rdata: dnskey.into(),

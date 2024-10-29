@@ -31,7 +31,7 @@ use crate::{
     proto::{
         rr::dnssec::{
             rdata::{key::KEY, DNSSECRData, NSEC, NSEC3, NSEC3PARAM},
-            DnsSecResult, Nsec3HashAlgorithm, SigSigner, SupportedAlgorithms,
+            DnsSecResult, Nsec3HashAlgorithm, PublicKey, SigSigner, SupportedAlgorithms,
         },
         ProtoError,
     },
@@ -277,7 +277,7 @@ impl InMemoryAuthority {
     ) -> DnsSecResult<()> {
         // also add the key to the zone
         let zone_ttl = inner.minimum_ttl(origin);
-        let dnskey = signer.key().to_dnskey(signer.algorithm())?;
+        let dnskey = signer.key().to_public_key()?.to_dnskey(signer.algorithm());
         let dnskey = Record::from_rdata(
             origin.clone().into(),
             zone_ttl,
