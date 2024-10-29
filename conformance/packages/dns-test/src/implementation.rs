@@ -164,17 +164,17 @@ impl Implementation {
         }
     }
 
-    pub(crate) fn conf_file_path(&self, role: Role) -> &'static str {
+    pub(crate) fn conf_file_path(&self, role: Role) -> Option<&'static str> {
         match self {
-            Self::Bind => "/etc/bind/named.conf",
+            Self::Bind => Some("/etc/bind/named.conf"),
 
-            Self::Dnslib => "/dev/null",
+            Self::Dnslib => None,
 
-            Self::Hickory(_) => "/etc/named.toml",
+            Self::Hickory(_) => Some("/etc/named.toml"),
 
             Self::Unbound => match role {
-                Role::NameServer => "/etc/nsd/nsd.conf",
-                Role::Resolver => "/etc/unbound/unbound.conf",
+                Role::NameServer => Some("/etc/nsd/nsd.conf"),
+                Role::Resolver => Some("/etc/unbound/unbound.conf"),
             },
         }
     }
