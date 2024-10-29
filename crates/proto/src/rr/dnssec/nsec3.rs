@@ -21,12 +21,9 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 use super::{Digest, DigestType};
 use crate::error::*;
-#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 use crate::rr::Name;
-#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 use crate::serialize::binary::{BinEncodable, BinEncoder};
 
 /// ```text

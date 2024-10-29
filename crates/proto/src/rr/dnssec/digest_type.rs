@@ -19,7 +19,6 @@ use serde::{Deserialize, Serialize};
 use crate::error::*;
 use crate::rr::dnssec::Algorithm;
 
-#[cfg(any(feature = "dnssec-ring", feature = "dnssec-openssl"))]
 use super::Digest;
 
 /// This is the digest format for the

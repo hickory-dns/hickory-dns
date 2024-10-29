@@ -8,26 +8,19 @@
 //! signer is a structure for performing many of the signing processes of the DNSSEC specification
 use tracing::debug;
 
-#[cfg(feature = "dnssec")]
 use std::time::Duration;
 
-#[cfg(feature = "dnssec")]
 use crate::{
-    error::DnsSecResult,
+    error::{DnsSecResult, ProtoErrorKind, ProtoResult},
+    op::{Message, MessageFinalizer, MessageVerifier},
     rr::{
         dnssec::{
             rdata::{DNSSECRData, DNSKEY, KEY, SIG},
             tbs, Algorithm, KeyPair, Private, TBS,
         },
-        {DNSClass, Name, RData, RecordType},
+        Record, {DNSClass, Name, RData, RecordType},
     },
-    serialize::binary::BinEncoder,
-};
-use crate::{
-    error::{ProtoErrorKind, ProtoResult},
-    op::{Message, MessageFinalizer, MessageVerifier},
-    rr::Record,
-    serialize::binary::BinEncodable,
+    serialize::binary::{BinEncodable, BinEncoder},
 };
 
 use super::PublicKey;
