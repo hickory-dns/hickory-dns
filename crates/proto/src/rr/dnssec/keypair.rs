@@ -36,7 +36,7 @@ use crate::error::*;
 use crate::rr::dnssec::rdata::key::KeyUsage;
 #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 use crate::rr::dnssec::rdata::DS;
-use crate::rr::dnssec::rdata::{DNSKEY, KEY};
+use crate::rr::dnssec::rdata::KEY;
 #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 use crate::rr::dnssec::DigestType;
 use crate::rr::dnssec::{Algorithm, PublicKey, PublicKeyBuf};
@@ -178,20 +178,6 @@ impl<K: HasPublic> KeyPair<K> {
         Ok(PublicKeyBuf::new(self.to_public_bytes()?))
     }
 
-    /// Creates a Record that represents the public key for this Signer
-    ///
-    /// # Arguments
-    ///
-    /// * `algorithm` - algorithm of the DNSKEY
-    ///
-    /// # Return
-    ///
-    /// the DNSKEY record data
-    pub fn to_dnskey(&self, algorithm: Algorithm) -> DnsSecResult<DNSKEY> {
-        self.to_public_bytes()
-            .map(|bytes| DNSKEY::new(true, true, false, algorithm, bytes))
-    }
-
     /// Convert this keypair into a KEY record type for usage with SIG0
     /// with key type entity (`KeyUsage::Entity`).
     ///
@@ -249,7 +235,7 @@ impl<K: HasPublic> KeyPair<K> {
         digest_type: DigestType,
     ) -> DnsSecResult<DS> {
         let pub_key = self.to_public_key()?;
-        let dnskey = self.to_dnskey(algorithm)?;
+        let dnskey = pub_key.to_dnskey(algorithm);
         Ok(DS::new(
             pub_key.key_tag(),
             algorithm,
@@ -543,8 +529,9 @@ mod tests {
             algorithm
         );
         assert!(
-            key.to_dnskey(algorithm)
+            key.to_public_key()
                 .unwrap()
+                .to_dnskey(algorithm)
                 .verify(tbs.as_ref(), &sig)
                 .is_ok(),
             "algorithm: {:?} (dnskey)",
@@ -556,8 +543,9 @@ mod tests {
             algorithm
         );
         assert!(
-            neg.to_dnskey(algorithm)
+            neg.to_public_key()
                 .unwrap()
+                .to_dnskey(algorithm)
                 .verify(tbs.as_ref(), &sig)
                 .is_err(),
             "algorithm: {:?} (dnskey, neg)",

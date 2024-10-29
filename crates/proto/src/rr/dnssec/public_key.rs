@@ -26,20 +26,34 @@ use openssl::sign::Verifier;
 #[cfg(feature = "dnssec-ring")]
 use ring::signature::{self, ED25519_PUBLIC_KEY_LEN};
 
-use crate::error::*;
-use crate::rr::dnssec::Algorithm;
+#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+use super::ec_public_key::ECPublicKey;
+use super::rdata::DNSKEY;
+#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+use super::rsa_public_key::RSAPublicKey;
+use super::Algorithm;
 #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
-use crate::rr::dnssec::DigestType;
-
-#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-use crate::rr::dnssec::ec_public_key::ECPublicKey;
-#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-use crate::rr::dnssec::rsa_public_key::RSAPublicKey;
+use super::DigestType;
+use crate::error::*;
 
 /// PublicKeys implement the ability to ideally be zero copy abstractions over public keys for verifying signed content.
 ///
 /// In DNS the KEY and DNSKEY types are generally the RData types which store public key material.
 pub trait PublicKey {
+    /// Creates a Record that represents the public key for this Signer
+    ///
+    /// # Arguments
+    ///
+    /// * `algorithm` - algorithm of the DNSKEY
+    ///
+    /// # Return
+    ///
+    /// the DNSKEY record data
+    fn to_dnskey(&self, algorithm: Algorithm) -> DNSKEY {
+        let bytes = self.public_bytes();
+        DNSKEY::new(true, true, false, algorithm, bytes.to_owned())
+    }
+
     /// The key tag is calculated as a hash to more quickly lookup a DNSKEY.
     ///
     /// [RFC 1035](https://tools.ietf.org/html/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
