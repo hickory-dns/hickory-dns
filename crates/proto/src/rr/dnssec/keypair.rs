@@ -242,7 +242,6 @@ impl<K: HasPublic> KeyPair<K> {
     /// * `name` - name of the DNSKEY record covered by the new DS record
     /// * `algorithm` - the algorithm of the DNSKEY
     /// * `digest_type` - the digest_type used to
-    #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
     pub fn to_ds(
         &self,
         name: &Name,
@@ -250,18 +249,13 @@ impl<K: HasPublic> KeyPair<K> {
         digest_type: DigestType,
     ) -> DnsSecResult<DS> {
         let pub_key = self.to_public_key()?;
-        let key_tag = pub_key.key_tag();
-        self.to_dnskey(algorithm)
-            .map(|dnskey| (key_tag, dnskey))
-            .and_then(|(key_tag, dnskey)| {
-                dnskey
-                    .to_digest(name, digest_type)
-                    .map(|digest| (key_tag, digest))
-                    .map_err(Into::into)
-            })
-            .map(|(key_tag, digest)| {
-                DS::new(key_tag, algorithm, digest_type, digest.as_ref().to_owned())
-            })
+        let dnskey = self.to_dnskey(algorithm)?;
+        Ok(DS::new(
+            pub_key.key_tag(),
+            algorithm,
+            digest_type,
+            dnskey.to_digest(name, digest_type)?.as_ref().to_owned(),
+        ))
     }
 }
 
