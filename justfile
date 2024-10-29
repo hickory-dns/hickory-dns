@@ -189,9 +189,11 @@ conformance-hickory filter='':
 conformance-ignored:
     #!/usr/bin/env bash
 
+    set -euxo pipefail
+
     tmpfile="$(mktemp)"
     bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes will NOT be tested" || true'
-    DNS_TEST_VERBOSE_DOCKER_BUILD=1 DNS_TEST_PEER=unbound DNS_TEST_SUBJECT="hickory {{justfile_directory()}}" cargo test --manifest-path conformance/Cargo.toml -p conformance-tests -- --ignored | tee "$tmpfile"
+    ( DNS_TEST_VERBOSE_DOCKER_BUILD=1 DNS_TEST_PEER=unbound DNS_TEST_SUBJECT="hickory {{justfile_directory()}}" cargo test --manifest-path conformance/Cargo.toml -p conformance-tests -- --ignored || true ) | tee "$tmpfile"
     grep 'test result: FAILED. 0 passed' "$tmpfile" || ( echo "expected ALL tests to fail but at least one passed; the passing tests must be un-#[ignore]-d" && exit 1 )
     bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes were NOT tested" || true'
 
