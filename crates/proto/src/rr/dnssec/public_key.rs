@@ -28,18 +28,39 @@ use ring::signature::{self, ED25519_PUBLIC_KEY_LEN};
 
 #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 use super::ec_public_key::ECPublicKey;
-use super::rdata::DNSKEY;
+use super::rdata::{DNSKEY, DS};
 #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 use super::rsa_public_key::RSAPublicKey;
-use super::Algorithm;
-#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
-use super::DigestType;
-use crate::error::*;
+use super::{Algorithm, DigestType};
+use crate::error::{DnsSecResult, ProtoResult};
+use crate::rr::Name;
 
 /// PublicKeys implement the ability to ideally be zero copy abstractions over public keys for verifying signed content.
 ///
 /// In DNS the KEY and DNSKEY types are generally the RData types which store public key material.
 pub trait PublicKey {
+    /// Creates a DS record for this KeyPair associated to the given name
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - name of the DNSKEY record covered by the new DS record
+    /// * `algorithm` - the algorithm of the DNSKEY
+    /// * `digest_type` - the digest_type used to
+    fn to_ds(
+        &self,
+        name: &Name,
+        algorithm: Algorithm,
+        digest_type: DigestType,
+    ) -> DnsSecResult<DS> {
+        let dnskey = self.to_dnskey(algorithm);
+        Ok(DS::new(
+            self.key_tag(),
+            algorithm,
+            digest_type,
+            dnskey.to_digest(name, digest_type)?.as_ref().to_owned(),
+        ))
+    }
+
     /// Creates a Record that represents the public key for this Signer
     ///
     /// # Arguments
