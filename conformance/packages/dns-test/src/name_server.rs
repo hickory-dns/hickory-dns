@@ -273,10 +273,12 @@ impl NameServer<Stopped> {
             additional_zones: additional_zones.clone(),
         };
 
-        container.cp(
-            implementation.conf_file_path(config.role()),
-            &implementation.format_config(config.clone()),
-        )?;
+        if let Some(conf_file_path) = implementation.conf_file_path(config.role()) {
+            container.cp(
+                conf_file_path,
+                &implementation.format_config(config.clone()),
+            )?;
+        }
 
         container.status_ok(&["mkdir", "-p", ZONES_DIR])?;
         container.cp(&zone_file_path(), &zone_file.to_string())?;
@@ -353,10 +355,12 @@ impl NameServer<Signed> {
             additional_zones: additional_zones.clone(),
         };
 
-        container.cp(
-            implementation.conf_file_path(config.role()),
-            &implementation.format_config(config.clone()),
-        )?;
+        if let Some(conf_file_path) = implementation.conf_file_path(config.role()) {
+            container.cp(
+                conf_file_path,
+                &implementation.format_config(config.clone()),
+            )?;
+        }
 
         if implementation.is_hickory() && state.use_dnssec {
             // FIXME: Hickory does not support pre-signed zonefiles. We copy the unsigned

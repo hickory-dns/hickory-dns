@@ -109,10 +109,9 @@ impl ResolverSettings {
             };
             &implementation.format_config(config)
         };
-        container.cp(
-            implementation.conf_file_path(Role::Resolver),
-            config_contents,
-        )?;
+        if let Some(conf_file_path) = implementation.conf_file_path(Role::Resolver) {
+            container.cp(conf_file_path, config_contents)?;
+        }
 
         if use_dnssec {
             let path = if implementation.is_bind() {
