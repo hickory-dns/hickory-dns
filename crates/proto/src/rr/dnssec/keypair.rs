@@ -34,11 +34,8 @@ use ring::{
 
 use crate::error::*;
 use crate::rr::dnssec::rdata::key::KeyUsage;
-use crate::rr::dnssec::rdata::{DS, KEY};
-use crate::rr::dnssec::{
-    Algorithm, DigestType, HasPrivate, HasPublic, Private, PublicKey, PublicKeyBuf, TBS,
-};
-use crate::rr::Name;
+use crate::rr::dnssec::rdata::KEY;
+use crate::rr::dnssec::{Algorithm, DigestType, HasPrivate, HasPublic, Private, PublicKeyBuf, TBS};
 
 /// A public and private key pair, the private portion is not required.
 ///
@@ -215,29 +212,6 @@ impl<K: HasPublic> KeyPair<K> {
                 bytes,
             )
         })
-    }
-
-    /// Creates a DS record for this KeyPair associated to the given name
-    ///
-    /// # Arguments
-    ///
-    /// * `name` - name of the DNSKEY record covered by the new DS record
-    /// * `algorithm` - the algorithm of the DNSKEY
-    /// * `digest_type` - the digest_type used to
-    pub fn to_ds(
-        &self,
-        name: &Name,
-        algorithm: Algorithm,
-        digest_type: DigestType,
-    ) -> DnsSecResult<DS> {
-        let pub_key = self.to_public_key()?;
-        let dnskey = pub_key.to_dnskey(algorithm);
-        Ok(DS::new(
-            pub_key.key_tag(),
-            algorithm,
-            digest_type,
-            dnskey.to_digest(name, digest_type)?.as_ref().to_owned(),
-        ))
     }
 }
 
