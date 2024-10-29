@@ -34,14 +34,10 @@ use ring::{
 
 use crate::error::*;
 use crate::rr::dnssec::rdata::key::KeyUsage;
-#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-use crate::rr::dnssec::rdata::DS;
-use crate::rr::dnssec::rdata::KEY;
-#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-use crate::rr::dnssec::DigestType;
-use crate::rr::dnssec::{Algorithm, PublicKey, PublicKeyBuf};
-use crate::rr::dnssec::{HasPrivate, HasPublic, Private, TBS};
-#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+use crate::rr::dnssec::rdata::{DS, KEY};
+use crate::rr::dnssec::{
+    Algorithm, DigestType, HasPrivate, HasPublic, Private, PublicKey, PublicKeyBuf, TBS,
+};
 use crate::rr::Name;
 
 /// A public and private key pair, the private portion is not required.
