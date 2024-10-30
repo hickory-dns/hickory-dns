@@ -76,7 +76,7 @@ compatibility: init-bind9
 
 # Build all bench marking tools, i.e. check that they work, but don't run
 build-bench:
-    RUSTFLAGS="--cfg=nightly" cargo ws exec cargo +nightly-{{NIGHTLY_DATE}} bench --locked --no-run
+    RUSTFLAGS="--cfg=nightly" cargo ws exec cargo +nightly-{{NIGHTLY_DATE}} check --locked --benches
 
 [private]
 clippy-inner feature='':
