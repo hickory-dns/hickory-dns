@@ -69,6 +69,7 @@ impl Client {
             settings.do_bit(),
             settings.adflag(),
             settings.cdflag(),
+            settings.timeoutflag().as_str(),
             &format!("@{server}"),
             record_type.as_str(),
             fqdn.as_str(),
@@ -84,6 +85,7 @@ pub struct DigSettings {
     cdflag: bool,
     dnssec: bool,
     recurse: bool,
+    timeout: Option<u8>,
 }
 
 impl DigSettings {
@@ -140,6 +142,19 @@ impl DigSettings {
             "+recurse"
         } else {
             "+norecurse"
+        }
+    }
+
+    /// Sets the timeout for the query, specified in seconds
+    pub fn timeout(&mut self, timeout: u8) -> &mut Self {
+        self.timeout = Some(timeout);
+        self
+    }
+
+    fn timeoutflag(&self) -> String {
+        match self.timeout {
+            Some(timeout) => format!("+timeout={timeout}"),
+            None => "+timeout=5".into(),
         }
     }
 }
