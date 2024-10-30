@@ -481,9 +481,14 @@ impl SigSigner {
     /// Extracts a public KEY from this Signer
     pub fn to_dnskey(&self) -> DnsSecResult<DNSKEY> {
         // TODO: this interface should allow for setting if this is a secure entry point vs. ZSK
-        self.key
-            .to_public_bytes()
-            .map(|bytes| DNSKEY::new(self.is_zone_signing_key, true, false, self.algorithm, bytes))
+        let pub_key = self.key.to_public_key()?;
+        Ok(DNSKEY::new(
+            self.is_zone_signing_key,
+            true,
+            false,
+            self.algorithm,
+            pub_key.public_bytes().to_owned(),
+        ))
     }
 
     /// Test that this key is capable of signing and verifying data
@@ -691,8 +696,9 @@ mod tests {
         let tbs = TBS::from_rrsig(&rrsig, rrset.iter()).unwrap();
         let sig = signer.sign(&tbs).unwrap();
 
-        let pub_key = signer.key().to_public_bytes().unwrap();
-        let pub_key = PublicKeyEnum::from_public_bytes(&pub_key, Algorithm::RSASHA256).unwrap();
+        let pub_key = signer.key().to_public_key().unwrap();
+        let pub_key =
+            PublicKeyEnum::from_public_bytes(pub_key.public_bytes(), Algorithm::RSASHA256).unwrap();
 
         assert!(pub_key
             .verify(Algorithm::RSASHA256, tbs.as_ref(), &sig)

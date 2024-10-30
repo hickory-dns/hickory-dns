@@ -25,8 +25,6 @@ use std::io::{BufReader, Read, Write};
 use std::path::PathBuf;
 
 use clap::Parser;
-use hickory_proto::error::DnsSecResult;
-use hickory_proto::rr::dnssec::Algorithm::{ECDSAP256SHA256, RSASHA256};
 use openssl::pkey::PKey;
 use tracing::info;
 
