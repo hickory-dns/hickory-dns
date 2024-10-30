@@ -292,7 +292,7 @@ async fn create_sig0_ready_client() -> (
     let trusted_name = Name::from_str("trusted.example.com").unwrap();
 
     let rsa = Rsa::generate(2_048).unwrap();
-    let key = KeyPair::from_rsa(rsa).unwrap();
+    let key = KeyPair::from_rsa(rsa, Algorithm::RSASHA256).unwrap();
     let pub_key = key.to_public_key().unwrap();
     let sig0_key = pub_key.to_sig0key(Algorithm::RSASHA256);
 

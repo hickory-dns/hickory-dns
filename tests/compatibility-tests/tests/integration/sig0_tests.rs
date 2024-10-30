@@ -69,7 +69,7 @@ async fn test_create() {
     let mut pem_buf = Vec::<u8>::new();
     pem.read_to_end(&mut pem_buf).expect("failed to read pem");
     let rsa = Rsa::private_key_from_pem(&pem_buf).expect("something wrong with key from pem");
-    let key = KeyPair::from_rsa(rsa).unwrap();
+    let key = KeyPair::from_rsa(rsa, Algorithm::RSASHA256).unwrap();
     let sig0key = KEY::new(
         Default::default(),
         KeyUsage::Entity,
