@@ -11,8 +11,8 @@ use ring::signature::{
     EcdsaKeyPair, Ed25519KeyPair, ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING,
 };
 
-use crate::error::*;
-use crate::rr::dnssec::{Algorithm, KeyPair, Private};
+use crate::error::DnsSecResult;
+use crate::rr::dnssec::{Algorithm, KeyPair};
 
 /// The format of the binary key
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -33,7 +33,7 @@ impl KeyFormat {
         bytes: &[u8],
         password: Option<&str>,
         algorithm: Algorithm,
-    ) -> DnsSecResult<KeyPair<Private>> {
+    ) -> DnsSecResult<KeyPair> {
         //  empty string prevents openssl from triggering a read from stdin...
         let password = password.unwrap_or("");
         let password = password.as_bytes();
@@ -193,8 +193,6 @@ impl KeyFormat {
             }
             #[cfg(feature = "dnssec-ring")]
             KeyPair::ECDSA(..) | KeyPair::ED25519(..) => panic!("should have returned early"),
-            #[cfg(not(feature = "dnssec-openssl"))]
-            KeyPair::Phantom(..) => panic!("Phantom disallowed"),
             #[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
             _ => Err(format!(
                 "unsupported Algorithm, enable openssl feature (encode not supported with ring)"
@@ -205,11 +203,7 @@ impl KeyFormat {
 
     /// Encode private key
     #[deprecated]
-    pub fn encode_key(
-        self,
-        key_pair: &KeyPair<Private>,
-        password: Option<&str>,
-    ) -> DnsSecResult<Vec<u8>> {
+    pub fn encode_key(self, key_pair: &KeyPair, password: Option<&str>) -> DnsSecResult<Vec<u8>> {
         // on encoding, if the password is empty string, ignore it (empty string is ok on decode)
         #[allow(unused)]
         let password = password

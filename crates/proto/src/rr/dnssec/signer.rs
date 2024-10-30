@@ -16,7 +16,7 @@ use crate::{
     rr::{
         dnssec::{
             rdata::{DNSSECRData, DNSKEY, KEY, SIG},
-            tbs, Algorithm, KeyPair, Private, TBS,
+            tbs, Algorithm, KeyPair, TBS,
         },
         Record, {DNSClass, Name, RData, RecordType},
     },
@@ -230,7 +230,7 @@ use super::PublicKey;
 pub struct SigSigner {
     // TODO: this should really be a trait and generic struct over KEY and DNSKEY
     key_rdata: RData,
-    key: KeyPair<Private>,
+    key: KeyPair,
     algorithm: Algorithm,
     signer_name: Name,
     sig_duration: Duration,
@@ -250,7 +250,7 @@ impl SigSigner {
     /// * `is_zone_update_auth` - this key may be used for updating the zone
     pub fn dnssec(
         key_rdata: DNSKEY,
-        key: KeyPair<Private>,
+        key: KeyPair,
         signer_name: Name,
         sig_duration: Duration,
     ) -> Self {
@@ -275,7 +275,7 @@ impl SigSigner {
     /// * `key` - the private key for signing, unless validating, where just the public key is necessary
     /// * `signer_name` - name in the zone to which this DNSKEY is bound
     /// * `is_zone_update_auth` - this key may be used for updating the zone
-    pub fn sig0(key_rdata: KEY, key: KeyPair<Private>, signer_name: Name) -> Self {
+    pub fn sig0(key_rdata: KEY, key: KeyPair, signer_name: Name) -> Self {
         let algorithm = key_rdata.algorithm();
 
         Self {
@@ -293,7 +293,7 @@ impl SigSigner {
     #[deprecated(note = "use SIG0 or DNSSEC constructors")]
     pub fn new(
         algorithm: Algorithm,
-        key: KeyPair<Private>,
+        key: KeyPair,
         signer_name: Name,
         sig_duration: Duration,
         is_zone_signing_key: bool,
@@ -313,7 +313,7 @@ impl SigSigner {
     }
 
     /// Return the key used for validation/signing
-    pub fn key(&self) -> &KeyPair<Private> {
+    pub fn key(&self) -> &KeyPair {
         &self.key
     }
 
