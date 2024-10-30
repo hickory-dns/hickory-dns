@@ -9,9 +9,7 @@
 use std::marker::PhantomData;
 
 #[cfg(feature = "dnssec-openssl")]
-use openssl::bn::BigNumContext;
-#[cfg(feature = "dnssec-openssl")]
-use openssl::ec::{EcGroup, EcKey, PointConversionForm};
+use openssl::ec::{EcGroup, EcKey};
 #[cfg(feature = "dnssec-openssl")]
 use openssl::nid::Nid;
 #[cfg(feature = "dnssec-openssl")]
@@ -30,7 +28,7 @@ use ring::{
     },
 };
 
-use crate::error::{DnsSecError, DnsSecErrorKind, DnsSecResult};
+use crate::error::{DnsSecErrorKind, DnsSecResult};
 use crate::rr::dnssec::{Algorithm, DigestType, HasPrivate, HasPublic, Private, PublicKeyBuf, TBS};
 
 /// A public and private key pair, the private portion is not required.
@@ -116,21 +114,10 @@ impl<K: HasPublic> KeyPair<K> {
             #[cfg(feature = "dnssec-openssl")]
             Self::EC(pkey) => {
                 // TODO: make these expects a try! and Err()
-                let ec_key: EcKey<K> = pkey
+                let ec_key = pkey
                     .ec_key()
                     .expect("pkey should have been initialized with EC");
-                let group = ec_key.group();
-                let point = ec_key.public_key();
-
-                let mut bytes = BigNumContext::new()
-                    .and_then(|mut ctx| {
-                        point.to_bytes(group, PointConversionForm::UNCOMPRESSED, &mut ctx)
-                    })
-                    .map_err(DnsSecError::from)?;
-
-                // Remove OpenSSL header byte
-                bytes.remove(0);
-                Ok(bytes)
+                Ok(PublicKeyBuf::from_ec(ec_key)?.into_inner())
             }
             #[cfg(feature = "dnssec-ring")]
             Self::ECDSA(ec_key) => {
