@@ -5,15 +5,12 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#[cfg(not(feature = "dnssec-openssl"))]
-use std::marker::PhantomData;
-
 #[cfg(feature = "dnssec-openssl")]
 use openssl::ec::{EcGroup, EcKey};
 #[cfg(feature = "dnssec-openssl")]
 use openssl::nid::Nid;
 #[cfg(feature = "dnssec-openssl")]
-use openssl::pkey::PKey;
+use openssl::pkey::{PKey, Private};
 #[cfg(feature = "dnssec-openssl")]
 use openssl::rsa::Rsa as OpenSslRsa;
 #[cfg(feature = "dnssec-openssl")]
@@ -29,7 +26,9 @@ use ring::{
 };
 
 use crate::error::{DnsSecErrorKind, DnsSecResult};
-use crate::rr::dnssec::{Algorithm, DigestType, HasPrivate, HasPublic, Private, PublicKeyBuf, TBS};
+#[cfg(feature = "dnssec-openssl")]
+use crate::rr::dnssec::DigestType;
+use crate::rr::dnssec::{Algorithm, PublicKeyBuf, TBS};
 
 /// A public and private key pair, the private portion is not required.
 ///
@@ -37,16 +36,13 @@ use crate::rr::dnssec::{Algorithm, DigestType, HasPrivate, HasPublic, Private, P
 ///  differing features, some key types may not be available. The `openssl` feature will enable RSA and EC
 ///  (P256 and P384). The `ring` feature enables ED25519, in the future, Ring will also be used for other keys.
 #[allow(clippy::large_enum_variant)]
-pub enum KeyPair<K> {
+pub enum KeyPair {
     /// RSA keypair, supported by OpenSSL
     #[cfg(feature = "dnssec-openssl")]
-    RSA(PKey<K>, Algorithm),
+    RSA(PKey<Private>, Algorithm),
     /// Elliptic curve keypair, supported by OpenSSL
     #[cfg(feature = "dnssec-openssl")]
-    EC(PKey<K>, Algorithm),
-    #[cfg(not(feature = "dnssec-openssl"))]
-    #[doc(hidden)]
-    Phantom(PhantomData<K>),
+    EC(PKey<Private>, Algorithm),
     /// *ring* ECDSA keypair
     #[cfg(feature = "dnssec-ring")]
     ECDSA(EcdsaKeyPair),
@@ -55,7 +51,7 @@ pub enum KeyPair<K> {
     ED25519(Ed25519KeyPair),
 }
 
-impl<K> KeyPair<K> {
+impl KeyPair {
     /// Creates an RSA type keypair.
     ///
     /// Errors unless the given algorithm is one of the following:
@@ -65,7 +61,7 @@ impl<K> KeyPair<K> {
     /// - [`Algorithm::RSASHA256`]
     /// - [`Algorithm::RSASHA512`]
     #[cfg(feature = "dnssec-openssl")]
-    pub fn from_rsa(rsa: OpenSslRsa<K>, algorithm: Algorithm) -> DnsSecResult<Self> {
+    pub fn from_rsa(rsa: OpenSslRsa<Private>, algorithm: Algorithm) -> DnsSecResult<Self> {
         Self::from_rsa_pkey(PKey::from_rsa(rsa)?, algorithm)
     }
 
@@ -78,7 +74,7 @@ impl<K> KeyPair<K> {
     /// - [`Algorithm::RSASHA256`]
     /// - [`Algorithm::RSASHA512`]
     #[cfg(feature = "dnssec-openssl")]
-    pub fn from_rsa_pkey(pkey: PKey<K>, algorithm: Algorithm) -> DnsSecResult<Self> {
+    pub fn from_rsa_pkey(pkey: PKey<Private>, algorithm: Algorithm) -> DnsSecResult<Self> {
         match algorithm {
             #[allow(deprecated)]
             Algorithm::RSASHA1
@@ -91,13 +87,13 @@ impl<K> KeyPair<K> {
 
     /// Creates an EC, elliptic curve, type keypair, only P256 or P384 are supported.
     #[cfg(feature = "dnssec-openssl")]
-    pub fn from_ec_key(ec_key: EcKey<K>, algorithm: Algorithm) -> DnsSecResult<Self> {
+    pub fn from_ec_key(ec_key: EcKey<Private>, algorithm: Algorithm) -> DnsSecResult<Self> {
         Self::from_ec_pkey(PKey::from_ec_key(ec_key)?, algorithm)
     }
 
     /// Given a known pkey of an EC key, return the wrapped keypair
     #[cfg(feature = "dnssec-openssl")]
-    pub fn from_ec_pkey(pkey: PKey<K>, algorithm: Algorithm) -> DnsSecResult<Self> {
+    pub fn from_ec_pkey(pkey: PKey<Private>, algorithm: Algorithm) -> DnsSecResult<Self> {
         match algorithm {
             Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => {
                 Ok(Self::EC(pkey, algorithm))
@@ -117,9 +113,7 @@ impl<K> KeyPair<K> {
     pub fn from_ed25519(ed_key: Ed25519KeyPair) -> Self {
         Self::ED25519(ed_key)
     }
-}
 
-impl<K: HasPublic> KeyPair<K> {
     /// Converts this keypair to the DNS binary form of the public_key.
     ///
     /// If there is a private key associated with this keypair, it will not be included in this
@@ -153,8 +147,6 @@ impl<K: HasPublic> KeyPair<K> {
             }
             #[cfg(feature = "dnssec-ring")]
             Self::ED25519(ed_key) => Ok(ed_key.public_key().as_ref().to_vec()),
-            #[cfg(not(feature = "dnssec-openssl"))]
-            Self::Phantom(..) => panic!("Phantom disallowed"),
             #[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
             _ => Err(DnsSecErrorKind::Message("openssl or ring feature(s) not enabled").into()),
         }
@@ -164,9 +156,7 @@ impl<K: HasPublic> KeyPair<K> {
     pub fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf> {
         Ok(PublicKeyBuf::new(self.to_public_bytes()?))
     }
-}
 
-impl<K: HasPrivate> KeyPair<K> {
     /// Signs a hash.
     ///
     /// This will panic if the `key` is not a private key and can be used for signing.
@@ -262,15 +252,11 @@ impl<K: HasPrivate> KeyPair<K> {
             }
             #[cfg(feature = "dnssec-ring")]
             Self::ED25519(ed_key) => Ok(ed_key.sign(tbs.as_ref()).as_ref().to_vec()),
-            #[cfg(not(feature = "dnssec-openssl"))]
-            Self::Phantom(..) => panic!("Phantom disallowed"),
             #[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
             _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
         }
     }
-}
 
-impl KeyPair<Private> {
     /// Generates a new private and public key pair for the specified algorithm.
     ///
     /// RSA keys are hardcoded to 2048bits at the moment. Other keys have predefined sizes.
