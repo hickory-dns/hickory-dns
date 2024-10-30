@@ -11,10 +11,12 @@ use std::marker::PhantomData;
 
 #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 use openssl::bn::BigNum;
-#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
+#[cfg(feature = "dnssec-openssl")]
 use openssl::bn::BigNumContext;
 #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
-use openssl::ec::{EcGroup, EcKey, EcPoint};
+use openssl::ec::{EcGroup, EcPoint};
+#[cfg(feature = "dnssec-openssl")]
+use openssl::ec::{EcKey, PointConversionForm};
 #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 use openssl::nid::Nid;
 #[cfg(feature = "dnssec-openssl")]
@@ -663,6 +665,21 @@ impl PublicKeyBuf {
         key_buf.extend_from_slice(&e);
         key_buf.extend_from_slice(&n);
         Self { key_buf }
+    }
+
+    /// Constructs a new [`PublicKeyBuf`] from an openssl [`EcKey`].
+    #[cfg(feature = "dnssec-openssl")]
+    pub fn from_ec<T: HasPublic>(ec_key: EcKey<T>) -> DnsSecResult<Self> {
+        let group = ec_key.group();
+        let point = ec_key.public_key();
+
+        let mut key_buf = BigNumContext::new().and_then(|mut ctx| {
+            point.to_bytes(group, PointConversionForm::UNCOMPRESSED, &mut ctx)
+        })?;
+
+        // Remove OpenSSL header byte
+        key_buf.remove(0);
+        Ok(Self { key_buf })
     }
 
     /// Extract the inner buffer of public key bytes.
