@@ -28,7 +28,7 @@ use clap::Parser;
 use openssl::pkey::PKey;
 use tracing::info;
 
-use hickory_proto::rr::dnssec::{KeyPair, Public};
+use hickory_proto::rr::dnssec::{Public, PublicKey, PublicKeyBuf};
 
 /// Cli struct for all options managed with clap derive api.
 #[derive(Debug, Parser)]
@@ -76,11 +76,7 @@ pub fn main() {
     });
 
     let pkey = read_pem(&mut key_file);
-    let key_pair = into_key_pair(pkey);
-
-    let public_key = key_pair
-        .to_public_bytes()
-        .expect("failed to convert to public key");
+    let pub_key = to_public_key_buf(pkey);
 
     let mut public_key_file = OpenOptions::new()
         .write(true)
@@ -89,19 +85,19 @@ pub fn main() {
         .expect("could not open public_key file for writing");
 
     public_key_file
-        .write_all(&public_key)
+        .write_all(pub_key.public_bytes())
         .expect("failed to write public_key to file");
 }
 
-fn into_key_pair(pkey: PKey<Public>) -> KeyPair<Public> {
+fn to_public_key_buf(pkey: PKey<Public>) -> PublicKeyBuf {
     let rsa = pkey.rsa();
     if let Ok(rsa) = rsa {
-        return KeyPair::from_rsa(rsa).expect("failed to convert to rsa");
+        return PublicKeyBuf::from_rsa(rsa);
     }
 
     let ec = pkey.ec_key();
     if let Ok(ec) = ec {
-        return KeyPair::from_ec_key(ec).expect("failed to convert to ec");
+        return PublicKeyBuf::from_ec(ec).expect("failed to convert to ec");
     }
 
     panic!("unsupported pkey");
@@ -135,10 +131,6 @@ mod test {
         let mut pem = File::open(path).unwrap();
 
         let pkey = read_pem(&mut pem);
-        let keypair = into_key_pair(pkey);
-
-        keypair
-            .to_public_bytes()
-            .expect("failed to get public bytes");
+        to_public_key_buf(pkey);
     }
 }
