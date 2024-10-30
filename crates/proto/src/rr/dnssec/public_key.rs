@@ -17,9 +17,11 @@ use openssl::bn::BigNumContext;
 use openssl::ec::{EcGroup, EcKey, EcPoint};
 #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 use openssl::nid::Nid;
+#[cfg(feature = "dnssec-openssl")]
+use openssl::pkey::HasPublic;
 #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 use openssl::pkey::{PKey, Public};
-#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
+#[cfg(feature = "dnssec-openssl")]
 use openssl::rsa::Rsa as OpenSslRsa;
 #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 use openssl::sign::Verifier;
@@ -641,6 +643,31 @@ impl PublicKeyBuf {
     /// Constructs a new PublicKey from the specified bytes, these should be in DNSKEY form.
     pub fn new(key_buf: Vec<u8>) -> Self {
         Self { key_buf }
+    }
+
+    /// Constructs a new [`PublicKeyBuf`] from an [`OpenSslRsa`] key.
+    #[cfg(feature = "dnssec-openssl")]
+    pub fn from_rsa<T: HasPublic>(key: OpenSslRsa<T>) -> Self {
+        let mut key_buf = Vec::new();
+
+        // this is to get us access to the exponent and the modulus
+        let e = key.e().to_vec();
+        let n = key.n().to_vec();
+
+        if e.len() > 255 {
+            key_buf.push(0);
+            key_buf.push((e.len() >> 8) as u8);
+        }
+
+        key_buf.push(e.len() as u8);
+        key_buf.extend_from_slice(&e);
+        key_buf.extend_from_slice(&n);
+        Self { key_buf }
+    }
+
+    /// Extract the inner buffer of public key bytes.
+    pub fn into_inner(self) -> Vec<u8> {
+        self.key_buf
     }
 }
 
