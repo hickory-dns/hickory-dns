@@ -76,7 +76,7 @@ async fn test_create() {
         Default::default(),
         Default::default(),
         Algorithm::RSASHA256,
-        key.to_public_bytes().unwrap(),
+        key.to_public_key().unwrap().into_inner(),
     );
 
     let signer = SigSigner::sig0(sig0key, key, Name::from_str("update.example.com").unwrap());

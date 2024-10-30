@@ -477,7 +477,7 @@ async fn test_nsec3_query_name_is_soa_name() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
     use hickory_proto::rr::dnssec::rdata::{DNSSECRData, KEY};
-    use hickory_proto::rr::dnssec::{Algorithm, KeyPair, SigSigner};
+    use hickory_proto::rr::dnssec::{Algorithm, KeyPair, PublicKey, SigSigner};
     use hickory_server::store::sqlite::SqliteAuthority;
     use openssl::rsa::Rsa;
 
@@ -488,6 +488,7 @@ async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
 
     let rsa = Rsa::generate(2_048).unwrap();
     let key = KeyPair::from_rsa(rsa, Algorithm::RSASHA256).unwrap();
+    let pub_key = key.to_public_key().unwrap();
 
     let signer = SigSigner::new(
         Algorithm::RSASHA256,
@@ -509,7 +510,7 @@ async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
             Default::default(),
             Default::default(),
             signer.algorithm(),
-            signer.key().to_public_bytes().expect("to_vec failed"),
+            pub_key.public_bytes().to_vec(),
         ))),
     );
     authority.upsert_mut(auth_key, 0);
