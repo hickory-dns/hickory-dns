@@ -106,26 +106,11 @@ impl<K: HasPublic> KeyPair<K> {
             // see from_vec() RSA sections for reference
             #[cfg(feature = "dnssec-openssl")]
             Self::RSA(pkey) => {
-                let mut bytes: Vec<u8> = Vec::new();
                 // TODO: make these expects a try! and Err()
-                let rsa: OpenSslRsa<K> = pkey
+                let rsa = pkey
                     .rsa()
                     .expect("pkey should have been initialized with RSA");
-
-                // this is to get us access to the exponent and the modulus
-                let e: Vec<u8> = rsa.e().to_vec();
-                let n: Vec<u8> = rsa.n().to_vec();
-
-                if e.len() > 255 {
-                    bytes.push(0);
-                    bytes.push((e.len() >> 8) as u8);
-                }
-
-                bytes.push(e.len() as u8);
-                bytes.extend_from_slice(&e);
-                bytes.extend_from_slice(&n);
-
-                Ok(bytes)
+                Ok(PublicKeyBuf::from_rsa(rsa).into_inner())
             }
             // see from_vec() ECDSA sections for reference
             #[cfg(feature = "dnssec-openssl")]
