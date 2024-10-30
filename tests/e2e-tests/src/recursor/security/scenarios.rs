@@ -40,7 +40,7 @@ fn tx_id_validation_test() -> Result<()> {
     let _leaf_ns = leaf_ns.start()?;
 
     thread::sleep(Duration::from_secs(2));
-    let a_settings = *DigSettings::default().recurse().authentic_data();
+    let a_settings = *DigSettings::default().recurse();
     let res = client.dig(
         a_settings,
         resolver.ipv4_addr(),
