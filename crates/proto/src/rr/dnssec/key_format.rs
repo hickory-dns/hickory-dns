@@ -66,7 +66,7 @@ impl KeyFormat {
                     }
                 };
 
-                Ok(KeyPair::from_rsa(key)
+                Ok(KeyPair::from_rsa(key, algorithm)
                     .map_err(|e| format!("could not translate RSA to KeyPair: {e}"))?)
             }
             Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => match self {
@@ -75,7 +75,7 @@ impl KeyFormat {
                     let key = EcKey::private_key_from_der(bytes)
                         .map_err(|e| format!("error reading EC as DER: {e}"))?;
 
-                    Ok(KeyPair::from_ec_key(key)
+                    Ok(KeyPair::from_ec_key(key, algorithm)
                         .map_err(|e| format!("could not translate RSA to KeyPair: {e}"))?)
                 }
                 #[cfg(feature = "dnssec-openssl")]
@@ -83,7 +83,7 @@ impl KeyFormat {
                     let key = EcKey::private_key_from_pem_passphrase(bytes, password)
                         .map_err(|e| format!("could not decode EC from PEM, bad password?: {e}"))?;
 
-                    Ok(KeyPair::from_ec_key(key)
+                    Ok(KeyPair::from_ec_key(key, algorithm)
                         .map_err(|e| format!("could not translate RSA to KeyPair: {e}"))?)
                 }
                 #[cfg(feature = "dnssec-ring")]
@@ -134,7 +134,7 @@ impl KeyFormat {
 
         // generate the key
         #[allow(unused, deprecated)]
-        let key_pair: KeyPair<Private> = match algorithm {
+        let key_pair = match algorithm {
             Algorithm::Unknown(v) => return Err(format!("unknown algorithm: {v}").into()),
             #[cfg(feature = "dnssec-openssl")]
             e @ Algorithm::RSASHA1 | e @ Algorithm::RSASHA1NSEC3SHA1 => {
@@ -162,7 +162,7 @@ impl KeyFormat {
         #[allow(unreachable_code)]
         match key_pair {
             #[cfg(feature = "dnssec-openssl")]
-            KeyPair::EC(pkey) | KeyPair::RSA(pkey) => {
+            KeyPair::EC(pkey, _) | KeyPair::RSA(pkey, _) => {
                 match self {
                     Self::Der => {
                         // to avoid accidentally storing a key where there was an expectation that it was password protected
@@ -220,7 +220,7 @@ impl KeyFormat {
 
         match key_pair {
             #[cfg(feature = "dnssec-openssl")]
-            KeyPair::EC(pkey) | KeyPair::RSA(pkey) => {
+            KeyPair::EC(pkey, _) | KeyPair::RSA(pkey, _) => {
                 match self {
                     Self::Der => {
                         // to avoid accidentally storing a key where there was an expectation that it was password protected

@@ -487,7 +487,7 @@ async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
     let origin = authority.origin().clone();
 
     let rsa = Rsa::generate(2_048).unwrap();
-    let key = KeyPair::from_rsa(rsa).unwrap();
+    let key = KeyPair::from_rsa(rsa, Algorithm::RSASHA256).unwrap();
 
     let signer = SigSigner::new(
         Algorithm::RSASHA256,
