@@ -9,7 +9,6 @@ use dns_test::record::{Record, RecordType};
 use dns_test::{Network, Resolver, Result, FQDN};
 
 #[test]
-#[ignore = "hickory-dns times out `dig`"]
 fn v4_this_host() -> Result<()> {
     if dns_test::SUBJECT.is_unbound() {
         // unbound does not answer and `dig` times out
@@ -26,7 +25,6 @@ fn v4_this_host() -> Result<()> {
 
 // as per RFC5737, `198.51.100.0/24` is an IANA reserved subnet that SHOULD not be used
 #[test]
-#[ignore = "hickory-dns answers with NOERROR"]
 fn v4_doc() -> Result<()> {
     let output = fixture("v4-doc", Ipv4Addr::new(198, 51, 100, 0))?;
     dbg!(&output);
@@ -37,7 +35,6 @@ fn v4_doc() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory-dns answers with NOERROR"]
 fn v4_reserved() -> Result<()> {
     let output = fixture("v4-reserved", Ipv4Addr::new(240, 0, 0, 0))?;
     dbg!(&output);
@@ -48,7 +45,6 @@ fn v4_reserved() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory-dns answers with NOERROR"]
 fn v4_link_local() -> Result<()> {
     let output = fixture("v4-link-local", Ipv4Addr::new(169, 254, 0, 1))?;
 
@@ -58,7 +54,6 @@ fn v4_link_local() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory-dns answers with NOERROR"]
 fn v4_loopback() -> Result<()> {
     let output = fixture("v4-loopback", Ipv4Addr::LOCALHOST)?;
     dbg!(&output);
@@ -69,7 +64,6 @@ fn v4_loopback() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory-dns answers with NOERROR"]
 fn v4_private_10() -> Result<()> {
     let output = fixture("v4-private-10", Ipv4Addr::new(10, 0, 0, 1))?;
     dbg!(&output);
@@ -80,7 +74,6 @@ fn v4_private_10() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory-dns answers with NOERROR"]
 fn v4_private_172() -> Result<()> {
     let output = fixture("v4-private-172", Ipv4Addr::new(172, 16, 0, 1))?;
     dbg!(&output);
@@ -91,7 +84,6 @@ fn v4_private_172() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory-dns answers with NOERROR"]
 fn v4_private_192() -> Result<()> {
     let output = fixture("v4-private-192", Ipv4Addr::new(192, 168, 0, 1))?;
     dbg!(&output);
