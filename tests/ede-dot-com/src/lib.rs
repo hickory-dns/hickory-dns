@@ -341,7 +341,6 @@ fn v6_unique_local() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn v6_unspecified() -> Result<()> {
     compare("v6-unspecified").map(drop)
 }
