@@ -194,7 +194,7 @@ conformance-ignored:
     tmpfile="$(mktemp)"
     bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes will NOT be tested" || true'
     ( DNS_TEST_VERBOSE_DOCKER_BUILD=1 DNS_TEST_PEER=unbound DNS_TEST_SUBJECT="hickory {{justfile_directory()}}" cargo test --manifest-path conformance/Cargo.toml -p conformance-tests -- --ignored || true ) | tee "$tmpfile"
-    grep 'test result: FAILED. 0 passed' "$tmpfile" || ( echo "expected ALL tests to fail but at least one passed; the passing tests must be un-#[ignore]-d" && exit 1 )
+    grep -e 'test result: \(ok\|FAILED\). 0 passed' "$tmpfile" || ( echo "expected ALL tests to fail but at least one passed; the passing tests must be un-#[ignore]-d" && exit 1 )
     bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes were NOT tested" || true'
 
 # lints the conformance test suite
@@ -234,7 +234,7 @@ e2e-tests-ignored:
     tmpfile="$(mktemp)"
     bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes will NOT be tested" || true'
     ( DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo test --manifest-path tests/e2e-tests/Cargo.toml -- --ignored || true ) | tee "$tmpfile"
-    grep 'test result: FAILED. 0 passed' "$tmpfile" || ( echo "expected ALL tests to fail but at least one passed; the passing tests must be un-#[ignore]-d" && exit 1 )
+    grep -e 'test result: \(ok\|FAILED\). 0 passed' "$tmpfile" || ( echo "expected ALL tests to fail but at least one passed; the passing tests must be un-#[ignore]-d" && exit 1 )
     bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes were NOT tested" || true'
 
 # lints the end-to-end test suite
@@ -263,7 +263,7 @@ ede-dot-com-ignored:
     tmpfile="$(mktemp)"
     bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes will NOT be tested" || true'
     ( DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo test --manifest-path tests/ede-dot-com/Cargo.toml -- --ignored || true ) | tee "$tmpfile"
-    grep 'test result: FAILED. 0 passed' "$tmpfile" || ( echo "expected ALL tests to fail but at least one passed; the passing tests must be un-#[ignore]-d" && exit 1 )
+    grep -e 'test result: \(ok\|FAILED\). 0 passed' "$tmpfile" || ( echo "expected ALL tests to fail but at least one passed; the passing tests must be un-#[ignore]-d" && exit 1 )
     bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes were NOT tested" || true'
 
 # checks the ede-dot-com workspace
