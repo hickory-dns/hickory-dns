@@ -208,10 +208,13 @@ fn find_covering_record<'a>(
     // it and save on repeated base32 encodings.
     target_base32_hashed_name: &str,
 ) -> Option<&'a Nsec3RecordPair<'a>> {
-    nsec3s.iter().find(|record| {
-        record.base32_hashed_name < target_base32_hashed_name.as_bytes()
-            && target_hashed_name < record.nsec3_data.next_hashed_owner_name()
-    })
+    nsec3s
+        .iter()
+        .find(|record| {
+            record.base32_hashed_name < target_base32_hashed_name.as_bytes()
+                && target_hashed_name < record.nsec3_data.next_hashed_owner_name()
+        })
+        .or_else(|| nsec3s.iter().max_by_key(|record| record.base32_hashed_name))
 }
 
 /// There is no such `query_name` in the zone and there's no wildcard that
