@@ -23,6 +23,7 @@ use super::{DNSSECRData, DNSKEY};
 /// RRSIG is really a derivation of the original SIG record data. See SIG for more documentation
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct CDNSKEY(DNSKEY);
 
 impl Deref for CDNSKEY {

@@ -77,6 +77,7 @@ macro_rules! name_rdata {
         #[doc = stringify!(new type for the RecordData of $name)]
         #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
         #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+        #[cfg_attr(feature = "serde", serde(transparent))]
         pub struct $name(pub Name);
 
         impl BinEncodable for $name {

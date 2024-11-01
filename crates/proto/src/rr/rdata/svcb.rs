@@ -567,6 +567,7 @@ impl fmt::Display for SvcParamValue {
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[cfg_attr(feature = "serde", serde(transparent))]
 #[repr(transparent)]
 pub struct Mandatory(pub Vec<SvcParamKey>);
 
@@ -743,6 +744,7 @@ impl fmt::Display for Mandatory {
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[cfg_attr(feature = "serde", serde(transparent))]
 #[repr(transparent)]
 pub struct Alpn(pub Vec<String>);
 
@@ -926,6 +928,7 @@ impl fmt::Debug for EchConfigList {
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[cfg_attr(feature = "serde", serde(transparent))]
 #[repr(transparent)]
 pub struct IpHint<T>(pub Vec<T>);
 
