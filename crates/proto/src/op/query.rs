@@ -19,6 +19,9 @@
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
+#[cfg(feature = "serde")]
+use serde::{ Deserialize, Serialize };
+
 use crate::error::*;
 use crate::rr::dns_class::DNSClass;
 use crate::rr::domain::Name;
@@ -58,6 +61,7 @@ const MDNS_UNICAST_RESPONSE: u16 = 1 << 15;
 ///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 ///
 /// ```
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Query {
     name: Name,

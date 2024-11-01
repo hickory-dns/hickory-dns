@@ -9,6 +9,9 @@
 
 use std::{convert::From, fmt};
 
+#[cfg(feature = "serde")]
+use serde::{ Deserialize, Serialize };
+
 use crate::error::*;
 
 /// Operation code for queries, updates, and responses
@@ -28,6 +31,7 @@ use crate::error::*;
 ///
 ///                 3-15            reserved for future use
 /// ```
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, PartialOrd, Copy, Clone, Hash)]
 #[allow(dead_code)]
 pub enum OpCode {

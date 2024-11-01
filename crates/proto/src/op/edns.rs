@@ -9,6 +9,9 @@
 
 use std::fmt;
 
+#[cfg(feature = "serde")]
+use serde::{ Deserialize, Serialize };
+
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::{Algorithm, SupportedAlgorithms};
 use crate::{
@@ -25,6 +28,7 @@ use crate::{
 
 /// Edns implements the higher level concepts for working with extended dns as it is used to create or be
 /// created from OPT record data.
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Edns {
     // high 8 bits that make up the 12 bit total field when included with the 4bit rcode from the

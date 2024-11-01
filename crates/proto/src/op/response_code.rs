@@ -21,6 +21,9 @@
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
+#[cfg(feature = "serde")]
+use serde::{ Deserialize, Serialize };
+
 /// The status code of the response to a query.
 ///
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
@@ -60,6 +63,7 @@ use std::fmt::{Display, Formatter};
 ///                 6-15            Reserved for future use.
 ///  ```
 #[derive(Debug, Eq, PartialEq, PartialOrd, Copy, Clone, Hash)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[allow(dead_code)]
 pub enum ResponseCode {
     /// No Error [RFC 1035](https://tools.ietf.org/html/rfc1035)
