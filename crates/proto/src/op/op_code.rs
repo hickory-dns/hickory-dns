@@ -10,7 +10,7 @@
 use std::{convert::From, fmt};
 
 #[cfg(feature = "serde")]
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
 
 use crate::error::*;
 

@@ -20,7 +20,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 
 #[cfg(feature = "serde")]
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
 
 use crate::error::*;
 use crate::rr::dns_class::DNSClass;

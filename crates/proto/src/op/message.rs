@@ -12,7 +12,7 @@ use std::{fmt, iter, mem, ops::Deref};
 use tracing::{debug, warn};
 
 #[cfg(feature = "serde")]
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
 
 use crate::{
     error::*,
