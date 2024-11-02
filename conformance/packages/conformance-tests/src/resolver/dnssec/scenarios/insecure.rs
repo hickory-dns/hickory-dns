@@ -14,13 +14,11 @@ mod deprecated_algorithm;
 // a validating resolver should not respond with SERVFAIL to queries about the unsigned zone because
 // the security status of the whole zone is "Insecure", not "Bogus"
 #[test]
-#[ignore]
 fn unsigned_zone_nsec3() -> Result<()> {
     unsigned_zone_fixture(Nsec::_3 { opt_out: false, salt: None })
 }
 
 #[test]
-#[ignore]
 fn unsigned_zone_nsec() -> Result<()> {
     unsigned_zone_fixture(Nsec::_1)
 }
@@ -40,9 +38,6 @@ fn unsigned_zone_fixture(nsec: Nsec) -> Result<()> {
     let mut tld_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_TLD, &network)?;
     let mut root_ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, &network)?;
 
-    sibling_ns.add(root_ns.a());
-    sibling_ns.add(tld_ns.a());
-    sibling_ns.add(unsigned_ns.a());
     sibling_ns.add(sibling_ns.a());
 
     root_ns.referral_nameserver(&tld_ns);
@@ -79,12 +74,8 @@ fn unsigned_zone_fixture(nsec: Nsec) -> Result<()> {
     for zone in [FQDN::ROOT, FQDN::TEST_TLD, FQDN::TEST_DOMAIN] {
         let output = client.dig(settings, resolver.ipv4_addr(), RecordType::SOA, &zone)?;
 
-        // XXX unclear why BIND & hickory fail this sanity check but that doesn't affect the
-        // main assertion below
-        if zone != FQDN::TEST_DOMAIN || dns_test::SUBJECT.is_unbound() {
-            assert!(output.status.is_noerror());
-            assert!(output.flags.authenticated_data);
-        }
+        assert!(output.status.is_noerror());
+        assert!(output.flags.authenticated_data);
     }
 
     let settings = *DigSettings::default().recurse();
@@ -103,7 +94,6 @@ fn unsigned_zone_fixture(nsec: Nsec) -> Result<()> {
 // `no-ds.testing./DS` (which is why we cannot use `Graph::build` + `Sign::AndAmend` to produce
 // this network)
 #[test]
-#[ignore = "hickory-dns responds with SERVFAIL"]
 fn no_ds_record() -> Result<()> {
     let sign_settings = SignSettings::default();
 
