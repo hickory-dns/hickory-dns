@@ -5,6 +5,7 @@ FROM debian:bookworm-slim
 RUN apt-get update && \
     apt-get install -y \
         ldnsutils \
+        bind9-utils \
         nsd \
         tshark \
         curl \

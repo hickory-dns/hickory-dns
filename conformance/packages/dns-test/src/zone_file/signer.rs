@@ -27,6 +27,7 @@ pub struct SignSettings {
     expiration: Option<u64>,
     inception: Option<u64>,
     nsec: Nsec,
+    implementation: Implementation,
 }
 
 impl SignSettings {
@@ -38,6 +39,7 @@ impl SignSettings {
             expiration: None,
             inception: None,
             nsec: Nsec::default(),
+            implementation: Implementation::default(),
         }
     }
 
@@ -49,6 +51,7 @@ impl SignSettings {
             expiration: None,
             inception: None,
             nsec: Nsec::default(),
+            implementation: Implementation::default(),
         }
     }
 
@@ -60,6 +63,23 @@ impl SignSettings {
             expiration: None,
             inception: None,
             nsec: Nsec::default(),
+            implementation: Implementation::default(),
+        }
+    }
+
+    pub fn rsasha256_nsec3_optout() -> Self {
+        Self {
+            algorithm: Algorithm::RSASHA256,
+            // 2048-bit SHA256 matches `$ dig DNSKEY .` in length
+            zsk_bits: 2_048,
+            ksk_bits: 2_048,
+            expiration: None,
+            inception: None,
+            nsec: Nsec::_3 {
+                salt: None,
+                opt_out: true,
+            },
+            implementation: Implementation::Bindutils,
         }
     }
 
@@ -72,6 +92,7 @@ impl SignSettings {
             expiration: None,
             inception: None,
             nsec: Nsec::default(),
+            implementation: Implementation::default(),
         }
     }
 
@@ -109,12 +130,15 @@ impl Default for SignSettings {
 #[derive(Clone)]
 pub enum Nsec {
     _1,
-    _3 { salt: Option<String> },
+    _3 { opt_out: bool, salt: Option<String> },
 }
 
 impl Default for Nsec {
     fn default() -> Self {
-        Self::_3 { salt: None }
+        Self::_3 {
+            opt_out: false,
+            salt: None,
+        }
     }
 }
 
@@ -132,6 +156,13 @@ impl fmt::Display for Algorithm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self, f)
     }
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+enum Implementation {
+    #[default]
+    Ldns,
+    Bindutils,
 }
 
 /// Generates the command string to generate ZSK using `ldns-keygen`
@@ -185,7 +216,7 @@ impl<'a> Signer<'a> {
         let (zsk, zsk_filename) = self.gen_zsk_key(zone)?;
         let (ksk, ksk_filename) = self.gen_ksk_key(zone, zsk.rdata.calculate_key_tag())?;
 
-        let signzone_cmd = self.sign_zone_cmd([zsk_filename, ksk_filename].iter().cloned());
+        let signzone_cmd = self.sign_zone_cmd(zone, [zsk_filename, ksk_filename].iter().cloned());
         let signzone = format!("cd {ZONES_DIR} && {}", signzone_cmd);
         self.container.status_ok(&["sh", "-c", &signzone])?;
 
@@ -248,31 +279,81 @@ impl<'a> Signer<'a> {
         Ok((signed_key, key_filename))
     }
 
-    fn sign_zone_cmd<T>(&self, keys: T) -> String
+    fn sign_zone_cmd<T>(&self, zone: &FQDN, keys: T) -> String
     where
         T: Iterator<Item = String>,
     {
-        let mut args = vec![String::from("ldns-signzone"), "-A".to_string()];
+        match self.settings.implementation {
+            Implementation::Ldns => {
+                let mut args = vec![String::from("ldns-signzone"), "-A".to_string()];
 
-        if let Some(expiration) = self.settings.expiration {
-            args.push(format!("-e {}", expiration));
-        }
-        if let Some(inception) = self.settings.inception {
-            args.push(format!("-i {}", inception));
-        }
+                if let Some(expiration) = self.settings.expiration {
+                    args.push(format!("-e {}", expiration));
+                }
+                if let Some(inception) = self.settings.inception {
+                    args.push(format!("-i {}", inception));
+                }
 
-        // NSEC3 related options
-        // -n = use NSEC3 instead of NSEC
-        if let Nsec::_3 { salt } = &self.settings.nsec {
-            args.push("-n".to_string());
+                // NSEC3 related options
+                // -n = use NSEC3 instead of NSEC
+                if let Nsec::_3 { salt, opt_out } = &self.settings.nsec {
+                    args.push("-n".to_string());
 
-            if let Some(salt) = salt {
-                args.push(format!("-s {}", salt));
+                    if *opt_out {
+                        args.push("-p".to_string());
+                    }
+
+                    if let Some(salt) = salt {
+                        args.push(format!("-s {}", salt));
+                    }
+                }
+                args.push(ZONE_FILENAME.to_string());
+
+                args.extend(keys);
+                args.join(" ")
+            }
+            Implementation::Bindutils => {
+                let mut args = vec!["dnssec-signzone".to_string()];
+
+                // This will include record names for all records and use compact record
+                // formats, which the dns-test record parsing code needs.
+                args.push("-O full".to_string());
+
+                if let Some(expiration) = self.settings.expiration {
+                    args.push(format!("-e {}", expiration));
+                }
+                if let Some(inception) = self.settings.inception {
+                    args.push(format!("-s {}", inception));
+                }
+
+                // Set -3 for NSEC3, optionally followed by a salt.
+                // -A sets opt-out
+                if let Nsec::_3 { salt, opt_out } = &self.settings.nsec {
+                    args.push("-3".to_string());
+
+                    if let Some(salt) = salt {
+                        args.push(salt.to_string());
+                    } else {
+                        // Set no salt, or else dnssec-signzone will interepret the next
+                        // argument as a salt.
+                        args.push("''".to_string());
+                    }
+
+                    if *opt_out {
+                        args.push("-A".to_string());
+                    }
+                }
+
+                // We must pass dnssec-signzone the origin of the zone, and specify
+                // -S to include the DNSKEY records for the keys passed in on the CLI.
+                args.push(format!("-o {zone}"));
+                args.push("-S".to_string());
+
+                args.push(ZONE_FILENAME.to_string());
+
+                args.extend(keys);
+                args.join(" ")
             }
         }
-        args.push(ZONE_FILENAME.to_string());
-
-        args.extend(keys);
-        args.join(" ")
     }
 }

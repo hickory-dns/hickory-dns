@@ -16,7 +16,7 @@ mod deprecated_algorithm;
 #[test]
 #[ignore]
 fn unsigned_zone_nsec3() -> Result<()> {
-    unsigned_zone_fixture(Nsec::_3 { salt: None })
+    unsigned_zone_fixture(Nsec::_3 { opt_out: false, salt: None })
 }
 
 #[test]
