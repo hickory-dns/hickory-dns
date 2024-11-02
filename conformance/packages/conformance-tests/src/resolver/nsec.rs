@@ -12,7 +12,10 @@ use dns_test::{
 
 #[test]
 fn zone_exist_domain_does_not_nsec3() -> Result<()> {
-    zone_exist_domain_does_not(Nsec::_3 { salt: None })
+    zone_exist_domain_does_not(Nsec::_3 {
+        opt_out: false,
+        salt: None,
+    })
 }
 
 #[test]
@@ -22,7 +25,10 @@ fn zone_exist_domain_does_not_nsec() -> Result<()> {
 
 #[test]
 fn zone_does_not_exist_nsec3() -> Result<()> {
-    zone_does_not_exist(Nsec::_3 { salt: None })
+    zone_does_not_exist(Nsec::_3 {
+        opt_out: false,
+        salt: None,
+    })
 }
 
 #[test]
@@ -32,7 +38,10 @@ fn zone_does_not_exist_nsec() -> Result<()> {
 
 #[test]
 fn domain_exists_record_type_does_not_nsec3() -> Result<()> {
-    domain_exists_record_type_does_not(Nsec::_3 { salt: None })
+    domain_exists_record_type_does_not(Nsec::_3 {
+        opt_out: false,
+        salt: None,
+    })
 }
 
 #[test]
