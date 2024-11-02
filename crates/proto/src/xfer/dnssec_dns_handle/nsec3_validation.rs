@@ -484,8 +484,9 @@ fn closest_encloser_proof<'a>(
 /// This function addresses three situations:
 ///
 /// Case 2. Name exists but there's no record of this type
-/// Case 3. Name is serviced by wildcard that has a record of this type
-/// Case 4. Name is serviced by wildcard that doesn't have a record of this type
+/// Case 3. Opt-out proof for Name exists
+/// Case 4. Name is serviced by wildcard that has a record of this type
+/// Case 5. Name is serviced by wildcard that doesn't have a record of this type
 fn validate_nodata_response(
     query_name: &Name,
     soa_name: &Name,
@@ -494,8 +495,9 @@ fn validate_nodata_response(
     nsec3s: &[Nsec3RecordPair<'_>],
 ) -> Proof {
     // 2. Name exists but there's no record of this type
-    // 3. Name is serviced by wildcard that has a record of this type
-    // 4. Name is serviced by wildcard that doesn't have a record of this type
+    // 3. Opt-out proof for Name exists
+    // 4. Name is serviced by wildcard that has a record of this type
+    // 5. Name is serviced by wildcard that doesn't have a record of this type
 
     debug_assert!(!nsec3s.is_empty());
     let salt = nsec3s[0].nsec3_data.salt();
@@ -504,26 +506,113 @@ fn validate_nodata_response(
     let hashed_query_name = nsec3hash(query_name, salt, iterations);
     let base32_hashed_query_name = data_encoding::BASE32_DNSSEC.encode(&hashed_query_name);
 
+    // DS queries resulting in NoData responses with accompanying NSEC3 records can prove that an
+    // insecure delegation exists; this is used to return Proof::Insecure instead of Proof::Secure
+    // in those situations.
+    let ds_proof_override = match query_type {
+        RecordType::DS => Proof::Insecure,
+        _ => Proof::Secure,
+    };
+
     let query_name_record = nsec3s
         .iter()
         .find(|record| record.base32_hashed_name == base32_hashed_query_name.as_bytes());
 
     // Case 2:
     // Name exists but there's no record of this type
+    //
+    // RFC 5155 § 8.5 et seq.
+    //
+    //   8.5.  Validating No Data Responses, QTYPE is not DS
+    //
+    //   The validator MUST verify that an NSEC3 RR that matches QNAME is
+    //   present and that both the QTYPE and the CNAME type are not set in its
+    //   Type Bit Maps field.
+    //
+    //   Note that this test also covers the case where the NSEC3 RR exists
+    //   because it corresponds to an empty non-terminal, in which case the
+    //   NSEC3 RR will have an empty Type Bit Maps field.
+    //
+    //   8.6.  Validating No Data Responses, QTYPE is DS
+    //
+    //   If there is an NSEC3 RR that matches QNAME present in the response,
+    //   then that NSEC3 RR MUST NOT have the bits corresponding to DS and
+    //   CNAME set in its Type Bit Maps field.
+    //
+    //   If there is no such NSEC3 RR, then the validator MUST verify that a
+    //   closest provable encloser proof for QNAME is present in the response,
+    //   and that the NSEC3 RR that covers the "next closer" name has the Opt-
+    //   Out bit set.
     if let Some(query_record) = query_name_record {
         if query_record
             .nsec3_data
             .type_bit_maps()
             .contains(&query_type)
+            || query_record
+                .nsec3_data
+                .type_bit_maps()
+                .contains(&RecordType::CNAME)
         {
             return Proof::Bogus;
         } else {
-            return Proof::Secure;
+            return ds_proof_override;
         }
     }
 
+    // Case 3:
+    // Query type is DS, records for name exist, but there are no DS records (opt-out proof)
+    //
+    // RFC 5155 § 6
+    //
+    //   In this specification, as in [RFC4033], [RFC4034] and [RFC4035], NS
+    //   RRSets at delegation points are not signed and may be accompanied by
+    //   a DS RRSet.  With the Opt-Out bit clear, the security status of the
+    //   child zone is determined by the presence or absence of this DS RRSet,
+    //   cryptographically proven by the signed NSEC3 RR at the hashed owner
+    //   name of the delegation.  Setting the Opt-Out flag modifies this by
+    //   allowing insecure delegations to exist within the signed zone without
+    //   a corresponding NSEC3 RR at the hashed owner name of the delegation.
+    //
+    //   An Opt-Out NSEC3 RR is said to cover a delegation if the hash of the
+    //   owner name or "next closer" name of the delegation is between the
+    //   owner name of the NSEC3 RR and the next hashed owner name.
+    //
+    //   An Opt-Out NSEC3 RR does not assert the existence or non-existence of
+    //   the insecure delegations that it may cover.  This allows for the
+    //   addition or removal of these delegations without recalculating or re-
+    //   signing RRs in the NSEC3 RR chain.  However, Opt-Out NSEC3 RRs do
+    //   assert the (non)existence of other, authoritative RRSets.
+    //
+    //   An Opt-Out NSEC3 RR MAY have the same original owner name as an
+    //   insecure delegation.  In this case, the delegation is proven insecure
+    //   by the lack of a DS bit in the type map and the signed NSEC3 RR does
+    //   assert the existence of the delegation.
+    //
+    //   Zones using Opt-Out MAY contain a mixture of Opt-Out NSEC3 RRs and
+    //   non-Opt-Out NSEC3 RRs.  If an NSEC3 RR is not Opt-Out, there MUST NOT
+    //   be any hashed owner names of insecure delegations (nor any other RRs)
+    //   between it and the name indicated by the next hashed owner name in
+    //   the NSEC3 RDATA.  If it is Opt-Out, it MUST only cover hashed owner
+    //   names or hashed "next closer" names of insecure delegations.
+    //
+    //   The effects of the Opt-Out flag on signing, serving, and validating
+    //   responses are covered in following sections.
+    //
+    // *Note*: the case of an opt-out NSEC3 record having the same original owner
+    // name as the hashed query name and not having the DS bit set in the type flags
+    // is covered here by case 2.
+    if query_type == RecordType::DS
+        && find_covering_record(nsec3s, &hashed_query_name, &base32_hashed_query_name[..])
+            .iter()
+            .all(|x| {
+                x.nsec3_data.type_bit_maps().contains(&RecordType::DS) && x.nsec3_data.opt_out()
+            })
+    {
+        return Proof::Insecure;
+    }
+
     match wildcard_encloser_num_labels {
-        // Case 3:
+        // Case 4:
         // Name is serviced by wildcard that has a record of this type
         Some(wildcard_encloser_num_labels) => {
             if query_name.num_labels() <= wildcard_encloser_num_labels {
@@ -547,12 +636,12 @@ fn validate_nodata_response(
                 &next_closer_base32_hashed_name,
             );
             match next_closer_record {
-                Some(_) => Proof::Secure,
+                Some(_) => ds_proof_override,
                 None => Proof::Bogus,
             }
         }
 
-        // Case 4:
+        // Case 5:
         // Name is serviced by wildcard that doesn't have a record of this type
         None => {
             let ClosestEncloserProofInfo {
@@ -561,9 +650,9 @@ fn validate_nodata_response(
                 closest_encloser_wildcard,
             } = wildcard_based_encloser_proof(query_name, soa_name, nsec3s);
             match (closest_encloser, next_closer, closest_encloser_wildcard) {
-                (Some(_), Some(_), Some(_)) => Proof::Secure,
-                (None, Some(_), Some(_)) if &query_name.base_name() == soa_name => Proof::Secure,
-                (None, None, None) if query_name == soa_name => Proof::Secure,
+                (Some(_), Some(_), Some(_)) => ds_proof_override,
+                (None, Some(_), Some(_)) if &query_name.base_name() == soa_name => ds_proof_override,
+                (None, None, None) if query_name == soa_name => ds_proof_override,
                 _ => Proof::Bogus,
             }
         }
