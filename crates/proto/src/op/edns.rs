@@ -10,7 +10,7 @@
 use std::fmt;
 
 #[cfg(feature = "serde")]
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::{Algorithm, SupportedAlgorithms};

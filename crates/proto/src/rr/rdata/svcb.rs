@@ -438,7 +438,7 @@ impl SvcParamValue {
     fn read(key: SvcParamKey, decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
         let len: usize = decoder
             .read_u16()?
-            .verify_unwrap(|len| *len as usize <= decoder.len())
+            .verify_unwrap(|len| (*len as usize) <= decoder.len())
             .map(|len| len as usize)
             .map_err(|u| {
                 ProtoError::from(format!(
@@ -448,7 +448,9 @@ impl SvcParamValue {
                 ))
             })?;
 
-        let param_data = decoder.read_slice(len)?.unverified(/*verification to be done by individual param types*/);
+        let param_data = decoder
+            .read_slice(len)?
+            .unverified(/*verification to be done by individual param types*/);
         let mut decoder = BinDecoder::new(param_data);
 
         let value = match key {
@@ -609,7 +611,7 @@ impl BinEncodable for Mandatory {
 
         // TODO: order by key value
         for key in self.0.iter() {
-            key.emit(encoder)?
+            key.emit(encoder)?;
         }
 
         Ok(())
@@ -788,7 +790,7 @@ impl BinEncodable for Alpn {
         }
 
         for alpn in self.0.iter() {
-            encoder.emit_character_data(alpn)?
+            encoder.emit_character_data(alpn)?;
         }
 
         Ok(())
@@ -826,6 +828,7 @@ impl fmt::Display for Alpn {
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(PartialEq, Eq, Hash, Clone)]
+#[cfg_attr(feature = "serde", serde(transparent))]
 #[repr(transparent)]
 pub struct EchConfigList(pub Vec<u8>);
 
@@ -836,8 +839,9 @@ impl<'r> BinDecodable<'r> for EchConfigList {
     /// Base 64 is used here to simplify integration with TLS server software.
     /// To enable simpler parsing, this SvcParam MUST NOT contain escape sequences.
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
-        let data =
-            decoder.read_vec(decoder.len())?.unverified(/*up to consumer to validate this data*/);
+        let data = decoder
+            .read_vec(decoder.len())?
+            .unverified(/*up to consumer to validate this data*/);
 
         Ok(Self(data))
     }
@@ -945,7 +949,7 @@ where
         let mut ips = Vec::new();
 
         while decoder.peek().is_some() {
-            ips.push(T::read(decoder)?)
+            ips.push(T::read(decoder)?);
         }
 
         Ok(Self(ips))
@@ -1004,6 +1008,7 @@ where
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[cfg_attr(feature = "serde", serde(transparent))]
 #[repr(transparent)]
 pub struct Unknown(pub Vec<u8>);
 
@@ -1164,11 +1169,11 @@ impl fmt::Display for SVCB {
             f,
             "{svc_priority} {target_name}",
             svc_priority = self.svc_priority,
-            target_name = self.target_name,
+            target_name = self.target_name
         )?;
 
         for (key, param) in self.svc_params.iter() {
-            write!(f, " {key}={param}")?
+            write!(f, " {key}={param}")?;
         }
 
         Ok(())
@@ -1181,17 +1186,17 @@ mod tests {
 
     #[test]
     fn read_svcb_key() {
-        assert_eq!(SvcParamKey::Mandatory, 0.into());
-        assert_eq!(SvcParamKey::Alpn, 1.into());
-        assert_eq!(SvcParamKey::NoDefaultAlpn, 2.into());
-        assert_eq!(SvcParamKey::Port, 3.into());
-        assert_eq!(SvcParamKey::Ipv4Hint, 4.into());
-        assert_eq!(SvcParamKey::EchConfigList, 5.into());
-        assert_eq!(SvcParamKey::Ipv6Hint, 6.into());
-        assert_eq!(SvcParamKey::Key(65280), 65280.into());
-        assert_eq!(SvcParamKey::Key(65534), 65534.into());
-        assert_eq!(SvcParamKey::Key65535, 65535.into());
-        assert_eq!(SvcParamKey::Unknown(65279), 65279.into());
+        assert_eq!(SvcParamKey::Mandatory, (0).into());
+        assert_eq!(SvcParamKey::Alpn, (1).into());
+        assert_eq!(SvcParamKey::NoDefaultAlpn, (2).into());
+        assert_eq!(SvcParamKey::Port, (3).into());
+        assert_eq!(SvcParamKey::Ipv4Hint, (4).into());
+        assert_eq!(SvcParamKey::EchConfigList, (5).into());
+        assert_eq!(SvcParamKey::Ipv6Hint, (6).into());
+        assert_eq!(SvcParamKey::Key(65280), (65280).into());
+        assert_eq!(SvcParamKey::Key(65534), (65534).into());
+        assert_eq!(SvcParamKey::Key65535, (65535).into());
+        assert_eq!(SvcParamKey::Unknown(65279), (65279).into());
     }
 
     #[test]
