@@ -32,8 +32,7 @@ pub struct Edns {
     rcode_high: u8,
     // Indicates the implementation level of the setter. (from TTL)
     version: u8,
-    // DNSSEC OK and Z flags (from TTL)
-    flags: u16,
+    flags: EdnsFlags,
     // max payload size, minimum of 512, (from RR CLASS)
     max_payload: u16,
 
@@ -45,7 +44,7 @@ impl Default for Edns {
         Self {
             rcode_high: 0,
             version: 0,
-            flags: 0,
+            flags: EdnsFlags::default(),
             max_payload: 512,
             options: OPT::default(),
         }
@@ -68,17 +67,14 @@ impl Edns {
         self.version
     }
 
-    /// Specifies that DNSSEC is supported for this Client or Server
-    pub fn dnssec_ok(&self) -> bool {
-        self.flags & 0x8000 == 0x8000
+    /// Returns the [`EdnsFlags`] portion of EDNS
+    pub fn flags(&self) -> &EdnsFlags {
+        &self.flags
     }
 
-    /// Returns the Z flags.
-    /// Should be ignored by receivers.
-    /// Only the low 15 bits are significant.
-    /// The high bit is always returned as zero.
-    pub fn z_flags(&self) -> u16 {
-        self.flags & 0x7FFF
+    /// Returns a mutable reference to the [`EdnsFlags`]
+    pub fn flags_mut(&mut self) -> &mut EdnsFlags {
+        &mut self.flags
     }
 
     /// Maximum supported size of the DNS payload
@@ -143,21 +139,7 @@ impl Edns {
 
     /// Set to true if DNSSEC is supported
     pub fn set_dnssec_ok(&mut self, dnssec_ok: bool) -> &mut Self {
-        if dnssec_ok {
-            self.flags |= 0x8000;
-        } else {
-            self.flags &= !0x8000;
-        }
-        self
-    }
-
-    /// Set the Z flags.
-    /// Should be set to zero by senders.
-    /// Only the low 15 bits are significant.
-    /// The high bit is ignored.
-    pub fn set_z_flags(&mut self, z: u16) -> &mut Self {
-        self.flags &= !0x7FFF;
-        self.flags |= z & 0x7FFF;
+        self.flags.dnssec_ok = dnssec_ok;
         self
     }
 
@@ -180,12 +162,12 @@ impl<'a> From<&'a Record> for Edns {
     fn from(value: &'a Record) -> Self {
         assert!(value.record_type() == RecordType::OPT);
 
-        let rcode_high: u8 = ((value.ttl() & 0xFF00_0000u32) >> 24) as u8;
-        let version: u8 = ((value.ttl() & 0x00FF_0000u32) >> 16) as u8;
-        let flags: u16 = (value.ttl() & 0x0000_FFFFu32) as u16;
-        let max_payload: u16 = u16::from(value.dns_class());
+        let rcode_high = ((value.ttl() & 0xFF00_0000u32) >> 24) as u8;
+        let version = ((value.ttl() & 0x00FF_0000u32) >> 16) as u8;
+        let flags = EdnsFlags::from((value.ttl() & 0x0000_FFFFu32) as u16);
+        let max_payload = u16::from(value.dns_class());
 
-        let options: OPT = match value.data() {
+        let options = match value.data() {
             RData::Update0(..) | RData::NULL(..) => {
                 // NULL, there was no data in the OPT
                 OPT::default()
@@ -216,7 +198,7 @@ impl<'a> From<&'a Edns> for Record {
         // rebuild the TTL field
         let mut ttl: u32 = u32::from(value.rcode_high()) << 24;
         ttl |= u32::from(value.version()) << 16;
-        ttl |= u32::from(value.flags);
+        ttl |= u32::from(u16::from(value.flags));
 
         // now for each option, write out the option array
         //  also, since this is a hash, there is no guarantee that ordering will be preserved from
@@ -237,9 +219,9 @@ impl BinEncodable for Edns {
         DNSClass::for_opt(self.max_payload()).emit(encoder)?; // self.dns_class.emit(encoder)?;
 
         // rebuild the TTL field
-        let mut ttl: u32 = u32::from(self.rcode_high()) << 24;
+        let mut ttl = u32::from(self.rcode_high()) << 24;
         ttl |= u32::from(self.version()) << 16;
-        ttl |= u32::from(self.flags);
+        ttl |= u32::from(u16::from(self.flags));
 
         encoder.emit_u32(ttl)?;
 
@@ -257,19 +239,48 @@ impl BinEncodable for Edns {
 impl fmt::Display for Edns {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         let version = self.version;
-        let dnssec_ok = self.dnssec_ok();
-        let z_flags = self.z_flags();
+        let dnssec_ok = self.flags.dnssec_ok;
+        let z_flags = self.flags.z;
         let max_payload = self.max_payload;
 
         write!(
             f,
-            "version: {version} dnssec_ok: {dnssec_ok} z_flags: 0x{z_flags:04x} max_payload: {max_payload} opts: {opts_len}",
-            version = version,
-            dnssec_ok = dnssec_ok,
-            z_flags = z_flags,
-            max_payload = max_payload,
+            "version: {version} dnssec_ok: {dnssec_ok} z_flags: {z_flags} max_payload: {max_payload} opts: {opts_len}",
             opts_len = self.options().as_ref().len()
         )
+    }
+}
+
+/// EDNS flags
+///
+/// <https://www.rfc-editor.org/rfc/rfc6891#section-6.1.4>
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct EdnsFlags {
+    /// DNSSEC OK bit as defined by RFC 3225
+    pub dnssec_ok: bool,
+    /// Set to zero by senders and ignored by receivers
+    pub z: bool,
+}
+
+impl From<u16> for EdnsFlags {
+    fn from(flags: u16) -> Self {
+        Self {
+            dnssec_ok: flags & 0x8000 == 0x8000,
+            z: flags & 0x7FFF != 0,
+        }
+    }
+}
+
+impl From<EdnsFlags> for u16 {
+    fn from(flags: EdnsFlags) -> Self {
+        let mut result = 0;
+        if flags.dnssec_ok {
+            result |= 0x8000;
+        }
+        if flags.z {
+            result |= 0x7FFF;
+        }
+        result
     }
 }
 
@@ -281,8 +292,9 @@ mod tests {
     fn test_encode_decode() {
         let mut edns = Edns::new();
 
-        edns.set_dnssec_ok(true);
-        edns.set_z_flags(0x4001);
+        let flags = edns.flags_mut();
+        flags.dnssec_ok = true;
+        flags.z = true;
         edns.set_max_payload(0x8008);
         edns.set_version(0x40);
         edns.set_rcode_high(0x01);
@@ -292,8 +304,8 @@ mod tests {
         let record = Record::from(&edns);
         let edns_decode = Edns::from(&record);
 
-        assert_eq!(edns.dnssec_ok(), edns_decode.dnssec_ok());
-        assert_eq!(edns.z_flags(), edns_decode.z_flags());
+        assert_eq!(edns.flags().dnssec_ok, edns_decode.flags().dnssec_ok);
+        assert_eq!(edns.flags().z, edns_decode.flags().z);
         assert_eq!(edns.max_payload(), edns_decode.max_payload());
         assert_eq!(edns.version(), edns_decode.version());
         assert_eq!(edns.rcode_high(), edns_decode.rcode_high());

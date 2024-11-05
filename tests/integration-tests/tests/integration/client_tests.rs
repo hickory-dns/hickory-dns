@@ -249,11 +249,14 @@ async fn test_secure_query_example(mut client: DnssecClient) {
         .expect("Query failed");
 
     println!("response records: {response:?}");
-    assert!(response
-        .extensions()
-        .as_ref()
-        .expect("edns not here")
-        .dnssec_ok());
+    assert!(
+        response
+            .extensions()
+            .as_ref()
+            .expect("edns not here")
+            .flags()
+            .dnssec_ok
+    );
 
     let record = &response.answers()[0];
     assert_eq!(record.name(), &name);

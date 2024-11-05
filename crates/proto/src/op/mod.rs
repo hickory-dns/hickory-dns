@@ -26,7 +26,7 @@ pub mod query;
 pub mod response_code;
 pub mod update_message;
 
-pub use self::edns::Edns;
+pub use self::edns::{Edns, EdnsFlags};
 pub use self::header::Header;
 pub use self::header::MessageType;
 pub use self::message::{Message, MessageFinalizer, MessageParts, MessageVerifier};
