@@ -502,7 +502,7 @@ mod for_dnssec {
     use futures_util::{
         future,
         stream::{self, BoxStream},
-        StreamExt as _, TryFutureExt as _,
+        StreamExt as _,
     };
 
     use crate::proto::{
@@ -542,24 +542,28 @@ mod for_dnssec {
                 // request the DNSSEC records; we'll strip them if not needed on the caller side
                 let do_bit = true;
 
-                this.resolve(query, Instant::now(), do_bit, 0, Arc::new(AtomicU8::new(0)))
-                    .map_ok(|lookup| {
-                        // `DnssecDnsHandle` will only look at the answer section of the message so
-                        // we can put "stubs" in the other fields
-                        let mut msg = Message::new();
+                let future =
+                    this.resolve(query, Instant::now(), do_bit, 0, Arc::new(AtomicU8::new(0)));
+                let lookup = match future.await {
+                    Ok(lookup) => lookup,
+                    Err(e) => {
+                        return Err(match e.kind() {
+                            // Translate back into a ProtoError::NoRecordsFound
+                            ErrorKind::Forward(_fwd) => e.into(),
+                            _ => ProtoError::from(e.to_string()),
+                        });
+                    }
+                };
 
-                        // XXX this effectively merges the original nameservers and additional
-                        // sections into the answers section
-                        msg.add_answers(lookup.records().iter().cloned());
+                // `DnssecDnsHandle` will only look at the answer section of the message so
+                // we can put "stubs" in the other fields
+                let mut msg = Message::new();
 
-                        DnsResponse::from_message(msg)
-                    })
-                    .map_err(|e| match e.kind() {
-                        // Translate back into a ProtoError::NoRecordsFound
-                        ErrorKind::Forward(_fwd) => e.into(),
-                        _ => ProtoError::from(e.to_string()),
-                    })
-                    .await?
+                // XXX this effectively merges the original nameservers and additional
+                // sections into the answers section
+                msg.add_answers(lookup.records().iter().cloned());
+
+                DnsResponse::from_message(msg)
             })
             .boxed()
         }
