@@ -226,6 +226,23 @@ impl Message {
 
         None
     }
+
+    pub fn is_rd_flag_set(&self) -> bool {
+        let Some(recursion_desired) = self.inner["dns.flags_tree"]
+            .as_object()
+            .unwrap()
+            .get("dns.flags.recdesired")
+        else {
+            return false;
+        };
+
+        let recursion_desired = recursion_desired.as_str().unwrap();
+        match recursion_desired {
+            "1" => true,
+            "0" => false,
+            _ => panic!("unexpected value for dns.flags.recdesired: {recursion_desired}"),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]

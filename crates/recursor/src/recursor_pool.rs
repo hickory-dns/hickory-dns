@@ -93,6 +93,11 @@ where
                 options.use_edns = security_aware;
                 options.edns_set_dnssec_ok = security_aware;
 
+                // Set RD=0 in queries made by the recursive resolver. See the last figure in
+                // section 2.2 of RFC 1035, for example. Failure to do so may allow for loops
+                // between recursive resolvers following referrals to each other.
+                options.recursion_desired = false;
+
                 // convert the lookup into a shared future
                 let lookup = ns
                     .lookup(query_cpy, options)
