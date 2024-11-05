@@ -273,34 +273,36 @@ impl fmt::Display for Edns {
     }
 }
 
-#[cfg(feature = "dnssec")]
-#[test]
-fn test_encode_decode() {
-    use crate::rr::dnssec::SupportedAlgorithms;
+#[cfg(all(test, feature = "dnssec"))]
+mod tests {
+    use super::*;
 
-    let mut edns: Edns = Edns::new();
+    #[test]
+    fn test_encode_decode() {
+        let mut edns = Edns::new();
 
-    edns.set_dnssec_ok(true);
-    edns.set_z_flags(0x4001);
-    edns.set_max_payload(0x8008);
-    edns.set_version(0x40);
-    edns.set_rcode_high(0x01);
-    edns.options_mut()
-        .insert(EdnsOption::DAU(SupportedAlgorithms::all()));
+        edns.set_dnssec_ok(true);
+        edns.set_z_flags(0x4001);
+        edns.set_max_payload(0x8008);
+        edns.set_version(0x40);
+        edns.set_rcode_high(0x01);
+        edns.options_mut()
+            .insert(EdnsOption::DAU(SupportedAlgorithms::all()));
 
-    let record: Record = (&edns).into();
-    let edns_decode: Edns = (&record).into();
+        let record = Record::from(&edns);
+        let edns_decode = Edns::from(&record);
 
-    assert_eq!(edns.dnssec_ok(), edns_decode.dnssec_ok());
-    assert_eq!(edns.z_flags(), edns_decode.z_flags());
-    assert_eq!(edns.max_payload(), edns_decode.max_payload());
-    assert_eq!(edns.version(), edns_decode.version());
-    assert_eq!(edns.rcode_high(), edns_decode.rcode_high());
-    assert_eq!(edns.options(), edns_decode.options());
+        assert_eq!(edns.dnssec_ok(), edns_decode.dnssec_ok());
+        assert_eq!(edns.z_flags(), edns_decode.z_flags());
+        assert_eq!(edns.max_payload(), edns_decode.max_payload());
+        assert_eq!(edns.version(), edns_decode.version());
+        assert_eq!(edns.rcode_high(), edns_decode.rcode_high());
+        assert_eq!(edns.options(), edns_decode.options());
 
-    // re-insert and remove using mut
-    edns.options_mut()
-        .insert(EdnsOption::DAU(SupportedAlgorithms::all()));
-    edns.options_mut().remove(EdnsCode::DAU);
-    assert!(edns.option(EdnsCode::DAU).is_none());
+        // re-insert and remove using mut
+        edns.options_mut()
+            .insert(EdnsOption::DAU(SupportedAlgorithms::all()));
+        edns.options_mut().remove(EdnsCode::DAU);
+        assert!(edns.option(EdnsCode::DAU).is_none());
+    }
 }
