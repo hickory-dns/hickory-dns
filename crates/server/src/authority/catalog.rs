@@ -507,7 +507,7 @@ fn lookup_options_for_edns(edns: Option<&Edns>) -> LookupOptions {
                SupportedAlgorithms::default()
             };
 
-            LookupOptions::for_dnssec(edns.dnssec_ok(), supported_algorithms)
+            LookupOptions::for_dnssec(edns.flags().dnssec_ok, supported_algorithms)
         } else {
             LookupOptions::default()
         }
