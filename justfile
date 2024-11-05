@@ -53,7 +53,7 @@ dnssec-ring: (default "--features=dnssec-ring" "--ignore=\\{async-std-resolver,h
 # Run check on all projects in the workspace
 check feature='' ignore='':
     cargo ws exec {{ignore}} cargo {{MSRV}} check --locked --all-targets {{feature}}
-    cargo {{MSRV}} check --manifest-path fuzz/Cargo.toml --all-targets
+    cargo ws --manifest-path fuzz/Cargo.toml exec {{ignore}} cargo {{MSRV}} check --all-targets
 
 # Run build on all projects in the workspace
 build feature='' ignore='':

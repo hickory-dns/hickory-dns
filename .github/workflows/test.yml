@@ -149,7 +149,7 @@ jobs:
           version: ${{ env.CARGO_WS_VERSION }}
 
       - name: just no-default-features
-        run: just no-default-features
+        run: just no-default-features '' '--ignore hickory-proto-fuzz'
 
       - name: just build-bench
         if: contains( matrix.version, 'nightly' )
