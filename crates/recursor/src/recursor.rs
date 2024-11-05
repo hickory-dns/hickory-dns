@@ -552,14 +552,14 @@ mod for_dnssec {
                         // sections into the answers section
                         msg.add_answers(lookup.records().iter().cloned());
 
-                        DnsResponse::new(msg, vec![])
+                        DnsResponse::from_message(msg)
                     })
                     .map_err(|e| match e.kind() {
                         // Translate back into a ProtoError::NoRecordsFound
                         ErrorKind::Forward(_fwd) => e.into(),
                         _ => ProtoError::from(e.to_string()),
                     })
-                    .await
+                    .await?
             })
             .boxed()
         }
