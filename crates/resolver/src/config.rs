@@ -778,6 +778,9 @@ pub enum ServerOrderingStrategy {
     /// The order provided to the resolver is used. The ordering does not vary
     /// over time.
     UserProvidedOrder,
+    /// The order of servers is rotated in a round-robin fashion. This is useful for
+    /// load balancing and ensuring that all servers are used evenly.
+    RoundRobin,
 }
 
 impl Default for ServerOrderingStrategy {

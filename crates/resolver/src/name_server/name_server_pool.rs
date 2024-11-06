@@ -7,7 +7,10 @@
 
 use std::cmp::Ordering;
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicUsize, Ordering as AtomicOrdering},
+    Arc,
+};
 use std::task::{Context, Poll};
 use std::time::Duration;
 
@@ -37,6 +40,8 @@ pub struct NameServerPool<P: ConnectionProvider + Send + 'static> {
     datagram_conns: Arc<[NameServer<P>]>, /* All NameServers must be the same type */
     stream_conns: Arc<[NameServer<P>]>,   /* All NameServers must be the same type */
     options: ResolverOpts,
+    datagram_index: Arc<AtomicUsize>,
+    stream_index: Arc<AtomicUsize>,
 }
 
 /// A pool of NameServers
@@ -105,6 +110,8 @@ where
             datagram_conns: Arc::from(datagram_conns),
             stream_conns: Arc::from(stream_conns),
             options,
+            datagram_index: Arc::from(AtomicUsize::new(0)),
+            stream_index: Arc::from(AtomicUsize::new(0)),
         }
     }
 
@@ -129,6 +136,8 @@ where
             datagram_conns: Arc::from(datagram_conns),
             stream_conns: Arc::from(stream_conns),
             options,
+            datagram_index: Arc::from(AtomicUsize::new(0)),
+            stream_index: Arc::from(AtomicUsize::new(0)),
         }
     }
 
@@ -142,6 +151,8 @@ where
             datagram_conns: Arc::from(datagram_conns),
             stream_conns: Arc::from(stream_conns),
             options,
+            datagram_index: Arc::from(AtomicUsize::new(0)),
+            stream_index: Arc::from(AtomicUsize::new(0)),
         }
     }
 
@@ -156,6 +167,8 @@ where
             datagram_conns,
             stream_conns,
             options,
+            datagram_index: Arc::from(AtomicUsize::new(0)),
+            stream_index: Arc::from(AtomicUsize::new(0)),
         }
     }
 
@@ -163,6 +176,7 @@ where
         opts: ResolverOpts,
         conns: Arc<[NameServer<P>]>,
         request: DnsRequest,
+        next_index: &Arc<AtomicUsize>,
     ) -> Result<DnsResponse, ProtoError> {
         let mut conns: Vec<NameServer<P>> = conns.to_vec();
 
@@ -172,6 +186,18 @@ where
             //   this reorders the inner set
             ServerOrderingStrategy::QueryStatistics => conns.sort_unstable(),
             ServerOrderingStrategy::UserProvidedOrder => {}
+            ServerOrderingStrategy::RoundRobin => {
+                let num_concurrent_reqs = if opts.num_concurrent_reqs > 1 {
+                    opts.num_concurrent_reqs
+                } else {
+                    1
+                };
+                if num_concurrent_reqs < conns.len() {
+                    let index = next_index.fetch_add(num_concurrent_reqs, AtomicOrdering::SeqCst)
+                        % conns.len();
+                    conns.rotate_left(index);
+                }
+            }
         }
         let request_loop = request.clone();
 
@@ -190,6 +216,9 @@ where
         let request = request.into();
         let datagram_conns = Arc::clone(&self.datagram_conns);
         let stream_conns = Arc::clone(&self.stream_conns);
+        let datagram_index = Arc::clone(&self.datagram_index);
+        let stream_index = Arc::clone(&self.stream_index);
+        // TODO: remove this clone, return the Message in the error?
         // TODO: remove this clone, return the Message in the error?
         let tcp_message = request.clone();
 
@@ -209,18 +238,24 @@ where
             debug!("sending request: {:?}", request.queries());
 
             // First try the UDP connections
-            let udp_res: Result<DnsResponse, ProtoError> =
-                match Self::try_send(opts.clone(), datagram_conns, request).await {
-                    Ok(response) if response.truncated() => {
-                        debug!("truncated response received, retrying over TCP");
-                        Ok(response)
-                    }
-                    Err(e) if (opts.try_tcp_on_error && e.is_io()) || e.is_no_connections() => {
-                        debug!("error from UDP, retrying over TCP: {}", e);
-                        Err(e)
-                    }
-                    result => return result.map_err(ProtoError::from),
-                };
+            let udp_res: Result<DnsResponse, ProtoError> = match Self::try_send(
+                opts.clone(),
+                datagram_conns,
+                request,
+                &datagram_index,
+            )
+            .await
+            {
+                Ok(response) if response.truncated() => {
+                    debug!("truncated response received, retrying over TCP");
+                    Ok(response)
+                }
+                Err(e) if (opts.try_tcp_on_error && e.is_io()) || e.is_no_connections() => {
+                    debug!("error from UDP, retrying over TCP: {}", e);
+                    Err(e)
+                }
+                result => return result.map_err(ProtoError::from),
+            };
 
             if stream_conns.is_empty() {
                 debug!("no TCP connections available");
@@ -229,7 +264,7 @@ where
 
             // Try query over TCP, as response to query over UDP was either truncated or was an
             // error.
-            let tcp_res = Self::try_send(opts, stream_conns, tcp_message).await;
+            let tcp_res = Self::try_send(opts, stream_conns, tcp_message, &stream_index).await;
 
             let tcp_err = match tcp_res {
                 res @ Ok(..) => return res.map_err(ProtoError::from),
