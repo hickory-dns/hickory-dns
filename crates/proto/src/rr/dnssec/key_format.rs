@@ -200,56 +200,6 @@ impl KeyFormat {
             .into()),
         }
     }
-
-    /// Encode private key
-    #[deprecated]
-    pub fn encode_key(self, key_pair: &KeyPair, password: Option<&str>) -> DnsSecResult<Vec<u8>> {
-        // on encoding, if the password is empty string, ignore it (empty string is ok on decode)
-        #[allow(unused)]
-        let password = password
-            .iter()
-            .filter(|s| !s.is_empty())
-            .map(|s| s.as_bytes())
-            .next();
-
-        match key_pair {
-            #[cfg(feature = "dnssec-openssl")]
-            KeyPair::EC(pkey, _) | KeyPair::RSA(pkey, _) => {
-                match self {
-                    Self::Der => {
-                        // to avoid accidentally storing a key where there was an expectation that it was password protected
-                        if password.is_some() {
-                            return Err(format!("Can only password protect PEM: {self:?}").into());
-                        }
-                        pkey.private_key_to_der()
-                            .map_err(|e| format!("error writing key as DER: {e}").into())
-                    }
-                    Self::Pem => {
-                        let key = if let Some(password) = password {
-                            pkey.private_key_to_pem_pkcs8_passphrase(
-                                Cipher::aes_256_cbc(),
-                                password,
-                            )
-                        } else {
-                            pkey.private_key_to_pem_pkcs8()
-                        };
-
-                        key.map_err(|e| format!("error writing key as PEM: {e}").into())
-                    }
-                    e => Err(format!(
-                        "unsupported key format with RSA or EC (DER or PEM \
-                         only): {e:?}"
-                    )
-                    .into()),
-                }
-            }
-            #[cfg(any(feature = "dnssec-ring", not(feature = "dnssec-openssl")))]
-            _ => Err(
-                "unsupported Algorithm, enable openssl feature (encode not supported with ring)"
-                    .into(),
-            ),
-        }
-    }
 }
 
 #[cfg(test)]
