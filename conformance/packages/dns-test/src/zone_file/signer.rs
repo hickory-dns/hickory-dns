@@ -183,7 +183,7 @@ impl<'a> Signer<'a> {
         let ttl = zone_file.soa.ttl;
 
         let (zsk, zsk_filename) = self.gen_zsk_key(zone)?;
-        let (ksk, ksk_filename) = self.gen_ksk_key(zone)?;
+        let (ksk, ksk_filename) = self.gen_ksk_key(zone, zsk.rdata.calculate_key_tag())?;
 
         let signzone_cmd = self.sign_zone_cmd([zsk_filename, ksk_filename].iter().cloned());
         let signzone = format!("cd {ZONES_DIR} && {}", signzone_cmd);
@@ -221,8 +221,22 @@ impl<'a> Signer<'a> {
         self.gen_key(&ldns_keygen_zsk(&self.settings, zone))
     }
 
-    fn gen_ksk_key(&self, zone: &FQDN) -> crate::Result<(DNSKEY, String)> {
-        self.gen_key(&ldns_keygen_ksk(&self.settings, zone))
+    fn gen_ksk_key(&self, zone: &FQDN, zsk_keytag: u16) -> crate::Result<(DNSKEY, String)> {
+        // ldns-signzone will not accept a KSK that has either the same
+        // keytag as the ZSK, or a keytag one higher than the ZSK.
+        // See https://github.com/hickory-dns/hickory-dns/issues/2555
+        for _ in 0..100 {
+            let (ksk, output) = self.gen_key(&ldns_keygen_ksk(&self.settings, zone))?;
+            let ksk_keytag = ksk.rdata.calculate_key_tag();
+            if ksk_keytag != zsk_keytag && ksk_keytag != zsk_keytag + 1 {
+                return Ok((ksk, output));
+            }
+        }
+
+        Err(
+            format!("could not generate collision-free KSK for ZSK with keytag {zsk_keytag}")
+                .into(),
+        )
     }
 
     fn gen_key(&self, command: &str) -> crate::Result<(DNSKEY, String)> {
