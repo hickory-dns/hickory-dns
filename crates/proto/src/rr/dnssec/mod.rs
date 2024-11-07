@@ -28,11 +28,10 @@ mod verifier;
 
 pub use self::algorithm::Algorithm;
 pub use self::digest_type::DigestType;
+pub use self::keypair::decode_key;
 pub use self::nsec3::Nsec3HashAlgorithm;
 pub use self::proof::{Proof, ProofError, ProofErrorKind, ProofFlags, Proven};
-pub use self::public_key::PublicKey;
-pub use self::public_key::PublicKeyBuf;
-pub use self::public_key::PublicKeyEnum;
+pub use self::public_key::{PublicKey, PublicKeyBuf, PublicKeyEnum};
 pub use self::supported_algorithm::SupportedAlgorithms;
 pub use self::tbs::TBS;
 pub use self::trust_anchor::TrustAnchor;

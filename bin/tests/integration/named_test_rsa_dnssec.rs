@@ -12,7 +12,7 @@ use tokio::runtime::Runtime;
 
 use crate::server_harness::*;
 use hickory_client::client::Client;
-use hickory_proto::rr::dnssec::*;
+use hickory_proto::rr::dnssec::{decode_key, Algorithm, KeyFormat, TrustAnchor};
 use hickory_proto::runtime::{RuntimeProvider, TokioRuntimeProvider, TokioTime};
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer, Protocol};
@@ -42,9 +42,8 @@ fn trust_anchor(
     let mut buf = Vec::<u8>::new();
 
     file.read_to_end(&mut buf).expect("could not read key");
-    let key_pair = format
-        .decode_key(&buf, Some("123456"), algorithm)
-        .expect("could not decode key");
+    let key_pair =
+        decode_key(&buf, Some("123456"), algorithm, format).expect("could not decode key");
 
     let public_key = key_pair.to_public_key().unwrap();
     let mut trust_anchor = TrustAnchor::new();
