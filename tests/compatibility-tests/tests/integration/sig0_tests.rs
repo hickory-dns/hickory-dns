@@ -21,7 +21,7 @@ use hickory_client::client::Client;
 use hickory_client::client::ClientHandle;
 use hickory_client::proto::op::ResponseCode;
 use hickory_client::proto::rr::dnssec::rdata::key::{KeyUsage, KEY};
-use hickory_client::proto::rr::dnssec::{Algorithm, KeyPair, SigSigner};
+use hickory_client::proto::rr::dnssec::{Algorithm, KeyPair, SigSigner, SigningKey};
 use hickory_client::proto::rr::Name;
 use hickory_client::proto::rr::{DNSClass, RData, Record, RecordType};
 use hickory_client::proto::runtime::TokioRuntimeProvider;
@@ -79,7 +79,11 @@ async fn test_create() {
         key.to_public_key().unwrap().into_inner(),
     );
 
-    let signer = SigSigner::sig0(sig0key, key, Name::from_str("update.example.com").unwrap());
+    let signer = SigSigner::sig0(
+        sig0key,
+        Box::new(key),
+        Name::from_str("update.example.com").unwrap(),
+    );
     assert_eq!(signer.calculate_key_tag().unwrap(), 56935_u16);
 
     let (_process, port) = named_process();
