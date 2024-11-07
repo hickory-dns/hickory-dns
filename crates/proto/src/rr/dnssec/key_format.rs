@@ -40,11 +40,6 @@ impl KeyFormat {
             }
             #[cfg(feature = "dnssec-openssl")]
             Algorithm::RSASHA256 | Algorithm::RSASHA512 => KeyPair::generate(algorithm)?,
-            Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => match self {
-                #[cfg(feature = "dnssec-openssl")]
-                Self::Der | Self::Pem => KeyPair::generate(algorithm)?,
-                e => return Err(format!("unsupported key format with EC: {e:?}").into()),
-            },
             e => {
                 return Err(
                     format!("unsupported Algorithm, enable openssl or ring feature: {e:?}").into(),
@@ -56,7 +51,7 @@ impl KeyFormat {
         #[allow(unreachable_code)]
         match key_pair {
             #[cfg(feature = "dnssec-openssl")]
-            KeyPair::EC(pkey, _) | KeyPair::RSA(pkey, _) => {
+            KeyPair::RSA(pkey, _) => {
                 match self {
                     Self::Der => {
                         // to avoid accidentally storing a key where there was an expectation that it was password protected
@@ -100,6 +95,8 @@ mod tests {
 
     use super::*;
     use crate::rr::dnssec::keypair::decode_key;
+    #[cfg(feature = "dnssec-openssl")]
+    use crate::rr::dnssec::EcSigningKey;
     #[cfg(feature = "dnssec-ring")]
     use crate::rr::dnssec::{EcdsaSigningKey, Ed25519SigningKey};
 
@@ -121,14 +118,21 @@ mod tests {
     #[cfg(feature = "dnssec-openssl")]
     fn test_ec_encode_decode_der() {
         let algorithm = Algorithm::ECDSAP256SHA256;
-        encode_decode_with_format(KeyFormat::Der, algorithm, false, true);
+        let key = EcSigningKey::generate(algorithm).unwrap();
+        let der = key.encode_der().unwrap();
+        decode_key(&der, None, algorithm, KeyFormat::Der).unwrap();
     }
 
     #[test]
     #[cfg(feature = "dnssec-openssl")]
     fn test_ec_encode_decode_pem() {
         let algorithm = Algorithm::ECDSAP256SHA256;
-        encode_decode_with_format(KeyFormat::Pem, algorithm, true, true);
+        let key = EcSigningKey::generate(algorithm).unwrap();
+        let pem = key.encode_pem(None).unwrap();
+        decode_key(&pem, None, algorithm, KeyFormat::Pem).unwrap();
+
+        let encrypted = key.encode_pem(Some("test password")).unwrap();
+        decode_key(&encrypted, Some("test password"), algorithm, KeyFormat::Pem).unwrap();
     }
 
     #[test]

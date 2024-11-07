@@ -28,6 +28,8 @@ mod verifier;
 
 pub use self::algorithm::Algorithm;
 pub use self::digest_type::DigestType;
+#[cfg(feature = "dnssec-openssl")]
+pub use self::keypair::EcSigningKey;
 pub use self::keypair::{decode_key, SigningKey};
 #[cfg(feature = "dnssec-ring")]
 pub use self::keypair::{EcdsaSigningKey, Ed25519SigningKey};
