@@ -93,17 +93,7 @@ pub fn decode_key(
                 )?))
             }
             #[cfg(feature = "dnssec-ring")]
-            KeyFormat::Pkcs8 => {
-                let rng = SystemRandom::new();
-                let ring_algorithm = if algorithm == Algorithm::ECDSAP256SHA256 {
-                    &ECDSA_P256_SHA256_FIXED_SIGNING
-                } else {
-                    &ECDSA_P384_SHA384_FIXED_SIGNING
-                };
-                let key = EcdsaKeyPair::from_pkcs8(ring_algorithm, bytes, &rng)?;
-
-                Ok(Box::new(KeyPair::from_ecdsa(key)))
-            }
+            KeyFormat::Pkcs8 => Ok(Box::new(EcdsaSigningKey::from_pkcs8(bytes, algorithm)?)),
             e => Err(format!("unsupported key format with EC: {e:?}").into()),
         },
         Algorithm::ED25519 => match format {
@@ -130,9 +120,6 @@ pub enum KeyPair {
     /// Elliptic curve keypair, supported by OpenSSL
     #[cfg(feature = "dnssec-openssl")]
     EC(PKey<Private>, Algorithm),
-    /// *ring* ECDSA keypair
-    #[cfg(feature = "dnssec-ring")]
-    ECDSA(EcdsaKeyPair),
 }
 
 impl KeyPair {
@@ -186,12 +173,6 @@ impl KeyPair {
         }
     }
 
-    /// Creates an ECDSA keypair with ring.
-    #[cfg(feature = "dnssec-ring")]
-    pub fn from_ecdsa(ec_key: EcdsaKeyPair) -> Self {
-        Self::ECDSA(ec_key)
-    }
-
     /// Converts this keypair to the DNS binary form of the public_key.
     ///
     /// If there is a private key associated with this keypair, it will not be included in this
@@ -216,12 +197,6 @@ impl KeyPair {
                     .ec_key()
                     .expect("pkey should have been initialized with EC");
                 Ok(PublicKeyBuf::from_ec(&ec_key)?.into_inner())
-            }
-            #[cfg(feature = "dnssec-ring")]
-            Self::ECDSA(ec_key) => {
-                let mut bytes: Vec<u8> = ec_key.public_key().as_ref().to_vec();
-                bytes.remove(0);
-                Ok(bytes)
             }
             #[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
             _ => Err(DnsSecErrorKind::Message("openssl or ring feature(s) not enabled").into()),
@@ -315,11 +290,6 @@ impl KeyPair {
                     Ok(ret)
                 })
             }
-            #[cfg(feature = "dnssec-ring")]
-            Self::ECDSA(ec_key) => {
-                let rng = rand::SystemRandom::new();
-                Ok(ec_key.sign(&rng, tbs.as_ref())?.as_ref().to_vec())
-            }
             #[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
             _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
         }
@@ -356,37 +326,6 @@ impl KeyPair {
             _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
         }
     }
-
-    /// Generates a key, securing it with pkcs8
-    #[cfg(feature = "dnssec-ring")]
-    pub fn generate_pkcs8(algorithm: Algorithm) -> DnsSecResult<Vec<u8>> {
-        #[allow(deprecated)]
-        match algorithm {
-            Algorithm::Unknown(_) => Err(DnsSecErrorKind::Message("unknown algorithm").into()),
-            #[cfg(feature = "dnssec-openssl")]
-            Algorithm::RSASHA1
-            | Algorithm::RSASHA1NSEC3SHA1
-            | Algorithm::RSASHA256
-            | Algorithm::RSASHA512 => {
-                Err(DnsSecErrorKind::Message("openssl does not yet support pkcs8").into())
-            }
-            #[cfg(feature = "dnssec-ring")]
-            Algorithm::ECDSAP256SHA256 => {
-                let rng = rand::SystemRandom::new();
-                EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_FIXED_SIGNING, &rng)
-                    .map_err(Into::into)
-                    .map(|pkcs8_bytes| pkcs8_bytes.as_ref().to_vec())
-            }
-            #[cfg(feature = "dnssec-ring")]
-            Algorithm::ECDSAP384SHA384 => {
-                let rng = rand::SystemRandom::new();
-                EcdsaKeyPair::generate_pkcs8(&ECDSA_P384_SHA384_FIXED_SIGNING, &rng)
-                    .map_err(Into::into)
-                    .map(|pkcs8_bytes| pkcs8_bytes.as_ref().to_vec())
-            }
-            _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
-        }
-    }
 }
 
 impl SigningKey for KeyPair {
@@ -396,6 +335,75 @@ impl SigningKey for KeyPair {
 
     fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf> {
         Ok(PublicKeyBuf::new(self.to_public_bytes()?))
+    }
+}
+
+/// An ECDSA signing key pair (backed by ring).
+#[cfg(feature = "dnssec-ring")]
+pub struct EcdsaSigningKey {
+    inner: EcdsaKeyPair,
+}
+
+#[cfg(feature = "dnssec-ring")]
+impl EcdsaSigningKey {
+    /// Decode signing key pair from DER-encoded PKCS#8 bytes.
+    ///
+    /// Errors unless the given algorithm is one of the following:
+    ///
+    /// - [`Algorithm::ECDSAP256SHA256`]
+    /// - [`Algorithm::ECDSAP384SHA384`]
+    pub fn from_pkcs8(bytes: &[u8], algorithm: Algorithm) -> DnsSecResult<Self> {
+        let rng = SystemRandom::new();
+        let ring_algorithm = if algorithm == Algorithm::ECDSAP256SHA256 {
+            &ECDSA_P256_SHA256_FIXED_SIGNING
+        } else if algorithm == Algorithm::ECDSAP384SHA384 {
+            &ECDSA_P384_SHA384_FIXED_SIGNING
+        } else {
+            return Err(DnsSecErrorKind::Message("unsupported algorithm").into());
+        };
+
+        Ok(Self {
+            inner: EcdsaKeyPair::from_pkcs8(ring_algorithm, bytes, &rng)?,
+        })
+    }
+
+    /// Creates an ECDSA key pair with ring.
+    pub fn from_ecdsa(inner: EcdsaKeyPair) -> Self {
+        Self { inner }
+    }
+
+    /// Generate signing key pair and return the DER-encoded PKCS#8 bytes.
+    ///
+    /// Errors unless the given algorithm is one of the following:
+    ///
+    /// - [`Algorithm::ECDSAP256SHA256`]
+    /// - [`Algorithm::ECDSAP384SHA384`]
+    pub fn generate_pkcs8(algorithm: Algorithm) -> DnsSecResult<Vec<u8>> {
+        let rng = SystemRandom::new();
+        let alg = if algorithm == Algorithm::ECDSAP256SHA256 {
+            &ECDSA_P256_SHA256_FIXED_SIGNING
+        } else if algorithm == Algorithm::ECDSAP384SHA384 {
+            &ECDSA_P384_SHA384_FIXED_SIGNING
+        } else {
+            return Err(DnsSecErrorKind::Message("unsupported algorithm").into());
+        };
+
+        let pkcs8 = EcdsaKeyPair::generate_pkcs8(alg, &rng)?;
+        Ok(pkcs8.as_ref().to_vec())
+    }
+}
+
+#[cfg(feature = "dnssec-ring")]
+impl SigningKey for EcdsaSigningKey {
+    fn sign(&self, tbs: &TBS) -> DnsSecResult<Vec<u8>> {
+        let rng = rand::SystemRandom::new();
+        Ok(self.inner.sign(&rng, tbs.as_ref())?.as_ref().to_vec())
+    }
+
+    fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf> {
+        let mut bytes = self.inner.public_key().as_ref().to_vec();
+        bytes.remove(0);
+        Ok(PublicKeyBuf::new(bytes))
     }
 }
 
@@ -510,22 +518,12 @@ mod tests {
     fn test_ec_p256_pkcs8() {
         let algorithm = Algorithm::ECDSAP256SHA256;
         let format = KeyFormat::Pkcs8;
-        let key = decode_key(
-            &format.generate_and_encode(algorithm, None).unwrap(),
-            None,
-            algorithm,
-            format,
-        )
-        .unwrap();
+        let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
+        let key = decode_key(&pkcs8, None, algorithm, format).unwrap();
         public_key_test(&*key, algorithm);
 
-        let neg = decode_key(
-            &format.generate_and_encode(algorithm, None).unwrap(),
-            None,
-            algorithm,
-            format,
-        )
-        .unwrap();
+        let neg_pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
+        let neg = decode_key(&neg_pkcs8, None, algorithm, format).unwrap();
         hash_test(&*key, &*neg, algorithm);
     }
 
@@ -558,22 +556,12 @@ mod tests {
     fn test_ec_p384_pkcs8() {
         let algorithm = Algorithm::ECDSAP384SHA384;
         let format = KeyFormat::Pkcs8;
-        let key = decode_key(
-            &format.generate_and_encode(algorithm, None).unwrap(),
-            None,
-            algorithm,
-            format,
-        )
-        .unwrap();
+        let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
+        let key = decode_key(&pkcs8, None, algorithm, format).unwrap();
         public_key_test(&*key, algorithm);
 
-        let neg = decode_key(
-            &format.generate_and_encode(algorithm, None).unwrap(),
-            None,
-            algorithm,
-            format,
-        )
-        .unwrap();
+        let neg_pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
+        let neg = decode_key(&neg_pkcs8, None, algorithm, format).unwrap();
         hash_test(&*key, &*neg, algorithm);
     }
 
