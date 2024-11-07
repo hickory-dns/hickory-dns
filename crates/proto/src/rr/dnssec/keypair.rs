@@ -38,7 +38,7 @@ pub fn decode_key(
     password: Option<&str>,
     algorithm: Algorithm,
     format: KeyFormat,
-) -> DnsSecResult<KeyPair> {
+) -> DnsSecResult<Box<dyn SigningKey>> {
     //  empty string prevents openssl from triggering a read from stdin...
     let password = password.unwrap_or("");
     let password = password.as_bytes();
@@ -69,8 +69,9 @@ pub fn decode_key(
                 }
             };
 
-            Ok(KeyPair::from_rsa(key, algorithm)
-                .map_err(|e| format!("could not translate RSA to KeyPair: {e}"))?)
+            Ok(Box::new(KeyPair::from_rsa(key, algorithm).map_err(
+                |e| format!("could not translate RSA to KeyPair: {e}"),
+            )?))
         }
         Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => match format {
             #[cfg(feature = "dnssec-openssl")]
@@ -78,16 +79,18 @@ pub fn decode_key(
                 let key = EcKey::private_key_from_der(bytes)
                     .map_err(|e| format!("error reading EC as DER: {e}"))?;
 
-                Ok(KeyPair::from_ec_key(key, algorithm)
-                    .map_err(|e| format!("could not translate RSA to KeyPair: {e}"))?)
+                Ok(Box::new(KeyPair::from_ec_key(key, algorithm).map_err(
+                    |e| format!("could not translate RSA to KeyPair: {e}"),
+                )?))
             }
             #[cfg(feature = "dnssec-openssl")]
             KeyFormat::Pem => {
                 let key = EcKey::private_key_from_pem_passphrase(bytes, password)
                     .map_err(|e| format!("could not decode EC from PEM, bad password?: {e}"))?;
 
-                Ok(KeyPair::from_ec_key(key, algorithm)
-                    .map_err(|e| format!("could not translate RSA to KeyPair: {e}"))?)
+                Ok(Box::new(KeyPair::from_ec_key(key, algorithm).map_err(
+                    |e| format!("could not translate RSA to KeyPair: {e}"),
+                )?))
             }
             #[cfg(feature = "dnssec-ring")]
             KeyFormat::Pkcs8 => {
@@ -99,7 +102,7 @@ pub fn decode_key(
                 };
                 let key = EcdsaKeyPair::from_pkcs8(ring_algorithm, bytes, &rng)?;
 
-                Ok(KeyPair::from_ecdsa(key))
+                Ok(Box::new(KeyPair::from_ecdsa(key)))
             }
             e => Err(format!("unsupported key format with EC: {e:?}").into()),
         },
@@ -108,7 +111,7 @@ pub fn decode_key(
             KeyFormat::Pkcs8 => {
                 let key = Ed25519KeyPair::from_pkcs8(bytes)?;
 
-                Ok(KeyPair::from_ed25519(key))
+                Ok(Box::new(KeyPair::from_ed25519(key)))
             }
             e => Err(
                 format!("unsupported key format with ED25519 (only Pkcs8 supported): {e:?}").into(),

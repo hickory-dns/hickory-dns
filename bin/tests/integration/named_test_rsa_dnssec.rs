@@ -12,7 +12,7 @@ use tokio::runtime::Runtime;
 
 use crate::server_harness::*;
 use hickory_client::client::Client;
-use hickory_proto::rr::dnssec::{decode_key, Algorithm, KeyFormat, SigningKey, TrustAnchor};
+use hickory_proto::rr::dnssec::{decode_key, Algorithm, KeyFormat, TrustAnchor};
 use hickory_proto::runtime::{RuntimeProvider, TokioRuntimeProvider, TokioTime};
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer, Protocol};
