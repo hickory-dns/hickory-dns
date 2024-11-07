@@ -28,6 +28,8 @@ mod verifier;
 
 pub use self::algorithm::Algorithm;
 pub use self::digest_type::DigestType;
+#[cfg(feature = "dnssec-ring")]
+pub use self::keypair::Ed25519SigningKey;
 pub use self::keypair::{decode_key, SigningKey};
 pub use self::nsec3::Nsec3HashAlgorithm;
 pub use self::proof::{Proof, ProofError, ProofErrorKind, ProofFlags, Proven};
