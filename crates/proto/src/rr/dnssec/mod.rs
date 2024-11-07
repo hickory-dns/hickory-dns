@@ -28,7 +28,7 @@ mod verifier;
 
 pub use self::algorithm::Algorithm;
 pub use self::digest_type::DigestType;
-pub use self::keypair::decode_key;
+pub use self::keypair::{decode_key, SigningKey};
 pub use self::nsec3::Nsec3HashAlgorithm;
 pub use self::proof::{Proof, ProofError, ProofErrorKind, ProofFlags, Proven};
 pub use self::public_key::{PublicKey, PublicKeyBuf, PublicKeyEnum};

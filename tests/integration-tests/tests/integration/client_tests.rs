@@ -480,7 +480,7 @@ async fn test_nsec3_query_name_is_soa_name() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
     use hickory_proto::rr::dnssec::rdata::{DNSSECRData, KEY};
-    use hickory_proto::rr::dnssec::{Algorithm, KeyPair, PublicKey, SigSigner};
+    use hickory_proto::rr::dnssec::{Algorithm, KeyPair, PublicKey, SigSigner, SigningKey};
     use hickory_server::store::sqlite::SqliteAuthority;
     use openssl::rsa::Rsa;
 
@@ -495,7 +495,7 @@ async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
 
     let signer = SigSigner::new(
         Algorithm::RSASHA256,
-        key,
+        Box::new(key),
         Name::from_str("trusted.example.com").unwrap(),
         // can be Duration::MAX after min Rust version 1.53
         std::time::Duration::new(u64::MAX, 1_000_000_000 - 1),

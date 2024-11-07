@@ -240,11 +240,6 @@ impl KeyPair {
         }
     }
 
-    /// Returns a PublicKeyBuf of the KeyPair
-    pub fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf> {
-        Ok(PublicKeyBuf::new(self.to_public_bytes()?))
-    }
-
     /// Signs a hash.
     ///
     /// This will panic if the `key` is not a private key and can be used for signing.
@@ -256,8 +251,7 @@ impl KeyPair {
     /// # Return value
     ///
     /// The signature, ready to be stored in an `RData::RRSIG`.
-    #[allow(unused)]
-    pub fn sign(&self, tbs: &TBS) -> DnsSecResult<Vec<u8>> {
+    fn sign(&self, tbs: &TBS) -> DnsSecResult<Vec<u8>> {
         use std::iter;
 
         match self {
@@ -419,6 +413,29 @@ impl KeyPair {
             _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
         }
     }
+}
+
+impl SigningKey for KeyPair {
+    fn sign(&self, tbs: &TBS) -> DnsSecResult<Vec<u8>> {
+        self.sign(tbs)
+    }
+
+    fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf> {
+        Ok(PublicKeyBuf::new(self.to_public_bytes()?))
+    }
+}
+
+/// A key that can be used to sign records.
+pub trait SigningKey: Send + Sync + 'static {
+    /// Sign DNS records.
+    ///
+    /// # Return value
+    ///
+    /// The signature, ready to be stored in an `RData::RRSIG`.
+    fn sign(&self, tbs: &TBS) -> DnsSecResult<Vec<u8>>;
+
+    /// Returns a [`PublicKeyBuf`] for this [`SigningKey`].
+    fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf>;
 }
 
 #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]

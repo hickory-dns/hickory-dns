@@ -10,20 +10,19 @@ use tracing::debug;
 
 use std::time::Duration;
 
+use super::{PublicKey, SigningKey};
 use crate::{
     error::{DnsSecResult, ProtoErrorKind, ProtoResult},
     op::{Message, MessageFinalizer, MessageVerifier},
     rr::{
         dnssec::{
             rdata::{DNSSECRData, DNSKEY, KEY, SIG},
-            tbs, Algorithm, KeyPair, TBS,
+            tbs, Algorithm, TBS,
         },
         Record, {DNSClass, Name, RData, RecordType},
     },
     serialize::binary::{BinEncodable, BinEncoder},
 };
-
-use super::PublicKey;
 
 /// Use for performing signing and validation of DNSSEC based components. The SigSigner can be used for singing requests and responses with SIG0, or DNSSEC RRSIG records. The format is based on the SIG record type.
 ///
@@ -230,7 +229,7 @@ use super::PublicKey;
 pub struct SigSigner {
     // TODO: this should really be a trait and generic struct over KEY and DNSKEY
     key_rdata: RData,
-    key: KeyPair,
+    key: Box<dyn SigningKey>,
     algorithm: Algorithm,
     signer_name: Name,
     sig_duration: Duration,
@@ -250,7 +249,7 @@ impl SigSigner {
     /// * `is_zone_update_auth` - this key may be used for updating the zone
     pub fn dnssec(
         key_rdata: DNSKEY,
-        key: KeyPair,
+        key: Box<dyn SigningKey>,
         signer_name: Name,
         sig_duration: Duration,
     ) -> Self {
@@ -275,7 +274,7 @@ impl SigSigner {
     /// * `key` - the private key for signing, unless validating, where just the public key is necessary
     /// * `signer_name` - name in the zone to which this DNSKEY is bound
     /// * `is_zone_update_auth` - this key may be used for updating the zone
-    pub fn sig0(key_rdata: KEY, key: KeyPair, signer_name: Name) -> Self {
+    pub fn sig0(key_rdata: KEY, key: Box<dyn SigningKey>, signer_name: Name) -> Self {
         let algorithm = key_rdata.algorithm();
 
         Self {
@@ -293,7 +292,7 @@ impl SigSigner {
     #[deprecated(note = "use SIG0 or DNSSEC constructors")]
     pub fn new(
         algorithm: Algorithm,
-        key: KeyPair,
+        key: Box<dyn SigningKey>,
         signer_name: Name,
         sig_duration: Duration,
         is_zone_signing_key: bool,
@@ -313,8 +312,8 @@ impl SigSigner {
     }
 
     /// Return the key used for validation/signing
-    pub fn key(&self) -> &KeyPair {
-        &self.key
+    pub fn key(&self) -> &dyn SigningKey {
+        &*self.key
     }
 
     /// Returns the duration that this signature is valid for
@@ -627,7 +626,7 @@ mod tests {
         let key = KeyPair::from_rsa(rsa, Algorithm::RSASHA256).unwrap();
         let pub_key = key.to_public_key().unwrap();
         let sig0key = pub_key.to_sig0key(Algorithm::RSASHA256);
-        let signer = SigSigner::sig0(sig0key.clone(), key, Name::root());
+        let signer = SigSigner::sig0(sig0key.clone(), Box::new(key), Name::root());
 
         let pre_sig0 = pre_sig0(&signer, 0, 300);
         let sig = signer.sign_message(&question, &pre_sig0).unwrap();
@@ -657,7 +656,7 @@ mod tests {
         let key = KeyPair::from_rsa(rsa, Algorithm::RSASHA256).unwrap();
         let pub_key = key.to_public_key().unwrap();
         let sig0key = pub_key.to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone);
-        let signer = SigSigner::sig0(sig0key, key, Name::root());
+        let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
 
         let origin: Name = Name::parse("example.com.", None).unwrap();
         let rrsig = Record::from_rdata(
@@ -740,7 +739,7 @@ mod tests {
             let key = KeyPair::from_rsa(rsa, Algorithm::RSASHA256).unwrap();
             let pub_key = key.to_public_key().unwrap();
             let sig0key = pub_key.to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone);
-            let signer = SigSigner::sig0(sig0key, key, Name::root());
+            let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
             let key_tag = signer.calculate_key_tag().unwrap();
 
             assert_eq!(key_tag, exp_result);
@@ -762,7 +761,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
         let key = KeyPair::from_rsa(rsa, Algorithm::RSASHA256).unwrap();
         let pub_key = key.to_public_key().unwrap();
         let sig0key = pub_key.to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone);
-        let signer = SigSigner::sig0(sig0key, key, Name::root());
+        let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
         let key_tag = signer.calculate_key_tag().unwrap();
 
         assert_eq!(key_tag, 28551);
@@ -786,7 +785,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
             let key = KeyPair::from_rsa(rsa, Algorithm::RSASHA256).unwrap();
             let pub_key = key.to_public_key().unwrap();
             let sig0key = pub_key.to_sig0key(Algorithm::RSASHA256);
-            let signer = SigSigner::sig0(sig0key, key, Name::root());
+            let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
 
             let origin: Name = Name::parse("example.com.", None).unwrap();
             let rrsig = Record::from_rdata(
