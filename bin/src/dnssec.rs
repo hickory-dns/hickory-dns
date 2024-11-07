@@ -247,7 +247,6 @@ impl TlsCertConfig {
 ///  keys = [ "my_rsa_2048|RSASHA256", "/path/to/my_ed25519|ED25519" ]
 #[cfg(feature = "dnssec")]
 fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<SigSigner, String> {
-    use hickory_proto::rr::dnssec::SigningKey;
     use tracing::info;
 
     use std::fs::File;
@@ -291,7 +290,7 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<SigSigner, String
         .to_dnskey(algorithm);
     Ok(SigSigner::dnssec(
         dnskey,
-        Box::new(key),
+        key,
         name,
         Duration::weeks(52)
             .try_into()
