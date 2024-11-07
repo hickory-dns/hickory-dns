@@ -92,12 +92,12 @@ pub fn main() {
 fn to_public_key_buf(pkey: PKey<Public>) -> PublicKeyBuf {
     let rsa = pkey.rsa();
     if let Ok(rsa) = rsa {
-        return PublicKeyBuf::from_rsa(rsa);
+        return PublicKeyBuf::from_rsa(&rsa);
     }
 
     let ec = pkey.ec_key();
     if let Ok(ec) = ec {
-        return PublicKeyBuf::from_ec(ec).expect("failed to convert to ec");
+        return PublicKeyBuf::from_ec(&ec).expect("failed to convert to ec");
     }
 
     panic!("unsupported pkey");
