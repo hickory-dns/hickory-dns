@@ -622,8 +622,7 @@ mod tests {
         query.set_name(origin);
         question.add_query(query);
 
-        let rsa = Rsa::generate(2_048).unwrap();
-        let key = KeyPair::from_rsa(rsa, Algorithm::RSASHA256).unwrap();
+        let key = RsaSigningKey::generate(Algorithm::RSASHA256).unwrap();
         let pub_key = key.to_public_key().unwrap();
         let sig0key = pub_key.to_sig0key(Algorithm::RSASHA256);
         let signer = SigSigner::sig0(sig0key.clone(), Box::new(key), Name::root());
@@ -652,8 +651,7 @@ mod tests {
     #[test]
     #[allow(deprecated)]
     fn test_sign_and_verify_rrset() {
-        let rsa = Rsa::generate(2_048).unwrap();
-        let key = KeyPair::from_rsa(rsa, Algorithm::RSASHA256).unwrap();
+        let key = RsaSigningKey::generate(Algorithm::RSASHA256).unwrap();
         let pub_key = key.to_public_key().unwrap();
         let sig0key = pub_key.to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone);
         let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
@@ -736,7 +734,7 @@ mod tests {
             let rsa_pem = rsa.private_key_to_pem().unwrap();
             println!("pkey:\n{}", String::from_utf8(rsa_pem).unwrap());
 
-            let key = KeyPair::from_rsa(rsa, Algorithm::RSASHA256).unwrap();
+            let key = RsaSigningKey::from_rsa(rsa, Algorithm::RSASHA256).unwrap();
             let pub_key = key.to_public_key().unwrap();
             let sig0key = pub_key.to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone);
             let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
@@ -758,7 +756,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
         let rsa_pem = rsa.private_key_to_pem().unwrap();
         println!("pkey:\n{}", String::from_utf8(rsa_pem).unwrap());
 
-        let key = KeyPair::from_rsa(rsa, Algorithm::RSASHA256).unwrap();
+        let key = RsaSigningKey::from_rsa(rsa, Algorithm::RSASHA256).unwrap();
         let pub_key = key.to_public_key().unwrap();
         let sig0key = pub_key.to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone);
         let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
@@ -772,22 +770,19 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
     #[allow(clippy::module_inception)]
     #[cfg(test)]
     mod tests {
-        use openssl::rsa::Rsa;
-
         use crate::rr::dnssec::rdata::RRSIG;
-        use crate::rr::dnssec::*;
+        use crate::rr::dnssec::{Algorithm, PublicKey, RsaSigningKey, SigSigner, SigningKey, TBS};
         use crate::rr::rdata::{CNAME, NS};
-        use crate::rr::*;
+        use crate::rr::{DNSClass, Name, RData, Record, RecordType};
 
         #[test]
         fn test_rrset_tbs() {
-            let rsa = Rsa::generate(2_048).unwrap();
-            let key = KeyPair::from_rsa(rsa, Algorithm::RSASHA256).unwrap();
+            let key = RsaSigningKey::generate(Algorithm::RSASHA256).unwrap();
             let pub_key = key.to_public_key().unwrap();
             let sig0key = pub_key.to_sig0key(Algorithm::RSASHA256);
             let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
 
-            let origin: Name = Name::parse("example.com.", None).unwrap();
+            let origin = Name::parse("example.com.", None).unwrap();
             let rrsig = Record::from_rdata(
                 origin.clone(),
                 86400,

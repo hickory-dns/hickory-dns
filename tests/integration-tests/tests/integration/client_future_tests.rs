@@ -281,9 +281,8 @@ async fn create_sig0_ready_client() -> (
     Name,
 ) {
     use hickory_proto::rr::dnssec::rdata::DNSSECRData;
-    use hickory_proto::rr::dnssec::{Algorithm, KeyPair, PublicKey, SigningKey};
+    use hickory_proto::rr::dnssec::{Algorithm, PublicKey, RsaSigningKey, SigningKey};
     use hickory_server::store::sqlite::SqliteAuthority;
-    use openssl::rsa::Rsa;
 
     let authority = create_example();
     let mut authority = SqliteAuthority::new(authority, true, false);
@@ -291,8 +290,7 @@ async fn create_sig0_ready_client() -> (
 
     let trusted_name = Name::from_str("trusted.example.com").unwrap();
 
-    let rsa = Rsa::generate(2_048).unwrap();
-    let key = KeyPair::from_rsa(rsa, Algorithm::RSASHA256).unwrap();
+    let key = RsaSigningKey::generate(Algorithm::RSASHA256).unwrap();
     let pub_key = key.to_public_key().unwrap();
     let sig0_key = pub_key.to_sig0key(Algorithm::RSASHA256);
 
