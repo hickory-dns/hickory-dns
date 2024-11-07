@@ -450,99 +450,174 @@ mod tests {
     #[cfg(feature = "dnssec-openssl")]
     #[test]
     fn test_rsa() {
-        public_key_test(Algorithm::RSASHA256, KeyFormat::Der);
-        hash_test(Algorithm::RSASHA256, KeyFormat::Der);
+        let algorithm = Algorithm::RSASHA256;
+        let format = KeyFormat::Der;
+        let key = decode_key(
+            &format.generate_and_encode(algorithm, None).unwrap(),
+            None,
+            algorithm,
+            format,
+        )
+        .unwrap();
+        public_key_test(&*key, algorithm);
+
+        let neg = decode_key(
+            &format.generate_and_encode(algorithm, None).unwrap(),
+            None,
+            algorithm,
+            format,
+        )
+        .unwrap();
+        hash_test(&*key, &*neg, algorithm);
     }
 
     #[cfg(feature = "dnssec-openssl")]
     #[test]
     fn test_ec_p256() {
-        public_key_test(Algorithm::ECDSAP256SHA256, KeyFormat::Der);
-        hash_test(Algorithm::ECDSAP256SHA256, KeyFormat::Der);
+        let algorithm = Algorithm::ECDSAP256SHA256;
+        let format = KeyFormat::Der;
+        let key = decode_key(
+            &format.generate_and_encode(algorithm, None).unwrap(),
+            None,
+            algorithm,
+            format,
+        )
+        .unwrap();
+        public_key_test(&*key, algorithm);
+
+        let neg = decode_key(
+            &format.generate_and_encode(algorithm, None).unwrap(),
+            None,
+            algorithm,
+            format,
+        )
+        .unwrap();
+        hash_test(&*key, &*neg, algorithm);
     }
 
     #[cfg(feature = "dnssec-ring")]
     #[test]
     fn test_ec_p256_pkcs8() {
-        public_key_test(Algorithm::ECDSAP256SHA256, KeyFormat::Pkcs8);
-        hash_test(Algorithm::ECDSAP256SHA256, KeyFormat::Pkcs8);
+        let algorithm = Algorithm::ECDSAP256SHA256;
+        let format = KeyFormat::Pkcs8;
+        let key = decode_key(
+            &format.generate_and_encode(algorithm, None).unwrap(),
+            None,
+            algorithm,
+            format,
+        )
+        .unwrap();
+        public_key_test(&*key, algorithm);
+
+        let neg = decode_key(
+            &format.generate_and_encode(algorithm, None).unwrap(),
+            None,
+            algorithm,
+            format,
+        )
+        .unwrap();
+        hash_test(&*key, &*neg, algorithm);
     }
 
     #[cfg(feature = "dnssec-openssl")]
     #[test]
     fn test_ec_p384() {
-        public_key_test(Algorithm::ECDSAP384SHA384, KeyFormat::Der);
-        hash_test(Algorithm::ECDSAP384SHA384, KeyFormat::Der);
+        let algorithm = Algorithm::ECDSAP384SHA384;
+        let format = KeyFormat::Der;
+        let key = decode_key(
+            &format.generate_and_encode(algorithm, None).unwrap(),
+            None,
+            algorithm,
+            format,
+        )
+        .unwrap();
+        public_key_test(&*key, algorithm);
+
+        let neg = decode_key(
+            &format.generate_and_encode(algorithm, None).unwrap(),
+            None,
+            algorithm,
+            format,
+        )
+        .unwrap();
+        hash_test(&*key, &*neg, algorithm);
     }
 
     #[cfg(feature = "dnssec-ring")]
     #[test]
     fn test_ec_p384_pkcs8() {
-        public_key_test(Algorithm::ECDSAP384SHA384, KeyFormat::Pkcs8);
-        hash_test(Algorithm::ECDSAP384SHA384, KeyFormat::Pkcs8);
+        let algorithm = Algorithm::ECDSAP384SHA384;
+        let format = KeyFormat::Pkcs8;
+        let key = decode_key(
+            &format.generate_and_encode(algorithm, None).unwrap(),
+            None,
+            algorithm,
+            format,
+        )
+        .unwrap();
+        public_key_test(&*key, algorithm);
+
+        let neg = decode_key(
+            &format.generate_and_encode(algorithm, None).unwrap(),
+            None,
+            algorithm,
+            format,
+        )
+        .unwrap();
+        hash_test(&*key, &*neg, algorithm);
     }
 
     #[cfg(feature = "dnssec-ring")]
     #[test]
     fn test_ed25519() {
-        public_key_test(Algorithm::ED25519, KeyFormat::Pkcs8);
-        hash_test(Algorithm::ED25519, KeyFormat::Pkcs8);
-    }
-
-    #[allow(clippy::uninlined_format_args)]
-    fn public_key_test(algorithm: Algorithm, key_format: KeyFormat) {
+        let algorithm = Algorithm::ED25519;
+        let format = KeyFormat::Pkcs8;
         let key = decode_key(
-            &key_format.generate_and_encode(algorithm, None).unwrap(),
+            &format.generate_and_encode(algorithm, None).unwrap(),
             None,
             algorithm,
-            key_format,
+            format,
         )
         .unwrap();
+        public_key_test(&*key, algorithm);
+
+        let neg = decode_key(
+            &format.generate_and_encode(algorithm, None).unwrap(),
+            None,
+            algorithm,
+            format,
+        )
+        .unwrap();
+        hash_test(&*key, &*neg, algorithm);
+    }
+
+    fn public_key_test(key: &dyn SigningKey, algorithm: Algorithm) {
         let pk = key.to_public_key().unwrap();
 
         let tbs = TBS::from(&b"www.example.com"[..]);
         let mut sig = key.sign(&tbs).unwrap();
         assert!(
             pk.verify(algorithm, tbs.as_ref(), &sig).is_ok(),
-            "algorithm: {:?} (public key)",
-            algorithm
+            "algorithm: {algorithm:?} (public key)",
         );
         sig[10] = !sig[10];
         assert!(
             pk.verify(algorithm, tbs.as_ref(), &sig).is_err(),
-            "algorithm: {:?} (public key, neg)",
-            algorithm
+            "algorithm: {algorithm:?} (public key, neg)",
         );
     }
 
-    #[allow(clippy::uninlined_format_args)]
-    fn hash_test(algorithm: Algorithm, key_format: KeyFormat) {
+    fn hash_test(key: &dyn SigningKey, neg: &dyn SigningKey, algorithm: Algorithm) {
         let tbs = TBS::from(&b"www.example.com"[..]);
 
         // TODO: convert to stored keys...
-        let key = decode_key(
-            &key_format.generate_and_encode(algorithm, None).unwrap(),
-            None,
-            algorithm,
-            key_format,
-        )
-        .unwrap();
         let pub_key = key.to_public_key().unwrap();
-
-        let neg = decode_key(
-            &key_format.generate_and_encode(algorithm, None).unwrap(),
-            None,
-            algorithm,
-            key_format,
-        )
-        .unwrap();
         let neg_pub_key = neg.to_public_key().unwrap();
 
         let sig = key.sign(&tbs).unwrap();
         assert!(
             pub_key.verify(algorithm, tbs.as_ref(), &sig).is_ok(),
-            "algorithm: {:?}",
-            algorithm
+            "algorithm: {algorithm:?}",
         );
         assert!(
             key.to_public_key()
@@ -550,8 +625,7 @@ mod tests {
                 .to_dnskey(algorithm)
                 .verify(tbs.as_ref(), &sig)
                 .is_ok(),
-            "algorithm: {:?} (dnskey)",
-            algorithm
+            "algorithm: {algorithm:?} (dnskey)",
         );
         assert!(
             neg_pub_key.verify(algorithm, tbs.as_ref(), &sig).is_err(),
@@ -564,8 +638,7 @@ mod tests {
                 .to_dnskey(algorithm)
                 .verify(tbs.as_ref(), &sig)
                 .is_err(),
-            "algorithm: {:?} (dnskey, neg)",
-            algorithm
+            "algorithm: {algorithm:?} (dnskey, neg)",
         );
     }
 }
