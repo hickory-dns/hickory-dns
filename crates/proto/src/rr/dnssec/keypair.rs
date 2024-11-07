@@ -216,7 +216,7 @@ impl KeyPair {
                 let rsa = pkey
                     .rsa()
                     .expect("pkey should have been initialized with RSA");
-                Ok(PublicKeyBuf::from_rsa(rsa).into_inner())
+                Ok(PublicKeyBuf::from_rsa(&rsa).into_inner())
             }
             // see from_vec() ECDSA sections for reference
             #[cfg(feature = "dnssec-openssl")]
@@ -225,7 +225,7 @@ impl KeyPair {
                 let ec_key = pkey
                     .ec_key()
                     .expect("pkey should have been initialized with EC");
-                Ok(PublicKeyBuf::from_ec(ec_key)?.into_inner())
+                Ok(PublicKeyBuf::from_ec(&ec_key)?.into_inner())
             }
             #[cfg(feature = "dnssec-ring")]
             Self::ECDSA(ec_key) => {

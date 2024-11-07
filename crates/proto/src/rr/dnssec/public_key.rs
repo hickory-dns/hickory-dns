@@ -649,7 +649,7 @@ impl PublicKeyBuf {
 
     /// Constructs a new [`PublicKeyBuf`] from an [`OpenSslRsa`] key.
     #[cfg(feature = "dnssec-openssl")]
-    pub fn from_rsa<T: HasPublic>(key: OpenSslRsa<T>) -> Self {
+    pub fn from_rsa<T: HasPublic>(key: &OpenSslRsa<T>) -> Self {
         let mut key_buf = Vec::new();
 
         // this is to get us access to the exponent and the modulus
@@ -669,7 +669,7 @@ impl PublicKeyBuf {
 
     /// Constructs a new [`PublicKeyBuf`] from an openssl [`EcKey`].
     #[cfg(feature = "dnssec-openssl")]
-    pub fn from_ec<T: HasPublic>(ec_key: EcKey<T>) -> DnsSecResult<Self> {
+    pub fn from_ec<T: HasPublic>(ec_key: &EcKey<T>) -> DnsSecResult<Self> {
         let group = ec_key.group();
         let point = ec_key.public_key();
 
