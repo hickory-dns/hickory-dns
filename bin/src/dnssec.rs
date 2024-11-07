@@ -18,7 +18,7 @@ use serde::Deserialize;
 use hickory_proto::rr::domain::Name;
 #[cfg(feature = "dnssec")]
 use hickory_proto::rr::{
-    dnssec::{Algorithm, KeyFormat, PublicKey, SigSigner},
+    dnssec::{decode_key, Algorithm, KeyFormat, PublicKey, SigSigner},
     domain::IntoName,
 };
 use hickory_proto::serialize::txt::ParseResult;
@@ -273,8 +273,7 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<SigSigner, String
         file.read_to_end(&mut key_bytes)
             .map_err(|e| format!("could not read key from: {key_path:?}: {e}"))?;
 
-        format
-            .decode_key(&key_bytes, key_config.password(), algorithm)
+        decode_key(&key_bytes, key_config.password(), algorithm, format)
             .map_err(|e| format!("could not decode key: {e}"))?
     };
 

@@ -18,17 +18,105 @@ use openssl::sign::Signer;
 
 #[cfg(feature = "dnssec-ring")]
 use ring::{
-    rand,
+    rand::{self, SystemRandom},
     signature::{
         EcdsaKeyPair, Ed25519KeyPair, KeyPair as RingKeyPair, ECDSA_P256_SHA256_FIXED_SIGNING,
         ECDSA_P384_SHA384_FIXED_SIGNING,
     },
 };
 
+use super::KeyFormat;
 use crate::error::{DnsSecErrorKind, DnsSecResult};
 #[cfg(feature = "dnssec-openssl")]
 use crate::rr::dnssec::DigestType;
 use crate::rr::dnssec::{Algorithm, PublicKeyBuf, TBS};
+
+/// Decode private key
+#[allow(unused, clippy::match_single_binding)]
+pub fn decode_key(
+    bytes: &[u8],
+    password: Option<&str>,
+    algorithm: Algorithm,
+    format: KeyFormat,
+) -> DnsSecResult<KeyPair> {
+    //  empty string prevents openssl from triggering a read from stdin...
+    let password = password.unwrap_or("");
+    let password = password.as_bytes();
+
+    #[allow(deprecated)]
+    match algorithm {
+        Algorithm::Unknown(v) => Err(format!("unknown algorithm: {v}").into()),
+        #[cfg(feature = "dnssec-openssl")]
+        e @ Algorithm::RSASHA1 | e @ Algorithm::RSASHA1NSEC3SHA1 => {
+            Err(format!("unsupported Algorithm (insecure): {e:?}").into())
+        }
+        #[cfg(feature = "dnssec-openssl")]
+        Algorithm::RSASHA256 | Algorithm::RSASHA512 => {
+            let key = match format {
+                KeyFormat::Der => OpenSslRsa::private_key_from_der(bytes)
+                    .map_err(|e| format!("error reading RSA as DER: {e}"))?,
+                KeyFormat::Pem => {
+                    let key = OpenSslRsa::private_key_from_pem_passphrase(bytes, password);
+
+                    key.map_err(|e| format!("could not decode RSA from PEM, bad password?: {e}"))?
+                }
+                e => {
+                    return Err(format!(
+                        "unsupported key format with RSA (DER or PEM only): \
+                         {e:?}"
+                    )
+                    .into())
+                }
+            };
+
+            Ok(KeyPair::from_rsa(key, algorithm)
+                .map_err(|e| format!("could not translate RSA to KeyPair: {e}"))?)
+        }
+        Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => match format {
+            #[cfg(feature = "dnssec-openssl")]
+            KeyFormat::Der => {
+                let key = EcKey::private_key_from_der(bytes)
+                    .map_err(|e| format!("error reading EC as DER: {e}"))?;
+
+                Ok(KeyPair::from_ec_key(key, algorithm)
+                    .map_err(|e| format!("could not translate RSA to KeyPair: {e}"))?)
+            }
+            #[cfg(feature = "dnssec-openssl")]
+            KeyFormat::Pem => {
+                let key = EcKey::private_key_from_pem_passphrase(bytes, password)
+                    .map_err(|e| format!("could not decode EC from PEM, bad password?: {e}"))?;
+
+                Ok(KeyPair::from_ec_key(key, algorithm)
+                    .map_err(|e| format!("could not translate RSA to KeyPair: {e}"))?)
+            }
+            #[cfg(feature = "dnssec-ring")]
+            KeyFormat::Pkcs8 => {
+                let rng = SystemRandom::new();
+                let ring_algorithm = if algorithm == Algorithm::ECDSAP256SHA256 {
+                    &ECDSA_P256_SHA256_FIXED_SIGNING
+                } else {
+                    &ECDSA_P384_SHA384_FIXED_SIGNING
+                };
+                let key = EcdsaKeyPair::from_pkcs8(ring_algorithm, bytes, &rng)?;
+
+                Ok(KeyPair::from_ecdsa(key))
+            }
+            e => Err(format!("unsupported key format with EC: {e:?}").into()),
+        },
+        Algorithm::ED25519 => match format {
+            #[cfg(feature = "dnssec-ring")]
+            KeyFormat::Pkcs8 => {
+                let key = Ed25519KeyPair::from_pkcs8(bytes)?;
+
+                Ok(KeyPair::from_ed25519(key))
+            }
+            e => Err(
+                format!("unsupported key format with ED25519 (only Pkcs8 supported): {e:?}").into(),
+            ),
+        },
+        e => Err(format!("unsupported Algorithm, enable openssl or ring feature: {e:?}").into()),
+    }
+}
 
 /// A public and private key pair, the private portion is not required.
 ///
@@ -336,8 +424,8 @@ impl KeyPair {
 #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 #[cfg(test)]
 mod tests {
-    use crate::rr::dnssec::TBS;
-    use crate::rr::dnssec::*;
+    use super::*;
+    use crate::rr::dnssec::{PublicKey, Verifier};
 
     #[cfg(feature = "dnssec-openssl")]
     #[test]
@@ -383,13 +471,13 @@ mod tests {
 
     #[allow(clippy::uninlined_format_args)]
     fn public_key_test(algorithm: Algorithm, key_format: KeyFormat) {
-        let key = key_format
-            .decode_key(
-                &key_format.generate_and_encode(algorithm, None).unwrap(),
-                None,
-                algorithm,
-            )
-            .unwrap();
+        let key = decode_key(
+            &key_format.generate_and_encode(algorithm, None).unwrap(),
+            None,
+            algorithm,
+            key_format,
+        )
+        .unwrap();
         let pk = key.to_public_key().unwrap();
 
         let tbs = TBS::from(&b"www.example.com"[..]);
@@ -412,22 +500,22 @@ mod tests {
         let tbs = TBS::from(&b"www.example.com"[..]);
 
         // TODO: convert to stored keys...
-        let key = key_format
-            .decode_key(
-                &key_format.generate_and_encode(algorithm, None).unwrap(),
-                None,
-                algorithm,
-            )
-            .unwrap();
+        let key = decode_key(
+            &key_format.generate_and_encode(algorithm, None).unwrap(),
+            None,
+            algorithm,
+            key_format,
+        )
+        .unwrap();
         let pub_key = key.to_public_key().unwrap();
 
-        let neg = key_format
-            .decode_key(
-                &key_format.generate_and_encode(algorithm, None).unwrap(),
-                None,
-                algorithm,
-            )
-            .unwrap();
+        let neg = decode_key(
+            &key_format.generate_and_encode(algorithm, None).unwrap(),
+            None,
+            algorithm,
+            key_format,
+        )
+        .unwrap();
         let neg_pub_key = neg.to_public_key().unwrap();
 
         let sig = key.sign(&tbs).unwrap();
