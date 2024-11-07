@@ -47,8 +47,6 @@ impl KeyFormat {
                 Self::Pkcs8 => return KeyPair::generate_pkcs8(algorithm),
                 e => return Err(format!("unsupported key format with EC: {e:?}").into()),
             },
-            #[cfg(feature = "dnssec-ring")]
-            Algorithm::ED25519 => return KeyPair::generate_pkcs8(algorithm),
             e => {
                 return Err(
                     format!("unsupported Algorithm, enable openssl or ring feature: {e:?}").into(),
@@ -90,7 +88,7 @@ impl KeyFormat {
                 }
             }
             #[cfg(feature = "dnssec-ring")]
-            KeyPair::ECDSA(..) | KeyPair::ED25519(..) => panic!("should have returned early"),
+            KeyPair::ECDSA(..) => panic!("should have returned early"),
             #[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
             _ => Err(format!(
                 "unsupported Algorithm, enable openssl feature (encode not supported with ring)"
@@ -106,6 +104,8 @@ mod tests {
 
     use super::*;
     use crate::rr::dnssec::keypair::decode_key;
+    #[cfg(feature = "dnssec-ring")]
+    use crate::rr::dnssec::Ed25519SigningKey;
 
     #[test]
     #[cfg(feature = "dnssec-openssl")]
@@ -145,8 +145,8 @@ mod tests {
     #[test]
     #[cfg(feature = "dnssec-ring")]
     fn test_ed25519_encode_decode_pkcs8() {
-        let algorithm = Algorithm::ED25519;
-        encode_decode_with_format(KeyFormat::Pkcs8, algorithm, true, true);
+        let pkcs8 = Ed25519SigningKey::generate_pkcs8().unwrap();
+        decode_key(&pkcs8, None, Algorithm::ED25519, KeyFormat::Pkcs8).unwrap();
     }
 
     #[cfg(test)]

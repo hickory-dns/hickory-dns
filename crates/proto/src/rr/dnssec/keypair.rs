@@ -108,11 +108,7 @@ pub fn decode_key(
         },
         Algorithm::ED25519 => match format {
             #[cfg(feature = "dnssec-ring")]
-            KeyFormat::Pkcs8 => {
-                let key = Ed25519KeyPair::from_pkcs8(bytes)?;
-
-                Ok(Box::new(KeyPair::from_ed25519(key)))
-            }
+            KeyFormat::Pkcs8 => Ok(Box::new(Ed25519SigningKey::from_pkcs8(bytes)?)),
             e => Err(
                 format!("unsupported key format with ED25519 (only Pkcs8 supported): {e:?}").into(),
             ),
@@ -137,9 +133,6 @@ pub enum KeyPair {
     /// *ring* ECDSA keypair
     #[cfg(feature = "dnssec-ring")]
     ECDSA(EcdsaKeyPair),
-    /// ED25519 encryption and hash defined keypair
-    #[cfg(feature = "dnssec-ring")]
-    ED25519(Ed25519KeyPair),
 }
 
 impl KeyPair {
@@ -199,12 +192,6 @@ impl KeyPair {
         Self::ECDSA(ec_key)
     }
 
-    /// Creates an ED25519 keypair.
-    #[cfg(feature = "dnssec-ring")]
-    pub fn from_ed25519(ed_key: Ed25519KeyPair) -> Self {
-        Self::ED25519(ed_key)
-    }
-
     /// Converts this keypair to the DNS binary form of the public_key.
     ///
     /// If there is a private key associated with this keypair, it will not be included in this
@@ -236,8 +223,6 @@ impl KeyPair {
                 bytes.remove(0);
                 Ok(bytes)
             }
-            #[cfg(feature = "dnssec-ring")]
-            Self::ED25519(ed_key) => Ok(ed_key.public_key().as_ref().to_vec()),
             #[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
             _ => Err(DnsSecErrorKind::Message("openssl or ring feature(s) not enabled").into()),
         }
@@ -335,8 +320,6 @@ impl KeyPair {
                 let rng = rand::SystemRandom::new();
                 Ok(ec_key.sign(&rng, tbs.as_ref())?.as_ref().to_vec())
             }
-            #[cfg(feature = "dnssec-ring")]
-            Self::ED25519(ed_key) => Ok(ed_key.sign(tbs.as_ref()).as_ref().to_vec()),
             #[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
             _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
         }
@@ -370,11 +353,6 @@ impl KeyPair {
                 let inner = EcKey::generate(&group)?;
                 Self::from_ec_key(inner, algorithm)
             }
-            #[cfg(feature = "dnssec-ring")]
-            Algorithm::ED25519 => Err(DnsSecErrorKind::Message(
-                "use generate_pkcs8 for generating private key and encoding",
-            )
-            .into()),
             _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
         }
     }
@@ -406,13 +384,6 @@ impl KeyPair {
                     .map_err(Into::into)
                     .map(|pkcs8_bytes| pkcs8_bytes.as_ref().to_vec())
             }
-            #[cfg(feature = "dnssec-ring")]
-            Algorithm::ED25519 => {
-                let rng = rand::SystemRandom::new();
-                Ed25519KeyPair::generate_pkcs8(&rng)
-                    .map_err(Into::into)
-                    .map(|pkcs8_bytes| pkcs8_bytes.as_ref().to_vec())
-            }
             _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
         }
     }
@@ -425,6 +396,45 @@ impl SigningKey for KeyPair {
 
     fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf> {
         Ok(PublicKeyBuf::new(self.to_public_bytes()?))
+    }
+}
+
+/// An Ed25519 signing key pair (backed by ring).
+#[cfg(feature = "dnssec-ring")]
+pub struct Ed25519SigningKey {
+    inner: Ed25519KeyPair,
+}
+
+#[cfg(feature = "dnssec-ring")]
+impl Ed25519SigningKey {
+    /// Decode signing key pair from DER-encoded PKCS#8 bytes.
+    pub fn from_pkcs8(bytes: &[u8]) -> DnsSecResult<Self> {
+        Ok(Self {
+            inner: Ed25519KeyPair::from_pkcs8(bytes)?,
+        })
+    }
+
+    /// Creates an Ed25519 keypair.
+    pub fn from_ed25519(inner: Ed25519KeyPair) -> Self {
+        Self { inner }
+    }
+
+    /// Generate signing key pair and return the DER-encoded PKCS#8 bytes.
+    pub fn generate_pkcs8() -> DnsSecResult<Vec<u8>> {
+        let rng = rand::SystemRandom::new();
+        let pkcs8 = Ed25519KeyPair::generate_pkcs8(&rng)?;
+        Ok(pkcs8.as_ref().to_vec())
+    }
+}
+
+#[cfg(feature = "dnssec-ring")]
+impl SigningKey for Ed25519SigningKey {
+    fn sign(&self, tbs: &TBS) -> DnsSecResult<Vec<u8>> {
+        Ok(self.inner.sign(tbs.as_ref()).as_ref().to_vec())
+    }
+
+    fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf> {
+        Ok(PublicKeyBuf::new(self.inner.public_key().as_ref().to_vec()))
     }
 }
 
@@ -572,22 +582,12 @@ mod tests {
     fn test_ed25519() {
         let algorithm = Algorithm::ED25519;
         let format = KeyFormat::Pkcs8;
-        let key = decode_key(
-            &format.generate_and_encode(algorithm, None).unwrap(),
-            None,
-            algorithm,
-            format,
-        )
-        .unwrap();
+        let pkcs8 = Ed25519SigningKey::generate_pkcs8().unwrap();
+        let key = decode_key(&pkcs8, None, algorithm, format).unwrap();
         public_key_test(&*key, algorithm);
 
-        let neg = decode_key(
-            &format.generate_and_encode(algorithm, None).unwrap(),
-            None,
-            algorithm,
-            format,
-        )
-        .unwrap();
+        let neg_pkcs8 = Ed25519SigningKey::generate_pkcs8().unwrap();
+        let neg = decode_key(&neg_pkcs8, None, algorithm, format).unwrap();
         hash_test(&*key, &*neg, algorithm);
     }
 
