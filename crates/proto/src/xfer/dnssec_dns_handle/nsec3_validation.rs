@@ -76,6 +76,7 @@
 //!     `wildcard_encloser` == `*.soa.name`
 //!
 
+use super::proof_log_yield;
 use crate::{
     op::{Query, ResponseCode},
     rr::{
@@ -110,7 +111,12 @@ pub(super) fn verify_nsec3(
 
     // Some of record names were NOT in a form of `<base32hash>.soa.name`
     let Some(nsec3s) = nsec3s else {
-        return Proof::Bogus;
+        return proof_log_yield(
+            Proof::Bogus,
+            query.name(),
+            "nsec3",
+            "record name format is invalid",
+        );
     };
 
     debug_assert!(!nsec3s.is_empty());
@@ -125,7 +131,7 @@ pub(super) fn verify_nsec3(
             || r.nsec3_data.salt() != salt
             || r.nsec3_data.iterations() != iterations
     }) {
-        return Proof::Bogus;
+        return proof_log_yield(Proof::Bogus, query.name(), "nsec3", "parameter mismatch");
     }
 
     // Basic sanity checks are done.
@@ -164,7 +170,12 @@ pub(super) fn verify_nsec3(
                 &nsec3s,
             )
         }
-        _ => Proof::Bogus,
+        _ => proof_log_yield(
+            Proof::Bogus,
+            query_name,
+            "nsec3",
+            &format!("unsupported response code ({response_code})")[..],
+        ),
     }
 }
 
@@ -241,14 +252,19 @@ fn validate_nxdomain_response(
         .iter()
         .any(|r| r.base32_hashed_name == base32_hased_query_name.as_bytes())
     {
-        return Proof::Bogus;
+        return proof_log_yield(
+            Proof::Bogus,
+            query_name,
+            "nsec3",
+            "NXDomain response with record for query name",
+        );
     }
 
     let (closest_encloser_proof_info, early_proof) =
         closest_encloser_proof(query_name, soa_name, nsec3s);
 
     if let Some(proof) = early_proof {
-        return proof;
+        return proof_log_yield(proof, query_name, "nsec3", "returning early proof");
     }
 
     // Note that the three fields may hold references to the same NSEC3
@@ -264,12 +280,24 @@ fn validate_nxdomain_response(
     match (closest_encloser, next_closer, closest_encloser_wildcard) {
         // Got all three components - we proved that there's no `query_name`
         // in the zone
-        (Some(_), Some(_), Some(_)) => Proof::Secure,
+        (Some(_), Some(_), Some(_)) => {
+            proof_log_yield(Proof::Secure, query_name, "nsec3", "direct proof")
+        }
         // `query_name`'s parent is the `soa_name` itself, so there's no need
         // to send `soa_name`'s NSEC3 record. Still we have to show that
         // both `query_name` doesn't exist and there's no wildcard to service it
-        (None, Some(_), Some(_)) if &query_name.base_name() == soa_name => Proof::Secure,
-        _ => Proof::Bogus,
+        (None, Some(_), Some(_)) if &query_name.base_name() == soa_name => proof_log_yield(
+            Proof::Secure,
+            query_name,
+            "nsec3",
+            "no direct or wildcard proof, but parent name of query is SOA",
+        ),
+        _ => proof_log_yield(
+            Proof::Bogus,
+            query_name,
+            "nsec3",
+            "no proof of non-existence",
+        ),
     }
 }
 
@@ -555,9 +583,19 @@ fn validate_nodata_response(
                 .type_bit_maps()
                 .contains(&RecordType::CNAME)
         {
-            return Proof::Bogus;
+            return proof_log_yield(
+                Proof::Bogus,
+                query_name,
+                "nsec3",
+                &format!("nsec3 type map covers {query_type} or CNAME")[..],
+            );
         } else {
-            return ds_proof_override;
+            return proof_log_yield(
+                ds_proof_override,
+                query_name,
+                "nsec3",
+                &format!("type map does not cover {query_type} or CNAME")[..],
+            );
         }
     }
 
@@ -610,15 +648,29 @@ fn validate_nodata_response(
                 x.nsec3_data.type_bit_maps().contains(&RecordType::DS) && x.nsec3_data.opt_out()
             })
     {
-        return Proof::Insecure;
+        return proof_log_yield(
+            Proof::Insecure,
+            query_name,
+            "nsec3",
+            "DS query covered by opt-out proof",
+        );
     }
 
-    match wildcard_encloser_num_labels {
+    let (proof, reason) = match wildcard_encloser_num_labels {
         // Case 4:
         // Name is serviced by wildcard that has a record of this type
         Some(wildcard_encloser_num_labels) => {
             if query_name.num_labels() <= wildcard_encloser_num_labels {
-                return Proof::Bogus;
+                return proof_log_yield(
+                    Proof::Bogus,
+                    query_name,
+                    "nsec3",
+                    &format!(
+                        "query labels ({}) <= wildcard encloser labels ({})",
+                        query_name.num_labels(),
+                        wildcard_encloser_num_labels,
+                    )[..],
+                );
             }
             // There should be an NSEC3 record *covering* `next_closer`
             let next_closer_labels = query_name
@@ -638,8 +690,8 @@ fn validate_nodata_response(
                 &next_closer_base32_hashed_name,
             );
             match next_closer_record {
-                Some(_) => ds_proof_override,
-                None => Proof::Bogus,
+                Some(_) => (ds_proof_override, "matching next closer record"),
+                None => (Proof::Bogus, "no matching next closer record"),
             }
         }
 
@@ -652,13 +704,24 @@ fn validate_nodata_response(
                 closest_encloser_wildcard,
             } = wildcard_based_encloser_proof(query_name, soa_name, nsec3s);
             match (closest_encloser, next_closer, closest_encloser_wildcard) {
-                (Some(_), Some(_), Some(_)) => ds_proof_override,
-                (None, Some(_), Some(_)) if &query_name.base_name() == soa_name => ds_proof_override,
-                (None, None, None) if query_name == soa_name => ds_proof_override,
-                _ => Proof::Bogus,
+                (Some(_), Some(_), Some(_)) => (
+                    ds_proof_override,
+                    "servicing wildcard with closest encloser proof"
+                ),
+                (None, Some(_), Some(_)) if &query_name.base_name() == soa_name => (
+                    ds_proof_override,
+                    "servicing wildcard without closest encloser proof, but query parent name == SOA"
+                ),
+                (None, None, None) if query_name == soa_name => (
+                    ds_proof_override,
+                    "no servicing wildcard, but query name == SOA"
+                ),
+                _ => (Proof::Bogus, "no valid servicing wildcard proof"),
             }
         }
-    }
+    };
+
+    proof_log_yield(proof, query_name, "nsec3", reason)
 }
 
 /// Expecting the following records:
