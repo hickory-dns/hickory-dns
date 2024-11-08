@@ -56,7 +56,6 @@ jobs:
   ## Measure test coverage, only on linux.
   code-coverage:
     name: coverage
-    needs: platform-matrix
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -86,8 +85,6 @@ jobs:
   ## Work through all of the variations of the different features, only on linux to save concurrent resources
   exhaustive-features-matrix:
     name: exhaustive
-    # Let's wait for the all-features cache
-    needs: platform-matrix
     runs-on: ubuntu-latest
     continue-on-error: true
     strategy:
@@ -126,8 +123,6 @@ jobs:
   ##   this enforces the minimum version of rust this project works with
   past-future-matrix:
     name: past-future
-    # Let's wait for the all-features cache
-    needs: platform-matrix
     runs-on: ubuntu-latest
     continue-on-error: true
     strategy:
@@ -202,8 +197,6 @@ jobs:
   # Build and run bind to test our compatibility with standard name servers
   compatibility:
     name: compatibility
-    # wait for the cache from all-features
-    needs: platform-matrix
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
