@@ -186,7 +186,7 @@ mod tests {
 
         assert_eq!(
             record,
-            RData::NS(NS(Name::from_str("ns.example.com.").unwrap()))
+            RData::NS(NS(Name::from_str("ns.example.com").unwrap()))
         );
     }
 

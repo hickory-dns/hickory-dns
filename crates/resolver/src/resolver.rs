@@ -253,7 +253,9 @@ impl<P: ConnectionProvider> Resolver<P> {
 
             // if not meeting ndots, we always do the raw name in the final lookup
             if !raw_name_first {
-                names.push(name.clone());
+                let mut fqdn = name.clone();
+                fqdn.set_fqdn(true);
+                names.push(fqdn);
             }
 
             for search in self.config.search().iter().rev() {
@@ -283,7 +285,9 @@ impl<P: ConnectionProvider> Resolver<P> {
             // this is the direct name lookup
             if raw_name_first {
                 // adding the name as though it's an FQDN for lookup
-                names.push(name);
+                let mut fqdn = name.clone();
+                fqdn.set_fqdn(true);
+                names.push(fqdn);
             }
 
             names

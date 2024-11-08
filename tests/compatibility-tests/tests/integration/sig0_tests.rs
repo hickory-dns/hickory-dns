@@ -70,7 +70,7 @@ async fn test_create() {
     let signer = SigSigner::sig0(
         sig0key,
         Box::new(key),
-        Name::from_str("update.example.com").unwrap(),
+        Name::from_str("update.example.com.").unwrap(),
     );
     assert_eq!(signer.calculate_key_tag().unwrap(), 56935);
 

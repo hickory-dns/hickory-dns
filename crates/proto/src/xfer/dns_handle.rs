@@ -88,5 +88,6 @@ fn build_message(query: Query, options: DnsRequestOptions) -> Message {
             .set_version(0)
             .set_dnssec_ok(options.edns_set_dnssec_ok);
     }
+
     message
 }

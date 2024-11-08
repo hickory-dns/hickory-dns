@@ -243,7 +243,7 @@ mod tests {
         let time_begin = 1609459200u64;
         let fudge = 300u64;
         let origin: Name = Name::parse("example.com.", None).unwrap();
-        let key_name: Name = Name::from_ascii("key_name").unwrap();
+        let key_name: Name = Name::from_ascii("key_name.").unwrap();
         let mut question: Message = Message::new();
         let mut query: Query = Query::new();
         query.set_name(origin);
@@ -273,7 +273,7 @@ mod tests {
         let time_begin = 1609459200u64;
         let fudge = 300u64;
         let origin: Name = Name::parse("example.com.", None).unwrap();
-        let key_name: Name = Name::from_ascii("key_name").unwrap();
+        let key_name: Name = Name::from_ascii("key_name.").unwrap();
         let mut question: Message = Message::new();
         let mut query: Query = Query::new();
         query.set_name(origin);
@@ -301,7 +301,7 @@ mod tests {
     fn test_sign_and_verify_message_tsig_reject_keyname() {
         let (mut question, signer) = get_message_and_signer();
 
-        let other_name: Name = Name::from_ascii("other_name").unwrap();
+        let other_name: Name = Name::from_ascii("other_name.").unwrap();
         let mut signature = question.take_signature().remove(0);
         signature.set_name(other_name);
         question.add_tsig(signature);

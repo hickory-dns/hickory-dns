@@ -525,7 +525,7 @@ mod test {
     }
 
     fn a_query_answer() -> (DnsRequest, Vec<Message>) {
-        let name = Name::from_ascii("www.example.com").unwrap();
+        let name = Name::from_ascii("www.example.com.").unwrap();
 
         let mut msg = Message::new();
         msg.add_query({
@@ -554,7 +554,7 @@ mod test {
     }
 
     fn axfr_query() -> Message {
-        let name = Name::from_ascii("example.com").unwrap();
+        let name = Name::from_ascii("example.com.").unwrap();
 
         let mut msg = Message::new();
         msg.add_query({
@@ -570,7 +570,7 @@ mod test {
 
     fn axfr_response() -> Vec<Record> {
         use crate::rr::rdata::*;
-        let origin = Name::from_ascii("example.com").unwrap();
+        let origin = Name::from_ascii("example.com.").unwrap();
         let soa = Record::from_rdata(
             origin.clone(),
             3600,

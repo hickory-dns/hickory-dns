@@ -111,7 +111,7 @@ pub fn new_large_catalog(num_records: u32) -> Catalog {
     catalog
 }
 
-const LARGE_NAME: &str = "large.com";
+const LARGE_NAME: &str = "large.com.";
 
 fn large_name() -> Name {
     n(LARGE_NAME)
