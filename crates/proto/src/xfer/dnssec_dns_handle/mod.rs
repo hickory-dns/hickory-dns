@@ -1155,9 +1155,9 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> Proof {
                 !rdata.type_bit_maps().contains(&query.query_type())
             })
         {
-            return ds_proof_override;
+            return proof_log_yield(ds_proof_override, query.name(), "nsec1", "direct match");
         } else {
-            return Proof::Bogus;
+            return proof_log_yield(Proof::Bogus, query.name(), "nsec1", "direct match");
         }
     }
 
@@ -1179,7 +1179,7 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> Proof {
 
     // continue to validate there is no wildcard
     if !verify_nsec_coverage(query.name()) {
-        return Proof::Bogus;
+        return proof_log_yield(Proof::Bogus, query.name(), "nsec1", "no wildcard");
     }
 
     // validate ANY or *.domain record existence
@@ -1195,14 +1195,29 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> Proof {
     // don't need to validate the same name again
     if wildcard == *query.name() {
         // this was validated by the nsec coverage over the query.name()
-        ds_proof_override
+        proof_log_yield(
+            ds_proof_override,
+            query.name(),
+            "nsec1",
+            "direct wildcard match",
+        )
     } else {
         // this is the final check, return it's value
         //  if there is wildcard coverage, we're good.
         if verify_nsec_coverage(&wildcard) {
-            ds_proof_override
+            proof_log_yield(
+                ds_proof_override,
+                query.name(),
+                "nsec1",
+                "covering wildcard match",
+            )
         } else {
-            Proof::Bogus
+            proof_log_yield(
+                Proof::Bogus,
+                query.name(),
+                "nsec1",
+                "covering wildcard match",
+            )
         }
     }
 }
@@ -1213,6 +1228,12 @@ fn current_time() -> u32 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs() as u32
+}
+
+/// Logs a debug message and yields a Proof type for return
+fn proof_log_yield(proof: Proof, name: &Name, nsec_type: &str, msg: &str) -> Proof {
+    debug!("{nsec_type} proof for {name}, returning {proof}: {msg}");
+    proof
 }
 
 mod rrset {
