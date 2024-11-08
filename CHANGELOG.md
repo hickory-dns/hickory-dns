@@ -5,6 +5,152 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.25.0-alpha.3
+
+* util: add a newline between records in resolve report by @bluejekyll in https://github.com/hickory-dns/hickory-dns/pull/2347
+* proto: make time dependency optional by @djc in https://github.com/hickory-dns/hickory-dns/pull/2349
+* Manifest cleanup by @djc in https://github.com/hickory-dns/hickory-dns/pull/2351
+* Add marcus0x62 as a code owner by @djc in https://github.com/hickory-dns/hickory-dns/pull/2350
+* fix the bad label compression from original query by @bluejekyll in https://github.com/hickory-dns/hickory-dns/pull/2352
+* Remove mentions of Makefile.toml in CONTRIBUTING.md by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2356
+* Fix extra length prefix in unknown SVCB parameter by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2354
+* Fix copied comment by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2355
+* Explicitly limit H2 support to rustls by @djc in https://github.com/hickory-dns/hickory-dns/pull/2366
+* Fix panic in NSEC3 hash function by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2368
+* Make AsyncResolver take hosts file into account by @hch12907 in https://github.com/hickory-dns/hickory-dns/pull/2149
+* Update dependencies by @djc in https://github.com/hickory-dns/hickory-dns/pull/2374
+* Fix warning in Dockerfile by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2370
+* Fix stdout handling during hickory startup by @justahero in https://github.com/hickory-dns/hickory-dns/pull/2361
+* Increase validation log level by @justahero in https://github.com/hickory-dns/hickory-dns/pull/2360
+* Revert "Fix stdout handling during hickory startup" by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2376
+* ci: trigger workflows for merge queue branches by @djc in https://github.com/hickory-dns/hickory-dns/pull/2378
+* Fix CAA parameter value validation by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2373
+* Trivariant LookupControlFlow type to allow authorities to decline to respond to a query by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2160
+* Conformance test cleanup by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2371
+* use a "test" TLD in conformance tests by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2359
+* Strict parsing of configuration files by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2375
+* Use container names, not IDs, in "explore" example by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2372
+* trust_anchor::Parser: accept records without TTL field by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2384
+* dns-test: add helper to pause and inspect a unit test's containers by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2362
+* dns-test: write logs to file by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2377
+* Change domain name used in 'explore' example by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2386
+* Fix Issue #2306 / infinite recursion in ns_pool_for_zone by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2332
+* dns-test: bump unbound to 1.21.0 by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2387
+* [RFC] (temporarily) add tests that rely on public DNS infrastructure by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2385
+* DNSSEC validation fixes by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2392
+* proto: simplify verify_dnskey_rrset() by @djc in https://github.com/hickory-dns/hickory-dns/pull/2397
+* proto: simplify verify_dnskey_rrset() some more by @djc in https://github.com/hickory-dns/hickory-dns/pull/2398
+* proto: replace Borrow<Name> impl for LowerName with Deref by @djc in https://github.com/hickory-dns/hickory-dns/pull/2394
+* Add support for CNAME records to dns-test by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2338
+* Add "do not query" configuration to recursor by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2369
+* conformance: test resolver with query about unsigned zone by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2380
+* dns-test: parse multiple EDE codes by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2381
+* CI: fix conformance tests by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2405
+* Forwarder: fix NXDOMAIN status code and allow it to forward SOA records by @hch12907 in https://github.com/hickory-dns/hickory-dns/pull/2379
+* dnssec: validate DS records by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2396
+* build(deps): bump rustls-native-certs from 0.7.2 to 0.7.3 by @dependabot in https://github.com/hickory-dns/hickory-dns/pull/2407
+* ensure DNSKEY is validated with a KSK by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2399
+* Add method and test cases to randomize ASCII alpha case in Name labels by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2403
+* conformance/dns: add bad referral scenarios by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2410
+* conformance: test against deprecated algorithms by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2413
+* Add NSEC3 support to `hickory-server` by @pvdrz in https://github.com/hickory-dns/hickory-dns/pull/2391
+* Fix semantic merge conflict by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2414
+* Use u32 internally when randomizing case of labels by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2416
+* Store invalid CAA property value as Value::Unknown by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2418
+* Encode and decode CAA issuer name as ASCII only by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2419
+* Ignore escaped dots when determining FQDN status by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2420
+* conformance: DS of child's ZSK in parent zone by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2409
+* fix key tag calculation in dns-test and semantic merge conflict in conformance test by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2427
+* conformance: use `push_label` API and update variable names by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2408
+* Fix corruption of signature expiration in flaky test by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2426
+* Update semver-compatible dependencies by @djc in https://github.com/hickory-dns/hickory-dns/pull/2442
+* Clean up server features by @djc in https://github.com/hickory-dns/hickory-dns/pull/2441
+* Clean other target directories in `just clean` by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2446
+* Stop using pseudo-TTYs with Docker by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2439
+* dnssec: report Insecure outcome as NOERROR+AD=0 by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2438
+* CAA: Preserve reserved flags by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2434
+* NSEC3 validation by @listochkin in https://github.com/hickory-dns/hickory-dns/pull/2313
+* Fix dns-over-openssl compilation and CI coverage by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2449
+* Unify integration tests by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2448
+* treat zone as Insecure if all DNSKEY algorithms are unsupported by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2443
+* Minor recursor tweaks by @djc in https://github.com/hickory-dns/hickory-dns/pull/2450
+* Set up tracing subscriber in various tests by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2453
+* CNAME resolution support for the recursor. by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2339
+* Extract tracing-subscriber setup to new crate by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2454
+* implement rfc4398 CERT record type by @zsdsys in https://github.com/hickory-dns/hickory-dns/pull/2417
+* SignSettings: rm use_dnssec field by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2451
+* build(deps): bump enum-as-inner from 0.6.0 to 0.6.1 by @dependabot in https://github.com/hickory-dns/hickory-dns/pull/2460
+* Update semver-compatible dependencies by @djc in https://github.com/hickory-dns/hickory-dns/pull/2463
+* Kill quad9 tests by @djc in https://github.com/hickory-dns/hickory-dns/pull/2467
+* Move RuntimeProvider into proto by @djc in https://github.com/hickory-dns/hickory-dns/pull/2464
+* Catalog cleanup in preparation for the chained authority. by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2461
+* add hickory-server to the info and debug log line configs by @bluejekyll in https://github.com/hickory-dns/hickory-dns/pull/2469
+* server: avoid wrapping Arc in Box by @djc in https://github.com/hickory-dns/hickory-dns/pull/2471
+* conformance: unsigned leaf zone; other zones use NSEC by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2436
+* Regenerate test certificates by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2475
+* proto: use RuntimeProvider to connect TCP by @djc in https://github.com/hickory-dns/hickory-dns/pull/2472
+* proto: change RecordSet::new() to take owned Name by @djc in https://github.com/hickory-dns/hickory-dns/pull/2473
+* fix compilation failed by @hingbong in https://github.com/hickory-dns/hickory-dns/pull/2476
+* Allow changing URI paths for DNS-over-HTTPS by @hch12907 in https://github.com/hickory-dns/hickory-dns/pull/2470
+* conformance: add NSEC & NSEC3 tests by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2437
+* Chained authority implementation by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2161
+* Remove unneeded vecs in ForwardNSData and wrap in an Arc by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2482
+* Config tweaks by @djc in https://github.com/hickory-dns/hickory-dns/pull/2480
+* Fix two issues with the config integration test by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2484
+* Listen on IPv6 by default by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2478
+* build(deps): bump once_cell from 1.19.0 to 1.20.1 by @dependabot in https://github.com/hickory-dns/hickory-dns/pull/2483
+* Remove workaround in clippy justfile target by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2485
+* Move StoreConfig to bin crate by @djc in https://github.com/hickory-dns/hickory-dns/pull/2486
+* Update windows.rs to use crate::proto::xfer::Protocol by @zsdsys in https://github.com/hickory-dns/hickory-dns/pull/2488
+* Add resolver/recursor configuration to avoid udp ports by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2487
+* Disable client_tests::test_nsec3_query_name_is_soa_name by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2492
+* Take advantage of match ergonomics by @djc in https://github.com/hickory-dns/hickory-dns/pull/2490
+* Blocklist authority by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2162
+* Update deps (futures-util and once_cell) by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2496
+* Use custom serde visitor to fix store error messages by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2495
+* Update semver-compatible dependencies by @djc in https://github.com/hickory-dns/hickory-dns/pull/2497
+* Docs: resolver no longer returns background future by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2504
+* proto: leverage simpler PEM reading API by @djc in https://github.com/hickory-dns/hickory-dns/pull/2505
+* Update the NSEC/NSEC3 Truth Table to correctly log responses with NSEC and NSEC3 records by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2506
+* Switch to using doc_auto_cfg by @djc in https://github.com/hickory-dns/hickory-dns/pull/2507
+* State that `hickory-server` supports NSEC3 by @pvdrz in https://github.com/hickory-dns/hickory-dns/pull/2512
+* Resolver cleanups by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2513
+* Propagate NX domain and no record found errors by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2502
+* Replace TryParseIp trait with IntoName::to_ip() by @djc in https://github.com/hickory-dns/hickory-dns/pull/2509
+* Clean up rustdoc warnings by @djc in https://github.com/hickory-dns/hickory-dns/pull/2508
+* DNSSEC tweaks by @djc in https://github.com/hickory-dns/hickory-dns/pull/2517
+* Kill the sync Resolver by @djc in https://github.com/hickory-dns/hickory-dns/pull/2515
+* Use async client for sig0 compatibility tests by @djc in https://github.com/hickory-dns/hickory-dns/pull/2518
+* Add justfile target to export lcov file by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2520
+* client: remove synchronous API by @djc in https://github.com/hickory-dns/hickory-dns/pull/2521
+* tests: restore shorter timeout window in test by @djc in https://github.com/hickory-dns/hickory-dns/pull/2528
+* Conformance dnslib support by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2523
+* Conformance support for multiple zones on a nameserver by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2525
+* Simplify socket address literals by @djc in https://github.com/hickory-dns/hickory-dns/pull/2527
+* Add caching policy configuration to recursor by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2524
+* Recursor builder tweaks by @djc in https://github.com/hickory-dns/hickory-dns/pull/2529
+* Add resource limits for DNSKEY, DS, and RRSIG validation by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2533
+* conformance: zone that lacks DS in parent zone by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2388
+* Skip copying configuration file for dnslib by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2537
+* Add resolver logging to bad_txid test by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2536
+* Recursor recursion improvements by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2522
+* CI: Remove continue-on-error from steps by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2538
+* Conformance dig timeout by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2540
+* Make error modules private by @djc in https://github.com/hickory-dns/hickory-dns/pull/2530
+* Start cleaning up DNSSEC API by @djc in https://github.com/hickory-dns/hickory-dns/pull/2534
+* ci: don't build benchmarks, only check them by @djc in https://github.com/hickory-dns/hickory-dns/pull/2542
+* Fix NSEC3 validation bug for covering records by @pvdrz in https://github.com/hickory-dns/hickory-dns/pull/2543
+* justfile: fix the conformance-ignored task by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2535
+* Clarify `KeyPair` type by @djc in https://github.com/hickory-dns/hickory-dns/pull/2541
+* Recursor CNAME resource limit improvements by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2531
+* Update hashbrown by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2547
+* Check in fuzzer target lock file by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2552
+* Recursor: Create DnsResponse with consistent buffer by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2553
+* proto: encode EDNS flags in a separate type by @djc in https://github.com/hickory-dns/hickory-dns/pull/2549
+* fix windows build, ResolveError changed to ResolveResult by @zsdsys in https://github.com/hickory-dns/hickory-dns/pull/2548
+* Recursor: set RD=0 in queries to nameservers by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2551
+* recursor: use async/await for RecursorDnsHandle implementation by @djc in https://github.com/hickory-dns/hickory-dns/pull/2554
+
 ## 0.25.0
 
 ### Fixed
@@ -174,7 +320,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 ### Fixed
 
 - (resolver) Malformed label: -- when parsing resolv.conf #1985 by Jake-Shadle
-- (proto) Fix truncation for UDP #1975 by nmittler 
+- (proto) Fix truncation for UDP #1975 by nmittler
 - (proto) avoid panicking in parse_time() #1964 by djc
 - (server) Merge up deny response in requests to server #1954 by djc
 - (proto) remove duplicate is_soa function #1948 by mattsse
