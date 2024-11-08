@@ -1115,7 +1115,10 @@ impl From<Ipv6Addr> for Name {
 
 impl PartialEq<Self> for Name {
     fn eq(&self, other: &Self) -> bool {
-        self.cmp_with_f::<CaseInsensitive>(other) == Ordering::Equal
+        match self.is_fqdn == other.is_fqdn {
+            true => self.cmp_with_f::<CaseInsensitive>(other) == Ordering::Equal,
+            false => false,
+        }
     }
 }
 
@@ -1153,8 +1156,7 @@ impl<'r> BinDecodable<'r> for Name {
     ///  all names will be stored lowercase internally.
     /// This will consume the portions of the `Vec` which it is reading...
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
-        let mut name = Self::root(); // this is FQDN
-
+        let mut name = Self::default();
         read_inner(decoder, &mut name, None)?;
         Ok(name)
     }
@@ -1421,6 +1423,7 @@ impl<'de> Deserialize<'de> for Name {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    use std::collections::hash_map::DefaultHasher;
     use std::cmp::Ordering;
     use std::iter;
     use std::str::FromStr;
@@ -1609,7 +1612,7 @@ mod tests {
     fn test_base_name() {
         let zone = Name::from_str("example.com.").unwrap();
 
-        assert_eq!(zone.base_name(), Name::from_str("com").unwrap());
+        assert_eq!(zone.base_name(), Name::from_str("com.").unwrap());
         assert!(zone.base_name().base_name().is_root());
         assert!(zone.base_name().base_name().base_name().is_root());
     }
@@ -1721,7 +1724,7 @@ mod tests {
     #[test]
     fn test_from_ipv4() {
         let ip = IpAddr::V4(Ipv4Addr::new(26, 3, 0, 103));
-        let name = Name::from_str("103.0.3.26.in-addr.arpa").unwrap();
+        let name = Name::from_str("103.0.3.26.in-addr.arpa.").unwrap();
 
         assert_eq!(Into::<Name>::into(ip), name);
     }
@@ -1730,7 +1733,7 @@ mod tests {
     fn test_from_ipv6() {
         let ip = IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 0x1));
         let name = Name::from_str(
-            "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa",
+            "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
         )
         .unwrap();
 
@@ -2128,5 +2131,21 @@ mod tests {
 
         let name = Name::from_utf8(".").unwrap();
         assert!(name.is_fqdn());
+    }
+
+    #[test]
+    fn test_hash() {
+        // verify that two identical names with and without the trailing dot hashes to the same value
+        let mut hasher = DefaultHasher::new();
+        let with_dot = Name::from_utf8("com.").unwrap();
+        with_dot.hash(&mut hasher);
+        let hash_with_dot = hasher.finish();
+
+        let mut hasher = DefaultHasher::new();
+        let without_dot = Name::from_utf8("com").unwrap();
+        without_dot.hash(&mut hasher);
+        let hash_without_dot = hasher.finish();
+        assert_ne!(with_dot, without_dot);
+        assert_ne!(hash_with_dot, hash_without_dot);
     }
 }

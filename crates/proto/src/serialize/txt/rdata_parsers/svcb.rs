@@ -494,7 +494,7 @@ mod tests {
             TestVector {
                 record: "example.com. 42  SVCB   16 foo.example.com. port=53",
                 record_type: RecordType::SVCB,
-                target_name: Name::from_str("foo.example.com").unwrap(),
+                target_name: Name::from_str("foo.example.com.").unwrap(),
                 priority: 16,
                 params: vec![(SvcParamKey::Port, SvcParamValue::Port(53))],
             },
