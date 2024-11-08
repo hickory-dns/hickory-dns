@@ -88,7 +88,7 @@ impl Record {
     #[cfg(test)]
     pub(crate) fn stub() -> Self {
         Self {
-            name_labels: Name::new(),
+            name_labels: Name::from_ascii(".").unwrap(),
             dns_class: DNSClass::IN,
             ttl: 0,
             rdata: RData::Update0(RecordType::NULL),
@@ -835,7 +835,7 @@ mod tests {
     #[test]
     fn test_emit_and_read() {
         let record = Record::from_rdata(
-            Name::from_str("www.example.com").unwrap(),
+            Name::from_str("www.example.com.").unwrap(),
             5,
             RData::A(A::new(192, 168, 0, 1)),
         );

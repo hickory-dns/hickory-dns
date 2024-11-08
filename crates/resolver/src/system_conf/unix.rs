@@ -217,7 +217,7 @@ mod tests {
         let parsed =
             parse_resolv_conf("search Speedport_000\nnameserver 127.0.0.1").expect("failed");
         let mut cfg = empty_config(nameserver_config("127.0.0.1").to_vec());
-        cfg.add_search(Name::from_str_relaxed("Speedport_000.").unwrap());
+        cfg.add_search(Name::from_str_relaxed("Speedport_000").unwrap());
         assert_eq!(cfg.search(), parsed.0.search());
         is_default_opts(parsed.1);
     }

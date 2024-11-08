@@ -41,7 +41,7 @@ fn test_secure_query_example<H>(mut client: DnssecDnsHandle<H>, io_loop: Runtime
 where
     H: ClientHandle + Sync + 'static,
 {
-    let name = Name::from_str("www.example.com").unwrap();
+    let name = Name::from_str("www.example.com.").unwrap();
     let response = io_loop
         .block_on(client.query(name.clone(), DNSClass::IN, RecordType::A))
         .expect("query failed");
@@ -91,7 +91,7 @@ fn test_nsec_query_example<H>(mut client: DnssecDnsHandle<H>, io_loop: Runtime)
 where
     H: ClientHandle + Sync + 'static,
 {
-    let name = Name::from_str("none.example.com").unwrap();
+    let name = Name::from_str("none.example.com.").unwrap();
 
     let response = io_loop
         .block_on(client.query(name, DNSClass::IN, RecordType::A))
@@ -121,7 +121,7 @@ fn test_nsec_query_type<H>(mut client: DnssecDnsHandle<H>, io_loop: Runtime)
 where
     H: ClientHandle + Sync + 'static,
 {
-    let name = Name::from_str("www.example.com").unwrap();
+    let name = Name::from_str("www.example.com.").unwrap();
 
     let response = io_loop
         .block_on(client.query(name, DNSClass::IN, RecordType::NS))

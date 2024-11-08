@@ -242,7 +242,7 @@ mod tests {
         use std::str::FromStr;
 
         let rdata = NSEC::new(
-            Name::from_str("www.example.com").unwrap(),
+            Name::from_str("www.example.com.").unwrap(),
             vec![
                 RecordType::A,
                 RecordType::AAAA,

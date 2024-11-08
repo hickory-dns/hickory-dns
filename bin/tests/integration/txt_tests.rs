@@ -57,7 +57,7 @@ _443._tcp.www.example.com. IN TLSA (
 tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.net.      271851  900     1800    6048000 3600
 "#;
 
-    let records = Parser::new(ZONE, None, Some(Name::from_str("isi.edu").unwrap())).parse();
+    let records = Parser::new(ZONE, None, Some(Name::from_str("isi.edu.").unwrap())).parse();
     if records.is_err() {
         panic!("failed to parse: {:?}", records.err())
     }
@@ -73,7 +73,6 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         Some(NxProofKind::Nsec),
     )
     .unwrap();
-
     // not validating everything, just one of each...
 
     // SOA
@@ -84,14 +83,14 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         .cloned()
         .unwrap();
     assert_eq!(RecordType::SOA, soa_record.record_type());
-    assert_eq!(&Name::from_str("isi.edu").unwrap(), soa_record.name()); // i.e. the origin or domain
+    assert_eq!(&Name::from_str("isi.edu.").unwrap(), soa_record.name()); // i.e. the origin or domain
     assert_eq!(3_600_000, soa_record.ttl());
     assert_eq!(DNSClass::IN, soa_record.dns_class());
     if let RData::SOA(soa) = soa_record.data() {
         // this should all be lowercased
-        assert_eq!(&Name::from_str("venera.isi.edu").unwrap(), soa.mname());
+        assert_eq!(&Name::from_str("venera.isi.edu.").unwrap(), soa.mname());
         assert_eq!(
-            &Name::from_str("action\\.domains.isi.edu").unwrap(),
+            &Name::from_str("action\\.domains.isi.edu.").unwrap(),
             soa.rname()
         );
         assert_eq!(20, soa.serial());
@@ -117,11 +116,11 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     assert_eq!(DNSClass::IN, lowercase_record.dns_class());
     if let RData::SOA(lower_soa) = lowercase_record.data() {
         assert_eq!(
-            &Name::from_str("ns0.centralnic.net").unwrap(),
+            &Name::from_str("ns0.centralnic.net.").unwrap(),
             lower_soa.mname()
         );
         assert_eq!(
-            &Name::from_str("hostmaster.centralnic.net").unwrap(),
+            &Name::from_str("hostmaster.centralnic.net.").unwrap(),
             lower_soa.rname()
         );
         assert_eq!(271851, lower_soa.serial());
@@ -135,7 +134,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     // NS
     let mut ns_records: Vec<Record> = block_on(authority.lookup(
-        &Name::from_str("isi.edu").unwrap().into(),
+        &Name::from_str("isi.edu.").unwrap().into(),
         RecordType::NS,
         LookupOptions::default(),
     ))
@@ -145,9 +144,9 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     .collect();
     let mut compare = vec![
         // this is cool, zip up the expected results... works as long as the order is good.
-        Name::from_str("a.isi.edu").unwrap(),
-        Name::from_str("venera.isi.edu").unwrap(),
-        Name::from_str("vaxa.isi.edu").unwrap(),
+        Name::from_str("a.isi.edu.").unwrap(),
+        Name::from_str("venera.isi.edu.").unwrap(),
+        Name::from_str("vaxa.isi.edu.").unwrap(),
     ];
 
     compare.sort();
@@ -155,7 +154,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let compare = ns_records.iter().zip(compare);
 
     for (record, name) in compare {
-        assert_eq!(&Name::from_str("isi.edu").unwrap(), record.name());
+        assert_eq!(&Name::from_str("isi.edu.").unwrap(), record.name());
         assert_eq!(60, record.ttl()); // TODO: should this be minimum or expire?
         assert_eq!(DNSClass::IN, record.dns_class());
         assert_eq!(RecordType::NS, record.record_type());
@@ -168,7 +167,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     // MX
     let mut mx_records: Vec<Record> = block_on(authority.lookup(
-        &Name::from_str("isi.edu").unwrap().into(),
+        &Name::from_str("isi.edu.").unwrap().into(),
         RecordType::MX,
         LookupOptions::default(),
     ))
@@ -177,8 +176,8 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     .cloned()
     .collect();
     let mut compare = vec![
-        (10, Name::from_str("venera.isi.edu").unwrap()),
-        (20, Name::from_str("vaxa.isi.edu").unwrap()),
+        (10, Name::from_str("venera.isi.edu.").unwrap()),
+        (20, Name::from_str("vaxa.isi.edu.").unwrap()),
     ];
 
     compare.sort();
@@ -186,7 +185,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let compare = mx_records.iter().zip(compare);
 
     for (record, (num, name)) in compare {
-        assert_eq!(&Name::from_str("isi.edu").unwrap(), record.name());
+        assert_eq!(&Name::from_str("isi.edu.").unwrap(), record.name());
         assert_eq!(60, record.ttl()); // TODO: should this be minimum or expire?
         assert_eq!(DNSClass::IN, record.dns_class());
         assert_eq!(RecordType::MX, record.record_type());
@@ -200,7 +199,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     // A
     let a_record: Record = block_on(authority.lookup(
-        &Name::from_str("a.isi.edu").unwrap().into(),
+        &Name::from_str("a.isi.edu.").unwrap().into(),
         RecordType::A,
         LookupOptions::default(),
     ))
@@ -209,7 +208,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     .next()
     .cloned()
     .unwrap();
-    assert_eq!(&Name::from_str("a.isi.edu").unwrap(), a_record.name());
+    assert_eq!(&Name::from_str("a.isi.edu.").unwrap(), a_record.name());
     assert_eq!(60, a_record.ttl()); // TODO: should this be minimum or expire?
     assert_eq!(DNSClass::IN, a_record.dns_class());
     assert_eq!(RecordType::A, a_record.record_type());
@@ -221,7 +220,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     // AAAA
     let aaaa_record: Record = block_on(authority.lookup(
-        &Name::from_str("aaaa.isi.edu").unwrap().into(),
+        &Name::from_str("aaaa.isi.edu.").unwrap().into(),
         RecordType::AAAA,
         LookupOptions::default(),
     ))
@@ -230,7 +229,10 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     .next()
     .cloned()
     .unwrap();
-    assert_eq!(&Name::from_str("aaaa.isi.edu").unwrap(), aaaa_record.name());
+    assert_eq!(
+        &Name::from_str("aaaa.isi.edu.").unwrap(),
+        aaaa_record.name()
+    );
     if let RData::AAAA(address) = aaaa_record.data() {
         assert_eq!(&AAAA::from_str("4321:0:1:2:3:4:567:89ab").unwrap(), address);
     } else {
@@ -239,7 +241,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     // SHORT
     let short_record: Record = block_on(authority.lookup(
-        &Name::from_str("short.isi.edu").unwrap().into(),
+        &Name::from_str("short.isi.edu.").unwrap().into(),
         RecordType::A,
         LookupOptions::default(),
     ))
@@ -249,7 +251,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     .cloned()
     .unwrap();
     assert_eq!(
-        &Name::from_str("short.isi.edu").unwrap(),
+        &Name::from_str("short.isi.edu.").unwrap(),
         short_record.name()
     );
     assert_eq!(70, short_record.ttl());
@@ -261,7 +263,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     // TXT
     let mut txt_records: Vec<Record> = block_on(authority.lookup(
-        &Name::from_str("a.isi.edu").unwrap().into(),
+        &Name::from_str("a.isi.edu.").unwrap().into(),
         RecordType::TXT,
         LookupOptions::default(),
     ))
@@ -305,7 +307,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     // PTR
     let ptr_record: Record = block_on(authority.lookup(
-        &Name::from_str("103.0.3.26.in-addr.arpa").unwrap().into(),
+        &Name::from_str("103.0.3.26.in-addr.arpa.").unwrap().into(),
         RecordType::PTR,
         LookupOptions::default(),
     ))
@@ -315,17 +317,21 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     .cloned()
     .unwrap();
     if let RData::PTR(ptrdname) = ptr_record.data() {
-        assert_eq!(Name::from_str("a.isi.edu").unwrap(), ptrdname.0);
+        assert_eq!(Name::from_str("a.isi.edu.").unwrap(), ptrdname.0);
     } else {
         panic!("Not a PTR record!!!") // valid panic, test code
     }
 
     // SRV
-    let srv_record: Record = block_on(authority.lookup(
-        &Name::from_str("_ldap._tcp.service.isi.edu").unwrap().into(),
-        RecordType::SRV,
-        LookupOptions::default(),
-    ))
+    let srv_record: Record = block_on(
+        authority.lookup(
+            &Name::from_str("_ldap._tcp.service.isi.edu.")
+                .unwrap()
+                .into(),
+            RecordType::SRV,
+            LookupOptions::default(),
+        ),
+    )
     .unwrap()
     .iter()
     .next()
@@ -335,14 +341,14 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         assert_eq!(rdata.priority(), 1);
         assert_eq!(rdata.weight(), 2);
         assert_eq!(rdata.port(), 3);
-        assert_eq!(rdata.target(), &Name::from_str("short.isi.edu").unwrap());
+        assert_eq!(rdata.target(), &Name::from_str("short.isi.edu.").unwrap());
     } else {
         panic!("Not an SRV record!!!") // valid panic, test code
     }
 
     // IDNA name: rust-❤️-🦀    A  192.0.2.1
     let idna_record: Record = block_on(authority.lookup(
-        &Name::from_str("rust-❤️-🦀.isi.edu").unwrap().into(),
+        &Name::from_str("rust-❤️-🦀.isi.edu.").unwrap().into(),
         RecordType::A,
         LookupOptions::default(),
     ))
@@ -352,7 +358,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     .cloned()
     .unwrap();
     assert_eq!(
-        &Name::from_str("rust-❤️-🦀.isi.edu").unwrap(),
+        &Name::from_str("rust-❤️-🦀.isi.edu.").unwrap(),
         idna_record.name()
     );
     if let RData::A(address) = idna_record.data() {

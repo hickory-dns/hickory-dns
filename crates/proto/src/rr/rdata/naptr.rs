@@ -309,7 +309,7 @@ mod tests {
             b"aa11AA".to_vec().into_boxed_slice(),
             b"services".to_vec().into_boxed_slice(),
             b"regexpr".to_vec().into_boxed_slice(),
-            Name::from_str("naptr.example.com").unwrap(),
+            Name::from_str("naptr.example.com.").unwrap(),
         );
 
         let mut bytes = Vec::new();
