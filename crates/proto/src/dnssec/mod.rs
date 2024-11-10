@@ -42,9 +42,9 @@ pub use self::trust_anchor::TrustAnchor;
 pub use self::verifier::Verifier;
 pub use crate::error::DnsSecResult;
 #[cfg(feature = "dnssec-openssl")]
-pub use openssl::{EcSigningKey, RsaSigningKey};
+use openssl::{EcSigningKey, RsaSigningKey};
 #[cfg(feature = "dnssec-ring")]
-pub use ring::{EcdsaSigningKey, Ed25519SigningKey};
+use ring::{EcdsaSigningKey, Ed25519SigningKey};
 
 #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 pub use ::openssl::hash::DigestBytes as Digest;

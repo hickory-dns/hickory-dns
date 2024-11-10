@@ -196,7 +196,9 @@ pub fn create_example() -> InMemoryAuthority {
 #[cfg(feature = "dnssec")]
 #[allow(unused)]
 pub fn create_secure_example() -> InMemoryAuthority {
-    use hickory_proto::dnssec::{Algorithm, PublicKey, RsaSigningKey, SigSigner, SigningKey};
+    use hickory_proto::dnssec::{
+        openssl::RsaSigningKey, Algorithm, PublicKey, SigSigner, SigningKey,
+    };
     use hickory_server::authority::{Authority, DnssecAuthority};
     use openssl::rsa::Rsa;
     use time::Duration;
