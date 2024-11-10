@@ -12,11 +12,16 @@ mod digest_type;
 #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 mod ec_public_key;
 mod key_format;
-mod keypair;
 mod nsec3;
+/// OpenSSL implementations of DNSSEC traits.
+#[cfg(feature = "dnssec-openssl")]
+pub mod openssl;
 pub mod proof;
 pub mod public_key;
 pub mod rdata;
+/// ring implementations of DNSSEC traits.
+#[cfg(feature = "dnssec-ring")]
+pub mod ring;
 #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 mod rsa_public_key;
 mod signer;
@@ -28,10 +33,6 @@ mod verifier;
 
 pub use self::algorithm::Algorithm;
 pub use self::digest_type::DigestType;
-#[cfg(feature = "dnssec-openssl")]
-pub use self::keypair::{EcSigningKey, RsaSigningKey};
-#[cfg(feature = "dnssec-ring")]
-pub use self::keypair::{EcdsaSigningKey, Ed25519SigningKey};
 pub use self::nsec3::Nsec3HashAlgorithm;
 pub use self::proof::{Proof, ProofError, ProofErrorKind, ProofFlags, Proven};
 pub use self::public_key::{PublicKey, PublicKeyBuf, PublicKeyEnum};
@@ -40,12 +41,16 @@ pub use self::tbs::TBS;
 pub use self::trust_anchor::TrustAnchor;
 pub use self::verifier::Verifier;
 pub use crate::error::DnsSecResult;
+#[cfg(feature = "dnssec-openssl")]
+pub use openssl::{EcSigningKey, RsaSigningKey};
+#[cfg(feature = "dnssec-ring")]
+pub use ring::{EcdsaSigningKey, Ed25519SigningKey};
 
 #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
-pub use openssl::hash::DigestBytes as Digest;
+pub use ::openssl::hash::DigestBytes as Digest;
 
 #[cfg(feature = "dnssec-ring")]
-pub use ring::digest::Digest;
+pub use ::ring::digest::Digest;
 
 /// This is an empty type, enable Ring or OpenSSL for this feature
 #[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
@@ -124,4 +129,60 @@ pub trait SigningKey: Send + Sync + 'static {
 
     /// Returns a [`PublicKeyBuf`] for this [`SigningKey`].
     fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf>;
+}
+
+#[cfg(test)]
+mod test_utils {
+    use super::*;
+
+    pub(super) fn public_key_test(key: &dyn SigningKey, algorithm: Algorithm) {
+        let pk = key.to_public_key().unwrap();
+
+        let tbs = TBS::from(&b"www.example.com"[..]);
+        let mut sig = key.sign(&tbs).unwrap();
+        assert!(
+            pk.verify(algorithm, tbs.as_ref(), &sig).is_ok(),
+            "algorithm: {algorithm:?} (public key)",
+        );
+        sig[10] = !sig[10];
+        assert!(
+            pk.verify(algorithm, tbs.as_ref(), &sig).is_err(),
+            "algorithm: {algorithm:?} (public key, neg)",
+        );
+    }
+
+    pub(super) fn hash_test(key: &dyn SigningKey, neg: &dyn SigningKey, algorithm: Algorithm) {
+        let tbs = TBS::from(&b"www.example.com"[..]);
+
+        // TODO: convert to stored keys...
+        let pub_key = key.to_public_key().unwrap();
+        let neg_pub_key = neg.to_public_key().unwrap();
+
+        let sig = key.sign(&tbs).unwrap();
+        assert!(
+            pub_key.verify(algorithm, tbs.as_ref(), &sig).is_ok(),
+            "algorithm: {algorithm:?}",
+        );
+        assert!(
+            key.to_public_key()
+                .unwrap()
+                .to_dnskey(algorithm)
+                .verify(tbs.as_ref(), &sig)
+                .is_ok(),
+            "algorithm: {algorithm:?} (dnskey)",
+        );
+        assert!(
+            neg_pub_key.verify(algorithm, tbs.as_ref(), &sig).is_err(),
+            "algorithm: {:?} (neg)",
+            algorithm
+        );
+        assert!(
+            neg.to_public_key()
+                .unwrap()
+                .to_dnskey(algorithm)
+                .verify(tbs.as_ref(), &sig)
+                .is_err(),
+            "algorithm: {algorithm:?} (dnskey, neg)",
+        );
+    }
 }
