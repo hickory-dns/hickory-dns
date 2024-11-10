@@ -16,9 +16,7 @@
 
 //! Allows for the root trust_anchor to either be added to or replaced for dns_sec validation.
 
-use std::default::Default;
-
-use crate::rr::dnssec::PublicKey;
+use crate::dnssec::PublicKey;
 
 const ROOT_ANCHOR_ORIG: &[u8] = include_bytes!("roots/19036.rsa");
 const ROOT_ANCHOR_2018: &[u8] = include_bytes!("roots/20326.rsa");

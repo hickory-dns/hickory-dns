@@ -77,11 +77,9 @@
 //!
 
 use crate::{
+    dnssec::{rdata::NSEC3, Nsec3HashAlgorithm, Proof},
     op::{Query, ResponseCode},
-    rr::{
-        dnssec::{rdata::NSEC3, Nsec3HashAlgorithm, Proof},
-        Name, Record, RecordType,
-    },
+    rr::{Name, Record, RecordType},
 };
 
 pub(super) fn verify_nsec3(

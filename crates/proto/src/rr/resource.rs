@@ -19,7 +19,7 @@ use crate::{
 };
 
 #[cfg(feature = "dnssec")]
-use crate::rr::dnssec::{Proof, Proven};
+use crate::dnssec::{Proof, Proven};
 
 #[allow(deprecated)]
 use crate::rr::IntoRecordSet;

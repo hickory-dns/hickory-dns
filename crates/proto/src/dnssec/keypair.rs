@@ -27,11 +27,11 @@ use ring::{
     },
 };
 
-use super::KeyFormat;
-use crate::error::{DnsSecErrorKind, DnsSecResult};
 #[cfg(feature = "dnssec-openssl")]
-use crate::rr::dnssec::DigestType;
-use crate::rr::dnssec::{Algorithm, PublicKeyBuf, TBS};
+use super::DigestType;
+use super::KeyFormat;
+use super::{Algorithm, PublicKeyBuf, TBS};
+use crate::error::{DnsSecErrorKind, DnsSecResult};
 
 /// Decode private key
 #[allow(unused, clippy::match_single_binding)]
@@ -522,7 +522,7 @@ pub trait SigningKey: Send + Sync + 'static {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rr::dnssec::{PublicKey, Verifier};
+    use crate::dnssec::{PublicKey, Verifier};
 
     #[cfg(feature = "dnssec-openssl")]
     #[test]

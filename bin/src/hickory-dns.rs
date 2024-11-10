@@ -76,9 +76,8 @@ use hickory_server::{
     server::ServerFuture,
     store::file::{FileAuthority, FileConfig},
 };
-
 #[cfg(feature = "dnssec")]
-use {hickory_proto::rr::dnssec::rdata::key::KeyUsage, hickory_server::authority::DnssecAuthority};
+use {hickory_proto::dnssec::rdata::key::KeyUsage, hickory_server::authority::DnssecAuthority};
 
 #[cfg(feature = "dnssec")]
 async fn load_keys<A, L>(
@@ -90,7 +89,7 @@ where
     A: DnssecAuthority<Lookup = L>,
     L: Send + Sync + Sized + 'static,
 {
-    use hickory_proto::rr::dnssec::PublicKey;
+    use hickory_proto::dnssec::PublicKey;
 
     if zone_config.is_dnssec_enabled() {
         for key_config in zone_config.keys() {

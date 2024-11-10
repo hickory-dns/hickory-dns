@@ -17,8 +17,8 @@ use std::{
 use hickory_client::client::Client;
 use hickory_client::{client::ClientHandle, proto::xfer::DnsResponse, ClientError};
 #[cfg(feature = "dnssec")]
-use hickory_proto::rr::dnssec::*;
-use hickory_proto::rr::{rdata::A, *};
+use hickory_proto::dnssec::{Algorithm, SupportedAlgorithms};
+use hickory_proto::rr::{rdata::A, DNSClass, Name, RData, RecordType};
 use hickory_proto::xfer::Protocol;
 use regex::Regex;
 use tokio::runtime::Runtime;
@@ -287,7 +287,10 @@ pub fn query_all_dnssec(
     algorithm: Algorithm,
     with_rfc6975: bool,
 ) {
-    use hickory_proto::rr::dnssec::rdata::{DNSKEY, RRSIG};
+    use hickory_proto::{
+        dnssec::rdata::{DNSKEY, RRSIG},
+        rr::{Record, RecordData},
+    };
 
     let name = Name::from_str("example.com.").unwrap();
     let mut client = MutMessageHandle::new(client);

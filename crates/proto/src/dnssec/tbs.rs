@@ -9,9 +9,10 @@
 
 use time::OffsetDateTime;
 
+use super::Algorithm;
 use crate::{
-    error::*,
-    rr::{dnssec::Algorithm, DNSClass, Name, Record, RecordSet, RecordType, SerialNumber},
+    error::{ProtoError, ProtoResult},
+    rr::{DNSClass, Name, Record, RecordSet, RecordType, SerialNumber},
     serialize::binary::{BinEncodable, BinEncoder, EncodeMode},
 };
 

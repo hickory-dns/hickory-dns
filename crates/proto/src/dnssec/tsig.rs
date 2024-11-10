@@ -18,13 +18,12 @@ use std::sync::Arc;
 
 use tracing::debug;
 
-use crate::error::ProtoErrorKind;
-use crate::error::{ProtoError, ProtoResult};
-use crate::op::{Message, MessageFinalizer, MessageVerifier};
-use crate::rr::dnssec::rdata::tsig::{
+use super::rdata::tsig::{
     make_tsig_record, message_tbs, signed_bitmessage_to_buf, TsigAlgorithm, TSIG,
 };
-use crate::rr::dnssec::rdata::DNSSECRData;
+use super::rdata::DNSSECRData;
+use crate::error::{ProtoError, ProtoErrorKind, ProtoResult};
+use crate::op::{Message, MessageFinalizer, MessageVerifier};
 use crate::rr::{Name, RData, Record};
 use crate::xfer::DnsResponse;
 

@@ -7,8 +7,8 @@ use futures::executor::block_on;
 use tokio::runtime::Runtime;
 
 use hickory_client::client::{Client, ClientHandle, MemoizeClientHandle};
+use hickory_proto::dnssec::{Proof, TrustAnchor};
 use hickory_proto::op::ResponseCode;
-use hickory_proto::rr::dnssec::{Proof, TrustAnchor};
 use hickory_proto::rr::rdata::A;
 use hickory_proto::rr::Name;
 use hickory_proto::rr::{DNSClass, RData, RecordType};

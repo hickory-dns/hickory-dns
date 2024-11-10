@@ -23,8 +23,8 @@ use serde::{Deserialize, Serialize};
 
 use tracing::warn;
 
-use crate::error::*;
-use crate::rr::dnssec::Algorithm;
+use super::Algorithm;
+use crate::error::ProtoResult;
 use crate::serialize::binary::{BinEncodable, BinEncoder};
 
 /// Used to specify the set of SupportedAlgorithms between a client and server

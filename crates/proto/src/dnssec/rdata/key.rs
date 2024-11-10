@@ -14,9 +14,12 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    dnssec::Algorithm,
     error::{ProtoError, ProtoResult},
-    rr::{dnssec::Algorithm, record_data::RData, RecordData, RecordDataDecodable, RecordType},
-    serialize::binary::*,
+    rr::{record_data::RData, RecordData, RecordDataDecodable, RecordType},
+    serialize::binary::{
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
+    },
 };
 
 use super::DNSSECRData;

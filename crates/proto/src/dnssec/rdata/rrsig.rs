@@ -13,8 +13,9 @@ use std::{fmt, ops::Deref};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    dnssec::Algorithm,
     error::ProtoResult,
-    rr::{dnssec::Algorithm, Name, RData, Record, RecordData, RecordDataDecodable, RecordType},
+    rr::{Name, RData, Record, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict},
 };
 

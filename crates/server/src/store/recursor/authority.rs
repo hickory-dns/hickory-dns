@@ -10,7 +10,7 @@ use std::{io, path::Path, time::Instant};
 use tracing::{debug, info};
 
 #[cfg(feature = "dnssec")]
-use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::rr::dnssec::Proof};
+use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::Proof};
 use crate::{
     authority::{
         Authority, DnssecSummary, LookupControlFlow, LookupError, LookupObject, LookupOptions,

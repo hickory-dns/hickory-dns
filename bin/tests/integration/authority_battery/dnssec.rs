@@ -7,14 +7,12 @@ use std::{future::Future, sync::Arc};
 use futures_executor::block_on;
 
 use hickory_proto::{
-    op::{Header, Query},
-    rr::{
-        dnssec::{
-            rdata::{DNSKEY, RRSIG},
-            Algorithm, SupportedAlgorithms, Verifier,
-        },
-        DNSClass, Name, RData, Record, RecordType,
+    dnssec::{
+        rdata::{DNSKEY, RRSIG},
+        Algorithm, SupportedAlgorithms, Verifier,
     },
+    op::{Header, Query},
+    rr::{DNSClass, Name, RData, Record, RecordType},
     xfer::{self, Protocol},
 };
 use hickory_server::{

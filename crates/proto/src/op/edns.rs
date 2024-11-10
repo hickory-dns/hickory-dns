@@ -10,7 +10,7 @@
 use std::fmt;
 
 #[cfg(feature = "dnssec")]
-use crate::rr::dnssec::{Algorithm, SupportedAlgorithms};
+use crate::dnssec::{Algorithm, SupportedAlgorithms};
 use crate::{
     error::*,
     rr::{

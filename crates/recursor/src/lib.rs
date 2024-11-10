@@ -40,8 +40,7 @@ pub use hickory_proto as proto;
 pub use hickory_resolver as resolver;
 pub use hickory_resolver::config::{NameServerConfig, NameServerConfigGroup};
 #[cfg(feature = "dnssec")]
-use proto::rr::dnssec::TrustAnchor;
-
+use proto::dnssec::TrustAnchor;
 use proto::{op::Query, xfer::DnsResponse};
 pub use recursor::{Recursor, RecursorBuilder};
 use resolver::{dns_lru::DnsLru, lookup::Lookup, Name};

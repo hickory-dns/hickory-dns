@@ -19,16 +19,20 @@ use std::{
 use ipnet::IpNet;
 use serde::Deserialize;
 
-use hickory_resolver::dns_lru::TtlConfig;
-
 use crate::error::ConfigError;
 use crate::proto::{
-    rr::{RData, Record, RecordSet},
+    rr::{Name, RData, Record, RecordSet},
     serialize::txt::Parser,
 };
-use crate::resolver::Name;
+use crate::resolver::dns_lru::TtlConfig;
 #[cfg(feature = "dnssec")]
-use crate::{proto::rr::dnssec::TrustAnchor, recursor::DnssecPolicy};
+use crate::{
+    proto::{
+        dnssec::{PublicKeyEnum, TrustAnchor},
+        serialize::txt::trust_anchor::{self, Entry},
+    },
+    recursor::DnssecPolicy,
+};
 
 /// Configuration for file based zones
 #[derive(Clone, Deserialize, Eq, PartialEq, Debug)]
@@ -154,11 +158,6 @@ fn read_trust_anchor(path: &Path) -> Result<TrustAnchor, String> {
 
 #[cfg(feature = "dnssec")]
 fn parse_trust_anchor(input: &str) -> Result<TrustAnchor, String> {
-    use crate::proto::{
-        rr::dnssec::PublicKeyEnum,
-        serialize::txt::trust_anchor::{self, Entry},
-    };
-
     let parser = trust_anchor::Parser::new(input);
     let entries = parser.parse().map_err(|e| e.to_string())?;
 

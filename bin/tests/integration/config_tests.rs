@@ -162,7 +162,7 @@ fn test_parse_toml() {
 #[cfg(feature = "dnssec")]
 #[test]
 fn test_parse_zone_keys() {
-    use hickory_proto::rr::dnssec::Algorithm;
+    use hickory_proto::dnssec::Algorithm;
     use hickory_proto::rr::Name;
 
     let config = Config::from_toml(

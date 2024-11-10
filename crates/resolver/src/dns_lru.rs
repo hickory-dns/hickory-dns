@@ -19,9 +19,9 @@ use serde::{Deserialize, Deserializer};
 
 use crate::config;
 use crate::lookup::Lookup;
-use crate::proto::op::Query;
 #[cfg(feature = "dnssec")]
-use crate::proto::rr::dnssec::rdata::RRSIG;
+use crate::proto::dnssec::rdata::RRSIG;
+use crate::proto::op::Query;
 #[cfg(feature = "dnssec")]
 use crate::proto::rr::RecordData;
 use crate::proto::rr::{Record, RecordType};

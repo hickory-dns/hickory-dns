@@ -12,7 +12,7 @@ use std::sync::Arc;
 use futures_util::stream::Stream;
 
 use crate::client::Client;
-use crate::proto::rr::dnssec::TrustAnchor;
+use crate::proto::dnssec::TrustAnchor;
 use crate::proto::runtime::TokioTime;
 use crate::proto::xfer::{
     DnsExchangeBackground, DnsHandle, DnsRequest, DnsRequestSender, DnsResponse,

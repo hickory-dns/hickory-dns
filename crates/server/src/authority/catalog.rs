@@ -17,9 +17,9 @@ use tracing::{debug, error, info, trace, warn};
 use crate::{
     authority::Nsec3QueryInfo,
     dnssec::NxProofKind,
-    proto::rr::{
+    proto::{
         dnssec::SupportedAlgorithms,
-        rdata::opt::{EdnsCode, EdnsOption},
+        rr::rdata::opt::{EdnsCode, EdnsOption},
     },
 };
 use crate::{

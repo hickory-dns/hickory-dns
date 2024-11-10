@@ -7,15 +7,13 @@
 
 //! Verifier is a structure for performing many of the signing processes of the DNSSEC specification
 
+use super::{
+    rdata::{DNSKEY, KEY, RRSIG, SIG},
+    tbs, Algorithm, PublicKey, PublicKeyEnum,
+};
 use crate::{
     error::ProtoResult,
-    rr::{
-        dnssec::{
-            rdata::{DNSKEY, KEY, RRSIG, SIG},
-            tbs, Algorithm, PublicKey, PublicKeyEnum,
-        },
-        DNSClass, Name, Record,
-    },
+    rr::{DNSClass, Name, Record},
     serialize::binary::BinEncodable,
 };
 

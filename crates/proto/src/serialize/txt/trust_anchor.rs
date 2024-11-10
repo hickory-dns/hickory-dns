@@ -6,7 +6,8 @@
 use std::{borrow::Cow, str::FromStr as _};
 
 use crate::{
-    rr::{dnssec::rdata::DNSKEY, DNSClass, Name, RecordData, RecordType},
+    dnssec::rdata::DNSKEY,
+    rr::{DNSClass, Name, RecordData, RecordType},
     serialize::txt::{
         rdata_parsers::dnskey,
         zone,
@@ -263,7 +264,7 @@ impl From<Token> for LexToken {
 
 #[cfg(test)]
 mod tests {
-    use crate::rr::dnssec::Algorithm;
+    use crate::dnssec::Algorithm;
 
     use super::*;
 

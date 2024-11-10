@@ -16,12 +16,12 @@ use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use serde::Deserialize;
 
 use hickory_proto::rr::domain::Name;
-#[cfg(feature = "dnssec")]
-use hickory_proto::rr::{
-    dnssec::{decode_key, Algorithm, KeyFormat, PublicKey, SigSigner},
-    domain::IntoName,
-};
 use hickory_proto::serialize::txt::ParseResult;
+#[cfg(feature = "dnssec")]
+use hickory_proto::{
+    dnssec::{decode_key, Algorithm, KeyFormat, PublicKey, SigSigner},
+    rr::domain::IntoName,
+};
 
 /// Key pair configuration for DNSSEC keys for signing a zone
 #[derive(Deserialize, PartialEq, Eq, Debug)]

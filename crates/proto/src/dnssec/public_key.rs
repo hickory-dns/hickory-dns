@@ -707,7 +707,7 @@ mod tests {
     #[test]
     fn test_asn1_emit_integer() {
         fn test_case(source: &[u8], expected_data: &[u8]) {
-            use crate::rr::dnssec::public_key::asn1_emit_integer;
+            use crate::dnssec::public_key::asn1_emit_integer;
 
             let mut output = Vec::<u8>::new();
             asn1_emit_integer(&mut output, source);

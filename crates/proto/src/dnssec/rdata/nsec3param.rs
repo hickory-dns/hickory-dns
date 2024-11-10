@@ -13,9 +13,10 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    dnssec::Nsec3HashAlgorithm,
     error::{ProtoError, ProtoErrorKind, ProtoResult},
-    rr::{dnssec::Nsec3HashAlgorithm, RData, RecordData, RecordType},
-    serialize::binary::*,
+    rr::{RData, RecordData, RecordType},
+    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder},
 };
 
 use super::DNSSECRData;

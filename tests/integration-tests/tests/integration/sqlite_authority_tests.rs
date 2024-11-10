@@ -4,14 +4,14 @@ use std::net::Ipv4Addr;
 use std::net::SocketAddr;
 use std::str::FromStr;
 
+use hickory_proto::rr::LowerName;
 use rusqlite::*;
 
-use hickory_proto::op::*;
-use hickory_proto::rr::dnssec::*;
-use hickory_proto::rr::rdata::*;
-use hickory_proto::rr::*;
+use hickory_proto::dnssec::SupportedAlgorithms;
+use hickory_proto::op::{Header, LowerQuery, Message, MessageType, OpCode, Query, ResponseCode};
+use hickory_proto::rr::rdata::{A, AAAA, NS, TXT};
+use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
 use hickory_proto::xfer::Protocol;
-
 use hickory_server::authority::LookupOptions;
 use hickory_server::authority::{Authority, ZoneType};
 #[cfg(feature = "dnssec")]
@@ -797,7 +797,7 @@ async fn test_update() {
 #[tokio::test]
 #[allow(clippy::uninlined_format_args)]
 async fn test_zone_signing() {
-    use hickory_proto::rr::dnssec::rdata::RRSIG;
+    use hickory_proto::{dnssec::rdata::RRSIG, rr::RecordData};
 
     let authority = create_secure_example();
 

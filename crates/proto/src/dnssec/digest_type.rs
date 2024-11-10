@@ -16,10 +16,8 @@ use ring::digest;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::error::*;
-use crate::rr::dnssec::Algorithm;
-
-use super::Digest;
+use super::{Algorithm, Digest};
+use crate::error::{ProtoErrorKind, ProtoResult};
 
 /// This is the digest format for the
 ///

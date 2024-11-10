@@ -24,7 +24,7 @@ use crate::{
 };
 
 #[cfg(feature = "dnssec")]
-use crate::rr::dnssec::SupportedAlgorithms;
+use crate::dnssec::SupportedAlgorithms;
 
 /// The OPT record type is used for ExtendedDNS records.
 ///

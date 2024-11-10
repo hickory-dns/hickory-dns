@@ -13,12 +13,9 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    dnssec::{Algorithm, Digest, DigestType},
     error::{ProtoError, ProtoErrorKind, ProtoResult},
-    rr::{
-        dnssec::{Algorithm, Digest, DigestType},
-        record_data::RData,
-        Name, RecordData, RecordDataDecodable, RecordType,
-    },
+    rr::{record_data::RData, Name, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
         BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
     },

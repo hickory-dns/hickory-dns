@@ -9,7 +9,6 @@ use std::str::FromStr;
 use std::sync::{Arc, Mutex as StdMutex};
 
 use futures::TryStreamExt;
-use hickory_integration::{GOOGLE_V4, TEST3_V4};
 #[cfg(feature = "dnssec")]
 use time::Duration;
 
@@ -21,6 +20,11 @@ use hickory_client::ClientErrorKind;
 use hickory_integration::example_authority::create_example;
 #[cfg(feature = "dnssec")]
 use hickory_integration::TestClientStream;
+use hickory_integration::{GOOGLE_V4, TEST3_V4};
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+use hickory_proto::dnssec::rdata::{DNSSECRData, KEY};
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+use hickory_proto::dnssec::{Algorithm, PublicKey, RsaSigningKey, SigSigner, SigningKey};
 use hickory_proto::op::{Edns, Message, MessageType, OpCode, Query};
 #[cfg(feature = "dnssec")]
 use hickory_proto::op::{MessageFinalizer, ResponseCode};
@@ -479,8 +483,6 @@ async fn test_nsec3_query_name_is_soa_name() {
 #[allow(deprecated)]
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
-    use hickory_proto::rr::dnssec::rdata::{DNSSECRData, KEY};
-    use hickory_proto::rr::dnssec::{Algorithm, PublicKey, RsaSigningKey, SigSigner, SigningKey};
     use hickory_server::store::sqlite::SqliteAuthority;
 
     let authority = create_example();

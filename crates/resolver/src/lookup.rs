@@ -41,7 +41,7 @@ use crate::{
 };
 
 #[cfg(feature = "dnssec")]
-use crate::proto::{rr::dnssec::Proven, DnssecDnsHandle};
+use crate::proto::{dnssec::Proven, DnssecDnsHandle};
 
 /// Result of a DNS query when querying for any record type supported by the Hickory DNS Proto library.
 ///
@@ -779,7 +779,7 @@ pub mod tests {
     #[test]
     #[cfg(feature = "dnssec")]
     fn test_dnssec_lookup() {
-        use hickory_proto::rr::dnssec::Proof;
+        use hickory_proto::dnssec::Proof;
 
         let mut a1 = Record::from_rdata(
             Name::from_str("www.example.com.").unwrap(),

@@ -12,13 +12,13 @@ use std::time::Duration;
 
 use super::{PublicKey, SigningKey};
 use crate::{
+    dnssec::{
+        rdata::{DNSSECRData, DNSKEY, KEY, SIG},
+        tbs, Algorithm, TBS,
+    },
     error::{DnsSecResult, ProtoErrorKind, ProtoResult},
     op::{Message, MessageFinalizer, MessageVerifier},
     rr::{
-        dnssec::{
-            rdata::{DNSSECRData, DNSKEY, KEY, SIG},
-            tbs, Algorithm, TBS,
-        },
         Record, {DNSClass, Name, RData, RecordType},
     },
     serialize::binary::{BinEncodable, BinEncoder},
@@ -578,10 +578,11 @@ mod tests {
     use openssl::pkey::Private;
     use openssl::rsa::Rsa;
 
+    use crate::dnssec::{
+        rdata::{key::KeyUsage, DNSSECRData, RRSIG, SIG},
+        PublicKeyEnum, RsaSigningKey, Verifier,
+    };
     use crate::op::{Message, Query};
-    use crate::rr::dnssec::rdata::key::KeyUsage;
-    use crate::rr::dnssec::rdata::{DNSSECRData, RRSIG, SIG};
-    use crate::rr::dnssec::*;
     use crate::rr::rdata::NS;
     use crate::rr::{DNSClass, Name, Record, RecordType};
 
@@ -770,8 +771,9 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
     #[allow(clippy::module_inception)]
     #[cfg(test)]
     mod tests {
-        use crate::rr::dnssec::rdata::RRSIG;
-        use crate::rr::dnssec::{Algorithm, PublicKey, RsaSigningKey, SigSigner, SigningKey, TBS};
+        use crate::dnssec::{
+            rdata::RRSIG, Algorithm, PublicKey, RsaSigningKey, SigSigner, SigningKey, TBS,
+        };
         use crate::rr::rdata::{CNAME, NS};
         use crate::rr::{DNSClass, Name, RData, Record, RecordType};
 

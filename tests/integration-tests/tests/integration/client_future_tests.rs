@@ -18,11 +18,16 @@ use hickory_integration::{
     GOOGLE_V6, TEST3_V4,
 };
 #[cfg(feature = "dnssec")]
-use hickory_proto::rr::{dnssec::SigSigner, Record};
+use hickory_proto::{
+    dnssec::SigSigner,
+    rr::Record,
+    xfer::{DnsExchangeBackground, DnsMultiplexer},
+};
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
-use hickory_proto::runtime::TokioTime;
-#[cfg(feature = "dnssec")]
-use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
+use hickory_proto::{
+    dnssec::{rdata::DNSSECRData, Algorithm, PublicKey, RsaSigningKey, SigningKey},
+    runtime::TokioTime,
+};
 use hickory_proto::{
     op::{Edns, Message, MessageType, OpCode, Query, ResponseCode},
     rr::{
@@ -280,8 +285,6 @@ async fn create_sig0_ready_client() -> (
     ),
     Name,
 ) {
-    use hickory_proto::rr::dnssec::rdata::DNSSECRData;
-    use hickory_proto::rr::dnssec::{Algorithm, PublicKey, RsaSigningKey, SigningKey};
     use hickory_server::store::sqlite::SqliteAuthority;
 
     let authority = create_example();
