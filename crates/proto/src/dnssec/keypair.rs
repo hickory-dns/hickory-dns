@@ -29,51 +29,9 @@ use ring::{
 
 #[cfg(feature = "dnssec-openssl")]
 use super::DigestType;
-use super::KeyFormat;
 use super::{Algorithm, PublicKeyBuf, TBS};
+use super::{KeyFormat, SigningKey};
 use crate::error::{DnsSecErrorKind, DnsSecResult};
-
-/// Decode private key
-#[allow(unused, clippy::match_single_binding)]
-pub fn decode_key(
-    bytes: &[u8],
-    password: Option<&str>,
-    algorithm: Algorithm,
-    format: KeyFormat,
-) -> DnsSecResult<Box<dyn SigningKey>> {
-    //  empty string prevents openssl from triggering a read from stdin...
-
-    #[allow(deprecated)]
-    match algorithm {
-        Algorithm::Unknown(v) => Err(format!("unknown algorithm: {v}").into()),
-        #[cfg(feature = "dnssec-openssl")]
-        e @ Algorithm::RSASHA1 | e @ Algorithm::RSASHA1NSEC3SHA1 => {
-            Err(format!("unsupported Algorithm (insecure): {e:?}").into())
-        }
-        #[cfg(feature = "dnssec-openssl")]
-        Algorithm::RSASHA256 | Algorithm::RSASHA512 => Ok(Box::new(
-            RsaSigningKey::decode_key(bytes, password, algorithm, format)
-                .map_err(|e| format!("could not translate RSA to KeyPair: {e}"))?,
-        )),
-        Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => match format {
-            #[cfg(feature = "dnssec-openssl")]
-            KeyFormat::Der | KeyFormat::Pem => Ok(Box::new(EcSigningKey::decode_key(
-                bytes, password, algorithm, format,
-            )?)),
-            #[cfg(feature = "dnssec-ring")]
-            KeyFormat::Pkcs8 => Ok(Box::new(EcdsaSigningKey::from_pkcs8(bytes, algorithm)?)),
-            e => Err(format!("unsupported key format with EC: {e:?}").into()),
-        },
-        Algorithm::ED25519 => match format {
-            #[cfg(feature = "dnssec-ring")]
-            KeyFormat::Pkcs8 => Ok(Box::new(Ed25519SigningKey::from_pkcs8(bytes)?)),
-            e => Err(
-                format!("unsupported key format with ED25519 (only Pkcs8 supported): {e:?}").into(),
-            ),
-        },
-        e => Err(format!("unsupported Algorithm, enable openssl or ring feature: {e:?}").into()),
-    }
-}
 
 /// An RSA signing key pair (backed by OpenSSL).
 #[cfg(feature = "dnssec-openssl")]
@@ -505,23 +463,11 @@ impl SigningKey for Ed25519SigningKey {
     }
 }
 
-/// A key that can be used to sign records.
-pub trait SigningKey: Send + Sync + 'static {
-    /// Sign DNS records.
-    ///
-    /// # Return value
-    ///
-    /// The signature, ready to be stored in an `RData::RRSIG`.
-    fn sign(&self, tbs: &TBS) -> DnsSecResult<Vec<u8>>;
-
-    /// Returns a [`PublicKeyBuf`] for this [`SigningKey`].
-    fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf>;
-}
-
 #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dnssec::decode_key;
     use crate::dnssec::{PublicKey, Verifier};
 
     #[cfg(feature = "dnssec-openssl")]
