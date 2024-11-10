@@ -260,6 +260,69 @@ impl<P: RuntimeProvider> Future for NextRandomUdpSocket<P> {
 
     /// polls until there is an available next random UDP port,
     /// if no port has been specified in bind_addr.
+    #[cfg(not(feature = "auto-bind-port-udp"))]
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.get_mut();
+        loop {
+            this.future = match this.future.take() {
+                Some(mut future) => match future.as_mut().poll(cx) {
+                    Poll::Ready(Ok(socket)) => {
+                        debug!("created socket successfully");
+                        return Poll::Ready(Ok(socket));
+                    }
+                    Poll::Ready(Err(err)) => match err.kind() {
+                        io::ErrorKind::AddrInUse if this.attempted < ATTEMPT_RANDOM + 1 => {
+                            debug!("unable to bind port, attempt: {}: {err}", this.attempted);
+                            this.attempted += 1;
+                            None
+                        }
+                        _ => {
+                            debug!("failed to bind port: {}", err);
+                            return Poll::Ready(Err(err));
+                        }
+                    },
+                    Poll::Pending => {
+                        debug!("unable to bind port, attempt: {}", this.attempted);
+                        this.future = Some(future);
+                        return Poll::Pending;
+                    }
+                },
+                None => {
+                    let mut bind_addr = this.bind_address;
+                    if bind_addr.port() == 0 {
+                        while this.attempted < ATTEMPT_RANDOM {
+                            // Per RFC 6056 Section 3.2:
+                            //
+                            // As mentioned in Section 2.1, the dynamic ports consist of the range
+                            // 49152-65535.  However, ephemeral port selection algorithms should use
+                            // the whole range 1024-65535.
+                            let rand_port_range = Uniform::new_inclusive(1_024, u16::MAX);
+                            let mut rand = rand::thread_rng();
+                            let port = rand_port_range.sample(&mut rand);
+                            if this.avoid_local_ports.contains(&port) {
+                                // Count this against the total number of attempts to pick a port.
+                                // RFC 6056 Section 3.3.2 notes that this algorithm should find a
+                                // suitable port in one or two attempts with high probability in
+                                // common scenarios. If `avoid_local_ports` is pathologically large,
+                                // then incrementing the counter here will prevent an infinite loop.
+                                this.attempted += 1;
+                                continue;
+                            } else {
+                                bind_addr = SocketAddr::new(bind_addr.ip(), port);
+                                break;
+                            }
+                        }
+                    }
+
+                    Some(Box::pin(
+                        this.provider.bind_udp(bind_addr, this.name_server),
+                    ))
+                }
+            }
+        }
+    }
+
+    #[cfg(feature = "auto-bind-port-udp")]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
         loop {

@@ -70,6 +70,8 @@ wasm-bindgen = ["dep:wasm-bindgen-crate", "dep:js-sys"]
 
 backtrace = ["dep:backtrace"]
 
+auto-bind-port-udp = []
+
 [lib]
 name = "hickory_proto"
 path = "src/lib.rs"
