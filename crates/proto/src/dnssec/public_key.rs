@@ -212,7 +212,7 @@ fn verify_with_pkey(
     message: &[u8],
     signature: &[u8],
 ) -> ProtoResult<()> {
-    let digest_type = DigestType::from(algorithm).to_openssl_digest()?;
+    let digest_type = DigestType::try_from(algorithm)?.to_openssl_digest()?;
     let mut verifier = Verifier::new(digest_type, pkey)?;
     verifier.update(message)?;
     verifier

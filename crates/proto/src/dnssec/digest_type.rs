@@ -17,7 +17,7 @@ use ring::digest;
 use serde::{Deserialize, Serialize};
 
 use super::{Algorithm, Digest};
-use crate::error::{ProtoErrorKind, ProtoResult};
+use crate::error::{ProtoError, ProtoErrorKind, ProtoResult};
 
 /// This is the digest format for the
 ///
@@ -133,10 +133,12 @@ impl DigestType {
     }
 }
 
-impl From<Algorithm> for DigestType {
-    fn from(a: Algorithm) -> Self {
-        #[allow(deprecated)]
-        match a {
+impl TryFrom<Algorithm> for DigestType {
+    type Error = ProtoError;
+
+    fn try_from(a: Algorithm) -> Result<Self, Self::Error> {
+        Ok(match a {
+            #[allow(deprecated)]
             Algorithm::RSAMD5
             | Algorithm::DSA
             | Algorithm::RSASHA1
@@ -145,8 +147,10 @@ impl From<Algorithm> for DigestType {
             Algorithm::RSASHA512 => Self::SHA512,
             Algorithm::ECDSAP384SHA384 => Self::SHA384,
             Algorithm::ED25519 => Self::ED25519,
-            Algorithm::Unknown(_) => Self::SHA512,
-        }
+            Algorithm::Unknown(_) => {
+                return Err(format!("unknown DigestType for algorithm {a:?}").into())
+            }
+        })
     }
 }
 
