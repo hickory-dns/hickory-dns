@@ -14,8 +14,7 @@ mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use super::*;
-    use crate::dnssec::keypair::decode_key;
-    use crate::dnssec::Algorithm;
+    use crate::dnssec::{decode_key, Algorithm};
     #[cfg(feature = "dnssec-openssl")]
     use crate::dnssec::{EcSigningKey, RsaSigningKey};
     #[cfg(feature = "dnssec-ring")]
