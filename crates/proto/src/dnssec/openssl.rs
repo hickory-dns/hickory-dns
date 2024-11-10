@@ -112,7 +112,7 @@ impl RsaSigningKey {
             }
             Algorithm::RSASHA256 | Algorithm::RSASHA512 => Ok(Self {
                 inner,
-                algorithm: DigestType::from(algorithm),
+                algorithm: DigestType::try_from(algorithm)?,
             }),
             _ => {
                 Err(DnsSecErrorKind::Message("unsupported signing algorithm: {algorithm:?}").into())
@@ -234,7 +234,7 @@ impl EcSigningKey {
         match algorithm {
             Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => Ok(Self {
                 inner,
-                algorithm: DigestType::from(algorithm),
+                algorithm: DigestType::try_from(algorithm)?,
             }),
             _ => Err(DnsSecErrorKind::Message("unsupported signing algorithm").into()),
         }
