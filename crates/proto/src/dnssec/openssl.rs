@@ -141,7 +141,7 @@ impl RsaSigningKey {
 
 impl SigningKey for RsaSigningKey {
     fn sign(&self, tbs: &TBS) -> DnsSecResult<Vec<u8>> {
-        let digest = self.algorithm.to_openssl_digest()?;
+        let digest = self.algorithm.to_openssl_digest();
         let mut signer = openssl::sign::Signer::new(digest, &self.inner)?;
         signer.update(tbs.as_ref())?;
         Ok(signer.sign_to_vec()?)
@@ -261,7 +261,7 @@ impl EcSigningKey {
 
 impl SigningKey for EcSigningKey {
     fn sign(&self, tbs: &TBS) -> DnsSecResult<Vec<u8>> {
-        let digest = self.algorithm.to_openssl_digest()?;
+        let digest = self.algorithm.to_openssl_digest();
         let mut signer = openssl::sign::Signer::new(digest, &self.inner)?;
         signer.update(tbs.as_ref())?;
         let bytes = signer.sign_to_vec()?;
