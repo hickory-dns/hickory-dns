@@ -216,6 +216,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let provider_handle = self.runtime_provider.clone();
                 let stream = UdpClientStream::builder(config.socket_addr, provider_handle)
                     .with_timeout(Some(options.timeout))
+                    .with_os_port_selection(options.os_port_selection)
                     .avoid_local_ports(options.avoid_local_udp_ports.clone())
                     .build();
                 let exchange = DnsExchange::connect(stream);

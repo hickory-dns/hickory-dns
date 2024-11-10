@@ -22,6 +22,7 @@ pub fn next_random_socket_test(mut exec: impl Executor, provider: impl RuntimePr
         SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 52),
         None,
         None,
+        false,
         provider,
     );
     drop(

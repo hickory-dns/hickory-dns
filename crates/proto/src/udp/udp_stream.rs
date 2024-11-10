@@ -93,6 +93,16 @@ impl<P: RuntimeProvider> UdpStream<P> {
     /// * `remote_addr` - socket address for the remote connection (used to determine IPv4 or IPv6)
     /// * `bind_addr` - optional local socket address to connect from (if a nonzero port number is
     ///                 specified, it will be used instead of randomly selecting a port)
+    /// * `os_port_selection` - Boolean parameter to specify whether to use the operating system's
+    ///                         standard UDP port selection logic instead of Hickory's logic to
+    ///                         securely select a random source port. We do not recommend using
+    ///                         this option unless absolutely necessary, as the operating system
+    ///                         may select ephemeral ports from a smaller range than Hickory, which
+    ///                         can make response poisoning attacks easier to conduct. Some
+    ///                         operating systems (notably, Windows) might display a user-prompt to
+    ///                         allow a Hickory-specified port to be used, and setting this option
+    ///                         will prevent those prompts from being displayed. If os_port_selection
+    ///                         is true, avoid_local_udp_ports will be ignored.
     /// * `provider` - async runtime provider, for I/O and timers
     ///
     /// # Return
@@ -104,6 +114,7 @@ impl<P: RuntimeProvider> UdpStream<P> {
         remote_addr: SocketAddr,
         bind_addr: Option<SocketAddr>,
         avoid_local_ports: Option<Arc<HashSet<u16>>>,
+        os_port_selection: bool,
         provider: P,
     ) -> (
         Box<dyn Future<Output = Result<Self, io::Error>> + Send + Unpin>,
@@ -116,6 +127,7 @@ impl<P: RuntimeProvider> UdpStream<P> {
             remote_addr,
             bind_addr,
             avoid_local_ports.unwrap_or_default(),
+            os_port_selection,
             provider,
         );
 
@@ -223,6 +235,7 @@ pub(crate) struct NextRandomUdpSocket<P: RuntimeProvider> {
     #[allow(clippy::type_complexity)]
     future: Option<Pin<Box<dyn Send + Future<Output = io::Result<P::Udp>>>>>,
     avoid_local_ports: Arc<HashSet<u16>>,
+    os_port_selection: bool,
 }
 
 impl<P: RuntimeProvider> NextRandomUdpSocket<P> {
@@ -234,6 +247,7 @@ impl<P: RuntimeProvider> NextRandomUdpSocket<P> {
         name_server: SocketAddr,
         bind_addr: Option<SocketAddr>,
         avoid_local_ports: Arc<HashSet<u16>>,
+        os_port_selection: bool,
         provider: P,
     ) -> Self {
         let bind_address = match bind_addr {
@@ -251,6 +265,7 @@ impl<P: RuntimeProvider> NextRandomUdpSocket<P> {
             attempted: 0,
             future: None,
             avoid_local_ports,
+            os_port_selection,
         }
     }
 }
@@ -288,7 +303,8 @@ impl<P: RuntimeProvider> Future for NextRandomUdpSocket<P> {
                 },
                 None => {
                     let mut bind_addr = this.bind_address;
-                    if bind_addr.port() == 0 {
+
+                    if !this.os_port_selection && bind_addr.port() == 0 {
                         while this.attempted < ATTEMPT_RANDOM {
                             // Per RFC 6056 Section 3.2:
                             //
