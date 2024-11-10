@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use super::{Algorithm, Digest};
 use crate::error::{ProtoError, ProtoErrorKind, ProtoResult};
 
-/// This is the digest format for the
+/// DNSSEC Delegation Signer (DS) Resource Record (RR) Type Digest Algorithms
 ///
 ///```text
 /// 0 Reserved - [RFC3658]
@@ -30,6 +30,8 @@ use crate::error::{ProtoError, ProtoErrorKind, ProtoResult};
 /// 5 ED25519 [RFC draft-ietf-curdle-dnskey-eddsa-03]
 /// 5-255 Unassigned -
 /// ```
+///
+/// <https://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml>
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 #[non_exhaustive]
@@ -38,14 +40,10 @@ pub enum DigestType {
     SHA1,
     /// [RFC 4509](https://tools.ietf.org/html/rfc4509)
     SHA256,
-    /// [RFC 5933](https://tools.ietf.org/html/rfc5933)
-    GOSTR34_11_94,
     /// [RFC 6605](https://tools.ietf.org/html/rfc6605)
     SHA384,
-    /// Undefined
+    /// Formally undefined
     SHA512,
-    /// This is a passthrough digest as ED25519 is self-packaged
-    ED25519,
 }
 
 impl DigestType {
@@ -55,48 +53,43 @@ impl DigestType {
         match value {
             1 => Ok(Self::SHA1),
             2 => Ok(Self::SHA256),
-            3 => Ok(Self::GOSTR34_11_94),
             4 => Ok(Self::SHA384),
-            5 => Ok(Self::ED25519),
             _ => Err(ProtoErrorKind::UnknownAlgorithmTypeValue(value).into()),
         }
     }
 
     /// The OpenSSL counterpart for the digest
     #[cfg(feature = "dnssec-openssl")]
-    pub fn to_openssl_digest(self) -> ProtoResult<hash::MessageDigest> {
+    pub fn to_openssl_digest(self) -> hash::MessageDigest {
         match self {
-            Self::SHA1 => Ok(hash::MessageDigest::sha1()),
-            Self::SHA256 => Ok(hash::MessageDigest::sha256()),
-            Self::SHA384 => Ok(hash::MessageDigest::sha384()),
-            Self::SHA512 => Ok(hash::MessageDigest::sha512()),
-            _ => Err(format!("digest not supported by openssl: {self:?}").into()),
+            Self::SHA1 => hash::MessageDigest::sha1(),
+            Self::SHA256 => hash::MessageDigest::sha256(),
+            Self::SHA384 => hash::MessageDigest::sha384(),
+            Self::SHA512 => hash::MessageDigest::sha512(),
         }
     }
 
     /// The *ring* counterpart for the digest
     #[cfg(feature = "dnssec-ring")]
-    pub fn to_ring_digest_alg(self) -> ProtoResult<&'static digest::Algorithm> {
+    pub fn to_ring_digest_alg(self) -> &'static digest::Algorithm {
         match self {
-            Self::SHA1 => Ok(&digest::SHA1_FOR_LEGACY_USE_ONLY),
-            Self::SHA256 => Ok(&digest::SHA256),
-            Self::SHA384 => Ok(&digest::SHA384),
-            Self::SHA512 => Ok(&digest::SHA512),
-            _ => Err(format!("digest not supported by ring: {self:?}").into()),
+            Self::SHA1 => &digest::SHA1_FOR_LEGACY_USE_ONLY,
+            Self::SHA256 => &digest::SHA256,
+            Self::SHA384 => &digest::SHA384,
+            Self::SHA512 => &digest::SHA512,
         }
     }
 
     /// Hash the data
     #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
     pub fn hash(self, data: &[u8]) -> ProtoResult<Digest> {
-        hash::hash(self.to_openssl_digest()?, data).map_err(Into::into)
+        hash::hash(self.to_openssl_digest(), data).map_err(Into::into)
     }
 
     /// Hash the data
     #[cfg(feature = "dnssec-ring")]
     pub fn hash(self, data: &[u8]) -> ProtoResult<Digest> {
-        let alg = self.to_ring_digest_alg()?;
-        Ok(digest::digest(alg, data))
+        Ok(digest::digest(self.to_ring_digest_alg(), data))
     }
 
     /// This will always error, enable openssl feature at compile time
@@ -110,7 +103,7 @@ impl DigestType {
     pub fn digest_all(self, data: &[&[u8]]) -> ProtoResult<Digest> {
         use std::io::Write;
 
-        let digest_type = self.to_openssl_digest()?;
+        let digest_type = self.to_openssl_digest();
         hash::Hasher::new(digest_type)
             .map_err(Into::into)
             .and_then(|mut hasher| {
@@ -124,7 +117,7 @@ impl DigestType {
     /// Digest all the data.
     #[cfg(feature = "dnssec-ring")]
     pub fn digest_all(self, data: &[&[u8]]) -> ProtoResult<Digest> {
-        let alg = self.to_ring_digest_alg()?;
+        let alg = self.to_ring_digest_alg();
         let mut ctx = digest::Context::new(alg);
         for d in data {
             ctx.update(d);
@@ -146,10 +139,7 @@ impl TryFrom<Algorithm> for DigestType {
             Algorithm::RSASHA256 | Algorithm::ECDSAP256SHA256 => Self::SHA256,
             Algorithm::RSASHA512 => Self::SHA512,
             Algorithm::ECDSAP384SHA384 => Self::SHA384,
-            Algorithm::ED25519 => Self::ED25519,
-            Algorithm::Unknown(_) => {
-                return Err(format!("unknown DigestType for algorithm {a:?}").into())
-            }
+            _ => return Err(format!("unsupported DigestType for algorithm {a:?}").into()),
         })
     }
 }
@@ -159,9 +149,7 @@ impl From<DigestType> for u8 {
         match a {
             DigestType::SHA1 => 1,
             DigestType::SHA256 => 2,
-            DigestType::GOSTR34_11_94 => 3,
             DigestType::SHA384 => 4,
-            DigestType::ED25519 => 5,
             DigestType::SHA512 => 255,
         }
     }
