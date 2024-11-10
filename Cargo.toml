@@ -91,7 +91,7 @@ clap = { version = "4.0", default-features = false }
 console = "0.15.0"
 data-encoding = "2.2.0"
 enum-as-inner = "0.6"
-idna = "0.5"
+idna = "1.0"
 ipconfig = "0.3.0"
 ipnet = "2.3.0"
 js-sys = "0.3.44"
