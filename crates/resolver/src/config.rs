@@ -902,6 +902,17 @@ pub struct ResolverOpts {
     pub shuffle_dns_servers: bool,
     /// Local UDP ports to avoid when making outgoing queries
     pub avoid_local_udp_ports: Arc<HashSet<u16>>,
+    /// Request UDP bind ephemeral ports directly from the OS
+    ///
+    /// Boolean parameter to specify whether to use the operating system's standard UDP port
+    /// selection logic instead of Hickory's logic to securely select a random source port. We do
+    /// not recommend using this option unless absolutely necessary, as the operating system may
+    /// select ephemeral ports from a smaller range than Hickory, which can make response poisoning
+    /// attacks easier to conduct. Some operating systems (notably, Windows) might display a
+    /// user-prompt to allow a Hickory-specified port to be used, and setting this option will
+    /// prevent those prompts from being displayed. If os_port_selection is true, avoid_local_udp_ports
+    /// will be ignored.
+    pub os_port_selection: bool,
 }
 
 impl Default for ResolverOpts {
@@ -935,6 +946,7 @@ impl Default for ResolverOpts {
             authentic_data: false,
             shuffle_dns_servers: false,
             avoid_local_udp_ports: Arc::new(HashSet::new()),
+            os_port_selection: false,
         }
     }
 }
