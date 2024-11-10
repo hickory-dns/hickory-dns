@@ -25,7 +25,7 @@ use hickory_proto::{
 };
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 use hickory_proto::{
-    dnssec::{rdata::DNSSECRData, Algorithm, PublicKey, RsaSigningKey, SigningKey},
+    dnssec::{openssl::RsaSigningKey, rdata::DNSSECRData, Algorithm, PublicKey, SigningKey},
     runtime::TokioTime,
 };
 use hickory_proto::{

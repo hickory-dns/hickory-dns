@@ -24,7 +24,7 @@ use hickory_integration::{GOOGLE_V4, TEST3_V4};
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 use hickory_proto::dnssec::rdata::{DNSSECRData, KEY};
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
-use hickory_proto::dnssec::{Algorithm, PublicKey, RsaSigningKey, SigSigner, SigningKey};
+use hickory_proto::dnssec::{openssl::RsaSigningKey, Algorithm, PublicKey, SigSigner, SigningKey};
 use hickory_proto::op::{Edns, Message, MessageType, OpCode, Query};
 #[cfg(feature = "dnssec")]
 use hickory_proto::op::{MessageFinalizer, ResponseCode};
