@@ -32,6 +32,7 @@ pub struct UdpClientStreamBuilder<P> {
     signer: Option<Arc<dyn MessageFinalizer>>,
     bind_addr: Option<SocketAddr>,
     avoid_local_ports: Arc<HashSet<u16>>,
+    os_port_selection: bool,
     provider: P,
 }
 
@@ -50,6 +51,7 @@ impl<P> UdpClientStreamBuilder<P> {
             signer,
             bind_addr: self.bind_addr,
             avoid_local_ports: self.avoid_local_ports,
+            os_port_selection: self.os_port_selection,
             provider: self.provider,
         }
     }
@@ -70,6 +72,12 @@ impl<P> UdpClientStreamBuilder<P> {
         self
     }
 
+    /// Configures that OS should provide the ephemeral port, not the Hickory DNS
+    pub fn with_os_port_selection(mut self, os_port_selection: bool) -> Self {
+        self.os_port_selection = os_port_selection;
+        self
+    }
+
     /// Construct a new UDP client stream.
     ///
     /// Returns a future that outputs the client stream.
@@ -80,6 +88,7 @@ impl<P> UdpClientStreamBuilder<P> {
             signer: self.signer,
             bind_addr: self.bind_addr,
             avoid_local_ports: self.avoid_local_ports.clone(),
+            os_port_selection: self.os_port_selection,
             provider: self.provider,
         }
     }
@@ -98,6 +107,7 @@ pub struct UdpClientStream<P> {
     signer: Option<Arc<dyn MessageFinalizer>>,
     bind_addr: Option<SocketAddr>,
     avoid_local_ports: Arc<HashSet<u16>>,
+    os_port_selection: bool,
     provider: P,
 }
 
@@ -110,6 +120,7 @@ impl<P: RuntimeProvider> UdpClientStream<P> {
             signer: None,
             bind_addr: None,
             avoid_local_ports: Arc::default(),
+            os_port_selection: false,
             provider,
         }
     }
@@ -183,12 +194,19 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
         let addr = message.addr();
         let bind_addr = self.bind_addr;
         let avoid_local_ports = self.avoid_local_ports.clone();
+        let os_port_selection = self.os_port_selection;
 
         P::Timer::timeout::<Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>>(
             self.timeout,
             Box::pin(async move {
-                let socket =
-                    NextRandomUdpSocket::new(addr, bind_addr, avoid_local_ports, provider).await?;
+                let socket = NextRandomUdpSocket::new(
+                    addr,
+                    bind_addr,
+                    avoid_local_ports,
+                    os_port_selection,
+                    provider,
+                )
+                .await?;
                 send_serial_message_inner(message, message_id, verifier, socket, recv_buf_size)
                     .await
             }),
@@ -226,6 +244,7 @@ pub struct UdpClientConnect<P> {
     signer: Option<Arc<dyn MessageFinalizer>>,
     bind_addr: Option<SocketAddr>,
     avoid_local_ports: Arc<HashSet<u16>>,
+    os_port_selection: bool,
     provider: P,
 }
 
@@ -241,6 +260,7 @@ impl<P: RuntimeProvider> Future for UdpClientConnect<P> {
             signer: self.signer.take(),
             bind_addr: self.bind_addr,
             avoid_local_ports: self.avoid_local_ports.clone(),
+            os_port_selection: self.os_port_selection,
             provider: self.provider.clone(),
         }))
     }
