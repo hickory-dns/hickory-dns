@@ -20,18 +20,17 @@ use std::{
 use cfg_if::cfg_if;
 #[cfg(feature = "dnssec")]
 use time::OffsetDateTime;
-use tracing::{debug, error, warn};
-
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use tracing::{debug, error, warn};
 
 #[cfg(feature = "dnssec")]
 use crate::{
     authority::{DnssecAuthority, Nsec3QueryInfo},
     dnssec::NxProofKind,
     proto::{
-        rr::dnssec::{
-            rdata::{key::KEY, DNSSECRData, NSEC, NSEC3, NSEC3PARAM},
-            DnsSecResult, Nsec3HashAlgorithm, PublicKey, SigSigner, SupportedAlgorithms,
+        dnssec::{
+            rdata::{key::KEY, DNSSECRData, NSEC, NSEC3, NSEC3PARAM, RRSIG},
+            DnsSecResult, Nsec3HashAlgorithm, PublicKey, SigSigner, SupportedAlgorithms, TBS,
         },
         ProtoError,
     },
@@ -883,10 +882,6 @@ impl InnerInMemory {
         zone_ttl: u32,
         zone_class: DNSClass,
     ) -> DnsSecResult<()> {
-        use hickory_proto::rr::dnssec::TBS;
-
-        use crate::proto::rr::dnssec::rdata::RRSIG;
-
         let inception = OffsetDateTime::now_utc();
 
         rr_set.clear_rrsigs();

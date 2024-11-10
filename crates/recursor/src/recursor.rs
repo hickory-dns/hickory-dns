@@ -22,8 +22,9 @@ use crate::{
 #[cfg(feature = "dnssec")]
 use crate::{
     proto::{
+        dnssec::TrustAnchor,
         op::ResponseCode,
-        rr::{dnssec::TrustAnchor, resource::RecordRef, Record, RecordType},
+        rr::{resource::RecordRef, Record, RecordType},
         xfer::{DnsHandle as _, DnsRequestOptions, DnssecDnsHandle, FirstAnswer as _},
         ProtoError,
     },

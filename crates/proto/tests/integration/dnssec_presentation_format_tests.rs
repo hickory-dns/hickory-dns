@@ -1,7 +1,7 @@
 #![cfg(feature = "dnssec")]
 
-use hickory_proto::rr::dnssec::rdata::{DNSKEY, DS};
-use hickory_proto::rr::dnssec::{Algorithm, DigestType};
+use hickory_proto::dnssec::rdata::{DNSKEY, DS};
+use hickory_proto::dnssec::{Algorithm, DigestType};
 use hickory_proto::rr::Name;
 
 #[test]

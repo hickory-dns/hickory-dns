@@ -12,7 +12,7 @@ use tracing::{info, warn};
 use crate::rr::{DNSClass, Name, RData, Record, RecordType};
 
 #[cfg(feature = "dnssec")]
-use crate::rr::dnssec::SupportedAlgorithms;
+use crate::dnssec::SupportedAlgorithms;
 
 /// Set of resource records associated to a name and type
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -541,8 +541,8 @@ impl<'r> Iterator for RrsigsByAlgorithms<'r> {
     type Item = &'r Record;
 
     fn next(&mut self) -> Option<Self::Item> {
-        use crate::rr::dnssec::rdata::DNSSECRData;
-        use crate::rr::dnssec::Algorithm;
+        use crate::dnssec::rdata::DNSSECRData;
+        use crate::dnssec::Algorithm;
 
         let supported_algorithms = self.supported_algorithms;
 
@@ -839,9 +839,10 @@ mod test {
     #[cfg(feature = "dnssec")] // This tests RFC 6975, a DNSSEC-specific feature.
     #[allow(clippy::blocks_in_conditions)]
     fn test_get_filter() {
-        use crate::rr::dnssec::rdata::DNSSECRData;
-        use crate::rr::dnssec::rdata::RRSIG;
-        use crate::rr::dnssec::{Algorithm, SupportedAlgorithms};
+        use crate::dnssec::{
+            rdata::{DNSSECRData, RRSIG},
+            Algorithm, SupportedAlgorithms,
+        };
 
         let name = Name::root();
         let rsasha256 = RRSIG::new(

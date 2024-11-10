@@ -8,10 +8,13 @@ use std::{
 
 use futures_executor::block_on;
 
+use hickory_dns::dnssec::KeyConfig;
 use hickory_proto::{
+    dnssec::{
+        rdata::key::KeyUsage, Algorithm, PublicKey, SigSigner, SupportedAlgorithms, Verifier,
+    },
     op::{update_message, Header, Message, Query, ResponseCode},
     rr::{
-        dnssec::{Algorithm, PublicKey, SigSigner, SupportedAlgorithms, Verifier},
         rdata::{A as A4, AAAA},
         DNSClass, Name, RData, Record, RecordSet, RecordType,
     },
@@ -767,9 +770,6 @@ pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys
 }
 
 pub fn add_auth<A: DnssecAuthority>(authority: &mut A) -> Vec<SigSigner> {
-    use hickory_dns::dnssec::KeyConfig;
-    use hickory_proto::rr::dnssec::rdata::key::KeyUsage;
-
     let update_name = Name::from_str("update")
         .unwrap()
         .append_domain(&authority.origin().to_owned().into())

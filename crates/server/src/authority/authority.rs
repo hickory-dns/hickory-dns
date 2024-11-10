@@ -21,12 +21,12 @@ use crate::{
 #[cfg(feature = "dnssec")]
 use crate::{
     dnssec::NxProofKind,
-    proto::rr::{
+    proto::{
         dnssec::{
             rdata::key::KEY, Digest, DnsSecResult, Nsec3HashAlgorithm, SigSigner,
             SupportedAlgorithms,
         },
-        Name,
+        rr::Name,
     },
 };
 

@@ -14,12 +14,12 @@ mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use super::*;
-    use crate::rr::dnssec::keypair::decode_key;
-    use crate::rr::dnssec::Algorithm;
+    use crate::dnssec::keypair::decode_key;
+    use crate::dnssec::Algorithm;
     #[cfg(feature = "dnssec-openssl")]
-    use crate::rr::dnssec::{EcSigningKey, RsaSigningKey};
+    use crate::dnssec::{EcSigningKey, RsaSigningKey};
     #[cfg(feature = "dnssec-ring")]
-    use crate::rr::dnssec::{EcdsaSigningKey, Ed25519SigningKey};
+    use crate::dnssec::{EcdsaSigningKey, Ed25519SigningKey};
 
     #[test]
     #[cfg(feature = "dnssec-openssl")]

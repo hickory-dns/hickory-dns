@@ -27,8 +27,8 @@ use std::path::PathBuf;
 
 use clap::{command, ArgMatches};
 
-use hickory_proto::rr::dnssec::rdata::DNSSECRData;
-use hickory_proto::rr::dnssec::Algorithm;
+use hickory_proto::dnssec::rdata::DNSSECRData;
+use hickory_proto::dnssec::Algorithm;
 use hickory_proto::rr::record_data::RData;
 use hickory_proto::rr::record_type::RecordType;
 use hickory_resolver::TokioResolver;

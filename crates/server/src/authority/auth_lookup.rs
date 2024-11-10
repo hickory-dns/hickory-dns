@@ -12,7 +12,7 @@ use std::sync::Arc;
 use cfg_if::cfg_if;
 
 #[cfg(feature = "dnssec")]
-use crate::{authority::DnssecSummary, proto::rr::dnssec::Proof};
+use crate::{authority::DnssecSummary, proto::dnssec::Proof};
 
 use crate::authority::{LookupObject, LookupOptions};
 use crate::proto::rr::{LowerName, Record, RecordSet, RecordType, RrsetRecords};

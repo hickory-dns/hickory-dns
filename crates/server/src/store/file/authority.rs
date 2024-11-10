@@ -29,7 +29,7 @@ use crate::{
 use crate::{
     authority::{DnssecAuthority, Nsec3QueryInfo},
     dnssec::NxProofKind,
-    proto::rr::dnssec::{rdata::key::KEY, DnsSecResult, SigSigner},
+    proto::dnssec::{rdata::key::KEY, DnsSecResult, SigSigner},
 };
 
 /// FileAuthority is responsible for storing the resource records for a particular zone.

@@ -13,14 +13,17 @@ use std::{convert::TryInto, fmt};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use super::DNSSECRData;
 use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     op::{Header, Message, Query},
     rr::{
-        dns_class::DNSClass, dnssec::rdata::DNSSECRData, rdata::sshfp, record_data::RData,
-        record_type::RecordType, Name, Record, RecordData, RecordDataDecodable,
+        dns_class::DNSClass, rdata::sshfp, record_data::RData, record_type::RecordType, Name,
+        Record, RecordData, RecordDataDecodable,
     },
-    serialize::binary::*,
+    serialize::binary::{
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode, Restrict, RestrictedMath,
+    },
 };
 
 /// [RFC 8945, Secret Key Transaction Authentication for DNS](https://tools.ietf.org/html/rfc8945#section-4.2)

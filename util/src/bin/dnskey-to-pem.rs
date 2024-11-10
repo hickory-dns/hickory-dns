@@ -32,7 +32,7 @@ use openssl::bn::BigNum;
 use openssl::rsa::Rsa;
 use tracing::{info, warn, Level};
 
-use hickory_proto::rr::dnssec::Algorithm;
+use hickory_proto::dnssec::Algorithm;
 
 /// Cli struct for all options managed with clap derive api.
 #[derive(Debug, Parser)]

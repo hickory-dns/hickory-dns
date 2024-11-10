@@ -11,15 +11,15 @@ use std::fmt;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    error::*,
-    rr::{
-        dnssec::Algorithm, Name, RData, RecordData, RecordDataDecodable, RecordType, SerialNumber,
-    },
-    serialize::binary::*,
-};
-
 use super::DNSSECRData;
+use crate::{
+    dnssec::Algorithm,
+    error::{ProtoError, ProtoResult},
+    rr::{Name, RData, RecordData, RecordDataDecodable, RecordType, SerialNumber},
+    serialize::binary::{
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
+    },
+};
 
 /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4), Domain Name System Security Extensions, March 1999
 ///

@@ -13,12 +13,12 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    dnssec::{rdata::DNSKEY, Algorithm, DigestType},
     error::{ProtoError, ProtoResult},
-    rr::{
-        dnssec::{rdata::DNSKEY, Algorithm, DigestType},
-        Name, RData, RecordData, RecordDataDecodable, RecordType,
+    rr::{Name, RData, RecordData, RecordDataDecodable, RecordType},
+    serialize::binary::{
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
     },
-    serialize::binary::*,
 };
 
 use super::DNSSECRData;
@@ -308,6 +308,7 @@ mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use super::*;
+    use crate::dnssec::rdata::DNSKEY;
 
     #[test]
     fn test() {
@@ -334,8 +335,6 @@ mod tests {
     #[test]
     #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
     pub(crate) fn test_covers() {
-        use crate::rr::dnssec::rdata::DNSKEY;
-
         let name = Name::parse("www.example.com.", None).unwrap();
 
         let dnskey_rdata = DNSKEY::new(true, true, false, Algorithm::RSASHA256, vec![1, 2, 3, 4]);
@@ -356,8 +355,6 @@ mod tests {
     #[test]
     #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
     pub(crate) fn test_covers_fails_with_non_zone_key() {
-        use crate::rr::dnssec::rdata::DNSKEY;
-
         let name = Name::parse("www.example.com.", None).unwrap();
 
         let dnskey_rdata = DNSKEY::new(false, true, false, Algorithm::RSASHA256, vec![1, 2, 3, 4]);

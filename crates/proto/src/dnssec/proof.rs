@@ -344,7 +344,7 @@ impl<T> Proven<T> {
     /// Attempts to borrow the value only if it matches flags, returning the associated proof on failure
     ///
     /// ```
-    /// use hickory_proto::rr::dnssec::{Proof, Proven};
+    /// use hickory_proto::dnssec::{Proof, Proven};
     ///
     /// let proven = Proven::new(Proof::Bogus, 42u32);
     ///
@@ -363,7 +363,7 @@ impl<T> Proven<T> {
     /// Attempts to take the value only if it matches flags, returning the associated proof on failure
     ///
     /// ```
-    /// use hickory_proto::rr::dnssec::{Proof, Proven};
+    /// use hickory_proto::dnssec::{Proof, Proven};
     ///
     /// let proven = Proven::new(Proof::Bogus, 42u32);
     ///

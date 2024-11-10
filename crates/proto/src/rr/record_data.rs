@@ -36,7 +36,7 @@ use crate::{
 };
 
 #[cfg(feature = "dnssec")]
-use super::dnssec::rdata::DNSSECRData;
+use crate::dnssec::rdata::DNSSECRData;
 
 /// Record data enum variants for all valid DNS data types.
 ///

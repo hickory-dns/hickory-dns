@@ -1,7 +1,7 @@
 //! Parser for DS text form
 
-use crate::rr::dnssec::rdata::ds::DS;
-use crate::rr::dnssec::{Algorithm, DigestType};
+use crate::dnssec::rdata::ds::DS;
+use crate::dnssec::{Algorithm, DigestType};
 use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
 
 /// Parse the RData from a set of Tokens

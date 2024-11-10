@@ -8,7 +8,7 @@
 //! record data enum variants
 
 #[cfg(feature = "dnssec")]
-use crate::rr::dnssec::rdata::DNSSECRData;
+use crate::dnssec::rdata::DNSSECRData;
 use crate::{
     rr::{
         rdata::{ANAME, CNAME, HTTPS, NS, PTR},
@@ -134,7 +134,7 @@ mod tests {
 
     use super::*;
     #[cfg(feature = "dnssec")]
-    use crate::rr::dnssec::rdata::DS;
+    use crate::dnssec::rdata::DS;
     use crate::rr::domain::Name;
     use crate::rr::rdata::*;
     use std::str::FromStr;
@@ -251,8 +251,8 @@ mod tests {
             record,
             RData::DNSSEC(DNSSECRData::DS(DS::new(
                 60485,
-                crate::rr::dnssec::Algorithm::RSASHA1,
-                crate::rr::dnssec::DigestType::SHA1,
+                crate::dnssec::Algorithm::RSASHA1,
+                crate::dnssec::DigestType::SHA1,
                 vec![
                     0x2B, 0xB1, 0x83, 0xAF, 0x5F, 0x22, 0x58, 0x81, 0x79, 0xA5, 0x3B, 0x0A, 0x98,
                     0x63, 0x1F, 0xAD, 0x1A, 0x29, 0x21, 0x18

@@ -13,11 +13,9 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    error::*,
-    rr::{
-        dnssec::Nsec3HashAlgorithm, type_bit_map::*, RData, RecordData, RecordDataDecodable,
-        RecordType,
-    },
+    dnssec::Nsec3HashAlgorithm,
+    error::{ProtoError, ProtoErrorKind, ProtoResult},
+    rr::{type_bit_map::*, RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::*,
 };
 
@@ -413,11 +411,10 @@ mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use super::*;
+    use crate::dnssec::rdata::RecordType;
 
     #[test]
     fn test() {
-        use crate::rr::dnssec::rdata::RecordType;
-
         let rdata = NSEC3::new(
             Nsec3HashAlgorithm::SHA1,
             true,
@@ -447,8 +444,6 @@ mod tests {
 
     #[test]
     fn test_dups() {
-        use crate::rr::dnssec::rdata::RecordType;
-
         let rdata_with_dups = NSEC3::new(
             Nsec3HashAlgorithm::SHA1,
             true,

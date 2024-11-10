@@ -10,9 +10,11 @@ use std::sync::Arc;
 
 use tokio::runtime::Runtime;
 
-use crate::server_harness::*;
+use crate::server_harness::{
+    named_test_harness, query_a, query_all_dnssec_with_rfc6975, query_all_dnssec_wo_rfc6975,
+};
 use hickory_client::client::Client;
-use hickory_proto::rr::dnssec::{decode_key, Algorithm, KeyFormat, TrustAnchor};
+use hickory_proto::dnssec::{decode_key, Algorithm, KeyFormat, TrustAnchor};
 use hickory_proto::runtime::{RuntimeProvider, TokioRuntimeProvider, TokioTime};
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer, Protocol};

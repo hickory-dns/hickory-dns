@@ -23,22 +23,15 @@ use futures_util::{
 use tracing::{debug, trace, warn};
 
 use crate::{
+    dnssec::{
+        rdata::{DNSSECRData, DNSKEY, DS, RRSIG},
+        Algorithm, Proof, ProofError, ProofErrorKind, TrustAnchor, Verifier,
+    },
     error::{ProtoError, ProtoErrorKind},
     op::{Edns, Message, OpCode, Query},
-    rr::{
-        dnssec::{
-            rdata::{DNSSECRData, DNSKEY, DS, RRSIG},
-            Algorithm, Proof, ProofError, ProofErrorKind, TrustAnchor,
-        },
-        Name, RData, Record, RecordData, RecordType, SerialNumber,
-    },
+    rr::{resource::RecordRef, Name, RData, Record, RecordData, RecordType, SerialNumber},
     xfer::{dns_handle::DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer},
 };
-
-#[cfg(feature = "dnssec")]
-use crate::rr::dnssec::Verifier;
-#[cfg(feature = "dnssec")]
-use crate::rr::resource::RecordRef;
 
 use self::rrset::Rrset;
 

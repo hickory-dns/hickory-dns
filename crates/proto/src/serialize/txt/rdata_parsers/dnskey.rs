@@ -1,7 +1,7 @@
 use core::str::FromStr as _;
 
-use crate::rr::dnssec::rdata::dnskey::DNSKEY;
-use crate::rr::dnssec::Algorithm;
+use crate::dnssec::rdata::dnskey::DNSKEY;
+use crate::dnssec::Algorithm;
 use crate::serialize::txt::{ParseError, ParseErrorKind, ParseResult};
 
 pub(crate) fn parse<'i>(mut tokens: impl Iterator<Item = &'i str>) -> ParseResult<DNSKEY> {

@@ -9,8 +9,6 @@
 
 pub mod dns_class;
 // TODO: rename to sec
-#[cfg(feature = "dnssec")]
-pub mod dnssec;
 pub mod domain;
 mod lower_name;
 pub mod rdata;
@@ -65,7 +63,7 @@ pub trait RecordData: Clone + Sized + PartialEq + Eq + Display + Debug + BinEnco
     }
 }
 
-trait RecordDataDecodable<'r>: Sized {
+pub(crate) trait RecordDataDecodable<'r>: Sized {
     /// Read the RecordData from the data stream.
     ///
     /// * `decoder` - data stream from which the RData will be read
