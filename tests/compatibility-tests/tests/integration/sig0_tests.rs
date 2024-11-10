@@ -18,8 +18,9 @@ use time::Duration;
 
 use hickory_client::client::Client;
 use hickory_client::client::ClientHandle;
+use hickory_client::proto::dnssec::openssl::RsaSigningKey;
 use hickory_client::proto::dnssec::rdata::key::{KeyUsage, KEY};
-use hickory_client::proto::dnssec::{Algorithm, KeyFormat, RsaSigningKey, SigSigner, SigningKey};
+use hickory_client::proto::dnssec::{Algorithm, KeyFormat, SigSigner, SigningKey};
 use hickory_client::proto::op::ResponseCode;
 use hickory_client::proto::rr::Name;
 use hickory_client::proto::rr::{DNSClass, RData, Record, RecordType};
