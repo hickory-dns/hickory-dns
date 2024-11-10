@@ -25,10 +25,10 @@ use std::io::{BufReader, Read, Write};
 use std::path::PathBuf;
 
 use clap::Parser;
-use openssl::pkey::PKey;
+use openssl::pkey::{PKey, Public};
 use tracing::info;
 
-use hickory_proto::dnssec::{Public, PublicKey, PublicKeyBuf};
+use hickory_proto::dnssec::{PublicKey, PublicKeyBuf};
 
 /// Cli struct for all options managed with clap derive api.
 #[derive(Debug, Parser)]
