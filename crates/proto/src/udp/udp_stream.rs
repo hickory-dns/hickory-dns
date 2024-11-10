@@ -286,11 +286,9 @@ impl<P: RuntimeProvider> Future for NextRandomUdpSocket<P> {
                         return Poll::Pending;
                     }
                 },
-                None => {
-                    Some(Box::pin(
-                        this.provider.bind_udp(this.bind_address, this.name_server),
-                    ))
-                }
+                None => Some(Box::pin(
+                    this.provider.bind_udp(this.bind_address, this.name_server),
+                )),
             }
         }
     }
