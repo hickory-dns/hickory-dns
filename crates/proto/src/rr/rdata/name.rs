@@ -153,13 +153,13 @@ mod tests {
         let rdata = Name::from_ascii("WWW.example.com.").unwrap();
 
         let mut bytes = Vec::new();
-        let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
+        let mut encoder = BinEncoder::new(&mut bytes);
         assert!(emit(&mut encoder, &rdata).is_ok());
         let bytes = encoder.into_bytes();
 
         println!("bytes: {bytes:?}");
 
-        let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
+        let mut decoder = BinDecoder::new(bytes);
         let read_rdata = read(&mut decoder).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
