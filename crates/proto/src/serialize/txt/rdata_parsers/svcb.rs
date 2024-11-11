@@ -35,7 +35,7 @@ use crate::{
 ///   SvcPriority is a number in the range 0-65535, TargetName is a
 ///   <domain-name> ([RFC1035], Section 5.1), and the SvcParams are
 ///   a whitespace-separated list, with each SvcParam consisting of a
-///   SvcParamKey=SvcParamValue pair or a standalone SvcParamKey.  
+///   SvcParamKey=SvcParamValue pair or a standalone SvcParamKey.
 ///   SvcParamKeys are registered by IANA  (Section 14.3).
 ///
 ///   Each SvcParamKey SHALL appear at most once in the SvcParams.  In

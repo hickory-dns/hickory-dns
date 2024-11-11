@@ -949,6 +949,7 @@ trait LabelEnc {
 }
 
 struct LabelEncAscii;
+
 impl LabelEnc for LabelEncAscii {
     #[allow(clippy::wrong_self_convention)]
     fn to_label(name: &str) -> ProtoResult<Label> {
@@ -961,6 +962,7 @@ impl LabelEnc for LabelEncAscii {
 }
 
 struct LabelEncUtf8;
+
 impl LabelEnc for LabelEncUtf8 {
     #[allow(clippy::wrong_self_convention)]
     fn to_label(name: &str) -> ProtoResult<Label> {
@@ -1467,7 +1469,7 @@ mod tests {
 
     #[test]
     fn test_pointer() {
-        let mut bytes: Vec<u8> = Vec::with_capacity(512);
+        let mut bytes = Vec::with_capacity(512);
 
         let first = Name::from_str("ra.rb.rc").unwrap();
         let second = Name::from_str("rb.rc").unwrap();
