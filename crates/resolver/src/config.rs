@@ -258,7 +258,7 @@ impl ResolverConfig {
     /// return the associated TlsClientConfig
     #[cfg(feature = "dns-over-rustls")]
     pub fn client_config(&self) -> &Option<TlsClientConfig> {
-        &self.name_servers.1
+        &self.name_servers.tls
     }
 
     /// adds the `rustls::ClientConf` for every configured NameServer
@@ -408,10 +408,11 @@ impl Eq for NameServerConfig {}
     all(feature = "serde", not(feature = "dns-over-rustls")),
     derive(Serialize, Deserialize)
 )]
-pub struct NameServerConfigGroup(
-    Vec<NameServerConfig>,
-    #[cfg(feature = "dns-over-rustls")] Option<TlsClientConfig>,
-);
+pub struct NameServerConfigGroup {
+    servers: Vec<NameServerConfig>,
+    #[cfg(feature = "dns-over-rustls")]
+    tls: Option<TlsClientConfig>,
+}
 
 #[cfg(all(feature = "serde", feature = "dns-over-rustls"))]
 impl SerializeT for NameServerConfigGroup {
@@ -419,7 +420,7 @@ impl SerializeT for NameServerConfigGroup {
     where
         S: Serializer,
     {
-        self.0.serialize(serializer)
+        self.servers.serialize(serializer)
     }
 }
 
@@ -429,7 +430,7 @@ impl<'de> DeserializeT<'de> for NameServerConfigGroup {
     where
         D: Deserializer<'de>,
     {
-        Vec::deserialize(deserializer).map(|nameservers| Self(nameservers, None))
+        Vec::deserialize(deserializer).map(|servers| Self { servers, tls: None })
     }
 }
 
@@ -443,16 +444,16 @@ impl NameServerConfigGroup {
 
     /// Creates a new `NameServiceConfigGroup` with the specified capacity
     pub fn with_capacity(capacity: usize) -> Self {
-        Self(
-            Vec::with_capacity(capacity),
+        Self {
+            servers: Vec::with_capacity(capacity),
             #[cfg(feature = "dns-over-rustls")]
-            None,
-        )
+            tls: None,
+        }
     }
 
     /// Returns the inner vec of configs
     pub fn into_inner(self) -> Vec<NameServerConfig> {
-        self.0
+        self.servers
     }
 
     /// Configure a NameServer address and port
@@ -710,12 +711,15 @@ impl NameServerConfigGroup {
     /// add a [`rustls::ClientConfig`]
     #[cfg(feature = "dns-over-rustls")]
     pub fn with_client_config(self, client_config: Arc<ClientConfig>) -> Self {
-        Self(self.0, Some(TlsClientConfig(client_config)))
+        Self {
+            servers: self.servers,
+            tls: Some(TlsClientConfig(client_config)),
+        }
     }
 
     /// Sets the client address (IP and port) to connect from on all name servers.
     pub fn with_bind_addr(mut self, bind_addr: Option<SocketAddr>) -> Self {
-        for server in &mut self.0 {
+        for server in &mut self.servers {
             server.bind_addr = bind_addr;
         }
         self
@@ -731,25 +735,22 @@ impl Default for NameServerConfigGroup {
 impl Deref for NameServerConfigGroup {
     type Target = Vec<NameServerConfig>;
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.servers
     }
 }
 
 impl DerefMut for NameServerConfigGroup {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.servers
     }
 }
 
 impl From<Vec<NameServerConfig>> for NameServerConfigGroup {
-    fn from(configs: Vec<NameServerConfig>) -> Self {
-        #[cfg(not(feature = "dns-over-rustls"))]
-        {
-            Self(configs)
-        }
-        #[cfg(feature = "dns-over-rustls")]
-        {
-            Self(configs, None)
+    fn from(servers: Vec<NameServerConfig>) -> Self {
+        Self {
+            servers,
+            #[cfg(feature = "dns-over-rustls")]
+            tls: None,
         }
     }
 }
