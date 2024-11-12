@@ -53,7 +53,7 @@ where
         options: ResolverOpts,
         conn_provider: P,
     ) -> Self {
-        let datagram_conns: Vec<NameServer<P>> = config
+        let datagram_conns = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_datagram())
@@ -71,7 +71,7 @@ where
             })
             .collect();
 
-        let stream_conns: Vec<NameServer<P>> = config
+        let stream_conns = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_stream())
@@ -90,8 +90,8 @@ where
             .collect();
 
         Self {
-            datagram_conns: Arc::from(datagram_conns),
-            stream_conns: Arc::from(stream_conns),
+            datagram_conns,
+            stream_conns,
             options,
             datagram_index: Arc::from(AtomicUsize::new(0)),
             stream_index: Arc::from(AtomicUsize::new(0)),
