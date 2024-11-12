@@ -135,17 +135,20 @@ pub struct DnsResponse {
 
 // TODO: when `impl Trait` lands in stable, remove this, and expose FlatMap over answers, et al.
 impl DnsResponse {
-    /// Constructs a new DnsResponse
-    pub fn new(message: Message, buffer: Vec<u8>) -> Self {
-        Self { message, buffer }
-    }
-
     /// Constructs a new DnsResponse with a buffer synthesized from the message
     pub fn from_message(message: Message) -> Result<Self, ProtoError> {
         Ok(Self {
             buffer: message.to_vec()?,
             message,
         })
+    }
+
+    /// Constructs a new DnsResponse by parsing a message from a buffer.
+    ///
+    /// Returns an error if the response message cannot be decoded.
+    pub fn from_buffer(buffer: Vec<u8>) -> Result<Self, ProtoError> {
+        let message = Message::from_vec(&buffer)?;
+        Ok(Self { message, buffer })
     }
 
     /// Retrieves the SOA from the response. This will only exist if it was an authoritative response.

@@ -274,7 +274,8 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
         let (len, src) = socket.recv_from(&mut recv_buf).await?;
 
         // Copy the slice of read bytes.
-        let buffer: Vec<_> = Vec::from(&recv_buf[0..len]);
+        let response_bytes = &recv_buf[0..len];
+        let response_buffer = Vec::from(response_bytes);
 
         // compare expected src to received packet
         let request_target = msg.addr();
@@ -290,15 +291,15 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
             continue;
         }
 
-        match Message::from_vec(&buffer) {
-            Ok(message) => {
+        match DnsResponse::from_buffer(response_buffer) {
+            Ok(response) => {
                 // Validate the message id in the response matches the value chosen for the query.
-                if msg_id != message.id() {
+                if msg_id != response.id() {
                     // on wrong id, attempted poison?
                     warn!(
                         "expected message id: {} got: {}, dropped",
                         msg_id,
-                        message.id()
+                        response.id()
                     );
 
                     continue;
@@ -331,7 +332,7 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
                 // requested, it should discard it without caching it.
                 let request_message = Message::from_vec(msg.bytes())?;
                 let request_queries = request_message.queries();
-                let response_queries = message.queries();
+                let response_queries = response.queries();
 
                 if !response_queries
                     .iter()
@@ -341,11 +342,11 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
                     continue;
                 }
 
-                debug!("received message id: {}", message.id());
+                debug!("received message id: {}", response.id());
                 if let Some(mut verifier) = verifier {
-                    return verifier(&buffer);
+                    return verifier(response_bytes);
                 } else {
-                    return Ok(DnsResponse::new(message, buffer));
+                    return Ok(response);
                 }
             }
             Err(e) => {

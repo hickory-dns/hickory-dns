@@ -30,7 +30,6 @@ use tracing::{debug, warn};
 
 use crate::error::ProtoError;
 use crate::http::Version;
-use crate::op::Message;
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
 use crate::runtime::RuntimeProvider;
 use crate::tcp::DnsTcpStream;
@@ -183,8 +182,7 @@ impl HttpsClientStream {
         };
 
         // and finally convert the bytes into a DNS message
-        let message = Message::from_vec(&response_bytes)?;
-        Ok(DnsResponse::new(message, response_bytes.to_vec()))
+        DnsResponse::from_buffer(response_bytes.to_vec())
     }
 }
 

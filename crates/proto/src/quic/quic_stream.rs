@@ -169,7 +169,7 @@ impl QuicStream {
             return Err(ProtoErrorKind::QuicMessageIdNot0(message.id()).into());
         }
 
-        Ok(DnsResponse::new(message, bytes.to_vec()))
+        DnsResponse::from_buffer(bytes.to_vec())
     }
 
     // TODO: we should change the protocol handlers to work with Messages since some require things like 0 for the Message ID.

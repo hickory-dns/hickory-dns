@@ -27,7 +27,6 @@ use tracing::{debug, warn};
 
 use crate::error::ProtoError;
 use crate::http::Version;
-use crate::op::Message;
 use crate::udp::UdpSocket;
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
 
@@ -185,8 +184,7 @@ impl H3ClientStream {
         };
 
         // and finally convert the bytes into a DNS message
-        let message = Message::from_vec(&response_bytes)?;
-        Ok(DnsResponse::new(message, response_bytes.to_vec()))
+        DnsResponse::from_buffer(response_bytes.to_vec())
     }
 }
 
