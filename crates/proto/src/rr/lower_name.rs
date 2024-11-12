@@ -313,3 +313,21 @@ impl<'de> Deserialize<'de> for LowerName {
         FromStr::from_str(&s).map_err(de::Error::custom)
     }
 }
+
+#[test]
+fn test_name_lowername_roundtrip() {
+    // Test that roundtrip conversions from Name <-> LowerName <-> Name are
+    // equal and preserve is_fqdn.
+    let fqdn_name = Name::from_ascii("example.com.").unwrap();
+    let relative_name = Name::from_ascii("example.com").unwrap();
+
+    let fqdn_lname = LowerName::from(fqdn_name.clone());
+    let relative_lname = LowerName::from(relative_name.clone());
+
+    let fqdn_rt_name: Name = fqdn_lname.into();
+    let relative_rt_name: Name = relative_lname.into();
+
+    assert_eq!(fqdn_name, fqdn_rt_name);
+    assert_eq!(relative_name, relative_rt_name);
+    assert!(fqdn_rt_name != relative_rt_name);
+}

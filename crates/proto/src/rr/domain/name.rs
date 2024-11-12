@@ -2157,6 +2157,193 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::nonminimal_bool)]
+    fn test_name_partialeq_constraints() {
+        let example_fqdn = Name::from_utf8("example.com.").unwrap();
+        let example_nonfqdn = Name::from_utf8("example.com").unwrap();
+        let other_fqdn = Name::from_utf8("otherdomain.com.").unwrap();
+
+        assert_eq!(example_fqdn, example_fqdn);
+        assert_eq!(example_nonfqdn, example_nonfqdn);
+        assert!(example_fqdn != example_nonfqdn);
+
+        // a != b if and only if !(a == b).
+        assert!(example_fqdn != example_nonfqdn && !(example_fqdn == example_nonfqdn));
+        assert!(example_nonfqdn != example_fqdn && !(example_nonfqdn == example_fqdn));
+        assert!(example_fqdn != other_fqdn && !(example_fqdn == other_fqdn));
+        assert!(example_nonfqdn != other_fqdn && !(example_nonfqdn == other_fqdn));
+    }
+
+    #[test]
+    fn test_name_partialord_constraints() {
+        use std::cmp::Ordering::*;
+
+        let example_fqdn = Name::from_utf8("example.com.").unwrap();
+        let foo_example_fqdn = Name::from_utf8("foo.example.com.").unwrap();
+        let example_nonfqdn = Name::from_utf8("example.com").unwrap();
+        let foo_example_nonfqdn = Name::from_utf8("foo.example.com").unwrap();
+
+        // 1. a == b if and only if partial_cmp(a, b) == Some(Equal).
+        assert_eq!(example_fqdn.partial_cmp(&example_fqdn), Some(Equal),);
+        assert!(example_fqdn.partial_cmp(&example_nonfqdn) != Some(Equal));
+
+        // 2. a < b if and only if partial_cmp(a, b) == Some(Less)
+        assert!(
+            example_nonfqdn < example_fqdn
+                && example_nonfqdn.partial_cmp(&example_fqdn) == Some(Less)
+        );
+
+        assert!(
+            example_fqdn < foo_example_fqdn
+                && example_fqdn.partial_cmp(&foo_example_fqdn) == Some(Less)
+        );
+
+        assert!(
+            example_nonfqdn < foo_example_nonfqdn
+                && example_nonfqdn.partial_cmp(&foo_example_nonfqdn) == Some(Less)
+        );
+
+        // 3. a > b) if and only if partial_cmp(a, b) == Some(Greater)
+        assert!(
+            example_fqdn > example_nonfqdn
+                && example_fqdn.partial_cmp(&example_nonfqdn) == Some(Greater)
+        );
+
+        assert!(
+            foo_example_fqdn > example_fqdn
+                && foo_example_fqdn.partial_cmp(&example_fqdn) == Some(Greater)
+        );
+
+        assert!(
+            foo_example_nonfqdn > example_nonfqdn
+                && foo_example_nonfqdn.partial_cmp(&example_nonfqdn) == Some(Greater)
+        );
+
+        // 4. a <= b if and only if a < b || a == b
+        assert!(example_nonfqdn <= example_fqdn);
+        assert!(example_nonfqdn <= example_nonfqdn);
+        assert!(example_fqdn <= example_fqdn);
+        assert!(example_nonfqdn <= foo_example_nonfqdn);
+        assert!(example_fqdn <= foo_example_fqdn);
+        assert!(foo_example_nonfqdn <= foo_example_nonfqdn);
+        assert!(foo_example_fqdn <= foo_example_fqdn);
+
+        // 5. a >= b if and only if a > b || a == b
+        assert!(example_fqdn >= example_nonfqdn);
+        assert!(example_nonfqdn >= example_nonfqdn);
+        assert!(example_fqdn >= example_fqdn);
+        assert!(foo_example_nonfqdn >= example_nonfqdn);
+        assert!(foo_example_fqdn >= example_fqdn);
+        assert!(foo_example_nonfqdn >= foo_example_nonfqdn);
+        assert!(foo_example_fqdn >= foo_example_fqdn);
+
+        // 6. a != b if and only if !(a == b). -- Tested in test_name_partialeq_constraints.
+    }
+
+    #[test]
+    fn test_name_ord_constraints() {
+        use std::cmp;
+
+        let example_fqdn = Name::from_utf8("example.com.").unwrap();
+        let foo_example_fqdn = Name::from_utf8("foo.example.com.").unwrap();
+        let example_nonfqdn = Name::from_utf8("example.com").unwrap();
+        let foo_example_nonfqdn = Name::from_utf8("foo.example.com").unwrap();
+
+        // These are consistency checks between Ord and PartialOrd; therefore
+        // we don't really care about picking the individual mappings and want
+        // to test on all possible combinations.
+        for pair in [
+            (&example_fqdn, &example_fqdn),
+            (&example_fqdn, &example_nonfqdn),
+            (&example_fqdn, &foo_example_fqdn),
+            (&example_fqdn, &foo_example_nonfqdn),
+            (&example_nonfqdn, &example_nonfqdn),
+            (&example_nonfqdn, &example_fqdn),
+            (&example_nonfqdn, &foo_example_fqdn),
+            (&example_nonfqdn, &foo_example_nonfqdn),
+            (&foo_example_fqdn, &example_nonfqdn),
+            (&foo_example_fqdn, &example_fqdn),
+            (&foo_example_fqdn, &foo_example_fqdn),
+            (&foo_example_fqdn, &foo_example_nonfqdn),
+            (&foo_example_fqdn, &example_nonfqdn),
+            (&foo_example_fqdn, &example_fqdn),
+            (&foo_example_fqdn, &foo_example_fqdn),
+            (&foo_example_fqdn, &foo_example_nonfqdn),
+        ] {
+            let name1 = pair.0;
+            let name2 = pair.1;
+
+            // 1. partial_cmp(a, b) == Some(cmp(a, b)).
+            assert_eq!(name1.partial_cmp(name2), Some(name1.cmp(name2)));
+
+            // 2. max(a, b) == max_by(a, b, cmp) (ensured by the default implementation).
+            assert_eq!(
+                name1.clone().max(name2.clone()),
+                cmp::max_by(name1.clone(), name2.clone(), |x: &Name, y: &Name| x.cmp(y)),
+            );
+
+            // 3. min(a, b) == min_by(a, b, cmp) (ensured by the default implementation).
+            assert_eq!(
+                name1.clone().min(name2.clone()),
+                cmp::min_by(name1.clone(), name2.clone(), |x: &Name, y: &Name| x.cmp(y)),
+            );
+        }
+
+        // 4. For a.clamp(min, max), see the method docs (ensured by the default implementation).
+        //
+        // Restrict a value to a certain interval.
+        // Returns max if self is greater than max, and min if self is less than min.
+        // Otherwise this returns self.
+        //
+        // Panics if min > max -- tested in test_ord_clamp_panic
+        let min_name = Name::from_utf8("com").unwrap();
+        let max_name = Name::from_utf8("max.example.com.").unwrap();
+
+        assert_eq!(
+            min_name
+                .clone()
+                .clamp(min_name.clone(), example_nonfqdn.clone()),
+            min_name.clone(),
+        );
+
+        assert_eq!(
+            max_name
+                .clone()
+                .clamp(example_nonfqdn.clone(), example_fqdn.clone()),
+            example_fqdn.clone(),
+        );
+
+        assert_eq!(
+            max_name
+                .clone()
+                .clamp(example_nonfqdn.clone(), max_name.clone()),
+            max_name.clone(),
+        );
+
+        // Transitivity tests
+        // if A < B and B < C then A < C
+        // if A > B and B > C then A > C
+        let most_min_name = Name::from_utf8("").unwrap();
+        let most_max_name = Name::from_utf8("most.max.example.com.").unwrap();
+        assert_eq!(min_name.cmp(&example_nonfqdn), Ordering::Less);
+        assert_eq!(most_min_name.cmp(&min_name), Ordering::Less);
+        assert_eq!(most_min_name.cmp(&example_nonfqdn), Ordering::Less);
+        assert_eq!(max_name.cmp(&example_fqdn), Ordering::Greater);
+        assert_eq!(most_max_name.cmp(&max_name), Ordering::Greater);
+        assert_eq!(most_max_name.cmp(&example_fqdn), Ordering::Greater);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_ord_clamp_panic() {
+        let min_name = Name::from_utf8("com").unwrap();
+        let max_name = Name::from_utf8("max.example.com.").unwrap();
+
+        // this should panic since min > max
+        let _ = min_name.clone().clamp(max_name, min_name);
+    }
+
+    #[test]
     fn test_hash() {
         // verify that two identical names with and without the trailing dot hashes to the same value
         let mut hasher = DefaultHasher::new();
