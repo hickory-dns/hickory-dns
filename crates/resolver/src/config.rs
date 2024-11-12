@@ -398,7 +398,7 @@ impl PartialEq for NameServerConfig {
 impl Eq for NameServerConfig {}
 
 /// A set of name_servers to associate with a [`ResolverConfig`].
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct NameServerConfigGroup {
     servers: Vec<NameServerConfig>,
     #[cfg(feature = "dns-over-rustls")]
@@ -749,6 +749,14 @@ impl From<Vec<NameServerConfig>> for NameServerConfigGroup {
         }
     }
 }
+
+impl PartialEq for NameServerConfigGroup {
+    fn eq(&self, other: &Self) -> bool {
+        self.servers == other.servers
+    }
+}
+
+impl Eq for NameServerConfigGroup {}
 
 /// The lookup ip strategy
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
