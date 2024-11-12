@@ -796,7 +796,7 @@ pub enum ResolveHosts {
 }
 
 /// Configuration for the Resolver
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone)]
 #[cfg_attr(
     feature = "serde",
     derive(Serialize, Deserialize),

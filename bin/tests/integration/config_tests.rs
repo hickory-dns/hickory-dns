@@ -26,7 +26,7 @@ use toml::map::Keys;
 use toml::value::Array;
 use toml::{Table, Value};
 
-use hickory_dns::{Config, ZoneConfig};
+use hickory_dns::Config;
 use hickory_server::authority::ZoneType;
 
 #[test]
@@ -48,79 +48,42 @@ fn test_read_config() {
     assert_eq!(config.tcp_request_timeout(), Duration::from_secs(5));
     assert_eq!(config.log_level(), tracing::Level::INFO);
     assert_eq!(config.directory(), Path::new("/var/named"));
+
+    assert_eq!(config.zones()[0].zone, "localhost");
+    assert_eq!(config.zones()[0].zone_type, ZoneType::Primary);
     assert_eq!(
-        config.zones(),
-        [
-            ZoneConfig::new(
-                "localhost".into(),
-                ZoneType::Primary,
-                "default/localhost.zone".into(),
-                None,
-                None,
-                None,
-                vec![],
-                #[cfg(feature = "dnssec")]
-                None,
-            ),
-            ZoneConfig::new(
-                "0.0.127.in-addr.arpa".into(),
-                ZoneType::Primary,
-                "default/127.0.0.1.zone".into(),
-                None,
-                None,
-                None,
-                vec![],
-                #[cfg(feature = "dnssec")]
-                None,
-            ),
-            ZoneConfig::new(
-                "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.\
-                 ip6.arpa"
-                    .into(),
-                ZoneType::Primary,
-                "default/ipv6_1.zone".into(),
-                None,
-                None,
-                None,
-                vec![],
-                #[cfg(feature = "dnssec")]
-                None,
-            ),
-            ZoneConfig::new(
-                "255.in-addr.arpa".into(),
-                ZoneType::Primary,
-                "default/255.zone".into(),
-                None,
-                None,
-                None,
-                vec![],
-                #[cfg(feature = "dnssec")]
-                None,
-            ),
-            ZoneConfig::new(
-                "0.in-addr.arpa".into(),
-                ZoneType::Primary,
-                "default/0.zone".into(),
-                None,
-                None,
-                None,
-                vec![],
-                #[cfg(feature = "dnssec")]
-                None,
-            ),
-            ZoneConfig::new(
-                "example.com".into(),
-                ZoneType::Primary,
-                "example.com.zone".into(),
-                None,
-                None,
-                None,
-                vec![],
-                #[cfg(feature = "dnssec")]
-                None,
-            )
-        ]
+        config.zones()[0].file.as_deref(),
+        Some("default/localhost.zone")
     );
+
+    assert_eq!(config.zones()[1].zone, "0.0.127.in-addr.arpa");
+    assert_eq!(config.zones()[1].zone_type, ZoneType::Primary);
+    assert_eq!(
+        config.zones()[1].file.as_deref(),
+        Some("default/127.0.0.1.zone")
+    );
+
+    assert_eq!(
+        config.zones()[2].zone,
+        "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"
+    );
+    assert_eq!(config.zones()[2].zone_type, ZoneType::Primary);
+    assert_eq!(
+        config.zones()[2].file.as_deref(),
+        Some("default/ipv6_1.zone")
+    );
+
+    assert_eq!(config.zones()[3].zone, "255.in-addr.arpa");
+    assert_eq!(config.zones()[3].zone_type, ZoneType::Primary);
+    assert_eq!(config.zones()[3].file.as_deref(), Some("default/255.zone"));
+
+    assert_eq!(config.zones()[4].zone, "0.in-addr.arpa");
+    assert_eq!(config.zones()[4].zone_type, ZoneType::Primary);
+    assert_eq!(config.zones()[4].file.as_deref(), Some("default/0.zone"));
+
+    assert_eq!(config.zones()[5].zone, "example.com");
+    assert_eq!(config.zones()[5].zone_type, ZoneType::Primary);
+    assert_eq!(config.zones()[5].file.as_deref(), Some("example.com.zone"));
 }
 
 #[test]
