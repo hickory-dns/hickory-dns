@@ -7,8 +7,8 @@
 
 use std::future::Future;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
-use crate::config::TlsClientConfig;
 use crate::proto::h2::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
 use crate::proto::runtime::{RuntimeProvider, TokioTime};
 use crate::proto::tcp::DnsTcpStream;
@@ -22,10 +22,10 @@ pub(crate) fn new_https_stream<P: RuntimeProvider>(
     bind_addr: Option<SocketAddr>,
     dns_name: String,
     http_endpoint: String,
-    client_config: Option<TlsClientConfig>,
+    client_config: Option<Arc<rustls::ClientConfig>>,
     provider: P,
 ) -> DnsExchangeConnect<HttpsClientConnect<P::Tcp>, HttpsClientStream, TokioTime> {
-    let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
+    let client_config = if let Some(client_config) = client_config {
         client_config
     } else {
         match CLIENT_CONFIG.clone() {
@@ -47,13 +47,13 @@ pub(crate) fn new_https_stream_with_future<S, F>(
     socket_addr: SocketAddr,
     dns_name: String,
     http_endpoint: String,
-    client_config: Option<TlsClientConfig>,
+    client_config: Option<Arc<rustls::ClientConfig>>,
 ) -> DnsExchangeConnect<HttpsClientConnect<S>, HttpsClientStream, TokioTime>
 where
     S: DnsTcpStream + Send + 'static,
     F: Future<Output = std::io::Result<S>> + Send + Unpin + 'static,
 {
-    let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
+    let client_config = if let Some(client_config) = client_config {
         client_config
     } else {
         match CLIENT_CONFIG.clone() {

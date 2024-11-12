@@ -18,7 +18,6 @@ use std::sync::Arc;
 use once_cell::sync::Lazy;
 use rustls::{ClientConfig, RootCertStore};
 
-use crate::config::TlsClientConfig;
 use crate::proto::rustls::tls_client_stream::tls_client_connect_with_future;
 use crate::proto::rustls::TlsClientStream;
 use crate::proto::tcp::DnsTcpStream;
@@ -80,7 +79,7 @@ pub(crate) fn new_tls_stream_with_future<S, F>(
     future: F,
     socket_addr: SocketAddr,
     dns_name: String,
-    client_config: Option<TlsClientConfig>,
+    client_config: Option<Arc<rustls::ClientConfig>>,
 ) -> (
     Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send>>,
     BufDnsStreamHandle,
@@ -89,7 +88,7 @@ where
     S: DnsTcpStream,
     F: Future<Output = io::Result<S>> + Send + Unpin + 'static,
 {
-    let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
+    let client_config = if let Some(client_config) = client_config {
         client_config
     } else {
         match CLIENT_CONFIG.clone() {
