@@ -236,7 +236,7 @@ impl Config {
 }
 
 /// Configuration for a zone
-#[derive(Deserialize, PartialEq, Eq, Debug)]
+#[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct ZoneConfig {
     /// name of the zone
@@ -354,7 +354,7 @@ impl ZoneConfig {
 }
 
 /// Enumeration over all store types
-#[derive(Deserialize, PartialEq, Eq, Debug)]
+#[derive(Deserialize, Debug)]
 #[serde(tag = "type")]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
@@ -420,12 +420,14 @@ where
     deserializer.deserialize_any(MapOrSequence)
 }
 
-#[cfg(test)]
+#[cfg(all(test, any(feature = "resolver", feature = "recursor")))]
 mod tests {
+    use super::*;
+
     #[cfg(feature = "recursor")]
     #[test]
     fn example_recursor_config() {
-        toml::from_str::<super::Config>(include_str!(
+        toml::from_str::<Config>(include_str!(
             "../../tests/test-data/test_configs/example_recursor.toml"
         ))
         .unwrap();
@@ -434,7 +436,7 @@ mod tests {
     #[cfg(feature = "resolver")]
     #[test]
     fn single_store_config_error_message() {
-        match toml::from_str::<super::Config>(
+        match toml::from_str::<Config>(
             r#"[[zones]]
                zone = "."
                zone_type = "Forward"
@@ -450,7 +452,7 @@ mod tests {
     #[cfg(feature = "resolver")]
     #[test]
     fn chained_store_config_error_message() {
-        match toml::from_str::<super::Config>(
+        match toml::from_str::<Config>(
             r#"[[zones]]
                zone = "."
                zone_type = "Forward"
@@ -472,14 +474,14 @@ mod tests {
                trust_negative_responses = false"#,
         ) {
             Ok(val) => panic!("expected error value; got ok: {val:?}"),
-            Err(e) => assert!(e.to_string().contains("unknown field `rotocol`")),
+            Err(e) => assert!(dbg!(e).to_string().contains("unknown field `rotocol`")),
         }
     }
 
     #[cfg(feature = "resolver")]
     #[test]
     fn empty_store_default_value() {
-        match toml::from_str::<super::Config>(
+        match toml::from_str::<Config>(
             r#"[[zones]]
                zone = "localhost"
                zone_type = "Primary"
@@ -487,7 +489,7 @@ mod tests {
         ) {
             Ok(val) => {
                 assert_eq!(val.zones[0].stores.len(), 1);
-                assert_eq!(val.zones[0].stores[0], super::StoreConfig::Default);
+                assert!(matches!(val.zones[0].stores[0], StoreConfig::Default));
             }
             Err(e) => panic!("expected successful parse: {e:?}"),
         }

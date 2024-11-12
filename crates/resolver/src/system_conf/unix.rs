@@ -175,7 +175,7 @@ mod tests {
         let parsed = parse_resolv_conf("nameserver 127.0.0.1").expect("failed");
         let cfg = empty_config(nameserver_config("127.0.0.1").to_vec());
         assert_eq!(cfg.name_servers(), parsed.0.name_servers());
-        assert_eq!(ResolverOpts::default(), parsed.1);
+        is_default_opts(parsed.1);
     }
 
     #[test]
@@ -184,7 +184,7 @@ mod tests {
         let mut cfg = empty_config(nameserver_config("127.0.0.1").to_vec());
         cfg.add_search(Name::from_str("localnet.").unwrap());
         assert_eq!(cfg.search(), parsed.0.search());
-        assert_eq!(ResolverOpts::default(), parsed.1);
+        is_default_opts(parsed.1);
     }
 
     #[test]
@@ -196,14 +196,13 @@ mod tests {
 
         {
             assert_eq!(cfg.name_servers(), parsed.0.name_servers());
-            assert_eq!(ResolverOpts::default(), parsed.1);
+            is_default_opts(parsed.1);
         }
 
         // This is the important part, that the invalid `--` is skipped during parsing
         {
             cfg.add_search(Name::from_str("lan").unwrap());
             assert_eq!(cfg.search(), parsed.0.search());
-            assert_eq!(ResolverOpts::default(), parsed.1);
         }
     }
 
@@ -214,7 +213,7 @@ mod tests {
         let mut cfg = empty_config(nameserver_config("127.0.0.1").to_vec());
         cfg.add_search(Name::from_str_relaxed("Speedport_000.").unwrap());
         assert_eq!(cfg.search(), parsed.0.search());
-        assert_eq!(ResolverOpts::default(), parsed.1);
+        is_default_opts(parsed.1);
     }
 
     #[test]
@@ -223,7 +222,7 @@ mod tests {
         let mut cfg = empty_config(nameserver_config("127.0.0.1").to_vec());
         cfg.set_domain(Name::from_str("example.com").unwrap());
         assert_eq!(cfg, parsed.0);
-        assert_eq!(ResolverOpts::default(), parsed.1);
+        is_default_opts(parsed.1);
     }
 
     #[test]
@@ -231,5 +230,12 @@ mod tests {
         read_resolv_conf(format!("{}/resolv.conf-simple", tests_dir())).expect("simple failed");
         read_resolv_conf(format!("{}/resolv.conf-macos", tests_dir())).expect("macos failed");
         read_resolv_conf(format!("{}/resolv.conf-linux", tests_dir())).expect("linux failed");
+    }
+
+    /// Validate that all options set in `into_resolver_config()` are at default values
+    fn is_default_opts(opts: ResolverOpts) {
+        assert_eq!(opts.ndots, 1);
+        assert_eq!(opts.timeout, Duration::from_secs(5));
+        assert_eq!(opts.attempts, 2);
     }
 }
