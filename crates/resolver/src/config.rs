@@ -322,7 +322,7 @@ impl std::fmt::Debug for TlsClientConfig {
 }
 
 /// Configuration for the NameServer
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 #[cfg_attr(
     feature = "serde",
     derive(Serialize, Deserialize),
@@ -392,6 +392,15 @@ impl fmt::Display for NameServerConfig {
         write!(f, "{}", self.socket_addr)
     }
 }
+
+/// We consider a `NameServerConfig` equal if the `socket_addr` and `protocol` are equal
+impl PartialEq for NameServerConfig {
+    fn eq(&self, other: &Self) -> bool {
+        self.socket_addr == other.socket_addr && self.protocol == other.protocol
+    }
+}
+
+impl Eq for NameServerConfig {}
 
 /// A set of name_servers to associate with a [`ResolverConfig`].
 #[derive(Clone, Debug, Eq, PartialEq)]
