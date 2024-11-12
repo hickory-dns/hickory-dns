@@ -296,7 +296,7 @@ impl Display for Query {
 #[allow(clippy::needless_update)]
 fn test_read_and_emit() {
     let expect = Query {
-        name: Name::from_ascii("WWW.example.com").unwrap(),
+        name: Name::from_ascii("WWW.example.com.").unwrap(),
         query_type: RecordType::AAAA,
         query_class: DNSClass::IN,
         ..Query::default()

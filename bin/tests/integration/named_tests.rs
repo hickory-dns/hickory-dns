@@ -274,10 +274,11 @@ fn test_forward() {
         let response = query_message(
             &mut io_loop,
             &mut client,
-            Name::from_str("www.example.com").unwrap(),
+            Name::from_str("www.example.com.").unwrap(),
             RecordType::A,
         )
         .unwrap();
+
         assert_eq!(
             *response.answers()[0].data().as_a().unwrap(),
             A::new(93, 184, 215, 14)
@@ -294,7 +295,7 @@ fn test_forward() {
         let response = query_message(
             &mut io_loop,
             &mut client,
-            Name::from_str("www.example.com").unwrap(),
+            Name::from_str("www.example.com.").unwrap(),
             RecordType::A,
         )
         .unwrap();

@@ -625,7 +625,7 @@ mod tests {
                 0,
                 0,
                 0,
-                Name::from_str("www.compressme.com").unwrap(),
+                Name::from_str("www.compressme.com.").unwrap(),
             )),
         ))
         .add_additional(Record::from_rdata(
@@ -635,14 +635,14 @@ mod tests {
                 0,
                 0,
                 0,
-                Name::from_str("www.compressme.com").unwrap(),
+                Name::from_str("www.compressme.com.").unwrap(),
             )),
         ))
         // name here should use compressed label from target in previous records
         .add_answer(Record::from_rdata(
-            Name::from_str("www.compressme.com").unwrap(),
+            Name::from_str("www.compressme.com.").unwrap(),
             0,
-            RData::CNAME(CNAME(Name::from_str("www.foo.com").unwrap())),
+            RData::CNAME(CNAME(Name::from_str("www.foo.com.").unwrap())),
         ));
 
         let bytes = msg.to_vec().unwrap();

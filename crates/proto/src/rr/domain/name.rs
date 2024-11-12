@@ -192,7 +192,7 @@ impl Name {
     ///
     /// // From strings, uses utf8 conversion
     /// let from_labels = Name::from_labels(vec!["www", "example", "com"]).unwrap();
-    /// assert_eq!(from_labels, Name::from_str("www.example.com").unwrap());
+    /// assert_eq!(from_labels, Name::from_str("www.example.com.").unwrap());
     ///
     /// // Force a set of bytes into labels (this is none-standard and potentially dangerous)
     /// let from_labels = Name::from_labels(vec!["bad chars".as_bytes(), "example".as_bytes(), "com".as_bytes()]).unwrap();
@@ -279,7 +279,7 @@ impl Name {
     /// let local = Name::from_str("www").unwrap();
     /// let domain = Name::from_str("example.com").unwrap();
     /// let name = local.append_domain(&domain).unwrap();
-    /// assert_eq!(name, Name::from_str("www.example.com").unwrap());
+    /// assert_eq!(name, Name::from_str("www.example.com.").unwrap());
     /// assert!(name.is_fqdn())
     /// ```
     pub fn append_domain(self, domain: &Self) -> Result<Self, ProtoError> {
@@ -911,7 +911,7 @@ impl Name {
     /// use std::str::FromStr;
     /// use hickory_proto::rr::Name;
     ///
-    /// let name = Name::from_str("www.example.com").unwrap().into_wildcard();
+    /// let name = Name::from_str("www.example.com.").unwrap().into_wildcard();
     /// assert_eq!(name, Name::from_str("*.example.com.").unwrap());
     ///
     /// // does nothing if the root
@@ -1199,7 +1199,24 @@ fn read_inner(
                     .peek()
                     .map(Restrict::unverified /*verified in this usage*/)
                 {
-                    Some(0) | None => LabelParseState::Root,
+                    Some(0) => {
+                        // RFC 1035 Section 3.1 - Name space definitions
+                        //
+                        // Domain names in messages are expressed in terms of a sequence of labels.
+                        // Each label is represented as a one octet length field followed by that
+                        // number of octets.  **Since every domain name ends with the null label of
+                        // the root, a domain name is terminated by a length byte of zero.**  The
+                        // high order two bits of every length octet must be zero, and the
+                        // remaining six bits of the length field limit the label to 63 octets or
+                        // less.
+                        name.set_fqdn(true);
+                        LabelParseState::Root
+                    }
+                    None => {
+                        // Valid names on the wire should end in a 0-octet, signifying the end of
+                        // the name. If the last byte wasn't 00, the name is invalid.
+                        return Err(DecodeError::InsufficientBytes);
+                    }
                     Some(byte) if byte & 0b1100_0000 == 0b1100_0000 => LabelParseState::Pointer,
                     Some(byte) if byte & 0b1100_0000 == 0b0000_0000 => LabelParseState::Label,
                     Some(byte) => return Err(DecodeError::UnrecognizedLabelCode(byte)),
@@ -1337,7 +1354,7 @@ enum LabelParseState {
     LabelLengthOrPointer, // basically the start of the FSM
     Label,                // storing length of the label, must be < 63
     Pointer,              // location of pointer in slice,
-    Root,                 // root is the end of the labels list, aka null
+    Root,                 // root is the end of the labels list for an FQDN
 }
 
 impl FromStr for Name {
@@ -1429,8 +1446,8 @@ impl<'de> Deserialize<'de> for Name {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    use std::collections::hash_map::DefaultHasher;
     use std::cmp::Ordering;
+    use std::collections::hash_map::DefaultHasher;
     use std::iter;
     use std::str::FromStr;
 
@@ -1443,14 +1460,14 @@ mod tests {
 
     fn get_data() -> Vec<(Name, Vec<u8>)> {
         vec![
-            (Name::new(), vec![0]),                           // base case, only the root
-            (Name::from_str("a").unwrap(), vec![1, b'a', 0]), // a single 'a' label
+            (Name::from_str(".").unwrap(), vec![0]), // base case, only the root
+            (Name::from_str("a.").unwrap(), vec![1, b'a', 0]), // a single 'a' label
             (
-                Name::from_str("a.bc").unwrap(),
+                Name::from_str("a.bc.").unwrap(),
                 vec![1, b'a', 2, b'b', b'c', 0],
             ), // two labels, 'a.bc'
             (
-                Name::from_str("a.♥").unwrap(),
+                Name::from_str("a.♥.").unwrap(),
                 vec![1, b'a', 7, b'x', b'n', b'-', b'-', b'g', b'6', b'h', 0],
             ), // two labels utf8, 'a.♥'
         ]
@@ -1480,10 +1497,10 @@ mod tests {
     fn test_pointer() {
         let mut bytes = Vec::with_capacity(512);
 
-        let first = Name::from_str("ra.rb.rc").unwrap();
-        let second = Name::from_str("rb.rc").unwrap();
-        let third = Name::from_str("rc").unwrap();
-        let fourth = Name::from_str("z.ra.rb.rc").unwrap();
+        let first = Name::from_str("ra.rb.rc.").unwrap();
+        let second = Name::from_str("rb.rc.").unwrap();
+        let third = Name::from_str("rc.").unwrap();
+        let fourth = Name::from_str("z.ra.rb.rc.").unwrap();
 
         {
             let mut e = BinEncoder::new(&mut bytes);
@@ -1522,9 +1539,9 @@ mod tests {
     fn test_pointer_with_pointer_ending_labels() {
         let mut bytes: Vec<u8> = Vec::with_capacity(512);
 
-        let first = Name::from_str("ra.rb.rc").unwrap();
-        let second = Name::from_str("ra.rc").unwrap();
-        let third = Name::from_str("ra.rc").unwrap();
+        let first = Name::from_str("ra.rb.rc.").unwrap();
+        let second = Name::from_str("ra.rc.").unwrap();
+        let third = Name::from_str("ra.rc.").unwrap();
 
         {
             let mut e = BinEncoder::new(&mut bytes);

@@ -183,7 +183,7 @@ mod tests {
     fn test() {
         use std::str::FromStr;
 
-        let rdata = MX::new(16, Name::from_str("mail.example.com").unwrap());
+        let rdata = MX::new(16, Name::from_str("mail.example.com.").unwrap());
 
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
