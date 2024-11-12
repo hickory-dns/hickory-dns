@@ -221,14 +221,8 @@ where
             debug!("sending request: {:?}", request.queries());
 
             // First try the UDP connections
-            let udp_res: Result<DnsResponse, ProtoError> = match Self::try_send(
-                opts.clone(),
-                datagram_conns,
-                request,
-                &datagram_index,
-            )
-            .await
-            {
+            let future = Self::try_send(opts.clone(), datagram_conns, request, &datagram_index);
+            let udp_res = match future.await {
                 Ok(response) if response.truncated() => {
                     debug!("truncated response received, retrying over TCP");
                     Ok(response)
