@@ -9,13 +9,10 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use crate::config::TlsClientConfig;
-use crate::tls::CLIENT_CONFIG;
-
 use crate::proto::h3::{H3ClientConnect, H3ClientStream};
 use crate::proto::runtime::TokioTime;
 use crate::proto::xfer::{DnsExchange, DnsExchangeConnect};
-
-use rustls::ClientConfig as CryptoConfig;
+use crate::tls::CLIENT_CONFIG;
 
 #[allow(clippy::type_complexity)]
 #[allow(unused)]
@@ -38,7 +35,7 @@ pub(crate) fn new_h3_stream(
     let mut h3_builder = H3ClientStream::builder();
 
     // TODO: normalize the crypto config settings, can we just use common ALPN settings?
-    let crypto_config: CryptoConfig = (*client_config).clone();
+    let crypto_config = (*client_config).clone();
 
     h3_builder.crypto_config(crypto_config);
     if let Some(bind_addr) = bind_addr {
@@ -67,7 +64,7 @@ pub(crate) fn new_h3_stream_with_future(
     let mut h3_builder = H3ClientStream::builder();
 
     // TODO: normalize the crypto config settings, can we just use common ALPN settings?
-    let crypto_config: CryptoConfig = (*client_config).clone();
+    let crypto_config = (*client_config).clone();
 
     h3_builder.crypto_config(crypto_config);
     DnsExchange::connect(h3_builder.build_with_future(socket, socket_addr, dns_name, http_endpoint))
