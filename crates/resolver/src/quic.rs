@@ -9,11 +9,10 @@ use rustls::ClientConfig as CryptoConfig;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use crate::config::TlsClientConfig;
+use crate::proto::quic::{QuicClientConnect, QuicClientStream};
 use crate::proto::runtime::TokioTime;
 use crate::proto::xfer::{DnsExchange, DnsExchangeConnect};
-use hickory_proto::quic::{QuicClientConnect, QuicClientStream};
-
-use crate::config::TlsClientConfig;
 use crate::tls::CLIENT_CONFIG;
 
 #[allow(clippy::type_complexity)]

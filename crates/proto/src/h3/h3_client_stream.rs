@@ -21,7 +21,6 @@ use h3_quinn::OpenStreams;
 use http::header::{self, CONTENT_LENGTH};
 use quinn::crypto::rustls::QuicClientConfig;
 use quinn::{ClientConfig, Endpoint, EndpointConfig, TransportConfig};
-use rustls::ClientConfig as TlsClientConfig;
 use tokio::sync::mpsc;
 use tracing::{debug, warn};
 
@@ -289,14 +288,14 @@ impl Stream for H3ClientStream {
 /// A H3 connection builder for DNS-over-HTTP/3
 #[derive(Clone)]
 pub struct H3ClientStreamBuilder {
-    crypto_config: TlsClientConfig,
+    crypto_config: rustls::ClientConfig,
     transport_config: Arc<TransportConfig>,
     bind_addr: Option<SocketAddr>,
 }
 
 impl H3ClientStreamBuilder {
     /// Constructs a new H3ClientStreamBuilder with the associated ClientConfig
-    pub fn crypto_config(&mut self, crypto_config: TlsClientConfig) -> &mut Self {
+    pub fn crypto_config(&mut self, crypto_config: rustls::ClientConfig) -> &mut Self {
         self.crypto_config = crypto_config;
         self
     }

@@ -18,7 +18,7 @@ use futures_util::{future::FutureExt, stream::Stream};
 use quinn::{
     crypto::rustls::QuicClientConfig, ClientConfig, Connection, Endpoint, TransportConfig, VarInt,
 };
-use rustls::{version::TLS13, ClientConfig as TlsClientConfig};
+use rustls::version::TLS13;
 
 use crate::{
     error::ProtoError,
@@ -149,14 +149,14 @@ impl Stream for QuicClientStream {
 /// A QUIC connection builder for DNS-over-QUIC
 #[derive(Clone)]
 pub struct QuicClientStreamBuilder {
-    crypto_config: Option<TlsClientConfig>,
+    crypto_config: Option<rustls::ClientConfig>,
     transport_config: Arc<TransportConfig>,
     bind_addr: Option<SocketAddr>,
 }
 
 impl QuicClientStreamBuilder {
     /// Constructs a new TlsStreamBuilder with the associated ClientConfig
-    pub fn crypto_config(&mut self, crypto_config: TlsClientConfig) -> &mut Self {
+    pub fn crypto_config(&mut self, crypto_config: rustls::ClientConfig) -> &mut Self {
         self.crypto_config = Some(crypto_config);
         self
     }
@@ -266,7 +266,7 @@ impl QuicClientStreamBuilder {
 }
 
 /// Default crypto options for quic
-pub fn client_config_tls13() -> Result<TlsClientConfig, ProtoError> {
+pub fn client_config_tls13() -> Result<rustls::ClientConfig, ProtoError> {
     use rustls::RootCertStore;
     #[cfg_attr(
         not(any(feature = "native-certs", feature = "webpki-roots")),
@@ -294,13 +294,13 @@ pub fn client_config_tls13() -> Result<TlsClientConfig, ProtoError> {
     #[cfg(feature = "webpki-roots")]
     root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
 
-    Ok(
-        TlsClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
-            .with_protocol_versions(&[&TLS13])
-            .unwrap() // The ring default provider is guaranteed to support TLS 1.3
-            .with_root_certificates(root_store)
-            .with_no_client_auth(),
-    )
+    Ok(rustls::ClientConfig::builder_with_provider(Arc::new(
+        rustls::crypto::ring::default_provider(),
+    ))
+    .with_protocol_versions(&[&TLS13])
+    .unwrap() // The ring default provider is guaranteed to support TLS 1.3
+    .with_root_certificates(root_store)
+    .with_no_client_auth())
 }
 
 impl Default for QuicClientStreamBuilder {

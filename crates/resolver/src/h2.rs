@@ -8,14 +8,12 @@
 use std::future::Future;
 use std::net::SocketAddr;
 
-use crate::tls::CLIENT_CONFIG;
-
+use crate::config::TlsClientConfig;
 use crate::proto::h2::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
 use crate::proto::runtime::{RuntimeProvider, TokioTime};
 use crate::proto::tcp::DnsTcpStream;
 use crate::proto::xfer::{DnsExchange, DnsExchangeConnect};
-
-use crate::config::TlsClientConfig;
+use crate::tls::CLIENT_CONFIG;
 
 #[allow(clippy::type_complexity)]
 #[allow(unused)]
