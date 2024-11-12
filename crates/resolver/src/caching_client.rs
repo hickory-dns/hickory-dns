@@ -594,7 +594,7 @@ mod tests {
         let client = CachingClient::with_cache(cache.clone(), client, false);
 
         let ips = block_on(CachingClient::inner_lookup(
-            Query::new(),
+            Query::query(Name::root(), RecordType::A),
             DnsRequestOptions::default(),
             client,
             vec![],
@@ -612,7 +612,7 @@ mod tests {
         let client = CachingClient::with_cache(cache, client, false);
 
         let ips = block_on(CachingClient::inner_lookup(
-            Query::new(),
+            Query::query(Name::root(), RecordType::A),
             DnsRequestOptions::default(),
             client,
             vec![],

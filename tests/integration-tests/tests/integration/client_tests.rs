@@ -161,7 +161,7 @@ async fn test_query(mut client: Client) {
 }
 
 async fn test_query_edns(client: Client) {
-    let name = Name::from_ascii("WWW.example.com").unwrap();
+    let name = Name::from_ascii("WWW.example.com.").unwrap();
     let mut edns = Edns::new();
     // garbage subnet value, but lets check
     edns.options_mut()
@@ -243,7 +243,7 @@ async fn test_secure_query_example_tcp() {
 async fn test_secure_query_example(mut client: DnssecClient) {
     subscribe();
 
-    let name = Name::from_str("www.example.com").unwrap();
+    let name = Name::from_str("www.example.com.").unwrap();
 
     let response = client
         .query(name.clone(), DNSClass::IN, RecordType::A)
@@ -495,7 +495,7 @@ async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
     let signer = SigSigner::new(
         Algorithm::RSASHA256,
         Box::new(key),
-        Name::from_str("trusted.example.com").unwrap(),
+        Name::from_str("trusted.example.com.").unwrap(),
         // can be Duration::MAX after min Rust version 1.53
         std::time::Duration::new(u64::MAX, 1_000_000_000 - 1),
         true,
@@ -504,7 +504,7 @@ async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
 
     // insert the KEY for the trusted.example.com
     let auth_key = Record::from_rdata(
-        Name::from_str("trusted.example.com").unwrap(),
+        Name::from_str("trusted.example.com.").unwrap(),
         Duration::minutes(5).whole_seconds() as u32,
         RData::DNSSEC(DNSSECRData::KEY(KEY::new(
             Default::default(),
@@ -535,7 +535,7 @@ async fn test_create() {
 
     // create a record
     let mut record = Record::from_rdata(
-        Name::from_str("new.example.com").unwrap(),
+        Name::from_str("new.example.com.").unwrap(),
         Duration::minutes(5).whole_seconds() as u32,
         RData::A(A::new(100, 10, 100, 10)),
     );
@@ -580,7 +580,7 @@ async fn test_append() {
 
     // append a record
     let mut record = Record::from_rdata(
-        Name::from_str("new.example.com").unwrap(),
+        Name::from_str("new.example.com.").unwrap(),
         Duration::minutes(5).whole_seconds() as u32,
         RData::A(A::new(100, 10, 100, 10)),
     );
@@ -676,7 +676,7 @@ async fn test_compare_and_swap() {
 
     // create a record
     let record = Record::from_rdata(
-        Name::from_str("new.example.com").unwrap(),
+        Name::from_str("new.example.com.").unwrap(),
         Duration::minutes(5).whole_seconds() as u32,
         RData::A(A::new(100, 10, 100, 10)),
     );
@@ -745,7 +745,7 @@ async fn test_delete_by_rdata() {
 
     // append a record
     let mut record = Record::from_rdata(
-        Name::from_str("new.example.com").unwrap(),
+        Name::from_str("new.example.com.").unwrap(),
         Duration::minutes(5).whole_seconds() as u32,
         RData::A(A::new(100, 10, 100, 10)),
     );
