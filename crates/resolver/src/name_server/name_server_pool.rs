@@ -16,22 +16,20 @@ use std::time::Duration;
 
 use futures_util::future::FutureExt;
 use futures_util::stream::{once, FuturesUnordered, Stream, StreamExt};
+use rand::thread_rng as rng;
+use rand::Rng;
 use smallvec::SmallVec;
+use tracing::debug;
 
+use crate::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts, ServerOrderingStrategy};
+use crate::name_server::connection_provider::{ConnectionProvider, GenericConnector};
+use crate::name_server::name_server::NameServer;
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
 use crate::proto::runtime::TokioRuntimeProvider;
 use crate::proto::runtime::{RuntimeProvider, Time};
 use crate::proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
 use crate::proto::{ProtoError, ProtoErrorKind};
-use tracing::debug;
-
-use rand::thread_rng as rng;
-use rand::Rng;
-
-use crate::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts, ServerOrderingStrategy};
-use crate::name_server::connection_provider::{ConnectionProvider, GenericConnector};
-use crate::name_server::name_server::NameServer;
 
 /// Abstract interface for mocking purpose
 #[derive(Clone)]
@@ -442,14 +440,13 @@ mod tests {
 
     use tokio::runtime::Runtime;
 
-    use crate::proto::op::Query;
-    use crate::proto::rr::{Name, RecordType};
-    use crate::proto::xfer::{DnsHandle, DnsRequestOptions, Protocol};
-
     use super::*;
     use crate::config::NameServerConfig;
     use crate::name_server::connection_provider::TokioConnectionProvider;
     use crate::name_server::GenericNameServer;
+    use crate::proto::op::Query;
+    use crate::proto::rr::{Name, RecordType};
+    use crate::proto::xfer::{DnsHandle, DnsRequestOptions, Protocol};
 
     #[ignore]
     // because of there is a real connection that needs a reasonable timeout
