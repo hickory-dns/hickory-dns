@@ -28,6 +28,11 @@ use crate::proto::runtime::{RuntimeProvider, Time};
 use crate::proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
 use crate::proto::{ProtoError, ProtoErrorKind};
 
+/// A pool of NameServers
+///
+/// This is not expected to be used directly, see [crate::AsyncResolver].
+pub type GenericNameServerPool<P> = NameServerPool<GenericConnector<P>>;
+
 /// Abstract interface for mocking purpose
 #[derive(Clone)]
 pub struct NameServerPool<P: ConnectionProvider + Send + 'static> {
@@ -38,11 +43,6 @@ pub struct NameServerPool<P: ConnectionProvider + Send + 'static> {
     datagram_index: Arc<AtomicUsize>,
     stream_index: Arc<AtomicUsize>,
 }
-
-/// A pool of NameServers
-///
-/// This is not expected to be used directly, see [crate::AsyncResolver].
-pub type GenericNameServerPool<P> = NameServerPool<GenericConnector<P>>;
 
 impl<P> NameServerPool<P>
 where
