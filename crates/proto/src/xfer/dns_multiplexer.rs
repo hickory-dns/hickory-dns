@@ -380,8 +380,8 @@ where
                     messages_received = i;
 
                     //   deserialize or log decode_error
-                    match buffer.to_message() {
-                        Ok(message) => match self.active_requests.entry(message.id()) {
+                    match DnsResponse::from_buffer(buffer.into_parts().0) {
+                        Ok(response) => match self.active_requests.entry(response.id()) {
                             Entry::Occupied(mut request_entry) => {
                                 // send the response, complete the request...
                                 let active_request = request_entry.get_mut();
@@ -389,15 +389,13 @@ where
                                     ignore_send(
                                         active_request
                                             .completion
-                                            .try_send(verifier(buffer.bytes())),
+                                            .try_send(verifier(response.as_buffer())),
                                     );
                                 } else {
-                                    ignore_send(active_request.completion.try_send(Ok(
-                                        DnsResponse::new(message, buffer.into_parts().0),
-                                    )));
+                                    ignore_send(active_request.completion.try_send(Ok(response)));
                                 }
                             }
-                            Entry::Vacant(..) => debug!("unexpected request_id: {}", message.id()),
+                            Entry::Vacant(..) => debug!("unexpected request_id: {}", response.id()),
                         },
                         // TODO: return src address for diagnostics
                         Err(error) => debug!(error = error.as_dyn(), "error decoding message"),
