@@ -24,9 +24,6 @@ use tracing::debug;
 use crate::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts, ServerOrderingStrategy};
 use crate::name_server::connection_provider::{ConnectionProvider, GenericConnector};
 use crate::name_server::name_server::NameServer;
-#[cfg(test)]
-#[cfg(feature = "tokio-runtime")]
-use crate::proto::runtime::TokioRuntimeProvider;
 use crate::proto::runtime::{RuntimeProvider, Time};
 use crate::proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
 use crate::proto::{ProtoError, ProtoErrorKind};
@@ -46,18 +43,6 @@ pub struct NameServerPool<P: ConnectionProvider + Send + 'static> {
 ///
 /// This is not expected to be used directly, see [crate::AsyncResolver].
 pub type GenericNameServerPool<P> = NameServerPool<GenericConnector<P>>;
-
-#[cfg(test)]
-#[cfg(feature = "tokio-runtime")]
-impl GenericNameServerPool<TokioRuntimeProvider> {
-    pub(crate) fn tokio_from_config(
-        config: &ResolverConfig,
-        options: ResolverOpts,
-        runtime: TokioRuntimeProvider,
-    ) -> Self {
-        Self::from_config_with_provider(config, options, GenericConnector::new(runtime))
-    }
-}
 
 impl<P> NameServerPool<P>
 where
@@ -446,6 +431,7 @@ mod tests {
     use crate::name_server::GenericNameServer;
     use crate::proto::op::Query;
     use crate::proto::rr::{Name, RecordType};
+    use crate::proto::runtime::TokioRuntimeProvider;
     use crate::proto::xfer::{DnsHandle, DnsRequestOptions, Protocol};
 
     #[ignore]
@@ -601,5 +587,15 @@ mod tests {
             name_servers[0].is_connected(),
             "if this is failing then the NameServers aren't being properly shared."
         );
+    }
+
+    impl GenericNameServerPool<TokioRuntimeProvider> {
+        pub(crate) fn tokio_from_config(
+            config: &ResolverConfig,
+            options: ResolverOpts,
+            runtime: TokioRuntimeProvider,
+        ) -> Self {
+            Self::from_config_with_provider(config, options, GenericConnector::new(runtime))
+        }
     }
 }
