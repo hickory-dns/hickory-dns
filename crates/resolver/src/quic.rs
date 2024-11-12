@@ -9,7 +9,6 @@ use rustls::ClientConfig as CryptoConfig;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use crate::config::TlsClientConfig;
 use crate::proto::quic::{QuicClientConnect, QuicClientStream};
 use crate::proto::runtime::TokioTime;
 use crate::proto::xfer::{DnsExchange, DnsExchangeConnect};
@@ -21,9 +20,9 @@ pub(crate) fn new_quic_stream(
     socket_addr: SocketAddr,
     bind_addr: Option<SocketAddr>,
     dns_name: String,
-    client_config: Option<TlsClientConfig>,
+    client_config: Option<Arc<rustls::ClientConfig>>,
 ) -> DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime> {
-    let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
+    let client_config = if let Some(client_config) = client_config {
         client_config
     } else {
         match CLIENT_CONFIG.clone() {
@@ -49,9 +48,9 @@ pub(crate) fn new_quic_stream_with_future(
     socket: Arc<dyn quinn::AsyncUdpSocket>,
     socket_addr: SocketAddr,
     dns_name: String,
-    client_config: Option<TlsClientConfig>,
+    client_config: Option<Arc<rustls::ClientConfig>>,
 ) -> DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime> {
-    let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
+    let client_config = if let Some(client_config) = client_config {
         client_config
     } else {
         match CLIENT_CONFIG.clone() {

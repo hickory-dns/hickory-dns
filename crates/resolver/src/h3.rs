@@ -8,7 +8,6 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use crate::config::TlsClientConfig;
 use crate::proto::h3::{H3ClientConnect, H3ClientStream};
 use crate::proto::runtime::TokioTime;
 use crate::proto::xfer::{DnsExchange, DnsExchangeConnect};
@@ -21,9 +20,9 @@ pub(crate) fn new_h3_stream(
     bind_addr: Option<SocketAddr>,
     dns_name: String,
     http_endpoint: String,
-    client_config: Option<TlsClientConfig>,
+    client_config: Option<Arc<rustls::ClientConfig>>,
 ) -> DnsExchangeConnect<H3ClientConnect, H3ClientStream, TokioTime> {
-    let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
+    let client_config = if let Some(client_config) = client_config {
         client_config
     } else {
         match CLIENT_CONFIG.clone() {
@@ -50,9 +49,9 @@ pub(crate) fn new_h3_stream_with_future(
     socket_addr: SocketAddr,
     dns_name: String,
     http_endpoint: String,
-    client_config: Option<TlsClientConfig>,
+    client_config: Option<Arc<rustls::ClientConfig>>,
 ) -> DnsExchangeConnect<H3ClientConnect, H3ClientStream, TokioTime> {
-    let client_config = if let Some(TlsClientConfig(client_config)) = client_config {
+    let client_config = if let Some(client_config) = client_config {
         client_config
     } else {
         match CLIENT_CONFIG.clone() {

@@ -252,8 +252,8 @@ impl ResolverConfig {
 
     /// return the associated TlsClientConfig
     #[cfg(feature = "dns-over-rustls")]
-    pub fn client_config(&self) -> &Option<TlsClientConfig> {
-        &self.name_servers.tls
+    pub fn client_config(&self) -> Option<&Arc<rustls::ClientConfig>> {
+        self.name_servers.tls.as_ref()
     }
 
     /// adds the `rustls::ClientConf` for every configured NameServer
@@ -290,29 +290,6 @@ impl Default for ResolverConfig {
     /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `AsyncResolver::from_system_conf`
     fn default() -> Self {
         Self::google()
-    }
-}
-
-/// a compatibility wrapper around rustls
-/// ClientConfig
-#[cfg(feature = "dns-over-rustls")]
-#[derive(Clone)]
-pub struct TlsClientConfig(pub Arc<ClientConfig>);
-
-#[cfg(feature = "dns-over-rustls")]
-impl std::cmp::PartialEq for TlsClientConfig {
-    fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.0, &other.0)
-    }
-}
-
-#[cfg(feature = "dns-over-rustls")]
-impl std::cmp::Eq for TlsClientConfig {}
-
-#[cfg(feature = "dns-over-rustls")]
-impl std::fmt::Debug for TlsClientConfig {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "rustls client config")
     }
 }
 
@@ -355,7 +332,7 @@ pub struct NameServerConfig {
     ///
     /// The correct ALPN for the corresponding protocol is automatically
     /// inserted if none was specificed.
-    pub tls_config: Option<TlsClientConfig>,
+    pub tls_config: Option<Arc<rustls::ClientConfig>>,
     /// The client address (IP and port) to use for connecting to the server.
     pub bind_addr: Option<SocketAddr>,
 }
@@ -402,7 +379,7 @@ impl Eq for NameServerConfig {}
 pub struct NameServerConfigGroup {
     servers: Vec<NameServerConfig>,
     #[cfg(feature = "dns-over-rustls")]
-    tls: Option<TlsClientConfig>,
+    tls: Option<Arc<rustls::ClientConfig>>,
 }
 
 #[cfg(feature = "serde")]
@@ -708,7 +685,7 @@ impl NameServerConfigGroup {
     pub fn with_client_config(self, client_config: Arc<ClientConfig>) -> Self {
         Self {
             servers: self.servers,
-            tls: Some(TlsClientConfig(client_config)),
+            tls: Some(client_config),
         }
     }
 
