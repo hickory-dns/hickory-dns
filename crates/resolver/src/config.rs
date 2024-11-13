@@ -8,8 +8,6 @@
 //! Configuration for a resolver
 #![allow(clippy::use_self)]
 
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
@@ -17,16 +15,13 @@ use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::proto::rr::Name;
-use crate::proto::xfer::Protocol;
 #[cfg(feature = "dns-over-rustls")]
 use rustls::ClientConfig;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-#[cfg(all(feature = "serde", feature = "dns-over-rustls"))]
-use serde::{
-    de::{Deserialize as DeserializeT, Deserializer},
-    ser::{Serialize as SerializeT, Serializer},
-};
+use crate::proto::rr::Name;
+use crate::proto::xfer::Protocol;
 
 /// Configuration for the upstream nameservers to use for resolution
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -404,18 +399,14 @@ impl Eq for NameServerConfig {}
 
 /// A set of name_servers to associate with a [`ResolverConfig`].
 #[derive(Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(
-    all(feature = "serde", not(feature = "dns-over-rustls")),
-    derive(Serialize, Deserialize)
-)]
 pub struct NameServerConfigGroup {
     servers: Vec<NameServerConfig>,
     #[cfg(feature = "dns-over-rustls")]
     tls: Option<TlsClientConfig>,
 }
 
-#[cfg(all(feature = "serde", feature = "dns-over-rustls"))]
-impl SerializeT for NameServerConfigGroup {
+#[cfg(feature = "serde")]
+impl Serialize for NameServerConfigGroup {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -424,13 +415,17 @@ impl SerializeT for NameServerConfigGroup {
     }
 }
 
-#[cfg(all(feature = "serde", feature = "dns-over-rustls"))]
-impl<'de> DeserializeT<'de> for NameServerConfigGroup {
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for NameServerConfigGroup {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        Vec::deserialize(deserializer).map(|servers| Self { servers, tls: None })
+        Vec::deserialize(deserializer).map(|servers| Self {
+            servers,
+            #[cfg(feature = "dns-over-rustls")]
+            tls: None,
+        })
     }
 }
 
