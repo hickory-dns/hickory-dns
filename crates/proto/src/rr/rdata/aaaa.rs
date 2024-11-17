@@ -38,6 +38,7 @@ use crate::{
 /// The DNS AAAA record type, an IPv6 address
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct AAAA(pub Ipv6Addr);
 
 impl AAAA {

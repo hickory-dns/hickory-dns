@@ -23,6 +23,7 @@ use super::SVCB;
 /// HTTPS is really a derivation of the original SVCB record data. See SVCB for more documentation
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct HTTPS(pub SVCB);
 
 impl Deref for HTTPS {
