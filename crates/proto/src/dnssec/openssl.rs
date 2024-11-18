@@ -7,16 +7,18 @@
 
 use std::iter;
 
-use openssl::ec::{EcGroup, EcKey};
+use openssl::bn::{BigNum, BigNumContext};
+use openssl::ec::{EcGroup, EcKey, EcPoint};
 use openssl::nid::Nid;
-use openssl::pkey::{PKey, Private};
+use openssl::pkey::{PKey, Private, Public};
 use openssl::rsa::Rsa as OpenSslRsa;
+use openssl::sign::Verifier;
 use openssl::symm::Cipher;
 
-use super::DigestType;
-use super::{Algorithm, PublicKeyBuf, TBS};
-use super::{KeyFormat, SigningKey};
-use crate::error::{DnsSecErrorKind, DnsSecResult};
+use super::ec_public_key::ECPublicKey;
+use super::rsa_public_key::RSAPublicKey;
+use super::{Algorithm, DigestType, KeyFormat, PublicKey, PublicKeyBuf, SigningKey, TBS};
+use crate::error::{DnsSecErrorKind, DnsSecResult, ProtoResult};
 
 /// An RSA signing key pair (backed by OpenSSL).
 pub struct RsaSigningKey {
@@ -332,6 +334,206 @@ impl SigningKey for EcSigningKey {
     }
 }
 
+fn verify_with_pkey(
+    pkey: &PKey<Public>,
+    algorithm: Algorithm,
+    message: &[u8],
+    signature: &[u8],
+) -> ProtoResult<()> {
+    let digest_type = DigestType::try_from(algorithm)?.to_openssl_digest();
+    let mut verifier = Verifier::new(digest_type, pkey)?;
+    verifier.update(message)?;
+    verifier
+        .verify(signature)
+        .map_err(Into::into)
+        .and_then(|b| {
+            if b {
+                Ok(())
+            } else {
+                Err("could not verify".into())
+            }
+        })
+}
+
+/// Elyptic Curve public key type
+pub struct Ec<'k> {
+    raw: &'k [u8],
+    pkey: PKey<Public>,
+}
+
+impl<'k> Ec<'k> {
+    /// ```text
+    /// RFC 6605                    ECDSA for DNSSEC                  April 2012
+    ///
+    ///   4.  DNSKEY and RRSIG Resource Records for ECDSA
+    ///
+    ///   ECDSA public keys consist of a single value, called "Q" in FIPS
+    ///   186-3.  In DNSSEC keys, Q is a simple bit string that represents the
+    ///   uncompressed form of a curve point, "x | y".
+    ///
+    ///   The ECDSA signature is the combination of two non-negative integers,
+    ///   called "r" and "s" in FIPS 186-3.  The two integers, each of which is
+    ///   formatted as a simple octet string, are combined into a single longer
+    ///   octet string for DNSSEC as the concatenation "r | s".  (Conversion of
+    ///   the integers to bit strings is described in Section C.2 of FIPS
+    ///   186-3.)  For P-256, each integer MUST be encoded as 32 octets; for
+    ///   P-384, each integer MUST be encoded as 48 octets.
+    ///
+    ///   The algorithm numbers associated with the DNSKEY and RRSIG resource
+    ///   records are fully defined in the IANA Considerations section.  They
+    ///   are:
+    ///
+    ///   o  DNSKEY and RRSIG RRs signifying ECDSA with the P-256 curve and
+    ///      SHA-256 use the algorithm number 13.
+    ///
+    ///   o  DNSKEY and RRSIG RRs signifying ECDSA with the P-384 curve and
+    ///      SHA-384 use the algorithm number 14.
+    ///
+    ///   Conformant implementations that create records to be put into the DNS
+    ///   MUST implement signing and verification for both of the above
+    ///   algorithms.  Conformant DNSSEC verifiers MUST implement verification
+    ///   for both of the above algorithms.
+    /// ```
+    pub fn from_public_bytes(public_key: &'k [u8], algorithm: Algorithm) -> ProtoResult<Self> {
+        let curve = match algorithm {
+            Algorithm::ECDSAP256SHA256 => Nid::X9_62_PRIME256V1,
+            Algorithm::ECDSAP384SHA384 => Nid::SECP384R1,
+            _ => return Err("only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into()),
+        };
+        // Key needs to be converted to OpenSSL format
+        let k = ECPublicKey::from_unprefixed(public_key, algorithm)?;
+        EcGroup::from_curve_name(curve)
+            .and_then(|group| BigNumContext::new().map(|ctx| (group, ctx)))
+            // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
+            .and_then(|(group, mut ctx)| {
+                EcPoint::from_bytes(&group, k.prefixed_bytes(), &mut ctx)
+                    .map(|point| (group, point))
+            })
+            .and_then(|(group, point)| EcKey::from_public_key(&group, &point))
+            .and_then(PKey::from_ec_key)
+            .map_err(Into::into)
+            .map(|pkey| Self {
+                raw: public_key,
+                pkey,
+            })
+    }
+}
+
+fn asn1_emit_integer(output: &mut Vec<u8>, int: &[u8]) {
+    assert!(!int.is_empty());
+    output.push(0x02); // INTEGER
+    if int[0] > 0x7f {
+        output.push((int.len() + 1) as u8);
+        output.push(0x00); // MSB must be zero
+        output.extend(int);
+        return;
+    }
+    // Trim leading zeros
+    let mut pos = 0;
+    while pos < int.len() {
+        if int[pos] == 0 {
+            if pos == int.len() - 1 {
+                break;
+            }
+            pos += 1;
+            continue;
+        }
+        if int[pos] > 0x7f {
+            // We need to leave one 0x00 to make MSB zero
+            pos -= 1;
+        }
+        break;
+    }
+    let int_output = &int[pos..];
+    output.push(int_output.len() as u8);
+    output.extend(int_output);
+}
+
+/// Convert raw DNSSEC ECDSA signature to ASN.1 DER format
+pub fn dnssec_ecdsa_signature_to_der(signature: &[u8]) -> ProtoResult<Vec<u8>> {
+    if signature.is_empty() || signature.len() & 1 != 0 || signature.len() > 127 {
+        return Err("invalid signature length".into());
+    }
+    let part_len = signature.len() / 2;
+    // ASN.1 SEQUENCE: 0x30 [LENGTH]
+    let mut signature_asn1 = vec![0x30, 0x00];
+    asn1_emit_integer(&mut signature_asn1, &signature[..part_len]);
+    asn1_emit_integer(&mut signature_asn1, &signature[part_len..]);
+    signature_asn1[1] = (signature_asn1.len() - 2) as u8;
+    Ok(signature_asn1)
+}
+
+impl<'k> PublicKey for Ec<'k> {
+    fn public_bytes(&self) -> &[u8] {
+        self.raw
+    }
+
+    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
+        let signature_asn1 = dnssec_ecdsa_signature_to_der(signature)?;
+        verify_with_pkey(&self.pkey, algorithm, message, &signature_asn1)
+    }
+}
+
+/// Rsa public key
+pub struct Rsa<'k> {
+    raw: &'k [u8],
+    pkey: PKey<Public>,
+}
+
+impl<'k> Rsa<'k> {
+    /// ```text
+    /// RFC 3110              RSA SIGs and KEYs in the DNS              May 2001
+    ///
+    ///       2. RSA Public KEY Resource Records
+    ///
+    ///  RSA public keys are stored in the DNS as KEY RRs using algorithm
+    ///  number 5 [RFC2535].  The structure of the algorithm specific portion
+    ///  of the RDATA part of such RRs is as shown below.
+    ///
+    ///        Field             Size
+    ///        -----             ----
+    ///        exponent length   1 or 3 octets (see text)
+    ///        exponent          as specified by length field
+    ///        modulus           remaining space
+    ///
+    ///  For interoperability, the exponent and modulus are each limited to
+    ///  4096 bits in length.  The public key exponent is a variable length
+    ///  unsigned integer.  Its length in octets is represented as one octet
+    ///  if it is in the range of 1 to 255 and by a zero octet followed by a
+    ///  two octet unsigned length if it is longer than 255 bytes.  The public
+    ///  key modulus field is a multiprecision unsigned integer.  The length
+    ///  of the modulus can be determined from the RDLENGTH and the preceding
+    ///  RDATA fields including the exponent.  Leading zero octets are
+    ///  prohibited in the exponent and modulus.
+    ///
+    ///  Note: KEY RRs for use with RSA/SHA1 DNS signatures MUST use this
+    ///  algorithm number (rather than the algorithm number specified in the
+    ///  obsoleted RFC 2537).
+    ///
+    ///  Note: This changes the algorithm number for RSA KEY RRs to be the
+    ///  same as the new algorithm number for RSA/SHA1 SIGs.
+    /// ```
+    pub fn from_public_bytes(raw: &'k [u8]) -> ProtoResult<Self> {
+        let parsed = RSAPublicKey::try_from(raw)?;
+        // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
+        let e = BigNum::from_slice(parsed.e())?;
+        let n = BigNum::from_slice(parsed.n())?;
+
+        let pkey = OpenSslRsa::from_public_components(n, e).and_then(PKey::from_rsa)?;
+        Ok(Self { raw, pkey })
+    }
+}
+
+impl<'k> PublicKey for Rsa<'k> {
+    fn public_bytes(&self) -> &[u8] {
+        self.raw
+    }
+
+    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
+        verify_with_pkey(&self.pkey, algorithm, message, signature)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -365,5 +567,26 @@ mod tests {
 
         let neg = EcSigningKey::generate(algorithm).unwrap();
         hash_test(&key, &neg, algorithm);
+    }
+
+    #[test]
+    fn test_asn1_emit_integer() {
+        fn test_case(source: &[u8], expected_data: &[u8]) {
+            let mut output = Vec::<u8>::new();
+            asn1_emit_integer(&mut output, source);
+            assert_eq!(output[0], 0x02);
+            assert_eq!(output[1], expected_data.len() as u8);
+            assert_eq!(&output[2..], expected_data);
+        }
+        test_case(&[0x00], &[0x00]);
+        test_case(&[0x00, 0x00], &[0x00]);
+        test_case(&[0x7f], &[0x7f]);
+        test_case(&[0x80], &[0x00, 0x80]);
+        test_case(&[0x00, 0x80], &[0x00, 0x80]);
+        test_case(&[0x00, 0x00, 0x80], &[0x00, 0x80]);
+        test_case(&[0x7f, 0x00, 0x80], &[0x7f, 0x00, 0x80]);
+        test_case(&[0x00, 0x7f, 0x00, 0x80], &[0x7f, 0x00, 0x80]);
+        test_case(&[0x80, 0x00, 0x80], &[0x00, 0x80, 0x00, 0x80]);
+        test_case(&[0xff, 0x00, 0x80], &[0x00, 0xff, 0x00, 0x80]);
     }
 }
