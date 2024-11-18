@@ -13,6 +13,9 @@ RUN apt-get update && \
 # a clone of the hickory repository. `./src` here refers to that clone; not to
 # any directory inside the `hickory-dns` repository
 COPY ./src /usr/src/hickory
-RUN --mount=type=cache,target=/usr/src/hickory/target cargo build --manifest-path /usr/src/hickory/Cargo.toml -p hickory-dns --features recursor,dnssec-openssl && \
-    cp /usr/src/hickory/target/debug/hickory-dns /usr/bin/
+RUN --mount=type=cache,target=/usr/src/hickory/target \
+    cargo build --manifest-path /usr/src/hickory/Cargo.toml -p hickory-dns --features recursor,dnssec-openssl && \
+    cargo build --manifest-path /usr/src/hickory/Cargo.toml --bin dns --features dns-over-https-rustls && \
+    cp /usr/src/hickory/target/debug/hickory-dns /usr/bin/ && \
+    cp /usr/src/hickory/target/debug/dns /usr/bin/
 ENV RUST_LOG=debug
