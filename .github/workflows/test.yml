@@ -103,7 +103,6 @@ jobs:
     continue-on-error: true
     strategy:
       matrix:
-        #   feature: [default-features, no-default-features, dns-over-rustls, dns-over-https-rustls, dns-over-native-tls, dns-over-openssl, dnssec-openssl, dnssec-ring, mdns, async-std]
         feature:
           [
             default,
@@ -113,6 +112,7 @@ jobs:
             dns-over-quic,
             dns-over-h3,
             dns-over-native-tls,
+            dns-over-openssl,
             dnssec-openssl,
             dnssec-ring,
             doc,
