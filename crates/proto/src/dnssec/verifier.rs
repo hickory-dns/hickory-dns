@@ -8,7 +8,7 @@
 //! Verifier is a structure for performing many of the signing processes of the DNSSEC specification
 
 use super::{
-    rdata::{DNSKEY, KEY, RRSIG, SIG},
+    rdata::{RRSIG, SIG},
     tbs, Algorithm, PublicKey, PublicKeyEnum,
 };
 use crate::{
@@ -79,25 +79,5 @@ pub trait Verifier {
     ) -> ProtoResult<()> {
         let rrset_tbs = TBS::from_sig(name, dns_class, sig, records)?;
         self.verify(rrset_tbs.as_ref(), sig.sig())
-    }
-}
-
-impl Verifier for DNSKEY {
-    fn algorithm(&self) -> Algorithm {
-        self.algorithm()
-    }
-
-    fn key(&self) -> ProtoResult<PublicKeyEnum<'_>> {
-        PublicKeyEnum::from_public_bytes(self.public_key(), self.algorithm())
-    }
-}
-
-impl Verifier for KEY {
-    fn algorithm(&self) -> Algorithm {
-        self.algorithm()
-    }
-
-    fn key(&self) -> ProtoResult<PublicKeyEnum<'_>> {
-        PublicKeyEnum::from_public_bytes(self.public_key(), self.algorithm())
     }
 }

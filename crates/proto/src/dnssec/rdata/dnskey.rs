@@ -13,7 +13,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    dnssec::{Algorithm, Digest, DigestType},
+    dnssec::{Algorithm, Digest, DigestType, PublicKeyEnum, Verifier},
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     rr::{record_data::RData, Name, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
@@ -425,6 +425,16 @@ impl RecordData for DNSKEY {
 
     fn into_rdata(self) -> RData {
         RData::DNSSEC(DNSSECRData::DNSKEY(self))
+    }
+}
+
+impl Verifier for DNSKEY {
+    fn algorithm(&self) -> Algorithm {
+        self.algorithm()
+    }
+
+    fn key(&self) -> ProtoResult<PublicKeyEnum<'_>> {
+        PublicKeyEnum::from_public_bytes(self.public_key(), self.algorithm())
     }
 }
 
