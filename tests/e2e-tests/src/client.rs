@@ -5,7 +5,6 @@ use dns_test::container::{Container, Image};
 use dns_test::{Network, Result};
 
 #[test]
-#[ignore = "hickory hangs when server is unresponsive during TLS handshake"]
 fn tls_handshake_timeout() -> Result<()> {
     const PORT: u16 = 8443;
 

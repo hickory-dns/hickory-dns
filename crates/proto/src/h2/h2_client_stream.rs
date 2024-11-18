@@ -5,6 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use core::time::Duration;
 use std::fmt::{self, Display};
 use std::future::Future;
 use std::io;
@@ -23,9 +24,8 @@ use h2::client::{Connection, SendRequest};
 use http::header::{self, CONTENT_LENGTH};
 use rustls::pki_types::ServerName;
 use rustls::ClientConfig;
-use tokio_rustls::{
-    client::TlsStream as TokioTlsClientStream, Connect as TokioTlsConnect, TlsConnector,
-};
+use tokio::time::{self, error};
+use tokio_rustls::{client::TlsStream as TokioTlsClientStream, TlsConnector};
 use tracing::{debug, warn};
 
 use crate::error::ProtoError;
@@ -413,7 +413,16 @@ where
     },
     TlsConnecting {
         // TODO: also abstract away Tokio TLS in RuntimeProvider.
-        tls: TokioTlsConnect<AsyncIoStdAsTokio<S>>,
+        tls: Pin<
+            Box<
+                dyn Future<
+                        Output = Result<
+                            Result<TokioTlsClientStream<AsyncIoStdAsTokio<S>>, io::Error>,
+                            error::Elapsed,
+                        >,
+                    > + Send,
+            >,
+        >,
         name_server_name: Arc<str>,
         name_server: SocketAddr,
         query_path: Arc<str>,
@@ -466,7 +475,10 @@ where
                     match ServerName::try_from(&*tls.dns_name) {
                         Ok(dns_name) => {
                             let tls = TlsConnector::from(tls.client_config);
-                            let tls = tls.connect(dns_name.to_owned(), AsyncIoStdAsTokio(tcp));
+                            let tls = Box::pin(time::timeout(
+                                TLS_TIMEOUT,
+                                tls.connect(dns_name.to_owned(), AsyncIoStdAsTokio(tcp)),
+                            ));
                             Self::TlsConnecting {
                                 name_server_name,
                                 name_server: *name_server,
@@ -486,7 +498,13 @@ where
                     query_path,
                     tls,
                 } => {
-                    let tls = ready!(tls.poll_unpin(cx))?;
+                    let Ok(res) = ready!(tls.poll_unpin(cx)) else {
+                        return Poll::Ready(Err(format!(
+                            "TLS handshake timed out after {TLS_TIMEOUT:?}"
+                        )
+                        .into()));
+                    };
+                    let tls = res?;
                     debug!("tls connection established to: {}", name_server);
                     let mut handshake = h2::client::Builder::new();
                     handshake.enable_push(false);
@@ -550,6 +568,8 @@ impl Future for HttpsClientResponse {
         self.0.as_mut().poll(cx).map_err(ProtoError::from)
     }
 }
+
+const TLS_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[cfg(any(feature = "webpki-roots", feature = "native-certs"))]
 #[cfg(test)]
