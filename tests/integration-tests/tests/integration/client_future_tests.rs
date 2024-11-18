@@ -315,7 +315,7 @@ async fn create_sig0_ready_client() -> (
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let client = Client::new(stream, sender, Some(signer))
         .await
-        .expect("failed to get new AsyncClient");
+        .expect("failed to get new Client");
 
     (client, origin.into())
 }
