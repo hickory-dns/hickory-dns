@@ -49,9 +49,9 @@
 #[cfg(feature = "blocklist")]
 pub use crate::store::blocklist;
 pub use hickory_proto as proto;
-#[cfg(feature = "hickory-recursor")]
+#[cfg(feature = "recursor")]
 pub use hickory_recursor as recursor;
-#[cfg(feature = "hickory-resolver")]
+#[cfg(feature = "resolver")]
 pub use hickory_resolver as resolver;
 
 mod access;
