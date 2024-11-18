@@ -74,6 +74,7 @@ dns-over-h3 = [
 # dns-over-native-tls = ["dns-over-tls",  "hickory-resolver/dns-over-native-tls", "hickory-server/dns-over-native-tls"]
 dns-over-openssl = [
     "dns-over-tls",
+    "dnssec-openssl",
     "hickory-proto/dns-over-openssl",
     "hickory-resolver/dns-over-openssl",
     "hickory-server/dns-over-openssl",
