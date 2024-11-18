@@ -118,6 +118,7 @@ impl NameServerStats {
     /// Returns the raw SRTT value.
     ///
     /// Prefer to use `decayed_srtt` when ordering name servers.
+    #[cfg(test)]
     fn srtt(&self) -> Duration {
         Duration::from_micros(u64::from(
             self.srtt_microseconds.load(atomic::Ordering::Acquire),
@@ -171,14 +172,6 @@ impl NameServerStats {
         );
     }
 }
-
-impl PartialEq for NameServerStats {
-    fn eq(&self, other: &Self) -> bool {
-        self.srtt() == other.srtt()
-    }
-}
-
-impl Eq for NameServerStats {}
 
 #[cfg(test)]
 #[allow(clippy::extra_unused_type_parameters)]
