@@ -319,7 +319,7 @@ async fn https(
     _opts: Opts,
     _provider: impl RuntimeProvider,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    panic!("`dns-over-https` feature is required during compilation");
+    panic!("`dns-over-https-rustls` feature is required during compilation");
 }
 
 #[cfg(feature = "dns-over-https-rustls")]
