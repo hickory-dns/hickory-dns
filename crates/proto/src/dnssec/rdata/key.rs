@@ -13,6 +13,7 @@ use std::fmt;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use super::DNSSECRData;
 use crate::{
     dnssec::{Algorithm, PublicKeyEnum, Verifier},
     error::{ProtoError, ProtoResult},
@@ -21,8 +22,6 @@ use crate::{
         BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
     },
 };
-
-use super::DNSSECRData;
 
 /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-3), Domain Name System Security Extensions, March 1999
 ///
@@ -172,6 +171,142 @@ pub struct KEY {
     public_key: Vec<u8>,
 }
 
+impl KEY {
+    /// Construct a new KEY RData
+    ///
+    /// # Arguments
+    ///
+    /// * `key_trust` - declare the security level of this key
+    /// * `key_usage` - what type of thing is this key associated to
+    /// * `revoke` - this key has been revoked
+    /// * `algorithm` - specifies the algorithm which this Key uses to sign records
+    /// * `public_key` - the public key material, in native endian, the emitter will perform any necessary conversion
+    ///
+    /// # Return
+    ///
+    /// A new KEY RData for use in a Resource Record
+    pub fn new(
+        key_trust: KeyTrust,
+        key_usage: KeyUsage,
+        signatory: UpdateScope,
+        protocol: Protocol,
+        algorithm: Algorithm,
+        public_key: Vec<u8>,
+    ) -> Self {
+        Self {
+            key_trust,
+            key_usage,
+            signatory,
+            protocol,
+            algorithm,
+            public_key,
+        }
+    }
+
+    /// Returns the trust level of the key
+    pub fn key_trust(&self) -> KeyTrust {
+        self.key_trust
+    }
+
+    /// Returns the entity type using this key
+    pub fn key_usage(&self) -> KeyUsage {
+        self.key_usage
+    }
+
+    /// Returns the signatory information of the KEY
+    pub fn signatory(&self) -> UpdateScope {
+        self.signatory
+    }
+
+    /// Returns true if the key_trust is DoNotTrust
+    pub fn revoke(&self) -> bool {
+        self.key_trust == KeyTrust::DoNotTrust
+    }
+
+    /// Returns the protocol which this key can be used with
+    pub fn protocol(&self) -> Protocol {
+        self.protocol
+    }
+
+    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.1.3)
+    ///
+    /// ```text
+    /// 2.1.3.  The Algorithm Field
+    ///
+    ///    The Algorithm field identifies the public key's cryptographic
+    ///    algorithm and determines the format of the Public Key field.  A list
+    ///    of DNSSEC algorithm types can be found in Appendix A.1
+    /// ```
+    pub fn algorithm(&self) -> Algorithm {
+        self.algorithm
+    }
+
+    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.1.4)
+    ///
+    /// ```text
+    /// 2.1.4.  The Public Key Field
+    ///
+    ///    The Public Key Field holds the public key material.  The format
+    ///    depends on the algorithm of the key being stored and is described in
+    ///    separate documents.
+    /// ```
+    pub fn public_key(&self) -> &[u8] {
+        &self.public_key
+    }
+
+    /// Output the encoded form of the flags
+    pub fn flags(&self) -> u16 {
+        let mut flags: u16 = 0;
+        flags |= u16::from(self.key_trust);
+        flags |= u16::from(self.key_usage);
+        flags |= u16::from(self.signatory);
+
+        flags
+    }
+
+    // /// Creates a message digest for this KEY record.
+    // ///
+    // /// ```text
+    // /// 5.1.4.  The Digest Field
+    // ///
+    // ///    The DS record refers to a KEY RR by including a digest of that
+    // ///    KEY RR.
+    // ///
+    // ///    The digest is calculated by concatenating the canonical form of the
+    // ///    fully qualified owner name of the KEY RR with the KEY RDATA,
+    // ///    and then applying the digest algorithm.
+    // ///
+    // ///      digest = digest_algorithm( KEY owner name | KEY RDATA);
+    // ///
+    // ///       "|" denotes concatenation
+    // ///
+    // ///      KEY RDATA = Flags | Protocol | Algorithm | Public Key.
+    // ///
+    // ///    The size of the digest may vary depending on the digest algorithm and
+    // ///    KEY RR size.  As of the time of this writing, the only defined
+    // ///    digest algorithm is SHA-1, which produces a 20 octet digest.
+    // /// ```
+    // ///
+    // /// # Arguments
+    // ///
+    // /// * `name` - the label of of the KEY record.
+    // /// * `digest_type` - the `DigestType` with which to create the message digest.
+    // pub fn to_digest(&self, name: &Name, digest_type: DigestType) -> ProtoResult<Vec<u8>> {
+    //     let mut buf: Vec<u8> = Vec::new();
+    //     {
+    //         let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
+    //         encoder.set_canonical_names(true);
+    //         if let Err(e) = name.emit(&mut encoder)
+    //                .and_then(|_| emit(&mut encoder, self)) {
+    //             warn!("error serializing KEY: {}", e);
+    //             return Err(format!("error serializing KEY: {}", e).into());
+    //         }
+    //     }
+
+    //     digest_type.hash(&buf).map_err(|e| e.into())
+    // }
+}
+
 impl Verifier for KEY {
     fn algorithm(&self) -> Algorithm {
         self.algorithm()
@@ -179,6 +314,172 @@ impl Verifier for KEY {
 
     fn key(&self) -> ProtoResult<PublicKeyEnum<'_>> {
         PublicKeyEnum::from_public_bytes(self.public_key(), self.algorithm())
+    }
+}
+
+impl BinEncodable for KEY {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        encoder.emit_u16(self.flags())?;
+        encoder.emit(u8::from(self.protocol))?;
+        self.algorithm().emit(encoder)?;
+        encoder.emit_vec(self.public_key())?;
+
+        Ok(())
+    }
+}
+
+impl<'r> RecordDataDecodable<'r> for KEY {
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<KEY> {
+        //      0   1   2   3   4   5   6   7   8   9   0   1   2   3   4   5
+        //    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+        //    |  A/C  | Z | XT| Z | Z | NAMTYP| Z | Z | Z | Z |      SIG      |
+        //    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+        let flags: u16 = decoder
+            .read_u16()?
+            .verify_unwrap(|flags| {
+                //    Bits 2 is reserved and must be zero.
+                //    Bits 4-5 are reserved and must be zero.
+                //    Bits 8-11 are reserved and must be zero.
+                flags & 0b0010_1100_1111_0000 == 0
+            })
+            .map_err(|_| ProtoError::from("flag 2, 4-5, and 8-11 are reserved, must be zero"))?;
+
+        let key_trust = KeyTrust::from(flags);
+        let extended_flags: bool = flags & 0b0001_0000_0000_0000 != 0;
+        let key_usage = KeyUsage::from(flags);
+        let signatory = UpdateScope::from(flags);
+
+        if extended_flags {
+            // TODO: add an optional field to return the raw u16?
+            return Err("extended flags currently not supported".into());
+        }
+
+        // TODO: protocol my be infallible
+        let protocol =
+            Protocol::from(decoder.read_u8()?.unverified(/*Protocol is verified as safe*/));
+
+        let algorithm: Algorithm = Algorithm::read(decoder)?;
+
+        // the public key is the left-over bytes minus 4 for the first fields
+        // TODO: decode the key here?
+        let key_len = length
+        .map(|u| u as usize)
+        .checked_sub(4)
+        .map_err(|_| ProtoError::from("invalid rdata length in KEY"))?
+        .unverified(/*used only as length safely*/);
+        let public_key: Vec<u8> =
+            decoder.read_vec(key_len)?.unverified(/*the byte array will fail in usage if invalid*/);
+
+        Ok(Self::new(
+            key_trust, key_usage, signatory, protocol, algorithm, public_key,
+        ))
+    }
+}
+
+impl RecordData for KEY {
+    fn try_from_rdata(data: RData) -> Result<Self, RData> {
+        match data {
+            RData::DNSSEC(DNSSECRData::KEY(csync)) => Ok(csync),
+            _ => Err(data),
+        }
+    }
+
+    fn try_borrow(data: &RData) -> Option<&Self> {
+        match data {
+            RData::DNSSEC(DNSSECRData::KEY(csync)) => Some(csync),
+            _ => None,
+        }
+    }
+
+    fn record_type(&self) -> RecordType {
+        RecordType::KEY
+    }
+
+    fn into_rdata(self) -> RData {
+        RData::DNSSEC(DNSSECRData::KEY(self))
+    }
+}
+
+/// Note that KEY is a deprecated type in DNS
+///
+/// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-7.1), Domain Name System Security Extensions, March 1999
+///
+/// ```text
+/// 7.1 Presentation of KEY RRs
+///
+///    KEY RRs may appear as single logical lines in a zone data master file
+///    [RFC 1033].
+///
+///    The flag field is represented as an unsigned integer or a sequence of
+///    mnemonics as follows separated by instances of the vertical bar ("|")
+///    character:
+///
+///      BIT  Mnemonic  Explanation
+///     0-1           key type
+///         NOCONF    =1 confidentiality use prohibited
+///         NOAUTH    =2 authentication use prohibited
+///         NOKEY     =3 no key present
+///     2   FLAG2     - reserved
+///     3   EXTEND    flags extension
+///     4   FLAG4     - reserved
+///     5   FLAG5     - reserved
+///     6-7           name type
+///         USER      =0 (default, may be omitted)
+///         ZONE      =1
+///         HOST      =2 (host or other end entity)
+///         NTYP3     - reserved
+///     8   FLAG8     - reserved
+///     9   FLAG9     - reserved
+///    10   FLAG10    - reserved
+///    11   FLAG11    - reserved
+///    12-15          signatory field, values 0 to 15
+///             can be represented by SIG0, SIG1, ... SIG15
+///
+///    No flag mnemonic need be present if the bit or field it represents is
+///    zero.
+///
+///    The protocol octet can be represented as either an unsigned integer
+///    or symbolically.  The following initial symbols are defined:
+///
+///         000    NONE
+///         001    TLS
+///         002    EMAIL
+///         003    DNSSEC
+///         004    IPSEC
+///         255    ALL
+///
+///    Note that if the type flags field has the NOKEY value, nothing
+///    appears after the algorithm octet.
+///
+///    The remaining public key portion is represented in base 64 (see
+///    Appendix A) and may be divided up into any number of white space
+///    separated substrings, down to single base 64 digits, which are
+///    concatenated to obtain the full signature.  These substrings can span
+///    lines using the standard parenthesis.
+///
+///    Note that the public key may have internal sub-fields but these do
+///    not appear in the master file representation.  For example, with
+///    algorithm 1 there is a public exponent size, then a public exponent,
+///    and then a modulus.  With algorithm 254, there will be an OID size,
+///    an OID, and algorithm dependent information. But in both cases only a
+///    single logical base 64 string will appear in the master file.
+/// ```
+impl fmt::Display for KEY {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(
+            f,
+            "{flags} {proto} {alg} {key}",
+            flags = self.flags(),
+            proto = u8::from(self.protocol),
+            alg = self.algorithm,
+            key = data_encoding::BASE64.encode(&self.public_key)
+        )
+    }
+}
+
+impl From<KEY> for RData {
+    fn from(key: KEY) -> Self {
+        Self::DNSSEC(super::DNSSECRData::KEY(key))
     }
 }
 
@@ -546,308 +847,6 @@ impl From<Protocol> for u8 {
             Protocol::All => 255,
             Protocol::Other(field) => field,
         }
-    }
-}
-
-impl KEY {
-    /// Construct a new KEY RData
-    ///
-    /// # Arguments
-    ///
-    /// * `key_trust` - declare the security level of this key
-    /// * `key_usage` - what type of thing is this key associated to
-    /// * `revoke` - this key has been revoked
-    /// * `algorithm` - specifies the algorithm which this Key uses to sign records
-    /// * `public_key` - the public key material, in native endian, the emitter will perform any necessary conversion
-    ///
-    /// # Return
-    ///
-    /// A new KEY RData for use in a Resource Record
-    pub fn new(
-        key_trust: KeyTrust,
-        key_usage: KeyUsage,
-        signatory: UpdateScope,
-        protocol: Protocol,
-        algorithm: Algorithm,
-        public_key: Vec<u8>,
-    ) -> Self {
-        Self {
-            key_trust,
-            key_usage,
-            signatory,
-            protocol,
-            algorithm,
-            public_key,
-        }
-    }
-
-    /// Returns the trust level of the key
-    pub fn key_trust(&self) -> KeyTrust {
-        self.key_trust
-    }
-
-    /// Returns the entity type using this key
-    pub fn key_usage(&self) -> KeyUsage {
-        self.key_usage
-    }
-
-    /// Returns the signatory information of the KEY
-    pub fn signatory(&self) -> UpdateScope {
-        self.signatory
-    }
-
-    /// Returns true if the key_trust is DoNotTrust
-    pub fn revoke(&self) -> bool {
-        self.key_trust == KeyTrust::DoNotTrust
-    }
-
-    /// Returns the protocol which this key can be used with
-    pub fn protocol(&self) -> Protocol {
-        self.protocol
-    }
-
-    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.1.3)
-    ///
-    /// ```text
-    /// 2.1.3.  The Algorithm Field
-    ///
-    ///    The Algorithm field identifies the public key's cryptographic
-    ///    algorithm and determines the format of the Public Key field.  A list
-    ///    of DNSSEC algorithm types can be found in Appendix A.1
-    /// ```
-    pub fn algorithm(&self) -> Algorithm {
-        self.algorithm
-    }
-
-    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.1.4)
-    ///
-    /// ```text
-    /// 2.1.4.  The Public Key Field
-    ///
-    ///    The Public Key Field holds the public key material.  The format
-    ///    depends on the algorithm of the key being stored and is described in
-    ///    separate documents.
-    /// ```
-    pub fn public_key(&self) -> &[u8] {
-        &self.public_key
-    }
-
-    /// Output the encoded form of the flags
-    pub fn flags(&self) -> u16 {
-        let mut flags: u16 = 0;
-        flags |= u16::from(self.key_trust);
-        flags |= u16::from(self.key_usage);
-        flags |= u16::from(self.signatory);
-
-        flags
-    }
-
-    // /// Creates a message digest for this KEY record.
-    // ///
-    // /// ```text
-    // /// 5.1.4.  The Digest Field
-    // ///
-    // ///    The DS record refers to a KEY RR by including a digest of that
-    // ///    KEY RR.
-    // ///
-    // ///    The digest is calculated by concatenating the canonical form of the
-    // ///    fully qualified owner name of the KEY RR with the KEY RDATA,
-    // ///    and then applying the digest algorithm.
-    // ///
-    // ///      digest = digest_algorithm( KEY owner name | KEY RDATA);
-    // ///
-    // ///       "|" denotes concatenation
-    // ///
-    // ///      KEY RDATA = Flags | Protocol | Algorithm | Public Key.
-    // ///
-    // ///    The size of the digest may vary depending on the digest algorithm and
-    // ///    KEY RR size.  As of the time of this writing, the only defined
-    // ///    digest algorithm is SHA-1, which produces a 20 octet digest.
-    // /// ```
-    // ///
-    // /// # Arguments
-    // ///
-    // /// * `name` - the label of of the KEY record.
-    // /// * `digest_type` - the `DigestType` with which to create the message digest.
-    // pub fn to_digest(&self, name: &Name, digest_type: DigestType) -> ProtoResult<Vec<u8>> {
-    //     let mut buf: Vec<u8> = Vec::new();
-    //     {
-    //         let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
-    //         encoder.set_canonical_names(true);
-    //         if let Err(e) = name.emit(&mut encoder)
-    //                .and_then(|_| emit(&mut encoder, self)) {
-    //             warn!("error serializing KEY: {}", e);
-    //             return Err(format!("error serializing KEY: {}", e).into());
-    //         }
-    //     }
-
-    //     digest_type.hash(&buf).map_err(|e| e.into())
-    // }
-}
-
-impl From<KEY> for RData {
-    fn from(key: KEY) -> Self {
-        Self::DNSSEC(super::DNSSECRData::KEY(key))
-    }
-}
-
-impl BinEncodable for KEY {
-    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit_u16(self.flags())?;
-        encoder.emit(u8::from(self.protocol))?;
-        self.algorithm().emit(encoder)?;
-        encoder.emit_vec(self.public_key())?;
-
-        Ok(())
-    }
-}
-
-impl<'r> RecordDataDecodable<'r> for KEY {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<KEY> {
-        //      0   1   2   3   4   5   6   7   8   9   0   1   2   3   4   5
-        //    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-        //    |  A/C  | Z | XT| Z | Z | NAMTYP| Z | Z | Z | Z |      SIG      |
-        //    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-        let flags: u16 = decoder
-            .read_u16()?
-            .verify_unwrap(|flags| {
-                //    Bits 2 is reserved and must be zero.
-                //    Bits 4-5 are reserved and must be zero.
-                //    Bits 8-11 are reserved and must be zero.
-                flags & 0b0010_1100_1111_0000 == 0
-            })
-            .map_err(|_| ProtoError::from("flag 2, 4-5, and 8-11 are reserved, must be zero"))?;
-
-        let key_trust = KeyTrust::from(flags);
-        let extended_flags: bool = flags & 0b0001_0000_0000_0000 != 0;
-        let key_usage = KeyUsage::from(flags);
-        let signatory = UpdateScope::from(flags);
-
-        if extended_flags {
-            // TODO: add an optional field to return the raw u16?
-            return Err("extended flags currently not supported".into());
-        }
-
-        // TODO: protocol my be infallible
-        let protocol =
-            Protocol::from(decoder.read_u8()?.unverified(/*Protocol is verified as safe*/));
-
-        let algorithm: Algorithm = Algorithm::read(decoder)?;
-
-        // the public key is the left-over bytes minus 4 for the first fields
-        // TODO: decode the key here?
-        let key_len = length
-        .map(|u| u as usize)
-        .checked_sub(4)
-        .map_err(|_| ProtoError::from("invalid rdata length in KEY"))?
-        .unverified(/*used only as length safely*/);
-        let public_key: Vec<u8> =
-            decoder.read_vec(key_len)?.unverified(/*the byte array will fail in usage if invalid*/);
-
-        Ok(Self::new(
-            key_trust, key_usage, signatory, protocol, algorithm, public_key,
-        ))
-    }
-}
-
-impl RecordData for KEY {
-    fn try_from_rdata(data: RData) -> Result<Self, RData> {
-        match data {
-            RData::DNSSEC(DNSSECRData::KEY(csync)) => Ok(csync),
-            _ => Err(data),
-        }
-    }
-
-    fn try_borrow(data: &RData) -> Option<&Self> {
-        match data {
-            RData::DNSSEC(DNSSECRData::KEY(csync)) => Some(csync),
-            _ => None,
-        }
-    }
-
-    fn record_type(&self) -> RecordType {
-        RecordType::KEY
-    }
-
-    fn into_rdata(self) -> RData {
-        RData::DNSSEC(DNSSECRData::KEY(self))
-    }
-}
-
-/// Note that KEY is a deprecated type in DNS
-///
-/// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-7.1), Domain Name System Security Extensions, March 1999
-///
-/// ```text
-/// 7.1 Presentation of KEY RRs
-///
-///    KEY RRs may appear as single logical lines in a zone data master file
-///    [RFC 1033].
-///
-///    The flag field is represented as an unsigned integer or a sequence of
-///    mnemonics as follows separated by instances of the vertical bar ("|")
-///    character:
-///
-///      BIT  Mnemonic  Explanation
-///     0-1           key type
-///         NOCONF    =1 confidentiality use prohibited
-///         NOAUTH    =2 authentication use prohibited
-///         NOKEY     =3 no key present
-///     2   FLAG2     - reserved
-///     3   EXTEND    flags extension
-///     4   FLAG4     - reserved
-///     5   FLAG5     - reserved
-///     6-7           name type
-///         USER      =0 (default, may be omitted)
-///         ZONE      =1
-///         HOST      =2 (host or other end entity)
-///         NTYP3     - reserved
-///     8   FLAG8     - reserved
-///     9   FLAG9     - reserved
-///    10   FLAG10    - reserved
-///    11   FLAG11    - reserved
-///    12-15          signatory field, values 0 to 15
-///             can be represented by SIG0, SIG1, ... SIG15
-///
-///    No flag mnemonic need be present if the bit or field it represents is
-///    zero.
-///
-///    The protocol octet can be represented as either an unsigned integer
-///    or symbolically.  The following initial symbols are defined:
-///
-///         000    NONE
-///         001    TLS
-///         002    EMAIL
-///         003    DNSSEC
-///         004    IPSEC
-///         255    ALL
-///
-///    Note that if the type flags field has the NOKEY value, nothing
-///    appears after the algorithm octet.
-///
-///    The remaining public key portion is represented in base 64 (see
-///    Appendix A) and may be divided up into any number of white space
-///    separated substrings, down to single base 64 digits, which are
-///    concatenated to obtain the full signature.  These substrings can span
-///    lines using the standard parenthesis.
-///
-///    Note that the public key may have internal sub-fields but these do
-///    not appear in the master file representation.  For example, with
-///    algorithm 1 there is a public exponent size, then a public exponent,
-///    and then a modulus.  With algorithm 254, there will be an OID size,
-///    an OID, and algorithm dependent information. But in both cases only a
-///    single logical base 64 string will appear in the master file.
-/// ```
-impl fmt::Display for KEY {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(
-            f,
-            "{flags} {proto} {alg} {key}",
-            flags = self.flags(),
-            proto = u8::from(self.protocol),
-            alg = self.algorithm,
-            key = data_encoding::BASE64.encode(&self.public_key)
-        )
     }
 }
 
