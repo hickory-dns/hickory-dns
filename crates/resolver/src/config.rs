@@ -392,15 +392,6 @@ impl fmt::Display for NameServerConfig {
     }
 }
 
-/// We consider a `NameServerConfig` equal if the `socket_addr` and `protocol` are equal
-impl PartialEq for NameServerConfig {
-    fn eq(&self, other: &Self) -> bool {
-        self.socket_addr == other.socket_addr && self.protocol == other.protocol
-    }
-}
-
-impl Eq for NameServerConfig {}
-
 /// A set of name_servers to associate with a [`ResolverConfig`].
 #[derive(Clone, Debug)]
 pub struct NameServerConfigGroup {
@@ -772,14 +763,6 @@ impl From<Vec<NameServerConfig>> for NameServerConfigGroup {
         }
     }
 }
-
-impl PartialEq for NameServerConfigGroup {
-    fn eq(&self, other: &Self) -> bool {
-        self.servers == other.servers
-    }
-}
-
-impl Eq for NameServerConfigGroup {}
 
 /// The lookup ip strategy
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

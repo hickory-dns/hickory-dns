@@ -185,18 +185,6 @@ where
     }
 }
 
-impl<P> PartialEq for NameServer<P>
-where
-    P: ConnectionProvider + Send,
-{
-    /// NameServers are equal if the config (connection information) are equal
-    fn eq(&self, other: &Self) -> bool {
-        self.config == other.config
-    }
-}
-
-impl<P> Eq for NameServer<P> where P: ConnectionProvider + Send {}
-
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
 mod tests {
