@@ -134,3 +134,8 @@ required-features = ["tokio-runtime", "system-config"]
 
 [lints]
 workspace = true
+
+[package.metadata.cargo-all-features]
+skip_optional_dependencies = true
+denylist = ["dnssec", "dns-over-tls"]
+max_combination_size = 2
