@@ -34,9 +34,9 @@ use crate::{
     proto::dnssec::Proof,
 };
 
-/// An authority that will forward resolutions to upstream resolvers.
+/// An authority that performs recursive resolutions.
 ///
-/// This uses the hickory-resolver for resolving requests.
+/// This uses the hickory-recursor crate for resolving requests.
 pub struct RecursiveAuthority {
     origin: LowerName,
     recursor: Recursor,
