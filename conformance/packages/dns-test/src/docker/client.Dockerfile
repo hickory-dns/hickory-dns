@@ -5,4 +5,5 @@ FROM debian:bookworm-slim
 RUN apt-get update && \
     apt-get install -y \
         dnsutils \
-        iputils-ping
+        iputils-ping \
+        netcat-openbsd
