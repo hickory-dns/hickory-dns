@@ -234,26 +234,6 @@ impl From<KeyTrust> for u16 {
     }
 }
 
-#[test]
-fn test_key_trust() {
-    assert_eq!(
-        KeyTrust::NotAuth,
-        KeyTrust::from(u16::from(KeyTrust::NotAuth))
-    );
-    assert_eq!(
-        KeyTrust::NotPrivate,
-        KeyTrust::from(u16::from(KeyTrust::NotPrivate))
-    );
-    assert_eq!(
-        KeyTrust::AuthOrPrivate,
-        KeyTrust::from(u16::from(KeyTrust::AuthOrPrivate))
-    );
-    assert_eq!(
-        KeyTrust::DoNotTrust,
-        KeyTrust::from(u16::from(KeyTrust::DoNotTrust))
-    );
-}
-
 /// Declares what this key is for
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
@@ -305,21 +285,6 @@ impl From<KeyUsage> for u16 {
             KeyUsage::Reserved => 0b0000_0011_0000_0000,
         }
     }
-}
-
-#[test]
-
-fn test_key_usage() {
-    assert_eq!(KeyUsage::Host, KeyUsage::from(u16::from(KeyUsage::Host)));
-    assert_eq!(KeyUsage::Zone, KeyUsage::from(u16::from(KeyUsage::Zone)));
-    assert_eq!(
-        KeyUsage::Entity,
-        KeyUsage::from(u16::from(KeyUsage::Entity))
-    );
-    assert_eq!(
-        KeyUsage::Reserved,
-        KeyUsage::from(u16::from(KeyUsage::Reserved))
-    );
 }
 
 /// [RFC 2137](https://tools.ietf.org/html/rfc2137#section-3.1), Secure Domain Name System Dynamic Update, April 1997
@@ -472,54 +437,6 @@ impl From<UpdateScope> for u16 {
 
         flags
     }
-}
-
-#[test]
-fn test_update_scope() {
-    assert_eq!(
-        UpdateScope::default(),
-        UpdateScope::from(u16::from(UpdateScope::default()))
-    );
-
-    let update_scope = UpdateScope {
-        zone: true,
-        strong: true,
-        unique: true,
-        general: true,
-    };
-    assert_eq!(update_scope, UpdateScope::from(u16::from(update_scope)));
-
-    let update_scope = UpdateScope {
-        zone: true,
-        strong: false,
-        unique: true,
-        general: false,
-    };
-    assert_eq!(update_scope, UpdateScope::from(u16::from(update_scope)));
-
-    let update_scope = UpdateScope {
-        zone: false,
-        strong: true,
-        unique: false,
-        general: true,
-    };
-    assert_eq!(update_scope, UpdateScope::from(u16::from(update_scope)));
-
-    let update_scope = UpdateScope {
-        zone: false,
-        strong: true,
-        unique: true,
-        general: false,
-    };
-    assert_eq!(update_scope, UpdateScope::from(u16::from(update_scope)));
-
-    let update_scope = UpdateScope {
-        zone: true,
-        strong: false,
-        unique: false,
-        general: true,
-    };
-    assert_eq!(update_scope, UpdateScope::from(u16::from(update_scope)));
 }
 
 /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-3.1.3), Domain Name System Security Extensions, March 1999
@@ -967,5 +884,87 @@ mod tests {
         //             .to_digest(&Name::parse("www.example.com.", None).unwrap(),
         //                        DigestType::SHA256)
         //             .is_ok());
+    }
+
+    #[test]
+    fn test_key_usage() {
+        assert_eq!(KeyUsage::Host, KeyUsage::from(u16::from(KeyUsage::Host)));
+        assert_eq!(KeyUsage::Zone, KeyUsage::from(u16::from(KeyUsage::Zone)));
+        assert_eq!(
+            KeyUsage::Entity,
+            KeyUsage::from(u16::from(KeyUsage::Entity))
+        );
+        assert_eq!(
+            KeyUsage::Reserved,
+            KeyUsage::from(u16::from(KeyUsage::Reserved))
+        );
+    }
+
+    #[test]
+    fn test_update_scope() {
+        assert_eq!(
+            UpdateScope::default(),
+            UpdateScope::from(u16::from(UpdateScope::default()))
+        );
+
+        let update_scope = UpdateScope {
+            zone: true,
+            strong: true,
+            unique: true,
+            general: true,
+        };
+        assert_eq!(update_scope, UpdateScope::from(u16::from(update_scope)));
+
+        let update_scope = UpdateScope {
+            zone: true,
+            strong: false,
+            unique: true,
+            general: false,
+        };
+        assert_eq!(update_scope, UpdateScope::from(u16::from(update_scope)));
+
+        let update_scope = UpdateScope {
+            zone: false,
+            strong: true,
+            unique: false,
+            general: true,
+        };
+        assert_eq!(update_scope, UpdateScope::from(u16::from(update_scope)));
+
+        let update_scope = UpdateScope {
+            zone: false,
+            strong: true,
+            unique: true,
+            general: false,
+        };
+        assert_eq!(update_scope, UpdateScope::from(u16::from(update_scope)));
+
+        let update_scope = UpdateScope {
+            zone: true,
+            strong: false,
+            unique: false,
+            general: true,
+        };
+        assert_eq!(update_scope, UpdateScope::from(u16::from(update_scope)));
+    }
+
+    #[test]
+    fn test_key_trust() {
+        assert_eq!(
+            KeyTrust::NotAuth,
+            KeyTrust::from(u16::from(KeyTrust::NotAuth))
+        );
+        assert_eq!(
+            KeyTrust::NotPrivate,
+            KeyTrust::from(u16::from(KeyTrust::NotPrivate))
+        );
+        assert_eq!(
+            KeyTrust::AuthOrPrivate,
+            KeyTrust::from(u16::from(KeyTrust::AuthOrPrivate))
+        );
+        assert_eq!(
+            KeyTrust::DoNotTrust,
+            KeyTrust::from(u16::from(KeyTrust::DoNotTrust))
+        );
     }
 }
