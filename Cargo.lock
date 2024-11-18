@@ -860,6 +860,7 @@ dependencies = [
  "hickory-server",
  "ipnet",
  "native-tls",
+ "openssl",
  "regex",
  "rusqlite",
  "rustls",

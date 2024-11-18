@@ -10,7 +10,11 @@
 use std::path::Path;
 
 #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
-use openssl::{pkey::PKey, stack::Stack, x509::X509};
+use openssl::{
+    pkey::{PKey, Private},
+    stack::Stack,
+    x509::X509,
+};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use serde::Deserialize;
@@ -306,17 +310,17 @@ pub fn load_cert(
 ) -> Result<((X509, Option<Stack<X509>>), PKey<Private>), String> {
     use tracing::{info, warn};
 
-    use crate::proto::openssl::tls_server::{
+    use hickory_proto::openssl::tls_server::{
         read_cert_pem, read_cert_pkcs12, read_key_from_der, read_key_from_pkcs8,
     };
 
-    let path = zone_dir.to_owned().join(tls_cert_config.get_path());
-    let cert_type = tls_cert_config.get_cert_type();
-    let password = tls_cert_config.get_password();
+    let path = zone_dir.to_owned().join(tls_cert_config.path());
+    let cert_type = tls_cert_config.cert_type();
+    let password = tls_cert_config.password();
     let private_key_path = tls_cert_config
-        .get_private_key()
+        .private_key()
         .map(|p| zone_dir.to_owned().join(p));
-    let private_key_type = tls_cert_config.get_private_key_type();
+    let private_key_type = tls_cert_config.private_key_type();
 
     // if it's pkcs12, we'll be collecting the key and certs from that, otherwise continue processing
     let (cert, cert_chain) = match cert_type {
