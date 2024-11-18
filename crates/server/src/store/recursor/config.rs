@@ -20,19 +20,17 @@ use ipnet::IpNet;
 use serde::Deserialize;
 
 use crate::error::ConfigError;
+#[cfg(feature = "dnssec")]
+use crate::proto::{
+    dnssec::{PublicKeyEnum, TrustAnchor},
+    serialize::txt::trust_anchor::{self, Entry},
+};
 use crate::proto::{
     rr::{Name, RData, Record, RecordSet},
     serialize::txt::Parser,
 };
+use crate::recursor::DnssecPolicy;
 use crate::resolver::dns_lru::TtlConfig;
-#[cfg(feature = "dnssec")]
-use crate::{
-    proto::{
-        dnssec::{PublicKeyEnum, TrustAnchor},
-        serialize::txt::trust_anchor::{self, Entry},
-    },
-    recursor::DnssecPolicy,
-};
 
 /// Configuration for file based zones
 #[derive(Clone, Deserialize, Eq, PartialEq, Debug)]
@@ -56,7 +54,6 @@ pub struct RecursiveConfig {
     pub ns_recursion_limit: u8,
 
     /// DNSSEC policy
-    #[cfg(feature = "dnssec")]
     #[serde(default)]
     pub dnssec_policy: DnssecPolicyConfig,
 
@@ -112,6 +109,7 @@ fn ns_recursion_limit_default() -> u8 {
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
+#[allow(missing_copy_implementations)]
 pub enum DnssecPolicyConfig {
     /// security unaware; DNSSEC records will not be requested nor processed
     #[default]
