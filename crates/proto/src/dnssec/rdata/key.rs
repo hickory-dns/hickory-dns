@@ -14,7 +14,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    dnssec::Algorithm,
+    dnssec::{Algorithm, PublicKeyEnum, Verifier},
     error::{ProtoError, ProtoResult},
     rr::{record_data::RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
@@ -170,6 +170,16 @@ pub struct KEY {
     protocol: Protocol,
     algorithm: Algorithm,
     public_key: Vec<u8>,
+}
+
+impl Verifier for KEY {
+    fn algorithm(&self) -> Algorithm {
+        self.algorithm()
+    }
+
+    fn key(&self) -> ProtoResult<PublicKeyEnum<'_>> {
+        PublicKeyEnum::from_public_bytes(self.public_key(), self.algorithm())
+    }
 }
 
 /// Specifies in what contexts this key may be trusted for use
