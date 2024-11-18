@@ -24,7 +24,7 @@ use crate::proto::rr::Name;
 use crate::proto::xfer::Protocol;
 
 /// Configuration for the upstream nameservers to use for resolution
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ResolverConfig {
     // base search domain
