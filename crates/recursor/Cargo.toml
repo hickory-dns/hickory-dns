@@ -128,3 +128,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [lints]
 workspace = true
+
+[package.metadata.cargo-all-features]
+skip_optional_dependencies = true
+denylist = ["dnssec"]
+max_combination_size = 2
