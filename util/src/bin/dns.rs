@@ -541,10 +541,10 @@ fn tls_config() -> Result<ClientConfig, Box<dyn std::error::Error>> {
     let mut root_store = RootCertStore::empty();
     #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
     {
-        use hickory_proto::error::ProtoErrorKind;
+        use hickory_proto::ProtoErrorKind;
 
         let (added, ignored) =
-            root_store.add_parsable_certificates(&rustls_native_certs::load_native_certs()?);
+            root_store.add_parsable_certificates(rustls_native_certs::load_native_certs()?);
 
         if ignored > 0 {
             tracing::warn!(
