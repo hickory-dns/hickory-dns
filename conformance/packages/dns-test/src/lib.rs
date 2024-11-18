@@ -14,7 +14,7 @@ pub use crate::resolver::Resolver;
 pub use crate::trust_anchor::TrustAnchor;
 
 pub mod client;
-mod container;
+pub mod container;
 mod fqdn;
 mod implementation;
 pub mod name_server;
