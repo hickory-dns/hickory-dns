@@ -23,9 +23,8 @@ use h2::client::{Connection, SendRequest};
 use http::header::{self, CONTENT_LENGTH};
 use rustls::pki_types::ServerName;
 use rustls::ClientConfig;
-use tokio_rustls::{
-    client::TlsStream as TokioTlsClientStream, Connect as TokioTlsConnect, TlsConnector,
-};
+use tokio::time::{error, timeout};
+use tokio_rustls::{client::TlsStream as TokioTlsClientStream, TlsConnector};
 use tracing::{debug, warn};
 
 use crate::error::ProtoError;
@@ -33,7 +32,9 @@ use crate::http::Version;
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
 use crate::runtime::RuntimeProvider;
 use crate::tcp::DnsTcpStream;
-use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
+use crate::xfer::{
+    DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, TLS_HANDSHAKE_TIMEOUT,
+};
 
 const ALPN_H2: &[u8] = b"h2";
 
@@ -413,7 +414,16 @@ where
     },
     TlsConnecting {
         // TODO: also abstract away Tokio TLS in RuntimeProvider.
-        tls: TokioTlsConnect<AsyncIoStdAsTokio<S>>,
+        tls: Pin<
+            Box<
+                dyn Future<
+                        Output = Result<
+                            Result<TokioTlsClientStream<AsyncIoStdAsTokio<S>>, io::Error>,
+                            error::Elapsed,
+                        >,
+                    > + Send,
+            >,
+        >,
         name_server_name: Arc<str>,
         name_server: SocketAddr,
         query_path: Arc<str>,
@@ -466,7 +476,10 @@ where
                     match ServerName::try_from(&*tls.dns_name) {
                         Ok(dns_name) => {
                             let tls = TlsConnector::from(tls.client_config);
-                            let tls = tls.connect(dns_name.to_owned(), AsyncIoStdAsTokio(tcp));
+                            let tls = Box::pin(timeout(
+                                TLS_HANDSHAKE_TIMEOUT,
+                                tls.connect(dns_name.to_owned(), AsyncIoStdAsTokio(tcp)),
+                            ));
                             Self::TlsConnecting {
                                 name_server_name,
                                 name_server: *name_server,
@@ -486,7 +499,13 @@ where
                     query_path,
                     tls,
                 } => {
-                    let tls = ready!(tls.poll_unpin(cx))?;
+                    let Ok(res) = ready!(tls.poll_unpin(cx)) else {
+                        return Poll::Ready(Err(format!(
+                            "TLS handshake timed out after {TLS_HANDSHAKE_TIMEOUT:?}"
+                        )
+                        .into()));
+                    };
+                    let tls = res?;
                     debug!("tls connection established to: {}", name_server);
                     let mut handshake = h2::client::Builder::new();
                     handshake.enable_push(false);
