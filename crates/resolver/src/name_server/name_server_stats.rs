@@ -181,25 +181,11 @@ impl PartialEq for NameServerStats {
 
 impl Eq for NameServerStats {}
 
-// TODO: Replace this with `f64::total_cmp` once the Rust version is bumped to
-// 1.62.0 (the method is stable beyond that version). In the meantime, the
-// implementation is copied from here:
-// https://github.com/rust-lang/rust/blob/master/library/core/src/num/f64.rs#L1336
-fn total_cmp(x: f64, y: f64) -> Ordering {
-    let mut left = x.to_bits() as i64;
-    let mut right = y.to_bits() as i64;
-
-    left ^= (((left >> 63) as u64) >> 1) as i64;
-    right ^= (((right >> 63) as u64) >> 1) as i64;
-
-    left.cmp(&right)
-}
-
 impl Ord for NameServerStats {
     /// Custom implementation of Ord for NameServer which incorporates the
     /// performance of the connection into it's ranking.
     fn cmp(&self, other: &Self) -> Ordering {
-        total_cmp(self.decayed_srtt(), other.decayed_srtt())
+        self.decayed_srtt().total_cmp(&other.decayed_srtt())
     }
 }
 
