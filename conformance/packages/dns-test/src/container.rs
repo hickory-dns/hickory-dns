@@ -31,6 +31,10 @@ pub enum Image {
 }
 
 impl Image {
+    pub fn hickory() -> Self {
+        Self::Hickory(Repository(crate::repo_root()))
+    }
+
     fn dockerfile(&self) -> &'static str {
         match self {
             Self::Bind => include_str!("docker/bind.Dockerfile"),
