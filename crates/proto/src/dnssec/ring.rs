@@ -356,4 +356,17 @@ mod tests {
         let neg = decode_key(&neg_pkcs8, None, algorithm, format).unwrap();
         hash_test(&*key, &*neg, algorithm);
     }
+
+    #[test]
+    fn test_ec_encode_decode_pkcs8() {
+        let algorithm = Algorithm::ECDSAP256SHA256;
+        let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
+        decode_key(&pkcs8, None, algorithm, KeyFormat::Pkcs8).unwrap();
+    }
+
+    #[test]
+    fn test_ed25519_encode_decode_pkcs8() {
+        let pkcs8 = Ed25519SigningKey::generate_pkcs8().unwrap();
+        decode_key(&pkcs8, None, Algorithm::ED25519, KeyFormat::Pkcs8).unwrap();
+    }
 }
