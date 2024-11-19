@@ -11,7 +11,6 @@ mod algorithm;
 mod digest_type;
 #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
 mod ec_public_key;
-mod key_format;
 mod nsec3;
 /// OpenSSL implementations of DNSSEC traits.
 #[cfg(feature = "dnssec-openssl")]
@@ -72,8 +71,6 @@ impl Digest {
     }
 }
 
-#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-pub use self::key_format::KeyFormat;
 pub use self::signer::SigSigner;
 
 /// Decode private key
@@ -129,6 +126,17 @@ pub trait SigningKey: Send + Sync + 'static {
 
     /// Returns a [`PublicKeyBuf`] for this [`SigningKey`].
     fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf>;
+}
+
+/// The format of the binary key
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum KeyFormat {
+    /// A der encoded key
+    Der,
+    /// A pem encoded key, the default of OpenSSL
+    Pem,
+    /// Pkcs8, a pkcs8 formatted private key
+    Pkcs8,
 }
 
 #[cfg(test)]

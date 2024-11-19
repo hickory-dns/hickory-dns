@@ -336,6 +336,7 @@ impl SigningKey for EcSigningKey {
 mod tests {
     use super::*;
     use crate::dnssec::test_utils::{hash_test, public_key_test};
+    use crate::dnssec::decode_key;
 
     #[test]
     fn test_rsa() {
@@ -365,5 +366,44 @@ mod tests {
 
         let neg = EcSigningKey::generate(algorithm).unwrap();
         hash_test(&key, &neg, algorithm);
+    }
+
+
+    #[test]
+    fn test_rsa_encode_decode_der() {
+        let algorithm = Algorithm::RSASHA256;
+        let key = RsaSigningKey::generate(algorithm).unwrap();
+        let der = key.encode_der().unwrap();
+        decode_key(&der, None, algorithm, KeyFormat::Der).unwrap();
+    }
+
+    #[test]
+    fn test_rsa_encode_decode_pem() {
+        let algorithm = Algorithm::RSASHA256;
+        let key = RsaSigningKey::generate(algorithm).unwrap();
+        let pem = key.encode_pem(None).unwrap();
+        decode_key(&pem, None, algorithm, KeyFormat::Pem).unwrap();
+
+        let encrypted = key.encode_pem(Some("test password")).unwrap();
+        decode_key(&encrypted, Some("test password"), algorithm, KeyFormat::Pem).unwrap();
+    }
+
+    #[test]
+    fn test_ec_encode_decode_der() {
+        let algorithm = Algorithm::ECDSAP256SHA256;
+        let key = EcSigningKey::generate(algorithm).unwrap();
+        let der = key.encode_der().unwrap();
+        decode_key(&der, None, algorithm, KeyFormat::Der).unwrap();
+    }
+
+    #[test]
+    fn test_ec_encode_decode_pem() {
+        let algorithm = Algorithm::ECDSAP256SHA256;
+        let key = EcSigningKey::generate(algorithm).unwrap();
+        let pem = key.encode_pem(None).unwrap();
+        decode_key(&pem, None, algorithm, KeyFormat::Pem).unwrap();
+
+        let encrypted = key.encode_pem(Some("test password")).unwrap();
+        decode_key(&encrypted, Some("test password"), algorithm, KeyFormat::Pem).unwrap();
     }
 }
