@@ -310,12 +310,16 @@ fn query_nameserver(
     let ns = ns.start()?;
 
     let client = Client::new(&network)?;
-    let output = client.dig(
+    let output_res = client.dig(
         *DigSettings::default().dnssec().authentic_data(),
         ns.ipv4_addr(),
         qtype,
         qname,
-    )?;
+    );
+    if output_res.is_err() {
+        println!("{}", ns.logs().unwrap());
+    }
+    let output = output_res?;
 
     let nsec3_rrs_response = output
         .authority
