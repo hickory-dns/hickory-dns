@@ -137,7 +137,9 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
 
         // associated the ID for this request, b/c this connection is unique to socket port, the ID
         //   does not need to be globally unique
-        message.set_id(random_query_id());
+        if message.id() == 0 {
+            message.set_id(random_query_id());
+        }
 
         let now = match SystemTime::now().duration_since(UNIX_EPOCH) {
             Ok(now) => now.as_secs(),
