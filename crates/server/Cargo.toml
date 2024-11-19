@@ -48,8 +48,8 @@ dnssec = [
     "serde/rc",
 ]
 # Recursive Resolution is Experimental!
-recursor = ["hickory-recursor", "hickory-resolver"]
-resolver = ["hickory-resolver"]
+recursor = ["dep:hickory-recursor", "dep:hickory-resolver"]
+resolver = ["dep:hickory-resolver"]
 sqlite = ["rusqlite"]
 blocklist = ["resolver"]
 toml = ["dep:toml"]
