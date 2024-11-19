@@ -13,7 +13,7 @@ use std::{fmt, sync::Arc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    dnssec::{Algorithm, Digest, DigestType, PublicKey, PublicKeyBuf, Verifier},
+    dnssec::{decode_public_key, Algorithm, Digest, DigestType, PublicKey, Verifier},
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     rr::{record_data::RData, Name, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
@@ -411,7 +411,7 @@ impl<'r> RecordDataDecodable<'r> for DNSKEY {
             secure_entry_point,
             revoke,
             algorithm,
-            Arc::new(PublicKeyBuf::new(public_key)),
+            decode_public_key(&public_key, algorithm)?,
         ))
     }
 }
@@ -473,7 +473,8 @@ impl<'de> Deserialize<'de> for DNSKEY {
             dnskey.secure_entry_point,
             dnskey.revoke,
             dnskey.algorithm,
-            PublicKeyBuf::new(dnskey.public_key.to_vec()),
+            decode_public_key(dnskey.public_key, dnskey.algorithm)
+                .map_err(|e| serde::de::Error::custom(format!("error decoding public key: {e}")))?,
         ))
     }
 }
@@ -608,7 +609,7 @@ mod tests {
             true,
             false,
             algorithm,
-            Arc::new(signing_key.to_public_key().unwrap()),
+            signing_key.to_public_key().unwrap(),
         );
 
         let mut bytes = Vec::new();

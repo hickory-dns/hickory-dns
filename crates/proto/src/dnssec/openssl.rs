@@ -6,19 +6,21 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::iter;
+use std::sync::Arc;
 
 use openssl::bn::{BigNum, BigNumContext};
-use openssl::ec::{EcGroup, EcKey, EcPoint};
+use openssl::ec::{EcGroup, EcKey, EcPoint, PointConversionForm};
 use openssl::nid::Nid;
-use openssl::pkey::{PKey, Private, Public};
+use openssl::pkey::{HasPublic, PKey, Private, Public};
 use openssl::rsa::Rsa as OpenSslRsa;
 use openssl::sign::Verifier;
 use openssl::symm::Cipher;
 
 use super::ec_public_key::ECPublicKey;
 use super::rsa_public_key::RSAPublicKey;
-use super::{Algorithm, DigestType, KeyFormat, PublicKey, PublicKeyBuf, SigningKey, TBS};
+use super::{Algorithm, DigestType, KeyFormat, PublicKey, SigningKey, TBS};
 use crate::error::{DnsSecErrorKind, DnsSecResult, ProtoResult};
+use crate::ProtoError;
 
 /// An RSA signing key pair (backed by OpenSSL).
 pub struct RsaSigningKey {
@@ -149,9 +151,8 @@ impl SigningKey for RsaSigningKey {
         Ok(signer.sign_to_vec()?)
     }
 
-    fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf> {
-        let rsa = self.inner.rsa()?;
-        Ok(PublicKeyBuf::from_rsa(&rsa))
+    fn to_public_key(&self) -> DnsSecResult<Arc<dyn PublicKey>> {
+        Ok(Arc::new(Rsa::from_rsa(&self.inner.rsa()?)?))
     }
 }
 
@@ -328,9 +329,8 @@ impl SigningKey for EcSigningKey {
         Ok(ret)
     }
 
-    fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf> {
-        let ec = self.inner.ec_key()?;
-        PublicKeyBuf::from_ec(&ec)
+    fn to_public_key(&self) -> DnsSecResult<Arc<dyn PublicKey>> {
+        Ok(Arc::new(Ec::from_ec(&self.inner.ec_key()?)?))
     }
 }
 
@@ -358,6 +358,31 @@ pub struct Ec {
 }
 
 impl Ec {
+    /// Constructs a new [`Ec`] from an openssl [`EcKey`].
+    pub fn from_ec<T: HasPublic>(ec_key: &EcKey<T>) -> Result<Self, ProtoError> {
+        let group = ec_key.group();
+        let algorithm = match group.curve_name() {
+            Some(Nid::X9_62_PRIME256V1) => Algorithm::ECDSAP256SHA256,
+            Some(Nid::SECP384R1) => Algorithm::ECDSAP384SHA384,
+            val => {
+                return Err(format!(
+                    "unsupported curve {val:?} ({:?})",
+                    val.and_then(|nid| nid.long_name().ok())
+                )
+                .into())
+            }
+        };
+
+        let point = ec_key.public_key();
+        let mut key_buf = BigNumContext::new().and_then(|mut ctx| {
+            point.to_bytes(group, PointConversionForm::UNCOMPRESSED, &mut ctx)
+        })?;
+
+        // Remove OpenSSL header byte
+        key_buf.remove(0);
+        Self::from_public_bytes(key_buf, algorithm)
+    }
+
     /// ```text
     /// RFC 6605                    ECDSA for DNSSEC                  April 2012
     ///
@@ -390,7 +415,10 @@ impl Ec {
     ///   algorithms.  Conformant DNSSEC verifiers MUST implement verification
     ///   for both of the above algorithms.
     /// ```
-    pub fn from_public_bytes(public_key: Vec<u8>, algorithm: Algorithm) -> ProtoResult<Self> {
+    pub fn from_public_bytes(
+        public_key: Vec<u8>,
+        algorithm: Algorithm,
+    ) -> Result<Self, ProtoError> {
         let curve = match algorithm {
             Algorithm::ECDSAP256SHA256 => Nid::X9_62_PRIME256V1,
             Algorithm::ECDSAP384SHA384 => Nid::SECP384R1,
@@ -473,6 +501,25 @@ pub struct Rsa {
 }
 
 impl Rsa {
+    /// Constructs a new [`Rsa`] from an [`openssl::rsa::Rsa`] key.
+    pub fn from_rsa<T: HasPublic>(key: &OpenSslRsa<T>) -> Result<Self, ProtoError> {
+        let mut key_buf = Vec::new();
+
+        // this is to get us access to the exponent and the modulus
+        let e = key.e().to_vec();
+        let n = key.n().to_vec();
+
+        if e.len() > 255 {
+            key_buf.push(0);
+            key_buf.push((e.len() >> 8) as u8);
+        }
+
+        key_buf.push(e.len() as u8);
+        key_buf.extend_from_slice(&e);
+        key_buf.extend_from_slice(&n);
+        Self::from_public_bytes(key_buf)
+    }
+
     /// ```text
     /// RFC 3110              RSA SIGs and KEYs in the DNS              May 2001
     ///
@@ -505,7 +552,7 @@ impl Rsa {
     ///  Note: This changes the algorithm number for RSA KEY RRs to be the
     ///  same as the new algorithm number for RSA/SHA1 SIGs.
     /// ```
-    pub fn from_public_bytes(raw: Vec<u8>) -> ProtoResult<Self> {
+    pub fn from_public_bytes(raw: Vec<u8>) -> Result<Self, ProtoError> {
         let parsed = RSAPublicKey::try_from(&raw)?;
         // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
         let e = BigNum::from_slice(parsed.e())?;

@@ -264,12 +264,10 @@ impl From<Token> for LexToken {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use super::*;
     #[cfg(feature = "dnssec-ring")]
     use crate::dnssec::ring::EcdsaSigningKey;
-    use crate::dnssec::{rdata::DNSKEY, Algorithm, PublicKey, SigningKey};
+    use crate::dnssec::{rdata::DNSKEY, Algorithm, SigningKey};
 
     const ENCODED: &str = "aGVsbG8=";
 
@@ -296,7 +294,7 @@ mod tests {
         assert_eq!(DNSClass::IN, record.dns_class());
         assert_eq!(RecordType::DNSKEY, record.record_type());
 
-        let expected = DNSKEY::new(true, false, false, algorithm, Arc::new(public_key));
+        let expected = DNSKEY::new(true, false, false, algorithm, public_key);
         let actual = record.data();
         assert_eq!(&expected, actual);
     }
@@ -317,7 +315,7 @@ mod tests {
         assert_eq!(None, record.ttl());
         assert_eq!(DNSClass::IN, record.dns_class());
         assert_eq!(RecordType::DNSKEY, record.record_type());
-        let expected = DNSKEY::new(true, false, false, algorithm, Arc::new(public_key));
+        let expected = DNSKEY::new(true, false, false, algorithm, public_key);
         let actual = record.data();
         assert_eq!(&expected, actual);
     }

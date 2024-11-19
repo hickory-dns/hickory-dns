@@ -513,7 +513,7 @@ async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
             Default::default(),
             Default::default(),
             signer.algorithm(),
-            Arc::new(pub_key),
+            pub_key,
         ))),
     );
     authority.upsert_mut(auth_key, 0);

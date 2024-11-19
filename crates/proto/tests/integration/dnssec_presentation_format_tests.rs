@@ -1,9 +1,7 @@
 #![cfg(feature = "dnssec")]
 
-use std::sync::Arc;
-
 use hickory_proto::dnssec::rdata::{DNSKEY, DS};
-use hickory_proto::dnssec::{Algorithm, DigestType, PublicKeyBuf};
+use hickory_proto::dnssec::{decode_public_key, Algorithm, DigestType};
 use hickory_proto::rr::Name;
 
 #[test]
@@ -14,9 +12,11 @@ fn test_dnskey_display() {
         false,
         false,
         Algorithm::RSASHA1,
-        Arc::new(PublicKeyBuf::new(
-            include_bytes!("../test-data/rfc4034-2.3.key").to_vec(),
-        )),
+        decode_public_key(
+            include_bytes!("../test-data/rfc4034-2.3.key"),
+            Algorithm::RSASHA1,
+        )
+        .unwrap(),
     );
     let result = format!("{dnskey}");
     let exp_result = include_str!("../test-data/rfc4034-2.3.rdata");
@@ -27,9 +27,11 @@ fn test_dnskey_display() {
         false,
         false,
         Algorithm::RSASHA1,
-        Arc::new(PublicKeyBuf::new(
-            include_bytes!("../test-data/rfc4034-5.4.key").to_vec(),
-        )),
+        decode_public_key(
+            include_bytes!("../test-data/rfc4034-5.4.key"),
+            Algorithm::RSASHA1,
+        )
+        .unwrap(),
     );
     let result = format!("{dnskey}");
     let exp_result = include_str!("../test-data/rfc4034-5.4.rdata");
@@ -45,9 +47,11 @@ fn test_ds_display() {
         false,
         false,
         Algorithm::RSASHA1,
-        Arc::new(PublicKeyBuf::new(
-            include_bytes!("../test-data/rfc4034-5.4.key").to_vec(),
-        )),
+        decode_public_key(
+            include_bytes!("../test-data/rfc4034-5.4.key"),
+            Algorithm::RSASHA1,
+        )
+        .unwrap(),
     );
     let digest = dnskey
         .to_digest(

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use ring::{
     rand::{self, SystemRandom},
     signature::{
@@ -7,14 +9,14 @@ use ring::{
 };
 
 use super::{
-    ec_public_key::ECPublicKey, rsa_public_key::RSAPublicKey, Algorithm, PublicKey, PublicKeyBuf,
-    SigningKey, TBS,
+    ec_public_key::ECPublicKey, rsa_public_key::RSAPublicKey, Algorithm, PublicKey, SigningKey, TBS,
 };
-use crate::error::{DnsSecErrorKind, DnsSecResult, ProtoResult};
+use crate::error::{DnsSecErrorKind, DnsSecResult, ProtoError, ProtoResult};
 
 /// An ECDSA signing key pair (backed by ring).
 pub struct EcdsaSigningKey {
     inner: EcdsaKeyPair,
+    algorithm: Algorithm,
 }
 
 impl EcdsaSigningKey {
@@ -36,12 +38,13 @@ impl EcdsaSigningKey {
 
         Ok(Self {
             inner: EcdsaKeyPair::from_pkcs8(ring_algorithm, bytes, &rng)?,
+            algorithm,
         })
     }
 
     /// Creates an ECDSA key pair with ring.
-    pub fn from_ecdsa(inner: EcdsaKeyPair) -> Self {
-        Self { inner }
+    pub fn from_ecdsa(inner: EcdsaKeyPair, algorithm: Algorithm) -> Self {
+        Self { inner, algorithm }
     }
 
     /// Generate signing key pair and return the DER-encoded PKCS#8 bytes.
@@ -71,10 +74,10 @@ impl SigningKey for EcdsaSigningKey {
         Ok(self.inner.sign(&rng, tbs.as_ref())?.as_ref().to_vec())
     }
 
-    fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf> {
+    fn to_public_key(&self) -> DnsSecResult<Arc<dyn PublicKey>> {
         let mut bytes = self.inner.public_key().as_ref().to_vec();
         bytes.remove(0);
-        Ok(PublicKeyBuf::new(bytes))
+        Ok(Arc::new(Ec::from_public_bytes(bytes, self.algorithm)?))
     }
 }
 
@@ -109,8 +112,10 @@ impl SigningKey for Ed25519SigningKey {
         Ok(self.inner.sign(tbs.as_ref()).as_ref().to_vec())
     }
 
-    fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf> {
-        Ok(PublicKeyBuf::new(self.inner.public_key().as_ref().to_vec()))
+    fn to_public_key(&self) -> DnsSecResult<Arc<dyn PublicKey>> {
+        Ok(Arc::new(Ed25519::from_public_bytes(
+            self.inner.public_key().as_ref(),
+        )?))
     }
 }
 
@@ -150,7 +155,10 @@ impl Ec {
     ///   algorithms.  Conformant DNSSEC verifiers MUST implement verification
     ///   for both of the above algorithms.
     /// ```
-    pub fn from_public_bytes(public_key: Vec<u8>, algorithm: Algorithm) -> ProtoResult<Self> {
+    pub fn from_public_bytes(
+        public_key: Vec<u8>,
+        algorithm: Algorithm,
+    ) -> Result<Self, ProtoError> {
         Self::from_unprefixed(&public_key, algorithm)
     }
 }
@@ -190,7 +198,7 @@ impl Ed25519 {
     ///  in [RFC 8032]. Breaking tradition, the keys are encoded in little-
     ///  endian byte order.
     /// ```
-    pub fn from_public_bytes(public_key: &[u8]) -> ProtoResult<Self> {
+    pub fn from_public_bytes(public_key: &[u8]) -> Result<Self, ProtoError> {
         if public_key.len() != ED25519_PUBLIC_KEY_LEN {
             return Err(format!(
                 "expected {} byte public_key: {}",

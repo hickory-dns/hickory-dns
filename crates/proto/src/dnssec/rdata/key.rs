@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use super::DNSSECRData;
 use crate::{
-    dnssec::{Algorithm, PublicKey, PublicKeyBuf, Verifier},
+    dnssec::{decode_public_key, Algorithm, PublicKey, Verifier},
     error::{ProtoError, ProtoResult},
     rr::{record_data::RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
@@ -416,7 +416,7 @@ impl<'r> RecordDataDecodable<'r> for KEY {
             signatory,
             protocol,
             algorithm,
-            Arc::new(PublicKeyBuf::new(public_key)),
+            decode_public_key(&public_key, algorithm)?,
         ))
     }
 }
@@ -477,7 +477,8 @@ impl<'de> Deserialize<'de> for KEY {
             signatory,
             protocol,
             algorithm,
-            PublicKeyBuf::new(public_key.to_vec()),
+            decode_public_key(public_key, algorithm)
+                .map_err(|e| serde::de::Error::custom(format!("error decoding public key: {e}")))?,
         ))
     }
 }
@@ -1015,7 +1016,7 @@ mod tests {
             UpdateScope::default(),
             Protocol::default(),
             algorithm,
-            Arc::new(signing_key.to_public_key().unwrap()),
+            signing_key.to_public_key().unwrap(),
         );
 
         let mut bytes = Vec::new();

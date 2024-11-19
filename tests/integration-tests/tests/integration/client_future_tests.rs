@@ -296,7 +296,7 @@ async fn create_sig0_ready_client() -> (
 
     let key = RsaSigningKey::generate(Algorithm::RSASHA256).unwrap();
     let pub_key = key.to_public_key().unwrap();
-    let sig0_key = KEY::new_sig0key(Arc::new(pub_key), Algorithm::RSASHA256);
+    let sig0_key = KEY::new_sig0key(pub_key, Algorithm::RSASHA256);
 
     let signer = SigSigner::sig0(sig0_key.clone(), Box::new(key), trusted_name.clone());
 

@@ -76,7 +76,7 @@ async fn test_create() {
         Default::default(),
         Default::default(),
         Algorithm::RSASHA256,
-        Arc::new(key.to_public_key().unwrap()),
+        key.to_public_key().unwrap(),
     );
 
     let signer = SigSigner::sig0(

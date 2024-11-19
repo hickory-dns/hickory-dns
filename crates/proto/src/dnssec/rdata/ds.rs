@@ -403,8 +403,7 @@ mod tests {
 
     use super::*;
     #[cfg(feature = "dnssec-ring")]
-    use crate::dnssec::ring::EcdsaSigningKey;
-    use crate::dnssec::{rdata::DNSKEY, SigningKey};
+    use crate::dnssec::{rdata::DNSKEY, ring::EcdsaSigningKey, SigningKey};
 
     #[test]
     fn test() {
@@ -440,7 +439,7 @@ mod tests {
             true,
             false,
             algorithm,
-            Arc::new(signing_key.to_public_key().unwrap()),
+            signing_key.to_public_key().unwrap(),
         );
 
         let name = Name::parse("www.example.com.", None).unwrap();
@@ -470,7 +469,7 @@ mod tests {
             true,
             false,
             algorithm,
-            Arc::new(signing_key.to_public_key().unwrap()),
+            signing_key.to_public_key().unwrap(),
         );
 
         let name = Name::parse("www.example.com.", None).unwrap();

@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use super::Algorithm;
-use crate::error::*;
+use crate::error::ProtoError;
 
 #[allow(unreachable_pub)]
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -23,7 +23,10 @@ impl ECPublicKey {
     // DNSSEC encodes uncompressed EC public keys without the standard 0x04
     // prefix that indicates they are uncompressed, but crypto libraries
     // require that prefix.
-    pub fn from_unprefixed(without_prefix: &[u8], algorithm: Algorithm) -> ProtoResult<Self> {
+    pub fn from_unprefixed(
+        without_prefix: &[u8],
+        algorithm: Algorithm,
+    ) -> Result<Self, ProtoError> {
         let field_len = match algorithm {
             Algorithm::ECDSAP256SHA256 => 32,
             Algorithm::ECDSAP384SHA384 => 48,

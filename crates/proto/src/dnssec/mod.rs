@@ -31,11 +31,13 @@ mod trust_anchor;
 pub mod tsig;
 mod verifier;
 
+use std::sync::Arc;
+
 pub use self::algorithm::Algorithm;
 pub use self::digest_type::DigestType;
 pub use self::nsec3::Nsec3HashAlgorithm;
 pub use self::proof::{Proof, ProofError, ProofErrorKind, ProofFlags, Proven};
-pub use self::public_key::{PublicKey, PublicKeyBuf};
+pub use self::public_key::{decode_public_key, PublicKey};
 pub use self::supported_algorithm::SupportedAlgorithms;
 pub use self::tbs::TBS;
 pub use self::trust_anchor::TrustAnchor;
@@ -127,14 +129,12 @@ pub trait SigningKey: Send + Sync + 'static {
     /// The signature, ready to be stored in an `RData::RRSIG`.
     fn sign(&self, tbs: &TBS) -> DnsSecResult<Vec<u8>>;
 
-    /// Returns a [`PublicKeyBuf`] for this [`SigningKey`].
-    fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf>;
+    /// Returns a [`PublicKey`] object for this [`SigningKey`].
+    fn to_public_key(&self) -> DnsSecResult<Arc<dyn PublicKey>>;
 }
 
 #[cfg(test)]
 mod test_utils {
-    use std::sync::Arc;
-
     use rdata::DNSKEY;
 
     use super::*;
@@ -169,7 +169,7 @@ mod test_utils {
         );
 
         let pub_key = key.to_public_key().unwrap();
-        let dns_key = DNSKEY::from_key(Arc::new(pub_key), algorithm);
+        let dns_key = DNSKEY::from_key(pub_key, algorithm);
         assert!(
             dns_key.verify(tbs.as_ref(), &sig).is_ok(),
             "algorithm: {algorithm:?} (dnskey)",
@@ -181,7 +181,7 @@ mod test_utils {
         );
 
         let neg_pub_key = neg.to_public_key().unwrap();
-        let neg_dns_key = DNSKEY::from_key(Arc::new(neg_pub_key), algorithm);
+        let neg_dns_key = DNSKEY::from_key(neg_pub_key, algorithm);
         assert!(
             neg_dns_key.verify(tbs.as_ref(), &sig).is_err(),
             "algorithm: {algorithm:?} (dnskey, neg)",

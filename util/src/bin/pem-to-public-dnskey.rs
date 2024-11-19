@@ -23,12 +23,14 @@
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, Read, Write};
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use clap::Parser;
+use hickory_proto::dnssec::openssl::{Ec, Rsa};
+use hickory_proto::dnssec::PublicKey;
+use hickory_proto::ProtoError;
 use openssl::pkey::{PKey, Public};
 use tracing::info;
-
-use hickory_proto::dnssec::{PublicKey, PublicKeyBuf};
 
 /// Cli struct for all options managed with clap derive api.
 #[derive(Debug, Parser)]
@@ -76,7 +78,7 @@ pub fn main() {
     });
 
     let pkey = read_pem(&mut key_file);
-    let pub_key = to_public_key_buf(pkey);
+    let pub_key = to_public_key_buf(pkey).expect("failed to decode public key");
 
     let mut public_key_file = OpenOptions::new()
         .write(true)
@@ -89,15 +91,17 @@ pub fn main() {
         .expect("failed to write public_key to file");
 }
 
-fn to_public_key_buf(pkey: PKey<Public>) -> PublicKeyBuf {
+fn to_public_key_buf(pkey: PKey<Public>) -> Result<Arc<dyn PublicKey>, ProtoError> {
     let rsa = pkey.rsa();
     if let Ok(rsa) = rsa {
-        return PublicKeyBuf::from_rsa(&rsa);
+        let pub_key = Rsa::from_rsa(&rsa)?;
+        return Ok(Arc::new(pub_key));
     }
 
     let ec = pkey.ec_key();
     if let Ok(ec) = ec {
-        return PublicKeyBuf::from_ec(&ec).expect("failed to convert to ec");
+        let pub_key = Ec::from_ec(&ec)?;
+        return Ok(Arc::new(pub_key));
     }
 
     panic!("unsupported pkey");
@@ -131,6 +135,6 @@ mod test {
         let mut pem = File::open(path).unwrap();
 
         let pkey = read_pem(&mut pem);
-        to_public_key_buf(pkey);
+        to_public_key_buf(pkey).unwrap();
     }
 }

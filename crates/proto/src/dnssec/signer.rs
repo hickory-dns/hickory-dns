@@ -8,7 +8,7 @@
 //! signer is a structure for performing many of the signing processes of the DNSSEC specification
 use tracing::debug;
 
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use super::{
     rdata::{DNSSECRData, DNSKEY, KEY, SIG},
@@ -298,7 +298,7 @@ impl SigSigner {
         _: bool,
     ) -> Self {
         let pub_key = key.to_public_key().expect("key is not a private key");
-        let dnskey = DNSKEY::from_key(Arc::new(pub_key), algorithm);
+        let dnskey = DNSKEY::from_key(pub_key, algorithm);
 
         Self {
             key_rdata: dnskey.into(),
@@ -485,7 +485,7 @@ impl SigSigner {
             true,
             false,
             self.algorithm,
-            Arc::new(pub_key),
+            pub_key,
         ))
     }
 
@@ -579,7 +579,7 @@ mod tests {
 
     use crate::dnssec::{
         rdata::{key::KeyUsage, DNSSECRData, RRSIG, SIG},
-        PublicKey, RsaSigningKey, Verifier,
+        RsaSigningKey, Verifier,
     };
     use crate::op::{Message, Query};
     use crate::rr::rdata::NS;
@@ -624,7 +624,7 @@ mod tests {
 
         let key = RsaSigningKey::generate(Algorithm::RSASHA256).unwrap();
         let pub_key = key.to_public_key().unwrap();
-        let sig0key = KEY::new_sig0key(Arc::new(pub_key), Algorithm::RSASHA256);
+        let sig0key = KEY::new_sig0key(pub_key, Algorithm::RSASHA256);
         let signer = SigSigner::sig0(sig0key.clone(), Box::new(key), Name::root());
 
         let pre_sig0 = pre_sig0(&signer, 0, 300);
@@ -653,8 +653,7 @@ mod tests {
     fn test_sign_and_verify_rrset() {
         let key = RsaSigningKey::generate(Algorithm::RSASHA256).unwrap();
         let pub_key = key.to_public_key().unwrap();
-        let sig0key =
-            KEY::new_sig0key_with_usage(Arc::new(pub_key), Algorithm::RSASHA256, KeyUsage::Zone);
+        let sig0key = KEY::new_sig0key_with_usage(pub_key, Algorithm::RSASHA256, KeyUsage::Zone);
         let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
 
         let origin: Name = Name::parse("example.com.", None).unwrap();
@@ -734,11 +733,8 @@ mod tests {
 
             let key = RsaSigningKey::from_rsa(rsa, Algorithm::RSASHA256).unwrap();
             let pub_key = key.to_public_key().unwrap();
-            let sig0key = KEY::new_sig0key_with_usage(
-                Arc::new(pub_key),
-                Algorithm::RSASHA256,
-                KeyUsage::Zone,
-            );
+            let sig0key =
+                KEY::new_sig0key_with_usage(pub_key, Algorithm::RSASHA256, KeyUsage::Zone);
             let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
             let key_tag = signer.calculate_key_tag().unwrap();
 
@@ -760,8 +756,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
 
         let key = RsaSigningKey::from_rsa(rsa, Algorithm::RSASHA256).unwrap();
         let pub_key = key.to_public_key().unwrap();
-        let sig0key =
-            KEY::new_sig0key_with_usage(Arc::new(pub_key), Algorithm::RSASHA256, KeyUsage::Zone);
+        let sig0key = KEY::new_sig0key_with_usage(pub_key, Algorithm::RSASHA256, KeyUsage::Zone);
         let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
         let key_tag = signer.calculate_key_tag().unwrap();
 
@@ -773,8 +768,6 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
     #[allow(clippy::module_inception)]
     #[cfg(test)]
     mod tests {
-        use std::sync::Arc;
-
         use crate::dnssec::{
             rdata::{KEY, RRSIG},
             Algorithm, RsaSigningKey, SigSigner, SigningKey, TBS,
@@ -786,7 +779,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
         fn test_rrset_tbs() {
             let key = RsaSigningKey::generate(Algorithm::RSASHA256).unwrap();
             let pub_key = key.to_public_key().unwrap();
-            let sig0key = KEY::new_sig0key(Arc::new(pub_key), Algorithm::RSASHA256);
+            let sig0key = KEY::new_sig0key(pub_key, Algorithm::RSASHA256);
             let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
 
             let origin = Name::parse("example.com.", None).unwrap();

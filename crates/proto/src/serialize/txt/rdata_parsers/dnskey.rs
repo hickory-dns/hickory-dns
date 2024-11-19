@@ -1,8 +1,7 @@
-use core::str::FromStr as _;
-use std::sync::Arc;
+use std::str::FromStr as _;
 
 use crate::dnssec::rdata::dnskey::DNSKEY;
-use crate::dnssec::{Algorithm, PublicKeyBuf};
+use crate::dnssec::{decode_public_key, Algorithm};
 use crate::serialize::txt::{ParseError, ParseErrorKind, ParseResult};
 
 pub(crate) fn parse<'i>(mut tokens: impl Iterator<Item = &'i str>) -> ParseResult<DNSKEY> {
@@ -51,7 +50,7 @@ pub(crate) fn parse<'i>(mut tokens: impl Iterator<Item = &'i str>) -> ParseResul
         secure_entry_point,
         revoke,
         algorithm,
-        Arc::new(PublicKeyBuf::new(public_key)),
+        decode_public_key(&public_key, algorithm)?,
     ))
 }
 
@@ -67,7 +66,7 @@ mod tests {
     use super::*;
     #[cfg(feature = "dnssec-ring")]
     use crate::dnssec::ring::EcdsaSigningKey;
-    use crate::dnssec::{PublicKey, SigningKey};
+    use crate::dnssec::SigningKey;
 
     #[test]
     fn accepts_real_world_data() {
@@ -99,7 +98,7 @@ mod tests {
 
         let encoded = data_encoding::BASE64.encode(public_key.public_bytes());
         let input = format!("256 3 13 {encoded}");
-        let expected = DNSKEY::new(true, false, false, algorithm, Arc::new(public_key));
+        let expected = DNSKEY::new(true, false, false, algorithm, public_key);
         assert_eq!(expected, parse_ok(&input),);
     }
 
@@ -113,7 +112,7 @@ mod tests {
 
         let encoded = data_encoding::BASE64.encode(public_key.public_bytes());
         let input = format!("257 3 13 {encoded}");
-        let expected = DNSKEY::new(true, true, false, algorithm, Arc::new(public_key));
+        let expected = DNSKEY::new(true, true, false, algorithm, public_key);
         assert_eq!(expected, parse_ok(&input),);
     }
 

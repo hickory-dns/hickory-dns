@@ -10,22 +10,11 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-#[cfg(feature = "dnssec-openssl")]
-use openssl::bn::BigNumContext;
-#[cfg(feature = "dnssec-openssl")]
-use openssl::ec::{EcKey, PointConversionForm};
-#[cfg(feature = "dnssec-openssl")]
-use openssl::pkey::HasPublic;
-#[cfg(feature = "dnssec-openssl")]
-use openssl::rsa::Rsa as OpenSslRsa;
-
 #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 use super::openssl::{Ec, Rsa};
 #[cfg(feature = "dnssec-ring")]
 use super::ring::{Ec, Ed25519, Rsa};
 use super::Algorithm;
-#[cfg(feature = "dnssec-openssl")]
-use crate::error::DnsSecResult;
 use crate::error::ProtoResult;
 
 /// PublicKeys implement the ability to ideally be zero copy abstractions over public keys for verifying signed content.
@@ -51,7 +40,14 @@ pub trait PublicKey: Send + Sync + 'static {
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()>;
 }
 
-fn decode_public_key(public_key: &[u8], algorithm: Algorithm) -> ProtoResult<Arc<dyn PublicKey>> {
+/// Decode a public key according to the specified `Algorithm`.
+///
+/// Availability of algorithms and public key formats depends on the configured
+/// backends (`dnssec-ring` and/or `dnssec-openssl`).
+pub fn decode_public_key(
+    public_key: &[u8],
+    algorithm: Algorithm,
+) -> ProtoResult<Arc<dyn PublicKey>> {
     // try to keep this and `Algorithm::is_supported` in sync
     debug_assert!(algorithm.is_supported());
 
@@ -69,67 +65,5 @@ fn decode_public_key(public_key: &[u8], algorithm: Algorithm) -> ProtoResult<Arc
         | Algorithm::RSASHA256
         | Algorithm::RSASHA512 => Ok(Arc::new(Rsa::from_public_bytes(public_key.to_vec())?)),
         _ => Err("public key algorithm not supported".into()),
-    }
-}
-
-/// An owned variant of PublicKey
-pub struct PublicKeyBuf {
-    key_buf: Vec<u8>,
-}
-
-impl PublicKeyBuf {
-    /// Constructs a new PublicKey from the specified bytes, these should be in DNSKEY form.
-    pub fn new(key_buf: Vec<u8>) -> Self {
-        Self { key_buf }
-    }
-
-    /// Constructs a new [`PublicKeyBuf`] from an [`OpenSslRsa`] key.
-    #[cfg(feature = "dnssec-openssl")]
-    pub fn from_rsa<T: HasPublic>(key: &OpenSslRsa<T>) -> Self {
-        let mut key_buf = Vec::new();
-
-        // this is to get us access to the exponent and the modulus
-        let e = key.e().to_vec();
-        let n = key.n().to_vec();
-
-        if e.len() > 255 {
-            key_buf.push(0);
-            key_buf.push((e.len() >> 8) as u8);
-        }
-
-        key_buf.push(e.len() as u8);
-        key_buf.extend_from_slice(&e);
-        key_buf.extend_from_slice(&n);
-        Self { key_buf }
-    }
-
-    /// Constructs a new [`PublicKeyBuf`] from an openssl [`EcKey`].
-    #[cfg(feature = "dnssec-openssl")]
-    pub fn from_ec<T: HasPublic>(ec_key: &EcKey<T>) -> DnsSecResult<Self> {
-        let group = ec_key.group();
-        let point = ec_key.public_key();
-
-        let mut key_buf = BigNumContext::new().and_then(|mut ctx| {
-            point.to_bytes(group, PointConversionForm::UNCOMPRESSED, &mut ctx)
-        })?;
-
-        // Remove OpenSSL header byte
-        key_buf.remove(0);
-        Ok(Self { key_buf })
-    }
-
-    /// Extract the inner buffer of public key bytes.
-    pub fn into_inner(self) -> Vec<u8> {
-        self.key_buf
-    }
-}
-
-impl PublicKey for PublicKeyBuf {
-    fn public_bytes(&self) -> &[u8] {
-        &self.key_buf
-    }
-
-    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
-        decode_public_key(&self.key_buf, algorithm)?.verify(algorithm, message, signature)
     }
 }
