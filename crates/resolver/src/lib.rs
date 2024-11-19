@@ -241,6 +241,8 @@ pub use resolver::Resolver;
 #[cfg(feature = "tokio-runtime")]
 pub use resolver::TokioResolver;
 pub mod system_conf;
+#[cfg(test)]
+mod tests;
 #[cfg(feature = "dns-over-tls")]
 mod tls;
 
