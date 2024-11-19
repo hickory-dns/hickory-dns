@@ -8,6 +8,7 @@
 //! Public Key implementations for supported key types
 #[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
 use std::marker::PhantomData;
+use std::sync::Arc;
 
 #[cfg(feature = "dnssec-openssl")]
 use openssl::bn::BigNumContext;
@@ -50,81 +51,27 @@ pub trait PublicKey {
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()>;
 }
 
-/// Variants of all know public keys
-#[non_exhaustive]
-enum PublicKeyEnum {
-    /// RSA keypair, supported by OpenSSL
-    Rsa(Rsa),
-    /// Elliptic curve keypair
-    #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
-    Ec(Ec),
-    /// Elliptic curve keypair
-    #[cfg(feature = "dnssec-ring")]
-    Ec(Ec),
-    /// Ed25519 public key for the Algorithm::ED25519
-    #[cfg(feature = "dnssec-ring")]
-    Ed25519(Ed25519),
-    /// PhatomData for compiler when ring and or openssl not defined, do not use...
-    #[cfg(not(any(feature = "dnssec-ring", feature = "dnssec-openssl")))]
-    Phantom(PhantomData<()>),
-}
+fn decode_public_key(
+    public_key: &[u8],
+    algorithm: Algorithm,
+) -> ProtoResult<Arc<dyn PublicKey + Send + Sync + 'static>> {
+    // try to keep this and `Algorithm::is_supported` in sync
+    debug_assert!(algorithm.is_supported());
 
-impl PublicKeyEnum {
-    /// Converts the bytes into a PulbicKey of the specified algorithm
-    #[allow(unused_variables, clippy::match_single_binding)]
-    fn from_public_bytes(public_key: &[u8], algorithm: Algorithm) -> ProtoResult<Self> {
-        // try to keep this and `Algorithm::is_supported` in sync
-        debug_assert!(algorithm.is_supported());
-
-        #[allow(deprecated)]
-        match algorithm {
-            #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-            Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => Ok(PublicKeyEnum::Ec(
-                Ec::from_public_bytes(public_key.to_vec(), algorithm)?,
-            )),
-            #[cfg(feature = "dnssec-ring")]
-            Algorithm::ED25519 => Ok(PublicKeyEnum::Ed25519(Ed25519::from_public_bytes(
-                public_key,
-            )?)),
-            #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-            Algorithm::RSASHA1
-            | Algorithm::RSASHA1NSEC3SHA1
-            | Algorithm::RSASHA256
-            | Algorithm::RSASHA512 => Ok(PublicKeyEnum::Rsa(Rsa::from_public_bytes(
-                public_key.to_vec(),
-            )?)),
-            _ => Err("public key algorithm not supported".into()),
-        }
-    }
-}
-
-impl PublicKey for PublicKeyEnum {
-    #[allow(clippy::match_single_binding, clippy::match_single_binding)]
-    fn public_bytes(&self) -> &[u8] {
-        match self {
-            #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-            PublicKeyEnum::Ec(ec) => ec.public_bytes(),
-            #[cfg(feature = "dnssec-ring")]
-            PublicKeyEnum::Ed25519(ed) => ed.public_bytes(),
-            #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-            PublicKeyEnum::Rsa(rsa) => rsa.public_bytes(),
-            #[cfg(not(any(feature = "dnssec-ring", feature = "dnssec-openssl")))]
-            _ => panic!("no public keys registered, enable ring or openssl features"),
-        }
-    }
-
-    #[allow(unused_variables, clippy::match_single_binding)]
-    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
-        match self {
-            #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-            PublicKeyEnum::Ec(ec) => ec.verify(algorithm, message, signature),
-            #[cfg(feature = "dnssec-ring")]
-            PublicKeyEnum::Ed25519(ed) => ed.verify(algorithm, message, signature),
-            #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-            PublicKeyEnum::Rsa(rsa) => rsa.verify(algorithm, message, signature),
-            #[cfg(not(any(feature = "dnssec-ring", feature = "dnssec-openssl")))]
-            _ => panic!("no public keys registered, enable ring or openssl features"),
-        }
+    #[allow(deprecated)]
+    match algorithm {
+        #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+        Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => Ok(Arc::new(
+            Ec::from_public_bytes(public_key.to_vec(), algorithm)?,
+        )),
+        #[cfg(feature = "dnssec-ring")]
+        Algorithm::ED25519 => Ok(Arc::new(Ed25519::from_public_bytes(public_key)?)),
+        #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+        Algorithm::RSASHA1
+        | Algorithm::RSASHA1NSEC3SHA1
+        | Algorithm::RSASHA256
+        | Algorithm::RSASHA512 => Ok(Arc::new(Rsa::from_public_bytes(public_key.to_vec())?)),
+        _ => Err("public key algorithm not supported".into()),
     }
 }
 
@@ -186,8 +133,6 @@ impl PublicKey for PublicKeyBuf {
     }
 
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
-        let public_key = PublicKeyEnum::from_public_bytes(&self.key_buf, algorithm)?;
-
-        public_key.verify(algorithm, message, signature)
+        decode_public_key(&self.key_buf, algorithm)?.verify(algorithm, message, signature)
     }
 }
