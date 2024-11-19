@@ -13,7 +13,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    dnssec::{Algorithm, Digest, DigestType, PublicKeyEnum, Verifier},
+    dnssec::{Algorithm, Digest, DigestType, PublicKey, PublicKeyEnum, Verifier},
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     rr::{record_data::RData, Name, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
@@ -80,6 +80,20 @@ pub struct DNSKEY {
 }
 
 impl DNSKEY {
+    /// Create a [`DNSKEY`] record representing a `public_key`.
+    ///
+    /// # Arguments
+    ///
+    /// * `algorithm` - algorithm of the DNSKEY
+    ///
+    /// # Return
+    ///
+    /// the DNSKEY record data
+    pub fn from_key(public_key: impl PublicKey, algorithm: Algorithm) -> Self {
+        let bytes = public_key.public_bytes();
+        Self::new(true, true, false, algorithm, bytes.to_owned())
+    }
+
     /// Construct a new DNSKey RData
     ///
     /// # Arguments

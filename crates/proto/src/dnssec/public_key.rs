@@ -38,33 +38,18 @@ pub trait PublicKey {
     /// * `name` - name of the DNSKEY record covered by the new DS record
     /// * `algorithm` - the algorithm of the DNSKEY
     /// * `digest_type` - the digest_type used to
-    fn to_ds(
-        &self,
-        name: &Name,
-        algorithm: Algorithm,
-        digest_type: DigestType,
-    ) -> DnsSecResult<DS> {
-        let dnskey = self.to_dnskey(algorithm);
+    fn to_ds(self, name: &Name, algorithm: Algorithm, digest_type: DigestType) -> DnsSecResult<DS>
+    where
+        Self: Sized,
+    {
+        let tag = self.key_tag();
+        let dnskey = DNSKEY::from_key(self, algorithm);
         Ok(DS::new(
-            self.key_tag(),
+            tag,
             algorithm,
             digest_type,
             dnskey.to_digest(name, digest_type)?.as_ref().to_owned(),
         ))
-    }
-
-    /// Creates a Record that represents the public key for this Signer
-    ///
-    /// # Arguments
-    ///
-    /// * `algorithm` - algorithm of the DNSKEY
-    ///
-    /// # Return
-    ///
-    /// the DNSKEY record data
-    fn to_dnskey(&self, algorithm: Algorithm) -> DNSKEY {
-        let bytes = self.public_bytes();
-        DNSKEY::new(true, true, false, algorithm, bytes.to_owned())
     }
 
     /// The key tag is calculated as a hash to more quickly lookup a DNSKEY.

@@ -299,7 +299,7 @@ impl SigSigner {
         _: bool,
     ) -> Self {
         let pub_key = key.to_public_key().expect("key is not a private key");
-        let dnskey = pub_key.to_dnskey(algorithm);
+        let dnskey = DNSKEY::from_key(pub_key, algorithm);
 
         Self {
             key_rdata: dnskey.into(),
