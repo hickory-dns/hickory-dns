@@ -1,5 +1,7 @@
 FROM rust:1-slim-bookworm
 
+ARG DNSSEC_FEATURE=dnssec-openssl
+
 # ldns-utils = ldns-{key2ds,keygen,signzone}
 RUN apt-get update && \
     apt-get install -y \
@@ -14,7 +16,7 @@ RUN apt-get update && \
 # any directory inside the `hickory-dns` repository
 COPY ./src /usr/src/hickory
 RUN --mount=type=cache,target=/usr/src/hickory/target \
-    cargo build --manifest-path /usr/src/hickory/Cargo.toml -p hickory-dns --features recursor,dnssec-openssl && \
+    cargo build --manifest-path /usr/src/hickory/Cargo.toml -p hickory-dns --features recursor,$DNSSEC_FEATURE && \
     cargo build --manifest-path /usr/src/hickory/Cargo.toml --bin dns --features dns-over-h3,dns-over-https-rustls,dns-over-quic && \
     cp /usr/src/hickory/target/debug/hickory-dns /usr/bin/ && \
     cp /usr/src/hickory/target/debug/dns /usr/bin/
