@@ -133,6 +133,8 @@ pub trait SigningKey: Send + Sync + 'static {
 
 #[cfg(test)]
 mod test_utils {
+    use rdata::DNSKEY;
+
     use super::*;
 
     pub(super) fn public_key_test(key: &dyn SigningKey, algorithm: Algorithm) {
@@ -163,12 +165,11 @@ mod test_utils {
             pub_key.verify(algorithm, tbs.as_ref(), &sig).is_ok(),
             "algorithm: {algorithm:?}",
         );
+
+        let pub_key = key.to_public_key().unwrap();
+        let dns_key = DNSKEY::from_key(pub_key, algorithm);
         assert!(
-            key.to_public_key()
-                .unwrap()
-                .to_dnskey(algorithm)
-                .verify(tbs.as_ref(), &sig)
-                .is_ok(),
+            dns_key.verify(tbs.as_ref(), &sig).is_ok(),
             "algorithm: {algorithm:?} (dnskey)",
         );
         assert!(
@@ -176,12 +177,11 @@ mod test_utils {
             "algorithm: {:?} (neg)",
             algorithm
         );
+
+        let neg_pub_key = neg.to_public_key().unwrap();
+        let neg_dns_key = DNSKEY::from_key(neg_pub_key, algorithm);
         assert!(
-            neg.to_public_key()
-                .unwrap()
-                .to_dnskey(algorithm)
-                .verify(tbs.as_ref(), &sig)
-                .is_err(),
+            neg_dns_key.verify(tbs.as_ref(), &sig).is_err(),
             "algorithm: {algorithm:?} (dnskey, neg)",
         );
     }

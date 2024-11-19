@@ -197,7 +197,7 @@ pub fn create_example() -> InMemoryAuthority {
 #[allow(unused)]
 pub fn create_secure_example() -> InMemoryAuthority {
     use hickory_proto::dnssec::{
-        openssl::RsaSigningKey, Algorithm, PublicKey, SigSigner, SigningKey,
+        openssl::RsaSigningKey, rdata::DNSKEY, Algorithm, PublicKey, SigSigner, SigningKey,
     };
     use hickory_server::authority::{Authority, DnssecAuthority};
     use openssl::rsa::Rsa;
@@ -205,9 +205,9 @@ pub fn create_secure_example() -> InMemoryAuthority {
 
     let mut authority = create_example();
     let key = RsaSigningKey::generate(Algorithm::RSASHA256).unwrap();
-    let dnskey = key.to_public_key().unwrap().to_dnskey(Algorithm::RSASHA256);
+    let dnskey = key.to_public_key().unwrap();
     let signer = SigSigner::dnssec(
-        dnskey,
+        DNSKEY::from_key(key.to_public_key().unwrap(), Algorithm::RSASHA256),
         Box::new(key),
         authority.origin().clone().into(),
         Duration::weeks(1).try_into().unwrap(),

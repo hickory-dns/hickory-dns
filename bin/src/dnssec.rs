@@ -23,7 +23,7 @@ use hickory_proto::rr::domain::Name;
 use hickory_proto::serialize::txt::ParseResult;
 #[cfg(feature = "dnssec")]
 use hickory_proto::{
-    dnssec::{decode_key, Algorithm, KeyFormat, PublicKey, SigSigner},
+    dnssec::{decode_key, rdata::DNSKEY, Algorithm, KeyFormat, SigSigner},
     rr::domain::IntoName,
 };
 
@@ -288,12 +288,12 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<SigSigner, String
 
     // add the key to the zone
     // TODO: allow the duration of signatures to be customized
-    let dnskey = key
+    let pub_key = key
         .to_public_key()
-        .map_err(|e| format!("error getting public key: {e}"))?
-        .to_dnskey(algorithm);
+        .map_err(|e| format!("error getting public key: {e}"))?;
+
     Ok(SigSigner::dnssec(
-        dnskey,
+        DNSKEY::from_key(pub_key, algorithm),
         key,
         name,
         Duration::weeks(52)
