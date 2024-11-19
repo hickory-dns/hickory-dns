@@ -133,6 +133,31 @@ jobs:
       - name: just
         run: just ${{ matrix.feature }}
 
+  check-all-features-matrix:
+    name: cargo-all-features
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      matrix:
+        chunk:
+          - 1
+          - 2
+          - 3
+          - 4
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: cargo install cargo-all-features
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: cargo-all-features
+          version: 1.10.0
+
+      - name: cargo check-all-features
+        run: cargo check-all-features --n-chunks 4 --chunk ${{ matrix.chunk }}
+
   ## Check past and future versions
   ##   this enforces the minimum version of rust this project works with
   past-future-matrix:
