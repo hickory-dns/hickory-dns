@@ -40,10 +40,6 @@ pub use self::tbs::TBS;
 pub use self::trust_anchor::TrustAnchor;
 pub use self::verifier::Verifier;
 pub use crate::error::DnsSecResult;
-#[cfg(feature = "dnssec-openssl")]
-use openssl::{EcSigningKey, RsaSigningKey};
-#[cfg(feature = "dnssec-ring")]
-use ring::{EcdsaSigningKey, Ed25519SigningKey};
 
 #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 pub use ::openssl::hash::DigestBytes as Digest;
@@ -92,21 +88,23 @@ pub fn decode_key(
         }
         #[cfg(feature = "dnssec-openssl")]
         Algorithm::RSASHA256 | Algorithm::RSASHA512 => Ok(Box::new(
-            RsaSigningKey::decode_key(bytes, password, algorithm, format)
+            openssl::RsaSigningKey::decode_key(bytes, password, algorithm, format)
                 .map_err(|e| format!("could not translate RSA to KeyPair: {e}"))?,
         )),
         Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => match format {
             #[cfg(feature = "dnssec-openssl")]
-            KeyFormat::Der | KeyFormat::Pem => Ok(Box::new(EcSigningKey::decode_key(
+            KeyFormat::Der | KeyFormat::Pem => Ok(Box::new(openssl::EcSigningKey::decode_key(
                 bytes, password, algorithm, format,
             )?)),
             #[cfg(feature = "dnssec-ring")]
-            KeyFormat::Pkcs8 => Ok(Box::new(EcdsaSigningKey::from_pkcs8(bytes, algorithm)?)),
+            KeyFormat::Pkcs8 => Ok(Box::new(ring::EcdsaSigningKey::from_pkcs8(
+                bytes, algorithm,
+            )?)),
             e => Err(format!("unsupported key format with EC: {e:?}").into()),
         },
         Algorithm::ED25519 => match format {
             #[cfg(feature = "dnssec-ring")]
-            KeyFormat::Pkcs8 => Ok(Box::new(Ed25519SigningKey::from_pkcs8(bytes)?)),
+            KeyFormat::Pkcs8 => Ok(Box::new(ring::Ed25519SigningKey::from_pkcs8(bytes)?)),
             e => Err(
                 format!("unsupported key format with ED25519 (only Pkcs8 supported): {e:?}").into(),
             ),

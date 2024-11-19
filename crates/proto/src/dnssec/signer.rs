@@ -579,8 +579,9 @@ mod tests {
     use openssl::rsa::Rsa;
 
     use crate::dnssec::{
+        openssl::RsaSigningKey,
         rdata::{key::KeyUsage, DNSSECRData, RRSIG, SIG},
-        PublicKeyEnum, RsaSigningKey, Verifier,
+        PublicKeyEnum, Verifier,
     };
     use crate::op::{Message, Query};
     use crate::rr::rdata::NS;
@@ -772,7 +773,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
     #[cfg(test)]
     mod tests {
         use crate::dnssec::{
-            rdata::RRSIG, Algorithm, PublicKey, RsaSigningKey, SigSigner, SigningKey, TBS,
+            openssl::RsaSigningKey, rdata::RRSIG, Algorithm, PublicKey, SigSigner, SigningKey, TBS,
         };
         use crate::rr::rdata::{CNAME, NS};
         use crate::rr::{DNSClass, Name, RData, Record, RecordType};
