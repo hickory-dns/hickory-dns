@@ -118,7 +118,7 @@ where
                     .to_public_key()
                     .map_err(|err| format!("failed to get public key: {err}"))?;
                 let key = KEY::new_sig0key_with_usage(
-                    public_key,
+                    Arc::new(public_key),
                     update_auth_signer.algorithm(),
                     KeyUsage::Host,
                 );

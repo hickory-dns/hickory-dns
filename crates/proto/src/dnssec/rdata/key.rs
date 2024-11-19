@@ -182,10 +182,7 @@ impl KEY {
     /// # Return
     ///
     /// the KEY record data
-    pub fn new_sig0key(
-        public_key: impl PublicKey + Send + Sync + 'static,
-        algorithm: Algorithm,
-    ) -> Self {
+    pub fn new_sig0key(public_key: Arc<dyn PublicKey>, algorithm: Algorithm) -> Self {
         Self::new_sig0key_with_usage(public_key, algorithm, KeyUsage::default())
     }
 
@@ -200,7 +197,7 @@ impl KEY {
     ///
     /// the KEY record data
     pub fn new_sig0key_with_usage(
-        public_key: impl PublicKey + Send + Sync + 'static,
+        public_key: Arc<dyn PublicKey>,
         algorithm: Algorithm,
         usage: KeyUsage,
     ) -> KEY {
@@ -234,7 +231,7 @@ impl KEY {
         signatory: UpdateScope,
         protocol: Protocol,
         algorithm: Algorithm,
-        public_key: impl PublicKey + Send + Sync + 'static,
+        public_key: Arc<dyn PublicKey>,
     ) -> Self {
         Self {
             key_trust,
@@ -242,7 +239,7 @@ impl KEY {
             signatory,
             protocol,
             algorithm,
-            public_key: Arc::new(public_key),
+            public_key,
         }
     }
 
@@ -419,7 +416,7 @@ impl<'r> RecordDataDecodable<'r> for KEY {
             signatory,
             protocol,
             algorithm,
-            PublicKeyBuf::new(public_key),
+            Arc::new(PublicKeyBuf::new(public_key)),
         ))
     }
 }
@@ -1011,7 +1008,7 @@ mod tests {
             UpdateScope::default(),
             Protocol::default(),
             Algorithm::RSASHA256,
-            PublicKeyBuf::new(vec![0, 1, 2, 3, 4, 5, 6, 7]),
+            Arc::new(PublicKeyBuf::new(vec![0, 1, 2, 3, 4, 5, 6, 7])),
         );
 
         let mut bytes = Vec::new();

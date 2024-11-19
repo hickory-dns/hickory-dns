@@ -264,6 +264,8 @@ impl From<Token> for LexToken {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use crate::dnssec::{Algorithm, PublicKeyBuf};
 
     use super::*;
@@ -291,7 +293,7 @@ mod tests {
             false,
             false,
             Algorithm::RSASHA256,
-            PublicKeyBuf::new(DECODED.to_vec()),
+            Arc::new(PublicKeyBuf::new(DECODED.to_vec())),
         );
         let actual = record.data();
         assert_eq!(&expected, actual);
@@ -311,7 +313,7 @@ mod tests {
             false,
             false,
             Algorithm::RSASHA256,
-            PublicKeyBuf::new(DECODED.to_vec()),
+            Arc::new(PublicKeyBuf::new(DECODED.to_vec())),
         );
         let actual = record.data();
         assert_eq!(&expected, actual);

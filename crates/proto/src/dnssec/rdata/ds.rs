@@ -7,7 +7,10 @@
 
 //! pointer record from parent zone to child zone for dnskey proof
 
-use std::fmt::{self, Display, Formatter};
+use std::{
+    fmt::{self, Display, Formatter},
+    sync::Arc,
+};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -84,7 +87,7 @@ impl DS {
     /// * `algorithm` - the algorithm of the DNSKEY
     /// * `digest_type` - the digest_type used to
     pub fn from_key(
-        public_key: impl PublicKey + Send + Sync + 'static,
+        public_key: Arc<dyn PublicKey>,
         name: &Name,
         algorithm: Algorithm,
         digest_type: DigestType,
@@ -434,7 +437,7 @@ mod tests {
             true,
             false,
             Algorithm::RSASHA256,
-            PublicKeyBuf::new(vec![1, 2, 3, 4]),
+            Arc::new(PublicKeyBuf::new(vec![1, 2, 3, 4])),
         );
         let ds_rdata = DS::new(
             0,
@@ -460,7 +463,7 @@ mod tests {
             true,
             false,
             Algorithm::RSASHA256,
-            PublicKeyBuf::new(vec![1, 2, 3, 4]),
+            Arc::new(PublicKeyBuf::new(vec![1, 2, 3, 4])),
         );
         let ds_rdata = DS::new(
             0,

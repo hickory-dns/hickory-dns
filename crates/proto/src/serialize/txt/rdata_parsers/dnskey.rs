@@ -1,4 +1,5 @@
 use core::str::FromStr as _;
+use std::sync::Arc;
 
 use crate::dnssec::rdata::dnskey::DNSKEY;
 use crate::dnssec::{Algorithm, PublicKeyBuf};
@@ -50,7 +51,7 @@ pub(crate) fn parse<'i>(mut tokens: impl Iterator<Item = &'i str>) -> ParseResul
         secure_entry_point,
         revoke,
         algorithm,
-        PublicKeyBuf::new(public_key),
+        Arc::new(PublicKeyBuf::new(public_key)),
     ))
 }
 
@@ -96,7 +97,7 @@ mod tests {
             false,
             false,
             Algorithm::RSASHA256,
-            PublicKeyBuf::new(DECODED.to_vec()),
+            Arc::new(PublicKeyBuf::new(DECODED.to_vec())),
         );
         assert_eq!(expected, parse_ok(&input),);
     }
@@ -109,7 +110,7 @@ mod tests {
             true,
             false,
             Algorithm::RSASHA256,
-            PublicKeyBuf::new(DECODED.to_vec()),
+            Arc::new(PublicKeyBuf::new(DECODED.to_vec())),
         );
         assert_eq!(expected, parse_ok(&input),);
     }

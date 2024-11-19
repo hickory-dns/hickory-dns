@@ -88,11 +88,8 @@ impl DNSKEY {
     /// # Return
     ///
     /// the DNSKEY record data
-    pub fn from_key(
-        public_key: impl PublicKey + Send + Sync + 'static,
-        algorithm: Algorithm,
-    ) -> Self {
-        DNSKEY::new(true, true, false, algorithm, public_key)
+    pub fn from_key(public_key: Arc<dyn PublicKey>, algorithm: Algorithm) -> Self {
+        Self::new(true, true, false, algorithm, public_key)
     }
 
     /// Construct a new DNSKey RData
@@ -113,14 +110,14 @@ impl DNSKEY {
         secure_entry_point: bool,
         revoke: bool,
         algorithm: Algorithm,
-        public_key: impl PublicKey + Send + Sync + 'static,
+        public_key: Arc<dyn PublicKey>,
     ) -> Self {
         Self {
             zone_key,
             secure_entry_point,
             revoke,
             algorithm,
-            public_key: Arc::new(public_key),
+            public_key,
         }
     }
 
@@ -414,7 +411,7 @@ impl<'r> RecordDataDecodable<'r> for DNSKEY {
             secure_entry_point,
             revoke,
             algorithm,
-            PublicKeyBuf::new(public_key),
+            Arc::new(PublicKeyBuf::new(public_key)),
         ))
     }
 }
@@ -605,7 +602,7 @@ mod tests {
             true,
             false,
             Algorithm::RSASHA256,
-            PublicKeyBuf::new(vec![0, 1, 2, 3, 4, 5, 6, 7]),
+            Arc::new(PublicKeyBuf::new(vec![0, 1, 2, 3, 4, 5, 6, 7])),
         );
 
         let mut bytes = Vec::new();
