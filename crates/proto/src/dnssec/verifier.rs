@@ -25,7 +25,7 @@ pub trait Verifier {
     fn algorithm(&self) -> Algorithm;
 
     /// Return the public key associated with this verifier
-    fn key(&self) -> ProtoResult<PublicKeyEnum<'_>>;
+    fn key(&self) -> ProtoResult<PublicKeyEnum>;
 
     /// Verifies the hash matches the signature with the current `key`.
     ///

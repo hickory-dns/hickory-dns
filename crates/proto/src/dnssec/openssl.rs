@@ -356,12 +356,12 @@ fn verify_with_pkey(
 }
 
 /// Elyptic Curve public key type
-pub struct Ec<'k> {
-    raw: &'k [u8],
+pub struct Ec {
+    raw: Vec<u8>,
     pkey: PKey<Public>,
 }
 
-impl<'k> Ec<'k> {
+impl Ec {
     /// ```text
     /// RFC 6605                    ECDSA for DNSSEC                  April 2012
     ///
@@ -394,14 +394,14 @@ impl<'k> Ec<'k> {
     ///   algorithms.  Conformant DNSSEC verifiers MUST implement verification
     ///   for both of the above algorithms.
     /// ```
-    pub fn from_public_bytes(public_key: &'k [u8], algorithm: Algorithm) -> ProtoResult<Self> {
+    pub fn from_public_bytes(public_key: Vec<u8>, algorithm: Algorithm) -> ProtoResult<Self> {
         let curve = match algorithm {
             Algorithm::ECDSAP256SHA256 => Nid::X9_62_PRIME256V1,
             Algorithm::ECDSAP384SHA384 => Nid::SECP384R1,
             _ => return Err("only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into()),
         };
         // Key needs to be converted to OpenSSL format
-        let k = ECPublicKey::from_unprefixed(public_key, algorithm)?;
+        let k = ECPublicKey::from_unprefixed(&public_key, algorithm)?;
         EcGroup::from_curve_name(curve)
             .and_then(|group| BigNumContext::new().map(|ctx| (group, ctx)))
             // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
@@ -463,9 +463,9 @@ pub fn dnssec_ecdsa_signature_to_der(signature: &[u8]) -> ProtoResult<Vec<u8>> {
     Ok(signature_asn1)
 }
 
-impl<'k> PublicKey for Ec<'k> {
+impl PublicKey for Ec {
     fn public_bytes(&self) -> &[u8] {
-        self.raw
+        &self.raw
     }
 
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
@@ -475,12 +475,12 @@ impl<'k> PublicKey for Ec<'k> {
 }
 
 /// Rsa public key
-pub struct Rsa<'k> {
-    raw: &'k [u8],
+pub struct Rsa {
+    raw: Vec<u8>,
     pkey: PKey<Public>,
 }
 
-impl<'k> Rsa<'k> {
+impl Rsa {
     /// ```text
     /// RFC 3110              RSA SIGs and KEYs in the DNS              May 2001
     ///
@@ -513,8 +513,8 @@ impl<'k> Rsa<'k> {
     ///  Note: This changes the algorithm number for RSA KEY RRs to be the
     ///  same as the new algorithm number for RSA/SHA1 SIGs.
     /// ```
-    pub fn from_public_bytes(raw: &'k [u8]) -> ProtoResult<Self> {
-        let parsed = RSAPublicKey::try_from(raw)?;
+    pub fn from_public_bytes(raw: Vec<u8>) -> ProtoResult<Self> {
+        let parsed = RSAPublicKey::try_from(&raw)?;
         // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
         let e = BigNum::from_slice(parsed.e())?;
         let n = BigNum::from_slice(parsed.n())?;
@@ -524,9 +524,9 @@ impl<'k> Rsa<'k> {
     }
 }
 
-impl<'k> PublicKey for Rsa<'k> {
+impl PublicKey for Rsa {
     fn public_bytes(&self) -> &[u8] {
-        self.raw
+        &self.raw
     }
 
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {

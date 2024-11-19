@@ -353,7 +353,7 @@ impl Verifier for KEY {
         self.algorithm()
     }
 
-    fn key(&self) -> ProtoResult<PublicKeyEnum<'_>> {
+    fn key(&self) -> ProtoResult<PublicKeyEnum> {
         PublicKeyEnum::from_public_bytes(self.public_key(), self.algorithm())
     }
 }

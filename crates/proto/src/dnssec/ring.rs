@@ -150,8 +150,8 @@ impl Ec {
     ///   algorithms.  Conformant DNSSEC verifiers MUST implement verification
     ///   for both of the above algorithms.
     /// ```
-    pub fn from_public_bytes(public_key: &[u8], algorithm: Algorithm) -> ProtoResult<Self> {
-        Self::from_unprefixed(public_key, algorithm)
+    pub fn from_public_bytes(public_key: Vec<u8>, algorithm: Algorithm) -> ProtoResult<Self> {
+        Self::from_unprefixed(&public_key, algorithm)
     }
 }
 
@@ -174,11 +174,13 @@ impl PublicKey for Ec {
 }
 
 /// Ed25519 Public key
-pub struct Ed25519<'k> {
-    raw: &'k [u8],
+#[cfg(feature = "dnssec-ring")]
+pub struct Ed25519 {
+    raw: Vec<u8>,
 }
 
-impl<'k> Ed25519<'k> {
+#[cfg(feature = "dnssec-ring")]
+impl Ed25519 {
     /// ```text
     ///  Internet-Draft              EdDSA for DNSSEC               December 2016
     ///
@@ -188,7 +190,7 @@ impl<'k> Ed25519<'k> {
     ///  in [RFC 8032]. Breaking tradition, the keys are encoded in little-
     ///  endian byte order.
     /// ```
-    pub fn from_public_bytes(public_key: &'k [u8]) -> ProtoResult<Self> {
+    pub fn from_public_bytes(public_key: &[u8]) -> ProtoResult<Self> {
         if public_key.len() != ED25519_PUBLIC_KEY_LEN {
             return Err(format!(
                 "expected {} byte public_key: {}",
@@ -198,29 +200,31 @@ impl<'k> Ed25519<'k> {
             .into());
         }
 
-        Ok(Self { raw: public_key })
+        Ok(Self {
+            raw: public_key.to_vec(),
+        })
     }
 }
 
-impl<'k> PublicKey for Ed25519<'k> {
+impl PublicKey for Ed25519 {
     // TODO: just store reference to public key bytes in ctor...
     fn public_bytes(&self) -> &[u8] {
-        self.raw
+        &self.raw
     }
 
     fn verify(&self, _: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
-        let public_key = signature::UnparsedPublicKey::new(&signature::ED25519, self.raw);
+        let public_key = signature::UnparsedPublicKey::new(&signature::ED25519, &self.raw);
         public_key.verify(message, signature).map_err(Into::into)
     }
 }
 
 /// Rsa public key
-pub struct Rsa<'k> {
-    raw: &'k [u8],
-    pkey: RSAPublicKey<'k>,
+pub struct Rsa {
+    raw: Vec<u8>,
+    pkey: RSAPublicKey,
 }
 
-impl<'k> Rsa<'k> {
+impl Rsa {
     /// ```text
     /// RFC 3110              RSA SIGs and KEYs in the DNS              May 2001
     ///
@@ -253,15 +257,15 @@ impl<'k> Rsa<'k> {
     ///  Note: This changes the algorithm number for RSA KEY RRs to be the
     ///  same as the new algorithm number for RSA/SHA1 SIGs.
     /// ```
-    pub fn from_public_bytes(raw: &'k [u8]) -> ProtoResult<Self> {
-        let pkey = RSAPublicKey::try_from(raw)?;
+    pub fn from_public_bytes(raw: Vec<u8>) -> ProtoResult<Self> {
+        let pkey = RSAPublicKey::try_from(&raw)?;
         Ok(Self { raw, pkey })
     }
 }
 
-impl<'k> PublicKey for Rsa<'k> {
+impl PublicKey for Rsa {
     fn public_bytes(&self) -> &[u8] {
-        self.raw
+        &self.raw
     }
 
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
