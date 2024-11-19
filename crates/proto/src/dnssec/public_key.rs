@@ -52,7 +52,7 @@ pub trait PublicKey {
 
 /// Variants of all know public keys
 #[non_exhaustive]
-pub enum PublicKeyEnum {
+enum PublicKeyEnum {
     /// RSA keypair, supported by OpenSSL
     Rsa(Rsa),
     /// Elliptic curve keypair
@@ -72,7 +72,7 @@ pub enum PublicKeyEnum {
 impl PublicKeyEnum {
     /// Converts the bytes into a PulbicKey of the specified algorithm
     #[allow(unused_variables, clippy::match_single_binding)]
-    pub fn from_public_bytes(public_key: &[u8], algorithm: Algorithm) -> ProtoResult<Self> {
+    fn from_public_bytes(public_key: &[u8], algorithm: Algorithm) -> ProtoResult<Self> {
         // try to keep this and `Algorithm::is_supported` in sync
         debug_assert!(algorithm.is_supported());
 

@@ -8,14 +8,14 @@
 //! public key record data for signing zone records
 #![allow(clippy::use_self)]
 
-use std::fmt;
+use std::{fmt, sync::Arc};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use super::DNSSECRData;
 use crate::{
-    dnssec::{Algorithm, PublicKey, PublicKeyEnum, Verifier},
+    dnssec::{Algorithm, PublicKey, PublicKeyBuf, Verifier},
     error::{ProtoError, ProtoResult},
     rr::{record_data::RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
@@ -160,15 +160,14 @@ use crate::{
 ///               6 and 7 above) always have authority to sign any RRs in
 ///               the zone regardless of the value of the signatory field.
 /// ```
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Clone)]
 pub struct KEY {
     key_trust: KeyTrust,
     key_usage: KeyUsage,
     signatory: UpdateScope,
     protocol: Protocol,
     algorithm: Algorithm,
-    public_key: Vec<u8>,
+    public_key: Arc<dyn PublicKey + Send + Sync + 'static>,
 }
 
 impl KEY {
@@ -183,7 +182,10 @@ impl KEY {
     /// # Return
     ///
     /// the KEY record data
-    pub fn new_sig0key(public_key: impl PublicKey, algorithm: Algorithm) -> Self {
+    pub fn new_sig0key(
+        public_key: impl PublicKey + Send + Sync + 'static,
+        algorithm: Algorithm,
+    ) -> Self {
         Self::new_sig0key_with_usage(public_key, algorithm, KeyUsage::default())
     }
 
@@ -198,7 +200,7 @@ impl KEY {
     ///
     /// the KEY record data
     pub fn new_sig0key_with_usage(
-        public_key: impl PublicKey,
+        public_key: impl PublicKey + Send + Sync + 'static,
         algorithm: Algorithm,
         usage: KeyUsage,
     ) -> KEY {
@@ -209,7 +211,7 @@ impl KEY {
             UpdateScope::default(),
             Protocol::default(),
             algorithm,
-            public_key.public_bytes().to_vec(),
+            public_key,
         )
     }
 
@@ -232,7 +234,7 @@ impl KEY {
         signatory: UpdateScope,
         protocol: Protocol,
         algorithm: Algorithm,
-        public_key: Vec<u8>,
+        public_key: impl PublicKey + Send + Sync + 'static,
     ) -> Self {
         Self {
             key_trust,
@@ -240,7 +242,7 @@ impl KEY {
             signatory,
             protocol,
             algorithm,
-            public_key,
+            public_key: Arc::new(public_key),
         }
     }
 
@@ -291,8 +293,8 @@ impl KEY {
     ///    depends on the algorithm of the key being stored and is described in
     ///    separate documents.
     /// ```
-    pub fn public_key(&self) -> &[u8] {
-        &self.public_key
+    pub fn public_key(&self) -> &dyn PublicKey {
+        &*self.public_key
     }
 
     /// Output the encoded form of the flags
@@ -353,8 +355,8 @@ impl Verifier for KEY {
         self.algorithm()
     }
 
-    fn key(&self) -> ProtoResult<PublicKeyEnum> {
-        PublicKeyEnum::from_public_bytes(self.public_key(), self.algorithm())
+    fn key(&self) -> &dyn PublicKey {
+        self.public_key()
     }
 }
 
@@ -363,7 +365,7 @@ impl BinEncodable for KEY {
         encoder.emit_u16(self.flags())?;
         encoder.emit(u8::from(self.protocol))?;
         self.algorithm().emit(encoder)?;
-        encoder.emit_vec(self.public_key())?;
+        encoder.emit_vec(self.public_key().public_bytes())?;
 
         Ok(())
     }
@@ -412,7 +414,12 @@ impl<'r> RecordDataDecodable<'r> for KEY {
             decoder.read_vec(key_len)?.unverified(/*the byte array will fail in usage if invalid*/);
 
         Ok(Self::new(
-            key_trust, key_usage, signatory, protocol, algorithm, public_key,
+            key_trust,
+            key_usage,
+            signatory,
+            protocol,
+            algorithm,
+            PublicKeyBuf::new(public_key),
         ))
     }
 }
@@ -438,6 +445,61 @@ impl RecordData for KEY {
 
     fn into_rdata(self) -> RData {
         RData::DNSSEC(DNSSECRData::KEY(self))
+    }
+}
+
+#[cfg(feature = "serde")]
+#[derive(Deserialize, Serialize)]
+struct SerdeKey<'a> {
+    key_trust: KeyTrust,
+    key_usage: KeyUsage,
+    signatory: UpdateScope,
+    protocol: Protocol,
+    algorithm: Algorithm,
+    public_key: &'a [u8],
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for KEY {
+    fn deserialize<D>(deserializer: D) -> Result<KEY, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let SerdeKey {
+            key_trust,
+            key_usage,
+            signatory,
+            protocol,
+            algorithm,
+            public_key,
+        } = SerdeKey::deserialize(deserializer)?;
+
+        Ok(KEY::new(
+            key_trust,
+            key_usage,
+            signatory,
+            protocol,
+            algorithm,
+            PublicKeyBuf::new(public_key.to_vec()),
+        ))
+    }
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for KEY {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        SerdeKey {
+            key_trust: self.key_trust,
+            key_usage: self.key_usage,
+            signatory: self.signatory,
+            protocol: self.protocol,
+            algorithm: self.algorithm,
+            public_key: self.public_key.public_bytes(),
+        }
+        .serialize(serializer)
     }
 }
 
@@ -513,10 +575,54 @@ impl fmt::Display for KEY {
             flags = self.flags(),
             proto = u8::from(self.protocol),
             alg = self.algorithm,
-            key = data_encoding::BASE64.encode(&self.public_key)
+            key = data_encoding::BASE64.encode(self.public_key.public_bytes())
         )
     }
 }
+
+impl fmt::Debug for KEY {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        let Self {
+            key_trust,
+            key_usage,
+            signatory,
+            protocol,
+            algorithm,
+            public_key,
+        } = self;
+
+        f.debug_struct("KEY")
+            .field("key_trust", key_trust)
+            .field("key_usage", key_usage)
+            .field("signatory", signatory)
+            .field("protocol", protocol)
+            .field("algorithm", algorithm)
+            .field("public_key", &public_key.public_bytes())
+            .finish()
+    }
+}
+
+impl PartialEq for KEY {
+    fn eq(&self, other: &Self) -> bool {
+        let Self {
+            key_trust,
+            key_usage,
+            signatory,
+            protocol,
+            algorithm,
+            public_key,
+        } = self;
+
+        key_trust == &other.key_trust
+            && key_usage == &other.key_usage
+            && signatory == &other.signatory
+            && protocol == &other.protocol
+            && algorithm == &other.algorithm
+            && public_key.public_bytes() == other.public_key.public_bytes()
+    }
+}
+
+impl Eq for KEY {}
 
 impl From<KEY> for RData {
     fn from(key: KEY) -> Self {
@@ -905,7 +1011,7 @@ mod tests {
             UpdateScope::default(),
             Protocol::default(),
             Algorithm::RSASHA256,
-            vec![0, 1, 2, 3, 4, 5, 6, 7],
+            PublicKeyBuf::new(vec![0, 1, 2, 3, 4, 5, 6, 7]),
         );
 
         let mut bytes = Vec::new();

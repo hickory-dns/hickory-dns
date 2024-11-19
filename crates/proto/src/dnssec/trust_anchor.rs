@@ -53,12 +53,12 @@ impl TrustAnchor {
     }
 
     /// determines if the key is in the trust anchor set
-    pub fn contains<P: PublicKey>(&self, other_key: &P) -> bool {
+    pub fn contains<P: PublicKey + ?Sized>(&self, other_key: &P) -> bool {
         self.contains_dnskey_bytes(other_key.public_bytes())
     }
 
     /// inserts the trust_anchor to the trusted chain
-    pub fn insert_trust_anchor<P: PublicKey>(&mut self, public_key: &P) {
+    pub fn insert_trust_anchor<P: PublicKey + ?Sized>(&mut self, public_key: &P) {
         if !self.contains(public_key) {
             self.pkeys.push(public_key.public_bytes().to_vec())
         }

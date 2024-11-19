@@ -88,7 +88,7 @@ async fn main() {
                     .open(&path)
                     .expect("couldn't open file for writing");
 
-                file.write_all(dnskey.public_key())
+                file.write_all(dnskey.public_key().public_bytes())
                     .expect("failed to write to file");
                 println!("wrote dnskey tag: {} to: {}", key_tag, path.display());
             }

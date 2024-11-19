@@ -264,7 +264,7 @@ impl From<Token> for LexToken {
 
 #[cfg(test)]
 mod tests {
-    use crate::dnssec::Algorithm;
+    use crate::dnssec::{Algorithm, PublicKeyBuf};
 
     use super::*;
 
@@ -286,7 +286,13 @@ mod tests {
         assert_eq!(Some(34076), record.ttl());
         assert_eq!(DNSClass::IN, record.dns_class());
         assert_eq!(RecordType::DNSKEY, record.record_type());
-        let expected = DNSKEY::new(true, false, false, Algorithm::RSASHA256, DECODED.to_vec());
+        let expected = DNSKEY::new(
+            true,
+            false,
+            false,
+            Algorithm::RSASHA256,
+            PublicKeyBuf::new(DECODED.to_vec()),
+        );
         let actual = record.data();
         assert_eq!(&expected, actual);
     }
@@ -300,7 +306,13 @@ mod tests {
         assert_eq!(None, record.ttl());
         assert_eq!(DNSClass::IN, record.dns_class());
         assert_eq!(RecordType::DNSKEY, record.record_type());
-        let expected = DNSKEY::new(true, false, false, Algorithm::RSASHA256, DECODED.to_vec());
+        let expected = DNSKEY::new(
+            true,
+            false,
+            false,
+            Algorithm::RSASHA256,
+            PublicKeyBuf::new(DECODED.to_vec()),
+        );
         let actual = record.data();
         assert_eq!(&expected, actual);
     }

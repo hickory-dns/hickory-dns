@@ -10,12 +10,11 @@ use tracing::debug;
 
 use std::time::Duration;
 
-use super::{PublicKey, SigningKey};
+use super::{
+    rdata::{DNSSECRData, DNSKEY, KEY, SIG},
+    tbs, Algorithm, SigningKey, TBS,
+};
 use crate::{
-    dnssec::{
-        rdata::{DNSSECRData, DNSKEY, KEY, SIG},
-        tbs, Algorithm, TBS,
-    },
     error::{DnsSecResult, ProtoErrorKind, ProtoResult},
     op::{Message, MessageFinalizer, MessageVerifier},
     rr::{
@@ -486,7 +485,7 @@ impl SigSigner {
             true,
             false,
             self.algorithm,
-            pub_key.public_bytes().to_owned(),
+            pub_key,
         ))
     }
 
@@ -580,7 +579,7 @@ mod tests {
 
     use crate::dnssec::{
         rdata::{key::KeyUsage, DNSSECRData, RRSIG, SIG},
-        PublicKeyEnum, RsaSigningKey, Verifier,
+        PublicKey, RsaSigningKey, Verifier,
     };
     use crate::op::{Message, Query};
     use crate::rr::rdata::NS;
@@ -695,9 +694,6 @@ mod tests {
         let sig = signer.sign(&tbs).unwrap();
 
         let pub_key = signer.key().to_public_key().unwrap();
-        let pub_key =
-            PublicKeyEnum::from_public_bytes(pub_key.public_bytes(), Algorithm::RSASHA256).unwrap();
-
         assert!(pub_key
             .verify(Algorithm::RSASHA256, tbs.as_ref(), &sig)
             .is_ok());

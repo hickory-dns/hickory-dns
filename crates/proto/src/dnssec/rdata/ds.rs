@@ -84,7 +84,7 @@ impl DS {
     /// * `algorithm` - the algorithm of the DNSKEY
     /// * `digest_type` - the digest_type used to
     pub fn from_key(
-        public_key: impl PublicKey,
+        public_key: impl PublicKey + Send + Sync + 'static,
         name: &Name,
         algorithm: Algorithm,
         digest_type: DigestType,
@@ -400,6 +400,7 @@ mod tests {
 
     use super::*;
     use crate::dnssec::rdata::DNSKEY;
+    use crate::dnssec::PublicKeyBuf;
 
     #[test]
     fn test() {
@@ -428,7 +429,13 @@ mod tests {
     pub(crate) fn test_covers() {
         let name = Name::parse("www.example.com.", None).unwrap();
 
-        let dnskey_rdata = DNSKEY::new(true, true, false, Algorithm::RSASHA256, vec![1, 2, 3, 4]);
+        let dnskey_rdata = DNSKEY::new(
+            true,
+            true,
+            false,
+            Algorithm::RSASHA256,
+            PublicKeyBuf::new(vec![1, 2, 3, 4]),
+        );
         let ds_rdata = DS::new(
             0,
             Algorithm::RSASHA256,
@@ -448,7 +455,13 @@ mod tests {
     pub(crate) fn test_covers_fails_with_non_zone_key() {
         let name = Name::parse("www.example.com.", None).unwrap();
 
-        let dnskey_rdata = DNSKEY::new(false, true, false, Algorithm::RSASHA256, vec![1, 2, 3, 4]);
+        let dnskey_rdata = DNSKEY::new(
+            false,
+            true,
+            false,
+            Algorithm::RSASHA256,
+            PublicKeyBuf::new(vec![1, 2, 3, 4]),
+        );
         let ds_rdata = DS::new(
             0,
             Algorithm::RSASHA256,

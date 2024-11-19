@@ -502,10 +502,7 @@ where
             continue;
         }
 
-        if !handle
-            .trust_anchor
-            .contains_dnskey_bytes(key_rdata.public_key())
-        {
+        if !handle.trust_anchor.contains(key_rdata.public_key()) {
             continue;
         }
 

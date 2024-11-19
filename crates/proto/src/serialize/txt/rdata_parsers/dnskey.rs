@@ -1,7 +1,7 @@
 use core::str::FromStr as _;
 
 use crate::dnssec::rdata::dnskey::DNSKEY;
-use crate::dnssec::Algorithm;
+use crate::dnssec::{Algorithm, PublicKeyBuf};
 use crate::serialize::txt::{ParseError, ParseErrorKind, ParseResult};
 
 pub(crate) fn parse<'i>(mut tokens: impl Iterator<Item = &'i str>) -> ParseResult<DNSKEY> {
@@ -50,7 +50,7 @@ pub(crate) fn parse<'i>(mut tokens: impl Iterator<Item = &'i str>) -> ParseResul
         secure_entry_point,
         revoke,
         algorithm,
-        public_key,
+        PublicKeyBuf::new(public_key),
     ))
 }
 
@@ -61,6 +61,8 @@ fn is_bit_set(value: u16, bit: usize) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use crate::dnssec::PublicKeyBuf;
+
     use super::*;
 
     const DECODED: &[u8] = b"hello";
@@ -89,14 +91,26 @@ mod tests {
     #[test]
     fn it_works() {
         let input = format!("256 3 8 {ENCODED}");
-        let expected = DNSKEY::new(true, false, false, Algorithm::RSASHA256, DECODED.to_vec());
+        let expected = DNSKEY::new(
+            true,
+            false,
+            false,
+            Algorithm::RSASHA256,
+            PublicKeyBuf::new(DECODED.to_vec()),
+        );
         assert_eq!(expected, parse_ok(&input),);
     }
 
     #[test]
     fn secure_entry_point() {
         let input = format!("257 3 8 {ENCODED}");
-        let expected = DNSKEY::new(true, true, false, Algorithm::RSASHA256, DECODED.to_vec());
+        let expected = DNSKEY::new(
+            true,
+            true,
+            false,
+            Algorithm::RSASHA256,
+            PublicKeyBuf::new(DECODED.to_vec()),
+        );
         assert_eq!(expected, parse_ok(&input),);
     }
 

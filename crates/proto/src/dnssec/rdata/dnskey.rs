@@ -7,13 +7,13 @@
 
 //! public key record data for signing zone records
 
-use std::fmt;
+use std::{fmt, sync::Arc};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    dnssec::{Algorithm, Digest, DigestType, PublicKey, PublicKeyEnum, Verifier},
+    dnssec::{Algorithm, Digest, DigestType, PublicKey, PublicKeyBuf, Verifier},
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     rr::{record_data::RData, Name, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
@@ -69,14 +69,13 @@ use super::DNSSECRData;
 ///    backward compatibility with early versions of the KEY record.
 ///
 /// ```
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Clone)]
 pub struct DNSKEY {
     zone_key: bool,
     secure_entry_point: bool,
     revoke: bool,
     algorithm: Algorithm,
-    public_key: Vec<u8>,
+    public_key: Arc<dyn PublicKey + Send + Sync + 'static>,
 }
 
 impl DNSKEY {
@@ -89,9 +88,11 @@ impl DNSKEY {
     /// # Return
     ///
     /// the DNSKEY record data
-    pub fn from_key(public_key: impl PublicKey, algorithm: Algorithm) -> Self {
-        let bytes = public_key.public_bytes();
-        Self::new(true, true, false, algorithm, bytes.to_owned())
+    pub fn from_key(
+        public_key: impl PublicKey + Send + Sync + 'static,
+        algorithm: Algorithm,
+    ) -> Self {
+        DNSKEY::new(true, true, false, algorithm, public_key)
     }
 
     /// Construct a new DNSKey RData
@@ -112,14 +113,14 @@ impl DNSKEY {
         secure_entry_point: bool,
         revoke: bool,
         algorithm: Algorithm,
-        public_key: Vec<u8>,
+        public_key: impl PublicKey + Send + Sync + 'static,
     ) -> Self {
         Self {
             zone_key,
             secure_entry_point,
             revoke,
             algorithm,
-            public_key,
+            public_key: Arc::new(public_key),
         }
     }
 
@@ -205,8 +206,8 @@ impl DNSKEY {
     ///    depends on the algorithm of the key being stored and is described in
     ///    separate documents.
     /// ```
-    pub fn public_key(&self) -> &[u8] {
-        &self.public_key
+    pub fn public_key(&self) -> &dyn PublicKey {
+        &*self.public_key
     }
 
     /// Output the encoded form of the flags
@@ -363,7 +364,7 @@ impl BinEncodable for DNSKEY {
         encoder.emit_u16(self.flags())?;
         encoder.emit(3)?; // always 3 for now
         self.algorithm().emit(encoder)?;
-        encoder.emit_vec(self.public_key())?;
+        encoder.emit_vec(self.public_key().public_bytes())?;
 
         Ok(())
     }
@@ -413,7 +414,7 @@ impl<'r> RecordDataDecodable<'r> for DNSKEY {
             secure_entry_point,
             revoke,
             algorithm,
-            public_key,
+            PublicKeyBuf::new(public_key),
         ))
     }
 }
@@ -447,10 +448,75 @@ impl Verifier for DNSKEY {
         self.algorithm()
     }
 
-    fn key(&self) -> ProtoResult<PublicKeyEnum> {
-        PublicKeyEnum::from_public_bytes(self.public_key(), self.algorithm())
+    fn key(&self) -> &dyn PublicKey {
+        self.public_key()
     }
 }
+
+#[cfg(feature = "serde")]
+#[derive(Deserialize, Serialize)]
+#[serde(rename = "DNSKEY")]
+struct SerdeDnsKey<'a> {
+    zone_key: bool,
+    secure_entry_point: bool,
+    revoke: bool,
+    algorithm: Algorithm,
+    public_key: &'a [u8],
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for DNSKEY {
+    fn deserialize<D>(deserializer: D) -> Result<DNSKEY, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let dnskey = SerdeDnsKey::deserialize(deserializer)?;
+        Ok(DNSKEY::new(
+            dnskey.zone_key,
+            dnskey.secure_entry_point,
+            dnskey.revoke,
+            dnskey.algorithm,
+            PublicKeyBuf::new(dnskey.public_key.to_vec()),
+        ))
+    }
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for DNSKEY {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        SerdeDnsKey {
+            zone_key: self.zone_key,
+            secure_entry_point: self.secure_entry_point,
+            revoke: self.revoke,
+            algorithm: self.algorithm,
+            public_key: self.public_key.public_bytes(),
+        }
+        .serialize(serializer)
+    }
+}
+
+impl PartialEq for DNSKEY {
+    fn eq(&self, other: &Self) -> bool {
+        let Self {
+            zone_key,
+            secure_entry_point,
+            revoke,
+            algorithm,
+            public_key,
+        } = self;
+
+        zone_key == &other.zone_key
+            && secure_entry_point == &other.secure_entry_point
+            && revoke == &other.revoke
+            && algorithm == &other.algorithm
+            && public_key.public_bytes() == other.public_key.public_bytes()
+    }
+}
+
+impl Eq for DNSKEY {}
 
 /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.2)
 ///
@@ -500,8 +566,28 @@ impl fmt::Display for DNSKEY {
             "{flags} 3 {alg} {key}",
             flags = self.flags(),
             alg = u8::from(self.algorithm),
-            key = data_encoding::BASE64.encode(&self.public_key)
+            key = data_encoding::BASE64.encode(self.public_key.public_bytes())
         )
+    }
+}
+
+impl fmt::Debug for DNSKEY {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        let Self {
+            zone_key,
+            secure_entry_point,
+            revoke,
+            algorithm,
+            public_key,
+        } = self;
+
+        f.debug_struct("DNSKEY")
+            .field("zone_key", zone_key)
+            .field("secure_entry_point", secure_entry_point)
+            .field("revoke", revoke)
+            .field("algorithm", algorithm)
+            .field("public_key", &public_key.public_bytes())
+            .finish()
     }
 }
 
@@ -519,7 +605,7 @@ mod tests {
             true,
             false,
             Algorithm::RSASHA256,
-            vec![0, 1, 2, 3, 4, 5, 6, 7],
+            PublicKeyBuf::new(vec![0, 1, 2, 3, 4, 5, 6, 7]),
         );
 
         let mut bytes = Vec::new();

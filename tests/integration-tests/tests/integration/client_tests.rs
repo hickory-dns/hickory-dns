@@ -24,7 +24,7 @@ use hickory_integration::{GOOGLE_V4, TEST3_V4};
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 use hickory_proto::dnssec::rdata::{DNSSECRData, KEY};
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
-use hickory_proto::dnssec::{openssl::RsaSigningKey, Algorithm, PublicKey, SigSigner, SigningKey};
+use hickory_proto::dnssec::{openssl::RsaSigningKey, Algorithm, SigSigner, SigningKey};
 use hickory_proto::op::{Edns, Message, MessageType, OpCode, Query};
 #[cfg(feature = "dnssec")]
 use hickory_proto::op::{MessageFinalizer, ResponseCode};
@@ -513,7 +513,7 @@ async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
             Default::default(),
             Default::default(),
             signer.algorithm(),
-            pub_key.public_bytes().to_vec(),
+            pub_key,
         ))),
     );
     authority.upsert_mut(auth_key, 0);

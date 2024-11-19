@@ -22,7 +22,7 @@ use serde::Deserialize;
 use crate::error::ConfigError;
 #[cfg(feature = "dnssec")]
 use crate::proto::{
-    dnssec::{PublicKeyEnum, TrustAnchor},
+    dnssec::TrustAnchor,
     serialize::txt::trust_anchor::{self, Entry},
 };
 use crate::proto::{
@@ -164,9 +164,7 @@ fn parse_trust_anchor(input: &str) -> Result<TrustAnchor, String> {
         if let Entry::DNSKEY(record) = entry {
             let dnskey = record.data();
             // XXX should we filter based on `dnskey.flags()`?
-            let key = PublicKeyEnum::from_public_bytes(dnskey.public_key(), dnskey.algorithm())
-                .map_err(|e| e.to_string())?;
-            trust_anchor.insert_trust_anchor(&key);
+            trust_anchor.insert_trust_anchor(dnskey.public_key());
         }
     }
 
