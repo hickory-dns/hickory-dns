@@ -159,12 +159,14 @@ impl Implementation {
                     )
                 }
 
-                Self::Hickory { .. } => {
+                Self::Hickory { dnssec_feature, .. } => {
+                    let use_pkcs8 = matches!(dnssec_feature, Some(HickoryDnssecFeature::Ring));
                     minijinja::render!(
                         include_str!("templates/hickory.name-server.toml.jinja"),
                         fqdn => origin.as_str(),
                         use_dnssec => use_dnssec,
                         additional_zones => additional_zones.keys().map(|x| x.as_str()).collect::<Vec<&str>>(),
+                        use_pkcs8 => use_pkcs8,
                     )
                 }
             },
