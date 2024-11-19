@@ -12,7 +12,7 @@ use std::{env, fs};
 use tempfile::{NamedTempFile, TempDir};
 
 pub use crate::container::network::Network;
-use crate::{Error, Implementation, Repository, Result};
+use crate::{Error, HickoryDnssecFeature, Implementation, Repository, Result};
 
 #[derive(Clone)]
 pub struct Container {
@@ -26,7 +26,10 @@ pub enum Image {
     Bind,
     Dnslib,
     Client,
-    Hickory(Repository<'static>),
+    Hickory {
+        repo: Repository<'static>,
+        dnssec_feature: Option<HickoryDnssecFeature>,
+    },
     Unbound,
 }
 
@@ -77,21 +80,33 @@ impl From<Implementation> for Image {
             Implementation::Bind => Self::Bind,
             Implementation::Dnslib => Self::Dnslib,
             Implementation::Unbound => Self::Unbound,
-            Implementation::Hickory(repo) => Self::Hickory(repo),
+            Implementation::Hickory {
+                repo,
+                dnssec_feature,
+            } => Self::Hickory {
+                repo,
+                dnssec_feature,
+            },
         }
     }
 }
 
 impl fmt::Display for Image {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Self::Client => "client",
-            Self::Bind => "bind",
-            Self::Dnslib => "dnslib",
-            Self::Hickory { .. } => "hickory",
-            Self::Unbound => "unbound",
-        };
-        f.write_str(s)
+        match self {
+            Self::Client => f.write_str("client"),
+            Self::Bind => f.write_str("bind"),
+            Self::Dnslib => f.write_str("dnslib"),
+            Self::Hickory {
+                repo: _,
+                dnssec_feature: None,
+            } => f.write_str("hickory"),
+            Self::Hickory {
+                repo: _,
+                dnssec_feature: Some(dnssec_feature),
+            } => write!(f, "hickory-{dnssec_feature}"),
+            Self::Unbound => f.write_str("unbound"),
+        }
     }
 }
 
@@ -112,7 +127,15 @@ impl Container {
             .arg(&image_tag)
             .arg(docker_build_dir);
 
-        let repo = if let Image::Hickory(repo) = image {
+        if let Image::Hickory {
+            dnssec_feature: Some(dnssec_feature),
+            ..
+        } = image
+        {
+            command.arg(format!("--build-arg=DNSSEC_FEATURE={dnssec_feature}"));
+        };
+
+        let repo = if let Image::Hickory { repo, .. } = image {
             Some(repo)
         } else {
             None

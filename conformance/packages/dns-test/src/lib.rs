@@ -9,7 +9,7 @@ use name_server::{NameServer, Running};
 
 pub use crate::container::Network;
 pub use crate::fqdn::FQDN;
-pub use crate::implementation::{Implementation, Repository};
+pub use crate::implementation::{HickoryDnssecFeature, Implementation, Repository};
 pub use crate::resolver::Resolver;
 pub use crate::trust_anchor::TrustAnchor;
 
@@ -102,10 +102,17 @@ fn parse_subject() -> Implementation {
         }
 
         if subject.starts_with("hickory") {
-            if let Some(url) = subject.strip_prefix("hickory ") {
-                Implementation::Hickory(Repository(url.to_string()))
+            let Some(rest) = subject.strip_prefix("hickory ") else {
+                panic!("the syntax of DNS_TEST_SUBJECT is 'hickory $URL' or 'hickory $URL $DNSSEC_FEATURE', e.g. 'hickory /tmp/hickory' or 'hickory https://github.com/owner/repo'")
+            };
+            let (url, dnssec_feature) = if let Some((url, dnssec_feature)) = rest.split_once(' ') {
+                (url, Some(dnssec_feature.parse().unwrap()))
             } else {
-                panic!("the syntax of DNS_TEST_SUBJECT is 'hickory $URL', e.g. 'hickory /tmp/hickory' or 'hickory https://github.com/owner/repo'")
+                (rest, None)
+            };
+            Implementation::Hickory {
+                repo: Repository(url.to_string()),
+                dnssec_feature,
             }
         } else {
             panic!("unknown implementation: {subject}")
@@ -146,7 +153,7 @@ mod tests {
     impl PartialEq for Implementation {
         fn eq(&self, other: &Self) -> bool {
             match (self, other) {
-                (Self::Hickory(_), Self::Hickory(_)) => true,
+                (Self::Hickory { .. }, Self::Hickory { .. }) => true,
                 _ => core::mem::discriminant(self) == core::mem::discriminant(other),
             }
         }

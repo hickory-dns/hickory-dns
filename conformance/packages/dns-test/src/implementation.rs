@@ -2,11 +2,12 @@ use core::fmt;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::Path;
+use std::str::FromStr;
 
 use url::Url;
 
 use crate::zone_file::ZoneFile;
-use crate::FQDN;
+use crate::{Error, FQDN};
 
 #[derive(Clone)]
 pub enum Config<'a> {
@@ -42,7 +43,10 @@ pub enum Role {
 pub enum Implementation {
     Bind,
     Dnslib,
-    Hickory(Repository<'static>),
+    Hickory {
+        repo: Repository<'static>,
+        dnssec_feature: Option<HickoryDnssecFeature>,
+    },
     Unbound,
 }
 
@@ -51,14 +55,17 @@ impl Implementation {
         match self {
             Implementation::Bind => false,
             Implementation::Dnslib => true,
-            Implementation::Hickory(_) => true,
+            Implementation::Hickory { .. } => true,
             Implementation::Unbound => true,
         }
     }
 
     /// Returns the latest hickory-dns local revision
     pub fn hickory() -> Self {
-        Self::Hickory(Repository(crate::repo_root()))
+        Self::Hickory {
+            repo: Repository(crate::repo_root()),
+            dnssec_feature: None,
+        }
     }
 
     /// A test peer that cannot be changed using the `DNS_TEST_PEER` env variable
@@ -78,7 +85,7 @@ impl Implementation {
 
     #[must_use]
     pub fn is_hickory(&self) -> bool {
-        matches!(self, Self::Hickory(_))
+        matches!(self, Self::Hickory { .. })
     }
 
     #[must_use]
@@ -108,7 +115,7 @@ impl Implementation {
                     "".into()
                 }
 
-                Self::Hickory(_) => {
+                Self::Hickory { .. } => {
                     // TODO enable EDE in Hickory when supported
                     minijinja::render!(
                         include_str!("templates/hickory.resolver.toml.jinja"),
@@ -152,7 +159,7 @@ impl Implementation {
                     )
                 }
 
-                Self::Hickory(_) => {
+                Self::Hickory { .. } => {
                     minijinja::render!(
                         include_str!("templates/hickory.name-server.toml.jinja"),
                         fqdn => origin.as_str(),
@@ -170,7 +177,7 @@ impl Implementation {
 
             Self::Dnslib => None,
 
-            Self::Hickory(_) => Some("/etc/named.toml"),
+            Self::Hickory { .. } => Some("/etc/named.toml"),
 
             Self::Unbound => match role {
                 Role::NameServer => Some("/etc/nsd/nsd.conf"),
@@ -183,7 +190,7 @@ impl Implementation {
         let base = match self {
             Implementation::Bind => "named -g -d5",
             Implementation::Dnslib => "python3 /script.py",
-            Implementation::Hickory(_) => "hickory-dns -d",
+            Implementation::Hickory { .. } => "hickory-dns -d",
             Implementation::Unbound => match role {
                 Role::NameServer => "nsd -d",
                 Role::Resolver => "unbound -d",
@@ -217,7 +224,7 @@ impl Implementation {
 
             Implementation::Dnslib => "/tmp/dnslib",
 
-            Implementation::Hickory(_) => "/tmp/hickory",
+            Implementation::Hickory { .. } => "/tmp/hickory",
 
             Implementation::Unbound => match role {
                 Role::NameServer => "/tmp/nsd",
@@ -226,6 +233,38 @@ impl Implementation {
         };
 
         format!("{path}.{suffix}")
+    }
+}
+
+/// A Hickory DNS Cargo feature used to enable DNSSEC with a particular cryptography library.
+#[derive(Debug, Clone, Copy)]
+pub enum HickoryDnssecFeature {
+    Openssl,
+    Ring,
+}
+
+impl fmt::Display for HickoryDnssecFeature {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Self::Openssl => "dnssec-openssl",
+            Self::Ring => "dnssec-ring",
+        };
+        f.write_str(s)
+    }
+}
+
+impl FromStr for HickoryDnssecFeature {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "dnssec-openssl" => Ok(Self::Openssl),
+            "dnssec-ring" => Ok(Self::Ring),
+            _ => Err(format!(
+                "invalid value for DNSSEC_FEATURE: {s}, expected dnssec-openssl or dnssec-ring"
+            )
+            .into()),
+        }
     }
 }
 
@@ -249,7 +288,7 @@ impl fmt::Display for Implementation {
         let s = match self {
             Implementation::Bind => "bind",
             Implementation::Dnslib => "dnslib",
-            Implementation::Hickory(_) => "hickory",
+            Implementation::Hickory { .. } => "hickory",
             Implementation::Unbound => "unbound",
         };
 
