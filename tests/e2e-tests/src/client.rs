@@ -5,7 +5,29 @@ use dns_test::container::{Container, Image};
 use dns_test::{Network, Result};
 
 #[test]
-fn tls_handshake_timeout() -> Result<()> {
+fn tls_handshake_timeout_dns_over_https() -> Result<()> {
+    tls_handshake_timeout("https")
+}
+
+#[test]
+#[ignore = "FIXME unresponsive client"]
+fn tls_handshake_timeout_dns_over_tls() -> Result<()> {
+    tls_handshake_timeout("tls")
+}
+
+#[test]
+#[ignore = "FIXME unresponsive client"]
+fn tls_handshake_timeout_dns_over_quic() -> Result<()> {
+    tls_handshake_timeout("quic")
+}
+
+#[test]
+#[ignore = "FIXME unresponsive client"]
+fn tls_handshake_timeout_dns_over_h3() -> Result<()> {
+    tls_handshake_timeout("h3")
+}
+
+fn tls_handshake_timeout(protocol: &str) -> Result<()> {
     const PORT: u16 = 8443;
 
     let network = Network::new().unwrap();
@@ -19,7 +41,7 @@ fn tls_handshake_timeout() -> Result<()> {
     let mut client_process = client_container.spawn(&[
         "dns",
         "-p",
-        "https",
+        protocol,
         "-n",
         &format!("{server_addr}:{PORT}"),
         "--tls-dns-name",
