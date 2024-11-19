@@ -122,6 +122,9 @@ mod tokio_runtime {
     use tokio::task::JoinSet;
     use tokio::time::timeout;
 
+    pub const TLS_TIMEOUT: Duration = Duration::from_secs(5);
+    pub const TCP_TIMEOUT: Duration = Duration::from_secs(5);
+
     /// A handle to the Tokio runtime
     #[derive(Clone, Default)]
     pub struct TokioHandle {
@@ -178,7 +181,7 @@ mod tokio_runtime {
 
                 socket.set_nodelay(true)?;
                 let future = socket.connect(server_addr);
-                let wait_for = wait_for.unwrap_or_else(|| Duration::from_secs(5));
+                let wait_for = wait_for.unwrap_or(TCP_TIMEOUT);
                 match timeout(wait_for, future).await {
                     Ok(Ok(socket)) => Ok(AsyncIoTokioAsStd(socket)),
                     Ok(Err(e)) => Err(e),
@@ -228,6 +231,8 @@ mod tokio_runtime {
     }
 }
 
+#[cfg(feature = "tokio-runtime")]
+pub(crate) use tokio_runtime::TLS_TIMEOUT;
 #[cfg(feature = "tokio-runtime")]
 pub use tokio_runtime::{TokioHandle, TokioRuntimeProvider};
 

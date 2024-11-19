@@ -5,7 +5,6 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use core::time::Duration;
 use std::fmt::{self, Display};
 use std::future::Future;
 use std::io;
@@ -31,7 +30,7 @@ use tracing::{debug, warn};
 use crate::error::ProtoError;
 use crate::http::Version;
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
-use crate::runtime::RuntimeProvider;
+use crate::runtime::{self, RuntimeProvider};
 use crate::tcp::DnsTcpStream;
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
 
@@ -476,7 +475,7 @@ where
                         Ok(dns_name) => {
                             let tls = TlsConnector::from(tls.client_config);
                             let tls = Box::pin(time::timeout(
-                                TLS_TIMEOUT,
+                                runtime::TLS_TIMEOUT,
                                 tls.connect(dns_name.to_owned(), AsyncIoStdAsTokio(tcp)),
                             ));
                             Self::TlsConnecting {
@@ -500,7 +499,8 @@ where
                 } => {
                     let Ok(res) = ready!(tls.poll_unpin(cx)) else {
                         return Poll::Ready(Err(format!(
-                            "TLS handshake timed out after {TLS_TIMEOUT:?}"
+                            "TLS handshake timed out after {:?}",
+                            runtime::TLS_TIMEOUT
                         )
                         .into()));
                     };
@@ -568,8 +568,6 @@ impl Future for HttpsClientResponse {
         self.0.as_mut().poll(cx).map_err(ProtoError::from)
     }
 }
-
-const TLS_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[cfg(any(feature = "webpki-roots", feature = "native-certs"))]
 #[cfg(test)]

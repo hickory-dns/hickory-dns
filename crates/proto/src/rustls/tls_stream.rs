@@ -15,12 +15,12 @@ use std::sync::Arc;
 
 use rustls::pki_types::ServerName;
 use rustls::ClientConfig;
-use tokio;
 use tokio::net::TcpStream as TokioTcpStream;
+use tokio::{self, time};
 use tokio_rustls::TlsConnector;
 
 use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
-use crate::runtime::RuntimeProvider;
+use crate::runtime::{self, RuntimeProvider};
 use crate::tcp::{DnsTcpStream, TcpStream};
 use crate::xfer::{BufDnsStreamHandle, StreamReceiver};
 
@@ -214,10 +214,18 @@ where
     };
 
     let stream = future.await?;
-    let s = tls_connector
-        .connect(dns_name, AsyncIoStdAsTokio(stream))
-        .await
-        .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {e}")))?;
+    let s = time::timeout(
+        runtime::TLS_TIMEOUT,
+        tls_connector.connect(dns_name, AsyncIoStdAsTokio(stream)),
+    )
+    .await
+    .map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::TimedOut,
+            format!("TLS handshake timed out after {:?}", runtime::TLS_TIMEOUT),
+        )
+    })?
+    .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {e}")))?;
 
     Ok(TcpStream::from_stream_with_receiver(
         AsyncIoTokioAsStd(s),
