@@ -13,7 +13,7 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    dnssec::{rdata::DNSKEY, Algorithm, DigestType},
+    dnssec::{rdata::DNSKEY, Algorithm, DigestType, PublicKey},
     error::{ProtoError, ProtoResult},
     rr::{Name, RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
@@ -21,7 +21,7 @@ use crate::{
     },
 };
 
-use super::DNSSECRData;
+use super::{DNSSECRData, DnsSecError};
 
 /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5)
 ///
@@ -76,6 +76,30 @@ pub struct DS {
 }
 
 impl DS {
+    /// Creates a [`DS`] record for the given `public_key` and `name`.
+    ///
+    /// # Arguments
+    ///
+    /// * `public_key` - the public key to create the DS record for
+    /// * `name` - name of the DNSKEY record covered by the new DS record
+    /// * `algorithm` - the algorithm of the DNSKEY
+    /// * `digest_type` - the digest_type used to
+    pub fn from_key(
+        public_key: impl PublicKey,
+        name: &Name,
+        algorithm: Algorithm,
+        digest_type: DigestType,
+    ) -> Result<Self, DnsSecError> {
+        let tag = public_key.key_tag();
+        let dnskey = DNSKEY::from_key(public_key, algorithm);
+        Ok(Self::new(
+            tag,
+            algorithm,
+            digest_type,
+            dnskey.to_digest(name, digest_type)?.as_ref().to_owned(),
+        ))
+    }
+
     /// Constructs a new DS RData
     ///
     /// # Arguments

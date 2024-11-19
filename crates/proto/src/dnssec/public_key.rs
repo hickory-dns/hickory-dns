@@ -20,38 +20,15 @@ use openssl::rsa::Rsa as OpenSslRsa;
 
 #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 use super::openssl::{Ec, Rsa};
-use super::rdata::{DNSKEY, DS};
 #[cfg(feature = "dnssec-ring")]
 use super::ring::{Ec, Ed25519, Rsa};
-use super::{Algorithm, DigestType};
+use super::Algorithm;
 use crate::error::{DnsSecResult, ProtoResult};
-use crate::rr::Name;
 
 /// PublicKeys implement the ability to ideally be zero copy abstractions over public keys for verifying signed content.
 ///
 /// In DNS the KEY and DNSKEY types are generally the RData types which store public key material.
 pub trait PublicKey {
-    /// Creates a DS record for this KeyPair associated to the given name
-    ///
-    /// # Arguments
-    ///
-    /// * `name` - name of the DNSKEY record covered by the new DS record
-    /// * `algorithm` - the algorithm of the DNSKEY
-    /// * `digest_type` - the digest_type used to
-    fn to_ds(self, name: &Name, algorithm: Algorithm, digest_type: DigestType) -> DnsSecResult<DS>
-    where
-        Self: Sized,
-    {
-        let tag = self.key_tag();
-        let dnskey = DNSKEY::from_key(self, algorithm);
-        Ok(DS::new(
-            tag,
-            algorithm,
-            digest_type,
-            dnskey.to_digest(name, digest_type)?.as_ref().to_owned(),
-        ))
-    }
-
     /// The key tag is calculated as a hash to more quickly lookup a DNSKEY.
     ///
     /// [RFC 1035](https://tools.ietf.org/html/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
