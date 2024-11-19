@@ -20,9 +20,7 @@ use openssl::rsa::Rsa as OpenSslRsa;
 
 #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 use super::openssl::{Ec, Rsa};
-#[allow(deprecated)]
-use super::rdata::key::{KeyTrust, KeyUsage, Protocol, UpdateScope};
-use super::rdata::{DNSKEY, DS, KEY};
+use super::rdata::{DNSKEY, DS};
 #[cfg(feature = "dnssec-ring")]
 use super::ring::{Ec, Ed25519, Rsa};
 use super::{Algorithm, DigestType};
@@ -33,43 +31,6 @@ use crate::rr::Name;
 ///
 /// In DNS the KEY and DNSKEY types are generally the RData types which store public key material.
 pub trait PublicKey {
-    /// Convert this keypair into a KEY record type for usage with SIG0
-    /// with key type entity (`KeyUsage::Entity`).
-    ///
-    /// # Arguments
-    ///
-    /// * `algorithm` - algorithm of the KEY
-    ///
-    /// # Return
-    ///
-    /// the KEY record data
-    fn to_sig0key(&self, algorithm: Algorithm) -> KEY {
-        self.to_sig0key_with_usage(algorithm, KeyUsage::default())
-    }
-
-    /// Convert this keypair into a KEY record type for usage with SIG0
-    /// with a given key (usage) type.
-    ///
-    /// # Arguments
-    ///
-    /// * `algorithm` - algorithm of the KEY
-    /// * `usage`     - the key type
-    ///
-    /// # Return
-    ///
-    /// the KEY record data
-    fn to_sig0key_with_usage(&self, algorithm: Algorithm, usage: KeyUsage) -> KEY {
-        KEY::new(
-            KeyTrust::default(),
-            usage,
-            #[allow(deprecated)]
-            UpdateScope::default(),
-            Protocol::default(),
-            algorithm,
-            self.public_bytes().to_vec(),
-        )
-    }
-
     /// Creates a DS record for this KeyPair associated to the given name
     ///
     /// # Arguments

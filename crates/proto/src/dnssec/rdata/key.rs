@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use super::DNSSECRData;
 use crate::{
-    dnssec::{Algorithm, PublicKeyEnum, Verifier},
+    dnssec::{Algorithm, PublicKey, PublicKeyEnum, Verifier},
     error::{ProtoError, ProtoResult},
     rr::{record_data::RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
@@ -172,6 +172,47 @@ pub struct KEY {
 }
 
 impl KEY {
+    /// Create a [`KEY`] record for usage with SIG0 from an existing `public_key`.
+    ///
+    /// Use the default [`KeyUsage`] of [`KeyUsage::Entity`].
+    ///
+    /// # Arguments
+    ///
+    /// * `algorithm` - algorithm of the KEY
+    ///
+    /// # Return
+    ///
+    /// the KEY record data
+    pub fn new_sig0key(public_key: impl PublicKey, algorithm: Algorithm) -> Self {
+        Self::new_sig0key_with_usage(public_key, algorithm, KeyUsage::default())
+    }
+
+    /// Create a [`KEY`] record for usage with SIG0 from an existing `public_key`.
+    ///
+    /// # Arguments
+    ///
+    /// * `algorithm` - algorithm of the KEY
+    /// * `usage`     - the key type
+    ///
+    /// # Return
+    ///
+    /// the KEY record data
+    pub fn new_sig0key_with_usage(
+        public_key: impl PublicKey,
+        algorithm: Algorithm,
+        usage: KeyUsage,
+    ) -> KEY {
+        KEY::new(
+            KeyTrust::default(),
+            usage,
+            #[allow(deprecated)]
+            UpdateScope::default(),
+            Protocol::default(),
+            algorithm,
+            public_key.public_bytes().to_vec(),
+        )
+    }
+
     /// Construct a new KEY RData
     ///
     /// # Arguments
