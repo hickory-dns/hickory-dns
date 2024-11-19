@@ -6,7 +6,7 @@ This library contains basic implementations for DNS record serialization, and co
 
 **NOTICE** This project was rebranded from Trust-DNS to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, this crate/binary has been moved to [hickory-client](https://crates.io/crates/hickory-client), from `0.24` and onward, for prior versions see [trust-dns-client](https://crates.io/crates/trust-dns-client).
 
-## Featuress
+## Features
 
 The `client` is capable of DNSSEC validation as well as offering higher order functions for performing DNS operations:
 
@@ -22,23 +22,28 @@ The `client` is capable of DNSSEC validation as well as offering higher order fu
 ## Example
 
 ```rust
-use std::net::Ipv4Addr;
+use std::net::{Ipv4Addr, SocketAddr};
 use std::str::FromStr;
-use hickory_client::client::{Client, SyncClient};
-use hickory_client::udp::UdpClientConnection;
-use hickory_client::op::DnsResponse;
-use hickory_client::rr::{rdata::A, DNSClass, Name, RData, Record, RecordType};
+use hickory_client::client::{Client, ClientHandle};
+use hickory_client::proto::rr::{rdata::A, DNSClass, Name, RData, Record, RecordType};
+use hickory_client::proto::runtime::TokioRuntimeProvider;
+use hickory_client::proto::udp::UdpClientStream;
+use hickory_client::proto::xfer::DnsResponse;
 
 let address = SocketAddr::from(([8, 8, 8, 8], 53));
-let conn = UdpClientConnection::new(address).unwrap();
-let client = SyncClient::new(conn);
+let conn = UdpClientStream::builder(address, TokioRuntimeProvider::default()).build();
+let (mut client, bg) = Client::connect(conn).await.unwrap();
+tokio::spawn(bg);
 
 // Specify the name, note the final '.' which specifies it's an FQDN
 let name = Name::from_str("www.example.com.").unwrap();
 
 // NOTE: see 'Setup a connection' example above
 // Send the query and get a message response, see RecordType for all supported options
-let response: DnsResponse = client.query(&name, DNSClass::IN, RecordType::A).unwrap();
+let response: DnsResponse = client
+    .query(name, DNSClass::IN, RecordType::A)
+    .await
+    .unwrap();
 
 // Messages are the packets sent between client and server in DNS, DnsResonse's can be
 //  dereferenced to a Message. There are many fields to a Message, It's beyond the scope
@@ -49,10 +54,10 @@ let answers: &[Record] = response.answers();
 // Records are generic objects which can contain any data.
 //  In order to access it we need to first check what type of record it is
 //  In this case we are interested in A, IPv4 address
-if let Some(RData::A(A(ref ip))) = answers[0].data() {
+if let RData::A(A(ref ip)) = answers[0].data() {
     assert_eq!(*ip, Ipv4Addr::new(93, 184, 215, 14))
 } else {
-    assert!(false, "unexpected result")
+    panic!("unexpected result")
 }
 ```
 
@@ -60,17 +65,19 @@ if let Some(RData::A(A(ref ip))) = answers[0].data() {
 
 DoT and DoH are supported. This is accomplished through the use of one of `native-tls`, `openssl`, or `rustls` (only `rustls` is currently supported for DoH).
 
-To use with the `Client`, the `TlsClientStream` or `HttpsClientStream` should be used. ClientAuth, mTLS, is currently not supported, there are some issues still being worked on. TLS is useful for Server authentication and connection privacy.
+To use DoT or DoH with the `Client`, construct it with `TlsClientStream` or
+`HttpsClientStream`. Client authentication/mTLS is currently not supported,
+there are some issues still being worked on. TLS is useful for Server
+authentication and connection privacy.
 
-To enable DoT one of the features `dns-over-native-tls`, `dns-over-openssl`, or `dns-over-rustls` must be enabled, `dns-over-https-rustls` is used for DoH.
+To enable DoT, one of the features `dns-over-native-tls`, `dns-over-openssl`, or
+`dns-over-rustls` must be enabled. `dns-over-https-rustls` is used for DoH.
 
 ## DNSSEC status
 
-Currently the root key is hardcoded into the system. This gives validation of
-DNSKEY and DS records back to the root. NSEC is implemented, but not NSEC3.
-Because caching is not yet enabled, it has been noticed that some DNS servers
-appear to rate limit the connections, validating RRSIG records back to the root
-can require a significant number of additional queries for those records.
+The current root key is bundled into the system, and used by default. This gives
+validation of DNSKEY and DS records back to the root. NSEC and NSEC3 are
+implemented.
 
 Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, one of the features `dnssec-openssl` or `dnssec-ring` must be enabled.
 

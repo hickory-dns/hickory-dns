@@ -142,6 +142,8 @@
 pub mod client;
 mod error;
 pub use error::{Error as ClientError, ErrorKind as ClientErrorKind};
+#[cfg(test)]
+mod tests;
 
 pub use hickory_proto as proto;
 

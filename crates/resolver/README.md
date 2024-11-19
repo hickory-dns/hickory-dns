@@ -24,16 +24,21 @@ This library contains implementations for IPv4 (A) and IPv6 (AAAA) resolution, m
 ```rust
 use std::net::*;
 use hickory_resolver::Resolver;
+use hickory_resolver::name_server::TokioConnectionProvider;
 use hickory_resolver::config::*;
 
 // Construct a new Resolver with default configuration options
-let mut resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
+let resolver = Resolver::new(
+    ResolverConfig::default(),
+    ResolverOpts::default(),
+    TokioConnectionProvider::default(),
+);
 
 // On Unix/Posix systems, this will read the /etc/resolv.conf
-// let mut resolver = Resolver::from_system_conf().unwrap();
+// let resolver = Resolver::from_system_conf(TokioConnectionProvider::default()).unwrap();
 
 // Lookup the IP addresses associated with a name.
-let mut response = resolver.lookup_ip("www.example.com.").unwrap();
+let response = resolver.lookup_ip("www.example.com.").await.unwrap();
 
 // There can be many addresses associated with the name,
 //  this can return IPv4 and/or IPv6 addresses
@@ -49,9 +54,12 @@ if address.is_ipv4() {
 
 DoT and DoH are supported. This is accomplished through the use of one of `native-tls`, `openssl`, or `rustls` (only `rustls` is currently supported for DoH). The Resolver requires valid DoT or DoH resolvers being registered in order to be used.
 
-To use with the `Client`, the `TlsClientStream` or `HttpsClientStream` should be used. ClientAuth, mTLS, is currently not supported, there are some issues still being worked on. TLS is useful for Server authentication and connection privacy.
+Client authentication/mTLS is currently not supported, there are some issues
+still being worked on. TLS is useful for Server authentication and connection
+privacy.
 
-To enable DoT one of the features `dns-over-native-tls`, `dns-over-openssl`, or `dns-over-rustls` must be enabled, `dns-over-https-rustls` is used for DoH.
+To enable DoT, one of the features `dns-over-native-tls`, `dns-over-openssl`, or
+`dns-over-rustls` must be enabled. `dns-over-https-rustls` is used for DoH.
 
 ### Example
 
@@ -65,24 +73,27 @@ A default TLS configuration is available for Cloudflare's `1.1.1.1` DNS service 
 
 ```rust
 // Construct a new Resolver with default configuration options
-let mut resolver = Resolver::new(ResolverConfig::cloudflare_tls(), ResolverOpts::default()).unwrap();
+let resolver = Resolver::new(
+    ResolverConfig::cloudflare_tls(),
+    ResolverOpts::default(),
+    TokioConnectionProvider::default(),
+);
 
 /// see example above...
 ```
 
 ## DNSSEC status
 
-Currently the root key is hardcoded into the system. This gives validation of
-DNSKEY and DS records back to the root. NSEC is implemented, but not NSEC3.
-Because caching is not yet enabled, it has been noticed that some DNS servers
-appear to rate limit the connections, validating RRSIG records back to the root
-can require a significant number of additional queries for those records.
+The current root key is bundled into the system, and used by default. This gives
+validation of DNSKEY and DS records back to the root. NSEC and NSEC3 are
+implemented.
 
-Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, one of the features `dnssec-openssl` or `dnssec-ring` must be enabled.
+To enable DNSSEC, one of the features `dnssec-openssl` or `dnssec-ring` must be
+enabled.
 
 ## Testing the resolver via CLI with resolve
 
-Useful for testing hickory-resolver and it's features via an independent CLI.
+This independent CLI is useful for testing hickory-resolver and its features.
 
 ```shell
 cargo install --bin resolve hickory-util

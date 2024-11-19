@@ -26,7 +26,7 @@ macro_rules! assert_serial {
         if let RData::SOA(soa) = rdata {
             assert_eq!(soa.serial(), $serial);
         } else {
-            assert!(false, "record was not a SOA");
+            panic!("record was not a SOA");
         }
     }};
 }
