@@ -75,7 +75,7 @@ pub struct DNSKEY {
     secure_entry_point: bool,
     revoke: bool,
     algorithm: Algorithm,
-    public_key: Arc<dyn PublicKey + Send + Sync + 'static>,
+    public_key: Arc<dyn PublicKey>,
 }
 
 impl DNSKEY {

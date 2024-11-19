@@ -31,7 +31,7 @@ use crate::error::ProtoResult;
 /// PublicKeys implement the ability to ideally be zero copy abstractions over public keys for verifying signed content.
 ///
 /// In DNS the KEY and DNSKEY types are generally the RData types which store public key material.
-pub trait PublicKey {
+pub trait PublicKey: Send + Sync + 'static {
     /// Returns the public bytes of the public key, in DNS format
     fn public_bytes(&self) -> &[u8];
 
@@ -51,10 +51,7 @@ pub trait PublicKey {
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()>;
 }
 
-fn decode_public_key(
-    public_key: &[u8],
-    algorithm: Algorithm,
-) -> ProtoResult<Arc<dyn PublicKey + Send + Sync + 'static>> {
+fn decode_public_key(public_key: &[u8], algorithm: Algorithm) -> ProtoResult<Arc<dyn PublicKey>> {
     // try to keep this and `Algorithm::is_supported` in sync
     debug_assert!(algorithm.is_supported());
 

@@ -167,7 +167,7 @@ pub struct KEY {
     signatory: UpdateScope,
     protocol: Protocol,
     algorithm: Algorithm,
-    public_key: Arc<dyn PublicKey + Send + Sync + 'static>,
+    public_key: Arc<dyn PublicKey>,
 }
 
 impl KEY {
