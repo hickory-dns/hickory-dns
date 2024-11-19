@@ -2,9 +2,11 @@ use std::borrow::Cow;
 
 use ring::{
     rand::{self, SystemRandom},
+    rsa::PublicKeyComponents,
     signature::{
-        self, EcdsaKeyPair, Ed25519KeyPair, KeyPair as RingKeyPair,
+        self, EcdsaKeyPair, Ed25519KeyPair, KeyPair as RingKeyPair, RsaKeyPair,
         ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING, ED25519_PUBLIC_KEY_LEN,
+        RSA_PKCS1_SHA256, RSA_PKCS1_SHA512,
     },
 };
 
@@ -309,6 +311,62 @@ impl PublicKey for Rsa<'_> {
     }
 }
 
+/// An RSA signing key pair (backed by ring).
+pub struct RsaSigningKey {
+    inner: RsaKeyPair,
+    algorithm: Algorithm,
+}
+
+impl RsaSigningKey {
+    /// Decode signing key pair from DER-encoded PKCS#8 bytes.
+    pub fn from_pkcs8(bytes: &[u8], algorithm: Algorithm) -> DnsSecResult<Self> {
+        match algorithm {
+            #[allow(deprecated)]
+            Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => {
+                return Err("unsupported Algorithm (insecure): {algorithm:?}".into())
+            }
+            Algorithm::RSASHA256 | Algorithm::RSASHA512 => {}
+            _ => return Err("unsupported Algorithm: {algorithm:?}".into()),
+        }
+
+        Ok(Self {
+            inner: RsaKeyPair::from_pkcs8(bytes)?,
+            algorithm,
+        })
+    }
+}
+
+impl SigningKey for RsaSigningKey {
+    fn sign(&self, tbs: &TBS) -> DnsSecResult<Vec<u8>> {
+        let encoding = match self.algorithm {
+            Algorithm::RSASHA256 => &RSA_PKCS1_SHA256,
+            Algorithm::RSASHA512 => &RSA_PKCS1_SHA512,
+            _ => unreachable!(),
+        };
+
+        let rng = rand::SystemRandom::new();
+        let mut signature = vec![0; self.inner.public().modulus_len()];
+        self.inner
+            .sign(encoding, &rng, tbs.as_ref(), &mut signature)?;
+        Ok(signature)
+    }
+
+    fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf> {
+        let components = PublicKeyComponents::<Vec<u8>>::from(self.inner.public_key());
+
+        let mut buf = Vec::with_capacity(components.e.len() + components.n.len());
+        if components.e.len() > 255 {
+            buf.push(0);
+            buf.push((components.e.len() >> 8) as u8);
+        }
+
+        buf.push(components.e.len() as u8);
+        buf.extend(&components.e);
+        buf.extend(&components.n);
+        Ok(PublicKeyBuf::new(buf, self.algorithm))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -358,6 +416,22 @@ mod tests {
     }
 
     #[test]
+    fn test_rsa() {
+        // ring currently does not support RSA key generation support.
+        // Generated per the documentation from https://docs.rs/ring/latest/ring/rsa/struct.KeyPair.html#method.from_pkcs8.
+        const KEY_1: &[u8] = include_bytes!("../../tests/test-data/rsa-2048-private-key-1.pk8");
+        const KEY_2: &[u8] = include_bytes!("../../tests/test-data/rsa-2048-private-key-2.pk8");
+
+        let algorithm = Algorithm::RSASHA256;
+        let format = KeyFormat::Pkcs8;
+        let key = decode_key(KEY_1, None, algorithm, format).unwrap();
+        public_key_test(&*key, algorithm);
+
+        let neg = decode_key(KEY_2, None, algorithm, format).unwrap();
+        hash_test(&*key, &*neg, algorithm);
+    }
+
+    #[test]
     fn test_ec_encode_decode_pkcs8() {
         let algorithm = Algorithm::ECDSAP256SHA256;
         let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
@@ -368,5 +442,13 @@ mod tests {
     fn test_ed25519_encode_decode_pkcs8() {
         let pkcs8 = Ed25519SigningKey::generate_pkcs8().unwrap();
         decode_key(&pkcs8, None, Algorithm::ED25519, KeyFormat::Pkcs8).unwrap();
+    }
+
+    #[test]
+    fn test_rsasha256_encode_decode_pkcs8() {
+        // ring currently does not support RSA key generation support.
+        // Generated per the documentation from https://docs.rs/ring/latest/ring/rsa/struct.KeyPair.html#method.from_pkcs8.
+        const KEY: &[u8] = include_bytes!("../../tests/test-data/rsa-2048-private-key-1.pk8");
+        decode_key(KEY, None, Algorithm::RSASHA256, KeyFormat::Pkcs8).unwrap();
     }
 }

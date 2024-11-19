@@ -86,11 +86,16 @@ pub fn decode_key(
         e @ Algorithm::RSASHA1 | e @ Algorithm::RSASHA1NSEC3SHA1 => {
             Err(format!("unsupported Algorithm (insecure): {e:?}").into())
         }
-        #[cfg(feature = "dnssec-openssl")]
-        Algorithm::RSASHA256 | Algorithm::RSASHA512 => Ok(Box::new(
-            openssl::RsaSigningKey::decode_key(bytes, password, algorithm, format)
-                .map_err(|e| format!("could not translate RSA to KeyPair: {e}"))?,
-        )),
+        Algorithm::RSASHA256 | Algorithm::RSASHA512 => match format {
+            #[cfg(feature = "dnssec-openssl")]
+            KeyFormat::Der | KeyFormat::Pem => Ok(Box::new(
+                openssl::RsaSigningKey::decode_key(bytes, password, algorithm, format)
+                    .map_err(|e| format!("could not translate RSA to KeyPair: {e}"))?,
+            )),
+            #[cfg(feature = "dnssec-ring")]
+            KeyFormat::Pkcs8 => Ok(Box::new(ring::RsaSigningKey::from_pkcs8(bytes, algorithm)?)),
+            e => Err(format!("unsupported key format with RSA: {e:?}").into()),
+        },
         Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => match format {
             #[cfg(feature = "dnssec-openssl")]
             KeyFormat::Der | KeyFormat::Pem => Ok(Box::new(openssl::EcSigningKey::decode_key(
@@ -150,7 +155,7 @@ mod test_utils {
         let mut sig = key.sign(&tbs).unwrap();
         assert!(
             pk.verify(tbs.as_ref(), &sig).is_ok(),
-            "algorithm: {algorithm:?} (public key)",
+            "public_key_test() failed to verify (algorithm: {algorithm:?})",
         );
         sig[10] = !sig[10];
         assert!(
