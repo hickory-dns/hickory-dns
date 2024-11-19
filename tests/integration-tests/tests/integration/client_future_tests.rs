@@ -25,7 +25,7 @@ use hickory_proto::{
 };
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 use hickory_proto::{
-    dnssec::{openssl::RsaSigningKey, rdata::DNSSECRData, Algorithm, PublicKey, SigningKey},
+    dnssec::{openssl::RsaSigningKey, rdata::DNSSECRData, Algorithm, SigningKey},
     runtime::TokioTime,
 };
 use hickory_proto::{
@@ -285,6 +285,7 @@ async fn create_sig0_ready_client() -> (
     ),
     Name,
 ) {
+    use hickory_proto::dnssec::rdata::KEY;
     use hickory_server::store::sqlite::SqliteAuthority;
 
     let authority = create_example();
@@ -295,7 +296,7 @@ async fn create_sig0_ready_client() -> (
 
     let key = RsaSigningKey::generate(Algorithm::RSASHA256).unwrap();
     let pub_key = key.to_public_key().unwrap();
-    let sig0_key = pub_key.to_sig0key(Algorithm::RSASHA256);
+    let sig0_key = KEY::new_sig0key(pub_key, Algorithm::RSASHA256);
 
     let signer = SigSigner::sig0(sig0_key.clone(), Box::new(key), trusted_name.clone());
 
