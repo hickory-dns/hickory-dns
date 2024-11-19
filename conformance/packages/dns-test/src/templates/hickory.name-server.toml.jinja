@@ -9,7 +9,11 @@ enable_dnssec = {{ use_dnssec }}
 nx_proof_kind = { nsec3 = { iterations = 1 } }
 
 [[zones.keys]]
+{% if use_pkcs8 %}
+key_path = "/etc/zones/zsk.pk8"
+{% else %}
 key_path = "/etc/zones/zsk.key"
+{% endif %}
 algorithm = "RSASHA256"
 is_zone_signing_key = true
 

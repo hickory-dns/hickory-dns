@@ -323,12 +323,17 @@ impl NameServer<Stopped> {
 const ZONES_DIR: &str = "/etc/zones";
 const ZONE_FILENAME: &str = "main.zone";
 const ZSK_PRIVATE_FILENAME: &str = "zsk.key";
+const ZSK_PKCS8_FILENAME: &str = "zsk.pk8";
 
 fn zone_file_path() -> String {
     format!("{ZONES_DIR}/{ZONE_FILENAME}")
 }
 fn zsk_private_path() -> String {
     format!("{ZONES_DIR}/{ZSK_PRIVATE_FILENAME}")
+}
+
+fn zsk_pkcs8_path() -> String {
+    format!("{ZONES_DIR}/{ZSK_PKCS8_FILENAME}")
 }
 
 fn ns_count() -> usize {
@@ -371,6 +376,20 @@ impl NameServer<Signed> {
             // don't compare signatures in any of the conformance tests.
             let zsk = container.stdout(&["openssl", "genpkey", "-algorithm", "RSA"])?;
             container.cp(&zsk_private_path(), &zsk)?;
+            container.status_ok(&[
+                "openssl",
+                "pkcs8",
+                "-topk8",
+                "-nocrypt",
+                "-inform",
+                "pem",
+                "-in",
+                &zsk_private_path(),
+                "-outform",
+                "der",
+                "-out",
+                &zsk_pkcs8_path(),
+            ])?;
         } else {
             container.cp(&zone_file_path(), &state.signed.to_string())?;
         }
