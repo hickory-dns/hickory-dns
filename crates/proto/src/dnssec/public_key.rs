@@ -553,8 +553,8 @@ impl<'k> PublicKey for Rsa<'k> {
             n: self.pkey.n(),
             e: self.pkey.e(),
         };
-        public_key
-            .verify(alg, message, signature)
+        dbg!(public_key
+            .verify(alg, message, signature))
             .map_err(Into::into)
     }
 }
