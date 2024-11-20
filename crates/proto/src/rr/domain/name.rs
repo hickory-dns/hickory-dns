@@ -727,24 +727,30 @@ impl Name {
 
     /// compares with the other label, ignoring case
     fn cmp_with_f<F: LabelCmp>(&self, other: &Self) -> Ordering {
-        if self.label_ends.is_empty() && other.label_ends.is_empty() {
-            return Ordering::Equal;
-        }
+        match (self.is_fqdn(), other.is_fqdn()) {
+            (false, true) => Ordering::Less,
+            (true, false) => Ordering::Greater,
+            _ => {
+                if self.label_ends.is_empty() && other.label_ends.is_empty() {
+                    return Ordering::Equal;
+                }
 
-        // we reverse the iters so that we are comparing from the root/domain to the local...
-        let self_labels = self.iter().rev();
-        let other_labels = other.iter().rev();
+                // we reverse the iters so that we are comparing from the root/domain to the local...
+                let self_labels = self.iter().rev();
+                let other_labels = other.iter().rev();
 
-        for (l, r) in self_labels.zip(other_labels) {
-            let l = Label::from_raw_bytes(l).unwrap();
-            let r = Label::from_raw_bytes(r).unwrap();
-            match l.cmp_with_f::<F>(&r) {
-                Ordering::Equal => continue,
-                not_eq => return not_eq,
+                for (l, r) in self_labels.zip(other_labels) {
+                    let l = Label::from_raw_bytes(l).unwrap();
+                    let r = Label::from_raw_bytes(r).unwrap();
+                    match l.cmp_with_f::<F>(&r) {
+                        Ordering::Equal => continue,
+                        not_eq => return not_eq,
+                    }
+                }
+
+                self.label_ends.len().cmp(&other.label_ends.len())
             }
         }
-
-        self.label_ends.len().cmp(&other.label_ends.len())
     }
 
     /// Case sensitive comparison
@@ -1675,24 +1681,24 @@ mod tests {
                 Name::from_ascii("Z.a.example.").unwrap(),
             ),
             (
-                Name::from_ascii("Z.a.example.").unwrap(),
-                Name::from_ascii("zABC.a.EXAMPLE").unwrap(),
+                Name::from_ascii("Z.a.example").unwrap(),
+                Name::from_ascii("zABC.a.EXAMPLE.").unwrap(),
             ),
             (
                 Name::from_ascii("zABC.a.EXAMPLE.").unwrap(),
                 Name::from_str("z.example.").unwrap(),
             ),
             (
-                Name::from_str("z.example.").unwrap(),
-                Name::from_labels(vec![&[1u8] as &[u8], b"z", b"example"]).unwrap(),
+                Name::from_str("z.example").unwrap(),
+                Name::from_labels(vec![&[1u8] as &[u8], b"z", b"example."]).unwrap(),
             ),
             (
                 Name::from_labels(vec![&[1u8] as &[u8], b"z", b"example"]).unwrap(),
                 Name::from_str("*.z.example.").unwrap(),
             ),
             (
-                Name::from_str("*.z.example.").unwrap(),
-                Name::from_labels(vec![&[200u8] as &[u8], b"z", b"example"]).unwrap(),
+                Name::from_str("*.z.example").unwrap(),
+                Name::from_labels(vec![&[200u8] as &[u8], b"z", b"example."]).unwrap(),
             ),
         ];
 
