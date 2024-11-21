@@ -15,7 +15,6 @@ fn tls_handshake_timeout_dns_over_tls() -> Result<()> {
 }
 
 #[test]
-#[ignore = "FIXME unresponsive client"]
 fn tls_handshake_timeout_dns_over_quic() -> Result<()> {
     tls_handshake_timeout("quic")
 }
