@@ -122,6 +122,7 @@ mod tokio_runtime {
     use tokio::task::JoinSet;
     use tokio::time::timeout;
 
+    #[cfg(any(feature = "dns-over-rustls", feature = "dns-over-https-rustls"))]
     pub const TLS_TIMEOUT: Duration = Duration::from_secs(5);
     pub const TCP_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -231,7 +232,10 @@ mod tokio_runtime {
     }
 }
 
-#[cfg(feature = "tokio-runtime")]
+#[cfg(all(
+    feature = "tokio-runtime",
+    any(feature = "dns-over-rustls", feature = "dns-over-https-rustls")
+))]
 pub(crate) use tokio_runtime::TLS_TIMEOUT;
 #[cfg(feature = "tokio-runtime")]
 pub use tokio_runtime::{TokioHandle, TokioRuntimeProvider};

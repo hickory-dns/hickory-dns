@@ -40,7 +40,6 @@ macro_rules! try_ready_stream {
         }
     }};
 }
-
 #[cfg(feature = "dnssec")]
 pub mod dnssec;
 mod error;
