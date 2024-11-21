@@ -673,8 +673,8 @@ impl RecursorDnsHandle {
     /// sent recursive queries.
     fn matches_do_not_query(&self, ip: IpAddr) -> bool {
         match ip {
-            IpAddr::V4(ip) => self.do_not_query_v4.contains(&ip.into()),
-            IpAddr::V6(ip) => self.do_not_query_v6.contains(&ip.into()),
+            IpAddr::V4(ip) => self.do_not_query_v4.get_spm(&ip.into()).is_some(),
+            IpAddr::V6(ip) => self.do_not_query_v6.get_spm(&ip.into()).is_some(),
         }
     }
 
@@ -761,6 +761,42 @@ fn recursor_opts(avoid_local_udp_ports: Arc<HashSet<u16>>) -> ResolverOpts {
     options.avoid_local_udp_ports = avoid_local_udp_ports;
 
     options
+}
+
+#[cfg(test)]
+#[test]
+fn test_do_not_query_lookup() {
+    let do_not_query = vec![
+        IpNet::new(IpAddr::from(Ipv4Addr::LOCALHOST), 8).unwrap(),
+        IpNet::new(IpAddr::from([192, 168, 0, 0]), 23).unwrap(),
+        IpNet::new(IpAddr::from([172, 17, 0, 0]), 20).unwrap(),
+    ];
+
+    let recursor = RecursorDnsHandle::new(
+        NameServerConfigGroup::from_ips_clear(&[IpAddr::from([192, 0, 2, 1])], 53, true),
+        1,
+        1,
+        Some(1),
+        Some(1),
+        true,
+        do_not_query,
+        Arc::new(HashSet::new()),
+        TtlConfig::default(),
+    );
+
+    for addr in [
+        [127, 0, 0, 0],
+        [127, 0, 0, 1],
+        [192, 168, 1, 0],
+        [192, 168, 1, 254],
+        [172, 17, 0, 1],
+    ] {
+        assert!(recursor.matches_do_not_query(IpAddr::from(addr)));
+    }
+
+    for addr in [[128, 0, 0, 0], [192, 168, 2, 0]] {
+        assert!(!recursor.matches_do_not_query(IpAddr::from(addr)));
+    }
 }
 
 /// Maximum number of cname records to look up in a CNAME chain, regardless of the recursion
