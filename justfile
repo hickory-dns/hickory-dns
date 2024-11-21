@@ -114,7 +114,7 @@ coverage: init-llvm-cov
 
     echo $RUSTFLAGS
 
-    cargo +nightly llvm-cov clean
+    cargo +nightly llvm-cov clean --workspace
     mkdir -p {{COV_OUTPUT_DIR}}
 
     cargo +nightly llvm-cov test --workspace --no-report --all-targets --all-features
