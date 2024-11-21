@@ -124,6 +124,8 @@ mod tokio_runtime {
 
     #[cfg(any(feature = "dns-over-rustls", feature = "dns-over-https-rustls"))]
     pub const TLS_TIMEOUT: Duration = Duration::from_secs(5);
+    #[cfg(any(feature = "dns-over-quic"))]
+    pub const QUIC_TIMEOUT: Duration = Duration::from_secs(5);
     pub const TCP_TIMEOUT: Duration = Duration::from_secs(5);
 
     /// A handle to the Tokio runtime
@@ -232,6 +234,8 @@ mod tokio_runtime {
     }
 }
 
+#[cfg(all(feature = "tokio-runtime", feature = "dns-over-quic"))]
+pub(crate) use tokio_runtime::QUIC_TIMEOUT;
 #[cfg(all(
     feature = "tokio-runtime",
     any(feature = "dns-over-rustls", feature = "dns-over-https-rustls")

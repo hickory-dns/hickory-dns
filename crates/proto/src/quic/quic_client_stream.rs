@@ -8,6 +8,7 @@
 use std::{
     fmt::{self, Display},
     future::Future,
+    io,
     net::SocketAddr,
     pin::Pin,
     sync::Arc,
@@ -19,10 +20,12 @@ use quinn::{
     crypto::rustls::QuicClientConfig, ClientConfig, Connection, Endpoint, TransportConfig, VarInt,
 };
 use rustls::version::TLS13;
+use tokio::time;
 
 use crate::{
     error::ProtoError,
     quic::quic_stream::{DoqErrorCode, QuicStream},
+    runtime,
     udp::UdpSocket,
     xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream},
 };
@@ -250,10 +253,24 @@ impl QuicClientStreamBuilder {
         let quic_connection = if early_data_enabled {
             match connecting.into_0rtt() {
                 Ok((new_connection, _)) => new_connection,
-                Err(connecting) => connecting.await?,
+                Err(connecting) => time::timeout(runtime::QUIC_TIMEOUT, connecting)
+                    .await
+                    .map_err(|_| {
+                        io::Error::new(
+                            io::ErrorKind::TimedOut,
+                            format!("QUIC handshake timed out after {:?}", runtime::QUIC_TIMEOUT),
+                        )
+                    })??,
             }
         } else {
-            connecting.await?
+            time::timeout(runtime::QUIC_TIMEOUT, connecting)
+                .await
+                .map_err(|_| {
+                    io::Error::new(
+                        io::ErrorKind::TimedOut,
+                        format!("QUIC handshake timed out after {:?}", runtime::QUIC_TIMEOUT),
+                    )
+                })??
         };
 
         Ok(QuicClientStream {
