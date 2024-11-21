@@ -47,6 +47,8 @@ static DEFAULT_HTTPS_PORT: u16 = 443;
 static DEFAULT_QUIC_PORT: u16 = 853; // https://www.ietf.org/archive/id/draft-ietf-dprive-dnsoquic-11.html#name-reservation-of-dedicated-po
 static DEFAULT_H3_PORT: u16 = 443;
 static DEFAULT_TCP_REQUEST_TIMEOUT: u64 = 5;
+static DEFAULT_USER: &str = "nobody";
+static DEFAULT_GROUP: &str = "nobody";
 
 /// Server configuration
 #[derive(Deserialize, Debug)]
@@ -84,6 +86,18 @@ pub struct Config {
     log_level: Option<String>,
     /// Base configuration directory, i.e. root path for zones
     directory: Option<String>,
+    /// User to run the server as.
+    ///
+    /// Only supported on Unix-like platforms. If the real or effective UID of the hickory process
+    /// is root, we will attempt to change to this user (or to nobody if no user is specified here.)
+    #[cfg(target_family = "unix")]
+    user: Option<String>,
+    /// Group to run the server as.
+    ///
+    /// Only supported on Unix-like platforms. If the real or effective UID of the hickory process
+    /// is root, we will attempt to change to this group (or to nobody if no group is specified here.)
+    #[cfg(target_family = "unix")]
+    group: Option<String>,
     /// List of configurations for zones
     #[serde(default)]
     zones: Vec<ZoneConfig>,
@@ -232,6 +246,16 @@ impl Config {
     /// get the networks allowed to connect to this server
     pub fn allow_networks(&self) -> &[IpNet] {
         &self.allow_networks
+    }
+
+    /// get the user name to run the server as
+    pub fn user(&self) -> &str {
+        self.user.as_deref().unwrap_or(DEFAULT_USER)
+    }
+
+    /// get the group name to run the server as
+    pub fn group(&self) -> &str {
+        self.group.as_deref().unwrap_or(DEFAULT_GROUP)
     }
 }
 

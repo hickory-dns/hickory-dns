@@ -896,6 +896,7 @@ dependencies = [
  "hickory-resolver",
  "hickory-server",
  "ipnet",
+ "libc",
  "native-tls",
  "openssl",
  "regex",

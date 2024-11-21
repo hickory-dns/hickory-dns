@@ -81,6 +81,9 @@ hickory-client.workspace = true
 hickory-proto.workspace = true
 hickory-server = { workspace = true, features = ["toml"] }
 
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
 [dev-dependencies]
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
 native-tls.workspace = true
