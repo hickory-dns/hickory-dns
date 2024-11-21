@@ -848,7 +848,7 @@ fn get_env() -> String {
 
 fn all_hickory_dns(level: impl ToString) -> String {
     format!(
-        "hickory_dns={level},hickory_server={level},{env}",
+        "hickory_={level},{env}",
         level = level.to_string().to_lowercase(),
         env = get_env()
     )
