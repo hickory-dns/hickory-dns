@@ -124,6 +124,8 @@ mod tokio_runtime {
 
     #[cfg(any(feature = "dns-over-rustls", feature = "dns-over-https-rustls"))]
     pub const TLS_TIMEOUT: Duration = Duration::from_secs(5);
+    #[cfg(feature = "dns-over-h3")]
+    pub const H3_TIMEOUT: Duration = Duration::from_secs(5);
     pub const TCP_TIMEOUT: Duration = Duration::from_secs(5);
 
     /// A handle to the Tokio runtime
@@ -237,6 +239,8 @@ mod tokio_runtime {
     any(feature = "dns-over-rustls", feature = "dns-over-https-rustls")
 ))]
 pub(crate) use tokio_runtime::TLS_TIMEOUT;
+#[cfg(all(feature = "tokio-runtime", feature = "dns-over-h3"))]
+pub(crate) use tokio_runtime::H3_TIMEOUT;
 #[cfg(feature = "tokio-runtime")]
 pub use tokio_runtime::{TokioHandle, TokioRuntimeProvider};
 

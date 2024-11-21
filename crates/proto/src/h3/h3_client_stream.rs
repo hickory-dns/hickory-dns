@@ -7,6 +7,7 @@
 
 use std::fmt::{self, Display};
 use std::future::{poll_fn, Future};
+use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::str::FromStr;
@@ -22,10 +23,12 @@ use http::header::{self, CONTENT_LENGTH};
 use quinn::crypto::rustls::QuicClientConfig;
 use quinn::{ClientConfig, Endpoint, EndpointConfig, TransportConfig};
 use tokio::sync::mpsc;
+use tokio::time;
 use tracing::{debug, warn};
 
 use crate::error::ProtoError;
 use crate::http::Version;
+use crate::runtime;
 use crate::udp::UdpSocket;
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
 
@@ -403,10 +406,24 @@ impl H3ClientStreamBuilder {
         let quic_connection = if early_data_enabled {
             match connecting.into_0rtt() {
                 Ok((new_connection, _)) => new_connection,
-                Err(connecting) => connecting.await?,
+                Err(connecting) => time::timeout(runtime::H3_TIMEOUT, connecting)
+                    .await
+                    .map_err(|_| {
+                        io::Error::new(
+                            io::ErrorKind::TimedOut,
+                            format!("H3 handshake timed out after {:?}", runtime::H3_TIMEOUT),
+                        )
+                    })??,
             }
         } else {
-            connecting.await?
+            time::timeout(runtime::H3_TIMEOUT, connecting)
+                .await
+                .map_err(|_| {
+                    io::Error::new(
+                        io::ErrorKind::TimedOut,
+                        format!("H3 handshake timed out after {:?}", runtime::H3_TIMEOUT),
+                    )
+                })??
         };
 
         let h3_connection = h3_quinn::Connection::new(quic_connection);
