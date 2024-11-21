@@ -11,12 +11,20 @@ use dns_test::{
     Implementation, Network, Resolver, Result, FQDN,
 };
 
+struct TestNetwork {
+    nameservers: Vec<NameServer<Running>>,
+    root: Root,
+    allow_addrs: Vec<Ipv4Addr>,
+    first_leaf_addr: Ipv4Addr,
+    second_leaf_addr: Ipv4Addr,
+}
+
 fn setup_two_leaf_nameservers(
     needle_fqdn: FQDN,
     needle_ip_addr: Ipv4Addr,
     implementation: Implementation,
     network: Network,
-) -> Result<(Vec<NameServer<Running>>, Root, Ipv4Addr, Ipv4Addr)> {
+) -> Result<TestNetwork> {
     // set up two equivalent name servers for "example.com.", block one of them with config later
     let mut first_leaf_ns = NameServer::new(&implementation, needle_fqdn.clone(), &network)?;
     first_leaf_ns.add(Record::a(needle_fqdn.clone(), needle_ip_addr));
@@ -28,6 +36,10 @@ fn setup_two_leaf_nameservers(
     let mut domain_ns = NameServer::new(&implementation, FQDN::TEST_DOMAIN, &network)?;
     let mut tld_ns = NameServer::new(&implementation, FQDN::TEST_TLD, &network)?;
     let mut root_ns = NameServer::new(&implementation, FQDN::ROOT, &network)?;
+
+    let domain_addr = domain_ns.ipv4_addr();
+    let tld_addr = tld_ns.ipv4_addr();
+    let root_addr = root_ns.ipv4_addr();
 
     domain_ns.add(first_leaf_ns.a());
     domain_ns.add(second_leaf_ns.a());
@@ -51,19 +63,33 @@ fn setup_two_leaf_nameservers(
         root_ns.start()?,
     ];
 
-    Ok((nameservers, root, first_leaf_addr, second_leaf_addr))
+    let allow_addrs = vec![domain_addr, tld_addr, root_addr];
+    Ok(TestNetwork {
+        nameservers,
+        root,
+        allow_addrs,
+        first_leaf_addr,
+        second_leaf_addr,
+    })
 }
 
 fn run_test(
     needle_fqdn: FQDN,
+    allow_addrs: &[Ipv4Addr],
     block_addr: Ipv4Addr,
     network: Network,
     root: Root,
 ) -> Result<(DigOutput, Vec<Capture>)> {
     // build config file
+
+    let allow_list = allow_addrs
+        .iter()
+        .map(|x| format!("{x}/32"))
+        .collect::<Vec<String>>();
     let config = minijinja::render!(
         include_str!("do_not_query.toml.jinja"),
-        do_not_query => [format!("{block_addr}/32")],
+        allow_server => allow_list,
+        deny_server => [format!("{block_addr}/32")],
     );
 
     let resolver = Resolver::new(&network, root)
@@ -98,14 +124,21 @@ fn do_not_query_filter_first_address() -> Result<()> {
     let implementation = Implementation::test_peer();
     let network = Network::new()?;
 
-    let (_nameservers, root, bogus_addr, leaf_addr) = setup_two_leaf_nameservers(
+    let TestNetwork {
+        nameservers: _nameservers,
+        root,
+        mut allow_addrs,
+        first_leaf_addr: bogus_addr,
+        second_leaf_addr: leaf_addr,
+    } = setup_two_leaf_nameservers(
         needle_fqdn.clone(),
         expected_ipv4_addr,
         implementation,
         network.clone(),
     )?;
 
-    let (ans, captures) = run_test(needle_fqdn, bogus_addr, network, root)?;
+    allow_addrs.push(leaf_addr);
+    let (ans, captures) = run_test(needle_fqdn, &allow_addrs, bogus_addr, network, root)?;
 
     assert!(ans.status.is_noerror());
     let [a] = ans.answer.try_into().unwrap();
@@ -138,14 +171,21 @@ fn do_not_query_filter_second_address() -> Result<()> {
     let implementation = Implementation::test_peer();
     let network = Network::new()?;
 
-    let (_nameservers, root, leaf_addr, bogus_addr) = setup_two_leaf_nameservers(
+    let TestNetwork {
+        nameservers: _nameservers,
+        root,
+        mut allow_addrs,
+        first_leaf_addr: leaf_addr,
+        second_leaf_addr: bogus_addr,
+    } = setup_two_leaf_nameservers(
         needle_fqdn.clone(),
         expected_ipv4_addr,
         implementation,
         network.clone(),
     )?;
 
-    let (ans, captures) = run_test(needle_fqdn, bogus_addr, network, root)?;
+    allow_addrs.push(leaf_addr);
+    let (ans, captures) = run_test(needle_fqdn, &allow_addrs, bogus_addr, network, root)?;
 
     assert!(ans.status.is_noerror());
     let [a] = ans.answer.try_into().unwrap();
@@ -188,7 +228,7 @@ fn do_not_query_filter_only_address() -> Result<()> {
         trust_anchor: _trust_anchor,
     } = Graph::build(leaf_ns, Sign::No)?;
 
-    let (ans, captures) = run_test(needle_fqdn, leaf_addr, network, root)?;
+    let (ans, captures) = run_test(needle_fqdn, &[], leaf_addr, network, root)?;
 
     assert!(ans.answer.is_empty());
 

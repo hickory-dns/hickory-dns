@@ -7,6 +7,7 @@
 
 use std::{
     collections::HashSet,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
     sync::{atomic::AtomicU8, Arc},
     time::Instant,
 };
@@ -44,7 +45,8 @@ pub struct RecursorBuilder {
     /// Setting it to None will disable the recursion limit check, and is not recommended.
     ns_recursion_limit: Option<u8>,
     dnssec_policy: DnssecPolicy,
-    do_not_query: Vec<IpNet>,
+    allow_servers: Vec<IpNet>,
+    deny_servers: Vec<IpNet>,
     avoid_local_udp_ports: HashSet<u16>,
     ttl_config: TtlConfig,
 }
@@ -83,8 +85,17 @@ impl RecursorBuilder {
     }
 
     /// Add networks that should not be queried during recursive resolution
-    pub fn do_not_query(mut self, networks: &[IpNet]) -> Self {
-        self.do_not_query.extend(networks.iter().copied());
+    pub fn nameserver_filter<'a>(
+        mut self,
+        allow: impl Iterator<Item = &'a IpNet>,
+        deny: impl Iterator<Item = &'a IpNet>,
+    ) -> Self {
+        for addr in RECOMMENDED_SERVER_FILTERS {
+            self.deny_servers.push(addr);
+        }
+
+        self.allow_servers.extend(allow);
+        self.deny_servers.extend(deny);
         self
     }
 
@@ -140,7 +151,8 @@ impl Recursor {
             recursion_limit,
             ns_recursion_limit,
             dnssec_policy,
-            do_not_query,
+            allow_servers,
+            deny_servers,
             avoid_local_udp_ports,
             ttl_config,
         } = builder;
@@ -152,7 +164,8 @@ impl Recursor {
             recursion_limit,
             ns_recursion_limit,
             dnssec_policy.is_security_aware(),
-            do_not_query,
+            allow_servers,
+            deny_servers,
             Arc::new(avoid_local_udp_ports),
             ttl_config,
         );
@@ -473,7 +486,8 @@ impl Default for RecursorBuilder {
             recursion_limit: Some(12),
             ns_recursion_limit: Some(16),
             dnssec_policy: DnssecPolicy::SecurityUnaware,
-            do_not_query: vec![],
+            allow_servers: vec![],
+            deny_servers: vec![],
             avoid_local_udp_ports: HashSet::new(),
             ttl_config: TtlConfig::default(),
         }
@@ -570,6 +584,34 @@ mod for_dnssec {
         }
     }
 }
+
+const RECOMMENDED_SERVER_FILTERS: [IpNet; 22] = [
+    IpNet::new_assert(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 0)), 8), // Loopback range
+    IpNet::new_assert(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 8),       // Unspecified range
+    IpNet::new_assert(IpAddr::V4(Ipv4Addr::BROADCAST), 32),        // Directed Broadcast
+    IpNet::new_assert(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 0)), 8),  // RFC 1918 space
+    IpNet::new_assert(IpAddr::V4(Ipv4Addr::new(172, 16, 0, 0)), 12), // RFC 1918 space
+    IpNet::new_assert(IpAddr::V4(Ipv4Addr::new(192, 168, 0, 0)), 16), // RFC 1918 space
+    IpNet::new_assert(IpAddr::V4(Ipv4Addr::new(100, 64, 0, 0)), 10), // CG NAT
+    IpNet::new_assert(IpAddr::V4(Ipv4Addr::new(169, 254, 0, 0)), 16), // Link-local space
+    IpNet::new_assert(IpAddr::V4(Ipv4Addr::new(192, 0, 0, 0)), 24), // IETF Reserved
+    IpNet::new_assert(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 0)), 24), // TEST-NET-1
+    IpNet::new_assert(IpAddr::V4(Ipv4Addr::new(198, 51, 100, 0)), 24), // TEST-NET-2
+    IpNet::new_assert(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 0)), 24), // TEST-NET-3
+    IpNet::new_assert(IpAddr::V4(Ipv4Addr::new(240, 0, 0, 0)), 4), // Class E Reserved
+    IpNet::new_assert(IpAddr::V6(Ipv6Addr::LOCALHOST), 128),       // v6 loopback
+    IpNet::new_assert(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 128),     // v6 unspecified
+    IpNet::new_assert(IpAddr::V6(Ipv6Addr::new(0x100, 0, 0, 0, 0, 0, 0, 0)), 64), // v6 discard prefix
+    IpNet::new_assert(
+        IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 0)),
+        32,
+    ), // v6 documentation prefix
+    IpNet::new_assert(IpAddr::V6(Ipv6Addr::new(0x3fff, 0, 0, 0, 0, 0, 0, 0)), 20), // v6 documentation prefix
+    IpNet::new_assert(IpAddr::V6(Ipv6Addr::new(0x5f00, 0, 0, 0, 0, 0, 0, 0)), 16), // v6 segment routing prefix
+    IpNet::new_assert(IpAddr::V6(Ipv6Addr::new(0xfc00, 0, 0, 0, 0, 0, 0, 0)), 7), // v6 private address,
+    IpNet::new_assert(IpAddr::V6(Ipv6Addr::new(0xfe80, 0, 0, 0, 0, 0, 0, 0)), 64), // v6 link local
+    IpNet::new_assert(IpAddr::V6(Ipv6Addr::new(0xff00, 0, 0, 0, 0, 0, 0, 0)), 8), // v6 multicast
+];
 
 #[cfg(test)]
 mod tests {
