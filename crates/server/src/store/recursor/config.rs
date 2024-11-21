@@ -57,9 +57,13 @@ pub struct RecursiveConfig {
     #[serde(default)]
     pub dnssec_policy: DnssecPolicyConfig,
 
+    /// Networks that will be queried during resolution
+    #[serde(default)]
+    pub allow_server: Vec<IpNet>,
+
     /// Networks that will not be queried during resolution
     #[serde(default)]
-    pub do_not_query: Vec<IpNet>,
+    pub deny_server: Vec<IpNet>,
 
     /// Local UDP ports to avoid when making outgoing queries
     #[serde(default)]

@@ -43,8 +43,38 @@ record_cache_size = 1048576
 recursion_limit = 12
 ns_recursion_limit = 16
 
-## do_not_query: these networks will not be sent queries during recursive resolution
-do_not_query = ["0.0.0.0/8", "127.0.0.0/8", "::/128", "::1/128"]
+## allow_server: these networks will override entries in deny_server and allow you to make
+## granular exceptions to networks you otherwise want to deny.  This allows queries to be
+## made to the nameserver at 127.0.0.254, even though 127.0.0.0/8 is in the deny_server list.
+allow_server = ["127.0.0.254/32"]
+## deny_server: these networks will not be sent queries during recursive resolution
+## Several networks are added to this list by default:
+##
+##    127.0.0.0/8        Loopback range
+##    0.0.0.0/8          Unspecified range
+##    255.255.255.255/32 Directed Broadcast
+##    10.0.0.0/8         RFC 1918 space
+##    172.16.0.0/12      RFC 1918 space
+##    192.168.0.0/16     RFC 1918 space
+##    100.64.0.0/10      CG NAT
+##    169.254.0.0/16     Link-local space
+##    192.0.0.0/24       IETF Reserved
+##    192.0.2.0/24       TEST-NET-1
+##    198.51.100.0/24    TEST-NET-2
+##    203.0.113.0/24     TEST-NET-3
+##    240.0.0.0/4        Class E Reserved
+##    ::1/128            v6 loopback
+##    ::/128             v6 unspecified
+##    100::/64           v6 discard prefix
+##    2001:db8::/32      v6 documentation prefix
+##    3fff::/20          v6 documentation prefix
+##    5f00::/16          v6 segment routing prefix
+##    fc00::/7           v6 private address,
+##    fe80::/64          v6 link local
+##    ff00::/8           v6 multicast
+##
+## you can override these default entries by adding exceptions to allow_server.
+deny_server = ["0.0.0.0/8", "127.0.0.0/8", "::/128", "::1/128"]
 
 ## cache_policy: set the minimum/maximum TTL for positive/negative responses.
 ## This can be set for all queries and for specific query types.

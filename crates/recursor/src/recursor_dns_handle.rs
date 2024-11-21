@@ -14,7 +14,7 @@ use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use lru_cache::LruCache;
 use parking_lot::Mutex;
 use prefix_trie::PrefixSet;
-use tracing::{debug, trace, warn};
+use tracing::{debug, info, trace, warn};
 
 use crate::{
     proto::{
@@ -45,8 +45,10 @@ pub(crate) struct RecursorDnsHandle {
     recursion_limit: Option<u8>,
     ns_recursion_limit: Option<u8>,
     security_aware: bool,
-    do_not_query_v4: PrefixSet<Ipv4Net>,
-    do_not_query_v6: PrefixSet<Ipv6Net>,
+    deny_server_v4: PrefixSet<Ipv4Net>,
+    deny_server_v6: PrefixSet<Ipv6Net>,
+    allow_server_v4: PrefixSet<Ipv4Net>,
+    allow_server_v6: PrefixSet<Ipv6Net>,
     avoid_local_udp_ports: Arc<HashSet<u16>>,
 }
 
@@ -59,7 +61,8 @@ impl RecursorDnsHandle {
         recursion_limit: Option<u8>,
         ns_recursion_limit: Option<u8>,
         security_aware: bool,
-        do_not_query: Vec<IpNet>,
+        allow_server: Vec<IpNet>,
+        deny_server: Vec<IpNet>,
         avoid_local_udp_ports: Arc<HashSet<u16>>,
         ttl_config: TtlConfig,
     ) -> Self {
@@ -76,15 +79,32 @@ impl RecursorDnsHandle {
         let name_server_cache = Arc::new(Mutex::new(NameServerCache::new(ns_cache_size)));
         let record_cache = DnsLru::new(record_cache_size, ttl_config);
 
-        let mut do_not_query_v4 = PrefixSet::new();
-        let mut do_not_query_v6 = PrefixSet::new();
-        for network in do_not_query {
+        let mut deny_server_v4 = PrefixSet::new();
+        let mut deny_server_v6 = PrefixSet::new();
+
+        for network in deny_server {
+            info!("adding {network} to the do not query list");
             match network {
                 IpNet::V4(network) => {
-                    do_not_query_v4.insert(network);
+                    deny_server_v4.insert(network);
                 }
                 IpNet::V6(network) => {
-                    do_not_query_v6.insert(network);
+                    deny_server_v6.insert(network);
+                }
+            }
+        }
+
+        let mut allow_server_v4 = PrefixSet::new();
+        let mut allow_server_v6 = PrefixSet::new();
+
+        for network in allow_server {
+            info!("adding {network} to the do not query override list");
+            match network {
+                IpNet::V4(network) => {
+                    allow_server_v4.insert(network);
+                }
+                IpNet::V6(network) => {
+                    allow_server_v6.insert(network);
                 }
             }
         }
@@ -96,8 +116,10 @@ impl RecursorDnsHandle {
             recursion_limit,
             ns_recursion_limit,
             security_aware,
-            do_not_query_v4,
-            do_not_query_v6,
+            deny_server_v4,
+            deny_server_v6,
+            allow_server_v4,
+            allow_server_v6,
             avoid_local_udp_ports,
         }
     }
@@ -492,7 +514,7 @@ impl RecursorDnsHandle {
                 .filter_map(|r| {
                     let ip = r.ip_addr()?;
 
-                    if self.matches_do_not_query(ip) {
+                    if self.matches_nameserver_filter(ip) {
                         debug!(name = %ns_data, %ip, "ignoring address due to do_not_query");
                         None
                     } else {
@@ -613,7 +635,7 @@ impl RecursorDnsHandle {
                 .filter_map(|r| RData::ip_addr(&r))
                 .chain(glue.filter_map(|r| RData::ip_addr(r.data())))
                 .filter(|ip| {
-                    let matches = self.matches_do_not_query(*ip);
+                    let matches = self.matches_nameserver_filter(*ip);
                     if matches {
                         debug!(name = %ns_name, %ip, "ignoring address due to do_not_query");
                     }
@@ -671,10 +693,16 @@ impl RecursorDnsHandle {
 
     /// Check if an IP address matches any networks listed in the configuration that should not be
     /// sent recursive queries.
-    fn matches_do_not_query(&self, ip: IpAddr) -> bool {
+    fn matches_nameserver_filter(&self, ip: IpAddr) -> bool {
         match ip {
-            IpAddr::V4(ip) => self.do_not_query_v4.get_spm(&ip.into()).is_some(),
-            IpAddr::V6(ip) => self.do_not_query_v6.get_spm(&ip.into()).is_some(),
+            IpAddr::V4(ip) => {
+                self.allow_server_v4.get_spm(&ip.into()).is_none()
+                    && self.deny_server_v4.get_spm(&ip.into()).is_some()
+            }
+            IpAddr::V6(ip) => {
+                self.allow_server_v6.get_spm(&ip.into()).is_none()
+                    && self.deny_server_v6.get_spm(&ip.into()).is_some()
+            }
         }
     }
 
@@ -731,7 +759,7 @@ impl RecursorDnsHandle {
                         .filter_map(|answer| {
                             let ip = answer.data().ip_addr()?;
 
-                            if self.matches_do_not_query(ip) {
+                            if self.matches_nameserver_filter(ip) {
                                 debug!(%ip, "append_ips_from_lookup: ignoring address due to do_not_query");
                                 None
                             } else {
@@ -765,8 +793,11 @@ fn recursor_opts(avoid_local_udp_ports: Arc<HashSet<u16>>) -> ResolverOpts {
 
 #[cfg(test)]
 #[test]
-fn test_do_not_query_lookup() {
-    let do_not_query = vec![
+fn test_nameserver_filter() {
+    use std::net::Ipv4Addr;
+
+    let allow_server = vec![IpNet::new(IpAddr::from([192, 168, 0, 1]), 32).unwrap()];
+    let deny_server = vec![
         IpNet::new(IpAddr::from(Ipv4Addr::LOCALHOST), 8).unwrap(),
         IpNet::new(IpAddr::from([192, 168, 0, 0]), 23).unwrap(),
         IpNet::new(IpAddr::from([172, 17, 0, 0]), 20).unwrap(),
@@ -779,7 +810,8 @@ fn test_do_not_query_lookup() {
         Some(1),
         Some(1),
         true,
-        do_not_query,
+        allow_server,
+        deny_server,
         Arc::new(HashSet::new()),
         TtlConfig::default(),
     );
@@ -791,11 +823,11 @@ fn test_do_not_query_lookup() {
         [192, 168, 1, 254],
         [172, 17, 0, 1],
     ] {
-        assert!(recursor.matches_do_not_query(IpAddr::from(addr)));
+        assert!(recursor.matches_nameserver_filter(IpAddr::from(addr)));
     }
 
-    for addr in [[128, 0, 0, 0], [192, 168, 2, 0]] {
-        assert!(!recursor.matches_do_not_query(IpAddr::from(addr)));
+    for addr in [[128, 0, 0, 0], [192, 168, 2, 0], [192, 168, 0, 1]] {
+        assert!(!recursor.matches_nameserver_filter(IpAddr::from(addr)));
     }
 }
 
