@@ -14,6 +14,7 @@ use std::task::{Context, Poll};
     feature = "dns-over-rustls",
     feature = "dns-over-https-rustls",
     feature = "dns-over-quic",
+    feature = "dns-over-h3",
 ))]
 use std::time::Duration;
 
@@ -56,6 +57,8 @@ pub(crate) const TLS_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 pub(crate) const TCP_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 #[cfg(feature = "dns-over-quic")]
 pub(crate) const QUIC_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
+#[cfg(feature = "dns-over-h3")]
+pub(crate) const H3_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Ignores the result of a send operation and logs and ignores errors
 fn ignore_send<M, T>(result: Result<M, mpsc::TrySendError<T>>) {
