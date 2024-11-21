@@ -119,7 +119,7 @@ coverage: init-llvm-cov
 
     cargo +nightly llvm-cov test --workspace --no-report --all-targets --all-features
     cargo +nightly llvm-cov test --workspace --no-report --doc --doctests --all-features
-    cargo +nightly llvm-cov report --codecov --output-path {{join(COV_OUTPUT_DIR, "hickory-dns-coverage.json")}}
+    cargo +nightly llvm-cov report --doctests --codecov --output-path {{join(COV_OUTPUT_DIR, "hickory-dns-coverage.json")}}
 
 # Open the html view of the coverage report
 coverage-html: coverage
@@ -131,7 +131,7 @@ coverage-html: coverage
     export CARGO_LLVM_COV_TARGET_DIR={{COV_CARGO_LLVM_COV_TARGET_DIR}}
     export LLVM_PROFILE_FILE={{COV_LLVM_PROFILE_FILE}}
 
-    cargo +nightly llvm-cov report --html --open --output-dir {{COV_OUTPUT_DIR}}
+    cargo +nightly llvm-cov report --doctests --html --open --output-dir {{COV_OUTPUT_DIR}}
 
 # Export coverage data in lcov format
 coverage-lcov: coverage
@@ -143,7 +143,7 @@ coverage-lcov: coverage
     export CARGO_LLVM_COV_TARGET_DIR={{COV_CARGO_LLVM_COV_TARGET_DIR}}
     export LLVM_PROFILE_FILE={{COV_LLVM_PROFILE_FILE}}
 
-    cargo +nightly llvm-cov report --lcov --output-path {{join(COV_OUTPUT_DIR, "lcov.info")}}
+    cargo +nightly llvm-cov report --doctests --lcov --output-path {{join(COV_OUTPUT_DIR, "lcov.info")}}
 
 # (Re)generates Test Certificates, if tests are failing, this needs to be run yearly
 generate-test-certs: init-openssl
