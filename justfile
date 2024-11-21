@@ -116,7 +116,6 @@ coverage: init-llvm-cov
     cargo +nightly llvm-cov clean
     mkdir -p {{COV_CARGO_LLVM_COV_TARGET_DIR}}
 
-    cargo +nightly build --workspace --all-targets --all-features
     cargo +nightly llvm-cov test --workspace --no-report --all-targets --all-features
     cargo +nightly llvm-cov test --workspace --no-report --doc --doctests --all-features
     cargo +nightly llvm-cov report --codecov --output-path {{join(COV_CARGO_LLVM_COV_TARGET_DIR, "hickory-dns-coverage.json")}}
