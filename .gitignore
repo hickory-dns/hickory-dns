@@ -25,3 +25,6 @@ rls/**
 fuzz/artifacts/**
 fuzz/corpus/**
 *~
+
+# Code coverage output
+/coverage
