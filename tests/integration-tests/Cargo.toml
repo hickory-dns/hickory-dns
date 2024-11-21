@@ -74,6 +74,7 @@ dns-over-h3 = [
 # dns-over-native-tls = ["dns-over-tls",  "hickory-resolver/dns-over-native-tls", "hickory-server/dns-over-native-tls"]
 dns-over-openssl = [
     "dns-over-tls",
+    "dnssec-openssl",
     "hickory-proto/dns-over-openssl",
     "hickory-resolver/dns-over-openssl",
     "hickory-server/dns-over-openssl",
@@ -112,3 +113,8 @@ futures = { workspace = true, features = ["thread-pool"] }
 tokio = { workspace = true, features = ["macros", "rt"] }
 test-support.workspace = true
 tracing-subscriber.workspace = true
+
+[package.metadata.cargo-all-features]
+skip_optional_dependencies = true
+denylist = ["dnssec"]
+max_combination_size = 2

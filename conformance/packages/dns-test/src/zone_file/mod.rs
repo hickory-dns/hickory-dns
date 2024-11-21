@@ -76,8 +76,14 @@ impl FromStr for ZoneFile {
     fn from_str(input: &str) -> Result<Self> {
         let mut records = vec![];
         let mut maybe_soa = None;
+
         for line in input.lines() {
-            let line = line.trim();
+            let mut line = line.trim();
+
+            // When using dnssec-signzone, comments are inserted; remove them.
+            if let Some((item, _)) = line.split_once(';') {
+                line = item.trim_matches('\n');
+            }
 
             if line.is_empty() {
                 continue;

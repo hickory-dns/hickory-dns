@@ -16,16 +16,15 @@ use std::fs::File;
 use std::io::*;
 use std::net::*;
 
-use hickory_server::server::Protocol;
 use native_tls::Certificate;
-use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
 use hickory_client::client::*;
 use hickory_proto::native_tls::TlsClientStreamBuilder;
+use hickory_proto::runtime::TokioRuntimeProvider;
+use hickory_proto::xfer::Protocol;
 
 use crate::server_harness::{named_test_harness, query_a};
-use hickory_proto::iocompat::AsyncIoTokioAsStd;
 
 #[test]
 fn test_example_tls_toml_startup() {
@@ -52,28 +51,27 @@ fn test_startup(toml: &'static str) {
         .read_to_end(&mut cert_der)
         .expect("failed to read cert");
 
+        let provider = TokioRuntimeProvider::new();
         let mut io_loop = Runtime::new().unwrap();
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tls_port.expect("no tls_port")));
-        let mut tls_conn_builder =
-            TlsClientStreamBuilder::<AsyncIoTokioAsStd<TokioTcpStream>>::new();
+        let mut tls_conn_builder = TlsClientStreamBuilder::new(provider.clone());
         let cert = to_trust_anchor(&cert_der);
         tls_conn_builder.add_ca(cert);
         let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
-        let client = AsyncClient::new(stream, sender, None);
+        let client = Client::new(stream, sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        hickory_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
         query_a(&mut io_loop, &mut client);
 
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tls_port.expect("no tls_port")));
-        let mut tls_conn_builder =
-            TlsClientStreamBuilder::<AsyncIoTokioAsStd<TokioTcpStream>>::new();
+        let mut tls_conn_builder = TlsClientStreamBuilder::new(provider);
         let cert = to_trust_anchor(&cert_der);
         tls_conn_builder.add_ca(cert);
         let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
-        let client = AsyncClient::new(stream, sender, None);
+        let client = Client::new(stream, sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        hickory_proto::spawn_bg(&io_loop, bg);
+        hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
         // ipv6 should succeed
         query_a(&mut io_loop, &mut client);

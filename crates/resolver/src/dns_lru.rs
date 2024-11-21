@@ -12,8 +12,7 @@ use std::ops::RangeInclusive;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use lru_cache::LruCache;
-use parking_lot::Mutex;
+use moka::{sync::Cache, Expiry};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer};
 
@@ -34,7 +33,7 @@ use crate::proto::{ProtoError, ProtoErrorKind};
 /// upper bound on received TTLs.
 pub(crate) const MAX_TTL: u32 = 86400_u32;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct LruValue {
     // In the Err case, this represents an NXDomain
     lookup: Result<Lookup, ProtoError>,
@@ -79,16 +78,14 @@ impl LruValue {
     }
 }
 
-/// An LRU eviction cache specifically for storing DNS records
+/// A cache specifically for storing DNS records.
+///
+/// This is named `DnsLru` for historical reasons. It currently uses a "TinyLFU" policy, implemented
+/// in the `moka` library.
 #[derive(Clone, Debug)]
 pub struct DnsLru {
-    inner: Arc<DnsLruInner>,
-}
-
-#[derive(Debug)]
-struct DnsLruInner {
-    cache: Mutex<LruCache<Query, LruValue>>,
-    ttl_config: TtlConfig,
+    cache: Cache<Query, LruValue>,
+    ttl_config: Arc<TtlConfig>,
 }
 
 /// The time-to-live (TTL) configuration used by the cache.
@@ -256,14 +253,18 @@ impl DnsLru {
     /// * `capacity` - size in number of cached queries
     /// * `ttl_config` - minimum and maximum TTLs for cached records
     pub fn new(capacity: usize, ttl_config: TtlConfig) -> Self {
-        let cache = Mutex::new(LruCache::new(capacity));
+        let cache = Cache::builder()
+            .max_capacity(capacity.try_into().unwrap_or(u64::MAX))
+            .expire_after(LruValueExpiry)
+            .build();
         Self {
-            inner: Arc::new(DnsLruInner { cache, ttl_config }),
+            cache,
+            ttl_config: Arc::new(ttl_config),
         }
     }
 
     pub(crate) fn clear(&self) {
-        self.inner.cache.lock().clear();
+        self.cache.invalidate_all();
     }
 
     pub(crate) fn insert(
@@ -274,7 +275,6 @@ impl DnsLru {
     ) -> Lookup {
         let len = records_and_ttl.len();
         let (positive_min_ttl, positive_max_ttl) = self
-            .inner
             .ttl_config
             .positive_response_ttl_bounds(query.query_type())
             .into_inner();
@@ -297,7 +297,7 @@ impl DnsLru {
 
         // insert into the LRU
         let lookup = Lookup::new_with_deadline(query.clone(), Arc::from(records), valid_until);
-        self.inner.cache.lock().insert(
+        self.cache.insert(
             query,
             LruValue {
                 lookup: Ok(lookup.clone()),
@@ -399,7 +399,7 @@ impl DnsLru {
         let ttl = Duration::from_secs(u64::from(ttl));
         let valid_until = now + ttl;
 
-        self.inner.cache.lock().insert(
+        self.cache.insert(
             query,
             LruValue {
                 lookup: Ok(lookup.clone()),
@@ -431,7 +431,6 @@ impl DnsLru {
         } = kind.as_ref()
         {
             let (negative_min_ttl, negative_max_ttl) = self
-                .inner
                 .ttl_config
                 .negative_response_ttl_bounds(query.query_type())
                 .into_inner();
@@ -445,7 +444,7 @@ impl DnsLru {
             {
                 let error = error.clone();
 
-                self.inner.cache.lock().insert(
+                self.cache.insert(
                     query,
                     LruValue {
                         lookup: Err(error),
@@ -462,30 +461,15 @@ impl DnsLru {
 
     /// Based on the query, see if there are any records available
     pub fn get(&self, query: &Query, now: Instant) -> Option<Result<Lookup, ProtoError>> {
-        let mut out_of_date = false;
-        let mut cache = self.inner.cache.lock();
-        let lookup = cache.get_mut(query).and_then(|value| {
-            if value.is_current(now) {
-                out_of_date = false;
-                let mut result = value.with_updated_ttl(now).lookup;
-                if let Err(err) = &mut result {
-                    Self::nx_error_with_ttl(err, value.ttl(now));
-                }
-                Some(result)
-            } else {
-                out_of_date = true;
-                None
-            }
-        });
-
-        // in this case, we can preemptively remove out of date elements
-        // this assumes time is always moving forward, this would only not be true in contrived situations where now
-        //  is not current time, like tests...
-        if out_of_date {
-            cache.remove(query);
+        let value = self.cache.get(query)?;
+        if !value.is_current(now) {
+            return None;
         }
-
-        lookup
+        let mut result = value.with_updated_ttl(now).lookup;
+        if let Err(err) = &mut result {
+            Self::nx_error_with_ttl(err, value.ttl(now));
+        }
+        Some(result)
     }
 }
 
@@ -504,6 +488,29 @@ where
 
 #[cfg(feature = "serde")]
 mod ttl_config_deserialize;
+
+struct LruValueExpiry;
+
+impl Expiry<Query, LruValue> for LruValueExpiry {
+    fn expire_after_create(
+        &self,
+        _key: &Query,
+        value: &LruValue,
+        created_at: Instant,
+    ) -> Option<Duration> {
+        Some(value.ttl(created_at))
+    }
+
+    fn expire_after_update(
+        &self,
+        _key: &Query,
+        value: &LruValue,
+        updated_at: Instant,
+        _duration_until_expiry: Option<Duration>,
+    ) -> Option<Duration> {
+        Some(value.ttl(updated_at))
+    }
+}
 
 // see also the lookup_tests.rs in integration-tests crate
 #[cfg(test)]

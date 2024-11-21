@@ -210,6 +210,14 @@ fn check_nsec(verified_message: DnsResponse, query: &Query) -> Result<DnsRespons
         return Ok(verified_message);
     }
 
+    if verified_message
+        .name_servers()
+        .iter()
+        .all(|x| x.proof() == Proof::Insecure)
+    {
+        return Ok(verified_message);
+    }
+
     // get SOA name
     let soa_name = if let Some(soa_name) = verified_message
         .name_servers()
@@ -265,6 +273,7 @@ fn check_nsec(verified_message: DnsResponse, query: &Query) -> Result<DnsRespons
     };
 
     if !nsec_proof.is_secure() {
+        debug!("returning Nsec error for {} {nsec_proof}", query.name());
         // TODO change this to remove the NSECs, like we do for the others?
         return Err(ProtoError::from(ProtoErrorKind::Nsec {
             query: query.clone(),
@@ -379,7 +388,12 @@ where
                 (proof, adjusted_ttl)
             }
             Err(ProofError { proof, kind }) => {
-                debug!("failed to verify: {name} record_type: {record_type}: {kind}",);
+                match kind {
+                    ProofErrorKind::DsResponseNsec { .. } => {
+                        debug!("verified insecure {name}/{record_type}")
+                    }
+                    _ => debug!("failed to verify: {name} record_type: {record_type}: {kind}"),
+                }
                 (proof, None)
             }
         };
@@ -651,13 +665,17 @@ where
     };
 
     // if the DS record was an NSEC then we have an insecure zone
-    if let Some((query, proof)) = error
+    if let Some((query, _proof)) = error
         .kind()
         .as_nsec()
-        .filter(|(_query, proof)| proof.is_secure())
+        .filter(|(_query, proof)| proof.is_insecure())
     {
+        debug!(
+            "marking {} as insecure based on NSEC/NSEC3 proof",
+            query.name()
+        );
         return Err(ProofError::new(
-            *proof,
+            Proof::Insecure,
             ProofErrorKind::DsResponseNsec {
                 name: query.name().to_owned(),
             },
@@ -1115,6 +1133,14 @@ fn verify_rrset_with_dnskey(_: &DNSKEY, _: &RRSIG, _: &Rrset) -> ProtoResult<()>
 pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> Proof {
     // TODO: consider converting this to Result, and giving explicit reason for the failure
 
+    // DS queries resulting in NoData responses with accompanying NSEC records can prove that an
+    // insecure delegation exists; this is used to return Proof::Insecure instead of Proof::Secure
+    // in those situations.
+    let ds_proof_override = match query.query_type() {
+        RecordType::DS => Proof::Insecure,
+        _ => Proof::Secure,
+    };
+
     // first look for a record with the same name
     //  if they are, then the query_type should not exist in the NSEC record.
     //  if we got an NSEC record of the same name, but it is listed in the NSEC types,
@@ -1129,9 +1155,9 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> Proof {
                 !rdata.type_bit_maps().contains(&query.query_type())
             })
         {
-            return Proof::Secure;
+            return proof_log_yield(ds_proof_override, query.name(), "nsec1", "direct match");
         } else {
-            return Proof::Bogus;
+            return proof_log_yield(Proof::Bogus, query.name(), "nsec1", "direct match");
         }
     }
 
@@ -1153,7 +1179,7 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> Proof {
 
     // continue to validate there is no wildcard
     if !verify_nsec_coverage(query.name()) {
-        return Proof::Bogus;
+        return proof_log_yield(Proof::Bogus, query.name(), "nsec1", "no wildcard");
     }
 
     // validate ANY or *.domain record existence
@@ -1169,14 +1195,29 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> Proof {
     // don't need to validate the same name again
     if wildcard == *query.name() {
         // this was validated by the nsec coverage over the query.name()
-        Proof::Secure
+        proof_log_yield(
+            ds_proof_override,
+            query.name(),
+            "nsec1",
+            "direct wildcard match",
+        )
     } else {
         // this is the final check, return it's value
         //  if there is wildcard coverage, we're good.
         if verify_nsec_coverage(&wildcard) {
-            Proof::Secure
+            proof_log_yield(
+                ds_proof_override,
+                query.name(),
+                "nsec1",
+                "covering wildcard match",
+            )
         } else {
-            Proof::Bogus
+            proof_log_yield(
+                Proof::Bogus,
+                query.name(),
+                "nsec1",
+                "covering wildcard match",
+            )
         }
     }
 }
@@ -1187,6 +1228,12 @@ fn current_time() -> u32 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs() as u32
+}
+
+/// Logs a debug message and yields a Proof type for return
+fn proof_log_yield(proof: Proof, name: &Name, nsec_type: &str, msg: &str) -> Proof {
+    debug!("{nsec_type} proof for {name}, returning {proof}: {msg}");
+    proof
 }
 
 mod rrset {

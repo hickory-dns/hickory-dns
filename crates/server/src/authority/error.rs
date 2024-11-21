@@ -13,9 +13,9 @@ use thiserror::Error;
 use crate::proto::op::ResponseCode;
 use crate::proto::rr::{rdata::SOA, Record};
 use crate::proto::{ProtoError, ProtoErrorKind};
-#[cfg(feature = "hickory-recursor")]
+#[cfg(feature = "recursor")]
 use crate::recursor::ErrorKind;
-#[cfg(feature = "hickory-resolver")]
+#[cfg(feature = "resolver")]
 use crate::resolver::ResolveError;
 
 // TODO: should this implement Failure?
@@ -34,11 +34,11 @@ pub enum LookupError {
     #[error("Proto error: {0}")]
     ProtoError(#[from] ProtoError),
     /// Resolve Error
-    #[cfg(feature = "hickory-resolver")]
+    #[cfg(feature = "resolver")]
     #[error("Forward resolution error: {0}")]
     ResolveError(#[from] ResolveError),
     /// Recursive Resolver Error
-    #[cfg(feature = "hickory-recursor")]
+    #[cfg(feature = "recursor")]
     #[error("Recursive resolution error: {0}")]
     RecursiveError(#[from] hickory_recursor::Error),
     /// An underlying IO error occurred
@@ -56,9 +56,9 @@ impl LookupError {
     pub fn is_nx_domain(&self) -> bool {
         match self {
             Self::ResponseCode(ResponseCode::NXDomain) => true,
-            #[cfg(feature = "hickory-resolver")]
+            #[cfg(feature = "resolver")]
             Self::ResolveError(e) if e.is_nx_domain() => true,
-            #[cfg(feature = "hickory-recursor")]
+            #[cfg(feature = "recursor")]
             Self::RecursiveError(e) if e.is_nx_domain() => true,
             _ => false,
         }
@@ -67,9 +67,9 @@ impl LookupError {
     /// Returns true if no records were returned
     pub fn is_no_records_found(&self) -> bool {
         match self {
-            #[cfg(feature = "hickory-resolver")]
+            #[cfg(feature = "resolver")]
             Self::ResolveError(e) if e.is_no_records_found() => true,
-            #[cfg(feature = "hickory-recursor")]
+            #[cfg(feature = "recursor")]
             Self::RecursiveError(e) if e.is_no_records_found() => true,
             _ => false,
         }
@@ -78,9 +78,9 @@ impl LookupError {
     /// Returns the SOA record, if the error contains one
     pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
         match self {
-            #[cfg(feature = "hickory-resolver")]
+            #[cfg(feature = "resolver")]
             Self::ResolveError(e) => e.into_soa(),
-            #[cfg(feature = "hickory-recursor")]
+            #[cfg(feature = "recursor")]
             Self::RecursiveError(e) => e.into_soa(),
             _ => None,
         }
@@ -93,7 +93,7 @@ impl LookupError {
                 ProtoErrorKind::NoRecordsFound { authorities, .. } => authorities.clone(),
                 _ => None,
             },
-            #[cfg(feature = "hickory-recursor")]
+            #[cfg(feature = "recursor")]
             Self::RecursiveError(e) => match e.kind() {
                 ErrorKind::Forward(fwd) => fwd.authorities.clone(),
                 ErrorKind::Proto(proto) => match proto.kind() {

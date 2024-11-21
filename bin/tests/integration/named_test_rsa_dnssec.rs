@@ -66,7 +66,7 @@ async fn standard_tcp_conn<P: RuntimeProvider>(
     let (stream, sender) = TcpClientStream::new(addr, None, None, provider);
     Client::new(stream, sender, None)
         .await
-        .expect("new AsyncClient failed")
+        .expect("new Client failed")
 }
 
 fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algorithm: Algorithm) {

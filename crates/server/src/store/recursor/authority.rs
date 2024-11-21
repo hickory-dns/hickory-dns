@@ -9,12 +9,10 @@ use std::{io, path::Path, time::Instant};
 
 use tracing::{debug, info};
 
-#[cfg(feature = "dnssec")]
-use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::Proof};
 use crate::{
     authority::{
-        Authority, DnssecSummary, LookupControlFlow, LookupError, LookupObject, LookupOptions,
-        MessageRequest, UpdateResult, ZoneType,
+        Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, MessageRequest,
+        UpdateResult, ZoneType,
     },
     proto::{
         op::{Query, ResponseCode},
@@ -29,10 +27,16 @@ use crate::{
     server::RequestInfo,
     store::recursor::RecursiveConfig,
 };
+#[cfg(feature = "dnssec")]
+use crate::{
+    authority::{DnssecSummary, Nsec3QueryInfo},
+    dnssec::NxProofKind,
+    proto::dnssec::Proof,
+};
 
-/// An authority that will forward resolutions to upstream resolvers.
+/// An authority that performs recursive resolutions.
 ///
-/// This uses the hickory-resolver for resolving requests.
+/// This uses the hickory-recursor crate for resolving requests.
 pub struct RecursiveAuthority {
     origin: LowerName,
     recursor: Recursor,
@@ -222,6 +226,7 @@ impl LookupObject for RecursiveLookup {
         None
     }
 
+    #[cfg(feature = "dnssec")]
     fn dnssec_summary(&self) -> DnssecSummary {
         let mut all_secure = None;
         for record in self.0.records().iter() {

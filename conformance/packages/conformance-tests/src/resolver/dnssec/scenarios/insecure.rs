@@ -1,6 +1,6 @@
 use std::net::Ipv4Addr;
 
-use dns_test::client::{Client, DigSettings};
+use dns_test::client::{Client, DigOutput, DigSettings};
 use dns_test::name_server::NameServer;
 use dns_test::record::{Record, RecordType};
 use dns_test::zone_file::{Nsec, SignSettings};
@@ -14,13 +14,14 @@ mod deprecated_algorithm;
 // a validating resolver should not respond with SERVFAIL to queries about the unsigned zone because
 // the security status of the whole zone is "Insecure", not "Bogus"
 #[test]
-#[ignore]
 fn unsigned_zone_nsec3() -> Result<()> {
-    unsigned_zone_fixture(Nsec::_3 { salt: None })
+    unsigned_zone_fixture(Nsec::_3 {
+        opt_out: false,
+        salt: None,
+    })
 }
 
 #[test]
-#[ignore]
 fn unsigned_zone_nsec() -> Result<()> {
     unsigned_zone_fixture(Nsec::_1)
 }
@@ -40,9 +41,6 @@ fn unsigned_zone_fixture(nsec: Nsec) -> Result<()> {
     let mut tld_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_TLD, &network)?;
     let mut root_ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, &network)?;
 
-    sibling_ns.add(root_ns.a());
-    sibling_ns.add(tld_ns.a());
-    sibling_ns.add(unsigned_ns.a());
     sibling_ns.add(sibling_ns.a());
 
     root_ns.referral_nameserver(&tld_ns);
@@ -79,12 +77,8 @@ fn unsigned_zone_fixture(nsec: Nsec) -> Result<()> {
     for zone in [FQDN::ROOT, FQDN::TEST_TLD, FQDN::TEST_DOMAIN] {
         let output = client.dig(settings, resolver.ipv4_addr(), RecordType::SOA, &zone)?;
 
-        // XXX unclear why BIND & hickory fail this sanity check but that doesn't affect the
-        // main assertion below
-        if zone != FQDN::TEST_DOMAIN || dns_test::SUBJECT.is_unbound() {
-            assert!(output.status.is_noerror());
-            assert!(output.flags.authenticated_data);
-        }
+        assert!(output.status.is_noerror());
+        assert!(output.flags.authenticated_data);
     }
 
     let settings = *DigSettings::default().recurse();
@@ -98,15 +92,54 @@ fn unsigned_zone_fixture(nsec: Nsec) -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn no_ds_record_nsec1() -> Result<()> {
+    let (output, _logs) = no_ds_record_fixture(SignSettings::default().nsec(Nsec::_1))?;
+
+    dbg!(&output);
+
+    assert!(output.status.is_noerror());
+    assert!(!output.flags.authenticated_data);
+
+    Ok(())
+}
+
+#[test]
+fn no_ds_record_nsec3() -> Result<()> {
+    let (output, _logs) = no_ds_record_fixture(SignSettings::default().nsec(Nsec::_3 {
+        salt: None,
+        opt_out: false,
+    }))?;
+
+    dbg!(&output);
+
+    assert!(output.status.is_noerror());
+    assert!(!output.flags.authenticated_data);
+
+    Ok(())
+}
+
+#[test]
+fn no_ds_record_nsec3_opt_out() -> Result<()> {
+    let (output, logs) = no_ds_record_fixture(SignSettings::rsasha256_nsec3_optout())?;
+
+    dbg!(&output);
+
+    assert!(output.status.is_noerror());
+    assert!(!output.flags.authenticated_data);
+
+    if dns_test::SUBJECT.is_hickory() {
+        assert!(logs.contains("DS query covered by opt-out proof"));
+    }
+
+    Ok(())
+}
+
 // the `no-ds.testing.` zone is signed but no DS record exists in the parent `testing.` zone.
-// importantly, the `testing.` zone must contain NSEC3 records to deny the existence of
+// importantly, the `testing.` zone must contain NSEC/NSEC3 records to deny the existence of
 // `no-ds.testing./DS` (which is why we cannot use `Graph::build` + `Sign::AndAmend` to produce
 // this network)
-#[test]
-#[ignore = "hickory-dns responds with SERVFAIL"]
-fn no_ds_record() -> Result<()> {
-    let sign_settings = SignSettings::default();
-
+fn no_ds_record_fixture(sign_settings: SignSettings) -> Result<(DigOutput, String)> {
     let network = Network::new()?;
 
     let no_ds_zone = FQDN::TEST_TLD.push_label("no-ds");
@@ -145,6 +178,7 @@ fn no_ds_record() -> Result<()> {
 
     let mut trust_anchor = TrustAnchor::empty();
     let root_ns = root_ns.sign(sign_settings)?;
+
     trust_anchor.add(root_ns.key_signing_key().clone());
     trust_anchor.add(root_ns.zone_signing_key().clone());
 
@@ -162,10 +196,5 @@ fn no_ds_record() -> Result<()> {
     let settings = *DigSettings::default().recurse().authentic_data();
     let output = client.dig(settings, resolver.ipv4_addr(), RecordType::A, &needle_fqdn)?;
 
-    dbg!(&output);
-
-    assert!(output.status.is_noerror());
-    assert!(!output.flags.authenticated_data);
-
-    Ok(())
+    Ok((output, resolver.logs()?))
 }

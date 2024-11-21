@@ -48,8 +48,8 @@ dnssec = [
     "serde/rc",
 ]
 # Recursive Resolution is Experimental!
-recursor = ["hickory-recursor"]
-resolver = ["hickory-resolver"]
+recursor = ["dep:hickory-recursor", "dep:hickory-resolver"]
+resolver = ["dep:hickory-resolver"]
 sqlite = ["rusqlite"]
 blocklist = ["resolver"]
 toml = ["dep:toml"]
@@ -144,3 +144,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [lints]
 workspace = true
+
+[package.metadata.cargo-all-features]
+skip_optional_dependencies = true
+denylist = ["dnssec"]
+max_combination_size = 2

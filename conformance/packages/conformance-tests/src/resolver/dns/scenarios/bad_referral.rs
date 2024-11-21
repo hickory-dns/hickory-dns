@@ -130,6 +130,6 @@ fn fixture(label: &str, addr: Ipv4Addr) -> Result<DigOutput> {
     let resolver = resolver.start()?;
 
     let client = Client::new(&network)?;
-    let settings = *DigSettings::default().recurse();
+    let settings = *DigSettings::default().recurse().timeout(7);
     client.dig(settings, resolver.ipv4_addr(), RecordType::A, &needle_fqdn)
 }

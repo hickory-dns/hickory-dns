@@ -77,7 +77,7 @@ cfg-if.workspace = true
 futures-util = { workspace = true, default-features = false, features = [
     "std",
 ] }
-lru-cache.workspace = true
+moka = { workspace = true, features = ["sync"] }
 once_cell.workspace = true
 parking_lot.workspace = true
 quinn = { workspace = true, optional = true, features = [
@@ -134,3 +134,8 @@ required-features = ["tokio-runtime", "system-config"]
 
 [lints]
 workspace = true
+
+[package.metadata.cargo-all-features]
+skip_optional_dependencies = true
+denylist = ["dnssec", "dns-over-tls"]
+max_combination_size = 2

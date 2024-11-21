@@ -31,7 +31,7 @@ use crate::{
 
 /// An authority that will forward resolutions to upstream resolvers.
 ///
-/// This uses the hickory-resolver for resolving requests.
+/// This uses the hickory-resolver crate for resolving requests.
 pub struct ForwardAuthority<P: ConnectionProvider = TokioConnectionProvider> {
     origin: LowerName,
     resolver: Resolver<P>,

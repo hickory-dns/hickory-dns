@@ -33,7 +33,7 @@ use hickory_proto::{
 };
 
 #[doc(hidden)]
-#[deprecated(since = "0.25.0", note = "use `AsyncClient` instead")]
+#[deprecated(since = "0.25.0", note = "use `Client` instead")]
 pub type ClientFuture = Client;
 
 /// A DNS Client implemented over futures-rs.
@@ -47,7 +47,7 @@ pub struct Client {
 }
 
 impl Client {
-    /// Spawns a new AsyncClient Stream. This uses a default timeout of 5 seconds for all requests.
+    /// Spawns a new Client Stream. This uses a default timeout of 5 seconds for all requests.
     ///
     /// # Arguments
     ///
@@ -68,7 +68,7 @@ impl Client {
         Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer).await
     }
 
-    /// Spawns a new AsyncClient Stream.
+    /// Spawns a new Client Stream.
     ///
     /// # Arguments
     ///
@@ -1110,7 +1110,7 @@ mod tests {
         }
 
         let message_parsed = Message::from_vec(&buffer)
-            .expect("buffer was parsed already by AsyncClient so we should be able to do it again");
+            .expect("buffer was parsed already by Client so we should be able to do it again");
 
         // validate it's what we expected
         if let RData::A(addr) = message_parsed.answers()[0].data() {

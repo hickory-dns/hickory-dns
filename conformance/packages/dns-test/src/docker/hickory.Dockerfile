@@ -4,6 +4,7 @@ FROM rust:1-slim-bookworm
 RUN apt-get update && \
     apt-get install -y \
         ldnsutils \
+        bind9-utils \
         tshark \
         libssl-dev \
         pkg-config

@@ -182,7 +182,7 @@ impl fmt::Debug for TestClientStream {
     }
 }
 
-// need to do something with the message channel, otherwise the AsyncClient will think there
+// need to do something with the message channel, otherwise the Client will think there
 //  is no one listening to messages and shutdown...
 #[allow(dead_code)]
 pub struct NeverReturnsClientStream {

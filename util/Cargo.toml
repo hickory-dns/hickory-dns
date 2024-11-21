@@ -108,3 +108,7 @@ hickory-recursor.workspace = true
 hickory-resolver = { workspace = true, features = ["system-config"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 webpki-roots = { workspace = true, optional = true }
+
+[package.metadata.cargo-all-features]
+skip_optional_dependencies = true
+max_combination_size = 2
