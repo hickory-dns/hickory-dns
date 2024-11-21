@@ -19,7 +19,7 @@ use tracing::{debug, trace, warn};
 use crate::{
     proto::{
         op::Query,
-        rr::{rdata::NS, RData, RData::CNAME, Record, RecordType},
+        rr::{rdata::NS, RData, RData::CNAME, RecordType},
         runtime::TokioRuntimeProvider,
         ForwardNSData, ProtoErrorKind,
     },
@@ -277,12 +277,6 @@ impl RecursorDnsHandle {
     ) -> Result<Lookup, Error> {
         let query_type = query.query_type();
         let query_name = query.name().clone();
-
-        self.record_cache.insert_records(
-            query.clone(),
-            lookup.records().iter().map(Record::to_owned),
-            now,
-        );
 
         // Don't resolve CNAME lookups for a CNAME (or ANY) query
         if query_type == RecordType::CNAME || query_type == RecordType::ANY {
