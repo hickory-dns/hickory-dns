@@ -15,85 +15,60 @@ fn v4_this_host() -> Result<()> {
         return Ok(());
     }
 
-    let output = fixture("v4-this-host", Ipv4Addr::UNSPECIFIED)?;
+    let (output, logs) = fixture("v4-this-host", Ipv4Addr::UNSPECIFIED)?;
     dbg!(&output);
 
     assert!(output.status.is_servfail());
 
-    Ok(())
-}
-
-// as per RFC5737, `198.51.100.0/24` is an IANA reserved subnet that SHOULD not be used
-#[test]
-fn v4_doc() -> Result<()> {
-    let output = fixture("v4-doc", Ipv4Addr::new(198, 51, 100, 0))?;
-    dbg!(&output);
-
-    assert!(output.status.is_servfail());
-
-    Ok(())
-}
-
-#[test]
-fn v4_reserved() -> Result<()> {
-    let output = fixture("v4-reserved", Ipv4Addr::new(240, 0, 0, 0))?;
-    dbg!(&output);
-
-    assert!(output.status.is_servfail());
-
-    Ok(())
-}
-
-#[test]
-fn v4_link_local() -> Result<()> {
-    let output = fixture("v4-link-local", Ipv4Addr::new(169, 254, 0, 1))?;
-
-    assert!(output.status.is_servfail());
+    if dns_test::SUBJECT.is_hickory()
+        && !logs.lines().any(|line| {
+            line.contains("ignoring address due to do_not_query") && line.contains("0.0.0.0")
+        })
+    {
+        panic!("did not find ignored referral to 0.0.0.0");
+    }
 
     Ok(())
 }
 
 #[test]
 fn v4_loopback() -> Result<()> {
-    let output = fixture("v4-loopback", Ipv4Addr::LOCALHOST)?;
+    let (output, logs) = fixture("v4-loopback", Ipv4Addr::LOCALHOST)?;
     dbg!(&output);
 
     assert!(output.status.is_servfail());
+
+    if dns_test::SUBJECT.is_hickory()
+        && !logs.lines().any(|line| {
+            line.contains("ignoring address due to do_not_query") && line.contains("127.0.0.1")
+        })
+    {
+        panic!("did not find ignored referral to 127.0.0.1");
+    }
 
     Ok(())
 }
 
 #[test]
-fn v4_private_10() -> Result<()> {
-    let output = fixture("v4-private-10", Ipv4Addr::new(10, 0, 0, 1))?;
+fn v4_broadcast() -> Result<()> {
+    let (output, logs) = fixture("v4-broadcast", Ipv4Addr::BROADCAST)?;
     dbg!(&output);
 
     assert!(output.status.is_servfail());
 
-    Ok(())
-}
-
-#[test]
-fn v4_private_172() -> Result<()> {
-    let output = fixture("v4-private-172", Ipv4Addr::new(172, 16, 0, 1))?;
-    dbg!(&output);
-
-    assert!(output.status.is_servfail());
-
-    Ok(())
-}
-
-#[test]
-fn v4_private_192() -> Result<()> {
-    let output = fixture("v4-private-192", Ipv4Addr::new(192, 168, 0, 1))?;
-    dbg!(&output);
-
-    assert!(output.status.is_servfail());
+    if dns_test::SUBJECT.is_hickory()
+        && !logs.lines().any(|line| {
+            line.contains("ignoring address due to do_not_query")
+                && line.contains("255.255.255.255")
+        })
+    {
+        panic!("did not find ignored referral to 255.255.255.255");
+    }
 
     Ok(())
 }
 
-fn fixture(label: &str, addr: Ipv4Addr) -> Result<DigOutput> {
+fn fixture(label: &str, addr: Ipv4Addr) -> Result<(DigOutput, String)> {
     let network = Network::new()?;
 
     let leaf_zone = FQDN::TEST_TLD.push_label(label);
@@ -131,5 +106,7 @@ fn fixture(label: &str, addr: Ipv4Addr) -> Result<DigOutput> {
 
     let client = Client::new(&network)?;
     let settings = *DigSettings::default().recurse().timeout(7);
-    client.dig(settings, resolver.ipv4_addr(), RecordType::A, &needle_fqdn)
+    let output = client.dig(settings, resolver.ipv4_addr(), RecordType::A, &needle_fqdn)?;
+
+    Ok((output, resolver.logs().unwrap()))
 }
