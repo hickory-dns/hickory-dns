@@ -19,3 +19,4 @@ RUN --mount=type=cache,target=/usr/src/hickory/target \
     cp /usr/src/hickory/target/debug/hickory-dns /usr/bin/ && \
     cp /usr/src/hickory/target/debug/dns /usr/bin/
 ENV RUST_LOG=debug
+ENV RUST_BACKTRACE=1
