@@ -226,7 +226,9 @@ impl Container {
         let mut command = Command::new("docker");
         command
             .args(["exec", &self.inner.id])
-            .args(command_and_args);
+            .args(command_and_args)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
 
         Ok(command.status()?)
     }
