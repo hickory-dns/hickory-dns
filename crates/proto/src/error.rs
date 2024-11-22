@@ -100,7 +100,7 @@ pub enum ProtoErrorKind {
     #[error("DNSSEC Negative Record Response for {query}, {proof}")]
     Nsec {
         /// Query for which the NSEC was returned
-        query: crate::op::Query,
+        query: Box<Query>,
         /// DNSSEC proof of the record
         proof: Proof,
     },
