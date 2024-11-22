@@ -343,16 +343,12 @@ fn verify_with_pkey(
     let digest_type = DigestType::try_from(algorithm)?.to_openssl_digest();
     let mut verifier = Verifier::new(digest_type, pkey)?;
     verifier.update(message)?;
-    verifier
-        .verify(signature)
-        .map_err(Into::into)
-        .and_then(|b| {
-            if b {
-                Ok(())
-            } else {
-                Err("could not verify".into())
-            }
-        })
+
+    if verifier.verify(signature)? {
+        Ok(())
+    } else {
+        Err("could not verify".into())
+    }
 }
 
 /// Elyptic Curve public key type
@@ -400,22 +396,18 @@ impl<'k> Ec<'k> {
             Algorithm::ECDSAP384SHA384 => Nid::SECP384R1,
             _ => return Err("only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into()),
         };
+
         // Key needs to be converted to OpenSSL format
         let k = ECPublicKey::from_unprefixed(public_key, algorithm)?;
-        EcGroup::from_curve_name(curve)
-            .and_then(|group| BigNumContext::new().map(|ctx| (group, ctx)))
-            // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
-            .and_then(|(group, mut ctx)| {
-                EcPoint::from_bytes(&group, k.prefixed_bytes(), &mut ctx)
-                    .map(|point| (group, point))
-            })
-            .and_then(|(group, point)| EcKey::from_public_key(&group, &point))
-            .and_then(PKey::from_ec_key)
-            .map_err(Into::into)
-            .map(|pkey| Self {
-                raw: public_key,
-                pkey,
-            })
+        let group = EcGroup::from_curve_name(curve)?;
+        let mut ctx = BigNumContext::new()?;
+        let point = EcPoint::from_bytes(&group, k.prefixed_bytes(), &mut ctx)?;
+        let pkey = PKey::from_ec_key(EcKey::from_public_key(&group, &point)?)?;
+
+        Ok(Self {
+            raw: public_key,
+            pkey,
+        })
     }
 }
 
