@@ -276,7 +276,7 @@ fn check_nsec(verified_message: DnsResponse, query: &Query) -> Result<DnsRespons
         debug!("returning Nsec error for {} {nsec_proof}", query.name());
         // TODO change this to remove the NSECs, like we do for the others?
         return Err(ProtoError::from(ProtoErrorKind::Nsec {
-            query: query.clone(),
+            query: Box::new(query.clone()),
             proof: nsec_proof,
         }));
     }
