@@ -593,16 +593,22 @@ mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use super::*;
+    #[cfg(feature = "dnssec-ring")]
+    use crate::dnssec::{ring::EcdsaSigningKey, SigningKey};
 
     #[test]
-    #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+    #[cfg(feature = "dnssec-ring")]
     fn test() {
+        let algorithm = Algorithm::ECDSAP256SHA256;
+        let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
+        let signing_key = EcdsaSigningKey::from_pkcs8(&pkcs8, algorithm).unwrap();
+
         let rdata = DNSKEY::new(
             true,
             true,
             false,
-            Algorithm::RSASHA256,
-            Arc::new(PublicKeyBuf::new(vec![0, 1, 2, 3, 4, 5, 6, 7])),
+            algorithm,
+            Arc::new(signing_key.to_public_key().unwrap()),
         );
 
         let mut bytes = Vec::new();

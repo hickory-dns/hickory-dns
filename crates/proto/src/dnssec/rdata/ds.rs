@@ -402,8 +402,9 @@ mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use super::*;
-    use crate::dnssec::rdata::DNSKEY;
-    use crate::dnssec::PublicKeyBuf;
+    #[cfg(feature = "dnssec-ring")]
+    use crate::dnssec::ring::EcdsaSigningKey;
+    use crate::dnssec::{rdata::DNSKEY, SigningKey};
 
     #[test]
     fn test() {
@@ -427,21 +428,25 @@ mod tests {
         assert_eq!(rdata, read_rdata);
     }
 
+    #[cfg(feature = "dnssec-ring")]
     #[test]
-    #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
     pub(crate) fn test_covers() {
-        let name = Name::parse("www.example.com.", None).unwrap();
+        let algorithm = Algorithm::ECDSAP256SHA256;
+        let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
+        let signing_key = EcdsaSigningKey::from_pkcs8(&pkcs8, algorithm).unwrap();
 
         let dnskey_rdata = DNSKEY::new(
             true,
             true,
             false,
-            Algorithm::RSASHA256,
-            Arc::new(PublicKeyBuf::new(vec![1, 2, 3, 4])),
+            algorithm,
+            Arc::new(signing_key.to_public_key().unwrap()),
         );
+
+        let name = Name::parse("www.example.com.", None).unwrap();
         let ds_rdata = DS::new(
             0,
-            Algorithm::RSASHA256,
+            algorithm,
             DigestType::SHA256,
             dnskey_rdata
                 .to_digest(&name, DigestType::SHA256)
@@ -453,21 +458,25 @@ mod tests {
         assert!(ds_rdata.covers(&name, &dnskey_rdata).unwrap());
     }
 
+    #[cfg(feature = "dnssec-ring")]
     #[test]
-    #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
     pub(crate) fn test_covers_fails_with_non_zone_key() {
-        let name = Name::parse("www.example.com.", None).unwrap();
+        let algorithm = Algorithm::ECDSAP256SHA256;
+        let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
+        let signing_key = EcdsaSigningKey::from_pkcs8(&pkcs8, algorithm).unwrap();
 
         let dnskey_rdata = DNSKEY::new(
             false,
             true,
             false,
-            Algorithm::RSASHA256,
-            Arc::new(PublicKeyBuf::new(vec![1, 2, 3, 4])),
+            algorithm,
+            Arc::new(signing_key.to_public_key().unwrap()),
         );
+
+        let name = Name::parse("www.example.com.", None).unwrap();
         let ds_rdata = DS::new(
             0,
-            Algorithm::RSASHA256,
+            algorithm,
             DigestType::SHA256,
             dnskey_rdata
                 .to_digest(&name, DigestType::SHA256)

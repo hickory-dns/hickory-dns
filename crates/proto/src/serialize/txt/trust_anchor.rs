@@ -266,11 +266,11 @@ impl From<Token> for LexToken {
 mod tests {
     use std::sync::Arc;
 
-    use crate::dnssec::{Algorithm, PublicKeyBuf};
-
     use super::*;
+    #[cfg(feature = "dnssec-ring")]
+    use crate::dnssec::ring::EcdsaSigningKey;
+    use crate::dnssec::{rdata::DNSKEY, Algorithm, PublicKey, SigningKey};
 
-    const DECODED: &[u8] = b"hello";
     const ENCODED: &str = "aGVsbG8=";
 
     #[test]
@@ -279,42 +279,45 @@ mod tests {
         assert!(records.is_empty());
     }
 
+    #[cfg(feature = "dnssec-ring")]
     #[test]
     fn it_works() {
-        let input = format!(".           34076   IN  DNSKEY  256 3 8 {ENCODED}");
+        let algorithm = Algorithm::ECDSAP256SHA256;
+        let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
+        let signing_key = EcdsaSigningKey::from_pkcs8(&pkcs8, algorithm).unwrap();
+        let public_key = signing_key.to_public_key().unwrap();
+        let encoded = data_encoding::BASE64.encode(public_key.public_bytes());
+        let input = format!(".           34076   IN  DNSKEY  256 3 13 {encoded}");
+
         let records = parse_ok(&input);
         let [record] = records.try_into().unwrap();
         assert_eq!(&Name::root(), record.name());
         assert_eq!(Some(34076), record.ttl());
         assert_eq!(DNSClass::IN, record.dns_class());
         assert_eq!(RecordType::DNSKEY, record.record_type());
-        let expected = DNSKEY::new(
-            true,
-            false,
-            false,
-            Algorithm::RSASHA256,
-            Arc::new(PublicKeyBuf::new(DECODED.to_vec())),
-        );
+
+        let expected = DNSKEY::new(true, false, false, algorithm, Arc::new(public_key));
         let actual = record.data();
         assert_eq!(&expected, actual);
     }
 
+    #[cfg(feature = "dnssec-ring")]
     #[test]
     fn no_ttl_field() {
-        let input = format!(". IN DNSKEY 256 3 8 {ENCODED}");
+        let algorithm = Algorithm::ECDSAP256SHA256;
+        let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
+        let signing_key = EcdsaSigningKey::from_pkcs8(&pkcs8, algorithm).unwrap();
+        let public_key = signing_key.to_public_key().unwrap();
+        let encoded = data_encoding::BASE64.encode(public_key.public_bytes());
+        let input = format!(". IN DNSKEY 256 3 13 {encoded}");
+
         let records = parse_ok(&input);
         let [record] = records.try_into().unwrap();
         assert_eq!(&Name::root(), record.name());
         assert_eq!(None, record.ttl());
         assert_eq!(DNSClass::IN, record.dns_class());
         assert_eq!(RecordType::DNSKEY, record.record_type());
-        let expected = DNSKEY::new(
-            true,
-            false,
-            false,
-            Algorithm::RSASHA256,
-            Arc::new(PublicKeyBuf::new(DECODED.to_vec())),
-        );
+        let expected = DNSKEY::new(true, false, false, algorithm, Arc::new(public_key));
         let actual = record.data();
         assert_eq!(&expected, actual);
     }
