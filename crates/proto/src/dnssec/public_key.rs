@@ -48,9 +48,6 @@ pub fn decode_public_key(
     public_key: &[u8],
     algorithm: Algorithm,
 ) -> ProtoResult<Arc<dyn PublicKey>> {
-    // try to keep this and `Algorithm::is_supported` in sync
-    debug_assert!(algorithm.is_supported());
-
     #[allow(deprecated)]
     match algorithm {
         #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
