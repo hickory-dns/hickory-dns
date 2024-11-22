@@ -72,6 +72,23 @@ There have not been that many people familiar with DNS internals, networking, se
 
 Yes! There is no formal process, and generally it's a goal to open up to anyone who's been committing regularly to the project. We'd ask that you are committed to the goals of an open DNS implementation that anyone can freely use as they see fit. Please reach out on Discord if you'd like to become a maintainer and discuss with us.
 
+## Configuring rust-analyzer
+
+This repository contains multiple workspaces, so rust-analyzer will require additional configuration to provide hints in all files. If you are using the VS Code extension, create a `.vscode` directory inside the repository if it doesn't exist already, and edit `.vscode/settings.json` as follows:
+
+```jsonc
+{
+    "rust-analyzer.linkedProjects": [
+        "/path/to/hickory-dns/Cargo.toml",
+        "/path/to/hickory-dns/conformance/Cargo.toml",
+        "/path/to/hickory-dns/fuzz/Cargo.toml",
+        "/path/to/hickory-dns/tests/e2e-tests/Cargo.toml"
+    ],
+    "rust-analyzer.cargo.features": "all"
+    // etc.
+}
+```
+
 ## Thank you!
 
 Seriously, thank you for contributing to this project. Hickory DNS would not be where it is today without the support of contributors like you.
