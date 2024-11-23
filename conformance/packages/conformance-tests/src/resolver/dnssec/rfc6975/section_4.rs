@@ -9,7 +9,6 @@ use dns_test::{
 /// Section 4.2.1, last paragraph, says "Validating recursive resolvers MUST NOT set the DAU, DHU,
 /// and/or N3U option(s) in the final response to the stub client."
 #[test]
-#[ignore = "hickory includes DAU and DHU in responses"]
 fn no_understood_options_in_response() -> Result<()> {
     let network = Network::new()?;
 
