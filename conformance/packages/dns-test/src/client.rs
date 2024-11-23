@@ -167,6 +167,7 @@ pub struct DigOutput {
     pub answer: Vec<Record>,
     pub authority: Vec<Record>,
     pub additional: Vec<Record>,
+    pub options: Vec<(u16, String)>,
     // TODO(if needed) other sections
 }
 
@@ -177,6 +178,7 @@ impl FromStr for DigOutput {
         const FLAGS_PREFIX: &str = ";; flags: ";
         const STATUS_PREFIX: &str = ";; ->>HEADER<<- opcode: QUERY, status: ";
         const EDE_PREFIX: &str = "; EDE: ";
+        const OPT_PREFIX: &str = "; OPT=";
         const ANSWER_HEADER: &str = ";; ANSWER SECTION:";
         const AUTHORITY_HEADER: &str = ";; AUTHORITY SECTION:";
         const ADDITIONAL_HEADER: &str = ";; ADDITIONAL SECTION:";
@@ -199,6 +201,7 @@ impl FromStr for DigOutput {
         let mut authority = None;
         let mut additional = None;
         let mut ede = BTreeSet::new();
+        let mut options = Vec::new();
 
         let mut lines = input.lines();
         while let Some(line) = lines.next() {
@@ -231,6 +234,13 @@ impl FromStr for DigOutput {
                 let code = code.parse()?;
                 let inserted = ede.insert(code);
                 assert!(inserted, "unexpected: duplicate EDE {code:?}");
+            } else if let Some(unprefixed) = line.strip_prefix(OPT_PREFIX) {
+                let Some((option_str, value)) = unprefixed.split_once(": ") else {
+                    return Err("could not parse option".into());
+                };
+
+                let option_number = option_str.parse::<u16>()?;
+                options.push((option_number, value.to_string()));
             } else if line.starts_with(ANSWER_HEADER) {
                 if answer.is_some() {
                     return Err(more_than_once(ANSWER_HEADER).into());
@@ -286,6 +296,7 @@ impl FromStr for DigOutput {
             ede,
             flags: flags.ok_or_else(|| not_found(FLAGS_PREFIX))?,
             status: status.ok_or_else(|| not_found(STATUS_PREFIX))?,
+            options,
         })
     }
 }
