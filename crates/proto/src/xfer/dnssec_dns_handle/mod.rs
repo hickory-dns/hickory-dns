@@ -140,7 +140,6 @@ where
 
         let handle: Self = self.clone_with_context();
 
-        // TODO: cache response of the server about understood algorithms
         #[cfg(feature = "dnssec")]
         {
             request
