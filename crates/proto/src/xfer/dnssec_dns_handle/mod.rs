@@ -496,13 +496,17 @@ where
         if algorithm.is_supported() {
             all_unsupported = Some(false);
         } else {
-            debug!("unsupported key algorithm {algorithm} in {key_rdata}",);
+            debug!("unsupported key algorithm {algorithm} in {key_rdata}");
 
             all_unsupported.get_or_insert(true);
             continue;
         }
 
-        if !handle.trust_anchor.contains(key_rdata.public_key()) {
+        let Some(public_key) = key_rdata.public_key() else {
+            continue;
+        };
+
+        if !handle.trust_anchor.contains(public_key) {
             continue;
         }
 

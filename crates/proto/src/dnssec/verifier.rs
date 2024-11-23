@@ -25,7 +25,7 @@ pub trait Verifier {
     fn algorithm(&self) -> Algorithm;
 
     /// Return the public key associated with this verifier
-    fn key(&self) -> &dyn PublicKey;
+    fn key(&self) -> Option<&dyn PublicKey>;
 
     /// Verifies the hash matches the signature with the current `key`.
     ///
@@ -40,7 +40,10 @@ pub trait Verifier {
     /// True if and only if the signature is valid for the hash.
     /// false if the `key`.
     fn verify(&self, hash: &[u8], signature: &[u8]) -> ProtoResult<()> {
-        self.key().verify(self.algorithm(), hash, signature)
+        match self.key() {
+            Some(key) => key.verify(self.algorithm(), hash, signature),
+            None => Err("no public key".into()),
+        }
     }
 
     /// Verifies a message with the against the given signature, i.e. SIG0

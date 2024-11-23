@@ -13,7 +13,10 @@ use std::{fmt, sync::Arc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    dnssec::{decode_public_key, Algorithm, Digest, DigestType, PublicKey, Verifier},
+    dnssec::{
+        decode_public_key, public_key::MaybePublicKey, Algorithm, Digest, DigestType, PublicKey,
+        Verifier,
+    },
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     rr::{record_data::RData, Name, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
@@ -75,7 +78,10 @@ pub struct DNSKEY {
     secure_entry_point: bool,
     revoke: bool,
     algorithm: Algorithm,
-    public_key: Arc<dyn PublicKey>,
+    /// Allow `public_key` to be `Option`al to avoid eager errors in case
+    /// of unknown algorithms or other issues. The `public_key` should be
+    /// `Some` in principle, and usage sites should error when it is `None`.
+    public_key: MaybePublicKey,
 }
 
 impl DNSKEY {
@@ -117,7 +123,7 @@ impl DNSKEY {
             secure_entry_point,
             revoke,
             algorithm,
-            public_key,
+            public_key: MaybePublicKey::Valid(public_key),
         }
     }
 
@@ -203,8 +209,11 @@ impl DNSKEY {
     ///    depends on the algorithm of the key being stored and is described in
     ///    separate documents.
     /// ```
-    pub fn public_key(&self) -> &dyn PublicKey {
-        &*self.public_key
+    pub fn public_key(&self) -> Option<&dyn PublicKey> {
+        match &self.public_key {
+            MaybePublicKey::Valid(pk) => Some(pk.as_ref()),
+            MaybePublicKey::Invalid(_) => None,
+        }
     }
 
     /// Output the encoded form of the flags
@@ -361,7 +370,7 @@ impl BinEncodable for DNSKEY {
         encoder.emit_u16(self.flags())?;
         encoder.emit(3)?; // always 3 for now
         self.algorithm().emit(encoder)?;
-        encoder.emit_vec(self.public_key().public_bytes())?;
+        encoder.emit_vec(self.public_key.as_ref())?;
 
         Ok(())
     }
@@ -445,7 +454,7 @@ impl Verifier for DNSKEY {
         self.algorithm()
     }
 
-    fn key(&self) -> &dyn PublicKey {
+    fn key(&self) -> Option<&dyn PublicKey> {
         self.public_key()
     }
 }
@@ -468,14 +477,16 @@ impl<'de> Deserialize<'de> for DNSKEY {
         D: serde::Deserializer<'de>,
     {
         let dnskey = SerdeDnsKey::deserialize(deserializer)?;
-        Ok(DNSKEY::new(
-            dnskey.zone_key,
-            dnskey.secure_entry_point,
-            dnskey.revoke,
-            dnskey.algorithm,
-            decode_public_key(dnskey.public_key, dnskey.algorithm)
-                .map_err(|e| serde::de::Error::custom(format!("error decoding public key: {e}")))?,
-        ))
+        let public_key = MaybePublicKey::from_slice(dnskey.public_key, dnskey.algorithm)
+            .map_err(serde::de::Error::custom)?;
+
+        Ok(DNSKEY {
+            zone_key: dnskey.zone_key,
+            secure_entry_point: dnskey.secure_entry_point,
+            revoke: dnskey.revoke,
+            algorithm: dnskey.algorithm,
+            public_key,
+        })
     }
 }
 
@@ -490,7 +501,7 @@ impl Serialize for DNSKEY {
             secure_entry_point: self.secure_entry_point,
             revoke: self.revoke,
             algorithm: self.algorithm,
-            public_key: self.public_key.public_bytes(),
+            public_key: self.public_key.as_ref(),
         }
         .serialize(serializer)
     }
@@ -510,7 +521,7 @@ impl PartialEq for DNSKEY {
             && secure_entry_point == &other.secure_entry_point
             && revoke == &other.revoke
             && algorithm == &other.algorithm
-            && public_key.public_bytes() == other.public_key.public_bytes()
+            && public_key.as_ref() == other.public_key.as_ref()
     }
 }
 
@@ -564,7 +575,7 @@ impl fmt::Display for DNSKEY {
             "{flags} 3 {alg} {key}",
             flags = self.flags(),
             alg = u8::from(self.algorithm),
-            key = data_encoding::BASE64.encode(self.public_key.public_bytes())
+            key = data_encoding::BASE64.encode(self.public_key.as_ref())
         )
     }
 }
@@ -584,7 +595,10 @@ impl fmt::Debug for DNSKEY {
             .field("secure_entry_point", secure_entry_point)
             .field("revoke", revoke)
             .field("algorithm", algorithm)
-            .field("public_key", &public_key.public_bytes())
+            .field(
+                "public_key",
+                &public_key.as_ref(),
+            )
             .finish()
     }
 }

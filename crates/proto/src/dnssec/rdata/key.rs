@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use super::DNSSECRData;
 use crate::{
-    dnssec::{decode_public_key, Algorithm, PublicKey, Verifier},
+    dnssec::{decode_public_key, public_key::MaybePublicKey, Algorithm, PublicKey, Verifier},
     error::{ProtoError, ProtoResult},
     rr::{record_data::RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
@@ -167,7 +167,7 @@ pub struct KEY {
     signatory: UpdateScope,
     protocol: Protocol,
     algorithm: Algorithm,
-    public_key: Arc<dyn PublicKey>,
+    public_key: MaybePublicKey,
 }
 
 impl KEY {
@@ -239,7 +239,7 @@ impl KEY {
             signatory,
             protocol,
             algorithm,
-            public_key,
+            public_key: MaybePublicKey::Valid(public_key),
         }
     }
 
@@ -290,8 +290,11 @@ impl KEY {
     ///    depends on the algorithm of the key being stored and is described in
     ///    separate documents.
     /// ```
-    pub fn public_key(&self) -> &dyn PublicKey {
-        &*self.public_key
+    pub fn public_key(&self) -> Option<&dyn PublicKey> {
+        match &self.public_key {
+            MaybePublicKey::Valid(pk) => Some(pk.as_ref()),
+            MaybePublicKey::Invalid(_) => None,
+        }
     }
 
     /// Output the encoded form of the flags
@@ -352,7 +355,7 @@ impl Verifier for KEY {
         self.algorithm()
     }
 
-    fn key(&self) -> &dyn PublicKey {
+    fn key(&self) -> Option<&dyn PublicKey> {
         self.public_key()
     }
 }
@@ -362,7 +365,7 @@ impl BinEncodable for KEY {
         encoder.emit_u16(self.flags())?;
         encoder.emit(u8::from(self.protocol))?;
         self.algorithm().emit(encoder)?;
-        encoder.emit_vec(self.public_key().public_bytes())?;
+        encoder.emit_vec(self.public_key.as_ref())?;
 
         Ok(())
     }
@@ -495,7 +498,7 @@ impl Serialize for KEY {
             signatory: self.signatory,
             protocol: self.protocol,
             algorithm: self.algorithm,
-            public_key: self.public_key.public_bytes(),
+            public_key: self.public_key.as_ref(),
         }
         .serialize(serializer)
     }
@@ -573,7 +576,7 @@ impl fmt::Display for KEY {
             flags = self.flags(),
             proto = u8::from(self.protocol),
             alg = self.algorithm,
-            key = data_encoding::BASE64.encode(self.public_key.public_bytes())
+            key = data_encoding::BASE64.encode(self.public_key.as_ref())
         )
     }
 }
@@ -595,7 +598,7 @@ impl fmt::Debug for KEY {
             .field("signatory", signatory)
             .field("protocol", protocol)
             .field("algorithm", algorithm)
-            .field("public_key", &public_key.public_bytes())
+            .field("public_key", &public_key.as_ref())
             .finish()
     }
 }
@@ -616,7 +619,7 @@ impl PartialEq for KEY {
             && signatory == &other.signatory
             && protocol == &other.protocol
             && algorithm == &other.algorithm
-            && public_key.public_bytes() == other.public_key.public_bytes()
+            && public_key.as_ref() == other.public_key.as_ref()
     }
 }
 

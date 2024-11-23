@@ -164,7 +164,9 @@ fn parse_trust_anchor(input: &str) -> Result<TrustAnchor, String> {
         if let Entry::DNSKEY(record) = entry {
             let dnskey = record.data();
             // XXX should we filter based on `dnskey.flags()`?
-            trust_anchor.insert_trust_anchor(dnskey.public_key());
+            if let Some(public_key) = dnskey.public_key() {
+                trust_anchor.insert_trust_anchor(public_key);
+            };
         }
     }
 

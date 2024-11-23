@@ -17,6 +17,30 @@ use super::ring::{Ec, Ed25519, Rsa};
 use super::Algorithm;
 use crate::error::ProtoResult;
 
+#[derive(Clone)]
+pub(super) enum MaybePublicKey {
+    Valid(Arc<dyn PublicKey>),
+    Invalid(Vec<u8>),
+}
+
+impl MaybePublicKey {
+    pub(crate) fn from_slice(public_key: &[u8], algorithm: Algorithm) -> ProtoResult<Self> {
+        match decode_public_key(public_key, algorithm) {
+            Ok(pk) => Ok(MaybePublicKey::Valid(pk)),
+            Err(_) => Ok(MaybePublicKey::Invalid(public_key.to_vec())),
+        }
+    }
+}
+
+impl AsRef<[u8]> for MaybePublicKey {
+    fn as_ref(&self) -> &[u8] {
+        match self {
+            MaybePublicKey::Valid(pk) => pk.public_bytes(),
+            MaybePublicKey::Invalid(pk) => pk,
+        }
+    }
+}
+
 /// PublicKeys implement the ability to ideally be zero copy abstractions over public keys for verifying signed content.
 ///
 /// In DNS the KEY and DNSKEY types are generally the RData types which store public key material.
