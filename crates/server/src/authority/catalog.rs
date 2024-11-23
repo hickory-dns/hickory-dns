@@ -55,10 +55,6 @@ async fn send_response<'a, R: ResponseHandler>(
     mut response_handle: R,
 ) -> io::Result<ResponseInfo> {
     if let Some(mut resp_edns) = response_edns {
-        #[cfg(feature = "dnssec")]
-        {
-            resp_edns.set_default_algorithms();
-        }
         response.set_edns(resp_edns);
     }
 
