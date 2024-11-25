@@ -34,7 +34,7 @@ license.workspace = true
 backtrace = ["hickory-proto/backtrace"]
 dnssec-openssl = [
     "dnssec",
-    "openssl",
+    "dep:openssl",
     "hickory-proto/dnssec-openssl",
     "hickory-resolver?/dnssec-openssl",
 ]
@@ -65,14 +65,13 @@ dns-over-https-rustls = [
 
 dns-over-openssl = [
     "dns-over-tls",
-    "dnssec-openssl",
     "hickory-proto/dns-over-openssl",
+    "dep:openssl",
     "dep:tokio-openssl",
     "hickory-resolver?/dns-over-openssl",
 ]
 dns-over-rustls = [
     "dns-over-tls",
-    "dnssec-ring",
     "dep:rustls",
     "hickory-proto/dns-over-rustls",
     "hickory-resolver?/dns-over-rustls",

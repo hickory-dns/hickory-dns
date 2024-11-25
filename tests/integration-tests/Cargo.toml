@@ -37,6 +37,7 @@ path = "src/lib.rs"
 [features]
 dnssec-openssl = [
     "dnssec",
+    "dep:openssl",
     "hickory-resolver/dnssec-openssl",
     "hickory-server/dnssec-openssl",
     "hickory-client/dnssec-openssl",
@@ -51,7 +52,7 @@ dnssec-ring = [
     "hickory-client/dnssec-openssl",
     "hickory-proto/dnssec-ring",
 ]
-dnssec = ["dep:openssl"]
+dnssec = []
 
 dns-over-https-rustls = [
     "hickory-client/dns-over-https-rustls",
@@ -74,14 +75,12 @@ dns-over-h3 = [
 # dns-over-native-tls = ["dns-over-tls",  "hickory-resolver/dns-over-native-tls", "hickory-server/dns-over-native-tls"]
 dns-over-openssl = [
     "dns-over-tls",
-    "dnssec-openssl",
     "hickory-proto/dns-over-openssl",
     "hickory-resolver/dns-over-openssl",
     "hickory-server/dns-over-openssl",
 ]
 dns-over-rustls = [
     "dns-over-tls",
-    "dnssec-ring",
     "hickory-proto/dns-over-rustls",
     "hickory-resolver/dns-over-rustls",
     "hickory-server/dns-over-rustls",

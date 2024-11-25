@@ -1,4 +1,4 @@
-#![cfg(feature = "dnssec")]
+#![cfg(feature = "dnssec-openssl")]
 
 use std::str::FromStr;
 use std::sync::{Arc, Mutex as StdMutex};

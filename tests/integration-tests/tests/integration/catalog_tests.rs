@@ -6,11 +6,7 @@ use hickory_proto::{
     serialize::binary::{BinDecodable, BinEncodable},
     xfer::Protocol,
 };
-#[cfg(any(
-    feature = "dnssec",
-    feature = "dns-over-rustls",
-    feature = "dns-over-openssl"
-))]
+#[cfg(feature = "dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::{
     authority::{Authority, Catalog, MessageRequest, ZoneType},
@@ -28,11 +24,7 @@ pub fn create_test() -> InMemoryAuthority {
         origin.clone(),
         ZoneType::Primary,
         false,
-        #[cfg(any(
-            feature = "dnssec",
-            feature = "dns-over-rustls",
-            feature = "dns-over-openssl"
-        ))]
+        #[cfg(feature = "dnssec")]
         Some(NxProofKind::Nsec),
     );
 

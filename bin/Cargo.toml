@@ -45,8 +45,8 @@ dns-over-https-rustls = ["dns-over-rustls", "hickory-server/dns-over-https-rustl
 dns-over-quic = ["dns-over-rustls", "hickory-server/dns-over-quic"]
 dns-over-h3 = ["dns-over-rustls", "hickory-server/dns-over-h3"]
 
-dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "hickory-server/dns-over-openssl"]
-dns-over-rustls = ["dns-over-tls", "dnssec-ring", "dep:rustls", "hickory-server/dns-over-rustls"]
+dns-over-openssl = ["dns-over-tls", "hickory-server/dns-over-openssl", "dep:openssl"]
+dns-over-rustls = ["dns-over-tls", "dep:rustls", "hickory-server/dns-over-rustls"]
 dns-over-tls = []
 
 webpki-roots = ["hickory-server/webpki-roots"]
