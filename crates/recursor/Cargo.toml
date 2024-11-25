@@ -69,13 +69,11 @@ dns-over-native-tls = [
 ]
 dns-over-openssl = [
     "dns-over-tls",
-    "dnssec-openssl",
     "hickory-proto/dns-over-openssl",
     "hickory-resolver/dns-over-openssl",
 ]
 dns-over-rustls = [
     "dns-over-tls",
-    "dnssec-ring",
     "hickory-proto/dns-over-rustls",
     "hickory-resolver/dns-over-rustls",
 ]

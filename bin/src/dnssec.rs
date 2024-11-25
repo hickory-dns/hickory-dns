@@ -81,7 +81,7 @@ impl KeyConfig {
     }
 
     /// Converts key into
-    #[cfg(any(feature = "dns-over-tls", feature = "dnssec"))]
+    #[cfg(feature = "dnssec")]
     pub fn format(&self) -> ParseResult<KeyFormat> {
         use hickory_proto::serialize::txt::ParseErrorKind;
 
