@@ -291,73 +291,61 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
             continue;
         }
 
-        match DnsResponse::from_buffer(response_buffer) {
-            Ok(response) => {
-                // Validate the message id in the response matches the value chosen for the query.
-                if msg_id != response.id() {
-                    // on wrong id, attempted poison?
-                    warn!(
-                        "expected message id: {} got: {}, dropped",
-                        msg_id,
-                        response.id()
-                    );
+        let response = DnsResponse::from_buffer(response_buffer)?;
+        // Validate the message id in the response matches the value chosen for the query.
+        if msg_id != response.id() {
+            // on wrong id, attempted poison?
+            warn!(
+                "expected message id: {} got: {}, dropped",
+                msg_id,
+                response.id()
+            );
 
-                    continue;
-                }
+            continue;
+        }
 
-                // Validate the returned query name.
-                //
-                // This currently checks that each response query name was present in the original query, but not that
-                // every original question is present.
-                //
-                // References:
-                //
-                // RFC 1035 7.3:
-                //
-                // The next step is to match the response to a current resolver request.
-                // The recommended strategy is to do a preliminary matching using the ID
-                // field in the domain header, and then to verify that the question section
-                // corresponds to the information currently desired.
-                //
-                // RFC 1035 7.4:
-                //
-                // In general, we expect a resolver to cache all data which it receives in
-                // responses since it may be useful in answering future client requests.
-                // However, there are several types of data which should not be cached:
-                //
-                // ...
-                //
-                //  - RR data in responses of dubious reliability.  When a resolver
-                // receives unsolicited responses or RR data other than that
-                // requested, it should discard it without caching it.
-                let request_message = Message::from_vec(msg.bytes())?;
-                let request_queries = request_message.queries();
-                let response_queries = response.queries();
+        // Validate the returned query name.
+        //
+        // This currently checks that each response query name was present in the original query, but not that
+        // every original question is present.
+        //
+        // References:
+        //
+        // RFC 1035 7.3:
+        //
+        // The next step is to match the response to a current resolver request.
+        // The recommended strategy is to do a preliminary matching using the ID
+        // field in the domain header, and then to verify that the question section
+        // corresponds to the information currently desired.
+        //
+        // RFC 1035 7.4:
+        //
+        // In general, we expect a resolver to cache all data which it receives in
+        // responses since it may be useful in answering future client requests.
+        // However, there are several types of data which should not be cached:
+        //
+        // ...
+        //
+        //  - RR data in responses of dubious reliability.  When a resolver
+        // receives unsolicited responses or RR data other than that
+        // requested, it should discard it without caching it.
+        let request_message = Message::from_vec(msg.bytes())?;
+        let request_queries = request_message.queries();
+        let response_queries = response.queries();
 
-                if !response_queries
-                    .iter()
-                    .all(|elem| request_queries.contains(elem))
-                {
-                    warn!("detected forged question section: we expected '{request_queries:?}', but received '{response_queries:?}' from server {src}");
-                    continue;
-                }
+        if !response_queries
+            .iter()
+            .all(|elem| request_queries.contains(elem))
+        {
+            warn!("detected forged question section: we expected '{request_queries:?}', but received '{response_queries:?}' from server {src}");
+            continue;
+        }
 
-                debug!("received message id: {}", response.id());
-                if let Some(mut verifier) = verifier {
-                    return verifier(response_bytes);
-                } else {
-                    return Ok(response);
-                }
-            }
-            Err(e) => {
-                // on errors deserializing, continue
-                warn!(
-                    "dropped malformed message waiting for id: {} err: {}",
-                    msg_id, e
-                );
-
-                continue;
-            }
+        debug!("received message id: {}", response.id());
+        if let Some(mut verifier) = verifier {
+            return verifier(response_bytes);
+        } else {
+            return Ok(response);
         }
     }
 }
