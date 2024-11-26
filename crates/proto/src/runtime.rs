@@ -178,7 +178,7 @@ mod tokio_runtime {
 
                 socket.set_nodelay(true)?;
                 let future = socket.connect(server_addr);
-                let wait_for = wait_for.unwrap_or_else(|| Duration::from_secs(5));
+                let wait_for = wait_for.unwrap_or(TCP_HANDSHAKE_TIMEOUT);
                 match timeout(wait_for, future).await {
                     Ok(Ok(socket)) => Ok(AsyncIoTokioAsStd(socket)),
                     Ok(Err(e)) => Err(e),
@@ -228,6 +228,8 @@ mod tokio_runtime {
     }
 }
 
+#[cfg(feature = "tokio-runtime")]
+use crate::xfer::TCP_HANDSHAKE_TIMEOUT;
 #[cfg(feature = "tokio-runtime")]
 pub use tokio_runtime::{TokioHandle, TokioRuntimeProvider};
 

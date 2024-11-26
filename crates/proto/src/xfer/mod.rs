@@ -51,6 +51,8 @@ pub use self::serial_message::SerialMessage;
 
 #[cfg(any(feature = "dns-over-rustls", feature = "dns-over-https-rustls"))]
 pub(crate) const TLS_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
+#[cfg(feature = "tokio-runtime")]
+pub(crate) const TCP_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Ignores the result of a send operation and logs and ignores errors
 fn ignore_send<M, T>(result: Result<M, mpsc::TrySendError<T>>) {
