@@ -9,7 +9,11 @@ use std::future::Future;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-#[cfg(feature = "dns-over-https-rustls")]
+#[cfg(any(
+    feature = "tokio-runtime",
+    feature = "dns-over-rustls",
+    feature = "dns-over-https-rustls",
+))]
 use std::time::Duration;
 
 use futures_channel::mpsc;
@@ -45,7 +49,7 @@ pub use self::dnssec_dns_handle::DnssecDnsHandle;
 pub use self::retry_dns_handle::RetryDnsHandle;
 pub use self::serial_message::SerialMessage;
 
-#[cfg(feature = "dns-over-https-rustls")]
+#[cfg(any(feature = "dns-over-rustls", feature = "dns-over-https-rustls"))]
 pub(crate) const TLS_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Ignores the result of a send operation and logs and ignores errors
