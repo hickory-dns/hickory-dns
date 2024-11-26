@@ -3,9 +3,9 @@
 use core::result::Result as CoreResult;
 use core::str::FromStr;
 use core::{array, fmt};
-use std::any;
 use std::fmt::Write;
 use std::net::Ipv4Addr;
+use std::{any, mem};
 
 use crate::{Error, Result, DEFAULT_TTL, FQDN};
 
@@ -62,6 +62,7 @@ pub enum Record {
     NSEC3PARAM(NSEC3PARAM),
     RRSIG(RRSIG),
     SOA(SOA),
+    TXT(TXT),
 }
 
 impl From<NSEC3> for Record {
@@ -153,6 +154,14 @@ impl Record {
         }
     }
 
+    pub fn try_into_txt(self) -> CoreResult<TXT, Self> {
+        if let Self::TXT(txt) = self {
+            Ok(txt)
+        } else {
+            Err(self)
+        }
+    }
+
     pub fn is_soa(&self) -> bool {
         matches!(self, Self::SOA(..))
     }
@@ -221,6 +230,7 @@ impl FromStr for Record {
             "NSEC3PARAM" => Record::NSEC3PARAM(input.parse()?),
             "RRSIG" => Record::RRSIG(input.parse()?),
             "SOA" => Record::SOA(input.parse()?),
+            "TXT" => Record::TXT(input.parse()?),
             _ => return Err(format!("unknown record type: {record_type}").into()),
         };
 
@@ -241,6 +251,7 @@ impl fmt::Display for Record {
             Record::NSEC3PARAM(nsec3param) => write!(f, "{nsec3param}"),
             Record::RRSIG(rrsig) => write!(f, "{rrsig}"),
             Record::SOA(soa) => write!(f, "{soa}"),
+            Record::TXT(txt) => write!(f, "{txt}"),
         }
     }
 }
@@ -937,6 +948,133 @@ impl fmt::Display for SoaSettings {
     }
 }
 
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Debug, Clone)]
+pub struct TXT {
+    pub zone: FQDN,
+    pub ttl: u32,
+    pub character_strings: Vec<String>,
+}
+
+impl FromStr for TXT {
+    type Err = Error;
+
+    fn from_str(input: &str) -> Result<Self> {
+        let mut rest = input;
+        let [Some(zone), Some(ttl), Some(class), Some(record_type)] = array::from_fn(|_| {
+            if let Some((left, right)) = rest.split_once(|c| char::is_ascii_whitespace(&c)) {
+                rest = right.trim();
+                Some(left)
+            } else {
+                let trimmed = rest.trim();
+                rest = "";
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed)
+                }
+            }
+        }) else {
+            return Err("expected at least 5 columns".into());
+        };
+
+        check_record_type::<Self>(record_type)?;
+        check_class(class)?;
+
+        let mut character_strings = Vec::new();
+        let mut current_string = String::new();
+
+        enum State {
+            /// At the start of the input, or after a string.
+            Whitespace,
+            /// In an unquoted string.
+            UnquotedString,
+            /// In a quoted string.
+            QuotedString,
+        }
+
+        let mut state = State::Whitespace;
+        for character in rest.chars() {
+            if !character.is_ascii() {
+                return Err("non-ASCII characters in TXT records are not supported".into());
+            }
+            match (state, character) {
+                (State::Whitespace, character) if character.is_ascii_whitespace() => {
+                    state = State::Whitespace;
+                }
+                (State::Whitespace, '"') => {
+                    state = State::QuotedString;
+                }
+                (State::UnquotedString, character) if character.is_ascii_whitespace() => {
+                    character_strings.push(mem::take(&mut current_string));
+                    state = State::Whitespace;
+                }
+                (State::QuotedString, '"') => {
+                    character_strings.push(mem::take(&mut current_string));
+                    state = State::Whitespace;
+                }
+                (State::Whitespace, '(') => {
+                    return Err("multi-line TXT records are not supported".into());
+                }
+                (_, '@') => {
+                    return Err(
+                        "denoting the current origin with @ in TXT records is not supported".into(),
+                    );
+                }
+                (_, '\\') => {
+                    return Err("backslash escapes in TXT records are not supported".into());
+                }
+                (State::Whitespace | State::UnquotedString, character) => {
+                    current_string.push(character);
+                    state = State::UnquotedString;
+                }
+                (State::QuotedString, character) => {
+                    current_string.push(character);
+                    state = State::QuotedString;
+                }
+            }
+        }
+        match state {
+            State::Whitespace => {}
+            State::UnquotedString => character_strings.push(mem::take(&mut current_string)),
+            State::QuotedString => return Err("quoted string in TXT record was not closed".into()),
+        }
+
+        if character_strings.is_empty() {
+            return Err("expected at least 5 columns".into());
+        }
+
+        Ok(Self {
+            zone: zone.parse()?,
+            ttl: ttl.parse()?,
+            character_strings,
+        })
+    }
+}
+
+impl fmt::Display for TXT {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            zone,
+            ttl,
+            character_strings,
+        } = self;
+
+        let record_type = unqualified_type_name::<Self>();
+        write!(f, "{zone}\t{ttl}\t{CLASS}\t{record_type}")?;
+        let mut is_first = true;
+        for string in character_strings.iter() {
+            if is_first {
+                write!(f, "\t\"{string}\"")?;
+                is_first = false;
+            } else {
+                write!(f, " \"{string}\"")?;
+            }
+        }
+        Ok(())
+    }
+}
+
 fn check_class(class: &str) -> Result<()> {
     if class != "IN" {
         return Err(format!("unknown class: {class}").into());
@@ -1327,6 +1465,26 @@ mod tests {
         Ok(())
     }
 
+    // from the `truncated_with_tcp_fallback.py` test server.
+    const TXT_INPUT: &str = r#"example.testing.	0	IN	TXT	"protocol=TCP" "counter=0""#;
+
+    #[test]
+    fn txt() -> Result<()> {
+        let txt: TXT = TXT_INPUT.parse()?;
+
+        assert_eq!("example.testing.", txt.zone.as_str());
+        assert_eq!(0, txt.ttl);
+        assert_eq!(
+            vec!["protocol=TCP".to_owned(), "counter=0".to_owned()],
+            txt.character_strings
+        );
+
+        let output = txt.to_string();
+        assert_eq!(TXT_INPUT, output);
+
+        Ok(())
+    }
+
     #[test]
     fn any() -> Result<()> {
         assert!(matches!(A_INPUT.parse()?, Record::A(..)));
@@ -1338,6 +1496,7 @@ mod tests {
         assert!(matches!(NSEC3PARAM_INPUT.parse()?, Record::NSEC3PARAM(..)));
         assert!(matches!(RRSIG_INPUT.parse()?, Record::RRSIG(..)));
         assert!(matches!(SOA_INPUT.parse()?, Record::SOA(..)));
+        assert!(matches!(TXT_INPUT.parse()?, Record::TXT(..)));
 
         Ok(())
     }
