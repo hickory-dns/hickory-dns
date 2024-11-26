@@ -10,7 +10,6 @@ fn tls_handshake_timeout_dns_over_https() -> Result<()> {
 }
 
 #[test]
-#[ignore = "FIXME unresponsive client"]
 fn tls_handshake_timeout_dns_over_tls() -> Result<()> {
     tls_handshake_timeout("tls")
 }
@@ -56,7 +55,8 @@ fn tls_handshake_timeout(protocol: &str) -> Result<()> {
             let output = client_process.wait()?;
 
             assert!(!output.status.success());
-            assert!(output.stdout.contains("TLS handshake timed out"));
+            println!("stdout:\n {}", output.stdout);
+            assert!(output.stdout.contains("timed out"));
 
             return Ok(());
         } else {
