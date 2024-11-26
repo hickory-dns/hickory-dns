@@ -13,6 +13,7 @@ use std::task::{Context, Poll};
     feature = "tokio-runtime",
     feature = "dns-over-rustls",
     feature = "dns-over-https-rustls",
+    feature = "dns-over-quic",
 ))]
 use std::time::Duration;
 
@@ -53,6 +54,8 @@ pub use self::serial_message::SerialMessage;
 pub(crate) const TLS_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 #[cfg(feature = "tokio-runtime")]
 pub(crate) const TCP_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
+#[cfg(feature = "dns-over-quic")]
+pub(crate) const QUIC_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Ignores the result of a send operation and logs and ignores errors
 fn ignore_send<M, T>(result: Result<M, mpsc::TrySendError<T>>) {
