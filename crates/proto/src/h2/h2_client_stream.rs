@@ -313,7 +313,7 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
     /// # Arguments
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
-    /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
+    /// * `dns_name` - The DNS name associated with a certificate
     /// * `http_endpoint` - The HTTP endpoint where the remote DNS resolver provides service, typically `/dns-query`
     pub fn build(
         mut self,
