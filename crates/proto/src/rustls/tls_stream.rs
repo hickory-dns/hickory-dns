@@ -213,19 +213,22 @@ where
         Err(_) => return Err(io::Error::new(io::ErrorKind::InvalidInput, "bad dns_name")),
     };
 
-    let stream = future.await?;
-    let s = timeout(
-        CONNECT_TIMEOUT,
-        tls_connector.connect(dns_name, AsyncIoStdAsTokio(stream)),
-    )
-    .await
-    .map_err(|_| {
-        io::Error::new(
-            io::ErrorKind::TimedOut,
-            format!("TLS handshake timed out after {CONNECT_TIMEOUT:?}"),
-        )
-    })?
-    .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {e}")))?;
+    let stream = AsyncIoStdAsTokio(future.await?);
+    let s = match timeout(CONNECT_TIMEOUT, tls_connector.connect(dns_name, stream)).await {
+        Ok(Ok(s)) => s,
+        Ok(Err(e)) => {
+            return Err(io::Error::new(
+                io::ErrorKind::ConnectionRefused,
+                format!("tls error: {e}"),
+            ))
+        }
+        Err(_) => {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                format!("TLS handshake timed out after {CONNECT_TIMEOUT:?}"),
+            ))
+        }
+    };
 
     Ok(TcpStream::from_stream_with_receiver(
         AsyncIoTokioAsStd(s),
