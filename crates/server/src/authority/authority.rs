@@ -122,20 +122,21 @@ pub trait Authority: Send + Sync {
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
     fn origin(&self) -> &LowerName;
 
-    /// Looks up all Resource Records matching the giving `Name` and `RecordType`.
+    /// Looks up all Resource Records matching the given `Name` and `RecordType`.
     ///
     /// # Arguments
     ///
-    /// * `name` - The `Name`, label, to lookup.
-    /// * `rtype` - The `RecordType`, to lookup. `RecordType::ANY` will return all records matching
+    /// * `name` - The name to look up.
+    /// * `rtype` - The `RecordType` to look up. `RecordType::ANY` will return all records matching
     ///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
     ///             due to the requirements that on zone transfers the `RecordType::SOA` must both
     ///             precede and follow all other records.
-    /// * `is_secure` - If the DO bit is set on the EDNS OPT record, then return RRSIGs as well.
+    /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
+    ///                      algorithms, etc.)
     ///
     /// # Return value
     ///
-    /// None if there are no matching records, otherwise a `Vec` containing the found records.
+    /// A LookupControlFlow containing the lookup that should be returned to the client.
     async fn lookup(
         &self,
         name: &LowerName,
@@ -143,7 +144,7 @@ pub trait Authority: Send + Sync {
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup>;
 
-    /// Consulting lookup for all Resource Records matching the giving `Name` and `RecordType`.
+    /// Consulting lookup for all Resource Records matching the given `Name` and `RecordType`.
     /// This will be called in a chained authority configuration after an authority in the chain
     /// has returned a lookup with a LookupControlFlow::Continue action. Every other authority in
     /// the chain will be called via this consult method, until one either returns a
@@ -152,8 +153,8 @@ pub trait Authority: Send + Sync {
     ///
     /// # Arguments
     ///
-    /// * `name` - The `Name`, label, to lookup.
-    /// * `rtype` - The `RecordType`, to lookup. `RecordType::ANY` will return all records matching
+    /// * `name` - The name to look up.
+    /// * `rtype` - The `RecordType` to look up. `RecordType::ANY` will return all records matching
     ///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
     ///             due to the requirements that on zone transfers the `RecordType::SOA` must both
     ///             precede and follow all other records.
@@ -182,13 +183,13 @@ pub trait Authority: Send + Sync {
     ///
     /// # Arguments
     ///
-    /// * `query` - the query to perform the lookup with.
-    /// * `is_secure` - if true, then RRSIG records (if this is a secure zone) will be returned.
+    /// * `request` - the query to perform the lookup with.
+    /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
+    ///                      algorithms, etc.)
     ///
     /// # Return value
     ///
-    /// Returns a vector containing the results of the query, it will be empty if not found. If
-    ///  `is_secure` is true, in the case of no records found then NSEC records will be returned.
+    /// A LookupControlFlow containing the lookup that should be returned to the client.
     async fn search(
         &self,
         request: RequestInfo<'_>,
@@ -207,7 +208,8 @@ pub trait Authority: Send + Sync {
     ///
     /// * `name` - given this name (i.e. the lookup name), return the NSEC record that is less than
     ///            this
-    /// * `is_secure` - if true then it will return RRSIG records as well
+    /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
+    ///                      algorithms, etc.)
     async fn get_nsec_records(
         &self,
         name: &LowerName,
@@ -456,7 +458,7 @@ impl<'q> Nsec3QueryInfo<'q> {
         self.algorithm.hash(self.salt, name, self.iterations)
     }
 
-    /// Computes the hashed owner name from a given name. This is, the hash of the given name,
+    /// Computes the hashed owner name from a given name. That is, the hash of the given name,
     /// followed by the zone name.
     pub(crate) fn get_hashed_owner_name(
         &self,
