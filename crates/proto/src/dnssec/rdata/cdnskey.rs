@@ -20,7 +20,7 @@ use crate::{
 
 use super::{DNSSECRData, DNSKEY};
 
-/// RRSIG is really a derivation of the original SIG record data. See SIG for more documentation
+/// Child DNSKEY. See RFC 8078.
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct CDNSKEY(DNSKEY);
