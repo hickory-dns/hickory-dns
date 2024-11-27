@@ -26,7 +26,7 @@ use crate::{
     error::ProtoError,
     quic::quic_stream::{DoqErrorCode, QuicStream},
     udp::UdpSocket,
-    xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, QUIC_HANDSHAKE_TIMEOUT},
+    xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, CONNECT_TIMEOUT},
 };
 
 use super::{quic_config, quic_stream};
@@ -252,28 +252,20 @@ impl QuicClientStreamBuilder {
         let quic_connection = if early_data_enabled {
             match connecting.into_0rtt() {
                 Ok((new_connection, _)) => new_connection,
-                Err(connecting) => {
-                    timeout(QUIC_HANDSHAKE_TIMEOUT, connecting)
-                        .await
-                        .map_err(|_| {
-                            io::Error::new(
-                                io::ErrorKind::TimedOut,
-                                format!(
-                                    "QUIC handshake timed out after {QUIC_HANDSHAKE_TIMEOUT:?}",
-                                ),
-                            )
-                        })??
-                }
-            }
-        } else {
-            timeout(QUIC_HANDSHAKE_TIMEOUT, connecting)
-                .await
-                .map_err(|_| {
+                Err(connecting) => timeout(CONNECT_TIMEOUT, connecting).await.map_err(|_| {
                     io::Error::new(
                         io::ErrorKind::TimedOut,
-                        format!("QUIC handshake timed out after {QUIC_HANDSHAKE_TIMEOUT:?}"),
+                        format!("QUIC handshake timed out after {CONNECT_TIMEOUT:?}",),
                     )
-                })??
+                })??,
+            }
+        } else {
+            timeout(CONNECT_TIMEOUT, connecting).await.map_err(|_| {
+                io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    format!("QUIC handshake timed out after {CONNECT_TIMEOUT:?}"),
+                )
+            })??
         };
 
         Ok(QuicClientStream {
