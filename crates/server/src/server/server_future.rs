@@ -19,6 +19,8 @@ use rustls::{
     pki_types::{CertificateDer, PrivateKeyDer},
     ServerConfig,
 };
+#[cfg(any(feature = "dns-over-openssl", feature = "dns-over-rustls"))]
+use tokio::time::timeout;
 use tokio::{net, task::JoinSet};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
@@ -281,7 +283,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     pub fn register_tls_listener(
         &mut self,
         listener: net::TcpListener,
-        timeout: Duration,
+        handshake_timeout: Duration,
         certificate_and_key: ((X509, Option<Stack<X509>>), PKey<Private>),
     ) -> io::Result<()> {
         use crate::proto::openssl::{tls_server, TlsStream};
@@ -348,7 +350,14 @@ impl<T: RequestHandler> ServerFuture<T> {
                             return ();
                         }
                     };
-                    match Pin::new(&mut tls_stream).accept().await {
+
+                    let Ok(conn) =
+                        timeout(handshake_timeout, Pin::new(&mut tls_stream).accept()).await
+                    else {
+                        warn!("tls timeout expired during handshake");
+                        return;
+                    };
+                    match conn {
                         Ok(()) => {}
                         Err(e) => {
                             debug!("tls handshake src: {} error: {}", src_addr, e);
@@ -358,7 +367,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                     debug!("accepted TLS request from: {}", src_addr);
                     let (buf_stream, stream_handle) =
                         TlsStream::from_stream(AsyncIoTokioAsStd(tls_stream), src_addr);
-                    let mut timeout_stream = TimeoutStream::new(buf_stream, timeout);
+                    let mut timeout_stream = TimeoutStream::new(buf_stream, handshake_timeout);
                     while let Some(message) = timeout_stream.next().await {
                         let message = match message {
                             Ok(message) => message,
@@ -441,7 +450,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     pub fn register_tls_listener_with_tls_config(
         &mut self,
         listener: net::TcpListener,
-        timeout: Duration,
+        handshake_timeout: Duration,
         tls_config: Arc<ServerConfig>,
     ) -> io::Result<()> {
         use crate::proto::rustls::tls_from_stream;
@@ -495,7 +504,12 @@ impl<T: RequestHandler> ServerFuture<T> {
                     debug!("starting TLS request from: {}", src_addr);
 
                     // perform the TLS
-                    let tls_stream = tls_acceptor.accept(tcp_stream).await;
+                    let Ok(tls_stream) =
+                        timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
+                    else {
+                        warn!("tls timeout expired during handshake");
+                        return;
+                    };
 
                     let tls_stream = match tls_stream {
                         Ok(tls_stream) => AsyncIoTokioAsStd(tls_stream),
@@ -506,7 +520,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                     };
                     debug!("accepted TLS request from: {}", src_addr);
                     let (buf_stream, stream_handle) = tls_from_stream(tls_stream, src_addr);
-                    let mut timeout_stream = TimeoutStream::new(buf_stream, timeout);
+                    let mut timeout_stream = TimeoutStream::new(buf_stream, handshake_timeout);
                     while let Some(message) = timeout_stream.next().await {
                         let message = match message {
                             Ok(message) => message,
@@ -596,7 +610,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         &mut self,
         listener: net::TcpListener,
         // TODO: need to set a timeout between requests.
-        _timeout: Duration,
+        handshake_timeout: Duration,
         certificate_and_key: (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>),
         dns_hostname: Option<String>,
         http_endpoint: String,
@@ -662,7 +676,12 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                     // TODO: need to consider timeout of total connect...
                     // take the created stream...
-                    let tls_stream = tls_acceptor.accept(tcp_stream).await;
+                    let Ok(tls_stream) =
+                        timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
+                    else {
+                        warn!("https timeout expired during handshake");
+                        return;
+                    };
 
                     let tls_stream = match tls_stream {
                         Ok(tls_stream) => tls_stream,
