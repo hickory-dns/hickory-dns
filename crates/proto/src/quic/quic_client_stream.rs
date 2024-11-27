@@ -225,38 +225,26 @@ impl QuicClientStreamBuilder {
 
     async fn connect_inner(
         self,
-        mut endpoint: Endpoint,
+        endpoint: Endpoint,
         name_server: SocketAddr,
         dns_name: String,
     ) -> Result<QuicClientStream, ProtoError> {
         // ensure the ALPN protocol is set correctly
-        let mut crypto_config = if let Some(crypto_config) = self.crypto_config {
+        let crypto_config = if let Some(crypto_config) = self.crypto_config {
             crypto_config
         } else {
             client_config_tls13()?
         };
-        if crypto_config.alpn_protocols.is_empty() {
-            crypto_config.alpn_protocols = vec![quic_stream::DOQ_ALPN.to_vec()];
-        }
-        let early_data_enabled = crypto_config.enable_early_data;
 
-        let mut client_config =
-            ClientConfig::new(Arc::new(QuicClientConfig::try_from(crypto_config)?));
-        client_config.transport_config(self.transport_config.clone());
-
-        endpoint.set_default_client_config(client_config);
-
-        let connecting = endpoint.connect(name_server, &dns_name)?;
-        // TODO: for Client/Dynamic update, don't use RTT, for queries, do use it.
-
-        let quic_connection = if early_data_enabled {
-            match connecting.into_0rtt() {
-                Ok((new_connection, _)) => new_connection,
-                Err(connecting) => connect_with_timeout(connecting).await?,
-            }
-        } else {
-            connect_with_timeout(connecting).await?
-        };
+        let quic_connection = connect_quic(
+            name_server,
+            &dns_name,
+            quic_stream::DOQ_ALPN,
+            crypto_config,
+            self.transport_config,
+            endpoint,
+        )
+        .await?;
 
         Ok(QuicClientStream {
             quic_connection,
@@ -265,6 +253,37 @@ impl QuicClientStreamBuilder {
             is_shutdown: false,
         })
     }
+}
+
+pub(crate) async fn connect_quic(
+    addr: SocketAddr,
+    server_name: &str,
+    protocol: &[u8],
+    mut crypto_config: rustls::ClientConfig,
+    transport_config: Arc<TransportConfig>,
+    mut endpoint: Endpoint,
+) -> Result<Connection, ProtoError> {
+    if crypto_config.alpn_protocols.is_empty() {
+        crypto_config.alpn_protocols = vec![protocol.to_vec()];
+    }
+    let early_data_enabled = crypto_config.enable_early_data;
+
+    let mut client_config = ClientConfig::new(Arc::new(QuicClientConfig::try_from(crypto_config)?));
+    client_config.transport_config(transport_config.clone());
+
+    endpoint.set_default_client_config(client_config);
+
+    let connecting = endpoint.connect(addr, server_name)?;
+    // TODO: for Client/Dynamic update, don't use RTT, for queries, do use it.
+
+    Ok(if early_data_enabled {
+        match connecting.into_0rtt() {
+            Ok((new_connection, _)) => new_connection,
+            Err(connecting) => connect_with_timeout(connecting).await?,
+        }
+    } else {
+        connect_with_timeout(connecting).await?
+    })
 }
 
 async fn connect_with_timeout(connecting: quinn::Connecting) -> Result<Connection, io::Error> {

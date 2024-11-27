@@ -7,7 +7,6 @@
 
 use std::fmt::{self, Display};
 use std::future::{poll_fn, Future};
-use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::str::FromStr;
@@ -20,16 +19,15 @@ use futures_util::stream::Stream;
 use h3::client::SendRequest;
 use h3_quinn::OpenStreams;
 use http::header::{self, CONTENT_LENGTH};
-use quinn::crypto::rustls::QuicClientConfig;
-use quinn::{ClientConfig, Endpoint, EndpointConfig, TransportConfig};
+use quinn::{Endpoint, EndpointConfig, TransportConfig};
 use tokio::sync::mpsc;
-use tokio::time::timeout;
 use tracing::{debug, warn};
 
 use crate::error::ProtoError;
 use crate::http::Version;
+use crate::quic::connect_quic;
 use crate::udp::UdpSocket;
-use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, CONNECT_TIMEOUT};
+use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
 
 use super::ALPN_H3;
 
@@ -381,45 +379,20 @@ impl H3ClientStreamBuilder {
 
     async fn connect_inner(
         self,
-        mut endpoint: Endpoint,
+        endpoint: Endpoint,
         name_server: SocketAddr,
         dns_name: String,
         query_path: String,
     ) -> Result<H3ClientStream, ProtoError> {
-        let mut crypto_config = self.crypto_config;
-        // ensure the ALPN protocol is set correctly
-        if crypto_config.alpn_protocols.is_empty() {
-            crypto_config.alpn_protocols = vec![ALPN_H3.to_vec()];
-        }
-        let early_data_enabled = crypto_config.enable_early_data;
-
-        let mut client_config =
-            ClientConfig::new(Arc::new(QuicClientConfig::try_from(crypto_config)?));
-        client_config.transport_config(self.transport_config.clone());
-
-        endpoint.set_default_client_config(client_config);
-
-        let connecting = endpoint.connect(name_server, &dns_name)?;
-        // TODO: for Client/Dynamic update, don't use RTT, for queries, do use it.
-
-        let quic_connection = if early_data_enabled {
-            match connecting.into_0rtt() {
-                Ok((new_connection, _)) => new_connection,
-                Err(connecting) => timeout(CONNECT_TIMEOUT, connecting).await.map_err(|_| {
-                    io::Error::new(
-                        io::ErrorKind::TimedOut,
-                        format!("H3 handshake timed out after {CONNECT_TIMEOUT:?}"),
-                    )
-                })??,
-            }
-        } else {
-            timeout(CONNECT_TIMEOUT, connecting).await.map_err(|_| {
-                io::Error::new(
-                    io::ErrorKind::TimedOut,
-                    format!("H3 handshake timed out after {CONNECT_TIMEOUT:?}"),
-                )
-            })??
-        };
+        let quic_connection = connect_quic(
+            name_server,
+            &dns_name,
+            ALPN_H3,
+            self.crypto_config,
+            self.transport_config,
+            endpoint,
+        )
+        .await?;
 
         let h3_connection = h3_quinn::Connection::new(quic_connection);
         let (mut driver, send_request) = h3::client::new(h3_connection)
