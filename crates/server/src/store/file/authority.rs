@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! All authority related types
+//! File-backed authority
 
 use std::{
     collections::BTreeMap,
@@ -47,9 +47,8 @@ impl FileAuthority {
     ///              record.
     /// * `records` - The map of the initial set of records in the zone.
     /// * `zone_type` - The type of zone, i.e. is this authoritative?
-    /// * `allow_update` - If true, then this zone accepts dynamic updates.
-    /// * `is_dnssec_enabled` - If true, then the zone will sign the zone with all registered keys,
-    ///                         (see `add_zone_signing_key()`)
+    /// * `allow_axfr` - Whether AXFR is allowed.
+    /// * `nx_proof_kind` - The kind of non-existence proof to be used by the server.
     ///
     /// # Return value
     ///
@@ -157,20 +156,21 @@ impl Authority for FileAuthority {
         self.0.origin()
     }
 
-    /// Looks up all Resource Records matching the giving `Name` and `RecordType`.
+    /// Looks up all Resource Records matching the given `Name` and `RecordType`.
     ///
     /// # Arguments
     ///
-    /// * `name` - The `Name`, label, to lookup.
-    /// * `rtype` - The `RecordType`, to lookup. `RecordType::ANY` will return all records matching
+    /// * `name` - The name to look up.
+    /// * `rtype` - The `RecordType` to look up. `RecordType::ANY` will return all records matching
     ///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
     ///             due to the requirements that on zone transfers the `RecordType::SOA` must both
     ///             precede and follow all other records.
-    /// * `is_secure` - If the DO bit is set on the EDNS OPT record, then return RRSIGs as well.
+    /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
+    ///                      algorithms, etc.)
     ///
     /// # Return value
     ///
-    /// None if there are no matching records, otherwise a `Vec` containing the found records.
+    /// A LookupControlFlow containing the lookup that should be returned to the client.
     async fn lookup(
         &self,
         name: &LowerName,
@@ -184,13 +184,13 @@ impl Authority for FileAuthority {
     ///
     /// # Arguments
     ///
-    /// * `query` - the query to perform the lookup with.
-    /// * `is_secure` - if true, then RRSIG records (if this is a secure zone) will be returned.
+    /// * `request_info` - the query to perform the lookup with.
+    /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
+    ///                      algorithms, etc.)
     ///
     /// # Return value
     ///
-    /// Returns a vector containing the results of the query, it will be empty if not found. If
-    ///  `is_secure` is true, in the case of no records found then NSEC records will be returned.
+    /// A LookupControlFlow containing the lookup that should be returned to the client.
     async fn search(
         &self,
         request_info: RequestInfo<'_>,
@@ -210,7 +210,8 @@ impl Authority for FileAuthority {
     ///
     /// * `name` - given this name (i.e. the lookup name), return the NSEC record that is less than
     ///            this
-    /// * `is_secure` - if true then it will return RRSIG records as well
+    /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
+    ///                      algorithms, etc.)
     async fn get_nsec_records(
         &self,
         name: &LowerName,

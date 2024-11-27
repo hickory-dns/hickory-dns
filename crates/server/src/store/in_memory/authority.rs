@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! All authority related types
+//! In-memory authority
 
 #[cfg(feature = "dnssec")]
 use std::collections::{hash_map::Entry, HashMap};
@@ -71,9 +71,7 @@ impl InMemoryAuthority {
     ///              record.
     /// * `records` - The map of the initial set of records in the zone.
     /// * `zone_type` - The type of zone, i.e. is this authoritative?
-    /// * `allow_update` - If true, then this zone accepts dynamic updates.
-    /// * `is_dnssec_enabled` - If true, then the zone will sign the zone with all registered keys,
-    ///                         (see `add_zone_signing_key()`)
+    /// * `allow_axfr` - Whether AXFR is allowed.
     /// * `nx_proof_kind` - The kind of non-existence proof to be used by the server.
     ///
     /// # Return value
@@ -338,16 +336,6 @@ impl InnerInMemory {
         &self.secure_keys
     }
 
-    // /// Get all the records
-    // fn records(&self) -> &BTreeMap<RrKey, Arc<RecordSet>> {
-    //     &self.records
-    // }
-
-    // /// Get a mutable reference to the records
-    // fn records_mut(&mut self) -> &mut BTreeMap<RrKey, Arc<RecordSet>> {
-    //     &mut self.records
-    // }
-
     fn inner_soa(&self, origin: &LowerName) -> Option<&SOA> {
         // TODO: can't there be an RrKeyRef?
         let rr_key = RrKey::new(origin.clone(), RecordType::SOA);
@@ -476,9 +464,11 @@ impl InnerInMemory {
     /// # Arguments
     ///
     /// * original_name - the original name that was being looked up
-    /// * query_type - original type in the request query
+    /// * original_query_type - original type in the request query
     /// * next_name - the name from the CNAME, ANAME, MX, etc. record that is being searched
     /// * search_type - the root search type, ANAME, CNAME, MX, i.e. the beginning of the chain
+    /// * lookup_options - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
+    ///                    algorithms, etc.)
     fn additional_search(
         &self,
         original_name: &LowerName,
@@ -686,7 +676,6 @@ impl InnerInMemory {
         self.sign_zone(origin, dns_class)
     }
 
-    /// Dummy implementation for when DNSSEC is disabled.
     #[cfg(feature = "dnssec")]
     fn nsec_zone(&mut self, origin: &LowerName, dns_class: DNSClass) {
         // only create nsec records for secure zones
@@ -749,6 +738,7 @@ impl InnerInMemory {
             debug_assert!(upserted);
         }
     }
+
     #[cfg(feature = "dnssec")]
     fn nsec3_zone(
         &mut self,
@@ -865,6 +855,7 @@ impl InnerInMemory {
 
         Ok(())
     }
+
     /// Signs an RecordSet, and stores the RRSIGs in the RecordSet
     ///
     /// This will sign the RecordSet with all the registered keys in the zone
@@ -945,7 +936,7 @@ impl InnerInMemory {
         Ok(())
     }
 
-    /// Signs any records in the zone that have serial numbers greater than or equal to `serial`
+    /// Signs all records in the zone.
     #[cfg(feature = "dnssec")]
     fn sign_zone(&mut self, origin: &LowerName, dns_class: DNSClass) -> DnsSecResult<()> {
         debug!("signing zone: {}", origin);
@@ -972,7 +963,7 @@ impl InnerInMemory {
         Ok(())
     }
 
-    /// Find a record that covers the given name. This is, an NSEC3 record such that the hashed owner
+    /// Find a record that covers the given name. That is, an NSEC3 record such that the hashed owner
     /// name of the given name falls between the record's owner name and its next hashed owner
     /// name.
     #[cfg(feature = "dnssec")]
@@ -1163,20 +1154,21 @@ impl Authority for InMemoryAuthority {
         &self.origin
     }
 
-    /// Looks up all Resource Records matching the giving `Name` and `RecordType`.
+    /// Looks up all Resource Records matching the given `Name` and `RecordType`.
     ///
     /// # Arguments
     ///
-    /// * `name` - The `Name`, label, to lookup.
-    /// * `rtype` - The `RecordType`, to lookup. `RecordType::ANY` will return all records matching
-    ///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
-    ///             due to the requirements that on zone transfers the `RecordType::SOA` must both
-    ///             precede and follow all other records.
-    /// * `is_secure` - If the DO bit is set on the EDNS OPT record, then return RRSIGs as well.
+    /// * `name` - The name to look up.
+    /// * `query_type` - The `RecordType` to look up. `RecordType::ANY` will return all records
+    ///                  matching `name`. `RecordType::AXFR` will return all record types except
+    ///                  `RecordType::SOA` due to the requirements that on zone transfers the
+    ///                  `RecordType::SOA` must both precede and follow all other records.
+    /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
+    ///                      algorithms, etc.)
     ///
     /// # Return value
     ///
-    /// None if there are no matching records, otherwise a `Vec` containing the found records.
+    /// A LookupControlFlow containing the lookup that should be returned to the client.
     async fn lookup(
         &self,
         name: &LowerName,
@@ -1422,7 +1414,8 @@ impl Authority for InMemoryAuthority {
     ///
     /// * `name` - given this name (i.e. the lookup name), return the NSEC record that is less than
     ///            this
-    /// * `is_secure` - if true then it will return RRSIG records as well
+    /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
+    ///                      algorithms, etc.)
     #[cfg(feature = "dnssec")]
     async fn get_nsec_records(
         &self,
