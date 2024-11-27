@@ -20,7 +20,7 @@ use crate::{
 
 use super::{DNSSECRData, DS};
 
-/// RRSIG is really a derivation of the original SIG record data. See SIG for more documentation
+/// Child DS. See RFC 8078.
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct CDS(DS);
