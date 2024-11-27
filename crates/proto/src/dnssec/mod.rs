@@ -143,12 +143,12 @@ mod test_utils {
         let tbs = TBS::from(&b"www.example.com"[..]);
         let mut sig = key.sign(&tbs).unwrap();
         assert!(
-            pk.verify(algorithm, tbs.as_ref(), &sig).is_ok(),
+            pk.verify(tbs.as_ref(), &sig).is_ok(),
             "algorithm: {algorithm:?} (public key)",
         );
         sig[10] = !sig[10];
         assert!(
-            pk.verify(algorithm, tbs.as_ref(), &sig).is_err(),
+            pk.verify(tbs.as_ref(), &sig).is_err(),
             "algorithm: {algorithm:?} (public key, neg)",
         );
     }
@@ -162,7 +162,7 @@ mod test_utils {
 
         let sig = key.sign(&tbs).unwrap();
         assert!(
-            pub_key.verify(algorithm, tbs.as_ref(), &sig).is_ok(),
+            pub_key.verify(tbs.as_ref(), &sig).is_ok(),
             "algorithm: {algorithm:?}",
         );
 
@@ -173,7 +173,7 @@ mod test_utils {
             "algorithm: {algorithm:?} (dnskey)",
         );
         assert!(
-            neg_pub_key.verify(algorithm, tbs.as_ref(), &sig).is_err(),
+            neg_pub_key.verify(tbs.as_ref(), &sig).is_err(),
             "algorithm: {:?} (neg)",
             algorithm
         );

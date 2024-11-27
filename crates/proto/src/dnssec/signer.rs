@@ -698,9 +698,7 @@ mod tests {
         let pub_key =
             PublicKeyEnum::from_public_bytes(pub_key.public_bytes(), Algorithm::RSASHA256).unwrap();
 
-        assert!(pub_key
-            .verify(Algorithm::RSASHA256, tbs.as_ref(), &sig)
-            .is_ok());
+        assert!(pub_key.verify(tbs.as_ref(), &sig).is_ok());
     }
 
     fn get_rsa_from_vec(params: &[u32]) -> Result<Rsa<Private>, openssl::error::ErrorStack> {

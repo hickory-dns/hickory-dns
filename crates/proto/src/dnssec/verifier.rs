@@ -40,7 +40,7 @@ pub trait Verifier {
     /// True if and only if the signature is valid for the hash.
     /// false if the `key`.
     fn verify(&self, hash: &[u8], signature: &[u8]) -> ProtoResult<()> {
-        self.key()?.verify(self.algorithm(), hash, signature)
+        self.key()?.verify(hash, signature)
     }
 
     /// Verifies a message with the against the given signature, i.e. SIG0
