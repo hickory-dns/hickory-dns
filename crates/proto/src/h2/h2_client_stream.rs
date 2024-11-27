@@ -32,9 +32,7 @@ use crate::http::Version;
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
 use crate::runtime::RuntimeProvider;
 use crate::tcp::DnsTcpStream;
-use crate::xfer::{
-    DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, TLS_HANDSHAKE_TIMEOUT,
-};
+use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, CONNECT_TIMEOUT};
 
 const ALPN_H2: &[u8] = b"h2";
 
@@ -477,7 +475,7 @@ where
                         Ok(dns_name) => {
                             let tls = TlsConnector::from(tls.client_config);
                             let tls = Box::pin(timeout(
-                                TLS_HANDSHAKE_TIMEOUT,
+                                CONNECT_TIMEOUT,
                                 tls.connect(dns_name.to_owned(), AsyncIoStdAsTokio(tcp)),
                             ));
                             Self::TlsConnecting {
@@ -501,7 +499,7 @@ where
                 } => {
                     let Ok(res) = ready!(tls.poll_unpin(cx)) else {
                         return Poll::Ready(Err(format!(
-                            "TLS handshake timed out after {TLS_HANDSHAKE_TIMEOUT:?}"
+                            "TLS handshake timed out after {CONNECT_TIMEOUT:?}"
                         )
                         .into()));
                     };

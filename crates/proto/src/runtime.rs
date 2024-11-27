@@ -112,15 +112,18 @@ pub mod iocompat {
 #[cfg(feature = "tokio-runtime")]
 #[allow(unreachable_pub)]
 mod tokio_runtime {
-    use super::iocompat::AsyncIoTokioAsStd;
-    use super::*;
+    use std::sync::{Arc, Mutex};
+
     use futures_util::FutureExt;
     #[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
     use quinn::Runtime;
-    use std::sync::{Arc, Mutex};
     use tokio::net::{TcpSocket, TcpStream, UdpSocket as TokioUdpSocket};
     use tokio::task::JoinSet;
     use tokio::time::timeout;
+
+    use super::iocompat::AsyncIoTokioAsStd;
+    use super::*;
+    use crate::xfer::CONNECT_TIMEOUT;
 
     /// A handle to the Tokio runtime
     #[derive(Clone, Default)]
@@ -178,7 +181,7 @@ mod tokio_runtime {
 
                 socket.set_nodelay(true)?;
                 let future = socket.connect(server_addr);
-                let wait_for = wait_for.unwrap_or(TCP_HANDSHAKE_TIMEOUT);
+                let wait_for = wait_for.unwrap_or(CONNECT_TIMEOUT);
                 match timeout(wait_for, future).await {
                     Ok(Ok(socket)) => Ok(AsyncIoTokioAsStd(socket)),
                     Ok(Err(e)) => Err(e),
@@ -228,8 +231,6 @@ mod tokio_runtime {
     }
 }
 
-#[cfg(feature = "tokio-runtime")]
-use crate::xfer::TCP_HANDSHAKE_TIMEOUT;
 #[cfg(feature = "tokio-runtime")]
 pub use tokio_runtime::{TokioHandle, TokioRuntimeProvider};
 

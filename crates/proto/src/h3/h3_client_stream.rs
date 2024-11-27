@@ -29,9 +29,7 @@ use tracing::{debug, warn};
 use crate::error::ProtoError;
 use crate::http::Version;
 use crate::udp::UdpSocket;
-use crate::xfer::{
-    DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, H3_HANDSHAKE_TIMEOUT,
-};
+use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, CONNECT_TIMEOUT};
 
 use super::ALPN_H3;
 
@@ -407,26 +405,20 @@ impl H3ClientStreamBuilder {
         let quic_connection = if early_data_enabled {
             match connecting.into_0rtt() {
                 Ok((new_connection, _)) => new_connection,
-                Err(connecting) => {
-                    timeout(H3_HANDSHAKE_TIMEOUT, connecting)
-                        .await
-                        .map_err(|_| {
-                            io::Error::new(
-                                io::ErrorKind::TimedOut,
-                                format!("H3 handshake timed out after {H3_HANDSHAKE_TIMEOUT:?}"),
-                            )
-                        })??
-                }
-            }
-        } else {
-            timeout(H3_HANDSHAKE_TIMEOUT, connecting)
-                .await
-                .map_err(|_| {
+                Err(connecting) => timeout(CONNECT_TIMEOUT, connecting).await.map_err(|_| {
                     io::Error::new(
                         io::ErrorKind::TimedOut,
-                        format!("H3 handshake timed out after {H3_HANDSHAKE_TIMEOUT:?}"),
+                        format!("H3 handshake timed out after {CONNECT_TIMEOUT:?}"),
                     )
-                })??
+                })??,
+            }
+        } else {
+            timeout(CONNECT_TIMEOUT, connecting).await.map_err(|_| {
+                io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    format!("H3 handshake timed out after {CONNECT_TIMEOUT:?}"),
+                )
+            })??
         };
 
         let h3_connection = h3_quinn::Connection::new(quic_connection);

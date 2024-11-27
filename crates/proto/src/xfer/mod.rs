@@ -9,13 +9,6 @@ use std::future::Future;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-#[cfg(any(
-    feature = "tokio-runtime",
-    feature = "dns-over-rustls",
-    feature = "dns-over-https-rustls",
-    feature = "dns-over-quic",
-    feature = "dns-over-h3",
-))]
 use std::time::Duration;
 
 use futures_channel::mpsc;
@@ -50,15 +43,6 @@ pub use self::dns_response::{DnsResponse, DnsResponseStream};
 pub use self::dnssec_dns_handle::DnssecDnsHandle;
 pub use self::retry_dns_handle::RetryDnsHandle;
 pub use self::serial_message::SerialMessage;
-
-#[cfg(any(feature = "dns-over-rustls", feature = "dns-over-https-rustls"))]
-pub(crate) const TLS_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
-#[cfg(feature = "tokio-runtime")]
-pub(crate) const TCP_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
-#[cfg(feature = "dns-over-quic")]
-pub(crate) const QUIC_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
-#[cfg(feature = "dns-over-h3")]
-pub(crate) const H3_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Ignores the result of a send operation and logs and ignores errors
 fn ignore_send<M, T>(result: Result<M, mpsc::TrySendError<T>>) {
@@ -405,3 +389,6 @@ impl Default for Protocol {
         Self::Udp
     }
 }
+
+#[allow(unused)] // May be unused depending on features
+pub(crate) const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
