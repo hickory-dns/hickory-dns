@@ -580,7 +580,7 @@ mod tests {
 
     use crate::dnssec::{
         rdata::{key::KeyUsage, DNSSECRData, RRSIG, SIG},
-        PublicKeyEnum, RsaSigningKey, Verifier,
+        RsaSigningKey, Verifier,
     };
     use crate::op::{Message, Query};
     use crate::rr::rdata::NS;
@@ -695,9 +695,6 @@ mod tests {
         let sig = signer.sign(&tbs).unwrap();
 
         let pub_key = signer.key().to_public_key().unwrap();
-        let pub_key =
-            PublicKeyEnum::from_public_bytes(pub_key.public_bytes(), Algorithm::RSASHA256).unwrap();
-
         assert!(pub_key.verify(tbs.as_ref(), &sig).is_ok());
     }
 

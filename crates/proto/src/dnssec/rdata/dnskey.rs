@@ -7,13 +7,13 @@
 
 //! public key record data for signing zone records
 
-use std::fmt;
+use std::{fmt, sync::Arc};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    dnssec::{Algorithm, Digest, DigestType, PublicKey, PublicKeyEnum, Verifier},
+    dnssec::{public_key::decode_public_key, Algorithm, Digest, DigestType, PublicKey, Verifier},
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     rr::{record_data::RData, Name, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
@@ -447,8 +447,8 @@ impl Verifier for DNSKEY {
         self.algorithm()
     }
 
-    fn key(&self) -> ProtoResult<PublicKeyEnum<'_>> {
-        PublicKeyEnum::from_public_bytes(self.public_key(), self.algorithm())
+    fn key(&self) -> ProtoResult<Arc<dyn PublicKey + '_>> {
+        decode_public_key(&self.public_key, self.algorithm)
     }
 }
 
