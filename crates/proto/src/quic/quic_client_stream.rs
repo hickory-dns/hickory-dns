@@ -252,20 +252,10 @@ impl QuicClientStreamBuilder {
         let quic_connection = if early_data_enabled {
             match connecting.into_0rtt() {
                 Ok((new_connection, _)) => new_connection,
-                Err(connecting) => timeout(CONNECT_TIMEOUT, connecting).await.map_err(|_| {
-                    io::Error::new(
-                        io::ErrorKind::TimedOut,
-                        format!("QUIC handshake timed out after {CONNECT_TIMEOUT:?}",),
-                    )
-                })??,
+                Err(connecting) => connect_with_timeout(connecting).await?,
             }
         } else {
-            timeout(CONNECT_TIMEOUT, connecting).await.map_err(|_| {
-                io::Error::new(
-                    io::ErrorKind::TimedOut,
-                    format!("QUIC handshake timed out after {CONNECT_TIMEOUT:?}"),
-                )
-            })??
+            connect_with_timeout(connecting).await?
         };
 
         Ok(QuicClientStream {
@@ -274,6 +264,17 @@ impl QuicClientStreamBuilder {
             name_server,
             is_shutdown: false,
         })
+    }
+}
+
+async fn connect_with_timeout(connecting: quinn::Connecting) -> Result<Connection, io::Error> {
+    match timeout(CONNECT_TIMEOUT, connecting).await {
+        Ok(Ok(connection)) => Ok(connection),
+        Ok(Err(e)) => Err(e.into()),
+        Err(_) => Err(io::Error::new(
+            io::ErrorKind::TimedOut,
+            format!("QUIC handshake timed out after {CONNECT_TIMEOUT:?}",),
+        )),
     }
 }
 
