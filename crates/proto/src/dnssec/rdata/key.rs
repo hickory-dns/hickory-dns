@@ -8,14 +8,14 @@
 //! public key record data for signing zone records
 #![allow(clippy::use_self)]
 
-use std::fmt;
+use std::{fmt, sync::Arc};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use super::DNSSECRData;
 use crate::{
-    dnssec::{Algorithm, PublicKey, PublicKeyEnum, Verifier},
+    dnssec::{public_key::decode_public_key, Algorithm, PublicKey, Verifier},
     error::{ProtoError, ProtoResult},
     rr::{record_data::RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
@@ -353,8 +353,8 @@ impl Verifier for KEY {
         self.algorithm()
     }
 
-    fn key(&self) -> ProtoResult<PublicKeyEnum<'_>> {
-        PublicKeyEnum::from_public_bytes(self.public_key(), self.algorithm())
+    fn key(&self) -> ProtoResult<Arc<dyn PublicKey + '_>> {
+        decode_public_key(&self.public_key, self.algorithm)
     }
 }
 

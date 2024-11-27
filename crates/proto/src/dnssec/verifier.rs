@@ -7,9 +7,12 @@
 
 //! Verifier is a structure for performing many of the signing processes of the DNSSEC specification
 
+use std::sync::Arc;
+
 use super::{
     rdata::{RRSIG, SIG},
-    tbs, Algorithm, PublicKey, PublicKeyEnum,
+    tbs::{self, TBS},
+    Algorithm, PublicKey,
 };
 use crate::{
     error::ProtoResult,
@@ -17,15 +20,13 @@ use crate::{
     serialize::binary::BinEncodable,
 };
 
-use super::TBS;
-
 /// Types which are able to verify DNS based signatures
 pub trait Verifier {
     /// Return the algorithm which this Verifier covers
     fn algorithm(&self) -> Algorithm;
 
     /// Return the public key associated with this verifier
-    fn key(&self) -> ProtoResult<PublicKeyEnum<'_>>;
+    fn key(&self) -> ProtoResult<Arc<dyn PublicKey + '_>>;
 
     /// Verifies the hash matches the signature with the current `key`.
     ///
