@@ -472,19 +472,16 @@ where
                     let query_path = Arc::clone(&tls.http_endpoint);
 
                     match ServerName::try_from(&*tls.dns_name) {
-                        Ok(dns_name) => {
-                            let tls = TlsConnector::from(tls.client_config);
-                            let tls = Box::pin(timeout(
+                        Ok(dns_name) => Self::TlsConnecting {
+                            name_server_name,
+                            name_server: *name_server,
+                            tls: Box::pin(timeout(
                                 CONNECT_TIMEOUT,
-                                tls.connect(dns_name.to_owned(), AsyncIoStdAsTokio(tcp)),
-                            ));
-                            Self::TlsConnecting {
-                                name_server_name,
-                                name_server: *name_server,
-                                tls,
-                                query_path,
-                            }
-                        }
+                                TlsConnector::from(tls.client_config)
+                                    .connect(dns_name.to_owned(), AsyncIoStdAsTokio(tcp)),
+                            )),
+                            query_path,
+                        },
                         Err(_) => Self::Errored(Some(ProtoError::from(format!(
                             "bad dns_name: {}",
                             &tls.dns_name
