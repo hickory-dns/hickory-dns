@@ -62,8 +62,10 @@ fn is_bit_set(value: u16, bit: usize) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "dnssec-ring")]
+    use crate::dnssec::ring::EcdsaSigningKey;
+    use crate::dnssec::{PublicKey, SigningKey};
 
-    const DECODED: &[u8] = b"hello";
     const ENCODED: &str = "aGVsbG8=";
 
     #[test]
@@ -86,17 +88,43 @@ mod tests {
         assert!(did_parse);
     }
 
+    #[cfg(feature = "dnssec-ring")]
     #[test]
     fn it_works() {
-        let input = format!("256 3 8 {ENCODED}");
-        let expected = DNSKEY::new(true, false, false, Algorithm::RSASHA256, DECODED.to_vec());
+        let algorithm = Algorithm::ECDSAP256SHA256;
+        let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
+        let signing_key = EcdsaSigningKey::from_pkcs8(&pkcs8, algorithm).unwrap();
+        let public_key = signing_key.to_public_key().unwrap();
+
+        let encoded = data_encoding::BASE64.encode(public_key.public_bytes());
+        let input = format!("256 3 13 {encoded}");
+        let expected = DNSKEY::new(
+            true,
+            false,
+            false,
+            algorithm,
+            signing_key.to_public_key().unwrap().public_bytes().to_vec(),
+        );
         assert_eq!(expected, parse_ok(&input),);
     }
 
+    #[cfg(feature = "dnssec-ring")]
     #[test]
     fn secure_entry_point() {
-        let input = format!("257 3 8 {ENCODED}");
-        let expected = DNSKEY::new(true, true, false, Algorithm::RSASHA256, DECODED.to_vec());
+        let algorithm = Algorithm::ECDSAP256SHA256;
+        let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
+        let signing_key = EcdsaSigningKey::from_pkcs8(&pkcs8, algorithm).unwrap();
+        let public_key = signing_key.to_public_key().unwrap();
+
+        let encoded = data_encoding::BASE64.encode(public_key.public_bytes());
+        let input = format!("257 3 13 {encoded}");
+        let expected = DNSKEY::new(
+            true,
+            true,
+            false,
+            algorithm,
+            signing_key.to_public_key().unwrap().public_bytes().to_vec(),
+        );
         assert_eq!(expected, parse_ok(&input),);
     }
 
