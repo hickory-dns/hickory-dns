@@ -70,7 +70,7 @@ pub fn tls_from_stream<S: DnsTcpStream>(
 ///
 /// * `name_server` - IP and Port for the remote DNS resolver
 /// * `bind_addr` - IP and port to connect from
-/// * `dns_name` - The DNS name,  Subject Public Key Info (SPKI) name, as associated to a certificate
+/// * `dns_name` - The DNS name associated with a certificate
 #[allow(clippy::type_complexity)]
 pub fn tls_connect<P: RuntimeProvider>(
     name_server: SocketAddr,
@@ -99,7 +99,7 @@ pub fn tls_connect<P: RuntimeProvider>(
 ///
 /// * `name_server` - IP and Port for the remote DNS resolver
 /// * `bind_addr` - IP and port to connect from
-/// * `dns_name` - The DNS name,  Subject Public Key Info (SPKI) name, as associated to a certificate
+/// * `dns_name` - The DNS name associated with a certificate
 #[allow(clippy::type_complexity)]
 pub fn tls_connect_with_bind_addr<P: RuntimeProvider>(
     name_server: SocketAddr,
@@ -144,7 +144,7 @@ pub fn tls_connect_with_bind_addr<P: RuntimeProvider>(
 ///
 /// * `name_server` - IP and Port for the remote DNS resolver
 /// * `bind_addr` - IP and port to connect from
-/// * `dns_name` - The DNS name,  Subject Public Key Info (SPKI) name, as associated to a certificate
+/// * `dns_name` - The DNS name associated with a certificate
 #[allow(clippy::type_complexity)]
 pub fn tls_connect_with_future<S, F>(
     future: F,

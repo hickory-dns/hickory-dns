@@ -254,7 +254,7 @@ impl<P: RuntimeProvider> TlsStreamBuilder<P> {
     /// # Arguments
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
-    /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
+    /// * `dns_name` - The DNS name associated with a certificate
     #[allow(clippy::type_complexity)]
     pub fn build(
         self,

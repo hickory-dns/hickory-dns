@@ -314,7 +314,7 @@ impl H3ClientStreamBuilder {
     /// # Arguments
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
-    /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
+    /// * `dns_name` - The DNS name associated with a certificate
     pub fn build(
         self,
         name_server: SocketAddr,
