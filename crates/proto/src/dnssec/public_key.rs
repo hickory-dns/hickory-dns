@@ -14,6 +14,8 @@ use openssl::bn::BigNumContext;
 #[cfg(feature = "dnssec-openssl")]
 use openssl::ec::{EcKey, PointConversionForm};
 #[cfg(feature = "dnssec-openssl")]
+use openssl::nid::Nid;
+#[cfg(feature = "dnssec-openssl")]
 use openssl::pkey::HasPublic;
 #[cfg(feature = "dnssec-openssl")]
 use openssl::rsa::Rsa as OpenSslRsa;
@@ -45,7 +47,10 @@ pub trait PublicKey {
     /// True if and only if the signature is valid for the hash. This will always return
     /// false if the `key`.
     #[allow(unused)]
-    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()>;
+    fn verify(&self, message: &[u8], signature: &[u8]) -> ProtoResult<()>;
+
+    /// The algorithm associated with this key.
+    fn algorithm(&self) -> Algorithm;
 }
 
 /// Variants of all know public keys
@@ -88,7 +93,9 @@ impl<'k> PublicKeyEnum<'k> {
             Algorithm::RSASHA1
             | Algorithm::RSASHA1NSEC3SHA1
             | Algorithm::RSASHA256
-            | Algorithm::RSASHA512 => Ok(PublicKeyEnum::Rsa(Rsa::from_public_bytes(public_key)?)),
+            | Algorithm::RSASHA512 => Ok(PublicKeyEnum::Rsa(Rsa::from_public_bytes(
+                public_key, algorithm,
+            )?)),
             _ => Err("public key algorithm not supported".into()),
         }
     }
@@ -110,14 +117,27 @@ impl PublicKey for PublicKeyEnum<'_> {
     }
 
     #[allow(unused_variables, clippy::match_single_binding)]
-    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
+    fn verify(&self, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
         match self {
             #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-            PublicKeyEnum::Ec(ec) => ec.verify(algorithm, message, signature),
+            PublicKeyEnum::Ec(ec) => ec.verify(message, signature),
             #[cfg(feature = "dnssec-ring")]
-            PublicKeyEnum::Ed25519(ed) => ed.verify(algorithm, message, signature),
+            PublicKeyEnum::Ed25519(ed) => ed.verify(message, signature),
             #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-            PublicKeyEnum::Rsa(rsa) => rsa.verify(algorithm, message, signature),
+            PublicKeyEnum::Rsa(rsa) => rsa.verify(message, signature),
+            #[cfg(not(any(feature = "dnssec-ring", feature = "dnssec-openssl")))]
+            _ => panic!("no public keys registered, enable ring or openssl features"),
+        }
+    }
+
+    fn algorithm(&self) -> Algorithm {
+        match self {
+            #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+            PublicKeyEnum::Ec(ec) => ec.algorithm(),
+            #[cfg(feature = "dnssec-ring")]
+            PublicKeyEnum::Ed25519(ed) => ed.algorithm(),
+            #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+            PublicKeyEnum::Rsa(rsa) => rsa.algorithm(),
             #[cfg(not(any(feature = "dnssec-ring", feature = "dnssec-openssl")))]
             _ => panic!("no public keys registered, enable ring or openssl features"),
         }
@@ -127,17 +147,18 @@ impl PublicKey for PublicKeyEnum<'_> {
 /// An owned variant of PublicKey
 pub struct PublicKeyBuf {
     key_buf: Vec<u8>,
+    algorithm: Algorithm,
 }
 
 impl PublicKeyBuf {
     /// Constructs a new PublicKey from the specified bytes, these should be in DNSKEY form.
-    pub fn new(key_buf: Vec<u8>) -> Self {
-        Self { key_buf }
+    pub fn new(key_buf: Vec<u8>, algorithm: Algorithm) -> Self {
+        Self { key_buf, algorithm }
     }
 
     /// Constructs a new [`PublicKeyBuf`] from an [`OpenSslRsa`] key.
     #[cfg(feature = "dnssec-openssl")]
-    pub fn from_rsa<T: HasPublic>(key: &OpenSslRsa<T>) -> Self {
+    pub fn from_rsa<T: HasPublic>(key: &OpenSslRsa<T>, algorithm: Algorithm) -> Self {
         let mut key_buf = Vec::new();
 
         // this is to get us access to the exponent and the modulus
@@ -152,22 +173,33 @@ impl PublicKeyBuf {
         key_buf.push(e.len() as u8);
         key_buf.extend_from_slice(&e);
         key_buf.extend_from_slice(&n);
-        Self { key_buf }
+        Self { key_buf, algorithm }
     }
 
     /// Constructs a new [`PublicKeyBuf`] from an openssl [`EcKey`].
     #[cfg(feature = "dnssec-openssl")]
     pub fn from_ec<T: HasPublic>(ec_key: &EcKey<T>) -> DnsSecResult<Self> {
         let group = ec_key.group();
-        let point = ec_key.public_key();
+        let algorithm = match group.curve_name() {
+            Some(Nid::X9_62_PRIME256V1) => Algorithm::ECDSAP256SHA256,
+            Some(Nid::SECP384R1) => Algorithm::ECDSAP384SHA384,
+            val => {
+                return Err(format!(
+                    "unsupported curve {val:?} ({:?})",
+                    val.and_then(|nid| nid.long_name().ok())
+                )
+                .into())
+            }
+        };
 
+        let point = ec_key.public_key();
         let mut key_buf = BigNumContext::new().and_then(|mut ctx| {
             point.to_bytes(group, PointConversionForm::UNCOMPRESSED, &mut ctx)
         })?;
 
         // Remove OpenSSL header byte
         key_buf.remove(0);
-        Ok(Self { key_buf })
+        Ok(Self { key_buf, algorithm })
     }
 
     /// Extract the inner buffer of public key bytes.
@@ -181,9 +213,15 @@ impl PublicKey for PublicKeyBuf {
         &self.key_buf
     }
 
-    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
-        let public_key = PublicKeyEnum::from_public_bytes(&self.key_buf, algorithm)?;
+    fn verify(&self, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
+        let public_key = PublicKeyEnum::from_public_bytes(&self.key_buf, self.algorithm)?;
 
-        public_key.verify(algorithm, message, signature)
+        public_key.verify(message, signature)
+    }
+
+    fn algorithm(&self) -> Algorithm {
+        let public_key = PublicKeyEnum::from_public_bytes(&self.key_buf, Algorithm::RSASHA256)
+            .expect("algorithm should be supported");
+        public_key.algorithm()
     }
 }

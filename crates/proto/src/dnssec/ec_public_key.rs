@@ -13,6 +13,7 @@ use crate::error::*;
 pub struct ECPublicKey {
     buf: [u8; MAX_LEN],
     len: usize,
+    pub(crate) algorithm: Algorithm,
 }
 
 // The length of the longest supported EC public key (P-384).
@@ -35,7 +36,11 @@ impl ECPublicKey {
         }
         let mut buf = [0x04u8; MAX_LEN];
         buf[1..len].copy_from_slice(without_prefix);
-        Ok(Self { buf, len })
+        Ok(Self {
+            buf,
+            len,
+            algorithm,
+        })
     }
 
     pub fn prefixed_bytes(&self) -> &[u8] {

@@ -28,7 +28,7 @@ use clap::Parser;
 use openssl::pkey::{PKey, Public};
 use tracing::info;
 
-use hickory_proto::dnssec::{PublicKey, PublicKeyBuf};
+use hickory_proto::dnssec::{Algorithm, PublicKey, PublicKeyBuf};
 
 /// Cli struct for all options managed with clap derive api.
 #[derive(Debug, Parser)]
@@ -92,7 +92,8 @@ pub fn main() {
 fn to_public_key_buf(pkey: PKey<Public>) -> PublicKeyBuf {
     let rsa = pkey.rsa();
     if let Ok(rsa) = rsa {
-        return PublicKeyBuf::from_rsa(&rsa);
+        // Random RSA algorithm, the digest used is irrelevant here
+        return PublicKeyBuf::from_rsa(&rsa, Algorithm::RSASHA256);
     }
 
     let ec = pkey.ec_key();

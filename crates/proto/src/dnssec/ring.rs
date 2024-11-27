@@ -15,6 +15,7 @@ use crate::error::{DnsSecErrorKind, DnsSecResult, ProtoResult};
 /// An ECDSA signing key pair (backed by ring).
 pub struct EcdsaSigningKey {
     inner: EcdsaKeyPair,
+    algorithm: Algorithm,
 }
 
 impl EcdsaSigningKey {
@@ -36,12 +37,13 @@ impl EcdsaSigningKey {
 
         Ok(Self {
             inner: EcdsaKeyPair::from_pkcs8(ring_algorithm, bytes, &rng)?,
+            algorithm,
         })
     }
 
     /// Creates an ECDSA key pair with ring.
-    pub fn from_ecdsa(inner: EcdsaKeyPair) -> Self {
-        Self { inner }
+    pub fn from_ecdsa(inner: EcdsaKeyPair, algorithm: Algorithm) -> Self {
+        Self { inner, algorithm }
     }
 
     /// Generate signing key pair and return the DER-encoded PKCS#8 bytes.
@@ -74,7 +76,7 @@ impl SigningKey for EcdsaSigningKey {
     fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf> {
         let mut bytes = self.inner.public_key().as_ref().to_vec();
         bytes.remove(0);
-        Ok(PublicKeyBuf::new(bytes))
+        Ok(PublicKeyBuf::new(bytes, self.algorithm))
     }
 }
 
@@ -110,7 +112,10 @@ impl SigningKey for Ed25519SigningKey {
     }
 
     fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf> {
-        Ok(PublicKeyBuf::new(self.inner.public_key().as_ref().to_vec()))
+        Ok(PublicKeyBuf::new(
+            self.inner.public_key().as_ref().to_vec(),
+            Algorithm::ED25519,
+        ))
     }
 }
 
@@ -161,15 +166,19 @@ impl PublicKey for Ec {
         self.unprefixed_bytes()
     }
 
-    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
+    fn verify(&self, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
         // TODO: assert_eq!(algorithm, self.algorithm); once *ring* allows this.
-        let alg = match algorithm {
+        let alg = match self.algorithm {
             Algorithm::ECDSAP256SHA256 => &signature::ECDSA_P256_SHA256_FIXED,
             Algorithm::ECDSAP384SHA384 => &signature::ECDSA_P384_SHA384_FIXED,
             _ => return Err("only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into()),
         };
         let public_key = signature::UnparsedPublicKey::new(alg, self.prefixed_bytes());
         public_key.verify(message, signature).map_err(Into::into)
+    }
+
+    fn algorithm(&self) -> Algorithm {
+        self.algorithm
     }
 }
 
@@ -208,9 +217,13 @@ impl PublicKey for Ed25519<'_> {
         self.raw
     }
 
-    fn verify(&self, _: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
+    fn verify(&self, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
         let public_key = signature::UnparsedPublicKey::new(&signature::ED25519, self.raw);
         public_key.verify(message, signature).map_err(Into::into)
+    }
+
+    fn algorithm(&self) -> Algorithm {
+        Algorithm::ED25519
     }
 }
 
@@ -218,6 +231,7 @@ impl PublicKey for Ed25519<'_> {
 pub struct Rsa<'k> {
     raw: &'k [u8],
     pkey: RSAPublicKey<'k>,
+    algorithm: Algorithm,
 }
 
 impl<'k> Rsa<'k> {
@@ -253,9 +267,13 @@ impl<'k> Rsa<'k> {
     ///  Note: This changes the algorithm number for RSA KEY RRs to be the
     ///  same as the new algorithm number for RSA/SHA1 SIGs.
     /// ```
-    pub fn from_public_bytes(raw: &'k [u8]) -> ProtoResult<Self> {
+    pub fn from_public_bytes(raw: &'k [u8], algorithm: Algorithm) -> ProtoResult<Self> {
         let pkey = RSAPublicKey::try_from(raw)?;
-        Ok(Self { raw, pkey })
+        Ok(Self {
+            raw,
+            pkey,
+            algorithm,
+        })
     }
 }
 
@@ -264,9 +282,9 @@ impl PublicKey for Rsa<'_> {
         self.raw
     }
 
-    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
+    fn verify(&self, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
         #[allow(deprecated)]
-        let alg = match algorithm {
+        let alg = match self.algorithm {
             Algorithm::RSASHA256 => &signature::RSA_PKCS1_1024_8192_SHA256_FOR_LEGACY_USE_ONLY,
             Algorithm::RSASHA512 => &signature::RSA_PKCS1_1024_8192_SHA512_FOR_LEGACY_USE_ONLY,
             Algorithm::RSASHA1 => &signature::RSA_PKCS1_1024_8192_SHA1_FOR_LEGACY_USE_ONLY,
@@ -282,6 +300,10 @@ impl PublicKey for Rsa<'_> {
         public_key
             .verify(alg, message, signature)
             .map_err(Into::into)
+    }
+
+    fn algorithm(&self) -> Algorithm {
+        self.algorithm
     }
 }
 

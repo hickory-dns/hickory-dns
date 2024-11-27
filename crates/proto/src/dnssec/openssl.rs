@@ -23,7 +23,7 @@ use crate::error::{DnsSecErrorKind, DnsSecResult, ProtoResult};
 /// An RSA signing key pair (backed by OpenSSL).
 pub struct RsaSigningKey {
     inner: PKey<Private>,
-    algorithm: DigestType,
+    algorithm: Algorithm,
 }
 
 impl RsaSigningKey {
@@ -112,10 +112,7 @@ impl RsaSigningKey {
             Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => {
                 Err(format!("unsupported signing algorithm (insecure): {algorithm:?}").into())
             }
-            Algorithm::RSASHA256 | Algorithm::RSASHA512 => Ok(Self {
-                inner,
-                algorithm: DigestType::try_from(algorithm)?,
-            }),
+            Algorithm::RSASHA256 | Algorithm::RSASHA512 => Ok(Self { inner, algorithm }),
             _ => {
                 Err(DnsSecErrorKind::Message("unsupported signing algorithm: {algorithm:?}").into())
             }
@@ -143,7 +140,7 @@ impl RsaSigningKey {
 
 impl SigningKey for RsaSigningKey {
     fn sign(&self, tbs: &TBS) -> DnsSecResult<Vec<u8>> {
-        let digest = self.algorithm.to_openssl_digest();
+        let digest = DigestType::try_from(self.algorithm)?.to_openssl_digest();
         let mut signer = openssl::sign::Signer::new(digest, &self.inner)?;
         signer.update(tbs.as_ref())?;
         Ok(signer.sign_to_vec()?)
@@ -151,14 +148,14 @@ impl SigningKey for RsaSigningKey {
 
     fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf> {
         let rsa = self.inner.rsa()?;
-        Ok(PublicKeyBuf::from_rsa(&rsa))
+        Ok(PublicKeyBuf::from_rsa(&rsa, self.algorithm))
     }
 }
 
 /// An ECDSA signing key pair (backed by OpenSSL).
 pub struct EcSigningKey {
     inner: PKey<Private>,
-    algorithm: DigestType,
+    algorithm: Algorithm,
 }
 
 impl EcSigningKey {
@@ -234,10 +231,9 @@ impl EcSigningKey {
     /// - [`Algorithm::ECDSAP384SHA384`]
     pub fn from_ec_pkey(inner: PKey<Private>, algorithm: Algorithm) -> DnsSecResult<Self> {
         match algorithm {
-            Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => Ok(Self {
-                inner,
-                algorithm: DigestType::try_from(algorithm)?,
-            }),
+            Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => {
+                Ok(Self { inner, algorithm })
+            }
             _ => Err(DnsSecErrorKind::Message("unsupported signing algorithm").into()),
         }
     }
@@ -263,7 +259,7 @@ impl EcSigningKey {
 
 impl SigningKey for EcSigningKey {
     fn sign(&self, tbs: &TBS) -> DnsSecResult<Vec<u8>> {
-        let digest = self.algorithm.to_openssl_digest();
+        let digest = DigestType::try_from(self.algorithm)?.to_openssl_digest();
         let mut signer = openssl::sign::Signer::new(digest, &self.inner)?;
         signer.update(tbs.as_ref())?;
         let bytes = signer.sign_to_vec()?;
@@ -296,8 +292,8 @@ impl SigningKey for EcSigningKey {
         // For P-256, each integer MUST be encoded as 32 octets;
         // for P-384, each integer MUST be encoded as 48 octets.
         let part_len = match self.algorithm {
-            DigestType::SHA256 => 32,
-            DigestType::SHA384 => 48,
+            Algorithm::ECDSAP256SHA256 => 32,
+            Algorithm::ECDSAP384SHA384 => 48,
             _ => return Err("unexpected algorithm".into()),
         };
 
@@ -355,6 +351,7 @@ fn verify_with_pkey(
 pub struct Ec<'k> {
     raw: &'k [u8],
     pkey: PKey<Public>,
+    algorithm: Algorithm,
 }
 
 impl<'k> Ec<'k> {
@@ -407,6 +404,7 @@ impl<'k> Ec<'k> {
         Ok(Self {
             raw: public_key,
             pkey,
+            algorithm,
         })
     }
 }
@@ -460,9 +458,13 @@ impl PublicKey for Ec<'_> {
         self.raw
     }
 
-    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
+    fn verify(&self, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
         let signature_asn1 = dnssec_ecdsa_signature_to_der(signature)?;
-        verify_with_pkey(&self.pkey, algorithm, message, &signature_asn1)
+        verify_with_pkey(&self.pkey, self.algorithm, message, &signature_asn1)
+    }
+
+    fn algorithm(&self) -> Algorithm {
+        self.algorithm
     }
 }
 
@@ -470,6 +472,7 @@ impl PublicKey for Ec<'_> {
 pub struct Rsa<'k> {
     raw: &'k [u8],
     pkey: PKey<Public>,
+    algorithm: Algorithm,
 }
 
 impl<'k> Rsa<'k> {
@@ -505,14 +508,18 @@ impl<'k> Rsa<'k> {
     ///  Note: This changes the algorithm number for RSA KEY RRs to be the
     ///  same as the new algorithm number for RSA/SHA1 SIGs.
     /// ```
-    pub fn from_public_bytes(raw: &'k [u8]) -> ProtoResult<Self> {
+    pub fn from_public_bytes(raw: &'k [u8], algorithm: Algorithm) -> ProtoResult<Self> {
         let parsed = RSAPublicKey::try_from(raw)?;
         // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
         let e = BigNum::from_slice(parsed.e())?;
         let n = BigNum::from_slice(parsed.n())?;
 
         let pkey = OpenSslRsa::from_public_components(n, e).and_then(PKey::from_rsa)?;
-        Ok(Self { raw, pkey })
+        Ok(Self {
+            raw,
+            pkey,
+            algorithm,
+        })
     }
 }
 
@@ -521,8 +528,12 @@ impl PublicKey for Rsa<'_> {
         self.raw
     }
 
-    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
-        verify_with_pkey(&self.pkey, algorithm, message, signature)
+    fn verify(&self, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
+        verify_with_pkey(&self.pkey, self.algorithm, message, signature)
+    }
+
+    fn algorithm(&self) -> Algorithm {
+        self.algorithm
     }
 }
 
