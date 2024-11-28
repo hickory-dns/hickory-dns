@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use ring::{
     rand::{self, SystemRandom},
     signature::{
@@ -184,7 +186,7 @@ impl PublicKey for Ec {
 
 /// Ed25519 Public key
 pub struct Ed25519<'k> {
-    raw: &'k [u8],
+    raw: Cow<'k, [u8]>,
 }
 
 impl<'k> Ed25519<'k> {
@@ -197,7 +199,7 @@ impl<'k> Ed25519<'k> {
     ///  in [RFC 8032]. Breaking tradition, the keys are encoded in little-
     ///  endian byte order.
     /// ```
-    pub fn from_public_bytes(public_key: &'k [u8]) -> ProtoResult<Self> {
+    pub fn from_public_bytes(public_key: Cow<'k, [u8]>) -> ProtoResult<Self> {
         if public_key.len() != ED25519_PUBLIC_KEY_LEN {
             return Err(format!(
                 "expected {} byte public_key: {}",
@@ -214,11 +216,11 @@ impl<'k> Ed25519<'k> {
 impl PublicKey for Ed25519<'_> {
     // TODO: just store reference to public key bytes in ctor...
     fn public_bytes(&self) -> &[u8] {
-        self.raw
+        self.raw.as_ref()
     }
 
     fn verify(&self, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
-        let public_key = signature::UnparsedPublicKey::new(&signature::ED25519, self.raw);
+        let public_key = signature::UnparsedPublicKey::new(&signature::ED25519, self.raw.as_ref());
         public_key.verify(message, signature).map_err(Into::into)
     }
 
