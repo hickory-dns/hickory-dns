@@ -25,6 +25,7 @@ use std::io::{BufReader, Read, Write};
 use std::path::PathBuf;
 
 use clap::Parser;
+use hickory_proto::dnssec::openssl::{ec_key_buf, rsa_key_buf};
 use openssl::pkey::{PKey, Public};
 use tracing::info;
 
@@ -93,12 +94,12 @@ fn to_public_key_buf(pkey: PKey<Public>) -> PublicKeyBuf {
     let rsa = pkey.rsa();
     if let Ok(rsa) = rsa {
         // Random RSA algorithm, the digest used is irrelevant here
-        return PublicKeyBuf::from_rsa(&rsa, Algorithm::RSASHA256);
+        return rsa_key_buf(&rsa, Algorithm::RSASHA256);
     }
 
     let ec = pkey.ec_key();
     if let Ok(ec) = ec {
-        return PublicKeyBuf::from_ec(&ec).expect("failed to convert to ec");
+        return ec_key_buf(&ec).expect("failed to convert to ec");
     }
 
     panic!("unsupported pkey");

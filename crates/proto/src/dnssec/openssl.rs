@@ -8,9 +8,9 @@
 use std::iter;
 
 use openssl::bn::{BigNum, BigNumContext};
-use openssl::ec::{EcGroup, EcKey, EcPoint};
+use openssl::ec::{EcGroup, EcKey, EcPoint, PointConversionForm};
 use openssl::nid::Nid;
-use openssl::pkey::{PKey, Private, Public};
+use openssl::pkey::{HasPublic, PKey, Private, Public};
 use openssl::rsa::Rsa as OpenSslRsa;
 use openssl::sign::Verifier;
 use openssl::symm::Cipher;
@@ -148,8 +148,27 @@ impl SigningKey for RsaSigningKey {
 
     fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf> {
         let rsa = self.inner.rsa()?;
-        Ok(PublicKeyBuf::from_rsa(&rsa, self.algorithm))
+        Ok(rsa_key_buf(&rsa, self.algorithm))
     }
+}
+
+/// Constructs a new [`PublicKeyBuf`] from an [`OpenSslRsa`] key.
+pub fn rsa_key_buf<T: HasPublic>(key: &OpenSslRsa<T>, algorithm: Algorithm) -> PublicKeyBuf {
+    let mut key_buf = Vec::new();
+
+    // this is to get us access to the exponent and the modulus
+    let e = key.e().to_vec();
+    let n = key.n().to_vec();
+
+    if e.len() > 255 {
+        key_buf.push(0);
+        key_buf.push((e.len() >> 8) as u8);
+    }
+
+    key_buf.push(e.len() as u8);
+    key_buf.extend_from_slice(&e);
+    key_buf.extend_from_slice(&n);
+    PublicKeyBuf::new(key_buf, algorithm)
 }
 
 /// An ECDSA signing key pair (backed by OpenSSL).
@@ -325,9 +344,32 @@ impl SigningKey for EcSigningKey {
     }
 
     fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf> {
-        let ec = self.inner.ec_key()?;
-        PublicKeyBuf::from_ec(&ec)
+        ec_key_buf(&self.inner.ec_key()?)
     }
+}
+
+/// Constructs a new [`PublicKeyBuf`] from an openssl [`EcKey`].
+pub fn ec_key_buf<T: HasPublic>(ec_key: &EcKey<T>) -> DnsSecResult<PublicKeyBuf> {
+    let group = ec_key.group();
+    let algorithm = match group.curve_name() {
+        Some(Nid::X9_62_PRIME256V1) => Algorithm::ECDSAP256SHA256,
+        Some(Nid::SECP384R1) => Algorithm::ECDSAP384SHA384,
+        val => {
+            return Err(format!(
+                "unsupported curve {val:?} ({:?})",
+                val.and_then(|nid| nid.long_name().ok())
+            )
+            .into())
+        }
+    };
+
+    let point = ec_key.public_key();
+    let mut key_buf = BigNumContext::new()
+        .and_then(|mut ctx| point.to_bytes(group, PointConversionForm::UNCOMPRESSED, &mut ctx))?;
+
+    // Remove OpenSSL header byte
+    key_buf.remove(0);
+    Ok(PublicKeyBuf::new(key_buf, algorithm))
 }
 
 fn verify_with_pkey(
