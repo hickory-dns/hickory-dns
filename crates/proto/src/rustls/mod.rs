@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use rustls::{ClientConfig, RootCertStore};
-#[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
+#[cfg(feature = "native-certs")]
 use tracing::warn;
 
 pub mod tls_client_stream;
@@ -27,12 +27,9 @@ pub(crate) mod tests;
 
 /// Make a new [`ClientConfig`] with the default settings
 pub fn client_config() -> Result<ClientConfig, Box<dyn std::error::Error>> {
-    #[cfg_attr(
-        not(any(feature = "native-certs", feature = "webpki-roots")),
-        allow(unused_mut)
-    )]
+    #[allow(unused_mut)]
     let mut root_store = RootCertStore::empty();
-    #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
+    #[cfg(feature = "native-certs")]
     {
         use crate::error::ProtoErrorKind;
 
@@ -41,9 +38,7 @@ pub fn client_config() -> Result<ClientConfig, Box<dyn std::error::Error>> {
             return Err(err.into());
         }
 
-        let (added, ignored) =
-            root_store.add_parsable_certificates(result.certs);
-
+        let (added, ignored) = root_store.add_parsable_certificates(result.certs);
         if ignored > 0 {
             warn!("failed to parse {ignored} certificate(s) from the native root store");
         }
@@ -52,6 +47,7 @@ pub fn client_config() -> Result<ClientConfig, Box<dyn std::error::Error>> {
             return Err(ProtoErrorKind::NativeCerts.into());
         }
     }
+
     #[cfg(feature = "webpki-roots")]
     root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
 

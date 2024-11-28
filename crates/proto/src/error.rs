@@ -348,7 +348,7 @@ pub enum ProtoErrorKind {
     RustlsError(#[from] rustls::Error),
 
     /// No valid certificates found in the native root store.
-    #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
+    #[cfg(feature = "native-certs")]
     #[error("no valid certificates found in the native root store")]
     NativeCerts,
 }
@@ -831,7 +831,7 @@ impl Clone for ProtoErrorKind {
             QuinnUnknownStreamError => QuinnUnknownStreamError,
             #[cfg(feature = "rustls")]
             RustlsError(ref e) => RustlsError(e.clone()),
-            #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
+            #[cfg(feature = "native-certs")]
             NativeCerts => NativeCerts,
         }
     }
