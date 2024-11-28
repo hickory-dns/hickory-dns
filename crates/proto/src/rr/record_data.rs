@@ -136,7 +136,7 @@ pub enum RData {
     /// +----------------+----------------+.....+----------------+
     /// | Value byte 0   | Value byte 1   |.....| Value byte m-1 |
     /// +----------------+----------------+.....+----------------+
-
+    ///
     /// Where n is the length specified in the Tag length field and m is the
     /// remaining octets in the Value field (m = d - n - 2) where d is the
     /// length of the RDATA section.

@@ -94,7 +94,7 @@ impl<'k> PublicKeyEnum<'k> {
     }
 }
 
-impl<'k> PublicKey for PublicKeyEnum<'k> {
+impl PublicKey for PublicKeyEnum<'_> {
     #[allow(clippy::match_single_binding, clippy::match_single_binding)]
     fn public_bytes(&self) -> &[u8] {
         match self {

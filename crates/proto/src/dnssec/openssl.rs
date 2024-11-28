@@ -463,7 +463,7 @@ pub fn dnssec_ecdsa_signature_to_der(signature: &[u8]) -> ProtoResult<Vec<u8>> {
     Ok(signature_asn1)
 }
 
-impl<'k> PublicKey for Ec<'k> {
+impl PublicKey for Ec<'_> {
     fn public_bytes(&self) -> &[u8] {
         self.raw
     }
@@ -524,7 +524,7 @@ impl<'k> Rsa<'k> {
     }
 }
 
-impl<'k> PublicKey for Rsa<'k> {
+impl PublicKey for Rsa<'_> {
     fn public_bytes(&self) -> &[u8] {
         self.raw
     }

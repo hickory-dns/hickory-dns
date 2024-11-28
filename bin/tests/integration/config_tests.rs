@@ -271,7 +271,7 @@ impl<'a> TableMutator<'a> {
     }
 }
 
-impl<'a> Iterator for TableMutator<'a> {
+impl Iterator for TableMutator<'_> {
     type Item = Table;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -342,7 +342,7 @@ impl<'a> ArrayMutator<'a> {
     }
 }
 
-impl<'a> Iterator for ArrayMutator<'a> {
+impl Iterator for ArrayMutator<'_> {
     type Item = Array;
 
     fn next(&mut self) -> Option<Self::Item> {

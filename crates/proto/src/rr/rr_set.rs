@@ -583,7 +583,7 @@ pub enum RrsetRecords<'r> {
     RecordsAndRrsigs(RecordsAndRrsigsIter<'r>),
 }
 
-impl<'r> RrsetRecords<'r> {
+impl RrsetRecords<'_> {
     /// This is a best effort emptiness check
     pub fn is_empty(&self) -> bool {
         matches!(*self, RrsetRecords::Empty)

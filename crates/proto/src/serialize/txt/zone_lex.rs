@@ -339,7 +339,7 @@ struct CowChars<'a> {
     offset: usize,
 }
 
-impl<'a> Iterator for CowChars<'a> {
+impl Iterator for CowChars<'_> {
     type Item = char;
 
     fn next(&mut self) -> Option<char> {

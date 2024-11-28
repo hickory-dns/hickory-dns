@@ -1057,7 +1057,7 @@ impl BinEncodable for SVCB {
     }
 }
 
-impl<'r> RecordDataDecodable<'r> for SVCB {
+impl RecordDataDecodable<'_> for SVCB {
     /// Reads the SVCB record from the decoder.
     ///
     /// [RFC 9460 SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-2.2)

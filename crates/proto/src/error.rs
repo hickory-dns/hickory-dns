@@ -524,7 +524,6 @@ impl ProtoError {
                 | code @ BADALG
                 | code @ BADTRUNC
                 | code @ BADCOOKIE => {
-                    let response = response;
                     let soa = response.soa().as_ref().map(RecordRef::to_owned);
                     let query = response.queries().iter().next().cloned().unwrap_or_default();
                     let error_kind = ProtoErrorKind::NoRecordsFound {
@@ -548,8 +547,6 @@ impl ProtoError {
                 if !response.contains_answer() && !response.truncated() => {
                     // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
                     // let valid_until = if response.authoritative() { now + response.negative_ttl() };
-
-                    let response = response;
                     let soa = response.soa().as_ref().map(RecordRef::to_owned);
 
                     // Collect any referral nameservers and associated glue records

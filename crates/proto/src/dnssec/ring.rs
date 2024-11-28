@@ -202,7 +202,7 @@ impl<'k> Ed25519<'k> {
     }
 }
 
-impl<'k> PublicKey for Ed25519<'k> {
+impl PublicKey for Ed25519<'_> {
     // TODO: just store reference to public key bytes in ctor...
     fn public_bytes(&self) -> &[u8] {
         self.raw
@@ -259,7 +259,7 @@ impl<'k> Rsa<'k> {
     }
 }
 
-impl<'k> PublicKey for Rsa<'k> {
+impl PublicKey for Rsa<'_> {
     fn public_bytes(&self) -> &[u8] {
         self.raw
     }

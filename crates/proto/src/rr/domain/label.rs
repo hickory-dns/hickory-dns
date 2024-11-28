@@ -329,7 +329,7 @@ pub trait IntoLabel: Sized {
     fn into_label(self) -> ProtoResult<Label>;
 }
 
-impl<'a> IntoLabel for &'a Label {
+impl IntoLabel for &Label {
     fn into_label(self) -> ProtoResult<Label> {
         Ok(self.clone())
     }
@@ -341,7 +341,7 @@ impl IntoLabel for Label {
     }
 }
 
-impl<'a> IntoLabel for &'a str {
+impl IntoLabel for &str {
     fn into_label(self) -> ProtoResult<Label> {
         Label::from_utf8(self)
     }
@@ -353,7 +353,7 @@ impl IntoLabel for String {
     }
 }
 
-impl<'a> IntoLabel for &'a [u8] {
+impl IntoLabel for &[u8] {
     fn into_label(self) -> ProtoResult<Label> {
         Label::from_raw_bytes(self)
     }

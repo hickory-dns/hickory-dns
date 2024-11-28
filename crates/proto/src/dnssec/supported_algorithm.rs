@@ -189,7 +189,7 @@ impl<'a> SupportedAlgorithmsIter<'a> {
     }
 }
 
-impl<'a> Iterator for SupportedAlgorithmsIter<'a> {
+impl Iterator for SupportedAlgorithmsIter<'_> {
     type Item = Algorithm;
     fn next(&mut self) -> Option<Self::Item> {
         // some quick bounds checking
@@ -217,73 +217,77 @@ impl BinEncodable for SupportedAlgorithms {
     }
 }
 
-#[test]
-#[allow(deprecated)]
-fn test_has() {
-    let mut supported = SupportedAlgorithms::new();
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    supported.set(Algorithm::RSASHA1);
+    #[test]
+    #[allow(deprecated)]
+    fn test_has() {
+        let mut supported = SupportedAlgorithms::new();
 
-    assert!(supported.has(Algorithm::RSASHA1));
-    assert!(!supported.has(Algorithm::RSASHA1NSEC3SHA1));
+        supported.set(Algorithm::RSASHA1);
 
-    let mut supported = SupportedAlgorithms::new();
+        assert!(supported.has(Algorithm::RSASHA1));
+        assert!(!supported.has(Algorithm::RSASHA1NSEC3SHA1));
 
-    supported.set(Algorithm::RSASHA256);
-    assert!(!supported.has(Algorithm::RSASHA1));
-    assert!(!supported.has(Algorithm::RSASHA1NSEC3SHA1));
-    assert!(supported.has(Algorithm::RSASHA256));
-}
+        let mut supported = SupportedAlgorithms::new();
 
-#[test]
-#[allow(deprecated)]
+        supported.set(Algorithm::RSASHA256);
+        assert!(!supported.has(Algorithm::RSASHA1));
+        assert!(!supported.has(Algorithm::RSASHA1NSEC3SHA1));
+        assert!(supported.has(Algorithm::RSASHA256));
+    }
 
-fn test_iterator() {
-    let supported = SupportedAlgorithms::all();
-    assert_eq!(supported.iter().count(), 7);
+    #[allow(deprecated)]
+    #[test]
+    fn test_iterator() {
+        let supported = SupportedAlgorithms::all();
+        assert_eq!(supported.iter().count(), 7);
 
-    // it just so happens that the iterator has a fixed order...
-    let supported = SupportedAlgorithms::all();
-    let mut iter = supported.iter();
-    assert_eq!(iter.next(), Some(Algorithm::RSASHA1));
-    assert_eq!(iter.next(), Some(Algorithm::RSASHA256));
-    assert_eq!(iter.next(), Some(Algorithm::RSASHA1NSEC3SHA1));
-    assert_eq!(iter.next(), Some(Algorithm::RSASHA512));
-    assert_eq!(iter.next(), Some(Algorithm::ECDSAP256SHA256));
-    assert_eq!(iter.next(), Some(Algorithm::ECDSAP384SHA384));
-    assert_eq!(iter.next(), Some(Algorithm::ED25519));
+        // it just so happens that the iterator has a fixed order...
+        let supported = SupportedAlgorithms::all();
+        let mut iter = supported.iter();
+        assert_eq!(iter.next(), Some(Algorithm::RSASHA1));
+        assert_eq!(iter.next(), Some(Algorithm::RSASHA256));
+        assert_eq!(iter.next(), Some(Algorithm::RSASHA1NSEC3SHA1));
+        assert_eq!(iter.next(), Some(Algorithm::RSASHA512));
+        assert_eq!(iter.next(), Some(Algorithm::ECDSAP256SHA256));
+        assert_eq!(iter.next(), Some(Algorithm::ECDSAP384SHA384));
+        assert_eq!(iter.next(), Some(Algorithm::ED25519));
 
-    let mut supported = SupportedAlgorithms::new();
-    supported.set(Algorithm::RSASHA256);
-    supported.set(Algorithm::RSASHA512);
+        let mut supported = SupportedAlgorithms::new();
+        supported.set(Algorithm::RSASHA256);
+        supported.set(Algorithm::RSASHA512);
 
-    let mut iter = supported.iter();
-    assert_eq!(iter.next(), Some(Algorithm::RSASHA256));
-    assert_eq!(iter.next(), Some(Algorithm::RSASHA512));
-}
+        let mut iter = supported.iter();
+        assert_eq!(iter.next(), Some(Algorithm::RSASHA256));
+        assert_eq!(iter.next(), Some(Algorithm::RSASHA512));
+    }
 
-#[test]
-#[allow(deprecated)]
-fn test_vec() {
-    let supported = SupportedAlgorithms::all();
-    let array: Vec<u8> = (&supported).into();
-    let decoded: SupportedAlgorithms = (&array as &[_]).into();
+    #[test]
+    #[allow(deprecated)]
+    fn test_vec() {
+        let supported = SupportedAlgorithms::all();
+        let array: Vec<u8> = (&supported).into();
+        let decoded: SupportedAlgorithms = (&array as &[_]).into();
 
-    assert_eq!(supported, decoded);
+        assert_eq!(supported, decoded);
 
-    let mut supported = SupportedAlgorithms::new();
-    supported.set(Algorithm::RSASHA256);
-    supported.set(Algorithm::ECDSAP256SHA256);
-    supported.set(Algorithm::ECDSAP384SHA384);
-    supported.set(Algorithm::ED25519);
-    let array: Vec<u8> = (&supported).into();
-    let decoded: SupportedAlgorithms = (&array as &[_]).into();
+        let mut supported = SupportedAlgorithms::new();
+        supported.set(Algorithm::RSASHA256);
+        supported.set(Algorithm::ECDSAP256SHA256);
+        supported.set(Algorithm::ECDSAP384SHA384);
+        supported.set(Algorithm::ED25519);
+        let array: Vec<u8> = (&supported).into();
+        let decoded: SupportedAlgorithms = (&array as &[_]).into();
 
-    assert_eq!(supported, decoded);
-    assert!(!supported.has(Algorithm::RSASHA1));
-    assert!(!supported.has(Algorithm::RSASHA1NSEC3SHA1));
-    assert!(supported.has(Algorithm::RSASHA256));
-    assert!(supported.has(Algorithm::ECDSAP256SHA256));
-    assert!(supported.has(Algorithm::ECDSAP384SHA384));
-    assert!(supported.has(Algorithm::ED25519));
+        assert_eq!(supported, decoded);
+        assert!(!supported.has(Algorithm::RSASHA1));
+        assert!(!supported.has(Algorithm::RSASHA1NSEC3SHA1));
+        assert!(supported.has(Algorithm::RSASHA256));
+        assert!(supported.has(Algorithm::ECDSAP256SHA256));
+        assert!(supported.has(Algorithm::ECDSAP384SHA384));
+        assert!(supported.has(Algorithm::ED25519));
+    }
 }

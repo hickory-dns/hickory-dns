@@ -572,7 +572,6 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
     /// # Arguments
     /// * `zone_origin` - the zone name to update, i.e. SOA name
     /// * `last_soa` - the last SOA known, if any. If provided, name must match `zone_origin`
-
     fn zone_transfer(
         &mut self,
         zone_origin: Name,

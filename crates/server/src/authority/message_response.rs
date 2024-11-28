@@ -64,7 +64,7 @@ impl<'q> From<Option<&'q WireQuery>> for EmptyOrQueries<'q> {
     }
 }
 
-impl<'q> EmitAndCount for EmptyOrQueries<'q> {
+impl EmitAndCount for EmptyOrQueries<'_> {
     fn emit(&mut self, encoder: &mut BinEncoder<'_>) -> Result<usize, ProtoError> {
         match self {
             EmptyOrQueries::Empty => Ok(0),
@@ -73,7 +73,7 @@ impl<'q> EmitAndCount for EmptyOrQueries<'q> {
     }
 }
 
-impl<'q, 'a, A, N, S, D> MessageResponse<'q, 'a, A, N, S, D>
+impl<'a, A, N, S, D> MessageResponse<'_, 'a, A, N, S, D>
 where
     A: Iterator<Item = &'a Record> + Send + 'a,
     N: Iterator<Item = &'a Record> + Send + 'a,
