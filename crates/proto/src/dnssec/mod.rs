@@ -167,7 +167,7 @@ mod test_utils {
         );
 
         let pub_key = key.to_public_key().unwrap();
-        let dns_key = DNSKEY::from_key(pub_key, algorithm);
+        let dns_key = DNSKEY::from_key(&pub_key, algorithm);
         assert!(
             dns_key.verify(tbs.as_ref(), &sig).is_ok(),
             "algorithm: {algorithm:?} (dnskey)",
@@ -179,7 +179,7 @@ mod test_utils {
         );
 
         let neg_pub_key = neg.to_public_key().unwrap();
-        let neg_dns_key = DNSKEY::from_key(neg_pub_key, algorithm);
+        let neg_dns_key = DNSKEY::from_key(&neg_pub_key, algorithm);
         assert!(
             neg_dns_key.verify(tbs.as_ref(), &sig).is_err(),
             "algorithm: {algorithm:?} (dnskey, neg)",
