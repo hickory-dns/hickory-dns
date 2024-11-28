@@ -9,10 +9,10 @@
 
 use std::sync::Arc;
 
-#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
-use super::openssl::{Ec, Rsa};
+#[cfg(feature = "dnssec-openssl")]
+use super::openssl;
 #[cfg(feature = "dnssec-ring")]
-use super::ring::{Ec, Ed25519, Rsa};
+use super::ring;
 use super::Algorithm;
 use crate::error::ProtoResult;
 
@@ -51,17 +51,32 @@ pub(super) fn decode_public_key<'a>(
 
     #[allow(deprecated)]
     match algorithm {
-        #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-        Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => {
-            Ok(Arc::new(Ec::from_public_bytes(public_key, algorithm)?))
-        }
         #[cfg(feature = "dnssec-ring")]
-        Algorithm::ED25519 => Ok(Arc::new(Ed25519::from_public_bytes(public_key)?)),
-        #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+        Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => Ok(Arc::new(
+            ring::Ec::from_public_bytes(public_key, algorithm)?,
+        )),
+        #[cfg_attr(feature = "dnssec-ring", allow(unreachable_patterns))]
+        #[cfg(feature = "dnssec-openssl")]
+        Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => Ok(Arc::new(
+            openssl::Ec::from_public_bytes(public_key, algorithm)?,
+        )),
+        #[cfg(feature = "dnssec-ring")]
+        Algorithm::ED25519 => Ok(Arc::new(ring::Ed25519::from_public_bytes(public_key)?)),
+        #[cfg(feature = "dnssec-ring")]
         Algorithm::RSASHA1
         | Algorithm::RSASHA1NSEC3SHA1
         | Algorithm::RSASHA256
-        | Algorithm::RSASHA512 => Ok(Arc::new(Rsa::from_public_bytes(public_key, algorithm)?)),
+        | Algorithm::RSASHA512 => Ok(Arc::new(ring::Rsa::from_public_bytes(
+            public_key, algorithm,
+        )?)),
+        #[cfg_attr(feature = "dnssec-ring", allow(unreachable_patterns))]
+        #[cfg(feature = "dnssec-openssl")]
+        Algorithm::RSASHA1
+        | Algorithm::RSASHA1NSEC3SHA1
+        | Algorithm::RSASHA256
+        | Algorithm::RSASHA512 => Ok(Arc::new(openssl::Rsa::from_public_bytes(
+            public_key, algorithm,
+        )?)),
         _ => Err("public key algorithm not supported".into()),
     }
 }
