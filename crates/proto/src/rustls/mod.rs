@@ -36,8 +36,13 @@ pub fn client_config() -> Result<ClientConfig, Box<dyn std::error::Error>> {
     {
         use crate::error::ProtoErrorKind;
 
+        let mut result = rustls_native_certs::load_native_certs();
+        if let Some(err) = result.errors.pop() {
+            return Err(err.into());
+        }
+
         let (added, ignored) =
-            root_store.add_parsable_certificates(rustls_native_certs::load_native_certs()?);
+            root_store.add_parsable_certificates(result.certs);
 
         if ignored > 0 {
             warn!("failed to parse {ignored} certificate(s) from the native root store");

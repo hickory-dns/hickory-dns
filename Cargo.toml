@@ -69,7 +69,7 @@ rustls = { version = "0.23.14", default-features = false, features = [
     "std",
     "tls12",
 ] }
-rustls-native-certs = "0.7"
+rustls-native-certs = "0.8"
 webpki-roots = "0.26"
 ring = "0.17"
 
