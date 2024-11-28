@@ -7,6 +7,12 @@
 
 //! TLS protocol related components for DNS over TLS
 
+use std::sync::Arc;
+
+use rustls::{ClientConfig, RootCertStore};
+#[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
+use tracing::warn;
+
 pub mod tls_client_stream;
 pub mod tls_server;
 pub mod tls_stream;
@@ -18,3 +24,37 @@ pub use self::tls_stream::{tls_connect, tls_connect_with_bind_addr, tls_from_str
 
 #[cfg(test)]
 pub(crate) mod tests;
+
+/// Make a new [`ClientConfig`] with the default settings
+pub fn client_config() -> Result<ClientConfig, Box<dyn std::error::Error>> {
+    #[cfg_attr(
+        not(any(feature = "native-certs", feature = "webpki-roots")),
+        allow(unused_mut)
+    )]
+    let mut root_store = RootCertStore::empty();
+    #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
+    {
+        use crate::error::ProtoErrorKind;
+
+        let (added, ignored) =
+            root_store.add_parsable_certificates(rustls_native_certs::load_native_certs()?);
+
+        if ignored > 0 {
+            warn!("failed to parse {ignored} certificate(s) from the native root store");
+        }
+
+        if added == 0 {
+            return Err(ProtoErrorKind::NativeCerts.into());
+        }
+    }
+    #[cfg(feature = "webpki-roots")]
+    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+
+    Ok(
+        ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+            .with_safe_default_protocol_versions()
+            .unwrap()
+            .with_root_certificates(root_store)
+            .with_no_client_auth(),
+    )
+}

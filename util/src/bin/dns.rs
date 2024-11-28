@@ -29,11 +29,13 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use rustls::{
     client::danger::{HandshakeSignatureValid, ServerCertVerified},
     pki_types::{CertificateDer, ServerName, UnixTime},
-    ClientConfig, DigitallySignedStruct, RootCertStore,
+    ClientConfig, DigitallySignedStruct,
 };
 use tracing::Level;
 
 use hickory_client::client::{Client, ClientHandle};
+#[cfg(any(feature = "dns-over-rustls", feature = "dns-over-https-rustls"))]
+use hickory_proto::rustls::client_config;
 #[cfg(feature = "dns-over-rustls")]
 use hickory_proto::rustls::tls_client_connect;
 use hickory_proto::{
@@ -295,7 +297,7 @@ async fn tls(opts: Opts, provider: impl RuntimeProvider) -> Result<(), Box<dyn s
         .expect("tls_dns_name is required tls connections");
     println!("; using tls:{nameserver} dns_name:{dns_name}");
 
-    let mut config = tls_config()?;
+    let mut config = client_config()?;
     if opts.do_not_verify_nameserver_cert {
         self::do_not_verify_nameserver_cert(&mut config);
     }
@@ -342,7 +344,7 @@ async fn https(
         .expect("http_endpoint is required for https connections");
     println!("; using https:{nameserver} dns_name:{dns_name}");
 
-    let mut config = tls_config()?;
+    let mut config = client_config()?;
     if opts.do_not_verify_nameserver_cert {
         self::do_not_verify_nameserver_cert(&mut config);
     }
@@ -367,7 +369,7 @@ async fn quic(_opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg(feature = "dns-over-quic")]
 async fn quic(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
-    use hickory_proto::quic::{self, QuicClientStream};
+    use hickory_proto::quic::QuicClientStream;
 
     let nameserver = opts.nameserver;
     let alpn = opts
@@ -379,7 +381,7 @@ async fn quic(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
         .expect("tls_dns_name is required quic connections");
     println!("; using quic:{nameserver} dns_name:{dns_name}");
 
-    let mut config = quic::client_config_tls13()?;
+    let mut config = client_config()?;
     if opts.do_not_verify_nameserver_cert {
         self::do_not_verify_nameserver_cert(&mut config);
     }
@@ -403,7 +405,7 @@ async fn h3(_opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg(feature = "dns-over-h3")]
 async fn h3(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
-    use hickory_proto::h3::{self, H3ClientStream};
+    use hickory_proto::h3::H3ClientStream;
 
     let nameserver = opts.nameserver;
     let alpn = opts
@@ -418,7 +420,7 @@ async fn h3(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
         .expect("http_endpoint is required for H3 connections");
     println!("; using h3:{nameserver} dns_name:{dns_name}");
 
-    let mut config = h3::client_config_tls13()?;
+    let mut config = client_config()?;
     if opts.do_not_verify_nameserver_cert {
         self::do_not_verify_nameserver_cert(&mut config);
     }
@@ -530,43 +532,6 @@ fn record_set_from(
     }
 
     record_set
-}
-
-#[cfg(feature = "dns-over-rustls")]
-fn tls_config() -> Result<ClientConfig, Box<dyn std::error::Error>> {
-    #[cfg_attr(
-        not(any(feature = "native-certs", feature = "webpki-roots")),
-        allow(unused_mut)
-    )]
-    let mut root_store = RootCertStore::empty();
-    #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
-    {
-        use hickory_proto::ProtoErrorKind;
-
-        let (added, ignored) =
-            root_store.add_parsable_certificates(rustls_native_certs::load_native_certs()?);
-
-        if ignored > 0 {
-            tracing::warn!(
-                "failed to parse {} certificate(s) from the native root store",
-                ignored,
-            );
-        }
-
-        if added == 0 {
-            return Err(ProtoErrorKind::NativeCerts.into());
-        }
-    }
-    #[cfg(feature = "webpki-roots")]
-    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-
-    Ok(
-        ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
-            .with_safe_default_protocol_versions()
-            .unwrap()
-            .with_root_certificates(root_store)
-            .with_no_client_auth(),
-    )
 }
 
 #[cfg(feature = "dns-over-rustls")]
