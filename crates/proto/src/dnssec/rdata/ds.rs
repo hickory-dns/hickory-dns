@@ -84,7 +84,7 @@ impl DS {
     /// * `algorithm` - the algorithm of the DNSKEY
     /// * `digest_type` - the digest_type used to
     pub fn from_key(
-        public_key: impl PublicKey,
+        public_key: &dyn PublicKey,
         name: &Name,
         algorithm: Algorithm,
         digest_type: DigestType,

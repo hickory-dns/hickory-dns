@@ -183,7 +183,7 @@ impl KEY {
     /// # Return
     ///
     /// the KEY record data
-    pub fn new_sig0key(public_key: impl PublicKey, algorithm: Algorithm) -> Self {
+    pub fn new_sig0key(public_key: &dyn PublicKey, algorithm: Algorithm) -> Self {
         Self::new_sig0key_with_usage(public_key, algorithm, KeyUsage::default())
     }
 
@@ -198,7 +198,7 @@ impl KEY {
     ///
     /// the KEY record data
     pub fn new_sig0key_with_usage(
-        public_key: impl PublicKey,
+        public_key: &dyn PublicKey,
         algorithm: Algorithm,
         usage: KeyUsage,
     ) -> KEY {

@@ -274,7 +274,7 @@ impl InMemoryAuthority {
     ) -> DnsSecResult<()> {
         // also add the key to the zone
         let zone_ttl = inner.minimum_ttl(origin);
-        let dnskey = DNSKEY::from_key(signer.key().to_public_key()?, signer.algorithm());
+        let dnskey = DNSKEY::from_key(&signer.key().to_public_key()?, signer.algorithm());
         let dnskey = Record::from_rdata(
             origin.clone().into(),
             zone_ttl,
