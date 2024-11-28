@@ -327,7 +327,7 @@ pub(crate) struct QueriesEmitAndCount<'q> {
     cached_serialized: &'q [u8],
 }
 
-impl<'q> EmitAndCount for QueriesEmitAndCount<'q> {
+impl EmitAndCount for QueriesEmitAndCount<'_> {
     fn emit(&mut self, encoder: &mut BinEncoder<'_>) -> Result<usize, ProtoError> {
         let original_offset = encoder.offset();
         encoder.emit_vec(self.cached_serialized)?;

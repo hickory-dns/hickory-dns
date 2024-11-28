@@ -86,7 +86,7 @@ pub struct Record<R: RecordData = RData> {
 
 impl Record {
     #[cfg(test)]
-    pub fn stub() -> Self {
+    pub(crate) fn stub() -> Self {
         Self {
             name_labels: Name::new(),
             dns_class: DNSClass::IN,
@@ -716,15 +716,15 @@ pub struct RecordRef<'a, R: RecordData> {
     proof: Proof,
 }
 
-impl<'a, R: RecordData> Clone for RecordRef<'a, R> {
+impl<R: RecordData> Clone for RecordRef<'_, R> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<'a, R: RecordData> Copy for RecordRef<'a, R> {}
+impl<R: RecordData> Copy for RecordRef<'_, R> {}
 
-impl<'a, R: RecordData> RecordRef<'a, R> {
+impl<R: RecordData> RecordRef<'_, R> {
     /// Allocates space for a Record with the same fields
     pub fn to_owned(&self) -> Record<R> {
         Record {

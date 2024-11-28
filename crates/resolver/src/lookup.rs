@@ -166,7 +166,6 @@ impl<'a> Iterator for LookupIter<'a> {
 pub struct DnssecIter<'a>(DnssecLookupRecordIter<'a>);
 
 #[cfg(feature = "dnssec")]
-
 impl<'a> Iterator for DnssecIter<'a> {
     type Item = Proven<&'a RData>;
 
@@ -191,7 +190,6 @@ impl<'a> Iterator for LookupRecordIter<'a> {
 pub struct DnssecLookupRecordIter<'a>(Iter<'a, Record>);
 
 #[cfg(feature = "dnssec")]
-
 impl<'a> Iterator for DnssecLookupRecordIter<'a> {
     type Item = Proven<&'a Record>;
 
@@ -604,7 +602,7 @@ lookup_type!(
 lookup_type!(NsLookup, NsLookupIter, NsLookupIntoIter, RData::NS, NS);
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use std::net::{IpAddr, Ipv4Addr};
     use std::str::FromStr;
     use std::sync::{Arc, Mutex};
@@ -621,7 +619,7 @@ pub mod tests {
     use super::*;
 
     #[derive(Clone)]
-    pub struct MockDnsHandle {
+    struct MockDnsHandle {
         messages: Arc<Mutex<Vec<Result<DnsResponse, ProtoError>>>>,
     }
 
@@ -635,7 +633,7 @@ pub mod tests {
         }
     }
 
-    pub fn v4_message() -> Result<DnsResponse, ProtoError> {
+    fn v4_message() -> Result<DnsResponse, ProtoError> {
         let mut message = Message::new();
         message.add_query(Query::query(Name::root(), RecordType::A));
         message.insert_answers(vec![Record::from_rdata(
@@ -649,17 +647,17 @@ pub mod tests {
         Ok(resp)
     }
 
-    pub fn empty() -> Result<DnsResponse, ProtoError> {
+    fn empty() -> Result<DnsResponse, ProtoError> {
         Ok(DnsResponse::from_message(Message::new()).unwrap())
     }
 
-    pub fn error() -> Result<DnsResponse, ProtoError> {
+    fn error() -> Result<DnsResponse, ProtoError> {
         Err(ProtoError::from(std::io::Error::from(
             std::io::ErrorKind::Other,
         )))
     }
 
-    pub fn mock(messages: Vec<Result<DnsResponse, ProtoError>>) -> MockDnsHandle {
+    fn mock(messages: Vec<Result<DnsResponse, ProtoError>>) -> MockDnsHandle {
         MockDnsHandle {
             messages: Arc::new(Mutex::new(messages)),
         }

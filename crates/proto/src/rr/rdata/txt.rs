@@ -100,7 +100,7 @@ impl BinEncodable for TXT {
     }
 }
 
-impl<'r> RecordDataDecodable<'r> for TXT {
+impl RecordDataDecodable<'_> for TXT {
     fn read_data(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<Self> {
         let data_len = decoder.len();
         let mut strings = Vec::with_capacity(1);

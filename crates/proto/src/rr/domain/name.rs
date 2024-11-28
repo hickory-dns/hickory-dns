@@ -1002,9 +1002,9 @@ impl<'a> Iterator for LabelIter<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for LabelIter<'a> {}
+impl ExactSizeIterator for LabelIter<'_> {}
 
-impl<'a> DoubleEndedIterator for LabelIter<'a> {
+impl DoubleEndedIterator for LabelIter<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.end <= self.start {
             return None;
@@ -1348,7 +1348,7 @@ pub trait IntoName: Sized {
     fn to_ip(&self) -> Option<IpAddr>;
 }
 
-impl<'a> IntoName for &'a str {
+impl IntoName for &str {
     /// Performs a utf8, IDNA or punycode, translation of the `str` into `Name`
     fn into_name(self) -> ProtoResult<Name> {
         Name::from_utf8(self)

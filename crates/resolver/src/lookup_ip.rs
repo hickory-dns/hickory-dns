@@ -77,7 +77,7 @@ impl From<LookupIp> for Lookup {
 /// Borrowed view of set of IPs returned from a LookupIp
 pub struct LookupIpIter<'i>(pub(crate) LookupIter<'i>);
 
-impl<'i> Iterator for LookupIpIter<'i> {
+impl Iterator for LookupIpIter<'_> {
     type Item = IpAddr;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -435,7 +435,7 @@ where
 }
 
 #[cfg(test)]
-pub mod tests {
+pub(crate) mod tests {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
     use std::sync::{Arc, Mutex};
 
@@ -451,7 +451,7 @@ pub mod tests {
     use super::*;
 
     #[derive(Clone)]
-    pub struct MockDnsHandle {
+    pub(crate) struct MockDnsHandle {
         messages: Arc<Mutex<Vec<Result<DnsResponse, ProtoError>>>>,
     }
 
@@ -465,7 +465,7 @@ pub mod tests {
         }
     }
 
-    pub fn v4_message() -> Result<DnsResponse, ProtoError> {
+    pub(crate) fn v4_message() -> Result<DnsResponse, ProtoError> {
         let mut message = Message::new();
         message.add_query(Query::query(Name::root(), RecordType::A));
         message.insert_answers(vec![Record::from_rdata(
@@ -479,7 +479,7 @@ pub mod tests {
         Ok(resp)
     }
 
-    pub fn v6_message() -> Result<DnsResponse, ProtoError> {
+    pub(crate) fn v6_message() -> Result<DnsResponse, ProtoError> {
         let mut message = Message::new();
         message.add_query(Query::query(Name::root(), RecordType::AAAA));
         message.insert_answers(vec![Record::from_rdata(
@@ -493,15 +493,15 @@ pub mod tests {
         Ok(resp)
     }
 
-    pub fn empty() -> Result<DnsResponse, ProtoError> {
+    pub(crate) fn empty() -> Result<DnsResponse, ProtoError> {
         Ok(DnsResponse::from_message(Message::new()).unwrap())
     }
 
-    pub fn error() -> Result<DnsResponse, ProtoError> {
+    pub(crate) fn error() -> Result<DnsResponse, ProtoError> {
         Err(ProtoError::from("forced test failure"))
     }
 
-    pub fn mock(messages: Vec<Result<DnsResponse, ProtoError>>) -> MockDnsHandle {
+    pub(crate) fn mock(messages: Vec<Result<DnsResponse, ProtoError>>) -> MockDnsHandle {
         MockDnsHandle {
             messages: Arc::new(Mutex::new(messages)),
         }

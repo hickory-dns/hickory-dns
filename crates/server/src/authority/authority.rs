@@ -452,7 +452,7 @@ pub struct Nsec3QueryInfo<'q> {
 }
 
 #[cfg(feature = "dnssec")]
-impl<'q> Nsec3QueryInfo<'q> {
+impl Nsec3QueryInfo<'_> {
     /// Computes the hash of a given name.
     pub(crate) fn hash_name(&self, name: &Name) -> Result<Digest, ProtoError> {
         self.algorithm.hash(self.salt, name, self.iterations)

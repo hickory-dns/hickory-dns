@@ -116,7 +116,7 @@ fn emit_u32() {
     test_emit_data_set(get_u32_data(), |e, d| e.emit_u32(d));
 }
 
-pub fn test_read_data_set<E, F>(data_set: Vec<(E, Vec<u8>)>, read_func: F)
+pub(crate) fn test_read_data_set<E, F>(data_set: Vec<(E, Vec<u8>)>, read_func: F)
 where
     E: PartialEq<E> + Debug,
     F: Fn(BinDecoder<'_>) -> ProtoResult<E>,
@@ -129,7 +129,7 @@ where
     }
 }
 
-pub fn test_emit_data_set<S, F>(data_set: Vec<(S, Vec<u8>)>, emit_func: F)
+pub(crate) fn test_emit_data_set<S, F>(data_set: Vec<(S, Vec<u8>)>, emit_func: F)
 where
     F: Fn(&mut BinEncoder<'_>, S) -> ProtoResult<()>,
     S: Debug,

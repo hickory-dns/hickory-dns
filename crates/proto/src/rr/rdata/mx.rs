@@ -128,7 +128,7 @@ impl RecordData for MX {
 }
 
 /// [RFC 1033](https://tools.ietf.org/html/rfc1033), DOMAIN OPERATIONS GUIDE, November 1987
-
+///
 /// ```text
 ///   MX (Mail Exchanger)  (See RFC-974 for more details.)
 ///

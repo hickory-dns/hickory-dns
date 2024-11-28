@@ -376,7 +376,6 @@ impl SIG {
     /// (3b) clarifying that signature expiration and inception use
     /// serial number ring arithmetic
     /// ```
-
     pub fn sig_expiration(&self) -> SerialNumber {
         SerialNumber(self.sig_expiration)
     }

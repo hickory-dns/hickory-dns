@@ -380,7 +380,6 @@ fn test_create_multi() {
         Duration::minutes(5).whole_seconds() as u32,
         RData::A(A::new(100, 10, 100, 10)),
     );
-    let record = record;
 
     let mut record2 = record.clone();
     record2.set_data(RData::A(A::new(100, 10, 100, 11)));
