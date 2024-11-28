@@ -58,10 +58,12 @@ pub(super) fn decode_public_key<'a>(
         #[cfg_attr(feature = "dnssec-ring", allow(unreachable_patterns))]
         #[cfg(feature = "dnssec-openssl")]
         Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => Ok(Arc::new(
-            openssl::Ec::from_public_bytes(public_key, algorithm)?,
+            openssl::Ec::from_public_bytes(public_key.into(), algorithm)?,
         )),
         #[cfg(feature = "dnssec-ring")]
-        Algorithm::ED25519 => Ok(Arc::new(ring::Ed25519::from_public_bytes(public_key)?)),
+        Algorithm::ED25519 => Ok(Arc::new(ring::Ed25519::from_public_bytes(
+            public_key.into(),
+        )?)),
         #[cfg(feature = "dnssec-ring")]
         Algorithm::RSASHA1
         | Algorithm::RSASHA1NSEC3SHA1
@@ -75,7 +77,8 @@ pub(super) fn decode_public_key<'a>(
         | Algorithm::RSASHA1NSEC3SHA1
         | Algorithm::RSASHA256
         | Algorithm::RSASHA512 => Ok(Arc::new(openssl::Rsa::from_public_bytes(
-            public_key, algorithm,
+            public_key.into(),
+            algorithm,
         )?)),
         _ => Err("public key algorithm not supported".into()),
     }
