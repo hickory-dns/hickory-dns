@@ -5,6 +5,50 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.25.0-alpha.4
+
+* ci: stop blocking on the platform matrix jobs by @djc in https://github.com/hickory-dns/hickory-dns/pull/2563
+* feat: Implement Round Robin server selection for DNS lookups by @hingbong in https://github.com/hickory-dns/hickory-dns/pull/2557
+* resolver: make ForwarderAuthority generic by @Stormshield-robinc in https://github.com/hickory-dns/hickory-dns/pull/2568
+* Replace DnsResponse::new() constructor by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2573
+* fix key tag collision issue in zone signer by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2556
+* CI: Check hickory-proto with WASI preview 1 by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2575
+* resolver NameServerPool tweaks by @djc in https://github.com/hickory-dns/hickory-dns/pull/2567
+* More modularization of DNSSEC crypto code by @djc in https://github.com/hickory-dns/hickory-dns/pull/2566
+* Start untangling rustls ClientConfig setup by @djc in https://github.com/hickory-dns/hickory-dns/pull/2569
+* dns: improve error message when Cargo feature is missing by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2580
+* Fix dns-over-openssl by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2584
+* util: Fix building with rustls_native_certs only by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2585
+* Switch DnsLru from lru-cache to moka by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2576
+* Clean up references to AsyncClient by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2588
+* Dnssec insecure delegations by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2546
+* Extend dig timeout in bad referral tests by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2594
+* server: Fix compilation of recursor authority without DNSSEC by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2586
+* Add cargo-all-features configuration by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2587
+* Remove redundant cache insert in resolve_cnames() by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2596
+* Update default logging filter to match all crates by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2597
+* Update READMEs by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2591
+* Run cargo check-all-features in CI by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2592
+* Coverage improvements by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2599
+* Update url in fuzzer lockfile by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2607
+* Box the query in ProtoErrorKind::Nsec by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2610
+* Update semver-compatible dependencies & bump MSRV by @djc in https://github.com/hickory-dns/hickory-dns/pull/2617
+* Redirect output of command to clean up test output by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2611
+* Don't send DAU/DHU options in responses by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2614
+* Conformance: tests for handling of TC=1 responses by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2609
+* build(deps): bump codecov/codecov-action from 4 to 5 by @dependabot in https://github.com/hickory-dns/hickory-dns/pull/2582
+* Simplify PublicKey trait by @djc in https://github.com/hickory-dns/hickory-dns/pull/2616
+* bump idna to 1.0 and url to 2.5 by @zh-jq in https://github.com/hickory-dns/hickory-dns/pull/2564
+* Document suggested rust-analyzer configuration by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2606
+* Drop privileges on Unix-family platforms by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2598
+* proto: apply timeout to TLS/QUIC/H3 handshake phase by @japaric in https://github.com/hickory-dns/hickory-dns/pull/2583
+* Update authority documentation by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2623
+* Remove mention of Subject Public Key Info in docs by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2624
+* Update copied documentation by @divergentdave in https://github.com/hickory-dns/hickory-dns/pull/2625
+* Don't implicitly enable DNSSEC when DoT is enabled by @djc in https://github.com/hickory-dns/hickory-dns/pull/2615
+* Timeout tweaks by @djc in https://github.com/hickory-dns/hickory-dns/pull/2620
+* accept idle timeouts for TLS and HTTPS futures by @marcus0x62 in https://github.com/hickory-dns/hickory-dns/pull/2622
+
 ## 0.25.0-alpha.3
 
 * util: add a newline between records in resolve report by @bluejekyll in https://github.com/hickory-dns/hickory-dns/pull/2347
