@@ -16,62 +16,21 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use once_cell::sync::Lazy;
-use rustls::{ClientConfig, RootCertStore};
+use rustls::ClientConfig;
 
 use crate::proto::rustls::tls_client_stream::tls_client_connect_with_future;
-use crate::proto::rustls::TlsClientStream;
+use crate::proto::rustls::{client_config, TlsClientStream};
 use crate::proto::tcp::DnsTcpStream;
 use crate::proto::BufDnsStreamHandle;
 use crate::proto::ProtoError;
 
 pub(crate) static CLIENT_CONFIG: Lazy<Result<Arc<ClientConfig>, ProtoError>> = Lazy::new(|| {
-    #[cfg_attr(
-        not(any(feature = "native-certs", feature = "webpki-roots")),
-        allow(unused_mut)
-    )]
-    let mut root_store = RootCertStore::empty();
-    #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
-    {
-        use crate::proto::ProtoErrorKind;
-
-        let (added, ignored) =
-            root_store.add_parsable_certificates(rustls_native_certs::load_native_certs()?);
-
-        if ignored > 0 {
-            tracing::warn!(
-                "failed to parse {} certificate(s) from the native root store",
-                ignored,
-            );
-        }
-
-        if added == 0 {
-            return Err(ProtoErrorKind::NativeCerts.into());
-        }
-    }
-    #[cfg(feature = "webpki-roots")]
-    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-
-    // If by the time we reach this point the root store remains empty then
-    // our feature config hasn't resulted in a populated root store. Return an
-    // early error rather than trying to validate a peer certificate without any
-    // trust anchors.
-    if root_store.is_empty() {
-        return Err(ProtoError::from(
-         "no root certificates configured: you must enable the webpki-roots or native-certs feature".to_owned(),
-        ));
-    }
-
-    let mut client_config =
-        ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
-            .with_safe_default_protocol_versions()
-            .unwrap()
-            .with_root_certificates(root_store)
-            .with_no_client_auth();
+    let mut config = client_config().unwrap();
 
     // The port (853) of DOT is for dns dedicated, SNI is unnecessary. (ISP block by the SNI name)
-    client_config.enable_sni = false;
+    config.enable_sni = false;
 
-    Ok(Arc::new(client_config))
+    Ok(Arc::new(config))
 });
 
 #[allow(clippy::type_complexity)]

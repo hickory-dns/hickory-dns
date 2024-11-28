@@ -26,6 +26,7 @@ use tracing::{debug, warn};
 use crate::error::ProtoError;
 use crate::http::Version;
 use crate::quic::connect_quic;
+use crate::rustls::client_config;
 use crate::udp::UdpSocket;
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
 
@@ -429,7 +430,7 @@ impl H3ClientStreamBuilder {
 impl Default for H3ClientStreamBuilder {
     fn default() -> Self {
         Self {
-            crypto_config: super::client_config_tls13().unwrap(),
+            crypto_config: client_config().unwrap(),
             transport_config: Arc::new(super::transport()),
             bind_addr: None,
         }
@@ -488,7 +489,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = super::super::client_config_tls13().unwrap();
+        let mut client_config = client_config().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let mut h3_builder = H3ClientStream::builder();
@@ -550,7 +551,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = super::super::client_config_tls13().unwrap();
+        let mut client_config = client_config().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let mut h3_builder = H3ClientStream::builder();
@@ -614,7 +615,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = super::super::client_config_tls13().unwrap();
+        let mut client_config = client_config().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let mut h3_builder = H3ClientStream::builder();
@@ -673,7 +674,7 @@ mod tests {
         // use google
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
 
-        let mut client_config = super::super::client_config_tls13().unwrap();
+        let mut client_config = client_config().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let mut h3_builder = H3ClientStream::builder();

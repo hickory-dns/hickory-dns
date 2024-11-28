@@ -579,6 +579,7 @@ mod tests {
     use crate::rr::rdata::{A, AAAA};
     use crate::rr::{Name, RecordType};
     use crate::runtime::TokioRuntimeProvider;
+    use crate::rustls::client_config;
     use crate::xfer::{DnsRequestOptions, FirstAnswer};
 
     use super::*;
@@ -594,7 +595,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = client_config_tls12();
+        let mut client_config = client_config_h2();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let provider = TokioRuntimeProvider::new();
@@ -658,7 +659,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = client_config_tls12();
+        let mut client_config = client_config_h2();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let provider = TokioRuntimeProvider::new();
@@ -723,7 +724,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let client_config = client_config_tls12();
+        let client_config = client_config_h2();
         let provider = TokioRuntimeProvider::new();
         let https_builder =
             HttpsClientStreamBuilder::with_client_config(Arc::new(client_config), provider);
@@ -775,40 +776,9 @@ mod tests {
         );
     }
 
-    fn client_config_tls12() -> ClientConfig {
-        use rustls::RootCertStore;
-        #[cfg_attr(
-            not(any(feature = "native-certs", feature = "webpki-roots")),
-            allow(unused_mut)
-        )]
-        let mut root_store = RootCertStore::empty();
-        #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
-        {
-            let (added, ignored) = root_store
-                .add_parsable_certificates(rustls_native_certs::load_native_certs().unwrap());
-
-            if ignored > 0 {
-                warn!(
-                    "failed to parse {} certificate(s) from the native root store",
-                    ignored
-                );
-            }
-
-            if added == 0 {
-                panic!("no valid certificates found in the native root store");
-            }
-        }
-        #[cfg(feature = "webpki-roots")]
-        root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-
-        let mut client_config =
-            ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
-                .with_safe_default_protocol_versions()
-                .unwrap()
-                .with_root_certificates(root_store)
-                .with_no_client_auth();
-
-        client_config.alpn_protocols = vec![ALPN_H2.to_vec()];
-        client_config
+    fn client_config_h2() -> ClientConfig {
+        let mut config = client_config().unwrap();
+        config.alpn_protocols = vec![ALPN_H2.to_vec()];
+        config
     }
 }

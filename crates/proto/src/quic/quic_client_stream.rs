@@ -19,12 +19,12 @@ use futures_util::{future::FutureExt, stream::Stream};
 use quinn::{
     crypto::rustls::QuicClientConfig, ClientConfig, Connection, Endpoint, TransportConfig, VarInt,
 };
-use rustls::version::TLS13;
 use tokio::time::timeout;
 
 use crate::{
     error::ProtoError,
     quic::quic_stream::{DoqErrorCode, QuicStream},
+    rustls::client_config,
     udp::UdpSocket,
     xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, CONNECT_TIMEOUT},
 };
@@ -233,7 +233,7 @@ impl QuicClientStreamBuilder {
         let crypto_config = if let Some(crypto_config) = self.crypto_config {
             crypto_config
         } else {
-            client_config_tls13()?
+            client_config().map_err(|err| ProtoError::from(err.to_string()))?
         };
 
         let quic_connection = connect_quic(
@@ -295,44 +295,6 @@ async fn connect_with_timeout(connecting: quinn::Connecting) -> Result<Connectio
             format!("QUIC handshake timed out after {CONNECT_TIMEOUT:?}",),
         )),
     }
-}
-
-/// Default crypto options for quic
-pub fn client_config_tls13() -> Result<rustls::ClientConfig, ProtoError> {
-    use rustls::RootCertStore;
-    #[cfg_attr(
-        not(any(feature = "native-certs", feature = "webpki-roots")),
-        allow(unused_mut)
-    )]
-    let mut root_store = RootCertStore::empty();
-    #[cfg(all(feature = "native-certs", not(feature = "webpki-roots")))]
-    {
-        use crate::error::ProtoErrorKind;
-
-        let (added, ignored) =
-            root_store.add_parsable_certificates(rustls_native_certs::load_native_certs()?);
-
-        if ignored > 0 {
-            tracing::warn!(
-                "failed to parse {} certificate(s) from the native root store",
-                ignored,
-            );
-        }
-
-        if added == 0 {
-            return Err(ProtoErrorKind::NativeCerts.into());
-        }
-    }
-    #[cfg(feature = "webpki-roots")]
-    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-
-    Ok(rustls::ClientConfig::builder_with_provider(Arc::new(
-        rustls::crypto::ring::default_provider(),
-    ))
-    .with_protocol_versions(&[&TLS13])
-    .unwrap() // The ring default provider is guaranteed to support TLS 1.3
-    .with_root_certificates(root_store)
-    .with_no_client_auth())
 }
 
 impl Default for QuicClientStreamBuilder {
