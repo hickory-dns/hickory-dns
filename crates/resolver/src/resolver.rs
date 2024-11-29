@@ -1306,6 +1306,28 @@ mod tests {
     }
 
     #[test]
+    fn test_build_names() {
+        use std::str::FromStr;
+
+        let handle = TokioConnectionProvider::default();
+        let mut config = ResolverConfig::default();
+        config.add_search(Name::from_ascii("example.com.").unwrap());
+        let resolver =
+            Resolver::<TokioConnectionProvider>::new(config, ResolverOpts::default(), handle);
+
+        assert_eq!(resolver.build_names(Name::from_str("").unwrap()).len(), 2);
+        assert_eq!(resolver.build_names(Name::from_str(".").unwrap()).len(), 1);
+
+        let fqdn = Name::from_str("foo.example.com.").unwrap();
+        let name_list = resolver.build_names(Name::from_str("foo").unwrap());
+        assert!(name_list.contains(&fqdn));
+
+        let name_list = resolver.build_names(fqdn.clone());
+        assert_eq!(name_list.len(), 1);
+        assert_eq!(name_list.first(), Some(&fqdn));
+    }
+
+    #[test]
     fn test_build_names_onion() {
         let handle = TokioConnectionProvider::default();
         let mut config = ResolverConfig::default();
