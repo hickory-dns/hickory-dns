@@ -249,13 +249,23 @@ impl Config {
     }
 
     /// get the user name to run the server as
+    #[cfg(target_family = "unix")]
     pub fn user(&self) -> &str {
         self.user.as_deref().unwrap_or(DEFAULT_USER)
     }
+    #[cfg(not(target_family = "unix"))]
+    pub fn user(&self) -> &str {
+        DEFAULT_USER
+    }
 
     /// get the group name to run the server as
+    #[cfg(target_family = "unix")]
     pub fn group(&self) -> &str {
         self.group.as_deref().unwrap_or(DEFAULT_GROUP)
+    }
+    #[cfg(not(target_family = "unix"))]
+    pub fn group(&self) -> &str {
+        DEFAULT_GROUP
     }
 }
 
