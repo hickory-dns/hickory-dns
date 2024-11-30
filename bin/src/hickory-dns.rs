@@ -1018,6 +1018,7 @@ fn check_drop_privs(user: &str, group: &str) -> Result<(), String> {
 }
 
 #[cfg(not(target_family = "unix"))]
-fn check_drop_privs(user: &str, group: &str) {
+fn check_drop_privs(_user: &str, _group: &str) -> Result<(), String> {
     info!("hickory not running on a unix family os, not dropping privileges");
+    Ok(())
 }
