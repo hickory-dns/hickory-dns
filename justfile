@@ -181,9 +181,9 @@ conformance-bind filter='':
 
 # runs the conformance test suite against the latest local hickory-dns commit -- changes that have not been commited will be ignored!
 conformance-hickory filter='':
-    @ bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes will NOT be tested" || true'
+    @ bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes will NOT be tested" || true'
     DNS_TEST_VERBOSE_DOCKER_BUILD=1 DNS_TEST_PEER=unbound DNS_TEST_SUBJECT="hickory {{justfile_directory()}}" cargo t --manifest-path conformance/Cargo.toml -p conformance-tests -- {{filter}}
-    @ bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes were NOT tested" || true'
+    @ bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes were NOT tested" || true'
 
 # checks that all conformance tests that pass with hickory-dns have been un-#[ignore]-d
 conformance-ignored:
@@ -192,10 +192,10 @@ conformance-ignored:
     set -euxo pipefail
 
     tmpfile="$(mktemp)"
-    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes will NOT be tested" || true'
+    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes will NOT be tested" || true'
     ( DNS_TEST_VERBOSE_DOCKER_BUILD=1 DNS_TEST_PEER=unbound DNS_TEST_SUBJECT="hickory {{justfile_directory()}}" cargo test --manifest-path conformance/Cargo.toml -p conformance-tests --lib -- --ignored || true ) | tee "$tmpfile"
     grep -e 'test result: \(ok\|FAILED\). 0 passed' "$tmpfile" || ( echo "expected ALL tests to fail but at least one passed; the passing tests must be un-#[ignore]-d" && exit 1 )
-    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes were NOT tested" || true'
+    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes were NOT tested" || true'
 
 # lints the conformance test suite
 conformance-clippy:
@@ -221,9 +221,9 @@ e2e-tests: (e2e-tests-run) (e2e-tests-ignored) (e2e-tests-clippy) (e2e-tests-fmt
 
 # runs hickory-specific end-to-end tests that use the dns-test framework
 e2e-tests-run:
-    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes will NOT be tested" || true'
+    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes will NOT be tested" || true'
     DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo test --manifest-path tests/e2e-tests/Cargo.toml
-    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes were NOT tested" || true'
+    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes were NOT tested" || true'
 
 # check that any fixed e2e-test has not been left marked as `#[ignore]`
 e2e-tests-ignored:
@@ -232,10 +232,10 @@ e2e-tests-ignored:
     set -euxo pipefail
 
     tmpfile="$(mktemp)"
-    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes will NOT be tested" || true'
+    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes will NOT be tested" || true'
     ( DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo test --manifest-path tests/e2e-tests/Cargo.toml --lib -- --ignored || true ) | tee "$tmpfile"
     grep -e 'test result: \(ok\|FAILED\). 0 passed' "$tmpfile" || ( echo "expected ALL tests to fail but at least one passed; the passing tests must be un-#[ignore]-d" && exit 1 )
-    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes were NOT tested" || true'
+    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes were NOT tested" || true'
 
 # lints the end-to-end test suite
 e2e-tests-clippy:
@@ -250,9 +250,9 @@ ede-dot-com: (ede-dot-com-run) (ede-dot-com-ignored) (ede-dot-com-check)
 
 # runs hickory-specific ede-dot-com tests that use the dns-test framework
 ede-dot-com-run filter='':
-    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes will NOT be tested" || true'
+    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes will NOT be tested" || true'
     DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo test --manifest-path tests/ede-dot-com/Cargo.toml -- {{filter}}
-    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes were NOT tested" || true'
+    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes were NOT tested" || true'
 
 # check that any fixed ede-dot-com test has not been left marked as `#[ignore]`
 ede-dot-com-ignored:
@@ -261,10 +261,10 @@ ede-dot-com-ignored:
     set -euxo pipefail
 
     tmpfile="$(mktemp)"
-    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes will NOT be tested" || true'
+    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes will NOT be tested" || true'
     ( DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo test --manifest-path tests/ede-dot-com/Cargo.toml --lib -- --ignored || true ) | tee "$tmpfile"
     grep -e 'test result: \(ok\|FAILED\). 0 passed' "$tmpfile" || ( echo "expected ALL tests to fail but at least one passed; the passing tests must be un-#[ignore]-d" && exit 1 )
-    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommited changes were NOT tested" || true'
+    bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes were NOT tested" || true'
 
 # checks the ede-dot-com workspace
 ede-dot-com-check: (ede-dot-com-clippy) (ede-dot-com-fmt)
@@ -298,7 +298,7 @@ init-bind9-deps: init-openssl
 init-bind9-deps:
     if apt-get --version ; then sudo apt-get install -y python3-ply libuv1-dev liburcu-dev libssl-dev libcap-dev ; fi
 
-# Install BIND9, needed for compatability tests
+# Install BIND9, needed for compatibility tests
 [unix]
 init-bind9:
     #!/usr/bin/env bash

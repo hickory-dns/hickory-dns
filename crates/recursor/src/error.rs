@@ -66,7 +66,7 @@ pub enum ErrorKind {
 #[derive(Error, Clone, Debug)]
 #[non_exhaustive]
 pub struct Error {
-    /// Kind of error that ocurred
+    /// Kind of error that occurred
     pub kind: Box<ErrorKind>,
     /// Backtrace to the source of the error
     #[cfg(feature = "backtrace")]

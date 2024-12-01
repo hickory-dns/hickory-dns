@@ -201,7 +201,7 @@ pub enum TsigAlgorithm {
     HmacSha512,
     /// hmac-sha512-256 (not supported for cryptographic operations)
     HmacSha512_256,
-    /// Unkown algorithm
+    /// Unknown algorithm
     Unknown(Name),
 }
 

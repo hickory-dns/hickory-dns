@@ -69,7 +69,7 @@ fn test_implicit_in_class() {
 }
 
 #[tokio::test]
-async fn test_ttl_wilcard() {
+async fn test_ttl_wildcard() {
     let config = FileConfig {
         zone_file_path: "../tests/test-data/test_configs/default/test.local.zone".to_string(),
     };
@@ -92,7 +92,7 @@ async fn test_ttl_wilcard() {
         name: LowerName::from(Name::from_ascii("simple.test.local.").unwrap()),
     };
     assert_eq!(authority.records_get_mut().get(&rrkey).unwrap().ttl(), 120);
-    // // This one related to a wildcard don't pass arround $TTL
+    // // This one related to a wildcard don't pass around $TTL
     let name = LowerName::from(Name::from_ascii("x.wc.test.local.").unwrap());
     let rr = authority
         .lookup(&name, RecordType::A, LookupOptions::default())

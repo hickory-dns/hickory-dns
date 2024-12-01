@@ -352,7 +352,7 @@ impl ZoneConfig {
 
     /// path to the zone file, i.e. the base set of original records in the zone
     ///
-    /// this is ony used on first load, if dynamic update is enabled for the zone, then the journal
+    /// this is only used on first load, if dynamic update is enabled for the zone, then the journal
     /// file is the actual source of truth for the zone.
     pub fn file(&self) -> PathBuf {
         // TODO: Option on PathBuf

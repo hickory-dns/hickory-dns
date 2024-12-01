@@ -331,7 +331,7 @@ pub struct NameServerConfig {
     /// Optional configuration for the TLS client.
     ///
     /// The correct ALPN for the corresponding protocol is automatically
-    /// inserted if none was specificed.
+    /// inserted if none was specified.
     pub tls_config: Option<Arc<rustls::ClientConfig>>,
     /// The client address (IP and port) to use for connecting to the server.
     pub bind_addr: Option<SocketAddr>,

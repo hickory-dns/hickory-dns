@@ -358,7 +358,7 @@ impl From<DnsResponse> for Message {
 ///    and the authority section may have SOA, NXT [RFC2065] and SIG RRsets.
 ///
 ///    It is possible to distinguish between a referral and a NXDOMAIN
-///    response by the presense of NXDOMAIN in the RCODE regardless of the
+///    response by the presence of NXDOMAIN in the RCODE regardless of the
 ///    presence of NS or SOA records in the authority section.
 ///
 ///    NXDOMAIN responses can be categorised into four types by the contents

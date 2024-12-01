@@ -49,7 +49,7 @@ Releases are somewhat automated. The github action, `publish`, watches for any t
 1. Go to [Releases](https://github.com/hickory-dns/hickory-dns/releases) and `Draft a new release`
 1. Give it a `Tag Version` of `vX.x.x`, e.g. `v0.20.1`, *make sure this is tagging the correct branch, e.g. `main` or `release/0.19`*
 1. Give it a  `Release Title` of something key to the release
-1. Copy and pase the part of the CHANGELOG.md for this release into `Describe this release`
+1. Copy and paste the part of the CHANGELOG.md for this release into `Describe this release`
 1. `Publish Release`, this will kick off the publish workflow
 
 After approximately 45 minutes it should be published. This may fail.

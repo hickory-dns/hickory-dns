@@ -9,7 +9,7 @@ a `hickory-dns` binary that can be generated from the library with `cargo
 install hickory-dns`. Dynamic updates are supported via `SIG0` (an mTLS
 authentication method is under development).
 
-**NOTICE** This project was rebranded fromt Trust-DNS to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, this crate/binary has been moved to [hickory-dns](https://crates.io/crates/hickory-dns), from `0.24` and onward, for prior versions see [trust-dns](https://crates.io/crates/trust-dns).
+**NOTICE** This project was rebranded from Trust-DNS to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, this crate/binary has been moved to [hickory-dns](https://crates.io/crates/hickory-dns), from `0.24` and onward, for prior versions see [trust-dns](https://crates.io/crates/trust-dns).
 
 ## Features
 

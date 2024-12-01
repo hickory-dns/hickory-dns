@@ -351,7 +351,7 @@ impl DnsLru {
                 // `A example.com.` record. the second RRSIG covers two `NS example.com.` records
                 //
                 // if we use ("example.com.", RecordType::RRSIG) as a key in our cache these two
-                // consecutive queries will cause the entry to be overwriten, losing the RRSIG
+                // consecutive queries will cause the entry to be overwritten, losing the RRSIG
                 // covering the A record
                 //
                 // to avoid this problem, we'll cache the RRSIG along the record it covers using

@@ -168,7 +168,7 @@ impl ResponseCode {
             Self::NXRRSet => "RR Set does not exist", // 8     NXRRSet       RR Set that should exist does not   [RFC2136]
             Self::NotAuth => "Not authorized", // 9     NotAuth       Server Not Authoritative for zone   [RFC2136]
             Self::NotZone => "Name not in zone", // 10    NotZone       Name not contained in zone          [RFC2136]
-            Self::BADVERS => "Bad option verions", // 16    BADVERS       Bad OPT Version                     [RFC6891]
+            Self::BADVERS => "Bad option versions", // 16    BADVERS       Bad OPT Version                     [RFC6891]
             Self::BADSIG => "TSIG Failure", // 16    BADSIG        TSIG Signature Failure              [RFC2845]
             Self::BADKEY => "Key not recognized", // 17    BADKEY        Key not recognized                  [RFC2845]
             Self::BADTIME => "Signature out of time window", // 18    BADTIME       Signature out of time window        [RFC2845]
