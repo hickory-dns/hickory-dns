@@ -5,7 +5,7 @@ publish = false
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
 description = """
-Hickory DNS compatability testing library.
+Hickory DNS compatibility testing library.
 """
 
 # These URLs point to more information about the repository

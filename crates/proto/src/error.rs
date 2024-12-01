@@ -122,7 +122,7 @@ pub enum ProtoErrorKind {
     FormError {
         /// Header of the bad Message
         header: Header,
-        /// Error that occured while parsing the Message
+        /// Error that occurred while parsing the Message
         error: Box<ProtoError>,
     },
 
@@ -414,7 +414,7 @@ pub struct ForwardNSData {
 #[derive(Error, Clone, Debug)]
 #[non_exhaustive]
 pub struct ProtoError {
-    /// Kind of error that ocurred
+    /// Kind of error that occurred
     pub kind: Box<ProtoErrorKind>,
     /// Backtrace to the source of the error
     #[cfg(feature = "backtrace")]

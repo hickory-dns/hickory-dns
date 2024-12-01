@@ -53,7 +53,7 @@ async fn test_server_www_tcp() {
     let tcp_listener = TcpListener::bind(&addr).await.unwrap();
 
     let ipaddr = tcp_listener.local_addr().unwrap();
-    println!("tcp_listner on port: {}", ipaddr);
+    println!("tcp_listener on port: {}", ipaddr);
     let server_continue = Arc::new(AtomicBool::new(true));
     let server_continue2 = server_continue.clone();
 
@@ -232,7 +232,7 @@ async fn test_server_www_tls() {
     let tcp_listener = TcpListener::bind(&addr).await.unwrap();
 
     let ipaddr = tcp_listener.local_addr().unwrap();
-    println!("tcp_listner on port: {ipaddr}");
+    println!("tcp_listener on port: {ipaddr}");
     let server_continue = Arc::new(AtomicBool::new(true));
     let server_continue2 = server_continue.clone();
 

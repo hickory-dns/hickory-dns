@@ -414,7 +414,7 @@ pub enum OpUsage {
 ///   registered!)
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum RegistryUsage {
-    /// Stanard checks apply
+    /// Standard checks apply
     Normal,
 
     /// DNS Registries/Registrars MUST NOT grant requests to register

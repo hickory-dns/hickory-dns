@@ -176,7 +176,7 @@ pub enum ProofErrorKind {
         dnskey: Algorithm,
     },
 
-    /// A DNSSEC validation error, occured
+    /// A DNSSEC validation error, occurred
     #[error("ssl error: {0}")]
     DnsSecError(#[from] DnsSecError),
 
@@ -256,7 +256,7 @@ pub enum ProofErrorKind {
     Proto {
         /// Query that failed
         query: Query,
-        /// Resons fo the failure
+        /// Reasons fo the failure
         proto: ProtoError,
     },
 

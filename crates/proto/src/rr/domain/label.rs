@@ -124,7 +124,7 @@ impl Label {
         self.as_bytes() == WILDCARD
     }
 
-    /// Returns the lenght in bytes of this label
+    /// Returns the length in bytes of this label
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -433,7 +433,7 @@ mod tests {
     fn test_label_too_long_utf8_puny_emoji_mixed() {
         // too long mixed 65
         // Something international to say
-        // "Hello I like automn coffee 🦀 interresting"
+        // "Hello I like automn coffee 🦀 interesting"
         let emoji_case = "こんにちは-I-mögen-jesień-café-🦀-intéressant";
         let error = Label::from_utf8(emoji_case);
         assert_panic_label_too_long(error, 65);

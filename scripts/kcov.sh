@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# $1 is the binary to run, all other parameteres after are optional and passed to the binary
+# $1 is the binary to run, all other parameters after are optional and passed to the binary
 
 KCOV=${KCOV_BINARY:?}
 

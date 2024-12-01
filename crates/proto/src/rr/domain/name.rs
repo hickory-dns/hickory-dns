@@ -1166,7 +1166,7 @@ fn read_inner(
     let mut state: LabelParseState = LabelParseState::LabelLengthOrPointer;
     let name_start = decoder.index();
 
-    // assume all chars are utf-8. We're doing byte-by-byte operations, no endianess issues...
+    // assume all chars are utf-8. We're doing byte-by-byte operations, no endianness issues...
     // reserved: (1000 0000 aka 0800) && (0100 0000 aka 0400)
     // pointer: (slice == 1100 0000 aka C0) & C0 == true, then 03FF & slice = offset
     // label: 03FF & slice = length; slice.next(length) = label

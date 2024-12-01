@@ -201,7 +201,7 @@ fn hosts_path() -> &'static str {
 #[cfg(windows)]
 fn hosts_path() -> std::path::PathBuf {
     let system_root =
-        std::env::var_os("SystemRoot").expect("Environtment variable SystemRoot not found");
+        std::env::var_os("SystemRoot").expect("Environment variable SystemRoot not found");
     let system_root = Path::new(&system_root);
     system_root.join("System32\\drivers\\etc\\hosts")
 }

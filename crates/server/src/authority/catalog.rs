@@ -849,7 +849,7 @@ async fn build_forwarded_response(
         // B. it also clear that if CD=0 and DNSSEC validation fails then the status MUST be
         //   SERVFAIL
         //
-        // C. it's less clear if DNSSEC validation can be skippped altogether when CD=1
+        // C. it's less clear if DNSSEC validation can be skipped altogether when CD=1
         //
         // the logic here follows `unbound`'s interpretation of that section
         //

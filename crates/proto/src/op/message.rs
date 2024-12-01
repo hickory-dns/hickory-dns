@@ -1258,7 +1258,7 @@ mod tests {
             b'm', b'p', b'l', b'e', //
             0x03, b'c', b'o', b'm', //
             0x00,                   // 0 = endname
-            0x00, 0x01, 0x00, 0x01, // ReordType = A, Class = IN
+            0x00, 0x01, 0x00, 0x01, // RecordType = A, Class = IN
             0xC0, 0x0C,             // name pointer to www.example.com
             0x00, 0x01, 0x00, 0x01, // RecordType = A, Class = IN
             0x00, 0x00, 0x00, 0x02, // TTL = 2 seconds

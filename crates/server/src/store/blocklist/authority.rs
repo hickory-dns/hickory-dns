@@ -136,7 +136,7 @@ impl BlocklistAuthority {
     ///
     /// # Arguments
     ///
-    /// * `handle` - A source implementating `std::io::Read` that contains the blocklist entries
+    /// * `handle` - A source implementing `std::io::Read` that contains the blocklist entries
     ///   to insert into the in-memory cache.
     ///
     /// # Return value
@@ -682,7 +682,7 @@ mod test {
             TestResult::Skip => match res {
                 Skip => {}
                 _ => {
-                    panic!("unxpected result for {query}; expected Skip, found {res}");
+                    panic!("unexpected result for {query}; expected Skip, found {res}");
                 }
             },
         }
