@@ -599,7 +599,14 @@ fn run() -> Result<(), String> {
     }
 
     // Drop privileges on Unix systems if running as root.
-    check_drop_privs(config.user(), config.group())?;
+    if cfg!(target_family = "unix") {
+        check_drop_privs(
+            config.user.as_deref().unwrap_or(DEFAULT_USER),
+            config.group.as_deref().unwrap_or(DEFAULT_GROUP),
+        )?;
+    } else if config.user.is_some() || config.group.is_some() {
+        return Err("dropping privileges is only supported on Unix systems".to_string());
+    }
 
     // config complete, starting!
     banner();
@@ -1017,8 +1024,5 @@ fn check_drop_privs(user: &str, group: &str) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(not(target_family = "unix"))]
-fn check_drop_privs(_user: &str, _group: &str) -> Result<(), String> {
-    info!("hickory not running on a unix family os, not dropping privileges");
-    Ok(())
-}
+static DEFAULT_USER: &str = "nobody";
+static DEFAULT_GROUP: &str = "nobody";
