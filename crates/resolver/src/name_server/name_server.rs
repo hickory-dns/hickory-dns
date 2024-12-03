@@ -148,7 +148,7 @@ where
                 Ok(response)
             }
             Err(error) => {
-                debug!("name_server connection failure: {}", error);
+                debug!(config = ?self.config, "name_server connection failure: {}", error);
 
                 // this transitions the state to failure
                 self.state.fail(Instant::now());
