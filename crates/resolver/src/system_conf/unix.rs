@@ -198,7 +198,10 @@ mod tests {
         let mut cfg = empty_config(nameserver_config("127.0.0.53").to_vec());
 
         {
-            assert_eq!(cfg.name_servers()[0].socket_addr, parsed.0.name_servers()[0].socket_addr);
+            assert_eq!(
+                cfg.name_servers()[0].socket_addr,
+                parsed.0.name_servers()[0].socket_addr
+            );
             is_default_opts(parsed.1);
         }
 
