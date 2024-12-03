@@ -887,7 +887,6 @@ dependencies = [
  "data-encoding",
  "futures",
  "hickory-client",
- "openssl",
  "rand",
  "time",
  "tokio",

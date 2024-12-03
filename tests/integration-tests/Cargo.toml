@@ -43,13 +43,11 @@ dnssec-openssl = [
     "hickory-client/dnssec-openssl",
     "hickory-proto/dnssec-openssl",
 ]
-# TODO: dnssec-openssl is enabled for RSA support, we should add testing support for just the Ring toolchain
 dnssec-ring = [
     "dnssec",
     "hickory-resolver/dnssec-ring",
     "hickory-server/dnssec-ring",
     "hickory-client/dnssec-ring",
-    "hickory-client/dnssec-openssl",
     "hickory-proto/dnssec-ring",
 ]
 dnssec = []
