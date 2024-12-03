@@ -7,9 +7,6 @@
 
 #![cfg(not(feature = "none"))]
 
-use std::env;
-use std::fs::File;
-use std::io::Read;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -18,9 +15,9 @@ use time::Duration;
 
 use hickory_client::client::Client;
 use hickory_client::client::ClientHandle;
-use hickory_client::proto::dnssec::openssl::RsaSigningKey;
 use hickory_client::proto::dnssec::rdata::key::{KeyUsage, KEY};
-use hickory_client::proto::dnssec::{Algorithm, KeyFormat, SigSigner, SigningKey};
+use hickory_client::proto::dnssec::ring::RsaSigningKey;
+use hickory_client::proto::dnssec::{Algorithm, SigSigner, SigningKey};
 use hickory_client::proto::op::ResponseCode;
 use hickory_client::proto::rr::Name;
 use hickory_client::proto::rr::{DNSClass, RData, Record, RecordType};
@@ -59,17 +56,8 @@ async fn test_get() {
 async fn test_create() {
     use hickory_client::proto::rr::rdata::A;
 
-    let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
-    let pem_path = format!(
-        "{server_path}/tests/compatibility-tests/tests/conf/Kupdate.example.com.+008+56935.pem"
-    );
-    println!("loading pem from: {pem_path}");
-    let mut pem = File::open(pem_path).expect("could not find pem file");
-
-    let mut pem_buf = Vec::<u8>::new();
-    pem.read_to_end(&mut pem_buf).expect("failed to read pem");
-    let key =
-        RsaSigningKey::decode_key(&pem_buf, None, Algorithm::RSASHA256, KeyFormat::Pem).unwrap();
+    const KEY: &[u8] = include_bytes!("../conf/Kupdate.example.com.+008+56935.pk8");
+    let key = RsaSigningKey::from_pkcs8(KEY, Algorithm::RSASHA256).unwrap();
     let sig0key = KEY::new(
         Default::default(),
         KeyUsage::Entity,
@@ -84,7 +72,7 @@ async fn test_create() {
         Box::new(key),
         Name::from_str("update.example.com").unwrap(),
     );
-    assert_eq!(signer.calculate_key_tag().unwrap(), 56935_u16);
+    assert_eq!(signer.calculate_key_tag().unwrap(), 56935);
 
     let (_process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
