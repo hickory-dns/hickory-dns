@@ -55,7 +55,6 @@ fn read_file(path: &str) -> Vec<u8> {
     bytes
 }
 
-#[allow(unused_mut)]
 fn tls_client_stream_test(server_addr: IpAddr) {
     let succeeded = Arc::new(atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -114,7 +113,7 @@ fn tls_client_stream_test(server_addr: IpAddr) {
                 .expect("failed to add chain");
 
             {
-                let mut openssl_ctx_builder = &mut tls;
+                let openssl_ctx_builder = &mut tls;
                 let mut mode = SslVerifyMode::empty();
                 mode.insert(SslVerifyMode::NONE);
                 openssl_ctx_builder.set_verify(mode);
@@ -168,7 +167,7 @@ fn tls_client_stream_test(server_addr: IpAddr) {
     std::thread::yield_now();
 
     // setup the client, which is going to run on the testing thread...
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
 
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
@@ -177,7 +176,7 @@ fn tls_client_stream_test(server_addr: IpAddr) {
     let mut roots = rustls::RootCertStore::empty();
     let (_, ignored) = roots.add_parsable_certificates([root_cert_der]);
     assert_eq!(ignored, 0, "bad certificate!");
-    let mut config =
+    let config =
         ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
             .with_safe_default_protocol_versions()
             .unwrap()
