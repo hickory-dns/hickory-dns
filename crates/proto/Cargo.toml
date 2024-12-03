@@ -118,7 +118,6 @@ webpki-roots = { workspace = true, optional = true }
 
 [dev-dependencies]
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
-openssl = { workspace = true, features = ["v102", "v110"] }
 test-support.workspace = true
 tokio = { workspace = true, features = ["rt", "time", "macros"] }
 tracing-subscriber.workspace = true
