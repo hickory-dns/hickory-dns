@@ -888,6 +888,7 @@ dependencies = [
  "futures",
  "hickory-client",
  "rand",
+ "test-support",
  "time",
  "tokio",
 ]

@@ -47,5 +47,6 @@ rand.workspace = true
 [dev-dependencies]
 futures.workspace = true
 hickory-client = { workspace = true, features = ["dnssec-ring"] }
+test-support.workspace = true
 time.workspace = true
 tokio.workspace = true
