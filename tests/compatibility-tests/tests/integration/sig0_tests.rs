@@ -19,15 +19,15 @@ use hickory_client::proto::dnssec::rdata::key::{KeyUsage, KEY};
 use hickory_client::proto::dnssec::ring::RsaSigningKey;
 use hickory_client::proto::dnssec::{Algorithm, SigSigner, SigningKey};
 use hickory_client::proto::op::ResponseCode;
-use hickory_client::proto::rr::Name;
-use hickory_client::proto::rr::{DNSClass, RData, Record, RecordType};
+use hickory_client::proto::rr::rdata::A;
+use hickory_client::proto::rr::{DNSClass, Name, RData, Record, RecordType};
 use hickory_client::proto::runtime::TokioRuntimeProvider;
 use hickory_client::proto::udp::UdpClientStream;
 use hickory_compatibility::named_process;
 
 #[tokio::test]
 async fn test_get() {
-    use hickory_client::proto::rr::rdata::A;
+    test_support::subscribe();
 
     let (_process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
@@ -54,7 +54,7 @@ async fn test_get() {
 
 #[tokio::test]
 async fn test_create() {
-    use hickory_client::proto::rr::rdata::A;
+    test_support::subscribe();
 
     const KEY: &[u8] = include_bytes!("../conf/Kupdate.example.com.+008+56935.pk8");
     let key = RsaSigningKey::from_pkcs8(KEY, Algorithm::RSASHA256).unwrap();
