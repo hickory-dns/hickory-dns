@@ -599,12 +599,13 @@ fn run() -> Result<(), String> {
     }
 
     // Drop privileges on Unix systems if running as root.
-    if cfg!(target_family = "unix") {
-        check_drop_privs(
-            config.user.as_deref().unwrap_or(DEFAULT_USER),
-            config.group.as_deref().unwrap_or(DEFAULT_GROUP),
-        )?;
-    } else if config.user.is_some() || config.group.is_some() {
+    #[cfg(target_family = "unix")]
+    check_drop_privs(
+        config.user.as_deref().unwrap_or(DEFAULT_USER),
+        config.group.as_deref().unwrap_or(DEFAULT_GROUP),
+    )?;
+    #[cfg(not(target_family = "unix"))]
+    if config.user.is_some() || config.group.is_some() {
         return Err("dropping privileges is only supported on Unix systems".to_string());
     }
 
