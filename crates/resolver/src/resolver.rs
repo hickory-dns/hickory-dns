@@ -118,47 +118,7 @@ impl<R: ConnectionProvider> Resolver<R> {
     /// * `options` - basic lookup options for the resolver
     /// * `provider` - connection provider, for DNS connections, I/O, and timers
     pub fn new(config: ResolverConfig, options: ResolverOpts, provider: R) -> Self {
-        Self::new_with_conn(config, options, provider)
-    }
-
-    /// Constructs a new Resolver with the system configuration.
-    ///
-    /// see [TokioAsyncResolver::tokio_from_system_conf(..)] instead.
-    ///
-    /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
-    #[cfg(any(unix, target_os = "windows"))]
-    #[cfg(feature = "system-config")]
-    pub fn from_system_conf(runtime: R) -> Result<Self, ResolveError> {
-        Self::from_system_conf_with_provider(runtime)
-    }
-
-    /// Flushes/Removes all entries from the cache
-    pub fn clear_cache(&self) {
-        self.client_cache.clear_cache();
-    }
-
-    /// Read the config for this resolver.
-    pub fn config(&self) -> &ResolverConfig {
-        &self.config
-    }
-
-    /// Read the options for this resolver.
-    pub fn options(&self) -> &ResolverOpts {
-        &self.options
-    }
-}
-
-impl<P: ConnectionProvider> Resolver<P> {
-    /// Construct a new `AsyncResolver` with the provided configuration.
-    ///
-    /// # Arguments
-    ///
-    /// * `config` - configuration, name_servers, etc. for the Resolver
-    /// * `options` - basic lookup options for the resolver
-    /// * `conn_provider` - connection provider, for DNS connections, I/O, and timers
-    pub fn new_with_conn(config: ResolverConfig, options: ResolverOpts, conn_provider: P) -> Self {
-        let pool =
-            NameServerPool::from_config_with_provider(&config, options.clone(), conn_provider);
+        let pool = NameServerPool::from_config_with_provider(&config, options.clone(), provider);
         let either;
         let client = RetryDnsHandle::new(pool, options.attempts);
         if options.validate {
@@ -195,14 +155,33 @@ impl<P: ConnectionProvider> Resolver<P> {
 
     /// Constructs a new Resolver with the system configuration.
     ///
+    /// see [TokioAsyncResolver::tokio_from_system_conf(..)] instead.
+    ///
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
     #[cfg(feature = "system-config")]
-    pub fn from_system_conf_with_provider(conn_provider: P) -> Result<Self, ResolveError> {
+    pub fn from_system_conf(provider: R) -> Result<Self, ResolveError> {
         let (config, options) = super::system_conf::read_system_conf()?;
-        Ok(Self::new_with_conn(config, options, conn_provider))
+        Ok(Self::new(config, options, provider))
     }
 
+    /// Flushes/Removes all entries from the cache
+    pub fn clear_cache(&self) {
+        self.client_cache.clear_cache();
+    }
+
+    /// Read the config for this resolver.
+    pub fn config(&self) -> &ResolverConfig {
+        &self.config
+    }
+
+    /// Read the options for this resolver.
+    pub fn options(&self) -> &ResolverOpts {
+        &self.options
+    }
+}
+
+impl<P: ConnectionProvider> Resolver<P> {
     /// Per request options based on the ResolverOpts
     pub(crate) fn request_options(&self) -> DnsRequestOptions {
         let mut request_opts = DnsRequestOptions::default();
