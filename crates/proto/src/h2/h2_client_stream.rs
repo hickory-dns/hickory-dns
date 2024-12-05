@@ -713,7 +713,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // cloudflare has been unreliable as a public test service.
+    #[ignore = "cloudflare has been unreliable as a public test service"]
     fn test_https_cloudflare() {
         subscribe();
 

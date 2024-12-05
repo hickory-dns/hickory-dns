@@ -223,7 +223,7 @@ async fn test_query_edns(client: Client) {
 }
 
 #[tokio::test]
-#[ignore] // this getting finnicky responses with UDP
+#[ignore = "flaky test against internet server"]
 #[allow(deprecated)]
 #[cfg(feature = "dnssec")]
 async fn test_secure_query_example_udp() {
@@ -353,7 +353,7 @@ async fn test_timeout_query_tcp() {
 // }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "flaky test against internet server"]
 #[allow(deprecated)]
 #[cfg(feature = "dnssec")]
 async fn test_nsec_query_example_udp() {
@@ -362,7 +362,7 @@ async fn test_nsec_query_example_udp() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "flaky test against internet server"]
 #[allow(deprecated)]
 #[cfg(feature = "dnssec")]
 async fn test_nsec_query_example_tcp() {
@@ -383,7 +383,7 @@ async fn test_nsec_query_example(mut client: DnssecClient) {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "flaky test against internet server"]
 #[cfg(feature = "dnssec")]
 async fn test_nsec_query_type() {
     let mut client = tcp_dnssec_client(GOOGLE_V4).await;
@@ -430,7 +430,7 @@ async fn test_nsec3_no_data() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "flaky test against internet server"]
 #[cfg(feature = "dnssec")]
 async fn test_nsec3_query_name_is_soa_name() {
     let name = Name::from_labels("valid.extended-dns-errors.com".split(".")).unwrap();

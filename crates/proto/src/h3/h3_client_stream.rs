@@ -604,7 +604,7 @@ mod tests {
 
     /// Currently fails, see <https://github.com/hyperium/h3/issues/206>.
     #[test]
-    #[ignore] // cloudflare has been unreliable as a public test service.
+    #[ignore = "cloudflare has been unreliable as a public test service"]
     fn test_h3_cloudflare() {
         subscribe();
 
