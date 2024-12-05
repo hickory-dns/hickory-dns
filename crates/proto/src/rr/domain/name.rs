@@ -730,27 +730,30 @@ impl Name {
         match (self.is_fqdn(), other.is_fqdn()) {
             (false, true) => Ordering::Less,
             (true, false) => Ordering::Greater,
-            _ => {
-                if self.label_ends.is_empty() && other.label_ends.is_empty() {
-                    return Ordering::Equal;
-                }
+            _ => self.cmp_labels::<F>(other),
+        }
+    }
 
-                // we reverse the iters so that we are comparing from the root/domain to the local...
-                let self_labels = self.iter().rev();
-                let other_labels = other.iter().rev();
+    /// Compare two Names, not considering FQDN-ness.
+    fn cmp_labels<F: LabelCmp>(&self, other: &Self) -> Ordering {
+        if self.label_ends.is_empty() && other.label_ends.is_empty() {
+            return Ordering::Equal;
+        }
 
-                for (l, r) in self_labels.zip(other_labels) {
-                    let l = Label::from_raw_bytes(l).unwrap();
-                    let r = Label::from_raw_bytes(r).unwrap();
-                    match l.cmp_with_f::<F>(&r) {
-                        Ordering::Equal => continue,
-                        not_eq => return not_eq,
-                    }
-                }
+        // we reverse the iters so that we are comparing from the root/domain to the local...
+        let self_labels = self.iter().rev();
+        let other_labels = other.iter().rev();
 
-                self.label_ends.len().cmp(&other.label_ends.len())
+        for (l, r) in self_labels.zip(other_labels) {
+            let l = Label::from_raw_bytes(l).unwrap();
+            let r = Label::from_raw_bytes(r).unwrap();
+            match l.cmp_with_f::<F>(&r) {
+                Ordering::Equal => continue,
+                not_eq => return not_eq,
             }
         }
+
+        self.label_ends.len().cmp(&other.label_ends.len())
     }
 
     /// Case sensitive comparison
@@ -761,6 +764,16 @@ impl Name {
     /// Compares the Names, in a case sensitive manner
     pub fn eq_case(&self, other: &Self) -> bool {
         self.cmp_with_f::<CaseSensitive>(other) == Ordering::Equal
+    }
+
+    /// Non-FQDN-aware comparison
+    pub fn lazy_eq(&self, other: &Self) -> bool {
+        self.cmp_labels::<CaseInsensitive>(other) == Ordering::Equal
+    }
+
+    /// Non-FQDN-aware comparison, case-sensitive
+    pub fn lazy_eq_case(&self, other: &Self) -> bool {
+        self.cmp_labels::<CaseSensitive>(other) == Ordering::Equal
     }
 
     /// Converts this name into an ascii safe string.
@@ -2357,5 +2370,17 @@ mod tests {
         let hash_without_dot = hasher.finish();
         assert_ne!(with_dot, without_dot);
         assert_ne!(hash_with_dot, hash_without_dot);
+    }
+
+    #[test]
+    fn lazy_eq_tests() {
+        let fqdn_name = Name::from_utf8("host.example.com.").unwrap();
+        let relative_name = Name::from_utf8("host.example.com").unwrap();
+        let upper_relative_name = Name::from_ascii("HOST.EXAMPLE.COM").unwrap();
+
+        assert_ne!(fqdn_name, relative_name);
+        assert!(fqdn_name.lazy_eq(&relative_name));
+        assert!(!fqdn_name.lazy_eq_case(&upper_relative_name));
+        assert!(fqdn_name.lazy_eq(&upper_relative_name));
     }
 }
