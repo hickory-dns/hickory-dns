@@ -15,10 +15,8 @@
 use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
-#[cfg(not(target_os = "linux"))]
-use std::net::Ipv6Addr;
 use std::net::SocketAddr;
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::sync::atomic;
 use std::sync::Arc;
 use std::{thread, time};
@@ -36,22 +34,20 @@ use crate::runtime::TokioRuntimeProvider;
 use crate::xfer::SerialMessage;
 use crate::{runtime::iocompat::AsyncIoTokioAsStd, DnsStreamHandle};
 
-// this fails on linux for some reason. It appears that a buffer somewhere is dirty
-//  and subsequent reads of a message buffer reads the wrong length. It works for 2 iterations
-//  but not 3?
-// #[cfg(not(target_os = "linux"))]
 #[test]
-#[cfg_attr(target_os = "macos", ignore)] // TODO: add back once https://github.com/sfackler/rust-native-tls/issues/143 is fixed
+// TODO: add back once https://github.com/sfackler/rust-native-tls/issues/143 is fixed, or test
+// certificates are regenerated to work with macos
+#[cfg_attr(target_os = "macos", ignore = "test certificate is rejected on macos")]
 fn test_tls_client_stream_ipv4() {
     tls_client_stream_test(IpAddr::V4(Ipv4Addr::LOCALHOST))
 }
 
 #[test]
-#[cfg_attr(target_os = "macos", ignore)] // TODO: add back once https://github.com/sfackler/rust-native-tls/issues/143 is fixed
-#[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
-#[cfg(not(target_os = "macos"))] // certificates are failing on macOS now
+// TODO: add back once https://github.com/sfackler/rust-native-tls/issues/143 is fixed, or test
+// certificates are regenerated to work with macos
+#[cfg_attr(target_os = "macos", ignore = "test certificate is rejected on macos")]
 fn test_tls_client_stream_ipv6() {
-    tls_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), false)
+    tls_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
 }
 
 const TEST_BYTES: &[u8; 8] = b"DEADBEEF";
