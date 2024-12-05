@@ -12,7 +12,6 @@ use hickory_server::{
     store::forwarder::ForwardAuthority,
 };
 
-#[ignore]
 #[test]
 fn test_lookup() {
     let runtime = Runtime::new().expect("failed to create Tokio Runtime");
