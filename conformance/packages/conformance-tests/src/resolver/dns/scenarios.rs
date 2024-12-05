@@ -7,6 +7,7 @@ use dns_test::tshark::{Capture, Direction};
 use dns_test::{Network, Resolver, Result, FQDN};
 
 mod bad_referral;
+mod packet_loss;
 
 #[test]
 fn can_resolve() -> Result<()> {
