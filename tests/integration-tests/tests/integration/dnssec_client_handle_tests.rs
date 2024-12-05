@@ -27,7 +27,7 @@ fn test_secure_query_example_nonet() {
 }
 
 #[test]
-#[ignore] // this getting finnicky responses with UDP
+#[ignore = "flaky test against internet server"]
 fn test_secure_query_example_udp() {
     with_udp(test_secure_query_example);
 }
@@ -76,13 +76,13 @@ fn test_nsec_query_example_nonet() {
 }
 
 #[test]
-#[ignore]
+#[ignore = "flaky test against internet server"]
 fn test_nsec_query_example_udp() {
     with_udp(test_nsec_query_example);
 }
 
 #[test]
-#[ignore]
+#[ignore = "flaky test against internet server"]
 fn test_nsec_query_example_tcp() {
     with_tcp(test_nsec_query_example);
 }
@@ -106,13 +106,13 @@ where
 // }
 
 #[test]
-#[ignore]
+#[ignore = "flaky test against internet server"]
 fn test_nsec_query_type_udp() {
     with_udp(test_nsec_query_type);
 }
 
 #[test]
-#[ignore]
+#[ignore = "flaky test against internet server"]
 fn test_nsec_query_type_tcp() {
     with_tcp(test_nsec_query_type);
 }
