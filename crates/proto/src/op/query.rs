@@ -71,7 +71,7 @@ impl Default for Query {
     /// Return a default query with an empty name and A, IN for the query_type and query_class
     fn default() -> Self {
         Self {
-            name: Name::new(),
+            name: Name::root(),
             query_type: RecordType::A,
             query_class: DNSClass::IN,
             #[cfg(feature = "mdns")]
