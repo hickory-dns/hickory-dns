@@ -5,7 +5,6 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::pin::Pin;
 use std::sync::Arc;
@@ -183,30 +182,6 @@ where
         let this = self.clone();
         // if state is failed, return future::err(), unless retry delay expired..
         Box::pin(once(this.inner_send(request)))
-    }
-}
-
-impl<P> Ord for NameServer<P>
-where
-    P: ConnectionProvider + Send,
-{
-    /// Custom implementation of Ord for NameServer which incorporates the performance of the connection into it's ranking
-    fn cmp(&self, other: &Self) -> Ordering {
-        // if they are literally equal, just return
-        if self == other {
-            return Ordering::Equal;
-        }
-
-        self.stats.cmp(&other.stats)
-    }
-}
-
-impl<P> PartialOrd for NameServer<P>
-where
-    P: ConnectionProvider + Send,
-{
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
     }
 }
 
