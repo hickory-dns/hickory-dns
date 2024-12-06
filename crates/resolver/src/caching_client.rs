@@ -7,16 +7,7 @@
 
 //! Caching related functionality for the Resolver.
 
-use std::{
-    borrow::Cow,
-    future::Future,
-    pin::Pin,
-    sync::{
-        atomic::{AtomicU8, Ordering},
-        Arc,
-    },
-    time::Instant,
-};
+use std::{borrow::Cow, future::Future, pin::Pin, sync::Arc, time::Instant};
 
 use futures_util::future::TryFutureExt;
 use once_cell::sync::Lazy;
@@ -41,28 +32,29 @@ use crate::{
     },
 };
 
-const MAX_QUERY_DEPTH: u8 = 8; // arbitrarily chosen number...
-
 static LOCALHOST: Lazy<RData> =
     Lazy::new(|| RData::PTR(PTR(Name::from_ascii("localhost.").unwrap())));
 static LOCALHOST_V4: Lazy<RData> = Lazy::new(|| RData::A(A::new(127, 0, 0, 1)));
 static LOCALHOST_V6: Lazy<RData> = Lazy::new(|| RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1)));
 
+/// Counts the depth of CNAME query resolutions.
+#[derive(Default, Clone, Copy)]
 struct DepthTracker {
-    query_depth: Arc<AtomicU8>,
+    query_depth: u8,
 }
 
 impl DepthTracker {
-    fn track(query_depth: Arc<AtomicU8>) -> Self {
-        query_depth.fetch_add(1, Ordering::Release);
-        Self { query_depth }
+    fn nest(self) -> Self {
+        Self {
+            query_depth: self.query_depth + 1,
+        }
     }
-}
 
-impl Drop for DepthTracker {
-    fn drop(&mut self) {
-        self.query_depth.fetch_sub(1, Ordering::Release);
+    fn is_exhausted(self) -> bool {
+        self.query_depth + 1 >= Self::MAX_QUERY_DEPTH
     }
+
+    const MAX_QUERY_DEPTH: u8 = 8; // arbitrarily chosen number...
 }
 
 // TODO: need to consider this storage type as it compares to Authority in server...
@@ -75,7 +67,6 @@ where
 {
     lru: DnsLru,
     client: C,
-    query_depth: Arc<AtomicU8>,
     preserve_intermediates: bool,
 }
 
@@ -93,11 +84,9 @@ where
     }
 
     pub(crate) fn with_cache(lru: DnsLru, client: C, preserve_intermediates: bool) -> Self {
-        let query_depth = Arc::new(AtomicU8::new(0));
         Self {
             lru,
             client,
-            query_depth,
             preserve_intermediates,
         }
     }
@@ -109,7 +98,14 @@ where
         options: DnsRequestOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>> {
         Box::pin(
-            Self::inner_lookup(query, options, self.clone(), vec![]).map_err(ResolveError::from),
+            Self::inner_lookup(
+                query,
+                options,
+                self.clone(),
+                vec![],
+                DepthTracker::default(),
+            )
+            .map_err(ResolveError::from),
         )
     }
 
@@ -118,6 +114,7 @@ where
         options: DnsRequestOptions,
         mut client: Self,
         preserved_records: Vec<(Record, u32)>,
+        depth: DepthTracker,
     ) -> Result<Lookup, ProtoError> {
         // see https://tools.ietf.org/html/rfc6761
         //
@@ -176,7 +173,6 @@ where
             }
         }
 
-        let _tracker = DepthTracker::track(client.query_depth.clone());
         let is_dnssec = client.client.is_verifying_dnssec();
 
         // first transition any polling that is needed (mutable refs...)
@@ -237,6 +233,7 @@ where
                     &query,
                     response_message,
                     preserved_records,
+                    depth,
                 )?;
 
                 Ok(records)
@@ -325,6 +322,7 @@ where
         query: &Query,
         response: DnsResponse,
         mut preserved_records: Vec<(Record, u32)>,
+        depth: DepthTracker,
     ) -> Result<Records, ProtoError> {
         // initial ttl is what CNAMES for min usage
         const INITIAL_TTL: u32 = dns_lru::MAX_TTL;
@@ -448,7 +446,7 @@ where
         // TODO: for SRV records we *could* do an implicit lookup, but, this requires knowing the type of IP desired
         //    for now, we'll make the API require the user to perform a follow up to the lookups.
         // It was a CNAME, but not included in the request...
-        if was_cname && client.query_depth.load(Ordering::Acquire) < MAX_QUERY_DEPTH {
+        if was_cname && !depth.is_exhausted() {
             let next_query = Query::query(search_name, query.query_type());
             Ok(Records::CnameChain {
                 next: Box::pin(Self::inner_lookup(
@@ -456,6 +454,7 @@ where
                     options,
                     client.clone(),
                     preserved_records,
+                    depth.nest(),
                 )),
                 min_ttl: cname_ttl,
             })
@@ -540,6 +539,7 @@ mod tests {
             DnsRequestOptions::default(),
             client,
             vec![],
+            DepthTracker::default(),
         ))
         .unwrap_err()
         .kind()
@@ -576,6 +576,7 @@ mod tests {
             DnsRequestOptions::default(),
             client,
             vec![],
+            DepthTracker::default(),
         ))
         .unwrap();
 
@@ -597,6 +598,7 @@ mod tests {
             DnsRequestOptions::default(),
             client,
             vec![],
+            DepthTracker::default(),
         ))
         .unwrap();
 
@@ -614,6 +616,7 @@ mod tests {
             DnsRequestOptions::default(),
             client,
             vec![],
+            DepthTracker::default(),
         ))
         .unwrap();
 
@@ -685,6 +688,7 @@ mod tests {
             DnsRequestOptions::default(),
             client,
             vec![],
+            DepthTracker::default(),
         ))
         .expect("lookup failed");
 
@@ -722,6 +726,7 @@ mod tests {
             DnsRequestOptions::default(),
             client,
             vec![],
+            DepthTracker::default(),
         ))
         .expect("lookup failed");
 
@@ -773,6 +778,7 @@ mod tests {
             DnsRequestOptions::default(),
             client,
             vec![],
+            DepthTracker::default(),
         ))
         .expect("lookup failed");
 
@@ -874,6 +880,7 @@ mod tests {
             DnsRequestOptions::default(),
             client,
             vec![],
+            DepthTracker::default(),
         ))
         .expect("lookup failed");
 
@@ -911,6 +918,7 @@ mod tests {
             &Query::query(Name::from_str("ttl.example.com.").unwrap(), RecordType::A),
             DnsResponse::from_message(message).unwrap(),
             vec![],
+            DepthTracker::default(),
         );
 
         if let Ok(records) = records {
