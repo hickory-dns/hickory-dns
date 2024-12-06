@@ -1,6 +1,6 @@
 FROM rust:1-slim-bookworm
 
-ARG DNSSEC_FEATURE=dnssec-openssl
+ARG DNSSEC_FEATURE=dnssec-ring
 
 # ldns-utils = ldns-{key2ds,keygen,signzone}
 RUN apt-get update && \
