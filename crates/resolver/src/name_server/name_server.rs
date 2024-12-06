@@ -30,7 +30,7 @@ pub struct NameServer<P: ConnectionProvider> {
     options: ResolverOpts,
     client: Arc<Mutex<Option<P::Conn>>>,
     state: Arc<NameServerState>,
-    stats: Arc<NameServerStats>,
+    pub(crate) stats: Arc<NameServerStats>,
     connection_provider: P,
 }
 

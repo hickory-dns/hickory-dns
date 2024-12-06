@@ -167,7 +167,9 @@ where
             // select the highest priority connection
             //   reorder the connections based on current view...
             //   this reorders the inner set
-            ServerOrderingStrategy::QueryStatistics => conns.sort_unstable(),
+            ServerOrderingStrategy::QueryStatistics => {
+                conns.sort_by(|a, b| a.stats.decayed_srtt().total_cmp(&b.stats.decayed_srtt()));
+            }
             ServerOrderingStrategy::UserProvidedOrder => {}
             ServerOrderingStrategy::RoundRobin => {
                 let num_concurrent_reqs = if opts.num_concurrent_reqs > 1 {
