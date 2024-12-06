@@ -133,7 +133,7 @@ impl NameServerStats {
     /// 1. It helps distribute query load.
     /// 2. It helps detect positive network changes. For example, decreases in
     ///    latency or a server that has recovered from a failure.
-    fn decayed_srtt(&self) -> f64 {
+    pub(crate) fn decayed_srtt(&self) -> f64 {
         let srtt = f64::from(self.srtt_microseconds.load(atomic::Ordering::Acquire));
         self.last_update.lock().map_or(srtt, |last_update| {
             // In general, if the time between queries is relatively short, then
