@@ -464,11 +464,13 @@ fn test_trust_nx_responses_fails() {
         true,
     );
 
+    let mut opts = ResolverOpts::default();
+    opts.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
     let pool = mock_nameserver_pool(
         vec![fail_nameserver, succeed_nameserver],
         vec![],
         None,
-        ResolverOpts::default(),
+        opts,
     );
 
     // Lookup on UDP should fail, since we trust nx responses.
@@ -691,7 +693,10 @@ fn test_return_error_from_highest_priority_nameserver() {
             mock_nameserver(vec![Err(response)], ResolverOpts::default())
         })
         .collect();
-    let pool = mock_nameserver_pool(name_servers, vec![], None, ResolverOpts::default());
+
+    let mut opts = ResolverOpts::default();
+    opts.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
+    let pool = mock_nameserver_pool(name_servers, vec![], None, opts);
 
     let request = message(query, vec![], vec![], vec![]);
     let future = pool.send(request).first_answer();
@@ -767,6 +772,7 @@ where
 #[test]
 fn test_concurrent_requests_2_conns() {
     let mut options = ResolverOpts::default();
+    options.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
 
     // there are only 2 conns, so this matches that count
     options.num_concurrent_reqs = 2;
@@ -810,6 +816,7 @@ fn test_concurrent_requests_2_conns() {
 #[test]
 fn test_concurrent_requests_more_than_conns() {
     let mut options = ResolverOpts::default();
+    options.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
 
     // there are only two conns, but this requests 3 concurrent requests, only 2 called
     options.num_concurrent_reqs = 3;
