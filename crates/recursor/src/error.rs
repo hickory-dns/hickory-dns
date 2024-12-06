@@ -60,6 +60,13 @@ pub enum ErrorKind {
     /// A request timed out
     #[error("request timed out")]
     Timeout,
+
+    /// Could not fetch all records because a recursion limit was exceeded
+    #[error("maximum recursion limit exceeded: {count} queries")]
+    RecursionLimitExceeded {
+        /// Number of queries that were made
+        count: usize,
+    },
 }
 
 /// The error type for errors that get returned in the crate
@@ -130,12 +137,9 @@ impl Error {
         }
 
         warn!("recursion depth exceeded for {name}");
-        Err(ErrorKind::Proto(
-            ProtoErrorKind::NotAllRecordsWritten {
-                count: depth as usize,
-            }
-            .into(),
-        )
+        Err(ErrorKind::RecursionLimitExceeded {
+            count: depth as usize,
+        }
         .into())
     }
 }
@@ -250,6 +254,7 @@ impl Clone for ErrorKind {
             Proto(proto) => Proto(proto.clone()),
             Resolve(resolve) => Resolve(resolve.clone()),
             Timeout => Self::Timeout,
+            RecursionLimitExceeded { count } => RecursionLimitExceeded { count: *count },
         }
     }
 }
