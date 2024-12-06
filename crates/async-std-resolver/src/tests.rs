@@ -2,10 +2,10 @@
 
 use hickory_resolver::name_server::GenericConnection;
 use hickory_resolver::testing;
+use hickory_resolver::LookupFuture;
 use test_support::subscribe;
 
 use crate::config::{ResolverConfig, ResolverOpts};
-use crate::lookup::LookupFuture;
 use crate::lookup_ip::LookupIpFuture;
 use crate::proto::runtime::Executor;
 use crate::proto::xfer::DnsRequest;
