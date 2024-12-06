@@ -13,11 +13,8 @@ use hickory_proto::{
     xfer::{DnsExchange, DnsMultiplexer, DnsResponse},
 };
 use hickory_resolver::{
-    caching_client::CachingClient,
-    config::LookupIpStrategy,
-    lookup::{Lookup, LookupFuture},
-    lookup_ip::LookupIpFuture,
-    Hosts,
+    caching_client::CachingClient, config::LookupIpStrategy, lookup::Lookup,
+    lookup_ip::LookupIpFuture, Hosts, LookupFuture,
 };
 use hickory_server::{
     authority::{Authority, Catalog},

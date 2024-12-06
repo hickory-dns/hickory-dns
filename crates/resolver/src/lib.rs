@@ -237,6 +237,7 @@ mod quic;
 mod resolver;
 #[cfg(feature = "testing")]
 pub use resolver::testing;
+pub use resolver::LookupFuture;
 pub use resolver::Resolver;
 #[cfg(feature = "tokio-runtime")]
 pub use resolver::TokioResolver;
