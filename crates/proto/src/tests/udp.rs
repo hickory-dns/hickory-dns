@@ -158,7 +158,7 @@ pub fn udp_client_stream_test<E: Executor>(
     let server_addr = server.local_addr().unwrap();
 
     let mut query = Message::new();
-    let test_name = Name::from_str("dead.beef").unwrap();
+    let test_name = Name::from_str("dead.beef.").unwrap();
     query.add_query(Query::query(test_name.clone(), RecordType::NULL));
     let test_bytes: &'static [u8; 8] = b"DEADBEEF";
     let send_recv_times = 4;

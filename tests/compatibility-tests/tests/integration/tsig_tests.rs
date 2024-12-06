@@ -40,7 +40,7 @@ fn signer() -> Arc<dyn MessageFinalizer> {
         .read_to_end(&mut key)
         .expect("error reading key file");
 
-    let key_name = Name::from_ascii("tsig-key").unwrap();
+    let key_name = Name::from_ascii("tsig-key.").unwrap();
     Arc::new(TSigner::new(key, TsigAlgorithm::HmacSha512, key_name, 60).unwrap())
 }
 

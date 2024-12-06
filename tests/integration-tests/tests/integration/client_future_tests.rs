@@ -161,7 +161,7 @@ fn test_query_https() {
 
 #[cfg(test)]
 fn test_query(client: &mut Client) -> impl Future<Output = ()> {
-    let name = Name::from_ascii("WWW.example.com").unwrap();
+    let name = Name::from_ascii("WWW.example.com.").unwrap();
 
     client
         .query(name.clone(), DNSClass::IN, RecordType::A)
@@ -190,7 +190,7 @@ fn test_query(client: &mut Client) -> impl Future<Output = ()> {
 
 #[cfg(test)]
 fn test_query_edns(client: &mut Client) -> impl Future<Output = ()> {
-    let name = Name::from_ascii("WWW.example.com").unwrap();
+    let name = Name::from_ascii("WWW.example.com.").unwrap();
     let mut edns = Edns::new();
     // garbage subnet value, but lets check
     edns.options_mut()
@@ -259,7 +259,7 @@ fn test_notify() {
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
-    let name = Name::from_str("ping.example.com").unwrap();
+    let name = Name::from_str("ping.example.com.").unwrap();
 
     let message =
         io_loop.block_on(client.notify(name, DNSClass::IN, RecordType::A, None::<RecordSet>));
@@ -292,7 +292,7 @@ async fn create_sig0_ready_client() -> (
     let mut authority = SqliteAuthority::new(authority, true, false);
     let origin = authority.origin().clone();
 
-    let trusted_name = Name::from_str("trusted.example.com").unwrap();
+    let trusted_name = Name::from_str("trusted.example.com.").unwrap();
 
     const KEY: &[u8] = include_bytes!("../rsa-2048.pk8");
     let key = RsaSigningKey::from_pkcs8(KEY, Algorithm::RSASHA256).unwrap();
@@ -331,7 +331,7 @@ fn test_create() {
 
     // create a record
     let record = Record::from_rdata(
-        Name::from_str("new.example.com").unwrap(),
+        Name::from_str("new.example.com.").unwrap(),
         Duration::minutes(5).whole_seconds() as u32,
         RData::A(A::new(100, 10, 100, 10)),
     );
@@ -377,7 +377,7 @@ fn test_create_multi() {
 
     // create a record
     let record = Record::from_rdata(
-        Name::from_str("new.example.com").unwrap(),
+        Name::from_str("new.example.com.").unwrap(),
         Duration::minutes(5).whole_seconds() as u32,
         RData::A(A::new(100, 10, 100, 10)),
     );
@@ -433,7 +433,7 @@ fn test_append() {
 
     // append a record
     let record = Record::from_rdata(
-        Name::from_str("new.example.com").unwrap(),
+        Name::from_str("new.example.com.").unwrap(),
         Duration::minutes(5).whole_seconds() as u32,
         RData::A(A::new(100, 10, 100, 10)),
     );
@@ -511,7 +511,7 @@ fn test_append_multi() {
 
     // append a record
     let record = Record::from_rdata(
-        Name::from_str("new.example.com").unwrap(),
+        Name::from_str("new.example.com.").unwrap(),
         Duration::minutes(5).whole_seconds() as u32,
         RData::A(A::new(100, 10, 100, 10)),
     );
@@ -596,7 +596,7 @@ fn test_compare_and_swap() {
 
     // create a record
     let record = Record::from_rdata(
-        Name::from_str("new.example.com").unwrap(),
+        Name::from_str("new.example.com.").unwrap(),
         Duration::minutes(5).whole_seconds() as u32,
         RData::A(A::new(100, 10, 100, 10)),
     );
@@ -652,7 +652,7 @@ fn test_compare_and_swap_multi() {
 
     // create a record
     let mut current = RecordSet::with_ttl(
-        Name::from_str("new.example.com").unwrap(),
+        Name::from_str("new.example.com.").unwrap(),
         RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
     );
@@ -718,7 +718,7 @@ fn test_delete_by_rdata() {
 
     // append a record
     let record1 = Record::from_rdata(
-        Name::from_str("new.example.com").unwrap(),
+        Name::from_str("new.example.com.").unwrap(),
         Duration::minutes(5).whole_seconds() as u32,
         RData::A(A::new(100, 10, 100, 10)),
     );
@@ -769,7 +769,7 @@ fn test_delete_by_rdata_multi() {
 
     // append a record
     let mut rrset = RecordSet::with_ttl(
-        Name::from_str("new.example.com").unwrap(),
+        Name::from_str("new.example.com.").unwrap(),
         RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
     );
@@ -802,7 +802,7 @@ fn test_delete_by_rdata_multi() {
 
     // append a record
     let mut rrset = RecordSet::with_ttl(
-        Name::from_str("new.example.com").unwrap(),
+        Name::from_str("new.example.com.").unwrap(),
         RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
     );

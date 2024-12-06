@@ -648,7 +648,9 @@ mod tests {
     }
 
     fn empty() -> Result<DnsResponse, ProtoError> {
-        Ok(DnsResponse::from_message(Message::new()).unwrap())
+        let mut message = Message::new();
+        message.add_query(Query::query(Name::root(), RecordType::A));
+        Ok(DnsResponse::from_message(message).unwrap())
     }
 
     fn error() -> Result<DnsResponse, ProtoError> {

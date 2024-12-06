@@ -71,7 +71,7 @@ impl Default for Query {
     /// Return a default query with an empty name and A, IN for the query_type and query_class
     fn default() -> Self {
         Self {
-            name: Name::new(),
+            name: Name::root(),
             query_type: RecordType::A,
             query_class: DNSClass::IN,
             #[cfg(feature = "mdns")]
@@ -296,7 +296,7 @@ impl Display for Query {
 #[allow(clippy::needless_update)]
 fn test_read_and_emit() {
     let expect = Query {
-        name: Name::from_ascii("WWW.example.com").unwrap(),
+        name: Name::from_ascii("WWW.example.com.").unwrap(),
         query_type: RecordType::AAAA,
         query_class: DNSClass::IN,
         ..Query::default()

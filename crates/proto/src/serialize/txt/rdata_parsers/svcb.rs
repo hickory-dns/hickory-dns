@@ -35,7 +35,7 @@ use crate::{
 ///   SvcPriority is a number in the range 0-65535, TargetName is a
 ///   <domain-name> ([RFC1035], Section 5.1), and the SvcParams are
 ///   a whitespace-separated list, with each SvcParam consisting of a
-///   SvcParamKey=SvcParamValue pair or a standalone SvcParamKey.  
+///   SvcParamKey=SvcParamValue pair or a standalone SvcParamKey.
 ///   SvcParamKeys are registered by IANA  (Section 14.3).
 ///
 ///   Each SvcParamKey SHALL appear at most once in the SvcParams.  In
@@ -494,7 +494,7 @@ mod tests {
             TestVector {
                 record: "example.com. 42  SVCB   16 foo.example.com. port=53",
                 record_type: RecordType::SVCB,
-                target_name: Name::from_str("foo.example.com").unwrap(),
+                target_name: Name::from_str("foo.example.com.").unwrap(),
                 priority: 16,
                 params: vec![(SvcParamKey::Port, SvcParamValue::Port(53))],
             },
