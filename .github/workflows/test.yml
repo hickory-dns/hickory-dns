@@ -32,6 +32,8 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      RUST_LOG: info,hickory_proto::udp::udp_stream=trace # Extra logging for issue #2649
     steps:
       - uses: actions/checkout@v4
 

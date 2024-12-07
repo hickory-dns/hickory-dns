@@ -25,10 +25,13 @@ use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
 use hickory_proto::xfer::{DnsHandle, DnsMultiplexer};
 use hickory_server::authority::{Authority, Catalog};
 use hickory_server::ServerFuture;
+use test_support::subscribe;
 
 #[tokio::test]
 #[allow(clippy::uninlined_format_args)]
 async fn test_server_www_udp() {
+    subscribe();
+
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
     let udp_socket = UdpSocket::bind(&addr).await.unwrap();
 
@@ -49,6 +52,8 @@ async fn test_server_www_udp() {
 #[tokio::test]
 #[allow(clippy::uninlined_format_args)]
 async fn test_server_www_tcp() {
+    subscribe();
+
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
     let tcp_listener = TcpListener::bind(&addr).await.unwrap();
 
@@ -68,6 +73,8 @@ async fn test_server_www_tcp() {
 
 #[tokio::test]
 async fn test_server_unknown_type() {
+    subscribe();
+
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
     let udp_socket = UdpSocket::bind(&addr).await.unwrap();
 
@@ -111,6 +118,8 @@ async fn test_server_unknown_type() {
 
 #[tokio::test]
 async fn test_server_form_error_on_multiple_queries() {
+    subscribe();
+
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
     let udp_socket = UdpSocket::bind(&addr).await.unwrap();
 
@@ -153,6 +162,8 @@ async fn test_server_form_error_on_multiple_queries() {
 
 #[tokio::test]
 async fn test_server_no_response_on_response() {
+    subscribe();
+
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
     let udp_socket = UdpSocket::bind(&addr).await.unwrap();
 
@@ -201,6 +212,8 @@ async fn test_server_www_tls() {
     use hickory_proto::rustls::tls_server;
     use std::env;
     use std::path::Path;
+
+    subscribe();
 
     let dns_name = "ns.example.com";
 
