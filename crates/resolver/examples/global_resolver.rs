@@ -11,8 +11,7 @@ use once_cell::sync::Lazy;
 //   in the mean time, this example has the necessary steps to do so.
 //
 // Thank you to @zonyitoo for the original example.
-// TODO: this example can probably be made much simpler with the new
-//      `AsyncResolver`.
+// TODO: this example can probably be made much simpler with `Resolver`.
 // First we need to setup the global Resolver
 static GLOBAL_DNS_RESOLVER: Lazy<TokioResolver> = Lazy::new(|| {
     use std::sync::{Arc, Condvar, Mutex};

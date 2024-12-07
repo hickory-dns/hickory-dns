@@ -1,5 +1,7 @@
 #![recursion_limit = "128"]
 
+use std::sync::Arc;
+
 fn main() {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -11,32 +13,34 @@ fn main() {
 }
 
 async fn tokio_main() {
-    use hickory_resolver::{name_server::TokioConnectionProvider, TokioResolver};
-
     let resolver = {
         // To make this independent, if targeting macOS, BSD, Linux, or Windows, we can use the system's configuration:
         #[cfg(any(unix, windows))]
         {
+            use hickory_resolver::{name_server::TokioConnectionProvider, TokioResolver};
+
             // use the system resolver configuration
             TokioResolver::from_system_conf(TokioConnectionProvider::default())
+                .map(Arc::new)
+                .expect("failed to create resolver")
         }
 
         // For other operating systems, we can use one of the preconfigured definitions
         #[cfg(not(any(unix, windows)))]
         {
             // Directly reference the config types
-            use hickory_resolver::config::{ResolverConfig, ResolverOpts};
+            use hickory_resolver::{
+                config::{ResolverConfig, ResolverOpts},
+                Resolver,
+            };
 
             // Get a new resolver with the google nameservers as the upstream recursive resolvers
-            AsyncResolver::tokio(
+            Arc::new(Resolver::tokio(
                 ResolverConfig::quad9(),
                 ResolverOpts::default(),
-                //runtime.handle().clone(),
-            )
+            ))
         }
-    }
-    .map(std::sync::Arc::new)
-    .expect("failed to create resolver");
+    };
 
     // Create some futures representing name lookups.
     let names = ["hickory-dns.org.", "estada.ch.", "wikipedia.org."];

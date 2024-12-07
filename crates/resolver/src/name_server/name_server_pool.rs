@@ -30,7 +30,7 @@ use crate::proto::{ProtoError, ProtoErrorKind};
 
 /// A pool of NameServers
 ///
-/// This is not expected to be used directly, see [crate::AsyncResolver].
+/// This is not expected to be used directly, see [crate::Resolver].
 pub type GenericNameServerPool<P> = NameServerPool<GenericConnector<P>>;
 
 /// Abstract interface for mocking purpose

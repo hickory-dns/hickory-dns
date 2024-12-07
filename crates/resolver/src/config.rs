@@ -48,11 +48,16 @@ impl ResolverConfig {
         }
     }
 
-    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google).
+    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
+    /// `2001:4860:4860::8844` (thank you, Google).
     ///
-    /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `AsyncResolver::from_system_conf`
+    /// Please see Google's [privacy
+    /// statement](https://developers.google.com/speed/public-dns/privacy) for important information
+    /// about what they track, many ISP's track similar information in DNS. To use the system
+    /// configuration see: `Resolver::from_system_conf`.
     ///
-    /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
+    /// NameServerConfigGroups can be combined to use a set of different providers, see
+    /// `NameServerConfigGroup` and `ResolverConfig::from_parts`
     pub fn google() -> Self {
         Self {
             // TODO: this should get the hostname and use the basename as the default
@@ -62,11 +67,17 @@ impl ResolverConfig {
         }
     }
 
-    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google). This limits the registered connections to just TLS lookups
+    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
+    /// `2001:4860:4860::8844` (thank you, Google). This limits the registered connections to just
+    /// TLS lookups
     ///
-    /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `AsyncResolver::from_system_conf`
+    /// Please see Google's [privacy
+    /// statement](https://developers.google.com/speed/public-dns/privacy) for important information
+    /// about what they track, many ISP's track similar information in DNS. To use the system
+    /// configuration see: `Resolver::from_system_conf`.
     ///
-    /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
+    /// NameServerConfigGroups can be combined to use a set of different providers, see
+    /// `NameServerConfigGroup` and `ResolverConfig::from_parts`
     #[cfg(feature = "dns-over-tls")]
     pub fn google_tls() -> Self {
         Self {
@@ -77,11 +88,17 @@ impl ResolverConfig {
         }
     }
 
-    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google). This limits the registered connections to just HTTPS lookups
+    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
+    /// `2001:4860:4860::8844` (thank you, Google). This limits the registered connections to just
+    /// HTTPS lookups
     ///
-    /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `AsyncResolver::from_system_conf`
+    /// Please see Google's [privacy
+    /// statement](https://developers.google.com/speed/public-dns/privacy) for important information
+    /// about what they track, many ISP's track similar information in DNS. To use the system
+    /// configuration see: `Resolver::from_system_conf`.
     ///
-    /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
+    /// NameServerConfigGroups can be combined to use a set of different providers, see
+    /// `NameServerConfigGroup` and `ResolverConfig::from_parts`
     #[cfg(feature = "dns-over-https-rustls")]
     pub fn google_https() -> Self {
         Self {
@@ -92,11 +109,17 @@ impl ResolverConfig {
         }
     }
 
-    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google). This limits the registered connections to just HTTP/3 lookups
+    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
+    /// `2001:4860:4860::8844` (thank you, Google). This limits the registered connections to just
+    /// HTTP/3 lookups
     ///
-    /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `AsyncResolver::from_system_conf`
+    /// Please see Google's [privacy
+    /// statement](https://developers.google.com/speed/public-dns/privacy) for important information
+    /// about what they track, many ISP's track similar information in DNS. To use the system
+    /// configuration see: `Resolver::from_system_conf`.
     ///
-    /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
+    /// NameServerConfigGroups can be combined to use a set of different providers, see
+    /// `NameServerConfigGroup` and `ResolverConfig::from_parts`
     #[cfg(feature = "dns-over-h3")]
     pub fn google_h3() -> Self {
         Self {
@@ -285,9 +308,13 @@ impl ResolverConfig {
 }
 
 impl Default for ResolverConfig {
-    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google).
+    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
+    /// `2001:4860:4860::8844` (thank you, Google).
     ///
-    /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `AsyncResolver::from_system_conf`
+    /// Please see Google's [privacy
+    /// statement](https://developers.google.com/speed/public-dns/privacy) for important information
+    /// about what they track, many ISP's track similar information in DNS. To use the system
+    /// configuration see: `Resolver::from_system_conf`.
     fn default() -> Self {
         Self::google()
     }
@@ -570,32 +597,51 @@ impl NameServerConfigGroup {
         )
     }
 
-    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google).
+    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
+    /// `2001:4860:4860::8844` (thank you, Google).
     ///
-    /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `AsyncResolver::from_system_conf`
+    /// Please see Google's [privacy
+    /// statement](https://developers.google.com/speed/public-dns/privacy) for important information
+    /// about what they track, many ISP's track similar information in DNS. To use the system
+    /// configuration see: `Resolver::from_system_conf`.
     pub fn google() -> Self {
         Self::from_ips_clear(GOOGLE_IPS, 53, true)
     }
 
-    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google). This limits the registered connections to just TLS lookups
+    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
+    /// `2001:4860:4860::8844` (thank you, Google). This limits the registered connections to just
+    /// TLS lookups
     ///
-    /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `AsyncResolver::from_system_conf`
+    /// Please see Google's [privacy
+    /// statement](https://developers.google.com/speed/public-dns/privacy) for important information
+    /// about what they track, many ISP's track similar information in DNS. To use the system
+    /// configuration see: `Resolver::from_system_conf`.
     #[cfg(feature = "dns-over-tls")]
     pub fn google_tls() -> Self {
         Self::from_ips_tls(GOOGLE_IPS, 853, "dns.google".to_string(), true)
     }
 
-    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google). This limits the registered connections to just HTTPS lookups
+    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
+    /// `2001:4860:4860::8844` (thank you, Google). This limits the registered connections to just
+    /// HTTPS lookups
     ///
-    /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `AsyncResolver::from_system_conf`
+    /// Please see Google's [privacy
+    /// statement](https://developers.google.com/speed/public-dns/privacy) for important information
+    /// about what they track, many ISP's track similar information in DNS. To use the system
+    /// configuration see: `Resolver::from_system_conf`.
     #[cfg(feature = "dns-over-https-rustls")]
     pub fn google_https() -> Self {
         Self::from_ips_https(GOOGLE_IPS, 443, "dns.google".to_string(), true)
     }
 
-    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google). This limits the registered connections to just HTTP/3 lookups
+    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
+    /// `2001:4860:4860::8844` (thank you, Google). This limits the registered connections to just
+    /// HTTP/3 lookups
     ///
-    /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `AsyncResolver::from_system_conf`
+    /// Please see Google's [privacy
+    /// statement](https://developers.google.com/speed/public-dns/privacy) for important information
+    /// about what they track, many ISP's track similar information in DNS. To use the system
+    /// configuration see: `Resolver::from_system_conf`.
     #[cfg(feature = "dns-over-h3")]
     pub fn google_h3() -> Self {
         Self::from_ips_h3(GOOGLE_IPS, 443, "dns.google".to_string(), true)

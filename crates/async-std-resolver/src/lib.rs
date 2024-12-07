@@ -110,10 +110,10 @@ pub use hickory_resolver::lookup_ip;
 pub use hickory_resolver::proto;
 pub use hickory_resolver::ResolveError;
 
-/// An AsyncResolver used with async_std
+/// A Resolver used with async_std
 pub type AsyncStdResolver = Resolver<AsyncStdConnectionProvider>;
 
-/// Construct a new async-std based `AsyncResolver` with the provided configuration.
+/// Construct a new async-std based `Resolver` with the provided configuration.
 ///
 /// # Arguments
 ///
