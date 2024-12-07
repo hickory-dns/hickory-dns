@@ -18,7 +18,7 @@ use futures_util::stream::Stream;
 use futures_util::{future::Future, ready, TryFutureExt};
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
-use tracing::{debug, warn};
+use tracing::{debug, trace, warn};
 
 use crate::runtime::{RuntimeProvider, Time};
 use crate::udp::MAX_RECEIVE_BUFFER_SIZE;
@@ -313,6 +313,7 @@ impl<P: RuntimeProvider> Future for NextRandomUdpSocket<P> {
                         }
                     }
 
+                    trace!(port = bind_addr.port(), "binding UDP socket");
                     Some(Box::pin(
                         this.provider.bind_udp(bind_addr, this.name_server),
                     ))
