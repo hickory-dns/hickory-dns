@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Structs for creating and using a AsyncResolver
+//! Structs for creating and using a Resolver
 use std::fmt;
 use std::future::Future;
 use std::net::IpAddr;
@@ -33,12 +33,12 @@ use crate::proto::xfer::{DnsHandle, DnsRequestOptions, RetryDnsHandle};
 
 /// An asynchronous resolver for DNS generic over async Runtimes.
 ///
-/// The lookup methods on `AsyncResolver` spawn background tasks to perform
-/// queries. The futures returned by a `AsyncResolver` and the corresponding
+/// The lookup methods on `Resolver` spawn background tasks to perform
+/// queries. The futures returned by a `Resolver` and the corresponding
 /// background tasks need not be spawned on the same executor, or be in the
 /// same thread.
 ///
-/// *NOTE* If lookup futures returned by a `AsyncResolver` and the background
+/// *NOTE* If lookup futures returned by a `Resolver` and the background
 /// tasks are spawned on two separate `CurrentThread` executors, one thread
 /// cannot run both executors simultaneously, so the `run` or `block_on`
 /// functions will cause the thread to deadlock. If both the background work
@@ -52,7 +52,7 @@ pub struct Resolver<P: ConnectionProvider> {
     hosts: Option<Arc<Hosts>>,
 }
 
-/// An AsyncResolver used with Tokio
+/// A Resolver used with Tokio
 #[cfg(feature = "tokio-runtime")]
 pub type TokioResolver = Resolver<TokioConnectionProvider>;
 
@@ -91,7 +91,7 @@ macro_rules! lookup_fn {
 
 #[cfg(feature = "tokio-runtime")]
 impl TokioResolver {
-    /// Construct a new Tokio based `AsyncResolver` with the provided configuration.
+    /// Construct a new Tokio based `Resolver` with the provided configuration.
     ///
     /// # Arguments
     ///
@@ -112,9 +112,9 @@ impl TokioResolver {
 }
 
 impl<R: ConnectionProvider> Resolver<R> {
-    /// Construct a new generic `AsyncResolver` with the provided configuration.
+    /// Construct a new generic `Resolver` with the provided configuration.
     ///
-    /// see [TokioAsyncResolver::tokio(..)] instead.
+    /// To use this with Tokio, see [TokioResolver::tokio] instead.
     ///
     /// # Arguments
     ///
@@ -159,7 +159,7 @@ impl<R: ConnectionProvider> Resolver<R> {
 
     /// Constructs a new Resolver with the system configuration.
     ///
-    /// see [TokioAsyncResolver::tokio_from_system_conf(..)] instead.
+    /// To use this with Tokio, see [TokioResolver::tokio_from_system_conf] instead.
     ///
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
@@ -391,11 +391,11 @@ impl<P: ConnectionProvider> Resolver<P> {
 
 impl<P: ConnectionProvider> fmt::Debug for Resolver<P> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("AsyncResolver").finish()
+        f.debug_struct("Resolver").finish()
     }
 }
 
-/// The Future returned from [`AsyncResolver`] when performing a lookup.
+/// The Future returned from [`Resolver`] when performing a lookup.
 #[doc(hidden)]
 pub struct LookupFuture<C>
 where
@@ -593,7 +593,7 @@ pub mod testing {
     ) {
         // Test ensuring that running the background task on a separate
         // executor in a separate thread from the futures returned by the
-        // AsyncResolver works correctly.
+        // Resolver works correctly.
         use std::thread;
         let resolver =
             Resolver::<R>::new(ResolverConfig::default(), ResolverOpts::default(), handle);
@@ -703,7 +703,7 @@ pub mod testing {
         }
     }
 
-    /// Test AsyncResolver created from system configuration with IP lookup.
+    /// Test Resolver created from system configuration with IP lookup.
     #[cfg(feature = "system-config")]
     pub fn system_lookup_test<E: Executor + Send + 'static, R: ConnectionProvider>(
         mut exec: E,
@@ -730,7 +730,7 @@ pub mod testing {
         }
     }
 
-    /// Test AsyncResolver created from system configuration with host lookups.
+    /// Test Resolver created from system configuration with host lookups.
     #[cfg(feature = "system-config")]
     pub fn hosts_lookup_test<E: Executor + Send + 'static, R: ConnectionProvider>(
         mut exec: E,
