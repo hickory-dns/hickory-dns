@@ -873,6 +873,8 @@ pub struct ResolverOpts {
     pub shuffle_dns_servers: bool,
     /// Local UDP ports to avoid when making outgoing queries
     pub avoid_local_udp_ports: Arc<HashSet<u16>>,
+    /// Request UDP bind ephemeral ports directly from the OS
+    pub request_udp_port_from_os: bool,
 }
 
 impl Default for ResolverOpts {
@@ -906,6 +908,7 @@ impl Default for ResolverOpts {
             authentic_data: false,
             shuffle_dns_servers: false,
             avoid_local_udp_ports: Arc::new(HashSet::new()),
+            request_udp_port_from_os: false,
         }
     }
 }
