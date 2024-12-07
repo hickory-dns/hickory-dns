@@ -17,10 +17,6 @@
 //! using an FQDN during lookup), dual-stack IPv4/IPv6 lookups, performing chained CNAME lookups,
 //! and features connection metric tracking for attempting to pick the best upstream DNS resolver.
 //!
-//! There are two types for performing DNS queries, [`Resolver`] and [`AsyncResolver`]. `Resolver`
-//! is the easiest to work with, it is a wrapper around [`AsyncResolver`]. `AsyncResolver` is a
-//! `Tokio` based async resolver, and can be used inside any `Tokio` based system.
-//!
 //! This as best as possible attempts to abide by the DNS RFCs, please file issues at
 //! <https://github.com/hickory-dns/hickory-dns>.
 //!
@@ -56,9 +52,6 @@
 //! ```
 //!
 //! ## Using the Tokio/Async Resolver
-//!
-//! For more advanced asynchronous usage, the `AsyncResolver`] is integrated with Tokio. In fact,
-//! the [`AsyncResolver`] is used by the synchronous Resolver for all lookups.
 //!
 //! ```rust
 //! # fn main() {
