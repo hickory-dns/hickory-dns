@@ -16,7 +16,6 @@
  */
 
 //! NSEC3 related record types
-#![allow(clippy::use_self)]
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -187,126 +186,129 @@ impl From<Nsec3HashAlgorithm> for u8 {
     }
 }
 
-#[test]
-#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-fn test_hash() {
-    use std::str::FromStr;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    let name = Name::from_str("www.example.com").unwrap();
-    let salt: Vec<u8> = vec![1, 2, 3, 4];
+    #[test]
+    fn test_hash() {
+        use std::str::FromStr;
 
-    assert_eq!(
+        let name = Name::from_str("www.example.com").unwrap();
+        let salt: Vec<u8> = vec![1, 2, 3, 4];
+
+        assert_eq!(
+            Nsec3HashAlgorithm::SHA1
+                .hash(&salt, &name, 0)
+                .unwrap()
+                .as_ref()
+                .len(),
+            20
+        );
+        assert_eq!(
+            Nsec3HashAlgorithm::SHA1
+                .hash(&salt, &name, 1)
+                .unwrap()
+                .as_ref()
+                .len(),
+            20
+        );
+        assert_eq!(
+            Nsec3HashAlgorithm::SHA1
+                .hash(&salt, &name, 3)
+                .unwrap()
+                .as_ref()
+                .len(),
+            20
+        );
+
+        let name = Name::from_str("foo.a012345678901.a01234567890123456789012.a01234567890123456789012.a01234567890123456789012.a01234567890123456789012.a01234567890123456789012.a01234567890123456789912.a01234567890123456789012.a01234567890123456789012.a01234567890123456789012.example.com.").unwrap();
+
         Nsec3HashAlgorithm::SHA1
             .hash(&salt, &name, 0)
-            .unwrap()
-            .as_ref()
-            .len(),
-        20
-    );
-    assert_eq!(
-        Nsec3HashAlgorithm::SHA1
-            .hash(&salt, &name, 1)
-            .unwrap()
-            .as_ref()
-            .len(),
-        20
-    );
-    assert_eq!(
-        Nsec3HashAlgorithm::SHA1
-            .hash(&salt, &name, 3)
-            .unwrap()
-            .as_ref()
-            .len(),
-        20
-    );
+            .expect_err("Expected ProtoError(DomainNameTooLong");
+    }
 
-    let name = Name::from_str("foo.a012345678901.a01234567890123456789012.a01234567890123456789012.a01234567890123456789012.a01234567890123456789012.a01234567890123456789012.a01234567890123456789912.a01234567890123456789012.a01234567890123456789012.a01234567890123456789012.example.com.").unwrap();
+    #[test]
+    #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+    fn test_known_hashes() {
+        // H(example)       = 0p9mhaveqvm6t7vbl5lop2u3t2rp3tom
+        assert_eq!(
+            hash_with_base32("example"),
+            "0p9mhaveqvm6t7vbl5lop2u3t2rp3tom"
+        );
 
-    Nsec3HashAlgorithm::SHA1
-        .hash(&salt, &name, 0)
-        .expect_err("Expected ProtoError(DomainNameTooLong");
-}
+        // H(a.example)     = 35mthgpgcu1qg68fab165klnsnk3dpvl
+        assert_eq!(
+            hash_with_base32("a.example"),
+            "35mthgpgcu1qg68fab165klnsnk3dpvl"
+        );
 
-#[test]
-#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-fn test_known_hashes() {
-    // H(example)       = 0p9mhaveqvm6t7vbl5lop2u3t2rp3tom
-    assert_eq!(
-        hash_with_base32("example"),
-        "0p9mhaveqvm6t7vbl5lop2u3t2rp3tom"
-    );
+        // H(ai.example)    = gjeqe526plbf1g8mklp59enfd789njgi
+        assert_eq!(
+            hash_with_base32("ai.example"),
+            "gjeqe526plbf1g8mklp59enfd789njgi"
+        );
 
-    // H(a.example)     = 35mthgpgcu1qg68fab165klnsnk3dpvl
-    assert_eq!(
-        hash_with_base32("a.example"),
-        "35mthgpgcu1qg68fab165klnsnk3dpvl"
-    );
+        // H(ns1.example)   = 2t7b4g4vsa5smi47k61mv5bv1a22bojr
+        assert_eq!(
+            hash_with_base32("ns1.example"),
+            "2t7b4g4vsa5smi47k61mv5bv1a22bojr"
+        );
 
-    // H(ai.example)    = gjeqe526plbf1g8mklp59enfd789njgi
-    assert_eq!(
-        hash_with_base32("ai.example"),
-        "gjeqe526plbf1g8mklp59enfd789njgi"
-    );
+        // H(ns2.example)   = q04jkcevqvmu85r014c7dkba38o0ji5r
+        assert_eq!(
+            hash_with_base32("ns2.example"),
+            "q04jkcevqvmu85r014c7dkba38o0ji5r"
+        );
 
-    // H(ns1.example)   = 2t7b4g4vsa5smi47k61mv5bv1a22bojr
-    assert_eq!(
-        hash_with_base32("ns1.example"),
-        "2t7b4g4vsa5smi47k61mv5bv1a22bojr"
-    );
+        // H(w.example)     = k8udemvp1j2f7eg6jebps17vp3n8i58h
+        assert_eq!(
+            hash_with_base32("w.example"),
+            "k8udemvp1j2f7eg6jebps17vp3n8i58h"
+        );
 
-    // H(ns2.example)   = q04jkcevqvmu85r014c7dkba38o0ji5r
-    assert_eq!(
-        hash_with_base32("ns2.example"),
-        "q04jkcevqvmu85r014c7dkba38o0ji5r"
-    );
+        // H(*.w.example)   = r53bq7cc2uvmubfu5ocmm6pers9tk9en
+        assert_eq!(
+            hash_with_base32("*.w.example"),
+            "r53bq7cc2uvmubfu5ocmm6pers9tk9en"
+        );
 
-    // H(w.example)     = k8udemvp1j2f7eg6jebps17vp3n8i58h
-    assert_eq!(
-        hash_with_base32("w.example"),
-        "k8udemvp1j2f7eg6jebps17vp3n8i58h"
-    );
+        // H(x.w.example)   = b4um86eghhds6nea196smvmlo4ors995
+        assert_eq!(
+            hash_with_base32("x.w.example"),
+            "b4um86eghhds6nea196smvmlo4ors995"
+        );
 
-    // H(*.w.example)   = r53bq7cc2uvmubfu5ocmm6pers9tk9en
-    assert_eq!(
-        hash_with_base32("*.w.example"),
-        "r53bq7cc2uvmubfu5ocmm6pers9tk9en"
-    );
+        // H(y.w.example)   = ji6neoaepv8b5o6k4ev33abha8ht9fgc
+        assert_eq!(
+            hash_with_base32("y.w.example"),
+            "ji6neoaepv8b5o6k4ev33abha8ht9fgc"
+        );
 
-    // H(x.w.example)   = b4um86eghhds6nea196smvmlo4ors995
-    assert_eq!(
-        hash_with_base32("x.w.example"),
-        "b4um86eghhds6nea196smvmlo4ors995"
-    );
+        // H(x.y.w.example) = 2vptu5timamqttgl4luu9kg21e0aor3s
+        assert_eq!(
+            hash_with_base32("x.y.w.example"),
+            "2vptu5timamqttgl4luu9kg21e0aor3s"
+        );
 
-    // H(y.w.example)   = ji6neoaepv8b5o6k4ev33abha8ht9fgc
-    assert_eq!(
-        hash_with_base32("y.w.example"),
-        "ji6neoaepv8b5o6k4ev33abha8ht9fgc"
-    );
+        // H(xx.example)    = t644ebqk9bibcna874givr6joj62mlhv
+        assert_eq!(
+            hash_with_base32("xx.example"),
+            "t644ebqk9bibcna874givr6joj62mlhv"
+        );
+    }
 
-    // H(x.y.w.example) = 2vptu5timamqttgl4luu9kg21e0aor3s
-    assert_eq!(
-        hash_with_base32("x.y.w.example"),
-        "2vptu5timamqttgl4luu9kg21e0aor3s"
-    );
+    #[cfg(test)]
+    fn hash_with_base32(name: &str) -> String {
+        use data_encoding::BASE32_DNSSEC;
 
-    // H(xx.example)    = t644ebqk9bibcna874givr6joj62mlhv
-    assert_eq!(
-        hash_with_base32("xx.example"),
-        "t644ebqk9bibcna874givr6joj62mlhv"
-    );
-}
-
-#[cfg(test)]
-#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
-fn hash_with_base32(name: &str) -> String {
-    use data_encoding::BASE32_DNSSEC;
-
-    // NSEC3PARAM 1 0 12 aabbccdd
-    let known_name = Name::parse(name, Some(&Name::new())).unwrap();
-    let known_salt = [0xAAu8, 0xBBu8, 0xCCu8, 0xDDu8];
-    let hash = Nsec3HashAlgorithm::SHA1
-        .hash(&known_salt, &known_name, 12)
-        .unwrap();
-    BASE32_DNSSEC.encode(hash.as_ref())
+        // NSEC3PARAM 1 0 12 aabbccdd
+        let known_name = Name::parse(name, Some(&Name::new())).unwrap();
+        let known_salt = [0xAAu8, 0xBBu8, 0xCCu8, 0xDDu8];
+        let hash = Nsec3HashAlgorithm::SHA1
+            .hash(&known_salt, &known_name, 12)
+            .unwrap();
+        BASE32_DNSSEC.encode(hash.as_ref())
+    }
 }
