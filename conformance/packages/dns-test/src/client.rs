@@ -244,6 +244,7 @@ pub struct DigOutput {
     pub opt: bool,
     pub options: Vec<(u16, String)>,
     pub must_be_zero: bool,
+    pub opcode: String,
     // TODO(if needed) other sections
 }
 
@@ -252,7 +253,8 @@ impl FromStr for DigOutput {
 
     fn from_str(input: &str) -> Result<Self> {
         const FLAGS_PREFIX: &str = ";; flags: ";
-        const STATUS_PREFIX: &str = ";; ->>HEADER<<- opcode: QUERY, status: ";
+        const OPCODE_PREFIX: &str = ";; ->>HEADER<<- opcode: ";
+        const STATUS_PREFIX: &str = "status: ";
         const EDE_PREFIX: &str = "; EDE: ";
         const OPT_PREFIX: &str = "; OPT=";
         const OPT_HEADER: &str = ";; OPT PSEUDOSECTION:";
@@ -281,6 +283,7 @@ impl FromStr for DigOutput {
         let mut options = Vec::new();
         let mut opt = false;
         let mut must_be_zero = false;
+        let mut opcode = None;
 
         let mut lines = input.lines();
         while let Some(line) = lines.next() {
@@ -298,7 +301,21 @@ impl FromStr for DigOutput {
                 if line.contains("MBZ:") {
                     must_be_zero = true;
                 }
-            } else if let Some(unprefixed) = line.strip_prefix(STATUS_PREFIX) {
+            } else if let Some(unprefixed) = line.strip_prefix(OPCODE_PREFIX) {
+                let (opcode_text, rest) = unprefixed
+                    .split_once(',')
+                    .ok_or_else(|| missing(OPCODE_PREFIX, "comma (,)"))?;
+
+                if opcode.is_some() {
+                    return Err(more_than_once(OPCODE_PREFIX).into());
+                }
+
+                opcode = Some(opcode_text.to_owned());
+
+                let Some(unprefixed) = rest.trim().strip_prefix(STATUS_PREFIX) else {
+                    return Err(missing(OPCODE_PREFIX, STATUS_PREFIX).into());
+                };
+
                 let (status_text, _rest) = unprefixed
                     .split_once(',')
                     .ok_or_else(|| missing(STATUS_PREFIX, "comma (,)"))?;
@@ -384,6 +401,7 @@ impl FromStr for DigOutput {
             options,
             opt,
             must_be_zero,
+            opcode: opcode.ok_or_else(|| not_found(OPCODE_PREFIX))?,
         })
     }
 }
@@ -739,6 +757,31 @@ example.testing.	0	IN	A	1.2.3.4
         let output: DigOutput = input.parse()?;
 
         assert!(output.must_be_zero);
+
+        Ok(())
+    }
+
+    #[test]
+    fn reserved_opcode() -> Result<()> {
+        let input = "; <<>> DiG 9.18.28-0ubuntu0.24.04.1-Ubuntu <<>> +header-only +opcode @8.8.8.8 SOA google.com.
+; (1 server found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: RESERVED15, status: NOTIMP, id: 17490
+;; flags: qr rd; QUERY: 0, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 0
+;; WARNING: recursion requested but not available
+
+;; WARNING: EDNS query returned status NOTIMP - retry with '+noedns'
+
+;; Query time: 9 msec
+;; SERVER: 8.8.8.8#53(8.8.8.8) (UDP)
+;; WHEN: Mon Dec 09 14:34:00 CST 2024
+;; MSG SIZE  rcvd: 12";
+
+        let output: DigOutput = input.parse()?;
+
+        assert_eq!(output.status, DigStatus::NOTIMP);
+        assert_eq!(output.opcode, "RESERVED15");
 
         Ok(())
     }
