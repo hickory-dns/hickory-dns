@@ -51,7 +51,7 @@ dns-over-native-tls: (default "--features=dns-over-native-tls" "--ignore=\\{asyn
 dns-over-openssl: (default "--features=dns-over-openssl" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-util,test-support\\}")
 
 # Check, build, and test all crates with dnssec-openssl enabled
-dnssec-openssl: (default "--features=dnssec-openssl" "--ignore=\\{async-std-resolver,hickory-compatibility,test-support\\}")
+dnssec-openssl: (default "--features=dnssec-openssl" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-util,test-support\\}")
 
 # Check, build, and test all crates with dnssec-ring enabled
 dnssec-ring: (default "--features=dnssec-ring" "--ignore=\\{async-std-resolver,hickory-compatibility,test-support\\}")

@@ -1098,7 +1098,6 @@ dependencies = [
  "hickory-proto",
  "hickory-recursor",
  "hickory-resolver",
- "openssl",
  "rustls",
  "rustls-native-certs",
  "tokio",
