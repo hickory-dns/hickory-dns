@@ -1,57 +1,59 @@
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use std::future::Future;
-use std::net::*;
-#[cfg(feature = "dnssec")]
+use std::net::SocketAddr;
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use std::pin::Pin;
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use std::str::FromStr;
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use std::sync::{Arc, Mutex as StdMutex};
 
 use futures::TryStreamExt;
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use time::Duration;
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use hickory_client::client::DnssecClient;
 use hickory_client::client::{Client, ClientHandle};
 use hickory_client::ClientErrorKind;
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use hickory_integration::example_authority::create_example;
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use hickory_integration::TestClientStream;
 use hickory_integration::{GOOGLE_V4, TEST3_V4};
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use hickory_proto::dnssec::rdata::{DNSSECRData, KEY};
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use hickory_proto::dnssec::{ring::RsaSigningKey, Algorithm, PublicKey, SigSigner, SigningKey};
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
+use hickory_proto::op::MessageFinalizer;
+#[cfg(feature = "dnssec-ring")]
+use hickory_proto::op::ResponseCode;
 use hickory_proto::op::{Edns, Message, MessageType, OpCode, Query};
-#[cfg(feature = "dnssec")]
-use hickory_proto::op::{MessageFinalizer, ResponseCode};
 use hickory_proto::rr::rdata::opt::{EdnsCode, EdnsOption};
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use hickory_proto::rr::Record;
 use hickory_proto::rr::{rdata::A, DNSClass, Name, RData, RecordType};
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use hickory_proto::xfer::DnsMultiplexerConnect;
 use hickory_proto::xfer::{DnsHandle, DnsMultiplexer};
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use hickory_proto::ProtoError;
 use hickory_proto::ProtoErrorKind;
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use hickory_server::authority::{Authority, Catalog};
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use test_support::subscribe;
 
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 pub struct TestClientConnection {
     catalog: Arc<StdMutex<Catalog>>,
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 impl TestClientConnection {
     pub fn new(catalog: Catalog) -> TestClientConnection {
         TestClientConnection {
@@ -79,7 +81,7 @@ async fn udp_client(addr: SocketAddr) -> Client {
     client
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 async fn udp_dnssec_client(addr: SocketAddr) -> DnssecClient {
     let conn = UdpClientStream::builder(addr, TokioRuntimeProvider::default()).build();
     let (client, driver) = DnssecClient::connect(conn)
@@ -99,7 +101,7 @@ async fn tcp_client(addr: SocketAddr) -> Client {
     client
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 async fn tcp_dnssec_client(addr: SocketAddr) -> DnssecClient {
     let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::default());
     let multiplexer = DnsMultiplexer::new(stream, sender, None);
@@ -112,14 +114,12 @@ async fn tcp_dnssec_client(addr: SocketAddr) -> DnssecClient {
 
 #[tokio::test]
 #[ignore]
-#[allow(deprecated)]
 async fn test_query_udp() {
     let client = udp_client(GOOGLE_V4).await;
     test_query(client).await;
 }
 
 #[tokio::test]
-#[allow(deprecated)]
 async fn test_query_udp_edns() {
     let client = udp_client(GOOGLE_V4).await;
     test_query_edns(client).await;
@@ -127,13 +127,11 @@ async fn test_query_udp_edns() {
 
 #[tokio::test]
 #[ignore]
-#[allow(deprecated)]
 async fn test_query_tcp() {
     let client = tcp_client(GOOGLE_V4).await;
     test_query(client).await;
 }
 
-#[allow(deprecated)]
 async fn test_query(mut client: Client) {
     let name = Name::from_ascii("WWW.example.com").unwrap();
 
@@ -225,7 +223,7 @@ async fn test_query_edns(client: Client) {
 #[tokio::test]
 #[ignore = "flaky test against internet server"]
 #[allow(deprecated)]
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 async fn test_secure_query_example_udp() {
     subscribe();
     let client = udp_dnssec_client(GOOGLE_V4).await;
@@ -234,14 +232,14 @@ async fn test_secure_query_example_udp() {
 
 #[tokio::test]
 #[allow(deprecated)]
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 async fn test_secure_query_example_tcp() {
     subscribe();
     let client = tcp_dnssec_client(GOOGLE_V4).await;
     test_secure_query_example(client).await;
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 async fn test_secure_query_example(mut client: DnssecClient) {
     subscribe();
 
@@ -355,7 +353,7 @@ async fn test_timeout_query_tcp() {
 #[tokio::test]
 #[ignore = "flaky test against internet server"]
 #[allow(deprecated)]
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 async fn test_nsec_query_example_udp() {
     let client = udp_dnssec_client(GOOGLE_V4).await;
     test_nsec_query_example(client).await;
@@ -364,13 +362,13 @@ async fn test_nsec_query_example_udp() {
 #[tokio::test]
 #[ignore = "flaky test against internet server"]
 #[allow(deprecated)]
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 async fn test_nsec_query_example_tcp() {
     let client = tcp_dnssec_client(GOOGLE_V4).await;
     test_nsec_query_example(client).await;
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 async fn test_nsec_query_example(mut client: DnssecClient) {
     let name = Name::from_str("none.example.com").unwrap();
 
@@ -384,7 +382,7 @@ async fn test_nsec_query_example(mut client: DnssecClient) {
 
 #[tokio::test]
 #[ignore = "flaky test against internet server"]
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 async fn test_nsec_query_type() {
     let mut client = tcp_dnssec_client(GOOGLE_V4).await;
 
@@ -401,7 +399,7 @@ async fn test_nsec_query_type() {
 
 // NSEC3 tests
 #[tokio::test]
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 async fn test_nsec3_nxdomain() {
     let name = Name::from_labels(vec!["a", "b", "c", "example", "com"]).unwrap();
 
@@ -415,7 +413,7 @@ async fn test_nsec3_nxdomain() {
 }
 
 #[tokio::test]
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 async fn test_nsec3_no_data() {
     let name = Name::from_labels(vec!["www", "example", "com"]).unwrap();
 
@@ -431,7 +429,7 @@ async fn test_nsec3_no_data() {
 
 #[tokio::test]
 #[ignore = "flaky test against internet server"]
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 async fn test_nsec3_query_name_is_soa_name() {
     let name = Name::from_labels("valid.extended-dns-errors.com".split(".")).unwrap();
 
@@ -481,7 +479,7 @@ async fn test_nsec3_query_name_is_soa_name() {
 // }
 
 #[allow(deprecated)]
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
     use hickory_server::store::sqlite::SqliteAuthority;
 
@@ -529,7 +527,7 @@ async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
     (client, origin.into())
 }
 
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[tokio::test]
 async fn test_create() {
     let catalog = Catalog::new();
@@ -574,7 +572,7 @@ async fn test_create() {
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
 
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[tokio::test]
 async fn test_append() {
     let catalog = Catalog::new();
@@ -670,7 +668,7 @@ async fn test_append() {
     assert_eq!(result.answers().len(), 2);
 }
 
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[tokio::test]
 async fn test_compare_and_swap() {
     let catalog = Catalog::new();
@@ -739,7 +737,7 @@ async fn test_compare_and_swap() {
         }));
 }
 
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[tokio::test]
 async fn test_delete_by_rdata() {
     let catalog = Catalog::new();
@@ -800,7 +798,7 @@ async fn test_delete_by_rdata() {
         }));
 }
 
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[tokio::test]
 async fn test_delete_rrset() {
     let catalog = Catalog::new();
@@ -853,7 +851,7 @@ async fn test_delete_rrset() {
     assert_eq!(result.answers().len(), 0);
 }
 
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[tokio::test]
 async fn test_delete_all() {
     use hickory_proto::rr::rdata::AAAA;
