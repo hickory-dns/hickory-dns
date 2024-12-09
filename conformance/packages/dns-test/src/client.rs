@@ -71,6 +71,7 @@ impl Client {
             settings.cdflag(),
             settings.timeoutflag().as_str(),
             settings.ednsflag().as_str(),
+            settings.zflag(),
             &format!("@{server}"),
             record_type.as_name().as_ref(),
             fqdn.as_str(),
@@ -92,6 +93,7 @@ pub struct DigSettings {
     /// `None` indicates EDNS should not be used, while Some indicates EDNS should be used, with
     /// the given version number.
     edns: Option<u8>,
+    zflag: bool,
 }
 
 impl Default for DigSettings {
@@ -103,6 +105,7 @@ impl Default for DigSettings {
             recurse: false,
             timeout: None,
             edns: Some(0),
+            zflag: false,
         }
     }
 }
@@ -183,6 +186,19 @@ impl DigSettings {
         match self.edns {
             Some(version) => format!("+edns={version}"),
             None => "+noedns".into(),
+        }
+    }
+
+    /// Set the reserved "Z" flag.
+    pub fn set_z_flag(&mut self) -> &mut Self {
+        self.zflag = true;
+        self
+    }
+
+    fn zflag(&self) -> &'static str {
+        match self.zflag {
+            true => "+zflag",
+            false => "+nozflag",
         }
     }
 }
