@@ -394,8 +394,7 @@ mod tests {
 
     use super::*;
     #[cfg(feature = "dnssec-ring")]
-    use crate::dnssec::ring::EcdsaSigningKey;
-    use crate::dnssec::{rdata::DNSKEY, SigningKey};
+    use crate::dnssec::{rdata::DNSKEY, ring::EcdsaSigningKey, SigningKey};
 
     #[test]
     fn test() {
