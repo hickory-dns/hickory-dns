@@ -200,7 +200,7 @@ impl DS {
     /// # Return
     ///
     /// true if and only if the DNSKEY is covered by the DS record.
-    #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+    #[cfg(feature = "dnssec-ring")]
     pub fn covers(&self, name: &Name, key: &DNSKEY) -> ProtoResult<bool> {
         key.to_digest(name, self.digest_type())
             .map(|hash| key.zone_key() && hash.as_ref() == self.digest())

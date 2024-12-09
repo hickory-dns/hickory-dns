@@ -55,8 +55,6 @@ pub mod multicast;
 #[cfg(feature = "dns-over-native-tls")]
 pub mod native_tls;
 pub mod op;
-#[cfg(feature = "dns-over-openssl")]
-pub mod openssl;
 #[cfg(all(feature = "dns-over-quic", feature = "tokio-runtime"))]
 pub mod quic;
 pub mod rr;

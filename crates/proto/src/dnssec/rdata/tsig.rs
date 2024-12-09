@@ -525,14 +525,6 @@ impl TsigAlgorithm {
         }
     }
 
-    // TODO: remove this once hickory-client no longer has dnssec feature enabled by default
-    #[cfg(not(any(feature = "dnssec-ring", feature = "dnssec-openssl")))]
-    #[doc(hidden)]
-    #[allow(clippy::unimplemented)]
-    pub fn mac_data(&self, _key: &[u8], _message: &[u8]) -> ProtoResult<Vec<u8>> {
-        unimplemented!("one of dnssec-ring or dnssec-openssl features must be enabled")
-    }
-
     /// Compute the Message Authentication Code using key and algorithm
     ///
     /// Supported algorithm are HmacSha256, HmacSha384, HmacSha512 and HmacSha512_256
@@ -555,36 +547,6 @@ impl TsigAlgorithm {
         Ok(res)
     }
 
-    /// Compute the Message Authentication Code using key and algorithm
-    ///
-    /// Supported algorithm are HmacSha256, HmacSha384, HmacSha512 and HmacSha512_256
-    /// Other algorithm return an error.
-    #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
-    pub fn mac_data(&self, key: &[u8], message: &[u8]) -> ProtoResult<Vec<u8>> {
-        use openssl::{hash::MessageDigest, pkey::PKey, sign::Signer};
-        use TsigAlgorithm::*;
-
-        let key = PKey::hmac(key)?;
-
-        let mut signer = match self {
-            HmacSha256 => Signer::new(MessageDigest::sha256(), &key)?,
-            HmacSha384 => Signer::new(MessageDigest::sha384(), &key)?,
-            HmacSha512 => Signer::new(MessageDigest::sha512(), &key)?,
-            _ => return Err(ProtoErrorKind::TsigUnsupportedMacAlgorithm(self.clone()).into()),
-        };
-
-        signer.update(message)?;
-        signer.sign_to_vec().map_err(|e| e.into())
-    }
-
-    // TODO: remove this once hickory-client no longer has dnssec feature enabled by default
-    #[cfg(not(any(feature = "dnssec-ring", feature = "dnssec-openssl")))]
-    #[doc(hidden)]
-    #[allow(clippy::unimplemented)]
-    pub fn verify_mac(&self, _key: &[u8], _message: &[u8], _tag: &[u8]) -> ProtoResult<()> {
-        unimplemented!("one of dnssec-ring or dnssec-openssl features must be enabled")
-    }
-
     /// Verifies the hmac tag against the given key and this algorithm.
     ///
     /// This is both faster than independently creating the MAC and also constant time preventing timing attacks
@@ -603,21 +565,6 @@ impl TsigAlgorithm {
         hmac::verify(&key, message, tag).map_err(|_| ProtoErrorKind::HmacInvalid().into())
     }
 
-    /// Verifies the hmac tag against the given key and this algorithm.
-    ///
-    /// This is constant time preventing timing attacks
-    #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
-    pub fn verify_mac(&self, key: &[u8], message: &[u8], tag: &[u8]) -> ProtoResult<()> {
-        use openssl::memcmp;
-
-        let hmac = self.mac_data(key, message)?;
-        if memcmp::eq(&hmac, tag) {
-            Ok(())
-        } else {
-            Err(ProtoErrorKind::HmacInvalid().into())
-        }
-    }
-
     /// Return length in bytes of the algorithms output
     #[cfg(feature = "dnssec-ring")]
     pub fn output_len(&self) -> ProtoResult<usize> {
@@ -628,22 +575,6 @@ impl TsigAlgorithm {
             HmacSha256 => hmac::HMAC_SHA256.digest_algorithm().output_len(),
             HmacSha384 => hmac::HMAC_SHA384.digest_algorithm().output_len(),
             HmacSha512 => hmac::HMAC_SHA512.digest_algorithm().output_len(),
-            _ => return Err(ProtoErrorKind::TsigUnsupportedMacAlgorithm(self.clone()).into()),
-        };
-
-        Ok(len)
-    }
-
-    /// Return length in bytes of the algorithms output
-    #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
-    pub fn output_len(&self) -> ProtoResult<usize> {
-        use openssl::hash::MessageDigest;
-        use TsigAlgorithm::*;
-
-        let len = match self {
-            HmacSha256 => MessageDigest::sha256().size(),
-            HmacSha384 => MessageDigest::sha384().size(),
-            HmacSha512 => MessageDigest::sha512().size(),
             _ => return Err(ProtoErrorKind::TsigUnsupportedMacAlgorithm(self.clone()).into()),
         };
 
@@ -884,7 +815,7 @@ mod tests {
         assert_eq!(tbs, tbv);
     }
 
-    #[cfg(any(feature = "dnssec-ring", feature = "dnssec-openssl"))]
+    #[cfg(feature = "dnssec-ring")]
     #[test]
     fn test_sign_encode_id_changed() {
         let mut message = Message::new();

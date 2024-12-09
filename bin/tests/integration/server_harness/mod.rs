@@ -187,6 +187,7 @@ where
             match proto {
                 "UDP" => socket_ports.put(Protocol::Udp, socket_addr),
                 "TCP" => socket_ports.put(Protocol::Tcp, socket_addr),
+                #[cfg(feature = "dns-over-rustls")]
                 "TLS" => socket_ports.put(Protocol::Tls, socket_addr),
                 #[cfg(feature = "dns-over-https-rustls")]
                 "HTTPS" => socket_ports.put(Protocol::Https, socket_addr),

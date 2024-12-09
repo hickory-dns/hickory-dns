@@ -260,11 +260,6 @@ pub enum ProtoErrorKind {
     #[error("ring error: {0}")]
     Ring(#[from] Unspecified),
 
-    /// An ssl error
-    #[cfg(any(feature = "dns-over-openssl", feature = "dnssec-openssl"))]
-    #[error("ssl error: {0}")]
-    SSL(#[from] openssl::error::ErrorStack),
-
     /// A tokio timer error
     #[error("timer error")]
     Timer,
@@ -804,8 +799,6 @@ impl Clone for ProtoErrorKind {
             Poisoned => Poisoned,
             #[cfg(feature = "dnssec-ring")]
             Ring(ref _e) => Ring(Unspecified),
-            #[cfg(any(feature = "dns-over-openssl", feature = "dnssec-openssl"))]
-            SSL(ref e) => Msg(format!("there was an SSL error: {e}")),
             Timeout => Timeout,
             Timer => Timer,
             #[cfg(feature = "dnssec")]
@@ -876,11 +869,6 @@ pub enum DnsSecErrorKind {
     #[error("ring error: {0}")]
     RingUnspecified(#[from] Unspecified),
 
-    /// An ssl error
-    #[cfg(any(feature = "dns-over-openssl", feature = "dnssec-openssl"))]
-    #[error("ssl error: {0}")]
-    SSL(#[from] openssl::error::ErrorStack),
-
     /// A request timed out
     #[error("request timed out")]
     Timeout,
@@ -900,8 +888,6 @@ impl Clone for DnsSecErrorKind {
             RingKeyRejected(r) => Msg(format!("Ring rejected key: {r}")),
             #[cfg(feature = "dnssec-ring")]
             RingUnspecified(_r) => RingUnspecified(Unspecified),
-            #[cfg(any(feature = "dns-over-openssl", feature = "dnssec-openssl"))]
-            SSL(ssl) => Msg(format!("SSL had an error: {ssl}")),
             Timeout => Timeout,
         }
     }
@@ -987,13 +973,6 @@ impl From<KeyRejected> for DnsSecError {
 #[cfg(feature = "dnssec-ring")]
 impl From<Unspecified> for DnsSecError {
     fn from(e: Unspecified) -> Self {
-        DnsSecErrorKind::from(e).into()
-    }
-}
-
-#[cfg(feature = "dnssec-openssl")]
-impl From<openssl::error::ErrorStack> for DnsSecError {
-    fn from(e: openssl::error::ErrorStack) -> Self {
         DnsSecErrorKind::from(e).into()
     }
 }

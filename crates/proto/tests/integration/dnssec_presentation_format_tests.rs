@@ -30,7 +30,7 @@ fn test_dnskey_display() {
     assert_eq!(result, exp_result);
 }
 
-#[cfg(any(feature = "dnssec-ring", feature = "dnssec-openssl"))]
+#[cfg(feature = "dnssec-ring")]
 #[test]
 #[allow(deprecated)]
 fn test_ds_display() {
