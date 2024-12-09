@@ -506,7 +506,6 @@ impl SigSigner {
 }
 
 impl MessageFinalizer for SigSigner {
-    #[cfg(feature = "dnssec")]
     fn finalize_message(
         &self,
         message: &Message,
@@ -555,39 +554,22 @@ impl MessageFinalizer for SigSigner {
 
         Ok((vec![sig0], None))
     }
-
-    #[cfg(not(feature = "dnssec"))]
-    fn finalize_message(
-        &self,
-        _: &Message,
-        _: u32,
-    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
-        Err(
-            ProtoErrorKind::Message("the ring or openssl feature must be enabled for signing")
-                .into(),
-        )
-    }
 }
 
 #[cfg(test)]
-#[cfg(feature = "dnssec-openssl")]
+#[cfg(feature = "dnssec-ring")]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    use openssl::bn::BigNum;
-    use openssl::pkey::Private;
-    use openssl::rsa::Rsa;
-
+    use super::*;
     use crate::dnssec::{
-        openssl::RsaSigningKey,
-        rdata::{key::KeyUsage, DNSSECRData, RRSIG, SIG},
-        Verifier,
+        rdata::{key::KeyUsage, DNSSECRData, KEY, RRSIG, SIG},
+        ring::RsaSigningKey,
+        Algorithm, SigningKey, Verifier, TBS,
     };
     use crate::op::{Message, Query};
-    use crate::rr::rdata::NS;
-    use crate::rr::{DNSClass, Name, Record, RecordType};
-
-    use super::*;
+    use crate::rr::rdata::{CNAME, NS};
+    use crate::rr::{DNSClass, Name, RData, Record, RecordType};
 
     fn assert_send_and_sync<T: Send + Sync>() {}
 
@@ -624,7 +606,7 @@ mod tests {
         query.set_name(origin);
         question.add_query(query);
 
-        let key = RsaSigningKey::generate(Algorithm::RSASHA256).unwrap();
+        let key = RsaSigningKey::from_pkcs8(RSA_KEY, Algorithm::RSASHA256).unwrap();
         let pub_key = key.to_public_key().unwrap();
         let sig0key = KEY::new_sig0key(&pub_key, Algorithm::RSASHA256);
         let signer = SigSigner::sig0(sig0key.clone(), Box::new(key), Name::root());
@@ -653,7 +635,7 @@ mod tests {
     #[test]
     #[allow(deprecated)]
     fn test_sign_and_verify_rrset() {
-        let key = RsaSigningKey::generate(Algorithm::RSASHA256).unwrap();
+        let key = RsaSigningKey::from_pkcs8(RSA_KEY, Algorithm::RSASHA256).unwrap();
         let pub_key = key.to_public_key().unwrap();
         let sig0key = KEY::new_sig0key_with_usage(&pub_key, Algorithm::RSASHA256, KeyUsage::Zone);
         let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
@@ -699,167 +681,103 @@ mod tests {
         assert!(pub_key.verify(tbs.as_ref(), &sig).is_ok());
     }
 
-    fn get_rsa_from_vec(params: &[u32]) -> Result<Rsa<Private>, openssl::error::ErrorStack> {
-        Rsa::from_private_components(
-            BigNum::from_u32(params[0]).unwrap(), // modulus: n
-            BigNum::from_u32(params[1]).unwrap(), // public exponent: e,
-            BigNum::from_u32(params[2]).unwrap(), // private exponent: de,
-            BigNum::from_u32(params[3]).unwrap(), // prime1: p,
-            BigNum::from_u32(params[4]).unwrap(), // prime2: q,
-            BigNum::from_u32(params[5]).unwrap(), // exponent1: dp,
-            BigNum::from_u32(params[6]).unwrap(), // exponent2: dq,
-            BigNum::from_u32(params[7]).unwrap(), // coefficient: qi
-        )
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    #[allow(clippy::unreadable_literal)]
-    fn test_calculate_key_tag() {
-        let test_vectors = [
-            (vec![33, 3, 21, 11, 3, 1, 1, 1], 9739),
-            (
-                vec![
-                    0xc2fedb69, 0x10001, 0x6ebb9209, 0xf743, 0xc9e3, 0xd07f, 0x6275, 0x1095,
-                ],
-                42354,
-            ),
-        ];
-
-        for (input_data, exp_result) in test_vectors {
-            let rsa = get_rsa_from_vec(&input_data).unwrap();
-            let rsa_pem = rsa.private_key_to_pem().unwrap();
-            println!("pkey:\n{}", String::from_utf8(rsa_pem).unwrap());
-
-            let key = RsaSigningKey::from_rsa(rsa, Algorithm::RSASHA256).unwrap();
-            let pub_key = key.to_public_key().unwrap();
-            let sig0key =
-                KEY::new_sig0key_with_usage(&pub_key, Algorithm::RSASHA256, KeyUsage::Zone);
-            let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
-            let key_tag = signer.calculate_key_tag().unwrap();
-
-            assert_eq!(key_tag, exp_result);
-        }
-    }
-
     #[test]
     #[allow(deprecated)]
     fn test_calculate_key_tag_pem() {
-        let x = "-----BEGIN RSA PRIVATE KEY-----
-MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
------END RSA PRIVATE KEY-----
-";
-
-        let rsa = Rsa::private_key_from_pem(x.as_bytes()).unwrap();
-        let rsa_pem = rsa.private_key_to_pem().unwrap();
-        println!("pkey:\n{}", String::from_utf8(rsa_pem).unwrap());
-
-        let key = RsaSigningKey::from_rsa(rsa, Algorithm::RSASHA256).unwrap();
+        let key = RsaSigningKey::from_pkcs8(RSA_KEY, Algorithm::RSASHA256).unwrap();
         let pub_key = key.to_public_key().unwrap();
         let sig0key = KEY::new_sig0key_with_usage(&pub_key, Algorithm::RSASHA256, KeyUsage::Zone);
         let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
         let key_tag = signer.calculate_key_tag().unwrap();
 
-        assert_eq!(key_tag, 28551);
+        assert_eq!(key_tag, 3256);
     }
 
-    // TODO: these tests technically came from TBS in hickory_proto
-    #[cfg(feature = "dnssec-openssl")]
-    #[allow(clippy::module_inception)]
-    #[cfg(test)]
-    mod tests {
-        use crate::dnssec::{
-            openssl::RsaSigningKey,
-            rdata::{KEY, RRSIG},
-            Algorithm, SigSigner, SigningKey, TBS,
-        };
-        use crate::rr::rdata::{CNAME, NS};
-        use crate::rr::{DNSClass, Name, RData, Record, RecordType};
+    #[test]
+    fn test_rrset_tbs() {
+        let key = RsaSigningKey::from_pkcs8(RSA_KEY, Algorithm::RSASHA256).unwrap();
+        let pub_key = key.to_public_key().unwrap();
+        let sig0key = KEY::new_sig0key(&pub_key, Algorithm::RSASHA256);
+        let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
 
-        #[test]
-        fn test_rrset_tbs() {
-            let key = RsaSigningKey::generate(Algorithm::RSASHA256).unwrap();
-            let pub_key = key.to_public_key().unwrap();
-            let sig0key = KEY::new_sig0key(&pub_key, Algorithm::RSASHA256);
-            let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
-
-            let origin = Name::parse("example.com.", None).unwrap();
-            let rrsig = Record::from_rdata(
+        let origin = Name::parse("example.com.", None).unwrap();
+        let rrsig = Record::from_rdata(
+            origin.clone(),
+            86400,
+            RRSIG::new(
+                RecordType::NS,
+                Algorithm::RSASHA256,
+                origin.num_labels(),
+                86400,
+                5,
+                0,
+                signer.calculate_key_tag().unwrap(),
+                origin.clone(),
+                vec![],
+            ),
+        );
+        let rrset = vec![
+            Record::from_rdata(
                 origin.clone(),
                 86400,
-                RRSIG::new(
-                    RecordType::NS,
-                    Algorithm::RSASHA256,
-                    origin.num_labels(),
-                    86400,
-                    5,
-                    0,
-                    signer.calculate_key_tag().unwrap(),
-                    origin.clone(),
-                    vec![],
-                ),
-            );
-            let rrset = vec![
-                Record::from_rdata(
-                    origin.clone(),
-                    86400,
-                    RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
-                )
-                .set_dns_class(DNSClass::IN)
-                .clone(),
-                Record::from_rdata(
-                    origin.clone(),
-                    86400,
-                    RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
-                )
-                .set_dns_class(DNSClass::IN)
-                .clone(),
-            ];
+                RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
+            )
+            .set_dns_class(DNSClass::IN)
+            .clone(),
+            Record::from_rdata(
+                origin.clone(),
+                86400,
+                RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
+            )
+            .set_dns_class(DNSClass::IN)
+            .clone(),
+        ];
 
-            let tbs = TBS::from_rrsig(&rrsig, rrset.iter()).unwrap();
-            assert!(!tbs.as_ref().is_empty());
+        let tbs = TBS::from_rrsig(&rrsig, rrset.iter()).unwrap();
+        assert!(!tbs.as_ref().is_empty());
 
-            let rrset = vec![
-                Record::from_rdata(
-                    origin.clone(),
-                    86400,
-                    RData::CNAME(CNAME(Name::parse("a.iana-servers.net.", None).unwrap())),
-                )
-                .set_dns_class(DNSClass::IN)
-                .clone(), // different type
-                Record::from_rdata(
-                    Name::parse("www.example.com.", None).unwrap(),
-                    86400,
-                    RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
-                )
-                .set_dns_class(DNSClass::IN)
-                .clone(), // different name
-                Record::from_rdata(
-                    origin.clone(),
-                    86400,
-                    RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
-                )
-                .set_dns_class(DNSClass::CH)
-                .clone(), // different class
-                Record::from_rdata(
-                    origin.clone(),
-                    86400,
-                    RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
-                )
-                .set_dns_class(DNSClass::IN)
-                .clone(),
-                Record::from_rdata(
-                    origin,
-                    86400,
-                    RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
-                )
-                .set_dns_class(DNSClass::IN)
-                .clone(),
-            ];
+        let rrset = vec![
+            Record::from_rdata(
+                origin.clone(),
+                86400,
+                RData::CNAME(CNAME(Name::parse("a.iana-servers.net.", None).unwrap())),
+            )
+            .set_dns_class(DNSClass::IN)
+            .clone(), // different type
+            Record::from_rdata(
+                Name::parse("www.example.com.", None).unwrap(),
+                86400,
+                RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
+            )
+            .set_dns_class(DNSClass::IN)
+            .clone(), // different name
+            Record::from_rdata(
+                origin.clone(),
+                86400,
+                RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
+            )
+            .set_dns_class(DNSClass::CH)
+            .clone(), // different class
+            Record::from_rdata(
+                origin.clone(),
+                86400,
+                RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
+            )
+            .set_dns_class(DNSClass::IN)
+            .clone(),
+            Record::from_rdata(
+                origin,
+                86400,
+                RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
+            )
+            .set_dns_class(DNSClass::IN)
+            .clone(),
+        ];
 
-            let filtered_tbs = TBS::from_rrsig(&rrsig, rrset.iter()).unwrap();
-            assert!(!filtered_tbs.as_ref().is_empty());
-            assert_eq!(tbs.as_ref(), filtered_tbs.as_ref());
-        }
+        let filtered_tbs = TBS::from_rrsig(&rrsig, rrset.iter()).unwrap();
+        assert!(!filtered_tbs.as_ref().is_empty());
+        assert_eq!(tbs.as_ref(), filtered_tbs.as_ref());
     }
+
+    const RSA_KEY: &[u8] = include_bytes!("../../tests/test-data/rsa-2048-private-key-1.pk8");
 }
