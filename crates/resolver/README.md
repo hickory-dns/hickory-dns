@@ -100,7 +100,7 @@ Success for query name: www.example.com. type: A class: IN
 
 ## Minimum Rust Version
 
-The current minimum rustc version for this project is `1.67`
+The current minimum rustc version for this project is `1.71.1`
 
 ## Versioning
 
