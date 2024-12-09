@@ -19,14 +19,12 @@ use rustls::{
     pki_types::{CertificateDer, PrivateKeyDer},
     ServerConfig,
 };
-#[cfg(any(feature = "dns-over-openssl", feature = "dns-over-rustls"))]
+#[cfg(feature = "dns-over-rustls")]
 use tokio::time::timeout;
 use tokio::{net, task::JoinSet};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 
-#[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
-use crate::proto::openssl::tls_server::*;
 use crate::{
     access::AccessControl,
     authority::{MessageRequest, MessageResponseBuilder},
@@ -264,173 +262,6 @@ impl<T: RequestHandler> ServerFuture<T> {
     ) -> io::Result<()> {
         self.register_listener(net::TcpListener::from_std(listener)?, timeout);
         Ok(())
-    }
-
-    /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
-    /// IPv6 or an IPv4 address.
-    ///
-    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
-    ///  to not make this too low depending on use cases.
-    ///
-    /// # Arguments
-    /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
-    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
-    ///               requests within this time period will be closed. In the future it should be
-    ///               possible to create long-lived queries, but these should be from trusted sources
-    ///               only, this would require some type of whitelisting.
-    /// * `pkcs12` - certificate used to announce to clients
-    #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
-    pub fn register_tls_listener(
-        &mut self,
-        listener: net::TcpListener,
-        handshake_timeout: Duration,
-        certificate_and_key: ((X509, Option<Stack<X509>>), PKey<Private>),
-    ) -> io::Result<()> {
-        use crate::proto::openssl::{tls_server, TlsStream};
-        use openssl::ssl::Ssl;
-        use std::pin::Pin;
-        use tokio_openssl::SslStream as TokioSslStream;
-
-        let access = self.access.clone();
-        let ((cert, chain), key) = certificate_and_key;
-
-        let handler = self.handler.clone();
-        debug!("registered tcp: {:?}", listener);
-
-        let tls_acceptor = Box::pin(tls_server::new_acceptor(cert, chain, key)?);
-
-        // for each incoming request...
-        let shutdown = self.shutdown_token.clone();
-        self.join_set.spawn(async move {
-            let mut inner_join_set = JoinSet::new();
-            loop {
-                let access = access.clone();
-                let shutdown = shutdown.clone();
-                let (tcp_stream, src_addr) = tokio::select! {
-                    tcp_stream = listener.accept() => match tcp_stream {
-                        Ok((t, s)) => (t, s),
-                        Err(e) => {
-                            debug!("error receiving TLS tcp_stream error: {}", e);
-                            if is_unrecoverable_socket_error(&e) {
-                                break;
-                            }
-                            continue;
-                        },
-                    },
-                    _ = shutdown.cancelled() => {
-                        // A graceful shutdown was initiated. Break out of the loop.
-                        break;
-                    },
-                };
-
-                // verify that the src address is safe for responses
-                if let Err(e) = sanitize_src_address(src_addr) {
-                    warn!(
-                        "address can not be responded to {src_addr}: {e}",
-                        src_addr = src_addr,
-                        e = e
-                    );
-                    continue;
-                }
-
-                let handler = handler.clone();
-                let tls_acceptor = tls_acceptor.clone();
-
-                // kick out to a different task immediately, let them do the TLS handshake
-                inner_join_set.spawn(async move {
-                    debug!("starting TLS request from: {}", src_addr);
-
-                    // perform the TLS
-                    let mut tls_stream = match Ssl::new(tls_acceptor.context())
-                        .and_then(|ssl| TokioSslStream::new(ssl, tcp_stream))
-                    {
-                        Ok(tls_stream) => tls_stream,
-                        Err(e) => {
-                            debug!("tls handshake src: {} error: {}", src_addr, e);
-                            return ();
-                        }
-                    };
-
-                    let Ok(conn) =
-                        timeout(handshake_timeout, Pin::new(&mut tls_stream).accept()).await
-                    else {
-                        warn!("tls timeout expired during handshake");
-                        return;
-                    };
-                    match conn {
-                        Ok(()) => {}
-                        Err(e) => {
-                            debug!("tls handshake src: {} error: {}", src_addr, e);
-                            return ();
-                        }
-                    };
-                    debug!("accepted TLS request from: {}", src_addr);
-                    let (buf_stream, stream_handle) =
-                        TlsStream::from_stream(AsyncIoTokioAsStd(tls_stream), src_addr);
-                    let mut timeout_stream = TimeoutStream::new(buf_stream, handshake_timeout);
-                    while let Some(message) = timeout_stream.next().await {
-                        let message = match message {
-                            Ok(message) => message,
-                            Err(e) => {
-                                debug!(
-                                    "error in TLS request_stream src: {:?} error: {}",
-                                    src_addr, e
-                                );
-
-                                // kill this connection
-                                return ();
-                            }
-                        };
-
-                        self::handle_raw_request(
-                            message,
-                            Protocol::Tls,
-                            access.clone(),
-                            handler.clone(),
-                            stream_handle.clone(),
-                        )
-                        .await;
-                    }
-                });
-
-                reap_tasks(&mut inner_join_set);
-            }
-
-            if shutdown.is_cancelled() {
-                Ok(())
-            } else {
-                Err(ProtoError::from("unexpected close of socket"))
-            }
-        });
-
-        Ok(())
-    }
-
-    /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
-    /// IPv6 or an IPv4 address.
-    ///
-    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
-    ///  to not make this too low depending on use cases.
-    ///
-    /// # Arguments
-    /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
-    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
-    ///               requests within this time period will be closed. In the future it should be
-    ///               possible to create long-lived queries, but these should be from trusted sources
-    ///               only, this would require some type of whitelisting.
-    /// * `pkcs12` - certificate used to announce to clients
-    #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
-    pub fn register_tls_listener_std(
-        &mut self,
-        listener: std::net::TcpListener,
-        timeout: Duration,
-        certificate_and_key: ((X509, Option<Stack<X509>>), PKey<Private>),
-    ) -> io::Result<()> {
-        self.register_tls_listener(
-            net::TcpListener::from_std(listener)?,
-            timeout,
-            certificate_and_key,
-        )
     }
 
     /// Register a TlsListener to the Server. The TlsListener should already be bound to either an

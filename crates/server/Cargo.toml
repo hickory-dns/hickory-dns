@@ -32,12 +32,6 @@ license.workspace = true
 
 [features]
 backtrace = ["hickory-proto/backtrace"]
-dnssec-openssl = [
-    "dnssec",
-    "dep:openssl",
-    "hickory-proto/dnssec-openssl",
-    "hickory-resolver?/dnssec-openssl",
-]
 dnssec-ring = [
     "dnssec",
     "hickory-proto/dnssec-ring",
@@ -63,13 +57,6 @@ dns-over-https-rustls = [
     "dep:tokio-rustls",
 ]
 
-dns-over-openssl = [
-    "dns-over-tls",
-    "hickory-proto/dns-over-openssl",
-    "dep:openssl",
-    "dep:tokio-openssl",
-    "hickory-resolver?/dns-over-openssl",
-]
 dns-over-rustls = [
     "dns-over-tls",
     "dep:rustls",
@@ -113,7 +100,6 @@ h3 = { workspace = true, optional = true }
 h3-quinn = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
 ipnet = { workspace = true, features = ["serde"] }
-openssl = { workspace = true, features = ["v102", "v110"], optional = true }
 prefix-trie.workspace = true
 rusqlite = { workspace = true, features = ["bundled", "time"], optional = true }
 rustls = { workspace = true, optional = true }
@@ -122,7 +108,6 @@ thiserror.workspace = true
 time.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, features = ["macros", "net", "sync"] }
-tokio-openssl = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true }
 tokio-util.workspace = true
 hickory-proto = { workspace = true, features = ["serde", "text-parsing", "tokio-runtime"] }
