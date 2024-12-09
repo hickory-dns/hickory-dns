@@ -252,7 +252,7 @@ impl DNSKEY {
     ///
     /// * `name` - the label of of the DNSKEY record.
     /// * `digest_type` - the `DigestType` with which to create the message digest.
-    #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+    #[cfg(feature = "dnssec-ring")]
     pub fn to_digest(&self, name: &Name, digest_type: DigestType) -> ProtoResult<Digest> {
         let mut buf: Vec<u8> = Vec::new();
         {

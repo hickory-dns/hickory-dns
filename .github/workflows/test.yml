@@ -117,8 +117,6 @@ jobs:
             dns-over-quic,
             dns-over-h3,
             dns-over-native-tls,
-            dns-over-openssl,
-            dnssec-openssl,
             dnssec-ring,
             doc,
           ]

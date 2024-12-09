@@ -47,12 +47,6 @@ dns-over-h3: (default "--features=dns-over-h3" "--ignore=\\{async-std-resolver,h
 # Check, build, and test all crates with dns-over-native-tls enabled
 dns-over-native-tls: (default "--features=dns-over-native-tls" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-server,hickory-dns,hickory-util,hickory-integration,test-support\\}")
 
-# Check, build, and test all crates with dns-over-openssl enabled
-dns-over-openssl: (default "--features=dns-over-openssl" "--ignore=\\{async-std-resolver,hickory-client,hickory-compatibility,hickory-dns,hickory-integration,hickory-recursor,hickory-resolver,hickory-server,hickory-util,test-support\\}")
-
-# Check, build, and test all crates with dnssec-openssl enabled
-dnssec-openssl: (default "--features=dnssec-openssl" "--ignore=\\{async-std-resolver,hickory-client,hickory-compatibility,hickory-dns,hickory-integration,hickory-recursor,hickory-resolver,hickory-server,hickory-util,test-support\\}")
-
 # Check, build, and test all crates with dnssec-ring enabled
 dnssec-ring: (default "--features=dnssec-ring" "--ignore=\\{async-std-resolver,hickory-compatibility,test-support\\}")
 

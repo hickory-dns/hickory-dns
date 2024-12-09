@@ -9,19 +9,16 @@
 
 mod algorithm;
 mod digest_type;
-#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+#[cfg(feature = "dnssec-ring")]
 mod ec_public_key;
 mod nsec3;
-/// OpenSSL implementations of DNSSEC traits.
-#[cfg(feature = "dnssec-openssl")]
-pub mod openssl;
 pub mod proof;
 pub mod public_key;
 pub mod rdata;
 /// ring implementations of DNSSEC traits.
 #[cfg(feature = "dnssec-ring")]
 pub mod ring;
-#[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+#[cfg(feature = "dnssec-ring")]
 mod rsa_public_key;
 mod signer;
 mod supported_algorithm;
@@ -41,9 +38,6 @@ pub use self::trust_anchor::TrustAnchor;
 pub use self::verifier::Verifier;
 pub use crate::error::DnsSecResult;
 
-#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
-pub use ::openssl::hash::DigestBytes as Digest;
-
 #[cfg(feature = "dnssec-ring")]
 pub use ::ring::digest::Digest;
 
@@ -62,25 +56,12 @@ pub fn decode_key(
     #[allow(deprecated)]
     match algorithm {
         Algorithm::Unknown(v) => Err(format!("unknown algorithm: {v}").into()),
-        #[cfg(feature = "dnssec-openssl")]
-        e @ Algorithm::RSASHA1 | e @ Algorithm::RSASHA1NSEC3SHA1 => {
-            Err(format!("unsupported Algorithm (insecure): {e:?}").into())
-        }
         Algorithm::RSASHA256 | Algorithm::RSASHA512 => match format {
-            #[cfg(feature = "dnssec-openssl")]
-            KeyFormat::Der | KeyFormat::Pem => Ok(Box::new(
-                openssl::RsaSigningKey::decode_key(bytes, password, algorithm, format)
-                    .map_err(|e| format!("could not translate RSA to KeyPair: {e}"))?,
-            )),
             #[cfg(feature = "dnssec-ring")]
             KeyFormat::Pkcs8 => Ok(Box::new(ring::RsaSigningKey::from_pkcs8(bytes, algorithm)?)),
             e => Err(format!("unsupported key format with RSA: {e:?}").into()),
         },
         Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => match format {
-            #[cfg(feature = "dnssec-openssl")]
-            KeyFormat::Der | KeyFormat::Pem => Ok(Box::new(openssl::EcSigningKey::decode_key(
-                bytes, password, algorithm, format,
-            )?)),
             #[cfg(feature = "dnssec-ring")]
             KeyFormat::Pkcs8 => Ok(Box::new(ring::EcdsaSigningKey::from_pkcs8(
                 bytes, algorithm,

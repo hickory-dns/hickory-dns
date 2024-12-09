@@ -38,7 +38,6 @@ dns-over-native-tls = [
     "dep:tokio-native-tls",
     "tokio-runtime",
 ]
-dns-over-openssl = ["dns-over-tls", "dep:openssl", "dep:tokio-openssl", "tokio-runtime"]
 
 dns-over-https-rustls = ["dep:bytes", "dep:h2", "dep:http", "dns-over-rustls", "tokio-runtime"]
 dns-over-quic = [
@@ -53,7 +52,6 @@ dns-over-h3 = ["dep:h3", "dep:h3-quinn", "dep:quinn", "dep:http", "dns-over-quic
 native-certs = ["dep:rustls-native-certs"]
 dnssec = ["dep:bitflags", "dep:time"]
 
-dnssec-openssl = ["dnssec", "dep:openssl"]
 dnssec-ring = ["dnssec", "dep:ring"]
 testing = []
 
@@ -95,7 +93,6 @@ ipnet.workspace = true
 js-sys = { workspace = true, optional = true }
 native-tls = { workspace = true, optional = true }
 once_cell.workspace = true
-openssl = { workspace = true, features = ["v102", "v110"], optional = true }
 pin-project-lite = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true, features = ["log", "runtime-tokio", "rustls"] }
 rand.workspace = true
@@ -110,7 +107,6 @@ tinyvec = { workspace = true, features = ["alloc"] }
 tracing.workspace = true
 tokio = { workspace = true, features = ["io-util", "macros"], optional = true }
 tokio-native-tls = { workspace = true, optional = true }
-tokio-openssl = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true, features = ["early-data"] }
 url.workspace = true
 wasm-bindgen-crate = { workspace = true, optional = true }

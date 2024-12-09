@@ -5,11 +5,6 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#![allow(clippy::use_self)]
-
-#[cfg(feature = "dnssec-openssl")]
-use openssl::hash;
-
 #[cfg(feature = "dnssec-ring")]
 use ring::digest;
 
@@ -58,17 +53,6 @@ impl DigestType {
         }
     }
 
-    /// The OpenSSL counterpart for the digest
-    #[cfg(feature = "dnssec-openssl")]
-    pub fn to_openssl_digest(self) -> hash::MessageDigest {
-        match self {
-            Self::SHA1 => hash::MessageDigest::sha1(),
-            Self::SHA256 => hash::MessageDigest::sha256(),
-            Self::SHA384 => hash::MessageDigest::sha384(),
-            Self::SHA512 => hash::MessageDigest::sha512(),
-        }
-    }
-
     /// The *ring* counterpart for the digest
     #[cfg(feature = "dnssec-ring")]
     pub fn to_ring_digest_alg(self) -> &'static digest::Algorithm {
@@ -81,37 +65,9 @@ impl DigestType {
     }
 
     /// Hash the data
-    #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
-    pub fn hash(self, data: &[u8]) -> ProtoResult<Digest> {
-        hash::hash(self.to_openssl_digest(), data).map_err(Into::into)
-    }
-
-    /// Hash the data
     #[cfg(feature = "dnssec-ring")]
     pub fn hash(self, data: &[u8]) -> ProtoResult<Digest> {
         Ok(digest::digest(self.to_ring_digest_alg(), data))
-    }
-
-    /// This will always error, enable openssl feature at compile time
-    #[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
-    pub fn hash(self, _: &[u8]) -> ProtoResult<Vec<u8>> {
-        Err("The openssl and ring features are both disabled".into())
-    }
-
-    /// Digest all the data.
-    #[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
-    pub fn digest_all(self, data: &[&[u8]]) -> ProtoResult<Digest> {
-        use std::io::Write;
-
-        let digest_type = self.to_openssl_digest();
-        hash::Hasher::new(digest_type)
-            .map_err(Into::into)
-            .and_then(|mut hasher| {
-                for d in data {
-                    hasher.write_all(d)?;
-                }
-                hasher.finish().map_err(Into::into)
-            })
     }
 
     /// Digest all the data.

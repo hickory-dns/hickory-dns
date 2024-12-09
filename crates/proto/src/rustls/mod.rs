@@ -22,10 +22,6 @@ pub use self::tls_client_stream::{
 };
 pub use self::tls_stream::{tls_connect, tls_connect_with_bind_addr, tls_from_stream, TlsStream};
 
-// These tests depend on OpenSSL, which we don't want to require for all builds
-#[cfg(all(test, any(feature = "dns-over-openssl", feature = "dnssec-openssl")))]
-pub(crate) mod tests;
-
 /// Make a new [`ClientConfig`] with the default settings
 pub fn client_config() -> Result<ClientConfig, Box<dyn std::error::Error>> {
     #[allow(unused_mut)]

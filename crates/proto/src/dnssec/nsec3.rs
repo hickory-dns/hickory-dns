@@ -147,7 +147,7 @@ impl Nsec3HashAlgorithm {
     ///        original unexpanded form, including the "*" label (no wildcard
     ///        substitution);
     /// ```
-    #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+    #[cfg(feature = "dnssec-ring")]
     pub fn hash(self, salt: &[u8], name: &Name, iterations: u16) -> ProtoResult<Digest> {
         match self {
             // if there ever is more than just SHA1 support, this should be a genericized method
@@ -165,7 +165,7 @@ impl Nsec3HashAlgorithm {
     }
 
     /// until there is another supported algorithm, just hardcoded to this.
-    #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+    #[cfg(feature = "dnssec-ring")]
     fn sha1_recursive_hash(salt: &[u8], bytes: Vec<u8>, iterations: u16) -> ProtoResult<Digest> {
         let digested: Digest;
         let to_digest = if iterations > 0 {
@@ -230,7 +230,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+    #[cfg(feature = "dnssec-ring")]
     fn test_known_hashes() {
         // H(example)       = 0p9mhaveqvm6t7vbl5lop2u3t2rp3tom
         assert_eq!(
