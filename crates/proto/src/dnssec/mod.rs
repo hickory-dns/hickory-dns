@@ -47,26 +47,6 @@ pub use ::openssl::hash::DigestBytes as Digest;
 #[cfg(feature = "dnssec-ring")]
 pub use ::ring::digest::Digest;
 
-/// This is an empty type, enable Ring or OpenSSL for this feature
-#[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
-#[derive(Clone, Copy, Debug)]
-pub struct Digest;
-
-#[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
-#[allow(clippy::should_implement_trait)]
-impl Digest {
-    /// This is an empty type, enable Ring or OpenSSL for this feature
-    pub fn as_ref(&self) -> &Self {
-        self
-    }
-
-    /// This is an empty type, enable Ring or OpenSSL for this feature
-    #[allow(clippy::wrong_self_convention)]
-    pub fn to_owned(&self) -> Vec<u8> {
-        vec![]
-    }
-}
-
 pub use self::signer::SigSigner;
 
 /// Decode private key
