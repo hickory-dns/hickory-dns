@@ -34,8 +34,6 @@ system-config = ["hickory-resolver/system-config"]
 # TODO: These next features are common across the hickory crates, but they are not ready for use here
 ####
 
-#dns-over-native-tls = ["dns-over-tls", "hickory-resolver/dns-over-native-tls"]
-# DNS over TLS with OpenSSL currently needs a good way to set default CAs, use rustls or native-tls
 #dns-over-rustls = ["dns-over-tls", "hickory-resolver/dns-over-rustls"]
 #dns-over-tls = []
 

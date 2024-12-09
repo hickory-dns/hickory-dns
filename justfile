@@ -44,9 +44,6 @@ dns-over-quic: (default "--features=dns-over-quic" "--ignore=\\{async-std-resolv
 # Check, build, and test all crates with dns-over-h3 enabled
 dns-over-h3: (default "--features=dns-over-h3" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-client,test-support\\}")
 
-# Check, build, and test all crates with dns-over-native-tls enabled
-dns-over-native-tls: (default "--features=dns-over-native-tls" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-server,hickory-dns,hickory-util,hickory-integration,test-support\\}")
-
 # Check, build, and test all crates with dnssec-ring enabled
 dnssec-ring: (default "--features=dnssec-ring" "--ignore=\\{async-std-resolver,hickory-compatibility,test-support\\}")
 
