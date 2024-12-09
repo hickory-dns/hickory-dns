@@ -3,6 +3,7 @@
 use core::result::Result as CoreResult;
 use core::str::FromStr;
 use core::{array, fmt};
+use std::borrow::Cow;
 use std::fmt::Write;
 use std::net::Ipv4Addr;
 use std::{any, mem};
@@ -16,13 +17,15 @@ macro_rules! record_types {
         #[allow(clippy::upper_case_acronyms)]
         #[derive(Debug, PartialEq, Clone)]
         pub enum RecordType {
-            $($variant),*
+            $($variant),*,
+            Unknown(u16),
         }
 
         impl RecordType {
-            pub fn as_str(&self) -> &'static str {
+            pub fn as_name(&self) -> Cow<'static, str> {
                 match self {
-                    $(Self::$variant => stringify!($variant)),*
+                    $(Self::$variant => Cow::Borrowed(stringify!($variant))),*,
+                    Self::Unknown(code) => Cow::Owned(format!("type{code}")),
                 }
             }
         }
@@ -35,13 +38,20 @@ macro_rules! record_types {
                     return Ok(Self::$variant);
                 })*
 
+                let lowercase = input.to_lowercase();
+                if let Some(type_code_str) = lowercase.strip_prefix("type") {
+                    if let Ok(type_code) = type_code_str.parse() {
+                        return Ok(Self::Unknown(type_code))
+                    }
+                }
+
                 Err(format!("unknown record type: {input}").into())
             }
         }
 
         impl fmt::Display for RecordType {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str(self.as_str())
+                f.write_str(self.as_name().as_ref())
             }
         }
     };
@@ -1498,6 +1508,14 @@ mod tests {
         assert!(matches!(SOA_INPUT.parse()?, Record::SOA(..)));
         assert!(matches!(TXT_INPUT.parse()?, Record::TXT(..)));
 
+        Ok(())
+    }
+
+    #[test]
+    fn unknown_type_round_trip() -> Result<()> {
+        assert_eq!(RecordType::from_str("type1000")?, RecordType::Unknown(1000));
+        assert_eq!(RecordType::from_str("TYPE1000")?, RecordType::Unknown(1000));
+        assert_eq!(RecordType::Unknown(1000).as_name(), "type1000");
         Ok(())
     }
 }
