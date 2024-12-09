@@ -280,7 +280,7 @@ pub struct DigOutput {
     pub options: Vec<(u16, String)>,
     pub must_be_zero: bool,
     pub opcode: String,
-    // TODO(if needed) other sections
+    pub edns_version: Option<u8>,
 }
 
 impl FromStr for DigOutput {
@@ -293,6 +293,7 @@ impl FromStr for DigOutput {
         const EDE_PREFIX: &str = "; EDE: ";
         const OPT_PREFIX: &str = "; OPT=";
         const OPT_HEADER: &str = ";; OPT PSEUDOSECTION:";
+        const EDNS_PREFIX: &str = "; EDNS: version: ";
         const ANSWER_HEADER: &str = ";; ANSWER SECTION:";
         const AUTHORITY_HEADER: &str = ";; AUTHORITY SECTION:";
         const ADDITIONAL_HEADER: &str = ";; ADDITIONAL SECTION:";
@@ -319,6 +320,7 @@ impl FromStr for DigOutput {
         let mut opt = false;
         let mut must_be_zero = false;
         let mut opcode = None;
+        let mut edns_version = None;
 
         let mut lines = input.lines();
         while let Some(line) = lines.next() {
@@ -371,6 +373,16 @@ impl FromStr for DigOutput {
                 assert!(inserted, "unexpected: duplicate EDE {code:?}");
             } else if line.starts_with(OPT_HEADER) {
                 opt = true;
+            } else if let Some(unprefixed) = line.strip_prefix(EDNS_PREFIX) {
+                let (version_text, _rest) = unprefixed
+                    .split_once(',')
+                    .ok_or_else(|| missing(EDNS_PREFIX, "comma (,)"))?;
+
+                if edns_version.is_some() {
+                    return Err(more_than_once(EDNS_PREFIX).into());
+                }
+
+                edns_version = Some(version_text.parse()?);
             } else if let Some(unprefixed) = line.strip_prefix(OPT_PREFIX) {
                 let Some((option_str, value)) = unprefixed.split_once(": ") else {
                     return Err("could not parse option".into());
@@ -437,6 +449,7 @@ impl FromStr for DigOutput {
             opt,
             must_be_zero,
             opcode: opcode.ok_or_else(|| not_found(OPCODE_PREFIX))?,
+            edns_version,
         })
     }
 }
@@ -697,6 +710,7 @@ l.root-servers.net. 518400  IN  A   199.7.83.42
         let output: DigOutput = input.parse()?;
 
         assert!(output.ede.into_iter().eq([ExtendedDnsError::DnskeyMissing]));
+        assert_eq!(output.edns_version, Some(0));
 
         Ok(())
     }
