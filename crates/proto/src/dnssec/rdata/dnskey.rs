@@ -270,12 +270,6 @@ impl DNSKEY {
         digest_type.hash(&buf)
     }
 
-    /// This will always return an error unless the Ring or OpenSSL features are enabled
-    #[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
-    pub fn to_digest(&self, _: &Name, _: DigestType) -> ProtoResult<Digest> {
-        Err("Ring or OpenSSL must be enabled for this feature".into())
-    }
-
     /// The key tag is calculated as a hash to more quickly lookup a DNSKEY.
     ///
     /// [RFC 2535](https://tools.ietf.org/html/rfc2535), Domain Name System Security Extensions, March 1999
