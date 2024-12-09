@@ -5,7 +5,7 @@ use std::{
 
 use futures::{Future, FutureExt, TryFutureExt};
 use test_support::subscribe;
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use time::Duration;
 use tokio::runtime::Runtime;
 
@@ -17,16 +17,12 @@ use hickory_integration::{
     example_authority::create_example, NeverReturnsClientStream, TestClientStream, GOOGLE_V4,
     GOOGLE_V6, TEST3_V4,
 };
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use hickory_proto::{
-    dnssec::SigSigner,
+    dnssec::{rdata::DNSSECRData, ring::RsaSigningKey, Algorithm, SigSigner, SigningKey},
     rr::Record,
-    xfer::{DnsExchangeBackground, DnsMultiplexer},
-};
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
-use hickory_proto::{
-    dnssec::{rdata::DNSSECRData, ring::RsaSigningKey, Algorithm, SigningKey},
     runtime::TokioTime,
+    xfer::{DnsExchangeBackground, DnsMultiplexer},
 };
 use hickory_proto::{
     op::{Edns, Message, MessageType, OpCode, Query, ResponseCode},
@@ -276,7 +272,7 @@ fn test_notify() {
 //
 
 /// create a client with a sig0 section
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[allow(clippy::type_complexity)]
 async fn create_sig0_ready_client() -> (
     (
@@ -322,7 +318,7 @@ async fn create_sig0_ready_client() -> (
     (client, origin.into())
 }
 
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[test]
 fn test_create() {
     let io_loop = Runtime::new().unwrap();
@@ -368,7 +364,7 @@ fn test_create() {
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
 
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[test]
 fn test_create_multi() {
     let io_loop = Runtime::new().unwrap();
@@ -424,7 +420,7 @@ fn test_create_multi() {
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
 
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[test]
 fn test_append() {
     let io_loop = Runtime::new().unwrap();
@@ -502,7 +498,7 @@ fn test_append() {
     assert_eq!(result.answers().len(), 2);
 }
 
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[test]
 fn test_append_multi() {
     let io_loop = Runtime::new().unwrap();
@@ -587,7 +583,7 @@ fn test_append_multi() {
     assert_eq!(result.answers().len(), 3);
 }
 
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[test]
 fn test_compare_and_swap() {
     let io_loop = Runtime::new().unwrap();
@@ -643,7 +639,7 @@ fn test_compare_and_swap() {
     assert!(!result.answers().iter().any(|rr| *rr == not));
 }
 
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[test]
 fn test_compare_and_swap_multi() {
     let io_loop = Runtime::new().unwrap();
@@ -709,7 +705,7 @@ fn test_compare_and_swap_multi() {
     assert!(!result.answers().iter().any(|rr| *rr == not));
 }
 
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[test]
 fn test_delete_by_rdata() {
     let io_loop = Runtime::new().unwrap();
@@ -760,7 +756,7 @@ fn test_delete_by_rdata() {
     assert!(result.answers().iter().any(|rr| *rr == record1));
 }
 
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[test]
 fn test_delete_by_rdata_multi() {
     let io_loop = Runtime::new().unwrap();
@@ -837,7 +833,7 @@ fn test_delete_by_rdata_multi() {
     assert!(result.answers().iter().any(|rr| *rr == record4));
 }
 
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[test]
 fn test_delete_rrset() {
     let io_loop = Runtime::new().unwrap();
@@ -886,7 +882,7 @@ fn test_delete_rrset() {
     assert_eq!(result.answers().len(), 0);
 }
 
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[test]
 fn test_delete_all() {
     use hickory_proto::rr::rdata::AAAA;
