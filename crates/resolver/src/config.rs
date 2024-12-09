@@ -78,7 +78,7 @@ impl ResolverConfig {
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see
     /// `NameServerConfigGroup` and `ResolverConfig::from_parts`
-    #[cfg(feature = "dns-over-tls")]
+    #[cfg(feature = "dns-over-rustls")]
     pub fn google_tls() -> Self {
         Self {
             // TODO: this should get the hostname and use the basename as the default
@@ -149,7 +149,7 @@ impl ResolverConfig {
     /// Please see: <https://www.cloudflare.com/dns/>
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
-    #[cfg(feature = "dns-over-tls")]
+    #[cfg(feature = "dns-over-rustls")]
     pub fn cloudflare_tls() -> Self {
         Self {
             // TODO: this should get the hostname and use the basename as the default
@@ -193,7 +193,7 @@ impl ResolverConfig {
     /// Please see: <https://www.quad9.net/faq/>
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
-    #[cfg(feature = "dns-over-tls")]
+    #[cfg(feature = "dns-over-rustls")]
     pub fn quad9_tls() -> Self {
         Self {
             // TODO: this should get the hostname and use the basename as the default
@@ -491,7 +491,7 @@ impl NameServerConfigGroup {
         name_servers
     }
 
-    #[cfg(any(feature = "dns-over-tls", feature = "dns-over-https-rustls"))]
+    #[cfg(any(feature = "dns-over-rustls", feature = "dns-over-https-rustls"))]
     fn from_ips_encrypted(
         ips: &[IpAddr],
         port: u16,
@@ -524,7 +524,7 @@ impl NameServerConfigGroup {
     /// Configure a NameServer address and port for DNS-over-TLS
     ///
     /// This will create a TLS connections.
-    #[cfg(feature = "dns-over-tls")]
+    #[cfg(feature = "dns-over-rustls")]
     pub fn from_ips_tls(
         ips: &[IpAddr],
         port: u16,
@@ -616,7 +616,7 @@ impl NameServerConfigGroup {
     /// statement](https://developers.google.com/speed/public-dns/privacy) for important information
     /// about what they track, many ISP's track similar information in DNS. To use the system
     /// configuration see: `Resolver::from_system_conf`.
-    #[cfg(feature = "dns-over-tls")]
+    #[cfg(feature = "dns-over-rustls")]
     pub fn google_tls() -> Self {
         Self::from_ips_tls(GOOGLE_IPS, 853, "dns.google".to_string(), true)
     }
@@ -657,7 +657,7 @@ impl NameServerConfigGroup {
     /// Creates a configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare). This limits the registered connections to just TLS lookups
     ///
     /// Please see: <https://www.cloudflare.com/dns/>
-    #[cfg(feature = "dns-over-tls")]
+    #[cfg(feature = "dns-over-rustls")]
     pub fn cloudflare_tls() -> Self {
         Self::from_ips_tls(CLOUDFLARE_IPS, 853, "cloudflare-dns.com".to_string(), true)
     }
@@ -680,7 +680,7 @@ impl NameServerConfigGroup {
     /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings. This limits the registered connections to just TLS lookups
     ///
     /// Please see: <https://www.quad9.net/faq/>
-    #[cfg(feature = "dns-over-tls")]
+    #[cfg(feature = "dns-over-rustls")]
     pub fn quad9_tls() -> Self {
         Self::from_ips_tls(QUAD9_IPS, 853, "dns.quad9.net".to_string(), true)
     }

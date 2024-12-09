@@ -13,7 +13,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-#[cfg(feature = "dns-over-tls")]
+#[cfg(feature = "dns-over-rustls")]
 use crate::proto::runtime::iocompat::AsyncIoStdAsTokio;
 use crate::proto::runtime::Spawn;
 #[cfg(feature = "tokio-runtime")]
@@ -33,7 +33,7 @@ use crate::proto::h2::{HttpsClientConnect, HttpsClientStream};
 use crate::proto::h3::{H3ClientConnect, H3ClientStream};
 #[cfg(feature = "dns-over-quic")]
 use crate::proto::quic::{QuicClientConnect, QuicClientStream};
-#[cfg(feature = "dns-over-tls")]
+#[cfg(feature = "dns-over-rustls")]
 use crate::proto::runtime::iocompat::AsyncIoTokioAsStd;
 #[cfg(feature = "tokio-runtime")]
 #[allow(unused_imports)] // Complicated cfg for which protocols are enabled
@@ -67,7 +67,7 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
     ) -> Result<Self::FutureConn, io::Error>;
 }
 
-#[cfg(feature = "dns-over-tls")]
+#[cfg(feature = "dns-over-rustls")]
 /// Predefined type for TLS client stream
 type TlsClientStream<S> = TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<AsyncIoStdAsTokio<S>>>>;
 
@@ -85,7 +85,7 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
             R::Timer,
         >,
     ),
-    #[cfg(all(feature = "dns-over-tls", feature = "tokio-runtime"))]
+    #[cfg(feature = "dns-over-rustls")]
     Tls(
         DnsExchangeConnect<
             DnsMultiplexerConnect<
@@ -136,7 +136,7 @@ impl<R: RuntimeProvider> Future for ConnectionFuture<R> {
                 self.spawner.spawn_bg(bg);
                 GenericConnection(conn)
             }
-            #[cfg(feature = "dns-over-tls")]
+            #[cfg(feature = "dns-over-rustls")]
             ConnectionConnect::Tls(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
@@ -234,7 +234,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let exchange = DnsExchange::connect(dns_conn);
                 ConnectionConnect::Tcp(exchange)
             }
-            #[cfg(feature = "dns-over-tls")]
+            #[cfg(feature = "dns-over-rustls")]
             (Protocol::Tls, _) => {
                 let socket_addr = config.socket_addr;
                 let timeout = options.timeout;

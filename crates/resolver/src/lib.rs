@@ -237,7 +237,7 @@ pub use resolver::TokioResolver;
 pub mod system_conf;
 #[cfg(test)]
 mod tests;
-#[cfg(feature = "dns-over-tls")]
+#[cfg(feature = "dns-over-rustls")]
 mod tls;
 
 #[doc(hidden)]

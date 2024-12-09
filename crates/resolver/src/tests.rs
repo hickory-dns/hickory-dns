@@ -37,7 +37,7 @@ async fn readme_example() {
 }
 
 // Keep this in sync with the example in the README.
-#[cfg(all(feature = "tokio-runtime", feature = "dns-over-tls"))]
+#[cfg(feature = "dns-over-rustls")]
 #[test]
 fn readme_tls() {
     use crate::config::*;
