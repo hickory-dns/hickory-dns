@@ -205,12 +205,6 @@ impl DS {
         key.to_digest(name, self.digest_type())
             .map(|hash| key.zone_key() && hash.as_ref() == self.digest())
     }
-
-    /// This will always return an error unless the Ring or OpenSSL features are enabled
-    #[cfg(not(any(feature = "dnssec-openssl", feature = "dnssec-ring")))]
-    pub fn covers(&self, _: &Name, _: &DNSKEY) -> ProtoResult<bool> {
-        Err("Ring or OpenSSL must be enabled for this feature".into())
-    }
 }
 
 impl BinEncodable for DS {

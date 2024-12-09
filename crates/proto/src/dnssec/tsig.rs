@@ -222,7 +222,7 @@ impl MessageFinalizer for TSigner {
     }
 }
 
-#[cfg(all(test, any(feature = "dnssec-ring", feature = "dnssec-openssl")))]
+#[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 

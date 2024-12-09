@@ -618,14 +618,6 @@ impl TsigAlgorithm {
         }
     }
 
-    // TODO: remove this once hickory-client no longer has dnssec feature enabled by default
-    #[cfg(not(any(feature = "dnssec-ring", feature = "dnssec-openssl")))]
-    #[doc(hidden)]
-    #[allow(clippy::unimplemented)]
-    pub fn output_len(&self) -> ProtoResult<usize> {
-        unimplemented!("one of dnssec-ring or dnssec-openssl features must be enabled")
-    }
-
     /// Return length in bytes of the algorithms output
     #[cfg(feature = "dnssec-ring")]
     pub fn output_len(&self) -> ProtoResult<usize> {
