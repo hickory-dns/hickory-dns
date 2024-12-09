@@ -7,8 +7,10 @@ use std::sync::{
     Arc,
 };
 use std::task::Poll;
+use std::time::Duration;
 
 use futures::executor::block_on;
+use tokio::time::timeout;
 
 use hickory_integration::mock_client::*;
 use hickory_proto::op::{Query, ResponseCode};
@@ -799,11 +801,16 @@ fn test_concurrent_requests_2_conns() {
     let request = message(query, vec![], vec![], vec![]);
     let future = pool.send(request).first_answer();
 
-    // there's no actual network traffic happening, 1 sec should be plenty
-    //   TODO: for some reason this timeout doesn't work, not clear why...
-    // let future = Timeout::new(future, Duration::from_secs(1));
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
 
-    let response = block_on(future).unwrap();
+    // there's no actual network traffic happening, 1 sec should be plenty
+    let response = runtime
+        .block_on(async { timeout(Duration::from_secs(1), future).await })
+        .unwrap()
+        .unwrap();
     assert_eq!(response.answers()[0], udp_record);
 }
 
@@ -842,11 +849,16 @@ fn test_concurrent_requests_more_than_conns() {
     let request = message(query, vec![], vec![], vec![]);
     let future = pool.send(request).first_answer();
 
-    // there's no actual network traffic happening, 1 sec should be plenty
-    //   TODO: for some reason this timeout doesn't work, not clear why...
-    // let future = Timeout::new(future, Duration::from_secs(1));
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
 
-    let response = block_on(future).unwrap();
+    // there's no actual network traffic happening, 1 sec should be plenty
+    let response = runtime
+        .block_on(async { timeout(Duration::from_secs(1), future).await })
+        .unwrap()
+        .unwrap();
     assert_eq!(response.answers()[0], udp_record);
 }
 
@@ -885,11 +897,16 @@ fn test_concurrent_requests_1_conn() {
     let request = message(query, vec![], vec![], vec![]);
     let future = pool.send(request).first_answer();
 
-    // there's no actual network traffic happening, 1 sec should be plenty
-    //   TODO: for some reason this timeout doesn't work, not clear why...
-    // let future = Timeout::new(future, Duration::from_secs(1));
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
 
-    let response = block_on(future).unwrap();
+    // there's no actual network traffic happening, 1 sec should be plenty
+    let response = runtime
+        .block_on(async { timeout(Duration::from_secs(1), future).await })
+        .unwrap()
+        .unwrap();
     assert_eq!(response.answers()[0], udp_record);
 }
 
@@ -928,10 +945,15 @@ fn test_concurrent_requests_0_conn() {
     let request = message(query, vec![], vec![], vec![]);
     let future = pool.send(request).first_answer();
 
-    // there's no actual network traffic happening, 1 sec should be plenty
-    //   TODO: for some reason this timeout doesn't work, not clear why...
-    // let future = Timeout::new(future, Duration::from_secs(1));
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
 
-    let response = block_on(future).unwrap();
+    // there's no actual network traffic happening, 1 sec should be plenty
+    let response = runtime
+        .block_on(async { timeout(Duration::from_secs(1), future).await })
+        .unwrap()
+        .unwrap();
     assert_eq!(response.answers()[0], udp_record);
 }

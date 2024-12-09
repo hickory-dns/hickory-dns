@@ -10,7 +10,7 @@ use tracing::debug;
 use crate::op::{Message, Query};
 use crate::rr::rdata::NULL;
 use crate::rr::{Name, RData, Record, RecordType};
-use crate::runtime::{Executor, RuntimeProvider};
+use crate::runtime::{Executor, RuntimeProvider, Time};
 use crate::udp::{UdpClientStream, UdpStream};
 use crate::xfer::dns_handle::DnsStreamHandle;
 use crate::xfer::{DnsRequest, DnsRequestSender};
@@ -125,10 +125,10 @@ pub async fn udp_stream_test<P: RuntimeProvider>(server_addr: IpAddr, provider: 
 
 /// Test udp_client_stream.
 #[allow(clippy::print_stdout)]
-pub fn udp_client_stream_test<E: Executor>(
+pub fn udp_client_stream_test<E: Executor, P: RuntimeProvider>(
     server_addr: IpAddr,
     mut exec: E,
-    provider: impl RuntimeProvider,
+    provider: P,
 ) {
     let succeeded = Arc::new(AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -204,9 +204,6 @@ pub fn udp_client_stream_test<E: Executor>(
 
     // setup the client, which is going to run on the testing thread...
 
-    // the tests should run within 5 seconds... right?
-    // TODO: add timeout here, so that test never hangs...
-    // let timeout = Timeout::new(Duration::from_secs(5));
     let stream = UdpClientStream::builder(server_addr, provider)
         .with_timeout(Some(Duration::from_millis(500)))
         .build();
@@ -218,12 +215,16 @@ pub fn udp_client_stream_test<E: Executor>(
         let response_stream =
             stream.send_message(DnsRequest::new(query.clone(), DnsRequestOptions::default()));
         println!("client sending request {i}");
-        let response = match exec.block_on(response_stream.first_answer()) {
-            Ok(response) => response,
-            Err(err) => {
+        let response = match exec.block_on(P::Timer::timeout(
+            Duration::from_secs(5),
+            response_stream.first_answer(),
+        )) {
+            Ok(Ok(response)) => response,
+            Ok(Err(err)) => {
                 println!("failed to get message: {err}");
                 continue;
             }
+            Err(err) => panic!("timeout: {err}"),
         };
         println!("client got response {i}");
 
