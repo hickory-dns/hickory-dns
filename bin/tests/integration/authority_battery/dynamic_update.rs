@@ -780,11 +780,11 @@ pub fn add_auth<A: DnssecAuthority>(authority: &mut A) -> Vec<SigSigner> {
 
     // TODO: support RSA signing with ring
     // rsa
-    #[cfg(feature = "dnssec-openssl")]
+    #[cfg(feature = "dnssec-ring")]
     {
         let key_config = KeyConfig {
-            key_path: "../tests/test-data/test_configs/dnssec/rsa_2048.pem".to_string(),
-            password: Some("123456".to_string()),
+            key_path: "../tests/test-data/test_configs/dnssec/rsa_2048.pk8".to_string(),
+            password: None,
             algorithm: Algorithm::RSASHA512.to_string(),
             signer_name: Some(update_name.to_string()),
             is_zone_signing_key: Some(true),

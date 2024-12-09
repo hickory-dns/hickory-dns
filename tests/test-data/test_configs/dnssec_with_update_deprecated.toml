@@ -51,9 +51,7 @@ allow_update = true
 enable_dnssec = true
 
 [[zones.keys]]
-key_path = "../tests/test-data/test_configs/dnssec/rsa_2048.pem"
-## the password used to encrypt/decrypt the file (must be PEM), blank for none
-password = "123456"
+key_path = "../tests/test-data/test_configs/dnssec/rsa_2048.pk8"
 ## specify the algorithm
 algorithm = "RSASHA256"
 ## this key should be used to sign the zone
@@ -64,8 +62,7 @@ is_zone_signing_key = true
 # create_if_absent = false
 
 [[zones.keys]]
-key_path = "../tests/test-data/test_configs/dnssec/rsa_2048.pem"
-password = "123456"
+key_path = "../tests/test-data/test_configs/dnssec/rsa_2048.pk8"
 algorithm = "RSASHA512"
 is_zone_signing_key = false
 is_zone_update_auth = true
