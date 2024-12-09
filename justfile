@@ -48,10 +48,10 @@ dns-over-h3: (default "--features=dns-over-h3" "--ignore=\\{async-std-resolver,h
 dns-over-native-tls: (default "--features=dns-over-native-tls" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-server,hickory-dns,hickory-util,hickory-integration,test-support\\}")
 
 # Check, build, and test all crates with dns-over-openssl enabled
-dns-over-openssl: (default "--features=dns-over-openssl" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-util,test-support\\}")
+dns-over-openssl: (default "--features=dns-over-openssl" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-integration,hickory-util,test-support\\}")
 
 # Check, build, and test all crates with dnssec-openssl enabled
-dnssec-openssl: (default "--features=dnssec-openssl" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-util,test-support\\}")
+dnssec-openssl: (default "--features=dnssec-openssl" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-integration,hickory-util,test-support\\}")
 
 # Check, build, and test all crates with dnssec-ring enabled
 dnssec-ring: (default "--features=dnssec-ring" "--ignore=\\{async-std-resolver,hickory-compatibility,test-support\\}")

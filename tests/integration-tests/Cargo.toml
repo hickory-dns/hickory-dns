@@ -35,14 +35,6 @@ name = "hickory_integration"
 path = "src/lib.rs"
 
 [features]
-dnssec-openssl = [
-    "dnssec",
-    "dep:openssl",
-    "hickory-resolver/dnssec-openssl",
-    "hickory-server/dnssec-openssl",
-    "hickory-client/dnssec-openssl",
-    "hickory-proto/dnssec-openssl",
-]
 dnssec-ring = [
     "dnssec",
     "hickory-resolver/dnssec-ring",
@@ -71,12 +63,6 @@ dns-over-h3 = [
 
 # TODO: need to make server support rustls and native-tls
 # dns-over-native-tls = ["dns-over-tls",  "hickory-resolver/dns-over-native-tls", "hickory-server/dns-over-native-tls"]
-dns-over-openssl = [
-    "dns-over-tls",
-    "hickory-proto/dns-over-openssl",
-    "hickory-resolver/dns-over-openssl",
-    "hickory-server/dns-over-openssl",
-]
 dns-over-rustls = [
     "dns-over-tls",
     "hickory-proto/dns-over-rustls",
@@ -92,7 +78,6 @@ sqlite = ["rusqlite", "hickory-server/sqlite"]
 async-trait.workspace = true
 futures = { workspace = true, features = ["executor"] }
 once_cell.workspace = true
-openssl = { workspace = true, optional = true, features = ["v102", "v110"] }
 rand.workspace = true
 rusqlite = { workspace = true, features = ["bundled"], optional = true }
 rustls = { workspace = true, optional = true }
