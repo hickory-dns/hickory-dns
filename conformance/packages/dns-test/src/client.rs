@@ -74,6 +74,7 @@ impl Client {
             settings.zflag(),
             settings.opcodeflag().as_str(),
             settings.header_only_flag(),
+            settings.tcpflag(),
             &format!("@{server}"),
             record_type.as_name().as_ref(),
             fqdn.as_str(),
@@ -98,6 +99,7 @@ pub struct DigSettings {
     zflag: bool,
     opcode: u8,
     header_only: bool,
+    tcp: bool,
 }
 
 impl Default for DigSettings {
@@ -112,6 +114,7 @@ impl Default for DigSettings {
             zflag: false,
             opcode: 0,
             header_only: false,
+            tcp: false,
         }
     }
 }
@@ -229,6 +232,19 @@ impl DigSettings {
         match self.header_only {
             true => "+header-only",
             false => "+noheader-only",
+        }
+    }
+
+    /// Use TCP instead of UDP.
+    pub fn tcp(&mut self) -> &mut Self {
+        self.tcp = true;
+        self
+    }
+
+    fn tcpflag(&self) -> &'static str {
+        match self.tcp {
+            true => "+tcp",
+            false => "+notcp",
         }
     }
 }
