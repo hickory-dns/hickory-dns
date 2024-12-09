@@ -466,6 +466,7 @@ impl FromStr for DigFlags {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DigStatus {
     NOERROR,
+    NOTIMP,
     NXDOMAIN,
     REFUSED,
     SERVFAIL,
@@ -493,8 +494,9 @@ impl FromStr for DigStatus {
 
     fn from_str(input: &str) -> Result<Self> {
         let status = match input {
-            "NXDOMAIN" => Self::NXDOMAIN,
             "NOERROR" => Self::NOERROR,
+            "NOTIMP" => Self::NOTIMP,
+            "NXDOMAIN" => Self::NXDOMAIN,
             "REFUSED" => Self::REFUSED,
             "SERVFAIL" => Self::SERVFAIL,
             _ => return Err(format!("unknown status: {input}").into()),
