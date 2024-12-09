@@ -52,8 +52,6 @@ pub mod h3;
 pub mod http;
 #[cfg(feature = "mdns")]
 pub mod multicast;
-#[cfg(feature = "dns-over-native-tls")]
-pub mod native_tls;
 pub mod op;
 #[cfg(all(feature = "dns-over-quic", feature = "tokio-runtime"))]
 pub mod quic;

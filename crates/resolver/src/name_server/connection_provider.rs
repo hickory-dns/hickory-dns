@@ -21,8 +21,6 @@ use crate::proto::runtime::TokioRuntimeProvider;
 use futures_util::future::FutureExt;
 use futures_util::ready;
 use futures_util::stream::{Stream, StreamExt};
-#[cfg(all(feature = "dns-over-native-tls", not(feature = "dns-over-rustls")))]
-use tokio_native_tls::TlsStream as TokioTlsStream;
 #[cfg(feature = "dns-over-rustls")]
 use tokio_rustls::client::TlsStream as TokioTlsStream;
 

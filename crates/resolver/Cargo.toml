@@ -27,11 +27,6 @@ license.workspace = true
 [features]
 default = ["system-config", "tokio-runtime"]
 backtrace = ["dep:backtrace", "hickory-proto/backtrace"]
-dns-over-native-tls = [
-    "dns-over-tls",
-    "dep:tokio-native-tls",
-    "hickory-proto/dns-over-native-tls",
-]
 dns-over-rustls = [
     "dns-over-tls",
     "dep:rustls",
@@ -87,7 +82,6 @@ smallvec.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, optional = true }
-tokio-native-tls = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true }
 hickory-proto = { workspace = true, default-features = false }
 webpki-roots = { workspace = true, optional = true }

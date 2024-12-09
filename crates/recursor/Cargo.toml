@@ -56,12 +56,6 @@ dns-over-h3 = [
     "hickory-resolver/dns-over-h3",
 ]
 
-# TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
-dns-over-native-tls = [
-    "dns-over-tls",
-    "hickory-proto/dns-over-native-tls",
-    "hickory-resolver/dns-over-native-tls",
-]
 dns-over-rustls = [
     "dns-over-tls",
     "hickory-proto/dns-over-rustls",

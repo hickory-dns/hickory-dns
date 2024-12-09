@@ -61,8 +61,6 @@ dns-over-h3 = [
     "hickory-resolver/dns-over-h3",
 ]
 
-# TODO: need to make server support rustls and native-tls
-# dns-over-native-tls = ["dns-over-tls",  "hickory-resolver/dns-over-native-tls", "hickory-server/dns-over-native-tls"]
 dns-over-rustls = [
     "dns-over-tls",
     "hickory-proto/dns-over-rustls",

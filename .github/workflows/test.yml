@@ -116,7 +116,6 @@ jobs:
             dns-over-https-rustls,
             dns-over-quic,
             dns-over-h3,
-            dns-over-native-tls,
             dnssec-ring,
             doc,
           ]

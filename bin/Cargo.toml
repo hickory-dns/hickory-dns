@@ -83,9 +83,8 @@ libc.workspace = true
 
 [dev-dependencies]
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
-native-tls.workspace = true
 regex.workspace = true
-hickory-proto = { workspace = true, features = ["dns-over-native-tls", "testing"] }
+hickory-proto = { workspace = true, features = ["testing"] }
 hickory-resolver.workspace = true
 test-support.workspace = true
 toml.workspace = true
