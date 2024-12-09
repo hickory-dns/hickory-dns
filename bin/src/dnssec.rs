@@ -9,12 +9,6 @@
 
 use std::path::Path;
 
-#[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
-use openssl::{
-    pkey::{PKey, Private},
-    stack::Stack,
-    x509::X509,
-};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use serde::Deserialize;
@@ -300,68 +294,6 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<SigSigner, String
             .try_into()
             .map_err(|e| format!("error converting time to std::Duration: {e}"))?,
     ))
-}
-
-/// Load a Certificate from the path (with openssl)
-#[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
-pub fn load_cert(
-    zone_dir: &Path,
-    tls_cert_config: &TlsCertConfig,
-) -> Result<((X509, Option<Stack<X509>>), PKey<Private>), String> {
-    use tracing::{info, warn};
-
-    use hickory_proto::openssl::tls_server::{
-        read_cert_pem, read_cert_pkcs12, read_key_from_der, read_key_from_pkcs8,
-    };
-
-    let path = zone_dir.to_owned().join(tls_cert_config.path());
-    let cert_type = tls_cert_config.cert_type();
-    let password = tls_cert_config.password();
-    let private_key_path = tls_cert_config
-        .private_key()
-        .map(|p| zone_dir.to_owned().join(p));
-    let private_key_type = tls_cert_config.private_key_type();
-
-    // if it's pkcs12, we'll be collecting the key and certs from that, otherwise continue processing
-    let (cert, cert_chain) = match cert_type {
-        CertType::Pem => {
-            info!("loading TLS PEM certificate from: {:?}", path);
-            read_cert_pem(&path)?
-        }
-        CertType::Pkcs12 => {
-            if private_key_path.is_some() {
-                warn!(
-                    "ignoring specified key, using the one in the PKCS12 file: {}",
-                    path.display()
-                );
-            }
-            info!("loading TLS PKCS12 certificate from: {:?}", path);
-            let ((cert_opt, cert_chain), private_key_opt) = read_cert_pkcs12(&path, password)?;
-            let cert = cert_opt.ok_or_else(|| format!("no certificate in {path:?}"))?;
-            let private_key =
-                private_key_opt.ok_or_else(|| format!("no private key in {path:?}"))?;
-            return Ok(((cert, cert_chain), private_key));
-        }
-    };
-
-    // it wasn't pkcs12, we need to load the key separately
-    let key = match (private_key_path, private_key_type) {
-        (Some(private_key_path), PrivateKeyType::Pkcs8) => {
-            info!("loading TLS PKCS8 key from: {}", private_key_path.display());
-            read_key_from_pkcs8(&private_key_path, password)?
-        }
-        (Some(private_key_path), PrivateKeyType::Der) => {
-            info!("loading TLS DER key from: {}", private_key_path.display());
-            read_key_from_der(&private_key_path)?
-        }
-        (None, _) => {
-            return Err(format!(
-                "No private key associated with specified certificate"
-            ));
-        }
-    };
-
-    Ok(((cert, cert_chain), key))
 }
 
 /// Load a Certificate from the path (with rustls)

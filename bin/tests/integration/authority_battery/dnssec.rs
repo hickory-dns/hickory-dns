@@ -374,7 +374,7 @@ pub fn add_signers<A: DnssecAuthority>(authority: &mut A) -> Vec<DNSKEY> {
     let mut keys = Vec::<DNSKEY>::new();
 
     // TODO: support RSA signing with ring
-    #[cfg(feature = "dnssec-openssl")]
+    #[cfg(feature = "dnssec-ring")]
     // rsa
     {
         let key_config = KeyConfig {
