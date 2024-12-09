@@ -32,11 +32,6 @@ license.workspace = true
 [features]
 backtrace = ["dep:backtrace", "hickory-proto/backtrace", "hickory-resolver/backtrace"]
 
-dnssec-openssl = [
-    "dnssec",
-    "hickory-proto/dnssec-openssl",
-    "hickory-resolver/dnssec-openssl",
-]
 dnssec-ring = [
     "dnssec",
     "hickory-proto/dnssec-ring",
@@ -67,11 +62,6 @@ dns-over-native-tls = [
     "hickory-proto/dns-over-native-tls",
     "hickory-resolver/dns-over-native-tls",
 ]
-dns-over-openssl = [
-    "dns-over-tls",
-    "hickory-proto/dns-over-openssl",
-    "hickory-resolver/dns-over-openssl",
-]
 dns-over-rustls = [
     "dns-over-tls",
     "hickory-proto/dns-over-rustls",
@@ -80,8 +70,7 @@ dns-over-rustls = [
 dns-over-tls = []
 
 # This is a deprecated feature...
-tls-openssl = ["dns-over-openssl"]
-tls = ["dns-over-openssl"]
+tls = []
 
 serde = [
     "dep:serde",
