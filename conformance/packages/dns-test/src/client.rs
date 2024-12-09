@@ -72,6 +72,8 @@ impl Client {
             settings.timeoutflag().as_str(),
             settings.ednsflag().as_str(),
             settings.zflag(),
+            settings.opcodeflag().as_str(),
+            settings.header_only_flag(),
             &format!("@{server}"),
             record_type.as_name().as_ref(),
             fqdn.as_str(),
@@ -94,6 +96,8 @@ pub struct DigSettings {
     /// the given version number.
     edns: Option<u8>,
     zflag: bool,
+    opcode: u8,
+    header_only: bool,
 }
 
 impl Default for DigSettings {
@@ -106,6 +110,8 @@ impl Default for DigSettings {
             timeout: None,
             edns: Some(0),
             zflag: false,
+            opcode: 0,
+            header_only: false,
         }
     }
 }
@@ -199,6 +205,30 @@ impl DigSettings {
         match self.zflag {
             true => "+zflag",
             false => "+nozflag",
+        }
+    }
+
+    /// Set the opcode.
+    pub fn opcode(&mut self, opcode: u8) -> &mut Self {
+        assert!(opcode < 16, "invalid opcode: {opcode}");
+        self.opcode = opcode;
+        self
+    }
+
+    fn opcodeflag(&self) -> String {
+        format!("+opcode={}", self.opcode)
+    }
+
+    /// Send a header only, with no question section.
+    pub fn header_only(&mut self) -> &mut Self {
+        self.header_only = true;
+        self
+    }
+
+    fn header_only_flag(&self) -> &'static str {
+        match self.header_only {
+            true => "+header-only",
+            false => "+noheader-only",
         }
     }
 }
