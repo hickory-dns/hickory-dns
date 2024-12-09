@@ -138,6 +138,28 @@ fn test_ecdsa_p256() {
 
 #[test]
 #[cfg(feature = "dnssec-ring")]
+fn test_rsa_sha256_pkcs8() {
+    generic_test(
+        confg_toml(),
+        "tests/test-data/test_configs/dnssec/rsa_2048.pk8",
+        KeyFormat::Pkcs8,
+        Algorithm::RSASHA256,
+    );
+}
+
+#[test]
+#[cfg(feature = "dnssec-ring")]
+fn test_rsa_sha512_pkcs8() {
+    generic_test(
+        confg_toml(),
+        "tests/test-data/test_configs/dnssec/rsa_2048.pk8",
+        KeyFormat::Pkcs8,
+        Algorithm::RSASHA512,
+    );
+}
+
+#[test]
+#[cfg(feature = "dnssec-ring")]
 fn test_ecdsa_p256_pkcs8() {
     generic_test(
         confg_toml(),

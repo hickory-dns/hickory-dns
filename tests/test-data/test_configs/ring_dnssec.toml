@@ -40,6 +40,16 @@ file = "example.com.zone"
 enable_dnssec = true
 
 [[zones.keys]]
+key_path = "../tests/test-data/test_configs/dnssec/rsa_2048.pk8"
+algorithm = "RSASHA256"
+is_zone_signing_key = true
+
+[[zones.keys]]
+key_path = "../tests/test-data/test_configs/dnssec/rsa_2048.pk8"
+algorithm = "RSASHA512"
+is_zone_signing_key = true
+
+[[zones.keys]]
 # Requires --features=ring
 key_path = "../tests/test-data/test_configs/dnssec/ecdsa_p256.pk8"
 algorithm = "ECDSAP256SHA256"
