@@ -213,6 +213,7 @@ pub struct DigOutput {
     pub additional: Vec<Record>,
     pub opt: bool,
     pub options: Vec<(u16, String)>,
+    pub must_be_zero: bool,
     // TODO(if needed) other sections
 }
 
@@ -249,6 +250,7 @@ impl FromStr for DigOutput {
         let mut ede = BTreeSet::new();
         let mut options = Vec::new();
         let mut opt = false;
+        let mut must_be_zero = false;
 
         let mut lines = input.lines();
         while let Some(line) = lines.next() {
@@ -262,6 +264,10 @@ impl FromStr for DigOutput {
                 }
 
                 flags = Some(flags_text.parse()?);
+
+                if line.contains("MBZ:") {
+                    must_be_zero = true;
+                }
             } else if let Some(unprefixed) = line.strip_prefix(STATUS_PREFIX) {
                 let (status_text, _rest) = unprefixed
                     .split_once(',')
@@ -347,6 +353,7 @@ impl FromStr for DigOutput {
             status: status.ok_or_else(|| not_found(STATUS_PREFIX))?,
             options,
             opt,
+            must_be_zero,
         })
     }
 }
@@ -671,6 +678,35 @@ primary0.hickory-dns.testing. 86400 IN	A	172.19.0.2
         let output: DigOutput = input.parse()?;
 
         assert!(!output.opt);
+
+        Ok(())
+    }
+
+    #[test]
+    fn reserved_flag() -> Result<()> {
+        let input =
+            "; <<>> DiG 9.18.28-0ubuntu0.24.04.1-Ubuntu <<>> @127.0.0.1 -p 12353 A example.testing.
+; (1 server found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 28099
+;; flags: qr aa rd ra ad; MBZ: 0x4; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
+
+;; QUESTION SECTION:
+;example.testing.		IN	A
+
+;; ANSWER SECTION:
+example.testing.	0	IN	A	1.2.3.4
+
+;; Query time: 1 msec
+;; SERVER: 127.0.0.1#12353(127.0.0.1) (UDP)
+;; WHEN: Mon Dec 09 12:58:54 CST 2024
+;; MSG SIZE  rcvd: 49
+";
+
+        let output: DigOutput = input.parse()?;
+
+        assert!(output.must_be_zero);
 
         Ok(())
     }
