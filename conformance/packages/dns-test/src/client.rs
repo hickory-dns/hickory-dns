@@ -75,6 +75,7 @@ impl Client {
             settings.opcodeflag().as_str(),
             settings.header_only_flag(),
             settings.tcpflag(),
+            settings.cookieflag(),
             &format!("@{server}"),
             record_type.as_name().as_ref(),
             fqdn.as_str(),
@@ -100,6 +101,7 @@ pub struct DigSettings {
     opcode: u8,
     header_only: bool,
     tcp: bool,
+    cookie: bool,
 }
 
 impl Default for DigSettings {
@@ -115,6 +117,7 @@ impl Default for DigSettings {
             opcode: 0,
             header_only: false,
             tcp: false,
+            cookie: true,
         }
     }
 }
@@ -245,6 +248,22 @@ impl DigSettings {
         match self.tcp {
             true => "+tcp",
             false => "+notcp",
+        }
+    }
+
+    /// Do not send a COOKIE EDNS option.
+    pub fn nocookie(&mut self) -> &mut Self {
+        self.cookie = false;
+        self
+    }
+
+    fn cookieflag(&self) -> &'static str {
+        // Only use "+cookie" when EDNS is enabled (the default). Otherwise, "+cookie" overrides
+        // "+noedns".
+        if self.edns.is_some() && self.cookie {
+            "+cookie"
+        } else {
+            "+nocookie"
         }
     }
 }
