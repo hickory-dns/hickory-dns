@@ -684,7 +684,7 @@ fn emit_tag(buf: &mut [u8], tag: &Property) -> ProtoResult<u8> {
     let property = property.as_bytes();
 
     let len = property.len();
-    if len > ::std::u8::MAX as usize {
+    if len > u8::MAX as usize {
         return Err(format!("CAA property too long: {len}").into());
     }
     if buf.len() < len {
@@ -713,7 +713,7 @@ impl BinEncodable for CAA {
 
         encoder.emit(flags)?;
         // TODO: it might be interesting to use the new place semantics here to output all the data, then place the length back to the beginning...
-        let mut tag_buf = [0_u8; ::std::u8::MAX as usize];
+        let mut tag_buf = [0_u8; u8::MAX as usize];
         let len = emit_tag(&mut tag_buf, &self.tag)?;
 
         // now write to the encoder

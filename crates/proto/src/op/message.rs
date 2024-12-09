@@ -78,10 +78,10 @@ pub fn update_header_counts(
     is_truncated: bool,
     counts: HeaderCounts,
 ) -> Header {
-    assert!(counts.query_count <= u16::max_value() as usize);
-    assert!(counts.answer_count <= u16::max_value() as usize);
-    assert!(counts.nameserver_count <= u16::max_value() as usize);
-    assert!(counts.additional_count <= u16::max_value() as usize);
+    assert!(counts.query_count <= u16::MAX as usize);
+    assert!(counts.answer_count <= u16::MAX as usize);
+    assert!(counts.nameserver_count <= u16::MAX as usize);
+    assert!(counts.additional_count <= u16::MAX as usize);
 
     // TODO: should the function just take by value?
     let mut header = *current_header;

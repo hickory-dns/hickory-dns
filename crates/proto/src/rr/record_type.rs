@@ -297,7 +297,7 @@ impl BinEncodable for RecordType {
     }
 }
 
-impl<'r> BinDecodable<'r> for RecordType {
+impl BinDecodable<'_> for RecordType {
     fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
         Ok(decoder
             .read_u16()

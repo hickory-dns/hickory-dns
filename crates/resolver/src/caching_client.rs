@@ -550,10 +550,10 @@ mod tests {
             vec![(
                 Record::from_rdata(
                     query.name().clone(),
-                    u32::max_value(),
+                    u32::MAX,
                     RData::A(A::new(127, 0, 0, 1)),
                 ),
-                u32::max_value(),
+                u32::MAX,
             )],
             Instant::now(),
         );
