@@ -26,6 +26,7 @@ use hickory_proto::xfer::{DnsHandle, DnsMultiplexer};
 use hickory_server::authority::{Authority, Catalog};
 use hickory_server::ServerFuture;
 use test_support::subscribe;
+use tokio::time::timeout;
 
 #[tokio::test]
 #[allow(clippy::uninlined_format_args)]
@@ -183,11 +184,20 @@ async fn test_server_no_response_on_response() {
         .set_op_code(OpCode::Query)
         .add_query(query_a);
 
-    let client_result = client.send(message).try_collect::<Vec<_>>().await.unwrap();
+    let client_result = timeout(
+        Duration::from_secs(5),
+        client.send(message).try_collect::<Vec<_>>(),
+    )
+    .await
+    .unwrap()
+    .unwrap();
     assert_eq!(client_result.len(), 0);
 
     server_continue.store(false, Ordering::Relaxed);
-    server.await.unwrap();
+    timeout(Duration::from_secs(5), server)
+        .await
+        .unwrap()
+        .unwrap();
 }
 
 #[cfg(feature = "dns-over-rustls")]
