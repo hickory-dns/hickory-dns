@@ -40,7 +40,6 @@ dns-over-https-rustls = [
 dns-over-quic = ["dns-over-rustls", "hickory-proto/dns-over-quic"]
 
 dns-over-native-tls = ["dns-over-tls", "hickory-proto/dns-over-native-tls"]
-dns-over-openssl = ["dns-over-tls"]
 dns-over-rustls = [
     "dns-over-tls",
     "dnssec-ring",
@@ -51,7 +50,6 @@ dns-over-tls = []
 webpki-roots = ["hickory-proto/webpki-roots"]
 native-certs = ["hickory-proto/native-certs"]
 
-dnssec-openssl = ["dnssec", "hickory-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "hickory-proto/dnssec-ring"]
 dnssec = ["hickory-proto/dnssec"]
 
