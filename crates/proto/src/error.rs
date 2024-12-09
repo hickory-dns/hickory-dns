@@ -256,12 +256,14 @@ pub enum ProtoErrorKind {
     RequestRefused,
 
     /// A ring error
+    #[cfg(feature = "dnssec-ring")]
     #[error("ring error: {0}")]
     Ring(#[from] Unspecified),
 
     /// An ssl error
+    #[cfg(any(feature = "dns-over-openssl", feature = "dnssec-openssl"))]
     #[error("ssl error: {0}")]
-    SSL(#[from] SslErrorStack),
+    SSL(#[from] openssl::error::ErrorStack),
 
     /// A tokio timer error
     #[error("timer error")]
@@ -800,7 +802,9 @@ impl Clone for ProtoErrorKind {
             UnrecognizedCsyncFlags(flags) => UnrecognizedCsyncFlags(flags),
             Io(ref e) => Io(e.clone()),
             Poisoned => Poisoned,
+            #[cfg(feature = "dnssec-ring")]
             Ring(ref _e) => Ring(Unspecified),
+            #[cfg(any(feature = "dns-over-openssl", feature = "dnssec-openssl"))]
             SSL(ref e) => Msg(format!("there was an SSL error: {e}")),
             Timeout => Timeout,
             Timer => Timer,
@@ -837,12 +841,6 @@ impl Clone for ProtoErrorKind {
     }
 }
 
-#[cfg(not(any(feature = "dns-over-openssl", feature = "dnssec-openssl")))]
-use self::not_openssl::SslErrorStack;
-#[cfg(not(feature = "dnssec-ring"))]
-use self::not_ring::Unspecified;
-#[cfg(any(feature = "dns-over-openssl", feature = "dnssec-openssl"))]
-use openssl::error::ErrorStack as SslErrorStack;
 #[cfg(feature = "dnssec-ring")]
 use ring::error::{KeyRejected, Unspecified};
 
@@ -879,8 +877,9 @@ pub enum DnsSecErrorKind {
     RingUnspecified(#[from] Unspecified),
 
     /// An ssl error
+    #[cfg(any(feature = "dns-over-openssl", feature = "dnssec-openssl"))]
     #[error("ssl error: {0}")]
-    SSL(#[from] SslErrorStack),
+    SSL(#[from] openssl::error::ErrorStack),
 
     /// A request timed out
     #[error("request timed out")]
@@ -901,6 +900,7 @@ impl Clone for DnsSecErrorKind {
             RingKeyRejected(r) => Msg(format!("Ring rejected key: {r}")),
             #[cfg(feature = "dnssec-ring")]
             RingUnspecified(_r) => RingUnspecified(Unspecified),
+            #[cfg(any(feature = "dns-over-openssl", feature = "dnssec-openssl"))]
             SSL(ssl) => Msg(format!("SSL had an error: {ssl}")),
             Timeout => Timeout,
         }
@@ -992,67 +992,8 @@ impl From<Unspecified> for DnsSecError {
 }
 
 #[cfg(feature = "dnssec-openssl")]
-impl From<SslErrorStack> for DnsSecError {
-    fn from(e: SslErrorStack) -> Self {
+impl From<openssl::error::ErrorStack> for DnsSecError {
+    fn from(e: openssl::error::ErrorStack) -> Self {
         DnsSecErrorKind::from(e).into()
-    }
-}
-
-#[doc(hidden)]
-#[allow(unreachable_pub)]
-#[cfg(not(any(feature = "dns-over-openssl", feature = "dnssec-openssl")))]
-pub mod not_openssl {
-    use std;
-
-    #[derive(Clone, Copy, Debug)]
-    pub struct SslErrorStack;
-
-    impl std::fmt::Display for SslErrorStack {
-        fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-            Ok(())
-        }
-    }
-
-    impl std::error::Error for SslErrorStack {
-        fn description(&self) -> &str {
-            "openssl feature not enabled"
-        }
-    }
-}
-
-#[doc(hidden)]
-#[allow(unreachable_pub)]
-#[cfg(not(feature = "dnssec-ring"))]
-pub mod not_ring {
-    use std;
-
-    #[derive(Clone, Copy, Debug)]
-    pub struct KeyRejected;
-
-    #[derive(Clone, Copy, Debug)]
-    pub struct Unspecified;
-
-    impl std::fmt::Display for KeyRejected {
-        fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-            Ok(())
-        }
-    }
-
-    impl std::error::Error for KeyRejected {
-        fn description(&self) -> &str {
-            "ring feature not enabled"
-        }
-    }
-
-    impl std::fmt::Display for Unspecified {
-        fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-            Ok(())
-        }
-    }
-
-    impl std::error::Error for Unspecified {
-        fn description(&self) -> &str {
-            "ring feature not enabled"
-        }
     }
 }
