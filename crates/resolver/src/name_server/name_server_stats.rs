@@ -5,7 +5,6 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::cmp::Ordering;
 use std::sync::{
     atomic::{self, AtomicU32},
     Arc,
@@ -119,6 +118,7 @@ impl NameServerStats {
     /// Returns the raw SRTT value.
     ///
     /// Prefer to use `decayed_srtt` when ordering name servers.
+    #[cfg(test)]
     fn srtt(&self) -> Duration {
         Duration::from_micros(u64::from(
             self.srtt_microseconds.load(atomic::Ordering::Acquire),
@@ -133,7 +133,7 @@ impl NameServerStats {
     /// 1. It helps distribute query load.
     /// 2. It helps detect positive network changes. For example, decreases in
     ///    latency or a server that has recovered from a failure.
-    fn decayed_srtt(&self) -> f64 {
+    pub(crate) fn decayed_srtt(&self) -> f64 {
         let srtt = f64::from(self.srtt_microseconds.load(atomic::Ordering::Acquire));
         self.last_update.lock().map_or(srtt, |last_update| {
             // In general, if the time between queries is relatively short, then
@@ -173,45 +173,11 @@ impl NameServerStats {
     }
 }
 
-impl PartialEq for NameServerStats {
-    fn eq(&self, other: &Self) -> bool {
-        self.srtt() == other.srtt()
-    }
-}
-
-impl Eq for NameServerStats {}
-
-// TODO: Replace this with `f64::total_cmp` once the Rust version is bumped to
-// 1.62.0 (the method is stable beyond that version). In the meantime, the
-// implementation is copied from here:
-// https://github.com/rust-lang/rust/blob/master/library/core/src/num/f64.rs#L1336
-fn total_cmp(x: f64, y: f64) -> Ordering {
-    let mut left = x.to_bits() as i64;
-    let mut right = y.to_bits() as i64;
-
-    left ^= (((left >> 63) as u64) >> 1) as i64;
-    right ^= (((right >> 63) as u64) >> 1) as i64;
-
-    left.cmp(&right)
-}
-
-impl Ord for NameServerStats {
-    /// Custom implementation of Ord for NameServer which incorporates the
-    /// performance of the connection into it's ranking.
-    fn cmp(&self, other: &Self) -> Ordering {
-        total_cmp(self.decayed_srtt(), other.decayed_srtt())
-    }
-}
-
-impl PartialOrd for NameServerStats {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
 #[cfg(test)]
 #[allow(clippy::extra_unused_type_parameters)]
 mod tests {
+    use std::cmp::Ordering;
+
     use super::*;
 
     fn is_send_sync<S: Sync + Send>() -> bool {
@@ -230,34 +196,38 @@ mod tests {
 
         // No RTTs or failures have been recorded. The initial SRTTs should be
         // compared.
-        assert_eq!(server_a.cmp(&server_b), Ordering::Less);
+        assert_eq!(cmp(&server_a, &server_b), Ordering::Less);
 
         // Server A was used. Unused server B should now be preferred.
         server_a.record_rtt(Duration::from_millis(30));
         tokio::time::advance(Duration::from_secs(5)).await;
-        assert_eq!(server_a.cmp(&server_b), Ordering::Greater);
+        assert_eq!(cmp(&server_a, &server_b), Ordering::Greater);
 
         // Both servers have been used. Server A has a lower SRTT and should be
         // preferred.
         server_b.record_rtt(Duration::from_millis(50));
         tokio::time::advance(Duration::from_secs(5)).await;
-        assert_eq!(server_a.cmp(&server_b), Ordering::Less);
+        assert_eq!(cmp(&server_a, &server_b), Ordering::Less);
 
         // Server A experiences a connection failure, which results in Server B
         // being preferred.
         server_a.record_connection_failure();
         tokio::time::advance(Duration::from_secs(5)).await;
-        assert_eq!(server_a.cmp(&server_b), Ordering::Greater);
+        assert_eq!(cmp(&server_a, &server_b), Ordering::Greater);
 
         // Server A should eventually recover and once again be preferred.
-        while server_a.cmp(&server_b) != Ordering::Less {
+        while cmp(&server_a, &server_b) != Ordering::Less {
             server_b.record_rtt(Duration::from_millis(50));
             tokio::time::advance(Duration::from_secs(5)).await;
         }
 
         server_a.record_rtt(Duration::from_millis(30));
         tokio::time::advance(Duration::from_secs(3)).await;
-        assert_eq!(server_a.cmp(&server_b), Ordering::Less);
+        assert_eq!(cmp(&server_a, &server_b), Ordering::Less);
+    }
+
+    fn cmp(a: &NameServerStats, b: &NameServerStats) -> Ordering {
+        a.decayed_srtt().total_cmp(&b.decayed_srtt())
     }
 
     #[tokio::test(start_paused = true)]

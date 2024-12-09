@@ -5,7 +5,6 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::pin::Pin;
 use std::sync::Arc;
@@ -30,7 +29,7 @@ pub struct NameServer<P: ConnectionProvider> {
     options: ResolverOpts,
     client: Arc<Mutex<Option<P::Conn>>>,
     state: Arc<NameServerState>,
-    stats: Arc<NameServerStats>,
+    pub(crate) stats: Arc<NameServerStats>,
     connection_provider: P,
 }
 
@@ -185,42 +184,6 @@ where
         Box::pin(once(this.inner_send(request)))
     }
 }
-
-impl<P> Ord for NameServer<P>
-where
-    P: ConnectionProvider + Send,
-{
-    /// Custom implementation of Ord for NameServer which incorporates the performance of the connection into it's ranking
-    fn cmp(&self, other: &Self) -> Ordering {
-        // if they are literally equal, just return
-        if self == other {
-            return Ordering::Equal;
-        }
-
-        self.stats.cmp(&other.stats)
-    }
-}
-
-impl<P> PartialOrd for NameServer<P>
-where
-    P: ConnectionProvider + Send,
-{
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl<P> PartialEq for NameServer<P>
-where
-    P: ConnectionProvider + Send,
-{
-    /// NameServers are equal if the config (connection information) are equal
-    fn eq(&self, other: &Self) -> bool {
-        self.config == other.config
-    }
-}
-
-impl<P> Eq for NameServer<P> where P: ConnectionProvider + Send {}
 
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]

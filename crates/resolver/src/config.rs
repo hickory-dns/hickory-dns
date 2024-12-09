@@ -24,7 +24,7 @@ use crate::proto::rr::Name;
 use crate::proto::xfer::Protocol;
 
 /// Configuration for the upstream nameservers to use for resolution
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ResolverConfig {
     // base search domain
@@ -391,15 +391,6 @@ impl fmt::Display for NameServerConfig {
         write!(f, "{}", self.socket_addr)
     }
 }
-
-/// We consider a `NameServerConfig` equal if the `socket_addr` and `protocol` are equal
-impl PartialEq for NameServerConfig {
-    fn eq(&self, other: &Self) -> bool {
-        self.socket_addr == other.socket_addr && self.protocol == other.protocol
-    }
-}
-
-impl Eq for NameServerConfig {}
 
 /// A set of name_servers to associate with a [`ResolverConfig`].
 #[derive(Clone, Debug)]
@@ -772,14 +763,6 @@ impl From<Vec<NameServerConfig>> for NameServerConfigGroup {
         }
     }
 }
-
-impl PartialEq for NameServerConfigGroup {
-    fn eq(&self, other: &Self) -> bool {
-        self.servers == other.servers
-    }
-}
-
-impl Eq for NameServerConfigGroup {}
 
 /// The lookup ip strategy
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

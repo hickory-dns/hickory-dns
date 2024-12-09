@@ -174,7 +174,10 @@ mod tests {
     fn test_name_server() {
         let parsed = parse_resolv_conf("nameserver 127.0.0.1").expect("failed");
         let cfg = empty_config(nameserver_config("127.0.0.1").to_vec());
-        assert_eq!(cfg.name_servers(), parsed.0.name_servers());
+        assert_eq!(
+            cfg.name_servers()[0].socket_addr,
+            parsed.0.name_servers()[0].socket_addr
+        );
         is_default_opts(parsed.1);
     }
 
@@ -195,7 +198,10 @@ mod tests {
         let mut cfg = empty_config(nameserver_config("127.0.0.53").to_vec());
 
         {
-            assert_eq!(cfg.name_servers(), parsed.0.name_servers());
+            assert_eq!(
+                cfg.name_servers()[0].socket_addr,
+                parsed.0.name_servers()[0].socket_addr
+            );
             is_default_opts(parsed.1);
         }
 
@@ -221,7 +227,11 @@ mod tests {
         let parsed = parse_resolv_conf("domain example.com\nnameserver 127.0.0.1").expect("failed");
         let mut cfg = empty_config(nameserver_config("127.0.0.1").to_vec());
         cfg.set_domain(Name::from_str("example.com").unwrap());
-        assert_eq!(cfg, parsed.0);
+        assert_eq!(
+            cfg.name_servers()[0].socket_addr,
+            parsed.0.name_servers()[0].socket_addr
+        );
+        assert_eq!(cfg.domain(), parsed.0.domain());
         is_default_opts(parsed.1);
     }
 
