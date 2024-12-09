@@ -36,7 +36,6 @@ system-config = ["hickory-resolver/system-config"]
 
 #dns-over-native-tls = ["dns-over-tls", "hickory-resolver/dns-over-native-tls"]
 # DNS over TLS with OpenSSL currently needs a good way to set default CAs, use rustls or native-tls
-#dns-over-openssl = ["dns-over-tls", "hickory-resolver/dns-over-openssl"]
 #dns-over-rustls = ["dns-over-tls", "hickory-resolver/dns-over-rustls"]
 #dns-over-tls = []
 
@@ -44,7 +43,6 @@ system-config = ["hickory-resolver/system-config"]
 #dns-over-https-rustls = ["hickory-resolver/dns-over-https-rustls"]
 #dns-over-https = []
 
-#dnssec-openssl = ["dnssec", "hickory-resolver/dnssec-openssl"]
 #dnssec-ring = ["dnssec", "hickory-resolver/dnssec-ring"]
 #dnssec = []
 

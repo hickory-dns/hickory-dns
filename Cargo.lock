@@ -1041,7 +1041,6 @@ dependencies = [
  "thiserror 2.0.6",
  "tokio",
  "tokio-native-tls",
- "tokio-openssl",
  "tokio-rustls",
  "toml",
  "tracing",

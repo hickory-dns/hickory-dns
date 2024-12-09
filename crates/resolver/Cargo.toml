@@ -32,12 +32,6 @@ dns-over-native-tls = [
     "dep:tokio-native-tls",
     "hickory-proto/dns-over-native-tls",
 ]
-# DNS over TLS with OpenSSL currently needs a good way to set default CAs, use rustls or native-tls
-dns-over-openssl = [
-    "dns-over-tls",
-    "hickory-proto/dns-over-openssl",
-    "dep:tokio-openssl",
-]
 dns-over-rustls = [
     "dns-over-tls",
     "dep:rustls",
@@ -57,7 +51,6 @@ dns-over-h3 = ["dep:quinn", "dns-over-rustls", "hickory-proto/dns-over-h3"]
 webpki-roots = ["dep:webpki-roots", "hickory-proto/webpki-roots"]
 native-certs = ["dep:rustls-native-certs", "hickory-proto/native-certs"]
 
-dnssec-openssl = ["dnssec", "hickory-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "hickory-proto/dnssec-ring"]
 dnssec = []
 
@@ -95,7 +88,6 @@ thiserror.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, optional = true }
 tokio-native-tls = { workspace = true, optional = true }
-tokio-openssl = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true }
 hickory-proto = { workspace = true, default-features = false }
 webpki-roots = { workspace = true, optional = true }
