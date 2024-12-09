@@ -48,10 +48,10 @@ dns-over-h3: (default "--features=dns-over-h3" "--ignore=\\{async-std-resolver,h
 dns-over-native-tls: (default "--features=dns-over-native-tls" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-server,hickory-dns,hickory-util,hickory-integration,test-support\\}")
 
 # Check, build, and test all crates with dns-over-openssl enabled
-dns-over-openssl: (default "--features=dns-over-openssl" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-integration,hickory-util,test-support\\}")
+dns-over-openssl: (default "--features=dns-over-openssl" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-dns,hickory-integration,hickory-util,test-support\\}")
 
 # Check, build, and test all crates with dnssec-openssl enabled
-dnssec-openssl: (default "--features=dnssec-openssl" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-integration,hickory-util,test-support\\}")
+dnssec-openssl: (default "--features=dnssec-openssl" "--ignore=\\{async-std-resolver,hickory-compatibility,hickory-dns,hickory-integration,hickory-util,test-support\\}")
 
 # Check, build, and test all crates with dnssec-ring enabled
 dnssec-ring: (default "--features=dnssec-ring" "--ignore=\\{async-std-resolver,hickory-compatibility,test-support\\}")
@@ -187,12 +187,7 @@ conformance-bind filter='':
     DNS_TEST_VERBOSE_DOCKER_BUILD=1 DNS_TEST_PEER=unbound DNS_TEST_SUBJECT=bind cargo t --manifest-path conformance/Cargo.toml -p conformance-tests -- --include-ignored {{filter}}
 
 # runs the conformance test suite against the latest local hickory-dns commit -- changes that have not been commited will be ignored!
-conformance-hickory: (conformance-hickory-openssl) (conformance-hickory-ring)
-
-conformance-hickory-openssl filter='':
-    @ bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes will NOT be tested" || true'
-    DNS_TEST_VERBOSE_DOCKER_BUILD=1 DNS_TEST_PEER=unbound DNS_TEST_SUBJECT="hickory {{justfile_directory()}} dnssec-openssl" cargo t --manifest-path conformance/Cargo.toml -p conformance-tests -- {{filter}}
-    @ bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes were NOT tested" || true'
+conformance-hickory: (conformance-hickory-ring)
 
 conformance-hickory-ring filter='':
     @ bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes will NOT be tested" || true'

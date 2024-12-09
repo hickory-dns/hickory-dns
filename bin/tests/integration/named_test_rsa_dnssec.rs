@@ -20,17 +20,7 @@ use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer, Protocol};
 use hickory_proto::DnssecDnsHandle;
 
-#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
-fn confg_toml() -> &'static str {
-    "openssl_dnssec.toml"
-}
-
-#[cfg(all(feature = "dnssec-ring", not(feature = "dnssec-openssl")))]
-fn confg_toml() -> &'static str {
-    "ring_dnssec.toml"
-}
-
-#[cfg(all(feature = "dnssec-ring", feature = "dnssec-openssl"))]
+#[cfg(feature = "dnssec-ring")]
 fn confg_toml() -> &'static str {
     "all_supported_dnssec.toml"
 }
@@ -104,39 +94,6 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
 }
 
 #[test]
-#[cfg(feature = "dnssec-openssl")]
-fn test_rsa_sha256() {
-    generic_test(
-        confg_toml(),
-        "tests/test-data/test_configs/dnssec/rsa_2048.pem",
-        KeyFormat::Pem,
-        Algorithm::RSASHA256,
-    );
-}
-
-#[test]
-#[cfg(feature = "dnssec-openssl")]
-fn test_rsa_sha512() {
-    generic_test(
-        confg_toml(),
-        "tests/test-data/test_configs/dnssec/rsa_2048.pem",
-        KeyFormat::Pem,
-        Algorithm::RSASHA512,
-    );
-}
-
-#[test]
-#[cfg(feature = "dnssec-openssl")]
-fn test_ecdsa_p256() {
-    generic_test(
-        confg_toml(),
-        "tests/test-data/test_configs/dnssec/ecdsa_p256.pem",
-        KeyFormat::Pem,
-        Algorithm::ECDSAP256SHA256,
-    );
-}
-
-#[test]
 #[cfg(feature = "dnssec-ring")]
 fn test_rsa_sha256_pkcs8() {
     generic_test(
@@ -166,17 +123,6 @@ fn test_ecdsa_p256_pkcs8() {
         "tests/test-data/test_configs/dnssec/ecdsa_p256.pk8",
         KeyFormat::Pkcs8,
         Algorithm::ECDSAP256SHA256,
-    );
-}
-
-#[test]
-#[cfg(feature = "dnssec-openssl")]
-fn test_ecdsa_p384() {
-    generic_test(
-        confg_toml(),
-        "tests/test-data/test_configs/dnssec/ecdsa_p384.pem",
-        KeyFormat::Pem,
-        Algorithm::ECDSAP384SHA384,
     );
 }
 

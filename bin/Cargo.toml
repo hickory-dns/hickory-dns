@@ -33,7 +33,6 @@ default = ["sqlite", "resolver", "native-certs", "ascii-art"]
 ascii-art = []
 
 blocklist = ["hickory-server/blocklist"]
-dnssec-openssl = ["dnssec", "hickory-server/dnssec-openssl", "dep:openssl"]
 dnssec-ring = ["dnssec", "hickory-server/dnssec-ring"]
 dnssec = []
 recursor = ["hickory-server/recursor"]
@@ -45,7 +44,6 @@ dns-over-https-rustls = ["dns-over-rustls", "hickory-server/dns-over-https-rustl
 dns-over-quic = ["dns-over-rustls", "hickory-server/dns-over-quic"]
 dns-over-h3 = ["dns-over-rustls", "hickory-server/dns-over-h3"]
 
-dns-over-openssl = ["dns-over-tls", "hickory-server/dns-over-openssl", "dep:openssl"]
 dns-over-rustls = ["dns-over-tls", "dep:rustls", "hickory-server/dns-over-rustls"]
 dns-over-tls = []
 
@@ -65,7 +63,6 @@ cfg-if.workspace = true
 clap = { workspace = true, default-features = false, features = ["cargo", "derive", "help", "std", "suggestions"] }
 futures-util = { workspace = true, default-features = false, features = ["std"] }
 ipnet = { workspace = true, features = ["serde"] }
-openssl = { workspace = true, features = ["v102", "v110"], optional = true }
 # rusqlite is actually only needed for test situations, but we need an optional dependency
 # here so we can disable it for MSRV tests (rusqlite only supports latest stable)
 rusqlite = { workspace = true, features = ["bundled", "time"], optional = true }

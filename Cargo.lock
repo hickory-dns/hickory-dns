@@ -908,7 +908,6 @@ dependencies = [
  "ipnet",
  "libc",
  "native-tls",
- "openssl",
  "regex",
  "rusqlite",
  "rustls",
