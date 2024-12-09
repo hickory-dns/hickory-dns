@@ -59,31 +59,12 @@ native-certs = [
 ]
 
 dnssec = []
-dnssec-openssl = [
-    "dnssec",
-    "openssl",
-    "hickory-client/dnssec-openssl",
-    "hickory-proto/dnssec-openssl",
-    "hickory-resolver/dnssec-openssl",
-]
 dnssec-ring = [
     "dnssec",
     "hickory-client/dnssec-ring",
     "hickory-proto/dnssec-ring",
     "hickory-resolver/dnssec-ring",
 ]
-
-[[bin]]
-name = "dnskey-to-pem"
-required-features = ["dnssec-openssl"]
-
-[[bin]]
-name = "get-root-ksks"
-required-features = ["dnssec-openssl"]
-
-[[bin]]
-name = "pem-to-public-dnskey"
-required-features = ["dnssec-openssl"]
 
 [dependencies]
 clap = { workspace = true, default-features = false, features = [
@@ -97,7 +78,6 @@ clap = { workspace = true, default-features = false, features = [
 ] }
 console.workspace = true
 data-encoding.workspace = true
-openssl = { workspace = true, features = ["v102", "v110"], optional = true }
 rustls = { workspace = true, optional = true }
 rustls-native-certs = { workspace = true, optional = true }
 tracing.workspace = true
