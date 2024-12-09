@@ -1209,11 +1209,11 @@ mod tests {
     #[track_caller]
     fn test_encode_decode(rdata: SVCB) {
         let mut bytes = Vec::new();
-        let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
+        let mut encoder = BinEncoder::new(&mut bytes);
         rdata.emit(&mut encoder).expect("failed to emit SVCB");
         let bytes = encoder.into_bytes();
 
-        let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
+        let mut decoder = BinDecoder::new(bytes);
         let read_rdata = SVCB::read_data(&mut decoder, Restrict::new(bytes.len() as u16))
             .expect("failed to read back");
         assert_eq!(rdata, read_rdata);

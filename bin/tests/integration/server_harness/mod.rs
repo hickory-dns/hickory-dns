@@ -252,7 +252,7 @@ pub fn query_message<C: ClientHandle>(
 //  i.e. more complex checks live with the clients and authorities to validate deeper functionality
 #[allow(dead_code)]
 pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
-    let name = Name::from_str("www.example.com").unwrap();
+    let name = Name::from_str("www.example.com.").unwrap();
     let response = query_message(io_loop, client, name, RecordType::A).unwrap();
     let record = &response.answers()[0];
 
@@ -267,7 +267,7 @@ pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
 //  i.e. more complex checks live with the clients and authorities to validate deeper functionality
 #[allow(dead_code)]
 pub fn query_a_refused<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
-    let name = Name::from_str("www.example.com").unwrap();
+    let name = Name::from_str("www.example.com.").unwrap();
     let error =
         query_message(io_loop, client, name, RecordType::A).expect_err("Expected an Error here");
 

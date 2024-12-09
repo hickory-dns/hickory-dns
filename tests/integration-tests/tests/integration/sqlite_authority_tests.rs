@@ -555,8 +555,8 @@ async fn test_pre_scan() {
 
 #[tokio::test]
 async fn test_update() {
-    let new_name = Name::from_str("new.example.com").unwrap();
-    let www_name = Name::from_str("www.example.com").unwrap();
+    let new_name = Name::from_str("new.example.com.").unwrap();
+    let www_name = Name::from_str("www.example.com.").unwrap();
     let mut authority = create_example();
     let serial = authority.serial().await;
 
@@ -865,7 +865,7 @@ async fn test_zone_signing() {
 #[cfg(feature = "dnssec")]
 #[tokio::test]
 async fn test_get_nsec() {
-    let name = Name::from_str("zzz.example.com").unwrap();
+    let name = Name::from_str("zzz.example.com.").unwrap();
     let authority = create_secure_example();
     let lower_name = LowerName::from(name.clone());
 
@@ -893,8 +893,8 @@ async fn test_journal() {
     authority.set_journal(journal).await;
     authority.persist_to_journal().await.unwrap();
 
-    let new_name = Name::from_str("new.example.com").unwrap();
-    let delete_name = Name::from_str("www.example.com").unwrap();
+    let new_name = Name::from_str("new.example.com.").unwrap();
+    let delete_name = Name::from_str("www.example.com.").unwrap();
     let new_record =
         Record::from_rdata(new_name.clone(), 0, RData::A(A::new(10, 11, 12, 13))).clone();
     let delete_record =

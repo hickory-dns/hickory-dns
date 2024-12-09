@@ -316,7 +316,7 @@ async fn lazy_tls_client(
 }
 
 async fn client_thread_www(future: impl Future<Output = Client>) {
-    let name = Name::from_str("www.example.com").unwrap();
+    let name = Name::from_str("www.example.com.").unwrap();
 
     let mut client = future.await;
     let response = client

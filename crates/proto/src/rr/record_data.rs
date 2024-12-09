@@ -1145,25 +1145,25 @@ mod tests {
     fn get_data() -> Vec<(RData, Vec<u8>)> {
         vec![
             (
-                RData::CNAME(CNAME(Name::from_str("www.example.com").unwrap())),
+                RData::CNAME(CNAME(Name::from_str("www.example.com.").unwrap())),
                 vec![
                     3, b'w', b'w', b'w', 7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 3, b'c',
                     b'o', b'm', 0,
                 ],
             ),
             (
-                RData::MX(MX::new(256, Name::from_str("n").unwrap())),
+                RData::MX(MX::new(256, Name::from_str("n.").unwrap())),
                 vec![1, 0, 1, b'n', 0],
             ),
             (
-                RData::NS(NS(Name::from_str("www.example.com").unwrap())),
+                RData::NS(NS(Name::from_str("www.example.com.").unwrap())),
                 vec![
                     3, b'w', b'w', b'w', 7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 3, b'c',
                     b'o', b'm', 0,
                 ],
             ),
             (
-                RData::PTR(PTR(Name::from_str("www.example.com").unwrap())),
+                RData::PTR(PTR(Name::from_str("www.example.com.").unwrap())),
                 vec![
                     3, b'w', b'w', b'w', 7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 3, b'c',
                     b'o', b'm', 0,
@@ -1171,8 +1171,8 @@ mod tests {
             ),
             (
                 RData::SOA(SOA::new(
-                    Name::from_str("www.example.com").unwrap(),
-                    Name::from_str("xxx.example.com").unwrap(),
+                    Name::from_str("www.example.com.").unwrap(),
+                    Name::from_str("xxx.example.com.").unwrap(),
                     u32::MAX,
                     -1,
                     -1,
@@ -1207,7 +1207,7 @@ mod tests {
                     1,
                     2,
                     3,
-                    Name::from_str("www.example.com").unwrap(),
+                    Name::from_str("www.example.com.").unwrap(),
                 )),
                 vec![
                     0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 3, b'w', b'w', b'w', 7, b'e', b'x', b'a',

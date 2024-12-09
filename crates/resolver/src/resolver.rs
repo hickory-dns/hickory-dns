@@ -253,7 +253,9 @@ impl<P: ConnectionProvider> Resolver<P> {
 
             // if not meeting ndots, we always do the raw name in the final lookup
             if !raw_name_first {
-                names.push(name.clone());
+                let mut fqdn = name.clone();
+                fqdn.set_fqdn(true);
+                names.push(fqdn);
             }
 
             for search in self.config.search().iter().rev() {
@@ -283,7 +285,9 @@ impl<P: ConnectionProvider> Resolver<P> {
             // this is the direct name lookup
             if raw_name_first {
                 // adding the name as though it's an FQDN for lookup
-                names.push(name);
+                let mut fqdn = name.clone();
+                fqdn.set_fqdn(true);
+                names.push(fqdn);
             }
 
             names
@@ -1299,6 +1303,28 @@ mod tests {
         let io_loop = Runtime::new().expect("failed to create tokio runtime io_loop");
         let handle = TokioConnectionProvider::default();
         search_ipv6_name_parse_fails_test::<Runtime, TokioConnectionProvider>(io_loop, handle);
+    }
+
+    #[test]
+    fn test_build_names() {
+        use std::str::FromStr;
+
+        let handle = TokioConnectionProvider::default();
+        let mut config = ResolverConfig::default();
+        config.add_search(Name::from_ascii("example.com.").unwrap());
+        let resolver =
+            Resolver::<TokioConnectionProvider>::new(config, ResolverOpts::default(), handle);
+
+        assert_eq!(resolver.build_names(Name::from_str("").unwrap()).len(), 2);
+        assert_eq!(resolver.build_names(Name::from_str(".").unwrap()).len(), 1);
+
+        let fqdn = Name::from_str("foo.example.com.").unwrap();
+        let name_list = resolver.build_names(Name::from_str("foo").unwrap());
+        assert!(name_list.contains(&fqdn));
+
+        let name_list = resolver.build_names(fqdn.clone());
+        assert_eq!(name_list.len(), 1);
+        assert_eq!(name_list.first(), Some(&fqdn));
     }
 
     #[test]

@@ -364,8 +364,8 @@ mod tests {
         use std::str::FromStr;
 
         let rdata = SOA::new(
-            Name::from_str("m.example.com").unwrap(),
-            Name::from_str("r.example.com").unwrap(),
+            Name::from_str("m.example.com.").unwrap(),
+            Name::from_str("r.example.com.").unwrap(),
             1,
             2,
             3,

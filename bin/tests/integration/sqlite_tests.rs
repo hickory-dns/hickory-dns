@@ -31,7 +31,7 @@ fn test_init_journal() {
 }
 
 fn create_test_journal() -> (Record, Journal) {
-    let www = Name::from_str("www.example.com").unwrap();
+    let www = Name::from_str("www.example.com.").unwrap();
 
     let mut record = Record::from_rdata(www, 0, RData::A(A::from(Ipv4Addr::LOCALHOST)));
 
