@@ -214,7 +214,7 @@ fn test_rsa_sha1_fails() {
     );
 }
 
-#[cfg(feature = "dnssec-openssl")]
+#[cfg(feature = "dnssec-ring")]
 #[cfg(feature = "sqlite")]
 #[test]
 fn test_dnssec_restart_with_update_journal() {
@@ -226,8 +226,8 @@ fn test_dnssec_restart_with_update_journal() {
 
     generic_test(
         "dnssec_with_update.toml",
-        "tests/test-data/test_configs/dnssec/rsa_2048.pem",
-        KeyFormat::Pem,
+        "tests/test-data/test_configs/dnssec/rsa_2048.pk8",
+        KeyFormat::Pkcs8,
         Algorithm::RSASHA256,
     );
 
@@ -237,8 +237,8 @@ fn test_dnssec_restart_with_update_journal() {
     // and all dnssec tests should still pass
     generic_test(
         "dnssec_with_update.toml",
-        "tests/test-data/test_configs/dnssec/rsa_2048.pem",
-        KeyFormat::Pem,
+        "tests/test-data/test_configs/dnssec/rsa_2048.pk8",
+        KeyFormat::Pkcs8,
         Algorithm::RSASHA256,
     );
 
@@ -250,7 +250,7 @@ fn test_dnssec_restart_with_update_journal() {
     std::fs::remove_file(&journal).expect("failed to cleanup after test");
 }
 
-#[cfg(feature = "dnssec-openssl")]
+#[cfg(feature = "dnssec-ring")]
 #[cfg(feature = "sqlite")]
 #[test]
 fn test_dnssec_restart_with_update_journal_dep() {
@@ -262,8 +262,8 @@ fn test_dnssec_restart_with_update_journal_dep() {
 
     generic_test(
         "dnssec_with_update_deprecated.toml",
-        "tests/test-data/test_configs/dnssec/rsa_2048.pem",
-        KeyFormat::Pem,
+        "tests/test-data/test_configs/dnssec/rsa_2048.pk8",
+        KeyFormat::Pkcs8,
         Algorithm::RSASHA256,
     );
 
@@ -273,8 +273,8 @@ fn test_dnssec_restart_with_update_journal_dep() {
     // and all dnssec tests should still pass
     generic_test(
         "dnssec_with_update_deprecated.toml",
-        "tests/test-data/test_configs/dnssec/rsa_2048.pem",
-        KeyFormat::Pem,
+        "tests/test-data/test_configs/dnssec/rsa_2048.pk8",
+        KeyFormat::Pkcs8,
         Algorithm::RSASHA256,
     );
 
