@@ -52,7 +52,7 @@ impl Client {
             "-a",
             TRUST_ANCHOR_PATH,
             fqdn.as_str(),
-            record_type.as_str(),
+            record_type.as_name().as_ref(),
         ])
     }
 
@@ -71,7 +71,7 @@ impl Client {
             settings.cdflag(),
             settings.timeoutflag().as_str(),
             &format!("@{server}"),
-            record_type.as_str(),
+            record_type.as_name().as_ref(),
             fqdn.as_str(),
         ])?;
 
