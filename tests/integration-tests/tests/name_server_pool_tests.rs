@@ -113,15 +113,7 @@ fn mock_nameserver_pool_on_send<O: OnSend + Unpin>(
     _mdns: Option<MockedNameServer<O>>,
     options: ResolverOpts,
 ) -> MockedNameServerPool<O> {
-    #[cfg(not(feature = "mdns"))]
-    return NameServerPool::from_nameservers(options, udp, tcp);
-
-    #[cfg(feature = "mdns")]
-    return NameServerPool::from_nameservers(
-        &options, udp,
-        tcp,
-        //_mdns.unwrap_or_else(move || mock_nameserver_on_send(vec![], options, on_send)),
-    );
+    NameServerPool::from_nameservers(options, udp, tcp)
 }
 
 #[test]
@@ -311,42 +303,6 @@ fn test_tcp_fallback_only_on_truncated() {
             kind,
         ),
     }
-}
-
-#[test]
-#[cfg(feature = "mdns")]
-fn test_local_mdns() {
-    // lookup to UDP should fail
-    // then lookup on TCP
-
-    let query = Query::query(Name::from_str("www.example.local.").unwrap(), RecordType::A);
-
-    let tcp_message: Result<DnsResponse, _> = Err(ResolveError::from("Forced Testing Error"));
-    let udp_message: Result<DnsResponse, _> = Err(ResolveError::from("Forced Testing Error"));
-    let mdns_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
-
-    let mdns_message = message(query.clone(), vec![mdns_record.clone()], vec![], vec![]);
-
-    let udp_nameserver = mock_nameserver(vec![udp_message.map(Into::into)], Default::default());
-    let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)], Default::default());
-    let mdns_nameserver = mock_nameserver(
-        vec![Ok(DnsResponse::from_message(mdns_message).unwrap())],
-        Default::default(),
-    );
-
-    let mut pool = mock_nameserver_pool(
-        vec![udp_nameserver],
-        vec![tcp_nameserver],
-        Some(mdns_nameserver),
-        Default::default(),
-    );
-
-    // lookup on UDP succeeds, any other would fail
-    let request = message(query, vec![], vec![], vec![]);
-    let future = pool.send(request);
-
-    let response = block_on(future).unwrap();
-    assert_eq!(response.answers()[0], mdns_record);
 }
 
 #[test]

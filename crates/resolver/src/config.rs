@@ -344,10 +344,6 @@ pub enum Protocol {
     #[cfg(feature = "dns-over-h3")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-h3")))]
     H3,
-    /// mDNS protocol for performing multicast lookups
-    #[cfg(feature = "mdns")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
-    Mdns,
 }
 
 impl fmt::Display for Protocol {
@@ -363,8 +359,6 @@ impl fmt::Display for Protocol {
             Self::Quic => "quic",
             #[cfg(feature = "dns-over-h3")]
             Self::H3 => "h3",
-            #[cfg(feature = "mdns")]
-            Self::Mdns => "mdns",
         };
 
         f.write_str(protocol)
@@ -386,8 +380,6 @@ impl Protocol {
             Self::Quic => true,
             #[cfg(feature = "dns-over-h3")]
             Self::H3 => true,
-            #[cfg(feature = "mdns")]
-            Self::Mdns => true,
         }
     }
 
@@ -409,8 +401,6 @@ impl Protocol {
             Self::Quic => true,
             #[cfg(feature = "dns-over-h3")]
             Self::H3 => true,
-            #[cfg(feature = "mdns")]
-            Self::Mdns => false,
         }
     }
 }

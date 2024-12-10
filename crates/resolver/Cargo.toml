@@ -75,10 +75,6 @@ dnssec = []
 serde-config = ["serde", "hickory-proto/serde-config"]
 system-config = ["ipconfig", "resolv-conf"]
 
-# # enables experimental the mDNS (multicast) feature
-# TODO: we will be revisiting how mdns is built into the resolver...
-#mdns = ["hickory-proto/mdns"]
-
 testing = []
 tokio-runtime = ["tokio/rt", "hickory-proto/tokio-runtime"]
 

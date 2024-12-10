@@ -257,7 +257,6 @@ mod async_resolver;
 pub mod caching_client;
 pub mod config;
 pub mod dns_lru;
-pub mod dns_sd;
 pub mod error;
 #[cfg(feature = "dns-over-https")]
 mod h2;
