@@ -14,8 +14,6 @@ use std::time::Instant;
 use futures_util::lock::Mutex;
 use futures_util::stream::{once, Stream};
 
-#[cfg(feature = "mdns")]
-use proto::multicast::MDNS_IPV4;
 use proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
 use tracing::debug;
 
@@ -23,8 +21,6 @@ use crate::config::{NameServerConfig, ResolverOpts};
 use crate::error::ResolveError;
 use crate::name_server::connection_provider::{ConnectionProvider, GenericConnector};
 use crate::name_server::{NameServerState, NameServerStats};
-#[cfg(feature = "mdns")]
-use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
 
 /// This struct is used to create `DnsHandle` with the help of `P`.
 #[derive(Clone)]
@@ -225,28 +221,6 @@ where
 }
 
 impl<P> Eq for NameServer<P> where P: ConnectionProvider + Send {}
-
-// TODO: once IPv6 is better understood, also make this a binary keep.
-#[cfg(feature = "mdns")]
-pub(crate) fn mdns_nameserver<P>(
-    options: ResolverOpts,
-    conn_provider: P,
-    trust_negative_responses: bool,
-) -> GenericNameServer<P>
-where
-    P: ConnectionProvider,
-{
-    let config = NameServerConfig {
-        socket_addr: *MDNS_IPV4,
-        protocol: Protocol::Mdns,
-        tls_dns_name: None,
-        trust_negative_responses,
-        #[cfg(feature = "dns-over-rustls")]
-        tls_config: None,
-        bind_addr: None,
-    };
-    GenericNameServer::new_with_provider(config, options, conn_provider)
-}
 
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]

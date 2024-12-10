@@ -16,7 +16,6 @@ This library contains implementations for IPv4 (A) and IPv6 (AAAA) resolution, m
 - DNSSEC validation
 - Generic Record Type Lookup
 - CNAME chain resolution
-- _experimental_ mDNS support (enable with `mdns` feature)
 - DNS over TLS (utilizing `native-tls`, `rustls`, and `openssl`; `native-tls` or `rustls` are recommended)
 - DNS over HTTPS (currently only supports `rustls`)
 
