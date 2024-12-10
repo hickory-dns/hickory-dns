@@ -277,7 +277,7 @@ impl<'n> From<&'n Name> for TrieNameRef<'n> {
     }
 }
 
-impl<'n> TrieKey for TrieNameRef<'n> {
+impl TrieKey for TrieNameRef<'_> {
     /// Returns this name in byte form, reversed for searching from zone to local label
     ///
     /// # Panics

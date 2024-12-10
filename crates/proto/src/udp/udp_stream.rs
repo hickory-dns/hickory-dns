@@ -293,7 +293,7 @@ impl<S: DnsUdpSocket + Send> Future for NextRandomUdpSocket<S> {
             //
             //    The dynamic port range defined by IANA consists of the 49152-65535
             //    range, and is meant for the selection of ephemeral ports.
-            let rand_port_range = Uniform::new_inclusive(49152_u16, u16::max_value());
+            let rand_port_range = Uniform::new_inclusive(49152_u16, u16::MAX);
             let mut rand = rand::thread_rng();
 
             for attempt in 0..10 {

@@ -352,7 +352,7 @@ impl BinEncodable for TLSA {
     }
 }
 
-impl<'r> RecordDataDecodable<'r> for TLSA {
+impl RecordDataDecodable<'_> for TLSA {
     /// Read the RData from the given Decoder
     ///
     /// ```text

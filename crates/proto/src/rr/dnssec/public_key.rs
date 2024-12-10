@@ -198,7 +198,7 @@ pub fn dnssec_ecdsa_signature_to_der(signature: &[u8]) -> ProtoResult<Vec<u8>> {
 
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
 #[cfg_attr(docsrs, doc(cfg(all(not(feature = "ring"), feature = "openssl"))))]
-impl<'k> PublicKey for Ec<'k> {
+impl PublicKey for Ec<'_> {
     fn public_bytes(&self) -> &[u8] {
         self.raw
     }
@@ -306,7 +306,7 @@ impl<'k> Ed25519<'k> {
 }
 
 #[cfg(feature = "ring")]
-impl<'k> PublicKey for Ed25519<'k> {
+impl PublicKey for Ed25519<'_> {
     // TODO: just store reference to public key bytes in ctor...
     fn public_bytes(&self) -> &[u8] {
         self.raw
@@ -391,7 +391,7 @@ fn into_pkey(parsed: RSAPublicKey<'_>) -> ProtoResult<RSAPublicKey<'_>> {
 }
 
 #[cfg(any(feature = "openssl", feature = "ring"))]
-impl<'k> PublicKey for Rsa<'k> {
+impl PublicKey for Rsa<'_> {
     fn public_bytes(&self) -> &[u8] {
         self.raw
     }
@@ -472,7 +472,7 @@ impl<'k> PublicKeyEnum<'k> {
     }
 }
 
-impl<'k> PublicKey for PublicKeyEnum<'k> {
+impl PublicKey for PublicKeyEnum<'_> {
     #[allow(clippy::match_single_binding, clippy::match_single_binding)]
     fn public_bytes(&self) -> &[u8] {
         match *self {

@@ -310,7 +310,7 @@ impl<'j> JournalIter<'j> {
     }
 }
 
-impl<'j> Iterator for JournalIter<'j> {
+impl Iterator for JournalIter<'_> {
     type Item = Record;
 
     fn next(&mut self) -> Option<Self::Item> {

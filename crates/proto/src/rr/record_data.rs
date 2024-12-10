@@ -1115,11 +1115,11 @@ mod tests {
                 RData::SOA(SOA::new(
                     Name::from_str("www.example.com").unwrap(),
                     Name::from_str("xxx.example.com").unwrap(),
-                    u32::max_value(),
+                    u32::MAX,
                     -1,
                     -1,
                     -1,
-                    u32::max_value(),
+                    u32::MAX,
                 )),
                 vec![
                     3, b'w', b'w', b'w', 7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 3, b'c',
@@ -1182,11 +1182,11 @@ mod tests {
             RData::SOA(SOA::new(
                 Name::from_str("www.example.com").unwrap(),
                 Name::from_str("xxx.example.com").unwrap(),
-                u32::max_value(),
+                u32::MAX,
                 -1,
                 -1,
                 -1,
-                u32::max_value(),
+                u32::MAX,
             )),
             RData::TXT(TXT::new(vec![
                 "abcdef".to_string(),
@@ -1203,11 +1203,11 @@ mod tests {
             RData::SOA(SOA::new(
                 Name::from_str("www.example.com").unwrap(),
                 Name::from_str("xxx.example.com").unwrap(),
-                u32::max_value(),
+                u32::MAX,
                 -1,
                 -1,
                 -1,
-                u32::max_value(),
+                u32::MAX,
             )),
             RData::TXT(TXT::new(vec![
                 "abcdef".to_string(),

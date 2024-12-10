@@ -18,7 +18,7 @@ pub(crate) struct Lexer<'a> {
 
 impl<'a> Lexer<'a> {
     /// Creates a new lexer with the given data to parse
-    pub(crate) fn new(txt: impl Into<Cow<'a, str>>) -> Lexer<'a> {
+    pub(crate) fn new(txt: impl Into<Cow<'a, str>>) -> Self {
         Lexer {
             txt: CowChars {
                 data: txt.into(),
@@ -339,7 +339,7 @@ struct CowChars<'a> {
     offset: usize,
 }
 
-impl<'a> Iterator for CowChars<'a> {
+impl Iterator for CowChars<'_> {
     type Item = char;
 
     fn next(&mut self) -> Option<char> {

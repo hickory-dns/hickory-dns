@@ -142,7 +142,7 @@ impl<'a> BinEncoder<'a> {
     // TODO: move to constructor (kept for backward compatibility)
     /// Sets the maximum size of the buffer
     ///
-    /// DNS message lens must be smaller than u16::max_value due to hard limits in the protocol
+    /// DNS message lens must be smaller than u16::MAX due to hard limits in the protocol
     ///
     /// *this method will move to the constructor in a future release*
     pub fn set_max_size(&mut self, max: u16) {

@@ -445,7 +445,7 @@ impl<R: RecordData> BinEncodable for Record<R> {
 
         // get the length written
         let len = encoder.len_since_place(&place);
-        assert!(len <= u16::max_value() as usize);
+        assert!(len <= u16::MAX as usize);
 
         // replace the location with the length
         place.replace(encoder, len as u16)?;
@@ -740,7 +740,7 @@ pub struct RecordRef<'a, R: RecordData> {
     mdns_cache_flush: bool,
 }
 
-impl<'a, R: RecordData> RecordRef<'a, R> {
+impl<R: RecordData> RecordRef<'_, R> {
     /// Allocates space for a Record with the same fields
     pub fn to_owned(&self) -> Record<R> {
         Record {

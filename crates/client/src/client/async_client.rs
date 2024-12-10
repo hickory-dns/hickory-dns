@@ -1118,7 +1118,7 @@ mod tests {
 
         // validate it's what we expected
         if let Some(RData::A(addr)) = message_returned.answers()[0].data() {
-            assert_eq!(*addr, A::new(93, 184, 216, 34));
+            assert_eq!(*addr, A::new(93, 184, 215, 14));
         }
 
         let message_parsed = Message::from_vec(&buffer)
@@ -1126,7 +1126,7 @@ mod tests {
 
         // validate it's what we expected
         if let Some(RData::A(addr)) = message_parsed.answers()[0].data() {
-            assert_eq!(*addr, A::new(93, 184, 216, 34));
+            assert_eq!(*addr, A::new(93, 184, 215, 14));
         }
     }
 }

@@ -76,7 +76,7 @@ impl From<LookupIp> for Lookup {
 /// Borrowed view of set of IPs returned from a LookupIp
 pub struct LookupIpIter<'i>(pub(crate) LookupIter<'i>);
 
-impl<'i> Iterator for LookupIpIter<'i> {
+impl Iterator for LookupIpIter<'_> {
     type Item = IpAddr;
 
     fn next(&mut self) -> Option<Self::Item> {

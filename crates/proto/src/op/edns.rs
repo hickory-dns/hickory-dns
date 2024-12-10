@@ -206,7 +206,7 @@ impl BinEncodable for Edns {
         let place = encoder.place::<u16>()?;
         self.options.emit(encoder)?;
         let len = encoder.len_since_place(&place);
-        assert!(len <= u16::max_value() as usize);
+        assert!(len <= u16::MAX as usize);
 
         place.replace(encoder, len as u16)?;
         Ok(())

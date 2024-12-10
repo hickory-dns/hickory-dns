@@ -78,10 +78,10 @@ pub fn update_header_counts(
     is_truncated: bool,
     counts: HeaderCounts,
 ) -> Header {
-    assert!(counts.query_count <= u16::max_value() as usize);
-    assert!(counts.answer_count <= u16::max_value() as usize);
-    assert!(counts.nameserver_count <= u16::max_value() as usize);
-    assert!(counts.additional_count <= u16::max_value() as usize);
+    assert!(counts.query_count <= u16::MAX as usize);
+    assert!(counts.answer_count <= u16::MAX as usize);
+    assert!(counts.nameserver_count <= u16::MAX as usize);
+    assert!(counts.additional_count <= u16::MAX as usize);
 
     // TODO: should the function just take by value?
     let mut header = *current_header;
@@ -1195,7 +1195,7 @@ mod tests {
             0x00, 0x01, 0x00, 0x01, // RecordType = A, Class = IN
             0x00, 0x00, 0x00, 0x02, // TTL = 2 seconds
             0x00, 0x04,             // record length = 4 (ipv4 address)
-            0x5D, 0xB8, 0xD8, 0x22, // address = 93.184.216.34
+            0x5D, 0xB8, 0xD7, 0x0E, // address = 93.184.215.14
         ];
 
         let mut decoder = BinDecoder::new(&buf);

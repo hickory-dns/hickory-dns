@@ -3,7 +3,7 @@
 set e
 set x
 
-OPENSSL=/usr/local/opt/openssl/bin/openssl
+OPENSSL=${OPENSSL:-openssl}
 
 KEY_FILE=example.key
 CSR_FILE=example.csr

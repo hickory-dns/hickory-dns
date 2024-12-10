@@ -955,9 +955,9 @@ impl<'a> Iterator for LabelIter<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for LabelIter<'a> {}
+impl ExactSizeIterator for LabelIter<'_> {}
 
-impl<'a> DoubleEndedIterator for LabelIter<'a> {
+impl DoubleEndedIterator for LabelIter<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.end <= self.start {
             return None;
@@ -1298,7 +1298,7 @@ pub trait IntoName: Sized {
     fn into_name(self) -> ProtoResult<Name>;
 }
 
-impl<'a> IntoName for &'a str {
+impl IntoName for &str {
     /// Performs a utf8, IDNA or punycode, translation of the `str` into `Name`
     fn into_name(self) -> ProtoResult<Name> {
         Name::from_utf8(self)
@@ -1770,7 +1770,7 @@ mod tests {
         use crate::error::ProtoErrorKind;
 
         // u16 max value is where issues start being tickled...
-        let mut buf = Vec::with_capacity(u16::max_value() as usize);
+        let mut buf = Vec::with_capacity(u16::MAX as usize);
         let mut encoder = BinEncoder::new(&mut buf);
 
         let mut result = Ok(());

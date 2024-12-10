@@ -493,7 +493,7 @@ mod tests {
             .and_then(RData::as_a)
             .expect("Expected A record");
 
-        assert_eq!(addr, &A::new(93, 184, 216, 34));
+        assert_eq!(addr, &A::new(93, 184, 215, 14));
 
         //
         // assert that the connection works for a second query
@@ -521,7 +521,7 @@ mod tests {
 
             assert_eq!(
                 addr,
-                &AAAA::new(0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946)
+                &AAAA::new(0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c)
             );
         }
     }
@@ -558,7 +558,7 @@ mod tests {
             .and_then(RData::as_a)
             .expect("Expected A record");
 
-        assert_eq!(addr, &A::new(93, 184, 216, 34));
+        assert_eq!(addr, &A::new(93, 184, 215, 14));
 
         //
         // assert that the connection works for a second query
@@ -586,7 +586,7 @@ mod tests {
 
             assert_eq!(
                 addr,
-                &AAAA::new(0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946)
+                &AAAA::new(0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c)
             );
         }
     }
@@ -625,7 +625,7 @@ mod tests {
             .and_then(RData::as_a)
             .expect("invalid response, expected A record");
 
-        assert_eq!(addr, &A::new(93, 184, 216, 34));
+        assert_eq!(addr, &A::new(93, 184, 215, 14));
 
         //
         // assert that the connection works for a second query
@@ -649,7 +649,7 @@ mod tests {
 
         assert_eq!(
             addr,
-            &AAAA::new(0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946)
+            &AAAA::new(0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c)
         );
     }
 }

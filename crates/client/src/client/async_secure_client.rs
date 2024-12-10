@@ -109,11 +109,7 @@ where
     pub async fn build(
         mut self,
     ) -> Result<(AsyncDnssecClient, DnsExchangeBackground<S, TokioTime>), ProtoError> {
-        let trust_anchor = if let Some(trust_anchor) = self.trust_anchor.take() {
-            trust_anchor
-        } else {
-            TrustAnchor::default()
-        };
+        let trust_anchor = self.trust_anchor.take().unwrap_or_default();
         let result = AsyncClient::connect(self.connect_future).await;
 
         result.map(|(client, bg)| (AsyncDnssecClient::from_client(client, trust_anchor), bg))

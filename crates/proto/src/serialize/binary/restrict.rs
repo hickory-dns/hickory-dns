@@ -78,7 +78,7 @@ impl<T> Restrict<T> {
 /// Verified data that can be operated on
 pub struct Verified<'a, T>(VerifiedInner<'a, T>);
 
-impl<'a, T> Verified<'a, T> {
+impl<T> Verified<'_, T> {
     /// Perform some operation on the data, and return a result.
     #[inline]
     pub fn then<R, F: Fn(&T) -> R>(&self, f: F) -> Result<R, &T> {
