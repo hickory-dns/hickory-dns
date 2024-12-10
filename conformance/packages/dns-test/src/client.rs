@@ -377,6 +377,7 @@ pub struct DigOutput {
     pub edns_must_be_zero: bool,
     pub opcode: String,
     pub edns_version: Option<u8>,
+    pub dnssec_ok_flag: bool,
 }
 
 impl FromStr for DigOutput {
@@ -418,6 +419,7 @@ impl FromStr for DigOutput {
         let mut opcode = None;
         let mut edns_version = None;
         let mut edns_must_be_zero = false;
+        let mut dnssec_ok_flag = false;
 
         let mut lines = input.lines();
         while let Some(line) = lines.next() {
@@ -483,6 +485,10 @@ impl FromStr for DigOutput {
 
                 if line.contains("MBZ:") {
                     edns_must_be_zero = true;
+                }
+
+                if line.contains("flags: do") {
+                    dnssec_ok_flag = true;
                 }
             } else if let Some(unprefixed) = line.strip_prefix(OPT_PREFIX) {
                 let Some((option_str, value)) = unprefixed.split_once(": ") else {
@@ -552,6 +558,7 @@ impl FromStr for DigOutput {
             edns_must_be_zero,
             opcode: opcode.ok_or_else(|| not_found(OPCODE_PREFIX))?,
             edns_version,
+            dnssec_ok_flag,
         })
     }
 }
@@ -970,6 +977,44 @@ example.testing.	0	IN	A	1.2.3.4
 
         assert!(!output.must_be_zero);
         assert!(output.edns_must_be_zero);
+
+        Ok(())
+    }
+
+    #[test]
+    fn do_flag() -> Result<()> {
+        let input="; <<>> DiG 9.18.28-1~deb12u2-Debian <<>> +norecurse +dnssec +noadflag +nocdflag +timeout +edns +nozflag +opcode +noheader-only +notcp +nocookie +ednsneg +noignore @172.19.0.2 SOA hickory-dns.testing.
+; (1 server found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 45039
+;; flags: qr aa; QUERY: 1, ANSWER: 2, AUTHORITY: 2, ADDITIONAL: 3
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags: do; udp: 1232
+;; QUESTION SECTION:
+;hickory-dns.testing.		IN	SOA
+
+;; ANSWER SECTION:
+hickory-dns.testing.	86400	IN	SOA	primary0.hickory-dns.testing. admin0.hickory-dns.testing. 2024010101 1800 900 604800 86400
+hickory-dns.testing.	86400	IN	RRSIG	SOA 8 2 86400 20250107210902 20241210210902 46135 hickory-dns.testing. E1FdGm36Y8ahHdKTTgIk4yalKAhCfZe/fZ8K3lsB6+ZwExVU9Itt8BeS qF+uboFmc1J4HL3mkrj1aoAarWhJuMN4UqsTKQT0NXJYcB7zgCfOhJ9p 3O2F1z/9MfG7HIUdjE9OG0RArqZ0P1mU3e/cpx2w0aplBsdm744jxLno P3J4wMTUw6Wylh9jWaRHAFmo95vQqwcY2QlHmYmSPdp4xvUZloCuUvDQ 94rvakuqVli50iofXQ1DSCRiDZxKqODDcRiIRIOKCsTZIhXMXG7uBTha jXUbjoF5gWCJb93bBGalz9xt1xxLb05T5df4JW8fPjxjzsTjEnYbuig7 keJohg==
+
+;; AUTHORITY SECTION:
+hickory-dns.testing.	86400	IN	NS	primary0.hickory-dns.testing.
+hickory-dns.testing.	86400	IN	RRSIG	NS 8 2 86400 20250107210902 20241210210902 46135 hickory-dns.testing. I7fKge0qRJ7RE+cTsrzhwwAaFG4SQgjtimFn+twEsJ1Ny7mmPyGPGHyj NPm2HTMzqGwy1LI4UF7G7nbI6xCCJZFcZX3dT6cwj8syzJ3daE4AbUtJ EaiVucs+gSVKXIJuPacpeZ/lOxFawPDh4XW2JBSegul+E+5AHJKl4MEA RYkX+jt5bs96Ad1L/0FR4pNILUHPnIk5Cq6t9YkcfyLodUtQKIFfk949 bbkDpKrMi10uwcjzuKR5OzJW4aeSePgalH2qDD6P9NBKXHjpA5wp5cMK v4+/7Q6Edw20QkDXE3/Mur9AJQYpvq4f33HigVHflpivrdmuaGbD8dLF rFlAeQ==
+
+;; ADDITIONAL SECTION:
+primary0.hickory-dns.testing. 86400 IN	A	172.19.0.2
+primary0.hickory-dns.testing. 86400 IN	RRSIG	A 8 3 86400 20250107210902 20241210210902 46135 hickory-dns.testing. RioAp+BdhIwOoul21DYuLFa2wtVGf8kq0xe9AdhO0iDgm2axYbFgYN2u 9dsYvgornz5+ioK/p88e2h+iioFmgw3s/vDLao27PH1OAoyWo+bjiZei Yw20hTMSflEOb0qEX2cT8ZUpX8FclcRamUF3AlLyzyofEiZMC+MGvCUs a1PbKWdP4B9QuWNlNaUs2zxWpnTbZ29keLTAOFK3FYUy450g9p8JeUqH 72cG1n02pycehC0OQufXHfL7b5PynZ5mhi5cR0GYDQFxPKm8Sk/xRxKQ jQjsN+DymJMQElMgvxS3oYnOekolOStJE4FxpiwOOBDp/OFrVlg73RRI X8pLLA==
+
+;; Query time: 1 msec
+;; SERVER: 172.19.0.2#53(172.19.0.2) (UDP)
+;; WHEN: Tue Dec 10 21:09:02 UTC 2024
+;; MSG SIZE  rcvd: 1051";
+
+        let output: DigOutput = input.parse()?;
+
+        assert!(output.dnssec_ok_flag);
 
         Ok(())
     }
