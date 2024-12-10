@@ -83,6 +83,7 @@ impl Client {
             settings.ednsnegflag(),
             settings.ignoreflag(),
             settings.nsidflag(),
+            settings.expireflag(),
         ];
 
         let edns_option_flag = settings.ednsoptionflag();
@@ -135,6 +136,7 @@ pub struct DigSettings {
     ignore_truncation: bool,
     bufsize: Option<u16>,
     nsid: bool,
+    expire: bool,
 }
 
 impl Default for DigSettings {
@@ -157,6 +159,7 @@ impl Default for DigSettings {
             ignore_truncation: false,
             bufsize: None,
             nsid: false,
+            expire: false,
         }
     }
 }
@@ -375,6 +378,19 @@ impl DigSettings {
         match self.nsid {
             true => "+nsid",
             false => "+nonsid",
+        }
+    }
+
+    /// Send the EDNS Expire option.
+    pub fn expire(&mut self) -> &mut Self {
+        self.expire = true;
+        self
+    }
+
+    fn expireflag(&self) -> &'static str {
+        match self.expire {
+            true => "+expire",
+            false => "+noexpire",
         }
     }
 }
