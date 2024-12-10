@@ -184,7 +184,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ steps.rust_version.outpus.version }}
+          toolchain: ${{ steps.rust_version.outputs.version }}
 
       - uses: extractions/setup-just@v2
 
