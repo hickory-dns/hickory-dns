@@ -64,7 +64,7 @@ impl<'q> From<Option<&'q WireQuery>> for EmptyOrQueries<'q> {
     }
 }
 
-impl<'q> EmitAndCount for EmptyOrQueries<'q> {
+impl EmitAndCount for EmptyOrQueries<'_> {
     fn emit(&mut self, encoder: &mut BinEncoder<'_>) -> ProtoResult<usize> {
         match self {
             EmptyOrQueries::Empty => Ok(0),
@@ -73,7 +73,7 @@ impl<'q> EmitAndCount for EmptyOrQueries<'q> {
     }
 }
 
-impl<'q, 'a, A, N, S, D> MessageResponse<'q, 'a, A, N, S, D>
+impl<'a, A, N, S, D> MessageResponse<'_, 'a, A, N, S, D>
 where
     A: Iterator<Item = &'a Record> + Send + 'a,
     N: Iterator<Item = &'a Record> + Send + 'a,
@@ -133,7 +133,7 @@ impl<'q> MessageResponseBuilder<'q> {
     /// # Arguments
     ///
     /// * `query` - any optional query (from the Request) to associate with the Response
-    pub(crate) fn new(query: Option<&'q WireQuery>) -> MessageResponseBuilder<'q> {
+    pub(crate) fn new(query: Option<&'q WireQuery>) -> Self {
         MessageResponseBuilder {
             query,
             sig0: None,

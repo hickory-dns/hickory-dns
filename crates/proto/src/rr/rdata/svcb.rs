@@ -1063,7 +1063,7 @@ impl BinEncodable for SVCB {
     }
 }
 
-impl<'r> RecordDataDecodable<'r> for SVCB {
+impl RecordDataDecodable<'_> for SVCB {
     /// Reads the SVCB record from the decoder.
     ///
     /// ```text

@@ -170,7 +170,6 @@ impl ResolveError {
             | response_code @ ResponseCode::BADALG
             | response_code @ ResponseCode::BADTRUNC
             | response_code @ ResponseCode::BADCOOKIE => {
-                let response = response;
                 let soa = response.soa().as_ref().map(RecordRef::to_owned);
                 let query = response.queries().iter().next().cloned().unwrap_or_default();
                 let error_kind = ResolveErrorKind::NoRecordsFound {
@@ -191,7 +190,6 @@ impl ResolveError {
                 // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
                 // let valid_until = if response.authoritative() { now + response.negative_ttl() };
 
-                let  response = response;
                 let soa = response.soa().as_ref().map(RecordRef::to_owned);
                 let negative_ttl = response.negative_ttl();
                 // Note: improperly configured servers may do recursive lookups and return bad SOA

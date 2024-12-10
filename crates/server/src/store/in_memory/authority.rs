@@ -386,8 +386,8 @@ impl InnerInMemory {
         lookup_options: LookupOptions,
     ) -> Option<Arc<RecordSet>> {
         // this range covers all the records for any of the RecordTypes at a given label.
-        let start_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::min_value()));
-        let end_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::max_value()));
+        let start_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::MIN));
+        let end_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::MAX));
 
         fn aname_covers_type(key_type: RecordType, query_type: RecordType) -> bool {
             (query_type == RecordType::A || query_type == RecordType::AAAA)
@@ -610,9 +610,8 @@ impl InnerInMemory {
         }
 
         // check that CNAME and ANAME is either not already present, or no other records are if it's a CNAME
-        let start_range_key =
-            RrKey::new(record.name().into(), RecordType::Unknown(u16::min_value()));
-        let end_range_key = RrKey::new(record.name().into(), RecordType::Unknown(u16::max_value()));
+        let start_range_key = RrKey::new(record.name().into(), RecordType::Unknown(u16::MIN));
+        let end_range_key = RrKey::new(record.name().into(), RecordType::Unknown(u16::MAX));
 
         let multiple_records_at_label_disallowed = self
             .records
@@ -1062,8 +1061,7 @@ impl Authority for InMemoryAuthority {
                                 // in the case of ANAME the final record should be the A or AAAA record
                                 let (rdatas, a_aaaa_ttl) = {
                                     let last_record = additionals.last();
-                                    let a_aaaa_ttl =
-                                        last_record.map_or(u32::max_value(), |r| r.ttl());
+                                    let a_aaaa_ttl = last_record.map_or(u32::MAX, |r| r.ttl());
 
                                     // grap the rdatas
                                     let rdatas: Option<Vec<RData>> = last_record
