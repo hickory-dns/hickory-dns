@@ -71,8 +71,8 @@ ring = "0.16"
 # net proto
 quinn = { version = "0.10", default-features = false }
 h2 = "0.3.0"
-h3 = "0.0.2"
-h3-quinn = "0.0.3"
+h3 = "0.0.3"
+h3-quinn = "0.0.4"
 http = "0.2"
 
 
