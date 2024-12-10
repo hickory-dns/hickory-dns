@@ -594,6 +594,7 @@ pub struct DigFlags {
     pub qr: bool,
     pub recursion_available: bool,
     pub recursion_desired: bool,
+    pub truncation: bool,
 }
 
 impl FromStr for DigFlags {
@@ -606,6 +607,7 @@ impl FromStr for DigFlags {
         let mut authoritative_answer = false;
         let mut authenticated_data = false;
         let mut checking_disabled = false;
+        let mut truncation = false;
 
         for flag in input.split_whitespace() {
             match flag {
@@ -615,6 +617,7 @@ impl FromStr for DigFlags {
                 "aa" => authoritative_answer = true,
                 "ad" => authenticated_data = true,
                 "cd" => checking_disabled = true,
+                "tc" => truncation = true,
                 _ => return Err(format!("unknown flag: {flag}").into()),
             }
         }
@@ -626,6 +629,7 @@ impl FromStr for DigFlags {
             qr,
             recursion_available,
             recursion_desired,
+            truncation,
         })
     }
 }
