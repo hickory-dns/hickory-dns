@@ -450,7 +450,7 @@ impl SqliteAuthority {
     ///
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
-    #[allow(clippy::blocks_in_if_conditions)]
+    #[allow(clippy::blocks_in_conditions)]
     pub async fn authorize(&self, update_message: &MessageRequest) -> UpdateResult<()> {
         // 3.3.3 - Pseudocode for Permission Checking
         //

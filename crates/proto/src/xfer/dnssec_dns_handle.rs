@@ -639,7 +639,7 @@ fn test_preserve() {
 /// Invalid RRSIGs will be ignored. RRSIGs will only be validated against DNSKEYs which can
 ///  be validated through a chain back to the `trust_anchor`. As long as one RRSIG is valid,
 ///  then the RRSET will be valid.
-#[allow(clippy::blocks_in_if_conditions)]
+#[allow(clippy::blocks_in_conditions)]
 async fn verify_default_rrset<H, E>(
     handle: &DnssecDnsHandle<H>,
     rrset: Rrset,
@@ -860,7 +860,7 @@ fn verify_rrset_with_dnskey(_: &DNSKEY, _: &RRSIG, _: &Rrset) -> ProtoResult<()>
 ///  corresponding RRSIG RR, a validator MUST ignore the settings of the
 ///  NSEC and RRSIG bits in an NSEC RR.
 /// ```
-#[allow(clippy::blocks_in_if_conditions)]
+#[allow(clippy::blocks_in_conditions)]
 #[doc(hidden)]
 pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> bool {
     // TODO: consider converting this to Result, and giving explicit reason for the failure

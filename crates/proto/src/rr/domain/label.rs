@@ -60,6 +60,7 @@ impl Label {
             return Self::from_ascii(s);
         }
 
+        #[allow(deprecated)]
         match idna::Config::default()
             .use_std3_ascii_rules(true)
             .transitional_processing(true)
@@ -245,6 +246,7 @@ impl Display for Label {
         if self.as_bytes().starts_with(IDNA_PREFIX) {
             // this should never be outside the ascii codes...
             let label = String::from_utf8_lossy(self.borrow());
+            #[allow(deprecated)]
             let (label, e) = idna::Config::default()
                 .use_std3_ascii_rules(false)
                 .transitional_processing(false)
