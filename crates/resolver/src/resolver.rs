@@ -181,7 +181,7 @@ mod tests {
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 215, 14)));
             } else {
                 assert_eq!(
                     address,
@@ -206,7 +206,7 @@ mod tests {
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 215, 14)));
             } else {
                 assert_eq!(
                     address,

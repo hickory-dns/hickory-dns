@@ -52,7 +52,7 @@ async fn test_search() {
         let record = result.iter().next().unwrap();
         assert_eq!(record.record_type(), RecordType::A);
         assert_eq!(record.dns_class(), DNSClass::IN);
-        assert_eq!(record.data().unwrap(), &RData::A(A::new(93, 184, 216, 34)));
+        assert_eq!(record.data().unwrap(), &RData::A(A::new(93, 184, 215, 14)));
     } else {
         panic!("expected a result"); // valid panic, in test
     }
@@ -82,7 +82,7 @@ async fn test_search_www() {
         let record = result.iter().next().unwrap();
         assert_eq!(record.record_type(), RecordType::A);
         assert_eq!(record.dns_class(), DNSClass::IN);
-        assert_eq!(record.data().unwrap(), &RData::A(A::new(93, 184, 216, 34)));
+        assert_eq!(record.data().unwrap(), &RData::A(A::new(93, 184, 215, 14)));
     } else {
         panic!("expected a result"); // valid panic, in test
     }
@@ -199,7 +199,7 @@ async fn test_authority() {
             .set_ttl(86400)
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(A::new(93, 184, 216, 34))))
+            .set_data(Some(RData::A(A::new(93, 184, 215, 14))))
             .clone()
     );
 }
@@ -369,7 +369,7 @@ async fn test_prerequisites() {
             .set_ttl(0)
             .set_dns_class(DNSClass::IN)
             .set_rr_type(RecordType::A)
-            .set_data(Some(RData::A(A::new(93, 184, 216, 34))))
+            .set_data(Some(RData::A(A::new(93, 184, 215, 14))))
             .clone()])
         .await
         .is_ok());
@@ -381,7 +381,7 @@ async fn test_prerequisites() {
                 .set_ttl(0)
                 .set_dns_class(DNSClass::CH)
                 .set_rr_type(RecordType::A)
-                .set_data(Some(RData::A(A::new(93, 184, 216, 34))))
+                .set_data(Some(RData::A(A::new(93, 184, 215, 14))))
                 .clone()],)
             .await,
         Err(ResponseCode::FormErr)
@@ -665,7 +665,7 @@ async fn test_update() {
             .set_ttl(86400)
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(A::new(93, 184, 216, 34))))
+            .set_data(Some(RData::A(A::new(93, 184, 215, 14))))
             .clone(),
         Record::new()
             .set_name(www_name.clone())
@@ -1010,7 +1010,7 @@ async fn test_journal() {
     let delete_record = Record::new()
         .set_name(delete_name.clone())
         .set_record_type(RecordType::A)
-        .set_data(Some(RData::A(A::new(93, 184, 216, 34))))
+        .set_data(Some(RData::A(A::new(93, 184, 215, 14))))
         .set_dns_class(DNSClass::NONE)
         .clone();
     authority
