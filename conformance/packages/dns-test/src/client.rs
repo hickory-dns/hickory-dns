@@ -547,6 +547,7 @@ impl FromStr for DigFlags {
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DigStatus {
+    BADVERS,
     NOERROR,
     NOTIMP,
     NXDOMAIN,
@@ -576,6 +577,7 @@ impl FromStr for DigStatus {
 
     fn from_str(input: &str) -> Result<Self> {
         let status = match input {
+            "BADVERS" => Self::BADVERS,
             "NOERROR" => Self::NOERROR,
             "NOTIMP" => Self::NOTIMP,
             "NXDOMAIN" => Self::NXDOMAIN,
