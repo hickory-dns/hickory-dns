@@ -342,6 +342,7 @@ pub struct DigOutput {
     pub opt: bool,
     pub options: Vec<(u16, String)>,
     pub must_be_zero: bool,
+    pub edns_must_be_zero: bool,
     pub opcode: String,
     pub edns_version: Option<u8>,
 }
@@ -384,6 +385,7 @@ impl FromStr for DigOutput {
         let mut must_be_zero = false;
         let mut opcode = None;
         let mut edns_version = None;
+        let mut edns_must_be_zero = false;
 
         let mut lines = input.lines();
         while let Some(line) = lines.next() {
@@ -446,6 +448,10 @@ impl FromStr for DigOutput {
                 }
 
                 edns_version = Some(version_text.parse()?);
+
+                if line.contains("MBZ:") {
+                    edns_must_be_zero = true;
+                }
             } else if let Some(unprefixed) = line.strip_prefix(OPT_PREFIX) {
                 let Some((option_str, value)) = unprefixed.split_once(": ") else {
                     return Err("could not parse option".into());
@@ -511,6 +517,7 @@ impl FromStr for DigOutput {
             options,
             opt,
             must_be_zero,
+            edns_must_be_zero,
             opcode: opcode.ok_or_else(|| not_found(OPCODE_PREFIX))?,
             edns_version,
         })
@@ -896,6 +903,37 @@ example.testing.	0	IN	A	1.2.3.4
 
         assert_eq!(output.status, DigStatus::NOTIMP);
         assert_eq!(output.opcode, "RESERVED15");
+
+        Ok(())
+    }
+
+    #[test]
+    fn edns_reserved_flag() -> Result<()> {
+        let input =
+            "; <<>> DiG 9.18.28-0ubuntu0.24.04.1-Ubuntu <<>> -p 12353 @127.0.0.1 A example.testing.
+; (1 server found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 28632
+;; flags: qr aa rd ra ad; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; MBZ: 0x0040, udp: 1
+;; QUESTION SECTION:
+;example.testing.		IN	A
+
+;; ANSWER SECTION:
+example.testing.	0	IN	A	1.2.3.4
+
+;; Query time: 1 msec
+;; SERVER: 127.0.0.1#12353(127.0.0.1) (UDP)
+;; WHEN: Tue Dec 10 12:18:03 CST 2024
+;; MSG SIZE  rcvd: 60";
+
+        let output: DigOutput = input.parse()?;
+
+        assert!(!output.must_be_zero);
+        assert!(output.edns_must_be_zero);
 
         Ok(())
     }
