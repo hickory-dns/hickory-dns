@@ -63,24 +63,40 @@ impl Client {
         record_type: RecordType,
         fqdn: &FQDN,
     ) -> Result<DigOutput> {
-        let output = self.inner.stdout(&[
+        let timeoutflag = &settings.timeoutflag();
+        let ednsflag = settings.ednsflag();
+        let opcodeflag = settings.opcodeflag();
+
+        let mut command_and_args = vec![
             "dig",
             settings.rdflag(),
             settings.do_bit(),
             settings.adflag(),
             settings.cdflag(),
-            settings.timeoutflag().as_str(),
-            settings.ednsflag().as_str(),
+            timeoutflag.as_str(),
+            ednsflag.as_str(),
             settings.zflag(),
-            settings.opcodeflag().as_str(),
+            opcodeflag.as_str(),
             settings.header_only_flag(),
             settings.tcpflag(),
             settings.cookieflag(),
             settings.ednsnegflag(),
-            &format!("@{server}"),
-            record_type.as_name().as_ref(),
+        ];
+
+        let edns_option_flag = settings.ednsoptionflag();
+        if let Some(edns_option_flag) = edns_option_flag.as_ref() {
+            command_and_args.push(edns_option_flag.as_str());
+        }
+
+        let server_arg = format!("@{server}");
+        let record_type_name = record_type.as_name();
+        command_and_args.extend_from_slice(&[
+            server_arg.as_str(),
+            record_type_name.as_ref(),
             fqdn.as_str(),
-        ])?;
+        ]);
+
+        let output = self.inner.stdout(&command_and_args)?;
 
         output.parse()
     }
@@ -104,6 +120,7 @@ pub struct DigSettings {
     tcp: bool,
     cookie: bool,
     ednsneg: bool,
+    extra_edns_option: Option<u16>,
 }
 
 impl Default for DigSettings {
@@ -121,6 +138,7 @@ impl Default for DigSettings {
             tcp: false,
             cookie: true,
             ednsneg: true,
+            extra_edns_option: None,
         }
     }
 }
@@ -281,6 +299,19 @@ impl DigSettings {
             true => "+ednsneg",
             false => "+noednsneg",
         }
+    }
+
+    /// Add an EDNS option, with the given option code and no payload.
+    pub fn ednsoption(&mut self, option_code: u16) -> &mut Self {
+        if self.extra_edns_option.is_some() {
+            panic!("can only set one extra EDNS option");
+        }
+        self.extra_edns_option = Some(option_code);
+        self
+    }
+
+    fn ednsoptionflag(&self) -> Option<String> {
+        Some(format!("+ednsopt={}", self.extra_edns_option?))
     }
 }
 
