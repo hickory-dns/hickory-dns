@@ -76,6 +76,7 @@ impl Client {
             settings.header_only_flag(),
             settings.tcpflag(),
             settings.cookieflag(),
+            settings.ednsnegflag(),
             &format!("@{server}"),
             record_type.as_name().as_ref(),
             fqdn.as_str(),
@@ -102,6 +103,7 @@ pub struct DigSettings {
     header_only: bool,
     tcp: bool,
     cookie: bool,
+    ednsneg: bool,
 }
 
 impl Default for DigSettings {
@@ -118,6 +120,7 @@ impl Default for DigSettings {
             header_only: false,
             tcp: false,
             cookie: true,
+            ednsneg: true,
         }
     }
 }
@@ -264,6 +267,19 @@ impl DigSettings {
             "+cookie"
         } else {
             "+nocookie"
+        }
+    }
+
+    /// Disable EDNS version negotiation.
+    pub fn noednsneg(&mut self) -> &mut Self {
+        self.ednsneg = false;
+        self
+    }
+
+    fn ednsnegflag(&self) -> &'static str {
+        match self.ednsneg {
+            true => "+ednsneg",
+            false => "+noednsneg",
         }
     }
 }
