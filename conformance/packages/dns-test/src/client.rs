@@ -87,6 +87,10 @@ impl Client {
         if let Some(edns_option_flag) = edns_option_flag.as_ref() {
             command_and_args.push(edns_option_flag.as_str());
         }
+        let edns_flags = settings.extra_edns_flags();
+        if let Some(edns_flags) = edns_flags.as_ref() {
+            command_and_args.push(edns_flags.as_str());
+        }
 
         let server_arg = format!("@{server}");
         let record_type_name = record_type.as_name();
@@ -121,6 +125,7 @@ pub struct DigSettings {
     cookie: bool,
     ednsneg: bool,
     extra_edns_option: Option<u16>,
+    extra_edns_flags: Option<u16>,
 }
 
 impl Default for DigSettings {
@@ -139,6 +144,7 @@ impl Default for DigSettings {
             cookie: true,
             ednsneg: true,
             extra_edns_option: None,
+            extra_edns_flags: None,
         }
     }
 }
@@ -312,6 +318,16 @@ impl DigSettings {
 
     fn ednsoptionflag(&self) -> Option<String> {
         Some(format!("+ednsopt={}", self.extra_edns_option?))
+    }
+
+    /// Set reserved EDNS flags.
+    pub fn set_ednsflags(&mut self, value: u16) -> &mut Self {
+        self.extra_edns_flags = Some(value);
+        self
+    }
+
+    fn extra_edns_flags(&self) -> Option<String> {
+        Some(format!("+ednsflags={}", self.extra_edns_flags?))
     }
 }
 
