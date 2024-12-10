@@ -82,6 +82,7 @@ impl Client {
             settings.cookieflag(),
             settings.ednsnegflag(),
             settings.ignoreflag(),
+            settings.nsidflag(),
         ];
 
         let edns_option_flag = settings.ednsoptionflag();
@@ -133,6 +134,7 @@ pub struct DigSettings {
     extra_edns_flags: Option<u16>,
     ignore_truncation: bool,
     bufsize: Option<u16>,
+    nsid: bool,
 }
 
 impl Default for DigSettings {
@@ -154,6 +156,7 @@ impl Default for DigSettings {
             extra_edns_flags: None,
             ignore_truncation: false,
             bufsize: None,
+            nsid: false,
         }
     }
 }
@@ -360,6 +363,19 @@ impl DigSettings {
 
     fn bufsizeflag(&self) -> Option<String> {
         Some(format!("+bufsize={}", self.bufsize?))
+    }
+
+    /// Include an EDNS name server ID request.
+    pub fn nsid(&mut self) -> &mut Self {
+        self.nsid = true;
+        self
+    }
+
+    fn nsidflag(&self) -> &'static str {
+        match self.nsid {
+            true => "+nsid",
+            false => "+nonsid",
+        }
     }
 }
 
