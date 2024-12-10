@@ -81,6 +81,7 @@ impl Client {
             settings.tcpflag(),
             settings.cookieflag(),
             settings.ednsnegflag(),
+            settings.ignoreflag(),
         ];
 
         let edns_option_flag = settings.ednsoptionflag();
@@ -126,6 +127,7 @@ pub struct DigSettings {
     ednsneg: bool,
     extra_edns_option: Option<u16>,
     extra_edns_flags: Option<u16>,
+    ignore_truncation: bool,
 }
 
 impl Default for DigSettings {
@@ -145,6 +147,7 @@ impl Default for DigSettings {
             ednsneg: true,
             extra_edns_option: None,
             extra_edns_flags: None,
+            ignore_truncation: false,
         }
     }
 }
@@ -328,6 +331,19 @@ impl DigSettings {
 
     fn extra_edns_flags(&self) -> Option<String> {
         Some(format!("+ednsflags={}", self.extra_edns_flags?))
+    }
+
+    /// Ignore truncation, and do not retry with TCP.
+    pub fn ignore(&mut self) -> &mut Self {
+        self.ignore_truncation = true;
+        self
+    }
+
+    fn ignoreflag(&self) -> &'static str {
+        match self.ignore_truncation {
+            true => "+ignore",
+            false => "+noignore",
+        }
     }
 }
 
