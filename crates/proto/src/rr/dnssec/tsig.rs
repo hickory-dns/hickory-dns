@@ -110,17 +110,17 @@ impl TSigner {
     ///
     /// # Arguments
     /// * `previous_hash` - Hash of the last message received before this one, or of the query for
-    /// the first message
+    ///   the first message
     /// * `message` - byte buffer containing current message
     /// * `first_message` - is this the first response message
     ///
     /// # Returns
     /// Return Ok(_) on valid signature. Inner tuple contain the following values, in order:
     /// * a byte buffer containing the hash of this message. Need to be passed back when
-    /// authenticating next message
+    ///   authenticating next message
     /// * a Range of time that is acceptable
     /// * the time the signature was emitted. It must be greater or equal to the time of previous
-    /// messages, if any
+    ///   messages, if any
     pub fn verify_message_byte(
         &self,
         previous_hash: Option<&[u8]>,
@@ -226,9 +226,7 @@ impl MessageFinalizer for TSigner {
     }
 }
 
-#[cfg(test)]
-#[cfg(any(feature = "dnssec-ring", feature = "dnssec-openssl"))]
-
+#[cfg(all(test, any(feature = "dnssec-ring", feature = "dnssec-openssl")))]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 

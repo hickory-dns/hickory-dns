@@ -39,7 +39,7 @@ impl TryParseIp for Name {
     }
 }
 
-impl<'a, T> TryParseIp for &'a T
+impl<T> TryParseIp for &T
 where
     T: TryParseIp + ?Sized,
 {

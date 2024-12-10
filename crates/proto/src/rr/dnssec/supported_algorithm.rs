@@ -114,7 +114,7 @@ impl SupportedAlgorithms {
 
     /// Return the count of supported algorithms
     pub fn len(self) -> u16 {
-        // this is pretty much guaranteed to be less that u16::max_value()
+        // this is pretty much guaranteed to be less that u16::MAX
         self.iter().count() as u16
     }
 
@@ -189,11 +189,11 @@ impl<'a> SupportedAlgorithmsIter<'a> {
     }
 }
 
-impl<'a> Iterator for SupportedAlgorithmsIter<'a> {
+impl Iterator for SupportedAlgorithmsIter<'_> {
     type Item = Algorithm;
     fn next(&mut self) -> Option<Self::Item> {
         // some quick bounds checking
-        if self.current > u8::max_value() as usize {
+        if self.current > u8::MAX as usize {
             return None;
         }
 
@@ -237,7 +237,6 @@ fn test_has() {
 
 #[test]
 #[allow(deprecated)]
-
 fn test_iterator() {
     let supported = SupportedAlgorithms::all();
     assert_eq!(supported.iter().count(), 7);

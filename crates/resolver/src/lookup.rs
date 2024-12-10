@@ -532,7 +532,7 @@ lookup_type!(
 lookup_type!(NsLookup, NsLookupIter, NsLookupIntoIter, RData::NS, NS);
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use std::net::{IpAddr, Ipv4Addr};
     use std::str::FromStr;
     use std::sync::{Arc, Mutex};
@@ -549,7 +549,7 @@ pub mod tests {
     use crate::error::ResolveError;
 
     #[derive(Clone)]
-    pub struct MockDnsHandle {
+    pub(crate) struct MockDnsHandle {
         messages: Arc<Mutex<Vec<Result<DnsResponse, ResolveError>>>>,
     }
 
@@ -564,7 +564,7 @@ pub mod tests {
         }
     }
 
-    pub fn v4_message() -> Result<DnsResponse, ResolveError> {
+    pub(crate) fn v4_message() -> Result<DnsResponse, ResolveError> {
         let mut message = Message::new();
         message.add_query(Query::query(Name::root(), RecordType::A));
         message.insert_answers(vec![Record::from_rdata(
@@ -578,17 +578,17 @@ pub mod tests {
         Ok(resp)
     }
 
-    pub fn empty() -> Result<DnsResponse, ResolveError> {
+    pub(crate) fn empty() -> Result<DnsResponse, ResolveError> {
         Ok(DnsResponse::from_message(Message::new()).unwrap())
     }
 
-    pub fn error() -> Result<DnsResponse, ResolveError> {
+    pub(crate) fn error() -> Result<DnsResponse, ResolveError> {
         Err(ResolveError::from(ProtoError::from(std::io::Error::from(
             std::io::ErrorKind::Other,
         ))))
     }
 
-    pub fn mock(messages: Vec<Result<DnsResponse, ResolveError>>) -> MockDnsHandle {
+    pub(crate) fn mock(messages: Vec<Result<DnsResponse, ResolveError>>) -> MockDnsHandle {
         MockDnsHandle {
             messages: Arc::new(Mutex::new(messages)),
         }

@@ -44,7 +44,7 @@ pub static IP6_ARPA: Lazy<Name> = Lazy::new(|| {
 ///    The domain "localhost." and any names falling within ".localhost."
 ///    are special in the following ways:
 /// ```
-
+///
 /// localhost. usage
 pub static LOCALHOST: Lazy<ZoneUsage> =
     Lazy::new(|| ZoneUsage::localhost(Name::from_ascii("localhost.").unwrap()));
@@ -82,7 +82,7 @@ pub static IP6_ARPA_1: Lazy<ZoneUsage> = Lazy::new(|| {
 ///   addresses in the FE80::/10 prefix, which are link-local and
 ///   meaningful only on the link where they originate.
 /// ```
-
+///
 /// localhost. usage
 pub static LOCAL: Lazy<ZoneUsage> =
     Lazy::new(|| ZoneUsage::local(Name::from_ascii("local.").unwrap()));
@@ -152,12 +152,12 @@ pub static IP6_ARPA_FE_B: Lazy<ZoneUsage> = Lazy::new(|| {
 ///    "invalid" is used in quotes to signify such names, as opposed to
 ///    names that may be invalid for other reasons (e.g., being too long).
 /// ```
-
+///
 /// invalid. name usage
 pub static INVALID: Lazy<ZoneUsage> =
     Lazy::new(|| ZoneUsage::invalid(Name::from_ascii("invalid.").unwrap()));
 
-/// invalid.
+/// onion.
 ///
 /// [The ".onion" Special-Use Domain Name](https://tools.ietf.org/html/rfc7686), RFC 7686 October, 2015
 ///
@@ -171,7 +171,7 @@ pub static INVALID: Lazy<ZoneUsage> =
 ///   functionally correspond to the identity of a given service, thereby
 ///   combining location and authentication.
 /// ```
-
+///
 /// onion. name usage
 pub static ONION: Lazy<ZoneUsage> = Lazy::new(|| ZoneUsage {
     user: UserUsage::Normal, // the domain is special, but this is what seems to match the most
