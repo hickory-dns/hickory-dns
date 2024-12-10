@@ -5,6 +5,10 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.24.2
+
+- Upgrade to idna 1 due to RUSTSEC-2024-0421 (#2664)
+
 ## 0.24.1
 
 - Break when socket is unexpectedly shut down #2171 by dlon
@@ -55,7 +59,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 ### Fixed
 
 - (resolver) Malformed label: -- when parsing resolv.conf #1985 by Jake-Shadle
-- (proto) Fix truncation for UDP #1975 by nmittler 
+- (proto) Fix truncation for UDP #1975 by nmittler
 - (proto) avoid panicking in parse_time() #1964 by djc
 - (server) Merge up deny response in requests to server #1954 by djc
 - (proto) remove duplicate is_soa function #1948 by mattsse
