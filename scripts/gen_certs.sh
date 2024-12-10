@@ -37,7 +37,7 @@ EOF
 
 # CA
 echo "----> Generating CA <----"
-${OPENSSL:?} req -x509 -new -nodes -newkey rsa:4096 -days 365 -keyout ca.key -out ca.pem -config /tmp/ca.conf
+${OPENSSL:?} req -x509 -new -nodes -newkey rsa:4096 -days 365 -keyout ca.key -addext basicConstraints=critical,CA:TRUE,pathlen:1 -out ca.pem -config /tmp/ca.conf
 ${OPENSSL:?} x509 -in ca.pem -out ca.der -outform der  
 
 cat <<-EOF > /tmp/cert.conf
