@@ -98,6 +98,9 @@ impl Client {
         if let Some(bufsize_flag) = bufsize_flag.as_ref() {
             command_and_args.push(bufsize_flag);
         }
+        if let Some(subnetflag) = settings.subnetflag() {
+            command_and_args.push(subnetflag);
+        }
 
         let server_arg = format!("@{server}");
         let record_type_name = record_type.as_name();
@@ -137,6 +140,7 @@ pub struct DigSettings {
     bufsize: Option<u16>,
     nsid: bool,
     expire: bool,
+    subnet_zero: bool,
 }
 
 impl Default for DigSettings {
@@ -160,6 +164,7 @@ impl Default for DigSettings {
             bufsize: None,
             nsid: false,
             expire: false,
+            subnet_zero: false,
         }
     }
 }
@@ -391,6 +396,19 @@ impl DigSettings {
         match self.expire {
             true => "+expire",
             false => "+noexpire",
+        }
+    }
+
+    pub fn subnet_zero(&mut self) -> &mut Self {
+        self.subnet_zero = true;
+        self
+    }
+
+    /// Send the EDNS client subnet option, with the subnet 0.0.0.0/0.
+    fn subnetflag(&self) -> Option<&'static str> {
+        match self.subnet_zero {
+            true => Some("+subnet=0"),
+            false => None,
         }
     }
 }
