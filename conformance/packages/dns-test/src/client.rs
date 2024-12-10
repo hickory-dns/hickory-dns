@@ -92,6 +92,10 @@ impl Client {
         if let Some(edns_flags) = edns_flags.as_ref() {
             command_and_args.push(edns_flags.as_str());
         }
+        let bufsize_flag = settings.bufsizeflag();
+        if let Some(bufsize_flag) = bufsize_flag.as_ref() {
+            command_and_args.push(bufsize_flag);
+        }
 
         let server_arg = format!("@{server}");
         let record_type_name = record_type.as_name();
@@ -128,6 +132,7 @@ pub struct DigSettings {
     extra_edns_option: Option<u16>,
     extra_edns_flags: Option<u16>,
     ignore_truncation: bool,
+    bufsize: Option<u16>,
 }
 
 impl Default for DigSettings {
@@ -148,6 +153,7 @@ impl Default for DigSettings {
             extra_edns_option: None,
             extra_edns_flags: None,
             ignore_truncation: false,
+            bufsize: None,
         }
     }
 }
@@ -344,6 +350,16 @@ impl DigSettings {
             true => "+ignore",
             false => "+noignore",
         }
+    }
+
+    /// Set the UDP buffer size.
+    pub fn bufsize(&mut self, bufsize: u16) -> &mut Self {
+        self.bufsize = Some(bufsize);
+        self
+    }
+
+    fn bufsizeflag(&self) -> Option<String> {
+        Some(format!("+bufsize={}", self.bufsize?))
     }
 }
 
