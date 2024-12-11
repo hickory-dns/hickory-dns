@@ -70,6 +70,7 @@ impl Client {
             settings.adflag(),
             settings.cdflag(),
             settings.timeoutflag().as_str(),
+            settings.ednsflag().as_str(),
             &format!("@{server}"),
             record_type.as_name().as_ref(),
             fqdn.as_str(),
@@ -79,13 +80,31 @@ impl Client {
     }
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy)]
 pub struct DigSettings {
     adflag: bool,
     cdflag: bool,
     dnssec: bool,
     recurse: bool,
     timeout: Option<u8>,
+    /// EDNS version.
+    ///
+    /// `None` indicates EDNS should not be used, while Some indicates EDNS should be used, with
+    /// the given version number.
+    edns: Option<u8>,
+}
+
+impl Default for DigSettings {
+    fn default() -> Self {
+        Self {
+            adflag: false,
+            cdflag: false,
+            dnssec: false,
+            recurse: false,
+            timeout: None,
+            edns: Some(0),
+        }
+    }
 }
 
 impl DigSettings {
@@ -151,6 +170,19 @@ impl DigSettings {
         match self.timeout {
             Some(timeout) => format!("+timeout={timeout}"),
             None => "+timeout=5".into(),
+        }
+    }
+
+    /// Sets the EDNS version in the query, or disables EDNS
+    pub fn edns(&mut self, version: Option<u8>) -> &mut Self {
+        self.edns = version;
+        self
+    }
+
+    fn ednsflag(&self) -> String {
+        match self.edns {
+            Some(version) => format!("+edns={version}"),
+            None => "+noedns".into(),
         }
     }
 }
