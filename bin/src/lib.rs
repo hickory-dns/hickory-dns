@@ -253,8 +253,6 @@ pub struct ZoneConfig {
     pub zone: String, // TODO: make Domain::Name decodable
     /// type of the zone
     pub zone_type: ZoneType,
-    /// location of the file (short for StoreConfig::FileConfig{zone_file_path})
-    pub file: Option<String>,
     /// Deprecated allow_update, this is a Store option
     pub allow_update: Option<bool>,
     /// Allow AXFR (TODO: need auth)
@@ -284,7 +282,8 @@ impl ZoneConfig {
     ///
     /// * `zone` - name of a zone, e.g. example.com
     /// * `zone_type` - Type of zone, e.g. Primary, Secondary, etc.
-    /// * `file` - relative to Config base path, to the zone file
+    /// * `file` - relative to Config base path, to the zone file. This translates to a
+    ///    [`StoreConfig::File`] with the given path.
     /// * `allow_update` - enable dynamic updates
     /// * `allow_axfr` - enable AXFR transfers
     /// * `enable_dnssec` - enable signing of the zone for DNSSEC
@@ -304,12 +303,13 @@ impl ZoneConfig {
         Self {
             zone,
             zone_type,
-            file: Some(file),
             allow_update,
             allow_axfr,
             enable_dnssec,
             keys,
-            stores: store_config_default(),
+            stores: vec![StoreConfig::File(FileConfig {
+                zone_file_path: file,
+            })],
             #[cfg(feature = "dnssec")]
             nx_proof_kind,
         }
@@ -330,9 +330,22 @@ impl ZoneConfig {
     ///
     /// this is only used on first load, if dynamic update is enabled for the zone, then the journal
     /// file is the actual source of truth for the zone.
-    pub fn file(&self) -> PathBuf {
-        // TODO: Option on PathBuf
-        PathBuf::from(self.file.as_ref().expect("file was none"))
+    pub fn file(&self) -> Option<PathBuf> {
+        self.stores
+            .iter()
+            .find_map(|store| match store {
+                #[cfg(feature = "blocklist")]
+                StoreConfig::Blocklist { .. } => None,
+                StoreConfig::File(file_config) => Some(file_config.zone_file_path.as_str()),
+                #[cfg(feature = "sqlite")]
+                StoreConfig::Sqlite(sqlite_config) => Some(sqlite_config.zone_file_path.as_str()),
+                #[cfg(feature = "resolver")]
+                StoreConfig::Forward { .. } => None,
+                #[cfg(feature = "recursor")]
+                StoreConfig::Recursor { .. } => None,
+                StoreConfig::Default => None,
+            })
+            .map(PathBuf::from)
     }
 
     /// enable dynamic updates for the zone (see SIG0 and the registered keys)
@@ -490,16 +503,22 @@ mod tests {
 
     #[cfg(feature = "resolver")]
     #[test]
-    fn empty_store_default_value() {
+    fn file_store_zone_file_path() {
         match toml::from_str::<Config>(
             r#"[[zones]]
                zone = "localhost"
                zone_type = "Primary"
-               file = "default/localhost.zone""#,
+
+               [zones.stores]
+               type = "file"
+               zone_file_path = "default/localhost.zone""#,
         ) {
             Ok(val) => {
                 assert_eq!(val.zones[0].stores.len(), 1);
-                assert!(matches!(val.zones[0].stores[0], StoreConfig::Default));
+                assert!(matches!(
+                    &val.zones[0].stores[0],
+                    StoreConfig::File(FileConfig { zone_file_path }) if zone_file_path == "default/localhost.zone",
+                ));
             }
             Err(e) => panic!("expected successful parse: {e:?}"),
         }

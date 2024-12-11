@@ -9,4 +9,6 @@ allow_networks = ["127.0.0.1/32", "::/128"]
 [[zones]]
 zone = "example.com"
 zone_type = "Primary"
-file = "example.com.zone"
+[zones.stores]
+type = "file"
+zone_file_path = "example.com.zone"

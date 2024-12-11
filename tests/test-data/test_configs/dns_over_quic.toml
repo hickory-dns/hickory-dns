@@ -5,4 +5,6 @@ tls_cert = { path = "sec/example.cert.pem", endpoint_name = "ns.example.com", ce
 [[zones]]
 zone = "example.com"
 zone_type = "Primary"
-file = "example.com.zone"
+[zones.stores]
+type = "file"
+zone_file_path = "example.com.zone"

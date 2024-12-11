@@ -4,9 +4,11 @@ group = "nogroup"
 [[zones]]
 zone = "{{ fqdn }}"
 zone_type = "Primary"
-file = "/etc/zones/main.zone"
 enable_dnssec = {{ use_dnssec }}
 nx_proof_kind = { nsec3 = { iterations = 1 } }
+[zones.stores]
+type = "file"
+zone_file_path = "/etc/zones/main.zone"
 
 [[zones.keys]]
 {% if use_pkcs8 %}
@@ -21,5 +23,7 @@ is_zone_signing_key = true
 [[zones]]
 zone = "{{ zone }}"
 zone_type = "Primary"
-file = "/etc/zones/{{ zone }}zone"
+[zones.stores]
+type = "file"
+zone_file_path = "/etc/zones/{{ zone }}zone"
 {% endfor -%}
