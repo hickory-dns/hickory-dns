@@ -381,11 +381,11 @@ mod tests {
         let algorithm = Algorithm::ECDSAP256SHA256;
         let format = KeyFormat::Pkcs8;
         let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
-        let key = decode_key(&pkcs8, None, algorithm, format).unwrap();
+        let key = decode_key(&pkcs8, algorithm, format).unwrap();
         public_key_test(&*key, algorithm);
 
         let neg_pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
-        let neg = decode_key(&neg_pkcs8, None, algorithm, format).unwrap();
+        let neg = decode_key(&neg_pkcs8, algorithm, format).unwrap();
         hash_test(&*key, &*neg, algorithm);
     }
 
@@ -394,11 +394,11 @@ mod tests {
         let algorithm = Algorithm::ECDSAP384SHA384;
         let format = KeyFormat::Pkcs8;
         let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
-        let key = decode_key(&pkcs8, None, algorithm, format).unwrap();
+        let key = decode_key(&pkcs8, algorithm, format).unwrap();
         public_key_test(&*key, algorithm);
 
         let neg_pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
-        let neg = decode_key(&neg_pkcs8, None, algorithm, format).unwrap();
+        let neg = decode_key(&neg_pkcs8, algorithm, format).unwrap();
         hash_test(&*key, &*neg, algorithm);
     }
 
@@ -407,11 +407,11 @@ mod tests {
         let algorithm = Algorithm::ED25519;
         let format = KeyFormat::Pkcs8;
         let pkcs8 = Ed25519SigningKey::generate_pkcs8().unwrap();
-        let key = decode_key(&pkcs8, None, algorithm, format).unwrap();
+        let key = decode_key(&pkcs8, algorithm, format).unwrap();
         public_key_test(&*key, algorithm);
 
         let neg_pkcs8 = Ed25519SigningKey::generate_pkcs8().unwrap();
-        let neg = decode_key(&neg_pkcs8, None, algorithm, format).unwrap();
+        let neg = decode_key(&neg_pkcs8, algorithm, format).unwrap();
         hash_test(&*key, &*neg, algorithm);
     }
 
@@ -424,10 +424,10 @@ mod tests {
 
         let algorithm = Algorithm::RSASHA256;
         let format = KeyFormat::Pkcs8;
-        let key = decode_key(KEY_1, None, algorithm, format).unwrap();
+        let key = decode_key(KEY_1, algorithm, format).unwrap();
         public_key_test(&*key, algorithm);
 
-        let neg = decode_key(KEY_2, None, algorithm, format).unwrap();
+        let neg = decode_key(KEY_2, algorithm, format).unwrap();
         hash_test(&*key, &*neg, algorithm);
     }
 
@@ -435,13 +435,13 @@ mod tests {
     fn test_ec_encode_decode_pkcs8() {
         let algorithm = Algorithm::ECDSAP256SHA256;
         let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
-        decode_key(&pkcs8, None, algorithm, KeyFormat::Pkcs8).unwrap();
+        decode_key(&pkcs8, algorithm, KeyFormat::Pkcs8).unwrap();
     }
 
     #[test]
     fn test_ed25519_encode_decode_pkcs8() {
         let pkcs8 = Ed25519SigningKey::generate_pkcs8().unwrap();
-        decode_key(&pkcs8, None, Algorithm::ED25519, KeyFormat::Pkcs8).unwrap();
+        decode_key(&pkcs8, Algorithm::ED25519, KeyFormat::Pkcs8).unwrap();
     }
 
     #[test]
@@ -449,6 +449,6 @@ mod tests {
         // ring currently does not support RSA key generation support.
         // Generated per the documentation from https://docs.rs/ring/latest/ring/rsa/struct.KeyPair.html#method.from_pkcs8.
         const KEY: &[u8] = include_bytes!("../../tests/test-data/rsa-2048-private-key-1.pk8");
-        decode_key(KEY, None, Algorithm::RSASHA256, KeyFormat::Pkcs8).unwrap();
+        decode_key(KEY, Algorithm::RSASHA256, KeyFormat::Pkcs8).unwrap();
     }
 }
