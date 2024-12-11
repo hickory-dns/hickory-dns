@@ -195,6 +195,7 @@ pub struct DigOutput {
     pub answer: Vec<Record>,
     pub authority: Vec<Record>,
     pub additional: Vec<Record>,
+    pub opt: bool,
     pub options: Vec<(u16, String)>,
     // TODO(if needed) other sections
 }
@@ -207,6 +208,7 @@ impl FromStr for DigOutput {
         const STATUS_PREFIX: &str = ";; ->>HEADER<<- opcode: QUERY, status: ";
         const EDE_PREFIX: &str = "; EDE: ";
         const OPT_PREFIX: &str = "; OPT=";
+        const OPT_HEADER: &str = ";; OPT PSEUDOSECTION:";
         const ANSWER_HEADER: &str = ";; ANSWER SECTION:";
         const AUTHORITY_HEADER: &str = ";; AUTHORITY SECTION:";
         const ADDITIONAL_HEADER: &str = ";; ADDITIONAL SECTION:";
@@ -230,6 +232,7 @@ impl FromStr for DigOutput {
         let mut additional = None;
         let mut ede = BTreeSet::new();
         let mut options = Vec::new();
+        let mut opt = false;
 
         let mut lines = input.lines();
         while let Some(line) = lines.next() {
@@ -262,6 +265,8 @@ impl FromStr for DigOutput {
                 let code = code.parse()?;
                 let inserted = ede.insert(code);
                 assert!(inserted, "unexpected: duplicate EDE {code:?}");
+            } else if line.starts_with(OPT_HEADER) {
+                opt = true;
             } else if let Some(unprefixed) = line.strip_prefix(OPT_PREFIX) {
                 let Some((option_str, value)) = unprefixed.split_once(": ") else {
                     return Err("could not parse option".into());
@@ -325,6 +330,7 @@ impl FromStr for DigOutput {
             flags: flags.ok_or_else(|| not_found(FLAGS_PREFIX))?,
             status: status.ok_or_else(|| not_found(STATUS_PREFIX))?,
             options,
+            opt,
         })
     }
 }
@@ -483,6 +489,7 @@ mod tests {
             output.flags
         );
         assert!(output.answer.is_empty());
+        assert!(output.opt);
 
         Ok(())
     }
@@ -615,6 +622,39 @@ l.root-servers.net. 518400  IN  A   199.7.83.42
             ExtendedDnsError::Prohibited,
             ExtendedDnsError::NoReachableAuthority,
         ]));
+
+        Ok(())
+    }
+
+    #[test]
+    fn no_opt_pseudosection() -> Result<()> {
+        let input="; <<>> DiG 9.18.28-1~deb12u2-Debian <<>> +norecurse +nodnssec +noadflag +nocdflag +timeout +noedns @172.19.0.2 SOA hickory-dns.testing.
+; (1 server found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 58890
+;; flags: qr aa; QUERY: 1, ANSWER: 1, AUTHORITY: 1, ADDITIONAL: 1
+
+;; QUESTION SECTION:
+;hickory-dns.testing.		IN	SOA
+
+;; ANSWER SECTION:
+hickory-dns.testing.	86400	IN	SOA	primary0.hickory-dns.testing. admin0.hickory-dns.testing. 2024010101 1800 900 604800 86400
+
+;; AUTHORITY SECTION:
+hickory-dns.testing.	86400	IN	NS	primary0.hickory-dns.testing.
+
+;; ADDITIONAL SECTION:
+primary0.hickory-dns.testing. 86400 IN	A	172.19.0.2
+
+;; Query time: 1 msec
+;; SERVER: 172.19.0.2#53(172.19.0.2) (UDP)
+;; WHEN: Sat Dec 07 17:56:03 UTC 2024
+;; MSG SIZE  rcvd: 119";
+
+        let output: DigOutput = input.parse()?;
+
+        assert!(!output.opt);
 
         Ok(())
     }
