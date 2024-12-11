@@ -195,39 +195,3 @@ fn test_dnssec_restart_with_update_journal() {
     // TODO: fix journal path so that it doesn't leave the dir dirty... this might make windows an option after that
     std::fs::remove_file(&journal).expect("failed to cleanup after test");
 }
-
-#[cfg(feature = "dnssec-ring")]
-#[cfg(feature = "sqlite")]
-#[test]
-fn test_dnssec_restart_with_update_journal_dep() {
-    // TODO: make journal path configurable, it should be in target/tests/...
-    let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
-    let server_path = Path::new(&server_path);
-    let journal = server_path.join("tests/test-data/test_configs/example.com.jrnl");
-    std::fs::remove_file(&journal).ok();
-
-    generic_test(
-        "dnssec_with_update_deprecated.toml",
-        "tests/test-data/test_configs/dnssec/rsa_2048.pk8",
-        KeyFormat::Pkcs8,
-        Algorithm::RSASHA256,
-    );
-
-    // after running the above test, the journal file should exist
-    assert!(journal.exists());
-
-    // and all dnssec tests should still pass
-    generic_test(
-        "dnssec_with_update_deprecated.toml",
-        "tests/test-data/test_configs/dnssec/rsa_2048.pk8",
-        KeyFormat::Pkcs8,
-        Algorithm::RSASHA256,
-    );
-
-    // and journal should still exist
-    assert!(journal.exists());
-
-    // cleanup...
-    // TODO: fix journal path so that it doesn't leave the dir dirty... this might make windows an option after that
-    std::fs::remove_file(&journal).expect("failed to cleanup after test");
-}

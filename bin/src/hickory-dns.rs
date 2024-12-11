@@ -70,11 +70,11 @@ use hickory_server::store::forwarder::ForwardAuthority;
 #[cfg(feature = "recursor")]
 use hickory_server::store::recursor::RecursiveAuthority;
 #[cfg(feature = "sqlite")]
-use hickory_server::store::sqlite::{SqliteAuthority, SqliteConfig};
+use hickory_server::store::sqlite::SqliteAuthority;
 use hickory_server::{
     authority::{AuthorityObject, Catalog, ZoneType},
     server::ServerFuture,
-    store::file::{FileAuthority, FileConfig},
+    store::file::FileAuthority,
 };
 #[cfg(feature = "dnssec")]
 use {hickory_proto::dnssec::rdata::key::KeyUsage, hickory_server::authority::DnssecAuthority};
@@ -163,7 +163,6 @@ async fn load_zone(
         .zone()
         .map_err(|err| format!("failed to read zone name: {err}"))?;
     let zone_name_for_signer = zone_name.clone();
-    let zone_path: Option<String> = zone_config.file.clone();
     let zone_type: ZoneType = zone_config.zone_type();
     let is_axfr_allowed = zone_config.is_axfr_allowed();
     #[allow(unused_variables)]
@@ -184,10 +183,6 @@ async fn load_zone(
         let authority: Arc<dyn AuthorityObject> = match store {
             #[cfg(feature = "sqlite")]
             StoreConfig::Sqlite(config) => {
-                if zone_path.is_some() {
-                    warn!("ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]");
-                }
-
                 let mut authority = SqliteAuthority::try_from_config(
                     zone_name.clone(),
                     zone_type,
@@ -205,10 +200,6 @@ async fn load_zone(
                 Arc::new(authority)
             }
             StoreConfig::File(config) => {
-                if zone_path.is_some() {
-                    warn!("ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]");
-                }
-
                 let mut authority = FileAuthority::try_from_config(
                     zone_name.clone(),
                     zone_type,
@@ -251,63 +242,7 @@ async fn load_zone(
                 )
                 .await?,
             ),
-            #[cfg(feature = "sqlite")]
-            _ if zone_config.is_update_allowed() => {
-                warn!(
-                    "using deprecated SQLite load configuration, please move to [[zones.stores]] form"
-                );
-                let zone_file_path = zone_path
-                    .clone()
-                    .ok_or("file is a necessary parameter of zone_config")?;
-                let journal_file_path = PathBuf::from(zone_file_path.clone())
-                    .with_extension("jrnl")
-                    .to_str()
-                    .map(String::from)
-                    .ok_or("non-unicode characters in file name")?;
-
-                let config = SqliteConfig {
-                    zone_file_path,
-                    journal_file_path,
-                    allow_update: zone_config.is_update_allowed(),
-                };
-
-                let mut authority = SqliteAuthority::try_from_config(
-                    zone_name.clone(),
-                    zone_type,
-                    is_axfr_allowed,
-                    is_dnssec_enabled,
-                    Some(zone_dir),
-                    &config,
-                    #[cfg(feature = "dnssec")]
-                    zone_config.nx_proof_kind.clone(),
-                )
-                .await?;
-
-                // load any keys for the Zone, if it is a dynamic update zone, then keys are required
-                load_keys(&mut authority, zone_name_for_signer.clone(), zone_config).await?;
-                Arc::new(authority)
-            }
-            _ => {
-                let config = FileConfig {
-                    zone_file_path: zone_path
-                        .clone()
-                        .ok_or("file is a necessary parameter of zone_config")?,
-                };
-
-                let mut authority = FileAuthority::try_from_config(
-                    zone_name.clone(),
-                    zone_type,
-                    is_axfr_allowed,
-                    Some(zone_dir),
-                    &config,
-                    #[cfg(feature = "dnssec")]
-                    zone_config.nx_proof_kind.clone(),
-                )?;
-
-                // load any keys for the Zone, if it is a dynamic update zone, then keys are required
-                load_keys(&mut authority, zone_name_for_signer.clone(), zone_config).await?;
-                Arc::new(authority)
-            }
+            _ => return Err("empty [[zones.stores]] in config".into()),
         };
 
         authorities.push(authority);
