@@ -52,14 +52,20 @@ fn test_read_config() {
     assert_eq!(config.zones()[0].zone, "localhost");
     assert_eq!(config.zones()[0].zone_type, ZoneType::Primary);
     assert_eq!(
-        config.zones()[0].file.as_deref(),
+        config.zones()[0]
+            .file()
+            .as_deref()
+            .and_then(|path| path.to_str()),
         Some("default/localhost.zone")
     );
 
     assert_eq!(config.zones()[1].zone, "0.0.127.in-addr.arpa");
     assert_eq!(config.zones()[1].zone_type, ZoneType::Primary);
     assert_eq!(
-        config.zones()[1].file.as_deref(),
+        config.zones()[1]
+            .file()
+            .as_deref()
+            .and_then(|path| path.to_str()),
         Some("default/127.0.0.1.zone")
     );
 
@@ -69,21 +75,42 @@ fn test_read_config() {
     );
     assert_eq!(config.zones()[2].zone_type, ZoneType::Primary);
     assert_eq!(
-        config.zones()[2].file.as_deref(),
+        config.zones()[2]
+            .file()
+            .as_deref()
+            .and_then(|path| path.to_str()),
         Some("default/ipv6_1.zone")
     );
 
     assert_eq!(config.zones()[3].zone, "255.in-addr.arpa");
     assert_eq!(config.zones()[3].zone_type, ZoneType::Primary);
-    assert_eq!(config.zones()[3].file.as_deref(), Some("default/255.zone"));
+    assert_eq!(
+        config.zones()[3]
+            .file()
+            .as_deref()
+            .and_then(|path| path.to_str()),
+        Some("default/255.zone")
+    );
 
     assert_eq!(config.zones()[4].zone, "0.in-addr.arpa");
     assert_eq!(config.zones()[4].zone_type, ZoneType::Primary);
-    assert_eq!(config.zones()[4].file.as_deref(), Some("default/0.zone"));
+    assert_eq!(
+        config.zones()[4]
+            .file()
+            .as_deref()
+            .and_then(|path| path.to_str()),
+        Some("default/0.zone")
+    );
 
     assert_eq!(config.zones()[5].zone, "example.com");
     assert_eq!(config.zones()[5].zone_type, ZoneType::Primary);
-    assert_eq!(config.zones()[5].file.as_deref(), Some("example.com.zone"));
+    assert_eq!(
+        config.zones()[5]
+            .file()
+            .as_deref()
+            .and_then(|path| path.to_str()),
+        Some("example.com.zone")
+    );
 }
 
 #[test]
@@ -133,7 +160,9 @@ fn test_parse_zone_keys() {
 [[zones]]
 zone = \"example.com\"
 zone_type = \"Primary\"
-file = \"example.com.zone\"
+[zones.stores]
+type = \"file\"
+zone_file_path = \"example.com.zone\"
 
 \
          [[zones.keys]]
@@ -239,7 +268,6 @@ define_test_config!(dns_over_tls_rustls_and_openssl);
 define_test_config!(dns_over_tls);
 #[cfg(feature = "sqlite")]
 define_test_config!(dnssec_with_update);
-define_test_config!(dnssec_with_update_deprecated);
 define_test_config!(example);
 define_test_config!(ipv4_and_ipv6);
 define_test_config!(ipv4_only);
