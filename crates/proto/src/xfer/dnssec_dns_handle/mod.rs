@@ -1069,12 +1069,6 @@ enum RrsigValidity {
     WrongRrsig,
 }
 
-/// Will always return an error. To enable record verification compile with the openssl feature.
-#[cfg(not(feature = "dnssec"))]
-fn verify_rrset_with_dnskey(_: &DNSKEY, _: &RRSIG, _: &Rrset) -> ProtoResult<()> {
-    Err(ProtoErrorKind::Message("openssl or ring feature(s) not enabled").into())
-}
-
 /// Verifies NSEC records
 ///
 /// ```text
