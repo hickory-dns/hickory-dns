@@ -160,7 +160,8 @@ impl Implementation {
                 }
 
                 Self::Hickory { dnssec_feature, .. } => {
-                    let use_pkcs8 = matches!(dnssec_feature, Some(HickoryDnssecFeature::Ring));
+                    let use_pkcs8 =
+                        matches!(dnssec_feature, None | Some(HickoryDnssecFeature::Ring));
                     minijinja::render!(
                         include_str!("templates/hickory.name-server.toml.jinja"),
                         fqdn => origin.as_str(),
