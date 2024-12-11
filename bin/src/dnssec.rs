@@ -27,8 +27,6 @@ use hickory_proto::{
 pub struct KeyConfig {
     /// file path to the key
     pub key_path: String,
-    /// password to use to read the key
-    pub password: Option<String>,
     /// the type of key stored, see `Algorithm`
     pub algorithm: String,
     /// the name to use when signing records, e.g. ns.example.com
@@ -67,14 +65,12 @@ impl KeyConfig {
     #[cfg(feature = "dnssec")]
     pub fn new(
         key_path: String,
-        password: Option<String>,
         algorithm: Algorithm,
         signer_name: String,
         purpose: KeyPurpose,
     ) -> Self {
         Self {
             key_path,
-            password,
             algorithm: algorithm.as_str().to_string(),
             signer_name: Some(signer_name),
             purpose,
@@ -109,11 +105,6 @@ impl KeyConfig {
             ))
             .into()),
         }
-    }
-
-    /// Returns the password used to read the key
-    pub fn password(&self) -> Option<&str> {
-        self.password.as_deref()
     }
 
     /// algorithm for for the key, see `Algorithm` for supported algorithms.
@@ -272,7 +263,7 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<SigSigner, String
         file.read_to_end(&mut key_bytes)
             .map_err(|e| format!("could not read key from: {key_path:?}: {e}"))?;
 
-        decode_key(&key_bytes, key_config.password(), algorithm, format)
+        decode_key(&key_bytes, algorithm, format)
             .map_err(|e| format!("could not decode key: {e}"))?
     };
 

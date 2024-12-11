@@ -784,7 +784,6 @@ pub fn add_auth<A: DnssecAuthority>(authority: &mut A) -> Vec<SigSigner> {
     {
         let key_config = KeyConfig {
             key_path: "../tests/test-data/test_configs/dnssec/rsa_2048.pk8".to_string(),
-            password: None,
             algorithm: Algorithm::RSASHA512.to_string(),
             signer_name: Some(update_name.to_string()),
             purpose: KeyPurpose::ZoneSigning,
@@ -844,7 +843,6 @@ pub fn add_auth<A: DnssecAuthority>(authority: &mut A) -> Vec<SigSigner> {
     {
         let key_config = KeyConfig {
             key_path: "../tests/test-data/test_configs/dnssec/ed25519.pk8".to_string(),
-            password: None,
             algorithm: Algorithm::ED25519.to_string(),
             signer_name: Some(update_name.to_string()),
             purpose: KeyPurpose::ZoneSigning,

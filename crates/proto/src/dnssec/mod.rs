@@ -44,10 +44,8 @@ pub use ::ring::digest::Digest;
 pub use self::signer::SigSigner;
 
 /// Decode private key
-#[allow(unused, clippy::match_single_binding)]
 pub fn decode_key(
     bytes: &[u8],
-    password: Option<&str>,
     algorithm: Algorithm,
     format: KeyFormat,
 ) -> DnsSecResult<Box<dyn SigningKey>> {
