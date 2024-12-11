@@ -23,7 +23,7 @@ use tracing::debug;
 
 use crate::op::{Header, Query, ResponseCode};
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use crate::dnssec::{rdata::tsig::TsigAlgorithm, Proof};
 use crate::rr::{domain::Name, rdata::SOA, resource::RecordRef, Record, RecordType};
 use crate::serialize::binary::DecodeError;
@@ -96,7 +96,7 @@ pub enum ProtoErrorKind {
     },
 
     /// No Records and there is a corresponding DNSSEC Proof for NSEC
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     #[error("DNSSEC Negative Record Response for {query}, {proof}")]
     Nsec {
         /// Query for which the NSEC was returned
@@ -274,7 +274,7 @@ pub enum ProtoErrorKind {
 
     /// Tsig unsupported mac algorithm
     /// Supported algorithm documented in `TsigAlgorithm::supported` function.
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     #[error("Tsig unsupported mac algorithm")]
     TsigUnsupportedMacAlgorithm(TsigAlgorithm),
 
@@ -782,7 +782,7 @@ impl Clone for ProtoErrorKind {
                 authorities: authorities.clone(),
             },
             RequestRefused => RequestRefused,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             Nsec { ref query, proof } => Nsec {
                 query: query.clone(),
                 proof,
@@ -801,7 +801,7 @@ impl Clone for ProtoErrorKind {
             Ring(ref _e) => Ring(Unspecified),
             Timeout => Timeout,
             Timer => Timer,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             TsigUnsupportedMacAlgorithm(ref alg) => TsigUnsupportedMacAlgorithm(alg.clone()),
             TsigWrongKey => TsigWrongKey,
             UrlParsing(ref e) => UrlParsing(*e),
@@ -838,11 +838,11 @@ impl Clone for ProtoErrorKind {
 use ring::error::{KeyRejected, Unspecified};
 
 /// An alias for dnssec results returned by functions of this crate
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 pub type DnsSecResult<T> = ::std::result::Result<T, DnsSecError>;
 
 /// The error kind for dnssec errors that get returned in the crate
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum DnsSecErrorKind {
@@ -874,7 +874,7 @@ pub enum DnsSecErrorKind {
     Timeout,
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 impl Clone for DnsSecErrorKind {
     fn clone(&self) -> Self {
         use DnsSecErrorKind::*;
@@ -893,7 +893,7 @@ impl Clone for DnsSecErrorKind {
     }
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 /// The error type for dnssec errors that get returned in the crate
 #[derive(Debug, Clone, Error)]
 pub struct DnsSecError {
@@ -902,7 +902,7 @@ pub struct DnsSecError {
     backtrack: Option<ExtBacktrace>,
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 impl DnsSecError {
     /// Get the kind of the error
     pub fn kind(&self) -> &DnsSecErrorKind {
@@ -910,7 +910,7 @@ impl DnsSecError {
     }
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 impl fmt::Display for DnsSecError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         cfg_if::cfg_if! {
@@ -928,7 +928,7 @@ impl fmt::Display for DnsSecError {
     }
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 impl From<DnsSecErrorKind> for DnsSecError {
     fn from(kind: DnsSecErrorKind) -> Self {
         Self {
@@ -939,21 +939,21 @@ impl From<DnsSecErrorKind> for DnsSecError {
     }
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 impl From<&'static str> for DnsSecError {
     fn from(msg: &'static str) -> Self {
         DnsSecErrorKind::Message(msg).into()
     }
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 impl From<String> for DnsSecError {
     fn from(msg: String) -> Self {
         DnsSecErrorKind::Msg(msg).into()
     }
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 impl From<ProtoError> for DnsSecError {
     fn from(e: ProtoError) -> Self {
         match e.kind() {

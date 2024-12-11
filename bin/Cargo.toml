@@ -33,8 +33,7 @@ default = ["sqlite", "resolver", "native-certs", "ascii-art"]
 ascii-art = []
 
 blocklist = ["hickory-server/blocklist"]
-dnssec-ring = ["dnssec", "hickory-server/dnssec-ring"]
-dnssec = []
+dnssec-ring = ["hickory-server/dnssec-ring"]
 recursor = ["hickory-server/recursor"]
 # Recursive Resolution is Experimental!
 resolver = ["hickory-server/resolver"]
@@ -95,5 +94,5 @@ workspace = true
 
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true
-denylist = ["dnssec", "dns-over-tls"]
+denylist = ["dns-over-tls"]
 max_combination_size = 2

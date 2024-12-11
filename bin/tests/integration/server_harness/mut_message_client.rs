@@ -1,14 +1,14 @@
 use hickory_client::client::ClientHandle;
 use hickory_proto::xfer::{DnsHandle, DnsRequest};
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use hickory_proto::{op::Edns, rr::rdata::opt::EdnsOption};
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use hickory_server::authority::LookupOptions;
 
 #[derive(Clone)]
 pub struct MutMessageHandle<C: ClientHandle + Unpin> {
     client: C,
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub lookup_options: LookupOptions,
 }
 
@@ -17,7 +17,7 @@ impl<C: ClientHandle + Unpin> MutMessageHandle<C> {
     pub fn new(client: C) -> Self {
         MutMessageHandle {
             client,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             lookup_options: Default::default(),
         }
     }
@@ -34,7 +34,7 @@ impl<C: ClientHandle + Unpin> DnsHandle for MutMessageHandle<C> {
     fn send<R: Into<DnsRequest> + Unpin>(&self, request: R) -> Self::Response {
         let mut request = request.into();
 
-        #[cfg(feature = "dnssec")]
+        #[cfg(feature = "dnssec-ring")]
         {
             // mutable block
             let edns = request.extensions_mut().get_or_insert_with(Edns::new);

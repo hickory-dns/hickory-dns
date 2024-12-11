@@ -15,7 +15,7 @@ use serde::Deserialize;
 
 use hickory_proto::rr::domain::Name;
 use hickory_proto::serialize::txt::ParseResult;
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use hickory_proto::{
     dnssec::{decode_key, rdata::DNSKEY, Algorithm, KeyFormat, SigSigner},
     rr::domain::IntoName,
@@ -62,7 +62,7 @@ impl KeyConfig {
     /// * `signer_name` - the name to use when signing records, e.g. ns.example.com
     /// * `is_zone_signing_key` - specify that this key should be used for signing a zone
     /// * `is_zone_update_auth` - specifies that this key can be used for dynamic updates in the zone
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub fn new(
         key_path: String,
         algorithm: Algorithm,
@@ -83,7 +83,7 @@ impl KeyConfig {
     }
 
     /// Converts key into
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub fn format(&self) -> ParseResult<KeyFormat> {
         use hickory_proto::serialize::txt::ParseErrorKind;
 
@@ -108,7 +108,7 @@ impl KeyConfig {
     }
 
     /// algorithm for for the key, see `Algorithm` for supported algorithms.
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     #[allow(deprecated)]
     pub fn algorithm(&self) -> ParseResult<Algorithm> {
         match self.algorithm.as_str() {
@@ -138,7 +138,7 @@ impl KeyConfig {
     }
 
     /// Tries to read the defined key into a Signer
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub fn try_into_signer<N: IntoName>(&self, signer_name: N) -> Result<SigSigner, String> {
         let signer_name = signer_name
             .into_name()
@@ -235,7 +235,7 @@ impl TlsCertConfig {
 /// keys are listed in pairs of key_name and algorithm, the search path is the
 /// same directory has the zone $file:
 ///  keys = [ "my_rsa_2048|RSASHA256", "/path/to/my_ed25519|ED25519" ]
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<SigSigner, String> {
     use tracing::info;
 

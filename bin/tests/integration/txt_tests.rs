@@ -6,7 +6,7 @@ use hickory_proto::rr::rdata::{tlsa::*, A, AAAA};
 use hickory_proto::rr::*;
 use hickory_proto::serialize::txt::*;
 use hickory_server::authority::{Authority, LookupOptions, ZoneType};
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryAuthority;
 
@@ -69,7 +69,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         records,
         ZoneType::Primary,
         false,
-        #[cfg(feature = "dnssec")]
+        #[cfg(feature = "dnssec-ring")]
         Some(NxProofKind::Nsec),
     )
     .unwrap();
@@ -445,7 +445,7 @@ a       A       127.0.0.1
         records,
         ZoneType::Primary,
         false,
-        #[cfg(feature = "dnssec")]
+        #[cfg(feature = "dnssec-ring")]
         Some(NxProofKind::Nsec),
     )
     .is_err());
@@ -479,7 +479,7 @@ b       A       127.0.0.2
         records,
         ZoneType::Primary,
         false,
-        #[cfg(feature = "dnssec")]
+        #[cfg(feature = "dnssec-ring")]
         Some(NxProofKind::Nsec),
     )
     .is_err());
@@ -512,7 +512,7 @@ a       A       127.0.0.1
         records,
         ZoneType::Primary,
         false,
-        #[cfg(feature = "dnssec")]
+        #[cfg(feature = "dnssec-ring")]
         Some(NxProofKind::Nsec),
     )
     .is_ok());

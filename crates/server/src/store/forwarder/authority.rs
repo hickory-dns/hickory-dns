@@ -13,7 +13,7 @@ use hickory_resolver::{
 };
 use tracing::{debug, info};
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
@@ -191,7 +191,7 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         ))))
     }
 
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     async fn get_nsec3_records(
         &self,
         _info: Nsec3QueryInfo<'_>,
@@ -203,7 +203,7 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         ))))
     }
 
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     fn nx_proof_kind(&self) -> Option<&NxProofKind> {
         None
     }

@@ -1,4 +1,4 @@
-#![cfg(feature = "dnssec")]
+#![cfg(feature = "dnssec-ring")]
 
 use std::{
     future::Future,

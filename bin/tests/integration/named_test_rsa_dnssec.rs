@@ -1,4 +1,4 @@
-#![cfg(feature = "dnssec")]
+#![cfg(feature = "dnssec-ring")]
 #![cfg(not(windows))]
 
 use std::env;

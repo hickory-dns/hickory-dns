@@ -9,7 +9,7 @@
 
 use tracing::debug;
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
@@ -130,7 +130,7 @@ pub trait AuthorityObject: Send + Sync {
     ) -> LookupControlFlow<Box<dyn LookupObject>>;
 
     /// Return the NSEC3 records based on the given query information.
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     async fn get_nsec3_records(
         &self,
         info: Nsec3QueryInfo<'_>,
@@ -157,7 +157,7 @@ pub trait AuthorityObject: Send + Sync {
     }
 
     /// Returns the kind of non-existence proof used for this zone.
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     fn nx_proof_kind(&self) -> Option<&NxProofKind>;
 }
 
@@ -294,7 +294,7 @@ where
     }
 
     /// Return the NSEC3 records based on the given query information.
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     async fn get_nsec3_records(
         &self,
         info: Nsec3QueryInfo<'_>,
@@ -306,7 +306,7 @@ where
     }
 
     /// Returns the kind of non-existence proof used for this zone.
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     fn nx_proof_kind(&self) -> Option<&NxProofKind> {
         Authority::nx_proof_kind(self)
     }

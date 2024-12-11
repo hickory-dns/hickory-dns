@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use cfg_if::cfg_if;
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use crate::{authority::DnssecSummary, proto::dnssec::Proof};
 
 use crate::authority::{LookupObject, LookupOptions};
@@ -110,7 +110,7 @@ impl LookupObject for AuthLookup {
         additionals.map(|a| Box::new(a) as Box<dyn LookupObject>)
     }
 
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     fn dnssec_summary(&self) -> DnssecSummary {
         let mut all_secure = None;
         for record in self {
@@ -289,7 +289,7 @@ impl<'r> Iterator for AnyRecordsIter<'r> {
 
             // getting here, we must have exhausted our records from the rrset
             cfg_if! {
-                if #[cfg(feature = "dnssec")] {
+                if #[cfg(feature = "dnssec-ring")] {
                     self.records = Some(
                         self.rrset
                             .expect("rrset should not be None at this point")

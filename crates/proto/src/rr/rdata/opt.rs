@@ -23,7 +23,7 @@ use crate::{
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict},
 };
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use crate::dnssec::SupportedAlgorithms;
 
 /// The OPT record type is used for ExtendedDNS records.
@@ -466,15 +466,15 @@ impl From<EdnsCode> for u16 {
 #[non_exhaustive]
 pub enum EdnsOption {
     /// [RFC 6975, DNSSEC Algorithm Understood](https://tools.ietf.org/html/rfc6975)
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     DAU(SupportedAlgorithms),
 
     /// [RFC 6975, DS Hash Understood](https://tools.ietf.org/html/rfc6975)
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     DHU(SupportedAlgorithms),
 
     /// [RFC 6975, NSEC3 Hash Understood](https://tools.ietf.org/html/rfc6975)
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     N3U(SupportedAlgorithms),
 
     /// [RFC 7871, Client Subnet, Optional](https://tools.ietf.org/html/rfc7871)
@@ -488,7 +488,7 @@ impl EdnsOption {
     /// Returns the length in bytes of the EdnsOption
     pub fn len(&self) -> u16 {
         match self {
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             EdnsOption::DAU(algorithms)
             | EdnsOption::DHU(algorithms)
             | EdnsOption::N3U(algorithms) => algorithms.len(),
@@ -500,7 +500,7 @@ impl EdnsOption {
     /// Returns `true` if the length in bytes of the EdnsOption is 0
     pub fn is_empty(&self) -> bool {
         match self {
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             EdnsOption::DAU(algorithms)
             | EdnsOption::DHU(algorithms)
             | EdnsOption::N3U(algorithms) => algorithms.is_empty(),
@@ -513,7 +513,7 @@ impl EdnsOption {
 impl BinEncodable for EdnsOption {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         match self {
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             EdnsOption::DAU(algorithms)
             | EdnsOption::DHU(algorithms)
             | EdnsOption::N3U(algorithms) => algorithms.emit(encoder),
@@ -530,11 +530,11 @@ impl<'a> TryFrom<(EdnsCode, &'a [u8])> for EdnsOption {
     #[allow(clippy::match_single_binding)]
     fn try_from(value: (EdnsCode, &'a [u8])) -> Result<Self, Self::Error> {
         Ok(match value.0 {
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             EdnsCode::DAU => Self::DAU(value.1.into()),
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             EdnsCode::DHU => Self::DHU(value.1.into()),
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             EdnsCode::N3U => Self::N3U(value.1.into()),
             EdnsCode::Subnet => Self::Subnet(value.1.try_into()?),
             _ => Self::Unknown(value.0.into(), value.1.to_vec()),
@@ -547,7 +547,7 @@ impl<'a> TryFrom<&'a EdnsOption> for Vec<u8> {
 
     fn try_from(value: &'a EdnsOption) -> Result<Self, Self::Error> {
         Ok(match value {
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             EdnsOption::DAU(algorithms)
             | EdnsOption::DHU(algorithms)
             | EdnsOption::N3U(algorithms) => algorithms.into(),
@@ -560,11 +560,11 @@ impl<'a> TryFrom<&'a EdnsOption> for Vec<u8> {
 impl<'a> From<&'a EdnsOption> for EdnsCode {
     fn from(value: &'a EdnsOption) -> Self {
         match value {
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             EdnsOption::DAU(..) => Self::DAU,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             EdnsOption::DHU(..) => Self::DHU,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             EdnsOption::N3U(..) => Self::N3U,
             EdnsOption::Subnet(..) => Self::Subnet,
             EdnsOption::Unknown(code, _) => (*code).into(),
@@ -809,7 +809,7 @@ mod tests {
     use super::*;
 
     #[test]
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     fn test() {
         let mut rdata = OPT::default();
         rdata.insert(EdnsOption::DAU(SupportedAlgorithms::all()));

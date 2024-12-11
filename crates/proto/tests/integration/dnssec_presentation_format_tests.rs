@@ -1,4 +1,4 @@
-#![cfg(feature = "dnssec")]
+#![cfg(feature = "dnssec-ring")]
 
 use hickory_proto::dnssec::rdata::{DNSKEY, DS};
 use hickory_proto::dnssec::{Algorithm, DigestType};

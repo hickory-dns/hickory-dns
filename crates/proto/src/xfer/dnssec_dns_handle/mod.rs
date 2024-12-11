@@ -140,7 +140,7 @@ where
 
         let handle: Self = self.clone_with_context();
 
-        #[cfg(feature = "dnssec")]
+        #[cfg(feature = "dnssec-ring")]
         {
             request
                 .extensions_mut()
@@ -907,7 +907,7 @@ where
 }
 
 /// Verifies the given SIG of the RRSET with the DNSKEY.
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 fn verify_rrset_with_dnskey(
     dnskey: RecordRef<'_, DNSKEY>,
     rrsig: RecordRef<'_, RRSIG>,

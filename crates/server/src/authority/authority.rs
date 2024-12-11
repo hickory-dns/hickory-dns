@@ -10,15 +10,12 @@
 use cfg_if::cfg_if;
 use std::fmt;
 
-#[cfg(feature = "dnssec")]
-use hickory_proto::ProtoError;
-
 use crate::{
     authority::{LookupError, LookupObject, MessageRequest, UpdateResult, ZoneType},
     proto::rr::{LowerName, RecordSet, RecordType, RrsetRecords},
     server::RequestInfo,
 };
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use crate::{
     dnssec::NxProofKind,
     proto::{
@@ -27,6 +24,7 @@ use crate::{
             SupportedAlgorithms,
         },
         rr::Name,
+        ProtoError,
     },
 };
 
@@ -37,14 +35,14 @@ use crate::{
 #[derive(Clone, Copy, Debug, Default)]
 pub struct LookupOptions {
     dnssec_ok: bool,
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     supported_algorithms: SupportedAlgorithms,
 }
 
 /// Lookup Options for the request to the authority
 impl LookupOptions {
     /// Return a new LookupOptions
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub fn for_dnssec(dnssec_ok: bool, supported_algorithms: SupportedAlgorithms) -> Self {
         Self {
             dnssec_ok,
@@ -67,7 +65,7 @@ impl LookupOptions {
     }
 
     /// Specify the algorithms for which DNSSEC records should be returned
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub fn set_supported_algorithms(self, val: SupportedAlgorithms) -> Self {
         Self {
             supported_algorithms: val,
@@ -76,7 +74,7 @@ impl LookupOptions {
     }
 
     /// The algorithms for which DNSSEC records should be returned
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub fn supported_algorithms(&self) -> SupportedAlgorithms {
         self.supported_algorithms
     }
@@ -87,7 +85,7 @@ impl LookupOptions {
         record_set: &'r RecordSet,
     ) -> RrsetRecords<'r> {
         cfg_if! {
-            if #[cfg(feature = "dnssec")] {
+            if #[cfg(feature = "dnssec-ring")] {
                 record_set.records(
                     self.dnssec_ok(),
                     self.supported_algorithms(),
@@ -217,7 +215,7 @@ pub trait Authority: Send + Sync {
     ) -> LookupControlFlow<Self::Lookup>;
 
     /// Return the NSEC3 records based on the information available for a query.
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     async fn get_nsec3_records(
         &self,
         info: Nsec3QueryInfo<'_>,
@@ -241,12 +239,12 @@ pub trait Authority: Send + Sync {
     }
 
     /// Returns the kind of non-existence proof used for this zone.
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     fn nx_proof_kind(&self) -> Option<&NxProofKind>;
 }
 
 /// Extension to Authority to allow for DNSSEC features
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 #[async_trait::async_trait]
 pub trait DnssecAuthority: Authority {
     /// Add a (Sig0) key that is authorized to perform updates against this authority
@@ -435,7 +433,7 @@ impl<T: LookupObject + 'static, E: std::fmt::Display> LookupControlFlow<T, E> {
 }
 
 /// Information required to compute the NSEC3 records that should be sent for a query.
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 pub struct Nsec3QueryInfo<'q> {
     /// The queried name.
     pub qname: &'q LowerName,
@@ -451,7 +449,7 @@ pub struct Nsec3QueryInfo<'q> {
     pub iterations: u16,
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 impl Nsec3QueryInfo<'_> {
     /// Computes the hash of a given name.
     pub(crate) fn hash_name(&self, name: &Name) -> Result<Digest, ProtoError> {

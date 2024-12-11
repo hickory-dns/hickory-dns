@@ -13,10 +13,10 @@ use std::{
     time::*,
 };
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use hickory_client::client::Client;
 use hickory_client::{client::ClientHandle, proto::xfer::DnsResponse, ClientError};
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use hickory_proto::dnssec::{Algorithm, SupportedAlgorithms};
 use hickory_proto::rr::{rdata::A, DNSClass, Name, RData, RecordType};
 use hickory_proto::xfer::Protocol;
@@ -63,7 +63,7 @@ impl SocketPorts {
     }
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use self::mut_message_client::MutMessageHandle;
 
 fn collect_and_print<R: BufRead>(read: &mut R, output: &mut String) {
@@ -281,7 +281,7 @@ pub fn query_a_refused<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
 // This only validates that a query to the server works, it shouldn't be used for more than this.
 //  i.e. more complex checks live with the clients and authorities to validate deeper functionality
 #[allow(dead_code)]
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 pub fn query_all_dnssec(
     io_loop: &mut Runtime,
     client: Client,
@@ -325,13 +325,13 @@ pub fn query_all_dnssec(
 }
 
 #[allow(dead_code)]
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 pub fn query_all_dnssec_with_rfc6975(io_loop: &mut Runtime, client: Client, algorithm: Algorithm) {
     query_all_dnssec(io_loop, client, algorithm, true)
 }
 
 #[allow(dead_code)]
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 pub fn query_all_dnssec_wo_rfc6975(io_loop: &mut Runtime, client: Client, algorithm: Algorithm) {
     query_all_dnssec(io_loop, client, algorithm, false)
 }

@@ -27,7 +27,7 @@ use serde::{self, Deserialize, Deserializer};
 use hickory_proto::rr::Name;
 use hickory_proto::ProtoError;
 use hickory_server::authority::ZoneType;
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use hickory_server::dnssec::NxProofKind;
 #[cfg(feature = "blocklist")]
 use hickory_server::store::blocklist::BlocklistConfig;
@@ -385,7 +385,7 @@ pub struct ServerZoneConfig {
     #[serde(default)]
     pub keys: Vec<dnssec::KeyConfig>,
     /// The kind of non-existence proof provided by the nameserver
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub nx_proof_kind: Option<NxProofKind>,
     /// Store configurations.  Note: we specify a default handler to get a Vec containing a
     /// StoreConfig::Default, which is used for authoritative file-based zones and legacy sqlite
@@ -411,12 +411,12 @@ impl ServerZoneConfig {
         file: PathBuf,
         allow_axfr: Option<bool>,
         keys: Vec<dnssec::KeyConfig>,
-        #[cfg(feature = "dnssec")] nx_proof_kind: Option<NxProofKind>,
+        #[cfg(feature = "dnssec-ring")] nx_proof_kind: Option<NxProofKind>,
     ) -> Self {
         Self {
             allow_axfr,
             keys,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             nx_proof_kind,
             stores: vec![ServerStoreConfig::File(FileConfig {
                 zone_file_path: file,
@@ -445,7 +445,7 @@ impl ServerZoneConfig {
     /// declare that this zone should be signed, see keys for configuration of the keys for signing
     pub fn is_dnssec_enabled(&self) -> bool {
         cfg_if! {
-            if #[cfg(feature = "dnssec")] {
+            if #[cfg(feature = "dnssec-ring")] {
                 !self.keys.is_empty()
             } else {
                 false
@@ -454,7 +454,7 @@ impl ServerZoneConfig {
     }
 
     /// the configuration for the keys used for auth and/or dnssec zone signing.
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub fn keys(&self) -> &[dnssec::KeyConfig] {
         &self.keys
     }

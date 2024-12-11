@@ -31,7 +31,7 @@ mod recursor;
 mod recursor_dns_handle;
 pub(crate) mod recursor_pool;
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -39,7 +39,7 @@ pub use error::{Error, ErrorKind};
 pub use hickory_proto as proto;
 pub use hickory_resolver as resolver;
 pub use hickory_resolver::config::{NameServerConfig, NameServerConfigGroup};
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use proto::dnssec::TrustAnchor;
 use proto::{op::Query, xfer::DnsResponse};
 pub use recursor::{Recursor, RecursorBuilder};
@@ -56,11 +56,11 @@ pub enum DnssecPolicy {
     SecurityUnaware,
 
     /// DNSSEC validation is disabled; DNSSEC records will be requested and processed
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     ValidationDisabled,
 
     /// DNSSEC validation is enabled and will use the chosen `trust_anchor` set of keys
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     ValidateWithStaticKey {
         /// set to `None` to use built-in trust anchor
         trust_anchor: Option<Arc<TrustAnchor>>,
