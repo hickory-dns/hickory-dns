@@ -152,6 +152,7 @@ macro_rules! try_oneshot {
     ($expr:expr) => {{
         use std::result::Result;
 
+        #[allow(clippy::blocks_in_conditions)]
         match $expr {
             Result::Ok(val) => val,
             Result::Err(err) => return DnsResponseReceiver::Err(Some(ProtoError::from(err))),

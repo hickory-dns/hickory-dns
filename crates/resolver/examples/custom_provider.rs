@@ -64,7 +64,7 @@ async fn lookup_test<R: ConnectionProvider>(resolver: AsyncResolver<R>) {
     //  this can return IPv4 and/or IPv6 addresses
     let address = response.iter().next().expect("no addresses returned!");
     if address.is_ipv4() {
-        assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+        assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 215, 14)));
     } else {
         assert_eq!(
             address,

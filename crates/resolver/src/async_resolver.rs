@@ -477,7 +477,7 @@ pub mod testing {
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 215, 14)));
             } else {
                 assert_eq!(
                     address,
@@ -592,7 +592,7 @@ pub mod testing {
         //assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 215, 14)));
             } else {
                 assert_eq!(
                     address,
@@ -665,7 +665,7 @@ pub mod testing {
         assert_eq!(response.iter().count(), 2);
         for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 215, 14)));
             } else {
                 assert_eq!(
                     address,
@@ -727,7 +727,7 @@ pub mod testing {
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 215, 14)));
             } else {
                 panic!("should only be looking up IPv4");
             }
@@ -763,7 +763,7 @@ pub mod testing {
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 215, 14)));
             } else {
                 panic!("should only be looking up IPv4");
             }
@@ -802,7 +802,7 @@ pub mod testing {
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 215, 14)));
             } else {
                 panic!("should only be looking up IPv4");
             }
@@ -842,7 +842,7 @@ pub mod testing {
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 215, 14)));
             } else {
                 panic!("should only be looking up IPv4");
             }
@@ -881,7 +881,7 @@ pub mod testing {
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 215, 14)));
             } else {
                 panic!("should only be looking up IPv4");
             }

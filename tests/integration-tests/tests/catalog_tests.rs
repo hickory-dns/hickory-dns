@@ -74,7 +74,7 @@ pub fn create_test() -> InMemoryAuthority {
             .set_ttl(86400)
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(A::new(94, 184, 216, 34))))
+            .set_data(Some(RData::A(A::new(94, 184, 215, 14))))
             .clone(),
         0,
     );
@@ -98,7 +98,7 @@ pub fn create_test() -> InMemoryAuthority {
             .set_ttl(86400)
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(A::new(94, 184, 216, 34))))
+            .set_data(Some(RData::A(A::new(94, 184, 215, 14))))
             .clone(),
         0,
     );
@@ -158,7 +158,7 @@ async fn test_catalog_lookup() {
     assert_eq!(answers.first().unwrap().record_type(), RecordType::A);
     assert_eq!(
         answers.first().unwrap().data().unwrap(),
-        &RData::A(A::new(93, 184, 216, 34))
+        &RData::A(A::new(93, 184, 215, 14))
     );
 
     let ns = result.name_servers();
@@ -193,7 +193,7 @@ async fn test_catalog_lookup() {
     assert_eq!(answers.first().unwrap().record_type(), RecordType::A);
     assert_eq!(
         answers.first().unwrap().data().unwrap(),
-        &RData::A(A::new(94, 184, 216, 34))
+        &RData::A(A::new(94, 184, 215, 14))
     );
 }
 
@@ -449,7 +449,7 @@ async fn test_axfr() {
             .set_ttl(86400)
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(A::new(94, 184, 216, 34))))
+            .set_data(Some(RData::A(A::new(94, 184, 215, 14))))
             .clone(),
         Record::new()
             .set_name(origin.clone().into())
@@ -465,7 +465,7 @@ async fn test_axfr() {
             .set_ttl(86400)
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::A(A::new(94, 184, 216, 34))))
+            .set_data(Some(RData::A(A::new(94, 184, 215, 14))))
             .clone(),
         Record::new()
             .set_name(www_name)
@@ -584,7 +584,7 @@ async fn test_cname_additionals() {
     assert_eq!(additionals.first().unwrap().record_type(), RecordType::A);
     assert_eq!(
         additionals.first().unwrap().data().unwrap(),
-        &RData::A(A::new(93, 184, 216, 34))
+        &RData::A(A::new(93, 184, 215, 14))
     );
 }
 
@@ -645,6 +645,6 @@ async fn test_multiple_cname_additionals() {
     assert_eq!(additionals.last().unwrap().record_type(), RecordType::A);
     assert_eq!(
         additionals.last().unwrap().data().unwrap(),
-        &RData::A(A::new(93, 184, 216, 34))
+        &RData::A(A::new(93, 184, 215, 14))
     );
 }

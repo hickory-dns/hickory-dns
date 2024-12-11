@@ -410,7 +410,7 @@ mod tests {
             Record::from_rdata(name.clone(), 1, RData::A(A::new(127, 0, 0, 1))),
             1,
         )];
-        let ips = vec![RData::A(A::new(127, 0, 0, 1))];
+        let ips = [RData::A(A::new(127, 0, 0, 1))];
 
         // configure the cache with a minimum TTL of 2 seconds.
         let ttls = TtlConfig {
@@ -500,7 +500,7 @@ mod tests {
             Record::from_rdata(name.clone(), 62, RData::A(A::new(127, 0, 0, 1))),
             62,
         )];
-        let ips = vec![RData::A(A::new(127, 0, 0, 1))];
+        let ips = [RData::A(A::new(127, 0, 0, 1))];
 
         // configure the cache with a maximum TTL of 60 seconds.
         let ttls = TtlConfig {
@@ -589,7 +589,7 @@ mod tests {
             Record::from_rdata(name, 1, RData::A(A::new(127, 0, 0, 1))),
             1,
         )];
-        let ips = vec![RData::A(A::new(127, 0, 0, 1))];
+        let ips = [RData::A(A::new(127, 0, 0, 1))];
         let lru = DnsLru::new(1, TtlConfig::default());
 
         let rc_ips = lru.insert(query.clone(), ips_ttl, now);
@@ -609,7 +609,7 @@ mod tests {
             Record::from_rdata(name, 10, RData::A(A::new(127, 0, 0, 1))),
             10,
         )];
-        let ips = vec![RData::A(A::new(127, 0, 0, 1))];
+        let ips = [RData::A(A::new(127, 0, 0, 1))];
         let lru = DnsLru::new(1, TtlConfig::default());
 
         let rc_ips = lru.insert(query.clone(), ips_ttl, now);
