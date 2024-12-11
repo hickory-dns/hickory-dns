@@ -64,14 +64,13 @@ pub mod store;
 pub use self::server::ServerFuture;
 
 /// Low-level types for DNSSEC operations
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 pub mod dnssec {
     use crate::proto::dnssec::Nsec3HashAlgorithm;
     use serde::Deserialize;
     use std::sync::Arc;
 
     /// The kind of non-existence proof provided by the nameserver
-    #[cfg(feature = "dnssec")]
     #[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
     #[serde(rename_all = "lowercase")]
     pub enum NxProofKind {

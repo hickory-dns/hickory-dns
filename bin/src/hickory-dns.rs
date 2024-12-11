@@ -81,10 +81,10 @@ use hickory_server::{
     server::ServerFuture,
     store::file::FileAuthority,
 };
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use {hickory_proto::dnssec::rdata::key::KeyUsage, hickory_server::authority::DnssecAuthority};
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 async fn load_keys<A, L>(
     authority: &mut A,
     zone_name: Name,
@@ -149,7 +149,7 @@ where
     Ok(())
 }
 
-#[cfg(not(feature = "dnssec"))]
+#[cfg(not(feature = "dnssec-ring"))]
 #[allow(clippy::unnecessary_wraps)]
 async fn load_keys<T>(
     _authority: &mut T,
@@ -159,7 +159,7 @@ async fn load_keys<T>(
     Ok(())
 }
 
-#[cfg_attr(not(feature = "dnssec"), allow(unused_mut, unused))]
+#[cfg_attr(not(feature = "dnssec-ring"), allow(unused_mut, unused))]
 #[warn(clippy::wildcard_enum_match_arm)] // make sure all cases are handled despite of non_exhaustive
 async fn load_zone(
     zone_dir: &Path,
@@ -214,7 +214,7 @@ async fn load_zone(
                             server_config.is_dnssec_enabled(),
                             Some(zone_dir),
                             config,
-                            #[cfg(feature = "dnssec")]
+                            #[cfg(feature = "dnssec-ring")]
                             server_config.nx_proof_kind.clone(),
                         )
                         .await?;
@@ -231,7 +231,7 @@ async fn load_zone(
                             is_axfr_allowed,
                             Some(zone_dir),
                             config,
-                            #[cfg(feature = "dnssec")]
+                            #[cfg(feature = "dnssec-ring")]
                             server_config.nx_proof_kind.clone(),
                         )?;
 

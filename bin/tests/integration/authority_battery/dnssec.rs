@@ -1,4 +1,4 @@
-#![cfg(feature = "dnssec")]
+#![cfg(feature = "dnssec-ring")]
 
 use std::net::{Ipv4Addr, SocketAddr};
 use std::str::FromStr;

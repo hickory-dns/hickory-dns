@@ -7,9 +7,9 @@
 
 //! In-memory authority
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use std::collections::{hash_map::Entry, HashMap};
-#[cfg(all(feature = "dnssec", feature = "testing"))]
+#[cfg(all(feature = "dnssec-ring", feature = "testing"))]
 use std::ops::Deref;
 use std::{
     collections::{BTreeMap, HashSet},
@@ -18,12 +18,12 @@ use std::{
 };
 
 use cfg_if::cfg_if;
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use time::OffsetDateTime;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use tracing::{debug, error, warn};
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use crate::{
     authority::{DnssecAuthority, Nsec3QueryInfo},
     dnssec::NxProofKind,
@@ -58,7 +58,7 @@ pub struct InMemoryAuthority {
     zone_type: ZoneType,
     allow_axfr: bool,
     inner: RwLock<InnerInMemory>,
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     nx_proof_kind: Option<NxProofKind>,
 }
 
@@ -82,13 +82,13 @@ impl InMemoryAuthority {
         records: BTreeMap<RrKey, RecordSet>,
         zone_type: ZoneType,
         allow_axfr: bool,
-        #[cfg(feature = "dnssec")] nx_proof_kind: Option<NxProofKind>,
+        #[cfg(feature = "dnssec-ring")] nx_proof_kind: Option<NxProofKind>,
     ) -> Result<Self, String> {
         let mut this = Self::empty(
             origin.clone(),
             zone_type,
             allow_axfr,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             nx_proof_kind,
         );
         let inner = this.inner.get_mut();
@@ -131,7 +131,7 @@ impl InMemoryAuthority {
         origin: Name,
         zone_type: ZoneType,
         allow_axfr: bool,
-        #[cfg(feature = "dnssec")] nx_proof_kind: Option<NxProofKind>,
+        #[cfg(feature = "dnssec-ring")] nx_proof_kind: Option<NxProofKind>,
     ) -> Self {
         Self {
             origin: LowerName::new(&origin),
@@ -140,7 +140,7 @@ impl InMemoryAuthority {
             allow_axfr,
             inner: RwLock::new(InnerInMemory::default()),
 
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             nx_proof_kind,
         }
     }
@@ -162,7 +162,7 @@ impl InMemoryAuthority {
     }
 
     /// Retrieve the Signer, which contains the private keys, for this zone
-    #[cfg(all(feature = "dnssec", feature = "testing"))]
+    #[cfg(all(feature = "dnssec-ring", feature = "testing"))]
     pub async fn secure_keys(&self) -> impl Deref<Target = [SigSigner]> + '_ {
         RwLockWriteGuard::map(self.inner.write().await, |i| i.secure_keys.as_mut_slice())
     }
@@ -195,7 +195,7 @@ impl InMemoryAuthority {
         self.inner.read().await.serial(self.origin())
     }
 
-    #[cfg(any(feature = "dnssec", feature = "sqlite"))]
+    #[cfg(any(feature = "dnssec-ring", feature = "sqlite"))]
     #[allow(unused)]
     pub(crate) async fn increment_soa_serial(&self) -> u32 {
         self.inner
@@ -226,7 +226,7 @@ impl InMemoryAuthority {
     }
 
     /// Add a (Sig0) key that is authorized to perform updates against this authority
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     fn inner_add_update_auth_key(
         inner: &mut InnerInMemory,
 
@@ -248,7 +248,7 @@ impl InMemoryAuthority {
     }
 
     /// Non-async method of add_update_auth_key when behind a mutable reference
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub fn add_update_auth_key_mut(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
         let Self {
             origin,
@@ -265,7 +265,7 @@ impl InMemoryAuthority {
     /// # Arguments
     ///
     /// * `signer` - Signer with associated private key
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     fn inner_add_zone_signing_key(
         inner: &mut InnerInMemory,
         signer: SigSigner,
@@ -289,7 +289,7 @@ impl InMemoryAuthority {
     }
 
     /// Non-async method of add_zone_signing_key when behind a mutable reference
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub fn add_zone_signing_key_mut(&mut self, signer: SigSigner) -> DnsSecResult<()> {
         let Self {
             origin,
@@ -302,7 +302,7 @@ impl InMemoryAuthority {
     }
 
     /// (Re)generates the nsec records, increments the serial number and signs the zone
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub fn secure_zone_mut(&mut self) -> DnsSecResult<()> {
         let Self { origin, inner, .. } = self;
         inner
@@ -311,7 +311,7 @@ impl InMemoryAuthority {
     }
 
     /// (Re)generates the nsec records, increments the serial number and signs the zone
-    #[cfg(not(feature = "dnssec"))]
+    #[cfg(not(feature = "dnssec-ring"))]
     pub fn secure_zone_mut(&mut self) -> Result<(), &str> {
         Err("DNSSEC was not enabled during compilation.")
     }
@@ -325,13 +325,13 @@ struct InnerInMemory {
     //   server instance, but that requires requesting updates from the parent zone, which may or
     //   may not support dynamic updates to register the new key... Hickory DNS will provide support
     //   for this, in some form, perhaps alternate root zones...
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     secure_keys: Vec<SigSigner>,
 }
 
 impl InnerInMemory {
     /// Retrieve the Signer, which contains the private keys, for this zone
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     fn secure_keys(&self) -> &[SigSigner] {
         &self.secure_keys
     }
@@ -433,7 +433,7 @@ impl InnerInMemory {
                 let records;
                 let _rrsigs: Vec<&Record>;
                 cfg_if! {
-                    if #[cfg(feature = "dnssec")] {
+                    if #[cfg(feature = "dnssec-ring")] {
                         let (records_tmp, rrsigs_tmp) = rrset
                             .records(lookup_options.dnssec_ok(), lookup_options.supported_algorithms())
                             .partition(|r| r.record_type() != RecordType::RRSIG);
@@ -450,7 +450,7 @@ impl InnerInMemory {
                     new_answer.add_rdata(record.data().clone());
                 }
 
-                #[cfg(feature = "dnssec")]
+                #[cfg(feature = "dnssec-ring")]
                 for rrsig in _rrsigs {
                     new_answer.insert_rrsig(rrsig.clone())
                 }
@@ -529,7 +529,7 @@ impl InnerInMemory {
         }
     }
 
-    #[cfg(any(feature = "dnssec", feature = "sqlite"))]
+    #[cfg(any(feature = "dnssec-ring", feature = "sqlite"))]
     fn increment_soa_serial(&mut self, origin: &LowerName, dns_class: DNSClass) -> u32 {
         // we'll remove the SOA and then replace it
         let rr_key = RrKey::new(origin.clone(), RecordType::SOA);
@@ -579,7 +579,7 @@ impl InnerInMemory {
             return false;
         }
 
-        #[cfg(feature = "dnssec")]
+        #[cfg(feature = "dnssec-ring")]
         fn is_nsec(upsert_type: RecordType, occupied_type: RecordType) -> bool {
             // NSEC is always allowed
             upsert_type == RecordType::NSEC
@@ -588,7 +588,7 @@ impl InnerInMemory {
                 || occupied_type == RecordType::NSEC3
         }
 
-        #[cfg(not(feature = "dnssec"))]
+        #[cfg(not(feature = "dnssec-ring"))]
         fn is_nsec(_upsert_type: RecordType, _occupied_type: RecordType) -> bool {
             // TODO: we should make the DNSSEC RecordTypes always visible
             false
@@ -649,7 +649,7 @@ impl InnerInMemory {
     }
 
     /// (Re)generates the nsec records, increments the serial number and signs the zone
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     fn secure_zone_mut(
         &mut self,
         origin: &LowerName,
@@ -676,7 +676,7 @@ impl InnerInMemory {
         self.sign_zone(origin, dns_class)
     }
 
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     fn nsec_zone(&mut self, origin: &LowerName, dns_class: DNSClass) {
         // only create nsec records for secure zones
 
@@ -739,7 +739,7 @@ impl InnerInMemory {
         }
     }
 
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     fn nsec3_zone(
         &mut self,
         origin: &LowerName,
@@ -866,7 +866,7 @@ impl InnerInMemory {
     /// * `secure_keys` - Set of keys to use to sign the RecordSet, see `self.signers()`
     /// * `zone_ttl` - the zone TTL, see `self.minimum_ttl()`
     /// * `zone_class` - DNSClass of the zone, see `self.zone_class()`
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     fn sign_rrset(
         rr_set: &mut RecordSet,
         secure_keys: &[SigSigner],
@@ -937,7 +937,7 @@ impl InnerInMemory {
     }
 
     /// Signs all records in the zone.
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     fn sign_zone(&mut self, origin: &LowerName, dns_class: DNSClass) -> DnsSecResult<()> {
         debug!("signing zone: {}", origin);
 
@@ -966,7 +966,7 @@ impl InnerInMemory {
     /// Find a record that covers the given name. That is, an NSEC3 record such that the hashed owner
     /// name of the given name falls between the record's owner name and its next hashed owner
     /// name.
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub(crate) fn find_cover(
         &self,
         name: &LowerName,
@@ -993,7 +993,7 @@ impl InnerInMemory {
     }
 
     /// Return the next closer name and the record that matches the closest encloser of a given name.
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub(crate) fn get_closest_encloser_proof(
         &self,
         name: &LowerName,
@@ -1262,7 +1262,7 @@ impl Authority for InMemoryAuthority {
                                 }
 
                                 // if DNSSEC is enabled, and the request had the DO set, sign the recordset
-                                #[cfg(feature = "dnssec")]
+                                #[cfg(feature = "dnssec-ring")]
                                 {
                                     use tracing::warn;
 
@@ -1416,7 +1416,7 @@ impl Authority for InMemoryAuthority {
     ///            this
     /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
     ///                      algorithms, etc.)
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     async fn get_nsec_records(
         &self,
         name: &LowerName,
@@ -1499,7 +1499,7 @@ impl Authority for InMemoryAuthority {
         LookupControlFlow::Continue(Ok(LookupRecords::many(lookup_options, proofs).into()))
     }
 
-    #[cfg(not(feature = "dnssec"))]
+    #[cfg(not(feature = "dnssec-ring"))]
     async fn get_nsec_records(
         &self,
         _name: &LowerName,
@@ -1508,7 +1508,7 @@ impl Authority for InMemoryAuthority {
         LookupControlFlow::Continue(Ok(AuthLookup::default()))
     }
 
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     async fn get_nsec3_records(
         &self,
         info: Nsec3QueryInfo<'_>,
@@ -1607,13 +1607,13 @@ impl Authority for InMemoryAuthority {
         )
     }
 
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     fn nx_proof_kind(&self) -> Option<&NxProofKind> {
         self.nx_proof_kind.as_ref()
     }
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 #[async_trait::async_trait]
 impl DnssecAuthority for InMemoryAuthority {
     /// Add a (Sig0) key that is authorized to perform updates against this authority

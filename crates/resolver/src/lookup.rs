@@ -32,7 +32,7 @@ use crate::{
     },
 };
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use crate::proto::{dnssec::Proven, DnssecDnsHandle};
 
 /// Result of a DNS query when querying for any record type supported by the Hickory DNS Proto library.
@@ -84,7 +84,7 @@ impl Lookup {
     }
 
     /// Returns a borrowed iterator of the returned data wrapped in a dnssec Proven type
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub fn dnssec_iter(&self) -> DnssecIter<'_> {
         DnssecIter(self.dnssec_record_iter())
     }
@@ -97,7 +97,7 @@ impl Lookup {
     }
 
     /// Returns a borrowed iterator of the returned records wrapped in a dnssec Proven type
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub fn dnssec_record_iter(&self) -> DnssecLookupRecordIter<'_> {
         DnssecLookupRecordIter(self.records.iter())
     }
@@ -154,10 +154,10 @@ impl<'a> Iterator for LookupIter<'a> {
 }
 
 /// An iterator over record data with all data wrapped in a Proven type for dnssec validation
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 pub struct DnssecIter<'a>(DnssecLookupRecordIter<'a>);
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 impl<'a> Iterator for DnssecIter<'a> {
     type Item = Proven<&'a RData>;
 
@@ -178,10 +178,10 @@ impl<'a> Iterator for LookupRecordIter<'a> {
 }
 
 /// An iterator over record data with all data wrapped in a Proven type for dnssec validation
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 pub struct DnssecLookupRecordIter<'a>(Iter<'a, Record>);
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 impl<'a> Iterator for DnssecLookupRecordIter<'a> {
     type Item = Proven<&'a Record>;
 
@@ -227,7 +227,7 @@ impl Iterator for LookupIntoIter {
 #[doc(hidden)]
 pub enum LookupEither<P: ConnectionProvider + Send> {
     Retry(RetryDnsHandle<NameServerPool<P>>),
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     Secure(DnssecDnsHandle<RetryDnsHandle<NameServerPool<P>>>),
 }
 
@@ -237,7 +237,7 @@ impl<P: ConnectionProvider> DnsHandle for LookupEither<P> {
     fn is_verifying_dnssec(&self) -> bool {
         match self {
             Self::Retry(c) => c.is_verifying_dnssec(),
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             Self::Secure(c) => c.is_verifying_dnssec(),
         }
     }
@@ -245,7 +245,7 @@ impl<P: ConnectionProvider> DnsHandle for LookupEither<P> {
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response {
         match self {
             Self::Retry(c) => c.send(request),
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             Self::Secure(c) => c.send(request),
         }
     }
@@ -470,7 +470,7 @@ mod tests {
     use std::str::FromStr;
     use std::sync::Arc;
 
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     use crate::proto::op::Query;
     use crate::proto::rr::{Name, RData, Record};
 
@@ -500,7 +500,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     fn test_dnssec_lookup() {
         use hickory_proto::dnssec::Proof;
 

@@ -134,7 +134,7 @@ fn test_parse_toml() {
     assert_eq!(config.directory(), Path::new("/dev/null"));
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 #[test]
 fn test_parse_zone_keys() {
     use hickory_dns::dnssec::KeyPurpose;

@@ -45,8 +45,7 @@ dns-over-h3 = ["dep:quinn", "dns-over-rustls", "hickory-proto/dns-over-h3"]
 webpki-roots = ["dep:webpki-roots", "hickory-proto/webpki-roots"]
 native-certs = ["dep:rustls-native-certs", "hickory-proto/native-certs"]
 
-dnssec-ring = ["dnssec", "hickory-proto/dnssec-ring"]
-dnssec = []
+dnssec-ring = ["hickory-proto/dnssec-ring"]
 
 serde = ["dep:serde", "hickory-proto/serde"]
 system-config = ["dep:ipconfig", "dep:resolv-conf"]
@@ -122,5 +121,4 @@ workspace = true
 
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true
-denylist = ["dnssec"]
 max_combination_size = 2

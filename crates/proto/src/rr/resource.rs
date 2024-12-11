@@ -18,7 +18,7 @@ use crate::{
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict},
 };
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use crate::dnssec::{Proof, Proven};
 
 #[allow(deprecated)]
@@ -80,7 +80,7 @@ pub struct Record<R: RecordData = RData> {
     rdata: R,
     #[cfg(feature = "mdns")]
     mdns_cache_flush: bool,
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     proof: Proof,
 }
 
@@ -94,7 +94,7 @@ impl Record {
             rdata: RData::Update0(RecordType::NULL),
             #[cfg(feature = "mdns")]
             mdns_cache_flush: false,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             proof: Proof::default(),
         }
     }
@@ -110,7 +110,7 @@ impl Record {
             rdata: RData::Update0(rr_type),
             #[cfg(feature = "mdns")]
             mdns_cache_flush: false,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             proof: Proof::default(),
         }
     }
@@ -140,7 +140,7 @@ impl<R: RecordData> Record<R> {
             rdata,
             #[cfg(feature = "mdns")]
             mdns_cache_flush: false,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             proof: Proof::default(),
         }
     }
@@ -155,7 +155,7 @@ impl<R: RecordData> Record<R> {
             rdata,
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             proof,
         } = record;
 
@@ -167,7 +167,7 @@ impl<R: RecordData> Record<R> {
                 rdata,
                 #[cfg(feature = "mdns")]
                 mdns_cache_flush,
-                #[cfg(feature = "dnssec")]
+                #[cfg(feature = "dnssec-ring")]
                 proof,
             }),
             Err(rdata) => Err(Record {
@@ -177,7 +177,7 @@ impl<R: RecordData> Record<R> {
                 rdata,
                 #[cfg(feature = "mdns")]
                 mdns_cache_flush,
-                #[cfg(feature = "dnssec")]
+                #[cfg(feature = "dnssec-ring")]
                 proof,
             }),
         }
@@ -192,7 +192,7 @@ impl<R: RecordData> Record<R> {
             rdata,
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             proof,
         } = self;
 
@@ -205,7 +205,7 @@ impl<R: RecordData> Record<R> {
             rdata,
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             proof,
         }
     }
@@ -261,7 +261,7 @@ impl<R: RecordData> Record<R> {
     }
 
     /// Set the DNSSEC Proof for this record, after it's been verified
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub fn set_proof(&mut self, proof: Proof) -> &mut Self {
         self.proof = proof;
         self
@@ -325,7 +325,7 @@ impl<R: RecordData> Record<R> {
     }
 
     /// The Proof of DNSSEC validation for this record, this is only valid if some form of validation has occurred
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     #[inline]
     pub fn proof(&self) -> Proof {
         self.proof
@@ -347,7 +347,7 @@ pub struct RecordParts<R: RecordData = RData> {
     #[cfg(feature = "mdns")]
     pub mdns_cache_flush: bool,
     /// mDNS cache flush
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub proof: Proof,
 }
 
@@ -360,7 +360,7 @@ impl<R: RecordData> From<Record<R>> for RecordParts<R> {
             rdata,
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             proof,
         } = record;
 
@@ -371,7 +371,7 @@ impl<R: RecordData> From<Record<R>> for RecordParts<R> {
             rdata,
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             proof,
         }
     }
@@ -511,7 +511,7 @@ impl<'r> BinDecodable<'r> for Record<RData> {
             rdata,
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             proof: Proof::default(),
         })
     }
@@ -688,7 +688,7 @@ impl PartialOrd<Self> for Record {
     }
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 impl From<Record> for Proven<Record> {
     fn from(record: Record) -> Self {
         let proof = record.proof();
@@ -696,7 +696,7 @@ impl From<Record> for Proven<Record> {
     }
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 impl<'a> From<&'a Record> for Proven<&'a Record> {
     fn from(record: &'a Record) -> Self {
         let proof = record.proof();
@@ -712,7 +712,7 @@ pub struct RecordRef<'a, R: RecordData> {
     rdata: &'a R,
     #[cfg(feature = "mdns")]
     mdns_cache_flush: bool,
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     proof: Proof,
 }
 
@@ -734,7 +734,7 @@ impl<R: RecordData> RecordRef<'_, R> {
             rdata: self.rdata.clone(),
             #[cfg(feature = "mdns")]
             mdns_cache_flush: self.mdns_cache_flush,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             proof: self.proof,
         }
     }
@@ -778,7 +778,7 @@ impl<R: RecordData> RecordRef<'_, R> {
     }
 
     /// The Proof of DNSSEC validation for this record, this is only valid if some form of validation has occurred
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     #[inline]
     pub fn proof(&self) -> Proof {
         self.proof
@@ -796,7 +796,7 @@ impl<'a, R: RecordData> TryFrom<&'a Record> for RecordRef<'a, R> {
             rdata,
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             proof,
         } = record;
 
@@ -809,7 +809,7 @@ impl<'a, R: RecordData> TryFrom<&'a Record> for RecordRef<'a, R> {
                 rdata,
                 #[cfg(feature = "mdns")]
                 mdns_cache_flush: *mdns_cache_flush,
-                #[cfg(feature = "dnssec")]
+                #[cfg(feature = "dnssec-ring")]
                 proof: *proof,
             }),
         }

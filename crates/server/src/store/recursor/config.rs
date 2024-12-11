@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use std::sync::Arc;
 use std::{
     borrow::Cow,
@@ -20,7 +20,7 @@ use ipnet::IpNet;
 use serde::Deserialize;
 
 use crate::error::ConfigError;
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use crate::proto::{
     dnssec::{TrustAnchor, Verifier},
     serialize::txt::trust_anchor::{self, Entry},
@@ -120,11 +120,11 @@ pub enum DnssecPolicyConfig {
     SecurityUnaware,
 
     /// DNSSEC validation is disabled; DNSSEC records will be requested and processed
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     ValidationDisabled,
 
     /// DNSSEC validation is enabled and will use the chosen `trust_anchor` set of keys
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     ValidateWithStaticKey {
         /// set to `None` to use built-in trust anchor
         path: Option<PathBuf>,
@@ -135,9 +135,9 @@ impl DnssecPolicyConfig {
     pub(crate) fn load(&self) -> Result<DnssecPolicy, String> {
         Ok(match self {
             Self::SecurityUnaware => DnssecPolicy::SecurityUnaware,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             Self::ValidationDisabled => DnssecPolicy::ValidationDisabled,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             Self::ValidateWithStaticKey { path } => DnssecPolicy::ValidateWithStaticKey {
                 trust_anchor: path
                     .as_ref()
@@ -149,7 +149,7 @@ impl DnssecPolicyConfig {
     }
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 fn read_trust_anchor(path: &Path) -> Result<TrustAnchor, String> {
     use std::fs;
 
@@ -158,7 +158,7 @@ fn read_trust_anchor(path: &Path) -> Result<TrustAnchor, String> {
     parse_trust_anchor(&contents)
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 fn parse_trust_anchor(input: &str) -> Result<TrustAnchor, String> {
     let parser = trust_anchor::Parser::new(input);
     let entries = parser.parse().map_err(|e| e.to_string())?;
@@ -180,7 +180,7 @@ fn parse_trust_anchor(input: &str) -> Result<TrustAnchor, String> {
 mod tests {
     use super::*;
 
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     #[test]
     fn can_load_trust_anchor_file() {
         let input = include_str!("../../../../proto/tests/test-data/root.key");
@@ -189,7 +189,7 @@ mod tests {
         assert_eq!(3, trust_anchor.len());
     }
 
-    #[cfg(all(feature = "dnssec", feature = "toml"))]
+    #[cfg(all(feature = "dnssec-ring", feature = "toml"))]
     #[test]
     fn can_parse_recursive_config() {
         let input = r#"roots = "/etc/root.hints"

@@ -126,13 +126,13 @@ impl<R: ConnectionProvider> Resolver<R> {
         let either;
         let client = RetryDnsHandle::new(pool, options.attempts);
         if options.validate {
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             {
                 use crate::proto::xfer::DnssecDnsHandle;
                 either = LookupEither::Secure(DnssecDnsHandle::new(client));
             }
 
-            #[cfg(not(feature = "dnssec"))]
+            #[cfg(not(feature = "dnssec-ring"))]
             {
                 // TODO: should this just be a panic, or a pinned error?
                 tracing::warn!("validate option is only available with 'dnssec' feature");
@@ -642,7 +642,7 @@ pub mod testing {
     }
 
     /// Test IP lookup from URLs with DNSSEC validation.
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub fn sec_lookup_test<E: Executor + Send + 'static, R: ConnectionProvider>(
         mut exec: E,
         handle: R,
@@ -683,7 +683,7 @@ pub mod testing {
 
     /// Test IP lookup from domains that exist but unsigned with DNSSEC validation.
     #[allow(deprecated)]
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub fn sec_lookup_fails_test<E: Executor + Send + 'static, R: ConnectionProvider>(
         mut exec: E,
         handle: R,
@@ -1174,7 +1174,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     fn test_sec_lookup() {
         use super::testing::sec_lookup_test;
         use test_support::subscribe;
@@ -1185,7 +1185,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     fn test_sec_lookup_fails() {
         use super::testing::sec_lookup_fails_test;
         use test_support::subscribe;

@@ -5,7 +5,7 @@ use std::{
 
 use hickory_proto::rr::{LowerName, Name, RecordType, RrKey};
 use hickory_server::authority::{Authority, LookupOptions, ZoneType};
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::file::{FileAuthority, FileConfig};
 
@@ -20,14 +20,14 @@ fn file(master_file_path: &Path, _module: &str, _test_name: &str) -> FileAuthori
         false,
         None,
         &config,
-        #[cfg(feature = "dnssec")]
+        #[cfg(feature = "dnssec-ring")]
         Some(NxProofKind::Nsec),
     )
     .expect("failed to load file")
 }
 
 basic_battery!(file, crate::store_file_tests::file);
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 dnssec_battery!(file, crate::store_file_tests::file);
 
 #[test]
@@ -42,7 +42,7 @@ fn test_all_lines_are_loaded() {
         false,
         None,
         &config,
-        #[cfg(feature = "dnssec")]
+        #[cfg(feature = "dnssec-ring")]
         Some(NxProofKind::Nsec),
     )
     .expect("failed to load");
@@ -65,7 +65,7 @@ fn test_implicit_in_class() {
         false,
         None,
         &config,
-        #[cfg(feature = "dnssec")]
+        #[cfg(feature = "dnssec-ring")]
         Some(NxProofKind::Nsec),
     );
     assert!(authority.is_ok());
@@ -84,7 +84,7 @@ async fn test_ttl_wildcard() {
         false,
         None,
         &config,
-        #[cfg(feature = "dnssec")]
+        #[cfg(feature = "dnssec-ring")]
         Some(NxProofKind::Nsec),
     )
     .unwrap();

@@ -11,7 +11,7 @@ use tracing::{info, warn};
 
 use crate::rr::{DNSClass, Name, RData, Record, RecordType};
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use crate::dnssec::SupportedAlgorithms;
 
 /// Set of resource records associated to a name and type
@@ -134,7 +134,7 @@ impl RecordSet {
     /// * `and_rrsigs` - if true, RRSIGs will be returned if they exist
     /// * `supported_algorithms` - the RRSIGs will be filtered by the set of supported_algorithms,
     ///                            and then only the maximal RRSIG algorithm will be returned.
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub fn records(
         &self,
         and_rrsigs: bool,
@@ -153,7 +153,7 @@ impl RecordSet {
     ///
     /// * `supported_algorithms` - the RRSIGs will be filtered by the set of supported_algorithms,
     ///                            and then only the maximal RRSIG algorithm will be returned.
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub fn records_with_rrsigs(
         &self,
         supported_algorithms: SupportedAlgorithms,
@@ -515,11 +515,11 @@ impl IntoIterator for RecordSet {
 }
 
 /// An iterator over all the records and their signatures
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 #[derive(Debug)]
 pub struct RecordsAndRrsigsIter<'r>(Chain<Iter<'r, Record>, RrsigsByAlgorithms<'r>>);
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 impl<'r> Iterator for RecordsAndRrsigsIter<'r> {
     type Item = &'r Record;
 
@@ -529,14 +529,14 @@ impl<'r> Iterator for RecordsAndRrsigsIter<'r> {
 }
 
 /// An iterator that limits the record signatures by SupportedAlgorithms
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 #[derive(Debug)]
 pub(crate) struct RrsigsByAlgorithms<'r> {
     rrsigs: Iter<'r, Record>,
     supported_algorithms: SupportedAlgorithms,
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 impl<'r> Iterator for RrsigsByAlgorithms<'r> {
     type Item = &'r Record;
 
@@ -579,7 +579,7 @@ pub enum RrsetRecords<'r> {
     /// The records associated with the record set
     RecordsOnly(Iter<'r, Record>),
     /// The records along with their signatures in the record set
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     RecordsAndRrsigs(RecordsAndRrsigsIter<'r>),
 }
 
@@ -597,7 +597,7 @@ impl<'r> Iterator for RrsetRecords<'r> {
         match self {
             RrsetRecords::Empty => None,
             RrsetRecords::RecordsOnly(i) => i.next(),
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             RrsetRecords::RecordsAndRrsigs(i) => i.next(),
         }
     }
@@ -836,7 +836,7 @@ mod test {
     }
 
     #[test]
-    #[cfg(feature = "dnssec")] // This tests RFC 6975, a DNSSEC-specific feature.
+    #[cfg(feature = "dnssec-ring")] // This tests RFC 6975, a DNSSEC-specific feature.
     #[allow(clippy::blocks_in_conditions)]
     fn test_get_filter() {
         use crate::dnssec::{

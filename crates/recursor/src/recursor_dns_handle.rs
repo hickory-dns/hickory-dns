@@ -706,7 +706,7 @@ impl RecursorDnsHandle {
         }
     }
 
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     pub(crate) fn record_cache(&self) -> &DnsLru {
         &self.record_cache
     }

@@ -14,7 +14,7 @@ use thiserror::Error;
 
 #[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use hickory_proto::{DnsSecError, DnsSecErrorKind};
 use hickory_proto::{ProtoError, ProtoErrorKind};
 
@@ -32,7 +32,7 @@ pub enum ErrorKind {
 
     // foreign
     /// A dnssec error
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     #[error("dnssec error")]
     DnsSec(#[from] DnsSecError),
 
@@ -60,7 +60,7 @@ impl Clone for ErrorKind {
             Message(msg) => Message(msg),
             Msg(msg) => Msg(msg.clone()),
             // foreign
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             DnsSec(dnssec) => DnsSec(dnssec.clone()),
             Io(io) => Io(std::io::Error::from(io.kind())),
             Proto(proto) => Proto(proto.clone()),
@@ -130,7 +130,7 @@ impl From<String> for Error {
     }
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 impl From<DnsSecError> for Error {
     fn from(e: DnsSecError) -> Self {
         match e.kind() {

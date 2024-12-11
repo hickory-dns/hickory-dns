@@ -33,12 +33,9 @@ license.workspace = true
 [features]
 backtrace = ["hickory-proto/backtrace"]
 dnssec-ring = [
-    "dnssec",
     "hickory-proto/dnssec-ring",
+    "hickory-recursor?/dnssec-ring",
     "hickory-resolver?/dnssec-ring",
-]
-dnssec = [
-    "hickory-recursor?/dnssec",
     "serde/rc",
 ]
 # Recursive Resolution is Experimental!
@@ -131,5 +128,4 @@ workspace = true
 
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true
-denylist = ["dnssec"]
 max_combination_size = 2

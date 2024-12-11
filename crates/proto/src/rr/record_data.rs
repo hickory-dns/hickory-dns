@@ -35,7 +35,7 @@ use crate::{
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict},
 };
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use crate::dnssec::rdata::DNSSECRData;
 
 /// Record data enum variants for all valid DNS data types.
@@ -700,7 +700,7 @@ pub enum RData {
     ///
     /// These types are in `DNSSECRData` to make them easy to disable when
     /// crypto functionality isn't needed.
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     DNSSEC(DNSSECRData),
 
     /// Unknown RecordData is for record types not supported by Hickory DNS
@@ -756,7 +756,7 @@ impl RData {
             Self::SVCB(..) => RecordType::SVCB,
             Self::TLSA(..) => RecordType::TLSA,
             Self::TXT(..) => RecordType::TXT,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             Self::DNSSEC(rdata) => DNSSECRData::to_record_type(rdata),
             Self::Unknown { code, .. } => *code,
             Self::Update0(record_type) => *record_type,
@@ -880,7 +880,7 @@ impl RData {
                 trace!("reading TXT");
                 TXT::read_data(decoder, length).map(Self::TXT)
             }
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             r if r.is_dnssec() => DNSSECRData::read(decoder, record_type, length).map(Self::DNSSEC),
             record_type => {
                 trace!("reading Unknown record: {}", record_type);
@@ -1002,7 +1002,7 @@ impl BinEncodable for RData {
             Self::SVCB(svcb) => svcb.emit(encoder),
             Self::TLSA(tlsa) => encoder.with_canonical_names(|encoder| tlsa.emit(encoder)),
             Self::TXT(txt) => txt.emit(encoder),
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             Self::DNSSEC(rdata) => encoder.with_canonical_names(|encoder| rdata.emit(encoder)),
             Self::Unknown { rdata, .. } => rdata.emit(encoder),
             Self::Update0(_) => Ok(()),
@@ -1067,7 +1067,7 @@ impl fmt::Display for RData {
             Self::SVCB(svcb) => w(f, svcb),
             Self::TLSA(tlsa) => w(f, tlsa),
             Self::TXT(txt) => w(f, txt),
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             Self::DNSSEC(rdata) => w(f, rdata),
             Self::Unknown { rdata, .. } => w(f, rdata),
             Self::Update0(_) => w(f, "UPDATE"),
@@ -1330,7 +1330,7 @@ mod tests {
             RData::SVCB(..) => RecordType::SVCB,
             RData::TLSA(..) => RecordType::TLSA,
             RData::TXT(..) => RecordType::TXT,
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             RData::DNSSEC(rdata) => rdata.to_record_type(),
             RData::Unknown { code, .. } => *code,
             RData::Update0(record_type) => *record_type,

@@ -7,7 +7,7 @@
 
 //! record data enum variants
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec-ring")]
 use crate::dnssec::rdata::DNSSECRData;
 use crate::{
     rr::{
@@ -96,9 +96,9 @@ impl RDataParser for RData {
                 return Err(ParseError::from("CDNSKEY should be dynamically generated"))
             }
             RecordType::KEY => return Err(ParseError::from("KEY should be dynamically generated")),
-            #[cfg(feature = "dnssec")]
+            #[cfg(feature = "dnssec-ring")]
             RecordType::DS => Self::DNSSEC(DNSSECRData::DS(ds::parse(tokens)?)),
-            #[cfg(not(feature = "dnssec"))]
+            #[cfg(not(feature = "dnssec-ring"))]
             RecordType::DS => return Err(ParseError::from("DS should be dynamically generated")),
             RecordType::CDS => return Err(ParseError::from("CDS should be dynamically generated")),
             RecordType::NSEC => {
@@ -133,7 +133,7 @@ mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use super::*;
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     use crate::dnssec::rdata::DS;
     use crate::rr::domain::Name;
     use crate::rr::rdata::*;
@@ -228,7 +228,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "dnssec-ring")]
     #[test]
     #[allow(deprecated)]
     fn test_ds() {

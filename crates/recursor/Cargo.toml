@@ -33,11 +33,9 @@ license.workspace = true
 backtrace = ["dep:backtrace", "hickory-proto/backtrace", "hickory-resolver/backtrace"]
 
 dnssec-ring = [
-    "dnssec",
     "hickory-proto/dnssec-ring",
     "hickory-resolver/dnssec-ring",
 ]
-dnssec = []
 
 # TODO: Need to figure out how to be consistent with ring/openssl usage...
 dns-over-https-rustls = [

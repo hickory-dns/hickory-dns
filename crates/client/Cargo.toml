@@ -49,8 +49,7 @@ dns-over-tls = []
 webpki-roots = ["hickory-proto/webpki-roots"]
 native-certs = ["hickory-proto/native-certs"]
 
-dnssec-ring = ["dnssec", "hickory-proto/dnssec-ring"]
-dnssec = ["hickory-proto/dnssec"]
+dnssec-ring = ["hickory-proto/dnssec-ring"]
 
 serde = ["dep:serde", "hickory-proto/serde"]
 
