@@ -197,10 +197,7 @@ impl KEY {
     /// # Return
     ///
     /// the KEY record data
-    pub fn new_sig0key_with_usage(
-        public_key: &dyn PublicKey,
-        usage: KeyUsage,
-    ) -> KEY {
+    pub fn new_sig0key_with_usage(public_key: &dyn PublicKey, usage: KeyUsage) -> KEY {
         KEY::new(
             KeyTrust::default(),
             usage,

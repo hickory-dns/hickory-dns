@@ -14,7 +14,7 @@ use super::{PublicKey, SigningKey};
 use crate::{
     dnssec::{
         rdata::{DNSSECRData, DNSKEY, KEY, SIG},
-        tbs, Algorithm, TBS,
+        tbs, TBS,
     },
     error::{DnsSecResult, ProtoErrorKind, ProtoResult},
     op::{Message, MessageFinalizer, MessageVerifier},
@@ -230,7 +230,6 @@ pub struct SigSigner {
     // TODO: this should really be a trait and generic struct over KEY and DNSKEY
     key_rdata: RData,
     key: Box<dyn SigningKey>,
-    algorithm: Algorithm,
     signer_name: Name,
     sig_duration: Duration,
     is_zone_signing_key: bool,
@@ -253,16 +252,12 @@ impl SigSigner {
         signer_name: Name,
         sig_duration: Duration,
     ) -> Self {
-        let algorithm = key_rdata.algorithm();
-        let is_zone_signing_key = key_rdata.zone_key();
-
         Self {
+            is_zone_signing_key: key_rdata.zone_key(),
             key_rdata: key_rdata.into(),
             key,
-            algorithm,
             signer_name,
             sig_duration,
-            is_zone_signing_key,
         }
     }
 
@@ -275,15 +270,11 @@ impl SigSigner {
     /// * `signer_name` - name in the zone to which this DNSKEY is bound
     /// * `is_zone_update_auth` - this key may be used for updating the zone
     pub fn sig0(key_rdata: KEY, key: Box<dyn SigningKey>, signer_name: Name) -> Self {
-        let algorithm = key_rdata.algorithm();
-
         Self {
             key_rdata: key_rdata.into(),
             key,
-            algorithm,
             signer_name,
-            // can be Duration::ZERO after min Rust version 1.53
-            sig_duration: Duration::new(0, 0),
+            sig_duration: Duration::ZERO,
             is_zone_signing_key: false,
         }
     }
@@ -303,7 +294,6 @@ impl SigSigner {
         Self {
             key_rdata: dnskey.into(),
             key,
-            algorithm: pub_key.algorithm(),
             signer_name,
             sig_duration,
             is_zone_signing_key,
@@ -340,11 +330,6 @@ impl SigSigner {
         self.key
             .sign(tbs)
             .map_err(|e| ProtoErrorKind::Msg(format!("signing error: {e}")).into())
-    }
-
-    /// Returns the algorithm this Signer will use to either sign or validate a signature
-    pub fn algorithm(&self) -> Algorithm {
-        self.algorithm
     }
 
     /// The name of the signing entity, e.g. the DNS server name.
@@ -484,7 +469,7 @@ impl SigSigner {
             self.is_zone_signing_key,
             true,
             false,
-            self.algorithm,
+            pub_key.algorithm(),
             pub_key.public_bytes().to_owned(),
         ))
     }
@@ -527,7 +512,7 @@ impl MessageFinalizer for SigSigner {
         let pre_sig0 = SIG::new(
             // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
             RecordType::ZERO,
-            self.algorithm(),
+            self.key.algorithm(),
             num_labels,
             // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
             0,
@@ -581,7 +566,7 @@ mod tests {
         SIG::new(
             // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
             RecordType::ZERO,
-            signer.algorithm(),
+            signer.key().algorithm(),
             0,
             // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
             0,

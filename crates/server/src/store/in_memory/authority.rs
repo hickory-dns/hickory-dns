@@ -884,7 +884,7 @@ impl InnerInMemory {
                 "signing rr_set: {}, {} with: {}",
                 rr_set.name(),
                 rr_set.record_type(),
-                signer.algorithm(),
+                signer.key().algorithm(),
             );
 
             let expiration = inception + signer.sig_duration();
@@ -913,7 +913,7 @@ impl InnerInMemory {
                 // type_covered: RecordType,
                 rr_set.record_type(),
                 // algorithm: Algorithm,
-                signer.algorithm(),
+                signer.key().algorithm(),
                 // num_labels: u8,
                 rr_set.name().num_labels(),
                 // original_ttl: u32,

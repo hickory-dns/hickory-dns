@@ -102,7 +102,7 @@ impl TBS {
             zone_class,
             rr_set.name().num_labels(),
             rr_set.record_type(),
-            signer.algorithm(),
+            signer.key().algorithm(),
             rr_set.ttl(),
             SerialNumber(expiration.unix_timestamp() as u32),
             SerialNumber(inception.unix_timestamp() as u32),
