@@ -7,8 +7,12 @@
 
 //! dns security extension related modules
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
+use crate::error::{ProtoError, ProtoErrorKind};
+
 mod algorithm;
-mod digest_type;
 #[cfg(feature = "dnssec-ring")]
 mod ec_public_key;
 mod nsec3;
@@ -28,16 +32,15 @@ pub mod tsig;
 mod verifier;
 
 pub use self::algorithm::Algorithm;
-pub use self::digest_type::DigestType;
 pub use self::nsec3::Nsec3HashAlgorithm;
 pub use self::proof::{Proof, ProofError, ProofErrorKind, ProofFlags, Proven};
 pub use self::public_key::{PublicKey, PublicKeyBuf};
+pub use self::signer::SigSigner;
 pub use self::supported_algorithm::SupportedAlgorithms;
 pub use self::tbs::TBS;
 pub use self::trust_anchor::TrustAnchor;
 pub use self::verifier::Verifier;
 pub use crate::error::DnsSecResult;
-pub use self::signer::SigSigner;
 
 /// Decode private key
 pub fn decode_key(
@@ -70,6 +73,57 @@ pub fn decode_key(
             ),
         },
         e => Err(format!("unsupported Algorithm, enable openssl or ring feature: {e:?}").into()),
+    }
+}
+
+/// DNSSEC Delegation Signer (DS) Resource Record (RR) Type Digest Algorithms
+///
+///```text
+/// 0 Reserved - [RFC3658]
+/// 1 SHA-1 MANDATORY [RFC3658]
+/// 2 SHA-256 MANDATORY [RFC4509]
+/// 3 GOST R 34.11-94 OPTIONAL [RFC5933]
+/// 4 SHA-384 OPTIONAL [RFC6605]
+/// 5 ED25519 [RFC draft-ietf-curdle-dnskey-eddsa-03]
+/// 5-255 Unassigned -
+/// ```
+///
+/// <https://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml>
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+#[non_exhaustive]
+pub enum DigestType {
+    /// [RFC 3658](https://tools.ietf.org/html/rfc3658)
+    SHA1,
+    /// [RFC 4509](https://tools.ietf.org/html/rfc4509)
+    SHA256,
+    /// [RFC 6605](https://tools.ietf.org/html/rfc6605)
+    SHA384,
+    /// Formally undefined
+    SHA512,
+}
+
+impl TryFrom<u8> for DigestType {
+    type Error = ProtoError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(Self::SHA1),
+            2 => Ok(Self::SHA256),
+            4 => Ok(Self::SHA384),
+            _ => Err(ProtoErrorKind::UnknownAlgorithmTypeValue(value).into()),
+        }
+    }
+}
+
+impl From<DigestType> for u8 {
+    fn from(a: DigestType) -> Self {
+        match a {
+            DigestType::SHA1 => 1,
+            DigestType::SHA256 => 2,
+            DigestType::SHA384 => 4,
+            DigestType::SHA512 => 255,
+        }
     }
 }
 
