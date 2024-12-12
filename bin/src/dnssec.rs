@@ -279,7 +279,7 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<SigSigner, String
         .map_err(|e| format!("error getting public key: {e}"))?;
 
     Ok(SigSigner::dnssec(
-        DNSKEY::from_key(&pub_key, algorithm),
+        DNSKEY::from_key(&pub_key),
         key,
         name,
         Duration::weeks(52)

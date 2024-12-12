@@ -493,7 +493,6 @@ async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
     let pub_key = key.to_public_key().unwrap();
 
     let signer = SigSigner::new(
-        Algorithm::RSASHA256,
         Box::new(key),
         Name::from_str("trusted.example.com.").unwrap(),
         // can be Duration::MAX after min Rust version 1.53
