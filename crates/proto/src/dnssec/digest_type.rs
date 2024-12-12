@@ -9,7 +9,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::Algorithm;
-use crate::error::{ProtoError, ProtoErrorKind, ProtoResult};
+use crate::error::{ProtoError, ProtoErrorKind};
 
 /// DNSSEC Delegation Signer (DS) Resource Record (RR) Type Digest Algorithms
 ///
@@ -38,10 +38,10 @@ pub enum DigestType {
     SHA512,
 }
 
-impl DigestType {
-    /// TODO: add an Unknown DigestType and make this infallible
-    /// <https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml>
-    pub fn from_u8(value: u8) -> ProtoResult<Self> {
+impl TryFrom<u8> for DigestType {
+    type Error = ProtoError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             1 => Ok(Self::SHA1),
             2 => Ok(Self::SHA256),
