@@ -623,12 +623,6 @@ impl ServerZoneConfig {
             }
         }
     }
-
-    /// the configuration for the keys used for auth and/or dnssec zone signing.
-    #[cfg(feature = "dnssec-ring")]
-    pub fn keys(&self) -> &[dnssec::KeyConfig] {
-        &self.keys
-    }
 }
 
 #[cfg(feature = "dnssec-ring")]
@@ -638,7 +632,7 @@ async fn load_keys(
     server_config: &ServerZoneConfig,
 ) -> Result<(), String> {
     if server_config.is_dnssec_enabled() {
-        for key_config in server_config.keys() {
+        for key_config in &server_config.keys {
             key_config.load(authority, &zone_name).await?;
         }
 
