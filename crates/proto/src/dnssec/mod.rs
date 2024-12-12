@@ -7,7 +7,6 @@
 
 //! dns security extension related modules
 
-use rustls_pki_types::PrivatePkcs8KeyDer;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -42,27 +41,6 @@ pub use self::tbs::TBS;
 pub use self::trust_anchor::TrustAnchor;
 pub use self::verifier::Verifier;
 pub use crate::error::DnsSecResult;
-
-/// Decode private key
-pub fn decode_key(
-    key_der: &PrivatePkcs8KeyDer<'_>,
-    algorithm: Algorithm,
-) -> DnsSecResult<Box<dyn SigningKey>> {
-    //  empty string prevents openssl from triggering a read from stdin...
-
-    #[allow(deprecated)]
-    match algorithm {
-        Algorithm::Unknown(v) => Err(format!("unknown algorithm: {v}").into()),
-        Algorithm::RSASHA256 | Algorithm::RSASHA512 => Ok(Box::new(
-            ring::RsaSigningKey::from_pkcs8(key_der, algorithm)?,
-        )),
-        Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => Ok(Box::new(
-            ring::EcdsaSigningKey::from_pkcs8(key_der, algorithm)?,
-        )),
-        Algorithm::ED25519 => Ok(Box::new(ring::Ed25519SigningKey::from_pkcs8(key_der)?)),
-        e => Err(format!("unsupported Algorithm, enable dnssec-ring feature: {e:?}").into()),
-    }
-}
 
 /// DNSSEC Delegation Signer (DS) Resource Record (RR) Type Digest Algorithms
 ///
