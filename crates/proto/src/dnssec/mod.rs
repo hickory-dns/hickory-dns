@@ -138,6 +138,9 @@ pub trait SigningKey: Send + Sync + 'static {
 
     /// Returns a [`PublicKeyBuf`] for this [`SigningKey`].
     fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf>;
+
+    /// Returns the algorithm of the key.
+    fn algorithm(&self) -> Algorithm;
 }
 
 /// The format of the binary key
@@ -157,23 +160,25 @@ mod test_utils {
 
     use super::*;
 
-    pub(super) fn public_key_test(key: &dyn SigningKey, algorithm: Algorithm) {
+    pub(super) fn public_key_test(key: &dyn SigningKey) {
         let pk = key.to_public_key().unwrap();
 
         let tbs = TBS::from(&b"www.example.com"[..]);
         let mut sig = key.sign(&tbs).unwrap();
         assert!(
             pk.verify(tbs.as_ref(), &sig).is_ok(),
-            "public_key_test() failed to verify (algorithm: {algorithm:?})",
+            "public_key_test() failed to verify (algorithm: {:?})",
+            key.algorithm(),
         );
         sig[10] = !sig[10];
         assert!(
             pk.verify(tbs.as_ref(), &sig).is_err(),
-            "algorithm: {algorithm:?} (public key, neg)",
+            "algorithm: {:?} (public key, neg)",
+            key.algorithm(),
         );
     }
 
-    pub(super) fn hash_test(key: &dyn SigningKey, neg: &dyn SigningKey, algorithm: Algorithm) {
+    pub(super) fn hash_test(key: &dyn SigningKey, neg: &dyn SigningKey) {
         let tbs = TBS::from(&b"www.example.com"[..]);
 
         // TODO: convert to stored keys...
@@ -183,26 +188,29 @@ mod test_utils {
         let sig = key.sign(&tbs).unwrap();
         assert!(
             pub_key.verify(tbs.as_ref(), &sig).is_ok(),
-            "algorithm: {algorithm:?}",
+            "algorithm: {:?}",
+            key.algorithm(),
         );
 
         let pub_key = key.to_public_key().unwrap();
         let dns_key = DNSKEY::from_key(&pub_key);
         assert!(
             dns_key.verify(tbs.as_ref(), &sig).is_ok(),
-            "algorithm: {algorithm:?} (dnskey)",
+            "algorithm: {:?} (dnskey)",
+            pub_key.algorithm(),
         );
         assert!(
             neg_pub_key.verify(tbs.as_ref(), &sig).is_err(),
             "algorithm: {:?} (neg)",
-            algorithm
+            neg_pub_key.algorithm(),
         );
 
         let neg_pub_key = neg.to_public_key().unwrap();
         let neg_dns_key = DNSKEY::from_key(&neg_pub_key);
         assert!(
             neg_dns_key.verify(tbs.as_ref(), &sig).is_err(),
-            "algorithm: {algorithm:?} (dnskey, neg)",
+            "algorithm: {:?} (dnskey, neg)",
+            neg_pub_key.algorithm(),
         );
     }
 }

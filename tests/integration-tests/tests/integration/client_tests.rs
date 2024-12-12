@@ -510,7 +510,7 @@ async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
             Default::default(),
             Default::default(),
             Default::default(),
-            signer.algorithm(),
+            signer.key().algorithm(),
             pub_key.public_bytes().to_vec(),
         ))),
     );

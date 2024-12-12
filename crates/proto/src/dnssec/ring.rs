@@ -83,6 +83,10 @@ impl SigningKey for EcdsaSigningKey {
         bytes.remove(0);
         Ok(PublicKeyBuf::new(bytes, self.algorithm))
     }
+
+    fn algorithm(&self) -> Algorithm {
+        self.algorithm
+    }
 }
 
 /// An Ed25519 signing key pair (backed by ring).
@@ -121,6 +125,10 @@ impl SigningKey for Ed25519SigningKey {
             self.inner.public_key().as_ref().to_vec(),
             Algorithm::ED25519,
         ))
+    }
+
+    fn algorithm(&self) -> Algorithm {
+        Algorithm::ED25519
     }
 }
 
@@ -366,6 +374,10 @@ impl SigningKey for RsaSigningKey {
         buf.extend(&components.n);
         Ok(PublicKeyBuf::new(buf, self.algorithm))
     }
+
+    fn algorithm(&self) -> Algorithm {
+        self.algorithm
+    }
 }
 
 /// Hashing wrapper type.
@@ -438,11 +450,11 @@ mod tests {
         let format = KeyFormat::Pkcs8;
         let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
         let key = decode_key(&pkcs8, algorithm, format).unwrap();
-        public_key_test(&*key, algorithm);
+        public_key_test(&*key);
 
         let neg_pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
         let neg = decode_key(&neg_pkcs8, algorithm, format).unwrap();
-        hash_test(&*key, &*neg, algorithm);
+        hash_test(&*key, &*neg);
     }
 
     #[test]
@@ -451,11 +463,11 @@ mod tests {
         let format = KeyFormat::Pkcs8;
         let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
         let key = decode_key(&pkcs8, algorithm, format).unwrap();
-        public_key_test(&*key, algorithm);
+        public_key_test(&*key);
 
         let neg_pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
         let neg = decode_key(&neg_pkcs8, algorithm, format).unwrap();
-        hash_test(&*key, &*neg, algorithm);
+        hash_test(&*key, &*neg);
     }
 
     #[test]
@@ -464,11 +476,11 @@ mod tests {
         let format = KeyFormat::Pkcs8;
         let pkcs8 = Ed25519SigningKey::generate_pkcs8().unwrap();
         let key = decode_key(&pkcs8, algorithm, format).unwrap();
-        public_key_test(&*key, algorithm);
+        public_key_test(&*key);
 
         let neg_pkcs8 = Ed25519SigningKey::generate_pkcs8().unwrap();
         let neg = decode_key(&neg_pkcs8, algorithm, format).unwrap();
-        hash_test(&*key, &*neg, algorithm);
+        hash_test(&*key, &*neg);
     }
 
     #[test]
@@ -481,10 +493,10 @@ mod tests {
         let algorithm = Algorithm::RSASHA256;
         let format = KeyFormat::Pkcs8;
         let key = decode_key(KEY_1, algorithm, format).unwrap();
-        public_key_test(&*key, algorithm);
+        public_key_test(&*key);
 
         let neg = decode_key(KEY_2, algorithm, format).unwrap();
-        hash_test(&*key, &*neg, algorithm);
+        hash_test(&*key, &*neg);
     }
 
     #[test]
