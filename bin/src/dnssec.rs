@@ -14,14 +14,18 @@ use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 #[cfg(all(feature = "dnssec-ring", not(feature = "dns-over-rustls")))]
 use rustls_pki_types::PrivateKeyDer;
 use serde::Deserialize;
+#[cfg(feature = "dnssec-ring")]
+use tracing::info;
 
 use hickory_proto::rr::domain::Name;
 use hickory_proto::serialize::txt::ParseResult;
 #[cfg(feature = "dnssec-ring")]
 use hickory_proto::{
-    dnssec::{rdata::DNSKEY, Algorithm, SigSigner, SigningKey},
+    dnssec::{rdata::key::KeyUsage, rdata::DNSKEY, rdata::KEY, Algorithm, SigSigner, SigningKey},
     rr::domain::IntoName,
 };
+#[cfg(feature = "dnssec-ring")]
+use hickory_server::authority::DnssecAuthority;
 
 /// Key pair configuration for DNSSEC keys for signing a zone
 #[derive(Deserialize, PartialEq, Eq, Debug)]
@@ -128,6 +132,48 @@ impl KeyConfig {
         key.test_key()
             .map_err(|e| format!("key failed test: {e}"))?;
         Ok(key)
+    }
+
+    #[cfg(feature = "dnssec-ring")]
+    pub async fn load(
+        &self,
+        authority: &mut impl DnssecAuthority<Lookup = impl Send + Sync + Sized + 'static>,
+        zone_name: &Name,
+    ) -> Result<(), String> {
+        info!(
+            "adding key to zone: {:?}, purpose: {:?}",
+            self.key_path(),
+            self.purpose(),
+        );
+
+        match self.purpose() {
+            KeyPurpose::ZoneSigning => {
+                let zone_signer = self
+                    .try_into_signer(zone_name.clone())
+                    .map_err(|e| format!("failed to load key: {:?} msg: {}", self.key_path(), e))?;
+                authority
+                    .add_zone_signing_key(zone_signer)
+                    .await
+                    .map_err(|err| format!("failed to add zone signing key to authority: {err}"))?;
+            }
+
+            KeyPurpose::ZoneUpdateAuth => {
+                let update_auth_signer = self
+                    .try_into_signer(zone_name.clone())
+                    .map_err(|e| format!("failed to load key: {:?} msg: {}", self.key_path(), e))?;
+                let public_key = update_auth_signer
+                    .key()
+                    .to_public_key()
+                    .map_err(|err| format!("failed to get public key: {err}"))?;
+                let key = KEY::new_sig0key_with_usage(&public_key, KeyUsage::Host);
+                authority
+                    .add_update_auth_key(zone_name.clone(), key)
+                    .await
+                    .map_err(|err| format!("failed to update auth key to authority: {err}"))?;
+            }
+        }
+
+        Ok(())
     }
 
     /// set of DNSSEC algorithms to use to sign the zone. enable_dnssec must be true.
