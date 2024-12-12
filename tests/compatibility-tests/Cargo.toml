@@ -47,6 +47,7 @@ rand.workspace = true
 [dev-dependencies]
 futures.workspace = true
 hickory-client = { workspace = true, features = ["dnssec-ring"] }
+rustls-pki-types.workspace = true
 test-support.workspace = true
 time.workspace = true
 tokio.workspace = true

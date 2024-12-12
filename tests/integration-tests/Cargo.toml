@@ -41,6 +41,7 @@ dnssec-ring = [
     "hickory-server/dnssec-ring",
     "hickory-client/dnssec-ring",
     "hickory-proto/dnssec-ring",
+    "dep:rustls-pki-types",
 ]
 dnssec = []
 
@@ -79,6 +80,7 @@ once_cell.workspace = true
 rand.workspace = true
 rusqlite = { workspace = true, features = ["bundled"], optional = true }
 rustls = { workspace = true, optional = true }
+rustls-pki-types = { workspace = true, optional = true }
 time.workspace = true
 tokio = { workspace = true, features = ["time", "rt"] }
 tracing.workspace = true

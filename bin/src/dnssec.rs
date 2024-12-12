@@ -17,7 +17,7 @@ use hickory_proto::rr::domain::Name;
 use hickory_proto::serialize::txt::ParseResult;
 #[cfg(feature = "dnssec-ring")]
 use hickory_proto::{
-    dnssec::{decode_key, rdata::DNSKEY, Algorithm, KeyFormat, SigSigner},
+    dnssec::{decode_key, rdata::DNSKEY, Algorithm, SigSigner, SigningKey},
     rr::domain::IntoName,
 };
 
@@ -80,31 +80,6 @@ impl KeyConfig {
     /// path to the key file, either relative to the zone file, or a explicit from the root.
     pub fn key_path(&self) -> &Path {
         Path::new(&self.key_path)
-    }
-
-    /// Converts key into
-    #[cfg(feature = "dnssec-ring")]
-    pub fn format(&self) -> ParseResult<KeyFormat> {
-        use hickory_proto::serialize::txt::ParseErrorKind;
-
-        let extension = self.key_path().extension().ok_or_else(|| {
-            ParseErrorKind::Msg(format!(
-                "file lacks extension, e.g. '.pk8': {:?}",
-                self.key_path()
-            ))
-        })?;
-
-        match extension.to_str() {
-            Some("der") => Ok(KeyFormat::Der),
-            Some("key") => Ok(KeyFormat::Pem), // TODO: deprecate this...
-            Some("pem") => Ok(KeyFormat::Pem),
-            Some("pk8") => Ok(KeyFormat::Pkcs8),
-            e => Err(ParseErrorKind::Msg(format!(
-                "extension not understood, '{e:?}': {:?}",
-                self.key_path()
-            ))
-            .into()),
-        }
     }
 
     /// algorithm for for the key, see `Algorithm` for supported algorithms.
@@ -237,35 +212,15 @@ impl TlsCertConfig {
 ///  keys = [ "my_rsa_2048|RSASHA256", "/path/to/my_ed25519|ED25519" ]
 #[cfg(feature = "dnssec-ring")]
 fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<SigSigner, String> {
-    use tracing::info;
-
-    use std::fs::File;
-    use std::io::Read;
-
     use time::Duration;
 
     let key_path = key_config.key_path();
     let algorithm = key_config
         .algorithm()
         .map_err(|e| format!("bad algorithm: {e}"))?;
-    let format = key_config
-        .format()
-        .map_err(|e| format!("bad key format: {e}"))?;
 
     // read the key in
-    let key = {
-        info!("reading key: {:?}", key_path);
-
-        let mut file = File::open(key_path)
-            .map_err(|e| format!("error opening private key file: {key_path:?}: {e}"))?;
-
-        let mut key_bytes = Vec::with_capacity(256);
-        file.read_to_end(&mut key_bytes)
-            .map_err(|e| format!("could not read key from: {key_path:?}: {e}"))?;
-
-        decode_key(&key_bytes, algorithm, format)
-            .map_err(|e| format!("could not decode key: {e}"))?
-    };
+    let key = key_from_file(key_path, algorithm)?;
 
     let name = key_config
         .signer_name()
@@ -286,6 +241,30 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<SigSigner, String
             .try_into()
             .map_err(|e| format!("error converting time to std::Duration: {e}"))?,
     ))
+}
+
+#[cfg(feature = "dnssec-ring")]
+pub fn key_from_file(path: &Path, algorithm: Algorithm) -> Result<Box<dyn SigningKey>, String> {
+    use std::fs::File;
+    use std::io::Read;
+
+    use rustls_pki_types::PrivatePkcs8KeyDer;
+    use tracing::info;
+
+    info!("reading key: {path:?}");
+    let mut file =
+        File::open(path).map_err(|e| format!("error opening private key file: {path:?}: {e}"))?;
+
+    let mut buf = Vec::with_capacity(256);
+    file.read_to_end(&mut buf)
+        .map_err(|e| format!("could not read key from: {path:?}: {e}"))?;
+
+    let key = match path.extension().is_some_and(|ext| ext == "pk8") {
+        true => PrivatePkcs8KeyDer::from(buf.as_slice()),
+        false => return Err("unsupported key format (expected `.pk8` extension)".to_string()),
+    };
+
+    decode_key(&key, algorithm).map_err(|e| format!("could not decode key: {e}"))
 }
 
 /// Load a Certificate from the path (with rustls)

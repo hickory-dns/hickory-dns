@@ -283,6 +283,7 @@ async fn create_sig0_ready_client() -> (
 ) {
     use hickory_proto::dnssec::rdata::KEY;
     use hickory_server::store::sqlite::SqliteAuthority;
+    use rustls_pki_types::PrivatePkcs8KeyDer;
 
     let authority = create_example();
     let mut authority = SqliteAuthority::new(authority, true, false);
@@ -291,7 +292,8 @@ async fn create_sig0_ready_client() -> (
     let trusted_name = Name::from_str("trusted.example.com.").unwrap();
 
     const KEY: &[u8] = include_bytes!("../rsa-2048.pk8");
-    let key = RsaSigningKey::from_pkcs8(KEY, Algorithm::RSASHA256).unwrap();
+    let key =
+        RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(KEY), Algorithm::RSASHA256).unwrap();
     let pub_key = key.to_public_key().unwrap();
     let sig0_key = KEY::new_sig0key(&pub_key);
 

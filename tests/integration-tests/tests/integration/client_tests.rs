@@ -482,6 +482,7 @@ async fn test_nsec3_query_name_is_soa_name() {
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
     use hickory_server::store::sqlite::SqliteAuthority;
+    use rustls_pki_types::PrivatePkcs8KeyDer;
 
     let authority = create_example();
     let mut authority = SqliteAuthority::new(authority, true, false);
@@ -489,7 +490,8 @@ async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
     let origin = authority.origin().clone();
 
     const KEY: &[u8] = include_bytes!("../rsa-2048.pk8");
-    let key = RsaSigningKey::from_pkcs8(KEY, Algorithm::RSASHA256).unwrap();
+    let key =
+        RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(KEY), Algorithm::RSASHA256).unwrap();
     let pub_key = key.to_public_key().unwrap();
 
     let signer = SigSigner::new(
