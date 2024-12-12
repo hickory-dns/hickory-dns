@@ -37,10 +37,6 @@ pub use self::tbs::TBS;
 pub use self::trust_anchor::TrustAnchor;
 pub use self::verifier::Verifier;
 pub use crate::error::DnsSecResult;
-
-#[cfg(feature = "dnssec-ring")]
-pub use ::ring::digest::Digest;
-
 pub use self::signer::SigSigner;
 
 /// Decode private key
