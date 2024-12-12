@@ -224,8 +224,9 @@ impl<'r> RecordDataDecodable<'r> for DS {
 
         let key_tag: u16 = decoder.read_u16()?.unverified(/*key_tag is valid as any u16*/);
         let algorithm: Algorithm = Algorithm::read(decoder)?;
-        let digest_type: DigestType =
-            DigestType::from_u8(decoder.read_u8()?.unverified(/*DigestType is verified as safe*/))?;
+        let digest_type = DigestType::try_from(
+            decoder.read_u8()?.unverified(/*DigestType is verified as safe*/),
+        )?;
 
         let bytes_read = decoder.index() - start_idx;
         let left: usize = length
