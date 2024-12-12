@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use ring::{
+    digest,
     rand::{self, SystemRandom},
     rsa::PublicKeyComponents,
     signature::{
@@ -11,8 +12,8 @@ use ring::{
 };
 
 use super::{
-    ec_public_key::ECPublicKey, rsa_public_key::RSAPublicKey, Algorithm, PublicKey, PublicKeyBuf,
-    SigningKey, TBS,
+    ec_public_key::ECPublicKey, rsa_public_key::RSAPublicKey, Algorithm, DigestType, PublicKey,
+    PublicKeyBuf, SigningKey, TBS,
 };
 use crate::error::{DnsSecErrorKind, DnsSecResult, ProtoResult};
 
@@ -364,6 +365,61 @@ impl SigningKey for RsaSigningKey {
         buf.extend(&components.e);
         buf.extend(&components.n);
         Ok(PublicKeyBuf::new(buf, self.algorithm))
+    }
+}
+
+/// Hashing wrapper type.
+#[derive(Clone, Copy, Debug)]
+pub struct Digest(digest::Digest);
+
+impl Digest {
+    /// Hashes the given `data` `iterations` times with the given `salt` and `r#type`.
+    pub fn iterated(salt: &[u8], bytes: &[u8], r#type: DigestType, mut iterations: u16) -> Self {
+        let alg = r#type.into();
+        let mut cur = hash_iter([bytes, salt], alg);
+        while iterations > 0 {
+            cur = hash_iter([cur.as_ref(), salt], alg);
+            iterations -= 1;
+        }
+        Self(cur)
+    }
+
+    /// Hashes the data from the `bytes` iterator with the given `r#type`.
+    pub fn from_iter<'a>(bytes: impl IntoIterator<Item = &'a [u8]>, r#type: DigestType) -> Self {
+        Self(hash_iter(bytes, r#type.into()))
+    }
+
+    /// Hashes
+    pub fn new(bytes: &[u8], r#type: DigestType) -> Self {
+        Self(digest::digest(r#type.into(), bytes))
+    }
+}
+
+fn hash_iter<'a>(
+    iter: impl IntoIterator<Item = &'a [u8]>,
+    alg: &'static digest::Algorithm,
+) -> digest::Digest {
+    let mut ctx = digest::Context::new(alg);
+    for d in iter {
+        ctx.update(d);
+    }
+    ctx.finish()
+}
+
+impl AsRef<[u8]> for Digest {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
+
+impl From<DigestType> for &'static digest::Algorithm {
+    fn from(value: DigestType) -> &'static digest::Algorithm {
+        match value {
+            DigestType::SHA1 => &digest::SHA1_FOR_LEGACY_USE_ONLY,
+            DigestType::SHA256 => &digest::SHA256,
+            DigestType::SHA384 => &digest::SHA384,
+            DigestType::SHA512 => &digest::SHA512,
+        }
     }
 }
 

@@ -20,7 +20,8 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::{Digest, DigestType};
+#[cfg(feature = "dnssec-ring")]
+use super::{ring::Digest, DigestType};
 use crate::error::*;
 use crate::rr::Name;
 use crate::serialize::binary::{BinEncodable, BinEncoder};
@@ -159,22 +160,9 @@ impl Nsec3HashAlgorithm {
                     name.to_lowercase().emit(&mut encoder)?;
                 }
 
-                Self::sha1_recursive_hash(salt, buf, iterations)
+                Ok(Digest::iterated(salt, &buf, DigestType::SHA1, iterations))
             }
         }
-    }
-
-    /// until there is another supported algorithm, just hardcoded to this.
-    #[cfg(feature = "dnssec-ring")]
-    fn sha1_recursive_hash(salt: &[u8], bytes: Vec<u8>, iterations: u16) -> ProtoResult<Digest> {
-        let digested: Digest;
-        let to_digest = if iterations > 0 {
-            digested = Self::sha1_recursive_hash(salt, bytes, iterations - 1)?;
-            digested.as_ref()
-        } else {
-            &bytes
-        };
-        DigestType::SHA1.digest_all(&[to_digest, salt])
     }
 }
 

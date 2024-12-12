@@ -12,8 +12,10 @@ use std::{fmt, sync::Arc};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "dnssec-ring")]
+use crate::dnssec::ring::Digest;
 use crate::{
-    dnssec::{public_key::decode_public_key, Algorithm, Digest, DigestType, PublicKey, Verifier},
+    dnssec::{public_key::decode_public_key, Algorithm, DigestType, PublicKey, Verifier},
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     rr::{record_data::RData, Name, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
@@ -268,7 +270,7 @@ impl DNSKEY {
             }
         }
 
-        digest_type.hash(&buf)
+        Ok(Digest::new(&buf, digest_type))
     }
 
     /// The key tag is calculated as a hash to more quickly lookup a DNSKEY.

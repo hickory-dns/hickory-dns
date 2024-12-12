@@ -5,13 +5,10 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#[cfg(feature = "dnssec-ring")]
-use ring::digest;
-
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::{Algorithm, Digest};
+use super::Algorithm;
 use crate::error::{ProtoError, ProtoErrorKind, ProtoResult};
 
 /// DNSSEC Delegation Signer (DS) Resource Record (RR) Type Digest Algorithms
@@ -51,34 +48,6 @@ impl DigestType {
             4 => Ok(Self::SHA384),
             _ => Err(ProtoErrorKind::UnknownAlgorithmTypeValue(value).into()),
         }
-    }
-
-    /// The *ring* counterpart for the digest
-    #[cfg(feature = "dnssec-ring")]
-    pub fn to_ring_digest_alg(self) -> &'static digest::Algorithm {
-        match self {
-            Self::SHA1 => &digest::SHA1_FOR_LEGACY_USE_ONLY,
-            Self::SHA256 => &digest::SHA256,
-            Self::SHA384 => &digest::SHA384,
-            Self::SHA512 => &digest::SHA512,
-        }
-    }
-
-    /// Hash the data
-    #[cfg(feature = "dnssec-ring")]
-    pub fn hash(self, data: &[u8]) -> ProtoResult<Digest> {
-        Ok(digest::digest(self.to_ring_digest_alg(), data))
-    }
-
-    /// Digest all the data.
-    #[cfg(feature = "dnssec-ring")]
-    pub fn digest_all(self, data: &[&[u8]]) -> ProtoResult<Digest> {
-        let alg = self.to_ring_digest_alg();
-        let mut ctx = digest::Context::new(alg);
-        for d in data {
-            ctx.update(d);
-        }
-        Ok(ctx.finish())
     }
 }
 
