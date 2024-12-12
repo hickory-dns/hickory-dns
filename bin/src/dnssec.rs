@@ -7,7 +7,7 @@
 
 //! Configuration types for all security options in hickory-dns
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[cfg(feature = "dns-over-rustls")]
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
@@ -130,72 +130,14 @@ impl KeyConfig {
     }
 }
 
-/// Certificate format of the file being read
-#[derive(Default, Deserialize, PartialEq, Eq, Debug, Clone, Copy)]
-#[serde(rename_all = "snake_case")]
-#[non_exhaustive]
-pub enum CertType {
-    /// Pkcs12 formatted certificates and private key (requires OpenSSL)
-    #[default]
-    Pkcs12,
-    /// PEM formatted Certificate chain
-    Pem,
-}
-
-/// Format of the private key file to read
-#[derive(Default, Deserialize, PartialEq, Eq, Debug, Clone, Copy)]
-#[serde(rename_all = "snake_case")]
-#[non_exhaustive]
-pub enum PrivateKeyType {
-    /// PKCS8 formatted key file, allows for a password (requires Rustls)
-    Pkcs8,
-    /// DER formatted key, raw and unencrypted
-    #[default]
-    Der,
-}
-
 /// Configuration for a TLS certificate
 #[derive(Deserialize, PartialEq, Eq, Debug)]
 #[serde(deny_unknown_fields)]
+#[non_exhaustive]
 pub struct TlsCertConfig {
-    path: String,
-    endpoint_name: Option<String>,
-    cert_type: Option<CertType>,
-    password: Option<String>,
-    private_key: Option<String>,
-    private_key_type: Option<PrivateKeyType>,
-}
-
-impl TlsCertConfig {
-    /// path to the pkcs12 der formatted certificate file
-    pub fn path(&self) -> &Path {
-        Path::new(&self.path)
-    }
-
-    /// return the DNS name of the certificate hosted at the TLS endpoint
-    pub fn endpoint_name(&self) -> Option<&str> {
-        self.endpoint_name.as_deref()
-    }
-
-    /// Returns the format type of the certificate file
-    pub fn cert_type(&self) -> CertType {
-        self.cert_type.unwrap_or_default()
-    }
-
-    /// optional password for open the pkcs12, none assumes no password
-    pub fn password(&self) -> Option<&str> {
-        self.password.as_deref()
-    }
-
-    /// returns the path to the private key, as associated with the certificate
-    pub fn private_key(&self) -> Option<&Path> {
-        self.private_key.as_deref().map(Path::new)
-    }
-
-    /// returns the path to the private key
-    pub fn private_key_type(&self) -> PrivateKeyType {
-        self.private_key_type.unwrap_or_default()
-    }
+    pub path: PathBuf,
+    pub endpoint_name: Option<String>,
+    pub private_key: PathBuf,
 }
 
 /// set of DNSSEC algorithms to use to sign the zone. enable_dnssec must be true.
@@ -277,45 +219,41 @@ pub fn load_cert(
     zone_dir: &Path,
     tls_cert_config: &TlsCertConfig,
 ) -> Result<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>), String> {
-    use tracing::{info, warn};
+    use std::ffi::OsStr;
+
+    use tracing::info;
 
     use hickory_proto::rustls::tls_server::{read_cert, read_key, read_key_from_der};
 
-    let path = zone_dir.to_owned().join(tls_cert_config.path());
-    let cert_type = tls_cert_config.cert_type();
-    let password = tls_cert_config.password();
-    let private_key_path = tls_cert_config
-        .private_key()
-        .map(|p| zone_dir.to_owned().join(p));
-    let private_key_type = tls_cert_config.private_key_type();
+    if tls_cert_config.path.extension().and_then(OsStr::to_str) != Some("pem") {
+        return Err(format!(
+            "unsupported certificate file format (expected `.pem` extension): {}",
+            tls_cert_config.path.display()
+        ));
+    }
 
-    let cert = match cert_type {
-        CertType::Pem => {
-            info!("loading TLS PEM certificate chain from: {}", path.display());
-            read_cert(&path).map_err(|e| format!("error reading cert: {e}"))?
-        }
-        CertType::Pkcs12 => {
-            return Err(
-                "PKCS12 is not supported with Rustls for certificate, use PEM encoding".to_string(),
-            );
-        }
+    let cert_path = zone_dir.join(&tls_cert_config.path);
+    info!(
+        "loading TLS PEM certificate chain from: {}",
+        cert_path.display()
+    );
+    let cert_chain = read_cert(&cert_path).map_err(|e| format!("error reading cert: {e}"))?;
+
+    let key_extension = tls_cert_config.private_key.extension();
+    let key = if key_extension.is_some_and(|ext| ext == "pem") {
+        let key_path = zone_dir.join(&tls_cert_config.private_key);
+        info!("loading TLS PKCS8 key from PEM: {}", key_path.display());
+        read_key(&key_path)?
+    } else if key_extension.is_some_and(|ext| ext == "der" || ext == "key") {
+        let key_path = zone_dir.join(&tls_cert_config.private_key);
+        info!("loading TLS PKCS8 key from DER: {}", key_path.display());
+        read_key_from_der(&key_path)?
+    } else {
+        return Err(format!(
+            "unsupported private key file format (expected `.pem` or `.der` extension): {}",
+            tls_cert_config.private_key.display()
+        ));
     };
 
-    let key = match (private_key_path, private_key_type) {
-        (Some(private_key_path), PrivateKeyType::Pkcs8) => {
-            info!("loading TLS PKCS8 key from: {}", private_key_path.display());
-            if password.is_some() {
-                warn!("Password for key supplied, but Rustls does not support encrypted PKCS8");
-            }
-
-            read_key(&private_key_path)?
-        }
-        (Some(private_key_path), PrivateKeyType::Der) => {
-            info!("loading TLS DER key from: {}", private_key_path.display());
-            read_key_from_der(&private_key_path)?
-        }
-        (None, _) => return Err("No private key associated with specified certificate".to_string()),
-    };
-
-    Ok((cert, key))
+    Ok((cert_chain, key))
 }
