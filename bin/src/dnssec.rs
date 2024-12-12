@@ -12,17 +12,14 @@ use std::path::Path;
 #[cfg(feature = "dnssec-ring")]
 use rustls_pki_types::PrivateKeyDer;
 use serde::Deserialize;
-#[cfg(feature = "dnssec-ring")]
 use tracing::info;
 
 use hickory_proto::rr::domain::Name;
 use hickory_proto::serialize::txt::ParseResult;
-#[cfg(feature = "dnssec-ring")]
 use hickory_proto::{
     dnssec::{rdata::key::KeyUsage, rdata::DNSKEY, rdata::KEY, Algorithm, SigSigner, SigningKey},
     rr::domain::IntoName,
 };
-#[cfg(feature = "dnssec-ring")]
 use hickory_server::authority::DnssecAuthority;
 
 /// Key pair configuration for DNSSEC keys for signing a zone
@@ -66,7 +63,6 @@ impl KeyConfig {
     /// * `signer_name` - the name to use when signing records, e.g. ns.example.com
     /// * `is_zone_signing_key` - specify that this key should be used for signing a zone
     /// * `is_zone_update_auth` - specifies that this key can be used for dynamic updates in the zone
-    #[cfg(feature = "dnssec-ring")]
     pub fn new(
         key_path: String,
         algorithm: Algorithm,
@@ -87,7 +83,6 @@ impl KeyConfig {
     }
 
     /// algorithm for for the key, see `Algorithm` for supported algorithms.
-    #[cfg(feature = "dnssec-ring")]
     #[allow(deprecated)]
     pub fn algorithm(&self) -> ParseResult<Algorithm> {
         match self.algorithm.as_str() {
@@ -117,7 +112,6 @@ impl KeyConfig {
     }
 
     /// Tries to read the defined key into a Signer
-    #[cfg(feature = "dnssec-ring")]
     pub fn try_into_signer<N: IntoName>(&self, signer_name: N) -> Result<SigSigner, String> {
         let signer_name = signer_name
             .into_name()
@@ -132,7 +126,6 @@ impl KeyConfig {
         Ok(key)
     }
 
-    #[cfg(feature = "dnssec-ring")]
     pub async fn load(
         &self,
         authority: &mut impl DnssecAuthority<Lookup = impl Send + Sync + Sized + 'static>,
@@ -188,7 +181,6 @@ impl KeyConfig {
     /// keys are listed in pairs of key_name and algorithm, the search path is the
     /// same directory has the zone $file:
     ///  keys = [ "my_rsa_2048|RSASHA256", "/path/to/my_ed25519|ED25519" ]
-    #[cfg(feature = "dnssec-ring")]
     fn signer(&self, zone_name: Name) -> Result<SigSigner, String> {
         use time::Duration;
 
@@ -222,7 +214,6 @@ impl KeyConfig {
     }
 }
 
-#[cfg(feature = "dnssec-ring")]
 pub fn key_from_file(path: &Path, algorithm: Algorithm) -> Result<Box<dyn SigningKey>, String> {
     use std::fs::File;
     use std::io::Read;
