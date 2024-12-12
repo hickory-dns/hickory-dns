@@ -545,6 +545,8 @@ impl MessageFinalizer for SigSigner {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    use rustls_pki_types::PrivatePkcs8KeyDer;
+
     use super::*;
     use crate::dnssec::{
         rdata::{key::KeyUsage, DNSSECRData, KEY, RRSIG, SIG},
@@ -590,7 +592,9 @@ mod tests {
         query.set_name(origin);
         question.add_query(query);
 
-        let key = RsaSigningKey::from_pkcs8(RSA_KEY, Algorithm::RSASHA256).unwrap();
+        let key =
+            RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(RSA_KEY), Algorithm::RSASHA256)
+                .unwrap();
         let pub_key = key.to_public_key().unwrap();
         let sig0key = KEY::new_sig0key(&pub_key);
         let signer = SigSigner::sig0(sig0key.clone(), Box::new(key), Name::root());
@@ -619,7 +623,9 @@ mod tests {
     #[test]
     #[allow(deprecated)]
     fn test_sign_and_verify_rrset() {
-        let key = RsaSigningKey::from_pkcs8(RSA_KEY, Algorithm::RSASHA256).unwrap();
+        let key =
+            RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(RSA_KEY), Algorithm::RSASHA256)
+                .unwrap();
         let pub_key = key.to_public_key().unwrap();
         let sig0key = KEY::new_sig0key_with_usage(&pub_key, KeyUsage::Zone);
         let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
@@ -668,7 +674,9 @@ mod tests {
     #[test]
     #[allow(deprecated)]
     fn test_calculate_key_tag_pem() {
-        let key = RsaSigningKey::from_pkcs8(RSA_KEY, Algorithm::RSASHA256).unwrap();
+        let key =
+            RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(RSA_KEY), Algorithm::RSASHA256)
+                .unwrap();
         let pub_key = key.to_public_key().unwrap();
         let sig0key = KEY::new_sig0key_with_usage(&pub_key, KeyUsage::Zone);
         let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
@@ -679,7 +687,9 @@ mod tests {
 
     #[test]
     fn test_rrset_tbs() {
-        let key = RsaSigningKey::from_pkcs8(RSA_KEY, Algorithm::RSASHA256).unwrap();
+        let key =
+            RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(RSA_KEY), Algorithm::RSASHA256)
+                .unwrap();
         let pub_key = key.to_public_key().unwrap();
         let sig0key = KEY::new_sig0key(&pub_key);
         let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());

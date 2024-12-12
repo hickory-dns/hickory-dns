@@ -7,6 +7,7 @@
 
 //! dns security extension related modules
 
+use rustls_pki_types::PrivatePkcs8KeyDer;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -44,35 +45,22 @@ pub use crate::error::DnsSecResult;
 
 /// Decode private key
 pub fn decode_key(
-    bytes: &[u8],
+    key_der: &PrivatePkcs8KeyDer<'_>,
     algorithm: Algorithm,
-    format: KeyFormat,
 ) -> DnsSecResult<Box<dyn SigningKey>> {
     //  empty string prevents openssl from triggering a read from stdin...
 
     #[allow(deprecated)]
     match algorithm {
         Algorithm::Unknown(v) => Err(format!("unknown algorithm: {v}").into()),
-        Algorithm::RSASHA256 | Algorithm::RSASHA512 => match format {
-            #[cfg(feature = "dnssec-ring")]
-            KeyFormat::Pkcs8 => Ok(Box::new(ring::RsaSigningKey::from_pkcs8(bytes, algorithm)?)),
-            e => Err(format!("unsupported key format with RSA: {e:?}").into()),
-        },
-        Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => match format {
-            #[cfg(feature = "dnssec-ring")]
-            KeyFormat::Pkcs8 => Ok(Box::new(ring::EcdsaSigningKey::from_pkcs8(
-                bytes, algorithm,
-            )?)),
-            e => Err(format!("unsupported key format with EC: {e:?}").into()),
-        },
-        Algorithm::ED25519 => match format {
-            #[cfg(feature = "dnssec-ring")]
-            KeyFormat::Pkcs8 => Ok(Box::new(ring::Ed25519SigningKey::from_pkcs8(bytes)?)),
-            e => Err(
-                format!("unsupported key format with ED25519 (only Pkcs8 supported): {e:?}").into(),
-            ),
-        },
-        e => Err(format!("unsupported Algorithm, enable openssl or ring feature: {e:?}").into()),
+        Algorithm::RSASHA256 | Algorithm::RSASHA512 => Ok(Box::new(
+            ring::RsaSigningKey::from_pkcs8(key_der, algorithm)?,
+        )),
+        Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => Ok(Box::new(
+            ring::EcdsaSigningKey::from_pkcs8(key_der, algorithm)?,
+        )),
+        Algorithm::ED25519 => Ok(Box::new(ring::Ed25519SigningKey::from_pkcs8(key_der)?)),
+        e => Err(format!("unsupported Algorithm, enable dnssec-ring feature: {e:?}").into()),
     }
 }
 

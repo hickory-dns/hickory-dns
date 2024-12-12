@@ -2,9 +2,7 @@
 #![cfg(not(windows))]
 
 use std::env;
-use std::fs::File;
-use std::io::Read;
-use std::net::*;
+use std::net::{Ipv4Addr, SocketAddr};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -14,7 +12,8 @@ use crate::server_harness::{
     named_test_harness, query_a, query_all_dnssec_with_rfc6975, query_all_dnssec_wo_rfc6975,
 };
 use hickory_client::client::Client;
-use hickory_proto::dnssec::{decode_key, Algorithm, KeyFormat, TrustAnchor};
+use hickory_dns::dnssec::key_from_file;
+use hickory_proto::dnssec::{Algorithm, TrustAnchor};
 use hickory_proto::runtime::{RuntimeProvider, TokioRuntimeProvider, TokioTime};
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer, Protocol};
@@ -25,17 +24,8 @@ fn confg_toml() -> &'static str {
     "all_supported_dnssec.toml"
 }
 
-fn trust_anchor(
-    public_key_path: &Path,
-    format: KeyFormat,
-    algorithm: Algorithm,
-) -> Arc<TrustAnchor> {
-    let mut file = File::open(public_key_path).expect("key not found");
-    let mut buf = Vec::<u8>::new();
-
-    file.read_to_end(&mut buf).expect("could not read key");
-    let key_pair = decode_key(&buf, algorithm, format).expect("could not decode key");
-
+fn trust_anchor(public_key_path: &Path, algorithm: Algorithm) -> Arc<TrustAnchor> {
+    let key_pair = key_from_file(public_key_path, algorithm).unwrap();
     let public_key = key_pair.to_public_key().unwrap();
     let mut trust_anchor = TrustAnchor::new();
 
@@ -58,7 +48,7 @@ async fn standard_tcp_conn<P: RuntimeProvider>(
         .expect("new Client failed")
 }
 
-fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algorithm: Algorithm) {
+fn generic_test(config_toml: &str, key_path: &str, algorithm: Algorithm) {
     // TODO: look into the `test-log` crate for enabling logging during tests
     // use hickory_client::logger;
     // use tracing::LogLevel;
@@ -82,7 +72,7 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
         query_all_dnssec_wo_rfc6975(&mut io_loop, client, algorithm);
 
         // test that request with Dnssec client is successful, i.e. validates chain
-        let trust_anchor = trust_anchor(&server_path.join(key_path), key_format, algorithm);
+        let trust_anchor = trust_anchor(&server_path.join(key_path), algorithm);
         let client = standard_tcp_conn(tcp_port.expect("no tcp port"), provider);
         let (client, bg) = io_loop.block_on(client);
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -98,7 +88,6 @@ fn test_rsa_sha256_pkcs8() {
     generic_test(
         confg_toml(),
         "tests/test-data/test_configs/dnssec/rsa_2048.pk8",
-        KeyFormat::Pkcs8,
         Algorithm::RSASHA256,
     );
 }
@@ -109,7 +98,6 @@ fn test_rsa_sha512_pkcs8() {
     generic_test(
         confg_toml(),
         "tests/test-data/test_configs/dnssec/rsa_2048.pk8",
-        KeyFormat::Pkcs8,
         Algorithm::RSASHA512,
     );
 }
@@ -120,7 +108,6 @@ fn test_ecdsa_p256_pkcs8() {
     generic_test(
         confg_toml(),
         "tests/test-data/test_configs/dnssec/ecdsa_p256.pk8",
-        KeyFormat::Pkcs8,
         Algorithm::ECDSAP256SHA256,
     );
 }
@@ -131,7 +118,6 @@ fn test_ecdsa_p384_pkcs8() {
     generic_test(
         confg_toml(),
         "tests/test-data/test_configs/dnssec/ecdsa_p384.pk8",
-        KeyFormat::Pkcs8,
         Algorithm::ECDSAP384SHA384,
     );
 }
@@ -142,7 +128,6 @@ fn test_ed25519() {
     generic_test(
         confg_toml(),
         "tests/test-data/test_configs/dnssec/ed25519.pk8",
-        KeyFormat::Pkcs8,
         Algorithm::ED25519,
     );
 }
@@ -154,7 +139,6 @@ fn test_rsa_sha1_fails() {
     generic_test(
         confg_toml(),
         "tests/test-data/test_configs/dnssec/rsa_2048.pem",
-        KeyFormat::Pem,
         Algorithm::RSASHA1,
     );
 }
@@ -172,7 +156,6 @@ fn test_dnssec_restart_with_update_journal() {
     generic_test(
         "dnssec_with_update.toml",
         "tests/test-data/test_configs/dnssec/rsa_2048.pk8",
-        KeyFormat::Pkcs8,
         Algorithm::RSASHA256,
     );
 
@@ -183,7 +166,6 @@ fn test_dnssec_restart_with_update_journal() {
     generic_test(
         "dnssec_with_update.toml",
         "tests/test-data/test_configs/dnssec/rsa_2048.pk8",
-        KeyFormat::Pkcs8,
         Algorithm::RSASHA256,
     );
 

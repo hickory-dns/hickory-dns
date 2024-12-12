@@ -192,12 +192,14 @@ pub fn create_secure_example() -> InMemoryAuthority {
         rdata::DNSKEY, ring::RsaSigningKey, Algorithm, PublicKey, SigSigner, SigningKey,
     };
     use hickory_server::authority::{Authority, DnssecAuthority};
+    use rustls_pki_types::PrivatePkcs8KeyDer;
     use time::Duration;
 
     let mut authority = create_example();
 
     const KEY: &[u8] = include_bytes!("../tests/rsa-2048.pk8");
-    let key = RsaSigningKey::from_pkcs8(KEY, Algorithm::RSASHA256).unwrap();
+    let key =
+        RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(KEY), Algorithm::RSASHA256).unwrap();
     let dnskey = key.to_public_key().unwrap();
     let signer = SigSigner::dnssec(
         DNSKEY::from_key(&key.to_public_key().unwrap()),

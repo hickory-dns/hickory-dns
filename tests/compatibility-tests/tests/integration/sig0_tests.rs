@@ -11,6 +11,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;
 
+use rustls_pki_types::PrivatePkcs8KeyDer;
 use time::Duration;
 
 use hickory_client::client::Client;
@@ -57,7 +58,8 @@ async fn test_create() {
     test_support::subscribe();
 
     const KEY: &[u8] = include_bytes!("../conf/Kupdate.example.com.+008+56935.pk8");
-    let key = RsaSigningKey::from_pkcs8(KEY, Algorithm::RSASHA256).unwrap();
+    let key =
+        RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(KEY), Algorithm::RSASHA256).unwrap();
     let sig0key = KEY::new(
         Default::default(),
         KeyUsage::Entity,
