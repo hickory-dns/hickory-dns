@@ -17,7 +17,7 @@ use hickory_proto::rr::domain::Name;
 use hickory_proto::serialize::txt::ParseResult;
 #[cfg(feature = "dnssec-ring")]
 use hickory_proto::{
-    dnssec::{decode_key, rdata::DNSKEY, Algorithm, SigSigner, SigningKey},
+    dnssec::{rdata::DNSKEY, Algorithm, SigSigner, SigningKey},
     rr::domain::IntoName,
 };
 
@@ -251,6 +251,8 @@ pub fn key_from_file(path: &Path, algorithm: Algorithm) -> Result<Box<dyn Signin
     use rustls_pki_types::PrivatePkcs8KeyDer;
     use tracing::info;
 
+    use hickory_proto::dnssec::ring::signing_key_from_der;
+
     info!("reading key: {path:?}");
     let mut file =
         File::open(path).map_err(|e| format!("error opening private key file: {path:?}: {e}"))?;
@@ -264,7 +266,7 @@ pub fn key_from_file(path: &Path, algorithm: Algorithm) -> Result<Box<dyn Signin
         false => return Err("unsupported key format (expected `.pk8` extension)".to_string()),
     };
 
-    decode_key(&key, algorithm).map_err(|e| format!("could not decode key: {e}"))
+    signing_key_from_der(&key, algorithm).map_err(|e| format!("could not decode key: {e}"))
 }
 
 /// Load a Certificate from the path (with rustls)
