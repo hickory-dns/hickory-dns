@@ -8,7 +8,6 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::Algorithm;
 use crate::error::{ProtoError, ProtoErrorKind};
 
 /// DNSSEC Delegation Signer (DS) Resource Record (RR) Type Digest Algorithms
@@ -48,24 +47,6 @@ impl TryFrom<u8> for DigestType {
             4 => Ok(Self::SHA384),
             _ => Err(ProtoErrorKind::UnknownAlgorithmTypeValue(value).into()),
         }
-    }
-}
-
-impl TryFrom<Algorithm> for DigestType {
-    type Error = ProtoError;
-
-    fn try_from(a: Algorithm) -> Result<Self, Self::Error> {
-        Ok(match a {
-            #[allow(deprecated)]
-            Algorithm::RSAMD5
-            | Algorithm::DSA
-            | Algorithm::RSASHA1
-            | Algorithm::RSASHA1NSEC3SHA1 => Self::SHA1,
-            Algorithm::RSASHA256 | Algorithm::ECDSAP256SHA256 => Self::SHA256,
-            Algorithm::RSASHA512 => Self::SHA512,
-            Algorithm::ECDSAP384SHA384 => Self::SHA384,
-            _ => return Err(format!("unsupported DigestType for algorithm {a:?}").into()),
-        })
     }
 }
 
