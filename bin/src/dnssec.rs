@@ -11,6 +11,8 @@ use std::path::Path;
 
 #[cfg(feature = "dns-over-rustls")]
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+#[cfg(all(feature = "dnssec-ring", not(feature = "dns-over-rustls")))]
+use rustls_pki_types::PrivateKeyDer;
 use serde::Deserialize;
 
 use hickory_proto::rr::domain::Name;
@@ -262,7 +264,7 @@ pub fn key_from_file(path: &Path, algorithm: Algorithm) -> Result<Box<dyn Signin
         .map_err(|e| format!("could not read key from: {path:?}: {e}"))?;
 
     let key = match path.extension().is_some_and(|ext| ext == "pk8") {
-        true => PrivatePkcs8KeyDer::from(buf.as_slice()),
+        true => PrivateKeyDer::from(PrivatePkcs8KeyDer::from(buf.as_slice())),
         false => return Err("unsupported key format (expected `.pk8` extension)".to_string()),
     };
 

@@ -10,7 +10,7 @@ use ring::{
         RSA_PKCS1_SHA256, RSA_PKCS1_SHA512,
     },
 };
-use rustls_pki_types::PrivatePkcs8KeyDer;
+use rustls_pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
 
 use super::{
     ec_public_key::ECPublicKey, rsa_public_key::RSAPublicKey, Algorithm, DigestType, PublicKey,
@@ -20,19 +20,19 @@ use crate::error::{DnsSecErrorKind, DnsSecResult, ProtoResult};
 
 /// Decode private key
 pub fn signing_key_from_der(
-    key_der: &PrivatePkcs8KeyDer<'_>,
+    key_der: &PrivateKeyDer<'_>,
     algorithm: Algorithm,
 ) -> DnsSecResult<Box<dyn SigningKey>> {
     #[allow(deprecated)]
     match algorithm {
         Algorithm::Unknown(v) => Err(format!("unknown algorithm: {v}").into()),
         Algorithm::RSASHA256 | Algorithm::RSASHA512 => {
-            Ok(Box::new(RsaSigningKey::from_pkcs8(key_der, algorithm)?))
+            Ok(Box::new(RsaSigningKey::from_key_der(key_der, algorithm)?))
         }
         Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => {
-            Ok(Box::new(EcdsaSigningKey::from_pkcs8(key_der, algorithm)?))
+            Ok(Box::new(EcdsaSigningKey::from_key_der(key_der, algorithm)?))
         }
-        Algorithm::ED25519 => Ok(Box::new(Ed25519SigningKey::from_pkcs8(key_der)?)),
+        Algorithm::ED25519 => Ok(Box::new(Ed25519SigningKey::from_key_der(key_der)?)),
         e => Err(format!("unsupported SigningKey algorithm for ring: {e:?}").into()),
     }
 }
@@ -44,6 +44,19 @@ pub struct EcdsaSigningKey {
 }
 
 impl EcdsaSigningKey {
+    /// Decode signing key pair from DER.
+    ///
+    /// Errors unless the given algorithm is one of the following:
+    ///
+    /// - [`Algorithm::ECDSAP256SHA256`]
+    /// - [`Algorithm::ECDSAP384SHA384`]
+    pub fn from_key_der(key: &PrivateKeyDer<'_>, algorithm: Algorithm) -> DnsSecResult<Self> {
+        match key {
+            PrivateKeyDer::Pkcs8(key) => Self::from_pkcs8(key, algorithm),
+            _ => Err("unsupported key format (only PKCS#8 supported)".into()),
+        }
+    }
+
     /// Decode signing key pair from DER-encoded PKCS#8 bytes.
     ///
     /// Errors unless the given algorithm is one of the following:
@@ -115,6 +128,14 @@ pub struct Ed25519SigningKey {
 }
 
 impl Ed25519SigningKey {
+    /// Decode signing key pair from DER.
+    pub fn from_key_der(key: &PrivateKeyDer<'_>) -> DnsSecResult<Self> {
+        match key {
+            PrivateKeyDer::Pkcs8(key) => Self::from_pkcs8(key),
+            _ => Err("unsupported key format (only PKCS#8 supported)".into()),
+        }
+    }
+
     /// Decode signing key pair from DER-encoded PKCS#8 bytes.
     pub fn from_pkcs8(key: &PrivatePkcs8KeyDer<'_>) -> DnsSecResult<Self> {
         Ok(Self {
@@ -347,6 +368,14 @@ pub struct RsaSigningKey {
 }
 
 impl RsaSigningKey {
+    /// Decode signing key pair from DER.
+    pub fn from_key_der(key: &PrivateKeyDer<'_>, algorithm: Algorithm) -> DnsSecResult<Self> {
+        match key {
+            PrivateKeyDer::Pkcs8(key) => Self::from_pkcs8(key, algorithm),
+            _ => Err("unsupported key format (only PKCS#8 supported)".into()),
+        }
+    }
+
     /// Decode signing key pair from DER-encoded PKCS#8 bytes.
     pub fn from_pkcs8(key: &PrivatePkcs8KeyDer<'_>, algorithm: Algorithm) -> DnsSecResult<Self> {
         match algorithm {
@@ -464,11 +493,11 @@ mod tests {
     fn test_ec_p256_pkcs8() {
         let algorithm = Algorithm::ECDSAP256SHA256;
         let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
-        let key = signing_key_from_der(&pkcs8, algorithm).unwrap();
+        let key = signing_key_from_der(&PrivateKeyDer::from(pkcs8), algorithm).unwrap();
         public_key_test(&*key);
 
         let neg_pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
-        let neg = signing_key_from_der(&neg_pkcs8, algorithm).unwrap();
+        let neg = signing_key_from_der(&PrivateKeyDer::from(neg_pkcs8), algorithm).unwrap();
         hash_test(&*key, &*neg);
     }
 
@@ -476,11 +505,11 @@ mod tests {
     fn test_ec_p384_pkcs8() {
         let algorithm = Algorithm::ECDSAP384SHA384;
         let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
-        let key = signing_key_from_der(&pkcs8, algorithm).unwrap();
+        let key = signing_key_from_der(&PrivateKeyDer::from(pkcs8), algorithm).unwrap();
         public_key_test(&*key);
 
         let neg_pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
-        let neg = signing_key_from_der(&neg_pkcs8, algorithm).unwrap();
+        let neg = signing_key_from_der(&PrivateKeyDer::from(neg_pkcs8), algorithm).unwrap();
         hash_test(&*key, &*neg);
     }
 
@@ -488,11 +517,11 @@ mod tests {
     fn test_ed25519() {
         let algorithm = Algorithm::ED25519;
         let pkcs8 = Ed25519SigningKey::generate_pkcs8().unwrap();
-        let key = signing_key_from_der(&pkcs8, algorithm).unwrap();
+        let key = signing_key_from_der(&PrivateKeyDer::from(pkcs8), algorithm).unwrap();
         public_key_test(&*key);
 
         let neg_pkcs8 = Ed25519SigningKey::generate_pkcs8().unwrap();
-        let neg = signing_key_from_der(&neg_pkcs8, algorithm).unwrap();
+        let neg = signing_key_from_der(&PrivateKeyDer::from(neg_pkcs8), algorithm).unwrap();
         hash_test(&*key, &*neg);
     }
 
@@ -504,10 +533,12 @@ mod tests {
         const KEY_2: &[u8] = include_bytes!("../../tests/test-data/rsa-2048-private-key-2.pk8");
 
         let algorithm = Algorithm::RSASHA256;
-        let key = signing_key_from_der(&PrivatePkcs8KeyDer::from(KEY_1), algorithm).unwrap();
+        let key_der = PrivateKeyDer::try_from(KEY_1).unwrap();
+        let key = signing_key_from_der(&key_der, algorithm).unwrap();
         public_key_test(&*key);
 
-        let neg = signing_key_from_der(&PrivatePkcs8KeyDer::from(KEY_2), algorithm).unwrap();
+        let key_der = PrivateKeyDer::try_from(KEY_2).unwrap();
+        let neg = signing_key_from_der(&key_der, algorithm).unwrap();
         hash_test(&*key, &*neg);
     }
 
@@ -515,13 +546,13 @@ mod tests {
     fn test_ec_encode_decode_pkcs8() {
         let algorithm = Algorithm::ECDSAP256SHA256;
         let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
-        signing_key_from_der(&pkcs8, algorithm).unwrap();
+        signing_key_from_der(&PrivateKeyDer::from(pkcs8), algorithm).unwrap();
     }
 
     #[test]
     fn test_ed25519_encode_decode_pkcs8() {
         let pkcs8 = Ed25519SigningKey::generate_pkcs8().unwrap();
-        signing_key_from_der(&pkcs8, Algorithm::ED25519).unwrap();
+        signing_key_from_der(&PrivateKeyDer::from(pkcs8), Algorithm::ED25519).unwrap();
     }
 
     #[test]
@@ -529,6 +560,7 @@ mod tests {
         // ring currently does not support RSA key generation support.
         // Generated per the documentation from https://docs.rs/ring/latest/ring/rsa/struct.KeyPair.html#method.from_pkcs8.
         const KEY: &[u8] = include_bytes!("../../tests/test-data/rsa-2048-private-key-1.pk8");
-        signing_key_from_der(&PrivatePkcs8KeyDer::from(KEY), Algorithm::RSASHA256).unwrap();
+        let key_der = PrivateKeyDer::try_from(KEY).unwrap();
+        signing_key_from_der(&key_der, Algorithm::RSASHA256).unwrap();
     }
 }

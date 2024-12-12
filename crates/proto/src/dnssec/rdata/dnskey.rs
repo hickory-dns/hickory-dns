@@ -506,6 +506,9 @@ impl fmt::Display for DNSKEY {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    #[cfg(feature = "dnssec-ring")]
+    use rustls_pki_types::PrivateKeyDer;
+
     use super::*;
     #[cfg(feature = "dnssec-ring")]
     use crate::dnssec::{ring::EcdsaSigningKey, SigningKey};
@@ -515,7 +518,8 @@ mod tests {
     fn test() {
         let algorithm = Algorithm::ECDSAP256SHA256;
         let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
-        let signing_key = EcdsaSigningKey::from_pkcs8(&pkcs8, algorithm).unwrap();
+        let signing_key =
+            EcdsaSigningKey::from_key_der(&PrivateKeyDer::from(pkcs8), algorithm).unwrap();
 
         let rdata = DNSKEY::new(
             true,
