@@ -96,10 +96,9 @@ impl DigSettings {
     }
 
     fn adflag(&self) -> &'static str {
-        if self.adflag {
-            "+adflag"
-        } else {
-            "+noadflag"
+        match self.adflag {
+            true => "+adflag",
+            false => "+noadflag",
         }
     }
 
@@ -110,10 +109,9 @@ impl DigSettings {
     }
 
     fn cdflag(&self) -> &'static str {
-        if self.cdflag {
-            "+cdflag"
-        } else {
-            "+nocdflag"
+        match self.cdflag {
+            true => "+cdflag",
+            false => "+nocdflag",
         }
     }
 
@@ -124,10 +122,9 @@ impl DigSettings {
     }
 
     fn do_bit(&self) -> &'static str {
-        if self.dnssec {
-            "+dnssec"
-        } else {
-            "+nodnssec"
+        match self.dnssec {
+            true => "+dnssec",
+            false => "+nodnssec",
         }
     }
 
@@ -138,10 +135,9 @@ impl DigSettings {
     }
 
     fn rdflag(&self) -> &'static str {
-        if self.recurse {
-            "+recurse"
-        } else {
-            "+norecurse"
+        match self.recurse {
+            true => "+recurse",
+            false => "+norecurse",
         }
     }
 
