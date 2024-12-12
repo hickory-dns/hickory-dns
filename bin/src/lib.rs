@@ -7,6 +7,7 @@
 
 //! Configuration module for the server binary, `named`.
 
+#[cfg(feature = "dnssec-ring")]
 pub mod dnssec;
 
 #[cfg(feature = "dns-over-rustls")]
@@ -377,6 +378,7 @@ impl ZoneConfig {
                     server_config.stores
                 );
 
+                #[cfg_attr(not(feature = "dnssec-ring"), allow(unused_variables))]
                 let zone_name_for_signer = zone_name.clone();
                 let is_axfr_allowed = server_config.is_axfr_allowed();
 
@@ -384,6 +386,7 @@ impl ZoneConfig {
                     let authority: Arc<dyn AuthorityObject> = match store {
                         #[cfg(feature = "sqlite")]
                         ServerStoreConfig::Sqlite(config) => {
+                            #[cfg_attr(not(feature = "dnssec-ring"), allow(unused_mut))]
                             let mut authority = SqliteAuthority::try_from_config(
                                 zone_name.clone(),
                                 zone_type,
@@ -396,6 +399,7 @@ impl ZoneConfig {
                             )
                             .await?;
 
+                            #[cfg(feature = "dnssec-ring")]
                             server_config
                                 .load_keys(&mut authority, zone_name_for_signer.clone())
                                 .await?;
@@ -403,6 +407,7 @@ impl ZoneConfig {
                         }
 
                         ServerStoreConfig::File(config) => {
+                            #[cfg_attr(not(feature = "dnssec-ring"), allow(unused_mut))]
                             let mut authority = FileAuthority::try_from_config(
                                 zone_name.clone(),
                                 zone_type,
@@ -413,6 +418,7 @@ impl ZoneConfig {
                                 server_config.nx_proof_kind.clone(),
                             )?;
 
+                            #[cfg(feature = "dnssec-ring")]
                             server_config
                                 .load_keys(&mut authority, zone_name_for_signer.clone())
                                 .await?;
@@ -561,6 +567,7 @@ pub struct ServerZoneConfig {
     /// Allow AXFR (TODO: need auth)
     pub allow_axfr: Option<bool>,
     /// Keys for use by the zone
+    #[cfg(feature = "dnssec-ring")]
     #[serde(default)]
     pub keys: Vec<dnssec::KeyConfig>,
     /// The kind of non-existence proof provided by the nameserver
@@ -589,11 +596,12 @@ impl ServerZoneConfig {
     pub fn new(
         file: PathBuf,
         allow_axfr: Option<bool>,
-        keys: Vec<dnssec::KeyConfig>,
+        #[cfg(feature = "dnssec-ring")] keys: Vec<dnssec::KeyConfig>,
         #[cfg(feature = "dnssec-ring")] nx_proof_kind: Option<NxProofKind>,
     ) -> Self {
         Self {
             allow_axfr,
+            #[cfg(feature = "dnssec-ring")]
             keys,
             #[cfg(feature = "dnssec-ring")]
             nx_proof_kind,
@@ -609,23 +617,20 @@ impl ServerZoneConfig {
         authority: &mut impl DnssecAuthority<Lookup = impl Send + Sync + Sized + 'static>,
         zone_name: Name,
     ) -> Result<(), String> {
-        if self.is_dnssec_enabled() {
-            for key_config in &self.keys {
-                key_config.load(authority, &zone_name).await?;
-            }
-
-            info!("signing zone: {zone_name}");
-            authority
-                .secure_zone()
-                .await
-                .map_err(|err| format!("failed to sign zone {zone_name}: {err}"))?;
+        if !self.is_dnssec_enabled() {
+            return Ok(());
         }
-        Ok(())
-    }
 
-    #[cfg(not(feature = "dnssec-ring"))]
-    #[allow(clippy::unnecessary_wraps)]
-    async fn load_keys<T>(&self, _authority: &mut T, _zone_name: Name) -> Result<(), String> {
+        for key_config in &self.keys {
+            key_config.load(authority, &zone_name).await?;
+        }
+
+        info!("signing zone: {zone_name}");
+        authority
+            .secure_zone()
+            .await
+            .map_err(|err| format!("failed to sign zone {zone_name}: {err}"))?;
+
         Ok(())
     }
 

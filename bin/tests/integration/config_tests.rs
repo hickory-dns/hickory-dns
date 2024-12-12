@@ -251,6 +251,7 @@ macro_rules! define_test_config {
     };
 }
 
+#[cfg(feature = "dnssec-ring")]
 define_test_config!(all_supported_dnssec);
 #[cfg(feature = "blocklist")]
 define_test_config!(chained_blocklist);
@@ -262,7 +263,7 @@ define_test_config!(dns_over_https);
 define_test_config!(dns_over_tls_rustls_and_openssl);
 #[cfg(feature = "dns-over-tls")]
 define_test_config!(dns_over_tls);
-#[cfg(feature = "sqlite")]
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 define_test_config!(dnssec_with_update);
 define_test_config!(example);
 define_test_config!(ipv4_and_ipv6);
@@ -446,6 +447,12 @@ fn test_reject_unknown_fields() {
 
         let zones = config_table.get("zones").unwrap().as_array().unwrap();
         for zone in zones {
+            #[cfg(not(feature = "dnssec-ring"))]
+            if zone.as_table().unwrap().contains_key("keys") {
+                println!("skipping due to keys setting");
+                skip = true;
+            }
+
             if let Some(stores) = zone.get("stores") {
                 let vec_stores: Vec<Value>;
                 let stores = if !stores.is_array() {
