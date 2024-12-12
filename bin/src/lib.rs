@@ -334,7 +334,6 @@ impl ZoneConfig {
         }
     }
 
-    #[cfg_attr(not(feature = "dnssec-ring"), allow(unused_mut, unused))]
     #[warn(clippy::wildcard_enum_match_arm)] // make sure all cases are handled despite of non_exhaustive
     pub async fn load(&self, zone_dir: &Path) -> Result<Vec<Arc<dyn AuthorityObject>>, String> {
         debug!("loading zone with config: {self:#?}");
@@ -425,7 +424,7 @@ impl ZoneConfig {
 
                 #[cfg_attr(
                     not(any(feature = "blocklist", feature = "resolver")),
-                    allow(clippy::never_loop)
+                    allow(unreachable_code, unused_variables, clippy::never_loop)
                 )]
                 for store in stores {
                     let authority = match store {
@@ -457,7 +456,7 @@ impl ZoneConfig {
 
                 #[cfg_attr(
                     not(any(feature = "blocklist", feature = "recursor")),
-                    allow(clippy::never_loop)
+                    allow(unreachable_code, unused_variables, clippy::never_loop)
                 )]
                 for store in stores {
                     let authority: Arc<dyn AuthorityObject> = match store {
