@@ -453,48 +453,50 @@ fn test_reject_unknown_fields() {
                 skip = true;
             }
 
-            if let Some(stores) = zone.get("stores") {
-                let vec_stores: Vec<Value>;
-                let stores = if !stores.is_array() {
-                    vec_stores = vec![stores.clone()];
-                    &vec_stores
-                } else {
-                    stores.as_array().unwrap()
-                };
-
-                for store in stores {
-                    let store = store.as_table().unwrap();
-                    let _store_type = store.get("type").unwrap().as_str().unwrap();
-
-                    #[cfg(not(feature = "blocklist"))]
-                    if _store_type == "blocklist" {
-                        println!("skipping due to blocklist store");
-                        skip = true;
-                        break;
-                    }
-
-                    #[cfg(not(feature = "sqlite"))]
-                    if _store_type == "sqlite" {
-                        println!("skipping due to sqlite store");
-                        skip = true;
-                        break;
-                    }
-
-                    #[cfg(not(feature = "resolver"))]
-                    if _store_type == "forward" {
-                        println!("skipping due to forward store");
-                        skip = true;
-                        break;
-                    }
-
-                    #[cfg(not(feature = "recursor"))]
-                    if _store_type == "recursor" {
-                        println!("skipping due to recursor store");
-                        skip = true;
-                        break;
-                    }
-                }
+            let Some(stores) = zone.get("stores") else {
+                continue;
             };
+
+            let vec_stores: Vec<Value>;
+            let stores = if !stores.is_array() {
+                vec_stores = vec![stores.clone()];
+                &vec_stores
+            } else {
+                stores.as_array().unwrap()
+            };
+
+            for store in stores {
+                let store = store.as_table().unwrap();
+                let _store_type = store.get("type").unwrap().as_str().unwrap();
+
+                #[cfg(not(feature = "blocklist"))]
+                if _store_type == "blocklist" {
+                    println!("skipping due to blocklist store");
+                    skip = true;
+                    break;
+                }
+
+                #[cfg(not(feature = "sqlite"))]
+                if _store_type == "sqlite" {
+                    println!("skipping due to sqlite store");
+                    skip = true;
+                    break;
+                }
+
+                #[cfg(not(feature = "resolver"))]
+                if _store_type == "forward" {
+                    println!("skipping due to forward store");
+                    skip = true;
+                    break;
+                }
+
+                #[cfg(not(feature = "recursor"))]
+                if _store_type == "recursor" {
+                    println!("skipping due to recursor store");
+                    skip = true;
+                    break;
+                }
+            }
         }
 
         if skip {
