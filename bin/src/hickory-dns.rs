@@ -651,7 +651,7 @@ fn config_tls(
     }
 
     for addr in listen_addrs {
-        let tls_cert_path = tls_cert_config.path();
+        let tls_cert_path = &tls_cert_config.path;
         info!("loading cert for DNS over TLS: {tls_cert_path:?}");
 
         let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config).map_err(|err| {
@@ -697,8 +697,8 @@ fn config_https(
     }
 
     for addr in listen_addrs {
-        let tls_cert_path = tls_cert_config.path();
-        if let Some(endpoint_name) = tls_cert_config.endpoint_name() {
+        let tls_cert_path = &tls_cert_config.path;
+        if let Some(endpoint_name) = &tls_cert_config.endpoint_name {
             info!("loading cert for DNS over TLS named {endpoint_name} from {tls_cert_path:?}");
         } else {
             info!("loading cert for DNS over TLS from {tls_cert_path:?}");
@@ -725,7 +725,7 @@ fn config_https(
                 https_listener,
                 config.tcp_request_timeout(),
                 tls_cert,
-                tls_cert_config.endpoint_name().map(|s| s.to_string()),
+                tls_cert_config.endpoint_name.clone(),
                 endpoint_path.into(),
             )
             .map_err(|err| format!("failed to register HTTPS listener: {err}"))?;
@@ -751,8 +751,8 @@ fn config_quic(
     }
 
     for addr in listen_addrs {
-        let tls_cert_path = tls_cert_config.path();
-        if let Some(endpoint_name) = tls_cert_config.endpoint_name() {
+        let tls_cert_path = &tls_cert_config.path;
+        if let Some(endpoint_name) = &tls_cert_config.endpoint_name {
             info!("loading cert for DNS over QUIC named {endpoint_name} from {tls_cert_path:?}");
         } else {
             info!("loading cert for DNS over QUIC from {tls_cert_path:?}",);
@@ -779,7 +779,7 @@ fn config_quic(
                 quic_listener,
                 config.tcp_request_timeout(),
                 tls_cert,
-                tls_cert_config.endpoint_name().map(|s| s.to_string()),
+                tls_cert_config.endpoint_name.clone(),
             )
             .map_err(|err| format!("failed to register QUIC listener: {err}"))?;
     }
