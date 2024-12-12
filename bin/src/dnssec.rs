@@ -9,7 +9,7 @@
 
 use std::path::Path;
 
-#[cfg(feature = "dnssec-ring")]
+use rustls_pki_types::pem::PemObject;
 use rustls_pki_types::PrivateKeyDer;
 use serde::Deserialize;
 use tracing::info;
@@ -218,7 +218,6 @@ pub fn key_from_file(path: &Path, algorithm: Algorithm) -> Result<Box<dyn Signin
     use std::fs::File;
     use std::io::Read;
 
-    use rustls_pki_types::PrivatePkcs8KeyDer;
     use tracing::info;
 
     use hickory_proto::dnssec::ring::signing_key_from_der;
@@ -231,10 +230,53 @@ pub fn key_from_file(path: &Path, algorithm: Algorithm) -> Result<Box<dyn Signin
     file.read_to_end(&mut buf)
         .map_err(|e| format!("could not read key from: {path:?}: {e}"))?;
 
-    let key = match path.extension().is_some_and(|ext| ext == "pk8") {
-        true => PrivateKeyDer::from(PrivatePkcs8KeyDer::from(buf.as_slice())),
-        false => return Err("unsupported key format (expected `.pk8` extension)".to_string()),
+    let key = match trim_ascii_start(&buf).starts_with(b"-----BEGIN ") {
+        true => PrivateKeyDer::from_pem_slice(&buf)
+            .map_err(|e| format!("could not read pem from {}: {e}", path.display()))?,
+        false => PrivateKeyDer::try_from(&*buf)
+            .map_err(|e| format!("could not read der from {}: {e}", path.display()))?,
     };
 
     signing_key_from_der(&key, algorithm).map_err(|e| format!("could not decode key: {e}"))
+}
+
+// Copied from std, MSRV 1.80
+fn trim_ascii_start(mut bytes: &[u8]) -> &[u8] {
+    // Note: A pattern matching based approach (instead of indexing) allows
+    // making the function const.
+    while let [first, rest @ ..] = bytes {
+        match first.is_ascii_whitespace() {
+            true => bytes = rest,
+            false => return bytes,
+        }
+    }
+    bytes
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pkcs8_pem_key() {
+        // OpenSSL 3 generates PKCS#8-encoded RSA keys by default
+        // `openssl genrsa 2048`
+        key_from_file(
+            Path::new("tests/test-data/rsa-2048-pkcs8.pem"),
+            Algorithm::RSASHA256,
+        )
+        .expect("failed to read key");
+    }
+
+    #[test]
+    fn pkcs1_pem_key() {
+        // OpenSSL 1 used to generate PKCS#1-encoded RSA keys by default
+        // OpenSSL 3 does not anymore, but you can still generate them with ssh-keygen
+        // `ssh-keygen -t rsa -b 2048 -o -a 100 -f test-data/rsa-2048-pkcs1.pem -m PEM`
+        key_from_file(
+            Path::new("tests/test-data/rsa-2048-pkcs1.pem"),
+            Algorithm::RSASHA256,
+        )
+        .expect("failed to read key");
+    }
 }
