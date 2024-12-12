@@ -60,7 +60,7 @@ use tracing_subscriber::{
 };
 
 #[cfg(feature = "dns-over-tls")]
-use hickory_dns::dnssec::{self, TlsCertConfig};
+use hickory_dns::dnssec::TlsCertConfig;
 #[cfg(any(feature = "blocklist", feature = "resolver"))]
 use hickory_dns::ForwardStoreConfig;
 #[cfg(any(feature = "blocklist", feature = "recursor"))]
@@ -654,7 +654,7 @@ fn config_tls(
         let tls_cert_path = &tls_cert_config.path;
         info!("loading cert for DNS over TLS: {tls_cert_path:?}");
 
-        let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config).map_err(|err| {
+        let tls_cert = tls_cert_config.load(zone_dir).map_err(|err| {
             format!("failed to load tls certificate files from {tls_cert_path:?}: {err}")
         })?;
 
@@ -704,7 +704,7 @@ fn config_https(
             info!("loading cert for DNS over TLS from {tls_cert_path:?}");
         }
         // TODO: see about modifying native_tls to impl Clone for Pkcs12
-        let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config).map_err(|err| {
+        let tls_cert = tls_cert_config.load(zone_dir).map_err(|err| {
             format!("failed to load tls certificate files from {tls_cert_path:?}: {err}")
         })?;
 
@@ -758,7 +758,7 @@ fn config_quic(
             info!("loading cert for DNS over QUIC from {tls_cert_path:?}",);
         }
         // TODO: see about modifying native_tls to impl Clone for Pkcs12
-        let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config).map_err(|err| {
+        let tls_cert = tls_cert_config.load(zone_dir).map_err(|err| {
             format!("failed to load tls certificate files from {tls_cert_path:?}: {err}")
         })?;
 

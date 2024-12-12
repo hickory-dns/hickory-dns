@@ -188,6 +188,53 @@ pub struct TlsCertConfig {
     pub private_key: PathBuf,
 }
 
+impl TlsCertConfig {
+    /// Load a Certificate from the path (with rustls)
+    #[cfg(feature = "dns-over-rustls")]
+    pub fn load(
+        &self,
+        zone_dir: &Path,
+    ) -> Result<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>), String> {
+        use std::ffi::OsStr;
+
+        use tracing::info;
+
+        use hickory_proto::rustls::tls_server::{read_cert, read_key, read_key_from_der};
+
+        if self.path.extension().and_then(OsStr::to_str) != Some("pem") {
+            return Err(format!(
+                "unsupported certificate file format (expected `.pem` extension): {}",
+                self.path.display()
+            ));
+        }
+
+        let cert_path = zone_dir.join(&self.path);
+        info!(
+            "loading TLS PEM certificate chain from: {}",
+            cert_path.display()
+        );
+        let cert_chain = read_cert(&cert_path).map_err(|e| format!("error reading cert: {e}"))?;
+
+        let key_extension = self.private_key.extension();
+        let key = if key_extension.is_some_and(|ext| ext == "pem") {
+            let key_path = zone_dir.join(&self.private_key);
+            info!("loading TLS PKCS8 key from PEM: {}", key_path.display());
+            read_key(&key_path)?
+        } else if key_extension.is_some_and(|ext| ext == "der" || ext == "key") {
+            let key_path = zone_dir.join(&self.private_key);
+            info!("loading TLS PKCS8 key from DER: {}", key_path.display());
+            read_key_from_der(&key_path)?
+        } else {
+            return Err(format!(
+                "unsupported private key file format (expected `.pem` or `.der` extension): {}",
+                self.private_key.display()
+            ));
+        };
+
+        Ok((cert_chain, key))
+    }
+}
+
 #[cfg(feature = "dnssec-ring")]
 pub fn key_from_file(path: &Path, algorithm: Algorithm) -> Result<Box<dyn SigningKey>, String> {
     use std::fs::File;
@@ -212,49 +259,4 @@ pub fn key_from_file(path: &Path, algorithm: Algorithm) -> Result<Box<dyn Signin
     };
 
     signing_key_from_der(&key, algorithm).map_err(|e| format!("could not decode key: {e}"))
-}
-
-/// Load a Certificate from the path (with rustls)
-#[cfg(feature = "dns-over-rustls")]
-pub fn load_cert(
-    zone_dir: &Path,
-    tls_cert_config: &TlsCertConfig,
-) -> Result<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>), String> {
-    use std::ffi::OsStr;
-
-    use tracing::info;
-
-    use hickory_proto::rustls::tls_server::{read_cert, read_key, read_key_from_der};
-
-    if tls_cert_config.path.extension().and_then(OsStr::to_str) != Some("pem") {
-        return Err(format!(
-            "unsupported certificate file format (expected `.pem` extension): {}",
-            tls_cert_config.path.display()
-        ));
-    }
-
-    let cert_path = zone_dir.join(&tls_cert_config.path);
-    info!(
-        "loading TLS PEM certificate chain from: {}",
-        cert_path.display()
-    );
-    let cert_chain = read_cert(&cert_path).map_err(|e| format!("error reading cert: {e}"))?;
-
-    let key_extension = tls_cert_config.private_key.extension();
-    let key = if key_extension.is_some_and(|ext| ext == "pem") {
-        let key_path = zone_dir.join(&tls_cert_config.private_key);
-        info!("loading TLS PKCS8 key from PEM: {}", key_path.display());
-        read_key(&key_path)?
-    } else if key_extension.is_some_and(|ext| ext == "der" || ext == "key") {
-        let key_path = zone_dir.join(&tls_cert_config.private_key);
-        info!("loading TLS PKCS8 key from DER: {}", key_path.display());
-        read_key_from_der(&key_path)?
-    } else {
-        return Err(format!(
-            "unsupported private key file format (expected `.pem` or `.der` extension): {}",
-            tls_cert_config.private_key.display()
-        ));
-    };
-
-    Ok((cert_chain, key))
 }
