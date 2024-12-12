@@ -797,7 +797,7 @@ pub fn add_auth<A: DnssecAuthority>(authority: &mut A) -> Vec<SigSigner> {
             .to_public_key()
             .expect("failed to get public key");
 
-        let key = KEY::new_sig0key_with_usage(&public_key, Algorithm::RSASHA512, KeyUsage::Host);
+        let key = KEY::new_sig0key_with_usage(&public_key, KeyUsage::Host);
         block_on(authority.add_update_auth_key(update_name.clone(), key))
             .expect("failed to add signer to zone");
         keys.push(signer);
@@ -856,7 +856,7 @@ pub fn add_auth<A: DnssecAuthority>(authority: &mut A) -> Vec<SigSigner> {
             .to_public_key()
             .expect("failed to get public key");
 
-        let key = KEY::new_sig0key_with_usage(&public_key, Algorithm::ED25519, KeyUsage::Host);
+        let key = KEY::new_sig0key_with_usage(&public_key, KeyUsage::Host);
         block_on(authority.add_update_auth_key(update_name, key))
             .expect("failed to add signer to zone");
         keys.push(signer);

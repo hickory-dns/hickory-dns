@@ -91,9 +91,9 @@ impl DNSKEY {
     /// # Return
     ///
     /// the DNSKEY record data
-    pub fn from_key(public_key: &dyn PublicKey, algorithm: Algorithm) -> Self {
+    pub fn from_key(public_key: &dyn PublicKey) -> Self {
         let bytes = public_key.public_bytes();
-        Self::new(true, true, false, algorithm, bytes.to_owned())
+        Self::new(true, true, false, public_key.algorithm(), bytes.to_owned())
     }
 
     /// Construct a new DNSKey RData

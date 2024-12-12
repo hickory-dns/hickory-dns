@@ -293,7 +293,7 @@ async fn create_sig0_ready_client() -> (
     const KEY: &[u8] = include_bytes!("../rsa-2048.pk8");
     let key = RsaSigningKey::from_pkcs8(KEY, Algorithm::RSASHA256).unwrap();
     let pub_key = key.to_public_key().unwrap();
-    let sig0_key = KEY::new_sig0key(&pub_key, Algorithm::RSASHA256);
+    let sig0_key = KEY::new_sig0key(&pub_key);
 
     let signer = SigSigner::sig0(sig0_key.clone(), Box::new(key), trusted_name.clone());
 

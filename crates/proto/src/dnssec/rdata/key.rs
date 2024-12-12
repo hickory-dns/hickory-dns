@@ -183,8 +183,8 @@ impl KEY {
     /// # Return
     ///
     /// the KEY record data
-    pub fn new_sig0key(public_key: &dyn PublicKey, algorithm: Algorithm) -> Self {
-        Self::new_sig0key_with_usage(public_key, algorithm, KeyUsage::default())
+    pub fn new_sig0key(public_key: &dyn PublicKey) -> Self {
+        Self::new_sig0key_with_usage(public_key, KeyUsage::default())
     }
 
     /// Create a [`KEY`] record for usage with SIG0 from an existing `public_key`.
@@ -199,7 +199,6 @@ impl KEY {
     /// the KEY record data
     pub fn new_sig0key_with_usage(
         public_key: &dyn PublicKey,
-        algorithm: Algorithm,
         usage: KeyUsage,
     ) -> KEY {
         KEY::new(
@@ -208,7 +207,7 @@ impl KEY {
             #[allow(deprecated)]
             UpdateScope::default(),
             Protocol::default(),
-            algorithm,
+            public_key.algorithm(),
             public_key.public_bytes().to_vec(),
         )
     }

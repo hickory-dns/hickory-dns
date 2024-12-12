@@ -291,7 +291,6 @@ impl SigSigner {
     /// Version of Signer for signing RRSIGs and SIG0 records.
     #[deprecated(note = "use SIG0 or DNSSEC constructors")]
     pub fn new(
-        algorithm: Algorithm,
         key: Box<dyn SigningKey>,
         signer_name: Name,
         sig_duration: Duration,
@@ -299,12 +298,12 @@ impl SigSigner {
         _: bool,
     ) -> Self {
         let pub_key = key.to_public_key().expect("key is not a private key");
-        let dnskey = DNSKEY::from_key(&pub_key, algorithm);
+        let dnskey = DNSKEY::from_key(&pub_key);
 
         Self {
             key_rdata: dnskey.into(),
             key,
-            algorithm,
+            algorithm: pub_key.algorithm(),
             signer_name,
             sig_duration,
             is_zone_signing_key,
@@ -608,7 +607,7 @@ mod tests {
 
         let key = RsaSigningKey::from_pkcs8(RSA_KEY, Algorithm::RSASHA256).unwrap();
         let pub_key = key.to_public_key().unwrap();
-        let sig0key = KEY::new_sig0key(&pub_key, Algorithm::RSASHA256);
+        let sig0key = KEY::new_sig0key(&pub_key);
         let signer = SigSigner::sig0(sig0key.clone(), Box::new(key), Name::root());
 
         let pre_sig0 = pre_sig0(&signer, 0, 300);
@@ -637,7 +636,7 @@ mod tests {
     fn test_sign_and_verify_rrset() {
         let key = RsaSigningKey::from_pkcs8(RSA_KEY, Algorithm::RSASHA256).unwrap();
         let pub_key = key.to_public_key().unwrap();
-        let sig0key = KEY::new_sig0key_with_usage(&pub_key, Algorithm::RSASHA256, KeyUsage::Zone);
+        let sig0key = KEY::new_sig0key_with_usage(&pub_key, KeyUsage::Zone);
         let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
 
         let origin: Name = Name::parse("example.com.", None).unwrap();
@@ -686,7 +685,7 @@ mod tests {
     fn test_calculate_key_tag_pem() {
         let key = RsaSigningKey::from_pkcs8(RSA_KEY, Algorithm::RSASHA256).unwrap();
         let pub_key = key.to_public_key().unwrap();
-        let sig0key = KEY::new_sig0key_with_usage(&pub_key, Algorithm::RSASHA256, KeyUsage::Zone);
+        let sig0key = KEY::new_sig0key_with_usage(&pub_key, KeyUsage::Zone);
         let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
         let key_tag = signer.calculate_key_tag().unwrap();
 
@@ -697,7 +696,7 @@ mod tests {
     fn test_rrset_tbs() {
         let key = RsaSigningKey::from_pkcs8(RSA_KEY, Algorithm::RSASHA256).unwrap();
         let pub_key = key.to_public_key().unwrap();
-        let sig0key = KEY::new_sig0key(&pub_key, Algorithm::RSASHA256);
+        let sig0key = KEY::new_sig0key(&pub_key);
         let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
 
         let origin = Name::parse("example.com.", None).unwrap();

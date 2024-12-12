@@ -127,11 +127,7 @@ where
                         .key()
                         .to_public_key()
                         .map_err(|err| format!("failed to get public key: {err}"))?;
-                    let key = KEY::new_sig0key_with_usage(
-                        &public_key,
-                        update_auth_signer.algorithm(),
-                        KeyUsage::Host,
-                    );
+                    let key = KEY::new_sig0key_with_usage(&public_key, KeyUsage::Host);
                     authority
                         .add_update_auth_key(zone_name.clone(), key)
                         .await

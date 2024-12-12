@@ -86,14 +86,13 @@ impl DS {
     pub fn from_key(
         public_key: &dyn PublicKey,
         name: &Name,
-        algorithm: Algorithm,
         digest_type: DigestType,
     ) -> Result<Self, DnsSecError> {
         let tag = key_tag(public_key.public_bytes());
-        let dnskey = DNSKEY::from_key(public_key, algorithm);
+        let dnskey = DNSKEY::from_key(public_key);
         Ok(Self::new(
             tag,
-            algorithm,
+            public_key.algorithm(),
             digest_type,
             dnskey.to_digest(name, digest_type)?.as_ref().to_owned(),
         ))
