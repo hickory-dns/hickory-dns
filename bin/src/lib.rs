@@ -396,7 +396,8 @@ impl ZoneConfig {
                             )
                             .await?;
 
-                            load_keys(&mut authority, zone_name_for_signer.clone(), server_config)
+                            server_config
+                                .load_keys(&mut authority, zone_name_for_signer.clone())
                                 .await?;
                             Arc::new(authority)
                         }
@@ -412,7 +413,8 @@ impl ZoneConfig {
                                 server_config.nx_proof_kind.clone(),
                             )?;
 
-                            load_keys(&mut authority, zone_name_for_signer.clone(), server_config)
+                            server_config
+                                .load_keys(&mut authority, zone_name_for_signer.clone())
                                 .await?;
                             Arc::new(authority)
                         }
@@ -601,6 +603,32 @@ impl ServerZoneConfig {
         }
     }
 
+    #[cfg(feature = "dnssec-ring")]
+    async fn load_keys(
+        &self,
+        authority: &mut impl DnssecAuthority<Lookup = impl Send + Sync + Sized + 'static>,
+        zone_name: Name,
+    ) -> Result<(), String> {
+        if self.is_dnssec_enabled() {
+            for key_config in &self.keys {
+                key_config.load(authority, &zone_name).await?;
+            }
+
+            info!("signing zone: {zone_name}");
+            authority
+                .secure_zone()
+                .await
+                .map_err(|err| format!("failed to sign zone {zone_name}: {err}"))?;
+        }
+        Ok(())
+    }
+
+    #[cfg(not(feature = "dnssec-ring"))]
+    #[allow(clippy::unnecessary_wraps)]
+    async fn load_keys<T>(&self, _authority: &mut T, _zone_name: Name) -> Result<(), String> {
+        Ok(())
+    }
+
     /// path to the zone file, i.e. the base set of original records in the zone
     ///
     /// this is only used on first load, if dynamic update is enabled for the zone, then the journal
@@ -629,36 +657,6 @@ impl ServerZoneConfig {
             }
         }
     }
-}
-
-#[cfg(feature = "dnssec-ring")]
-async fn load_keys(
-    authority: &mut impl DnssecAuthority<Lookup = impl Send + Sync + Sized + 'static>,
-    zone_name: Name,
-    server_config: &ServerZoneConfig,
-) -> Result<(), String> {
-    if server_config.is_dnssec_enabled() {
-        for key_config in &server_config.keys {
-            key_config.load(authority, &zone_name).await?;
-        }
-
-        info!("signing zone: {zone_name}");
-        authority
-            .secure_zone()
-            .await
-            .map_err(|err| format!("failed to sign zone {zone_name}: {err}"))?;
-    }
-    Ok(())
-}
-
-#[cfg(not(feature = "dnssec-ring"))]
-#[allow(clippy::unnecessary_wraps)]
-async fn load_keys<T>(
-    _authority: &mut T,
-    _zone_name: Name,
-    _server_config: &ServerZoneConfig,
-) -> Result<(), String> {
-    Ok(())
 }
 
 /// Enumeration over store types for secondary nameservers.
