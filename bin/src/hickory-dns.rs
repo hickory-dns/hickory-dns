@@ -58,9 +58,9 @@ use tracing_subscriber::{
     util::SubscriberInitExt,
 };
 
-#[cfg(feature = "dns-over-tls")]
-use hickory_dns::dnssec::TlsCertConfig;
 use hickory_dns::Config;
+#[cfg(feature = "dns-over-tls")]
+use hickory_dns::TlsCertConfig;
 use hickory_server::{authority::Catalog, server::ServerFuture};
 
 /// Cli struct for all options managed with clap derive api.
