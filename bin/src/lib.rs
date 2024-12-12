@@ -9,6 +9,8 @@
 
 pub mod dnssec;
 
+#[cfg(feature = "dns-over-rustls")]
+use std::ffi::OsStr;
 use std::{
     fmt,
     fs::File,
@@ -22,10 +24,14 @@ use std::{
 
 use cfg_if::cfg_if;
 use ipnet::IpNet;
+#[cfg(feature = "dns-over-rustls")]
+use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
 
 use hickory_proto::rr::Name;
+#[cfg(feature = "dns-over-rustls")]
+use hickory_proto::rustls::tls_server::{read_cert, read_key, read_key_from_der};
 use hickory_proto::ProtoError;
 #[cfg(feature = "dnssec-ring")]
 use hickory_server::authority::DnssecAuthority;
@@ -112,8 +118,8 @@ pub struct Config {
     #[serde(deserialize_with = "deserialize_with_file")]
     zones: Vec<ZoneConfig>,
     /// Certificate to associate to TLS connections (currently the same is used for HTTPS and TLS)
-    #[cfg(feature = "dns-over-tls")]
-    tls_cert: Option<dnssec::TlsCertConfig>,
+    #[cfg(feature = "dns-over-rustls")]
+    tls_cert: Option<TlsCertConfig>,
     /// The HTTP endpoint where the DNS-over-HTTPS server provides service. Applicable
     /// to both HTTP/2 and HTTP/3 servers. Typically `/dns-query`.
     #[cfg(any(feature = "dns-over-https-rustls", feature = "dns-over-h3"))]
@@ -230,9 +236,9 @@ impl Config {
     }
 
     /// the tls certificate to use for accepting tls connections
-    pub fn tls_cert(&self) -> Option<&dnssec::TlsCertConfig> {
+    pub fn tls_cert(&self) -> Option<&TlsCertConfig> {
         cfg_if! {
-            if #[cfg(feature = "dns-over-tls")] {
+            if #[cfg(feature = "dns-over-rustls")] {
                 self.tls_cert.as_ref()
             } else {
                 None
@@ -755,6 +761,57 @@ where
     }
 
     deserializer.deserialize_any(MapOrSequence::<T>(Default::default()))
+}
+
+/// Configuration for a TLS certificate
+#[derive(Deserialize, PartialEq, Eq, Debug)]
+#[serde(deny_unknown_fields)]
+#[non_exhaustive]
+pub struct TlsCertConfig {
+    pub path: PathBuf,
+    pub endpoint_name: Option<String>,
+    pub private_key: PathBuf,
+}
+
+#[cfg(feature = "dns-over-rustls")]
+impl TlsCertConfig {
+    /// Load a Certificate from the path (with rustls)
+    pub fn load(
+        &self,
+        zone_dir: &Path,
+    ) -> Result<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>), String> {
+        if self.path.extension().and_then(OsStr::to_str) != Some("pem") {
+            return Err(format!(
+                "unsupported certificate file format (expected `.pem` extension): {}",
+                self.path.display()
+            ));
+        }
+
+        let cert_path = zone_dir.join(&self.path);
+        info!(
+            "loading TLS PEM certificate chain from: {}",
+            cert_path.display()
+        );
+        let cert_chain = read_cert(&cert_path).map_err(|e| format!("error reading cert: {e}"))?;
+
+        let key_extension = self.private_key.extension();
+        let key = if key_extension.is_some_and(|ext| ext == "pem") {
+            let key_path = zone_dir.join(&self.private_key);
+            info!("loading TLS PKCS8 key from PEM: {}", key_path.display());
+            read_key(&key_path)?
+        } else if key_extension.is_some_and(|ext| ext == "der" || ext == "key") {
+            let key_path = zone_dir.join(&self.private_key);
+            info!("loading TLS PKCS8 key from DER: {}", key_path.display());
+            read_key_from_der(&key_path)?
+        } else {
+            return Err(format!(
+                "unsupported private key file format (expected `.pem` or `.der` extension): {}",
+                self.private_key.display()
+            ));
+        };
+
+        Ok((cert_chain, key))
+    }
 }
 
 #[cfg(all(test, any(feature = "resolver", feature = "recursor")))]
