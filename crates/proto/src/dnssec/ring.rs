@@ -10,7 +10,7 @@ use ring::{
         RSA_PKCS1_SHA256, RSA_PKCS1_SHA512,
     },
 };
-use rustls_pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
+use rustls_pki_types::{PrivateKeyDer, PrivatePkcs1KeyDer, PrivatePkcs8KeyDer};
 
 use super::{
     ec_public_key::ECPublicKey, rsa_public_key::RSAPublicKey, Algorithm, DigestType, PublicKey,
@@ -372,6 +372,7 @@ impl RsaSigningKey {
     pub fn from_key_der(key: &PrivateKeyDer<'_>, algorithm: Algorithm) -> DnsSecResult<Self> {
         match key {
             PrivateKeyDer::Pkcs8(key) => Self::from_pkcs8(key, algorithm),
+            PrivateKeyDer::Pkcs1(key) => Self::from_pkcs1(key, algorithm),
             _ => Err("unsupported key format (only PKCS#8 supported)".into()),
         }
     }
@@ -389,6 +390,23 @@ impl RsaSigningKey {
 
         Ok(Self {
             inner: RsaKeyPair::from_pkcs8(key.secret_pkcs8_der())?,
+            algorithm,
+        })
+    }
+
+    /// Decode signing key pair from DER-encoded PKCS#1 bytes.
+    pub fn from_pkcs1(key: &PrivatePkcs1KeyDer<'_>, algorithm: Algorithm) -> DnsSecResult<Self> {
+        match algorithm {
+            #[allow(deprecated)]
+            Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => {
+                return Err("unsupported Algorithm (insecure): {algorithm:?}".into())
+            }
+            Algorithm::RSASHA256 | Algorithm::RSASHA512 => {}
+            _ => return Err("unsupported Algorithm: {algorithm:?}".into()),
+        }
+
+        Ok(Self {
+            inner: RsaKeyPair::from_der(key.secret_pkcs1_der())?,
             algorithm,
         })
     }
@@ -486,6 +504,8 @@ impl From<DigestType> for &'static digest::Algorithm {
 
 #[cfg(test)]
 mod tests {
+    use rustls_pki_types::pem::PemObject;
+
     use super::*;
     use crate::dnssec::test_utils::{hash_test, public_key_test};
 
@@ -561,6 +581,14 @@ mod tests {
         // Generated per the documentation from https://docs.rs/ring/latest/ring/rsa/struct.KeyPair.html#method.from_pkcs8.
         const KEY: &[u8] = include_bytes!("../../tests/test-data/rsa-2048-private-key-1.pk8");
         let key_der = PrivateKeyDer::try_from(KEY).unwrap();
+        signing_key_from_der(&key_der, Algorithm::RSASHA256).unwrap();
+    }
+
+    #[test]
+    fn test_rsasha256_decode_pkcs1() {
+        const KEY: &[u8] = include_bytes!("../../tests/test-data/rsa-2048-pkcs1.pem");
+        let key_der = PrivateKeyDer::from_pem_slice(KEY).unwrap();
+        assert!(matches!(key_der, PrivateKeyDer::Pkcs1(_)));
         signing_key_from_der(&key_der, Algorithm::RSASHA256).unwrap();
     }
 }
