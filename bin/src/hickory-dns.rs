@@ -41,7 +41,6 @@ use std::{
     io::Error,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
 use clap::Parser;
@@ -51,7 +50,7 @@ use tokio::{
     net::{TcpListener, UdpSocket},
     runtime,
 };
-use tracing::{debug, error, info, warn, Event, Subscriber};
+use tracing::{error, info, warn, Event, Subscriber};
 use tracing_subscriber::{
     fmt::{format, FmtContext, FormatEvent, FormatFields, FormattedFields},
     layer::SubscriberExt,
@@ -61,218 +60,8 @@ use tracing_subscriber::{
 
 #[cfg(feature = "dns-over-tls")]
 use hickory_dns::dnssec::TlsCertConfig;
-#[cfg(any(feature = "blocklist", feature = "resolver"))]
-use hickory_dns::ForwardStoreConfig;
-#[cfg(any(feature = "blocklist", feature = "recursor"))]
-use hickory_dns::HintStoreConfig;
-use hickory_dns::{Config, ServerStoreConfig, ServerZoneConfig, ZoneConfig, ZoneTypeConfig};
-use hickory_proto::rr::Name;
-#[cfg(feature = "dnssec-ring")]
-use hickory_server::authority::DnssecAuthority;
-#[cfg(feature = "blocklist")]
-use hickory_server::store::blocklist::BlocklistAuthority;
-#[cfg(feature = "resolver")]
-use hickory_server::store::forwarder::ForwardAuthority;
-#[cfg(feature = "recursor")]
-use hickory_server::store::recursor::RecursiveAuthority;
-#[cfg(feature = "sqlite")]
-use hickory_server::store::sqlite::SqliteAuthority;
-
-use hickory_server::{
-    authority::{AuthorityObject, Catalog},
-    server::ServerFuture,
-    store::file::FileAuthority,
-};
-
-#[cfg(feature = "dnssec-ring")]
-async fn load_keys(
-    authority: &mut impl DnssecAuthority<Lookup = impl Send + Sync + Sized + 'static>,
-    zone_name: Name,
-    server_config: &ServerZoneConfig,
-) -> Result<(), String> {
-    if server_config.is_dnssec_enabled() {
-        for key_config in server_config.keys() {
-            key_config.load(authority, &zone_name).await?;
-        }
-
-        info!("signing zone: {zone_name}");
-        authority
-            .secure_zone()
-            .await
-            .map_err(|err| format!("failed to sign zone {zone_name}: {err}"))?;
-    }
-    Ok(())
-}
-
-#[cfg(not(feature = "dnssec-ring"))]
-#[allow(clippy::unnecessary_wraps)]
-async fn load_keys<T>(
-    _authority: &mut T,
-    _zone_name: Name,
-    _server_config: &ServerZoneConfig,
-) -> Result<(), String> {
-    Ok(())
-}
-
-#[cfg_attr(not(feature = "dnssec-ring"), allow(unused_mut, unused))]
-#[warn(clippy::wildcard_enum_match_arm)] // make sure all cases are handled despite of non_exhaustive
-async fn load_zone(
-    zone_dir: &Path,
-    zone_config: &ZoneConfig,
-) -> Result<Vec<Arc<dyn AuthorityObject>>, String> {
-    debug!("loading zone with config: {:#?}", zone_config);
-
-    let zone_name: Name = zone_config
-        .zone()
-        .map_err(|err| format!("failed to read zone name: {err}"))?;
-    let zone_type = zone_config.zone_type();
-
-    // load the zone and insert any configured authorities in the catalog.
-
-    let mut authorities: Vec<Arc<dyn AuthorityObject>> = vec![];
-
-    #[cfg(feature = "blocklist")]
-    let handle_blocklist_store = |config| {
-        let zone_name = zone_name.clone();
-
-        async move {
-            Result::<Arc<dyn AuthorityObject>, String>::Ok(Arc::new(
-                BlocklistAuthority::try_from_config(
-                    zone_name.clone(),
-                    zone_type,
-                    config,
-                    Some(zone_dir),
-                )
-                .await?,
-            ))
-        }
-    };
-
-    match &zone_config.zone_type_config {
-        ZoneTypeConfig::Primary(server_config) | ZoneTypeConfig::Secondary(server_config) => {
-            debug!(
-                "loading authorities for {zone_name} with stores {:?}",
-                server_config.stores
-            );
-
-            let zone_name_for_signer = zone_name.clone();
-            let is_axfr_allowed = server_config.is_axfr_allowed();
-
-            for store in &server_config.stores {
-                let authority: Arc<dyn AuthorityObject> = match store {
-                    #[cfg(feature = "sqlite")]
-                    ServerStoreConfig::Sqlite(config) => {
-                        let mut authority = SqliteAuthority::try_from_config(
-                            zone_name.clone(),
-                            zone_type,
-                            is_axfr_allowed,
-                            server_config.is_dnssec_enabled(),
-                            Some(zone_dir),
-                            config,
-                            #[cfg(feature = "dnssec-ring")]
-                            server_config.nx_proof_kind.clone(),
-                        )
-                        .await?;
-
-                        load_keys(&mut authority, zone_name_for_signer.clone(), server_config)
-                            .await?;
-                        Arc::new(authority)
-                    }
-
-                    ServerStoreConfig::File(config) => {
-                        let mut authority = FileAuthority::try_from_config(
-                            zone_name.clone(),
-                            zone_type,
-                            is_axfr_allowed,
-                            Some(zone_dir),
-                            config,
-                            #[cfg(feature = "dnssec-ring")]
-                            server_config.nx_proof_kind.clone(),
-                        )?;
-
-                        load_keys(&mut authority, zone_name_for_signer.clone(), server_config)
-                            .await?;
-                        Arc::new(authority)
-                    }
-                    _ => return empty_stores_error(),
-                };
-
-                authorities.push(authority);
-            }
-        }
-        ZoneTypeConfig::Forward { stores } => {
-            debug!(
-                "loading authorities for {zone_name} with stores {:?}",
-                stores
-            );
-
-            #[cfg_attr(
-                not(any(feature = "blocklist", feature = "resolver")),
-                allow(clippy::never_loop)
-            )]
-            for store in stores {
-                let authority = match store {
-                    #[cfg(feature = "blocklist")]
-                    ForwardStoreConfig::Blocklist(config) => handle_blocklist_store(config).await?,
-                    #[cfg(feature = "resolver")]
-                    ForwardStoreConfig::Forward(config) => {
-                        let forwarder = ForwardAuthority::try_from_config(
-                            zone_name.clone(),
-                            zone_type,
-                            config,
-                        )?;
-
-                        Arc::new(forwarder)
-                    }
-                    _ => return empty_stores_error(),
-                };
-
-                authorities.push(authority);
-            }
-        }
-        ZoneTypeConfig::Hint { stores } => {
-            debug!(
-                "loading authorities for {zone_name} with stores {:?}",
-                stores
-            );
-
-            #[cfg_attr(
-                not(any(feature = "blocklist", feature = "recursor")),
-                allow(clippy::never_loop)
-            )]
-            for store in stores {
-                let authority: Arc<dyn AuthorityObject> = match store {
-                    #[cfg(feature = "blocklist")]
-                    HintStoreConfig::Blocklist(ref config) => {
-                        handle_blocklist_store(config).await?
-                    }
-                    #[cfg(feature = "recursor")]
-                    HintStoreConfig::Recursor(config) => {
-                        let recursor = RecursiveAuthority::try_from_config(
-                            zone_name.clone(),
-                            zone_type,
-                            config,
-                            Some(zone_dir),
-                        )
-                        .await?;
-
-                        Arc::new(recursor)
-                    }
-                    _ => return empty_stores_error(),
-                };
-
-                authorities.push(authority);
-            }
-        }
-    }
-
-    info!("zone successfully loaded: {}", zone_config.zone()?);
-    Ok(authorities)
-}
-
-fn empty_stores_error<T>() -> Result<T, String> {
-    Result::Err("empty [[zones.stores]] in config".to_owned())
-}
+use hickory_dns::Config;
+use hickory_server::{authority::Catalog, server::ServerFuture};
 
 /// Cli struct for all options managed with clap derive api.
 #[derive(Debug, Parser)]
@@ -418,7 +207,7 @@ fn run() -> Result<(), String> {
             .zone()
             .map_err(|err| format!("failed to read zone name from {config_path:?}: {err}"))?;
 
-        match runtime.block_on(load_zone(&zone_dir, zone)) {
+        match runtime.block_on(zone.load(&zone_dir)) {
             Ok(authority) => catalog.upsert(zone_name.into(), authority),
             Err(err) => return Err(format!("could not load zone {zone_name}: {err}")),
         }
