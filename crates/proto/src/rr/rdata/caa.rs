@@ -94,10 +94,6 @@ impl CAA {
     ///
     /// * `issuer_critical` - indicates that the corresponding property tag MUST be understood if the semantics of the CAA record are to be correctly interpreted by an issuer
     /// * `url` - Url where issuer errors should be reported
-    ///
-    /// # Panics
-    ///
-    /// If `value` is not `Value::Issuer`
     pub fn new_iodef(issuer_critical: bool, url: Url) -> Self {
         Self {
             issuer_critical,

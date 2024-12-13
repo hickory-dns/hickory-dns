@@ -128,7 +128,7 @@ where
             _ => return Box::pin(self.handle.send(request)),
         }
 
-        // This will panic on no queries, that is a very odd type of request, isn't it?
+        // This will fail on no queries, that is a very odd type of request, isn't it?
         // TODO: with mDNS there can be multiple queries
         let query = if let Some(query) = request.queries().first().cloned() {
             query
