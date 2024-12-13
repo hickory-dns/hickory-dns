@@ -557,7 +557,7 @@ impl<'r> BinDecodable<'r> for Header {
             MessageType::Query
         };
         // the 4bit opcode, masked and then shifted right 3bits for the u8...
-        let op_code: OpCode = OpCode::from_u8((0b0111_1000 & q_opcd_a_t_r) >> 3)?;
+        let op_code = OpCode::from_u8((0b0111_1000 & q_opcd_a_t_r) >> 3);
         let authoritative = (0b0000_0100 & q_opcd_a_t_r) == 0b0000_0100;
         let truncation = (0b0000_0010 & q_opcd_a_t_r) == 0b0000_0010;
         let recursion_desired = (0b0000_0001 & q_opcd_a_t_r) == 0b0000_0001;
