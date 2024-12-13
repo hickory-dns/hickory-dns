@@ -261,30 +261,36 @@ where
     Vec::<ZoneConfigWithFile>::deserialize(deserializer)?
         .into_iter()
         .map(|ZoneConfigWithFile { file, mut config }| match file {
-            Some(file) => {
-                if config
-                    .stores
-                    .iter()
-                    .any(|store| matches!(store, ServerStoreConfig::File(_)))
-                {
-                    Err(<D::Error as serde::de::Error>::custom(
-                        "having `file` and `[zones.store]` item with type `file` is ambiguous",
-                    ))
-                } else {
-                    let store = ServerStoreConfig::File(FileConfig {
-                        zone_file_path: file,
-                    });
-
-                    if config.stores.len() == 1
-                        && matches!(&config.stores[0], ServerStoreConfig::Default)
+            Some(file) => match &mut config.zone_type_config {
+                ZoneTypeConfig::Primary(server_config)
+                | ZoneTypeConfig::Secondary(server_config) => {
+                    if server_config
+                        .stores
+                        .iter()
+                        .any(|store| matches!(store, ServerStoreConfig::File(_)))
                     {
-                        config.stores[0] = store;
+                        Err(<D::Error as serde::de::Error>::custom(
+                            "having `file` and `[zones.store]` item with type `file` is ambiguous",
+                        ))
                     } else {
-                        config.stores.push(store);
+                        let store = ServerStoreConfig::File(FileConfig {
+                            zone_file_path: file,
+                        });
+
+                        if server_config.stores.len() == 1
+                            && matches!(&server_config.stores[0], ServerStoreConfig::Default)
+                        {
+                            server_config.stores[0] = store;
+                        } else {
+                            server_config.stores.push(store);
+                        }
+                        Ok(config)
                     }
-                    Ok(config)
                 }
-            }
+                _ => Err(<D::Error as serde::de::Error>::custom(
+                    "cannot use `file` on a zone that is not primary or secondary",
+                )),
+            },
 
             _ => Ok(config),
         })
@@ -293,32 +299,12 @@ where
 
 /// Configuration for a zone
 #[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
 pub struct ZoneConfig {
     /// name of the zone
     pub zone: String, // TODO: make Domain::Name decodable
     /// type of the zone
-    pub zone_type: ZoneType,
-    /// Deprecated allow_update, this is a Store option
-    pub allow_update: Option<bool>,
-    /// Allow AXFR (TODO: need auth)
-    pub allow_axfr: Option<bool>,
-    /// Enable DnsSec TODO: should this move to StoreConfig?
-    pub enable_dnssec: Option<bool>,
-    /// Keys for use by the zone
-    #[serde(default)]
-    pub keys: Vec<dnssec::KeyConfig>,
-    /// Store configurations.  Note: we specify a default handler to get a Vec containing a
-    /// ServerStoreConfig::Default, which is used for authoritative file-based zones and legacy sqlite
-    /// configurations. #[serde(default)] cannot be used, because it will invoke Default for Vec,
-    /// i.e., an empty Vec and we cannot implement Default for ServerStoreConfig and return a Vec.  The
-    /// custom visitor is used to handle map (single store) or sequence (chained store) configurations.
-    #[serde(default = "store_config_default")]
-    #[serde(deserialize_with = "store_config_visitor")]
-    pub stores: Vec<ServerStoreConfig>,
-    /// The kind of non-existence proof provided by the nameserver
-    #[cfg(feature = "dnssec")]
-    pub nx_proof_kind: Option<NxProofKind>,
+    #[serde(flatten)]
+    pub zone_type_config: ZoneTypeConfig,
 }
 
 impl ZoneConfig {
@@ -327,37 +313,11 @@ impl ZoneConfig {
     /// # Arguments
     ///
     /// * `zone` - name of a zone, e.g. example.com
-    /// * `zone_type` - Type of zone, e.g. Primary, Secondary, etc.
-    /// * `file` - relative to Config base path, to the zone file. This translates to a
-    ///    [`ServerStoreConfig::File`] with the given path.
-    /// * `allow_update` - enable dynamic updates
-    /// * `allow_axfr` - enable AXFR transfers
-    /// * `enable_dnssec` - enable signing of the zone for DNSSEC
-    /// * `keys` - list of private and public keys used to sign a zone
-    /// * `nx_proof_kind` - the kind of non-existence proof provided by the nameserver
-    #[cfg_attr(feature = "dnssec", allow(clippy::too_many_arguments))]
-    pub fn new(
-        zone: String,
-        zone_type: ZoneType,
-        file: String,
-        allow_update: Option<bool>,
-        allow_axfr: Option<bool>,
-        enable_dnssec: Option<bool>,
-        keys: Vec<dnssec::KeyConfig>,
-        #[cfg(feature = "dnssec")] nx_proof_kind: Option<NxProofKind>,
-    ) -> Self {
+    /// * `zone_type_configuration` - Configuration specific to the type of zone, e.g. Primary, Secondary, etc.
+    pub fn new(zone: String, zone_type_config: ZoneTypeConfig) -> Self {
         Self {
             zone,
-            zone_type,
-            allow_update,
-            allow_axfr,
-            enable_dnssec,
-            keys,
-            stores: vec![ServerStoreConfig::File(FileConfig {
-                zone_file_path: file,
-            })],
-            #[cfg(feature = "dnssec")]
-            nx_proof_kind,
+            zone_type_config,
         }
     }
 
@@ -369,7 +329,109 @@ impl ZoneConfig {
 
     /// the type of the zone
     pub fn zone_type(&self) -> ZoneType {
-        self.zone_type
+        match &self.zone_type_config {
+            ZoneTypeConfig::Primary { .. } => ZoneType::Primary,
+            ZoneTypeConfig::Secondary { .. } => ZoneType::Secondary,
+            ZoneTypeConfig::Forward { .. } => ZoneType::Forward,
+            ZoneTypeConfig::Hint { .. } => ZoneType::Hint,
+        }
+    }
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(tag = "zone_type")]
+#[serde(deny_unknown_fields)]
+/// Enumeration over each zone type's configuration.
+pub enum ZoneTypeConfig {
+    Primary(ServerZoneConfig),
+    Secondary(ServerZoneConfig),
+    Forward {
+        /// Store configurations.  Note: we specify a default handler to get a Vec containing a
+        /// StoreConfig::Default, which is used for authoritative file-based zones and legacy sqlite
+        /// configurations. #[serde(default)] cannot be used, because it will invoke Default for Vec,
+        /// i.e., an empty Vec and we cannot implement Default for StoreConfig and return a Vec.  The
+        /// custom visitor is used to handle map (single store) or sequence (chained store) configurations.
+        #[serde(default = "store_config_default")]
+        #[serde(deserialize_with = "store_config_visitor")]
+        stores: Vec<ForwardStoreConfig>,
+    },
+    Hint {
+        /// Store configurations.  Note: we specify a default handler to get a Vec containing a
+        /// StoreConfig::Default, which is used for authoritative file-based zones and legacy sqlite
+        /// configurations. #[serde(default)] cannot be used, because it will invoke Default for Vec,
+        /// i.e., an empty Vec and we cannot implement Default for StoreConfig and return a Vec.  The
+        /// custom visitor is used to handle map (single store) or sequence (chained store) configurations.
+        #[serde(default = "store_config_default")]
+        #[serde(deserialize_with = "store_config_visitor")]
+        stores: Vec<HintStoreConfig>,
+    },
+}
+
+impl ZoneTypeConfig {
+    pub fn as_server(&self) -> Option<&ServerZoneConfig> {
+        match self {
+            Self::Primary(c) | Self::Secondary(c) => Some(c),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct ServerZoneConfig {
+    /// Deprecated allow_update, this is a Store option
+    pub allow_update: Option<bool>,
+    /// Allow AXFR (TODO: need auth)
+    pub allow_axfr: Option<bool>,
+    /// Enable DnsSec TODO: should this move to StoreConfig?
+    pub enable_dnssec: Option<bool>,
+    /// Keys for use by the zone
+    #[serde(default)]
+    pub keys: Vec<dnssec::KeyConfig>,
+    /// The kind of non-existence proof provided by the nameserver
+    #[cfg(feature = "dnssec")]
+    pub nx_proof_kind: Option<NxProofKind>,
+    /// Store configurations.  Note: we specify a default handler to get a Vec containing a
+    /// StoreConfig::Default, which is used for authoritative file-based zones and legacy sqlite
+    /// configurations. #[serde(default)] cannot be used, because it will invoke Default for Vec,
+    /// i.e., an empty Vec and we cannot implement Default for StoreConfig and return a Vec.  The
+    /// custom visitor is used to handle map (single store) or sequence (chained store) configurations.
+    #[serde(default = "store_config_default")]
+    #[serde(deserialize_with = "store_config_visitor")]
+    pub stores: Vec<ServerStoreConfig>,
+}
+
+impl ServerZoneConfig {
+    /// Return a new secondary zone configuration
+    ///
+    /// # Arguments
+    ///
+    /// * `file` - relative to Config base path, to the zone file. This translates to a
+    ///    [`ServerStoreConfig::File`] with the given path.
+    /// * `allow_update` - enable dynamic updates
+    /// * `allow_axfr` - enable AXFR transfers
+    /// * `enable_dnssec` - enable signing of the zone for DNSSEC
+    /// * `keys` - list of private and public keys used to sign a zone
+    /// * `nx_proof_kind` - the kind of non-existence proof provided by the nameserver
+    pub fn new(
+        file: String,
+        allow_update: Option<bool>,
+        allow_axfr: Option<bool>,
+        enable_dnssec: Option<bool>,
+        keys: Vec<dnssec::KeyConfig>,
+        #[cfg(feature = "dnssec")] nx_proof_kind: Option<NxProofKind>,
+    ) -> Self {
+        Self {
+            allow_update,
+            allow_axfr,
+            enable_dnssec,
+            keys,
+            #[cfg(feature = "dnssec")]
+            nx_proof_kind,
+            stores: vec![ServerStoreConfig::File(FileConfig {
+                zone_file_path: file,
+            })],
+        }
     }
 
     /// path to the zone file, i.e. the base set of original records in the zone
@@ -377,23 +439,16 @@ impl ZoneConfig {
     /// this is only used on first load, if dynamic update is enabled for the zone, then the journal
     /// file is the actual source of truth for the zone.
     pub fn file(&self) -> Option<PathBuf> {
-        self.stores
-            .iter()
-            .find_map(|store| match store {
-                #[cfg(feature = "blocklist")]
-                ServerStoreConfig::Blocklist { .. } => None,
-                ServerStoreConfig::File(file_config) => Some(file_config.zone_file_path.as_str()),
-                #[cfg(feature = "sqlite")]
-                ServerStoreConfig::Sqlite(sqlite_config) => {
-                    Some(sqlite_config.zone_file_path.as_str())
-                }
-                #[cfg(feature = "resolver")]
-                ServerStoreConfig::Forward { .. } => None,
-                #[cfg(feature = "recursor")]
-                ServerStoreConfig::Recursor { .. } => None,
-                ServerStoreConfig::Default => None,
-            })
-            .map(PathBuf::from)
+        self.stores.iter().find_map(|store| match store {
+            ServerStoreConfig::File(file_config) => {
+                Some(file_config.zone_file_path.as_str().into())
+            }
+            #[cfg(feature = "sqlite")]
+            ServerStoreConfig::Sqlite(sqlite_config) => {
+                Some(sqlite_config.zone_file_path.as_str().into())
+            }
+            ServerStoreConfig::Default => None,
+        })
     }
 
     /// enable dynamic updates for the zone (see SIG0 and the registered keys)
@@ -424,60 +479,95 @@ impl ZoneConfig {
     }
 }
 
-/// Enumeration over all store types
-#[derive(Deserialize, Debug)]
+/// Enumeration over store types for secondary nameservers.
+#[derive(Deserialize, Debug, Default)]
 #[serde(tag = "type")]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
 pub enum ServerStoreConfig {
-    /// Blocklist configuration
-    #[cfg(feature = "blocklist")]
-    Blocklist(BlocklistConfig),
     /// File based configuration
     File(FileConfig),
     /// Sqlite based configuration file
     #[cfg(feature = "sqlite")]
     Sqlite(SqliteConfig),
-    /// Forwarding Resolver
-    #[cfg(feature = "resolver")]
-    Forward(ForwardConfig),
-    /// Recursive Resolver
-    #[cfg(feature = "recursor")]
-    Recursor(RecursiveConfig),
     /// This is used by the configuration processing code to represent a deprecated or main-block config without an associated store.
+    #[default]
     Default,
 }
 
-/// Create a default value for serde for ServerStoreConfig.
-fn store_config_default() -> Vec<ServerStoreConfig> {
-    vec![ServerStoreConfig::Default]
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct HintZoneConfig {}
+
+/// Enumeration over store types for hint nameservers.
+#[derive(Deserialize, Debug, Default)]
+#[serde(tag = "type")]
+#[serde(rename_all = "lowercase")]
+#[non_exhaustive]
+pub enum HintStoreConfig {
+    /// Blocklist configuration
+    #[cfg(feature = "blocklist")]
+    Blocklist(BlocklistConfig),
+    /// Recursive Resolver
+    #[cfg(feature = "recursor")]
+    Recursor(Box<RecursiveConfig>),
+    /// This is used by the configuration processing code to represent a deprecated or main-block config without an associated store.
+    #[default]
+    Default,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct ForwardZoneConfig {}
+
+/// Enumeration over store types for forward nameservers.
+#[derive(Deserialize, Debug, Default)]
+#[serde(tag = "type")]
+#[serde(rename_all = "lowercase")]
+#[non_exhaustive]
+pub enum ForwardStoreConfig {
+    /// Blocklist configuration
+    #[cfg(feature = "blocklist")]
+    Blocklist(BlocklistConfig),
+    /// Forwarding Resolver
+    #[cfg(feature = "resolver")]
+    Forward(ForwardConfig),
+    /// This is used by the configuration processing code to represent a deprecated or main-block config without an associated store.
+    #[default]
+    Default,
+}
+
+/// Create a default value for serde for store config enums.
+fn store_config_default<S: Default>() -> Vec<S> {
+    vec![Default::default()]
 }
 
 /// Custom serde visitor that can deserialize a map (single configuration store, expressed as a TOML
 /// table) or sequence (chained configuration stores, expressed as a TOML array of tables.)
 /// This is used instead of an untagged enum because serde cannot provide variant-specific error
 /// messages when using an untagged enum.
-fn store_config_visitor<'de, D>(deserializer: D) -> Result<Vec<ServerStoreConfig>, D::Error>
+fn store_config_visitor<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
 where
     D: Deserializer<'de>,
+    T: Deserialize<'de>,
 {
-    struct MapOrSequence;
+    struct MapOrSequence<T>(std::marker::PhantomData<T>);
 
-    impl<'de> Visitor<'de> for MapOrSequence {
-        type Value = Vec<ServerStoreConfig>;
+    impl<'de, T: Deserialize<'de>> Visitor<'de> for MapOrSequence<T> {
+        type Value = Vec<T>;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
             formatter.write_str("map or sequence")
         }
 
-        fn visit_seq<S>(self, seq: S) -> Result<Vec<ServerStoreConfig>, S::Error>
+        fn visit_seq<S>(self, seq: S) -> Result<Vec<T>, S::Error>
         where
             S: SeqAccess<'de>,
         {
             Deserialize::deserialize(de::value::SeqAccessDeserializer::new(seq))
         }
 
-        fn visit_map<M>(self, map: M) -> Result<Vec<ServerStoreConfig>, M::Error>
+        fn visit_map<M>(self, map: M) -> Result<Vec<T>, M::Error>
         where
             M: MapAccess<'de>,
         {
@@ -488,7 +578,7 @@ where
         }
     }
 
-    deserializer.deserialize_any(MapOrSequence)
+    deserializer.deserialize_any(MapOrSequence::<T>(Default::default()))
 }
 
 #[cfg(all(test, any(feature = "resolver", feature = "recursor")))]
@@ -562,9 +652,13 @@ mod tests {
                zone_file_path = "default/localhost.zone""#,
         ) {
             Ok(val) => {
-                assert_eq!(val.zones[0].stores.len(), 1);
+                let ZoneTypeConfig::Primary(config) = &val.zones[0].zone_type_config else {
+                    panic!("expected primary zone type");
+                };
+
+                assert_eq!(config.stores.len(), 1);
                 assert!(matches!(
-                    &val.zones[0].stores[0],
+                        &config.stores[0],
                     ServerStoreConfig::File(FileConfig { zone_file_path }) if zone_file_path == "default/localhost.zone",
                 ));
             }

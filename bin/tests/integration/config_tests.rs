@@ -26,7 +26,7 @@ use toml::map::Keys;
 use toml::value::Array;
 use toml::{Table, Value};
 
-use hickory_dns::Config;
+use hickory_dns::{Config, ServerZoneConfig};
 use hickory_server::authority::ZoneType;
 
 #[test]
@@ -50,9 +50,9 @@ fn test_read_config() {
     assert_eq!(config.directory(), Path::new("/var/named"));
 
     assert_eq!(config.zones()[0].zone, "localhost");
-    assert_eq!(config.zones()[0].zone_type, ZoneType::Primary);
+    assert_eq!(config.zones()[0].zone_type(), ZoneType::Primary);
     assert_eq!(
-        config.zones()[0]
+        get_server_zone(&config, 0)
             .file()
             .as_deref()
             .and_then(|path| path.to_str()),
@@ -60,9 +60,9 @@ fn test_read_config() {
     );
 
     assert_eq!(config.zones()[1].zone, "0.0.127.in-addr.arpa");
-    assert_eq!(config.zones()[1].zone_type, ZoneType::Primary);
+    assert_eq!(config.zones()[1].zone_type(), ZoneType::Primary);
     assert_eq!(
-        config.zones()[1]
+        get_server_zone(&config, 1)
             .file()
             .as_deref()
             .and_then(|path| path.to_str()),
@@ -73,9 +73,9 @@ fn test_read_config() {
         config.zones()[2].zone,
         "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"
     );
-    assert_eq!(config.zones()[2].zone_type, ZoneType::Primary);
+    assert_eq!(config.zones()[2].zone_type(), ZoneType::Primary);
     assert_eq!(
-        config.zones()[2]
+        get_server_zone(&config, 2)
             .file()
             .as_deref()
             .and_then(|path| path.to_str()),
@@ -83,9 +83,9 @@ fn test_read_config() {
     );
 
     assert_eq!(config.zones()[3].zone, "255.in-addr.arpa");
-    assert_eq!(config.zones()[3].zone_type, ZoneType::Primary);
+    assert_eq!(config.zones()[3].zone_type(), ZoneType::Primary);
     assert_eq!(
-        config.zones()[3]
+        get_server_zone(&config, 3)
             .file()
             .as_deref()
             .and_then(|path| path.to_str()),
@@ -93,9 +93,9 @@ fn test_read_config() {
     );
 
     assert_eq!(config.zones()[4].zone, "0.in-addr.arpa");
-    assert_eq!(config.zones()[4].zone_type, ZoneType::Primary);
+    assert_eq!(config.zones()[4].zone_type(), ZoneType::Primary);
     assert_eq!(
-        config.zones()[4]
+        get_server_zone(&config, 4)
             .file()
             .as_deref()
             .and_then(|path| path.to_str()),
@@ -103,9 +103,9 @@ fn test_read_config() {
     );
 
     assert_eq!(config.zones()[5].zone, "example.com");
-    assert_eq!(config.zones()[5].zone_type, ZoneType::Primary);
+    assert_eq!(config.zones()[5].zone_type(), ZoneType::Primary);
     assert_eq!(
-        config.zones()[5]
+        get_server_zone(&config, 5)
             .file()
             .as_deref()
             .and_then(|path| path.to_str()),
@@ -182,34 +182,40 @@ signer_name = \"ns.example.com.\"
     )
     .unwrap();
     assert_eq!(
-        config.zones()[0].keys()[0].key_path(),
+        get_server_zone(&config, 0).keys()[0].key_path(),
         Path::new("/path/to/my_ed25519.pem")
     );
     assert_eq!(
-        config.zones()[0].keys()[0].algorithm().unwrap(),
+        get_server_zone(&config, 0).keys()[0].algorithm().unwrap(),
         Algorithm::ED25519
     );
     assert_eq!(
-        config.zones()[0].keys()[0].signer_name().unwrap().unwrap(),
+        get_server_zone(&config, 0).keys()[0]
+            .signer_name()
+            .unwrap()
+            .unwrap(),
         Name::parse("ns.example.com.", None).unwrap()
     );
-    assert!(!config.zones()[0].keys()[0].is_zone_signing_key(),);
-    assert!(config.zones()[0].keys()[0].is_zone_update_auth(),);
+    assert!(!get_server_zone(&config, 0).keys()[0].is_zone_signing_key(),);
+    assert!(get_server_zone(&config, 0).keys()[0].is_zone_update_auth(),);
 
     assert_eq!(
-        config.zones()[0].keys()[1].key_path(),
+        get_server_zone(&config, 0).keys()[1].key_path(),
         Path::new("/path/to/my_rsa.pem")
     );
     assert_eq!(
-        config.zones()[0].keys()[1].algorithm().unwrap(),
+        get_server_zone(&config, 0).keys()[1].algorithm().unwrap(),
         Algorithm::RSASHA256
     );
     assert_eq!(
-        config.zones()[0].keys()[1].signer_name().unwrap().unwrap(),
+        get_server_zone(&config, 0).keys()[1]
+            .signer_name()
+            .unwrap()
+            .unwrap(),
         Name::parse("ns.example.com.", None).unwrap()
     );
-    assert!(!config.zones()[0].keys()[1].is_zone_signing_key(),);
-    assert!(!config.zones()[0].keys()[1].is_zone_update_auth(),);
+    assert!(!get_server_zone(&config, 0).keys()[1].is_zone_signing_key(),);
+    assert!(!get_server_zone(&config, 0).keys()[1].is_zone_update_auth(),);
 }
 
 #[test]
@@ -520,4 +526,11 @@ fn test_reject_unknown_fields() {
             }
         }
     }
+}
+
+fn get_server_zone(config: &Config, index: usize) -> &ServerZoneConfig {
+    config.zones()[index]
+        .zone_type_config
+        .as_server()
+        .expect("expected nameserver")
 }
