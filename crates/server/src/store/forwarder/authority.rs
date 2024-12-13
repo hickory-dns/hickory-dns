@@ -38,8 +38,6 @@ pub struct ForwardAuthority<P: ConnectionProvider = TokioConnectionProvider> {
 }
 
 impl<P: ConnectionProvider> ForwardAuthority<P> {
-    /// TODO: change this name to create or something
-    #[allow(clippy::new_without_default)]
     #[doc(hidden)]
     pub fn new(runtime: P) -> Result<Self, String> {
         let resolver = Resolver::from_system_conf(runtime)
