@@ -7,8 +7,15 @@
 
 //! Zone file based serving with Dynamic DNS and journaling support
 
-mod authority;
-mod config;
+use serde::Deserialize;
 
-pub use self::authority::FileAuthority;
-pub use self::config::FileConfig;
+mod authority;
+pub use authority::FileAuthority;
+
+/// Configuration for file based zones
+#[derive(Deserialize, PartialEq, Eq, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct FileConfig {
+    /// path to the zone file
+    pub zone_file_path: String,
+}
