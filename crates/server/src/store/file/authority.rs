@@ -87,12 +87,23 @@ impl FileAuthority {
 
         // TODO: this should really use something to read line by line or some other method to
         //  keep the usage down. and be a custom lexer...
-        let buf = fs::read_to_string(&zone_path)
-            .map_err(|e| format!("failed to read {}: {:?}", &config.zone_file_path, e))?;
+        let buf = fs::read_to_string(&zone_path).map_err(|e| {
+            format!(
+                "failed to read {}: {:?}",
+                config.zone_file_path.display(),
+                e
+            )
+        })?;
 
         let (origin, records) = Parser::new(buf, Some(zone_path), Some(origin))
             .parse()
-            .map_err(|e| format!("failed to parse {}: {:?}", config.zone_file_path, e))?;
+            .map_err(|e| {
+                format!(
+                    "failed to parse {}: {:?}",
+                    config.zone_file_path.display(),
+                    e
+                )
+            })?;
 
         info!(
             "zone file loaded: {} with {} records",
@@ -281,12 +292,13 @@ mod tests {
     fn test_load_zone() {
         #[cfg(feature = "dnssec")]
         let config = FileConfig {
-            zone_file_path: "../../tests/test-data/test_configs/dnssec/example.com.zone"
-                .to_string(),
+            zone_file_path: PathBuf::from(
+                "../../tests/test-data/test_configs/dnssec/example.com.zone",
+            ),
         };
         #[cfg(not(feature = "dnssec"))]
         let config = FileConfig {
-            zone_file_path: "../../tests/test-data/test_configs/example.com.zone".to_string(),
+            zone_file_path: PathBuf::from("../../tests/test-data/test_configs/example.com.zone"),
         };
         let authority = FileAuthority::try_from_config(
             Name::from_str("example.com.").unwrap(),

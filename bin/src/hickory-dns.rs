@@ -77,7 +77,7 @@ use hickory_server::store::recursor::RecursiveAuthority;
 use hickory_server::store::sqlite::SqliteAuthority;
 
 use hickory_server::{
-    authority::{AuthorityObject, Catalog, ZoneType},
+    authority::{AuthorityObject, Catalog},
     server::ServerFuture,
     store::file::FileAuthority,
 };
@@ -170,7 +170,7 @@ async fn load_zone(
     let zone_name: Name = zone_config
         .zone()
         .map_err(|err| format!("failed to read zone name: {err}"))?;
-    let zone_type: ZoneType = zone_config.zone_type();
+    let zone_type = zone_config.zone_type();
 
     // load the zone and insert any configured authorities in the catalog.
 

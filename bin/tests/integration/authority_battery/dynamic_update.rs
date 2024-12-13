@@ -872,7 +872,8 @@ macro_rules! define_update_test {
         $(
             #[test]
             fn $f () {
-                let mut authority = $new("../tests/test-data/test_configs/example.com.zone", module_path!(), stringify!($f));
+                use std::path::Path;
+                let mut authority = $new(&Path::new("../tests/test-data/test_configs/example.com.zone"), module_path!(), stringify!($f));
                 let keys = crate::authority_battery::dynamic_update::add_auth(&mut authority);
                 crate::authority_battery::dynamic_update::$f(authority, &keys);
             }
