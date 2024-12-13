@@ -1,8 +1,8 @@
 #![cfg(feature = "sqlite")]
 
-use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::{fs, path::Path};
 
 use futures_executor::block_on;
 
@@ -14,7 +14,7 @@ use hickory_server::{
     store::sqlite::{SqliteAuthority, SqliteConfig},
 };
 
-fn sqlite(master_file_path: &str, module: &str, test_name: &str) -> SqliteAuthority {
+fn sqlite(master_file_path: &Path, module: &str, test_name: &str) -> SqliteAuthority {
     let journal_path = PathBuf::from("target/tests")
         .join(module.replace("::", "_"))
         .join(test_name)
@@ -25,7 +25,7 @@ fn sqlite(master_file_path: &str, module: &str, test_name: &str) -> SqliteAuthor
     fs::remove_file(&journal_path).ok();
 
     let config = SqliteConfig {
-        zone_file_path: master_file_path.to_string(),
+        zone_file_path: master_file_path.to_owned(),
         journal_file_path: journal_path.to_str().unwrap().to_string(),
         allow_update: true,
     };
@@ -44,7 +44,7 @@ fn sqlite(master_file_path: &str, module: &str, test_name: &str) -> SqliteAuthor
 }
 
 #[allow(unused)]
-fn sqlite_update(master_file_path: &str, module: &str, test_name: &str) -> SqliteAuthority {
+fn sqlite_update(master_file_path: &Path, module: &str, test_name: &str) -> SqliteAuthority {
     let journal_path = PathBuf::from("target/tests")
         .join(module.replace("::", "_"))
         .join(test_name)
@@ -55,7 +55,7 @@ fn sqlite_update(master_file_path: &str, module: &str, test_name: &str) -> Sqlit
     fs::remove_file(&journal_path).ok();
 
     let config = SqliteConfig {
-        zone_file_path: master_file_path.to_string(),
+        zone_file_path: master_file_path.to_owned(),
         journal_file_path: journal_path.to_str().unwrap().to_string(),
         allow_update: true,
     };

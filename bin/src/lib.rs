@@ -248,7 +248,7 @@ impl Config {
 
 #[derive(Deserialize, Debug)]
 struct ZoneConfigWithFile {
-    file: Option<String>,
+    file: Option<PathBuf>,
     #[serde(flatten)]
     config: ZoneConfig,
 }
@@ -411,7 +411,7 @@ impl ServerZoneConfig {
     /// * `keys` - list of private and public keys used to sign a zone
     /// * `nx_proof_kind` - the kind of non-existence proof provided by the nameserver
     pub fn new(
-        file: String,
+        file: PathBuf,
         allow_update: Option<bool>,
         allow_axfr: Option<bool>,
         keys: Vec<dnssec::KeyConfig>,
@@ -435,13 +435,9 @@ impl ServerZoneConfig {
     /// file is the actual source of truth for the zone.
     pub fn file(&self) -> Option<PathBuf> {
         self.stores.iter().find_map(|store| match store {
-            ServerStoreConfig::File(file_config) => {
-                Some(file_config.zone_file_path.as_str().into())
-            }
+            ServerStoreConfig::File(file_config) => Some(file_config.zone_file_path.clone()),
             #[cfg(feature = "sqlite")]
-            ServerStoreConfig::Sqlite(sqlite_config) => {
-                Some(sqlite_config.zone_file_path.as_str().into())
-            }
+            ServerStoreConfig::Sqlite(sqlite_config) => Some(sqlite_config.zone_file_path.clone()),
             ServerStoreConfig::Default => None,
         })
     }
@@ -654,7 +650,7 @@ mod tests {
                 assert_eq!(config.stores.len(), 1);
                 assert!(matches!(
                         &config.stores[0],
-                    ServerStoreConfig::File(FileConfig { zone_file_path }) if zone_file_path == "default/localhost.zone",
+                    ServerStoreConfig::File(FileConfig { zone_file_path }) if zone_file_path == Path::new("default/localhost.zone"),
                 ));
             }
             Err(e) => panic!("expected successful parse: {e:?}"),

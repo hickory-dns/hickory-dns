@@ -7,6 +7,8 @@
 
 //! SQLite serving with Dynamic DNS and journaling support
 
+use std::path::PathBuf;
+
 use serde::Deserialize;
 
 pub mod authority;
@@ -19,7 +21,7 @@ pub use persistence::Journal;
 #[serde(deny_unknown_fields)]
 pub struct SqliteConfig {
     /// path to initial zone file
-    pub zone_file_path: String,
+    pub zone_file_path: PathBuf,
     /// path to the sqlite journal file
     pub journal_file_path: String,
     /// Are updates allowed to this zone

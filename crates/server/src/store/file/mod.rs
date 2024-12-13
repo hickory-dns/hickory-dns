@@ -7,6 +7,8 @@
 
 //! Zone file based serving with Dynamic DNS and journaling support
 
+use std::path::PathBuf;
+
 use serde::Deserialize;
 
 mod authority;
@@ -17,5 +19,5 @@ pub use authority::FileAuthority;
 #[serde(deny_unknown_fields)]
 pub struct FileConfig {
     /// path to the zone file
-    pub zone_file_path: String,
+    pub zone_file_path: PathBuf,
 }
