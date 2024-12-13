@@ -2,7 +2,8 @@ server:
     pidfile: /tmp/nsd.pid
 
 remote-control:
-  control-enable: no
+  control-enable: yes
+  control-interface: /run/unbound.ctl
 
 zone:
   name: {{ fqdn }}
