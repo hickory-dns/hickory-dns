@@ -9,14 +9,14 @@ use futures_executor::block_on;
 use hickory_proto::{
     dnssec::{
         rdata::{DNSKEY, RRSIG},
-        Algorithm, SupportedAlgorithms, Verifier,
+        Algorithm, Nsec3HashAlgorithm, SupportedAlgorithms, Verifier,
     },
     op::{Header, Query},
     rr::{DNSClass, Name, RData, Record, RecordType},
     xfer::{self, Protocol},
 };
 use hickory_server::{
-    authority::{AuthLookup, Authority, DnssecAuthority, LookupOptions},
+    authority::{AuthLookup, Authority, DnssecAuthority, LookupOptions, Nsec3QueryInfo},
     server::RequestInfo,
 };
 
@@ -312,6 +312,24 @@ pub fn test_nsec_nxdomain_wraps_end<A: Authority<Lookup = AuthLookup>>(
     .is_secure());
 }
 
+pub fn test_nsec3_max_iterations<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
+    // this should have a single nsec3 record that covers the type
+    let name = Name::from_str("www.example.com.").unwrap();
+    // check if an excessive number of iterations causes a stack overflow
+    block_on(authority.get_nsec3_records(
+        Nsec3QueryInfo {
+            qname: &name.into(),
+            qtype: RecordType::A,
+            has_wildcard_match: false,
+            algorithm: Nsec3HashAlgorithm::SHA1,
+            salt: b"",
+            iterations: u16::MAX,
+        },
+        LookupOptions::for_dnssec(true, SupportedAlgorithms::all()),
+    ))
+    .unwrap();
+}
+
 pub fn test_rfc_6975_supported_algorithms<A: Authority<Lookup = AuthLookup>>(
     authority: A,
     keys: &[DNSKEY],
@@ -480,6 +498,7 @@ macro_rules! dnssec_battery {
                     test_nsec_nxdomain_start,
                     test_nsec_nxdomain_middle,
                     test_nsec_nxdomain_wraps_end,
+                    test_nsec3_max_iterations,
                     test_rfc_6975_supported_algorithms,
                 );
             }

@@ -164,17 +164,13 @@ impl Nsec3HashAlgorithm {
         }
     }
 
-    /// until there is another supported algorithm, just hardcoded to this.
     #[cfg(feature = "dnssec-ring")]
     fn sha1_recursive_hash(salt: &[u8], bytes: Vec<u8>, iterations: u16) -> ProtoResult<Digest> {
-        let digested: Digest;
-        let to_digest = if iterations > 0 {
-            digested = Self::sha1_recursive_hash(salt, bytes, iterations - 1)?;
-            digested.as_ref()
-        } else {
-            &bytes
-        };
-        DigestType::SHA1.digest_all(&[to_digest, salt])
+        let mut digested = DigestType::SHA1.digest_all(&[&bytes, salt])?;
+        for _ in 0..iterations {
+            digested = DigestType::SHA1.digest_all(&[digested.as_ref(), salt])?;
+        }
+        Ok(digested)
     }
 }
 
