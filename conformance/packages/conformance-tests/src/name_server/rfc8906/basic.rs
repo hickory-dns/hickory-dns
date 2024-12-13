@@ -169,6 +169,32 @@ fn test_8_1_4_unknown_opcodes() -> Result<()> {
     Ok(())
 }
 
+/// This is a variant of test 8.1.4 with +noheader-only.
+#[test]
+fn test_unknown_opcode_with_query() -> Result<()> {
+    let (_network, ns, client) = setup()?;
+
+    let settings = *DigSettings::default().edns(None).opcode(15);
+    let output = client.dig(
+        settings,
+        ns.ipv4_addr(),
+        RecordType::SOA,
+        &FQDN::TEST_DOMAIN,
+    )?;
+
+    assert_eq!(output.status, DigStatus::NOTIMP);
+    assert_eq!(output.opcode, "RESERVED15");
+    assert!(output.answer.is_empty());
+    assert!(output.authority.is_empty());
+    assert!(output.additional.is_empty());
+    assert!(!output.flags.authoritative_answer);
+    assert!(!output.flags.recursion_desired);
+    assert!(!output.flags.authenticated_data);
+    assert!(!output.opt);
+
+    Ok(())
+}
+
 #[test]
 fn test_8_1_5_tcp() -> Result<()> {
     let (_network, ns, client) = setup()?;
