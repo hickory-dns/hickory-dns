@@ -227,7 +227,7 @@ where
             let udp_res = match future.await {
                 Ok(response) if response.truncated() => {
                     debug!("truncated response received, retrying over TCP");
-                    Ok(response)
+                    Err(ProtoError::from("received truncated response"))
                 }
                 Err(e) if (opts.try_tcp_on_error && e.is_io()) || e.is_no_connections() => {
                     debug!("error from UDP, retrying over TCP: {}", e);
@@ -243,23 +243,7 @@ where
 
             // Try query over TCP, as response to query over UDP was either truncated or was an
             // error.
-            let tcp_res = Self::try_send(opts, stream_conns, tcp_message, &stream_index).await;
-
-            let tcp_err = match tcp_res {
-                res @ Ok(..) => return res.map_err(ProtoError::from),
-                Err(e) => e,
-            };
-
-            // Even if the UDP result was truncated, return that
-            let udp_err = match udp_res {
-                Ok(response) => return Ok(response),
-                Err(e) => e,
-            };
-
-            match udp_err.cmp_specificity(&tcp_err) {
-                Ordering::Greater => Err(udp_err),
-                _ => Err(tcp_err),
-            }
+            Self::try_send(opts, stream_conns, tcp_message, &stream_index).await
         }))
     }
 }

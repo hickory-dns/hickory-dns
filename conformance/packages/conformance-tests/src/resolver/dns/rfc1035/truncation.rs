@@ -64,7 +64,6 @@ fn truncated_response_caching_with_tcp_fallback() -> Result<()> {
 /// Verify that resolvers will not cache a truncated response received via UDP if the authoritative
 /// server does not reply to TCP fallback queries.
 #[test]
-#[ignore = "hickory caches a truncated response if querying over TCP fails"]
 fn truncated_response_caching_udp_only() -> Result<()> {
     let target_fqdn = FQDN("example.testing.")?;
     let (resolver, client, _graph) = setup("src/resolver/dns/rfc1035/truncated_udp_only.py")?;
