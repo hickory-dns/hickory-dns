@@ -214,7 +214,6 @@ impl Ec {
     }
 }
 
-#[cfg(feature = "dnssec-ring")]
 impl PublicKey for Ec {
     fn public_bytes(&self) -> &[u8] {
         self.unprefixed_bytes()

@@ -23,7 +23,6 @@ use crate::error::{ProtoError, ProtoErrorKind};
 use crate::trace;
 
 mod algorithm;
-#[cfg(feature = "dnssec-ring")]
 mod ec_public_key;
 mod nsec3;
 pub mod proof;
@@ -32,7 +31,6 @@ pub mod rdata;
 /// ring implementations of DNSSEC traits.
 #[cfg(feature = "dnssec-ring")]
 pub mod ring;
-#[cfg(feature = "dnssec-ring")]
 mod rsa_public_key;
 mod signer;
 mod supported_algorithm;
