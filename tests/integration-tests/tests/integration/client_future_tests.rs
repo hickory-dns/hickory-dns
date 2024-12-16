@@ -19,7 +19,7 @@ use hickory_integration::{
 };
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use hickory_proto::{
-    dnssec::{rdata::DNSSECRData, ring::RsaSigningKey, Algorithm, SigSigner, SigningKey},
+    dnssec::{crypto::RsaSigningKey, rdata::DNSSECRData, Algorithm, SigSigner, SigningKey},
     rr::{rdata::A, RData, Record},
     runtime::TokioTime,
     xfer::{DnsExchangeBackground, DnsMultiplexer},

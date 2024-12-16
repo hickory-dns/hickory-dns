@@ -16,8 +16,8 @@ use time::Duration;
 
 use hickory_client::client::Client;
 use hickory_client::client::ClientHandle;
+use hickory_client::proto::dnssec::crypto::RsaSigningKey;
 use hickory_client::proto::dnssec::rdata::key::{KeyUsage, KEY};
-use hickory_client::proto::dnssec::ring::RsaSigningKey;
 use hickory_client::proto::dnssec::{Algorithm, SigSigner, SigningKey};
 use hickory_client::proto::op::ResponseCode;
 use hickory_client::proto::rr::rdata::A;

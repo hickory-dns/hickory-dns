@@ -156,7 +156,7 @@ pub fn key_from_file(path: &Path, algorithm: Algorithm) -> Result<Box<dyn Signin
 
     use tracing::info;
 
-    use hickory_proto::dnssec::ring::signing_key_from_der;
+    use hickory_proto::dnssec::crypto::signing_key_from_der;
 
     info!("reading key: {path:?}");
     let mut file =

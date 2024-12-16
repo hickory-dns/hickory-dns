@@ -21,7 +21,7 @@
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "dnssec-ring")]
-use super::{ring::Digest, DigestType};
+use super::{crypto::Digest, DigestType};
 use crate::error::*;
 use crate::rr::Name;
 use crate::serialize::binary::{BinEncodable, BinEncoder};
