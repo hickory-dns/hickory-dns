@@ -10,13 +10,13 @@ use tracing::debug;
 
 use std::time::Duration;
 
-use super::{PublicKey, SigningKey};
+use super::{DnsSecResult, PublicKey, SigningKey};
 use crate::{
     dnssec::{
         rdata::{DNSSECRData, DNSKEY, KEY, SIG},
         tbs, TBS,
     },
-    error::{DnsSecResult, ProtoErrorKind, ProtoResult},
+    error::{ProtoErrorKind, ProtoResult},
     op::{Message, MessageFinalizer, MessageVerifier},
     rr::{
         Record, {DNSClass, Name, RData, RecordType},

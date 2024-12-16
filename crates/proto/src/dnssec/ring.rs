@@ -13,10 +13,10 @@ use ring::{
 use rustls_pki_types::{PrivateKeyDer, PrivatePkcs1KeyDer, PrivatePkcs8KeyDer};
 
 use super::{
-    ec_public_key::ECPublicKey, rsa_public_key::RSAPublicKey, Algorithm, DigestType, PublicKey,
-    PublicKeyBuf, SigningKey, TBS,
+    ec_public_key::ECPublicKey, rsa_public_key::RSAPublicKey, Algorithm, DigestType,
+    DnsSecErrorKind, DnsSecResult, PublicKey, PublicKeyBuf, SigningKey, TBS,
 };
-use crate::error::{DnsSecErrorKind, DnsSecResult, ProtoResult};
+use crate::error::ProtoResult;
 
 /// Decode private key
 pub fn signing_key_from_der(
