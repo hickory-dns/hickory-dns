@@ -13,6 +13,7 @@ use std::fmt;
 use ::ring::error::{KeyRejected, Unspecified};
 #[cfg(feature = "backtrace")]
 use backtrace::Backtrace;
+use rdata::tsig::TsigAlgorithm;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -212,6 +213,10 @@ impl From<Unspecified> for DnsSecError {
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum DnsSecErrorKind {
+    /// An HMAC failed to verify
+    #[error("hmac validation failure")]
+    HmacInvalid,
+
     /// An error with an arbitrary message, referenced as &'static str
     #[error("{0}")]
     Message(&'static str),
@@ -238,15 +243,24 @@ pub enum DnsSecErrorKind {
     /// A request timed out
     #[error("request timed out")]
     Timeout,
+
+    /// Tsig unsupported mac algorithm
+    /// Supported algorithm documented in `TsigAlgorithm::supported` function.
+    #[error("Tsig unsupported mac algorithm")]
+    TsigUnsupportedMacAlgorithm(TsigAlgorithm),
+
+    /// Tsig key verification failed
+    #[error("Tsig key wrong key error")]
+    TsigWrongKey,
 }
 
 impl Clone for DnsSecErrorKind {
     fn clone(&self) -> Self {
         use DnsSecErrorKind::*;
         match self {
+            HmacInvalid => HmacInvalid,
             Message(msg) => Message(msg),
             Msg(msg) => Msg(msg.clone()),
-
             // foreign
             Proto(proto) => Proto(proto.clone()),
             #[cfg(feature = "dnssec-ring")]
@@ -254,6 +268,8 @@ impl Clone for DnsSecErrorKind {
             #[cfg(feature = "dnssec-ring")]
             RingUnspecified(_r) => RingUnspecified(Unspecified),
             Timeout => Timeout,
+            TsigUnsupportedMacAlgorithm(ref alg) => TsigUnsupportedMacAlgorithm(alg.clone()),
+            TsigWrongKey => TsigWrongKey,
         }
     }
 }

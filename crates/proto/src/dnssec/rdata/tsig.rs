@@ -15,7 +15,8 @@ use serde::{Deserialize, Serialize};
 
 use super::DNSSECRData;
 use crate::{
-    error::{ProtoError, ProtoErrorKind, ProtoResult},
+    dnssec::{DnsSecError, DnsSecErrorKind},
+    error::{ProtoError, ProtoResult},
     op::{Header, Message, Query},
     rr::{
         dns_class::DNSClass, rdata::sshfp, record_data::RData, record_type::RecordType, Name,
@@ -530,7 +531,7 @@ impl TsigAlgorithm {
     /// Supported algorithm are HmacSha256, HmacSha384, HmacSha512 and HmacSha512_256
     /// Other algorithm return an error.
     #[cfg(feature = "dnssec-ring")]
-    pub fn mac_data(&self, key: &[u8], message: &[u8]) -> ProtoResult<Vec<u8>> {
+    pub fn mac_data(&self, key: &[u8], message: &[u8]) -> Result<Vec<u8>, DnsSecError> {
         use ring::hmac;
         use TsigAlgorithm::*;
 
@@ -538,7 +539,7 @@ impl TsigAlgorithm {
             HmacSha256 => hmac::Key::new(hmac::HMAC_SHA256, key),
             HmacSha384 => hmac::Key::new(hmac::HMAC_SHA384, key),
             HmacSha512 => hmac::Key::new(hmac::HMAC_SHA512, key),
-            _ => return Err(ProtoErrorKind::TsigUnsupportedMacAlgorithm(self.clone()).into()),
+            _ => return Err(DnsSecErrorKind::TsigUnsupportedMacAlgorithm(self.clone()).into()),
         };
 
         let mac = hmac::sign(&key, message);
@@ -551,7 +552,7 @@ impl TsigAlgorithm {
     ///
     /// This is both faster than independently creating the MAC and also constant time preventing timing attacks
     #[cfg(feature = "dnssec-ring")]
-    pub fn verify_mac(&self, key: &[u8], message: &[u8], tag: &[u8]) -> ProtoResult<()> {
+    pub fn verify_mac(&self, key: &[u8], message: &[u8], tag: &[u8]) -> Result<(), DnsSecError> {
         use ring::hmac;
         use TsigAlgorithm::*;
 
@@ -559,15 +560,15 @@ impl TsigAlgorithm {
             HmacSha256 => hmac::Key::new(hmac::HMAC_SHA256, key),
             HmacSha384 => hmac::Key::new(hmac::HMAC_SHA384, key),
             HmacSha512 => hmac::Key::new(hmac::HMAC_SHA512, key),
-            _ => return Err(ProtoErrorKind::TsigUnsupportedMacAlgorithm(self.clone()).into()),
+            _ => return Err(DnsSecErrorKind::TsigUnsupportedMacAlgorithm(self.clone()).into()),
         };
 
-        hmac::verify(&key, message, tag).map_err(|_| ProtoErrorKind::HmacInvalid().into())
+        hmac::verify(&key, message, tag).map_err(|_| DnsSecErrorKind::HmacInvalid.into())
     }
 
     /// Return length in bytes of the algorithms output
     #[cfg(feature = "dnssec-ring")]
-    pub fn output_len(&self) -> ProtoResult<usize> {
+    pub fn output_len(&self) -> Result<usize, DnsSecError> {
         use ring::hmac;
         use TsigAlgorithm::*;
 
@@ -575,7 +576,7 @@ impl TsigAlgorithm {
             HmacSha256 => hmac::HMAC_SHA256.digest_algorithm().output_len(),
             HmacSha384 => hmac::HMAC_SHA384.digest_algorithm().output_len(),
             HmacSha512 => hmac::HMAC_SHA512.digest_algorithm().output_len(),
-            _ => return Err(ProtoErrorKind::TsigUnsupportedMacAlgorithm(self.clone()).into()),
+            _ => return Err(DnsSecErrorKind::TsigUnsupportedMacAlgorithm(self.clone()).into()),
         };
 
         Ok(len)
