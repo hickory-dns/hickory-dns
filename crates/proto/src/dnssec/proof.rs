@@ -14,13 +14,12 @@ use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use super::{Algorithm, DnsSecError};
 use crate::{
-    error::{DnsSecError, ProtoError},
+    error::ProtoError,
     op::Query,
     rr::{Name, RecordType},
 };
-
-use super::Algorithm;
 
 /// Represents the status of a DNSSEC verified record.
 ///

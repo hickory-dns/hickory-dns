@@ -77,8 +77,6 @@ pub use crate::xfer::dnssec_dns_handle::DnssecDnsHandle;
 pub use crate::xfer::retry_dns_handle::RetryDnsHandle;
 #[doc(hidden)]
 pub use crate::xfer::BufDnsStreamHandle;
-#[cfg(feature = "dnssec-ring")]
-pub use error::{DnsSecError, DnsSecErrorKind};
 #[cfg(feature = "backtrace")]
 pub use error::{ExtBacktrace, ENABLE_BACKTRACE};
 pub use error::{ForwardData, ForwardNSData, ProtoError, ProtoErrorKind};

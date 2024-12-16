@@ -12,9 +12,9 @@ use std::fmt::{self, Display, Formatter};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::{DNSSECRData, DnsSecError};
+use super::DNSSECRData;
 use crate::{
-    dnssec::{rdata::DNSKEY, Algorithm, DigestType, PublicKey},
+    dnssec::{rdata::DNSKEY, Algorithm, DigestType, DnsSecError, PublicKey},
     error::{ProtoError, ProtoResult},
     rr::{Name, RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
