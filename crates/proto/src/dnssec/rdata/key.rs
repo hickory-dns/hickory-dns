@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use super::DNSSECRData;
 use crate::{
-    dnssec::{ring::decode_public_key, Algorithm, PublicKey, Verifier},
+    dnssec::{crypto::decode_public_key, Algorithm, PublicKey, Verifier},
     error::{ProtoError, ProtoResult},
     rr::{record_data::RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
@@ -893,7 +893,7 @@ mod tests {
 
     use super::*;
     #[cfg(feature = "dnssec-ring")]
-    use crate::dnssec::{ring::EcdsaSigningKey, SigningKey};
+    use crate::dnssec::{crypto::EcdsaSigningKey, SigningKey};
 
     #[cfg(feature = "dnssec-ring")]
     #[test]

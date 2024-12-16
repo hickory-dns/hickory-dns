@@ -19,7 +19,7 @@ use crate::{
 use crate::{
     dnssec::NxProofKind,
     proto::{
-        dnssec::{rdata::key::KEY, ring::Digest, DnsSecResult, Nsec3HashAlgorithm, SigSigner},
+        dnssec::{crypto::Digest, rdata::key::KEY, DnsSecResult, Nsec3HashAlgorithm, SigSigner},
         rr::Name,
         ProtoError,
     },

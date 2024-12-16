@@ -13,9 +13,9 @@ use std::{fmt, sync::Arc};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "dnssec-ring")]
-use crate::dnssec::ring::Digest;
+use crate::dnssec::crypto::Digest;
 use crate::{
-    dnssec::{ring::decode_public_key, Algorithm, DigestType, PublicKey, PublicKeyBuf, Verifier},
+    dnssec::{crypto::decode_public_key, Algorithm, DigestType, PublicKey, PublicKeyBuf, Verifier},
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     rr::{record_data::RData, Name, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
@@ -504,7 +504,7 @@ mod tests {
 
     use super::*;
     #[cfg(feature = "dnssec-ring")]
-    use crate::dnssec::{ring::EcdsaSigningKey, SigningKey};
+    use crate::dnssec::{crypto::EcdsaSigningKey, SigningKey};
 
     #[test]
     #[cfg(feature = "dnssec-ring")]

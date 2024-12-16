@@ -46,7 +46,7 @@ pub(crate) fn parse<'i>(mut tokens: impl Iterator<Item = &'i str>) -> ParseResul
 mod tests {
     use super::*;
     #[cfg(feature = "dnssec-ring")]
-    use crate::dnssec::ring::EcdsaSigningKey;
+    use crate::dnssec::crypto::EcdsaSigningKey;
     use crate::dnssec::{PublicKey, SigningKey};
 
     const ENCODED: &str = "aGVsbG8=";

@@ -27,14 +27,14 @@ mod dnssec_dns_handle;
 #[doc(hidden)]
 pub use dnssec_dns_handle::verify_nsec;
 pub use dnssec_dns_handle::DnssecDnsHandle;
+/// Cryptographic backend implementations of DNSSEC traits.
+#[cfg(feature = "dnssec-ring")]
+pub mod crypto;
 mod ec_public_key;
 mod nsec3;
 pub mod proof;
 pub mod public_key;
 pub mod rdata;
-/// ring implementations of DNSSEC traits.
-#[cfg(feature = "dnssec-ring")]
-pub mod ring;
 mod rsa_public_key;
 mod signer;
 mod supported_algorithm;

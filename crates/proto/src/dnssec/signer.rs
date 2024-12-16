@@ -541,8 +541,8 @@ mod tests {
 
     use super::*;
     use crate::dnssec::{
+        crypto::RsaSigningKey,
         rdata::{key::KeyUsage, DNSSECRData, KEY, RRSIG, SIG},
-        ring::RsaSigningKey,
         Algorithm, PublicKey, SigningKey, Verifier, TBS,
     };
     use crate::op::{Message, Query};
