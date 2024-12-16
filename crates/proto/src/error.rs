@@ -24,7 +24,7 @@ use thiserror::Error;
 use tracing::debug;
 
 #[cfg(feature = "dnssec-ring")]
-use crate::dnssec::{rdata::tsig::TsigAlgorithm, Proof};
+use crate::dnssec::Proof;
 use crate::op::{Header, Query, ResponseCode};
 use crate::rr::{domain::Name, rdata::SOA, resource::RecordRef, Record, RecordType};
 use crate::serialize::binary::DecodeError;
@@ -126,10 +126,6 @@ pub enum ProtoErrorKind {
         /// Error that occurred while parsing the Message
         error: Box<ProtoError>,
     },
-
-    /// An HMAC failed to verify
-    #[error("hmac validation failure")]
-    HmacInvalid(),
 
     /// The length of rdata read was not as expected
     #[error("incorrect rdata length read: {read} expected: {len}")]
@@ -268,16 +264,6 @@ pub enum ProtoErrorKind {
     /// A request timed out
     #[error("request timed out")]
     Timeout,
-
-    /// Tsig key verification failed
-    #[error("Tsig key wrong key error")]
-    TsigWrongKey,
-
-    /// Tsig unsupported mac algorithm
-    /// Supported algorithm documented in `TsigAlgorithm::supported` function.
-    #[cfg(feature = "dnssec-ring")]
-    #[error("Tsig unsupported mac algorithm")]
-    TsigUnsupportedMacAlgorithm(TsigAlgorithm),
 
     /// An url parsing error
     #[error("url parsing error")]
@@ -752,7 +738,6 @@ impl Clone for ProtoErrorKind {
                 header,
                 error: error.clone(),
             },
-            HmacInvalid() => HmacInvalid(),
             IncorrectRDataLengthRead { read, len } => IncorrectRDataLengthRead { read, len },
             LabelBytesTooLong(len) => LabelBytesTooLong(len),
             PointerNotPriorToLabel { idx, ptr } => PointerNotPriorToLabel { idx, ptr },
@@ -802,9 +787,6 @@ impl Clone for ProtoErrorKind {
             Ring(ref _e) => Ring(Unspecified),
             Timeout => Timeout,
             Timer => Timer,
-            #[cfg(feature = "dnssec-ring")]
-            TsigUnsupportedMacAlgorithm(ref alg) => TsigUnsupportedMacAlgorithm(alg.clone()),
-            TsigWrongKey => TsigWrongKey,
             UrlParsing(ref e) => UrlParsing(*e),
             Utf8(ref e) => Utf8(*e),
             FromUtf8(ref e) => FromUtf8(e.clone()),
