@@ -225,7 +225,6 @@ use crate::{
 ///    Note that the response received by the resolver should include all
 ///    NSEC RRs needed to authenticate the response (see Section 3.1.3).
 /// ```
-#[cfg(feature = "dnssec-ring")]
 pub struct SigSigner {
     // TODO: this should really be a trait and generic struct over KEY and DNSKEY
     key_rdata: RData,
@@ -235,7 +234,6 @@ pub struct SigSigner {
     is_zone_signing_key: bool,
 }
 
-#[cfg(feature = "dnssec-ring")]
 impl SigSigner {
     /// Version of Signer for verifying RRSIGs and SIG0 records.
     ///
