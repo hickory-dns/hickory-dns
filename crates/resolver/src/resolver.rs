@@ -703,7 +703,7 @@ pub mod testing {
 
         let lookup_ip = response.unwrap();
         for record in lookup_ip.as_lookup().record_iter() {
-            assert!(record.proof().is_bogus())
+            assert!(record.proof().is_insecure());
         }
     }
 
@@ -1188,6 +1188,8 @@ mod tests {
     #[cfg(feature = "dnssec")]
     fn test_sec_lookup_fails() {
         use super::testing::sec_lookup_fails_test;
+        use test_support::subscribe;
+        subscribe();
         let io_loop = Runtime::new().expect("failed to create tokio runtime io_loop");
         let handle = TokioConnectionProvider::default();
         sec_lookup_fails_test::<Runtime, TokioConnectionProvider>(io_loop, handle);
