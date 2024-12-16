@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use super::DNSSECRData;
 use crate::{
-    dnssec::{public_key::decode_public_key, Algorithm, PublicKey, Verifier},
+    dnssec::{ring::decode_public_key, Algorithm, PublicKey, Verifier},
     error::{ProtoError, ProtoResult},
     rr::{record_data::RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{

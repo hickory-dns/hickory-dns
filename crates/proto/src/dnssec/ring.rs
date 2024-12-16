@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::Arc};
 
 use ring::{
     digest,
@@ -34,6 +34,30 @@ pub fn signing_key_from_der(
         }
         Algorithm::ED25519 => Ok(Box::new(Ed25519SigningKey::from_key_der(key_der)?)),
         e => Err(format!("unsupported SigningKey algorithm for ring: {e:?}").into()),
+    }
+}
+
+pub(super) fn decode_public_key<'a>(
+    public_key: &'a [u8],
+    algorithm: Algorithm,
+) -> ProtoResult<Arc<dyn PublicKey + 'a>> {
+    // try to keep this and `Algorithm::is_supported` in sync
+    debug_assert!(algorithm.is_supported());
+
+    #[allow(deprecated)]
+    match algorithm {
+        #[cfg(feature = "dnssec-ring")]
+        Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => {
+            Ok(Arc::new(Ec::from_public_bytes(public_key, algorithm)?))
+        }
+        #[cfg(feature = "dnssec-ring")]
+        Algorithm::ED25519 => Ok(Arc::new(Ed25519::from_public_bytes(public_key.into())?)),
+        #[cfg(feature = "dnssec-ring")]
+        Algorithm::RSASHA1
+        | Algorithm::RSASHA1NSEC3SHA1
+        | Algorithm::RSASHA256
+        | Algorithm::RSASHA512 => Ok(Arc::new(Rsa::from_public_bytes(public_key, algorithm)?)),
+        _ => Err("public key algorithm not supported".into()),
     }
 }
 
