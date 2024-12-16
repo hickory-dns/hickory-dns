@@ -35,8 +35,8 @@ use crate::{
 
 use self::rrset::Rrset;
 
-use nsec3_validation::verify_nsec3;
 mod nsec3_validation;
+use nsec3_validation::verify_nsec3;
 
 /// Performs DNSSEC validation of all DNS responses from the wrapped DnsHandle
 ///
