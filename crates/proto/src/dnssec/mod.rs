@@ -23,6 +23,10 @@ use crate::error::{ProtoError, ProtoErrorKind};
 use crate::trace;
 
 mod algorithm;
+mod dnssec_dns_handle;
+#[doc(hidden)]
+pub use dnssec_dns_handle::verify_nsec;
+pub use dnssec_dns_handle::DnssecDnsHandle;
 mod ec_public_key;
 mod nsec3;
 pub mod proof;

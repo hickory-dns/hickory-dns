@@ -71,9 +71,6 @@ pub use crate::xfer::dns_handle::{DnsHandle, DnsStreamHandle};
 #[doc(hidden)]
 pub use crate::xfer::dns_multiplexer::DnsMultiplexer;
 #[doc(hidden)]
-#[cfg(feature = "dnssec-ring")]
-pub use crate::xfer::dnssec_dns_handle::DnssecDnsHandle;
-#[doc(hidden)]
 pub use crate::xfer::retry_dns_handle::RetryDnsHandle;
 #[doc(hidden)]
 pub use crate::xfer::BufDnsStreamHandle;
