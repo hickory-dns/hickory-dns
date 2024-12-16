@@ -7,11 +7,7 @@
 
 //! Public Key implementations for supported key types
 
-use std::sync::Arc;
-
-#[cfg(feature = "dnssec-ring")]
-use super::ring;
-use super::Algorithm;
+use super::{ring::decode_public_key, Algorithm};
 use crate::error::ProtoResult;
 
 /// PublicKeys implement the ability to ideally be zero copy abstractions over public keys for verifying signed content.
@@ -38,34 +34,6 @@ pub trait PublicKey {
 
     /// The algorithm associated with this key.
     fn algorithm(&self) -> Algorithm;
-}
-
-pub(super) fn decode_public_key<'a>(
-    public_key: &'a [u8],
-    algorithm: Algorithm,
-) -> ProtoResult<Arc<dyn PublicKey + 'a>> {
-    // try to keep this and `Algorithm::is_supported` in sync
-    debug_assert!(algorithm.is_supported());
-
-    #[allow(deprecated)]
-    match algorithm {
-        #[cfg(feature = "dnssec-ring")]
-        Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => Ok(Arc::new(
-            ring::Ec::from_public_bytes(public_key, algorithm)?,
-        )),
-        #[cfg(feature = "dnssec-ring")]
-        Algorithm::ED25519 => Ok(Arc::new(ring::Ed25519::from_public_bytes(
-            public_key.into(),
-        )?)),
-        #[cfg(feature = "dnssec-ring")]
-        Algorithm::RSASHA1
-        | Algorithm::RSASHA1NSEC3SHA1
-        | Algorithm::RSASHA256
-        | Algorithm::RSASHA512 => Ok(Arc::new(ring::Rsa::from_public_bytes(
-            public_key, algorithm,
-        )?)),
-        _ => Err("public key algorithm not supported".into()),
-    }
 }
 
 /// An owned variant of PublicKey
