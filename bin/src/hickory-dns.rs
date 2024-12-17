@@ -61,7 +61,7 @@ use tracing_subscriber::{
 
 #[cfg(feature = "dns-over-tls")]
 use hickory_dns::dnssec::{self, TlsCertConfig};
-use hickory_dns::{Config, StoreConfig, ZoneConfig};
+use hickory_dns::{Config, ServerStoreConfig, ZoneConfig};
 use hickory_proto::rr::Name;
 #[cfg(feature = "blocklist")]
 use hickory_server::store::blocklist::BlocklistAuthority;
@@ -182,7 +182,7 @@ async fn load_zone(
     for store in &zone_config.stores {
         let authority: Arc<dyn AuthorityObject> = match store {
             #[cfg(feature = "sqlite")]
-            StoreConfig::Sqlite(config) => {
+            ServerStoreConfig::Sqlite(config) => {
                 let mut authority = SqliteAuthority::try_from_config(
                     zone_name.clone(),
                     zone_type,
@@ -199,7 +199,7 @@ async fn load_zone(
                 load_keys(&mut authority, zone_name_for_signer.clone(), zone_config).await?;
                 Arc::new(authority)
             }
-            StoreConfig::File(config) => {
+            ServerStoreConfig::File(config) => {
                 let mut authority = FileAuthority::try_from_config(
                     zone_name.clone(),
                     zone_type,
@@ -215,14 +215,14 @@ async fn load_zone(
                 Arc::new(authority)
             }
             #[cfg(feature = "resolver")]
-            StoreConfig::Forward(config) => {
+            ServerStoreConfig::Forward(config) => {
                 let forwarder =
                     ForwardAuthority::try_from_config(zone_name.clone(), zone_type, config)?;
 
                 Arc::new(forwarder)
             }
             #[cfg(feature = "recursor")]
-            StoreConfig::Recursor(config) => {
+            ServerStoreConfig::Recursor(config) => {
                 let recursor = RecursiveAuthority::try_from_config(
                     zone_name.clone(),
                     zone_type,
@@ -233,7 +233,7 @@ async fn load_zone(
                 Arc::new(authority)
             }
             #[cfg(feature = "blocklist")]
-            StoreConfig::Blocklist(ref config) => Arc::new(
+            ServerStoreConfig::Blocklist(ref config) => Arc::new(
                 BlocklistAuthority::try_from_config(
                     zone_name.clone(),
                     zone_type,
