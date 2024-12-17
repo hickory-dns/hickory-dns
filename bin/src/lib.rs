@@ -460,7 +460,7 @@ impl ServerZoneConfig {
     pub fn is_dnssec_enabled(&self) -> bool {
         cfg_if! {
             if #[cfg(feature = "dnssec")] {
-                self.keys.iter().any(|key| key.is_zone_signing_key() || key.is_zone_update_auth())
+                !self.keys.is_empty()
             } else {
                 false
             }

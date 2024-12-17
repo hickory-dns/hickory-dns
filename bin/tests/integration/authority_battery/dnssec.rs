@@ -368,7 +368,7 @@ pub fn verify(records: &[&Record], rrsig_records: &[Record<RRSIG>], keys: &[DNSK
 }
 
 pub fn add_signers<A: DnssecAuthority>(authority: &mut A) -> Vec<DNSKEY> {
-    use hickory_dns::dnssec::KeyConfig;
+    use hickory_dns::dnssec::{KeyConfig, KeyPurpose};
     let signer_name = Name::from(authority.origin().to_owned());
 
     let mut keys = Vec::<DNSKEY>::new();
@@ -382,8 +382,7 @@ pub fn add_signers<A: DnssecAuthority>(authority: &mut A) -> Vec<DNSKEY> {
             password: None,
             algorithm: Algorithm::RSASHA512.to_string(),
             signer_name: Some(signer_name.to_string()),
-            is_zone_signing_key: Some(true),
-            is_zone_update_auth: Some(false),
+            purpose: KeyPurpose::ZoneSigning,
         };
 
         let signer = key_config
@@ -437,8 +436,7 @@ pub fn add_signers<A: DnssecAuthority>(authority: &mut A) -> Vec<DNSKEY> {
             password: None,
             algorithm: Algorithm::ED25519.to_string(),
             signer_name: Some(signer_name.to_string()),
-            is_zone_signing_key: Some(true),
-            is_zone_update_auth: Some(false),
+            purpose: KeyPurpose::ZoneSigning,
         };
 
         let signer = key_config

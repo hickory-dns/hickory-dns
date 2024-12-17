@@ -94,43 +94,49 @@ where
     A: DnssecAuthority<Lookup = L>,
     L: Send + Sync + Sized + 'static,
 {
+    use hickory_dns::dnssec::KeyPurpose;
     use hickory_proto::dnssec::rdata::KEY;
 
     if server_config.is_dnssec_enabled() {
         for key_config in server_config.keys() {
             info!(
-                "adding key to zone: {:?}, is_zsk: {}, is_auth: {}",
+                "adding key to zone: {:?}, purpose: {:?}",
                 key_config.key_path(),
-                key_config.is_zone_signing_key(),
-                key_config.is_zone_update_auth()
+                key_config.purpose(),
             );
-            if key_config.is_zone_signing_key() {
-                let zone_signer = key_config.try_into_signer(zone_name.clone()).map_err(|e| {
-                    format!("failed to load key: {:?} msg: {}", key_config.key_path(), e)
-                })?;
-                authority
-                    .add_zone_signing_key(zone_signer)
-                    .await
-                    .map_err(|err| format!("failed to add zone signing key to authority: {err}"))?;
-            }
-            if key_config.is_zone_update_auth() {
-                let update_auth_signer =
-                    key_config.try_into_signer(zone_name.clone()).map_err(|e| {
-                        format!("failed to load key: {:?} msg: {}", key_config.key_path(), e)
-                    })?;
-                let public_key = update_auth_signer
-                    .key()
-                    .to_public_key()
-                    .map_err(|err| format!("failed to get public key: {err}"))?;
-                let key = KEY::new_sig0key_with_usage(
-                    &public_key,
-                    update_auth_signer.algorithm(),
-                    KeyUsage::Host,
-                );
-                authority
-                    .add_update_auth_key(zone_name.clone(), key)
-                    .await
-                    .map_err(|err| format!("failed to update auth key to authority: {err}"))?;
+            match key_config.purpose() {
+                KeyPurpose::ZoneSigning => {
+                    let zone_signer =
+                        key_config.try_into_signer(zone_name.clone()).map_err(|e| {
+                            format!("failed to load key: {:?} msg: {}", key_config.key_path(), e)
+                        })?;
+                    authority
+                        .add_zone_signing_key(zone_signer)
+                        .await
+                        .map_err(|err| {
+                            format!("failed to add zone signing key to authority: {err}")
+                        })?;
+                }
+
+                KeyPurpose::ZoneUpdateAuth => {
+                    let update_auth_signer =
+                        key_config.try_into_signer(zone_name.clone()).map_err(|e| {
+                            format!("failed to load key: {:?} msg: {}", key_config.key_path(), e)
+                        })?;
+                    let public_key = update_auth_signer
+                        .key()
+                        .to_public_key()
+                        .map_err(|err| format!("failed to get public key: {err}"))?;
+                    let key = KEY::new_sig0key_with_usage(
+                        &public_key,
+                        update_auth_signer.algorithm(),
+                        KeyUsage::Host,
+                    );
+                    authority
+                        .add_update_auth_key(zone_name.clone(), key)
+                        .await
+                        .map_err(|err| format!("failed to update auth key to authority: {err}"))?;
+                }
             }
         }
 
