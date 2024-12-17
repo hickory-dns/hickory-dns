@@ -5,7 +5,6 @@ group = "nogroup"
 zone = "{{ fqdn }}"
 zone_type = "Primary"
 file = "/etc/zones/main.zone"
-enable_dnssec = {{ use_dnssec }}
 nx_proof_kind = { nsec3 = { iterations = 1 } }
 
 [[zones.keys]]
@@ -15,7 +14,7 @@ key_path = "/etc/zones/zsk.pk8"
 key_path = "/etc/zones/zsk.key"
 {% endif %}
 algorithm = "RSASHA256"
-is_zone_signing_key = true
+is_zone_signing_key = {{ use_dnssec }}
 
 {% for zone in additional_zones -%}
 [[zones]]
