@@ -152,6 +152,7 @@ fn test_parse_toml() {
 #[cfg(feature = "dnssec")]
 #[test]
 fn test_parse_zone_keys() {
+    use hickory_dns::dnssec::KeyPurpose;
     use hickory_proto::dnssec::Algorithm;
     use hickory_proto::rr::Name;
 
@@ -170,14 +171,14 @@ key_path = \"/path/to/my_ed25519.pem\"
 algorithm = \"ED25519\"
 \
          signer_name = \"ns.example.com.\"
-is_zone_signing_key = false
-is_zone_update_auth = true
+purpose = \"ZoneUpdateAuth\"
 
 [[zones.keys]]
 key_path = \"/path/to/my_rsa.pem\"
 algorithm = \
          \"RSASHA256\"
 signer_name = \"ns.example.com.\"
+purpose = \"ZoneSigning\"
 ",
     )
     .unwrap();
@@ -196,8 +197,10 @@ signer_name = \"ns.example.com.\"
             .unwrap(),
         Name::parse("ns.example.com.", None).unwrap()
     );
-    assert!(!get_server_zone(&config, 0).keys()[0].is_zone_signing_key(),);
-    assert!(get_server_zone(&config, 0).keys()[0].is_zone_update_auth(),);
+    assert_eq!(
+        KeyPurpose::ZoneUpdateAuth,
+        get_server_zone(&config, 0).keys()[0].purpose()
+    );
 
     assert_eq!(
         get_server_zone(&config, 0).keys()[1].key_path(),
@@ -214,8 +217,10 @@ signer_name = \"ns.example.com.\"
             .unwrap(),
         Name::parse("ns.example.com.", None).unwrap()
     );
-    assert!(!get_server_zone(&config, 0).keys()[1].is_zone_signing_key(),);
-    assert!(!get_server_zone(&config, 0).keys()[1].is_zone_update_auth(),);
+    assert_eq!(
+        KeyPurpose::ZoneSigning,
+        get_server_zone(&config, 0).keys()[1].purpose(),
+    );
 }
 
 #[test]

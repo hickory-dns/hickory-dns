@@ -33,10 +33,24 @@ pub struct KeyConfig {
     pub algorithm: String,
     /// the name to use when signing records, e.g. ns.example.com
     pub signer_name: Option<String>,
-    /// specify that this key should be used for signing a zone
-    pub is_zone_signing_key: Option<bool>,
-    /// specifies that this key can be used for dynamic updates in the zone
-    pub is_zone_update_auth: Option<bool>,
+    pub purpose: KeyPurpose,
+}
+
+/// What a key will be used for
+#[derive(Clone, Copy, Deserialize, PartialEq, Eq, Debug)]
+pub enum KeyPurpose {
+    /// This key is used to sign a zone
+    ///
+    /// The public key for this must be trusted by a resolver to work. The key must have a private
+    /// portion associated with it. It will be registered as a DNSKEY in the zone.
+    ZoneSigning,
+
+    /// This key is used for dynamic updates in the zone
+    ///
+    /// This is at least a public_key, and can be used for SIG0 dynamic updates
+    ///
+    /// it will be registered as a KEY record in the zone
+    ZoneUpdateAuth,
 }
 
 impl KeyConfig {
@@ -56,16 +70,14 @@ impl KeyConfig {
         password: Option<String>,
         algorithm: Algorithm,
         signer_name: String,
-        is_zone_signing_key: bool,
-        is_zone_update_auth: bool,
+        purpose: KeyPurpose,
     ) -> Self {
         Self {
             key_path,
             password,
             algorithm: algorithm.as_str().to_string(),
             signer_name: Some(signer_name),
-            is_zone_signing_key: Some(is_zone_signing_key),
-            is_zone_update_auth: Some(is_zone_update_auth),
+            purpose,
         }
     }
 
@@ -130,19 +142,8 @@ impl KeyConfig {
         Ok(None)
     }
 
-    /// specifies that this key should be used to sign the zone
-    ///
-    /// The public key for this must be trusted by a resolver to work. The key must have a private
-    /// portion associated with it. It will be registered as a DNSKEY in the zone.
-    pub fn is_zone_signing_key(&self) -> bool {
-        self.is_zone_signing_key.unwrap_or(false)
-    }
-
-    /// this is at least a public_key, and can be used for SIG0 dynamic updates.
-    ///
-    /// it will be registered as a KEY record in the zone.
-    pub fn is_zone_update_auth(&self) -> bool {
-        self.is_zone_update_auth.unwrap_or(false)
+    pub fn purpose(&self) -> KeyPurpose {
+        self.purpose
     }
 
     /// Tries to read the defined key into a Signer
