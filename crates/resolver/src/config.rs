@@ -913,6 +913,12 @@ pub struct ResolverOpts {
     /// prevent those prompts from being displayed. If os_port_selection is true, avoid_local_udp_ports
     /// will be ignored.
     pub os_port_selection: bool,
+    /// Randomize the case of letters in query names, and require that responses preserve the case
+    /// of the query name, in order to mitigate spoofing attacks. This is only applied over UDP.
+    ///
+    /// This implements the mechanism described in
+    /// [draft-vixie-dnsext-dns0x20-00](https://datatracker.ietf.org/doc/html/draft-vixie-dnsext-dns0x20-00).
+    pub case_randomization: bool,
 }
 
 impl Default for ResolverOpts {
@@ -947,6 +953,7 @@ impl Default for ResolverOpts {
             shuffle_dns_servers: false,
             avoid_local_udp_ports: Arc::new(HashSet::new()),
             os_port_selection: false,
+            case_randomization: false,
         }
     }
 }

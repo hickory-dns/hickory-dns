@@ -80,6 +80,7 @@ where
         let ns = self.ns.clone();
 
         let query_cpy = query.clone();
+        let case_randomization = self.ns.options().case_randomization;
 
         // block concurrent requests
         let lookup = self
@@ -92,6 +93,7 @@ where
                 let mut options = DnsRequestOptions::default();
                 options.use_edns = security_aware;
                 options.edns_set_dnssec_ok = security_aware;
+                options.case_randomization = case_randomization;
 
                 // Set RD=0 in queries made by the recursive resolver. See the last figure in
                 // section 2.2 of RFC 1035, for example. Failure to do so may allow for loops
