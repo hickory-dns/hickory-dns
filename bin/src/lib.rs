@@ -265,17 +265,18 @@ where
                 if config
                     .stores
                     .iter()
-                    .any(|store| matches!(store, StoreConfig::File(_)))
+                    .any(|store| matches!(store, ServerStoreConfig::File(_)))
                 {
                     Err(<D::Error as serde::de::Error>::custom(
                         "having `file` and `[zones.store]` item with type `file` is ambiguous",
                     ))
                 } else {
-                    let store = StoreConfig::File(FileConfig {
+                    let store = ServerStoreConfig::File(FileConfig {
                         zone_file_path: file,
                     });
 
-                    if config.stores.len() == 1 && matches!(&config.stores[0], StoreConfig::Default)
+                    if config.stores.len() == 1
+                        && matches!(&config.stores[0], ServerStoreConfig::Default)
                     {
                         config.stores[0] = store;
                     } else {
@@ -308,13 +309,13 @@ pub struct ZoneConfig {
     #[serde(default)]
     pub keys: Vec<dnssec::KeyConfig>,
     /// Store configurations.  Note: we specify a default handler to get a Vec containing a
-    /// StoreConfig::Default, which is used for authoritative file-based zones and legacy sqlite
+    /// ServerStoreConfig::Default, which is used for authoritative file-based zones and legacy sqlite
     /// configurations. #[serde(default)] cannot be used, because it will invoke Default for Vec,
-    /// i.e., an empty Vec and we cannot implement Default for StoreConfig and return a Vec.  The
+    /// i.e., an empty Vec and we cannot implement Default for ServerStoreConfig and return a Vec.  The
     /// custom visitor is used to handle map (single store) or sequence (chained store) configurations.
     #[serde(default = "store_config_default")]
     #[serde(deserialize_with = "store_config_visitor")]
-    pub stores: Vec<StoreConfig>,
+    pub stores: Vec<ServerStoreConfig>,
     /// The kind of non-existence proof provided by the nameserver
     #[cfg(feature = "dnssec")]
     pub nx_proof_kind: Option<NxProofKind>,
@@ -328,7 +329,7 @@ impl ZoneConfig {
     /// * `zone` - name of a zone, e.g. example.com
     /// * `zone_type` - Type of zone, e.g. Primary, Secondary, etc.
     /// * `file` - relative to Config base path, to the zone file. This translates to a
-    ///    [`StoreConfig::File`] with the given path.
+    ///    [`ServerStoreConfig::File`] with the given path.
     /// * `allow_update` - enable dynamic updates
     /// * `allow_axfr` - enable AXFR transfers
     /// * `enable_dnssec` - enable signing of the zone for DNSSEC
@@ -352,7 +353,7 @@ impl ZoneConfig {
             allow_axfr,
             enable_dnssec,
             keys,
-            stores: vec![StoreConfig::File(FileConfig {
+            stores: vec![ServerStoreConfig::File(FileConfig {
                 zone_file_path: file,
             })],
             #[cfg(feature = "dnssec")]
@@ -380,15 +381,17 @@ impl ZoneConfig {
             .iter()
             .find_map(|store| match store {
                 #[cfg(feature = "blocklist")]
-                StoreConfig::Blocklist { .. } => None,
-                StoreConfig::File(file_config) => Some(file_config.zone_file_path.as_str()),
+                ServerStoreConfig::Blocklist { .. } => None,
+                ServerStoreConfig::File(file_config) => Some(file_config.zone_file_path.as_str()),
                 #[cfg(feature = "sqlite")]
-                StoreConfig::Sqlite(sqlite_config) => Some(sqlite_config.zone_file_path.as_str()),
+                ServerStoreConfig::Sqlite(sqlite_config) => {
+                    Some(sqlite_config.zone_file_path.as_str())
+                }
                 #[cfg(feature = "resolver")]
-                StoreConfig::Forward { .. } => None,
+                ServerStoreConfig::Forward { .. } => None,
                 #[cfg(feature = "recursor")]
-                StoreConfig::Recursor { .. } => None,
-                StoreConfig::Default => None,
+                ServerStoreConfig::Recursor { .. } => None,
+                ServerStoreConfig::Default => None,
             })
             .map(PathBuf::from)
     }
@@ -426,7 +429,7 @@ impl ZoneConfig {
 #[serde(tag = "type")]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
-pub enum StoreConfig {
+pub enum ServerStoreConfig {
     /// Blocklist configuration
     #[cfg(feature = "blocklist")]
     Blocklist(BlocklistConfig),
@@ -445,36 +448,36 @@ pub enum StoreConfig {
     Default,
 }
 
-/// Create a default value for serde for StoreConfig.
-fn store_config_default() -> Vec<StoreConfig> {
-    vec![StoreConfig::Default]
+/// Create a default value for serde for ServerStoreConfig.
+fn store_config_default() -> Vec<ServerStoreConfig> {
+    vec![ServerStoreConfig::Default]
 }
 
 /// Custom serde visitor that can deserialize a map (single configuration store, expressed as a TOML
 /// table) or sequence (chained configuration stores, expressed as a TOML array of tables.)
 /// This is used instead of an untagged enum because serde cannot provide variant-specific error
 /// messages when using an untagged enum.
-fn store_config_visitor<'de, D>(deserializer: D) -> Result<Vec<StoreConfig>, D::Error>
+fn store_config_visitor<'de, D>(deserializer: D) -> Result<Vec<ServerStoreConfig>, D::Error>
 where
     D: Deserializer<'de>,
 {
     struct MapOrSequence;
 
     impl<'de> Visitor<'de> for MapOrSequence {
-        type Value = Vec<StoreConfig>;
+        type Value = Vec<ServerStoreConfig>;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
             formatter.write_str("map or sequence")
         }
 
-        fn visit_seq<S>(self, seq: S) -> Result<Vec<StoreConfig>, S::Error>
+        fn visit_seq<S>(self, seq: S) -> Result<Vec<ServerStoreConfig>, S::Error>
         where
             S: SeqAccess<'de>,
         {
             Deserialize::deserialize(de::value::SeqAccessDeserializer::new(seq))
         }
 
-        fn visit_map<M>(self, map: M) -> Result<Vec<StoreConfig>, M::Error>
+        fn visit_map<M>(self, map: M) -> Result<Vec<ServerStoreConfig>, M::Error>
         where
             M: MapAccess<'de>,
         {
@@ -562,7 +565,7 @@ mod tests {
                 assert_eq!(val.zones[0].stores.len(), 1);
                 assert!(matches!(
                     &val.zones[0].stores[0],
-                    StoreConfig::File(FileConfig { zone_file_path }) if zone_file_path == "default/localhost.zone",
+                    ServerStoreConfig::File(FileConfig { zone_file_path }) if zone_file_path == "default/localhost.zone",
                 ));
             }
             Err(e) => panic!("expected successful parse: {e:?}"),
