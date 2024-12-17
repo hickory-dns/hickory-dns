@@ -37,8 +37,6 @@ zone_type = "Primary"
 ## file: this is relative to the directory above
 file = "example.com.zone"
 
-enable_dnssec = true
-
 [[zones.keys]]
 key_path = "../tests/test-data/test_configs/dnssec/rsa_2048.pk8"
 ## specify the algorithm

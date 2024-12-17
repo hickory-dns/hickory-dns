@@ -42,13 +42,12 @@ file = "example.com.zone"
 ## if false, updates will not be allowed, default false
 allow_update = true
 
-## if true, looks to see if a chained pem file exists at $file.pem (see
-## supported_algorithms below).
+## if at least one zone signing key has been configured, looks to see if a
+## chained pem file exists at $file.pem (see supported_algorithms below).
 ## these keys will also be registered as authorities for update,
 ## meaning that SIG(0) updates can be established by initially using these
 ## keys. the zone will be signed with all specified keys, it may be desirable
 ## to limit this set for performance reasons.
-enable_dnssec = true
 
 [[zones.keys]]
 key_path = "../tests/test-data/test_configs/dnssec/rsa_2048.pk8"

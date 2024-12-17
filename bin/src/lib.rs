@@ -383,8 +383,6 @@ pub struct ServerZoneConfig {
     pub allow_update: Option<bool>,
     /// Allow AXFR (TODO: need auth)
     pub allow_axfr: Option<bool>,
-    /// Enable DnsSec TODO: should this move to StoreConfig?
-    pub enable_dnssec: Option<bool>,
     /// Keys for use by the zone
     #[serde(default)]
     pub keys: Vec<dnssec::KeyConfig>,
@@ -410,21 +408,18 @@ impl ServerZoneConfig {
     ///    [`ServerStoreConfig::File`] with the given path.
     /// * `allow_update` - enable dynamic updates
     /// * `allow_axfr` - enable AXFR transfers
-    /// * `enable_dnssec` - enable signing of the zone for DNSSEC
     /// * `keys` - list of private and public keys used to sign a zone
     /// * `nx_proof_kind` - the kind of non-existence proof provided by the nameserver
     pub fn new(
         file: String,
         allow_update: Option<bool>,
         allow_axfr: Option<bool>,
-        enable_dnssec: Option<bool>,
         keys: Vec<dnssec::KeyConfig>,
         #[cfg(feature = "dnssec")] nx_proof_kind: Option<NxProofKind>,
     ) -> Self {
         Self {
             allow_update,
             allow_axfr,
-            enable_dnssec,
             keys,
             #[cfg(feature = "dnssec")]
             nx_proof_kind,
@@ -465,7 +460,7 @@ impl ServerZoneConfig {
     pub fn is_dnssec_enabled(&self) -> bool {
         cfg_if! {
             if #[cfg(feature = "dnssec")] {
-                self.enable_dnssec.unwrap_or(false)
+                self.keys.iter().any(|key| key.is_zone_signing_key() || key.is_zone_update_auth())
             } else {
                 false
             }
