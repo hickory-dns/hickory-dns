@@ -43,7 +43,11 @@ zone_type = "Primary"
 enable_dnssec = true
 
 ## An ordered list of stores
-stores = { type = "sqlite", zone_file_path = "example.com.zone", journal_file_path = "example.com_dnssec_update.jrnl", allow_update = true }
+[zones.stores]
+type = "sqlite"
+zone_file_path = "example.com.zone"
+journal_file_path = "example.com_dnssec_update.jrnl"
+allow_update = true
 
 [[zones.keys]]
 key_path = "../tests/test-data/test_configs/dnssec/rsa_2048.pk8"
