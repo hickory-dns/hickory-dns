@@ -386,7 +386,7 @@ impl Message {
     /// Add a SIG0 record, i.e. sign this message
     ///
     /// This must be used only after all records have been associated. Generally this will be handled by the client and not need to be used directly
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     pub fn add_sig0(&mut self, record: Record) -> &mut Self {
         assert_eq!(RecordType::SIG, record.record_type());
         self.signature.push(record);
@@ -396,7 +396,7 @@ impl Message {
     /// Add a TSIG record, i.e. authenticate this message
     ///
     /// This must be used only after all records have been associated. Generally this will be handled by the client and not need to be used directly
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     pub fn add_tsig(&mut self, record: Record) -> &mut Self {
         assert_eq!(RecordType::TSIG, record.record_type());
         self.signature.push(record);
@@ -693,7 +693,7 @@ impl Message {
     /// # Returns
     ///
     /// This returns a tuple of first standard Records, then a possibly associated Edns, and then finally any optionally associated SIG0 and TSIG records.
-    #[cfg_attr(not(feature = "dnssec-ring"), allow(unused_mut))]
+    #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
     pub fn read_records(
         decoder: &mut BinDecoder<'_>,
         count: usize,
@@ -719,12 +719,12 @@ impl Message {
                 records.push(record)
             } else {
                 match record.record_type() {
-                    #[cfg(feature = "dnssec-ring")]
+                    #[cfg(feature = "__dnssec")]
                     RecordType::SIG => {
                         saw_sig0 = true;
                         sigs.push(record);
                     }
-                    #[cfg(feature = "dnssec-ring")]
+                    #[cfg(feature = "__dnssec")]
                     RecordType::TSIG => {
                         if saw_sig0 {
                             return Err("sig0 must be final resource record".into());
@@ -791,9 +791,9 @@ impl Message {
         for fin in finals {
             match fin.record_type() {
                 // SIG0's are special, and come at the very end of the message
-                #[cfg(feature = "dnssec-ring")]
+                #[cfg(feature = "__dnssec")]
                 RecordType::SIG => self.add_sig0(fin),
-                #[cfg(feature = "dnssec-ring")]
+                #[cfg(feature = "__dnssec")]
                 RecordType::TSIG => self.add_tsig(fin),
                 _ => self.add_additional(fin),
             };

@@ -18,13 +18,13 @@ pub use backtrace::Backtrace as ExtBacktrace;
 use enum_as_inner::EnumAsInner;
 #[cfg(feature = "backtrace")]
 use once_cell::sync::Lazy;
-#[cfg(feature = "dnssec-ring")]
-use ring::error::Unspecified;
 use thiserror::Error;
 use tracing::debug;
 
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 use crate::dnssec::Proof;
+#[cfg(any(feature = "dnssec-aws-lc-rs", feature = "dnssec-ring"))]
+use crate::dnssec::ring_like::Unspecified;
 use crate::op::{Header, Query, ResponseCode};
 use crate::rr::{Record, RecordType, domain::Name, rdata::SOA, resource::RecordRef};
 use crate::serialize::binary::DecodeError;
@@ -97,7 +97,7 @@ pub enum ProtoErrorKind {
     },
 
     /// No Records and there is a corresponding DNSSEC Proof for NSEC
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     #[error("DNSSEC Negative Record Response for {query}, {proof}")]
     Nsec {
         /// Query for which the NSEC was returned
@@ -257,7 +257,7 @@ pub enum ProtoErrorKind {
     RequestRefused,
 
     /// A ring error
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     #[error("ring error: {0}")]
     Ring(#[from] Unspecified),
 
@@ -767,7 +767,7 @@ impl Clone for ProtoErrorKind {
                 authorities: authorities.clone(),
             },
             RequestRefused => RequestRefused,
-            #[cfg(feature = "dnssec-ring")]
+            #[cfg(feature = "__dnssec")]
             Nsec { ref query, proof } => Nsec {
                 query: query.clone(),
                 proof,
@@ -783,7 +783,7 @@ impl Clone for ProtoErrorKind {
             UnrecognizedCsyncFlags(flags) => UnrecognizedCsyncFlags(flags),
             Io(ref e) => Io(e.clone()),
             Poisoned => Poisoned,
-            #[cfg(feature = "dnssec-ring")]
+            #[cfg(feature = "__dnssec")]
             Ring(ref _e) => Ring(Unspecified),
             Timeout => Timeout,
             Timer => Timer,

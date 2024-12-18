@@ -129,7 +129,7 @@ impl RecordSet {
     /// # Arguments
     ///
     /// * `and_rrsigs` - if true, RRSIGs will be returned if they exist
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     pub fn records(&self, and_rrsigs: bool) -> RrsetRecords<'_> {
         if and_rrsigs {
             self.records_with_rrsigs()
@@ -139,7 +139,7 @@ impl RecordSet {
     }
 
     /// Returns a Vec of all records in the set, with RRSIGs, if present.
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     pub fn records_with_rrsigs(&self) -> RrsetRecords<'_> {
         if self.records.is_empty() {
             RrsetRecords::Empty
@@ -496,11 +496,11 @@ impl IntoIterator for RecordSet {
 }
 
 /// An iterator over all the records and their signatures
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 #[derive(Debug)]
 pub struct RecordsAndRrsigsIter<'r>(Chain<Iter<'r, Record>, Iter<'r, Record>>);
 
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 impl<'r> Iterator for RecordsAndRrsigsIter<'r> {
     type Item = &'r Record;
 
@@ -517,7 +517,7 @@ pub enum RrsetRecords<'r> {
     /// The records associated with the record set
     RecordsOnly(Iter<'r, Record>),
     /// The records along with their signatures in the record set
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     RecordsAndRrsigs(RecordsAndRrsigsIter<'r>),
 }
 
@@ -535,7 +535,7 @@ impl<'r> Iterator for RrsetRecords<'r> {
         match self {
             RrsetRecords::Empty => None,
             RrsetRecords::RecordsOnly(i) => i.next(),
-            #[cfg(feature = "dnssec-ring")]
+            #[cfg(feature = "__dnssec")]
             RrsetRecords::RecordsAndRrsigs(i) => i.next(),
         }
     }
@@ -774,7 +774,7 @@ mod test {
     }
 
     #[test]
-    #[cfg(feature = "dnssec-ring")] // This tests RFC 6975, a DNSSEC-specific feature.
+    #[cfg(feature = "__dnssec")] // This tests RFC 6975, a DNSSEC-specific feature.
     #[allow(clippy::blocks_in_conditions)]
     fn test_get_filter() {
         use crate::dnssec::{

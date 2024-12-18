@@ -12,7 +12,7 @@ use std::fmt;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 use crate::dnssec::{Algorithm, SupportedAlgorithms};
 use crate::{
     error::*,
@@ -114,14 +114,14 @@ impl Edns {
     }
 
     /// Creates a new extended DNS object prepared for DNSSEC messages.
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     pub fn enable_dnssec(&mut self) {
         self.set_dnssec_ok(true);
         self.set_default_algorithms();
     }
 
     /// Set the default algorithms which are supported by this handle
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     pub fn set_default_algorithms(&mut self) -> &mut Self {
         let mut algorithms = SupportedAlgorithms::new();
 
@@ -292,7 +292,7 @@ impl From<EdnsFlags> for u16 {
     }
 }
 
-#[cfg(all(test, feature = "dnssec-ring"))]
+#[cfg(all(test, feature = "__dnssec"))]
 mod tests {
     use super::*;
 

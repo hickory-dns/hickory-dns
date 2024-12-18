@@ -71,7 +71,7 @@ mod tests {
         assert!(did_parse);
     }
 
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     #[test]
     fn it_works() {
         let algorithm = Algorithm::ECDSAP256SHA256;
@@ -93,7 +93,7 @@ mod tests {
         assert_eq!(expected, parse_ok(&input),);
     }
 
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     #[test]
     fn secure_entry_point() {
         let algorithm = Algorithm::ECDSAP256SHA256;

@@ -536,7 +536,7 @@ mod tests {
             "AXFR",
         ];
 
-        #[cfg(feature = "dnssec-ring")]
+        #[cfg(feature = "__dnssec")]
         let dnssec_record_names = &[
             "CDNSKEY",
             "CDS",
@@ -550,7 +550,7 @@ mod tests {
             "SIG",
             "TSIG",
         ];
-        #[cfg(not(feature = "dnssec-ring"))]
+        #[cfg(not(feature = "__dnssec"))]
         let dnssec_record_names = &[];
 
         let mut rtypes = std::collections::HashSet::new();

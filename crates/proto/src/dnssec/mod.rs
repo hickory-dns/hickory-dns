@@ -9,7 +9,6 @@
 
 use std::fmt;
 
-use ::ring::error::{KeyRejected, Unspecified};
 #[cfg(feature = "backtrace")]
 use backtrace::Backtrace;
 use rdata::tsig::TsigAlgorithm;
@@ -204,14 +203,14 @@ impl From<ProtoError> for DnsSecError {
     }
 }
 
-impl From<KeyRejected> for DnsSecError {
-    fn from(e: KeyRejected) -> Self {
+impl From<ring_like::KeyRejected> for DnsSecError {
+    fn from(e: ring_like::KeyRejected) -> Self {
         DnsSecErrorKind::from(e).into()
     }
 }
 
-impl From<Unspecified> for DnsSecError {
-    fn from(e: Unspecified) -> Self {
+impl From<ring_like::Unspecified> for DnsSecError {
+    fn from(e: ring_like::Unspecified) -> Self {
         DnsSecErrorKind::from(e).into()
     }
 }
@@ -239,11 +238,11 @@ pub enum DnsSecErrorKind {
 
     /// A ring error
     #[error("ring error: {0}")]
-    RingKeyRejected(#[from] KeyRejected),
+    RingKeyRejected(#[from] ring_like::KeyRejected),
 
     /// A ring error
     #[error("ring error: {0}")]
-    RingUnspecified(#[from] Unspecified),
+    RingUnspecified(#[from] ring_like::Unspecified),
 
     /// A request timed out
     #[error("request timed out")]
@@ -269,12 +268,50 @@ impl Clone for DnsSecErrorKind {
             // foreign
             Proto(proto) => Proto(proto.clone()),
             RingKeyRejected(r) => Msg(format!("Ring rejected key: {r}")),
-            RingUnspecified(_r) => RingUnspecified(Unspecified),
+            RingUnspecified(_r) => RingUnspecified(ring_like::Unspecified),
             Timeout => Timeout,
             TsigUnsupportedMacAlgorithm(ref alg) => TsigUnsupportedMacAlgorithm(alg.clone()),
             TsigWrongKey => TsigWrongKey,
         }
     }
+}
+
+#[cfg(all(feature = "dnssec-aws-lc-rs", not(feature = "dnssec-ring")))]
+pub(crate) use aws_lc_rs_impl as ring_like;
+#[cfg(feature = "dnssec-ring")]
+pub(crate) use ring_impl as ring_like;
+
+#[cfg(feature = "dnssec-aws-lc-rs")]
+#[cfg_attr(feature = "dnssec-ring", allow(unused_imports))]
+pub(crate) mod aws_lc_rs_impl {
+    pub(crate) use aws_lc_rs::{
+        digest,
+        error::{KeyRejected, Unspecified},
+        hmac,
+        rand::SystemRandom,
+        rsa::PublicKeyComponents,
+        signature::{
+            self, ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING,
+            ED25519_PUBLIC_KEY_LEN, EcdsaKeyPair, Ed25519KeyPair, KeyPair, RSA_PKCS1_SHA256,
+            RSA_PKCS1_SHA512, RsaKeyPair,
+        },
+    };
+}
+
+#[cfg(feature = "dnssec-ring")]
+pub(crate) mod ring_impl {
+    pub(crate) use ring::{
+        digest,
+        error::{KeyRejected, Unspecified},
+        hmac,
+        rand::SystemRandom,
+        rsa::PublicKeyComponents,
+        signature::{
+            self, ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING,
+            ED25519_PUBLIC_KEY_LEN, EcdsaKeyPair, Ed25519KeyPair, KeyPair, RSA_PKCS1_SHA256,
+            RSA_PKCS1_SHA512, RsaKeyPair,
+        },
+    };
 }
 
 #[cfg(test)]
