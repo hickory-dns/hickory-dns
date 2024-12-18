@@ -277,7 +277,7 @@ mod tests {
         assert!(records.is_empty());
     }
 
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     #[test]
     fn it_works() {
         let algorithm = Algorithm::ECDSAP256SHA256;
@@ -307,7 +307,7 @@ mod tests {
         assert_eq!(&expected, actual);
     }
 
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     #[test]
     fn no_ttl_field() {
         let algorithm = Algorithm::ECDSAP256SHA256;
