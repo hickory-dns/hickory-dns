@@ -259,6 +259,7 @@ impl DNSKEY {
             let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut buf);
             encoder.set_canonical_names(true);
             if let Err(e) = name
+                .to_lowercase()
                 .emit(&mut encoder)
                 .and_then(|_| self.emit(&mut encoder))
             {
