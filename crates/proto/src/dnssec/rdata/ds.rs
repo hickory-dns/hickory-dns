@@ -420,7 +420,7 @@ mod tests {
 
     #[cfg(feature = "dnssec-ring")]
     #[test]
-    pub(crate) fn test_covers() {
+    fn test_covers() {
         let algorithm = Algorithm::ECDSAP256SHA256;
         let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
         let signing_key = EcdsaSigningKey::from_pkcs8(&pkcs8, algorithm).unwrap();
@@ -450,7 +450,7 @@ mod tests {
 
     #[cfg(feature = "dnssec-ring")]
     #[test]
-    pub(crate) fn test_covers_fails_with_non_zone_key() {
+    fn test_covers_fails_with_non_zone_key() {
         let algorithm = Algorithm::ECDSAP256SHA256;
         let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
         let signing_key = EcdsaSigningKey::from_pkcs8(&pkcs8, algorithm).unwrap();
@@ -476,5 +476,36 @@ mod tests {
         );
 
         assert!(!ds_rdata.covers(&name, &dnskey_rdata).unwrap());
+    }
+
+    #[cfg(feature = "dnssec-ring")]
+    #[test]
+    fn test_covers_uppercase() {
+        let algorithm = Algorithm::ECDSAP256SHA256;
+        let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
+        let signing_key = EcdsaSigningKey::from_pkcs8(&pkcs8, algorithm).unwrap();
+
+        let dnskey_rdata = DNSKEY::new(
+            true,
+            true,
+            false,
+            algorithm,
+            signing_key.to_public_key().unwrap().public_bytes().to_vec(),
+        );
+
+        let name = Name::parse("www.example.com.", None).unwrap();
+        let ds_rdata = DS::new(
+            0,
+            algorithm,
+            DigestType::SHA256,
+            dnskey_rdata
+                .to_digest(&name, DigestType::SHA256)
+                .unwrap()
+                .as_ref()
+                .to_owned(),
+        );
+
+        let uppercase_name = Name::from_ascii("WWW.EXAMPLE.COM.").unwrap();
+        assert!(ds_rdata.covers(&uppercase_name, &dnskey_rdata).unwrap());
     }
 }
