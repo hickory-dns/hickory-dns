@@ -24,6 +24,7 @@ impl Resolver {
             roots: vec![root],
             trust_anchor: TrustAnchor::empty(),
             custom_config: None,
+            case_randomization: false,
         }
     }
 
@@ -74,6 +75,7 @@ pub struct ResolverSettings {
     roots: Vec<Root>,
     trust_anchor: TrustAnchor,
     custom_config: Option<String>,
+    case_randomization: bool,
 }
 
 impl ResolverSettings {
@@ -106,6 +108,7 @@ impl ResolverSettings {
                 use_dnssec,
                 netmask: self.network.netmask(),
                 ede: self.ede,
+                case_randomization: self.case_randomization,
             };
             &implementation.format_config(config)
         };
@@ -166,6 +169,12 @@ impl ResolverSettings {
     /// Overrides the automatically-generated configuration file.
     pub fn custom_config(&mut self, config: String) -> &mut Self {
         self.custom_config = Some(config);
+        self
+    }
+
+    /// Enables case randomization in outgoing query names.
+    pub fn case_randomization(&mut self) -> &mut Self {
+        self.case_randomization = true;
         self
     }
 }

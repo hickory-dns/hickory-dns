@@ -17,6 +17,8 @@ server:
     trust-anchor-file: /etc/trusted-key.key
 {% endif %}
 
+    use-caps-for-id: {% if case_randomization %} yes {% else %} no {% endif %}
+
 remote-control:
     control-enable: yes
     control-interface: /run/unbound.ctl

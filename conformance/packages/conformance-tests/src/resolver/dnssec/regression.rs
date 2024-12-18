@@ -95,6 +95,69 @@ fn can_validate_ns_query() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn can_validate_ns_query_case_randomization() -> Result<()> {
+    let network = Network::new()?;
+    let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
+
+    let Graph {
+        nameservers: _nameservers,
+        root,
+        trust_anchor,
+    } = Graph::build(
+        leaf_ns,
+        Sign::Yes {
+            settings: SignSettings::default(),
+        },
+    )?;
+
+    let resolver = Resolver::new(&network, root)
+        .trust_anchor(&trust_anchor.unwrap())
+        .case_randomization()
+        .start()?;
+
+    let resolver_addr = resolver.ipv4_addr();
+    let mut tshark = resolver.eavesdrop()?;
+
+    let client = Client::new(resolver.network())?;
+
+    let output = client.dig(
+        *DigSettings::default().authentic_data().recurse(),
+        resolver_addr,
+        RecordType::NS,
+        &FQDN::TEST_DOMAIN,
+    )?;
+
+    tshark.wait_for_capture()?;
+    let captures = tshark.terminate()?;
+
+    assert!(output.status.is_noerror());
+    assert!(output.flags.authenticated_data);
+
+    // check that the record type is what we expect
+    let [ns] = output.answer.try_into().unwrap();
+    assert!(matches!(ns, Record::NS(_)));
+
+    // check that the resolver returns the original query
+    let mut saw_response = false;
+    for capture in captures {
+        let Direction::Outgoing { destination } = capture.direction else {
+            continue;
+        };
+        if destination != client.ipv4_addr() {
+            continue;
+        }
+        let message_value = capture.message.as_value().as_object().unwrap();
+        let queries = message_value.get("Queries").unwrap().as_object().unwrap();
+        let query = queries.values().next().unwrap().as_object().unwrap();
+        assert_eq!(query.get("dns.qry.name").unwrap(), "hickory-dns.testing");
+        saw_response = true;
+    }
+    assert!(saw_response);
+
+    Ok(())
+}
+
 /// regression test for https://github.com/hickory-dns/hickory-dns/issues/2306
 #[test]
 fn single_node_dns_graph_with_bind_as_peer() -> Result<()> {
