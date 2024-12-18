@@ -259,7 +259,7 @@ impl<'a> Signer<'a> {
         for _ in 0..100 {
             let (ksk, output) = self.gen_key(&ldns_keygen_ksk(&self.settings, zone))?;
             let ksk_keytag = ksk.rdata.calculate_key_tag();
-            if ksk_keytag != zsk_keytag && ksk_keytag != zsk_keytag + 1 {
+            if ksk_keytag != zsk_keytag && ksk_keytag != zsk_keytag.wrapping_add(1) {
                 return Ok((ksk, output));
             }
         }
