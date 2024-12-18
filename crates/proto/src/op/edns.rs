@@ -258,29 +258,30 @@ impl fmt::Display for Edns {
 pub struct EdnsFlags {
     /// DNSSEC OK bit as defined by RFC 3225
     pub dnssec_ok: bool,
-    /// Set to zero by senders and ignored by receivers
-    pub z: bool,
+    /// Remaining bits in the flags field
+    ///
+    /// Note that the most significant bit in this value is represented by the `dnssec_ok` field.
+    /// As such, it will be zero when decoding and will not be encoded.
+    ///
+    /// Unless you have a specific need to set this value, we recommend leaving this as zero.
+    pub z: u16,
 }
 
 impl From<u16> for EdnsFlags {
     fn from(flags: u16) -> Self {
         Self {
             dnssec_ok: flags & 0x8000 == 0x8000,
-            z: flags & 0x7FFF != 0,
+            z: flags & 0x7FFF,
         }
     }
 }
 
 impl From<EdnsFlags> for u16 {
     fn from(flags: EdnsFlags) -> Self {
-        let mut result = 0;
-        if flags.dnssec_ok {
-            result |= 0x8000;
+        match flags.dnssec_ok {
+            true => 0x8000 | flags.z,
+            false => 0x7FFF & flags.z,
         }
-        if flags.z {
-            result |= 0x7FFF;
-        }
-        result
     }
 }
 
@@ -294,7 +295,7 @@ mod tests {
 
         let flags = edns.flags_mut();
         flags.dnssec_ok = true;
-        flags.z = true;
+        flags.z = 1;
         edns.set_max_payload(0x8008);
         edns.set_version(0x40);
         edns.set_rcode_high(0x01);
