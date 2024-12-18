@@ -1,4 +1,4 @@
-#![cfg(feature = "dnssec-ring")]
+#![cfg(feature = "__dnssec")]
 
 use hickory_proto::dnssec::rdata::{DNSKEY, DS};
 use hickory_proto::dnssec::{Algorithm, DigestType, PublicKey, PublicKeyBuf};
@@ -34,7 +34,6 @@ fn test_dnskey_display() {
     assert_eq!(result, exp_result);
 }
 
-#[cfg(feature = "dnssec-ring")]
 #[test]
 #[allow(deprecated)]
 fn test_ds_display() {
