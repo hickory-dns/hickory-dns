@@ -94,7 +94,7 @@ fn unsigned_zone_fixture(nsec: Nsec) -> Result<()> {
 
 #[test]
 fn no_ds_record_nsec1() -> Result<()> {
-    let (output, _logs) = no_ds_record_fixture(SignSettings::default().nsec(Nsec::_1))?;
+    let (output, _logs) = no_ds_record_fixture(SignSettings::default().nsec(Nsec::_1), false)?;
 
     dbg!(&output);
 
@@ -106,10 +106,31 @@ fn no_ds_record_nsec1() -> Result<()> {
 
 #[test]
 fn no_ds_record_nsec3() -> Result<()> {
-    let (output, _logs) = no_ds_record_fixture(SignSettings::default().nsec(Nsec::_3 {
-        salt: None,
-        opt_out: false,
-    }))?;
+    let (output, _logs) = no_ds_record_fixture(
+        SignSettings::default().nsec(Nsec::_3 {
+            salt: None,
+            opt_out: false,
+        }),
+        false,
+    )?;
+
+    dbg!(&output);
+
+    assert!(output.status.is_noerror());
+    assert!(!output.flags.authenticated_data);
+
+    Ok(())
+}
+
+#[test]
+fn no_ds_record_nsec3_case_randomization() -> Result<()> {
+    let (output, _logs) = no_ds_record_fixture(
+        SignSettings::default().nsec(Nsec::_3 {
+            salt: None,
+            opt_out: false,
+        }),
+        true,
+    )?;
 
     dbg!(&output);
 
@@ -121,7 +142,7 @@ fn no_ds_record_nsec3() -> Result<()> {
 
 #[test]
 fn no_ds_record_nsec3_opt_out() -> Result<()> {
-    let (output, logs) = no_ds_record_fixture(SignSettings::rsasha256_nsec3_optout())?;
+    let (output, logs) = no_ds_record_fixture(SignSettings::rsasha256_nsec3_optout(), false)?;
 
     dbg!(&output);
 
@@ -139,7 +160,10 @@ fn no_ds_record_nsec3_opt_out() -> Result<()> {
 // importantly, the `testing.` zone must contain NSEC/NSEC3 records to deny the existence of
 // `no-ds.testing./DS` (which is why we cannot use `Graph::build` + `Sign::AndAmend` to produce
 // this network)
-fn no_ds_record_fixture(sign_settings: SignSettings) -> Result<(DigOutput, String)> {
+fn no_ds_record_fixture(
+    sign_settings: SignSettings,
+    case_randomization: bool,
+) -> Result<(DigOutput, String)> {
     let network = Network::new()?;
 
     let no_ds_zone = FQDN::TEST_TLD.push_label("no-ds");
@@ -188,9 +212,12 @@ fn no_ds_record_fixture(sign_settings: SignSettings) -> Result<(DigOutput, Strin
     let _sibling_ns = sibling_ns.start()?;
     let _no_ds_ns = no_ds_ns.start()?;
 
-    let resolver = Resolver::new(&network, root_hint)
-        .trust_anchor(&trust_anchor)
-        .start()?;
+    let mut resolver_settings = Resolver::new(&network, root_hint);
+    resolver_settings.trust_anchor(&trust_anchor);
+    if case_randomization {
+        resolver_settings.case_randomization();
+    }
+    let resolver = resolver_settings.start()?;
 
     let client = Client::new(&network)?;
     let settings = *DigSettings::default().recurse().authentic_data();
