@@ -156,7 +156,7 @@ impl Nsec3HashAlgorithm {
                 {
                     let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut buf);
                     encoder.set_canonical_names(true);
-                    name.emit(&mut encoder)?;
+                    name.to_lowercase().emit(&mut encoder)?;
                 }
 
                 Self::sha1_recursive_hash(salt, buf, iterations)
@@ -237,6 +237,10 @@ mod tests {
             hash_with_base32("example"),
             "0p9mhaveqvm6t7vbl5lop2u3t2rp3tom"
         );
+        assert_eq!(
+            hash_with_base32("EXAMPLE"),
+            "0p9mhaveqvm6t7vbl5lop2u3t2rp3tom"
+        );
 
         // H(a.example)     = 35mthgpgcu1qg68fab165klnsnk3dpvl
         assert_eq!(
@@ -304,7 +308,7 @@ mod tests {
         use data_encoding::BASE32_DNSSEC;
 
         // NSEC3PARAM 1 0 12 aabbccdd
-        let known_name = Name::parse(name, Some(&Name::new())).unwrap();
+        let known_name = Name::from_ascii(name).unwrap();
         let known_salt = [0xAAu8, 0xBBu8, 0xCCu8, 0xDDu8];
         let hash = Nsec3HashAlgorithm::SHA1
             .hash(&known_salt, &known_name, 12)
