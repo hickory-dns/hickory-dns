@@ -19,7 +19,7 @@
 mod errors;
 mod parse_rdata;
 mod rdata_parsers;
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 pub mod trust_anchor;
 mod zone;
 mod zone_lex;
