@@ -52,14 +52,14 @@ fn test_read_config() {
     assert_eq!(config.zones()[0].zone, "localhost");
     assert_eq!(config.zones()[0].zone_type(), ZoneType::Primary);
     assert_eq!(
-        get_server_zone(&config, 0).file(),
+        server_zone(&config, 0).file(),
         Some(Path::new("default/localhost.zone"))
     );
 
     assert_eq!(config.zones()[1].zone, "0.0.127.in-addr.arpa");
     assert_eq!(config.zones()[1].zone_type(), ZoneType::Primary);
     assert_eq!(
-        get_server_zone(&config, 1).file(),
+        server_zone(&config, 1).file(),
         Some(Path::new("default/127.0.0.1.zone"))
     );
 
@@ -69,28 +69,28 @@ fn test_read_config() {
     );
     assert_eq!(config.zones()[2].zone_type(), ZoneType::Primary);
     assert_eq!(
-        get_server_zone(&config, 2).file(),
+        server_zone(&config, 2).file(),
         Some(Path::new("default/ipv6_1.zone"))
     );
 
     assert_eq!(config.zones()[3].zone, "255.in-addr.arpa");
     assert_eq!(config.zones()[3].zone_type(), ZoneType::Primary);
     assert_eq!(
-        get_server_zone(&config, 3).file(),
+        server_zone(&config, 3).file(),
         Some(Path::new("default/255.zone"))
     );
 
     assert_eq!(config.zones()[4].zone, "0.in-addr.arpa");
     assert_eq!(config.zones()[4].zone_type(), ZoneType::Primary);
     assert_eq!(
-        get_server_zone(&config, 4).file(),
+        server_zone(&config, 4).file(),
         Some(Path::new("default/0.zone"))
     );
 
     assert_eq!(config.zones()[5].zone, "example.com");
     assert_eq!(config.zones()[5].zone_type(), ZoneType::Primary);
     assert_eq!(
-        get_server_zone(&config, 5).file(),
+        server_zone(&config, 5).file(),
         Some(Path::new("example.com.zone"))
     );
 }
@@ -165,15 +165,15 @@ purpose = \"ZoneSigning\"
     )
     .unwrap();
     assert_eq!(
-        get_server_zone(&config, 0).keys[0].key_path,
+        server_zone(&config, 0).keys[0].key_path,
         Path::new("/path/to/my_ed25519.pem")
     );
     assert_eq!(
-        get_server_zone(&config, 0).keys[0].algorithm().unwrap(),
+        server_zone(&config, 0).keys[0].algorithm().unwrap(),
         Algorithm::ED25519
     );
     assert_eq!(
-        get_server_zone(&config, 0).keys[0]
+        server_zone(&config, 0).keys[0]
             .signer_name()
             .unwrap()
             .unwrap(),
@@ -181,19 +181,19 @@ purpose = \"ZoneSigning\"
     );
     assert_eq!(
         KeyPurpose::ZoneUpdateAuth,
-        get_server_zone(&config, 0).keys[0].purpose
+        server_zone(&config, 0).keys[0].purpose
     );
 
     assert_eq!(
-        get_server_zone(&config, 0).keys[1].key_path,
+        server_zone(&config, 0).keys[1].key_path,
         Path::new("/path/to/my_rsa.pem")
     );
     assert_eq!(
-        get_server_zone(&config, 0).keys[1].algorithm().unwrap(),
+        server_zone(&config, 0).keys[1].algorithm().unwrap(),
         Algorithm::RSASHA256
     );
     assert_eq!(
-        get_server_zone(&config, 0).keys[1]
+        server_zone(&config, 0).keys[1]
             .signer_name()
             .unwrap()
             .unwrap(),
@@ -201,7 +201,7 @@ purpose = \"ZoneSigning\"
     );
     assert_eq!(
         KeyPurpose::ZoneSigning,
-        get_server_zone(&config, 0).keys[1].purpose,
+        server_zone(&config, 0).keys[1].purpose,
     );
 }
 
@@ -524,7 +524,7 @@ fn test_reject_unknown_fields() {
     }
 }
 
-fn get_server_zone(config: &Config, index: usize) -> &ServerZoneConfig {
+fn server_zone(config: &Config, index: usize) -> &ServerZoneConfig {
     config.zones()[index]
         .zone_type_config
         .as_server()
