@@ -162,7 +162,7 @@ impl TestAuthority {
     pub fn new(origin: Name, lookup_records: TestRecords, consult_records: TestRecords) -> Self {
         TestAuthority {
             origin: origin.into(),
-            zone_type: ZoneType::Hint,
+            zone_type: ZoneType::External,
             lookup_records,
             consult_records,
         }

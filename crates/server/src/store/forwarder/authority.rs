@@ -120,9 +120,9 @@ impl ForwardAuthority<TokioConnectionProvider> {
 impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
     type Lookup = ForwardLookup;
 
-    /// Always Forward
+    /// Always External
     fn zone_type(&self) -> ZoneType {
-        ZoneType::Forward
+        ZoneType::External
     }
 
     /// Always false for Forward zones

@@ -118,9 +118,9 @@ impl RecursiveAuthority {
 impl Authority for RecursiveAuthority {
     type Lookup = RecursiveLookup;
 
-    /// Always Recursive
+    /// Always External
     fn zone_type(&self) -> ZoneType {
-        ZoneType::Hint
+        ZoneType::External
     }
 
     /// Always false for Forward zones
