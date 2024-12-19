@@ -60,11 +60,6 @@ impl KeyConfig {
         }
     }
 
-    /// path to the key file, either relative to the zone file, or a explicit from the root.
-    pub fn key_path(&self) -> &Path {
-        &self.key_path
-    }
-
     /// algorithm for for the key, see `Algorithm` for supported algorithms.
     #[allow(deprecated)]
     pub fn algorithm(&self) -> ParseResult<Algorithm> {
@@ -90,10 +85,6 @@ impl KeyConfig {
         Ok(None)
     }
 
-    pub fn purpose(&self) -> KeyPurpose {
-        self.purpose
-    }
-
     /// Tries to read the defined key into a Signer
     pub fn try_into_signer<N: IntoName>(&self, signer_name: N) -> Result<SigSigner, String> {
         let signer_name = signer_name
@@ -102,7 +93,7 @@ impl KeyConfig {
 
         let key = self
             .signer(signer_name)
-            .map_err(|e| format!("failed to load key: {:?} msg: {e}", self.key_path()))?;
+            .map_err(|e| format!("failed to load key: {:?} msg: {e}", self.key_path))?;
 
         key.test_key()
             .map_err(|e| format!("key failed test: {e}"))?;
@@ -116,15 +107,14 @@ impl KeyConfig {
     ) -> Result<(), String> {
         info!(
             "adding key to zone: {:?}, purpose: {:?}",
-            self.key_path(),
-            self.purpose(),
+            self.key_path, self.purpose,
         );
 
-        match self.purpose() {
+        match self.purpose {
             KeyPurpose::ZoneSigning => {
                 let zone_signer = self
                     .try_into_signer(zone_name.clone())
-                    .map_err(|e| format!("failed to load key: {:?} msg: {}", self.key_path(), e))?;
+                    .map_err(|e| format!("failed to load key: {:?} msg: {}", self.key_path, e))?;
                 authority
                     .add_zone_signing_key(zone_signer)
                     .await
@@ -134,7 +124,7 @@ impl KeyConfig {
             KeyPurpose::ZoneUpdateAuth => {
                 let update_auth_signer = self
                     .try_into_signer(zone_name.clone())
-                    .map_err(|e| format!("failed to load key: {:?} msg: {}", self.key_path(), e))?;
+                    .map_err(|e| format!("failed to load key: {:?} msg: {}", self.key_path, e))?;
                 let public_key = update_auth_signer
                     .key()
                     .to_public_key()
@@ -167,13 +157,12 @@ impl KeyConfig {
     fn signer(&self, zone_name: Name) -> Result<SigSigner, String> {
         use time::Duration;
 
-        let key_path = self.key_path();
         let algorithm = self
             .algorithm()
             .map_err(|e| format!("bad algorithm: {e}"))?;
 
         // read the key in
-        let key = key_from_file(key_path, algorithm)?;
+        let key = key_from_file(&self.key_path, algorithm)?;
 
         let name = self
             .signer_name()
