@@ -493,8 +493,7 @@ impl ZoneConfig {
         match &self.zone_type_config {
             ZoneTypeConfig::Primary { .. } => ZoneType::Primary,
             ZoneTypeConfig::Secondary { .. } => ZoneType::Secondary,
-            ZoneTypeConfig::Forward { .. } => ZoneType::Forward,
-            ZoneTypeConfig::Hint { .. } => ZoneType::Hint,
+            ZoneTypeConfig::Forward { .. } | ZoneTypeConfig::Hint { .. } => ZoneType::External,
         }
     }
 }

@@ -537,7 +537,7 @@ async fn build_response(
             )
             .await
         }
-        ZoneType::Forward | ZoneType::Hint => {
+        ZoneType::External => {
             build_forwarded_response(
                 result,
                 request_header,
