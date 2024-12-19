@@ -379,8 +379,6 @@ impl ZoneTypeConfig {
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct ServerZoneConfig {
-    /// Deprecated allow_update, this is a Store option
-    pub allow_update: Option<bool>,
     /// Allow AXFR (TODO: need auth)
     pub allow_axfr: Option<bool>,
     /// Keys for use by the zone
@@ -406,19 +404,16 @@ impl ServerZoneConfig {
     ///
     /// * `file` - relative to Config base path, to the zone file. This translates to a
     ///    [`ServerStoreConfig::File`] with the given path.
-    /// * `allow_update` - enable dynamic updates
     /// * `allow_axfr` - enable AXFR transfers
     /// * `keys` - list of private and public keys used to sign a zone
     /// * `nx_proof_kind` - the kind of non-existence proof provided by the nameserver
     pub fn new(
         file: PathBuf,
-        allow_update: Option<bool>,
         allow_axfr: Option<bool>,
         keys: Vec<dnssec::KeyConfig>,
         #[cfg(feature = "dnssec")] nx_proof_kind: Option<NxProofKind>,
     ) -> Self {
         Self {
-            allow_update,
             allow_axfr,
             keys,
             #[cfg(feature = "dnssec")]
@@ -440,11 +435,6 @@ impl ServerZoneConfig {
             ServerStoreConfig::Sqlite(sqlite_config) => Some(sqlite_config.zone_file_path.clone()),
             ServerStoreConfig::Default => None,
         })
-    }
-
-    /// enable dynamic updates for the zone (see SIG0 and the registered keys)
-    pub fn is_update_allowed(&self) -> bool {
-        self.allow_update.unwrap_or(false)
     }
 
     /// enable AXFR transfers
