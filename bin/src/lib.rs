@@ -638,11 +638,11 @@ impl ServerZoneConfig {
     ///
     /// this is only used on first load, if dynamic update is enabled for the zone, then the journal
     /// file is the actual source of truth for the zone.
-    pub fn file(&self) -> Option<PathBuf> {
+    pub fn file(&self) -> Option<&Path> {
         self.stores.iter().find_map(|store| match store {
-            ServerStoreConfig::File(file_config) => Some(file_config.zone_file_path.clone()),
+            ServerStoreConfig::File(file_config) => Some(&*file_config.zone_file_path),
             #[cfg(feature = "sqlite")]
-            ServerStoreConfig::Sqlite(sqlite_config) => Some(sqlite_config.zone_file_path.clone()),
+            ServerStoreConfig::Sqlite(sqlite_config) => Some(&*sqlite_config.zone_file_path),
             ServerStoreConfig::Default => None,
         })
     }
