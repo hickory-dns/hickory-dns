@@ -15,10 +15,10 @@ use serde::Deserialize;
 use tracing::info;
 
 use hickory_proto::rr::domain::Name;
-use hickory_proto::serialize::txt::ParseResult;
 use hickory_proto::{
     dnssec::{rdata::key::KeyUsage, rdata::DNSKEY, rdata::KEY, Algorithm, SigSigner, SigningKey},
     rr::domain::IntoName,
+    ProtoError,
 };
 use hickory_server::authority::DnssecAuthority;
 
@@ -37,13 +37,11 @@ pub struct KeyConfig {
 
 impl KeyConfig {
     /// the signer name for the key, this defaults to the $ORIGIN aka zone name.
-    pub fn signer_name(&self) -> ParseResult<Option<Name>> {
-        if let Some(signer_name) = self.signer_name.as_ref() {
-            let name = Name::parse(signer_name, None)?;
-            return Ok(Some(name));
-        }
-
-        Ok(None)
+    pub fn signer_name(&self) -> Result<Option<Name>, ProtoError> {
+        self.signer_name
+            .as_ref()
+            .map(|name| Name::parse(name, None))
+            .transpose()
     }
 
     /// Tries to read the defined key into a Signer
