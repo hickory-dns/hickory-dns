@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use super::DNSSECRData;
 use crate::{
-    dnssec::{public_key::decode_public_key, Algorithm, PublicKey, Verifier},
+    dnssec::{ring::decode_public_key, Algorithm, PublicKey, Verifier},
     error::{ProtoError, ProtoResult},
     rr::{record_data::RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
@@ -922,7 +922,7 @@ mod tests {
         let restrict = Restrict::new(bytes.len() as u16);
         let read_rdata = KEY::read_data(&mut decoder, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
-        // #[cfg(any(feature = "dnssec-openssl", feature = "dnssec-ring"))]
+        // #[cfg(feature = "dnssec-ring")]
         // assert!(rdata
         //             .to_digest(&Name::parse("www.example.com.", None).unwrap(),
         //                        DigestType::SHA256)

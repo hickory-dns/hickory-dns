@@ -23,10 +23,10 @@ use crate::{
 #[cfg(feature = "dnssec-ring")]
 use crate::{
     proto::{
-        dnssec::TrustAnchor,
+        dnssec::{DnssecDnsHandle, TrustAnchor},
         op::ResponseCode,
         rr::{resource::RecordRef, Record, RecordType},
-        xfer::{DnsHandle as _, DnsRequestOptions, DnssecDnsHandle, FirstAnswer as _},
+        xfer::{DnsHandle as _, DnsRequestOptions, FirstAnswer as _},
         ProtoError,
     },
     resolver::dns_lru::DnsLru,

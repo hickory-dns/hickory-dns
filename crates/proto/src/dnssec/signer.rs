@@ -10,13 +10,13 @@ use tracing::debug;
 
 use std::time::Duration;
 
-use super::{PublicKey, SigningKey};
+use super::{DnsSecResult, PublicKey, SigningKey};
 use crate::{
     dnssec::{
         rdata::{DNSSECRData, DNSKEY, KEY, SIG},
         tbs, TBS,
     },
-    error::{DnsSecResult, ProtoErrorKind, ProtoResult},
+    error::{ProtoErrorKind, ProtoResult},
     op::{Message, MessageFinalizer, MessageVerifier},
     rr::{
         Record, {DNSClass, Name, RData, RecordType},
@@ -225,7 +225,6 @@ use crate::{
 ///    Note that the response received by the resolver should include all
 ///    NSEC RRs needed to authenticate the response (see Section 3.1.3).
 /// ```
-#[cfg(feature = "dnssec-ring")]
 pub struct SigSigner {
     // TODO: this should really be a trait and generic struct over KEY and DNSKEY
     key_rdata: RData,
@@ -235,7 +234,6 @@ pub struct SigSigner {
     is_zone_signing_key: bool,
 }
 
-#[cfg(feature = "dnssec-ring")]
 impl SigSigner {
     /// Version of Signer for verifying RRSIGs and SIG0 records.
     ///
