@@ -365,10 +365,7 @@ impl ZoneConfig {
                     server_config.stores
                 );
 
-                #[cfg_attr(not(feature = "dnssec-ring"), allow(unused_variables))]
-                let zone_name_for_signer = zone_name.clone();
                 let is_axfr_allowed = server_config.is_axfr_allowed();
-
                 for store in &server_config.stores {
                     let authority: Arc<dyn AuthorityObject> = match store {
                         #[cfg(feature = "sqlite")]
@@ -387,9 +384,7 @@ impl ZoneConfig {
                             .await?;
 
                             #[cfg(feature = "dnssec-ring")]
-                            server_config
-                                .load_keys(&mut authority, zone_name_for_signer.clone())
-                                .await?;
+                            server_config.load_keys(&mut authority, &zone_name).await?;
                             Arc::new(authority)
                         }
 
@@ -406,9 +401,7 @@ impl ZoneConfig {
                             )?;
 
                             #[cfg(feature = "dnssec-ring")]
-                            server_config
-                                .load_keys(&mut authority, zone_name_for_signer.clone())
-                                .await?;
+                            server_config.load_keys(&mut authority, &zone_name).await?;
                             Arc::new(authority)
                         }
                         _ => return empty_stores_error(),
@@ -575,14 +568,14 @@ impl ServerZoneConfig {
     async fn load_keys(
         &self,
         authority: &mut impl DnssecAuthority<Lookup = impl Send + Sync + Sized + 'static>,
-        zone_name: Name,
+        zone_name: &Name,
     ) -> Result<(), String> {
         if !self.is_dnssec_enabled() {
             return Ok(());
         }
 
         for key_config in &self.keys {
-            key_config.load(authority, &zone_name).await?;
+            key_config.load(authority, zone_name.clone()).await?;
         }
 
         info!("signing zone: {zone_name}");

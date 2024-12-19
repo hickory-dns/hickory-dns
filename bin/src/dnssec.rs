@@ -95,7 +95,7 @@ impl KeyConfig {
     pub async fn load(
         &self,
         authority: &mut impl DnssecAuthority<Lookup = impl Send + Sync + Sized + 'static>,
-        zone_name: &Name,
+        zone_name: Name,
     ) -> Result<(), String> {
         info!(
             "adding key to zone: {:?}, purpose: {:?}",
@@ -105,7 +105,7 @@ impl KeyConfig {
         match self.purpose {
             KeyPurpose::ZoneSigning => {
                 let zone_signer = self
-                    .try_into_signer(zone_name.clone())
+                    .try_into_signer(zone_name)
                     .map_err(|e| format!("failed to load key: {:?} msg: {}", self.key_path, e))?;
                 authority
                     .add_zone_signing_key(zone_signer)
@@ -123,7 +123,7 @@ impl KeyConfig {
                     .map_err(|err| format!("failed to get public key: {err}"))?;
                 let key = KEY::new_sig0key_with_usage(&public_key, KeyUsage::Host);
                 authority
-                    .add_update_auth_key(zone_name.clone(), key)
+                    .add_update_auth_key(zone_name, key)
                     .await
                     .map_err(|err| format!("failed to update auth key to authority: {err}"))?;
             }
