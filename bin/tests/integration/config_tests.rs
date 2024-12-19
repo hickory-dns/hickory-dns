@@ -165,7 +165,7 @@ purpose = \"ZoneSigning\"
     )
     .unwrap();
     assert_eq!(
-        get_server_zone(&config, 0).keys[0].key_path(),
+        get_server_zone(&config, 0).keys[0].key_path,
         Path::new("/path/to/my_ed25519.pem")
     );
     assert_eq!(
@@ -181,11 +181,11 @@ purpose = \"ZoneSigning\"
     );
     assert_eq!(
         KeyPurpose::ZoneUpdateAuth,
-        get_server_zone(&config, 0).keys[0].purpose()
+        get_server_zone(&config, 0).keys[0].purpose
     );
 
     assert_eq!(
-        get_server_zone(&config, 0).keys[1].key_path(),
+        get_server_zone(&config, 0).keys[1].key_path,
         Path::new("/path/to/my_rsa.pem")
     );
     assert_eq!(
@@ -201,7 +201,7 @@ purpose = \"ZoneSigning\"
     );
     assert_eq!(
         KeyPurpose::ZoneSigning,
-        get_server_zone(&config, 0).keys[1].purpose(),
+        get_server_zone(&config, 0).keys[1].purpose,
     );
 }
 
