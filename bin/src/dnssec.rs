@@ -28,29 +28,14 @@ use hickory_server::authority::DnssecAuthority;
 pub struct KeyConfig {
     /// file path to the key
     pub key_path: PathBuf,
-    /// the type of key stored, see `Algorithm`
-    pub algorithm: String,
+    /// the type of key stored
+    pub algorithm: Algorithm,
     /// the name to use when signing records, e.g. ns.example.com
     pub signer_name: Option<String>,
     pub purpose: KeyPurpose,
 }
 
 impl KeyConfig {
-    /// algorithm for for the key, see `Algorithm` for supported algorithms.
-    #[allow(deprecated)]
-    pub fn algorithm(&self) -> ParseResult<Algorithm> {
-        match self.algorithm.as_str() {
-            "RSASHA1" => Ok(Algorithm::RSASHA1),
-            "RSASHA256" => Ok(Algorithm::RSASHA256),
-            "RSASHA1-NSEC3-SHA1" => Ok(Algorithm::RSASHA1NSEC3SHA1),
-            "RSASHA512" => Ok(Algorithm::RSASHA512),
-            "ECDSAP256SHA256" => Ok(Algorithm::ECDSAP256SHA256),
-            "ECDSAP384SHA384" => Ok(Algorithm::ECDSAP384SHA384),
-            "ED25519" => Ok(Algorithm::ED25519),
-            s => Err(format!("unrecognized string {s}").into()),
-        }
-    }
-
     /// the signer name for the key, this defaults to the $ORIGIN aka zone name.
     pub fn signer_name(&self) -> ParseResult<Option<Name>> {
         if let Some(signer_name) = self.signer_name.as_ref() {
@@ -133,12 +118,8 @@ impl KeyConfig {
     fn signer(&self, zone_name: Name) -> Result<SigSigner, String> {
         use time::Duration;
 
-        let algorithm = self
-            .algorithm()
-            .map_err(|e| format!("bad algorithm: {e}"))?;
-
         // read the key in
-        let key = key_from_file(&self.key_path, algorithm)?;
+        let key = key_from_file(&self.key_path, self.algorithm)?;
 
         let name = self
             .signer_name()
