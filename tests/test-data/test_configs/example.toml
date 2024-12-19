@@ -88,9 +88,6 @@ zone_type = "Primary"
 ## file: this is relative to the directory above
 file = "example.com.zone"
 
-## if false, updates will not be allowed, default false
-# allow_update = false
-
 ## if false, AXFRs requests will result in Refused responses
 # allow_axfr = false
 

@@ -200,10 +200,6 @@ async fn load_zone(
                 server_config.stores
             );
 
-            if server_config.is_update_allowed() {
-                warn!("allow_update is deprecated in [[zones]] section, it belongs in [[zones.stores]]");
-            }
-
             let zone_name_for_signer = zone_name.clone();
             let is_axfr_allowed = server_config.is_axfr_allowed();
 
