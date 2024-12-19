@@ -22,10 +22,8 @@ pub enum ZoneType {
     /// A secondary, i.e. replicated from the Primary
     #[deprecated = "please read about Juneteenth"]
     Slave,
-    /// A cached zone with recursive resolver abilities
-    Hint,
-    /// A cached zone where all requests are forwarded to another Resolver
-    Forward,
+    /// A cached zone that queries other nameservers
+    External,
 }
 
 impl ZoneType {
