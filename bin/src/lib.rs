@@ -328,19 +328,6 @@ pub struct ZoneConfig {
 }
 
 impl ZoneConfig {
-    /// Return a new zone configuration
-    ///
-    /// # Arguments
-    ///
-    /// * `zone` - name of a zone, e.g. example.com
-    /// * `zone_type_configuration` - Configuration specific to the type of zone, e.g. Primary, Secondary, etc.
-    pub fn new(zone: String, zone_type_config: ZoneTypeConfig) -> Self {
-        Self {
-            zone,
-            zone_type_config,
-        }
-    }
-
     #[warn(clippy::wildcard_enum_match_arm)] // make sure all cases are handled despite of non_exhaustive
     pub async fn load(&self, zone_dir: &Path) -> Result<Vec<Arc<dyn AuthorityObject>>, String> {
         debug!("loading zone with config: {self:#?}");
@@ -584,33 +571,6 @@ pub struct ServerZoneConfig {
 }
 
 impl ServerZoneConfig {
-    /// Return a new secondary zone configuration
-    ///
-    /// # Arguments
-    ///
-    /// * `file` - relative to Config base path, to the zone file. This translates to a
-    ///    [`ServerStoreConfig::File`] with the given path.
-    /// * `allow_axfr` - enable AXFR transfers
-    /// * `keys` - list of private and public keys used to sign a zone
-    /// * `nx_proof_kind` - the kind of non-existence proof provided by the nameserver
-    pub fn new(
-        file: PathBuf,
-        allow_axfr: Option<bool>,
-        #[cfg(feature = "dnssec-ring")] keys: Vec<dnssec::KeyConfig>,
-        #[cfg(feature = "dnssec-ring")] nx_proof_kind: Option<NxProofKind>,
-    ) -> Self {
-        Self {
-            allow_axfr,
-            #[cfg(feature = "dnssec-ring")]
-            keys,
-            #[cfg(feature = "dnssec-ring")]
-            nx_proof_kind,
-            stores: vec![ServerStoreConfig::File(FileConfig {
-                zone_file_path: file,
-            })],
-        }
-    }
-
     #[cfg(feature = "dnssec-ring")]
     async fn load_keys(
         &self,
