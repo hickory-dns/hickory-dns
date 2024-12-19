@@ -36,30 +36,6 @@ pub struct KeyConfig {
 }
 
 impl KeyConfig {
-    /// Return a new KeyConfig
-    ///
-    /// # Arguments
-    ///
-    /// * `key_path` - file path to the key
-    /// * `password` - password to use to read the key
-    /// * `algorithm` - the type of key stored, see `Algorithm`
-    /// * `signer_name` - the name to use when signing records, e.g. ns.example.com
-    /// * `is_zone_signing_key` - specify that this key should be used for signing a zone
-    /// * `is_zone_update_auth` - specifies that this key can be used for dynamic updates in the zone
-    pub fn new(
-        key_path: PathBuf,
-        algorithm: Algorithm,
-        signer_name: String,
-        purpose: KeyPurpose,
-    ) -> Self {
-        Self {
-            key_path,
-            algorithm: algorithm.as_str().to_string(),
-            signer_name: Some(signer_name),
-            purpose,
-        }
-    }
-
     /// algorithm for for the key, see `Algorithm` for supported algorithms.
     #[allow(deprecated)]
     pub fn algorithm(&self) -> ParseResult<Algorithm> {
