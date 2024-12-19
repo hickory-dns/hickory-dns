@@ -66,12 +66,19 @@ pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
     }
 }
 
-fn build_message(query: Query, options: DnsRequestOptions) -> Message {
+fn build_message(mut query: Query, options: DnsRequestOptions) -> Message {
     // build the message
     let mut message: Message = Message::new();
     // TODO: This is not the final ID, it's actually set in the poll method of DNS future
     //  should we just remove this?
     let id: u16 = rand::random();
+
+    if options.case_randomization {
+        let mut parts = query.into_parts();
+        parts.name.randomize_label_case();
+        query = parts.into();
+    }
+
     message
         .add_query(query)
         .set_id(id)

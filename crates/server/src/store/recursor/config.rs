@@ -72,6 +72,14 @@ pub struct RecursiveConfig {
     /// Caching policy, setting minimum and maximum TTLs
     #[serde(default)]
     pub cache_policy: TtlConfig,
+
+    /// Randomize the case of letters in query names, and require that responses preserve the case
+    /// of the query name, in order to mitigate spoofing attacks. This is only applied over UDP.
+    ///
+    /// This implements the mechanism described in
+    /// [draft-vixie-dnsext-dns0x20-00](https://datatracker.ietf.org/doc/html/draft-vixie-dnsext-dns0x20-00).
+    #[serde(default)]
+    pub case_randomization: bool,
 }
 
 impl RecursiveConfig {

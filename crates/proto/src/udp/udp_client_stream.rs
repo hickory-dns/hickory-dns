@@ -146,6 +146,8 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
             panic!("can not send messages after stream is shutdown")
         }
 
+        let case_randomization = message.options().case_randomization;
+
         // associated the ID for this request, b/c this connection is unique to socket port, the ID
         //   does not need to be globally unique
         message.set_id(random_query_id());
@@ -207,8 +209,15 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
                     provider,
                 )
                 .await?;
-                send_serial_message_inner(message, message_id, verifier, socket, recv_buf_size)
-                    .await
+                send_serial_message_inner(
+                    message,
+                    message_id,
+                    verifier,
+                    socket,
+                    recv_buf_size,
+                    case_randomization,
+                )
+                .await
             }),
         )
         .into()
@@ -272,6 +281,7 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
     verifier: Option<MessageVerifier>,
     socket: S,
     recv_buf_size: usize,
+    case_randomization: bool,
 ) -> Result<DnsResponse, ProtoError> {
     let bytes = msg.bytes();
     let addr = msg.addr();
@@ -354,10 +364,18 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
                 let request_queries = request_message.queries();
                 let response_queries = response.queries();
 
-                if !response_queries
-                    .iter()
-                    .all(|elem| request_queries.contains(elem))
-                {
+                let question_matches = if case_randomization {
+                    response_queries.iter().all(|elem| {
+                        request_queries
+                            .iter()
+                            .any(|req_q| req_q == elem && req_q.name().eq_case(elem.name()))
+                    })
+                } else {
+                    response_queries
+                        .iter()
+                        .all(|elem| request_queries.contains(elem))
+                };
+                if !question_matches {
                     warn!("detected forged question section: we expected '{request_queries:?}', but received '{response_queries:?}' from server {src}");
                     continue;
                 }

@@ -95,6 +95,50 @@ fn can_validate_ns_query() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn can_validate_ns_query_case_randomization() -> Result<()> {
+    let network = Network::new()?;
+    let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
+
+    let Graph {
+        nameservers: _nameservers,
+        root,
+        trust_anchor,
+    } = Graph::build(
+        leaf_ns,
+        Sign::Yes {
+            settings: SignSettings::default(),
+        },
+    )?;
+
+    // NOTE this is a security-aware, *validating* resolver
+    let resolver = Resolver::new(&network, root)
+        .trust_anchor(&trust_anchor.unwrap())
+        .case_randomization()
+        .start()?;
+
+    let resolver_addr = resolver.ipv4_addr();
+
+    let client = Client::new(resolver.network())?;
+
+    let output = client.dig(
+        *DigSettings::default().authentic_data().recurse(),
+        resolver_addr,
+        RecordType::NS,
+        &FQDN::TEST_DOMAIN,
+    )?;
+
+    // bug: this returned SERVFAIL instead of NOERROR with AD=1
+    assert!(output.status.is_noerror());
+    assert!(output.flags.authenticated_data);
+
+    // check that the record type is what we expect
+    let [ns] = output.answer.try_into().unwrap();
+    assert!(matches!(ns, Record::NS(_)));
+
+    Ok(())
+}
+
 /// regression test for https://github.com/hickory-dns/hickory-dns/issues/2306
 #[test]
 fn single_node_dns_graph_with_bind_as_peer() -> Result<()> {
