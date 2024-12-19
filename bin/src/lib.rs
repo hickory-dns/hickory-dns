@@ -633,10 +633,6 @@ pub enum ServerStoreConfig {
     Default,
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct HintZoneConfig {}
-
 /// Enumeration over store types for hint nameservers.
 #[derive(Deserialize, Debug, Default)]
 #[serde(tag = "type")]
@@ -653,10 +649,6 @@ pub enum HintStoreConfig {
     #[default]
     Default,
 }
-
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct ForwardZoneConfig {}
 
 /// Enumeration over store types for forward nameservers.
 #[derive(Deserialize, Debug, Default)]
