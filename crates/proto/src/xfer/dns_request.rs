@@ -31,6 +31,8 @@ pub struct DnsRequestOptions {
     pub max_request_depth: usize,
     /// set recursion desired (or not) for any requests
     pub recursion_desired: bool,
+    /// Randomize case of query name, and check that the response matches, for spoofing resistance.
+    pub case_randomization: bool,
 }
 
 impl Default for DnsRequestOptions {
@@ -42,6 +44,7 @@ impl Default for DnsRequestOptions {
             use_edns: false,
             edns_set_dnssec_ok: false,
             recursion_desired: true,
+            case_randomization: false,
         }
     }
 }

@@ -104,6 +104,7 @@ impl RecursiveAuthority {
             })
             .avoid_local_udp_ports(config.avoid_local_udp_ports.clone())
             .ttl_config(config.cache_policy.clone())
+            .case_randomization(config.case_randomization)
             .build(roots)
             .map_err(|e| format!("failed to initialize recursor: {e}"))?;
 

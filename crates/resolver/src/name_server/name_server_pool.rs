@@ -139,6 +139,11 @@ where
         }
     }
 
+    /// Returns the pool's options.
+    pub fn options(&self) -> &ResolverOpts {
+        &self.options
+    }
+
     #[cfg(test)]
     #[allow(dead_code)]
     fn from_nameservers_test(
