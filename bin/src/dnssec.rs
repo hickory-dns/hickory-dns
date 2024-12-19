@@ -59,18 +59,17 @@ impl KeyConfig {
     /// keys are listed in pairs of key_name and algorithm, the search path is the
     /// same directory has the zone $file:
     ///  keys = [ "my_rsa_2048|RSASHA256", "/path/to/my_ed25519|ED25519" ]
-    pub fn try_into_signer<N: IntoName>(&self, signer_name: N) -> Result<SigSigner, String> {
-        let signer_name = signer_name
-            .into_name()
-            .map_err(|e| format!("error loading signer name: {e}"))?;
+    pub fn try_into_signer(&self, signer_name: impl IntoName) -> Result<SigSigner, String> {
+        let name = match self.signer_name() {
+            Ok(Some(name)) => name,
+            Ok(None) => signer_name
+                .into_name()
+                .map_err(|e| format!("error loading signer name: {e}"))?,
+            Err(e) => return Err(format!("error loading signer name: {e}")),
+        };
 
         // read the key in
         let key = key_from_file(&self.key_path, self.algorithm)?;
-
-        let name = self
-            .signer_name()
-            .map_err(|e| format!("error reading name: {e}"))?
-            .unwrap_or(signer_name);
 
         // add the key to the zone
         // TODO: allow the duration of signatures to be customized
