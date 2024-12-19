@@ -169,7 +169,7 @@ purpose = \"ZoneSigning\"
         Path::new("/path/to/my_ed25519.pem")
     );
     assert_eq!(
-        server_zone(&config, 0).keys[0].algorithm().unwrap(),
+        server_zone(&config, 0).keys[0].algorithm,
         Algorithm::ED25519
     );
     assert_eq!(
@@ -189,7 +189,7 @@ purpose = \"ZoneSigning\"
         Path::new("/path/to/my_rsa.pem")
     );
     assert_eq!(
-        server_zone(&config, 0).keys[1].algorithm().unwrap(),
+        server_zone(&config, 0).keys[1].algorithm,
         Algorithm::RSASHA256
     );
     assert_eq!(
