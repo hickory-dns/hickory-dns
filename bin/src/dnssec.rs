@@ -35,23 +35,6 @@ pub struct KeyConfig {
     pub purpose: KeyPurpose,
 }
 
-/// What a key will be used for
-#[derive(Clone, Copy, Deserialize, PartialEq, Eq, Debug)]
-pub enum KeyPurpose {
-    /// This key is used to sign a zone
-    ///
-    /// The public key for this must be trusted by a resolver to work. The key must have a private
-    /// portion associated with it. It will be registered as a DNSKEY in the zone.
-    ZoneSigning,
-
-    /// This key is used for dynamic updates in the zone
-    ///
-    /// This is at least a public_key, and can be used for SIG0 dynamic updates
-    ///
-    /// it will be registered as a KEY record in the zone
-    ZoneUpdateAuth,
-}
-
 impl KeyConfig {
     /// Return a new KeyConfig
     ///
@@ -212,6 +195,23 @@ impl KeyConfig {
                 .map_err(|e| format!("error converting time to std::Duration: {e}"))?,
         ))
     }
+}
+
+/// What a key will be used for
+#[derive(Clone, Copy, Deserialize, PartialEq, Eq, Debug)]
+pub enum KeyPurpose {
+    /// This key is used to sign a zone
+    ///
+    /// The public key for this must be trusted by a resolver to work. The key must have a private
+    /// portion associated with it. It will be registered as a DNSKEY in the zone.
+    ZoneSigning,
+
+    /// This key is used for dynamic updates in the zone
+    ///
+    /// This is at least a public_key, and can be used for SIG0 dynamic updates
+    ///
+    /// it will be registered as a KEY record in the zone
+    ZoneUpdateAuth,
 }
 
 pub fn key_from_file(path: &Path, algorithm: Algorithm) -> Result<Box<dyn SigningKey>, String> {
