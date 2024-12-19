@@ -52,17 +52,14 @@ fn test_read_config() {
     assert_eq!(config.zones()[0].zone, "localhost");
     assert_eq!(config.zones()[0].zone_type(), ZoneType::Primary);
     assert_eq!(
-        get_server_zone(&config, 0)
-            .file()
-            .as_deref()
-            .and_then(|path| path.to_str()),
-        Some("default/localhost.zone")
+        get_server_zone(&config, 0).file(),
+        Some(Path::new("default/localhost.zone"))
     );
 
     assert_eq!(config.zones()[1].zone, "0.0.127.in-addr.arpa");
     assert_eq!(config.zones()[1].zone_type(), ZoneType::Primary);
     assert_eq!(
-        get_server_zone(&config, 1).file().as_deref(),
+        get_server_zone(&config, 1).file(),
         Some(Path::new("default/127.0.0.1.zone"))
     );
 
@@ -72,28 +69,28 @@ fn test_read_config() {
     );
     assert_eq!(config.zones()[2].zone_type(), ZoneType::Primary);
     assert_eq!(
-        get_server_zone(&config, 2).file().as_deref(),
+        get_server_zone(&config, 2).file(),
         Some(Path::new("default/ipv6_1.zone"))
     );
 
     assert_eq!(config.zones()[3].zone, "255.in-addr.arpa");
     assert_eq!(config.zones()[3].zone_type(), ZoneType::Primary);
     assert_eq!(
-        get_server_zone(&config, 3).file().as_deref(),
+        get_server_zone(&config, 3).file(),
         Some(Path::new("default/255.zone"))
     );
 
     assert_eq!(config.zones()[4].zone, "0.in-addr.arpa");
     assert_eq!(config.zones()[4].zone_type(), ZoneType::Primary);
     assert_eq!(
-        get_server_zone(&config, 4).file().as_deref(),
+        get_server_zone(&config, 4).file(),
         Some(Path::new("default/0.zone"))
     );
 
     assert_eq!(config.zones()[5].zone, "example.com");
     assert_eq!(config.zones()[5].zone_type(), ZoneType::Primary);
     assert_eq!(
-        get_server_zone(&config, 5).file().as_deref(),
+        get_server_zone(&config, 5).file(),
         Some(Path::new("example.com.zone"))
     );
 }
