@@ -15,7 +15,7 @@ use thiserror::Error;
 #[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
 #[cfg(feature = "dnssec-ring")]
-use hickory_proto::{DnsSecError, DnsSecErrorKind};
+use hickory_proto::dnssec::{DnsSecError, DnsSecErrorKind};
 use hickory_proto::{ProtoError, ProtoErrorKind};
 
 /// The error kind for errors that get returned in the crate

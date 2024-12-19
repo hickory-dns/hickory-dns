@@ -27,8 +27,6 @@ pub mod dns_handle;
 pub mod dns_multiplexer;
 pub mod dns_request;
 pub mod dns_response;
-#[cfg(feature = "dnssec-ring")]
-pub mod dnssec_dns_handle;
 pub mod retry_dns_handle;
 mod serial_message;
 
@@ -39,8 +37,6 @@ pub use self::dns_handle::{DnsHandle, DnsStreamHandle};
 pub use self::dns_multiplexer::{DnsMultiplexer, DnsMultiplexerConnect};
 pub use self::dns_request::{DnsRequest, DnsRequestOptions};
 pub use self::dns_response::{DnsResponse, DnsResponseStream};
-#[cfg(feature = "dnssec-ring")]
-pub use self::dnssec_dns_handle::DnssecDnsHandle;
 pub use self::retry_dns_handle::RetryDnsHandle;
 pub use self::serial_message::SerialMessage;
 

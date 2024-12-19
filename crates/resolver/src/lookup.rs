@@ -33,7 +33,7 @@ use crate::{
 };
 
 #[cfg(feature = "dnssec-ring")]
-use crate::proto::{dnssec::Proven, DnssecDnsHandle};
+use crate::proto::dnssec::{DnssecDnsHandle, Proven};
 
 /// Result of a DNS query when querying for any record type supported by the Hickory DNS Proto library.
 ///

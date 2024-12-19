@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "dnssec-ring")]
 use crate::dnssec::ring::Digest;
 use crate::{
-    dnssec::{public_key::decode_public_key, Algorithm, DigestType, PublicKey, Verifier},
+    dnssec::{ring::decode_public_key, Algorithm, DigestType, PublicKey, Verifier},
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     rr::{record_data::RData, Name, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{

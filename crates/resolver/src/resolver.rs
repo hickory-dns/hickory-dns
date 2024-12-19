@@ -128,7 +128,7 @@ impl<R: ConnectionProvider> Resolver<R> {
         if options.validate {
             #[cfg(feature = "dnssec-ring")]
             {
-                use crate::proto::xfer::DnssecDnsHandle;
+                use crate::proto::dnssec::DnssecDnsHandle;
                 either = LookupEither::Secure(DnssecDnsHandle::new(client));
             }
 

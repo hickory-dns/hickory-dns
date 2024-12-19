@@ -18,13 +18,14 @@ pub use backtrace::Backtrace as ExtBacktrace;
 use enum_as_inner::EnumAsInner;
 #[cfg(feature = "backtrace")]
 use once_cell::sync::Lazy;
+#[cfg(feature = "dnssec-ring")]
+use ring::error::Unspecified;
 use thiserror::Error;
 use tracing::debug;
 
-use crate::op::{Header, Query, ResponseCode};
-
 #[cfg(feature = "dnssec-ring")]
-use crate::dnssec::{rdata::tsig::TsigAlgorithm, Proof};
+use crate::dnssec::Proof;
+use crate::op::{Header, Query, ResponseCode};
 use crate::rr::{domain::Name, rdata::SOA, resource::RecordRef, Record, RecordType};
 use crate::serialize::binary::DecodeError;
 use crate::xfer::DnsResponse;
@@ -125,10 +126,6 @@ pub enum ProtoErrorKind {
         /// Error that occurred while parsing the Message
         error: Box<ProtoError>,
     },
-
-    /// An HMAC failed to verify
-    #[error("hmac validation failure")]
-    HmacInvalid(),
 
     /// The length of rdata read was not as expected
     #[error("incorrect rdata length read: {read} expected: {len}")]
@@ -267,16 +264,6 @@ pub enum ProtoErrorKind {
     /// A request timed out
     #[error("request timed out")]
     Timeout,
-
-    /// Tsig key verification failed
-    #[error("Tsig key wrong key error")]
-    TsigWrongKey,
-
-    /// Tsig unsupported mac algorithm
-    /// Supported algorithm documented in `TsigAlgorithm::supported` function.
-    #[cfg(feature = "dnssec-ring")]
-    #[error("Tsig unsupported mac algorithm")]
-    TsigUnsupportedMacAlgorithm(TsigAlgorithm),
 
     /// An url parsing error
     #[error("url parsing error")]
@@ -751,7 +738,6 @@ impl Clone for ProtoErrorKind {
                 header,
                 error: error.clone(),
             },
-            HmacInvalid() => HmacInvalid(),
             IncorrectRDataLengthRead { read, len } => IncorrectRDataLengthRead { read, len },
             LabelBytesTooLong(len) => LabelBytesTooLong(len),
             PointerNotPriorToLabel { idx, ptr } => PointerNotPriorToLabel { idx, ptr },
@@ -801,9 +787,6 @@ impl Clone for ProtoErrorKind {
             Ring(ref _e) => Ring(Unspecified),
             Timeout => Timeout,
             Timer => Timer,
-            #[cfg(feature = "dnssec-ring")]
-            TsigUnsupportedMacAlgorithm(ref alg) => TsigUnsupportedMacAlgorithm(alg.clone()),
-            TsigWrongKey => TsigWrongKey,
             UrlParsing(ref e) => UrlParsing(*e),
             Utf8(ref e) => Utf8(*e),
             FromUtf8(ref e) => FromUtf8(e.clone()),
@@ -831,148 +814,5 @@ impl Clone for ProtoErrorKind {
             #[cfg(feature = "native-certs")]
             NativeCerts => NativeCerts,
         }
-    }
-}
-
-#[cfg(feature = "dnssec-ring")]
-use ring::error::{KeyRejected, Unspecified};
-
-/// An alias for dnssec results returned by functions of this crate
-#[cfg(feature = "dnssec-ring")]
-pub type DnsSecResult<T> = ::std::result::Result<T, DnsSecError>;
-
-/// The error kind for dnssec errors that get returned in the crate
-#[cfg(feature = "dnssec-ring")]
-#[derive(Debug, Error)]
-#[non_exhaustive]
-pub enum DnsSecErrorKind {
-    /// An error with an arbitrary message, referenced as &'static str
-    #[error("{0}")]
-    Message(&'static str),
-
-    /// An error with an arbitrary message, stored as String
-    #[error("{0}")]
-    Msg(String),
-
-    // foreign
-    /// An error got returned by the hickory-proto crate
-    #[error("proto error: {0}")]
-    Proto(#[from] ProtoError),
-
-    /// A ring error
-    #[cfg(feature = "dnssec-ring")]
-    #[error("ring error: {0}")]
-    RingKeyRejected(#[from] KeyRejected),
-
-    /// A ring error
-    #[cfg(feature = "dnssec-ring")]
-    #[error("ring error: {0}")]
-    RingUnspecified(#[from] Unspecified),
-
-    /// A request timed out
-    #[error("request timed out")]
-    Timeout,
-}
-
-#[cfg(feature = "dnssec-ring")]
-impl Clone for DnsSecErrorKind {
-    fn clone(&self) -> Self {
-        use DnsSecErrorKind::*;
-        match self {
-            Message(msg) => Message(msg),
-            Msg(msg) => Msg(msg.clone()),
-
-            // foreign
-            Proto(proto) => Proto(proto.clone()),
-            #[cfg(feature = "dnssec-ring")]
-            RingKeyRejected(r) => Msg(format!("Ring rejected key: {r}")),
-            #[cfg(feature = "dnssec-ring")]
-            RingUnspecified(_r) => RingUnspecified(Unspecified),
-            Timeout => Timeout,
-        }
-    }
-}
-
-#[cfg(feature = "dnssec-ring")]
-/// The error type for dnssec errors that get returned in the crate
-#[derive(Debug, Clone, Error)]
-pub struct DnsSecError {
-    kind: DnsSecErrorKind,
-    #[cfg(feature = "backtrace")]
-    backtrack: Option<ExtBacktrace>,
-}
-
-#[cfg(feature = "dnssec-ring")]
-impl DnsSecError {
-    /// Get the kind of the error
-    pub fn kind(&self) -> &DnsSecErrorKind {
-        &self.kind
-    }
-}
-
-#[cfg(feature = "dnssec-ring")]
-impl fmt::Display for DnsSecError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "backtrace")] {
-                if let Some(backtrace) = &self.backtrack {
-                    fmt::Display::fmt(&self.kind, f)?;
-                    fmt::Debug::fmt(backtrace, f)
-                } else {
-                    fmt::Display::fmt(&self.kind, f)
-                }
-            } else {
-                fmt::Display::fmt(&self.kind, f)
-            }
-        }
-    }
-}
-
-#[cfg(feature = "dnssec-ring")]
-impl From<DnsSecErrorKind> for DnsSecError {
-    fn from(kind: DnsSecErrorKind) -> Self {
-        Self {
-            kind,
-            #[cfg(feature = "backtrace")]
-            backtrack: trace!(),
-        }
-    }
-}
-
-#[cfg(feature = "dnssec-ring")]
-impl From<&'static str> for DnsSecError {
-    fn from(msg: &'static str) -> Self {
-        DnsSecErrorKind::Message(msg).into()
-    }
-}
-
-#[cfg(feature = "dnssec-ring")]
-impl From<String> for DnsSecError {
-    fn from(msg: String) -> Self {
-        DnsSecErrorKind::Msg(msg).into()
-    }
-}
-
-#[cfg(feature = "dnssec-ring")]
-impl From<ProtoError> for DnsSecError {
-    fn from(e: ProtoError) -> Self {
-        match e.kind() {
-            ProtoErrorKind::Timeout => DnsSecErrorKind::Timeout.into(),
-            _ => DnsSecErrorKind::from(e).into(),
-        }
-    }
-}
-
-#[cfg(feature = "dnssec-ring")]
-impl From<KeyRejected> for DnsSecError {
-    fn from(e: KeyRejected) -> Self {
-        DnsSecErrorKind::from(e).into()
-    }
-}
-
-#[cfg(feature = "dnssec-ring")]
-impl From<Unspecified> for DnsSecError {
-    fn from(e: Unspecified) -> Self {
-        DnsSecErrorKind::from(e).into()
     }
 }

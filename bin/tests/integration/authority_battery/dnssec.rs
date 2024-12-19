@@ -9,7 +9,7 @@ use futures_executor::block_on;
 use hickory_proto::{
     dnssec::{
         rdata::{DNSKEY, RRSIG},
-        Algorithm, SupportedAlgorithms, Verifier,
+        verify_nsec, Algorithm, SupportedAlgorithms, Verifier,
     },
     op::{Header, Query},
     rr::{DNSClass, Name, RData, Record, RecordType},
@@ -204,12 +204,7 @@ pub fn test_nsec_nodata<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::TXT);
-    assert!(xfer::dnssec_dns_handle::verify_nsec(
-        &query,
-        &Name::from_str("example.com.").unwrap(),
-        &nsecs
-    )
-    .is_secure());
+    assert!(verify_nsec(&query, &Name::from_str("example.com.").unwrap(), &nsecs).is_secure());
 }
 
 pub fn test_nsec_nxdomain_start<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
@@ -237,12 +232,7 @@ pub fn test_nsec_nxdomain_start<A: Authority<Lookup = AuthLookup>>(authority: A,
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::A);
-    assert!(xfer::dnssec_dns_handle::verify_nsec(
-        &query,
-        &Name::from_str("example.com.").unwrap(),
-        &nsecs
-    )
-    .is_secure());
+    assert!(verify_nsec(&query, &Name::from_str("example.com.").unwrap(), &nsecs).is_secure());
 }
 
 pub fn test_nsec_nxdomain_middle<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
@@ -269,12 +259,7 @@ pub fn test_nsec_nxdomain_middle<A: Authority<Lookup = AuthLookup>>(authority: A
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::A);
-    assert!(xfer::dnssec_dns_handle::verify_nsec(
-        &query,
-        &Name::from_str("example.com.").unwrap(),
-        &nsecs
-    )
-    .is_secure());
+    assert!(verify_nsec(&query, &Name::from_str("example.com.").unwrap(), &nsecs).is_secure());
 }
 
 pub fn test_nsec_nxdomain_wraps_end<A: Authority<Lookup = AuthLookup>>(
@@ -304,12 +289,7 @@ pub fn test_nsec_nxdomain_wraps_end<A: Authority<Lookup = AuthLookup>>(
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::A);
-    assert!(xfer::dnssec_dns_handle::verify_nsec(
-        &query,
-        &Name::from_str("example.com.").unwrap(),
-        &nsecs
-    )
-    .is_secure());
+    assert!(verify_nsec(&query, &Name::from_str("example.com.").unwrap(), &nsecs).is_secure());
 }
 
 pub fn test_rfc_6975_supported_algorithms<A: Authority<Lookup = AuthLookup>>(

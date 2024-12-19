@@ -22,7 +22,8 @@ use super::rdata::tsig::{
     make_tsig_record, message_tbs, signed_bitmessage_to_buf, TsigAlgorithm, TSIG,
 };
 use super::rdata::DNSSECRData;
-use crate::error::{ProtoError, ProtoErrorKind, ProtoResult};
+use super::{DnsSecError, DnsSecErrorKind};
+use crate::error::{ProtoError, ProtoResult};
 use crate::op::{Message, MessageFinalizer, MessageVerifier};
 use crate::rr::{Name, RData, Record};
 use crate::xfer::DnsResponse;
@@ -52,7 +53,7 @@ impl TSigner {
         algorithm: TsigAlgorithm,
         signer_name: Name,
         fudge: u16,
-    ) -> ProtoResult<Self> {
+    ) -> Result<Self, DnsSecError> {
         if algorithm.supported() {
             Ok(Self(Arc::new(TSignerInner {
                 key,
@@ -61,7 +62,7 @@ impl TSigner {
                 fudge,
             })))
         } else {
-            Err(ProtoErrorKind::TsigUnsupportedMacAlgorithm(algorithm).into())
+            Err(DnsSecErrorKind::TsigUnsupportedMacAlgorithm(algorithm).into())
         }
     }
 
@@ -89,17 +90,17 @@ impl TSigner {
     }
 
     /// Compute authentication tag for a buffer
-    pub fn sign(&self, tbs: &[u8]) -> ProtoResult<Vec<u8>> {
+    pub fn sign(&self, tbs: &[u8]) -> Result<Vec<u8>, DnsSecError> {
         self.0.algorithm.mac_data(&self.0.key, tbs)
     }
 
     /// Compute authentication tag for a message
-    pub fn sign_message(&self, message: &Message, pre_tsig: &TSIG) -> ProtoResult<Vec<u8>> {
-        message_tbs(None, message, pre_tsig, &self.0.signer_name).and_then(|tbs| self.sign(&tbs))
+    pub fn sign_message(&self, message: &Message, pre_tsig: &TSIG) -> Result<Vec<u8>, DnsSecError> {
+        self.sign(&message_tbs(None, message, pre_tsig, &self.0.signer_name)?)
     }
 
     /// Verify hmac in constant time to prevent timing attacks
-    pub fn verify(&self, tbv: &[u8], tag: &[u8]) -> ProtoResult<()> {
+    pub fn verify(&self, tbv: &[u8], tag: &[u8]) -> Result<(), DnsSecError> {
         self.0.algorithm.verify_mac(&self.0.key, tbv, tag)
     }
 
@@ -125,7 +126,7 @@ impl TSigner {
         previous_hash: Option<&[u8]>,
         message: &[u8],
         first_message: bool,
-    ) -> ProtoResult<(Vec<u8>, Range<u64>, u64)> {
+    ) -> Result<(Vec<u8>, Range<u64>, u64), DnsSecError> {
         let (tbv, record) = signed_bitmessage_to_buf(previous_hash, message, first_message)?;
         let tsig = if let RData::DNSSEC(DNSSECRData::TSIG(tsig)) = record.data() {
             tsig
@@ -136,7 +137,7 @@ impl TSigner {
         // https://tools.ietf.org/html/rfc8945#section-5.2
         // 1.  Check key
         if record.name() != &self.0.signer_name || tsig.algorithm() != &self.0.algorithm {
-            return Err(ProtoErrorKind::TsigWrongKey.into());
+            return Err(DnsSecErrorKind::TsigWrongKey.into());
         }
 
         // 2.  Check MAC
@@ -144,13 +145,12 @@ impl TSigner {
         //    this is to be pedantic about constant time HMAC validation (prevent timing attacks) as well as any security
         //    concerns about MAC truncation and collisions.
         if tsig.mac().len() < tsig.algorithm().output_len()? {
-            return Err(ProtoError::from("Please file an issue with https://github.com/hickory-dns/hickory-dns to support truncated HMACs with TSIG"));
+            return Err(DnsSecError::from("Please file an issue with https://github.com/hickory-dns/hickory-dns to support truncated HMACs with TSIG"));
         }
 
         // verify the MAC
         let mac = tsig.mac();
-        self.verify(&tbv, mac)
-            .map_err(|_e| ProtoError::from("tsig validation error: invalid signature"))?;
+        self.verify(&tbv, mac)?;
 
         // 3.  Check time values
         // we don't actually have time here so we will let upper level decide
@@ -195,7 +195,9 @@ impl MessageFinalizer for TSigner {
             0,
             Vec::new(),
         );
-        let mut signature: Vec<u8> = self.sign_message(message, &pre_tsig)?;
+        let mut signature: Vec<u8> = self
+            .sign_message(message, &pre_tsig)
+            .map_err(|err| ProtoError::from(err.to_string()))?;
         let tsig = make_tsig_record(
             self.0.signer_name.clone(),
             pre_tsig.set_mac(signature.clone()),
@@ -203,11 +205,9 @@ impl MessageFinalizer for TSigner {
         let self2 = self.clone();
         let mut remote_time = 0;
         let verifier = move |dns_response: &[u8]| {
-            let (last_sig, range, rt) = self2.verify_message_byte(
-                Some(signature.as_ref()),
-                dns_response,
-                remote_time == 0,
-            )?;
+            let (last_sig, range, rt) = self2
+                .verify_message_byte(Some(signature.as_ref()), dns_response, remote_time == 0)
+                .map_err(|err| ProtoError::from(err.to_string()))?;
             if rt >= remote_time && range.contains(&current_time)
             // this assumes a no-latency answer
             {

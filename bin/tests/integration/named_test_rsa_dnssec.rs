@@ -13,11 +13,10 @@ use crate::server_harness::{
 };
 use hickory_client::client::Client;
 use hickory_dns::dnssec::key_from_file;
-use hickory_proto::dnssec::{Algorithm, TrustAnchor};
+use hickory_proto::dnssec::{Algorithm, DnssecDnsHandle, TrustAnchor};
 use hickory_proto::runtime::{RuntimeProvider, TokioRuntimeProvider, TokioTime};
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer, Protocol};
-use hickory_proto::DnssecDnsHandle;
 
 #[cfg(feature = "dnssec-ring")]
 fn confg_toml() -> &'static str {
