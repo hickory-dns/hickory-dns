@@ -7,7 +7,7 @@
 
 //! Configuration types for all security options in hickory-dns
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use rustls_pki_types::pem::PemObject;
 use rustls_pki_types::PrivateKeyDer;
@@ -27,7 +27,7 @@ use hickory_server::authority::DnssecAuthority;
 #[serde(deny_unknown_fields)]
 pub struct KeyConfig {
     /// file path to the key
-    pub key_path: String,
+    pub key_path: PathBuf,
     /// the type of key stored, see `Algorithm`
     pub algorithm: String,
     /// the name to use when signing records, e.g. ns.example.com
@@ -47,7 +47,7 @@ impl KeyConfig {
     /// * `is_zone_signing_key` - specify that this key should be used for signing a zone
     /// * `is_zone_update_auth` - specifies that this key can be used for dynamic updates in the zone
     pub fn new(
-        key_path: String,
+        key_path: PathBuf,
         algorithm: Algorithm,
         signer_name: String,
         purpose: KeyPurpose,
@@ -62,7 +62,7 @@ impl KeyConfig {
 
     /// path to the key file, either relative to the zone file, or a explicit from the root.
     pub fn key_path(&self) -> &Path {
-        Path::new(&self.key_path)
+        &self.key_path
     }
 
     /// algorithm for for the key, see `Algorithm` for supported algorithms.
