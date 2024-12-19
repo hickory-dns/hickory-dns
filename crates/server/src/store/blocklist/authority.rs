@@ -178,7 +178,7 @@ impl BlocklistAuthority {
     ///
     ///     let mut blocklist = BlocklistAuthority::try_from_config(
     ///         Name::root(),
-    ///         ZoneType::Hint,
+    ///         ZoneType::External,
     ///         &config,
     ///         Some(Path::new("../../tests/test-data/test_configs")),
     ///     ).await.unwrap();
@@ -319,7 +319,7 @@ impl Authority for BlocklistAuthority {
     type Lookup = BlocklistLookup;
 
     fn zone_type(&self) -> ZoneType {
-        ZoneType::Hint
+        ZoneType::External
     }
 
     fn is_axfr_allowed(&self) -> bool {
@@ -479,7 +479,7 @@ mod test {
 
         let blocklist = super::BlocklistAuthority::try_from_config(
             Name::root(),
-            ZoneType::Hint,
+            ZoneType::External,
             &config,
             Some(Path::new("../../tests/test-data/test_configs/")),
         );
@@ -541,7 +541,7 @@ mod test {
 
         let blocklist = super::BlocklistAuthority::try_from_config(
             Name::root(),
-            ZoneType::Hint,
+            ZoneType::External,
             &config,
             Some(Path::new("../../tests/test-data/test_configs/")),
         );
@@ -592,7 +592,7 @@ mod test {
 
         let blocklist = super::BlocklistAuthority::try_from_config(
             Name::root(),
-            ZoneType::Hint,
+            ZoneType::External,
             &config,
             Some(Path::new("../../tests/test-data/test_configs/")),
         );
