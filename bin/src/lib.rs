@@ -328,19 +328,6 @@ pub struct ZoneConfig {
 }
 
 impl ZoneConfig {
-    /// Return a new zone configuration
-    ///
-    /// # Arguments
-    ///
-    /// * `zone` - name of a zone, e.g. example.com
-    /// * `zone_type_configuration` - Configuration specific to the type of zone, e.g. Primary, Secondary, etc.
-    pub fn new(zone: String, zone_type_config: ZoneTypeConfig) -> Self {
-        Self {
-            zone,
-            zone_type_config,
-        }
-    }
-
     #[warn(clippy::wildcard_enum_match_arm)] // make sure all cases are handled despite of non_exhaustive
     pub async fn load(&self, zone_dir: &Path) -> Result<Vec<Arc<dyn AuthorityObject>>, String> {
         debug!("loading zone with config: {self:#?}");
@@ -378,10 +365,7 @@ impl ZoneConfig {
                     server_config.stores
                 );
 
-                #[cfg_attr(not(feature = "dnssec-ring"), allow(unused_variables))]
-                let zone_name_for_signer = zone_name.clone();
                 let is_axfr_allowed = server_config.is_axfr_allowed();
-
                 for store in &server_config.stores {
                     let authority: Arc<dyn AuthorityObject> = match store {
                         #[cfg(feature = "sqlite")]
@@ -400,9 +384,7 @@ impl ZoneConfig {
                             .await?;
 
                             #[cfg(feature = "dnssec-ring")]
-                            server_config
-                                .load_keys(&mut authority, zone_name_for_signer.clone())
-                                .await?;
+                            server_config.load_keys(&mut authority, &zone_name).await?;
                             Arc::new(authority)
                         }
 
@@ -419,9 +401,7 @@ impl ZoneConfig {
                             )?;
 
                             #[cfg(feature = "dnssec-ring")]
-                            server_config
-                                .load_keys(&mut authority, zone_name_for_signer.clone())
-                                .await?;
+                            server_config.load_keys(&mut authority, &zone_name).await?;
                             Arc::new(authority)
                         }
                         _ => return empty_stores_error(),
@@ -584,45 +564,18 @@ pub struct ServerZoneConfig {
 }
 
 impl ServerZoneConfig {
-    /// Return a new secondary zone configuration
-    ///
-    /// # Arguments
-    ///
-    /// * `file` - relative to Config base path, to the zone file. This translates to a
-    ///    [`ServerStoreConfig::File`] with the given path.
-    /// * `allow_axfr` - enable AXFR transfers
-    /// * `keys` - list of private and public keys used to sign a zone
-    /// * `nx_proof_kind` - the kind of non-existence proof provided by the nameserver
-    pub fn new(
-        file: PathBuf,
-        allow_axfr: Option<bool>,
-        #[cfg(feature = "dnssec-ring")] keys: Vec<dnssec::KeyConfig>,
-        #[cfg(feature = "dnssec-ring")] nx_proof_kind: Option<NxProofKind>,
-    ) -> Self {
-        Self {
-            allow_axfr,
-            #[cfg(feature = "dnssec-ring")]
-            keys,
-            #[cfg(feature = "dnssec-ring")]
-            nx_proof_kind,
-            stores: vec![ServerStoreConfig::File(FileConfig {
-                zone_file_path: file,
-            })],
-        }
-    }
-
     #[cfg(feature = "dnssec-ring")]
     async fn load_keys(
         &self,
         authority: &mut impl DnssecAuthority<Lookup = impl Send + Sync + Sized + 'static>,
-        zone_name: Name,
+        zone_name: &Name,
     ) -> Result<(), String> {
         if !self.is_dnssec_enabled() {
             return Ok(());
         }
 
         for key_config in &self.keys {
-            key_config.load(authority, &zone_name).await?;
+            key_config.load(authority, zone_name.clone()).await?;
         }
 
         info!("signing zone: {zone_name}");
@@ -638,11 +591,11 @@ impl ServerZoneConfig {
     ///
     /// this is only used on first load, if dynamic update is enabled for the zone, then the journal
     /// file is the actual source of truth for the zone.
-    pub fn file(&self) -> Option<PathBuf> {
+    pub fn file(&self) -> Option<&Path> {
         self.stores.iter().find_map(|store| match store {
-            ServerStoreConfig::File(file_config) => Some(file_config.zone_file_path.clone()),
+            ServerStoreConfig::File(file_config) => Some(&*file_config.zone_file_path),
             #[cfg(feature = "sqlite")]
-            ServerStoreConfig::Sqlite(sqlite_config) => Some(sqlite_config.zone_file_path.clone()),
+            ServerStoreConfig::Sqlite(sqlite_config) => Some(&*sqlite_config.zone_file_path),
             ServerStoreConfig::Default => None,
         })
     }

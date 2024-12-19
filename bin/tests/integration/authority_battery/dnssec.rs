@@ -1,6 +1,7 @@
 #![cfg(feature = "dnssec-ring")]
 
 use std::net::{Ipv4Addr, SocketAddr};
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::{future::Future, sync::Arc};
 
@@ -378,8 +379,8 @@ pub fn add_signers<A: DnssecAuthority>(authority: &mut A) -> Vec<DNSKEY> {
     // rsa
     {
         let key_config = KeyConfig {
-            key_path: "../tests/test-data/test_configs/dnssec/rsa_2048.pk8".to_string(),
-            algorithm: Algorithm::RSASHA512.to_string(),
+            key_path: PathBuf::from("../tests/test-data/test_configs/dnssec/rsa_2048.pk8"),
+            algorithm: Algorithm::RSASHA512,
             signer_name: Some(signer_name.to_string()),
             purpose: KeyPurpose::ZoneSigning,
         };
@@ -431,8 +432,8 @@ pub fn add_signers<A: DnssecAuthority>(authority: &mut A) -> Vec<DNSKEY> {
     #[cfg(feature = "dnssec-ring")]
     {
         let key_config = KeyConfig {
-            key_path: "../tests/test-data/test_configs/dnssec/ed25519.pk8".to_string(),
-            algorithm: Algorithm::ED25519.to_string(),
+            key_path: PathBuf::from("../tests/test-data/test_configs/dnssec/ed25519.pk8"),
+            algorithm: Algorithm::ED25519,
             signer_name: Some(signer_name.to_string()),
             purpose: KeyPurpose::ZoneSigning,
         };
