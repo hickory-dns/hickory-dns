@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 use rustls_pki_types::pem::PemObject;
 use rustls_pki_types::PrivateKeyDer;
 use serde::Deserialize;
+use time::Duration;
 use tracing::info;
 
 use hickory_proto::rr::domain::Name;
@@ -44,19 +45,52 @@ impl KeyConfig {
             .transpose()
     }
 
-    /// Tries to read the defined key into a Signer
+    /// set of DNSSEC algorithms to use to sign the zone. enable_dnssec must be true.
+    /// these will be looked up by $file.{key_name}.pem, for backward compatibility
+    /// with previous versions of Hickory DNS, if enable_dnssec is enabled but
+    /// supported_algorithms is not specified, it will default to "RSASHA256" and
+    /// look for the $file.pem for the key. To control key length, or other options
+    /// keys of the specified formats can be generated in PEM format. Instructions
+    /// for custom keys can be found elsewhere.
+    ///
+    /// the currently supported set of supported_algorithms are
+    /// ["RSASHA256", "RSASHA512", "ECDSAP256SHA256", "ECDSAP384SHA384", "ED25519"]
+    ///
+    /// keys are listed in pairs of key_name and algorithm, the search path is the
+    /// same directory has the zone $file:
+    ///  keys = [ "my_rsa_2048|RSASHA256", "/path/to/my_ed25519|ED25519" ]
     pub fn try_into_signer<N: IntoName>(&self, signer_name: N) -> Result<SigSigner, String> {
         let signer_name = signer_name
             .into_name()
             .map_err(|e| format!("error loading signer name: {e}"))?;
 
-        let key = self
-            .signer(signer_name)
-            .map_err(|e| format!("failed to load key: {:?} msg: {e}", self.key_path))?;
+        // read the key in
+        let key = key_from_file(&self.key_path, self.algorithm)?;
 
-        key.test_key()
+        let name = self
+            .signer_name()
+            .map_err(|e| format!("error reading name: {e}"))?
+            .unwrap_or(signer_name);
+
+        // add the key to the zone
+        // TODO: allow the duration of signatures to be customized
+        let pub_key = key
+            .to_public_key()
+            .map_err(|e| format!("error getting public key: {e}"))?;
+
+        let signer = SigSigner::dnssec(
+            DNSKEY::from_key(&pub_key),
+            key,
+            name,
+            Duration::weeks(52)
+                .try_into()
+                .map_err(|e| format!("error converting time to std::Duration: {e}"))?,
+        );
+
+        signer
+            .test_key()
             .map_err(|e| format!("key failed test: {e}"))?;
-        Ok(key)
+        Ok(signer)
     }
 
     pub async fn load(
@@ -97,47 +131,6 @@ impl KeyConfig {
         }
 
         Ok(())
-    }
-
-    /// set of DNSSEC algorithms to use to sign the zone. enable_dnssec must be true.
-    /// these will be looked up by $file.{key_name}.pem, for backward compatibility
-    /// with previous versions of Hickory DNS, if enable_dnssec is enabled but
-    /// supported_algorithms is not specified, it will default to "RSASHA256" and
-    /// look for the $file.pem for the key. To control key length, or other options
-    /// keys of the specified formats can be generated in PEM format. Instructions
-    /// for custom keys can be found elsewhere.
-    ///
-    /// the currently supported set of supported_algorithms are
-    /// ["RSASHA256", "RSASHA512", "ECDSAP256SHA256", "ECDSAP384SHA384", "ED25519"]
-    ///
-    /// keys are listed in pairs of key_name and algorithm, the search path is the
-    /// same directory has the zone $file:
-    ///  keys = [ "my_rsa_2048|RSASHA256", "/path/to/my_ed25519|ED25519" ]
-    fn signer(&self, zone_name: Name) -> Result<SigSigner, String> {
-        use time::Duration;
-
-        // read the key in
-        let key = key_from_file(&self.key_path, self.algorithm)?;
-
-        let name = self
-            .signer_name()
-            .map_err(|e| format!("error reading name: {e}"))?
-            .unwrap_or(zone_name);
-
-        // add the key to the zone
-        // TODO: allow the duration of signatures to be customized
-        let pub_key = key
-            .to_public_key()
-            .map_err(|e| format!("error getting public key: {e}"))?;
-
-        Ok(SigSigner::dnssec(
-            DNSKEY::from_key(&pub_key),
-            key,
-            name,
-            Duration::weeks(52)
-                .try_into()
-                .map_err(|e| format!("error converting time to std::Duration: {e}"))?,
-        ))
     }
 }
 
