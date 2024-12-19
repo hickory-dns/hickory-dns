@@ -410,7 +410,7 @@ impl ZoneConfig {
                     authorities.push(authority);
                 }
             }
-            ZoneTypeConfig::Forward { stores } => {
+            ZoneTypeConfig::External { stores } => {
                 debug!(
                     "loading authorities for {zone_name} with stores {:?}",
                     stores
@@ -421,13 +421,13 @@ impl ZoneConfig {
                     allow(unreachable_code, unused_variables, clippy::never_loop)
                 )]
                 for store in stores {
-                    let authority = match store {
+                    let authority: Arc<dyn AuthorityObject> = match store {
                         #[cfg(feature = "blocklist")]
-                        ForwardStoreConfig::Blocklist(config) => {
+                        ExternalStoreConfig::Blocklist(config) => {
                             handle_blocklist_store(config).await?
                         }
                         #[cfg(feature = "resolver")]
-                        ForwardStoreConfig::Forward(config) => {
+                        ExternalStoreConfig::Forward(config) => {
                             let forwarder = ForwardAuthority::try_from_config(
                                 zone_name.clone(),
                                 zone_type,
@@ -436,30 +436,8 @@ impl ZoneConfig {
 
                             Arc::new(forwarder)
                         }
-                        _ => return empty_stores_error(),
-                    };
-
-                    authorities.push(authority);
-                }
-            }
-            ZoneTypeConfig::Hint { stores } => {
-                debug!(
-                    "loading authorities for {zone_name} with stores {:?}",
-                    stores
-                );
-
-                #[cfg_attr(
-                    not(any(feature = "blocklist", feature = "recursor")),
-                    allow(unreachable_code, unused_variables, clippy::never_loop)
-                )]
-                for store in stores {
-                    let authority: Arc<dyn AuthorityObject> = match store {
-                        #[cfg(feature = "blocklist")]
-                        HintStoreConfig::Blocklist(ref config) => {
-                            handle_blocklist_store(config).await?
-                        }
                         #[cfg(feature = "recursor")]
-                        HintStoreConfig::Recursor(config) => {
+                        ExternalStoreConfig::Recursor(config) => {
                             let recursor = RecursiveAuthority::try_from_config(
                                 zone_name.clone(),
                                 zone_type,
@@ -493,7 +471,7 @@ impl ZoneConfig {
         match &self.zone_type_config {
             ZoneTypeConfig::Primary { .. } => ZoneType::Primary,
             ZoneTypeConfig::Secondary { .. } => ZoneType::Secondary,
-            ZoneTypeConfig::Forward { .. } | ZoneTypeConfig::Hint { .. } => ZoneType::External,
+            ZoneTypeConfig::External { .. } => ZoneType::External,
         }
     }
 }
@@ -509,7 +487,7 @@ fn empty_stores_error<T>() -> Result<T, String> {
 pub enum ZoneTypeConfig {
     Primary(ServerZoneConfig),
     Secondary(ServerZoneConfig),
-    Forward {
+    External {
         /// Store configurations.  Note: we specify a default handler to get a Vec containing a
         /// StoreConfig::Default, which is used for authoritative file-based zones and legacy sqlite
         /// configurations. #[serde(default)] cannot be used, because it will invoke Default for Vec,
@@ -517,17 +495,7 @@ pub enum ZoneTypeConfig {
         /// custom visitor is used to handle map (single store) or sequence (chained store) configurations.
         #[serde(default = "store_config_default")]
         #[serde(deserialize_with = "store_config_visitor")]
-        stores: Vec<ForwardStoreConfig>,
-    },
-    Hint {
-        /// Store configurations.  Note: we specify a default handler to get a Vec containing a
-        /// StoreConfig::Default, which is used for authoritative file-based zones and legacy sqlite
-        /// configurations. #[serde(default)] cannot be used, because it will invoke Default for Vec,
-        /// i.e., an empty Vec and we cannot implement Default for StoreConfig and return a Vec.  The
-        /// custom visitor is used to handle map (single store) or sequence (chained store) configurations.
-        #[serde(default = "store_config_default")]
-        #[serde(deserialize_with = "store_config_visitor")]
-        stores: Vec<HintStoreConfig>,
+        stores: Vec<ExternalStoreConfig>,
     },
 }
 
@@ -632,35 +600,21 @@ pub enum ServerStoreConfig {
     Default,
 }
 
-/// Enumeration over store types for hint nameservers.
+/// Enumeration over store types for external nameservers.
 #[derive(Deserialize, Debug, Default)]
 #[serde(tag = "type")]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
-pub enum HintStoreConfig {
-    /// Blocklist configuration
-    #[cfg(feature = "blocklist")]
-    Blocklist(BlocklistConfig),
-    /// Recursive Resolver
-    #[cfg(feature = "recursor")]
-    Recursor(Box<RecursiveConfig>),
-    /// This is used by the configuration processing code to represent a deprecated or main-block config without an associated store.
-    #[default]
-    Default,
-}
-
-/// Enumeration over store types for forward nameservers.
-#[derive(Deserialize, Debug, Default)]
-#[serde(tag = "type")]
-#[serde(rename_all = "lowercase")]
-#[non_exhaustive]
-pub enum ForwardStoreConfig {
+pub enum ExternalStoreConfig {
     /// Blocklist configuration
     #[cfg(feature = "blocklist")]
     Blocklist(BlocklistConfig),
     /// Forwarding Resolver
     #[cfg(feature = "resolver")]
     Forward(ForwardConfig),
+    /// Recursive Resolver
+    #[cfg(feature = "recursor")]
+    Recursor(Box<RecursiveConfig>),
     /// This is used by the configuration processing code to represent a deprecated or main-block config without an associated store.
     #[default]
     Default,
@@ -780,7 +734,7 @@ mod tests {
         match toml::from_str::<Config>(
             r#"[[zones]]
                zone = "."
-               zone_type = "Forward"
+               zone_type = "External"
 
                [zones.stores]
                ype = "forward""#,
@@ -796,7 +750,7 @@ mod tests {
         match toml::from_str::<Config>(
             r#"[[zones]]
                zone = "."
-               zone_type = "Forward"
+               zone_type = "External"
 
                [[zones.stores]]
                type = "forward"

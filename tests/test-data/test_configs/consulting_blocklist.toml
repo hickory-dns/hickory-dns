@@ -32,8 +32,8 @@ file = "default/0.zone"
 ##  queries for "www.example.com" or "example.com" would be recursively queried.
 zone = "."
 
-## zone_type: Primary, Secondary, Hint, Forward
-zone_type = "Hint"
+## zone_type: Primary, Secondary, External
+zone_type = "External"
 
 [[zones.stores]]
 type = "recursor"
