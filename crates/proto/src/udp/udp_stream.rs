@@ -285,7 +285,9 @@ impl<P: RuntimeProvider> Future for NextRandomUdpSocket<P> {
                         return Poll::Ready(Ok(socket));
                     }
                     Poll::Ready(Err(err)) => match err.kind() {
-                        io::ErrorKind::AddrInUse if this.attempted < ATTEMPT_RANDOM + 1 => {
+                        io::ErrorKind::PermissionDenied | io::ErrorKind::AddrInUse
+                            if this.attempted < ATTEMPT_RANDOM + 1 =>
+                        {
                             debug!("unable to bind port, attempt: {}: {err}", this.attempted);
                             this.attempted += 1;
                             None
