@@ -299,6 +299,7 @@ fn check_nsec(verified_message: DnsResponse, query: &Query) -> Result<DnsRespons
         // TODO change this to remove the NSECs, like we do for the others?
         return Err(ProtoError::from(ProtoErrorKind::Nsec {
             query: Box::new(query.clone()),
+            response: Box::new(verified_message),
             proof: nsec_proof,
         }));
     }
@@ -855,10 +856,10 @@ where
     };
 
     // if the DS record was an NSEC then we have an insecure zone
-    if let Some((query, _proof)) = error
+    if let Some((query, _res, _proof)) = error
         .kind()
         .as_nsec()
-        .filter(|(_query, proof)| proof.is_insecure())
+        .filter(|(_query, _res, proof)| proof.is_insecure())
     {
         debug!(
             "marking {} as insecure based on NSEC/NSEC3 proof",
