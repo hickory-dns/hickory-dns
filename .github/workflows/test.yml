@@ -21,7 +21,7 @@ on:
     - cron: "0 3 * * 4"
 
 env:
-  CARGO_WS_VERSION: "0.2.44"
+  CARGO_WS_VERSION: "0.3.6"
 
 jobs:
   ## Run all default oriented feature sets across all platforms.
