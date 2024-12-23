@@ -50,6 +50,7 @@ pub(crate) struct RecursorDnsHandle {
     allow_server_v4: PrefixSet<Ipv4Net>,
     allow_server_v6: PrefixSet<Ipv6Net>,
     avoid_local_udp_ports: Arc<HashSet<u16>>,
+    case_randomization: bool,
 }
 
 impl RecursorDnsHandle {
@@ -65,6 +66,7 @@ impl RecursorDnsHandle {
         deny_server: Vec<IpNet>,
         avoid_local_udp_ports: Arc<HashSet<u16>>,
         ttl_config: TtlConfig,
+        case_randomization: bool,
     ) -> Self {
         // configure the hickory-resolver
         let roots: NameServerConfigGroup = roots.into();
@@ -72,7 +74,7 @@ impl RecursorDnsHandle {
         assert!(!roots.is_empty(), "roots must not be empty");
 
         debug!("Using cache sizes {}/{}", ns_cache_size, record_cache_size);
-        let opts = recursor_opts(avoid_local_udp_ports.clone());
+        let opts = recursor_opts(avoid_local_udp_ports.clone(), case_randomization);
         let roots =
             GenericNameServerPool::from_config(roots, opts, TokioConnectionProvider::default());
         let roots = RecursorPool::from(Name::root(), roots);
@@ -121,6 +123,7 @@ impl RecursorDnsHandle {
             allow_server_v4,
             allow_server_v6,
             avoid_local_udp_ports,
+            case_randomization,
         }
     }
 
@@ -553,7 +556,7 @@ impl RecursorDnsHandle {
         // now construct a namesever pool based off the NS and glue records
         let ns = GenericNameServerPool::from_config(
             config_group,
-            recursor_opts(self.avoid_local_udp_ports.clone()),
+            self.recursor_opts(),
             TokioConnectionProvider::default(),
         );
         let ns = RecursorPool::from(zone.clone(), ns);
@@ -680,7 +683,7 @@ impl RecursorDnsHandle {
         // now construct a namesever pool based off the NS and glue records
         let ns = GenericNameServerPool::from_config(
             config_group,
-            recursor_opts(self.avoid_local_udp_ports.clone()),
+            self.recursor_opts(),
             TokioConnectionProvider::default(),
         );
         let ns = RecursorPool::from(query_name.clone(), ns);
@@ -776,9 +779,16 @@ impl RecursorDnsHandle {
 
         Ok(depth)
     }
+
+    fn recursor_opts(&self) -> ResolverOpts {
+        recursor_opts(self.avoid_local_udp_ports.clone(), self.case_randomization)
+    }
 }
 
-fn recursor_opts(avoid_local_udp_ports: Arc<HashSet<u16>>) -> ResolverOpts {
+fn recursor_opts(
+    avoid_local_udp_ports: Arc<HashSet<u16>>,
+    case_randomization: bool,
+) -> ResolverOpts {
     let mut options = ResolverOpts::default();
     options.ndots = 0;
     options.edns0 = true;
@@ -787,6 +797,7 @@ fn recursor_opts(avoid_local_udp_ports: Arc<HashSet<u16>>) -> ResolverOpts {
     options.recursion_desired = false;
     options.num_concurrent_reqs = 1;
     options.avoid_local_udp_ports = avoid_local_udp_ports;
+    options.case_randomization = case_randomization;
 
     options
 }
@@ -814,6 +825,7 @@ fn test_nameserver_filter() {
         deny_server,
         Arc::new(HashSet::new()),
         TtlConfig::default(),
+        false,
     );
 
     for addr in [
