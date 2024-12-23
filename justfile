@@ -251,7 +251,7 @@ ede-dot-com: (ede-dot-com-run) (ede-dot-com-ignored) (ede-dot-com-check)
 # runs hickory-specific ede-dot-com tests that use the dns-test framework
 ede-dot-com-run filter='':
     bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes will NOT be tested" || true'
-    DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo test --manifest-path tests/ede-dot-com/Cargo.toml -- {{filter}}
+    DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo test --manifest-path tests/ede-dot-com/Cargo.toml --locked -- {{filter}}
     bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes were NOT tested" || true'
 
 # check that any fixed ede-dot-com test has not been left marked as `#[ignore]`
@@ -262,7 +262,7 @@ ede-dot-com-ignored:
 
     tmpfile="$(mktemp)"
     bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes will NOT be tested" || true'
-    ( DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo test --manifest-path tests/ede-dot-com/Cargo.toml --lib -- --ignored || true ) | tee "$tmpfile"
+    ( DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo test --manifest-path tests/ede-dot-com/Cargo.toml --locked --lib -- --ignored || true ) | tee "$tmpfile"
     grep -e 'test result: \(ok\|FAILED\). 0 passed' "$tmpfile" || ( echo "expected ALL tests to fail but at least one passed; the passing tests must be un-#[ignore]-d" && exit 1 )
     bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes were NOT tested" || true'
 
@@ -271,7 +271,7 @@ ede-dot-com-check: (ede-dot-com-clippy) (ede-dot-com-fmt)
 
 # lints the ede-dot-com test suite
 ede-dot-com-clippy:
-    cargo clippy --manifest-path tests/ede-dot-com/Cargo.toml --all-targets -- -D warnings
+    cargo clippy --manifest-path tests/ede-dot-com/Cargo.toml --locked --all-targets -- -D warnings
 
 # formats the ede-dot-com test suite code
 ede-dot-com-fmt:
