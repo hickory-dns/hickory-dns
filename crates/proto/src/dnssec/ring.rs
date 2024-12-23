@@ -520,7 +520,6 @@ impl From<DigestType> for &'static digest::Algorithm {
             DigestType::SHA1 => &digest::SHA1_FOR_LEGACY_USE_ONLY,
             DigestType::SHA256 => &digest::SHA256,
             DigestType::SHA384 => &digest::SHA384,
-            DigestType::SHA512 => &digest::SHA512,
         }
     }
 }
