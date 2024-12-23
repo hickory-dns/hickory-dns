@@ -76,8 +76,6 @@ pub enum DigestType {
     SHA256,
     /// [RFC 6605](https://tools.ietf.org/html/rfc6605)
     SHA384,
-    /// Formally undefined
-    SHA512,
 }
 
 impl TryFrom<u8> for DigestType {
@@ -99,7 +97,6 @@ impl From<DigestType> for u8 {
             DigestType::SHA1 => 1,
             DigestType::SHA256 => 2,
             DigestType::SHA384 => 4,
-            DigestType::SHA512 => 255,
         }
     }
 }
