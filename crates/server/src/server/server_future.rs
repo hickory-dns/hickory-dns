@@ -412,13 +412,20 @@ impl<T: RequestHandler> ServerFuture<T> {
     ) -> io::Result<()> {
         use crate::proto::rustls::tls_server;
 
-        let tls_acceptor = tls_server::new_acceptor(certificate_and_key.0, certificate_and_key.1)
-            .map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("error creating TLS acceptor: {e}"),
-            )
-        })?;
+        let mut tls_acceptor =
+            tls_server::new_acceptor(certificate_and_key.0, certificate_and_key.1).map_err(
+                |e| {
+                    io::Error::new(
+                        io::ErrorKind::Other,
+                        format!("error creating TLS acceptor: {e}"),
+                    )
+                },
+            )?;
+
+        // the tls_acceptor alpn protocols is set as "h2", however that will break some clients like
+        // kdig which send ALPN "dot", rustls will complain
+        // "peer doesn't support any known protocol", we need to set ALPN to "dot" correctly
+        tls_acceptor.alpn_protocols = vec![b"dot".to_vec()];
 
         Self::register_tls_listener_with_tls_config(self, listener, timeout, Arc::new(tls_acceptor))
     }
