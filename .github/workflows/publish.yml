@@ -6,7 +6,7 @@ on:
       - published
 
 env:
-  CARGO_WS_VERSION: "0.2.42"
+  CARGO_WS_VERSION: "0.3.6"
 
 jobs:
   publish:
@@ -22,11 +22,10 @@ jobs:
 
     - uses: extractions/setup-just@v2
 
-    - name: cargo install cargo-workspaces
-      uses: baptiste0928/cargo-install@v3
-      with:
-        crate: cargo-workspaces
-        version: ${{ env.CARGO_WS_VERSION }}
+    - name: install cargo-binstall
+      uses: cargo-bins/cargo-binstall@v1.10.18
+    - name: install cargo-workspaces
+      run: cargo binstall cargo-workspaces -y --version ${{ env.CARGO_WS_VERSION }}
 
 
     - name: just publish
