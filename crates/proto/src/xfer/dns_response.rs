@@ -19,6 +19,9 @@ use std::{
 use futures_channel::mpsc;
 use futures_util::{ready, stream::Stream};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     op::{Message, ResponseCode},
@@ -128,6 +131,7 @@ type TimeoutFuture = Pin<
 ///
 /// For Most DNS requests, only one response is expected, the exception is a multicast request.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct DnsResponse {
     message: Message,
     buffer: Vec<u8>,
