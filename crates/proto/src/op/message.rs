@@ -9,6 +9,8 @@
 
 use std::{fmt, iter, mem, ops::Deref};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
 use crate::{
@@ -62,6 +64,7 @@ use crate::{
 /// By default Message is a Query. Use the Message::as_update() to create and update, or
 ///  Message::new_update()
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Message {
     header: Header,
     queries: Vec<Query>,

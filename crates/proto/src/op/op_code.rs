@@ -9,6 +9,9 @@
 
 use std::{convert::From, fmt};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// Operation code for queries, updates, and responses
 ///
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
@@ -27,6 +30,7 @@ use std::{convert::From, fmt};
 ///                 3-15            reserved for future use
 /// ```
 #[derive(Debug, PartialEq, Eq, PartialOrd, Copy, Clone, Hash)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[allow(dead_code)]
 pub enum OpCode {
     /// Query request [RFC 1035](https://tools.ietf.org/html/rfc1035)

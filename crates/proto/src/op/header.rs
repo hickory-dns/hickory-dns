@@ -9,6 +9,9 @@
 
 use std::{convert::From, fmt};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 use crate::{
     error::*,
     op::{op_code::OpCode, response_code::ResponseCode},
@@ -48,6 +51,7 @@ use crate::{
 /// ```
 ///
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Header {
     id: u16,
     message_type: MessageType,
@@ -84,6 +88,7 @@ impl fmt::Display for Header {
 
 /// Message types are either Query (also Update) or Response
 #[derive(Debug, PartialEq, Eq, PartialOrd, Copy, Clone, Hash)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub enum MessageType {
     /// Queries are Client requests, these are either Queries or Updates
     Query,
