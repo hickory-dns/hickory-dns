@@ -285,6 +285,24 @@ impl<P: RuntimeProvider> Future for NextRandomUdpSocket<P> {
                         return Poll::Ready(Ok(socket));
                     }
                     Poll::Ready(Err(err)) => match err.kind() {
+                        // See https://github.com/hickory-dns/hickory-dns/issues/2649.
+                        // Windows returns a PermissionDenied error (code 10013) if we attempt
+                        // to bind a port within the ephemeral port range (49,152 - 65535, by default)
+                        // If we encounter this error, set this.attempted to ATTEMPT_RANDOM to bypass
+                        // our random port selection and use OS port assignment.  This should not
+                        // result in any entropy loss on Windows, since the problem is triggered when
+                        // we pick a port in the ephemeral port range, this is simply asking the OS
+                        // to bind a port inside that same range.
+                        //
+                        // It is also possible to encounter this error on Linux with restrictive
+                        // SELinux policies:
+                        //
+                        // https://lists.nlnetlabs.nl/pipermail/unbound-users/2014-November/003634.html
+                        io::ErrorKind::PermissionDenied => {
+                            debug!("using OS port selection due to PermissionDenied error");
+                            this.attempted = ATTEMPT_RANDOM;
+                            None
+                        }
                         io::ErrorKind::AddrInUse if this.attempted < ATTEMPT_RANDOM + 1 => {
                             debug!("unable to bind port, attempt: {}: {err}", this.attempted);
                             this.attempted += 1;
