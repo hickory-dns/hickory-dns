@@ -21,7 +21,7 @@ on:
     - cron: "0 3 * * 4"
 
 env:
-  CARGO_WS_VERSION: "0.2.44"
+  CARGO_WS_VERSION: "0.3.6"
 
 jobs:
   ## Run all default oriented feature sets across all platforms.
@@ -41,11 +41,10 @@ jobs:
 
       - uses: extractions/setup-just@v2
 
-      - name: cargo install cargo-workspaces
-        uses: baptiste0928/cargo-install@v3
-        with:
-          crate: cargo-workspaces
-          version: ${{ env.CARGO_WS_VERSION }}
+      - name: install cargo-binstall
+        uses: cargo-bins/cargo-binstall@v1.10.18
+      - name: install cargo-workspaces
+        run: cargo binstall cargo-workspaces -y --version ${{ env.CARGO_WS_VERSION }}
 
       - name: just all-features
         if: matrix.os != 'windows-latest'
@@ -126,11 +125,10 @@ jobs:
 
       - uses: extractions/setup-just@v2
 
-      - name: cargo install cargo-workspaces
-        uses: baptiste0928/cargo-install@v3
-        with:
-          crate: cargo-workspaces
-          version: ${{ env.CARGO_WS_VERSION }}
+      - name: install cargo-binstall
+        uses: cargo-bins/cargo-binstall@v1.10.18
+      - name: install cargo-workspaces
+        run: cargo binstall cargo-workspaces -y --version ${{ env.CARGO_WS_VERSION }}
 
       - name: just
         run: just ${{ matrix.feature }}
@@ -178,11 +176,10 @@ jobs:
 
       - uses: extractions/setup-just@v2
 
-      - name: cargo install cargo-workspaces
-        uses: baptiste0928/cargo-install@v3
-        with:
-          crate: cargo-workspaces
-          version: ${{ env.CARGO_WS_VERSION }}
+      - name: install cargo-binstall
+        uses: cargo-bins/cargo-binstall@v1.10.18
+      - name: install cargo-workspaces
+        run: cargo binstall cargo-workspaces -y --version ${{ env.CARGO_WS_VERSION }}
 
       - name: just no-default-features
         run: just no-default-features
@@ -217,11 +214,10 @@ jobs:
 
       - uses: extractions/setup-just@v2
 
-      - name: cargo install cargo-workspaces
-        uses: baptiste0928/cargo-install@v3
-        with:
-          crate: cargo-workspaces
-          version: ${{ env.CARGO_WS_VERSION }}
+      - name: install cargo-binstall
+        uses: cargo-bins/cargo-binstall@v1.10.18
+      - name: install cargo-workspaces
+        run: cargo binstall cargo-workspaces -y --version ${{ env.CARGO_WS_VERSION }}
 
       # Clippy
       - name: just clippy
