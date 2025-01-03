@@ -21,6 +21,7 @@ pub enum Config<'a> {
         netmask: &'a str,
         /// Extended DNS error (RFC8914)
         ede: bool,
+        case_randomization: bool,
     },
 }
 
@@ -99,6 +100,7 @@ impl Implementation {
                 use_dnssec,
                 netmask,
                 ede,
+                case_randomization,
             } => match self {
                 Self::Bind => {
                     assert!(!ede, "the BIND resolver does not support EDE (RFC8914)");
@@ -120,6 +122,7 @@ impl Implementation {
                     minijinja::render!(
                         include_str!("templates/hickory.resolver.toml.jinja"),
                         use_dnssec => use_dnssec,
+                        case_randomization => case_randomization,
                     )
                 }
 
@@ -129,6 +132,7 @@ impl Implementation {
                         use_dnssec => use_dnssec,
                         netmask => netmask,
                         ede => ede,
+                        case_randomization => case_randomization,
                     )
                 }
             },

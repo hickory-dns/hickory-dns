@@ -16,8 +16,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use futures_util::{future::Future, stream::Stream};
 use tracing::{debug, trace, warn};
 
-use crate::error::ProtoError;
-use crate::op::{Message, MessageFinalizer, MessageVerifier};
+use crate::error::{ProtoError, ProtoErrorKind};
+use crate::op::{Message, MessageFinalizer, MessageVerifier, Query};
 use crate::runtime::{RuntimeProvider, Time};
 use crate::udp::udp_stream::NextRandomUdpSocket;
 use crate::udp::{DnsUdpSocket, MAX_RECEIVE_BUFFER_SIZE};
@@ -146,6 +146,8 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
             panic!("can not send messages after stream is shutdown")
         }
 
+        let case_randomization = message.options().case_randomization;
+
         // associated the ID for this request, b/c this connection is unique to socket port, the ID
         //   does not need to be globally unique
         message.set_id(random_query_id());
@@ -182,16 +184,16 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
         };
 
         let message_id = message.id();
-        let message = SerialMessage::new(bytes, self.name_server);
+        let serial_message = SerialMessage::new(bytes, self.name_server);
 
         debug!(
             "final message: {}",
-            message
+            serial_message
                 .to_message()
                 .expect("bizarre we just made this message")
         );
         let provider = self.provider.clone();
-        let addr = message.addr();
+        let addr = serial_message.addr();
         let bind_addr = self.bind_addr;
         let avoid_local_ports = self.avoid_local_ports.clone();
         let os_port_selection = self.os_port_selection;
@@ -207,8 +209,16 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
                     provider,
                 )
                 .await?;
-                send_serial_message_inner(message, message_id, verifier, socket, recv_buf_size)
-                    .await
+                send_serial_message_inner(
+                    serial_message,
+                    message_id,
+                    verifier,
+                    socket,
+                    recv_buf_size,
+                    case_randomization,
+                    message.original_query(),
+                )
+                .await
             }),
         )
         .into()
@@ -272,6 +282,8 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
     verifier: Option<MessageVerifier>,
     socket: S,
     recv_buf_size: usize,
+    case_randomization: bool,
+    original_query: &Option<Query>,
 ) -> Result<DnsResponse, ProtoError> {
     let bytes = msg.bytes();
     let addr = msg.addr();
@@ -312,7 +324,7 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
         }
 
         match DnsResponse::from_buffer(response_buffer) {
-            Ok(response) => {
+            Ok(mut response) => {
                 // Validate the message id in the response matches the value chosen for the query.
                 if msg_id != response.id() {
                     // on wrong id, attempted poison?
@@ -352,14 +364,36 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
                 // requested, it should discard it without caching it.
                 let request_message = Message::from_vec(msg.bytes())?;
                 let request_queries = request_message.queries();
-                let response_queries = response.queries();
+                let response_queries = response.queries_mut();
 
-                if !response_queries
+                let question_matches = response_queries
                     .iter()
-                    .all(|elem| request_queries.contains(elem))
+                    .all(|elem| request_queries.contains(elem));
+                if case_randomization
+                    && question_matches
+                    && !response_queries.iter().all(|elem| {
+                        request_queries
+                            .iter()
+                            .any(|req_q| req_q == elem && req_q.name().eq_case(elem.name()))
+                    })
                 {
+                    warn!("case of question section did not match: we expected '{request_queries:?}', but received '{response_queries:?}' from server {src}");
+                    return Err(ProtoErrorKind::QueryCaseMismatch.into());
+                }
+                if !question_matches {
                     warn!("detected forged question section: we expected '{request_queries:?}', but received '{response_queries:?}' from server {src}");
                     continue;
+                }
+
+                // overwrite the query with the original query if case randomization may have been used
+                if case_randomization {
+                    if let Some(original_query) = original_query {
+                        for response_query in response_queries.iter_mut() {
+                            if response_query == original_query {
+                                *response_query = original_query.clone();
+                            }
+                        }
+                    }
                 }
 
                 debug!("received message id: {}", response.id());
