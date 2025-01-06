@@ -236,15 +236,15 @@ impl DnsRequestSender for H3ClientStream {
     ///    (Unsupported Media Type) upon receiving a media type it is unable to
     ///    process.
     /// ```
-    fn send_message(&mut self, mut message: DnsRequest) -> DnsResponseStream {
+    fn send_message(&mut self, mut request: DnsRequest) -> DnsResponseStream {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
 
         // per the RFC, a zero id allows for the HTTP packet to be cached better
-        message.set_id(0);
+        request.set_id(0);
 
-        let bytes = match message.to_vec() {
+        let bytes = match request.to_vec() {
             Ok(bytes) => bytes,
             Err(err) => return err.into(),
         };

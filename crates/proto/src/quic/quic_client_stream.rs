@@ -117,12 +117,12 @@ impl DnsRequestSender for QuicClientStream {
     /// a DNS message from DoQ over another transport, a DNS Message ID MUST be generated according to the rules of the protocol that is
     /// in use. When forwarding a DNS message from another transport over DoQ, the Message ID MUST be set to zero.
     /// ```
-    fn send_message(&mut self, message: DnsRequest) -> DnsResponseStream {
+    fn send_message(&mut self, request: DnsRequest) -> DnsResponseStream {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
 
-        Box::pin(Self::inner_send(self.quic_connection.clone(), message)).into()
+        Box::pin(Self::inner_send(self.quic_connection.clone(), request)).into()
     }
 
     fn shutdown(&mut self) {
