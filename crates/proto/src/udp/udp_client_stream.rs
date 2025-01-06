@@ -141,14 +141,14 @@ fn random_query_id() -> u16 {
 }
 
 impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
-    fn send_message(&mut self, mut message: DnsRequest) -> DnsResponseStream {
+    fn send_message(&mut self, mut request: DnsRequest) -> DnsResponseStream {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
 
         // associated the ID for this request, b/c this connection is unique to socket port, the ID
         //   does not need to be globally unique
-        message.set_id(random_query_id());
+        request.set_id(random_query_id());
 
         let now = match SystemTime::now().duration_since(UNIX_EPOCH) {
             Ok(now) => now.as_secs(),
@@ -160,8 +160,8 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
 
         let mut verifier = None;
         if let Some(signer) = &self.signer {
-            if signer.should_finalize_message(&message) {
-                match message.finalize(&**signer, now) {
+            if signer.should_finalize_message(&request) {
+                match request.finalize(&**signer, now) {
                     Ok(answer_verifier) => verifier = answer_verifier,
                     Err(e) => {
                         debug!("could not sign message: {}", e);
@@ -172,16 +172,16 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
         }
 
         // Get an appropriate read buffer size.
-        let recv_buf_size = MAX_RECEIVE_BUFFER_SIZE.min(message.max_payload() as usize);
+        let recv_buf_size = MAX_RECEIVE_BUFFER_SIZE.min(request.max_payload() as usize);
 
-        let bytes = match message.to_vec() {
+        let bytes = match request.to_vec() {
             Ok(bytes) => bytes,
             Err(err) => {
                 return err.into();
             }
         };
 
-        let message_id = message.id();
+        let message_id = request.id();
         let message = SerialMessage::new(bytes, self.name_server);
 
         debug!(
