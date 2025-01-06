@@ -10,11 +10,9 @@
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use std::sync::Arc;
 
 use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
-use rustls::{self, ServerConfig};
 
 use crate::error::{ProtoError, ProtoResult};
 
@@ -73,19 +71,4 @@ pub fn read_key_from_der(path: &Path) -> ProtoResult<PrivateKeyDer<'static>> {
     file.read_to_end(&mut buf)?;
 
     Ok(PrivateKeyDer::try_from(buf)?)
-}
-
-/// Construct the new Acceptor with the associated pkcs12 data
-pub fn new_acceptor(
-    cert: Vec<CertificateDer<'static>>,
-    key: PrivateKeyDer<'static>,
-) -> Result<ServerConfig, rustls::Error> {
-    let mut config =
-        ServerConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
-            .with_safe_default_protocol_versions()?
-            .with_no_client_auth()
-            .with_single_cert(cert, key)?;
-
-    config.alpn_protocols = vec![b"h2".to_vec()];
-    Ok(config)
 }

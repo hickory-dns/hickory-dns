@@ -410,17 +410,13 @@ impl<T: RequestHandler> ServerFuture<T> {
         timeout: Duration,
         certificate_and_key: (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>),
     ) -> io::Result<()> {
-        use crate::proto::rustls::tls_server;
-
-        let mut tls_acceptor =
-            tls_server::new_acceptor(certificate_and_key.0, certificate_and_key.1).map_err(
-                |e| {
-                    io::Error::new(
-                        io::ErrorKind::Other,
-                        format!("error creating TLS acceptor: {e}"),
-                    )
-                },
-            )?;
+        let mut tls_acceptor = tls_server_config(certificate_and_key.0, certificate_and_key.1)
+            .map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("error creating TLS acceptor: {e}"),
+                )
+            })?;
 
         // the tls_acceptor alpn protocols is set as "h2", however that will break some clients like
         // kdig which send ALPN "dot", rustls will complain
@@ -453,10 +449,8 @@ impl<T: RequestHandler> ServerFuture<T> {
         dns_hostname: Option<String>,
         http_endpoint: String,
     ) -> io::Result<()> {
-        use tokio_rustls::TlsAcceptor;
-
-        use crate::proto::rustls::tls_server;
         use crate::server::h2_handler::h2_handler;
+        use tokio_rustls::TlsAcceptor;
 
         let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
         let http_endpoint: Arc<str> = Arc::from(http_endpoint);
@@ -465,13 +459,13 @@ impl<T: RequestHandler> ServerFuture<T> {
         let access = self.access.clone();
         debug!("registered https: {listener:?}");
 
-        let tls_acceptor = tls_server::new_acceptor(certificate_and_key.0, certificate_and_key.1)
+        let tls_acceptor = tls_server_config(certificate_and_key.0, certificate_and_key.1)
             .map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("error creating TLS acceptor: {e}"),
-            )
-        })?;
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("error creating TLS acceptor: {e}"),
+                )
+            })?;
         let tls_acceptor = TlsAcceptor::from(Arc::new(tls_acceptor));
 
         // for each incoming request...
@@ -821,6 +815,21 @@ pub(crate) async fn handle_raw_request<T: RequestHandler>(
         response_handler,
     )
     .await;
+}
+
+#[cfg(feature = "dns-over-rustls")]
+fn tls_server_config(
+    cert: Vec<CertificateDer<'static>>,
+    key: PrivateKeyDer<'static>,
+) -> Result<ServerConfig, rustls::Error> {
+    let mut config =
+        ServerConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+            .with_safe_default_protocol_versions()?
+            .with_no_client_auth()
+            .with_single_cert(cert, key)?;
+
+    config.alpn_protocols = vec![b"h2".to_vec()];
+    Ok(config)
 }
 
 #[derive(Clone)]
