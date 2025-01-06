@@ -410,18 +410,13 @@ impl<T: RequestHandler> ServerFuture<T> {
         timeout: Duration,
         certificate_and_key: (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>),
     ) -> io::Result<()> {
-        let mut tls_acceptor = tls_server_config(certificate_and_key.0, certificate_and_key.1)
+        let tls_acceptor = tls_server_config(b"dot", certificate_and_key.0, certificate_and_key.1)
             .map_err(|e| {
                 io::Error::new(
                     io::ErrorKind::Other,
                     format!("error creating TLS acceptor: {e}"),
                 )
             })?;
-
-        // the tls_acceptor alpn protocols is set as "h2", however that will break some clients like
-        // kdig which send ALPN "dot", rustls will complain
-        // "peer doesn't support any known protocol", we need to set ALPN to "dot" correctly
-        tls_acceptor.alpn_protocols = vec![b"dot".to_vec()];
 
         Self::register_tls_listener_with_tls_config(self, listener, timeout, Arc::new(tls_acceptor))
     }
@@ -459,13 +454,13 @@ impl<T: RequestHandler> ServerFuture<T> {
         let access = self.access.clone();
         debug!("registered https: {listener:?}");
 
-        let tls_acceptor = tls_server_config(certificate_and_key.0, certificate_and_key.1)
+        let tls_acceptor = tls_server_config(b"h2", certificate_and_key.0, certificate_and_key.1)
             .map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("error creating TLS acceptor: {e}"),
-                )
-            })?;
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("error creating TLS acceptor: {e}"),
+            )
+        })?;
         let tls_acceptor = TlsAcceptor::from(Arc::new(tls_acceptor));
 
         // for each incoming request...
@@ -819,6 +814,7 @@ pub(crate) async fn handle_raw_request<T: RequestHandler>(
 
 #[cfg(feature = "dns-over-rustls")]
 fn tls_server_config(
+    protocol: &[u8],
     cert: Vec<CertificateDer<'static>>,
     key: PrivateKeyDer<'static>,
 ) -> Result<ServerConfig, rustls::Error> {
@@ -828,7 +824,7 @@ fn tls_server_config(
             .with_no_client_auth()
             .with_single_cert(cert, key)?;
 
-    config.alpn_protocols = vec![b"h2".to_vec()];
+    config.alpn_protocols = vec![protocol.to_vec()];
     Ok(config)
 }
 
