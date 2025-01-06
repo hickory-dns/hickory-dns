@@ -410,15 +410,8 @@ impl<T: RequestHandler> ServerFuture<T> {
         timeout: Duration,
         certificate_and_key: (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>),
     ) -> io::Result<()> {
-        let tls_acceptor = tls_server_config(b"dot", certificate_and_key.0, certificate_and_key.1)
-            .map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("error creating TLS acceptor: {e}"),
-                )
-            })?;
-
-        Self::register_tls_listener_with_tls_config(self, listener, timeout, Arc::new(tls_acceptor))
+        let config = tls_server_config(b"dot", certificate_and_key.0, certificate_and_key.1)?;
+        Self::register_tls_listener_with_tls_config(self, listener, timeout, Arc::new(config))
     }
 
     /// Register a TcpListener for HTTPS (h2) to the Server for supporting DoH (dns-over-https). The TcpListener should already be bound to either an
@@ -454,14 +447,11 @@ impl<T: RequestHandler> ServerFuture<T> {
         let access = self.access.clone();
         debug!("registered https: {listener:?}");
 
-        let tls_acceptor = tls_server_config(b"h2", certificate_and_key.0, certificate_and_key.1)
-            .map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("error creating TLS acceptor: {e}"),
-            )
-        })?;
-        let tls_acceptor = TlsAcceptor::from(Arc::new(tls_acceptor));
+        let tls_acceptor = TlsAcceptor::from(Arc::new(tls_server_config(
+            b"h2",
+            certificate_and_key.0,
+            certificate_and_key.1,
+        )?));
 
         // for each incoming request...
         let shutdown = self.shutdown_token.clone();
@@ -817,12 +807,24 @@ fn tls_server_config(
     protocol: &[u8],
     cert: Vec<CertificateDer<'static>>,
     key: PrivateKeyDer<'static>,
-) -> Result<ServerConfig, rustls::Error> {
+) -> Result<ServerConfig, io::Error> {
     let mut config =
         ServerConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
-            .with_safe_default_protocol_versions()?
+            .with_safe_default_protocol_versions()
+            .map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("error creating TLS acceptor: {e}"),
+                )
+            })?
             .with_no_client_auth()
-            .with_single_cert(cert, key)?;
+            .with_single_cert(cert, key)
+            .map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("error creating TLS acceptor: {e}"),
+                )
+            })?;
 
     config.alpn_protocols = vec![protocol.to_vec()];
     Ok(config)
