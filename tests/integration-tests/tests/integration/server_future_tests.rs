@@ -12,7 +12,7 @@ use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{
-    pki_types::{CertificateDer, PrivateKeyDer},
+    pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer},
     ClientConfig, RootCertStore,
 };
 use tokio::net::TcpListener;
@@ -232,13 +232,9 @@ async fn test_server_www_tls() {
     )))
     .map_err(|e| format!("error reading cert: {e}"))
     .unwrap();
-    let key = tls_server::read_key(Path::new(&format!(
-        "{}/tests/test-data/cert.key",
-        server_path
-    )))
-    .unwrap();
 
-    let cert_key = (cert, key);
+    let key =
+        PrivateKeyDer::from_pem_file(format!("{server_path}/tests/test-data/cert.key")).unwrap();
 
     // Server address
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
@@ -249,7 +245,12 @@ async fn test_server_www_tls() {
     let server_continue = Arc::new(AtomicBool::new(true));
     let server_continue2 = server_continue.clone();
 
-    let server = tokio::spawn(server_thread_tls(tcp_listener, server_continue2, cert_key));
+    let server = tokio::spawn(server_thread_tls(
+        tcp_listener,
+        server_continue2,
+        (cert, key),
+    ));
+
     let client = tokio::spawn(client_thread_www(lazy_tls_client(
         ipaddr,
         dns_name.to_string(),

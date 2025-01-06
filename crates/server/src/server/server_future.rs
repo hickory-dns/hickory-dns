@@ -1280,6 +1280,7 @@ mod tests {
     #[cfg(feature = "dns-over-rustls")]
     fn rustls_cert_key() -> (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>) {
         use hickory_proto::rustls::tls_server;
+        use rustls::pki_types::pem::PemObject;
         use std::env;
         use std::path::Path;
 
@@ -1291,11 +1292,9 @@ mod tests {
         )))
         .map_err(|e| format!("error reading cert: {e}"))
         .unwrap();
-        let key = tls_server::read_key(Path::new(&format!(
-            "{}/tests/test-data/cert.key",
-            server_path
-        )))
-        .unwrap();
+
+        let key = PrivateKeyDer::from_pem_file(format!("{server_path}/tests/test-data/cert.key"))
+            .unwrap();
 
         (cert, key)
     }

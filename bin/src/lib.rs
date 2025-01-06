@@ -26,13 +26,15 @@ use std::{
 use cfg_if::cfg_if;
 use ipnet::IpNet;
 #[cfg(feature = "dns-over-rustls")]
+use rustls::pki_types::pem::PemObject;
+#[cfg(feature = "dns-over-rustls")]
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
 
 use hickory_proto::rr::Name;
 #[cfg(feature = "dns-over-rustls")]
-use hickory_proto::rustls::tls_server::{read_cert, read_key};
+use hickory_proto::rustls::tls_server::read_cert;
 use hickory_proto::ProtoError;
 #[cfg(feature = "dnssec-ring")]
 use hickory_server::authority::DnssecAuthority;
@@ -699,7 +701,8 @@ impl TlsCertConfig {
         let key = if key_extension.is_some_and(|ext| ext == "pem") {
             let key_path = zone_dir.join(&self.private_key);
             info!("loading TLS PKCS8 key from PEM: {}", key_path.display());
-            read_key(&key_path)?
+            PrivateKeyDer::from_pem_file(&key_path)
+                .map_err(|e| format!("failed to read key from {}: {e}", key_path.display()))?
         } else if key_extension.is_some_and(|ext| ext == "der" || ext == "key") {
             let key_path = zone_dir.join(&self.private_key);
             info!("loading TLS PKCS8 key from DER: {}", key_path.display());

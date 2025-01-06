@@ -10,7 +10,10 @@
 use std::{env, net::SocketAddr, path::Path, str::FromStr, sync::Arc};
 
 use futures_util::StreamExt;
-use rustls::{ClientConfig, KeyLogFile};
+use rustls::{
+    pki_types::{pem::PemObject, PrivateKeyDer},
+    ClientConfig, KeyLogFile,
+};
 
 use crate::{
     op::{Message, Query},
@@ -59,10 +62,9 @@ async fn test_quic_stream() {
     )))
     .map_err(|e| format!("error reading cert: {e}"))
     .unwrap();
-    let key = tls_server::read_key(Path::new(&format!(
-        "{server_path}/tests/test-data/cert.key"
-    )))
-    .unwrap();
+
+    let key =
+        PrivateKeyDer::from_pem_file(format!("{server_path}/tests/test-data/cert.key")).unwrap();
 
     // All testing is only done on local addresses, construct the server
     let quic_ns = QuicServer::new(SocketAddr::from(([127, 0, 0, 1], 0)), cert, key)
