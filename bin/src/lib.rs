@@ -11,7 +11,7 @@
 pub mod dnssec;
 
 #[cfg(feature = "dns-over-rustls")]
-use std::ffi::OsStr;
+use std::{ffi::OsStr, fs};
 use std::{
     fmt,
     fs::File,
@@ -32,7 +32,7 @@ use serde::{self, Deserialize, Deserializer};
 
 use hickory_proto::rr::Name;
 #[cfg(feature = "dns-over-rustls")]
-use hickory_proto::rustls::tls_server::{read_cert, read_key, read_key_from_der};
+use hickory_proto::rustls::tls_server::{read_cert, read_key};
 use hickory_proto::ProtoError;
 #[cfg(feature = "dnssec-ring")]
 use hickory_server::authority::DnssecAuthority;
@@ -703,7 +703,10 @@ impl TlsCertConfig {
         } else if key_extension.is_some_and(|ext| ext == "der" || ext == "key") {
             let key_path = zone_dir.join(&self.private_key);
             info!("loading TLS PKCS8 key from DER: {}", key_path.display());
-            read_key_from_der(&key_path)?
+
+            let buf =
+                fs::read(&key_path).map_err(|e| format!("error reading key from file: {e}"))?;
+            PrivateKeyDer::try_from(buf).map_err(|e| format!("error parsing key DER: {e}"))?
         } else {
             return Err(format!(
                 "unsupported private key file format (expected `.pem` or `.der` extension): {}",
