@@ -11,7 +11,10 @@ use std::{env, net::SocketAddr, path::Path, str::FromStr, sync::Arc};
 
 use futures_util::StreamExt;
 use rustls::{
-    pki_types::{pem::PemObject, PrivateKeyDer},
+    pki_types::{
+        pem::{self, PemObject},
+        CertificateDer, PrivateKeyDer,
+    },
     ClientConfig, KeyLogFile,
 };
 
@@ -19,7 +22,6 @@ use crate::{
     op::{Message, Query},
     quic::QuicClientStreamBuilder,
     rr::{Name, RecordType},
-    rustls::tls_server,
     xfer::DnsRequestSender,
 };
 
@@ -54,20 +56,14 @@ async fn test_quic_stream() {
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
     println!("using server src path: {server_path}");
 
-    let ca = tls_server::read_cert(Path::new(&format!("{server_path}/tests/test-data/ca.pem")))
-        .map_err(|e| format!("error reading cert: {e}"))
-        .unwrap();
-    let cert = tls_server::read_cert(Path::new(&format!(
-        "{server_path}/tests/test-data/cert.pem"
-    )))
-    .map_err(|e| format!("error reading cert: {e}"))
-    .unwrap();
+    let ca = read_certs(format!("{server_path}/tests/test-data/ca.pem")).unwrap();
+    let cert_chain = read_certs(format!("{server_path}/tests/test-data/cert.pem")).unwrap();
 
     let key =
         PrivateKeyDer::from_pem_file(format!("{server_path}/tests/test-data/cert.key")).unwrap();
 
     // All testing is only done on local addresses, construct the server
-    let quic_ns = QuicServer::new(SocketAddr::from(([127, 0, 0, 1], 0)), cert, key)
+    let quic_ns = QuicServer::new(SocketAddr::from(([127, 0, 0, 1], 0)), cert_chain, key)
         .await
         .expect("failed to initialize QuicServer");
 
@@ -123,4 +119,8 @@ async fn test_quic_stream() {
 
     // and finally kill the server
     server_join.abort();
+}
+
+fn read_certs(cert_path: impl AsRef<Path>) -> Result<Vec<CertificateDer<'static>>, pem::Error> {
+    CertificateDer::pem_file_iter(cert_path)?.collect::<Result<Vec<_>, _>>()
 }

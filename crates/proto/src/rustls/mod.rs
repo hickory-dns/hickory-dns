@@ -14,7 +14,6 @@ use rustls::{ClientConfig, RootCertStore};
 use tracing::warn;
 
 pub mod tls_client_stream;
-pub mod tls_server;
 pub mod tls_stream;
 
 pub use self::tls_client_stream::{

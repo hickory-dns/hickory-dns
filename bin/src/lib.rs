@@ -33,8 +33,6 @@ use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
 
 use hickory_proto::rr::Name;
-#[cfg(feature = "dns-over-rustls")]
-use hickory_proto::rustls::tls_server::read_cert;
 use hickory_proto::ProtoError;
 #[cfg(feature = "dnssec-ring")]
 use hickory_server::authority::DnssecAuthority;
@@ -695,7 +693,21 @@ impl TlsCertConfig {
             "loading TLS PEM certificate chain from: {}",
             cert_path.display()
         );
-        let cert_chain = read_cert(&cert_path).map_err(|e| format!("error reading cert: {e}"))?;
+
+        let cert_chain = CertificateDer::pem_file_iter(&cert_path)
+            .map_err(|e| {
+                format!(
+                    "failed to read cert chain from {}: {e}",
+                    cert_path.display()
+                )
+            })?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| {
+                format!(
+                    "failed to parse cert chain from {}: {e}",
+                    cert_path.display()
+                )
+            })?;
 
         let key_extension = self.private_key.extension();
         let key = if key_extension.is_some_and(|ext| ext == "pem") {

@@ -1,5 +1,7 @@
 use std::future::Future;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+#[cfg(feature = "dns-over-rustls")]
+use std::path::Path;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -12,7 +14,10 @@ use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{
-    pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer},
+    pki_types::{
+        pem::{self, PemObject},
+        CertificateDer, PrivateKeyDer,
+    },
     ClientConfig, RootCertStore,
 };
 use tokio::net::TcpListener;
@@ -209,9 +214,7 @@ fn read_file(path: &str) -> Vec<u8> {
 #[tokio::test]
 #[allow(clippy::uninlined_format_args)]
 async fn test_server_www_tls() {
-    use hickory_proto::rustls::tls_server;
     use std::env;
-    use std::path::Path;
 
     subscribe();
 
@@ -220,18 +223,8 @@ async fn test_server_www_tls() {
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
     println!("using server src path: {}", server_path);
 
-    let ca = tls_server::read_cert(Path::new(&format!(
-        "{}/tests/test-data/ca.pem",
-        server_path
-    )))
-    .map_err(|e| format!("error reading cert: {e}"))
-    .unwrap();
-    let cert = tls_server::read_cert(Path::new(&format!(
-        "{}/tests/test-data/cert.pem",
-        server_path
-    )))
-    .map_err(|e| format!("error reading cert: {e}"))
-    .unwrap();
+    let ca = read_certs(format!("{}/tests/test-data/ca.pem", server_path)).unwrap();
+    let cert_chain = read_certs(format!("{}/tests/test-data/cert.pem", server_path)).unwrap();
 
     let key =
         PrivateKeyDer::from_pem_file(format!("{server_path}/tests/test-data/cert.key")).unwrap();
@@ -248,7 +241,7 @@ async fn test_server_www_tls() {
     let server = tokio::spawn(server_thread_tls(
         tcp_listener,
         server_continue2,
-        (cert, key),
+        (cert_chain, key),
     ));
 
     let client = tokio::spawn(client_thread_www(lazy_tls_client(
@@ -279,6 +272,11 @@ async fn lazy_tcp_client(addr: SocketAddr) -> Client {
         .expect("failed to connect");
     tokio::spawn(driver);
     client
+}
+
+#[cfg(feature = "dns-over-rustls")]
+fn read_certs(cert_path: impl AsRef<Path>) -> Result<Vec<CertificateDer<'static>>, pem::Error> {
+    CertificateDer::pem_file_iter(cert_path)?.collect::<Result<Vec<_>, _>>()
 }
 
 #[cfg(feature = "dns-over-rustls")]
