@@ -42,6 +42,9 @@ jobs:
       - name: check public tests that use the `dns-test` framework
         run: just ede-dot-com-check
 
+      - name: run ede-dot-com tests against local nameservers
+        run: just ede-dot-com-run hermetic
+
       - name: lint code
         run: just conformance-clippy
 
