@@ -197,13 +197,13 @@ fn hermetic_dsa() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore = "hickory doesn't support ED448"]
 fn ed448() -> Result<()> {
     compare("ed448").map(drop)
 }
 
 #[test]
-#[ignore]
+#[ignore = "hickory doesn't support ED448"]
 fn hermetic_ed448() -> Result<()> {
     hermetic_compare("ed448").map(drop)
 }
@@ -239,13 +239,13 @@ fn hermetic_no_dnskey_257() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore = "hickory incorrectly produces a bogus validation result, instead of insecure"]
 fn no_ds() -> Result<()> {
     compare("no-ds").map(drop)
 }
 
 #[test]
-#[ignore]
+#[ignore = "hickory incorrectly produces a bogus validation result, instead of insecure"]
 fn hermetic_no_ds() -> Result<()> {
     hermetic_compare("no-ds").map(drop)
 }
@@ -501,13 +501,13 @@ fn hermetic_unassigned_zsk_algo() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore = "hickory incorrectly produces a bogus validation result, instead of insecure"]
 fn unsigned() -> Result<()> {
     compare("unsigned").map(drop)
 }
 
 #[test]
-#[ignore]
+#[ignore = "hickory incorrectly produces a bogus validation result, instead of insecure"]
 fn hermetic_unsigned() -> Result<()> {
     hermetic_compare("unsigned").map(drop)
 }
