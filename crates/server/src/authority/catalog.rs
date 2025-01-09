@@ -389,7 +389,7 @@ impl Catalog {
     }
 }
 
-async fn lookup<'a, R: ResponseHandler + Unpin>(
+async fn lookup<R: ResponseHandler + Unpin>(
     request_info: RequestInfo<'_>,
     authorities: &[Arc<dyn AuthorityObject>],
     request: &Request,

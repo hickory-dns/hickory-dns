@@ -1143,7 +1143,7 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> Proof {
             .data()
             .as_dnssec()
             .and_then(DNSSECRData::as_nsec)
-            .map_or(false, |rdata| {
+            .is_some_and(|rdata| {
                 // this should not be in the covered list
                 !rdata.type_bit_maps().contains(&query.query_type())
             })
@@ -1161,7 +1161,7 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> Proof {
                 nsec.data()
                     .as_dnssec()
                     .and_then(DNSSECRData::as_nsec)
-                    .map_or(false, |rdata| {
+                    .is_some_and(|rdata| {
                         // the query name is less than the next name
                         // or this record wraps the end, i.e. is the last record
                         name < rdata.next_domain_name() || rdata.next_domain_name() < nsec.name()
