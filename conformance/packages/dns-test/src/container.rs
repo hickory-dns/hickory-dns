@@ -31,6 +31,7 @@ pub enum Image {
         dnssec_feature: Option<HickoryDnssecFeature>,
     },
     Unbound,
+    EdeDotCom,
 }
 
 impl Image {
@@ -48,6 +49,7 @@ impl Image {
             Self::Client => include_str!("docker/client.Dockerfile"),
             Self::Hickory { .. } => include_str!("docker/hickory.Dockerfile"),
             Self::Unbound => include_str!("docker/unbound.Dockerfile"),
+            Self::EdeDotCom => include_str!("docker/ede-dot-com/Dockerfile"),
         }
     }
 
@@ -77,6 +79,11 @@ impl Image {
                 static UNBOUND_ONCE: Once = Once::new();
                 &UNBOUND_ONCE
             }
+
+            Self::EdeDotCom => {
+                static EDE_ONCE: Once = Once::new();
+                &EDE_ONCE
+            }
         }
     }
 }
@@ -94,6 +101,7 @@ impl From<Implementation> for Image {
                 repo,
                 dnssec_feature,
             },
+            Implementation::EdeDotCom => Self::EdeDotCom,
         }
     }
 }
@@ -113,6 +121,7 @@ impl fmt::Display for Image {
                 dnssec_feature: Some(dnssec_feature),
             } => write!(f, "hickory-{dnssec_feature}"),
             Self::Unbound => f.write_str("unbound"),
+            Self::EdeDotCom => f.write_str("ede-dot-com"),
         }
     }
 }
@@ -161,6 +170,19 @@ impl Container {
                     ]);
 
                     exec_or_panic(&mut cp_r, false);
+                }
+
+                if let Image::EdeDotCom = image {
+                    fs::write(
+                        docker_build_dir.join("configure_child.sh"),
+                        include_str!("docker/ede-dot-com/configure_child.sh"),
+                    )
+                    .expect("could not copy configure_child.sh");
+                    fs::write(
+                        docker_build_dir.join("configure_parent.sh"),
+                        include_str!("docker/ede-dot-com/configure_parent.sh"),
+                    )
+                    .expect("could not copy configure_parent.sh");
                 }
 
                 fs::write(docker_build_dir.join(".dockerignore"), "src/.git")

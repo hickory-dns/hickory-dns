@@ -476,6 +476,10 @@ impl<S> NameServer<S> {
         self.container.name()
     }
 
+    pub fn container(&self) -> &Container {
+        &self.container
+    }
+
     pub fn ipv4_addr(&self) -> Ipv4Addr {
         self.container.ipv4_addr()
     }
@@ -574,6 +578,8 @@ fn expand_zone(zone: &FQDN) -> String {
     } else if zone.num_labels() == 1 {
         if *zone == FQDN::TEST_TLD {
             FQDN::TEST_DOMAIN.as_str().to_string()
+        } else if *zone == FQDN::COM_TLD {
+            "nameservers.com.".to_string()
         } else {
             unimplemented!()
         }
