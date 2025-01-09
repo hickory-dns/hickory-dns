@@ -159,6 +159,31 @@ fn no_zsk() -> Result<()> {
 }
 
 #[test]
+fn not_auth() -> Result<()> {
+    compare("not-auth").map(drop)
+}
+
+#[test]
+fn nsec3_iter_1() -> Result<()> {
+    compare("nsec3-iter-1").map(drop)
+}
+
+#[test]
+fn nsec3_iter_51() -> Result<()> {
+    compare("nsec3-iter-51").map(drop)
+}
+
+#[test]
+fn nsec3_iter_101() -> Result<()> {
+    compare("nsec3-iter-101").map(drop)
+}
+
+#[test]
+fn nsec3_iter_151() -> Result<()> {
+    compare("nsec3-iter-151").map(drop)
+}
+
+#[test]
 fn nsec3_iter_200() -> Result<()> {
     compare("nsec3-iter-200").map(drop)
 }
@@ -247,103 +272,8 @@ fn v4_doc() -> Result<()> {
 
 #[test]
 #[ignore]
-fn v4_hex() -> Result<()> {
-    compare("v4-hex").map(drop)
-}
-
-#[test]
-#[ignore]
-fn v4_link_local() -> Result<()> {
-    compare("v4-link-local").map(drop)
-}
-
-#[test]
-#[ignore]
-fn v4_loopback() -> Result<()> {
-    compare("v4-loopback").map(drop)
-}
-
-#[test]
-#[ignore]
-fn v4_private_10() -> Result<()> {
-    compare("v4-private-10").map(drop)
-}
-
-#[test]
-#[ignore]
-fn v4_private_172() -> Result<()> {
-    compare("v4-private-172").map(drop)
-}
-
-#[test]
-#[ignore]
-fn v4_private_192() -> Result<()> {
-    compare("v4-private-192").map(drop)
-}
-
-#[test]
-#[ignore]
-fn v4_reserved() -> Result<()> {
-    compare("v4-reserved").map(drop)
-}
-
-#[test]
-#[ignore]
-fn v4_this_host() -> Result<()> {
-    compare("v4-this-host").map(drop)
-}
-
-#[test]
-#[ignore]
 fn v6_doc() -> Result<()> {
     compare("v6-doc").map(drop)
-}
-
-#[test]
-#[ignore]
-fn v6_link_local() -> Result<()> {
-    compare("v6-link-local").map(drop)
-}
-
-#[test]
-#[ignore]
-fn v6_localhost() -> Result<()> {
-    compare("v6-localhost").map(drop)
-}
-
-#[test]
-#[ignore]
-fn v6_mapped() -> Result<()> {
-    compare("v6-mapped").map(drop)
-}
-
-#[test]
-#[ignore]
-fn v6_mapped_dep() -> Result<()> {
-    compare("v6-mapped-dep").map(drop)
-}
-
-#[test]
-#[ignore]
-fn v6_multicast() -> Result<()> {
-    compare("v6-multicast").map(drop)
-}
-
-#[test]
-#[ignore]
-fn v6_nat64() -> Result<()> {
-    compare("v6-nat64").map(drop)
-}
-
-#[test]
-#[ignore]
-fn v6_unique_local() -> Result<()> {
-    compare("v6-unique-local").map(drop)
-}
-
-#[test]
-fn v6_unspecified() -> Result<()> {
-    compare("v6-unspecified").map(drop)
 }
 
 #[test]
