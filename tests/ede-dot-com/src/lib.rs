@@ -14,13 +14,11 @@ use dns_test::{
 mod sanity_check;
 
 #[test]
-#[ignore]
 fn allow_query_localhost() -> Result<()> {
     compare("allow-query-localhost").map(drop)
 }
 
 #[test]
-#[ignore]
 fn allow_query_none() -> Result<()> {
     compare("allow-query-none").map(drop)
 }
@@ -265,13 +263,11 @@ fn unsigned() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn v4_doc() -> Result<()> {
     compare("v4-doc").map(drop)
 }
 
 #[test]
-#[ignore]
 fn v6_doc() -> Result<()> {
     compare("v6-doc").map(drop)
 }
