@@ -34,6 +34,14 @@ impl FQDN {
         inner: Cow::Borrowed("testing."),
     };
 
+    pub const COM_TLD: FQDN = FQDN {
+        inner: Cow::Borrowed("com."),
+    };
+
+    pub const EDE_DOT_COM: FQDN = FQDN {
+        inner: Cow::Borrowed("extended-dns-errors.com."),
+    };
+
     pub const TEST_DOMAIN: FQDN = FQDN {
         inner: Cow::Borrowed("hickory-dns.testing."),
     };

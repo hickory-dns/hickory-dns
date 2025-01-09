@@ -48,6 +48,7 @@ pub enum Implementation {
         dnssec_feature: Option<HickoryDnssecFeature>,
     },
     Unbound,
+    EdeDotCom,
 }
 
 impl Implementation {
@@ -57,6 +58,7 @@ impl Implementation {
             Implementation::Dnslib => true,
             Implementation::Hickory { .. } => true,
             Implementation::Unbound => true,
+            Implementation::EdeDotCom => false, // does not support running a resolver
         }
     }
 
@@ -131,6 +133,11 @@ impl Implementation {
                         ede => ede,
                     )
                 }
+
+                Self::EdeDotCom => {
+                    // Does not support running a resolver
+                    "".into()
+                }
             },
 
             Config::NameServer {
@@ -170,6 +177,8 @@ impl Implementation {
                         use_pkcs8 => use_pkcs8,
                     )
                 }
+
+                Self::EdeDotCom => include_str!("templates/named.ede-dot-com.conf").into(),
             },
         }
     }
@@ -186,12 +195,14 @@ impl Implementation {
                 Role::NameServer => Some("/etc/nsd/nsd.conf"),
                 Role::Resolver => Some("/etc/unbound/unbound.conf"),
             },
+
+            Self::EdeDotCom => Some("/etc/named.conf"),
         }
     }
 
     pub(crate) fn cmd_args(&self, role: Role) -> Vec<String> {
         let base = match self {
-            Implementation::Bind => "named -g -d5",
+            Implementation::Bind | Implementation::EdeDotCom => "named -g -d5",
             Implementation::Dnslib => "python3 /script.py",
             Implementation::Hickory { .. } => "hickory-dns -d",
             Implementation::Unbound => match role {
@@ -223,7 +234,7 @@ impl Implementation {
         let suffix = stream.as_str();
 
         let path = match self {
-            Implementation::Bind => "/tmp/named",
+            Implementation::Bind | Implementation::EdeDotCom => "/tmp/named",
 
             Implementation::Dnslib => "/tmp/dnslib",
 
@@ -278,19 +289,6 @@ impl Stream {
             Self::Stdout => "stdout",
             Self::Stderr => "stderr",
         }
-    }
-}
-
-impl fmt::Display for Implementation {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Implementation::Bind => "bind",
-            Implementation::Dnslib => "dnslib",
-            Implementation::Hickory { .. } => "hickory",
-            Implementation::Unbound => "unbound",
-        };
-
-        f.write_str(s)
     }
 }
 

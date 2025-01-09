@@ -16,6 +16,18 @@ fn valid() -> Result<()> {
 }
 
 #[test]
+fn hermetic_valid() -> Result<()> {
+    let response = crate::hermetic_compare("valid")?;
+
+    dbg!(&response);
+
+    assert!(response.status.is_noerror());
+    assert!(response.flags.authenticated_data);
+
+    Ok(())
+}
+
+#[test]
 fn dns_test_vars_are_not_set() {
     for var in ["DNS_TEST_SUBJECT", "DNS_TEST_PEER"] {
         assert!(
