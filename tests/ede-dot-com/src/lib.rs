@@ -584,8 +584,7 @@ fn compare(subdomain: &str) -> Result<DigOutput> {
 /// this compares RCODE and flags but not EDE
 fn hermetic_compare(subdomain: &str) -> Result<DigOutput> {
     let network = Network::new()?;
-    let subdomain_fqdn = FQDN(format!("{subdomain}.extended-dns-errors.com."))?;
-    let graph = setup_hermetic_network(subdomain_fqdn.clone(), &network)?;
+    let (subdomain_fqdn, graph) = setup_hermetic_network(subdomain, &network)?;
 
     let unbound = Resolver::new(&network, graph.root.clone())
         .trust_anchor(graph.trust_anchor.as_ref().unwrap())
@@ -619,11 +618,13 @@ fn hermetic_compare(subdomain: &str) -> Result<DigOutput> {
 }
 
 /// Creates a Docker network with nameservers for *.extended-dns-errors.com and all parent zones.
-fn setup_hermetic_network(subdomain_fqdn: FQDN, network: &Network) -> Result<Graph> {
+fn setup_hermetic_network(subdomain: &str, network: &Network) -> Result<(FQDN, Graph)> {
+    let subdomain_fqdn = FQDN(format!("{subdomain}.extended-dns-errors.com."))?;
+
     let mut root_ns = NameServer::new(&Implementation::Bind, FQDN::ROOT, network)?;
     let mut tld_ns = NameServer::new(&Implementation::Bind, FQDN::COM_TLD, network)?;
     let parent_ns = NameServer::new(&Implementation::EdeDotCom, FQDN::EDE_DOT_COM, network)?;
-    let child_ns = NameServer::new(&Implementation::EdeDotCom, subdomain_fqdn, network)?;
+    let child_ns = NameServer::new(&Implementation::EdeDotCom, subdomain_fqdn.clone(), network)?;
 
     let child_output = child_ns.container().output(&[
         "/configure_child.sh",
@@ -631,6 +632,7 @@ fn setup_hermetic_network(subdomain_fqdn: FQDN, network: &Network) -> Result<Gra
         "extended-dns-errors.com",
         "65.21.183.116",
         "2a01:4f9:c012:6b60::1",
+        subdomain,
     ])?;
     if !child_output.status.success() {
         panic!(
@@ -696,11 +698,14 @@ fn setup_hermetic_network(subdomain_fqdn: FQDN, network: &Network) -> Result<Gra
 
     let nameservers = vec![child_ns, parent_ns, tld_ns, root_ns];
 
-    Ok(Graph {
-        nameservers,
-        root,
-        trust_anchor,
-    })
+    Ok((
+        subdomain_fqdn,
+        Graph {
+            nameservers,
+            root,
+            trust_anchor,
+        },
+    ))
 }
 
 fn parse_dnssec_signzone_dsset(input: &str) -> Result<Vec<DS>> {
