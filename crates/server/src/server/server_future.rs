@@ -911,7 +911,7 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
         let qflags = message.header().flags();
         let qop_code = message.op_code();
         let message_type = message.message_type();
-        let is_dnssec = message.edns().map_or(false, |edns| edns.flags().dnssec_ok);
+        let is_dnssec = message.edns().is_some_and(|edns| edns.flags().dnssec_ok);
 
         let request = Request::new(message, src_addr, protocol);
 
