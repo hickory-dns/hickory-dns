@@ -44,12 +44,16 @@ set -e
 #     using SHA-256.
 # - Performance:
 #   - Removed sleep.
+#   - Allow configuring only a subset of the subdomains, to skip unnecessary
+#     key generation and signing operations.
 
 # Store the variables
 server_ip=$1
 domain=$2
 a_record=$3
 aaaa_record=$4
+shift 4
+# Remaining arguments are an optional list of subdomains
 
 # Create a directory to store zones or empty an existing one
 
@@ -64,9 +68,16 @@ fi
 local_conf="/etc/bind/named.conf.local-ede"
 > $local_conf
 
-# Loop through the array of subdomains
+# Create an empty dsset file, in case the selected subdomains don't have any DS
+# records.
+touch dsset_for_parent.txt
 
-subdomains=("valid" "rrsig-exp-all" "allow-query-none" "allow-query-localhost" "no-ds" "no-zsk" "no-ksk" "ds-bad-tag" "ds-bad-key-algo" "ds-unassigned-key-algo" "ds-reserved-key-algo" "ds-bogus-digest-value" "ds-unassigned-digest-algo" "rrsig-exp-a" "rrsig-not-yet-a" "rrsig-not-yet-all" "rrsig-no-a" "rrsig-no-all" "nsec3-missing" "nsec3param-missing" "no-nsec3param-nsec3" "bad-nsec3-hash" "bad-nsec3-next" "nsec3-rrsig-missing" "bad-nsec3-rrsig" "bad-nsec3param-salt" "v6-doc" "v4-doc" "bad-zsk" "bad-ksk" "no-rrsig-ksk" "no-rrsig-dnskey" "bad-rrsig-ksk" "bad-rrsig-dnskey" "ed448" "rrsig-exp-before-all" "rrsig-exp-before-a" "no-dnskey-256" "no-dnskey-257" "no-dnskey-256-257" "bad-zsk-algo" "unassigned-zsk-algo" "reserved-zsk-algo" "unsigned" "dsa" "nsec3-iter-1" "nsec3-iter-51" "nsec3-iter-101" "nsec3-iter-151" "nsec3-iter-200" "rsamd5" "not-auth")
+# Loop through the array of subdomains
+if [ "$#" == "0" ]; then
+    subdomains=("valid" "rrsig-exp-all" "allow-query-none" "allow-query-localhost" "no-ds" "no-zsk" "no-ksk" "ds-bad-tag" "ds-bad-key-algo" "ds-unassigned-key-algo" "ds-reserved-key-algo" "ds-bogus-digest-value" "ds-unassigned-digest-algo" "rrsig-exp-a" "rrsig-not-yet-a" "rrsig-not-yet-all" "rrsig-no-a" "rrsig-no-all" "nsec3-missing" "nsec3param-missing" "no-nsec3param-nsec3" "bad-nsec3-hash" "bad-nsec3-next" "nsec3-rrsig-missing" "bad-nsec3-rrsig" "bad-nsec3param-salt" "v6-doc" "v4-doc" "bad-zsk" "bad-ksk" "no-rrsig-ksk" "no-rrsig-dnskey" "bad-rrsig-ksk" "bad-rrsig-dnskey" "ed448" "rrsig-exp-before-all" "rrsig-exp-before-a" "no-dnskey-256" "no-dnskey-257" "no-dnskey-256-257" "bad-zsk-algo" "unassigned-zsk-algo" "reserved-zsk-algo" "unsigned" "dsa" "nsec3-iter-1" "nsec3-iter-51" "nsec3-iter-101" "nsec3-iter-151" "nsec3-iter-200" "rsamd5" "not-auth")
+else
+    subdomains=("$@")
+fi
 
 for subdomain in ${subdomains[@]}; do
     # Store the full zone name
