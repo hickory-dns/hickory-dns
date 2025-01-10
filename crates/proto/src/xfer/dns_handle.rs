@@ -62,11 +62,11 @@ pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
     /// * `options` - options to use when constructing the message
     fn lookup(&self, query: Query, options: DnsRequestOptions) -> Self::Response {
         debug!("querying: {} {:?}", query.name(), query.query_type());
-        self.send(DnsRequest::new(build_message(query, options), options))
+        self.send(build_request(query, options))
     }
 }
 
-fn build_message(query: Query, options: DnsRequestOptions) -> Message {
+fn build_request(query: Query, options: DnsRequestOptions) -> DnsRequest {
     // build the message
     let mut message: Message = Message::new();
     // TODO: This is not the final ID, it's actually set in the poll method of DNS future
@@ -89,5 +89,5 @@ fn build_message(query: Query, options: DnsRequestOptions) -> Message {
             .set_dnssec_ok(options.edns_set_dnssec_ok);
     }
 
-    message
+    DnsRequest::new(message, options)
 }
