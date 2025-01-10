@@ -330,6 +330,11 @@ pub enum ProtoErrorKind {
     #[cfg(feature = "rustls")]
     #[error("rustls construction error: {0}")]
     RustlsError(#[from] rustls::Error),
+
+    /// Case randomization is enabled, and a server did not echo a query name back with the same
+    /// case.
+    #[error("case of query name in response did not match")]
+    QueryCaseMismatch,
 }
 
 /// Data needed to process a SOA-record-based referral.
@@ -806,6 +811,7 @@ impl Clone for ProtoErrorKind {
             QuinnUnknownStreamError => QuinnUnknownStreamError,
             #[cfg(feature = "rustls")]
             RustlsError(ref e) => RustlsError(e.clone()),
+            QueryCaseMismatch => QueryCaseMismatch,
         }
     }
 }

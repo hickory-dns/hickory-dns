@@ -1,0 +1,13 @@
+user = "nobody"
+group = "nogroup"
+
+[[zones]]
+zone = "."
+zone_type = "External"
+
+[zones.stores]
+type = "recursor"
+roots = "/etc/root.hints"
+dnssec_policy = "ValidationDisabled"
+allow_server = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+case_randomization = true
