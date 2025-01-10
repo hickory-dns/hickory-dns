@@ -189,9 +189,15 @@ where
 #[cfg(feature = "tokio")]
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    use std::str::FromStr;
     use std::time::Duration;
 
+    use hickory_proto::op::Message;
+    use hickory_proto::rr::rdata::NULL;
+    use hickory_proto::rr::{RData, Record};
     use test_support::subscribe;
+    use tokio::net::UdpSocket;
+    use tokio::spawn;
 
     use crate::proto::op::{Query, ResponseCode};
     use crate::proto::rr::{Name, RecordType};
@@ -260,5 +266,53 @@ mod tests {
                 .await
                 .is_err()
         );
+    }
+
+    #[tokio::test]
+    async fn case_randomization_query_preserved() {
+        subscribe();
+
+        let provider = TokioConnectionProvider::default();
+        let server = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let server_addr = server.local_addr().unwrap();
+        let name = Name::from_str("dead.beef.").unwrap();
+        let data = b"DEADBEEF";
+
+        spawn({
+            let name = name.clone();
+            async move {
+                let mut buffer = [0_u8; 512];
+                let (len, addr) = server.recv_from(&mut buffer).await.unwrap();
+                let request = Message::from_vec(&buffer[0..len]).unwrap();
+                let mut response = Message::new();
+                response.set_id(request.id());
+                response.add_queries(request.queries().to_vec());
+                response.add_answer(Record::from_rdata(
+                    name,
+                    0,
+                    RData::NULL(NULL::with(data.to_vec())),
+                ));
+                let response_buffer = response.to_vec().unwrap();
+                server.send_to(&response_buffer, addr).await.unwrap();
+            }
+        });
+
+        let config = NameServerConfig::new(server_addr, Protocol::Udp);
+        let resolver_opts = ResolverOpts {
+            case_randomization: true,
+            ..Default::default()
+        };
+        let mut request_options = DnsRequestOptions::default();
+        request_options.case_randomization = true;
+        let ns = NameServer::new(config, resolver_opts, provider);
+
+        let stream = ns.lookup(
+            Query::query(name.clone(), RecordType::NULL),
+            request_options,
+        );
+        let response = stream.first_answer().await.unwrap();
+
+        let response_query_name = response.query().unwrap().name();
+        assert!(response_query_name.eq_case(&name));
     }
 }

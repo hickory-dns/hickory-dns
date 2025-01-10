@@ -191,6 +191,7 @@ impl<P: ConnectionProvider> Resolver<P> {
         let mut request_opts = DnsRequestOptions::default();
         request_opts.recursion_desired = self.options.recursion_desired;
         request_opts.use_edns = self.options.edns0;
+        request_opts.case_randomization = self.options.case_randomization;
 
         request_opts
     }
