@@ -66,12 +66,21 @@ pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
     }
 }
 
-fn build_request(query: Query, options: DnsRequestOptions) -> DnsRequest {
+fn build_request(mut query: Query, options: DnsRequestOptions) -> DnsRequest {
     // build the message
     let mut message: Message = Message::new();
     // TODO: This is not the final ID, it's actually set in the poll method of DNS future
     //  should we just remove this?
     let id: u16 = rand::random();
+    let mut original_query = None;
+
+    if options.case_randomization {
+        original_query = Some(query.clone());
+        let mut parts = query.into_parts();
+        parts.name.randomize_label_case();
+        query = parts.into();
+    }
+
     message
         .add_query(query)
         .set_id(id)
@@ -89,5 +98,5 @@ fn build_request(query: Query, options: DnsRequestOptions) -> DnsRequest {
             .set_dnssec_ok(options.edns_set_dnssec_ok);
     }
 
-    DnsRequest::new(message, options)
+    DnsRequest::new(message, options).with_original_query(original_query)
 }
