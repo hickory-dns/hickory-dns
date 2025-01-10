@@ -18,7 +18,7 @@ use futures_util::{
     stream::{Stream, StreamExt},
 };
 use rand;
-use tracing::debug;
+use tracing::{debug, info};
 
 use crate::{
     client::Signer,
@@ -148,7 +148,10 @@ impl DnsHandle for AsyncClient {
     type Error = ProtoError;
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response {
-        self.exchange.send(request)
+        info!("Entering dns send");
+        let res = self.exchange.send(request);
+        info!("Exiting dns send");
+        res
     }
 
     fn is_using_edns(&self) -> bool {
