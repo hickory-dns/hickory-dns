@@ -218,6 +218,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                     .with_timeout(Some(options.timeout))
                     .with_os_port_selection(options.os_port_selection)
                     .avoid_local_ports(options.avoid_local_udp_ports.clone())
+                    .with_bind_addr(config.bind_addr)
                     .build();
                 let exchange = DnsExchange::connect(stream);
                 ConnectionConnect::Udp(exchange)
@@ -225,7 +226,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
             (Protocol::Tcp, _) => {
                 let (future, handle) = TcpClientStream::new(
                     config.socket_addr,
-                    None,
+                    config.bind_addr,
                     Some(options.timeout),
                     self.runtime_provider.clone(),
                 );
