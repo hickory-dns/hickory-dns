@@ -9,6 +9,8 @@
 
 use std::net::SocketAddr;
 
+use hickory_proto::ProtoError;
+
 use crate::{
     authority::MessageRequest,
     proto::{
@@ -42,13 +44,15 @@ impl Request {
     }
 
     /// Return just the header and request information from the Request Message
-    pub fn request_info(&self) -> RequestInfo<'_> {
-        RequestInfo {
+    ///
+    /// Returns an error if there is not exactly one query
+    pub fn request_info(&self) -> Result<RequestInfo<'_>, ProtoError> {
+        Ok(RequestInfo {
             src: self.src,
             protocol: self.protocol,
             header: self.message.header(),
-            query: self.message.query(),
-        }
+            query: self.message.raw_queries().try_as_query()?,
+        })
     }
 
     /// The IP address from which the request originated.

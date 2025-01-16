@@ -5,8 +5,6 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::iter::once;
-
 use crate::proto::{
     op::{
         message::{self, EmitAndCount},
@@ -21,7 +19,7 @@ use crate::proto::{
 #[derive(Debug, PartialEq)]
 pub struct MessageRequest {
     header: Header,
-    query: WireQuery,
+    queries: Queries,
     answers: Vec<Record>,
     name_servers: Vec<Record>,
     additionals: Vec<Record>,
@@ -91,8 +89,8 @@ impl MessageRequest {
     /// ```text
     /// Question        Carries the query name and other query parameters.
     /// ```
-    pub fn query(&self) -> &LowerQuery {
-        &self.query.query
+    pub fn queries(&self) -> &[LowerQuery] {
+        &self.queries.queries
     }
 
     /// ```text
@@ -176,9 +174,9 @@ impl MessageRequest {
         self.edns.as_ref().map_or(0, Edns::version)
     }
 
-    /// Returns the original query received from the client
-    pub(crate) fn raw_query(&self) -> &WireQuery {
-        &self.query
+    /// Returns the original queries received from the client
+    pub(crate) fn raw_queries(&self) -> &Queries {
+        &self.queries
     }
 }
 
@@ -196,7 +194,6 @@ impl<'q> BinDecodable<'q> for MessageRequest {
             let additional_count = header.additional_count() as usize;
 
             let queries = Queries::read(decoder, query_count)?;
-            let query = queries.try_into_query()?;
             let (answers, _, _) = Message::read_records(decoder, answer_count, false)?;
             let (name_servers, _, _) = Message::read_records(decoder, name_server_count, false)?;
             let (additionals, edns, sig0) = Message::read_records(decoder, additional_count, true)?;
@@ -209,7 +206,7 @@ impl<'q> BinDecodable<'q> for MessageRequest {
 
             Ok(Self {
                 header,
-                query,
+                queries,
                 answers,
                 name_servers,
                 additionals,
@@ -285,35 +282,21 @@ impl Queries {
         }
     }
 
-    /// Performs a validation that this set of Queries is one and only one Query
-    pub(crate) fn try_into_query(mut self) -> Result<WireQuery, ProtoError> {
+    /// Validate that this set of Queries contains exactly one Query, and return a reference to the
+    /// `LowerQuery` if so.
+    pub(crate) fn try_as_query(&self) -> Result<&LowerQuery, ProtoError> {
         let count = self.queries.len();
-        if count == 1 {
-            let query = self.queries.pop().expect("should have been at least one");
-
-            Ok(WireQuery {
-                query,
-                original: self.original,
-            })
-        } else {
-            Err(ProtoErrorKind::BadQueryCount(count).into())
+        if count != 1 {
+            return Err(ProtoErrorKind::BadQueryCount(count).into());
         }
+        Ok(&self.queries[0])
     }
-}
 
-/// A query with the original bytes stored from the query
-#[derive(Debug, PartialEq)]
-pub(crate) struct WireQuery {
-    query: LowerQuery,
-    original: Box<[u8]>,
-}
-
-impl WireQuery {
-    pub(crate) fn as_emit_and_count(&self) -> QueriesEmitAndCount<'_> {
-        QueriesEmitAndCount {
-            length: 1,
-            first_query: Some(&self.query),
-            cached_serialized: self.original.as_ref(),
+    /// Construct an empty set of queries
+    pub(crate) fn empty() -> Self {
+        Self {
+            queries: Vec::new(),
+            original: (*b"").into(),
         }
     }
 }
@@ -347,7 +330,7 @@ impl BinEncodable for MessageRequest {
             &self.header,
             // we emit the queries, not the raw bytes, in order to guarantee canonical form
             //   in cases where that's necessary, like SIG0 validation
-            &mut once(&self.query.query),
+            &mut self.queries.queries.iter(),
             &mut self.answers.iter(),
             &mut self.name_servers.iter(),
             &mut self.additionals.iter(),
@@ -366,7 +349,7 @@ pub trait UpdateRequest {
     fn id(&self) -> u16;
 
     /// Zone being updated, this should be the query of a Message
-    fn zone(&self) -> &LowerQuery;
+    fn zone(&self) -> Result<&LowerQuery, ProtoError>;
 
     /// Prerequisites map to the answers of a Message
     fn prerequisites(&self) -> &[Record];
@@ -386,8 +369,9 @@ impl UpdateRequest for MessageRequest {
         Self::id(self)
     }
 
-    fn zone(&self) -> &LowerQuery {
-        self.query()
+    fn zone(&self) -> Result<&LowerQuery, ProtoError> {
+        // RFC 2136 says "the Zone Section is allowed to contain exactly one record."
+        self.raw_queries().try_as_query()
     }
 
     fn prerequisites(&self) -> &[Record] {

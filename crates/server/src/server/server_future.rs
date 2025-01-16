@@ -27,7 +27,7 @@ use tracing::{debug, info, warn};
 
 use crate::{
     access::AccessControl,
-    authority::{MessageRequest, MessageResponseBuilder},
+    authority::{MessageRequest, MessageResponseBuilder, Queries},
     proto::{
         op::{Header, LowerQuery, Query, ResponseCode},
         runtime::iocompat::AsyncIoTokioAsStd,
@@ -833,7 +833,7 @@ fn tls_server_config(
 #[derive(Clone)]
 struct ReportingResponseHandler<R: ResponseHandler> {
     request_header: Header,
-    query: LowerQuery,
+    queries: Vec<LowerQuery>,
     protocol: Protocol,
     src_addr: SocketAddr,
     handler: R,
@@ -868,15 +868,12 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
         let additional_count = response_info.additional_count();
         let response_code = response_info.response_code();
 
-        info!("request:{id} src:{proto}://{addr}#{port} {op}:{query}:{qtype}:{class} qflags:{qflags} response:{code:?} rr:{answers}/{authorities}/{additionals} rflags:{rflags}",
+        info!("request:{id} src:{proto}://{addr}#{port} {op} qflags:{qflags} response:{code:?} rr:{answers}/{authorities}/{additionals} rflags:{rflags}",
             id = rid,
             proto = self.protocol,
             addr = self.src_addr.ip(),
             port = self.src_addr.port(),
             op = self.request_header.op_code(),
-            query = self.query.name(),
-            qtype = self.query.query_type(),
-            class = self.query.query_class(),
             qflags = self.request_header.flags(),
             code = response_code,
             answers = answer_count,
@@ -884,6 +881,14 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
             additionals = additional_count,
             rflags = rflags
         );
+        for query in self.queries.iter() {
+            info!(
+                "query:{query}:{qtype}:{class}",
+                query = query.name(),
+                qtype = query.query_type(),
+                class = query.query_class()
+            );
+        }
 
         Ok(response_info)
     }
@@ -915,14 +920,8 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
 
         let request = Request::new(message, src_addr, protocol);
 
-        let info = request.request_info();
-        let query = info.query.clone();
-        let query_name = info.query.name();
-        let query_type = info.query.query_type();
-        let query_class = info.query.query_class();
-
         debug!(
-            "request:{id} src:{proto}://{addr}#{port} type:{message_type} dnssec:{is_dnssec} {op}:{query}:{qtype}:{class} qflags:{qflags}",
+            "request:{id} src:{proto}://{addr}#{port} type:{message_type} dnssec:{is_dnssec} {op} qflags:{qflags}",
             id = id,
             proto = protocol,
             addr = src_addr.ip(),
@@ -930,16 +929,22 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
             message_type= message_type,
             is_dnssec = is_dnssec,
             op = qop_code,
-            query = query_name,
-            qtype = query_type,
-            class = query_class,
-            qflags = qflags,
+            qflags = qflags
         );
+        for query in request.queries().iter() {
+            debug!(
+                "query:{query}:{qtype}:{class}",
+                query = query.name(),
+                qtype = query.query_type(),
+                class = query.query_class()
+            );
+        }
 
         // The reporter will handle making sure to log the result of the request
+        let queries = request.queries().to_vec();
         let reporter = ReportingResponseHandler {
             request_header: *request.header(),
-            query,
+            queries,
             protocol,
             src_addr,
             handler: response_handler,
@@ -972,13 +977,14 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
         // The reporter will handle making sure to log the result of the request
         let mut reporter = ReportingResponseHandler {
             request_header: header,
-            query,
+            queries: vec![query],
             protocol,
             src_addr,
             handler: response_handler,
         };
 
-        let response = MessageResponseBuilder::new(None);
+        let queries = Queries::empty();
+        let response = MessageResponseBuilder::new(&queries);
         let result = reporter
             .send_response(response.error_msg(&header, response_code))
             .await;
