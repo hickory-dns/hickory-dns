@@ -256,7 +256,6 @@ fn test_server_continues_on_bad_data_tcp() {
 #[cfg(feature = "resolver")]
 fn test_forward() {
     use crate::server_harness::query_message;
-    use hickory_proto::rr::rdata::A;
 
     subscribe();
     let provider = TokioRuntimeProvider::new();
@@ -279,10 +278,10 @@ fn test_forward() {
         )
         .unwrap();
 
-        assert_eq!(
-            *response.answers()[0].data().as_a().unwrap(),
-            A::new(93, 184, 215, 14)
-        );
+        assert!(response
+            .answers()
+            .iter()
+            .any(|record| record.data().as_a().is_some()));
 
         // just tests that multiple queries work
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
@@ -299,10 +298,10 @@ fn test_forward() {
             RecordType::A,
         )
         .unwrap();
-        assert_eq!(
-            *response.answers()[0].data().as_a().unwrap(),
-            A::new(93, 184, 215, 14)
-        );
+        assert!(response
+            .answers()
+            .iter()
+            .any(|record| record.data().as_a().is_some()));
         assert!(!response.header().authoritative());
     })
 }

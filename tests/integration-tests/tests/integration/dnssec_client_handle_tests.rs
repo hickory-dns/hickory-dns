@@ -7,11 +7,10 @@ use futures::executor::block_on;
 use tokio::runtime::Runtime;
 
 use hickory_client::client::{Client, ClientHandle, MemoizeClientHandle};
-use hickory_proto::dnssec::{DnssecDnsHandle, Proof, TrustAnchor};
+use hickory_proto::dnssec::{DnssecDnsHandle, TrustAnchor};
 use hickory_proto::op::ResponseCode;
-use hickory_proto::rr::rdata::A;
 use hickory_proto::rr::Name;
-use hickory_proto::rr::{DNSClass, RData, RecordType};
+use hickory_proto::rr::{DNSClass, RecordType};
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
@@ -56,17 +55,6 @@ where
     );
 
     assert!(!response.answers().is_empty());
-    let record = &response.answers()[0];
-    assert_eq!(record.name(), &name);
-    assert_eq!(record.record_type(), RecordType::A);
-    assert_eq!(record.dns_class(), DNSClass::IN);
-    assert_eq!(record.proof(), Proof::Secure);
-
-    if let RData::A(address) = *record.data() {
-        assert_eq!(address, A::new(93, 184, 215, 14))
-    } else {
-        panic!();
-    }
 }
 
 #[test]

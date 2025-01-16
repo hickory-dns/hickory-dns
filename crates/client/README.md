@@ -22,10 +22,11 @@ The `client` is capable of DNSSEC validation as well as offering higher order fu
 ## Example
 
 ```rust
-use std::net::{Ipv4Addr, SocketAddr};
+use std::net::SocketAddr;
 use std::str::FromStr;
+
 use hickory_client::client::{Client, ClientHandle};
-use hickory_client::proto::rr::{rdata::A, DNSClass, Name, RData, Record, RecordType};
+use hickory_client::proto::rr::{DNSClass, Name, Record, RecordType};
 use hickory_client::proto::runtime::TokioRuntimeProvider;
 use hickory_client::proto::udp::UdpClientStream;
 use hickory_client::proto::xfer::DnsResponse;
@@ -54,11 +55,11 @@ let answers: &[Record] = response.answers();
 // Records are generic objects which can contain any data.
 //  In order to access it we need to first check what type of record it is
 //  In this case we are interested in A, IPv4 address
-if let RData::A(A(ref ip)) = answers[0].data() {
-    assert_eq!(*ip, Ipv4Addr::new(93, 184, 215, 14))
-} else {
-    panic!("unexpected result")
-}
+let a_data = answers
+    .iter()
+    .flat_map(|record| record.data().as_a())
+    .collect::<Vec<_>>();
+assert!(!a_data.is_empty());
 ```
 
 ## DNS-over-TLS and DNS-over-HTTPS

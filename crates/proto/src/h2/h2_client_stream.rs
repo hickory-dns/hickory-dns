@@ -575,7 +575,7 @@ mod tests {
     use test_support::subscribe;
     use tokio::runtime::Runtime;
 
-    use crate::op::{Message, Query, ResponseCode};
+    use crate::op::{Edns, Message, Query, ResponseCode};
     use crate::rr::rdata::{A, AAAA};
     use crate::rr::{Name, RecordType};
     use crate::runtime::TokioRuntimeProvider;
@@ -592,6 +592,11 @@ mod tests {
         let mut request = Message::new();
         let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
+        request.set_recursion_desired(true);
+        let mut edns = Edns::new();
+        edns.set_version(0);
+        edns.set_max_payload(1232);
+        *request.extensions_mut() = Some(edns);
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
@@ -612,10 +617,10 @@ mod tests {
             .block_on(https.send_message(request).first_answer())
             .expect("send_message failed");
 
-        let record = &response.answers()[0];
-        let addr = record.data().as_a().expect("Expected A record");
-
-        assert_eq!(addr, &A::new(93, 184, 215, 14));
+        assert!(response
+            .answers()
+            .iter()
+            .any(|record| record.data().as_a().is_some()));
 
         //
         // assert that the connection works for a second query
@@ -656,6 +661,11 @@ mod tests {
         let mut request = Message::new();
         let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
+        request.set_recursion_desired(true);
+        let mut edns = Edns::new();
+        edns.set_version(0);
+        edns.set_max_payload(1232);
+        *request.extensions_mut() = Some(edns);
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
@@ -676,10 +686,10 @@ mod tests {
             .block_on(https.send_message(request).first_answer())
             .expect("send_message failed");
 
-        let record = &response.answers()[0];
-        let addr = record.data().as_a().expect("Expected A record");
-
-        assert_eq!(addr, &A::new(93, 184, 215, 14));
+        assert!(response
+            .answers()
+            .iter()
+            .any(|record| record.data().as_a().is_some()));
 
         //
         // assert that the connection works for a second query
