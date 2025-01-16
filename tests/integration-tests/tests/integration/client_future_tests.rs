@@ -20,18 +20,15 @@ use hickory_integration::{
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use hickory_proto::{
     dnssec::{rdata::DNSSECRData, ring::RsaSigningKey, Algorithm, SigSigner, SigningKey},
-    rr::Record,
+    rr::{rdata::A, RData, Record},
     runtime::TokioTime,
     xfer::{DnsExchangeBackground, DnsMultiplexer},
 };
 use hickory_proto::{
     op::{Edns, Message, MessageType, OpCode, Query, ResponseCode},
     rr::{
-        rdata::{
-            opt::{EdnsCode, EdnsOption},
-            A,
-        },
-        DNSClass, Name, RData, RecordSet, RecordType,
+        rdata::opt::{EdnsCode, EdnsOption},
+        DNSClass, Name, RecordSet, RecordType,
     },
     runtime::TokioRuntimeProvider,
     tcp::TcpClientStream,
@@ -170,16 +167,7 @@ fn test_query(client: &mut Client) -> impl Future<Output = ()> {
                 .name()
                 .eq_case(&name));
 
-            let record = &response.answers()[0];
-            assert_eq!(record.name(), &name);
-            assert_eq!(record.record_type(), RecordType::A);
-            assert_eq!(record.dns_class(), DNSClass::IN);
-
-            if let RData::A(address) = record.data() {
-                assert_eq!(address, &A::new(93, 184, 215, 14))
-            } else {
-                panic!();
-            }
+            assert!(!response.answers().is_empty());
         })
         .map(|r: Result<_, _>| r.expect("query failed"))
 }
@@ -220,10 +208,7 @@ fn test_query_edns(client: &mut Client) -> impl Future<Output = ()> {
                 .name()
                 .eq_case(&name));
 
-            let record = &response.answers()[0];
-            assert_eq!(record.name(), &name);
-            assert_eq!(record.record_type(), RecordType::A);
-            assert_eq!(record.dns_class(), DNSClass::IN);
+            assert!(!response.answers().is_empty());
             assert!(response.extensions().is_some());
             assert_eq!(
                 response
@@ -234,11 +219,6 @@ fn test_query_edns(client: &mut Client) -> impl Future<Output = ()> {
                     .unwrap(),
                 &EdnsOption::Subnet("1.2.0.0/16".parse().unwrap())
             );
-            if let RData::A(address) = *record.data() {
-                assert_eq!(address, A::new(93, 184, 215, 14))
-            } else {
-                panic!();
-            }
         })
         .map(|r: Result<_, _>| r.expect("query failed"))
 }

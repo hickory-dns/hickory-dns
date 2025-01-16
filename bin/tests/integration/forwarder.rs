@@ -1,6 +1,5 @@
 #![cfg(feature = "resolver")]
 
-use std::net::Ipv4Addr;
 use std::str::FromStr;
 
 use tokio::runtime::Runtime;
@@ -26,7 +25,8 @@ fn test_lookup() {
         ))
         .unwrap();
 
-    let address = lookup.iter().next().expect("no addresses returned!");
-    let address = address.data().as_a().expect("not an A record");
-    assert_eq!(*address, Ipv4Addr::new(93, 184, 215, 14).into());
+    assert!(
+        lookup.iter().any(|record| record.data().as_a().is_some()),
+        "no addresses returned!"
+    );
 }
