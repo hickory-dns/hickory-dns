@@ -20,6 +20,7 @@ use crate::dnssec::PublicKey;
 
 const ROOT_ANCHOR_ORIG: &[u8] = include_bytes!("roots/19036.rsa");
 const ROOT_ANCHOR_2018: &[u8] = include_bytes!("roots/20326.rsa");
+const ROOT_ANCHOR_2024: &[u8] = include_bytes!("roots/38696.rsa");
 
 /// The root set of trust anchors for validating DNSSEC, anything in this set will be trusted
 #[derive(Clone)]
@@ -32,7 +33,7 @@ pub struct TrustAnchor {
 impl Default for TrustAnchor {
     fn default() -> Self {
         Self {
-            pkeys: vec![ROOT_ANCHOR_ORIG.to_owned(), ROOT_ANCHOR_2018.to_owned()],
+            pkeys: vec![ROOT_ANCHOR_ORIG.to_owned(), ROOT_ANCHOR_2018.to_owned(), ROOT_ANCHOR_2024.to_owned()],
         }
     }
 }
