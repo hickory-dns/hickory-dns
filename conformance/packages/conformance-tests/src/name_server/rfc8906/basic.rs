@@ -144,7 +144,6 @@ fn test_8_1_3_4_header_bits_recursive_query() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory returns FORMERR"]
 fn test_8_1_4_unknown_opcodes() -> Result<()> {
     let (_network, ns, client) = setup()?;
 

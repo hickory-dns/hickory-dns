@@ -80,7 +80,7 @@ impl RequestHandler for Catalog {
 
         // check if it's edns
         if let Some(req_edns) = request.edns() {
-            let mut response = MessageResponseBuilder::new(Some(request.raw_query()));
+            let mut response = MessageResponseBuilder::new(request.raw_queries());
             let mut response_header = Header::response_from_request(request.header());
 
             let mut resp_edns: Edns = Edns::new();
@@ -138,7 +138,7 @@ impl RequestHandler for Catalog {
                 }
                 c => {
                     warn!("unimplemented op_code: {:?}", c);
-                    let response = MessageResponseBuilder::new(Some(request.raw_query()));
+                    let response = MessageResponseBuilder::new(request.raw_queries());
 
                     response_handle
                         .send_response(response.error_msg(request.header(), ResponseCode::NotImp))
@@ -147,7 +147,7 @@ impl RequestHandler for Catalog {
             },
             MessageType::Response => {
                 warn!("got a response as a request from id: {}", request.id());
-                let response = MessageResponseBuilder::new(Some(request.raw_query()));
+                let response = MessageResponseBuilder::new(request.raw_queries());
 
                 response_handle
                     .send_response(response.error_msg(request.header(), ResponseCode::FormErr))
@@ -243,7 +243,7 @@ impl Catalog {
         response_edns: Option<Edns>,
         response_handle: R,
     ) -> io::Result<ResponseInfo> {
-        let request_info = update.request_info();
+        let request_info = update.request_info()?;
 
         let verify_request = move || -> Result<RequestInfo<'_>, ResponseCode> {
             // 2.3 - Zone Section
@@ -291,7 +291,7 @@ impl Catalog {
                     _ => ResponseCode::NotAuth,
                 };
 
-                let response = MessageResponseBuilder::new(Some(update.raw_query()));
+                let response = MessageResponseBuilder::new(update.raw_queries());
                 let mut response_header = Header::default();
                 response_header.set_id(update.id());
                 response_header.set_op_code(OpCode::Update);
@@ -335,12 +335,29 @@ impl Catalog {
         response_edns: Option<Edns>,
         response_handle: R,
     ) -> ResponseInfo {
-        let request_info = request.request_info();
+        let Ok(request_info) = request.request_info() else {
+            // Wrong number of queries
+            let response = MessageResponseBuilder::new(request.raw_queries());
+            let result = send_response(
+                response_edns,
+                response.error_msg(request.header(), ResponseCode::FormErr),
+                response_handle,
+            )
+            .await;
+
+            match result {
+                Err(e) => {
+                    error!("failed to send response: {e}");
+                    return ResponseInfo::serve_failed();
+                }
+                Ok(r) => return r,
+            }
+        };
         let authorities = self.find(request_info.query.name());
 
         let Some(authorities) = authorities else {
             // There are no authorities registered that can handle the request
-            let response = MessageResponseBuilder::new(Some(request.raw_query()));
+            let response = MessageResponseBuilder::new(request.raw_queries());
 
             let result = send_response(
                 response_edns,
@@ -463,7 +480,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
         )
         .await;
 
-        let message_response = MessageResponseBuilder::new(Some(request.raw_query())).build(
+        let message_response = MessageResponseBuilder::new(request.raw_queries()).build(
             response_header,
             sections.answers.iter(),
             sections.ns.iter(),
