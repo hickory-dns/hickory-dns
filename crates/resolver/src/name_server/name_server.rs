@@ -210,8 +210,6 @@ mod tests {
             tls_dns_name: None,
             http_endpoint: None,
             trust_negative_responses: false,
-            #[cfg(feature = "dns-over-rustls")]
-            tls_config: None,
             bind_addr: None,
         };
         let name_server = GenericNameServer::new(
@@ -244,8 +242,6 @@ mod tests {
             tls_dns_name: None,
             http_endpoint: None,
             trust_negative_responses: false,
-            #[cfg(feature = "dns-over-rustls")]
-            tls_config: None,
             bind_addr: None,
         };
         let name_server =

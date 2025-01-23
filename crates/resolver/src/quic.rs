@@ -77,11 +77,12 @@ mod tests {
     use crate::name_server::TokioConnectionProvider;
     use crate::TokioResolver;
 
-    async fn quic_test(config: ResolverConfig) {
+    async fn quic_test(config: ResolverConfig, tls_config: rustls::ClientConfig) {
         let resolver = TokioResolver::new(
             config,
             ResolverOpts {
                 try_tcp_on_error: true,
+                tls_config: Some(Arc::new(tls_config)),
                 ..ResolverOpts::default()
             },
             TokioConnectionProvider::default(),
@@ -119,8 +120,11 @@ mod tests {
             853,
             String::from("unfiltered.adguard-dns.com"),
             true,
+        );
+        quic_test(
+            ResolverConfig::from_parts(None, Vec::new(), name_servers),
+            config,
         )
-        .with_client_config(Arc::new(config));
-        quic_test(ResolverConfig::from_parts(None, Vec::new(), name_servers)).await
+        .await
     }
 }

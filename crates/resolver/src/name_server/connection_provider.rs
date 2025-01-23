@@ -244,7 +244,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let tcp_future = self.runtime_provider.connect_tcp(socket_addr, None, None);
 
                 #[cfg(feature = "dns-over-rustls")]
-                let client_config = config.tls_config.clone();
+                let client_config = options.tls_config.clone();
 
                 #[cfg(feature = "dns-over-rustls")]
                 let (stream, handle) = {
@@ -278,7 +278,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                     .clone()
                     .unwrap_or_else(|| proto::http::DEFAULT_DNS_QUERY_PATH.to_owned());
                 #[cfg(feature = "dns-over-rustls")]
-                let client_config = config.tls_config.clone();
+                let client_config = options.tls_config.clone();
                 let tcp_future = self.runtime_provider.connect_tcp(socket_addr, None, None);
 
                 let exchange = crate::h2::new_https_stream_with_future(
@@ -298,8 +298,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                     SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
                 });
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
-                #[cfg(feature = "dns-over-rustls")]
-                let client_config = config.tls_config.clone();
+                let client_config = options.tls_config.clone();
                 let socket = binder.bind_quic(bind_addr, socket_addr)?;
 
                 let exchange = crate::quic::new_quic_stream_with_future(
@@ -322,7 +321,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                     .http_endpoint
                     .clone()
                     .unwrap_or_else(|| proto::http::DEFAULT_DNS_QUERY_PATH.to_owned());
-                let client_config = config.tls_config.clone();
+                let client_config = options.tls_config.clone();
                 let socket = binder.bind_quic(bind_addr, socket_addr)?;
 
                 let exchange = crate::h3::new_h3_stream_with_future(

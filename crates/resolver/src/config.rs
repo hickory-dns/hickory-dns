@@ -15,8 +15,6 @@ use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use std::time::Duration;
 
-#[cfg(feature = "dns-over-rustls")]
-use rustls::ClientConfig;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -272,39 +270,6 @@ impl ResolverConfig {
     pub fn name_servers(&self) -> &[NameServerConfig] {
         &self.name_servers
     }
-
-    /// return the associated TlsClientConfig
-    #[cfg(feature = "dns-over-rustls")]
-    pub fn client_config(&self) -> Option<&Arc<rustls::ClientConfig>> {
-        self.name_servers.tls.as_ref()
-    }
-
-    /// adds the `rustls::ClientConf` for every configured NameServer
-    /// of the Resolver.
-    ///
-    /// ```
-    /// use std::sync::Arc;
-    ///
-    /// use rustls::{ClientConfig, ProtocolVersion, RootCertStore};
-    /// use hickory_resolver::config::ResolverConfig;
-    /// # #[cfg(feature = "webpki-roots")]
-    /// use webpki_roots;
-    ///
-    /// let mut root_store = RootCertStore::empty();
-    /// # #[cfg(feature = "webpki-roots")]
-    /// root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-    ///
-    /// let mut client_config = ClientConfig::builder()
-    ///     .with_root_certificates(root_store)
-    ///     .with_no_client_auth();
-    ///
-    /// let mut resolver_config = ResolverConfig::quad9_tls();
-    /// resolver_config.set_tls_client_config(Arc::new(client_config));
-    /// ```
-    #[cfg(feature = "dns-over-rustls")]
-    pub fn set_tls_client_config(&mut self, client_config: Arc<ClientConfig>) {
-        self.name_servers = self.name_servers.clone().with_client_config(client_config);
-    }
 }
 
 impl Default for ResolverConfig {
@@ -353,13 +318,6 @@ pub struct NameServerConfig {
     /// Defaults to false.
     #[cfg_attr(feature = "serde", serde(default))]
     pub trust_negative_responses: bool,
-    #[cfg(feature = "dns-over-rustls")]
-    #[cfg_attr(feature = "serde", serde(skip))]
-    /// Optional configuration for the TLS client.
-    ///
-    /// The correct ALPN for the corresponding protocol is automatically
-    /// inserted if none was specified.
-    pub tls_config: Option<Arc<rustls::ClientConfig>>,
     /// The client address (IP and port) to use for connecting to the server.
     pub bind_addr: Option<SocketAddr>,
 }
@@ -373,8 +331,6 @@ impl NameServerConfig {
             trust_negative_responses: true,
             tls_dns_name: None,
             http_endpoint: None,
-            #[cfg(feature = "dns-over-rustls")]
-            tls_config: None,
             bind_addr: None,
         }
     }
@@ -396,8 +352,6 @@ impl fmt::Display for NameServerConfig {
 #[derive(Clone, Debug)]
 pub struct NameServerConfigGroup {
     servers: Vec<NameServerConfig>,
-    #[cfg(feature = "dns-over-rustls")]
-    tls: Option<Arc<rustls::ClientConfig>>,
 }
 
 #[cfg(feature = "serde")]
@@ -416,11 +370,7 @@ impl<'de> Deserialize<'de> for NameServerConfigGroup {
     where
         D: Deserializer<'de>,
     {
-        Vec::deserialize(deserializer).map(|servers| Self {
-            servers,
-            #[cfg(feature = "dns-over-rustls")]
-            tls: None,
-        })
+        Vec::deserialize(deserializer).map(|servers| Self { servers })
     }
 }
 
@@ -436,8 +386,6 @@ impl NameServerConfigGroup {
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             servers: Vec::with_capacity(capacity),
-            #[cfg(feature = "dns-over-rustls")]
-            tls: None,
         }
     }
 
@@ -460,8 +408,6 @@ impl NameServerConfigGroup {
                 tls_dns_name: None,
                 http_endpoint: None,
                 trust_negative_responses,
-                #[cfg(feature = "dns-over-rustls")]
-                tls_config: None,
                 bind_addr: None,
             };
             let tcp = NameServerConfig {
@@ -470,8 +416,6 @@ impl NameServerConfigGroup {
                 tls_dns_name: None,
                 http_endpoint: None,
                 trust_negative_responses,
-                #[cfg(feature = "dns-over-rustls")]
-                tls_config: None,
                 bind_addr: None,
             };
 
@@ -501,8 +445,6 @@ impl NameServerConfigGroup {
                 tls_dns_name: Some(tls_dns_name.clone()),
                 http_endpoint: None,
                 trust_negative_responses,
-                #[cfg(feature = "dns-over-rustls")]
-                tls_config: None,
                 bind_addr: None,
             };
 
@@ -717,15 +659,6 @@ impl NameServerConfigGroup {
         }
     }
 
-    /// add a [`rustls::ClientConfig`]
-    #[cfg(feature = "dns-over-rustls")]
-    pub fn with_client_config(self, client_config: Arc<ClientConfig>) -> Self {
-        Self {
-            servers: self.servers,
-            tls: Some(client_config),
-        }
-    }
-
     /// Sets the client address (IP and port) to connect from on all name servers.
     pub fn with_bind_addr(mut self, bind_addr: Option<SocketAddr>) -> Self {
         for server in &mut self.servers {
@@ -756,11 +689,7 @@ impl DerefMut for NameServerConfigGroup {
 
 impl From<Vec<NameServerConfig>> for NameServerConfigGroup {
     fn from(servers: Vec<NameServerConfig>) -> Self {
-        Self {
-            servers,
-            #[cfg(feature = "dns-over-rustls")]
-            tls: None,
-        }
+        Self { servers }
     }
 }
 
@@ -913,6 +842,13 @@ pub struct ResolverOpts {
     /// prevent those prompts from being displayed. If os_port_selection is true, avoid_local_udp_ports
     /// will be ignored.
     pub os_port_selection: bool,
+    /// Optional configuration for the TLS client.
+    ///
+    /// The correct ALPN for the corresponding protocol is automatically
+    /// inserted if none was specified.
+    #[cfg(feature = "dns-over-rustls")]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub tls_config: Option<Arc<rustls::ClientConfig>>,
 }
 
 impl Default for ResolverOpts {
@@ -947,6 +883,8 @@ impl Default for ResolverOpts {
             shuffle_dns_servers: false,
             avoid_local_udp_ports: Arc::new(HashSet::new()),
             os_port_selection: false,
+            #[cfg(feature = "dns-over-rustls")]
+            tls_config: None,
         }
     }
 }
