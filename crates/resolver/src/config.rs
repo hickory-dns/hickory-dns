@@ -19,6 +19,8 @@ use std::time::Duration;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::proto::rr::Name;
+#[cfg(feature = "dns-over-rustls")]
+use crate::proto::rustls::client_config;
 use crate::proto::xfer::Protocol;
 
 /// Configuration for the upstream nameservers to use for resolution
@@ -847,8 +849,8 @@ pub struct ResolverOpts {
     /// The correct ALPN for the corresponding protocol is automatically
     /// inserted if none was specified.
     #[cfg(feature = "dns-over-rustls")]
-    #[cfg_attr(feature = "serde", serde(skip))]
-    pub tls_config: Option<Arc<rustls::ClientConfig>>,
+    #[cfg_attr(feature = "serde", serde(skip, default = "client_config"))]
+    pub tls_config: rustls::ClientConfig,
 }
 
 impl Default for ResolverOpts {
@@ -884,7 +886,7 @@ impl Default for ResolverOpts {
             avoid_local_udp_ports: Arc::new(HashSet::new()),
             os_port_selection: false,
             #[cfg(feature = "dns-over-rustls")]
-            tls_config: None,
+            tls_config: client_config(),
         }
     }
 }

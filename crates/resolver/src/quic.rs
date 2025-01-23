@@ -10,7 +10,6 @@ use std::sync::Arc;
 
 use crate::proto::quic::{QuicClientConnect, QuicClientStream};
 use crate::proto::runtime::TokioTime;
-use crate::proto::rustls::client_config;
 use crate::proto::xfer::{DnsExchange, DnsExchangeConnect};
 
 #[allow(clippy::type_complexity)]
@@ -19,13 +18,8 @@ pub(crate) fn new_quic_stream(
     socket_addr: SocketAddr,
     bind_addr: Option<SocketAddr>,
     dns_name: String,
-    crypto_config: Option<Arc<rustls::ClientConfig>>,
+    crypto_config: rustls::ClientConfig,
 ) -> DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime> {
-    let crypto_config = match crypto_config {
-        Some(crypto_config) => (*crypto_config).clone(),
-        None => client_config(),
-    };
-
     let mut quic_builder = QuicClientStream::builder();
     // TODO: normalize the crypto config settings, can we just use common ALPN settings?
     quic_builder.crypto_config(crypto_config);
@@ -40,13 +34,8 @@ pub(crate) fn new_quic_stream_with_future(
     socket: Arc<dyn quinn::AsyncUdpSocket>,
     socket_addr: SocketAddr,
     dns_name: String,
-    crypto_config: Option<Arc<rustls::ClientConfig>>,
+    crypto_config: rustls::ClientConfig,
 ) -> DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime> {
-    let crypto_config = match crypto_config {
-        Some(crypto_config) => (*crypto_config).clone(),
-        None => client_config(),
-    };
-
     let mut quic_builder = QuicClientStream::builder();
     // TODO: normalize the crypto config settings, can we just use common ALPN settings?
     quic_builder.crypto_config(crypto_config);
@@ -59,7 +48,6 @@ pub(crate) fn new_quic_stream_with_future(
 ))]
 mod tests {
     use std::net::IpAddr;
-    use std::sync::Arc;
 
     use hickory_proto::rustls::client_config;
 
@@ -72,7 +60,7 @@ mod tests {
             config,
             ResolverOpts {
                 try_tcp_on_error: true,
-                tls_config: Some(Arc::new(tls_config)),
+                tls_config,
                 ..ResolverOpts::default()
             },
             TokioConnectionProvider::default(),

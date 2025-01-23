@@ -10,7 +10,6 @@ use std::sync::Arc;
 
 use crate::proto::h3::{H3ClientConnect, H3ClientStream};
 use crate::proto::runtime::TokioTime;
-use crate::proto::rustls::client_config;
 use crate::proto::xfer::{DnsExchange, DnsExchangeConnect};
 
 #[allow(clippy::type_complexity)]
@@ -20,13 +19,8 @@ pub(crate) fn new_h3_stream(
     bind_addr: Option<SocketAddr>,
     dns_name: String,
     http_endpoint: String,
-    crypto_config: Option<Arc<rustls::ClientConfig>>,
+    crypto_config: rustls::ClientConfig,
 ) -> DnsExchangeConnect<H3ClientConnect, H3ClientStream, TokioTime> {
-    let crypto_config = match crypto_config {
-        Some(crypto_config) => (*crypto_config).clone(),
-        None => client_config(),
-    };
-
     let mut h3_builder = H3ClientStream::builder();
     // TODO: normalize the crypto config settings, can we just use common ALPN settings?
     h3_builder.crypto_config(crypto_config);
@@ -42,13 +36,8 @@ pub(crate) fn new_h3_stream_with_future(
     socket_addr: SocketAddr,
     dns_name: String,
     http_endpoint: String,
-    crypto_config: Option<Arc<rustls::ClientConfig>>,
+    crypto_config: rustls::ClientConfig,
 ) -> DnsExchangeConnect<H3ClientConnect, H3ClientStream, TokioTime> {
-    let crypto_config = match crypto_config {
-        Some(crypto_config) => (*crypto_config).clone(),
-        None => client_config(),
-    };
-
     let mut h3_builder = H3ClientStream::builder();
     // TODO: normalize the crypto config settings, can we just use common ALPN settings?
     h3_builder.crypto_config(crypto_config);
