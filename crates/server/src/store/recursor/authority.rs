@@ -66,8 +66,6 @@ impl RecursiveAuthority {
                 tls_dns_name: None,
                 http_endpoint: None,
                 trust_negative_responses: false,
-                #[cfg(feature = "dns-over-rustls")]
-                tls_config: None,
                 bind_addr: None, // TODO: need to support bind addresses
             });
 
@@ -77,8 +75,6 @@ impl RecursiveAuthority {
                 tls_dns_name: None,
                 http_endpoint: None,
                 trust_negative_responses: false,
-                #[cfg(feature = "dns-over-rustls")]
-                tls_config: None,
                 bind_addr: None,
             });
         }

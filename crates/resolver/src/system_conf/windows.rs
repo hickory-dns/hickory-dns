@@ -35,8 +35,6 @@ fn get_name_servers() -> Result<Vec<NameServerConfig>, ResolveError> {
             tls_dns_name: None,
             http_endpoint: None,
             trust_negative_responses: false,
-            #[cfg(feature = "dns-over-rustls")]
-            tls_config: None,
             bind_addr: None,
         });
         name_servers.push(NameServerConfig {
@@ -45,8 +43,6 @@ fn get_name_servers() -> Result<Vec<NameServerConfig>, ResolveError> {
             tls_dns_name: None,
             http_endpoint: None,
             trust_negative_responses: false,
-            #[cfg(feature = "dns-over-rustls")]
-            tls_config: None,
             bind_addr: None,
         });
     }

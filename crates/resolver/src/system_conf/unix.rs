@@ -76,8 +76,6 @@ fn into_resolver_config(
             tls_dns_name: None,
             http_endpoint: None,
             trust_negative_responses: false,
-            #[cfg(feature = "dns-over-rustls")]
-            tls_config: None,
             bind_addr: None,
         });
         nameservers.push(NameServerConfig {
@@ -86,8 +84,6 @@ fn into_resolver_config(
             tls_dns_name: None,
             http_endpoint: None,
             trust_negative_responses: false,
-            #[cfg(feature = "dns-over-rustls")]
-            tls_config: None,
             bind_addr: None,
         });
     }
@@ -147,8 +143,6 @@ mod tests {
                 tls_dns_name: None,
                 http_endpoint: None,
                 trust_negative_responses: false,
-                #[cfg(feature = "dns-over-rustls")]
-                tls_config: None,
                 bind_addr: None,
             },
             NameServerConfig {
@@ -157,8 +151,6 @@ mod tests {
                 tls_dns_name: None,
                 http_endpoint: None,
                 trust_negative_responses: false,
-                #[cfg(feature = "dns-over-rustls")]
-                tls_config: None,
                 bind_addr: None,
             },
         ]

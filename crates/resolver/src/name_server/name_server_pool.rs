@@ -56,16 +56,7 @@ where
             .iter()
             .filter(|ns_config| ns_config.protocol.is_datagram())
             .map(|ns_config| {
-                #[cfg(feature = "dns-over-rustls")]
-                let ns_config = {
-                    let mut ns_config = ns_config.clone();
-                    ns_config.tls_config = config.client_config().cloned();
-                    ns_config
-                };
-                #[cfg(not(feature = "dns-over-rustls"))]
-                let ns_config = { ns_config.clone() };
-
-                NameServer::new(ns_config, options.clone(), conn_provider.clone())
+                NameServer::new(ns_config.clone(), options.clone(), conn_provider.clone())
             })
             .collect();
 
@@ -74,16 +65,7 @@ where
             .iter()
             .filter(|ns_config| ns_config.protocol.is_stream())
             .map(|ns_config| {
-                #[cfg(feature = "dns-over-rustls")]
-                let ns_config = {
-                    let mut ns_config = ns_config.clone();
-                    ns_config.tls_config = config.client_config().cloned();
-                    ns_config
-                };
-                #[cfg(not(feature = "dns-over-rustls"))]
-                let ns_config = { ns_config.clone() };
-
-                NameServer::new(ns_config, options.clone(), conn_provider.clone())
+                NameServer::new(ns_config.clone(), options.clone(), conn_provider.clone())
             })
             .collect();
 
@@ -423,8 +405,6 @@ mod tests {
             tls_dns_name: None,
             http_endpoint: None,
             trust_negative_responses: false,
-            #[cfg(feature = "dns-over-rustls")]
-            tls_config: None,
             bind_addr: None,
         };
 
@@ -434,8 +414,6 @@ mod tests {
             tls_dns_name: None,
             http_endpoint: None,
             trust_negative_responses: false,
-            #[cfg(feature = "dns-over-rustls")]
-            tls_config: None,
             bind_addr: None,
         };
 
@@ -496,8 +474,6 @@ mod tests {
             tls_dns_name: None,
             http_endpoint: None,
             trust_negative_responses: false,
-            #[cfg(feature = "dns-over-rustls")]
-            tls_config: None,
             bind_addr: None,
         };
 
