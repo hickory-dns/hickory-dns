@@ -243,27 +243,13 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
                 let tcp_future = self.runtime_provider.connect_tcp(socket_addr, None, None);
 
-                #[cfg(feature = "dns-over-rustls")]
                 let client_config = options.tls_config.clone();
-
-                #[cfg(feature = "dns-over-rustls")]
-                let (stream, handle) = {
-                    crate::tls::new_tls_stream_with_future(
-                        tcp_future,
-                        socket_addr,
-                        tls_dns_name,
-                        client_config,
-                    )
-                };
-                #[cfg(not(feature = "dns-over-rustls"))]
-                let (stream, handle) = {
-                    crate::tls::new_tls_stream_with_future(
-                        tcp_future,
-                        socket_addr,
-                        tls_dns_name,
-                        self.runtime_provider.clone(),
-                    )
-                };
+                let (stream, handle) = crate::tls::new_tls_stream_with_future(
+                    tcp_future,
+                    socket_addr,
+                    tls_dns_name,
+                    client_config,
+                );
 
                 let dns_conn = DnsMultiplexer::with_timeout(stream, handle, timeout, None);
                 let exchange = DnsExchange::connect(dns_conn);
