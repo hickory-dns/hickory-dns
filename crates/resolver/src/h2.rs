@@ -11,7 +11,6 @@ use std::sync::Arc;
 
 use crate::proto::h2::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
 use crate::proto::runtime::{RuntimeProvider, TokioTime};
-use crate::proto::rustls::client_config;
 use crate::proto::tcp::DnsTcpStream;
 use crate::proto::xfer::{DnsExchange, DnsExchangeConnect};
 
@@ -22,14 +21,9 @@ pub(crate) fn new_https_stream<P: RuntimeProvider>(
     bind_addr: Option<SocketAddr>,
     dns_name: String,
     http_endpoint: String,
-    tls_config: Option<Arc<rustls::ClientConfig>>,
+    tls_config: Arc<rustls::ClientConfig>,
     provider: P,
 ) -> DnsExchangeConnect<HttpsClientConnect<P::Tcp>, HttpsClientStream, TokioTime> {
-    let tls_config = match tls_config {
-        Some(tls_config) => tls_config,
-        None => Arc::new(client_config()),
-    };
-
     let mut https_builder = HttpsClientStreamBuilder::with_client_config(tls_config, provider);
     if let Some(bind_addr) = bind_addr {
         https_builder.bind_addr(bind_addr);
@@ -43,17 +37,12 @@ pub(crate) fn new_https_stream_with_future<S, F>(
     socket_addr: SocketAddr,
     dns_name: String,
     http_endpoint: String,
-    tls_config: Option<Arc<rustls::ClientConfig>>,
+    tls_config: Arc<rustls::ClientConfig>,
 ) -> DnsExchangeConnect<HttpsClientConnect<S>, HttpsClientStream, TokioTime>
 where
     S: DnsTcpStream + Send + 'static,
     F: Future<Output = std::io::Result<S>> + Send + Unpin + 'static,
 {
-    let tls_config = match tls_config {
-        Some(tls_config) => tls_config,
-        None => Arc::new(client_config()),
-    };
-
     DnsExchange::connect(HttpsClientConnect::new(
         future,
         tls_config,

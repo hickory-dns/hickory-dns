@@ -12,7 +12,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use crate::proto::rustls::tls_client_stream::tls_client_connect_with_future;
-use crate::proto::rustls::{client_config, TlsClientStream};
+use crate::proto::rustls::TlsClientStream;
 use crate::proto::tcp::DnsTcpStream;
 use crate::proto::BufDnsStreamHandle;
 use crate::proto::ProtoError;
@@ -22,7 +22,7 @@ pub(crate) fn new_tls_stream_with_future<S, F>(
     future: F,
     socket_addr: SocketAddr,
     dns_name: String,
-    tls_config: Option<Arc<rustls::ClientConfig>>,
+    mut tls_config: rustls::ClientConfig,
 ) -> (
     Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send>>,
     BufDnsStreamHandle,
@@ -31,16 +31,11 @@ where
     S: DnsTcpStream,
     F: Future<Output = io::Result<S>> + Send + Unpin + 'static,
 {
-    let tls_config = if let Some(tls_config) = tls_config {
-        tls_config
-    } else {
-        let mut config = client_config();
-        // The port (853) of DOT is for dns dedicated, SNI is unnecessary. (ISP block by the SNI name)
-        config.enable_sni = false;
-        Arc::new(config)
-    };
+    // The port (853) of DOT is for dns dedicated, SNI is unnecessary. (ISP block by the SNI name)
+    tls_config.enable_sni = false;
+
     let (stream, handle) =
-        tls_client_connect_with_future(future, socket_addr, dns_name, tls_config);
+        tls_client_connect_with_future(future, socket_addr, dns_name, Arc::new(tls_config));
     (Box::pin(stream), handle)
 }
 

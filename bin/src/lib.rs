@@ -601,9 +601,9 @@ pub enum ServerStoreConfig {
 }
 
 /// Enumeration over store types for external nameservers.
+#[allow(clippy::large_enum_variant)]
 #[derive(Deserialize, Debug, Default)]
-#[serde(tag = "type")]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "lowercase", tag = "type")]
 #[non_exhaustive]
 pub enum ExternalStoreConfig {
     /// Blocklist configuration

@@ -11,6 +11,8 @@ use std::marker::Unpin;
 #[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
+#[cfg(feature = "dns-over-rustls")]
+use std::sync::Arc;
 use std::task::{Context, Poll};
 
 #[cfg(feature = "dns-over-rustls")]
@@ -243,12 +245,11 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
                 let tcp_future = self.runtime_provider.connect_tcp(socket_addr, None, None);
 
-                let client_config = options.tls_config.clone();
                 let (stream, handle) = crate::tls::new_tls_stream_with_future(
                     tcp_future,
                     socket_addr,
                     tls_dns_name,
-                    client_config,
+                    options.tls_config.clone(),
                 );
 
                 let dns_conn = DnsMultiplexer::with_timeout(stream, handle, timeout, None);
@@ -263,8 +264,6 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                     .http_endpoint
                     .clone()
                     .unwrap_or_else(|| proto::http::DEFAULT_DNS_QUERY_PATH.to_owned());
-                #[cfg(feature = "dns-over-rustls")]
-                let client_config = options.tls_config.clone();
                 let tcp_future = self.runtime_provider.connect_tcp(socket_addr, None, None);
 
                 let exchange = crate::h2::new_https_stream_with_future(
@@ -272,7 +271,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                     socket_addr,
                     tls_dns_name,
                     http_endpoint,
-                    client_config,
+                    Arc::new(options.tls_config.clone()),
                 );
                 ConnectionConnect::Https(exchange)
             }
