@@ -10,8 +10,8 @@ use std::sync::Arc;
 
 use crate::proto::h3::{H3ClientConnect, H3ClientStream};
 use crate::proto::runtime::TokioTime;
+use crate::proto::rustls::client_config;
 use crate::proto::xfer::{DnsExchange, DnsExchangeConnect};
-use crate::tls::CLIENT_CONFIG;
 
 #[allow(clippy::type_complexity)]
 #[allow(unused)]
@@ -20,22 +20,15 @@ pub(crate) fn new_h3_stream(
     bind_addr: Option<SocketAddr>,
     dns_name: String,
     http_endpoint: String,
-    client_config: Option<Arc<rustls::ClientConfig>>,
+    crypto_config: Option<Arc<rustls::ClientConfig>>,
 ) -> DnsExchangeConnect<H3ClientConnect, H3ClientStream, TokioTime> {
-    let client_config = if let Some(client_config) = client_config {
-        client_config
-    } else {
-        match CLIENT_CONFIG.clone() {
-            Ok(client_config) => client_config,
-            Err(error) => return DnsExchange::error(error),
-        }
+    let crypto_config = match crypto_config {
+        Some(crypto_config) => (*crypto_config).clone(),
+        None => client_config(),
     };
 
     let mut h3_builder = H3ClientStream::builder();
-
     // TODO: normalize the crypto config settings, can we just use common ALPN settings?
-    let crypto_config = (*client_config).clone();
-
     h3_builder.crypto_config(crypto_config);
     if let Some(bind_addr) = bind_addr {
         h3_builder.bind_addr(bind_addr);
@@ -49,22 +42,15 @@ pub(crate) fn new_h3_stream_with_future(
     socket_addr: SocketAddr,
     dns_name: String,
     http_endpoint: String,
-    client_config: Option<Arc<rustls::ClientConfig>>,
+    crypto_config: Option<Arc<rustls::ClientConfig>>,
 ) -> DnsExchangeConnect<H3ClientConnect, H3ClientStream, TokioTime> {
-    let client_config = if let Some(client_config) = client_config {
-        client_config
-    } else {
-        match CLIENT_CONFIG.clone() {
-            Ok(client_config) => client_config,
-            Err(error) => return DnsExchange::error(error),
-        }
+    let crypto_config = match crypto_config {
+        Some(crypto_config) => (*crypto_config).clone(),
+        None => client_config(),
     };
 
     let mut h3_builder = H3ClientStream::builder();
-
     // TODO: normalize the crypto config settings, can we just use common ALPN settings?
-    let crypto_config = (*client_config).clone();
-
     h3_builder.crypto_config(crypto_config);
     DnsExchange::connect(h3_builder.build_with_future(socket, socket_addr, dns_name, http_endpoint))
 }
