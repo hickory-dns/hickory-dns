@@ -34,13 +34,10 @@ use crate::{
     Error, ErrorKind,
 };
 
-/// Set of nameservers by the zone name
-type NameServerCache<P> = LruCache<Name, RecursorPool<P>>;
-
 #[derive(Clone)]
 pub(crate) struct RecursorDnsHandle {
     roots: RecursorPool<TokioRuntimeProvider>,
-    name_server_cache: Arc<Mutex<NameServerCache<TokioRuntimeProvider>>>,
+    name_server_cache: Arc<Mutex<LruCache<Name, RecursorPool<TokioRuntimeProvider>>>>,
     record_cache: DnsLru,
     recursion_limit: Option<u8>,
     ns_recursion_limit: Option<u8>,
@@ -76,7 +73,7 @@ impl RecursorDnsHandle {
         let roots =
             GenericNameServerPool::from_config(roots, opts, TokioConnectionProvider::default());
         let roots = RecursorPool::from(Name::root(), roots);
-        let name_server_cache = Arc::new(Mutex::new(NameServerCache::new(ns_cache_size)));
+        let name_server_cache = Arc::new(Mutex::new(LruCache::new(ns_cache_size)));
         let record_cache = DnsLru::new(record_cache_size, ttl_config);
 
         let mut deny_server_v4 = PrefixSet::new();
