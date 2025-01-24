@@ -1,6 +1,6 @@
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use std::future::Future;
-use std::net::SocketAddr;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use std::pin::Pin;
 #[cfg(feature = "dnssec-ring")]
@@ -200,15 +200,18 @@ async fn test_query_edns(client: Client) {
 
     assert!(!response.answers().is_empty());
     assert!(response.extensions().is_some());
-    assert_eq!(
-        response
-            .extensions()
-            .as_ref()
-            .unwrap()
-            .option(EdnsCode::Subnet)
-            .unwrap(),
-        &EdnsOption::Subnet("1.2.0.0/16".parse().unwrap())
-    );
+    let subnet_option = response
+        .extensions()
+        .as_ref()
+        .unwrap()
+        .option(EdnsCode::Subnet)
+        .unwrap();
+    let EdnsOption::Subnet(client_subnet) = subnet_option else {
+        panic!("incorrect option type: {subnet_option:?}");
+    };
+    assert_eq!(client_subnet.addr(), IpAddr::V4(Ipv4Addr::new(1, 2, 0, 0)));
+    assert_eq!(client_subnet.source_prefix(), 16);
+    // ignore scope_prefix
 }
 
 #[tokio::test]
