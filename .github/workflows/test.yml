@@ -47,11 +47,7 @@ jobs:
         run: cargo binstall cargo-workspaces -y --version ${{ env.CARGO_WS_VERSION }}
 
       - name: just all-features
-        if: matrix.os != 'windows-latest'
         run: just all-features
-      - name: just windows-features
-        if: matrix.os == 'windows-latest'
-        run: just windows-features
 
       - name: just test-docs
         if: ${{ !cancelled() && matrix.os != 'windows-latest' }} # uses all features, avoid openssl
