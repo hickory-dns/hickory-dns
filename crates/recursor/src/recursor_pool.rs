@@ -23,16 +23,13 @@ use hickory_resolver::{name_server::GenericNameServerPool, Name, ResolveError, R
 use parking_lot::Mutex;
 use tracing::info;
 
-/// Active request cache
-///
-/// The futures are Shared so any waiting on these results will resolve to the same result
-type ActiveRequests = HashMap<Query, SharedLookup>;
-
-type DnsResponseFuture =
-    Box<dyn Future<Output = Option<Result<DnsResponse, ResolveError>>> + Send + 'static>;
-
+#[allow(clippy::type_complexity)]
 #[derive(Clone)]
-pub(crate) struct SharedLookup(Shared<Pin<DnsResponseFuture>>);
+pub(crate) struct SharedLookup(
+    Shared<
+        Pin<Box<dyn Future<Output = Option<Result<DnsResponse, ResolveError>>> + Send + 'static>>,
+    >,
+);
 
 impl Future for SharedLookup {
     type Output = Result<DnsResponse, ResolveError>;
@@ -49,12 +46,12 @@ impl Future for SharedLookup {
 pub(crate) struct RecursorPool<P: RuntimeProvider + Send + 'static> {
     zone: Name,
     ns: GenericNameServerPool<P>,
-    active_requests: Arc<Mutex<ActiveRequests>>,
+    active_requests: Arc<Mutex<HashMap<Query, SharedLookup>>>,
 }
 
 impl RecursorPool<TokioRuntimeProvider> {
     pub(crate) fn from(zone: Name, ns: GenericNameServerPool<TokioRuntimeProvider>) -> Self {
-        let active_requests = Arc::new(Mutex::new(ActiveRequests::default()));
+        let active_requests = Arc::new(Mutex::new(HashMap::default()));
 
         Self {
             zone,
