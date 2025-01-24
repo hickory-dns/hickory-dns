@@ -24,11 +24,6 @@ default feature='' ignore='': (check feature ignore) (build feature ignore) (tes
 # Check, build, and test all crates with all-features enabled
 all-features: (default "--all-features")
 
-# Check, build, and test a sizable cross-section of crates/features that don't depend on OpenSSL
-# All features will be applied independently to all crates, so the crates/features tested here
-# need to avoid crates that don't expose the features and features that are only defined in a few crates.
-windows-features: (default "--features=dns-over-rustls,dns-over-https-rustls,dns-over-quic,dnssec-ring" "--ignore=\\{async-std-resolver,hickory-client,hickory-compatibility,test-support\\}")
-
 # Check, build, and test all crates with no-default-features
 no-default-features: (default "--no-default-features" "--ignore=\\{hickory-compatibility\\}")
 
