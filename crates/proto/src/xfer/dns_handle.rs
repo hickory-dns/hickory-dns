@@ -76,9 +76,7 @@ fn build_request(mut query: Query, options: DnsRequestOptions) -> DnsRequest {
 
     if options.case_randomization {
         original_query = Some(query.clone());
-        let mut parts = query.into_parts();
-        parts.name.randomize_label_case();
-        query = parts.into();
+        query.name.randomize_label_case();
     }
 
     message

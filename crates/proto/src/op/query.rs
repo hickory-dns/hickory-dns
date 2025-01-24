@@ -64,12 +64,20 @@ const MDNS_UNICAST_RESPONSE: u16 = 1 << 15;
 /// ```
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[non_exhaustive]
 pub struct Query {
-    name: Name,
-    query_type: RecordType,
-    query_class: DNSClass,
+    /// QNAME
+    pub name: Name,
+
+    /// QTYPE
+    pub query_type: RecordType,
+
+    /// QCLASS
+    pub query_class: DNSClass,
+
+    /// mDNS unicast-response bit set or not
     #[cfg(feature = "mdns")]
-    mdns_unicast_response: bool,
+    pub mdns_unicast_response: bool,
 }
 
 impl Default for Query {
@@ -164,66 +172,6 @@ impl Query {
     #[cfg(feature = "mdns")]
     pub fn mdns_unicast_response(&self) -> bool {
         self.mdns_unicast_response
-    }
-
-    /// Consumes `Query` and returns it's components
-    pub fn into_parts(self) -> QueryParts {
-        self.into()
-    }
-}
-
-/// Consumes `Query` giving public access to fields of `Query` so they can
-/// be destructured and taken by value.
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct QueryParts {
-    /// QNAME
-    pub name: Name,
-    /// QTYPE
-    pub query_type: RecordType,
-    /// QCLASS
-    pub query_class: DNSClass,
-    /// mDNS unicast-response bit set or not
-    #[cfg(feature = "mdns")]
-    pub mdns_unicast_response: bool,
-}
-
-impl From<Query> for QueryParts {
-    fn from(q: Query) -> Self {
-        let Query {
-            name,
-            query_type,
-            query_class,
-            #[cfg(feature = "mdns")]
-            mdns_unicast_response,
-        } = q;
-
-        Self {
-            name,
-            query_type,
-            query_class,
-            #[cfg(feature = "mdns")]
-            mdns_unicast_response,
-        }
-    }
-}
-
-impl From<QueryParts> for Query {
-    fn from(p: QueryParts) -> Self {
-        let QueryParts {
-            name,
-            query_type,
-            query_class,
-            #[cfg(feature = "mdns")]
-            mdns_unicast_response,
-        } = p;
-
-        Self {
-            name,
-            query_type,
-            query_class,
-            #[cfg(feature = "mdns")]
-            mdns_unicast_response,
-        }
     }
 }
 
