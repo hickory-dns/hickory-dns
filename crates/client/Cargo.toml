@@ -47,7 +47,7 @@ dns-over-rustls = [
 dns-over-tls = []
 
 webpki-roots = ["hickory-proto/webpki-roots"]
-native-certs = ["hickory-proto/native-certs"]
+rustls-platform-verifier = ["hickory-proto/rustls-platform-verifier"]
 
 dnssec-ring = ["hickory-proto/dnssec-ring"]
 

@@ -22,7 +22,7 @@ use crate::proto::BufDnsStreamHandle;
 use crate::proto::ProtoError;
 
 pub(crate) static CLIENT_CONFIG: Lazy<Result<Arc<ClientConfig>, ProtoError>> = Lazy::new(|| {
-    let mut config = client_config().unwrap();
+    let mut config = client_config();
 
     // The port (853) of DOT is for dns dedicated, SNI is unnecessary. (ISP block by the SNI name)
     config.enable_sni = false;
@@ -63,7 +63,7 @@ where
 }
 
 #[cfg(feature = "dns-over-rustls")]
-#[cfg(any(feature = "webpki-roots", feature = "native-certs"))]
+#[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
 #[cfg(test)]
 mod tests {
     use crate::config::{ResolverConfig, ResolverOpts};

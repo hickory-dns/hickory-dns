@@ -51,10 +51,10 @@ webpki-roots = [
     "hickory-client/webpki-roots",
     "hickory-resolver/webpki-roots",
 ]
-native-certs = [
-    "hickory-proto/native-certs",
-    "hickory-client/native-certs",
-    "hickory-resolver/native-certs",
+rustls-platform-verifier = [
+    "hickory-proto/rustls-platform-verifier",
+    "hickory-client/rustls-platform-verifier",
+    "hickory-resolver/rustls-platform-verifier",
 ]
 
 dnssec = []

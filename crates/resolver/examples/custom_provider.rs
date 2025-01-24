@@ -1,6 +1,6 @@
 #![recursion_limit = "128"]
 
-#[cfg(any(feature = "webpki-roots", feature = "native-certs"))]
+#[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
 use {
     hickory_resolver::{
         config::{ResolverConfig, ResolverOpts},
@@ -17,13 +17,13 @@ use {
     tokio::time::timeout,
 };
 
-#[cfg(any(feature = "webpki-roots", feature = "native-certs"))]
+#[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
 #[derive(Clone, Default)]
 struct PrintProvider {
     handle: TokioHandle,
 }
 
-#[cfg(any(feature = "webpki-roots", feature = "native-certs"))]
+#[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
 impl RuntimeProvider for PrintProvider {
     type Handle = TokioHandle;
     type Timer = TokioTime;
@@ -79,14 +79,14 @@ impl RuntimeProvider for PrintProvider {
     }
 }
 
-#[cfg(any(feature = "webpki-roots", feature = "native-certs"))]
+#[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
 async fn lookup_test<R: ConnectionProvider>(resolver: Resolver<R>) {
     let response = resolver.lookup_ip("www.example.com.").await.unwrap();
 
     assert_ne!(response.iter().count(), 0, "no addresses returned!");
 }
 
-#[cfg(any(feature = "webpki-roots", feature = "native-certs"))]
+#[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
 #[tokio::main]
 async fn main() {
     let resolver = Resolver::new(
@@ -109,9 +109,9 @@ async fn main() {
     println!("Hello, world!");
 }
 
-#[cfg(not(any(feature = "webpki-roots", feature = "native-certs")))]
+#[cfg(not(any(feature = "webpki-roots", feature = "rustls-platform-verifier")))]
 fn main() {
-    println!("either `webpki-roots` or `native-certs` feature must be enabled")
+    println!("either `webpki-roots` or `rustls-platform-verifier` feature must be enabled")
 }
 
 #[test]

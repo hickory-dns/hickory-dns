@@ -27,7 +27,7 @@ categories.workspace = true
 license.workspace = true
 
 [features]
-default = ["sqlite", "resolver", "native-certs", "ascii-art"]
+default = ["sqlite", "resolver", "rustls-platform-verifier", "ascii-art"]
 
 # if enabled, the hickory-dns binary will print ascii-art on start, disable to reduce the binary size
 ascii-art = []
@@ -47,7 +47,7 @@ dns-over-rustls = ["dns-over-tls", "dep:rustls", "hickory-server/dns-over-rustls
 dns-over-tls = []
 
 webpki-roots = ["hickory-server/webpki-roots"]
-native-certs = ["hickory-server/native-certs"]
+rustls-platform-verifier = ["hickory-server/rustls-platform-verifier"]
 
 [[bin]]
 name = "hickory-dns"

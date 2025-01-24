@@ -68,7 +68,10 @@ pub(crate) fn new_quic_stream_with_future(
     DnsExchange::connect(quic_builder.build_with_future(socket, socket_addr, dns_name))
 }
 
-#[cfg(all(test, any(feature = "native-certs", feature = "webpki-roots")))]
+#[cfg(all(
+    test,
+    any(feature = "rustls-platform-verifier", feature = "webpki-roots")
+))]
 mod tests {
     use std::net::IpAddr;
     use std::sync::Arc;

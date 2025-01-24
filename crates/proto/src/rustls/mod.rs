@@ -9,9 +9,11 @@
 
 use std::sync::Arc;
 
-use rustls::{ClientConfig, RootCertStore};
-#[cfg(feature = "native-certs")]
-use tracing::warn;
+use rustls::ClientConfig;
+#[cfg(not(feature = "rustls-platform-verifier"))]
+use rustls::RootCertStore;
+#[cfg(feature = "rustls-platform-verifier")]
+use rustls_platform_verifier::BuilderVerifierExt;
 
 pub mod tls_client_stream;
 pub mod tls_stream;
@@ -22,36 +24,22 @@ pub use self::tls_client_stream::{
 pub use self::tls_stream::{tls_connect, tls_connect_with_bind_addr, tls_from_stream, TlsStream};
 
 /// Make a new [`ClientConfig`] with the default settings
-pub fn client_config() -> Result<ClientConfig, Box<dyn std::error::Error>> {
-    #[allow(unused_mut)]
-    let mut root_store = RootCertStore::empty();
-    #[cfg(feature = "native-certs")]
-    {
-        use crate::error::ProtoErrorKind;
-
-        let mut result = rustls_native_certs::load_native_certs();
-        if let Some(err) = result.errors.pop() {
-            return Err(err.into());
-        }
-
-        let (added, ignored) = root_store.add_parsable_certificates(result.certs);
-        if ignored > 0 {
-            warn!("failed to parse {ignored} certificate(s) from the native root store");
-        }
-
-        if added == 0 {
-            return Err(ProtoErrorKind::NativeCerts.into());
-        }
-    }
-
-    #[cfg(feature = "webpki-roots")]
-    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-
-    Ok(
+pub fn client_config() -> ClientConfig {
+    let builder =
         ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
             .with_safe_default_protocol_versions()
-            .unwrap()
-            .with_root_certificates(root_store)
-            .with_no_client_auth(),
-    )
+            .unwrap();
+
+    #[cfg(feature = "rustls-platform-verifier")]
+    let builder = builder.with_platform_verifier();
+    #[cfg(not(feature = "rustls-platform-verifier"))]
+    let builder = builder.with_root_certificates({
+        #[cfg_attr(not(feature = "webpki-roots"), allow(unused_mut))]
+        let mut root_store = RootCertStore::empty();
+        #[cfg(feature = "webpki-roots")]
+        root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+        root_store
+    });
+
+    builder.with_no_client_auth()
 }

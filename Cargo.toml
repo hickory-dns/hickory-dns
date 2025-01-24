@@ -65,7 +65,7 @@ rustls = { version = "0.23.14", default-features = false, features = [
     "std",
     "tls12",
 ] }
-rustls-native-certs = "0.8"
+rustls-platform-verifier = "0.5"
 rustls-pki-types = "1.10"
 webpki-roots = "0.26"
 ring = "0.17"

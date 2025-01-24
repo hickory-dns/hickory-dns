@@ -69,7 +69,10 @@ pub(crate) fn new_h3_stream_with_future(
     DnsExchange::connect(h3_builder.build_with_future(socket, socket_addr, dns_name, http_endpoint))
 }
 
-#[cfg(all(test, any(feature = "native-certs", feature = "webpki-roots")))]
+#[cfg(all(
+    test,
+    any(feature = "rustls-platform-verifier", feature = "webpki-roots")
+))]
 mod tests {
     use crate::config::{ResolverConfig, ResolverOpts};
     use crate::name_server::TokioConnectionProvider;
