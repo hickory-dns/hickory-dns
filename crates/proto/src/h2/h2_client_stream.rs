@@ -565,7 +565,7 @@ impl Future for HttpsClientResponse {
     }
 }
 
-#[cfg(any(feature = "webpki-roots", feature = "native-certs"))]
+#[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
 #[cfg(test)]
 mod tests {
     use std::net::SocketAddr;
@@ -794,7 +794,7 @@ mod tests {
     }
 
     fn client_config_h2() -> ClientConfig {
-        let mut config = client_config().unwrap();
+        let mut config = client_config();
         config.alpn_protocols = vec![ALPN_H2.to_vec()];
         config
     }

@@ -330,11 +330,6 @@ pub enum ProtoErrorKind {
     #[cfg(feature = "rustls")]
     #[error("rustls construction error: {0}")]
     RustlsError(#[from] rustls::Error),
-
-    /// No valid certificates found in the native root store.
-    #[cfg(feature = "native-certs")]
-    #[error("no valid certificates found in the native root store")]
-    NativeCerts,
 }
 
 /// Data needed to process a SOA-record-based referral.
@@ -811,8 +806,6 @@ impl Clone for ProtoErrorKind {
             QuinnUnknownStreamError => QuinnUnknownStreamError,
             #[cfg(feature = "rustls")]
             RustlsError(ref e) => RustlsError(e.clone()),
-            #[cfg(feature = "native-certs")]
-            NativeCerts => NativeCerts,
         }
     }
 }

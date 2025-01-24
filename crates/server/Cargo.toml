@@ -76,7 +76,7 @@ dns-over-h3 = [
 ]
 
 webpki-roots = ["hickory-resolver?/webpki-roots"]
-native-certs = ["hickory-resolver?/native-certs"]
+rustls-platform-verifier = ["hickory-resolver?/rustls-platform-verifier"]
 
 testing = []
 

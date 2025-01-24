@@ -71,7 +71,7 @@ where
     ))
 }
 
-#[cfg(any(feature = "webpki-roots", feature = "native-certs"))]
+#[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
 #[cfg(test)]
 mod tests {
 

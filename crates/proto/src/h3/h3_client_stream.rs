@@ -430,7 +430,7 @@ impl H3ClientStreamBuilder {
 impl Default for H3ClientStreamBuilder {
     fn default() -> Self {
         Self {
-            crypto_config: client_config().unwrap(),
+            crypto_config: client_config(),
             transport_config: Arc::new(super::transport()),
             bind_addr: None,
         }
@@ -461,7 +461,10 @@ impl Future for H3ClientResponse {
     }
 }
 
-#[cfg(all(test, any(feature = "native-certs", feature = "webpki-roots")))]
+#[cfg(all(
+    test,
+    any(feature = "rustls-platform-verifier", feature = "webpki-roots")
+))]
 mod tests {
     use std::net::SocketAddr;
     use std::str::FromStr;
@@ -494,7 +497,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = client_config().unwrap();
+        let mut client_config = client_config();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let mut h3_builder = H3ClientStream::builder();
@@ -563,7 +566,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = client_config().unwrap();
+        let mut client_config = client_config();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let mut h3_builder = H3ClientStream::builder();
@@ -629,7 +632,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = client_config().unwrap();
+        let mut client_config = client_config();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let mut h3_builder = H3ClientStream::builder();
@@ -688,7 +691,7 @@ mod tests {
         // use google
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
 
-        let mut client_config = client_config().unwrap();
+        let mut client_config = client_config();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let mut h3_builder = H3ClientStream::builder();

@@ -43,7 +43,7 @@ dns-over-quic = ["dep:quinn", "dns-over-rustls", "hickory-proto/dns-over-quic"]
 dns-over-h3 = ["dep:quinn", "dns-over-rustls", "hickory-proto/dns-over-h3"]
 
 webpki-roots = ["dep:webpki-roots", "hickory-proto/webpki-roots"]
-native-certs = ["hickory-proto/native-certs"]
+rustls-platform-verifier = ["hickory-proto/rustls-platform-verifier"]
 
 dnssec-ring = ["hickory-proto/dnssec-ring"]
 
