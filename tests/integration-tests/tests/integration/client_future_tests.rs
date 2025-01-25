@@ -8,7 +8,6 @@ use futures::{Future, FutureExt, TryFutureExt};
 use test_support::subscribe;
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use time::Duration;
-use tokio::runtime::Runtime;
 
 use hickory_client::{
     client::{Client, ClientHandle},
@@ -39,90 +38,83 @@ use hickory_proto::{
 };
 use hickory_server::authority::{Authority, Catalog};
 
-#[test]
-fn test_query_nonet() {
+#[tokio::test]
+async fn test_query_nonet() {
     subscribe();
 
     let authority = create_example();
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
 
-    let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let client = Client::new(stream, sender, None);
-    let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+    let (mut client, bg) = client.await.expect("client failed to connect");
+    tokio::spawn(bg);
 
-    io_loop.block_on(test_query(&mut client));
-    io_loop.block_on(test_query(&mut client));
+    test_query(&mut client).await;
+    test_query(&mut client).await;
 }
 
-#[test]
-fn test_query_udp_ipv4() {
-    let io_loop = Runtime::new().unwrap();
+#[tokio::test]
+async fn test_query_udp_ipv4() {
     let stream = UdpClientStream::builder(GOOGLE_V4, TokioRuntimeProvider::new()).build();
     let client = Client::connect(stream);
-    let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+    let (mut client, bg) = client.await.expect("client failed to connect");
+    tokio::spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
-    io_loop.block_on(test_query(&mut client));
-    io_loop.block_on(test_query(&mut client));
-    io_loop.block_on(test_query_edns(&mut client));
+    test_query(&mut client).await;
+    test_query(&mut client).await;
+    test_query_edns(&mut client).await;
 }
 
-#[test]
+#[tokio::test]
 #[ignore]
-fn test_query_udp_ipv6() {
-    let io_loop = Runtime::new().unwrap();
+async fn test_query_udp_ipv6() {
     let stream = UdpClientStream::builder(GOOGLE_V6, TokioRuntimeProvider::new()).build();
     let client = Client::connect(stream);
-    let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+    let (mut client, bg) = client.await.expect("client failed to connect");
+    tokio::spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
-    io_loop.block_on(test_query(&mut client));
-    io_loop.block_on(test_query(&mut client));
-    io_loop.block_on(test_query_edns(&mut client));
+    test_query(&mut client).await;
+    test_query(&mut client).await;
+    test_query_edns(&mut client).await;
 }
 
-#[test]
-fn test_query_tcp_ipv4() {
-    let io_loop = Runtime::new().unwrap();
+#[tokio::test]
+async fn test_query_tcp_ipv4() {
     let (stream, sender) = TcpClientStream::new(GOOGLE_V4, None, None, TokioRuntimeProvider::new());
     let client = Client::new(stream, sender, None);
-    let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+    let (mut client, bg) = client.await.expect("client failed to connect");
+    tokio::spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
-    io_loop.block_on(test_query(&mut client));
-    io_loop.block_on(test_query(&mut client));
+    test_query(&mut client).await;
+    test_query(&mut client).await;
 }
 
-#[test]
+#[tokio::test]
 #[ignore]
-fn test_query_tcp_ipv6() {
-    let io_loop = Runtime::new().unwrap();
+async fn test_query_tcp_ipv6() {
     let (stream, sender) = TcpClientStream::new(GOOGLE_V6, None, None, TokioRuntimeProvider::new());
     let client = Client::new(stream, sender, None);
-    let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+    let (mut client, bg) = client.await.expect("client failed to connect");
+    tokio::spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
-    io_loop.block_on(test_query(&mut client));
-    io_loop.block_on(test_query(&mut client));
+    test_query(&mut client).await;
+    test_query(&mut client).await;
 }
 
-#[test]
+#[tokio::test]
 #[cfg(feature = "dns-over-https-rustls")]
-fn test_query_https() {
+async fn test_query_https() {
     use hickory_integration::CLOUDFLARE_V4_TLS;
     use hickory_proto::h2::HttpsClientStreamBuilder;
     use rustls::{ClientConfig, RootCertStore};
 
     const ALPN_H2: &[u8] = b"h2";
-
-    let io_loop = Runtime::new().unwrap();
 
     // using the mozilla default root store
     let mut root_store = RootCertStore::empty();
@@ -145,12 +137,12 @@ fn test_query_https() {
         "cloudflare-dns.com".to_string(),
         "/dns-query".to_string(),
     ));
-    let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+    let (mut client, bg) = client.await.expect("client failed to connect");
+    tokio::spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
-    io_loop.block_on(test_query(&mut client));
-    io_loop.block_on(test_query(&mut client));
+    test_query(&mut client).await;
+    test_query(&mut client).await;
 }
 
 fn test_query(client: &mut Client) -> impl Future<Output = ()> {
@@ -225,22 +217,22 @@ fn test_query_edns(client: &mut Client) -> impl Future<Output = ()> {
         .map(|r: Result<_, _>| r.expect("query failed"))
 }
 
-#[test]
-fn test_notify() {
-    let io_loop = Runtime::new().unwrap();
+#[tokio::test]
+async fn test_notify() {
     let authority = create_example();
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
 
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let client = Client::new(stream, sender, None);
-    let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+    let (mut client, bg) = client.await.expect("client failed to connect");
+    tokio::spawn(bg);
 
     let name = Name::from_str("ping.example.com.").unwrap();
 
-    let message =
-        io_loop.block_on(client.notify(name, DNSClass::IN, RecordType::A, None::<RecordSet>));
+    let message = client
+        .notify(name, DNSClass::IN, RecordType::A, None::<RecordSet>)
+        .await;
     assert!(message.is_ok());
     let message = message.unwrap();
     assert_eq!(
@@ -303,11 +295,10 @@ async fn create_sig0_ready_client() -> (
 }
 
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
-#[test]
-fn test_create() {
-    let io_loop = Runtime::new().unwrap();
-    let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+#[tokio::test]
+async fn test_create() {
+    let ((mut client, bg), origin) = create_sig0_ready_client().await;
+    tokio::spawn(bg);
 
     // create a record
     let record = Record::from_rdata(
@@ -316,16 +307,18 @@ fn test_create() {
         RData::A(A::new(100, 10, 100, 10)),
     );
 
-    let result = io_loop
-        .block_on(client.create(record.clone(), origin.clone()))
+    let result = client
+        .create(record.clone(), origin.clone())
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
-    let result = io_loop
-        .block_on(client.query(
+    let result = client
+        .query(
             record.name().clone(),
             record.dns_class(),
             record.record_type(),
-        ))
+        )
+        .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
@@ -333,8 +326,9 @@ fn test_create() {
 
     // trying to create again should error
     // TODO: it would be cool to make this
-    let result = io_loop
-        .block_on(client.create(record.clone(), origin.clone()))
+    let result = client
+        .create(record.clone(), origin.clone())
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 
@@ -342,18 +336,15 @@ fn test_create() {
     let mut record = record;
     record.set_data(RData::A(A::new(101, 11, 101, 11)));
 
-    let result = io_loop
-        .block_on(client.create(record, origin))
-        .expect("create failed");
+    let result = client.create(record, origin).await.expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
 
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
-#[test]
-fn test_create_multi() {
-    let io_loop = Runtime::new().unwrap();
-    let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+#[tokio::test]
+async fn test_create_multi() {
+    let ((mut client, bg), origin) = create_sig0_ready_client().await;
+    tokio::spawn(bg);
 
     // create a record
     let record = Record::from_rdata(
@@ -370,16 +361,18 @@ fn test_create_multi() {
     rrset.insert(record2.clone(), 0);
     let rrset = rrset;
 
-    let result = io_loop
-        .block_on(client.create(rrset.clone(), origin.clone()))
+    let result = client
+        .create(rrset.clone(), origin.clone())
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
-    let result = io_loop
-        .block_on(client.query(
+    let result = client
+        .query(
             record.name().clone(),
             record.dns_class(),
             record.record_type(),
-        ))
+        )
+        .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
@@ -389,8 +382,9 @@ fn test_create_multi() {
 
     // trying to create again should error
     // TODO: it would be cool to make this
-    let result = io_loop
-        .block_on(client.create(rrset, origin.clone()))
+    let result = client
+        .create(rrset, origin.clone())
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 
@@ -398,18 +392,15 @@ fn test_create_multi() {
     let mut record = record;
     record.set_data(RData::A(A::new(101, 11, 101, 12)));
 
-    let result = io_loop
-        .block_on(client.create(record, origin))
-        .expect("create failed");
+    let result = client.create(record, origin).await.expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
 
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
-#[test]
-fn test_append() {
-    let io_loop = Runtime::new().unwrap();
-    let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+#[tokio::test]
+async fn test_append() {
+    let ((mut client, bg), origin) = create_sig0_ready_client().await;
+    tokio::spawn(bg);
 
     // append a record
     let record = Record::from_rdata(
@@ -419,24 +410,27 @@ fn test_append() {
     );
 
     // first check the must_exist option
-    let result = io_loop
-        .block_on(client.append(record.clone(), origin.clone(), true))
+    let result = client
+        .append(record.clone(), origin.clone(), true)
+        .await
         .expect("append failed");
     assert_eq!(result.response_code(), ResponseCode::NXRRSet);
 
     // next append to a non-existent RRset
-    let result = io_loop
-        .block_on(client.append(record.clone(), origin.clone(), false))
+    let result = client
+        .append(record.clone(), origin.clone(), false)
+        .await
         .expect("append failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     // verify record contents
-    let result = io_loop
-        .block_on(client.query(
+    let result = client
+        .query(
             record.name().clone(),
             record.dns_class(),
             record.record_type(),
-        ))
+        )
+        .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
@@ -447,17 +441,19 @@ fn test_append() {
     record2.set_data(RData::A(A::new(101, 11, 101, 11)));
     let record2 = record2;
 
-    let result = io_loop
-        .block_on(client.append(record2.clone(), origin.clone(), true))
+    let result = client
+        .append(record2.clone(), origin.clone(), true)
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let result = io_loop
-        .block_on(client.query(
+    let result = client
+        .query(
             record.name().clone(),
             record.dns_class(),
             record.record_type(),
-        ))
+        )
+        .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
@@ -466,28 +462,29 @@ fn test_append() {
     assert!(result.answers().iter().any(|rr| *rr == record2));
 
     // show that appending the same thing again is ok, but doesn't add any records
-    let result = io_loop
-        .block_on(client.append(record.clone(), origin, true))
+    let result = client
+        .append(record.clone(), origin, true)
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let result = io_loop
-        .block_on(client.query(
+    let result = client
+        .query(
             record.name().clone(),
             record.dns_class(),
             record.record_type(),
-        ))
+        )
+        .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
 }
 
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
-#[test]
-fn test_append_multi() {
-    let io_loop = Runtime::new().unwrap();
-    let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+#[tokio::test]
+async fn test_append_multi() {
+    let ((mut client, bg), origin) = create_sig0_ready_client().await;
+    tokio::spawn(bg);
 
     // append a record
     let record = Record::from_rdata(
@@ -497,24 +494,27 @@ fn test_append_multi() {
     );
 
     // first check the must_exist option
-    let result = io_loop
-        .block_on(client.append(record.clone(), origin.clone(), true))
+    let result = client
+        .append(record.clone(), origin.clone(), true)
+        .await
         .expect("append failed");
     assert_eq!(result.response_code(), ResponseCode::NXRRSet);
 
     // next append to a non-existent RRset
-    let result = io_loop
-        .block_on(client.append(record.clone(), origin.clone(), false))
+    let result = client
+        .append(record.clone(), origin.clone(), false)
+        .await
         .expect("append failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     // verify record contents
-    let result = io_loop
-        .block_on(client.query(
+    let result = client
+        .query(
             record.name().clone(),
             record.dns_class(),
             record.record_type(),
-        ))
+        )
+        .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
@@ -530,17 +530,19 @@ fn test_append_multi() {
     let mut rrset = RecordSet::from(record2.clone());
     rrset.insert(record3.clone(), 0);
 
-    let result = io_loop
-        .block_on(client.append(rrset, origin.clone(), true))
+    let result = client
+        .append(rrset, origin.clone(), true)
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let result = io_loop
-        .block_on(client.query(
+    let result = client
+        .query(
             record.name().clone(),
             record.dns_class(),
             record.record_type(),
-        ))
+        )
+        .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 3);
@@ -551,28 +553,29 @@ fn test_append_multi() {
 
     // show that appending the same thing again is ok, but doesn't add any records
     // TODO: technically this is a test for the Server, not client...
-    let result = io_loop
-        .block_on(client.append(record.clone(), origin, true))
+    let result = client
+        .append(record.clone(), origin, true)
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let result = io_loop
-        .block_on(client.query(
+    let result = client
+        .query(
             record.name().clone(),
             record.dns_class(),
             record.record_type(),
-        ))
+        )
+        .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 3);
 }
 
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
-#[test]
-fn test_compare_and_swap() {
-    let io_loop = Runtime::new().unwrap();
-    let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+#[tokio::test]
+async fn test_compare_and_swap() {
+    let ((mut client, bg), origin) = create_sig0_ready_client().await;
+    tokio::spawn(bg);
 
     // create a record
     let record = Record::from_rdata(
@@ -581,8 +584,9 @@ fn test_compare_and_swap() {
         RData::A(A::new(100, 10, 100, 10)),
     );
 
-    let result = io_loop
-        .block_on(client.create(record.clone(), origin.clone()))
+    let result = client
+        .create(record.clone(), origin.clone())
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
@@ -591,13 +595,15 @@ fn test_compare_and_swap() {
     new.set_data(RData::A(A::new(101, 11, 101, 11)));
     let new = new;
 
-    let result = io_loop
-        .block_on(client.compare_and_swap(current.clone(), new.clone(), origin.clone()))
+    let result = client
+        .compare_and_swap(current.clone(), new.clone(), origin.clone())
+        .await
         .expect("compare_and_swap failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let result = io_loop
-        .block_on(client.query(new.name().clone(), new.dns_class(), new.record_type()))
+    let result = client
+        .query(new.name().clone(), new.dns_class(), new.record_type())
+        .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
@@ -609,13 +615,15 @@ fn test_compare_and_swap() {
     not.set_data(RData::A(A::new(102, 12, 102, 12)));
     let not = not;
 
-    let result = io_loop
-        .block_on(client.compare_and_swap(current, not.clone(), origin))
+    let result = client
+        .compare_and_swap(current, not.clone(), origin)
+        .await
         .expect("compare_and_swap failed");
     assert_eq!(result.response_code(), ResponseCode::NXRRSet);
 
-    let result = io_loop
-        .block_on(client.query(new.name().clone(), new.dns_class(), new.record_type()))
+    let result = client
+        .query(new.name().clone(), new.dns_class(), new.record_type())
+        .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
@@ -624,11 +632,10 @@ fn test_compare_and_swap() {
 }
 
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
-#[test]
-fn test_compare_and_swap_multi() {
-    let io_loop = Runtime::new().unwrap();
-    let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+#[tokio::test]
+async fn test_compare_and_swap_multi() {
+    let ((mut client, bg), origin) = create_sig0_ready_client().await;
+    tokio::spawn(bg);
 
     // create a record
     let mut current = RecordSet::with_ttl(
@@ -645,8 +652,9 @@ fn test_compare_and_swap_multi() {
         .clone();
     let current = current;
 
-    let result = io_loop
-        .block_on(client.create(current.clone(), origin.clone()))
+    let result = client
+        .create(current.clone(), origin.clone())
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
@@ -655,13 +663,15 @@ fn test_compare_and_swap_multi() {
     let new2 = new.new_record(&RData::A(A::new(100, 10, 101, 11))).clone();
     let new = new;
 
-    let result = io_loop
-        .block_on(client.compare_and_swap(current.clone(), new.clone(), origin.clone()))
+    let result = client
+        .compare_and_swap(current.clone(), new.clone(), origin.clone())
+        .await
         .expect("compare_and_swap failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let result = io_loop
-        .block_on(client.query(new.name().clone(), new.dns_class(), new.record_type()))
+    let result = client
+        .query(new.name().clone(), new.dns_class(), new.record_type())
+        .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
@@ -675,13 +685,15 @@ fn test_compare_and_swap_multi() {
     not.set_data(RData::A(A::new(102, 12, 102, 12)));
     let not = not;
 
-    let result = io_loop
-        .block_on(client.compare_and_swap(current, not.clone(), origin))
+    let result = client
+        .compare_and_swap(current, not.clone(), origin)
+        .await
         .expect("compare_and_swap failed");
     assert_eq!(result.response_code(), ResponseCode::NXRRSet);
 
-    let result = io_loop
-        .block_on(client.query(new.name().clone(), new.dns_class(), new.record_type()))
+    let result = client
+        .query(new.name().clone(), new.dns_class(), new.record_type())
+        .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
@@ -690,11 +702,10 @@ fn test_compare_and_swap_multi() {
 }
 
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
-#[test]
-fn test_delete_by_rdata() {
-    let io_loop = Runtime::new().unwrap();
-    let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+#[tokio::test]
+async fn test_delete_by_rdata() {
+    let ((mut client, bg), origin) = create_sig0_ready_client().await;
+    tokio::spawn(bg);
 
     // append a record
     let record1 = Record::from_rdata(
@@ -704,36 +715,41 @@ fn test_delete_by_rdata() {
     );
 
     // first check the must_exist option
-    let result = io_loop
-        .block_on(client.delete_by_rdata(record1.clone(), origin.clone()))
+    let result = client
+        .delete_by_rdata(record1.clone(), origin.clone())
+        .await
         .expect("delete failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     // next create to a non-existent RRset
-    let result = io_loop
-        .block_on(client.create(record1.clone(), origin.clone()))
+    let result = client
+        .create(record1.clone(), origin.clone())
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let mut record2 = record1.clone();
     record2.set_data(RData::A(A::new(101, 11, 101, 11)));
-    let result = io_loop
-        .block_on(client.append(record2.clone(), origin.clone(), true))
+    let result = client
+        .append(record2.clone(), origin.clone(), true)
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     // verify record contents
-    let result = io_loop
-        .block_on(client.delete_by_rdata(record2, origin))
+    let result = client
+        .delete_by_rdata(record2, origin)
+        .await
         .expect("delete failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let result = io_loop
-        .block_on(client.query(
+    let result = client
+        .query(
             record1.name().clone(),
             record1.dns_class(),
             record1.record_type(),
-        ))
+        )
+        .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
@@ -741,11 +757,10 @@ fn test_delete_by_rdata() {
 }
 
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
-#[test]
-fn test_delete_by_rdata_multi() {
-    let io_loop = Runtime::new().unwrap();
-    let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+#[tokio::test]
+async fn test_delete_by_rdata_multi() {
+    let ((mut client, bg), origin) = create_sig0_ready_client().await;
+    tokio::spawn(bg);
 
     // append a record
     let mut rrset = RecordSet::with_ttl(
@@ -769,14 +784,16 @@ fn test_delete_by_rdata_multi() {
     let rrset = rrset;
 
     // first check the must_exist option
-    let result = io_loop
-        .block_on(client.delete_by_rdata(rrset.clone(), origin.clone()))
+    let result = client
+        .delete_by_rdata(rrset.clone(), origin.clone())
+        .await
         .expect("delete failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     // next create to a non-existent RRset
-    let result = io_loop
-        .block_on(client.create(rrset, origin.clone()))
+    let result = client
+        .create(rrset, origin.clone())
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
@@ -791,23 +808,26 @@ fn test_delete_by_rdata_multi() {
     let record3 = rrset.new_record(record3.data()).clone();
     let rrset = rrset;
 
-    let result = io_loop
-        .block_on(client.append(rrset.clone(), origin.clone(), true))
+    let result = client
+        .append(rrset.clone(), origin.clone(), true)
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     // verify record contents
-    let result = io_loop
-        .block_on(client.delete_by_rdata(rrset, origin))
+    let result = client
+        .delete_by_rdata(rrset, origin)
+        .await
         .expect("delete failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let result = io_loop
-        .block_on(client.query(
+    let result = client
+        .query(
             record1.name().clone(),
             record1.dns_class(),
             record1.record_type(),
-        ))
+        )
+        .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
@@ -818,11 +838,10 @@ fn test_delete_by_rdata_multi() {
 }
 
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
-#[test]
-fn test_delete_rrset() {
-    let io_loop = Runtime::new().unwrap();
-    let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+#[tokio::test]
+async fn test_delete_rrset() {
+    let ((mut client, bg), origin) = create_sig0_ready_client().await;
+    tokio::spawn(bg);
 
     // append a record
     let mut record = Record::from_rdata(
@@ -832,48 +851,52 @@ fn test_delete_rrset() {
     );
 
     // first check the must_exist option
-    let result = io_loop
-        .block_on(client.delete_rrset(record.clone(), origin.clone()))
+    let result = client
+        .delete_rrset(record.clone(), origin.clone())
+        .await
         .expect("delete failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     // next create to a non-existent RRset
-    let result = io_loop
-        .block_on(client.create(record.clone(), origin.clone()))
+    let result = client
+        .create(record.clone(), origin.clone())
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     record.set_data(RData::A(A::new(101, 11, 101, 11)));
-    let result = io_loop
-        .block_on(client.append(record.clone(), origin.clone(), true))
+    let result = client
+        .append(record.clone(), origin.clone(), true)
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     // verify record contents
-    let result = io_loop
-        .block_on(client.delete_rrset(record.clone(), origin))
+    let result = client
+        .delete_rrset(record.clone(), origin)
+        .await
         .expect("delete failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let result = io_loop
-        .block_on(client.query(
+    let result = client
+        .query(
             record.name().clone(),
             record.dns_class(),
             record.record_type(),
-        ))
+        )
+        .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
     assert_eq!(result.answers().len(), 0);
 }
 
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
-#[test]
-fn test_delete_all() {
+#[tokio::test]
+async fn test_delete_all() {
     use hickory_proto::rr::rdata::AAAA;
 
-    let io_loop = Runtime::new().unwrap();
-    let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+    let ((mut client, bg), origin) = create_sig0_ready_client().await;
+    tokio::spawn(bg);
 
     // append a record
     let mut record = Record::from_rdata(
@@ -883,47 +906,54 @@ fn test_delete_all() {
     );
 
     // first check the must_exist option
-    let result = io_loop
-        .block_on(client.delete_all(record.name().clone(), origin.clone(), DNSClass::IN))
+    let result = client
+        .delete_all(record.name().clone(), origin.clone(), DNSClass::IN)
+        .await
         .expect("delete failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     // next create to a non-existent RRset
-    let result = io_loop
-        .block_on(client.create(record.clone(), origin.clone()))
+    let result = client
+        .create(record.clone(), origin.clone())
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     record.set_data(RData::AAAA(AAAA::new(1, 2, 3, 4, 5, 6, 7, 8)));
-    let result = io_loop
-        .block_on(client.create(record.clone(), origin.clone()))
+    let result = client
+        .create(record.clone(), origin.clone())
+        .await
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     // verify record contents
-    let result = io_loop
-        .block_on(client.delete_all(record.name().clone(), origin, DNSClass::IN))
+    let result = client
+        .delete_all(record.name().clone(), origin, DNSClass::IN)
+        .await
         .expect("delete failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let result = io_loop
-        .block_on(client.query(record.name().clone(), record.dns_class(), RecordType::A))
+    let result = client
+        .query(record.name().clone(), record.dns_class(), RecordType::A)
+        .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
     assert_eq!(result.answers().len(), 0);
 
-    let result = io_loop
-        .block_on(client.query(record.name().clone(), record.dns_class(), RecordType::AAAA))
+    let result = client
+        .query(record.name().clone(), record.dns_class(), RecordType::AAAA)
+        .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
     assert_eq!(result.answers().len(), 0);
 }
 
-fn test_timeout_query(mut client: Client, io_loop: Runtime) {
+async fn test_timeout_query(mut client: Client) {
     let name = Name::from_str("www.example.com").unwrap();
 
-    let err = io_loop
-        .block_on(client.query(name.clone(), DNSClass::IN, RecordType::A))
+    let err = client
+        .query(name.clone(), DNSClass::IN, RecordType::A)
+        .await
         .unwrap_err();
 
     println!("got error: {err:?}");
@@ -932,8 +962,9 @@ fn test_timeout_query(mut client: Client, io_loop: Runtime) {
         panic!("expected timeout error");
     }
 
-    io_loop
-        .block_on(client.query(name, DNSClass::IN, RecordType::AAAA))
+    client
+        .query(name, DNSClass::IN, RecordType::AAAA)
+        .await
         .unwrap_err();
 
     // test that we don't have any thing funky with registering new timeouts, etc...
@@ -945,37 +976,34 @@ fn test_timeout_query(mut client: Client, io_loop: Runtime) {
     // }
 }
 
-#[test]
-fn test_timeout_query_nonet() {
+#[tokio::test]
+async fn test_timeout_query_nonet() {
     subscribe();
-    let io_loop = Runtime::new().expect("failed to create Tokio Runtime");
     let (stream, sender) = NeverReturnsClientStream::new();
     let client = Client::with_timeout(stream, sender, std::time::Duration::from_millis(1), None);
-    let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+    let (client, bg) = client.await.expect("client failed to connect");
+    tokio::spawn(bg);
 
-    test_timeout_query(client, io_loop);
+    test_timeout_query(client).await;
 }
 
-#[test]
-fn test_timeout_query_udp() {
+#[tokio::test]
+async fn test_timeout_query_udp() {
     subscribe();
-    let io_loop = Runtime::new().unwrap();
     let stream = UdpClientStream::builder(TEST3_V4, TokioRuntimeProvider::new())
         .with_timeout(Some(std::time::Duration::from_millis(1)))
         .build();
 
     let client = Client::connect(stream);
-    let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+    let (client, bg) = client.await.expect("client failed to connect");
+    tokio::spawn(bg);
 
-    test_timeout_query(client, io_loop);
+    test_timeout_query(client).await;
 }
 
-#[test]
-fn test_timeout_query_tcp() {
+#[tokio::test]
+async fn test_timeout_query_tcp() {
     subscribe();
-    let io_loop = Runtime::new().unwrap();
 
     let (stream, sender) = TcpClientStream::new(
         TEST3_V4,
@@ -990,5 +1018,5 @@ fn test_timeout_query_tcp() {
         None,
     );
 
-    assert!(io_loop.block_on(client).is_err());
+    assert!(client.await.is_err());
 }

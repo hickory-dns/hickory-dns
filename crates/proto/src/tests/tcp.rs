@@ -4,7 +4,7 @@ use std::sync::{atomic::AtomicBool, Arc};
 
 use futures_util::stream::StreamExt;
 
-use crate::runtime::{Executor, RuntimeProvider};
+use crate::runtime::RuntimeProvider;
 use crate::tcp::TcpStream;
 use crate::xfer::dns_handle::DnsStreamHandle;
 use crate::xfer::SerialMessage;
@@ -85,23 +85,17 @@ fn tcp_server_setup(
 }
 
 /// Test tcp_stream.
-pub fn tcp_stream_test<E: Executor>(
-    server_addr: IpAddr,
-    mut exec: E,
-    provider: impl RuntimeProvider,
-) {
+pub async fn tcp_stream_test(server_addr: IpAddr, provider: impl RuntimeProvider) {
     let (succeeded, server_handle, server_addr) =
         tcp_server_setup("test_tcp_stream:server", server_addr);
 
     // setup the client, which is going to run on the testing thread...
 
-    let (mut stream, mut sender) = exec.block_on(async move {
-        let tcp = provider
-            .connect_tcp(server_addr, None, None)
-            .await
-            .expect("connect failed");
-        TcpStream::from_stream(tcp, server_addr)
-    });
+    let tcp = provider
+        .connect_tcp(server_addr, None, None)
+        .await
+        .expect("connect failed");
+    let (mut stream, mut sender) = TcpStream::from_stream(tcp, server_addr);
 
     for _ in 0..SEND_RECV_TIMES {
         // test once
@@ -109,7 +103,7 @@ pub fn tcp_stream_test<E: Executor>(
             .send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
 
-        let (buffer, stream_tmp) = exec.block_on(stream.into_future());
+        let (buffer, stream_tmp) = stream.into_future().await;
         stream = stream_tmp;
         let message = buffer
             .expect("no buffer received")
@@ -122,30 +116,24 @@ pub fn tcp_stream_test<E: Executor>(
 }
 
 /// Test tcp_client_stream.
-pub fn tcp_client_stream_test<E: Executor>(
-    server_addr: IpAddr,
-    mut exec: E,
-    provider: impl RuntimeProvider,
-) {
+pub async fn tcp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeProvider) {
     let (succeeded, server_handle, server_addr) =
         tcp_server_setup("test_tcp_client_stream:server", server_addr);
 
     // setup the client, which is going to run on the testing thread...
 
-    let (mut stream, mut sender) = exec.block_on(async move {
-        let tcp = provider
-            .connect_tcp(server_addr, None, None)
-            .await
-            .expect("connect failed");
-        TcpStream::from_stream(tcp, server_addr)
-    });
+    let tcp = provider
+        .connect_tcp(server_addr, None, None)
+        .await
+        .expect("connect failed");
+    let (mut stream, mut sender) = TcpStream::from_stream(tcp, server_addr);
 
     for _ in 0..SEND_RECV_TIMES {
         // test once
         sender
             .send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
-        let (buffer, stream_tmp) = exec.block_on(stream.into_future());
+        let (buffer, stream_tmp) = stream.into_future().await;
         stream = stream_tmp;
         let buffer = buffer
             .expect("no buffer received")

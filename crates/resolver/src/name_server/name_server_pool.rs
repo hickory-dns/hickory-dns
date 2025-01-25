@@ -488,9 +488,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_multi_use_conns() {
-        let io_loop = Runtime::new().unwrap();
+    #[tokio::test]
+    async fn test_multi_use_conns() {
         let conn_provider = TokioConnectionProvider::default();
 
         let tcp = NameServerConfig {
@@ -521,14 +520,13 @@ mod tests {
         let name = Name::from_str("www.example.com.").unwrap();
 
         // first lookup
-        let response = io_loop
-            .block_on(
-                pool.lookup(
-                    Query::query(name.clone(), RecordType::A),
-                    DnsRequestOptions::default(),
-                )
-                .first_answer(),
+        let response = pool
+            .lookup(
+                Query::query(name.clone(), RecordType::A),
+                DnsRequestOptions::default(),
             )
+            .first_answer()
+            .await
             .expect("lookup failed");
 
         assert!(!response.answers().is_empty());
@@ -539,14 +537,13 @@ mod tests {
         );
 
         // first lookup
-        let response = io_loop
-            .block_on(
-                pool.lookup(
-                    Query::query(name, RecordType::AAAA),
-                    DnsRequestOptions::default(),
-                )
-                .first_answer(),
+        let response = pool
+            .lookup(
+                Query::query(name, RecordType::AAAA),
+                DnsRequestOptions::default(),
             )
+            .first_answer()
+            .await
             .expect("lookup failed");
 
         assert!(!response.answers().is_empty());

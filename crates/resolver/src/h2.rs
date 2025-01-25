@@ -74,15 +74,12 @@ where
 #[cfg(any(feature = "webpki-roots", feature = "native-certs"))]
 #[cfg(test)]
 mod tests {
-    use tokio::runtime::Runtime;
 
     use crate::config::{ResolverConfig, ResolverOpts};
     use crate::name_server::TokioConnectionProvider;
     use crate::TokioResolver;
 
-    fn https_test(config: ResolverConfig) {
-        let io_loop = Runtime::new().unwrap();
-
+    async fn https_test(config: ResolverConfig) {
         let resolver = TokioResolver::new(
             config,
             ResolverOpts {
@@ -92,27 +89,29 @@ mod tests {
             TokioConnectionProvider::default(),
         );
 
-        let response = io_loop
-            .block_on(resolver.lookup_ip("www.example.com."))
+        let response = resolver
+            .lookup_ip("www.example.com.")
+            .await
             .expect("failed to run lookup");
 
         assert_ne!(response.iter().count(), 0);
 
         // check if there is another connection created
-        let response = io_loop
-            .block_on(resolver.lookup_ip("www.example.com."))
+        let response = resolver
+            .lookup_ip("www.example.com.")
+            .await
             .expect("failed to run lookup");
 
         assert_ne!(response.iter().count(), 0);
     }
 
-    #[test]
-    fn test_google_https() {
-        https_test(ResolverConfig::google_https())
+    #[tokio::test]
+    async fn test_google_https() {
+        https_test(ResolverConfig::google_https()).await
     }
 
-    #[test]
-    fn test_cloudflare_https() {
-        https_test(ResolverConfig::cloudflare_https())
+    #[tokio::test]
+    async fn test_cloudflare_https() {
+        https_test(ResolverConfig::cloudflare_https()).await
     }
 }

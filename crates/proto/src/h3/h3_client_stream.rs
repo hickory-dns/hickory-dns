@@ -478,8 +478,8 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn test_h3_google() {
+    #[tokio::test]
+    async fn test_h3_google() {
         subscribe();
 
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
@@ -501,12 +501,12 @@ mod tests {
         h3_builder.crypto_config(client_config);
         let connect = h3_builder.build(google, "dns.google".to_string(), "/dns-query".to_string());
 
-        // tokio runtime stuff...
-        let runtime = Runtime::new().expect("could not start runtime");
-        let mut h3 = runtime.block_on(connect).expect("h3 connect failed");
+        let mut h3 = connect.await.expect("h3 connect failed");
 
-        let response = runtime
-            .block_on(h3.send_message(request).first_answer())
+        let response = h3
+            .send_message(request)
+            .first_answer()
+            .await
             .expect("send_message failed");
 
         assert!(response
@@ -525,8 +525,10 @@ mod tests {
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
         for _ in 0..3 {
-            let response = runtime
-                .block_on(h3.send_message(request.clone()).first_answer())
+            let response = h3
+                .send_message(request.clone())
+                .first_answer()
+                .await
                 .expect("send_message failed");
             if response.response_code() == ResponseCode::ServFail {
                 continue;
@@ -545,8 +547,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_h3_google_with_pure_ip_address_server() {
+    #[tokio::test]
+    async fn test_h3_google_with_pure_ip_address_server() {
         subscribe();
 
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
@@ -568,12 +570,12 @@ mod tests {
         h3_builder.crypto_config(client_config);
         let connect = h3_builder.build(google, google.ip().to_string(), "/dns-query".to_string());
 
-        // tokio runtime stuff...
-        let runtime = Runtime::new().expect("could not start runtime");
-        let mut h3 = runtime.block_on(connect).expect("h3 connect failed");
+        let mut h3 = connect.await.expect("h3 connect failed");
 
-        let response = runtime
-            .block_on(h3.send_message(request).first_answer())
+        let response = h3
+            .send_message(request)
+            .first_answer()
+            .await
             .expect("send_message failed");
 
         assert!(response
@@ -592,8 +594,10 @@ mod tests {
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
         for _ in 0..3 {
-            let response = runtime
-                .block_on(h3.send_message(request.clone()).first_answer())
+            let response = h3
+                .send_message(request.clone())
+                .first_answer()
+                .await
                 .expect("send_message failed");
             if response.response_code() == ResponseCode::ServFail {
                 continue;
@@ -678,9 +682,9 @@ mod tests {
         );
     }
 
-    #[test]
+    #[tokio::test]
     #[allow(clippy::print_stdout)]
-    fn test_h3_client_stream_clonable() {
+    async fn test_h3_client_stream_clonable() {
         // use google
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
 
@@ -691,9 +695,7 @@ mod tests {
         h3_builder.crypto_config(client_config);
         let connect = h3_builder.build(google, "dns.google".to_string(), "/dns-query".to_string());
 
-        // tokio runtime stuff...
-        let runtime = Runtime::new().expect("could not start runtime");
-        let h3 = runtime.block_on(connect).expect("h3 connect failed");
+        let h3 = connect.await.expect("h3 connect failed");
 
         // prepare request
         let mut request = Message::new();
@@ -704,29 +706,27 @@ mod tests {
         request.add_query(query);
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        runtime.block_on(async move {
-            let mut join_set = JoinSet::new();
+        let mut join_set = JoinSet::new();
 
-            for i in 0..50 {
-                let mut h3 = h3.clone();
-                let request = request.clone();
+        for i in 0..50 {
+            let mut h3 = h3.clone();
+            let request = request.clone();
 
-                join_set.spawn(async move {
-                    let start = std::time::Instant::now();
-                    h3.send_message(request)
-                        .first_answer()
-                        .await
-                        .expect("send_message failed");
-                    println!("request[{i}] completed: {:?}", start.elapsed());
-                });
-            }
+            join_set.spawn(async move {
+                let start = std::time::Instant::now();
+                h3.send_message(request)
+                    .first_answer()
+                    .await
+                    .expect("send_message failed");
+                println!("request[{i}] completed: {:?}", start.elapsed());
+            });
+        }
 
-            let total = join_set.len();
-            let mut idx = 0usize;
-            while join_set.join_next().await.is_some() {
-                println!("join_set completed {idx}/{total}");
-                idx += 1;
-            }
-        });
+        let total = join_set.len();
+        let mut idx = 0usize;
+        while join_set.join_next().await.is_some() {
+            println!("join_set completed {idx}/{total}");
+            idx += 1;
+        }
     }
 }
