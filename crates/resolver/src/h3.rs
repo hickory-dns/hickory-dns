@@ -71,37 +71,35 @@ pub(crate) fn new_h3_stream_with_future(
 
 #[cfg(all(test, any(feature = "native-certs", feature = "webpki-roots")))]
 mod tests {
-    use tokio::runtime::Runtime;
-
     use crate::config::{ResolverConfig, ResolverOpts};
     use crate::name_server::TokioConnectionProvider;
     use crate::TokioResolver;
 
-    fn h3_test(config: ResolverConfig) {
-        let io_loop = Runtime::new().unwrap();
-
+    async fn h3_test(config: ResolverConfig) {
         let resolver = TokioResolver::new(
             config,
             ResolverOpts::default(),
             TokioConnectionProvider::default(),
         );
 
-        let response = io_loop
-            .block_on(resolver.lookup_ip("www.example.com."))
+        let response = resolver
+            .lookup_ip("www.example.com.")
+            .await
             .expect("failed to run lookup");
 
         assert_ne!(response.iter().count(), 0);
 
         // check if there is another connection created
-        let response = io_loop
-            .block_on(resolver.lookup_ip("www.example.com."))
+        let response = resolver
+            .lookup_ip("www.example.com.")
+            .await
             .expect("failed to run lookup");
 
         assert_ne!(response.iter().count(), 0);
     }
 
-    #[test]
-    fn test_google_h3() {
-        h3_test(ResolverConfig::google_h3())
+    #[tokio::test]
+    async fn test_google_h3() {
+        h3_test(ResolverConfig::google_h3()).await
     }
 }

@@ -10,14 +10,14 @@ use tracing::debug;
 use crate::op::{Message, Query};
 use crate::rr::rdata::NULL;
 use crate::rr::{Name, RData, Record, RecordType};
-use crate::runtime::{Executor, RuntimeProvider};
+use crate::runtime::RuntimeProvider;
 use crate::udp::{UdpClientStream, UdpStream};
 use crate::xfer::dns_handle::DnsStreamHandle;
 use crate::xfer::{DnsRequest, DnsRequestSender};
 use crate::xfer::{DnsRequestOptions, FirstAnswer, SerialMessage};
 
 /// Test next random udpsocket.
-pub fn next_random_socket_test(mut exec: impl Executor, provider: impl RuntimeProvider) {
+pub async fn next_random_socket_test(provider: impl RuntimeProvider) {
     let (stream, _) = UdpStream::new(
         SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 52),
         None,
@@ -25,10 +25,7 @@ pub fn next_random_socket_test(mut exec: impl Executor, provider: impl RuntimePr
         false,
         provider,
     );
-    drop(
-        exec.block_on(stream)
-            .expect("failed to get next socket address"),
-    );
+    drop(stream.await.expect("failed to get next socket address"));
 }
 
 /// Test udp_stream.
@@ -126,11 +123,7 @@ pub async fn udp_stream_test<P: RuntimeProvider>(server_addr: IpAddr, provider: 
 
 /// Test udp_client_stream.
 #[allow(clippy::print_stdout)]
-pub fn udp_client_stream_test<E: Executor>(
-    server_addr: IpAddr,
-    mut exec: E,
-    provider: impl RuntimeProvider,
-) {
+pub async fn udp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeProvider) {
     let succeeded = Arc::new(AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
     std::thread::Builder::new()
@@ -211,7 +204,7 @@ pub fn udp_client_stream_test<E: Executor>(
     let stream = UdpClientStream::builder(server_addr, provider)
         .with_timeout(Some(Duration::from_millis(500)))
         .build();
-    let mut stream = exec.block_on(stream).ok().unwrap();
+    let mut stream = stream.await.ok().unwrap();
     let mut worked_once = false;
 
     for i in 0..send_recv_times {
@@ -219,7 +212,7 @@ pub fn udp_client_stream_test<E: Executor>(
         let response_stream =
             stream.send_message(DnsRequest::new(query.clone(), DnsRequestOptions::default()));
         println!("client sending request {i}");
-        let response = match exec.block_on(response_stream.first_answer()) {
+        let response = match response_stream.first_answer().await {
             Ok(response) => response,
             Err(err) => {
                 println!("failed to get message: {err}");

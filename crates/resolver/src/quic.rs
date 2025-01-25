@@ -73,15 +73,11 @@ mod tests {
     use std::net::IpAddr;
     use std::sync::Arc;
 
-    use tokio::runtime::Runtime;
-
     use crate::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts};
     use crate::name_server::TokioConnectionProvider;
     use crate::TokioResolver;
 
-    fn quic_test(config: ResolverConfig) {
-        let io_loop = Runtime::new().unwrap();
-
+    async fn quic_test(config: ResolverConfig) {
         let resolver = TokioResolver::new(
             config,
             ResolverOpts {
@@ -91,22 +87,24 @@ mod tests {
             TokioConnectionProvider::default(),
         );
 
-        let response = io_loop
-            .block_on(resolver.lookup_ip("www.example.com."))
+        let response = resolver
+            .lookup_ip("www.example.com.")
+            .await
             .expect("failed to run lookup");
 
         assert_ne!(response.iter().count(), 0);
 
         // check if there is another connection created
-        let response = io_loop
-            .block_on(resolver.lookup_ip("www.example.com."))
+        let response = resolver
+            .lookup_ip("www.example.com.")
+            .await
             .expect("failed to run lookup");
 
         assert_ne!(response.iter().count(), 0);
     }
 
-    #[test]
-    fn test_adguard_quic() {
+    #[tokio::test]
+    async fn test_adguard_quic() {
         // AdGuard requires SNI.
         let mut config = (**super::CLIENT_CONFIG.as_ref().unwrap()).clone();
         config.enable_sni = true;
@@ -123,6 +121,6 @@ mod tests {
             true,
         )
         .with_client_config(Arc::new(config));
-        quic_test(ResolverConfig::from_parts(None, Vec::new(), name_servers))
+        quic_test(ResolverConfig::from_parts(None, Vec::new(), name_servers)).await
     }
 }

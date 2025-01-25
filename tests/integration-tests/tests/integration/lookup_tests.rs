@@ -4,8 +4,6 @@ use std::{
     sync::{Arc, Mutex as StdMutex},
 };
 
-use tokio::runtime::Runtime;
-
 use hickory_proto::{
     op::Query,
     rr::{rdata::A, DNSClass, Name, RData, Record, RecordType},
@@ -23,19 +21,18 @@ use hickory_server::{
 
 use hickory_integration::{example_authority::create_example, mock_client::*, TestClientStream};
 
-#[test]
-fn test_lookup() {
+#[tokio::test]
+async fn test_lookup() {
     let authority = create_example();
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
 
-    let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, sender, None);
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
 
-    let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+    let (client, bg) = client.await.expect("client failed to connect");
+    tokio::spawn(bg);
 
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
@@ -43,7 +40,7 @@ fn test_lookup() {
         Default::default(),
         CachingClient::new(0, client, false),
     );
-    let lookup = io_loop.block_on(lookup).unwrap();
+    let lookup = lookup.await.unwrap();
 
     assert_eq!(
         *lookup.iter().next().unwrap(),
@@ -51,19 +48,18 @@ fn test_lookup() {
     );
 }
 
-#[test]
-fn test_lookup_hosts() {
+#[tokio::test]
+async fn test_lookup_hosts() {
     let authority = create_example();
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
 
-    let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, sender, None);
 
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
-    let (client, bg) = io_loop.block_on(client).expect("client connect failed");
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+    let (client, bg) = client.await.expect("client connect failed");
+    tokio::spawn(bg);
 
     let mut hosts = Hosts::default();
     let record = Record::from_rdata(
@@ -88,7 +84,7 @@ fn test_lookup_hosts() {
         Some(Arc::new(hosts)),
         None,
     );
-    let lookup = io_loop.block_on(lookup).unwrap();
+    let lookup = lookup.await.unwrap();
 
     assert_eq!(lookup.iter().next().unwrap(), Ipv4Addr::new(10, 0, 1, 104));
 }
@@ -109,19 +105,18 @@ fn create_ip_like_example() -> InMemoryAuthority {
     authority
 }
 
-#[test]
-fn test_lookup_ipv4_like() {
+#[tokio::test]
+async fn test_lookup_ipv4_like() {
     let authority = create_ip_like_example();
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
 
-    let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, sender, None);
 
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
-    let (client, bg) = io_loop.block_on(client).expect("client connect failed");
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+    let (client, bg) = client.await.expect("client connect failed");
+    tokio::spawn(bg);
 
     let lookup = LookupIpFuture::lookup(
         vec![Name::from_str("1.2.3.4.example.com.").unwrap()],
@@ -131,7 +126,7 @@ fn test_lookup_ipv4_like() {
         Some(Arc::new(Hosts::default())),
         Some(RData::A(A::new(1, 2, 3, 4))),
     );
-    let lookup = io_loop.block_on(lookup).unwrap();
+    let lookup = lookup.await.unwrap();
 
     assert_eq!(
         lookup.iter().next().unwrap(),
@@ -139,19 +134,18 @@ fn test_lookup_ipv4_like() {
     );
 }
 
-#[test]
-fn test_lookup_ipv4_like_fall_through() {
+#[tokio::test]
+async fn test_lookup_ipv4_like_fall_through() {
     let authority = create_ip_like_example();
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
 
-    let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, sender, None);
 
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
-    let (client, bg) = io_loop.block_on(client).expect("client connect failed");
-    hickory_proto::runtime::spawn_bg(&io_loop, bg);
+    let (client, bg) = client.await.expect("client connect failed");
+    tokio::spawn(bg);
 
     let lookup = LookupIpFuture::lookup(
         vec![Name::from_str("198.51.100.35.example.com.").unwrap()],
@@ -161,7 +155,7 @@ fn test_lookup_ipv4_like_fall_through() {
         Some(Arc::new(Hosts::default())),
         Some(RData::A(A::new(198, 51, 100, 35))),
     );
-    let lookup = io_loop.block_on(lookup).unwrap();
+    let lookup = lookup.await.unwrap();
 
     assert_eq!(
         lookup.iter().next().unwrap(),
@@ -169,8 +163,8 @@ fn test_lookup_ipv4_like_fall_through() {
     );
 }
 
-#[test]
-fn test_mock_lookup() {
+#[tokio::test]
+async fn test_mock_lookup() {
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let v4_record = v4_record(
         Name::from_str("www.example.com.").unwrap(),
@@ -187,8 +181,7 @@ fn test_mock_lookup() {
         CachingClient::new(0, client, false),
     );
 
-    let io_loop = Runtime::new().unwrap();
-    let lookup = io_loop.block_on(lookup).unwrap();
+    let lookup = lookup.await.unwrap();
 
     assert_eq!(
         *lookup.iter().next().unwrap(),
@@ -196,8 +189,8 @@ fn test_mock_lookup() {
     );
 }
 
-#[test]
-fn test_cname_lookup() {
+#[tokio::test]
+async fn test_cname_lookup() {
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let cname_record = cname_record(
         Name::from_str("www.example.com.").unwrap(),
@@ -218,8 +211,7 @@ fn test_cname_lookup() {
         CachingClient::new(0, client, false),
     );
 
-    let io_loop = Runtime::new().unwrap();
-    let lookup = io_loop.block_on(lookup).unwrap();
+    let lookup = lookup.await.unwrap();
 
     assert_eq!(
         *lookup.iter().next().unwrap(),
@@ -227,8 +219,8 @@ fn test_cname_lookup() {
     );
 }
 
-#[test]
-fn test_cname_lookup_preserve() {
+#[tokio::test]
+async fn test_cname_lookup_preserve() {
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let cname_record = cname_record(
         Name::from_str("www.example.com.").unwrap(),
@@ -254,16 +246,15 @@ fn test_cname_lookup_preserve() {
         CachingClient::new(0, client, true),
     );
 
-    let io_loop = Runtime::new().unwrap();
-    let lookup = io_loop.block_on(lookup).unwrap();
+    let lookup = lookup.await.unwrap();
 
     let mut iter = lookup.iter();
     assert_eq!(iter.next().unwrap(), cname_record.data());
     assert_eq!(*iter.next().unwrap(), RData::A(A::new(93, 184, 215, 14)));
 }
 
-#[test]
-fn test_chained_cname_lookup() {
+#[tokio::test]
+async fn test_chained_cname_lookup() {
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let cname_record = cname_record(
         Name::from_str("www.example.com.").unwrap(),
@@ -291,8 +282,7 @@ fn test_chained_cname_lookup() {
         CachingClient::new(0, client, false),
     );
 
-    let io_loop = Runtime::new().unwrap();
-    let lookup = io_loop.block_on(lookup).unwrap();
+    let lookup = lookup.await.unwrap();
 
     assert_eq!(
         *lookup.iter().next().unwrap(),
@@ -300,8 +290,8 @@ fn test_chained_cname_lookup() {
     );
 }
 
-#[test]
-fn test_chained_cname_lookup_preserve() {
+#[tokio::test]
+async fn test_chained_cname_lookup_preserve() {
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let cname_record = cname_record(
         Name::from_str("www.example.com.").unwrap(),
@@ -334,16 +324,15 @@ fn test_chained_cname_lookup_preserve() {
         CachingClient::new(0, client, true),
     );
 
-    let io_loop = Runtime::new().unwrap();
-    let lookup = io_loop.block_on(lookup).unwrap();
+    let lookup = lookup.await.unwrap();
 
     let mut iter = lookup.iter();
     assert_eq!(iter.next().unwrap(), cname_record.data());
     assert_eq!(*iter.next().unwrap(), RData::A(A::new(93, 184, 215, 14)));
 }
 
-#[test]
-fn test_max_chained_lookup_depth() {
+#[tokio::test]
+async fn test_max_chained_lookup_depth() {
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let cname_record1 = cname_record(
         Name::from_str("www.example.com.").unwrap(),
@@ -420,10 +409,8 @@ fn test_max_chained_lookup_depth() {
         client.clone(),
     );
 
-    let io_loop = Runtime::new().unwrap();
-
     println!("performing max cname validation");
-    assert!(io_loop.block_on(lookup).is_err());
+    assert!(lookup.await.is_err());
 
     // This query should succeed, as the queue depth should reset to 0 on a failed request
     let lookup = LookupFuture::lookup(
@@ -434,7 +421,7 @@ fn test_max_chained_lookup_depth() {
     );
 
     println!("performing followup resolve, should work");
-    let lookup = io_loop.block_on(lookup).unwrap();
+    let lookup = lookup.await.unwrap();
 
     assert_eq!(
         *lookup.iter().next().unwrap(),
@@ -445,8 +432,8 @@ fn test_max_chained_lookup_depth() {
 // This test expects a no-answer query which returns a SOA record in the nameservers section to
 // contain a ProtoErrorKind::NoRecordsFound error with a SOA record present (soa.is_some()) and
 // no NS records present (!ns.is_some())
-#[test]
-fn test_forward_soa() {
+#[tokio::test]
+async fn test_forward_soa() {
     use hickory_proto::ProtoErrorKind;
     use hickory_resolver::ResolveErrorKind;
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::NS);
@@ -467,8 +454,7 @@ fn test_forward_soa() {
         client.clone(),
     );
 
-    let io_loop = Runtime::new().unwrap();
-    let lookup = io_loop.block_on(lookup);
+    let lookup = lookup.await;
 
     match lookup {
         Ok(_) => {
@@ -494,8 +480,8 @@ fn test_forward_soa() {
 // This test expects a no-answer query which returns an NS record in the nameservers section to
 // contain a ProtoErrorKind::NoRecordsFound error with an NS record present (ns.is_some()) and
 // no SOA records present (!soa.is_some())
-#[test]
-fn test_forward_ns() {
+#[tokio::test]
+async fn test_forward_ns() {
     use hickory_proto::ProtoErrorKind;
     use hickory_resolver::ResolveErrorKind;
     let resp_query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::A);
@@ -516,8 +502,7 @@ fn test_forward_ns() {
         client.clone(),
     );
 
-    let io_loop = Runtime::new().unwrap();
-    let lookup = io_loop.block_on(lookup);
+    let lookup = lookup.await;
 
     match lookup {
         Ok(_) => {

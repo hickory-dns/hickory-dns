@@ -1309,19 +1309,16 @@ mod tests {
         reap_tasks(&mut joinset);
     }
 
-    #[test]
-    fn task_reap_on_nonempty_joinset() {
-        let runtime = tokio::runtime::Runtime::new().unwrap();
-        runtime.block_on(async {
-            let mut joinset = JoinSet::new();
-            let t = joinset.spawn(tokio::time::sleep(Duration::from_secs(2)));
+    #[tokio::test]
+    async fn task_reap_on_nonempty_joinset() {
+        let mut joinset = JoinSet::new();
+        let t = joinset.spawn(tokio::time::sleep(Duration::from_secs(2)));
 
-            // this should return immediately since no task is ready
-            reap_tasks(&mut joinset);
-            t.abort();
+        // this should return immediately since no task is ready
+        reap_tasks(&mut joinset);
+        t.abort();
 
-            // this should also return immediately since the task has been aborted
-            reap_tasks(&mut joinset);
-        });
+        // this should also return immediately since the task has been aborted
+        reap_tasks(&mut joinset);
     }
 }

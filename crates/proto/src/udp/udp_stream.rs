@@ -404,34 +404,27 @@ impl DnsUdpSocket for tokio::net::UdpSocket {
 #[cfg(feature = "tokio-runtime")]
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-    use tokio::runtime::Runtime;
 
-    use crate::runtime::TokioRuntimeProvider;
+    use crate::{
+        runtime::TokioRuntimeProvider,
+        tests::{next_random_socket_test, udp_stream_test},
+    };
 
-    #[test]
-    fn test_next_random_socket() {
-        use crate::tests::next_random_socket_test;
-        let io_loop = Runtime::new().expect("failed to create tokio runtime");
+    #[tokio::test]
+    async fn test_next_random_socket() {
         let provider = TokioRuntimeProvider::new();
-        next_random_socket_test(io_loop, provider)
+        next_random_socket_test(provider).await;
     }
 
-    #[test]
-    fn test_udp_stream_ipv4() {
-        use crate::tests::udp_stream_test;
-        let io_loop = Runtime::new().expect("failed to create tokio runtime");
+    #[tokio::test]
+    async fn test_udp_stream_ipv4() {
         let provider = TokioRuntimeProvider::new();
-        io_loop.block_on(udp_stream_test(IpAddr::V4(Ipv4Addr::LOCALHOST), provider));
+        udp_stream_test(IpAddr::V4(Ipv4Addr::LOCALHOST), provider).await;
     }
 
-    #[test]
-    fn test_udp_stream_ipv6() {
-        use crate::tests::udp_stream_test;
-        let io_loop = Runtime::new().expect("failed to create tokio runtime");
+    #[tokio::test]
+    async fn test_udp_stream_ipv6() {
         let provider = TokioRuntimeProvider::new();
-        io_loop.block_on(udp_stream_test(
-            IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
-            provider,
-        ));
+        udp_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), provider).await;
     }
 }

@@ -191,9 +191,7 @@ mod tests {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
     use std::time::Duration;
 
-    use futures_util::{future, FutureExt};
     use test_support::subscribe;
-    use tokio::runtime::Runtime;
 
     use crate::proto::op::{Query, ResponseCode};
     use crate::proto::rr::{Name, RecordType};
@@ -202,8 +200,8 @@ mod tests {
     use super::*;
     use crate::name_server::connection_provider::TokioConnectionProvider;
 
-    #[test]
-    fn test_name_server() {
+    #[tokio::test]
+    async fn test_name_server() {
         subscribe();
 
         let config = NameServerConfig {
@@ -216,31 +214,26 @@ mod tests {
             tls_config: None,
             bind_addr: None,
         };
-        let io_loop = Runtime::new().unwrap();
-        let name_server = future::lazy(|_| {
-            GenericNameServer::new(
-                config,
-                ResolverOpts::default(),
-                TokioConnectionProvider::default(),
-            )
-        });
+        let name_server = GenericNameServer::new(
+            config,
+            ResolverOpts::default(),
+            TokioConnectionProvider::default(),
+        );
 
         let name = Name::parse("www.example.com.", None).unwrap();
-        let response = io_loop
-            .block_on(name_server.then(|name_server| {
-                name_server
-                    .lookup(
-                        Query::query(name.clone(), RecordType::A),
-                        DnsRequestOptions::default(),
-                    )
-                    .first_answer()
-            }))
+        let response = name_server
+            .lookup(
+                Query::query(name.clone(), RecordType::A),
+                DnsRequestOptions::default(),
+            )
+            .first_answer()
+            .await
             .expect("query failed");
         assert_eq!(response.response_code(), ResponseCode::NoError);
     }
 
-    #[test]
-    fn test_failed_name_server() {
+    #[tokio::test]
+    async fn test_failed_name_server() {
         let options = ResolverOpts {
             timeout: Duration::from_millis(1), // this is going to fail, make it fail fast...
             ..ResolverOpts::default()
@@ -255,21 +248,17 @@ mod tests {
             tls_config: None,
             bind_addr: None,
         };
-        let io_loop = Runtime::new().unwrap();
-        let name_server = future::lazy(|_| {
-            GenericNameServer::new(config, options, TokioConnectionProvider::default())
-        });
+        let name_server =
+            GenericNameServer::new(config, options, TokioConnectionProvider::default());
 
         let name = Name::parse("www.example.com.", None).unwrap();
-        assert!(io_loop
-            .block_on(name_server.then(|name_server| {
-                name_server
-                    .lookup(
-                        Query::query(name.clone(), RecordType::A),
-                        DnsRequestOptions::default(),
-                    )
-                    .first_answer()
-            }))
+        assert!(name_server
+            .lookup(
+                Query::query(name.clone(), RecordType::A),
+                DnsRequestOptions::default(),
+            )
+            .first_answer()
+            .await
             .is_err());
     }
 }

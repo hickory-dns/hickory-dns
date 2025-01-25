@@ -573,7 +573,6 @@ mod tests {
 
     use rustls::KeyLogFile;
     use test_support::subscribe;
-    use tokio::runtime::Runtime;
 
     use crate::op::{Edns, Message, Query, ResponseCode};
     use crate::rr::rdata::{A, AAAA};
@@ -584,8 +583,8 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn test_https_google() {
+    #[tokio::test]
+    async fn test_https_google() {
         subscribe();
 
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
@@ -609,12 +608,12 @@ mod tests {
         let connect =
             https_builder.build(google, "dns.google".to_string(), "/dns-query".to_string());
 
-        // tokio runtime stuff...
-        let runtime = Runtime::new().expect("could not start runtime");
-        let mut https = runtime.block_on(connect).expect("https connect failed");
+        let mut https = connect.await.expect("https connect failed");
 
-        let response = runtime
-            .block_on(https.send_message(request).first_answer())
+        let response = https
+            .send_message(request)
+            .first_answer()
+            .await
             .expect("send_message failed");
 
         assert!(response
@@ -633,8 +632,10 @@ mod tests {
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
         for _ in 0..3 {
-            let response = runtime
-                .block_on(https.send_message(request.clone()).first_answer())
+            let response = https
+                .send_message(request.clone())
+                .first_answer()
+                .await
                 .expect("send_message failed");
             if response.response_code() == ResponseCode::ServFail {
                 continue;
@@ -653,8 +654,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_https_google_with_pure_ip_address_server() {
+    #[tokio::test]
+    async fn test_https_google_with_pure_ip_address_server() {
         subscribe();
 
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
@@ -678,12 +679,12 @@ mod tests {
         let connect =
             https_builder.build(google, google.ip().to_string(), "/dns-query".to_string());
 
-        // tokio runtime stuff...
-        let runtime = Runtime::new().expect("could not start runtime");
-        let mut https = runtime.block_on(connect).expect("https connect failed");
+        let mut https = connect.await.expect("https connect failed");
 
-        let response = runtime
-            .block_on(https.send_message(request).first_answer())
+        let response = https
+            .send_message(request)
+            .first_answer()
+            .await
             .expect("send_message failed");
 
         assert!(response
@@ -702,8 +703,10 @@ mod tests {
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
         for _ in 0..3 {
-            let response = runtime
-                .block_on(https.send_message(request.clone()).first_answer())
+            let response = https
+                .send_message(request.clone())
+                .first_answer()
+                .await
                 .expect("send_message failed");
             if response.response_code() == ResponseCode::ServFail {
                 continue;
@@ -722,9 +725,9 @@ mod tests {
         }
     }
 
-    #[test]
+    #[tokio::test]
     #[ignore = "cloudflare has been unreliable as a public test service"]
-    fn test_https_cloudflare() {
+    async fn test_https_cloudflare() {
         subscribe();
 
         let cloudflare = SocketAddr::from(([1, 1, 1, 1], 443));
@@ -744,12 +747,12 @@ mod tests {
             "/dns-query".to_string(),
         );
 
-        // tokio runtime stuff...
-        let runtime = Runtime::new().expect("could not start runtime");
-        let mut https = runtime.block_on(connect).expect("https connect failed");
+        let mut https = connect.await.expect("https connect failed");
 
-        let response = runtime
-            .block_on(https.send_message(request).first_answer())
+        let response = https
+            .send_message(request)
+            .first_answer()
+            .await
             .expect("send_message failed");
 
         let record = &response.answers()[0];
@@ -768,10 +771,13 @@ mod tests {
             RecordType::AAAA,
         );
         request.add_query(query);
+
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let response = runtime
-            .block_on(https.send_message(request).first_answer())
+        let response = https
+            .send_message(request)
+            .first_answer()
+            .await
             .expect("send_message failed");
 
         let record = &response.answers()[0];

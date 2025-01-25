@@ -384,28 +384,21 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
 #[cfg(feature = "tokio-runtime")]
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-    use tokio::runtime::Runtime;
 
     use crate::runtime::TokioRuntimeProvider;
     use crate::tests::tcp_stream_test;
 
-    #[test]
-    fn test_tcp_stream_ipv4() {
-        let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        tcp_stream_test::<Runtime>(
-            IpAddr::V4(Ipv4Addr::LOCALHOST),
-            io_loop,
-            TokioRuntimeProvider::new(),
-        )
+    #[tokio::test]
+    async fn test_tcp_stream_ipv4() {
+        tcp_stream_test(IpAddr::V4(Ipv4Addr::LOCALHOST), TokioRuntimeProvider::new()).await;
     }
 
-    #[test]
-    fn test_tcp_stream_ipv6() {
-        let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        tcp_stream_test::<Runtime>(
+    #[tokio::test]
+    async fn test_tcp_stream_ipv6() {
+        tcp_stream_test(
             IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
-            io_loop,
             TokioRuntimeProvider::new(),
         )
+        .await;
     }
 }

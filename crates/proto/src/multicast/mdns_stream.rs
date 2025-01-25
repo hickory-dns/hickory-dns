@@ -437,11 +437,10 @@ pub(crate) mod tests {
         Lazy::new(|| Ipv6Addr::new(0xFF02, 0, 0, 0, 0, 0, 0, 0x00FA).into());
 
     // one_shot tests are basically clones from the udp tests
-    #[test]
-    fn test_next_random_socket() {
+    #[tokio::test]
+    async fn test_next_random_socket() {
         subscribe();
 
-        let io_loop = runtime::Runtime::new().unwrap();
         let (stream, _) = MdnsStream::new(
             SocketAddr::new(*TEST_MDNS_IPV4, BASE_TEST_PORT),
             MdnsQueryType::OneShot,
@@ -449,7 +448,7 @@ pub(crate) mod tests {
             None,
             None,
         );
-        let result = io_loop.block_on(stream);
+        let result = stream.await;
 
         if let Err(error) = result {
             println!("Random address error: {error:#?}");
