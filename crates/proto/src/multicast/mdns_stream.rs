@@ -15,8 +15,6 @@ use std::task::{Context, Poll};
 use futures_util::stream::{Stream, StreamExt};
 use futures_util::{future, ready, FutureExt, TryFutureExt};
 use once_cell::sync::Lazy;
-use rand;
-use rand::distributions::{uniform::Uniform, Distribution};
 use socket2::{self, Socket};
 use tokio::net::UdpSocket;
 use tracing::{debug, trace};
@@ -378,15 +376,12 @@ impl Future for NextRandomUdpSocket {
             // TODO: this is basically identical to UdpStream from here... share some code? (except for the port restriction)
             // one-shot queries look very similar to UDP socket, but can't listen on 5353
 
-            // Per RFC 6056 Section 2.1:
-            //
-            //    The dynamic port range defined by IANA consists of the 49152-65535
-            //    range, and is meant for the selection of ephemeral ports.
-            let rand_port_range = Uniform::new_inclusive(49152_u16, u16::MAX);
-            let mut rand = rand::thread_rng();
-
             for attempt in 0..10 {
-                let port = rand_port_range.sample(&mut rand);
+                // Per RFC 6056 Section 2.1:
+                //
+                //    The dynamic port range defined by IANA consists of the 49152-65535
+                //    range, and is meant for the selection of ephemeral ports.
+                let port = rand::random_range(49152_u16..=u16::MAX);
 
                 // see one_shot usage info: https://tools.ietf.org/html/rfc6762#section-5
                 //  the MDNS_PORT is used to signal to remote processes that this is capable of receiving multicast packets

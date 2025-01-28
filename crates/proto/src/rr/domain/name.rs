@@ -58,9 +58,6 @@ impl Name {
 
     /// Randomize the case of ASCII alpha characters in a name
     pub fn randomize_label_case(&mut self) {
-        use rand::distributions::{Distribution, Standard};
-        let mut rand = rand::thread_rng();
-
         // Generate randomness 32 bits at a time, because this is the smallest unit on which the
         // `rand` crate operates. One RNG call should be enough for most queries.
         let mut rand_bits: u32 = 0;
@@ -68,7 +65,7 @@ impl Name {
         for (i, b) in self.label_data.iter_mut().enumerate() {
             // Generate fresh random bits on the zeroth and then every 32nd iteration.
             if i % 32 == 0 {
-                rand_bits = Standard.sample(&mut rand);
+                rand_bits = rand::random();
             }
 
             let flip_case = rand_bits & 1 == 1;
