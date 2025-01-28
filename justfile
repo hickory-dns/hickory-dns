@@ -114,8 +114,10 @@ coverage: init-llvm-cov
     cargo +nightly llvm-cov clean --workspace
     mkdir -p {{COV_OUTPUT_DIR}}
 
-    cargo +nightly llvm-cov test --workspace --no-report --all-targets --all-features
-    cargo +nightly llvm-cov test --workspace --no-report --doc --doctests --all-features
+    # --no-cfg-coverage-nightly added while waiting for #[coverage] stabilization.
+    # See: https://github.com/rust-lang/rust/issues/84605
+    cargo +nightly llvm-cov test --workspace --no-report --all-targets --all-features --no-cfg-coverage-nightly
+    cargo +nightly llvm-cov test --workspace --no-report --doc --doctests --all-features --no-cfg-coverage-nightly
     cargo +nightly llvm-cov report --doctests --codecov --output-path {{join(COV_OUTPUT_DIR, "hickory-dns-coverage.json")}}
 
 # Open the html view of the coverage report
