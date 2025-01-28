@@ -64,7 +64,7 @@ impl RecordData for AAAA {
     }
 
     fn record_type(&self) -> RecordType {
-        RecordType::A
+        RecordType::AAAA
     }
 
     fn into_rdata(self) -> RData {
