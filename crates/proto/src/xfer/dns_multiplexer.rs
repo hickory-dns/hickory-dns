@@ -25,10 +25,7 @@ use futures_util::{
     stream::{Stream, StreamExt},
     FutureExt,
 };
-use rand::{
-    self,
-    distributions::{Distribution, Standard},
-};
+use rand::Rng;
 use tracing::debug;
 
 use crate::{
@@ -188,10 +185,10 @@ where
 
     /// creates random query_id, validates against all active queries
     fn next_random_query_id(&self) -> Result<u16, ProtoError> {
-        let mut rand = rand::thread_rng();
+        let mut rand = rand::rng();
 
         for _ in 0..100 {
-            let id: u16 = Standard.sample(&mut rand); // the range is [0 ... u16::max]
+            let id: u16 = rand.random(); // the range is [0 ... u16::max]
 
             if !self.active_requests.contains_key(&id) {
                 return Ok(id);

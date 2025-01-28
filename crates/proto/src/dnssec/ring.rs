@@ -2,7 +2,7 @@ use std::{borrow::Cow, sync::Arc};
 
 use ring::{
     digest,
-    rand::{self, SystemRandom},
+    rand::SystemRandom,
     rsa::PublicKeyComponents,
     signature::{
         self, EcdsaKeyPair, Ed25519KeyPair, KeyPair as RingKeyPair, RsaKeyPair,
@@ -131,7 +131,7 @@ impl EcdsaSigningKey {
 
 impl SigningKey for EcdsaSigningKey {
     fn sign(&self, tbs: &TBS) -> DnsSecResult<Vec<u8>> {
-        let rng = rand::SystemRandom::new();
+        let rng = SystemRandom::new();
         Ok(self.inner.sign(&rng, tbs.as_ref())?.as_ref().to_vec())
     }
 
@@ -174,7 +174,7 @@ impl Ed25519SigningKey {
 
     /// Generate signing key pair and return the DER-encoded PKCS#8 bytes.
     pub fn generate_pkcs8() -> DnsSecResult<PrivatePkcs8KeyDer<'static>> {
-        let rng = rand::SystemRandom::new();
+        let rng = SystemRandom::new();
         let pkcs8 = Ed25519KeyPair::generate_pkcs8(&rng)?;
         Ok(PrivatePkcs8KeyDer::from(pkcs8.as_ref().to_vec()))
     }
@@ -443,7 +443,7 @@ impl SigningKey for RsaSigningKey {
             _ => unreachable!(),
         };
 
-        let rng = rand::SystemRandom::new();
+        let rng = SystemRandom::new();
         let mut signature = vec![0; self.inner.public().modulus_len()];
         self.inner
             .sign(encoding, &rng, tbs.as_ref(), &mut signature)?;

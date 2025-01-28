@@ -16,8 +16,6 @@ use std::time::Duration;
 
 use futures_util::future::FutureExt;
 use futures_util::stream::{once, FuturesUnordered, Stream, StreamExt};
-use rand::thread_rng as rng;
-use rand::Rng;
 use smallvec::SmallVec;
 use tracing::debug;
 
@@ -283,7 +281,7 @@ where
         // Shuffe DNS NameServers to avoid overloads to the first configured ones
         if opts.shuffle_dns_servers {
             for _ in 0..count {
-                let idx = rng().gen_range(0..conns.len());
+                let idx = rand::random_range(0..conns.len());
 
                 // UNWRAP: swap_remove has an implicit panicking bounds check. This should
                 // never fail because we check that conns is not empty and generate the idx

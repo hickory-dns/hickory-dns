@@ -16,8 +16,6 @@ use std::task::{Context, Poll};
 use async_trait::async_trait;
 use futures_util::stream::Stream;
 use futures_util::{future::Future, ready, TryFutureExt};
-use rand;
-use rand::distributions::{uniform::Uniform, Distribution};
 use tracing::{debug, trace, warn};
 
 use crate::runtime::{RuntimeProvider, Time};
@@ -313,9 +311,7 @@ impl<P: RuntimeProvider> Future for NextRandomUdpSocket<P> {
                             // As mentioned in Section 2.1, the dynamic ports consist of the range
                             // 49152-65535.  However, ephemeral port selection algorithms should use
                             // the whole range 1024-65535.
-                            let rand_port_range = Uniform::new_inclusive(1_024, u16::MAX);
-                            let mut rand = rand::thread_rng();
-                            let port = rand_port_range.sample(&mut rand);
+                            let port = rand::random_range(1024..=u16::MAX);
                             if this.avoid_local_ports.contains(&port) {
                                 // Count this against the total number of attempts to pick a port.
                                 // RFC 6056 Section 3.3.2 notes that this algorithm should find a

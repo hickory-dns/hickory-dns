@@ -11,7 +11,6 @@ use std::sync::{
 };
 
 use parking_lot::Mutex;
-use rand::Rng as _;
 
 #[cfg(not(test))]
 use std::time::{Duration, Instant};
@@ -57,7 +56,7 @@ impl Default for NameServerStats {
         // Initialize the SRTT to a randomly generated value that represents a
         // very low RTT. Such a value helps ensure that each server is attempted
         // early.
-        Self::new(Duration::from_micros(rand::thread_rng().gen_range(1..32)))
+        Self::new(Duration::from_micros(rand::random_range(1..32)))
     }
 }
 
