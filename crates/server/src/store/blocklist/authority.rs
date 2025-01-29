@@ -212,7 +212,7 @@ impl BlocklistAuthority {
             return Err(e);
         }
 
-        for mut entry in contents.split('\n') {
+        for mut entry in contents.lines() {
             // Strip comments
             if let Some((item, _)) = entry.split_once('#') {
                 entry = item.trim();
@@ -458,6 +458,7 @@ mod test {
         },
         store::blocklist::BlocklistConsultAction,
     };
+    use test_support::subscribe;
 
     enum TestResult {
         Break,
@@ -466,6 +467,7 @@ mod test {
 
     #[tokio::test]
     async fn test_blocklist_basic() {
+        subscribe();
         let config = super::BlocklistConfig {
             wildcard_match: true,
             min_wildcard_depth: 2,
@@ -528,6 +530,7 @@ mod test {
 
     #[tokio::test]
     async fn test_blocklist_wildcard_disabled() {
+        subscribe();
         let config = super::BlocklistConfig {
             min_wildcard_depth: 2,
             wildcard_match: false,
@@ -579,6 +582,7 @@ mod test {
     #[tokio::test]
     #[should_panic]
     async fn test_blocklist_wrong_block_message() {
+        subscribe();
         let config = super::BlocklistConfig {
             min_wildcard_depth: 2,
             wildcard_match: false,
