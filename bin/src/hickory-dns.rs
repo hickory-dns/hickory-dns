@@ -771,5 +771,7 @@ fn check_drop_privs(user: &str, group: &str) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(target_family = "unix")]
 static DEFAULT_USER: &str = "nobody";
+#[cfg(target_family = "unix")]
 static DEFAULT_GROUP: &str = "nobody";
