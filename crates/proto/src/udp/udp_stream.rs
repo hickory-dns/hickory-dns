@@ -401,6 +401,8 @@ impl DnsUdpSocket for tokio::net::UdpSocket {
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
+    use test_support::subscribe;
+
     use crate::{
         runtime::TokioRuntimeProvider,
         tests::{next_random_socket_test, udp_stream_test},
@@ -408,18 +410,21 @@ mod tests {
 
     #[tokio::test]
     async fn test_next_random_socket() {
+        subscribe();
         let provider = TokioRuntimeProvider::new();
         next_random_socket_test(provider).await;
     }
 
     #[tokio::test]
     async fn test_udp_stream_ipv4() {
+        subscribe();
         let provider = TokioRuntimeProvider::new();
         udp_stream_test(IpAddr::V4(Ipv4Addr::LOCALHOST), provider).await;
     }
 
     #[tokio::test]
     async fn test_udp_stream_ipv6() {
+        subscribe();
         let provider = TokioRuntimeProvider::new();
         udp_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), provider).await;
     }

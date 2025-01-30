@@ -19,6 +19,7 @@ use hickory_server::dnssec::NxProofKind;
 use hickory_server::server::RequestInfo;
 use hickory_server::store::in_memory::InMemoryAuthority;
 use hickory_server::store::sqlite::{Journal, SqliteAuthority};
+use test_support::subscribe;
 
 const TEST_HEADER: &Header = &Header::new();
 
@@ -35,6 +36,7 @@ fn create_secure_example() -> SqliteAuthority {
 
 #[tokio::test]
 async fn test_search() {
+    subscribe();
     let example = create_example();
     let origin = example.origin().clone();
 
@@ -65,6 +67,7 @@ async fn test_search() {
 /// this is a little more interesting b/c it requires a recursive lookup for the origin
 #[tokio::test]
 async fn test_search_www() {
+    subscribe();
     let example = create_example();
     let www_name = Name::parse("www.example.com.", None).unwrap();
 
@@ -94,6 +97,8 @@ async fn test_search_www() {
 
 #[tokio::test]
 async fn test_authority() {
+    subscribe();
+
     let authority = create_example();
 
     assert_eq!(
@@ -204,6 +209,8 @@ async fn test_authorize() {
     use hickory_proto::serialize::binary::{BinDecodable, BinEncodable};
     use hickory_server::authority::MessageRequest;
 
+    subscribe();
+
     let authority = create_example();
 
     let mut message = Message::new();
@@ -228,6 +235,7 @@ async fn test_authorize() {
 
 #[tokio::test]
 async fn test_prerequisites() {
+    subscribe();
     let not_zone = Name::from_str("not.a.domain.com").unwrap();
     let not_in_zone = Name::from_str("not.example.com").unwrap();
 
@@ -390,6 +398,8 @@ async fn test_prerequisites() {
 
 #[tokio::test]
 async fn test_pre_scan() {
+    subscribe();
+
     let up_name = Name::from_str("www.example.com").unwrap();
     let not_zone = Name::from_str("not.zone.com").unwrap();
 
@@ -555,6 +565,7 @@ async fn test_pre_scan() {
 
 #[tokio::test]
 async fn test_update() {
+    subscribe();
     let new_name = Name::from_str("new.example.com.").unwrap();
     let www_name = Name::from_str("www.example.com.").unwrap();
     let mut authority = create_example();
@@ -799,6 +810,8 @@ async fn test_update() {
 async fn test_zone_signing() {
     use hickory_proto::{dnssec::rdata::RRSIG, rr::RecordData};
 
+    subscribe();
+
     let authority = create_secure_example();
 
     let results = authority
@@ -865,6 +878,7 @@ async fn test_zone_signing() {
 #[cfg(feature = "dnssec")]
 #[tokio::test]
 async fn test_get_nsec() {
+    subscribe();
     let name = Name::from_str("zzz.example.com.").unwrap();
     let authority = create_secure_example();
     let lower_name = LowerName::from(name.clone());
@@ -884,6 +898,7 @@ async fn test_get_nsec() {
 
 #[tokio::test]
 async fn test_journal() {
+    subscribe();
     // test that this message can be inserted
     let conn = Connection::open_in_memory().expect("could not create in memory DB");
     let mut journal = Journal::new(conn).unwrap();
@@ -968,6 +983,7 @@ async fn test_journal() {
 #[tokio::test]
 #[allow(clippy::blocks_in_conditions)]
 async fn test_recovery() {
+    subscribe();
     // test that this message can be inserted
     let conn = Connection::open_in_memory().expect("could not create in memory DB");
     let mut journal = Journal::new(conn).unwrap();
@@ -1039,6 +1055,7 @@ async fn test_recovery() {
 
 #[tokio::test]
 async fn test_axfr() {
+    subscribe();
     let mut authority = create_example();
     authority.set_allow_axfr(true);
 
@@ -1068,6 +1085,7 @@ async fn test_axfr() {
 
 #[tokio::test]
 async fn test_refused_axfr() {
+    subscribe();
     let mut authority = create_example();
     authority.set_allow_axfr(false);
 

@@ -232,6 +232,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_failed_name_server() {
+        subscribe();
+
         let options = ResolverOpts {
             timeout: Duration::from_millis(1), // this is going to fail, make it fail fast...
             ..ResolverOpts::default()

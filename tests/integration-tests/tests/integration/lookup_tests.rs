@@ -18,11 +18,13 @@ use hickory_server::{
     authority::{Authority, Catalog},
     store::in_memory::InMemoryAuthority,
 };
+use test_support::subscribe;
 
 use hickory_integration::{example_authority::create_example, mock_client::*, TestClientStream};
 
 #[tokio::test]
 async fn test_lookup() {
+    subscribe();
     let authority = create_example();
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
@@ -50,6 +52,7 @@ async fn test_lookup() {
 
 #[tokio::test]
 async fn test_lookup_hosts() {
+    subscribe();
     let authority = create_example();
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
@@ -107,6 +110,7 @@ fn create_ip_like_example() -> InMemoryAuthority {
 
 #[tokio::test]
 async fn test_lookup_ipv4_like() {
+    subscribe();
     let authority = create_ip_like_example();
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
@@ -136,6 +140,7 @@ async fn test_lookup_ipv4_like() {
 
 #[tokio::test]
 async fn test_lookup_ipv4_like_fall_through() {
+    subscribe();
     let authority = create_ip_like_example();
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
@@ -165,6 +170,7 @@ async fn test_lookup_ipv4_like_fall_through() {
 
 #[tokio::test]
 async fn test_mock_lookup() {
+    subscribe();
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let v4_record = v4_record(
         Name::from_str("www.example.com.").unwrap(),
@@ -191,6 +197,7 @@ async fn test_mock_lookup() {
 
 #[tokio::test]
 async fn test_cname_lookup() {
+    subscribe();
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let cname_record = cname_record(
         Name::from_str("www.example.com.").unwrap(),
@@ -221,6 +228,7 @@ async fn test_cname_lookup() {
 
 #[tokio::test]
 async fn test_cname_lookup_preserve() {
+    subscribe();
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let cname_record = cname_record(
         Name::from_str("www.example.com.").unwrap(),
@@ -255,6 +263,7 @@ async fn test_cname_lookup_preserve() {
 
 #[tokio::test]
 async fn test_chained_cname_lookup() {
+    subscribe();
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let cname_record = cname_record(
         Name::from_str("www.example.com.").unwrap(),
@@ -292,6 +301,7 @@ async fn test_chained_cname_lookup() {
 
 #[tokio::test]
 async fn test_chained_cname_lookup_preserve() {
+    subscribe();
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let cname_record = cname_record(
         Name::from_str("www.example.com.").unwrap(),
@@ -333,6 +343,7 @@ async fn test_chained_cname_lookup_preserve() {
 
 #[tokio::test]
 async fn test_max_chained_lookup_depth() {
+    subscribe();
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let cname_record1 = cname_record(
         Name::from_str("www.example.com.").unwrap(),
@@ -436,6 +447,8 @@ async fn test_max_chained_lookup_depth() {
 async fn test_forward_soa() {
     use hickory_proto::ProtoErrorKind;
     use hickory_resolver::ResolveErrorKind;
+
+    subscribe();
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::NS);
     let soa_record = soa_record(
         Name::from_str("www.example.com").unwrap(),
@@ -484,6 +497,8 @@ async fn test_forward_soa() {
 async fn test_forward_ns() {
     use hickory_proto::ProtoErrorKind;
     use hickory_resolver::ResolveErrorKind;
+
+    subscribe();
     let resp_query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::A);
     let ns1 = ns_record(
         Default::default(),

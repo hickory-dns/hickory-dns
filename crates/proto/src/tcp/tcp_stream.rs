@@ -385,16 +385,20 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
+    use test_support::subscribe;
+
     use crate::runtime::TokioRuntimeProvider;
     use crate::tests::tcp_stream_test;
 
     #[tokio::test]
     async fn test_tcp_stream_ipv4() {
+        subscribe();
         tcp_stream_test(IpAddr::V4(Ipv4Addr::LOCALHOST), TokioRuntimeProvider::new()).await;
     }
 
     #[tokio::test]
     async fn test_tcp_stream_ipv6() {
+        subscribe();
         tcp_stream_test(
             IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
             TokioRuntimeProvider::new(),

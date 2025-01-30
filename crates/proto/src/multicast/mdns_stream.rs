@@ -455,12 +455,14 @@ pub(crate) mod tests {
     #[ignore]
     #[test]
     fn test_one_shot_mdns_ipv4() {
+        subscribe();
         one_shot_mdns_test(SocketAddr::new(*TEST_MDNS_IPV4, BASE_TEST_PORT + 1));
     }
 
     #[test]
     #[ignore]
     fn test_one_shot_mdns_ipv6() {
+        subscribe();
         one_shot_mdns_test(SocketAddr::new(*TEST_MDNS_IPV6, BASE_TEST_PORT + 2));
     }
 
@@ -598,6 +600,7 @@ pub(crate) mod tests {
     #[ignore]
     #[test]
     fn test_passive_mdns() {
+        subscribe();
         passive_mdns_test(
             MdnsQueryType::Passive,
             SocketAddr::new(*TEST_MDNS_IPV4, BASE_TEST_PORT + 3),
@@ -608,6 +611,7 @@ pub(crate) mod tests {
     #[ignore]
     #[test]
     fn test_oneshot_join_mdns() {
+        subscribe();
         passive_mdns_test(
             MdnsQueryType::OneShotJoin,
             SocketAddr::new(*TEST_MDNS_IPV4, BASE_TEST_PORT + 4),

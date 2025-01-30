@@ -52,6 +52,7 @@ fn test_example_toml_startup() {
 
 #[test]
 fn test_ipv4_only_toml_startup() {
+    subscribe();
     let provider = TokioRuntimeProvider::new();
     named_test_harness("ipv4_only.toml", |socket_ports| {
         let mut io_loop = Runtime::new().unwrap();
@@ -111,6 +112,7 @@ fn test_ipv4_only_toml_startup() {
 
 #[test]
 fn test_ipv4_and_ipv6_toml_startup() {
+    subscribe();
     let provider = TokioRuntimeProvider::new();
     named_test_harness("ipv4_and_ipv6.toml", |socket_ports| {
         let mut io_loop = Runtime::new().unwrap();
@@ -138,6 +140,7 @@ fn test_ipv4_and_ipv6_toml_startup() {
 
 #[test]
 fn test_nodata_where_name_exists() {
+    subscribe();
     let provider = TokioRuntimeProvider::new();
     named_test_harness("example.toml", |socket_ports| {
         let io_loop = Runtime::new().unwrap();
@@ -162,6 +165,7 @@ fn test_nodata_where_name_exists() {
 
 #[test]
 fn test_nxdomain_where_no_name_exists() {
+    subscribe();
     let provider = TokioRuntimeProvider::new();
     named_test_harness("example.toml", |socket_ports| {
         let io_loop = Runtime::new().unwrap();
@@ -186,6 +190,7 @@ fn test_nxdomain_where_no_name_exists() {
 
 #[test]
 fn test_server_continues_on_bad_data_udp() {
+    subscribe();
     let provider = TokioRuntimeProvider::new();
     named_test_harness("example.toml", |socket_ports| {
         let mut io_loop = Runtime::new().unwrap();
@@ -221,6 +226,7 @@ fn test_server_continues_on_bad_data_udp() {
 
 #[test]
 fn test_server_continues_on_bad_data_tcp() {
+    subscribe();
     let provider = TokioRuntimeProvider::new();
     named_test_harness("example.toml", |socket_ports| {
         let mut io_loop = Runtime::new().unwrap();
@@ -308,6 +314,7 @@ fn test_forward() {
 
 #[test]
 fn test_allow_networks_toml_startup() {
+    subscribe();
     let provider = TokioRuntimeProvider::new();
     named_test_harness("example_allow_networks.toml", |socket_ports| {
         let mut io_loop = Runtime::new().unwrap();
@@ -335,6 +342,7 @@ fn test_allow_networks_toml_startup() {
 
 #[test]
 fn test_deny_networks_toml_startup() {
+    subscribe();
     let provider = TokioRuntimeProvider::new();
     named_test_harness("example_deny_networks.toml", |socket_ports| {
         let mut io_loop = Runtime::new().unwrap();
@@ -362,6 +370,7 @@ fn test_deny_networks_toml_startup() {
 
 #[test]
 fn test_deny_allow_networks_toml_startup() {
+    subscribe();
     let provider = TokioRuntimeProvider::new();
     named_test_harness("example_deny_allow_networks.toml", |socket_ports| {
         let mut io_loop = Runtime::new().unwrap();

@@ -10,9 +10,12 @@ use hickory_server::{
     authority::{Authority, LookupObject},
     store::forwarder::ForwardAuthority,
 };
+use test_support::subscribe;
 
 #[test]
 fn test_lookup() {
+    subscribe();
+
     let runtime = Runtime::new().expect("failed to create Tokio Runtime");
     let forwarder = ForwardAuthority::new(TokioConnectionProvider::default())
         .expect("failed to create forwarder");

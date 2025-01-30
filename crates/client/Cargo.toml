@@ -70,6 +70,7 @@ radix_trie.workspace = true
 rand.workspace = true
 rustls = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
+test-support.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, features = ["rt", "net"] }

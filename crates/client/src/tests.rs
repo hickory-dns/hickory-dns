@@ -5,9 +5,13 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use test_support::subscribe;
+
 // Keep this in sync with the example in the README.
 #[tokio::test]
 async fn readme_example() {
+    subscribe();
+
     use std::net::SocketAddr;
     use std::str::FromStr;
 

@@ -439,6 +439,7 @@ mod test {
     use futures_util::future;
     use futures_util::stream::TryStreamExt;
     use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+    use test_support::subscribe;
 
     struct MockClientStream {
         messages: Vec<Message>,
@@ -655,6 +656,7 @@ mod test {
 
     #[tokio::test]
     async fn test_multiplexer_a() {
+        subscribe();
         let (query, answer) = a_query_answer();
         let mut multiplexer = get_mocked_multiplexer(answer).await;
         let response = multiplexer.send_message(query);
@@ -670,6 +672,7 @@ mod test {
 
     #[tokio::test]
     async fn test_multiplexer_axfr() {
+        subscribe();
         let (query, answer) = axfr_query_answer();
         let mut multiplexer = get_mocked_multiplexer(answer).await;
         let response = multiplexer.send_message(query);
@@ -686,6 +689,7 @@ mod test {
 
     #[tokio::test]
     async fn test_multiplexer_axfr_multi() {
+        subscribe();
         let (query, answer) = axfr_query_answer_multi();
         let mut multiplexer = get_mocked_multiplexer(answer).await;
         let response = multiplexer.send_message(query);

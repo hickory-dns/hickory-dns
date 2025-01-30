@@ -1,7 +1,12 @@
+#[cfg(feature = "tokio-runtime")]
+use test_support::subscribe;
+
 // Keep this in sync with the example in the README.
 #[cfg(feature = "tokio-runtime")]
 #[tokio::test]
 async fn readme_example() {
+    subscribe();
+
     use crate::config::*;
     use crate::name_server::TokioConnectionProvider;
     use crate::Resolver;

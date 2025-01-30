@@ -17,6 +17,7 @@ use hickory_proto::dnssec::{Algorithm, DnssecDnsHandle, TrustAnchor};
 use hickory_proto::runtime::{RuntimeProvider, TokioRuntimeProvider, TokioTime};
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer, Protocol};
+use test_support::subscribe;
 
 #[cfg(feature = "dnssec-ring")]
 fn confg_toml() -> &'static str {
@@ -84,6 +85,7 @@ fn generic_test(config_toml: &str, key_path: &str, algorithm: Algorithm) {
 #[test]
 #[cfg(feature = "dnssec-ring")]
 fn test_rsa_sha256_pkcs8() {
+    subscribe();
     generic_test(
         confg_toml(),
         "tests/test-data/test_configs/dnssec/rsa_2048.pk8",
@@ -94,6 +96,7 @@ fn test_rsa_sha256_pkcs8() {
 #[test]
 #[cfg(feature = "dnssec-ring")]
 fn test_rsa_sha512_pkcs8() {
+    subscribe();
     generic_test(
         confg_toml(),
         "tests/test-data/test_configs/dnssec/rsa_2048.pk8",
@@ -104,6 +107,7 @@ fn test_rsa_sha512_pkcs8() {
 #[test]
 #[cfg(feature = "dnssec-ring")]
 fn test_ecdsa_p256_pkcs8() {
+    subscribe();
     generic_test(
         confg_toml(),
         "tests/test-data/test_configs/dnssec/ecdsa_p256.pk8",
@@ -114,6 +118,7 @@ fn test_ecdsa_p256_pkcs8() {
 #[test]
 #[cfg(feature = "dnssec-ring")]
 fn test_ecdsa_p384_pkcs8() {
+    subscribe();
     generic_test(
         confg_toml(),
         "tests/test-data/test_configs/dnssec/ecdsa_p384.pk8",
@@ -124,6 +129,7 @@ fn test_ecdsa_p384_pkcs8() {
 #[test]
 #[cfg(feature = "dnssec-ring")]
 fn test_ed25519() {
+    subscribe();
     generic_test(
         confg_toml(),
         "tests/test-data/test_configs/dnssec/ed25519.pk8",
@@ -135,6 +141,7 @@ fn test_ed25519() {
 #[should_panic]
 #[allow(deprecated)]
 fn test_rsa_sha1_fails() {
+    subscribe();
     generic_test(
         confg_toml(),
         "tests/test-data/test_configs/dnssec/rsa_2048.pem",
@@ -146,6 +153,8 @@ fn test_rsa_sha1_fails() {
 #[cfg(feature = "sqlite")]
 #[test]
 fn test_dnssec_restart_with_update_journal() {
+    subscribe();
+
     // TODO: make journal path configurable, it should be in target/tests/...
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     let server_path = Path::new(&server_path);

@@ -615,11 +615,17 @@ const RECOMMENDED_SERVER_FILTERS: [IpNet; 22] = [
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::time::Instant;
+
+    use hickory_proto::op::Query;
+    use hickory_resolver::config::NameServerConfigGroup;
+    use test_support::subscribe;
+
+    use crate::{proto::rr::RecordType, resolver::Name, Error, Recursor};
 
     #[tokio::test]
     async fn not_fully_qualified_domain_name_in_query() -> Result<(), Error> {
-        use crate::{proto::rr::RecordType, resolver::Name};
+        subscribe();
 
         let recursor = Recursor::builder().build(NameServerConfigGroup::cloudflare())?;
         let name = Name::from_ascii("example.com")?;

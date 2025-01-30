@@ -18,20 +18,24 @@ use hickory_server::authority::{Authority, Catalog};
 
 use hickory_integration::example_authority::create_secure_example;
 use hickory_integration::{TestClientStream, GOOGLE_V4};
+use test_support::subscribe;
 
 #[tokio::test]
 async fn test_secure_query_example_nonet() {
+    subscribe();
     with_nonet(test_secure_query_example).await;
 }
 
 #[tokio::test]
 #[ignore = "flaky test against internet server"]
 async fn test_secure_query_example_udp() {
+    subscribe();
     with_udp(test_secure_query_example).await;
 }
 
 #[tokio::test]
 async fn test_secure_query_example_tcp() {
+    subscribe();
     with_tcp(test_secure_query_example).await;
 }
 
@@ -60,18 +64,21 @@ where
 
 #[tokio::test]
 async fn test_nsec_query_example_nonet() {
+    subscribe();
     with_nonet(test_nsec_query_example).await;
 }
 
 #[tokio::test]
 #[ignore = "flaky test against internet server"]
 async fn test_nsec_query_example_udp() {
+    subscribe();
     with_udp(test_nsec_query_example).await;
 }
 
 #[tokio::test]
 #[ignore = "flaky test against internet server"]
 async fn test_nsec_query_example_tcp() {
+    subscribe();
     with_tcp(test_nsec_query_example).await;
 }
 
@@ -97,12 +104,14 @@ where
 #[tokio::test]
 #[ignore = "flaky test against internet server"]
 async fn test_nsec_query_type_udp() {
+    subscribe();
     with_udp(test_nsec_query_type).await;
 }
 
 #[tokio::test]
 #[ignore = "flaky test against internet server"]
 async fn test_nsec_query_type_tcp() {
+    subscribe();
     with_tcp(test_nsec_query_type).await;
 }
 

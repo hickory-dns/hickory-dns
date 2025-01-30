@@ -2,14 +2,10 @@
 
 use std::sync::Arc;
 
-fn main() {
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap()
-        .block_on(async {
-            tokio_main().await;
-        });
+#[tokio::main]
+async fn main() {
+    tracing_subscriber::fmt::init();
+    tokio_main().await;
 }
 
 async fn tokio_main() {
@@ -93,7 +89,8 @@ async fn resolve_list<P: hickory_resolver::name_server::ConnectionProvider>(
     start_time.elapsed()
 }
 
-#[test]
-fn test_flush_cache() {
-    main()
+#[tokio::test]
+async fn test_flush_cache() {
+    test_support::subscribe();
+    tokio_main().await;
 }

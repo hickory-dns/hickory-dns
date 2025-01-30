@@ -14,10 +14,12 @@ use futures::TryStreamExt;
 use time::Duration;
 
 use hickory_client::client::{Client, ClientHandle};
-use hickory_client::proto::rr::{Name, RData, Record, RecordType};
+use hickory_client::proto::rr::{rdata::A, Name, RData, Record, RecordType};
+use hickory_client::proto::runtime::TokioRuntimeProvider;
 use hickory_client::proto::tcp::TcpClientStream;
 use hickory_client::proto::xfer::DnsMultiplexer;
 use hickory_compatibility::named_process;
+use test_support::subscribe;
 
 #[allow(unused)]
 macro_rules! assert_serial {
@@ -33,7 +35,7 @@ macro_rules! assert_serial {
 
 #[tokio::test]
 async fn test_zone_transfer() {
-    use hickory_client::proto::{rr::rdata::A, runtime::TokioRuntimeProvider};
+    subscribe();
 
     let (_process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);

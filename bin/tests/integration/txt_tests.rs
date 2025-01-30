@@ -9,11 +9,14 @@ use hickory_server::authority::{Authority, LookupOptions, ZoneType};
 #[cfg(feature = "dnssec-ring")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryAuthority;
+use test_support::subscribe;
 
 // TODO: split this test up to test each thing separately
 #[test]
 #[allow(clippy::cognitive_complexity)]
 fn test_zone() {
+    subscribe();
+
     const ZONE: &str = r#"
 @   IN  SOA     venera      action\.domains (
                             20     ; SERIAL
@@ -420,6 +423,8 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 #[test]
 #[allow(clippy::cognitive_complexity)]
 fn test_bad_cname_at_soa() {
+    subscribe();
+
     const ZONE: &str = r"
 @   IN  SOA     venera      action\.domains (
                             20     ; SERIAL
@@ -453,6 +458,8 @@ a       A       127.0.0.1
 
 #[test]
 fn test_bad_cname_at_a() {
+    subscribe();
+
     const ZONE: &str = r"
 @   IN  SOA     venera      action\.domains (
                             20     ; SERIAL
@@ -487,6 +494,8 @@ b       A       127.0.0.2
 
 #[test]
 fn test_aname_at_soa() {
+    subscribe();
+
     const ZONE: &str = r"
 @   IN  SOA     venera      action\.domains (
                             20     ; SERIAL
@@ -520,6 +529,8 @@ a       A       127.0.0.1
 
 #[test]
 fn test_named_root() {
+    subscribe();
+
     const ZONE: &str = r"
 .                        3600000      NS    A.ROOT-SERVERS.NET.
 ";
