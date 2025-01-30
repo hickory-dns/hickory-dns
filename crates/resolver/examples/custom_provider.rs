@@ -89,6 +89,12 @@ async fn lookup_test<R: ConnectionProvider>(resolver: Resolver<R>) {
 #[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt::init();
+    run().await;
+}
+
+#[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
+async fn run() {
     let resolver = Resolver::new(
         ResolverConfig::google(),
         ResolverOpts::default(),
@@ -114,7 +120,9 @@ fn main() {
     println!("either `webpki-roots` or `rustls-platform-verifier` feature must be enabled")
 }
 
-#[test]
-fn test_custom_provider() {
-    main()
+#[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
+#[tokio::test]
+async fn test_custom_provider() {
+    test_support::subscribe();
+    run().await;
 }

@@ -17,6 +17,7 @@ use rustls::{
     },
     ClientConfig, KeyLogFile,
 };
+use test_support::subscribe;
 
 use crate::{
     op::{Message, Query},
@@ -51,6 +52,8 @@ async fn server_responder(mut server: QuicServer) {
 
 #[tokio::test]
 async fn test_quic_stream() {
+    subscribe();
+
     let dns_name = "ns.example.com";
 
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());

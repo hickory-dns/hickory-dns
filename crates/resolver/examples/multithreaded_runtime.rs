@@ -4,9 +4,12 @@
 //! you might integrate the resolver into a more complex application.
 
 fn main() {
-    use tokio::runtime::Runtime;
-
     tracing_subscriber::fmt::init();
+    run();
+}
+
+fn run() {
+    use tokio::runtime::Runtime;
 
     // Set up the standard tokio runtime (multithreaded by default).
     let runtime = Runtime::new().expect("Failed to create runtime");
@@ -60,5 +63,6 @@ fn main() {
 
 #[test]
 fn test_multithreaded_runtime() {
-    main()
+    test_support::subscribe();
+    run()
 }

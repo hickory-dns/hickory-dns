@@ -57,6 +57,7 @@ async fn test_query_nonet() {
 
 #[tokio::test]
 async fn test_query_udp_ipv4() {
+    subscribe();
     let stream = UdpClientStream::builder(GOOGLE_V4, TokioRuntimeProvider::new()).build();
     let client = Client::connect(stream);
     let (mut client, bg) = client.await.expect("client failed to connect");
@@ -71,6 +72,7 @@ async fn test_query_udp_ipv4() {
 #[tokio::test]
 #[ignore]
 async fn test_query_udp_ipv6() {
+    subscribe();
     let stream = UdpClientStream::builder(GOOGLE_V6, TokioRuntimeProvider::new()).build();
     let client = Client::connect(stream);
     let (mut client, bg) = client.await.expect("client failed to connect");
@@ -84,6 +86,7 @@ async fn test_query_udp_ipv6() {
 
 #[tokio::test]
 async fn test_query_tcp_ipv4() {
+    subscribe();
     let (stream, sender) = TcpClientStream::new(GOOGLE_V4, None, None, TokioRuntimeProvider::new());
     let client = Client::new(stream, sender, None);
     let (mut client, bg) = client.await.expect("client failed to connect");
@@ -97,6 +100,7 @@ async fn test_query_tcp_ipv4() {
 #[tokio::test]
 #[ignore]
 async fn test_query_tcp_ipv6() {
+    subscribe();
     let (stream, sender) = TcpClientStream::new(GOOGLE_V6, None, None, TokioRuntimeProvider::new());
     let client = Client::new(stream, sender, None);
     let (mut client, bg) = client.await.expect("client failed to connect");
@@ -115,6 +119,8 @@ async fn test_query_https() {
     use rustls::{ClientConfig, RootCertStore};
 
     const ALPN_H2: &[u8] = b"h2";
+
+    subscribe();
 
     // using the mozilla default root store
     let mut root_store = RootCertStore::empty();
@@ -219,6 +225,7 @@ fn test_query_edns(client: &mut Client) -> impl Future<Output = ()> {
 
 #[tokio::test]
 async fn test_notify() {
+    subscribe();
     let authority = create_example();
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
@@ -297,6 +304,7 @@ async fn create_sig0_ready_client() -> (
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[tokio::test]
 async fn test_create() {
+    subscribe();
     let ((mut client, bg), origin) = create_sig0_ready_client().await;
     tokio::spawn(bg);
 
@@ -343,6 +351,7 @@ async fn test_create() {
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[tokio::test]
 async fn test_create_multi() {
+    subscribe();
     let ((mut client, bg), origin) = create_sig0_ready_client().await;
     tokio::spawn(bg);
 
@@ -399,6 +408,7 @@ async fn test_create_multi() {
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[tokio::test]
 async fn test_append() {
+    subscribe();
     let ((mut client, bg), origin) = create_sig0_ready_client().await;
     tokio::spawn(bg);
 
@@ -483,6 +493,7 @@ async fn test_append() {
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[tokio::test]
 async fn test_append_multi() {
+    subscribe();
     let ((mut client, bg), origin) = create_sig0_ready_client().await;
     tokio::spawn(bg);
 
@@ -574,6 +585,7 @@ async fn test_append_multi() {
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[tokio::test]
 async fn test_compare_and_swap() {
+    subscribe();
     let ((mut client, bg), origin) = create_sig0_ready_client().await;
     tokio::spawn(bg);
 
@@ -634,6 +646,7 @@ async fn test_compare_and_swap() {
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[tokio::test]
 async fn test_compare_and_swap_multi() {
+    subscribe();
     let ((mut client, bg), origin) = create_sig0_ready_client().await;
     tokio::spawn(bg);
 
@@ -704,6 +717,7 @@ async fn test_compare_and_swap_multi() {
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[tokio::test]
 async fn test_delete_by_rdata() {
+    subscribe();
     let ((mut client, bg), origin) = create_sig0_ready_client().await;
     tokio::spawn(bg);
 
@@ -759,6 +773,7 @@ async fn test_delete_by_rdata() {
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[tokio::test]
 async fn test_delete_by_rdata_multi() {
+    subscribe();
     let ((mut client, bg), origin) = create_sig0_ready_client().await;
     tokio::spawn(bg);
 
@@ -840,6 +855,7 @@ async fn test_delete_by_rdata_multi() {
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 #[tokio::test]
 async fn test_delete_rrset() {
+    subscribe();
     let ((mut client, bg), origin) = create_sig0_ready_client().await;
     tokio::spawn(bg);
 
@@ -894,6 +910,8 @@ async fn test_delete_rrset() {
 #[tokio::test]
 async fn test_delete_all() {
     use hickory_proto::rr::rdata::AAAA;
+
+    subscribe();
 
     let ((mut client, bg), origin) = create_sig0_ready_client().await;
     tokio::spawn(bg);

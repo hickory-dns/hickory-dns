@@ -49,6 +49,8 @@ pub(crate) fn new_h3_stream_with_future(
     any(feature = "rustls-platform-verifier", feature = "webpki-roots")
 ))]
 mod tests {
+    use test_support::subscribe;
+
     use crate::config::{ResolverConfig, ResolverOpts};
     use crate::name_server::TokioConnectionProvider;
     use crate::TokioResolver;
@@ -78,6 +80,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_google_h3() {
+        subscribe();
         h3_test(ResolverConfig::google_h3()).await
     }
 }

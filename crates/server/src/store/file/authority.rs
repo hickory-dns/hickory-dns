@@ -284,12 +284,15 @@ mod tests {
 
     use crate::proto::rr::{rdata::A, RData};
     use futures_executor::block_on;
+    use test_support::subscribe;
 
     use super::*;
     use crate::authority::ZoneType;
 
     #[test]
     fn test_load_zone() {
+        subscribe();
+
         #[cfg(feature = "dnssec-ring")]
         let config = FileConfig {
             zone_file_path: PathBuf::from(

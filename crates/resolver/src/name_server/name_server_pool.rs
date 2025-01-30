@@ -383,6 +383,7 @@ mod tests {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
     use std::str::FromStr;
 
+    use test_support::subscribe;
     use tokio::runtime::Runtime;
 
     use super::*;
@@ -399,6 +400,8 @@ mod tests {
     #[test]
     #[allow(clippy::uninlined_format_args)]
     fn test_failed_then_success_pool() {
+        subscribe();
+
         let config1 = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 252)), 253),
             protocol: Protocol::Udp,
@@ -466,6 +469,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_multi_use_conns() {
+        subscribe();
+
         let conn_provider = TokioConnectionProvider::default();
 
         let tcp = NameServerConfig {

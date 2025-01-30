@@ -21,13 +21,13 @@ use hickory_client::client::{Client, ClientHandle};
 use hickory_client::proto::dnssec::rdata::tsig::TsigAlgorithm;
 use hickory_client::proto::dnssec::tsig::TSigner;
 use hickory_client::proto::op::{MessageFinalizer, ResponseCode};
-use hickory_client::proto::rr::Name;
-use hickory_client::proto::rr::{RData, Record};
+use hickory_client::proto::rr::{rdata::A, Name, RData, Record};
 use hickory_client::proto::runtime::TokioRuntimeProvider;
 use hickory_client::proto::tcp::TcpClientStream;
 use hickory_client::proto::udp::UdpClientStream;
 use hickory_client::proto::xfer::DnsMultiplexer;
 use hickory_compatibility::named_process;
+use test_support::subscribe;
 
 fn signer() -> Arc<dyn MessageFinalizer> {
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
@@ -46,7 +46,7 @@ fn signer() -> Arc<dyn MessageFinalizer> {
 
 #[tokio::test]
 async fn test_create() {
-    use hickory_client::proto::rr::rdata::A;
+    subscribe();
 
     let (_process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
@@ -98,7 +98,7 @@ async fn test_create() {
 
 #[tokio::test]
 async fn test_tsig_zone_transfer() {
-    use hickory_client::proto::runtime::TokioRuntimeProvider;
+    subscribe();
 
     let (_process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);

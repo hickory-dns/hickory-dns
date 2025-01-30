@@ -108,6 +108,11 @@ pub async fn resolve<N: IntoName + Display + 'static>(
 }
 
 fn main() {
+    tracing_subscriber::fmt::init();
+    run();
+}
+
+fn run() {
     use std::thread;
 
     // Let's resolve some names, we should be able to do it across threads
@@ -138,5 +143,6 @@ fn main() {
 
 #[test]
 fn test_global_resolver() {
-    main()
+    test_support::subscribe();
+    run()
 }

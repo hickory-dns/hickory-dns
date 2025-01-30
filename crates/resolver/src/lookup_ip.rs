@@ -442,6 +442,7 @@ pub(crate) mod tests {
     use futures_executor::block_on;
     use futures_util::future;
     use futures_util::stream::{once, Stream};
+    use test_support::subscribe;
 
     use crate::proto::op::Message;
     use crate::proto::rr::{Name, RData, Record};
@@ -509,6 +510,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_ipv4_only_strategy() {
+        subscribe();
         assert_eq!(
             block_on(ipv4_only(
                 Name::root(),
@@ -526,6 +528,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_ipv6_only_strategy() {
+        subscribe();
         assert_eq!(
             block_on(ipv6_only(
                 Name::root(),
@@ -543,6 +546,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_ipv4_and_ipv6_strategy() {
+        subscribe();
         // ipv6 is consistently queried first (even though the select has it second)
         // both succeed
         assert_eq!(
@@ -625,6 +629,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_ipv6_then_ipv4_strategy() {
+        subscribe();
         // ipv6 first
         assert_eq!(
             block_on(ipv6_then_ipv4(
@@ -673,6 +678,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_ipv4_then_ipv6_strategy() {
+        subscribe();
         // ipv6 first
         assert_eq!(
             block_on(ipv4_then_ipv6(

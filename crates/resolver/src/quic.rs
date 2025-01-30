@@ -51,6 +51,8 @@ mod tests {
 
     use hickory_proto::rustls::client_config;
 
+    use test_support::subscribe;
+
     use crate::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts};
     use crate::name_server::TokioConnectionProvider;
     use crate::TokioResolver;
@@ -84,6 +86,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_adguard_quic() {
+        subscribe();
+
         // AdGuard requires SNI.
         let config = client_config();
 

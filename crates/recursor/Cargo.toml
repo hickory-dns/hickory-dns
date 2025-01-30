@@ -89,6 +89,7 @@ lru-cache.workspace = true
 parking_lot.workspace = true
 prefix-trie.workspace = true
 serde = { workspace = true, features = ["derive"], optional = true }
+test-support.workspace=true
 thiserror.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, features = ["net"] }

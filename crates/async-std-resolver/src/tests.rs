@@ -153,5 +153,6 @@ async fn test_search_ipv6_large_ndots() {
 
 #[async_std::test]
 async fn test_search_ipv6_name_parse_fails() {
+    subscribe();
     search_ipv6_name_parse_fails_test(AsyncStdConnectionProvider::new()).await;
 }

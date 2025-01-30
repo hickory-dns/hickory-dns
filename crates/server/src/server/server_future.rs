@@ -1093,11 +1093,14 @@ mod tests {
     #[cfg(feature = "dns-over-rustls")]
     use rustls::pki_types::{CertificateDer, PrivateKeyDer};
     use std::net::SocketAddr;
+    use test_support::subscribe;
     use tokio::net::{TcpListener, UdpSocket};
     use tokio::time::timeout;
 
     #[tokio::test]
     async fn abort() {
+        subscribe();
+
         let endpoints = Endpoints::new().await;
 
         let endpoints2 = endpoints.clone();
@@ -1115,6 +1118,7 @@ mod tests {
 
     #[tokio::test]
     async fn graceful_shutdown() {
+        subscribe();
         let mut server_future = ServerFuture::new(Catalog::new());
         let endpoints = Endpoints::new().await;
         endpoints.register(&mut server_future).await;

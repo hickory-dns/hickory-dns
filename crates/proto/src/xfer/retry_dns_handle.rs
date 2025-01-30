@@ -148,6 +148,7 @@ mod test {
         atomic::{AtomicU16, Ordering},
         Arc,
     };
+    use test_support::subscribe;
     use DnsHandle;
 
     #[derive(Clone)]
@@ -176,6 +177,7 @@ mod test {
 
     #[test]
     fn test_retry() {
+        subscribe();
         let handle = RetryDnsHandle::new(
             TestClient {
                 last_succeed: true,
@@ -191,6 +193,7 @@ mod test {
 
     #[test]
     fn test_error() {
+        subscribe();
         let client = RetryDnsHandle::new(
             TestClient {
                 last_succeed: false,

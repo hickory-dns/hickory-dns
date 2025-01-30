@@ -15,6 +15,7 @@ use hickory_server::{
 };
 
 use hickory_integration::{example_authority::create_example, *};
+use test_support::subscribe;
 
 #[allow(clippy::unreadable_literal)]
 pub fn create_test() -> InMemoryAuthority {
@@ -112,6 +113,8 @@ pub fn create_test() -> InMemoryAuthority {
 
 #[tokio::test]
 async fn test_catalog_lookup() {
+    subscribe();
+
     let example = create_example();
     let test = create_test();
     let origin = example.origin().clone();
@@ -189,6 +192,8 @@ async fn test_catalog_lookup() {
 
 #[tokio::test]
 async fn test_catalog_lookup_soa() {
+    subscribe();
+
     let example = create_example();
     let test = create_test();
     let origin = example.origin().clone();
@@ -258,6 +263,8 @@ async fn test_catalog_lookup_soa() {
 #[tokio::test]
 #[allow(clippy::unreadable_literal)]
 async fn test_catalog_nx_soa() {
+    subscribe();
+
     let example = create_example();
     let origin = example.origin().clone();
 
@@ -306,6 +313,8 @@ async fn test_catalog_nx_soa() {
 
 #[tokio::test]
 async fn test_non_authoritive_nx_refused() {
+    subscribe();
+
     let example = create_example();
     let origin = example.origin().clone();
 
@@ -343,6 +352,8 @@ async fn test_non_authoritive_nx_refused() {
 #[tokio::test]
 #[allow(clippy::unreadable_literal)]
 async fn test_axfr() {
+    subscribe();
+
     let mut test = create_test();
     test.set_allow_axfr(true);
 
@@ -474,6 +485,8 @@ async fn test_axfr() {
 
 #[tokio::test]
 async fn test_axfr_refused() {
+    subscribe();
+
     let mut test = create_test();
     test.set_allow_axfr(false);
 
@@ -515,6 +528,8 @@ async fn test_axfr_refused() {
 // TODO: these should be moved to the battery tests
 #[tokio::test]
 async fn test_cname_additionals() {
+    subscribe();
+
     let example = create_example();
     let origin = example.origin().clone();
 
@@ -562,6 +577,8 @@ async fn test_cname_additionals() {
 
 #[tokio::test]
 async fn test_multiple_cname_additionals() {
+    subscribe();
+
     let example = create_example();
     let origin = example.origin().clone();
 

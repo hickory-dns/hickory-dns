@@ -10,6 +10,7 @@ use hickory_proto::{
     xfer::{DnsRequest, DnsResponse, FirstAnswer},
     DnsHandle, ProtoError, RetryDnsHandle,
 };
+use test_support::subscribe;
 
 #[derive(Clone)]
 struct TestClient {
@@ -40,6 +41,7 @@ impl DnsHandle for TestClient {
 // The RetryDnsHandle should retry the same nameserver on IO errors, e.g. timeouts.
 #[test]
 fn retry_on_retryable_error() {
+    subscribe();
     let handle = RetryDnsHandle::new(
         TestClient {
             retries: 1,
@@ -57,6 +59,7 @@ fn retry_on_retryable_error() {
 // `NODATA`.
 #[test]
 fn dont_retry_on_negative_response() {
+    subscribe();
     let mut response = Message::new();
     response
         .set_message_type(MessageType::Response)

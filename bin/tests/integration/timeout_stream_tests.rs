@@ -4,12 +4,15 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 
 use futures_util::stream::{iter, Stream, StreamExt, TryStreamExt};
+use test_support::subscribe;
 use tokio::runtime::Runtime;
 
 use hickory_server::server::TimeoutStream;
 
 #[test]
 fn test_no_timeout() {
+    subscribe();
+
     #[allow(deprecated)]
     let sequence =
         iter(vec![Ok(1), Err("error"), Ok(2)]).map_err(|e| io::Error::new(io::ErrorKind::Other, e));
@@ -43,6 +46,8 @@ impl Stream for NeverStream {
 
 #[test]
 fn test_timeout() {
+    subscribe();
+
     let core = Runtime::new().expect("could not get core");
     let timeout_stream = TimeoutStream::new(NeverStream {}, Duration::from_millis(1));
 

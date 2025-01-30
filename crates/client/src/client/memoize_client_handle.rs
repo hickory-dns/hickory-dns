@@ -105,6 +105,7 @@ mod test {
         xfer::{DnsHandle, DnsRequest, DnsResponse},
         ProtoError,
     };
+    use test_support::subscribe;
 
     use crate::client::*;
     use hickory_proto::xfer::FirstAnswer;
@@ -145,6 +146,8 @@ mod test {
     #[test]
     fn test_memoized() {
         use futures::executor::block_on;
+
+        subscribe();
 
         let client = MemoizeClientHandle::new(TestClient {
             i: Arc::new(Mutex::new(0)),

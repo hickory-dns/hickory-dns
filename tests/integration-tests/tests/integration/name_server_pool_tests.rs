@@ -17,6 +17,7 @@ use hickory_proto::xfer::{DnsHandle, DnsResponse, FirstAnswer, Protocol};
 use hickory_proto::{ProtoError, ProtoErrorKind};
 use hickory_resolver::config::{NameServerConfig, ResolverOpts, ServerOrderingStrategy};
 use hickory_resolver::name_server::{NameServer, NameServerPool};
+use test_support::subscribe;
 
 const DEFAULT_SERVER_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
 
@@ -115,6 +116,8 @@ fn mock_nameserver_pool_on_send<O: OnSend + Unpin>(
 
 #[test]
 fn test_datagram() {
+    subscribe();
+
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
     let udp_record = v4_record(query.name().clone(), Ipv4Addr::LOCALHOST);
@@ -150,6 +153,8 @@ fn test_datagram() {
 fn test_datagram_stream_upgrades_on_truncation() {
     // Lookup to UDP should return a truncated message, then we expect lookup on TCP.
     // This should occur even though `try_tcp_on_error` is set to false.
+
+    subscribe();
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
@@ -188,6 +193,8 @@ fn test_datagram_stream_upgrades_on_truncation() {
 fn test_datagram_stream_upgrade_on_truncation_despite_udp() {
     // Lookup to UDP should return a truncated message, then we expect lookup on TCP.
     // This should occur even though `try_tcp_on_error` is set to false.
+
+    subscribe();
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
@@ -234,6 +241,8 @@ fn test_datagram_fails_to_stream() {
     // Lookup to UDP should fail, and then the query should be retried on TCP because
     // `try_tcp_on_error` is set to true.
 
+    subscribe();
+
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
     let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
@@ -262,6 +271,8 @@ fn test_datagram_fails_to_stream() {
 fn test_tcp_fallback_only_on_truncated() {
     // Lookup to UDP should fail with an error, and the resolver should not then try the query over
     // TCP, because the default behavior is only to retry if the response was truncated.
+
+    subscribe();
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
@@ -307,6 +318,8 @@ fn test_tcp_fallback_only_on_truncated() {
 fn test_no_tcp_fallback_on_non_io_error() {
     // Lookup to UDP should fail with a non I/O error, and the resolver should not retry
     // the query over TCP when `try_tcp_on_error` is set to true.
+
+    subscribe();
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
@@ -355,6 +368,8 @@ fn test_tcp_fallback_on_io_error() {
     // Lookup to UDP should fail with an I/O error, and the resolver should then try
     // the query over TCP when `try_tcp_on_error` is set to true.
 
+    subscribe();
+
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
     let io_error = std::io::Error::new(std::io::ErrorKind::Other, "Some I/O Error");
@@ -396,6 +411,8 @@ fn test_tcp_fallback_on_no_connections() {
     // Lookup to UDP should fail with a NoConnections error, and the resolver should then try
     // the query over TCP whether `try_tcp_on_error` is set to true or not.
 
+    subscribe();
+
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
     let udp_message: Result<DnsResponse, _> = Err(ProtoError::from(ProtoErrorKind::NoConnections));
@@ -433,6 +450,8 @@ fn test_tcp_fallback_on_no_connections() {
 
 #[test]
 fn test_trust_nx_responses_fails() {
+    subscribe();
+
     let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
 
     // NXDOMAIN responses are only trusted if there's a SOA record, so make sure we return one.
@@ -489,6 +508,8 @@ fn test_trust_nx_responses_fails() {
 
 #[test]
 fn test_noerror_doesnt_leak() {
+    subscribe();
+
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
     let soa_record = soa_record(
@@ -548,6 +569,8 @@ fn test_noerror_doesnt_leak() {
 #[test]
 #[allow(clippy::uninlined_format_args)]
 fn test_distrust_nx_responses() {
+    subscribe();
+
     let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
 
     const RETRYABLE_ERRORS: [ResponseCode; 9] = [
@@ -606,6 +629,8 @@ fn test_distrust_nx_responses() {
 #[test]
 fn test_user_provided_server_order() {
     use hickory_proto::rr::Record;
+
+    subscribe();
 
     let mut options = ResolverOpts::default();
 
@@ -672,6 +697,8 @@ fn test_user_provided_server_order() {
 
 #[test]
 fn test_return_error_from_highest_priority_nameserver() {
+    subscribe();
+
     let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
 
     const ERROR_RESPONSE_CODES: [ResponseCode; 4] = [
@@ -769,6 +796,8 @@ where
 
 #[test]
 fn test_concurrent_requests_2_conns() {
+    subscribe();
+
     let mut options = ResolverOpts::default();
     options.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
 
@@ -813,6 +842,8 @@ fn test_concurrent_requests_2_conns() {
 
 #[test]
 fn test_concurrent_requests_more_than_conns() {
+    subscribe();
+
     let mut options = ResolverOpts::default();
     options.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
 
@@ -857,6 +888,8 @@ fn test_concurrent_requests_more_than_conns() {
 
 #[test]
 fn test_concurrent_requests_1_conn() {
+    subscribe();
+
     let mut options = ResolverOpts::default();
 
     // there are two connections, but no concurrency requested
@@ -900,6 +933,8 @@ fn test_concurrent_requests_1_conn() {
 
 #[test]
 fn test_concurrent_requests_0_conn() {
+    subscribe();
+
     let mut options = ResolverOpts::default();
 
     // there are two connections, but no concurrency requested, 0==1

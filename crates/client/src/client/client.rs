@@ -852,6 +852,7 @@ mod tests {
         },
         runtime::TokioRuntimeProvider,
     };
+    use test_support::subscribe;
     use ClientStreamXfrState::*;
 
     fn soa_record(serial: u32) -> Record {
@@ -887,6 +888,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_stream_xfr_valid_axfr() {
+        subscribe();
         let stream = get_stream_testcase(vec![vec![
             soa_record(3),
             a_record(1),
@@ -905,6 +907,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_stream_xfr_valid_axfr_multipart() {
+        subscribe();
         let stream = get_stream_testcase(vec![
             vec![soa_record(3)],
             vec![a_record(1)],
@@ -931,6 +934,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_stream_xfr_empty_axfr() {
+        subscribe();
         let stream = get_stream_testcase(vec![vec![soa_record(3)], vec![soa_record(3)]]);
         let mut stream = ClientStreamXfr::new(stream, false);
         assert!(matches!(stream.state, Start { .. }));
@@ -948,6 +952,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_stream_xfr_axfr_with_ixfr_reply() {
+        subscribe();
         let stream = get_stream_testcase(vec![vec![
             soa_record(3),
             soa_record(2),
@@ -967,6 +972,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_stream_xfr_axfr_with_non_xfr_reply() {
+        subscribe();
         let stream = get_stream_testcase(vec![
             vec![a_record(1)], // assume this is an error response, not a zone transfer
             vec![a_record(2)],
@@ -983,6 +989,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_stream_xfr_invalid_axfr_multipart() {
+        subscribe();
         let stream = get_stream_testcase(vec![
             vec![soa_record(3)],
             vec![a_record(1)],
@@ -1008,6 +1015,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_stream_xfr_valid_ixfr() {
+        subscribe();
         let stream = get_stream_testcase(vec![vec![
             soa_record(3),
             soa_record(2),
@@ -1028,6 +1036,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_stream_xfr_valid_ixfr_multipart() {
+        subscribe();
         let stream = get_stream_testcase(vec![
             vec![soa_record(3)],
             vec![soa_record(2)],
@@ -1069,6 +1078,7 @@ mod tests {
 
     #[tokio::test]
     async fn async_client() {
+        subscribe();
         use crate::client::{Client, ClientHandle};
         use hickory_proto::{
             rr::{DNSClass, Name, RData, RecordType},

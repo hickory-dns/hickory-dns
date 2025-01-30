@@ -55,6 +55,7 @@ where
 #[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
 #[cfg(test)]
 mod tests {
+    use test_support::subscribe;
 
     use crate::config::{ResolverConfig, ResolverOpts};
     use crate::name_server::TokioConnectionProvider;
@@ -88,11 +89,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_google_https() {
+        subscribe();
         https_test(ResolverConfig::google_https()).await
     }
 
     #[tokio::test]
     async fn test_cloudflare_https() {
+        subscribe();
         https_test(ResolverConfig::cloudflare_https()).await
     }
 }

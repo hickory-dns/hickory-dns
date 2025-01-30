@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use test_support::subscribe;
 use tokio::runtime::Runtime;
 
 use hickory_proto::rr::{rdata::CNAME, Name, RData, Record, RecordType};
@@ -12,6 +13,8 @@ use hickory_server::{
 
 #[test]
 fn test_cname_loop() {
+    subscribe();
+
     let runtime = Runtime::new().expect("failed to create Tokio Runtime");
     let mut auth = InMemoryAuthority::empty(
         Name::from_str("example.com.").unwrap(),

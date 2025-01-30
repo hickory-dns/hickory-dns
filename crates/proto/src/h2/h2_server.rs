@@ -104,6 +104,8 @@ mod tests {
     use std::pin::Pin;
     use std::task::{Context, Poll};
 
+    use test_support::subscribe;
+
     use crate::http::request;
     use crate::op::Message;
 
@@ -126,6 +128,7 @@ mod tests {
 
     #[test]
     fn test_from_post() {
+        subscribe();
         let message = Message::new();
         let msg_bytes = message.to_vec().unwrap();
         let len = msg_bytes.len();

@@ -688,6 +688,8 @@ mod tests {
     #[tokio::test]
     #[allow(clippy::print_stdout)]
     async fn test_h3_client_stream_clonable() {
+        subscribe();
+
         // use google
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
 

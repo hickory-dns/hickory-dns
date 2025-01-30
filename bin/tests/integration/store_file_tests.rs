@@ -8,6 +8,7 @@ use hickory_server::authority::{Authority, LookupOptions, ZoneType};
 #[cfg(feature = "dnssec-ring")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::file::{FileAuthority, FileConfig};
+use test_support::subscribe;
 
 fn file(master_file_path: &Path, _module: &str, _test_name: &str) -> FileAuthority {
     let config = FileConfig {
@@ -32,6 +33,7 @@ dnssec_battery!(file, crate::store_file_tests::file);
 
 #[test]
 fn test_all_lines_are_loaded() {
+    subscribe();
     let config = FileConfig {
         zone_file_path: PathBuf::from("../tests/test-data/test_configs/default/nonewline.zone"),
     };
@@ -55,6 +57,7 @@ fn test_all_lines_are_loaded() {
 
 #[test]
 fn test_implicit_in_class() {
+    subscribe();
     let config = FileConfig {
         zone_file_path: PathBuf::from("../tests/test-data/test_configs/default/implicitclass.zone"),
     };
@@ -73,6 +76,7 @@ fn test_implicit_in_class() {
 
 #[tokio::test]
 async fn test_ttl_wildcard() {
+    subscribe();
     let config = FileConfig {
         zone_file_path: PathBuf::from("../tests/test-data/test_configs/default/test.local.zone"),
     };

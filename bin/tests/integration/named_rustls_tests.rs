@@ -16,6 +16,7 @@ use std::sync::Arc;
 
 use rustls::pki_types::CertificateDer;
 use rustls::{ClientConfig, RootCertStore};
+use test_support::subscribe;
 use tokio::runtime::Runtime;
 
 use crate::server_harness::{named_test_harness, query_a};
@@ -26,6 +27,8 @@ use hickory_proto::xfer::Protocol;
 
 #[test]
 fn test_example_tls_toml_startup() {
+    subscribe();
+
     named_test_harness(
         "dns_over_tls_rustls_and_openssl.toml",
         move |socket_ports| {
