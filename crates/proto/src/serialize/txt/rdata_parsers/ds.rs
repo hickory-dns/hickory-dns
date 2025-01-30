@@ -50,7 +50,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
         "PRIVATEOID" => Algorithm::Unknown(254),
         _ => Algorithm::from_u8(algorithm_str.parse()?),
     };
-    let digest_type = DigestType::try_from(u8::from_str(digest_type_str)?)?;
+    let digest_type = DigestType::from(u8::from_str(digest_type_str)?);
     let digest_str: String = tokens.collect();
     if digest_str.is_empty() {
         return Err(ParseError::from(ParseErrorKind::Message(
