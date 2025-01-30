@@ -79,17 +79,17 @@ pub enum DigestType {
     /// [RFC 6605](https://tools.ietf.org/html/rfc6605)
     #[cfg_attr(feature = "serde", serde(rename = "SHA-384"))]
     SHA384,
+    /// An unknown digest type
+    Unknown(u8),
 }
 
-impl TryFrom<u8> for DigestType {
-    type Error = ProtoError;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
+impl From<u8> for DigestType {
+    fn from(value: u8) -> Self {
         match value {
-            1 => Ok(Self::SHA1),
-            2 => Ok(Self::SHA256),
-            4 => Ok(Self::SHA384),
-            _ => Err(ProtoErrorKind::UnknownAlgorithmTypeValue(value).into()),
+            1 => Self::SHA1,
+            2 => Self::SHA256,
+            4 => Self::SHA384,
+            _ => Self::Unknown(value),
         }
     }
 }
@@ -100,6 +100,7 @@ impl From<DigestType> for u8 {
             DigestType::SHA1 => 1,
             DigestType::SHA256 => 2,
             DigestType::SHA384 => 4,
+            DigestType::Unknown(other) => other,
         }
     }
 }
