@@ -317,3 +317,87 @@ fn bogus_zone_plus_trust_anchor_dnskey() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+#[ignore = "hickory does not detect that this zone is bogus"]
+fn bogus_zone_plus_ds_covered_dnskey() -> Result<()> {
+    let network = Network::new()?;
+    let sign_settings = SignSettings::default();
+
+    let leaf_zone = FQDN::TEST_TLD.push_label("domain");
+
+    let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
+    let mut tld_ns = NameServer::new(&PEER, FQDN::TEST_TLD, &network)?;
+    let mut nameservers_ns = NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?;
+    let victim_leaf_ns = NameServer::new(&PEER, leaf_zone.clone(), &network)?;
+    let mut attacker_leaf_ns = NameServer::new(&PEER, leaf_zone.clone(), &network)?;
+
+    root_ns.referral_nameserver(&tld_ns);
+    tld_ns.referral_nameserver(&nameservers_ns);
+    // Add NS and A records pointing to the attacker's name server. The attacker
+    // could alternately interfere with network traffic without tampering with
+    // these records in the parent zone.
+    tld_ns.referral_nameserver(&attacker_leaf_ns);
+
+    nameservers_ns.add(root_ns.a());
+    nameservers_ns.add(tld_ns.a());
+
+    let nameservers_ns = nameservers_ns.sign(sign_settings.clone())?;
+
+    // The victim signs the leaf zone, and the victim's DS record goes into the parent zone.
+    let victim_signer = Signer::new(victim_leaf_ns.container(), sign_settings.clone())?;
+    let victim_keys = victim_signer.generate_keys(&leaf_zone)?;
+    let victim_leaf_zone = victim_signer.sign_zone(victim_leaf_ns.zone_file(), &victim_keys)?;
+    let victim_ksk_dnskey = victim_keys.ksk.public.clone();
+    // The victim's private keys are not used past this point.
+    drop(victim_keys);
+    drop(victim_leaf_ns);
+
+    // The attacker adds a DNSKEY record copied from the victim to its zone, and
+    // signs the zone with its own keys.
+    attacker_leaf_ns.add(victim_ksk_dnskey.with_ttl(86400));
+    println!("before signing:\n{}", attacker_leaf_ns.zone_file());
+    let attacker_leaf_ns = attacker_leaf_ns.sign(sign_settings.clone())?;
+    println!("after signing:\n{}", attacker_leaf_ns.signed_zone_file());
+
+    tld_ns.add(nameservers_ns.ds().ksk.clone());
+    // Note that the victim's DS record is signed by the TLD zone.
+    tld_ns.add(victim_leaf_zone.ds().ksk.clone());
+
+    let tld_ns = tld_ns.sign(sign_settings.clone())?;
+    root_ns.add(tld_ns.ds().ksk.clone());
+
+    let mut trust_anchor = TrustAnchor::empty();
+    let root_ns = root_ns.sign(sign_settings)?;
+    trust_anchor.add(root_ns.key_signing_key().clone());
+
+    let root_hint = root_ns.root_hint();
+    let _root_ns = root_ns.start()?;
+    let _tld_ns = tld_ns.start()?;
+    let _nameservers_ns = nameservers_ns.start()?;
+    let _leaf_ns = attacker_leaf_ns.start()?;
+
+    let mut resolver = Resolver::new(&network, root_hint);
+    if dns_test::SUBJECT.is_unbound() {
+        resolver.extended_dns_errors();
+    }
+    let resolver = resolver.trust_anchor(&trust_anchor).start()?;
+
+    let client = Client::new(&network)?;
+    let settings = *DigSettings::default().recurse().authentic_data();
+
+    let output = client.dig(settings, resolver.ipv4_addr(), RecordType::SOA, &leaf_zone)?;
+
+    println!("{}", _leaf_ns.logs()?);
+    println!("{}", resolver.logs()?);
+
+    dbg!(&output);
+
+    assert!(output.status.is_servfail());
+
+    if dns_test::SUBJECT.is_unbound() {
+        assert!(output.ede.iter().eq(&[ExtendedDnsError::DnssecBogus]));
+    }
+
+    Ok(())
+}
