@@ -5,7 +5,7 @@ use crate::container::{Child, Container, Network};
 use crate::implementation::{Config, Role};
 use crate::record::{self, Record, SoaSettings, DS, SOA};
 use crate::tshark::Tshark;
-use crate::zone_file::{self, Root, ZoneFile};
+use crate::zone_file::{self, Root, SigningKeys, ZoneFile};
 use crate::zone_file::{SignSettings, Signer};
 use crate::{Implementation, Result, TrustAnchor, DEFAULT_TTL, FQDN};
 
@@ -246,7 +246,35 @@ impl NameServer<Stopped> {
             state: _,
         } = self;
 
-        let state = Signer::new(&container, settings)?.sign_zone(&zone_file)?;
+        let signer = Signer::new(&container, settings)?;
+        let keys = signer.generate_keys(zone_file.origin())?;
+        let state = signer.sign_zone(&zone_file, &keys)?;
+
+        Ok(NameServer {
+            container,
+            implementation,
+            zone_file,
+            state,
+            additional_zones,
+        })
+    }
+
+    /// Freezes and signs the name server's zone file, using the provided keys
+    pub fn sign_with_keys(
+        self,
+        settings: SignSettings,
+        keys: &SigningKeys,
+    ) -> Result<NameServer<Signed>> {
+        let Self {
+            container,
+            zone_file,
+            implementation,
+            additional_zones,
+            state: _,
+        } = self;
+
+        let signer = Signer::new(&container, settings)?;
+        let state = signer.sign_zone(&zone_file, keys)?;
 
         Ok(NameServer {
             container,
@@ -556,6 +584,11 @@ impl Signed {
         trust_anchor.add(self.ksk.clone());
         trust_anchor.add(self.zsk.clone());
         trust_anchor
+    }
+
+    /// Return the DS records for this zone's keys.
+    pub fn ds(&self) -> &DS2 {
+        &self.ds
     }
 }
 

@@ -9,7 +9,7 @@ use std::array;
 use std::net::Ipv4Addr;
 use std::str::FromStr;
 
-use crate::record::{self, DNSKEYRData, Record, RecordType, RRSIG, SOA};
+use crate::record::{self, write_split_long_string, DNSKEYRData, Record, RecordType, RRSIG, SOA};
 use crate::{Error, Result, DEFAULT_TTL, FQDN};
 
 mod signer;
@@ -146,9 +146,12 @@ impl fmt::Display for Root {
     }
 }
 
-// NOTE compared to `record::DNSKEY`, this zone file entry lacks the TTL field
+/// A DNSSEC public key.
+///
+/// NOTE compared to `record::DNSKEY`, this zone file entry lacks the TTL field
 #[allow(clippy::upper_case_acronyms)]
-pub(crate) struct DNSKEY {
+#[derive(Clone)]
+pub struct DNSKEY {
     zone: FQDN,
     rdata: DNSKEYRData,
 }
@@ -200,6 +203,39 @@ impl FromStr for DNSKEY {
             },
         })
     }
+}
+
+impl fmt::Display for DNSKEY {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            zone,
+            rdata:
+                DNSKEYRData {
+                    flags,
+                    protocol,
+                    algorithm,
+                    public_key,
+                },
+        } = self;
+
+        write!(f, "{zone}\tIN\tDNSKEY\t{flags} {protocol} {algorithm}")?;
+
+        write_split_long_string(f, public_key)
+    }
+}
+
+/// A public key and private key.
+#[derive(Clone)]
+pub struct Keypair {
+    pub public: DNSKEY,
+    pub private: String,
+}
+
+/// Key pairs for key signing and zone signing.
+#[derive(Clone)]
+pub struct SigningKeys {
+    pub ksk: Keypair,
+    pub zsk: Keypair,
 }
 
 #[cfg(test)]

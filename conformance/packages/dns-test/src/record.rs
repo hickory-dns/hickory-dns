@@ -1111,7 +1111,7 @@ fn unqualified_type_name<T>() -> &'static str {
     }
 }
 
-fn write_split_long_string(f: &mut fmt::Formatter<'_>, field: &str) -> fmt::Result {
+pub(crate) fn write_split_long_string(f: &mut fmt::Formatter<'_>, field: &str) -> fmt::Result {
     for (index, c) in field.chars().enumerate() {
         if index % 56 == 0 {
             f.write_char(' ')?;

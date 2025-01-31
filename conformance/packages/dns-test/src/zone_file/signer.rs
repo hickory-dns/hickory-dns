@@ -10,8 +10,9 @@ use crate::{
     FQDN,
 };
 
-use super::{ZoneFile, DNSKEY};
+use super::{Keypair, SigningKeys, ZoneFile, DNSKEY};
 
+const KEYS_DIR: &str = "/tmp/keys";
 const ZONES_DIR: &str = "/etc/zones";
 const ZONE_FILENAME: &str = "main.zone";
 
@@ -203,8 +204,16 @@ impl<'a> Signer<'a> {
         })
     }
 
-    /// Signs the [`ZoneFile`], first Generates ZSK & KSK keys, then signs the zone file with the [`SignSettings`].
-    pub fn sign_zone(&self, zone_file: &ZoneFile) -> crate::Result<Signed> {
+    /// Generates ZSK and KSK keys.
+    pub fn generate_keys(&self, zone: &FQDN) -> crate::Result<SigningKeys> {
+        self.container.status_ok(&["mkdir", "-p", KEYS_DIR])?;
+        let zsk = self.gen_zsk_key(zone)?;
+        let ksk = self.gen_ksk_key(zone, zsk.public.rdata.calculate_key_tag())?;
+        Ok(SigningKeys { ksk, zsk })
+    }
+
+    /// Signs the [`ZoneFile`] with the [`SignSettings`].
+    pub fn sign_zone(&self, zone_file: &ZoneFile, keys: &SigningKeys) -> crate::Result<Signed> {
         self.container.status_ok(&["mkdir", "-p", ZONES_DIR])?;
         let zone_file_path = zone_file_path();
         self.container.cp(&zone_file_path, &zone_file.to_string())?;
@@ -213,8 +222,24 @@ impl<'a> Signer<'a> {
         // inherit SOA's TTL value
         let ttl = zone_file.soa.ttl;
 
-        let (zsk, zsk_filename) = self.gen_zsk_key(zone)?;
-        let (ksk, ksk_filename) = self.gen_ksk_key(zone, zsk.rdata.calculate_key_tag())?;
+        let zsk_filename = "zsk".to_owned();
+        let ksk_filename = "ksk".to_owned();
+        self.container.cp(
+            &format!("{ZONES_DIR}/{zsk_filename}.key"),
+            &format!("{}\n", keys.zsk.public),
+        )?;
+        self.container.cp(
+            &format!("{ZONES_DIR}/{zsk_filename}.private"),
+            &format!("{}\n", keys.zsk.private),
+        )?;
+        self.container.cp(
+            &format!("{ZONES_DIR}/{ksk_filename}.key"),
+            &format!("{}\n", keys.ksk.public),
+        )?;
+        self.container.cp(
+            &format!("{ZONES_DIR}/{ksk_filename}.private"),
+            &format!("{}\n", keys.ksk.private),
+        )?;
 
         let signzone_cmd = self.sign_zone_cmd(zone, [zsk_filename, ksk_filename].iter().cloned());
         let signzone = format!("cd {ZONES_DIR} && {}", signzone_cmd);
@@ -229,15 +254,15 @@ impl<'a> Signer<'a> {
             .lines()
             .map(|line| line.parse())
             .collect::<Result<Vec<DS>, _>>()?;
-        let ds = DS2::classify(dses, &zsk, &ksk);
+        let ds = DS2::classify(dses, &keys.zsk.public, &keys.ksk.public);
 
         let signed: ZoneFile = self
             .container
             .stdout(&["cat", &format!("{zone_file_path}.signed")])?
             .parse()?;
 
-        let ksk = ksk.with_ttl(ttl);
-        let zsk = zsk.with_ttl(ttl);
+        let ksk = keys.ksk.public.clone().with_ttl(ttl);
+        let zsk = keys.zsk.public.clone().with_ttl(ttl);
 
         Ok(Signed {
             ds,
@@ -248,19 +273,19 @@ impl<'a> Signer<'a> {
         })
     }
 
-    fn gen_zsk_key(&self, zone: &FQDN) -> crate::Result<(DNSKEY, String)> {
+    fn gen_zsk_key(&self, zone: &FQDN) -> crate::Result<Keypair> {
         self.gen_key(&ldns_keygen_zsk(&self.settings, zone))
     }
 
-    fn gen_ksk_key(&self, zone: &FQDN, zsk_keytag: u16) -> crate::Result<(DNSKEY, String)> {
+    fn gen_ksk_key(&self, zone: &FQDN, zsk_keytag: u16) -> crate::Result<Keypair> {
         // ldns-signzone will not accept a KSK that has either the same
         // keytag as the ZSK, or a keytag one higher than the ZSK.
         // See https://github.com/hickory-dns/hickory-dns/issues/2555
         for _ in 0..100 {
-            let (ksk, output) = self.gen_key(&ldns_keygen_ksk(&self.settings, zone))?;
-            let ksk_keytag = ksk.rdata.calculate_key_tag();
+            let keypair = self.gen_key(&ldns_keygen_ksk(&self.settings, zone))?;
+            let ksk_keytag = keypair.public.rdata.calculate_key_tag();
             if ksk_keytag != zsk_keytag && ksk_keytag != zsk_keytag.wrapping_add(1) {
-                return Ok((ksk, output));
+                return Ok(keypair);
             }
         }
 
@@ -270,13 +295,18 @@ impl<'a> Signer<'a> {
         )
     }
 
-    fn gen_key(&self, command: &str) -> crate::Result<(DNSKEY, String)> {
-        let command = format!("cd {ZONES_DIR} && {command}");
+    fn gen_key(&self, command: &str) -> crate::Result<Keypair> {
+        let command = format!("cd {KEYS_DIR} && {command}");
         let key_filename = self.container.stdout(&["sh", "-c", &command])?;
-        let key_path = format!("{ZONES_DIR}/{key_filename}.key");
-        let signed_key: DNSKEY = self.container.stdout(&["cat", &key_path])?.parse()?;
+        let key_path = format!("{KEYS_DIR}/{key_filename}.key");
+        let public_key: DNSKEY = self.container.stdout(&["cat", &key_path])?.parse()?;
+        let private_path = format!("{KEYS_DIR}/{key_filename}.private");
+        let private_key = self.container.stdout(&["cat", &private_path])?;
 
-        Ok((signed_key, key_filename))
+        Ok(Keypair {
+            public: public_key,
+            private: private_key,
+        })
     }
 
     fn sign_zone_cmd<T>(&self, zone: &FQDN, keys: T) -> String
