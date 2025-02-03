@@ -206,6 +206,13 @@ pub enum ProofErrorKind {
         key_tag: u16,
     },
 
+    /// The DNSKEY is not covered by a DS record
+    #[error("dnskey has no ds: {name}")]
+    DnsKeyHasNoDs {
+        /// The name of the missing DNSKEY
+        name: Name,
+    },
+
     /// No DNSSEC records returned with for the DS record
     #[error("ds has no dnssec proof: {name}")]
     DsHasNoDnssecProof {

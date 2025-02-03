@@ -29,7 +29,7 @@ use crate::{
     },
     error::{ProtoError, ProtoErrorKind},
     op::{Edns, Message, OpCode, Query},
-    rr::{resource::RecordRef, Name, RData, Record, RecordData, RecordType, SerialNumber},
+    rr::{resource::RecordRef, Name, Record, RecordData, RecordType, SerialNumber},
     xfer::{dns_handle::DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer},
 };
 
@@ -351,6 +351,9 @@ where
         return records;
     }
 
+    // Records for return
+    let mut return_records = Vec::with_capacity(records.len());
+
     // collect all the rrsets to verify
     // TODO: is there a way to get rid of this clone() safely?
     for (name, record_type) in rrset_types {
@@ -379,12 +382,12 @@ where
         );
 
         // verify this rrset
-        let proof = verify_rrset(handle.clone_with_context(), rrset, rrsigs, options).await;
+        let proof = verify_rrset(handle.clone_with_context(), &rrset, rrsigs, options).await;
 
-        let (proof, adjusted_ttl) = match proof {
-            Ok((proof, adjusted_ttl)) => {
+        let proofs = match proof {
+            Ok(proofs) => {
                 debug!("verified: {name} record_type: {record_type}",);
-                (proof, adjusted_ttl)
+                proofs
             }
             Err(ProofError { proof, kind }) => {
                 match kind {
@@ -393,35 +396,25 @@ where
                     }
                     _ => debug!("failed to verify: {name} record_type: {record_type}: {kind}"),
                 }
-                (proof, None)
+                let mut proofs = Vec::with_capacity(rrset.records().len());
+                proofs.resize(rrset.records().len(), (proof, None));
+                proofs
             }
         };
 
-        rrset_proofs.insert((name, record_type), (proof, adjusted_ttl));
-    }
-
-    // set the proofs of all the records, all records are returned, it's up to downstream users to check for correctness
-    let mut records = records;
-    for record in &mut records {
-        // the RRSIG used to validate a record inherits the outcome of the validation
-        // for RRSIGs, we need to use their TYPE_COVERED field instead of `RecordType::RRSIG` as the
-        // `RecordType` key in `rrset_proofs`
-        let record_type = if let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = record.data() {
-            rrsig.type_covered()
-        } else {
-            record.record_type()
-        };
-
-        if let Some((proof, adjusted_ttl)) = rrset_proofs.get(&(record.name().clone(), record_type))
-        {
-            record.set_proof(*proof);
+        //rrset_proofs.insert((name, record_type), (proof, adjusted_ttl));
+        for (record, (proof, adjusted_ttl)) in rrset.records().iter().zip(proofs) {
+            let mut record = Record::clone(record);
+            record.set_proof(proof);
             if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
-                record.set_ttl(*ttl);
+                record.set_ttl(ttl);
             }
+
+            return_records.push(record);
         }
     }
 
-    records
+    return_records
 }
 
 // TODO: is this method useful/necessary?
@@ -439,25 +432,27 @@ fn is_dnssec<D: RecordData>(rr: &Record<D>, dnssec_type: RecordType) -> bool {
 ///  this case, it's possible the DNSKEY is a trust_anchor and is not self-signed.
 async fn verify_rrset<H>(
     handle: DnssecDnsHandle<H>,
-    rrset: Rrset<'_>,
+    rrset: &Rrset<'_>,
     rrsigs: Vec<RecordRef<'_, RRSIG>>,
     options: DnsRequestOptions,
-) -> Result<(Proof, Option<u32>), ProofError>
+) -> Result<Vec<(Proof, Option<u32>)>, ProofError>
 where
     H: DnsHandle + Sync + Unpin,
 {
     // wrapper for some of the type conversion for typed DNSKEY fn calls.
 
     if matches!(rrset.record_type(), RecordType::DNSKEY) {
-        let is_trust_anchor =
-            verify_dnskey_rrset(handle.clone_with_context(), &rrset, options).await?;
+        let (is_trust_anchor, proofs) =
+            verify_dnskey_rrset(handle.clone_with_context(), rrset, &rrsigs, options).await?;
 
-        if is_trust_anchor {
-            return Ok((Proof::Secure, None));
-        }
+        eprintln!("++++++++ TRUST ANCHORS +++++++ {}", proofs.len());
+        proofs
+            .iter()
+            .for_each(|(r, proof)| eprintln!("----- {}", r));
+        return Ok(proofs);
     }
 
-    verify_default_rrset(&handle.clone_with_context(), rrset, rrsigs, options).await
+    verify_default_rrset(&handle.clone_with_context(), rrset, &rrsigs, options).await
 }
 
 /// Additional, DNSKEY-specific verification
@@ -470,11 +465,15 @@ where
 ///
 /// This function returns `true` when the DNSKEY is in the trust anchor; `false` when it's not and
 /// its DS was validated; or an error when DS validation failed.
+///
+/// # Return
+/// A parallel Vec to the rrset.records, indexes matching that of the rrset's Record order
 async fn verify_dnskey_rrset<H>(
     handle: DnssecDnsHandle<H>,
     rrset: &Rrset<'_>,
+    rrsigs: &Vec<RecordRef<'_, RRSIG>>,
     options: DnsRequestOptions,
-) -> Result<bool, ProofError>
+) -> Result<(bool, Vec<(Proof, Option<u32>)>), ProofError>
 where
     H: DnsHandle + Sync + Unpin,
 {
@@ -484,102 +483,114 @@ where
         rrset.record_type()
     );
 
-    // check the DNSKEYS against the trust_anchor, if it's approved allow it.
-    //   this includes the root keys
-    let mut all_unsupported = None;
-    for r in rrset.records().iter() {
-        let Some(key_rdata) = DNSKEY::try_borrow(r.data()) else {
-            continue;
-        };
-
-        let algorithm = key_rdata.algorithm();
-        if algorithm.is_supported() {
-            all_unsupported = Some(false);
-        } else {
-            debug!("unsupported key algorithm {algorithm} in {key_rdata}",);
-
-            all_unsupported.get_or_insert(true);
-            continue;
-        }
-
-        if !handle
-            .trust_anchor
-            .contains_dnskey_bytes(key_rdata.public_key())
-        {
-            continue;
-        }
-
-        debug!(
-            "validated dnskey with trust_anchor: {}, {key_rdata}",
-            rrset.name(),
-        );
-
-        return Ok(true);
-    }
-
-    if all_unsupported.unwrap_or_default() {
-        // cannot validate; mark as insecure
-        return Err(ProofError::new(
-            Proof::Insecure,
-            ProofErrorKind::UnsupportedKeyAlgorithm,
-        ));
-    }
+    // use the same current time value for all rrsig + rrset pairs.
+    let current_time = current_time();
 
     // need to get DS records for each DNSKEY
     //   there will be a DS record for everything under the root keys
-    let ds_records = find_ds_records(&handle, rrset.name().clone(), options).await?;
-    for rr in rrset.records().iter() {
-        let Some(key_rdata) = DNSKEY::try_borrow(rr.data()) else {
+    let ds_records = if !rrset.name().is_root() {
+        find_ds_records(&handle, rrset.name().clone(), options)
+            .await
+            .unwrap_or_default()
+    } else {
+        debug!("ignoring DS lookup for root zone");
+        Vec::default()
+    };
+
+    let mut verified_dnskey = false;
+    let mut proofs = Vec::<(Proof, Option<u32>)>::with_capacity(rrset.records().len());
+    proofs.resize(rrset.records().len(), (Proof::Indeterminate, None));
+
+    let mut roots = Vec::<bool>::with_capacity(rrset.records().len());
+    roots.resize(rrset.records().len(), false);
+
+    // first verify all dnskeys individually
+    for ((r, proof), root) in rrset
+        .records()
+        .iter()
+        .zip(proofs.iter_mut())
+        .zip(roots.iter_mut())
+    {
+        let Some(dnskey) = r.try_borrow() else {
+            eprintln!("!!!!!!!!!!!! Not a Dnskey {}", r);
             continue;
         };
 
-        let Ok(key_tag) = key_rdata.calculate_key_tag() else {
-            continue;
-        };
-        let key_algorithm = key_rdata.algorithm();
-        for (i, r) in ds_records.iter().enumerate() {
-            if i > MAX_KEY_TAG_COLLISIONS {
-                warn!("too many DS records ({i}) with key tag {key_tag}; skipping");
-                continue;
+        // TODO: need to track each proof on each dnskey
+        // FIXME: doest this need the adjusted time like below?
+        match verify_dnskey(handle.clone(), &dnskey, &ds_records) {
+            Ok(is_root) => {
+                eprintln!("+++++++++++ SECURE DNSKEY ++++++++++++++ {}", dnskey.data());
+                *root = is_root;
+                *proof = (Proof::Secure, None);
             }
-
-            if r.data().algorithm() != key_algorithm {
-                trace!(
-                    "skipping DS record due to algorithm mismatch, expected algorithm {}: ({}, {})",
-                    key_algorithm,
-                    r.name(),
-                    r.data(),
+            Err(err) => {
+                eprintln!(
+                    "<<<<<<<<<<< INSECURE DNSKEY {} >>>>>>>>>>>>>> {}",
+                    err.proof,
+                    dnskey.data()
                 );
-
-                continue;
+                *proof = (err.proof, None);
             }
+        }
 
-            if r.data().key_tag() != key_tag {
-                trace!(
-                    "skipping DS record due to key tag mismatch, expected tag {key_tag}: ({}, {})",
-                    r.name(),
-                    r.data(),
-                );
+        verified_dnskey = true;
+    }
 
-                continue;
+    if verified_dnskey {
+        // There may have been a key-signing key for the zone,
+        //   we need to verify all the other DNSKEYS in the zone against it (i.e. the rrset)
+        if proofs.iter().any(|(proof, _)| !proof.is_secure()) {
+            for rrsig in rrsigs.iter() {
+                let name = rrsig.data().signer_name();
+
+                let rrset_proof = rrset
+                    .records()
+                    .iter()
+                    .zip(proofs.iter())
+                    .filter(|(_, (proof, _))| proof.is_secure())
+                    .filter_map(|(r, (proof, _))| {
+                        RecordRef::<'_, DNSKEY>::try_from(*r)
+                            .ok()
+                            .map(|r| (r, proof))
+                    })
+                    .find_map(|(dnskey, proof)| {
+                        eprintln!(
+                            "<<<<< DNSKEY VERIFYING OTHER DNSKEYS >>>>>> {}",
+                            dnskey.proof()
+                        );
+                        verify_rrset_with_dnskey(dnskey, *proof, rrsig, rrset, current_time).ok()
+                    });
+
+                if let Some(rrset_proof) = rrset_proof {
+                    for proof in &mut proofs {
+                        *proof = rrset_proof;
+                    }
+
+                    return Ok((true, proofs));
+                }
             }
-
-            if !r.data().covers(rrset.name(), key_rdata).unwrap_or(false) {
-                continue;
-            }
-
-            debug!(
-                "validated dnskey ({}, {key_rdata}) with {} {}",
-                rrset.name(),
-                r.name(),
-                r.data(),
-            );
-
-            // If all the keys are valid, then we are secure
-            // FIXME: what if only some are invalid? we should return the good ones?
-            return Ok(false);
         }
     }
+
+    if verified_dnskey {
+        // TODO: is there a need to try and secure non-root keys at this point?
+        // Some of these keys are roots, not necessarily all of them, we are going to mark anything that wasn't
+        //   a root key as indeterminate.
+        if roots.iter().any(|root| *root) {
+            for (is_root, (proof, _)) in roots.iter().zip(proofs.iter_mut()) {
+                if !is_root && proof.is_secure() {
+                    eprintln!("<<<<<<<<<<< MIXED ROOT DNSKEY >>>>>>>>>>>>>>");
+                    *proof = Proof::Indeterminate
+                }
+            }
+            return Ok((true, proofs));
+        }
+
+        return Ok((false, proofs));
+    }
+
+    // Verify other DNSKEYS in the RRSET if there is a KSK
 
     if !ds_records.is_empty() {
         // there were DS records, but no DNSKEYs, we're in a bogus state
@@ -603,6 +614,98 @@ where
             },
         ))
     }
+}
+
+/// This verifies each record
+fn verify_dnskey<H>(
+    handle: DnssecDnsHandle<H>,
+    rr: &RecordRef<'_, DNSKEY>,
+    ds_records: &[Record<DS>],
+) -> Result<bool, ProofError>
+where
+    H: DnsHandle + Sync + Unpin,
+{
+    let key_rdata = rr.data();
+    let key_tag = key_rdata.calculate_key_tag().map_err(|_| {
+        ProofError::new(
+            Proof::Insecure,
+            ProofErrorKind::DnskeyNotFound {
+                name: rr.name().clone(),
+            },
+        )
+    })?;
+    let key_algorithm = key_rdata.algorithm();
+
+    // First check if the Key is covered by the root store
+    if !key_algorithm.is_supported() {
+        return Err(ProofError::new(
+            Proof::Insecure,
+            ProofErrorKind::UnsupportedKeyAlgorithm,
+        ));
+    }
+
+    if handle
+        .trust_anchor
+        .contains_dnskey_bytes(key_rdata.public_key())
+    {
+        debug!(
+            "validated dnskey with trust_anchor: {}, {key_rdata}",
+            rr.name(),
+        );
+        eprintln!("<<<<<<<< SECURE ROOT >>>>>>>> {}, {key_rdata}", rr.name());
+        return Ok(true);
+    }
+
+    // DS check if covered by DS keys
+    for (i, r) in ds_records.iter().enumerate() {
+        if i > MAX_KEY_TAG_COLLISIONS {
+            warn!("too many DS records ({i}) with key tag {key_tag}; skipping");
+            continue;
+        }
+
+        if r.data().algorithm() != key_algorithm {
+            trace!(
+                "skipping DS record due to algorithm mismatch, expected algorithm {}: ({}, {})",
+                key_algorithm,
+                r.name(),
+                r.data(),
+            );
+
+            continue;
+        }
+
+        if r.data().key_tag() != key_tag {
+            trace!(
+                "skipping DS record due to key tag mismatch, expected tag {key_tag}: ({}, {})",
+                r.name(),
+                r.data(),
+            );
+
+            continue;
+        }
+
+        if !r.data().covers(rr.name(), key_rdata).unwrap_or(false) {
+            continue;
+        }
+
+        debug!(
+            "validated dnskey ({}, {key_rdata}) with {} {}",
+            rr.name(),
+            r.name(),
+            r.data(),
+        );
+
+        // If all the keys are valid, then we are secure
+        return Ok(false);
+    }
+
+    trace!("bogus dnskey: {}", rr.name());
+    Err(ProofError::new(
+        Proof::Bogus,
+        ProofErrorKind::DnsKeyHasNoDs {
+            name: rr.name().clone(),
+        },
+    ))
 }
 
 #[async_recursion]
@@ -717,10 +820,10 @@ where
 #[allow(clippy::blocks_in_conditions)]
 async fn verify_default_rrset<H>(
     handle: &DnssecDnsHandle<H>,
-    rrset: Rrset<'_>,
-    rrsigs: Vec<RecordRef<'_, RRSIG>>,
+    rrset: &Rrset<'_>,
+    rrsigs: &Vec<RecordRef<'_, RRSIG>>,
     options: DnsRequestOptions,
-) -> Result<(Proof, Option<u32>), ProofError>
+) -> Result<Vec<(Proof, Option<u32>)>, ProofError>
 where
     H: DnsHandle + Sync + Unpin,
 {
@@ -778,7 +881,14 @@ where
                     .filter(|r| r.data().is_key_signing_key())
                     .find_map(|dnskey| {
                         // If we had rrsigs to verify, then we want them to be secure, or the result is a Bogus proof
-                        verify_rrset_with_dnskey(dnskey, *rrsig, &rrset, current_time).ok()
+                        verify_rrset_with_dnskey(
+                            dnskey,
+                            dnskey.proof(),
+                            rrsig,
+                            &rrset,
+                            current_time,
+                        )
+                        .ok()
                     })
             })
             .ok_or_else(|| {
@@ -791,7 +901,9 @@ where
             })?;
 
         // Getting here means the rrset (and records), have been verified
-        return Ok((proof, adjusted_ttl));
+        let mut proofs = Vec::with_capacity(rrsigs.len());
+        proofs.resize(rrsigs.len(), (proof, adjusted_ttl));
+        return Ok(proofs);
     }
 
     // we can validate with any of the rrsigs...
@@ -832,6 +944,11 @@ where
                         .filter_map(|r| {
                             let dnskey = r.try_borrow::<DNSKEY>()?;
 
+                            if !dnskey.proof().is_secure() {
+                                eprintln!(">>>>>>>>>>> NOT SECURE <<<<<<<<<<<< {}", dnskey.data());
+                                return None;
+                            }
+
                             let tag = match dnskey.data().calculate_key_tag() {
                                 Ok(tag) => tag,
                                 Err(e) => {
@@ -860,8 +977,9 @@ where
                             Proof::Secure => {
                                 all_insecure = Some(false);
                                 if let Ok(proof) =
-                                    verify_rrset_with_dnskey(dnskey, *rrsig, &rrset, current_time)
+                                    verify_rrset_with_dnskey(dnskey, dnskey.proof(), rrsig, &rrset, current_time)
                                 {
+                                    eprintln!("<<<< USE DNSKEY >>>> {dnskey}", dnskey = dnskey.data());
                                     return Some(proof);
                                 }
                             }
@@ -900,7 +1018,11 @@ where
     let (proof, rest) = select.await?;
     drop(rest);
 
-    proof.ok_or_else(||
+    proof.map(|proof| {
+        let mut proofs = Vec::with_capacity(rrsigs.len());
+        proofs.resize(rrsigs.len(), proof);
+        proofs
+    }).ok_or_else(||
         // we are in a bogus state, DS records were available (see beginning of function), but RRSIGs couldn't be verified
         ProofError::new(Proof::Bogus, ProofErrorKind::RrsigsUnverified{name: rrset.name().clone(), record_type: rrset.record_type()})
     )
@@ -910,12 +1032,28 @@ where
 #[cfg(feature = "dnssec-ring")]
 fn verify_rrset_with_dnskey(
     dnskey: RecordRef<'_, DNSKEY>,
-    rrsig: RecordRef<'_, RRSIG>,
+    dnskey_proof: Proof,
+    rrsig: &RecordRef<'_, RRSIG>,
     rrset: &Rrset<'_>,
     current_time: u32,
 ) -> Result<(Proof, Option<u32>), ProofError> {
+    match dnskey_proof {
+        Proof::Secure => (),
+        proof => {
+            debug!("insecure dnskey {}", dnskey.data());
+            eprintln!(">>>>>>>>>>> NOT SECURE <<<<<<<<<<<< {}", dnskey.data());
+            return Err(ProofError::new(
+                proof,
+                ProofErrorKind::DnsKeyRevoked {
+                    name: dnskey.name().clone(),
+                    key_tag: rrsig.data().key_tag(),
+                },
+            ));
+        }
+    }
+
     if dnskey.data().revoke() {
-        debug!("revoked");
+        debug!("revoked dnskey {}", dnskey.data());
         return Err(ProofError::new(
             Proof::Bogus,
             ProofErrorKind::DnsKeyRevoked {
@@ -943,7 +1081,7 @@ fn verify_rrset_with_dnskey(
         ));
     }
 
-    let validity = check_rrsig_validity(rrsig, rrset, dnskey, current_time);
+    let validity = check_rrsig_validity(*rrsig, rrset, dnskey, current_time);
     if !matches!(validity, RrsigValidity::ValidRrsig) {
         // TODO better error handling when the error payload is not immediately discarded by
         // the caller
