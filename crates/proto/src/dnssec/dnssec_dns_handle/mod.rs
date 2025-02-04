@@ -442,13 +442,13 @@ where
     // wrapper for some of the type conversion for typed DNSKEY fn calls.
 
     if matches!(rrset.record_type(), RecordType::DNSKEY) {
-        let (is_trust_anchor, proofs) =
+        let proofs =
             verify_dnskey_rrset(handle.clone_with_context(), rrset, &rrsigs, options).await?;
 
-        eprintln!("++++++++ TRUST ANCHORS +++++++ {}", proofs.len());
-        proofs
-            .iter()
-            .for_each(|(r, proof)| eprintln!("----- {}", r));
+        eprintln!("++++++++ DNSKEY PROOFS +++++++ {}", proofs.len());
+        proofs.iter().for_each(|(proof, ttl)| {
+            eprintln!("----- {proof}, {ttl}", ttl = ttl.unwrap_or_default())
+        });
         return Ok(proofs);
     }
 
@@ -473,7 +473,7 @@ async fn verify_dnskey_rrset<H>(
     rrset: &Rrset<'_>,
     rrsigs: &Vec<RecordRef<'_, RRSIG>>,
     options: DnsRequestOptions,
-) -> Result<(bool, Vec<(Proof, Option<u32>)>), ProofError>
+) -> Result<Vec<(Proof, Option<u32>)>, ProofError>
 where
     H: DnsHandle + Sync + Unpin,
 {
@@ -501,16 +501,8 @@ where
     let mut proofs = Vec::<(Proof, Option<u32>)>::with_capacity(rrset.records().len());
     proofs.resize(rrset.records().len(), (Proof::Indeterminate, None));
 
-    let mut roots = Vec::<bool>::with_capacity(rrset.records().len());
-    roots.resize(rrset.records().len(), false);
-
     // first verify all dnskeys individually
-    for ((r, proof), root) in rrset
-        .records()
-        .iter()
-        .zip(proofs.iter_mut())
-        .zip(roots.iter_mut())
-    {
+    for (r, proof) in rrset.records().iter().zip(proofs.iter_mut()) {
         let Some(dnskey) = r.try_borrow() else {
             eprintln!("!!!!!!!!!!!! Not a Dnskey {}", r);
             continue;
@@ -519,9 +511,8 @@ where
         // TODO: need to track each proof on each dnskey
         // FIXME: doest this need the adjusted time like below?
         match verify_dnskey(handle.clone(), &dnskey, &ds_records) {
-            Ok(is_root) => {
+            Ok(()) => {
                 eprintln!("+++++++++++ SECURE DNSKEY ++++++++++++++ {}", dnskey.data());
-                *root = is_root;
                 *proof = (Proof::Secure, None);
             }
             Err(err) => {
@@ -542,13 +533,15 @@ where
         //   we need to verify all the other DNSKEYS in the zone against it (i.e. the rrset)
         if proofs.iter().any(|(proof, _)| !proof.is_secure()) {
             for rrsig in rrsigs.iter() {
-                let name = rrsig.data().signer_name();
+                // These should all match, but double checking...
+                let signer_name = rrsig.data().signer_name();
 
                 let rrset_proof = rrset
                     .records()
                     .iter()
                     .zip(proofs.iter())
                     .filter(|(_, (proof, _))| proof.is_secure())
+                    .filter(|(r, _)| r.name() == signer_name)
                     .filter_map(|(r, (proof, _))| {
                         RecordRef::<'_, DNSKEY>::try_from(*r)
                             .ok()
@@ -567,27 +560,12 @@ where
                         *proof = rrset_proof;
                     }
 
-                    return Ok((true, proofs));
+                    return Ok(proofs);
                 }
             }
         }
-    }
 
-    if verified_dnskey {
-        // TODO: is there a need to try and secure non-root keys at this point?
-        // Some of these keys are roots, not necessarily all of them, we are going to mark anything that wasn't
-        //   a root key as indeterminate.
-        if roots.iter().any(|root| *root) {
-            for (is_root, (proof, _)) in roots.iter().zip(proofs.iter_mut()) {
-                if !is_root && proof.is_secure() {
-                    eprintln!("<<<<<<<<<<< MIXED ROOT DNSKEY >>>>>>>>>>>>>>");
-                    *proof = Proof::Indeterminate
-                }
-            }
-            return Ok((true, proofs));
-        }
-
-        return Ok((false, proofs));
+        return Ok(proofs);
     }
 
     // Verify other DNSKEYS in the RRSET if there is a KSK
@@ -621,7 +599,7 @@ fn verify_dnskey<H>(
     handle: DnssecDnsHandle<H>,
     rr: &RecordRef<'_, DNSKEY>,
     ds_records: &[Record<DS>],
-) -> Result<bool, ProofError>
+) -> Result<(), ProofError>
 where
     H: DnsHandle + Sync + Unpin,
 {
@@ -653,11 +631,15 @@ where
             rr.name(),
         );
         eprintln!("<<<<<<<< SECURE ROOT >>>>>>>> {}, {key_rdata}", rr.name());
-        return Ok(true);
+        return Ok(());
     }
 
     // DS check if covered by DS keys
-    for (i, r) in ds_records.iter().enumerate() {
+    for (i, r) in ds_records
+        .iter()
+        .filter(|ds| ds.proof().is_secure())
+        .enumerate()
+    {
         if i > MAX_KEY_TAG_COLLISIONS {
             warn!("too many DS records ({i}) with key tag {key_tag}; skipping");
             continue;
@@ -696,7 +678,7 @@ where
         );
 
         // If all the keys are valid, then we are secure
-        return Ok(false);
+        return Ok(());
     }
 
     trace!("bogus dnskey: {}", rr.name());
@@ -862,10 +844,13 @@ where
     // use the same current time value for all rrsig + rrset pairs.
     let current_time = current_time();
 
+    // FIXME: This is not necessary, the verify_dnskey_rrset method did it all...
     // Special case for self-signed DNSKEYS, validate with itself...
     if rrsigs.iter().any(|rrsig| {
         RecordType::DNSKEY == rrset.record_type() && rrsig.data().signer_name() == rrset.name()
     }) {
+        panic!("this should never run");
+
         // in this case it was looks like a self-signed key, first validate the signature
         //  then return rrset. Like the standard case below, the DNSKEY is validated
         //  after this function. This function is only responsible for validating the signature
