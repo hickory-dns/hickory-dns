@@ -410,11 +410,11 @@ where
                     }
                     _ => debug!("failed to verify: {name} record_type: {record_type}: {kind}"),
                 }
-                (proof, None)
+                (proof, None, None)
             }
         };
 
-        let (proof, adjusted_ttl) = proof;
+        let (proof, adjusted_ttl, rrsig_idx) = proof;
         for mut record in current_rrset {
             record.set_proof(proof);
             if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
@@ -424,30 +424,29 @@ where
             return_records.push(record);
         }
 
-        // FIXME: this should only mark the specific RRSIG used for the validation
-        for mut rrsig in current_rrsigs {
-            rrsig.set_proof(proof);
-            if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
-                rrsig.set_ttl(ttl);
+        // only mark the RRSIG used for the proof
+        let mut current_rrsigs = current_rrsigs;
+        if let Some(rrsig_idx) = rrsig_idx {
+            if let Some(rrsig) = current_rrsigs.get_mut(rrsig_idx) {
+                rrsig.set_proof(proof);
+                if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
+                    rrsig.set_ttl(ttl);
+                }
+            } else {
+                warn!(
+                    "bad rrsig index {rrsig_idx} rrsigs.len = {}",
+                    current_rrsigs.len()
+                );
             }
-
-            return_records.push(rrsig);
         }
+
+        // push all the RRSIGs back to the return
+        return_records.extend(current_rrsigs);
     }
 
     // Add back all the RRSIGs and any records that were not verified
     return_records.extend(rrsigs);
     return_records.extend(records);
-
-    return_records.iter().for_each(|r| {
-        eprintln!(
-            "<<< RECORD >>> {} {} {} {}",
-            r.name(),
-            r.record_type(),
-            r.proof(),
-            r.ttl()
-        )
-    });
 
     return_records
 }
@@ -465,12 +464,17 @@ fn is_dnssec<D: RecordData>(rr: &Record<D>, dnssec_type: RecordType) -> bool {
 ///  validated to prove it's correctness. There is a special case for DNSKEY, where if the RRSET
 ///  is unsigned, `rrsigs` is empty, then an immediate `verify_dnskey_rrset()` is triggered. In
 ///  this case, it's possible the DNSKEY is a trust_anchor and is not self-signed.
+///
+/// # Returns
+///
+/// If Ok, the set of (Proof, AdjustedTTL, and IndexOfRRSIG) is returned, where the index is the one of the RRSIG that validated
+///   the Rrset
 async fn verify_rrset<H>(
     handle: DnssecDnsHandle<H>,
     rrset: &Rrset<'_>,
     rrsigs: Vec<RecordRef<'_, RRSIG>>,
     options: DnsRequestOptions,
-) -> Result<(Proof, Option<u32>), ProofError>
+) -> Result<(Proof, Option<u32>, Option<usize>), ProofError>
 where
     H: DnsHandle + Sync + Unpin,
 {
@@ -487,11 +491,6 @@ where
         )
         .await?;
 
-        eprintln!(
-            "++++++++ DNSKEY PROOF +++++++ {}, {}",
-            proof.0,
-            proof.1.unwrap_or_default()
-        );
         return Ok(proof);
     }
 
@@ -517,14 +516,16 @@ where
 /// its DS was validated; or an error when DS validation failed.
 ///
 /// # Return
-/// A parallel Vec to the rrset.records, indexes matching that of the rrset's Record order
+///
+/// If Ok, the set of (Proof, AdjustedTTL, and IndexOfRRSIG) is returned, where the index is the one of the RRSIG that validated
+///   the Rrset
 async fn verify_dnskey_rrset<H>(
     handle: DnssecDnsHandle<H>,
     rrset: &Rrset<'_>,
     rrsigs: &Vec<RecordRef<'_, RRSIG>>,
     current_time: u32,
     options: DnsRequestOptions,
-) -> Result<(Proof, Option<u32>), ProofError>
+) -> Result<(Proof, Option<u32>, Option<usize>), ProofError>
 where
     H: DnsHandle + Sync + Unpin,
 {
@@ -546,29 +547,23 @@ where
     };
 
     let mut verified_dnskey = false;
-    let mut proofs = Vec::<(Proof, Option<u32>)>::with_capacity(rrset.records().len());
-    proofs.resize(rrset.records().len(), (Proof::Indeterminate, None));
+    let mut proofs =
+        Vec::<(Proof, Option<u32>, Option<usize>)>::with_capacity(rrset.records().len());
+    proofs.resize(rrset.records().len(), (Proof::Indeterminate, None, None));
 
     // first verify all dnskeys individually
     for (r, proof) in rrset.records().iter().zip(proofs.iter_mut()) {
         let Some(dnskey) = r.try_borrow() else {
-            eprintln!("!!!!!!!!!!!! Not a Dnskey {}", r);
             continue;
         };
 
         // need to track each proof on each dnskey to ensure they are all validated
         match verify_dnskey(handle.clone(), &dnskey, &ds_records) {
             Ok(()) => {
-                eprintln!("+++++++++++ SECURE DNSKEY ++++++++++++++ {}", dnskey.data());
-                *proof = (Proof::Secure, None);
+                *proof = (Proof::Secure, None, None);
             }
             Err(err) => {
-                eprintln!(
-                    "<<<<<<<<<<< INSECURE DNSKEY {} >>>>>>>>>>>>>> {}",
-                    err.proof,
-                    dnskey.data()
-                );
-                *proof = (err.proof, None);
+                *proof = (err.proof, None, None);
             }
         }
 
@@ -578,8 +573,8 @@ where
     if verified_dnskey {
         // There may have been a key-signing key for the zone,
         //   we need to verify all the other DNSKEYS in the zone against it (i.e. the rrset)
-        if proofs.iter().any(|(proof, _)| !proof.is_secure()) {
-            for rrsig in rrsigs.iter() {
+        if proofs.iter().any(|(proof, ..)| !proof.is_secure()) {
+            for (i, rrsig) in rrsigs.iter().enumerate() {
                 // These should all match, but double checking...
                 let signer_name = rrsig.data().signer_name();
 
@@ -587,29 +582,25 @@ where
                     .records()
                     .iter()
                     .zip(proofs.iter())
-                    .filter(|(_, (proof, _))| proof.is_secure())
+                    .filter(|(_, (proof, ..))| proof.is_secure())
                     .filter(|(r, _)| r.name() == signer_name)
-                    .filter_map(|(r, (proof, _))| {
+                    .filter_map(|(r, (proof, ..))| {
                         RecordRef::<'_, DNSKEY>::try_from(*r)
                             .ok()
                             .map(|r| (r, proof))
                     })
                     .find_map(|(dnskey, proof)| {
-                        eprintln!(
-                            "<<<<< DNSKEY VERIFYING OTHER DNSKEYS >>>>>> {}",
-                            dnskey.proof()
-                        );
                         verify_rrset_with_dnskey(dnskey, *proof, rrsig, rrset, current_time).ok()
                     });
 
                 if let Some(rrset_proof) = rrset_proof {
-                    return Ok(rrset_proof);
+                    return Ok((rrset_proof.0, rrset_proof.1, Some(i)));
                 }
             }
         }
 
         // if it was just the root DNSKEYS with no RRSIG, we'll accept the entire set, or none
-        if proofs.iter().all(|(proof, _)| proof.is_secure()) {
+        if proofs.iter().all(|(proof, ..)| proof.is_secure()) {
             return Ok(proofs.pop().unwrap(/* This can not happen due to above test */));
         }
     }
@@ -674,7 +665,6 @@ where
             "validated dnskey with trust_anchor: {}, {key_rdata}",
             rr.name(),
         );
-        eprintln!("<<<<<<<< SECURE ROOT >>>>>>>> {}, {key_rdata}", rr.name());
         return Ok(());
     }
 
@@ -843,6 +833,11 @@ where
 /// Invalid RRSIGs will be ignored. RRSIGs will only be validated against DNSKEYs which can
 ///  be validated through a chain back to the `trust_anchor`. As long as one RRSIG is valid,
 ///  then the RRSET will be valid.
+///
+/// # Returns
+///
+/// If Ok, the set of (Proof, AdjustedTTL, and IndexOfRRSIG) is returned, where the index is the one of the RRSIG that validated
+///   the Rrset
 #[allow(clippy::blocks_in_conditions)]
 async fn verify_default_rrset<H>(
     handle: &DnssecDnsHandle<H>,
@@ -850,7 +845,7 @@ async fn verify_default_rrset<H>(
     rrsigs: &Vec<RecordRef<'_, RRSIG>>,
     current_time: u32,
     options: DnsRequestOptions,
-) -> Result<(Proof, Option<u32>), ProofError>
+) -> Result<(Proof, Option<u32>, Option<usize>), ProofError>
 where
     H: DnsHandle + Sync + Unpin,
 {
@@ -886,11 +881,9 @@ where
         rrset.record_type()
     );
 
-    // FIXME: This is not necessary, the verify_dnskey_rrset method did it all...
+    // TODO: This is not necessary, the verify_dnskey_rrset method did it all...
     // Special case for self-signed DNSKEYS, validate with itself...
-    if rrsigs.iter().any(|rrsig| {
-        RecordType::DNSKEY == rrset.record_type() && rrsig.data().signer_name() == rrset.name()
-    }) {
+    if RecordType::DNSKEY == rrset.record_type() {
         panic!("this should never run, DNSKEYs already validated");
     }
 
@@ -922,7 +915,7 @@ where
                 .map_err(|proto| {
                     ProofError::new(Proof::Indeterminate, ProofErrorKind::Proto { query, proto })
                 })
-                .map_ok(|message| {
+                .map_ok(move |message| {
                     let mut tag_count = HashMap::<u16, usize>::new();
 
                     // DNSKEYs were already validated by the inner query in the above lookup
@@ -933,7 +926,6 @@ where
                             let dnskey = r.try_borrow::<DNSKEY>()?;
 
                             if !dnskey.proof().is_secure() {
-                                eprintln!(">>>>>>>>>>> NOT SECURE <<<<<<<<<<<< {}", dnskey.data());
                                 return None;
                             }
 
@@ -965,10 +957,9 @@ where
                             Proof::Secure => {
                                 all_insecure = Some(false);
                                 if let Ok(proof) =
-                                    verify_rrset_with_dnskey(dnskey, dnskey.proof(), rrsig, &rrset, current_time)
+                                    verify_rrset_with_dnskey(dnskey, dnskey.proof(), rrsig, rrset, current_time)
                                 {
-                                    eprintln!("<<<< USE DNSKEY >>>> {dnskey}", dnskey = dnskey.data());
-                                    return Some(proof);
+                                    return Some((proof.0, proof.1, Some(i)));
                                 }
                             }
                             Proof::Insecure => {
@@ -980,7 +971,7 @@ where
 
                     if all_insecure.unwrap_or(false) {
                         // inherit Insecure state
-                        Some((Proof::Insecure, None))
+                        Some((Proof::Insecure, None, None))
                     } else {
                         None
                     }
@@ -1024,8 +1015,7 @@ fn verify_rrset_with_dnskey(
     match dnskey_proof {
         Proof::Secure => (),
         proof => {
-            debug!("insecure dnskey {}", dnskey.data());
-            eprintln!(">>>>>>>>>>> NOT SECURE <<<<<<<<<<<< {}", dnskey.data());
+            debug!("insecure dnskey {} {}", dnskey.name(), dnskey.data());
             return Err(ProofError::new(
                 proof,
                 ProofErrorKind::DnsKeyRevoked {
@@ -1037,7 +1027,7 @@ fn verify_rrset_with_dnskey(
     }
 
     if dnskey.data().revoke() {
-        debug!("revoked dnskey {}", dnskey.data());
+        debug!("revoked dnskey {} {}", dnskey.name(), dnskey.data());
         return Err(ProofError::new(
             Proof::Bogus,
             ProofErrorKind::DnsKeyRevoked {
