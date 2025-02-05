@@ -327,7 +327,6 @@ where
     H: DnsHandle + Sync + Unpin,
 {
     let mut rrset_types: HashSet<(Name, RecordType)> = HashSet::new();
-    let mut rrset_proofs: HashMap<(Name, RecordType), (Proof, Option<u32>)> = HashMap::new();
 
     for rrset in records
         .iter()
@@ -356,24 +355,31 @@ where
 
     // Removing the RRSIGs from the original records, the rest of the records will be mutable to remove those evaluated
     //    and the remainder after all evalutions will be returned.
-    let (rrsigs, mut records) = records
+    let (mut rrsigs, mut records) = records
         .into_iter()
         .partition::<Vec<_>, _>(|r| r.record_type().is_rrsig());
 
     for (name, record_type) in rrset_types {
         // collect all the rrsets to verify
-        let original_rrset;
-        (original_rrset, records) = records
+        let current_rrset;
+        (current_rrset, records) = records
             .into_iter()
             .partition::<Vec<_>, _>(|rr| rr.record_type() == record_type && rr.name() == &name);
 
+        let current_rrsigs;
+        (current_rrsigs, rrsigs) = rrsigs.into_iter().partition::<Vec<_>, _>(|rr| {
+            rr.try_borrow::<RRSIG>()
+                .map(|rr| rr.name() == &name && rr.data().type_covered() == record_type)
+                .unwrap_or_default()
+        });
+
         // TODO: we can do a better job here, no need for all the vec creation and clones in the Rrset.
-        let mut rrs_to_verify = original_rrset.iter();
+        let mut rrs_to_verify = current_rrset.iter();
         let mut rrset = Rrset::new(rrs_to_verify.next().unwrap());
         rrs_to_verify.for_each(|rr| rrset.add(rr));
 
         // RRSIGS are never modified after this point
-        let rrsigs: Vec<_> = rrsigs
+        let rrsigs: Vec<_> = current_rrsigs
             .iter()
             .filter_map(|rr| rr.try_borrow::<RRSIG>())
             .filter(|rr| rr.name() == &name)
@@ -392,10 +398,10 @@ where
         // verify this rrset
         let proof = verify_rrset(handle.clone_with_context(), &rrset, rrsigs, options).await;
 
-        let proofs = match proof {
-            Ok(proofs) => {
+        let proof = match proof {
+            Ok(proof) => {
                 debug!("verified: {name} record_type: {record_type}",);
-                proofs
+                proof
             }
             Err(ProofError { proof, kind }) => {
                 match kind {
@@ -404,19 +410,28 @@ where
                     }
                     _ => debug!("failed to verify: {name} record_type: {record_type}: {kind}"),
                 }
-                let mut proofs = Vec::with_capacity(rrset.records().len());
-                proofs.resize(rrset.records().len(), (proof, None));
-                proofs
+                (proof, None)
             }
         };
 
-        for (mut record, (proof, adjusted_ttl)) in original_rrset.into_iter().zip(proofs) {
+        let (proof, adjusted_ttl) = proof;
+        for mut record in current_rrset {
             record.set_proof(proof);
             if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
                 record.set_ttl(ttl);
             }
 
             return_records.push(record);
+        }
+
+        // FIXME: this should only mark the specific RRSIG used for the validation
+        for mut rrsig in current_rrsigs {
+            rrsig.set_proof(proof);
+            if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
+                rrsig.set_ttl(ttl);
+            }
+
+            return_records.push(rrsig);
         }
     }
 
@@ -455,7 +470,7 @@ async fn verify_rrset<H>(
     rrset: &Rrset<'_>,
     rrsigs: Vec<RecordRef<'_, RRSIG>>,
     options: DnsRequestOptions,
-) -> Result<Vec<(Proof, Option<u32>)>, ProofError>
+) -> Result<(Proof, Option<u32>), ProofError>
 where
     H: DnsHandle + Sync + Unpin,
 {
@@ -463,7 +478,7 @@ where
     let current_time = current_time();
 
     if matches!(rrset.record_type(), RecordType::DNSKEY) {
-        let proofs = verify_dnskey_rrset(
+        let proof = verify_dnskey_rrset(
             handle.clone_with_context(),
             rrset,
             &rrsigs,
@@ -472,11 +487,12 @@ where
         )
         .await?;
 
-        eprintln!("++++++++ DNSKEY PROOFS +++++++ {}", proofs.len());
-        proofs.iter().for_each(|(proof, ttl)| {
-            eprintln!("----- {proof}, {ttl}", ttl = ttl.unwrap_or_default())
-        });
-        return Ok(proofs);
+        eprintln!(
+            "++++++++ DNSKEY PROOF +++++++ {}, {}",
+            proof.0,
+            proof.1.unwrap_or_default()
+        );
+        return Ok(proof);
     }
 
     verify_default_rrset(
@@ -508,7 +524,7 @@ async fn verify_dnskey_rrset<H>(
     rrsigs: &Vec<RecordRef<'_, RRSIG>>,
     current_time: u32,
     options: DnsRequestOptions,
-) -> Result<Vec<(Proof, Option<u32>)>, ProofError>
+) -> Result<(Proof, Option<u32>), ProofError>
 where
     H: DnsHandle + Sync + Unpin,
 {
@@ -540,8 +556,7 @@ where
             continue;
         };
 
-        // TODO: need to track each proof on each dnskey
-        // FIXME: doest this need the adjusted time like below?
+        // need to track each proof on each dnskey to ensure they are all validated
         match verify_dnskey(handle.clone(), &dnskey, &ds_records) {
             Ok(()) => {
                 eprintln!("+++++++++++ SECURE DNSKEY ++++++++++++++ {}", dnskey.data());
@@ -588,19 +603,16 @@ where
                     });
 
                 if let Some(rrset_proof) = rrset_proof {
-                    for proof in &mut proofs {
-                        *proof = rrset_proof;
-                    }
-
-                    return Ok(proofs);
+                    return Ok(rrset_proof);
                 }
             }
         }
 
-        return Ok(proofs);
+        // if it was just the root DNSKEYS with no RRSIG, we'll accept the entire set, or none
+        if proofs.iter().all(|(proof, _)| proof.is_secure()) {
+            return Ok(proofs.pop().unwrap(/* This can not happen due to above test */));
+        }
     }
-
-    // Verify other DNSKEYS in the RRSET if there is a KSK
 
     if !ds_records.is_empty() {
         // there were DS records, but no DNSKEYs, we're in a bogus state
@@ -838,7 +850,7 @@ async fn verify_default_rrset<H>(
     rrsigs: &Vec<RecordRef<'_, RRSIG>>,
     current_time: u32,
     options: DnsRequestOptions,
-) -> Result<Vec<(Proof, Option<u32>)>, ProofError>
+) -> Result<(Proof, Option<u32>), ProofError>
 where
     H: DnsHandle + Sync + Unpin,
 {
@@ -880,45 +892,6 @@ where
         RecordType::DNSKEY == rrset.record_type() && rrsig.data().signer_name() == rrset.name()
     }) {
         panic!("this should never run, DNSKEYs already validated");
-
-        // in this case it was looks like a self-signed key, first validate the signature
-        //  then return rrset. Like the standard case below, the DNSKEY is validated
-        //  after this function. This function is only responsible for validating the signature
-        //  the DNSKey validation should come after, see verify_rrset().
-        let (proof, adjusted_ttl) = rrsigs
-            .iter()
-            .find_map(|rrsig| {
-                rrset
-                    .records()
-                    .iter()
-                    .filter_map(|r| r.try_borrow::<DNSKEY>())
-                    // DNSKEY must be signed using a KSK
-                    .filter(|r| r.data().is_key_signing_key())
-                    .find_map(|dnskey| {
-                        // If we had rrsigs to verify, then we want them to be secure, or the result is a Bogus proof
-                        verify_rrset_with_dnskey(
-                            dnskey,
-                            dnskey.proof(),
-                            rrsig,
-                            &rrset,
-                            current_time,
-                        )
-                        .ok()
-                    })
-            })
-            .ok_or_else(|| {
-                ProofError::new(
-                    Proof::Bogus,
-                    ProofErrorKind::SelfSignedKeyInvalid {
-                        name: rrset.name().clone(),
-                    },
-                )
-            })?;
-
-        // Getting here means the rrset (and records), have been verified
-        let mut proofs = Vec::with_capacity(rrsigs.len());
-        proofs.resize(rrsigs.len(), (proof, adjusted_ttl));
-        return Ok(proofs);
     }
 
     // we can validate with any of the rrsigs...
@@ -1033,11 +1006,7 @@ where
     let (proof, rest) = select.await?;
     drop(rest);
 
-    proof.map(|proof| {
-        let mut proofs = Vec::with_capacity(rrsigs.len());
-        proofs.resize(rrsigs.len(), proof);
-        proofs
-    }).ok_or_else(||
+    proof.ok_or_else(||
         // we are in a bogus state, DS records were available (see beginning of function), but RRSIGs couldn't be verified
         ProofError::new(Proof::Bogus, ProofErrorKind::RrsigsUnverified{name: rrset.name().clone(), record_type: rrset.record_type()})
     )
