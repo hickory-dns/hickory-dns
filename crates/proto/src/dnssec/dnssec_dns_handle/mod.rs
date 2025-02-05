@@ -351,21 +351,29 @@ where
         return records;
     }
 
-    // Records for return
+    // Records for return, eventually, all records will be returned in here
     let mut return_records = Vec::with_capacity(records.len());
 
-    // collect all the rrsets to verify
-    // TODO: is there a way to get rid of this clone() safely?
-    for (name, record_type) in rrset_types {
-        let mut rrs_to_verify = records
-            .iter()
-            .filter(|rr| rr.record_type() == record_type && rr.name() == &name);
+    // Removing the RRSIGs from the original records, the rest of the records will be mutable to remove those evaluated
+    //    and the remainder after all evalutions will be returned.
+    let (rrsigs, mut records) = records
+        .into_iter()
+        .partition::<Vec<_>, _>(|r| r.record_type().is_rrsig());
 
+    for (name, record_type) in rrset_types {
+        // collect all the rrsets to verify
+        let original_rrset;
+        (original_rrset, records) = records
+            .into_iter()
+            .partition::<Vec<_>, _>(|rr| rr.record_type() == record_type && rr.name() == &name);
+
+        // TODO: we can do a better job here, no need for all the vec creation and clones in the Rrset.
+        let mut rrs_to_verify = original_rrset.iter();
         let mut rrset = Rrset::new(rrs_to_verify.next().unwrap());
         rrs_to_verify.for_each(|rr| rrset.add(rr));
 
         // RRSIGS are never modified after this point
-        let rrsigs: Vec<_> = records
+        let rrsigs: Vec<_> = rrsigs
             .iter()
             .filter_map(|rr| rr.try_borrow::<RRSIG>())
             .filter(|rr| rr.name() == &name)
@@ -402,9 +410,7 @@ where
             }
         };
 
-        //rrset_proofs.insert((name, record_type), (proof, adjusted_ttl));
-        for (record, (proof, adjusted_ttl)) in rrset.records().iter().zip(proofs) {
-            let mut record = Record::clone(record);
+        for (mut record, (proof, adjusted_ttl)) in original_rrset.into_iter().zip(proofs) {
             record.set_proof(proof);
             if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
                 record.set_ttl(ttl);
@@ -413,6 +419,10 @@ where
             return_records.push(record);
         }
     }
+
+    // Add back all the RRSIGs and any records that were not verified
+    return_records.extend(rrsigs);
+    return_records.extend(records);
 
     return_records
 }
