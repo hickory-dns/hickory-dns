@@ -424,6 +424,16 @@ where
     return_records.extend(rrsigs);
     return_records.extend(records);
 
+    return_records.iter().for_each(|r| {
+        eprintln!(
+            "<<< RECORD >>> {} {} {} {}",
+            r.name(),
+            r.record_type(),
+            r.proof(),
+            r.ttl()
+        )
+    });
+
     return_records
 }
 
@@ -449,11 +459,18 @@ async fn verify_rrset<H>(
 where
     H: DnsHandle + Sync + Unpin,
 {
-    // wrapper for some of the type conversion for typed DNSKEY fn calls.
+    // use the same current time value for all rrsig + rrset pairs.
+    let current_time = current_time();
 
     if matches!(rrset.record_type(), RecordType::DNSKEY) {
-        let proofs =
-            verify_dnskey_rrset(handle.clone_with_context(), rrset, &rrsigs, options).await?;
+        let proofs = verify_dnskey_rrset(
+            handle.clone_with_context(),
+            rrset,
+            &rrsigs,
+            current_time,
+            options,
+        )
+        .await?;
 
         eprintln!("++++++++ DNSKEY PROOFS +++++++ {}", proofs.len());
         proofs.iter().for_each(|(proof, ttl)| {
@@ -462,7 +479,14 @@ where
         return Ok(proofs);
     }
 
-    verify_default_rrset(&handle.clone_with_context(), rrset, &rrsigs, options).await
+    verify_default_rrset(
+        &handle.clone_with_context(),
+        rrset,
+        &rrsigs,
+        current_time,
+        options,
+    )
+    .await
 }
 
 /// Additional, DNSKEY-specific verification
@@ -482,6 +506,7 @@ async fn verify_dnskey_rrset<H>(
     handle: DnssecDnsHandle<H>,
     rrset: &Rrset<'_>,
     rrsigs: &Vec<RecordRef<'_, RRSIG>>,
+    current_time: u32,
     options: DnsRequestOptions,
 ) -> Result<Vec<(Proof, Option<u32>)>, ProofError>
 where
@@ -492,9 +517,6 @@ where
         rrset.name(),
         rrset.record_type()
     );
-
-    // use the same current time value for all rrsig + rrset pairs.
-    let current_time = current_time();
 
     // need to get DS records for each DNSKEY
     //   there will be a DS record for everything under the root keys
@@ -814,6 +836,7 @@ async fn verify_default_rrset<H>(
     handle: &DnssecDnsHandle<H>,
     rrset: &Rrset<'_>,
     rrsigs: &Vec<RecordRef<'_, RRSIG>>,
+    current_time: u32,
     options: DnsRequestOptions,
 ) -> Result<Vec<(Proof, Option<u32>)>, ProofError>
 where
@@ -851,15 +874,12 @@ where
         rrset.record_type()
     );
 
-    // use the same current time value for all rrsig + rrset pairs.
-    let current_time = current_time();
-
     // FIXME: This is not necessary, the verify_dnskey_rrset method did it all...
     // Special case for self-signed DNSKEYS, validate with itself...
     if rrsigs.iter().any(|rrsig| {
         RecordType::DNSKEY == rrset.record_type() && rrsig.data().signer_name() == rrset.name()
     }) {
-        panic!("this should never run");
+        panic!("this should never run, DNSKEYs already validated");
 
         // in this case it was looks like a self-signed key, first validate the signature
         //  then return rrset. Like the standard case below, the DNSKEY is validated
