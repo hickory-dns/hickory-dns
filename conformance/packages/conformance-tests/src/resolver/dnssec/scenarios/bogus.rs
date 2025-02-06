@@ -230,7 +230,6 @@ fn malformed_ds_fixture(leaf_zone: &FQDN, mutate: impl FnOnce(&mut DS)) -> Resul
 }
 
 #[test]
-#[ignore = "hickory does not detect that this zone is bogus"]
 fn bogus_zone_plus_trust_anchor_dnskey() -> Result<()> {
     let network = Network::new()?;
     let sign_settings = SignSettings::default();
@@ -322,7 +321,6 @@ fn bogus_zone_plus_trust_anchor_dnskey() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory does not detect that this zone is bogus"]
 fn bogus_zone_plus_ds_covered_dnskey() -> Result<()> {
     let network = Network::new()?;
     let sign_settings = SignSettings::default();

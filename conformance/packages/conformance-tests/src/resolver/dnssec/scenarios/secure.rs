@@ -160,7 +160,6 @@ fn caches_answer() -> Result<()> {
 // however, it appears to also be fine to have the parent zone directly vouch for the child's ZSK,
 // eliminating the need for a KSK, so long the ZSK is self-signed in the child zone
 #[test]
-#[ignore = "hickory responds with SERVFAIL"]
 fn ds_of_zsk() -> Result<()> {
     let sign_settings = SignSettings::default();
 
