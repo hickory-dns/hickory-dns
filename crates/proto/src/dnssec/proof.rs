@@ -255,10 +255,10 @@ pub enum ProofErrorKind {
         name: Name,
     },
 
-    /// The DNSKEY used was verified as secure
+    /// The DNSKEY used was not verified as secure
     #[error("dnskey insecure: {name}, key_tag: {key_tag}")]
     InsecureDnsKey {
-        /// The name of the DNSKEY that was revoked
+        /// The name of the DNSKEY
         name: Name,
         /// The key tag derived from the DNSKEY
         key_tag: u16,
