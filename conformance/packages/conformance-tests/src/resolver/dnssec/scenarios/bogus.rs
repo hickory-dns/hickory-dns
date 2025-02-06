@@ -223,7 +223,10 @@ fn malformed_ds_fixture(leaf_zone: &FQDN, mutate: impl FnOnce(&mut DS)) -> Resul
     let client = Client::new(&network)?;
     let settings = *DigSettings::default().recurse().authentic_data();
 
-    client.dig(settings, resolver.ipv4_addr(), RecordType::SOA, leaf_zone)
+    let ret = client.dig(settings, resolver.ipv4_addr(), RecordType::SOA, leaf_zone);
+    println!("{}", resolver.logs()?);
+
+    ret
 }
 
 #[test]

@@ -209,7 +209,7 @@ pub enum ProofErrorKind {
     /// The DNSKEY is not covered by a DS record
     #[error("dnskey has no ds: {name}")]
     DnsKeyHasNoDs {
-        /// The name of the missing DNSKEY
+        /// The name of the DNSKEY
         name: Name,
     },
 
