@@ -1,9 +1,11 @@
 mod no_rrsig_dnskey;
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use dns_test::{
     client::{Client, DigOutput, DigSettings, ExtendedDnsError},
     name_server::{Graph, NameServer, Sign},
-    record::{Record, RecordType, DS},
+    record::{DNSKEYRData, Record, RecordType, DNSKEY, DS, RRSIG},
     zone_file::{SignSettings, Signer},
     Network, Resolver, Result, TrustAnchor, FQDN, PEER,
 };
@@ -377,6 +379,128 @@ fn bogus_zone_plus_ds_covered_dnskey() -> Result<()> {
     let _tld_ns = tld_ns.start()?;
     let _nameservers_ns = nameservers_ns.start()?;
     let _leaf_ns = attacker_leaf_ns.start()?;
+
+    let mut resolver = Resolver::new(&network, root_hint);
+    if dns_test::SUBJECT.is_unbound() {
+        resolver.extended_dns_errors();
+    }
+    let resolver = resolver.trust_anchor(&trust_anchor).start()?;
+
+    let client = Client::new(&network)?;
+    let settings = *DigSettings::default().recurse().authentic_data();
+
+    let output = client.dig(settings, resolver.ipv4_addr(), RecordType::SOA, &leaf_zone)?;
+
+    println!("{}", _leaf_ns.logs()?);
+    println!("{}", resolver.logs()?);
+
+    dbg!(&output);
+
+    assert!(output.status.is_servfail());
+
+    if dns_test::SUBJECT.is_unbound() {
+        assert!(output.ede.iter().eq(&[ExtendedDnsError::DnssecBogus]));
+    }
+
+    Ok(())
+}
+
+/// This test checks what happens when a secure delegation using a DS record set exists, but the
+/// child zone does not contain the corresponding DNSKEY records, and all DNSKEY records in the
+/// child zone use unsupported signature algorithms. The child zone ought to be treated as bogus.
+#[test]
+#[ignore = "hickory returns NOERROR because it is checking unauthenticated DNSKEY records for unsupported algorithms"]
+fn bogus_delegation_dnskey_unsupported_algorithm() -> Result<()> {
+    let network = Network::new()?;
+    let sign_settings = SignSettings::default();
+
+    let leaf_zone = FQDN::TEST_TLD.push_label("domain");
+
+    let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
+    let mut tld_ns = NameServer::new(&PEER, FQDN::TEST_TLD, &network)?;
+    let mut nameservers_ns = NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?;
+    let mut leaf_ns = NameServer::new(&PEER, leaf_zone.clone(), &network)?;
+
+    root_ns.referral_nameserver(&tld_ns);
+    tld_ns.referral_nameserver(&nameservers_ns);
+    tld_ns.referral_nameserver(&leaf_ns);
+
+    nameservers_ns.add(root_ns.a());
+    nameservers_ns.add(tld_ns.a());
+
+    let nameservers_ns = nameservers_ns.sign(sign_settings.clone())?;
+
+    // Add a DNSKEY record using an unsupported algorithm to the leaf zone.
+    leaf_ns.add(DNSKEY {
+        zone: leaf_zone.clone(),
+        ttl: 86400,
+        rdata: DNSKEYRData {
+            flags: 257,
+            protocol: 3,
+            algorithm: 3,
+            public_key: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+                .to_owned(),
+        },
+    });
+    // Add some RRSIG records, to skip an early check for a non-empty DS RRset.
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    leaf_ns.add(RRSIG {
+        fqdn: leaf_zone.clone(),
+        ttl: 86400,
+        type_covered: RecordType::DNSKEY,
+        algorithm: 3,
+        labels: 2,
+        key_tag: 0,
+        original_ttl: 86400,
+        signature_expiration: now + 3600 * 24,
+        signature_inception: now - 3600,
+        signer_name: leaf_zone.clone(),
+        signature: "AAAAAAAAAAA=".to_owned(),
+    });
+    leaf_ns.add(RRSIG {
+        fqdn: leaf_zone.clone(),
+        ttl: 86400,
+        type_covered: RecordType::SOA,
+        algorithm: 3,
+        labels: 2,
+        key_tag: 0,
+        original_ttl: 86400,
+        signature_expiration: now + 3600 * 24,
+        signature_inception: now - 3600,
+        signer_name: leaf_zone.clone(),
+        signature: "AAAAAAAAAAA=".to_owned(),
+    });
+
+    tld_ns.add(nameservers_ns.ds().ksk.clone());
+
+    // Add a DS record to the parent zone, using a supported algorithm.
+    tld_ns.add(DS {
+        zone: leaf_zone.clone(),
+        ttl: 86400,
+        algorithm: 8,
+        digest_type: 2,
+        key_tag: 0,
+        digest: "0000000000000000000000000000000000000000000000000000000000000000".to_owned(),
+    });
+
+    let tld_ns = tld_ns.sign(sign_settings.clone())?;
+    root_ns.add(tld_ns.ds().ksk.clone());
+
+    let mut trust_anchor = TrustAnchor::empty();
+    let root_ns = root_ns.sign(sign_settings)?;
+    trust_anchor.add(root_ns.key_signing_key().clone());
+
+    let root_hint = root_ns.root_hint();
+    let _root_ns = root_ns.start()?;
+    let _tld_ns = tld_ns.start()?;
+    let _nameservers_ns = nameservers_ns.start()?;
+    let _leaf_ns = leaf_ns.start()?;
 
     let mut resolver = Resolver::new(&network, root_hint);
     if dns_test::SUBJECT.is_unbound() {
