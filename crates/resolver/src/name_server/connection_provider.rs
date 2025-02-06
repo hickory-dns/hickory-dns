@@ -11,7 +11,7 @@ use std::marker::Unpin;
 #[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
-#[cfg(feature = "dns-over-rustls")]
+#[cfg(feature = "dns-over-https-rustls")]
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
