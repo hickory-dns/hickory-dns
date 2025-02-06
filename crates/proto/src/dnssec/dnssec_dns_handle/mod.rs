@@ -481,6 +481,7 @@ where
     // use the same current time value for all rrsig + rrset pairs.
     let current_time = current_time();
 
+    // DNSKEYS have different logic for their verification
     if matches!(rrset.record_type(), RecordType::DNSKEY) {
         let proof = verify_dnskey_rrset(
             handle.clone_with_context(),
@@ -504,18 +505,23 @@ where
     .await
 }
 
-/// Additional, DNSKEY-specific verification
+/// DNSKEY-specific verification
 ///
-/// In addition to RRSIG validation, which happens in `verify_default_rrset`, a DNSKEY needs to be
-/// checked against a DS record provided by the parent zone.
+/// A DNSKEY needs to be checked against a DS record provided by the parent zone.
 ///
 /// A DNSKEY that's part of the trust anchor does not need to have its DS record (which may
-/// not exist as it's the case of the root zone) nor its RRSIG validated.
+/// not exist as it's the case of the root zone) nor its RRSIG validated. If an RRSIG is present
+/// it will be validated.
 ///
 /// # Return
 ///
 /// If Ok, the set of (Proof, AdjustedTTL, and IndexOfRRSIG) is returned, where the index is the one of the RRSIG that validated
 ///   the Rrset
+///
+/// # Panics
+///
+/// This method should only be called to validate DNSKEYs, see `verify_default_rrset` for other record types.
+///  if a non-DNSKEY RRSET is passed into this method it will always panic.
 async fn verify_dnskey_rrset<H>(
     handle: DnssecDnsHandle<H>,
     rrset: &Rrset<'_>,
@@ -526,6 +532,11 @@ async fn verify_dnskey_rrset<H>(
 where
     H: DnsHandle + Sync + Unpin,
 {
+    // Ensure that this method is not misused
+    if RecordType::DNSKEY != rrset.record_type() {
+        panic!("All other RRSETs must use verify_default_rrset");
+    }
+
     debug!(
         "dnskey validation {}, record_type: {:?}",
         rrset.name(),
@@ -599,7 +610,6 @@ where
 
     // There may have been a key-signing key for the zone,
     //   we need to verify all the other DNSKEYS in the zone against it (i.e. the rrset)
-    //if proofs.iter().any(|(proof, ..)| !proof.is_secure()) {
     for (i, rrsig) in rrsigs.iter().enumerate() {
         // These should all match, but double checking...
         let signer_name = rrsig.data().signer_name();
@@ -623,7 +633,6 @@ where
             return Ok((rrset_proof.0, rrset_proof.1, Some(i)));
         }
     }
-    //}
 
     // if it was just the root DNSKEYS with no RRSIG, we'll accept the entire set, or none
     if proofs.iter().all(|(proof, ..)| proof.is_secure()) {
@@ -683,7 +692,7 @@ where
     }
 }
 
-/// This verifies each record
+/// This verifies a DNSKEY record against the trust anchors or DS records from a secure delegation.
 fn verify_dnskey(
     rr: &RecordRef<'_, DNSKEY>,
     ds_records: &[Record<DS>],
@@ -692,7 +701,7 @@ fn verify_dnskey(
     let key_tag = key_rdata.calculate_key_tag().map_err(|_| {
         ProofError::new(
             Proof::Insecure,
-            ProofErrorKind::DnskeyNotFound {
+            ProofErrorKind::ErrorComputingKeyTag {
                 name: rr.name().clone(),
             },
         )
@@ -749,7 +758,7 @@ fn verify_dnskey(
             r.data(),
         );
 
-        // If all the keys are valid, then we are secure
+        // If this key is valid, then it is secure
         return Ok(Proof::Secure);
     }
 
@@ -874,8 +883,13 @@ where
 ///
 /// # Returns
 ///
-/// If Ok, the set of (Proof, AdjustedTTL, and IndexOfRRSIG) is returned, where the index is the one of the RRSIG that validated
+/// On Ok, the set of (Proof, AdjustedTTL, and IndexOfRRSIG) is returned, where the index is the one of the RRSIG that validated
 ///   the Rrset
+///
+/// # Panics
+///
+/// This method should never be called to validate DNSKEYs, see `verify_dnskey_rrset` instead.
+///  if a DNSKEY RRSET is passed into this method it will always panic.
 #[allow(clippy::blocks_in_conditions)]
 async fn verify_default_rrset<H>(
     handle: &DnssecDnsHandle<H>,
@@ -887,6 +901,11 @@ async fn verify_default_rrset<H>(
 where
     H: DnsHandle + Sync + Unpin,
 {
+    // Ensure that this method is not misused
+    if RecordType::DNSKEY == rrset.record_type() {
+        panic!("DNSKEYs must be validated with verify_dnskey_rrset");
+    }
+
     if rrsigs.is_empty() {
         // Decide if we're:
         //    1) "indeterminate", i.e. no DNSSEC records are available back to the root
@@ -918,12 +937,6 @@ where
         rrset.name(),
         rrset.record_type()
     );
-
-    // TODO: This is not necessary, the verify_dnskey_rrset method did it all...
-    // Special case for self-signed DNSKEYS, validate with itself...
-    if RecordType::DNSKEY == rrset.record_type() {
-        panic!("this should never run, DNSKEYs already validated");
-    }
 
     // we can validate with any of the rrsigs...
     //  i.e. the first that validates is good enough
@@ -1052,7 +1065,7 @@ fn verify_rrset_with_dnskey(
             debug!("insecure dnskey {} {}", dnskey.name(), dnskey.data());
             return Err(ProofError::new(
                 proof,
-                ProofErrorKind::DnsKeyRevoked {
+                ProofErrorKind::InsecureDnsKey {
                     name: dnskey.name().clone(),
                     key_tag: rrsig.data().key_tag(),
                 },

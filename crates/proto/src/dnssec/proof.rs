@@ -248,6 +248,22 @@ pub enum ProofErrorKind {
         name: Name,
     },
 
+    /// An error ocurred while calculating the DNSKEY key tag
+    #[error("internal error computing the key tag for: {name}")]
+    ErrorComputingKeyTag {
+        /// The name of the DNSKEY record
+        name: Name,
+    },
+
+    /// The DNSKEY used was verified as secure
+    #[error("dnskey insecure: {name}, key_tag: {key_tag}")]
+    InsecureDnsKey {
+        /// The name of the DNSKEY that was revoked
+        name: Name,
+        /// The key tag derived from the DNSKEY
+        key_tag: u16,
+    },
+
     /// The DnsKey is not marked as a zone key
     #[error("not a zone signing key: {name} key_tag: {key_tag}")]
     NotZoneDnsKey {
