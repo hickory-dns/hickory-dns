@@ -5,6 +5,10 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.24.3
+
+- Fix DNSSEC verification of DNSKEY RRsets
+
 ## 0.24.2
 
 - Upgrade to idna 1 due to RUSTSEC-2024-0421 (#2664)
