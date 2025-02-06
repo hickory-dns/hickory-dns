@@ -423,14 +423,11 @@ where
     Ok(DnsResponse::new(message_result, message_buffer))
 }
 
-/// Generic entrypoint to verify any RRSET against the provided signatures.
+/// Generic entrypoint to verify any RRset against the provided signatures.
 ///
-/// Generally, the RRSET will be validated by `verify_default_rrset()`. There are additional
-///  checks that happen after the RRSET is successfully validated. In the case of DNSKEYs this
-///  triggers `verify_dnskey_rrset()`. If it's an NSEC record, then the NSEC record will be
-///  validated to prove it's correctness. There is a special case for DNSKEY, where if the RRSET
-///  is unsigned, `rrsigs` is empty, then an immediate `verify_dnskey_rrset()` is triggered. In
-///  this case, it's possible the DNSKEY is a trust_anchor and is not self-signed.
+/// Generally, the RRset will be validated by `verify_default_rrset()`. In the case of DNSKEYs, the
+/// RRset will be validated by `verify_dnskey_rrset()`. If it's an NSEC record, then the NSEC
+/// record will be validated to prove it's correctness.
 async fn verify_rrset<H, E>(
     handle: DnssecDnsHandle<H>,
     rrset: Rrset,
@@ -441,36 +438,21 @@ where
     H: DnsHandle<Error = E> + Sync + Unpin,
     E: From<ProtoError> + Error + Clone + Send + Unpin + 'static,
 {
-    // Special case for unsigned DNSKEYs, it's valid for a DNSKEY to be bare in the zone if
-    //  it's a trust_anchor, though some DNS servers choose to self-sign in this case,
-    //  for self-signed KEYS they will drop through to the standard validation logic.
-    if let RecordType::DNSKEY = rrset.record_type {
-        if rrsigs.is_empty() {
-            debug!("unsigned key: {}, {:?}", rrset.name, rrset.record_type);
-            // TODO: validate that this DNSKEY is stronger than the one lower in the chain,
-            //  also, set the min algorithm to this algorithm to prevent downgrade attacks.
-            return verify_dnskey_rrset(handle.clone_with_context(), rrset, options).await;
-        }
-    }
-
-    // standard validation path
-    let rrset = verify_default_rrset(&handle.clone_with_context(), rrset, rrsigs, options).await?;
-
-    // validation of DNSKEY records
     match rrset.record_type {
-        RecordType::DNSKEY => verify_dnskey_rrset(handle, rrset, options).await,
-        _ => Ok(rrset),
+        RecordType::DNSKEY => verify_dnskey_rrset(handle, rrset, rrsigs, options).await,
+        _ => verify_default_rrset(&handle.clone_with_context(), rrset, rrsigs, options).await,
     }
 }
 
-/// Verifies a dnskey rrset
+/// Verifies a DNSKEY RRset
 ///
-/// This first checks to see if the key is in the set of trust_anchors. If so then it's returned
-///  as a success. Otherwise, a query is sent to get the DS record, and the DNSKEY is validated
-///  against the DS record.
+/// This first checks to see if any key is in the set of trust_anchors. If not, a query is sent to
+/// get the DS record, and each DNSKEY is validated against the DS record. Then, the DNSKEY RRset is
+/// validated using signatures made by authenticated keys.
 async fn verify_dnskey_rrset<H, E>(
     handle: DnssecDnsHandle<H>,
     rrset: Rrset,
+    rrsigs: Vec<Record<RRSIG>>,
     options: DnsRequestOptions,
 ) -> Result<Rrset, E>
 where
@@ -509,9 +491,26 @@ where
             })
             .collect::<Vec<usize>>();
 
-        if !anchored_keys.is_empty() {
-            let mut rrset = rrset;
-            preserve(&mut rrset.records, anchored_keys);
+        // Verify the self-signature over the DNSKEY RRset.
+        for dnskey_index in anchored_keys.iter().copied() {
+            let dnskey_record = &rrset.records[dnskey_index];
+            let Some(RData::DNSSEC(DNSSECRData::DNSKEY(dnskey))) = dnskey_record.data() else {
+                continue;
+            };
+            for rrsig_record in rrsigs.iter() {
+                let Some(rrsig) = rrsig_record.data() else {
+                    continue;
+                };
+                let verify_result = verify_rrset_with_dnskey(&rrset.name, dnskey, rrsig, &rrset);
+                if verify_result.is_ok() {
+                    return Ok(rrset);
+                }
+            }
+        }
+
+        if anchored_keys.len() == rrset.records.len() {
+            // Special case: allow a zone consisting of only trust anchor keys without a
+            // self-signature.
             return Ok(rrset);
         }
     }
@@ -563,75 +562,28 @@ where
         .collect::<Vec<usize>>();
 
     if !valid_keys.is_empty() {
-        let mut rrset = rrset;
-        preserve(&mut rrset.records, valid_keys);
-
         trace!("validated dnskey: {}", rrset.name);
-        Ok(rrset)
-    } else {
-        Err(E::from(ProtoError::from(ProtoErrorKind::Message(
-            "Could not validate all DNSKEYs",
-        ))))
     }
-}
 
-/// Preserves the specified indexes in vec, all others will be removed
-///
-/// # Arguments
-///
-/// * `vec` - vec to mutate
-/// * `indexes` - ordered list of indexes to remove
-fn preserve<T, I>(vec: &mut Vec<T>, indexes: I)
-where
-    I: IntoIterator<Item = usize>,
-    <I as IntoIterator>::IntoIter: DoubleEndedIterator,
-{
-    // this removes all indexes that were not part of the anchored keys
-    let mut indexes_iter = indexes.into_iter().rev();
-    let mut i = indexes_iter.next();
-    for j in (0..vec.len()).rev() {
-        // check the next index to preserve
-        if i.map_or(false, |i| i > j) {
-            i = indexes_iter.next();
-        }
-        // if the key is not in the set of anchored_keys, remove it
-        if i.map_or(true, |i| i != j) {
-            vec.remove(j);
+    for dnskey_index in valid_keys {
+        let dnskey_record = &rrset.records[dnskey_index];
+        let Some(RData::DNSSEC(DNSSECRData::DNSKEY(dnskey))) = dnskey_record.data() else {
+            continue;
+        };
+        for rrsig_record in rrsigs.iter() {
+            let Some(rrsig) = rrsig_record.data() else {
+                continue;
+            };
+            let verify_result = verify_rrset_with_dnskey(&rrset.name, dnskey, rrsig, &rrset);
+            if verify_result.is_ok() {
+                return Ok(rrset);
+            }
         }
     }
-}
 
-#[test]
-fn test_preserve() {
-    let mut vec = vec![1, 2, 3];
-    let indexes = vec![];
-    preserve(&mut vec, indexes);
-    assert_eq!(vec, vec![]);
-
-    let mut vec = vec![1, 2, 3];
-    let indexes = vec![0];
-    preserve(&mut vec, indexes);
-    assert_eq!(vec, vec![1]);
-
-    let mut vec = vec![1, 2, 3];
-    let indexes = vec![1];
-    preserve(&mut vec, indexes);
-    assert_eq!(vec, vec![2]);
-
-    let mut vec = vec![1, 2, 3];
-    let indexes = vec![2];
-    preserve(&mut vec, indexes);
-    assert_eq!(vec, vec![3]);
-
-    let mut vec = vec![1, 2, 3];
-    let indexes = vec![0, 2];
-    preserve(&mut vec, indexes);
-    assert_eq!(vec, vec![1, 3]);
-
-    let mut vec = vec![1, 2, 3];
-    let indexes = vec![0, 1, 2];
-    preserve(&mut vec, indexes);
-    assert_eq!(vec, vec![1, 2, 3]);
+    Err(E::from(ProtoError::from(ProtoErrorKind::Message(
+        "Could not validate all DNSKEYs",
+    ))))
 }
 
 /// Verifies that a given RRSET is validly signed by any of the specified RRSIGs.
@@ -657,50 +609,6 @@ where
         rrset.name,
         rrset.record_type
     );
-
-    // Special case for self-signed DNSKEYS, validate with itself...
-    if rrsigs
-        .iter()
-        .filter(|rrsig| is_dnssec(rrsig, RecordType::RRSIG))
-        .filter_map(|rrsig| rrsig.data())
-        .any(|rrsig| RecordType::DNSKEY == rrset.record_type && rrsig.signer_name() == &rrset.name)
-    {
-        // in this case it was looks like a self-signed key, first validate the signature
-        //  then return rrset. Like the standard case below, the DNSKEY is validated
-        //  after this function. This function is only responsible for validating the signature
-        //  the DNSKey validation should come after, see verify_rrset().
-        return future::ready(
-            rrsigs
-                .into_iter()
-                // this filter is technically unnecessary, can probably remove it...
-                .filter(|rrsig| is_dnssec(rrsig, RecordType::RRSIG))
-                .filter_map(|rrsig| rrsig.into_data())
-                .filter_map(|sig| {
-                    let rrset = Arc::clone(&rrset);
-
-                    if rrset.records.iter().any(|r| {
-                        if let Some(RData::DNSSEC(DNSSECRData::DNSKEY(ref dnskey))) = r.data() {
-                            let dnskey_name = r.name();
-                            verify_rrset_with_dnskey(dnskey_name, dnskey, &sig, &rrset).is_ok()
-                        } else {
-                            panic!("expected a DNSKEY here: {:?}", r.data());
-                        }
-                    }) {
-                        Some(())
-                    } else {
-                        None
-                    }
-                })
-                .next()
-                .ok_or_else(|| {
-                    E::from(ProtoError::from(ProtoErrorKind::Message(
-                        "self-signed dnskey is invalid",
-                    )))
-                }),
-        )
-        .map_ok(move |_| Arc::try_unwrap(rrset).expect("unable to unwrap Arc"))
-        .await;
-    }
 
     // we can validate with any of the rrsigs...
     //  i.e. the first that validates is good enough

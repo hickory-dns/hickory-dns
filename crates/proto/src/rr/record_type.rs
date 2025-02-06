@@ -176,6 +176,12 @@ impl RecordType {
         )
     }
 
+    /// Returns true if this is an RRSIG RecordType
+    #[inline]
+    pub fn is_rrsig(self) -> bool {
+        self == Self::RRSIG
+    }
+
     /// Returns true if this is a Zero (unspecified) RecordType
     #[inline]
     pub fn is_zero(self) -> bool {
