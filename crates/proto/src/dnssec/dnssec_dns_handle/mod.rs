@@ -586,7 +586,7 @@ where
     if all_unsupported.unwrap_or_default()
         && (ds_records
             .iter()
-            .filter(|ds| ds.proof().is_secure())
+            .filter(|ds| ds.proof().is_secure() || ds.proof().is_insecure())
             .all(|ds| !ds.data().algorithm().is_supported())
             || ds_records.is_empty())
     {
@@ -816,7 +816,10 @@ where
             let mut supported_records = vec![];
             let mut all_unknown = None;
             for record in all_records {
-                if matches!(record.data().algorithm(), Algorithm::Unknown(_)) {
+                // A chain can be either SECURE or INSECURE, but we should not trust BOGUS or other records
+                if !record.data().algorithm().is_supported()
+                    && (record.proof().is_secure() || record.proof().is_insecure())
+                {
                     all_unknown.get_or_insert(true);
                     continue;
                 }
