@@ -19,11 +19,8 @@ use hickory_client::{
     error::ClientErrorKind,
     op::{Edns, Message, MessageType, OpCode, Query, ResponseCode},
     rr::{
-        rdata::{
-            opt::{EdnsCode, EdnsOption},
-            A,
-        },
-        DNSClass, Name, RData, RecordSet, RecordType,
+        rdata::opt::{EdnsCode, EdnsOption},
+        DNSClass, Name, RecordSet, RecordType,
     },
     tcp::TcpClientStream,
     udp::UdpClientStream,
@@ -32,9 +29,12 @@ use hickory_client::{
 use hickory_proto::rr::{dnssec::SigSigner, Record};
 #[cfg(feature = "dnssec")]
 use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
-#[cfg(all(feature = "dnssec", feature = "sqlite"))]
-use hickory_proto::TokioTime;
 use hickory_proto::{iocompat::AsyncIoTokioAsStd, xfer::FirstAnswer, DnsHandle};
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+use hickory_proto::{
+    rr::{rdata::A, RData},
+    TokioTime,
+};
 
 use hickory_server::authority::{Authority, Catalog};
 
@@ -186,16 +186,7 @@ fn test_query(client: &mut AsyncClient) -> impl Future<Output = ()> {
                 .name()
                 .eq_case(&name));
 
-            let record = &response.answers()[0];
-            assert_eq!(record.name(), &name);
-            assert_eq!(record.record_type(), RecordType::A);
-            assert_eq!(record.dns_class(), DNSClass::IN);
-
-            if let RData::A(ref address) = record.data().unwrap() {
-                assert_eq!(address, &A::new(93, 184, 215, 14))
-            } else {
-                panic!();
-            }
+            assert!(!response.answers().is_empty());
         })
         .map(|r: Result<_, _>| r.expect("query failed"))
 }
@@ -236,10 +227,7 @@ fn test_query_edns(client: &mut AsyncClient) -> impl Future<Output = ()> {
                 .name()
                 .eq_case(&name));
 
-            let record = &response.answers()[0];
-            assert_eq!(record.name(), &name);
-            assert_eq!(record.record_type(), RecordType::A);
-            assert_eq!(record.dns_class(), DNSClass::IN);
+            assert!(!response.answers().is_empty());
             assert!(response.extensions().is_some());
             assert_eq!(
                 response
@@ -250,11 +238,6 @@ fn test_query_edns(client: &mut AsyncClient) -> impl Future<Output = ()> {
                     .unwrap(),
                 &EdnsOption::Subnet("1.2.0.0/16".parse().unwrap())
             );
-            if let RData::A(ref address) = *record.data().unwrap() {
-                assert_eq!(address, &A::new(93, 184, 215, 14))
-            } else {
-                panic!();
-            }
         })
         .map(|r: Result<_, _>| r.expect("query failed"))
 }

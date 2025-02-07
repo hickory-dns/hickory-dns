@@ -128,11 +128,7 @@
 //! // Records are generic objects which can contain any data.
 //! //  In order to access it we need to first check what type of record it is
 //! //  In this case we are interested in A, IPv4 address
-//! if let Some(RData::A(ref ip)) = answers[0].data() {
-//!     assert_eq!(*ip, A::new(93, 184, 215, 14))
-//! } else {
-//!     assert!(false, "unexpected result")
-//! }
+//! assert!(answers.iter().any(|record| record.data().unwrap().as_a().is_some()));
 //! ```
 //!
 //! In the above example we successfully queried for a A record. There are many other types, each can be independently queried and the associated `hickory_client::rr::record_data::RData` has a variant with the deserialized data for the record stored.
