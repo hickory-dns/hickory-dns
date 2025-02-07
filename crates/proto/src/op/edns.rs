@@ -127,6 +127,7 @@ impl Edns {
 
         for algorithm in [
             Algorithm::RSASHA256,
+            Algorithm::RSASHA512,
             Algorithm::ECDSAP256SHA256,
             Algorithm::ECDSAP384SHA384,
             Algorithm::ED25519,
