@@ -121,8 +121,6 @@ impl Edns {
     }
 
     /// Set the default algorithms which are supported by this handle
-    ///
-    /// Set both Algorithms Understood (DAU) and Hash Understood (DHU) to the same algorithms.
     #[cfg(feature = "dnssec-ring")]
     pub fn set_default_algorithms(&mut self) -> &mut Self {
         let mut algorithms = SupportedAlgorithms::new();
@@ -134,10 +132,8 @@ impl Edns {
         algorithms.set(Algorithm::RSASHA256);
 
         let dau = EdnsOption::DAU(algorithms);
-        let dhu = EdnsOption::DHU(algorithms);
 
         self.options_mut().insert(dau);
-        self.options_mut().insert(dhu);
         self
     }
 
