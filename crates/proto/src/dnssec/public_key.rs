@@ -37,6 +37,7 @@ pub trait PublicKey {
 }
 
 /// An owned variant of PublicKey
+#[derive(Clone)]
 pub struct PublicKeyBuf {
     key_buf: Vec<u8>,
     algorithm: Algorithm,
