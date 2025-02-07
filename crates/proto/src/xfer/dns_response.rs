@@ -264,7 +264,7 @@ impl DnsResponse {
     pub fn negative_type(&self) -> Option<NegativeType> {
         let response_code = self.response_code();
         let ttl_from_soa = self.negative_ttl();
-        let has_soa = ttl_from_soa.map_or(false, |_| true);
+        let has_soa = ttl_from_soa.is_some_and(|_| true);
         let has_ns_records = self.name_servers().iter().any(|r| r.record_type().is_ns());
         let has_cname = self.answers().iter().any(|r| r.record_type().is_cname());
         let has_non_cname = self.answers().iter().any(|r| !r.record_type().is_cname());

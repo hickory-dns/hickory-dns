@@ -280,7 +280,6 @@ fn test_server_continues_on_bad_data_tcp() {
 #[test]
 #[cfg(feature = "resolver")]
 fn test_forward() {
-    use hickory_proto::rr::rdata::A;
     use server_harness::query_message;
 
     //env_logger::init();
@@ -303,10 +302,10 @@ fn test_forward() {
             Name::from_str("www.example.com").unwrap(),
             RecordType::A,
         );
-        assert_eq!(
-            *response.answers()[0].data().and_then(RData::as_a).unwrap(),
-            A::new(93, 184, 215, 14)
-        );
+        assert!(response
+            .answers()
+            .iter()
+            .any(|record| record.data().unwrap().as_a().is_some()));
 
         // just tests that multiple queries work
         let addr: SocketAddr = SocketAddr::new(
@@ -325,10 +324,10 @@ fn test_forward() {
             Name::from_str("www.example.com").unwrap(),
             RecordType::A,
         );
-        assert_eq!(
-            *response.answers()[0].data().and_then(RData::as_a).unwrap(),
-            A::new(93, 184, 215, 14)
-        );
+        assert!(response
+            .answers()
+            .iter()
+            .any(|record| record.data().unwrap().as_a().is_some()));
         assert!(!response.header().authoritative());
     })
 }

@@ -1267,7 +1267,7 @@ impl Authority for InMemoryAuthority {
                         .and_then(Record::data)
                         .and_then(RData::as_dnssec)
                         .and_then(DNSSECRData::as_nsec)
-                        .map_or(false, |r| {
+                        .is_some_and(|r| {
                             // the search name is less than the next NSEC record
                             *name < r.next_domain_name().into() ||
                             // this is the last record, and wraps to the beginning of the zone
