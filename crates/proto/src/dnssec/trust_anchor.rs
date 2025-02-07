@@ -18,6 +18,8 @@
 
 use crate::dnssec::PublicKey;
 
+use super::{Algorithm, PublicKeyBuf};
+
 const ROOT_ANCHOR_ORIG: &[u8] = include_bytes!("roots/19036.rsa");
 const ROOT_ANCHOR_2018: &[u8] = include_bytes!("roots/20326.rsa");
 
@@ -26,13 +28,16 @@ const ROOT_ANCHOR_2018: &[u8] = include_bytes!("roots/20326.rsa");
 pub struct TrustAnchor {
     // TODO: these should also store some information, or more specifically, metadata from the signed
     //  public certificate.
-    pkeys: Vec<Vec<u8>>,
+    pkeys: Vec<PublicKeyBuf>,
 }
 
 impl Default for TrustAnchor {
     fn default() -> Self {
         Self {
-            pkeys: vec![ROOT_ANCHOR_ORIG.to_owned(), ROOT_ANCHOR_2018.to_owned()],
+            pkeys: vec![
+                PublicKeyBuf::new(ROOT_ANCHOR_ORIG.to_owned(), Algorithm::RSASHA256),
+                PublicKeyBuf::new(ROOT_ANCHOR_2018.to_owned(), Algorithm::RSASHA256),
+            ],
         }
     }
 }
@@ -48,24 +53,30 @@ impl TrustAnchor {
     /// # Arguments
     ///
     /// * `other_key` - The raw dnskey in bytes
-    pub fn contains_dnskey_bytes(&self, other_key: &[u8]) -> bool {
-        self.pkeys.iter().any(|k| other_key == k.as_slice())
+    /// * `algorithm` - The key's algorithm
+    pub fn contains_dnskey_bytes(&self, other_key: &[u8], algorithm: Algorithm) -> bool {
+        self.pkeys
+            .iter()
+            .any(|k| other_key == k.public_bytes() && algorithm == k.algorithm())
     }
 
     /// determines if the key is in the trust anchor set
     pub fn contains<P: PublicKey + ?Sized>(&self, other_key: &P) -> bool {
-        self.contains_dnskey_bytes(other_key.public_bytes())
+        self.contains_dnskey_bytes(other_key.public_bytes(), other_key.algorithm())
     }
 
     /// inserts the trust_anchor to the trusted chain
     pub fn insert_trust_anchor<P: PublicKey + ?Sized>(&mut self, public_key: &P) {
         if !self.contains(public_key) {
-            self.pkeys.push(public_key.public_bytes().to_vec())
+            self.pkeys.push(PublicKeyBuf::new(
+                public_key.public_bytes().to_vec(),
+                public_key.algorithm(),
+            ))
         }
     }
 
     /// get the trust anchor at the specified index
-    pub fn get(&self, idx: usize) -> &[u8] {
+    pub fn get(&self, idx: usize) -> &PublicKeyBuf {
         &self.pkeys[idx]
     }
 
@@ -83,6 +94,6 @@ impl TrustAnchor {
 #[test]
 fn test_kjqmt7v() {
     let trust = TrustAnchor::default();
-    assert_eq!(trust.get(0), ROOT_ANCHOR_ORIG);
-    assert!(trust.contains_dnskey_bytes(ROOT_ANCHOR_ORIG));
+    assert_eq!(trust.get(0).public_bytes(), ROOT_ANCHOR_ORIG);
+    assert!(trust.contains_dnskey_bytes(ROOT_ANCHOR_ORIG, Algorithm::RSASHA256));
 }

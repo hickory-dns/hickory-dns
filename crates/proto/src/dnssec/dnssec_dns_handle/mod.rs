@@ -707,7 +707,7 @@ where
     // Checks to see if the key is valid against the registered root certificates
     if handle
         .trust_anchor
-        .contains_dnskey_bytes(key_rdata.public_key())
+        .contains_dnskey_bytes(key_rdata.public_key(), key_rdata.algorithm())
     {
         debug!(
             "validated dnskey with trust_anchor: {}, {key_rdata}",
