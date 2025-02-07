@@ -30,7 +30,7 @@ use crate::{
     proto::{
         dnssec::{
             rdata::{key::KEY, DNSSECRData, DNSKEY, NSEC, NSEC3, NSEC3PARAM, RRSIG},
-            DnsSecResult, Nsec3HashAlgorithm, SigSigner, SupportedAlgorithms, TBS,
+            DnsSecResult, Nsec3HashAlgorithm, SigSigner, TBS,
         },
         ProtoError,
     },
@@ -435,7 +435,7 @@ impl InnerInMemory {
                 cfg_if! {
                     if #[cfg(feature = "dnssec-ring")] {
                         let (records_tmp, rrsigs_tmp) = rrset
-                            .records(lookup_options.dnssec_ok(), lookup_options.supported_algorithms())
+                            .records(lookup_options.dnssec_ok())
                             .partition(|r| r.record_type() != RecordType::RRSIG);
                         records = records_tmp;
                         _rrsigs = rrsigs_tmp;
@@ -1450,7 +1450,7 @@ impl Authority for InMemoryAuthority {
                 .find(|rr_set| {
                     // there should only be one record
                     rr_set
-                        .records(false, SupportedAlgorithms::default())
+                        .records(false)
                         .next()
                         .map(Record::data)
                         .and_then(RData::as_dnssec)

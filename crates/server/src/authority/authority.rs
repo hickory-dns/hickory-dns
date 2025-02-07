@@ -19,10 +19,7 @@ use crate::{
 use crate::{
     dnssec::NxProofKind,
     proto::{
-        dnssec::{
-            rdata::key::KEY, ring::Digest, DnsSecResult, Nsec3HashAlgorithm, SigSigner,
-            SupportedAlgorithms,
-        },
+        dnssec::{rdata::key::KEY, ring::Digest, DnsSecResult, Nsec3HashAlgorithm, SigSigner},
         rr::Name,
         ProtoError,
     },
@@ -30,24 +27,18 @@ use crate::{
 
 /// LookupOptions that specify different options from the client to include or exclude various records in the response.
 ///
-/// For example, `dnssec_ok` (DO) will include `RRSIG` in the response, `supported_algorithms` will only include a subset of
-///    `RRSIG` based on the algorithms supported by the request.
+/// For example, `dnssec_ok` (DO) will include `RRSIG` in the response.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct LookupOptions {
     dnssec_ok: bool,
-    #[cfg(feature = "dnssec-ring")]
-    supported_algorithms: SupportedAlgorithms,
 }
 
 /// Lookup Options for the request to the authority
 impl LookupOptions {
     /// Return a new LookupOptions
     #[cfg(feature = "dnssec-ring")]
-    pub fn for_dnssec(dnssec_ok: bool, supported_algorithms: SupportedAlgorithms) -> Self {
-        Self {
-            dnssec_ok,
-            supported_algorithms,
-        }
+    pub fn for_dnssec(dnssec_ok: bool) -> Self {
+        Self { dnssec_ok }
     }
 
     /// Specify that this lookup should return DNSSEC related records as well, e.g. RRSIG
@@ -64,32 +55,11 @@ impl LookupOptions {
         self.dnssec_ok
     }
 
-    /// Specify the algorithms for which DNSSEC records should be returned
-    #[cfg(feature = "dnssec-ring")]
-    pub fn set_supported_algorithms(self, val: SupportedAlgorithms) -> Self {
-        Self {
-            supported_algorithms: val,
-            ..self
-        }
-    }
-
-    /// The algorithms for which DNSSEC records should be returned
-    #[cfg(feature = "dnssec-ring")]
-    pub fn supported_algorithms(&self) -> SupportedAlgorithms {
-        self.supported_algorithms
-    }
-
-    /// Returns the subset of the rrset limited to the supported_algorithms
-    pub fn rrset_with_supported_algorithms<'r>(
-        &self,
-        record_set: &'r RecordSet,
-    ) -> RrsetRecords<'r> {
+    /// Returns the rrset's records with or without RRSIGs, depending on the DO flag.
+    pub fn rrset_with_rrigs<'r>(&self, record_set: &'r RecordSet) -> RrsetRecords<'r> {
         cfg_if! {
             if #[cfg(feature = "dnssec-ring")] {
-                record_set.records(
-                    self.dnssec_ok(),
-                    self.supported_algorithms(),
-                )
+                record_set.records(self.dnssec_ok())
             } else {
                 record_set.records_without_rrsigs()
             }

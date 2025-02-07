@@ -31,7 +31,7 @@ use crate::serialize::binary::{BinEncodable, BinEncoder};
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct SupportedAlgorithms {
-    // right now the number of Algorithms supported are fewer than 16..
+    // right now the number of Algorithms supported are fewer than 8.
     bit_map: u8,
 }
 

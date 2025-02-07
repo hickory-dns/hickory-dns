@@ -11,9 +11,6 @@ use tracing::{info, warn};
 
 use crate::rr::{DNSClass, Name, RData, Record, RecordType};
 
-#[cfg(feature = "dnssec-ring")]
-use crate::dnssec::SupportedAlgorithms;
-
 /// Set of resource records associated to a name and type
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RecordSet {
@@ -132,40 +129,24 @@ impl RecordSet {
     /// # Arguments
     ///
     /// * `and_rrsigs` - if true, RRSIGs will be returned if they exist
-    /// * `supported_algorithms` - the RRSIGs will be filtered by the set of supported_algorithms,
-    ///                            and then only the maximal RRSIG algorithm will be returned.
     #[cfg(feature = "dnssec-ring")]
-    pub fn records(
-        &self,
-        and_rrsigs: bool,
-        supported_algorithms: SupportedAlgorithms,
-    ) -> RrsetRecords<'_> {
+    pub fn records(&self, and_rrsigs: bool) -> RrsetRecords<'_> {
         if and_rrsigs {
-            self.records_with_rrsigs(supported_algorithms)
+            self.records_with_rrsigs()
         } else {
             self.records_without_rrsigs()
         }
     }
 
     /// Returns a Vec of all records in the set, with RRSIGs, if present.
-    ///
-    /// # Arguments
-    ///
-    /// * `supported_algorithms` - the RRSIGs will be filtered by the set of supported_algorithms,
-    ///                            and then only the maximal RRSIG algorithm will be returned.
     #[cfg(feature = "dnssec-ring")]
-    pub fn records_with_rrsigs(
-        &self,
-        supported_algorithms: SupportedAlgorithms,
-    ) -> RrsetRecords<'_> {
+    pub fn records_with_rrsigs(&self) -> RrsetRecords<'_> {
         if self.records.is_empty() {
             RrsetRecords::Empty
         } else {
-            let rrsigs = RrsigsByAlgorithms {
-                rrsigs: self.rrsigs.iter(),
-                supported_algorithms,
-            };
-            RrsetRecords::RecordsAndRrsigs(RecordsAndRrsigsIter(self.records.iter().chain(rrsigs)))
+            RrsetRecords::RecordsAndRrsigs(RecordsAndRrsigsIter(
+                self.records.iter().chain(self.rrsigs.iter()),
+            ))
         }
     }
 
@@ -517,7 +498,7 @@ impl IntoIterator for RecordSet {
 /// An iterator over all the records and their signatures
 #[cfg(feature = "dnssec-ring")]
 #[derive(Debug)]
-pub struct RecordsAndRrsigsIter<'r>(Chain<Iter<'r, Record>, RrsigsByAlgorithms<'r>>);
+pub struct RecordsAndRrsigsIter<'r>(Chain<Iter<'r, Record>, Iter<'r, Record>>);
 
 #[cfg(feature = "dnssec-ring")]
 impl<'r> Iterator for RecordsAndRrsigsIter<'r> {
@@ -525,49 +506,6 @@ impl<'r> Iterator for RecordsAndRrsigsIter<'r> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
-    }
-}
-
-/// An iterator that limits the record signatures by SupportedAlgorithms
-#[cfg(feature = "dnssec-ring")]
-#[derive(Debug)]
-pub(crate) struct RrsigsByAlgorithms<'r> {
-    rrsigs: Iter<'r, Record>,
-    supported_algorithms: SupportedAlgorithms,
-}
-
-#[cfg(feature = "dnssec-ring")]
-impl<'r> Iterator for RrsigsByAlgorithms<'r> {
-    type Item = &'r Record;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        use crate::dnssec::rdata::DNSSECRData;
-        use crate::dnssec::Algorithm;
-
-        let supported_algorithms = self.supported_algorithms;
-
-        // disable rfc 6975 when no supported_algorithms specified
-        if supported_algorithms.is_empty() {
-            self.rrsigs.next()
-        } else {
-            self.rrsigs
-                .by_ref()
-                .filter(|record| {
-                    if let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = record.data() {
-                        supported_algorithms.has(rrsig.algorithm())
-                    } else {
-                        false
-                    }
-                })
-                .max_by_key(|record| {
-                    if let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = record.data() {
-                        rrsig.algorithm()
-                    } else {
-                        #[allow(deprecated)]
-                        Algorithm::RSASHA1
-                    }
-                })
-        }
     }
 }
 
@@ -841,7 +779,7 @@ mod test {
     fn test_get_filter() {
         use crate::dnssec::{
             rdata::{DNSSECRData, RRSIG},
-            Algorithm, SupportedAlgorithms,
+            Algorithm,
         };
 
         let name = Name::root();
@@ -929,19 +867,15 @@ mod test {
         rrset.insert_rrsig(rrsig_ecp384);
         rrset.insert_rrsig(rrsig_ed25519);
 
-        assert!(rrset
-            .records_with_rrsigs(SupportedAlgorithms::all(),)
-            .any(
-                |r| if let RData::DNSSEC(DNSSECRData::RRSIG(sig)) = r.data() {
-                    sig.algorithm() == Algorithm::ED25519
-                } else {
-                    false
-                },
-            ));
+        assert!(rrset.records_with_rrsigs().any(|r| {
+            if let RData::DNSSEC(DNSSECRData::RRSIG(sig)) = r.data() {
+                sig.algorithm() == Algorithm::ED25519
+            } else {
+                false
+            }
+        },));
 
-        let mut supported_algorithms = SupportedAlgorithms::new();
-        supported_algorithms.set(Algorithm::ECDSAP384SHA384);
-        assert!(rrset.records_with_rrsigs(supported_algorithms).any(|r| {
+        assert!(rrset.records_with_rrsigs().any(|r| {
             if let RData::DNSSEC(DNSSECRData::RRSIG(sig)) = r.data() {
                 sig.algorithm() == Algorithm::ECDSAP384SHA384
             } else {
@@ -949,9 +883,7 @@ mod test {
             }
         }));
 
-        let mut supported_algorithms = SupportedAlgorithms::new();
-        supported_algorithms.set(Algorithm::ED25519);
-        assert!(rrset.records_with_rrsigs(supported_algorithms).any(|r| {
+        assert!(rrset.records_with_rrsigs().any(|r| {
             if let RData::DNSSEC(DNSSECRData::RRSIG(sig)) = r.data() {
                 sig.algorithm() == Algorithm::ED25519
             } else {

@@ -17,7 +17,7 @@ use std::{
 use hickory_client::client::Client;
 use hickory_client::{client::ClientHandle, proto::xfer::DnsResponse, ClientError};
 #[cfg(feature = "dnssec-ring")]
-use hickory_proto::dnssec::{Algorithm, SupportedAlgorithms};
+use hickory_proto::dnssec::Algorithm;
 use hickory_proto::rr::{rdata::A, DNSClass, Name, RData, RecordType};
 use hickory_proto::xfer::Protocol;
 use regex::Regex;
@@ -282,12 +282,7 @@ pub fn query_a_refused<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
 //  i.e. more complex checks live with the clients and authorities to validate deeper functionality
 #[allow(dead_code)]
 #[cfg(feature = "dnssec-ring")]
-pub fn query_all_dnssec(
-    io_loop: &mut Runtime,
-    client: Client,
-    algorithm: Algorithm,
-    with_rfc6975: bool,
-) {
+pub fn query_all_dnssec(io_loop: &mut Runtime, client: Client, algorithm: Algorithm) {
     use hickory_proto::{
         dnssec::rdata::{DNSKEY, RRSIG},
         rr::{Record, RecordData},
@@ -296,11 +291,6 @@ pub fn query_all_dnssec(
     let name = Name::from_str("example.com.").unwrap();
     let mut client = MutMessageHandle::new(client);
     client.lookup_options.set_dnssec_ok(true);
-    if with_rfc6975 {
-        client
-            .lookup_options
-            .set_supported_algorithms(SupportedAlgorithms::from_vec(&[algorithm]));
-    }
 
     let response = query_message(io_loop, &mut client, name.clone(), RecordType::DNSKEY).unwrap();
 
@@ -322,16 +312,4 @@ pub fn query_all_dnssec(
         .filter(|rrsig| rrsig.algorithm() == algorithm)
         .find(|rrsig| rrsig.type_covered() == RecordType::DNSKEY);
     assert!(rrsig.is_some(), "Associated RRSIG not found");
-}
-
-#[allow(dead_code)]
-#[cfg(feature = "dnssec-ring")]
-pub fn query_all_dnssec_with_rfc6975(io_loop: &mut Runtime, client: Client, algorithm: Algorithm) {
-    query_all_dnssec(io_loop, client, algorithm, true)
-}
-
-#[allow(dead_code)]
-#[cfg(feature = "dnssec-ring")]
-pub fn query_all_dnssec_wo_rfc6975(io_loop: &mut Runtime, client: Client, algorithm: Algorithm) {
-    query_all_dnssec(io_loop, client, algorithm, false)
 }

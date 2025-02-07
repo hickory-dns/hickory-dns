@@ -14,14 +14,7 @@ use cfg_if::cfg_if;
 use tracing::{debug, error, info, trace, warn};
 
 #[cfg(feature = "dnssec-ring")]
-use crate::{
-    authority::Nsec3QueryInfo,
-    dnssec::NxProofKind,
-    proto::{
-        dnssec::SupportedAlgorithms,
-        rr::rdata::opt::{EdnsCode, EdnsOption},
-    },
-};
+use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
         authority_object::DnssecSummary, AuthLookup, AuthorityObject, EmptyLookup,
@@ -512,15 +505,7 @@ fn lookup_options_for_edns(edns: Option<&Edns>) -> LookupOptions {
 
     cfg_if! {
         if #[cfg(feature = "dnssec-ring")] {
-            let supported_algorithms = if let Some(&EdnsOption::DAU(algs)) = edns.option(EdnsCode::DAU)
-            {
-               algs
-            } else {
-               debug!("no DAU in request, used default SupportAlgorithms");
-               SupportedAlgorithms::default()
-            };
-
-            LookupOptions::for_dnssec(edns.flags().dnssec_ok, supported_algorithms)
+            LookupOptions::for_dnssec(edns.flags().dnssec_ok)
         } else {
             LookupOptions::default()
         }

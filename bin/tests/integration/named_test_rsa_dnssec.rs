@@ -8,9 +8,7 @@ use std::sync::Arc;
 
 use tokio::runtime::Runtime;
 
-use crate::server_harness::{
-    named_test_harness, query_a, query_all_dnssec_with_rfc6975, query_all_dnssec_wo_rfc6975,
-};
+use crate::server_harness::{named_test_harness, query_a, query_all_dnssec};
 use hickory_client::client::Client;
 use hickory_dns::dnssec::key_from_file;
 use hickory_proto::dnssec::{Algorithm, DnssecDnsHandle, TrustAnchor};
@@ -65,11 +63,7 @@ fn generic_test(config_toml: &str, key_path: &str, algorithm: Algorithm) {
         let client = standard_tcp_conn(tcp_port.expect("no tcp port"), provider.clone());
         let (client, bg) = io_loop.block_on(client);
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
-        query_all_dnssec_with_rfc6975(&mut io_loop, client, algorithm);
-        let client = standard_tcp_conn(tcp_port.expect("no tcp port"), provider.clone());
-        let (client, bg) = io_loop.block_on(client);
-        hickory_proto::runtime::spawn_bg(&io_loop, bg);
-        query_all_dnssec_wo_rfc6975(&mut io_loop, client, algorithm);
+        query_all_dnssec(&mut io_loop, client, algorithm);
 
         // test that request with Dnssec client is successful, i.e. validates chain
         let trust_anchor = trust_anchor(&server_path.join(key_path), algorithm);

@@ -1,7 +1,7 @@
 use hickory_client::client::ClientHandle;
-use hickory_proto::xfer::{DnsHandle, DnsRequest};
 #[cfg(feature = "dnssec-ring")]
-use hickory_proto::{op::Edns, rr::rdata::opt::EdnsOption};
+use hickory_proto::op::Edns;
+use hickory_proto::xfer::{DnsHandle, DnsRequest};
 #[cfg(feature = "dnssec-ring")]
 use hickory_server::authority::LookupOptions;
 
@@ -39,8 +39,6 @@ impl<C: ClientHandle + Unpin> DnsHandle for MutMessageHandle<C> {
             // mutable block
             let edns = request.extensions_mut().get_or_insert_with(Edns::new);
             edns.set_dnssec_ok(true);
-            edns.options_mut()
-                .insert(EdnsOption::DAU(self.lookup_options.supported_algorithms()));
         }
 
         println!("sending message");
