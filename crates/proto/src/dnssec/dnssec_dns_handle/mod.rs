@@ -674,13 +674,11 @@ where
     ))
 }
 
-/// Verifies that the key can generate a key tag and has a supported algorithm.
+/// Verifies that the key is a trust anchor.
 ///
 /// # Returns
 ///
-/// Ok(Proof::Secure) if registered in the root store, Ok(Proof::Indeterminate) if the key is otherwise ok, but not in root store
-///
-/// Err if the key failed to generate a key tag or has an unsupported algorithm.
+/// Proof::Secure if registered in the root store, Proof::Indeterminate if not
 fn is_dnskey_in_root_store<H>(handle: &DnssecDnsHandle<H>, rr: &RecordRef<'_, DNSKEY>) -> Proof
 where
     H: DnsHandle + Sync + Unpin,
@@ -703,7 +701,7 @@ where
     }
 }
 
-/// This verifies a DNSKEY record against the trust anchors or DS records from a secure delegation.
+/// This verifies a DNSKEY record against DS records from a secure delegation.
 fn verify_dnskey(
     rr: &RecordRef<'_, DNSKEY>,
     ds_records: &[Record<DS>],
