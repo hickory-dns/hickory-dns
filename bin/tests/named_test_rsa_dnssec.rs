@@ -261,3 +261,18 @@ fn test_dnssec_restart_with_update_journal_dep() {
     // TODO: fix journal path so that it doesn't leave the dir dirty... this might make windows an option after that
     std::fs::remove_file(&journal).expect("failed to cleanup after test");
 }
+
+#[test]
+fn crypto_self_test() {
+    let buf = std::fs::read("../tests/test-data/test_configs/dnssec/ecdsa_p256.pem").unwrap();
+    let key_pair = KeyFormat::Pem
+        .decode_key(&buf, None, Algorithm::ECDSAP256SHA256)
+        .unwrap();
+    let public_key = key_pair.to_public_key().unwrap();
+    println!("{:02x?}", public_key.public_bytes());
+    let tbs = TBS::from(b"hello".as_slice());
+    let signature = key_pair.sign(Algorithm::ECDSAP256SHA256, &tbs).unwrap();
+    public_key
+        .verify(Algorithm::ECDSAP256SHA256, tbs.as_ref(), &signature)
+        .expect("signature should verify");
+}
