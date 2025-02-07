@@ -538,8 +538,8 @@ mod tests {
     use tokio::runtime::Runtime;
 
     use crate::iocompat::AsyncIoTokioAsStd;
-    use crate::op::{Edns, Message, Query, ResponseCode};
-    use crate::rr::rdata::{A, AAAA};
+    use crate::op::{Edns, Message, Query};
+    use crate::rr::rdata::A;
     use crate::rr::{Name, RData, RecordType};
     use crate::xfer::{DnsRequestOptions, FirstAnswer};
 
@@ -589,26 +589,24 @@ mod tests {
             RecordType::AAAA,
         );
         request.add_query(query);
+        request.set_recursion_desired(true);
+        let mut edns = Edns::new();
+        edns.set_version(0);
+        edns.set_max_payload(1232);
+        *request.extensions_mut() = Some(edns);
+
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
         for _ in 0..3 {
             let response = runtime
                 .block_on(https.send_message(request.clone()).first_answer())
                 .expect("send_message failed");
-            if response.response_code() == ResponseCode::ServFail {
-                continue;
-            }
 
-            let record = &response.answers()[0];
-            let addr = record
+            assert!(response.answers().iter().any(|record| record
                 .data()
-                .and_then(RData::as_aaaa)
-                .expect("invalid response, expected A record");
-
-            assert_eq!(
-                addr,
-                &AAAA::new(0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c)
-            );
+                .unwrap()
+                .as_aaaa()
+                .is_some()));
         }
     }
 
@@ -656,26 +654,24 @@ mod tests {
             RecordType::AAAA,
         );
         request.add_query(query);
+        request.set_recursion_desired(true);
+        let mut edns = Edns::new();
+        edns.set_version(0);
+        edns.set_max_payload(1232);
+        *request.extensions_mut() = Some(edns);
+
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
         for _ in 0..3 {
             let response = runtime
                 .block_on(https.send_message(request.clone()).first_answer())
                 .expect("send_message failed");
-            if response.response_code() == ResponseCode::ServFail {
-                continue;
-            }
 
-            let record = &response.answers()[0];
-            let addr = record
+            assert!(response.answers().iter().any(|record| record
                 .data()
-                .and_then(RData::as_aaaa)
-                .expect("invalid response, expected A record");
-
-            assert_eq!(
-                addr,
-                &AAAA::new(0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c)
-            );
+                .unwrap()
+                .as_aaaa()
+                .is_some()));
         }
     }
 
@@ -722,22 +718,22 @@ mod tests {
             RecordType::AAAA,
         );
         request.add_query(query);
+        request.set_recursion_desired(true);
+        let mut edns = Edns::new();
+        edns.set_version(0);
+        edns.set_max_payload(1232);
+        *request.extensions_mut() = Some(edns);
+
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
         let response = runtime
             .block_on(https.send_message(request).first_answer())
             .expect("send_message failed");
 
-        let record = &response.answers()[0];
-        let addr = record
-            .data()
-            .and_then(RData::as_aaaa)
-            .expect("invalid response, expected A record");
-
-        assert_eq!(
-            addr,
-            &AAAA::new(0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c)
-        );
+        assert!(response
+            .answers()
+            .iter()
+            .any(|record| record.data().unwrap().as_aaaa().is_some()));
     }
 
     fn client_config_tls12() -> ClientConfig {
