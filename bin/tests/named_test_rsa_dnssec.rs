@@ -262,6 +262,7 @@ fn test_dnssec_restart_with_update_journal_dep() {
     std::fs::remove_file(&journal).expect("failed to cleanup after test");
 }
 
+#[cfg(feature = "dnssec-openssl")]
 #[test]
 fn crypto_self_test() {
     let buf = std::fs::read("../tests/test-data/test_configs/dnssec/ecdsa_p256.pem").unwrap();
