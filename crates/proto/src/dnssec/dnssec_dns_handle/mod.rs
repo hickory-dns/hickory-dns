@@ -661,13 +661,32 @@ where
         ));
     }
 
-    // if rrset.records.is_empty() && ds_records.is_empty()
-    // there were DS records, but no DNSKEYs, we're in a bogus state
+    // If there were no DS records, no DNSKEYs and no RRSIGs, and the find_ds_records did not propagate an error
+    //   due to NSEC(3), then we are lacking DNSSEC evidence
+    //
+    // From RFC 4035
+    // "
+    // Indeterminate: An RRset for which the resolver is not able to
+    //   determine whether the RRset should be signed, as the resolver is
+    //   not able to obtain the necessary DNSSEC RRs.  This can occur when
+    //   the security-aware resolver is not able to contact security-aware
+    //   name servers for the relevant zones.
+    // "
+    if rrset.records().is_empty() && ds_records.is_empty() && rrsigs.is_empty() {
+        return Err(ProofError::new(
+            Proof::Indeterminate,
+            ProofErrorKind::DnskeyNotFound {
+                name: rrset.name().clone(),
+            },
+        ));
+    }
+
+    // there were DS records or RRSIGs, but no DNSKEYs, we're in a bogus state
     //   if there was no DS record, it should have gotten an NSEC upstream, and returned early above
     //   and all other cases...
     trace!("no dnskey found: {}", rrset.name());
     Err(ProofError::new(
-        Proof::Indeterminate,
+        Proof::Bogus,
         ProofErrorKind::DnskeyNotFound {
             name: rrset.name().clone(),
         },
