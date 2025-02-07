@@ -588,7 +588,7 @@ where
             .iter()
             .filter(|ds| ds.proof().is_secure() || ds.proof().is_insecure())
             .all(|ds| !ds.data().algorithm().is_supported())
-            || ds_records.is_empty())
+            && !ds_records.is_empty())
     {
         debug!("all dnskeys use unsupported algorithms and there are no supported DS records in the parent zone");
         // cannot validate; mark as insecure
