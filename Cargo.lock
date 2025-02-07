@@ -245,7 +245,7 @@ dependencies = [
 
 [[package]]
 name = "async-std-resolver"
-version = "0.25.0-alpha.4"
+version = "0.25.0-alpha.5"
 dependencies = [
  "async-std",
  "async-trait",
@@ -865,7 +865,7 @@ checksum = "fbf6a919d6cf397374f7dfeeea91d974c7c0a7221d0d0f4f20d859d329e53fcc"
 
 [[package]]
 name = "hickory-client"
-version = "0.25.0-alpha.4"
+version = "0.25.0-alpha.5"
 dependencies = [
  "cfg-if",
  "data-encoding",
@@ -887,7 +887,7 @@ dependencies = [
 
 [[package]]
 name = "hickory-compatibility"
-version = "0.25.0-alpha.4"
+version = "0.25.0-alpha.5"
 dependencies = [
  "data-encoding",
  "futures",
@@ -901,7 +901,7 @@ dependencies = [
 
 [[package]]
 name = "hickory-dns"
-version = "0.25.0-alpha.4"
+version = "0.25.0-alpha.5"
 dependencies = [
  "cfg-if",
  "clap",
@@ -930,7 +930,7 @@ dependencies = [
 
 [[package]]
 name = "hickory-integration"
-version = "0.25.0-alpha.4"
+version = "0.25.0-alpha.5"
 dependencies = [
  "async-trait",
  "futures",
@@ -953,7 +953,7 @@ dependencies = [
 
 [[package]]
 name = "hickory-proto"
-version = "0.25.0-alpha.4"
+version = "0.25.0-alpha.5"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -999,7 +999,7 @@ dependencies = [
 
 [[package]]
 name = "hickory-recursor"
-version = "0.25.0-alpha.4"
+version = "0.25.0-alpha.5"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -1023,7 +1023,7 @@ dependencies = [
 
 [[package]]
 name = "hickory-resolver"
-version = "0.25.0-alpha.4"
+version = "0.25.0-alpha.5"
 dependencies = [
  "backtrace",
  "cfg-if",
@@ -1052,7 +1052,7 @@ dependencies = [
 
 [[package]]
 name = "hickory-server"
-version = "0.25.0-alpha.4"
+version = "0.25.0-alpha.5"
 dependencies = [
  "async-trait",
  "bytes",
@@ -1086,7 +1086,7 @@ dependencies = [
 
 [[package]]
 name = "hickory-util"
-version = "0.25.0-alpha.4"
+version = "0.25.0-alpha.5"
 dependencies = [
  "clap",
  "console",
@@ -2227,7 +2227,7 @@ checksum = "7b2093cf4c8eb1e67749a6762251bc9cd836b6fc171623bd0a9d324d37af2417"
 
 [[package]]
 name = "test-support"
-version = "0.25.0-alpha.4"
+version = "0.25.0-alpha.5"
 dependencies = [
  "tracing",
  "tracing-subscriber",
