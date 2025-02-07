@@ -586,6 +586,7 @@ where
     if all_unsupported.unwrap_or_default()
         && (ds_records
             .iter()
+            .filter(|ds| ds.proof().is_secure())
             .all(|ds| !ds.data().algorithm().is_supported())
             || ds_records.is_empty())
     {
