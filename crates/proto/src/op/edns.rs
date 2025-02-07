@@ -125,11 +125,16 @@ impl Edns {
     pub fn set_default_algorithms(&mut self) -> &mut Self {
         let mut algorithms = SupportedAlgorithms::new();
 
-        #[cfg(feature = "dnssec-ring")]
-        algorithms.set(Algorithm::ED25519);
-        algorithms.set(Algorithm::ECDSAP256SHA256);
-        algorithms.set(Algorithm::ECDSAP384SHA384);
-        algorithms.set(Algorithm::RSASHA256);
+        for algorithm in [
+            Algorithm::RSASHA256,
+            Algorithm::ECDSAP256SHA256,
+            Algorithm::ECDSAP384SHA384,
+            Algorithm::ED25519,
+        ] {
+            if algorithm.is_supported() {
+                algorithms.set(algorithm);
+            }
+        }
 
         let dau = EdnsOption::DAU(algorithms);
 
