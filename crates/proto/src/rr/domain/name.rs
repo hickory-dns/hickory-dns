@@ -847,7 +847,7 @@ impl Name {
     /// assert!(!name.is_wildcard());
     /// ```
     pub fn is_wildcard(&self) -> bool {
-        self.iter().next().map_or(false, |l| l == b"*")
+        self.iter().next().is_some_and(|l| l == b"*")
     }
 
     /// Converts a name to a wildcard, by replacing the first label with `*`

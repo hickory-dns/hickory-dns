@@ -397,7 +397,7 @@ impl Catalog {
     }
 }
 
-async fn lookup<'a, R: ResponseHandler + Unpin>(
+async fn lookup<R: ResponseHandler + Unpin>(
     request_info: RequestInfo<'_>,
     authority: &dyn AuthorityObject,
     request: &Request,
