@@ -13,7 +13,7 @@ use hickory_dns::dnssec::{KeyConfig, KeyPurpose};
 use hickory_proto::{
     dnssec::{
         rdata::{key::KeyUsage, KEY},
-        Algorithm, PublicKey, SigSigner, SupportedAlgorithms, Verifier,
+        Algorithm, PublicKey, SigSigner, Verifier,
     },
     op::{update_message, Header, Message, Query, ResponseCode},
     rr::{

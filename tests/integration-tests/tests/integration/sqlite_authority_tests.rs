@@ -7,7 +7,6 @@ use std::str::FromStr;
 use hickory_proto::rr::LowerName;
 use rusqlite::*;
 
-use hickory_proto::dnssec::SupportedAlgorithms;
 use hickory_proto::op::{Header, LowerQuery, Message, MessageType, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::{A, AAAA, NS, TXT};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
@@ -805,7 +804,7 @@ async fn test_zone_signing() {
         .lookup(
             authority.origin(),
             RecordType::AXFR,
-            LookupOptions::for_dnssec(true, SupportedAlgorithms::all()),
+            LookupOptions::for_dnssec(true),
         )
         .await
         .unwrap();
@@ -821,7 +820,7 @@ async fn test_zone_signing() {
         .lookup(
             authority.origin(),
             RecordType::AXFR,
-            LookupOptions::for_dnssec(true, SupportedAlgorithms::all()),
+            LookupOptions::for_dnssec(true),
         )
         .await
         .unwrap();
@@ -838,7 +837,7 @@ async fn test_zone_signing() {
             .lookup(
                 authority.origin(),
                 RecordType::AXFR,
-                LookupOptions::for_dnssec(true, SupportedAlgorithms::all()),
+                LookupOptions::for_dnssec(true),
             )
             .await
             .unwrap();
@@ -870,10 +869,7 @@ async fn test_get_nsec() {
     let lower_name = LowerName::from(name.clone());
 
     let results = authority
-        .get_nsec_records(
-            &lower_name,
-            LookupOptions::for_dnssec(true, SupportedAlgorithms::all()),
-        )
+        .get_nsec_records(&lower_name, LookupOptions::for_dnssec(true))
         .await
         .unwrap();
 
@@ -1041,10 +1037,6 @@ async fn test_recovery() {
 async fn test_axfr() {
     let mut authority = create_example();
     authority.set_allow_axfr(true);
-
-    // query: &'q LowerQuery,
-    //         is_secure: bool,
-    //         supported_algorithms: SupportedAlgorithms,
 
     let query = LowerQuery::from(Query::query(
         Name::from_str("example.com.").unwrap(),

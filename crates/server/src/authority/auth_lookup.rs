@@ -293,7 +293,7 @@ impl<'r> Iterator for AnyRecordsIter<'r> {
                     self.records = Some(
                         self.rrset
                             .expect("rrset should not be None at this point")
-                            .records(self.lookup_options.dnssec_ok(), self.lookup_options.supported_algorithms()),
+                            .records(self.lookup_options.dnssec_ok()),
                     );
                 } else {
                     self.records = Some(self.rrset.expect("rrset should not be None at this point").records_without_rrsigs());
@@ -310,7 +310,7 @@ pub enum LookupRecords {
     Empty,
     /// The associate records
     Records {
-        /// LookupOptions for the request, e.g. dnssec and supported algorithms
+        /// LookupOptions for the request, e.g. dnssec
         lookup_options: LookupOptions,
         /// the records found based on the query
         records: Arc<RecordSet>,
@@ -368,12 +368,10 @@ impl<'a> IntoIterator for &'a LookupRecords {
             LookupRecords::Records {
                 lookup_options,
                 records,
-            } => LookupRecordsIter::RecordsIter(
-                lookup_options.rrset_with_supported_algorithms(records),
-            ),
+            } => LookupRecordsIter::RecordsIter(lookup_options.rrset_with_rrigs(records)),
             LookupRecords::ManyRecords(lookup_options, r) => LookupRecordsIter::ManyRecordsIter(
                 r.iter()
-                    .map(|r| lookup_options.rrset_with_supported_algorithms(r))
+                    .map(|r| lookup_options.rrset_with_rrigs(r))
                     .collect(),
                 None,
             ),
