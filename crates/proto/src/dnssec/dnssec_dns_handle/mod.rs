@@ -447,7 +447,6 @@ where
     // Add back all the RRSIGs and any records that were not verified
     return_records.extend(rrsigs);
     return_records.extend(records);
-
     return_records
 }
 
@@ -544,12 +543,12 @@ where
     );
 
     let mut all_unsupported = None;
-    let mut proofs =
+    let mut dnskey_proofs =
         Vec::<(Proof, Option<u32>, Option<usize>)>::with_capacity(rrset.records().len());
-    proofs.resize(rrset.records().len(), (Proof::Indeterminate, None, None));
+    dnskey_proofs.resize(rrset.records().len(), (Proof::Indeterminate, None, None));
 
     // check if the DNSKEYs are in the root store
-    for (r, proof) in rrset.records().iter().zip(proofs.iter_mut()) {
+    for (r, proof) in rrset.records().iter().zip(dnskey_proofs.iter_mut()) {
         let Some(dnskey) = r.try_borrow::<DNSKEY>() else {
             continue;
         };
@@ -558,7 +557,11 @@ where
         if algorithm.is_supported() {
             all_unsupported = Some(false);
         } else {
-            debug!("unsupported key algorithm {algorithm} in {}", dnskey.data(),);
+            debug!(
+                "unsupported key algorithm {algorithm} in {} {}",
+                dnskey.name(),
+                dnskey.data(),
+            );
 
             all_unsupported.get_or_insert(true);
             continue;
@@ -567,18 +570,8 @@ where
         proof.0 = is_dnskey_in_root_store(&handle, &dnskey);
     }
 
-    // none of the keys use supported algorithms
-    if all_unsupported.unwrap_or_default() {
-        debug!("all dnskeys use unsupported algorithms");
-        // cannot validate; mark as insecure
-        return Err(ProofError::new(
-            Proof::Insecure,
-            ProofErrorKind::UnsupportedKeyAlgorithm,
-        ));
-    }
-
     // if not all of the DNSKEYs are in the root store, then we need to look for DS records to verify
-    let ds_records = if !proofs.iter().all(|p| p.0.is_secure()) && !rrset.name().is_root() {
+    let ds_records = if !dnskey_proofs.iter().all(|p| p.0.is_secure()) && !rrset.name().is_root() {
         // need to get DS records for each DNSKEY
         //   there will be a DS record for everything under the root keys
         find_ds_records(&handle, rrset.name().clone(), options).await?
@@ -587,8 +580,25 @@ where
         Vec::default()
     };
 
+    // none of the keys use supported algorithms
+    //   if the DS records are not empty and they also have no supported algorithms, then this is INSECURE
+    //   for secure DS records the BOGUS check happens after DNSKEYs are evaluated against the DS
+    if all_unsupported.unwrap_or_default()
+        && (ds_records
+            .iter()
+            .all(|ds| !ds.data().algorithm().is_supported())
+            || ds_records.is_empty())
+    {
+        debug!("all dnskeys use unsupported algorithms and there are no supported DS records in the parent zone");
+        // cannot validate; mark as insecure
+        return Err(ProofError::new(
+            Proof::Insecure,
+            ProofErrorKind::UnsupportedKeyAlgorithm,
+        ));
+    }
+
     // verify all dnskeys individually against the DS records
-    for (r, proof) in rrset.records().iter().zip(proofs.iter_mut()) {
+    for (r, proof) in rrset.records().iter().zip(dnskey_proofs.iter_mut()) {
         let Some(dnskey) = r.try_borrow() else {
             continue;
         };
@@ -617,7 +627,7 @@ where
         let rrset_proof = rrset
             .records()
             .iter()
-            .zip(proofs.iter())
+            .zip(dnskey_proofs.iter())
             .filter(|(_, (proof, ..))| proof.is_secure())
             .filter(|(r, _)| r.name() == signer_name)
             .filter_map(|(r, (proof, ..))| {
@@ -635,8 +645,8 @@ where
     }
 
     // if it was just the root DNSKEYS with no RRSIG, we'll accept the entire set, or none
-    if proofs.iter().all(|(proof, ..)| proof.is_secure()) {
-        return Ok(proofs.pop().unwrap(/* This can not happen due to above test */));
+    if dnskey_proofs.iter().all(|(proof, ..)| proof.is_secure()) {
+        return Ok(dnskey_proofs.pop().unwrap(/* This can not happen due to above test */));
     }
 
     if !ds_records.is_empty() {

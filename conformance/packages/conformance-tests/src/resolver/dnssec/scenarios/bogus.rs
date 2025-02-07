@@ -409,7 +409,6 @@ fn bogus_zone_plus_ds_covered_dnskey() -> Result<()> {
 /// child zone does not contain the corresponding DNSKEY records, and all DNSKEY records in the
 /// child zone use unsupported signature algorithms. The child zone ought to be treated as bogus.
 #[test]
-#[ignore = "hickory returns NOERROR because it is checking unauthenticated DNSKEY records for unsupported algorithms"]
 fn bogus_delegation_dnskey_unsupported_algorithm() -> Result<()> {
     let network = Network::new()?;
     let sign_settings = SignSettings::default();
