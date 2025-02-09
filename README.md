@@ -102,15 +102,19 @@ Support of TLS on the Server is managed through a pkcs12 der file. The documenta
 
 ## DNS-over-TLS and DNS-over-HTTPS
 
-DoT and DoH are supported. This is accomplished through the use of one of `native-tls`, `openssl`, or `rustls` (only `rustls` is currently supported for DoH). The Resolver requires valid DoT or DoH resolvers being registered in order to be used.
+The Resolver requires valid DoT or DoH resolvers being registered in order to be used.
 
 To use DoT or DoH with the `Client`, construct it with `TlsClientStream` or
 `HttpsClientStream`. Client authentication/mTLS is currently not supported,
 there are some issues still being worked on. TLS is useful for Server
 authentication and connection privacy.
 
-To enable DoT, one of the features `dns-over-native-tls`, `dns-over-openssl`, or
-`dns-over-rustls` must be enabled. `dns-over-https-rustls` is used for DoH.
+Some protocols are optionally supported:
+
+- Enable `dns-over-rustls` for DNS over TLS (DoT)
+- Enable `dns-over-https-rustls` for DNS over HTTP/2 (DoH)
+- Enable `dns-over-quic` for DNS over QUIC (DoQ)
+- Enable `dns-over-h3` for DNS over HTTP/3 (DoH3)
 
 ## DNSSEC status
 
@@ -118,7 +122,7 @@ The current root key is bundled into the system, and used by default. This gives
 validation of DNSKEY and DS records back to the root. NSEC and NSEC3 are
 implemented.
 
-Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, one of the features `dnssec-openssl` or `dnssec-ring` must be enabled.
+Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, enable the `dnssec-ring` feature.
 
 ## RFCs implemented
 
@@ -317,17 +321,8 @@ Success for query name: www.example.com. type: A class: IN
 
 The Client has a few features which can be disabled for different reasons when embedding in other software.
 
-- `dnssec-openssl`
-  Uses OpenSSL for DNSSEC validation.
-
 - `dnssec-ring`
   Ring support can be used for RSA and ED25519 DNSSEC validation.
-
-- `dns-over-native-tls`
-  Uses `native-tls` for DNS-over-TLS implementation, only supported in client and resolver, not server.
-
-- `dns-over-openssl`
-  Uses `openssl` for DNS-over-TLS implementation supported in server and client, resolver does not have default CA chains.
 
 - `dns-over-rustls`
   Uses `rustls` for DNS-over-TLS implementation. This is the best option where a pure Rust toolchain is desired. Supported in client, resolver, and server.
