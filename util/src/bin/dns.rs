@@ -22,7 +22,7 @@
 
 #[cfg(feature = "dns-over-rustls")]
 use std::sync::Arc;
-use std::{fs::OpenOptions, io::Write, net::SocketAddr, path::PathBuf};
+use std::{net::SocketAddr, path::PathBuf};
 
 use cfg_if::cfg_if;
 use clap::{Args, Parser, Subcommand, ValueEnum};
@@ -42,7 +42,7 @@ use hickory_proto::rustls::client_config;
 #[cfg(feature = "dns-over-rustls")]
 use hickory_proto::rustls::tls_client_connect;
 use hickory_proto::{
-    rr::{DNSClass, Name, RData, Record, RecordSet, RecordType},
+    rr::{DNSClass, Name, RData, RecordSet, RecordType},
     runtime::{RuntimeProvider, TokioRuntimeProvider},
     serialize::txt::RDataParser,
     tcp::TcpClientStream,
@@ -516,7 +516,7 @@ async fn handle_request(
             println!("; sending delete-record: {name} {class} {ty} from {zone}");
             client.delete_by_rdata(rdata, zone).await?
         }
-        Command::FetchKeys(opt) => {
+        Command::FetchKeys(_opt) => {
             let zone = zone.unwrap_or_else(Name::root);
             let record_type = RecordType::DNSKEY;
 
@@ -535,7 +535,11 @@ async fn handle_request(
 
             #[cfg(feature = "dnssec-ring")]
             {
-                use hickory_proto::dnssec::{Algorithm, TrustAnchor};
+                use hickory_proto::{
+                    dnssec::{Algorithm, TrustAnchor},
+                    rr::Record,
+                };
+                use std::{fs::OpenOptions, io::Write};
 
                 let trust_anchor = TrustAnchor::default();
 
@@ -562,8 +566,7 @@ async fn handle_request(
                     println!(
                         "; found dnskey: {key_tag}, {algorithm}, in Hickory TrustAnchor: {in_trust_anchor}",
                     );
-
-                    let Some(path) = &opt.output_path else {
+                    let Some(path) = &_opt.output_path else {
                         continue;
                     };
 
