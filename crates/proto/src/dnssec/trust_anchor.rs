@@ -92,8 +92,8 @@ impl TrustAnchor {
 }
 
 #[test]
-fn test_kjqmt7v() {
+fn test_contains_dnskey_bytes() {
     let trust = TrustAnchor::default();
-    assert_eq!(trust.get(0).public_bytes(), ROOT_ANCHOR_2024);
+    assert_eq!(trust.get(1).public_bytes(), ROOT_ANCHOR_2024);
     assert!(trust.contains_dnskey_bytes(ROOT_ANCHOR_2024, Algorithm::RSASHA256));
 }
