@@ -744,16 +744,8 @@ fn verify_dnskey(
     }
 
     // DS check if covered by DS keys
-    for (i, r) in ds_records
-        .iter()
-        .filter(|ds| ds.proof().is_secure())
-        .enumerate()
-    {
-        if i > MAX_KEY_TAG_COLLISIONS {
-            warn!("too many DS records ({i}) with key tag {key_tag}; skipping");
-            continue;
-        }
-
+    let mut key_authentication_attempts = 0;
+    for r in ds_records.iter().filter(|ds| ds.proof().is_secure()) {
         if r.data().algorithm() != key_algorithm {
             trace!(
                 "skipping DS record due to algorithm mismatch, expected algorithm {}: ({}, {})",
@@ -772,6 +764,19 @@ fn verify_dnskey(
                 r.data(),
             );
 
+            continue;
+        }
+
+        // Count the number of DS records with the same algorithm and key tag as this DNSKEY.
+        // Ignore remaining DS records if there are too many key tag collisions. Doing so before
+        // checking hashes or signatures protects us from KeyTrap denial of service attacks.
+        key_authentication_attempts += 1;
+        if key_authentication_attempts > MAX_KEY_TAG_COLLISIONS {
+            warn!(
+                key_tag,
+                attempts = key_authentication_attempts,
+                "too many DS records with same key tag; skipping"
+            );
             continue;
         }
 
