@@ -661,29 +661,9 @@ where
         ));
     }
 
-    // If there were no DS records, no DNSKEYs and no RRSIGs, and the find_ds_records did not propagate an error
-    //   due to NSEC(3), then we are lacking DNSSEC evidence
-    //
-    // From RFC 4035
-    // "
-    // Indeterminate: An RRset for which the resolver is not able to
-    //   determine whether the RRset should be signed, as the resolver is
-    //   not able to obtain the necessary DNSSEC RRs.  This can occur when
-    //   the security-aware resolver is not able to contact security-aware
-    //   name servers for the relevant zones.
-    // "
-    if rrset.records().is_empty() && ds_records.is_empty() && rrsigs.is_empty() {
-        return Err(ProofError::new(
-            Proof::Indeterminate,
-            ProofErrorKind::DnskeyNotFound {
-                name: rrset.name().clone(),
-            },
-        ));
-    }
-
-    // there were DS records or RRSIGs, but no DNSKEYs, we're in a bogus state
-    //   if there was no DS record, it should have gotten an NSEC upstream, and returned early above
-    //   and all other cases...
+    // There were DS records or RRSIGs, but none of the signatures could be validated, so we're in a
+    // bogus state. If there was no DS record, it should have gotten an NSEC upstream, and returned
+    // early above.
     trace!("no dnskey found: {}", rrset.name());
     Err(ProofError::new(
         Proof::Bogus,
@@ -880,7 +860,6 @@ where
 
     // otherwise we need to recursively discover the status of DS up the chain,
     //   if we find a valid DS, then we're in a Bogus state,
-    //   if we find no records, then we are Indeterminate
     //   if we get ProofError, our result is the same
 
     let parent = zone.base_name();
@@ -898,11 +877,7 @@ where
             Proof::Bogus,
             ProofErrorKind::DsRecordShouldExist { name: zone },
         )),
-        Ok(ds_records) if ds_records.is_empty() => Err(ProofError::new(
-            Proof::Indeterminate,
-            ProofErrorKind::DsHasNoDnssecProof { name: zone },
-        )),
-        err => err,
+        result => result,
     }
 }
 
@@ -939,27 +914,17 @@ where
 
     if rrsigs.is_empty() {
         // Decide if we're:
-        //    1) "indeterminate", i.e. no DNSSEC records are available back to the root
-        //    2) "insecure", the zone has a valid NSEC for the DS record in the parent zone
-        //    3) "bogus", the parent zone has a valid DS record, but the child zone didn't have the RRSIGs/DNSKEYs
-        let ds_records = find_ds_records(handle, rrset.name().clone(), options).await?; // insecure will return early here
+        //    1) "insecure", the zone has a valid NSEC for the DS record in the parent zone
+        //    2) "bogus", the parent zone has a valid DS record, but the child zone didn't have the RRSIGs/DNSKEYs
+        find_ds_records(handle, rrset.name().clone(), options).await?; // insecure will return early here
 
-        if !ds_records.is_empty() {
-            return Err(ProofError::new(
-                Proof::Bogus,
-                ProofErrorKind::DsRecordShouldExist {
-                    name: rrset.name().clone(),
-                },
-            ));
-        } else {
-            return Err(ProofError::new(
-                Proof::Indeterminate,
-                ProofErrorKind::RrsigsNotPresent {
-                    name: rrset.name().clone(),
-                    record_type: rrset.record_type(),
-                },
-            ));
-        }
+        return Err(ProofError::new(
+            Proof::Bogus,
+            ProofErrorKind::RrsigsNotPresent {
+                name: rrset.name().clone(),
+                record_type: rrset.record_type(),
+            },
+        ));
     }
 
     // the record set is going to be shared across a bunch of futures, Arc for that.
