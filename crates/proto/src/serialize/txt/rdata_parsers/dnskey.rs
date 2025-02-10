@@ -16,15 +16,6 @@ pub(crate) fn parse<'i>(mut tokens: impl Iterator<Item = &'i str>) -> ParseResul
         .ok_or_else(|| ParseError::from(ParseErrorKind::Message("algorithm not present")))?;
 
     let flags = u16::from_str(flags_str)?;
-    if ![0, 256, 257].contains(&flags) {
-        return Err(ParseError::from(ParseErrorKind::Message(
-            "flags field must be one of: 0, 256, 257",
-        )));
-    }
-
-    let secure_entry_point = is_bit_set(flags, 0);
-    let revoke = is_bit_set(flags, 7);
-    let zone_key = is_bit_set(flags, 8);
 
     let protocol = u8::from_str(protocol_str)?;
 
@@ -45,17 +36,10 @@ pub(crate) fn parse<'i>(mut tokens: impl Iterator<Item = &'i str>) -> ParseResul
 
     let public_key = data_encoding::BASE64.decode(public_key_str.as_bytes())?;
 
-    Ok(DNSKEY::new(
-        zone_key,
-        secure_entry_point,
-        revoke,
+    Ok(DNSKEY::with_flags(
+        flags,
         PublicKeyBuf::new(public_key, algorithm),
     ))
-}
-
-fn is_bit_set(value: u16, bit: usize) -> bool {
-    let mask = 1 << bit;
-    value & mask == mask
 }
 
 #[cfg(test)]
@@ -141,9 +125,10 @@ mod tests {
     }
 
     #[test]
-    fn bad_flags() {
-        let err = parse_err(&format!("2 3 8 {ENCODED}"));
-        assert!(err.to_string().contains("flags field"))
+    fn reserved_flags() {
+        let public_key = PublicKeyBuf::new(b"hello".to_vec(), Algorithm::RSASHA256);
+        let expected = DNSKEY::with_flags(2, public_key);
+        assert_eq!(expected, parse_ok(&format!("2 3 8 {ENCODED}")));
     }
 
     #[test]
