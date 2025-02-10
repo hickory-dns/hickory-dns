@@ -940,7 +940,7 @@ dependencies = [
  "openssl",
  "quinn",
  "rand",
- "ring 0.16.20",
+ "ring 0.17.8",
  "rustls",
  "rustls-native-certs",
  "rustls-pemfile",

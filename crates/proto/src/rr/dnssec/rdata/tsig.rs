@@ -635,9 +635,9 @@ impl TsigAlgorithm {
         use TsigAlgorithm::*;
 
         let len = match self {
-            HmacSha256 => hmac::HMAC_SHA256.digest_algorithm().output_len,
-            HmacSha384 => hmac::HMAC_SHA384.digest_algorithm().output_len,
-            HmacSha512 => hmac::HMAC_SHA512.digest_algorithm().output_len,
+            HmacSha256 => hmac::HMAC_SHA256.digest_algorithm().output_len(),
+            HmacSha384 => hmac::HMAC_SHA384.digest_algorithm().output_len(),
+            HmacSha512 => hmac::HMAC_SHA512.digest_algorithm().output_len(),
             _ => return Err(ProtoErrorKind::TsigUnsupportedMacAlgorithm(self.clone()).into()),
         };
 
