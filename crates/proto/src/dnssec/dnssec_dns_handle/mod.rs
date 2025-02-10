@@ -542,7 +542,6 @@ where
         rrset.record_type()
     );
 
-    let mut all_unsupported = None;
     let mut dnskey_proofs =
         Vec::<(Proof, Option<u32>, Option<usize>)>::with_capacity(rrset.records().len());
     dnskey_proofs.resize(rrset.records().len(), (Proof::Bogus, None, None));
@@ -552,20 +551,6 @@ where
         let Some(dnskey) = r.try_borrow::<DNSKEY>() else {
             continue;
         };
-
-        let algorithm = dnskey.data().algorithm();
-        if algorithm.is_supported() {
-            all_unsupported = Some(false);
-        } else {
-            debug!(
-                "unsupported key algorithm {algorithm} in {} {}",
-                dnskey.name(),
-                dnskey.data(),
-            );
-
-            all_unsupported.get_or_insert(true);
-            continue;
-        }
 
         proof.0 = is_dnskey_in_root_store(&handle, &dnskey);
     }
@@ -580,15 +565,13 @@ where
         Vec::default()
     };
 
-    // none of the keys use supported algorithms
-    //   if the DS records are not empty and they also have no supported algorithms, then this is INSECURE
-    //   for secure DS records the BOGUS check happens after DNSKEYs are evaluated against the DS
-    if all_unsupported.unwrap_or_default()
-        && (ds_records
-            .iter()
-            .filter(|ds| ds.proof().is_secure() || ds.proof().is_insecure())
-            .all(|ds| !ds.data().algorithm().is_supported())
-            && !ds_records.is_empty())
+    // if the DS records are not empty and they also have no supported algorithms, then this is INSECURE
+    // for secure DS records the BOGUS check happens after DNSKEYs are evaluated against the DS
+    if ds_records
+        .iter()
+        .filter(|ds| ds.proof().is_secure() || ds.proof().is_insecure())
+        .all(|ds| !ds.data().algorithm().is_supported())
+        && !ds_records.is_empty()
     {
         debug!("all dnskeys use unsupported algorithms and there are no supported DS records in the parent zone");
         // cannot validate; mark as insecure
