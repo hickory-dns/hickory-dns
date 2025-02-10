@@ -91,7 +91,8 @@ impl KeyFormat {
                     } else {
                         &ECDSA_P384_SHA384_FIXED_SIGNING
                     };
-                    let key = EcdsaKeyPair::from_pkcs8(ring_algorithm, bytes)?;
+                    let rng = ring::rand::SystemRandom::new();
+                    let key = EcdsaKeyPair::from_pkcs8(ring_algorithm, bytes, &rng)?;
 
                     Ok(KeyPair::from_ecdsa(key))
                 }
