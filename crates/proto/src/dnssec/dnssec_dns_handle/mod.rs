@@ -545,7 +545,7 @@ where
     let mut all_unsupported = None;
     let mut dnskey_proofs =
         Vec::<(Proof, Option<u32>, Option<usize>)>::with_capacity(rrset.records().len());
-    dnskey_proofs.resize(rrset.records().len(), (Proof::Indeterminate, None, None));
+    dnskey_proofs.resize(rrset.records().len(), (Proof::Bogus, None, None));
 
     // check if the DNSKEYs are in the root store
     for (r, proof) in rrset.records().iter().zip(dnskey_proofs.iter_mut()) {
@@ -677,7 +677,7 @@ where
 ///
 /// # Returns
 ///
-/// Proof::Secure if registered in the root store, Proof::Indeterminate if not
+/// Proof::Secure if registered in the root store, Proof::Bogus if not
 fn is_dnskey_in_root_store<H>(handle: &DnssecDnsHandle<H>, rr: &RecordRef<'_, DNSKEY>) -> Proof
 where
     H: DnsHandle + Sync + Unpin,
@@ -696,7 +696,7 @@ where
 
         Proof::Secure
     } else {
-        Proof::Indeterminate
+        Proof::Bogus
     }
 }
 
@@ -960,7 +960,7 @@ where
                 .lookup(query.clone(), options)
                 .first_answer()
                 .map_err(|proto| {
-                    ProofError::new(Proof::Indeterminate, ProofErrorKind::Proto { query, proto })
+                    ProofError::new(Proof::Bogus, ProofErrorKind::Proto { query, proto })
                 })
                 .map_ok(move |message| {
                     let mut tag_count = HashMap::<u16, usize>::new();
