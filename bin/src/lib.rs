@@ -26,9 +26,12 @@ use std::{
 use cfg_if::cfg_if;
 use ipnet::IpNet;
 #[cfg(feature = "dns-over-rustls")]
-use rustls::pki_types::pem::PemObject;
-#[cfg(feature = "dns-over-rustls")]
-use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use rustls::{
+    crypto::ring::default_provider,
+    pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer},
+    server::ResolvesServerCert,
+    sign::{CertifiedKey, SingleCertAndKey},
+};
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
 
@@ -677,10 +680,7 @@ pub struct TlsCertConfig {
 #[cfg(feature = "dns-over-rustls")]
 impl TlsCertConfig {
     /// Load a Certificate from the path (with rustls)
-    pub fn load(
-        &self,
-        zone_dir: &Path,
-    ) -> Result<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>), String> {
+    pub fn load(&self, zone_dir: &Path) -> Result<Arc<dyn ResolvesServerCert>, String> {
         if self.path.extension().and_then(OsStr::to_str) != Some("pem") {
             return Err(format!(
                 "unsupported certificate file format (expected `.pem` extension): {}",
@@ -729,7 +729,10 @@ impl TlsCertConfig {
             ));
         };
 
-        Ok((cert_chain, key))
+        let certified_key = CertifiedKey::from_der(cert_chain, key, &default_provider())
+            .map_err(|err| format!("failed to read certificate and keys: {err:?}"))?;
+
+        Ok(Arc::new(SingleCertAndKey::from(certified_key)))
     }
 }
 

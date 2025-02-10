@@ -11,10 +11,12 @@ use std::{env, net::SocketAddr, path::Path, str::FromStr, sync::Arc};
 
 use futures_util::StreamExt;
 use rustls::{
+    crypto::ring::default_provider,
     pki_types::{
         pem::{self, PemObject},
         CertificateDer, PrivateKeyDer,
     },
+    sign::{CertifiedKey, SingleCertAndKey},
     ClientConfig, KeyLogFile,
 };
 use test_support::subscribe;
@@ -65,10 +67,17 @@ async fn test_quic_stream() {
     let key =
         PrivateKeyDer::from_pem_file(format!("{server_path}/tests/test-data/cert.key")).unwrap();
 
+    let certificate_and_key = SingleCertAndKey::from(
+        CertifiedKey::from_der(cert_chain, key, &default_provider()).unwrap(),
+    );
+
     // All testing is only done on local addresses, construct the server
-    let quic_ns = QuicServer::new(SocketAddr::from(([127, 0, 0, 1], 0)), cert_chain, key)
-        .await
-        .expect("failed to initialize QuicServer");
+    let quic_ns = QuicServer::new(
+        SocketAddr::from(([127, 0, 0, 1], 0)),
+        Arc::new(certificate_and_key),
+    )
+    .await
+    .expect("failed to initialize QuicServer");
 
     // kick off the server
     let server_addr = quic_ns.local_addr().expect("no address");
