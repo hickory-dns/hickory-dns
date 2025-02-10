@@ -104,8 +104,7 @@ impl DNSKEY {
     /// * `zone_key` - this key is used to sign Zone resource records
     /// * `secure_entry_point` - this key is used to sign DNSKeys that sign the Zone records
     /// * `revoke` - this key has been revoked
-    /// * `algorithm` - specifies the algorithm which this Key uses to sign records
-    /// * `public_key` - the public key material, in native endian, the emitter will perform any necessary conversion
+    /// * `public_key` - the public key
     ///
     /// # Return
     ///
@@ -126,6 +125,20 @@ impl DNSKEY {
         if revoke {
             flags |= 0b0000_0000_1000_0000;
         }
+        Self::with_flags(flags, public_key)
+    }
+
+    /// Construct a new DNSKEY RData
+    ///
+    /// # Arguments
+    ///
+    /// * `flags` - flags associated with this key
+    /// * `public_key` - the public key
+    ///
+    /// # Return
+    ///
+    /// A new DNSKEY RData for use in a Resource Record
+    pub fn with_flags(flags: u16, public_key: PublicKeyBuf) -> Self {
         Self { flags, public_key }
     }
 
