@@ -74,9 +74,7 @@ use super::DNSSECRData;
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct DNSKEY {
-    zone_key: bool,
-    secure_entry_point: bool,
-    revoke: bool,
+    flags: u16,
     public_key: PublicKeyBuf,
 }
 
@@ -118,12 +116,17 @@ impl DNSKEY {
         revoke: bool,
         public_key: PublicKeyBuf,
     ) -> Self {
-        Self {
-            zone_key,
-            secure_entry_point,
-            revoke,
-            public_key,
+        let mut flags: u16 = 0;
+        if zone_key {
+            flags |= 0b0000_0001_0000_0000;
         }
+        if secure_entry_point {
+            flags |= 0b0000_0000_0000_0001;
+        }
+        if revoke {
+            flags |= 0b0000_0000_1000_0000;
+        }
+        Self { flags, public_key }
     }
 
     /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.1.1)
@@ -142,7 +145,7 @@ impl DNSKEY {
     ///    creation of the DNSKEY RR and MUST be ignored upon receipt.
     /// ```
     pub fn zone_key(&self) -> bool {
-        self.zone_key
+        self.flags & 0b0000_0001_0000_0000 != 0
     }
 
     /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.1.1)
@@ -163,7 +166,7 @@ impl DNSKEY {
     ///    RRsets.
     /// ```
     pub fn secure_entry_point(&self) -> bool {
-        self.secure_entry_point
+        self.flags & 0b0000_0000_0000_0001 != 0
     }
 
     /// A KSK has a `flags` value of `257`
@@ -183,7 +186,7 @@ impl DNSKEY {
     ///   of [RFC4034]) for the REVOKE bit (8).
     /// ```
     pub fn revoke(&self) -> bool {
-        self.revoke
+        self.flags & 0b0000_0000_1000_0000 != 0
     }
 
     /// The [`PublicKeyBuf`] type combines the algorithm and the public key material.
@@ -209,18 +212,7 @@ impl DNSKEY {
 
     /// Output the encoded form of the flags
     pub fn flags(&self) -> u16 {
-        let mut flags: u16 = 0;
-        if self.zone_key() {
-            flags |= 0b0000_0001_0000_0000
-        }
-        if self.secure_entry_point() {
-            flags |= 0b0000_0000_0000_0001
-        }
-        if self.revoke() {
-            flags |= 0b0000_0000_1000_0000
-        }
-
-        flags
+        self.flags
     }
 
     /// Creates a message digest for this DNSKEY record.
