@@ -9,7 +9,7 @@ use std::{io, net::SocketAddr, sync::Arc};
 
 use quinn::crypto::rustls::QuicServerConfig;
 use quinn::{Connection, Endpoint, ServerConfig};
-use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use rustls::server::ResolvesServerCert;
 use rustls::server::ServerConfig as TlsServerConfig;
 use rustls::version::TLS13;
 
@@ -29,19 +29,17 @@ impl QuicServer {
     /// Construct the new Acceptor with the associated pkcs12 data
     pub async fn new(
         name_server: SocketAddr,
-        cert: Vec<CertificateDer<'static>>,
-        key: PrivateKeyDer<'static>,
+        server_cert_resolver: Arc<dyn ResolvesServerCert>,
     ) -> Result<Self, ProtoError> {
         // setup a new socket for the server to use
         let socket = <tokio::net::UdpSocket as UdpSocket>::bind(name_server).await?;
-        Self::with_socket(socket, cert, key)
+        Self::with_socket(socket, server_cert_resolver)
     }
 
     /// Construct the new server with an existing socket
     pub fn with_socket(
         socket: tokio::net::UdpSocket,
-        cert: Vec<CertificateDer<'static>>,
-        key: PrivateKeyDer<'static>,
+        server_cert_resolver: Arc<dyn ResolvesServerCert>,
     ) -> Result<Self, ProtoError> {
         let mut config = TlsServerConfig::builder_with_provider(Arc::new(
             rustls::crypto::ring::default_provider(),
@@ -49,7 +47,7 @@ impl QuicServer {
         .with_protocol_versions(&[&TLS13])
         .unwrap() // The ring default provider is guaranteed to support TLS 1.3
         .with_no_client_auth()
-        .with_single_cert(cert, key)?;
+        .with_cert_resolver(server_cert_resolver);
 
         config.alpn_protocols = vec![quic_stream::DOQ_ALPN.to_vec()];
 

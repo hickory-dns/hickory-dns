@@ -14,10 +14,13 @@ use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{
+    crypto::ring::default_provider,
     pki_types::{
         pem::{self, PemObject},
         CertificateDer, PrivateKeyDer,
     },
+    server::ResolvesServerCert,
+    sign::{CertifiedKey, SingleCertAndKey},
     ClientConfig, RootCertStore,
 };
 use tokio::net::TcpListener;
@@ -229,6 +232,9 @@ async fn test_server_www_tls() {
     let key =
         PrivateKeyDer::from_pem_file(format!("{server_path}/tests/test-data/cert.key")).unwrap();
 
+    let certified_key = CertifiedKey::from_der(cert_chain, key, &default_provider()).unwrap();
+    let server_cert_resolver = SingleCertAndKey::from(certified_key);
+
     // Server address
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
     let tcp_listener = TcpListener::bind(&addr).await.unwrap();
@@ -241,7 +247,7 @@ async fn test_server_www_tls() {
     let server = tokio::spawn(server_thread_tls(
         tcp_listener,
         server_continue2,
-        (cert_chain, key),
+        Arc::new(server_cert_resolver),
     ));
 
     let client = tokio::spawn(client_thread_www(lazy_tls_client(
@@ -382,7 +388,7 @@ async fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<Atomi
 async fn server_thread_tls(
     tls_listener: TcpListener,
     server_continue: Arc<AtomicBool>,
-    cert_chain: (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>),
+    cert_chain: Arc<dyn ResolvesServerCert>,
 ) {
     use std::path::Path;
 
