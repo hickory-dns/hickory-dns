@@ -45,6 +45,8 @@ jobs:
         uses: cargo-bins/cargo-binstall@v1.10.20
       - name: install cargo-workspaces
         run: cargo binstall cargo-workspaces -y --version ${{ env.CARGO_WS_VERSION }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: just all-features
         run: just all-features
@@ -125,6 +127,8 @@ jobs:
         uses: cargo-bins/cargo-binstall@v1.10.20
       - name: install cargo-workspaces
         run: cargo binstall cargo-workspaces -y --version ${{ env.CARGO_WS_VERSION }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: just
         run: just ${{ matrix.feature }}
@@ -176,6 +180,8 @@ jobs:
         uses: cargo-bins/cargo-binstall@v1.10.20
       - name: install cargo-workspaces
         run: cargo binstall cargo-workspaces -y --version ${{ env.CARGO_WS_VERSION }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: just no-default-features
         run: just no-default-features
@@ -214,6 +220,8 @@ jobs:
         uses: cargo-bins/cargo-binstall@v1.10.20
       - name: install cargo-workspaces
         run: cargo binstall cargo-workspaces -y --version ${{ env.CARGO_WS_VERSION }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Clippy
       - name: just clippy
