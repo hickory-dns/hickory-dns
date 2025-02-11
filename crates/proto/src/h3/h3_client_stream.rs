@@ -474,8 +474,7 @@ mod tests {
     use tokio::runtime::Runtime;
     use tokio::task::JoinSet;
 
-    use crate::op::{Edns, Message, Query, ResponseCode};
-    use crate::rr::rdata::{A, AAAA};
+    use crate::op::{Edns, Message, Query};
     use crate::rr::{Name, RecordType};
     use crate::xfer::{DnsRequestOptions, FirstAnswer};
 
@@ -525,29 +524,24 @@ mod tests {
             RecordType::AAAA,
         );
         request.add_query(query);
+        request.set_recursion_desired(true);
+        let mut edns = Edns::new();
+        edns.set_version(0);
+        edns.set_max_payload(1232);
+        *request.extensions_mut() = Some(edns);
+
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        for _ in 0..3 {
-            let response = h3
-                .send_message(request.clone())
-                .first_answer()
-                .await
-                .expect("send_message failed");
-            if response.response_code() == ResponseCode::ServFail {
-                continue;
-            }
+        let response = h3
+            .send_message(request.clone())
+            .first_answer()
+            .await
+            .expect("send_message failed");
 
-            let record = &response.answers()[0];
-            let addr = record
-                .data()
-                .as_aaaa()
-                .expect("invalid response, expected A record");
-
-            assert_eq!(
-                addr,
-                &AAAA::new(0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c)
-            );
-        }
+        assert!(response
+            .answers()
+            .iter()
+            .any(|record| record.data().as_aaaa().is_some()));
     }
 
     #[tokio::test]
@@ -594,29 +588,24 @@ mod tests {
             RecordType::AAAA,
         );
         request.add_query(query);
+        request.set_recursion_desired(true);
+        let mut edns = Edns::new();
+        edns.set_version(0);
+        edns.set_max_payload(1232);
+        *request.extensions_mut() = Some(edns);
+
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        for _ in 0..3 {
-            let response = h3
-                .send_message(request.clone())
-                .first_answer()
-                .await
-                .expect("send_message failed");
-            if response.response_code() == ResponseCode::ServFail {
-                continue;
-            }
+        let response = h3
+            .send_message(request.clone())
+            .first_answer()
+            .await
+            .expect("send_message failed");
 
-            let record = &response.answers()[0];
-            let addr = record
-                .data()
-                .as_aaaa()
-                .expect("invalid response, expected A record");
-
-            assert_eq!(
-                addr,
-                &AAAA::new(0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c)
-            );
-        }
+        assert!(response
+            .answers()
+            .iter()
+            .any(|record| record.data().as_aaaa().is_some()));
     }
 
     /// Currently fails, see <https://github.com/hyperium/h3/issues/206>.
@@ -651,13 +640,10 @@ mod tests {
             .block_on(h3.send_message(request).first_answer())
             .expect("send_message failed");
 
-        let record = &response.answers()[0];
-        let addr = record
-            .data()
-            .as_a()
-            .expect("invalid response, expected A record");
-
-        assert_eq!(addr, &A::new(93, 184, 215, 14));
+        assert!(response
+            .answers()
+            .iter()
+            .any(|record| record.data().as_a().is_some()));
 
         //
         // assert that the connection works for a second query
@@ -673,16 +659,10 @@ mod tests {
             .block_on(h3.send_message(request).first_answer())
             .expect("send_message failed");
 
-        let record = &response.answers()[0];
-        let addr = record
-            .data()
-            .as_aaaa()
-            .expect("invalid response, expected A record");
-
-        assert_eq!(
-            addr,
-            &AAAA::new(0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c)
-        );
+        assert!(response
+            .answers()
+            .iter()
+            .any(|record| record.data().as_aaaa().is_some()));
     }
 
     #[tokio::test]

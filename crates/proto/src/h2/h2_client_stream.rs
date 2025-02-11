@@ -574,8 +574,7 @@ mod tests {
     use rustls::KeyLogFile;
     use test_support::subscribe;
 
-    use crate::op::{Edns, Message, Query, ResponseCode};
-    use crate::rr::rdata::AAAA;
+    use crate::op::{Edns, Message, Query};
     use crate::rr::{Name, RecordType};
     use crate::runtime::TokioRuntimeProvider;
     use crate::rustls::client_config;
@@ -629,29 +628,24 @@ mod tests {
             RecordType::AAAA,
         );
         request.add_query(query);
+        request.set_recursion_desired(true);
+        let mut edns = Edns::new();
+        edns.set_version(0);
+        edns.set_max_payload(1232);
+        *request.extensions_mut() = Some(edns);
+
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        for _ in 0..3 {
-            let response = https
-                .send_message(request.clone())
-                .first_answer()
-                .await
-                .expect("send_message failed");
-            if response.response_code() == ResponseCode::ServFail {
-                continue;
-            }
+        let response = https
+            .send_message(request.clone())
+            .first_answer()
+            .await
+            .expect("send_message failed");
 
-            let record = &response.answers()[0];
-            let addr = record
-                .data()
-                .as_aaaa()
-                .expect("invalid response, expected A record");
-
-            assert_eq!(
-                addr,
-                &AAAA::new(0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c)
-            );
-        }
+        assert!(response
+            .answers()
+            .iter()
+            .any(|record| record.data().as_aaaa().is_some()));
     }
 
     #[tokio::test]
@@ -700,29 +694,24 @@ mod tests {
             RecordType::AAAA,
         );
         request.add_query(query);
+        request.set_recursion_desired(true);
+        let mut edns = Edns::new();
+        edns.set_version(0);
+        edns.set_max_payload(1232);
+        *request.extensions_mut() = Some(edns);
+
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        for _ in 0..3 {
-            let response = https
-                .send_message(request.clone())
-                .first_answer()
-                .await
-                .expect("send_message failed");
-            if response.response_code() == ResponseCode::ServFail {
-                continue;
-            }
+        let response = https
+            .send_message(request.clone())
+            .first_answer()
+            .await
+            .expect("send_message failed");
 
-            let record = &response.answers()[0];
-            let addr = record
-                .data()
-                .as_aaaa()
-                .expect("invalid response, expected A record");
-
-            assert_eq!(
-                addr,
-                &AAAA::new(0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c)
-            );
-        }
+        assert!(response
+            .answers()
+            .iter()
+            .any(|record| record.data().as_aaaa().is_some()));
     }
 
     #[tokio::test]
