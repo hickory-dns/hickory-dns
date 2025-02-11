@@ -172,6 +172,8 @@ impl Name {
             name.extend_name(label)?;
         }
 
+        name.set_fqdn(self.is_fqdn);
+
         Ok(name)
     }
 
@@ -2037,6 +2039,44 @@ mod tests {
                 Ipv6Net::new("2001:db8:85a3:8d3:1319:8a2e:370:7334".parse().unwrap(), 128).unwrap()
             )
         );
+    }
+
+    #[test]
+    fn test_prepend_label() {
+        for name in ["foo.com", "foo.com."] {
+            let name = Name::from_ascii(name).unwrap();
+
+            for label in ["bar", "baz", "quux"] {
+                let sub = name.clone().prepend_label(label).unwrap();
+                let expected = Name::from_ascii(format!("{label}.{name}")).unwrap();
+                assert_eq!(expected, sub);
+            }
+        }
+
+        for name in ["", "."] {
+            let name = Name::from_ascii(name).unwrap();
+
+            for label in ["bar", "baz", "quux"] {
+                let sub = name.clone().prepend_label(label).unwrap();
+                let expected = Name::from_ascii(format!("{label}{name}")).unwrap();
+                assert_eq!(expected, sub);
+            }
+        }
+    }
+
+    #[test]
+    fn test_name_too_long_with_prepend() {
+        let n = Name::from_ascii("Llocainvannnnnnaxgtezqzqznnnnnn1na.nnntnninvannnnnnaxgtezqzqznnnnnn1na.nnntnnnnnnnaxgtezqzqznnnnnn1na.nnntnaaaaaaaaaaaaaaaaaaaaaaaaiK.iaaaaaaaaaaaaaaaaaaaaaaaaiKa.innnnnaxgtezqzqznnnnnn1na.nnntnaaaaaaaaaaaaaaaaaaaaaaaaiK.iaaaaaaaaaaaaaaaaaaaaaaaaiKa.in").unwrap();
+        let sfx = "xxxxxxx.yyyyy.zzz";
+
+        let error = n
+            .prepend_label(sfx)
+            .expect_err("should have errored, too long");
+
+        match error.kind() {
+            ProtoErrorKind::DomainNameTooLong(_) => (),
+            _ => panic!("expected too long message"),
+        }
     }
 
     #[test]
