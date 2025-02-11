@@ -59,7 +59,7 @@ use tracing_subscriber::{
 };
 
 use hickory_dns::Config;
-#[cfg(feature = "dns-over-tls")]
+#[cfg(feature = "dns-over-rustls")]
 use hickory_dns::TlsCertConfig;
 use hickory_server::{authority::Catalog, server::ServerFuture};
 
@@ -105,7 +105,7 @@ struct Cli {
 
     /// Listening port for DNS over TLS queries,
     /// overrides any value in config file
-    #[cfg(feature = "dns-over-tls")]
+    #[cfg(feature = "dns-over-rustls")]
     #[clap(long = "tls-port", value_name = "TLS-PORT")]
     pub(crate) tls_port: Option<u16>,
 
@@ -133,7 +133,7 @@ struct Cli {
 
     /// Disable TLS protocol,
     /// overrides any value in config file
-    #[cfg(feature = "dns-over-tls")]
+    #[cfg(feature = "dns-over-rustls")]
     #[clap(long = "disable-tls", conflicts_with = "tls_port")]
     pub(crate) disable_tls: bool,
 
@@ -242,7 +242,7 @@ fn run() -> Result<(), String> {
     let tcp_request_timeout = config.tcp_request_timeout();
 
     // now, run the server, based on the config
-    #[cfg_attr(not(feature = "dns-over-tls"), allow(unused_mut))]
+    #[cfg_attr(not(feature = "dns-over-rustls"), allow(unused_mut))]
     let mut server = ServerFuture::with_access(catalog, deny_networks, allow_networks);
 
     let _guard = runtime.enter();
@@ -290,12 +290,12 @@ fn run() -> Result<(), String> {
     }
 
     #[cfg(any(
-        feature = "dns-over-tls",
+        feature = "dns-over-rustls",
         feature = "dns-over-https-rustls",
         feature = "dns-over-quic"
     ))]
     if let Some(tls_cert_config) = config.tls_cert() {
-        #[cfg(feature = "dns-over-tls")]
+        #[cfg(feature = "dns-over-rustls")]
         if !args.disable_tls && !config.disable_tls() {
             // setup TLS listeners
             config_tls(
@@ -382,7 +382,7 @@ fn run() -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(feature = "dns-over-tls")]
+#[cfg(feature = "dns-over-rustls")]
 fn config_tls(
     args: &Cli,
     server: &mut ServerFuture<Catalog>,

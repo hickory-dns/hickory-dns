@@ -43,8 +43,7 @@ dns-over-https-rustls = ["dns-over-rustls", "hickory-server/dns-over-https-rustl
 dns-over-quic = ["dns-over-rustls", "hickory-server/dns-over-quic"]
 dns-over-h3 = ["dns-over-rustls", "hickory-server/dns-over-h3"]
 
-dns-over-rustls = ["dns-over-tls", "dep:rustls", "hickory-server/dns-over-rustls"]
-dns-over-tls = []
+dns-over-rustls = ["dep:rustls", "hickory-server/dns-over-rustls"]
 
 webpki-roots = ["hickory-server/webpki-roots"]
 rustls-platform-verifier = ["hickory-server/rustls-platform-verifier"]
@@ -95,5 +94,4 @@ workspace = true
 
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true
-denylist = ["dns-over-tls"]
 max_combination_size = 2

@@ -100,7 +100,7 @@ where
             "--zonedir={server_path}/tests/test-data/test_configs"
         ))
         .arg(format!("--port={}", 0));
-    #[cfg(feature = "dns-over-tls")]
+    #[cfg(feature = "dns-over-rustls")]
     command.arg(format!("--tls-port={}", 0));
     #[cfg(feature = "dns-over-https-rustls")]
     command.arg(format!("--https-port={}", 0));

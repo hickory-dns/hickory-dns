@@ -206,7 +206,7 @@ purpose = \"ZoneSigning\"
 }
 
 #[test]
-#[cfg(feature = "dns-over-tls")]
+#[cfg(feature = "dns-over-rustls")]
 fn test_parse_tls() {
     // defaults
     let config = Config::from_toml("").unwrap();
@@ -256,9 +256,9 @@ define_test_config!(chained_blocklist);
 define_test_config!(consulting_blocklist);
 #[cfg(feature = "dns-over-https-rustls")]
 define_test_config!(dns_over_https);
-#[cfg(feature = "dns-over-tls")]
+#[cfg(feature = "dns-over-rustls")]
 define_test_config!(dns_over_tls_rustls_and_openssl);
-#[cfg(feature = "dns-over-tls")]
+#[cfg(feature = "dns-over-rustls")]
 define_test_config!(dns_over_tls);
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 define_test_config!(dnssec_with_update);
@@ -433,7 +433,7 @@ fn test_reject_unknown_fields() {
         let mut skip = false;
 
         #[cfg(not(any(
-            feature = "dns-over-tls",
+            feature = "dns-over-rustls",
             feature = "dns-over-https-rustls",
             feature = "dns-over-quic"
         )))]
