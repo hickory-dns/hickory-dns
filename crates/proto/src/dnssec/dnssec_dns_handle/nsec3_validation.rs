@@ -76,13 +76,11 @@
 //!     `wildcard_encloser` == `*.soa.name`
 //!
 
-use std::{borrow::Cow, cmp::Ordering};
-
 use super::proof_log_yield;
 use crate::{
     dnssec::{rdata::NSEC3, Nsec3HashAlgorithm, Proof},
     op::{Query, ResponseCode},
-    rr::{Name, Record, RecordType},
+    rr::{domain::Label, Name, Record, RecordType},
 };
 
 pub(super) fn verify_nsec3(
@@ -102,9 +100,11 @@ pub(super) fn verify_nsec3(
         .map(|(record_name, nsec3_data)| {
             split_first_label(record_name)
                 .filter(|(_, base)| base == soa_name)
-                .map(|(base32_hashed_name, _)| Nsec3RecordPair {
-                    base32_hashed_name: Nsec3Base32Hash::new(base32_hashed_name),
-                    nsec3_data,
+                .and_then(|(base32_hashed_name, _)| {
+                    Some(Nsec3RecordPair {
+                        base32_hashed_name: Label::from_raw_bytes(base32_hashed_name).ok()?,
+                        nsec3_data,
+                    })
                 })
         })
         .collect();
@@ -180,7 +180,7 @@ pub(super) fn verify_nsec3(
 }
 
 struct Nsec3RecordPair<'a> {
-    base32_hashed_name: Nsec3Base32Hash<'a>,
+    base32_hashed_name: Label,
     nsec3_data: &'a NSEC3,
 }
 
@@ -201,20 +201,29 @@ fn nsec3hash(name: &Name, salt: &[u8], iterations: u16) -> Vec<u8> {
         .to_vec()
 }
 
+/// Hashes a name and returns both both the hash digest and the base32-encoded form.
+fn hash_and_label(name: &Name, salt: &[u8], iterations: u16) -> (Vec<u8>, Label) {
+    let hash = nsec3hash(name, salt, iterations);
+    let base32_encoded = data_encoding::BASE32_DNSSEC.encode(&hash);
+    // Unwrap safety: The length of the hashed name is valid because it is the output of the above
+    // hash function. The input is all alphanumeric ASCII characters by construction.
+    let label = Label::from_ascii(&base32_encoded).unwrap();
+    (hash, label)
+}
+
 // NSEC3 records use a base32 hashed name as a record name component.
 // But within the record body the hash is stored as a binary blob.
 // Thus we need both for comparisons.
-struct HashedNameInfo<'a> {
+struct HashedNameInfo {
     name: Name,
     hashed_name: Vec<u8>,
-    base32_hashed_name: Nsec3Base32Hash<'a>,
+    base32_hashed_name: Label,
 }
 
-impl HashedNameInfo<'_> {
+impl HashedNameInfo {
     /// Hash a query name and store all representations of it.
     fn new(name: Name, salt: &[u8], iterations: u16) -> Self {
-        let hashed_name = nsec3hash(&name, salt, iterations);
-        let base32_hashed_name = Nsec3Base32Hash::from_hash(&hashed_name);
+        let (hashed_name, base32_hashed_name) = hash_and_label(&name, salt, iterations);
         Self {
             name,
             hashed_name,
@@ -230,7 +239,7 @@ fn find_covering_record<'a>(
     // base32(target_hashed_name) inside the function.
     // However, we already have it available at call sites, may as well use
     // it and save on repeated base32 encodings.
-    target_base32_hashed_name: &Nsec3Base32Hash<'_>,
+    target_base32_hashed_name: &Label,
 ) -> Option<&'a Nsec3RecordPair<'a>> {
     nsec3s
         .iter()
@@ -261,8 +270,7 @@ fn validate_nxdomain_response(
     let salt = nsec3s[0].nsec3_data.salt();
     let iterations = nsec3s[0].nsec3_data.iterations();
 
-    let hashed_query_name = nsec3hash(query_name, salt, iterations);
-    let base32_hashed_query_name = Nsec3Base32Hash::from_hash(&hashed_query_name);
+    let (_, base32_hashed_query_name) = hash_and_label(query_name, salt, iterations);
 
     // The response is NXDomain but there's a record for query_name
     if nsec3s
@@ -319,9 +327,9 @@ fn validate_nxdomain_response(
 }
 
 struct ClosestEncloserProofInfo<'a> {
-    closest_encloser: Option<(HashedNameInfo<'a>, &'a Nsec3RecordPair<'a>)>,
-    next_closer: Option<(HashedNameInfo<'a>, &'a Nsec3RecordPair<'a>)>,
-    closest_encloser_wildcard: Option<(HashedNameInfo<'a>, &'a Nsec3RecordPair<'a>)>,
+    closest_encloser: Option<(HashedNameInfo, &'a Nsec3RecordPair<'a>)>,
+    next_closer: Option<(HashedNameInfo, &'a Nsec3RecordPair<'a>)>,
+    closest_encloser_wildcard: Option<(HashedNameInfo, &'a Nsec3RecordPair<'a>)>,
 }
 
 /// For each intermediary name from `query_name` to `soa_name` this function
@@ -345,7 +353,7 @@ fn build_encloser_candidates_list(
     soa_name: &Name,
     salt: &[u8],
     iterations: u16,
-) -> Vec<HashedNameInfo<'static>> {
+) -> Vec<HashedNameInfo> {
     let mut candidates = Vec::with_capacity(query_name.num_labels() as usize);
 
     // `query_name` is our first candidate
@@ -530,8 +538,8 @@ fn validate_nodata_response(
     let salt = nsec3s[0].nsec3_data.salt();
     let iterations = nsec3s[0].nsec3_data.iterations();
 
-    let hashed_query_name = nsec3hash(query_name, salt, iterations);
-    let base32_hashed_query_name = Nsec3Base32Hash::from_hash(&hashed_query_name);
+    let (hashed_query_name, base32_hashed_query_name) =
+        hash_and_label(query_name, salt, iterations);
 
     // DS queries resulting in NoData responses with accompanying NSEC3 records can prove that an
     // insecure delegation exists; this is used to return Proof::Insecure instead of Proof::Secure
@@ -829,56 +837,3 @@ fn wildcard_based_encloser_proof<'a>(
         closest_encloser_wildcard: wildcard_encloser,
     }
 }
-
-/// A base32-encoded hash, from the leftmost label of an NSEC3 record owner name.
-struct Nsec3Base32Hash<'a>(Cow<'a, [u8]>);
-
-impl<'a> Nsec3Base32Hash<'a> {
-    /// Construct an `Nsec3Base32Hash` from a base32-encoded hash.
-    fn new(base32_encoded_hash: impl Into<Cow<'a, [u8]>>) -> Self {
-        Self(base32_encoded_hash.into())
-    }
-
-    /// Encode a raw hash digest into base32 form.
-    fn from_hash(hashed_query_name: &[u8]) -> Nsec3Base32Hash<'static> {
-        Nsec3Base32Hash::new(
-            data_encoding::BASE32_DNSSEC
-                .encode(hashed_query_name)
-                .into_bytes(),
-        )
-    }
-}
-
-impl Ord for Nsec3Base32Hash<'_> {
-    /// Compare two labels passed by reference.
-    ///
-    /// The definition of "Hash order" in [RFC
-    /// 5155](https://www.rfc-editor.org/rfc/rfc5155#section-1.3) says that the lexical ordering of
-    /// hashes is the same as the lexical ordering of base32-encoded hashes.
-    fn cmp(&self, other: &Self) -> Ordering {
-        let left = self.0.as_ref();
-        let right = other.0.as_ref();
-        for (l, r) in left.iter().zip(right.iter()) {
-            match l.to_ascii_lowercase().cmp(&r.to_ascii_lowercase()) {
-                Ordering::Equal => continue,
-                other => return other,
-            }
-        }
-
-        left.len().cmp(&right.len())
-    }
-}
-
-impl PartialOrd for Nsec3Base32Hash<'_> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl PartialEq for Nsec3Base32Hash<'_> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.eq_ignore_ascii_case(&other.0)
-    }
-}
-
-impl Eq for Nsec3Base32Hash<'_> {}
