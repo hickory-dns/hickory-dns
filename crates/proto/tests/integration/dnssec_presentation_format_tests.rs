@@ -1,7 +1,7 @@
 #![cfg(feature = "dnssec-ring")]
 
 use hickory_proto::dnssec::rdata::{DNSKEY, DS};
-use hickory_proto::dnssec::{Algorithm, DigestType};
+use hickory_proto::dnssec::{Algorithm, DigestType, PublicKey, PublicKeyBuf};
 use hickory_proto::rr::Name;
 
 #[test]
@@ -11,8 +11,10 @@ fn test_dnskey_display() {
         true,
         false,
         false,
-        Algorithm::RSASHA1,
-        include_bytes!("../test-data/rfc4034-2.3.key").to_vec(),
+        PublicKeyBuf::new(
+            include_bytes!("../test-data/rfc4034-2.3.key").to_vec(),
+            Algorithm::RSASHA1,
+        ),
     );
     let result = format!("{dnskey}");
     let exp_result = include_str!("../test-data/rfc4034-2.3.rdata");
@@ -22,8 +24,10 @@ fn test_dnskey_display() {
         true,
         false,
         false,
-        Algorithm::RSASHA1,
-        include_bytes!("../test-data/rfc4034-5.4.key").to_vec(),
+        PublicKeyBuf::new(
+            include_bytes!("../test-data/rfc4034-5.4.key").to_vec(),
+            Algorithm::RSASHA1,
+        ),
     );
     let result = format!("{dnskey}");
     let exp_result = include_str!("../test-data/rfc4034-5.4.rdata");
@@ -38,8 +42,10 @@ fn test_ds_display() {
         true,
         false,
         false,
-        Algorithm::RSASHA1,
-        include_bytes!("../test-data/rfc4034-5.4.key").to_vec(),
+        PublicKeyBuf::new(
+            include_bytes!("../test-data/rfc4034-5.4.key").to_vec(),
+            Algorithm::RSASHA1,
+        ),
     );
     let digest = dnskey
         .to_digest(
@@ -49,7 +55,7 @@ fn test_ds_display() {
         .unwrap();
     let ds = DS::new(
         dnskey.calculate_key_tag().unwrap(),
-        dnskey.algorithm(),
+        dnskey.public_key().algorithm(),
         DigestType::SHA1,
         digest.as_ref().to_vec(),
     );

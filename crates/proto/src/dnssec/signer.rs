@@ -10,7 +10,7 @@ use tracing::debug;
 
 use std::time::Duration;
 
-use super::{DnsSecResult, PublicKey, SigningKey};
+use super::{DnsSecResult, SigningKey};
 use crate::{
     dnssec::{
         rdata::{DNSSECRData, DNSKEY, KEY, SIG},
@@ -463,13 +463,7 @@ impl SigSigner {
     pub fn to_dnskey(&self) -> DnsSecResult<DNSKEY> {
         // TODO: this interface should allow for setting if this is a secure entry point vs. ZSK
         let pub_key = self.key.to_public_key()?;
-        Ok(DNSKEY::new(
-            self.is_zone_signing_key,
-            true,
-            false,
-            pub_key.algorithm(),
-            pub_key.public_bytes().to_owned(),
-        ))
+        Ok(DNSKEY::new(self.is_zone_signing_key, true, false, pub_key))
     }
 
     /// Test that this key is capable of signing and verifying data
@@ -549,7 +543,7 @@ mod tests {
     use crate::dnssec::{
         rdata::{key::KeyUsage, DNSSECRData, KEY, RRSIG, SIG},
         ring::RsaSigningKey,
-        Algorithm, SigningKey, Verifier, TBS,
+        Algorithm, PublicKey, SigningKey, Verifier, TBS,
     };
     use crate::op::{Message, Query};
     use crate::rr::rdata::{CNAME, NS};
