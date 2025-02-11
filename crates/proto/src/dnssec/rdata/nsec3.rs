@@ -10,12 +10,12 @@
 use std::fmt;
 
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::{
     dnssec::Nsec3HashAlgorithm,
     error::{ProtoError, ProtoErrorKind, ProtoResult},
-    rr::{type_bit_map::*, RData, RecordData, RecordDataDecodable, RecordType},
+    rr::{domain::Label, type_bit_map::*, RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::*,
 };
 
@@ -106,7 +106,7 @@ use super::DNSSECRData;
 ///  does not include the name of the containing zone.  The length of this
 ///  field is determined by the preceding Hash Length field.
 /// ```
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct NSEC3 {
     hash_algorithm: Nsec3HashAlgorithm,
@@ -114,6 +114,10 @@ pub struct NSEC3 {
     iterations: u16,
     salt: Vec<u8>,
     next_hashed_owner_name: Vec<u8>,
+    /// The next hashed owner name, in base32-encoded form. If the next hashed owner name field is
+    /// too long, this may be `None` instead.
+    #[cfg_attr(feature = "serde", serde(skip_serializing))]
+    next_hashed_owner_name_base32: Option<Label>,
     type_bit_maps: Vec<RecordType>,
 }
 
@@ -127,12 +131,15 @@ impl NSEC3 {
         next_hashed_owner_name: Vec<u8>,
         type_bit_maps: Vec<RecordType>,
     ) -> Self {
+        let next_hashed_owner_name_base32 =
+            Label::from_ascii(&data_encoding::BASE32_DNSSEC.encode(&next_hashed_owner_name)).ok();
         Self {
             hash_algorithm,
             opt_out,
             iterations,
             salt,
             next_hashed_owner_name,
+            next_hashed_owner_name_base32,
             type_bit_maps,
         }
     }
@@ -223,6 +230,13 @@ impl NSEC3 {
     /// ```
     pub fn next_hashed_owner_name(&self) -> &[u8] {
         &self.next_hashed_owner_name
+    }
+
+    /// Returns the base32-encoded form of the next hashed owner name.
+    ///
+    /// This may return `None` if the next hashed owner name is too long.
+    pub fn next_hashed_owner_name_base32(&self) -> Option<&Label> {
+        self.next_hashed_owner_name_base32.as_ref()
     }
 
     /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-3.1.8), NSEC3, March 2008
@@ -403,6 +417,50 @@ impl fmt::Display for NSEC3 {
         }
 
         Ok(())
+    }
+}
+
+/// Helper struct used in deserialization of [`NSEC3`].
+///
+/// This struct excludes the `next_hashed_owner_name_base32` field, which is calculated from
+/// `next_hashed_owner_name`. Deserialization of `NSEC3` first uses the automatically generated
+/// `Deserialize` implementation provided by this struct, and then uses the [`NSEC3::new`]
+/// constructor. Deriving `Deserialize` on `NSEC3` directly would have broken the invariant
+/// relating `next_hashed_owner_name` and `next_hashed_owner_name_base32`.
+#[cfg(feature = "serde")]
+#[derive(Deserialize)]
+#[serde(rename = "NSEC3")]
+struct NSEC3Serde {
+    hash_algorithm: Nsec3HashAlgorithm,
+    opt_out: bool,
+    iterations: u16,
+    salt: Vec<u8>,
+    next_hashed_owner_name: Vec<u8>,
+    type_bit_maps: Vec<RecordType>,
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for NSEC3 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let NSEC3Serde {
+            hash_algorithm,
+            opt_out,
+            iterations,
+            salt,
+            next_hashed_owner_name,
+            type_bit_maps,
+        } = NSEC3Serde::deserialize(deserializer)?;
+        Ok(Self::new(
+            hash_algorithm,
+            opt_out,
+            iterations,
+            salt,
+            next_hashed_owner_name,
+            type_bit_maps,
+        ))
     }
 }
 
