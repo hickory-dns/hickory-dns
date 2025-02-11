@@ -83,6 +83,12 @@ pub enum DigestType {
     Unknown(u8),
 }
 
+impl DigestType {
+    fn is_supported(&self) -> bool {
+        !matches!(self, Self::Unknown(_))
+    }
+}
+
 impl From<u8> for DigestType {
     fn from(value: u8) -> Self {
         match value {

@@ -568,7 +568,7 @@ where
     if ds_records
         .iter()
         .filter(|ds| ds.proof().is_secure() || ds.proof().is_insecure())
-        .all(|ds| !ds.data().algorithm().is_supported())
+        .all(|ds| !ds.data().algorithm().is_supported() || !ds.data().digest_type().is_supported())
         && !ds_records.is_empty()
     {
         debug!("all dnskeys use unsupported algorithms and there are no supported DS records in the parent zone");
@@ -801,7 +801,8 @@ where
             let mut all_unknown = None;
             for record in all_records {
                 // A chain can be either SECURE or INSECURE, but we should not trust BOGUS or other records
-                if !record.data().algorithm().is_supported()
+                if (!record.data().algorithm().is_supported()
+                    || !record.data().digest_type().is_supported())
                     && (record.proof().is_secure() || record.proof().is_insecure())
                 {
                     all_unknown.get_or_insert(true);
