@@ -33,7 +33,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     env:
-      RUST_LOG: info,hickory_proto::udp::udp_stream=trace # Extra logging for issue #2649
+      RUST_LOG: info
     steps:
       - uses: actions/checkout@v4
 
@@ -116,6 +116,8 @@ jobs:
             dnssec-ring,
             doc,
           ]
+    env:
+      RUST_LOG: info
     steps:
       - uses: actions/checkout@v4
 
