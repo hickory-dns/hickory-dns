@@ -394,7 +394,7 @@ mod tests {
 
     use super::*;
     #[cfg(feature = "dnssec-ring")]
-    use crate::dnssec::{rdata::DNSKEY, ring::EcdsaSigningKey, SigningKey};
+    use crate::dnssec::{rdata::DNSKEY, ring::EcdsaSigningKey, PublicKeyBuf, SigningKey};
 
     #[test]
     fn test() {
@@ -429,8 +429,14 @@ mod tests {
             true,
             true,
             false,
-            algorithm,
-            signing_key.to_public_key().unwrap().public_bytes().to_vec(),
+            PublicKeyBuf::new(
+                signing_key
+                    .to_public_key()
+                    .unwrap()
+                    .public_bytes()
+                    .to_owned(),
+                algorithm,
+            ),
         );
 
         let name = Name::parse("www.example.com.", None).unwrap();
@@ -459,8 +465,14 @@ mod tests {
             false,
             true,
             false,
-            algorithm,
-            signing_key.to_public_key().unwrap().public_bytes().to_vec(),
+            PublicKeyBuf::new(
+                signing_key
+                    .to_public_key()
+                    .unwrap()
+                    .public_bytes()
+                    .to_owned(),
+                algorithm,
+            ),
         );
 
         let name = Name::parse("www.example.com.", None).unwrap();
@@ -489,8 +501,14 @@ mod tests {
             true,
             true,
             false,
-            algorithm,
-            signing_key.to_public_key().unwrap().public_bytes().to_vec(),
+            PublicKeyBuf::new(
+                signing_key
+                    .to_public_key()
+                    .unwrap()
+                    .public_bytes()
+                    .to_owned(),
+                algorithm,
+            ),
         );
 
         let name = Name::parse("www.example.com.", None).unwrap();

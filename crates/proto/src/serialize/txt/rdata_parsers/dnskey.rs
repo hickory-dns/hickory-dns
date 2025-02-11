@@ -1,7 +1,7 @@
 use core::str::FromStr as _;
 
 use crate::dnssec::rdata::dnskey::DNSKEY;
-use crate::dnssec::Algorithm;
+use crate::dnssec::{Algorithm, PublicKeyBuf};
 use crate::serialize::txt::{ParseError, ParseErrorKind, ParseResult};
 
 pub(crate) fn parse<'i>(mut tokens: impl Iterator<Item = &'i str>) -> ParseResult<DNSKEY> {
@@ -49,8 +49,7 @@ pub(crate) fn parse<'i>(mut tokens: impl Iterator<Item = &'i str>) -> ParseResul
         zone_key,
         secure_entry_point,
         revoke,
-        algorithm,
-        public_key,
+        PublicKeyBuf::new(public_key, algorithm),
     ))
 }
 
@@ -102,8 +101,10 @@ mod tests {
             true,
             false,
             false,
-            algorithm,
-            signing_key.to_public_key().unwrap().public_bytes().to_vec(),
+            PublicKeyBuf::new(
+                signing_key.to_public_key().unwrap().public_bytes().to_vec(),
+                algorithm,
+            ),
         );
         assert_eq!(expected, parse_ok(&input),);
     }
@@ -122,8 +123,10 @@ mod tests {
             true,
             true,
             false,
-            algorithm,
-            signing_key.to_public_key().unwrap().public_bytes().to_vec(),
+            PublicKeyBuf::new(
+                signing_key.to_public_key().unwrap().public_bytes().to_vec(),
+                algorithm,
+            ),
         );
         assert_eq!(expected, parse_ok(&input),);
     }

@@ -38,6 +38,8 @@ use self::rrset::Rrset;
 mod nsec3_validation;
 use nsec3_validation::verify_nsec3;
 
+use super::PublicKey;
+
 /// Performs DNSSEC validation of all DNS responses from the wrapped DnsHandle
 ///
 /// This wraps a DnsHandle, changing the implementation `send()` to validate all
@@ -702,15 +704,16 @@ fn is_dnskey_in_root_store<H>(handle: &DnssecDnsHandle<H>, rr: &RecordRef<'_, DN
 where
     H: DnsHandle + Sync + Unpin,
 {
-    let key_rdata = rr.data();
+    let dns_key = rr.data();
+    let pub_key = dns_key.public_key();
 
     // Checks to see if the key is valid against the registered root certificates
     if handle
         .trust_anchor
-        .contains_dnskey_bytes(key_rdata.public_key(), key_rdata.algorithm())
+        .contains_dnskey_bytes(pub_key.public_bytes(), pub_key.algorithm())
     {
         debug!(
-            "validated dnskey with trust_anchor: {}, {key_rdata}",
+            "validated dnskey with trust_anchor: {}, {dns_key}",
             rr.name(),
         );
 

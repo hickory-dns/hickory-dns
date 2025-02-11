@@ -267,7 +267,7 @@ mod tests {
     use super::*;
     #[cfg(feature = "dnssec-ring")]
     use crate::dnssec::ring::EcdsaSigningKey;
-    use crate::dnssec::{rdata::DNSKEY, Algorithm, PublicKey, SigningKey};
+    use crate::dnssec::{rdata::DNSKEY, Algorithm, PublicKey, PublicKeyBuf, SigningKey};
 
     const ENCODED: &str = "aGVsbG8=";
 
@@ -298,8 +298,10 @@ mod tests {
             true,
             false,
             false,
-            algorithm,
-            signing_key.to_public_key().unwrap().public_bytes().to_vec(),
+            PublicKeyBuf::new(
+                signing_key.to_public_key().unwrap().public_bytes().to_vec(),
+                algorithm,
+            ),
         );
         let actual = record.data();
         assert_eq!(&expected, actual);
@@ -326,8 +328,10 @@ mod tests {
             true,
             false,
             false,
-            algorithm,
-            signing_key.to_public_key().unwrap().public_bytes().to_vec(),
+            PublicKeyBuf::new(
+                signing_key.to_public_key().unwrap().public_bytes().to_vec(),
+                algorithm,
+            ),
         );
         let actual = record.data();
         assert_eq!(&expected, actual);
