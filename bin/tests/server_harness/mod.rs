@@ -41,7 +41,7 @@ where
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     println!("using server src path: {server_path}");
 
-    let mut command = Command::new(format!("{server_path}/target/debug/hickory-dns"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_hickory-dns"));
     command
         .stdout(Stdio::piped())
         .env(
