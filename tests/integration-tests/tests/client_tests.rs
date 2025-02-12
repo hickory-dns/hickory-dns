@@ -257,7 +257,7 @@ fn test_timeout_query_nonet() {
 
 #[test]
 fn test_timeout_query_udp() {
-    let addr: SocketAddr = ("203.0.113.0", 53)
+    let addr: SocketAddr = ("203.0.113.1", 53)
         .to_socket_addrs()
         .unwrap()
         .next()
@@ -272,7 +272,7 @@ fn test_timeout_query_udp() {
 fn test_timeout_query_tcp() {
     use std::time::Duration;
 
-    let addr: SocketAddr = ("203.0.113.0", 53)
+    let addr: SocketAddr = ("203.0.113.1", 53)
         .to_socket_addrs()
         .unwrap()
         .next()
