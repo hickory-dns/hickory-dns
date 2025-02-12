@@ -243,7 +243,7 @@ where
 
     if let ClientErrorKind::Timeout = err.kind() {
     } else {
-        panic!("expected timeout error")
+        panic!("expected timeout error: {err:?}")
     }
 }
 
