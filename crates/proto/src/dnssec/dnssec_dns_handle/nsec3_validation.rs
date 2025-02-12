@@ -241,17 +241,24 @@ fn find_covering_record<'a>(
     // it and save on repeated base32 encodings.
     target_base32_hashed_name: &Label,
 ) -> Option<&'a Nsec3RecordPair<'a>> {
-    nsec3s
-        .iter()
-        .find(|record| {
+    nsec3s.iter().find(|record| {
+        let Some(record_next_hashed_owner_name_base32) =
+            record.nsec3_data.next_hashed_owner_name_base32()
+        else {
+            return false;
+        };
+        if record.base32_hashed_name < *record_next_hashed_owner_name_base32 {
+            // Normal case: target must be between the hashed owner name and the next hashed owner
+            // name.
             record.base32_hashed_name < *target_base32_hashed_name
                 && target_hashed_name < record.nsec3_data.next_hashed_owner_name()
-        })
-        .or_else(|| {
-            nsec3s
-                .iter()
-                .max_by_key(|record| &record.base32_hashed_name)
-        })
+        } else {
+            // Wraparound case: target must be less than the hashed owner name or greater than the
+            // next hashed owner name.
+            record.base32_hashed_name > *target_base32_hashed_name
+                || target_hashed_name > record.nsec3_data.next_hashed_owner_name()
+        }
+    })
 }
 
 /// There is no such `query_name` in the zone and there's no wildcard that
