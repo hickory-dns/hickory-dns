@@ -371,11 +371,6 @@ impl<'r> RecordDataDecodable<'r> for DNSKEY {
     fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
         let flags: u16 = decoder.read_u16()?.unverified(/*used as a bitfield, this is safe*/);
 
-        //    Bits 0-6 and 8-14 are reserved: these bits MUST have value 0 upon
-        //    creation of the DNSKEY RR and MUST be ignored upon receipt.
-        let zone_key: bool = flags & 0b0000_0001_0000_0000 == 0b0000_0001_0000_0000;
-        let secure_entry_point: bool = flags & 0b0000_0000_0000_0001 == 0b0000_0000_0000_0001;
-        let revoke: bool = flags & 0b0000_0000_1000_0000 == 0b0000_0000_1000_0000;
         let _protocol: u8 = decoder
             .read_u8()?
             .verify_unwrap(|protocol| {
@@ -406,10 +401,8 @@ impl<'r> RecordDataDecodable<'r> for DNSKEY {
         let public_key =
             decoder.read_vec(key_len)?.unverified(/*the byte array will fail in usage if invalid*/);
 
-        Ok(Self::new(
-            zone_key,
-            secure_entry_point,
-            revoke,
+        Ok(Self::with_flags(
+            flags,
             PublicKeyBuf::new(public_key, algorithm),
         ))
     }
@@ -553,6 +546,25 @@ mod tests {
                 DigestType::SHA256
             )
             .is_ok());
+    }
+
+    #[test]
+    fn test_reserved_flags() {
+        let rdata =
+            DNSKEY::with_flags(u16::MAX, PublicKeyBuf::new(vec![0u8], Algorithm::RSASHA256));
+
+        let mut bytes = Vec::new();
+        let mut encoder = BinEncoder::new(&mut bytes);
+        rdata.emit(&mut encoder).expect("error encoding");
+        let bytes = encoder.into_bytes();
+
+        println!("bytes: {bytes:?}");
+
+        let mut decoder = BinDecoder::new(bytes);
+        let read_rdata = DNSKEY::read_data(&mut decoder, Restrict::new(bytes.len() as u16))
+            .expect("error decoding");
+
+        assert_eq!(rdata, read_rdata);
     }
 
     #[test]
