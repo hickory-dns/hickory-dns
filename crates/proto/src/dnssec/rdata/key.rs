@@ -892,10 +892,8 @@ mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use super::*;
-    #[cfg(feature = "dnssec-ring")]
     use crate::dnssec::{crypto::EcdsaSigningKey, SigningKey};
 
-    #[cfg(feature = "dnssec-ring")]
     #[test]
     fn test() {
         let algorithm = Algorithm::ECDSAP256SHA256;
@@ -922,7 +920,6 @@ mod tests {
         let restrict = Restrict::new(bytes.len() as u16);
         let read_rdata = KEY::read_data(&mut decoder, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
-        // #[cfg(feature = "dnssec-ring")]
         // assert!(rdata
         //             .to_digest(&Name::parse("www.example.com.", None).unwrap(),
         //                        DigestType::SHA256)

@@ -9,7 +9,6 @@
 
 use std::fmt;
 
-#[cfg(feature = "dnssec-ring")]
 use ::ring::error::{KeyRejected, Unspecified};
 #[cfg(feature = "backtrace")]
 use backtrace::Backtrace;
@@ -28,7 +27,6 @@ mod dnssec_dns_handle;
 pub use dnssec_dns_handle::verify_nsec;
 pub use dnssec_dns_handle::DnssecDnsHandle;
 /// Cryptographic backend implementations of DNSSEC traits.
-#[cfg(feature = "dnssec-ring")]
 pub mod crypto;
 mod ec_public_key;
 mod nsec3;
@@ -194,14 +192,12 @@ impl From<ProtoError> for DnsSecError {
     }
 }
 
-#[cfg(feature = "dnssec-ring")]
 impl From<KeyRejected> for DnsSecError {
     fn from(e: KeyRejected) -> Self {
         DnsSecErrorKind::from(e).into()
     }
 }
 
-#[cfg(feature = "dnssec-ring")]
 impl From<Unspecified> for DnsSecError {
     fn from(e: Unspecified) -> Self {
         DnsSecErrorKind::from(e).into()
@@ -230,12 +226,10 @@ pub enum DnsSecErrorKind {
     Proto(#[from] ProtoError),
 
     /// A ring error
-    #[cfg(feature = "dnssec-ring")]
     #[error("ring error: {0}")]
     RingKeyRejected(#[from] KeyRejected),
 
     /// A ring error
-    #[cfg(feature = "dnssec-ring")]
     #[error("ring error: {0}")]
     RingUnspecified(#[from] Unspecified),
 
@@ -262,9 +256,7 @@ impl Clone for DnsSecErrorKind {
             Msg(msg) => Msg(msg.clone()),
             // foreign
             Proto(proto) => Proto(proto.clone()),
-            #[cfg(feature = "dnssec-ring")]
             RingKeyRejected(r) => Msg(format!("Ring rejected key: {r}")),
-            #[cfg(feature = "dnssec-ring")]
             RingUnspecified(_r) => RingUnspecified(Unspecified),
             Timeout => Timeout,
             TsigUnsupportedMacAlgorithm(ref alg) => TsigUnsupportedMacAlgorithm(alg.clone()),

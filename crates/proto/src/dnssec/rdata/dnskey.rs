@@ -12,10 +12,11 @@ use std::{fmt, sync::Arc};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "dnssec-ring")]
-use crate::dnssec::crypto::Digest;
 use crate::{
-    dnssec::{crypto::decode_public_key, Algorithm, DigestType, PublicKey, PublicKeyBuf, Verifier},
+    dnssec::{
+        crypto::{decode_public_key, Digest},
+        Algorithm, DigestType, PublicKey, PublicKeyBuf, Verifier,
+    },
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     rr::{record_data::RData, Name, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
@@ -255,7 +256,6 @@ impl DNSKEY {
     ///
     /// * `name` - the label of of the DNSKEY record.
     /// * `digest_type` - the `DigestType` with which to create the message digest.
-    #[cfg(feature = "dnssec-ring")]
     pub fn to_digest(&self, name: &Name, digest_type: DigestType) -> ProtoResult<Digest> {
         let mut buf: Vec<u8> = Vec::new();
         {
@@ -499,15 +499,12 @@ impl fmt::Display for DNSKEY {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    #[cfg(feature = "dnssec-ring")]
     use rustls_pki_types::PrivateKeyDer;
 
     use super::*;
-    #[cfg(feature = "dnssec-ring")]
     use crate::dnssec::{crypto::EcdsaSigningKey, SigningKey};
 
     #[test]
-    #[cfg(feature = "dnssec-ring")]
     fn test() {
         let algorithm = Algorithm::ECDSAP256SHA256;
         let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();

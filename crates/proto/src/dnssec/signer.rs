@@ -533,7 +533,6 @@ impl MessageFinalizer for SigSigner {
 }
 
 #[cfg(test)]
-#[cfg(feature = "dnssec-ring")]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
