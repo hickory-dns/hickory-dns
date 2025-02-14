@@ -25,41 +25,60 @@ categories.workspace = true
 license.workspace = true
 
 [features]
-dns-over-tls = []
+std = [
+    "data-encoding/std",
+    "futures-channel/std",
+    "futures-io/std",
+    "futures-util/std",
+    "ipnet/std",
+    "rand/std",
+    "rand/thread_rng",
+    "ring/std",
+    "thiserror/std",
+    "tracing-subscriber/env-filter",
+    "tracing-subscriber/fmt",
+    "tracing-subscriber/std",
+    "tracing/std",
+    "url/std",
+]
+
+dns-over-tls = ["std"]
 dns-over-rustls = [
     "dns-over-tls",
     "rustls/ring",
+    "std",
     "dep:tokio-rustls",
     "tokio-runtime",
 ]
 
-dns-over-https-rustls = ["dep:bytes", "dep:h2", "dep:http", "dns-over-rustls", "tokio-runtime"]
+dns-over-https-rustls = ["std", "dep:bytes", "dep:h2", "dep:http", "dns-over-rustls", "tokio-runtime"]
 dns-over-quic = [
+    "std",
     "dep:quinn",
     "dns-over-rustls",
     "dep:bytes",
     "dep:pin-project-lite",
     "tokio-runtime",
 ]
-dns-over-h3 = ["dep:h3", "dep:h3-quinn", "dep:quinn", "dep:http", "dns-over-quic"]
+dns-over-h3 = ["std", "dep:h3", "dep:h3-quinn", "dep:quinn", "dep:http", "dns-over-quic"]
 
-rustls-platform-verifier = ["dep:rustls-platform-verifier"]
+rustls-platform-verifier = ["std", "dep:rustls-platform-verifier"]
 
-dnssec-ring = ["dep:bitflags", "dep:ring", "dep:rustls-pki-types", "dep:time"]
+dnssec-ring = ["std", "dep:bitflags", "dep:ring", "dep:rustls-pki-types", "dep:time"]
 testing = []
 
-text-parsing = []
-tokio-runtime = ["tokio/net", "tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
-default = ["tokio-runtime"]
+text-parsing = ["std"]
+tokio-runtime = ["std", "tokio/net", "tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
+default = ["std", "tokio-runtime"]
 
 serde = ["dep:serde", "url/serde"]
 
 # enables experimental the mDNS (multicast) feature
-mdns = ["socket2/all"]
+mdns = ["socket2/all", "std"]
 
 wasm-bindgen = ["dep:wasm-bindgen-crate", "dep:js-sys"]
 
-backtrace = ["dep:backtrace"]
+backtrace = ["std", "dep:backtrace"]
 
 [lib]
 name = "hickory_proto"
@@ -72,11 +91,12 @@ backtrace = { workspace = true, optional = true }
 bitflags = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
 cfg-if.workspace = true
-data-encoding.workspace = true
+critical-section = { workspace = true }
+data-encoding = { workspace = true, features = ["alloc"] }
 enum-as-inner.workspace = true
-futures-channel = { workspace = true, default-features = false, features = ["std"] }
-futures-io = { workspace = true, default-features = false, features = ["std"] }
-futures-util = { workspace = true, default-features = false, features = ["std"] }
+futures-channel = { workspace = true, default-features = false, features = ["alloc"] }
+futures-io = { workspace = true, default-features = false, optional = true }
+futures-util = { workspace = true, default-features = false, features = ["alloc"] }
 h2 = { workspace = true, features = ["stream"], optional = true }
 h3 = { workspace = true, optional = true }
 h3-quinn = { workspace = true, optional = true }
@@ -84,10 +104,10 @@ http = { workspace = true, optional = true }
 idna.workspace = true
 ipnet.workspace = true
 js-sys = { workspace = true, optional = true }
-once_cell.workspace = true
+once_cell = { workspace = true, features = ["critical-section"] }
 pin-project-lite = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true, features = ["log", "runtime-tokio", "rustls"] }
-rand.workspace = true
+rand = { workspace = true, features = ["std_rng"] }
 ring = { workspace = true, optional = true, features = ["std"] }
 rustls = { workspace = true, optional = true, default-features = false }
 rustls-pki-types = { workspace = true, optional = true }
@@ -97,10 +117,10 @@ socket2 = { workspace = true, optional = true }
 thiserror.workspace = true
 time = { workspace = true, optional = true }
 tinyvec = { workspace = true, features = ["alloc"] }
-tracing.workspace = true
+tracing = { workspace = true, default-features = false }
 tokio = { workspace = true, features = ["io-util", "macros"], optional = true }
 tokio-rustls = { workspace = true, optional = true, features = ["early-data"] }
-url.workspace = true
+url = { workspace = true }
 wasm-bindgen-crate = { workspace = true, optional = true }
 webpki-roots = { workspace = true, optional = true }
 

@@ -5,6 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use alloc::boxed::Box;
 use std::collections::HashSet;
 use std::future::poll_fn;
 use std::io;
@@ -18,7 +19,8 @@ use futures_util::stream::Stream;
 use futures_util::{future::Future, ready, TryFutureExt};
 use tracing::{debug, trace, warn};
 
-use crate::runtime::{RuntimeProvider, Time};
+use crate::runtime::RuntimeProvider;
+use crate::runtime::Time;
 use crate::udp::MAX_RECEIVE_BUFFER_SIZE;
 use crate::xfer::{BufDnsStreamHandle, SerialMessage, StreamReceiver};
 

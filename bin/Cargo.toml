@@ -70,7 +70,7 @@ rustls-pki-types = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
 time.workspace = true
 tracing.workspace = true
-tracing-subscriber.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
 tokio = { workspace = true, features = ["time", "rt"] }
 toml.workspace = true
 hickory-client.workspace = true
@@ -83,7 +83,7 @@ libc.workspace = true
 [dev-dependencies]
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
 regex.workspace = true
-hickory-proto = { workspace = true, features = ["testing"] }
+hickory-proto = { workspace = true, features = ["std", "testing"] }
 hickory-resolver.workspace = true
 test-support.workspace = true
 toml.workspace = true

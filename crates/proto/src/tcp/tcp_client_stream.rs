@@ -5,7 +5,8 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::fmt::{self, Display};
+use alloc::boxed::Box;
+use core::fmt::{self, Display};
 use std::future::Future;
 use std::net::SocketAddr;
 use std::pin::Pin;

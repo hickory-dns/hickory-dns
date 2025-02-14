@@ -5,6 +5,8 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use alloc::boxed::Box;
+use alloc::string::String;
 use std::fmt::{self, Display};
 use std::future::{poll_fn, Future};
 use std::net::SocketAddr;
@@ -466,7 +468,9 @@ impl Future for H3ClientResponse {
     any(feature = "rustls-platform-verifier", feature = "webpki-roots")
 ))]
 mod tests {
+    use alloc::string::ToString;
     use std::net::SocketAddr;
+    use std::println;
     use std::str::FromStr;
 
     use rustls::KeyLogFile;

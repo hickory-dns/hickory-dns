@@ -9,9 +9,15 @@
 
 #![deny(missing_docs)]
 
-use std::cmp::Ordering;
-use std::sync::Arc;
-use std::{fmt, io, sync};
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::string::{String, ToString};
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::cmp::Ordering;
+use core::fmt;
+#[cfg(feature = "std")]
+use std::{io, sync};
 
 #[cfg(feature = "backtrace")]
 pub use backtrace::Backtrace as ExtBacktrace;
@@ -55,8 +61,15 @@ macro_rules! trace {
     }};
 }
 
+// Note that core::result::Result needs at least MSRV: 1.81.
+
 /// An alias for results returned by functions of this crate
+#[cfg(feature = "std")]
 pub(crate) type ProtoResult<T> = ::std::result::Result<T, ProtoError>;
+
+/// An alias for results returned by functions of this crate
+#[cfg(not(feature = "std"))]
+pub(crate) type ProtoResult<T> = ::core::result::Result<T, ProtoError>;
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, EnumAsInner, Error)]
@@ -241,6 +254,7 @@ pub enum ProtoErrorKind {
 
     // foreign
     /// An error got returned from IO
+    #[cfg(feature = "std")]
     #[error("io error: {0}")]
     Io(Arc<io::Error>),
 
@@ -271,15 +285,15 @@ pub enum ProtoErrorKind {
 
     /// A utf8 parsing error
     #[error("error parsing utf8 string")]
-    Utf8(#[from] std::str::Utf8Error),
+    Utf8(#[from] alloc::str::Utf8Error),
 
     /// A utf8 parsing error
     #[error("error parsing utf8 string")]
-    FromUtf8(#[from] std::string::FromUtf8Error),
+    FromUtf8(#[from] alloc::string::FromUtf8Error),
 
     /// An int parsing error
     #[error("error parsing int")]
-    ParseInt(#[from] std::num::ParseIntError),
+    ParseInt(#[from] core::num::ParseIntError),
 
     /// A Quinn (Quic) connection error occurred
     #[cfg(feature = "dns-over-quic")]
@@ -471,10 +485,12 @@ impl ProtoError {
 
     /// Returns true if this is a std::io::Error
     #[inline]
+    #[cfg(feature = "std")]
     pub fn is_io(&self) -> bool {
         matches!(*self.kind, ProtoErrorKind::Io(..))
     }
 
+    #[cfg(feature = "std")]
     pub(crate) fn as_dyn(&self) -> &(dyn std::error::Error + 'static) {
         self
     }
@@ -601,8 +617,11 @@ impl ProtoError {
         }
 
         match (kind, other) {
+            #[cfg(feature = "std")]
             (ProtoErrorKind::Io { .. }, ProtoErrorKind::Io { .. }) => return Ordering::Equal,
+            #[cfg(feature = "std")]
             (ProtoErrorKind::Io { .. }, _) => return Ordering::Greater,
+            #[cfg(feature = "std")]
             (_, ProtoErrorKind::Io { .. }) => return Ordering::Less,
             _ => (),
         }
@@ -680,6 +699,7 @@ impl From<String> for ProtoError {
     }
 }
 
+#[cfg(feature = "std")]
 impl From<io::Error> for ProtoErrorKind {
     fn from(e: io::Error) -> Self {
         match e.kind() {
@@ -689,12 +709,14 @@ impl From<io::Error> for ProtoErrorKind {
     }
 }
 
+#[cfg(feature = "std")]
 impl<T> From<sync::PoisonError<T>> for ProtoError {
     fn from(_e: sync::PoisonError<T>) -> Self {
         ProtoErrorKind::Poisoned.into()
     }
 }
 
+#[cfg(feature = "std")]
 impl From<ProtoError> for io::Error {
     fn from(e: ProtoError) -> Self {
         match e.kind() {
@@ -776,6 +798,7 @@ impl Clone for ProtoErrorKind {
             UnrecognizedLabelCode(value) => UnrecognizedLabelCode(value),
             UnrecognizedNsec3Flags(flags) => UnrecognizedNsec3Flags(flags),
             UnrecognizedCsyncFlags(flags) => UnrecognizedCsyncFlags(flags),
+            #[cfg(feature = "std")]
             Io(ref e) => Io(e.clone()),
             Poisoned => Poisoned,
             #[cfg(feature = "dnssec-ring")]

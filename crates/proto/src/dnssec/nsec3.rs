@@ -17,6 +17,8 @@
 
 //! NSEC3 related record types
 
+use alloc::vec::Vec;
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -174,6 +176,8 @@ impl From<Nsec3HashAlgorithm> for u8 {
 
 #[cfg(test)]
 mod tests {
+    use alloc::{string::String, vec::Vec};
+
     use super::*;
 
     #[test]

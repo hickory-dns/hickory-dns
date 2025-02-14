@@ -7,7 +7,11 @@
 
 //! SVCB records in presentation format
 
-use std::str::FromStr;
+use alloc::{
+    str::FromStr,
+    string::{String, ToString},
+    vec::Vec,
+};
 
 use crate::{
     rr::{
@@ -362,6 +366,9 @@ where
 
 #[cfg(test)]
 mod tests {
+    use alloc::borrow::ToOwned;
+    use alloc::string::ToString;
+
     use crate::{
         rr::{rdata::HTTPS, RecordData},
         serialize::txt::Parser,

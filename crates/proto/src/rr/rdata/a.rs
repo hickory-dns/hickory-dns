@@ -31,14 +31,15 @@
 //! "10.2.0.52" or "192.0.5.6").
 //! ```
 
-pub use std::net::Ipv4Addr;
-use std::{fmt, net::AddrParseError, ops::Deref, str};
+use core::{fmt, ops::Deref, str};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+pub use crate::net::Ipv4Addr;
 use crate::{
     error::*,
+    net::AddrParseError,
     rr::{RData, RecordData, RecordType},
     serialize::binary::*,
 };
@@ -151,6 +152,8 @@ impl str::FromStr for A {
 
 #[cfg(test)]
 mod mytests {
+    use alloc::vec::Vec;
+
     use super::*;
     use crate::serialize::binary::bin_tests::{test_emit_data_set, test_read_data_set};
 

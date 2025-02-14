@@ -7,7 +7,8 @@
 
 //! naptr records DDDS, RFC 3403
 
-use std::str::FromStr;
+use alloc::str::FromStr;
+use alloc::string::ToString;
 
 use crate::rr::rdata::naptr::{verify_flags, NAPTR};
 use crate::rr::Name;

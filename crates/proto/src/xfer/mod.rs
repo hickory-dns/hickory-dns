@@ -4,43 +4,59 @@
 //!
 //! TODO: this module needs some serious refactoring and normalization.
 
-use std::fmt::{self, Debug, Display};
-use std::future::Future;
+#[cfg(feature = "std")]
+use core::fmt::Display;
+use core::fmt::{self, Debug};
+use core::future::Future;
+use core::pin::Pin;
+use core::task::{Context, Poll};
+use core::time::Duration;
+#[cfg(feature = "std")]
 use std::net::SocketAddr;
-use std::pin::Pin;
-use std::task::{Context, Poll};
-use std::time::Duration;
 
+#[cfg(feature = "std")]
 use futures_channel::mpsc;
+#[cfg(feature = "std")]
 use futures_channel::oneshot;
 use futures_util::ready;
-use futures_util::stream::{Fuse, Peekable, Stream, StreamExt};
+#[cfg(feature = "std")]
+use futures_util::stream::{Fuse, Peekable};
+use futures_util::stream::{Stream, StreamExt};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "std")]
 use tracing::{debug, warn};
 
 use crate::error::{ProtoError, ProtoErrorKind};
+#[cfg(feature = "std")]
 use crate::runtime::Time;
 
+#[cfg(feature = "std")]
 mod dns_exchange;
 pub mod dns_handle;
+#[cfg(feature = "std")]
 pub mod dns_multiplexer;
 pub mod dns_request;
 pub mod dns_response;
 pub mod retry_dns_handle;
 mod serial_message;
 
+#[cfg(feature = "std")]
 pub use self::dns_exchange::{
     DnsExchange, DnsExchangeBackground, DnsExchangeConnect, DnsExchangeSend,
 };
 pub use self::dns_handle::{DnsHandle, DnsStreamHandle};
+#[cfg(feature = "std")]
 pub use self::dns_multiplexer::{DnsMultiplexer, DnsMultiplexerConnect};
 pub use self::dns_request::{DnsRequest, DnsRequestOptions};
-pub use self::dns_response::{DnsResponse, DnsResponseStream};
+pub use self::dns_response::DnsResponse;
+#[cfg(feature = "std")]
+pub use self::dns_response::DnsResponseStream;
 pub use self::retry_dns_handle::RetryDnsHandle;
 pub use self::serial_message::SerialMessage;
 
 /// Ignores the result of a send operation and logs and ignores errors
+#[cfg(feature = "std")]
 fn ignore_send<M, T>(result: Result<M, mpsc::TrySendError<T>>) {
     if let Err(error) = result {
         if error.is_disconnected() {
@@ -53,6 +69,7 @@ fn ignore_send<M, T>(result: Result<M, mpsc::TrySendError<T>>) {
 }
 
 /// A non-multiplexed stream of Serialized DNS messages
+#[cfg(feature = "std")]
 pub trait DnsClientStream:
     Stream<Item = Result<SerialMessage, ProtoError>> + Display + Send
 {
@@ -64,19 +81,23 @@ pub trait DnsClientStream:
 }
 
 /// Receiver handle for peekable fused SerialMessage channel
+#[cfg(feature = "std")]
 pub type StreamReceiver = Peekable<Fuse<mpsc::Receiver<SerialMessage>>>;
 
+#[cfg(feature = "std")]
 const CHANNEL_BUFFER_SIZE: usize = 32;
 
 /// A buffering stream bound to a `SocketAddr`
 ///
 /// This stream handle ensures that all messages sent via this handle have the remote_addr set as the destination for the packet
 #[derive(Clone)]
+#[cfg(feature = "std")]
 pub struct BufDnsStreamHandle {
     remote_addr: SocketAddr,
     sender: mpsc::Sender<SerialMessage>,
 }
 
+#[cfg(feature = "std")]
 impl BufDnsStreamHandle {
     /// Constructs a new Buffered Stream Handle, used for sending data to the DNS peer.
     ///
@@ -107,6 +128,7 @@ impl BufDnsStreamHandle {
     }
 }
 
+#[cfg(feature = "std")]
 impl DnsStreamHandle for BufDnsStreamHandle {
     fn send(&mut self, buffer: SerialMessage) -> Result<(), ProtoError> {
         let sender: &mut _ = &mut self.sender;
@@ -121,6 +143,7 @@ impl DnsStreamHandle for BufDnsStreamHandle {
 /// The underlying Stream implementation should yield `Some(())` whenever it is ready to send a message,
 ///   NotReady, if it is not ready to send a message, and `Err` or `None` in the case that the stream is
 ///   done, and should be shutdown.
+#[cfg(feature = "std")]
 pub trait DnsRequestSender: Stream<Item = Result<(), ProtoError>> + Send + Unpin + 'static {
     /// Send a message, and return a stream of response
     ///
@@ -140,13 +163,15 @@ pub trait DnsRequestSender: Stream<Item = Result<(), ProtoError>> + Send + Unpin
 
 /// Used for associating a name_server to a DnsRequestStreamHandle
 #[derive(Clone)]
+#[cfg(feature = "std")]
 pub struct BufDnsRequestStreamHandle {
     sender: mpsc::Sender<OneshotDnsRequest>,
 }
 
+#[cfg(feature = "std")]
 macro_rules! try_oneshot {
     ($expr:expr) => {{
-        use std::result::Result;
+        use core::result::Result;
 
         match $expr {
             Result::Ok(val) => val,
@@ -158,6 +183,7 @@ macro_rules! try_oneshot {
     };
 }
 
+#[cfg(feature = "std")]
 impl DnsHandle for BufDnsRequestStreamHandle {
     type Response = DnsResponseReceiver;
 
@@ -183,11 +209,13 @@ impl DnsHandle for BufDnsRequestStreamHandle {
 
 // TODO: this future should return the origin message in the response on errors
 /// A OneshotDnsRequest creates a channel for a response to message
+#[cfg(feature = "std")]
 pub struct OneshotDnsRequest {
     dns_request: DnsRequest,
     sender_for_response: oneshot::Sender<DnsResponseStream>,
 }
 
+#[cfg(feature = "std")]
 impl OneshotDnsRequest {
     fn oneshot(dns_request: DnsRequest) -> (Self, oneshot::Receiver<DnsResponseStream>) {
         let (sender_for_response, receiver) = oneshot::channel();
@@ -209,8 +237,10 @@ impl OneshotDnsRequest {
     }
 }
 
+#[cfg(feature = "std")]
 struct OneshotDnsResponse(oneshot::Sender<DnsResponseStream>);
 
+#[cfg(feature = "std")]
 impl OneshotDnsResponse {
     fn send_response(self, serial_response: DnsResponseStream) -> Result<(), DnsResponseStream> {
         self.0.send(serial_response)
@@ -218,6 +248,7 @@ impl OneshotDnsResponse {
 }
 
 /// A Stream that wraps a [`oneshot::Receiver<Stream>`] and resolves to items in the inner Stream
+#[cfg(feature = "std")]
 pub enum DnsResponseReceiver {
     /// The receiver
     Receiver(oneshot::Receiver<DnsResponseStream>),
@@ -227,6 +258,7 @@ pub enum DnsResponseReceiver {
     Err(Option<ProtoError>),
 }
 
+#[cfg(feature = "std")]
 impl Stream for DnsResponseReceiver {
     type Item = Result<DnsResponse, ProtoError>;
 

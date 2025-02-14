@@ -64,8 +64,8 @@ test-docs:
 # This tests compatibility with BIND9, TODO: support other feature sets besides openssl for tests
 [unix]
 compatibility: init-bind9
-    RUST_LOG=debug cargo test --manifest-path tests/compatibility-tests/Cargo.toml --locked --all-targets --no-default-features --features=none;
-    RUST_LOG=debug cargo test --manifest-path tests/compatibility-tests/Cargo.toml --locked --all-targets --no-default-features --features=bind;
+    RUST_LOG=debug cargo test --manifest-path tests/compatibility-tests/Cargo.toml --locked --all-targets --no-default-features --features=std,none;
+    RUST_LOG=debug cargo test --manifest-path tests/compatibility-tests/Cargo.toml --locked --all-targets --no-default-features --features=std,bind;
 
 # Build all bench marking tools, i.e. check that they work, but don't run
 build-bench:

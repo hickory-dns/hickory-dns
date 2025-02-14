@@ -1,5 +1,7 @@
+use alloc::string::ToString;
 use std::io::{Read, Write};
 use std::net::{IpAddr, SocketAddr};
+use std::println;
 use std::sync::{atomic::AtomicBool, Arc};
 
 use futures_util::stream::StreamExt;

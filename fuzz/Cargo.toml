@@ -11,7 +11,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-hickory-proto = { path = "../crates/proto" }
+hickory-proto = { path = "../crates/proto", features = ["std"]}
 
 [[bin]]
 name = "message"

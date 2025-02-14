@@ -1,20 +1,21 @@
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
-use std::str::FromStr;
+use alloc::string::ToString;
+use core::str::FromStr;
+use core::time::Duration;
+use std::println;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
-use std::time::Duration;
 
 use futures_util::stream::StreamExt;
 use tracing::debug;
 
+use crate::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use crate::op::{Message, Query};
 use crate::rr::rdata::NULL;
 use crate::rr::{Name, RData, Record, RecordType};
 use crate::runtime::RuntimeProvider;
 use crate::udp::{UdpClientStream, UdpStream};
 use crate::xfer::dns_handle::DnsStreamHandle;
-use crate::xfer::{DnsRequest, DnsRequestSender};
-use crate::xfer::{DnsRequestOptions, FirstAnswer, SerialMessage};
+use crate::xfer::{DnsRequest, DnsRequestOptions, DnsRequestSender, FirstAnswer, SerialMessage};
 
 /// Test next random udpsocket.
 pub async fn next_random_socket_test(provider: impl RuntimeProvider) {

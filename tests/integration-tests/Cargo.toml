@@ -85,7 +85,7 @@ time.workspace = true
 tokio = { workspace = true, features = ["time", "rt"] }
 tracing.workspace = true
 hickory-client.workspace = true
-hickory-proto = { workspace = true, features = ["testing"] }
+hickory-proto = { workspace = true, features = ["std", "testing"] }
 hickory-resolver = { workspace = true, features = ["tokio-runtime"] }
 hickory-server = { workspace = true, features = ["testing"] }
 webpki-roots = { workspace = true, optional = true }
@@ -94,7 +94,7 @@ webpki-roots = { workspace = true, optional = true }
 futures = { workspace = true, features = ["thread-pool"] }
 tokio = { workspace = true, features = ["macros", "rt"] }
 test-support.workspace = true
-tracing-subscriber.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
 
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true
