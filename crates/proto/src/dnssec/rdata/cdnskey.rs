@@ -13,12 +13,10 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    dnssec::{Algorithm, PublicKey, PublicKeyBuf},
+    dnssec::{Algorithm, PublicKeyBuf},
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
-    serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
-    },
+    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath},
     ProtoError, ProtoErrorKind,
 };
 
@@ -29,7 +27,8 @@ use super::DNSSECRData;
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct CDNSKEY {
     flags: u16,
-    public_key: PublicKeyBuf,
+    algorithm: Option<Algorithm>,
+    public_key: Vec<u8>,
 }
 
 impl CDNSKEY {
@@ -40,7 +39,8 @@ impl CDNSKEY {
     /// * `zone_key` - this key is used to sign Zone resource records
     /// * `secure_entry_point` - this key is used to sign DNSKeys that sign the Zone records
     /// * `revoke` - this key has been revoked
-    /// * `public_key` - the public key
+    /// * `algorithm` - the key's algorithm, or `None` to request deletion
+    /// * `public_key` - the public key encoded as a byte array
     ///
     /// # Return
     ///
@@ -49,7 +49,8 @@ impl CDNSKEY {
         zone_key: bool,
         secure_entry_point: bool,
         revoke: bool,
-        public_key: PublicKeyBuf,
+        algorithm: Option<Algorithm>,
+        public_key: Vec<u8>,
     ) -> Self {
         let mut flags: u16 = 0;
         if zone_key {
@@ -61,7 +62,7 @@ impl CDNSKEY {
         if revoke {
             flags |= 0b0000_0000_1000_0000;
         }
-        Self::with_flags(flags, public_key)
+        Self::with_flags(flags, algorithm, public_key)
     }
 
     /// Construct a new CDNSKEY RData
@@ -69,13 +70,18 @@ impl CDNSKEY {
     /// # Arguments
     ///
     /// * `flags` - flags associated with this key
-    /// * `public_key` - the public key
+    /// * `algorithm` - the key's algorithm, or `None` to request deletion
+    /// * `public_key` - the public key encoded as a byte array
     ///
     /// # Return
     ///
     /// A new CDNSKEY RData for use in a Resource Record
-    pub fn with_flags(flags: u16, public_key: PublicKeyBuf) -> Self {
-        Self { flags, public_key }
+    pub fn with_flags(flags: u16, algorithm: Option<Algorithm>, public_key: Vec<u8>) -> Self {
+        Self {
+            flags,
+            algorithm,
+            public_key,
+        }
     }
 
     /// Returns the value of the Zone Key flag
@@ -93,9 +99,20 @@ impl CDNSKEY {
         self.flags & 0b0000_0000_1000_0000 != 0
     }
 
-    /// Returns the public key
-    pub fn public_key(&self) -> &PublicKeyBuf {
-        &self.public_key
+    /// Returns the Algorithm field. This is `None` if deletion is requested, or the key's algorithm
+    /// if an update is requested.
+    pub fn algorithm(&self) -> Option<Algorithm> {
+        self.algorithm
+    }
+
+    /// Returns whether this record is requesting deletion of the DS RRset.
+    pub fn is_delete(&self) -> bool {
+        self.algorithm.is_none()
+    }
+
+    /// Returns the public key, or `None` if deletion is requested.
+    pub fn public_key(&self) -> Option<PublicKeyBuf> {
+        Some(PublicKeyBuf::new(self.public_key.clone(), self.algorithm?))
     }
 
     /// Returns the Flags field
@@ -113,9 +130,12 @@ impl From<CDNSKEY> for RData {
 impl BinEncodable for CDNSKEY {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.emit_u16(self.flags())?;
-        encoder.emit(3)?; // always 3 for now
-        self.public_key.algorithm().emit(encoder)?;
-        encoder.emit_vec(self.public_key.public_bytes())?;
+        encoder.emit(3)?;
+        match self.algorithm() {
+            Some(algorithm) => algorithm.emit(encoder)?,
+            None => encoder.emit_u8(0)?,
+        }
+        encoder.emit_vec(&self.public_key)?;
 
         Ok(())
     }
@@ -131,7 +151,11 @@ impl<'r> RecordDataDecodable<'r> for CDNSKEY {
             .verify_unwrap(|protocol| *protocol == 3)
             .map_err(|protocol| ProtoError::from(ProtoErrorKind::DnsKeyProtocolNot3(protocol)))?;
 
-        let algorithm = Algorithm::read(decoder)?;
+        let algorithm_value = decoder.read_u8()?.unverified(/* no further validation required */);
+        let algorithm = match algorithm_value {
+            0 => None,
+            _ => Some(Algorithm::from_u8(algorithm_value)),
+        };
 
         // The public key is the remaining bytes, excluding the first four bytes for the above
         // fields. This subtraction is safe, as the first three fields must have been in the RDATA,
@@ -145,10 +169,7 @@ impl<'r> RecordDataDecodable<'r> for CDNSKEY {
             .read_vec(key_len)?
             .unverified(/* signature verification will fail if the public key is invalid */);
 
-        Ok(Self::with_flags(
-            flags,
-            PublicKeyBuf::new(public_key, algorithm),
-        ))
+        Ok(Self::with_flags(flags, algorithm, public_key))
     }
 }
 
@@ -182,8 +203,8 @@ impl fmt::Display for CDNSKEY {
             f,
             "{flags} 3 {alg} {key}",
             flags = self.flags,
-            alg = u8::from(self.public_key.algorithm()),
-            key = data_encoding::BASE64.encode(self.public_key.public_bytes())
+            alg = self.algorithm.map(u8::from).unwrap_or(0),
+            key = data_encoding::BASE64.encode(&self.public_key)
         )
     }
 }
@@ -193,7 +214,7 @@ mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use crate::{
-        dnssec::{Algorithm, PublicKeyBuf},
+        dnssec::Algorithm,
         rr::RecordDataDecodable,
         serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict},
     };
@@ -206,8 +227,27 @@ mod tests {
             true,
             true,
             false,
-            PublicKeyBuf::new(vec![1u8, 2u8, 3u8, 4u8], Algorithm::ECDSAP256SHA256),
+            Some(Algorithm::ECDSAP256SHA256),
+            vec![1u8, 2u8, 3u8, 4u8],
         );
+
+        let mut bytes = Vec::new();
+        let mut encoder = BinEncoder::new(&mut bytes);
+        rdata.emit(&mut encoder).expect("error encoding");
+        let bytes = encoder.into_bytes();
+
+        println!("bytes: {bytes:?}");
+
+        let mut decoder = BinDecoder::new(bytes);
+        let read_rdata = CDNSKEY::read_data(&mut decoder, Restrict::new(bytes.len() as u16))
+            .expect("error decoding");
+
+        assert_eq!(rdata, read_rdata);
+    }
+
+    #[test]
+    fn test_delete() {
+        let rdata = CDNSKEY::with_flags(0, None, vec![0u8]);
 
         let mut bytes = Vec::new();
         let mut encoder = BinEncoder::new(&mut bytes);
