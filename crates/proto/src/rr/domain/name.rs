@@ -34,6 +34,9 @@ pub struct Name {
 }
 
 impl Name {
+    /// Maximum legal length of a domain name
+    pub const MAX_LENGTH: usize = 255;
+
     /// Create a new domain::Name, i.e. label
     pub fn new() -> Self {
         Self::default()
@@ -48,11 +51,15 @@ impl Name {
 
     /// Extend the name with the offered label, and ensure maximum name length is not exceeded.
     fn extend_name(&mut self, label: &[u8]) -> Result<(), ProtoError> {
+        let new_len = self.len() + label.len() + 1;
+
+        if new_len > Self::MAX_LENGTH {
+            return Err(ProtoErrorKind::DomainNameTooLong(new_len).into());
+        };
+
         self.label_data.extend_from_slice(label);
         self.label_ends.push(self.label_data.len() as u8);
-        if self.len() > 255 {
-            return Err(ProtoErrorKind::DomainNameTooLong(self.len()).into());
-        };
+
         Ok(())
     }
 
