@@ -16,9 +16,7 @@ use crate::{
     dnssec::{Algorithm, DigestType},
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
-    serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
-    },
+    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath},
     ProtoError,
 };
 
@@ -29,7 +27,9 @@ use super::DNSSECRData;
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct CDS {
     key_tag: u16,
-    algorithm: Algorithm,
+    /// The algorithm of the desired DS record if requesting an update, or `None` if requesting
+    /// deletion.
+    algorithm: Option<Algorithm>,
     digest_type: DigestType,
     digest: Vec<u8>,
 }
@@ -40,7 +40,7 @@ impl CDS {
     /// # Arguments
     ///
     /// * `key_tag` - the key tag associated to the DNSKEY
-    /// * `algorithm` - algorithm as specified in the DNSKEY
+    /// * `algorithm` - algorithm as specified in the DNSKEY, or None to request DS RRset deletion
     /// * `digest_type` - hash algorithm used to validate the DNSKEY
     /// * `digest` - hash of the DNSKEY
     ///
@@ -49,7 +49,7 @@ impl CDS {
     /// the CDS RDATA for use in a Resource Record
     pub fn new(
         key_tag: u16,
-        algorithm: Algorithm,
+        algorithm: Option<Algorithm>,
         digest_type: DigestType,
         digest: Vec<u8>,
     ) -> Self {
@@ -66,9 +66,15 @@ impl CDS {
         self.key_tag
     }
 
-    /// Returns the Algorithm field.
-    pub fn algorithm(&self) -> Algorithm {
+    /// Returns the Algorithm field. This is `None` if deletion is requested, or the key's algorithm
+    /// if an update is requested.
+    pub fn algorithm(&self) -> Option<Algorithm> {
         self.algorithm
+    }
+
+    /// Returns whether this record is requesting deletion of the DS RRset.
+    pub fn is_delete(&self) -> bool {
+        self.algorithm.is_none()
     }
 
     /// Returns the Digest Type field.
@@ -91,7 +97,10 @@ impl From<CDS> for RData {
 impl BinEncodable for CDS {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.emit_u16(self.key_tag())?;
-        self.algorithm.emit(encoder)?;
+        match self.algorithm() {
+            Some(algorithm) => algorithm.emit(encoder)?,
+            None => encoder.emit_u8(0)?,
+        }
         encoder.emit(self.digest_type().into())?;
         encoder.emit_vec(self.digest())?;
 
@@ -104,7 +113,13 @@ impl<'r> RecordDataDecodable<'r> for CDS {
         let start_idx = decoder.index();
 
         let key_tag = decoder.read_u16()?.unverified(/* any u16 is a valid key_tag */);
-        let algorithm = Algorithm::read(decoder)?;
+
+        let algorithm_value = decoder.read_u8()?.unverified(/* no further validation required */);
+        let algorithm = match algorithm_value {
+            0 => None,
+            _ => Some(Algorithm::from_u8(algorithm_value)),
+        };
+
         let digest_type =
             DigestType::from(decoder.read_u8()?.unverified(/* DigestType is verified as safe */));
 
@@ -151,7 +166,7 @@ impl fmt::Display for CDS {
             f,
             "{tag} {alg} {ty} {digest}",
             tag = self.key_tag,
-            alg = u8::from(self.algorithm),
+            alg = self.algorithm.map(u8::from).unwrap_or(0),
             ty = u8::from(self.digest_type),
             digest = data_encoding::HEXUPPER_PERMISSIVE.encode(&self.digest)
         )
@@ -174,10 +189,27 @@ mod tests {
     fn test() {
         let rdata = CDS::new(
             0xF00F,
-            Algorithm::RSASHA256,
+            Some(Algorithm::RSASHA256),
             DigestType::SHA256,
             vec![5, 6, 7, 8],
         );
+
+        let mut bytes = Vec::new();
+        let mut encoder = BinEncoder::new(&mut bytes);
+        rdata.emit(&mut encoder).expect("error encoding");
+        let bytes = encoder.into_bytes();
+
+        println!("bytes: {bytes:?}");
+
+        let mut decoder = BinDecoder::new(bytes);
+        let read_rdata = CDS::read_data(&mut decoder, Restrict::new(bytes.len() as u16))
+            .expect("error decoding");
+        assert_eq!(rdata, read_rdata);
+    }
+
+    #[test]
+    fn test_delete() {
+        let rdata = CDS::new(0, None, DigestType::Unknown(0), vec![0]);
 
         let mut bytes = Vec::new();
         let mut encoder = BinEncoder::new(&mut bytes);
