@@ -10,6 +10,7 @@
 
 use std::{convert::TryInto, fmt};
 
+use ring::hmac;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -531,7 +532,6 @@ impl TsigAlgorithm {
     /// Supported algorithm are HmacSha256, HmacSha384, HmacSha512 and HmacSha512_256
     /// Other algorithm return an error.
     pub fn mac_data(&self, key: &[u8], message: &[u8]) -> Result<Vec<u8>, DnsSecError> {
-        use ring::hmac;
         use TsigAlgorithm::*;
 
         let key = match self {
@@ -551,7 +551,6 @@ impl TsigAlgorithm {
     ///
     /// This is both faster than independently creating the MAC and also constant time preventing timing attacks
     pub fn verify_mac(&self, key: &[u8], message: &[u8], tag: &[u8]) -> Result<(), DnsSecError> {
-        use ring::hmac;
         use TsigAlgorithm::*;
 
         let key = match self {
@@ -566,7 +565,6 @@ impl TsigAlgorithm {
 
     /// Return length in bytes of the algorithms output
     pub fn output_len(&self) -> Result<usize, DnsSecError> {
-        use ring::hmac;
         use TsigAlgorithm::*;
 
         let len = match self {
