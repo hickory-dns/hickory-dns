@@ -6,6 +6,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+#![no_std]
 // LIBRARY WARNINGS
 #![warn(
     clippy::default_trait_access,
@@ -30,6 +31,18 @@
 
 //! Hickory DNS Protocol library
 
+#[cfg(feature = "std")]
+extern crate std;
+
+#[macro_use]
+extern crate alloc;
+
+#[cfg(not(feature = "std"))]
+pub(crate) use core::net;
+#[cfg(feature = "std")]
+pub(crate) use std::net;
+
+#[cfg(feature = "std")]
 macro_rules! try_ready_stream {
     ($e:expr) => {{
         match $e {
@@ -56,24 +69,75 @@ pub mod op;
 #[cfg(all(feature = "dns-over-quic", feature = "tokio-runtime"))]
 pub mod quic;
 pub mod rr;
+#[cfg(feature = "std")]
 pub mod runtime;
 #[cfg(feature = "dns-over-rustls")]
 pub mod rustls;
 pub mod serialize;
+#[cfg(feature = "std")]
 pub mod tcp;
+#[cfg(feature = "std")]
 #[cfg(any(test, feature = "testing"))]
 pub mod tests;
+#[cfg(feature = "std")]
 pub mod udp;
 pub mod xfer;
 
 #[doc(hidden)]
 pub use crate::xfer::dns_handle::{DnsHandle, DnsStreamHandle};
 #[doc(hidden)]
+#[cfg(feature = "std")]
 pub use crate::xfer::dns_multiplexer::DnsMultiplexer;
 #[doc(hidden)]
 pub use crate::xfer::retry_dns_handle::RetryDnsHandle;
 #[doc(hidden)]
+#[cfg(feature = "std")]
 pub use crate::xfer::BufDnsStreamHandle;
 #[cfg(feature = "backtrace")]
 pub use error::{ExtBacktrace, ENABLE_BACKTRACE};
 pub use error::{ForwardData, ForwardNSData, ProtoError, ProtoErrorKind};
+
+#[cfg(feature = "std")]
+pub(crate) use rand::random;
+
+#[cfg(not(feature = "std"))]
+pub(crate) use no_std_rand::random;
+#[cfg(not(feature = "std"))]
+pub use no_std_rand::seed_rng;
+
+/// A simple shim that allows us to use a [`StdRng`] in `no_std` environments.
+#[cfg(not(feature = "std"))]
+mod no_std_rand {
+
+    use core::cell::RefCell;
+
+    use critical_section::Mutex;
+    use once_cell::sync::Lazy;
+    use rand::distr::{Distribution, StandardUniform};
+    use rand::{rngs::StdRng, Rng, SeedableRng};
+
+    static SEEDED_RNG: Lazy<Mutex<RefCell<StdRng>>> =
+        Lazy::new(|| Mutex::new(RefCell::new(StdRng::seed_from_u64(0x050BAD533D))));
+
+    /// Seed the RNG used to create random DNS IDs throughout the lib (no_std-only).
+    pub fn seed_rng(seed: u64) {
+        critical_section::with(|cs| {
+            *SEEDED_RNG.borrow(cs).borrow_mut() = StdRng::seed_from_u64(seed)
+        });
+    }
+
+    /// Generates a random value on `no_std`.
+    ///
+    /// ** WARNING **
+    /// The random value is predictable, unless seeded using [`crate::seed_rng`]!
+    ///
+    /// Depending on the usage of this library, this may yield predictable DNS requests that attackers can
+    /// use to feed wrong responses to hickory.
+    /// Always seed this library before using in `no_std` environments.
+    pub(crate) fn random<T>() -> T
+    where
+        StandardUniform: Distribution<T>,
+    {
+        critical_section::with(|cs| SEEDED_RNG.borrow(cs).borrow_mut().random())
+    }
+}

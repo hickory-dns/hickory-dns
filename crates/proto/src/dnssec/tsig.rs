@@ -13,8 +13,11 @@
 //! - Mac checking don't support HMAC truncation with TSIG (pedantic constant time verification)
 //! - Time checking not in TSIG implementation but in caller
 
-use std::ops::Range;
-use std::sync::Arc;
+use alloc::boxed::Box;
+use alloc::string::ToString;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::ops::Range;
 
 use tracing::debug;
 

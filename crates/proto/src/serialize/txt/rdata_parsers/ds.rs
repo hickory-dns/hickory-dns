@@ -1,6 +1,8 @@
 //! Parser for DS text form
 
-use std::str::FromStr;
+use alloc::str::FromStr;
+use alloc::string::String;
+use alloc::vec::Vec;
 
 use crate::dnssec::rdata::ds::DS;
 use crate::dnssec::{Algorithm, DigestType};

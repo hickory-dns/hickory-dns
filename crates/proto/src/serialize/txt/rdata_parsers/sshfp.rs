@@ -7,6 +7,9 @@
 
 //! SSHFP records for SSH public key fingerprints
 
+#[cfg(test)]
+use alloc::vec::Vec;
+
 use crate::rr::rdata::{sshfp, SSHFP};
 use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
 
@@ -55,7 +58,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
 
 #[test]
 fn test_parsing() {
-    assert!(parse(::std::iter::empty()).is_err());
+    assert!(parse(core::iter::empty()).is_err());
     assert!(parse(vec!["51", "13"].into_iter()).is_err());
     assert!(parse(vec!["1", "-1"].into_iter()).is_err());
     assert!(parse(vec!["1", "1", "abcd", "foo"].into_iter()).is_err());

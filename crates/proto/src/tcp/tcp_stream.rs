@@ -7,18 +7,19 @@
 
 //! This module contains all the TCP structures for demuxing TCP into streams of DNS packets.
 
+use alloc::vec::Vec;
+use core::mem;
+use core::pin::Pin;
+use core::task::{Context, Poll};
+use core::time::Duration;
 use std::io;
-use std::mem;
-use std::net::SocketAddr;
-use std::pin::Pin;
-use std::task::{Context, Poll};
-use std::time::Duration;
 
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_util::stream::Stream;
 use futures_util::{self, future::Future, ready, FutureExt};
 use tracing::debug;
 
+use crate::net::SocketAddr;
 use crate::runtime::Time;
 use crate::xfer::{SerialMessage, StreamReceiver};
 use crate::BufDnsStreamHandle;

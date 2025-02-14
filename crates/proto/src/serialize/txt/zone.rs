@@ -5,6 +5,10 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 use std::{
     borrow::Cow,
     collections::BTreeMap,
@@ -527,6 +531,8 @@ const MAX_INCLUDE_LEVEL: usize = 256;
 
 #[cfg(test)]
 mod tests {
+    use alloc::string::ToString;
+
     use super::*;
 
     #[test]

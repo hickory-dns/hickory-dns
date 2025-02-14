@@ -7,7 +7,7 @@
 
 //! NSEC record types
 
-use std::fmt;
+use alloc::{fmt, string::ToString, vec::Vec};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize};
@@ -467,6 +467,9 @@ impl<'de> Deserialize<'de> for NSEC3 {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
+    use alloc::vec::Vec;
+    use std::println;
 
     use super::*;
     use crate::dnssec::rdata::RecordType;

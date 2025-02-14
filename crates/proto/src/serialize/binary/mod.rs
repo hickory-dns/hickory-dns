@@ -11,6 +11,8 @@ mod decoder;
 mod encoder;
 mod restrict;
 
+use alloc::vec::Vec;
+
 pub use self::decoder::{BinDecoder, DecodeError};
 pub use self::encoder::BinEncoder;
 pub use self::encoder::EncodeMode;
