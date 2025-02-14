@@ -140,15 +140,11 @@ where
             ))));
         };
 
-        let handle: Self = self.clone_with_context();
-
-        #[cfg(feature = "dnssec-ring")]
-        {
-            request
-                .extensions_mut()
-                .get_or_insert_with(Edns::new)
-                .enable_dnssec();
-        }
+        let handle = self.clone_with_context();
+        request
+            .extensions_mut()
+            .get_or_insert_with(Edns::new)
+            .enable_dnssec();
 
         request.set_authentic_data(true);
         request.set_checking_disabled(false);
@@ -1038,7 +1034,6 @@ where
 }
 
 /// Verifies the given SIG of the RRSET with the DNSKEY.
-#[cfg(feature = "dnssec-ring")]
 fn verify_rrset_with_dnskey(
     dnskey: RecordRef<'_, DNSKEY>,
     dnskey_proof: Proof,

@@ -20,7 +20,6 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "dnssec-ring")]
 use super::{crypto::Digest, DigestType};
 use crate::error::*;
 use crate::rr::Name;
@@ -148,7 +147,6 @@ impl Nsec3HashAlgorithm {
     ///        original unexpanded form, including the "*" label (no wildcard
     ///        substitution);
     /// ```
-    #[cfg(feature = "dnssec-ring")]
     pub fn hash(self, salt: &[u8], name: &Name, iterations: u16) -> ProtoResult<Digest> {
         match self {
             // if there ever is more than just SHA1 support, this should be a genericized method
@@ -218,7 +216,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "dnssec-ring")]
     fn test_known_hashes() {
         // H(example)       = 0p9mhaveqvm6t7vbl5lop2u3t2rp3tom
         assert_eq!(

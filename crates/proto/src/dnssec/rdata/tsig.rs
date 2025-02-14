@@ -530,7 +530,6 @@ impl TsigAlgorithm {
     ///
     /// Supported algorithm are HmacSha256, HmacSha384, HmacSha512 and HmacSha512_256
     /// Other algorithm return an error.
-    #[cfg(feature = "dnssec-ring")]
     pub fn mac_data(&self, key: &[u8], message: &[u8]) -> Result<Vec<u8>, DnsSecError> {
         use ring::hmac;
         use TsigAlgorithm::*;
@@ -551,7 +550,6 @@ impl TsigAlgorithm {
     /// Verifies the hmac tag against the given key and this algorithm.
     ///
     /// This is both faster than independently creating the MAC and also constant time preventing timing attacks
-    #[cfg(feature = "dnssec-ring")]
     pub fn verify_mac(&self, key: &[u8], message: &[u8], tag: &[u8]) -> Result<(), DnsSecError> {
         use ring::hmac;
         use TsigAlgorithm::*;
@@ -567,7 +565,6 @@ impl TsigAlgorithm {
     }
 
     /// Return length in bytes of the algorithms output
-    #[cfg(feature = "dnssec-ring")]
     pub fn output_len(&self) -> Result<usize, DnsSecError> {
         use ring::hmac;
         use TsigAlgorithm::*;
@@ -816,7 +813,6 @@ mod tests {
         assert_eq!(tbs, tbv);
     }
 
-    #[cfg(feature = "dnssec-ring")]
     #[test]
     fn test_sign_encode_id_changed() {
         let mut message = Message::new();

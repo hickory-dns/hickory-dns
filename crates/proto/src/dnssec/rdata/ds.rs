@@ -199,7 +199,6 @@ impl DS {
     /// # Return
     ///
     /// true if and only if the DNSKEY is covered by the DS record.
-    #[cfg(feature = "dnssec-ring")]
     pub fn covers(&self, name: &Name, key: &DNSKEY) -> ProtoResult<bool> {
         key.to_digest(name, self.digest_type())
             .map(|hash| key.zone_key() && hash.as_ref() == self.digest())
@@ -393,7 +392,6 @@ mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use super::*;
-    #[cfg(feature = "dnssec-ring")]
     use crate::dnssec::{crypto::EcdsaSigningKey, rdata::DNSKEY, PublicKeyBuf, SigningKey};
 
     #[test]
@@ -418,7 +416,6 @@ mod tests {
         assert_eq!(rdata, read_rdata);
     }
 
-    #[cfg(feature = "dnssec-ring")]
     #[test]
     fn test_covers() {
         let algorithm = Algorithm::ECDSAP256SHA256;
@@ -454,7 +451,6 @@ mod tests {
         assert!(ds_rdata.covers(&name, &dnskey_rdata).unwrap());
     }
 
-    #[cfg(feature = "dnssec-ring")]
     #[test]
     fn test_covers_fails_with_non_zone_key() {
         let algorithm = Algorithm::ECDSAP256SHA256;
@@ -490,7 +486,6 @@ mod tests {
         assert!(!ds_rdata.covers(&name, &dnskey_rdata).unwrap());
     }
 
-    #[cfg(feature = "dnssec-ring")]
     #[test]
     fn test_covers_uppercase() {
         let algorithm = Algorithm::ECDSAP256SHA256;
