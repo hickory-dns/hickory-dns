@@ -441,7 +441,8 @@ impl SigningKey for RsaSigningKey {
         };
 
         let rng = SystemRandom::new();
-        let mut signature = vec![0; self.inner.public().modulus_len()];
+        #[allow(deprecated)]
+        let mut signature = vec![0; self.inner.public_modulus_len()];
         self.inner
             .sign(encoding, &rng, tbs.as_ref(), &mut signature)?;
         Ok(signature)
