@@ -7,41 +7,117 @@
 
 //! CDS type and related implementations
 
-use std::{fmt, ops::Deref};
+use std::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    dnssec::{Algorithm, DigestType},
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
-    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict},
+    serialize::binary::{
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
+    },
+    ProtoError,
 };
 
-use super::{DNSSECRData, DS};
+use super::DNSSECRData;
 
 /// Child DS. See RFC 8078.
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct CDS(DS);
+pub struct CDS {
+    key_tag: u16,
+    algorithm: Algorithm,
+    digest_type: DigestType,
+    digest: Vec<u8>,
+}
 
-impl Deref for CDS {
-    type Target = DS;
+impl CDS {
+    /// Constructs a new CDS RData
+    ///
+    /// # Arguments
+    ///
+    /// * `key_tag` - the key tag associated to the DNSKEY
+    /// * `algorithm` - algorithm as specified in the DNSKEY
+    /// * `digest_type` - hash algorithm used to validate the DNSKEY
+    /// * `digest` - hash of the DNSKEY
+    ///
+    /// # Returns
+    ///
+    /// the CDS RDATA for use in a Resource Record
+    pub fn new(
+        key_tag: u16,
+        algorithm: Algorithm,
+        digest_type: DigestType,
+        digest: Vec<u8>,
+    ) -> Self {
+        Self {
+            key_tag,
+            algorithm,
+            digest_type,
+            digest,
+        }
+    }
 
-    fn deref(&self) -> &Self::Target {
-        &self.0
+    /// Returns the Key Tag field
+    pub fn key_tag(&self) -> u16 {
+        self.key_tag
+    }
+
+    /// Returns the Algorithm field.
+    pub fn algorithm(&self) -> Algorithm {
+        self.algorithm
+    }
+
+    /// Returns the Digest Type field.
+    pub fn digest_type(&self) -> DigestType {
+        self.digest_type
+    }
+
+    /// Returns the Digest field.
+    pub fn digest(&self) -> &[u8] {
+        &self.digest
+    }
+}
+
+impl From<CDS> for RData {
+    fn from(value: CDS) -> Self {
+        Self::DNSSEC(DNSSECRData::CDS(value))
     }
 }
 
 impl BinEncodable for CDS {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        self.0.emit(encoder)
+        encoder.emit_u16(self.key_tag())?;
+        self.algorithm.emit(encoder)?;
+        encoder.emit(self.digest_type().into())?;
+        encoder.emit_vec(self.digest())?;
+
+        Ok(())
     }
 }
 
 impl<'r> RecordDataDecodable<'r> for CDS {
     fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
-        DS::read_data(decoder, length).map(Self)
+        let start_idx = decoder.index();
+
+        let key_tag = decoder.read_u16()?.unverified(/* any u16 is a valid key_tag */);
+        let algorithm = Algorithm::read(decoder)?;
+        let digest_type =
+            DigestType::from(decoder.read_u8()?.unverified(/* DigestType is verified as safe */));
+
+        let bytes_read = decoder.index() - start_idx;
+        let left = length
+            .map(|u| u as usize)
+            .checked_sub(bytes_read)
+            .map_err(|_| ProtoError::from("invalid rdata length in CDS"))?
+            .unverified(/* used only as length safely */);
+        let digest =
+            decoder.read_vec(left)?.unverified(/* this is only compared with other digests */);
+
+        Ok(Self::new(key_tag, algorithm, digest_type, digest))
     }
 }
 
@@ -71,6 +147,48 @@ impl RecordData for CDS {
 
 impl fmt::Display for CDS {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(f, "{}", self.0)
+        write!(
+            f,
+            "{tag} {alg} {ty} {digest}",
+            tag = self.key_tag,
+            alg = u8::from(self.algorithm),
+            ty = u8::from(self.digest_type),
+            digest = data_encoding::HEXUPPER_PERMISSIVE.encode(&self.digest)
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
+    use crate::{
+        dnssec::{Algorithm, DigestType},
+        rr::RecordDataDecodable,
+        serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict},
+    };
+
+    use super::CDS;
+
+    #[test]
+    fn test() {
+        let rdata = CDS::new(
+            0xF00F,
+            Algorithm::RSASHA256,
+            DigestType::SHA256,
+            vec![5, 6, 7, 8],
+        );
+
+        let mut bytes = Vec::new();
+        let mut encoder = BinEncoder::new(&mut bytes);
+        rdata.emit(&mut encoder).expect("error encoding");
+        let bytes = encoder.into_bytes();
+
+        println!("bytes: {bytes:?}");
+
+        let mut decoder = BinDecoder::new(bytes);
+        let read_rdata = CDS::read_data(&mut decoder, Restrict::new(bytes.len() as u16))
+            .expect("error decoding");
+        assert_eq!(rdata, read_rdata);
     }
 }
