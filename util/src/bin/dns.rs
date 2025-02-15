@@ -225,7 +225,7 @@ struct DeleteRecordOpt {
 #[derive(Debug, Args)]
 struct FetchKeysOpt {
     /// If specified, files of Keys not in the Hickory TrustAnchor will be written to this path
-    output_path: Option<PathBuf>,
+    output_dir: Option<PathBuf>,
 }
 
 /// Run the resolve program
@@ -565,7 +565,7 @@ async fn handle_request(
                     println!(
                         "; found dnskey: {key_tag}, {algorithm}, in Hickory TrustAnchor: {in_trust_anchor}",
                     );
-                    let Some(path) = &_opt.output_path else {
+                    let Some(path) = &_opt.output_dir else {
                         continue;
                     };
 
