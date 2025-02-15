@@ -239,13 +239,11 @@ fn hermetic_no_dnskey_257() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory incorrectly produces a bogus validation result, instead of insecure"]
 fn no_ds() -> Result<()> {
     compare("no-ds").map(drop)
 }
 
 #[test]
-#[ignore = "hickory incorrectly produces a bogus validation result, instead of insecure"]
 fn hermetic_no_ds() -> Result<()> {
     hermetic_compare("no-ds").map(drop)
 }
@@ -501,13 +499,11 @@ fn hermetic_unassigned_zsk_algo() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory incorrectly produces a bogus validation result, instead of insecure"]
 fn unsigned() -> Result<()> {
     compare("unsigned").map(drop)
 }
 
 #[test]
-#[ignore = "hickory incorrectly produces a bogus validation result, instead of insecure"]
 fn hermetic_unsigned() -> Result<()> {
     hermetic_compare("unsigned").map(drop)
 }

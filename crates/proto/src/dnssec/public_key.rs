@@ -7,6 +7,9 @@
 
 //! Public Key implementations for supported key types
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 use super::{ring::decode_public_key, Algorithm};
 use crate::error::ProtoResult;
 
@@ -37,7 +40,8 @@ pub trait PublicKey {
 }
 
 /// An owned variant of PublicKey
-#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct PublicKeyBuf {
     key_buf: Vec<u8>,
     algorithm: Algorithm,

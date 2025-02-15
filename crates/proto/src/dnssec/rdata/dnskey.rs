@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "dnssec-ring")]
 use crate::dnssec::ring::Digest;
 use crate::{
-    dnssec::{ring::decode_public_key, Algorithm, DigestType, PublicKey, Verifier},
+    dnssec::{ring::decode_public_key, Algorithm, DigestType, PublicKey, PublicKeyBuf, Verifier},
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     rr::{record_data::RData, Name, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
@@ -74,11 +74,8 @@ use super::DNSSECRData;
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct DNSKEY {
-    zone_key: bool,
-    secure_entry_point: bool,
-    revoke: bool,
-    algorithm: Algorithm,
-    public_key: Vec<u8>,
+    flags: u16,
+    public_key: PublicKeyBuf,
 }
 
 impl DNSKEY {
@@ -92,8 +89,12 @@ impl DNSKEY {
     ///
     /// the DNSKEY record data
     pub fn from_key(public_key: &dyn PublicKey) -> Self {
-        let bytes = public_key.public_bytes();
-        Self::new(true, true, false, public_key.algorithm(), bytes.to_owned())
+        Self::new(
+            true,
+            true,
+            false,
+            PublicKeyBuf::new(public_key.public_bytes().to_owned(), public_key.algorithm()),
+        )
     }
 
     /// Construct a new DNSKey RData
@@ -103,8 +104,7 @@ impl DNSKEY {
     /// * `zone_key` - this key is used to sign Zone resource records
     /// * `secure_entry_point` - this key is used to sign DNSKeys that sign the Zone records
     /// * `revoke` - this key has been revoked
-    /// * `algorithm` - specifies the algorithm which this Key uses to sign records
-    /// * `public_key` - the public key material, in native endian, the emitter will perform any necessary conversion
+    /// * `public_key` - the public key
     ///
     /// # Return
     ///
@@ -113,16 +113,33 @@ impl DNSKEY {
         zone_key: bool,
         secure_entry_point: bool,
         revoke: bool,
-        algorithm: Algorithm,
-        public_key: Vec<u8>,
+        public_key: PublicKeyBuf,
     ) -> Self {
-        Self {
-            zone_key,
-            secure_entry_point,
-            revoke,
-            algorithm,
-            public_key,
+        let mut flags: u16 = 0;
+        if zone_key {
+            flags |= 0b0000_0001_0000_0000;
         }
+        if secure_entry_point {
+            flags |= 0b0000_0000_0000_0001;
+        }
+        if revoke {
+            flags |= 0b0000_0000_1000_0000;
+        }
+        Self::with_flags(flags, public_key)
+    }
+
+    /// Construct a new DNSKEY RData
+    ///
+    /// # Arguments
+    ///
+    /// * `flags` - flags associated with this key
+    /// * `public_key` - the public key
+    ///
+    /// # Return
+    ///
+    /// A new DNSKEY RData for use in a Resource Record
+    pub fn with_flags(flags: u16, public_key: PublicKeyBuf) -> Self {
+        Self { flags, public_key }
     }
 
     /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.1.1)
@@ -141,7 +158,7 @@ impl DNSKEY {
     ///    creation of the DNSKEY RR and MUST be ignored upon receipt.
     /// ```
     pub fn zone_key(&self) -> bool {
-        self.zone_key
+        self.flags & 0b0000_0001_0000_0000 != 0
     }
 
     /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.1.1)
@@ -162,7 +179,7 @@ impl DNSKEY {
     ///    RRsets.
     /// ```
     pub fn secure_entry_point(&self) -> bool {
-        self.secure_entry_point
+        self.flags & 0b0000_0000_0000_0001 != 0
     }
 
     /// A KSK has a `flags` value of `257`
@@ -182,10 +199,12 @@ impl DNSKEY {
     ///   of [RFC4034]) for the REVOKE bit (8).
     /// ```
     pub fn revoke(&self) -> bool {
-        self.revoke
+        self.flags & 0b0000_0000_1000_0000 != 0
     }
 
-    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.1.3)
+    /// The [`PublicKeyBuf`] type combines the algorithm and the public key material.
+    ///
+    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.1.4)
     ///
     /// ```text
     /// 2.1.3.  The Algorithm Field
@@ -193,38 +212,20 @@ impl DNSKEY {
     ///    The Algorithm field identifies the public key's cryptographic
     ///    algorithm and determines the format of the Public Key field.  A list
     ///    of DNSSEC algorithm types can be found in Appendix A.1
-    /// ```
-    pub fn algorithm(&self) -> Algorithm {
-        self.algorithm
-    }
-
-    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.1.4)
     ///
-    /// ```text
     /// 2.1.4.  The Public Key Field
     ///
     ///    The Public Key Field holds the public key material.  The format
     ///    depends on the algorithm of the key being stored and is described in
     ///    separate documents.
     /// ```
-    pub fn public_key(&self) -> &[u8] {
+    pub fn public_key(&self) -> &PublicKeyBuf {
         &self.public_key
     }
 
     /// Output the encoded form of the flags
     pub fn flags(&self) -> u16 {
-        let mut flags: u16 = 0;
-        if self.zone_key() {
-            flags |= 0b0000_0001_0000_0000
-        }
-        if self.secure_entry_point() {
-            flags |= 0b0000_0000_0000_0001
-        }
-        if self.revoke() {
-            flags |= 0b0000_0000_1000_0000
-        }
-
-        flags
+        self.flags
     }
 
     /// Creates a message digest for this DNSKEY record.
@@ -359,8 +360,8 @@ impl BinEncodable for DNSKEY {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.emit_u16(self.flags())?;
         encoder.emit(3)?; // always 3 for now
-        self.algorithm().emit(encoder)?;
-        encoder.emit_vec(self.public_key())?;
+        self.public_key.algorithm().emit(encoder)?;
+        encoder.emit_vec(self.public_key.public_bytes())?;
 
         Ok(())
     }
@@ -370,11 +371,6 @@ impl<'r> RecordDataDecodable<'r> for DNSKEY {
     fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
         let flags: u16 = decoder.read_u16()?.unverified(/*used as a bitfield, this is safe*/);
 
-        //    Bits 0-6 and 8-14 are reserved: these bits MUST have value 0 upon
-        //    creation of the DNSKEY RR and MUST be ignored upon receipt.
-        let zone_key: bool = flags & 0b0000_0001_0000_0000 == 0b0000_0001_0000_0000;
-        let secure_entry_point: bool = flags & 0b0000_0000_0000_0001 == 0b0000_0000_0000_0001;
-        let revoke: bool = flags & 0b0000_0000_1000_0000 == 0b0000_0000_1000_0000;
         let _protocol: u8 = decoder
             .read_u8()?
             .verify_unwrap(|protocol| {
@@ -402,15 +398,12 @@ impl<'r> RecordDataDecodable<'r> for DNSKEY {
         .checked_sub(4)
         .map_err(|_| ProtoError::from("invalid rdata length in DNSKEY"))?
         .unverified(/*used only as length safely*/);
-        let public_key: Vec<u8> =
+        let public_key =
             decoder.read_vec(key_len)?.unverified(/*the byte array will fail in usage if invalid*/);
 
-        Ok(Self::new(
-            zone_key,
-            secure_entry_point,
-            revoke,
-            algorithm,
-            public_key,
+        Ok(Self::with_flags(
+            flags,
+            PublicKeyBuf::new(public_key, algorithm),
         ))
     }
 }
@@ -441,11 +434,11 @@ impl RecordData for DNSKEY {
 
 impl Verifier for DNSKEY {
     fn algorithm(&self) -> Algorithm {
-        self.algorithm()
+        self.public_key.algorithm()
     }
 
     fn key(&self) -> ProtoResult<Arc<dyn PublicKey + '_>> {
-        decode_public_key(&self.public_key, self.algorithm)
+        decode_public_key(self.public_key.public_bytes(), self.public_key.algorithm())
     }
 }
 
@@ -496,8 +489,8 @@ impl fmt::Display for DNSKEY {
             f,
             "{flags} 3 {alg} {key}",
             flags = self.flags(),
-            alg = u8::from(self.algorithm),
-            key = data_encoding::BASE64.encode(&self.public_key)
+            alg = u8::from(self.public_key.algorithm()),
+            key = data_encoding::BASE64.encode(self.public_key.public_bytes())
         )
     }
 }
@@ -525,8 +518,14 @@ mod tests {
             true,
             true,
             false,
-            algorithm,
-            signing_key.to_public_key().unwrap().public_bytes().to_vec(),
+            PublicKeyBuf::new(
+                signing_key
+                    .to_public_key()
+                    .unwrap()
+                    .public_bytes()
+                    .to_owned(),
+                algorithm,
+            ),
         );
 
         let mut bytes = Vec::new();
@@ -547,6 +546,25 @@ mod tests {
                 DigestType::SHA256
             )
             .is_ok());
+    }
+
+    #[test]
+    fn test_reserved_flags() {
+        let rdata =
+            DNSKEY::with_flags(u16::MAX, PublicKeyBuf::new(vec![0u8], Algorithm::RSASHA256));
+
+        let mut bytes = Vec::new();
+        let mut encoder = BinEncoder::new(&mut bytes);
+        rdata.emit(&mut encoder).expect("error encoding");
+        let bytes = encoder.into_bytes();
+
+        println!("bytes: {bytes:?}");
+
+        let mut decoder = BinDecoder::new(bytes);
+        let read_rdata = DNSKEY::read_data(&mut decoder, Restrict::new(bytes.len() as u16))
+            .expect("error decoding");
+
+        assert_eq!(rdata, read_rdata);
     }
 
     #[test]

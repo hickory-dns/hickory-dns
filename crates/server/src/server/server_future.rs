@@ -15,10 +15,7 @@ use futures_util::{FutureExt, StreamExt};
 use hickory_proto::{op::MessageType, rr::Record, runtime::TokioRuntimeProvider};
 use ipnet::IpNet;
 #[cfg(feature = "dns-over-rustls")]
-use rustls::{
-    pki_types::{CertificateDer, PrivateKeyDer},
-    ServerConfig,
-};
+use rustls::{server::ResolvesServerCert, ServerConfig};
 #[cfg(feature = "dns-over-rustls")]
 use tokio::time::timeout;
 use tokio::{net, task::JoinSet};
@@ -402,15 +399,15 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               requests within this time period will be closed. In the future it should be
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
-    /// * `pkcs12` - certificate used to announce to clients
+    /// * `server_cert_resolver` - resolver for the certificate and key used to announce to clients
     #[cfg(feature = "dns-over-rustls")]
     pub fn register_tls_listener(
         &mut self,
         listener: net::TcpListener,
         timeout: Duration,
-        certificate_and_key: (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>),
+        server_cert_resolver: Arc<dyn ResolvesServerCert>,
     ) -> io::Result<()> {
-        let config = tls_server_config(b"dot", certificate_and_key.0, certificate_and_key.1)?;
+        let config = tls_server_config(b"dot", server_cert_resolver)?;
         Self::register_tls_listener_with_tls_config(self, listener, timeout, Arc::new(config))
     }
 
@@ -426,14 +423,14 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               requests within this time period will be closed. In the future it should be
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
-    /// * `certificate_and_key` - certificate and key used to announce to clients
+    /// * `server_cert_resolver` - resolver for the certificate and key used to announce to clients
     #[cfg(feature = "dns-over-https-rustls")]
     pub fn register_https_listener(
         &mut self,
         listener: net::TcpListener,
         // TODO: need to set a timeout between requests.
         handshake_timeout: Duration,
-        certificate_and_key: (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>),
+        server_cert_resolver: Arc<dyn ResolvesServerCert>,
         dns_hostname: Option<String>,
         http_endpoint: String,
     ) -> io::Result<()> {
@@ -447,11 +444,8 @@ impl<T: RequestHandler> ServerFuture<T> {
         let access = self.access.clone();
         debug!("registered https: {listener:?}");
 
-        let tls_acceptor = TlsAcceptor::from(Arc::new(tls_server_config(
-            b"h2",
-            certificate_and_key.0,
-            certificate_and_key.1,
-        )?));
+        let tls_acceptor =
+            TlsAcceptor::from(Arc::new(tls_server_config(b"h2", server_cert_resolver)?));
 
         // for each incoming request...
         let shutdown = self.shutdown_token.clone();
@@ -546,14 +540,14 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               requests within this time period will be closed. In the future it should be
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
-    /// * `pkcs12` - certificate used to announce to clients
+    /// * `server_cert_resolver` - resolver for certificate and key used to announce to clients
     #[cfg(feature = "dns-over-quic")]
     pub fn register_quic_listener(
         &mut self,
         socket: net::UdpSocket,
         // TODO: need to set a timeout between requests.
         _timeout: Duration,
-        certificate_and_key: (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>),
+        server_cert_resolver: Arc<dyn ResolvesServerCert>,
         dns_hostname: Option<String>,
     ) -> io::Result<()> {
         use crate::proto::quic::QuicServer;
@@ -565,8 +559,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         let access = self.access.clone();
 
         debug!("registered quic: {:?}", socket);
-        let mut server =
-            QuicServer::with_socket(socket, certificate_and_key.0, certificate_and_key.1)?;
+        let mut server = QuicServer::with_socket(socket, server_cert_resolver)?;
 
         // for each incoming request...
         let shutdown = self.shutdown_token.clone();
@@ -644,14 +637,14 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               requests within this time period will be closed. In the future it should be
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
-    /// * `pkcs12` - certificate used to announce to clients
+    /// * `server_cert_resolver` - resolver for certificate and key used to announce to clients
     #[cfg(feature = "dns-over-h3")]
     pub fn register_h3_listener(
         &mut self,
         socket: net::UdpSocket,
         // TODO: need to set a timeout between requests.
         _timeout: Duration,
-        certificate_and_key: (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>),
+        server_cert_resolver: Arc<dyn ResolvesServerCert>,
         dns_hostname: Option<String>,
     ) -> io::Result<()> {
         use crate::proto::h3::h3_server::H3Server;
@@ -663,8 +656,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         let access = self.access.clone();
 
         debug!("registered h3: {:?}", socket);
-        let mut server =
-            H3Server::with_socket(socket, certificate_and_key.0, certificate_and_key.1)?;
+        let mut server = H3Server::with_socket(socket, server_cert_resolver)?;
 
         // for each incoming request...
         let shutdown = self.shutdown_token.clone();
@@ -805,9 +797,8 @@ pub(crate) async fn handle_raw_request<T: RequestHandler>(
 #[cfg(feature = "dns-over-rustls")]
 fn tls_server_config(
     protocol: &[u8],
-    cert: Vec<CertificateDer<'static>>,
-    key: PrivateKeyDer<'static>,
-) -> Result<ServerConfig, io::Error> {
+    server_cert_resolver: Arc<dyn ResolvesServerCert>,
+) -> io::Result<ServerConfig> {
     let mut config =
         ServerConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
             .with_safe_default_protocol_versions()
@@ -818,13 +809,7 @@ fn tls_server_config(
                 )
             })?
             .with_no_client_auth()
-            .with_single_cert(cert, key)
-            .map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("error creating TLS acceptor: {e}"),
-                )
-            })?;
+            .with_cert_resolver(server_cert_resolver);
 
     config.alpn_protocols = vec![protocol.to_vec()];
     Ok(config)
@@ -1091,7 +1076,11 @@ mod tests {
     use crate::authority::Catalog;
     use futures_util::future;
     #[cfg(feature = "dns-over-rustls")]
-    use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+    use rustls::{
+        crypto::ring::default_provider,
+        pki_types::{CertificateDer, PrivateKeyDer},
+        sign::{CertifiedKey, SingleCertAndKey},
+    };
     use std::net::SocketAddr;
     use test_support::subscribe;
     use tokio::net::{TcpListener, UdpSocket};
@@ -1288,7 +1277,7 @@ mod tests {
     }
 
     #[cfg(feature = "dns-over-rustls")]
-    fn rustls_cert_key() -> (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>) {
+    fn rustls_cert_key() -> Arc<dyn ResolvesServerCert> {
         use rustls::pki_types::pem::PemObject;
         use std::env;
 
@@ -1302,7 +1291,8 @@ mod tests {
         let key = PrivateKeyDer::from_pem_file(format!("{server_path}/tests/test-data/cert.key"))
             .unwrap();
 
-        (cert_chain, key)
+        let certified_key = CertifiedKey::from_der(cert_chain, key, &default_provider()).unwrap();
+        Arc::new(SingleCertAndKey::from(certified_key))
     }
 
     #[test]

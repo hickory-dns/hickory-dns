@@ -100,7 +100,7 @@ where
             "--zonedir={server_path}/tests/test-data/test_configs"
         ))
         .arg(format!("--port={}", 0));
-    #[cfg(feature = "dns-over-tls")]
+    #[cfg(feature = "dns-over-rustls")]
     command.arg(format!("--tls-port={}", 0));
     #[cfg(feature = "dns-over-https-rustls")]
     command.arg(format!("--https-port={}", 0));
@@ -284,7 +284,10 @@ pub fn query_a_refused<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
 #[cfg(feature = "dnssec-ring")]
 pub fn query_all_dnssec(io_loop: &mut Runtime, client: Client, algorithm: Algorithm) {
     use hickory_proto::{
-        dnssec::rdata::{DNSKEY, RRSIG},
+        dnssec::{
+            rdata::{DNSKEY, RRSIG},
+            PublicKey,
+        },
         rr::{Record, RecordData},
     };
 
@@ -299,7 +302,7 @@ pub fn query_all_dnssec(io_loop: &mut Runtime, client: Client, algorithm: Algori
         .iter()
         .map(Record::data)
         .filter_map(DNSKEY::try_borrow)
-        .find(|d| d.algorithm() == algorithm);
+        .find(|d| d.public_key().algorithm() == algorithm);
     assert!(dnskey.is_some(), "DNSKEY not found");
 
     let response = query_message(io_loop, &mut client, name, RecordType::DNSKEY).unwrap();

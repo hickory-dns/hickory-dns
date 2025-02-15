@@ -33,7 +33,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     env:
-      RUST_LOG: info,hickory_proto::udp::udp_stream=trace # Extra logging for issue #2649
+      RUST_LOG: info
     steps:
       - uses: actions/checkout@v4
 
@@ -45,6 +45,8 @@ jobs:
         uses: cargo-bins/cargo-binstall@v1.10.20
       - name: install cargo-workspaces
         run: cargo binstall cargo-workspaces -y --version ${{ env.CARGO_WS_VERSION }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: just all-features
         run: just all-features
@@ -114,6 +116,8 @@ jobs:
             dnssec-ring,
             doc,
           ]
+    env:
+      RUST_LOG: info
     steps:
       - uses: actions/checkout@v4
 
@@ -125,6 +129,8 @@ jobs:
         uses: cargo-bins/cargo-binstall@v1.10.20
       - name: install cargo-workspaces
         run: cargo binstall cargo-workspaces -y --version ${{ env.CARGO_WS_VERSION }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: just
         run: just ${{ matrix.feature }}
@@ -176,6 +182,8 @@ jobs:
         uses: cargo-bins/cargo-binstall@v1.10.20
       - name: install cargo-workspaces
         run: cargo binstall cargo-workspaces -y --version ${{ env.CARGO_WS_VERSION }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: just no-default-features
         run: just no-default-features
@@ -214,6 +222,8 @@ jobs:
         uses: cargo-bins/cargo-binstall@v1.10.20
       - name: install cargo-workspaces
         run: cargo binstall cargo-workspaces -y --version ${{ env.CARGO_WS_VERSION }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Clippy
       - name: just clippy

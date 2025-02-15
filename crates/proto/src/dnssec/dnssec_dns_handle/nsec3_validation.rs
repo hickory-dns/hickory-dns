@@ -80,7 +80,7 @@ use super::proof_log_yield;
 use crate::{
     dnssec::{rdata::NSEC3, Nsec3HashAlgorithm, Proof},
     op::{Query, ResponseCode},
-    rr::{Name, Record, RecordType},
+    rr::{domain::Label, Name, Record, RecordType},
 };
 
 pub(super) fn verify_nsec3(
@@ -100,9 +100,11 @@ pub(super) fn verify_nsec3(
         .map(|(record_name, nsec3_data)| {
             split_first_label(record_name)
                 .filter(|(_, base)| base == soa_name)
-                .map(|(base32_hashed_name, _)| Nsec3RecordPair {
-                    base32_hashed_name,
-                    nsec3_data,
+                .and_then(|(base32_hashed_name, _)| {
+                    Some(Nsec3RecordPair {
+                        base32_hashed_name: Label::from_raw_bytes(base32_hashed_name).ok()?,
+                        nsec3_data,
+                    })
                 })
         })
         .collect();
@@ -178,7 +180,7 @@ pub(super) fn verify_nsec3(
 }
 
 struct Nsec3RecordPair<'a> {
-    base32_hashed_name: &'a [u8],
+    base32_hashed_name: Label,
     nsec3_data: &'a NSEC3,
 }
 
@@ -199,13 +201,35 @@ fn nsec3hash(name: &Name, salt: &[u8], iterations: u16) -> Vec<u8> {
         .to_vec()
 }
 
+/// Hashes a name and returns both both the hash digest and the base32-encoded form.
+fn hash_and_label(name: &Name, salt: &[u8], iterations: u16) -> (Vec<u8>, Label) {
+    let hash = nsec3hash(name, salt, iterations);
+    let base32_encoded = data_encoding::BASE32_DNSSEC.encode(&hash);
+    // Unwrap safety: The length of the hashed name is valid because it is the output of the above
+    // hash function. The input is all alphanumeric ASCII characters by construction.
+    let label = Label::from_ascii(&base32_encoded).unwrap();
+    (hash, label)
+}
+
 // NSEC3 records use a base32 hashed name as a record name component.
 // But within the record body the hash is stored as a binary blob.
 // Thus we need both for comparisons.
 struct HashedNameInfo {
     name: Name,
     hashed_name: Vec<u8>,
-    base32_hashed_name: String,
+    base32_hashed_name: Label,
+}
+
+impl HashedNameInfo {
+    /// Hash a query name and store all representations of it.
+    fn new(name: Name, salt: &[u8], iterations: u16) -> Self {
+        let (hashed_name, base32_hashed_name) = hash_and_label(&name, salt, iterations);
+        Self {
+            name,
+            hashed_name,
+            base32_hashed_name,
+        }
+    }
 }
 
 fn find_covering_record<'a>(
@@ -215,15 +239,26 @@ fn find_covering_record<'a>(
     // base32(target_hashed_name) inside the function.
     // However, we already have it available at call sites, may as well use
     // it and save on repeated base32 encodings.
-    target_base32_hashed_name: &str,
+    target_base32_hashed_name: &Label,
 ) -> Option<&'a Nsec3RecordPair<'a>> {
-    nsec3s
-        .iter()
-        .find(|record| {
-            record.base32_hashed_name < target_base32_hashed_name.as_bytes()
+    nsec3s.iter().find(|record| {
+        let Some(record_next_hashed_owner_name_base32) =
+            record.nsec3_data.next_hashed_owner_name_base32()
+        else {
+            return false;
+        };
+        if record.base32_hashed_name < *record_next_hashed_owner_name_base32 {
+            // Normal case: target must be between the hashed owner name and the next hashed owner
+            // name.
+            record.base32_hashed_name < *target_base32_hashed_name
                 && target_hashed_name < record.nsec3_data.next_hashed_owner_name()
-        })
-        .or_else(|| nsec3s.iter().max_by_key(|record| record.base32_hashed_name))
+        } else {
+            // Wraparound case: target must be less than the hashed owner name or greater than the
+            // next hashed owner name.
+            record.base32_hashed_name > *target_base32_hashed_name
+                || target_hashed_name > record.nsec3_data.next_hashed_owner_name()
+        }
+    })
 }
 
 /// There is no such `query_name` in the zone and there's no wildcard that
@@ -242,13 +277,12 @@ fn validate_nxdomain_response(
     let salt = nsec3s[0].nsec3_data.salt();
     let iterations = nsec3s[0].nsec3_data.iterations();
 
-    let hashed_query_name = nsec3hash(query_name, salt, iterations);
-    let base32_hased_query_name = data_encoding::BASE32_DNSSEC.encode(&hashed_query_name);
+    let (_, base32_hashed_query_name) = hash_and_label(query_name, salt, iterations);
 
     // The response is NXDomain but there's a record for query_name
     if nsec3s
         .iter()
-        .any(|r| r.base32_hashed_name == base32_hased_query_name.as_bytes())
+        .any(|r| r.base32_hashed_name == base32_hashed_query_name)
     {
         return proof_log_yield(
             Proof::Bogus,
@@ -332,13 +366,7 @@ fn build_encloser_candidates_list(
     // `query_name` is our first candidate
     let mut name = query_name.clone();
     loop {
-        let hashed_name = nsec3hash(&name, salt, iterations);
-        let base32_hashed_name = data_encoding::BASE32_DNSSEC.encode(&hashed_name);
-        candidates.push(HashedNameInfo {
-            name: name.clone(),
-            hashed_name,
-            base32_hashed_name,
-        });
+        candidates.push(HashedNameInfo::new(name.clone(), salt, iterations));
         if &name == soa_name {
             // `soa_name` is the final candidate, we already added it.
             return candidates;
@@ -370,9 +398,9 @@ fn closest_encloser_proof<'a>(
     // candidate list
     let closest_encloser_in_candidates = closest_encloser_candidates.iter().enumerate().find_map(
         |(candidate_index, candidate_name_info)| {
-            let nsec3 = nsec3s.iter().find(|r| {
-                r.base32_hashed_name == candidate_name_info.base32_hashed_name.as_bytes()
-            });
+            let nsec3 = nsec3s
+                .iter()
+                .find(|r| r.base32_hashed_name == candidate_name_info.base32_hashed_name);
             nsec3.map(|record| (candidate_index, record))
         },
     );
@@ -398,15 +426,8 @@ fn closest_encloser_proof<'a>(
             )
             .map(|record| (next_closer_hash_info, record));
 
-            let closest_encloser_wildcard_hashed_name =
-                nsec3hash(&closest_encloser_wildcard_name, salt, iterations);
-            let closest_encloser_wildcard_base32_hashed_name =
-                data_encoding::BASE32_DNSSEC.encode(&closest_encloser_wildcard_hashed_name);
-            let wildcard_name_info = HashedNameInfo {
-                name: closest_encloser_wildcard_name,
-                hashed_name: closest_encloser_wildcard_hashed_name,
-                base32_hashed_name: closest_encloser_wildcard_base32_hashed_name,
-            };
+            let wildcard_name_info =
+                HashedNameInfo::new(closest_encloser_wildcard_name, salt, iterations);
             let wildcard = find_covering_record(
                 nsec3s,
                 &wildcard_name_info.hashed_name,
@@ -463,15 +484,8 @@ fn closest_encloser_proof<'a>(
                 .unwrap()
                 .append_name(soa_name)
                 .expect("`soa_name` is an existing domain with a valid name");
-            let closest_encloser_wildcard_hashed_name =
-                nsec3hash(&closest_encloser_wildcard_name, salt, iterations);
-            let closest_encloser_wildcard_base32_hashed_name =
-                data_encoding::BASE32_DNSSEC.encode(&closest_encloser_wildcard_hashed_name);
-            let wildcard_name_info = HashedNameInfo {
-                name: closest_encloser_wildcard_name,
-                hashed_name: closest_encloser_wildcard_hashed_name,
-                base32_hashed_name: closest_encloser_wildcard_base32_hashed_name,
-            };
+            let wildcard_name_info =
+                HashedNameInfo::new(closest_encloser_wildcard_name, salt, iterations);
             let wildcard = find_covering_record(
                 nsec3s,
                 &wildcard_name_info.hashed_name,
@@ -531,8 +545,8 @@ fn validate_nodata_response(
     let salt = nsec3s[0].nsec3_data.salt();
     let iterations = nsec3s[0].nsec3_data.iterations();
 
-    let hashed_query_name = nsec3hash(query_name, salt, iterations);
-    let base32_hashed_query_name = data_encoding::BASE32_DNSSEC.encode(&hashed_query_name);
+    let (hashed_query_name, base32_hashed_query_name) =
+        hash_and_label(query_name, salt, iterations);
 
     // DS queries resulting in NoData responses with accompanying NSEC3 records can prove that an
     // insecure delegation exists; this is used to return Proof::Insecure instead of Proof::Secure
@@ -544,7 +558,7 @@ fn validate_nodata_response(
 
     let query_name_record = nsec3s
         .iter()
-        .find(|record| record.base32_hashed_name == base32_hashed_query_name.as_bytes());
+        .find(|record| record.base32_hashed_name == base32_hashed_query_name);
 
     // Case 2:
     // Name exists but there's no record of this type
@@ -640,7 +654,7 @@ fn validate_nodata_response(
     // name as the hashed query name and not having the DS bit set in the type flags
     // is covered here by case 2.
     if query_type == RecordType::DS
-        && find_covering_record(nsec3s, &hashed_query_name, &base32_hashed_query_name[..])
+        && find_covering_record(nsec3s, &hashed_query_name, &base32_hashed_query_name)
             .iter()
             .all(|x| {
                 x.nsec3_data.type_bit_maps().contains(&RecordType::DS) && x.nsec3_data.opt_out()
@@ -679,13 +693,11 @@ fn validate_nodata_response(
                 .collect::<Vec<_>>();
             let next_closer_name = Name::from_labels(next_closer_labels)
                 .expect("next closer is `query_name` or its ancestor");
-            let next_closer_hashed_name = nsec3hash(&next_closer_name, salt, iterations);
-            let next_closer_base32_hashed_name =
-                data_encoding::BASE32_DNSSEC.encode(&next_closer_hashed_name);
+            let next_closer_name_info = HashedNameInfo::new(next_closer_name, salt, iterations);
             let next_closer_record = find_covering_record(
                 nsec3s,
-                &next_closer_hashed_name,
-                &next_closer_base32_hashed_name,
+                &next_closer_name_info.hashed_name,
+                &next_closer_name_info.base32_hashed_name,
             );
             match next_closer_record {
                 Some(_) => (ds_proof_override, "matching next closer record"),
@@ -761,13 +773,7 @@ fn wildcard_based_encloser_proof<'a>(
         .filter(|HashedNameInfo { name, .. }| name != soa_name)
         .map(|info| {
             let wildcard = info.name.clone().into_wildcard();
-            let hashed_name = nsec3hash(&wildcard, salt, iterations);
-            let base32_hashed_name = data_encoding::BASE32_DNSSEC.encode(&hashed_name);
-            HashedNameInfo {
-                name: wildcard,
-                hashed_name,
-                base32_hashed_name,
-            }
+            HashedNameInfo::new(wildcard, salt, iterations)
         })
         .collect::<Vec<_>>();
 
@@ -777,7 +783,7 @@ fn wildcard_based_encloser_proof<'a>(
         .find_map(|(index, wildcard)| {
             let wildcard_nsec3 = nsec3s
                 .iter()
-                .find(|record| record.base32_hashed_name == wildcard.base32_hashed_name.as_bytes());
+                .find(|record| record.base32_hashed_name == wildcard.base32_hashed_name);
             wildcard_nsec3.map(|record| (index, record))
         })
         .map(|(index, record)| {

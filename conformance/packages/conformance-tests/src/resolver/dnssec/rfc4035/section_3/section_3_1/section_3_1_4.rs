@@ -48,6 +48,7 @@ fn on_clients_ds_query_it_queries_the_parent_zone() -> Result<()> {
     tshark.wait_for_capture()?;
 
     let captures = tshark.terminate()?;
+    println!("captured {} packets", captures.len());
 
     // check that we were able to retrieve the DS record
     assert!(output.status.is_noerror());
@@ -64,6 +65,7 @@ fn on_clients_ds_query_it_queries_the_parent_zone() -> Result<()> {
                 let queries = message.as_value()["Queries"]
                     .as_object()
                     .expect("expected Object");
+                println!("outgoing query: {queries:?}");
                 for query in queries.keys() {
                     if query.contains("type DS") {
                         // the domain name in the query omits the last `.` so strip it from

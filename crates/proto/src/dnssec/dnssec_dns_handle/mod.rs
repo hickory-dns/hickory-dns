@@ -38,6 +38,8 @@ use self::rrset::Rrset;
 mod nsec3_validation;
 use nsec3_validation::verify_nsec3;
 
+use super::PublicKey;
+
 /// Performs DNSSEC validation of all DNS responses from the wrapped DnsHandle
 ///
 /// This wraps a DnsHandle, changing the implementation `send()` to validate all
@@ -542,30 +544,15 @@ where
         rrset.record_type()
     );
 
-    let mut all_unsupported = None;
     let mut dnskey_proofs =
         Vec::<(Proof, Option<u32>, Option<usize>)>::with_capacity(rrset.records().len());
-    dnskey_proofs.resize(rrset.records().len(), (Proof::Indeterminate, None, None));
+    dnskey_proofs.resize(rrset.records().len(), (Proof::Bogus, None, None));
 
     // check if the DNSKEYs are in the root store
     for (r, proof) in rrset.records().iter().zip(dnskey_proofs.iter_mut()) {
         let Some(dnskey) = r.try_borrow::<DNSKEY>() else {
             continue;
         };
-
-        let algorithm = dnskey.data().algorithm();
-        if algorithm.is_supported() {
-            all_unsupported = Some(false);
-        } else {
-            debug!(
-                "unsupported key algorithm {algorithm} in {} {}",
-                dnskey.name(),
-                dnskey.data(),
-            );
-
-            all_unsupported.get_or_insert(true);
-            continue;
-        }
 
         proof.0 = is_dnskey_in_root_store(&handle, &dnskey);
     }
@@ -580,15 +567,13 @@ where
         Vec::default()
     };
 
-    // none of the keys use supported algorithms
-    //   if the DS records are not empty and they also have no supported algorithms, then this is INSECURE
-    //   for secure DS records the BOGUS check happens after DNSKEYs are evaluated against the DS
-    if all_unsupported.unwrap_or_default()
-        && (ds_records
-            .iter()
-            .filter(|ds| ds.proof().is_secure() || ds.proof().is_insecure())
-            .all(|ds| !ds.data().algorithm().is_supported())
-            && !ds_records.is_empty())
+    // if the DS records are not empty and they also have no supported algorithms, then this is INSECURE
+    // for secure DS records the BOGUS check happens after DNSKEYs are evaluated against the DS
+    if ds_records
+        .iter()
+        .filter(|ds| ds.proof().is_secure() || ds.proof().is_insecure())
+        .all(|ds| !ds.data().algorithm().is_supported())
+        && !ds_records.is_empty()
     {
         debug!("all dnskeys use unsupported algorithms and there are no supported DS records in the parent zone");
         // cannot validate; mark as insecure
@@ -661,29 +646,9 @@ where
         ));
     }
 
-    // If there were no DS records, no DNSKEYs and no RRSIGs, and the find_ds_records did not propagate an error
-    //   due to NSEC(3), then we are lacking DNSSEC evidence
-    //
-    // From RFC 4035
-    // "
-    // Indeterminate: An RRset for which the resolver is not able to
-    //   determine whether the RRset should be signed, as the resolver is
-    //   not able to obtain the necessary DNSSEC RRs.  This can occur when
-    //   the security-aware resolver is not able to contact security-aware
-    //   name servers for the relevant zones.
-    // "
-    if rrset.records().is_empty() && ds_records.is_empty() && rrsigs.is_empty() {
-        return Err(ProofError::new(
-            Proof::Indeterminate,
-            ProofErrorKind::DnskeyNotFound {
-                name: rrset.name().clone(),
-            },
-        ));
-    }
-
-    // there were DS records or RRSIGs, but no DNSKEYs, we're in a bogus state
-    //   if there was no DS record, it should have gotten an NSEC upstream, and returned early above
-    //   and all other cases...
+    // There were DS records or RRSIGs, but none of the signatures could be validated, so we're in a
+    // bogus state. If there was no DS record, it should have gotten an NSEC upstream, and returned
+    // early above.
     trace!("no dnskey found: {}", rrset.name());
     Err(ProofError::new(
         Proof::Bogus,
@@ -697,26 +662,27 @@ where
 ///
 /// # Returns
 ///
-/// Proof::Secure if registered in the root store, Proof::Indeterminate if not
+/// Proof::Secure if registered in the root store, Proof::Bogus if not
 fn is_dnskey_in_root_store<H>(handle: &DnssecDnsHandle<H>, rr: &RecordRef<'_, DNSKEY>) -> Proof
 where
     H: DnsHandle + Sync + Unpin,
 {
-    let key_rdata = rr.data();
+    let dns_key = rr.data();
+    let pub_key = dns_key.public_key();
 
     // Checks to see if the key is valid against the registered root certificates
     if handle
         .trust_anchor
-        .contains_dnskey_bytes(key_rdata.public_key(), key_rdata.algorithm())
+        .contains_dnskey_bytes(pub_key.public_bytes(), pub_key.algorithm())
     {
         debug!(
-            "validated dnskey with trust_anchor: {}, {key_rdata}",
+            "validated dnskey with trust_anchor: {}, {dns_key}",
             rr.name(),
         );
 
         Proof::Secure
     } else {
-        Proof::Indeterminate
+        Proof::Bogus
     }
 }
 
@@ -744,16 +710,8 @@ fn verify_dnskey(
     }
 
     // DS check if covered by DS keys
-    for (i, r) in ds_records
-        .iter()
-        .filter(|ds| ds.proof().is_secure())
-        .enumerate()
-    {
-        if i > MAX_KEY_TAG_COLLISIONS {
-            warn!("too many DS records ({i}) with key tag {key_tag}; skipping");
-            continue;
-        }
-
+    let mut key_authentication_attempts = 0;
+    for r in ds_records.iter().filter(|ds| ds.proof().is_secure()) {
         if r.data().algorithm() != key_algorithm {
             trace!(
                 "skipping DS record due to algorithm mismatch, expected algorithm {}: ({}, {})",
@@ -772,6 +730,19 @@ fn verify_dnskey(
                 r.data(),
             );
 
+            continue;
+        }
+
+        // Count the number of DS records with the same algorithm and key tag as this DNSKEY.
+        // Ignore remaining DS records if there are too many key tag collisions. Doing so before
+        // checking hashes or signatures protects us from KeyTrap denial of service attacks.
+        key_authentication_attempts += 1;
+        if key_authentication_attempts > MAX_KEY_TAG_COLLISIONS {
+            warn!(
+                key_tag,
+                attempts = key_authentication_attempts,
+                "too many DS records with same key tag; skipping"
+            );
             continue;
         }
 
@@ -880,7 +851,6 @@ where
 
     // otherwise we need to recursively discover the status of DS up the chain,
     //   if we find a valid DS, then we're in a Bogus state,
-    //   if we find no records, then we are Indeterminate
     //   if we get ProofError, our result is the same
 
     let parent = zone.base_name();
@@ -898,11 +868,7 @@ where
             Proof::Bogus,
             ProofErrorKind::DsRecordShouldExist { name: zone },
         )),
-        Ok(ds_records) if ds_records.is_empty() => Err(ProofError::new(
-            Proof::Indeterminate,
-            ProofErrorKind::DsHasNoDnssecProof { name: zone },
-        )),
-        err => err,
+        result => result,
     }
 }
 
@@ -939,27 +905,17 @@ where
 
     if rrsigs.is_empty() {
         // Decide if we're:
-        //    1) "indeterminate", i.e. no DNSSEC records are available back to the root
-        //    2) "insecure", the zone has a valid NSEC for the DS record in the parent zone
-        //    3) "bogus", the parent zone has a valid DS record, but the child zone didn't have the RRSIGs/DNSKEYs
-        let ds_records = find_ds_records(handle, rrset.name().clone(), options).await?; // insecure will return early here
+        //    1) "insecure", the zone has a valid NSEC for the DS record in the parent zone
+        //    2) "bogus", the parent zone has a valid DS record, but the child zone didn't have the RRSIGs/DNSKEYs
+        find_ds_records(handle, rrset.name().clone(), options).await?; // insecure will return early here
 
-        if !ds_records.is_empty() {
-            return Err(ProofError::new(
-                Proof::Bogus,
-                ProofErrorKind::DsRecordShouldExist {
-                    name: rrset.name().clone(),
-                },
-            ));
-        } else {
-            return Err(ProofError::new(
-                Proof::Indeterminate,
-                ProofErrorKind::RrsigsNotPresent {
-                    name: rrset.name().clone(),
-                    record_type: rrset.record_type(),
-                },
-            ));
-        }
+        return Err(ProofError::new(
+            Proof::Bogus,
+            ProofErrorKind::RrsigsNotPresent {
+                name: rrset.name().clone(),
+                record_type: rrset.record_type(),
+            },
+        ));
     }
 
     // the record set is going to be shared across a bunch of futures, Arc for that.
@@ -995,7 +951,7 @@ where
                 .lookup(query.clone(), options)
                 .first_answer()
                 .map_err(|proto| {
-                    ProofError::new(Proof::Indeterminate, ProofErrorKind::Proto { query, proto })
+                    ProofError::new(Proof::Bogus, ProofErrorKind::Proto { query, proto })
                 })
                 .map_ok(move |message| {
                     let mut tag_count = HashMap::<u16, usize>::new();
