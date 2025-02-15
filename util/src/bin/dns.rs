@@ -535,7 +535,7 @@ async fn handle_request(
             #[cfg(feature = "dnssec-ring")]
             {
                 use hickory_proto::{
-                    dnssec::{Algorithm, TrustAnchor},
+                    dnssec::{Algorithm, PublicKey, TrustAnchor, Verifier},
                     rr::Record,
                 };
                 use std::{fs::OpenOptions, io::Write};
@@ -550,8 +550,10 @@ async fn handle_request(
                 {
                     let key_tag = dnskey.data().calculate_key_tag().expect("key_tag failed");
                     let algorithm = dnskey.data().algorithm();
-                    let in_trust_anchor =
-                        trust_anchor.contains_dnskey_bytes(dnskey.data().public_key(), algorithm);
+                    let in_trust_anchor = trust_anchor.contains_dnskey_bytes(
+                        dnskey.data().public_key().public_bytes(),
+                        algorithm,
+                    );
 
                     if !dnskey.data().algorithm().is_supported() {
                         println!(
@@ -602,7 +604,7 @@ async fn handle_request(
                         .open(&path)
                         .expect("couldn't open file for writing");
 
-                    file.write_all(dnskey.data().public_key())
+                    file.write_all(dnskey.data().public_key().public_bytes())
                         .expect("failed to write to file");
                     println!("; wrote dnskey {key_tag} to: {}", path.display());
                 }
