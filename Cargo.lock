@@ -1090,7 +1090,6 @@ dependencies = [
 name = "hickory-util"
 version = "0.25.0-alpha.5"
 dependencies = [
- "cfg-if",
  "clap",
  "console",
  "data-encoding",

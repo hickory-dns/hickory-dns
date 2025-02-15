@@ -24,7 +24,6 @@
 use std::sync::Arc;
 use std::{net::SocketAddr, path::PathBuf};
 
-use cfg_if::cfg_if;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{
@@ -525,13 +524,13 @@ async fn handle_request(
             let response = client.query(zone, class, record_type).await?;
             let response = response.into_message();
 
-            cfg_if! {
-                if #[cfg(not(feature = "dnssec-ring"))] {
-                    println!("; WARNING, `dnssec-ring` feature not enabled, operations are limited");
-                }
-            }
             println!("; received response");
             println!("{response}");
+
+            #[cfg(not(feature = "dnssec-ring"))]
+            {
+                println!("; WARNING, `dnssec-ring` feature not enabled, operations are limited");
+            }
 
             #[cfg(feature = "dnssec-ring")]
             {
@@ -587,7 +586,7 @@ async fn handle_request(
                         }
                         Algorithm::ED25519 => String::from("ed25519"),
                         Algorithm::Unknown(v) => format!("unknown_{v}"),
-                        alg => panic!("unknown Algorithm {:?}", alg),
+                        alg => panic!("unknown Algorithm {alg:?}"),
                     };
 
                     let mut path = path.clone();
