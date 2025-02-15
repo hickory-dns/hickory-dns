@@ -20,8 +20,8 @@ use crate::dnssec::PublicKey;
 
 use super::{Algorithm, PublicKeyBuf};
 
-const ROOT_ANCHOR_ORIG: &[u8] = include_bytes!("roots/19036.rsa");
 const ROOT_ANCHOR_2018: &[u8] = include_bytes!("roots/20326.rsa");
+const ROOT_ANCHOR_2024: &[u8] = include_bytes!("roots/38696.rsa");
 
 /// The root set of trust anchors for validating DNSSEC, anything in this set will be trusted
 #[derive(Clone)]
@@ -35,8 +35,8 @@ impl Default for TrustAnchor {
     fn default() -> Self {
         Self {
             pkeys: vec![
-                PublicKeyBuf::new(ROOT_ANCHOR_ORIG.to_owned(), Algorithm::RSASHA256),
                 PublicKeyBuf::new(ROOT_ANCHOR_2018.to_owned(), Algorithm::RSASHA256),
+                PublicKeyBuf::new(ROOT_ANCHOR_2024.to_owned(), Algorithm::RSASHA256),
             ],
         }
     }
@@ -92,8 +92,8 @@ impl TrustAnchor {
 }
 
 #[test]
-fn test_kjqmt7v() {
+fn test_contains_dnskey_bytes() {
     let trust = TrustAnchor::default();
-    assert_eq!(trust.get(0).public_bytes(), ROOT_ANCHOR_ORIG);
-    assert!(trust.contains_dnskey_bytes(ROOT_ANCHOR_ORIG, Algorithm::RSASHA256));
+    assert_eq!(trust.get(1).public_bytes(), ROOT_ANCHOR_2024);
+    assert!(trust.contains_dnskey_bytes(ROOT_ANCHOR_2024, Algorithm::RSASHA256));
 }

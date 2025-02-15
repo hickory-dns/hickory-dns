@@ -20,9 +20,9 @@
     unreachable_pub
 )]
 
-use std::net::SocketAddr;
 #[cfg(feature = "dns-over-rustls")]
 use std::sync::Arc;
+use std::{net::SocketAddr, path::PathBuf};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 #[cfg(feature = "dns-over-rustls")]
@@ -34,6 +34,8 @@ use rustls::{
 use tracing::Level;
 
 use hickory_client::client::{Client, ClientHandle};
+#[cfg(feature = "dnssec-ring")]
+use hickory_proto::dnssec::rdata::DNSKEY;
 #[cfg(any(feature = "dns-over-rustls", feature = "dns-over-https-rustls"))]
 use hickory_proto::rustls::client_config;
 #[cfg(feature = "dns-over-rustls")]
@@ -135,6 +137,7 @@ enum Command {
     // DeleteAll,
     // ZoneTransfer,
     // Raw?
+    FetchKeys(FetchKeysOpt),
 }
 
 /// Query a name server for the record of the given type
@@ -216,6 +219,13 @@ struct DeleteRecordOpt {
     /// Record data to associate
     #[clap(required = true)]
     rdata: Vec<String>,
+}
+
+/// Fetch the dnskeys (key-signing-keys) from a zone, if zone is not specified it defaults to the Root, `.`
+#[derive(Debug, Args)]
+struct FetchKeysOpt {
+    /// If specified, files of Keys not in the Hickory TrustAnchor will be written to this path
+    output_dir: Option<PathBuf>,
 }
 
 /// Run the resolve program
@@ -504,6 +514,104 @@ async fn handle_request(
 
             println!("; sending delete-record: {name} {class} {ty} from {zone}");
             client.delete_by_rdata(rdata, zone).await?
+        }
+        Command::FetchKeys(_opt) => {
+            let zone = zone.unwrap_or_else(Name::root);
+            let record_type = RecordType::DNSKEY;
+
+            println!("; querying {zone} for key-signing-dnskeys, KSKs");
+
+            let response = client.query(zone, class, record_type).await?;
+            let response = response.into_message();
+
+            println!("; received response");
+            println!("{response}");
+
+            #[cfg(not(feature = "dnssec-ring"))]
+            {
+                println!("; WARNING, `dnssec-ring` feature not enabled, operations are limited");
+            }
+
+            #[cfg(feature = "dnssec-ring")]
+            {
+                use hickory_proto::{
+                    dnssec::{Algorithm, PublicKey, TrustAnchor, Verifier},
+                    rr::Record,
+                };
+                use std::{fs::OpenOptions, io::Write};
+
+                let trust_anchor = TrustAnchor::default();
+
+                for dnskey in response
+                    .answers()
+                    .iter()
+                    .filter_map(Record::try_borrow::<DNSKEY>)
+                    .filter(|dnskey| dnskey.data().secure_entry_point() && dnskey.data().zone_key())
+                {
+                    let key_tag = dnskey.data().calculate_key_tag().expect("key_tag failed");
+                    let algorithm = dnskey.data().algorithm();
+                    let in_trust_anchor = trust_anchor.contains_dnskey_bytes(
+                        dnskey.data().public_key().public_bytes(),
+                        algorithm,
+                    );
+
+                    if !dnskey.data().algorithm().is_supported() {
+                        println!(
+                            "; ignoring {key_tag}, unsupported algorithm {algorithm}: {}",
+                            dnskey.data()
+                        );
+
+                        continue;
+                    }
+
+                    println!(
+                        "; found dnskey: {key_tag}, {algorithm}, in Hickory TrustAnchor: {in_trust_anchor}",
+                    );
+                    let Some(path) = &_opt.output_dir else {
+                        continue;
+                    };
+
+                    // only write unknown files
+                    if in_trust_anchor {
+                        println!("; skipping key in TrustAnchor");
+                        continue;
+                    }
+
+                    #[allow(deprecated)]
+                    let extension = match dnskey.data().algorithm() {
+                        Algorithm::RSASHA1
+                        | Algorithm::RSASHA1NSEC3SHA1
+                        | Algorithm::RSASHA256
+                        | Algorithm::RSASHA512 => String::from("rsa"),
+                        Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => {
+                            String::from("ecdsa")
+                        }
+                        Algorithm::ED25519 => String::from("ed25519"),
+                        Algorithm::Unknown(v) => format!("unknown_{v}"),
+                        alg => panic!("unknown Algorithm {alg:?}"),
+                    };
+
+                    let mut path = path.clone();
+                    path.push(format!("{key_tag}"));
+                    path.set_extension(extension);
+
+                    let mut file = OpenOptions::new();
+                    let mut file = file
+                        .write(true)
+                        .read(false)
+                        .truncate(true)
+                        .create(true)
+                        .open(&path)
+                        .expect("couldn't open file for writing");
+
+                    file.write_all(dnskey.data().public_key().public_bytes())
+                        .expect("failed to write to file");
+                    println!("; wrote dnskey {key_tag} to: {}", path.display());
+                }
+            }
+
+            // potentially does more than just fetch the records
+            return Ok(());
         }
     };
 
