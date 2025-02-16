@@ -80,7 +80,7 @@ thiserror.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true }
-hickory-proto = { workspace = true, default-features = false }
+hickory-proto = { workspace = true, default-features = false, features = ["std"]}
 webpki-roots = { workspace = true, optional = true }
 
 [target.'cfg(windows)'.dependencies]
@@ -91,7 +91,7 @@ futures-executor = { workspace = true, default-features = false, features = ["st
 test-support.workspace = true
 tokio = { workspace = true, features = ["macros", "test-util"] }
 toml.workspace = true
-tracing-subscriber.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
 
 [package.metadata.docs.rs]
 all-features = true

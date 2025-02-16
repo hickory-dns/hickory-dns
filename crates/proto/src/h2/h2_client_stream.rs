@@ -5,15 +5,17 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use alloc::boxed::Box;
+use alloc::str::FromStr;
+use alloc::string::String;
+use alloc::sync::Arc;
+use core::pin::Pin;
+use core::task::{Context, Poll};
 use std::fmt::{self, Display};
 use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 use std::ops::DerefMut;
-use std::pin::Pin;
-use std::str::FromStr;
-use std::sync::Arc;
-use std::task::{Context, Poll};
 
 use bytes::{Buf, Bytes, BytesMut};
 use futures_util::future::{FutureExt, TryFutureExt};
@@ -568,8 +570,9 @@ impl Future for HttpsClientResponse {
 #[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
 #[cfg(test)]
 mod tests {
+    use alloc::str::FromStr;
+    use alloc::string::ToString;
     use std::net::SocketAddr;
-    use std::str::FromStr;
 
     use rustls::KeyLogFile;
     use test_support::subscribe;

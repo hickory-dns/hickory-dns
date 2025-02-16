@@ -16,6 +16,8 @@
 
 //! Allows for the root trust_anchor to either be added to or replaced for dns_sec validation.
 
+use alloc::{borrow::ToOwned, vec::Vec};
+
 use crate::dnssec::PublicKey;
 
 use super::{Algorithm, PublicKeyBuf};

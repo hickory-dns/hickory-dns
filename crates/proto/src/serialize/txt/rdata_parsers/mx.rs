@@ -16,6 +16,8 @@
 
 //! mail exchange, email, record
 
+use alloc::string::ToString;
+
 use crate::rr::domain::Name;
 use crate::rr::rdata::MX;
 use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};

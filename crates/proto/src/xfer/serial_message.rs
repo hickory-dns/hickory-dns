@@ -5,9 +5,10 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::net::SocketAddr;
+use alloc::vec::Vec;
 
 use crate::error::ProtoResult;
+use crate::net::SocketAddr;
 use crate::op::Message;
 
 /// A DNS message in serialized form, with either the target address or source address

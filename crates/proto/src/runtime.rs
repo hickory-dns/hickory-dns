@@ -1,13 +1,14 @@
 //! Abstractions to deal with different async runtimes.
 
-use std::future::Future;
+use alloc::boxed::Box;
+use core::future::Future;
+use core::marker::Send;
+use core::pin::Pin;
+use core::time::Duration;
 use std::io;
-use std::marker::Send;
 use std::net::SocketAddr;
-use std::pin::Pin;
 #[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
 use std::sync::Arc;
-use std::time::Duration;
 
 use async_trait::async_trait;
 #[cfg(any(test, feature = "tokio-runtime"))]

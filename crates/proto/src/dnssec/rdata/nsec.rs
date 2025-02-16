@@ -6,7 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 //! NSEC record types
-use std::fmt;
+use alloc::vec::Vec;
+use core::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -234,12 +235,15 @@ impl fmt::Display for NSEC {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    use alloc::vec::Vec;
+    use std::println;
+
     use super::*;
 
     #[test]
     fn test() {
         use crate::rr::RecordType;
-        use std::str::FromStr;
+        use alloc::str::FromStr;
 
         let rdata = NSEC::new(
             Name::from_str("www.example.com.").unwrap(),

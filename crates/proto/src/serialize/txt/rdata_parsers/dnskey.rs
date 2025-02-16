@@ -1,3 +1,4 @@
+use alloc::string::String;
 use core::str::FromStr as _;
 
 use crate::dnssec::rdata::dnskey::DNSKEY;
@@ -44,6 +45,8 @@ pub(crate) fn parse<'i>(mut tokens: impl Iterator<Item = &'i str>) -> ParseResul
 
 #[cfg(test)]
 mod tests {
+    use alloc::string::ToString;
+
     use super::*;
     #[cfg(feature = "dnssec-ring")]
     use crate::dnssec::crypto::EcdsaSigningKey;

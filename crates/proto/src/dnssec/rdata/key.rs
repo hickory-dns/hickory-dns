@@ -8,7 +8,8 @@
 //! public key record data for signing zone records
 #![allow(clippy::use_self)]
 
-use std::{fmt, sync::Arc};
+use alloc::{sync::Arc, vec::Vec};
+use core::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -890,6 +891,9 @@ impl From<Protocol> for u8 {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
+    use alloc::vec::Vec;
+    use std::println;
 
     use super::*;
     use crate::dnssec::{crypto::EcdsaSigningKey, SigningKey};

@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use alloc::{borrow::Cow, boxed::Box, sync::Arc, vec::Vec};
 
 use ring::{
     digest,

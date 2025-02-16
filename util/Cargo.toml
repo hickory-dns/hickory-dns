@@ -79,7 +79,7 @@ console.workspace = true
 data-encoding.workspace = true
 rustls = { workspace = true, optional = true }
 tracing.workspace = true
-tracing-subscriber.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
 hickory-client.workspace = true
 hickory-proto.workspace = true
 hickory-recursor.workspace = true
