@@ -165,13 +165,11 @@ fn hermetic_ds_reserved_key_algo() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory can't decode unassigned DS digest algorithms (issue #2695)"]
 fn ds_unassigned_digest_algo() -> Result<()> {
     compare("ds-unassigned-digest-algo").map(drop)
 }
 
 #[test]
-#[ignore = "hickory can't decode unassigned DS digest algorithms (issue #2695)"]
 fn hermetic_ds_unassigned_digest_algo() -> Result<()> {
     hermetic_compare("ds-unassigned-digest-algo").map(drop)
 }

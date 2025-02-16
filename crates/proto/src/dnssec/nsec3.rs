@@ -160,7 +160,7 @@ impl Nsec3HashAlgorithm {
                     name.to_lowercase().emit(&mut encoder)?;
                 }
 
-                Ok(Digest::iterated(salt, &buf, DigestType::SHA1, iterations))
+                Digest::iterated(salt, &buf, DigestType::SHA1, iterations)
             }
         }
     }

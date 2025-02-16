@@ -271,7 +271,7 @@ impl DNSKEY {
             }
         }
 
-        Ok(Digest::new(&buf, digest_type))
+        Digest::new(&buf, digest_type)
     }
 
     /// The key tag is calculated as a hash to more quickly lookup a DNSKEY.

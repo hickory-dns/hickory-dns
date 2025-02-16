@@ -209,7 +209,7 @@ impl DS {
 impl BinEncodable for DS {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.emit_u16(self.key_tag())?;
-        self.algorithm().emit(encoder)?; // always 3 for now
+        self.algorithm().emit(encoder)?;
         encoder.emit(self.digest_type().into())?;
         encoder.emit_vec(self.digest())?;
 
@@ -223,9 +223,8 @@ impl<'r> RecordDataDecodable<'r> for DS {
 
         let key_tag: u16 = decoder.read_u16()?.unverified(/*key_tag is valid as any u16*/);
         let algorithm: Algorithm = Algorithm::read(decoder)?;
-        let digest_type = DigestType::try_from(
-            decoder.read_u8()?.unverified(/*DigestType is verified as safe*/),
-        )?;
+        let digest_type =
+            DigestType::from(decoder.read_u8()?.unverified(/*DigestType is verified as safe*/));
 
         let bytes_read = decoder.index() - start_idx;
         let left: usize = length
