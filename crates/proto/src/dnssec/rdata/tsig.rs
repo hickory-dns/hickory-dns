@@ -10,13 +10,12 @@
 
 use std::{convert::TryInto, fmt};
 
-use ring::hmac;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use super::DNSSECRData;
 use crate::{
-    dnssec::{DnsSecError, DnsSecErrorKind},
+    dnssec::{ring_like::hmac, DnsSecError, DnsSecErrorKind},
     error::{ProtoError, ProtoResult},
     op::{Header, Message, Query},
     rr::{

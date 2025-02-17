@@ -1,17 +1,12 @@
 use std::{borrow::Cow, sync::Arc};
 
-use ring::{
-    digest,
-    rand::SystemRandom,
-    rsa::PublicKeyComponents,
-    signature::{
-        self, EcdsaKeyPair, Ed25519KeyPair, KeyPair as RingKeyPair, RsaKeyPair,
-        ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING, ED25519_PUBLIC_KEY_LEN,
-        RSA_PKCS1_SHA256, RSA_PKCS1_SHA512,
-    },
-};
 use rustls_pki_types::{PrivateKeyDer, PrivatePkcs1KeyDer, PrivatePkcs8KeyDer};
 
+use super::ring_like::{
+    digest, signature, EcdsaKeyPair, Ed25519KeyPair, KeyPair, PublicKeyComponents, RsaKeyPair,
+    SystemRandom, ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING,
+    ED25519_PUBLIC_KEY_LEN, RSA_PKCS1_SHA256, RSA_PKCS1_SHA512,
+};
 use super::{
     ec_public_key::ECPublicKey, rsa_public_key::RSAPublicKey, Algorithm, DigestType,
     DnsSecErrorKind, DnsSecResult, PublicKey, PublicKeyBuf, SigningKey, TBS,
@@ -85,7 +80,6 @@ impl EcdsaSigningKey {
     /// - [`Algorithm::ECDSAP256SHA256`]
     /// - [`Algorithm::ECDSAP384SHA384`]
     pub fn from_pkcs8(key: &PrivatePkcs8KeyDer<'_>, algorithm: Algorithm) -> DnsSecResult<Self> {
-        let rng = SystemRandom::new();
         let ring_algorithm = if algorithm == Algorithm::ECDSAP256SHA256 {
             &ECDSA_P256_SHA256_FIXED_SIGNING
         } else if algorithm == Algorithm::ECDSAP384SHA384 {
@@ -94,10 +88,14 @@ impl EcdsaSigningKey {
             return Err(DnsSecErrorKind::Message("unsupported algorithm").into());
         };
 
-        Ok(Self {
-            inner: EcdsaKeyPair::from_pkcs8(ring_algorithm, key.secret_pkcs8_der(), &rng)?,
-            algorithm,
-        })
+        #[cfg(all(feature = "dnssec-aws-lc-rs", not(feature = "dnssec-ring")))]
+        let inner = EcdsaKeyPair::from_pkcs8(ring_algorithm, key.secret_pkcs8_der())?;
+
+        #[cfg(feature = "dnssec-ring")]
+        let inner =
+            EcdsaKeyPair::from_pkcs8(ring_algorithm, key.secret_pkcs8_der(), &SystemRandom::new())?;
+
+        Ok(Self { inner, algorithm })
     }
 
     /// Creates an ECDSA key pair with ring.
