@@ -26,6 +26,7 @@ license.workspace = true
 
 [features]
 default = ["system-config", "tokio-runtime"]
+async-std = ["dep:async-std", "hickory-proto/async-std"]
 backtrace = ["dep:backtrace", "hickory-proto/backtrace"]
 dns-over-rustls = [
     "dep:rustls",
@@ -58,6 +59,7 @@ name = "hickory_resolver"
 path = "src/lib.rs"
 
 [dependencies]
+async-std = { workspace = true, optional = true, features = ["attributes"] }
 backtrace = { version = "0.3.50", optional = true }
 cfg-if.workspace = true
 futures-util = { workspace = true, default-features = false, features = [
