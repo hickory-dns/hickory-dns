@@ -75,6 +75,27 @@ pub struct TLSA {
 ///    that accept other formats for certificates, those certificates will
 ///    need their own certificate usage values.
 /// ```
+///
+/// [RFC 7218, Adding Acronyms to DANE Registries](https://datatracker.ietf.org/doc/html/rfc7218#section-2.1)
+///
+/// ```text
+/// 2.1.  TLSA Certificate Usages Registry
+///
+///   The reference for this registry has been updated to include both
+///   [RFC6698] and this document.
+///
+///    +-------+----------+--------------------------------+-------------+
+///    | Value | Acronym  | Short Description              | Reference   |
+///    +-------+----------+--------------------------------+-------------+
+///    |   0   | PKIX-TA  | CA constraint                  | [RFC6698]   |
+///    |   1   | PKIX-EE  | Service certificate constraint | [RFC6698]   |
+///    |   2   | DANE-TA  | Trust anchor assertion         | [RFC6698]   |
+///    |   3   | DANE-EE  | Domain-issued certificate      | [RFC6698]   |
+///    | 4-254 |          | Unassigned                     |             |
+///    |  255  | PrivCert | Reserved for Private Use       | [RFC6698]   |
+///    +-------+----------+--------------------------------+-------------+
+/// ```
+
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum CertUsage {
@@ -93,7 +114,7 @@ pub enum CertUsage {
     ///       extension present.
     /// ```
     #[cfg_attr(feature = "serde", serde(rename = "PKIX-TA"))]
-    CA,
+    PkixTa,
 
     /// ```text
     ///       1 -- Certificate usage 1 is used to specify an end entity
@@ -106,7 +127,7 @@ pub enum CertUsage {
     ///       match the TLSA record.
     /// ```
     #[cfg_attr(feature = "serde", serde(rename = "PKIX-EE"))]
-    Service,
+    PkixEe,
 
     /// ```text
     ///       2 -- Certificate usage 2 is used to specify a certificate, or the
@@ -122,7 +143,7 @@ pub enum CertUsage {
     ///       anchor for this certification path validation.
     /// ```
     #[cfg_attr(feature = "serde", serde(rename = "DANE-TA"))]
-    TrustAnchor,
+    DaneTa,
 
     /// ```text
     ///       3 -- Certificate usage 3 is used to specify a certificate, or the
@@ -137,7 +158,7 @@ pub enum CertUsage {
     ///       validation is not tested for certificate usage 3.
     /// ```
     #[cfg_attr(feature = "serde", serde(rename = "DANE-EE"))]
-    DomainIssued,
+    DaneEe,
 
     /// Unassigned at the time of this implementation
     Unassigned(u8),
@@ -149,10 +170,10 @@ pub enum CertUsage {
 impl From<u8> for CertUsage {
     fn from(usage: u8) -> Self {
         match usage {
-            0 => Self::CA,
-            1 => Self::Service,
-            2 => Self::TrustAnchor,
-            3 => Self::DomainIssued,
+            0 => Self::PkixTa,
+            1 => Self::PkixEe,
+            2 => Self::DaneTa,
+            3 => Self::DaneEe,
             4..=254 => Self::Unassigned(usage),
             255 => Self::Private,
         }
@@ -162,10 +183,10 @@ impl From<u8> for CertUsage {
 impl From<CertUsage> for u8 {
     fn from(usage: CertUsage) -> Self {
         match usage {
-            CertUsage::CA => 0,
-            CertUsage::Service => 1,
-            CertUsage::TrustAnchor => 2,
-            CertUsage::DomainIssued => 3,
+            CertUsage::PkixTa => 0,
+            CertUsage::PkixEe => 1,
+            CertUsage::DaneTa => 2,
+            CertUsage::DaneEe => 3,
             CertUsage::Unassigned(usage) => usage,
             CertUsage::Private => 255,
         }
@@ -492,18 +513,18 @@ mod tests {
 
     #[test]
     fn read_cert_usage() {
-        assert_eq!(CertUsage::CA, CertUsage::from(0));
-        assert_eq!(CertUsage::Service, CertUsage::from(1));
-        assert_eq!(CertUsage::TrustAnchor, CertUsage::from(2));
-        assert_eq!(CertUsage::DomainIssued, CertUsage::from(3));
+        assert_eq!(CertUsage::PkixTa, CertUsage::from(0));
+        assert_eq!(CertUsage::PkixEe, CertUsage::from(1));
+        assert_eq!(CertUsage::DaneTa, CertUsage::from(2));
+        assert_eq!(CertUsage::DaneEe, CertUsage::from(3));
         assert_eq!(CertUsage::Unassigned(4), CertUsage::from(4));
         assert_eq!(CertUsage::Unassigned(254), CertUsage::from(254));
         assert_eq!(CertUsage::Private, CertUsage::from(255));
 
-        assert_eq!(u8::from(CertUsage::CA), 0);
-        assert_eq!(u8::from(CertUsage::Service), 1);
-        assert_eq!(u8::from(CertUsage::TrustAnchor), 2);
-        assert_eq!(u8::from(CertUsage::DomainIssued), 3);
+        assert_eq!(u8::from(CertUsage::PkixTa), 0);
+        assert_eq!(u8::from(CertUsage::PkixEe), 1);
+        assert_eq!(u8::from(CertUsage::DaneTa), 2);
+        assert_eq!(u8::from(CertUsage::DaneEe), 3);
         assert_eq!(u8::from(CertUsage::Unassigned(4)), 4);
         assert_eq!(u8::from(CertUsage::Unassigned(254)), 254);
         assert_eq!(u8::from(CertUsage::Private), 255);
@@ -558,19 +579,19 @@ mod tests {
     #[test]
     fn test_encode_decode_tlsa() {
         test_encode_decode(TLSA::new(
-            CertUsage::Service,
+            CertUsage::PkixEe,
             Selector::Spki,
             Matching::Sha256,
             vec![1, 2, 3, 4, 5, 6, 7, 8],
         ));
         test_encode_decode(TLSA::new(
-            CertUsage::CA,
+            CertUsage::PkixTa,
             Selector::Full,
             Matching::Raw,
             vec![1, 2, 3, 4, 5, 6, 7, 8],
         ));
         test_encode_decode(TLSA::new(
-            CertUsage::DomainIssued,
+            CertUsage::DaneEe,
             Selector::Full,
             Matching::Sha512,
             vec![1, 2, 3, 4, 5, 6, 7, 8],

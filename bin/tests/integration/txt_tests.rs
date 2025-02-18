@@ -405,7 +405,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     .cloned()
     .expect("tlsa record not found");
     if let RData::TLSA(rdata) = tlsa_record.data() {
-        assert_eq!(rdata.cert_usage(), CertUsage::CA);
+        assert_eq!(rdata.cert_usage(), CertUsage::PkixTa);
         assert_eq!(rdata.selector(), Selector::Full);
         assert_eq!(rdata.matching(), Matching::Sha256);
         assert_eq!(
