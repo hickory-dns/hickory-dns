@@ -102,7 +102,7 @@ Support of TLS on the Server is managed through a pkcs12 der file. The documenta
 
 ## DNS-over-TLS and DNS-over-HTTPS
 
-The Resolver requires valid DoT or DoH resolvers being registered in order to be used.
+The Resolver supports DoT and DoH. These protocols can be selected and configured when forwarding to another server.
 
 To use DoT or DoH with the `Client`, construct it with `TlsClientStream` or
 `HttpsClientStream`. Client authentication/mTLS is currently not supported,
