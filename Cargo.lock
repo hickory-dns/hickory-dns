@@ -1029,6 +1029,7 @@ dependencies = [
 name = "hickory-resolver"
 version = "0.25.0-alpha.5"
 dependencies = [
+ "async-std",
  "backtrace",
  "cfg-if",
  "futures-executor",
