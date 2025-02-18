@@ -74,12 +74,12 @@ test-support.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, features = ["rt", "net"] }
-hickory-proto = { workspace = true, features = ["text-parsing", "tokio-runtime"] }
+hickory-proto = { workspace = true, features = ["std", "text-parsing", "tokio-runtime"] }
 
 [dev-dependencies]
 futures = { workspace = true, default-features = false, features = ["std", "executor"] }
 tokio = { workspace = true, features = ["rt", "macros"] }
-tracing-subscriber.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
 webpki-roots = { workspace = true }
 
 [package.metadata.docs.rs]

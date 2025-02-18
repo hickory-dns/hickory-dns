@@ -7,13 +7,16 @@
 
 //! `DnsMultiplexer` and associated types implement the state machines for sending DNS messages while using the underlying streams.
 
-use std::{
+use alloc::{boxed::Box, sync::Arc};
+use core::{
     borrow::Borrow,
-    collections::{hash_map::Entry, HashMap},
     fmt::{self, Display},
     marker::Unpin,
     pin::Pin,
-    sync::Arc,
+};
+
+use std::{
+    collections::{hash_map::Entry, HashMap},
     task::{Context, Poll},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -428,6 +431,13 @@ where
 
 #[cfg(test)]
 mod test {
+    use alloc::vec::Vec;
+    use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+
+    use futures_util::future;
+    use futures_util::stream::TryStreamExt;
+    use test_support::subscribe;
+
     use super::*;
     use crate::op::op_code::OpCode;
     use crate::op::{Message, MessageType, Query};
@@ -436,10 +446,6 @@ mod test {
     use crate::serialize::binary::BinEncodable;
     use crate::xfer::StreamReceiver;
     use crate::xfer::{DnsClientStream, DnsRequestOptions};
-    use futures_util::future;
-    use futures_util::stream::TryStreamExt;
-    use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
-    use test_support::subscribe;
 
     struct MockClientStream {
         messages: Vec<Message>,

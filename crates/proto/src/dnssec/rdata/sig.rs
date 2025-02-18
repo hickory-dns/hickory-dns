@@ -6,7 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 //! signature record for signing queries, updates, and responses
-use std::fmt;
+use alloc::vec::Vec;
+use core::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -643,11 +644,14 @@ impl fmt::Display for SIG {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    use alloc::vec::Vec;
+    use std::println;
+
     use super::*;
 
     #[test]
     fn test() {
-        use std::str::FromStr;
+        use alloc::str::FromStr;
 
         let rdata = SIG::new(
             RecordType::NULL,

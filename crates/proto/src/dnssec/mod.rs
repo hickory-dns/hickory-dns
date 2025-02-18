@@ -7,7 +7,9 @@
 
 //! dns security extension related modules
 
-use std::fmt;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::fmt;
 
 use ::ring::error::{KeyRejected, Unspecified};
 #[cfg(feature = "backtrace")]

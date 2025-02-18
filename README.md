@@ -338,6 +338,11 @@ The Client has a few features which can be disabled for different reasons when e
 - `mdns` _EXPERIMENTAL_
   Enables the experimental mDNS features as well as DNS-SD. This currently has known issues.
 
+- `std`
+  The `proto` crate can run in a `no_std` mode by disabling `default-features`.
+  Note that the MSRV for no_std support (in stable Rust) is `1.81`.
+  If you use this feature, you need to call `seed_rng(random_seed)` with a secure seed!
+
 Using custom features in dependencies:
 
 ```
@@ -368,7 +373,7 @@ $> cargo build --release --features dns-over-rustls
 
   For example, if `1.50` is the current release, then the MSRV will be `1.47`. The
   version is only increased as necessary, so it's possible that the MSRV is older
-  than this policy states. Additionally, the MSRV is only supported for the `no-default-features`
+  than this policy states. Additionally, the MSRV is only supported for the `no-default-features` + `std`
   build due to it being an intractable issue of trying to enforce this policy on dependencies.
 
 ## Community

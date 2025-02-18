@@ -96,7 +96,7 @@ h2 = { workspace = true, features = ["stream"], optional = true }
 h3 = { workspace = true, optional = true }
 h3-quinn = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
-ipnet = { workspace = true, features = ["serde"] }
+ipnet = { workspace = true, features = ["serde", "std"] }
 prefix-trie.workspace = true
 rusqlite = { workspace = true, features = ["bundled", "time"], optional = true }
 rustls = { workspace = true, optional = true }
@@ -107,7 +107,7 @@ tracing.workspace = true
 tokio = { workspace = true, features = ["macros", "net", "sync"] }
 tokio-rustls = { workspace = true, optional = true }
 tokio-util.workspace = true
-hickory-proto = { workspace = true, features = ["serde", "text-parsing", "tokio-runtime"] }
+hickory-proto = { workspace = true, features = ["serde", "std", "text-parsing", "tokio-runtime"] }
 hickory-recursor = { workspace = true, features = ["serde"], optional = true }
 hickory-resolver = { workspace = true, features = ["serde", "system-config", "tokio-runtime"], optional = true }
 
@@ -115,7 +115,7 @@ hickory-resolver = { workspace = true, features = ["serde", "system-config", "to
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
 test-support.workspace = true
 tokio = { workspace = true, features = ["macros", "rt"] }
-tracing-subscriber.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
 
 [package.metadata.docs.rs]
 all-features = true

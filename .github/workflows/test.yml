@@ -186,6 +186,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: just no-default-features
+        if: contains( matrix.version, 'nightly' )
         run: just no-default-features
 
       - name: just build-bench
@@ -260,3 +261,14 @@ jobs:
 
       - name: just compatibility
         run: just compatibility
+
+  # Build on a no_std target
+  no-std-proto:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Add targets
+        run: rustup target add aarch64-unknown-none
+      - uses: actions/checkout@v4
+      - name: Build aarch64-unknown-none
+        run: cd ./crates/proto && cargo build -v --lib --target aarch64-unknown-none --no-default-features

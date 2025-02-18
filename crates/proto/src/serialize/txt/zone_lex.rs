@@ -5,6 +5,8 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use alloc::string::String;
+use alloc::vec::Vec;
 use std::borrow::Cow;
 use std::{char, iter::Peekable};
 
@@ -394,6 +396,8 @@ pub enum Token {
 
 #[cfg(test)]
 mod lex_test {
+    use alloc::string::ToString;
+
     use super::*;
 
     #[allow(clippy::uninlined_format_args)]

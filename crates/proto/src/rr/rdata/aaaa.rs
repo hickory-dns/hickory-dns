@@ -23,14 +23,15 @@
 //!   resource record in network byte order (high-order byte first).
 //! ```
 
-pub use std::net::Ipv6Addr;
-use std::{fmt, net::AddrParseError, ops::Deref, str};
+use core::{fmt, ops::Deref, str};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use crate::net::AddrParseError;
 use crate::{
     error::ProtoResult,
+    net::Ipv6Addr,
     rr::{RData, RecordData, RecordType},
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder},
 };
@@ -153,7 +154,7 @@ impl str::FromStr for AAAA {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use alloc::{str::FromStr, vec::Vec};
 
     use super::*;
     use crate::serialize::binary::bin_tests::{test_emit_data_set, test_read_data_set};
