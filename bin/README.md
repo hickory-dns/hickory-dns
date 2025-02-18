@@ -51,6 +51,39 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 - Online NSEC creation for queries
 - Maybe NSEC5 support
 
+## Running
+
+Warning: Hickory DNS is still under development, running in production is not
+recommended.
+
+- Verify the version
+
+```shell
+./target/release/hickory-dns --version
+```
+
+- Get help
+
+```shell
+./target/release/hickory-dns --help
+```
+
+- Launch `hickory-dns` server with test config
+
+Note that if the `-p` parameter is not passed, the server will run on default
+DNS ports. There are separate port options for DoT and DoH servers, see
+`hickory-dns --help`
+
+```shell
+./target/release/hickory-dns -c ./tests/test-data/test_configs/example.toml -z ./tests/test-data/test_configs/ -p 24141
+```
+
+- Query the just launched server with `dig`
+
+```shell
+dig @127.0.0.1 -p 24141 www.example.com
+```
+
 ## Minimum Rust Version
 
 The current minimum rustc version for this project is `1.70`
