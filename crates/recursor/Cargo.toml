@@ -55,11 +55,9 @@ dns-over-h3 = [
 ]
 
 dns-over-rustls = [
-    "dns-over-tls",
     "hickory-proto/dns-over-rustls",
     "hickory-resolver/dns-over-rustls",
 ]
-dns-over-tls = []
 
 # This is a deprecated feature...
 tls = []

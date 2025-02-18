@@ -36,7 +36,7 @@ zone = "."
 zone_type = "External"
 
 ## remember the port, defaults: 53 for Udp & Tcp, 853 for Tls and 443 for Https.
-##   Tls and/or Https require features dns-over-tls and/or dns-over-https
+##   Tls and/or Https require features dns-over-rustls and/or dns-over-https-rustls
 [zones.stores]
 type = "forward"
 

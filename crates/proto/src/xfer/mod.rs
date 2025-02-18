@@ -307,7 +307,7 @@ pub enum Protocol {
     /// TCP can be used for large queries, but not all NameServers support it
     Tcp,
     /// Tls for DNS over TLS
-    #[cfg(feature = "dns-over-tls")]
+    #[cfg(feature = "dns-over-rustls")]
     Tls,
     /// Https for DNS over HTTPS
     #[cfg(feature = "dns-over-https-rustls")]
@@ -325,7 +325,7 @@ impl fmt::Display for Protocol {
         let protocol = match self {
             Self::Udp => "udp",
             Self::Tcp => "tcp",
-            #[cfg(feature = "dns-over-tls")]
+            #[cfg(feature = "dns-over-rustls")]
             Self::Tls => "tls",
             #[cfg(feature = "dns-over-https-rustls")]
             Self::Https => "https",
@@ -345,7 +345,7 @@ impl Protocol {
         match self {
             Self::Udp => true,
             Self::Tcp => false,
-            #[cfg(feature = "dns-over-tls")]
+            #[cfg(feature = "dns-over-rustls")]
             Self::Tls => false,
             #[cfg(feature = "dns-over-https-rustls")]
             Self::Https => false,
@@ -367,7 +367,7 @@ impl Protocol {
         match self {
             Self::Udp => false,
             Self::Tcp => false,
-            #[cfg(feature = "dns-over-tls")]
+            #[cfg(feature = "dns-over-rustls")]
             Self::Tls => true,
             #[cfg(feature = "dns-over-https-rustls")]
             Self::Https => true,

@@ -55,13 +55,11 @@ dns-over-https-rustls = [
 ]
 
 dns-over-rustls = [
-    "dns-over-tls",
     "dep:rustls",
     "hickory-proto/dns-over-rustls",
     "hickory-resolver?/dns-over-rustls",
     "dep:tokio-rustls",
 ]
-dns-over-tls = []
 dns-over-quic = [
     "dns-over-rustls",
     "hickory-proto/dns-over-quic",

@@ -166,7 +166,7 @@
 //! use hickory_resolver::config::*;
 //!
 //! // Construct a new Resolver with default configuration options
-//! # #[cfg(feature = "dns-over-tls")]
+//! # #[cfg(feature = "dns-over-rustls")]
 //! let mut resolver = TokioResolver::tokio(ResolverConfig::cloudflare_tls(), ResolverOpts::default());
 //!
 //! // see example above...
