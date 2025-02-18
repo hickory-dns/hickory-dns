@@ -118,37 +118,9 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 - [DNSCrypt](https://dnscrypt.org): Trusted DNS queries
 - [S/MIME](https://tools.ietf.org/html/draft-ietf-dane-smime-09): Domain Names For S/MIME
 
-# Usage
-
-This assumes that you have [Rust](https://www.rust-lang.org) stable installed. These
-presume that the hickory-dns repos have already been synced to the local system:
-
-    git clone https://github.com/hickory-dns/hickory-dns.git
-    cd hickory-dns
-
-## Prerequisites
-
-### Minimum Rust Version
+## Minimum Rust Version
 
 - The current minimum rustc version for this project is `1.70`
-- OpenSSL development libraries (optional in client and resolver, min version 1.0.2)
-
-### Mac OS X: using homebrew
-
-```
-  brew install openssl
-  export OPENSSL_INCLUDE_DIR=`brew --prefix openssl`/include
-  export OPENSSL_LIB_DIR=`brew --prefix openssl`/lib
-```
-
-### Debian-based (includes Ubuntu & Raspbian): using apt-get
-
-```
-  # note for openssl that a minimum version of 1.0.2 is required for TLS,
-  #  if this is an issue, TLS can be disabled (on the client), see below.
-  $ apt-get install openssl
-  $ apt-get install libssl-dev pkg-config
-```
 
 ## Testing
 
