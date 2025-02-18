@@ -41,65 +41,6 @@ This repo consists of multiple crates:
 
 # Status
 
-## Resolver
-
-The Hickory DNS Resolver is a native Rust implementation for stub resolution in Rust applications. The Resolver supports many common query patterns, all of which can be configured when creating the Resolver. It is capable of using system configuration on Unix and Windows. On Windows there is a known issue that relates to a large set of interfaces being registered for use, so might require ignoring the system configuration.
-
-The Resolver will properly follow CNAME chains as well as SRV record lookups.
-
-## Client
-
-The Hickory DNS Client is intended to be used for operating against a DNS server
-directly. It can be used for verifying records or updating records for servers
-that support SIG0 and dynamic update. The Client is also capable of validating
-DNSSEC. NSEC and NSEC3 validation are supported. Today, the Tokio async runtime
-is required.
-
-### Unique client side implementations
-
-These are standards supported by the DNS protocol. The client implements them
-as high level interfaces, which is a bit more rare.
-
-| Feature                                                                                                                   | Description                                           |
-| ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| [SyncDnssecClient](https://docs.rs/hickory-client/latest/hickory_client/client/struct.SyncDnssecClient.html)              | DNSSEC validation                                     |
-| [create](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.create)                     | atomic create of a record, with authenticated request |
-| [append](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.append)                     | verify existence of a record and append to it         |
-| [compare_and_swap](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.compare_and_swap) | atomic (depends on server) compare and swap           |
-| [delete_by_rdata](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.delete_by_rdata)   | delete a specific record                              |
-| [delete_rrset](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.delete_rrset)         | delete an entire record set                           |
-| [delete_all](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.delete_all)             | delete all records sets with a given name             |
-| [notify](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.notify)                     | notify server that it should reload a zone            |
-
-## Server
-
-The server code is complete, the daemon supports IPv4 and IPv6, UDP and TCP.
-There currently is no way to limit TCP and AXFR operations, so it is still not
-recommended to put into production as TCP can be used to DOS the service.
-Zone file parsing is complete and supported. There is currently no forking
-option, and the server is not yet threaded (although it is implemented with
-async IO, so threading may not be a huge benefit). There is still a lot of work
-to do before a server can be trusted with this externally. Running it behind a
-firewall on a private network would be safe.
-
-Zone signing support is complete, to insert a key store a pem encoded rsa file
-in the same directory as the initial zone file with the `.key` suffix. _Note_:
-this must be only readable by the current user. If one is not present one will
-be created and written to the correct location. This also acts as the initial
-key for dynamic update SIG(0) validation. To get the public key, the `DNSKEY`
-record for the zone can be queried. This is needed to provide to other
-upstream servers to create the `DS` key. Dynamic DNS is also complete,
-if enabled, a journal file will be stored next to the zone file with the
-`jrnl` suffix. _Note_: if the key is changed or updated, it is currently the
-operators responsibility to remove the only public key from the zone, this
-allows for the `DNSKEY` to exist for some unspecified period of time during
-key rotation. Rotating the key while online is not currently supported, so
-a restart of the server process is required.
-
-### DNS-over-TLS and DNS-over-HTTPS on the Server
-
-Support of TLS on the Server is managed through a pkcs12 der file. The documentation is captured in the example test config file, [example.toml](https://github.com/hickory-dns/hickory-dns/blob/main/tests/test-data/test_configs/example.toml). A registered certificate to the server can be pinned to the Client with the `add_ca()` method. Alternatively, as the client uses the rust-native-tls library, it should work with certificate signed by any standard CA.
-
 ## DNS-over-TLS and DNS-over-HTTPS
 
 DoT and DoH are supported. This is accomplished through the use of one of `native-tls`, `openssl`, or `rustls` (only `rustls` is currently supported for DoH). The Resolver requires valid DoT or DoH resolvers being registered in order to be used.

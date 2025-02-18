@@ -6,6 +6,12 @@ This library contains implementations for IPv4 (A) and IPv6 (AAAA) resolution, m
 
 **NOTICE** This project was rebranded from Trust-DNS to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, this crate/binary has been moved to [hickory-resolver](https://crates.io/crates/hickory-resolver), from `0.24` and onward, for prior versions see [trust-dns-resolver](https://crates.io/crates/trust-dns-resolver).
 
+## Status
+
+The Hickory DNS Resolver is a native Rust implementation for stub resolution in Rust applications. The Resolver supports many common query patterns, all of which can be configured when creating the Resolver. It is capable of using system configuration on Unix and Windows. On Windows there is a known issue that relates to a large set of interfaces being registered for use, so might require ignoring the system configuration.
+
+The Resolver will properly follow CNAME chains as well as SRV record lookups.
+
 ## Features
 
 - Various IPv4 and IPv6 lookup strategies
