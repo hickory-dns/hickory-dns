@@ -30,20 +30,6 @@ default = ["system-config"]
 # resolver configuration
 system-config = ["hickory-resolver/system-config"]
 
-####
-# TODO: These next features are common across the hickory crates, but they are not ready for use here
-####
-
-#dns-over-rustls = ["dns-over-tls", "hickory-resolver/dns-over-rustls"]
-#dns-over-tls = []
-
-# This requires some TLS library, currently only rustls is supported
-#dns-over-https-rustls = ["hickory-resolver/dns-over-https-rustls"]
-#dns-over-https = []
-
-#dnssec-ring = ["dnssec", "hickory-resolver/dnssec-ring"]
-#dnssec = []
-
 [lib]
 name = "async_std_resolver"
 path = "src/lib.rs"
