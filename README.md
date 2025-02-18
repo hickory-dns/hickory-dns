@@ -197,40 +197,6 @@ just dns-over-https-rustls
 cargo build --release -p hickory-dns
 ```
 
-## Running
-
-Warning: Hickory DNS is still under development, running in production is not
-recommended. The server is currently only single-threaded, it is non-blocking
-so this should allow it to work with most internal loads.
-
-- Verify the version
-
-```shell
-./target/release/hickory-dns --version
-```
-
-- Get help
-
-```shell
-./target/release/hickory-dns --help
-```
-
-- Launch `hickory-dns` server with test config
-
-Note that if the `-p` parameter is not passed, the server will run on default
-DNS ports. There are separate port options for DoT and DoH servers, see
-`hickory-dns --help`
-
-```shell
-./target/release/hickory-dns -c ./tests/test-data/test_configs/example.toml -z ./tests/test-data/test_configs/ -p 24141
-```
-
-- Query the just launched server with `dig`
-
-```shell
-dig @127.0.0.1 -p 24141 www.example.com
-```
-
 ## Using the hickory-resolver CLI
 
 Available in `0.20`
