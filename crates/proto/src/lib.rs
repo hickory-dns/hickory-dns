@@ -41,6 +41,8 @@ macro_rules! try_ready_stream {
     }};
 }
 
+#[cfg(feature = "async-std")]
+pub mod async_std;
 #[cfg(feature = "dnssec-ring")]
 pub mod dnssec;
 mod error;

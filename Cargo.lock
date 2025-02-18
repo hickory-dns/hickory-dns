@@ -957,6 +957,7 @@ name = "hickory-proto"
 version = "0.25.0-alpha.5"
 dependencies = [
  "async-recursion",
+ "async-std",
  "async-trait",
  "backtrace",
  "bitflags",
@@ -977,6 +978,7 @@ dependencies = [
  "js-sys",
  "once_cell",
  "pin-project-lite",
+ "pin-utils",
  "quinn",
  "rand 0.9.0",
  "ring",
