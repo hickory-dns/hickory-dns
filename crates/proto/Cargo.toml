@@ -25,6 +25,7 @@ categories.workspace = true
 license.workspace = true
 
 [features]
+async-std = ["dep:async-std", "dep:pin-utils", "dep:socket2"]
 dns-over-rustls = [
     "rustls/ring",
     "dep:tokio-rustls",
@@ -65,6 +66,7 @@ path = "src/lib.rs"
 
 [dependencies]
 async-recursion.workspace = true
+async-std = { workspace = true, optional = true }
 async-trait.workspace = true
 backtrace = { workspace = true, optional = true }
 bitflags = { workspace = true, optional = true }
@@ -84,6 +86,7 @@ ipnet.workspace = true
 js-sys = { workspace = true, optional = true }
 once_cell.workspace = true
 pin-project-lite = { workspace = true, optional = true }
+pin-utils = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true, features = ["log", "runtime-tokio", "rustls"] }
 rand.workspace = true
 ring = { workspace = true, optional = true, features = ["std"] }
