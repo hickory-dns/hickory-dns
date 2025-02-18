@@ -6,6 +6,14 @@ This library contains basic implementations for DNS record serialization, and co
 
 **NOTICE** This project was rebranded from Trust-DNS to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, this crate/binary has been moved to [hickory-client](https://crates.io/crates/hickory-client), from `0.24` and onward, for prior versions see [trust-dns-client](https://crates.io/crates/trust-dns-client).
 
+## Status
+
+The Hickory DNS Client is intended to be used for operating against a DNS server
+directly. It can be used for verifying records or updating records for servers
+that support SIG0 and dynamic update. The Client is also capable of validating
+DNSSEC. NSEC and NSEC3 validation are supported. Today, the Tokio async runtime
+is required.
+
 ## Features
 
 The `client` is capable of DNSSEC validation as well as offering higher order functions for performing DNS operations:
