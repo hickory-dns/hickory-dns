@@ -25,9 +25,7 @@ categories.workspace = true
 license.workspace = true
 
 [features]
-dns-over-tls = []
 dns-over-rustls = [
-    "dns-over-tls",
     "rustls/ring",
     "dep:tokio-rustls",
     "tokio-runtime",

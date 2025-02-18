@@ -63,13 +63,11 @@ dns-over-h3 = [
 ]
 
 dns-over-rustls = [
-    "dns-over-tls",
     "hickory-proto/dns-over-rustls",
     "hickory-resolver/dns-over-rustls",
     "hickory-server/dns-over-rustls",
     "dep:rustls",
 ]
-dns-over-tls = []
 
 sqlite = ["rusqlite", "hickory-server/sqlite"]
 
