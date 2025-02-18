@@ -254,46 +254,6 @@ Success for query name: www.example.com. type: A class: IN
         www.example.com. 21063 IN A 93.184.215.14
 ```
 
-## Using as a dependency and custom features
-
-The Client has a few features which can be disabled for different reasons when embedding in other software.
-
-- `dnssec-openssl`
-  Uses OpenSSL for DNSSEC validation.
-
-- `dnssec-ring`
-  Ring support can be used for RSA and ED25519 DNSSEC validation.
-
-- `dns-over-native-tls`
-  Uses `native-tls` for DNS-over-TLS implementation, only supported in client and resolver, not server.
-
-- `dns-over-openssl`
-  Uses `openssl` for DNS-over-TLS implementation supported in server and client, resolver does not have default CA chains.
-
-- `dns-over-rustls`
-  Uses `rustls` for DNS-over-TLS implementation. This is the best option where a pure Rust toolchain is desired. Supported in client, resolver, and server.
-
-- `dns-over-https-rustls`
-  Uses `rustls` for DNS-over-HTTPS (and DNS-over-TLS will be enabled) implementation, only supported in client, resolver, and server. This is the best option where a pure Rust toolchain is desired.
-
-- `mdns` _EXPERIMENTAL_
-  Enables the experimental mDNS features as well as DNS-SD. This currently has known issues.
-
-Using custom features in dependencies:
-
-```
-[dependencies]
-  ...
-hickory-client = { version = "*", default-features = false, features = ["dnssec-openssl"] }
-```
-
-Using custom features during build:
-
-```console
-$> cargo build --release --features dns-over-rustls
-...
-```
-
 ## FAQ
 
 - Why are you building another DNS server?
