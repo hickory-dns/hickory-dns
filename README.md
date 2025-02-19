@@ -41,18 +41,6 @@ This repo consists of multiple crates:
 
 # Status
 
-## DNS-over-TLS and DNS-over-HTTPS
-
-DoT and DoH are supported. This is accomplished through the use of one of `native-tls`, `openssl`, or `rustls` (only `rustls` is currently supported for DoH). The Resolver requires valid DoT or DoH resolvers being registered in order to be used.
-
-To use DoT or DoH with the `Client`, construct it with `TlsClientStream` or
-`HttpsClientStream`. Client authentication/mTLS is currently not supported,
-there are some issues still being worked on. TLS is useful for Server
-authentication and connection privacy.
-
-To enable DoT, one of the features `dns-over-native-tls`, `dns-over-openssl`, or
-`dns-over-rustls` must be enabled. `dns-over-https-rustls` is used for DoH.
-
 ## DNSSEC status
 
 The current root key is bundled into the system, and used by default. This gives
