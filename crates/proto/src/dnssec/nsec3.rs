@@ -208,12 +208,6 @@ mod tests {
                 .len(),
             20
         );
-
-        let name = Name::from_str("foo.a012345678901.a01234567890123456789012.a01234567890123456789012.a01234567890123456789012.a01234567890123456789012.a01234567890123456789012.a01234567890123456789912.a01234567890123456789012.a01234567890123456789012.a01234567890123456789012.example.com.").unwrap();
-
-        Nsec3HashAlgorithm::SHA1
-            .hash(&salt, &name, 0)
-            .expect_err("Expected ProtoError(DomainNameTooLong");
     }
 
     #[test]

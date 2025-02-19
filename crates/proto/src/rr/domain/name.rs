@@ -51,7 +51,7 @@ impl Name {
 
     /// Extend the name with the offered label, and ensure maximum name length is not exceeded.
     fn extend_name(&mut self, label: &[u8]) -> Result<(), ProtoError> {
-        let new_len = self.len() + label.len() + 1;
+        let new_len = self.encoded_len() + label.len() + 1;
 
         if new_len > Self::MAX_LENGTH {
             return Err(ProtoErrorKind::DomainNameTooLong(new_len).into());
@@ -445,8 +445,8 @@ impl Name {
 
     /// returns the length in bytes of the labels. '.' counts as 1
     ///
-    /// This can be used as an estimate, when serializing labels, they will often be compressed
-    /// and/or escaped causing the exact length to be different.
+    /// This can be used as an estimate, when serializing labels, though
+    /// escaping may cause the exact length to be different.
     ///
     /// # Examples
     ///
@@ -465,6 +465,14 @@ impl Name {
             1
         };
         dots + self.label_data.len()
+    }
+
+    /// Returns the encoded length of this name, ignoring compression.
+    ///
+    /// The `is_fqdn` flag is ignored, and the root label at the end is assumed to always be
+    /// present, since it terminates the name in the DNS message format.
+    fn encoded_len(&self) -> usize {
+        self.label_ends.len() + self.label_data.len() + 1
     }
 
     /// Returns whether the length of the labels, in bytes is 0. In practice, since '.' counts as
@@ -2103,6 +2111,81 @@ mod tests {
     }
 
     #[test]
+    fn test_encoded_len() {
+        for name in [
+            // FQDN
+            Name::parse("www.example.com.", None).unwrap(),
+            // Non-FQDN
+            Name::parse("www", None).unwrap(),
+            // Root (FQDN)
+            Name::root(),
+            // Empty (non-FQDN)
+            Name::new(),
+        ] {
+            let mut buffer = Vec::new();
+            let mut encoder = BinEncoder::new(&mut buffer);
+            name.emit(&mut encoder).unwrap();
+
+            assert_eq!(
+                name.encoded_len(),
+                buffer.len(),
+                "encoded_len() was incorrect for {name:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_length_limits() {
+        // Labels are limited to 63 bytes, and names are limited to 255 bytes.
+        // This name is composed of three labels of length 63, a label of length 61, and a label of
+        // length 0 for the root zone. There are a total of five length bytes. Thus, the total
+        // length is 63 + 63 + 63 + 61 + 5 = 255.
+        let encoded_name_255_bytes: [u8; 255] = [
+            63, b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a',
+            b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a',
+            b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a',
+            b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a',
+            b'a', b'a', b'a', b'a', b'a', b'a', b'a', 63, b'a', b'a', b'a', b'a', b'a', b'a', b'a',
+            b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a',
+            b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a',
+            b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a',
+            b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', 63,
+            b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a',
+            b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a',
+            b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a',
+            b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a',
+            b'a', b'a', b'a', b'a', b'a', b'a', b'a', 61, b'a', b'a', b'a', b'a', b'a', b'a', b'a',
+            b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a',
+            b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a',
+            b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a',
+            b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', b'a', 0,
+        ];
+        let expected_name_str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.\
+        aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.\
+        aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.\
+        aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.";
+
+        let mut decoder = BinDecoder::new(&encoded_name_255_bytes);
+        let decoded_name = Name::read(&mut decoder).unwrap();
+        assert!(decoder.is_empty());
+
+        assert_eq!(decoded_name.to_string(), expected_name_str);
+
+        // Should not be able to construct a longer name from a string.
+        let long_label_error = Name::parse(&format!("a{expected_name_str}"), None).unwrap_err();
+        assert!(matches!(
+            long_label_error.kind(),
+            ProtoErrorKind::LabelBytesTooLong(64)
+        ));
+        let long_name_error =
+            Name::parse(&format!("a.{}", &expected_name_str[1..]), None).unwrap_err();
+        assert!(matches!(
+            long_name_error.kind(),
+            ProtoErrorKind::DomainNameTooLong(256)
+        ))
+    }
+
+    #[test]
     fn test_double_ended_iterator() {
         let name = Name::from_ascii("www.example.com").unwrap();
         let mut iter = name.iter();
@@ -2163,7 +2246,7 @@ mod tests {
 
         // This is a max length name (255 bytes) with the maximum number of possible flippable bytes
         // (nominal label length 63, except the last, with all label characters ASCII alpha)
-        let test_str = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijk.lmnopqrstuvwxyzabcdefghjijklmnopqrstuvwxyzabcdefghijklmnopqrstu.vwxyzABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEF.GHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP";
+        let test_str = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijk.lmnopqrstuvwxyzabcdefghjijklmnopqrstuvwxyzabcdefghijklmnopqrstu.vwxyzABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEF.GHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNO";
         let mut name = Name::from_ascii(test_str).unwrap();
         let name2 = name.clone();
 
