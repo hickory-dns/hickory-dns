@@ -9,9 +9,15 @@
 
 use core::fmt::Debug;
 
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::{
-    op::{Edns, Message, MessageType, OpCode, Query},
-    rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, rdata::SOA},
+    op::{Edns, MessageType, OpCode},
+    random,
+    rr::{DNSClass, Name, RData, RecordSet, RecordType, rdata::SOA},
+};
+use crate::{
+    op::{Message, Query},
+    rr::Record,
 };
 
 /// To reduce errors in using the Message struct as an Update, this will do the call throughs
@@ -159,6 +165,7 @@ impl UpdateMessage for Message {
 /// * `zone_origin` - the zone name to update, i.e. SOA name
 ///
 /// The update must go to a zone authority (i.e. the server used in the ClientConnection)
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 pub fn create(rrset: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
     // TODO: assert non-empty rrset?
     assert!(zone_origin.zone_of(rrset.name()));
@@ -172,7 +179,7 @@ pub fn create(rrset: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
     // build the message
     let mut message: Message = Message::new();
     message
-        .set_id(rand::random())
+        .set_id(random())
         .set_message_type(MessageType::Query)
         .set_op_code(OpCode::Update)
         .set_recursion_desired(false);
@@ -229,6 +236,7 @@ pub fn create(rrset: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
 ///
 /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
 /// the rrset does not exist and must_exist is false, then the RRSet will be created.
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool, use_edns: bool) -> Message {
     assert!(zone_origin.zone_of(rrset.name()));
 
@@ -241,7 +249,7 @@ pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool, use_edns: b
     // build the message
     let mut message: Message = Message::new();
     message
-        .set_id(rand::random())
+        .set_id(random())
         .set_message_type(MessageType::Query)
         .set_op_code(OpCode::Update)
         .set_recursion_desired(false);
@@ -308,6 +316,7 @@ pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool, use_edns: b
 /// * `zone_origin` - the zone name to update, i.e. SOA name
 ///
 /// The update must go to a zone authority (i.e. the server used in the ClientConnection).
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 pub fn compare_and_swap(
     current: RecordSet,
     new: RecordSet,
@@ -326,7 +335,7 @@ pub fn compare_and_swap(
     // build the message
     let mut message: Message = Message::new();
     message
-        .set_id(rand::random())
+        .set_id(random())
         .set_message_type(MessageType::Query)
         .set_op_code(OpCode::Update)
         .set_recursion_desired(false);
@@ -396,6 +405,7 @@ pub fn compare_and_swap(
 ///
 /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
 /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
     assert!(zone_origin.zone_of(rrset.name()));
 
@@ -408,7 +418,7 @@ pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name, use_edns: bool) 
     // build the message
     let mut message: Message = Message::new();
     message
-        .set_id(rand::random())
+        .set_id(random())
         .set_message_type(MessageType::Query)
         .set_op_code(OpCode::Update)
         .set_recursion_desired(false);
@@ -466,6 +476,7 @@ pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name, use_edns: bool) 
 ///
 /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
 /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Message {
     assert!(zone_origin.zone_of(record.name()));
 
@@ -478,7 +489,7 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Me
     // build the message
     let mut message: Message = Message::new();
     message
-        .set_id(rand::random())
+        .set_id(random())
         .set_message_type(MessageType::Query)
         .set_op_code(OpCode::Update)
         .set_recursion_desired(false);
@@ -528,6 +539,7 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Me
 /// The update must go to a zone authority (i.e. the server used in the ClientConnection). This
 /// operation attempts to delete all resource record sets the specified name regardless of
 /// the record type.
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 pub fn delete_all(
     name_of_records: Name,
     zone_origin: Name,
@@ -545,7 +557,7 @@ pub fn delete_all(
     // build the message
     let mut message: Message = Message::new();
     message
-        .set_id(rand::random())
+        .set_id(random())
         .set_message_type(MessageType::Query)
         .set_op_code(OpCode::Update)
         .set_recursion_desired(false);
@@ -581,6 +593,7 @@ pub fn delete_all(
 /// # Arguments
 /// * `zone_origin` - the zone name to update, i.e. SOA name
 /// * `last_soa` - the last SOA known, if any. If provided, name must match `zone_origin`
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
     if let Some(soa) = &last_soa {
         assert_eq!(&zone_origin, soa.mname());
@@ -597,7 +610,7 @@ pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
     // build the message
     let mut message: Message = Message::new();
     message
-        .set_id(rand::random())
+        .set_id(random())
         .set_message_type(MessageType::Query)
         .set_recursion_desired(false);
     message.add_zone(zone);

@@ -35,6 +35,7 @@ pub use self::dns_exchange::{
     DnsExchange, DnsExchangeBackground, DnsExchangeConnect, DnsExchangeSend,
 };
 pub use self::dns_handle::{DnsHandle, DnsStreamHandle};
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 pub use self::dns_multiplexer::{DnsMultiplexer, DnsMultiplexerConnect};
 pub use self::dns_request::{DnsRequest, DnsRequestOptions};
 pub use self::dns_response::DnsResponse;
@@ -142,10 +143,12 @@ pub trait DnsRequestSender: Stream<Item = Result<(), ProtoError>> + Send + Unpin
 
 /// Used for associating a name_server to a DnsRequestStreamHandle
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct BufDnsRequestStreamHandle {
     sender: mpsc::Sender<OneshotDnsRequest>,
 }
 
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 macro_rules! try_oneshot {
     ($expr:expr) => {{
         use core::result::Result;
@@ -160,6 +163,7 @@ macro_rules! try_oneshot {
     };
 }
 
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 impl DnsHandle for BufDnsRequestStreamHandle {
     type Response = DnsResponseReceiver;
 
@@ -191,6 +195,7 @@ pub struct OneshotDnsRequest {
 }
 
 impl OneshotDnsRequest {
+    #[cfg(any(feature = "std", feature = "no-std-rand"))]
     fn oneshot(dns_request: DnsRequest) -> (Self, oneshot::Receiver<DnsResponseStream>) {
         let (sender_for_response, receiver) = oneshot::channel();
 

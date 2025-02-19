@@ -25,13 +25,13 @@ categories.workspace = true
 license.workspace = true
 
 [features]
-std = []
+std = ["critical-section/std", "rand/thread_rng"]
 
 async-std = ["dep:async-std", "dep:pin-utils", "dep:socket2"]
 
 tls-aws-lc-rs = ["tokio-rustls/aws-lc-rs", "__tls"]
 https-aws-lc-rs = ["tls-aws-lc-rs", "__https"]
-quic-aws-lc-rs = ["quinn/rustls-aws-lc-rs", "tls-aws-lc-rs", "__quic"]
+quic-aws-lc-rs = ["quinn/rustls-aws-lc-rs", "std", "tls-aws-lc-rs", "__quic"]
 h3-aws-lc-rs = ["quic-aws-lc-rs", "__h3"]
 
 tls-ring = ["tokio-rustls/ring", "__tls"]
@@ -46,19 +46,22 @@ __h3 = ["dep:h3", "dep:h3-quinn", "dep:http"]
 
 rustls-platform-verifier = ["dep:rustls-platform-verifier"]
 
-dnssec-aws-lc-rs = ["dep:aws-lc-rs", "aws-lc-rs/aws-lc-sys", "aws-lc-rs/ring-io", "__dnssec"]
-dnssec-ring = ["dep:ring", "__dnssec"]
-__dnssec = ["dep:bitflags", "dep:rustls-pki-types", "dep:time"]
+dnssec-aws-lc-rs = ["dep:aws-lc-rs", "aws-lc-rs/aws-lc-sys", "aws-lc-rs/ring-io", "std", "__dnssec"]
+dnssec-ring = ["dep:ring", "std", "__dnssec"]
+__dnssec = ["dep:bitflags", "dep:rustls-pki-types", "dep:time", "std"]
 testing = []
 
 text-parsing = []
 tokio = ["dep:tokio", "tokio/net", "tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
-default = ["tokio"]
+default = ["std", "tokio"]
 
 serde = ["dep:serde", "url/serde"]
 
 # enables experimental the mDNS (multicast) feature
 mdns = ["socket2/all"]
+
+# enables a custom random function backed by a no_std compatible mutex
+no-std-rand = ["dep:critical-section"]
 
 wasm-bindgen = ["dep:wasm-bindgen-crate", "dep:js-sys"]
 
@@ -77,6 +80,7 @@ backtrace = { workspace = true, optional = true }
 bitflags = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
 cfg-if.workspace = true
+critical-section = { workspace = true, optional = true }
 data-encoding.workspace = true
 enum-as-inner.workspace = true
 futures-channel = { workspace = true, default-features = false, features = ["std"] }
@@ -93,7 +97,7 @@ once_cell.workspace = true
 pin-project-lite = { workspace = true, optional = true }
 pin-utils = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true, features = ["log", "runtime-tokio"] }
-rand.workspace = true
+rand = { workspace = true, features = ["std_rng"] }
 ring = { workspace = true, optional = true, features = ["std"] }
 rustls = { workspace = true, optional = true, default-features = false }
 rustls-pki-types = { workspace = true, optional = true }

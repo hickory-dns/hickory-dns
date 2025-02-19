@@ -7,6 +7,7 @@
 
 //! `RetryDnsHandle` allows for DnsQueries to be reattempted on failure
 
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 use alloc::boxed::Box;
 use core::pin::Pin;
 use core::task::{Context, Poll};
@@ -31,6 +32,7 @@ use crate::xfer::{DnsRequest, DnsResponse};
 /// *note* Current value of this is not clear, it may be removed
 #[derive(Clone)]
 #[must_use = "queries can only be sent through a ClientHandle"]
+#[allow(dead_code)]
 pub struct RetryDnsHandle<H>
 where
     H: DnsHandle + Unpin + Send,
@@ -54,6 +56,7 @@ where
     }
 }
 
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 impl<H> DnsHandle for RetryDnsHandle<H>
 where
     H: DnsHandle + Send + Unpin + 'static,
@@ -136,7 +139,7 @@ impl RetryableError for ProtoError {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, any(feature = "std", feature = "no-std-rand")))]
 mod test {
     use alloc::sync::Arc;
     use core::sync::atomic::{AtomicU16, Ordering};
