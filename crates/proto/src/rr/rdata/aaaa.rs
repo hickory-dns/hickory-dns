@@ -24,15 +24,14 @@
 //! ```
 
 use core::{fmt, ops::Deref, str};
-use std::net::AddrParseError;
-
-pub use std::net::Ipv6Addr;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use crate::net::AddrParseError;
 use crate::{
     error::ProtoResult,
+    net::Ipv6Addr,
     rr::{RData, RecordData, RecordType},
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder},
 };

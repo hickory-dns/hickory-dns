@@ -11,7 +11,6 @@
 use alloc::vec::Vec;
 use core::fmt;
 use core::str::FromStr;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -19,6 +18,7 @@ use tracing::warn;
 
 use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict},
 };

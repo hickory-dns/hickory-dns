@@ -39,6 +39,11 @@ extern crate std;
 #[macro_use]
 extern crate alloc;
 
+#[cfg(not(feature = "std"))]
+pub(crate) use core::net;
+#[cfg(feature = "std")]
+pub(crate) use std::net;
+
 macro_rules! try_ready_stream {
     ($e:expr) => {{
         match $e {

@@ -47,7 +47,7 @@ pub enum ParseErrorKind {
     // foreign
     /// An address parse error
     #[error("network address parse error: {0}")]
-    AddrParse(#[from] std::net::AddrParseError),
+    AddrParse(#[from] crate::net::AddrParseError),
 
     /// A data encoding error
     #[error("data encoding error: {0}")]
@@ -160,8 +160,8 @@ impl From<String> for ParseError {
     }
 }
 
-impl From<std::net::AddrParseError> for ParseError {
-    fn from(e: std::net::AddrParseError) -> Self {
+impl From<crate::net::AddrParseError> for ParseError {
+    fn from(e: crate::net::AddrParseError) -> Self {
         ParseErrorKind::from(e).into()
     }
 }

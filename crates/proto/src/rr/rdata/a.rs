@@ -32,14 +32,14 @@
 //! ```
 
 use core::{fmt, ops::Deref, str};
-use std::net::AddrParseError;
-pub use std::net::Ipv4Addr;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+pub use crate::net::Ipv4Addr;
 use crate::{
     error::*,
+    net::AddrParseError,
     rr::{RData, RecordData, RecordType},
     serialize::binary::*,
 };

@@ -12,7 +12,6 @@ use alloc::vec::Vec;
 #[cfg(test)]
 use core::convert::From;
 use core::{cmp::Ordering, fmt};
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use enum_as_inner::EnumAsInner;
 #[cfg(feature = "serde")]
@@ -21,6 +20,7 @@ use tracing::{trace, warn};
 
 use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
     rr::{
         RecordData, RecordDataDecodable,
         rdata::{
