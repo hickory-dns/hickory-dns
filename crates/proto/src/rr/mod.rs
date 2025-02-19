@@ -20,7 +20,7 @@ mod rr_set;
 pub mod serial_number;
 pub mod type_bit_map;
 
-use std::fmt::{Debug, Display};
+use core::fmt::{Debug, Display};
 
 use crate::{
     error::ProtoResult,

@@ -7,7 +7,7 @@
 
 //! mail exchange, email, record
 
-use std::fmt;
+use core::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -177,11 +177,14 @@ impl fmt::Display for MX {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    use alloc::vec::Vec;
+    use std::println;
+
     use super::*;
 
     #[test]
     fn test() {
-        use std::str::FromStr;
+        use core::str::FromStr;
 
         let rdata = MX::new(16, Name::from_str("mail.example.com.").unwrap());
 

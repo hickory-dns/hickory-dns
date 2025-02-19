@@ -30,7 +30,7 @@
 //! the description of name server logic in [RFC-1034] for details.
 //! ```
 
-use std::{fmt, ops::Deref};
+use core::{fmt, ops::Deref};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -138,6 +138,9 @@ name_rdata!(ANAME);
 
 #[cfg(test)]
 mod tests {
+
+    use alloc::{string::ToString, vec::Vec};
+    use std::println;
 
     use super::*;
 

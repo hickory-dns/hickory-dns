@@ -7,10 +7,10 @@
 
 //! This module contains all the types for demuxing DNS oriented streams.
 
-use std::future::Future;
-use std::marker::PhantomData;
-use std::pin::Pin;
-use std::task::{Context, Poll};
+use core::future::Future;
+use core::marker::PhantomData;
+use core::pin::Pin;
+use core::task::{Context, Poll};
 
 use futures_channel::mpsc;
 use futures_util::future::FutureExt;

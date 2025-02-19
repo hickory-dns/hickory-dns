@@ -16,8 +16,9 @@
 
 //! Parser for AAAA text form
 
+use alloc::string::ToString;
+use core::str::FromStr;
 use std::net::Ipv6Addr;
-use std::str::FromStr;
 
 use crate::{
     rr::rdata::AAAA,

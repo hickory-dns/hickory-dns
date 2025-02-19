@@ -7,7 +7,7 @@
 
 //! All record data structures and related serialization methods
 
-use std::fmt;
+use alloc::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

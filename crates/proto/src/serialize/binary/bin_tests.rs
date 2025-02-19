@@ -15,9 +15,11 @@
  */
 #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+use core::fmt::Debug;
+use std::println;
+
 use super::*;
 use crate::error::*;
-use std::fmt::Debug;
 
 fn get_character_data() -> Vec<(&'static str, Vec<u8>)> {
     vec![

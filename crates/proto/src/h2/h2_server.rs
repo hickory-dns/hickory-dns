@@ -7,9 +7,9 @@
 
 //! HTTPS related server items
 
-use std::fmt::Debug;
-use std::str::FromStr;
-use std::sync::Arc;
+use alloc::sync::Arc;
+use core::fmt::Debug;
+use core::str::FromStr;
 
 use bytes::{Bytes, BytesMut};
 use futures_util::stream::{Stream, StreamExt};
@@ -100,9 +100,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
+    use core::pin::Pin;
+    use core::task::{Context, Poll};
     use futures_executor::block_on;
-    use std::pin::Pin;
-    use std::task::{Context, Poll};
 
     use test_support::subscribe;
 

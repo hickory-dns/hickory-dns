@@ -1,11 +1,12 @@
 //! async-std runtime implementation.
 
-use std::future::Future;
+use alloc::boxed::Box;
+use core::future::Future;
+use core::pin::Pin;
+use core::task::{Context, Poll};
+use core::time::Duration;
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::pin::Pin;
-use std::task::{Context, Poll};
-use std::time::Duration;
 
 use async_std::future::timeout;
 use async_trait::async_trait;

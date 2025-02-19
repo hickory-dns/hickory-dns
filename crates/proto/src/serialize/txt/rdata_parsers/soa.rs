@@ -16,6 +16,8 @@
 
 //! Parser for SOA text form
 
+use alloc::string::ToString;
+
 use crate::{
     rr::{domain::Name, rdata::SOA},
     serialize::txt::{
@@ -77,7 +79,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(
 
 #[test]
 fn test_parse() {
-    use std::str::FromStr;
+    use core::str::FromStr;
 
     let soa_tokens = vec![
         "hickory-dns.org.",

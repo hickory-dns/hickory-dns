@@ -5,13 +5,15 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::fmt::{self, Display};
-use std::future::{Future, poll_fn};
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::sync::Arc;
+use core::fmt::{self, Display};
+use core::future::{Future, poll_fn};
+use core::pin::Pin;
+use core::str::FromStr;
+use core::task::{Context, Poll};
 use std::net::SocketAddr;
-use std::pin::Pin;
-use std::str::FromStr;
-use std::sync::Arc;
-use std::task::{Context, Poll};
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use futures_util::future::FutureExt;
@@ -466,8 +468,10 @@ impl Future for H3ClientResponse {
     any(feature = "rustls-platform-verifier", feature = "webpki-roots")
 ))]
 mod tests {
+    use alloc::string::ToString;
+    use core::str::FromStr;
     use std::net::SocketAddr;
-    use std::str::FromStr;
+    use std::println;
 
     use rustls::KeyLogFile;
     use test_support::subscribe;

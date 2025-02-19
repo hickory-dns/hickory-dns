@@ -5,12 +5,13 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::future::Future;
+use alloc::boxed::Box;
+use alloc::sync::Arc;
+use core::future::Future;
+use core::pin::Pin;
+use core::task::{Context, Poll};
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll};
 
 use futures_util::stream::{Stream, StreamExt};
 use futures_util::{FutureExt, TryFutureExt, future, ready};
@@ -416,11 +417,15 @@ impl Future for NextRandomUdpSocket {
 pub(crate) mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    use super::*;
-    use crate::xfer::dns_handle::DnsStreamHandle;
+    use alloc::string::ToString;
+    use std::println;
+
     use futures_util::future::Either;
     use test_support::subscribe;
     use tokio::runtime;
+
+    use super::*;
+    use crate::xfer::dns_handle::DnsStreamHandle;
 
     // TODO: is there a better way?
     const BASE_TEST_PORT: u16 = 5379;
@@ -468,9 +473,9 @@ pub(crate) mod tests {
 
     //   as there are probably unexpected responses coming on the standard addresses
     fn one_shot_mdns_test(mdns_addr: SocketAddr) {
-        use std::time::Duration;
+        use core::time::Duration;
 
-        let client_done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let client_done = alloc::sync::Arc::new(core::sync::atomic::AtomicBool::new(false));
 
         let test_bytes: &'static [u8; 8] = b"DEADBEEF";
         let send_recv_times = 10;
@@ -502,7 +507,7 @@ pub(crate) mod tests {
                     .into_future();
 
                 for _ in 0..=send_recv_times {
-                    if client_done_clone.load(std::sync::atomic::Ordering::Relaxed) {
+                    if client_done_clone.load(core::sync::atomic::Ordering::Relaxed) {
                         return;
                     }
                     // wait for some bytes...
@@ -590,7 +595,7 @@ pub(crate) mod tests {
             }
         }
 
-        client_done.store(true, std::sync::atomic::Ordering::Relaxed);
+        client_done.store(true, core::sync::atomic::Ordering::Relaxed);
         println!("successes: {successes}");
         assert!(successes >= 1);
         server_handle.join().expect("server thread failed");
@@ -620,9 +625,9 @@ pub(crate) mod tests {
 
     //   as there are probably unexpected responses coming on the standard addresses
     fn passive_mdns_test(mdns_query_type: MdnsQueryType, mdns_addr: SocketAddr) {
-        use std::time::Duration;
+        use core::time::Duration;
 
-        let server_got_packet = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let server_got_packet = alloc::sync::Arc::new(core::sync::atomic::AtomicBool::new(false));
 
         let test_bytes: &'static [u8; 8] = b"DEADBEEF";
         let send_recv_times = 10;
@@ -664,7 +669,7 @@ pub(crate) mod tests {
                             // println!("server got data! {}", addr);
 
                             server_got_packet_clone
-                                .store(true, std::sync::atomic::Ordering::Relaxed);
+                                .store(true, core::sync::atomic::Ordering::Relaxed);
                             return;
                         }
                         Either::Right(((), buffer_and_addr_stream_tmp)) => {
@@ -704,7 +709,7 @@ pub(crate) mod tests {
             let run_result =
                 io_loop.block_on(future::lazy(|_| future::select(stream, timeout)).flatten());
 
-            if server_got_packet.load(std::sync::atomic::Ordering::Relaxed) {
+            if server_got_packet.load(core::sync::atomic::Ordering::Relaxed) {
                 return;
             }
 

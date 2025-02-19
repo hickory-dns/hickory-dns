@@ -4,12 +4,13 @@
 //!
 //! TODO: this module needs some serious refactoring and normalization.
 
-use std::fmt::{self, Debug, Display};
-use std::future::Future;
+use core::fmt::Display;
+use core::fmt::{self, Debug};
+use core::future::Future;
+use core::pin::Pin;
+use core::task::{Context, Poll};
+use core::time::Duration;
 use std::net::SocketAddr;
-use std::pin::Pin;
-use std::task::{Context, Poll};
-use std::time::Duration;
 
 use futures_channel::mpsc;
 use futures_channel::oneshot;
@@ -36,7 +37,8 @@ pub use self::dns_exchange::{
 pub use self::dns_handle::{DnsHandle, DnsStreamHandle};
 pub use self::dns_multiplexer::{DnsMultiplexer, DnsMultiplexerConnect};
 pub use self::dns_request::{DnsRequest, DnsRequestOptions};
-pub use self::dns_response::{DnsResponse, DnsResponseStream};
+pub use self::dns_response::DnsResponse;
+pub use self::dns_response::DnsResponseStream;
 pub use self::retry_dns_handle::RetryDnsHandle;
 pub use self::serial_message::SerialMessage;
 
@@ -146,7 +148,7 @@ pub struct BufDnsRequestStreamHandle {
 
 macro_rules! try_oneshot {
     ($expr:expr) => {{
-        use std::result::Result;
+        use core::result::Result;
 
         match $expr {
             Result::Ok(val) => val,

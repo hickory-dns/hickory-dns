@@ -8,7 +8,8 @@
 //! TLSA records for storing TLS certificate validation information
 #![allow(clippy::use_self)]
 
-use std::fmt;
+use alloc::vec::Vec;
+use core::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -508,6 +509,8 @@ impl fmt::Display for TLSA {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
+    use std::println;
 
     use super::*;
 

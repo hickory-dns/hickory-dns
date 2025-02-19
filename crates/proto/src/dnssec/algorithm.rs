@@ -9,8 +9,8 @@
 //   this issue in rustc would help narrow the statement: https://github.com/rust-lang/rust/issues/62398
 #![allow(deprecated, clippy::use_self)]
 
-use std::fmt;
-use std::fmt::{Display, Formatter};
+use alloc::fmt;
+use core::fmt::{Display, Formatter};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

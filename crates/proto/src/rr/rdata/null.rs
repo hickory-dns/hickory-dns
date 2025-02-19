@@ -6,7 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 //! null record type, generally not used except as an internal tool for representing null data
-use std::fmt;
+use alloc::vec::Vec;
+use core::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -117,6 +118,8 @@ impl fmt::Display for NULL {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
+    use std::println;
 
     use super::*;
 
