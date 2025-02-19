@@ -51,7 +51,6 @@ dnssec-ring = ["hickory-proto/dnssec-ring"]
 serde = ["dep:serde", "hickory-proto/serde"]
 system-config = ["dep:ipconfig", "dep:resolv-conf"]
 
-testing = []
 tokio-runtime = ["tokio/rt", "hickory-proto/tokio-runtime"]
 
 [lib]
