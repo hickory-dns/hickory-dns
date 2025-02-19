@@ -300,6 +300,10 @@ ede-dot-com-clippy:
 ede-dot-com-fmt:
     cargo fmt --manifest-path tests/ede-dot-com/Cargo.toml --all -- --check
 
+# builds no-std variant for aarch64-unknown-none
+proto-aarch64-none:
+    cargo build --package hickory-proto -v --lib --target aarch64-unknown-none --no-default-features --features=no-std-rand
+
 [private]
 [macos]
 init-openssl:
