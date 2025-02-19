@@ -18,6 +18,7 @@ use futures_util::stream::{Peekable, Stream, StreamExt};
 use tracing::debug;
 
 use crate::error::*;
+#[cfg(feature = "std")]
 use crate::runtime::Time;
 use crate::xfer::DnsResponseReceiver;
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
@@ -74,6 +75,7 @@ impl DnsExchange {
     /// Returns a future, which itself wraps a future which is awaiting connection.
     ///
     /// The connect_future should be lazy.
+    #[cfg(feature = "std")]
     pub fn connect<F, S, TE>(connect_future: F) -> DnsExchangeConnect<F, S, TE>
     where
         F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,

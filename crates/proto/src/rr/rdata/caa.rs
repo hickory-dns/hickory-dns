@@ -861,6 +861,7 @@ mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use alloc::{str, string::ToString};
+    #[cfg(feature = "std")]
     use std::{dbg, println};
 
     use super::*;
@@ -993,6 +994,7 @@ mod tests {
         rdata.emit(&mut encoder).expect("failed to emit caa");
         let bytes = encoder.into_bytes();
 
+        #[cfg(feature = "std")]
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
@@ -1220,6 +1222,7 @@ mod tests {
             Restrict::new(u16::try_from(MESSAGE.len()).unwrap()),
         )
         .unwrap();
+        #[cfg(feature = "std")]
         dbg!(caa.value());
 
         let mut encoded = Vec::new();
@@ -1230,6 +1233,7 @@ mod tests {
             Restrict::new(u16::try_from(encoded.len()).unwrap()),
         )
         .unwrap();
+        #[cfg(feature = "std")]
         dbg!(caa_round_trip.value());
 
         assert_eq!(caa, caa_round_trip);

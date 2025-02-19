@@ -34,11 +34,13 @@
 
 //! Hickory DNS Protocol library
 
+#[cfg(feature = "std")]
 extern crate std;
 
 #[macro_use]
 extern crate alloc;
 
+#[cfg(feature = "std")]
 macro_rules! try_ready_stream {
     ($e:expr) => {{
         match $e {
@@ -65,21 +67,26 @@ pub mod op;
 #[cfg(all(feature = "__quic", feature = "tokio"))]
 pub mod quic;
 pub mod rr;
+#[cfg(feature = "std")]
 pub mod runtime;
 #[cfg(feature = "__tls")]
 pub mod rustls;
 pub mod serialize;
+#[cfg(feature = "std")]
 pub mod tcp;
-#[cfg(any(test, feature = "testing"))]
+#[cfg(all(feature = "std", any(test, feature = "testing")))]
 pub mod tests;
+#[cfg(feature = "std")]
 pub mod udp;
 pub mod xfer;
 
 #[doc(hidden)]
+#[cfg(feature = "std")]
 pub use crate::xfer::BufDnsStreamHandle;
 #[doc(hidden)]
 pub use crate::xfer::dns_handle::{DnsHandle, DnsStreamHandle};
 #[doc(hidden)]
+#[cfg(feature = "std")]
 pub use crate::xfer::dns_multiplexer::DnsMultiplexer;
 #[doc(hidden)]
 pub use crate::xfer::retry_dns_handle::RetryDnsHandle;
