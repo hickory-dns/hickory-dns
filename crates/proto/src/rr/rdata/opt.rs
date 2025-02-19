@@ -16,8 +16,6 @@ use core::str::FromStr;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-#[cfg(feature = "dnssec-ring")]
-use crate::dnssec::SupportedAlgorithms;
 use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     net::{IpAddr, Ipv4Addr, Ipv6Addr},

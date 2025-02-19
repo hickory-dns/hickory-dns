@@ -544,9 +544,9 @@ impl<'r> Iterator for RrsetRecords<'r> {
 
 #[cfg(test)]
 mod test {
-    use core::str::FromStr;
-    use std::net::Ipv4Addr;
+    use alloc::str::FromStr;
 
+    use crate::net::Ipv4Addr;
     use crate::rr::rdata::{CNAME, NS, SOA};
     use crate::rr::*;
 

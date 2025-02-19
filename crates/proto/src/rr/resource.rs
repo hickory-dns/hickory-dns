@@ -823,6 +823,7 @@ mod tests {
 
     use alloc::vec::Vec;
     use core::cmp::Ordering;
+    use core::str::FromStr;
     #[cfg(feature = "std")]
     use std::println;
 

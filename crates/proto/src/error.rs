@@ -66,10 +66,6 @@ macro_rules! trace {
 /// An alias for results returned by functions of this crate
 pub(crate) type ProtoResult<T> = ::core::result::Result<T, ProtoError>;
 
-/// An alias for results returned by functions of this crate
-#[cfg(not(feature = "std"))]
-pub(crate) type ProtoResult<T> = ::core::result::Result<T, ProtoError>;
-
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, EnumAsInner, Error)]
 #[non_exhaustive]

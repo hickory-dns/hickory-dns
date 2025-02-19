@@ -1129,6 +1129,8 @@ impl From<Ipv6Addr> for RData {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    use alloc::string::ToString;
+    use core::str::FromStr;
     #[cfg(feature = "std")]
     use std::println;
 
