@@ -15,26 +15,18 @@ authentication method is under development).
 
 - Dynamic Update with sqlite journaling backend (SIG0)
 - DNSSEC online signing (with NSEC and NSEC3)
-- DNS over TLS (DoT)
-- DNS over HTTPS/2 (DoH)
-- DNS over HTTPS/3 (DoH3)
-- DNS over Quic (DoQ)
 - Forwarding stub resolver
 - ANAME resolution, for zone mapping aliases to A and AAAA records
 - Additionals section generation for aliasing record types
 
-## DNS-over-TLS and DNS-over-HTTPS
+## Optional protocol support
 
-Support of TLS on the Server is managed through a pkcs12 der file. The documentation is captured in the example test config file, [example.toml](https://github.com/hickory-dns/hickory-dns/blob/main/tests/test-data/test_configs/example.toml). A registered certificate to the server can be pinned to the Client with the `add_ca()` method. Alternatively, as the client uses the rust-native-tls library, it should work with certificate signed by any standard CA.
+The following DNS protocols are optionally supported:
 
-DoT and DoH are supported. This is accomplished through the use of one of `native-tls`, `openssl`, or `rustls` (only `rustls` is currently supported for DoH). The Resolver requires valid DoT or DoH resolvers being registered in order to be used.
-
-Client authentication/mTLS is currently not supported, there are some issues
-still being worked on. TLS is useful for Server authentication and connection
-privacy.
-
-To enable DoT, one of the features `dns-over-native-tls`, `dns-over-openssl`, or
-`dns-over-rustls` must be enabled. `dns-over-https-rustls` is used for DoH.
+- Enable `dns-over-rustls` for DNS over TLS (DoT)
+- Enable `dns-over-https-rustls` for DNS over HTTP/2 (DoH)
+- Enable `dns-over-quic` for DNS over QUIC (DoQ)
+- Enable `dns-over-h3` for DNS over HTTP/3 (DoH3)
 
 ## DNSSEC status
 
