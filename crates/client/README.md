@@ -34,6 +34,7 @@ The following DNS protocols are optionally supported:
 - Enable `dns-over-rustls` for DNS over TLS (DoT)
 - Enable `dns-over-https-rustls` for DNS over HTTP/2 (DoH)
 - Enable `dns-over-quic` for DNS over QUIC (DoQ)
+- Enable `dns-over-h3` for DNS over HTTP/3 (DoH3)
 
 ## Example
 
