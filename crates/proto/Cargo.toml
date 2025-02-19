@@ -44,7 +44,9 @@ dns-over-h3 = ["dep:h3", "dep:h3-quinn", "dep:quinn", "dep:http", "dns-over-quic
 
 rustls-platform-verifier = ["dep:rustls-platform-verifier"]
 
-dnssec-ring = ["dep:bitflags", "dep:ring", "dep:rustls-pki-types", "dep:time"]
+dnssec-aws-lc-rs = ["dep:aws-lc-rs", "aws-lc-rs/aws-lc-sys", "aws-lc-rs/ring-io", "__dnssec"]
+dnssec-ring = ["dep:ring", "__dnssec"]
+__dnssec = ["dep:bitflags", "dep:rustls-pki-types", "dep:time"]
 testing = []
 
 text-parsing = []
@@ -68,6 +70,7 @@ path = "src/lib.rs"
 async-recursion.workspace = true
 async-std = { workspace = true, optional = true }
 async-trait.workspace = true
+aws-lc-rs = { workspace = true, optional = true }
 backtrace = { workspace = true, optional = true }
 bitflags = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
