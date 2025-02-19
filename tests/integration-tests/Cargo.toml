@@ -126,7 +126,7 @@ data-encoding.workspace = true
 futures = { workspace = true, features = ["thread-pool"] }
 tokio = { workspace = true, features = ["macros", "rt"] }
 test-support.workspace = true
-tracing-subscriber.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
 
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true
