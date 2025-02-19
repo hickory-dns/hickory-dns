@@ -102,6 +102,7 @@ where
     }
 }
 
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 impl<H> DnsHandle for DnssecDnsHandle<H>
 where
     H: DnsHandle + Sync + Unpin,

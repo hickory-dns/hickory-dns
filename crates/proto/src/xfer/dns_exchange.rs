@@ -20,6 +20,7 @@ use tracing::debug;
 use crate::error::*;
 use crate::runtime::Time;
 use crate::xfer::DnsResponseReceiver;
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::xfer::dns_handle::DnsHandle;
 use crate::xfer::{
     BufDnsRequestStreamHandle, CHANNEL_BUFFER_SIZE, DnsRequest, DnsRequestSender, DnsResponse,
@@ -104,6 +105,7 @@ impl Clone for DnsExchange {
     }
 }
 
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 impl DnsHandle for DnsExchange {
     type Response = DnsExchangeSend;
 
