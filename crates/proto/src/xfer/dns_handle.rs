@@ -66,6 +66,7 @@ pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
     }
 }
 
+#[allow(unused_mut)]
 fn build_request(mut query: Query, options: DnsRequestOptions) -> DnsRequest {
     // build the message
     let mut message: Message = Message::new();
@@ -74,6 +75,7 @@ fn build_request(mut query: Query, options: DnsRequestOptions) -> DnsRequest {
     let id: u16 = rand::random();
     let mut original_query = None;
 
+    #[cfg(feature = "std")]
     if options.case_randomization {
         original_query = Some(query.clone());
         query.name.randomize_label_case();

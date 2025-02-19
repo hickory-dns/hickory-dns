@@ -16,6 +16,7 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::fmt;
+#[cfg(feature = "std")]
 use std::{io, sync};
 
 #[cfg(feature = "backtrace")]
@@ -250,6 +251,7 @@ pub enum ProtoErrorKind {
 
     // foreign
     /// An error got returned from IO
+    #[cfg(feature = "std")]
     #[error("io error: {0}")]
     Io(Arc<io::Error>),
 
@@ -485,10 +487,12 @@ impl ProtoError {
 
     /// Returns true if this is a std::io::Error
     #[inline]
+    #[cfg(feature = "std")]
     pub fn is_io(&self) -> bool {
         matches!(*self.kind, ProtoErrorKind::Io(..))
     }
 
+    #[cfg(feature = "std")]
     pub(crate) fn as_dyn(&self) -> &(dyn std::error::Error + 'static) {
         self
     }
@@ -615,8 +619,11 @@ impl ProtoError {
         }
 
         match (kind, other) {
+            #[cfg(feature = "std")]
             (ProtoErrorKind::Io { .. }, ProtoErrorKind::Io { .. }) => return Ordering::Equal,
+            #[cfg(feature = "std")]
             (ProtoErrorKind::Io { .. }, _) => return Ordering::Greater,
+            #[cfg(feature = "std")]
             (_, ProtoErrorKind::Io { .. }) => return Ordering::Less,
             _ => (),
         }
@@ -694,6 +701,7 @@ impl From<String> for ProtoError {
     }
 }
 
+#[cfg(feature = "std")]
 impl From<io::Error> for ProtoErrorKind {
     fn from(e: io::Error) -> Self {
         match e.kind() {
@@ -703,12 +711,14 @@ impl From<io::Error> for ProtoErrorKind {
     }
 }
 
+#[cfg(feature = "std")]
 impl<T> From<sync::PoisonError<T>> for ProtoError {
     fn from(_e: sync::PoisonError<T>) -> Self {
         ProtoErrorKind::Poisoned.into()
     }
 }
 
+#[cfg(feature = "std")]
 impl From<ProtoError> for io::Error {
     fn from(e: ProtoError) -> Self {
         match e.kind() {
@@ -791,6 +801,7 @@ impl Clone for ProtoErrorKind {
             UnrecognizedLabelCode(value) => UnrecognizedLabelCode(value),
             UnrecognizedNsec3Flags(flags) => UnrecognizedNsec3Flags(flags),
             UnrecognizedCsyncFlags(flags) => UnrecognizedCsyncFlags(flags),
+            #[cfg(feature = "std")]
             Io(ref e) => Io(e.clone()),
             Poisoned => Poisoned,
             #[cfg(feature = "__dnssec")]
