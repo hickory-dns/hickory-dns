@@ -6,6 +6,14 @@ This library contains basic implementations for DNS record serialization, and co
 
 **NOTICE** This project was rebranded from Trust-DNS to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, this crate/binary has been moved to [hickory-client](https://crates.io/crates/hickory-client), from `0.24` and onward, for prior versions see [trust-dns-client](https://crates.io/crates/trust-dns-client).
 
+## Status
+
+The Hickory DNS Client is intended to be used for operating against a DNS server
+directly. It can be used for verifying records or updating records for servers
+that support SIG0 and dynamic update. The Client is also capable of validating
+DNSSEC. NSEC and NSEC3 validation are supported. Today, the Tokio async runtime
+is required.
+
 ## Features
 
 The `client` is capable of DNSSEC validation as well as offering higher order functions for performing DNS operations:
@@ -18,6 +26,15 @@ The `client` is capable of DNSSEC validation as well as offering higher order fu
 - [delete_rrset](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.delete_rrset) - delete an entire record set
 - [delete_all](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.delete_all) - delete all records sets with a given name
 - [notify](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.notify) - notify server that it should reload a zone
+
+## Optional protocol support
+
+The following DNS protocols are optionally supported:
+
+- Enable `dns-over-rustls` for DNS over TLS (DoT)
+- Enable `dns-over-https-rustls` for DNS over HTTP/2 (DoH)
+- Enable `dns-over-quic` for DNS over QUIC (DoQ)
+- Enable `dns-over-h3` for DNS over HTTP/3 (DoH3)
 
 ## Example
 
@@ -62,25 +79,13 @@ let a_data = answers
 assert!(!a_data.is_empty());
 ```
 
-## DNS-over-TLS and DNS-over-HTTPS
-
-DoT and DoH are supported. This is accomplished through the use of one of `native-tls`, `openssl`, or `rustls` (only `rustls` is currently supported for DoH).
-
-To use DoT or DoH with the `Client`, construct it with `TlsClientStream` or
-`HttpsClientStream`. Client authentication/mTLS is currently not supported,
-there are some issues still being worked on. TLS is useful for Server
-authentication and connection privacy.
-
-To enable DoT, one of the features `dns-over-native-tls`, `dns-over-openssl`, or
-`dns-over-rustls` must be enabled. `dns-over-https-rustls` is used for DoH.
-
 ## DNSSEC status
 
 The current root key is bundled into the system, and used by default. This gives
 validation of DNSKEY and DS records back to the root. NSEC and NSEC3 are
 implemented.
 
-Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, one of the features `dnssec-openssl` or `dnssec-ring` must be enabled.
+Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, enable the `dnssec-ring` feature.
 
 ## Minimum Rust Version
 

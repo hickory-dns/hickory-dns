@@ -15,26 +15,18 @@ authentication method is under development).
 
 - Dynamic Update with sqlite journaling backend (SIG0)
 - DNSSEC online signing (with NSEC and NSEC3)
-- DNS over TLS (DoT)
-- DNS over HTTPS/2 (DoH)
-- DNS over HTTPS/3 (DoH3)
-- DNS over Quic (DoQ)
 - Forwarding stub resolver
 - ANAME resolution, for zone mapping aliases to A and AAAA records
 - Additionals section generation for aliasing record types
 
-## DNS-over-TLS and DNS-over-HTTPS
+## Optional protocol support
 
-Support of TLS on the Server is managed through a pkcs12 der file. The documentation is captured in the example test config file, [example.toml](https://github.com/hickory-dns/hickory-dns/blob/main/tests/test-data/test_configs/example.toml). A registered certificate to the server can be pinned to the Client with the `add_ca()` method. Alternatively, as the client uses the rust-native-tls library, it should work with certificate signed by any standard CA.
+The following DNS protocols are optionally supported:
 
-DoT and DoH are supported. This is accomplished through the use of one of `native-tls`, `openssl`, or `rustls` (only `rustls` is currently supported for DoH). The Resolver requires valid DoT or DoH resolvers being registered in order to be used.
-
-Client authentication/mTLS is currently not supported, there are some issues
-still being worked on. TLS is useful for Server authentication and connection
-privacy.
-
-To enable DoT, one of the features `dns-over-native-tls`, `dns-over-openssl`, or
-`dns-over-rustls` must be enabled. `dns-over-https-rustls` is used for DoH.
+- Enable `dns-over-rustls` for DNS over TLS (DoT)
+- Enable `dns-over-https-rustls` for DNS over HTTP/2 (DoH)
+- Enable `dns-over-quic` for DNS over QUIC (DoQ)
+- Enable `dns-over-h3` for DNS over HTTP/3 (DoH3)
 
 ## DNSSEC status
 
@@ -42,7 +34,7 @@ The current root key is bundled into the system, and used by default. This gives
 validation of DNSKEY and DS records back to the root. NSEC and NSEC3 are
 implemented.
 
-Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, one of the features `dnssec-openssl` or `dnssec-ring` must be enabled.
+Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, enable the `dnssec-ring` feature.
 
 ## Future goals
 
@@ -50,6 +42,39 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 - mTLS based authorization for Dynamic Updates
 - Online NSEC creation for queries
 - Maybe NSEC5 support
+
+## Running
+
+Warning: Hickory DNS is still under development, running in production is not
+recommended.
+
+- Verify the version
+
+```shell
+./target/release/hickory-dns --version
+```
+
+- Get help
+
+```shell
+./target/release/hickory-dns --help
+```
+
+- Launch `hickory-dns` server with test config
+
+Note that if the `-p` parameter is not passed, the server will run on default
+DNS ports. There are separate port options for DoT and DoH servers, see
+`hickory-dns --help`
+
+```shell
+./target/release/hickory-dns -c ./tests/test-data/test_configs/example.toml -z ./tests/test-data/test_configs/ -p 24141
+```
+
+- Query the just launched server with `dig`
+
+```shell
+dig @127.0.0.1 -p 24141 www.example.com
+```
 
 ## Minimum Rust Version
 

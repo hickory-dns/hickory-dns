@@ -41,84 +41,13 @@ This repo consists of multiple crates:
 
 # Status
 
-## Resolver
-
-The Hickory DNS Resolver is a native Rust implementation for stub resolution in Rust applications. The Resolver supports many common query patterns, all of which can be configured when creating the Resolver. It is capable of using system configuration on Unix and Windows. On Windows there is a known issue that relates to a large set of interfaces being registered for use, so might require ignoring the system configuration.
-
-The Resolver will properly follow CNAME chains as well as SRV record lookups.
-
-## Client
-
-The Hickory DNS Client is intended to be used for operating against a DNS server
-directly. It can be used for verifying records or updating records for servers
-that support SIG0 and dynamic update. The Client is also capable of validating
-DNSSEC. NSEC and NSEC3 validation are supported. Today, the Tokio async runtime
-is required.
-
-### Unique client side implementations
-
-These are standards supported by the DNS protocol. The client implements them
-as high level interfaces, which is a bit more rare.
-
-| Feature                                                                                                                   | Description                                           |
-| ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| [SyncDnssecClient](https://docs.rs/hickory-client/latest/hickory_client/client/struct.SyncDnssecClient.html)              | DNSSEC validation                                     |
-| [create](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.create)                     | atomic create of a record, with authenticated request |
-| [append](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.append)                     | verify existence of a record and append to it         |
-| [compare_and_swap](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.compare_and_swap) | atomic (depends on server) compare and swap           |
-| [delete_by_rdata](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.delete_by_rdata)   | delete a specific record                              |
-| [delete_rrset](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.delete_rrset)         | delete an entire record set                           |
-| [delete_all](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.delete_all)             | delete all records sets with a given name             |
-| [notify](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.notify)                     | notify server that it should reload a zone            |
-
-## Server
-
-The server code is complete, the daemon supports IPv4 and IPv6, UDP and TCP.
-There currently is no way to limit TCP and AXFR operations, so it is still not
-recommended to put into production as TCP can be used to DOS the service.
-Zone file parsing is complete and supported. There is currently no forking
-option, and the server is not yet threaded (although it is implemented with
-async IO, so threading may not be a huge benefit). There is still a lot of work
-to do before a server can be trusted with this externally. Running it behind a
-firewall on a private network would be safe.
-
-Zone signing support is complete, to insert a key store a pem encoded rsa file
-in the same directory as the initial zone file with the `.key` suffix. _Note_:
-this must be only readable by the current user. If one is not present one will
-be created and written to the correct location. This also acts as the initial
-key for dynamic update SIG(0) validation. To get the public key, the `DNSKEY`
-record for the zone can be queried. This is needed to provide to other
-upstream servers to create the `DS` key. Dynamic DNS is also complete,
-if enabled, a journal file will be stored next to the zone file with the
-`jrnl` suffix. _Note_: if the key is changed or updated, it is currently the
-operators responsibility to remove the only public key from the zone, this
-allows for the `DNSKEY` to exist for some unspecified period of time during
-key rotation. Rotating the key while online is not currently supported, so
-a restart of the server process is required.
-
-### DNS-over-TLS and DNS-over-HTTPS on the Server
-
-Support of TLS on the Server is managed through a pkcs12 der file. The documentation is captured in the example test config file, [example.toml](https://github.com/hickory-dns/hickory-dns/blob/main/tests/test-data/test_configs/example.toml). A registered certificate to the server can be pinned to the Client with the `add_ca()` method. Alternatively, as the client uses the rust-native-tls library, it should work with certificate signed by any standard CA.
-
-## DNS-over-TLS and DNS-over-HTTPS
-
-DoT and DoH are supported. This is accomplished through the use of one of `native-tls`, `openssl`, or `rustls` (only `rustls` is currently supported for DoH). The Resolver requires valid DoT or DoH resolvers being registered in order to be used.
-
-To use DoT or DoH with the `Client`, construct it with `TlsClientStream` or
-`HttpsClientStream`. Client authentication/mTLS is currently not supported,
-there are some issues still being worked on. TLS is useful for Server
-authentication and connection privacy.
-
-To enable DoT, one of the features `dns-over-native-tls`, `dns-over-openssl`, or
-`dns-over-rustls` must be enabled. `dns-over-https-rustls` is used for DoH.
-
 ## DNSSEC status
 
 The current root key is bundled into the system, and used by default. This gives
 validation of DNSKEY and DS records back to the root. NSEC and NSEC3 are
 implemented.
 
-Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, one of the features `dnssec-openssl` or `dnssec-ring` must be enabled.
+Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, enable the `dnssec-ring` feature.
 
 ## RFCs implemented
 
@@ -177,37 +106,9 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 - [DNSCrypt](https://dnscrypt.org): Trusted DNS queries
 - [S/MIME](https://tools.ietf.org/html/draft-ietf-dane-smime-09): Domain Names For S/MIME
 
-# Usage
-
-This assumes that you have [Rust](https://www.rust-lang.org) stable installed. These
-presume that the hickory-dns repos have already been synced to the local system:
-
-    git clone https://github.com/hickory-dns/hickory-dns.git
-    cd hickory-dns
-
-## Prerequisites
-
-### Minimum Rust Version
+## Minimum Rust Version
 
 - The current minimum rustc version for this project is `1.70`
-- OpenSSL development libraries (optional in client and resolver, min version 1.0.2)
-
-### Mac OS X: using homebrew
-
-```
-  brew install openssl
-  export OPENSSL_INCLUDE_DIR=`brew --prefix openssl`/include
-  export OPENSSL_LIB_DIR=`brew --prefix openssl`/lib
-```
-
-### Debian-based (includes Ubuntu & Raspbian): using apt-get
-
-```
-  # note for openssl that a minimum version of 1.0.2 is required for TLS,
-  #  if this is an issue, TLS can be disabled (on the client), see below.
-  $ apt-get install openssl
-  $ apt-get install libssl-dev pkg-config
-```
 
 ## Testing
 
@@ -256,40 +157,6 @@ just dns-over-https-rustls
 cargo build --release -p hickory-dns
 ```
 
-## Running
-
-Warning: Hickory DNS is still under development, running in production is not
-recommended. The server is currently only single-threaded, it is non-blocking
-so this should allow it to work with most internal loads.
-
-- Verify the version
-
-```shell
-./target/release/hickory-dns --version
-```
-
-- Get help
-
-```shell
-./target/release/hickory-dns --help
-```
-
-- Launch `hickory-dns` server with test config
-
-Note that if the `-p` parameter is not passed, the server will run on default
-DNS ports. There are separate port options for DoT and DoH servers, see
-`hickory-dns --help`
-
-```shell
-./target/release/hickory-dns -c ./tests/test-data/test_configs/example.toml -z ./tests/test-data/test_configs/ -p 24141
-```
-
-- Query the just launched server with `dig`
-
-```shell
-dig @127.0.0.1 -p 24141 www.example.com
-```
-
 ## Using the hickory-resolver CLI
 
 Available in `0.20`
@@ -311,46 +178,6 @@ $ resolve www.example.com.
 Querying for www.example.com. A from udp:8.8.8.8:53, tcp:8.8.8.8:53, udp:8.8.4.4:53, tcp:8.8.4.4:53, udp:[2001:4860:4860::8888]:53, tcp:[2001:4860:4860::8888]:53, udp:[2001:4860:4860::8844]:53, tcp:[2001:4860:4860::8844]:53
 Success for query name: www.example.com. type: A class: IN
         www.example.com. 21063 IN A 93.184.215.14
-```
-
-## Using as a dependency and custom features
-
-The Client has a few features which can be disabled for different reasons when embedding in other software.
-
-- `dnssec-openssl`
-  Uses OpenSSL for DNSSEC validation.
-
-- `dnssec-ring`
-  Ring support can be used for RSA and ED25519 DNSSEC validation.
-
-- `dns-over-native-tls`
-  Uses `native-tls` for DNS-over-TLS implementation, only supported in client and resolver, not server.
-
-- `dns-over-openssl`
-  Uses `openssl` for DNS-over-TLS implementation supported in server and client, resolver does not have default CA chains.
-
-- `dns-over-rustls`
-  Uses `rustls` for DNS-over-TLS implementation. This is the best option where a pure Rust toolchain is desired. Supported in client, resolver, and server.
-
-- `dns-over-https-rustls`
-  Uses `rustls` for DNS-over-HTTPS (and DNS-over-TLS will be enabled) implementation, only supported in client, resolver, and server. This is the best option where a pure Rust toolchain is desired.
-
-- `mdns` _EXPERIMENTAL_
-  Enables the experimental mDNS features as well as DNS-SD. This currently has known issues.
-
-Using custom features in dependencies:
-
-```
-[dependencies]
-  ...
-hickory-client = { version = "*", default-features = false, features = ["dnssec-openssl"] }
-```
-
-Using custom features during build:
-
-```console
-$> cargo build --release --features dns-over-rustls
-...
 ```
 
 ## FAQ

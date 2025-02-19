@@ -6,6 +6,12 @@ This library contains implementations for IPv4 (A) and IPv6 (AAAA) resolution, m
 
 **NOTICE** This project was rebranded from Trust-DNS to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, this crate/binary has been moved to [hickory-resolver](https://crates.io/crates/hickory-resolver), from `0.24` and onward, for prior versions see [trust-dns-resolver](https://crates.io/crates/trust-dns-resolver).
 
+## Status
+
+The Hickory DNS Resolver is a native Rust implementation for stub resolution in Rust applications. The Resolver supports many common query patterns, all of which can be configured when creating the Resolver. It is capable of using system configuration on Unix and Windows. On Windows there is a known issue that relates to a large set of interfaces being registered for use, so might require ignoring the system configuration.
+
+The Resolver will properly follow CNAME chains as well as SRV record lookups.
+
 ## Features
 
 - Various IPv4 and IPv6 lookup strategies
@@ -16,8 +22,15 @@ This library contains implementations for IPv4 (A) and IPv6 (AAAA) resolution, m
 - DNSSEC validation
 - Generic Record Type Lookup
 - CNAME chain resolution
-- DNS over TLS (utilizing `native-tls`, `rustls`, and `openssl`; `native-tls` or `rustls` are recommended)
-- DNS over HTTPS (currently only supports `rustls`)
+
+## Optional protocol support
+
+The following DNS protocols are optionally supported:
+
+- Enable `dns-over-rustls` for DNS over TLS (DoT)
+- Enable `dns-over-https-rustls` for DNS over HTTP/2 (DoH)
+- Enable `dns-over-quic` for DNS over QUIC (DoQ)
+- Enable `dns-over-h3` for DNS over HTTP/3 (DoH3)
 
 ## Example
 
@@ -44,46 +57,13 @@ let response = resolver.lookup_ip("www.example.com.").await.unwrap();
 let _address = response.iter().next().expect("no addresses returned!");
 ```
 
-## DNS-over-TLS and DNS-over-HTTPS
-
-DoT and DoH are supported. This is accomplished through the use of one of `native-tls`, `openssl`, or `rustls` (only `rustls` is currently supported for DoH). The Resolver requires valid DoT or DoH resolvers being registered in order to be used.
-
-Client authentication/mTLS is currently not supported, there are some issues
-still being worked on. TLS is useful for Server authentication and connection
-privacy.
-
-To enable DoT, one of the features `dns-over-native-tls`, `dns-over-openssl`, or
-`dns-over-rustls` must be enabled. `dns-over-https-rustls` is used for DoH.
-
-### Example
-
-Enable the TLS library through the dependency on `hickory-resolver`:
-
-```toml
-hickory-resolver = { version = "*", features = ["dns-over-rustls"] }
-```
-
-A default TLS configuration is available for Cloudflare's `1.1.1.1` DNS service (Quad9 as well):
-
-```rust
-// Construct a new Resolver with default configuration options
-let resolver = Resolver::new(
-    ResolverConfig::cloudflare_tls(),
-    ResolverOpts::default(),
-    TokioConnectionProvider::default(),
-);
-
-/// see example above...
-```
-
 ## DNSSEC status
 
 The current root key is bundled into the system, and used by default. This gives
 validation of DNSKEY and DS records back to the root. NSEC and NSEC3 are
 implemented.
 
-To enable DNSSEC, one of the features `dnssec-openssl` or `dnssec-ring` must be
-enabled.
+Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, enable the `dnssec-ring` feature.
 
 ## Testing the resolver via CLI with resolve
 
