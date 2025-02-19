@@ -7,6 +7,7 @@
 
 //! hash functions for DNSSEC operations
 
+use alloc::{borrow::ToOwned, vec::Vec};
 use time::OffsetDateTime;
 
 use super::Algorithm;

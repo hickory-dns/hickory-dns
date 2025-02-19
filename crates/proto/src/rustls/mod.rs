@@ -7,7 +7,7 @@
 
 //! TLS protocol related components for DNS over TLS
 
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 #[cfg(not(feature = "rustls-platform-verifier"))]
 use rustls::RootCertStore;

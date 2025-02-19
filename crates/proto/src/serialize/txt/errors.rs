@@ -1,6 +1,5 @@
-use std::{fmt, io};
-
-use thiserror::Error;
+use alloc::{fmt, string::String};
+use std::io;
 
 #[cfg(feature = "backtrace")]
 use crate::trace;
@@ -9,11 +8,13 @@ use crate::{
     rr::RecordType,
     serialize::txt::Token,
 };
+
 #[cfg(feature = "backtrace")]
 use backtrace::Backtrace as ExtBacktrace;
+use thiserror::Error;
 
 /// An alias for parse results returned by functions of this crate
-pub type ParseResult<T> = ::std::result::Result<T, ParseError>;
+pub type ParseResult<T> = ::core::result::Result<T, ParseError>;
 
 /// The error kind for parse errors that get returned in the crate
 #[derive(Debug, Error)]
@@ -62,7 +63,7 @@ pub enum ParseErrorKind {
 
     /// A number parsing error
     #[error("error parsing number: {0}")]
-    ParseInt(#[from] std::num::ParseIntError),
+    ParseInt(#[from] core::num::ParseIntError),
 
     /// An error got returned by the hickory-proto crate
     #[error("proto error: {0}")]
@@ -186,8 +187,8 @@ impl From<LexerError> for ParseError {
     }
 }
 
-impl From<std::num::ParseIntError> for ParseError {
-    fn from(e: std::num::ParseIntError) -> Self {
+impl From<core::num::ParseIntError> for ParseError {
+    fn from(e: core::num::ParseIntError) -> Self {
         ParseErrorKind::from(e).into()
     }
 }
@@ -201,8 +202,8 @@ impl From<ProtoError> for ParseError {
     }
 }
 
-impl From<std::convert::Infallible> for ParseError {
-    fn from(_e: std::convert::Infallible) -> Self {
+impl From<core::convert::Infallible> for ParseError {
+    fn from(_e: core::convert::Infallible) -> Self {
         panic!("infallible")
     }
 }
@@ -217,7 +218,7 @@ impl From<ParseError> for io::Error {
 }
 
 /// An alias for lexer results returned by functions of this crate
-pub(crate) type LexerResult<T> = ::std::result::Result<T, LexerError>;
+pub(crate) type LexerResult<T> = core::result::Result<T, LexerError>;
 
 /// The error kind for lexer errors that get returned in the crate
 #[derive(Eq, PartialEq, Debug, Error, Clone)]

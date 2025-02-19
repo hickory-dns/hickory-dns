@@ -9,7 +9,7 @@
 //!
 //! see [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
 
-use std::ops::Deref;
+use core::ops::Deref;
 
 use once_cell::sync::Lazy;
 

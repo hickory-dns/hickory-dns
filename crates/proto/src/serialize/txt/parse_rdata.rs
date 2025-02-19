@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 //! record data enum variants
+use alloc::vec::Vec;
 
 #[cfg(feature = "__dnssec")]
 use crate::dnssec::rdata::DNSSECRData;
@@ -137,7 +138,7 @@ mod tests {
     use crate::dnssec::rdata::DS;
     use crate::rr::domain::Name;
     use crate::rr::rdata::*;
-    use std::str::FromStr;
+    use core::str::FromStr;
 
     #[test]
     fn test_a() {

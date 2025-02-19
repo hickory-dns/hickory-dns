@@ -7,7 +7,7 @@
 
 //! Operation code for queries, updates, and responses
 
-use std::{convert::From, fmt};
+use core::{convert::From, fmt};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

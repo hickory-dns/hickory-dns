@@ -7,7 +7,8 @@
 
 //! Basic protocol message for DNS
 
-use std::{fmt, iter, mem, ops::Deref};
+use alloc::{boxed::Box, fmt, vec::Vec};
+use core::{iter, mem, ops::Deref};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

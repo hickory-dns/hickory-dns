@@ -7,7 +7,8 @@
 
 //! CSYNC record for synchronizing data from a child zone to the parent
 
-use std::fmt;
+use alloc::vec::Vec;
+use core::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -206,6 +207,8 @@ impl fmt::Display for CSYNC {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
+    use std::println;
 
     use super::*;
 

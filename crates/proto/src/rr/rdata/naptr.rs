@@ -7,7 +7,8 @@
 
 //! Dynamic Delegation Discovery System
 
-use std::fmt;
+use alloc::{boxed::Box, string::String};
+use core::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -298,10 +299,13 @@ impl fmt::Display for NAPTR {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    use alloc::vec::Vec;
+    use std::println;
+
     use super::*;
     #[test]
     fn test() {
-        use std::str::FromStr;
+        use core::str::FromStr;
 
         let rdata = NAPTR::new(
             8,
@@ -326,7 +330,7 @@ mod tests {
 
     #[test]
     fn test_bad_data() {
-        use std::str::FromStr;
+        use core::str::FromStr;
 
         let rdata = NAPTR::new(
             8,

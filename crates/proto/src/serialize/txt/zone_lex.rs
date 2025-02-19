@@ -5,8 +5,10 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::borrow::Cow;
-use std::{char, iter::Peekable};
+use alloc::borrow::Cow;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::{char, iter::Peekable};
 
 use crate::serialize::txt::errors::{LexerError, LexerErrorKind, LexerResult};
 
@@ -394,6 +396,8 @@ pub enum Token {
 
 #[cfg(test)]
 mod lex_test {
+    use alloc::string::ToString;
+
     use super::*;
 
     #[allow(clippy::uninlined_format_args)]

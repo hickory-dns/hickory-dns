@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 //! service records for identify port mapping for specific services on a host
-use std::fmt;
+use core::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -287,11 +287,14 @@ impl fmt::Display for SRV {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    use alloc::vec::Vec;
+    use std::println;
+
     use super::*;
 
     #[test]
     fn test() {
-        use std::str::FromStr;
+        use core::str::FromStr;
 
         let rdata = SRV::new(1, 2, 3, Name::from_str("_dns._tcp.example.com.").unwrap());
 

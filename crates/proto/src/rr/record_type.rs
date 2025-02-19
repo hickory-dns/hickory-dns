@@ -8,9 +8,10 @@
 //! record type definitions
 #![allow(clippy::use_self)]
 
-use std::cmp::Ordering;
-use std::fmt::{self, Display, Formatter};
-use std::str::FromStr;
+use alloc::string::ToString;
+use core::cmp::Ordering;
+use core::fmt::{self, Display, Formatter};
+use core::str::FromStr;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -458,6 +459,8 @@ impl Display for RecordType {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
+    use std::println;
 
     use super::*;
 

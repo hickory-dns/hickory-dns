@@ -7,14 +7,18 @@
 
 //! `DnsResponse` wraps a `Message` and any associated connection details
 
-use std::{
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+use core::{
     convert::TryFrom,
-    future::Future,
-    io,
     ops::{Deref, DerefMut},
+};
+use core::{
+    future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
+use std::io;
 
 use futures_channel::mpsc;
 use futures_util::{ready, stream::Stream};

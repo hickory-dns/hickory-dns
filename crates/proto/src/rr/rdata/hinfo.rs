@@ -7,7 +7,8 @@
 
 //! HINFO record for storing host information
 
-use std::fmt;
+use alloc::{boxed::Box, string::String};
+use core::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -180,6 +181,9 @@ impl fmt::Display for HINFO {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
+    use alloc::{string::ToString, vec::Vec};
+    use std::println;
 
     use super::*;
 

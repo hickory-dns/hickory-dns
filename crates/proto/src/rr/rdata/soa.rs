@@ -7,7 +7,7 @@
 
 //! start of authority record defining ownership and defaults for the zone
 
-use std::fmt;
+use core::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -355,13 +355,16 @@ impl fmt::Display for SOA {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    use alloc::vec::Vec;
+    use std::println;
+
     use crate::{rr::RecordDataDecodable, serialize::binary::Restrict};
 
     use super::*;
 
     #[test]
     fn test() {
-        use std::str::FromStr;
+        use core::str::FromStr;
 
         let rdata = SOA::new(
             Name::from_str("m.example.com.").unwrap(),
