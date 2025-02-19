@@ -367,6 +367,7 @@ mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use alloc::string::ToString;
+    #[cfg(feature = "std")]
     use std::{eprintln, println};
 
     use super::*;
@@ -400,6 +401,7 @@ mod tests {
 
     fn assert_panic_label_too_long(error: ProtoResult<Label>, len: usize) {
         // poor man debug since ProtoResult don't implement Partial Eq due to ssl errors.
+        #[cfg(feature = "std")]
         eprintln!("{error:?}");
         assert!(error.is_err());
         match error.unwrap_err().kind() {
@@ -550,6 +552,7 @@ mod tests {
         ];
 
         for (left, right) in comparisons {
+            #[cfg(feature = "std")]
             println!("left: {left}, right: {right}");
             assert_eq!(left.cmp(&right), Ordering::Less);
         }

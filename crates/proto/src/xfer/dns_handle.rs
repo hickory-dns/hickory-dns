@@ -84,6 +84,7 @@ pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
     fn lookup(&self, query: Query, options: DnsRequestOptions) -> Self::Response;
 }
 
+#[cfg_attr(not(any(feature = "std", feature = "no-std-rand")), expect(unused_mut))]
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 fn build_request(mut query: Query, options: DnsRequestOptions) -> DnsRequest {
     // build the message
@@ -93,6 +94,7 @@ fn build_request(mut query: Query, options: DnsRequestOptions) -> DnsRequest {
     let id: u16 = random();
     let mut original_query = None;
 
+    #[cfg(feature = "std")]
     if options.case_randomization {
         original_query = Some(query.clone());
         query.name.randomize_label_case();

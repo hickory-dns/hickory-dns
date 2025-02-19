@@ -824,6 +824,7 @@ mod tests {
     use alloc::vec::Vec;
     use core::cmp::Ordering;
     use core::str::FromStr;
+    #[cfg(feature = "std")]
     use std::println;
 
     use super::*;
@@ -886,6 +887,7 @@ mod tests {
 
         assert_eq!(record.clone(), record.clone());
         for (r, g) in compares {
+            #[cfg(feature = "std")]
             println!("r, g: {r:?}, {g:?}");
             assert_eq!(r.cmp(g), Ordering::Less);
         }

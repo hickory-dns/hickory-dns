@@ -16,6 +16,7 @@
 #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
 use core::fmt::Debug;
+#[cfg(feature = "std")]
 use std::println;
 
 use super::*;
@@ -118,26 +119,30 @@ fn emit_u32() {
     test_emit_data_set(get_u32_data(), |e, d| e.emit_u32(d));
 }
 
+#[cfg_attr(not(feature = "std"), expect(clippy::unused_enumerate_index))]
 pub(crate) fn test_read_data_set<E, F>(data_set: Vec<(E, Vec<u8>)>, read_func: F)
 where
     E: PartialEq<E> + Debug,
     F: Fn(BinDecoder<'_>) -> ProtoResult<E>,
 {
-    for (test_pass, (expect, binary)) in data_set.into_iter().enumerate() {
-        println!("test {test_pass}: {binary:?}");
+    for (_test_pass, (expect, binary)) in data_set.into_iter().enumerate() {
+        #[cfg(feature = "std")]
+        println!("test {_test_pass}: {binary:?}");
 
         let decoder = BinDecoder::new(&binary);
         assert_eq!(read_func(decoder).unwrap(), expect);
     }
 }
 
+#[cfg_attr(not(feature = "std"), expect(clippy::unused_enumerate_index))]
 pub(crate) fn test_emit_data_set<S, F>(data_set: Vec<(S, Vec<u8>)>, emit_func: F)
 where
     F: Fn(&mut BinEncoder<'_>, S) -> ProtoResult<()>,
     S: Debug,
 {
-    for (test_pass, (data, expect)) in data_set.into_iter().enumerate() {
-        println!("test {test_pass}: {data:?}");
+    for (_test_pass, (data, expect)) in data_set.into_iter().enumerate() {
+        #[cfg(feature = "std")]
+        println!("test {_test_pass}: {data:?}");
 
         let mut bytes: Vec<u8> = Vec::with_capacity(512);
         {

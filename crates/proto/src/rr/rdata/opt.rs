@@ -785,6 +785,7 @@ impl FromStr for ClientSubnet {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    #[cfg(feature = "std")]
     use std::println;
 
     use super::*;
@@ -800,6 +801,7 @@ mod tests {
         assert!(rdata.emit(&mut encoder).is_ok());
         let bytes = encoder.into_bytes();
 
+        #[cfg(feature = "std")]
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
@@ -880,6 +882,7 @@ mod tests {
         let expected_bytes: Vec<u8> = vec![0x00, 0x01, 0x18, 0x00, 0xac, 0x01, 0x01];
         let ecs: ClientSubnet = "172.1.1.1/24".parse().unwrap();
         let bytes = Vec::<u8>::try_from(&ecs).unwrap();
+        #[cfg(feature = "std")]
         println!("bytes: {bytes:?}");
         assert_eq!(bytes, expected_bytes);
     }
