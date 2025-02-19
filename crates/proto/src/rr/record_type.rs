@@ -556,7 +556,10 @@ mod tests {
         #[cfg(not(feature = "__dnssec"))]
         let dnssec_record_names = &[];
 
+        #[cfg(feature = "std")]
         let mut rtypes = std::collections::HashSet::new();
+        #[cfg(not(feature = "std"))]
+        let mut rtypes = alloc::collections::BTreeSet::new();
         for name in record_names.iter().chain(dnssec_record_names) {
             let rtype: RecordType = name.parse().unwrap();
             assert_eq!(rtype.to_string().to_ascii_uppercase().as_str(), *name);
