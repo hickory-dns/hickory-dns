@@ -42,6 +42,9 @@ dns-over-h3: (default "--features=dns-over-h3" "--ignore=\\{async-std-resolver,h
 # Check, build, and test all crates with dnssec-ring enabled
 dnssec-ring: (default "--features=dnssec-ring" "--ignore=\\{async-std-resolver,hickory-compatibility,test-support\\}")
 
+# Check, build, and test crates with async-std enabled
+async-std: (default "--no-default-features --features=async-std" "--ignore=\\{hickory-compatibility,test-support,hickory-client,hickory-recursor,hickory-server,hickory-dns,hickory-util,hickory-integration\\}")
+
 # Run check on all projects in the workspace
 check feature='' ignore='':
     cargo ws exec {{ignore}} cargo {{MSRV}} check --locked --all-targets {{feature}}
