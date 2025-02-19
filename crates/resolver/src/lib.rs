@@ -225,8 +225,6 @@ use name_server::TokioConnectionProvider;
 #[cfg(feature = "dns-over-quic")]
 mod quic;
 mod resolver;
-#[cfg(feature = "testing")]
-pub use resolver::testing;
 pub use resolver::LookupFuture;
 pub use resolver::Resolver;
 #[cfg(feature = "tokio-runtime")]

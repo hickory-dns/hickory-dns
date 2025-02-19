@@ -49,11 +49,11 @@ mod tests {
 
     use super::AsyncStdConnectionProvider;
     #[cfg(feature = "system-config")]
-    use crate::testing::{hosts_lookup_test, system_lookup_test};
+    use crate::resolver::testing::{hosts_lookup_test, system_lookup_test};
     use crate::{
         config::ResolverConfig,
         proto::runtime::Executor,
-        testing::{
+        resolver::testing::{
             domain_search_test, fqdn_test, idna_test, ip_lookup_across_threads_test,
             ip_lookup_test, large_ndots_test, localhost_ipv4_test, localhost_ipv6_test,
             lookup_test, ndots_test, search_ipv4_large_ndots_test, search_ipv6_large_ndots_test,

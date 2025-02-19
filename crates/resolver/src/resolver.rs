@@ -528,9 +528,8 @@ where
 }
 
 /// Unit tests compatible with different runtime.
-#[cfg(any(test, feature = "testing"))]
-#[allow(dead_code, unreachable_pub)]
-pub mod testing {
+#[cfg(all(test, any(feature = "async-std", feature = "tokio-runtime")))]
+pub(crate) mod testing {
     use std::{net::*, str::FromStr};
 
     use crate::config::{LookupIpStrategy, NameServerConfig, ResolverConfig, ResolverOpts};
@@ -539,7 +538,7 @@ pub mod testing {
     use crate::Resolver;
 
     /// Test IP lookup from URLs.
-    pub async fn lookup_test<R: ConnectionProvider>(config: ResolverConfig, handle: R) {
+    pub(crate) async fn lookup_test<R: ConnectionProvider>(config: ResolverConfig, handle: R) {
         let resolver = Resolver::<R>::new(config, ResolverOpts::default(), handle);
 
         let response = resolver
@@ -551,7 +550,7 @@ pub mod testing {
     }
 
     /// Test IP lookup from IP literals.
-    pub async fn ip_lookup_test<R: ConnectionProvider>(handle: R) {
+    pub(crate) async fn ip_lookup_test<R: ConnectionProvider>(handle: R) {
         let resolver =
             Resolver::<R>::new(ResolverConfig::default(), ResolverOpts::default(), handle);
 
@@ -579,7 +578,7 @@ pub mod testing {
     }
 
     /// Test IP lookup from IP literals across threads.
-    pub fn ip_lookup_across_threads_test<E: Executor, R: ConnectionProvider>(handle: R) {
+    pub(crate) fn ip_lookup_across_threads_test<E: Executor, R: ConnectionProvider>(handle: R) {
         // Test ensuring that running the background task on a separate
         // executor in a separate thread from the futures returned by the
         // Resolver works correctly.
@@ -628,7 +627,7 @@ pub mod testing {
 
     /// Test IP lookup from URLs with DNSSEC validation.
     #[cfg(feature = "dnssec-ring")]
-    pub async fn sec_lookup_test<R: ConnectionProvider>(handle: R) {
+    pub(crate) async fn sec_lookup_test<R: ConnectionProvider>(handle: R) {
         let resolver = Resolver::new(
             ResolverConfig::default(),
             ResolverOpts {
@@ -654,7 +653,7 @@ pub mod testing {
     /// Test IP lookup from domains that exist but unsigned with DNSSEC validation.
     #[allow(deprecated)]
     #[cfg(feature = "dnssec-ring")]
-    pub async fn sec_lookup_fails_test<R: ConnectionProvider>(handle: R) {
+    pub(crate) async fn sec_lookup_fails_test<R: ConnectionProvider>(handle: R) {
         let resolver = Resolver::new(
             ResolverConfig::default(),
             ResolverOpts {
@@ -676,7 +675,7 @@ pub mod testing {
 
     /// Test Resolver created from system configuration with IP lookup.
     #[cfg(feature = "system-config")]
-    pub async fn system_lookup_test<R: ConnectionProvider>(handle: R) {
+    pub(crate) async fn system_lookup_test<R: ConnectionProvider>(handle: R) {
         let resolver = Resolver::<R>::from_system_conf(handle).expect("failed to create resolver");
 
         let response = resolver
@@ -701,7 +700,7 @@ pub mod testing {
 
     /// Test Resolver created from system configuration with host lookups.
     #[cfg(feature = "system-config")]
-    pub async fn hosts_lookup_test<R: ConnectionProvider>(handle: R) {
+    pub(crate) async fn hosts_lookup_test<R: ConnectionProvider>(handle: R) {
         let resolver = Resolver::<R>::from_system_conf(handle).expect("failed to create resolver");
 
         let response = resolver
@@ -720,7 +719,7 @@ pub mod testing {
     }
 
     /// Test fqdn.
-    pub async fn fqdn_test<R: ConnectionProvider>(handle: R) {
+    pub(crate) async fn fqdn_test<R: ConnectionProvider>(handle: R) {
         let domain = Name::from_str("incorrect.example.com.").unwrap();
         let search = vec![
             Name::from_str("bad.example.com.").unwrap(),
@@ -750,7 +749,7 @@ pub mod testing {
     }
 
     /// Test ndots with non-fqdn.
-    pub async fn ndots_test<R: ConnectionProvider>(handle: R) {
+    pub(crate) async fn ndots_test<R: ConnectionProvider>(handle: R) {
         let domain = Name::from_str("incorrect.example.com.").unwrap();
         let search = vec![
             Name::from_str("bad.example.com.").unwrap(),
@@ -783,7 +782,7 @@ pub mod testing {
     }
 
     /// Test large ndots with non-fqdn.
-    pub async fn large_ndots_test<R: ConnectionProvider>(handle: R) {
+    pub(crate) async fn large_ndots_test<R: ConnectionProvider>(handle: R) {
         let domain = Name::from_str("incorrect.example.com.").unwrap();
         let search = vec![
             Name::from_str("bad.example.com.").unwrap(),
@@ -816,7 +815,7 @@ pub mod testing {
     }
 
     /// Test domain search.
-    pub async fn domain_search_test<R: ConnectionProvider>(handle: R) {
+    pub(crate) async fn domain_search_test<R: ConnectionProvider>(handle: R) {
         // domain is good now, should be combined with the name to form www.example.com
         let domain = Name::from_str("example.com.").unwrap();
         let search = vec![
@@ -848,7 +847,7 @@ pub mod testing {
     }
 
     /// Test search lists.
-    pub async fn search_list_test<R: ConnectionProvider>(handle: R) {
+    pub(crate) async fn search_list_test<R: ConnectionProvider>(handle: R) {
         let domain = Name::from_str("incorrect.example.com.").unwrap();
         let search = vec![
             // let's skip one search domain to test the loop...
@@ -881,7 +880,7 @@ pub mod testing {
     }
 
     /// Test idna.
-    pub async fn idna_test<R: ConnectionProvider>(handle: R) {
+    pub(crate) async fn idna_test<R: ConnectionProvider>(handle: R) {
         let resolver =
             Resolver::<R>::new(ResolverConfig::default(), ResolverOpts::default(), handle);
 
@@ -896,7 +895,7 @@ pub mod testing {
     }
 
     /// Test ipv4 localhost.
-    pub async fn localhost_ipv4_test<R: ConnectionProvider>(handle: R) {
+    pub(crate) async fn localhost_ipv4_test<R: ConnectionProvider>(handle: R) {
         let resolver = Resolver::<R>::new(
             ResolverConfig::default(),
             ResolverOpts {
@@ -916,7 +915,7 @@ pub mod testing {
     }
 
     /// Test ipv6 localhost.
-    pub async fn localhost_ipv6_test<R: ConnectionProvider>(handle: R) {
+    pub(crate) async fn localhost_ipv6_test<R: ConnectionProvider>(handle: R) {
         let resolver = Resolver::<R>::new(
             ResolverConfig::default(),
             ResolverOpts {
@@ -939,7 +938,7 @@ pub mod testing {
     }
 
     /// Test ipv4 search with large ndots.
-    pub async fn search_ipv4_large_ndots_test<R: ConnectionProvider>(handle: R) {
+    pub(crate) async fn search_ipv4_large_ndots_test<R: ConnectionProvider>(handle: R) {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_str("example.com").unwrap());
 
@@ -966,7 +965,7 @@ pub mod testing {
     }
 
     /// Test ipv6 search with large ndots.
-    pub async fn search_ipv6_large_ndots_test<R: ConnectionProvider>(handle: R) {
+    pub(crate) async fn search_ipv6_large_ndots_test<R: ConnectionProvider>(handle: R) {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_str("example.com").unwrap());
 
@@ -993,7 +992,7 @@ pub mod testing {
     }
 
     /// Test ipv6 name parse fails.
-    pub async fn search_ipv6_name_parse_fails_test<R: ConnectionProvider>(handle: R) {
+    pub(crate) async fn search_ipv6_name_parse_fails_test<R: ConnectionProvider>(handle: R) {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_str("example.com").unwrap());
 
