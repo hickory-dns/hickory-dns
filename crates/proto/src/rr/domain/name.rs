@@ -68,6 +68,7 @@ impl Name {
     }
 
     /// Randomize the case of ASCII alpha characters in a name
+    #[cfg(feature = "std")]
     pub fn randomize_label_case(&mut self) {
         // Generate randomness 32 bits at a time, because this is the smallest unit on which the
         // `rand` crate operates. One RNG call should be enough for most queries.
@@ -1532,7 +1533,7 @@ mod tests {
     use alloc::string::ToString;
     use core::cmp::Ordering;
     use core::iter;
-    use core::str::FromStr;
+    #[cfg(feature = "std")]
     use std::{collections::hash_map::DefaultHasher, println};
 
     use super::*;
@@ -1761,6 +1762,7 @@ mod tests {
         ];
 
         for (left, right) in comparisons {
+            #[cfg(feature = "std")]
             println!("left: {left}, right: {right}");
             assert_eq!(left.partial_cmp(&right), Some(Ordering::Equal));
         }
@@ -1804,6 +1806,7 @@ mod tests {
         ];
 
         for (left, right) in comparisons {
+            #[cfg(feature = "std")]
             println!("left: {left}, right: {right}");
             assert_eq!(left.cmp(&right), Ordering::Less);
         }
@@ -1823,6 +1826,7 @@ mod tests {
         ];
 
         for (left, right) in comparisons {
+            #[cfg(feature = "std")]
             println!("left: {left}, right: {right}");
             assert_eq!(left, right);
         }
@@ -2237,6 +2241,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn test_label_randomization() {
         let mut name = Name::root();
         name.randomize_label_case();
@@ -2335,6 +2340,7 @@ mod tests {
         assert!(max_zscore < 0.33);
     }
 
+    #[cfg(feature = "std")]
     fn std_deviation(mean: f64, data: &[f64]) -> f64 {
         match (mean, data.len()) {
             (data_mean, count) if count > 0 => {
@@ -2557,6 +2563,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn test_hash() {
         // verify that two identical names with and without the trailing dot hashes to the same value
         let mut hasher = DefaultHasher::new();

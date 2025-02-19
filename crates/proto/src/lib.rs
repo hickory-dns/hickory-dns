@@ -34,6 +34,7 @@
 
 //! Hickory DNS Protocol library
 
+#[cfg(feature = "std")]
 extern crate std;
 
 #[macro_use]
@@ -44,6 +45,7 @@ pub(crate) use core::net;
 #[cfg(feature = "std")]
 pub(crate) use std::net;
 
+#[cfg(feature = "std")]
 macro_rules! try_ready_stream {
     ($e:expr) => {{
         match $e {

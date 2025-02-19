@@ -1129,8 +1129,7 @@ impl From<Ipv6Addr> for RData {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    use alloc::string::ToString;
-    use core::str::FromStr;
+    #[cfg(feature = "std")]
     use std::println;
 
     use super::*;
@@ -1288,8 +1287,9 @@ mod tests {
 
     #[test]
     fn test_read() {
-        for (test_pass, (expect, binary)) in get_data().into_iter().enumerate() {
-            println!("test {test_pass}: {binary:?}");
+        for (_test_pass, (expect, binary)) in get_data().into_iter().enumerate() {
+            #[cfg(feature = "std")]
+            println!("test {_test_pass}: {binary:?}");
             let length = binary.len() as u16; // pre exclusive borrow
             let mut decoder = BinDecoder::new(&binary);
 

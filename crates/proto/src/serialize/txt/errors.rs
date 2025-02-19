@@ -54,6 +54,7 @@ pub enum ParseErrorKind {
     DataEncoding(#[from] data_encoding::DecodeError),
 
     /// An error got returned from IO
+    #[cfg(feature = "std")]
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 
@@ -95,6 +96,7 @@ impl Clone for ParseErrorKind {
 
             AddrParse(e) => AddrParse(e.clone()),
             DataEncoding(e) => DataEncoding(*e),
+            #[cfg(feature = "std")]
             Io(e) => Io(std::io::Error::from(e.kind())),
             Lexer(e) => Lexer(e.clone()),
             ParseInt(e) => ParseInt(e.clone()),

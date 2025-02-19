@@ -16,6 +16,7 @@
 #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
 use core::fmt::Debug;
+#[cfg(feature = "std")]
 use std::println;
 
 use super::*;
@@ -123,8 +124,9 @@ where
     E: PartialEq<E> + Debug,
     F: Fn(BinDecoder<'_>) -> ProtoResult<E>,
 {
-    for (test_pass, (expect, binary)) in data_set.into_iter().enumerate() {
-        println!("test {test_pass}: {binary:?}");
+    for (_test_pass, (expect, binary)) in data_set.into_iter().enumerate() {
+        #[cfg(feature = "std")]
+        println!("test {_test_pass}: {binary:?}");
 
         let decoder = BinDecoder::new(&binary);
         assert_eq!(read_func(decoder).unwrap(), expect);
@@ -136,8 +138,9 @@ where
     F: Fn(&mut BinEncoder<'_>, S) -> ProtoResult<()>,
     S: Debug,
 {
-    for (test_pass, (data, expect)) in data_set.into_iter().enumerate() {
-        println!("test {test_pass}: {data:?}");
+    for (_test_pass, (data, expect)) in data_set.into_iter().enumerate() {
+        #[cfg(feature = "std")]
+        println!("test {_test_pass}: {data:?}");
 
         let mut bytes: Vec<u8> = Vec::with_capacity(512);
         {
