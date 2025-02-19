@@ -8,10 +8,10 @@
 //! `DnsHandle` types perform conversions of the raw DNS messages before sending the messages on the specified streams.
 
 use futures_util::stream::Stream;
-use rand;
 use tracing::debug;
 
 use crate::op::{Message, MessageType, OpCode, Query};
+use crate::random;
 use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage};
 use crate::{error::*, op::Edns};
 
@@ -72,7 +72,7 @@ fn build_request(mut query: Query, options: DnsRequestOptions) -> DnsRequest {
     let mut message: Message = Message::new();
     // TODO: This is not the final ID, it's actually set in the poll method of DNS future
     //  should we just remove this?
-    let id: u16 = rand::random();
+    let id: u16 = random();
     let mut original_query = None;
 
     #[cfg(feature = "std")]

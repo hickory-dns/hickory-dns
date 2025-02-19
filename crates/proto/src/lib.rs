@@ -95,3 +95,48 @@ pub use crate::xfer::retry_dns_handle::RetryDnsHandle;
 #[cfg(feature = "backtrace")]
 pub use error::{ENABLE_BACKTRACE, ExtBacktrace};
 pub use error::{ForwardData, ForwardNSData, ProtoError, ProtoErrorKind};
+
+#[cfg(feature = "std")]
+pub(crate) use rand::random;
+
+#[cfg(not(feature = "std"))]
+pub(crate) use no_std_rand::random;
+#[cfg(not(feature = "std"))]
+pub use no_std_rand::seed_rng;
+
+/// A simple shim that allows us to use a [`StdRng`] in `no_std` environments.
+#[cfg(not(feature = "std"))]
+mod no_std_rand {
+
+    use core::cell::RefCell;
+
+    use critical_section::Mutex;
+    use once_cell::sync::Lazy;
+    use rand::distr::{Distribution, StandardUniform};
+    use rand::{Rng, SeedableRng, rngs::StdRng};
+
+    static SEEDED_RNG: Lazy<Mutex<RefCell<StdRng>>> =
+        Lazy::new(|| Mutex::new(RefCell::new(StdRng::seed_from_u64(0x050BAD533D))));
+
+    /// Seed the RNG used to create random DNS IDs throughout the lib (no_std-only).
+    pub fn seed_rng(seed: u64) {
+        critical_section::with(|cs| {
+            *SEEDED_RNG.borrow(cs).borrow_mut() = StdRng::seed_from_u64(seed)
+        });
+    }
+
+    /// Generates a random value on `no_std`.
+    ///
+    /// ** WARNING **
+    /// The random value is predictable, unless seeded using [`crate::seed_rng`]!
+    ///
+    /// Depending on the usage of this library, this may yield predictable DNS requests that attackers can
+    /// use to feed wrong responses to hickory.
+    /// Always seed this library before using in `no_std` environments.
+    pub(crate) fn random<T>() -> T
+    where
+        StandardUniform: Distribution<T>,
+    {
+        critical_section::with(|cs| SEEDED_RNG.borrow(cs).borrow_mut().random())
+    }
+}
