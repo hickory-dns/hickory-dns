@@ -78,6 +78,8 @@ h3 = "0.0.6"
 h3-quinn = "0.0.7"
 http = "1.1"
 
+# no_std
+critical-section = { version = "1.1.1" }
 
 # others
 backtrace = "0.3.50"

@@ -67,7 +67,7 @@ jobs:
           targets: wasm32-wasip1
 
       - name: check
-        run: cargo check -p hickory-proto --target wasm32-wasip1 --no-default-features
+        run: cargo check -p hickory-proto --target wasm32-wasip1 --no-default-features --features=std
 
   ## Measure test coverage, only on linux.
   code-coverage:

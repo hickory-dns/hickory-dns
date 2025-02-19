@@ -35,6 +35,7 @@ pub use self::dns_exchange::{
     DnsExchange, DnsExchangeBackground, DnsExchangeConnect, DnsExchangeSend,
 };
 pub use self::dns_handle::{DnsHandle, DnsStreamHandle};
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 pub use self::dns_multiplexer::{DnsMultiplexer, DnsMultiplexerConnect};
 pub use self::dns_request::{DnsRequest, DnsRequestOptions};
 pub use self::dns_response::DnsResponse;
