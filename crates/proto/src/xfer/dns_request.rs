@@ -32,6 +32,7 @@ pub struct DnsRequestOptions {
     /// set recursion desired (or not) for any requests
     pub recursion_desired: bool,
     /// Randomize case of query name, and check that the response matches, for spoofing resistance.
+    #[cfg(feature = "std")]
     pub case_randomization: bool,
 }
 
@@ -44,6 +45,7 @@ impl Default for DnsRequestOptions {
             use_edns: false,
             edns_set_dnssec_ok: false,
             recursion_desired: true,
+            #[cfg(feature = "std")]
             case_randomization: false,
         }
     }

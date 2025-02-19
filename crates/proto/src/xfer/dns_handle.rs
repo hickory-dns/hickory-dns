@@ -76,6 +76,7 @@ fn build_request(_query: Query, _options: DnsRequestOptions) -> DnsRequest {
     panic!("Cannot build request without either std or no-std-rand feature for randomness");
 }
 
+#[allow(unused_mut)]
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 fn build_request(mut query: Query, options: DnsRequestOptions) -> DnsRequest {
     // build the message
@@ -85,6 +86,7 @@ fn build_request(mut query: Query, options: DnsRequestOptions) -> DnsRequest {
     let id: u16 = random();
     let mut original_query = None;
 
+    #[cfg(feature = "std")]
     if options.case_randomization {
         original_query = Some(query.clone());
         query.name.randomize_label_case();

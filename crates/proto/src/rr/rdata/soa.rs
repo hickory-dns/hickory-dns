@@ -356,6 +356,7 @@ mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use alloc::vec::Vec;
+    #[cfg(feature = "std")]
     use std::println;
 
     use crate::{rr::RecordDataDecodable, serialize::binary::Restrict};
@@ -382,6 +383,7 @@ mod tests {
         let bytes = encoder.into_bytes();
         let len = bytes.len() as u16;
 
+        #[cfg(feature = "std")]
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
