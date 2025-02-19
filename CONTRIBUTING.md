@@ -44,12 +44,11 @@ Releases are somewhat automated. The github action, `publish`, watches for any t
 1. Update all Cargo.toml files to the new version, `version = 0.20.1`
 1. Update dependencies, `cargo update`
 1. Update all inter-dependent crates, i.e. hickory-resolver to use `hickory-proto = 0.20.1`
-1. Update [CHANGELOG.md](CHANGELOG.md) to include all PR's (of consequence) since the previous release
 1. Push to Github, create a PR and merge in `main` or the target release branch.
 1. Go to [Releases](https://github.com/hickory-dns/hickory-dns/releases) and `Draft a new release`
 1. Give it a `Tag Version` of `vX.x.x`, e.g. `v0.20.1`, *make sure this is tagging the correct branch, e.g. `main` or `release/0.19`*
 1. Give it a  `Release Title` of something key to the release
-1. Copy and paste the part of the CHANGELOG.md for this release into `Describe this release`
+1. Generate release notes
 1. `Publish Release`, this will kick off the publish workflow
 
 After approximately 45 minutes it should be published. This may fail.
