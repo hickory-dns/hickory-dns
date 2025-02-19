@@ -6,9 +6,9 @@
 // copied, modified, or distributed except according to those terms.
 
 use alloc::vec::Vec;
-use std::net::SocketAddr;
 
 use crate::error::ProtoResult;
+use crate::net::SocketAddr;
 use crate::op::Message;
 
 /// A DNS message in serialized form, with either the target address or source address

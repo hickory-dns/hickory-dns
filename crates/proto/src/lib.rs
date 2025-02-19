@@ -89,6 +89,7 @@ pub mod udp;
 pub mod xfer;
 
 #[doc(hidden)]
+#[cfg(feature = "std")]
 pub use crate::xfer::BufDnsStreamHandle;
 #[doc(hidden)]
 pub use crate::xfer::dns_handle::{DnsHandle, DnsStreamHandle};
