@@ -63,8 +63,7 @@ The current root key is bundled into the system, and used by default. This gives
 validation of DNSKEY and DS records back to the root. NSEC and NSEC3 are
 implemented.
 
-To enable DNSSEC, one of the features `dnssec-openssl` or `dnssec-ring` must be
-enabled.
+To enable DNSSEC, enable the `dnssec-ring` feature.
 
 ## Testing the resolver via CLI with resolve
 
