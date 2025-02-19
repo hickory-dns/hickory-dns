@@ -47,7 +47,7 @@ The current root key is bundled into the system, and used by default. This gives
 validation of DNSKEY and DS records back to the root. NSEC and NSEC3 are
 implemented.
 
-Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, one of the features `dnssec-openssl` or `dnssec-ring` must be enabled.
+Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, enable the `dnssec-ring` feature.
 
 ## RFCs implemented
 
