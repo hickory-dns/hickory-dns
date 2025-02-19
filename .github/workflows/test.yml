@@ -114,6 +114,7 @@ jobs:
             dns-over-quic,
             dns-over-h3,
             dnssec-ring,
+            async-std,
             doc,
           ]
     env:
