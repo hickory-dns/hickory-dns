@@ -265,3 +265,19 @@ jobs:
 
       - name: just compatibility
         run: just compatibility
+
+  # Build on a no_std target
+  no-std-proto:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: extractions/setup-just@v3
+
+      - name: Add aarch64-unknown-none target
+        run: rustup target add aarch64-unknown-none
+
+      - uses: actions/checkout@v4
+
+      - name: Build proto crate for aarch64-unknown-none
+        run: just proto-aarch64-none
