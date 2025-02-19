@@ -136,7 +136,7 @@ impl RetryableError for ProtoError {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 mod test {
     use alloc::sync::Arc;
     use core::sync::atomic::{AtomicU16, Ordering};
