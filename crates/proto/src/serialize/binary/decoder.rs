@@ -14,8 +14,11 @@
  * limitations under the License.
  */
 
-use crate::serialize::binary::Restrict;
+use alloc::{borrow::ToOwned, vec::Vec};
+
 use thiserror::Error;
+
+use crate::serialize::binary::Restrict;
 
 /// This is non-destructive to the inner buffer, b/c for pointer types we need to perform a reverse
 ///  seek to lookup names

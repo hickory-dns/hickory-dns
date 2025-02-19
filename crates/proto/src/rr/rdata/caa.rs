@@ -21,7 +21,8 @@
 //! ```
 #![allow(clippy::use_self)]
 
-use std::{fmt, str};
+use alloc::{string::String, vec::Vec};
+use core::{fmt, str};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -859,7 +860,8 @@ impl fmt::Display for CAA {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    use std::str;
+    use alloc::{str, string::ToString};
+    use std::{dbg, println};
 
     use super::*;
 

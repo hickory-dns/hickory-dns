@@ -8,6 +8,8 @@
 
 //! tlsa records for storing TLS authentication records
 
+use alloc::string::String;
+
 use crate::rr::rdata::tlsa::CertUsage;
 use crate::rr::rdata::{TLSA, sshfp};
 use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};

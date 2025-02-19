@@ -8,7 +8,8 @@
 //! SSHFP records for SSH public key fingerprints
 #![allow(clippy::use_self)]
 
-use std::fmt;
+use alloc::vec::Vec;
+use core::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

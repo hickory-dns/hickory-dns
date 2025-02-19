@@ -5,15 +5,14 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::{
+use alloc::{boxed::Box, string::String, sync::Arc};
+use core::{
     fmt::{self, Display},
     future::Future,
-    io,
-    net::SocketAddr,
     pin::Pin,
-    sync::Arc,
     task::{Context, Poll},
 };
+use std::{io, net::SocketAddr};
 
 use futures_util::{future::FutureExt, stream::Stream};
 use quinn::{

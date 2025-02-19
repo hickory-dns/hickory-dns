@@ -7,6 +7,8 @@
 
 //! HINFO record for storing host information
 
+use alloc::string::ToString;
+
 use crate::rr::rdata::HINFO;
 use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
 

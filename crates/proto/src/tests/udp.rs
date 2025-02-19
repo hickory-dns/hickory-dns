@@ -1,8 +1,10 @@
+use alloc::string::ToString;
+use alloc::sync::Arc;
+use core::str::FromStr;
+use core::sync::atomic::AtomicBool;
+use core::time::Duration;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
-use std::str::FromStr;
-use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
-use std::time::Duration;
+use std::println;
 
 use futures_util::stream::StreamExt;
 use tracing::debug;
@@ -36,8 +38,8 @@ pub async fn udp_stream_test<P: RuntimeProvider>(server_addr: IpAddr, provider: 
         .spawn(move || {
             let succeeded = succeeded_clone;
             for _ in 0..15 {
-                std::thread::sleep(std::time::Duration::from_secs(1));
-                if succeeded.load(std::sync::atomic::Ordering::Relaxed) {
+                std::thread::sleep(core::time::Duration::from_secs(1));
+                if succeeded.load(core::sync::atomic::Ordering::Relaxed) {
                     return;
                 }
             }
@@ -49,10 +51,10 @@ pub async fn udp_stream_test<P: RuntimeProvider>(server_addr: IpAddr, provider: 
 
     let server = std::net::UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
     server
-        .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+        .set_read_timeout(Some(core::time::Duration::from_secs(5)))
         .unwrap(); // should receive something within 5 seconds...
     server
-        .set_write_timeout(Some(std::time::Duration::from_secs(5)))
+        .set_write_timeout(Some(core::time::Duration::from_secs(5)))
         .unwrap(); // should receive something within 5 seconds...
     let server_addr = server.local_addr().unwrap();
     println!("server listening on: {server_addr}");
@@ -116,7 +118,7 @@ pub async fn udp_stream_test<P: RuntimeProvider>(server_addr: IpAddr, provider: 
         assert_eq!(message.addr(), server_addr);
     }
 
-    succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
+    succeeded.store(true, core::sync::atomic::Ordering::Relaxed);
     server_handle.join().expect("server thread failed");
 }
 
@@ -130,8 +132,8 @@ pub async fn udp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeP
         .spawn(move || {
             let succeeded = succeeded_clone;
             for _ in 0..15 {
-                std::thread::sleep(std::time::Duration::from_secs(1));
-                if succeeded.load(std::sync::atomic::Ordering::Relaxed) {
+                std::thread::sleep(core::time::Duration::from_secs(1));
+                if succeeded.load(core::sync::atomic::Ordering::Relaxed) {
                     return;
                 }
             }
@@ -143,10 +145,10 @@ pub async fn udp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeP
 
     let server = std::net::UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
     server
-        .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+        .set_read_timeout(Some(core::time::Duration::from_secs(5)))
         .unwrap(); // should receive something within 5 seconds...
     server
-        .set_write_timeout(Some(std::time::Duration::from_secs(5)))
+        .set_write_timeout(Some(core::time::Duration::from_secs(5)))
         .unwrap(); // should receive something within 5 seconds...
     let server_addr = server.local_addr().unwrap();
 
@@ -230,7 +232,7 @@ pub async fn udp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeP
         worked_once = true;
     }
 
-    succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
+    succeeded.store(true, core::sync::atomic::Ordering::Relaxed);
     server_handle.join().expect("server thread failed");
 
     assert!(worked_once);

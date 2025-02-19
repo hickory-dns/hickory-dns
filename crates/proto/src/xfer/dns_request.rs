@@ -7,7 +7,7 @@
 
 //! `DnsRequest` wraps a `Message` and associates a set of `DnsRequestOptions` for specifying different transfer options.
 
-use std::ops::{Deref, DerefMut};
+use core::ops::{Deref, DerefMut};
 
 use crate::op::Message;
 

@@ -5,8 +5,9 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::num::ParseIntError;
-use std::{fmt, io};
+use alloc::{fmt, string::String};
+use core::num::ParseIntError;
+use std::io;
 
 use crate::error::ProtoError;
 use http::header::ToStrError;
@@ -16,7 +17,7 @@ use thiserror::Error;
 use crate::{ExtBacktrace, trace};
 
 /// An alias for results returned by functions of this crate
-pub type Result<T> = ::std::result::Result<T, Error>;
+pub type Result<T> = ::core::result::Result<T, Error>;
 
 // TODO: remove this and put in ProtoError
 #[derive(Debug, Error)]

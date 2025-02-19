@@ -7,7 +7,7 @@
 
 //! HTTP request creation and validation
 
-use std::str::FromStr;
+use core::str::FromStr;
 
 use http::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE};
 use http::{Request, Uri, header, uri};

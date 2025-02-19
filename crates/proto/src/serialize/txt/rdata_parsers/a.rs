@@ -16,8 +16,9 @@
 
 //! Parser for A text form
 
+use alloc::string::ToString;
+use core::str::FromStr;
 use std::net::Ipv4Addr;
-use std::str::FromStr;
 
 use crate::{
     rr::rdata::A,

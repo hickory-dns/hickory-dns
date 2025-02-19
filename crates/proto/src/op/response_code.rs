@@ -18,8 +18,7 @@
 
 //! All defined response codes in DNS
 
-use std::fmt;
-use std::fmt::{Display, Formatter};
+use core::fmt::{self, Display, Formatter};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

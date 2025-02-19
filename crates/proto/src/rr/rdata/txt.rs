@@ -6,8 +6,9 @@
 // copied, modified, or distributed except according to those terms.
 
 //! text records for storing arbitrary data
-use std::fmt;
-use std::slice::Iter;
+use alloc::{boxed::Box, string::String, vec::Vec};
+use core::fmt;
+use core::slice::Iter;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -177,6 +178,9 @@ impl fmt::Display for TXT {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
+    use alloc::string::ToString;
+    use std::println;
 
     use super::*;
 

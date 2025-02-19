@@ -16,6 +16,9 @@
 
 //! text records for storing arbitrary data
 
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
+
 use crate::rr::rdata::TXT;
 use crate::serialize::txt::errors::ParseResult;
 
