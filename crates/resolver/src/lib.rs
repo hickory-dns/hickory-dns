@@ -127,25 +127,14 @@
 //! Inside the `Future::poll` method would be the place to implement a loop over the different IP
 //! addresses.
 //!
-//! ## DNS-over-TLS and DNS-over-HTTPS
+//! ## Optional protocol support
 //!
-//! DNS-over-TLS and DNS-over-HTTPS are supported in the Hickory DNS Resolver library. The underlying
-//! implementations are available as addon libraries. *WARNING* The hickory-dns developers make no
-//! claims on the security and/or privacy guarantees of this implementation.
+//! The following DNS protocols are optionally supported:
 //!
-//! To use DNS-over-TLS one of the `dns-over-tls` features must be enabled at compile time. There
-//! are three: `dns-over-openssl`, `dns-over-native-tls`, and `dns-over-rustls`. For DNS-over-HTTPS
-//! only rustls is supported with the `dns-over-https-rustls`, this implicitly enables support for
-//! DNS-over-TLS as well. The reason for each is to make the Hickory DNS libraries flexible for
-//! different deployments, and/or security concerns. The easiest to use will generally be
-//! `dns-over-rustls` which utilizes the `*ring*` Rust cryptography library (a rework of the
-//! `boringssl` project), this should compile and be usable on most ARM and x86 platforms.
-//! `dns-over-native-tls` will utilize the hosts TLS implementation where available or fallback to
-//! `openssl` where not supported. `dns-over-openssl` will specify that `openssl` should be used
-//! (which is a perfectly fine option if required). If more than one is specified, the precedence
-//! will be in this order (i.e. only one can be used at a time) `dns-over-rustls`,
-//! `dns-over-native-tls`, and then `dns-over-openssl`. **NOTICE** the Hickory DNS developers are not
-//! responsible for any choice of library that does not meet required security requirements.
+//! - Enable `dns-over-rustls` for DNS over TLS (DoT)
+//! - Enable `dns-over-https-rustls` for DNS over HTTP/2 (DoH)
+//! - Enable `dns-over-quic` for DNS over QUIC (DoQ)
+//! - Enable `dns-over-h3` for DNS over HTTP/3 (DoH3)
 //!
 //! ### Example
 //!
