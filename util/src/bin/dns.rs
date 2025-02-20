@@ -34,7 +34,7 @@ use rustls::{
 use tracing::Level;
 
 use hickory_client::client::{Client, ClientHandle};
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 use hickory_proto::dnssec::rdata::DNSKEY;
 #[cfg(any(feature = "dns-over-rustls", feature = "dns-over-https-rustls"))]
 use hickory_proto::rustls::client_config;
@@ -527,12 +527,12 @@ async fn handle_request(
             println!("; received response");
             println!("{response}");
 
-            #[cfg(not(feature = "dnssec-ring"))]
+            #[cfg(not(feature = "__dnssec"))]
             {
                 println!("; WARNING, `dnssec-ring` feature not enabled, operations are limited");
             }
 
-            #[cfg(feature = "dnssec-ring")]
+            #[cfg(feature = "__dnssec")]
             {
                 use hickory_proto::{
                     dnssec::{Algorithm, PublicKey, TrustAnchor, Verifier},
