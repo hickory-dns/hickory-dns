@@ -39,6 +39,9 @@ dns-over-quic: (default "--features=dns-over-quic" "--ignore=\\{hickory-compatib
 # Check, build, and test all crates with dns-over-h3 enabled
 dns-over-h3: (default "--features=dns-over-h3" "--ignore=\\{hickory-compatibility,hickory-client,test-support\\}")
 
+# Check, build, and test all crates with dnssec-aws-lc-rs enabled
+dnssec-aws-lc-rs: (default "--features=dnssec-aws-lc-rs" "--ignore=\\{async-std-resolver,hickory-compatibility,test-support\\}")
+
 # Check, build, and test all crates with dnssec-ring enabled
 dnssec-ring: (default "--features=dnssec-ring" "--ignore=\\{hickory-compatibility,test-support\\}")
 
