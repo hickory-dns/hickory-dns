@@ -8,7 +8,7 @@ use hickory_proto::udp::UdpClientStream;
 use hickory_proto::xfer::FirstAnswer;
 use hickory_server::ServerFuture;
 use hickory_server::authority::{Catalog, ZoneType};
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryAuthority;
 use std::collections::BTreeMap;
@@ -101,7 +101,7 @@ pub fn new_large_catalog(num_records: u32) -> Catalog {
         records,
         ZoneType::Primary,
         false,
-        #[cfg(feature = "dnssec")]
+        #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
     )
     .unwrap();

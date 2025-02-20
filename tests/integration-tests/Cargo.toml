@@ -35,15 +35,23 @@ name = "hickory_integration"
 path = "src/lib.rs"
 
 [features]
+dnssec-aws-lc-rs = [
+    "hickory-resolver/dnssec-aws-lc-rs",
+    "hickory-server/dnssec-aws-lc-rs",
+    "hickory-client/dnssec-aws-lc-rs",
+    "hickory-proto/dnssec-aws-lc-rs",
+    "dep:rustls-pki-types",
+    "__dnssec",
+]
 dnssec-ring = [
-    "dnssec",
     "hickory-resolver/dnssec-ring",
     "hickory-server/dnssec-ring",
     "hickory-client/dnssec-ring",
     "hickory-proto/dnssec-ring",
     "dep:rustls-pki-types",
+    "__dnssec",
 ]
-dnssec = []
+__dnssec = []
 
 dns-over-https-rustls = [
     "hickory-client/dns-over-https-rustls",
