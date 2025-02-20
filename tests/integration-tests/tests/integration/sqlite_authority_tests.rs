@@ -13,7 +13,7 @@ use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
 use hickory_proto::xfer::Protocol;
 use hickory_server::authority::LookupOptions;
 use hickory_server::authority::{Authority, ZoneType};
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::server::RequestInfo;
 use hickory_server::store::in_memory::InMemoryAuthority;
@@ -27,7 +27,7 @@ fn create_example() -> SqliteAuthority {
     SqliteAuthority::new(authority, true, false)
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "__dnssec")]
 fn create_secure_example() -> SqliteAuthority {
     let authority = hickory_integration::example_authority::create_secure_example();
     SqliteAuthority::new(authority, true, true)
@@ -208,7 +208,7 @@ async fn test_authority() {
     );
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "__dnssec")]
 #[tokio::test]
 async fn test_authorize() {
     use hickory_proto::serialize::binary::{BinDecodable, BinEncodable};
@@ -849,7 +849,7 @@ async fn test_update() {
     assert_eq!(serial + 6, authority.serial().await);
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "__dnssec")]
 #[tokio::test]
 #[allow(clippy::uninlined_format_args)]
 async fn test_zone_signing() {
@@ -920,7 +920,7 @@ async fn test_zone_signing() {
     }
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "__dnssec")]
 #[tokio::test]
 async fn test_get_nsec() {
     subscribe();
@@ -989,7 +989,7 @@ async fn test_journal() {
         authority.origin().clone().into(),
         ZoneType::Primary,
         false,
-        #[cfg(feature = "dnssec")]
+        #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
     );
 
@@ -1043,7 +1043,7 @@ async fn test_recovery() {
         authority.origin().clone().into(),
         ZoneType::Primary,
         false,
-        #[cfg(feature = "dnssec")]
+        #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
     );
 

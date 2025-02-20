@@ -3,7 +3,7 @@ use std::str::FromStr;
 use hickory_proto::rr::*;
 
 use hickory_server::authority::ZoneType;
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryAuthority;
 
@@ -18,7 +18,7 @@ pub fn create_example() -> InMemoryAuthority {
         origin.clone(),
         ZoneType::Primary,
         false,
-        #[cfg(feature = "dnssec")]
+        #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
     );
 
@@ -187,7 +187,7 @@ pub fn create_example() -> InMemoryAuthority {
     records
 }
 
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 #[allow(unused)]
 pub fn create_secure_example() -> InMemoryAuthority {
     use hickory_proto::dnssec::{
