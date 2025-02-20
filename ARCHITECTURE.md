@@ -9,7 +9,6 @@ Most of the project is in the form of crates. The crates are all individually pu
 The project has these high-level crates (to be used as dependencies in other projects):
 
 - **[hickory-resolver](crates/resolver)** - implements a stub-resolver with support for CNAME chasing and other things, abstract over runtimes (Tokio supported by default)
-- **[async-std-resolver](crates/async-std-resolver)** - an abstraction of hickory-resolver using the async-std runtime
 - **[hickory-client](crates/client)** - a bare-bones client crate, most useful for dynamic DNS updates
 - **[hickory-server](crates/server)** - implements support for hosted Authorities of various types
 - **tokio-resolver** - (under consideration, currently Tokio support is directly in hickory-resolver)
@@ -25,6 +24,7 @@ Binaries:
 
 Old and Outdated crates:
 
+- **[async-std-resolver](crates/async-std-resolver)** - removed in favor of features in hickory-resolver in 0.25.0
 - **[trust-dns-*](https://github.com/bluejekyll/trust-dns/tree/v0.23.1/)** - removed in favor of features in hickory-proto, crate in [v0.24.0](https://github.com/hickory-dns/hickory-dns/tree/v0.24.0)
 - **[trust-dns-rustls](https://github.com/bluejekyll/trust-dns/tree/v0.21.0/crates/rustls)** - removed in favor of features in hickory-proto, crate in [v0.21.0](https://github.com/hickory-dns/hickory-dns/tree/v0.21.0)
 - **[trust-dns-openssl](https://github.com/bluejekyll/trust-dns/tree/v0.21.0/crates/openssl)** - removed in favor of features in hickory-proto, crate in [v0.21.0](https://github.com/hickory-dns/trust-dns/tree/v0.21.0)
