@@ -57,13 +57,9 @@ rustls-platform-verifier = [
     "hickory-resolver/rustls-platform-verifier",
 ]
 
-dnssec = []
-dnssec-ring = [
-    "dnssec",
-    "hickory-client/dnssec-ring",
-    "hickory-proto/dnssec-ring",
-    "hickory-resolver/dnssec-ring",
-]
+dnssec-aws-lc-rs = ["hickory-client/dnssec-aws-lc-rs", "hickory-proto/dnssec-aws-lc-rs", "hickory-resolver/dnssec-aws-lc-rs", "__dnssec"]
+dnssec-ring = ["hickory-client/dnssec-ring", "hickory-proto/dnssec-ring", "hickory-resolver/dnssec-ring", "__dnssec"]
+__dnssec = []
 
 [dependencies]
 clap = { workspace = true, default-features = false, features = [

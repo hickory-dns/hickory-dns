@@ -7,7 +7,7 @@ use hickory_proto::{
     serialize::binary::{BinDecodable, BinEncodable},
     xfer::Protocol,
 };
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "__dnssec")]
 use hickory_server::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use hickory_server::{
     authority::{
@@ -199,7 +199,7 @@ impl Authority for TestAuthority {
         LookupControlFlow::Continue(Ok(LookupRecords::Empty))
     }
 
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "__dnssec")]
     async fn get_nsec3_records(
         &self,
         _info: Nsec3QueryInfo<'_>,
@@ -208,7 +208,7 @@ impl Authority for TestAuthority {
         LookupControlFlow::Continue(Ok(LookupRecords::Empty))
     }
 
-    #[cfg(feature = "dnssec")]
+    #[cfg(feature = "__dnssec")]
     fn nx_proof_kind(&self) -> Option<&NxProofKind> {
         None
     }

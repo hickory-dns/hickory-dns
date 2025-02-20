@@ -6,7 +6,7 @@ use std::{
 
 use futures::{Future, FutureExt, TryFutureExt};
 use test_support::subscribe;
-#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use time::Duration;
 
 use hickory_client::{
@@ -17,7 +17,7 @@ use hickory_integration::{
     example_authority::create_example, NeverReturnsClientStream, TestClientStream, GOOGLE_V4,
     GOOGLE_V6, TEST3_V4,
 };
-#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::{
     dnssec::{crypto::RsaSigningKey, rdata::DNSSECRData, Algorithm, SigSigner, SigningKey},
     rr::{rdata::A, RData, Record},
@@ -253,7 +253,7 @@ async fn test_notify() {
 //
 
 /// create a client with a sig0 section
-#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 #[allow(clippy::type_complexity)]
 async fn create_sig0_ready_client() -> (
     (
@@ -301,7 +301,7 @@ async fn create_sig0_ready_client() -> (
     (client, origin.into())
 }
 
-#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 #[tokio::test]
 async fn test_create() {
     subscribe();
@@ -348,7 +348,7 @@ async fn test_create() {
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
 
-#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 #[tokio::test]
 async fn test_create_multi() {
     subscribe();
@@ -405,7 +405,7 @@ async fn test_create_multi() {
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
 
-#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 #[tokio::test]
 async fn test_append() {
     subscribe();
@@ -490,7 +490,7 @@ async fn test_append() {
     assert_eq!(result.answers().len(), 2);
 }
 
-#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 #[tokio::test]
 async fn test_append_multi() {
     subscribe();
@@ -582,7 +582,7 @@ async fn test_append_multi() {
     assert_eq!(result.answers().len(), 3);
 }
 
-#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 #[tokio::test]
 async fn test_compare_and_swap() {
     subscribe();
@@ -643,7 +643,7 @@ async fn test_compare_and_swap() {
     assert!(!result.answers().iter().any(|rr| *rr == not));
 }
 
-#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 #[tokio::test]
 async fn test_compare_and_swap_multi() {
     subscribe();
@@ -714,7 +714,7 @@ async fn test_compare_and_swap_multi() {
     assert!(!result.answers().iter().any(|rr| *rr == not));
 }
 
-#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 #[tokio::test]
 async fn test_delete_by_rdata() {
     subscribe();
@@ -770,7 +770,7 @@ async fn test_delete_by_rdata() {
     assert!(result.answers().iter().any(|rr| *rr == record1));
 }
 
-#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 #[tokio::test]
 async fn test_delete_by_rdata_multi() {
     subscribe();
@@ -852,7 +852,7 @@ async fn test_delete_by_rdata_multi() {
     assert!(result.answers().iter().any(|rr| *rr == record4));
 }
 
-#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 #[tokio::test]
 async fn test_delete_rrset() {
     subscribe();
@@ -906,7 +906,7 @@ async fn test_delete_rrset() {
     assert_eq!(result.answers().len(), 0);
 }
 
-#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 #[tokio::test]
 async fn test_delete_all() {
     use hickory_proto::rr::rdata::AAAA;

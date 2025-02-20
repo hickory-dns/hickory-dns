@@ -13,7 +13,7 @@ use std::{borrow::Borrow, collections::HashMap, io, sync::Arc};
 use cfg_if::cfg_if;
 use tracing::{debug, error, info, trace, warn};
 
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
@@ -504,7 +504,7 @@ fn lookup_options_for_edns(edns: Option<&Edns>) -> LookupOptions {
     };
 
     cfg_if! {
-        if #[cfg(feature = "dnssec-ring")] {
+        if #[cfg(feature = "__dnssec")] {
             LookupOptions::for_dnssec(edns.flags().dnssec_ok)
         } else {
             LookupOptions::default()
@@ -614,7 +614,7 @@ async fn build_authoritative_response(
                 }
             }
         } else {
-            #[cfg(feature = "dnssec-ring")]
+            #[cfg(feature = "__dnssec")]
             {
                 if let Some(NxProofKind::Nsec3 {
                     algorithm,
@@ -658,12 +658,12 @@ async fn build_authoritative_response(
                     (None, None)
                 }
             }
-            #[cfg(not(feature = "dnssec-ring"))]
+            #[cfg(not(feature = "__dnssec"))]
             (None, None)
         }
     } else {
         let nsecs = if lookup_options.dnssec_ok() {
-            #[cfg(feature = "dnssec-ring")]
+            #[cfg(feature = "__dnssec")]
             {
                 // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
                 debug!("request: {_request_id} non-existent adding nsecs");
@@ -707,7 +707,7 @@ async fn build_authoritative_response(
                     None => None,
                 }
             }
-            #[cfg(not(feature = "dnssec-ring"))]
+            #[cfg(not(feature = "__dnssec"))]
             None
         } else {
             None

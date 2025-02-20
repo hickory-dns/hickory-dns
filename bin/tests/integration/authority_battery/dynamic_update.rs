@@ -1,4 +1,4 @@
-#![cfg(feature = "dnssec-ring")]
+#![cfg(feature = "__dnssec")]
 
 use std::{
     future::Future,
@@ -781,7 +781,7 @@ pub fn add_auth<A: DnssecAuthority>(authority: &mut A) -> Vec<SigSigner> {
 
     // TODO: support RSA signing with ring
     // rsa
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     {
         let key_config = KeyConfig {
             key_path: PathBuf::from("../tests/test-data/test_configs/dnssec/rsa_2048.pk8"),
@@ -840,7 +840,7 @@ pub fn add_auth<A: DnssecAuthority>(authority: &mut A) -> Vec<SigSigner> {
     // }
 
     // ed 25519
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     {
         let key_config = KeyConfig {
             key_path: PathBuf::from("../tests/test-data/test_configs/dnssec/ed25519.pk8"),

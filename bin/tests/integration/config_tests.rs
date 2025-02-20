@@ -131,7 +131,7 @@ fn test_parse_toml() {
     assert_eq!(config.directory(), Path::new("/dev/null"));
 }
 
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 #[test]
 fn test_parse_zone_keys() {
     use hickory_dns::dnssec::KeyPurpose;
@@ -248,7 +248,7 @@ macro_rules! define_test_config {
     };
 }
 
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 define_test_config!(all_supported_dnssec);
 #[cfg(feature = "blocklist")]
 define_test_config!(chained_blocklist);
@@ -260,7 +260,7 @@ define_test_config!(dns_over_https);
 define_test_config!(dns_over_tls_rustls_and_openssl);
 #[cfg(feature = "dns-over-rustls")]
 define_test_config!(dns_over_tls);
-#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 define_test_config!(dnssec_with_update);
 define_test_config!(example);
 define_test_config!(ipv4_and_ipv6);
@@ -444,7 +444,7 @@ fn test_reject_unknown_fields() {
 
         let zones = config_table.get("zones").unwrap().as_array().unwrap();
         for zone in zones {
-            #[cfg(not(feature = "dnssec-ring"))]
+            #[cfg(not(feature = "__dnssec"))]
             if zone.as_table().unwrap().contains_key("keys") {
                 println!("skipping due to keys setting");
                 skip = true;

@@ -27,7 +27,7 @@ use crate::{
     server::RequestInfo,
     store::recursor::RecursiveConfig,
 };
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 use crate::{
     authority::{DnssecSummary, Nsec3QueryInfo},
     dnssec::NxProofKind,
@@ -189,7 +189,7 @@ impl Authority for RecursiveAuthority {
         ))))
     }
 
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     async fn get_nsec3_records(
         &self,
         _info: Nsec3QueryInfo<'_>,
@@ -201,7 +201,7 @@ impl Authority for RecursiveAuthority {
         ))))
     }
 
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     fn nx_proof_kind(&self) -> Option<&NxProofKind> {
         None
     }
@@ -222,7 +222,7 @@ impl LookupObject for RecursiveLookup {
         None
     }
 
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     fn dnssec_summary(&self) -> DnssecSummary {
         let mut all_secure = None;
         for record in self.0.records().iter() {

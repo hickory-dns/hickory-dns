@@ -16,7 +16,7 @@ use std::{
 use futures_util::lock::Mutex;
 use tracing::{error, info, warn};
 
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 use LookupControlFlow::Continue;
 
 use crate::{
@@ -34,7 +34,7 @@ use crate::{
         sqlite::{Journal, SqliteConfig},
     },
 };
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 use crate::{
     authority::{DnssecAuthority, Nsec3QueryInfo, UpdateRequest},
     dnssec::NxProofKind,
@@ -86,7 +86,7 @@ impl SqliteAuthority {
         enable_dnssec: bool,
         root_dir: Option<&Path>,
         config: &SqliteConfig,
-        #[cfg(feature = "dnssec-ring")] nx_proof_kind: Option<NxProofKind>,
+        #[cfg(feature = "__dnssec")] nx_proof_kind: Option<NxProofKind>,
     ) -> Result<Self, String> {
         use crate::store::file::{FileAuthority, FileConfig};
 
@@ -108,7 +108,7 @@ impl SqliteAuthority {
                 zone_name.clone(),
                 zone_type,
                 allow_axfr,
-                #[cfg(feature = "dnssec-ring")]
+                #[cfg(feature = "__dnssec")]
                 nx_proof_kind,
             );
             let mut authority = Self::new(in_memory, config.allow_update, enable_dnssec);
@@ -136,7 +136,7 @@ impl SqliteAuthority {
                 allow_axfr,
                 root_dir,
                 &file_config,
-                #[cfg(feature = "dnssec-ring")]
+                #[cfg(feature = "__dnssec")]
                 nx_proof_kind,
             )?
             .unwrap();
@@ -467,7 +467,7 @@ impl SqliteAuthority {
     ///   requestor.
     /// ```
     ///
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     #[allow(clippy::blocks_in_conditions)]
     pub async fn authorize(&self, update_message: &MessageRequest) -> UpdateResult<()> {
         use tracing::debug;
@@ -822,7 +822,7 @@ impl SqliteAuthority {
         if updated && auto_signing_and_increment {
             if self.is_dnssec_enabled {
                 cfg_if::cfg_if! {
-                    if #[cfg(feature = "dnssec-ring")] {
+                    if #[cfg(feature = "__dnssec")] {
                         self.secure_zone().await.map_err(|e| {
                             error!("failure securing zone: {}", e);
                             ResponseCode::ServFail
@@ -928,7 +928,7 @@ impl Authority for SqliteAuthority {
     ///
     /// true if any of additions, updates or deletes were made to the zone, false otherwise. Err is
     ///  returned in the case of bad data, etc.
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     async fn update(&self, update: &MessageRequest) -> UpdateResult<bool> {
         //let this = &mut self.in_memory.lock().await;
         // the spec says to authorize after prereqs, seems better to auth first.
@@ -940,7 +940,7 @@ impl Authority for SqliteAuthority {
     }
 
     /// Always fail when DNSSEC is disabled.
-    #[cfg(not(feature = "dnssec-ring"))]
+    #[cfg(not(feature = "__dnssec"))]
     async fn update(&self, _update: &MessageRequest) -> UpdateResult<bool> {
         Err(ResponseCode::NotImp)
     }
@@ -998,7 +998,7 @@ impl Authority for SqliteAuthority {
         self.in_memory.get_nsec_records(name, lookup_options).await
     }
 
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     async fn get_nsec3_records(
         &self,
         info: Nsec3QueryInfo<'_>,
@@ -1007,13 +1007,13 @@ impl Authority for SqliteAuthority {
         self.in_memory.get_nsec3_records(info, lookup_options).await
     }
 
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     fn nx_proof_kind(&self) -> Option<&NxProofKind> {
         self.in_memory.nx_proof_kind()
     }
 }
 
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 #[async_trait::async_trait]
 impl DnssecAuthority for SqliteAuthority {
     async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
