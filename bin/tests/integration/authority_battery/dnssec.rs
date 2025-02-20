@@ -1,4 +1,4 @@
-#![cfg(feature = "dnssec-ring")]
+#![cfg(feature = "__dnssec")]
 
 use std::net::{Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
@@ -301,7 +301,7 @@ pub fn add_signers<A: DnssecAuthority>(authority: &mut A) -> Vec<DNSKEY> {
     let mut keys = Vec::<DNSKEY>::new();
 
     // TODO: support RSA signing with ring
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     // rsa
     {
         let key_config = KeyConfig {
@@ -355,7 +355,7 @@ pub fn add_signers<A: DnssecAuthority>(authority: &mut A) -> Vec<DNSKEY> {
     // }
 
     // ed 25519
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     {
         let key_config = KeyConfig {
             key_path: PathBuf::from("../tests/test-data/test_configs/dnssec/ed25519.pk8"),

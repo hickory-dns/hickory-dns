@@ -7,7 +7,7 @@
 
 //! Configuration module for the server binary, `named`.
 
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 pub mod dnssec;
 
 #[cfg(feature = "dns-over-rustls")]
@@ -35,11 +35,10 @@ use rustls::{
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
 
-use hickory_proto::ProtoError;
-use hickory_proto::rr::Name;
-#[cfg(feature = "dnssec-ring")]
+use hickory_proto::{ProtoError, rr::Name};
+#[cfg(feature = "__dnssec")]
 use hickory_server::authority::DnssecAuthority;
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 #[cfg(feature = "blocklist")]
 use hickory_server::store::blocklist::BlocklistAuthority;
@@ -373,7 +372,7 @@ impl ZoneConfig {
                     let authority: Arc<dyn AuthorityObject> = match store {
                         #[cfg(feature = "sqlite")]
                         ServerStoreConfig::Sqlite(config) => {
-                            #[cfg_attr(not(feature = "dnssec-ring"), allow(unused_mut))]
+                            #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
                             let mut authority = SqliteAuthority::try_from_config(
                                 zone_name.clone(),
                                 zone_type,
@@ -381,29 +380,29 @@ impl ZoneConfig {
                                 server_config.is_dnssec_enabled(),
                                 Some(zone_dir),
                                 config,
-                                #[cfg(feature = "dnssec-ring")]
+                                #[cfg(feature = "__dnssec")]
                                 server_config.nx_proof_kind.clone(),
                             )
                             .await?;
 
-                            #[cfg(feature = "dnssec-ring")]
+                            #[cfg(feature = "__dnssec")]
                             server_config.load_keys(&mut authority, &zone_name).await?;
                             Arc::new(authority)
                         }
 
                         ServerStoreConfig::File(config) => {
-                            #[cfg_attr(not(feature = "dnssec-ring"), allow(unused_mut))]
+                            #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
                             let mut authority = FileAuthority::try_from_config(
                                 zone_name.clone(),
                                 zone_type,
                                 is_axfr_allowed,
                                 Some(zone_dir),
                                 config,
-                                #[cfg(feature = "dnssec-ring")]
+                                #[cfg(feature = "__dnssec")]
                                 server_config.nx_proof_kind.clone(),
                             )?;
 
-                            #[cfg(feature = "dnssec-ring")]
+                            #[cfg(feature = "__dnssec")]
                             server_config.load_keys(&mut authority, &zone_name).await?;
                             Arc::new(authority)
                         }
@@ -517,11 +516,11 @@ pub struct ServerZoneConfig {
     /// Allow AXFR (TODO: need auth)
     pub allow_axfr: Option<bool>,
     /// Keys for use by the zone
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     #[serde(default)]
     pub keys: Vec<dnssec::KeyConfig>,
     /// The kind of non-existence proof provided by the nameserver
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     pub nx_proof_kind: Option<NxProofKind>,
     /// Store configurations.  Note: we specify a default handler to get a Vec containing a
     /// StoreConfig::Default, which is used for authoritative file-based zones and legacy sqlite
@@ -534,7 +533,7 @@ pub struct ServerZoneConfig {
 }
 
 impl ServerZoneConfig {
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     async fn load_keys(
         &self,
         authority: &mut impl DnssecAuthority<Lookup = impl Send + Sync + Sized + 'static>,
@@ -578,7 +577,7 @@ impl ServerZoneConfig {
     /// declare that this zone should be signed, see keys for configuration of the keys for signing
     pub fn is_dnssec_enabled(&self) -> bool {
         cfg_if! {
-            if #[cfg(feature = "dnssec-ring")] {
+            if #[cfg(feature = "__dnssec")] {
                 !self.keys.is_empty()
             } else {
                 false
