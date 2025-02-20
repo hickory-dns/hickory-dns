@@ -126,13 +126,13 @@ impl<R: ConnectionProvider> Resolver<R> {
         let either;
         let client = RetryDnsHandle::new(pool, options.attempts);
         if options.validate {
-            #[cfg(feature = "dnssec-ring")]
+            #[cfg(feature = "__dnssec")]
             {
                 use crate::proto::dnssec::DnssecDnsHandle;
                 either = LookupEither::Secure(DnssecDnsHandle::new(client));
             }
 
-            #[cfg(not(feature = "dnssec-ring"))]
+            #[cfg(not(feature = "__dnssec"))]
             {
                 // TODO: should this just be a panic, or a pinned error?
                 tracing::warn!("validate option is only available with 'dnssec' feature");
@@ -626,7 +626,7 @@ pub(crate) mod testing {
     }
 
     /// Test IP lookup from URLs with DNSSEC validation.
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     pub(crate) async fn sec_lookup_test<R: ConnectionProvider>(handle: R) {
         let resolver = Resolver::new(
             ResolverConfig::default(),
@@ -654,7 +654,7 @@ pub(crate) mod testing {
 
     /// Test IP lookup from domains that exist but unsigned with DNSSEC validation.
     #[allow(deprecated)]
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     pub(crate) async fn sec_lookup_fails_test<R: ConnectionProvider>(handle: R) {
         let resolver = Resolver::new(
             ResolverConfig::default(),
@@ -1041,7 +1041,7 @@ mod tests {
     };
     #[cfg(feature = "system-config")]
     use super::testing::{hosts_lookup_test, system_lookup_test};
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     use super::testing::{sec_lookup_fails_test, sec_lookup_test};
     use super::*;
     use crate::config::{ResolverConfig, ResolverOpts};
@@ -1103,7 +1103,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     async fn test_sec_lookup() {
         subscribe();
         let handle = TokioConnectionProvider::default();
@@ -1111,7 +1111,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     async fn test_sec_lookup_fails() {
         subscribe();
         let handle = TokioConnectionProvider::default();
