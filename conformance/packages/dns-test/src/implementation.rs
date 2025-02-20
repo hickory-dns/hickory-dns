@@ -253,12 +253,14 @@ impl Implementation {
 /// A Hickory DNS Cargo feature used to enable DNSSEC with a particular cryptography library.
 #[derive(Debug, Clone, Copy)]
 pub enum HickoryDnssecFeature {
+    AwsLcRs,
     Ring,
 }
 
 impl fmt::Display for HickoryDnssecFeature {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
+            Self::AwsLcRs => "dnssec-aws-lc-rs",
             Self::Ring => "dnssec-ring",
         })
     }
@@ -269,6 +271,7 @@ impl FromStr for HickoryDnssecFeature {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
+            "dnssec-aws-lc-rs" => Ok(Self::AwsLcRs),
             "dnssec-ring" => Ok(Self::Ring),
             _ => {
                 Err(format!("invalid value for DNSSEC_FEATURE: {s}, expected  dnssec-ring").into())
