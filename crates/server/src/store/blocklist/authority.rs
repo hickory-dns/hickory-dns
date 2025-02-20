@@ -17,7 +17,7 @@ use std::{
 };
 use tracing::{error, info, trace};
 
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
@@ -405,7 +405,7 @@ impl Authority for BlocklistAuthority {
         ))))
     }
 
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     async fn get_nsec3_records(
         &self,
         _info: Nsec3QueryInfo<'_>,
@@ -417,7 +417,7 @@ impl Authority for BlocklistAuthority {
         ))))
     }
 
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     fn nx_proof_kind(&self) -> Option<&NxProofKind> {
         None
     }
