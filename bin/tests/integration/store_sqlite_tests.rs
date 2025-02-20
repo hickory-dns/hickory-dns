@@ -7,7 +7,7 @@ use std::{fs, path::Path};
 use futures_executor::block_on;
 
 use hickory_proto::rr::Name;
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::{
     authority::ZoneType,
@@ -37,7 +37,7 @@ fn sqlite(master_file_path: &Path, module: &str, test_name: &str) -> SqliteAutho
         true,
         None,
         &config,
-        #[cfg(feature = "dnssec-ring")]
+        #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
     ))
     .expect("failed to load file")
@@ -67,14 +67,14 @@ fn sqlite_update(master_file_path: &Path, module: &str, test_name: &str) -> Sqli
         true,
         None,
         &config,
-        #[cfg(feature = "dnssec-ring")]
+        #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
     ))
     .expect("failed to load file")
 }
 
 basic_battery!(sqlite, crate::store_sqlite_tests::sqlite);
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 dnssec_battery!(sqlite, crate::store_sqlite_tests::sqlite);
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 dynamic_update!(sqlite_update, crate::store_sqlite_tests::sqlite_update);

@@ -4,7 +4,7 @@ use test_support::subscribe;
 use tokio::runtime::Runtime;
 
 use hickory_proto::rr::{Name, RData, Record, RecordType, rdata::CNAME};
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::{
     authority::{Authority, ZoneType},
@@ -20,7 +20,7 @@ fn test_cname_loop() {
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
         false,
-        #[cfg(feature = "dnssec-ring")]
+        #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
     );
 

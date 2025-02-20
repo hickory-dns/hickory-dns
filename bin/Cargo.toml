@@ -33,7 +33,6 @@ default = ["sqlite", "resolver", "rustls-platform-verifier", "ascii-art"]
 ascii-art = []
 
 blocklist = ["hickory-server/blocklist"]
-dnssec-ring = ["hickory-server/dnssec-ring", "dep:rustls-pki-types"]
 recursor = ["hickory-server/recursor"]
 # Recursive Resolution is Experimental!
 resolver = ["hickory-server/resolver"]
@@ -42,8 +41,11 @@ sqlite = ["hickory-server/sqlite", "dep:rusqlite"]
 dns-over-https-rustls = ["dns-over-rustls", "hickory-server/dns-over-https-rustls"]
 dns-over-quic = ["dns-over-rustls", "hickory-server/dns-over-quic"]
 dns-over-h3 = ["dns-over-rustls", "hickory-server/dns-over-h3"]
-
 dns-over-rustls = ["dep:rustls", "hickory-server/dns-over-rustls"]
+
+dnssec-aws-lc-rs = ["hickory-server/dnssec-aws-lc-rs", "dep:rustls-pki-types", "__dnssec"]
+dnssec-ring = ["hickory-server/dnssec-ring", "dep:rustls-pki-types", "__dnssec"]
+__dnssec = []
 
 webpki-roots = ["hickory-server/webpki-roots"]
 rustls-platform-verifier = ["hickory-server/rustls-platform-verifier"]
