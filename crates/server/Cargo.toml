@@ -32,12 +32,6 @@ license.workspace = true
 
 [features]
 backtrace = ["hickory-proto/backtrace"]
-dnssec-ring = [
-    "hickory-proto/dnssec-ring",
-    "hickory-recursor?/dnssec-ring",
-    "hickory-resolver?/dnssec-ring",
-    "serde/rc",
-]
 # Recursive Resolution is Experimental!
 recursor = ["dep:hickory-recursor", "dep:hickory-resolver"]
 resolver = ["dep:hickory-resolver"]
@@ -72,6 +66,10 @@ dns-over-h3 = [
     "hickory-proto/dns-over-h3",
     "hickory-resolver?/dns-over-h3",
 ]
+
+dnssec-aws-lc-rs = ["hickory-proto/dnssec-aws-lc-rs", "hickory-recursor?/dnssec-aws-lc-rs", "hickory-resolver?/dnssec-aws-lc-rs", "serde/rc", "__dnssec"]
+dnssec-ring = ["hickory-proto/dnssec-ring", "hickory-recursor?/dnssec-ring", "hickory-resolver?/dnssec-ring", "serde/rc", "__dnssec"]
+__dnssec = []
 
 webpki-roots = ["hickory-resolver?/webpki-roots"]
 rustls-platform-verifier = ["hickory-resolver?/rustls-platform-verifier"]

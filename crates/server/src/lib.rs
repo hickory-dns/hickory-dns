@@ -64,7 +64,7 @@ pub mod store;
 pub use self::server::ServerFuture;
 
 /// Low-level types for DNSSEC operations
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 pub mod dnssec {
     use crate::proto::dnssec::Nsec3HashAlgorithm;
     use serde::Deserialize;

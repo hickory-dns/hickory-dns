@@ -15,7 +15,7 @@ use crate::{
     proto::rr::{LowerName, RecordSet, RecordType, RrsetRecords},
     server::RequestInfo,
 };
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 use crate::{
     dnssec::NxProofKind,
     proto::{
@@ -36,7 +36,7 @@ pub struct LookupOptions {
 /// Lookup Options for the request to the authority
 impl LookupOptions {
     /// Return a new LookupOptions
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     pub fn for_dnssec(dnssec_ok: bool) -> Self {
         Self { dnssec_ok }
     }
@@ -58,7 +58,7 @@ impl LookupOptions {
     /// Returns the rrset's records with or without RRSIGs, depending on the DO flag.
     pub fn rrset_with_rrigs<'r>(&self, record_set: &'r RecordSet) -> RrsetRecords<'r> {
         cfg_if! {
-            if #[cfg(feature = "dnssec-ring")] {
+            if #[cfg(feature = "__dnssec")] {
                 record_set.records(self.dnssec_ok())
             } else {
                 record_set.records_without_rrsigs()
@@ -185,7 +185,7 @@ pub trait Authority: Send + Sync {
     ) -> LookupControlFlow<Self::Lookup>;
 
     /// Return the NSEC3 records based on the information available for a query.
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     async fn get_nsec3_records(
         &self,
         info: Nsec3QueryInfo<'_>,
@@ -209,12 +209,12 @@ pub trait Authority: Send + Sync {
     }
 
     /// Returns the kind of non-existence proof used for this zone.
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     fn nx_proof_kind(&self) -> Option<&NxProofKind>;
 }
 
 /// Extension to Authority to allow for DNSSEC features
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 #[async_trait::async_trait]
 pub trait DnssecAuthority: Authority {
     /// Add a (Sig0) key that is authorized to perform updates against this authority
@@ -403,7 +403,7 @@ impl<T: LookupObject + 'static, E: std::fmt::Display> LookupControlFlow<T, E> {
 }
 
 /// Information required to compute the NSEC3 records that should be sent for a query.
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 pub struct Nsec3QueryInfo<'q> {
     /// The queried name.
     pub qname: &'q LowerName,
@@ -419,7 +419,7 @@ pub struct Nsec3QueryInfo<'q> {
     pub iterations: u16,
 }
 
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 impl Nsec3QueryInfo<'_> {
     /// Computes the hash of a given name.
     pub(crate) fn hash_name(&self, name: &Name) -> Result<Digest, ProtoError> {
