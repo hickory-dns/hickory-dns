@@ -47,7 +47,9 @@ dns-over-rustls = [
 webpki-roots = ["hickory-proto/webpki-roots"]
 rustls-platform-verifier = ["hickory-proto/rustls-platform-verifier"]
 
-dnssec-ring = ["hickory-proto/dnssec-ring"]
+dnssec-aws-lc-rs = ["hickory-proto/dnssec-aws-lc-rs", "__dnssec"]
+dnssec-ring = ["hickory-proto/dnssec-ring", "__dnssec"]
+__dnssec = []
 
 serde = ["dep:serde", "hickory-proto/serde"]
 
