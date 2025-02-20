@@ -1,4 +1,4 @@
-#![cfg(feature = "dnssec-ring")]
+#![cfg(feature = "__dnssec")]
 #![cfg(not(windows))]
 
 use std::env;
@@ -17,7 +17,7 @@ use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer, Protocol};
 use test_support::subscribe;
 
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 fn confg_toml() -> &'static str {
     "all_supported_dnssec.toml"
 }
@@ -77,7 +77,7 @@ fn generic_test(config_toml: &str, key_path: &str, algorithm: Algorithm) {
 }
 
 #[test]
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 fn test_rsa_sha256_pkcs8() {
     subscribe();
     generic_test(
@@ -88,7 +88,7 @@ fn test_rsa_sha256_pkcs8() {
 }
 
 #[test]
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 fn test_rsa_sha512_pkcs8() {
     subscribe();
     generic_test(
@@ -99,7 +99,7 @@ fn test_rsa_sha512_pkcs8() {
 }
 
 #[test]
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 fn test_ecdsa_p256_pkcs8() {
     subscribe();
     generic_test(
@@ -110,7 +110,7 @@ fn test_ecdsa_p256_pkcs8() {
 }
 
 #[test]
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 fn test_ecdsa_p384_pkcs8() {
     subscribe();
     generic_test(
@@ -121,7 +121,7 @@ fn test_ecdsa_p384_pkcs8() {
 }
 
 #[test]
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 fn test_ed25519() {
     subscribe();
     generic_test(
@@ -143,7 +143,7 @@ fn test_rsa_sha1_fails() {
     );
 }
 
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 #[cfg(feature = "sqlite")]
 #[test]
 fn test_dnssec_restart_with_update_journal() {
