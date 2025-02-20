@@ -25,7 +25,7 @@ use crate::{
     server::RequestInfo,
     store::{file::FileConfig, in_memory::InMemoryAuthority},
 };
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 use crate::{
     authority::{DnssecAuthority, Nsec3QueryInfo},
     dnssec::NxProofKind,
@@ -58,14 +58,14 @@ impl FileAuthority {
         records: BTreeMap<RrKey, RecordSet>,
         zone_type: ZoneType,
         allow_axfr: bool,
-        #[cfg(feature = "dnssec-ring")] nx_proof_kind: Option<NxProofKind>,
+        #[cfg(feature = "__dnssec")] nx_proof_kind: Option<NxProofKind>,
     ) -> Result<Self, String> {
         InMemoryAuthority::new(
             origin,
             records,
             zone_type,
             allow_axfr,
-            #[cfg(feature = "dnssec-ring")]
+            #[cfg(feature = "__dnssec")]
             nx_proof_kind,
         )
         .map(Self)
@@ -78,7 +78,7 @@ impl FileAuthority {
         allow_axfr: bool,
         root_dir: Option<&Path>,
         config: &FileConfig,
-        #[cfg(feature = "dnssec-ring")] nx_proof_kind: Option<NxProofKind>,
+        #[cfg(feature = "__dnssec")] nx_proof_kind: Option<NxProofKind>,
     ) -> Result<Self, String> {
         let root_dir_path = root_dir.map(PathBuf::from).unwrap_or_default();
         let zone_path = root_dir_path.join(&config.zone_file_path);
@@ -117,7 +117,7 @@ impl FileAuthority {
             records,
             zone_type,
             allow_axfr,
-            #[cfg(feature = "dnssec-ring")]
+            #[cfg(feature = "__dnssec")]
             nx_proof_kind,
         )
     }
@@ -231,7 +231,7 @@ impl Authority for FileAuthority {
         self.0.get_nsec_records(name, lookup_options).await
     }
 
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     async fn get_nsec3_records(
         &self,
         info: Nsec3QueryInfo<'_>,
@@ -253,13 +253,13 @@ impl Authority for FileAuthority {
         self.0.soa_secure(lookup_options).await
     }
 
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     fn nx_proof_kind(&self) -> Option<&NxProofKind> {
         self.0.nx_proof_kind()
     }
 }
 
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 #[async_trait::async_trait]
 impl DnssecAuthority for FileAuthority {
     /// Add a (Sig0) key that is authorized to perform updates against this authority
@@ -293,13 +293,13 @@ mod tests {
     fn test_load_zone() {
         subscribe();
 
-        #[cfg(feature = "dnssec-ring")]
+        #[cfg(feature = "__dnssec")]
         let config = FileConfig {
             zone_file_path: PathBuf::from(
                 "../../tests/test-data/test_configs/dnssec/example.com.zone",
             ),
         };
-        #[cfg(not(feature = "dnssec-ring"))]
+        #[cfg(not(feature = "__dnssec"))]
         let config = FileConfig {
             zone_file_path: PathBuf::from("../../tests/test-data/test_configs/example.com.zone"),
         };
@@ -309,7 +309,7 @@ mod tests {
             false,
             None,
             &config,
-            #[cfg(feature = "dnssec-ring")]
+            #[cfg(feature = "__dnssec")]
             Some(NxProofKind::Nsec),
         )
         .expect("failed to load file");

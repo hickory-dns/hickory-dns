@@ -33,5 +33,5 @@ pub use self::message_request::{MessageRequest, Queries, UpdateRequest};
 pub use self::message_response::{MessageResponse, MessageResponseBuilder};
 pub use self::zone_type::ZoneType;
 
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 pub use self::authority::{DnssecAuthority, Nsec3QueryInfo};
