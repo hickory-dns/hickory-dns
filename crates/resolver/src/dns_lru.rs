@@ -18,10 +18,10 @@ use serde::{Deserialize, Deserializer};
 
 use crate::config;
 use crate::lookup::Lookup;
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::rdata::RRSIG;
 use crate::proto::op::Query;
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 use crate::proto::rr::RecordData;
 use crate::proto::rr::{Record, RecordType};
 use crate::proto::{ProtoError, ProtoErrorKind};
@@ -361,7 +361,7 @@ impl DnsLru {
                 // that's what would be used to retrieve the cached query.
                 let rtype = match record.record_type() {
                     RecordType::CNAME => original_query.query_type(),
-                    #[cfg(feature = "dnssec-ring")]
+                    #[cfg(feature = "__dnssec")]
                     RecordType::RRSIG => match RRSIG::try_borrow(record.data()) {
                         Some(rrsig) => rrsig.type_covered(),
                         None => record.record_type(),
