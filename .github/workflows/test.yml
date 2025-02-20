@@ -113,6 +113,7 @@ jobs:
             dns-over-https-rustls,
             dns-over-quic,
             dns-over-h3,
+            dnssec-aws-lc-rs,
             dnssec-ring,
             async-std,
             doc,
