@@ -6,7 +6,7 @@ use hickory_proto::{
     serialize::binary::{BinDecodable, BinEncodable},
     xfer::Protocol,
 };
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::{
     authority::{Authority, Catalog, MessageRequest, ZoneType},
@@ -25,7 +25,7 @@ pub fn create_test() -> InMemoryAuthority {
         origin.clone(),
         ZoneType::Primary,
         false,
-        #[cfg(feature = "dnssec")]
+        #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
     );
 

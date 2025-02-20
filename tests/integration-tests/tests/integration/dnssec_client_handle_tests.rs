@@ -1,4 +1,4 @@
-#![cfg(feature = "dnssec-ring")]
+#![cfg(feature = "__dnssec")]
 
 use std::future::Future;
 use std::str::FromStr;
