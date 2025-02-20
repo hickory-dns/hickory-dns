@@ -20,7 +20,7 @@ use crate::{
     recursor_dns_handle::RecursorDnsHandle,
     resolver::{config::NameServerConfigGroup, dns_lru::TtlConfig, lookup::Lookup},
 };
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 use crate::{
     ErrorKind,
     proto::{
@@ -173,10 +173,10 @@ impl Recursor {
         let mode = match dnssec_policy {
             DnssecPolicy::SecurityUnaware => RecursorMode::NonValidating { handle },
 
-            #[cfg(feature = "dnssec-ring")]
+            #[cfg(feature = "__dnssec")]
             DnssecPolicy::ValidationDisabled => RecursorMode::NonValidating { handle },
 
-            #[cfg(feature = "dnssec-ring")]
+            #[cfg(feature = "__dnssec")]
             DnssecPolicy::ValidateWithStaticKey { trust_anchor } => {
                 let record_cache = handle.record_cache().clone();
                 let trust_anchor = match trust_anchor {
@@ -381,7 +381,7 @@ impl Recursor {
                     .await
             }
 
-            #[cfg(feature = "dnssec-ring")]
+            #[cfg(feature = "__dnssec")]
             RecursorMode::Validating {
                 handle,
                 record_cache,
@@ -499,7 +499,7 @@ enum RecursorMode {
         handle: RecursorDnsHandle,
     },
 
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     Validating {
         handle: DnssecDnsHandle<RecursorDnsHandle>,
         // this is a handle to the record cache in `RecursorDnsHandle`; not a whole separate cache
@@ -507,7 +507,7 @@ enum RecursorMode {
     },
 }
 
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 mod for_dnssec {
     use std::{
         sync::{Arc, atomic::AtomicU8},
