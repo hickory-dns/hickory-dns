@@ -18,7 +18,7 @@
 
 #[allow(clippy::module_inception)]
 pub(crate) mod client;
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 pub(crate) mod dnssec_client;
 
 mod memoize_client_handle;
@@ -26,6 +26,6 @@ mod rc_stream;
 
 #[allow(deprecated)]
 pub use self::client::{Client, ClientFuture, ClientHandle, ClientStreamingResponse};
-#[cfg(feature = "dnssec-ring")]
+#[cfg(feature = "__dnssec")]
 pub use self::dnssec_client::{AsyncSecureClientBuilder, DnssecClient};
 pub use self::memoize_client_handle::MemoizeClientHandle;
