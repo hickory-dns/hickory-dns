@@ -2,11 +2,11 @@
 use std::{fs, thread, time::Duration};
 
 use dns_test::{
+    FQDN, Implementation, Network, Resolver, Result,
     client::{Client, DigSettings},
     name_server::NameServer,
     record::RecordType,
     zone_file::Root,
-    Implementation, Network, Resolver, Result, FQDN,
 };
 
 /// Transaction ID check - verify that Hickory will drop an invalidate transaction id.

@@ -9,8 +9,9 @@ use futures_executor::block_on;
 
 use hickory_proto::{
     dnssec::{
+        Algorithm, Verifier,
         rdata::{DNSKEY, RRSIG},
-        verify_nsec, Algorithm, Verifier,
+        verify_nsec,
     },
     op::{Header, Query},
     rr::{DNSClass, Name, RData, Record, RecordType},
@@ -153,9 +154,11 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DN
         .into_iter()
         .partition(|r| r.record_type() == RecordType::CNAME);
 
-    assert!(cname_records
-        .iter()
-        .all(|r| *r.name() == Name::from_str("www.wildcard.example.com.").unwrap()));
+    assert!(
+        cname_records
+            .iter()
+            .all(|r| *r.name() == Name::from_str("www.wildcard.example.com.").unwrap())
+    );
 
     let rrsig_records: Vec<_> = other_records
         .into_iter()
@@ -276,16 +279,19 @@ pub fn verify(records: &[&Record], rrsig_records: &[Record<RRSIG>], keys: &[DNSK
     println!("record_name: {record_name}, type: {record_type}");
 
     // should be signed with all the keys
-    assert!(keys.iter().all(|key| rrsig_records
-        .iter()
-        .map(|rrsig| rrsig.data())
-        .filter(|rrsig| rrsig.algorithm() == key.algorithm())
-        .filter(|rrsig| rrsig.key_tag() == key.calculate_key_tag().unwrap())
-        .filter(|rrsig| rrsig.type_covered() == record_type)
-        .any(|rrsig| key
-            .verify_rrsig(record_name, DNSClass::IN, rrsig, records.iter().copied())
-            .map_err(|e| println!("failed to verify: {e}"))
-            .is_ok())));
+    assert!(keys.iter().all(|key| {
+        rrsig_records
+            .iter()
+            .map(|rrsig| rrsig.data())
+            .filter(|rrsig| rrsig.algorithm() == key.algorithm())
+            .filter(|rrsig| rrsig.key_tag() == key.calculate_key_tag().unwrap())
+            .filter(|rrsig| rrsig.type_covered() == record_type)
+            .any(|rrsig| {
+                key.verify_rrsig(record_name, DNSClass::IN, rrsig, records.iter().copied())
+                    .map_err(|e| println!("failed to verify: {e}"))
+                    .is_ok()
+            })
+    }));
 }
 
 pub fn add_signers<A: DnssecAuthority>(authority: &mut A) -> Vec<DNSKEY> {

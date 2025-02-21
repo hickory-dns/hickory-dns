@@ -1,11 +1,11 @@
 use std::net::Ipv4Addr;
 
 use dns_test::{
+    FQDN, Network, Resolver, Result, TrustAnchor,
     client::{Client, DigOutput, DigSettings},
     name_server::NameServer,
     record::{Record, RecordType},
     zone_file::SignSettings,
-    Network, Resolver, Result, TrustAnchor, FQDN,
 };
 
 const EXPECTED: Ipv4Addr = Ipv4Addr::new(1, 2, 3, 4);

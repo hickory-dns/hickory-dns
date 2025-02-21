@@ -11,7 +11,7 @@ use std::task::{Context, Poll};
 
 use futures_util::lock::Mutex;
 use futures_util::stream::{Fuse, Stream, StreamExt};
-use futures_util::{ready, FutureExt};
+use futures_util::{FutureExt, ready};
 
 #[allow(clippy::type_complexity)]
 #[must_use = "stream do nothing unless polled"]

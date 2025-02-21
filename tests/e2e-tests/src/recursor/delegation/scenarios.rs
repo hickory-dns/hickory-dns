@@ -5,11 +5,11 @@
 use std::{net::Ipv4Addr, thread, time::Duration};
 
 use dns_test::{
+    FQDN, Implementation, Network, Resolver, Result,
     client::{Client, DigSettings},
     name_server::NameServer,
-    record::{Record, RecordType, SoaSettings, A, NS, SOA},
+    record::{A, NS, Record, RecordType, SOA, SoaSettings},
     zone_file::{Root, ZoneFile},
-    Implementation, Network, Resolver, Result, FQDN,
 };
 
 /// Recursive Delegation
@@ -83,10 +83,12 @@ fn recursive_delegation() -> Result<()> {
         panic!("error");
     }
 
-    assert!(resolver
-        .logs()
-        .unwrap()
-        .contains("recursion depth exceeded for"));
+    assert!(
+        resolver
+            .logs()
+            .unwrap()
+            .contains("recursion depth exceeded for")
+    );
 
     Ok(())
 }
@@ -207,10 +209,12 @@ fn multi_domain_delegation() -> Result<()> {
         panic!("error");
     }
 
-    assert!(resolver
-        .logs()
-        .unwrap()
-        .contains("recursion depth exceeded for"));
+    assert!(
+        resolver
+            .logs()
+            .unwrap()
+            .contains("recursion depth exceeded for")
+    );
 
     Ok(())
 }

@@ -1,7 +1,7 @@
 use dns_test::client::{Client, DigSettings};
 use dns_test::name_server::NameServer;
 use dns_test::record::RecordType;
-use dns_test::{Network, Result, FQDN};
+use dns_test::{FQDN, Network, Result};
 
 #[test]
 fn authoritative_answer() -> Result<()> {

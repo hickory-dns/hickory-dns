@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use futures_executor::block_on;
 
-use hickory_proto::rr::rdata::{tlsa::*, A, AAAA};
+use hickory_proto::rr::rdata::{A, AAAA, tlsa::*};
 use hickory_proto::rr::*;
 use hickory_proto::serialize::txt::*;
 use hickory_server::authority::{Authority, LookupOptions, ZoneType};
@@ -445,15 +445,17 @@ a       A       127.0.0.1
 
     let (origin, records) = records.unwrap();
 
-    assert!(InMemoryAuthority::new(
-        origin,
-        records,
-        ZoneType::Primary,
-        false,
-        #[cfg(feature = "dnssec-ring")]
-        Some(NxProofKind::Nsec),
-    )
-    .is_err());
+    assert!(
+        InMemoryAuthority::new(
+            origin,
+            records,
+            ZoneType::Primary,
+            false,
+            #[cfg(feature = "dnssec-ring")]
+            Some(NxProofKind::Nsec),
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -481,15 +483,17 @@ b       A       127.0.0.2
 
     let (origin, records) = records.unwrap();
 
-    assert!(InMemoryAuthority::new(
-        origin,
-        records,
-        ZoneType::Primary,
-        false,
-        #[cfg(feature = "dnssec-ring")]
-        Some(NxProofKind::Nsec),
-    )
-    .is_err());
+    assert!(
+        InMemoryAuthority::new(
+            origin,
+            records,
+            ZoneType::Primary,
+            false,
+            #[cfg(feature = "dnssec-ring")]
+            Some(NxProofKind::Nsec),
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -516,15 +520,17 @@ a       A       127.0.0.1
 
     let (origin, records) = records.unwrap();
 
-    assert!(InMemoryAuthority::new(
-        origin,
-        records,
-        ZoneType::Primary,
-        false,
-        #[cfg(feature = "dnssec-ring")]
-        Some(NxProofKind::Nsec),
-    )
-    .is_ok());
+    assert!(
+        InMemoryAuthority::new(
+            origin,
+            records,
+            ZoneType::Primary,
+            false,
+            #[cfg(feature = "dnssec-ring")]
+            Some(NxProofKind::Nsec),
+        )
+        .is_ok()
+    );
 }
 
 #[test]

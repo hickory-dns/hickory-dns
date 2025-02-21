@@ -5,7 +5,7 @@ use dns_test::name_server::NameServer;
 use dns_test::record::{Record, RecordType};
 use dns_test::tshark::Capture;
 use dns_test::zone_file::SignSettings;
-use dns_test::{Network, Resolver, Result, TrustAnchor, FQDN};
+use dns_test::{FQDN, Network, Resolver, Result, TrustAnchor};
 
 use crate::resolver::dnssec::fixtures;
 

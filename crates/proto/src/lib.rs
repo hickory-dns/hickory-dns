@@ -69,13 +69,13 @@ pub mod udp;
 pub mod xfer;
 
 #[doc(hidden)]
+pub use crate::xfer::BufDnsStreamHandle;
+#[doc(hidden)]
 pub use crate::xfer::dns_handle::{DnsHandle, DnsStreamHandle};
 #[doc(hidden)]
 pub use crate::xfer::dns_multiplexer::DnsMultiplexer;
 #[doc(hidden)]
 pub use crate::xfer::retry_dns_handle::RetryDnsHandle;
-#[doc(hidden)]
-pub use crate::xfer::BufDnsStreamHandle;
 #[cfg(feature = "backtrace")]
-pub use error::{ExtBacktrace, ENABLE_BACKTRACE};
+pub use error::{ENABLE_BACKTRACE, ExtBacktrace};
 pub use error::{ForwardData, ForwardNSData, ProtoError, ProtoErrorKind};

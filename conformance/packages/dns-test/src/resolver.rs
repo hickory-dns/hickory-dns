@@ -174,7 +174,7 @@ impl ResolverSettings {
 mod tests {
     use std::{thread, time::Duration};
 
-    use crate::{name_server::NameServer, FQDN};
+    use crate::{FQDN, name_server::NameServer};
 
     use super::*;
 

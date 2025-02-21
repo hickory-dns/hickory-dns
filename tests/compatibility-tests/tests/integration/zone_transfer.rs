@@ -14,7 +14,7 @@ use futures::TryStreamExt;
 use time::Duration;
 
 use hickory_client::client::{Client, ClientHandle};
-use hickory_client::proto::rr::{rdata::A, Name, RData, Record, RecordType};
+use hickory_client::proto::rr::{Name, RData, Record, RecordType, rdata::A};
 use hickory_client::proto::runtime::TokioRuntimeProvider;
 use hickory_client::proto::tcp::TcpClientStream;
 use hickory_client::proto::xfer::DnsMultiplexer;

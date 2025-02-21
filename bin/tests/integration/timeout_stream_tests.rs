@@ -3,7 +3,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-use futures_util::stream::{iter, Stream, StreamExt, TryStreamExt};
+use futures_util::stream::{Stream, StreamExt, TryStreamExt, iter};
 use test_support::subscribe;
 use tokio::runtime::Runtime;
 
@@ -51,9 +51,10 @@ fn test_timeout() {
     let core = Runtime::new().expect("could not get core");
     let timeout_stream = TimeoutStream::new(NeverStream {}, Duration::from_millis(1));
 
-    assert!(core
-        .block_on(timeout_stream.into_future())
-        .0
-        .expect("nothing in stream")
-        .is_err());
+    assert!(
+        core.block_on(timeout_stream.into_future())
+            .0
+            .expect("nothing in stream")
+            .is_err()
+    );
 }

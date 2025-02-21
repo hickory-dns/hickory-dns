@@ -11,15 +11,15 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use futures_util::lock::Mutex;
-use futures_util::stream::{once, Stream};
+use futures_util::stream::{Stream, once};
 use tracing::debug;
 
 use crate::config::{NameServerConfig, ResolverOpts};
 use crate::name_server::connection_provider::{ConnectionProvider, GenericConnector};
 use crate::name_server::{NameServerState, NameServerStats};
 use crate::proto::{
-    xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer},
     ProtoError,
+    xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer},
 };
 
 /// This struct is used to create `DnsHandle` with the help of `P`.
@@ -250,13 +250,15 @@ mod tests {
             GenericNameServer::new(config, options, TokioConnectionProvider::default());
 
         let name = Name::parse("www.example.com.", None).unwrap();
-        assert!(name_server
-            .lookup(
-                Query::query(name.clone(), RecordType::A),
-                DnsRequestOptions::default(),
-            )
-            .first_answer()
-            .await
-            .is_err());
+        assert!(
+            name_server
+                .lookup(
+                    Query::query(name.clone(), RecordType::A),
+                    DnsRequestOptions::default(),
+                )
+                .first_answer()
+                .await
+                .is_err()
+        );
     }
 }

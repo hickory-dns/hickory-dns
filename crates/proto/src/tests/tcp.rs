@@ -1,13 +1,13 @@
 use std::io::{Read, Write};
 use std::net::{IpAddr, SocketAddr};
-use std::sync::{atomic::AtomicBool, Arc};
+use std::sync::{Arc, atomic::AtomicBool};
 
 use futures_util::stream::StreamExt;
 
 use crate::runtime::RuntimeProvider;
 use crate::tcp::TcpStream;
-use crate::xfer::dns_handle::DnsStreamHandle;
 use crate::xfer::SerialMessage;
+use crate::xfer::dns_handle::DnsStreamHandle;
 
 const TEST_BYTES: &[u8; 8] = b"DEADBEEF";
 const TEST_BYTES_LEN: usize = 8;

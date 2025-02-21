@@ -6,12 +6,12 @@
 // copied, modified, or distributed except according to those terms.
 
 use crate::{
-    authority::{message_request::MessageRequest, Queries},
+    authority::{Queries, message_request::MessageRequest},
     proto::{
-        op::{message, Edns, Header, ResponseCode},
+        ProtoError,
+        op::{Edns, Header, ResponseCode, message},
         rr::Record,
         serialize::binary::BinEncoder,
-        ProtoError,
     },
     server::ResponseInfo,
 };

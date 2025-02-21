@@ -11,12 +11,12 @@ use std::str::FromStr;
 
 use crate::{
     rr::{
-        rdata::{svcb::*, A, AAAA},
         Name,
+        rdata::{A, AAAA, svcb::*},
     },
     serialize::txt::{
-        errors::{ParseError, ParseErrorKind, ParseResult},
         Lexer, Token,
+        errors::{ParseError, ParseErrorKind, ParseResult},
     },
 };
 
@@ -363,7 +363,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        rr::{rdata::HTTPS, RecordData},
+        rr::{RecordData, rdata::HTTPS},
         serialize::txt::Parser,
     };
 
@@ -613,7 +613,7 @@ mod tests {
         }
     }
 
-    const CF_SVCB_RECORD: & str = "crypto.cloudflare.com. 1664 IN SVCB 1 . alpn=\"http/1.1,h2\" ipv4hint=162.159.137.85,162.159.138.85 ech=AEX+DQBBtgAgACBMmGJQR02doup+5VPMjYpe5HQQ/bpntFCxDa8LT2PLAgAEAAEAAQASY2xvdWRmbGFyZS1lY2guY29tAAA= ipv6hint=2606:4700:7::a29f:8955,2606:4700:7::a29f:8a5";
+    const CF_SVCB_RECORD: &str = "crypto.cloudflare.com. 1664 IN SVCB 1 . alpn=\"http/1.1,h2\" ipv4hint=162.159.137.85,162.159.138.85 ech=AEX+DQBBtgAgACBMmGJQR02doup+5VPMjYpe5HQQ/bpntFCxDa8LT2PLAgAEAAEAAQASY2xvdWRmbGFyZS1lY2guY29tAAA= ipv6hint=2606:4700:7::a29f:8955,2606:4700:7::a29f:8a5";
     const CF_HTTPS_RECORD: &str = "crypto.cloudflare.com. 1664 IN HTTPS 1 . alpn=\"http/1.1,h2\" ipv4hint=162.159.137.85,162.159.138.85 ech=AEX+DQBBtgAgACBMmGJQR02doup+5VPMjYpe5HQQ/bpntFCxDa8LT2PLAgAEAAEAAQASY2xvdWRmbGFyZS1lY2guY29tAAA= ipv6hint=2606:4700:7::a29f:8955,2606:4700:7::a29f:8a5";
     const GOOGLE_HTTPS_RECORD: &str = "google.com 21132 IN HTTPS 1 . alpn=\"h2,h3\"";
 }

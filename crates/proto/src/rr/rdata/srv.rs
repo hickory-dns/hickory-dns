@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::ProtoResult,
-    rr::{domain::Name, RData, RecordData, RecordType},
+    rr::{RData, RecordData, RecordType, domain::Name},
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder},
 };
 

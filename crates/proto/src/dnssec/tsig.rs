@@ -18,10 +18,10 @@ use std::sync::Arc;
 
 use tracing::debug;
 
-use super::rdata::tsig::{
-    make_tsig_record, message_tbs, signed_bitmessage_to_buf, TsigAlgorithm, TSIG,
-};
 use super::rdata::DNSSECRData;
+use super::rdata::tsig::{
+    TSIG, TsigAlgorithm, make_tsig_record, message_tbs, signed_bitmessage_to_buf,
+};
 use super::{DnsSecError, DnsSecErrorKind};
 use crate::error::{ProtoError, ProtoResult};
 use crate::op::{Message, MessageFinalizer, MessageVerifier};
@@ -145,7 +145,9 @@ impl TSigner {
         //    this is to be pedantic about constant time HMAC validation (prevent timing attacks) as well as any security
         //    concerns about MAC truncation and collisions.
         if tsig.mac().len() < tsig.algorithm().output_len()? {
-            return Err(DnsSecError::from("Please file an issue with https://github.com/hickory-dns/hickory-dns to support truncated HMACs with TSIG"));
+            return Err(DnsSecError::from(
+                "Please file an issue with https://github.com/hickory-dns/hickory-dns to support truncated HMACs with TSIG",
+            ));
         }
 
         // verify the MAC
@@ -290,9 +292,11 @@ mod tests {
         assert!(!question.signature().is_empty());
 
         // this should be ok, it has not been tampered with
-        assert!(signer
-            .verify_message_byte(None, &question.to_bytes().unwrap(), true)
-            .is_ok());
+        assert!(
+            signer
+                .verify_message_byte(None, &question.to_bytes().unwrap(), true)
+                .is_ok()
+        );
 
         (question, signer)
     }
@@ -306,9 +310,11 @@ mod tests {
         signature.set_name(other_name);
         question.add_tsig(signature);
 
-        assert!(signer
-            .verify_message_byte(None, &question.to_bytes().unwrap(), true)
-            .is_err());
+        assert!(
+            signer
+                .verify_message_byte(None, &question.to_bytes().unwrap(), true)
+                .is_err()
+        );
     }
 
     #[test]
@@ -320,8 +326,10 @@ mod tests {
         query.set_name(origin);
         question.add_query(query);
 
-        assert!(signer
-            .verify_message_byte(None, &question.to_bytes().unwrap(), true)
-            .is_err());
+        assert!(
+            signer
+                .verify_message_byte(None, &question.to_bytes().unwrap(), true)
+                .is_err()
+        );
     }
 }

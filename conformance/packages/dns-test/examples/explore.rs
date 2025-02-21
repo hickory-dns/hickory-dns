@@ -6,7 +6,7 @@ use dns_test::client::Client;
 use dns_test::name_server::{Graph, NameServer, Sign};
 use dns_test::record::RecordType;
 use dns_test::zone_file::SignSettings;
-use dns_test::{Network, Resolver, Result, FQDN};
+use dns_test::{FQDN, Network, Resolver, Result};
 
 fn main() -> Result<()> {
     let args = Args::from_env()?;

@@ -3,9 +3,9 @@ use std::net::Ipv4Addr;
 use dns_test::client::{Client, DigSettings, DigStatus};
 use dns_test::name_server::NameServer;
 use dns_test::nsec3::NSEC3Records;
-use dns_test::record::{Record, RecordType, NSEC3};
+use dns_test::record::{NSEC3, Record, RecordType};
 use dns_test::zone_file::SignSettings;
-use dns_test::{Network, Result, FQDN};
+use dns_test::{FQDN, Network, Result};
 
 const TLD_FQDN: &str = "alice.com.";
 const NON_EXISTENT_FQDN: &str = "charlie.alice.com.";

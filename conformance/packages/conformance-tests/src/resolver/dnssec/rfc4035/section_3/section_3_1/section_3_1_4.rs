@@ -1,10 +1,10 @@
 use dns_test::{
+    FQDN, Network, Resolver, Result,
     client::{Client, DigSettings},
     name_server::{Graph, NameServer, Sign},
     record::RecordType,
     tshark::{Capture, Direction},
     zone_file::SignSettings,
-    Network, Resolver, Result, FQDN,
 };
 
 #[test]

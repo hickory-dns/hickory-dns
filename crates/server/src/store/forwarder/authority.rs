@@ -24,7 +24,7 @@ use crate::{
         op::ResponseCode,
         rr::{LowerName, Name, Record, RecordType},
     },
-    resolver::{config::ResolverConfig, lookup::Lookup as ResolverLookup, Resolver},
+    resolver::{Resolver, config::ResolverConfig, lookup::Lookup as ResolverLookup},
     server::RequestInfo,
     store::forwarder::ForwardConfig,
 };

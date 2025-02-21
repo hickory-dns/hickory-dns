@@ -4,13 +4,13 @@ use std::{
 };
 
 use crate::{
-    container::Container,
-    name_server::{Signed, DS2},
-    record::DS,
     FQDN,
+    container::Container,
+    name_server::{DS2, Signed},
+    record::DS,
 };
 
-use super::{Keypair, SigningKeys, ZoneFile, DNSKEY};
+use super::{DNSKEY, Keypair, SigningKeys, ZoneFile};
 
 const KEYS_DIR: &str = "/tmp/keys";
 const ZONES_DIR: &str = "/etc/zones";

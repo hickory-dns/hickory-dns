@@ -9,8 +9,8 @@ use futures_executor::block_on;
 use hickory_proto::{
     op::{Header, Message, Query, ResponseCode},
     rr::{
-        rdata::{A as A4, AAAA},
         Name, RData, Record, RecordType,
+        rdata::{A as A4, AAAA},
     },
     serialize::binary::BinDecodable,
     xfer::Protocol,
@@ -96,9 +96,11 @@ pub fn test_ns_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
 
     let mut lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
 
-    let additionals = dbg!(lookup
-        .take_additionals()
-        .expect("no additionals in response"));
+    let additionals = dbg!(
+        lookup
+            .take_additionals()
+            .expect("no additionals in response")
+    );
 
     let ns = lookup
         .into_iter()
@@ -131,9 +133,11 @@ pub fn test_mx<A: Authority<Lookup = AuthLookup>>(authority: A) {
 
     let mut lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
 
-    let additionals = dbg!(lookup
-        .take_additionals()
-        .expect("no additionals in response"));
+    let additionals = dbg!(
+        lookup
+            .take_additionals()
+            .expect("no additionals in response")
+    );
 
     let mx = lookup
         .into_iter()
@@ -667,9 +671,11 @@ pub fn test_srv<A: Authority<Lookup = AuthLookup>>(authority: A) {
 
     let mut lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
 
-    let additionals = dbg!(lookup
-        .take_additionals()
-        .expect("no additionals in response"));
+    let additionals = dbg!(
+        lookup
+            .take_additionals()
+            .expect("no additionals in response")
+    );
 
     let srv = lookup
         .into_iter()

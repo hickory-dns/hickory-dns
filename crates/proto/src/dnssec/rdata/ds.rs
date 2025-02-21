@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use super::DNSSECRData;
 use crate::{
-    dnssec::{rdata::DNSKEY, Algorithm, DigestType, DnsSecError, PublicKey},
+    dnssec::{Algorithm, DigestType, DnsSecError, PublicKey, rdata::DNSKEY},
     error::{ProtoError, ProtoResult},
     rr::{Name, RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
@@ -391,7 +391,7 @@ mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use super::*;
-    use crate::dnssec::{crypto::EcdsaSigningKey, rdata::DNSKEY, PublicKeyBuf, SigningKey};
+    use crate::dnssec::{PublicKeyBuf, SigningKey, crypto::EcdsaSigningKey, rdata::DNSKEY};
 
     #[test]
     fn test() {

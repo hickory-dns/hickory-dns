@@ -3,11 +3,11 @@
 use std::net::Ipv4Addr;
 
 use dns_test::{
+    FQDN, Network, Resolver, Result,
     client::{Client, DigSettings},
     name_server::{Graph, NameServer, Sign},
     record::{Record, RecordType},
     zone_file::{Nsec, SignSettings},
-    Network, Resolver, Result, FQDN,
 };
 
 #[test]

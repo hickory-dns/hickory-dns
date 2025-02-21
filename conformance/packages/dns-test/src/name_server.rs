@@ -3,11 +3,11 @@ use std::{collections::HashMap, net::Ipv4Addr, thread, time::Duration};
 
 use crate::container::{Child, Container, Network};
 use crate::implementation::{Config, Role};
-use crate::record::{self, Record, SoaSettings, DS, SOA};
+use crate::record::{self, DS, Record, SOA, SoaSettings};
 use crate::tshark::Tshark;
 use crate::zone_file::{self, Root, SigningKeys, ZoneFile};
 use crate::zone_file::{SignSettings, Signer};
-use crate::{Implementation, Result, TrustAnchor, DEFAULT_TTL, FQDN};
+use crate::{DEFAULT_TTL, FQDN, Implementation, Result, TrustAnchor};
 
 pub struct Graph {
     pub nameservers: Vec<NameServer<Running>>,
@@ -329,7 +329,7 @@ impl NameServer<Stopped> {
                         container
                             .stdout(&["cat", &implementation.stderr_logfile(Role::NameServer)]),
                     )
-                    .into())
+                    .into());
                 }
                 Err(e) => println!("unable to determine if dnslib started: {e}"),
             }
@@ -627,7 +627,7 @@ mod tests {
     use std::time::Duration;
 
     use crate::client::{Client, DigSettings};
-    use crate::record::{RecordType, A, NS};
+    use crate::record::{A, NS, RecordType};
 
     use super::*;
 

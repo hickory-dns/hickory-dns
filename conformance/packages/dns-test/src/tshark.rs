@@ -8,10 +8,10 @@ use std::sync::atomic::{self, AtomicUsize};
 use std::thread::{self, JoinHandle};
 
 use serde::Deserialize;
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as};
 
-use crate::container::{Child, Container};
 use crate::Result;
+use crate::container::{Child, Container};
 
 static ID: AtomicUsize = AtomicUsize::new(0);
 
@@ -310,7 +310,7 @@ mod tests {
     use crate::client::{Client, DigSettings};
     use crate::name_server::NameServer;
     use crate::record::RecordType;
-    use crate::{Implementation, Network, Resolver, FQDN};
+    use crate::{FQDN, Implementation, Network, Resolver};
 
     use super::*;
 

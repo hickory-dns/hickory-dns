@@ -13,7 +13,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use futures_util::{future, FutureExt};
+use futures_util::{FutureExt, future};
 use tracing::{debug, trace};
 
 use crate::caching_client::CachingClient;
@@ -532,10 +532,10 @@ where
 pub(crate) mod testing {
     use std::{net::*, str::FromStr};
 
+    use crate::Resolver;
     use crate::config::{LookupIpStrategy, NameServerConfig, ResolverConfig, ResolverOpts};
     use crate::name_server::ConnectionProvider;
     use crate::proto::{rr::Name, runtime::Executor};
-    use crate::Resolver;
 
     /// Test IP lookup from URLs.
     pub(crate) async fn lookup_test<R: ConnectionProvider>(config: ResolverConfig, handle: R) {
@@ -644,10 +644,12 @@ pub(crate) mod testing {
             .expect("failed to run lookup");
 
         assert_ne!(response.iter().count(), 0);
-        assert!(response
-            .as_lookup()
-            .record_iter()
-            .any(|record| record.proof().is_secure()));
+        assert!(
+            response
+                .as_lookup()
+                .record_iter()
+                .any(|record| record.proof().is_secure())
+        );
     }
 
     /// Test IP lookup from domains that exist but unsigned with DNSSEC validation.
@@ -1027,7 +1029,7 @@ mod tests {
     use std::sync::Mutex;
 
     use futures_util::stream::once;
-    use futures_util::{future, Stream};
+    use futures_util::{Stream, future};
     use test_support::subscribe;
     use tokio::runtime::Runtime;
 
@@ -1321,14 +1323,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_error() {
-        assert!(LookupFuture::lookup(
-            vec![Name::root()],
-            RecordType::A,
-            DnsRequestOptions::default(),
-            CachingClient::new(0, mock(vec![error()]), false),
-        )
-        .await
-        .is_err());
+        assert!(
+            LookupFuture::lookup(
+                vec![Name::root()],
+                RecordType::A,
+                DnsRequestOptions::default(),
+                CachingClient::new(0, mock(vec![error()]), false),
+            )
+            .await
+            .is_err()
+        );
     }
 
     #[tokio::test]

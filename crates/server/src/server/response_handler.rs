@@ -13,9 +13,9 @@ use tracing::{debug, trace};
 use crate::{
     authority::MessageResponse,
     proto::{
+        BufDnsStreamHandle, DnsStreamHandle,
         serialize::binary::BinEncoder,
         xfer::{Protocol, SerialMessage},
-        BufDnsStreamHandle, DnsStreamHandle,
     },
     server::ResponseInfo,
 };

@@ -1,8 +1,8 @@
 use std::{
     process::{self, Command, Stdio},
     sync::{
-        atomic::{self, AtomicUsize},
         Arc, Mutex,
+        atomic::{self, AtomicUsize},
     },
 };
 

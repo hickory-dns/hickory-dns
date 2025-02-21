@@ -6,7 +6,7 @@ use std::net::Ipv4Addr;
 use dns_test::client::{Client, DigOutput, DigSettings};
 use dns_test::name_server::NameServer;
 use dns_test::record::{Record, RecordType};
-use dns_test::{Network, Resolver, Result, FQDN};
+use dns_test::{FQDN, Network, Resolver, Result};
 
 #[test]
 fn v4_this_host() -> Result<()> {

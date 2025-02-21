@@ -15,7 +15,7 @@ use std::str::FromStr;
 
 use crate::error::*;
 #[cfg(feature = "serde")]
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
 use crate::rr::Name;
 use crate::serialize::binary::*;

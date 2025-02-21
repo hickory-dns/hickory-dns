@@ -10,9 +10,9 @@
 use std::sync::Arc;
 
 use super::{
+    Algorithm, PublicKey,
     rdata::{RRSIG, SIG},
     tbs::{self, TBS},
-    Algorithm, PublicKey,
 };
 use crate::{
     error::ProtoResult,

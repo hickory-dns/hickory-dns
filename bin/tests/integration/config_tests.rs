@@ -15,7 +15,7 @@
  */
 
 use std::env;
-use std::fs::{read_dir, File};
+use std::fs::{File, read_dir};
 use std::io::Read;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::ops::Range;

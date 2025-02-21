@@ -8,14 +8,14 @@
 use std::cmp::Ordering;
 use std::pin::Pin;
 use std::sync::{
-    atomic::{AtomicUsize, Ordering as AtomicOrdering},
     Arc,
+    atomic::{AtomicUsize, Ordering as AtomicOrdering},
 };
 use std::task::{Context, Poll};
 use std::time::Duration;
 
 use futures_util::future::FutureExt;
-use futures_util::stream::{once, FuturesUnordered, Stream, StreamExt};
+use futures_util::stream::{FuturesUnordered, Stream, StreamExt, once};
 use smallvec::SmallVec;
 use tracing::debug;
 
@@ -388,8 +388,8 @@ mod tests {
 
     use super::*;
     use crate::config::NameServerConfig;
-    use crate::name_server::connection_provider::TokioConnectionProvider;
     use crate::name_server::GenericNameServer;
+    use crate::name_server::connection_provider::TokioConnectionProvider;
     use crate::proto::op::Query;
     use crate::proto::rr::{Name, RecordType};
     use crate::proto::runtime::TokioRuntimeProvider;

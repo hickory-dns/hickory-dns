@@ -1,10 +1,10 @@
 use std::net::Ipv4Addr;
 
 use dns_test::{
+    FQDN, Network, Resolver, Result,
     client::{Client, DigSettings},
     name_server::NameServer,
     record::RecordType,
-    Network, Resolver, Result, FQDN,
 };
 
 use crate::resolver::dnssec::fixtures;

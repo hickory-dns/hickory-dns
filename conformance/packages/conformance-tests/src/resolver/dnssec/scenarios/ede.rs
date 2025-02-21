@@ -4,7 +4,7 @@ use dns_test::client::{Client, DigSettings, ExtendedDnsError};
 use dns_test::name_server::{Graph, NameServer, Sign};
 use dns_test::record::{Record, RecordType};
 use dns_test::zone_file::SignSettings;
-use dns_test::{Network, Resolver, Result, FQDN};
+use dns_test::{FQDN, Network, Resolver, Result};
 
 #[ignore]
 #[test]

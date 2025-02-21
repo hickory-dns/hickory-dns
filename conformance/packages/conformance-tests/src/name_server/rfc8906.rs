@@ -1,8 +1,8 @@
 use dns_test::{
+    FQDN, Network, Result,
     client::Client,
     name_server::{NameServer, Running},
     zone_file::SignSettings,
-    Network, Result, FQDN,
 };
 
 mod basic;

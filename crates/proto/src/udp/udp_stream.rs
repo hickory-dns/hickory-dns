@@ -15,7 +15,7 @@ use std::task::{Context, Poll};
 
 use async_trait::async_trait;
 use futures_util::stream::Stream;
-use futures_util::{future::Future, ready, TryFutureExt};
+use futures_util::{TryFutureExt, future::Future, ready};
 use tracing::{debug, trace, warn};
 
 use crate::runtime::{RuntimeProvider, Time};

@@ -21,18 +21,18 @@ use futures_util::ready;
 use futures_util::stream::Stream;
 use h2::client::{Connection, SendRequest};
 use http::header::{self, CONTENT_LENGTH};
-use rustls::pki_types::ServerName;
 use rustls::ClientConfig;
+use rustls::pki_types::ServerName;
 use tokio::time::{error, timeout};
-use tokio_rustls::{client::TlsStream as TokioTlsClientStream, TlsConnector};
+use tokio_rustls::{TlsConnector, client::TlsStream as TokioTlsClientStream};
 use tracing::{debug, warn};
 
 use crate::error::ProtoError;
 use crate::http::Version;
-use crate::runtime::iocompat::AsyncIoStdAsTokio;
 use crate::runtime::RuntimeProvider;
+use crate::runtime::iocompat::AsyncIoStdAsTokio;
 use crate::tcp::DnsTcpStream;
-use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, CONNECT_TIMEOUT};
+use crate::xfer::{CONNECT_TIMEOUT, DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
 
 const ALPN_H2: &[u8] = b"h2";
 
@@ -519,9 +519,11 @@ where
                     query_path,
                     handshake,
                 } => {
-                    let (send_request, connection) = ready!(handshake
-                        .poll_unpin(cx)
-                        .map_err(|e| ProtoError::from(format!("h2 handshake error: {e}"))))?;
+                    let (send_request, connection) = ready!(
+                        handshake
+                            .poll_unpin(cx)
+                            .map_err(|e| ProtoError::from(format!("h2 handshake error: {e}")))
+                    )?;
 
                     // TODO: hand this back for others to run rather than spawning here?
                     debug!("h2 connection established to: {}", name_server);
@@ -540,10 +542,10 @@ where
                     }))
                 }
                 Self::Connected(conn) => {
-                    return Poll::Ready(Ok(conn.take().expect("cannot poll after complete")))
+                    return Poll::Ready(Ok(conn.take().expect("cannot poll after complete")));
                 }
                 Self::Errored(err) => {
-                    return Poll::Ready(Err(err.take().expect("cannot poll after complete")))
+                    return Poll::Ready(Err(err.take().expect("cannot poll after complete")));
                 }
             };
 
@@ -615,10 +617,12 @@ mod tests {
             .await
             .expect("send_message failed");
 
-        assert!(response
-            .answers()
-            .iter()
-            .any(|record| record.data().as_a().is_some()));
+        assert!(
+            response
+                .answers()
+                .iter()
+                .any(|record| record.data().as_a().is_some())
+        );
 
         //
         // assert that the connection works for a second query
@@ -642,10 +646,12 @@ mod tests {
             .await
             .expect("send_message failed");
 
-        assert!(response
-            .answers()
-            .iter()
-            .any(|record| record.data().as_aaaa().is_some()));
+        assert!(
+            response
+                .answers()
+                .iter()
+                .any(|record| record.data().as_aaaa().is_some())
+        );
     }
 
     #[tokio::test]
@@ -681,10 +687,12 @@ mod tests {
             .await
             .expect("send_message failed");
 
-        assert!(response
-            .answers()
-            .iter()
-            .any(|record| record.data().as_a().is_some()));
+        assert!(
+            response
+                .answers()
+                .iter()
+                .any(|record| record.data().as_a().is_some())
+        );
 
         //
         // assert that the connection works for a second query
@@ -708,10 +716,12 @@ mod tests {
             .await
             .expect("send_message failed");
 
-        assert!(response
-            .answers()
-            .iter()
-            .any(|record| record.data().as_aaaa().is_some()));
+        assert!(
+            response
+                .answers()
+                .iter()
+                .any(|record| record.data().as_aaaa().is_some())
+        );
     }
 
     #[tokio::test]
@@ -749,10 +759,12 @@ mod tests {
             .await
             .expect("send_message failed");
 
-        assert!(response
-            .answers()
-            .iter()
-            .any(|record| record.data().as_a().is_some()));
+        assert!(
+            response
+                .answers()
+                .iter()
+                .any(|record| record.data().as_a().is_some())
+        );
 
         //
         // assert that the connection works for a second query
@@ -776,10 +788,12 @@ mod tests {
             .await
             .expect("send_message failed");
 
-        assert!(response
-            .answers()
-            .iter()
-            .any(|record| record.data().as_aaaa().is_some()));
+        assert!(
+            response
+                .answers()
+                .iter()
+                .any(|record| record.data().as_aaaa().is_some())
+        );
     }
 
     fn client_config_h2() -> ClientConfig {

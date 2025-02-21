@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
-    rr::{dns_class::DNSClass, Name, RData, RecordData, RecordSet, RecordType},
+    rr::{Name, RData, RecordData, RecordSet, RecordType, dns_class::DNSClass},
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict},
 };
 
@@ -824,10 +824,10 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
+    use crate::rr::Name;
     use crate::rr::dns_class::DNSClass;
     use crate::rr::rdata::{A, AAAA};
     use crate::rr::record_data::RData;
-    use crate::rr::Name;
     #[allow(clippy::useless_attribute)]
     #[allow(unused)]
     use crate::serialize::binary::*;

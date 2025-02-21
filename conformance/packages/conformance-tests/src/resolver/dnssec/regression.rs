@@ -1,10 +1,10 @@
 use dns_test::{
+    FQDN, Implementation, Network, Resolver, Result,
     client::{Client, DigSettings},
     name_server::{Graph, NameServer, Sign},
     record::{Record, RecordType},
     tshark::{Capture, Direction},
     zone_file::SignSettings,
-    Implementation, Network, Resolver, Result, FQDN,
 };
 
 /// regression test for https://github.com/hickory-dns/hickory-dns/issues/2299
