@@ -7,11 +7,11 @@ use std::thread;
 use std::time::Duration;
 
 use dns_test::{
+    FQDN, Implementation, Network, Resolver, Result,
     client::{Client, DigOutput, DigSettings},
     name_server::{NameServer, Running},
     record::{Record, RecordType},
     zone_file::Root,
-    Implementation, Network, Resolver, Result, FQDN,
 };
 
 /// Error code tests

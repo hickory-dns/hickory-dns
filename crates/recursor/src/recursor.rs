@@ -8,29 +8,29 @@
 use std::{
     collections::HashSet,
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
-    sync::{atomic::AtomicU8, Arc},
+    sync::{Arc, atomic::AtomicU8},
     time::Instant,
 };
 
 use ipnet::IpNet;
 
 use crate::{
+    DnssecPolicy, Error,
     proto::op::Query,
     recursor_dns_handle::RecursorDnsHandle,
     resolver::{config::NameServerConfigGroup, dns_lru::TtlConfig, lookup::Lookup},
-    DnssecPolicy, Error,
 };
 #[cfg(feature = "dnssec-ring")]
 use crate::{
+    ErrorKind,
     proto::{
+        ProtoError,
         dnssec::{DnssecDnsHandle, TrustAnchor},
         op::ResponseCode,
-        rr::{resource::RecordRef, Record, RecordType},
+        rr::{Record, RecordType, resource::RecordRef},
         xfer::{DnsHandle as _, DnsRequestOptions, FirstAnswer as _},
-        ProtoError,
     },
     resolver::dns_lru::DnsLru,
-    ErrorKind,
 };
 
 /// A `Recursor` builder
@@ -510,24 +510,23 @@ enum RecursorMode {
 #[cfg(feature = "dnssec-ring")]
 mod for_dnssec {
     use std::{
-        sync::{atomic::AtomicU8, Arc},
+        sync::{Arc, atomic::AtomicU8},
         time::Instant,
     };
 
     use futures_util::{
-        future,
+        StreamExt as _, future,
         stream::{self, BoxStream},
-        StreamExt as _,
     };
 
+    use crate::ErrorKind;
     use crate::proto::{
+        ProtoError,
         op::{Message, OpCode},
         xfer::DnsHandle,
         xfer::DnsResponse,
-        ProtoError,
     };
     use crate::recursor_dns_handle::RecursorDnsHandle;
-    use crate::ErrorKind;
 
     impl DnsHandle for RecursorDnsHandle {
         type Response = BoxStream<'static, Result<DnsResponse, ProtoError>>;
@@ -621,7 +620,7 @@ mod tests {
     use hickory_resolver::config::NameServerConfigGroup;
     use test_support::subscribe;
 
-    use crate::{proto::rr::RecordType, resolver::Name, Error, Recursor};
+    use crate::{Error, Recursor, proto::rr::RecordType, resolver::Name};
 
     #[tokio::test]
     async fn not_fully_qualified_domain_name_in_query() -> Result<(), Error> {

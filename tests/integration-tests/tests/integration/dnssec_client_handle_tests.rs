@@ -17,7 +17,7 @@ use hickory_proto::udp::UdpClientStream;
 use hickory_server::authority::{Authority, Catalog};
 
 use hickory_integration::example_authority::create_secure_example;
-use hickory_integration::{TestClientStream, GOOGLE_V4};
+use hickory_integration::{GOOGLE_V4, TestClientStream};
 use test_support::subscribe;
 
 #[tokio::test]

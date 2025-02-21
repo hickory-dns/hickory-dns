@@ -3,10 +3,10 @@
 #[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
 use {
     hickory_resolver::{
+        Resolver,
         config::{ResolverConfig, ResolverOpts},
         name_server::{ConnectionProvider, GenericConnector},
-        proto::runtime::{iocompat::AsyncIoTokioAsStd, RuntimeProvider, TokioHandle, TokioTime},
-        Resolver,
+        proto::runtime::{RuntimeProvider, TokioHandle, TokioTime, iocompat::AsyncIoTokioAsStd},
     },
     std::future::Future,
     std::io,

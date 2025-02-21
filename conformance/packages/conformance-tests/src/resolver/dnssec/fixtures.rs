@@ -2,10 +2,10 @@ use std::net::Ipv4Addr;
 
 use base64::prelude::*;
 use dns_test::{
+    FQDN, Network, Resolver, Result, TrustAnchor,
     name_server::{Graph, NameServer, Running, Sign},
     record::Record,
     zone_file::SignSettings,
-    Network, Resolver, Result, TrustAnchor, FQDN,
 };
 
 pub fn bad_signature_in_leaf_nameserver(

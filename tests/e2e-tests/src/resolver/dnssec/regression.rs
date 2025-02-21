@@ -1,11 +1,11 @@
 use std::net::Ipv4Addr;
 
 use dns_test::{
+    FQDN, Implementation, Network, Resolver, Result,
     client::{Client, DigSettings},
     name_server::{Graph, NameServer, Sign},
     record::{Record, RecordType},
     zone_file::SignSettings,
-    Implementation, Network, Resolver, Result, FQDN,
 };
 
 /// regression test for https://github.com/hickory-dns/hickory-dns/issues/2252

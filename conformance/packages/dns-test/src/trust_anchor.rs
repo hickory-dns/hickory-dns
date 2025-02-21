@@ -1,8 +1,8 @@
 use core::fmt;
 
 use crate::{
-    record::{DNSKEYRData, DNSKEY},
     DEFAULT_TTL, FQDN,
+    record::{DNSKEY, DNSKEYRData},
 };
 
 pub struct TrustAnchor {

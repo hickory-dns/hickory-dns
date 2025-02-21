@@ -2,7 +2,7 @@ use dns_test::client::{Client, DigSettings};
 use dns_test::name_server::NameServer;
 use dns_test::record::RecordType;
 use dns_test::tshark::{Capture, Direction};
-use dns_test::{Network, Resolver, Result, FQDN};
+use dns_test::{FQDN, Network, Resolver, Result};
 
 #[test]
 fn edns_support() -> Result<()> {

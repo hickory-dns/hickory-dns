@@ -4,9 +4,9 @@
 use std::net::Ipv4Addr;
 
 use dns_test::{
+    FQDN, Result,
     client::{Client, DigSettings},
     record::RecordType,
-    Result, FQDN,
 };
 
 use super::fixtures;

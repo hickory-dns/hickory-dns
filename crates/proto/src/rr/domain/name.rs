@@ -20,7 +20,7 @@ use crate::rr::domain::usage::LOCALHOST as LOCALHOST_usage;
 use crate::serialize::binary::*;
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 #[cfg(feature = "serde")]
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use tinyvec::TinyVec;
 
 /// A domain name
@@ -664,8 +664,8 @@ impl Name {
         canonical: bool,
     ) -> ProtoResult<()> {
         let buf_len = encoder.len(); // lazily assert the size is less than 255...
-                                     // lookup the label in the BinEncoder
-                                     // if it exists, write the Pointer
+        // lookup the label in the BinEncoder
+        // if it exists, write the Pointer
         let labels = self.iter();
 
         // start index of each label
@@ -1859,9 +1859,11 @@ mod tests {
         assert!(Name::root().is_fqdn());
         assert!(Name::from_str(".").unwrap().is_fqdn());
         assert!(Name::from_str("www.example.com.").unwrap().is_fqdn());
-        assert!(Name::from_labels(vec![b"www" as &[u8], b"example", b"com"])
-            .unwrap()
-            .is_fqdn());
+        assert!(
+            Name::from_labels(vec![b"www" as &[u8], b"example", b"com"])
+                .unwrap()
+                .is_fqdn()
+        );
 
         assert!(!Name::new().is_fqdn());
         assert!(!Name::from_str("www.example.com").unwrap().is_fqdn());
@@ -1971,36 +1973,50 @@ mod tests {
 
     #[test]
     fn test_parse_arpa_name() {
-        assert!(Name::from_ascii("168.192.in-addr.arpa")
+        assert!(
+            Name::from_ascii("168.192.in-addr.arpa")
+                .unwrap()
+                .parse_arpa_name()
+                .is_err()
+        );
+        assert!(
+            Name::from_ascii("host.example.com.")
+                .unwrap()
+                .parse_arpa_name()
+                .is_err()
+        );
+        assert!(
+            Name::from_ascii("caffee.ip6.arpa.")
+                .unwrap()
+                .parse_arpa_name()
+                .is_err()
+        );
+        assert!(
+            Name::from_ascii(
+                "1.4.3.3.7.0.7.3.0.E.2.A.8.9.1.3.1.3.D.8.0.3.A.5.8.8.B.D.0.1.0.0.2.ip6.arpa."
+            )
             .unwrap()
             .parse_arpa_name()
-            .is_err());
-        assert!(Name::from_ascii("host.example.com.")
-            .unwrap()
-            .parse_arpa_name()
-            .is_err());
-        assert!(Name::from_ascii("caffee.ip6.arpa.")
-            .unwrap()
-            .parse_arpa_name()
-            .is_err());
-        assert!(Name::from_ascii(
-            "1.4.3.3.7.0.7.3.0.E.2.A.8.9.1.3.1.3.D.8.0.3.A.5.8.8.B.D.0.1.0.0.2.ip6.arpa."
-        )
-        .unwrap()
-        .parse_arpa_name()
-        .is_err());
-        assert!(Name::from_ascii("caffee.in-addr.arpa.")
-            .unwrap()
-            .parse_arpa_name()
-            .is_err());
-        assert!(Name::from_ascii("1.2.3.4.5.in-addr.arpa.")
-            .unwrap()
-            .parse_arpa_name()
-            .is_err());
-        assert!(Name::from_ascii("1.2.3.4.home.arpa.")
-            .unwrap()
-            .parse_arpa_name()
-            .is_err());
+            .is_err()
+        );
+        assert!(
+            Name::from_ascii("caffee.in-addr.arpa.")
+                .unwrap()
+                .parse_arpa_name()
+                .is_err()
+        );
+        assert!(
+            Name::from_ascii("1.2.3.4.5.in-addr.arpa.")
+                .unwrap()
+                .parse_arpa_name()
+                .is_err()
+        );
+        assert!(
+            Name::from_ascii("1.2.3.4.home.arpa.")
+                .unwrap()
+                .parse_arpa_name()
+                .is_err()
+        );
         assert_eq!(
             Name::from_ascii("168.192.in-addr.arpa.")
                 .unwrap()

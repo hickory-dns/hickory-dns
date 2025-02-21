@@ -14,11 +14,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     dnssec::{
-        crypto::{decode_public_key, Digest},
         Algorithm, DigestType, PublicKey, PublicKeyBuf, Verifier,
+        crypto::{Digest, decode_public_key},
     },
     error::{ProtoError, ProtoErrorKind, ProtoResult},
-    rr::{record_data::RData, Name, RecordData, RecordDataDecodable, RecordType},
+    rr::{Name, RecordData, RecordDataDecodable, RecordType, record_data::RData},
     serialize::binary::{
         BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
     },
@@ -502,7 +502,7 @@ mod tests {
     use rustls_pki_types::PrivateKeyDer;
 
     use super::*;
-    use crate::dnssec::{crypto::EcdsaSigningKey, SigningKey};
+    use crate::dnssec::{SigningKey, crypto::EcdsaSigningKey};
 
     #[test]
     fn test() {
@@ -537,12 +537,14 @@ mod tests {
         let read_rdata = read_rdata.expect("error decoding");
 
         assert_eq!(rdata, read_rdata);
-        assert!(rdata
-            .to_digest(
-                &Name::parse("www.example.com.", None).unwrap(),
-                DigestType::SHA256
-            )
-            .is_ok());
+        assert!(
+            rdata
+                .to_digest(
+                    &Name::parse("www.example.com.", None).unwrap(),
+                    DigestType::SHA256
+                )
+                .is_ok()
+        );
     }
 
     #[test]

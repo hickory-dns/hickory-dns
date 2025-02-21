@@ -9,10 +9,10 @@ use crate::{
     dnssec::rdata::DNSKEY,
     rr::{DNSClass, Name, RecordData, RecordType},
     serialize::txt::{
+        ParseError, ParseErrorKind, ParseResult,
         rdata_parsers::dnskey,
         zone,
         zone_lex::{Lexer, Token as LexToken},
-        ParseError, ParseErrorKind, ParseResult,
     },
 };
 
@@ -267,7 +267,7 @@ mod tests {
     use super::*;
     #[cfg(feature = "dnssec-ring")]
     use crate::dnssec::crypto::EcdsaSigningKey;
-    use crate::dnssec::{rdata::DNSKEY, Algorithm, PublicKey, PublicKeyBuf, SigningKey};
+    use crate::dnssec::{Algorithm, PublicKey, PublicKeyBuf, SigningKey, rdata::DNSKEY};
 
     const ENCODED: &str = "aGVsbG8=";
 

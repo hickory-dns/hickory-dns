@@ -10,7 +10,7 @@
 
 use std::{env, fs::File, io::*, net::*, sync::Arc};
 
-use rustls::{pki_types::CertificateDer, ClientConfig, RootCertStore};
+use rustls::{ClientConfig, RootCertStore, pki_types::CertificateDer};
 use tokio::runtime::Runtime;
 
 use crate::server_harness::{named_test_harness, query_a};

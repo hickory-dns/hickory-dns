@@ -22,8 +22,8 @@ use enum_as_inner::EnumAsInner;
 use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     rr::{
-        rdata::{A, AAAA},
         Name, RData, RecordData, RecordDataDecodable, RecordType,
+        rdata::{A, AAAA},
     },
     serialize::binary::{
         BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,

@@ -3,9 +3,9 @@ pub mod mut_message_client;
 use std::{
     collections::HashMap,
     env,
-    io::{stdout, BufRead, BufReader, Write},
+    io::{BufRead, BufReader, Write, stdout},
     net::SocketAddr,
-    panic::{catch_unwind, UnwindSafe},
+    panic::{UnwindSafe, catch_unwind},
     process::{Command, Stdio},
     str::FromStr,
     sync::*,
@@ -15,10 +15,10 @@ use std::{
 
 #[cfg(feature = "dnssec-ring")]
 use hickory_client::client::Client;
-use hickory_client::{client::ClientHandle, proto::xfer::DnsResponse, ClientError};
+use hickory_client::{ClientError, client::ClientHandle, proto::xfer::DnsResponse};
 #[cfg(feature = "dnssec-ring")]
 use hickory_proto::dnssec::Algorithm;
-use hickory_proto::rr::{rdata::A, DNSClass, Name, RData, RecordType};
+use hickory_proto::rr::{DNSClass, Name, RData, RecordType, rdata::A};
 use hickory_proto::xfer::Protocol;
 use regex::Regex;
 use tokio::runtime::Runtime;
@@ -285,8 +285,8 @@ pub fn query_a_refused<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
 pub fn query_all_dnssec(io_loop: &mut Runtime, client: Client, algorithm: Algorithm) {
     use hickory_proto::{
         dnssec::{
-            rdata::{DNSKEY, RRSIG},
             PublicKey,
+            rdata::{DNSKEY, RRSIG},
         },
         rr::{Record, RecordData},
     };

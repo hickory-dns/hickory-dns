@@ -5,11 +5,11 @@
 #![cfg(test)]
 
 use dns_test::{
+    FQDN, Implementation, Network, Resolver, Result, TrustAnchor,
     client::{Client, DigOutput, DigSettings},
     name_server::{Graph, NameServer},
-    record::{RecordType, DS},
+    record::{DS, RecordType},
     zone_file::{Root, SignSettings},
-    Implementation, Network, Resolver, Result, TrustAnchor, FQDN,
 };
 
 mod sanity_check;

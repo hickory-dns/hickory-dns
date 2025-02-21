@@ -3,7 +3,7 @@ use std::sync::Arc;
 use hickory_integration::TestResponseHandler;
 use hickory_proto::{
     op::{Message, MessageType, Query, ResponseCode},
-    rr::{rdata::A, LowerName, Name, RData, Record, RecordSet, RecordType},
+    rr::{LowerName, Name, RData, Record, RecordSet, RecordType, rdata::A},
     serialize::binary::{BinDecodable, BinEncodable},
     xfer::Protocol,
 };
@@ -303,12 +303,12 @@ fn inner_lookup(
                 ResponseType::ContinueErr => {
                     return Some(Continue(Err(LookupError::ResponseCode(
                         ResponseCode::NXDomain,
-                    ))))
+                    ))));
                 }
                 ResponseType::BreakErr => {
                     return Some(Break(Err(LookupError::ResponseCode(
                         ResponseCode::NXDomain,
-                    ))))
+                    ))));
                 }
                 ResponseType::Skip => return Some(LookupControlFlow::Skip),
             }

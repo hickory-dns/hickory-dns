@@ -6,7 +6,7 @@ use std::net::Ipv4Addr;
 use std::process::{self, ChildStderr, ChildStdout, ExitStatus};
 use std::process::{Command, Stdio};
 use std::sync::atomic::AtomicUsize;
-use std::sync::{atomic, Arc, Once};
+use std::sync::{Arc, Once, atomic};
 use std::{env, fs};
 
 use tempfile::{NamedTempFile, TempDir};

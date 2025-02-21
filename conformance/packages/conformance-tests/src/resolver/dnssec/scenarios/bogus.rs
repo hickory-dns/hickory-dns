@@ -3,11 +3,11 @@ mod no_rrsig_dnskey;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use dns_test::{
+    FQDN, Network, PEER, Resolver, Result, TrustAnchor,
     client::{Client, DigOutput, DigSettings, ExtendedDnsError},
     name_server::{Graph, NameServer, Sign},
-    record::{DNSKEYRData, Record, RecordType, DNSKEY, DS, RRSIG},
+    record::{DNSKEY, DNSKEYRData, DS, RRSIG, Record, RecordType},
     zone_file::{SignSettings, Signer},
-    Network, Resolver, Result, TrustAnchor, FQDN, PEER,
 };
 
 #[test]

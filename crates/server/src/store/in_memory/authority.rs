@@ -8,7 +8,7 @@
 //! In-memory authority
 
 #[cfg(feature = "dnssec-ring")]
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::{HashMap, hash_map::Entry};
 #[cfg(all(feature = "dnssec-ring", feature = "testing"))]
 use std::ops::Deref;
 use std::{
@@ -28,11 +28,11 @@ use crate::{
     authority::{DnssecAuthority, Nsec3QueryInfo},
     dnssec::NxProofKind,
     proto::{
-        dnssec::{
-            rdata::{key::KEY, DNSSECRData, DNSKEY, NSEC, NSEC3, NSEC3PARAM, RRSIG},
-            DnsSecResult, Nsec3HashAlgorithm, SigSigner, TBS,
-        },
         ProtoError,
+        dnssec::{
+            DnsSecResult, Nsec3HashAlgorithm, SigSigner, TBS,
+            rdata::{DNSKEY, DNSSECRData, NSEC, NSEC3, NSEC3PARAM, RRSIG, key::KEY},
+        },
     },
 };
 
@@ -43,7 +43,7 @@ use crate::{
     },
     proto::{
         op::ResponseCode,
-        rr::{rdata::SOA, DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
+        rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey, rdata::SOA},
     },
     server::RequestInfo,
 };
@@ -1364,7 +1364,7 @@ impl Authority for InMemoryAuthority {
                 _ => {
                     return LookupControlFlow::Continue(Err(LookupError::from(
                         ResponseCode::NXDomain,
-                    )))
+                    )));
                 }
             }
         }

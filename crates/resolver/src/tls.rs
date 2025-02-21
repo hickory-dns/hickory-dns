@@ -11,11 +11,11 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use crate::proto::rustls::tls_client_stream::tls_client_connect_with_future;
-use crate::proto::rustls::TlsClientStream;
-use crate::proto::tcp::DnsTcpStream;
 use crate::proto::BufDnsStreamHandle;
 use crate::proto::ProtoError;
+use crate::proto::rustls::TlsClientStream;
+use crate::proto::rustls::tls_client_stream::tls_client_connect_with_future;
+use crate::proto::tcp::DnsTcpStream;
 
 #[allow(clippy::type_complexity)]
 pub(crate) fn new_tls_stream_with_future<S, F>(
@@ -45,9 +45,9 @@ where
 mod tests {
     use test_support::subscribe;
 
+    use crate::TokioResolver;
     use crate::config::{ResolverConfig, ResolverOpts};
     use crate::name_server::TokioConnectionProvider;
-    use crate::TokioResolver;
 
     async fn tls_test(config: ResolverConfig) {
         let resolver = TokioResolver::new(

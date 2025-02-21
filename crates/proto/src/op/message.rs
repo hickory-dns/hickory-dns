@@ -608,11 +608,7 @@ impl Message {
     /// the max payload value as it's defined in the EDNS section.
     pub fn max_payload(&self) -> u16 {
         let max_size = self.edns.as_ref().map_or(512, Edns::max_payload);
-        if max_size < 512 {
-            512
-        } else {
-            max_size
-        }
+        if max_size < 512 { 512 } else { max_size }
     }
 
     /// # Return value

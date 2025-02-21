@@ -111,7 +111,9 @@ fn parse_implementation(env_var: &str) -> Implementation {
 
         if subject.starts_with("hickory") {
             let Some(rest) = subject.strip_prefix("hickory ") else {
-                panic!("the syntax of {env_var} is 'hickory $URL' or 'hickory $URL $DNSSEC_FEATURE', e.g. 'hickory /tmp/hickory' or 'hickory https://github.com/owner/repo'")
+                panic!(
+                    "the syntax of {env_var} is 'hickory $URL' or 'hickory $URL $DNSSEC_FEATURE', e.g. 'hickory /tmp/hickory' or 'hickory https://github.com/owner/repo'"
+                )
             };
             let (url, dnssec_feature) = if let Some((url, dnssec_feature)) = rest.split_once(' ') {
                 (url, Some(dnssec_feature.parse().unwrap()))

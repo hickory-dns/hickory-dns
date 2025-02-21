@@ -5,7 +5,7 @@ use std::net::Ipv4Addr;
 use crate::container::{Container, Image, Network};
 use crate::record::{Record, RecordType};
 use crate::trust_anchor::TrustAnchor;
-use crate::{Error, Result, FQDN};
+use crate::{Error, FQDN, Result};
 
 pub struct Client {
     inner: Container,

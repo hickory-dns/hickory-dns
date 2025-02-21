@@ -13,7 +13,7 @@ use http::header::ToStrError;
 use thiserror::Error;
 
 #[cfg(feature = "backtrace")]
-use crate::{trace, ExtBacktrace};
+use crate::{ExtBacktrace, trace};
 
 /// An alias for results returned by functions of this crate
 pub type Result<T> = ::std::result::Result<T, Error>;

@@ -6,10 +6,10 @@
 use std::{fs, thread, time::Duration};
 
 use dns_test::{
+    FQDN, Implementation, Network, Resolver, Result,
     client::{Client, DigSettings, DigStatus},
     name_server::{Graph, NameServer},
     record::{Record, RecordType},
-    Implementation, Network, Resolver, Result, FQDN,
 };
 
 /// Verify that resolvers will retry a query over TCP if they get a truncated response via UDP, and

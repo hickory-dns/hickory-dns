@@ -21,10 +21,10 @@ use std::time::Duration;
 
 use resolv_conf;
 
+use crate::ResolveError;
 use crate::config::{NameServerConfig, ResolverConfig, ResolverOpts};
 use crate::proto::rr::Name;
 use crate::proto::xfer::Protocol;
-use crate::ResolveError;
 
 const DEFAULT_PORT: u16 = 53;
 

@@ -3,12 +3,12 @@
 use std::net::Ipv4Addr;
 
 use dns_test::{
+    FQDN, Implementation, Network, Resolver, Result,
     client::{Client, DigOutput, DigSettings},
     name_server::{Graph, NameServer, Running, Sign},
     record::{Record, RecordType},
     tshark::{Capture, Direction},
     zone_file::Root,
-    Implementation, Network, Resolver, Result, FQDN,
 };
 
 struct TestNetwork {

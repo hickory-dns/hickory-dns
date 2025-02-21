@@ -1,7 +1,7 @@
 use dns_test::{
+    FQDN, Result,
     client::{DigSettings, DigStatus},
     record::RecordType,
-    Result, FQDN,
 };
 
 use crate::name_server::rfc8906::setup;

@@ -6,11 +6,11 @@
 use std::time::{Duration, SystemTime};
 
 use dns_test::{
+    FQDN, Network, Resolver, Result,
     client::{Client, DigSettings},
     name_server::NameServer,
-    record::{RecordType, RRSIG, SOA},
+    record::{RRSIG, RecordType, SOA},
     zone_file::SignSettings,
-    Network, Resolver, Result, FQDN,
 };
 
 const ONE_HOUR: Duration = Duration::from_secs(60 * 60);
@@ -82,8 +82,8 @@ fn rrsig_rr_expiration_time_is_before_current_time() -> Result<()> {
 /// Check that the validating resolver sets the TTL to a value between "now" and expiration time.
 /// See Github issue: https://github.com/hickory-dns/hickory-dns/issues/2292
 #[test]
-fn rrsig_rr_ttl_is_not_greater_than_duration_between_current_time_and_signature_expiration_timestamp(
-) -> Result<()> {
+fn rrsig_rr_ttl_is_not_greater_than_duration_between_current_time_and_signature_expiration_timestamp()
+-> Result<()> {
     let ttl_delta = 4 * ONE_HOUR;
     let settings = SignSettings::default().expiration(SystemTime::now() + ttl_delta);
 

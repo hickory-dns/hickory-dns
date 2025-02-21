@@ -16,15 +16,15 @@ use crate::{
     access::AccessControl,
     authority::MessageResponse,
     proto::{
+        ProtoError,
         quic::QuicStreams,
         quic::{DoqErrorCode, QuicStream},
         rr::Record,
         xfer::Protocol,
-        ProtoError,
     },
     server::{
-        request_handler::RequestHandler, response_handler::ResponseHandler, server_future,
-        ResponseInfo,
+        ResponseInfo, request_handler::RequestHandler, response_handler::ResponseHandler,
+        server_future,
     },
 };
 

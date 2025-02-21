@@ -20,7 +20,7 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::{crypto::Digest, DigestType};
+use super::{DigestType, crypto::Digest};
 use crate::error::*;
 use crate::rr::Name;
 use crate::serialize::binary::{BinEncodable, BinEncoder};

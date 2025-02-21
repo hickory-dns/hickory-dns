@@ -23,9 +23,9 @@ use crate::trace;
 
 mod algorithm;
 mod dnssec_dns_handle;
+pub use dnssec_dns_handle::DnssecDnsHandle;
 #[doc(hidden)]
 pub use dnssec_dns_handle::verify_nsec;
-pub use dnssec_dns_handle::DnssecDnsHandle;
 /// Cryptographic backend implementations of DNSSEC traits.
 pub mod crypto;
 mod ec_public_key;

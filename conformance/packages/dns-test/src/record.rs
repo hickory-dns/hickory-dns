@@ -8,7 +8,7 @@ use std::fmt::Write;
 use std::net::Ipv4Addr;
 use std::{any, mem};
 
-use crate::{Error, Result, DEFAULT_TTL, FQDN};
+use crate::{DEFAULT_TTL, Error, FQDN, Result};
 
 const CLASS: &str = "IN"; // "internet"
 
@@ -57,7 +57,9 @@ macro_rules! record_types {
     };
 }
 
-record_types!(A, AAAA, CNAME, DNSKEY, DS, MX, NS, NSEC, NSEC3, NSEC3PARAM, RRSIG, SOA, TXT);
+record_types!(
+    A, AAAA, CNAME, DNSKEY, DS, MX, NS, NSEC, NSEC3, NSEC3PARAM, RRSIG, SOA, TXT
+);
 
 #[derive(Debug, Clone)]
 #[allow(clippy::upper_case_acronyms)]
@@ -279,8 +281,14 @@ impl FromStr for A {
     fn from_str(input: &str) -> Result<Self> {
         let mut columns = input.split_whitespace();
 
-        let [Some(fqdn), Some(ttl), Some(class), Some(record_type), Some(ipv4_addr), None] =
-            array::from_fn(|_| columns.next())
+        let [
+            Some(fqdn),
+            Some(ttl),
+            Some(class),
+            Some(record_type),
+            Some(ipv4_addr),
+            None,
+        ] = array::from_fn(|_| columns.next())
         else {
             return Err("expected 5 columns".into());
         };
@@ -322,8 +330,14 @@ impl FromStr for CNAME {
     fn from_str(input: &str) -> Result<Self> {
         let mut columns = input.split_whitespace();
 
-        let [Some(fqdn), Some(ttl), Some(class), Some(record_type), Some(target), None] =
-            array::from_fn(|_| columns.next())
+        let [
+            Some(fqdn),
+            Some(ttl),
+            Some(class),
+            Some(record_type),
+            Some(target),
+            None,
+        ] = array::from_fn(|_| columns.next())
         else {
             return Err("expected 5 columns".into());
         };
@@ -400,8 +414,15 @@ impl FromStr for DNSKEY {
 
         let mut columns = input.split_whitespace();
 
-        let [Some(zone), Some(ttl), Some(class), Some(record_type), Some(flags), Some(protocol), Some(algorithm)] =
-            array::from_fn(|_| columns.next())
+        let [
+            Some(zone),
+            Some(ttl),
+            Some(class),
+            Some(record_type),
+            Some(flags),
+            Some(protocol),
+            Some(algorithm),
+        ] = array::from_fn(|_| columns.next())
         else {
             return Err("expected at least 7 columns".into());
         };
@@ -511,8 +532,15 @@ impl FromStr for DS {
     fn from_str(input: &str) -> Result<Self> {
         let mut columns = input.split_whitespace();
 
-        let [Some(zone), Some(ttl), Some(class), Some(record_type), Some(key_tag), Some(algorithm), Some(digest_type)] =
-            array::from_fn(|_| columns.next())
+        let [
+            Some(zone),
+            Some(ttl),
+            Some(class),
+            Some(record_type),
+            Some(key_tag),
+            Some(algorithm),
+            Some(digest_type),
+        ] = array::from_fn(|_| columns.next())
         else {
             return Err("expected at least 7 columns".into());
         };
@@ -583,8 +611,14 @@ impl FromStr for NS {
     fn from_str(input: &str) -> Result<Self> {
         let mut columns = input.split_whitespace();
 
-        let [Some(zone), Some(ttl), Some(class), Some(record_type), Some(nameserver), None] =
-            array::from_fn(|_| columns.next())
+        let [
+            Some(zone),
+            Some(ttl),
+            Some(class),
+            Some(record_type),
+            Some(nameserver),
+            None,
+        ] = array::from_fn(|_| columns.next())
         else {
             return Err("expected 5 columns".into());
         };
@@ -614,8 +648,13 @@ impl FromStr for NSEC {
     fn from_str(input: &str) -> Result<Self> {
         let mut columns = input.split_whitespace();
 
-        let [Some(fqdn), Some(ttl), Some(class), Some(record_type), Some(next_domain)] =
-            array::from_fn(|_| columns.next())
+        let [
+            Some(fqdn),
+            Some(ttl),
+            Some(class),
+            Some(record_type),
+            Some(next_domain),
+        ] = array::from_fn(|_| columns.next())
         else {
             return Err("expected at least 5 columns".into());
         };
@@ -676,8 +715,17 @@ impl FromStr for NSEC3 {
     fn from_str(input: &str) -> Result<Self> {
         let mut columns = input.split_whitespace();
 
-        let [Some(fqdn), Some(ttl), Some(class), Some(record_type), Some(hash_alg), Some(flags), Some(iterations), Some(salt), Some(next_hashed_owner_name)] =
-            array::from_fn(|_| columns.next())
+        let [
+            Some(fqdn),
+            Some(ttl),
+            Some(class),
+            Some(record_type),
+            Some(hash_alg),
+            Some(flags),
+            Some(iterations),
+            Some(salt),
+            Some(next_hashed_owner_name),
+        ] = array::from_fn(|_| columns.next())
         else {
             return Err("expected at least 9 columns".into());
         };
@@ -717,7 +765,10 @@ impl fmt::Display for NSEC3 {
         } = self;
 
         let record_type = unqualified_type_name::<Self>();
-        write!(f, "{fqdn}\t{ttl}\t{CLASS}\t{record_type}\t{hash_alg} {flags} {iterations} {salt}  {next_hashed_owner_name}")?;
+        write!(
+            f,
+            "{fqdn}\t{ttl}\t{CLASS}\t{record_type}\t{hash_alg} {flags} {iterations} {salt}  {next_hashed_owner_name}"
+        )?;
 
         for record_type in record_types {
             write!(f, " {record_type}")?;
@@ -743,8 +794,17 @@ impl FromStr for NSEC3PARAM {
     fn from_str(input: &str) -> Result<Self> {
         let mut columns = input.split_whitespace();
 
-        let [Some(zone), Some(ttl), Some(class), Some(record_type), Some(hash_alg), Some(flags), Some(iterations), Some(dash), None] =
-            array::from_fn(|_| columns.next())
+        let [
+            Some(zone),
+            Some(ttl),
+            Some(class),
+            Some(record_type),
+            Some(hash_alg),
+            Some(flags),
+            Some(iterations),
+            Some(dash),
+            None,
+        ] = array::from_fn(|_| columns.next())
         else {
             return Err("expected 8 columns".into());
         };
@@ -811,8 +871,20 @@ impl FromStr for RRSIG {
     fn from_str(input: &str) -> CoreResult<Self, Self::Err> {
         let mut columns = input.split_whitespace();
 
-        let [Some(fqdn), Some(ttl), Some(class), Some(record_type), Some(type_covered), Some(algorithm), Some(labels), Some(original_ttl), Some(signature_expiration), Some(signature_inception), Some(key_tag), Some(signer_name)] =
-            array::from_fn(|_| columns.next())
+        let [
+            Some(fqdn),
+            Some(ttl),
+            Some(class),
+            Some(record_type),
+            Some(type_covered),
+            Some(algorithm),
+            Some(labels),
+            Some(original_ttl),
+            Some(signature_expiration),
+            Some(signature_inception),
+            Some(key_tag),
+            Some(signer_name),
+        ] = array::from_fn(|_| columns.next())
         else {
             return Err("expected at least 12 columns".into());
         };
@@ -858,7 +930,10 @@ impl fmt::Display for RRSIG {
         } = self;
 
         let record_type = unqualified_type_name::<Self>();
-        write!(f, "{fqdn}\t{ttl}\t{CLASS}\t{record_type}\t{type_covered} {algorithm} {labels} {original_ttl} {signature_expiration} {signature_inception} {key_tag} {signer_name}")?;
+        write!(
+            f,
+            "{fqdn}\t{ttl}\t{CLASS}\t{record_type}\t{type_covered} {algorithm} {labels} {original_ttl} {signature_expiration} {signature_inception} {key_tag} {signer_name}"
+        )?;
 
         write_split_long_string(f, signature)
     }
@@ -880,8 +955,20 @@ impl FromStr for SOA {
     fn from_str(input: &str) -> Result<Self> {
         let mut columns = input.split_whitespace();
 
-        let [Some(zone), Some(ttl), Some(class), Some(record_type), Some(nameserver), Some(admin), Some(serial), Some(refresh), Some(retry), Some(expire), Some(minimum), None] =
-            array::from_fn(|_| columns.next())
+        let [
+            Some(zone),
+            Some(ttl),
+            Some(class),
+            Some(record_type),
+            Some(nameserver),
+            Some(admin),
+            Some(serial),
+            Some(refresh),
+            Some(retry),
+            Some(expire),
+            Some(minimum),
+            None,
+        ] = array::from_fn(|_| columns.next())
         else {
             return Err("expected 11 columns".into());
         };
@@ -1259,8 +1346,7 @@ mod tests {
     }
 
     // dig DS com.
-    const DS_INPUT: &str =
-        "com.	7612	IN	DS	19718 13 2 8ACBB0CD28F41250A80A491389424D341522D946B0DA0C0291F2D3D7 71D7805A";
+    const DS_INPUT: &str = "com.	7612	IN	DS	19718 13 2 8ACBB0CD28F41250A80A491389424D341522D946B0DA0C0291F2D3D7 71D7805A";
 
     #[test]
     fn ds() -> Result<()> {
@@ -1451,8 +1537,7 @@ mod tests {
     }
 
     // dig SOA .
-    const SOA_INPUT: &str =
-        ".	15633	IN	SOA	a.root-servers.net. nstld.verisign-grs.com. 2024020501 1800 900 604800 86400";
+    const SOA_INPUT: &str = ".	15633	IN	SOA	a.root-servers.net. nstld.verisign-grs.com. 2024020501 1800 900 604800 86400";
 
     #[test]
     fn soa() -> Result<()> {

@@ -25,12 +25,12 @@ use tracing::{trace, warn};
 use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     rr::{
+        RecordData, RecordDataDecodable,
         rdata::{
             A, AAAA, ANAME, CAA, CERT, CNAME, CSYNC, HINFO, HTTPS, MX, NAPTR, NS, NULL, OPENPGPKEY,
             OPT, PTR, SOA, SRV, SSHFP, SVCB, TLSA, TXT,
         },
         record_type::RecordType,
-        RecordData, RecordDataDecodable,
     },
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict},
 };

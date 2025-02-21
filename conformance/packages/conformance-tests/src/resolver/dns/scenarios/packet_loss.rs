@@ -3,10 +3,10 @@
 use std::{fs, net::Ipv4Addr};
 
 use dns_test::{
+    FQDN, Implementation, Network, Resolver, Result,
     client::{Client, DigSettings, DigStatus},
     name_server::NameServer,
     record::RecordType,
-    Implementation, Network, Resolver, Result, FQDN,
 };
 
 #[test]

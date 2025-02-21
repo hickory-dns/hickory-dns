@@ -9,8 +9,8 @@ use std::array;
 use std::net::Ipv4Addr;
 use std::str::FromStr;
 
-use crate::record::{self, write_split_long_string, DNSKEYRData, Record, RecordType, RRSIG, SOA};
-use crate::{Error, Result, DEFAULT_TTL, FQDN};
+use crate::record::{self, DNSKEYRData, RRSIG, Record, RecordType, SOA, write_split_long_string};
+use crate::{DEFAULT_TTL, Error, FQDN, Result};
 
 mod signer;
 
@@ -179,8 +179,16 @@ impl FromStr for DNSKEY {
 
         let mut columns = input.split_whitespace();
 
-        let [Some(zone), Some(class), Some(record_type), Some(flags), Some(protocol), Some(algorithm), Some(public_key), None] =
-            array::from_fn(|_| columns.next())
+        let [
+            Some(zone),
+            Some(class),
+            Some(record_type),
+            Some(flags),
+            Some(protocol),
+            Some(algorithm),
+            Some(public_key),
+            None,
+        ] = array::from_fn(|_| columns.next())
         else {
             return Err("expected 7 columns".into());
         };

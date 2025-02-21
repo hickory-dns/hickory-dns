@@ -1,9 +1,9 @@
 use dns_test::{
+    FQDN, Network, Resolver, Result,
     client::{Client, DigSettings},
     name_server::{Graph, NameServer, Sign},
     record::RecordType,
     zone_file::SignSettings,
-    Network, Resolver, Result, FQDN,
 };
 
 /// Section 4.2.1, last paragraph, says "Validating recursive resolvers MUST NOT set the DAU, DHU,

@@ -17,8 +17,8 @@ use futures_util::TryFutureExt;
 use rustls::ClientConfig;
 
 use crate::error::ProtoError;
-use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
 use crate::runtime::RuntimeProvider;
+use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
 use crate::rustls::tls_stream::{tls_connect_with_bind_addr, tls_connect_with_future};
 use crate::tcp::{DnsTcpStream, TcpClientStream};
 use crate::xfer::BufDnsStreamHandle;

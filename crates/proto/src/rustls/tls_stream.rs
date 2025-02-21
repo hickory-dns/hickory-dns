@@ -13,16 +13,16 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use rustls::pki_types::ServerName;
 use rustls::ClientConfig;
+use rustls::pki_types::ServerName;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::{self, time::timeout};
 use tokio_rustls::TlsConnector;
 
-use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
 use crate::runtime::RuntimeProvider;
+use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
 use crate::tcp::{DnsTcpStream, TcpStream};
-use crate::xfer::{BufDnsStreamHandle, StreamReceiver, CONNECT_TIMEOUT};
+use crate::xfer::{BufDnsStreamHandle, CONNECT_TIMEOUT, StreamReceiver};
 
 /// Predefined type for abstracting the TlsClientStream with TokioTls
 pub type TokioTlsClientStream<S> = tokio_rustls::client::TlsStream<AsyncIoStdAsTokio<S>>;
@@ -220,13 +220,13 @@ where
             return Err(io::Error::new(
                 io::ErrorKind::ConnectionRefused,
                 format!("tls error: {e}"),
-            ))
+            ));
         }
         Err(_) => {
             return Err(io::Error::new(
                 io::ErrorKind::TimedOut,
                 format!("TLS handshake timed out after {CONNECT_TIMEOUT:?}"),
-            ))
+            ));
         }
     };
 

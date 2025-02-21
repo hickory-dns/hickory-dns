@@ -78,9 +78,9 @@
 
 use super::proof_log_yield;
 use crate::{
-    dnssec::{rdata::NSEC3, Nsec3HashAlgorithm, Proof},
+    dnssec::{Nsec3HashAlgorithm, Proof, rdata::NSEC3},
     op::{Query, ResponseCode},
-    rr::{domain::Label, Name, Record, RecordType},
+    rr::{Name, Record, RecordType, domain::Label},
 };
 
 pub(super) fn verify_nsec3(
@@ -716,15 +716,15 @@ fn validate_nodata_response(
             match (closest_encloser, next_closer, closest_encloser_wildcard) {
                 (Some(_), Some(_), Some(_)) => (
                     ds_proof_override,
-                    "servicing wildcard with closest encloser proof"
+                    "servicing wildcard with closest encloser proof",
                 ),
                 (None, Some(_), Some(_)) if &query_name.base_name() == soa_name => (
                     ds_proof_override,
-                    "servicing wildcard without closest encloser proof, but query parent name == SOA"
+                    "servicing wildcard without closest encloser proof, but query parent name == SOA",
                 ),
                 (None, None, None) if query_name == soa_name => (
                     ds_proof_override,
-                    "no servicing wildcard, but query name == SOA"
+                    "no servicing wildcard, but query name == SOA",
                 ),
                 _ => (Proof::Bogus, "no valid servicing wildcard proof"),
             }

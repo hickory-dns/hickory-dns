@@ -11,13 +11,13 @@ use std::{env, net::SocketAddr, path::Path, str::FromStr, sync::Arc};
 
 use futures_util::StreamExt;
 use rustls::{
+    ClientConfig, KeyLogFile,
     crypto::ring::default_provider,
     pki_types::{
-        pem::{self, PemObject},
         CertificateDer, PrivateKeyDer,
+        pem::{self, PemObject},
     },
     sign::{CertifiedKey, SingleCertAndKey},
-    ClientConfig, KeyLogFile,
 };
 use test_support::subscribe;
 

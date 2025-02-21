@@ -18,7 +18,7 @@ fn run() {
         // To make this independent, if targeting macOS, BSD, Linux, or Windows, we can use the system's configuration:
         #[cfg(any(unix, windows))]
         {
-            use hickory_resolver::{name_server::TokioConnectionProvider, TokioResolver};
+            use hickory_resolver::{TokioResolver, name_server::TokioConnectionProvider};
 
             // use the system resolver configuration
             TokioResolver::from_system_conf(TokioConnectionProvider::default())
@@ -30,8 +30,8 @@ fn run() {
         {
             // Directly reference the config types
             use hickory_resolver::{
-                config::{ResolverConfig, ResolverOpts},
                 Resolver,
+                config::{ResolverConfig, ResolverOpts},
             };
 
             // Get a new resolver with the google nameservers as the upstream recursive resolvers

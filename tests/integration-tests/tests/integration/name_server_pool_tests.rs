@@ -1,10 +1,10 @@
-use std::future::{poll_fn, Future};
+use std::future::{Future, poll_fn};
 use std::net::*;
 use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::{
-    atomic::{AtomicIsize, Ordering},
     Arc,
+    atomic::{AtomicIsize, Ordering},
 };
 use std::task::Poll;
 

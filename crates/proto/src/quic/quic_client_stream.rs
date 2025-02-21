@@ -17,7 +17,7 @@ use std::{
 
 use futures_util::{future::FutureExt, stream::Stream};
 use quinn::{
-    crypto::rustls::QuicClientConfig, ClientConfig, Connection, Endpoint, TransportConfig, VarInt,
+    ClientConfig, Connection, Endpoint, TransportConfig, VarInt, crypto::rustls::QuicClientConfig,
 };
 use tokio::time::timeout;
 
@@ -26,7 +26,7 @@ use crate::{
     quic::quic_stream::{DoqErrorCode, QuicStream},
     rustls::client_config,
     udp::UdpSocket,
-    xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, CONNECT_TIMEOUT},
+    xfer::{CONNECT_TIMEOUT, DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream},
 };
 
 use super::{quic_config, quic_stream};
