@@ -70,9 +70,11 @@ pub fn create_example() -> InMemoryAuthority {
         Record::from_rdata(
             origin.clone(),
             60,
-            RData::TXT(TXT::new(vec!["$Id: example.com 4415 2015-08-24 \
+            RData::TXT(TXT::new(vec![
+                "$Id: example.com 4415 2015-08-24 \
                  20:12:23Z davids $"
-                .to_string()])),
+                    .to_string(),
+            ])),
         )
         .set_dns_class(DNSClass::IN)
         .clone(),
@@ -189,7 +191,7 @@ pub fn create_example() -> InMemoryAuthority {
 #[allow(unused)]
 pub fn create_secure_example() -> InMemoryAuthority {
     use hickory_proto::dnssec::{
-        crypto::RsaSigningKey, rdata::DNSKEY, Algorithm, PublicKey, SigSigner, SigningKey,
+        Algorithm, PublicKey, SigSigner, SigningKey, crypto::RsaSigningKey, rdata::DNSKEY,
     };
     use hickory_server::authority::{Authority, DnssecAuthority};
     use rustls_pki_types::PrivatePkcs8KeyDer;

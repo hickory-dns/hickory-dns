@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::fmt::{self, Display};
-use std::future::{poll_fn, Future};
+use std::future::{Future, poll_fn};
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::str::FromStr;
@@ -511,10 +511,12 @@ mod tests {
             .await
             .expect("send_message failed");
 
-        assert!(response
-            .answers()
-            .iter()
-            .any(|record| record.data().as_a().is_some()));
+        assert!(
+            response
+                .answers()
+                .iter()
+                .any(|record| record.data().as_a().is_some())
+        );
 
         //
         // assert that the connection works for a second query
@@ -538,10 +540,12 @@ mod tests {
             .await
             .expect("send_message failed");
 
-        assert!(response
-            .answers()
-            .iter()
-            .any(|record| record.data().as_aaaa().is_some()));
+        assert!(
+            response
+                .answers()
+                .iter()
+                .any(|record| record.data().as_aaaa().is_some())
+        );
     }
 
     #[tokio::test]
@@ -575,10 +579,12 @@ mod tests {
             .await
             .expect("send_message failed");
 
-        assert!(response
-            .answers()
-            .iter()
-            .any(|record| record.data().as_a().is_some()));
+        assert!(
+            response
+                .answers()
+                .iter()
+                .any(|record| record.data().as_a().is_some())
+        );
 
         //
         // assert that the connection works for a second query
@@ -602,10 +608,12 @@ mod tests {
             .await
             .expect("send_message failed");
 
-        assert!(response
-            .answers()
-            .iter()
-            .any(|record| record.data().as_aaaa().is_some()));
+        assert!(
+            response
+                .answers()
+                .iter()
+                .any(|record| record.data().as_aaaa().is_some())
+        );
     }
 
     /// Currently fails, see <https://github.com/hyperium/h3/issues/206>.
@@ -640,10 +648,12 @@ mod tests {
             .block_on(h3.send_message(request).first_answer())
             .expect("send_message failed");
 
-        assert!(response
-            .answers()
-            .iter()
-            .any(|record| record.data().as_a().is_some()));
+        assert!(
+            response
+                .answers()
+                .iter()
+                .any(|record| record.data().as_a().is_some())
+        );
 
         //
         // assert that the connection works for a second query
@@ -659,10 +669,12 @@ mod tests {
             .block_on(h3.send_message(request).first_answer())
             .expect("send_message failed");
 
-        assert!(response
-            .answers()
-            .iter()
-            .any(|record| record.data().as_aaaa().is_some()));
+        assert!(
+            response
+                .answers()
+                .iter()
+                .any(|record| record.data().as_aaaa().is_some())
+        );
     }
 
     #[tokio::test]

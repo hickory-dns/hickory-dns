@@ -161,7 +161,7 @@ impl<'a> Lexer<'a> {
                                     return Err(LexerErrorKind::UnrecognizedDollar(
                                         char_data.take().unwrap_or_else(|| "".into()),
                                     )
-                                    .into())
+                                    .into());
                                 }
                             }));
                         }
@@ -195,7 +195,7 @@ impl<'a> Lexer<'a> {
                 State::CharData { is_list } => {
                     match ch {
                         Some(ch @ ')') if !is_list => {
-                            return Err(LexerErrorKind::IllegalCharacter(ch).into())
+                            return Err(LexerErrorKind::IllegalCharacter(ch).into());
                         }
                         Some(ch) if ch.is_whitespace() || ch == ')' || ch == ';' => {
                             if is_list {

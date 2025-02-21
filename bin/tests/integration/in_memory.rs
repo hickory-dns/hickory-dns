@@ -3,7 +3,7 @@ use std::str::FromStr;
 use test_support::subscribe;
 use tokio::runtime::Runtime;
 
-use hickory_proto::rr::{rdata::CNAME, Name, RData, Record, RecordType};
+use hickory_proto::rr::{Name, RData, Record, RecordType, rdata::CNAME};
 #[cfg(feature = "dnssec-ring")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::{

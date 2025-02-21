@@ -12,13 +12,13 @@ use futures_util::future::FutureExt;
 use futures_util::lock::Mutex;
 use futures_util::stream::Stream;
 use hickory_proto::{
+    ProtoError,
     op::Query,
     xfer::{DnsHandle, DnsRequest, DnsResponse},
-    ProtoError,
 };
 
-use crate::client::rc_stream::{rc_stream, RcStream};
 use crate::client::ClientHandle;
+use crate::client::rc_stream::{RcStream, rc_stream};
 
 // TODO: move to proto
 /// A ClientHandle for memoized (cached) responses to queries.
@@ -100,10 +100,10 @@ mod test {
     use futures::lock::Mutex;
     use futures::*;
     use hickory_proto::{
+        ProtoError,
         op::{Message, Query},
         rr::RecordType,
         xfer::{DnsHandle, DnsRequest, DnsResponse},
-        ProtoError,
     };
     use test_support::subscribe;
 

@@ -19,13 +19,13 @@ use crate::{
     proto::{
         op::{Query, ResponseCode},
         rr::{
+            DNSClass, Name, RData, Record, RecordType,
             domain::usage::{
-                ResolverUsage, DEFAULT, INVALID, IN_ADDR_ARPA_127, IP6_ARPA_1, LOCAL,
-                LOCALHOST as LOCALHOST_usage, ONION,
+                DEFAULT, IN_ADDR_ARPA_127, INVALID, IP6_ARPA_1, LOCAL,
+                LOCALHOST as LOCALHOST_usage, ONION, ResolverUsage,
             },
             rdata::{A, AAAA, CNAME, PTR, SOA},
             resource::RecordRef,
-            DNSClass, Name, RData, Record, RecordType,
         },
         xfer::{DnsHandle, DnsRequestOptions, DnsResponse, FirstAnswer},
         {ForwardNSData, ProtoError, ProtoErrorKind},
@@ -152,7 +152,7 @@ where
                             ResponseCode::NoError,
                             false,
                             None,
-                        ))
+                        ));
                     } // Are there any other types we can use?
                 },
                 // TODO: this requires additional config, as Kubernetes and other systems misuse the .local. zone.
@@ -167,7 +167,7 @@ where
                         ResponseCode::NXDomain,
                         false,
                         None,
-                    ))
+                    ));
                 }
                 ResolverUsage::Normal => (),
             }
@@ -1010,26 +1010,32 @@ mod tests {
             );
         }
 
-        assert!(block_on(client.lookup(
-            Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::MX),
-            DnsRequestOptions::default()
-        ))
-        .is_err());
+        assert!(
+            block_on(client.lookup(
+                Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::MX),
+                DnsRequestOptions::default()
+            ))
+            .is_err()
+        );
 
-        assert!(block_on(client.lookup(
-            Query::query(Name::from(Ipv4Addr::LOCALHOST), RecordType::MX),
-            DnsRequestOptions::default()
-        ))
-        .is_err());
+        assert!(
+            block_on(client.lookup(
+                Query::query(Name::from(Ipv4Addr::LOCALHOST), RecordType::MX),
+                DnsRequestOptions::default()
+            ))
+            .is_err()
+        );
 
-        assert!(block_on(client.lookup(
-            Query::query(
-                Name::from(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
-                RecordType::MX
-            ),
-            DnsRequestOptions::default()
-        ))
-        .is_err());
+        assert!(
+            block_on(client.lookup(
+                Query::query(
+                    Name::from(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+                    RecordType::MX
+                ),
+                DnsRequestOptions::default()
+            ))
+            .is_err()
+        );
     }
 
     #[test]
@@ -1039,14 +1045,16 @@ mod tests {
         let client = mock(vec![empty()]);
         let mut client = CachingClient::with_cache(cache, client, false);
 
-        assert!(block_on(client.lookup(
-            Query::query(
-                Name::from_ascii("horrible.invalid.").unwrap(),
-                RecordType::A,
-            ),
-            DnsRequestOptions::default()
-        ))
-        .is_err());
+        assert!(
+            block_on(client.lookup(
+                Query::query(
+                    Name::from_ascii("horrible.invalid.").unwrap(),
+                    RecordType::A,
+                ),
+                DnsRequestOptions::default()
+            ))
+            .is_err()
+        );
     }
 
     #[test]
@@ -1072,13 +1080,15 @@ mod tests {
         ]);
         let mut client = CachingClient::with_cache(cache, client, false);
 
-        assert!(block_on(client.lookup(
-            Query::query(
-                Name::from_ascii("www.example.local.").unwrap(),
-                RecordType::A,
-            ),
-            DnsRequestOptions::default()
-        ))
-        .is_ok());
+        assert!(
+            block_on(client.lookup(
+                Query::query(
+                    Name::from_ascii("www.example.local.").unwrap(),
+                    RecordType::A,
+                ),
+                DnsRequestOptions::default()
+            ))
+            .is_ok()
+        );
     }
 }

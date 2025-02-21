@@ -47,11 +47,7 @@ impl<T> Restrict<T> {
     ///  `Err(T)` is returned.
     #[inline]
     pub fn verify_unwrap<F: Fn(&T) -> bool>(self, f: F) -> Result<T, T> {
-        if f(&self.0) {
-            Ok(self.0)
-        } else {
-            Err(self.0)
-        }
+        if f(&self.0) { Ok(self.0) } else { Err(self.0) }
     }
 
     /// Unwraps the value without verifying the data, akin to Result::unwrap and Option::unwrap, but will not panic

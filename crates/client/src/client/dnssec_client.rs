@@ -12,13 +12,13 @@ use std::sync::Arc;
 use futures_util::stream::Stream;
 
 use crate::client::Client;
+use crate::proto::ProtoError;
 use crate::proto::dnssec::DnssecDnsHandle;
 use crate::proto::dnssec::TrustAnchor;
 use crate::proto::runtime::TokioTime;
 use crate::proto::xfer::{
     DnsExchangeBackground, DnsHandle, DnsRequest, DnsRequestSender, DnsResponse,
 };
-use crate::proto::ProtoError;
 
 /// A DNSSEC Client implemented over futures-rs.
 ///

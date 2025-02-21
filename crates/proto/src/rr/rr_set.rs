@@ -778,8 +778,8 @@ mod test {
     #[allow(clippy::blocks_in_conditions)]
     fn test_get_filter() {
         use crate::dnssec::{
-            rdata::{DNSSECRData, RRSIG},
             Algorithm,
+            rdata::{DNSSECRData, RRSIG},
         };
 
         let name = Name::root();

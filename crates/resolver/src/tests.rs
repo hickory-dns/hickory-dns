@@ -7,9 +7,9 @@ use test_support::subscribe;
 async fn readme_example() {
     subscribe();
 
+    use crate::Resolver;
     use crate::config::*;
     use crate::name_server::TokioConnectionProvider;
-    use crate::Resolver;
 
     // Construct a new Resolver with default configuration options
     let resolver = Resolver::new(
@@ -33,9 +33,9 @@ async fn readme_example() {
 #[cfg(feature = "dns-over-rustls")]
 #[test]
 fn readme_tls() {
+    use crate::Resolver;
     use crate::config::*;
     use crate::name_server::TokioConnectionProvider;
-    use crate::Resolver;
 
     // Construct a new Resolver with default configuration options
     let resolver = Resolver::new(

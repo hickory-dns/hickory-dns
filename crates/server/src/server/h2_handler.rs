@@ -21,8 +21,8 @@ use crate::{
     proto::h2::h2_server,
     proto::xfer::Protocol,
     server::{
-        request_handler::RequestHandler, response_handler::ResponseHandler, server_future,
-        ResponseInfo,
+        ResponseInfo, request_handler::RequestHandler, response_handler::ResponseHandler,
+        server_future,
     },
 };
 

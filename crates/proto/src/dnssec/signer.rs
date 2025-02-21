@@ -13,8 +13,9 @@ use std::time::Duration;
 use super::{DnsSecResult, SigningKey};
 use crate::{
     dnssec::{
-        rdata::{DNSSECRData, DNSKEY, KEY, SIG},
-        tbs, TBS,
+        TBS,
+        rdata::{DNSKEY, DNSSECRData, KEY, SIG},
+        tbs,
     },
     error::{ProtoErrorKind, ProtoResult},
     op::{Message, MessageFinalizer, MessageVerifier},
@@ -540,9 +541,9 @@ mod tests {
 
     use super::*;
     use crate::dnssec::{
+        Algorithm, PublicKey, SigningKey, TBS, Verifier,
         crypto::RsaSigningKey,
-        rdata::{key::KeyUsage, DNSSECRData, KEY, RRSIG, SIG},
-        Algorithm, PublicKey, SigningKey, Verifier, TBS,
+        rdata::{DNSSECRData, KEY, RRSIG, SIG, key::KeyUsage},
     };
     use crate::op::{Message, Query};
     use crate::rr::rdata::{CNAME, NS};

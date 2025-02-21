@@ -27,9 +27,9 @@ use std::{net::SocketAddr, path::PathBuf};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{
+    ClientConfig, DigitallySignedStruct,
     client::danger::{HandshakeSignatureValid, ServerCertVerified},
     pki_types::{CertificateDer, ServerName, UnixTime},
-    ClientConfig, DigitallySignedStruct,
 };
 use tracing::Level;
 

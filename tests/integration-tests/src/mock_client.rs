@@ -5,16 +5,17 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::future::{ready, Future};
+use std::future::{Future, ready};
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 
-use futures::stream::{once, Stream};
-use futures::{future, AsyncRead, AsyncWrite};
+use futures::stream::{Stream, once};
+use futures::{AsyncRead, AsyncWrite, future};
 
+use hickory_proto::ProtoError;
 use hickory_proto::op::{Message, Query};
 use hickory_proto::rr::rdata::{CNAME, NS, SOA};
 use hickory_proto::rr::{Name, RData, Record};
@@ -23,7 +24,6 @@ use hickory_proto::runtime::{RuntimeProvider, TokioHandle};
 use hickory_proto::tcp::DnsTcpStream;
 use hickory_proto::udp::DnsUdpSocket;
 use hickory_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
-use hickory_proto::ProtoError;
 use hickory_resolver::config::{NameServerConfig, ResolverOpts};
 use hickory_resolver::name_server::ConnectionProvider;
 

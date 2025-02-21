@@ -51,9 +51,9 @@ pub(crate) fn new_h3_stream_with_future(
 mod tests {
     use test_support::subscribe;
 
+    use crate::TokioResolver;
     use crate::config::{ResolverConfig, ResolverOpts};
     use crate::name_server::TokioConnectionProvider;
-    use crate::TokioResolver;
 
     async fn h3_test(config: ResolverConfig) {
         let resolver = TokioResolver::new(

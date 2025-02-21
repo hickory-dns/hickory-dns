@@ -22,14 +22,14 @@ use tracing::debug;
 
 use crate::{ClientError, ClientErrorKind};
 use hickory_proto::{
-    op::{update_message, Edns, Message, MessageFinalizer, MessageType, OpCode, Query},
-    rr::{rdata::SOA, DNSClass, Name, Record, RecordSet, RecordType},
+    ProtoError, ProtoErrorKind,
+    op::{Edns, Message, MessageFinalizer, MessageType, OpCode, Query, update_message},
+    rr::{DNSClass, Name, Record, RecordSet, RecordType, rdata::SOA},
     runtime::TokioTime,
     xfer::{
         BufDnsStreamHandle, DnsClientStream, DnsExchange, DnsExchangeBackground, DnsExchangeSend,
         DnsHandle, DnsMultiplexer, DnsRequest, DnsRequestOptions, DnsRequestSender, DnsResponse,
     },
-    ProtoError, ProtoErrorKind,
 };
 
 #[doc(hidden)]
@@ -844,16 +844,16 @@ mod tests {
 
     use super::*;
 
+    use ClientStreamXfrState::*;
     use futures_util::stream::iter;
     use hickory_proto::{
         rr::{
-            rdata::{A, SOA},
             RData,
+            rdata::{A, SOA},
         },
         runtime::TokioRuntimeProvider,
     };
     use test_support::subscribe;
-    use ClientStreamXfrState::*;
 
     fn soa_record(serial: u32) -> Record {
         let soa = RData::SOA(SOA::new(

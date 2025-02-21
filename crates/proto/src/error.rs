@@ -26,7 +26,7 @@ use tracing::debug;
 #[cfg(feature = "dnssec-ring")]
 use crate::dnssec::Proof;
 use crate::op::{Header, Query, ResponseCode};
-use crate::rr::{domain::Name, rdata::SOA, resource::RecordRef, Record, RecordType};
+use crate::rr::{Record, RecordType, domain::Name, rdata::SOA, resource::RecordRef};
 use crate::serialize::binary::DecodeError;
 use crate::xfer::DnsResponse;
 
@@ -597,7 +597,7 @@ impl ProtoError {
 
         match (kind, other) {
             (ProtoErrorKind::NoRecordsFound { .. }, ProtoErrorKind::NoRecordsFound { .. }) => {
-                return Ordering::Equal
+                return Ordering::Equal;
             }
             (ProtoErrorKind::NoRecordsFound { .. }, _) => return Ordering::Greater,
             (_, ProtoErrorKind::NoRecordsFound { .. }) => return Ordering::Less,

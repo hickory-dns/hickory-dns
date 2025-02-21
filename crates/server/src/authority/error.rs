@@ -11,7 +11,7 @@ use enum_as_inner::EnumAsInner;
 use thiserror::Error;
 
 use crate::proto::op::ResponseCode;
-use crate::proto::rr::{rdata::SOA, Record};
+use crate::proto::rr::{Record, rdata::SOA};
 use crate::proto::{ProtoError, ProtoErrorKind};
 #[cfg(feature = "recursor")]
 use crate::recursor::ErrorKind;

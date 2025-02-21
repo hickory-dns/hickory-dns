@@ -10,12 +10,12 @@
 use std::str::FromStr;
 
 use http::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE};
-use http::{header, uri, Request, Uri};
+use http::{Request, Uri, header, uri};
 use tracing::debug;
 
 use crate::error::ProtoError;
-use crate::http::error::Result;
 use crate::http::Version;
+use crate::http::error::Result;
 
 /// Create a new Request for an http dns-message request
 ///
@@ -169,13 +169,15 @@ mod tests {
     fn test_new_verify_h2() {
         let request = new(Version::Http2, "ns.example.com", "/dns-query", 512)
             .expect("error converting to http");
-        assert!(verify(
-            Version::Http2,
-            Some("ns.example.com"),
-            "/dns-query",
-            &request
-        )
-        .is_ok());
+        assert!(
+            verify(
+                Version::Http2,
+                Some("ns.example.com"),
+                "/dns-query",
+                &request
+            )
+            .is_ok()
+        );
     }
 
     #[test]
@@ -183,12 +185,14 @@ mod tests {
     fn test_new_verify_h3() {
         let request = new(Version::Http3, "ns.example.com", "/dns-query", 512)
             .expect("error converting to http");
-        assert!(verify(
-            Version::Http3,
-            Some("ns.example.com"),
-            "/dns-query",
-            &request
-        )
-        .is_ok());
+        assert!(
+            verify(
+                Version::Http3,
+                Some("ns.example.com"),
+                "/dns-query",
+                &request
+            )
+            .is_ok()
+        );
     }
 }

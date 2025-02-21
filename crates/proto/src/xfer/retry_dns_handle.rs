@@ -12,9 +12,9 @@ use std::task::{Context, Poll};
 
 use futures_util::stream::{Stream, StreamExt};
 
+use crate::DnsHandle;
 use crate::error::{ProtoError, ProtoErrorKind};
 use crate::xfer::{DnsRequest, DnsResponse};
-use crate::DnsHandle;
 
 /// Can be used to reattempt queries if they fail
 ///
@@ -141,15 +141,15 @@ mod test {
     use crate::error::*;
     use crate::op::*;
     use crate::xfer::FirstAnswer;
+    use DnsHandle;
     use futures_executor::block_on;
     use futures_util::future::{err, ok};
     use futures_util::stream::*;
     use std::sync::{
-        atomic::{AtomicU16, Ordering},
         Arc,
+        atomic::{AtomicU16, Ordering},
     };
     use test_support::subscribe;
-    use DnsHandle;
 
     #[derive(Clone)]
     struct TestClient {

@@ -15,7 +15,7 @@ use futures_util::{FutureExt, StreamExt};
 use hickory_proto::{op::MessageType, rr::Record, runtime::TokioRuntimeProvider};
 use ipnet::IpNet;
 #[cfg(feature = "dns-over-rustls")]
-use rustls::{server::ResolvesServerCert, ServerConfig};
+use rustls::{ServerConfig, server::ResolvesServerCert};
 #[cfg(feature = "dns-over-rustls")]
 use tokio::time::timeout;
 use tokio::{net, task::JoinSet};
@@ -26,13 +26,13 @@ use crate::{
     access::AccessControl,
     authority::{MessageRequest, MessageResponseBuilder, Queries},
     proto::{
+        BufDnsStreamHandle, ProtoError,
         op::{Header, LowerQuery, Query, ResponseCode},
         runtime::iocompat::AsyncIoTokioAsStd,
         serialize::binary::{BinDecodable, BinDecoder},
         tcp::TcpStream,
         udp::UdpStream,
         xfer::{Protocol, SerialMessage},
-        BufDnsStreamHandle, ProtoError,
     },
     server::{Request, RequestHandler, ResponseHandle, ResponseHandler, TimeoutStream},
 };
@@ -853,7 +853,8 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
         let additional_count = response_info.additional_count();
         let response_code = response_info.response_code();
 
-        info!("request:{id} src:{proto}://{addr}#{port} {op} qflags:{qflags} response:{code:?} rr:{answers}/{authorities}/{additionals} rflags:{rflags}",
+        info!(
+            "request:{id} src:{proto}://{addr}#{port} {op} qflags:{qflags} response:{code:?} rr:{answers}/{authorities}/{additionals} rflags:{rflags}",
             id = rid,
             proto = self.protocol,
             addr = self.src_addr.ip(),
@@ -911,7 +912,7 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
             proto = protocol,
             addr = src_addr.ip(),
             port = src_addr.port(),
-            message_type= message_type,
+            message_type = message_type,
             is_dnssec = is_dnssec,
             op = qop_code,
             qflags = qflags

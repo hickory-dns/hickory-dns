@@ -11,8 +11,8 @@
 use crate::dnssec::rdata::DNSSECRData;
 use crate::{
     rr::{
-        rdata::{ANAME, CNAME, HTTPS, NS, PTR},
         Name, RData, RecordType,
+        rdata::{ANAME, CNAME, HTTPS, NS, PTR},
     },
     serialize::txt::{
         errors::{ParseError, ParseErrorKind, ParseResult},
@@ -45,7 +45,7 @@ pub trait RDataParser: Sized {
                 _ => {
                     return Err(ParseError::from(format!(
                         "unexpected token in record data: {token:?}"
-                    )))
+                    )));
                 }
             }
         }
@@ -90,10 +90,10 @@ impl RDataParser for RData {
             RecordType::TXT => Self::TXT(txt::parse(tokens)?),
             RecordType::SIG => return Err(ParseError::from("parsing SIG doesn't make sense")),
             RecordType::DNSKEY => {
-                return Err(ParseError::from("DNSKEY should be dynamically generated"))
+                return Err(ParseError::from("DNSKEY should be dynamically generated"));
             }
             RecordType::CDNSKEY => {
-                return Err(ParseError::from("CDNSKEY should be dynamically generated"))
+                return Err(ParseError::from("CDNSKEY should be dynamically generated"));
             }
             RecordType::KEY => return Err(ParseError::from("KEY should be dynamically generated")),
             #[cfg(feature = "dnssec-ring")]
@@ -102,18 +102,18 @@ impl RDataParser for RData {
             RecordType::DS => return Err(ParseError::from("DS should be dynamically generated")),
             RecordType::CDS => return Err(ParseError::from("CDS should be dynamically generated")),
             RecordType::NSEC => {
-                return Err(ParseError::from("NSEC should be dynamically generated"))
+                return Err(ParseError::from("NSEC should be dynamically generated"));
             }
             RecordType::NSEC3 => {
-                return Err(ParseError::from("NSEC3 should be dynamically generated"))
+                return Err(ParseError::from("NSEC3 should be dynamically generated"));
             }
             RecordType::NSEC3PARAM => {
                 return Err(ParseError::from(
                     "NSEC3PARAM should be dynamically generated",
-                ))
+                ));
             }
             RecordType::RRSIG => {
-                return Err(ParseError::from("RRSIG should be dynamically generated"))
+                return Err(ParseError::from("RRSIG should be dynamically generated"));
             }
             RecordType::TSIG => return Err(ParseError::from("TSIG is only used during AXFR")),
             #[allow(deprecated)]
