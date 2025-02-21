@@ -766,7 +766,7 @@ mod dnssec {
                 .name_servers()
                 .iter()
                 .find(|e| e.record_type() == RecordType::NSEC3)
-                .expect("result to contain NSEC");
+                .expect("result to contain NSEC3");
 
             let nsec3 = nsec3
                 .data()
