@@ -60,7 +60,7 @@ fn tcp_server_setup(
                     .read_exact(&mut len_bytes)
                     .expect("SERVER: receive failed");
                 let length =
-                    u16::from(len_bytes[0]) << 8 & 0xFF00 | u16::from(len_bytes[1]) & 0x00FF;
+                    (u16::from(len_bytes[0]) << 8) & 0xFF00 | u16::from(len_bytes[1]) & 0x00FF;
                 assert_eq!(length as usize, TEST_BYTES_LEN);
 
                 let mut buffer = [0_u8; TEST_BYTES_LEN];

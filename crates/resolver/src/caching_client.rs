@@ -184,8 +184,7 @@ where
             .client
             .lookup(query.clone(), options)
             .first_answer()
-            .await
-            .map_err(ProtoError::into);
+            .await;
 
         // TODO: technically this might be duplicating work, as name_server already performs this evaluation.
         //  we may want to create a new type, if evaluated... but this is most generic to support any impl in LookupState...

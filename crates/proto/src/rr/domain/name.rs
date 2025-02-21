@@ -1171,19 +1171,19 @@ impl From<Ipv6Addr> for Name {
                             .expect("IP octet to label should never fail"),
                     );
                     labels.push(
-                        format!("{:x}", (*o >> 4 & 0x000F) as u8)
+                        format!("{:x}", ((*o >> 4) & 0x000F) as u8)
                             .as_bytes()
                             .into_label()
                             .expect("IP octet to label should never fail"),
                     );
                     labels.push(
-                        format!("{:x}", (*o >> 8 & 0x000F) as u8)
+                        format!("{:x}", ((*o >> 8) & 0x000F) as u8)
                             .as_bytes()
                             .into_label()
                             .expect("IP octet to label should never fail"),
                     );
                     labels.push(
-                        format!("{:x}", (*o >> 12 & 0x000F) as u8)
+                        format!("{:x}", ((*o >> 12) & 0x000F) as u8)
                             .as_bytes()
                             .into_label()
                             .expect("IP octet to label should never fail"),
