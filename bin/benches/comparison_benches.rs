@@ -19,13 +19,13 @@ use test::Bencher;
 use tokio::runtime::Runtime;
 
 use hickory_client::client::{Client, ClientHandle};
+use hickory_proto::ProtoError;
 use hickory_proto::op::ResponseCode;
 use hickory_proto::rr::rdata::A;
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
 use hickory_proto::xfer::{DnsMultiplexer, DnsRequestSender};
-use hickory_proto::ProtoError;
 
 fn find_test_port() -> u16 {
     let server = std::net::UdpSocket::bind(("0.0.0.0", 0)).unwrap();

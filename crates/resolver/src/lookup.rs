@@ -22,13 +22,13 @@ use crate::{
     lookup_ip::LookupIpIter,
     name_server::{ConnectionProvider, NameServerPool},
     proto::{
+        DnsHandle, ProtoError, RetryDnsHandle,
         op::Query,
         rr::{
-            rdata::{self, A, AAAA, NS, PTR},
             RData, Record,
+            rdata::{self, A, AAAA, NS, PTR},
         },
         xfer::{DnsRequest, DnsResponse},
-        DnsHandle, ProtoError, RetryDnsHandle,
     },
 };
 

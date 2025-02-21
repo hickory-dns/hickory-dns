@@ -9,17 +9,17 @@
 
 use std::path::{Path, PathBuf};
 
-use rustls_pki_types::pem::PemObject;
 use rustls_pki_types::PrivateKeyDer;
+use rustls_pki_types::pem::PemObject;
 use serde::Deserialize;
 use time::Duration;
 use tracing::info;
 
 use hickory_proto::rr::domain::Name;
 use hickory_proto::{
-    dnssec::{rdata::key::KeyUsage, rdata::DNSKEY, rdata::KEY, Algorithm, SigSigner, SigningKey},
-    rr::domain::IntoName,
     ProtoError,
+    dnssec::{Algorithm, SigSigner, SigningKey, rdata::DNSKEY, rdata::KEY, rdata::key::KeyUsage},
+    rr::domain::IntoName,
 };
 use hickory_server::authority::DnssecAuthority;
 

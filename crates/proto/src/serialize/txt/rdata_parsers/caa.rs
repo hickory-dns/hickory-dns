@@ -18,9 +18,9 @@
 
 use tracing::warn;
 
+use crate::rr::rdata::CAA;
 use crate::rr::rdata::caa;
 use crate::rr::rdata::caa::{Property, Value};
-use crate::rr::rdata::CAA;
 use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
 
 /// Parse the RData from a set of Tokens
@@ -100,7 +100,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
 
 #[cfg(test)]
 mod tests {
-    use crate::rr::{rdata::caa::KeyValue, Name, RData, RecordType};
+    use crate::rr::{Name, RData, RecordType, rdata::caa::KeyValue};
     use crate::serialize::txt::parse_rdata::RDataParser;
 
     use super::*;
@@ -114,8 +114,7 @@ mod tests {
 
         match RData::try_from_str(RecordType::CAA, input_string).expect("CAA rdata parse failed") {
             RData::CAA(parsed_rdata) => assert_eq!(
-                expected_rdata,
-                parsed_rdata,
+                expected_rdata, parsed_rdata,
                 "CAA rdata was not parsed as expected. input={input_string:?} expected_rdata={expected_rdata:?} parsed_rdata={parsed_rdata:?}",
             ),
             parsed_rdata => panic!("Parsed RData is not CAA: {:?}", parsed_rdata),

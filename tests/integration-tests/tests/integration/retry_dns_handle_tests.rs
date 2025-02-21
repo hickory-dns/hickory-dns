@@ -1,14 +1,14 @@
 use std::sync::{
-    atomic::{AtomicU16, Ordering},
     Arc,
+    atomic::{AtomicU16, Ordering},
 };
 
-use futures::{executor::block_on, future, stream, Stream};
+use futures::{Stream, executor::block_on, future, stream};
 
 use hickory_proto::{
+    DnsHandle, ProtoError, RetryDnsHandle,
     op::{Message, MessageType, OpCode, ResponseCode},
     xfer::{DnsRequest, DnsResponse, FirstAnswer},
-    DnsHandle, ProtoError, RetryDnsHandle,
 };
 use test_support::subscribe;
 

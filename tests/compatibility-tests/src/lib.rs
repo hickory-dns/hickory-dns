@@ -11,11 +11,11 @@
 use std::env;
 use std::fs;
 use std::fs::DirBuilder;
-use std::io::{stdout, BufRead, BufReader, Read, Write};
+use std::io::{BufRead, BufReader, Read, Write, stdout};
 use std::path::Path;
 use std::process::Child;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
 use data_encoding::BASE32;

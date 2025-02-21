@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     op::{Message, ResponseCode},
-    rr::{rdata::SOA, resource::RecordRef, RecordType},
+    rr::{RecordType, rdata::SOA, resource::RecordRef},
 };
 
 /// A stream returning DNS responses
@@ -652,8 +652,8 @@ impl NegativeType {
 #[cfg(test)]
 mod tests {
     use crate::op::{Message, Query, ResponseCode};
-    use crate::rr::rdata::{A, CNAME, NS, SOA};
     use crate::rr::RData;
+    use crate::rr::rdata::{A, CNAME, NS, SOA};
     use crate::rr::{Name, Record, RecordType};
 
     use super::*;

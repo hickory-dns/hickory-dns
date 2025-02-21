@@ -20,8 +20,8 @@ use crate::{
     error::{ProtoError, ProtoResult},
     op::{Header, Message, Query},
     rr::{
-        dns_class::DNSClass, rdata::sshfp, record_data::RData, record_type::RecordType, Name,
-        Record, RecordData, RecordDataDecodable,
+        Name, Record, RecordData, RecordDataDecodable, dns_class::DNSClass, rdata::sshfp,
+        record_data::RData, record_type::RecordType,
     },
     serialize::binary::{
         BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode, Restrict, RestrictedMath,

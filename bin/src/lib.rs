@@ -28,15 +28,15 @@ use ipnet::IpNet;
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{
     crypto::ring::default_provider,
-    pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer},
+    pki_types::{CertificateDer, PrivateKeyDer, pem::PemObject},
     server::ResolvesServerCert,
     sign::{CertifiedKey, SingleCertAndKey},
 };
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
 
-use hickory_proto::rr::Name;
 use hickory_proto::ProtoError;
+use hickory_proto::rr::Name;
 #[cfg(feature = "dnssec-ring")]
 use hickory_server::authority::DnssecAuthority;
 #[cfg(feature = "dnssec-ring")]
@@ -57,9 +57,9 @@ use hickory_server::store::recursor::RecursiveConfig;
 #[cfg(feature = "sqlite")]
 use hickory_server::store::sqlite::{SqliteAuthority, SqliteConfig};
 use hickory_server::{
+    ConfigError,
     authority::{AuthorityObject, ZoneType},
     store::file::FileAuthority,
-    ConfigError,
 };
 use tracing::{debug, info, warn};
 

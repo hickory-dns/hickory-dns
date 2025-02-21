@@ -10,7 +10,7 @@ use std::fmt;
 use thiserror::Error;
 
 #[cfg(feature = "backtrace")]
-use crate::proto::{trace, ExtBacktrace};
+use crate::proto::{ExtBacktrace, trace};
 use crate::proto::{ProtoError, ProtoErrorKind};
 
 /// The error kind for errors that get returned in the crate

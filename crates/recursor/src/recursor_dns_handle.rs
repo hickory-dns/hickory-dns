@@ -2,14 +2,14 @@ use std::{
     collections::HashSet,
     net::IpAddr,
     sync::{
-        atomic::{AtomicU8, Ordering},
         Arc,
+        atomic::{AtomicU8, Ordering},
     },
     time::Instant,
 };
 
 use async_recursion::async_recursion;
-use futures_util::{stream::FuturesUnordered, StreamExt};
+use futures_util::{StreamExt, stream::FuturesUnordered};
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use lru_cache::LruCache;
 use parking_lot::Mutex;
@@ -17,21 +17,21 @@ use prefix_trie::PrefixSet;
 use tracing::{debug, info, trace, warn};
 
 use crate::{
+    Error, ErrorKind,
     proto::{
-        op::Query,
-        rr::{rdata::NS, RData, RData::CNAME, RecordType},
-        runtime::TokioRuntimeProvider,
         ForwardNSData, ProtoErrorKind,
+        op::Query,
+        rr::{RData, RData::CNAME, RecordType, rdata::NS},
+        runtime::TokioRuntimeProvider,
     },
     recursor_pool::RecursorPool,
     resolver::{
+        Name,
         config::{NameServerConfigGroup, ResolverOpts},
         dns_lru::{DnsLru, TtlConfig},
         lookup::Lookup,
         name_server::{GenericNameServerPool, TokioConnectionProvider},
-        Name,
     },
-    Error, ErrorKind,
 };
 
 #[derive(Clone)]

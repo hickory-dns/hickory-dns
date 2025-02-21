@@ -39,8 +39,8 @@ use crate::{
     authority::{DnssecAuthority, Nsec3QueryInfo, UpdateRequest},
     dnssec::NxProofKind,
     proto::dnssec::{
-        rdata::{key::KEY, DNSSECRData},
         DnsSecResult, SigSigner, Verifier,
+        rdata::{DNSSECRData, key::KEY},
     },
 };
 

@@ -6,8 +6,8 @@ use std::str::FromStr;
 use rusqlite::*;
 
 use hickory_proto::rr::{rdata::A, *};
-use hickory_server::store::sqlite::persistence::CURRENT_VERSION;
 use hickory_server::store::sqlite::Journal;
+use hickory_server::store::sqlite::persistence::CURRENT_VERSION;
 
 #[test]
 fn test_new_journal() {

@@ -625,7 +625,9 @@ pub fn emit_pre_sig(
 /// ```
 impl fmt::Display for SIG {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(f, "{ty_covered} {alg} {num_labels} {original_ttl} {expire} {inception} {tag} {signer} {sig}",
+        write!(
+            f,
+            "{ty_covered} {alg} {num_labels} {original_ttl} {expire} {inception} {tag} {signer} {sig}",
             ty_covered = self.type_covered,
             alg = self.algorithm,
             num_labels = self.num_labels,

@@ -12,13 +12,13 @@ use futures_executor::block_on;
 use hickory_dns::dnssec::{KeyConfig, KeyPurpose};
 use hickory_proto::{
     dnssec::{
-        rdata::{key::KeyUsage, KEY},
         Algorithm, PublicKey, SigSigner, Verifier,
+        rdata::{KEY, key::KeyUsage},
     },
-    op::{update_message, Header, Message, Query, ResponseCode},
+    op::{Header, Message, Query, ResponseCode, update_message},
     rr::{
-        rdata::{A as A4, AAAA},
         DNSClass, Name, RData, Record, RecordSet, RecordType,
+        rdata::{A as A4, AAAA},
     },
     serialize::binary::{BinDecodable, BinEncodable},
     xfer::Protocol,

@@ -12,7 +12,7 @@ use std::ops::RangeInclusive;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use moka::{sync::Cache, Expiry};
+use moka::{Expiry, sync::Cache};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer};
 

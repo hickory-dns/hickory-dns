@@ -21,7 +21,7 @@ use hickory_client::client::{Client, ClientHandle};
 use hickory_client::proto::dnssec::rdata::tsig::TsigAlgorithm;
 use hickory_client::proto::dnssec::tsig::TSigner;
 use hickory_client::proto::op::{MessageFinalizer, ResponseCode};
-use hickory_client::proto::rr::{rdata::A, Name, RData, Record};
+use hickory_client::proto::rr::{Name, RData, Record, rdata::A};
 use hickory_client::proto::runtime::TokioRuntimeProvider;
 use hickory_client::proto::tcp::TcpClientStream;
 use hickory_client::proto::udp::UdpClientStream;

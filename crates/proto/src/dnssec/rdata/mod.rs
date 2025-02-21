@@ -33,7 +33,7 @@ use tracing::trace;
 
 use crate::{
     error::*,
-    rr::{rdata::NULL, RData, RecordDataDecodable, RecordType},
+    rr::{RData, RecordDataDecodable, RecordType, rdata::NULL},
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict},
 };
 

@@ -497,8 +497,8 @@ mod tests {
     use crate::{
         op::{Message, Query},
         rr::{
-            rdata::{CNAME, SRV},
             RData, Record, RecordType,
+            rdata::{CNAME, SRV},
         },
         serialize::binary::BinDecodable,
     };

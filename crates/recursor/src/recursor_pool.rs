@@ -12,14 +12,14 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures_util::{future::Shared, Future, FutureExt, StreamExt};
+use futures_util::{Future, FutureExt, StreamExt, future::Shared};
 use hickory_proto::{
+    DnsHandle,
     op::Query,
     runtime::{RuntimeProvider, TokioRuntimeProvider},
     xfer::{DnsRequestOptions, DnsResponse},
-    DnsHandle,
 };
-use hickory_resolver::{name_server::GenericNameServerPool, Name, ResolveError, ResolveErrorKind};
+use hickory_resolver::{Name, ResolveError, ResolveErrorKind, name_server::GenericNameServerPool};
 use parking_lot::Mutex;
 use tracing::info;
 

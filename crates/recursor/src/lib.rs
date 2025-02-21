@@ -43,7 +43,7 @@ pub use hickory_resolver::config::{NameServerConfig, NameServerConfigGroup};
 use proto::dnssec::TrustAnchor;
 use proto::{op::Query, xfer::DnsResponse};
 pub use recursor::{Recursor, RecursorBuilder};
-use resolver::{dns_lru::DnsLru, lookup::Lookup, Name};
+use resolver::{Name, dns_lru::DnsLru, lookup::Lookup};
 use tracing::{info, warn};
 
 /// `Recursor`'s DNSSEC policy

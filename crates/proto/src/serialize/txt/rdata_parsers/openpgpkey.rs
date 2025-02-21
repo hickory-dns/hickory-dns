@@ -38,10 +38,14 @@ fn test_parsing() {
     assert!(parse(vec!["äöüäööüä"].into_iter()).is_err());
     assert!(parse(vec!["ZmFpbGVk", "äöüäöüö"].into_iter()).is_err());
 
-    assert!(parse(vec!["dHJ1c3RfZG5zIGlzIGF3ZXNvbWU="].into_iter())
-        .map(|rd| rd == OPENPGPKEY::new(b"trust_dns is awesome".to_vec()))
-        .unwrap_or(false));
-    assert!(parse(vec!["c2VsZi1wcmFpc2Ugc3Rpbmtz"].into_iter())
-        .map(|rd| rd == OPENPGPKEY::new(b"self-praise stinks".to_vec()))
-        .unwrap_or(false));
+    assert!(
+        parse(vec!["dHJ1c3RfZG5zIGlzIGF3ZXNvbWU="].into_iter())
+            .map(|rd| rd == OPENPGPKEY::new(b"trust_dns is awesome".to_vec()))
+            .unwrap_or(false)
+    );
+    assert!(
+        parse(vec!["c2VsZi1wcmFpc2Ugc3Rpbmtz"].into_iter())
+            .map(|rd| rd == OPENPGPKEY::new(b"self-praise stinks".to_vec()))
+            .unwrap_or(false)
+    );
 }

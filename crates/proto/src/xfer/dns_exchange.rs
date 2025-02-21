@@ -19,11 +19,11 @@ use tracing::debug;
 
 use crate::error::*;
 use crate::runtime::Time;
-use crate::xfer::dns_handle::DnsHandle;
 use crate::xfer::DnsResponseReceiver;
+use crate::xfer::dns_handle::DnsHandle;
 use crate::xfer::{
-    BufDnsRequestStreamHandle, DnsRequest, DnsRequestSender, DnsResponse, OneshotDnsRequest,
-    CHANNEL_BUFFER_SIZE,
+    BufDnsRequestStreamHandle, CHANNEL_BUFFER_SIZE, DnsRequest, DnsRequestSender, DnsResponse,
+    OneshotDnsRequest,
 };
 
 /// This is a generic Exchange implemented over multiplexed DNS connection providers.

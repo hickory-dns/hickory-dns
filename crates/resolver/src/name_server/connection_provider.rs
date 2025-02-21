@@ -15,11 +15,11 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-#[cfg(feature = "dns-over-rustls")]
-use crate::proto::runtime::iocompat::AsyncIoStdAsTokio;
 use crate::proto::runtime::Spawn;
 #[cfg(feature = "tokio-runtime")]
 use crate::proto::runtime::TokioRuntimeProvider;
+#[cfg(feature = "dns-over-rustls")]
+use crate::proto::runtime::iocompat::AsyncIoStdAsTokio;
 use futures_util::future::FutureExt;
 use futures_util::ready;
 use futures_util::stream::{Stream, StreamExt};
@@ -35,12 +35,13 @@ use crate::proto::h2::{HttpsClientConnect, HttpsClientStream};
 use crate::proto::h3::{H3ClientConnect, H3ClientStream};
 #[cfg(feature = "dns-over-quic")]
 use crate::proto::quic::{QuicClientConnect, QuicClientStream};
-#[cfg(feature = "dns-over-rustls")]
-use crate::proto::runtime::iocompat::AsyncIoTokioAsStd;
 #[cfg(feature = "tokio-runtime")]
 #[allow(unused_imports)] // Complicated cfg for which protocols are enabled
 use crate::proto::runtime::TokioTime;
+#[cfg(feature = "dns-over-rustls")]
+use crate::proto::runtime::iocompat::AsyncIoTokioAsStd;
 use crate::proto::{
+    ProtoError,
     runtime::RuntimeProvider,
     tcp::TcpClientStream,
     udp::{UdpClientConnect, UdpClientStream},
@@ -48,7 +49,6 @@ use crate::proto::{
         DnsExchange, DnsExchangeConnect, DnsExchangeSend, DnsHandle, DnsMultiplexer,
         DnsMultiplexerConnect, DnsRequest, DnsResponse, Protocol,
     },
-    ProtoError,
 };
 
 /// Create `DnsHandle` with the help of `RuntimeProvider`.

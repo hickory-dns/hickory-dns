@@ -11,13 +11,13 @@ use std::{fmt, io, sync};
 
 use thiserror::Error;
 
-use crate::proto::{
-    rr::{rdata::SOA, Record},
-    xfer::retry_dns_handle::RetryableError,
-    ProtoError, ProtoErrorKind,
-};
 #[cfg(feature = "backtrace")]
-use crate::proto::{trace, ExtBacktrace};
+use crate::proto::{ExtBacktrace, trace};
+use crate::proto::{
+    ProtoError, ProtoErrorKind,
+    rr::{Record, rdata::SOA},
+    xfer::retry_dns_handle::RetryableError,
+};
 
 #[allow(clippy::large_enum_variant)]
 /// The error kind for errors that get returned in the crate

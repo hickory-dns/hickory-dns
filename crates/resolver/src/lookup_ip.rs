@@ -16,7 +16,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Instant;
 
-use futures_util::{future, future::Either, FutureExt};
+use futures_util::{FutureExt, future, future::Either};
 use tracing::debug;
 
 use crate::proto::op::Query;
@@ -441,13 +441,13 @@ pub(crate) mod tests {
 
     use futures_executor::block_on;
     use futures_util::future;
-    use futures_util::stream::{once, Stream};
+    use futures_util::stream::{Stream, once};
     use test_support::subscribe;
 
+    use crate::proto::ProtoError;
     use crate::proto::op::Message;
     use crate::proto::rr::{Name, RData, Record};
     use crate::proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
-    use crate::proto::ProtoError;
 
     use super::*;
 

@@ -1,13 +1,13 @@
 use std::io::{Read, Write};
 use std::net::{IpAddr, SocketAddr};
-use std::sync::{atomic::AtomicBool, Arc};
+use std::sync::{Arc, atomic::AtomicBool};
 
 use futures_util::stream::StreamExt;
 
 use crate::runtime::RuntimeProvider;
 use crate::tcp::TcpStream;
-use crate::xfer::dns_handle::DnsStreamHandle;
 use crate::xfer::SerialMessage;
+use crate::xfer::dns_handle::DnsStreamHandle;
 
 const TEST_BYTES: &[u8; 8] = b"DEADBEEF";
 const TEST_BYTES_LEN: usize = 8;
@@ -60,7 +60,7 @@ fn tcp_server_setup(
                     .read_exact(&mut len_bytes)
                     .expect("SERVER: receive failed");
                 let length =
-                    u16::from(len_bytes[0]) << 8 & 0xFF00 | u16::from(len_bytes[1]) & 0x00FF;
+                    (u16::from(len_bytes[0]) << 8) & 0xFF00 | u16::from(len_bytes[1]) & 0x00FF;
                 assert_eq!(length as usize, TEST_BYTES_LEN);
 
                 let mut buffer = [0_u8; TEST_BYTES_LEN];

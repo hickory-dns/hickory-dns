@@ -5,18 +5,18 @@ use ring::{
     rand::SystemRandom,
     rsa::PublicKeyComponents,
     signature::{
-        self, EcdsaKeyPair, Ed25519KeyPair, KeyPair as RingKeyPair, RsaKeyPair,
-        ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING, ED25519_PUBLIC_KEY_LEN,
-        RSA_PKCS1_SHA256, RSA_PKCS1_SHA512,
+        self, ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING,
+        ED25519_PUBLIC_KEY_LEN, EcdsaKeyPair, Ed25519KeyPair, KeyPair as RingKeyPair,
+        RSA_PKCS1_SHA256, RSA_PKCS1_SHA512, RsaKeyPair,
     },
 };
 use rustls_pki_types::{PrivateKeyDer, PrivatePkcs1KeyDer, PrivatePkcs8KeyDer};
 
 use super::{
-    ec_public_key::ECPublicKey, rsa_public_key::RSAPublicKey, Algorithm, DigestType,
-    DnsSecErrorKind, DnsSecResult, PublicKey, PublicKeyBuf, SigningKey, TBS,
+    Algorithm, DigestType, DnsSecErrorKind, DnsSecResult, PublicKey, PublicKeyBuf, SigningKey, TBS,
+    ec_public_key::ECPublicKey, rsa_public_key::RSAPublicKey,
 };
-use crate::{error::ProtoResult, ProtoError, ProtoErrorKind};
+use crate::{ProtoError, ProtoErrorKind, error::ProtoResult};
 
 /// Decode private key
 pub fn signing_key_from_der(
@@ -363,7 +363,7 @@ impl PublicKey for Rsa<'_> {
             Algorithm::RSASHA512 => &signature::RSA_PKCS1_1024_8192_SHA512_FOR_LEGACY_USE_ONLY,
             Algorithm::RSASHA1 => &signature::RSA_PKCS1_1024_8192_SHA1_FOR_LEGACY_USE_ONLY,
             Algorithm::RSASHA1NSEC3SHA1 => {
-                return Err("*ring* doesn't support RSASHA1NSEC3SHA1 yet".into())
+                return Err("*ring* doesn't support RSASHA1NSEC3SHA1 yet".into());
             }
             _ => unreachable!("non-RSA algorithm passed to RSA verify()"),
         };
@@ -402,7 +402,7 @@ impl RsaSigningKey {
         match algorithm {
             #[allow(deprecated)]
             Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => {
-                return Err("unsupported Algorithm (insecure): {algorithm:?}".into())
+                return Err("unsupported Algorithm (insecure): {algorithm:?}".into());
             }
             Algorithm::RSASHA256 | Algorithm::RSASHA512 => {}
             _ => return Err("unsupported Algorithm: {algorithm:?}".into()),
@@ -419,7 +419,7 @@ impl RsaSigningKey {
         match algorithm {
             #[allow(deprecated)]
             Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => {
-                return Err("unsupported Algorithm (insecure): {algorithm:?}".into())
+                return Err("unsupported Algorithm (insecure): {algorithm:?}".into());
             }
             Algorithm::RSASHA256 | Algorithm::RSASHA512 => {}
             _ => return Err("unsupported Algorithm: {algorithm:?}".into()),

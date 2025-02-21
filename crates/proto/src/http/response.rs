@@ -11,8 +11,8 @@ use http::header::{CONTENT_LENGTH, CONTENT_TYPE};
 use http::{Response, StatusCode};
 
 use crate::error::ProtoError;
-use crate::http::error::Result;
 use crate::http::Version;
+use crate::http::error::Result;
 
 /// Create a new Response for an http dns-message request
 ///

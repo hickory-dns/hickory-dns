@@ -284,10 +284,12 @@ fn test_forward() {
         )
         .unwrap();
 
-        assert!(response
-            .answers()
-            .iter()
-            .any(|record| record.data().as_a().is_some()));
+        assert!(
+            response
+                .answers()
+                .iter()
+                .any(|record| record.data().as_a().is_some())
+        );
 
         // just tests that multiple queries work
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
@@ -304,10 +306,12 @@ fn test_forward() {
             RecordType::A,
         )
         .unwrap();
-        assert!(response
-            .answers()
-            .iter()
-            .any(|record| record.data().as_a().is_some()));
+        assert!(
+            response
+                .answers()
+                .iter()
+                .any(|record| record.data().as_a().is_some())
+        );
         assert!(!response.header().authoritative());
     })
 }

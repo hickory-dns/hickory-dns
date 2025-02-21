@@ -8,26 +8,25 @@ use std::{
     net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
     pin::Pin,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
     },
     task::{Context, Poll},
 };
 
 use futures::{
-    future,
+    Future, FutureExt, future,
     stream::{Stream, StreamExt},
-    Future, FutureExt,
 };
 use tokio::time::{Duration, Instant, Sleep};
 
 use hickory_proto::{
+    BufDnsStreamHandle, ProtoError,
     op::Message,
     rr::Record,
     runtime::TokioTime,
     serialize::binary::{BinDecodable, BinDecoder, BinEncoder},
     xfer::{DnsClientStream, Protocol, SerialMessage, StreamReceiver},
-    BufDnsStreamHandle, ProtoError,
 };
 use hickory_server::{
     authority::{Catalog, MessageRequest, MessageResponse},

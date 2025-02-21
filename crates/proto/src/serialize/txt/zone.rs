@@ -16,9 +16,9 @@ use std::{
 use crate::{
     rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
     serialize::txt::{
+        ParseError, ParseErrorKind, ParseResult,
         parse_rdata::RDataParser,
         zone_lex::{Lexer, Token},
-        ParseError, ParseErrorKind, ParseResult,
     },
 };
 

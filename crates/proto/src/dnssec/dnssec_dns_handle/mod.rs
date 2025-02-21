@@ -24,13 +24,13 @@ use tracing::{debug, trace, warn};
 
 use crate::{
     dnssec::{
-        rdata::{DNSSECRData, DNSKEY, DS, RRSIG},
         Algorithm, Proof, ProofError, ProofErrorKind, TrustAnchor, Verifier,
+        rdata::{DNSKEY, DNSSECRData, DS, RRSIG},
     },
     error::{ProtoError, ProtoErrorKind},
     op::{Edns, Message, OpCode, Query},
-    rr::{resource::RecordRef, Name, Record, RecordData, RecordType, SerialNumber},
-    xfer::{dns_handle::DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer},
+    rr::{Name, Record, RecordData, RecordType, SerialNumber, resource::RecordRef},
+    xfer::{DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer, dns_handle::DnsHandle},
 };
 
 use self::rrset::Rrset;
@@ -260,11 +260,15 @@ fn check_nsec(verified_message: DnsResponse, query: &Query) -> Result<DnsRespons
         ),
         (false, true) => verify_nsec(query, soa_name, nsecs.as_slice()),
         (true, true) => {
-            warn!("response contains both NSEC and NSEC3 records\nQuery:\n{query:?}\nResponse:\n{verified_message:?}");
+            warn!(
+                "response contains both NSEC and NSEC3 records\nQuery:\n{query:?}\nResponse:\n{verified_message:?}"
+            );
             Proof::Bogus
         }
         (false, false) => {
-            warn!("response does not contain NSEC or NSEC3 records. Query: {query:?} response: {verified_message:?}");
+            warn!(
+                "response does not contain NSEC or NSEC3 records. Query: {query:?} response: {verified_message:?}"
+            );
             Proof::Bogus
         }
     };
@@ -571,7 +575,9 @@ where
         .all(|ds| !ds.data().algorithm().is_supported() || !ds.data().digest_type().is_supported())
         && !ds_records.is_empty()
     {
-        debug!("all dnskeys use unsupported algorithms and there are no supported DS records in the parent zone");
+        debug!(
+            "all dnskeys use unsupported algorithms and there are no supported DS records in the parent zone"
+        );
         // cannot validate; mark as insecure
         return Err(ProofError::new(
             Proof::Insecure,

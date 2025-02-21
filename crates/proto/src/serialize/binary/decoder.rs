@@ -41,9 +41,7 @@ pub enum DecodeError {
     InsufficientBytes,
 
     /// slice_from was called with an invalid index
-    #[error(
-        "the index passed to BinDecoder::slice_from must be greater than the decoder position"
-    )]
+    #[error("the index passed to BinDecoder::slice_from must be greater than the decoder position")]
     InvalidPreviousIndex,
 
     /// Pointer points to an index within or after the current label

@@ -6,13 +6,13 @@ use std::{
 
 use hickory_proto::{
     op::Query,
-    rr::{rdata::A, DNSClass, Name, RData, Record, RecordType},
+    rr::{DNSClass, Name, RData, Record, RecordType, rdata::A},
     runtime::TokioTime,
     xfer::{DnsExchange, DnsMultiplexer, DnsResponse},
 };
 use hickory_resolver::{
-    caching_client::CachingClient, config::LookupIpStrategy, lookup::Lookup,
-    lookup_ip::LookupIpFuture, Hosts, LookupFuture,
+    Hosts, LookupFuture, caching_client::CachingClient, config::LookupIpStrategy, lookup::Lookup,
+    lookup_ip::LookupIpFuture,
 };
 use hickory_server::{
     authority::{Authority, Catalog},
@@ -20,7 +20,7 @@ use hickory_server::{
 };
 use test_support::subscribe;
 
-use hickory_integration::{example_authority::create_example, mock_client::*, TestClientStream};
+use hickory_integration::{TestClientStream, example_authority::create_example, mock_client::*};
 
 #[tokio::test]
 async fn test_lookup() {

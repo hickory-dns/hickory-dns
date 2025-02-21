@@ -7,7 +7,7 @@
 
 //! SSHFP records for SSH public key fingerprints
 
-use crate::rr::rdata::{sshfp, SSHFP};
+use crate::rr::rdata::{SSHFP, sshfp};
 use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
 
 /// Parse the RData from a set of Tokens
@@ -65,9 +65,11 @@ fn test_parsing() {
     use crate::rr::rdata::sshfp::{Algorithm, FingerprintType};
 
     fn test_parsing(input: Vec<&str>, a: Algorithm, ft: FingerprintType, f: &[u8]) {
-        assert!(parse(input.into_iter())
-            .map(|rd| rd == SSHFP::new(a, ft, f.to_vec()))
-            .unwrap_or(false));
+        assert!(
+            parse(input.into_iter())
+                .map(|rd| rd == SSHFP::new(a, ft, f.to_vec()))
+                .unwrap_or(false)
+        );
     }
 
     test_parsing(

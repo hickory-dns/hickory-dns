@@ -15,7 +15,7 @@ mod mdns_stream;
 #[cfg(feature = "tokio-runtime")]
 pub use self::mdns_client_stream::{MdnsClientConnect, MdnsClientStream};
 #[cfg(feature = "tokio-runtime")]
-pub use self::mdns_stream::{MdnsStream, MDNS_IPV4, MDNS_IPV6};
+pub use self::mdns_stream::{MDNS_IPV4, MDNS_IPV6, MdnsStream};
 
 /// See [rfc6762](https://tools.ietf.org/html/rfc6762#section-5) details on these different types.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

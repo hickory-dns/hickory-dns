@@ -93,7 +93,7 @@ impl RuntimeProvider for AsyncStdRuntimeProvider {
                             return Err(io::Error::new(
                                 io::ErrorKind::TimedOut,
                                 "connection to {server_addr:?} timed out after {wait_for:?}",
-                            ))
+                            ));
                         }
                     }
                 }

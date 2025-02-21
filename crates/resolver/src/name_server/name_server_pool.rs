@@ -8,14 +8,14 @@
 use std::cmp::Ordering;
 use std::pin::Pin;
 use std::sync::{
-    atomic::{AtomicUsize, Ordering as AtomicOrdering},
     Arc,
+    atomic::{AtomicUsize, Ordering as AtomicOrdering},
 };
 use std::task::{Context, Poll};
 use std::time::Duration;
 
 use futures_util::future::FutureExt;
-use futures_util::stream::{once, FuturesUnordered, Stream, StreamExt};
+use futures_util::stream::{FuturesUnordered, Stream, StreamExt, once};
 use smallvec::SmallVec;
 use tracing::debug;
 
@@ -213,12 +213,12 @@ where
                     debug!("error from UDP, retrying over TCP: {}", e);
                     Err(e)
                 }
-                result => return result.map_err(ProtoError::from),
+                result => return result,
             };
 
             if stream_conns.is_empty() {
                 debug!("no TCP connections available");
-                return udp_res.map_err(ProtoError::from);
+                return udp_res;
             }
 
             // Try query over TCP, as response to query over UDP was either truncated or was an
@@ -388,8 +388,8 @@ mod tests {
 
     use super::*;
     use crate::config::NameServerConfig;
-    use crate::name_server::connection_provider::TokioConnectionProvider;
     use crate::name_server::GenericNameServer;
+    use crate::name_server::connection_provider::TokioConnectionProvider;
     use crate::proto::op::Query;
     use crate::proto::rr::{Name, RecordType};
     use crate::proto::runtime::TokioRuntimeProvider;
