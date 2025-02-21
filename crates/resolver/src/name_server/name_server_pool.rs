@@ -213,12 +213,12 @@ where
                     debug!("error from UDP, retrying over TCP: {}", e);
                     Err(e)
                 }
-                result => return result.map_err(ProtoError::from),
+                result => return result,
             };
 
             if stream_conns.is_empty() {
                 debug!("no TCP connections available");
-                return udp_res.map_err(ProtoError::from);
+                return udp_res;
             }
 
             // Try query over TCP, as response to query over UDP was either truncated or was an
