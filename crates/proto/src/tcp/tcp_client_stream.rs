@@ -12,18 +12,18 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-use futures_util::{stream::Stream, StreamExt};
+use futures_util::{StreamExt, stream::Stream};
 use tracing::warn;
 
+use crate::BufDnsStreamHandle;
 use crate::error::ProtoError;
-#[cfg(feature = "tokio-runtime")]
-use crate::runtime::iocompat::AsyncIoTokioAsStd;
 use crate::runtime::RuntimeProvider;
 #[cfg(feature = "tokio-runtime")]
 use crate::runtime::TokioTime;
+#[cfg(feature = "tokio-runtime")]
+use crate::runtime::iocompat::AsyncIoTokioAsStd;
 use crate::tcp::{DnsTcpStream, TcpStream};
 use crate::xfer::{DnsClientStream, SerialMessage};
-use crate::BufDnsStreamHandle;
 
 /// Tcp client stream
 ///

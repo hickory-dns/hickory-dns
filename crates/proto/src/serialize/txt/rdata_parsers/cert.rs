@@ -16,8 +16,8 @@
 
 //! cert records for storing certificate data
 
-use crate::rr::rdata::cert::{Algorithm, CertType};
 use crate::rr::rdata::CERT;
+use crate::rr::rdata::cert::{Algorithm, CertType};
 use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
 
 fn to_u16(data: &str) -> ParseResult<u16> {

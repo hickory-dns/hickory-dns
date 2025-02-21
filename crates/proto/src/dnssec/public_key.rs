@@ -10,7 +10,7 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::{crypto::decode_public_key, Algorithm};
+use super::{Algorithm, crypto::decode_public_key};
 use crate::error::ProtoResult;
 
 /// PublicKeys implement the ability to ideally be zero copy abstractions over public keys for verifying signed content.

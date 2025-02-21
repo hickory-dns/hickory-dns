@@ -13,17 +13,17 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use futures_util::stream::{Stream, StreamExt};
-use futures_util::{future, ready, FutureExt, TryFutureExt};
+use futures_util::{FutureExt, TryFutureExt, future, ready};
 use once_cell::sync::Lazy;
 use socket2::{self, Socket};
 use tokio::net::UdpSocket;
 use tracing::{debug, trace};
 
+use crate::BufDnsStreamHandle;
 use crate::multicast::MdnsQueryType;
 use crate::runtime::TokioRuntimeProvider;
 use crate::udp::UdpStream;
 use crate::xfer::SerialMessage;
-use crate::BufDnsStreamHandle;
 
 pub(crate) const MDNS_PORT: u16 = 5353;
 /// mDNS ipv4 address, see [multicast-addresses](https://www.iana.org/assignments/multicast-addresses/multicast-addresses.xhtml)

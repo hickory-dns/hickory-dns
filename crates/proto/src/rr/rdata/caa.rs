@@ -29,7 +29,7 @@ use url::Url;
 
 use crate::{
     error::{ProtoError, ProtoResult},
-    rr::{domain::Name, RData, RecordData, RecordDataDecodable, RecordType},
+    rr::{RData, RecordData, RecordDataDecodable, RecordType, domain::Name},
     serialize::binary::*,
 };
 

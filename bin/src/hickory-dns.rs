@@ -50,9 +50,9 @@ use tokio::{
     net::{TcpListener, UdpSocket},
     runtime,
 };
-use tracing::{error, info, warn, Event, Subscriber};
+use tracing::{Event, Subscriber, error, info, warn};
 use tracing_subscriber::{
-    fmt::{format, FmtContext, FormatEvent, FormatFields, FormattedFields},
+    fmt::{FmtContext, FormatEvent, FormatFields, FormattedFields, format},
     layer::SubscriberExt,
     registry::LookupSpan,
     util::SubscriberInitExt,

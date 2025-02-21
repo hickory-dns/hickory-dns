@@ -6,8 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::sync::{
-    atomic::{self, AtomicU32},
     Arc,
+    atomic::{self, AtomicU32},
 };
 
 use parking_lot::Mutex;

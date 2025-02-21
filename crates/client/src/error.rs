@@ -13,7 +13,7 @@ use futures_channel::mpsc;
 use thiserror::Error;
 
 #[cfg(feature = "backtrace")]
-use crate::proto::{trace, ExtBacktrace};
+use crate::proto::{ExtBacktrace, trace};
 #[cfg(feature = "dnssec-ring")]
 use hickory_proto::dnssec::{DnsSecError, DnsSecErrorKind};
 use hickory_proto::{ProtoError, ProtoErrorKind};

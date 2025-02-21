@@ -235,9 +235,11 @@ impl Stream for DnsResponseReceiver {
             *self = match &mut *self {
                 Self::Receiver(receiver) => {
                     let receiver = Pin::new(receiver);
-                    let future = ready!(receiver
-                        .poll(cx)
-                        .map_err(|_| ProtoError::from("receiver was canceled")))?;
+                    let future = ready!(
+                        receiver
+                            .poll(cx)
+                            .map_err(|_| ProtoError::from("receiver was canceled"))
+                    )?;
                     Self::Received(future)
                 }
                 Self::Received(stream) => {

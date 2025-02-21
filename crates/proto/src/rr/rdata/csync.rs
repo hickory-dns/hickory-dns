@@ -15,8 +15,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::*,
     rr::{
-        type_bit_map::{decode_type_bit_maps, encode_type_bit_maps},
         RData, RecordData, RecordDataDecodable, RecordType,
+        type_bit_map::{decode_type_bit_maps, encode_type_bit_maps},
     },
     serialize::binary::*,
 };

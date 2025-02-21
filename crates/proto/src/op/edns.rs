@@ -17,11 +17,11 @@ use crate::dnssec::{Algorithm, SupportedAlgorithms};
 use crate::{
     error::*,
     rr::{
-        rdata::{
-            opt::{EdnsCode, EdnsOption},
-            OPT,
-        },
         DNSClass, Name, RData, Record, RecordType,
+        rdata::{
+            OPT,
+            opt::{EdnsCode, EdnsOption},
+        },
     },
     serialize::binary::{BinEncodable, BinEncoder},
 };

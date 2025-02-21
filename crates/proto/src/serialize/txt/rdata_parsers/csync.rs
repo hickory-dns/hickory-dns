@@ -9,8 +9,8 @@
 
 use std::str::FromStr;
 
-use crate::rr::rdata::CSYNC;
 use crate::rr::RecordType;
+use crate::rr::rdata::CSYNC;
 use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
 
 /// Parse the RData from a set of Tokens

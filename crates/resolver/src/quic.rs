@@ -53,9 +53,9 @@ mod tests {
 
     use test_support::subscribe;
 
+    use crate::TokioResolver;
     use crate::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts};
     use crate::name_server::TokioConnectionProvider;
-    use crate::TokioResolver;
 
     async fn quic_test(config: ResolverConfig, tls_config: rustls::ClientConfig) {
         let resolver = TokioResolver::new(

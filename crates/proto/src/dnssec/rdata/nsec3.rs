@@ -15,7 +15,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use crate::{
     dnssec::Nsec3HashAlgorithm,
     error::{ProtoError, ProtoErrorKind, ProtoResult},
-    rr::{domain::Label, type_bit_map::*, RData, RecordData, RecordDataDecodable, RecordType},
+    rr::{RData, RecordData, RecordDataDecodable, RecordType, domain::Label, type_bit_map::*},
     serialize::binary::*,
 };
 

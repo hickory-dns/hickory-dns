@@ -16,12 +16,12 @@ use std::time::Duration;
 
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_util::stream::Stream;
-use futures_util::{self, future::Future, ready, FutureExt};
+use futures_util::{self, FutureExt, future::Future, ready};
 use tracing::debug;
 
+use crate::BufDnsStreamHandle;
 use crate::runtime::Time;
 use crate::xfer::{SerialMessage, StreamReceiver};
-use crate::BufDnsStreamHandle;
 
 /// Trait for TCP connection
 pub trait DnsTcpStream: AsyncRead + AsyncWrite + Unpin + Send + Sync + Sized + 'static {

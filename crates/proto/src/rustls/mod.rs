@@ -19,9 +19,9 @@ pub mod tls_client_stream;
 pub mod tls_stream;
 
 pub use self::tls_client_stream::{
-    tls_client_connect, tls_client_connect_with_bind_addr, TlsClientStream,
+    TlsClientStream, tls_client_connect, tls_client_connect_with_bind_addr,
 };
-pub use self::tls_stream::{tls_connect, tls_connect_with_bind_addr, tls_from_stream, TlsStream};
+pub use self::tls_stream::{TlsStream, tls_connect, tls_connect_with_bind_addr, tls_from_stream};
 
 /// Make a new [`ClientConfig`] with the default settings
 pub fn client_config() -> ClientConfig {

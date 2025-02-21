@@ -10,31 +10,31 @@ use test_support::subscribe;
 use time::Duration;
 
 use hickory_client::{
-    client::{Client, ClientHandle},
     ClientErrorKind,
+    client::{Client, ClientHandle},
 };
 use hickory_integration::{
-    example_authority::create_example, NeverReturnsClientStream, TestClientStream, GOOGLE_V4,
-    GOOGLE_V6, TEST3_V4,
-};
-#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
-use hickory_proto::{
-    dnssec::{crypto::RsaSigningKey, rdata::DNSSECRData, Algorithm, SigSigner, SigningKey},
-    rr::{rdata::A, RData, Record},
-    runtime::TokioTime,
-    xfer::{DnsExchangeBackground, DnsMultiplexer},
+    GOOGLE_V4, GOOGLE_V6, NeverReturnsClientStream, TEST3_V4, TestClientStream,
+    example_authority::create_example,
 };
 use hickory_proto::{
+    DnsHandle,
     op::{Edns, Message, MessageType, OpCode, Query, ResponseCode},
     rr::{
-        rdata::opt::{EdnsCode, EdnsOption},
         DNSClass, Name, RecordSet, RecordType,
+        rdata::opt::{EdnsCode, EdnsOption},
     },
     runtime::TokioRuntimeProvider,
     tcp::TcpClientStream,
     udp::UdpClientStream,
     xfer::FirstAnswer,
-    DnsHandle,
+};
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
+use hickory_proto::{
+    dnssec::{Algorithm, SigSigner, SigningKey, crypto::RsaSigningKey, rdata::DNSSECRData},
+    rr::{RData, Record, rdata::A},
+    runtime::TokioTime,
+    xfer::{DnsExchangeBackground, DnsMultiplexer},
 };
 use hickory_server::authority::{Authority, Catalog};
 
@@ -158,12 +158,14 @@ fn test_query(client: &mut Client) -> impl Future<Output = ()> {
         .query(name.clone(), DNSClass::IN, RecordType::A)
         .map_ok(move |response| {
             println!("response records: {response:?}");
-            assert!(response
-                .queries()
-                .first()
-                .expect("expected query")
-                .name()
-                .eq_case(&name));
+            assert!(
+                response
+                    .queries()
+                    .first()
+                    .expect("expected query")
+                    .name()
+                    .eq_case(&name)
+            );
 
             assert!(!response.answers().is_empty());
         })
@@ -198,12 +200,14 @@ fn test_query_edns(client: &mut Client) -> impl Future<Output = ()> {
         .first_answer()
         .map_ok(move |response| {
             println!("response records: {response:?}");
-            assert!(response
-                .queries()
-                .first()
-                .expect("expected query")
-                .name()
-                .eq_case(&name));
+            assert!(
+                response
+                    .queries()
+                    .first()
+                    .expect("expected query")
+                    .name()
+                    .eq_case(&name)
+            );
 
             assert!(!response.answers().is_empty());
             assert!(response.extensions().is_some());

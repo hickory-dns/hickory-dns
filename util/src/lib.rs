@@ -8,7 +8,7 @@
 use std::env;
 
 use tracing::metadata::LevelFilter;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 fn get_env() -> String {
     env::var("RUST_LOG").unwrap_or_default()

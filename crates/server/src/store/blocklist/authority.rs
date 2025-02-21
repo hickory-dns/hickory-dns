@@ -27,8 +27,8 @@ use crate::{
     proto::{
         op::{Query, ResponseCode},
         rr::{
-            rdata::{A, AAAA, TXT},
             LowerName, Name, RData, Record, RecordType,
+            rdata::{A, AAAA, TXT},
         },
     },
     resolver::lookup::Lookup,
@@ -104,7 +104,7 @@ impl BlocklistAuthority {
             None => {
                 return Err(format!(
                     "invalid blocklist (zone directory) base path specified: '{base_dir:?}'"
-                ))
+                ));
             }
         };
 
@@ -123,7 +123,7 @@ impl BlocklistAuthority {
                 Err(e) => {
                     return Err(format!(
                         "unable to open blocklist file {base_dir}/{bl}: {e:?}"
-                    ))
+                    ));
                 }
             }
         }
@@ -453,8 +453,8 @@ mod test {
         authority::{AuthorityObject, LookupOptions, ZoneType},
         proto::rr::domain::Name,
         proto::rr::{
-            rdata::{A, AAAA},
             LowerName, RData, RecordType,
+            rdata::{A, AAAA},
         },
         store::blocklist::BlocklistConsultAction,
     };

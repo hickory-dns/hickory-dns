@@ -3,8 +3,8 @@ use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 #[cfg(feature = "dns-over-rustls")]
 use std::path::Path;
 use std::str::FromStr;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use futures::TryStreamExt;
@@ -14,14 +14,14 @@ use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{
+    ClientConfig, RootCertStore,
     crypto::ring::default_provider,
     pki_types::{
-        pem::{self, PemObject},
         CertificateDer, PrivateKeyDer,
+        pem::{self, PemObject},
     },
     server::ResolvesServerCert,
     sign::{CertifiedKey, SingleCertAndKey},
-    ClientConfig, RootCertStore,
 };
 use tokio::net::TcpListener;
 use tokio::net::UdpSocket;
@@ -31,8 +31,8 @@ use hickory_proto::op::{Message, MessageType, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::A;
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
 use hickory_proto::xfer::{DnsHandle, DnsMultiplexer};
-use hickory_server::authority::{Authority, Catalog};
 use hickory_server::ServerFuture;
+use hickory_server::authority::{Authority, Catalog};
 use test_support::subscribe;
 
 #[tokio::test]

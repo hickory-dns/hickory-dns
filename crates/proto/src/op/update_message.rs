@@ -11,7 +11,7 @@ use std::fmt::Debug;
 
 use crate::{
     op::{Edns, Message, MessageType, OpCode, Query},
-    rr::{rdata::SOA, DNSClass, Name, RData, Record, RecordSet, RecordType},
+    rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, rdata::SOA},
 };
 
 /// To reduce errors in using the Message struct as an Update, this will do the call throughs

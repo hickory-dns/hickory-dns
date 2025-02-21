@@ -2,7 +2,7 @@
 
 use std::{fmt::Display, future::pending, io, net::SocketAddr};
 
-use hickory_resolver::{name_server::TokioConnectionProvider, IntoName, TokioResolver};
+use hickory_resolver::{IntoName, TokioResolver, name_server::TokioConnectionProvider};
 use once_cell::sync::Lazy;
 
 // This is an example of registering a static global resolver into any system.

@@ -34,8 +34,8 @@ use hickory_proto::rr::RecordType;
 use hickory_proto::xfer::Protocol;
 use hickory_recursor::Recursor;
 use hickory_resolver::{
-    config::{NameServerConfig, NameServerConfigGroup},
     Name,
+    config::{NameServerConfig, NameServerConfigGroup},
 };
 
 /// A CLI interface for the hickory-dns-recursor.

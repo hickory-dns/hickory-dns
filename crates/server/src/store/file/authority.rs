@@ -29,7 +29,7 @@ use crate::{
 use crate::{
     authority::{DnssecAuthority, Nsec3QueryInfo},
     dnssec::NxProofKind,
-    proto::dnssec::{rdata::key::KEY, DnsSecResult, SigSigner},
+    proto::dnssec::{DnsSecResult, SigSigner, rdata::key::KEY},
 };
 
 /// FileAuthority is responsible for storing the resource records for a particular zone.
@@ -282,7 +282,7 @@ impl DnssecAuthority for FileAuthority {
 mod tests {
     use std::str::FromStr;
 
-    use crate::proto::rr::{rdata::A, RData};
+    use crate::proto::rr::{RData, rdata::A};
     use futures_executor::block_on;
     use test_support::subscribe;
 

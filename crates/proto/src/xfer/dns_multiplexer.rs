@@ -9,7 +9,7 @@
 
 use std::{
     borrow::Borrow,
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     fmt::{self, Display},
     marker::Unpin,
     pin::Pin,
@@ -20,23 +20,23 @@ use std::{
 
 use futures_channel::mpsc;
 use futures_util::{
+    FutureExt,
     future::Future,
     ready,
     stream::{Stream, StreamExt},
-    FutureExt,
 };
 use rand::Rng;
 use tracing::debug;
 
 use crate::{
+    DnsStreamHandle,
     error::{ProtoError, ProtoErrorKind},
     op::{MessageFinalizer, MessageVerifier},
     runtime::Time,
     xfer::{
-        ignore_send, BufDnsStreamHandle, DnsClientStream, DnsRequest, DnsRequestSender,
-        DnsResponse, DnsResponseStream, SerialMessage, CHANNEL_BUFFER_SIZE,
+        BufDnsStreamHandle, CHANNEL_BUFFER_SIZE, DnsClientStream, DnsRequest, DnsRequestSender,
+        DnsResponse, DnsResponseStream, SerialMessage, ignore_send,
     },
-    DnsStreamHandle,
 };
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
@@ -476,11 +476,12 @@ mod test {
             let id = if let Some(id) = self.id {
                 id
             } else {
-                let serial = ready!(self
-                    .receiver
-                    .as_mut()
-                    .expect("should only be polled after receiver has been set")
-                    .poll_next_unpin(cx));
+                let serial = ready!(
+                    self.receiver
+                        .as_mut()
+                        .expect("should only be polled after receiver has been set")
+                        .poll_next_unpin(cx)
+                );
                 let message = serial.unwrap().to_message().unwrap();
                 self.id = Some(message.id());
                 message.id()

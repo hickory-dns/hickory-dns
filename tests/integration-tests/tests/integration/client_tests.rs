@@ -12,37 +12,37 @@ use futures::TryStreamExt;
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use time::Duration;
 
+use hickory_client::ClientErrorKind;
 #[cfg(feature = "dnssec-ring")]
 use hickory_client::client::DnssecClient;
 use hickory_client::client::{Client, ClientHandle};
-use hickory_client::ClientErrorKind;
-#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
-use hickory_integration::example_authority::create_example;
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use hickory_integration::TestClientStream;
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
+use hickory_integration::example_authority::create_example;
 use hickory_integration::{GOOGLE_V4, TEST3_V4};
+#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
+use hickory_proto::ProtoError;
+use hickory_proto::ProtoErrorKind;
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use hickory_proto::dnssec::rdata::{DNSSECRData, KEY};
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
-use hickory_proto::dnssec::{crypto::RsaSigningKey, Algorithm, PublicKey, SigSigner, SigningKey};
+use hickory_proto::dnssec::{Algorithm, PublicKey, SigSigner, SigningKey, crypto::RsaSigningKey};
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use hickory_proto::op::MessageFinalizer;
 #[cfg(feature = "dnssec-ring")]
 use hickory_proto::op::ResponseCode;
 use hickory_proto::op::{Edns, Message, MessageType, OpCode, Query};
-use hickory_proto::rr::rdata::opt::{EdnsCode, EdnsOption};
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use hickory_proto::rr::Record;
-use hickory_proto::rr::{rdata::A, DNSClass, Name, RData, RecordType};
+use hickory_proto::rr::rdata::opt::{EdnsCode, EdnsOption};
+use hickory_proto::rr::{DNSClass, Name, RData, RecordType, rdata::A};
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use hickory_proto::xfer::DnsMultiplexerConnect;
 use hickory_proto::xfer::{DnsHandle, DnsMultiplexer};
-#[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
-use hickory_proto::ProtoError;
-use hickory_proto::ProtoErrorKind;
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
 use hickory_server::authority::{Authority, Catalog};
 use test_support::subscribe;
@@ -143,12 +143,14 @@ async fn test_query(mut client: Client) {
         .expect("query failed");
 
     println!("response records: {response:?}");
-    assert!(response
-        .queries()
-        .first()
-        .expect("expected query")
-        .name()
-        .eq_case(&name));
+    assert!(
+        response
+            .queries()
+            .first()
+            .expect("expected query")
+            .name()
+            .eq_case(&name)
+    );
 
     let record = &response.answers()[0];
     assert_eq!(record.name(), &name);
@@ -193,12 +195,14 @@ async fn test_query_edns(client: Client) {
         .remove(0);
 
     println!("response records: {response:?}");
-    assert!(response
-        .queries()
-        .first()
-        .expect("expected query")
-        .name()
-        .eq_case(&name));
+    assert!(
+        response
+            .queries()
+            .first()
+            .expect("expected query")
+            .name()
+            .eq_case(&name)
+    );
 
     assert!(!response.answers().is_empty());
     assert!(response.extensions().is_some());
@@ -634,22 +638,26 @@ async fn test_append() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
 
-    assert!(result
-        .answers()
-        .iter()
-        .any(|rr| if let RData::A(ip) = *rr.data() {
-            ip == A::new(100, 10, 100, 10)
-        } else {
-            false
-        }));
-    assert!(result
-        .answers()
-        .iter()
-        .any(|rr| if let RData::A(ip) = rr.data() {
-            *ip == A::new(101, 11, 101, 11)
-        } else {
-            false
-        }));
+    assert!(
+        result
+            .answers()
+            .iter()
+            .any(|rr| if let RData::A(ip) = *rr.data() {
+                ip == A::new(100, 10, 100, 10)
+            } else {
+                false
+            })
+    );
+    assert!(
+        result
+            .answers()
+            .iter()
+            .any(|rr| if let RData::A(ip) = rr.data() {
+                *ip == A::new(101, 11, 101, 11)
+            } else {
+                false
+            })
+    );
 
     // show that appending the same thing again is ok, but doesn't add any records
     let result = client
@@ -706,14 +714,16 @@ async fn test_compare_and_swap() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
-    assert!(result
-        .answers()
-        .iter()
-        .any(|rr| if let RData::A(ip) = rr.data() {
-            *ip == A::new(101, 11, 101, 11)
-        } else {
-            false
-        }));
+    assert!(
+        result
+            .answers()
+            .iter()
+            .any(|rr| if let RData::A(ip) = rr.data() {
+                *ip == A::new(101, 11, 101, 11)
+            } else {
+                false
+            })
+    );
 
     // check the it fails if tried again.
     new.set_data(RData::A(A::new(102, 12, 102, 12)));
@@ -730,14 +740,16 @@ async fn test_compare_and_swap() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
-    assert!(result
-        .answers()
-        .iter()
-        .any(|rr| if let RData::A(ip) = rr.data() {
-            *ip == A::new(101, 11, 101, 11)
-        } else {
-            false
-        }));
+    assert!(
+        result
+            .answers()
+            .iter()
+            .any(|rr| if let RData::A(ip) = rr.data() {
+                *ip == A::new(101, 11, 101, 11)
+            } else {
+                false
+            })
+    );
 }
 
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]
@@ -792,14 +804,16 @@ async fn test_delete_by_rdata() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
-    assert!(result
-        .answers()
-        .iter()
-        .any(|rr| if let RData::A(ip) = rr.data() {
-            *ip == A::new(100, 10, 100, 10)
-        } else {
-            false
-        }));
+    assert!(
+        result
+            .answers()
+            .iter()
+            .any(|rr| if let RData::A(ip) = rr.data() {
+                *ip == A::new(100, 10, 100, 10)
+            } else {
+                false
+            })
+    );
 }
 
 #[cfg(all(feature = "dnssec-ring", feature = "sqlite"))]

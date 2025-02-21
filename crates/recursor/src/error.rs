@@ -15,13 +15,14 @@ use enum_as_inner::EnumAsInner;
 use thiserror::Error;
 use tracing::warn;
 
-use crate::proto::{
-    op::ResponseCode,
-    rr::{rdata::SOA, Name, Record},
-    ForwardNSData, ProtoErrorKind, {ForwardData, ProtoError},
-};
 #[cfg(feature = "backtrace")]
-use crate::proto::{trace, ExtBacktrace};
+use crate::proto::{ExtBacktrace, trace};
+use crate::proto::{
+    ForwardNSData, ProtoErrorKind,
+    op::ResponseCode,
+    rr::{Name, Record, rdata::SOA},
+    {ForwardData, ProtoError},
+};
 use crate::resolver::ResolveError;
 
 /// The error kind for errors that get returned in the crate

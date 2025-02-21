@@ -18,16 +18,16 @@ use crate::{
     access::AccessControl,
     authority::MessageResponse,
     server::{
-        request_handler::RequestHandler, response_handler::ResponseHandler, server_future,
-        ResponseInfo,
+        ResponseInfo, request_handler::RequestHandler, response_handler::ResponseHandler,
+        server_future,
     },
 };
 use hickory_proto::{
-    h3::{h3_server::H3Connection, H3Error},
+    ProtoError,
+    h3::{H3Error, h3_server::H3Connection},
     http::Version,
     rr::Record,
     xfer::Protocol,
-    ProtoError,
 };
 
 pub(crate) async fn h3_handler<T>(
