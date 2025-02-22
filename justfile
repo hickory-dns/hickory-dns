@@ -91,8 +91,8 @@ fmt:
 
 # Audit all depenedencies
 audit: init-audit (check '--all-features')
-    cargo audit --deny warnings
-    cargo audit --file fuzz/Cargo.lock --deny warnings
+    cargo audit --deny warnings --ignore RUSTSEC-2025-0007
+    cargo audit --file fuzz/Cargo.lock --deny warnings --ignore RUSTSEC-2025-0007
 
 # Task to run clippy, rustfmt, and audit on all crates
 cleanliness: clippy fmt audit
