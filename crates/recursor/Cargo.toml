@@ -53,7 +53,7 @@ dns-over-quic = [
 dns-over-h3 = [
     "hickory-proto/dns-over-h3",
     "hickory-resolver/dns-over-h3",
-    "dns-over-rustls",
+    "dns-over-quic",
 ]
 
 serde = [

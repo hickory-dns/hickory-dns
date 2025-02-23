@@ -62,7 +62,7 @@ dns-over-h3 = [
     "dep:h3-quinn",
     "hickory-proto/dns-over-h3",
     "hickory-resolver?/dns-over-h3",
-    "dns-over-rustls",
+    "dns-over-quic",
 ]
 
 dnssec-aws-lc-rs = ["hickory-proto/dnssec-aws-lc-rs", "hickory-recursor?/dnssec-aws-lc-rs", "hickory-resolver?/dnssec-aws-lc-rs", "serde/rc", "__dnssec"]

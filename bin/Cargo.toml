@@ -41,7 +41,7 @@ sqlite = ["hickory-server/sqlite", "dep:rusqlite"]
 dns-over-rustls = ["dep:rustls", "hickory-server/dns-over-rustls"]
 dns-over-https-rustls = ["hickory-server/dns-over-https-rustls", "dns-over-rustls"]
 dns-over-quic = ["hickory-server/dns-over-quic", "dns-over-rustls"]
-dns-over-h3 = ["hickory-server/dns-over-h3", "dns-over-rustls"]
+dns-over-h3 = ["hickory-server/dns-over-h3", "dns-over-quic"]
 
 dnssec-aws-lc-rs = ["hickory-server/dnssec-aws-lc-rs", "dep:rustls-pki-types", "__dnssec"]
 dnssec-ring = ["hickory-server/dnssec-ring", "dep:rustls-pki-types", "__dnssec"]
