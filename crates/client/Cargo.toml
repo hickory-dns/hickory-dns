@@ -34,7 +34,6 @@ backtrace = ["hickory-proto/backtrace"]
 
 dns-over-rustls = [
     "hickory-proto/dns-over-rustls",
-    "dnssec-ring",
 ]
 dns-over-https-rustls = [
     "dep:rustls",
