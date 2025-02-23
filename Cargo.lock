@@ -928,7 +928,6 @@ dependencies = [
  "once_cell",
  "radix_trie",
  "rand 0.9.0",
- "rustls",
  "serde",
  "test-support",
  "thiserror 2.0.11",
