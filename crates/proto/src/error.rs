@@ -286,52 +286,52 @@ pub enum ProtoErrorKind {
     ParseInt(#[from] std::num::ParseIntError),
 
     /// A Quinn (Quic) connection error occurred
-    #[cfg(feature = "dns-over-quic")]
+    #[cfg(feature = "__dns-over-quic")]
     #[error("error creating quic connection: {0}")]
     QuinnConnect(#[from] quinn::ConnectError),
 
     /// A Quinn (QUIC) connection error occurred
-    #[cfg(feature = "dns-over-quic")]
+    #[cfg(feature = "__dns-over-quic")]
     #[error("error with quic connection: {0}")]
     QuinnConnection(#[from] quinn::ConnectionError),
 
     /// A Quinn (QUIC) write error occurred
-    #[cfg(feature = "dns-over-quic")]
+    #[cfg(feature = "__dns-over-quic")]
     #[error("error writing to quic connection: {0}")]
     QuinnWriteError(#[from] quinn::WriteError),
 
     /// A Quinn (QUIC) read error occurred
-    #[cfg(feature = "dns-over-quic")]
+    #[cfg(feature = "__dns-over-quic")]
     #[error("error writing to quic read: {0}")]
     QuinnReadError(#[from] quinn::ReadExactError),
 
     /// A Quinn (QUIC) read error occurred
-    #[cfg(feature = "dns-over-quic")]
+    #[cfg(feature = "__dns-over-quic")]
     #[error("referenced a closed QUIC stream: {0}")]
     QuinnStreamError(#[from] quinn::ClosedStream),
 
     /// A Quinn (QUIC) configuration error occurred
-    #[cfg(feature = "dns-over-quic")]
+    #[cfg(feature = "__dns-over-quic")]
     #[error("error constructing quic configuration: {0}")]
     QuinnConfigError(#[from] quinn::ConfigError),
 
     /// QUIC TLS config must include an AES-128-GCM cipher suite
-    #[cfg(feature = "dns-over-quic")]
+    #[cfg(feature = "__dns-over-quic")]
     #[error("QUIC TLS config must include an AES-128-GCM cipher suite")]
     QuinnTlsConfigError(#[from] quinn::crypto::rustls::NoInitialCipherSuite),
 
     /// Unknown QUIC stream used
-    #[cfg(feature = "dns-over-quic")]
+    #[cfg(feature = "__dns-over-quic")]
     #[error("an unknown quic stream was used")]
     QuinnUnknownStreamError,
 
     /// A quic message id should always be 0
-    #[cfg(feature = "dns-over-quic")]
+    #[cfg(feature = "__dns-over-quic")]
     #[error("quic messages should always be 0, got: {0}")]
     QuicMessageIdNot0(u16),
 
     /// A Rustls error occurred
-    #[cfg(feature = "dns-over-rustls")]
+    #[cfg(feature = "__dns-over-tls")]
     #[error("rustls construction error: {0}")]
     RustlsError(#[from] rustls::Error),
 }
@@ -791,25 +791,25 @@ impl Clone for ProtoErrorKind {
             Utf8(ref e) => Utf8(*e),
             FromUtf8(ref e) => FromUtf8(e.clone()),
             ParseInt(ref e) => ParseInt(e.clone()),
-            #[cfg(feature = "dns-over-quic")]
+            #[cfg(feature = "__dns-over-quic")]
             QuinnConnect(ref e) => QuinnConnect(e.clone()),
-            #[cfg(feature = "dns-over-quic")]
+            #[cfg(feature = "__dns-over-quic")]
             QuinnConnection(ref e) => QuinnConnection(e.clone()),
-            #[cfg(feature = "dns-over-quic")]
+            #[cfg(feature = "__dns-over-quic")]
             QuinnWriteError(ref e) => QuinnWriteError(e.clone()),
-            #[cfg(feature = "dns-over-quic")]
+            #[cfg(feature = "__dns-over-quic")]
             QuicMessageIdNot0(val) => QuicMessageIdNot0(val),
-            #[cfg(feature = "dns-over-quic")]
+            #[cfg(feature = "__dns-over-quic")]
             QuinnReadError(ref e) => QuinnReadError(e.clone()),
-            #[cfg(feature = "dns-over-quic")]
+            #[cfg(feature = "__dns-over-quic")]
             QuinnStreamError(ref e) => QuinnStreamError(e.clone()),
-            #[cfg(feature = "dns-over-quic")]
+            #[cfg(feature = "__dns-over-quic")]
             QuinnConfigError(ref e) => QuinnConfigError(e.clone()),
-            #[cfg(feature = "dns-over-quic")]
+            #[cfg(feature = "__dns-over-quic")]
             QuinnTlsConfigError(ref e) => QuinnTlsConfigError(e.clone()),
-            #[cfg(feature = "dns-over-quic")]
+            #[cfg(feature = "__dns-over-quic")]
             QuinnUnknownStreamError => QuinnUnknownStreamError,
-            #[cfg(feature = "dns-over-rustls")]
+            #[cfg(feature = "__dns-over-tls")]
             RustlsError(ref e) => RustlsError(e.clone()),
         }
     }

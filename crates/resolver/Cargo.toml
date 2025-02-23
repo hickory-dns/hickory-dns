@@ -29,25 +29,15 @@ default = ["system-config", "tokio"]
 async-std = ["dep:async-std", "hickory-proto/async-std"]
 backtrace = ["dep:backtrace", "hickory-proto/backtrace"]
 
-dns-over-rustls = [
-    "dep:rustls",
-    "dep:tokio-rustls",
-    "hickory-proto/dns-over-rustls",
-    "tokio",
-]
-dns-over-https-rustls = [
-    "hickory-proto/dns-over-https-rustls",
-    "dns-over-rustls",
-]
-dns-over-quic = [
-    "dep:quinn",
-    "hickory-proto/dns-over-quic",
-    "dns-over-rustls",
-]
-dns-over-h3 = [
-    "hickory-proto/dns-over-h3",
-    "dns-over-quic",
-]
+dns-over-rustls = ["hickory-proto/dns-over-rustls", "__dns-over-tls"]
+dns-over-https-rustls = ["hickory-proto/dns-over-https-rustls", "__dns-over-https"]
+dns-over-quic = ["hickory-proto/dns-over-quic", "__dns-over-quic"]
+dns-over-h3 = ["hickory-proto/dns-over-h3", "__dns-over-h3"]
+
+__dns-over-tls = ["dep:rustls", "dep:tokio-rustls", "tokio"]
+__dns-over-https = ["__dns-over-tls"]
+__dns-over-quic = ["dep:quinn", "__dns-over-tls"]
+__dns-over-h3 = ["__dns-over-quic"]
 
 webpki-roots = ["dep:webpki-roots", "hickory-proto/webpki-roots"]
 rustls-platform-verifier = ["hickory-proto/rustls-platform-verifier"]
@@ -130,3 +120,4 @@ workspace = true
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true
 max_combination_size = 2
+denylist = ["__dns-over-tls", "__dns-over-https", "__dns-over-quic", "__dns-over-h3", "__dnssec"]

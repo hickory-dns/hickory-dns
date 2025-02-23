@@ -309,16 +309,16 @@ pub enum Protocol {
     /// TCP can be used for large queries, but not all NameServers support it
     Tcp,
     /// Tls for DNS over TLS
-    #[cfg(feature = "dns-over-rustls")]
+    #[cfg(feature = "__dns-over-tls")]
     Tls,
     /// Https for DNS over HTTPS
-    #[cfg(feature = "dns-over-https-rustls")]
+    #[cfg(feature = "__dns-over-https")]
     Https,
     /// QUIC for DNS over QUIC
-    #[cfg(feature = "dns-over-quic")]
+    #[cfg(feature = "__dns-over-quic")]
     Quic,
     /// HTTP/3 for DNS over HTTP/3
-    #[cfg(feature = "dns-over-h3")]
+    #[cfg(feature = "__dns-over-h3")]
     H3,
 }
 
@@ -327,13 +327,13 @@ impl fmt::Display for Protocol {
         let protocol = match self {
             Self::Udp => "udp",
             Self::Tcp => "tcp",
-            #[cfg(feature = "dns-over-rustls")]
+            #[cfg(feature = "__dns-over-tls")]
             Self::Tls => "tls",
-            #[cfg(feature = "dns-over-https-rustls")]
+            #[cfg(feature = "__dns-over-https")]
             Self::Https => "https",
-            #[cfg(feature = "dns-over-quic")]
+            #[cfg(feature = "__dns-over-quic")]
             Self::Quic => "quic",
-            #[cfg(feature = "dns-over-h3")]
+            #[cfg(feature = "__dns-over-h3")]
             Self::H3 => "h3",
         };
 
@@ -347,14 +347,14 @@ impl Protocol {
         match self {
             Self::Udp => true,
             Self::Tcp => false,
-            #[cfg(feature = "dns-over-rustls")]
+            #[cfg(feature = "__dns-over-tls")]
             Self::Tls => false,
-            #[cfg(feature = "dns-over-https-rustls")]
+            #[cfg(feature = "__dns-over-https")]
             Self::Https => false,
             // TODO: if you squint, this is true...
-            #[cfg(feature = "dns-over-quic")]
+            #[cfg(feature = "__dns-over-quic")]
             Self::Quic => true,
-            #[cfg(feature = "dns-over-h3")]
+            #[cfg(feature = "__dns-over-h3")]
             Self::H3 => true,
         }
     }
@@ -369,13 +369,13 @@ impl Protocol {
         match self {
             Self::Udp => false,
             Self::Tcp => false,
-            #[cfg(feature = "dns-over-rustls")]
+            #[cfg(feature = "__dns-over-tls")]
             Self::Tls => true,
-            #[cfg(feature = "dns-over-https-rustls")]
+            #[cfg(feature = "__dns-over-https")]
             Self::Https => true,
-            #[cfg(feature = "dns-over-quic")]
+            #[cfg(feature = "__dns-over-quic")]
             Self::Quic => true,
-            #[cfg(feature = "dns-over-h3")]
+            #[cfg(feature = "__dns-over-h3")]
             Self::H3 => true,
         }
     }

@@ -10,7 +10,7 @@
 #[cfg(feature = "__dnssec")]
 pub mod dnssec;
 
-#[cfg(feature = "dns-over-rustls")]
+#[cfg(feature = "__dns-over-tls")]
 use std::{ffi::OsStr, fs};
 use std::{
     fmt,
@@ -25,7 +25,7 @@ use std::{
 
 use cfg_if::cfg_if;
 use ipnet::IpNet;
-#[cfg(feature = "dns-over-rustls")]
+#[cfg(feature = "__dns-over-tls")]
 use rustls::{
     crypto::ring::default_provider,
     pki_types::{CertificateDer, PrivateKeyDer, pem::PemObject},
@@ -121,11 +121,11 @@ pub struct Config {
     #[serde(deserialize_with = "deserialize_with_file")]
     zones: Vec<ZoneConfig>,
     /// Certificate to associate to TLS connections (currently the same is used for HTTPS and TLS)
-    #[cfg(feature = "dns-over-rustls")]
+    #[cfg(feature = "__dns-over-tls")]
     tls_cert: Option<TlsCertConfig>,
     /// The HTTP endpoint where the DNS-over-HTTPS server provides service. Applicable
     /// to both HTTP/2 and HTTP/3 servers. Typically `/dns-query`.
-    #[cfg(any(feature = "dns-over-https-rustls", feature = "dns-over-h3"))]
+    #[cfg(any(feature = "__dns-over-https", feature = "__dns-over-h3"))]
     http_endpoint: Option<String>,
     /// Networks denied to access the server
     #[serde(default)]
@@ -241,7 +241,7 @@ impl Config {
     /// the tls certificate to use for accepting tls connections
     pub fn tls_cert(&self) -> Option<&TlsCertConfig> {
         cfg_if! {
-            if #[cfg(feature = "dns-over-rustls")] {
+            if #[cfg(feature = "__dns-over-tls")] {
                 self.tls_cert.as_ref()
             } else {
                 None
@@ -250,7 +250,7 @@ impl Config {
     }
 
     /// the HTTP endpoint from where requests are received
-    #[cfg(any(feature = "dns-over-https-rustls", feature = "dns-over-h3"))]
+    #[cfg(any(feature = "__dns-over-https", feature = "__dns-over-h3"))]
     pub fn http_endpoint(&self) -> &str {
         self.http_endpoint
             .as_deref()
@@ -676,7 +676,7 @@ pub struct TlsCertConfig {
     pub private_key: PathBuf,
 }
 
-#[cfg(feature = "dns-over-rustls")]
+#[cfg(feature = "__dns-over-tls")]
 impl TlsCertConfig {
     /// Load a Certificate from the path (with rustls)
     pub fn load(&self, zone_dir: &Path) -> Result<Arc<dyn ResolvesServerCert>, String> {

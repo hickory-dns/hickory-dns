@@ -27,30 +27,15 @@ license.workspace = true
 [features]
 async-std = ["dep:async-std", "dep:pin-utils", "dep:socket2"]
 
-dns-over-rustls = [
-    "dep:rustls",
-    "dep:tokio-rustls",
-    "tokio-rustls/ring",
-    "tokio",
-]
-dns-over-https-rustls = [
-    "dep:bytes",
-    "dep:h2",
-    "dep:http",
-    "dns-over-rustls",
-]
-dns-over-quic = [
-    "dep:bytes",
-    "dep:pin-project-lite",
-    "dep:quinn",
-    "dns-over-rustls",
-]
-dns-over-h3 = [
-    "dep:h3",
-    "dep:h3-quinn",
-    "dep:http",
-    "dns-over-quic",
-]
+dns-over-rustls = ["tokio-rustls/ring", "__dns-over-tls"]
+dns-over-https-rustls = ["dns-over-rustls", "__dns-over-https"]
+dns-over-quic = ["quinn/rustls-ring", "dns-over-rustls", "__dns-over-quic"]
+dns-over-h3 = ["dns-over-quic", "__dns-over-h3"]
+
+__dns-over-tls = ["dep:bytes", "dep:rustls", "dep:tokio-rustls", "tokio"]
+__dns-over-https = ["dep:bytes", "dep:h2", "dep:http"]
+__dns-over-quic = ["dep:bytes", "dep:pin-project-lite", "dep:quinn"]
+__dns-over-h3 = ["dep:h3", "dep:h3-quinn", "dep:http"]
 
 rustls-platform-verifier = ["dep:rustls-platform-verifier"]
 
@@ -100,7 +85,7 @@ js-sys = { workspace = true, optional = true }
 once_cell.workspace = true
 pin-project-lite = { workspace = true, optional = true }
 pin-utils = { workspace = true, optional = true }
-quinn = { workspace = true, optional = true, features = ["log", "runtime-tokio", "rustls"] }
+quinn = { workspace = true, optional = true, features = ["log", "runtime-tokio"] }
 rand.workspace = true
 ring = { workspace = true, optional = true, features = ["std"] }
 rustls = { workspace = true, optional = true, default-features = false }
@@ -136,3 +121,4 @@ workspace = true
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true
 max_combination_size = 2
+denylist = ["__dns-over-tls", "__dns-over-https", "__dns-over-quic", "__dns-over-h3", "__dnssec"]

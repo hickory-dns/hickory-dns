@@ -30,7 +30,7 @@ async fn readme_example() {
 }
 
 // Keep this in sync with the example in the README.
-#[cfg(feature = "dns-over-rustls")]
+#[cfg(feature = "__dns-over-tls")]
 #[test]
 fn readme_tls() {
     use crate::Resolver;
