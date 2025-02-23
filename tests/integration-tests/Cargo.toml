@@ -53,28 +53,27 @@ dnssec-ring = [
 ]
 __dnssec = []
 
-dns-over-https-rustls = [
-    "hickory-client/dns-over-https-rustls",
-    "hickory-resolver/dns-over-https-rustls",
-    "dep:rustls",
-    "dep:webpki-roots",
-]
-dns-over-quic = [
-    "dns-over-rustls",
-    "hickory-proto/dns-over-quic",
-    "hickory-resolver/dns-over-quic",
-]
-dns-over-h3 = [
-    "dns-over-rustls",
-    "hickory-proto/dns-over-h3",
-    "hickory-resolver/dns-over-h3",
-]
-
 dns-over-rustls = [
+    "dep:rustls",
     "hickory-proto/dns-over-rustls",
     "hickory-resolver/dns-over-rustls",
     "hickory-server/dns-over-rustls",
+]
+dns-over-https-rustls = [
     "dep:rustls",
+    "dep:webpki-roots",
+    "hickory-client/dns-over-https-rustls",
+    "hickory-resolver/dns-over-https-rustls",
+]
+dns-over-quic = [
+    "hickory-proto/dns-over-quic",
+    "hickory-resolver/dns-over-quic",
+    "dns-over-rustls",
+]
+dns-over-h3 = [
+    "hickory-proto/dns-over-h3",
+    "hickory-resolver/dns-over-h3",
+    "dns-over-rustls",
 ]
 
 sqlite = ["rusqlite", "hickory-server/sqlite"]
