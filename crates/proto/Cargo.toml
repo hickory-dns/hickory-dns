@@ -28,8 +28,9 @@ license.workspace = true
 async-std = ["dep:async-std", "dep:pin-utils", "dep:socket2"]
 
 dns-over-rustls = [
+    "dep:rustls",
     "dep:tokio-rustls",
-    "rustls/ring",
+    "tokio-rustls/ring",
     "tokio",
 ]
 dns-over-https-rustls = [

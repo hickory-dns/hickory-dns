@@ -331,7 +331,7 @@ pub enum ProtoErrorKind {
     QuicMessageIdNot0(u16),
 
     /// A Rustls error occurred
-    #[cfg(feature = "rustls")]
+    #[cfg(feature = "dns-over-rustls")]
     #[error("rustls construction error: {0}")]
     RustlsError(#[from] rustls::Error),
 }
@@ -809,7 +809,7 @@ impl Clone for ProtoErrorKind {
             QuinnTlsConfigError(ref e) => QuinnTlsConfigError(e.clone()),
             #[cfg(feature = "dns-over-quic")]
             QuinnUnknownStreamError => QuinnUnknownStreamError,
-            #[cfg(feature = "rustls")]
+            #[cfg(feature = "dns-over-rustls")]
             RustlsError(ref e) => RustlsError(e.clone()),
         }
     }
