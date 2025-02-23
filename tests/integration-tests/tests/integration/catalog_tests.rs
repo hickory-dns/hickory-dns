@@ -18,17 +18,8 @@ use hickory_integration::{example_authority::create_example, *};
 use test_support::subscribe;
 
 #[allow(clippy::unreadable_literal)]
-pub fn create_test() -> InMemoryAuthority {
-    let origin: Name = Name::parse("test.com.", None).unwrap();
-
-    let mut records = InMemoryAuthority::empty(
-        origin.clone(),
-        ZoneType::Primary,
-        false,
-        #[cfg(feature = "__dnssec")]
-        Some(NxProofKind::Nsec),
-    );
-
+pub fn create_records(records: &mut InMemoryAuthority) {
+    let origin: Name = records.origin().into();
     records.upsert_mut(
         Record::from_rdata(
             origin.clone(),
@@ -107,6 +98,21 @@ pub fn create_test() -> InMemoryAuthority {
         .clone(),
         0,
     );
+}
+
+#[allow(clippy::unreadable_literal)]
+pub fn create_test() -> InMemoryAuthority {
+    let origin: Name = Name::parse("test.com.", None).unwrap();
+
+    let mut records = InMemoryAuthority::empty(
+        origin.clone(),
+        ZoneType::Primary,
+        false,
+        #[cfg(feature = "__dnssec")]
+        Some(NxProofKind::Nsec),
+    );
+
+    create_records(&mut records);
 
     records
 }
@@ -635,4 +641,188 @@ async fn test_multiple_cname_additionals() {
         additionals.last().unwrap().data(),
         &RData::A(A::new(93, 184, 215, 14))
     );
+}
+
+#[cfg(feature = "__dnssec")]
+mod dnssec {
+    use super::*;
+    use hickory_proto::dnssec::{
+        Nsec3HashAlgorithm, SigSigner, SigningKey, crypto::Ed25519SigningKey, rdata::DNSKEY,
+    };
+
+    fn make_catalog() -> Catalog {
+        let origin = Name::parse("test.com.", None).unwrap();
+
+        let mut records = InMemoryAuthority::empty(
+            origin.clone(),
+            ZoneType::Primary,
+            false,
+            Some(NxProofKind::Nsec3 {
+                algorithm: Default::default(),
+                salt: Default::default(),
+                iterations: Default::default(),
+            }),
+        );
+        let key = Ed25519SigningKey::from_pkcs8(
+            &Ed25519SigningKey::generate_pkcs8().expect("generate random key"),
+        )
+        .unwrap();
+
+        records
+            .add_zone_signing_key_mut(SigSigner::dnssec(
+                DNSKEY::from_key(&key.to_public_key().expect("convert to public key")),
+                Box::new(key),
+                origin.clone(),
+                std::time::Duration::from_secs(3600),
+            ))
+            .unwrap();
+
+        create_records(&mut records);
+        records.secure_zone_mut().unwrap();
+
+        let mut catalog = Catalog::new();
+        catalog.upsert(origin.into(), vec![Arc::new(records)]);
+        catalog
+    }
+
+    async fn run_query(catalog: &Catalog, query: Query) -> Message {
+        let mut question = Message::new();
+        question.add_query(query);
+        question
+            .extensions_mut()
+            .get_or_insert_with(Edns::new)
+            .enable_dnssec();
+
+        let question_bytes = question.to_bytes().unwrap();
+        let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
+        let question_req = Request::new(question_req, ([127, 0, 0, 1], 5553).into(), Protocol::Udp);
+
+        let response_handler = TestResponseHandler::new();
+        catalog
+            .lookup(&question_req, None, response_handler.clone())
+            .await;
+        response_handler.into_message().await
+    }
+
+    #[tokio::test]
+    async fn test_dnskey_and_nsec3() {
+        let catalog = make_catalog();
+
+        let mut query = Query::new();
+        query.set_name(Name::from_str("test.com.").unwrap());
+        query.set_query_type(RecordType::DNSKEY);
+
+        // Check DNSKEY + RRSIG
+        {
+            let result = run_query(&catalog, query).await;
+
+            let dnskey = result
+                .answers()
+                .iter()
+                .find(|e| e.record_type() == RecordType::DNSKEY)
+                .expect("result to contain one DNSKEY");
+            let rrsig = result
+                .answers()
+                .iter()
+                .find(|e| e.record_type() == RecordType::RRSIG)
+                .expect("result to contain one DNSKEY");
+            assert_eq!(result.answers().len(), 2, "expect only one answer");
+
+            let dnskey = dnskey
+                .data()
+                .clone()
+                .into_dnssec()
+                .unwrap()
+                .into_dnskey()
+                .unwrap();
+            assert!(dnskey.zone_key());
+
+            let rrsig = rrsig
+                .data()
+                .clone()
+                .into_dnssec()
+                .unwrap()
+                .into_rrsig()
+                .unwrap();
+            assert_eq!(rrsig.type_covered(), RecordType::DNSKEY);
+        }
+
+        // Check NSEC3
+        {
+            let mut query = Query::new();
+            query.set_name(Name::from_str("test.com.").unwrap());
+            query.set_query_type(RecordType::NSEC);
+
+            let result = run_query(&catalog, query).await;
+            assert!(result.answers().is_empty());
+
+            result
+                .name_servers()
+                .iter()
+                .find(|e| e.record_type() == RecordType::SOA)
+                .expect("authority section to contains SOA");
+
+            let nsec3 = result
+                .name_servers()
+                .iter()
+                .find(|e| e.record_type() == RecordType::NSEC3)
+                .expect("result to contain NSEC3");
+
+            let nsec3 = nsec3
+                .data()
+                .clone()
+                .into_dnssec()
+                .unwrap()
+                .into_nsec3()
+                .unwrap();
+
+            for denied in [RecordType::NSEC, RecordType::NSEC3] {
+                assert!(
+                    !nsec3.type_bit_maps().contains(&denied),
+                    "{denied} MUST not be included"
+                );
+            }
+
+            for required in [
+                RecordType::SOA,
+                RecordType::NS,
+                RecordType::DNSKEY,
+                RecordType::NSEC3PARAM,
+                RecordType::RRSIG,
+            ] {
+                assert!(
+                    nsec3.type_bit_maps().contains(&required),
+                    "{required} MUST be included"
+                );
+            }
+        }
+
+        // Check NSEC3PARAM
+        {
+            let mut query = Query::new();
+            query.set_name(Name::from_str("test.com.").unwrap());
+            query.set_query_type(RecordType::NSEC3PARAM);
+
+            let result = run_query(&catalog, query).await;
+
+            let nsec3param = result
+                .answers()
+                .iter()
+                .find(|e| e.record_type() == RecordType::NSEC3PARAM)
+                .expect("result to contain one NSEC3PARAM");
+
+            let nsec3param = nsec3param
+                .data()
+                .clone()
+                .into_dnssec()
+                .unwrap()
+                .into_nsec3param()
+                .unwrap();
+
+            // Check default parameters
+            assert_eq!(nsec3param.hash_algorithm(), Nsec3HashAlgorithm::SHA1);
+            assert_eq!(nsec3param.iterations(), 0);
+            assert!(nsec3param.salt().is_empty());
+        }
+    }
 }

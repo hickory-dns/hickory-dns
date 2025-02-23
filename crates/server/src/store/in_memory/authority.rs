@@ -776,6 +776,7 @@ impl InnerInMemory {
         // Store the record types of each domain name so we can generate NSEC3 records for each
         // domain name.
         let mut record_types = HashMap::new();
+        record_types.insert(origin.clone(), ([RecordType::NSEC3PARAM].into(), true));
 
         for key in self.records.keys() {
             // Store the type of the current record under its domain name
