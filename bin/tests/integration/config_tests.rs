@@ -432,11 +432,7 @@ fn test_reject_unknown_fields() {
         #[allow(unused_mut)]
         let mut skip = false;
 
-        #[cfg(not(any(
-            feature = "dns-over-rustls",
-            feature = "dns-over-https-rustls",
-            feature = "dns-over-quic"
-        )))]
+        #[cfg(not(feature = "dns-over-rustls"))]
         if config_table.contains_key("tls_cert") {
             println!("skipping due to tls_cert setting");
             skip = true;
