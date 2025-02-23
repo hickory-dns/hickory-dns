@@ -56,9 +56,6 @@ dns-over-h3 = [
     "dns-over-rustls",
 ]
 
-# This is a deprecated feature...
-tls = []
-
 serde = [
     "dep:serde",
     "hickory-proto/serde",
