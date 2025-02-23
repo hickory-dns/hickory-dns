@@ -26,21 +26,33 @@ license.workspace = true
 
 [features]
 async-std = ["dep:async-std", "dep:pin-utils", "dep:socket2"]
+
 dns-over-rustls = [
-    "rustls/ring",
     "dep:tokio-rustls",
+    "rustls/ring",
     "tokio",
 ]
-
-dns-over-https-rustls = ["dep:bytes", "dep:h2", "dep:http", "dns-over-rustls", "tokio"]
-dns-over-quic = [
-    "dep:quinn",
+dns-over-https-rustls = [
+    "dep:bytes",
+    "dep:h2",
+    "dep:http",
     "dns-over-rustls",
+    "tokio",
+]
+dns-over-quic = [
     "dep:bytes",
     "dep:pin-project-lite",
+    "dep:quinn",
+    "dns-over-rustls",
     "tokio",
 ]
-dns-over-h3 = ["dep:h3", "dep:h3-quinn", "dep:quinn", "dep:http", "dns-over-quic"]
+dns-over-h3 = [
+    "dep:h3",
+    "dep:h3-quinn",
+    "dep:http",
+    "dep:quinn",
+    "dns-over-quic",
+]
 
 rustls-platform-verifier = ["dep:rustls-platform-verifier"]
 

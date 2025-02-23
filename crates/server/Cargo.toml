@@ -39,32 +39,30 @@ sqlite = ["rusqlite"]
 blocklist = ["resolver"]
 toml = ["dep:toml"]
 
+dns-over-rustls = [
+    "dep:rustls",
+    "dep:tokio-rustls",
+    "hickory-proto/dns-over-rustls",
+    "hickory-resolver?/dns-over-rustls",
+]
 dns-over-https-rustls = [
+    "dep:h2",
+    "dep:http",
     "hickory-proto/dns-over-https-rustls",
     "hickory-resolver?/dns-over-https-rustls",
     "dns-over-rustls",
-    "dep:h2",
-    "dep:http",
-    "dep:tokio-rustls",
-]
-
-dns-over-rustls = [
-    "dep:rustls",
-    "hickory-proto/dns-over-rustls",
-    "hickory-resolver?/dns-over-rustls",
-    "dep:tokio-rustls",
 ]
 dns-over-quic = [
-    "dns-over-rustls",
     "hickory-proto/dns-over-quic",
     "hickory-resolver?/dns-over-quic",
+    "dns-over-rustls",
 ]
 dns-over-h3 = [
-    "dns-over-rustls",
     "dep:h3",
     "dep:h3-quinn",
     "hickory-proto/dns-over-h3",
     "hickory-resolver?/dns-over-h3",
+    "dns-over-rustls",
 ]
 
 dnssec-aws-lc-rs = ["hickory-proto/dnssec-aws-lc-rs", "hickory-recursor?/dnssec-aws-lc-rs", "hickory-resolver?/dnssec-aws-lc-rs", "serde/rc", "__dnssec"]

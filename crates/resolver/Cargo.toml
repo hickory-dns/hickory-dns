@@ -28,20 +28,27 @@ license.workspace = true
 default = ["system-config", "tokio"]
 async-std = ["dep:async-std", "hickory-proto/async-std"]
 backtrace = ["dep:backtrace", "hickory-proto/backtrace"]
+
 dns-over-rustls = [
     "dep:rustls",
     "dep:tokio-rustls",
     "hickory-proto/dns-over-rustls",
     "tokio",
 ]
-
-# This requires some TLS library, currently only rustls is supported
 dns-over-https-rustls = [
     "hickory-proto/dns-over-https-rustls",
     "dns-over-rustls",
 ]
-dns-over-quic = ["dep:quinn", "dns-over-rustls", "hickory-proto/dns-over-quic"]
-dns-over-h3 = ["dep:quinn", "dns-over-rustls", "hickory-proto/dns-over-h3"]
+dns-over-quic = [
+    "dep:quinn",
+    "hickory-proto/dns-over-quic",
+    "dns-over-rustls",
+]
+dns-over-h3 = [
+    "dep:quinn",
+    "hickory-proto/dns-over-h3",
+    "dns-over-rustls",
+]
 
 webpki-roots = ["dep:webpki-roots", "hickory-proto/webpki-roots"]
 rustls-platform-verifier = ["hickory-proto/rustls-platform-verifier"]

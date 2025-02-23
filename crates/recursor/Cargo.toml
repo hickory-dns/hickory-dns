@@ -36,26 +36,24 @@ dnssec-aws-lc-rs = ["hickory-proto/dnssec-aws-lc-rs", "hickory-resolver/dnssec-a
 dnssec-ring = ["hickory-proto/dnssec-ring", "hickory-resolver/dnssec-ring", "__dnssec"]
 __dnssec = []
 
-# TODO: Need to figure out how to be consistent with ring/openssl usage...
+dns-over-rustls = [
+    "hickory-proto/dns-over-rustls",
+    "hickory-resolver/dns-over-rustls",
+]
 dns-over-https-rustls = [
     "hickory-proto/dns-over-https-rustls",
     "hickory-resolver/dns-over-https-rustls",
     "dns-over-rustls",
 ]
 dns-over-quic = [
-    "dns-over-rustls",
     "hickory-proto/dns-over-quic",
     "hickory-resolver/dns-over-quic",
+    "dns-over-rustls",
 ]
 dns-over-h3 = [
-    "dns-over-rustls",
     "hickory-proto/dns-over-h3",
     "hickory-resolver/dns-over-h3",
-]
-
-dns-over-rustls = [
-    "hickory-proto/dns-over-rustls",
-    "hickory-resolver/dns-over-rustls",
+    "dns-over-rustls",
 ]
 
 # This is a deprecated feature...
