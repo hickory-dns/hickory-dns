@@ -102,7 +102,7 @@ async fn run() {
     );
     lookup_test(resolver).await;
 
-    #[cfg(feature = "dns-over-https-rustls")]
+    #[cfg(feature = "__dns-over-https")]
     {
         let resolver2 = Resolver::new(
             ResolverConfig::cloudflare_https(),

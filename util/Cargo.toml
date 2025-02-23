@@ -31,25 +31,33 @@ maintenance = { status = "actively-developed" }
 
 [features]
 dns-over-rustls = [
-    "dep:rustls",
     "hickory-proto/dns-over-rustls",
     "hickory-client/dns-over-rustls",
     "hickory-resolver/dns-over-rustls",
+    "__dns-over-tls",
 ]
 dns-over-https-rustls = [
     "hickory-proto/dns-over-https-rustls",
     "hickory-client/dns-over-https-rustls",
     "hickory-resolver/dns-over-https-rustls",
     "dns-over-rustls",
+    "__dns-over-https",
 ]
 dns-over-quic = [
     "hickory-resolver/dns-over-quic",
     "dns-over-rustls",
+    "__dns-over-quic",
 ]
 dns-over-h3 = [
     "hickory-resolver/dns-over-h3",
     "dns-over-quic",
+    "__dns-over-h3",
 ]
+
+__dns-over-tls = ["dep:rustls"]
+__dns-over-https = []
+__dns-over-quic = []
+__dns-over-h3 = []
 
 webpki-roots = [
     "dep:webpki-roots",
@@ -92,3 +100,4 @@ webpki-roots = { workspace = true, optional = true }
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true
 max_combination_size = 2
+denylist = ["__dns-over-tls", "__dns-over-https", "__dns-over-quic", "__dns-over-h3", "__dnssec"]

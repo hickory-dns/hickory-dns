@@ -20,12 +20,12 @@
     unreachable_pub
 )]
 
-#[cfg(feature = "dns-over-rustls")]
+#[cfg(feature = "__dns-over-tls")]
 use std::sync::Arc;
 use std::{net::SocketAddr, path::PathBuf};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
-#[cfg(feature = "dns-over-rustls")]
+#[cfg(feature = "__dns-over-tls")]
 use rustls::{
     ClientConfig, DigitallySignedStruct,
     client::danger::{HandshakeSignatureValid, ServerCertVerified},
@@ -36,9 +36,9 @@ use tracing::Level;
 use hickory_client::client::{Client, ClientHandle};
 #[cfg(feature = "__dnssec")]
 use hickory_proto::dnssec::rdata::DNSKEY;
-#[cfg(any(feature = "dns-over-rustls", feature = "dns-over-https-rustls"))]
+#[cfg(any(feature = "__dns-over-tls", feature = "__dns-over-https"))]
 use hickory_proto::rustls::client_config;
-#[cfg(feature = "dns-over-rustls")]
+#[cfg(feature = "__dns-over-tls")]
 use hickory_proto::rustls::tls_client_connect;
 use hickory_proto::{
     rr::{DNSClass, Name, RData, RecordSet, RecordType},
@@ -290,7 +290,7 @@ async fn tcp(opts: Opts, provider: impl RuntimeProvider) -> Result<(), Box<dyn s
     Ok(())
 }
 
-#[cfg(not(feature = "dns-over-rustls"))]
+#[cfg(not(feature = "__dns-over-tls"))]
 async fn tls(
     _opts: Opts,
     _provider: impl RuntimeProvider,
@@ -298,7 +298,7 @@ async fn tls(
     panic!("`dns-over-rustls` feature is required during compilation");
 }
 
-#[cfg(feature = "dns-over-rustls")]
+#[cfg(feature = "__dns-over-tls")]
 async fn tls(opts: Opts, provider: impl RuntimeProvider) -> Result<(), Box<dyn std::error::Error>> {
     let nameserver = opts.nameserver;
     let alpn = opts.alpn.map(String::into_bytes);
@@ -326,7 +326,7 @@ async fn tls(opts: Opts, provider: impl RuntimeProvider) -> Result<(), Box<dyn s
     Ok(())
 }
 
-#[cfg(not(feature = "dns-over-https-rustls"))]
+#[cfg(not(feature = "__dns-over-https"))]
 async fn https(
     _opts: Opts,
     _provider: impl RuntimeProvider,
@@ -334,7 +334,7 @@ async fn https(
     panic!("`dns-over-https-rustls` feature is required during compilation");
 }
 
-#[cfg(feature = "dns-over-https-rustls")]
+#[cfg(feature = "__dns-over-https")]
 async fn https(
     opts: Opts,
     provider: impl RuntimeProvider,
@@ -372,12 +372,12 @@ async fn https(
     Ok(())
 }
 
-#[cfg(not(feature = "dns-over-quic"))]
+#[cfg(not(feature = "__dns-over-quic"))]
 async fn quic(_opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     panic!("`dns-over-quic` feature is required during compilation");
 }
 
-#[cfg(feature = "dns-over-quic")]
+#[cfg(feature = "__dns-over-quic")]
 async fn quic(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     use hickory_proto::quic::QuicClientStream;
 
@@ -408,12 +408,12 @@ async fn quic(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[cfg(not(feature = "dns-over-h3"))]
+#[cfg(not(feature = "__dns-over-h3"))]
 async fn h3(_opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     panic!("`dns-over-h3` feature is required during compilation");
 }
 
-#[cfg(feature = "dns-over-h3")]
+#[cfg(feature = "__dns-over-h3")]
 async fn h3(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     use hickory_proto::h3::H3ClientStream;
 
@@ -642,7 +642,7 @@ fn record_set_from(
     record_set
 }
 
-#[cfg(feature = "dns-over-rustls")]
+#[cfg(feature = "__dns-over-tls")]
 fn do_not_verify_nameserver_cert(tls_config: &mut ClientConfig) {
     let provider = tls_config.crypto_provider().clone();
     tls_config
@@ -650,13 +650,13 @@ fn do_not_verify_nameserver_cert(tls_config: &mut ClientConfig) {
         .set_certificate_verifier(Arc::new(DangerousVerifier { provider }));
 }
 
-#[cfg(feature = "dns-over-rustls")]
+#[cfg(feature = "__dns-over-tls")]
 #[derive(Debug)]
 struct DangerousVerifier {
     provider: Arc<rustls::crypto::CryptoProvider>,
 }
 
-#[cfg(feature = "dns-over-rustls")]
+#[cfg(feature = "__dns-over-tls")]
 impl rustls::client::danger::ServerCertVerifier for DangerousVerifier {
     fn verify_server_cert(
         &self,

@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 #![cfg(not(windows))]
-#![cfg(feature = "dns-over-https-rustls")]
+#![cfg(feature = "__dns-over-https")]
 
 use std::env;
 use std::fs::File;

@@ -5,7 +5,7 @@ use std::io;
 use std::marker::Send;
 use std::net::SocketAddr;
 use std::pin::Pin;
-#[cfg(feature = "dns-over-quic")]
+#[cfg(feature = "__dns-over-quic")]
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -115,7 +115,7 @@ mod tokio_runtime {
     use std::sync::{Arc, Mutex};
 
     use futures_util::FutureExt;
-    #[cfg(feature = "dns-over-quic")]
+    #[cfg(feature = "__dns-over-quic")]
     use quinn::Runtime;
     use tokio::net::{TcpSocket, TcpStream, UdpSocket as TokioUdpSocket};
     use tokio::task::JoinSet;
@@ -201,7 +201,7 @@ mod tokio_runtime {
             Box::pin(tokio::net::UdpSocket::bind(local_addr))
         }
 
-        #[cfg(feature = "dns-over-quic")]
+        #[cfg(feature = "__dns-over-quic")]
         fn quic_binder(&self) -> Option<&dyn QuicSocketBinder> {
             Some(&TokioQuicSocketBinder)
         }
@@ -215,10 +215,10 @@ mod tokio_runtime {
         {}
     }
 
-    #[cfg(feature = "dns-over-quic")]
+    #[cfg(feature = "__dns-over-quic")]
     struct TokioQuicSocketBinder;
 
-    #[cfg(feature = "dns-over-quic")]
+    #[cfg(feature = "__dns-over-quic")]
     impl QuicSocketBinder for TokioQuicSocketBinder {
         fn bind_quic(
             &self,
@@ -277,12 +277,12 @@ pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
 }
 
 /// Noop trait for when the `quinn` dependency is not available.
-#[cfg(not(feature = "dns-over-quic"))]
+#[cfg(not(feature = "__dns-over-quic"))]
 pub trait QuicSocketBinder {}
 
 /// Create a UDP socket for QUIC usage.
 /// This trait is designed for customization.
-#[cfg(feature = "dns-over-quic")]
+#[cfg(feature = "__dns-over-quic")]
 pub trait QuicSocketBinder {
     /// Create a UDP socket for QUIC usage.
     fn bind_quic(

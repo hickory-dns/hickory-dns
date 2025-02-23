@@ -8,37 +8,37 @@
 use std::future::Future;
 use std::io;
 use std::marker::Unpin;
-#[cfg(feature = "dns-over-quic")]
+#[cfg(feature = "__dns-over-quic")]
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
-#[cfg(feature = "dns-over-https-rustls")]
+#[cfg(feature = "__dns-over-https")]
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use crate::proto::runtime::Spawn;
 #[cfg(feature = "tokio")]
 use crate::proto::runtime::TokioRuntimeProvider;
-#[cfg(feature = "dns-over-rustls")]
+#[cfg(feature = "__dns-over-tls")]
 use crate::proto::runtime::iocompat::AsyncIoStdAsTokio;
 use futures_util::future::FutureExt;
 use futures_util::ready;
 use futures_util::stream::{Stream, StreamExt};
-#[cfg(feature = "dns-over-rustls")]
+#[cfg(feature = "__dns-over-tls")]
 use tokio_rustls::client::TlsStream as TokioTlsStream;
 
 use crate::config::{NameServerConfig, ResolverOpts};
-#[cfg(any(feature = "dns-over-h3", feature = "dns-over-https-rustls"))]
+#[cfg(any(feature = "__dns-over-h3", feature = "__dns-over-https"))]
 use crate::proto;
-#[cfg(feature = "dns-over-https-rustls")]
+#[cfg(feature = "__dns-over-https")]
 use crate::proto::h2::{HttpsClientConnect, HttpsClientStream};
-#[cfg(feature = "dns-over-h3")]
+#[cfg(feature = "__dns-over-h3")]
 use crate::proto::h3::{H3ClientConnect, H3ClientStream};
-#[cfg(feature = "dns-over-quic")]
+#[cfg(feature = "__dns-over-quic")]
 use crate::proto::quic::{QuicClientConnect, QuicClientStream};
 #[cfg(feature = "tokio")]
 #[allow(unused_imports)] // Complicated cfg for which protocols are enabled
 use crate::proto::runtime::TokioTime;
-#[cfg(feature = "dns-over-rustls")]
+#[cfg(feature = "__dns-over-tls")]
 use crate::proto::runtime::iocompat::AsyncIoTokioAsStd;
 use crate::proto::{
     ProtoError,
@@ -69,7 +69,7 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
     ) -> Result<Self::FutureConn, io::Error>;
 }
 
-#[cfg(feature = "dns-over-rustls")]
+#[cfg(feature = "__dns-over-tls")]
 /// Predefined type for TLS client stream
 type TlsClientStream<S> = TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<AsyncIoStdAsTokio<S>>>>;
 
@@ -87,7 +87,7 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
             R::Timer,
         >,
     ),
-    #[cfg(feature = "dns-over-rustls")]
+    #[cfg(feature = "__dns-over-tls")]
     Tls(
         DnsExchangeConnect<
             DnsMultiplexerConnect<
@@ -108,11 +108,11 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
             TokioTime,
         >,
     ),
-    #[cfg(all(feature = "dns-over-https-rustls", feature = "tokio"))]
+    #[cfg(all(feature = "__dns-over-https", feature = "tokio"))]
     Https(DnsExchangeConnect<HttpsClientConnect<R::Tcp>, HttpsClientStream, TokioTime>),
-    #[cfg(all(feature = "dns-over-quic", feature = "tokio"))]
+    #[cfg(all(feature = "__dns-over-quic", feature = "tokio"))]
     Quic(DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime>),
-    #[cfg(all(feature = "dns-over-h3", feature = "tokio"))]
+    #[cfg(all(feature = "__dns-over-h3", feature = "tokio"))]
     H3(DnsExchangeConnect<H3ClientConnect, H3ClientStream, TokioTime>),
 }
 
@@ -138,25 +138,25 @@ impl<R: RuntimeProvider> Future for ConnectionFuture<R> {
                 self.spawner.spawn_bg(bg);
                 GenericConnection(conn)
             }
-            #[cfg(feature = "dns-over-rustls")]
+            #[cfg(feature = "__dns-over-tls")]
             ConnectionConnect::Tls(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
                 GenericConnection(conn)
             }
-            #[cfg(feature = "dns-over-https-rustls")]
+            #[cfg(feature = "__dns-over-https")]
             ConnectionConnect::Https(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
                 GenericConnection(conn)
             }
-            #[cfg(feature = "dns-over-quic")]
+            #[cfg(feature = "__dns-over-quic")]
             ConnectionConnect::Quic(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
                 GenericConnection(conn)
             }
-            #[cfg(feature = "dns-over-h3")]
+            #[cfg(feature = "__dns-over-h3")]
             ConnectionConnect::H3(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
@@ -238,7 +238,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let exchange = DnsExchange::connect(dns_conn);
                 ConnectionConnect::Tcp(exchange)
             }
-            #[cfg(feature = "dns-over-rustls")]
+            #[cfg(feature = "__dns-over-tls")]
             (Protocol::Tls, _) => {
                 let socket_addr = config.socket_addr;
                 let timeout = options.timeout;
@@ -256,7 +256,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let exchange = DnsExchange::connect(dns_conn);
                 ConnectionConnect::Tls(exchange)
             }
-            #[cfg(feature = "dns-over-https-rustls")]
+            #[cfg(feature = "__dns-over-https")]
             (Protocol::Https, _) => {
                 let socket_addr = config.socket_addr;
                 let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
@@ -275,7 +275,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 );
                 ConnectionConnect::Https(exchange)
             }
-            #[cfg(feature = "dns-over-quic")]
+            #[cfg(feature = "__dns-over-quic")]
             (Protocol::Quic, Some(binder)) => {
                 let socket_addr = config.socket_addr;
                 let bind_addr = config.bind_addr.unwrap_or(match socket_addr {
@@ -294,7 +294,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 );
                 ConnectionConnect::Quic(exchange)
             }
-            #[cfg(feature = "dns-over-h3")]
+            #[cfg(feature = "__dns-over-h3")]
             (Protocol::H3, Some(binder)) => {
                 let socket_addr = config.socket_addr;
                 let bind_addr = config.bind_addr.unwrap_or(match socket_addr {

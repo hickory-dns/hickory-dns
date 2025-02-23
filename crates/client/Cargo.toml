@@ -85,5 +85,5 @@ workspace = true
 
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true
-denylist = ["dnssec"]
 max_combination_size = 2
+denylist = ["__dns-over-tls", "__dns-over-https", "__dns-over-quic", "__dns-over-h3", "__dnssec"]

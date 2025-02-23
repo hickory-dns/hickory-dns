@@ -46,20 +46,20 @@ pub mod async_std;
 #[cfg(any(feature = "dnssec-aws-lc-rs", feature = "dnssec-ring"))]
 pub mod dnssec;
 mod error;
-#[cfg(feature = "dns-over-https-rustls")]
+#[cfg(feature = "__dns-over-https")]
 pub mod h2;
-#[cfg(feature = "dns-over-h3")]
+#[cfg(feature = "__dns-over-h3")]
 pub mod h3;
-#[cfg(any(feature = "dns-over-https-rustls", feature = "dns-over-h3"))]
+#[cfg(any(feature = "__dns-over-https", feature = "__dns-over-h3"))]
 pub mod http;
 #[cfg(feature = "mdns")]
 pub mod multicast;
 pub mod op;
-#[cfg(all(feature = "dns-over-quic", feature = "tokio"))]
+#[cfg(all(feature = "__dns-over-quic", feature = "tokio"))]
 pub mod quic;
 pub mod rr;
 pub mod runtime;
-#[cfg(feature = "dns-over-rustls")]
+#[cfg(feature = "__dns-over-tls")]
 pub mod rustls;
 pub mod serialize;
 pub mod tcp;

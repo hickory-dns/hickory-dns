@@ -38,10 +38,15 @@ recursor = ["hickory-server/recursor"]
 resolver = ["hickory-server/resolver"]
 sqlite = ["hickory-server/sqlite", "dep:rusqlite"]
 
-dns-over-rustls = ["dep:rustls", "hickory-server/dns-over-rustls"]
-dns-over-https-rustls = ["hickory-server/dns-over-https-rustls", "dns-over-rustls"]
-dns-over-quic = ["hickory-server/dns-over-quic", "dns-over-rustls"]
-dns-over-h3 = ["hickory-server/dns-over-h3", "dns-over-quic"]
+dns-over-rustls = ["hickory-server/dns-over-rustls", "__dns-over-tls"]
+dns-over-https-rustls = ["hickory-server/dns-over-https-rustls", "dns-over-rustls", "__dns-over-https"]
+dns-over-quic = ["hickory-server/dns-over-quic", "dns-over-rustls", "__dns-over-quic"]
+dns-over-h3 = ["hickory-server/dns-over-h3", "dns-over-quic", "__dns-over-h3"]
+
+__dns-over-tls = ["dep:rustls"]
+__dns-over-https = []
+__dns-over-quic = []
+__dns-over-h3 = []
 
 dnssec-aws-lc-rs = ["hickory-server/dnssec-aws-lc-rs", "dep:rustls-pki-types", "__dnssec"]
 dnssec-ring = ["hickory-server/dnssec-ring", "dep:rustls-pki-types", "__dnssec"]
@@ -97,3 +102,4 @@ workspace = true
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true
 max_combination_size = 2
+denylist = ["__dns-over-tls", "__dns-over-https", "__dns-over-quic", "__dns-over-h3", "__dnssec"]
