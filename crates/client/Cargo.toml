@@ -36,7 +36,6 @@ dns-over-rustls = [
     "hickory-proto/dns-over-rustls",
 ]
 dns-over-https-rustls = [
-    "dep:rustls",
     "hickory-proto/dns-over-https-rustls",
     "dns-over-rustls",
 ]
@@ -73,7 +72,6 @@ futures-util = { workspace = true, default-features = false, features = ["std"] 
 once_cell.workspace = true
 radix_trie.workspace = true
 rand.workspace = true
-rustls = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 test-support.workspace = true
 thiserror.workspace = true
