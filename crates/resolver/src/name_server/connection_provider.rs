@@ -8,7 +8,7 @@
 use std::future::Future;
 use std::io;
 use std::marker::Unpin;
-#[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
+#[cfg(feature = "dns-over-quic")]
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
 #[cfg(feature = "dns-over-https-rustls")]

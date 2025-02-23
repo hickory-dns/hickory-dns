@@ -289,11 +289,7 @@ fn run() -> Result<(), String> {
         info!("TCP protocol is disabled");
     }
 
-    #[cfg(any(
-        feature = "dns-over-rustls",
-        feature = "dns-over-https-rustls",
-        feature = "dns-over-quic"
-    ))]
+    #[cfg(feature = "dns-over-rustls")]
     if let Some(tls_cert_config) = config.tls_cert() {
         #[cfg(feature = "dns-over-rustls")]
         if !args.disable_tls && !config.disable_tls() {
