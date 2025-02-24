@@ -42,7 +42,7 @@ jobs:
       - uses: extractions/setup-just@v2
 
       - name: install cargo-binstall
-        uses: cargo-bins/cargo-binstall@v1.11.0
+        uses: cargo-bins/cargo-binstall@v1.11.1
       - name: install cargo-workspaces
         run: cargo binstall cargo-workspaces -y --version ${{ env.CARGO_WS_VERSION }}
         env:
@@ -128,7 +128,7 @@ jobs:
       - uses: extractions/setup-just@v2
 
       - name: install cargo-binstall
-        uses: cargo-bins/cargo-binstall@v1.11.0
+        uses: cargo-bins/cargo-binstall@v1.11.1
       - name: install cargo-workspaces
         run: cargo binstall cargo-workspaces -y --version ${{ env.CARGO_WS_VERSION }}
         env:
@@ -181,7 +181,7 @@ jobs:
       - uses: extractions/setup-just@v2
 
       - name: install cargo-binstall
-        uses: cargo-bins/cargo-binstall@v1.11.0
+        uses: cargo-bins/cargo-binstall@v1.11.1
       - name: install cargo-workspaces
         run: cargo binstall cargo-workspaces -y --version ${{ env.CARGO_WS_VERSION }}
         env:
@@ -221,7 +221,7 @@ jobs:
       - uses: extractions/setup-just@v2
 
       - name: install cargo-binstall
-        uses: cargo-bins/cargo-binstall@v1.11.0
+        uses: cargo-bins/cargo-binstall@v1.11.1
       - name: install cargo-workspaces
         run: cargo binstall cargo-workspaces -y --version ${{ env.CARGO_WS_VERSION }}
         env:
