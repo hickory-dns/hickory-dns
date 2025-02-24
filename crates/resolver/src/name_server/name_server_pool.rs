@@ -119,6 +119,11 @@ where
         }
     }
 
+    /// Returns the pool's options.
+    pub fn options(&self) -> &ResolverOpts {
+        &self.options
+    }
+
     #[cfg(test)]
     #[allow(dead_code)]
     fn from_nameservers_test(
@@ -209,7 +214,11 @@ where
                     debug!("truncated response received, retrying over TCP");
                     Err(ProtoError::from("received truncated response"))
                 }
-                Err(e) if (opts.try_tcp_on_error && e.is_io()) || e.is_no_connections() => {
+                Err(e)
+                    if (opts.try_tcp_on_error && e.is_io())
+                        || e.is_no_connections()
+                        || matches!(&*e.kind, ProtoErrorKind::QueryCaseMismatch) =>
+                {
                     debug!("error from UDP, retrying over TCP: {}", e);
                     Err(e)
                 }
