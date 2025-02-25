@@ -16,6 +16,7 @@ use tokio::runtime::Runtime;
 use crate::server_harness::{named_test_harness, query_a};
 use hickory_client::client::Client;
 use hickory_proto::quic::QuicClientStream;
+use hickory_proto::rustls::default_provider;
 use hickory_proto::xfer::Protocol;
 use test_support::subscribe;
 
@@ -45,12 +46,11 @@ fn test_example_quic_toml_startup() {
         root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
         root_store.add(CertificateDer::from(cert_der)).unwrap();
 
-        let client_config =
-            ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
-                .with_safe_default_protocol_versions()
-                .unwrap()
-                .with_root_certificates(root_store)
-                .with_no_client_auth();
+        let client_config = ClientConfig::builder_with_provider(Arc::new(default_provider()))
+            .with_safe_default_protocol_versions()
+            .unwrap()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
 
         let mut quic_builder = QuicClientStream::builder();
         quic_builder.crypto_config(client_config);

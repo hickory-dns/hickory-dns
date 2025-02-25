@@ -15,7 +15,6 @@ use hickory_proto::udp::UdpClientStream;
 #[cfg(feature = "__dns-over-tls")]
 use rustls::{
     ClientConfig, RootCertStore,
-    crypto::ring::default_provider,
     pki_types::{
         CertificateDer, PrivateKeyDer,
         pem::{self, PemObject},
@@ -30,6 +29,8 @@ use hickory_integration::example_authority::create_example;
 use hickory_proto::op::{Message, MessageType, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::A;
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
+#[cfg(feature = "__dns-over-tls")]
+use hickory_proto::rustls::default_provider;
 use hickory_proto::xfer::{DnsHandle, DnsMultiplexer};
 use hickory_server::ServerFuture;
 use hickory_server::authority::{Authority, Catalog};
@@ -297,12 +298,11 @@ async fn lazy_tls_client(
     let (_, ignored) = root_store.add_parsable_certificates(cert_chain);
     assert_eq!(ignored, 0, "bad certificate!");
 
-    let config =
-        ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
-            .with_safe_default_protocol_versions()
-            .unwrap()
-            .with_root_certificates(root_store)
-            .with_no_client_auth();
+    let config = ClientConfig::builder_with_provider(Arc::new(default_provider()))
+        .with_safe_default_protocol_versions()
+        .unwrap()
+        .with_root_certificates(root_store)
+        .with_no_client_auth();
 
     let (tls_client_stream, handle) = tls_client_connect_with_bind_addr(
         ipaddr,

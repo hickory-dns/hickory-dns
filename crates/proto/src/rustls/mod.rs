@@ -9,9 +9,12 @@
 
 use std::sync::Arc;
 
-use rustls::ClientConfig;
 #[cfg(not(feature = "rustls-platform-verifier"))]
 use rustls::RootCertStore;
+use rustls::{
+    ClientConfig,
+    crypto::{self, CryptoProvider},
+};
 #[cfg(feature = "rustls-platform-verifier")]
 use rustls_platform_verifier::BuilderVerifierExt;
 
@@ -25,10 +28,9 @@ pub use self::tls_stream::{TlsStream, tls_connect, tls_connect_with_bind_addr, t
 
 /// Make a new [`ClientConfig`] with the default settings
 pub fn client_config() -> ClientConfig {
-    let builder =
-        ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
-            .with_safe_default_protocol_versions()
-            .unwrap();
+    let builder = ClientConfig::builder_with_provider(Arc::new(default_provider()))
+        .with_safe_default_protocol_versions()
+        .unwrap();
 
     #[cfg(feature = "rustls-platform-verifier")]
     let builder = builder.with_platform_verifier();
@@ -42,4 +44,19 @@ pub fn client_config() -> ClientConfig {
     });
 
     builder.with_no_client_auth()
+}
+
+/// Instantiate a new [`CryptoProvider`] for use with rustls
+#[cfg(all(
+    feature = "dns-over-rustls-aws-lc-rs",
+    not(feature = "dns-over-rustls-ring")
+))]
+pub fn default_provider() -> CryptoProvider {
+    crypto::aws_lc_rs::default_provider()
+}
+
+/// Instantiate a new [`CryptoProvider`] for use with rustls
+#[cfg(feature = "dns-over-rustls-ring")]
+pub fn default_provider() -> CryptoProvider {
+    crypto::ring::default_provider()
 }

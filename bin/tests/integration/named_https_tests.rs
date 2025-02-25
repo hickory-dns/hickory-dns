@@ -22,6 +22,7 @@ use crate::server_harness::{named_test_harness, query_a};
 use hickory_client::client::Client;
 use hickory_proto::h2::HttpsClientStreamBuilder;
 use hickory_proto::runtime::TokioRuntimeProvider;
+use hickory_proto::rustls::default_provider;
 use hickory_proto::xfer::Protocol;
 use test_support::subscribe;
 
@@ -54,12 +55,11 @@ fn test_example_https_toml_startup() {
 
         root_store.add(CertificateDer::from(cert_der)).unwrap();
 
-        let mut client_config =
-            ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
-                .with_safe_default_protocol_versions()
-                .unwrap()
-                .with_root_certificates(root_store)
-                .with_no_client_auth();
+        let mut client_config = ClientConfig::builder_with_provider(Arc::new(default_provider()))
+            .with_safe_default_protocol_versions()
+            .unwrap()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
         client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
         let client_config = Arc::new(client_config);
