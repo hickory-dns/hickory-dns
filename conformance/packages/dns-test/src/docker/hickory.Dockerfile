@@ -17,7 +17,7 @@ RUN apt-get update && \
 COPY ./src /usr/src/hickory
 RUN --mount=type=cache,target=/usr/src/hickory/target \
     cargo build --manifest-path /usr/src/hickory/Cargo.toml -p hickory-dns --features recursor,$DNSSEC_FEATURE && \
-    cargo build --manifest-path /usr/src/hickory/Cargo.toml --bin dns --features dns-over-h3,dns-over-https-rustls,dns-over-quic && \
+    cargo build --manifest-path /usr/src/hickory/Cargo.toml --bin dns --features dns-over-h3-ring,dns-over-https-rustls-ring && \
     cp /usr/src/hickory/target/debug/hickory-dns /usr/bin/ && \
     cp /usr/src/hickory/target/debug/dns /usr/bin/
 ENV RUST_LOG=debug

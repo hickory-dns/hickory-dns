@@ -30,27 +30,27 @@ codecov = { repository = "hickory-dns/hickory-dns", branch = "main", service = "
 maintenance = { status = "actively-developed" }
 
 [features]
-dns-over-rustls = [
-    "hickory-proto/dns-over-rustls",
-    "hickory-client/dns-over-rustls",
-    "hickory-resolver/dns-over-rustls",
+dns-over-rustls-ring = [
+    "hickory-proto/dns-over-rustls-ring",
+    "hickory-client/dns-over-rustls-ring",
+    "hickory-resolver/dns-over-rustls-ring",
     "__dns-over-tls",
 ]
-dns-over-https-rustls = [
-    "hickory-proto/dns-over-https-rustls",
-    "hickory-client/dns-over-https-rustls",
-    "hickory-resolver/dns-over-https-rustls",
-    "dns-over-rustls",
+dns-over-https-rustls-ring = [
+    "hickory-proto/dns-over-https-rustls-ring",
+    "hickory-client/dns-over-https-rustls-ring",
+    "hickory-resolver/dns-over-https-rustls-ring",
+    "dns-over-rustls-ring",
     "__dns-over-https",
 ]
-dns-over-quic = [
-    "hickory-resolver/dns-over-quic",
-    "dns-over-rustls",
+dns-over-quic-ring = [
+    "hickory-resolver/dns-over-quic-ring",
+    "dns-over-rustls-ring",
     "__dns-over-quic",
 ]
-dns-over-h3 = [
-    "hickory-resolver/dns-over-h3",
-    "dns-over-quic",
+dns-over-h3-ring = [
+    "hickory-resolver/dns-over-h3-ring",
+    "dns-over-quic-ring",
     "__dns-over-h3",
 ]
 

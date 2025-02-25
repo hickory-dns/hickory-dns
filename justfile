@@ -28,16 +28,16 @@ all-features: (default "--all-features")
 no-default-features: (default "--no-default-features" "--ignore=\\{hickory-compatibility\\}")
 
 # Check, build, and test all crates with dns-over-rustls enabled
-dns-over-rustls: (default "--features=dns-over-rustls" "--ignore=\\{hickory-compatibility,test-support\\}")
+dns-over-rustls-ring: (default "--features=dns-over-rustls-ring" "--ignore=\\{hickory-compatibility,test-support\\}")
 
 # Check, build, and test all crates with dns-over-https-rustls enabled
-dns-over-https-rustls: (default "--features=dns-over-https-rustls" "--ignore=\\{hickory-compatibility,test-support\\}")
+dns-over-https-rustls-ring: (default "--features=dns-over-https-rustls-ring" "--ignore=\\{hickory-compatibility,test-support\\}")
 
 # Check, build, and test all crates with dns-over-quic enabled
-dns-over-quic: (default "--features=dns-over-quic" "--ignore=\\{hickory-compatibility,test-support\\}")
+dns-over-quic-ring: (default "--features=dns-over-quic-ring" "--ignore=\\{hickory-compatibility,test-support\\}")
 
 # Check, build, and test all crates with dns-over-h3 enabled
-dns-over-h3: (default "--features=dns-over-h3" "--ignore=\\{hickory-compatibility,hickory-client,test-support\\}")
+dns-over-h3-ring: (default "--features=dns-over-h3-ring" "--ignore=\\{hickory-compatibility,hickory-client,test-support\\}")
 
 # Check, build, and test all crates with dnssec-aws-lc-rs enabled
 dnssec-aws-lc-rs: (default "--features=dnssec-aws-lc-rs" "--ignore=\\{async-std-resolver,hickory-compatibility,test-support\\}")
