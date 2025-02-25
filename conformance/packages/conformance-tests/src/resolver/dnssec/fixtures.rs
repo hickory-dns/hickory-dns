@@ -57,6 +57,7 @@ pub fn bad_signature_in_leaf_nameserver(
 pub fn minimally_secure(
     leaf_fqdn: FQDN,
     leaf_ipv4_addr: Ipv4Addr,
+    settings: SignSettings,
 ) -> Result<(Resolver, Vec<NameServer<Running>>, TrustAnchor)> {
     assert_eq!(Some(FQDN::TEST_DOMAIN), leaf_fqdn.parent());
 
@@ -69,12 +70,7 @@ pub fn minimally_secure(
         nameservers,
         root,
         trust_anchor,
-    } = Graph::build(
-        leaf_ns,
-        Sign::Yes {
-            settings: SignSettings::default(),
-        },
-    )?;
+    } = Graph::build(leaf_ns, Sign::Yes { settings })?;
 
     let trust_anchor = trust_anchor.unwrap();
     let resolver = Resolver::new(&network, root)

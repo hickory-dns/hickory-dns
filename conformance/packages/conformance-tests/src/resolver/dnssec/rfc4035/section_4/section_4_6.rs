@@ -5,6 +5,7 @@ use dns_test::{
     client::{Client, DigSettings},
     record::RecordType,
     tshark::{Capture, Direction},
+    zone_file::SignSettings,
 };
 
 use crate::resolver::dnssec::fixtures;
@@ -15,7 +16,7 @@ fn clears_ad_bit_in_outgoing_queries() -> Result<()> {
     let leaf_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
 
     let (resolver, nameservers, _trust_anchor) =
-        fixtures::minimally_secure(leaf_fqdn.clone(), leaf_ipv4_addr)?;
+        fixtures::minimally_secure(leaf_fqdn.clone(), leaf_ipv4_addr, SignSettings::default())?;
 
     let mut tshark = resolver.eavesdrop()?;
 
