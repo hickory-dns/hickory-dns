@@ -4,7 +4,7 @@ use dns_test::client::{Client, DigSettings};
 use dns_test::name_server::NameServer;
 use dns_test::record::{Record, RecordType};
 use dns_test::tshark::Capture;
-use dns_test::zone_file::SignSettings;
+use dns_test::zone_file::{Nsec, SignSettings};
 use dns_test::{FQDN, Network, Resolver, Result, TrustAnchor};
 
 use crate::resolver::dnssec::fixtures;
@@ -47,8 +47,11 @@ fn can_validate_with_delegation() -> Result<()> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
 
-    let (resolver, _nameservers, _trust_anchor) =
-        fixtures::minimally_secure(needle_fqdn.clone(), expected_ipv4_addr)?;
+    let (resolver, _nameservers, _trust_anchor) = fixtures::minimally_secure(
+        needle_fqdn.clone(),
+        expected_ipv4_addr,
+        SignSettings::default(),
+    )?;
 
     let resolver_addr = resolver.ipv4_addr();
 
@@ -76,8 +79,11 @@ fn also_secure_when_do_is_set() -> Result<()> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
 
-    let (resolver, _nameservers, _trust_anchor) =
-        fixtures::minimally_secure(needle_fqdn.clone(), expected_ipv4_addr)?;
+    let (resolver, _nameservers, _trust_anchor) = fixtures::minimally_secure(
+        needle_fqdn.clone(),
+        expected_ipv4_addr,
+        SignSettings::default(),
+    )?;
 
     let resolver_addr = resolver.ipv4_addr();
 
@@ -111,8 +117,11 @@ fn caches_answer() -> Result<()> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
 
-    let (resolver, nameservers, _trust_anchor) =
-        fixtures::minimally_secure(needle_fqdn.clone(), expected_ipv4_addr)?;
+    let (resolver, nameservers, _trust_anchor) = fixtures::minimally_secure(
+        needle_fqdn.clone(),
+        expected_ipv4_addr,
+        SignSettings::default(),
+    )?;
 
     let resolver_addr = resolver.ipv4_addr();
 
@@ -249,5 +258,60 @@ fn ds_of_zsk() -> Result<()> {
     Ok(())
 }
 
-// TODO nxdomain with NSEC records
-// TODO nxdomain with NSEC3 records
+#[test]
+fn nxdomain_nsec() -> Result<()> {
+    let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
+    let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
+
+    let (resolver, _nameservers, _trust_anchor) = fixtures::minimally_secure(
+        needle_fqdn.clone(),
+        expected_ipv4_addr,
+        SignSettings::default().nsec(Nsec::_1),
+    )?;
+
+    let resolver_addr = resolver.ipv4_addr();
+
+    let client = Client::new(resolver.network())?;
+    let settings = *DigSettings::default().recurse().authentic_data();
+    let output = client.dig(
+        settings,
+        resolver_addr,
+        RecordType::A,
+        &needle_fqdn.push_label("nonexistent"),
+    )?;
+
+    assert!(output.status.is_nxdomain());
+
+    assert!(output.flags.authenticated_data);
+
+    Ok(())
+}
+
+#[test]
+fn nxdomain_nsec3() -> Result<()> {
+    let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
+    let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
+
+    let (resolver, _nameservers, _trust_anchor) = fixtures::minimally_secure(
+        needle_fqdn.clone(),
+        expected_ipv4_addr,
+        SignSettings::default(),
+    )?;
+
+    let resolver_addr = resolver.ipv4_addr();
+
+    let client = Client::new(resolver.network())?;
+    let settings = *DigSettings::default().recurse().authentic_data();
+    let output = client.dig(
+        settings,
+        resolver_addr,
+        RecordType::A,
+        &needle_fqdn.push_label("nonexistent"),
+    )?;
+
+    assert!(output.status.is_nxdomain());
+
+    assert!(output.flags.authenticated_data);
+
+    Ok(())
+}
