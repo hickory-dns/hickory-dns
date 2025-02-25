@@ -99,7 +99,7 @@ fn caches_intermediate_records() -> Result<()> {
     let leaf_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
     let leaf_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let (resolver, nameservers, _trust_anchor) =
-        fixtures::minimally_secure(leaf_fqdn.clone(), leaf_ipv4_addr)?;
+        fixtures::minimally_secure(leaf_fqdn.clone(), leaf_ipv4_addr, SignSettings::default())?;
 
     let resolver_addr = resolver.ipv4_addr();
 
