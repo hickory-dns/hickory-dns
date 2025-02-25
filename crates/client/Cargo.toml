@@ -32,10 +32,10 @@ license.workspace = true
 [features]
 backtrace = ["hickory-proto/backtrace"]
 
-dns-over-rustls = ["hickory-proto/dns-over-rustls"]
-dns-over-https-rustls = ["hickory-proto/dns-over-https-rustls"]
-dns-over-quic = ["hickory-proto/dns-over-quic"]
-dns-over-h3 = ["hickory-proto/dns-over-h3"]
+dns-over-rustls-ring = ["hickory-proto/dns-over-rustls-ring"]
+dns-over-https-rustls-ring = ["hickory-proto/dns-over-https-rustls-ring"]
+dns-over-quic-ring = ["hickory-proto/dns-over-quic-ring"]
+dns-over-h3-ring = ["hickory-proto/dns-over-h3-ring"]
 
 webpki-roots = ["hickory-proto/webpki-roots"]
 rustls-platform-verifier = ["hickory-proto/rustls-platform-verifier"]
