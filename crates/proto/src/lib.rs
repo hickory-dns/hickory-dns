@@ -55,7 +55,7 @@ pub mod http;
 #[cfg(feature = "mdns")]
 pub mod multicast;
 pub mod op;
-#[cfg(all(feature = "dns-over-quic", feature = "tokio-runtime"))]
+#[cfg(all(feature = "dns-over-quic", feature = "tokio"))]
 pub mod quic;
 pub mod rr;
 pub mod runtime;

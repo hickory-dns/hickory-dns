@@ -339,7 +339,7 @@ impl<P: RuntimeProvider> Future for NextRandomUdpSocket<P> {
 
 const ATTEMPT_RANDOM: usize = 10;
 
-#[cfg(feature = "tokio-runtime")]
+#[cfg(feature = "tokio")]
 #[async_trait]
 impl UdpSocket for tokio::net::UdpSocket {
     /// sets up up a "client" udp connection that will only receive packets from the associated address
@@ -369,7 +369,7 @@ impl UdpSocket for tokio::net::UdpSocket {
     }
 }
 
-#[cfg(feature = "tokio-runtime")]
+#[cfg(feature = "tokio")]
 #[async_trait]
 impl DnsUdpSocket for tokio::net::UdpSocket {
     type Time = crate::runtime::TokioTime;
@@ -397,7 +397,7 @@ impl DnsUdpSocket for tokio::net::UdpSocket {
 }
 
 #[cfg(test)]
-#[cfg(feature = "tokio-runtime")]
+#[cfg(feature = "tokio")]
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 

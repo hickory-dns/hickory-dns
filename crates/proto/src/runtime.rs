@@ -10,9 +10,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-#[cfg(any(test, feature = "tokio-runtime"))]
+#[cfg(any(test, feature = "tokio"))]
 use tokio::runtime::Runtime;
-#[cfg(any(test, feature = "tokio-runtime"))]
+#[cfg(any(test, feature = "tokio"))]
 use tokio::task::JoinHandle;
 
 use crate::error::ProtoError;
@@ -20,7 +20,7 @@ use crate::tcp::DnsTcpStream;
 use crate::udp::DnsUdpSocket;
 
 /// Spawn a background task, if it was present
-#[cfg(any(test, feature = "tokio-runtime"))]
+#[cfg(any(test, feature = "tokio"))]
 pub fn spawn_bg<F: Future<Output = R> + Send + 'static, R: Send + 'static>(
     runtime: &Runtime,
     background: F,
@@ -28,7 +28,7 @@ pub fn spawn_bg<F: Future<Output = R> + Send + 'static, R: Send + 'static>(
     runtime.spawn(background)
 }
 
-#[cfg(feature = "tokio-runtime")]
+#[cfg(feature = "tokio")]
 #[doc(hidden)]
 pub mod iocompat {
     use std::io;
@@ -109,7 +109,7 @@ pub mod iocompat {
     }
 }
 
-#[cfg(feature = "tokio-runtime")]
+#[cfg(feature = "tokio")]
 #[allow(unreachable_pub)]
 mod tokio_runtime {
     use std::sync::{Arc, Mutex};
@@ -231,7 +231,7 @@ mod tokio_runtime {
     }
 }
 
-#[cfg(feature = "tokio-runtime")]
+#[cfg(feature = "tokio")]
 pub use tokio_runtime::{TokioHandle, TokioRuntimeProvider};
 
 /// RuntimeProvider defines which async runtime that handles IO and timers.
@@ -312,7 +312,7 @@ pub trait Executor {
     fn block_on<F: Future>(&mut self, future: F) -> F::Output;
 }
 
-#[cfg(feature = "tokio-runtime")]
+#[cfg(feature = "tokio")]
 impl Executor for Runtime {
     fn new() -> Self {
         Self::new().expect("failed to create tokio runtime")
@@ -339,11 +339,11 @@ pub trait Time {
 }
 
 /// New type which is implemented using tokio::time::{Delay, Timeout}
-#[cfg(any(test, feature = "tokio-runtime"))]
+#[cfg(any(test, feature = "tokio"))]
 #[derive(Clone, Copy, Debug)]
 pub struct TokioTime;
 
-#[cfg(any(test, feature = "tokio-runtime"))]
+#[cfg(any(test, feature = "tokio"))]
 #[async_trait]
 impl Time for TokioTime {
     async fn delay_for(duration: Duration) {

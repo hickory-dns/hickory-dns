@@ -25,14 +25,14 @@ categories.workspace = true
 license.workspace = true
 
 [features]
-default = ["system-config", "tokio-runtime"]
+default = ["system-config", "tokio"]
 async-std = ["dep:async-std", "hickory-proto/async-std"]
 backtrace = ["dep:backtrace", "hickory-proto/backtrace"]
 dns-over-rustls = [
     "dep:rustls",
     "dep:tokio-rustls",
     "hickory-proto/dns-over-rustls",
-    "tokio-runtime",
+    "tokio",
 ]
 
 # This requires some TLS library, currently only rustls is supported
@@ -53,7 +53,7 @@ __dnssec = []
 serde = ["dep:serde", "hickory-proto/serde"]
 system-config = ["dep:ipconfig", "dep:resolv-conf"]
 
-tokio-runtime = ["tokio/rt", "hickory-proto/tokio-runtime"]
+tokio = ["dep:tokio", "tokio/rt", "hickory-proto/tokio"]
 
 [lib]
 name = "hickory_resolver"
@@ -104,19 +104,19 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [[example]]
 name = "custom_provider"
-required-features = ["tokio-runtime"]
+required-features = ["tokio"]
 
 [[example]]
 name = "flush_cache"
-required-features = ["tokio-runtime", "system-config"]
+required-features = ["tokio", "system-config"]
 
 [[example]]
 name = "global_resolver"
-required-features = ["tokio-runtime", "system-config"]
+required-features = ["tokio", "system-config"]
 
 [[example]]
 name = "multithreaded_runtime"
-required-features = ["tokio-runtime", "system-config"]
+required-features = ["tokio", "system-config"]
 
 [lints]
 workspace = true
