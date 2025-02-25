@@ -37,14 +37,12 @@ dns-over-https-rustls = [
     "dep:h2",
     "dep:http",
     "dns-over-rustls",
-    "tokio",
 ]
 dns-over-quic = [
     "dep:bytes",
     "dep:pin-project-lite",
     "dep:quinn",
     "dns-over-rustls",
-    "tokio",
 ]
 dns-over-h3 = [
     "dep:h3",
