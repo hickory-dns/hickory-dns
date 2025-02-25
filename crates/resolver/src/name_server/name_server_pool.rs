@@ -378,7 +378,7 @@ impl Stream for Local {
 }
 
 #[cfg(test)]
-#[cfg(feature = "tokio-runtime")]
+#[cfg(feature = "tokio")]
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
     use std::str::FromStr;

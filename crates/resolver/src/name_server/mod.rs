@@ -20,5 +20,5 @@ pub use self::name_server_pool::{GenericNameServerPool, NameServerPool};
 use self::name_server_state::NameServerState;
 use self::name_server_stats::NameServerStats;
 
-#[cfg(feature = "tokio-runtime")]
+#[cfg(feature = "tokio")]
 pub use self::connection_provider::TokioConnectionProvider;

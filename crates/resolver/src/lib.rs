@@ -38,7 +38,7 @@
 //! ```rust,no_run
 //! # #[tokio::main]
 //! # async fn main() {
-//! # #[cfg(feature = "tokio-runtime")]
+//! # #[cfg(feature = "tokio")]
 //! # {
 //! # use std::net::*;
 //! # use hickory_resolver::Resolver;
@@ -55,7 +55,7 @@
 //!
 //! ```rust
 //! # fn main() {
-//! # #[cfg(feature = "tokio-runtime")]
+//! # #[cfg(feature = "tokio")]
 //! # {
 //! use std::net::*;
 //! use tokio::runtime::Runtime;
@@ -93,7 +93,7 @@
 //!
 //! ```rust,no_run
 //! # fn main() {
-//! # #[cfg(feature = "tokio-runtime")]
+//! # #[cfg(feature = "tokio")]
 //! # {
 //! # use std::net::*;
 //! # use tokio::runtime::Runtime;
@@ -149,7 +149,7 @@
 //!
 //! ```rust,no_run
 //! # fn main() {
-//! # #[cfg(feature = "tokio-runtime")]
+//! # #[cfg(feature = "tokio")]
 //! # {
 //! use hickory_resolver::TokioResolver;
 //! use hickory_resolver::config::*;
@@ -209,14 +209,14 @@ pub mod lookup;
 pub mod lookup_ip;
 // TODO: consider #[doc(hidden)]
 pub mod name_server;
-#[cfg(feature = "tokio-runtime")]
+#[cfg(feature = "tokio")]
 use name_server::TokioConnectionProvider;
 #[cfg(feature = "dns-over-quic")]
 mod quic;
 mod resolver;
 pub use resolver::LookupFuture;
 pub use resolver::Resolver;
-#[cfg(feature = "tokio-runtime")]
+#[cfg(feature = "tokio")]
 pub use resolver::TokioResolver;
 pub mod system_conf;
 #[cfg(test)]
@@ -230,7 +230,7 @@ pub type AsyncResolver<P> = Resolver<P>;
 
 #[doc(hidden)]
 #[deprecated(since = "0.25.0", note = "use `TokioResolver` instead")]
-#[cfg(feature = "tokio-runtime")]
+#[cfg(feature = "tokio")]
 pub type TokioAsyncResolver = Resolver<TokioConnectionProvider>;
 
 /// returns a version as specified in Cargo.toml

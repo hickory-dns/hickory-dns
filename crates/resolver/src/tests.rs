@@ -1,8 +1,8 @@
-#[cfg(feature = "tokio-runtime")]
+#[cfg(feature = "tokio")]
 use test_support::subscribe;
 
 // Keep this in sync with the example in the README.
-#[cfg(feature = "tokio-runtime")]
+#[cfg(feature = "tokio")]
 #[tokio::test]
 async fn readme_example() {
     subscribe();

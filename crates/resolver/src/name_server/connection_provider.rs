@@ -16,7 +16,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use crate::proto::runtime::Spawn;
-#[cfg(feature = "tokio-runtime")]
+#[cfg(feature = "tokio")]
 use crate::proto::runtime::TokioRuntimeProvider;
 #[cfg(feature = "dns-over-rustls")]
 use crate::proto::runtime::iocompat::AsyncIoStdAsTokio;
@@ -35,7 +35,7 @@ use crate::proto::h2::{HttpsClientConnect, HttpsClientStream};
 use crate::proto::h3::{H3ClientConnect, H3ClientStream};
 #[cfg(feature = "dns-over-quic")]
 use crate::proto::quic::{QuicClientConnect, QuicClientStream};
-#[cfg(feature = "tokio-runtime")]
+#[cfg(feature = "tokio")]
 #[allow(unused_imports)] // Complicated cfg for which protocols are enabled
 use crate::proto::runtime::TokioTime;
 #[cfg(feature = "dns-over-rustls")]
@@ -108,11 +108,11 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
             TokioTime,
         >,
     ),
-    #[cfg(all(feature = "dns-over-https-rustls", feature = "tokio-runtime"))]
+    #[cfg(all(feature = "dns-over-https-rustls", feature = "tokio"))]
     Https(DnsExchangeConnect<HttpsClientConnect<R::Tcp>, HttpsClientStream, TokioTime>),
-    #[cfg(all(feature = "dns-over-quic", feature = "tokio-runtime"))]
+    #[cfg(all(feature = "dns-over-quic", feature = "tokio"))]
     Quic(DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime>),
-    #[cfg(all(feature = "dns-over-h3", feature = "tokio-runtime"))]
+    #[cfg(all(feature = "dns-over-h3", feature = "tokio"))]
     H3(DnsExchangeConnect<H3ClientConnect, H3ClientStream, TokioTime>),
 }
 
@@ -179,7 +179,7 @@ impl DnsHandle for GenericConnection {
 }
 
 /// Default ConnectionProvider with `GenericConnection`.
-#[cfg(feature = "tokio-runtime")]
+#[cfg(feature = "tokio")]
 pub type TokioConnectionProvider = GenericConnector<TokioRuntimeProvider>;
 
 /// Default connector for `GenericConnection`

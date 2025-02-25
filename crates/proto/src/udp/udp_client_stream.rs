@@ -378,7 +378,7 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
 }
 
 #[cfg(test)]
-#[cfg(feature = "tokio-runtime")]
+#[cfg(feature = "tokio")]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
     use crate::{runtime::TokioRuntimeProvider, tests::udp_client_stream_test};

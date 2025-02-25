@@ -29,16 +29,16 @@ async-std = ["dep:async-std", "dep:pin-utils", "dep:socket2"]
 dns-over-rustls = [
     "rustls/ring",
     "dep:tokio-rustls",
-    "tokio-runtime",
+    "tokio",
 ]
 
-dns-over-https-rustls = ["dep:bytes", "dep:h2", "dep:http", "dns-over-rustls", "tokio-runtime"]
+dns-over-https-rustls = ["dep:bytes", "dep:h2", "dep:http", "dns-over-rustls", "tokio"]
 dns-over-quic = [
     "dep:quinn",
     "dns-over-rustls",
     "dep:bytes",
     "dep:pin-project-lite",
-    "tokio-runtime",
+    "tokio",
 ]
 dns-over-h3 = ["dep:h3", "dep:h3-quinn", "dep:quinn", "dep:http", "dns-over-quic"]
 
@@ -50,8 +50,8 @@ __dnssec = ["dep:bitflags", "dep:rustls-pki-types", "dep:time"]
 testing = []
 
 text-parsing = []
-tokio-runtime = ["tokio/net", "tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
-default = ["tokio-runtime"]
+tokio = ["dep:tokio", "tokio/net", "tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
+default = ["tokio"]
 
 serde = ["dep:serde", "url/serde"]
 

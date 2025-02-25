@@ -381,7 +381,7 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
 }
 
 #[cfg(test)]
-#[cfg(feature = "tokio-runtime")]
+#[cfg(feature = "tokio")]
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 

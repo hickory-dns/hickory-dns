@@ -92,7 +92,7 @@ tokio = { workspace = true, features = ["time", "rt"] }
 tracing.workspace = true
 hickory-client.workspace = true
 hickory-proto = { workspace = true, features = ["testing"] }
-hickory-resolver = { workspace = true, features = ["tokio-runtime"] }
+hickory-resolver = { workspace = true, features = ["tokio"] }
 hickory-server = { workspace = true, features = ["testing"] }
 webpki-roots = { workspace = true, optional = true }
 

@@ -74,7 +74,7 @@ test-support.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, features = ["rt", "net"] }
-hickory-proto = { workspace = true, features = ["text-parsing", "tokio-runtime"] }
+hickory-proto = { workspace = true, features = ["text-parsing", "tokio"] }
 
 [dev-dependencies]
 futures = { workspace = true, default-features = false, features = ["std", "executor"] }
