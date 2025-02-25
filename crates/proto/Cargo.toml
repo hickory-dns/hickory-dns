@@ -48,7 +48,6 @@ dns-over-h3 = [
     "dep:h3",
     "dep:h3-quinn",
     "dep:http",
-    "dep:quinn",
     "dns-over-quic",
 ]
 
