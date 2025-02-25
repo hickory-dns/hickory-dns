@@ -64,6 +64,7 @@ dns-over-https-rustls = [
     "dep:webpki-roots",
     "hickory-client/dns-over-https-rustls",
     "hickory-resolver/dns-over-https-rustls",
+    "dns-over-rustls",
 ]
 dns-over-quic = [
     "hickory-proto/dns-over-quic",
