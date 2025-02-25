@@ -36,6 +36,26 @@ dnssec-aws-lc-rs = ["hickory-proto/dnssec-aws-lc-rs", "hickory-resolver/dnssec-a
 dnssec-ring = ["hickory-proto/dnssec-ring", "hickory-resolver/dnssec-ring", "__dnssec"]
 __dnssec = []
 
+dns-over-rustls-aws-lc-rs = [
+    "hickory-proto/dns-over-rustls-aws-lc-rs",
+    "hickory-resolver/dns-over-rustls-aws-lc-rs",
+]
+dns-over-https-rustls-aws-lc-rs = [
+    "hickory-proto/dns-over-https-rustls-aws-lc-rs",
+    "hickory-resolver/dns-over-https-rustls-aws-lc-rs",
+    "dns-over-rustls-aws-lc-rs",
+]
+dns-over-quic-aws-lc-rs = [
+    "hickory-proto/dns-over-quic-aws-lc-rs",
+    "hickory-resolver/dns-over-quic-aws-lc-rs",
+    "dns-over-rustls-aws-lc-rs",
+]
+dns-over-h3-aws-lc-rs = [
+    "hickory-proto/dns-over-h3-aws-lc-rs",
+    "hickory-resolver/dns-over-h3-aws-lc-rs",
+    "dns-over-quic-aws-lc-rs",
+]
+
 dns-over-rustls-ring = [
     "hickory-proto/dns-over-rustls-ring",
     "hickory-resolver/dns-over-rustls-ring",

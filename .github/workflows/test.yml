@@ -109,6 +109,10 @@ jobs:
           [
             default,
             no-default-features,
+            dns-over-rustls-aws-lc-rs,
+            dns-over-https-rustls-aws-lc-rs,
+            dns-over-quic-aws-lc-rs,
+            dns-over-h3-aws-lc-rs,
             dns-over-rustls-ring,
             dns-over-https-rustls-ring,
             dns-over-quic-ring,

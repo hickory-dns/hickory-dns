@@ -27,7 +27,6 @@ use cfg_if::cfg_if;
 use ipnet::IpNet;
 #[cfg(feature = "__dns-over-tls")]
 use rustls::{
-    crypto::ring::default_provider,
     pki_types::{CertificateDer, PrivateKeyDer, pem::PemObject},
     server::ResolvesServerCert,
     sign::{CertifiedKey, SingleCertAndKey},
@@ -35,6 +34,8 @@ use rustls::{
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
 
+#[cfg(feature = "__dns-over-tls")]
+use hickory_proto::rustls::default_provider;
 use hickory_proto::{ProtoError, rr::Name};
 #[cfg(feature = "__dnssec")]
 use hickory_server::authority::DnssecAuthority;

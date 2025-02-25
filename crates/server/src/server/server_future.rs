@@ -12,7 +12,6 @@ use std::{
 };
 
 use futures_util::{FutureExt, StreamExt};
-use hickory_proto::{op::MessageType, rr::Record, runtime::TokioRuntimeProvider};
 use ipnet::IpNet;
 #[cfg(feature = "__dns-over-tls")]
 use rustls::{ServerConfig, server::ResolvesServerCert};
@@ -22,13 +21,16 @@ use tokio::{net, task::JoinSet};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 
+#[cfg(feature = "__dns-over-tls")]
+use crate::proto::rustls::default_provider;
 use crate::{
     access::AccessControl,
     authority::{MessageRequest, MessageResponseBuilder, Queries},
     proto::{
         BufDnsStreamHandle, ProtoError,
-        op::{Header, LowerQuery, Query, ResponseCode},
-        runtime::iocompat::AsyncIoTokioAsStd,
+        op::{Header, LowerQuery, MessageType, Query, ResponseCode},
+        rr::Record,
+        runtime::{TokioRuntimeProvider, iocompat::AsyncIoTokioAsStd},
         serialize::binary::{BinDecodable, BinDecoder},
         tcp::TcpStream,
         udp::UdpStream,
@@ -799,17 +801,16 @@ fn tls_server_config(
     protocol: &[u8],
     server_cert_resolver: Arc<dyn ResolvesServerCert>,
 ) -> io::Result<ServerConfig> {
-    let mut config =
-        ServerConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
-            .with_safe_default_protocol_versions()
-            .map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("error creating TLS acceptor: {e}"),
-                )
-            })?
-            .with_no_client_auth()
-            .with_cert_resolver(server_cert_resolver);
+    let mut config = ServerConfig::builder_with_provider(Arc::new(default_provider()))
+        .with_safe_default_protocol_versions()
+        .map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("error creating TLS acceptor: {e}"),
+            )
+        })?
+        .with_no_client_auth()
+        .with_cert_resolver(server_cert_resolver);
 
     config.alpn_protocols = vec![protocol.to_vec()];
     Ok(config)
@@ -1078,7 +1079,6 @@ mod tests {
     use futures_util::future;
     #[cfg(feature = "__dns-over-tls")]
     use rustls::{
-        crypto::ring::default_provider,
         pki_types::{CertificateDer, PrivateKeyDer},
         sign::{CertifiedKey, SingleCertAndKey},
     };
