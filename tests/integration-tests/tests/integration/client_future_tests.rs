@@ -112,7 +112,7 @@ async fn test_query_tcp_ipv6() {
 }
 
 #[tokio::test]
-#[cfg(feature = "__dns-over-https")]
+#[cfg(feature = "__https")]
 async fn test_query_https() {
     use hickory_integration::CLOUDFLARE_V4_TLS;
     use hickory_proto::h2::HttpsClientStreamBuilder;

@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 #![cfg(not(windows))]
-#![cfg(feature = "__dns-over-quic")]
+#![cfg(feature = "__quic")]
 
 use std::{env, fs::File, io::*, net::*, sync::Arc};
 

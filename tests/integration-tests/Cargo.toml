@@ -53,54 +53,54 @@ dnssec-ring = [
 ]
 __dnssec = []
 
-dns-over-rustls-aws-lc-rs = [
-    "hickory-proto/dns-over-rustls-aws-lc-rs",
-    "hickory-resolver/dns-over-rustls-aws-lc-rs",
-    "hickory-server/dns-over-rustls-aws-lc-rs",
-    "__dns-over-tls",
+tls-aws-lc-rs = [
+    "hickory-proto/tls-aws-lc-rs",
+    "hickory-resolver/tls-aws-lc-rs",
+    "hickory-server/tls-aws-lc-rs",
+    "__tls",
 ]
-dns-over-https-rustls-aws-lc-rs = [
-    "hickory-client/dns-over-https-rustls-aws-lc-rs",
-    "hickory-resolver/dns-over-https-rustls-aws-lc-rs",
-    "dns-over-rustls-aws-lc-rs",
-    "__dns-over-https",
+https-aws-lc-rs = [
+    "hickory-client/https-aws-lc-rs",
+    "hickory-resolver/https-aws-lc-rs",
+    "tls-aws-lc-rs",
+    "__https",
 ]
-dns-over-quic-aws-lc-rs = [
-    "hickory-proto/dns-over-quic-aws-lc-rs",
-    "hickory-resolver/dns-over-quic-aws-lc-rs",
-    "dns-over-rustls-aws-lc-rs",
+quic-aws-lc-rs = [
+    "hickory-proto/quic-aws-lc-rs",
+    "hickory-resolver/quic-aws-lc-rs",
+    "tls-aws-lc-rs",
 ]
-dns-over-h3-aws-lc-rs = [
-    "hickory-proto/dns-over-h3-aws-lc-rs",
-    "hickory-resolver/dns-over-h3-aws-lc-rs",
-    "dns-over-quic-aws-lc-rs",
-]
-
-dns-over-rustls-ring = [
-    "hickory-proto/dns-over-rustls-ring",
-    "hickory-resolver/dns-over-rustls-ring",
-    "hickory-server/dns-over-rustls-ring",
-    "__dns-over-tls",
-]
-dns-over-https-rustls-ring = [
-    "hickory-client/dns-over-https-rustls-ring",
-    "hickory-resolver/dns-over-https-rustls-ring",
-    "dns-over-rustls-ring",
-    "__dns-over-https",
-]
-dns-over-quic-ring = [
-    "hickory-proto/dns-over-quic-ring",
-    "hickory-resolver/dns-over-quic-ring",
-    "dns-over-rustls-ring",
-]
-dns-over-h3-ring = [
-    "hickory-proto/dns-over-h3-ring",
-    "hickory-resolver/dns-over-h3-ring",
-    "dns-over-quic-ring",
+h3-aws-lc-rs = [
+    "hickory-proto/h3-aws-lc-rs",
+    "hickory-resolver/h3-aws-lc-rs",
+    "quic-aws-lc-rs",
 ]
 
-__dns-over-tls = ["dep:rustls"]
-__dns-over-https = ["dep:rustls", "dep:webpki-roots"]
+tls-ring = [
+    "hickory-proto/tls-ring",
+    "hickory-resolver/tls-ring",
+    "hickory-server/tls-ring",
+    "__tls",
+]
+https-ring = [
+    "hickory-client/https-ring",
+    "hickory-resolver/https-ring",
+    "tls-ring",
+    "__https",
+]
+quic-ring = [
+    "hickory-proto/quic-ring",
+    "hickory-resolver/quic-ring",
+    "tls-ring",
+]
+h3-ring = [
+    "hickory-proto/h3-ring",
+    "hickory-resolver/h3-ring",
+    "quic-ring",
+]
+
+__tls = ["dep:rustls"]
+__https = ["dep:rustls", "dep:webpki-roots"]
 
 sqlite = ["rusqlite", "hickory-server/sqlite"]
 
@@ -130,4 +130,4 @@ tracing-subscriber.workspace = true
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true
 max_combination_size = 2
-denylist = ["__dns-over-tls", "__dns-over-https", "__dns-over-quic", "__dns-over-h3", "__dnssec"]
+denylist = ["__tls", "__https", "__quic", "__h3", "__dnssec"]

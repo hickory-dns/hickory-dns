@@ -27,20 +27,20 @@ license.workspace = true
 [features]
 async-std = ["dep:async-std", "dep:pin-utils", "dep:socket2"]
 
-dns-over-rustls-aws-lc-rs = ["tokio-rustls/aws-lc-rs", "__dns-over-tls"]
-dns-over-https-rustls-aws-lc-rs = ["dns-over-rustls-aws-lc-rs", "__dns-over-https"]
-dns-over-quic-aws-lc-rs = ["quinn/rustls-aws-lc-rs", "dns-over-rustls-aws-lc-rs", "__dns-over-quic"]
-dns-over-h3-aws-lc-rs = ["dns-over-quic-aws-lc-rs", "__dns-over-h3"]
+tls-aws-lc-rs = ["tokio-rustls/aws-lc-rs", "__tls"]
+https-aws-lc-rs = ["tls-aws-lc-rs", "__https"]
+quic-aws-lc-rs = ["quinn/rustls-aws-lc-rs", "tls-aws-lc-rs", "__quic"]
+h3-aws-lc-rs = ["quic-aws-lc-rs", "__h3"]
 
-dns-over-rustls-ring = ["tokio-rustls/ring", "__dns-over-tls"]
-dns-over-https-rustls-ring = ["dns-over-rustls-ring", "__dns-over-https"]
-dns-over-quic-ring = ["quinn/rustls-ring", "dns-over-rustls-ring", "__dns-over-quic"]
-dns-over-h3-ring = ["dns-over-quic-ring", "__dns-over-h3"]
+tls-ring = ["tokio-rustls/ring", "__tls"]
+https-ring = ["tls-ring", "__https"]
+quic-ring = ["quinn/rustls-ring", "tls-ring", "__quic"]
+h3-ring = ["quic-ring", "__h3"]
 
-__dns-over-tls = ["dep:bytes", "dep:rustls", "dep:tokio-rustls", "tokio"]
-__dns-over-https = ["dep:bytes", "dep:h2", "dep:http"]
-__dns-over-quic = ["dep:bytes", "dep:pin-project-lite", "dep:quinn"]
-__dns-over-h3 = ["dep:h3", "dep:h3-quinn", "dep:http"]
+__tls = ["dep:bytes", "dep:rustls", "dep:tokio-rustls", "tokio"]
+__https = ["dep:bytes", "dep:h2", "dep:http"]
+__quic = ["dep:bytes", "dep:pin-project-lite", "dep:quinn"]
+__h3 = ["dep:h3", "dep:h3-quinn", "dep:http"]
 
 rustls-platform-verifier = ["dep:rustls-platform-verifier"]
 
@@ -126,4 +126,4 @@ workspace = true
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true
 max_combination_size = 2
-denylist = ["__dns-over-tls", "__dns-over-https", "__dns-over-quic", "__dns-over-h3", "__dnssec"]
+denylist = ["__tls", "__https", "__quic", "__h3", "__dnssec"]

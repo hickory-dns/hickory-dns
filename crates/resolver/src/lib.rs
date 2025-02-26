@@ -131,17 +131,17 @@
 //!
 //! The following DNS protocols are optionally supported:
 //!
-//! - Enable `dns-over-rustls` for DNS over TLS (DoT)
-//! - Enable `dns-over-https-rustls` for DNS over HTTP/2 (DoH)
-//! - Enable `dns-over-quic` for DNS over QUIC (DoQ)
-//! - Enable `dns-over-h3` for DNS over HTTP/3 (DoH3)
+//! - Enable `tls` for DNS over TLS (DoT)
+//! - Enable `https-rustls` for DNS over HTTP/2 (DoH)
+//! - Enable `quic` for DNS over QUIC (DoQ)
+//! - Enable `h3` for DNS over HTTP/3 (DoH3)
 //!
 //! ### Example
 //!
 //! Enable the TLS library through the dependency on `hickory-resolver`:
 //!
 //! ```toml
-//! hickory-resolver = { version = "*", features = ["dns-over-rustls"] }
+//! hickory-resolver = { version = "*", features = ["tls"] }
 //! ```
 //!
 //! A default TLS configuration is available for Cloudflare's `1.1.1.1` DNS service (Quad9 as
@@ -155,7 +155,7 @@
 //! use hickory_resolver::config::*;
 //!
 //! // Construct a new Resolver with default configuration options
-//! # #[cfg(feature = "__dns-over-tls")]
+//! # #[cfg(feature = "__tls")]
 //! let mut resolver = TokioResolver::tokio(ResolverConfig::cloudflare_tls(), ResolverOpts::default());
 //!
 //! // see example above...
@@ -199,9 +199,9 @@ pub mod config;
 pub mod dns_lru;
 mod error;
 pub use error::{ResolveError, ResolveErrorKind};
-#[cfg(feature = "__dns-over-https")]
+#[cfg(feature = "__https")]
 mod h2;
-#[cfg(feature = "__dns-over-h3")]
+#[cfg(feature = "__h3")]
 mod h3;
 mod hosts;
 pub use hosts::Hosts;
@@ -211,7 +211,7 @@ pub mod lookup_ip;
 pub mod name_server;
 #[cfg(feature = "tokio")]
 use name_server::TokioConnectionProvider;
-#[cfg(feature = "__dns-over-quic")]
+#[cfg(feature = "__quic")]
 mod quic;
 mod resolver;
 pub use resolver::LookupFuture;
@@ -221,7 +221,7 @@ pub use resolver::TokioResolver;
 pub mod system_conf;
 #[cfg(test)]
 mod tests;
-#[cfg(feature = "__dns-over-tls")]
+#[cfg(feature = "__tls")]
 mod tls;
 
 #[doc(hidden)]

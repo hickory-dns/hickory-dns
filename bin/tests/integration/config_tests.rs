@@ -206,7 +206,7 @@ purpose = \"ZoneSigning\"
 }
 
 #[test]
-#[cfg(feature = "__dns-over-tls")]
+#[cfg(feature = "__tls")]
 fn test_parse_tls() {
     // defaults
     let config = Config::from_toml("").unwrap();
@@ -254,11 +254,11 @@ define_test_config!(all_supported_dnssec);
 define_test_config!(chained_blocklist);
 #[cfg(feature = "blocklist")]
 define_test_config!(consulting_blocklist);
-#[cfg(feature = "__dns-over-https")]
+#[cfg(feature = "__https")]
 define_test_config!(dns_over_https);
-#[cfg(feature = "__dns-over-tls")]
+#[cfg(feature = "__tls")]
 define_test_config!(dns_over_tls_rustls_and_openssl);
-#[cfg(feature = "__dns-over-tls")]
+#[cfg(feature = "__tls")]
 define_test_config!(dns_over_tls);
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 define_test_config!(dnssec_with_update);
@@ -432,7 +432,7 @@ fn test_reject_unknown_fields() {
         #[allow(unused_mut)]
         let mut skip = false;
 
-        #[cfg(not(feature = "__dns-over-tls"))]
+        #[cfg(not(feature = "__tls"))]
         if config_table.contains_key("tls_cert") {
             println!("skipping due to tls_cert setting");
             skip = true;

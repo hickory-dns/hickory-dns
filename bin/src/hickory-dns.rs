@@ -59,7 +59,7 @@ use tracing_subscriber::{
 };
 
 use hickory_dns::Config;
-#[cfg(feature = "__dns-over-tls")]
+#[cfg(feature = "__tls")]
 use hickory_dns::TlsCertConfig;
 use hickory_server::{authority::Catalog, server::ServerFuture};
 
@@ -105,19 +105,19 @@ struct Cli {
 
     /// Listening port for DNS over TLS queries,
     /// overrides any value in config file
-    #[cfg(feature = "__dns-over-tls")]
+    #[cfg(feature = "__tls")]
     #[clap(long = "tls-port", value_name = "TLS-PORT")]
     pub(crate) tls_port: Option<u16>,
 
     /// Listening port for DNS over HTTPS queries,
     /// overrides any value in config file
-    #[cfg(feature = "__dns-over-https")]
+    #[cfg(feature = "__https")]
     #[clap(long = "https-port", value_name = "HTTPS-PORT")]
     pub(crate) https_port: Option<u16>,
 
     /// Listening port for DNS over QUIC queries,
     /// overrides any value in config file
-    #[cfg(feature = "__dns-over-quic")]
+    #[cfg(feature = "__quic")]
     #[clap(long = "quic-port", value_name = "QUIC-PORT")]
     pub(crate) quic_port: Option<u16>,
 
@@ -133,19 +133,19 @@ struct Cli {
 
     /// Disable TLS protocol,
     /// overrides any value in config file
-    #[cfg(feature = "__dns-over-tls")]
+    #[cfg(feature = "__tls")]
     #[clap(long = "disable-tls", conflicts_with = "tls_port")]
     pub(crate) disable_tls: bool,
 
     /// Disable HTTPS protocol,
     /// overrides any value in config file
-    #[cfg(feature = "__dns-over-https")]
+    #[cfg(feature = "__https")]
     #[clap(long = "disable-https", conflicts_with = "https_port")]
     pub(crate) disable_https: bool,
 
     /// Disable QUIC protocol,
     /// overrides any value in config file
-    #[cfg(feature = "__dns-over-quic")]
+    #[cfg(feature = "__quic")]
     #[clap(long = "disable-quic", conflicts_with = "quic_port")]
     pub(crate) disable_quic: bool,
 }
@@ -242,7 +242,7 @@ fn run() -> Result<(), String> {
     let tcp_request_timeout = config.tcp_request_timeout();
 
     // now, run the server, based on the config
-    #[cfg_attr(not(feature = "__dns-over-tls"), allow(unused_mut))]
+    #[cfg_attr(not(feature = "__tls"), allow(unused_mut))]
     let mut server = ServerFuture::with_access(catalog, deny_networks, allow_networks);
 
     let _guard = runtime.enter();
@@ -289,9 +289,9 @@ fn run() -> Result<(), String> {
         info!("TCP protocol is disabled");
     }
 
-    #[cfg(feature = "__dns-over-tls")]
+    #[cfg(feature = "__tls")]
     if let Some(tls_cert_config) = config.tls_cert() {
-        #[cfg(feature = "__dns-over-tls")]
+        #[cfg(feature = "__tls")]
         if !args.disable_tls && !config.disable_tls() {
             // setup TLS listeners
             config_tls(
@@ -306,7 +306,7 @@ fn run() -> Result<(), String> {
             info!("TLS protocol is disabled");
         }
 
-        #[cfg(feature = "__dns-over-https")]
+        #[cfg(feature = "__https")]
         if !args.disable_https && !config.disable_https() {
             // setup HTTPS listeners
             config_https(
@@ -321,7 +321,7 @@ fn run() -> Result<(), String> {
             info!("HTTPS protocol is disabled");
         }
 
-        #[cfg(feature = "__dns-over-quic")]
+        #[cfg(feature = "__quic")]
         if !args.disable_quic && !config.disable_quic() {
             // setup QUIC listeners
             config_quic(
@@ -378,7 +378,7 @@ fn run() -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(feature = "__dns-over-tls")]
+#[cfg(feature = "__tls")]
 fn config_tls(
     args: &Cli,
     server: &mut ServerFuture<Catalog>,
@@ -421,7 +421,7 @@ fn config_tls(
     Ok(())
 }
 
-#[cfg(feature = "__dns-over-https")]
+#[cfg(feature = "__https")]
 fn config_https(
     args: &Cli,
     server: &mut ServerFuture<Catalog>,
@@ -478,7 +478,7 @@ fn config_https(
     Ok(())
 }
 
-#[cfg(feature = "__dns-over-quic")]
+#[cfg(feature = "__quic")]
 fn config_quic(
     args: &Cli,
     server: &mut ServerFuture<Catalog>,
