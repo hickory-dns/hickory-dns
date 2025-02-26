@@ -748,7 +748,6 @@ impl InnerInMemory {
         salt: &[u8],
         iterations: u16,
     ) -> DnsSecResult<()> {
-        // FIXME: Implement collision detection.
         // only create nsec records for secure zones
         if self.secure_keys.is_empty() {
             return Ok(());
