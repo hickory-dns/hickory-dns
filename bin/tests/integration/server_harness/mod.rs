@@ -100,11 +100,11 @@ where
             "--zonedir={server_path}/tests/test-data/test_configs"
         ))
         .arg(format!("--port={}", 0));
-    #[cfg(feature = "__dns-over-tls")]
+    #[cfg(feature = "__tls")]
     command.arg(format!("--tls-port={}", 0));
-    #[cfg(feature = "__dns-over-https")]
+    #[cfg(feature = "__https")]
     command.arg(format!("--https-port={}", 0));
-    #[cfg(feature = "__dns-over-quic")]
+    #[cfg(feature = "__quic")]
     command.arg(format!("--quic-port={}", 0));
 
     println!("named cli options: {command:#?}");
@@ -187,11 +187,11 @@ where
             match proto {
                 "UDP" => socket_ports.put(Protocol::Udp, socket_addr),
                 "TCP" => socket_ports.put(Protocol::Tcp, socket_addr),
-                #[cfg(feature = "__dns-over-tls")]
+                #[cfg(feature = "__tls")]
                 "TLS" => socket_ports.put(Protocol::Tls, socket_addr),
-                #[cfg(feature = "__dns-over-https")]
+                #[cfg(feature = "__https")]
                 "HTTPS" => socket_ports.put(Protocol::Https, socket_addr),
-                #[cfg(feature = "__dns-over-quic")]
+                #[cfg(feature = "__quic")]
                 "QUIC" => socket_ports.put(Protocol::Quic, socket_addr),
                 _ => panic!("unsupported protocol: {proto}"),
             }

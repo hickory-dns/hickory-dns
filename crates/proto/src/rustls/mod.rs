@@ -47,16 +47,13 @@ pub fn client_config() -> ClientConfig {
 }
 
 /// Instantiate a new [`CryptoProvider`] for use with rustls
-#[cfg(all(
-    feature = "dns-over-rustls-aws-lc-rs",
-    not(feature = "dns-over-rustls-ring")
-))]
+#[cfg(all(feature = "tls-aws-lc-rs", not(feature = "tls-ring")))]
 pub fn default_provider() -> CryptoProvider {
     crypto::aws_lc_rs::default_provider()
 }
 
 /// Instantiate a new [`CryptoProvider`] for use with rustls
-#[cfg(feature = "dns-over-rustls-ring")]
+#[cfg(feature = "tls-ring")]
 pub fn default_provider() -> CryptoProvider {
     crypto::ring::default_provider()
 }

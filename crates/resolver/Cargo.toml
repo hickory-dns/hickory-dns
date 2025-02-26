@@ -29,20 +29,20 @@ default = ["system-config", "tokio"]
 async-std = ["dep:async-std", "hickory-proto/async-std"]
 backtrace = ["dep:backtrace", "hickory-proto/backtrace"]
 
-dns-over-rustls-aws-lc-rs = ["hickory-proto/dns-over-rustls-aws-lc-rs", "__dns-over-tls"]
-dns-over-https-rustls-aws-lc-rs = ["hickory-proto/dns-over-https-rustls-aws-lc-rs", "__dns-over-https"]
-dns-over-quic-aws-lc-rs = ["hickory-proto/dns-over-quic-aws-lc-rs", "__dns-over-quic"]
-dns-over-h3-aws-lc-rs = ["hickory-proto/dns-over-h3-aws-lc-rs", "__dns-over-h3"]
+tls-aws-lc-rs = ["hickory-proto/tls-aws-lc-rs", "__tls"]
+https-aws-lc-rs = ["hickory-proto/https-aws-lc-rs", "__https"]
+quic-aws-lc-rs = ["hickory-proto/quic-aws-lc-rs", "__quic"]
+h3-aws-lc-rs = ["hickory-proto/h3-aws-lc-rs", "__h3"]
 
-dns-over-rustls-ring = ["hickory-proto/dns-over-rustls-ring", "__dns-over-tls"]
-dns-over-https-rustls-ring = ["hickory-proto/dns-over-https-rustls-ring", "__dns-over-https"]
-dns-over-quic-ring = ["hickory-proto/dns-over-quic-ring", "__dns-over-quic"]
-dns-over-h3-ring = ["hickory-proto/dns-over-h3-ring", "__dns-over-h3"]
+tls-ring = ["hickory-proto/tls-ring", "__tls"]
+https-ring = ["hickory-proto/https-ring", "__https"]
+quic-ring = ["hickory-proto/quic-ring", "__quic"]
+h3-ring = ["hickory-proto/h3-ring", "__h3"]
 
-__dns-over-tls = ["dep:rustls", "dep:tokio-rustls", "tokio"]
-__dns-over-https = ["__dns-over-tls"]
-__dns-over-quic = ["dep:quinn", "__dns-over-tls"]
-__dns-over-h3 = ["__dns-over-quic"]
+__tls = ["dep:rustls", "dep:tokio-rustls", "tokio"]
+__https = ["__tls"]
+__quic = ["dep:quinn", "__tls"]
+__h3 = ["__quic"]
 
 webpki-roots = ["dep:webpki-roots", "hickory-proto/webpki-roots"]
 rustls-platform-verifier = ["hickory-proto/rustls-platform-verifier"]
@@ -125,4 +125,4 @@ workspace = true
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true
 max_combination_size = 2
-denylist = ["__dns-over-tls", "__dns-over-https", "__dns-over-quic", "__dns-over-h3", "__dnssec"]
+denylist = ["__tls", "__https", "__quic", "__h3", "__dnssec"]

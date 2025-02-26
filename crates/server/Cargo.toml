@@ -39,58 +39,58 @@ sqlite = ["rusqlite"]
 blocklist = ["resolver"]
 toml = ["dep:toml"]
 
-dns-over-rustls-aws-lc-rs = [
-    "hickory-proto/dns-over-rustls-aws-lc-rs",
-    "hickory-resolver?/dns-over-rustls-aws-lc-rs",
-    "__dns-over-tls",
+tls-aws-lc-rs = [
+    "hickory-proto/tls-aws-lc-rs",
+    "hickory-resolver?/tls-aws-lc-rs",
+    "__tls",
 ]
-dns-over-https-rustls-aws-lc-rs = [
-    "hickory-proto/dns-over-https-rustls-aws-lc-rs",
-    "hickory-resolver?/dns-over-https-rustls-aws-lc-rs",
-    "dns-over-rustls-aws-lc-rs",
-    "__dns-over-https",
+https-aws-lc-rs = [
+    "hickory-proto/https-aws-lc-rs",
+    "hickory-resolver?/https-aws-lc-rs",
+    "tls-aws-lc-rs",
+    "__https",
 ]
-dns-over-quic-aws-lc-rs = [
-    "hickory-proto/dns-over-quic-aws-lc-rs",
-    "hickory-resolver?/dns-over-quic-aws-lc-rs",
-    "dns-over-rustls-aws-lc-rs",
-    "__dns-over-quic",
+quic-aws-lc-rs = [
+    "hickory-proto/quic-aws-lc-rs",
+    "hickory-resolver?/quic-aws-lc-rs",
+    "tls-aws-lc-rs",
+    "__quic",
 ]
-dns-over-h3-aws-lc-rs = [
-    "hickory-proto/dns-over-h3-aws-lc-rs",
-    "hickory-resolver?/dns-over-h3-aws-lc-rs",
-    "dns-over-quic-aws-lc-rs",
-    "__dns-over-h3",
-]
-
-dns-over-rustls-ring = [
-    "hickory-proto/dns-over-rustls-ring",
-    "hickory-resolver?/dns-over-rustls-ring",
-    "__dns-over-tls",
-]
-dns-over-https-rustls-ring = [
-    "hickory-proto/dns-over-https-rustls-ring",
-    "hickory-resolver?/dns-over-https-rustls-ring",
-    "dns-over-rustls-ring",
-    "__dns-over-https",
-]
-dns-over-quic-ring = [
-    "hickory-proto/dns-over-quic-ring",
-    "hickory-resolver?/dns-over-quic-ring",
-    "dns-over-rustls-ring",
-    "__dns-over-quic",
-]
-dns-over-h3-ring = [
-    "hickory-proto/dns-over-h3-ring",
-    "hickory-resolver?/dns-over-h3-ring",
-    "dns-over-quic-ring",
-    "__dns-over-h3",
+h3-aws-lc-rs = [
+    "hickory-proto/h3-aws-lc-rs",
+    "hickory-resolver?/h3-aws-lc-rs",
+    "quic-aws-lc-rs",
+    "__h3",
 ]
 
-__dns-over-tls = ["dep:rustls", "dep:tokio-rustls"]
-__dns-over-https = ["dep:h2", "dep:http", "__dns-over-tls"]
-__dns-over-quic = ["__dns-over-tls"]
-__dns-over-h3 = ["dep:h3", "dep:h3-quinn", "__dns-over-quic"]
+tls-ring = [
+    "hickory-proto/tls-ring",
+    "hickory-resolver?/tls-ring",
+    "__tls",
+]
+https-ring = [
+    "hickory-proto/https-ring",
+    "hickory-resolver?/https-ring",
+    "tls-ring",
+    "__https",
+]
+quic-ring = [
+    "hickory-proto/quic-ring",
+    "hickory-resolver?/quic-ring",
+    "tls-ring",
+    "__quic",
+]
+h3-ring = [
+    "hickory-proto/h3-ring",
+    "hickory-resolver?/h3-ring",
+    "quic-ring",
+    "__h3",
+]
+
+__tls = ["dep:rustls", "dep:tokio-rustls"]
+__https = ["dep:h2", "dep:http", "__tls"]
+__quic = ["__tls"]
+__h3 = ["dep:h3", "dep:h3-quinn", "__quic"]
 
 dnssec-aws-lc-rs = ["hickory-proto/dnssec-aws-lc-rs", "hickory-recursor?/dnssec-aws-lc-rs", "hickory-resolver?/dnssec-aws-lc-rs", "serde/rc", "__dnssec"]
 dnssec-ring = ["hickory-proto/dnssec-ring", "hickory-recursor?/dnssec-ring", "hickory-resolver?/dnssec-ring", "serde/rc", "__dnssec"]
@@ -150,4 +150,4 @@ workspace = true
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true
 max_combination_size = 2
-denylist = ["__dns-over-tls", "__dns-over-https", "__dns-over-quic", "__dns-over-h3", "__dnssec"]
+denylist = ["__tls", "__https", "__quic", "__h3", "__dnssec"]

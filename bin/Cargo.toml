@@ -38,20 +38,20 @@ recursor = ["hickory-server/recursor"]
 resolver = ["hickory-server/resolver"]
 sqlite = ["hickory-server/sqlite", "dep:rusqlite"]
 
-dns-over-rustls-aws-lc-rs = ["hickory-server/dns-over-rustls-aws-lc-rs", "__dns-over-tls"]
-dns-over-https-rustls-aws-lc-rs = ["hickory-server/dns-over-https-rustls-aws-lc-rs", "dns-over-rustls-aws-lc-rs", "__dns-over-https"]
-dns-over-quic-aws-lc-rs = ["hickory-server/dns-over-quic-aws-lc-rs", "dns-over-rustls-aws-lc-rs", "__dns-over-quic"]
-dns-over-h3-aws-lc-rs = ["hickory-server/dns-over-h3-aws-lc-rs", "dns-over-quic-aws-lc-rs", "__dns-over-h3"]
+tls-aws-lc-rs = ["hickory-server/tls-aws-lc-rs", "__tls"]
+https-aws-lc-rs = ["hickory-server/https-aws-lc-rs", "tls-aws-lc-rs", "__https"]
+quic-aws-lc-rs = ["hickory-server/quic-aws-lc-rs", "tls-aws-lc-rs", "__quic"]
+h3-aws-lc-rs = ["hickory-server/h3-aws-lc-rs", "quic-aws-lc-rs", "__h3"]
 
-dns-over-rustls-ring = ["hickory-server/dns-over-rustls-ring", "__dns-over-tls"]
-dns-over-https-rustls-ring = ["hickory-server/dns-over-https-rustls-ring", "dns-over-rustls-ring", "__dns-over-https"]
-dns-over-quic-ring = ["hickory-server/dns-over-quic-ring", "dns-over-rustls-ring", "__dns-over-quic"]
-dns-over-h3-ring = ["hickory-server/dns-over-h3-ring", "dns-over-quic-ring", "__dns-over-h3"]
+tls-ring = ["hickory-server/tls-ring", "__tls"]
+https-ring = ["hickory-server/https-ring", "tls-ring", "__https"]
+quic-ring = ["hickory-server/quic-ring", "tls-ring", "__quic"]
+h3-ring = ["hickory-server/h3-ring", "quic-ring", "__h3"]
 
-__dns-over-tls = ["dep:rustls"]
-__dns-over-https = []
-__dns-over-quic = []
-__dns-over-h3 = []
+__tls = ["dep:rustls"]
+__https = []
+__quic = []
+__h3 = []
 
 dnssec-aws-lc-rs = ["hickory-server/dnssec-aws-lc-rs", "dep:rustls-pki-types", "__dnssec"]
 dnssec-ring = ["hickory-server/dnssec-ring", "dep:rustls-pki-types", "__dnssec"]
@@ -107,4 +107,4 @@ workspace = true
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true
 max_combination_size = 2
-denylist = ["__dns-over-tls", "__dns-over-https", "__dns-over-quic", "__dns-over-h3", "__dnssec"]
+denylist = ["__tls", "__https", "__quic", "__h3", "__dnssec"]

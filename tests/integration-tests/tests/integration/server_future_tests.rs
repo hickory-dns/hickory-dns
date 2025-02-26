@@ -1,6 +1,6 @@
 use std::future::Future;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-#[cfg(feature = "__dns-over-tls")]
+#[cfg(feature = "__tls")]
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -12,7 +12,7 @@ use hickory_client::client::{Client, ClientHandle};
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
-#[cfg(feature = "__dns-over-tls")]
+#[cfg(feature = "__tls")]
 use rustls::{
     ClientConfig, RootCertStore,
     pki_types::{
@@ -29,7 +29,7 @@ use hickory_integration::example_authority::create_example;
 use hickory_proto::op::{Message, MessageType, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::A;
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
-#[cfg(feature = "__dns-over-tls")]
+#[cfg(feature = "__tls")]
 use hickory_proto::rustls::default_provider;
 use hickory_proto::xfer::{DnsHandle, DnsMultiplexer};
 use hickory_server::ServerFuture;
@@ -199,7 +199,7 @@ async fn test_server_no_response_on_response() {
     server.await.unwrap();
 }
 
-#[cfg(feature = "__dns-over-tls")]
+#[cfg(feature = "__tls")]
 #[allow(unused)]
 fn read_file(path: &str) -> Vec<u8> {
     use std::fs::File;
@@ -214,7 +214,7 @@ fn read_file(path: &str) -> Vec<u8> {
 }
 
 // TODO: move all this to future based clients
-#[cfg(feature = "__dns-over-tls")]
+#[cfg(feature = "__tls")]
 #[tokio::test]
 #[allow(clippy::uninlined_format_args)]
 async fn test_server_www_tls() {
@@ -281,12 +281,12 @@ async fn lazy_tcp_client(addr: SocketAddr) -> Client {
     client
 }
 
-#[cfg(feature = "__dns-over-tls")]
+#[cfg(feature = "__tls")]
 fn read_certs(cert_path: impl AsRef<Path>) -> Result<Vec<CertificateDer<'static>>, pem::Error> {
     CertificateDer::pem_file_iter(cert_path)?.collect::<Result<Vec<_>, _>>()
 }
 
-#[cfg(feature = "__dns-over-tls")]
+#[cfg(feature = "__tls")]
 async fn lazy_tls_client(
     ipaddr: SocketAddr,
     dns_name: String,
@@ -383,7 +383,7 @@ async fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<Atomi
 }
 
 // TODO: need a rustls option
-#[cfg(feature = "__dns-over-tls")]
+#[cfg(feature = "__tls")]
 #[allow(unused)]
 async fn server_thread_tls(
     tls_listener: TcpListener,

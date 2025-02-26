@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 #![cfg(not(windows))]
-#![cfg(feature = "__dns-over-tls")]
+#![cfg(feature = "__tls")]
 
 use std::env;
 use std::fs::File;

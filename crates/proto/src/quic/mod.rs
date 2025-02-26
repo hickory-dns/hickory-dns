@@ -12,7 +12,7 @@ mod quic_config;
 mod quic_server;
 mod quic_stream;
 
-#[cfg(feature = "__dns-over-h3")]
+#[cfg(feature = "__h3")]
 pub(crate) use self::quic_client_stream::connect_quic;
 pub use self::quic_client_stream::{
     QuicClientConnect, QuicClientResponse, QuicClientStream, QuicClientStreamBuilder,

@@ -39,7 +39,7 @@ where
     (Box::pin(stream), handle)
 }
 
-#[cfg(feature = "__dns-over-tls")]
+#[cfg(feature = "__tls")]
 #[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
 #[cfg(test)]
 mod tests {
