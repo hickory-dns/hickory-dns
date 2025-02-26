@@ -661,6 +661,7 @@ mod dnssec {
                 algorithm: Default::default(),
                 salt: Default::default(),
                 iterations: Default::default(),
+                opt_out: false,
             }),
         );
         let key = Ed25519SigningKey::from_pkcs8(
