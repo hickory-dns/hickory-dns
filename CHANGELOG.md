@@ -5,6 +5,48 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.25.0
+
+0.25.0 represents a large release for the Hickory DNS project. Over 14 months since 0.24.0, we've
+added two new maintainers, divergentdave and marcus0x62, and have addressed many limitations.
+A team from Ferrous Systems [shored up our support for
+DNSSEC](https://ferrous-systems.com/blog/hickory-dns-client/), and we addressed a number
+of findings from our first security audit.
+
+### Breaking changes
+
+This is not an exhaustive list of changes, but here are some of the
+most impactful breaking changes in this release:
+
+* Configuration for the Hickory DNS server crate has been reworked substantially to be more
+  robust and secure. Most of the code related to the server binary has been moved out of
+  the hickory-server library and into the hickory-dns binary crate.
+* The synchronous API, which previously provided a thin partial wrapper over the asynchronous API,
+  has been removed. Downstream users will have to migrate to the asynchronous API.
+* Support for TLS using native-tls or OpenSSL has been removed. We now only provide first-party
+  support for rustls (0.23, for DNS over TLS, HTTP/2, QUIC and HTTP/3). We support *ring*
+  or aws-lc-rs for cryptographic operations both for DNSSEC and TLS.
+* The async-std-resolver crate has been removed. Support for the async-std runtime has been
+  subsumed into the hickory-resolver crate.
+* The DNSSEC API was reworked to extend coverage to the recursor, add support for NSEC3,
+  and make the API more ergonomic and harder to misuse.
+* Moved the `RuntimeProvider` API into the proto crate and use it consistently across the project.
+* `Name` values are now rooted by default in many places, and more consistently maintain their
+  `fqdn` status.
+* Error types are now exposed directly in the crate roots.
+* Top-level TLS configuration in the resolver crate has moved to the `ResolverOpts` type.
+  Specific `NameServerConfig`s should implicitly set up the ALPN protocol appropriate for the DNS
+  protocol.
+* The use of rustls-native-certs via the `native-certs` feature was replaced with
+  rustls-platform-verifier.
+* The `tokio-runtime` feature was renamed to `tokio`.
+* The `serde-config` feature was renamed to `serde`.
+* Serializations (and what the new release can deserialize) has changed; data serialized by 0.24
+  may not deserialize correctly on 0.25, and vice versa.
+
+Please don't hesitate to file an [issue](https://github.com/hickory-dns/hickory-dns/issues) or ask
+on our [Discord](https://discord.gg/89nxE4n) server if you have issues upgrading.
+
 ## 0.25.0-alhpa.5
 
 ## What's Changed
