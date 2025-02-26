@@ -620,6 +620,7 @@ async fn build_authoritative_response(
                     algorithm,
                     salt,
                     iterations,
+                    opt_out: _,
                 }) = authority.nx_proof_kind()
                 {
                     // This unwrap will not panic as we know that `answers` is `Some`.
@@ -678,6 +679,7 @@ async fn build_authoritative_response(
                                 algorithm,
                                 salt,
                                 iterations,
+                                opt_out: _,
                             } => authority.get_nsec3_records(
                                 Nsec3QueryInfo {
                                     qname: query.name(),

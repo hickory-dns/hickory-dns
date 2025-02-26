@@ -87,6 +87,9 @@ pub mod dnssec {
             /// The number of hashing iterations.
             #[serde(default)]
             iterations: u16,
+            /// The Opt-Out flag.
+            #[serde(default)]
+            opt_out: bool,
         },
     }
 }
