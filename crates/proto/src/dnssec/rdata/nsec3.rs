@@ -409,7 +409,7 @@ impl fmt::Display for NSEC3 {
             flags = self.flags(),
             iterations = self.iterations,
             salt = salt,
-            owner = data_encoding::BASE32_NOPAD.encode(&self.next_hashed_owner_name)
+            owner = data_encoding::BASE32_DNSSEC.encode(&self.next_hashed_owner_name)
         )?;
 
         for ty in &self.type_bit_maps {
