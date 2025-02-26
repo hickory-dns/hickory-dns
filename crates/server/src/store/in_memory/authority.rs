@@ -777,7 +777,24 @@ impl InnerInMemory {
         let mut record_types = HashMap::new();
         record_types.insert(origin.clone(), ([RecordType::NSEC3PARAM].into(), true));
 
+        let mut delegation_points = HashSet::<LowerName>::new();
+
         for key in self.records.keys() {
+            if !origin.zone_of(&key.name) {
+                // Non-authoritative record outside of zone
+                continue;
+            }
+            if delegation_points
+                .iter()
+                .any(|name| name.zone_of(&key.name) && name != &key.name)
+            {
+                // Non-authoritative record below zone cut
+                continue;
+            }
+            if key.record_type == RecordType::NS && &key.name != origin {
+                delegation_points.insert(key.name.clone());
+            }
+
             // Store the type of the current record under its domain name
             match record_types.entry(key.name.clone()) {
                 Entry::Occupied(mut entry) => {
