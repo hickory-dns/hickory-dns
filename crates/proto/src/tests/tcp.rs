@@ -1,6 +1,9 @@
+use alloc::string::ToString;
+use alloc::sync::Arc;
+use core::sync::atomic::AtomicBool;
 use std::io::{Read, Write};
 use std::net::{IpAddr, SocketAddr};
-use std::sync::{Arc, atomic::AtomicBool};
+use std::println;
 
 use futures_util::stream::StreamExt;
 
@@ -24,8 +27,8 @@ fn tcp_server_setup(
         .spawn(move || {
             let succeeded = succeeded_clone;
             for _ in 0..15 {
-                std::thread::sleep(std::time::Duration::from_secs(1));
-                if succeeded.load(std::sync::atomic::Ordering::Relaxed) {
+                std::thread::sleep(core::time::Duration::from_secs(1));
+                if succeeded.load(core::sync::atomic::Ordering::Relaxed) {
                     return;
                 }
             }
@@ -47,10 +50,10 @@ fn tcp_server_setup(
             let (mut socket, _) = server.accept().expect("accept failed");
 
             socket
-                .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                .set_read_timeout(Some(core::time::Duration::from_secs(5)))
                 .unwrap(); // should receive something within 5 seconds...
             socket
-                .set_write_timeout(Some(std::time::Duration::from_secs(5)))
+                .set_write_timeout(Some(core::time::Duration::from_secs(5)))
                 .unwrap(); // should receive something within 5 seconds...
 
             for _ in 0..SEND_RECV_TIMES {
@@ -111,7 +114,7 @@ pub async fn tcp_stream_test(server_addr: IpAddr, provider: impl RuntimeProvider
         assert_eq!(message.bytes(), TEST_BYTES);
     }
 
-    succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
+    succeeded.store(true, core::sync::atomic::Ordering::Relaxed);
     server_handle.join().expect("server thread failed");
 }
 
@@ -141,6 +144,6 @@ pub async fn tcp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeP
         assert_eq!(buffer.bytes(), TEST_BYTES);
     }
 
-    succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
+    succeeded.store(true, core::sync::atomic::Ordering::Relaxed);
     server_handle.join().expect("server thread failed");
 }

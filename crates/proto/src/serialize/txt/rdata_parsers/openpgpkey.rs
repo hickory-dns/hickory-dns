@@ -34,7 +34,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
 
 #[test]
 fn test_parsing() {
-    assert!(parse(::std::iter::empty()).is_err());
+    assert!(parse(core::iter::empty()).is_err());
     assert!(parse(vec!["äöüäööüä"].into_iter()).is_err());
     assert!(parse(vec!["ZmFpbGVk", "äöüäöüö"].into_iter()).is_err());
 

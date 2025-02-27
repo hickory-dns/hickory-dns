@@ -16,7 +16,8 @@
 
 //! bitmap for expressing the set of supported algorithms in edns.
 
-use std::fmt::{self, Display, Formatter};
+use alloc::vec::Vec;
+use core::fmt::{self, Display, Formatter};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

@@ -7,7 +7,8 @@
 
 //! CDNSKEY type and related implementations
 
-use std::fmt;
+use alloc::vec::Vec;
+use core::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -212,6 +213,9 @@ impl fmt::Display for CDNSKEY {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
+    use alloc::vec::Vec;
+    use std::println;
 
     use crate::{
         dnssec::Algorithm,

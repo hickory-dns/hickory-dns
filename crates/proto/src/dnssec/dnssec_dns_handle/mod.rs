@@ -7,11 +7,10 @@
 
 //! The `DnssecDnsHandle` is used to validate all DNS responses for correct DNSSEC signatures.
 
+use alloc::{borrow::ToOwned, boxed::Box, string::ToString, sync::Arc, vec::Vec};
+use core::{clone::Clone, pin::Pin};
 use std::{
-    clone::Clone,
     collections::{HashMap, HashSet},
-    pin::Pin,
-    sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -1371,6 +1370,8 @@ fn proof_log_yield(proof: Proof, name: &Name, nsec_type: &str, msg: &str) -> Pro
 }
 
 mod rrset {
+    use alloc::vec::Vec;
+
     use crate::rr::{DNSClass, Name, Record, RecordType};
 
     // TODO: combine this with crate::rr::RecordSet?

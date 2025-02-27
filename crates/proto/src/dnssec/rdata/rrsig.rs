@@ -7,7 +7,8 @@
 
 //! RRSIG type and related implementations
 
-use std::{fmt, ops::Deref};
+use alloc::vec::Vec;
+use core::{fmt, ops::Deref};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

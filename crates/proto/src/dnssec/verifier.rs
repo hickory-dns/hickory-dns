@@ -7,7 +7,7 @@
 
 //! Verifier is a structure for performing many of the signing processes of the DNSSEC specification
 
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use super::{
     Algorithm, PublicKey,

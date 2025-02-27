@@ -7,7 +7,7 @@
 
 //! Update related operations for Messages
 
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 use crate::{
     op::{Edns, Message, MessageType, OpCode, Query},

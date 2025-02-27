@@ -7,7 +7,7 @@
 
 //! Extended DNS options
 
-use std::fmt;
+use core::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

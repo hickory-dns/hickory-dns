@@ -8,13 +8,13 @@
 //! option record for passing protocol options between the client and server
 #![allow(clippy::use_self)]
 
-use std::fmt;
+use alloc::vec::Vec;
+use core::fmt;
+use core::str::FromStr;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::str::FromStr;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-
 use tracing::warn;
 
 use crate::{
@@ -781,6 +781,8 @@ impl FromStr for ClientSubnet {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
+    use std::println;
 
     use super::*;
 

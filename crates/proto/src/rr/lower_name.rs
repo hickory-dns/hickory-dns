@@ -7,11 +7,13 @@
 
 //! domain name, aka labels, implementation
 
-use std::cmp::{Ordering, PartialEq};
-use std::fmt;
-use std::hash::{Hash, Hasher};
-use std::ops::Deref;
-use std::str::FromStr;
+#[cfg(feature = "serde")]
+use alloc::string::{String, ToString};
+use core::cmp::{Ordering, PartialEq};
+use core::fmt;
+use core::hash::{Hash, Hasher};
+use core::ops::Deref;
+use core::str::FromStr;
 
 use crate::error::*;
 #[cfg(feature = "serde")]

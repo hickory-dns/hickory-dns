@@ -8,7 +8,8 @@
 //! TSIG for secret key authentication of transaction
 #![allow(clippy::use_self)]
 
-use std::{convert::TryInto, fmt};
+use alloc::vec::Vec;
+use core::{convert::TryInto, fmt};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -737,6 +738,8 @@ pub fn make_tsig_record(name: Name, rdata: TSIG) -> Record {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
+    use std::println;
 
     use super::*;
     use crate::rr::Record;

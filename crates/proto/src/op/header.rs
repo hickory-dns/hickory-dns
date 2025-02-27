@@ -7,7 +7,9 @@
 
 //! Message metadata
 
-use std::{convert::From, fmt};
+#[cfg(test)]
+use alloc::vec::Vec;
+use core::{convert::From, fmt};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

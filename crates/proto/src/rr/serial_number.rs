@@ -1,6 +1,6 @@
 //! Number type to support Serial Number Arithmetics
 
-use std::{cmp::Ordering, ops::Add};
+use core::{cmp::Ordering, ops::Add};
 
 /// Wrapper type to support Serial Number Arithmetics as defined
 /// in RFC 1982. The signaure fields (expireation, inception) defined in RFC 4034, section 3.1.5

@@ -6,9 +6,10 @@
 // copied, modified, or distributed except according to those terms.
 
 //! signer is a structure for performing many of the signing processes of the DNSSEC specification
-use tracing::debug;
+use alloc::{boxed::Box, vec::Vec};
+use core::time::Duration;
 
-use std::time::Duration;
+use tracing::debug;
 
 use super::{DnsSecResult, SigningKey};
 use crate::{
@@ -536,6 +537,8 @@ impl MessageFinalizer for SigSigner {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
+    use std::println;
 
     use rustls_pki_types::PrivatePkcs8KeyDer;
 

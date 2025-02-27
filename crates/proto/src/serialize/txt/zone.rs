@@ -5,12 +5,16 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::{
+use alloc::{
     borrow::Cow,
     collections::BTreeMap,
-    fs, mem,
+    string::{String, ToString},
+    vec::Vec,
+};
+use core::{mem, str::FromStr};
+use std::{
+    fs,
     path::{Path, PathBuf},
-    str::FromStr,
 };
 
 use crate::{
@@ -527,6 +531,8 @@ const MAX_INCLUDE_LEVEL: usize = 256;
 
 #[cfg(test)]
 mod tests {
+    use alloc::string::ToString;
+
     use super::*;
 
     #[test]

@@ -7,7 +7,8 @@
 
 //! resource record implementation
 
-use std::{cmp::Ordering, convert::TryFrom, fmt};
+use alloc::borrow::ToOwned;
+use core::{cmp::Ordering, convert::TryFrom, fmt};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -820,8 +821,10 @@ impl<'a, R: RecordData> TryFrom<&'a Record> for RecordRef<'a, R> {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    use std::cmp::Ordering;
-    use std::str::FromStr;
+    use alloc::vec::Vec;
+    use core::cmp::Ordering;
+    use core::str::FromStr;
+    use std::println;
 
     use super::*;
     use crate::rr::Name;
@@ -892,7 +895,7 @@ mod tests {
     #[test]
     fn test_mdns_cache_flush_bit_handling() {
         const RR_CLASS_OFFSET: usize = 1 /* empty name */ +
-            std::mem::size_of::<u16>() /* rr_type */;
+            core::mem::size_of::<u16>() /* rr_type */;
 
         let mut record = Record::<RData>::stub();
         record.set_mdns_cache_flush(true);

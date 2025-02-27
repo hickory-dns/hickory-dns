@@ -9,14 +9,16 @@
 //!
 //! A label is stored internally as ascii, where all unicode characters are converted to punycode internally.
 
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::borrow::Borrow;
+use core::cmp::{Ordering, PartialEq};
+use core::fmt::{self, Debug, Display, Formatter, Write};
+use core::hash::{Hash, Hasher};
 #[allow(clippy::useless_attribute)]
 #[allow(unused)]
 #[allow(deprecated)]
 use std::ascii::AsciiExt;
-use std::borrow::Borrow;
-use std::cmp::{Ordering, PartialEq};
-use std::fmt::{self, Debug, Display, Formatter, Write};
-use std::hash::{Hash, Hasher};
 
 use idna::uts46::{AsciiDenyList, DnsLength, Hyphens, Uts46};
 use tinyvec::TinyVec;
@@ -368,6 +370,9 @@ impl IntoLabel for Vec<u8> {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
+    use alloc::string::ToString;
+    use std::{eprintln, println};
 
     use super::*;
 
