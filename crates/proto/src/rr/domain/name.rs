@@ -19,10 +19,12 @@ use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use tinyvec::TinyVec;
 
-use crate::error::*;
+use crate::error::{ProtoError, ProtoErrorKind, ProtoResult};
 use crate::rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
 use crate::rr::domain::usage::LOCALHOST as LOCALHOST_usage;
-use crate::serialize::binary::*;
+use crate::serialize::binary::{
+    BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict,
+};
 
 /// A domain name
 #[derive(Clone, Default, Eq)]
