@@ -14,14 +14,15 @@ use std::hash::{Hash, Hasher};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
-use crate::error::*;
-use crate::rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
-use crate::rr::domain::usage::LOCALHOST as LOCALHOST_usage;
-use crate::serialize::binary::*;
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use tinyvec::TinyVec;
+
+use crate::error::*;
+use crate::rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
+use crate::rr::domain::usage::LOCALHOST as LOCALHOST_usage;
+use crate::serialize::binary::*;
 
 /// A domain name
 #[derive(Clone, Default, Eq)]
