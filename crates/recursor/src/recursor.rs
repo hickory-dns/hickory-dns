@@ -49,6 +49,7 @@ pub struct RecursorBuilder {
     deny_servers: Vec<IpNet>,
     avoid_local_udp_ports: HashSet<u16>,
     ttl_config: TtlConfig,
+    case_randomization: bool,
 }
 
 impl RecursorBuilder {
@@ -111,6 +112,15 @@ impl RecursorBuilder {
         self
     }
 
+    /// Enable case randomization.
+    ///
+    /// Sets whether to randomize the case of letters in query names, and require that responses
+    /// preserve the case.
+    pub fn case_randomization(mut self, case_randomization: bool) -> Self {
+        self.case_randomization = case_randomization;
+        self
+    }
+
     /// Construct a new recursor using the list of NameServerConfigs for the root node list
     ///
     /// # Panics
@@ -155,6 +165,7 @@ impl Recursor {
             deny_servers,
             avoid_local_udp_ports,
             ttl_config,
+            case_randomization,
         } = builder;
 
         let handle = RecursorDnsHandle::new(
@@ -168,6 +179,7 @@ impl Recursor {
             deny_servers,
             Arc::new(avoid_local_udp_ports),
             ttl_config,
+            case_randomization,
         );
 
         let mode = match dnssec_policy {
@@ -490,6 +502,7 @@ impl Default for RecursorBuilder {
             deny_servers: vec![],
             avoid_local_udp_ports: HashSet::new(),
             ttl_config: TtlConfig::default(),
+            case_randomization: false,
         }
     }
 }
