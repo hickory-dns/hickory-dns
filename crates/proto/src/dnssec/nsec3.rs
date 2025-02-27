@@ -17,6 +17,8 @@
 
 //! NSEC3 related record types
 
+use alloc::vec::Vec;
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -175,12 +177,13 @@ impl From<Nsec3HashAlgorithm> for u8 {
 
 #[cfg(test)]
 mod tests {
+    use alloc::string::String;
+    use core::str::FromStr;
+
     use super::*;
 
     #[test]
     fn test_hash() {
-        use std::str::FromStr;
-
         let name = Name::from_str("www.example.com").unwrap();
         let salt: Vec<u8> = vec![1, 2, 3, 4];
 

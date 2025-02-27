@@ -16,6 +16,7 @@
 
 //! mail exchange, email, record
 
+use alloc::string::ToString;
 use tracing::warn;
 
 use crate::rr::rdata::CAA;
@@ -100,8 +101,10 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
 
 #[cfg(test)]
 mod tests {
+
     use crate::rr::{Name, RData, RecordType, rdata::caa::KeyValue};
     use crate::serialize::txt::parse_rdata::RDataParser;
+    use alloc::string::ToString;
 
     use super::*;
 

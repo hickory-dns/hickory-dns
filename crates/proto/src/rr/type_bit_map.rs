@@ -7,10 +7,12 @@
 
 //! type bit map helper definitions
 
+use alloc::collections::BTreeMap;
+use alloc::vec::Vec;
+
 use crate::error::*;
 use crate::rr::RecordType;
 use crate::serialize::binary::*;
-use std::collections::BTreeMap;
 
 enum BitMapReadState {
     Window,

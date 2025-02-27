@@ -5,8 +5,9 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::{iter::Chain, slice::Iter, vec};
-
+use alloc::vec;
+use alloc::vec::Vec;
+use core::{iter::Chain, slice::Iter};
 use tracing::{info, warn};
 
 use crate::rr::{DNSClass, Name, RData, Record, RecordType};
@@ -543,9 +544,9 @@ impl<'r> Iterator for RrsetRecords<'r> {
 
 #[cfg(test)]
 mod test {
-    use std::net::Ipv4Addr;
-    use std::str::FromStr;
+    use alloc::str::FromStr;
 
+    use crate::net::Ipv4Addr;
     use crate::rr::rdata::{CNAME, NS, SOA};
     use crate::rr::*;
 

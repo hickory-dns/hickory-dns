@@ -1,13 +1,14 @@
 //! Abstractions to deal with different async runtimes.
 
-use std::future::Future;
-use std::io;
-use std::marker::Send;
-use std::net::SocketAddr;
-use std::pin::Pin;
+use alloc::boxed::Box;
 #[cfg(feature = "__quic")]
-use std::sync::Arc;
-use std::time::Duration;
+use alloc::sync::Arc;
+use core::future::Future;
+use core::marker::Send;
+use core::pin::Pin;
+use core::time::Duration;
+use std::io;
+use std::net::SocketAddr;
 
 use async_trait::async_trait;
 #[cfg(any(test, feature = "tokio"))]
@@ -31,9 +32,9 @@ pub fn spawn_bg<F: Future<Output = R> + Send + 'static, R: Send + 'static>(
 #[cfg(feature = "tokio")]
 #[doc(hidden)]
 pub mod iocompat {
+    use core::pin::Pin;
+    use core::task::{Context, Poll};
     use std::io;
-    use std::pin::Pin;
-    use std::task::{Context, Poll};
 
     use futures_io::{AsyncRead, AsyncWrite};
     use tokio::io::{AsyncRead as TokioAsyncRead, AsyncWrite as TokioAsyncWrite, ReadBuf};
@@ -112,7 +113,8 @@ pub mod iocompat {
 #[cfg(feature = "tokio")]
 #[allow(unreachable_pub)]
 mod tokio_runtime {
-    use std::sync::{Arc, Mutex};
+    use alloc::sync::Arc;
+    use std::sync::Mutex;
 
     use futures_util::FutureExt;
     #[cfg(feature = "__quic")]

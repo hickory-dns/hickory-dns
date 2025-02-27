@@ -8,9 +8,12 @@
 //! class of DNS operations, in general always IN for internet
 #![allow(clippy::use_self)]
 
-use std::cmp::Ordering;
-use std::fmt::{self, Display, Formatter};
-use std::str::FromStr;
+use alloc::string::ToString;
+use core::{
+    cmp::Ordering,
+    fmt::{self, Display, Formatter},
+    str::FromStr,
+};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

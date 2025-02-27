@@ -6,9 +6,10 @@
 // copied, modified, or distributed except according to those terms.
 
 //! signer is a structure for performing many of the signing processes of the DNSSEC specification
-use tracing::debug;
+use alloc::{boxed::Box, vec::Vec};
+use core::time::Duration;
 
-use std::time::Duration;
+use tracing::debug;
 
 use super::{DnsSecResult, SigningKey};
 use crate::{
@@ -537,6 +538,9 @@ impl MessageFinalizer for SigSigner {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    #[cfg(feature = "std")]
+    use std::println;
+
     use rustls_pki_types::PrivatePkcs8KeyDer;
 
     use super::*;
@@ -593,6 +597,7 @@ mod tests {
 
         let pre_sig0 = pre_sig0(&signer, 0, 300);
         let sig = signer.sign_message(&question, &pre_sig0).unwrap();
+        #[cfg(feature = "std")]
         println!("sig: {sig:?}");
 
         assert!(!sig.is_empty());
@@ -605,6 +610,7 @@ mod tests {
         assert!(!question.sig0().is_empty());
 
         let sig = signer.sign_message(&question, &pre_sig0);
+        #[cfg(feature = "std")]
         println!("sig after sign: {sig:?}");
 
         if let RData::DNSSEC(DNSSECRData::SIG(sig)) = question.sig0()[0].data() {

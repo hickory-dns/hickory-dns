@@ -8,17 +8,17 @@
 //! option record for passing protocol options between the client and server
 #![allow(clippy::use_self)]
 
-use std::fmt;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::str::FromStr;
+use alloc::vec::Vec;
+use core::fmt;
+use core::str::FromStr;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-
 use tracing::warn;
 
 use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict},
 };
@@ -782,6 +782,9 @@ impl FromStr for ClientSubnet {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    #[cfg(feature = "std")]
+    use std::println;
+
     use super::*;
 
     #[test]
@@ -795,6 +798,7 @@ mod tests {
         assert!(rdata.emit(&mut encoder).is_ok());
         let bytes = encoder.into_bytes();
 
+        #[cfg(feature = "std")]
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
@@ -875,6 +879,7 @@ mod tests {
         let expected_bytes: Vec<u8> = vec![0x00, 0x01, 0x18, 0x00, 0xac, 0x01, 0x01];
         let ecs: ClientSubnet = "172.1.1.1/24".parse().unwrap();
         let bytes = Vec::<u8>::try_from(&ecs).unwrap();
+        #[cfg(feature = "std")]
         println!("bytes: {bytes:?}");
         assert_eq!(bytes, expected_bytes);
     }

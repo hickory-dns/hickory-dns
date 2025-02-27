@@ -7,17 +7,21 @@
 
 //! domain name, aka labels, implementation
 
-use std::char;
-use std::cmp::{Ordering, PartialEq};
-use std::fmt::{self, Write};
-use std::hash::{Hash, Hasher};
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::str::FromStr;
+#[cfg(feature = "serde")]
+use alloc::string::ToString;
+use alloc::{string::String, vec::Vec};
+use core::char;
+use core::cmp::{Ordering, PartialEq};
+use core::fmt::{self, Write};
+use core::hash::{Hash, Hasher};
+use core::str::FromStr;
 
 use crate::error::*;
+use crate::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use crate::rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
 use crate::rr::domain::usage::LOCALHOST as LOCALHOST_usage;
 use crate::serialize::binary::*;
+
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
@@ -64,6 +68,7 @@ impl Name {
     }
 
     /// Randomize the case of ASCII alpha characters in a name
+    #[cfg(feature = "std")]
     pub fn randomize_label_case(&mut self) {
         // Generate randomness 32 bits at a time, because this is the smallest unit on which the
         // `rand` crate operates. One RNG call should be enough for most queries.
@@ -871,19 +876,19 @@ impl Name {
         let first = iter
             .next()
             .ok_or_else(|| ProtoError::from("not an arpa address"))?;
-        if !"arpa".eq_ignore_ascii_case(std::str::from_utf8(first)?) {
+        if !"arpa".eq_ignore_ascii_case(core::str::from_utf8(first)?) {
             return Err("not an arpa address".into());
         }
         let second = iter
             .next()
             .ok_or_else(|| ProtoError::from("invalid arpa address"))?;
         let mut prefix_len: u8 = 0;
-        match &std::str::from_utf8(second)?.to_ascii_lowercase()[..] {
+        match &core::str::from_utf8(second)?.to_ascii_lowercase()[..] {
             "in-addr" => {
                 let mut octets: [u8; 4] = [0; 4];
                 for octet in octets.iter_mut() {
                     match iter.next() {
-                        Some(label) => *octet = std::str::from_utf8(label)?.parse()?,
+                        Some(label) => *octet = core::str::from_utf8(label)?.parse()?,
                         None => break,
                     }
                     prefix_len += 8;
@@ -902,7 +907,7 @@ impl Name {
                         Some(label) => {
                             if label.len() == 1 {
                                 prefix_len += 4;
-                                let hex = u8::from_str_radix(std::str::from_utf8(label)?, 16)?;
+                                let hex = u8::from_str_radix(core::str::from_utf8(label)?, 16)?;
                                 address |= u128::from(hex) << (128 - prefix_len);
                             } else {
                                 return Err("invalid label length for ip6.arpa".into());
@@ -1019,8 +1024,8 @@ impl Name {
     }
 }
 
-impl std::fmt::Debug for Name {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for Name {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str("Name(\"")?;
         self.write_labels::<_, LabelEncUtf8>(f)?;
         f.write_str("\")")
@@ -1525,10 +1530,11 @@ impl<'de> Deserialize<'de> for Name {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    use std::cmp::Ordering;
-    use std::collections::hash_map::DefaultHasher;
-    use std::iter;
-    use std::str::FromStr;
+    use alloc::string::ToString;
+    use core::cmp::Ordering;
+    use core::iter;
+    #[cfg(feature = "std")]
+    use std::{collections::hash_map::DefaultHasher, println};
 
     use super::*;
 
@@ -1756,6 +1762,7 @@ mod tests {
         ];
 
         for (left, right) in comparisons {
+            #[cfg(feature = "std")]
             println!("left: {left}, right: {right}");
             assert_eq!(left.partial_cmp(&right), Some(Ordering::Equal));
         }
@@ -1799,6 +1806,7 @@ mod tests {
         ];
 
         for (left, right) in comparisons {
+            #[cfg(feature = "std")]
             println!("left: {left}, right: {right}");
             assert_eq!(left.cmp(&right), Ordering::Less);
         }
@@ -1818,6 +1826,7 @@ mod tests {
         ];
 
         for (left, right) in comparisons {
+            #[cfg(feature = "std")]
             println!("left: {left}, right: {right}");
             assert_eq!(left, right);
         }
@@ -2232,6 +2241,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn test_label_randomization() {
         let mut name = Name::root();
         name.randomize_label_case();
@@ -2330,6 +2340,7 @@ mod tests {
         assert!(max_zscore < 0.33);
     }
 
+    #[cfg(feature = "std")]
     fn std_deviation(mean: f64, data: &[f64]) -> f64 {
         match (mean, data.len()) {
             (data_mean, count) if count > 0 => {
@@ -2384,7 +2395,7 @@ mod tests {
 
     #[test]
     fn test_name_partialord_constraints() {
-        use std::cmp::Ordering::*;
+        use core::cmp::Ordering::*;
 
         let example_fqdn = Name::from_utf8("example.com.").unwrap();
         let foo_example_fqdn = Name::from_utf8("foo.example.com.").unwrap();
@@ -2450,7 +2461,7 @@ mod tests {
 
     #[test]
     fn test_name_ord_constraints() {
-        use std::cmp;
+        use core::cmp;
 
         let example_fqdn = Name::from_utf8("example.com.").unwrap();
         let foo_example_fqdn = Name::from_utf8("foo.example.com.").unwrap();
@@ -2552,6 +2563,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn test_hash() {
         // verify that two identical names with and without the trailing dot hashes to the same value
         let mut hasher = DefaultHasher::new();
