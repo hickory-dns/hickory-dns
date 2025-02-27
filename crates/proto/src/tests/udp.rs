@@ -13,8 +13,7 @@ use crate::rr::{Name, RData, Record, RecordType};
 use crate::runtime::RuntimeProvider;
 use crate::udp::{UdpClientStream, UdpStream};
 use crate::xfer::dns_handle::DnsStreamHandle;
-use crate::xfer::{DnsRequest, DnsRequestSender};
-use crate::xfer::{DnsRequestOptions, FirstAnswer, SerialMessage};
+use crate::xfer::{DnsRequest, DnsRequestOptions, DnsRequestSender, FirstAnswer, SerialMessage};
 
 /// Test next random udpsocket.
 pub async fn next_random_socket_test(provider: impl RuntimeProvider) {
