@@ -122,6 +122,7 @@ hickory-server = { workspace = true, features = ["testing"] }
 webpki-roots = { workspace = true, optional = true }
 
 [dev-dependencies]
+data-encoding.workspace = true
 futures = { workspace = true, features = ["thread-pool"] }
 tokio = { workspace = true, features = ["macros", "rt"] }
 test-support.workspace = true

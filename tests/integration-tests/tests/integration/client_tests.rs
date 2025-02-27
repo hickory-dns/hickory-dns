@@ -428,59 +428,6 @@ async fn test_nsec3_no_data() {
     assert_eq!(response.response_code(), ResponseCode::NoError);
 }
 
-#[tokio::test]
-#[ignore = "flaky test against internet server"]
-#[cfg(feature = "__dnssec")]
-async fn test_nsec3_query_name_is_soa_name() {
-    subscribe();
-
-    let name = Name::from_labels("valid.extended-dns-errors.com".split(".")).unwrap();
-
-    let mut client = tcp_dnssec_client(GOOGLE_V4).await;
-    let response = client
-        .query(name, DNSClass::IN, RecordType::PTR)
-        .await
-        .expect("Query failed");
-
-    // the name "valid.extended-dns-errors.com" exists but there's no PTR record on it
-    assert_eq!(response.response_code(), ResponseCode::NoError);
-}
-
-// TODO: disabled until I decide what to do with NSEC3 see issue #10
-//
-// TODO these NSEC3 tests don't work, it seems that the zone is not signed properly.
-// #[test]
-// #[ignore]
-// fn test_nsec3_sdsmt() {
-//   let addr: SocketAddr = ("75.75.75.75",53).to_socket_addrs().unwrap().next().unwrap();
-//   let conn = TcpClientConnection::new(addr, TokioRuntimeProvider::new()).unwrap();
-//   let name = Name::from_labels(vec!["none", "sdsmt", "edu"]);
-//   let client = Client::new(conn);
-//
-//   let response = client.secure_query(&name, DNSClass::IN, RecordType::NS);
-//   assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
-//
-//   let response = response.unwrap();
-//   assert_eq!(response.get_response_code(), ResponseCode::NXDomain);
-// }
-
-// TODO: disabled until I decide what to do with NSEC3 see issue #10
-//
-// #[test]
-// #[ignore]
-// fn test_nsec3_sdsmt_type() {
-//   let addr: SocketAddr = ("75.75.75.75",53).to_socket_addrs().unwrap().next().unwrap();
-//   let conn = TcpClientConnection::new(addr, TokioRuntimeProvider::new()).unwrap();
-//   let name = Name::from_labels(vec!["www", "sdsmt", "edu"]);
-//   let client = Client::new(conn);
-//
-//   let response = client.secure_query(&name, DNSClass::IN, RecordType::NS);
-//   assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
-//
-//   let response = response.unwrap();
-//   assert_eq!(response.get_response_code(), ResponseCode::NXDomain);
-// }
-
 #[allow(deprecated)]
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
