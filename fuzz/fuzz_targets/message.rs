@@ -3,7 +3,7 @@ use libfuzzer_sys::fuzz_target;
 
 use hickory_proto::{
     op::Message,
-    rr::{Record, RecordType},
+    rr::Record,
     serialize::binary::{BinDecodable, BinEncodable},
 };
 
@@ -85,13 +85,6 @@ fn record_equal(record1: &Record, record2: &Record) -> bool {
 
     if record1.record_type() != record2.record_type() {
         return false;
-    }
-
-    // FIXME: evaluate why these don't work
-    // record types we're skipping for now
-    match record1.record_type() {
-        RecordType::CSYNC => return true,
-        _ => (),
     }
 
     // if the record data matches, we're fine
