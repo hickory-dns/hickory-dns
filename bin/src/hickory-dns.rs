@@ -46,6 +46,8 @@ use std::{
 use clap::Parser;
 use socket2::{Domain, Socket, Type};
 use time::OffsetDateTime;
+#[cfg(unix)]
+use tokio::signal::unix::{SignalKind, signal};
 use tokio::{
     net::{TcpListener, UdpSocket},
     runtime,
@@ -200,6 +202,12 @@ fn run() -> Result<(), String> {
         .build()
         .map_err(|err| format!("failed to initialize Tokio runtime: {err}"))?;
 
+    let _guard = runtime.enter();
+
+    #[cfg(unix)]
+    let mut signal = signal(SignalKind::terminate())
+        .map_err(|e| format!("failed to register signal handler: {e}"))?;
+
     let mut catalog: Catalog = Catalog::new();
     // configure our server based on the config_path
     for zone in config.zones() {
@@ -244,8 +252,6 @@ fn run() -> Result<(), String> {
     // now, run the server, based on the config
     #[cfg_attr(not(feature = "__tls"), allow(unused_mut))]
     let mut server = ServerFuture::with_access(catalog, deny_networks, allow_networks);
-
-    let _guard = runtime.enter();
 
     if !args.disable_udp && !config.disable_udp() {
         // load all udp listeners
@@ -349,6 +355,15 @@ fn run() -> Result<(), String> {
     #[cfg(not(target_family = "unix"))]
     if config.user.is_some() || config.group.is_some() {
         return Err("dropping privileges is only supported on Unix systems".to_string());
+    }
+
+    #[cfg(unix)]
+    {
+        let token = server.shutdown_token().clone();
+        tokio::spawn(async move {
+            signal.recv().await;
+            token.cancel();
+        });
     }
 
     // config complete, starting!
