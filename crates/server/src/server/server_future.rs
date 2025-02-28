@@ -733,6 +733,14 @@ impl<T: RequestHandler> ServerFuture<T> {
         block_until_done(&mut self.join_set).await
     }
 
+    /// Returns a reference to the [`CancellationToken`] used to gracefully shut down the server.
+    ///
+    /// Once cancellation is requested, all background tasks will stop accepting new connections,
+    /// and `block_until_done()` will complete once all tasks have terminated.
+    pub fn shutdown_token(&self) -> &CancellationToken {
+        &self.shutdown_token
+    }
+
     /// This will run until all background tasks complete. If one or more tasks return an error,
     /// one will be chosen as the returned error for this future.
     pub async fn block_until_done(&mut self) -> Result<(), ProtoError> {
