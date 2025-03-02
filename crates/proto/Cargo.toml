@@ -25,6 +25,8 @@ categories.workspace = true
 license.workspace = true
 
 [features]
+std = []
+
 async-std = ["dep:async-std", "dep:pin-utils", "dep:socket2"]
 
 tls-aws-lc-rs = ["tokio-rustls/aws-lc-rs", "__tls"]

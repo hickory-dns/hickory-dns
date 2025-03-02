@@ -32,7 +32,7 @@ hickory-client = { version = "0.25", path = "crates/client", default-features = 
 hickory-recursor = { version = "0.25", path = "crates/recursor", default-features = false }
 hickory-resolver = { version = "0.25", path = "crates/resolver", default-features = false }
 hickory-server = { version = "0.25", path = "crates/server", default-features = false }
-hickory-proto = { version = "0.25", path = "crates/proto", default-features = false }
+hickory-proto = { version = "0.25", path = "crates/proto", default-features = false, features = ["std"] }
 test-support.path = "tests/test-support"
 
 

@@ -14,7 +14,10 @@ use core::char;
 use core::cmp::{Ordering, PartialEq};
 use core::fmt::{self, Write};
 use core::hash::{Hash, Hasher};
+#[cfg(not(feature = "std"))]
+use core::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use core::str::FromStr;
+#[cfg(feature = "std")]
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
