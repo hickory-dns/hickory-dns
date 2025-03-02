@@ -544,7 +544,10 @@ impl<'r> Iterator for RrsetRecords<'r> {
 
 #[cfg(test)]
 mod test {
+    #[cfg(not(feature = "std"))]
+    use core::net::Ipv4Addr;
     use core::str::FromStr;
+    #[cfg(feature = "std")]
     use std::net::Ipv4Addr;
 
     use crate::rr::rdata::{CNAME, NS, SOA};
