@@ -10,7 +10,10 @@
 
 use alloc::vec::Vec;
 use core::fmt;
+#[cfg(not(feature = "std"))]
+use core::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use core::str::FromStr;
+#[cfg(feature = "std")]
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 #[cfg(feature = "serde")]

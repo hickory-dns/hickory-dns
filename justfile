@@ -27,6 +27,10 @@ all-features: (default "--all-features")
 # Check, build, and test all crates with no-default-features
 no-default-features: (default "--no-default-features" "--ignore=\\{hickory-compatibility\\}")
 
+# Check, build, and test all crates with no-default-features, but with std features enabled
+std: (default "--no-default-features" "--ignore=\\{hickory-compatibility,hickory-proto\\}")
+    cargo {{MSRV}} test --locked --package hickory-proto --no-default-features --features="std"
+
 # Check, build, and test all crates with tls-aws-lc-rs enabled
 tls-aws-lc-rs: (default "--features=tls-aws-lc-rs" "--ignore=\\{hickory-compatibility,test-support\\}")
 
