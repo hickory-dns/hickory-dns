@@ -82,7 +82,7 @@ pub mod dnssec {
             #[serde(default)]
             algorithm: Nsec3HashAlgorithm,
             /// The salt used for hashing.
-            #[serde(default)]
+            #[serde(default = "default_salt")]
             salt: Arc<[u8]>,
             /// The number of hashing iterations.
             #[serde(default)]
@@ -91,6 +91,11 @@ pub mod dnssec {
             #[serde(default)]
             opt_out: bool,
         },
+    }
+
+    // MSRV: works in 1.80, fails in 1.78
+    fn default_salt() -> Arc<[u8]> {
+        Arc::new([])
     }
 }
 
