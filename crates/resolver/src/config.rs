@@ -721,6 +721,7 @@ impl Default for LookupIpStrategy {
 /// The strategy for establishing the query order of name servers in a pool.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub enum ServerOrderingStrategy {
     /// Servers are ordered based on collected query statistics. The ordering
     /// may vary over time.
