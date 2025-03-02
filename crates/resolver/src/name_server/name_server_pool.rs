@@ -270,19 +270,8 @@ where
         let count = conns.len().min(opts.num_concurrent_reqs.max(1));
 
         // Shuffe DNS NameServers to avoid overloads to the first configured ones
-        if opts.shuffle_dns_servers {
-            for _ in 0..count {
-                let idx = rand::random_range(0..conns.len());
-
-                // UNWRAP: swap_remove has an implicit panicking bounds check. This should
-                // never fail because we check that conns is not empty and generate the idx
-                // to explicitly be in range.
-                par_conns.push(conns.swap_remove(idx));
-            }
-        } else {
-            for conn in conns.drain(..count) {
-                par_conns.push(conn);
-            }
+        for conn in conns.drain(..count) {
+            par_conns.push(conn);
         }
 
         if par_conns.is_empty() {
