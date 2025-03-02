@@ -54,9 +54,10 @@ impl TSigner {
     pub fn new(
         key: Vec<u8>,
         algorithm: TsigAlgorithm,
-        signer_name: Name,
+        mut signer_name: Name,
         fudge: u16,
     ) -> Result<Self, DnsSecError> {
+        signer_name.set_fqdn(true);
         if algorithm.supported() {
             Ok(Self(Arc::new(TSignerInner {
                 key,
