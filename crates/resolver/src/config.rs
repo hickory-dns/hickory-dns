@@ -827,8 +827,6 @@ pub struct ResolverOpts {
     ///
     /// This is true by default, disabling this is useful for requesting single records, but may prevent successful resolution.
     pub recursion_desired: bool,
-    /// This is true by default, disabling this is useful for requesting single records, but may prevent successful resolution.
-    pub authentic_data: bool,
     /// Shuffle DNS servers before each query.
     pub shuffle_dns_servers: bool,
     /// Local UDP ports to avoid when making outgoing queries
@@ -889,7 +887,6 @@ impl Default for ResolverOpts {
             try_tcp_on_error: false,
             server_ordering_strategy: ServerOrderingStrategy::default(),
             recursion_desired: true,
-            authentic_data: false,
             shuffle_dns_servers: false,
             avoid_local_udp_ports: Arc::new(HashSet::new()),
             os_port_selection: false,
