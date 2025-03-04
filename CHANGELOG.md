@@ -39,6 +39,9 @@ most impactful breaking changes in this release:
 * Top-level TLS configuration in the resolver crate has moved to the `ResolverOpts` type.
   Specific `NameServerConfig`s should implicitly set up the ALPN protocol appropriate for the DNS
   protocol.
+* The `ResolverOptions` fields `authentic_data` and `shuffle_dns_servers` were
+  removed. The former field didn't do anything; and should be covered by new DNSSEC API.
+  `shuffle_dns_servers` functionality has been subsumed into the `server_ordering_strategy` field.
 * The use of rustls-native-certs via the `native-certs` feature was replaced with
   rustls-platform-verifier.
 * The `tokio-runtime` feature was renamed to `tokio`.
