@@ -116,6 +116,7 @@ fn into_resolver_config(
         ndots: parsed_config.ndots as usize,
         timeout: Duration::from_secs(u64::from(parsed_config.timeout)),
         attempts: parsed_config.attempts as usize,
+        edns0: parsed_config.edns0,
         ..ResolverOpts::default()
     };
 
