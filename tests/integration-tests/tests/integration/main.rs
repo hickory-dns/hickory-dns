@@ -10,3 +10,4 @@ mod retry_dns_handle_tests;
 mod server_future_tests;
 mod sqlite_authority_tests;
 mod truncation_tests;
+mod validating_forwarder_tests;
