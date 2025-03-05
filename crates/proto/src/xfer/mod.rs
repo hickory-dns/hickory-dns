@@ -10,6 +10,7 @@ use core::future::Future;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use core::time::Duration;
+use core::u8;
 use std::net::SocketAddr;
 
 use futures_channel::mpsc;
@@ -387,6 +388,44 @@ impl Default for Protocol {
     /// Default protocol should be UDP, which is supported by all DNS servers
     fn default() -> Self {
         Self::Udp
+    }
+}
+
+impl From<u8> for Protocol {
+    fn from(field: u8) -> Self {
+        match field {
+            0 => Self::Udp,
+            1 => Self::Tcp,
+            #[cfg(feature = "__tls")]
+            2 => Self::Tls,
+            #[cfg(feature = "__https")]
+            3 => Self::Https,
+            #[cfg(feature = "__quic")]
+            4 => Self::Quic,
+            #[cfg(feature = "__h3")]
+            5 => Self::H3,
+            _ => {
+                tracing::warn!("setting default protocol");
+                Self::default()
+            }
+        }
+    }
+}
+
+impl From<Protocol> for u8 {
+    fn from(protocol: Protocol) -> Self {
+        match protocol {
+            Protocol::Udp => 0,
+            Protocol::Tcp => 1,
+            #[cfg(feature = "__tls")]
+            Protocol::Tls => 2,
+            #[cfg(feature = "__https")]
+            Protocol::Https => 3,
+            #[cfg(feature = "__quic")]
+            Protocol::Quic => 4,
+            #[cfg(feature = "__h3")]
+            Protocol::H3 => 5,
+        }
     }
 }
 
