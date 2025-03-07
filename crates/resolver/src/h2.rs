@@ -58,18 +58,14 @@ mod tests {
     use test_support::subscribe;
 
     use crate::TokioResolver;
-    use crate::config::{ResolverConfig, ResolverOpts};
+    use crate::config::ResolverConfig;
     use crate::name_server::TokioConnectionProvider;
 
     async fn https_test(config: ResolverConfig) {
-        let resolver = TokioResolver::new(
-            config,
-            ResolverOpts {
-                try_tcp_on_error: true,
-                ..ResolverOpts::default()
-            },
-            TokioConnectionProvider::default(),
-        );
+        let mut resolver_builder =
+            TokioResolver::builder_with_config(config, TokioConnectionProvider::default());
+        resolver_builder.options_mut().try_tcp_on_error = true;
+        let resolver = resolver_builder.build();
 
         let response = resolver
             .lookup_ip("www.example.com.")

@@ -16,9 +16,11 @@ async fn tokio_main() {
             use hickory_resolver::{TokioResolver, name_server::TokioConnectionProvider};
 
             // use the system resolver configuration
-            TokioResolver::from_system_conf(TokioConnectionProvider::default())
-                .map(Arc::new)
-                .expect("failed to create resolver")
+            Arc::new(
+                TokioResolver::builder(TokioConnectionProvider::default())
+                    .expect("failed to create resolver")
+                    .build(),
+            )
         }
 
         // For other operating systems, we can use one of the preconfigured definitions

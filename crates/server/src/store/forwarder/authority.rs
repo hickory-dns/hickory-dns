@@ -40,8 +40,9 @@ pub struct ForwardAuthority<P: ConnectionProvider = TokioConnectionProvider> {
 impl<P: ConnectionProvider> ForwardAuthority<P> {
     #[doc(hidden)]
     pub fn new(runtime: P) -> Result<Self, String> {
-        let resolver = Resolver::from_system_conf(runtime)
-            .map_err(|e| format!("error constructing new Resolver: {e}"))?;
+        let resolver = Resolver::builder(runtime)
+            .map_err(|e| format!("error constructing new Resolver: {e}"))?
+            .build();
 
         Ok(Self {
             origin: Name::root().into(),
@@ -88,7 +89,7 @@ impl<P: ConnectionProvider> ForwardAuthority<P> {
 
         let config = ResolverConfig::from_parts(None, vec![], name_servers);
 
-        let resolver = Resolver::new(config, options, runtime);
+        let resolver = Resolver::builder_with_config(config, runtime).build();
 
         info!("forward resolver configured: {}: ", origin);
 
