@@ -14,7 +14,7 @@ use serde::Deserialize;
 use crate::resolver::config::{NameServerConfigGroup, ResolverOpts};
 
 mod authority;
-pub use authority::{ForwardAuthority, ForwardLookup};
+pub use authority::{ForwardAuthority, ForwardAuthorityBuilder, ForwardLookup};
 
 /// Configuration for file based zones
 #[derive(Clone, Deserialize, Debug)]
