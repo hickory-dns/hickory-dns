@@ -431,11 +431,9 @@ impl ZoneConfig {
                         }
                         #[cfg(feature = "resolver")]
                         ExternalStoreConfig::Forward(config) => {
-                            let forwarder = ForwardAuthority::try_from_config(
-                                zone_name.clone(),
-                                zone_type,
-                                config,
-                            )?;
+                            let forwarder = ForwardAuthority::builder_tokio(config.clone())
+                                .with_origin(zone_name.clone())
+                                .build()?;
 
                             Arc::new(forwarder)
                         }
