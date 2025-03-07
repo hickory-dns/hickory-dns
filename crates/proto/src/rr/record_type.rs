@@ -460,6 +460,7 @@ impl Display for RecordType {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    #[cfg(feature = "std")]
     use std::println;
 
     use super::*;
@@ -504,6 +505,7 @@ mod tests {
 
         unordered.sort();
 
+        #[cfg(feature = "std")]
         for rtype in unordered.clone() {
             println!("u16 for {:?}: {}", rtype, u16::from(rtype));
         }
@@ -556,7 +558,10 @@ mod tests {
         #[cfg(not(feature = "__dnssec"))]
         let dnssec_record_names = &[];
 
+        #[cfg(feature = "std")]
         let mut rtypes = std::collections::HashSet::new();
+        #[cfg(not(feature = "std"))]
+        let mut rtypes = alloc::collections::BTreeSet::new();
         for name in record_names.iter().chain(dnssec_record_names) {
             let rtype: RecordType = name.parse().unwrap();
             assert_eq!(rtype.to_string().to_ascii_uppercase().as_str(), *name);
