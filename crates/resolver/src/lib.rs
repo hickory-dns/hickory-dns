@@ -44,7 +44,7 @@
 //! # use hickory_resolver::Resolver;
 //! // Use the host OS'es `/etc/resolv.conf`
 //! # #[cfg(unix)]
-//! let resolver = Resolver::tokio_from_system_conf().unwrap();
+//! let resolver = Resolver::builder_tokio().unwrap().build();
 //! # #[cfg(unix)]
 //! let response = resolver.lookup_ip("www.example.com.").await.unwrap();
 //! # }
@@ -59,7 +59,8 @@
 //! # {
 //! use std::net::*;
 //! use tokio::runtime::Runtime;
-//! use hickory_resolver::TokioResolver;
+//! use hickory_resolver::Resolver;
+//! use hickory_resolver::name_server::TokioConnectionProvider;
 //! use hickory_resolver::config::*;
 //!
 //! // We need a Tokio Runtime to run the resolver
@@ -67,11 +68,10 @@
 //! let mut io_loop = Runtime::new().unwrap();
 //!
 //! // Construct a new Resolver with default configuration options
-//! let resolver = io_loop.block_on(async {
-//!     TokioResolver::tokio(
-//!         ResolverConfig::default(),
-//!         ResolverOpts::default())
-//! });
+//! let resolver = Resolver::builder_with_config(
+//!     ResolverConfig::default(),
+//!     TokioConnectionProvider::default()
+//! ).build();
 //!
 //! // Lookup the IP addresses associated with a name.
 //! // This returns a future that will lookup the IP addresses, it must be run in the Core to
@@ -97,17 +97,17 @@
 //! # {
 //! # use std::net::*;
 //! # use tokio::runtime::Runtime;
-//! # use hickory_resolver::TokioResolver;
+//! # use hickory_resolver::Resolver;
+//! # use hickory_resolver::name_server::TokioConnectionProvider;
 //! # use hickory_resolver::config::*;
 //! # use futures_util::TryFutureExt;
 //! #
 //! # let mut io_loop = Runtime::new().unwrap();
 //! #
-//! # let resolver = io_loop.block_on(async {
-//! #    TokioResolver::tokio(
-//! #        ResolverConfig::default(),
-//! #        ResolverOpts::default())
-//! # });
+//! # let resolver = Resolver::builder_with_config(
+//! #     ResolverConfig::default(),
+//! #     TokioConnectionProvider::default()
+//! # ).build();
 //! #
 //! let ips = io_loop.block_on(resolver.lookup_ip("www.example.com.")).unwrap();
 //!
@@ -151,12 +151,16 @@
 //! # fn main() {
 //! # #[cfg(feature = "tokio")]
 //! # {
-//! use hickory_resolver::TokioResolver;
+//! use hickory_resolver::Resolver;
+//! use hickory_resolver::name_server::TokioConnectionProvider;
 //! use hickory_resolver::config::*;
 //!
 //! // Construct a new Resolver with default configuration options
 //! # #[cfg(feature = "__tls")]
-//! let mut resolver = TokioResolver::tokio(ResolverConfig::cloudflare_tls(), ResolverOpts::default());
+//! let mut resolver = Resolver::builder_with_config(
+//!     ResolverConfig::cloudflare_tls(),
+//!     TokioConnectionProvider::default(),
+//! ).build();
 //!
 //! // see example above...
 //! # }
@@ -215,9 +219,9 @@ use name_server::TokioConnectionProvider;
 mod quic;
 mod resolver;
 pub use resolver::LookupFuture;
-pub use resolver::Resolver;
 #[cfg(feature = "tokio")]
 pub use resolver::TokioResolver;
+pub use resolver::{Resolver, ResolverBuilder};
 pub mod system_conf;
 #[cfg(test)]
 mod tests;

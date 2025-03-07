@@ -52,15 +52,12 @@ mod tests {
     use test_support::subscribe;
 
     use crate::TokioResolver;
-    use crate::config::{ResolverConfig, ResolverOpts};
+    use crate::config::ResolverConfig;
     use crate::name_server::TokioConnectionProvider;
 
     async fn h3_test(config: ResolverConfig) {
-        let resolver = TokioResolver::new(
-            config,
-            ResolverOpts::default(),
-            TokioConnectionProvider::default(),
-        );
+        let resolver =
+            TokioResolver::builder_with_config(config, TokioConnectionProvider::default()).build();
 
         let response = resolver
             .lookup_ip("www.example.com.")

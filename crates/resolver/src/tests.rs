@@ -12,11 +12,11 @@ async fn readme_example() {
     use crate::name_server::TokioConnectionProvider;
 
     // Construct a new Resolver with default configuration options
-    let resolver = Resolver::new(
+    let resolver = Resolver::builder_with_config(
         ResolverConfig::default(),
-        ResolverOpts::default(),
         TokioConnectionProvider::default(),
-    );
+    )
+    .build();
 
     // On Unix/Posix systems, this will read the /etc/resolv.conf
     // let resolver = Resolver::from_system_conf(TokioConnectionProvider::default()).unwrap();
@@ -38,11 +38,11 @@ fn readme_tls() {
     use crate::name_server::TokioConnectionProvider;
 
     // Construct a new Resolver with default configuration options
-    let resolver = Resolver::new(
+    let resolver = Resolver::builder_with_config(
         ResolverConfig::cloudflare_tls(),
-        ResolverOpts::default(),
         TokioConnectionProvider::default(),
-    );
+    )
+    .build();
 
     let _ = resolver;
 }
