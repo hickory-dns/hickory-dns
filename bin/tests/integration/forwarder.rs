@@ -17,7 +17,9 @@ fn test_lookup() {
     subscribe();
 
     let runtime = Runtime::new().expect("failed to create Tokio Runtime");
-    let forwarder = ForwardAuthority::new(TokioConnectionProvider::default())
+    let forwarder = ForwardAuthority::builder(TokioConnectionProvider::default())
+        .unwrap()
+        .build()
         .expect("failed to create forwarder");
 
     let lookup = runtime

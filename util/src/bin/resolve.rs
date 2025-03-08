@@ -44,6 +44,7 @@ use hickory_resolver::{
     ResolveError, TokioResolver,
     config::{NameServerConfig, NameServerConfigGroup, ResolverConfig, ResolverOpts},
     lookup::Lookup,
+    name_server::TokioConnectionProvider,
 };
 
 /// A CLI interface for the hickory-resolver.
@@ -335,7 +336,10 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         options.ip_strategy = hickory_resolver::config::LookupIpStrategy::Ipv4AndIpv6;
     }
 
-    let resolver_arc = Arc::new(TokioResolver::tokio(config, options));
+    let mut resolver_builder =
+        TokioResolver::builder_with_config(config, TokioConnectionProvider::default());
+    *resolver_builder.options_mut() = options;
+    let resolver_arc = Arc::new(resolver_builder.build());
 
     if let Some(domainname) = &opts.domainname {
         log_query(domainname, opts.ty, &name_servers, &opts);

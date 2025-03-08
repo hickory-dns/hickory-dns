@@ -4,7 +4,7 @@
 use {
     hickory_resolver::{
         Resolver,
-        config::{ResolverConfig, ResolverOpts},
+        config::ResolverConfig,
         name_server::{ConnectionProvider, GenericConnector},
         proto::runtime::{RuntimeProvider, TokioHandle, TokioTime, iocompat::AsyncIoTokioAsStd},
     },
@@ -95,20 +95,20 @@ async fn main() {
 
 #[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
 async fn run() {
-    let resolver = Resolver::new(
+    let resolver = Resolver::builder_with_config(
         ResolverConfig::google(),
-        ResolverOpts::default(),
         GenericConnector::new(PrintProvider::default()),
-    );
+    )
+    .build();
     lookup_test(resolver).await;
 
     #[cfg(feature = "__https")]
     {
-        let resolver2 = Resolver::new(
+        let resolver2 = Resolver::builder_with_config(
             ResolverConfig::cloudflare_https(),
-            ResolverOpts::default(),
             GenericConnector::new(PrintProvider::default()),
-        );
+        )
+        .build();
         lookup_test(resolver2).await;
     }
 
