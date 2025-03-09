@@ -191,8 +191,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: just no-default-features
-        run: just no-default-features
+      - name: just std
+        run: just std
 
       - name: just build-bench
         if: contains( matrix.version, 'nightly' )
