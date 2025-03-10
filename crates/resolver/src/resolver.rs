@@ -96,10 +96,10 @@ where
         let lru = DnsLru::new(options.cache_size, TtlConfig::from_opts(&options));
         let client_cache = CachingClient::with_cache(lru, either, options.preserve_intermediates);
 
-        let hosts = match options.use_hosts_file {
-            ResolveHosts::Always | ResolveHosts::Auto => Some(Arc::new(Hosts::from_system())),
-            ResolveHosts::Never => None,
-        };
+        let hosts = Arc::new(match options.use_hosts_file {
+            ResolveHosts::Always | ResolveHosts::Auto => Hosts::from_system(),
+            ResolveHosts::Never => Hosts::default(),
+        });
 
         Resolver {
             config,
@@ -128,7 +128,7 @@ pub struct Resolver<P: ConnectionProvider> {
     config: ResolverConfig,
     options: ResolverOpts,
     client_cache: CachingClient<LookupEither<P>>,
-    hosts: Option<Arc<Hosts>>,
+    hosts: Arc<Hosts>,
 }
 
 /// A Resolver used with Tokio
@@ -397,7 +397,7 @@ impl<P: ConnectionProvider> Resolver<P> {
         };
 
         let names = self.build_names(name);
-        let hosts = self.hosts.as_ref().cloned();
+        let hosts = self.hosts.clone();
 
         LookupIpFuture::lookup(
             names,
@@ -411,8 +411,8 @@ impl<P: ConnectionProvider> Resolver<P> {
     }
 
     /// Customizes the static hosts used in this resolver.
-    pub fn set_hosts(&mut self, hosts: Option<Hosts>) {
-        self.hosts = hosts.map(Arc::new);
+    pub fn set_hosts(&mut self, hosts: Arc<Hosts>) {
+        self.hosts = hosts;
     }
 
     lookup_fn!(
@@ -469,7 +469,13 @@ where
         options: DnsRequestOptions,
         client_cache: CachingClient<C>,
     ) -> Self {
-        Self::lookup_with_hosts(names, record_type, options, client_cache, None)
+        Self::lookup_with_hosts(
+            names,
+            record_type,
+            options,
+            client_cache,
+            Arc::new(Hosts::default()),
+        )
     }
 
     /// Perform a lookup from a name and type to a set of RDatas, taking the local
@@ -487,7 +493,7 @@ where
         record_type: RecordType,
         options: DnsRequestOptions,
         mut client_cache: CachingClient<C>,
-        hosts: Option<Arc<Hosts>>,
+        hosts: Arc<Hosts>,
     ) -> Self {
         let name = names.pop().ok_or_else(|| {
             ResolveError::from(ResolveErrorKind::Message("can not lookup for no names"))
@@ -497,7 +503,7 @@ where
             Ok(name) => {
                 let query = Query::query(name, record_type);
 
-                if let Some(lookup) = hosts.and_then(|h| h.lookup_static_host(&query)) {
+                if let Some(lookup) = hosts.lookup_static_host(&query) {
                     future::ok(lookup).boxed()
                 } else {
                     client_cache.lookup(query, options).boxed()

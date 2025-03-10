@@ -128,7 +128,7 @@ where
     strategy: LookupIpStrategy,
     options: DnsRequestOptions,
     query: Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>>,
-    hosts: Option<Arc<Hosts>>,
+    hosts: Arc<Hosts>,
     finally_ip_addr: Option<RData>,
 }
 
@@ -207,7 +207,7 @@ where
         strategy: LookupIpStrategy,
         client_cache: CachingClient<C>,
         options: DnsRequestOptions,
-        hosts: Option<Arc<Hosts>>,
+        hosts: Arc<Hosts>,
         finally_ip_addr: Option<RData>,
     ) -> Self {
         let empty =
@@ -232,7 +232,7 @@ async fn strategic_lookup<C>(
     strategy: LookupIpStrategy,
     client: CachingClient<C>,
     options: DnsRequestOptions,
-    hosts: Option<Arc<Hosts>>,
+    hosts: Arc<Hosts>,
 ) -> Result<Lookup, ResolveError>
 where
     C: DnsHandle + 'static,
@@ -251,18 +251,15 @@ async fn hosts_lookup<C>(
     query: Query,
     mut client: CachingClient<C>,
     options: DnsRequestOptions,
-    hosts: Option<Arc<Hosts>>,
+    hosts: Arc<Hosts>,
 ) -> Result<Lookup, ResolveError>
 where
     C: DnsHandle + 'static,
 {
-    if let Some(hosts) = hosts {
-        if let Some(lookup) = hosts.lookup_static_host(&query) {
-            return Ok(lookup);
-        };
+    match hosts.lookup_static_host(&query) {
+        Some(lookup) => Ok(lookup),
+        None => client.lookup(query, options).await,
     }
-
-    client.lookup(query, options).await
 }
 
 /// queries only for A records
@@ -270,7 +267,7 @@ async fn ipv4_only<C>(
     name: Name,
     client: CachingClient<C>,
     options: DnsRequestOptions,
-    hosts: Option<Arc<Hosts>>,
+    hosts: Arc<Hosts>,
 ) -> Result<Lookup, ResolveError>
 where
     C: DnsHandle + 'static,
@@ -283,7 +280,7 @@ async fn ipv6_only<C>(
     name: Name,
     client: CachingClient<C>,
     options: DnsRequestOptions,
-    hosts: Option<Arc<Hosts>>,
+    hosts: Arc<Hosts>,
 ) -> Result<Lookup, ResolveError>
 where
     C: DnsHandle + 'static,
@@ -297,7 +294,7 @@ async fn ipv4_and_ipv6<C>(
     name: Name,
     client: CachingClient<C>,
     options: DnsRequestOptions,
-    hosts: Option<Arc<Hosts>>,
+    hosts: Arc<Hosts>,
 ) -> Result<Lookup, ResolveError>
 where
     C: DnsHandle + 'static,
@@ -349,7 +346,7 @@ async fn ipv6_then_ipv4<C>(
     name: Name,
     client: CachingClient<C>,
     options: DnsRequestOptions,
-    hosts: Option<Arc<Hosts>>,
+    hosts: Arc<Hosts>,
 ) -> Result<Lookup, ResolveError>
 where
     C: DnsHandle + 'static,
@@ -370,7 +367,7 @@ async fn ipv4_then_ipv6<C>(
     name: Name,
     client: CachingClient<C>,
     options: DnsRequestOptions,
-    hosts: Option<Arc<Hosts>>,
+    hosts: Arc<Hosts>,
 ) -> Result<Lookup, ResolveError>
 where
     C: DnsHandle + 'static,
@@ -393,7 +390,7 @@ async fn rt_then_swap<C>(
     first_type: RecordType,
     second_type: RecordType,
     options: DnsRequestOptions,
-    hosts: Option<Arc<Hosts>>,
+    hosts: Arc<Hosts>,
 ) -> Result<Lookup, ResolveError>
 where
     C: DnsHandle + 'static,
@@ -516,7 +513,7 @@ pub(crate) mod tests {
                 Name::root(),
                 CachingClient::new(0, mock(vec![v4_message()]), false),
                 DnsRequestOptions::default(),
-                None,
+                Arc::new(Hosts::default()),
             ))
             .unwrap()
             .iter()
@@ -534,7 +531,7 @@ pub(crate) mod tests {
                 Name::root(),
                 CachingClient::new(0, mock(vec![v6_message()]), false),
                 DnsRequestOptions::default(),
-                None,
+                Arc::new(Hosts::default()),
             ))
             .unwrap()
             .iter()
@@ -554,7 +551,7 @@ pub(crate) mod tests {
                 Name::root(),
                 CachingClient::new(0, mock(vec![v6_message(), v4_message()]), false),
                 DnsRequestOptions::default(),
-                None,
+                Arc::new(Hosts::default()),
             ))
             .unwrap()
             .iter()
@@ -572,7 +569,7 @@ pub(crate) mod tests {
                 Name::root(),
                 CachingClient::new(0, mock(vec![empty(), v4_message()]), false),
                 DnsRequestOptions::default(),
-                None,
+                Arc::new(Hosts::default()),
             ))
             .unwrap()
             .iter()
@@ -587,7 +584,7 @@ pub(crate) mod tests {
                 Name::root(),
                 CachingClient::new(0, mock(vec![error(), v4_message()]), false),
                 DnsRequestOptions::default(),
-                None,
+                Arc::new(Hosts::default()),
             ))
             .unwrap()
             .iter()
@@ -602,7 +599,7 @@ pub(crate) mod tests {
                 Name::root(),
                 CachingClient::new(0, mock(vec![v6_message(), empty()]), false),
                 DnsRequestOptions::default(),
-                None,
+                Arc::new(Hosts::default()),
             ))
             .unwrap()
             .iter()
@@ -617,7 +614,7 @@ pub(crate) mod tests {
                 Name::root(),
                 CachingClient::new(0, mock(vec![v6_message(), error()]), false),
                 DnsRequestOptions::default(),
-                None,
+                Arc::new(Hosts::default()),
             ))
             .unwrap()
             .iter()
@@ -636,7 +633,7 @@ pub(crate) mod tests {
                 Name::root(),
                 CachingClient::new(0, mock(vec![v6_message()]), false),
                 DnsRequestOptions::default(),
-                None,
+                Arc::new(Hosts::default()),
             ))
             .unwrap()
             .iter()
@@ -651,7 +648,7 @@ pub(crate) mod tests {
                 Name::root(),
                 CachingClient::new(0, mock(vec![v4_message(), empty()]), false),
                 DnsRequestOptions::default(),
-                None,
+                Arc::new(Hosts::default()),
             ))
             .unwrap()
             .iter()
@@ -666,7 +663,7 @@ pub(crate) mod tests {
                 Name::root(),
                 CachingClient::new(0, mock(vec![v4_message(), error()]), false),
                 DnsRequestOptions::default(),
-                None,
+                Arc::new(Hosts::default()),
             ))
             .unwrap()
             .iter()
@@ -685,7 +682,7 @@ pub(crate) mod tests {
                 Name::root(),
                 CachingClient::new(0, mock(vec![v4_message()]), false),
                 DnsRequestOptions::default(),
-                None,
+                Arc::new(Hosts::default()),
             ))
             .unwrap()
             .iter()
@@ -700,7 +697,7 @@ pub(crate) mod tests {
                 Name::root(),
                 CachingClient::new(0, mock(vec![v6_message(), empty()]), false),
                 DnsRequestOptions::default(),
-                None,
+                Arc::new(Hosts::default()),
             ))
             .unwrap()
             .iter()
@@ -715,7 +712,7 @@ pub(crate) mod tests {
                 Name::root(),
                 CachingClient::new(0, mock(vec![v6_message(), error()]), false),
                 DnsRequestOptions::default(),
-                None,
+                Arc::new(Hosts::default()),
             ))
             .unwrap()
             .iter()
