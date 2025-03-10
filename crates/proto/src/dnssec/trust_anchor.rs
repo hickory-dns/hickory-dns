@@ -16,10 +16,20 @@
 
 //! Allows for the root trust_anchor to either be added to or replaced for dns_sec validation.
 
+#[cfg(feature = "text-parsing")]
+use alloc::string::{String, ToString};
 use alloc::{borrow::ToOwned, vec::Vec};
+#[cfg(feature = "text-parsing")]
+use core::str::FromStr;
+#[cfg(feature = "text-parsing")]
+use std::{fs, path::Path};
 
 use crate::dnssec::PublicKey;
+#[cfg(feature = "text-parsing")]
+use crate::serialize::txt::trust_anchor::{self, Entry};
 
+#[cfg(feature = "text-parsing")]
+use super::Verifier;
 use super::{Algorithm, PublicKeyBuf};
 
 const ROOT_ANCHOR_2018: &[u8] = include_bytes!("roots/20326.rsa");
@@ -91,11 +101,55 @@ impl TrustAnchor {
     pub fn is_empty(&self) -> bool {
         self.pkeys.is_empty()
     }
+
+    /// loads a trust anchor from a file of DNSKEY records
+    #[cfg(feature = "text-parsing")]
+    pub fn read_from_file(path: &Path) -> Result<Self, String> {
+        let contents = fs::read_to_string(path).map_err(|e| e.to_string())?;
+        contents.parse()
+    }
 }
 
-#[test]
-fn test_contains_dnskey_bytes() {
-    let trust = TrustAnchor::default();
-    assert_eq!(trust.get(1).public_bytes(), ROOT_ANCHOR_2024);
-    assert!(trust.contains_dnskey_bytes(ROOT_ANCHOR_2024, Algorithm::RSASHA256));
+#[cfg(feature = "text-parsing")]
+impl FromStr for TrustAnchor {
+    type Err = String;
+
+    fn from_str(input: &str) -> Result<Self, String> {
+        let parser = trust_anchor::Parser::new(input);
+        let entries = parser.parse().map_err(|e| e.to_string())?;
+
+        let mut trust_anchor = Self::new();
+        for entry in entries {
+            let Entry::DNSKEY(record) = entry;
+            let dnskey = record.data();
+            let key = dnskey.key()?;
+            trust_anchor.insert_trust_anchor(&*key);
+        }
+
+        Ok(trust_anchor)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::dnssec::{
+        Algorithm, PublicKey,
+        trust_anchor::{ROOT_ANCHOR_2024, TrustAnchor},
+    };
+
+    #[test]
+    fn test_contains_dnskey_bytes() {
+        let trust = TrustAnchor::default();
+        assert_eq!(trust.get(1).public_bytes(), ROOT_ANCHOR_2024);
+        assert!(trust.contains_dnskey_bytes(ROOT_ANCHOR_2024, Algorithm::RSASHA256));
+    }
+
+    #[test]
+    #[cfg(feature = "text-parsing")]
+    fn can_load_trust_anchor_file() {
+        let input = include_str!("../../tests/test-data/root.key");
+
+        let trust_anchor = input.parse::<TrustAnchor>().unwrap();
+        assert_eq!(3, trust_anchor.len());
+    }
 }
