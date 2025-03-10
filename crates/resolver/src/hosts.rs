@@ -51,9 +51,12 @@ impl Hosts {
         if self.by_name.is_empty() {
             return None;
         }
+
+        let mut name = query.name().clone();
+        name.set_fqdn(true);
         match query.query_type() {
             RecordType::A | RecordType::AAAA => {
-                let val = self.by_name.get(query.name())?;
+                let val = self.by_name.get(&name)?;
 
                 match query.query_type() {
                     RecordType::A => val.a.clone(),
@@ -62,7 +65,7 @@ impl Hosts {
                 }
             }
             RecordType::PTR => {
-                let ip = query.name().parse_arpa_name().ok()?;
+                let ip = name.parse_arpa_name().ok()?;
 
                 let ip_addr = ip.addr();
                 let records = self
@@ -84,7 +87,7 @@ impl Hosts {
                     })
                     .map(|(n, _)| {
                         Record::from_rdata(
-                            query.name().clone(),
+                            name.clone(),
                             dns_lru::MAX_TTL,
                             RData::PTR(PTR(n.clone())),
                         )
@@ -102,9 +105,10 @@ impl Hosts {
     }
 
     /// Insert a new Lookup for the associated `Name` and `RecordType`
-    pub fn insert(&mut self, name: Name, record_type: RecordType, lookup: Lookup) {
+    pub fn insert(&mut self, mut name: Name, record_type: RecordType, lookup: Lookup) {
         assert!(record_type == RecordType::A || record_type == RecordType::AAAA);
 
+        name.set_fqdn(true);
         let lookup_type = self.by_name.entry(name.clone()).or_default();
 
         let new_lookup = {
@@ -164,9 +168,9 @@ impl Hosts {
             };
 
             for domain in fields.iter().skip(1).map(|domain| domain.to_lowercase()) {
-                if let Ok(name) = Name::from_str(&domain) {
+                if let Ok(mut name) = Name::from_str(&domain) {
+                    name.set_fqdn(true);
                     let record = Record::from_rdata(name.clone(), dns_lru::MAX_TTL, addr.clone());
-
                     match addr {
                         RData::A(..) => {
                             let query = Query::query(name.clone(), RecordType::A);
@@ -234,7 +238,7 @@ mod tests {
         let path = format!("{}/hosts", tests_dir());
         let hosts = read_hosts_conf(path).unwrap();
 
-        let name = Name::from_str("localhost").unwrap();
+        let name = Name::from_str("localhost.").unwrap();
         let rdatas = hosts
             .lookup_static_host(&Query::query(name.clone(), RecordType::A))
             .unwrap()
@@ -306,8 +310,8 @@ mod tests {
         assert_eq!(
             rdatas,
             vec![
-                RData::PTR(PTR("a.example.com".parse().unwrap())),
-                RData::PTR(PTR("b.example.com".parse().unwrap()))
+                RData::PTR(PTR("a.example.com.".parse().unwrap())),
+                RData::PTR(PTR("b.example.com.".parse().unwrap()))
             ]
         );
 
@@ -321,6 +325,9 @@ mod tests {
             .iter()
             .map(ToOwned::to_owned)
             .collect::<Vec<RData>>();
-        assert_eq!(rdatas, vec![RData::PTR(PTR("localhost".parse().unwrap())),]);
+        assert_eq!(
+            rdatas,
+            vec![RData::PTR(PTR("localhost.".parse().unwrap())),]
+        );
     }
 }
