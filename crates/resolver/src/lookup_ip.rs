@@ -251,7 +251,7 @@ where
 /// first lookups in hosts, then performs the query
 async fn hosts_lookup<C>(
     query: Query,
-    mut client: CachingClient<C>,
+    client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Arc<Hosts>,
 ) -> Result<Lookup, ResolveError>

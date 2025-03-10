@@ -93,7 +93,7 @@ where
 
     /// Perform a lookup against this caching client, looking first in the cache for a result
     pub fn lookup(
-        &mut self,
+        &self,
         query: Query,
         options: DnsRequestOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>> {
@@ -960,7 +960,7 @@ mod tests {
         subscribe();
         let cache = DnsLru::new(0, dns_lru::TtlConfig::default());
         let client = mock(vec![empty()]);
-        let mut client = CachingClient::with_cache(cache, client, false);
+        let client = CachingClient::with_cache(cache, client, false);
 
         {
             let query = Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::A);
@@ -1042,7 +1042,7 @@ mod tests {
         subscribe();
         let cache = DnsLru::new(0, dns_lru::TtlConfig::default());
         let client = mock(vec![empty()]);
-        let mut client = CachingClient::with_cache(cache, client, false);
+        let client = CachingClient::with_cache(cache, client, false);
 
         assert!(
             block_on(client.lookup(
@@ -1077,7 +1077,7 @@ mod tests {
             error(),
             Ok(DnsResponse::from_message(message).unwrap()),
         ]);
-        let mut client = CachingClient::with_cache(cache, client, false);
+        let client = CachingClient::with_cache(cache, client, false);
 
         assert!(
             block_on(client.lookup(
