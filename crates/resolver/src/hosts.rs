@@ -1,6 +1,7 @@
 //! Hosts result from a configuration of the system hosts file
 
 use std::collections::HashMap;
+use std::fs::File;
 use std::io;
 use std::net::IpAddr;
 use std::path::Path;
@@ -37,13 +38,22 @@ impl Hosts {
     /// will return empty configuration on others
     #[cfg(any(unix, windows))]
     pub fn from_system() -> Self {
-        read_hosts_conf(hosts_path()).unwrap_or_default()
+        Self::from_file(hosts_path()).unwrap_or_default()
     }
 
     /// Creates a default configuration for non Windows or Unix-like OSes
     #[cfg(not(any(unix, windows)))]
     pub fn from_system() -> Self {
         Hosts::default()
+    }
+
+    /// parse configuration from `path`
+    #[cfg(any(unix, windows))]
+    pub(crate) fn from_file(path: impl AsRef<Path>) -> io::Result<Self> {
+        let file = File::open(path)?;
+        let mut hosts = Self::default();
+        hosts.read_hosts_conf(file)?;
+        Ok(hosts)
     }
 
     /// Look up the addresses for the given host from the system hosts file.
@@ -219,17 +229,6 @@ fn hosts_path() -> std::path::PathBuf {
     system_root.join("System32\\drivers\\etc\\hosts")
 }
 
-/// parse configuration from `path`
-#[cfg(any(unix, windows))]
-pub(crate) fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
-    use std::fs::File;
-
-    let file = File::open(path)?;
-    let mut hosts = Hosts::default();
-    hosts.read_hosts_conf(file)?;
-    Ok(hosts)
-}
-
 #[cfg(any(unix, windows))]
 #[cfg(test)]
 mod tests {
@@ -245,7 +244,7 @@ mod tests {
     #[test]
     fn test_read_hosts_conf() {
         let path = format!("{}/hosts", tests_dir());
-        let hosts = read_hosts_conf(path).unwrap();
+        let hosts = Hosts::from_file(path).unwrap();
 
         let name = Name::from_str("localhost.").unwrap();
         let rdatas = hosts
