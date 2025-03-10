@@ -1,0 +1,20 @@
+server:
+    verbosity: 4
+    use-syslog: no
+    interface: 0.0.0.0
+    access-control: 0.0.0.0/0 allow
+    pidfile: /tmp/unbound.pid
+    cache-max-ttl: 60
+
+{% if use_dnssec %}
+    val-sig-skew-min: 3600
+    trust-anchor-file: /etc/trusted-key.key
+{% endif %}
+
+remote-control:
+    control-enable: yes
+    control-interface: /run/unbound.ctl
+
+forward-zone:
+    name: "."
+    forward-addr: {{ resolver_ip }}

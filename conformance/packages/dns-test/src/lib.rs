@@ -8,6 +8,7 @@ use lazy_static::lazy_static;
 use name_server::{NameServer, Running};
 
 pub use crate::container::Network;
+pub use crate::forwarder::Forwarder;
 pub use crate::fqdn::FQDN;
 pub use crate::implementation::{HickoryDnssecFeature, Implementation, Repository};
 pub use crate::resolver::Resolver;
@@ -15,6 +16,7 @@ pub use crate::trust_anchor::TrustAnchor;
 
 pub mod client;
 pub mod container;
+mod forwarder;
 mod fqdn;
 mod implementation;
 pub mod name_server;
@@ -38,7 +40,12 @@ lazy_static! {
 
 /// Helper to prevent a unit test from immediately terminating so its associated containers can be
 /// manually inspected
-pub fn inspect(clients: &[Client], resolvers: &[Resolver], nameservers: &[NameServer<Running>]) {
+pub fn inspect(
+    clients: &[Client],
+    resolvers: &[Resolver],
+    nameservers: &[NameServer<Running>],
+    forwarders: &[Forwarder],
+) {
     use core::fmt::Write as _;
 
     let mut output = String::new();
@@ -76,6 +83,20 @@ pub fn inspect(clients: &[Client], resolvers: &[Resolver], nameservers: &[NameSe
             nameserver.container_id(),
             nameserver.ipv4_addr(),
             nameserver.zone(),
+        )
+        .unwrap();
+    }
+
+    if !forwarders.is_empty() {
+        output.push_str("\n\nFORWARDERS");
+    }
+
+    for forwarder in forwarders {
+        write!(
+            output,
+            "\n{} {}",
+            forwarder.container_id(),
+            forwarder.ipv4_addr()
         )
         .unwrap();
     }
