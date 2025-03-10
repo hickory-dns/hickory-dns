@@ -84,7 +84,7 @@ async fn test_lookup_hosts() {
         LookupIpStrategy::default(),
         CachingClient::new(0, client, false),
         Default::default(),
-        Some(Arc::new(hosts)),
+        Arc::new(hosts),
         None,
     );
     let lookup = lookup.await.unwrap();
@@ -127,7 +127,7 @@ async fn test_lookup_ipv4_like() {
         LookupIpStrategy::default(),
         CachingClient::new(0, client, false),
         Default::default(),
-        Some(Arc::new(Hosts::default())),
+        Arc::new(Hosts::default()),
         Some(RData::A(A::new(1, 2, 3, 4))),
     );
     let lookup = lookup.await.unwrap();
@@ -157,7 +157,7 @@ async fn test_lookup_ipv4_like_fall_through() {
         LookupIpStrategy::default(),
         CachingClient::new(0, client, false),
         Default::default(),
-        Some(Arc::new(Hosts::default())),
+        Arc::new(Hosts::default()),
         Some(RData::A(A::new(198, 51, 100, 35))),
     );
     let lookup = lookup.await.unwrap();
