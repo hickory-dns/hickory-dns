@@ -97,7 +97,7 @@ where
         let client_cache = CachingClient::with_cache(lru, either, options.preserve_intermediates);
 
         let hosts = Arc::new(match options.use_hosts_file {
-            ResolveHosts::Always | ResolveHosts::Auto => Hosts::from_system(),
+            ResolveHosts::Always | ResolveHosts::Auto => Hosts::from_system().unwrap_or_default(),
             ResolveHosts::Never => Hosts::default(),
         });
 
