@@ -52,7 +52,8 @@ impl<P: ConnectionProvider> ForwardAuthorityBuilder<P> {
         self
     }
 
-    /// Set the DNSSEC trust anchors to be used by the forward authority.
+    /// Enables DNSSEC validation, and sets the DNSSEC trust anchors to be used by the forward
+    /// authority.
     ///
     /// This overrides the trust anchor path in the `ResolverOpts`.
     #[cfg(feature = "__dnssec")]
@@ -128,11 +129,13 @@ impl<P: ConnectionProvider> ForwardAuthorityBuilder<P> {
         #[cfg(feature = "__dnssec")]
         match (trust_anchor, &options.trust_anchor) {
             (Some(trust_anchor), _) => {
-                resolver_builder = resolver_builder.with_trust_anchor(trust_anchor)
+                resolver_builder = resolver_builder.with_trust_anchor(trust_anchor);
+                options.validate = true;
             }
             (None, Some(path)) => {
                 let trust_anchor = TrustAnchor::read_from_file(path)?;
                 resolver_builder = resolver_builder.with_trust_anchor(Arc::new(trust_anchor));
+                options.validate = true;
             }
             (None, None) => {}
         }

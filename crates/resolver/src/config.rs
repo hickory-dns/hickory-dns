@@ -859,9 +859,7 @@ pub struct ResolverOpts {
     pub case_randomization: bool,
     /// Path to a DNSSEC trust anchor file.
     ///
-    /// `validate` must be set as well for this to take effect. If no trust anchor path is
-    /// provided, and `validate` is set to true, then the built-in trust anchor will be used by
-    /// default.
+    /// If this is provided, `validate` will automatically be set to `true`, enabling DNSSEC validation.
     pub trust_anchor: Option<PathBuf>,
 }
 
