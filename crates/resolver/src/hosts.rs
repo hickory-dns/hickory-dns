@@ -175,28 +175,30 @@ impl Hosts {
 
             for domain in iter {
                 let domain = domain.to_lowercase();
-                if let Ok(mut name) = Name::from_str(&domain) {
-                    name.set_fqdn(true);
-                    let record = Record::from_rdata(name.clone(), dns_lru::MAX_TTL, addr.clone());
-                    match addr {
-                        RData::A(..) => {
-                            let query = Query::query(name.clone(), RecordType::A);
-                            let lookup = Lookup::new_with_max_ttl(query, Arc::from([record]));
-                            self.insert(name.clone(), RecordType::A, lookup);
-                        }
-                        RData::AAAA(..) => {
-                            let query = Query::query(name.clone(), RecordType::AAAA);
-                            let lookup = Lookup::new_with_max_ttl(query, Arc::from([record]));
-                            self.insert(name.clone(), RecordType::AAAA, lookup);
-                        }
-                        _ => {
-                            warn!("unsupported IP type from Hosts file: {:#?}", addr);
-                            continue;
-                        }
-                    };
-
-                    // TODO: insert reverse lookup as well.
+                let Ok(mut name) = Name::from_str(&domain) else {
+                    continue;
                 };
+
+                name.set_fqdn(true);
+                let record = Record::from_rdata(name.clone(), dns_lru::MAX_TTL, addr.clone());
+                match addr {
+                    RData::A(..) => {
+                        let query = Query::query(name.clone(), RecordType::A);
+                        let lookup = Lookup::new_with_max_ttl(query, Arc::from([record]));
+                        self.insert(name.clone(), RecordType::A, lookup);
+                    }
+                    RData::AAAA(..) => {
+                        let query = Query::query(name.clone(), RecordType::AAAA);
+                        let lookup = Lookup::new_with_max_ttl(query, Arc::from([record]));
+                        self.insert(name.clone(), RecordType::AAAA, lookup);
+                    }
+                    _ => {
+                        warn!("unsupported IP type from Hosts file: {:#?}", addr);
+                        continue;
+                    }
+                };
+
+                // TODO: insert reverse lookup as well.
             }
         }
 
