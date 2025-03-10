@@ -151,23 +151,30 @@ impl Hosts {
         for line in BufReader::new(src).lines() {
             // Remove comments from the line
             let line = line?;
-            let line = line.split('#').next().unwrap().trim();
+            let line = match line.split_once('#') {
+                Some((line, _)) => line,
+                None => &line,
+            }
+            .trim();
+
             if line.is_empty() {
                 continue;
             }
 
-            let fields: Vec<_> = line.split_whitespace().collect();
-            if fields.len() < 2 {
-                continue;
-            }
-            let addr = if let Ok(a) = IpAddr::from_str(fields[0]) {
-                RData::from(a)
-            } else {
-                warn!("could not parse an IP from hosts file");
-                continue;
+            let mut iter = line.split_whitespace();
+            let addr = match iter.next() {
+                Some(addr) => match IpAddr::from_str(addr) {
+                    Ok(addr) => RData::from(addr),
+                    Err(_) => {
+                        warn!("could not parse an IP from hosts file ({addr:?})");
+                        continue;
+                    }
+                },
+                None => continue,
             };
 
-            for domain in fields.iter().skip(1).map(|domain| domain.to_lowercase()) {
+            for domain in iter {
+                let domain = domain.to_lowercase();
                 if let Ok(mut name) = Name::from_str(&domain) {
                     name.set_fqdn(true);
                     let record = Record::from_rdata(name.clone(), dns_lru::MAX_TTL, addr.clone());
