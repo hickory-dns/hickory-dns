@@ -191,13 +191,12 @@ impl<C: DnsHandle + 'static> Future for LookupIpFuture<C> {
             if let Some(name) = self.names.pop() {
                 // If there's another name left to try, build a new query
                 // for that next name and continue looping.
-                self.query = strategic_lookup(
-                    name,
-                    self.strategy,
-                    self.client_cache.clone(),
-                    self.options,
-                    self.hosts.clone(),
-                )
+                self.query = LookupContext {
+                    client: self.client_cache.clone(),
+                    options: self.options,
+                    hosts: self.hosts.clone(),
+                }
+                .strategic_lookup(name, self.strategy)
                 .boxed();
                 // Continue looping with the new query. It will be polled
                 // on the next iteration of the loop.
@@ -219,183 +218,126 @@ impl<C: DnsHandle + 'static> Future for LookupIpFuture<C> {
     }
 }
 
-/// returns a new future for lookup
-async fn strategic_lookup<C: DnsHandle + 'static>(
-    name: Name,
-    strategy: LookupIpStrategy,
+#[derive(Clone)]
+struct LookupContext<C: DnsHandle> {
     client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Arc<Hosts>,
-) -> Result<Lookup, ResolveError> {
-    match strategy {
-        LookupIpStrategy::Ipv4Only => ipv4_only(name, client, options, hosts).await,
-        LookupIpStrategy::Ipv6Only => ipv6_only(name, client, options, hosts).await,
-        LookupIpStrategy::Ipv4AndIpv6 => ipv4_and_ipv6(name, client, options, hosts).await,
-        LookupIpStrategy::Ipv6thenIpv4 => ipv6_then_ipv4(name, client, options, hosts).await,
-        LookupIpStrategy::Ipv4thenIpv6 => ipv4_then_ipv6(name, client, options, hosts).await,
+}
+
+impl<C: DnsHandle> LookupContext<C> {
+    /// returns a new future for lookup
+    async fn strategic_lookup(
+        self,
+        name: Name,
+        strategy: LookupIpStrategy,
+    ) -> Result<Lookup, ResolveError> {
+        match strategy {
+            LookupIpStrategy::Ipv4Only => self.ipv4_only(name).await,
+            LookupIpStrategy::Ipv6Only => self.ipv6_only(name).await,
+            LookupIpStrategy::Ipv4AndIpv6 => self.ipv4_and_ipv6(name).await,
+            LookupIpStrategy::Ipv6thenIpv4 => self.ipv6_then_ipv4(name).await,
+            LookupIpStrategy::Ipv4thenIpv6 => self.ipv4_then_ipv6(name).await,
+        }
     }
-}
 
-/// first lookups in hosts, then performs the query
-async fn hosts_lookup<C: DnsHandle + 'static>(
-    query: Query,
-    client: CachingClient<C>,
-    options: DnsRequestOptions,
-    hosts: Arc<Hosts>,
-) -> Result<Lookup, ResolveError> {
-    match hosts.lookup_static_host(&query) {
-        Some(lookup) => Ok(lookup),
-        None => client.lookup(query, options).await,
+    /// queries only for A records
+    async fn ipv4_only(&self, name: Name) -> Result<Lookup, ResolveError> {
+        self.hosts_lookup(Query::query(name, RecordType::A)).await
     }
-}
 
-/// queries only for A records
-async fn ipv4_only<C: DnsHandle + 'static>(
-    name: Name,
-    client: CachingClient<C>,
-    options: DnsRequestOptions,
-    hosts: Arc<Hosts>,
-) -> Result<Lookup, ResolveError> {
-    hosts_lookup(Query::query(name, RecordType::A), client, options, hosts).await
-}
+    /// queries only for AAAA records
+    async fn ipv6_only(&self, name: Name) -> Result<Lookup, ResolveError> {
+        self.hosts_lookup(Query::query(name, RecordType::AAAA))
+            .await
+    }
 
-/// queries only for AAAA records
-async fn ipv6_only<C: DnsHandle + 'static>(
-    name: Name,
-    client: CachingClient<C>,
-    options: DnsRequestOptions,
-    hosts: Arc<Hosts>,
-) -> Result<Lookup, ResolveError> {
-    hosts_lookup(Query::query(name, RecordType::AAAA), client, options, hosts).await
-}
-
-// TODO: this really needs to have a stream interface
-/// queries only for A and AAAA in parallel
-async fn ipv4_and_ipv6<C: DnsHandle + 'static>(
-    name: Name,
-    client: CachingClient<C>,
-    options: DnsRequestOptions,
-    hosts: Arc<Hosts>,
-) -> Result<Lookup, ResolveError> {
-    let sel_res = future::select(
-        hosts_lookup(
-            Query::query(name.clone(), RecordType::A),
-            client.clone(),
-            options,
-            hosts.clone(),
+    // TODO: this really needs to have a stream interface
+    /// queries only for A and AAAA in parallel
+    async fn ipv4_and_ipv6(&self, name: Name) -> Result<Lookup, ResolveError> {
+        let sel_res = future::select(
+            self.hosts_lookup(Query::query(name.clone(), RecordType::A))
+                .boxed(),
+            self.hosts_lookup(Query::query(name, RecordType::AAAA))
+                .boxed(),
         )
-        .boxed(),
-        hosts_lookup(Query::query(name, RecordType::AAAA), client, options, hosts).boxed(),
-    )
-    .await;
+        .await;
 
-    let (ips, remaining_query) = match sel_res {
-        Either::Left(ips_and_remaining) => ips_and_remaining,
-        Either::Right(ips_and_remaining) => ips_and_remaining,
-    };
+        let (ips, remaining_query) = match sel_res {
+            Either::Left(ips_and_remaining) => ips_and_remaining,
+            Either::Right(ips_and_remaining) => ips_and_remaining,
+        };
 
-    let next_ips = remaining_query.await;
+        let next_ips = remaining_query.await;
 
-    match (ips, next_ips) {
-        (Ok(ips), Ok(next_ips)) => {
-            // TODO: create a LookupIp enum with the ability to chain these together
-            let ips = ips.append(next_ips);
-            Ok(ips)
-        }
-        (Ok(ips), Err(e)) | (Err(e), Ok(ips)) => {
-            debug!(
-                "one of ipv4 or ipv6 lookup failed in ipv4_and_ipv6 strategy: {}",
-                e
-            );
-            Ok(ips)
-        }
-        (Err(e1), Err(e2)) => {
-            debug!(
-                "both of ipv4 or ipv6 lookup failed in ipv4_and_ipv6 strategy e1: {}, e2: {}",
-                e1, e2
-            );
-            Err(e1)
-        }
-    }
-}
-
-/// queries only for AAAA and on no results queries for A
-async fn ipv6_then_ipv4<C: DnsHandle + 'static>(
-    name: Name,
-    client: CachingClient<C>,
-    options: DnsRequestOptions,
-    hosts: Arc<Hosts>,
-) -> Result<Lookup, ResolveError> {
-    rt_then_swap(
-        name,
-        client,
-        RecordType::AAAA,
-        RecordType::A,
-        options,
-        hosts,
-    )
-    .await
-}
-
-/// queries only for A and on no results queries for AAAA
-async fn ipv4_then_ipv6<C: DnsHandle + 'static>(
-    name: Name,
-    client: CachingClient<C>,
-    options: DnsRequestOptions,
-    hosts: Arc<Hosts>,
-) -> Result<Lookup, ResolveError> {
-    rt_then_swap(
-        name,
-        client,
-        RecordType::A,
-        RecordType::AAAA,
-        options,
-        hosts,
-    )
-    .await
-}
-
-/// queries only for first_type and on no results queries for second_type
-async fn rt_then_swap<C: DnsHandle + 'static>(
-    name: Name,
-    client: CachingClient<C>,
-    first_type: RecordType,
-    second_type: RecordType,
-    options: DnsRequestOptions,
-    hosts: Arc<Hosts>,
-) -> Result<Lookup, ResolveError> {
-    let or_client = client.clone();
-    let res = hosts_lookup(
-        Query::query(name.clone(), first_type),
-        client,
-        options,
-        hosts.clone(),
-    )
-    .await;
-
-    match res {
-        Ok(ips) => {
-            if ips.is_empty() {
-                // no ips returns, NXDomain or Otherwise, doesn't matter
-                hosts_lookup(
-                    Query::query(name.clone(), second_type),
-                    or_client,
-                    options,
-                    hosts,
-                )
-                .await
-            } else {
+        match (ips, next_ips) {
+            (Ok(ips), Ok(next_ips)) => {
+                // TODO: create a LookupIp enum with the ability to chain these together
+                let ips = ips.append(next_ips);
                 Ok(ips)
             }
+            (Ok(ips), Err(e)) | (Err(e), Ok(ips)) => {
+                debug!(
+                    "one of ipv4 or ipv6 lookup failed in ipv4_and_ipv6 strategy: {}",
+                    e
+                );
+                Ok(ips)
+            }
+            (Err(e1), Err(e2)) => {
+                debug!(
+                    "both of ipv4 or ipv6 lookup failed in ipv4_and_ipv6 strategy e1: {}, e2: {}",
+                    e1, e2
+                );
+                Err(e1)
+            }
         }
-        Err(_) => {
-            hosts_lookup(
-                Query::query(name.clone(), second_type),
-                or_client,
-                options,
-                hosts,
-            )
+    }
+
+    /// queries only for AAAA and on no results queries for A
+    async fn ipv6_then_ipv4(&self, name: Name) -> Result<Lookup, ResolveError> {
+        self.rt_then_swap(name, RecordType::AAAA, RecordType::A)
             .await
+    }
+
+    /// queries only for A and on no results queries for AAAA
+    async fn ipv4_then_ipv6(&self, name: Name) -> Result<Lookup, ResolveError> {
+        self.rt_then_swap(name, RecordType::A, RecordType::AAAA)
+            .await
+    }
+
+    /// queries only for first_type and on no results queries for second_type
+    async fn rt_then_swap(
+        &self,
+        name: Name,
+        first_type: RecordType,
+        second_type: RecordType,
+    ) -> Result<Lookup, ResolveError> {
+        let res = self
+            .hosts_lookup(Query::query(name.clone(), first_type))
+            .await;
+
+        match res {
+            Ok(ips) => {
+                if ips.is_empty() {
+                    // no ips returns, NXDomain or Otherwise, doesn't matter
+                    self.hosts_lookup(Query::query(name.clone(), second_type))
+                        .await
+                } else {
+                    Ok(ips)
+                }
+            }
+            Err(_) => {
+                self.hosts_lookup(Query::query(name.clone(), second_type))
+                    .await
+            }
+        }
+    }
+
+    /// first lookups in hosts, then performs the query
+    async fn hosts_lookup(&self, query: Query) -> Result<Lookup, ResolveError> {
+        match self.hosts.lookup_static_host(&query) {
+            Some(lookup) => Ok(lookup),
+            None => self.client.lookup(query, self.options).await,
         }
     }
 }
@@ -477,17 +419,19 @@ pub(crate) mod tests {
     #[test]
     fn test_ipv4_only_strategy() {
         subscribe();
+
+        let cx = LookupContext {
+            client: CachingClient::new(0, mock(vec![v4_message()]), false),
+            options: DnsRequestOptions::default(),
+            hosts: Arc::new(Hosts::default()),
+        };
+
         assert_eq!(
-            block_on(ipv4_only(
-                Name::root(),
-                CachingClient::new(0, mock(vec![v4_message()]), false),
-                DnsRequestOptions::default(),
-                Arc::new(Hosts::default()),
-            ))
-            .unwrap()
-            .iter()
-            .map(|r| r.ip_addr().unwrap())
-            .collect::<Vec<IpAddr>>(),
+            block_on(cx.ipv4_only(Name::root()))
+                .unwrap()
+                .iter()
+                .map(|r| r.ip_addr().unwrap())
+                .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::LOCALHOST]
         );
     }
@@ -495,17 +439,19 @@ pub(crate) mod tests {
     #[test]
     fn test_ipv6_only_strategy() {
         subscribe();
+
+        let cx = LookupContext {
+            client: CachingClient::new(0, mock(vec![v6_message()]), false),
+            options: DnsRequestOptions::default(),
+            hosts: Arc::new(Hosts::default()),
+        };
+
         assert_eq!(
-            block_on(ipv6_only(
-                Name::root(),
-                CachingClient::new(0, mock(vec![v6_message()]), false),
-                DnsRequestOptions::default(),
-                Arc::new(Hosts::default()),
-            ))
-            .unwrap()
-            .iter()
-            .map(|r| r.ip_addr().unwrap())
-            .collect::<Vec<IpAddr>>(),
+            block_on(cx.ipv6_only(Name::root()))
+                .unwrap()
+                .iter()
+                .map(|r| r.ip_addr().unwrap())
+                .collect::<Vec<IpAddr>>(),
             vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
         );
     }
@@ -513,19 +459,21 @@ pub(crate) mod tests {
     #[test]
     fn test_ipv4_and_ipv6_strategy() {
         subscribe();
+
+        let mut cx = LookupContext {
+            client: CachingClient::new(0, mock(vec![v6_message(), v4_message()]), false),
+            options: DnsRequestOptions::default(),
+            hosts: Arc::new(Hosts::default()),
+        };
+
         // ipv6 is consistently queried first (even though the select has it second)
         // both succeed
         assert_eq!(
-            block_on(ipv4_and_ipv6(
-                Name::root(),
-                CachingClient::new(0, mock(vec![v6_message(), v4_message()]), false),
-                DnsRequestOptions::default(),
-                Arc::new(Hosts::default()),
-            ))
-            .unwrap()
-            .iter()
-            .map(|r| r.ip_addr().unwrap())
-            .collect::<Vec<IpAddr>>(),
+            block_on(cx.ipv4_and_ipv6(Name::root()))
+                .unwrap()
+                .iter()
+                .map(|r| r.ip_addr().unwrap())
+                .collect::<Vec<IpAddr>>(),
             vec![
                 IpAddr::V4(Ipv4Addr::LOCALHOST),
                 IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
@@ -533,62 +481,46 @@ pub(crate) mod tests {
         );
 
         // only ipv4 available
+        cx.client = CachingClient::new(0, mock(vec![empty(), v4_message()]), false);
         assert_eq!(
-            block_on(ipv4_and_ipv6(
-                Name::root(),
-                CachingClient::new(0, mock(vec![empty(), v4_message()]), false),
-                DnsRequestOptions::default(),
-                Arc::new(Hosts::default()),
-            ))
-            .unwrap()
-            .iter()
-            .map(|r| r.ip_addr().unwrap())
-            .collect::<Vec<IpAddr>>(),
+            block_on(cx.ipv4_and_ipv6(Name::root()))
+                .unwrap()
+                .iter()
+                .map(|r| r.ip_addr().unwrap())
+                .collect::<Vec<IpAddr>>(),
             vec![IpAddr::V4(Ipv4Addr::LOCALHOST)]
         );
 
         // error then ipv4
+        cx.client = CachingClient::new(0, mock(vec![error(), v4_message()]), false);
         assert_eq!(
-            block_on(ipv4_and_ipv6(
-                Name::root(),
-                CachingClient::new(0, mock(vec![error(), v4_message()]), false),
-                DnsRequestOptions::default(),
-                Arc::new(Hosts::default()),
-            ))
-            .unwrap()
-            .iter()
-            .map(|r| r.ip_addr().unwrap())
-            .collect::<Vec<IpAddr>>(),
+            block_on(cx.ipv4_and_ipv6(Name::root()))
+                .unwrap()
+                .iter()
+                .map(|r| r.ip_addr().unwrap())
+                .collect::<Vec<IpAddr>>(),
             vec![IpAddr::V4(Ipv4Addr::LOCALHOST)]
         );
 
         // only ipv6 available
+        cx.client = CachingClient::new(0, mock(vec![v6_message(), empty()]), false);
         assert_eq!(
-            block_on(ipv4_and_ipv6(
-                Name::root(),
-                CachingClient::new(0, mock(vec![v6_message(), empty()]), false),
-                DnsRequestOptions::default(),
-                Arc::new(Hosts::default()),
-            ))
-            .unwrap()
-            .iter()
-            .map(|r| r.ip_addr().unwrap())
-            .collect::<Vec<IpAddr>>(),
+            block_on(cx.ipv4_and_ipv6(Name::root()))
+                .unwrap()
+                .iter()
+                .map(|r| r.ip_addr().unwrap())
+                .collect::<Vec<IpAddr>>(),
             vec![IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
         );
 
         // error, then only ipv6 available
+        cx.client = CachingClient::new(0, mock(vec![v6_message(), error()]), false);
         assert_eq!(
-            block_on(ipv4_and_ipv6(
-                Name::root(),
-                CachingClient::new(0, mock(vec![v6_message(), error()]), false),
-                DnsRequestOptions::default(),
-                Arc::new(Hosts::default()),
-            ))
-            .unwrap()
-            .iter()
-            .map(|r| r.ip_addr().unwrap())
-            .collect::<Vec<IpAddr>>(),
+            block_on(cx.ipv4_and_ipv6(Name::root()))
+                .unwrap()
+                .iter()
+                .map(|r| r.ip_addr().unwrap())
+                .collect::<Vec<IpAddr>>(),
             vec![IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
         );
     }
@@ -596,48 +528,42 @@ pub(crate) mod tests {
     #[test]
     fn test_ipv6_then_ipv4_strategy() {
         subscribe();
+
+        let mut cx = LookupContext {
+            client: CachingClient::new(0, mock(vec![v6_message()]), false),
+            options: DnsRequestOptions::default(),
+            hosts: Arc::new(Hosts::default()),
+        };
+
         // ipv6 first
         assert_eq!(
-            block_on(ipv6_then_ipv4(
-                Name::root(),
-                CachingClient::new(0, mock(vec![v6_message()]), false),
-                DnsRequestOptions::default(),
-                Arc::new(Hosts::default()),
-            ))
-            .unwrap()
-            .iter()
-            .map(|r| r.ip_addr().unwrap())
-            .collect::<Vec<IpAddr>>(),
+            block_on(cx.ipv6_then_ipv4(Name::root()))
+                .unwrap()
+                .iter()
+                .map(|r| r.ip_addr().unwrap())
+                .collect::<Vec<IpAddr>>(),
             vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
         );
 
         // nothing then ipv4
+        cx.client = CachingClient::new(0, mock(vec![v4_message(), empty()]), false);
         assert_eq!(
-            block_on(ipv6_then_ipv4(
-                Name::root(),
-                CachingClient::new(0, mock(vec![v4_message(), empty()]), false),
-                DnsRequestOptions::default(),
-                Arc::new(Hosts::default()),
-            ))
-            .unwrap()
-            .iter()
-            .map(|r| r.ip_addr().unwrap())
-            .collect::<Vec<IpAddr>>(),
+            block_on(cx.ipv6_then_ipv4(Name::root()))
+                .unwrap()
+                .iter()
+                .map(|r| r.ip_addr().unwrap())
+                .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::LOCALHOST]
         );
 
         // ipv4 and error
+        cx.client = CachingClient::new(0, mock(vec![v4_message(), error()]), false);
         assert_eq!(
-            block_on(ipv6_then_ipv4(
-                Name::root(),
-                CachingClient::new(0, mock(vec![v4_message(), error()]), false),
-                DnsRequestOptions::default(),
-                Arc::new(Hosts::default()),
-            ))
-            .unwrap()
-            .iter()
-            .map(|r| r.ip_addr().unwrap())
-            .collect::<Vec<IpAddr>>(),
+            block_on(cx.ipv6_then_ipv4(Name::root()))
+                .unwrap()
+                .iter()
+                .map(|r| r.ip_addr().unwrap())
+                .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::LOCALHOST]
         );
     }
@@ -645,48 +571,42 @@ pub(crate) mod tests {
     #[test]
     fn test_ipv4_then_ipv6_strategy() {
         subscribe();
+
+        let mut cx = LookupContext {
+            client: CachingClient::new(0, mock(vec![v4_message()]), false),
+            options: DnsRequestOptions::default(),
+            hosts: Arc::new(Hosts::default()),
+        };
+
         // ipv6 first
         assert_eq!(
-            block_on(ipv4_then_ipv6(
-                Name::root(),
-                CachingClient::new(0, mock(vec![v4_message()]), false),
-                DnsRequestOptions::default(),
-                Arc::new(Hosts::default()),
-            ))
-            .unwrap()
-            .iter()
-            .map(|r| r.ip_addr().unwrap())
-            .collect::<Vec<IpAddr>>(),
+            block_on(cx.ipv4_then_ipv6(Name::root()))
+                .unwrap()
+                .iter()
+                .map(|r| r.ip_addr().unwrap())
+                .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::LOCALHOST]
         );
 
         // nothing then ipv6
+        cx.client = CachingClient::new(0, mock(vec![v6_message(), empty()]), false);
         assert_eq!(
-            block_on(ipv4_then_ipv6(
-                Name::root(),
-                CachingClient::new(0, mock(vec![v6_message(), empty()]), false),
-                DnsRequestOptions::default(),
-                Arc::new(Hosts::default()),
-            ))
-            .unwrap()
-            .iter()
-            .map(|r| r.ip_addr().unwrap())
-            .collect::<Vec<IpAddr>>(),
+            block_on(cx.ipv4_then_ipv6(Name::root()))
+                .unwrap()
+                .iter()
+                .map(|r| r.ip_addr().unwrap())
+                .collect::<Vec<IpAddr>>(),
             vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
         );
 
         // error then ipv6
+        cx.client = CachingClient::new(0, mock(vec![v6_message(), error()]), false);
         assert_eq!(
-            block_on(ipv4_then_ipv6(
-                Name::root(),
-                CachingClient::new(0, mock(vec![v6_message(), error()]), false),
-                DnsRequestOptions::default(),
-                Arc::new(Hosts::default()),
-            ))
-            .unwrap()
-            .iter()
-            .map(|r| r.ip_addr().unwrap())
-            .collect::<Vec<IpAddr>>(),
+            block_on(cx.ipv4_then_ipv6(Name::root()))
+                .unwrap()
+                .iter()
+                .map(|r| r.ip_addr().unwrap())
+                .collect::<Vec<IpAddr>>(),
             vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
         );
     }
