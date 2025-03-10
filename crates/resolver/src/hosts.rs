@@ -37,14 +37,14 @@ impl Hosts {
     /// only works for Windows and Unix-like OSes,
     /// will return empty configuration on others
     #[cfg(any(unix, windows))]
-    pub fn from_system() -> Self {
-        Self::from_file(hosts_path()).unwrap_or_default()
+    pub fn from_system() -> io::Result<Self> {
+        Self::from_file(hosts_path())
     }
 
     /// Creates a default configuration for non Windows or Unix-like OSes
     #[cfg(not(any(unix, windows)))]
-    pub fn from_system() -> Self {
-        Hosts::default()
+    pub fn from_system() -> io::Result<Self> {
+        Ok(Hosts::default())
     }
 
     /// parse configuration from `path`
