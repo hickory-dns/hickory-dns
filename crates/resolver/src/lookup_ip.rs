@@ -119,10 +119,7 @@ impl Iterator for LookupIpIntoIter {
 /// The Future returned from [crate::Resolver] when performing an A or AAAA lookup.
 ///
 /// This type isn't necessarily something that should be used by users, see the default TypeParameters are generally correct
-pub struct LookupIpFuture<C>
-where
-    C: DnsHandle + 'static,
-{
+pub struct LookupIpFuture<C: DnsHandle + 'static> {
     client_cache: CachingClient<C>,
     names: Vec<Name>,
     strategy: LookupIpStrategy,
@@ -132,10 +129,7 @@ where
     finally_ip_addr: Option<RData>,
 }
 
-impl<C> LookupIpFuture<C>
-where
-    C: DnsHandle + 'static,
-{
+impl<C: DnsHandle + 'static> LookupIpFuture<C> {
     /// Perform a lookup from a hostname to a set of IPs
     ///
     /// # Arguments
@@ -167,10 +161,7 @@ where
     }
 }
 
-impl<C> Future for LookupIpFuture<C>
-where
-    C: DnsHandle + 'static,
-{
+impl<C: DnsHandle + 'static> Future for LookupIpFuture<C> {
     type Output = Result<LookupIp, ResolveError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -229,16 +220,13 @@ where
 }
 
 /// returns a new future for lookup
-async fn strategic_lookup<C>(
+async fn strategic_lookup<C: DnsHandle + 'static>(
     name: Name,
     strategy: LookupIpStrategy,
     client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Arc<Hosts>,
-) -> Result<Lookup, ResolveError>
-where
-    C: DnsHandle + 'static,
-{
+) -> Result<Lookup, ResolveError> {
     match strategy {
         LookupIpStrategy::Ipv4Only => ipv4_only(name, client, options, hosts).await,
         LookupIpStrategy::Ipv6Only => ipv6_only(name, client, options, hosts).await,
@@ -249,15 +237,12 @@ where
 }
 
 /// first lookups in hosts, then performs the query
-async fn hosts_lookup<C>(
+async fn hosts_lookup<C: DnsHandle + 'static>(
     query: Query,
     client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Arc<Hosts>,
-) -> Result<Lookup, ResolveError>
-where
-    C: DnsHandle + 'static,
-{
+) -> Result<Lookup, ResolveError> {
     match hosts.lookup_static_host(&query) {
         Some(lookup) => Ok(lookup),
         None => client.lookup(query, options).await,
@@ -265,42 +250,33 @@ where
 }
 
 /// queries only for A records
-async fn ipv4_only<C>(
+async fn ipv4_only<C: DnsHandle + 'static>(
     name: Name,
     client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Arc<Hosts>,
-) -> Result<Lookup, ResolveError>
-where
-    C: DnsHandle + 'static,
-{
+) -> Result<Lookup, ResolveError> {
     hosts_lookup(Query::query(name, RecordType::A), client, options, hosts).await
 }
 
 /// queries only for AAAA records
-async fn ipv6_only<C>(
+async fn ipv6_only<C: DnsHandle + 'static>(
     name: Name,
     client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Arc<Hosts>,
-) -> Result<Lookup, ResolveError>
-where
-    C: DnsHandle + 'static,
-{
+) -> Result<Lookup, ResolveError> {
     hosts_lookup(Query::query(name, RecordType::AAAA), client, options, hosts).await
 }
 
 // TODO: this really needs to have a stream interface
 /// queries only for A and AAAA in parallel
-async fn ipv4_and_ipv6<C>(
+async fn ipv4_and_ipv6<C: DnsHandle + 'static>(
     name: Name,
     client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Arc<Hosts>,
-) -> Result<Lookup, ResolveError>
-where
-    C: DnsHandle + 'static,
-{
+) -> Result<Lookup, ResolveError> {
     let sel_res = future::select(
         hosts_lookup(
             Query::query(name.clone(), RecordType::A),
@@ -344,15 +320,12 @@ where
 }
 
 /// queries only for AAAA and on no results queries for A
-async fn ipv6_then_ipv4<C>(
+async fn ipv6_then_ipv4<C: DnsHandle + 'static>(
     name: Name,
     client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Arc<Hosts>,
-) -> Result<Lookup, ResolveError>
-where
-    C: DnsHandle + 'static,
-{
+) -> Result<Lookup, ResolveError> {
     rt_then_swap(
         name,
         client,
@@ -365,15 +338,12 @@ where
 }
 
 /// queries only for A and on no results queries for AAAA
-async fn ipv4_then_ipv6<C>(
+async fn ipv4_then_ipv6<C: DnsHandle + 'static>(
     name: Name,
     client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Arc<Hosts>,
-) -> Result<Lookup, ResolveError>
-where
-    C: DnsHandle + 'static,
-{
+) -> Result<Lookup, ResolveError> {
     rt_then_swap(
         name,
         client,
@@ -386,17 +356,14 @@ where
 }
 
 /// queries only for first_type and on no results queries for second_type
-async fn rt_then_swap<C>(
+async fn rt_then_swap<C: DnsHandle + 'static>(
     name: Name,
     client: CachingClient<C>,
     first_type: RecordType,
     second_type: RecordType,
     options: DnsRequestOptions,
     hosts: Arc<Hosts>,
-) -> Result<Lookup, ResolveError>
-where
-    C: DnsHandle + 'static,
-{
+) -> Result<Lookup, ResolveError> {
     let or_client = client.clone();
     let res = hosts_lookup(
         Query::query(name.clone(), first_type),
