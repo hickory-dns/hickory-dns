@@ -190,38 +190,40 @@ where
                 Poll::Ready(Err(_)) => true,
             };
 
-            if should_retry {
-                if let Some(name) = self.names.pop() {
-                    // If there's another name left to try, build a new query
-                    // for that next name and continue looping.
-                    self.query = strategic_lookup(
-                        name,
-                        self.strategy,
-                        self.client_cache.clone(),
-                        self.options,
-                        self.hosts.clone(),
-                    )
-                    .boxed();
-                    // Continue looping with the new query. It will be polled
-                    // on the next iteration of the loop.
-                    continue;
-                } else if let Some(ip_addr) = self.finally_ip_addr.take() {
-                    // Otherwise, if there's an IP address to fall back to,
-                    // we'll return it.
-                    let record = Record::from_rdata(Name::new(), MAX_TTL, ip_addr);
-                    let lookup = Lookup::new_with_max_ttl(Query::new(), Arc::from([record]));
-                    return Poll::Ready(Ok(lookup.into()));
-                }
-            };
+            if !should_retry {
+                // If we didn't have to retry the query, or we weren't able to
+                // retry because we've exhausted the names to search and have no
+                // fallback IP address, return the current query.
+                return query.map(|f| f.map(LookupIp::from));
+            }
 
-            // If we didn't have to retry the query, or we weren't able to
-            // retry because we've exhausted the names to search and have no
-            // fallback IP address, return the current query.
-            return query.map(|f| f.map(LookupIp::from));
+            if let Some(name) = self.names.pop() {
+                // If there's another name left to try, build a new query
+                // for that next name and continue looping.
+                self.query = strategic_lookup(
+                    name,
+                    self.strategy,
+                    self.client_cache.clone(),
+                    self.options,
+                    self.hosts.clone(),
+                )
+                .boxed();
+                // Continue looping with the new query. It will be polled
+                // on the next iteration of the loop.
+                continue;
+            } else if let Some(ip_addr) = self.finally_ip_addr.take() {
+                // Otherwise, if there's an IP address to fall back to,
+                // we'll return it.
+                let record = Record::from_rdata(Name::new(), MAX_TTL, ip_addr);
+                let lookup = Lookup::new_with_max_ttl(Query::new(), Arc::from([record]));
+                return Poll::Ready(Ok(lookup.into()));
+            }
+
             // If we skipped retrying the  query, this will return the
             // successful lookup, otherwise, if the retry failed, this will
             // return the last  query result --- either an empty lookup or the
             // last error we saw.
+            return query.map(|f| f.map(LookupIp::from));
         }
     }
 }
