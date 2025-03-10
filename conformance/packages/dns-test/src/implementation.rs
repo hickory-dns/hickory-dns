@@ -1,6 +1,7 @@
 use core::fmt;
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::net::Ipv4Addr;
 use std::path::Path;
 use std::str::FromStr;
 
@@ -23,6 +24,10 @@ pub enum Config<'a> {
         ede: bool,
         case_randomization: bool,
     },
+    Forwarder {
+        resolver_ip: Ipv4Addr,
+        use_dnssec: bool,
+    },
 }
 
 impl Config<'_> {
@@ -30,6 +35,7 @@ impl Config<'_> {
         match self {
             Config::NameServer { .. } => Role::NameServer,
             Config::Resolver { .. } => Role::Resolver,
+            Config::Forwarder { .. } => Role::Forwarder,
         }
     }
 }
@@ -38,6 +44,7 @@ impl Config<'_> {
 pub enum Role {
     NameServer,
     Resolver,
+    Forwarder,
 }
 
 #[derive(Clone, Debug)]
@@ -186,6 +193,39 @@ impl Implementation {
 
                 Self::EdeDotCom => include_str!("templates/named.ede-dot-com.conf").into(),
             },
+
+            Config::Forwarder {
+                resolver_ip,
+                use_dnssec,
+            } => match self {
+                Self::Bind => minijinja::render!(
+                    include_str!("templates/named.forwarder.conf.jinja"),
+                    resolver_ip => resolver_ip,
+                    use_dnssec => use_dnssec,
+                ),
+
+                Self::Dnslib => {
+                    // Dnslib servers don't have a config
+                    "".into()
+                }
+
+                Self::Hickory { .. } => minijinja::render!(
+                    include_str!("templates/hickory.forwarder.toml.jinja"),
+                    resolver_ip => resolver_ip,
+                    use_dnssec => use_dnssec,
+                ),
+
+                Self::Unbound => minijinja::render!(
+                    include_str!("templates/unbound.forwarder.conf.jinja"),
+                    resolver_ip => resolver_ip,
+                    use_dnssec => use_dnssec,
+                ),
+
+                Self::EdeDotCom => {
+                    // Does not support running a forwarder
+                    "".into()
+                }
+            },
         }
     }
 
@@ -199,7 +239,7 @@ impl Implementation {
 
             Self::Unbound => match role {
                 Role::NameServer => Some("/etc/nsd/nsd.conf"),
-                Role::Resolver => Some("/etc/unbound/unbound.conf"),
+                Role::Resolver | Role::Forwarder => Some("/etc/unbound/unbound.conf"),
             },
 
             Self::EdeDotCom => Some("/etc/named.conf"),
@@ -213,7 +253,7 @@ impl Implementation {
             Implementation::Hickory { .. } => "hickory-dns -d",
             Implementation::Unbound => match role {
                 Role::NameServer => "nsd -d",
-                Role::Resolver => "unbound -d",
+                Role::Resolver | Role::Forwarder => "unbound -d",
             },
         };
 
@@ -248,7 +288,7 @@ impl Implementation {
 
             Implementation::Unbound => match role {
                 Role::NameServer => "/tmp/nsd",
-                Role::Resolver => "/tmp/unbound",
+                Role::Resolver | Role::Forwarder => "/tmp/unbound",
             },
         };
 

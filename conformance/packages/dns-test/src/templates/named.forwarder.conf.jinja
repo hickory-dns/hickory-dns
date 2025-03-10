@@ -1,0 +1,12 @@
+options {
+    directory "/var/cache/bind";
+    pid-file "/tmp/named.pid";
+    recursion yes;
+    dnssec-validation {% if use_dnssec %} auto {% else %} no {% endif %};
+    # significantly reduces noise in logs
+    empty-zones-enable no;
+    forwarders {
+        {{ resolver_ip }};
+    };
+    forward only;
+};
