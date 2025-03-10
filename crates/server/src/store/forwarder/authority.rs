@@ -16,7 +16,10 @@ use hickory_resolver::{
 use tracing::{debug, info};
 
 #[cfg(feature = "__dnssec")]
-use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::TrustAnchor};
+use crate::{
+    authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::TrustAnchor,
+    store::read_trust_anchor,
+};
 use crate::{
     authority::{
         Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, MessageRequest,
@@ -53,6 +56,8 @@ impl<P: ConnectionProvider> ForwardAuthorityBuilder<P> {
     }
 
     /// Set the DNSSEC trust anchors to be used by the forward authority.
+    ///
+    /// This overrides the trust anchor path in the `ResolverOpts`.
     #[cfg(feature = "__dnssec")]
     pub fn with_trust_anchor(mut self, trust_anchor: Arc<TrustAnchor>) -> Self {
         self.trust_anchor = Some(trust_anchor);
@@ -124,8 +129,15 @@ impl<P: ConnectionProvider> ForwardAuthorityBuilder<P> {
         let mut resolver_builder = Resolver::builder_with_config(config, runtime);
 
         #[cfg(feature = "__dnssec")]
-        if let Some(trust_anchor) = trust_anchor {
-            resolver_builder = resolver_builder.with_trust_anchor(trust_anchor);
+        match (trust_anchor, &options.trust_anchor) {
+            (Some(trust_anchor), _) => {
+                resolver_builder = resolver_builder.with_trust_anchor(trust_anchor)
+            }
+            (None, Some(path)) => {
+                let trust_anchor = read_trust_anchor(path)?;
+                resolver_builder = resolver_builder.with_trust_anchor(Arc::new(trust_anchor));
+            }
+            (None, None) => {}
         }
 
         *resolver_builder.options_mut() = options;

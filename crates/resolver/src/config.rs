@@ -12,6 +12,7 @@ use std::collections::HashSet;
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::ops::{Deref, DerefMut};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -856,6 +857,12 @@ pub struct ResolverOpts {
     /// This implements the mechanism described in
     /// [draft-vixie-dnsext-dns0x20-00](https://datatracker.ietf.org/doc/html/draft-vixie-dnsext-dns0x20-00).
     pub case_randomization: bool,
+    /// Path to a DNSSEC trust anchor file.
+    ///
+    /// `validate` must be set as well for this to take effect. If no trust anchor path is
+    /// provided, and `validate` is set to true, then the built-in trust anchor will be used by
+    /// default.
+    pub trust_anchor: Option<PathBuf>,
 }
 
 impl Default for ResolverOpts {
@@ -891,6 +898,7 @@ impl Default for ResolverOpts {
             #[cfg(feature = "__tls")]
             tls_config: client_config(),
             case_randomization: false,
+            trust_anchor: None,
         }
     }
 }
