@@ -492,7 +492,7 @@ where
         mut names: Vec<Name>,
         record_type: RecordType,
         options: DnsRequestOptions,
-        mut client_cache: CachingClient<C>,
+        client_cache: CachingClient<C>,
         hosts: Arc<Hosts>,
     ) -> Self {
         let name = names.pop().ok_or_else(|| {
