@@ -266,7 +266,7 @@ impl From<Token> for LexToken {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     use crate::dnssec::crypto::EcdsaSigningKey;
     use crate::dnssec::{Algorithm, PublicKey, PublicKeyBuf, SigningKey, rdata::DNSKEY};
 

@@ -48,7 +48,7 @@ mod tests {
     use alloc::string::ToString;
 
     use super::*;
-    #[cfg(feature = "dnssec-ring")]
+    #[cfg(feature = "__dnssec")]
     use crate::dnssec::crypto::EcdsaSigningKey;
     use crate::dnssec::{PublicKey, SigningKey};
 
