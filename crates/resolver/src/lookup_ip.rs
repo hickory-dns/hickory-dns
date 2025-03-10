@@ -132,6 +132,41 @@ where
     finally_ip_addr: Option<RData>,
 }
 
+impl<C> LookupIpFuture<C>
+where
+    C: DnsHandle + 'static,
+{
+    /// Perform a lookup from a hostname to a set of IPs
+    ///
+    /// # Arguments
+    ///
+    /// * `names` - a set of DNS names to attempt to resolve, they will be attempted in queue order, i.e. the first is `names.pop()`. Upon each failure, the next will be attempted.
+    /// * `strategy` - the lookup IP strategy to use
+    /// * `client_cache` - cache with a connection to use for performing all lookups
+    pub fn lookup(
+        names: Vec<Name>,
+        strategy: LookupIpStrategy,
+        client_cache: CachingClient<C>,
+        options: DnsRequestOptions,
+        hosts: Arc<Hosts>,
+        finally_ip_addr: Option<RData>,
+    ) -> Self {
+        let empty =
+            ResolveError::from(ResolveErrorKind::Message("can not lookup IPs for no names"));
+        Self {
+            names,
+            strategy,
+            client_cache,
+            // If there are no names remaining, this will be returned immediately,
+            // otherwise, it will be retried.
+            query: future::err(empty).boxed(),
+            options,
+            hosts,
+            finally_ip_addr,
+        }
+    }
+}
+
 impl<C> Future for LookupIpFuture<C>
 where
     C: DnsHandle + 'static,
@@ -187,41 +222,6 @@ where
             // successful lookup, otherwise, if the retry failed, this will
             // return the last  query result --- either an empty lookup or the
             // last error we saw.
-        }
-    }
-}
-
-impl<C> LookupIpFuture<C>
-where
-    C: DnsHandle + 'static,
-{
-    /// Perform a lookup from a hostname to a set of IPs
-    ///
-    /// # Arguments
-    ///
-    /// * `names` - a set of DNS names to attempt to resolve, they will be attempted in queue order, i.e. the first is `names.pop()`. Upon each failure, the next will be attempted.
-    /// * `strategy` - the lookup IP strategy to use
-    /// * `client_cache` - cache with a connection to use for performing all lookups
-    pub fn lookup(
-        names: Vec<Name>,
-        strategy: LookupIpStrategy,
-        client_cache: CachingClient<C>,
-        options: DnsRequestOptions,
-        hosts: Arc<Hosts>,
-        finally_ip_addr: Option<RData>,
-    ) -> Self {
-        let empty =
-            ResolveError::from(ResolveErrorKind::Message("can not lookup IPs for no names"));
-        Self {
-            names,
-            strategy,
-            client_cache,
-            // If there are no names remaining, this will be returned immediately,
-            // otherwise, it will be retried.
-            query: future::err(empty).boxed(),
-            options,
-            hosts,
-            finally_ip_addr,
         }
     }
 }
