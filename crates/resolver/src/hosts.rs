@@ -36,13 +36,13 @@ impl Hosts {
     /// only works for Windows and Unix-like OSes,
     /// will return empty configuration on others
     #[cfg(any(unix, windows))]
-    pub fn new() -> Self {
+    pub fn from_system() -> Self {
         read_hosts_conf(hosts_path()).unwrap_or_default()
     }
 
     /// Creates a default configuration for non Windows or Unix-like OSes
     #[cfg(not(any(unix, windows)))]
-    pub fn new() -> Self {
+    pub fn from_system() -> Self {
         Hosts::default()
     }
 
