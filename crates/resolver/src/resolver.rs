@@ -97,7 +97,7 @@ where
         let client_cache = CachingClient::with_cache(lru, either, options.preserve_intermediates);
 
         let hosts = match options.use_hosts_file {
-            ResolveHosts::Always | ResolveHosts::Auto => Some(Arc::new(Hosts::new())),
+            ResolveHosts::Always | ResolveHosts::Auto => Some(Arc::new(Hosts::from_system())),
             ResolveHosts::Never => None,
         };
 
