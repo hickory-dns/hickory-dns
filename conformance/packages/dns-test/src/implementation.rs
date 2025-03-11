@@ -71,7 +71,9 @@ impl Implementation {
         }
     }
 
-    /// A test peer that cannot be changed using the `DNS_TEST_PEER` env variable
+    /// A test peer that cannot be changed using the `DNS_TEST_PEER` env variable.
+    ///
+    /// This is intended for use within `e2e-tests`, not `conformance-tests`.
     pub const fn test_peer() -> Implementation {
         Implementation::Unbound
     }

@@ -6,7 +6,7 @@
 use std::{fs, thread, time::Duration};
 
 use dns_test::{
-    FQDN, Implementation, Network, Resolver, Result,
+    FQDN, Implementation, Network, PEER, Resolver, Result,
     client::{Client, DigSettings, DigStatus},
     name_server::{Graph, NameServer},
     record::{Record, RecordType},
@@ -113,7 +113,7 @@ fn truncated_response_caching_udp_only() -> Result<()> {
 fn setup(script_path: &str) -> Result<(Resolver, Client, Graph)> {
     let network = Network::new()?;
 
-    let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
+    let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
     let leaf_ns = NameServer::new(&Implementation::Dnslib, FQDN::TEST_TLD, &network)?;
     let script = fs::read_to_string(script_path)?;
     leaf_ns.cp("/script.py", &script)?;

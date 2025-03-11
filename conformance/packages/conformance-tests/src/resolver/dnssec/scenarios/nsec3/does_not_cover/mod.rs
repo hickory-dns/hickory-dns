@@ -1,7 +1,7 @@
 use std::{fs, net::Ipv4Addr};
 
 use dns_test::{
-    FQDN, Implementation, Network, Resolver, Result,
+    FQDN, Implementation, Network, PEER, Resolver, Result,
     client::{Client, DigSettings, DigStatus},
     name_server::NameServer,
     record::{A, RecordType},
@@ -30,12 +30,12 @@ fn does_not_cover() -> Result<()> {
 
     let leaf_ns = leaf_ns.sign(sign_settings.clone())?;
 
-    let mut tld_ns = NameServer::new(&Implementation::test_peer(), FQDN::TEST_TLD, &network)?;
+    let mut tld_ns = NameServer::new(&PEER, FQDN::TEST_TLD, &network)?;
     tld_ns.referral_nameserver(&leaf_ns);
     tld_ns.add(leaf_ns.ds().ksk.clone());
     let tld_ns = tld_ns.sign(sign_settings.clone())?;
 
-    let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
+    let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
     root_ns.referral_nameserver(&tld_ns);
     root_ns.add(tld_ns.ds().ksk.clone());
     let root_ns = root_ns.sign(sign_settings)?;
