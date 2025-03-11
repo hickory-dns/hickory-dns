@@ -8,6 +8,8 @@ use dns_test::{
     zone_file::SignSettings,
 };
 
+mod bogus;
+
 #[test]
 fn noerror() -> Result<()> {
     let network = Network::new()?;
