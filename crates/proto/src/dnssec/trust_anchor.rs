@@ -79,8 +79,8 @@ impl TrustAnchor {
     }
 
     /// get the trust anchor at the specified index
-    pub fn get(&self, idx: usize) -> &PublicKeyBuf {
-        &self.pkeys[idx]
+    pub fn get(&self, idx: usize) -> Option<&PublicKeyBuf> {
+        self.pkeys.get(idx)
     }
 
     /// number of keys in trust_anchor
@@ -142,7 +142,7 @@ mod tests {
     #[test]
     fn test_contains_dnskey_bytes() {
         let trust = TrustAnchor::default();
-        assert_eq!(trust.get(1).public_bytes(), ROOT_ANCHOR_2024);
+        assert_eq!(trust.get(1).unwrap().public_bytes(), ROOT_ANCHOR_2024);
         assert!(trust.contains_dnskey_bytes(ROOT_ANCHOR_2024, Algorithm::RSASHA256));
     }
 
