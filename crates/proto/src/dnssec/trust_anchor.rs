@@ -16,8 +16,6 @@
 
 //! Allows for the root trust_anchor to either be added to or replaced for dns_sec validation.
 
-#[cfg(feature = "text-parsing")]
-use alloc::string::{String, ToString};
 use alloc::{borrow::ToOwned, vec::Vec};
 #[cfg(feature = "text-parsing")]
 use core::str::FromStr;
@@ -25,6 +23,8 @@ use core::str::FromStr;
 use std::{fs, path::Path};
 
 use crate::dnssec::PublicKey;
+#[cfg(feature = "text-parsing")]
+use crate::serialize::txt::ParseError;
 #[cfg(feature = "text-parsing")]
 use crate::serialize::txt::trust_anchor::{self, Entry};
 
@@ -46,9 +46,8 @@ pub struct TrustAnchors {
 impl TrustAnchors {
     /// loads a trust anchor from a file of DNSKEY records
     #[cfg(feature = "text-parsing")]
-    pub fn from_file(path: &Path) -> Result<Self, String> {
-        let contents = fs::read_to_string(path).map_err(|e| e.to_string())?;
-        contents.parse()
+    pub fn from_file(path: &Path) -> Result<Self, ParseError> {
+        Self::from_str(&fs::read_to_string(path)?)
     }
 
     /// Creates a new empty trust anchor set
@@ -96,11 +95,11 @@ impl TrustAnchors {
 
 #[cfg(feature = "text-parsing")]
 impl FromStr for TrustAnchors {
-    type Err = String;
+    type Err = ParseError;
 
-    fn from_str(input: &str) -> Result<Self, String> {
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
         let parser = trust_anchor::Parser::new(input);
-        let entries = parser.parse().map_err(|e| e.to_string())?;
+        let entries = parser.parse()?;
 
         let mut pkeys = Vec::new();
         for entry in entries {
