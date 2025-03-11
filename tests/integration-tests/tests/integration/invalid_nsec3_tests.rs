@@ -374,7 +374,7 @@ where
     server.register_socket(udp_socket);
 
     // Client setup
-    let mut trust_anchor = TrustAnchor::new();
+    let mut trust_anchor = TrustAnchor::empty();
     trust_anchor.insert_trust_anchor(public_key);
     let stream = UdpClientStream::builder(local_addr, TokioRuntimeProvider::new()).build();
     let (client, bg) = DnssecClient::builder(stream)
