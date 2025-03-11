@@ -37,7 +37,7 @@ use self::rrset::Rrset;
 mod nsec3_validation;
 use nsec3_validation::verify_nsec3;
 
-use super::{PublicKey, rdata::NSEC};
+use super::rdata::NSEC;
 
 /// Performs DNSSEC validation of all DNS responses from the wrapped DnsHandle
 ///
@@ -677,10 +677,7 @@ where
     let pub_key = dns_key.public_key();
 
     // Checks to see if the key is valid against the registered root certificates
-    if handle
-        .trust_anchor
-        .contains_dnskey_bytes(pub_key.public_bytes(), pub_key.algorithm())
-    {
+    if handle.trust_anchor.contains(pub_key) {
         debug!(
             "validated dnskey with trust_anchor: {}, {dns_key}",
             rr.name(),

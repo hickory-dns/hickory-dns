@@ -58,21 +58,11 @@ impl TrustAnchors {
         Self { pkeys: vec![] }
     }
 
-    /// determines if the key is in the trust anchor set with the raw dnskey bytes
-    ///
-    /// # Arguments
-    ///
-    /// * `other_key` - The raw dnskey in bytes
-    /// * `algorithm` - The key's algorithm
-    pub fn contains_dnskey_bytes(&self, other_key: &[u8], algorithm: Algorithm) -> bool {
-        self.pkeys
-            .iter()
-            .any(|k| other_key == k.public_bytes() && algorithm == k.algorithm())
-    }
-
     /// determines if the key is in the trust anchor set
     pub fn contains<P: PublicKey + ?Sized>(&self, other_key: &P) -> bool {
-        self.contains_dnskey_bytes(other_key.public_bytes(), other_key.algorithm())
+        self.pkeys.iter().any(|k| {
+            other_key.public_bytes() == k.public_bytes() && other_key.algorithm() == k.algorithm()
+        })
     }
 
     /// inserts the trust_anchor to the trusted chain
@@ -138,15 +128,17 @@ impl Default for TrustAnchors {
 #[cfg(test)]
 mod tests {
     use crate::dnssec::{
-        Algorithm, PublicKey,
+        Algorithm, PublicKey, PublicKeyBuf,
         trust_anchor::{ROOT_ANCHOR_2024, TrustAnchors},
     };
+    use alloc::borrow::ToOwned;
 
     #[test]
     fn test_contains_dnskey_bytes() {
         let trust = TrustAnchors::default();
         assert_eq!(trust.get(1).unwrap().public_bytes(), ROOT_ANCHOR_2024);
-        assert!(trust.contains_dnskey_bytes(ROOT_ANCHOR_2024, Algorithm::RSASHA256));
+        let pub_key = PublicKeyBuf::new(ROOT_ANCHOR_2024.to_owned(), Algorithm::RSASHA256);
+        assert!(trust.contains(&pub_key));
     }
 
     #[test]

@@ -550,10 +550,7 @@ async fn handle_request(
                 {
                     let key_tag = dnskey.data().calculate_key_tag().expect("key_tag failed");
                     let algorithm = dnskey.data().algorithm();
-                    let in_trust_anchor = trust_anchor.contains_dnskey_bytes(
-                        dnskey.data().public_key().public_bytes(),
-                        algorithm,
-                    );
+                    let in_trust_anchor = trust_anchor.contains(dnskey.data().public_key());
 
                     if !dnskey.data().algorithm().is_supported() {
                         println!(
