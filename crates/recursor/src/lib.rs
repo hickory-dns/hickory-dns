@@ -40,7 +40,7 @@ pub use hickory_proto as proto;
 pub use hickory_resolver as resolver;
 pub use hickory_resolver::config::{NameServerConfig, NameServerConfigGroup};
 #[cfg(feature = "__dnssec")]
-use proto::dnssec::TrustAnchor;
+use proto::dnssec::TrustAnchors;
 use proto::{op::Query, xfer::DnsResponse};
 pub use recursor::{Recursor, RecursorBuilder};
 use resolver::{Name, dns_lru::DnsLru, lookup::Lookup};
@@ -63,7 +63,7 @@ pub enum DnssecPolicy {
     #[cfg(feature = "__dnssec")]
     ValidateWithStaticKey {
         /// set to `None` to use built-in trust anchor
-        trust_anchor: Option<Arc<TrustAnchor>>,
+        trust_anchor: Option<Arc<TrustAnchors>>,
     },
     // TODO RFC5011
     // ValidateWithInitialKey { ..  },}

@@ -27,7 +27,7 @@ use crate::lookup_ip::{LookupIp, LookupIpFuture};
 use crate::name_server::TokioConnectionProvider;
 use crate::name_server::{ConnectionProvider, NameServerPool};
 #[cfg(feature = "__dnssec")]
-use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchor};
+use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 use crate::proto::op::Query;
 use crate::proto::rr::domain::usage::ONION;
 use crate::proto::rr::{IntoName, Name, RData, Record, RecordType};
@@ -42,7 +42,7 @@ pub struct ResolverBuilder<P> {
     provider: P,
 
     #[cfg(feature = "__dnssec")]
-    trust_anchor: Option<Arc<TrustAnchor>>,
+    trust_anchor: Option<Arc<TrustAnchors>>,
 }
 
 impl<P> ResolverBuilder<P>
@@ -56,7 +56,7 @@ where
 
     /// Set the DNSSEC trust anchors to be used by the resolver.
     #[cfg(feature = "__dnssec")]
-    pub fn with_trust_anchor(mut self, trust_anchor: Arc<TrustAnchor>) -> Self {
+    pub fn with_trust_anchor(mut self, trust_anchor: Arc<TrustAnchors>) -> Self {
         self.trust_anchor = Some(trust_anchor);
         self
     }
@@ -78,7 +78,8 @@ where
         if options.validate {
             #[cfg(feature = "__dnssec")]
             {
-                let trust_anchor = trust_anchor.unwrap_or_else(|| Arc::new(TrustAnchor::default()));
+                let trust_anchor =
+                    trust_anchor.unwrap_or_else(|| Arc::new(TrustAnchors::default()));
                 either =
                     LookupEither::Secure(DnssecDnsHandle::with_trust_anchor(client, trust_anchor));
             }

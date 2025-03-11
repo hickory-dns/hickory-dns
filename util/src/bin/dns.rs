@@ -535,12 +535,12 @@ async fn handle_request(
             #[cfg(feature = "__dnssec")]
             {
                 use hickory_proto::{
-                    dnssec::{Algorithm, PublicKey, TrustAnchor, Verifier},
+                    dnssec::{Algorithm, PublicKey, TrustAnchors, Verifier},
                     rr::Record,
                 };
                 use std::{fs::OpenOptions, io::Write};
 
-                let trust_anchor = TrustAnchor::default();
+                let trust_anchor = TrustAnchors::default();
 
                 for dnskey in response
                     .answers()

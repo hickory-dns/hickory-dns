@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex as StdMutex};
 use futures::executor::block_on;
 
 use hickory_client::client::{Client, ClientHandle, MemoizeClientHandle};
-use hickory_proto::dnssec::{DnssecDnsHandle, TrustAnchor};
+use hickory_proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 use hickory_proto::op::ResponseCode;
 use hickory_proto::rr::Name;
 use hickory_proto::rr::{DNSClass, RecordType};
@@ -225,7 +225,7 @@ where
             .to_public_key()
             .expect("could not convert keypair to public_key");
 
-        let mut trust_anchor = TrustAnchor::empty();
+        let mut trust_anchor = TrustAnchors::empty();
         trust_anchor.insert_trust_anchor(&public_key);
 
         Arc::new(trust_anchor)

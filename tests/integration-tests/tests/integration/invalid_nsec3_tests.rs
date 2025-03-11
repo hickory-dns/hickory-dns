@@ -19,7 +19,7 @@ use hickory_proto::{
     ProtoErrorKind,
     dnssec::{
         Algorithm, DigestType, Nsec3HashAlgorithm, Proof, PublicKeyBuf, SigSigner, SigningKey,
-        TrustAnchor,
+        TrustAnchors,
         crypto::Ed25519SigningKey,
         rdata::{DNSKEY, DNSSECRData, DS},
     },
@@ -374,7 +374,7 @@ where
     server.register_socket(udp_socket);
 
     // Client setup
-    let mut trust_anchor = TrustAnchor::empty();
+    let mut trust_anchor = TrustAnchors::empty();
     trust_anchor.insert_trust_anchor(public_key);
     let stream = UdpClientStream::builder(local_addr, TokioRuntimeProvider::new()).build();
     let (client, bg) = DnssecClient::builder(stream)
