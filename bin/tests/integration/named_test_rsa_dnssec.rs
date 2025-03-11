@@ -25,7 +25,7 @@ fn confg_toml() -> &'static str {
 fn trust_anchor(public_key_path: &Path, algorithm: Algorithm) -> Arc<TrustAnchor> {
     let key_pair = key_from_file(public_key_path, algorithm).unwrap();
     let public_key = key_pair.to_public_key().unwrap();
-    let mut trust_anchor = TrustAnchor::new();
+    let mut trust_anchor = TrustAnchor::empty();
 
     trust_anchor.insert_trust_anchor(&public_key);
     Arc::new(trust_anchor)

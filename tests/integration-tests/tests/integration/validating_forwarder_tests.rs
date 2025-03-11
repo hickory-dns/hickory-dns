@@ -164,7 +164,7 @@ async fn setup_client_forwarder(
     validate: bool,
 ) -> (Client, ServerFuture<Catalog>) {
     // Server setup
-    let mut trust_anchor = TrustAnchor::new();
+    let mut trust_anchor = TrustAnchor::empty();
     trust_anchor.insert_trust_anchor(public_key);
     let mut options = ResolverOpts::default();
     options.validate = validate;

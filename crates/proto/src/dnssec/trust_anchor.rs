@@ -45,7 +45,9 @@ pub struct TrustAnchor {
 
 impl TrustAnchor {
     /// Creates a new empty trust anchor set
-    pub fn new() -> Self {
+    ///
+    /// If you want to use the default root anchors, use `TrustAnchor::default()`.
+    pub fn empty() -> Self {
         Self { pkeys: vec![] }
     }
 
@@ -107,7 +109,7 @@ impl FromStr for TrustAnchor {
         let parser = trust_anchor::Parser::new(input);
         let entries = parser.parse().map_err(|e| e.to_string())?;
 
-        let mut trust_anchor = Self::new();
+        let mut trust_anchor = Self::empty();
         for entry in entries {
             let Entry::DNSKEY(record) = entry;
             let dnskey = record.data();
