@@ -43,17 +43,6 @@ pub struct TrustAnchor {
     pkeys: Vec<PublicKeyBuf>,
 }
 
-impl Default for TrustAnchor {
-    fn default() -> Self {
-        Self {
-            pkeys: vec![
-                PublicKeyBuf::new(ROOT_ANCHOR_2018.to_owned(), Algorithm::RSASHA256),
-                PublicKeyBuf::new(ROOT_ANCHOR_2024.to_owned(), Algorithm::RSASHA256),
-            ],
-        }
-    }
-}
-
 impl TrustAnchor {
     /// Creates a new empty trust anchor set
     pub fn new() -> Self {
@@ -127,6 +116,17 @@ impl FromStr for TrustAnchor {
         }
 
         Ok(trust_anchor)
+    }
+}
+
+impl Default for TrustAnchor {
+    fn default() -> Self {
+        Self {
+            pkeys: vec![
+                PublicKeyBuf::new(ROOT_ANCHOR_2018.to_owned(), Algorithm::RSASHA256),
+                PublicKeyBuf::new(ROOT_ANCHOR_2024.to_owned(), Algorithm::RSASHA256),
+            ],
+        }
     }
 }
 
