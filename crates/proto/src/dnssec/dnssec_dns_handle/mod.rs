@@ -23,7 +23,7 @@ use tracing::{debug, trace, warn};
 
 use crate::{
     dnssec::{
-        Algorithm, Proof, ProofError, ProofErrorKind, TrustAnchor, Verifier,
+        Algorithm, Proof, ProofError, ProofErrorKind, TrustAnchors, Verifier,
         rdata::{DNSKEY, DS, RRSIG},
     },
     error::{ProtoError, ProtoErrorKind},
@@ -51,7 +51,7 @@ where
     H: DnsHandle + Unpin + 'static,
 {
     handle: H,
-    trust_anchor: Arc<TrustAnchor>,
+    trust_anchor: Arc<TrustAnchors>,
     request_depth: usize,
     minimum_key_len: usize,
     minimum_algorithm: Algorithm, // used to prevent down grade attacks...
@@ -68,7 +68,7 @@ where
     /// # Arguments
     /// * `handle` - handle to use for all connections to a remote server.
     pub fn new(handle: H) -> Self {
-        Self::with_trust_anchor(handle, Arc::new(TrustAnchor::default()))
+        Self::with_trust_anchor(handle, Arc::new(TrustAnchors::default()))
     }
 
     /// Create a new DnssecDnsHandle wrapping the specified handle.
@@ -78,7 +78,7 @@ where
     /// # Arguments
     /// * `handle` - handle to use for all connections to a remote server.
     /// * `trust_anchor` - custom DNSKEYs that will be trusted, can be used to pin trusted keys.
-    pub fn with_trust_anchor(handle: H, trust_anchor: Arc<TrustAnchor>) -> Self {
+    pub fn with_trust_anchor(handle: H, trust_anchor: Arc<TrustAnchors>) -> Self {
         Self {
             handle,
             trust_anchor,

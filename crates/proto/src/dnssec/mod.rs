@@ -49,7 +49,7 @@ pub use self::public_key::{PublicKey, PublicKeyBuf};
 pub use self::signer::SigSigner;
 pub use self::supported_algorithm::SupportedAlgorithms;
 pub use self::tbs::TBS;
-pub use self::trust_anchor::TrustAnchor;
+pub use self::trust_anchor::TrustAnchors;
 pub use self::verifier::Verifier;
 
 /// DNSSEC Delegation Signer (DS) Resource Record (RR) Type Digest Algorithms

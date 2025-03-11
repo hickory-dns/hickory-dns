@@ -11,7 +11,7 @@ use tokio::runtime::Runtime;
 use crate::server_harness::{named_test_harness, query_a, query_all_dnssec};
 use hickory_client::client::Client;
 use hickory_dns::dnssec::key_from_file;
-use hickory_proto::dnssec::{Algorithm, DnssecDnsHandle, TrustAnchor};
+use hickory_proto::dnssec::{Algorithm, DnssecDnsHandle, TrustAnchors};
 use hickory_proto::runtime::{RuntimeProvider, TokioRuntimeProvider, TokioTime};
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer, Protocol};
@@ -22,10 +22,10 @@ fn confg_toml() -> &'static str {
     "all_supported_dnssec.toml"
 }
 
-fn trust_anchor(public_key_path: &Path, algorithm: Algorithm) -> Arc<TrustAnchor> {
+fn trust_anchor(public_key_path: &Path, algorithm: Algorithm) -> Arc<TrustAnchors> {
     let key_pair = key_from_file(public_key_path, algorithm).unwrap();
     let public_key = key_pair.to_public_key().unwrap();
-    let mut trust_anchor = TrustAnchor::empty();
+    let mut trust_anchor = TrustAnchors::empty();
 
     trust_anchor.insert_trust_anchor(&public_key);
     Arc::new(trust_anchor)

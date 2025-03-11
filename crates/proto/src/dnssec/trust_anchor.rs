@@ -37,13 +37,13 @@ const ROOT_ANCHOR_2024: &[u8] = include_bytes!("roots/38696.rsa");
 
 /// The root set of trust anchors for validating DNSSEC, anything in this set will be trusted
 #[derive(Clone)]
-pub struct TrustAnchor {
+pub struct TrustAnchors {
     // TODO: these should also store some information, or more specifically, metadata from the signed
     //  public certificate.
     pkeys: Vec<PublicKeyBuf>,
 }
 
-impl TrustAnchor {
+impl TrustAnchors {
     /// Creates a new empty trust anchor set
     ///
     /// If you want to use the default root anchors, use `TrustAnchor::default()`.
@@ -102,7 +102,7 @@ impl TrustAnchor {
 }
 
 #[cfg(feature = "text-parsing")]
-impl FromStr for TrustAnchor {
+impl FromStr for TrustAnchors {
     type Err = String;
 
     fn from_str(input: &str) -> Result<Self, String> {
@@ -121,7 +121,7 @@ impl FromStr for TrustAnchor {
     }
 }
 
-impl Default for TrustAnchor {
+impl Default for TrustAnchors {
     fn default() -> Self {
         Self {
             pkeys: vec![
@@ -136,12 +136,12 @@ impl Default for TrustAnchor {
 mod tests {
     use crate::dnssec::{
         Algorithm, PublicKey,
-        trust_anchor::{ROOT_ANCHOR_2024, TrustAnchor},
+        trust_anchor::{ROOT_ANCHOR_2024, TrustAnchors},
     };
 
     #[test]
     fn test_contains_dnskey_bytes() {
-        let trust = TrustAnchor::default();
+        let trust = TrustAnchors::default();
         assert_eq!(trust.get(1).unwrap().public_bytes(), ROOT_ANCHOR_2024);
         assert!(trust.contains_dnskey_bytes(ROOT_ANCHOR_2024, Algorithm::RSASHA256));
     }
@@ -151,7 +151,7 @@ mod tests {
     fn can_load_trust_anchor_file() {
         let input = include_str!("../../tests/test-data/root.key");
 
-        let trust_anchor = input.parse::<TrustAnchor>().unwrap();
+        let trust_anchor = input.parse::<TrustAnchors>().unwrap();
         assert_eq!(3, trust_anchor.len());
     }
 }

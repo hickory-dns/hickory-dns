@@ -16,7 +16,7 @@ use std::{
 use hickory_client::client::{Client, ClientHandle};
 use hickory_proto::{
     dnssec::{
-        PublicKeyBuf, SigSigner, SigningKey, TrustAnchor, crypto::Ed25519SigningKey, rdata::DNSKEY,
+        PublicKeyBuf, SigSigner, SigningKey, TrustAnchors, crypto::Ed25519SigningKey, rdata::DNSKEY,
     },
     op::ResponseCode,
     rr::{DNSClass, RData, Record, RecordType, rdata::A},
@@ -164,7 +164,7 @@ async fn setup_client_forwarder(
     validate: bool,
 ) -> (Client, ServerFuture<Catalog>) {
     // Server setup
-    let mut trust_anchor = TrustAnchor::empty();
+    let mut trust_anchor = TrustAnchors::empty();
     trust_anchor.insert_trust_anchor(public_key);
     let mut options = ResolverOpts::default();
     options.validate = validate;

@@ -14,7 +14,7 @@ use futures_util::stream::Stream;
 use crate::client::Client;
 use crate::proto::ProtoError;
 use crate::proto::dnssec::DnssecDnsHandle;
-use crate::proto::dnssec::TrustAnchor;
+use crate::proto::dnssec::TrustAnchors;
 use crate::proto::runtime::TokioTime;
 use crate::proto::xfer::{
     DnsExchangeBackground, DnsHandle, DnsRequest, DnsRequestSender, DnsResponse,
@@ -52,7 +52,7 @@ impl DnssecClient {
         Self::builder(connect_future).build().await
     }
 
-    fn from_client(client: Client, trust_anchor: Arc<TrustAnchor>) -> Self {
+    fn from_client(client: Client, trust_anchor: Arc<TrustAnchors>) -> Self {
         Self {
             client: DnssecDnsHandle::with_trust_anchor(client, trust_anchor),
         }
@@ -82,7 +82,7 @@ where
     S: DnsRequestSender + 'static,
 {
     connect_future: F,
-    trust_anchor: Option<TrustAnchor>,
+    trust_anchor: Option<TrustAnchors>,
 }
 
 impl<F, S> AsyncSecureClientBuilder<F, S>
@@ -96,7 +96,7 @@ where
     ///
     /// * `trust_anchor` - the set of trusted DNSKEY public_keys, by default this only contains the
     ///                    root public_key.
-    pub fn trust_anchor(mut self, trust_anchor: TrustAnchor) -> Self {
+    pub fn trust_anchor(mut self, trust_anchor: TrustAnchors) -> Self {
         self.trust_anchor = Some(trust_anchor);
         self
     }

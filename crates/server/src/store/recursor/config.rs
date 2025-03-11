@@ -21,7 +21,7 @@ use serde::Deserialize;
 
 use crate::error::ConfigError;
 #[cfg(feature = "__dnssec")]
-use crate::proto::dnssec::TrustAnchor;
+use crate::proto::dnssec::TrustAnchors;
 use crate::proto::{
     rr::{Name, RData, Record, RecordSet},
     serialize::txt::Parser,
@@ -148,7 +148,7 @@ impl DnssecPolicyConfig {
             Self::ValidateWithStaticKey { path } => DnssecPolicy::ValidateWithStaticKey {
                 trust_anchor: path
                     .as_ref()
-                    .map(|path| TrustAnchor::read_from_file(path))
+                    .map(|path| TrustAnchors::read_from_file(path))
                     .transpose()?
                     .map(Arc::new),
             },

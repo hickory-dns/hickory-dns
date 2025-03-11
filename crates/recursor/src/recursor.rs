@@ -25,7 +25,7 @@ use crate::{
     ErrorKind,
     proto::{
         ProtoError,
-        dnssec::{DnssecDnsHandle, TrustAnchor},
+        dnssec::{DnssecDnsHandle, TrustAnchors},
         op::ResponseCode,
         rr::{Record, RecordType, resource::RecordRef},
         xfer::{DnsHandle as _, DnsRequestOptions, FirstAnswer as _},
@@ -196,7 +196,7 @@ impl Recursor {
                         return Err(Error::from("trust anchor must not be empty"));
                     }
                     Some(anchor) => anchor,
-                    None => Arc::new(TrustAnchor::default()),
+                    None => Arc::new(TrustAnchors::default()),
                 };
 
                 RecursorMode::Validating {
