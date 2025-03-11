@@ -102,15 +102,18 @@ impl FromStr for TrustAnchors {
         let parser = trust_anchor::Parser::new(input);
         let entries = parser.parse().map_err(|e| e.to_string())?;
 
-        let mut trust_anchor = Self::empty();
+        let mut pkeys = Vec::new();
         for entry in entries {
             let Entry::DNSKEY(record) = entry;
             let dnskey = record.data();
             let key = dnskey.key()?;
-            trust_anchor.insert(&*key);
+            pkeys.push(PublicKeyBuf::new(
+                key.public_bytes().to_vec(),
+                dnskey.algorithm(),
+            ));
         }
 
-        Ok(trust_anchor)
+        Ok(Self { pkeys })
     }
 }
 
