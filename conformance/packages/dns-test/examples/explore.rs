@@ -6,7 +6,7 @@ use dns_test::client::Client;
 use dns_test::name_server::{Graph, NameServer, Sign};
 use dns_test::record::RecordType;
 use dns_test::zone_file::SignSettings;
-use dns_test::{FQDN, Network, Resolver, Result};
+use dns_test::{FQDN, Forwarder, Network, Resolver, Result};
 
 fn main() -> Result<()> {
     let args = Args::from_env()?;
@@ -48,11 +48,17 @@ fn main() -> Result<()> {
 
     println!("building docker image...");
     let mut builder = Resolver::new(&network, root);
-    if let Some(trust_anchor) = trust_anchor {
-        builder.trust_anchor(&trust_anchor);
+    if let Some(trust_anchor) = &trust_anchor {
+        builder.trust_anchor(trust_anchor);
     }
     let resolver = builder.start()?;
     println!("DONE\n\n");
+
+    let mut builder = Forwarder::new(&network, &resolver);
+    if let Some(trust_anchor) = &trust_anchor {
+        builder.trust_anchor(trust_anchor);
+    }
+    let forwarder = builder.start()?;
 
     let (tx, rx) = mpsc::channel();
 
@@ -67,10 +73,17 @@ fn main() -> Result<()> {
     }
 
     let resolver_addr = resolver.ipv4_addr();
-    println!("resolver's IP address: {resolver_addr}",);
+    println!("resolver's IP address: {resolver_addr}");
     println!(
         "attach to this container with: `docker exec -it {} bash`\n",
         resolver.container_name()
+    );
+
+    let forwarder_addr = forwarder.ipv4_addr();
+    println!("forwarder's IP address: {forwarder_addr}");
+    println!(
+        "attach to this container with: `docker exec -it {} bash`\n",
+        forwarder.container_name()
     );
 
     println!("client's IP address: {}", client.ipv4_addr());
