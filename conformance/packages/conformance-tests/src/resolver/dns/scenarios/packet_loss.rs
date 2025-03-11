@@ -3,7 +3,7 @@
 use std::{fs, net::Ipv4Addr};
 
 use dns_test::{
-    FQDN, Implementation, Network, Resolver, Result,
+    FQDN, Implementation, Network, PEER, Resolver, Result,
     client::{Client, DigSettings, DigStatus},
     name_server::NameServer,
     record::RecordType,
@@ -15,7 +15,7 @@ fn packet_loss_udp() -> Result<()> {
     let target_fqdn = FQDN("example.testing.")?;
     let network = Network::new()?;
 
-    let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
+    let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
     let leaf_ns = NameServer::new(&Implementation::Dnslib, FQDN::TEST_TLD, &network)?;
     let script = fs::read_to_string("src/resolver/dns/scenarios/packet_loss.py")?;
     leaf_ns.cp("/script.py", &script)?;
