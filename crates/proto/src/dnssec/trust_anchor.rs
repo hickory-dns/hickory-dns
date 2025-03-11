@@ -69,13 +69,16 @@ impl TrustAnchors {
     }
 
     /// inserts the trust_anchor to the trusted chain
-    pub fn insert_trust_anchor<P: PublicKey + ?Sized>(&mut self, public_key: &P) {
-        if !self.contains(public_key) {
-            self.pkeys.push(PublicKeyBuf::new(
-                public_key.public_bytes().to_vec(),
-                public_key.algorithm(),
-            ))
+    pub fn insert<P: PublicKey + ?Sized>(&mut self, public_key: &P) -> bool {
+        if self.contains(public_key) {
+            return false;
         }
+
+        self.pkeys.push(PublicKeyBuf::new(
+            public_key.public_bytes().to_vec(),
+            public_key.algorithm(),
+        ));
+        true
     }
 
     /// get the trust anchor at the specified index
@@ -114,7 +117,7 @@ impl FromStr for TrustAnchors {
             let Entry::DNSKEY(record) = entry;
             let dnskey = record.data();
             let key = dnskey.key()?;
-            trust_anchor.insert_trust_anchor(&*key);
+            trust_anchor.insert(&*key);
         }
 
         Ok(trust_anchor)
