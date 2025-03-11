@@ -64,11 +64,5 @@ pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ResolveError
 
     let config = ResolverConfig::from_parts(Some(domain), search_list, name_servers);
 
-    let rotate = is_round_robin_enabled()?;
-
-    let opts = ResolverOpts {
-        rotate,
-        ..Default::default()
-    };
-    Ok((config, opts))
+    Ok((config, ResolverOpts::default()))
 }
