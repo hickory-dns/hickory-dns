@@ -148,7 +148,7 @@ impl DnssecPolicyConfig {
             Self::ValidateWithStaticKey { path } => DnssecPolicy::ValidateWithStaticKey {
                 trust_anchor: path
                     .as_ref()
-                    .map(|path| TrustAnchors::read_from_file(path))
+                    .map(|path| TrustAnchors::from_file(path))
                     .transpose()?
                     .map(Arc::new),
             },

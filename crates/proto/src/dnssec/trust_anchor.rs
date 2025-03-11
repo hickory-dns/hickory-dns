@@ -46,7 +46,7 @@ pub struct TrustAnchors {
 impl TrustAnchors {
     /// loads a trust anchor from a file of DNSKEY records
     #[cfg(feature = "text-parsing")]
-    pub fn read_from_file(path: &Path) -> Result<Self, String> {
+    pub fn from_file(path: &Path) -> Result<Self, String> {
         let contents = fs::read_to_string(path).map_err(|e| e.to_string())?;
         contents.parse()
     }
