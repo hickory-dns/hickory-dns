@@ -775,8 +775,6 @@ pub struct ResolverOpts {
     pub timeout: Duration,
     /// Number of retries after lookup failure before giving up. Defaults to 2
     pub attempts: usize,
-    /// Rotate through the resource records in the response (if there is more than one for a given name)
-    pub rotate: bool,
     /// Validate the names in the response, not implemented don't really see the point unless you need to support
     ///  badly configured DNS
     pub check_names: bool,
@@ -872,7 +870,6 @@ impl Default for ResolverOpts {
             ndots: 1,
             timeout: Duration::from_secs(5),
             attempts: 2,
-            rotate: false,
             check_names: true,
             edns0: false,
             validate: false,
