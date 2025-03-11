@@ -44,6 +44,13 @@ pub struct TrustAnchors {
 }
 
 impl TrustAnchors {
+    /// loads a trust anchor from a file of DNSKEY records
+    #[cfg(feature = "text-parsing")]
+    pub fn read_from_file(path: &Path) -> Result<Self, String> {
+        let contents = fs::read_to_string(path).map_err(|e| e.to_string())?;
+        contents.parse()
+    }
+
     /// Creates a new empty trust anchor set
     ///
     /// If you want to use the default root anchors, use `TrustAnchor::default()`.
@@ -94,13 +101,6 @@ impl TrustAnchors {
     /// returns true if there are no keys in the trust_anchor
     pub fn is_empty(&self) -> bool {
         self.pkeys.is_empty()
-    }
-
-    /// loads a trust anchor from a file of DNSKEY records
-    #[cfg(feature = "text-parsing")]
-    pub fn read_from_file(path: &Path) -> Result<Self, String> {
-        let contents = fs::read_to_string(path).map_err(|e| e.to_string())?;
-        contents.parse()
     }
 }
 
