@@ -16,6 +16,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use hickory_proto::serialize::txt::ParseError;
 use ipnet::IpNet;
 use serde::Deserialize;
 
@@ -139,7 +140,7 @@ pub enum DnssecPolicyConfig {
 }
 
 impl DnssecPolicyConfig {
-    pub(crate) fn load(&self) -> Result<DnssecPolicy, String> {
+    pub(crate) fn load(&self) -> Result<DnssecPolicy, ParseError> {
         Ok(match self {
             Self::SecurityUnaware => DnssecPolicy::SecurityUnaware,
             #[cfg(feature = "__dnssec")]

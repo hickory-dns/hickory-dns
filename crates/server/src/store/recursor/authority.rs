@@ -88,7 +88,7 @@ impl RecursiveAuthority {
         }
 
         let recursor = builder
-            .dnssec_policy(config.dnssec_policy.load()?)
+            .dnssec_policy(config.dnssec_policy.load().map_err(|e| e.to_string())?)
             .nameserver_filter(config.allow_server.iter(), config.deny_server.iter())
             .recursion_limit(match config.recursion_limit {
                 0 => None,
