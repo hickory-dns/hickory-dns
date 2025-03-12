@@ -19,7 +19,10 @@ use hickory_proto::{
         PublicKeyBuf, SigSigner, SigningKey, TrustAnchors, crypto::Ed25519SigningKey, rdata::DNSKEY,
     },
     op::ResponseCode,
-    rr::{DNSClass, RData, Record, RecordType, rdata::A},
+    rr::{
+        DNSClass, RData, Record, RecordType,
+        rdata::{A, SOA},
+    },
     runtime::TokioRuntimeProvider,
     udp::UdpClientStream,
     xfer::Protocol,
@@ -40,11 +43,32 @@ use test_support::subscribe;
 use tokio::{net::UdpSocket, spawn};
 
 #[tokio::test]
-async fn query_validate_true_signed_zone() {
+async fn query_validate_true_signed_zone_with_soa() {
     subscribe();
 
     let (name_server_addr, _name_server_future, public_key) =
-        setup_authoritative_server(true).await;
+        setup_authoritative_server(true, true).await;
+    let (mut client, _forwarder_future) =
+        setup_client_forwarder(name_server_addr, &public_key, true).await;
+    let response = client
+        .query(Name::root(), DNSClass::IN, RecordType::A)
+        .await
+        .unwrap();
+    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert!(response.answers().iter().any(|record| {
+        record
+            .data()
+            .as_a()
+            .is_some_and(|a| a.0 == Ipv4Addr::new(1, 2, 3, 4))
+    }));
+}
+
+#[tokio::test]
+async fn query_validate_true_signed_zone_no_soa() {
+    subscribe();
+
+    let (name_server_addr, _name_server_future, public_key) =
+        setup_authoritative_server(true, false).await;
     let (mut client, _forwarder_future) =
         setup_client_forwarder(name_server_addr, &public_key, true).await;
     let response = client
@@ -62,11 +86,11 @@ async fn query_validate_true_signed_zone() {
 
 #[tokio::test]
 #[ignore = "validation failure is not translated into SERVFAIL response"]
-async fn query_validate_true_unsigned_zone() {
+async fn query_validate_true_unsigned_zone_with_soa() {
     subscribe();
 
     let (name_server_addr, _name_server_future, public_key) =
-        setup_authoritative_server(false).await;
+        setup_authoritative_server(false, true).await;
     let (mut client, _forwarder_future) =
         setup_client_forwarder(name_server_addr, &public_key, true).await;
     let response = client
@@ -78,11 +102,28 @@ async fn query_validate_true_unsigned_zone() {
 }
 
 #[tokio::test]
-async fn query_validate_false_signed_zone() {
+#[ignore = "validation failure is not translated into SERVFAIL response"]
+async fn query_validate_true_unsigned_zone_no_soa() {
     subscribe();
 
     let (name_server_addr, _name_server_future, public_key) =
-        setup_authoritative_server(true).await;
+        setup_authoritative_server(false, false).await;
+    let (mut client, _forwarder_future) =
+        setup_client_forwarder(name_server_addr, &public_key, true).await;
+    let response = client
+        .query(Name::root(), DNSClass::IN, RecordType::A)
+        .await
+        .unwrap();
+    assert_eq!(response.response_code(), ResponseCode::ServFail);
+    assert!(response.answers().is_empty());
+}
+
+#[tokio::test]
+async fn query_validate_false_signed_zone_with_soa() {
+    subscribe();
+
+    let (name_server_addr, _name_server_future, public_key) =
+        setup_authoritative_server(true, true).await;
     let (mut client, _forwarder_future) =
         setup_client_forwarder(name_server_addr, &public_key, false).await;
     let response = client
@@ -99,11 +140,53 @@ async fn query_validate_false_signed_zone() {
 }
 
 #[tokio::test]
-async fn query_validate_false_unsigned_zone() {
+async fn query_validate_false_signed_zone_no_soa() {
     subscribe();
 
     let (name_server_addr, _name_server_future, public_key) =
-        setup_authoritative_server(false).await;
+        setup_authoritative_server(true, false).await;
+    let (mut client, _forwarder_future) =
+        setup_client_forwarder(name_server_addr, &public_key, false).await;
+    let response = client
+        .query(Name::root(), DNSClass::IN, RecordType::A)
+        .await
+        .unwrap();
+    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert!(response.answers().iter().any(|record| {
+        record
+            .data()
+            .as_a()
+            .is_some_and(|a| a.0 == Ipv4Addr::new(1, 2, 3, 4))
+    }));
+}
+
+#[tokio::test]
+async fn query_validate_false_unsigned_zone_with_soa() {
+    subscribe();
+
+    let (name_server_addr, _name_server_future, public_key) =
+        setup_authoritative_server(false, true).await;
+    let (mut client, _forwarder_future) =
+        setup_client_forwarder(name_server_addr, &public_key, false).await;
+    let response = client
+        .query(Name::root(), DNSClass::IN, RecordType::A)
+        .await
+        .unwrap();
+    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert!(response.answers().iter().any(|record| {
+        record
+            .data()
+            .as_a()
+            .is_some_and(|a| a.0 == Ipv4Addr::new(1, 2, 3, 4))
+    }));
+}
+
+#[tokio::test]
+async fn query_validate_false_unsigned_zone_no_soa() {
+    subscribe();
+
+    let (name_server_addr, _name_server_future, public_key) =
+        setup_authoritative_server(false, false).await;
     let (mut client, _forwarder_future) =
         setup_client_forwarder(name_server_addr, &public_key, false).await;
     let response = client
@@ -121,6 +204,7 @@ async fn query_validate_false_unsigned_zone() {
 
 async fn setup_authoritative_server(
     signed: bool,
+    soa: bool,
 ) -> (SocketAddr, ServerFuture<Catalog>, PublicKeyBuf) {
     // Zone setup
     let key = Ed25519SigningKey::from_pkcs8(&Ed25519SigningKey::generate_pkcs8().unwrap()).unwrap();
@@ -135,6 +219,24 @@ async fn setup_authoritative_server(
         Record::from_rdata(Name::root(), 3600, RData::A(A(Ipv4Addr::new(1, 2, 3, 4)))),
         0,
     );
+    if soa {
+        authority.upsert_mut(
+            Record::from_rdata(
+                Name::root(),
+                3600,
+                RData::SOA(SOA::new(
+                    Name::parse("nameserver.", None).unwrap(),
+                    Name::parse("admin.nameserver.", None).unwrap(),
+                    0,
+                    3600,
+                    3600,
+                    3600,
+                    3600,
+                )),
+            ),
+            0,
+        );
+    }
     if signed {
         authority
             .add_zone_signing_key_mut(SigSigner::dnssec(
