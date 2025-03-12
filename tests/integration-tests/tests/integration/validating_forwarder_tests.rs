@@ -270,16 +270,17 @@ async fn setup_client_forwarder(
     trust_anchor.insert(public_key);
     let mut options = ResolverOpts::default();
     options.validate = validate;
-    let authority = ForwardAuthority::builder_tokio(ForwardConfig {
+    let mut authority_builder = ForwardAuthority::builder_tokio(ForwardConfig {
         name_servers: NameServerConfigGroup::from(vec![NameServerConfig::new(
             name_server_addr,
             Protocol::Udp,
         )]),
         options: Some(options),
-    })
-    .with_trust_anchor(Arc::new(trust_anchor))
-    .build()
-    .unwrap();
+    });
+    if validate {
+        authority_builder = authority_builder.with_trust_anchor(Arc::new(trust_anchor));
+    }
+    let authority = authority_builder.build().unwrap();
     let udp_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
     let local_addr = udp_socket.local_addr().unwrap();
     let mut catalog = Catalog::new();
