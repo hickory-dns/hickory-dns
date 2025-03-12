@@ -774,11 +774,14 @@ async fn build_forwarded_response(
                 id = request_header.id(),
                 "request disabled recursion, returning REFUSED"
             );
+            response_header.set_response_code(ResponseCode::Refused);
 
-            (
-                Answer::Normal(Box::new(EmptyLookup)),
-                Box::<AuthLookup>::default(),
-            )
+            return LookupSections {
+                answers: Box::new(EmptyLookup),
+                ns: Box::new(EmptyLookup),
+                soa: Box::new(EmptyLookup),
+                additionals: Box::new(EmptyLookup),
+            };
         }
         Ok(l) => (Answer::Normal(l), Box::<AuthLookup>::default()),
         Err(e) if e.is_no_records_found() || e.is_nx_domain() => {
