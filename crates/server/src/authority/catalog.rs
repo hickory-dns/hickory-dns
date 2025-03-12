@@ -771,8 +771,8 @@ async fn build_forwarded_response(
     let (mut answers, authorities) = match response {
         Ok(_) | Err(_) if !request_header.recursion_desired() => {
             info!(
-                "request disabled recursion, returning no records: {}",
-                request_header.id()
+                id = request_header.id(),
+                "request disabled recursion, returning REFUSED"
             );
 
             (
@@ -782,7 +782,7 @@ async fn build_forwarded_response(
         }
         Ok(l) => (Answer::Normal(l), Box::<AuthLookup>::default()),
         Err(e) if e.is_no_records_found() || e.is_nx_domain() => {
-            debug!("error resolving: {e:?}");
+            debug!(error = ?e, "error resolving");
 
             if e.is_nx_domain() {
                 response_header.set_response_code(ResponseCode::NXDomain);
@@ -798,8 +798,9 @@ async fn build_forwarded_response(
                         // section, change the NXDomain response to NoError
                         if *x.name() == **query.name() {
                             debug!(
-                                "changing response code from NXDomain to NoError for {} due to other record {x:?}",
-                                query.name(),
+                                query_name = %query.name(),
+                                record = ?x,
+                                "changing response code from NXDomain to NoError due to other record",
                             );
                             response_header.set_response_code(ResponseCode::NoError);
                         }
@@ -834,7 +835,7 @@ async fn build_forwarded_response(
         }
         Err(e) => {
             response_header.set_response_code(ResponseCode::ServFail);
-            debug!("error resolving {e:?}");
+            debug!(error = ?e, "error resolving");
             (
                 Answer::Normal(Box::new(EmptyLookup)),
                 Box::<AuthLookup>::default(),
