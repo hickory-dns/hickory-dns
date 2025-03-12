@@ -215,6 +215,11 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         false
     }
 
+    /// Whether the authority can perform DNSSEC validation
+    fn can_validate_dnssec(&self) -> bool {
+        self.resolver.options().validate
+    }
+
     async fn update(&self, _update: &MessageRequest) -> UpdateResult<bool> {
         Err(ResponseCode::NotImp)
     }
