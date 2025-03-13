@@ -266,4 +266,37 @@ mod tests {
         let read_rdata = NSEC::read_data(&mut decoder, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
+
+    #[test]
+    fn rfc4034_example_rdata() {
+        // From section 4.3 of RFC 4034
+        let bytes = b"\x04host\
+        \x07example\
+        \x03com\x00\
+        \x00\x06\x40\x01\x00\x00\x00\x03\
+        \x04\x1b\x00\x00\x00\x00\x00\x00\
+        \x00\x00\x00\x00\x00\x00\x00\x00\
+        \x00\x00\x00\x00\x00\x00\x00\x00\
+        \x00\x00\x00\x00\x20";
+        let rdata = NSEC::new(
+            Name::parse("host.example.com.", None).unwrap(),
+            vec![
+                RecordType::A,
+                RecordType::MX,
+                RecordType::RRSIG,
+                RecordType::NSEC,
+                RecordType::Unknown(1234),
+            ],
+        );
+
+        let mut buffer = Vec::new();
+        let mut encoder = BinEncoder::new(&mut buffer);
+        rdata.emit(&mut encoder).expect("Encoding error");
+        assert_eq!(encoder.into_bytes(), bytes);
+
+        let mut decoder = BinDecoder::new(bytes);
+        let decoded = NSEC::read_data(&mut decoder, Restrict::new(bytes.len() as u16))
+            .expect("Decoding error");
+        assert_eq!(decoded, rdata);
+    }
 }
