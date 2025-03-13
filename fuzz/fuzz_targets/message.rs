@@ -1,5 +1,6 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
+use pretty_assertions::assert_eq;
 
 use hickory_proto::{
     op::Message,
@@ -13,14 +14,6 @@ fuzz_target!(|data: &[u8]| {
         match Message::from_bytes(&reencoded) {
             Ok(reparsed) => {
                 if !messages_equal(&original, &reparsed) {
-                    for (m, r) in format!("{:#?}", original)
-                        .lines()
-                        .zip(format!("{:#?}", reparsed).lines())
-                    {
-                        if m != r {
-                            println!("{} -> {}", m, r);
-                        }
-                    }
                     assert_eq!(original, reparsed);
                 }
             }
