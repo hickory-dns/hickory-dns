@@ -9,6 +9,8 @@ use std::{io, path::Path, time::Instant};
 
 use tracing::{debug, info};
 
+#[cfg(feature = "__dnssec")]
+use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
         Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, MessageRequest,
@@ -26,12 +28,6 @@ use crate::{
     },
     server::RequestInfo,
     store::recursor::RecursiveConfig,
-};
-#[cfg(feature = "__dnssec")]
-use crate::{
-    authority::{DnssecSummary, Nsec3QueryInfo},
-    dnssec::NxProofKind,
-    proto::dnssec::Proof,
 };
 
 /// An authority that performs recursive resolutions.
@@ -221,25 +217,5 @@ impl LookupObject for RecursiveLookup {
 
     fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>> {
         None
-    }
-
-    #[cfg(feature = "__dnssec")]
-    fn dnssec_summary(&self) -> DnssecSummary {
-        let mut all_secure = None;
-        for record in self.0.records().iter() {
-            match record.proof() {
-                Proof::Secure => {
-                    all_secure.get_or_insert(true);
-                }
-                Proof::Bogus => return DnssecSummary::Bogus,
-                _ => all_secure = Some(false),
-            }
-        }
-
-        if all_secure.unwrap_or(false) {
-            DnssecSummary::Secure
-        } else {
-            DnssecSummary::Insecure
-        }
     }
 }

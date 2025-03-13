@@ -10,7 +10,7 @@
 use tracing::debug;
 
 #[cfg(feature = "__dnssec")]
-use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
+use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::Proof};
 use crate::{
     authority::{
         Authority, LookupControlFlow, LookupOptions, MessageRequest, UpdateResult, ZoneType,
@@ -337,6 +337,28 @@ pub trait LookupObject: Send {
     fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>>;
 
     /// Whether the records have been DNSSEC validated or not
+    #[cfg(feature = "__dnssec")]
+    fn dnssec_summary(&self) -> DnssecSummary {
+        let mut all_secure = None;
+        for record in self.iter() {
+            match record.proof() {
+                Proof::Secure => {
+                    all_secure.get_or_insert(true);
+                }
+                Proof::Bogus => return DnssecSummary::Bogus,
+                _ => all_secure = Some(false),
+            }
+        }
+
+        if all_secure.unwrap_or(false) {
+            DnssecSummary::Secure
+        } else {
+            DnssecSummary::Insecure
+        }
+    }
+
+    /// Whether the records have been DNSSEC validated or not
+    #[cfg(not(feature = "__dnssec"))]
     fn dnssec_summary(&self) -> DnssecSummary {
         DnssecSummary::Insecure
     }
