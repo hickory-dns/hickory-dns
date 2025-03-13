@@ -5,7 +5,7 @@ use dns_test::{
     client::{Client, DigSettings},
     name_server::{Graph, NameServer, Sign},
     record::{Record, RecordType},
-    zone_file::SignSettings,
+    zone_file::{Nsec, SignSettings},
 };
 
 mod bogus;
@@ -58,7 +58,7 @@ fn noerror() -> Result<()> {
 }
 
 #[test]
-fn nxdomain() -> Result<()> {
+fn nxdomain_nsec3() -> Result<()> {
     let network = Network::new()?;
 
     let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
@@ -71,6 +71,46 @@ fn nxdomain() -> Result<()> {
         leaf_ns,
         Sign::Yes {
             settings: SignSettings::default(),
+        },
+    )?;
+    let trust_anchor = trust_anchor.unwrap();
+
+    let resolver = Resolver::new(&network, root)
+        .trust_anchor(&trust_anchor)
+        .start_with_subject(&dns_test::PEER)?;
+    let forwarder = Forwarder::new(&network, &resolver)
+        .trust_anchor(&trust_anchor)
+        .start()?;
+    let client = Client::new(&network)?;
+
+    let settings = *DigSettings::default().recurse();
+    let output = client.dig(
+        settings,
+        forwarder.ipv4_addr(),
+        RecordType::A,
+        &FQDN::EXAMPLE_SUBDOMAIN,
+    )?;
+
+    assert!(output.status.is_nxdomain(), "{:?}", output.status);
+    assert!(output.answer.is_empty(), "{:?}", output.answer);
+
+    Ok(())
+}
+
+#[test]
+fn nxdomain_nsec() -> Result<()> {
+    let network = Network::new()?;
+
+    let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
+
+    let Graph {
+        nameservers: _nameservers,
+        root,
+        trust_anchor,
+    } = Graph::build(
+        leaf_ns,
+        Sign::Yes {
+            settings: SignSettings::default().nsec(Nsec::_1),
         },
     )?;
     let trust_anchor = trust_anchor.unwrap();
