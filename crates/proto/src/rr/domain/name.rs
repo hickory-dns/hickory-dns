@@ -2588,4 +2588,53 @@ mod tests {
         assert!(!fqdn_name.eq_ignore_root_case(&upper_relative_name));
         assert!(fqdn_name.eq_ignore_root(&upper_relative_name));
     }
+
+    #[test]
+    fn rfc4034_canonical_ordering_example() {
+        // From section 6.1 of RFC 4034
+        let names = Vec::from([
+            Name::from_labels::<_, &[u8]>([b"example".as_slice()]).unwrap(),
+            Name::from_labels::<_, &[u8]>([b"a".as_slice(), b"example".as_slice()]).unwrap(),
+            Name::from_labels::<_, &[u8]>([
+                b"yljkjljk".as_slice(),
+                b"a".as_slice(),
+                b"example".as_slice(),
+            ])
+            .unwrap(),
+            Name::from_labels::<_, &[u8]>([
+                b"Z".as_slice(),
+                b"a".as_slice(),
+                b"example".as_slice(),
+            ])
+            .unwrap(),
+            Name::from_labels::<_, &[u8]>([
+                b"zABC".as_slice(),
+                b"a".as_slice(),
+                b"EXAMPLE".as_slice(),
+            ])
+            .unwrap(),
+            Name::from_labels::<_, &[u8]>([b"z".as_slice(), b"example".as_slice()]).unwrap(),
+            Name::from_labels::<_, &[u8]>([
+                b"\x01".as_slice(),
+                b"z".as_slice(),
+                b"example".as_slice(),
+            ])
+            .unwrap(),
+            Name::from_labels::<_, &[u8]>([
+                b"*".as_slice(),
+                b"z".as_slice(),
+                b"example".as_slice(),
+            ])
+            .unwrap(),
+            Name::from_labels::<_, &[u8]>([
+                b"\x80".as_slice(),
+                b"z".as_slice(),
+                b"example".as_slice(),
+            ])
+            .unwrap(),
+        ]);
+        let mut sorted = names.clone();
+        sorted.sort();
+        assert_eq!(names, sorted);
+    }
 }
