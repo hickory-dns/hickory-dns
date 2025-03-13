@@ -85,7 +85,6 @@ async fn query_validate_true_signed_zone_no_soa() {
 }
 
 #[tokio::test]
-#[ignore = "validation failure is not translated into SERVFAIL response"]
 async fn query_validate_true_unsigned_zone_with_soa() {
     subscribe();
 
@@ -102,7 +101,6 @@ async fn query_validate_true_unsigned_zone_with_soa() {
 }
 
 #[tokio::test]
-#[ignore = "validation failure is not translated into SERVFAIL response"]
 async fn query_validate_true_unsigned_zone_no_soa() {
     subscribe();
 

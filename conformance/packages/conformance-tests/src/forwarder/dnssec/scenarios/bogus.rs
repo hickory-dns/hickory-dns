@@ -7,7 +7,6 @@ use dns_test::{
 };
 
 #[test]
-#[ignore = "hickory does not correctly reflect validation status in forwarder responses"]
 fn wrong_key() -> Result<()> {
     let network = Network::new()?;
     let sign_settings = SignSettings::default();
