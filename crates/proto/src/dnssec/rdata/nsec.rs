@@ -13,7 +13,6 @@ use core::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::error::*;
-use crate::rr::type_bit_map::decode_type_bit_maps;
 use crate::rr::{Name, RData, RecordData, RecordDataDecodable, RecordType, RecordTypeSet};
 use crate::serialize::binary::*;
 
@@ -158,11 +157,12 @@ impl<'r> RecordDataDecodable<'r> for NSEC {
 
         let next_domain_name = Name::read(decoder)?;
 
+        let offset = u16::try_from(decoder.index() - start_idx)
+            .map_err(|_| ProtoError::from("decoding offset too large in NSEC"))?;
         let bit_map_len = length
-            .map(|u| u as usize)
-            .checked_sub(decoder.index() - start_idx)
+            .checked_sub(offset)
             .map_err(|_| ProtoError::from("invalid rdata length in NSEC"))?;
-        let record_types = decode_type_bit_maps(decoder, bit_map_len)?;
+        let record_types = RecordTypeSet::read_data(decoder, bit_map_len)?;
 
         Ok(Self::with_record_type_set(next_domain_name, record_types))
     }

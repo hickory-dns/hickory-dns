@@ -15,10 +15,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use crate::{
     dnssec::Nsec3HashAlgorithm,
     error::{ProtoError, ProtoErrorKind, ProtoResult},
-    rr::{
-        RData, RecordData, RecordDataDecodable, RecordType, RecordTypeSet, domain::Label,
-        type_bit_map::*,
-    },
+    rr::{RData, RecordData, RecordDataDecodable, RecordType, RecordTypeSet, domain::Label},
     serialize::binary::*,
 };
 
@@ -341,11 +338,12 @@ impl<'r> RecordDataDecodable<'r> for NSEC3 {
             decoder.read_vec(hash_len)?.unverified(/*will fail in usage if invalid*/);
 
         // read the bitmap
+        let offset = u16::try_from(decoder.index() - start_idx)
+            .map_err(|_| ProtoError::from("decoding offset too large in NSEC3"))?;
         let bit_map_len = length
-            .map(|u| u as usize)
-            .checked_sub(decoder.index() - start_idx)
+            .checked_sub(offset)
             .map_err(|_| "invalid rdata length in NSEC3")?;
-        let record_types = decode_type_bit_maps(decoder, bit_map_len)?;
+        let record_types = RecordTypeSet::read_data(decoder, bit_map_len)?;
 
         Ok(Self::with_record_type_set(
             hash_algorithm,

@@ -15,10 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::*,
-    rr::{
-        RData, RecordData, RecordDataDecodable, RecordType, RecordTypeSet,
-        type_bit_map::decode_type_bit_maps,
-    },
+    rr::{RData, RecordData, RecordDataDecodable, RecordType, RecordTypeSet},
     serialize::binary::*,
 };
 
@@ -167,11 +164,12 @@ impl<'r> RecordDataDecodable<'r> for CSYNC {
         let immediate: bool = flags & 0b0000_0001 == 0b0000_0001;
         let soa_minimum: bool = flags & 0b0000_0010 == 0b0000_0010;
 
+        let offset = u16::try_from(decoder.index() - start_idx)
+            .map_err(|_| ProtoError::from("decoding offset too large in CSYNC"))?;
         let bit_map_len = length
-            .map(|u| u as usize)
-            .checked_sub(decoder.index() - start_idx)
+            .checked_sub(offset)
             .map_err(|_| ProtoError::from("invalid rdata length in CSYNC"))?;
-        let record_types = decode_type_bit_maps(decoder, bit_map_len)?;
+        let record_types = RecordTypeSet::read_data(decoder, bit_map_len)?;
 
         Ok(Self::with_record_type_set(
             soa_serial,
