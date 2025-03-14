@@ -7,7 +7,7 @@
 
 //! NSEC record types
 
-use alloc::{fmt, string::ToString, vec::Vec};
+use alloc::{collections::BTreeSet, fmt, string::ToString, vec::Vec};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize};
@@ -15,7 +15,10 @@ use serde::{Deserialize, Deserializer, Serialize};
 use crate::{
     dnssec::Nsec3HashAlgorithm,
     error::{ProtoError, ProtoErrorKind, ProtoResult},
-    rr::{RData, RecordData, RecordDataDecodable, RecordType, domain::Label, type_bit_map::*},
+    rr::{
+        RData, RecordData, RecordDataDecodable, RecordType, RecordTypeSet, domain::Label,
+        type_bit_map::*,
+    },
     serialize::binary::*,
 };
 
@@ -118,7 +121,7 @@ pub struct NSEC3 {
     /// too long, this may be `None` instead.
     #[cfg_attr(feature = "serde", serde(skip_serializing))]
     next_hashed_owner_name_base32: Option<Label>,
-    type_bit_maps: Vec<RecordType>,
+    type_bit_maps: RecordTypeSet,
 }
 
 impl NSEC3 {
@@ -129,7 +132,7 @@ impl NSEC3 {
         iterations: u16,
         salt: Vec<u8>,
         next_hashed_owner_name: Vec<u8>,
-        type_bit_maps: Vec<RecordType>,
+        type_bit_maps: BTreeSet<RecordType>,
     ) -> Self {
         let next_hashed_owner_name_base32 =
             Label::from_ascii(&data_encoding::BASE32_DNSSEC.encode(&next_hashed_owner_name)).ok();
@@ -140,7 +143,7 @@ impl NSEC3 {
             salt,
             next_hashed_owner_name,
             next_hashed_owner_name_base32,
-            type_bit_maps,
+            type_bit_maps: RecordTypeSet::new(type_bit_maps),
         }
     }
 
@@ -247,7 +250,7 @@ impl NSEC3 {
     ///  The Type Bit Maps field identifies the RRSet types that exist at the
     ///  original owner name of the NSEC3 RR.
     /// ```
-    pub fn type_bit_maps(&self) -> &[RecordType] {
+    pub fn type_bit_maps(&self) -> &BTreeSet<RecordType> {
         &self.type_bit_maps
     }
 
@@ -412,7 +415,7 @@ impl fmt::Display for NSEC3 {
             owner = data_encoding::BASE32_DNSSEC.encode(&self.next_hashed_owner_name)
         )?;
 
-        for ty in &self.type_bit_maps {
+        for ty in self.type_bit_maps.iter() {
             write!(f, " {ty}")?;
         }
 
@@ -436,7 +439,7 @@ struct NSEC3Serde {
     iterations: u16,
     salt: Vec<u8>,
     next_hashed_owner_name: Vec<u8>,
-    type_bit_maps: Vec<RecordType>,
+    type_bit_maps: BTreeSet<RecordType>,
 }
 
 #[cfg(feature = "serde")]
@@ -481,12 +484,12 @@ mod tests {
             2,
             vec![1, 2, 3, 4, 5],
             vec![6, 7, 8, 9, 0],
-            vec![
+            BTreeSet::from([
                 RecordType::A,
                 RecordType::AAAA,
                 RecordType::DS,
                 RecordType::RRSIG,
-            ],
+            ]),
         );
 
         let mut bytes = Vec::new();
@@ -510,13 +513,13 @@ mod tests {
             2,
             vec![1, 2, 3, 4, 5],
             vec![6, 7, 8, 9, 0],
-            vec![
+            BTreeSet::from([
                 RecordType::A,
                 RecordType::AAAA,
                 RecordType::DS,
                 RecordType::AAAA,
                 RecordType::RRSIG,
-            ],
+            ]),
         );
 
         let rdata_wo = NSEC3::new(
@@ -525,12 +528,12 @@ mod tests {
             2,
             vec![1, 2, 3, 4, 5],
             vec![6, 7, 8, 9, 0],
-            vec![
+            BTreeSet::from([
                 RecordType::A,
                 RecordType::AAAA,
                 RecordType::DS,
                 RecordType::RRSIG,
-            ],
+            ]),
         );
 
         let mut bytes = Vec::new();
