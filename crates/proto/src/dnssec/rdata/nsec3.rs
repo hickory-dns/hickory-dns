@@ -291,7 +291,7 @@ impl BinEncodable for NSEC3 {
         encoder.emit_vec(self.salt())?;
         encoder.emit(self.next_hashed_owner_name().len() as u8)?;
         encoder.emit_vec(self.next_hashed_owner_name())?;
-        encode_type_bit_maps(encoder, &self.type_bit_maps)?;
+        self.type_bit_maps.emit(encoder)?;
 
         Ok(())
     }

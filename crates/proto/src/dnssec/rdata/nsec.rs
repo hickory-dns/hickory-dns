@@ -13,7 +13,7 @@ use core::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::error::*;
-use crate::rr::type_bit_map::{decode_type_bit_maps, encode_type_bit_maps};
+use crate::rr::type_bit_map::decode_type_bit_maps;
 use crate::rr::{Name, RData, RecordData, RecordDataDecodable, RecordType, RecordTypeSet};
 use crate::serialize::binary::*;
 
@@ -145,7 +145,9 @@ impl BinEncodable for NSEC {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.with_canonical_names(|encoder| {
             self.next_domain_name().emit(encoder)?;
-            encode_type_bit_maps(encoder, &self.type_bit_maps)
+            self.type_bit_maps.emit(encoder)?;
+
+            Ok(())
         })
     }
 }
