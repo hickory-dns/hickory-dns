@@ -17,7 +17,7 @@ use crate::{
     error::*,
     rr::{
         RData, RecordData, RecordDataDecodable, RecordType, RecordTypeSet,
-        type_bit_map::{decode_type_bit_maps, encode_type_bit_maps},
+        type_bit_map::decode_type_bit_maps,
     },
     serialize::binary::*,
 };
@@ -147,7 +147,7 @@ impl BinEncodable for CSYNC {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.emit_u32(self.soa_serial)?;
         encoder.emit_u16(self.flags())?;
-        encode_type_bit_maps(encoder, &self.type_bit_maps)?;
+        self.type_bit_maps.emit(encoder)?;
 
         Ok(())
     }

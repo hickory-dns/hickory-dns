@@ -73,52 +73,45 @@ impl fmt::Debug for RecordTypeSet {
     }
 }
 
-/// Encode the bit map
-///
-/// # Arguments
-///
-/// * `encoder` - the encoder to write to
-/// * `type_bit_maps` - types to encode into the bitmap
-pub(crate) fn encode_type_bit_maps(
-    encoder: &mut BinEncoder<'_>,
-    type_bit_maps: &RecordTypeSet,
-) -> ProtoResult<()> {
-    if let Some(encoded_bytes) = &type_bit_maps.original_encoding {
-        return encoder.emit_vec(encoded_bytes);
-    }
-
-    let mut hash: BTreeMap<u8, Vec<u8>> = BTreeMap::new();
-
-    // collect the bitmaps
-    for rr_type in type_bit_maps.iter() {
-        let code: u16 = (*rr_type).into();
-        let window: u8 = (code >> 8) as u8;
-        let low: u8 = (code & 0x00FF) as u8;
-
-        let bit_map: &mut Vec<u8> = hash.entry(window).or_default();
-        // len + left is the block in the bitmap, divided by 8 for the bits, + the bit in the current_byte
-        let index: u8 = low / 8;
-        let bit: u8 = 0b1000_0000 >> (low % 8);
-
-        // adding necessary space to the vector
-        if bit_map.len() < (index as usize + 1) {
-            bit_map.resize(index as usize + 1, 0_u8);
+impl BinEncodable for RecordTypeSet {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        if let Some(encoded_bytes) = &self.original_encoding {
+            return encoder.emit_vec(encoded_bytes);
         }
 
-        bit_map[index as usize] |= bit;
-    }
+        let mut hash: BTreeMap<u8, Vec<u8>> = BTreeMap::new();
 
-    // output bitmaps
-    for (window, bitmap) in hash {
-        encoder.emit(window)?;
-        // the hashset should never be larger that 255 based on above logic.
-        encoder.emit(bitmap.len() as u8)?;
-        for bits in bitmap {
-            encoder.emit(bits)?;
+        // collect the bitmaps
+        for rr_type in self.iter() {
+            let code: u16 = (*rr_type).into();
+            let window: u8 = (code >> 8) as u8;
+            let low: u8 = (code & 0x00FF) as u8;
+
+            let bit_map: &mut Vec<u8> = hash.entry(window).or_default();
+            // len + left is the block in the bitmap, divided by 8 for the bits, + the bit in the current_byte
+            let index: u8 = low / 8;
+            let bit: u8 = 0b1000_0000 >> (low % 8);
+
+            // adding necessary space to the vector
+            if bit_map.len() < (index as usize + 1) {
+                bit_map.resize(index as usize + 1, 0_u8);
+            }
+
+            bit_map[index as usize] |= bit;
         }
-    }
 
-    Ok(())
+        // output bitmaps
+        for (window, bitmap) in hash {
+            encoder.emit(window)?;
+            // the hashset should never be larger that 255 based on above logic.
+            encoder.emit(bitmap.len() as u8)?;
+            for bits in bitmap {
+                encoder.emit(bits)?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /// Decodes the array of RecordTypes covered by this NSEC record
@@ -296,7 +289,7 @@ mod tests {
 
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
-        assert!(encode_type_bit_maps(&mut encoder, &types).is_ok());
+        types.emit(&mut encoder).expect("Encoding error");
         let bytes = encoder.into_bytes();
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
