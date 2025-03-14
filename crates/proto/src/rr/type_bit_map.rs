@@ -14,18 +14,6 @@ use crate::error::*;
 use crate::rr::RecordType;
 use crate::serialize::binary::*;
 
-enum BitMapReadState {
-    Window,
-    Len {
-        window: u8,
-    },
-    RecordType {
-        window: u8,
-        len: Restrict<u8>,
-        left: Restrict<u8>,
-    },
-}
-
 /// Encode the bit map
 ///
 /// # Arguments
@@ -187,6 +175,18 @@ pub(crate) fn decode_type_bit_maps(
     }
 
     Ok(record_types)
+}
+
+enum BitMapReadState {
+    Window,
+    Len {
+        window: u8,
+    },
+    RecordType {
+        window: u8,
+        len: Restrict<u8>,
+        left: Restrict<u8>,
+    },
 }
 
 #[cfg(test)]
