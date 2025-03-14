@@ -63,9 +63,13 @@ impl NSEC {
     ///
     /// An NSEC RData for use in a Resource Record
     pub fn new(next_domain_name: Name, type_bit_maps: BTreeSet<RecordType>) -> Self {
+        Self::with_record_type_set(next_domain_name, RecordTypeSet::new(type_bit_maps))
+    }
+
+    fn with_record_type_set(next_domain_name: Name, type_bit_maps: RecordTypeSet) -> Self {
         Self {
             next_domain_name,
-            type_bit_maps: RecordTypeSet::new(type_bit_maps),
+            type_bit_maps,
         }
     }
 
@@ -141,7 +145,7 @@ impl BinEncodable for NSEC {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.with_canonical_names(|encoder| {
             self.next_domain_name().emit(encoder)?;
-            encode_type_bit_maps(encoder, self.type_bit_maps())
+            encode_type_bit_maps(encoder, &self.type_bit_maps)
         })
     }
 }
@@ -158,7 +162,7 @@ impl<'r> RecordDataDecodable<'r> for NSEC {
             .map_err(|_| ProtoError::from("invalid rdata length in NSEC"))?;
         let record_types = decode_type_bit_maps(decoder, bit_map_len)?;
 
-        Ok(Self::new(next_domain_name, record_types))
+        Ok(Self::with_record_type_set(next_domain_name, record_types))
     }
 }
 

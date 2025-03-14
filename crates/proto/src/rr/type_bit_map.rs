@@ -24,12 +24,16 @@ use crate::serialize::binary::*;
 #[derive(Clone)]
 pub(crate) struct RecordTypeSet {
     types: BTreeSet<RecordType>,
+    original_encoding: Option<Vec<u8>>,
 }
 
 impl RecordTypeSet {
     /// Construct a new set of record types.
     pub(crate) fn new(types: BTreeSet<RecordType>) -> Self {
-        Self { types }
+        Self {
+            types,
+            original_encoding: None,
+        }
     }
 }
 
@@ -57,8 +61,14 @@ impl Hash for RecordTypeSet {
 
 impl fmt::Debug for RecordTypeSet {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let original_encoding = if self.original_encoding.is_some() {
+            &"Some(...)"
+        } else {
+            &"None"
+        };
         f.debug_struct("RecordTypeSet")
             .field("types", &self.types)
+            .field("original_encoding", original_encoding)
             .finish()
     }
 }
@@ -71,12 +81,16 @@ impl fmt::Debug for RecordTypeSet {
 /// * `type_bit_maps` - types to encode into the bitmap
 pub(crate) fn encode_type_bit_maps(
     encoder: &mut BinEncoder<'_>,
-    type_bit_maps: &BTreeSet<RecordType>,
+    type_bit_maps: &RecordTypeSet,
 ) -> ProtoResult<()> {
+    if let Some(encoded_bytes) = &type_bit_maps.original_encoding {
+        return encoder.emit_vec(encoded_bytes);
+    }
+
     let mut hash: BTreeMap<u8, Vec<u8>> = BTreeMap::new();
 
     // collect the bitmaps
-    for rr_type in type_bit_maps {
+    for rr_type in type_bit_maps.iter() {
         let code: u16 = (*rr_type).into();
         let window: u8 = (code >> 8) as u8;
         let low: u8 = (code & 0x00FF) as u8;
@@ -120,7 +134,7 @@ pub(crate) fn encode_type_bit_maps(
 pub(crate) fn decode_type_bit_maps(
     decoder: &mut BinDecoder<'_>,
     bit_map_len: Restrict<usize>,
-) -> ProtoResult<BTreeSet<RecordType>> {
+) -> ProtoResult<RecordTypeSet> {
     // 3.2.1.  Type Bit Maps Encoding
     //
     //  The encoding of the Type Bit Maps field is the same as that used by
@@ -169,24 +183,25 @@ pub(crate) fn decode_type_bit_maps(
     let mut record_types: BTreeSet<RecordType> = BTreeSet::new();
     let mut state: BitMapReadState = BitMapReadState::Window;
 
+    let bytes = decoder
+        .read_vec(bit_map_len.unverified(/*bounded over any length of u16*/))?
+        .unverified();
     // loop through all the bytes in the bitmap
-    for _ in 0..bit_map_len.unverified(/*bounded over any length of u16*/) {
-        let current_byte = decoder.read_u8()?;
-
+    for current_byte in bytes.iter() {
         state = match state {
             BitMapReadState::Window => BitMapReadState::Len {
-                window: current_byte.unverified(/*window is any valid u8,*/),
+                window: *current_byte,
             },
             BitMapReadState::Len { window } => BitMapReadState::RecordType {
                 window,
-                len: current_byte,
-                left: current_byte,
+                len: Restrict::new(*current_byte),
+                left: Restrict::new(*current_byte),
             },
             BitMapReadState::RecordType { window, len, left } => {
                 // window is the Window Block # from above
                 // len is the Bitmap Length
                 // current_byte is the Bitmap
-                let mut bit_map = current_byte.unverified(/*validated and restricted in usage in following usage*/);
+                let mut bit_map = *current_byte;
 
                 // for all the bits in the current_byte
                 for i in 0..8 {
@@ -221,7 +236,10 @@ pub(crate) fn decode_type_bit_maps(
         };
     }
 
-    Ok(record_types)
+    Ok(RecordTypeSet {
+        types: record_types,
+        original_encoding: Some(bytes),
+    })
 }
 
 enum BitMapReadState {
@@ -251,6 +269,7 @@ mod serde {
         {
             Ok(Self {
                 types: BTreeSet::deserialize(deserializer)?,
+                original_encoding: None,
             })
         }
     }
@@ -273,7 +292,7 @@ mod tests {
 
     #[test]
     fn test_encode_decode() {
-        let types = BTreeSet::from([RecordType::A, RecordType::NS]);
+        let types = RecordTypeSet::new(BTreeSet::from([RecordType::A, RecordType::NS]));
 
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
