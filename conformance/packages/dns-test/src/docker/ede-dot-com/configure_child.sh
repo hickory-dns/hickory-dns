@@ -21,9 +21,9 @@ set -e
 # The following changes have been made to this script.
 # - Robustness:
 #   - Added `set -e` to propagate errors.
-#   - Make the regular expressions used when deleting keys for no-zsk and
-#     no-ksk more strict, so that they can't have false positive matches on
-#     base64-encoded public keys.
+#   - Make the regular expressions used when deleting or modifying keys or DS
+#     records more strict, so that they can't have false positive matches on
+#     base64-encoded public keys or hex-encoded digests.
 # - Integration with dns-test:
 #   - Removed modification of named.conf, because the custom configuration file
 #     dropped in the container already has the include directive added.
@@ -465,19 +465,19 @@ for subdomain in ${subdomains[@]}; do
 
     # Change the key tag to 0000 in DS record for "ds-bad-tag" subdomain
     if [[ $subdomain = "ds-bad-tag" ]]; then
-        sed -i 's/DS.*8 2/DS 0000 8 2/g' dsset-$zone.
+        sed -i 's/DS.* 8 2/DS 0000 8 2/g' dsset-$zone.
     # Set a different DNSKEY algorithm (8 -> 7)
     elif [[ $subdomain = "ds-bad-key-algo" ]]; then
-        sed -i 's/8 2/7 2/g' dsset-$zone.
+        sed -i 's/ 8 2/ 7 2/g' dsset-$zone.
     # Set an unassigned DNSKEY algorithm (8 -> 100)
     elif [[ $subdomain = "ds-unassigned-key-algo" ]]; then
-        sed -i 's/8 2/100 2/g' dsset-$zone.
+        sed -i 's/ 8 2/ 100 2/g' dsset-$zone.
     # Set an unassigned digest algorithm (2 -> 100)
     elif [[ $subdomain = "ds-unassigned-digest-algo" ]]; then
-        sed -i 's/8 2/8 100/g' dsset-$zone.
+        sed -i 's/ 8 2/ 8 100/g' dsset-$zone.
     # Set a reserved DNSKEY algorithm (8 -> 200)
     elif [[ $subdomain = "ds-reserved-key-algo" ]]; then
-        sed -i 's/8 2/200 2/g' dsset-$zone.
+        sed -i 's/ 8 2/ 200 2/g' dsset-$zone.
     # Change the digest value
     elif [[ $subdomain = "ds-bogus-digest-value" ]]; then
         sed -i "s/ 8 2.*/ 8 2 $(echo -n 'I am not a real DNSKEY digest' | sha256sum | cut -d' ' -f1)/" dsset-$zone.
