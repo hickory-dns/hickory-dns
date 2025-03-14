@@ -2,7 +2,7 @@ use std::net::Ipv4Addr;
 
 use dns_test::client::{Client, DigOutput, DigSettings};
 use dns_test::name_server::NameServer;
-use dns_test::record::{Record, RecordType};
+use dns_test::record::{A, Record, RecordType};
 use dns_test::zone_file::{Nsec, SignSettings};
 use dns_test::{FQDN, Network, Resolver, Result, TrustAnchor};
 
@@ -94,7 +94,8 @@ fn unsigned_zone_fixture(nsec: Nsec) -> Result<()> {
 
 #[test]
 fn no_ds_record_nsec1() -> Result<()> {
-    let (output, _logs) = no_ds_record_fixture(SignSettings::default().nsec(Nsec::_1), false)?;
+    let (output, _logs) =
+        no_ds_record_fixture(SignSettings::default().nsec(Nsec::_1), false, false)?;
 
     dbg!(&output);
 
@@ -111,6 +112,7 @@ fn no_ds_record_nsec3() -> Result<()> {
             salt: None,
             opt_out: false,
         }),
+        false,
         false,
     )?;
 
@@ -130,6 +132,7 @@ fn no_ds_record_nsec3_case_randomization() -> Result<()> {
             opt_out: false,
         }),
         true,
+        false,
     )?;
 
     dbg!(&output);
@@ -142,7 +145,25 @@ fn no_ds_record_nsec3_case_randomization() -> Result<()> {
 
 #[test]
 fn no_ds_record_nsec3_opt_out() -> Result<()> {
-    let (output, logs) = no_ds_record_fixture(SignSettings::rsasha256_nsec3_optout(), false)?;
+    let (output, logs) =
+        no_ds_record_fixture(SignSettings::rsasha256_nsec3_optout(), false, false)?;
+
+    dbg!(&output);
+
+    assert!(output.status.is_noerror());
+    assert!(!output.flags.authenticated_data);
+
+    if dns_test::SUBJECT.is_hickory() {
+        assert!(logs.contains("DS query covered by opt-out proof"));
+    }
+
+    Ok(())
+}
+
+#[test]
+#[ignore = "hickory NSEC3 opt-out validation is incorrect"]
+fn no_ds_record_nsec3_opt_out_with_chaff() -> Result<()> {
+    let (output, logs) = no_ds_record_fixture(SignSettings::rsasha256_nsec3_optout(), false, true)?;
 
     dbg!(&output);
 
@@ -163,6 +184,7 @@ fn no_ds_record_nsec3_opt_out() -> Result<()> {
 fn no_ds_record_fixture(
     sign_settings: SignSettings,
     case_randomization: bool,
+    add_chaff_to_tld: bool,
 ) -> Result<(DigOutput, String)> {
     let network = Network::new()?;
 
@@ -188,6 +210,16 @@ fn no_ds_record_fixture(
 
     let no_ds_ns = no_ds_ns.sign(sign_settings.clone())?;
     let sibling_ns = sibling_ns.sign(sign_settings.clone())?;
+
+    if add_chaff_to_tld {
+        for i in 0..100 {
+            tld_ns.add(A {
+                fqdn: FQDN::TEST_TLD.push_label(&format!("chaff-{i}")),
+                ttl: 86400,
+                ipv4_addr: Ipv4Addr::new(1, 2, 3, 4),
+            });
+        }
+    }
 
     tld_ns.add(sibling_ns.ds().ksk.clone());
     // IMPORTANT omit this! this is the DS that connects `testing.` to `no-ds.testing.` in
