@@ -69,11 +69,25 @@ impl CSYNC {
         soa_minimum: bool,
         type_bit_maps: BTreeSet<RecordType>,
     ) -> Self {
+        Self::with_record_type_set(
+            soa_serial,
+            immediate,
+            soa_minimum,
+            RecordTypeSet::new(type_bit_maps),
+        )
+    }
+
+    fn with_record_type_set(
+        soa_serial: u32,
+        immediate: bool,
+        soa_minimum: bool,
+        type_bit_maps: RecordTypeSet,
+    ) -> Self {
         Self {
             soa_serial,
             immediate,
             soa_minimum,
-            type_bit_maps: RecordTypeSet::new(type_bit_maps),
+            type_bit_maps,
         }
     }
 
@@ -133,7 +147,7 @@ impl BinEncodable for CSYNC {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.emit_u32(self.soa_serial)?;
         encoder.emit_u16(self.flags())?;
-        encode_type_bit_maps(encoder, self.type_bit_maps())?;
+        encode_type_bit_maps(encoder, &self.type_bit_maps)?;
 
         Ok(())
     }
@@ -159,7 +173,12 @@ impl<'r> RecordDataDecodable<'r> for CSYNC {
             .map_err(|_| ProtoError::from("invalid rdata length in CSYNC"))?;
         let record_types = decode_type_bit_maps(decoder, bit_map_len)?;
 
-        Ok(Self::new(soa_serial, immediate, soa_minimum, record_types))
+        Ok(Self::with_record_type_set(
+            soa_serial,
+            immediate,
+            soa_minimum,
+            record_types,
+        ))
     }
 }
 

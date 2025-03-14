@@ -134,6 +134,24 @@ impl NSEC3 {
         next_hashed_owner_name: Vec<u8>,
         type_bit_maps: BTreeSet<RecordType>,
     ) -> Self {
+        Self::with_record_type_set(
+            hash_algorithm,
+            opt_out,
+            iterations,
+            salt,
+            next_hashed_owner_name,
+            RecordTypeSet::new(type_bit_maps),
+        )
+    }
+
+    fn with_record_type_set(
+        hash_algorithm: Nsec3HashAlgorithm,
+        opt_out: bool,
+        iterations: u16,
+        salt: Vec<u8>,
+        next_hashed_owner_name: Vec<u8>,
+        type_bit_maps: RecordTypeSet,
+    ) -> Self {
         let next_hashed_owner_name_base32 =
             Label::from_ascii(&data_encoding::BASE32_DNSSEC.encode(&next_hashed_owner_name)).ok();
         Self {
@@ -143,7 +161,7 @@ impl NSEC3 {
             salt,
             next_hashed_owner_name,
             next_hashed_owner_name_base32,
-            type_bit_maps: RecordTypeSet::new(type_bit_maps),
+            type_bit_maps,
         }
     }
 
@@ -273,7 +291,7 @@ impl BinEncodable for NSEC3 {
         encoder.emit_vec(self.salt())?;
         encoder.emit(self.next_hashed_owner_name().len() as u8)?;
         encoder.emit_vec(self.next_hashed_owner_name())?;
-        encode_type_bit_maps(encoder, self.type_bit_maps())?;
+        encode_type_bit_maps(encoder, &self.type_bit_maps)?;
 
         Ok(())
     }
@@ -329,7 +347,7 @@ impl<'r> RecordDataDecodable<'r> for NSEC3 {
             .map_err(|_| "invalid rdata length in NSEC3")?;
         let record_types = decode_type_bit_maps(decoder, bit_map_len)?;
 
-        Ok(Self::new(
+        Ok(Self::with_record_type_set(
             hash_algorithm,
             opt_out,
             iterations,
