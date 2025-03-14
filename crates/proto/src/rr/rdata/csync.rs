@@ -7,7 +7,7 @@
 
 //! CSYNC record for synchronizing data from a child zone to the parent
 
-use alloc::vec::Vec;
+use alloc::collections::BTreeSet;
 use core::fmt;
 
 #[cfg(feature = "serde")]
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::*,
     rr::{
-        RData, RecordData, RecordDataDecodable, RecordType,
+        RData, RecordData, RecordDataDecodable, RecordType, RecordTypeSet,
         type_bit_map::{decode_type_bit_maps, encode_type_bit_maps},
     },
     serialize::binary::*,
@@ -47,7 +47,7 @@ pub struct CSYNC {
     soa_serial: u32,
     immediate: bool,
     soa_minimum: bool,
-    type_bit_maps: Vec<RecordType>,
+    type_bit_maps: RecordTypeSet,
 }
 
 impl CSYNC {
@@ -67,13 +67,13 @@ impl CSYNC {
         soa_serial: u32,
         immediate: bool,
         soa_minimum: bool,
-        type_bit_maps: Vec<RecordType>,
+        type_bit_maps: BTreeSet<RecordType>,
     ) -> Self {
         Self {
             soa_serial,
             immediate,
             soa_minimum,
-            type_bit_maps,
+            type_bit_maps: RecordTypeSet::new(type_bit_maps),
         }
     }
 
@@ -92,7 +92,7 @@ impl CSYNC {
     ///    must understand the semantics associated with a bit in the Type Bit
     ///    Map field that has been set to 1.
     /// ```
-    pub fn type_bit_maps(&self) -> &[RecordType] {
+    pub fn type_bit_maps(&self) -> &BTreeSet<RecordType> {
         &self.type_bit_maps
     }
 
@@ -196,7 +196,7 @@ impl fmt::Display for CSYNC {
             flags = &self.flags(),
         )?;
 
-        for ty in &self.type_bit_maps {
+        for ty in self.type_bit_maps.iter() {
             write!(f, " {ty}")?;
         }
 
@@ -210,11 +210,13 @@ mod tests {
 
     use std::println;
 
+    use alloc::vec::Vec;
+
     use super::*;
 
     #[test]
     fn test() {
-        let types = vec![RecordType::A, RecordType::NS, RecordType::AAAA];
+        let types = BTreeSet::from([RecordType::A, RecordType::NS, RecordType::AAAA]);
 
         let rdata = CSYNC::new(123, true, true, types);
 

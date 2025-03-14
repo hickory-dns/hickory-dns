@@ -7,12 +7,61 @@
 
 //! type bit map helper definitions
 
-use alloc::collections::BTreeMap;
+use core::fmt;
+use core::hash::{Hash, Hasher};
+use core::ops::Deref;
+
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::vec::Vec;
 
 use crate::error::*;
 use crate::rr::RecordType;
 use crate::serialize::binary::*;
+
+/// A collection of record types.
+///
+/// This represents the "type bit maps" field in various records.
+#[derive(Clone)]
+pub(crate) struct RecordTypeSet {
+    types: BTreeSet<RecordType>,
+}
+
+impl RecordTypeSet {
+    /// Construct a new set of record types.
+    pub(crate) fn new(types: BTreeSet<RecordType>) -> Self {
+        Self { types }
+    }
+}
+
+impl Deref for RecordTypeSet {
+    type Target = BTreeSet<RecordType>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.types
+    }
+}
+
+impl PartialEq for RecordTypeSet {
+    fn eq(&self, other: &Self) -> bool {
+        self.types == other.types
+    }
+}
+
+impl Eq for RecordTypeSet {}
+
+impl Hash for RecordTypeSet {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.types.hash(state);
+    }
+}
+
+impl fmt::Debug for RecordTypeSet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RecordTypeSet")
+            .field("types", &self.types)
+            .finish()
+    }
+}
 
 /// Encode the bit map
 ///
@@ -22,15 +71,13 @@ use crate::serialize::binary::*;
 /// * `type_bit_maps` - types to encode into the bitmap
 pub(crate) fn encode_type_bit_maps(
     encoder: &mut BinEncoder<'_>,
-    type_bit_maps: &[RecordType],
+    type_bit_maps: &BTreeSet<RecordType>,
 ) -> ProtoResult<()> {
     let mut hash: BTreeMap<u8, Vec<u8>> = BTreeMap::new();
-    let mut type_bit_maps = type_bit_maps.to_vec();
-    type_bit_maps.sort();
 
     // collect the bitmaps
     for rr_type in type_bit_maps {
-        let code: u16 = (rr_type).into();
+        let code: u16 = (*rr_type).into();
         let window: u8 = (code >> 8) as u8;
         let low: u8 = (code & 0x00FF) as u8;
 
@@ -73,7 +120,7 @@ pub(crate) fn encode_type_bit_maps(
 pub(crate) fn decode_type_bit_maps(
     decoder: &mut BinDecoder<'_>,
     bit_map_len: Restrict<usize>,
-) -> ProtoResult<Vec<RecordType>> {
+) -> ProtoResult<BTreeSet<RecordType>> {
     // 3.2.1.  Type Bit Maps Encoding
     //
     //  The encoding of the Type Bit Maps field is the same as that used by
@@ -119,7 +166,7 @@ pub(crate) fn decode_type_bit_maps(
     //  value, within that block, among the set of RR types present at the
     //  original owner name of the NSEC3 RR.  Trailing octets not specified
     //  MUST be interpreted as zero octets.
-    let mut record_types: Vec<RecordType> = Vec::new();
+    let mut record_types: BTreeSet<RecordType> = BTreeSet::new();
     let mut state: BitMapReadState = BitMapReadState::Window;
 
     // loop through all the bytes in the bitmap
@@ -153,7 +200,7 @@ pub(crate) fn decode_type_bit_maps(
                             .map_err(|_| "block len or left out of bounds in NSEC(3)")?
                             .unverified(/*any u8 is valid at this point*/);
                         let rr_type: u16 = (u16::from(window) << 8) | u16::from(low_byte);
-                        record_types.push(RecordType::from(rr_type));
+                        record_types.insert(RecordType::from(rr_type));
                     }
                     // shift left and look at the next bit
                     bit_map <<= 1;
@@ -189,6 +236,35 @@ enum BitMapReadState {
     },
 }
 
+#[cfg(feature = "serde")]
+mod serde {
+    use alloc::collections::BTreeSet;
+
+    use serde::{Deserialize, Serialize};
+
+    use super::RecordTypeSet;
+
+    impl<'de> Deserialize<'de> for RecordTypeSet {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            Ok(Self {
+                types: BTreeSet::deserialize(deserializer)?,
+            })
+        }
+    }
+
+    impl Serialize for RecordTypeSet {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            self.types.serialize(serializer)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
@@ -197,7 +273,7 @@ mod tests {
 
     #[test]
     fn test_encode_decode() {
-        let types = vec![RecordType::A, RecordType::NS];
+        let types = BTreeSet::from([RecordType::A, RecordType::NS]);
 
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
