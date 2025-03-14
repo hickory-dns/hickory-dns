@@ -657,10 +657,7 @@ fn validate_nodata_response(
     // is covered here by case 2.
     if query_type == RecordType::DS
         && find_covering_record(nsec3s, &hashed_query_name, &base32_hashed_query_name)
-            .iter()
-            .all(|x| {
-                x.nsec3_data.type_bit_maps().contains(&RecordType::DS) && x.nsec3_data.opt_out()
-            })
+            .is_some_and(|x| x.nsec3_data.opt_out())
     {
         return proof_log_yield(
             Proof::Insecure,

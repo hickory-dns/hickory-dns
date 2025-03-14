@@ -161,7 +161,6 @@ fn no_ds_record_nsec3_opt_out() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory NSEC3 opt-out validation is incorrect"]
 fn no_ds_record_nsec3_opt_out_with_chaff() -> Result<()> {
     let (output, logs) = no_ds_record_fixture(SignSettings::rsasha256_nsec3_optout(), false, true)?;
 
