@@ -7,7 +7,7 @@
 
 //! CSYNC record for synchronizing data from a child zone to the parent
 
-use alloc::vec::Vec;
+use alloc::collections::BTreeSet;
 use core::fmt;
 
 #[cfg(feature = "serde")]
@@ -15,10 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::*,
-    rr::{
-        RData, RecordData, RecordDataDecodable, RecordType,
-        type_bit_map::{decode_type_bit_maps, encode_type_bit_maps},
-    },
+    rr::{RData, RecordData, RecordDataDecodable, RecordType, RecordTypeSet},
     serialize::binary::*,
 };
 
@@ -47,7 +44,7 @@ pub struct CSYNC {
     soa_serial: u32,
     immediate: bool,
     soa_minimum: bool,
-    type_bit_maps: Vec<RecordType>,
+    type_bit_maps: RecordTypeSet,
 }
 
 impl CSYNC {
@@ -67,7 +64,21 @@ impl CSYNC {
         soa_serial: u32,
         immediate: bool,
         soa_minimum: bool,
-        type_bit_maps: Vec<RecordType>,
+        type_bit_maps: BTreeSet<RecordType>,
+    ) -> Self {
+        Self::with_record_type_set(
+            soa_serial,
+            immediate,
+            soa_minimum,
+            RecordTypeSet::new(type_bit_maps),
+        )
+    }
+
+    fn with_record_type_set(
+        soa_serial: u32,
+        immediate: bool,
+        soa_minimum: bool,
+        type_bit_maps: RecordTypeSet,
     ) -> Self {
         Self {
             soa_serial,
@@ -92,7 +103,7 @@ impl CSYNC {
     ///    must understand the semantics associated with a bit in the Type Bit
     ///    Map field that has been set to 1.
     /// ```
-    pub fn type_bit_maps(&self) -> &[RecordType] {
+    pub fn type_bit_maps(&self) -> &BTreeSet<RecordType> {
         &self.type_bit_maps
     }
 
@@ -133,7 +144,7 @@ impl BinEncodable for CSYNC {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.emit_u32(self.soa_serial)?;
         encoder.emit_u16(self.flags())?;
-        encode_type_bit_maps(encoder, self.type_bit_maps())?;
+        self.type_bit_maps.emit(encoder)?;
 
         Ok(())
     }
@@ -153,13 +164,19 @@ impl<'r> RecordDataDecodable<'r> for CSYNC {
         let immediate: bool = flags & 0b0000_0001 == 0b0000_0001;
         let soa_minimum: bool = flags & 0b0000_0010 == 0b0000_0010;
 
+        let offset = u16::try_from(decoder.index() - start_idx)
+            .map_err(|_| ProtoError::from("decoding offset too large in CSYNC"))?;
         let bit_map_len = length
-            .map(|u| u as usize)
-            .checked_sub(decoder.index() - start_idx)
+            .checked_sub(offset)
             .map_err(|_| ProtoError::from("invalid rdata length in CSYNC"))?;
-        let record_types = decode_type_bit_maps(decoder, bit_map_len)?;
+        let record_types = RecordTypeSet::read_data(decoder, bit_map_len)?;
 
-        Ok(Self::new(soa_serial, immediate, soa_minimum, record_types))
+        Ok(Self::with_record_type_set(
+            soa_serial,
+            immediate,
+            soa_minimum,
+            record_types,
+        ))
     }
 }
 
@@ -196,7 +213,7 @@ impl fmt::Display for CSYNC {
             flags = &self.flags(),
         )?;
 
-        for ty in &self.type_bit_maps {
+        for ty in self.type_bit_maps.iter() {
             write!(f, " {ty}")?;
         }
 
@@ -210,11 +227,13 @@ mod tests {
 
     use std::println;
 
+    use alloc::vec::Vec;
+
     use super::*;
 
     #[test]
     fn test() {
-        let types = vec![RecordType::A, RecordType::NS, RecordType::AAAA];
+        let types = BTreeSet::from([RecordType::A, RecordType::NS, RecordType::AAAA]);
 
         let rdata = CSYNC::new(123, true, true, types);
 

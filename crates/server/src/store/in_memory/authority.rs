@@ -8,7 +8,7 @@
 //! In-memory authority
 
 #[cfg(feature = "__dnssec")]
-use std::collections::{HashMap, hash_map::Entry};
+use std::collections::{BTreeSet, HashMap, hash_map::Entry};
 #[cfg(all(feature = "__dnssec", feature = "testing"))]
 use std::ops::Deref;
 use std::{
@@ -705,12 +705,12 @@ impl InnerInMemory {
         let mut records: Vec<Record> = vec![];
 
         {
-            let mut nsec_info: Option<(&Name, Vec<RecordType>)> = None;
+            let mut nsec_info: Option<(&Name, BTreeSet<RecordType>)> = None;
             for key in self.records.keys() {
                 match &mut nsec_info {
-                    None => nsec_info = Some((&key.name, vec![key.record_type])),
+                    None => nsec_info = Some((&key.name, BTreeSet::from([key.record_type]))),
                     Some((name, vec)) if LowerName::new(name) == key.name => {
-                        vec.push(key.record_type);
+                        vec.insert(key.record_type);
                     }
                     Some((name, vec)) => {
                         // names aren't equal, create the NSEC record
@@ -719,7 +719,7 @@ impl InnerInMemory {
                         records.push(record.into_record_of_rdata());
 
                         // new record...
-                        nsec_info = Some((&key.name, vec![key.record_type]))
+                        nsec_info = Some((&key.name, BTreeSet::from([key.record_type])))
                     }
                 }
             }

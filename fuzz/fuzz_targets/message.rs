@@ -1,9 +1,10 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
+use pretty_assertions::assert_eq;
 
 use hickory_proto::{
     op::Message,
-    rr::{Record, RecordType},
+    rr::Record,
     serialize::binary::{BinDecodable, BinEncodable},
 };
 
@@ -13,14 +14,6 @@ fuzz_target!(|data: &[u8]| {
         match Message::from_bytes(&reencoded) {
             Ok(reparsed) => {
                 if !messages_equal(&original, &reparsed) {
-                    for (m, r) in format!("{:#?}", original)
-                        .lines()
-                        .zip(format!("{:#?}", reparsed).lines())
-                    {
-                        if m != r {
-                            println!("{} -> {}", m, r);
-                        }
-                    }
                     assert_eq!(original, reparsed);
                 }
             }
@@ -85,13 +78,6 @@ fn record_equal(record1: &Record, record2: &Record) -> bool {
 
     if record1.record_type() != record2.record_type() {
         return false;
-    }
-
-    // FIXME: evaluate why these don't work
-    // record types we're skipping for now
-    match record1.record_type() {
-        RecordType::CSYNC => return true,
-        _ => (),
     }
 
     // if the record data matches, we're fine

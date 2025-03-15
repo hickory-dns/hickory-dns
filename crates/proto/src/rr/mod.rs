@@ -18,7 +18,7 @@ pub mod resource;
 mod rr_key;
 mod rr_set;
 pub mod serial_number;
-pub mod type_bit_map;
+pub(crate) mod type_bit_map;
 
 use core::fmt::{Debug, Display};
 
@@ -36,6 +36,7 @@ pub use self::resource::Record;
 pub use self::rr_set::IntoRecordSet;
 pub use self::rr_set::RecordSet;
 pub use self::rr_set::RrsetRecords;
+pub(crate) use self::type_bit_map::RecordTypeSet;
 pub use lower_name::LowerName;
 pub use rr_key::RrKey;
 pub use serial_number::SerialNumber;

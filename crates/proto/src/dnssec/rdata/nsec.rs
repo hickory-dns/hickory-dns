@@ -6,15 +6,14 @@
 // copied, modified, or distributed except according to those terms.
 
 //! NSEC record types
-use alloc::vec::Vec;
+use alloc::collections::BTreeSet;
 use core::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::error::*;
-use crate::rr::type_bit_map::{decode_type_bit_maps, encode_type_bit_maps};
-use crate::rr::{Name, RData, RecordData, RecordDataDecodable, RecordType};
+use crate::rr::{Name, RData, RecordData, RecordDataDecodable, RecordType, RecordTypeSet};
 use crate::serialize::binary::*;
 
 use super::DNSSECRData;
@@ -47,7 +46,7 @@ use super::DNSSECRData;
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct NSEC {
     next_domain_name: Name,
-    type_bit_maps: Vec<RecordType>,
+    type_bit_maps: RecordTypeSet,
 }
 
 impl NSEC {
@@ -62,7 +61,11 @@ impl NSEC {
     /// # Returns
     ///
     /// An NSEC RData for use in a Resource Record
-    pub fn new(next_domain_name: Name, type_bit_maps: Vec<RecordType>) -> Self {
+    pub fn new(next_domain_name: Name, type_bit_maps: BTreeSet<RecordType>) -> Self {
+        Self::with_record_type_set(next_domain_name, RecordTypeSet::new(type_bit_maps))
+    }
+
+    fn with_record_type_set(next_domain_name: Name, type_bit_maps: RecordTypeSet) -> Self {
         Self {
             next_domain_name,
             type_bit_maps,
@@ -80,8 +83,8 @@ impl NSEC {
     /// # Returns
     ///
     /// An NSEC RData for use in a Resource Record
-    pub fn new_cover_self(next_domain_name: Name, mut type_bit_maps: Vec<RecordType>) -> Self {
-        type_bit_maps.push(RecordType::NSEC);
+    pub fn new_cover_self(next_domain_name: Name, mut type_bit_maps: BTreeSet<RecordType>) -> Self {
+        type_bit_maps.insert(RecordType::NSEC);
 
         Self::new(next_domain_name, type_bit_maps)
     }
@@ -122,7 +125,7 @@ impl NSEC {
     ///    A zone MUST NOT include an NSEC RR for any domain name that only
     ///    holds glue records.
     /// ```
-    pub fn type_bit_maps(&self) -> &[RecordType] {
+    pub fn type_bit_maps(&self) -> &BTreeSet<RecordType> {
         &self.type_bit_maps
     }
 }
@@ -141,7 +144,9 @@ impl BinEncodable for NSEC {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.with_canonical_names(|encoder| {
             self.next_domain_name().emit(encoder)?;
-            encode_type_bit_maps(encoder, self.type_bit_maps())
+            self.type_bit_maps.emit(encoder)?;
+
+            Ok(())
         })
     }
 }
@@ -152,13 +157,14 @@ impl<'r> RecordDataDecodable<'r> for NSEC {
 
         let next_domain_name = Name::read(decoder)?;
 
+        let offset = u16::try_from(decoder.index() - start_idx)
+            .map_err(|_| ProtoError::from("decoding offset too large in NSEC"))?;
         let bit_map_len = length
-            .map(|u| u as usize)
-            .checked_sub(decoder.index() - start_idx)
+            .checked_sub(offset)
             .map_err(|_| ProtoError::from("invalid rdata length in NSEC"))?;
-        let record_types = decode_type_bit_maps(decoder, bit_map_len)?;
+        let record_types = RecordTypeSet::read_data(decoder, bit_map_len)?;
 
-        Ok(Self::new(next_domain_name, record_types))
+        Ok(Self::with_record_type_set(next_domain_name, record_types))
     }
 }
 
@@ -223,7 +229,7 @@ impl fmt::Display for NSEC {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{}", self.next_domain_name)?;
 
-        for ty in &self.type_bit_maps {
+        for ty in self.type_bit_maps.iter() {
             write!(f, " {ty}")?;
         }
 
@@ -237,6 +243,8 @@ mod tests {
 
     use std::println;
 
+    use alloc::vec::Vec;
+
     use super::*;
 
     #[test]
@@ -246,12 +254,12 @@ mod tests {
 
         let rdata = NSEC::new(
             Name::from_str("www.example.com.").unwrap(),
-            vec![
+            BTreeSet::from([
                 RecordType::A,
                 RecordType::AAAA,
                 RecordType::DS,
                 RecordType::RRSIG,
-            ],
+            ]),
         );
 
         let mut bytes = Vec::new();
@@ -280,13 +288,13 @@ mod tests {
         \x00\x00\x00\x00\x20";
         let rdata = NSEC::new(
             Name::parse("host.example.com.", None).unwrap(),
-            vec![
+            BTreeSet::from([
                 RecordType::A,
                 RecordType::MX,
                 RecordType::RRSIG,
                 RecordType::NSEC,
                 RecordType::Unknown(1234),
-            ],
+            ]),
         );
 
         let mut buffer = Vec::new();
