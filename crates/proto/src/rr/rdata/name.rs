@@ -140,6 +140,7 @@ name_rdata!(ANAME);
 mod tests {
 
     use alloc::{string::ToString, vec::Vec};
+    #[cfg(feature = "std")]
     use std::println;
 
     use super::*;
@@ -160,6 +161,7 @@ mod tests {
         assert!(emit(&mut encoder, &rdata).is_ok());
         let bytes = encoder.into_bytes();
 
+        #[cfg(feature = "std")]
         println!("bytes: {bytes:?}");
 
         let mut decoder = BinDecoder::new(bytes);
