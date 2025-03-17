@@ -61,7 +61,10 @@ impl NSEC {
     /// # Returns
     ///
     /// An NSEC RData for use in a Resource Record
-    pub fn new(next_domain_name: Name, type_bit_maps: BTreeSet<RecordType>) -> Self {
+    pub fn new(
+        next_domain_name: Name,
+        type_bit_maps: impl IntoIterator<Item = RecordType>,
+    ) -> Self {
         Self {
             next_domain_name,
             type_bit_maps: RecordTypeSet::new(type_bit_maps),
@@ -79,10 +82,14 @@ impl NSEC {
     /// # Returns
     ///
     /// An NSEC RData for use in a Resource Record
-    pub fn new_cover_self(next_domain_name: Name, mut type_bit_maps: BTreeSet<RecordType>) -> Self {
-        type_bit_maps.insert(RecordType::NSEC);
-
-        Self::new(next_domain_name, type_bit_maps)
+    pub fn new_cover_self(
+        next_domain_name: Name,
+        type_bit_maps: impl IntoIterator<Item = RecordType>,
+    ) -> Self {
+        Self::new(
+            next_domain_name,
+            type_bit_maps.into_iter().chain([RecordType::NSEC]),
+        )
     }
 
     /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-4.1.1), DNSSEC Resource Records, March 2005
@@ -253,12 +260,12 @@ mod tests {
 
         let rdata = NSEC::new(
             Name::from_str("www.example.com.").unwrap(),
-            BTreeSet::from([
+            [
                 RecordType::A,
                 RecordType::AAAA,
                 RecordType::DS,
                 RecordType::RRSIG,
-            ]),
+            ],
         );
 
         let mut bytes = Vec::new();
@@ -287,13 +294,13 @@ mod tests {
         \x00\x00\x00\x00\x20";
         let rdata = NSEC::new(
             Name::parse("host.example.com.", None).unwrap(),
-            BTreeSet::from([
+            [
                 RecordType::A,
                 RecordType::MX,
                 RecordType::RRSIG,
                 RecordType::NSEC,
                 RecordType::Unknown(1234),
-            ]),
+            ],
         );
 
         let mut buffer = Vec::new();

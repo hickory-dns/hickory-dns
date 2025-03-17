@@ -29,9 +29,9 @@ pub(crate) struct RecordTypeSet {
 
 impl RecordTypeSet {
     /// Construct a new set of record types.
-    pub(crate) fn new(types: BTreeSet<RecordType>) -> Self {
+    pub(crate) fn new(types: impl IntoIterator<Item = RecordType>) -> Self {
         Self {
-            types,
+            types: types.into_iter().collect(),
             original_encoding: None,
         }
     }
@@ -273,7 +273,7 @@ mod tests {
 
     #[test]
     fn test_encode_decode() {
-        let types = RecordTypeSet::new(BTreeSet::from([RecordType::A, RecordType::NS]));
+        let types = RecordTypeSet::new([RecordType::A, RecordType::NS]);
 
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);

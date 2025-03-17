@@ -129,7 +129,7 @@ impl NSEC3 {
         iterations: u16,
         salt: Vec<u8>,
         next_hashed_owner_name: Vec<u8>,
-        type_bit_maps: BTreeSet<RecordType>,
+        type_bit_maps: impl IntoIterator<Item = RecordType>,
     ) -> Self {
         Self::with_record_type_set(
             hash_algorithm,
@@ -455,7 +455,7 @@ struct NSEC3Serde {
     iterations: u16,
     salt: Vec<u8>,
     next_hashed_owner_name: Vec<u8>,
-    type_bit_maps: BTreeSet<RecordType>,
+    type_bit_maps: RecordTypeSet,
 }
 
 #[cfg(feature = "serde")]
@@ -472,7 +472,7 @@ impl<'de> Deserialize<'de> for NSEC3 {
             next_hashed_owner_name,
             type_bit_maps,
         } = NSEC3Serde::deserialize(deserializer)?;
-        Ok(Self::new(
+        Ok(Self::with_record_type_set(
             hash_algorithm,
             opt_out,
             iterations,
@@ -500,12 +500,12 @@ mod tests {
             2,
             vec![1, 2, 3, 4, 5],
             vec![6, 7, 8, 9, 0],
-            BTreeSet::from([
+            [
                 RecordType::A,
                 RecordType::AAAA,
                 RecordType::DS,
                 RecordType::RRSIG,
-            ]),
+            ],
         );
 
         let mut bytes = Vec::new();
@@ -529,13 +529,13 @@ mod tests {
             2,
             vec![1, 2, 3, 4, 5],
             vec![6, 7, 8, 9, 0],
-            BTreeSet::from([
+            [
                 RecordType::A,
                 RecordType::AAAA,
                 RecordType::DS,
                 RecordType::AAAA,
                 RecordType::RRSIG,
-            ]),
+            ],
         );
 
         let rdata_wo = NSEC3::new(
@@ -544,12 +544,12 @@ mod tests {
             2,
             vec![1, 2, 3, 4, 5],
             vec![6, 7, 8, 9, 0],
-            BTreeSet::from([
+            [
                 RecordType::A,
                 RecordType::AAAA,
                 RecordType::DS,
                 RecordType::RRSIG,
-            ]),
+            ],
         );
 
         let mut bytes = Vec::new();

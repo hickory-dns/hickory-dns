@@ -64,7 +64,7 @@ impl CSYNC {
         soa_serial: u32,
         immediate: bool,
         soa_minimum: bool,
-        type_bit_maps: BTreeSet<RecordType>,
+        type_bit_maps: impl IntoIterator<Item = RecordType>,
     ) -> Self {
         Self {
             soa_serial,
@@ -220,7 +220,7 @@ mod tests {
 
     #[test]
     fn test() {
-        let types = BTreeSet::from([RecordType::A, RecordType::NS, RecordType::AAAA]);
+        let types = [RecordType::A, RecordType::NS, RecordType::AAAA];
 
         let rdata = CSYNC::new(123, true, true, types);
 
