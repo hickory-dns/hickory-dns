@@ -112,20 +112,6 @@ impl Tshark {
         Ok(())
     }
 
-    /// Blocks until `tshark` reports the number of expected captured packets.
-    pub fn wait_for_new_packets(&mut self, expected: usize) -> Result<usize> {
-        let mut captured = 0;
-
-        loop {
-            captured += self.wait_for_capture()?;
-            if captured >= expected {
-                break;
-            }
-        }
-
-        Ok(captured)
-    }
-
     /// Blocks until `tshark` reports that it has captured new DNS messages.
     ///
     /// This method returns the number of newly captured messages.
@@ -421,7 +407,7 @@ mod tests {
     fn nameserver() -> Result<()> {
         let network = &Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, network)?.start()?;
-        let mut tshark = ns.eavesdrop()?;
+        let tshark = ns.eavesdrop()?;
 
         let client = Client::new(network)?;
         let resp = client.dig(
@@ -433,7 +419,14 @@ mod tests {
 
         assert!(resp.status.is_noerror());
 
-        tshark.wait_for_new_packets(2)?;
+        tshark.wait_until(
+            |captures| {
+                captures
+                    .iter()
+                    .any(|capture| matches!(capture.direction, Direction::Outgoing { .. }))
+            },
+            Duration::from_secs(10),
+        )?;
 
         let messages = tshark.terminate()?;
 
