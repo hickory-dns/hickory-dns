@@ -133,6 +133,7 @@ name = "dns-test"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "hex",
  "lazy_static",
  "minijinja",
  "serde",
