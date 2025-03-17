@@ -1,4 +1,4 @@
-use std::net::Ipv4Addr;
+use std::{net::Ipv4Addr, time::Duration};
 
 use dns_test::{
     FQDN, Implementation, Network, Resolver, Result,
@@ -130,7 +130,15 @@ fn can_validate_ns_query_case_randomization() -> Result<()> {
         &FQDN::TEST_DOMAIN,
     )?;
 
-    tshark.wait_for_capture()?;
+    tshark.wait_until(
+        |captures| {
+            captures.iter().any(|capture| match capture.direction {
+                Direction::Outgoing { destination } => destination == client.ipv4_addr(),
+                _ => false,
+            })
+        },
+        Duration::from_secs(10),
+    )?;
     let captures = tshark.terminate()?;
 
     assert!(output.status.is_noerror());
