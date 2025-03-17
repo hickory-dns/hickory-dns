@@ -14,11 +14,11 @@ mod lower_name;
 pub mod rdata;
 pub mod record_data;
 pub mod record_type;
+pub(crate) mod record_type_set;
 pub mod resource;
 mod rr_key;
 mod rr_set;
 pub mod serial_number;
-pub(crate) mod type_bit_map;
 
 use core::fmt::{Debug, Display};
 
@@ -31,12 +31,12 @@ pub use self::dns_class::DNSClass;
 pub use self::domain::{IntoName, Name};
 pub use self::record_data::RData;
 pub use self::record_type::RecordType;
+pub(crate) use self::record_type_set::RecordTypeSet;
 pub use self::resource::Record;
 #[allow(deprecated)]
 pub use self::rr_set::IntoRecordSet;
 pub use self::rr_set::RecordSet;
 pub use self::rr_set::RrsetRecords;
-pub(crate) use self::type_bit_map::RecordTypeSet;
 pub use lower_name::LowerName;
 pub use rr_key::RrKey;
 pub use serial_number::SerialNumber;
