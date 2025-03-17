@@ -75,6 +75,7 @@ pub enum Record {
     RRSIG(RRSIG),
     SOA(SOA),
     TXT(TXT),
+    Unknown(UnknownRdata),
 }
 
 impl From<NSEC3> for Record {
@@ -243,7 +244,13 @@ impl FromStr for Record {
             "RRSIG" => Record::RRSIG(input.parse()?),
             "SOA" => Record::SOA(input.parse()?),
             "TXT" => Record::TXT(input.parse()?),
-            _ => return Err(format!("unknown record type: {record_type}").into()),
+            _ => {
+                if record_type.starts_with("TYPE") {
+                    Record::Unknown(input.parse()?)
+                } else {
+                    return Err(format!("unknown record type: {record_type}").into());
+                }
+            }
         };
 
         Ok(record)
@@ -264,6 +271,7 @@ impl fmt::Display for Record {
             Record::RRSIG(rrsig) => write!(f, "{rrsig}"),
             Record::SOA(soa) => write!(f, "{soa}"),
             Record::TXT(txt) => write!(f, "{txt}"),
+            Record::Unknown(other) => write!(f, "{other}"),
         }
     }
 }
@@ -1167,6 +1175,81 @@ impl fmt::Display for TXT {
             } else {
                 write!(f, " \"{string}\"")?;
             }
+        }
+        Ok(())
+    }
+}
+
+/// A record of unknown type.
+#[derive(Debug, Clone)]
+pub struct UnknownRdata {
+    pub zone: FQDN,
+    pub ttl: u32,
+    pub r#type: u16,
+    pub rdata: Vec<u8>,
+}
+
+impl FromStr for UnknownRdata {
+    type Err = Error;
+
+    fn from_str(input: &str) -> CoreResult<Self, Self::Err> {
+        let mut columns = input.split_ascii_whitespace();
+
+        let [
+            Some(zone),
+            Some(ttl),
+            Some(class),
+            Some(record_type),
+            Some(generic_encoding_token),
+            Some(rdata_length),
+        ] = array::from_fn(|_| columns.next())
+        else {
+            return Err("expected at least 6 columns".into());
+        };
+
+        check_class(class)?;
+        let Some(type_number) = record_type.strip_prefix("TYPE") else {
+            return Err(
+                "tried to parse `{record_type}` record as a generic unknown type record".into(),
+            );
+        };
+        let r#type = type_number.parse()?;
+
+        if generic_encoding_token != "\\#" {
+            return Err("tried to parse a record of unknown type but \\# was not present".into());
+        }
+
+        let mut rdata = vec![];
+        for column in columns {
+            rdata.extend(hex::decode(column)?);
+        }
+        if rdata.len() != rdata_length.parse::<usize>()? {
+            return Err("inconsistent RDATA length".into());
+        }
+
+        Ok({
+            Self {
+                zone: zone.parse()?,
+                ttl: ttl.parse()?,
+                r#type,
+                rdata,
+            }
+        })
+    }
+}
+
+impl fmt::Display for UnknownRdata {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            zone,
+            ttl,
+            r#type,
+            rdata,
+        } = self;
+
+        write!(f, "{zone}\t{ttl}\t{CLASS}\tTYPE{type}\t\\# {}", rdata.len())?;
+        for byte in rdata {
+            write!(f, " {:02x}", byte)?;
         }
         Ok(())
     }

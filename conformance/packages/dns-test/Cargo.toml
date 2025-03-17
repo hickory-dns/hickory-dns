@@ -7,6 +7,7 @@ version = "0.1.0"
 
 [dependencies]
 base64 = "0.22.1"
+hex = "0.4.3"
 lazy_static = "1.4.0"
 minijinja = "2"
 serde = { version = "1.0.196", features = ["derive"] }

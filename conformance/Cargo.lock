@@ -167,6 +167,7 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "ctrlc",
+ "hex",
  "lazy_static",
  "minijinja",
  "pretty_assertions",
