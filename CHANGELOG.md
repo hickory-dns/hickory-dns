@@ -28,8 +28,8 @@ most impactful breaking changes in this release:
   or aws-lc-rs for cryptographic operations both for DNSSEC and TLS. The `dns-over-rustls`,`dns-over-native-tls`, `dns-over-openssl`, `dns-over-https-rustls`, `dns-over-https`,
   `dns-over-quic` and `dns-over-h3` features have been removed in favor of a set of
   `{tls,https,quic,h3}-{aws-lc-rs,ring}` features across our library crates.
-* The async-std-resolver crate has been removed. Support for the async-std runtime has been
-  subsumed into the hickory-resolver crate.
+* Support for the async-std runtime has been removed following the deprecation of the async-std
+  crate by upstream (see their README). The async-std-resolver crate will no longer be updated.
 * The DNSSEC API was reworked to extend coverage to the recursor, add support for NSEC3,
   and make the API more ergonomic and harder to misuse.
 * Moved the `RuntimeProvider` API into the proto crate and use it consistently across the project.

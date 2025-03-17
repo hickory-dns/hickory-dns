@@ -56,13 +56,10 @@ quic-ring: (default "--features=quic-ring" "--ignore=\\{hickory-compatibility,te
 h3-ring: (default "--features=h3-ring" "--ignore=\\{hickory-compatibility,hickory-client,test-support\\}")
 
 # Check, build, and test all crates with dnssec-aws-lc-rs enabled
-dnssec-aws-lc-rs: (default "--features=dnssec-aws-lc-rs" "--ignore=\\{async-std-resolver,hickory-compatibility,test-support\\}")
+dnssec-aws-lc-rs: (default "--features=dnssec-aws-lc-rs" "--ignore=\\{hickory-compatibility,test-support\\}")
 
 # Check, build, and test all crates with dnssec-ring enabled
 dnssec-ring: (default "--features=dnssec-ring" "--ignore=\\{hickory-compatibility,test-support\\}")
-
-# Check, build, and test crates with async-std enabled
-async-std: (default "--no-default-features --features=async-std" "--ignore=\\{hickory-compatibility,test-support,hickory-client,hickory-recursor,hickory-server,hickory-dns,hickory-util,hickory-integration\\}")
 
 # Run check on all projects in the workspace
 check feature='' ignore='':

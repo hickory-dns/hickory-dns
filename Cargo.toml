@@ -54,7 +54,6 @@ futures-channel = { version = "0.3.5", default-features = false }
 futures-executor = { version = "0.3.5", default-features = false }
 futures-io = { version = "0.3.5", default-features = false }
 futures-util = { version = "0.3.5", default-features = false }
-async-std = "1.6"
 tokio = "1.21"
 tokio-util = "0.7.9"
 parking_lot = "0.12"
