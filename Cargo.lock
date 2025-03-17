@@ -647,9 +647,9 @@ dependencies = [
 
 [[package]]
 name = "h3"
-version = "0.0.6"
+version = "0.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e7675a0963b47a6d12fe44c279918b4ffb19baee838ac37f48d2722ad5bc6ab"
+checksum = "7dfb059a4f28a66f186ed16ad912d142f490676acba59353831d7cb45a96b0d3"
 dependencies = [
  "bytes",
  "fastrand",
@@ -661,9 +661,9 @@ dependencies = [
 
 [[package]]
 name = "h3-quinn"
-version = "0.0.7"
+version = "0.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17c799f413fceeea505236c4d8132f084ff4b55a652288d91439ee93dc24d855"
+checksum = "690cbdc6600db8490412edf5e2bbec0c88f4d4e83f9e0800428b51e6c23372dc"
 dependencies = [
  "bytes",
  "futures",
