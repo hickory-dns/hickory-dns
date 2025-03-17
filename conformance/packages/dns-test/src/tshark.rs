@@ -7,6 +7,7 @@ use std::net::Ipv4Addr;
 use std::sync::atomic::{self, AtomicUsize};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, JoinHandle};
+use std::time::Duration;
 
 use serde::de::{DeserializeSeed, Error as _, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
@@ -94,6 +95,23 @@ pub struct Tshark {
 }
 
 impl Tshark {
+    /// Waits until the captured packets satisfy some condition.
+    pub fn wait_until(
+        &self,
+        condition: impl Fn(&[Capture]) -> bool,
+        timeout: Duration,
+    ) -> Result<()> {
+        let (mutex, condvar) = &*self.captures_pair;
+        let guard = mutex.lock().unwrap();
+        let (_guard, result) = condvar
+            .wait_timeout_while(guard, timeout, |captures| !condition(captures))
+            .unwrap();
+        if result.timed_out() {
+            return Err("timed out waiting for packet".into());
+        }
+        Ok(())
+    }
+
     /// Blocks until `tshark` reports the number of expected captured packets.
     pub fn wait_for_new_packets(&mut self, expected: usize) -> Result<usize> {
         let mut captured = 0;
