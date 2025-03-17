@@ -62,13 +62,9 @@ impl NSEC {
     ///
     /// An NSEC RData for use in a Resource Record
     pub fn new(next_domain_name: Name, type_bit_maps: BTreeSet<RecordType>) -> Self {
-        Self::with_record_type_set(next_domain_name, RecordTypeSet::new(type_bit_maps))
-    }
-
-    fn with_record_type_set(next_domain_name: Name, type_bit_maps: RecordTypeSet) -> Self {
         Self {
             next_domain_name,
-            type_bit_maps,
+            type_bit_maps: RecordTypeSet::new(type_bit_maps),
         }
     }
 
@@ -162,9 +158,12 @@ impl<'r> RecordDataDecodable<'r> for NSEC {
         let bit_map_len = length
             .checked_sub(offset)
             .map_err(|_| ProtoError::from("invalid rdata length in NSEC"))?;
-        let record_types = RecordTypeSet::read_data(decoder, bit_map_len)?;
+        let type_bit_maps = RecordTypeSet::read_data(decoder, bit_map_len)?;
 
-        Ok(Self::with_record_type_set(next_domain_name, record_types))
+        Ok(Self {
+            next_domain_name,
+            type_bit_maps,
+        })
     }
 }
 
