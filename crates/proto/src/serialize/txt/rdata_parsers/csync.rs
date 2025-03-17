@@ -35,11 +35,10 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
     let immediate: bool = flags & 0b0000_0001 == 0b0000_0001;
     let soa_minimum: bool = flags & 0b0000_0010 == 0b0000_0010;
 
-    let mut record_types: BTreeSet<RecordType> = BTreeSet::new();
+    let mut record_types = BTreeSet::new();
 
     for token in tokens {
-        let record_type: RecordType = RecordType::from_str(token)?;
-        record_types.insert(record_type);
+        record_types.insert(RecordType::from_str(token)?);
     }
 
     Ok(CSYNC::new(soa_serial, immediate, soa_minimum, record_types))
@@ -51,7 +50,7 @@ fn test_parsing() {
 
     assert_eq!(
         parse(vec!["123", "3", "NS"].into_iter()).expect("failed to parse CSYNC"),
-        CSYNC::new(123, true, true, BTreeSet::from([RecordType::NS])),
+        CSYNC::new(123, true, true, [RecordType::NS]),
     );
 }
 

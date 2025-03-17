@@ -138,7 +138,6 @@ mod tests {
     use crate::dnssec::rdata::DS;
     use crate::rr::domain::Name;
     use crate::rr::rdata::*;
-    use alloc::collections::BTreeSet;
     use core::str::FromStr;
 
     #[test]
@@ -209,7 +208,7 @@ mod tests {
                 123,
                 true,
                 false,
-                BTreeSet::from([RecordType::A, RecordType::NS])
+                [RecordType::A, RecordType::NS]
             ))
         );
     }
@@ -225,7 +224,7 @@ mod tests {
                 123,
                 true,
                 false,
-                BTreeSet::from([RecordType::A, RecordType::NS])
+                [RecordType::A, RecordType::NS]
             ))
         );
     }

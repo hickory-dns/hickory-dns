@@ -855,8 +855,7 @@ impl InnerInMemory {
                 type_bit_maps
                     .iter()
                     .copied()
-                    .chain(exists.then_some(RecordType::RRSIG))
-                    .collect(),
+                    .chain(exists.then_some(RecordType::RRSIG)),
             );
 
             let name =
