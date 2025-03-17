@@ -19,7 +19,7 @@ jobs:
         with:
           toolchain: stable
           components: clippy, rustfmt
-      - uses: extractions/setup-just@v2
+      - uses: extractions/setup-just@v3
 
       - name: run test-framework tests
         run: just conformance-framework
