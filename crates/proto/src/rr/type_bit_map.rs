@@ -244,10 +244,7 @@ mod serde {
     use super::RecordTypeSet;
 
     impl<'de> Deserialize<'de> for RecordTypeSet {
-        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: serde::Deserializer<'de>,
-        {
+        fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
             Ok(Self {
                 types: BTreeSet::deserialize(deserializer)?,
                 original_encoding: None,
@@ -256,10 +253,7 @@ mod serde {
     }
 
     impl Serialize for RecordTypeSet {
-        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer,
-        {
+        fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
             self.types.serialize(serializer)
         }
     }
