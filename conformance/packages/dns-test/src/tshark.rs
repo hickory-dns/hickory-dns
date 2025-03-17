@@ -1,13 +1,15 @@
 //! `tshark` JSON output parser
 
 use core::result::Result as CoreResult;
-use std::io::{self, BufRead, BufReader, Lines, Read};
+use std::fmt;
+use std::io::{self, BufRead, BufReader};
 use std::net::Ipv4Addr;
-use std::process::ChildStderr;
 use std::sync::atomic::{self, AtomicUsize};
+use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, JoinHandle};
 
-use serde::Deserialize;
+use serde::de::{DeserializeSeed, Error as _, SeqAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 use serde_with::{DisplayFromStr, serde_as};
 
 use crate::Result;
@@ -24,22 +26,28 @@ impl Container {
 
         let tshark = format!(
             "echo $$ > {pidfile}
-exec tshark --log-level debug --log-domain main,capture -l -i eth0 -T json -O dns -f 'udp port {UDP_PORT}'"
+exec tshark -l -i eth0 -T json -O dns -f 'udp port {UDP_PORT}'"
         );
         let mut child = self.spawn(&["sh", "-c", &tshark])?;
 
         let stderr = child.stderr()?;
         let mut stderr = BufReader::new(stderr).lines();
 
-        // Read from stdout on another thread. This ensures the subprocess won't block when writing
-        // to stdout due to full pipe buffers, and means we can read from stderr in
-        // `wait_for_capture()`, `wait_for_new_packets()`, or `terminate()` at our own pace without
-        // causing a deadlock.
-        let mut stdout = child.stdout()?;
-        let stdout_handle = thread::spawn(move || -> CoreResult<String, io::Error> {
-            let mut buf = String::new();
-            stdout.read_to_string(&mut buf)?;
-            Ok(buf)
+        let captures_pair = Arc::new((Mutex::new(Vec::<Capture>::new()), Condvar::new()));
+
+        // Read from stdout and stderr on separate threads. This ensures the subprocess won't block
+        // when writing to either due to full pipe buffers.
+        let stdout = child.stdout()?;
+        let stdout_handle = thread::spawn({
+            let own_addr = self.ipv4_addr();
+            let pair = Arc::clone(&captures_pair);
+            move || -> CoreResult<(), Box<dyn std::error::Error + Send + Sync>> {
+                let mut deserializer = serde_json::Deserializer::from_reader(stdout);
+                let (captures, condvar) = &*pair;
+                let adapter = StreamingCapture::new(captures, condvar, own_addr);
+                adapter.deserialize(&mut deserializer)?;
+                Ok(())
+            }
         });
 
         for res in stderr.by_ref() {
@@ -50,12 +58,23 @@ exec tshark --log-level debug --log-domain main,capture -l -i eth0 -T json -O dn
             }
         }
 
+        let stderr_handle = thread::spawn(move || -> CoreResult<String, io::Error> {
+            let mut buf = String::new();
+            for line_res in stderr {
+                buf.push_str(&line_res?);
+                buf.push('\n');
+            }
+            Ok(buf)
+        });
+
         Ok(Tshark {
             container: self.clone(),
             child,
             stdout_handle,
-            stderr,
+            stderr_handle,
             id,
+            captures_pair,
+            wait_capture_count_watermark: 0,
         })
     }
 }
@@ -68,8 +87,10 @@ pub struct Tshark {
     child: Child,
     container: Container,
     id: usize,
-    stdout_handle: JoinHandle<CoreResult<String, io::Error>>,
-    stderr: Lines<BufReader<ChildStderr>>,
+    stdout_handle: JoinHandle<CoreResult<(), Box<dyn std::error::Error + Send + Sync>>>,
+    stderr_handle: JoinHandle<CoreResult<String, io::Error>>,
+    captures_pair: Arc<(Mutex<Vec<Capture>>, Condvar)>,
+    wait_capture_count_watermark: usize,
 }
 
 impl Tshark {
@@ -87,22 +108,22 @@ impl Tshark {
         Ok(captured)
     }
 
-    /// Blocks until `tshark` reports that it has captured new DNS messages
+    /// Blocks until `tshark` reports that it has captured new DNS messages.
     ///
-    /// This method returns the number of newly captured messages
-    // XXX maybe do this automatically / always in `terminate`?
+    /// This method returns the number of newly captured messages.
+    ///
+    /// Consider using [`Self::wait_until`] instead, and waiting for packets with specific
+    /// properties.
     pub fn wait_for_capture(&mut self) -> Result<usize> {
-        // sync_pipe_input_cb(): new packets NN
-        for res in self.stderr.by_ref() {
-            let line = res?;
-
-            if line.contains(": new packets ") {
-                let (_rest, count) = line.rsplit_once(' ').unwrap();
-                return Ok(count.parse()?);
-            }
-        }
-
-        Err("unexpected EOF".into())
+        let old_watermark = self.wait_capture_count_watermark;
+        let (mutex, condvar) = &*self.captures_pair;
+        let guard = mutex.lock().unwrap();
+        let guard = condvar
+            .wait_while(guard, |captures| captures.len() <= old_watermark)
+            .unwrap();
+        let new_watermark = guard.len();
+        self.wait_capture_count_watermark = new_watermark;
+        Ok(new_watermark - old_watermark)
     }
 
     pub fn terminate(self) -> Result<Vec<Capture>> {
@@ -110,60 +131,36 @@ impl Tshark {
         let kill = format!("test -f {pidfile} || sleep 1; kill $(cat {pidfile})");
 
         self.container.status_ok(&["sh", "-c", &kill])?;
+
+        // wait until tshark exits and closes stdout (and stderr)
         let output = self.child.wait()?;
-
         if !output.status.success() {
-            return Err("could not terminate the `tshark` process".into());
+            let stderr_output = self
+                .stderr_handle
+                .join()
+                .map_err(|_| "stderr thread panicked")??;
+
+            return Err(format!("the `tshark` process failed\n{stderr_output}").into());
         }
 
-        // wait until the message "NN packets captured" appears
-        // wireshark will close stderr after printing that so exhausting
-        // the file descriptor produces the same result
-        for res in self.stderr {
-            res?;
-        }
-
-        let output = self
-            .stdout_handle
+        self.stdout_handle
             .join()
-            .map_err(|_| "stdout thread panicked")??;
+            .map_err(|_| "stdout thread panicked")?
+            .map_err(|e| e.to_string())?;
 
-        let mut messages = vec![];
-        let entries: Vec<Entry> = serde_json::from_str(&output)?;
-
-        let own_addr = self.container.ipv4_addr();
-        for entry in entries {
-            let Layers { ip, dns } = entry._source.layers;
-
-            let direction = if ip.dst == own_addr {
-                Direction::Incoming { source: ip.src }
-            } else if ip.src == own_addr {
-                Direction::Outgoing {
-                    destination: ip.dst,
-                }
-            } else {
-                return Err(
-                    format!("unexpected IP packet found in wireshark trace: {ip:?}").into(),
-                );
-            };
-
-            messages.push(Capture {
-                message: Message { inner: dns },
-                direction,
-            });
-        }
+        let messages = Vec::clone(&self.captures_pair.0.lock().unwrap());
 
         Ok(messages)
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Capture {
     pub message: Message,
     pub direction: Direction,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Message {
     // TODO this should be more "cooked", i.e. be deserialized into a `struct`
     inner: serde_json::Value,
@@ -303,6 +300,94 @@ struct Ip {
     #[serde(rename = "ip.dst")]
     #[serde_as(as = "DisplayFromStr")]
     dst: Ipv4Addr,
+}
+
+/// This handles deserialization of the outer array in `tshark`'s JSON output, and makes each
+/// captured packet available in a streaming fashion via synchronization primitives.
+///
+/// Since the output of `tshark -T json` is one big JSON array, we can't just use
+/// [`serde_json::StreamDeserializer`], which expects multiple self-delimiting JSON values.
+struct StreamingCapture<'a> {
+    captures: &'a Mutex<Vec<Capture>>,
+    condvar: &'a Condvar,
+    own_addr: Ipv4Addr,
+}
+
+impl<'a> StreamingCapture<'a> {
+    fn new(captures: &'a Mutex<Vec<Capture>>, condvar: &'a Condvar, own_addr: Ipv4Addr) -> Self {
+        Self {
+            captures,
+            condvar,
+            own_addr,
+        }
+    }
+}
+
+impl<'de> DeserializeSeed<'de> for StreamingCapture<'_> {
+    type Value = ();
+
+    fn deserialize<D>(self, deserializer: D) -> CoreResult<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let visitor = StreamingCaptureVisitor::new(self.captures, self.condvar, self.own_addr);
+        deserializer.deserialize_seq(visitor)
+    }
+}
+
+/// Visitor to accompany [`StreamingCapture`].
+struct StreamingCaptureVisitor<'a> {
+    captures: &'a Mutex<Vec<Capture>>,
+    condvar: &'a Condvar,
+    own_addr: Ipv4Addr,
+}
+
+impl<'a> StreamingCaptureVisitor<'a> {
+    fn new(captures: &'a Mutex<Vec<Capture>>, condvar: &'a Condvar, own_addr: Ipv4Addr) -> Self {
+        Self {
+            captures,
+            condvar,
+            own_addr,
+        }
+    }
+}
+
+impl<'de> Visitor<'de> for StreamingCaptureVisitor<'_> {
+    type Value = ();
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a sequence")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> CoreResult<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        while let Some(entry) = seq.next_element::<Entry>()? {
+            let Layers { ip, dns } = entry._source.layers;
+
+            let direction = if ip.dst == self.own_addr {
+                Direction::Incoming { source: ip.src }
+            } else if ip.src == self.own_addr {
+                Direction::Outgoing {
+                    destination: ip.dst,
+                }
+            } else {
+                return Err(A::Error::custom(format!(
+                    "unexpected IP packet found in wireshark trace: {ip:?}"
+                )));
+            };
+
+            let mut guard = self.captures.lock().unwrap();
+            guard.push(Capture {
+                message: Message { inner: dns },
+                direction,
+            });
+            self.condvar.notify_all();
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
