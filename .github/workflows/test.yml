@@ -119,7 +119,6 @@ jobs:
             h3-ring,
             dnssec-aws-lc-rs,
             dnssec-ring,
-            async-std,
             doc,
           ]
     env:

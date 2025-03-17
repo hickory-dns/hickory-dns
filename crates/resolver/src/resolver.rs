@@ -573,7 +573,7 @@ where
 }
 
 /// Unit tests compatible with different runtime.
-#[cfg(all(test, any(feature = "async-std", feature = "tokio")))]
+#[cfg(all(test, feature = "tokio"))]
 pub(crate) mod testing {
     use std::{net::*, str::FromStr};
 

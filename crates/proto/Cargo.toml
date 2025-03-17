@@ -27,8 +27,6 @@ license.workspace = true
 [features]
 std = ["critical-section/std", "rand/thread_rng"]
 
-async-std = ["dep:async-std", "dep:pin-utils", "dep:socket2"]
-
 tls-aws-lc-rs = ["tokio-rustls/aws-lc-rs", "__tls"]
 https-aws-lc-rs = ["tls-aws-lc-rs", "__https"]
 quic-aws-lc-rs = ["quinn/rustls-aws-lc-rs", "std", "tls-aws-lc-rs", "__quic"]
@@ -73,7 +71,6 @@ path = "src/lib.rs"
 
 [dependencies]
 async-recursion.workspace = true
-async-std = { workspace = true, optional = true }
 async-trait.workspace = true
 aws-lc-rs = { workspace = true, optional = true }
 backtrace = { workspace = true, optional = true }

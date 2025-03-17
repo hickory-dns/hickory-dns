@@ -196,8 +196,6 @@ pub use hickory_proto as proto;
 // reexports from proto
 pub use proto::rr::{IntoName, Name};
 
-#[cfg(feature = "async-std")]
-pub mod async_std;
 pub mod caching_client;
 pub mod config;
 pub mod dns_lru;
