@@ -141,6 +141,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
     /// Register a UDP socket. Should be bound before calling this function.
     pub fn register_socket_std(&mut self, socket: std::net::UdpSocket) -> io::Result<()> {
+        socket.set_nonblocking(true)?;
         self.register_socket(net::UdpSocket::from_std(socket)?);
         Ok(())
     }
@@ -259,6 +260,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         listener: std::net::TcpListener,
         timeout: Duration,
     ) -> io::Result<()> {
+        listener.set_nonblocking(true)?;
         self.register_listener(net::TcpListener::from_std(listener)?, timeout);
         Ok(())
     }

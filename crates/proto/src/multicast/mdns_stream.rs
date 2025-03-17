@@ -141,7 +141,10 @@ impl MdnsStream {
             Box::new(
                 next_socket
                     .map(move |socket| match socket {
-                        Ok(Some(socket)) => Ok(Some(UdpSocket::from_std(socket)?)),
+                        Ok(Some(socket)) => {
+                            socket.set_nonblocking(true)?;
+                            Ok(Some(UdpSocket::from_std(socket)?))
+                        }
                         Ok(None) => Ok(None),
                         Err(err) => Err(err),
                     })
