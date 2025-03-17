@@ -83,14 +83,14 @@ impl BinEncodable for RecordTypeSet {
 
         // collect the bitmaps
         for rr_type in self.types.iter() {
-            let code: u16 = (*rr_type).into();
-            let window: u8 = (code >> 8) as u8;
-            let low: u8 = (code & 0x00FF) as u8;
+            let code = u16::from(*rr_type);
+            let window = (code >> 8) as u8;
+            let low = (code & 0x00FF) as u8;
 
-            let bit_map: &mut Vec<u8> = hash.entry(window).or_default();
+            let bit_map = hash.entry(window).or_default();
             // len + left is the block in the bitmap, divided by 8 for the bits, + the bit in the current_byte
-            let index: u8 = low / 8;
-            let bit: u8 = 0b1000_0000 >> (low % 8);
+            let index = low / 8;
+            let bit = 0b1000_0000 >> (low % 8);
 
             // adding necessary space to the vector
             if bit_map.len() < (index as usize + 1) {
@@ -161,8 +161,8 @@ impl RecordDataDecodable<'_> for RecordTypeSet {
         //  value, within that block, among the set of RR types present at the
         //  original owner name of the NSEC3 RR.  Trailing octets not specified
         //  MUST be interpreted as zero octets.
-        let mut record_types: BTreeSet<RecordType> = BTreeSet::new();
-        let mut state: BitMapReadState = BitMapReadState::Window;
+        let mut types = BTreeSet::new();
+        let mut state = BitMapReadState::Window;
 
         // loop through all the bytes in the bitmap
         let bit_map_len = length.unverified();
@@ -195,7 +195,7 @@ impl RecordDataDecodable<'_> for RecordTypeSet {
                             .map_err(|_| "block len or left out of bounds in NSEC(3)")?
                             .unverified(/*any u8 is valid at this point*/);
                             let rr_type: u16 = (u16::from(window) << 8) | u16::from(low_byte);
-                            record_types.insert(RecordType::from(rr_type));
+                            types.insert(RecordType::from(rr_type));
                         }
                         // shift left and look at the next bit
                         bit_map <<= 1;
@@ -217,7 +217,7 @@ impl RecordDataDecodable<'_> for RecordTypeSet {
         }
 
         Ok(Self {
-            types: record_types,
+            types,
             original_encoding: Some(bytes),
         })
     }
