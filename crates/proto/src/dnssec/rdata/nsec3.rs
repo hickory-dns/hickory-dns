@@ -7,7 +7,7 @@
 
 //! NSEC record types
 
-use alloc::{collections::BTreeSet, fmt, string::ToString, vec::Vec};
+use alloc::{fmt, string::ToString, vec::Vec};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize};
@@ -265,7 +265,11 @@ impl NSEC3 {
     ///  The Type Bit Maps field identifies the RRSet types that exist at the
     ///  original owner name of the NSEC3 RR.
     /// ```
-    pub fn type_bit_maps(&self) -> &BTreeSet<RecordType> {
+    pub fn type_bit_maps(&self) -> impl Iterator<Item = RecordType> + '_ {
+        self.type_bit_maps.iter()
+    }
+
+    pub(crate) fn type_set(&self) -> &RecordTypeSet {
         &self.type_bit_maps
     }
 

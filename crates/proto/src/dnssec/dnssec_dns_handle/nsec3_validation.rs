@@ -588,14 +588,11 @@ fn validate_nodata_response(
     //   and that the NSEC3 RR that covers the "next closer" name has the Opt-
     //   Out bit set.
     if let Some(query_record) = query_name_record {
-        if query_record
-            .nsec3_data
-            .type_bit_maps()
-            .contains(&query_type)
+        if query_record.nsec3_data.type_set().contains(query_type)
             || query_record
                 .nsec3_data
-                .type_bit_maps()
-                .contains(&RecordType::CNAME)
+                .type_set()
+                .contains(RecordType::CNAME)
         {
             return proof_log_yield(
                 Proof::Bogus,

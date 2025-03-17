@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 //! NSEC record types
-use alloc::collections::BTreeSet;
+
 use core::fmt;
 
 #[cfg(feature = "serde")]
@@ -128,7 +128,11 @@ impl NSEC {
     ///    A zone MUST NOT include an NSEC RR for any domain name that only
     ///    holds glue records.
     /// ```
-    pub fn type_bit_maps(&self) -> &BTreeSet<RecordType> {
+    pub fn type_bit_maps(&self) -> impl Iterator<Item = RecordType> + '_ {
+        self.type_bit_maps.iter()
+    }
+
+    pub(crate) fn type_set(&self) -> &RecordTypeSet {
         &self.type_bit_maps
     }
 }
