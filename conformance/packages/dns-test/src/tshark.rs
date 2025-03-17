@@ -7,6 +7,7 @@ use std::net::Ipv4Addr;
 use std::sync::atomic::{self, AtomicUsize};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, JoinHandle};
+use std::time::Duration;
 
 use serde::de::{DeserializeSeed, Error as _, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
@@ -117,18 +118,21 @@ pub struct Tshark {
 }
 
 impl Tshark {
-    /// Blocks until `tshark` reports the number of expected captured packets.
-    pub fn wait_for_new_packets(&mut self, expected: usize) -> Result<usize> {
-        let mut captured = 0;
-
-        loop {
-            captured += self.wait_for_capture()?;
-            if captured >= expected {
-                break;
-            }
+    /// Waits until the captured packets satisfy some condition.
+    pub fn wait_until(
+        &self,
+        condition: impl Fn(&[Capture]) -> bool,
+        timeout: Duration,
+    ) -> Result<()> {
+        let (mutex, condvar) = &*self.captures_pair;
+        let guard = mutex.lock().unwrap();
+        let (_guard, result) = condvar
+            .wait_timeout_while(guard, timeout, |captures| !condition(captures))
+            .unwrap();
+        if result.timed_out() {
+            return Err("timed out waiting for packet".into());
         }
-
-        Ok(captured)
+        Ok(())
     }
 
     /// Blocks until `tshark` reports that it has captured new DNS messages.
@@ -426,7 +430,7 @@ mod tests {
     fn nameserver() -> Result<()> {
         let network = &Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, network)?.start()?;
-        let mut tshark = ns.eavesdrop()?;
+        let tshark = ns.eavesdrop()?;
 
         let client = Client::new(network)?;
         let resp = client.dig(
@@ -438,7 +442,14 @@ mod tests {
 
         assert!(resp.status.is_noerror());
 
-        tshark.wait_for_new_packets(2)?;
+        tshark.wait_until(
+            |captures| {
+                captures
+                    .iter()
+                    .any(|capture| matches!(capture.direction, Direction::Outgoing { .. }))
+            },
+            Duration::from_secs(10),
+        )?;
 
         let messages = tshark.terminate()?;
 
