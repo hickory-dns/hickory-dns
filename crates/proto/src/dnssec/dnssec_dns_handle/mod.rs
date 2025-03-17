@@ -1289,7 +1289,7 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[(&Name, &NSEC)]) -> 
     //  if we got an NSEC record of the same name, but it is listed in the NSEC types,
     //    WTF? is that bad server, bad record
     if let Some((_, nsec_data)) = nsecs.iter().find(|(name, _)| query.name() == *name) {
-        if !nsec_data.type_bit_maps().contains(&query.query_type()) {
+        if !nsec_data.type_set().contains(query.query_type()) {
             return proof_log_yield(ds_proof_override, query.name(), "nsec1", "direct match");
         } else {
             return proof_log_yield(Proof::Bogus, query.name(), "nsec1", "direct match");

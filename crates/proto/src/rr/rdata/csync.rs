@@ -7,7 +7,6 @@
 
 //! CSYNC record for synchronizing data from a child zone to the parent
 
-use alloc::collections::BTreeSet;
 use core::fmt;
 
 #[cfg(feature = "serde")]
@@ -89,8 +88,8 @@ impl CSYNC {
     ///    must understand the semantics associated with a bit in the Type Bit
     ///    Map field that has been set to 1.
     /// ```
-    pub fn type_bit_maps(&self) -> &BTreeSet<RecordType> {
-        &self.type_bit_maps
+    pub fn type_bit_maps(&self) -> impl Iterator<Item = RecordType> + '_ {
+        self.type_bit_maps.iter()
     }
 
     /// [RFC 7477](https://tools.ietf.org/html/rfc7477#section-2.1.1.2), Child-to-Parent Synchronization in DNS, March 2015

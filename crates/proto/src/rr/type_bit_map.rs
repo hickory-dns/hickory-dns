@@ -9,7 +9,6 @@
 
 use core::fmt;
 use core::hash::{Hash, Hasher};
-use core::ops::Deref;
 
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::vec::Vec;
@@ -35,13 +34,14 @@ impl RecordTypeSet {
             original_encoding: None,
         }
     }
-}
 
-impl Deref for RecordTypeSet {
-    type Target = BTreeSet<RecordType>;
+    pub(crate) fn iter(&self) -> impl Iterator<Item = RecordType> + '_ {
+        self.types.iter().copied()
+    }
 
-    fn deref(&self) -> &Self::Target {
-        &self.types
+    #[cfg(feature = "__dnssec")]
+    pub(crate) fn contains(&self, r#type: RecordType) -> bool {
+        self.types.contains(&r#type)
     }
 }
 
@@ -82,7 +82,7 @@ impl BinEncodable for RecordTypeSet {
         let mut hash: BTreeMap<u8, Vec<u8>> = BTreeMap::new();
 
         // collect the bitmaps
-        for rr_type in self.iter() {
+        for rr_type in self.types.iter() {
             let code: u16 = (*rr_type).into();
             let window: u8 = (code >> 8) as u8;
             let low: u8 = (code & 0x00FF) as u8;
