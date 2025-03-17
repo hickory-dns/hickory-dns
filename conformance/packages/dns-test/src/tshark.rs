@@ -5,8 +5,9 @@ use std::fmt;
 use std::io::{self, BufRead, BufReader};
 use std::net::Ipv4Addr;
 use std::sync::atomic::{self, AtomicUsize};
-use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
 use std::thread::{self, JoinHandle};
+use std::time::{Duration, Instant};
 
 use serde::de::{DeserializeSeed, Error as _, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
@@ -113,23 +114,32 @@ pub struct Tshark {
 }
 
 impl Tshark {
-    /// Blocks until `tshark` reports the number of expected captured packets.
-    pub fn wait_for_new_packets(&mut self, expected: usize) -> Result<usize> {
-        let mut captured = 0;
-
-        loop {
-            captured += self.wait_for_capture()?;
-            if captured >= expected {
-                break;
+    /// Waits until the captured packets satisfy some condition.
+    pub fn wait_until(
+        &mut self,
+        condition: impl Fn(&[Capture]) -> bool,
+        timeout: Duration,
+    ) -> Result<()> {
+        let deadline = Instant::now() + timeout;
+        while !condition(&self.captures) {
+            let recv_timeout = deadline
+                .checked_duration_since(Instant::now())
+                .unwrap_or_default();
+            match self.receiver.recv_timeout(recv_timeout) {
+                Ok(capture) => self.captures.push(capture),
+                Err(RecvTimeoutError::Timeout) => return Err("timed out waiting for packet".into()),
+                Err(RecvTimeoutError::Disconnected) => return Err("unexpected EOF".into()),
             }
         }
-
-        Ok(captured)
+        Ok(())
     }
 
     /// Blocks until `tshark` reports that it has captured new DNS messages.
     ///
     /// This method returns the number of newly captured messages.
+    ///
+    /// Consider using [`Self::wait_until`] instead, and waiting for packets with specific
+    /// properties.
     pub fn wait_for_capture(&mut self) -> Result<usize> {
         let old_watermark = self.wait_capture_count_watermark;
         if self.captures.len() <= old_watermark {
@@ -430,7 +440,14 @@ mod tests {
 
         assert!(resp.status.is_noerror());
 
-        tshark.wait_for_new_packets(2)?;
+        tshark.wait_until(
+            |captures| {
+                captures
+                    .iter()
+                    .any(|capture| matches!(capture.direction, Direction::Outgoing { .. }))
+            },
+            Duration::from_secs(10),
+        )?;
 
         let messages = tshark.terminate()?;
 
