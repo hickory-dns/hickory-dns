@@ -107,10 +107,8 @@ fmt:
 
 # Audit all depenedencies
 audit: init-audit (check '--all-features')
-    # RUSTSEC-2024-0436, regarding the maintenance status of `paste`, is being
-    # ignored for now. See issue #2833.
-    cargo audit --deny warnings --ignore RUSTSEC-2024-0436
-    cargo audit --file fuzz/Cargo.lock --deny warnings --ignore RUSTSEC-2024-0436
+    cargo audit --deny warnings
+    cargo audit --file fuzz/Cargo.lock --deny warnings
 
 # Task to run clippy, rustfmt, and audit on all crates
 cleanliness: clippy fmt audit
