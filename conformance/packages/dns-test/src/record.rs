@@ -58,13 +58,14 @@ macro_rules! record_types {
 }
 
 record_types!(
-    A, AAAA, CNAME, DNSKEY, DS, MX, NS, NSEC, NSEC3, NSEC3PARAM, RRSIG, SOA, TXT
+    A, AAAA, CAA, CNAME, DNSKEY, DS, MX, NS, NSEC, NSEC3, NSEC3PARAM, RRSIG, SOA, TXT
 );
 
 #[derive(Debug, Clone)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Record {
     A(A),
+    CAA(CAA),
     CNAME(CNAME),
     DNSKEY(DNSKEY),
     DS(DS),
@@ -221,6 +222,13 @@ impl Record {
             Err(self)
         }
     }
+
+    pub fn try_into_caa(self) -> CoreResult<CAA, Self> {
+        match self {
+            Self::CAA(v) => Ok(v),
+            _ => Err(self),
+        }
+    }
 }
 
 impl FromStr for Record {
@@ -234,6 +242,7 @@ impl FromStr for Record {
 
         let record = match record_type {
             "A" => Record::A(input.parse()?),
+            "CAA" => Record::CAA(input.parse()?),
             "CNAME" => Record::CNAME(input.parse()?),
             "DNSKEY" => Record::DNSKEY(input.parse()?),
             "DS" => Record::DS(input.parse()?),
@@ -261,6 +270,7 @@ impl fmt::Display for Record {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Record::A(a) => write!(f, "{a}"),
+            Record::CAA(caa) => write!(f, "{caa}"),
             Record::CNAME(cname) => write!(f, "{cname}"),
             Record::DS(ds) => write!(f, "{ds}"),
             Record::DNSKEY(dnskey) => write!(f, "{dnskey}"),
@@ -1180,6 +1190,77 @@ impl fmt::Display for TXT {
     }
 }
 
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Debug, Clone)]
+pub struct CAA {
+    pub zone: FQDN,
+    pub ttl: u32,
+    pub flags: u8,
+    pub tag: String,
+    pub value: String,
+}
+
+impl FromStr for CAA {
+    type Err = Error;
+
+    fn from_str(input: &str) -> CoreResult<Self, Self::Err> {
+        let mut columns = input.split_whitespace();
+
+        let [
+            Some(zone),
+            Some(ttl),
+            Some(class),
+            Some(record_type),
+            Some(flags),
+            Some(tag),
+            Some(value),
+            None,
+        ] = array::from_fn(|_| columns.next())
+        else {
+            return Err("expected 7 columns".into());
+        };
+
+        check_record_type::<Self>(record_type)?;
+        check_class(class)?;
+
+        let value = if value == "\"\"" {
+            "".to_string()
+        } else {
+            value.to_string()
+        };
+
+        Ok(Self {
+            zone: zone.parse()?,
+            ttl: ttl.parse()?,
+            flags: flags.parse()?,
+            tag: tag.to_string(),
+            value,
+        })
+    }
+}
+
+impl fmt::Display for CAA {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self {
+            zone,
+            ttl,
+            flags,
+            tag,
+            value,
+        } = self;
+
+        let record_type = unqualified_type_name::<Self>();
+        write!(f, "{zone}\t{ttl}\t{CLASS}\t{record_type}\t{flags} {tag} ")?;
+        if value.is_empty() {
+            write!(f, "\"\"")?;
+        } else {
+            f.write_str(value)?;
+        }
+
+        Ok(())
+    }
+}
+
 /// A record of unknown type.
 #[derive(Debug, Clone)]
 pub struct UnknownRdata {
@@ -1663,9 +1744,34 @@ mod tests {
         Ok(())
     }
 
+    const CAA_INPUT: &str = "certs.example.com.	86400	IN	CAA	0 issue ca1.example.net";
+
+    #[test]
+    fn caa() -> Result<()> {
+        let caa @ CAA {
+            zone,
+            ttl,
+            flags,
+            tag,
+            value,
+        } = &CAA_INPUT.parse()?;
+
+        assert_eq!(FQDN("certs.example.com.").unwrap(), *zone);
+        assert_eq!(86400, *ttl);
+        assert_eq!(0, *flags);
+        assert_eq!("issue", tag);
+        assert_eq!("ca1.example.net", value);
+
+        let output = caa.to_string();
+        assert_eq!(CAA_INPUT, output);
+
+        Ok(())
+    }
+
     #[test]
     fn any() -> Result<()> {
         assert!(matches!(A_INPUT.parse()?, Record::A(..)));
+        assert!(matches!(CAA_INPUT.parse()?, Record::CAA(..)));
         assert!(matches!(DNSKEY_INPUT.parse()?, Record::DNSKEY(..)));
         assert!(matches!(DS_INPUT.parse()?, Record::DS(..)));
         assert!(matches!(NS_INPUT.parse()?, Record::NS(..)));
