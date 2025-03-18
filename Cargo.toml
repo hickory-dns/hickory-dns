@@ -69,7 +69,7 @@ ring = "0.17"
 quinn = { version = "0.11.2", default-features = false }
 h2 = "0.4.0"
 h3 = "0.0.7"
-h3-quinn = "0.0.8"
+h3-quinn = "0.0.9"
 http = "1.1"
 
 # no_std
