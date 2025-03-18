@@ -101,7 +101,6 @@ lru-cache.workspace = true
 parking_lot.workspace = true
 prefix-trie.workspace = true
 serde = { workspace = true, features = ["derive"], optional = true }
-test-support.workspace=true
 thiserror.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, features = ["net"] }
@@ -111,6 +110,7 @@ hickory-resolver = { workspace = true, features = ["tokio"] }
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt"] }
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
+test-support.workspace = true
 
 [package.metadata.docs.rs]
 all-features = true
