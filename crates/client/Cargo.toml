@@ -67,7 +67,6 @@ once_cell.workspace = true
 radix_trie.workspace = true
 rand.workspace = true
 serde = { workspace = true, features = ["derive"], optional = true }
-test-support.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, features = ["rt", "net"] }
@@ -75,6 +74,7 @@ hickory-proto = { workspace = true, features = ["text-parsing", "tokio"] }
 
 [dev-dependencies]
 futures = { workspace = true, default-features = false, features = ["std", "executor"] }
+test-support.workspace = true
 tokio = { workspace = true, features = ["rt", "macros"] }
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
 webpki-roots = { workspace = true }
