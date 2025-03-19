@@ -49,6 +49,12 @@ impl<P> ResolverBuilder<P>
 where
     P: ConnectionProvider,
 {
+    /// Sets the [`ResolverOpts`] to be used by the resolver.
+    pub fn with_options(mut self, options: ResolverOpts) -> Self {
+        self.options = options;
+        self
+    }
+
     /// Returns a mutable reference to the [`ResolverOpts`].
     pub fn options_mut(&mut self) -> &mut ResolverOpts {
         &mut self.options
