@@ -22,8 +22,8 @@ fn zone_file_path() -> String {
 
 #[derive(Clone)]
 pub struct SignSettings {
-    zsk_bits: u16,
-    ksk_bits: u16,
+    zsk_bits: Option<u16>,
+    ksk_bits: Option<u16>,
     algorithm: Algorithm,
     expiration: Option<u64>,
     inception: Option<u64>,
@@ -35,8 +35,8 @@ impl SignSettings {
     pub fn rsasha1_nsec3() -> Self {
         Self {
             algorithm: Algorithm::RSASHA1_NSEC3,
-            zsk_bits: 1_024,
-            ksk_bits: 2_048,
+            zsk_bits: Some(1_024),
+            ksk_bits: Some(2_048),
             expiration: None,
             inception: None,
             nsec: Nsec::default(),
@@ -47,8 +47,8 @@ impl SignSettings {
     pub fn dsa() -> Self {
         Self {
             algorithm: Algorithm::DSA,
-            zsk_bits: 1_024,
-            ksk_bits: 1_024,
+            zsk_bits: Some(1_024),
+            ksk_bits: Some(1_024),
             expiration: None,
             inception: None,
             nsec: Nsec::default(),
@@ -59,8 +59,8 @@ impl SignSettings {
     pub fn rsamd5() -> Self {
         Self {
             algorithm: Algorithm::RSAMD5,
-            zsk_bits: 2_048,
-            ksk_bits: 2_048,
+            zsk_bits: Some(2_048),
+            ksk_bits: Some(2_048),
             expiration: None,
             inception: None,
             nsec: Nsec::default(),
@@ -72,8 +72,8 @@ impl SignSettings {
         Self {
             algorithm: Algorithm::RSASHA256,
             // 2048-bit SHA256 matches `$ dig DNSKEY .` in length
-            zsk_bits: 2_048,
-            ksk_bits: 2_048,
+            zsk_bits: Some(2_048),
+            ksk_bits: Some(2_048),
             expiration: None,
             inception: None,
             nsec: Nsec::_3 {
@@ -88,8 +88,20 @@ impl SignSettings {
         Self {
             algorithm: Algorithm::RSASHA256,
             // 2048-bit SHA256 matches `$ dig DNSKEY .` in length
-            zsk_bits: 2_048,
-            ksk_bits: 2_048,
+            zsk_bits: Some(2_048),
+            ksk_bits: Some(2_048),
+            expiration: None,
+            inception: None,
+            nsec: Nsec::default(),
+            implementation: Implementation::default(),
+        }
+    }
+
+    pub fn ecdsap256sha256() -> Self {
+        Self {
+            algorithm: Algorithm::ECDSAP256SHA256,
+            zsk_bits: None,
+            ksk_bits: None,
             expiration: None,
             inception: None,
             nsec: Nsec::default(),
@@ -151,6 +163,7 @@ enum Algorithm {
     RSAMD5,
     RSASHA1_NSEC3,
     RSASHA256,
+    ECDSAP256SHA256,
 }
 
 impl fmt::Display for Algorithm {
@@ -168,18 +181,20 @@ enum Implementation {
 
 /// Generates the command string to generate ZSK using `ldns-keygen`
 pub fn ldns_keygen_zsk(settings: &SignSettings, zone: &FQDN) -> String {
-    format!(
-        "ldns-keygen -a {} -b {} {}",
-        settings.algorithm, settings.zsk_bits, zone
-    )
+    let algorithm = settings.algorithm;
+    match settings.zsk_bits {
+        Some(bits) => format!("ldns-keygen -a {algorithm} -b {bits} {zone}"),
+        None => format!("ldns-keygen -a {algorithm} {zone}"),
+    }
 }
 
 /// Generates the command string to generate KSK using `ldns-keygen`
 pub fn ldns_keygen_ksk(settings: &SignSettings, zone: &FQDN) -> String {
-    format!(
-        "ldns-keygen -k -a {} -b {} {}",
-        settings.algorithm, settings.ksk_bits, zone
-    )
+    let algorithm = settings.algorithm;
+    match settings.ksk_bits {
+        Some(bits) => format!("ldns-keygen -k -a {algorithm} -b {bits} {zone}"),
+        None => format!("ldns-keygen -k -a {algorithm} {zone}"),
+    }
 }
 
 fn unix_timestamp(system_time: &SystemTime) -> u64 {
