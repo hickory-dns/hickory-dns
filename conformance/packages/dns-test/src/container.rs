@@ -129,42 +129,37 @@ impl fmt::Display for Image {
 impl Container {
     /// Starts the container in a "parked" state
     pub fn run(image: &Image, network: &Network) -> Result<Self> {
-        // TODO make this configurable and support hickory & bind
-        let dockerfile = image.dockerfile();
-        let docker_build_dir = TempDir::new()?;
-        let docker_build_dir = docker_build_dir.path();
-        fs::write(docker_build_dir.join("Dockerfile"), dockerfile)?;
-
         let image_tag = format!("{PACKAGE_NAME}-{image}");
-
-        let mut command = Command::new("docker");
-        command
-            .args(["build", "--load", "-t"])
-            .arg(&image_tag)
-            .arg(docker_build_dir);
-        // Use BuildKit instead of the legacy builder. We need to choose this in order to
-        // pass the `--load` flag above. Depending on which BuildKit build driver is in use,
-        // the `--load` flag may be necessary, in order to load the resulting image as a
-        // local Docker image.
-        command.env("DOCKER_BUILDKIT", "1");
-
-        if let Image::Hickory {
-            dnssec_feature: Some(dnssec_feature),
-            ..
-        } = image
-        {
-            command.arg(format!("--build-arg=DNSSEC_FEATURE={dnssec_feature}"));
-        };
-
-        let repo = if let Image::Hickory { repo, .. } = image {
-            Some(repo)
-        } else {
-            None
-        };
 
         if !skip_docker_build() {
             image.once().call_once(|| {
-                if let Some(repo) = repo {
+                let dockerfile = image.dockerfile();
+                let docker_build_dir =
+                    TempDir::new().expect("failed to create temporary directory");
+                let docker_build_dir = docker_build_dir.path();
+                fs::write(docker_build_dir.join("Dockerfile"), dockerfile)
+                    .expect("failed to write Dockerfile");
+
+                let mut command = Command::new("docker");
+                command
+                    .args(["build", "--load", "-t"])
+                    .arg(&image_tag)
+                    .arg(docker_build_dir);
+                // Use BuildKit instead of the legacy builder. We need to choose this in order to
+                // pass the `--load` flag above. Depending on which BuildKit build driver is in use,
+                // the `--load` flag may be necessary, in order to load the resulting image as a
+                // local Docker image.
+                command.env("DOCKER_BUILDKIT", "1");
+
+                if let Image::Hickory {
+                    dnssec_feature: Some(dnssec_feature),
+                    ..
+                } = image
+                {
+                    command.arg(format!("--build-arg=DNSSEC_FEATURE={dnssec_feature}"));
+                };
+
+                if let Image::Hickory { repo, .. } = image {
                     let mut cp_r = Command::new("git");
                     cp_r.args([
                         "clone",
