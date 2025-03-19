@@ -13,6 +13,8 @@ jobs:
   everything:
     # host is irrelevant because everything will run in Docker containers
     runs-on: ubuntu-latest
+    env:
+      DNS_TEST_DOCKER_CACHE_GHA: 1
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
@@ -20,6 +22,15 @@ jobs:
           toolchain: stable
           components: clippy, rustfmt
       - uses: extractions/setup-just@v3
+      # Install the `docker-container` build driver. The GitHub Actions cache
+      # backend is supported with this driver, but not the default `docker`
+      # driver. Additionally, make `docker build` an alias to
+      # `docker buildx build`.
+      - uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+          use: true
+          install: true
 
       - name: run test-framework tests
         run: just conformance-framework

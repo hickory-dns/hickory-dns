@@ -139,9 +139,14 @@ impl Container {
 
         let mut command = Command::new("docker");
         command
-            .args(["build", "-t"])
+            .args(["build", "--load", "-t"])
             .arg(&image_tag)
             .arg(docker_build_dir);
+        // Use BuildKit instead of the legacy builder. We need to choose this in order to
+        // pass the `--load` flag above. Depending on which BuildKit build driver is in use,
+        // the `--load` flag may be necessary, in order to load the resulting image as a
+        // local Docker image.
+        command.env("DOCKER_BUILDKIT", "1");
 
         if let Image::Hickory {
             dnssec_feature: Some(dnssec_feature),
