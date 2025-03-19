@@ -46,6 +46,10 @@ $ DNS_TEST_SUBJECT="hickory https://github.com/hickory-dns/hickory-dns" cargo ru
 
 - `DNS_TEST_SKIP_DOCKER_BUILD`. Setting this variable skips running `docker build`. This should only be used if containers have been built recently.
 
+- `DNS_TEST_DOCKER_CACHE_GHA`. Setting this variable enables passing
+  `--cache-from` and `--cache-to` arguments to `docker build`, using the GitHub
+  Actions cache backend.
+
 ### Automatic clean-up
 
 `dns-test` has been designed to clean up, that is remove, the Docker containers and Docker networks that it creates.

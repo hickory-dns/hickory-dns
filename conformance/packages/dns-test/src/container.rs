@@ -159,6 +159,39 @@ impl Container {
                     command.arg(format!("--build-arg=DNSSEC_FEATURE={dnssec_feature}"));
                 };
 
+                if docker_build_gha_cache() {
+                    let scope = match image {
+                        Image::Bind => "bind",
+                        Image::Dnslib => "dnslib",
+                        Image::Client => "client",
+                        Image::Hickory {
+                            dnssec_feature: None,
+                            ..
+                        } => "hickory",
+                        Image::Hickory {
+                            dnssec_feature: Some(HickoryDnssecFeature::AwsLcRs),
+                            ..
+                        } => "hickory-aws-lc-rs",
+                        Image::Hickory {
+                            dnssec_feature: Some(HickoryDnssecFeature::Ring),
+                            ..
+                        } => "hickory-ring",
+                        Image::Unbound => "unbound",
+                        Image::EdeDotCom => "ede-dot-com",
+                    };
+
+                    command.arg(format!("--cache-from=type=gha,scope=${scope}"));
+                    if let Image::Hickory { .. } = image {
+                        command.arg(format!(
+                            "--cache-to=type=gha,scope=${scope},mode=max,ignore-error=true"
+                        ));
+                    } else {
+                        command.arg(format!(
+                            "--cache-to=type=gha,scope=${scope},ignore-error=true"
+                        ));
+                    }
+                }
+
                 if let Image::Hickory { repo, .. } = image {
                     let mut cp_r = Command::new("git");
                     cp_r.args([
@@ -332,6 +365,10 @@ fn verbose_docker_build() -> bool {
 
 fn skip_docker_build() -> bool {
     env::var("DNS_TEST_SKIP_DOCKER_BUILD").is_ok()
+}
+
+fn docker_build_gha_cache() -> bool {
+    env::var("DNS_TEST_DOCKER_CACHE_GHA").is_ok()
 }
 
 fn exec_or_panic(command: &mut Command, verbose: bool) {

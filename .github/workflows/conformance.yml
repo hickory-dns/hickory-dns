@@ -31,6 +31,11 @@ jobs:
           driver: docker-container
           use: true
           install: true
+      # Expose the GitHub runtime via environment variables
+      # (`ACTIONS_RUNTIME_TOKEN` and `ACTIONS_RUNTIME_URL`). This is needed by
+      # the `gha` cache backend. These values are normally only available to
+      # reusable workflows, not shell commands.
+      - uses: crazy-max/ghaction-github-runtime@v3
 
       - name: run test-framework tests
         run: just conformance-framework
