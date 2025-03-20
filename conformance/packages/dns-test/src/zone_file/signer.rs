@@ -84,7 +84,7 @@ impl SignSettings {
         }
     }
 
-    fn rsasha256() -> Self {
+    pub fn rsasha256() -> Self {
         Self {
             algorithm: Algorithm::RSASHA256,
             // 2048-bit SHA256 matches `$ dig DNSKEY .` in length
@@ -136,7 +136,7 @@ impl SignSettings {
 
 impl Default for SignSettings {
     fn default() -> Self {
-        Self::rsasha256()
+        Self::ecdsap256sha256()
     }
 }
 

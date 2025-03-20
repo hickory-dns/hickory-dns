@@ -2,9 +2,10 @@ use dns_test::{
     FQDN, Result,
     client::{DigSettings, DigStatus},
     record::RecordType,
+    zone_file::SignSettings,
 };
 
-use crate::name_server::rfc8906::setup;
+use crate::name_server::rfc8906::{setup, setup_with_sign_settings};
 
 #[test]
 fn test_8_2_1_minimal_edns() -> Result<()> {
@@ -156,7 +157,8 @@ fn test_8_2_6_edns_version_negotiation_with_unknown_edns_options() -> Result<()>
 
 #[test]
 fn test_8_2_7_truncated_responses() -> Result<()> {
-    let (_network, ns, client) = setup()?;
+    // We need to use RSA keys in order to make the response big enough to trigger truncation.
+    let (_network, ns, client) = setup_with_sign_settings(SignSettings::rsasha256())?;
 
     let settings = *DigSettings::default()
         .nocookie()

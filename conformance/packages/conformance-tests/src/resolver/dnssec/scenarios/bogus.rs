@@ -67,7 +67,7 @@ fn ds_bad_tag() -> Result<()> {
 #[test]
 fn ds_bad_key_algo() -> Result<()> {
     let output = malformed_ds_fixture(&FQDN::TEST_TLD.push_label("ds-bad-key-algo"), |ds| {
-        assert_eq!(8, ds.algorithm, "number below may need to change");
+        assert_eq!(13, ds.algorithm, "number below may need to change");
         ds.algorithm = 7;
     })?;
 
