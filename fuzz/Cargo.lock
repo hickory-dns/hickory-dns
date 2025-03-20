@@ -357,7 +357,6 @@ dependencies = [
  "aws-lc-rs",
  "bitflags",
  "cfg-if",
- "critical-section",
  "data-encoding",
  "enum-as-inner",
  "futures-channel",
