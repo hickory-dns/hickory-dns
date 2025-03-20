@@ -74,7 +74,7 @@ serde = ["dep:serde", "std", "url/serde"]
 mdns = ["socket2/all", "std"]
 
 # enables a custom random function backed by a no_std compatible mutex
-no-std-rand = ["dep:critical-section"]
+no-std-rand = ["once_cell/critical-section", "dep:critical-section"]
 
 wasm-bindgen = ["dep:wasm-bindgen-crate", "dep:js-sys"]
 
@@ -105,7 +105,7 @@ http = { workspace = true, optional = true }
 idna.workspace = true
 ipnet.workspace = true
 js-sys = { workspace = true, optional = true }
-once_cell = { workspace = true, features = ["critical-section"] }
+once_cell = { workspace = true }
 pin-project-lite = { workspace = true, optional = true }
 pin-utils = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true, features = ["log", "runtime-tokio"] }
