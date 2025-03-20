@@ -26,7 +26,6 @@ license.workspace = true
 
 [features]
 std = [
-    "critical-section/std",
     "data-encoding/std",
     "futures-channel/std",
     "futures-io/std",
