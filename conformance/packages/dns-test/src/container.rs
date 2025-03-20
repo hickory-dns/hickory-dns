@@ -28,7 +28,7 @@ pub enum Image {
     Client,
     Hickory {
         repo: Repository<'static>,
-        dnssec_feature: Option<HickoryDnssecFeature>,
+        dnssec_feature: HickoryDnssecFeature,
     },
     Unbound,
     EdeDotCom,
@@ -38,7 +38,7 @@ impl Image {
     pub fn hickory() -> Self {
         Self::Hickory {
             repo: Repository(crate::repo_root()),
-            dnssec_feature: None,
+            dnssec_feature: HickoryDnssecFeature::AwsLcRs,
         }
     }
 
@@ -112,14 +112,7 @@ impl fmt::Display for Image {
             Self::Client => f.write_str("client"),
             Self::Bind => f.write_str("bind"),
             Self::Dnslib => f.write_str("dnslib"),
-            Self::Hickory {
-                repo: _,
-                dnssec_feature: None,
-            } => f.write_str("hickory"),
-            Self::Hickory {
-                repo: _,
-                dnssec_feature: Some(dnssec_feature),
-            } => write!(f, "hickory-{dnssec_feature}"),
+            Self::Hickory { dnssec_feature, .. } => write!(f, "hickory-{dnssec_feature}"),
             Self::Unbound => f.write_str("unbound"),
             Self::EdeDotCom => f.write_str("ede-dot-com"),
         }
@@ -151,11 +144,7 @@ impl Container {
                 // local Docker image.
                 command.env("DOCKER_BUILDKIT", "1");
 
-                if let Image::Hickory {
-                    dnssec_feature: Some(dnssec_feature),
-                    ..
-                } = image
-                {
+                if let Image::Hickory { dnssec_feature, .. } = image {
                     command.arg(format!("--build-arg=DNSSEC_FEATURE={dnssec_feature}"));
                 };
 
@@ -165,17 +154,13 @@ impl Container {
                         Image::Dnslib => "dnslib",
                         Image::Client => "client",
                         Image::Hickory {
-                            dnssec_feature: None,
+                            dnssec_feature: HickoryDnssecFeature::AwsLcRs,
                             ..
-                        } => "hickory",
+                        } => "hickory-dnssec-aws-lc-rs",
                         Image::Hickory {
-                            dnssec_feature: Some(HickoryDnssecFeature::AwsLcRs),
+                            dnssec_feature: HickoryDnssecFeature::Ring,
                             ..
-                        } => "hickory-aws-lc-rs",
-                        Image::Hickory {
-                            dnssec_feature: Some(HickoryDnssecFeature::Ring),
-                            ..
-                        } => "hickory-ring",
+                        } => "hickory-dnssec-ring",
                         Image::Unbound => "unbound",
                         Image::EdeDotCom => "ede-dot-com",
                     };

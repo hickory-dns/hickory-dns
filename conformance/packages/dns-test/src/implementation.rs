@@ -53,7 +53,7 @@ pub enum Implementation {
     Dnslib,
     Hickory {
         repo: Repository<'static>,
-        dnssec_feature: Option<HickoryDnssecFeature>,
+        dnssec_feature: HickoryDnssecFeature,
     },
     Unbound,
     EdeDotCom,
@@ -74,7 +74,7 @@ impl Implementation {
     pub fn hickory() -> Self {
         Self::Hickory {
             repo: Repository(crate::repo_root()),
-            dnssec_feature: None,
+            dnssec_feature: HickoryDnssecFeature::AwsLcRs,
         }
     }
 
@@ -180,8 +180,7 @@ impl Implementation {
                 }
 
                 Self::Hickory { dnssec_feature, .. } => {
-                    let use_pkcs8 =
-                        matches!(dnssec_feature, None | Some(HickoryDnssecFeature::Ring));
+                    let use_pkcs8 = matches!(dnssec_feature, HickoryDnssecFeature::Ring);
                     minijinja::render!(
                         include_str!("templates/hickory.name-server.toml.jinja"),
                         fqdn => origin.as_str(),
