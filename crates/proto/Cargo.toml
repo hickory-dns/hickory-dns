@@ -33,7 +33,7 @@ std = [
     "ipnet/std",
     "rand/std",
     "rand/thread_rng",
-    "ring/std",
+    "ring?/std",
     "thiserror/std",
     "tracing-subscriber/env-filter",
     "tracing-subscriber/fmt",
