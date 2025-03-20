@@ -3,7 +3,7 @@ ENV CARGO_INCREMENTAL=0
 ENV CARGO_PROFILE_DEV_DEBUG=0
 ENV CARGO_PROFILE_DEV_STRIP=true
 RUN cargo install cargo-chef --version 0.1.71 --profile dev
-ARG DNSSEC_FEATURE=dnssec-ring
+ARG DNSSEC_FEATURE=dnssec-aws-lc-rs
 
 # `dns-test` will invoke `docker build` from a temporary directory that contains
 # a clone of the hickory repository. `./src` here refers to that clone; not to
