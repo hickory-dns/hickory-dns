@@ -30,9 +30,7 @@ RUN apt-get update && \
     ldnsutils \
     bind9-utils \
     tshark \
-    openssl \
-    libssl-dev \
-    pkg-config
+    openssl
 
 COPY --from=builder /usr/src/hickory/target/debug/hickory-dns /usr/bin/
 COPY --from=builder /usr/src/hickory/target/debug/dns /usr/bin/
