@@ -130,20 +130,18 @@ fn parse_implementation(env_var: &str) -> Implementation {
             return Implementation::Bind;
         }
 
-        if subject.starts_with("hickory") {
-            let Some(rest) = subject.strip_prefix("hickory ") else {
+        if subject.starts_with("hickory ") {
+            let tokens = subject.split_ascii_whitespace().collect::<Vec<_>>();
+            let Ok([_, url, dnssec_feature]) = <[&str; 3]>::try_from(tokens) else {
                 panic!(
-                    "the syntax of {env_var} is 'hickory $URL' or 'hickory $URL $DNSSEC_FEATURE', e.g. 'hickory /tmp/hickory' or 'hickory https://github.com/owner/repo'"
+                    "the syntax of {env_var} is 'hickory $URL $DNSSEC_FEATURE', e.g. \
+                    'hickory /tmp/hickory aws-lc-rs' or \
+                    'hickory https://github.com/owner/repo ring'"
                 )
-            };
-            let (url, dnssec_feature) = if let Some((url, dnssec_feature)) = rest.split_once(' ') {
-                (url, Some(dnssec_feature.parse().unwrap()))
-            } else {
-                (rest, None)
             };
             Implementation::Hickory {
                 repo: Repository(url.to_string()),
-                dnssec_feature,
+                dnssec_feature: dnssec_feature.parse().unwrap(),
             }
         } else {
             panic!("unknown implementation: {subject}")
