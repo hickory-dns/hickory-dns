@@ -24,7 +24,14 @@ RUN cargo build -p hickory-dns --bin hickory-dns --features recursor,$DNSSEC_FEA
     cargo build -p hickory-util --bin dns --features h3-aws-lc-rs,https-aws-lc-rs
 
 FROM debian:bookworm-slim AS final
-# ldns-utils = ldns-{key2ds,keygen,signzone}
+# - ldnsutils is needed for ldns-keygen, ldns-signzone, and ldns-key2dns. These
+#   are used to sign zones in name server tests, though the signed zone is later
+#   discarded, because Hickory DNS does not yet support serving signed zones.
+# - bind9-utils is needed for dnssec-signzone, which is used to sign zones using
+#   NSEC3 Opt-Out.
+# - tshark is needed for packet captures.
+# - openssl is needed to generate a keypair to be used in Hickory DNS's name
+#   server configuration.
 RUN apt-get update && \
     apt-get install -y \
     ldnsutils \
