@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use dns_test::{
     FQDN, Implementation, Network, Resolver, Result,
     client::{Client, DigSettings},
@@ -117,7 +119,7 @@ fn can_validate_ns_query_case_randomization() -> Result<()> {
         .start()?;
 
     let resolver_addr = resolver.ipv4_addr();
-    let mut tshark = resolver.eavesdrop()?;
+    let tshark = resolver.eavesdrop()?;
 
     let client = Client::new(resolver.network())?;
 
@@ -128,7 +130,14 @@ fn can_validate_ns_query_case_randomization() -> Result<()> {
         &FQDN::TEST_DOMAIN,
     )?;
 
-    tshark.wait_for_capture()?;
+    tshark.wait_until(
+        |captures| {
+            captures
+                .iter()
+                .any(|capture| matches!(capture.direction, Direction::Outgoing { .. }))
+        },
+        Duration::from_secs(10),
+    )?;
     let captures = tshark.terminate()?;
 
     assert!(output.status.is_noerror());
