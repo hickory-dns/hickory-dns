@@ -827,7 +827,6 @@ dependencies = [
  "js-sys",
  "once_cell",
  "pin-project-lite",
- "pin-utils",
  "quinn",
  "rand",
  "ring",
