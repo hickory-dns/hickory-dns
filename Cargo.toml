@@ -92,7 +92,6 @@ js-sys = "0.3.44"
 lru-cache = "0.1.2"
 moka = "0.12"
 once_cell = { version = "1.20.0", default-features = false, features = ["critical-section"] }
-pin-utils = "0.1.0"
 prefix-trie = "0.6"
 radix_trie = "0.2.0"
 rand = { version = "0.9", default-features = false, features = ["alloc"] }
