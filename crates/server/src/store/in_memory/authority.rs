@@ -417,46 +417,61 @@ impl InnerInMemory {
         lookup_options: LookupOptions,
     ) -> Option<Arc<RecordSet>> {
         // if this is a wildcard or a root, both should break continued lookups
-        let wildcard = if name.is_wildcard() || name.is_root() {
+        if name.is_wildcard() || name.is_root() {
             return None;
-        } else {
-            name.clone().into_wildcard()
         };
+        let mut wildcard = name.clone().into_wildcard();
 
-        #[allow(clippy::needless_late_init)]
-        self.inner_lookup(&wildcard, record_type, lookup_options)
-            // we need to change the name to the query name in the result set since this was a wildcard
-            .map(|rrset| {
-                let mut new_answer =
-                    RecordSet::with_ttl(Name::from(name), rrset.record_type(), rrset.ttl());
+        loop {
+            #[allow(clippy::needless_late_init)]
+            let option = self
+                .inner_lookup(&wildcard, record_type, lookup_options)
+                // we need to change the name to the query name in the result set since this was a wildcard
+                .map(|rrset| {
+                    let mut new_answer =
+                        RecordSet::with_ttl(Name::from(name), rrset.record_type(), rrset.ttl());
 
-                let records;
-                let _rrsigs: Vec<&Record>;
-                cfg_if! {
-                    if #[cfg(feature = "__dnssec")] {
-                        let (records_tmp, rrsigs_tmp) = rrset
-                            .records(lookup_options.dnssec_ok())
-                            .partition(|r| r.record_type() != RecordType::RRSIG);
-                        records = records_tmp;
-                        _rrsigs = rrsigs_tmp;
-                    } else {
-                        let (records_tmp, rrsigs_tmp) = (rrset.records_without_rrsigs(), Vec::with_capacity(0));
-                        records = records_tmp;
-                        _rrsigs = rrsigs_tmp;
+                    let records;
+                    let _rrsigs: Vec<&Record>;
+                    cfg_if! {
+                        if #[cfg(feature = "__dnssec")] {
+                            let (records_tmp, rrsigs_tmp) = rrset
+                                .records(lookup_options.dnssec_ok())
+                                .partition(|r| r.record_type() != RecordType::RRSIG);
+                            records = records_tmp;
+                            _rrsigs = rrsigs_tmp;
+                        } else {
+                            let (records_tmp, rrsigs_tmp) = (
+                                rrset.records_without_rrsigs(),
+                                Vec::with_capacity(0),
+                            );
+                            records = records_tmp;
+                            _rrsigs = rrsigs_tmp;
+                        }
+                    };
+
+                    for record in records {
+                        new_answer.add_rdata(record.data().clone());
                     }
-                };
 
-                for record in records {
-                    new_answer.add_rdata(record.data().clone());
-                }
+                    #[cfg(feature = "__dnssec")]
+                    for rrsig in _rrsigs {
+                        new_answer.insert_rrsig(rrsig.clone())
+                    }
 
-                #[cfg(feature = "__dnssec")]
-                for rrsig in _rrsigs {
-                    new_answer.insert_rrsig(rrsig.clone())
-                }
+                    Arc::new(new_answer)
+                });
 
-                Arc::new(new_answer)
-            })
+            if option.is_some() {
+                return option;
+            }
+
+            let parent = wildcard.base_name();
+            if parent.is_root() {
+                return None;
+            }
+            wildcard = parent.into_wildcard();
+        }
     }
 
     /// Search for additional records to include in the response
