@@ -614,6 +614,43 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A) {
     );
 }
 
+pub fn test_wildcard_subdomain<A: Authority<Lookup = AuthLookup>>(authority: A) {
+    // check wildcard lookup
+    let query = Query::query(
+        Name::from_str("subdomain.www.wildcard.example.com.").unwrap(),
+        RecordType::CNAME,
+    )
+    .into();
+    let request_info = RequestInfo::new(
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
+        Protocol::Udp,
+        TEST_HEADER,
+        &query,
+    );
+
+    let lookup = block_on(authority.search(request_info, LookupOptions::default()))
+        .expect("lookup of subdomain.www.wildcard.example.com. failed");
+
+    assert_eq!(
+        lookup
+            .into_iter()
+            .next()
+            .map(|r| {
+                assert_eq!(
+                    *r.name(),
+                    Name::from_str("subdomain.www.wildcard.example.com.").unwrap()
+                );
+                r
+            })
+            .expect("CNAME record not found in authority")
+            .data()
+            .as_cname()
+            .expect("wrong rdata type returned")
+            .0,
+        Name::from_str("www.example.com.").unwrap()
+    );
+}
+
 pub fn test_wildcard_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
     // check wildcard lookup
     let query = Query::query(
@@ -772,6 +809,7 @@ macro_rules! basic_battery {
                     test_update_errors,
                     test_dots_in_name,
                     test_wildcard,
+                    test_wildcard_subdomain,
                     test_wildcard_chain,
                     test_srv,
                     test_invalid_lookup,
