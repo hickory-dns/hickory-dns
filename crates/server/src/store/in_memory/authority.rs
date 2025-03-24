@@ -1615,11 +1615,18 @@ impl Authority for InMemoryAuthority {
                             _ => None,
                         };
 
-                        Ok(closest_encloser_match
-                            .into_iter()
-                            .chain(next_closer_name_cover)
-                            .chain(wildcard_record)
-                            .collect())
+                        let mut records = BTreeMap::new();
+                        for record in [
+                            closest_encloser_match,
+                            next_closer_name_cover,
+                            wildcard_record,
+                        ]
+                        .into_iter()
+                        .flatten()
+                        {
+                            records.insert(record.name().clone(), record);
+                        }
+                        Ok(records.into_values().collect())
                     }
                 }
             }
