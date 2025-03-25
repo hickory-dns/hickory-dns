@@ -887,6 +887,8 @@ impl InnerInMemory {
             }
         }
 
+        records.sort_by(|a, b| a.name().cmp(b.name()));
+        records.dedup_by(|a, b| a.name() == b.name());
         Ok(records)
     }
 
