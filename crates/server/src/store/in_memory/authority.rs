@@ -831,18 +831,13 @@ impl InnerInMemory {
 
         if has_wildcard_match {
             // - Wildcard answer response.
-            let closest_encloser_name = self
-                .closest_encloser_proof(qname, zone, &info)?
-                .map(|(name, _)| name);
-
-            let closest_encloser_cover = match closest_encloser_name {
-                Some(closest_encloser_name) => {
-                    self.find_cover(&closest_encloser_name, zone, &info)?
-                }
-                None => None,
+            let closest_encloser_name = self.closest_encloser_proof(qname, zone, &info)?;
+            let Some((closest_encloser_name, _)) = closest_encloser_name else {
+                return Ok(vec![]);
             };
 
-            return Ok(closest_encloser_cover.into_iter().collect());
+            let cover = self.find_cover(&closest_encloser_name, zone, &info)?;
+            return Ok(cover.map_or_else(Vec::new, |rr_set| vec![rr_set]));
         }
 
         match qname_match {
