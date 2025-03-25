@@ -503,7 +503,7 @@ impl Authority for InMemoryAuthority {
                                     if lookup_options.dnssec_ok() {
                                         InnerInMemory::sign_rrset(
                                             &mut new_answer,
-                                            inner.secure_keys(),
+                                            &inner.secure_keys,
                                             inner.minimum_ttl(self.origin()),
                                             self.class(),
                                         )

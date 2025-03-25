@@ -158,12 +158,6 @@ impl InnerInMemory {
         None
     }
 
-    /// Retrieve the Signer, which contains the private keys, for this zone
-    #[cfg(feature = "__dnssec")]
-    pub(super) fn secure_keys(&self) -> &[SigSigner] {
-        &self.secure_keys
-    }
-
     fn inner_soa(&self, origin: &LowerName) -> Option<&SOA> {
         // TODO: can't there be an RrKeyRef?
         let rr_key = RrKey::new(origin.clone(), RecordType::SOA);
