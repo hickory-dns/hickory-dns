@@ -13,6 +13,8 @@ use std::{collections::BTreeMap, ops::DerefMut, sync::Arc};
 
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use tracing::debug;
+#[cfg(feature = "__dnssec")]
+use tracing::warn;
 
 use crate::{
     authority::{
@@ -496,21 +498,17 @@ impl Authority for InMemoryAuthority {
 
                                 // if DNSSEC is enabled, and the request had the DO set, sign the recordset
                                 #[cfg(feature = "__dnssec")]
-                                {
-                                    use tracing::warn;
-
-                                    // ANAME's are constructed on demand, so need to be signed before return
-                                    if lookup_options.dnssec_ok() {
-                                        InnerInMemory::sign_rrset(
-                                            &mut new_answer,
-                                            &inner.secure_keys,
-                                            inner.minimum_ttl(self.origin()),
-                                            self.class(),
-                                        )
-                                        // rather than failing the request, we'll just warn
-                                        .map_err(|e| warn!("failed to sign ANAME record: {}", e))
-                                        .ok();
-                                    }
+                                // ANAME's are constructed on demand, so need to be signed before return
+                                if lookup_options.dnssec_ok() {
+                                    InnerInMemory::sign_rrset(
+                                        &mut new_answer,
+                                        &inner.secure_keys,
+                                        inner.minimum_ttl(self.origin()),
+                                        self.class(),
+                                    )
+                                    // rather than failing the request, we'll just warn
+                                    .map_err(|e| warn!("failed to sign ANAME record: {}", e))
+                                    .ok();
                                 }
 
                                 // prepend answer to additionals here (answer is the ANAME record)
