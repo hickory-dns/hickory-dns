@@ -153,12 +153,7 @@ impl<'a> Parser<'a> {
     ///
     /// A pair of the Zone origin name and a map of all Keys to RecordSets
     pub fn parse(mut self) -> ParseResult<(Name, BTreeMap<RrKey, RecordSet>)> {
-        let mut origin = self.origin;
-        let mut records: BTreeMap<RrKey, RecordSet> = BTreeMap::new();
-        let mut class: DNSClass = DNSClass::IN;
-        let mut current_name: Option<Name> = None;
-        let mut rtype: Option<RecordType> = None;
-        let mut ttl: Option<u32> = None;
+        let mut cx = Context::new(self.origin);
         let mut state = State::StartLine;
         let mut stack = self.lexers.len();
 
@@ -167,7 +162,7 @@ impl<'a> Parser<'a> {
                 state = match state {
                     State::StartLine => {
                         // current_name is not reset on the next line b/c it might be needed from the previous
-                        rtype = None;
+                        cx.rtype = None;
 
                         match t {
                             // if Dollar, then $INCLUDE or $ORIGIN
@@ -177,13 +172,13 @@ impl<'a> Parser<'a> {
 
                             // if CharData, then Name then ttl_class_type
                             Token::CharData(data) => {
-                                current_name = Some(Name::parse(&data, origin.as_ref())?);
+                                cx.current_name = Some(Name::parse(&data, cx.origin.as_ref())?);
                                 State::TtlClassType
                             }
 
                             // @ is a placeholder for specifying the current origin
                             Token::At => {
-                                current_name.clone_from(&origin); // TODO a COW or RC would reduce copies...
+                                cx.current_name.clone_from(&cx.origin); // TODO a COW or RC would reduce copies...
                                 State::TtlClassType
                             }
 
@@ -195,7 +190,7 @@ impl<'a> Parser<'a> {
                     }
                     State::Ttl => match t {
                         Token::CharData(data) => {
-                            ttl = Some(Self::parse_time(&data)?);
+                            cx.ttl = Some(Self::parse_time(&data)?);
                             State::StartLine
                         }
                         _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
@@ -204,7 +199,7 @@ impl<'a> Parser<'a> {
                         match t {
                             Token::CharData(data) => {
                                 // TODO an origin was specified, should this be legal? definitely confusing...
-                                origin = Some(Name::parse(&data, None)?);
+                                cx.origin = Some(Name::parse(&data, None)?);
                                 State::StartLine
                             }
                             _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
@@ -271,18 +266,18 @@ impl<'a> Parser<'a> {
                                 // if it's a number it's a ttl
                                 let result: ParseResult<u32> = Self::parse_time(&data);
                                 if result.is_ok() {
-                                    ttl = result.ok();
+                                    cx.ttl = result.ok();
                                     State::TtlClassType // hm, should this go to just ClassType?
                                 } else {
                                     // if can parse DNSClass, then class
                                     data.make_ascii_uppercase();
                                     let result = DNSClass::from_str(&data);
                                     if let Ok(parsed) = result {
-                                        class = parsed;
+                                        cx.class = parsed;
                                         State::TtlClassType
                                     } else {
                                         // if can parse RecordType, then RecordType
-                                        rtype = Some(RecordType::from_str(&data)?);
+                                        cx.rtype = Some(RecordType::from_str(&data)?);
                                         State::Record(vec![])
                                     }
                                 }
@@ -301,12 +296,12 @@ impl<'a> Parser<'a> {
                             Token::EOL => {
                                 Self::flush_record(
                                     record_parts,
-                                    &origin,
-                                    &current_name,
-                                    rtype,
-                                    &mut ttl,
-                                    class,
-                                    &mut records,
+                                    &cx.origin,
+                                    &cx.current_name,
+                                    cx.rtype,
+                                    &mut cx.ttl,
+                                    cx.class,
+                                    &mut cx.records,
                                 )?;
                                 State::StartLine
                             }
@@ -331,12 +326,12 @@ impl<'a> Parser<'a> {
             if let State::Record(record_parts) = mem::replace(&mut state, State::StartLine) {
                 Self::flush_record(
                     record_parts,
-                    &origin,
-                    &current_name,
-                    rtype,
-                    &mut ttl,
-                    class,
-                    &mut records,
+                    &cx.origin,
+                    &cx.current_name,
+                    cx.rtype,
+                    &mut cx.ttl,
+                    cx.class,
+                    &mut cx.records,
                 )?;
             }
 
@@ -346,10 +341,10 @@ impl<'a> Parser<'a> {
 
         //
         // build the Authority and return.
-        let origin = origin.ok_or_else(|| {
+        let origin = cx.origin.ok_or_else(|| {
             ParseError::from(ParseErrorKind::Message("$ORIGIN was not specified"))
         })?;
-        Ok((origin, records))
+        Ok((origin, cx.records))
     }
 
     fn flush_record(
@@ -513,6 +508,28 @@ impl<'a> Parser<'a> {
         }
 
         Ok(value)
+    }
+}
+
+struct Context {
+    origin: Option<Name>,
+    records: BTreeMap<RrKey, RecordSet>,
+    class: DNSClass,
+    current_name: Option<Name>,
+    rtype: Option<RecordType>,
+    ttl: Option<u32>,
+}
+
+impl Context {
+    fn new(origin: Option<Name>) -> Self {
+        Self {
+            origin,
+            records: BTreeMap::default(),
+            class: DNSClass::IN,
+            current_name: None,
+            rtype: None,
+            ttl: None,
+        }
     }
 }
 
