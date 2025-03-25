@@ -171,32 +171,24 @@ impl InnerInMemory {
 
     /// Returns the minimum ttl (as used in the SOA record)
     pub(super) fn minimum_ttl(&self, origin: &LowerName) -> u32 {
-        let soa = self.inner_soa(origin);
-
-        let soa = match soa {
-            Some(soa) => soa,
+        match self.inner_soa(origin) {
+            Some(soa) => soa.minimum(),
             None => {
-                error!("could not lookup SOA for authority: {}", origin);
-                return 0;
+                error!("could not lookup SOA for authority: {origin}");
+                0
             }
-        };
-
-        soa.minimum()
+        }
     }
 
     /// get the current serial number for the zone.
     pub(super) fn serial(&self, origin: &LowerName) -> u32 {
-        let soa = self.inner_soa(origin);
-
-        let soa = match soa {
-            Some(soa) => soa,
+        match self.inner_soa(origin) {
+            Some(soa) => soa.serial(),
             None => {
-                error!("could not lookup SOA for authority: {}", origin);
-                return 0;
+                error!("could not lookup SOA for authority: {origin}");
+                0
             }
-        };
-
-        soa.serial()
+        }
     }
 
     pub(super) fn inner_lookup(
