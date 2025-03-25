@@ -463,8 +463,8 @@ impl Context {
 
         // slightly annoying, need to grab the TTL, then move rdata into the record,
         //  then check the Type again and have custom add logic.
-        let set_ttl = match rtype {
-            RecordType::SOA => {
+        let set_ttl = match (rtype, self.ttl) {
+            (RecordType::SOA, _) => {
                 // TTL for the SOA is set internally...
                 // expire is for the SOA, minimum is default for records
                 if let RData::SOA(soa) = &rdata {
@@ -479,9 +479,8 @@ impl Context {
                     return ParseResult::Err(ParseError::from(ParseErrorKind::Msg(msg)));
                 }
             }
-            _ => self
-                .ttl
-                .ok_or_else(|| ParseError::from("record ttl not specified"))?,
+            (_, Some(ttl)) => ttl,
+            (_, None) => return Err(ParseError::from("record ttl not specified")),
         };
 
         // TODO: validate record, e.g. the name of SRV record allows _ but others do not.
