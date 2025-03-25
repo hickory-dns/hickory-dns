@@ -832,7 +832,7 @@ impl InnerInMemory {
         if has_wildcard_match {
             // - Wildcard answer response.
             let closest_encloser_name = self
-                .get_closest_encloser_proof(qname, zone, &info)?
+                .closest_encloser_proof(qname, zone, &info)?
                 .map(|(name, _)| name);
 
             let closest_encloser_cover = match closest_encloser_name {
@@ -855,7 +855,7 @@ impl InnerInMemory {
                     // - No data response if QTYPE is DS and there is not an NSEC3 record matching QNAME.
                     // - Wildcard no data response.
                     let (next_closer_name, closest_encloser_match) =
-                        self.get_closest_encloser_proof(qname, zone, &info)?.unzip();
+                        self.closest_encloser_proof(qname, zone, &info)?.unzip();
 
                     let next_closer_name_cover = match &next_closer_name {
                         Some(name) => self.find_cover(name, zone, &info)?,
@@ -1586,7 +1586,7 @@ impl InnerInMemory {
 
     /// Return the next closer name and the record that matches the closest encloser of a given name.
     #[cfg(feature = "__dnssec")]
-    pub(crate) fn get_closest_encloser_proof(
+    pub(crate) fn closest_encloser_proof(
         &self,
         name: &LowerName,
         zone: &Name,
