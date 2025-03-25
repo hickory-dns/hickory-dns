@@ -7,7 +7,7 @@
 
 use alloc::{
     borrow::Cow,
-    collections::BTreeMap,
+    collections::btree_map::{BTreeMap, Entry},
     string::{String, ToString},
     vec::Vec,
 };
@@ -490,22 +490,31 @@ impl Context {
         record.set_dns_class(self.class);
 
         // add to the map
-        let key = RrKey::new(LowerName::new(record.name()), record.record_type());
-        match rtype {
-            RecordType::SOA => {
-                let set = record.into();
-                if self.records.insert(key, set).is_some() {
-                    return Err(ParseError::from("SOA is already specified"));
-                }
+        let entry = self.records.entry(RrKey::new(
+            LowerName::new(record.name()),
+            record.record_type(),
+        ));
+        match (rtype, entry) {
+            (RecordType::SOA, Entry::Occupied(_)) => {
+                return Err(ParseError::from("SOA is already specified"));
             }
-            _ => {
-                // add a Vec if it's not there, then add the record to the list
-                let set = self.records.entry(key).or_insert_with(|| {
-                    RecordSet::new(record.name().clone(), record.record_type(), 0)
-                });
-                set.insert(record, 0);
+            (RecordType::SOA, Entry::Vacant(entry)) => {
+                entry.insert(RecordSet::from(record));
             }
-        }
+            (_, Entry::Vacant(entry)) => {
+                entry
+                    .insert(RecordSet::new(
+                        record.name().clone(),
+                        record.record_type(),
+                        0,
+                    ))
+                    .insert(record, 0);
+            }
+            (_, Entry::Occupied(mut entry)) => {
+                entry.get_mut().insert(record, 0);
+            }
+        };
+
         Ok(())
     }
 }
