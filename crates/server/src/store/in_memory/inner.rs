@@ -125,6 +125,37 @@ impl InnerInMemory {
         Ok(records)
     }
 
+    #[cfg(feature = "__dnssec")]
+    pub(super) fn closest_nsec(&self, name: &LowerName) -> Option<Arc<RecordSet>> {
+        fn is_nsec_rrset(rr_set: &RecordSet) -> bool {
+            rr_set.record_type() == RecordType::NSEC
+        }
+
+        self.records
+            .values()
+            .rev()
+            .filter(|rr_set| is_nsec_rrset(rr_set))
+            // the name must be greater than the name in the nsec
+            .filter(|rr_set| *name >= rr_set.name().into())
+            // now find the next record where the covered name is greater
+            .find(|rr_set| {
+                // there should only be one record
+                rr_set
+                    .records(false)
+                    .next()
+                    .map(Record::data)
+                    .and_then(RData::as_dnssec)
+                    .and_then(DNSSECRData::as_nsec)
+                    .is_some_and(|r| {
+                        // the search name is less than the next NSEC record
+                        *name < r.next_domain_name().into() ||
+                        // this is the last record, and wraps to the beginning of the zone
+                        r.next_domain_name() < rr_set.name()
+                    })
+            })
+            .cloned()
+    }
+
     /// Retrieve the Signer, which contains the private keys, for this zone
     #[cfg(feature = "__dnssec")]
     pub(super) fn secure_keys(&self) -> &[SigSigner] {
