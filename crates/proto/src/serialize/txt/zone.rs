@@ -498,17 +498,8 @@ impl Context {
             (RecordType::SOA, Entry::Occupied(_)) => {
                 return Err(ParseError::from("SOA is already specified"));
             }
-            (RecordType::SOA, Entry::Vacant(entry)) => {
-                entry.insert(RecordSet::from(record));
-            }
             (_, Entry::Vacant(entry)) => {
-                entry
-                    .insert(RecordSet::new(
-                        record.name().clone(),
-                        record.record_type(),
-                        0,
-                    ))
-                    .insert(record, 0);
+                entry.insert(RecordSet::from(record));
             }
             (_, Entry::Occupied(mut entry)) => {
                 entry.get_mut().insert(record, 0);
