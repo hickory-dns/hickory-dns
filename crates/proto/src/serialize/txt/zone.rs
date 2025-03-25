@@ -442,9 +442,10 @@ impl Context {
     fn insert(&mut self, record_parts: Vec<String>) -> ParseResult<()> {
         // call out to parsers for difference record types
         // all tokens as part of the Record should be chardata...
-        let rtype = self.rtype.ok_or_else(|| {
-            ParseError::from(ParseErrorKind::Message("record type not specified"))
-        })?;
+        let rtype = self
+            .rtype
+            .ok_or_else(|| ParseError::from("record type not specified"))?;
+
         let rdata = RData::parse(
             rtype,
             record_parts.iter().map(AsRef::as_ref),
@@ -455,9 +456,10 @@ impl Context {
         // TODO COW or RC would reduce mem usage, perhaps Name should have an intern()...
         //  might want to wait until RC.weak() stabilizes, as that would be needed for global
         //  memory where you want
-        let name = self.current_name.clone().ok_or_else(|| {
-            ParseError::from(ParseErrorKind::Message("record name not specified"))
-        })?;
+        let name = self
+            .current_name
+            .clone()
+            .ok_or_else(|| ParseError::from("record name not specified"))?;
 
         // slightly annoying, need to grab the TTL, then move rdata into the record,
         //  then check the Type again and have custom add logic.
@@ -477,9 +479,9 @@ impl Context {
                     return ParseResult::Err(ParseError::from(ParseErrorKind::Msg(msg)));
                 }
             }
-            _ => self.ttl.ok_or_else(|| {
-                ParseError::from(ParseErrorKind::Message("record ttl not specified"))
-            })?,
+            _ => self
+                .ttl
+                .ok_or_else(|| ParseError::from("record ttl not specified"))?,
         };
 
         // TODO: validate record, e.g. the name of SRV record allows _ but others do not.
@@ -494,7 +496,7 @@ impl Context {
             RecordType::SOA => {
                 let set = record.into();
                 if self.records.insert(key, set).is_some() {
-                    return Err(ParseErrorKind::Message("SOA is already specified").into());
+                    return Err(ParseError::from("SOA is already specified"));
                 }
             }
             _ => {
