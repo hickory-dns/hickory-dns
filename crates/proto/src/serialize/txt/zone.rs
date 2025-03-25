@@ -463,24 +463,24 @@ impl Context {
 
         // slightly annoying, need to grab the TTL, then move rdata into the record,
         //  then check the Type again and have custom add logic.
-        let set_ttl = match (rtype, self.ttl) {
-            (RecordType::SOA, _) => {
-                // TTL for the SOA is set internally...
-                // expire is for the SOA, minimum is default for records
-                if let RData::SOA(soa) = &rdata {
-                    // TODO, this looks wrong, get_expire() should be get_minimum(), right?
-                    let set_ttl = soa.expire() as u32; // the spec seems a little inaccurate with u32 and i32
-                    if self.ttl.is_none() {
-                        self.ttl = Some(soa.minimum());
-                    } // TODO: should this only set it if it's not set?
-                    set_ttl
-                } else {
-                    let msg = format!("Invalid RData here, expected SOA: {rdata:?}");
-                    return ParseResult::Err(ParseError::from(ParseErrorKind::Msg(msg)));
-                }
+        let set_ttl = match (rtype, self.ttl, &rdata) {
+            // TTL for the SOA is set internally...
+            // expire is for the SOA, minimum is default for records
+            (RecordType::SOA, _, RData::SOA(soa)) => {
+                // TODO, this looks wrong, get_expire() should be get_minimum(), right?
+                let set_ttl = soa.expire() as u32; // the spec seems a little inaccurate with u32 and i32
+                if self.ttl.is_none() {
+                    self.ttl = Some(soa.minimum());
+                } // TODO: should this only set it if it's not set?
+                set_ttl
             }
-            (_, Some(ttl)) => ttl,
-            (_, None) => return Err(ParseError::from("record ttl not specified")),
+            (RecordType::SOA, _, _) => {
+                return ParseResult::Err(ParseError::from(format!(
+                    "invalid RData here, expected SOA: {rdata:?}"
+                )));
+            }
+            (_, Some(ttl), _) => ttl,
+            (_, None, _) => return Err(ParseError::from("record ttl not specified")),
         };
 
         // TODO: validate record, e.g. the name of SRV record allows _ but others do not.
