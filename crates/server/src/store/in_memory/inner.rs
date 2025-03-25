@@ -127,33 +127,35 @@ impl InnerInMemory {
 
     #[cfg(feature = "__dnssec")]
     pub(super) fn closest_nsec(&self, name: &LowerName) -> Option<Arc<RecordSet>> {
-        fn is_nsec_rrset(rr_set: &RecordSet) -> bool {
-            rr_set.record_type() == RecordType::NSEC
+        for rr_set in self.records.values().rev() {
+            if rr_set.record_type() != RecordType::NSEC {
+                continue;
+            }
+
+            if *name < rr_set.name().into() {
+                continue;
+            }
+
+            // there should only be one record
+            let Some(record) = rr_set.records(false).next() else {
+                continue;
+            };
+
+            let RData::DNSSEC(DNSSECRData::NSEC(nsec)) = record.data() else {
+                continue;
+            };
+
+            let next_domain_name = nsec.next_domain_name();
+            // the search name is less than the next NSEC record
+            if *name < next_domain_name.into() ||
+                // this is the last record, and wraps to the beginning of the zone
+                next_domain_name < rr_set.name()
+            {
+                return Some(rr_set.clone());
+            }
         }
 
-        self.records
-            .values()
-            .rev()
-            .filter(|rr_set| is_nsec_rrset(rr_set))
-            // the name must be greater than the name in the nsec
-            .filter(|rr_set| *name >= rr_set.name().into())
-            // now find the next record where the covered name is greater
-            .find(|rr_set| {
-                // there should only be one record
-                rr_set
-                    .records(false)
-                    .next()
-                    .map(Record::data)
-                    .and_then(RData::as_dnssec)
-                    .and_then(DNSSECRData::as_nsec)
-                    .is_some_and(|r| {
-                        // the search name is less than the next NSEC record
-                        *name < r.next_domain_name().into() ||
-                        // this is the last record, and wraps to the beginning of the zone
-                        r.next_domain_name() < rr_set.name()
-                    })
-            })
-            .cloned()
+        None
     }
 
     /// Retrieve the Signer, which contains the private keys, for this zone
