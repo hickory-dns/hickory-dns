@@ -656,9 +656,6 @@ impl Authority for InMemoryAuthority {
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup> {
         let inner = self.inner.read().await;
-        fn is_nsec_rrset(rr_set: &RecordSet) -> bool {
-            rr_set.record_type() == RecordType::NSEC
-        }
 
         // TODO: need a BorrowdRrKey
         let rr_key = RrKey::new(name.clone(), RecordType::NSEC);
@@ -671,34 +668,7 @@ impl Authority for InMemoryAuthority {
             return LookupControlFlow::Continue(Ok(no_data.into()));
         }
 
-        let get_closest_nsec = |name: &LowerName| -> Option<Arc<RecordSet>> {
-            inner
-                .records
-                .values()
-                .rev()
-                .filter(|rr_set| is_nsec_rrset(rr_set))
-                // the name must be greater than the name in the nsec
-                .filter(|rr_set| *name >= rr_set.name().into())
-                // now find the next record where the covered name is greater
-                .find(|rr_set| {
-                    // there should only be one record
-                    rr_set
-                        .records(false)
-                        .next()
-                        .map(Record::data)
-                        .and_then(RData::as_dnssec)
-                        .and_then(DNSSECRData::as_nsec)
-                        .is_some_and(|r| {
-                            // the search name is less than the next NSEC record
-                            *name < r.next_domain_name().into() ||
-                            // this is the last record, and wraps to the beginning of the zone
-                            r.next_domain_name() < rr_set.name()
-                        })
-                })
-                .cloned()
-        };
-
-        let closest_proof = get_closest_nsec(name);
+        let closest_proof = inner.closest_nsec(name);
 
         // we need the wildcard proof, but make sure that it's still part of the zone.
         let wildcard = name.base_name();
@@ -711,7 +681,7 @@ impl Authority for InMemoryAuthority {
 
         // don't duplicate the record...
         let wildcard_proof = if wildcard != *name {
-            get_closest_nsec(&wildcard)
+            inner.closest_nsec(&wildcard)
         } else {
             None
         };
