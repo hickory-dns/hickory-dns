@@ -456,7 +456,7 @@ impl Context {
         // TODO COW or RC would reduce mem usage, perhaps Name should have an intern()...
         //  might want to wait until RC.weak() stabilizes, as that would be needed for global
         //  memory where you want
-        let name = self
+        let mut name = self
             .current_name
             .clone()
             .ok_or_else(|| ParseError::from("record name not specified"))?;
@@ -486,6 +486,7 @@ impl Context {
         // TODO: validate record, e.g. the name of SRV record allows _ but others do not.
 
         // move the rdata into record...
+        name.set_fqdn(true);
         let mut record = Record::from_rdata(name, set_ttl, rdata);
         record.set_dns_class(self.class);
 
