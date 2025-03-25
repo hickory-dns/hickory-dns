@@ -294,15 +294,7 @@ impl<'a> Parser<'a> {
                         //  tokens to pass into the processor
                         match t {
                             Token::EOL => {
-                                Self::flush_record(
-                                    record_parts,
-                                    &cx.origin,
-                                    &cx.current_name,
-                                    cx.rtype,
-                                    &mut cx.ttl,
-                                    cx.class,
-                                    &mut cx.records,
-                                )?;
+                                cx.insert(record_parts)?;
                                 State::StartLine
                             }
                             Token::CharData(part) => {
@@ -324,15 +316,7 @@ impl<'a> Parser<'a> {
 
             // Extra flush at the end for the case of missing endline
             if let State::Record(record_parts) = mem::replace(&mut state, State::StartLine) {
-                Self::flush_record(
-                    record_parts,
-                    &cx.origin,
-                    &cx.current_name,
-                    cx.rtype,
-                    &mut cx.ttl,
-                    cx.class,
-                    &mut cx.records,
-                )?;
+                cx.insert(record_parts)?;
             }
 
             stack -= 1;
@@ -345,83 +329,6 @@ impl<'a> Parser<'a> {
             ParseError::from(ParseErrorKind::Message("$ORIGIN was not specified"))
         })?;
         Ok((origin, cx.records))
-    }
-
-    fn flush_record(
-        record_parts: Vec<String>,
-        origin: &Option<Name>,
-        current_name: &Option<Name>,
-        rtype: Option<RecordType>,
-        ttl: &mut Option<u32>,
-        class: DNSClass,
-        records: &mut BTreeMap<RrKey, RecordSet>,
-    ) -> ParseResult<()> {
-        // call out to parsers for difference record types
-        // all tokens as part of the Record should be chardata...
-        let rtype = rtype.ok_or_else(|| {
-            ParseError::from(ParseErrorKind::Message("record type not specified"))
-        })?;
-        let rdata = RData::parse(
-            rtype,
-            record_parts.iter().map(AsRef::as_ref),
-            origin.as_ref(),
-        )?;
-
-        // verify that we have everything we need for the record
-        // TODO COW or RC would reduce mem usage, perhaps Name should have an intern()...
-        //  might want to wait until RC.weak() stabilizes, as that would be needed for global
-        //  memory where you want
-        let name = current_name.clone().ok_or_else(|| {
-            ParseError::from(ParseErrorKind::Message("record name not specified"))
-        })?;
-
-        // slightly annoying, need to grab the TTL, then move rdata into the record,
-        //  then check the Type again and have custom add logic.
-        let set_ttl = match rtype {
-            RecordType::SOA => {
-                // TTL for the SOA is set internally...
-                // expire is for the SOA, minimum is default for records
-                if let RData::SOA(soa) = &rdata {
-                    // TODO, this looks wrong, get_expire() should be get_minimum(), right?
-                    let set_ttl = soa.expire() as u32; // the spec seems a little inaccurate with u32 and i32
-                    if ttl.is_none() {
-                        *ttl = Some(soa.minimum());
-                    } // TODO: should this only set it if it's not set?
-                    set_ttl
-                } else {
-                    let msg = format!("Invalid RData here, expected SOA: {rdata:?}");
-                    return ParseResult::Err(ParseError::from(ParseErrorKind::Msg(msg)));
-                }
-            }
-            _ => ttl.ok_or_else(|| {
-                ParseError::from(ParseErrorKind::Message("record ttl not specified"))
-            })?,
-        };
-
-        // TODO: validate record, e.g. the name of SRV record allows _ but others do not.
-
-        // move the rdata into record...
-        let mut record = Record::from_rdata(name, set_ttl, rdata);
-        record.set_dns_class(class);
-
-        // add to the map
-        let key = RrKey::new(LowerName::new(record.name()), record.record_type());
-        match rtype {
-            RecordType::SOA => {
-                let set = record.into();
-                if records.insert(key, set).is_some() {
-                    return Err(ParseErrorKind::Message("SOA is already specified").into());
-                }
-            }
-            _ => {
-                // add a Vec if it's not there, then add the record to the list
-                let set = records.entry(key).or_insert_with(|| {
-                    RecordSet::new(record.name().clone(), record.record_type(), 0)
-                });
-                set.insert(record, 0);
-            }
-        }
-        Ok(())
     }
 
     /// parses the string following the rules from:
@@ -530,6 +437,75 @@ impl Context {
             rtype: None,
             ttl: None,
         }
+    }
+
+    fn insert(&mut self, record_parts: Vec<String>) -> ParseResult<()> {
+        // call out to parsers for difference record types
+        // all tokens as part of the Record should be chardata...
+        let rtype = self.rtype.ok_or_else(|| {
+            ParseError::from(ParseErrorKind::Message("record type not specified"))
+        })?;
+        let rdata = RData::parse(
+            rtype,
+            record_parts.iter().map(AsRef::as_ref),
+            self.origin.as_ref(),
+        )?;
+
+        // verify that we have everything we need for the record
+        // TODO COW or RC would reduce mem usage, perhaps Name should have an intern()...
+        //  might want to wait until RC.weak() stabilizes, as that would be needed for global
+        //  memory where you want
+        let name = self.current_name.clone().ok_or_else(|| {
+            ParseError::from(ParseErrorKind::Message("record name not specified"))
+        })?;
+
+        // slightly annoying, need to grab the TTL, then move rdata into the record,
+        //  then check the Type again and have custom add logic.
+        let set_ttl = match rtype {
+            RecordType::SOA => {
+                // TTL for the SOA is set internally...
+                // expire is for the SOA, minimum is default for records
+                if let RData::SOA(soa) = &rdata {
+                    // TODO, this looks wrong, get_expire() should be get_minimum(), right?
+                    let set_ttl = soa.expire() as u32; // the spec seems a little inaccurate with u32 and i32
+                    if self.ttl.is_none() {
+                        self.ttl = Some(soa.minimum());
+                    } // TODO: should this only set it if it's not set?
+                    set_ttl
+                } else {
+                    let msg = format!("Invalid RData here, expected SOA: {rdata:?}");
+                    return ParseResult::Err(ParseError::from(ParseErrorKind::Msg(msg)));
+                }
+            }
+            _ => self.ttl.ok_or_else(|| {
+                ParseError::from(ParseErrorKind::Message("record ttl not specified"))
+            })?,
+        };
+
+        // TODO: validate record, e.g. the name of SRV record allows _ but others do not.
+
+        // move the rdata into record...
+        let mut record = Record::from_rdata(name, set_ttl, rdata);
+        record.set_dns_class(self.class);
+
+        // add to the map
+        let key = RrKey::new(LowerName::new(record.name()), record.record_type());
+        match rtype {
+            RecordType::SOA => {
+                let set = record.into();
+                if self.records.insert(key, set).is_some() {
+                    return Err(ParseErrorKind::Message("SOA is already specified").into());
+                }
+            }
+            _ => {
+                // add a Vec if it's not there, then add the record to the list
+                let set = self.records.entry(key).or_insert_with(|| {
+                    RecordSet::new(record.name().clone(), record.record_type(), 0)
+                });
+                set.insert(record, 0);
+            }
+        }
+        Ok(())
     }
 }
 
