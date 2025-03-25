@@ -249,41 +249,51 @@ impl InnerInMemory {
             return None;
         }
 
-        let wildcard = name.clone().into_wildcard();
-        let rrset = self.inner_lookup(&wildcard, record_type, lookup_options)?;
+        let mut wildcard = name.clone().into_wildcard();
+        loop {
+            let Some(rrset) = self.inner_lookup(&wildcard, record_type, lookup_options) else {
+                let parent = wildcard.base_name();
+                if parent.is_root() {
+                    return None;
+                }
 
-        // we need to change the name to the query name in the result set since this was a wildcard
-        let mut new_answer =
-            RecordSet::with_ttl(Name::from(name), rrset.record_type(), rrset.ttl());
+                wildcard = parent.into_wildcard();
+                continue;
+            };
 
-        #[allow(clippy::needless_late_init)]
-        let records;
-        #[allow(clippy::needless_late_init)]
-        let _rrsigs: Vec<&Record>;
-        cfg_if! {
-            if #[cfg(feature = "__dnssec")] {
-                let (records_tmp, rrsigs_tmp) = rrset
-                    .records(lookup_options.dnssec_ok())
-                    .partition(|r| r.record_type() != RecordType::RRSIG);
-                records = records_tmp;
-                _rrsigs = rrsigs_tmp;
-            } else {
-                let (records_tmp, rrsigs_tmp) = (rrset.records_without_rrsigs(), Vec::with_capacity(0));
-                records = records_tmp;
-                _rrsigs = rrsigs_tmp;
+            // we need to change the name to the query name in the result set since this was a wildcard
+            let mut new_answer =
+                RecordSet::with_ttl(Name::from(name), rrset.record_type(), rrset.ttl());
+
+            #[allow(clippy::needless_late_init)]
+            let records;
+            #[allow(clippy::needless_late_init)]
+            let _rrsigs: Vec<&Record>;
+            cfg_if! {
+                if #[cfg(feature = "__dnssec")] {
+                    let (records_tmp, rrsigs_tmp) = rrset
+                        .records(lookup_options.dnssec_ok())
+                        .partition(|r| r.record_type() != RecordType::RRSIG);
+                    records = records_tmp;
+                    _rrsigs = rrsigs_tmp;
+                } else {
+                    let (records_tmp, rrsigs_tmp) = (rrset.records_without_rrsigs(), Vec::with_capacity(0));
+                    records = records_tmp;
+                    _rrsigs = rrsigs_tmp;
+                }
+            };
+
+            for record in records {
+                new_answer.add_rdata(record.data().clone());
             }
-        };
 
-        for record in records {
-            new_answer.add_rdata(record.data().clone());
+            #[cfg(feature = "__dnssec")]
+            for rrsig in _rrsigs {
+                new_answer.insert_rrsig(rrsig.clone())
+            }
+
+            return Some(Arc::new(new_answer));
         }
-
-        #[cfg(feature = "__dnssec")]
-        for rrsig in _rrsigs {
-            new_answer.insert_rrsig(rrsig.clone())
-        }
-
-        Some(Arc::new(new_answer))
     }
 
     /// Search for additional records to include in the response
