@@ -850,43 +850,44 @@ impl InnerInMemory {
         // - Name error response.
         // - No data response if QTYPE is DS and there is not an NSEC3 record matching QNAME.
         // - Wildcard no data response.
+        let mut records = Vec::new();
         let (next_closer_name, closest_encloser_match) =
             self.closest_encloser_proof(qname, zone, &info)?.unzip();
+        if let Some(cover) = closest_encloser_match {
+            records.push(cover);
+        }
 
-        let next_closer_name_cover = match &next_closer_name {
-            Some(name) => self.find_cover(name, zone, &info)?,
-            None => None,
+        let Some(next_closer_name) = next_closer_name else {
+            return Ok(records);
         };
 
-        let wildcard_record = match next_closer_name {
-            Some(next_closer_name) => {
-                let wildcard_match = {
-                    let wildcard = qname.clone().into_wildcard();
-                    self.records.keys().any(|rr_key| rr_key.name == wildcard)
-                };
+        if let Some(cover) = self.find_cover(&next_closer_name, zone, &info)? {
+            records.push(cover);
+        }
 
-                if wildcard_match {
-                    let wildcard_at_closest_encloser = next_closer_name.into_wildcard();
-                    let rr_key = RrKey::new(
-                        info.get_hashed_owner_name(&wildcard_at_closest_encloser, zone)?,
-                        RecordType::NSEC3,
-                    );
-                    self.records.get(&rr_key).cloned()
-                } else if qtype != RecordType::DS {
-                    let wildcard_at_closest_encloser = next_closer_name.into_wildcard();
-                    self.find_cover(&wildcard_at_closest_encloser, zone, &info)?
-                } else {
-                    None
-                }
+        let wildcard_match = {
+            let wildcard = qname.clone().into_wildcard();
+            self.records.keys().any(|rr_key| rr_key.name == wildcard)
+        };
+
+        if wildcard_match {
+            let wildcard_at_closest_encloser = next_closer_name.into_wildcard();
+            let rr_key = RrKey::new(
+                info.get_hashed_owner_name(&wildcard_at_closest_encloser, zone)?,
+                RecordType::NSEC3,
+            );
+
+            if let Some(record) = self.records.get(&rr_key) {
+                records.push(record.clone());
             }
-            _ => None,
-        };
+        } else if qtype != RecordType::DS {
+            let wildcard_at_closest_encloser = next_closer_name.into_wildcard();
+            if let Some(cover) = self.find_cover(&wildcard_at_closest_encloser, zone, &info)? {
+                records.push(cover);
+            }
+        }
 
-        Ok(closest_encloser_match
-            .into_iter()
-            .chain(next_closer_name_cover)
-            .chain(wildcard_record)
-            .collect())
+        Ok(records)
     }
 
     /// Retrieve the Signer, which contains the private keys, for this zone
