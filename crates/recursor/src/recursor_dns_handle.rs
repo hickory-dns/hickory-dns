@@ -215,10 +215,10 @@ impl RecursorDnsHandle {
             .lookup(query.clone(), ns, request_time, query_has_dnssec_ok)
             .await
         {
-            Ok(response) => {
+            Ok(lookup) => {
                 let response = self
                     .resolve_cnames(
-                        response,
+                        lookup,
                         query.clone(),
                         request_time,
                         query_has_dnssec_ok,
@@ -257,10 +257,10 @@ impl RecursorDnsHandle {
                             .lookup(query.clone(), ns, request_time, query_has_dnssec_ok)
                             .await
                         {
-                            Ok(response) => {
+                            Ok(lookup) => {
                                 let response = self
                                     .resolve_cnames(
-                                        response,
+                                        lookup,
                                         query.clone(),
                                         request_time,
                                         query_has_dnssec_ok,
@@ -437,20 +437,20 @@ impl RecursorDnsHandle {
                 .await?
         };
 
-        let mut lookup = Query::query(zone.clone(), RecordType::NS);
+        let mut query = Query::query(zone.clone(), RecordType::NS);
 
         // Query for nameserver records via the pool for the parent zone, following SOA referrals up
         // to the nameserver recursion limit.
-        let response = loop {
+        let lookup = loop {
             ns_depth += 1;
 
             Error::recursion_exceeded(self.ns_recursion_limit, ns_depth, &zone)?;
 
             let error = match self
-                .lookup(lookup.clone(), nameserver_pool.clone(), request_time, false)
+                .lookup(query.clone(), nameserver_pool.clone(), request_time, false)
                 .await
             {
-                Ok(response) => break response,
+                Ok(lookup) => break lookup,
                 Err(e) => e,
             };
 
@@ -467,7 +467,7 @@ impl RecursorDnsHandle {
                     .ns_pool_for_zone(name.name.clone(), request_time, ns_depth)
                     .await?;
 
-                lookup = Query::query(name.name.clone(), RecordType::NS);
+                query = Query::query(name.name.clone(), RecordType::NS);
                 continue;
             }
 
@@ -480,17 +480,17 @@ impl RecursorDnsHandle {
         let mut need_ips_for_names = Vec::new();
 
         // unpack all glued records
-        for zns in response.record_iter() {
+        for zns in lookup.record_iter() {
             let Some(ns_data) = zns.data().as_ns() else {
                 debug!("response is not NS: {:?}; skipping", zns.data());
                 continue;
             };
 
-            if !super::is_subzone(&lookup.name().base_name(), zns.name()) {
+            if !super::is_subzone(&query.name().base_name(), zns.name()) {
                 warn!(
                     "dropping out of bailiwick record for {:?} with parent {:?}",
                     zns.name(),
-                    lookup.name().base_name(),
+                    query.name().base_name(),
                 );
                 continue;
             }
