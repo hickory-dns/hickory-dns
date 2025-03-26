@@ -23,6 +23,7 @@ use crate::{
         op::Query,
         rr::{RData, RData::CNAME, RecordType, rdata::NS},
         runtime::TokioRuntimeProvider,
+        xfer::DnsResponse,
     },
     recursor_pool::RecursorPool,
     resolver::{
@@ -215,7 +216,7 @@ impl RecursorDnsHandle {
             .lookup(query.clone(), ns, request_time, query_has_dnssec_ok)
             .await
         {
-            Ok(lookup) => {
+            Ok((lookup, _)) => {
                 let response = self
                     .resolve_cnames(
                         lookup,
@@ -257,7 +258,7 @@ impl RecursorDnsHandle {
                             .lookup(query.clone(), ns, request_time, query_has_dnssec_ok)
                             .await
                         {
-                            Ok(lookup) => {
+                            Ok((lookup, _)) => {
                                 let response = self
                                     .resolve_cnames(
                                         lookup,
@@ -374,7 +375,7 @@ impl RecursorDnsHandle {
         ns: RecursorPool<TokioRuntimeProvider>,
         now: Instant,
         expect_dnssec_in_cached_response: bool,
-    ) -> Result<Lookup, Error> {
+    ) -> Result<(Lookup, Option<DnsResponse>), Error> {
         if let Some(lookup) = self.record_cache.get(&query, now) {
             let lookup = lookup?;
 
@@ -391,7 +392,7 @@ impl RecursorDnsHandle {
                 // fall through to send query to child zone
             } else {
                 debug!("cached data {lookup:?}");
-                return Ok(lookup);
+                return Ok((lookup, None));
             }
         }
 
@@ -401,7 +402,10 @@ impl RecursorDnsHandle {
         // TODO: should we change DnsHandle to always be a single response? And build a totally custom handler for other situations?
         // TODO: check if data is "authentic"
         match response.await {
-            Ok(r) => super::cache_response(r, Some(ns.zone()), &self.record_cache, query, now),
+            Ok(r) => Ok((
+                super::cache_response(r.clone(), Some(ns.zone()), &self.record_cache, query, now)?,
+                Some(r),
+            )),
             Err(e) => {
                 warn!("lookup error: {e}");
                 Err(Error::from(e))
@@ -441,7 +445,7 @@ impl RecursorDnsHandle {
 
         // Query for nameserver records via the pool for the parent zone, following SOA referrals up
         // to the nameserver recursion limit.
-        let lookup = loop {
+        let (lookup, _response_opt) = loop {
             ns_depth += 1;
 
             Error::recursion_exceeded(self.ns_recursion_limit, ns_depth, &zone)?;
@@ -450,7 +454,7 @@ impl RecursorDnsHandle {
                 .lookup(query.clone(), nameserver_pool.clone(), request_time, false)
                 .await
             {
-                Ok(lookup) => break lookup,
+                Ok((lookup, response_opt)) => break (lookup, response_opt),
                 Err(e) => e,
             };
 
