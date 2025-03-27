@@ -21,7 +21,12 @@ use crate::{
     proto::{
         ForwardNSData, ProtoErrorKind,
         op::Query,
-        rr::{RData, RData::CNAME, RecordType, rdata::NS},
+        rr::{
+            RData,
+            RData::CNAME,
+            RecordType,
+            rdata::{A, AAAA, NS},
+        },
         runtime::TokioRuntimeProvider,
         xfer::DnsResponse,
     },
@@ -499,40 +504,35 @@ impl RecursorDnsHandle {
                 continue;
             }
 
-            let cached_a = self.record_cache.get(
-                &Query::query(ns_data.0.clone(), RecordType::A),
-                request_time,
-            );
-            let cached_aaaa = self.record_cache.get(
-                &Query::query(ns_data.0.clone(), RecordType::AAAA),
-                request_time,
-            );
-
-            let cached_a = cached_a.and_then(Result::ok).map(Lookup::into_iter);
-            let cached_aaaa = cached_aaaa.and_then(Result::ok).map(Lookup::into_iter);
-
-            let mut glue_ips = cached_a
-                .into_iter()
-                .flatten()
-                .chain(cached_aaaa.into_iter().flatten())
-                .filter_map(|r| {
-                    let ip = r.ip_addr()?;
-
-                    if self.matches_nameserver_filter(ip) {
-                        debug!(name = %ns_data, %ip, "ignoring address due to do_not_query");
-                        None
-                    } else {
-                        Some(ip)
+            let mut ns_glue_ips = Vec::new();
+            for record_type in [RecordType::A, RecordType::AAAA] {
+                if let Some(Ok(lookup)) = self
+                    .record_cache
+                    .get(&Query::query(ns_data.0.clone(), record_type), request_time)
+                {
+                    for record in lookup.records().iter() {
+                        let ip = match record.data() {
+                            RData::A(A(ipv4)) => (*ipv4).into(),
+                            RData::AAAA(AAAA(ipv6)) => (*ipv6).into(),
+                            _ => continue,
+                        };
+                        if self.matches_nameserver_filter(ip) {
+                            debug!(name = %ns_data, %ip, "ignoring address due to do_not_query");
+                            continue;
+                        }
+                        if !ns_glue_ips.contains(&ip) {
+                            ns_glue_ips.push(ip);
+                        }
                     }
-                })
-                .peekable();
-
-            if glue_ips.peek().is_none() {
-                debug!("glue not found for {ns_data}");
-                need_ips_for_names.push(ns_data.to_owned());
+                }
             }
 
-            config_group.append_ips(glue_ips, true);
+            if ns_glue_ips.is_empty() {
+                debug!("glue not found for {ns_data}");
+                need_ips_for_names.push(ns_data.to_owned());
+            } else {
+                config_group.append_ips(ns_glue_ips.into_iter(), true);
+            }
         }
 
         // If we have no glue, collect missing nameserver IP addresses.
