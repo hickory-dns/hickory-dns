@@ -24,7 +24,7 @@ use crate::{
         rr::{
             RData,
             RData::CNAME,
-            RecordType,
+            Record, RecordType,
             rdata::{A, AAAA, NS},
         },
         runtime::TokioRuntimeProvider,
@@ -487,7 +487,7 @@ impl RecursorDnsHandle {
         // get all the NS records and glue
         let mut config_group = NameServerConfigGroup::new();
         let mut need_ips_for_names = Vec::new();
-        let mut glue_ips: HashMap<Name, Vec<IpAddr>> = HashMap::new();
+        let mut glue_ips = HashMap::new();
 
         // unpack all glued records
         for zns in lookup.record_iter() {
@@ -505,34 +505,23 @@ impl RecursorDnsHandle {
                 continue;
             }
 
-            let ns_glue_ips = glue_ips.entry(ns_data.0.clone()).or_default();
             for record_type in [RecordType::A, RecordType::AAAA] {
                 if let Some(Ok(lookup)) = self
                     .record_cache
                     .get(&Query::query(ns_data.0.clone(), record_type), request_time)
                 {
-                    for record in lookup.records().iter() {
-                        let ip = match record.data() {
-                            RData::A(A(ipv4)) => (*ipv4).into(),
-                            RData::AAAA(AAAA(ipv6)) => (*ipv6).into(),
-                            _ => continue,
-                        };
-                        if self.matches_nameserver_filter(ip) {
-                            debug!(name = %ns_data, %ip, "ignoring address due to do_not_query");
-                            continue;
-                        }
-                        if !ns_glue_ips.contains(&ip) {
-                            ns_glue_ips.push(ip);
-                        }
-                    }
+                    self.add_glue_to_map(&mut glue_ips, lookup.records().iter());
                 }
             }
 
-            if ns_glue_ips.is_empty() {
-                debug!("glue not found for {ns_data}");
-                need_ips_for_names.push(ns_data.to_owned());
-            } else {
-                config_group.append_ips(ns_glue_ips.iter().cloned(), true);
+            match glue_ips.get(&ns_data.0) {
+                Some(glue) if !glue.is_empty() => {
+                    config_group.append_ips(glue.iter().cloned(), true)
+                }
+                _ => {
+                    debug!("glue not found for {ns_data}");
+                    need_ips_for_names.push(ns_data.to_owned());
+                }
             }
         }
 
@@ -567,6 +556,30 @@ impl RecursorDnsHandle {
         debug!("found nameservers for {zone}");
         self.name_server_cache.lock().insert(zone, ns.clone());
         Ok((depth, ns))
+    }
+
+    /// Helper function to add IP addresses from any A or AAAA records to a map indexed by record
+    /// name.
+    fn add_glue_to_map<'a>(
+        &self,
+        glue_map: &mut HashMap<Name, Vec<IpAddr>>,
+        records: impl Iterator<Item = &'a Record>,
+    ) {
+        for record in records {
+            let ip = match record.data() {
+                RData::A(A(ipv4)) => (*ipv4).into(),
+                RData::AAAA(AAAA(ipv6)) => (*ipv6).into(),
+                _ => continue,
+            };
+            if self.matches_nameserver_filter(ip) {
+                debug!(name = %record.name(), %ip, "ignoring address due to do_not_query");
+                continue;
+            }
+            let ns_glue_ips = glue_map.entry(record.name().clone()).or_default();
+            if !ns_glue_ips.contains(&ip) {
+                ns_glue_ips.push(ip);
+            }
+        }
     }
 
     /// Build an NS Pool based on an NS-record referral.
