@@ -450,7 +450,7 @@ impl RecursorDnsHandle {
 
         // Query for nameserver records via the pool for the parent zone, following SOA referrals up
         // to the nameserver recursion limit.
-        let (lookup, _response_opt) = loop {
+        let (lookup, response_opt) = loop {
             ns_depth += 1;
 
             Error::recursion_exceeded(self.ns_recursion_limit, ns_depth, &zone)?;
@@ -489,7 +489,16 @@ impl RecursorDnsHandle {
         let mut need_ips_for_names = Vec::new();
         let mut glue_ips = HashMap::new();
 
-        // unpack all glued records
+        if let Some(response) = response_opt {
+            for section in [
+                response.answers(),
+                response.name_servers(),
+                response.additionals(),
+            ] {
+                self.add_glue_to_map(&mut glue_ips, section.iter());
+            }
+        }
+
         for zns in lookup.record_iter() {
             let Some(ns_data) = zns.data().as_ns() else {
                 debug!("response is not NS: {:?}; skipping", zns.data());
