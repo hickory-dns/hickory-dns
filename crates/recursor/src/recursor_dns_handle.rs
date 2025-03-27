@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     net::IpAddr,
     sync::{
         Arc,
@@ -487,6 +487,7 @@ impl RecursorDnsHandle {
         // get all the NS records and glue
         let mut config_group = NameServerConfigGroup::new();
         let mut need_ips_for_names = Vec::new();
+        let mut glue_ips: HashMap<Name, Vec<IpAddr>> = HashMap::new();
 
         // unpack all glued records
         for zns in lookup.record_iter() {
@@ -504,7 +505,7 @@ impl RecursorDnsHandle {
                 continue;
             }
 
-            let mut ns_glue_ips = Vec::new();
+            let ns_glue_ips = glue_ips.entry(ns_data.0.clone()).or_default();
             for record_type in [RecordType::A, RecordType::AAAA] {
                 if let Some(Ok(lookup)) = self
                     .record_cache
@@ -531,7 +532,7 @@ impl RecursorDnsHandle {
                 debug!("glue not found for {ns_data}");
                 need_ips_for_names.push(ns_data.to_owned());
             } else {
-                config_group.append_ips(ns_glue_ips.into_iter(), true);
+                config_group.append_ips(ns_glue_ips.iter().cloned(), true);
             }
         }
 
