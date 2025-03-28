@@ -155,6 +155,66 @@ impl Graph {
     }
 }
 
+/// Builder for [`NameServer`].
+pub struct NameServerBuilder {
+    zone: FQDN,
+    nameserver_fqdn: Option<FQDN>,
+    implementation: Implementation,
+    network: Network,
+}
+
+impl NameServerBuilder {
+    /// Constructs a [`NameServer`].
+    ///
+    /// The name server will initially be in the "Stopped" state, and won't respond to queries until
+    /// it is started.
+    ///
+    /// The zone file will initially contain an SOA record, an NS record pointing to this name
+    /// server, and an A record with the address of this server.
+    pub fn build(self) -> Result<NameServer<Stopped>> {
+        let Self {
+            zone,
+            nameserver_fqdn,
+            implementation,
+            network,
+        } = self;
+
+        let ns_count = ns_count();
+        let nameserver = nameserver_fqdn.unwrap_or_else(|| primary_ns(ns_count, &zone));
+        let admin = admin_ns(ns_count, &zone);
+
+        let image = implementation.clone().into();
+        let container = Container::run(&image, &network)?;
+
+        let soa = SOA {
+            zone: zone.clone(),
+            ttl: DEFAULT_TTL,
+            nameserver: nameserver.clone(),
+            admin,
+            settings: SoaSettings::default(),
+        };
+        let mut zone_file = ZoneFile::new(soa);
+
+        zone_file.add(Record::ns(zone, nameserver.clone()));
+        // BIND requires that `nameserver` has an A record
+        zone_file.add(Record::a(nameserver.clone(), container.ipv4_addr()));
+
+        Ok(NameServer {
+            container,
+            implementation,
+            state: Stopped,
+            zone_file,
+            additional_zones: HashMap::new(),
+        })
+    }
+
+    /// Override the FQDN of the name server.
+    pub fn nameserver_fqdn(mut self, nameserver_fqdn: FQDN) -> Self {
+        self.nameserver_fqdn = Some(nameserver_fqdn);
+        self
+    }
+}
+
 pub struct NameServer<State> {
     container: Container,
     implementation: Implementation,
@@ -176,32 +236,22 @@ impl NameServer<Stopped> {
     /// - one SOA record, with the primary name server field set to this name server's FQDN
     /// - one NS record, with this name server's FQDN set as the only available name server for
     ///   the zone
+    /// - one A record, with this name server's IP address
     pub fn new(implementation: &Implementation, zone: FQDN, network: &Network) -> Result<Self> {
-        let ns_count = ns_count();
-        let nameserver = primary_ns(ns_count, &zone);
-        let image = implementation.clone().into();
-        let container = Container::run(&image, network)?;
+        Self::builder(implementation.clone(), zone, network.clone()).build()
+    }
 
-        let soa = SOA {
-            zone: zone.clone(),
-            ttl: DEFAULT_TTL,
-            nameserver: nameserver.clone(),
-            admin: admin_ns(ns_count, &zone),
-            settings: SoaSettings::default(),
-        };
-        let mut zone_file = ZoneFile::new(soa);
-
-        zone_file.add(Record::ns(zone, nameserver.clone()));
-        // BIND requires that `nameserver` has an A record
-        zone_file.add(Record::a(nameserver.clone(), container.ipv4_addr()));
-
-        Ok(Self {
-            container,
-            implementation: implementation.clone(),
-            zone_file,
-            additional_zones: HashMap::new(),
-            state: Stopped,
-        })
+    pub fn builder(
+        implementation: Implementation,
+        zone: FQDN,
+        network: Network,
+    ) -> NameServerBuilder {
+        NameServerBuilder {
+            zone,
+            nameserver_fqdn: None,
+            implementation,
+            network,
+        }
     }
 
     /// Adds a NS + A record pair to the zone file
