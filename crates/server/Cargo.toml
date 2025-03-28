@@ -38,6 +38,7 @@ resolver = ["dep:hickory-resolver"]
 sqlite = ["rusqlite"]
 blocklist = ["resolver"]
 toml = ["dep:toml"]
+metrics = ["dep:metrics"]
 
 tls-aws-lc-rs = [
     "hickory-proto/tls-aws-lc-rs",
@@ -131,6 +132,7 @@ tokio-util.workspace = true
 hickory-proto = { workspace = true, features = ["serde", "text-parsing", "tokio"] }
 hickory-recursor = { workspace = true, features = ["serde"], optional = true }
 hickory-resolver = { workspace = true, features = ["serde", "system-config", "tokio"], optional = true }
+metrics = { workspace = true, optional = true }
 
 [dev-dependencies]
 futures-executor = { workspace = true, default-features = false, features = ["std"] }

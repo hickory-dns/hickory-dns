@@ -106,6 +106,8 @@ where
     command.arg(format!("--https-port={}", 0));
     #[cfg(feature = "__quic")]
     command.arg(format!("--quic-port={}", 0));
+    #[cfg(feature = "prometheus-metrics")]
+    command.arg(format!("--prometheus-listen-address=127.0.0.1:{}", 0));
 
     println!("named cli options: {command:#?}");
 

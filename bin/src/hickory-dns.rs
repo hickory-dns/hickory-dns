@@ -44,6 +44,8 @@ use std::{
 };
 
 use clap::Parser;
+#[cfg(feature = "prometheus-metrics")]
+use metrics_exporter_prometheus::PrometheusBuilder;
 use socket2::{Domain, Socket, Type};
 use time::OffsetDateTime;
 #[cfg(unix)]
@@ -123,6 +125,16 @@ struct Cli {
     #[clap(long = "quic-port", value_name = "QUIC-PORT")]
     pub(crate) quic_port: Option<u16>,
 
+    /// Listening socket for Prometheus metrics,
+    /// for remote access configure socket as needed (e.g. 0.0.0.0:9000)
+    /// overrides any value in config file
+    #[cfg(feature = "prometheus-metrics")]
+    #[clap(
+        long = "prometheus-listen-address",
+        value_name = "PROMETHEUS-LISTEN-ADDRESS"
+    )]
+    pub(crate) prometheus_listen_addr: Option<SocketAddr>,
+
     /// Disable TCP protocol,
     /// overrides any value in config file
     #[clap(long = "disable-tcp")]
@@ -150,6 +162,12 @@ struct Cli {
     #[cfg(feature = "__quic")]
     #[clap(long = "disable-quic", conflicts_with = "quic_port")]
     pub(crate) disable_quic: bool,
+
+    /// Disable Prometheus metrics,
+    /// overrides any value in config file
+    #[cfg(feature = "prometheus-metrics")]
+    #[clap(long = "disable-prometheus", conflicts_with = "prometheus_listen_addr")]
+    pub(crate) disable_prometheus: bool,
 }
 
 /// Main method for running the named server.
@@ -186,6 +204,7 @@ fn run() -> Result<(), String> {
 
     let config = Config::read_config(config_path)
         .map_err(|err| format!("failed to read config file from {config_path:?}: {err}"))?;
+
     let directory_config = config.directory().to_path_buf();
     let zonedir = args.zonedir.clone();
     let zone_dir: PathBuf = zonedir
@@ -203,6 +222,18 @@ fn run() -> Result<(), String> {
         .map_err(|err| format!("failed to initialize Tokio runtime: {err}"))?;
 
     let _guard = runtime.enter();
+
+    #[cfg(feature = "prometheus-metrics")]
+    if !args.disable_prometheus && !config.disable_prometheus() {
+        let socket = args
+            .prometheus_listen_addr
+            .unwrap_or(config.prometheus_listen_addr());
+        // setup tracing/metrics integration and prometheus endpoint
+        // execute setup on the runtime to ensure that the prometheus setup does not spawn a new runtime
+        runtime.block_on(async { config_prometheus(socket) })?;
+    } else {
+        info!("Prometheus metrics are disabled");
+    }
 
     #[cfg(unix)]
     let mut signal = signal(SignalKind::terminate())
@@ -490,6 +521,17 @@ fn config_https(
             .map_err(|err| format!("failed to register HTTPS listener: {err}"))?;
     }
 
+    Ok(())
+}
+
+#[cfg(feature = "prometheus-metrics")]
+fn config_prometheus(socket: impl Into<SocketAddr>) -> Result<(), String> {
+    // prepare prometheus endpoint
+    let prometheus = PrometheusBuilder::new();
+    prometheus
+        .with_http_listener(socket)
+        .install()
+        .map_err(|e| format!("failed to install prometheus endpoint {e}"))?;
     Ok(())
 }
 

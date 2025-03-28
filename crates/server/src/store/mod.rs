@@ -11,6 +11,8 @@ pub mod blocklist;
 pub mod file;
 pub mod forwarder;
 pub mod in_memory;
+#[cfg(feature = "metrics")]
+mod metrics;
 pub mod recursor;
 #[cfg(feature = "sqlite")]
 pub mod sqlite;

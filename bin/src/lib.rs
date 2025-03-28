@@ -10,6 +10,8 @@
 #[cfg(feature = "__dnssec")]
 pub mod dnssec;
 
+#[cfg(feature = "prometheus-metrics")]
+use std::net::SocketAddr;
 #[cfg(feature = "__tls")]
 use std::{ffi::OsStr, fs};
 use std::{
@@ -91,6 +93,9 @@ pub struct Config {
     quic_listen_port: Option<u16>,
     /// HTTP/3 port to listen on
     h3_listen_port: Option<u16>,
+    /// Prometheus listen address
+    #[cfg(feature = "prometheus-metrics")]
+    prometheus_listen_addr: Option<SocketAddr>,
     /// Disable TCP protocol
     disable_tcp: Option<bool>,
     /// Disable UDP protocol
@@ -101,6 +106,9 @@ pub struct Config {
     disable_https: Option<bool>,
     /// Disable QUIC protocol
     disable_quic: Option<bool>,
+    /// Disable Prometheus metrics
+    #[cfg(feature = "prometheus-metrics")]
+    disable_prometheus: Option<bool>,
     /// Timeout associated to a request before it is closed.
     tcp_request_timeout: Option<u64>,
     /// Level at which to log, default is INFO
@@ -185,6 +193,13 @@ impl Config {
         self.h3_listen_port.unwrap_or(DEFAULT_H3_PORT)
     }
 
+    /// prometheus metric endpoint listen address
+    #[cfg(feature = "prometheus-metrics")]
+    pub fn prometheus_listen_addr(&self) -> SocketAddr {
+        self.prometheus_listen_addr
+            .unwrap_or(SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 9000))
+    }
+
     /// get if TCP protocol should be disabled
     pub fn disable_tcp(&self) -> bool {
         self.disable_tcp.unwrap_or_default()
@@ -208,6 +223,12 @@ impl Config {
     /// get if QUIC protocol should be disabled
     pub fn disable_quic(&self) -> bool {
         self.disable_quic.unwrap_or_default()
+    }
+
+    /// get if Prometheus metrics endpoint should be disabled
+    #[cfg(feature = "prometheus-metrics")]
+    pub fn disable_prometheus(&self) -> bool {
+        self.disable_prometheus.unwrap_or_default()
     }
 
     /// default timeout for all TCP connections before forcibly shutdown
