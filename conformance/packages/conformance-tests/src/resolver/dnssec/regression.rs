@@ -286,3 +286,47 @@ fn five_secure_zones() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+#[ignore = "hickory-recursor reuses a cached glue RRset, which lacks RRSIGs"]
+fn glue_reuse() -> Result<()> {
+    let network = Network::new()?;
+
+    let leaf_ns = NameServer::builder(dns_test::PEER.clone(), FQDN::TEST_DOMAIN, network.clone())
+        .nameserver_fqdn(FQDN::TEST_DOMAIN)
+        .build()?;
+    let leaf_ns = leaf_ns.sign(SignSettings::default())?;
+
+    let mut tld_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_TLD, &network)?;
+    tld_ns.referral_nameserver(&leaf_ns);
+    tld_ns.add(leaf_ns.ds().ksk.clone());
+    let tld_ns = tld_ns.sign(SignSettings::default())?;
+
+    let mut root_ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, &network)?;
+    root_ns.referral_nameserver(&tld_ns);
+    root_ns.add(tld_ns.ds().ksk.clone());
+    let root_ns = root_ns.sign(SignSettings::default())?;
+    let root = root_ns.root_hint();
+    let trust_anchor = root_ns.trust_anchor();
+
+    let _root_ns = root_ns.start()?;
+    let _tld_ns = tld_ns.start()?;
+    let _leaf_ns = leaf_ns.start()?;
+
+    let resolver = Resolver::new(&network, root)
+        .trust_anchor(&trust_anchor)
+        .start()?;
+    let client = Client::new(&network)?;
+
+    let output = client.dig(
+        *DigSettings::default().recurse(),
+        resolver.ipv4_addr(),
+        RecordType::A,
+        &FQDN::TEST_DOMAIN,
+    )?;
+
+    assert!(output.status.is_noerror(), "{:?}", output.status);
+    assert!(!output.answer.is_empty());
+
+    Ok(())
+}
