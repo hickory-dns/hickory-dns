@@ -78,9 +78,10 @@ where
         let stream = Arc::new(Mutex::new(stream));
         let responder = H3ResponseHandle(stream.clone());
 
-        tokio::spawn(handle_request(
-            request, src_addr, access, handler, responder,
-        ));
+        tokio::spawn(async move {
+            super::handle_request(&request, src_addr, Protocol::H3, access, handler, responder)
+                .await
+        });
 
         max_requests -= 1;
         if max_requests == 0 {
@@ -92,18 +93,6 @@ where
     }
 
     Ok(())
-}
-
-async fn handle_request<T>(
-    bytes: Bytes,
-    src_addr: SocketAddr,
-    access: Arc<AccessControl>,
-    handler: Arc<T>,
-    responder: H3ResponseHandle,
-) where
-    T: RequestHandler,
-{
-    super::handle_request(&bytes, src_addr, Protocol::H3, access, handler, responder).await
 }
 
 #[derive(Clone)]

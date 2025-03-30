@@ -7,7 +7,7 @@
 
 use std::{io, net::SocketAddr, sync::Arc};
 
-use bytes::{Bytes, BytesMut};
+use bytes::Bytes;
 use futures_util::lock::Mutex;
 use h2::server;
 use hickory_proto::{http::Version, rr::Record};
@@ -75,34 +75,20 @@ pub(crate) async fn h2_handler<T, I>(
         let responder = HttpsResponseHandle(Arc::new(Mutex::new(respond)));
 
         tokio::spawn(async move {
-            match h2_server::message_from(dns_hostname, http_endpoint, request).await {
-                Ok(bytes) => handle_request(bytes, src_addr, access, handler, responder).await,
-                Err(err) => warn!("error while handling request from {}: {}", src_addr, err),
+            let body = match h2_server::message_from(dns_hostname, http_endpoint, request).await {
+                Ok(bytes) => bytes,
+                Err(err) => {
+                    warn!("error while handling request from {}: {}", src_addr, err);
+                    return;
+                }
             };
+
+            super::handle_request(&body, src_addr, Protocol::Https, access, handler, responder)
+                .await
         });
 
         // we'll continue handling requests from here.
     }
-}
-
-async fn handle_request<T>(
-    bytes: BytesMut,
-    src_addr: SocketAddr,
-    access: Arc<AccessControl>,
-    handler: Arc<T>,
-    responder: HttpsResponseHandle,
-) where
-    T: RequestHandler,
-{
-    super::handle_request(
-        &bytes,
-        src_addr,
-        Protocol::Https,
-        access,
-        handler,
-        responder,
-    )
-    .await
 }
 
 #[derive(Clone)]

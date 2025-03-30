@@ -7,7 +7,7 @@
 
 use std::{io, net::SocketAddr, sync::Arc};
 
-use bytes::{Bytes, BytesMut};
+use bytes::Bytes;
 use futures_util::lock::Mutex;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, warn};
@@ -69,7 +69,15 @@ where
         let stream = Arc::new(Mutex::new(request_stream));
         let responder = QuicResponseHandle(stream.clone());
 
-        handle_request(request, src_addr, access, handler, responder).await;
+        super::handle_request(
+            &request,
+            src_addr,
+            Protocol::Quic,
+            access,
+            handler,
+            responder,
+        )
+        .await;
 
         max_requests -= 1;
         if max_requests == 0 {
@@ -82,18 +90,6 @@ where
     }
 
     Ok(())
-}
-
-async fn handle_request<T>(
-    bytes: BytesMut,
-    src_addr: SocketAddr,
-    access: Arc<AccessControl>,
-    handler: Arc<T>,
-    responder: QuicResponseHandle,
-) where
-    T: RequestHandler,
-{
-    super::handle_request(&bytes, src_addr, Protocol::Quic, access, handler, responder).await
 }
 
 #[derive(Clone)]
