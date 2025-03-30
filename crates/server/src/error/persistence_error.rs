@@ -16,7 +16,7 @@ use crate::proto::{ProtoError, ProtoErrorKind};
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, Error)]
 #[non_exhaustive]
-pub enum ErrorKind {
+pub enum PersistenceErrorKind {
     /// An error that occurred when recovering from journal
     #[error("error recovering from journal: {}", _0)]
     Recovery(&'static str),
@@ -47,20 +47,20 @@ pub enum ErrorKind {
 
 /// The error type for errors that get returned in the crate
 #[derive(Debug, Error)]
-pub struct Error {
-    kind: ErrorKind,
+pub struct PersistenceError {
+    kind: PersistenceErrorKind,
     #[cfg(feature = "backtrace")]
     backtrack: Option<ExtBacktrace>,
 }
 
-impl Error {
+impl PersistenceError {
     /// Get the kind of the error
-    pub fn kind(&self) -> &ErrorKind {
+    pub fn kind(&self) -> &PersistenceErrorKind {
         &self.kind
     }
 }
 
-impl fmt::Display for Error {
+impl fmt::Display for PersistenceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         cfg_if::cfg_if! {
             if #[cfg(feature = "backtrace")] {
@@ -77,8 +77,8 @@ impl fmt::Display for Error {
     }
 }
 
-impl From<ErrorKind> for Error {
-    fn from(kind: ErrorKind) -> Self {
+impl From<PersistenceErrorKind> for PersistenceError {
+    fn from(kind: PersistenceErrorKind) -> Self {
         Self {
             kind,
             #[cfg(feature = "backtrace")]
@@ -87,18 +87,18 @@ impl From<ErrorKind> for Error {
     }
 }
 
-impl From<ProtoError> for Error {
+impl From<ProtoError> for PersistenceError {
     fn from(e: ProtoError) -> Self {
         match e.kind() {
-            ProtoErrorKind::Timeout => ErrorKind::Timeout.into(),
-            _ => ErrorKind::from(e).into(),
+            ProtoErrorKind::Timeout => PersistenceErrorKind::Timeout.into(),
+            _ => PersistenceErrorKind::from(e).into(),
         }
     }
 }
 
 #[cfg(feature = "sqlite")]
-impl From<rusqlite::Error> for Error {
+impl From<rusqlite::Error> for PersistenceError {
     fn from(e: rusqlite::Error) -> Self {
-        ErrorKind::from(e).into()
+        PersistenceErrorKind::from(e).into()
     }
 }

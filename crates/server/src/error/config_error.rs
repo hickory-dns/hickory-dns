@@ -9,13 +9,14 @@ use std::{fmt, io};
 
 use thiserror::Error;
 
+use crate::proto::serialize::txt::ParseError;
 #[cfg(feature = "backtrace")]
 use crate::proto::{ExtBacktrace, trace};
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, Error)]
 #[non_exhaustive]
-pub enum ErrorKind {
+pub enum ConfigErrorKind {
     // foreign
     /// An error got returned from IO
     #[error("io error: {0}")]
@@ -28,25 +29,25 @@ pub enum ErrorKind {
 
     /// An error occurred while parsing a zone file
     #[error("failed to parse the zone file: {0}")]
-    ZoneParse(#[from] crate::proto::serialize::txt::ParseError),
+    ZoneParse(#[from] ParseError),
 }
 
 /// The error type for errors that get returned in the crate
 #[derive(Debug)]
-pub struct Error {
-    kind: Box<ErrorKind>,
+pub struct ConfigError {
+    kind: Box<ConfigErrorKind>,
     #[cfg(feature = "backtrace")]
     backtrack: Option<ExtBacktrace>,
 }
 
-impl Error {
+impl ConfigError {
     /// Get the kind of the error
-    pub fn kind(&self) -> &ErrorKind {
+    pub fn kind(&self) -> &ConfigErrorKind {
         &self.kind
     }
 }
 
-impl fmt::Display for Error {
+impl fmt::Display for ConfigError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         cfg_if::cfg_if! {
             if #[cfg(feature = "backtrace")] {
@@ -63,12 +64,12 @@ impl fmt::Display for Error {
     }
 }
 
-impl<E> From<E> for Error
+impl<E> From<E> for ConfigError
 where
-    E: Into<ErrorKind>,
+    E: Into<ConfigErrorKind>,
 {
     fn from(error: E) -> Self {
-        let kind: ErrorKind = error.into();
+        let kind: ConfigErrorKind = error.into();
 
         Self {
             kind: Box::new(kind),
