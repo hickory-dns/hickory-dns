@@ -19,8 +19,8 @@
 mod config_error;
 mod persistence_error;
 
-pub use self::config_error::Error as ConfigError;
-pub use self::persistence_error::Error as PersistenceError;
+pub use self::config_error::ConfigError;
+pub use self::persistence_error::PersistenceError;
 
-pub use self::config_error::ErrorKind as ConfigErrorKind;
-pub use self::persistence_error::ErrorKind as PersistenceErrorKind;
+pub use self::config_error::ConfigErrorKind;
+pub use self::persistence_error::PersistenceErrorKind;
