@@ -20,10 +20,7 @@ use crate::{
     authority::MessageResponse,
     proto::h2::h2_server,
     proto::xfer::Protocol,
-    server::{
-        ResponseInfo, request_handler::RequestHandler, response_handler::ResponseHandler,
-        server_future,
-    },
+    server::{ResponseInfo, request_handler::RequestHandler, response_handler::ResponseHandler},
 };
 
 pub(crate) async fn h2_handler<T, I>(
@@ -97,7 +94,7 @@ async fn handle_request<T>(
 ) where
     T: RequestHandler,
 {
-    server_future::handle_request(
+    super::handle_request(
         &bytes,
         src_addr,
         Protocol::Https,

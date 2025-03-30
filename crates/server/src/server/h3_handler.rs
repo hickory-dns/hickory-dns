@@ -17,10 +17,7 @@ use tracing::{debug, warn};
 use crate::{
     access::AccessControl,
     authority::MessageResponse,
-    server::{
-        ResponseInfo, request_handler::RequestHandler, response_handler::ResponseHandler,
-        server_future,
-    },
+    server::{ResponseInfo, request_handler::RequestHandler, response_handler::ResponseHandler},
 };
 use hickory_proto::{
     ProtoError,
@@ -106,7 +103,7 @@ async fn handle_request<T>(
 ) where
     T: RequestHandler,
 {
-    server_future::handle_request(&bytes, src_addr, Protocol::H3, access, handler, responder).await
+    super::handle_request(&bytes, src_addr, Protocol::H3, access, handler, responder).await
 }
 
 #[derive(Clone)]

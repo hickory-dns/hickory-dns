@@ -22,10 +22,7 @@ use crate::{
         rr::Record,
         xfer::Protocol,
     },
-    server::{
-        ResponseInfo, request_handler::RequestHandler, response_handler::ResponseHandler,
-        server_future,
-    },
+    server::{ResponseInfo, request_handler::RequestHandler, response_handler::ResponseHandler},
 };
 
 pub(crate) async fn quic_handler<T>(
@@ -96,8 +93,7 @@ async fn handle_request<T>(
 ) where
     T: RequestHandler,
 {
-    server_future::handle_request(&bytes, src_addr, Protocol::Quic, access, handler, responder)
-        .await
+    super::handle_request(&bytes, src_addr, Protocol::Quic, access, handler, responder).await
 }
 
 #[derive(Clone)]
