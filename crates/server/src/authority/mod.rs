@@ -27,7 +27,6 @@ pub(crate) mod authority_object;
 mod catalog;
 pub(crate) mod message_request;
 mod message_response;
-mod zone_type;
 
 pub use self::auth_lookup::{
     AnyRecords, AuthLookup, AuthLookupIter, LookupRecords, LookupRecordsIter,
@@ -39,7 +38,6 @@ pub use self::authority_object::{AuthorityObject, DnssecSummary, EmptyLookup, Lo
 pub use self::catalog::Catalog;
 pub use self::message_request::{MessageRequest, Queries, UpdateRequest};
 pub use self::message_response::{MessageResponse, MessageResponseBuilder};
-pub use self::zone_type::ZoneType;
 
 /// Result of an Update operation
 pub type UpdateResult<T> = Result<T, ResponseCode>;
@@ -157,3 +155,38 @@ impl From<LookupError> for io::Error {
         Self::new(io::ErrorKind::Other, Box::new(e))
     }
 }
+
+#[allow(deprecated)]
+mod zone_type {
+    use serde::{Deserialize, Serialize};
+
+    /// The type of zone stored in a Catalog
+    #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Copy)]
+    pub enum ZoneType {
+        /// This authority for a zone
+        Primary,
+        /// This authority for a zone, i.e. the Primary
+        #[deprecated = "please read about Juneteenth"]
+        Master,
+        /// A secondary, i.e. replicated from the Primary
+        Secondary,
+        /// A secondary, i.e. replicated from the Primary
+        #[deprecated = "please read about Juneteenth"]
+        Slave,
+        /// A cached zone that queries other nameservers
+        External,
+    }
+
+    impl ZoneType {
+        /// Is this an authoritative Authority, i.e. it owns the records of the zone.
+        #[allow(deprecated)]
+        pub fn is_authoritative(self) -> bool {
+            matches!(
+                self,
+                Self::Primary | Self::Secondary | Self::Master | Self::Slave
+            )
+        }
+    }
+}
+
+pub use zone_type::ZoneType;
