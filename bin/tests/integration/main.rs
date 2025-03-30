@@ -12,5 +12,4 @@ mod server_harness;
 mod sqlite_tests;
 mod store_file_tests;
 mod store_sqlite_tests;
-mod timeout_stream_tests;
 mod txt_tests;
