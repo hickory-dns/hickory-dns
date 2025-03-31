@@ -10,6 +10,7 @@ use core::marker::PhantomData;
 use alloc::vec::Vec;
 
 use crate::{
+    ProtoError,
     error::{ProtoErrorKind, ProtoResult},
     op::Header,
 };
@@ -370,14 +371,16 @@ impl<'a> BinEncoder<'a> {
         let mut count = 0;
         for i in iter {
             let rollback = self.set_rollback();
-            i.emit(self).map_err(|e| {
-                if let ProtoErrorKind::MaxBufferSizeExceeded(_) = e.kind() {
-                    rollback.rollback(self);
-                    return ProtoErrorKind::NotAllRecordsWritten { count }.into();
-                } else {
-                    return e;
-                }
-            })?;
+            if let Err(e) = i.emit(self) {
+                return Err(match e.kind() {
+                    ProtoErrorKind::MaxBufferSizeExceeded(_) => {
+                        rollback.rollback(self);
+                        ProtoError::from(ProtoErrorKind::NotAllRecordsWritten { count })
+                    }
+                    _ => e,
+                });
+            }
+
             count += 1;
         }
         Ok(count)
