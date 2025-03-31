@@ -17,6 +17,8 @@ use futures_util::lock::Mutex;
 use serde::Deserialize;
 use tracing::{error, info, warn};
 
+#[cfg(feature = "metrics")]
+use crate::store::metrics::StoreMetrics;
 use crate::{
     authority::{
         Authority, LookupControlFlow, LookupOptions, MessageRequest, UpdateResult, ZoneType,
@@ -54,6 +56,8 @@ pub struct SqliteAuthority {
     journal: Mutex<Option<Journal>>,
     allow_update: bool,
     is_dnssec_enabled: bool,
+    #[cfg(feature = "metrics")]
+    metrics: StoreMetrics,
 }
 
 impl SqliteAuthority {
@@ -75,6 +79,8 @@ impl SqliteAuthority {
             journal: Mutex::new(None),
             allow_update,
             is_dnssec_enabled,
+            #[cfg(feature = "metrics")]
+            metrics: StoreMetrics::new("sqlite"),
         }
     }
 
@@ -187,6 +193,9 @@ impl SqliteAuthority {
             } else if let Err(error) = self.update_records(&[record], false).await {
                 return Err(PersistenceErrorKind::Recovery(error.to_str()).into());
             }
+
+            #[cfg(feature = "metrics")]
+            self.metrics.persistent.zone_records_total.increment(1);
         }
 
         Ok(())
@@ -213,6 +222,9 @@ impl SqliteAuthority {
                 for record in rr_set.records_without_rrsigs() {
                     journal.insert_record(serial, record)?;
                 }
+
+                #[cfg(feature = "metrics")]
+                self.metrics.persistent.zone_records_total.increment(1);
             }
 
             // TODO: COMMIT THE TRANSACTION!!!
@@ -936,7 +948,17 @@ impl Authority for SqliteAuthority {
         self.verify_prerequisites(update.prerequisites()).await?;
         self.pre_scan(update.updates()).await?;
 
-        self.update_records(update.updates(), true).await
+        let updated = self.update_records(update.updates(), true).await;
+
+        #[cfg(feature = "metrics")]
+        if updated == Ok(true) {
+            self.metrics
+                .persistent
+                .zone_records_dynamically_updated
+                .increment(update.updates().len() as u64);
+        }
+
+        updated
     }
 
     /// Always fail when DNSSEC is disabled.
@@ -971,7 +993,12 @@ impl Authority for SqliteAuthority {
         rtype: RecordType,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup> {
-        self.in_memory.lookup(name, rtype, lookup_options).await
+        let lookup = self.in_memory.lookup(name, rtype, lookup_options).await;
+
+        #[cfg(feature = "metrics")]
+        self.metrics.query.zone_record_lookups.increment(1);
+
+        lookup
     }
 
     async fn search(
