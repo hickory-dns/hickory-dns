@@ -1305,4 +1305,12 @@ mod tests {
 
         Message::from_vec(CRASHING_MESSAGE).expect("failed to parse message");
     }
+
+    #[test]
+    fn prior_to_pointer() {
+        const MESSAGE: &[u8] = include_bytes!("../../tests/test-data/fuzz-prior-to-pointer.rdata");
+        let message = Message::from_bytes(MESSAGE).expect("failed to parse message");
+        let encoded = message.to_bytes().unwrap();
+        Message::from_bytes(&encoded).expect("failed to parse encoded message");
+    }
 }
