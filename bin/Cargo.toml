@@ -37,6 +37,7 @@ recursor = ["hickory-server/recursor"]
 # Recursive Resolution is Experimental!
 resolver = ["hickory-server/resolver"]
 sqlite = ["hickory-server/sqlite", "dep:rusqlite"]
+prometheus-metrics = ["hickory-server/metrics", "dep:metrics-exporter-prometheus"]
 
 tls-aws-lc-rs = ["hickory-server/tls-aws-lc-rs", "__tls"]
 https-aws-lc-rs = ["hickory-server/https-aws-lc-rs", "tls-aws-lc-rs", "__https"]
@@ -88,6 +89,7 @@ toml.workspace = true
 hickory-client.workspace = true
 hickory-proto.workspace = true
 hickory-server = { workspace = true, features = ["toml"] }
+metrics-exporter-prometheus = { workspace = true, optional = true }
 
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true

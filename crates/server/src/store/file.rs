@@ -17,6 +17,8 @@ use std::{
 use serde::Deserialize;
 use tracing::{debug, info};
 
+#[cfg(feature = "metrics")]
+use crate::store::metrics::StoreMetrics;
 use crate::{
     authority::{
         Authority, LookupControlFlow, LookupOptions, MessageRequest, UpdateResult, ZoneType,
@@ -39,6 +41,8 @@ use crate::{
 /// start of authority for the zone, is a Secondary, or a cached zone.
 pub struct FileAuthority {
     in_memory: InMemoryAuthority,
+    #[cfg(feature = "metrics")]
+    metrics: StoreMetrics,
 }
 
 impl FileAuthority {
@@ -63,15 +67,24 @@ impl FileAuthority {
         allow_axfr: bool,
         #[cfg(feature = "__dnssec")] nx_proof_kind: Option<NxProofKind>,
     ) -> Result<Self, String> {
-        InMemoryAuthority::new(
-            origin,
-            records,
-            zone_type,
-            allow_axfr,
-            #[cfg(feature = "__dnssec")]
-            nx_proof_kind,
-        )
-        .map(Self)
+        Ok(Self {
+            #[cfg(feature = "metrics")]
+            metrics: {
+                let new = StoreMetrics::new("file");
+                new.persistent
+                    .zone_records_total
+                    .increment(records.len() as f64);
+                new
+            },
+            in_memory: InMemoryAuthority::new(
+                origin,
+                records,
+                zone_type,
+                allow_axfr,
+                #[cfg(feature = "__dnssec")]
+                nx_proof_kind,
+            )?,
+        })
     }
 
     /// Read the Authority for the origin from the specified configuration
@@ -191,7 +204,12 @@ impl Authority for FileAuthority {
         rtype: RecordType,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup> {
-        self.in_memory.lookup(name, rtype, lookup_options).await
+        let lookup = self.in_memory.lookup(name, rtype, lookup_options).await;
+
+        #[cfg(feature = "metrics")]
+        self.metrics.query.zone_record_lookups.increment(1);
+
+        lookup
     }
 
     /// Using the specified query, perform a lookup against this zone.

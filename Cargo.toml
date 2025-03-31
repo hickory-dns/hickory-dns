@@ -41,6 +41,10 @@ tracing = { version = "0.1.30", default-features = false }
 tracing-subscriber = { version = "0.3", default-features = false }
 thiserror = { version = "2", default-features = false }
 
+# metrics
+metrics = { version = "0.24.1" }
+metrics-exporter-prometheus = { version = "0.16.2", default-features = false, features = ["http-listener"] }
+
 # async/await
 async-recursion = "1.0.0"
 async-trait = "0.1.43"
