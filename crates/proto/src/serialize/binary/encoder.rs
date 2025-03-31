@@ -433,7 +433,8 @@ impl<'a> BinEncoder<'a> {
 
     fn set_rollback(&self) -> Rollback {
         Rollback {
-            rollback_index: self.offset(),
+            offset: self.offset(),
+            pointers: self.name_pointers.len(),
         }
     }
 }
@@ -477,12 +478,15 @@ impl<T: EncodedSize> Place<T> {
 
 /// A type representing a rollback point in a stream
 pub(crate) struct Rollback {
-    rollback_index: usize,
+    offset: usize,
+    pointers: usize,
 }
 
 impl Rollback {
     pub(crate) fn rollback(self, encoder: &mut BinEncoder<'_>) {
-        encoder.set_offset(self.rollback_index)
+        let Self { offset, pointers } = self;
+        encoder.set_offset(offset);
+        encoder.name_pointers.truncate(pointers);
     }
 }
 
