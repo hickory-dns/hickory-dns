@@ -972,7 +972,7 @@ where
     N: EmitAndCount,
     D: EmitAndCount,
 {
-    let include_signature: bool = encoder.mode() != EncodeMode::Signing;
+    let include_signature = encoder.mode() != EncodeMode::Signing;
     let place = encoder.place::<Header>()?;
 
     let query_count = queries.emit(encoder)?;
