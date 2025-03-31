@@ -27,8 +27,8 @@ use tokio::net::UdpSocket;
 
 use hickory_integration::example_authority::create_example;
 use hickory_proto::op::{Message, MessageType, OpCode, Query, ResponseCode};
-use hickory_proto::rr::rdata::A;
-use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
+use hickory_proto::rr::rdata::{A, OPT};
+use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
 #[cfg(feature = "__tls")]
 use hickory_proto::rustls::default_provider;
 use hickory_proto::xfer::{DnsHandle, DnsMultiplexer};
@@ -410,4 +410,53 @@ async fn server_thread_tls(
     }
 
     server.shutdown_gracefully().await;
+}
+
+/// This test checks the behavior of the server when it receives a query with too many OPT RRs.
+///
+/// RFC 6891 section 6.1.1 says that "If a query message with more than one OPT RR is received, a
+/// FORMERR (RCODE=1) MUST be returned."
+#[tokio::test]
+async fn edns_multiple_opt_rr() {
+    subscribe();
+
+    let udp_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let local_addr = udp_socket.local_addr().unwrap();
+    let server_continue = Arc::new(AtomicBool::new(true));
+    let server = tokio::spawn(server_thread_udp(udp_socket, Arc::clone(&server_continue)));
+
+    let mut message = Message::new();
+    message.add_query(Query::query(Name::root(), RecordType::NS));
+    message.add_additional(Record::from_rdata(
+        Name::root(),
+        0,
+        RData::OPT(OPT::new(vec![])),
+    ));
+    message.add_additional(Record::from_rdata(
+        Name::root(),
+        0,
+        RData::OPT(OPT::new(vec![])),
+    ));
+    let message_bytes = message.to_vec().unwrap();
+
+    // We cannot use UdpClientStream, because it tries to parse the request message. This would fail
+    // because of the duplicate OPT records.
+    let client_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    client_socket
+        .send_to(&message_bytes, local_addr)
+        .await
+        .unwrap();
+    let mut response_buf = Vec::new();
+    client_socket
+        .recv_buf_from(&mut response_buf)
+        .await
+        .unwrap();
+    let response = Message::from_vec(&response_buf).unwrap();
+
+    dbg!(&response);
+    assert_eq!(message.header().id(), response.header().id());
+    assert_eq!(response.response_code(), ResponseCode::FormErr);
+
+    server_continue.store(false, Ordering::Relaxed);
+    server.await.unwrap();
 }
