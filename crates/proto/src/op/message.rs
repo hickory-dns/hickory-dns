@@ -76,44 +76,6 @@ pub struct Message {
     edns: Option<Edns>,
 }
 
-/// Returns a new Header with accurate counts for each Message section
-pub fn update_header_counts(
-    current_header: &Header,
-    is_truncated: bool,
-    counts: HeaderCounts,
-) -> Header {
-    assert!(counts.query_count <= u16::MAX as usize);
-    assert!(counts.answer_count <= u16::MAX as usize);
-    assert!(counts.nameserver_count <= u16::MAX as usize);
-    assert!(counts.additional_count <= u16::MAX as usize);
-
-    // TODO: should the function just take by value?
-    let mut header = *current_header;
-    header
-        .set_query_count(counts.query_count as u16)
-        .set_answer_count(counts.answer_count as u16)
-        .set_name_server_count(counts.nameserver_count as u16)
-        .set_additional_count(counts.additional_count as u16)
-        .set_truncated(is_truncated);
-
-    header
-}
-
-/// Tracks the counts of the records in the Message.
-///
-/// This is only used internally during serialization.
-#[derive(Clone, Copy, Debug)]
-pub struct HeaderCounts {
-    /// The number of queries in the Message
-    pub query_count: usize,
-    /// The number of answers in the Message
-    pub answer_count: usize,
-    /// The number of nameservers or authorities in the Message
-    pub nameserver_count: usize,
-    /// The number of additional records in the Message
-    pub additional_count: usize,
-}
-
 impl Message {
     /// Returns a new "empty" Message
     pub fn new() -> Self {
@@ -809,6 +771,37 @@ impl Message {
     }
 }
 
+impl From<MessageParts> for Message {
+    fn from(msg: MessageParts) -> Self {
+        let MessageParts {
+            header,
+            queries,
+            answers,
+            name_servers,
+            additionals,
+            sig0,
+            edns,
+        } = msg;
+        Self {
+            header,
+            queries,
+            answers,
+            name_servers,
+            additionals,
+            signature: sig0,
+            edns,
+        }
+    }
+}
+
+impl Deref for Message {
+    type Target = Header;
+
+    fn deref(&self) -> &Self::Target {
+        &self.header
+    }
+}
+
 /// Consumes `Message` giving public access to fields in `Message` so they can be
 /// destructured and taken by value
 /// ```rust
@@ -860,35 +853,42 @@ impl From<Message> for MessageParts {
     }
 }
 
-impl From<MessageParts> for Message {
-    fn from(msg: MessageParts) -> Self {
-        let MessageParts {
-            header,
-            queries,
-            answers,
-            name_servers,
-            additionals,
-            sig0,
-            edns,
-        } = msg;
-        Self {
-            header,
-            queries,
-            answers,
-            name_servers,
-            additionals,
-            signature: sig0,
-            edns,
-        }
-    }
+/// Tracks the counts of the records in the Message.
+///
+/// This is only used internally during serialization.
+#[derive(Clone, Copy, Debug)]
+pub struct HeaderCounts {
+    /// The number of queries in the Message
+    pub query_count: usize,
+    /// The number of answers in the Message
+    pub answer_count: usize,
+    /// The number of nameservers or authorities in the Message
+    pub nameserver_count: usize,
+    /// The number of additional records in the Message
+    pub additional_count: usize,
 }
 
-impl Deref for Message {
-    type Target = Header;
+/// Returns a new Header with accurate counts for each Message section
+pub fn update_header_counts(
+    current_header: &Header,
+    is_truncated: bool,
+    counts: HeaderCounts,
+) -> Header {
+    assert!(counts.query_count <= u16::MAX as usize);
+    assert!(counts.answer_count <= u16::MAX as usize);
+    assert!(counts.nameserver_count <= u16::MAX as usize);
+    assert!(counts.additional_count <= u16::MAX as usize);
 
-    fn deref(&self) -> &Self::Target {
-        &self.header
-    }
+    // TODO: should the function just take by value?
+    let mut header = *current_header;
+    header
+        .set_query_count(counts.query_count as u16)
+        .set_answer_count(counts.answer_count as u16)
+        .set_name_server_count(counts.nameserver_count as u16)
+        .set_additional_count(counts.additional_count as u16)
+        .set_truncated(is_truncated);
+
+    header
 }
 
 /// Alias for a function verifying if a message is properly signed
