@@ -929,13 +929,13 @@ pub trait MessageFinalizer: Send + Sync + 'static {
 
 /// Returns the count written and a boolean if it was truncated
 pub fn count_was_truncated(result: ProtoResult<usize>) -> ProtoResult<(usize, bool)> {
-    result.map(|count| (count, false)).or_else(|e| {
-        if let ProtoErrorKind::NotAllRecordsWritten { count } = e.kind() {
-            return Ok((*count, true));
-        }
-
-        Err(e)
-    })
+    match result {
+        Ok(count) => Ok((count, false)),
+        Err(e) => match e.kind() {
+            ProtoErrorKind::NotAllRecordsWritten { count } => Ok((*count, true)),
+            _ => Err(e),
+        },
+    }
 }
 
 /// A trait that defines types which can be emitted as a set, with the associated count returned.
