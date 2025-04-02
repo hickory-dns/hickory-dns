@@ -91,7 +91,7 @@ path = "src/lib.rs"
 [dependencies]
 async-trait.workspace = true
 async-recursion.workspace = true
-backtrace = { version = "0.3.50", optional = true }
+backtrace = { workspace = true, optional = true }
 bytes.workspace = true
 cfg-if.workspace = true
 enum-as-inner.workspace = true

@@ -60,7 +60,7 @@ name = "hickory_resolver"
 path = "src/lib.rs"
 
 [dependencies]
-backtrace = { version = "0.3.50", optional = true }
+backtrace = { workspace = true, optional = true }
 cfg-if.workspace = true
 futures-util = { workspace = true, default-features = false, features = [
     "std",
