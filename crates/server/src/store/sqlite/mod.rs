@@ -136,7 +136,7 @@ impl SqliteAuthority {
                 zone_file_path: config.zone_file_path.clone(),
             };
 
-            let in_memory = FileAuthority::try_from_config(
+            let in_memory = FileAuthority::try_from_config_internal(
                 zone_name.clone(),
                 zone_type,
                 allow_axfr,
@@ -144,6 +144,8 @@ impl SqliteAuthority {
                 &file_config,
                 #[cfg(feature = "__dnssec")]
                 nx_proof_kind,
+                #[cfg(feature = "metrics")]
+                true,
             )?
             .unwrap();
 
