@@ -27,6 +27,8 @@ use std::{
 
 use cfg_if::cfg_if;
 use ipnet::IpNet;
+#[cfg(feature = "metrics")]
+use metrics::{Counter, Unit, counter, describe_counter, describe_gauge, gauge};
 #[cfg(feature = "__tls")]
 use rustls::{
     pki_types::{CertificateDer, PrivateKeyDer, pem::PemObject},
@@ -353,7 +355,11 @@ pub struct ZoneConfig {
 
 impl ZoneConfig {
     #[warn(clippy::wildcard_enum_match_arm)] // make sure all cases are handled despite of non_exhaustive
-    pub async fn load(&self, zone_dir: &Path) -> Result<Vec<Arc<dyn AuthorityObject>>, String> {
+    pub async fn load(
+        &self,
+        zone_dir: &Path,
+        #[allow(unused)] config_metrics: &ConfigMetrics,
+    ) -> Result<Vec<Arc<dyn AuthorityObject>>, String> {
         debug!("loading zone with config: {self:#?}");
 
         let zone_name = self
@@ -409,6 +415,16 @@ impl ZoneConfig {
 
                             #[cfg(feature = "__dnssec")]
                             server_config.load_keys(&mut authority, &zone_name).await?;
+
+                            #[cfg(feature = "metrics")]
+                            {
+                                if matches!(zone_type, ZoneType::Primary) {
+                                    config_metrics.zones_primary_sqlite.increment(1)
+                                } else if matches!(zone_type, ZoneType::Secondary) {
+                                    config_metrics.zones_secondary_sqlite.increment(1)
+                                };
+                            }
+
                             Arc::new(authority)
                         }
 
@@ -426,6 +442,16 @@ impl ZoneConfig {
 
                             #[cfg(feature = "__dnssec")]
                             server_config.load_keys(&mut authority, &zone_name).await?;
+
+                            #[cfg(feature = "metrics")]
+                            {
+                                if matches!(zone_type, ZoneType::Primary) {
+                                    config_metrics.zones_primary_file.increment(1)
+                                } else if matches!(zone_type, ZoneType::Secondary) {
+                                    config_metrics.zones_secondary_file.increment(1)
+                                };
+                            }
+
                             Arc::new(authority)
                         }
                         _ => return empty_stores_error(),
@@ -455,6 +481,9 @@ impl ZoneConfig {
                             let forwarder = ForwardAuthority::builder_tokio(config.clone())
                                 .with_origin(zone_name.clone())
                                 .build()?;
+
+                            #[cfg(feature = "metrics")]
+                            config_metrics.zones_forwarder.increment(1);
 
                             Arc::new(forwarder)
                         }
@@ -837,6 +866,90 @@ mod tests {
                 ));
             }
             Err(e) => panic!("expected successful parse: {e:?}"),
+        }
+    }
+}
+
+#[cfg(not(feature = "metrics"))]
+pub struct ConfigMetrics;
+
+#[cfg(not(feature = "metrics"))]
+impl ConfigMetrics {
+    pub fn new(_config: &Config) -> Self {
+        Self
+    }
+}
+
+#[cfg(feature = "metrics")]
+pub struct ConfigMetrics {
+    #[cfg(feature = "resolver")]
+    zones_forwarder: Counter,
+
+    zones_primary_file: Counter,
+    zones_secondary_file: Counter,
+    #[cfg(feature = "sqlite")]
+    zones_primary_sqlite: Counter,
+    #[cfg(feature = "sqlite")]
+    zones_secondary_sqlite: Counter,
+}
+
+#[cfg(feature = "metrics")]
+impl ConfigMetrics {
+    pub fn new(config: &Config) -> Self {
+        let hickory_info = gauge!("hickory_info", "version" => hickory_client::version());
+        describe_gauge!("hickory_info", Unit::Count, "hickory service metadata");
+        hickory_info.set(1);
+
+        let hickory_config_info = gauge!("hickory_config_info",
+            "directory" => config.directory().to_string_lossy().to_string(),
+            "disable_https" => config.disable_https().to_string(),
+            "disable_quic" => config.disable_quic().to_string(),
+            "disable_tcp" => config.disable_tcp().to_string(),
+            "disable_tls" => config.disable_tls().to_string(),
+            "disable_udp" => config.disable_udp().to_string(),
+            "allow_networks" => config.allow_networks().len().to_string(),
+            "deny_networks" => config.deny_networks().len().to_string(),
+            "zones" => config.zones().len().to_string()
+        );
+        describe_gauge!(
+            "hickory_config_info",
+            Unit::Count,
+            "hickory config metadata"
+        );
+        hickory_config_info.set(1);
+
+        let zones_total_name = "hickory_zones_total";
+        let zones_primary_file = counter!(zones_total_name, "store" => "file", "role" => "primary");
+        let zones_secondary_file =
+            counter!(zones_total_name, "store" => "file", "role" => "secondary");
+
+        describe_counter!(
+            zones_total_name,
+            Unit::Count,
+            "number of dns zones in storages"
+        );
+
+        #[cfg(feature = "resolver")]
+        let zones_forwarder = counter!(zones_total_name, "store" => "forwarder");
+
+        #[cfg(feature = "sqlite")]
+        let (zones_primary_sqlite, zones_secondary_sqlite) = {
+            let zones_primary_sqlite =
+                counter!(zones_total_name, "store" => "sqlite", "role" => "primary");
+            let zones_secondary_sqlite =
+                counter!(zones_total_name, "store" => "sqlite", "role" => "secondary");
+            (zones_primary_sqlite, zones_secondary_sqlite)
+        };
+
+        Self {
+            #[cfg(feature = "resolver")]
+            zones_forwarder,
+            #[cfg(feature = "sqlite")]
+            zones_primary_sqlite,
+            zones_primary_file,
+            #[cfg(feature = "sqlite")]
+            zones_secondary_sqlite,
+            zones_secondary_file,
         }
     }
 }
