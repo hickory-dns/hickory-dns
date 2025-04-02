@@ -51,6 +51,10 @@ mod request_handler;
 pub use request_handler::{Request, RequestHandler, RequestInfo, ResponseInfo};
 mod response_handler;
 pub use response_handler::{ResponseHandle, ResponseHandler};
+#[cfg(feature = "metrics")]
+mod metrics;
+#[cfg(feature = "metrics")]
+use metrics::ResponseHandlerMetrics;
 mod timeout_stream;
 pub use timeout_stream::TimeoutStream;
 
@@ -848,6 +852,8 @@ struct ReportingResponseHandler<R: ResponseHandler> {
     protocol: Protocol,
     src_addr: SocketAddr,
     handler: R,
+    #[cfg(feature = "metrics")]
+    metrics: ResponseHandlerMetrics,
 }
 
 #[async_trait::async_trait]
@@ -902,7 +908,28 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
             );
         }
 
+        #[cfg(feature = "metrics")]
+        self.metrics.update(self, &response_info);
+
         Ok(response_info)
+    }
+}
+
+#[cfg(feature = "metrics")]
+impl ResponseHandlerMetrics {
+    fn update(
+        &self,
+        response_handler: &ReportingResponseHandler<impl ResponseHandler>,
+        response_info: &ResponseInfo,
+    ) {
+        self.proto.increment(&response_handler.protocol);
+        self.operation
+            .increment(&response_handler.request_header.op_code());
+        self.request_flags
+            .increment(&response_handler.request_header);
+
+        self.response_code.increment(&response_info.response_code());
+        self.response_flags.increment(response_info);
     }
 }
 
@@ -960,6 +987,8 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
             protocol,
             src_addr,
             handler: response_handler,
+            #[cfg(feature = "metrics")]
+            metrics: ResponseHandlerMetrics::default(),
         };
 
         request_handler.handle_request(&request, reporter).await;
@@ -993,6 +1022,8 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
             protocol,
             src_addr,
             handler: response_handler,
+            #[cfg(feature = "metrics")]
+            metrics: ResponseHandlerMetrics::default(),
         };
 
         let queries = Queries::empty();
