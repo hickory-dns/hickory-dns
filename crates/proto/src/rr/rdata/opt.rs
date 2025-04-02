@@ -374,7 +374,7 @@ pub enum EdnsCode {
     /// [RFC 6891, Reserved](https://tools.ietf.org/html/rfc6891)
     Zero,
 
-    /// [RFC 8764l, Apple's Long-Lived Queries, Optional](https://tools.ietf.org/html/rfc8764)
+    /// [RFC 8764, Apple's Long-Lived Queries, Optional](https://tools.ietf.org/html/rfc8764)
     LLQ,
 
     /// [UL On-hold](https://files.dns-sd.org/draft-sekar-dns-ul.txt)

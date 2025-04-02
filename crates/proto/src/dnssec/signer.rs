@@ -342,8 +342,6 @@ impl SigSigner {
     // TODO: move this to DNSKEY/KEY?
     /// The key tag is calculated as a hash to more quickly lookup a DNSKEY.
     ///
-    /// [RFC 1035](https://tools.ietf.org/html/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
-    ///
     /// ```text
     /// RFC 2535                DNS Security Extensions               March 1999
     ///

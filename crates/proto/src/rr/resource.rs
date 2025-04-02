@@ -577,7 +577,7 @@ impl<R: RecordData> fmt::Display for Record<R> {
 }
 
 impl<R: RecordData> PartialEq for Record<R> {
-    /// Equality or records, as defined by
+    /// Equality of records, as defined by
     ///  [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
     ///
     /// ```text

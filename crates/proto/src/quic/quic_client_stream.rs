@@ -82,39 +82,86 @@ impl DnsRequestSender for QuicClientStream {
     /// It should be closed after receiving the response. TODO: AXFR/IXFR support...
     ///
     /// ```text
-    /// 5.2. Stream Mapping and Usage
+    /// RFC 9250    DNS over Dedicated QUIC Connections
     ///
-    /// The mapping of DNS traffic over QUIC streams takes advantage of the QUIC stream features detailed in Section 2 of [RFC9000],
-    /// the QUIC transport specification.
+    /// 4.2.  Stream Mapping and Usage
     ///
-    /// DNS traffic follows a simple pattern in which the client sends a query, and the server provides one or more responses
-    /// (multiple responses can occur in zone transfers).The mapping specified here requires that the client selects a separate
-    /// QUIC stream for each query. The server then uses the same stream to provide all the response messages for that query. In
-    /// order that multiple responses can be parsed, a 2-octet length field is used in exactly the same way as the 2-octet length
-    /// field defined for DNS over TCP [RFC1035]. The practical result of this is that the content of each QUIC stream is exactly
-    /// the same as the content of a TCP connection that would manage exactly one query.All DNS messages (queries and responses)
-    /// sent over DoQ connections MUST be encoded as a 2-octet length field followed by the message content as specified in [RFC1035].
-    /// The client MUST select the next available client-initiated bidirectional stream for each subsequent query on a QUIC connection,
-    /// in conformance with the QUIC transport specification [RFC9000].The client MUST send the DNS query over the selected stream,
-    /// and MUST indicate through the STREAM FIN mechanism that no further data will be sent on that stream.The server MUST send the
-    /// response(s) on the same stream and MUST indicate, after the last response, through the STREAM FIN mechanism that no further
-    /// data will be sent on that stream.Therefore, a single DNS transaction consumes a single bidirectional client-initiated stream.
-    /// This means that the client's first query occurs on QUIC stream 0, the second on 4, and so on (see Section 2.1 of [RFC9000].
-    /// Servers MAY defer processing of a query until the STREAM FIN has been indicated on the stream selected by the client. Servers
-    /// and clients MAY monitor the number of "dangling" streams for which the expected queries or responses have been received but
-    /// not the STREAM FIN. Implementations MAY impose a limit on the number of such dangling streams. If limits are encountered,
-    /// implementations MAY close the connection.
+    ///    The mapping of DNS traffic over QUIC streams takes advantage of the
+    ///    QUIC stream features detailed in Section 2 of [RFC9000], the QUIC
+    ///    transport specification.
     ///
-    /// 5.2.1. DNS Message IDs
+    ///    DNS query/response traffic [RFC1034] [RFC1035] follows a simple
+    ///    pattern in which the client sends a query, and the server provides
+    ///    one or more responses (multiple responses can occur in zone
+    ///    transfers).
     ///
-    /// When sending queries over a QUIC connection, the DNS Message ID MUST be set to zero. The stream mapping for DoQ allows for
-    /// unambiguous correlation of queries and responses and so the Message ID field is not required.
+    ///    The mapping specified here requires that the client select a separate
+    ///    QUIC stream for each query.  The server then uses the same stream to
+    ///    provide all the response messages for that query.  In order for
+    ///    multiple responses to be parsed, a 2-octet length field is used in
+    ///    exactly the same way as the 2-octet length field defined for DNS over
+    ///    TCP [RFC1035].  The practical result of this is that the content of
+    ///    each QUIC stream is exactly the same as the content of a TCP
+    ///    connection that would manage exactly one query.
     ///
-    /// This has implications for proxying DoQ message to and from other transports. For example, proxies may have to manage the
-    /// fact that DoQ can support a larger number of outstanding queries on a single connection than e.g., DNS over TCP because DoQ
-    /// is not limited by the Message ID space. This issue already exists for DoH, where a Message ID of 0 is recommended.When forwarding
-    /// a DNS message from DoQ over another transport, a DNS Message ID MUST be generated according to the rules of the protocol that is
-    /// in use. When forwarding a DNS message from another transport over DoQ, the Message ID MUST be set to zero.
+    ///    All DNS messages (queries and responses) sent over DoQ connections
+    ///    MUST be encoded as a 2-octet length field followed by the message
+    ///    content as specified in [RFC1035].
+    ///
+    ///    The client MUST select the next available client-initiated
+    ///    bidirectional stream for each subsequent query on a QUIC connection,
+    ///    in conformance with the QUIC transport specification [RFC9000].
+    ///    Packet losses and other network events might cause queries to arrive
+    ///    in a different order.  Servers SHOULD process queries as they arrive,
+    ///    as not doing so would cause unnecessary delays.
+    ///
+    ///    The client MUST send the DNS query over the selected stream and MUST
+    ///    indicate through the STREAM FIN mechanism that no further data will
+    ///    be sent on that stream.
+    ///
+    ///    The server MUST send the response(s) on the same stream and MUST
+    ///    indicate, after the last response, through the STREAM FIN mechanism
+    ///    that no further data will be sent on that stream.
+    ///
+    ///    Therefore, a single DNS transaction consumes a single bidirectional
+    ///    client-initiated stream.  This means that the client's first query
+    ///    occurs on QUIC stream 0, the second on 4, and so on (see Section 2.1
+    ///    of [RFC9000]).
+    ///
+    ///    Servers MAY defer processing of a query until the STREAM FIN has been
+    ///    indicated on the stream selected by the client.
+    ///
+    ///    Servers and clients MAY monitor the number of "dangling" streams.
+    ///    These are open streams where the following events have not occurred
+    ///    after implementation-defined timeouts:
+    ///
+    ///    *  the expected queries or responses have not been received or,
+    ///
+    ///    *  the expected queries or responses have been received but not the
+    ///       STREAM FIN
+    ///
+    ///    Implementations MAY impose a limit on the number of such dangling
+    ///    streams.  If limits are encountered, implementations MAY close the
+    ///    connection.
+    ///
+    /// 4.2.1.  DNS Message IDs
+    ///
+    ///    When sending queries over a QUIC connection, the DNS Message ID MUST
+    ///    be set to 0.  The stream mapping for DoQ allows for unambiguous
+    ///    correlation of queries and responses, so the Message ID field is not
+    ///    required.
+    ///
+    ///    This has implications for proxying DoQ messages to and from other
+    ///    transports.  For example, proxies may have to manage the fact that
+    ///    DoQ can support a larger number of outstanding queries on a single
+    ///    connection than, for example, DNS over TCP, because DoQ is not
+    ///    limited by the Message ID space.  This issue already exists for DoH,
+    ///    where a Message ID of 0 is recommended.
+    ///
+    ///    When forwarding a DNS message from DoQ over another transport, a DNS
+    ///    Message ID MUST be generated according to the rules of the protocol
+    ///    that is in use.  When forwarding a DNS message from another transport
+    ///    over DoQ, the Message ID MUST be set to 0.
     /// ```
     fn send_message(&mut self, request: DnsRequest) -> DnsResponseStream {
         if self.is_shutdown {

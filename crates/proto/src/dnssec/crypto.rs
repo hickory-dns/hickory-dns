@@ -261,13 +261,12 @@ pub struct Ed25519<'k> {
 
 impl<'k> Ed25519<'k> {
     /// ```text
-    ///  Internet-Draft              EdDSA for DNSSEC               December 2016
+    /// RFC 8080                    EdDSA for DNSSEC               February 2017
     ///
     ///  An Ed25519 public key consists of a 32-octet value, which is encoded
     ///  into the Public Key field of a DNSKEY resource record as a simple bit
     ///  string.  The generation of a public key is defined in Section 5.1.5
-    ///  in [RFC 8032]. Breaking tradition, the keys are encoded in little-
-    ///  endian byte order.
+    ///  of [RFC8032].
     /// ```
     pub fn from_public_bytes(public_key: Cow<'k, [u8]>) -> ProtoResult<Self> {
         if public_key.len() != ED25519_PUBLIC_KEY_LEN {

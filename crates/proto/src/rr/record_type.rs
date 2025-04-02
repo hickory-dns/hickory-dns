@@ -65,7 +65,7 @@ pub enum RecordType {
     /// [RFC 1035](https://tools.ietf.org/html/rfc1035) host information
     HINFO,
     //  HIP,        // 55 RFC 5205 Host Identity Protocol
-    /// [RFC draft-ietf-dnsop-svcb-https-03](https://tools.ietf.org/html/draft-ietf-dnsop-svcb-httpssvc-03) DNS SVCB and HTTPS RRs
+    /// [RFC 9460](https://tools.ietf.org/html/rfc9460) DNS SVCB and HTTPS RRs
     HTTPS,
     //  IPSECKEY,   // 45 RFC 4025 IPsec Key
     /// [RFC 1996](https://tools.ietf.org/html/rfc1996) Incremental Zone Transfer
@@ -105,7 +105,7 @@ pub enum RecordType {
     SRV,
     /// [RFC 4255](https://tools.ietf.org/html/rfc4255) SSH Public Key Fingerprint
     SSHFP,
-    /// [RFC draft-ietf-dnsop-svcb-https-03](https://tools.ietf.org/html/draft-ietf-dnsop-svcb-httpssvc-03) DNS SVCB and HTTPS RRs
+    /// [RFC 9460](https://tools.ietf.org/html/rfc9460) DNS SVCB and HTTPS RRs
     SVCB,
     //  TA,         // 32768 N/A DNSSEC Trust Authorities
     //  TKEY,       // 249 RFC 2930 Secret key record
