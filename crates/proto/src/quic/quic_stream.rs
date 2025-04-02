@@ -16,36 +16,44 @@ use crate::{
 };
 
 /// ```text
-/// 5.1. Connection Establishment
+/// 4.1. Connection Establishment
 ///
-/// DoQ connections are established as described in the QUIC transport specification [RFC9000]. During connection establishment,
-/// DoQ support is indicated by selecting the ALPN token "doq" in the crypto handshake.
+/// DoQ connections are established as described in the QUIC transport
+/// specification [RFC9000].  During connection establishment, DoQ
+/// support is indicated by selecting the Application-Layer Protocol
+/// Negotiation (ALPN) token "doq" in the crypto handshake.
 /// ```
 pub(crate) const DOQ_ALPN: &[u8] = b"doq";
 
-/// [DoQ Error Codes](https://www.ietf.org/archive/id/draft-ietf-dprive-dnsoquic-10.html#name-doq-error-codes), draft-ietf-dprive-dnsoquic, Feb. 28, 2022
+/// [RFC 9250](https://www.rfc-editor.org/rfc/rfc9250.html#name-doq-error-codes)
 /// ```text
-///  5.3. DoQ Error Codes
+/// 4.3.  DoQ Error Codes
 ///
-/// The following error codes are defined for use when abruptly terminating streams, aborting reading of streams, or immediately closing connections:
+///    The following error codes are defined for use when abruptly
+///    terminating streams, for use as application protocol error codes when
+///    aborting reading of streams, or for immediately closing connections:
 ///
-/// DOQ_NO_ERROR (0x0):
-///     No error. This is used when the connection or stream needs to be closed, but there is no error to signal.
+///    DOQ_NO_ERROR (0x0):  No error.  This is used when the connection or
+///       stream needs to be closed, but there is no error to signal.
 ///
-/// DOQ_INTERNAL_ERROR (0x1):
-///     The DoQ implementation encountered an internal error and is incapable of pursuing the transaction or the connection.
+///    DOQ_INTERNAL_ERROR (0x1):  The DoQ implementation encountered an
+///       internal error and is incapable of pursuing the transaction or the
+///       connection.
 ///
-/// DOQ_PROTOCOL_ERROR (0x2):
-///     The DoQ implementation encountered an protocol error and is forcibly aborting the connection.
+///    DOQ_PROTOCOL_ERROR (0x2):  The DoQ implementation encountered a
+///       protocol error and is forcibly aborting the connection.
 ///
-/// DOQ_REQUEST_CANCELLED (0x3):
-///     A DoQ client uses this to signal that it wants to cancel an outstanding transaction.
+///    DOQ_REQUEST_CANCELLED (0x3):  A DoQ client uses this to signal that
+///       it wants to cancel an outstanding transaction.
 ///
-/// DOQ_EXCESSIVE_LOAD (0x4):
-///     A DoQ implementation uses this to signal when closing a connection due to excessive load.
+///    DOQ_EXCESSIVE_LOAD (0x4):  A DoQ implementation uses this to signal
+///       when closing a connection due to excessive load.
 ///
-/// DOQ_ERROR_RESERVED (0xd098ea5e):
-///     Alternative error code used for tests.
+///    DOQ_UNSPECIFIED_ERROR (0x5):  A DoQ implementation uses this in the
+///       absence of a more specific error code.
+///
+///    DOQ_ERROR_RESERVED (0xd098ea5e):  An alternative error code used for
+///       tests.
 /// ```
 #[derive(Clone, Copy)]
 pub enum DoqErrorCode {
@@ -53,13 +61,13 @@ pub enum DoqErrorCode {
     NoError,
     /// The DoQ implementation encountered an internal error and is incapable of pursuing the transaction or the connection.
     InternalError,
-    /// The DoQ implementation encountered an protocol error and is forcibly aborting the connection.
+    /// The DoQ implementation encountered a protocol error and is forcibly aborting the connection.
     ProtocolError,
     /// A DoQ client uses this to signal that it wants to cancel an outstanding transaction.
     RequestCancelled,
     /// A DoQ implementation uses this to signal when closing a connection due to excessive load.
     ExcessiveLoad,
-    /// Alternative error code used for tests.
+    /// An alternative error code used for tests.
     ErrorReserved,
     /// Unknown Error code
     Unknown(u32),
@@ -125,8 +133,10 @@ impl QuicStream {
 
     /// Send the DNS message to the other side
     pub async fn send(&mut self, mut message: Message) -> Result<(), ProtoError> {
-        // RFC: When sending queries over a QUIC connection, the DNS Message ID MUST be set to zero. The stream mapping for DoQ allows for
-        // unambiguous correlation of queries and responses and so the Message ID field is not required.
+        // RFC: When sending queries over a QUIC connection, the DNS Message ID MUST be set to 0.
+        // The stream mapping for DoQ allows for unambiguous correlation of queries and responses,
+        // so the Message ID field is not required.
+
         message.set_id(0);
 
         let bytes = Bytes::from(message.to_vec()?);
@@ -136,10 +146,13 @@ impl QuicStream {
 
     /// Send pre-encoded bytes, warning, QUIC requires the message id to be 0.
     pub async fn send_bytes(&mut self, bytes: Bytes) -> Result<(), ProtoError> {
-        // In order that multiple responses can be parsed, a 2-octet length field is used in exactly the same way as the 2-octet length
-        // field defined for DNS over TCP [RFC1035]. The practical result of this is that the content of each QUIC stream is exactly
-        // the same as the content of a TCP connection that would manage exactly one query.All DNS messages (queries and responses)
-        // sent over DoQ connections MUST be encoded as a 2-octet length field followed by the message content as specified in [RFC1035].
+        // In order for multiple responses to be parsed, a 2-octet length field is used in exactly
+        // the same way as the 2-octet length field defined for DNS over TCP [RFC1035].  The
+        // practical result of this is that the content of each QUIC stream is exactly the same as
+        // the content of a TCP connection that would manage exactly one query.
+        //
+        // All DNS messages (queries and responses) sent over DoQ connections MUST be encoded as a
+        // 2-octet length field followed by the message content as specified in [RFC1035].
         let bytes_len = u16::try_from(bytes.len())
             .map_err(|_e| ProtoErrorKind::MaxBufferSizeExceeded(bytes.len()))?;
         let len = bytes_len.to_be_bytes().to_vec();
@@ -180,10 +193,11 @@ impl QuicStream {
         self.receive_stream.read_exact(&mut len).await?;
         let len = u16::from_be_bytes(len) as usize;
 
-        // RFC: DoQ Queries and Responses are sent on QUIC streams, which in theory can carry up to 2^62 bytes.
-        //  However, DNS messages are restricted in practice to a maximum size of 65535 bytes. This maximum size
-        //  is enforced by the use of a two-octet message length field in DNS over TCP [RFC1035] and DNS over TLS [RFC7858],
-        //  and by the definition of the "application/dns-message" for DNS over HTTP [RFC8484]. DoQ enforces the same restriction.
+        // RFC: DoQ queries and responses are sent on QUIC streams, which in theory can carry up to
+        // 2^62 bytes.  However, DNS messages are restricted in practice to a maximum size of 65535
+        // bytes.  This maximum size is enforced by the use of a 2-octet message length field in DNS
+        // over TCP [RFC1035] and DoT [RFC7858], and by the definition of the
+        // "application/dns-message" for DoH [RFC8484].  DoQ enforces the same restriction.
         let mut bytes = BytesMut::with_capacity(len);
         bytes.resize(len, 0);
         if let Err(e) = self.receive_stream.read_exact(&mut bytes[..len]).await {

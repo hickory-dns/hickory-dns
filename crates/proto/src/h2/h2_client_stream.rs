@@ -194,46 +194,50 @@ impl DnsRequestSender for HttpsClientStream {
     ///   this will have no date.
     ///
     /// ```text
-    /// 5.2.  The HTTP Response
+    /// RFC 8484              DNS Queries over HTTPS (DoH)          October 2018
     ///
-    ///    An HTTP response with a 2xx status code ([RFC7231] Section 6.3)
-    ///    indicates a valid DNS response to the query made in the HTTP request.
-    ///    A valid DNS response includes both success and failure responses.
-    ///    For example, a DNS failure response such as SERVFAIL or NXDOMAIN will
-    ///    be the message in a successful 2xx HTTP response even though there
-    ///    was a failure at the DNS layer.  Responses with non-successful HTTP
-    ///    status codes do not contain DNS answers to the question in the
-    ///    corresponding request.  Some of these non-successful HTTP responses
-    ///    (e.g., redirects or authentication failures) could mean that clients
-    ///    need to make new requests to satisfy the original question.
     ///
-    ///    Different response media types will provide more or less information
-    ///    from a DNS response.  For example, one response type might include
-    ///    the information from the DNS header bytes while another might omit
-    ///    it.  The amount and type of information that a media type gives is
-    ///    solely up to the format, and not defined in this protocol.
+    /// 4.2.  The HTTP Response
     ///
     ///    The only response type defined in this document is "application/dns-
     ///    message", but it is possible that other response formats will be
-    ///    defined in the future.
+    ///    defined in the future.  A DoH server MUST be able to process
+    ///    "application/dns-message" request messages.
     ///
-    ///    The DNS response for "application/dns-message" in Section 7 MAY have
-    ///    one or more EDNS options [RFC6891], depending on the extension
-    ///    definition of the extensions given in the DNS request.
+    ///    Different response media types will provide more or less information
+    ///    from a DNS response.  For example, one response type might include
+    ///    information from the DNS header bytes while another might omit it.
+    ///    The amount and type of information that a media type gives are solely
+    ///    up to the format, which is not defined in this protocol.
     ///
-    ///    Each DNS request-response pair is matched to one HTTP exchange.  The
+    ///    Each DNS request-response pair is mapped to one HTTP exchange.  The
     ///    responses may be processed and transported in any order using HTTP's
-    ///    multi-streaming functionality ([RFC7540] Section 5).
+    ///    multi-streaming functionality (see Section 5 of [RFC7540]).
     ///
-    ///    Section 6.1 discusses the relationship between DNS and HTTP response
+    ///    Section 5.1 discusses the relationship between DNS and HTTP response
     ///    caching.
     ///
-    ///    A DNS API server MUST be able to process application/dns-message
-    ///    request messages.
+    /// 4.2.1.  Handling DNS and HTTP Errors
     ///
-    ///    A DNS API server SHOULD respond with HTTP status code 415
-    ///    (Unsupported Media Type) upon receiving a media type it is unable to
-    ///    process.
+    ///    DNS response codes indicate either success or failure for the DNS
+    ///    query.  A successful HTTP response with a 2xx status code (see
+    ///    Section 6.3 of [RFC7231]) is used for any valid DNS response,
+    ///    regardless of the DNS response code.  For example, a successful 2xx
+    ///    HTTP status code is used even with a DNS message whose DNS response
+    ///    code indicates failure, such as SERVFAIL or NXDOMAIN.
+    ///
+    ///    HTTP responses with non-successful HTTP status codes do not contain
+    ///    replies to the original DNS question in the HTTP request.  DoH
+    ///    clients need to use the same semantic processing of non-successful
+    ///    HTTP status codes as other HTTP clients.  This might mean that the
+    ///    DoH client retries the query with the same DoH server, such as if
+    ///    there are authorization failures (HTTP status code 401; see
+    ///    Section 3.1 of [RFC7235]).  It could also mean that the DoH client
+    ///    retries with a different DoH server, such as for unsupported media
+    ///    types (HTTP status code 415; see Section 6.5.13 of [RFC7231]), or
+    ///    where the server cannot generate a representation suitable for the
+    ///    client (HTTP status code 406; see Section 6.5.6 of [RFC7231]), and so
+    ///    on.
     /// ```
     fn send_message(&mut self, mut request: DnsRequest) -> DnsResponseStream {
         if self.is_shutdown {

@@ -209,7 +209,7 @@ impl Ord for LowerName {
     /// ```text
     /// RFC 4034                DNSSEC Resource Records               March 2005
     ///
-    /// 6.1.  Canonical DNS LowerName Order
+    /// 6.1.  Canonical DNS Name Order
     ///
     ///  For the purposes of DNS security, owner names are ordered by treating
     ///  individual labels as unsigned left-justified octet strings.  The

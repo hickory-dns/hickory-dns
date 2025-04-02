@@ -20,11 +20,12 @@ use crate::http::error::Result;
 /// Create a new Request for an http dns-message request
 ///
 /// ```text
-/// https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-10#section-5.1
+/// RFC 8484              DNS Queries over HTTPS (DoH)          October 2018
+///
 /// The URI Template defined in this document is processed without any
-/// variables when the HTTP method is POST.  When the HTTP method is GET
+/// variables when the HTTP method is POST.  When the HTTP method is GET,
 /// the single variable "dns" is defined as the content of the DNS
-/// request (as described in Section 7), encoded with base64url
+/// request (as described in Section 6), encoded with base64url
 /// [RFC4648].
 /// ```
 #[allow(clippy::field_reassign_with_default)] // https://github.com/rust-lang/rust-clippy/issues/6527

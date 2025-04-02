@@ -132,7 +132,7 @@ pub enum Algorithm {
     ECDSAP256SHA256,
     /// [rfc6605](https://tools.ietf.org/html/rfc6605)
     ECDSAP384SHA384,
-    /// [draft-ietf-curdle-dnskey-eddsa-03](https://tools.ietf.org/html/draft-ietf-curdle-dnskey-eddsa-03)
+    /// [RFC 8080](https://datatracker.ietf.org/doc/html/rfc8080)
     ED25519,
     /// An unknown algorithm identifier
     Unknown(u8),

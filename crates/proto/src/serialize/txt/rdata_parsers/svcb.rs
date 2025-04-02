@@ -188,7 +188,7 @@ fn parse_mandatory(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
 ///
 /// ```text
 ///   ALPNs are identified by their registered "Identification Sequence"
-///   ("alpn-id"), which is a sequence of 1-255 octets.
+///   (alpn-id), which is a sequence of 1-255 octets.
 ///
 ///   alpn-id = 1*255OCTET
 ///

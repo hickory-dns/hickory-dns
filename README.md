@@ -63,7 +63,7 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 - [RFC 6761](https://tools.ietf.org/html/rfc6761): Special-Use Domain Names (resolver)
 - [RFC 6762](https://tools.ietf.org/html/rfc6762): mDNS Multicast DNS (experimental feature: `mdns`)
 - [RFC 6763](https://tools.ietf.org/html/rfc6763): DNS-SD Service Discovery (experimental feature: `mdns`)
-- [RFC ANAME](https://tools.ietf.org/html/draft-ietf-dnsop-aname-02): Address-specific DNS aliases (`ANAME`)
+- [draft-ietf-dnsop-aname](https://tools.ietf.org/html/draft-ietf-dnsop-aname-04): Address-specific DNS aliases (`ANAME`)
 
 ### Update operations
 
@@ -86,7 +86,7 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 - [RFC 6944](https://tools.ietf.org/html/rfc6944): DNSKEY Algorithm Implementation Status
 - [RFC 6975](https://tools.ietf.org/html/rfc6975): Signaling Cryptographic Algorithm Understanding
 - [RFC 7858](https://tools.ietf.org/html/rfc7858): DNS over TLS (feature: `dns-over-rustls`, `dns-over-native-tls`, or `dns-over-openssl`)
-- [RFC DoH](https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-14): DNS over HTTPS, DoH (feature: `dns-over-https-rustls`)
+- [RFC 8484](https://tools.ietf.org/html/rfc8484): DNS over HTTPS, DoH (feature: `dns-over-https-rustls`)
 
 ## RFCs in progress or not yet implemented
 
@@ -99,12 +99,12 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 - [RFC 1995](https://tools.ietf.org/html/rfc1995): Incremental Zone Transfer
 - [RFC 1996](https://tools.ietf.org/html/rfc1996): Notify secondaries of update
 - [Update Leases](https://tools.ietf.org/html/draft-sekar-dns-ul-01): Dynamic DNS Update Leases
-- [Long-Lived Queries](https://tools.ietf.org/html/draft-sekar-dns-llq-01): Notify with bells
+- [RFC 8764](https://tools.ietf.org/html/rfc8764): Notify with bells
 
 ### Secure DNS operations
 
 - [DNSCrypt](https://dnscrypt.org): Trusted DNS queries
-- [S/MIME](https://tools.ietf.org/html/draft-ietf-dane-smime-09): Domain Names For S/MIME
+- [RFC 8162](https://tools.ietf.org/html/rfc8162): Domain Names For S/MIME
 
 ## Minimum Rust Version
 

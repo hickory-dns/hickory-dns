@@ -238,24 +238,21 @@ pub enum RData {
     /// `HINFO` is also used by [RFC 8482](https://tools.ietf.org/html/rfc8482)
     HINFO(HINFO),
 
-    /// [RFC draft-ietf-dnsop-svcb-https-03, DNS SVCB and HTTPS RRs](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-8)
+    /// [RFC 9460, SVCB and HTTPS RRs](https://datatracker.ietf.org/doc/html/rfc9460#section-9)
     ///
     /// ```text
-    ///    8.  Using SVCB with HTTPS and HTTP
+    /// 9.  Using Service Bindings with HTTP
     ///
-    ///    Use of any protocol with SVCB requires a protocol-specific mapping
-    ///    specification.  This section specifies the mapping for HTTPS and
-    ///    HTTP.
+    ///    The use of any protocol with SVCB requires a protocol-specific
+    ///    mapping specification.  This section specifies the mapping for the
+    ///    "http" and "https" URI schemes [HTTP].
     ///
-    ///    To enable special handling for the HTTPS and HTTP use-cases, the
-    ///    HTTPS RR type is defined as a SVCB-compatible RR type, specific to
-    ///    the https and http schemes.  Clients MUST NOT perform SVCB queries or
-    ///    accept SVCB responses for "https" or "http" schemes.
+    ///    To enable special handling for HTTP use cases, the HTTPS RR type is
+    ///    defined as a SVCB-compatible RR type, specific to the "https" and
+    ///    "http" schemes.  Clients MUST NOT perform SVCB queries or accept SVCB
+    ///    responses for "https" or "http" schemes.
     ///
-    ///    The HTTPS RR wire format and presentation format are identical to
-    ///    SVCB, and both share the SvcParamKey registry.  SVCB semantics apply
-    ///    equally to HTTPS RRs unless specified otherwise.  The presentation
-    ///    format of the record is:
+    ///    The presentation format of the record is:
     ///
     ///    Name TTL IN HTTPS SvcPriority TargetName SvcParams
     /// ```
@@ -465,8 +462,8 @@ pub enum RData {
     ///        +------------+--------------+------------------------------+
     ///
     /// The variable part of an OPT RR may contain zero or more options in
-    ///    the RDATA.  Each option MUST be treated as a bit field.  Each option
-    ///    is encoded as:
+    /// the RDATA.  Each option MUST be treated as a bit field.  Each option
+    /// is encoded as:
     ///
     ///                   +0 (MSB)                            +1 (LSB)
     ///        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
@@ -640,28 +637,29 @@ pub enum RData {
     /// [RFC 7479](https://tools.ietf.org/html/rfc7479).
     SSHFP(SSHFP),
 
-    /// [RFC draft-ietf-dnsop-svcb-https-03, DNS SVCB and HTTPS RRs](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-2)
+    /// [RFC 9460, SVCB and HTTPS RRs](https://datatracker.ietf.org/doc/html/rfc9460#section-2)
     ///
     /// ```text
-    ///    2.  The SVCB record type
+    /// 2.  The SVCB Record Type
     ///
-    ///   The SVCB DNS resource record (RR) type (RR type 64) is used to locate
-    ///   alternative endpoints for a service.
+    ///    The SVCB DNS RR type (RR type 64) is used to locate alternative
+    ///    endpoints for a service.
     ///
-    ///   The algorithm for resolving SVCB records and associated address
-    ///   records is specified in Section 3.
+    ///    The algorithm for resolving SVCB records and associated address
+    ///    records is specified in Section 3.
     ///
-    ///   Other SVCB-compatible resource record types can also be defined as-
-    ///   needed.  In particular, the HTTPS RR (RR type 65) provides special
-    ///   handling for the case of "https" origins as described in Section 8.
+    ///    Other SVCB-compatible RR types can also be defined as needed (see
+    ///    Section 6).  In particular, the HTTPS RR (RR type 65) provides
+    ///    special handling for the case of "https" origins as described in
+    ///    Section 9.
     ///
-    ///   SVCB RRs are extensible by a list of SvcParams, which are pairs
-    ///   consisting of a SvcParamKey and a SvcParamValue.  Each SvcParamKey
-    ///   has a presentation name and a registered number.  Values are in a
-    ///   format specific to the SvcParamKey.  Their definition should specify
-    ///   both their presentation format and wire encoding (e.g., domain names,
-    ///   binary data, or numeric values).  The initial SvcParamKeys and
-    ///   formats are defined in Section 6.
+    ///    SVCB RRs are extensible by a list of SvcParams, which are pairs
+    ///    consisting of a SvcParamKey and a SvcParamValue.  Each SvcParamKey
+    ///    has a presentation name and a registered number.  Values are in a
+    ///    format specific to the SvcParamKey.  Each SvcParam has a specified
+    ///    presentation format (used in zone files) and wire encoding (e.g.,
+    ///    domain names, binary data, or numeric values).  The initial
+    ///    SvcParamKeys and their formats are defined in Section 7.
     /// ```
     SVCB(SVCB),
 
@@ -926,7 +924,7 @@ impl BinEncodable for RData {
     /// ```
     ///
     /// Canonical name form for all non-1035 records:
-    ///   [RFC 3579](https://tools.ietf.org/html/rfc3597)
+    ///   [RFC 3597](https://tools.ietf.org/html/rfc3597)
     /// ```text
     ///  4.  Domain Name Compression
     ///
