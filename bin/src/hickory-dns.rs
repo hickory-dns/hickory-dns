@@ -24,6 +24,8 @@
 
 #![recursion_limit = "128"]
 
+#[cfg(feature = "metrics")]
+use std::time::Duration;
 use std::{
     fmt,
     io::Error,
@@ -32,12 +34,18 @@ use std::{
 };
 
 use clap::Parser;
+#[cfg(feature = "metrics")]
+use metrics::{Counter, Unit, counter, describe_counter, describe_gauge, gauge};
 #[cfg(feature = "prometheus-metrics")]
 use metrics_exporter_prometheus::PrometheusBuilder;
+#[cfg(feature = "metrics")]
+use metrics_process::Collector;
 use socket2::{Domain, Socket, Type};
 use time::OffsetDateTime;
 #[cfg(unix)]
 use tokio::signal::unix::{SignalKind, signal};
+#[cfg(feature = "metrics")]
+use tokio::time::sleep;
 use tokio::{
     net::{TcpListener, UdpSocket},
     runtime,
@@ -56,6 +64,8 @@ use tracing_subscriber::{
 use hickory_dns::Config;
 #[cfg(feature = "__tls")]
 use hickory_dns::TlsCertConfig;
+#[cfg(feature = "metrics")]
+use hickory_dns::{ExternalStoreConfig, ServerStoreConfig, ZoneConfig, ZoneTypeConfig};
 use hickory_server::{authority::Catalog, server::ServerFuture};
 
 /// Cli struct for all options managed with clap derive api.
@@ -229,7 +239,7 @@ async fn async_run(args: Cli) -> Result<(), String> {
 
     #[cfg(feature = "prometheus-metrics")]
     if !args.disable_prometheus && !config.disable_prometheus() {
-        let socket = args
+        let mut socket = args
             .prometheus_listen_addr
             .unwrap_or(config.prometheus_listen_addr());
 
@@ -246,6 +256,25 @@ async fn async_run(args: Cli) -> Result<(), String> {
         info!("Prometheus metrics are disabled");
     }
 
+    #[cfg(feature = "metrics")]
+    let (process_metrics_collector, config_metrics) = {
+        // setup process metrics (cpu, memory, ...) collection
+        let collector = Collector::default();
+        collector.describe(); // add metric descriptions
+
+        let process_metrics_collector = tokio::spawn(async move {
+            loop {
+                sleep(Duration::from_millis(1000)).await;
+                collector.collect();
+            }
+        });
+
+        // metrics need to be created after the recorder is registered
+        // calling increment() after registration is not sufficient
+        let config_metrics = ConfigMetrics::new(&config);
+        (process_metrics_collector, config_metrics)
+    };
+
     #[cfg(unix)]
     let mut signal = signal(SignalKind::terminate())
         .map_err(|e| format!("failed to register signal handler: {e}"))?;
@@ -261,6 +290,9 @@ async fn async_run(args: Cli) -> Result<(), String> {
             Ok(authority) => catalog.upsert(zone_name.into(), authority),
             Err(err) => return Err(format!("could not load zone {zone_name}: {err}")),
         }
+
+        #[cfg(feature = "metrics")]
+        config_metrics.increment_zone_metrics(zone);
     }
 
     let v4addr = config
@@ -405,6 +437,8 @@ async fn async_run(args: Cli) -> Result<(), String> {
         tokio::spawn(async move {
             signal.recv().await;
             token.cancel();
+            #[cfg(feature = "metrics")]
+            process_metrics_collector.abort()
         });
     }
 
@@ -651,6 +685,115 @@ where
         ctx.field_format().format_fields(writer.by_ref(), event)?;
 
         writeln!(writer)
+    }
+}
+
+#[cfg(feature = "metrics")]
+struct ConfigMetrics {
+    #[cfg(feature = "resolver")]
+    zones_forwarder: Counter,
+
+    zones_primary_file: Counter,
+    zones_secondary_file: Counter,
+    #[cfg(feature = "sqlite")]
+    zones_primary_sqlite: Counter,
+    #[cfg(feature = "sqlite")]
+    zones_secondary_sqlite: Counter,
+}
+
+#[cfg(feature = "metrics")]
+impl ConfigMetrics {
+    fn new(config: &Config) -> Self {
+        let hickory_info = gauge!("hickory_info", "version" => hickory_client::version());
+        describe_gauge!("hickory_info", Unit::Count, "hickory service metadata");
+        hickory_info.set(1);
+
+        let hickory_config_info = gauge!("hickory_config_info",
+            "directory" => config.directory().to_string_lossy().to_string(),
+            "disable_https" => config.disable_https().to_string(),
+            "disable_quic" => config.disable_quic().to_string(),
+            "disable_tcp" => config.disable_tcp().to_string(),
+            "disable_tls" => config.disable_tls().to_string(),
+            "disable_udp" => config.disable_udp().to_string(),
+            "allow_networks" => config.allow_networks().len().to_string(),
+            "deny_networks" => config.deny_networks().len().to_string(),
+            "zones" => config.zones().len().to_string()
+        );
+        describe_gauge!(
+            "hickory_config_info",
+            Unit::Count,
+            "hickory config metadata"
+        );
+        hickory_config_info.set(1);
+
+        let zones_total_name = "hickory_zones_total";
+        let zones_primary_file = counter!(zones_total_name, "store" => "file", "role" => "primary");
+        let zones_secondary_file =
+            counter!(zones_total_name, "store" => "file", "role" => "secondary");
+
+        describe_counter!(
+            zones_total_name,
+            Unit::Count,
+            "number of dns zones in storages"
+        );
+
+        #[cfg(feature = "resolver")]
+        let zones_forwarder = counter!(zones_total_name, "store" => "forwarder");
+
+        #[cfg(feature = "sqlite")]
+        let (zones_primary_sqlite, zones_secondary_sqlite) = {
+            let zones_primary_sqlite =
+                counter!(zones_total_name, "store" => "sqlite", "role" => "primary");
+            let zones_secondary_sqlite =
+                counter!(zones_total_name, "store" => "sqlite", "role" => "secondary");
+            (zones_primary_sqlite, zones_secondary_sqlite)
+        };
+
+        Self {
+            #[cfg(feature = "resolver")]
+            zones_forwarder,
+            #[cfg(feature = "sqlite")]
+            zones_primary_sqlite,
+            zones_primary_file,
+            #[cfg(feature = "sqlite")]
+            zones_secondary_sqlite,
+            zones_secondary_file,
+        }
+    }
+
+    fn increment_zone_metrics(&self, zone: &ZoneConfig) {
+        match &zone.zone_type_config {
+            ZoneTypeConfig::Primary(server_config) => {
+                for store in &server_config.stores {
+                    if matches!(store, ServerStoreConfig::File(_)) {
+                        self.zones_primary_file.increment(1)
+                    }
+                    #[cfg(feature = "sqlite")]
+                    if matches!(store, ServerStoreConfig::Sqlite(_)) {
+                        self.zones_primary_sqlite.increment(1)
+                    };
+                }
+            }
+            ZoneTypeConfig::Secondary(server_config) => {
+                for store in &server_config.stores {
+                    if matches!(store, ServerStoreConfig::File(_)) {
+                        self.zones_secondary_file.increment(1)
+                    }
+                    #[cfg(feature = "sqlite")]
+                    if matches!(store, ServerStoreConfig::Sqlite(_)) {
+                        self.zones_secondary_sqlite.increment(1)
+                    };
+                }
+            }
+            ZoneTypeConfig::External { stores } => {
+                for store in stores {
+                    #[cfg(feature = "resolver")]
+                    if let ExternalStoreConfig::Forward(_) = store {
+                        self.zones_forwarder.increment(1)
+                    }
+                }
+            }
+        }
     }
 }
 
