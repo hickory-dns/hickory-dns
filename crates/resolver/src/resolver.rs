@@ -49,6 +49,19 @@ impl<P> ResolverBuilder<P>
 where
     P: ConnectionProvider,
 {
+    /// Sets the [`ResolverOpts`] to be used by the resolver.
+    ///
+    /// NB: A [`ResolverBuilder<P>`] will use the system configuration e.g., `resolv.conf`, by
+    /// default. Usage of this method will overwrite any options set by the system configuration.
+    ///
+    /// See [`system_conf`][crate::system_conf] for functions that can parse a [`ResolverOpts`]
+    /// from the system configuration, or use [`options_mut()`][ResolverBuilder::with_options] to
+    /// acquire a muitable reference to the existing [`ResolverOpts`].
+    pub fn with_options(mut self, options: ResolverOpts) -> Self {
+        self.options = options;
+        self
+    }
+
     /// Returns a mutable reference to the [`ResolverOpts`].
     pub fn options_mut(&mut self) -> &mut ResolverOpts {
         &mut self.options
