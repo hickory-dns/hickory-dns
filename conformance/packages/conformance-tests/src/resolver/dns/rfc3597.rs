@@ -62,7 +62,6 @@ fn unknown_type_transparency() -> Result<()> {
 /// of RRs of known type, except for changes due to compression or decompression where allowed by
 /// section 4 of this memo."
 #[test]
-#[ignore = "hickory adds a semicolon if issue-value is empty"]
 fn caa_issue_empty_value_dnssec() -> Result<()> {
     let network = Network::new()?;
 
