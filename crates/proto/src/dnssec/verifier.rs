@@ -34,7 +34,7 @@ pub trait Verifier {
     ///
     /// * `hash` - the hash to be validated, see `rrset_tbs`
     /// * `signature` - the signature to use to verify the hash, extracted from an `RData::RRSIG`
-    ///                 for example.
+    ///   for example.
     ///
     /// # Return value
     ///

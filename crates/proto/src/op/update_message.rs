@@ -399,7 +399,7 @@ pub fn compare_and_swap(
 /// # Arguments
 ///
 /// * `rrset` - the record(s) to delete from a RRSet, the name, type and rdata must match the
-///              record to delete
+///   record to delete
 /// * `zone_origin` - the zone name to update, i.e. SOA name
 /// * `signer` - the signer, with private key, to use to sign the request
 ///

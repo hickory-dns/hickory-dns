@@ -291,7 +291,7 @@ impl InnerInMemory {
     /// * next_name - the name from the CNAME, ANAME, MX, etc. record that is being searched
     /// * search_type - the root search type, ANAME, CNAME, MX, i.e. the beginning of the chain
     /// * lookup_options - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
-    ///                    algorithms, etc.)
+    ///   algorithms, etc.)
     pub(super) fn additional_search(
         &self,
         original_name: &LowerName,

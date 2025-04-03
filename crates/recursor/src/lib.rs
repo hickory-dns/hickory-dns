@@ -161,7 +161,7 @@ fn maybe_strip_dnssec_records(query_has_dnssec_ok: bool, lookup: Lookup, query: 
 /// * This function is nominally a wrapper around Name::zone_of, with two additional checks:
 /// * If the caller doesn't provide a parent at all, we'll return false.
 /// * If the domains have mixed qualification -- that is, if one is fully-qualified and the other partially-qualified, we'll return
-///    false.
+///   false.
 ///
 /// # References
 ///

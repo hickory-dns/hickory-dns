@@ -116,7 +116,7 @@ where
     /// # Arguments
     ///
     /// * `stream` - A stream of bytes that can be used to send/receive DNS messages
-    ///              (see TcpClientStream or UdpClientStream)
+    ///   (see TcpClientStream or UdpClientStream)
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     #[allow(clippy::new_ret_no_self)]
@@ -136,9 +136,9 @@ where
     /// # Arguments
     ///
     /// * `stream` - A stream of bytes that can be used to send/receive DNS messages
-    ///              (see TcpClientStream or UdpClientStream)
+    ///   (see TcpClientStream or UdpClientStream)
     /// * `timeout_duration` - All requests may fail due to lack of response, this is the time to
-    ///                        wait for a response before canceling the request.
+    ///   wait for a response before canceling the request.
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn with_timeout<F>(

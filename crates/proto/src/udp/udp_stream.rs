@@ -91,17 +91,17 @@ impl<P: RuntimeProvider> UdpStream<P> {
     ///
     /// * `remote_addr` - socket address for the remote connection (used to determine IPv4 or IPv6)
     /// * `bind_addr` - optional local socket address to connect from (if a nonzero port number is
-    ///                 specified, it will be used instead of randomly selecting a port)
+    ///   specified, it will be used instead of randomly selecting a port)
     /// * `os_port_selection` - Boolean parameter to specify whether to use the operating system's
-    ///                         standard UDP port selection logic instead of Hickory's logic to
-    ///                         securely select a random source port. We do not recommend using
-    ///                         this option unless absolutely necessary, as the operating system
-    ///                         may select ephemeral ports from a smaller range than Hickory, which
-    ///                         can make response poisoning attacks easier to conduct. Some
-    ///                         operating systems (notably, Windows) might display a user-prompt to
-    ///                         allow a Hickory-specified port to be used, and setting this option
-    ///                         will prevent those prompts from being displayed. If os_port_selection
-    ///                         is true, avoid_local_udp_ports will be ignored.
+    ///   standard UDP port selection logic instead of Hickory's logic to
+    ///   securely select a random source port. We do not recommend using
+    ///   this option unless absolutely necessary, as the operating system
+    ///   may select ephemeral ports from a smaller range than Hickory, which
+    ///   can make response poisoning attacks easier to conduct. Some
+    ///   operating systems (notably, Windows) might display a user-prompt to
+    ///   allow a Hickory-specified port to be used, and setting this option
+    ///   will prevent those prompts from being displayed. If os_port_selection
+    ///   is true, avoid_local_udp_ports will be ignored.
     /// * `provider` - async runtime provider, for I/O and timers
     ///
     /// # Return

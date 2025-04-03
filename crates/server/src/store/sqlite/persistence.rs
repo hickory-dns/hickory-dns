@@ -135,7 +135,7 @@ impl Journal {
     /// # Arguments
     ///
     /// * `row_id` - the row_id can either be exact, or start at 0 to get the earliest row in the
-    ///              list.
+    ///   list.
     pub fn select_record(&self, row_id: i64) -> Result<Option<(i64, Record)>, PersistenceError> {
         assert!(
             self.version == CURRENT_VERSION,

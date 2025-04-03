@@ -54,8 +54,8 @@ pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
     /// # Arguments
     ///
     /// * `request` - the fully constructed Message to send, note that most implementations of
-    ///               will most likely be required to rewrite the QueryId, do no rely on that as
-    ///               being stable.
+    ///   will most likely be required to rewrite the QueryId, do no rely on that as
+    ///   being stable.
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response;
 
     /// A *classic* DNS query

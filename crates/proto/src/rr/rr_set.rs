@@ -31,9 +31,9 @@ impl RecordSet {
     ///
     /// * `name` - The label for the `RecordSet`
     /// * `record_type` - `RecordType` of this `RecordSet`, all records in the `RecordSet` must be of the
-    ///                   specified `RecordType`.
+    ///   specified `RecordType`.
     /// * `serial` - current serial number of the `SOA` record, this is to be used for `IXFR` and
-    ///              signing for DNSSEC after updates.
+    ///   signing for DNSSEC after updates.
     ///
     /// # Return value
     ///
@@ -57,7 +57,7 @@ impl RecordSet {
     ///
     /// * `name` - The label for the `RecordSet`
     /// * `record_type` - `RecordType` of this `RecordSet`, all records in the `RecordSet` must be of the
-    ///                   specified `RecordType`.
+    ///   specified `RecordType`.
     /// * `ttl` - time-to-live for the `RecordSet` in seconds.
     ///
     /// # Return value
@@ -247,8 +247,8 @@ impl RecordSet {
     ///
     /// * `record` - `Record` asserts that the `name` and `record_type` match the `RecordSet`.
     /// * `serial` - current serial number of the `SOA` record, this is to be used for `IXFR` and
-    ///              signing for DNSSEC after updates. The serial will only be updated if the
-    ///              record was added.
+    ///   signing for DNSSEC after updates. The serial will only be updated if the
+    ///   record was added.
     ///
     /// # Return value
     ///
@@ -368,10 +368,10 @@ impl RecordSet {
     /// # Arguments
     ///
     /// * `record` - `Record` asserts that the `name` and `record_type` match the `RecordSet`. Removes
-    ///              any `record` if the record data, `RData`, match.
+    ///   any `record` if the record data, `RData`, match.
     /// * `serial` - current serial number of the `SOA` record, this is to be used for `IXFR` and
-    ///              signing for DNSSEC after updates. The serial will only be updated if the
-    ///              record was added.
+    ///   signing for DNSSEC after updates. The serial will only be updated if the
+    ///   record was added.
     ///
     /// # Return value
     ///

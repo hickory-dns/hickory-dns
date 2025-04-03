@@ -92,7 +92,7 @@ impl SRV {
     /// # Arguments
     ///
     /// * `priority` - lower values have a higher priority and clients will attempt to use these
-    ///                first.
+    ///   first.
     /// * `weight` - for servers with the same priority, higher weights will be chosen more often.
     /// * `port` - the socket port number on which the service is listening.
     /// * `target` - like CNAME, this is the target domain name to which the service is associated.

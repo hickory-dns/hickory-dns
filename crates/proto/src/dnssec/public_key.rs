@@ -28,7 +28,7 @@ pub trait PublicKey {
     ///
     /// * `message` - the message to be validated, see `hash_rrset`
     /// * `signature` - the signature to use to verify the hash, extracted from an `RData::RRSIG`
-    ///                 for example.
+    ///   for example.
     ///
     /// # Return value
     ///

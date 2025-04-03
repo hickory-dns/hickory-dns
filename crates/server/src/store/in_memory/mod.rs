@@ -60,7 +60,7 @@ impl InMemoryAuthority {
     /// # Arguments
     ///
     /// * `origin` - The zone `Name` being created, this should match that of the `RecordType::SOA`
-    ///              record.
+    ///   record.
     /// * `records` - The map of the initial set of records in the zone.
     /// * `zone_type` - The type of zone, i.e. is this authoritative?
     /// * `allow_axfr` - Whether AXFR is allowed.
