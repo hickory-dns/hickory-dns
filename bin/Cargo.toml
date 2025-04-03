@@ -105,6 +105,9 @@ hickory-resolver.workspace = true
 test-support.workspace = true
 toml.workspace = true
 webpki-roots.workspace = true
+# metrics tests
+reqwest = { workspace = true, default-features = false }
+prometheus-parse = { workspace = true }
 
 [lints]
 workspace = true
