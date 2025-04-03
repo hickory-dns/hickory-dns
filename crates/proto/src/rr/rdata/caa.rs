@@ -260,7 +260,7 @@ impl Value {
     }
 }
 
-fn read_value(
+pub(crate) fn read_value(
     tag: &Property,
     decoder: &mut BinDecoder<'_>,
     value_len: Restrict<u16>,
