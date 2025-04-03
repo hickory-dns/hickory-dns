@@ -51,7 +51,7 @@ impl FileAuthority {
     /// # Arguments
     ///
     /// * `origin` - The zone `Name` being created, this should match that of the `RecordType::SOA`
-    ///              record.
+    ///   record.
     /// * `records` - The map of the initial set of records in the zone.
     /// * `zone_type` - The type of zone, i.e. is this authoritative?
     /// * `allow_axfr` - Whether AXFR is allowed.
@@ -189,11 +189,11 @@ impl Authority for FileAuthority {
     ///
     /// * `name` - The name to look up.
     /// * `rtype` - The `RecordType` to look up. `RecordType::ANY` will return all records matching
-    ///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
-    ///             due to the requirements that on zone transfers the `RecordType::SOA` must both
-    ///             precede and follow all other records.
+    ///   `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
+    ///   due to the requirements that on zone transfers the `RecordType::SOA` must both
+    ///   precede and follow all other records.
     /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
-    ///                      algorithms, etc.)
+    ///   algorithms, etc.)
     ///
     /// # Return value
     ///
@@ -218,7 +218,7 @@ impl Authority for FileAuthority {
     ///
     /// * `request_info` - the query to perform the lookup with.
     /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
-    ///                      algorithms, etc.)
+    ///   algorithms, etc.)
     ///
     /// # Return value
     ///
@@ -241,9 +241,9 @@ impl Authority for FileAuthority {
     /// # Arguments
     ///
     /// * `name` - given this name (i.e. the lookup name), return the NSEC record that is less than
-    ///            this
+    ///   this
     /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
-    ///                      algorithms, etc.)
+    ///   algorithms, etc.)
     async fn get_nsec_records(
         &self,
         name: &LowerName,

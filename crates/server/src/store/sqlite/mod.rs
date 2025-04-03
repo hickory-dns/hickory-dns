@@ -68,7 +68,7 @@ impl SqliteAuthority {
     /// * `in_memory` - InMemoryAuthority for all records.
     /// * `allow_update` - If true, then this zone accepts dynamic updates.
     /// * `is_dnssec_enabled` - If true, then the zone will sign the zone with all registered keys,
-    ///                         (see `add_zone_signing_key()`)
+    ///   (see `add_zone_signing_key()`)
     ///
     /// # Return value
     ///
@@ -673,7 +673,7 @@ impl SqliteAuthority {
     ///
     /// * `records` - set of record instructions for update following above rules
     /// * `auto_signing_and_increment` - if true, the zone will sign and increment the SOA, this
-    ///                                  should be disabled during recovery.
+    ///   should be disabled during recovery.
     pub async fn update_records(
         &self,
         records: &[Record],

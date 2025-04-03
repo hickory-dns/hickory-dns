@@ -734,7 +734,7 @@ fn validate_nodata_response(
 /// * closest encloser - *matching* NSEC3 record
 /// * next closer - *covering* NSEC3 record
 /// * wildcard of closest encloser - *matching* NSEC3 record
-///     NOTE: this is the difference between this and NXDomain case
+///   NOTE: this is the difference between this and NXDomain case
 ///
 /// Unlike non-wildcard version this cannot produce the early `Proof`
 fn wildcard_based_encloser_proof<'a>(

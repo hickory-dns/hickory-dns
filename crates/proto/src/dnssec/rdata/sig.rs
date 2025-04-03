@@ -202,10 +202,10 @@ impl SIG {
     /// * `type_covered` - The `RecordType` which this signature covers, should be NULL for SIG(0).
     /// * `algorithm` - The `Algorithm` used to generate the `signature`.
     /// * `num_labels` - The number of labels in the name, should be less 1 for *.name labels,
-    ///                  see `Name::num_labels()`.
+    ///   see `Name::num_labels()`.
     /// * `original_ttl` - The TTL for the RRSet stored in the zone, should be 0 for SIG(0).
     /// * `sig_expiration` - Timestamp at which this signature is no longer valid, very important to
-    ///                      keep this low, < +5 minutes to limit replay attacks.
+    ///   keep this low, < +5 minutes to limit replay attacks.
     /// * `sig_inception` - Timestamp when this signature was generated.
     /// * `key_tag` - See the key_tag generation in `rr::dnssec::Signer::key_tag()`.
     /// * `signer_name` - Domain name of the server which was used to generate the signature.

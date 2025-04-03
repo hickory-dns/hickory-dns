@@ -95,7 +95,7 @@ where
     /// # Arguments
     ///
     /// * `trust_anchor` - the set of trusted DNSKEY public_keys, by default this only contains the
-    ///                    root public_key.
+    ///   root public_key.
     pub fn trust_anchor(mut self, trust_anchor: TrustAnchors) -> Self {
         self.trust_anchor = Some(trust_anchor);
         self
