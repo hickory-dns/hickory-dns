@@ -45,6 +45,9 @@ thiserror = { version = "2", default-features = false }
 metrics = { version = "0.24.1" }
 metrics-exporter-prometheus = { version = "0.16.2", default-features = false, features = ["http-listener"] }
 metrics-process = "2.4.0"
+# metrics tests
+reqwest = { version = "0.12.12", default-features = false }
+prometheus-parse = "0.2.5"
 
 # async/await
 async-recursion = "1.0.0"

@@ -31,12 +31,12 @@ pub struct SocketPort {
 }
 
 #[derive(Debug, Default)]
-pub struct SocketPorts(HashMap<Protocol, SocketPort>);
+pub struct SocketPorts(HashMap<ServerProtocol, SocketPort>);
 
 impl SocketPorts {
     /// This will overwrite the existing value
-    pub fn put(&mut self, protocol: Protocol, addr: SocketAddr) {
-        let entry = self.0.entry(protocol).or_default();
+    pub fn put(&mut self, protocol: impl Into<ServerProtocol>, addr: SocketAddr) {
+        let entry = self.0.entry(protocol.into()).or_default();
 
         if addr.is_ipv4() {
             entry.v4 = addr.port();
@@ -46,20 +46,33 @@ impl SocketPorts {
     }
 
     /// Assumes there is only one V4 addr for the IP based on the usage in the Server
-    pub fn get_v4(&self, protocol: Protocol) -> Option<u16> {
+    pub fn get_v4(&self, protocol: impl Into<ServerProtocol>) -> Option<u16> {
         self.0
-            .get(&protocol)
+            .get(&protocol.into())
             .iter()
             .find_map(|ports| if ports.v4 == 0 { None } else { Some(ports.v4) })
     }
 
     /// Assumes there is only one V4 addr for the IP based on the usage in the Server
     #[allow(unused)]
-    pub fn get_v6(&self, protocol: Protocol) -> Option<u16> {
+    pub fn get_v6(&self, protocol: impl Into<ServerProtocol>) -> Option<u16> {
         self.0
-            .get(&protocol)
+            .get(&protocol.into())
             .iter()
             .find_map(|ports| if ports.v6 == 0 { None } else { Some(ports.v6) })
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum ServerProtocol {
+    Dns(Protocol),
+    #[cfg(feature = "metrics")]
+    PrometheusMetrics,
+}
+
+impl From<Protocol> for ServerProtocol {
+    fn from(proto: Protocol) -> Self {
+        Self::Dns(proto)
     }
 }
 
@@ -161,7 +174,7 @@ where
 
     // Search strings for the ports used during testing
     let addr_regex = Regex::new(
-        r"listening for (UDP|TCP|TLS|HTTPS|QUIC) on ((?:(?:0\.0\.0\.0)|(?:\[::\])):\d+)",
+        r"listening for (UDP|TCP|TLS|HTTPS|QUIC|Prometheus metrics) on ((?:(?:0\.0\.0\.0)|(?:127\.0\.0\.1)|(?:\[::\])):\d+)",
     )
     .unwrap();
 
@@ -195,6 +208,10 @@ where
                 "HTTPS" => socket_ports.put(Protocol::Https, socket_addr),
                 #[cfg(feature = "__quic")]
                 "QUIC" => socket_ports.put(Protocol::Quic, socket_addr),
+                #[cfg(feature = "metrics")]
+                "Prometheus metrics" => {
+                    socket_ports.put(ServerProtocol::PrometheusMetrics, socket_addr)
+                }
                 _ => panic!("unsupported protocol: {proto}"),
             }
         } else if output.contains("awaiting connections...") {

@@ -245,6 +245,18 @@ async fn async_run(args: Cli) -> Result<(), String> {
             .prometheus_listen_addr
             .unwrap_or(config.prometheus_listen_addr());
 
+        // bind to select a port, then drop the port so it can be used
+        // needed for dynamic port selection (port 0) as it is currently not possible to
+        // obtain the selected port from PrometheusBuilder after it binds the SocketAddr
+        // during PrometheusBuilder::install() or PrometheusBuilder::build()
+        if socket.port() == 0 {
+            let listener = std::net::TcpListener::bind(socket)
+                .map_err(|e| format!("failed to bind prometheus metrics socket {e}"))?;
+            socket = listener.local_addr().map_err(|e| {
+                format!("failed to get local addr for prometheus metrics socket {e}")
+            })?;
+        }
+
         // setup tracing/metrics integration and prometheus endpoint
         // execute setup on the existing tokio runtime to ensure that no new runtime is spawned
         // prepare prometheus endpoint
@@ -254,6 +266,8 @@ async fn async_run(args: Cli) -> Result<(), String> {
             // either executes on the endpoint on the current tokio runtime or launches a new one
             .install()
             .map_err(|e| format!("failed to install prometheus endpoint {e}"))?;
+
+        info!("listening for Prometheus metrics on {socket}");
     } else {
         info!("Prometheus metrics are disabled");
     }
