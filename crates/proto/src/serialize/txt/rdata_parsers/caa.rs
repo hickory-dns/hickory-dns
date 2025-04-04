@@ -20,8 +20,8 @@ use alloc::string::ToString;
 use tracing::warn;
 
 use crate::rr::rdata::CAA;
-use crate::rr::rdata::caa;
-use crate::rr::rdata::caa::{Property, Value};
+use crate::rr::rdata::caa::{Property, read_value};
+use crate::serialize::binary::{BinDecoder, Restrict};
 use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
 
 /// Parse the RData from a set of Tokens
@@ -75,20 +75,13 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
     };
 
     // parse the value
-    let value = {
-        // TODO: this is a slight dup of the match logic in caa::read_value(..)
-        match tag {
-            Property::Issue | Property::IssueWild => {
-                let value = caa::read_issuer(value_str.as_bytes())?;
-                Value::Issuer(value.0, value.1)
-            }
-            Property::Iodef => {
-                let url = caa::read_iodef(value_str.as_bytes())?;
-                Value::Url(url)
-            }
-            Property::Unknown(_) => Value::Unknown(value_str.as_bytes().to_vec()),
-        }
-    };
+    let raw_value = value_str.as_bytes().to_vec();
+    let mut value_decoder = BinDecoder::new(&raw_value);
+    let value = read_value(
+        &tag,
+        &mut value_decoder,
+        Restrict::new(raw_value.len() as u16),
+    )?;
 
     // return the new CAA record
     Ok(CAA {
@@ -96,6 +89,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
         reserved_flags,
         tag,
         value,
+        raw_value,
     })
 }
 
@@ -132,10 +126,10 @@ mod tests {
         assert!(parse(vec!["0", "issue", "example.net"].into_iter()).is_ok());
 
         // issuer critical = true
-        test_to_string_parse_is_reversible(CAA::new_issue(true, None, vec![]), "128 issue \"\"");
+        test_to_string_parse_is_reversible(CAA::new_issue(true, None, vec![]), "128 issue \";\"");
 
         // deny
-        test_to_string_parse_is_reversible(CAA::new_issue(false, None, vec![]), "0 issue \"\"");
+        test_to_string_parse_is_reversible(CAA::new_issue(false, None, vec![]), "0 issue \";\"");
 
         // only hostname
         test_to_string_parse_is_reversible(
