@@ -112,12 +112,18 @@ impl fmt::Display for MessageType {
 /// All the flags of the request/response header
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Flags {
-    authoritative: bool,
-    truncation: bool,
-    recursion_desired: bool,
-    recursion_available: bool,
-    authentic_data: bool,
-    checking_disabled: bool,
+    /// Authoritative Answer (AA)
+    pub authoritative: bool,
+    /// Truncation (TC)
+    pub truncation: bool,
+    /// Recursion Desired (RD)
+    pub recursion_desired: bool,
+    /// Recursion Available (RA)
+    pub recursion_available: bool,
+    /// Authentic Data (AD)
+    pub authentic_data: bool,
+    /// Checking Disabled (CD)
+    pub checking_disabled: bool,
 }
 
 /// We are following the `dig` commands display format for the header flags
@@ -281,7 +287,7 @@ impl Header {
         self
     }
 
-    /// A method to get all header flags (useful for Display purposes)
+    /// A method to get all header flags (useful for Display and metrics purposes)
     pub fn flags(&self) -> Flags {
         Flags {
             authoritative: self.authoritative,

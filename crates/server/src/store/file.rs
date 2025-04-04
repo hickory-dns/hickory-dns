@@ -67,13 +67,33 @@ impl FileAuthority {
         allow_axfr: bool,
         #[cfg(feature = "__dnssec")] nx_proof_kind: Option<NxProofKind>,
     ) -> Result<Self, String> {
+        Self::inner_new(
+            origin,
+            records,
+            zone_type,
+            allow_axfr,
+            #[cfg(feature = "__dnssec")]
+            nx_proof_kind,
+            #[cfg(feature = "metrics")]
+            false,
+        )
+    }
+
+    fn inner_new(
+        origin: Name,
+        records: BTreeMap<RrKey, RecordSet>,
+        zone_type: ZoneType,
+        allow_axfr: bool,
+        #[cfg(feature = "__dnssec")] nx_proof_kind: Option<NxProofKind>,
+        #[cfg(feature = "metrics")] is_internal_load: bool,
+    ) -> Result<Self, String> {
         Ok(Self {
             #[cfg(feature = "metrics")]
             metrics: {
                 let new = StoreMetrics::new("file");
-                new.persistent
-                    .zone_records_total
-                    .increment(records.len() as f64);
+                if !is_internal_load {
+                    new.persistent.zone_records.increment(records.len() as f64);
+                }
                 new
             },
             in_memory: InMemoryAuthority::new(
@@ -95,6 +115,29 @@ impl FileAuthority {
         root_dir: Option<&Path>,
         config: &FileConfig,
         #[cfg(feature = "__dnssec")] nx_proof_kind: Option<NxProofKind>,
+    ) -> Result<Self, String> {
+        Self::try_from_config_internal(
+            origin,
+            zone_type,
+            allow_axfr,
+            root_dir,
+            config,
+            #[cfg(feature = "__dnssec")]
+            nx_proof_kind,
+            #[cfg(feature = "metrics")]
+            false,
+        )
+    }
+
+    // internal load for e.g. sqlite db creation
+    pub(crate) fn try_from_config_internal(
+        origin: Name,
+        zone_type: ZoneType,
+        allow_axfr: bool,
+        root_dir: Option<&Path>,
+        config: &FileConfig,
+        #[cfg(feature = "__dnssec")] nx_proof_kind: Option<NxProofKind>,
+        #[cfg(feature = "metrics")] is_internal_load: bool,
     ) -> Result<Self, String> {
         let root_dir_path = root_dir.map(PathBuf::from).unwrap_or_default();
         let zone_path = root_dir_path.join(&config.zone_file_path);
@@ -128,13 +171,15 @@ impl FileAuthority {
         );
         debug!("zone: {:#?}", records);
 
-        Self::new(
+        Self::inner_new(
             origin,
             records,
             zone_type,
             allow_axfr,
             #[cfg(feature = "__dnssec")]
             nx_proof_kind,
+            #[cfg(feature = "metrics")]
+            is_internal_load,
         )
     }
 
@@ -207,7 +252,7 @@ impl Authority for FileAuthority {
         let lookup = self.in_memory.lookup(name, rtype, lookup_options).await;
 
         #[cfg(feature = "metrics")]
-        self.metrics.query.zone_record_lookups.increment(1);
+        self.metrics.query.increment_lookup(&lookup);
 
         lookup
     }
@@ -228,7 +273,12 @@ impl Authority for FileAuthority {
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup> {
-        self.in_memory.search(request_info, lookup_options).await
+        let search = self.in_memory.search(request_info, lookup_options).await;
+
+        #[cfg(feature = "metrics")]
+        self.metrics.query.increment_lookup(&search);
+
+        search
     }
 
     /// Get the NS, NameServer, record for the zone

@@ -36,6 +36,8 @@
 #![recursion_limit = "128"]
 #![allow(clippy::redundant_clone)]
 
+#[cfg(feature = "metrics")]
+use std::time::Duration;
 use std::{
     env, fmt,
     io::Error,
@@ -46,6 +48,8 @@ use std::{
 use clap::Parser;
 #[cfg(feature = "prometheus-metrics")]
 use metrics_exporter_prometheus::PrometheusBuilder;
+#[cfg(feature = "metrics")]
+use metrics_process::Collector;
 use socket2::{Domain, Socket, Type};
 use time::OffsetDateTime;
 #[cfg(unix)]
@@ -63,6 +67,7 @@ use tracing_subscriber::{
 };
 
 use hickory_dns::Config;
+use hickory_dns::ConfigMetrics;
 #[cfg(feature = "__tls")]
 use hickory_dns::TlsCertConfig;
 use hickory_server::{authority::Catalog, server::ServerFuture};
@@ -224,9 +229,21 @@ fn run() -> Result<(), String> {
 
     #[cfg(feature = "prometheus-metrics")]
     if !args.disable_prometheus && !config.disable_prometheus() {
-        let socket = args
+        let mut socket = args
             .prometheus_listen_addr
             .unwrap_or(config.prometheus_listen_addr());
+
+        // bind to select a port, then drop the port so it can be used
+        // needed for dynamic port selection (port 0) as it is currently not possible to
+        // obtain the selected port from PrometheusBuilder after it binds the SocketAddr
+        // during PrometheusBuilder::install() or PrometheusBuilder::build()
+        if socket.port() == 0 {
+            let listener = std::net::TcpListener::bind(socket)
+                .map_err(|e| format!("failed to bind prometheus metrics socket {e}"))?;
+            socket = listener.local_addr().map_err(|e| {
+                format!("failed to get local addr for prometheus metrics socket {e}")
+            })?;
+        }
 
         // setup tracing/metrics integration and prometheus endpoint
         // execute setup on the existing tokio runtime to ensure that no new runtime is spawned
@@ -239,9 +256,32 @@ fn run() -> Result<(), String> {
                 .install()
                 .map_err(|e| format!("failed to install prometheus endpoint {e}"))
         })?;
+
+        info!("listening for Prometheus metrics on {:?}", socket);
     } else {
         info!("Prometheus metrics are disabled");
     }
+
+    #[cfg(feature = "metrics")]
+    let process_metrics_collector = {
+        // setup process metrics (cpu, memory, ...) collection
+        let collector = Collector::default();
+        collector.describe(); // add metric descriptions
+
+        runtime.spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_millis(250)).await;
+                collector.collect();
+            }
+        })
+    };
+
+    // metrics need to be created after the recorder is registered
+    // calling increment() after registration is not sufficient
+    //
+    // use empty ConfigMetrics when feature = "metrics" is not enabled
+    // to avoid compile conditional function arguments on zone.load()
+    let config_metrics = ConfigMetrics::new(&config);
 
     #[cfg(unix)]
     let mut signal = signal(SignalKind::terminate())
@@ -254,7 +294,7 @@ fn run() -> Result<(), String> {
             .zone()
             .map_err(|err| format!("failed to read zone name from {config_path:?}: {err}"))?;
 
-        match runtime.block_on(zone.load(&zone_dir)) {
+        match runtime.block_on(zone.load(&zone_dir, &config_metrics)) {
             Ok(authority) => catalog.upsert(zone_name.into(), authority),
             Err(err) => return Err(format!("could not load zone {zone_name}: {err}")),
         }
@@ -402,6 +442,8 @@ fn run() -> Result<(), String> {
         tokio::spawn(async move {
             signal.recv().await;
             token.cancel();
+            #[cfg(feature = "metrics")]
+            process_metrics_collector.abort()
         });
     }
 
