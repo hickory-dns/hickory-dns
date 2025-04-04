@@ -7,16 +7,27 @@
 
 use std::net::*;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 use test_support::subscribe;
 
 use hickory_client::client::{Client, ClientHandle};
+#[cfg(feature = "__dnssec")]
+use hickory_proto::dnssec::{
+    Algorithm, DnssecDnsHandle, SigSigner, SigningKey, TrustAnchors, crypto::RsaSigningKey,
+    rdata::DNSKEY,
+};
+use hickory_proto::op::MessageFinalizer;
+#[cfg(feature = "__dnssec")]
+use hickory_proto::rr::Record;
 use hickory_proto::rr::rdata::A;
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::xfer::Protocol;
 use prometheus_parse::{Scrape, Value};
+#[cfg(feature = "__dnssec")]
+use rustls_pki_types::PrivatePkcs8KeyDer;
 use tokio::runtime::Runtime;
 
 use crate::server_harness::{ServerProtocol, SocketPorts, named_test_harness};
@@ -172,7 +183,7 @@ fn test_request_response() {
     named_test_harness("example_forwarder.toml", |socket_ports| {
         let io_loop = Runtime::new().unwrap();
         let metrics = &io_loop.block_on(async {
-            let mut client = create_local_client(&socket_ports).await;
+            let mut client = create_local_client(&socket_ports, None).await;
             let response = client
                 .query(
                     Name::from_str("localhost.").unwrap(),
@@ -289,12 +300,106 @@ fn test_request_response() {
     })
 }
 
-async fn create_local_client(socket_ports: &SocketPorts) -> Client {
+#[test]
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
+fn test_dynamic_updates() {
+    subscribe();
+
+    named_test_harness("dnssec_with_update.toml", |socket_ports| {
+        let io_loop = Runtime::new().unwrap();
+        let metrics = &io_loop.block_on(async {
+            let rsa_key =
+                include_bytes!("../../../tests/test-data/test_configs/dnssec/rsa_2048.pk8");
+            let verify_algo = Algorithm::RSASHA256;
+            let verify_key =
+                RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(rsa_key.to_vec()), verify_algo)
+                    .unwrap();
+            let mut trust_anchor = TrustAnchors::empty();
+            trust_anchor.insert(&verify_key.to_public_key().unwrap());
+
+            let origin: Name = Name::parse("example.com.", None).unwrap();
+
+            let update_algo = Algorithm::RSASHA512;
+            let update_key =
+                RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(rsa_key.to_vec()), update_algo)
+                    .unwrap();
+            let signer = SigSigner::dnssec(
+                DNSKEY::from_key(&update_key.to_public_key().unwrap()),
+                Box::new(update_key),
+                origin.clone(),
+                time::Duration::weeks(1).try_into().unwrap(),
+            );
+
+            let client = create_local_client(&socket_ports, Some(Arc::new(signer))).await;
+            let mut client = DnssecDnsHandle::with_trust_anchor(client, Arc::new(trust_anchor));
+
+            let rrset_create = Record::from_rdata(
+                Name::from_str("zzz.example.com").unwrap(),
+                3600,
+                RData::A(A::from(Ipv4Addr::LOCALHOST)),
+            );
+            client.create(rrset_create, origin.clone()).await.unwrap();
+
+            let record_update = Record::from_rdata(
+                Name::from_str("zzz.example.com").unwrap(),
+                1800,
+                RData::A(A::from(Ipv4Addr::LOCALHOST)),
+            );
+            client
+                .append(record_update, origin.clone(), true)
+                .await
+                .unwrap();
+
+            let rrset_delete = Record::from_rdata(
+                Name::from_str("zzz.example.com").unwrap(),
+                3600,
+                RData::A(A::from(Ipv4Addr::LOCALHOST)),
+            );
+            client
+                .delete_rrset(rrset_delete, origin.clone())
+                .await
+                .unwrap();
+
+            fetch_parse_check_metrics(&socket_ports).await
+        });
+
+        verify_metric(
+            metrics,
+            "hickory_request_operations_total",
+            &[("operation", "update")],
+            Some(3f64),
+        );
+        // check dynamic updates lookups
+        verify_metric(
+            metrics,
+            "hickory_zone_records_dynamically_modified_total",
+            &[("store", "sqlite"), ("operation", "added")],
+            Some(1f64),
+        );
+        verify_metric(
+            metrics,
+            "hickory_zone_records_dynamically_modified_total",
+            &[("store", "sqlite"), ("operation", "deleted")],
+            Some(1f64),
+        );
+        verify_metric(
+            metrics,
+            "hickory_zone_records_dynamically_modified_total",
+            &[("store", "sqlite"), ("operation", "updated")],
+            Some(1f64),
+        );
+    });
+}
+
+async fn create_local_client(
+    socket_ports: &SocketPorts,
+    signer: Option<Arc<dyn MessageFinalizer>>,
+) -> Client {
     let dns_port = socket_ports.get_v4(ServerProtocol::Dns(Protocol::Tcp));
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, dns_port.expect("no dns tcp port")));
 
     let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
-    let client = Client::new(stream, sender, None);
+    let client = Client::new(stream, sender, signer);
     let (client, bg) = client.await.expect("connection failed");
     tokio::spawn(bg);
     client
