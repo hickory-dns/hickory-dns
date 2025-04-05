@@ -163,6 +163,7 @@ impl UpdateMessage for Message {
 ///
 /// * `rrset` - the record(s) to create
 /// * `zone_origin` - the zone name to update, i.e. SOA name
+/// * `use_edns` - if true, EDNS options will be added to the request
 ///
 /// The update must go to a zone authority (i.e. the server used in the ClientConnection)
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
@@ -233,6 +234,7 @@ pub fn create(rrset: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
 /// * `rrset` - the record(s) to append to an RRSet
 /// * `zone_origin` - the zone name to update, i.e. SOA name
 /// * `must_exist` - if true, the request will fail if the record does not exist
+/// * `use_edns` - if true, EDNS options will be added to the request
 ///
 /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
 /// the rrset does not exist and must_exist is false, then the RRSet will be created.
@@ -314,6 +316,7 @@ pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool, use_edns: b
 /// * `current` - the current rrset which must exist for the swap to complete
 /// * `new` - the new rrset with which to replace the current rrset
 /// * `zone_origin` - the zone name to update, i.e. SOA name
+/// * `use_edns` - if true, EDNS options will be added to the request
 ///
 /// The update must go to a zone authority (i.e. the server used in the ClientConnection).
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
@@ -369,23 +372,11 @@ pub fn compare_and_swap(
     message
 }
 
-/// Deletes a record (by rdata) from an rrset, optionally require the rrset to exist.
+/// Deletes a record (by rdata) from an rrset
 ///
 /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
 ///
 /// ```text
-/// 2.4.1 - RRset Exists (Value Independent)
-///
-///   At least one RR with a specified NAME and TYPE (in the zone and class
-///   specified in the Zone Section) must exist.
-///
-///   For this prerequisite, a requestor adds to the section a single RR
-///   whose NAME and TYPE are equal to that of the zone RRset whose
-///   existence is required.  RDLENGTH is zero and RDATA is therefore
-///   empty.  CLASS must be specified as ANY to differentiate this
-///   condition from that of an actual RR whose RDLENGTH is naturally zero
-///   (0) (e.g., NULL).  TTL is specified as zero (0).
-///
 /// 2.5.4 - Delete An RR From An RRset
 ///
 ///   RRs to be deleted are added to the Update Section.  The NAME, TYPE,
@@ -401,10 +392,10 @@ pub fn compare_and_swap(
 /// * `rrset` - the record(s) to delete from a RRSet, the name, type and rdata must match the
 ///   record to delete
 /// * `zone_origin` - the zone name to update, i.e. SOA name
-/// * `signer` - the signer, with private key, to use to sign the request
+/// * `use_edns` - if true, EDNS options will be added to the request
 ///
-/// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
-/// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
+/// The update must go to a zone authority (i.e. the server used in the ClientConnection).
+/// If no such RRs exist, then this Update RR will be silently ignored by the Primary Zone Server.
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
     assert!(zone_origin.zone_of(rrset.name()));
@@ -424,7 +415,7 @@ pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name, use_edns: bool) 
         .set_recursion_desired(false);
     message.add_zone(zone);
 
-    // the class must be none for delete
+    // the class must be none to delete a record
     rrset.set_dns_class(DNSClass::NONE);
     // the TTL should be 0
     rrset.set_ttl(0);
@@ -442,23 +433,11 @@ pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name, use_edns: bool) 
     message
 }
 
-/// Deletes an entire rrset, optionally require the rrset to exist.
+/// Deletes an entire rrset
 ///
 /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
 ///
 /// ```text
-/// 2.4.1 - RRset Exists (Value Independent)
-///
-///   At least one RR with a specified NAME and TYPE (in the zone and class
-///   specified in the Zone Section) must exist.
-///
-///   For this prerequisite, a requestor adds to the section a single RR
-///   whose NAME and TYPE are equal to that of the zone RRset whose
-///   existence is required.  RDLENGTH is zero and RDATA is therefore
-///   empty.  CLASS must be specified as ANY to differentiate this
-///   condition from that of an actual RR whose RDLENGTH is naturally zero
-///   (0) (e.g., NULL).  TTL is specified as zero (0).
-///
 /// 2.5.2 - Delete An RRset
 ///
 ///   One RR is added to the Update Section whose NAME and TYPE are those
@@ -473,9 +452,10 @@ pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name, use_edns: bool) 
 ///
 /// * `record` - The name, class and record_type will be used to match and delete the RecordSet
 /// * `zone_origin` - the zone name to update, i.e. SOA name
+/// * `use_edns` - if true, EDNS options will be added to the request
 ///
-/// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
-/// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
+/// The update must go to a zone authority (i.e. the server used in the ClientConnection).
+/// If no such RRset exists, then this Update RR will be silently ignored by the Primary Zone Server.
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Message {
     assert!(zone_origin.zone_of(record.name()));
@@ -495,11 +475,11 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Me
         .set_recursion_desired(false);
     message.add_zone(zone);
 
-    // the class must be none for an rrset delete
+    // the class must be any to delete an rrset
     record.set_dns_class(DNSClass::ANY);
     // the TTL should be 0
     record.set_ttl(0);
-    // the rdata must be null to delete all rrsets
+    // the rdata must be null to delete an rrset
     record.set_data(RData::Update0(record.record_type()));
     message.add_update(record);
 
@@ -515,7 +495,7 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Me
     message
 }
 
-/// Deletes all records at the specified name
+/// Deletes all rrsets at the specified name
 ///
 /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
 ///
@@ -535,9 +515,10 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Me
 /// * `name_of_records` - the name of all the record sets to delete
 /// * `zone_origin` - the zone name to update, i.e. SOA name
 /// * `dns_class` - the class of the SOA
+/// * `use_edns` - if true, EDNS options will be added to the request
 ///
 /// The update must go to a zone authority (i.e. the server used in the ClientConnection). This
-/// operation attempts to delete all resource record sets the specified name regardless of
+/// operation attempts to delete all resource record sets at the specified name, regardless of
 /// the record type.
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 pub fn delete_all(
@@ -568,7 +549,7 @@ pub fn delete_all(
     // the record type must be any
     let mut record = Record::update0(name_of_records, 0, RecordType::ANY);
 
-    // the class must be none for an rrset delete
+    // the class must be any to delete all rrsets
     record.set_dns_class(DNSClass::ANY);
 
     message.add_update(record.into_record_of_rdata());
