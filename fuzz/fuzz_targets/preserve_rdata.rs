@@ -73,9 +73,9 @@ fn compare_rr(
             let original_decompressed = Name::decompress(original_rr.rdata, original);
             let reencoded_decompressed = Name::decompress(reencoded_rr.rdata, reencoded);
             if original_decompressed == reencoded_decompressed {
-                return Ok(());
+                Ok(())
             } else {
-                return Err(());
+                Err(())
             }
         }
         record_types::SOA => {
@@ -83,9 +83,9 @@ fn compare_rr(
             let original_decompressed = Soa::decompress(original_rr.rdata, original);
             let reencoded_decompressed = Soa::decompress(reencoded_rr.rdata, reencoded);
             if original_decompressed == reencoded_decompressed {
-                return Ok(());
+                Ok(())
             } else {
-                return Err(());
+                Err(())
             }
         }
         record_types::MINFO => {
@@ -93,9 +93,9 @@ fn compare_rr(
             let original_decompressed = Minfo::decompress(original_rr.rdata, original);
             let reencoded_decompressed = Minfo::decompress(reencoded_rr.rdata, reencoded);
             if original_decompressed == reencoded_decompressed {
-                return Ok(());
+                Ok(())
             } else {
-                return Err(());
+                Err(())
             }
         }
         record_types::MX => {
@@ -103,17 +103,17 @@ fn compare_rr(
             let original_decompressed = Mx::decompress(original_rr.rdata, original);
             let reencoded_decompressed = Mx::decompress(reencoded_rr.rdata, reencoded);
             if original_decompressed == reencoded_decompressed {
-                return Ok(());
+                Ok(())
             } else {
-                return Err(());
+                Err(())
             }
         }
         record_types::OPT => {
             // Ignore OPT records because they are reconstructed hop-by-hop, not passed through
             // transparently.
-            return Ok(());
+            Ok(())
         }
-        _ => return Err(()),
+        _ => Err(()),
     }
 }
 
