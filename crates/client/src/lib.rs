@@ -56,7 +56,7 @@
 //!
 //! # Usage
 //!
-//! This shows basic usage of the SyncClient. More examples will be associated directly with other types.
+//! This shows basic usage of the Client. More examples will be associated directly with other types.
 //!
 //! ## Dependency
 //!
