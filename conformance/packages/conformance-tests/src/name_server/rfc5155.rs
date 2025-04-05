@@ -10,12 +10,14 @@ use dns_test::{FQDN, Network, Result};
 const TLD_FQDN: &str = "alice.com.";
 const NON_EXISTENT_FQDN: &str = "charlie.alice.com.";
 const WILDCARD_FQDN: &str = "*.alice.com.";
+const NSEC3_OWNER_FQDN: &str = "llkh4l6i60vhapp6vrm3dfr9ri8ak9i0.alice.com.";
 
 // These hashes are computed with 1 iteration of SHA-1 without salt and must be recomputed if
 // those parameters were to change.
 const TLD_HASH: &str = "LLKH4L6I60VHAPP6VRM3DFR9RI8AK9I0"; /* h(alice.com.) */
 const NON_EXISTENT_HASH: &str = "99P1CCPQ2N64LIRMT2838O4HK0QFA51B"; /* h(charlie.alice.com.) */
 const WILDCARD_HASH: &str = "19GBV5V1BO0P51H34JQDH1C8CIAA5RAQ"; /* h(*.alice.com.) */
+const NSEC3_OWNER_HASH: &str = "T5LJ8DV3O2C0BNVLRRUTQ2NKPQE3N385"; /* h(llkh4l6i60vhapp6vrm3dfr9ri8ak9i0.alice.com.) */
 
 // This test checks that name servers produce a name error response compliant with section 7.2.2.
 // of RFC5155.
@@ -284,6 +286,41 @@ fn wildcard_answer_response() -> Result<()> {
             next_closer_name_rr,
             "No RR in the response covers the next closer name",
         )],
+    );
+
+    Ok(())
+}
+
+/// This test checks that when the query name matches an NSEC3 RR and nothing else, a negative
+/// response is returned.
+///
+/// See section 7.2.8 of RFC 5155.
+#[test]
+fn nsec3_owner_name() -> Result<()> {
+    let tld_fqdn = FQDN(TLD_FQDN)?;
+    let qname = FQDN(NSEC3_OWNER_FQDN)?;
+
+    let (nsec3_rrs, status, nsec3_rrs_response) = query_nameserver(
+        [Record::a(tld_fqdn, Ipv4Addr::new(1, 2, 3, 4))],
+        &qname,
+        RecordType::A,
+    )?;
+
+    assert!(status.is_nxdomain());
+
+    // This is the NSEC3 record that matches the query name. The authoritative server should still
+    // send an NXDOMAIN response as if this NSEC3 record does not exist.
+    let _matching_nsec3_record = nsec3_rrs
+        .find_match(TLD_HASH)
+        .expect("Query name is not the owner name of any NSEC3 RR");
+
+    let cover = nsec3_rrs
+        .find_cover(NSEC3_OWNER_HASH)
+        .expect("No RR in the zonefile covers the query name");
+
+    find_records(
+        &nsec3_rrs_response,
+        [(cover, "No RR in the response covers the query name")],
     );
 
     Ok(())
