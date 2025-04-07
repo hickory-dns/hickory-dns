@@ -90,6 +90,7 @@ ipconfig = { workspace = true, optional = true }
 
 [dev-dependencies]
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
+serde_json = { workspace = true }
 test-support.workspace = true
 tokio = { workspace = true, features = ["macros", "test-util"] }
 toml.workspace = true

@@ -770,13 +770,17 @@ pub struct ResolverOpts {
     /// Sets the number of dots that must appear (unless it's a final dot representing the root)
     ///  before a query is assumed to include the TLD. The default is one, which means that `www`
     ///  would never be assumed to be a TLD, and would always be appended to either the search
+    #[cfg_attr(feature = "serde", serde(default = "default_ndots"))]
     pub ndots: usize,
     /// Specify the timeout for a request. Defaults to 5 seconds
+    #[cfg_attr(feature = "serde", serde(default = "default_timeout"))]
     pub timeout: Duration,
     /// Number of retries after lookup failure before giving up. Defaults to 2
+    #[cfg_attr(feature = "serde", serde(default = "default_attempts"))]
     pub attempts: usize,
     /// Validate the names in the response, not implemented don't really see the point unless you need to support
     ///  badly configured DNS
+    #[cfg_attr(feature = "serde", serde(default = "default_check_names"))]
     pub check_names: bool,
     /// Enable edns, for larger records
     pub edns0: bool,
@@ -785,6 +789,7 @@ pub struct ResolverOpts {
     /// The ip_strategy for the Resolver to use when lookup Ipv4 or Ipv6 addresses
     pub ip_strategy: LookupIpStrategy,
     /// Cache size is in number of records (some records can be large)
+    #[cfg_attr(feature = "serde", serde(default = "default_cache_size"))]
     pub cache_size: usize,
     /// Check /etc/hosts file before dns requery (only works for unix like OS)
     pub use_hosts_file: ResolveHosts,
@@ -816,8 +821,10 @@ pub struct ResolverOpts {
     ///
     /// Where more than one nameserver is configured, this configures the resolver to send queries
     /// to a number of servers in parallel. Defaults to 2; 0 or 1 will execute requests serially.
+    #[cfg_attr(feature = "serde", serde(default = "default_num_concurrent_reqs"))]
     pub num_concurrent_reqs: usize,
     /// Preserve all intermediate records in the lookup response, such as CNAME records
+    #[cfg_attr(feature = "serde", serde(default = "default_preserve_intermediates"))]
     pub preserve_intermediates: bool,
     /// Try queries over TCP if they fail over UDP.
     pub try_tcp_on_error: bool,
@@ -826,6 +833,7 @@ pub struct ResolverOpts {
     /// Request upstream recursive resolvers to not perform any recursion.
     ///
     /// This is true by default, disabling this is useful for requesting single records, but may prevent successful resolution.
+    #[cfg_attr(feature = "serde", serde(default = "default_recursion_desired"))]
     pub recursion_desired: bool,
     /// Local UDP ports to avoid when making outgoing queries
     pub avoid_local_udp_ports: Arc<HashSet<u16>>,
@@ -867,28 +875,28 @@ impl Default for ResolverOpts {
     /// This follows the resolv.conf defaults as defined in the [Linux man pages](https://man7.org/linux/man-pages/man5/resolv.conf.5.html)
     fn default() -> Self {
         Self {
-            ndots: 1,
-            timeout: Duration::from_secs(5),
-            attempts: 2,
-            check_names: true,
+            ndots: default_ndots(),
+            timeout: default_timeout(),
+            attempts: default_attempts(),
+            check_names: default_check_names(),
             edns0: false,
             validate: false,
             ip_strategy: LookupIpStrategy::default(),
-            cache_size: 32,
+            cache_size: default_cache_size(),
             use_hosts_file: ResolveHosts::default(),
             positive_min_ttl: None,
             negative_min_ttl: None,
             positive_max_ttl: None,
             negative_max_ttl: None,
-            num_concurrent_reqs: 2,
+            num_concurrent_reqs: default_num_concurrent_reqs(),
 
             // Defaults to `true` to match the behavior of dig and nslookup.
-            preserve_intermediates: true,
+            preserve_intermediates: default_preserve_intermediates(),
 
             try_tcp_on_error: false,
             server_ordering_strategy: ServerOrderingStrategy::default(),
-            recursion_desired: true,
-            avoid_local_udp_ports: Arc::new(HashSet::new()),
+            recursion_desired: default_recursion_desired(),
+            avoid_local_udp_ports: Arc::default(),
             os_port_selection: false,
             #[cfg(feature = "__tls")]
             tls_config: client_config(),
@@ -896,6 +904,38 @@ impl Default for ResolverOpts {
             trust_anchor: None,
         }
     }
+}
+
+fn default_ndots() -> usize {
+    1
+}
+
+fn default_timeout() -> Duration {
+    Duration::from_secs(5)
+}
+
+fn default_attempts() -> usize {
+    2
+}
+
+fn default_check_names() -> bool {
+    true
+}
+
+fn default_cache_size() -> usize {
+    32
+}
+
+fn default_num_concurrent_reqs() -> usize {
+    2
+}
+
+fn default_preserve_intermediates() -> bool {
+    true
+}
+
+fn default_recursion_desired() -> bool {
+    true
 }
 
 /// IP addresses for Google Public DNS
@@ -921,3 +961,37 @@ pub const QUAD9_IPS: &[IpAddr] = &[
     IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0, 0x00fe)),
     IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0x00fe, 0x0009)),
 ];
+
+#[cfg(all(test, feature = "serde"))]
+mod tests {
+    use super::*;
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn default_opts() {
+        let code = ResolverOpts::default();
+        let json = serde_json::from_str::<ResolverOpts>("{}").unwrap();
+        assert_eq!(code.ndots, json.ndots);
+        assert_eq!(code.timeout, json.timeout);
+        assert_eq!(code.attempts, json.attempts);
+        assert_eq!(code.check_names, json.check_names);
+        assert_eq!(code.edns0, json.edns0);
+        assert_eq!(code.validate, json.validate);
+        assert_eq!(code.ip_strategy, json.ip_strategy);
+        assert_eq!(code.cache_size, json.cache_size);
+        assert_eq!(code.use_hosts_file, json.use_hosts_file);
+        assert_eq!(code.positive_min_ttl, json.positive_min_ttl);
+        assert_eq!(code.negative_min_ttl, json.negative_min_ttl);
+        assert_eq!(code.positive_max_ttl, json.positive_max_ttl);
+        assert_eq!(code.negative_max_ttl, json.negative_max_ttl);
+        assert_eq!(code.num_concurrent_reqs, json.num_concurrent_reqs);
+        assert_eq!(code.preserve_intermediates, json.preserve_intermediates);
+        assert_eq!(code.try_tcp_on_error, json.try_tcp_on_error);
+        assert_eq!(code.recursion_desired, json.recursion_desired);
+        assert_eq!(code.server_ordering_strategy, json.server_ordering_strategy);
+        assert_eq!(code.avoid_local_udp_ports, json.avoid_local_udp_ports);
+        assert_eq!(code.os_port_selection, json.os_port_selection);
+        assert_eq!(code.case_randomization, json.case_randomization);
+        assert_eq!(code.trust_anchor, json.trust_anchor);
+    }
+}
