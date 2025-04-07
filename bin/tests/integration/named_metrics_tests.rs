@@ -6,9 +6,16 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::net::*;
+use std::str::FromStr;
 use std::time::Duration;
 use test_support::subscribe;
 
+use hickory_client::client::{Client, ClientHandle};
+use hickory_proto::rr::rdata::A;
+use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
+use hickory_proto::runtime::TokioRuntimeProvider;
+use hickory_proto::tcp::TcpClientStream;
+use hickory_proto::xfer::Protocol;
 use prometheus_parse::{Scrape, Value};
 use tokio::runtime::Runtime;
 
@@ -156,6 +163,141 @@ fn test_prometheus_endpoint_startup() {
             );
         }
     })
+}
+
+#[test]
+fn test_request_response() {
+    subscribe();
+
+    named_test_harness("example_forwarder.toml", |socket_ports| {
+        let io_loop = Runtime::new().unwrap();
+        let metrics = &io_loop.block_on(async {
+            let mut client = create_local_client(&socket_ports).await;
+            let response = client
+                .query(
+                    Name::from_str("localhost.").unwrap(),
+                    DNSClass::IN,
+                    RecordType::A,
+                )
+                .await
+                .unwrap();
+
+            if let RData::A(addr) = response.answers()[0].data() {
+                assert_eq!(*addr, A::new(127, 0, 0, 1));
+            };
+
+            fetch_parse_check_metrics(&socket_ports).await
+        });
+
+        // check request
+        let request_operations = ["notify", "query", "status", "unknown", "update"];
+        request_operations.iter().for_each(|op| {
+            let value = if *op == "query" { 1f64 } else { 0f64 };
+            let op = [("operation", *op)];
+            verify_metric(
+                metrics,
+                "hickory_request_operations_total",
+                &op,
+                Some(value),
+            )
+        });
+
+        let flags = ["aa", "ad", "cd", "ra", "rd", "tc"];
+        flags.iter().for_each(|flag| {
+            let value = if *flag == "rd" { 1f64 } else { 0f64 };
+            let flag = [("flag", *flag)];
+            verify_metric(metrics, "hickory_request_flags_total", &flag, Some(value))
+        });
+
+        let protocols = ["tcp", "udp"];
+        protocols.iter().for_each(|proto| {
+            let value = if *proto == "tcp" { 1f64 } else { 0f64 };
+            let proto = [("protocol", *proto)];
+            verify_metric(
+                metrics,
+                "hickory_request_protocols_total",
+                &proto,
+                Some(value),
+            )
+        });
+
+        // check response
+        let response_codes = vec![
+            "bad_alg",
+            "bad_cookie",
+            "bad_key",
+            "bad_mode",
+            "bad_name",
+            "bad_sig",
+            "bad_time",
+            "bad_trunc",
+            "bad_vers",
+            "form_error",
+            "no_error",
+            "not_auth",
+            "not_imp",
+            "not_zone",
+            "nx_domain",
+            "nx_rrset",
+            "refused",
+            "serv_fail",
+            "unknown",
+            "yx_domain",
+            "yx_rrset",
+        ];
+        response_codes.iter().for_each(|code| {
+            let value = if *code == "no_error" { 1f64 } else { 0f64 };
+            let code = [("code", *code)];
+            verify_metric(metrics, "hickory_response_codes_total", &code, Some(value))
+        });
+
+        flags.iter().for_each(|flag| {
+            let value = if ["aa", "rd"].contains(flag) {
+                1f64
+            } else {
+                0f64
+            };
+            let flag = [("flag", *flag)];
+            verify_metric(metrics, "hickory_response_flags_total", &flag, Some(value))
+        });
+
+        // check store lookups
+        verify_metric(
+            metrics,
+            "hickory_zone_record_lookups_total",
+            &STORE_FILE_SUCCESS,
+            Some(1f64),
+        );
+        verify_metric(
+            metrics,
+            "hickory_zone_record_lookups_total",
+            &STORE_FILE_FAILED,
+            Some(0f64),
+        );
+        verify_metric(
+            metrics,
+            "hickory_zone_record_lookups_total",
+            &STORE_FORWARDER_SUCCESS,
+            Some(0f64),
+        );
+        verify_metric(
+            metrics,
+            "hickory_zone_record_lookups_total",
+            &STORE_FORWARDER_FAILED,
+            Some(0f64),
+        );
+    })
+}
+
+async fn create_local_client(socket_ports: &SocketPorts) -> Client {
+    let dns_port = socket_ports.get_v4(ServerProtocol::Dns(Protocol::Tcp));
+    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, dns_port.expect("no dns tcp port")));
+
+    let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
+    let client = Client::new(stream, sender, None);
+    let (client, bg) = client.await.expect("connection failed");
+    tokio::spawn(bg);
+    client
 }
 
 async fn fetch_parse_check_metrics(socket_ports: &SocketPorts) -> Scrape {
