@@ -23,7 +23,7 @@ jobs:
     - uses: extractions/setup-just@v3
 
     - name: install cargo-binstall
-      uses: cargo-bins/cargo-binstall@v1.12.2
+      uses: cargo-bins/cargo-binstall@v1.12.3
     - name: install cargo-workspaces
       run: cargo binstall cargo-workspaces -y --version ${{ env.CARGO_WS_VERSION }}
       env:
