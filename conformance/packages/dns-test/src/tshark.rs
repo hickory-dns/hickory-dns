@@ -20,65 +20,6 @@ static ID: AtomicUsize = AtomicUsize::new(0);
 
 const UDP_PORT: u16 = 53;
 
-impl Container {
-    pub fn eavesdrop(&self) -> Result<Tshark> {
-        let id = ID.fetch_add(1, atomic::Ordering::Relaxed);
-        let pidfile = pid_file(id);
-
-        let tshark = format!(
-            "echo $$ > {pidfile}
-exec tshark -l -i eth0 -T json -O dns -f 'udp port {UDP_PORT}'"
-        );
-        let mut child = self.spawn(&["sh", "-c", &tshark])?;
-
-        let stderr = child.stderr()?;
-        let mut stderr = BufReader::new(stderr).lines();
-
-        let (sender, receiver) = channel();
-
-        // Read from stdout and stderr on separate threads. This ensures the subprocess won't block
-        // when writing to either due to full pipe buffers.
-        let stdout = child.stdout()?;
-        let stdout_handle = thread::spawn({
-            let own_addr = self.ipv4_addr();
-            move || -> CoreResult<(), Box<dyn std::error::Error + Send + Sync>> {
-                let mut deserializer = serde_json::Deserializer::from_reader(stdout);
-                let adapter = StreamingCapture::new(sender, own_addr);
-                adapter.deserialize(&mut deserializer)?;
-                Ok(())
-            }
-        });
-
-        for res in stderr.by_ref() {
-            let line = res?;
-
-            if line.contains("Capture started") {
-                break;
-            }
-        }
-
-        let stderr_handle = thread::spawn(move || -> CoreResult<String, io::Error> {
-            let mut buf = String::new();
-            for line_res in stderr {
-                buf.push_str(&line_res?);
-                buf.push('\n');
-            }
-            Ok(buf)
-        });
-
-        Ok(Tshark {
-            container: self.clone(),
-            child,
-            stdout_handle,
-            stderr_handle,
-            id,
-            receiver,
-            captures: Vec::new(),
-            wait_capture_count_watermark: 0,
-        })
-    }
-}
-
 fn pid_file(id: usize) -> String {
     format!("/tmp/tshark{id}.pid")
 }
@@ -114,6 +55,63 @@ pub struct Tshark {
 }
 
 impl Tshark {
+    pub fn new(container: &Container) -> Result<Self> {
+        let id = ID.fetch_add(1, atomic::Ordering::Relaxed);
+        let pidfile = pid_file(id);
+
+        let tshark = format!(
+            "echo $$ > {pidfile}
+exec tshark -l -i eth0 -T json -O dns -f 'udp port {UDP_PORT}'"
+        );
+        let mut child = container.spawn(&["sh", "-c", &tshark])?;
+
+        let stderr = child.stderr()?;
+        let mut stderr = BufReader::new(stderr).lines();
+
+        let (sender, receiver) = channel();
+
+        // Read from stdout and stderr on separate threads. This ensures the subprocess won't block
+        // when writing to either due to full pipe buffers.
+        let stdout = child.stdout()?;
+        let stdout_handle = thread::spawn({
+            let own_addr = container.ipv4_addr();
+            move || -> CoreResult<(), Box<dyn std::error::Error + Send + Sync>> {
+                let mut deserializer = serde_json::Deserializer::from_reader(stdout);
+                let adapter = StreamingCapture::new(sender, own_addr);
+                adapter.deserialize(&mut deserializer)?;
+                Ok(())
+            }
+        });
+
+        for res in stderr.by_ref() {
+            let line = res?;
+
+            if line.contains("Capture started") {
+                break;
+            }
+        }
+
+        let stderr_handle = thread::spawn(move || -> CoreResult<String, io::Error> {
+            let mut buf = String::new();
+            for line_res in stderr {
+                buf.push_str(&line_res?);
+                buf.push('\n');
+            }
+            Ok(buf)
+        });
+
+        Ok(Self {
+            container: container.clone(),
+            child,
+            stdout_handle,
+            stderr_handle,
+            id,
+            receiver,
+            captures: Vec::new(),
+            wait_capture_count_watermark: 0,
+        })
+    }
+
     /// Waits until the captured packets satisfy some condition.
     pub fn wait_until(
         &mut self,
@@ -428,7 +426,7 @@ mod tests {
     fn nameserver() -> Result<()> {
         let network = &Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, network)?.start()?;
-        let mut tshark = ns.eavesdrop()?;
+        let mut tshark = Tshark::new(ns.container())?;
 
         let client = Client::new(network)?;
         let resp = client.dig(
