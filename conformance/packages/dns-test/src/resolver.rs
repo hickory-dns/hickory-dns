@@ -29,7 +29,7 @@ impl Resolver {
     }
 
     pub fn eavesdrop(&self) -> Result<Tshark> {
-        self.container.eavesdrop()
+        Tshark::new(&self.container)
     }
 
     pub fn network(&self) -> &Network {

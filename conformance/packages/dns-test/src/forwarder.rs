@@ -5,7 +5,6 @@ use crate::{
     container::{Child, Container},
     implementation::{Config, Role},
     record::DNSKEY,
-    tshark::Tshark,
 };
 
 pub struct Forwarder {
@@ -22,10 +21,6 @@ impl Forwarder {
             resolver,
             trust_anchor: TrustAnchor::empty(),
         }
-    }
-
-    pub fn eavesdrop(&self) -> Result<Tshark> {
-        self.container.eavesdrop()
     }
 
     pub fn network(&self) -> &Network {

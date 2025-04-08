@@ -4,7 +4,6 @@ use std::{collections::HashMap, net::Ipv4Addr, thread, time::Duration};
 use crate::container::{Child, Container, Network};
 use crate::implementation::{Config, Role};
 use crate::record::{self, DS, Record, SOA, SoaSettings};
-use crate::tshark::Tshark;
 use crate::zone_file::{self, Root, SigningKeys, ZoneFile};
 use crate::zone_file::{SignSettings, Signer};
 use crate::{DEFAULT_TTL, FQDN, Implementation, Result, TrustAnchor};
@@ -512,11 +511,6 @@ impl NameServer<Signed> {
 }
 
 impl NameServer<Running> {
-    /// Starts a `tshark` instance that captures DNS messages flowing through this network node
-    pub fn eavesdrop(&self) -> Result<Tshark> {
-        self.container.eavesdrop()
-    }
-
     pub fn trust_anchor(&self) -> Option<&TrustAnchor> {
         self.state.trust_anchor.as_ref()
     }
