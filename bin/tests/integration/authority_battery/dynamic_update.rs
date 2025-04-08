@@ -779,88 +779,44 @@ pub fn add_auth<A: DnssecAuthority>(authority: &mut A) -> Vec<SigSigner> {
 
     let mut keys = Vec::<SigSigner>::new();
 
-    // TODO: support RSA signing with ring
-    // rsa
     #[cfg(feature = "__dnssec")]
     {
-        let key_config = KeyConfig {
-            key_path: PathBuf::from("../tests/test-data/test_configs/dnssec/rsa_2048.pk8"),
-            algorithm: Algorithm::RSASHA512,
-            signer_name: Some(update_name.to_string()),
-            purpose: KeyPurpose::ZoneSigning,
-        };
+        let keys_algorithms = [
+            (
+                "../tests/test-data/test_configs/dnssec/rsa_2048.pk8",
+                Algorithm::RSASHA512,
+            ),
+            (
+                "../tests/test-data/test_configs/dnssec/ecdsa_p256.pk8",
+                Algorithm::ECDSAP256SHA256,
+            ),
+            (
+                "../tests/test-data/test_configs/dnssec/ecdsa_p384.pk8",
+                Algorithm::ECDSAP384SHA384,
+            ),
+        ];
 
-        let signer = key_config
-            .try_into_signer(update_name.clone())
-            .expect("failed to read key_config");
-        let public_key = signer
-            .key()
-            .to_public_key()
-            .expect("failed to get public key");
+        for (key, algo) in keys_algorithms {
+            let key_config = KeyConfig {
+                key_path: PathBuf::from(key),
+                algorithm: algo,
+                signer_name: Some(update_name.to_string()),
+                purpose: KeyPurpose::ZoneSigning,
+            };
 
-        let key = KEY::new_sig0key_with_usage(&public_key, KeyUsage::Host);
-        block_on(authority.add_update_auth_key(update_name.clone(), key))
-            .expect("failed to add signer to zone");
-        keys.push(signer);
-    }
+            let signer = key_config
+                .try_into_signer(update_name.clone())
+                .expect("failed to read key_config");
+            let public_key = signer
+                .key()
+                .to_public_key()
+                .expect("failed to get public key");
 
-    // // TODO: why are ecdsa tests failing in this context?
-    // // ecdsa_p256
-    // {
-    //     let key_config = KeyConfig {
-    //         key_path: "tests/test-data/test_configs/dnssec/ecdsa_p256.pem".to_string(),
-    //         password: None,
-    //         algorithm: Algorithm::ECDSAP256SHA256.to_string(),
-    //         signer_name: Some(signer_name.clone().to_string()),
-    //         is_zone_signing_key: Some(true),
-    //         is_zone_update_auth: Some(false),
-    //     };
-
-    //     let signer = key_config.try_into_signer(signer_name.clone()).expect("failed to read key_config");
-    //     keys.push(signer.to_dnskey().expect("failed to create DNSKEY"));
-    //     authority.add_zone_signing_key(signer).expect("failed to add signer to zone");
-    //     authority.secure_zone().expect("failed to sign zone");
-    // }
-
-    // // ecdsa_p384
-    // {
-    //     let key_config = KeyConfig {
-    //         key_path: "../../tests/test-data/test_configs/dnssec/ecdsa_p384.pem".to_string(),
-    //         password: None,
-    //         algorithm: Algorithm::ECDSAP384SHA384.to_string(),
-    //         signer_name: Some(signer_name.clone().to_string()),
-    //         is_zone_signing_key: Some(true),
-    //         is_zone_update_auth: Some(false),
-    //     };
-
-    //     let signer = key_config.try_into_signer(signer_name.clone()).expect("failed to read key_config");
-    //     keys.push(signer.to_dnskey().expect("failed to create DNSKEY"));
-    //     authority.add_zone_signing_key(signer).expect("failed to add signer to zone");
-    //     authority.secure_zone().expect("failed to sign zone");
-    // }
-
-    // ed 25519
-    #[cfg(feature = "__dnssec")]
-    {
-        let key_config = KeyConfig {
-            key_path: PathBuf::from("../tests/test-data/test_configs/dnssec/ed25519.pk8"),
-            algorithm: Algorithm::ED25519,
-            signer_name: Some(update_name.to_string()),
-            purpose: KeyPurpose::ZoneSigning,
-        };
-
-        let signer = key_config
-            .try_into_signer(update_name.clone())
-            .expect("failed to read key_config");
-        let public_key = signer
-            .key()
-            .to_public_key()
-            .expect("failed to get public key");
-
-        let key = KEY::new_sig0key_with_usage(&public_key, KeyUsage::Host);
-        block_on(authority.add_update_auth_key(update_name, key))
-            .expect("failed to add signer to zone");
-        keys.push(signer);
+            let key = KEY::new_sig0key_with_usage(&public_key, KeyUsage::Host);
+            block_on(authority.add_update_auth_key(update_name.clone(), key))
+                .expect("failed to add signer to zone");
+            keys.push(signer);
+        }
     }
 
     keys
