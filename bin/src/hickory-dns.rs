@@ -37,7 +37,7 @@
 #![allow(clippy::redundant_clone)]
 
 use std::{
-    env, fmt,
+    fmt,
     io::Error,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     path::{Path, PathBuf},
@@ -54,12 +54,13 @@ use tokio::{
     net::{TcpListener, UdpSocket},
     runtime,
 };
-use tracing::{error, info, warn, Event, Level, Subscriber};
+use tracing::{Event, Level, Subscriber, error, info, warn};
 use tracing_subscriber::{
-    fmt::{format, FmtContext, FormatEvent, FormatFields, FormattedFields},
+    EnvFilter,
+    fmt::{FmtContext, FormatEvent, FormatFields, FormattedFields, format},
     layer::SubscriberExt,
     registry::LookupSpan,
-    util::SubscriberInitExt, EnvFilter,
+    util::SubscriberInitExt,
 };
 
 use hickory_dns::Config;
@@ -197,9 +198,11 @@ fn run() -> Result<(), String> {
         .with(tracing_subscriber::fmt::layer().event_format(TdnsFormatter))
         .with(
             EnvFilter::builder()
-                .with_default_directive(Level::WARN.into())
-                .parse(all_hickory_dns(level))
-                .map_err(|err| format!("failed to configure tracing/logging: {err}"))?,
+                .with_default_directive(level.into())
+                .from_env()
+                .map_err(|err| {
+                    format!("failed to parse environment variable for tracing: {err}")
+                })?,
         )
         .init();
 
@@ -659,18 +662,6 @@ where
 
         writeln!(writer)
     }
-}
-
-fn get_env() -> String {
-    env::var("RUST_LOG").unwrap_or_default()
-}
-
-fn all_hickory_dns(level: impl ToString) -> String {
-    format!(
-        "hickory_={level},{env}",
-        level = level.to_string().to_lowercase(),
-        env = get_env()
-    )
 }
 
 /// Build a TcpListener for a given IP, port pair; IPv6 listeners will not accept v4 connections
