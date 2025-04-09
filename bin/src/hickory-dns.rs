@@ -64,19 +64,19 @@ use hickory_server::{authority::Catalog, server::ServerFuture};
 struct Cli {
     /// Test validation of configuration files
     #[clap(long = "validate")]
-    pub(crate) validate: bool,
+    validate: bool,
 
     /// Number of runtime workers, defaults to the number of CPU cores
     #[clap(long = "workers")]
-    pub(crate) workers: Option<usize>,
+    workers: Option<usize>,
 
     /// Disable INFO messages, WARN and ERROR will remain
     #[clap(short = 'q', long = "quiet", conflicts_with = "debug")]
-    pub(crate) quiet: bool,
+    quiet: bool,
 
     /// Turn on `DEBUG` messages (default is only `INFO`)
     #[clap(short = 'd', long = "debug", conflicts_with = "quiet")]
-    pub(crate) debug: bool,
+    debug: bool,
 
     /// Path to configuration file of named server
     #[clap(
@@ -86,35 +86,35 @@ struct Cli {
         value_name = "NAME",
         value_hint=clap::ValueHint::FilePath,
     )]
-    pub(crate) config: PathBuf,
+    config: PathBuf,
 
     /// Path to the root directory for all zone files,
     /// see also config toml
     #[clap(short = 'z', long = "zonedir", value_name = "DIR", value_hint=clap::ValueHint::DirPath)]
-    pub(crate) zonedir: Option<PathBuf>,
+    zonedir: Option<PathBuf>,
 
     /// Listening port for DNS queries,
     /// overrides any value in config file
     #[clap(short = 'p', long = "port", value_name = "PORT")]
-    pub(crate) port: Option<u16>,
+    port: Option<u16>,
 
     /// Listening port for DNS over TLS queries,
     /// overrides any value in config file
     #[cfg(feature = "__tls")]
     #[clap(long = "tls-port", value_name = "TLS-PORT")]
-    pub(crate) tls_port: Option<u16>,
+    tls_port: Option<u16>,
 
     /// Listening port for DNS over HTTPS queries,
     /// overrides any value in config file
     #[cfg(feature = "__https")]
     #[clap(long = "https-port", value_name = "HTTPS-PORT")]
-    pub(crate) https_port: Option<u16>,
+    https_port: Option<u16>,
 
     /// Listening port for DNS over QUIC queries,
     /// overrides any value in config file
     #[cfg(feature = "__quic")]
     #[clap(long = "quic-port", value_name = "QUIC-PORT")]
-    pub(crate) quic_port: Option<u16>,
+    quic_port: Option<u16>,
 
     /// Listening socket for Prometheus metrics,
     /// for remote access configure socket as needed (e.g. 0.0.0.0:9000)
@@ -124,41 +124,41 @@ struct Cli {
         long = "prometheus-listen-address",
         value_name = "PROMETHEUS-LISTEN-ADDRESS"
     )]
-    pub(crate) prometheus_listen_addr: Option<SocketAddr>,
+    prometheus_listen_addr: Option<SocketAddr>,
 
     /// Disable TCP protocol,
     /// overrides any value in config file
     #[clap(long = "disable-tcp")]
-    pub(crate) disable_tcp: bool,
+    disable_tcp: bool,
 
     /// Disable UDP protocol,
     /// overrides any value in config file
     #[clap(long = "disable-udp")]
-    pub(crate) disable_udp: bool,
+    disable_udp: bool,
 
     /// Disable TLS protocol,
     /// overrides any value in config file
     #[cfg(feature = "__tls")]
     #[clap(long = "disable-tls", conflicts_with = "tls_port")]
-    pub(crate) disable_tls: bool,
+    disable_tls: bool,
 
     /// Disable HTTPS protocol,
     /// overrides any value in config file
     #[cfg(feature = "__https")]
     #[clap(long = "disable-https", conflicts_with = "https_port")]
-    pub(crate) disable_https: bool,
+    disable_https: bool,
 
     /// Disable QUIC protocol,
     /// overrides any value in config file
     #[cfg(feature = "__quic")]
     #[clap(long = "disable-quic", conflicts_with = "quic_port")]
-    pub(crate) disable_quic: bool,
+    disable_quic: bool,
 
     /// Disable Prometheus metrics,
     /// overrides any value in config file
     #[cfg(feature = "prometheus-metrics")]
     #[clap(long = "disable-prometheus", conflicts_with = "prometheus_listen_addr")]
-    pub(crate) disable_prometheus: bool,
+    disable_prometheus: bool,
 }
 
 /// Main method for running the named server.
