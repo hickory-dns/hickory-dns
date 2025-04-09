@@ -217,8 +217,10 @@ fn run() -> Result<(), String> {
         .build()
         .map_err(|err| format!("failed to initialize Tokio runtime: {err}"))?;
 
-    let _guard = runtime.enter();
+    runtime.block_on(async_run(args))
+}
 
+async fn async_run(args: Cli) -> Result<(), String> {
     // Load configuration files
 
     let config = args.config.clone();
@@ -243,15 +245,13 @@ fn run() -> Result<(), String> {
 
         // setup tracing/metrics integration and prometheus endpoint
         // execute setup on the existing tokio runtime to ensure that no new runtime is spawned
-        runtime.block_on(async {
-            // prepare prometheus endpoint
-            let prometheus = PrometheusBuilder::new();
-            prometheus
-                .with_http_listener(socket)
-                // either executes on the endpoint on the current tokio runtime or launches a new one
-                .install()
-                .map_err(|e| format!("failed to install prometheus endpoint {e}"))
-        })?;
+        // prepare prometheus endpoint
+        let prometheus = PrometheusBuilder::new();
+        prometheus
+            .with_http_listener(socket)
+            // either executes on the endpoint on the current tokio runtime or launches a new one
+            .install()
+            .map_err(|e| format!("failed to install prometheus endpoint {e}"))?;
     } else {
         info!("Prometheus metrics are disabled");
     }
@@ -267,7 +267,7 @@ fn run() -> Result<(), String> {
             .zone()
             .map_err(|err| format!("failed to read zone name from {config_path:?}: {err}"))?;
 
-        match runtime.block_on(zone.load(&zone_dir)) {
+        match zone.load(&zone_dir).await {
             Ok(authority) => catalog.upsert(zone_name.into(), authority),
             Err(err) => return Err(format!("could not load zone {zone_name}: {err}")),
         }
@@ -425,7 +425,7 @@ fn run() -> Result<(), String> {
     // Ideally the processing would be n-threads for receiving, which hand off to m-threads for
     //  request handling. It would generally be the case that n <= m.
     info!("server starting up, awaiting connections...");
-    match runtime.block_on(server.block_until_done()) {
+    match server.block_until_done().await {
         Ok(()) => {
             // we're exiting for some reason...
             info!("Hickory DNS {} stopping", hickory_client::version());
