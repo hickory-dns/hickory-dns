@@ -8,7 +8,6 @@ use dns_test::{
 };
 
 #[test]
-#[ignore = "hickory stops looking for the nearest enclosing NS RRset when it encounters a CNAME record in a response"]
 fn cname_between_zone_cuts() -> Result<()> {
     let network = Network::new()?;
     let leaf_zone = FQDN::TEST_TLD.push_label("a").push_label("b");
