@@ -22,19 +22,7 @@
 //!    --tls-port=PORT         Override the listening port for TLS connections
 //! ```
 
-// BINARY WARNINGS
-#![warn(
-    clippy::dbg_macro,
-    clippy::unimplemented,
-    missing_copy_implementations,
-    missing_docs,
-    non_snake_case,
-    non_upper_case_globals,
-    rust_2018_idioms,
-    unreachable_pub
-)]
 #![recursion_limit = "128"]
-#![allow(clippy::redundant_clone)]
 
 use std::{
     fmt,
@@ -54,7 +42,9 @@ use tokio::{
     net::{TcpListener, UdpSocket},
     runtime,
 };
-use tracing::{Event, Level, Subscriber, error, info, warn};
+#[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
+use tracing::warn;
+use tracing::{Event, Level, Subscriber, error, info};
 use tracing_subscriber::{
     EnvFilter,
     fmt::{FmtContext, FormatEvent, FormatFields, FormattedFields, format},
