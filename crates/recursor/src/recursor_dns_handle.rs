@@ -212,6 +212,9 @@ impl RecursorDnsHandle {
             .await
         {
             Ok((depth, ns)) => (depth, ns),
+            // Handle the short circuit case for when we receive NXDOMAIN on a parent name, per RFC
+            // 8020.
+            Err(e) if e.is_nx_domain() => return Err(e),
             Err(e) => return Err(Error::from(format!("no nameserver found for {zone}: {e}"))),
         };
 
@@ -457,6 +460,8 @@ impl RecursorDnsHandle {
             .await;
         let (lookup, response_opt) = match lookup_res {
             Ok((lookup, response_opt)) => (lookup, response_opt),
+            // Short-circuit on NXDOMAIN, per RFC 8020.
+            Err(e) if e.is_nx_domain() => return Err(e),
             // The name `zone` is not a zone cut. Return the same pool of name servers again, but do
             // not cache it. If this was recursively called by `ns_pool_for_zone()`, the outer call
             // will try again with one more label added to the iterative query name.
