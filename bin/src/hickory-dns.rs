@@ -184,14 +184,13 @@ fn main() -> Result<(), String> {
 
 fn run() -> Result<(), String> {
     let args = Cli::parse();
+
     // TODO: this should be set after loading config, but it's necessary for initial log lines, no?
-    if args.quiet {
-        quiet()?;
-    } else if args.debug {
-        debug()?;
-    } else {
-        default()?;
-    }
+    logger(match (args.quiet, args.debug) {
+        (true, _) => tracing::Level::ERROR,
+        (_, true) => tracing::Level::DEBUG,
+        _ => tracing::Level::INFO,
+    })?;
 
     info!("Hickory DNS {} starting...", hickory_client::version());
 
@@ -661,21 +660,6 @@ fn all_hickory_dns(level: impl ToString) -> String {
         level = level.to_string().to_lowercase(),
         env = get_env()
     )
-}
-
-/// appends hickory-server debug to RUST_LOG
-pub fn debug() -> Result<(), String> {
-    logger(tracing::Level::DEBUG)
-}
-
-/// appends hickory-server info to RUST_LOG
-pub fn default() -> Result<(), String> {
-    logger(tracing::Level::INFO)
-}
-
-/// appends hickory-server error to RUST_LOG
-pub fn quiet() -> Result<(), String> {
-    logger(tracing::Level::ERROR)
 }
 
 // TODO: add dep on util crate, share logging config...
