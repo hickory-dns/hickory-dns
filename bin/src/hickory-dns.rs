@@ -340,7 +340,7 @@ fn run() -> Result<(), String> {
         if !args.disable_tls && !config.disable_tls() {
             // setup TLS listeners
             config_tls(
-                &args,
+                args.tls_port,
                 &mut server,
                 &config,
                 tls_cert_config,
@@ -355,7 +355,7 @@ fn run() -> Result<(), String> {
         if !args.disable_https && !config.disable_https() {
             // setup HTTPS listeners
             config_https(
-                &args,
+                args.https_port,
                 &mut server,
                 &config,
                 tls_cert_config,
@@ -370,7 +370,7 @@ fn run() -> Result<(), String> {
         if !args.disable_quic && !config.disable_quic() {
             // setup QUIC listeners
             config_quic(
-                &args,
+                args.quic_port,
                 &mut server,
                 &config,
                 tls_cert_config,
@@ -434,14 +434,14 @@ fn run() -> Result<(), String> {
 
 #[cfg(feature = "__tls")]
 fn config_tls(
-    args: &Cli,
+    tls_port: Option<u16>,
     server: &mut ServerFuture<Catalog>,
     config: &Config,
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
 ) -> Result<(), String> {
-    let tls_listen_port: u16 = args.tls_port.unwrap_or_else(|| config.tls_listen_port());
+    let tls_listen_port = tls_port.unwrap_or_else(|| config.tls_listen_port());
 
     if listen_addrs.is_empty() {
         warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
@@ -477,16 +477,14 @@ fn config_tls(
 
 #[cfg(feature = "__https")]
 fn config_https(
-    args: &Cli,
+    https_port: Option<u16>,
     server: &mut ServerFuture<Catalog>,
     config: &Config,
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
 ) -> Result<(), String> {
-    let https_listen_port: u16 = args
-        .https_port
-        .unwrap_or_else(|| config.https_listen_port());
+    let https_listen_port = https_port.unwrap_or_else(|| config.https_listen_port());
     let endpoint_path = config.http_endpoint();
 
     if listen_addrs.is_empty() {
@@ -534,14 +532,14 @@ fn config_https(
 
 #[cfg(feature = "__quic")]
 fn config_quic(
-    args: &Cli,
+    quic_port: Option<u16>,
     server: &mut ServerFuture<Catalog>,
     config: &Config,
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
 ) -> Result<(), String> {
-    let quic_listen_port: u16 = args.quic_port.unwrap_or_else(|| config.quic_listen_port());
+    let quic_listen_port = quic_port.unwrap_or_else(|| config.quic_listen_port());
 
     if listen_addrs.is_empty() {
         warn!("a tls certificate was specified, but no QUIC addresses configured to listen on");
