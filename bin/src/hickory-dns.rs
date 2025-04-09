@@ -54,12 +54,12 @@ use tokio::{
     net::{TcpListener, UdpSocket},
     runtime,
 };
-use tracing::{Event, Subscriber, error, info, warn};
+use tracing::{error, info, warn, Event, Level, Subscriber};
 use tracing_subscriber::{
-    fmt::{FmtContext, FormatEvent, FormatFields, FormattedFields, format},
+    fmt::{format, FmtContext, FormatEvent, FormatFields, FormattedFields},
     layer::SubscriberExt,
     registry::LookupSpan,
-    util::SubscriberInitExt,
+    util::SubscriberInitExt, EnvFilter,
 };
 
 use hickory_dns::Config;
@@ -186,11 +186,22 @@ fn run() -> Result<(), String> {
     let args = Cli::parse();
 
     // TODO: this should be set after loading config, but it's necessary for initial log lines, no?
-    logger(match (args.quiet, args.debug) {
-        (true, _) => tracing::Level::ERROR,
-        (_, true) => tracing::Level::DEBUG,
-        _ => tracing::Level::INFO,
-    })?;
+    let level = match (args.quiet, args.debug) {
+        (true, _) => Level::ERROR,
+        (_, true) => Level::DEBUG,
+        _ => Level::INFO,
+    };
+
+    // Setup tracing for logging based on input
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer().event_format(TdnsFormatter))
+        .with(
+            EnvFilter::builder()
+                .with_default_directive(Level::WARN.into())
+                .parse(all_hickory_dns(level))
+                .map_err(|err| format!("failed to configure tracing/logging: {err}"))?,
+        )
+        .init();
 
     info!("Hickory DNS {} starting...", hickory_client::version());
 
@@ -660,24 +671,6 @@ fn all_hickory_dns(level: impl ToString) -> String {
         level = level.to_string().to_lowercase(),
         env = get_env()
     )
-}
-
-// TODO: add dep on util crate, share logging config...
-fn logger(level: tracing::Level) -> Result<(), String> {
-    // Setup tracing for logging based on input
-    let filter = tracing_subscriber::EnvFilter::builder()
-        .with_default_directive(tracing::Level::WARN.into())
-        .parse(all_hickory_dns(level))
-        .map_err(|err| format!("failed to configure tracing/logging: {err}"))?;
-
-    let formatter = tracing_subscriber::fmt::layer().event_format(TdnsFormatter);
-
-    tracing_subscriber::registry()
-        .with(formatter)
-        .with(filter)
-        .init();
-
-    Ok(())
 }
 
 /// Build a TcpListener for a given IP, port pair; IPv6 listeners will not accept v4 connections
