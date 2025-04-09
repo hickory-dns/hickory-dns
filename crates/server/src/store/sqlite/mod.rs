@@ -752,7 +752,18 @@ impl SqliteAuthority {
 
                     // zone     rrset    rr       Add to an RRset
                     info!("upserting record: {:?}", rr);
-                    updated = self.in_memory.upsert(rr.clone(), serial).await || updated;
+                    let upserted = self.in_memory.upsert(rr.clone(), serial).await;
+
+                    #[cfg(all(feature = "metrics", feature = "__dnssec"))]
+                    if auto_signing_and_increment {
+                        if upserted {
+                            self.metrics.persistent.added();
+                        } else {
+                            self.metrics.persistent.updated();
+                        }
+                    }
+
+                    updated = upserted || updated
                 }
                 DNSClass::ANY => {
                     // This is a delete of entire RRSETs, either many or one. In either case, the spec is clear:
@@ -791,6 +802,11 @@ impl SqliteAuthority {
                             for delete in to_delete {
                                 self.in_memory.records_mut().await.remove(&delete);
                                 updated = true;
+
+                                #[cfg(all(feature = "metrics", feature = "__dnssec"))]
+                                if auto_signing_and_increment {
+                                    self.metrics.persistent.deleted()
+                                }
                             }
                         }
                         _ => {
@@ -804,6 +820,11 @@ impl SqliteAuthority {
                                 let deleted = self.in_memory.records_mut().await.remove(&rr_key);
                                 info!("deleted rrset: {:?}", deleted);
                                 updated = updated || deleted.is_some();
+
+                                #[cfg(all(feature = "metrics", feature = "__dnssec"))]
+                                if auto_signing_and_increment {
+                                    self.metrics.persistent.deleted()
+                                }
                             } else {
                                 info!("expected empty rdata: {:?}", rr);
                                 return Err(ResponseCode::FormErr);
@@ -823,6 +844,11 @@ impl SqliteAuthority {
 
                         if deleted {
                             *rrset = Arc::new(rrset_clone);
+                        }
+
+                        #[cfg(all(feature = "metrics", feature = "__dnssec"))]
+                        if auto_signing_and_increment {
+                            self.metrics.persistent.deleted()
                         }
                     }
                 }
