@@ -208,6 +208,17 @@ fn run() -> Result<(), String> {
 
     info!("Hickory DNS {} starting...", hickory_client::version());
 
+    let mut runtime = runtime::Builder::new_multi_thread();
+    runtime.enable_all().thread_name("hickory-server-runtime");
+    if let Some(workers) = args.workers {
+        runtime.worker_threads(workers);
+    }
+    let runtime = runtime
+        .build()
+        .map_err(|err| format!("failed to initialize Tokio runtime: {err}"))?;
+
+    let _guard = runtime.enter();
+
     // Load configuration files
 
     let config = args.config.clone();
@@ -223,17 +234,6 @@ fn run() -> Result<(), String> {
         .as_ref()
         .map(PathBuf::from)
         .unwrap_or(directory_config);
-
-    let mut runtime = runtime::Builder::new_multi_thread();
-    runtime.enable_all().thread_name("hickory-server-runtime");
-    if let Some(workers) = args.workers {
-        runtime.worker_threads(workers);
-    }
-    let runtime = runtime
-        .build()
-        .map_err(|err| format!("failed to initialize Tokio runtime: {err}"))?;
-
-    let _guard = runtime.enter();
 
     #[cfg(feature = "prometheus-metrics")]
     if !args.disable_prometheus && !config.disable_prometheus() {
