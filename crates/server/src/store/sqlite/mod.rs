@@ -190,12 +190,15 @@ impl SqliteAuthority {
             //  authority.
             if record.record_type() == RecordType::AXFR {
                 self.in_memory.clear();
-            } else if let Err(error) = self.update_records(&[record], false).await {
-                return Err(PersistenceErrorKind::Recovery(error.to_str()).into());
+            } else {
+                match self.update_records(&[record], false).await {
+                    Ok(_) => {
+                        #[cfg(feature = "metrics")]
+                        self.metrics.persistent.zone_records.increment(1);
+                    }
+                    Err(error) => return Err(PersistenceErrorKind::Recovery(error.to_str()).into()),
+                }
             }
-
-            #[cfg(feature = "metrics")]
-            self.metrics.persistent.zone_records_total.increment(1);
         }
 
         Ok(())
@@ -221,10 +224,10 @@ impl SqliteAuthority {
                 // TODO: should we preserve rr_sets or not?
                 for record in rr_set.records_without_rrsigs() {
                     journal.insert_record(serial, record)?;
-                }
 
-                #[cfg(feature = "metrics")]
-                self.metrics.persistent.zone_records_total.increment(1);
+                    #[cfg(feature = "metrics")]
+                    self.metrics.persistent.zone_records.increment(1);
+                }
             }
 
             // TODO: COMMIT THE TRANSACTION!!!
@@ -996,7 +999,7 @@ impl Authority for SqliteAuthority {
         let lookup = self.in_memory.lookup(name, rtype, lookup_options).await;
 
         #[cfg(feature = "metrics")]
-        self.metrics.query.zone_record_lookups.increment(1);
+        self.metrics.query.increment_lookup(&lookup);
 
         lookup
     }
@@ -1006,7 +1009,12 @@ impl Authority for SqliteAuthority {
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup> {
-        self.in_memory.search(request_info, lookup_options).await
+        let search = self.in_memory.search(request_info, lookup_options).await;
+
+        #[cfg(feature = "metrics")]
+        self.metrics.query.increment_lookup(&search);
+
+        search
     }
 
     /// Return the NSEC records based on the given name

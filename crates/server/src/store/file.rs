@@ -71,9 +71,7 @@ impl FileAuthority {
             #[cfg(feature = "metrics")]
             metrics: {
                 let new = StoreMetrics::new("file");
-                new.persistent
-                    .zone_records_total
-                    .increment(records.len() as f64);
+                new.persistent.zone_records.increment(records.len() as f64);
                 new
             },
             in_memory: InMemoryAuthority::new(
@@ -207,7 +205,7 @@ impl Authority for FileAuthority {
         let lookup = self.in_memory.lookup(name, rtype, lookup_options).await;
 
         #[cfg(feature = "metrics")]
-        self.metrics.query.zone_record_lookups.increment(1);
+        self.metrics.query.increment_lookup(&lookup);
 
         lookup
     }
@@ -228,7 +226,12 @@ impl Authority for FileAuthority {
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup> {
-        self.in_memory.search(request_info, lookup_options).await
+        let search = self.in_memory.search(request_info, lookup_options).await;
+
+        #[cfg(feature = "metrics")]
+        self.metrics.query.increment_lookup(&search);
+
+        search
     }
 
     /// Get the NS, NameServer, record for the zone
