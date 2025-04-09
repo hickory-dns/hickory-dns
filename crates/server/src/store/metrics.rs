@@ -17,8 +17,6 @@ impl StoreMetrics {
 
 pub(super) struct PersistentStoreMetrics {
     pub(super) zone_records: Gauge,
-    #[cfg(feature = "__dnssec")]
-    pub(super) zone_records_dynamically_updated: Counter,
 }
 
 impl PersistentStoreMetrics {
@@ -33,23 +31,7 @@ impl PersistentStoreMetrics {
             "number of dns zone records in persisted storages"
         );
 
-        #[cfg(feature = "__dnssec")]
-        let zone_records_dynamically_updated = {
-            let zone_records_dynamically_updated =
-                counter!("hickory_zone_records_dynamically_updated_total", "store" => store);
-            describe_counter!(
-                "hickory_zone_records_dynamically_updated_total",
-                Unit::Count,
-                "number of dns zone records that had been dynamically updated"
-            );
-            zone_records_dynamically_updated
-        };
-
-        Self {
-            zone_records,
-            #[cfg(feature = "__dnssec")]
-            zone_records_dynamically_updated,
-        }
+        Self { zone_records }
     }
 }
 

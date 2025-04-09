@@ -951,17 +951,7 @@ impl Authority for SqliteAuthority {
         self.verify_prerequisites(update.prerequisites()).await?;
         self.pre_scan(update.updates()).await?;
 
-        let updated = self.update_records(update.updates(), true).await;
-
-        #[cfg(feature = "metrics")]
-        if updated == Ok(true) {
-            self.metrics
-                .persistent
-                .zone_records_dynamically_updated
-                .increment(update.updates().len() as u64);
-        }
-
-        updated
+        self.update_records(update.updates(), true).await
     }
 
     /// Always fail when DNSSEC is disabled.
