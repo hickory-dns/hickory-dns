@@ -438,7 +438,7 @@ impl RecursorDnsHandle {
 
         let parent_zone = zone.base_name();
 
-        let (mut ns_depth, mut nameserver_pool) = if parent_zone.is_root() {
+        let (mut ns_depth, nameserver_pool) = if parent_zone.is_root() {
             debug!("using roots for {zone} nameservers");
             (depth, self.roots.clone())
         } else {
@@ -446,42 +446,32 @@ impl RecursorDnsHandle {
                 .await?
         };
 
-        let mut query = Query::query(zone.clone(), RecordType::NS);
+        let query = Query::query(zone.clone(), RecordType::NS);
 
-        // Query for nameserver records via the pool for the parent zone, following SOA referrals up
-        // to the nameserver recursion limit.
-        let (lookup, response_opt) = loop {
-            ns_depth += 1;
+        ns_depth += 1;
+        Error::recursion_exceeded(self.ns_recursion_limit, ns_depth, &zone)?;
 
-            Error::recursion_exceeded(self.ns_recursion_limit, ns_depth, &zone)?;
-
-            let error = match self
-                .lookup(query.clone(), nameserver_pool.clone(), request_time, false)
-                .await
-            {
-                Ok((lookup, response_opt)) => break (lookup, response_opt),
-                Err(e) => e,
-            };
-
-            if let ErrorKind::Forward(name) = error.kind() {
-                // if we already had this name, don't try again
-                if zone == name.name {
-                    debug!("zone previously searched for {}", name.name);
-                    return Err(error);
-                };
-
-                debug!("ns for {zone} forwarded to {} via SOA record", name.name);
-
-                (ns_depth, nameserver_pool) = self
-                    .ns_pool_for_zone(name.name.clone(), request_time, ns_depth)
-                    .await?;
-
-                query = Query::query(name.name.clone(), RecordType::NS);
-                continue;
-            }
-
-            return Err(error);
+        // Query for nameserver records via the pool for the parent zone.
+        let lookup_res = self
+            .lookup(query, nameserver_pool.clone(), request_time, false)
+            .await;
+        let (lookup, response_opt) = match lookup_res {
+            Ok((lookup, response_opt)) => (lookup, response_opt),
+            // The name `zone` is not a zone cut. Return the same pool of name servers again, but do
+            // not cache it. If this was recursively called by `ns_pool_for_zone()`, the outer call
+            // will try again with one more label added to the iterative query name.
+            Err(_) => return Ok((depth, nameserver_pool)),
         };
+
+        let any_ns = lookup
+            .record_iter()
+            .any(|record| record.record_type() == RecordType::NS);
+        if !any_ns {
+            // Not a zone cut, but there is a CNAME or other record at this name. Return the
+            // same pool of name servers as above in the error case, to try again with a
+            // longer name.
+            return Ok((depth, nameserver_pool));
+        }
 
         // TODO: grab TTL and use for cache
         // get all the NS records and glue
@@ -505,11 +495,11 @@ impl RecursorDnsHandle {
                 continue;
             };
 
-            if !super::is_subzone(&query.name().base_name(), zns.name()) {
+            if !super::is_subzone(&zone.base_name(), zns.name()) {
                 warn!(
                     "dropping out of bailiwick record for {:?} with parent {:?}",
                     zns.name(),
-                    query.name().base_name(),
+                    zone.base_name(),
                 );
                 continue;
             }
