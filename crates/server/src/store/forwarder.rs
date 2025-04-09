@@ -268,7 +268,7 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         };
 
         #[cfg(feature = "metrics")]
-        self.metrics.zone_record_lookups.increment(1);
+        self.metrics.increment_lookup(&lookup);
 
         lookup
     }
