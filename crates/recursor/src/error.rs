@@ -112,6 +112,19 @@ impl Error {
         }
     }
 
+    /// Returns true if a query timed out
+    pub fn is_timeout(&self) -> bool {
+        let proto_error = match &*self.kind {
+            ErrorKind::Proto(proto) => proto,
+            ErrorKind::Resolve(err) => match err.kind() {
+                hickory_resolver::ResolveErrorKind::Proto(proto) => proto,
+                _ => return false,
+            },
+            _ => return false,
+        };
+        matches!(proto_error.kind(), ProtoErrorKind::Timeout)
+    }
+
     /// Returns the SOA record, if the error contains one
     pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
         match *self.kind {

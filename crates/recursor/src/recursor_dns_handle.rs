@@ -462,6 +462,9 @@ impl RecursorDnsHandle {
             Ok((lookup, response_opt)) => (lookup, response_opt),
             // Short-circuit on NXDOMAIN, per RFC 8020.
             Err(e) if e.is_nx_domain() => return Err(e),
+            // Short-circuit on timeouts. Requesting a longer name from the same pool would likely
+            // encounter them again.
+            Err(e) if e.is_timeout() => return Err(e),
             // The name `zone` is not a zone cut. Return the same pool of name servers again, but do
             // not cache it. If this was recursively called by `ns_pool_for_zone()`, the outer call
             // will try again with one more label added to the iterative query name.
