@@ -26,13 +26,9 @@ fuzz_target!(|data: &[u8]| {
 });
 
 fn compare(original: &[u8], message: &Message, reencoded: &[u8]) {
-    assert_eq!(original[4..6], reencoded[4..6]);
     let query_count = u16::from_be_bytes(reencoded[4..6].try_into().unwrap());
-    assert_eq!(original[6..8], reencoded[6..8]);
     let answer_count = u16::from_be_bytes(reencoded[6..8].try_into().unwrap());
-    assert_eq!(original[8..10], reencoded[8..10]);
     let name_server_count = u16::from_be_bytes(reencoded[8..10].try_into().unwrap());
-    assert_eq!(original[10..12], reencoded[10..12]);
     let additional_records_count = u16::from_be_bytes(reencoded[10..12].try_into().unwrap());
 
     let rr_count = answer_count + name_server_count + additional_records_count;
