@@ -42,7 +42,7 @@ fn does_not_cover() -> Result<()> {
     let root_hint = root_ns.root_hint();
     let trust_anchor = root_ns.trust_anchor();
 
-    let leaf_ns = leaf_ns.start()?;
+    let _leaf_ns = leaf_ns.start()?;
     let _tld_ns = tld_ns.start()?;
     let _root_ns = root_ns.start()?;
 
@@ -63,11 +63,6 @@ fn does_not_cover() -> Result<()> {
             RecordType::A,
             &FQDN::TEST_DOMAIN.push_label(&subdomain.to_string()),
         )?;
-
-        if subdomain == 'a' {
-            println!("{}", resolver.logs()?);
-            println!("{}", leaf_ns.logs()?);
-        }
 
         assert_eq!(response.status, DigStatus::SERVFAIL);
     }

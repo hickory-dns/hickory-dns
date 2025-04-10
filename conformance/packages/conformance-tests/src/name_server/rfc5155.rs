@@ -353,9 +353,6 @@ fn query_nameserver(
         qtype,
         qname,
     );
-    if output_res.is_err() {
-        println!("{}", ns.logs().unwrap());
-    }
     let output = output_res?;
 
     let nsec3_rrs_response = output

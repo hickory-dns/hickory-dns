@@ -105,8 +105,6 @@ fn run_test(
 
     let res = client.dig(dig_settings, resolver_addr, RecordType::A, &needle_fqdn);
     dbg!(&res);
-    let logs = resolver.logs()?;
-    eprintln!("resolver logs:\n{logs}");
     let ans = res?;
 
     tshark.wait_for_capture()?;
