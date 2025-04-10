@@ -287,8 +287,6 @@ fn five_secure_zones() -> Result<()> {
         &leaf_zone,
     )?;
 
-    println!("{}", resolver.logs()?);
-
     assert!(output.status.is_noerror());
     assert!(!output.answer.is_empty());
 

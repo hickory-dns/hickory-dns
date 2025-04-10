@@ -124,9 +124,5 @@ fn fixture(label: &str, deprecated_settings: SignSettings) -> Result<DigOutput> 
     }
 
     let settings = *DigSettings::default().recurse().authentic_data();
-    let ret = client.dig(settings, resolver.ipv4_addr(), RecordType::A, &needle_fqdn);
-
-    println!("{}", resolver.logs().unwrap());
-
-    ret
+    client.dig(settings, resolver.ipv4_addr(), RecordType::A, &needle_fqdn)
 }

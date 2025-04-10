@@ -50,8 +50,6 @@ fn truncated_response_caching_with_tcp_fallback() -> Result<()> {
     println!("second response: {response_2:?}");
     let (protocol_2, counter_2) = parse_txt_records(&response_2.answer)?;
 
-    println!("{}", resolver.logs()?);
-
     assert_eq!(response_2.status, DigStatus::NOERROR);
 
     // Check that we got a cached response.
@@ -99,8 +97,6 @@ fn truncated_response_caching_udp_only() -> Result<()> {
         .unwrap_or_else(|e| panic!("error {e:?} resolver logs: {}", resolver.logs().unwrap()));
     println!("second response: {response_2:?}");
     let (_protocol_2, counter_2) = parse_txt_records(&response_2.answer)?;
-
-    println!("{}", resolver.logs()?);
 
     assert_eq!(response_2.status, DigStatus::NOERROR);
 
