@@ -71,11 +71,12 @@ fn on_clients_ds_query_it_queries_the_parent_zone() -> Result<()> {
                     .expect("expected Object");
                 println!("outgoing query: {queries:?}");
                 for query in queries.keys() {
-                    if query.contains("type DS") {
-                        assert!(query.contains(test_domain));
-                        assert_eq!(tld_ns_addr, *destination);
-                        return true;
+                    if !query.contains("type DS") {
+                        continue;
                     }
+                    assert!(query.contains(test_domain));
+                    assert_eq!(tld_ns_addr, *destination);
+                    return true;
                 }
                 false
             })
