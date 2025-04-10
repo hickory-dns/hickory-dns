@@ -49,6 +49,10 @@ fn on_clients_ds_query_it_queries_the_parent_zone() -> Result<()> {
 
     // check that DS query was forwarded to the `testing.` (parent zone) nameserver
     let client_addr = client.ipv4_addr();
+    // in tshark's output, the domain name in the query omits the last `.`, so strip it from
+    // FQDN::TEST_DOMAIN
+    let test_domain = FQDN::TEST_DOMAIN.as_str();
+    let test_domain = test_domain.strip_suffix('.').unwrap();
     tshark.wait_until(
         |captures| {
             captures.iter().any(|capture| {
@@ -68,10 +72,6 @@ fn on_clients_ds_query_it_queries_the_parent_zone() -> Result<()> {
                 println!("outgoing query: {queries:?}");
                 for query in queries.keys() {
                     if query.contains("type DS") {
-                        // the domain name in the query omits the last `.` so strip it from
-                        // FQDN::TEST_DOMAIN
-                        let test_domain = FQDN::TEST_DOMAIN.as_str();
-                        let test_domain = test_domain.strip_suffix('.').unwrap_or(test_domain);
                         assert!(query.contains(test_domain));
                         assert_eq!(tld_ns_addr, *destination);
                         return true;
