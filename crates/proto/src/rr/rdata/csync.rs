@@ -43,6 +43,7 @@ pub struct CSYNC {
     soa_serial: u32,
     immediate: bool,
     soa_minimum: bool,
+    reserved_flags: u16,
     type_bit_maps: RecordTypeSet,
 }
 
@@ -69,6 +70,7 @@ impl CSYNC {
             soa_serial,
             immediate,
             soa_minimum,
+            reserved_flags: 0,
             type_bit_maps: RecordTypeSet::new(type_bit_maps),
         }
     }
@@ -114,7 +116,7 @@ impl CSYNC {
     ///    flag that is unknown to or unsupported by the parental agent.
     /// ```
     pub fn flags(&self) -> u16 {
-        let mut flags: u16 = 0;
+        let mut flags = self.reserved_flags & 0b1111_1111_1111_1100;
         if self.immediate {
             flags |= 0b0000_0001
         };
@@ -148,6 +150,7 @@ impl<'r> RecordDataDecodable<'r> for CSYNC {
 
         let immediate: bool = flags & 0b0000_0001 == 0b0000_0001;
         let soa_minimum: bool = flags & 0b0000_0010 == 0b0000_0010;
+        let reserved_flags = flags & 0b1111_1111_1111_1100;
 
         let offset = u16::try_from(decoder.index() - start_idx)
             .map_err(|_| ProtoError::from("decoding offset too large in CSYNC"))?;
@@ -160,6 +163,7 @@ impl<'r> RecordDataDecodable<'r> for CSYNC {
             soa_serial,
             immediate,
             soa_minimum,
+            reserved_flags,
             type_bit_maps,
         })
     }
