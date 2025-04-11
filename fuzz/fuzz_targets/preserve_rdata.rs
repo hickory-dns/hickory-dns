@@ -75,8 +75,8 @@ fn compare_rr(
         | record_types::MR
         | record_types::PTR => {
             // RDATA consists of a single `<domain-name>`.
-            let original_decompressed = Name::decompress(original_rr.rdata, original);
-            let reencoded_decompressed = Name::decompress(reencoded_rr.rdata, reencoded);
+            let original_decompressed = Name::decompress(original_rr.rdata, original)?;
+            let reencoded_decompressed = Name::decompress(reencoded_rr.rdata, reencoded)?;
             if original_decompressed == reencoded_decompressed {
                 Ok(())
             } else {
@@ -85,8 +85,8 @@ fn compare_rr(
         }
         record_types::SOA => {
             // RDATA consists of seven different fields.
-            let original_decompressed = Soa::decompress(original_rr.rdata, original);
-            let reencoded_decompressed = Soa::decompress(reencoded_rr.rdata, reencoded);
+            let original_decompressed = Soa::decompress(original_rr.rdata, original)?;
+            let reencoded_decompressed = Soa::decompress(reencoded_rr.rdata, reencoded)?;
             if original_decompressed == reencoded_decompressed {
                 Ok(())
             } else {
@@ -95,8 +95,8 @@ fn compare_rr(
         }
         record_types::MINFO => {
             // RDATA consists of two `<domain-name>`s.
-            let original_decompressed = Minfo::decompress(original_rr.rdata, original);
-            let reencoded_decompressed = Minfo::decompress(reencoded_rr.rdata, reencoded);
+            let original_decompressed = Minfo::decompress(original_rr.rdata, original)?;
+            let reencoded_decompressed = Minfo::decompress(reencoded_rr.rdata, reencoded)?;
             if original_decompressed == reencoded_decompressed {
                 Ok(())
             } else {
@@ -105,8 +105,8 @@ fn compare_rr(
         }
         record_types::MX => {
             // RDATA consists of a 16-bit integer and a `<domain-name>`.
-            let original_decompressed = Mx::decompress(original_rr.rdata, original);
-            let reencoded_decompressed = Mx::decompress(reencoded_rr.rdata, reencoded);
+            let original_decompressed = Mx::decompress(original_rr.rdata, original)?;
+            let reencoded_decompressed = Mx::decompress(reencoded_rr.rdata, reencoded)?;
             if original_decompressed == reencoded_decompressed {
                 Ok(())
             } else {
@@ -190,7 +190,7 @@ struct Name(Vec<u8>);
 
 impl Decompressible for Name {
     /// Decompress a name in a DNS message.
-    fn decompress(compressed_name: &[u8], message: &[u8]) -> Self {
+    fn decompress(compressed_name: &[u8], message: &[u8]) -> Result<Self, ()> {
         let mut output = Vec::with_capacity(compressed_name.len());
         let mut buffer = compressed_name;
         loop {
@@ -201,7 +201,7 @@ impl Decompressible for Name {
                 let length = (buffer[0] & !LABEL_TYPE_MASK) as usize;
                 output.extend_from_slice(&buffer[0..length + 1]);
                 if length == 0 {
-                    return Self(output);
+                    return Ok(Self(output));
                 }
                 buffer = &buffer[length + 1..];
             }
@@ -218,12 +218,12 @@ struct Minfo {
 
 impl Decompressible for Minfo {
     /// Decompress a MINFO RDATA.
-    fn decompress(compressed_rdata: &[u8], message: &[u8]) -> Self {
-        let emailbx_offset = name_length(compressed_rdata).unwrap();
-        let rmailbx = Name::decompress(compressed_rdata, message);
-        let emailbx = Name::decompress(&compressed_rdata[emailbx_offset..], message);
+    fn decompress(compressed_rdata: &[u8], message: &[u8]) -> Result<Self, ()> {
+        let emailbx_offset = name_length(compressed_rdata)?;
+        let rmailbx = Name::decompress(compressed_rdata, message)?;
+        let emailbx = Name::decompress(&compressed_rdata[emailbx_offset..], message)?;
 
-        Minfo { rmailbx, emailbx }
+        Ok(Minfo { rmailbx, emailbx })
     }
 }
 
@@ -235,13 +235,13 @@ struct Mx {
 }
 
 impl Decompressible for Mx {
-    fn decompress(input: &[u8], message: &[u8]) -> Self {
+    fn decompress(input: &[u8], message: &[u8]) -> Result<Self, ()> {
         let preference = input[0..2].try_into().unwrap();
-        let exchange = Name::decompress(&input[2..], message);
-        Self {
+        let exchange = Name::decompress(&input[2..], message)?;
+        Ok(Self {
             preference,
             exchange,
-        }
+        })
     }
 }
 
@@ -255,26 +255,26 @@ struct Soa {
 
 impl Decompressible for Soa {
     /// Decompress a SOA RDATA.
-    fn decompress(compressed_rdata: &[u8], message: &[u8]) -> Self {
-        let rname_offset = name_length(compressed_rdata).unwrap();
-        let serial_offset = rname_offset + name_length(&compressed_rdata[rname_offset..]).unwrap();
+    fn decompress(compressed_rdata: &[u8], message: &[u8]) -> Result<Self, ()> {
+        let rname_offset = name_length(compressed_rdata)?;
+        let serial_offset = rname_offset + name_length(&compressed_rdata[rname_offset..])?;
 
-        let mname = Name::decompress(compressed_rdata, message);
-        let rname = Name::decompress(&compressed_rdata[rname_offset..], message);
+        let mname = Name::decompress(compressed_rdata, message)?;
+        let rname = Name::decompress(&compressed_rdata[rname_offset..], message)?;
 
         let rest = compressed_rdata[serial_offset..].to_vec();
 
-        Soa { mname, rname, rest }
+        Ok(Soa { mname, rname, rest })
     }
 }
 
 /// Any part of a message containing names that can be decompressed, and then compared.
-trait Decompressible: Debug + PartialEq + Eq {
+trait Decompressible: Debug + PartialEq + Eq + Sized {
     /// Decompress one portion of a message, and return some representation of it.
     ///
     /// The second argument is the entire DNS message. Compressed names will refer to byte offsets
     /// within this message.
-    fn decompress(input: &[u8], message: &[u8]) -> Self;
+    fn decompress(input: &[u8], message: &[u8]) -> Result<Self, ()>;
 }
 
 mod record_types {
