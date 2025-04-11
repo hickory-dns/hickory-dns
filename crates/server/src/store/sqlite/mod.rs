@@ -136,7 +136,7 @@ impl SqliteAuthority {
                 zone_file_path: config.zone_file_path.clone(),
             };
 
-            let in_memory = FileAuthority::try_from_config(
+            let in_memory = FileAuthority::try_from_config_internal(
                 zone_name.clone(),
                 zone_type,
                 allow_axfr,
@@ -144,6 +144,8 @@ impl SqliteAuthority {
                 &file_config,
                 #[cfg(feature = "__dnssec")]
                 nx_proof_kind,
+                #[cfg(feature = "metrics")]
+                true,
             )?
             .unwrap();
 
@@ -190,12 +192,15 @@ impl SqliteAuthority {
             //  authority.
             if record.record_type() == RecordType::AXFR {
                 self.in_memory.clear();
-            } else if let Err(error) = self.update_records(&[record], false).await {
-                return Err(PersistenceErrorKind::Recovery(error.to_str()).into());
+            } else {
+                match self.update_records(&[record], false).await {
+                    Ok(_) => {
+                        #[cfg(feature = "metrics")]
+                        self.metrics.persistent.zone_records.increment(1);
+                    }
+                    Err(error) => return Err(PersistenceErrorKind::Recovery(error.to_str()).into()),
+                }
             }
-
-            #[cfg(feature = "metrics")]
-            self.metrics.persistent.zone_records_total.increment(1);
         }
 
         Ok(())
@@ -221,10 +226,10 @@ impl SqliteAuthority {
                 // TODO: should we preserve rr_sets or not?
                 for record in rr_set.records_without_rrsigs() {
                     journal.insert_record(serial, record)?;
-                }
 
-                #[cfg(feature = "metrics")]
-                self.metrics.persistent.zone_records_total.increment(1);
+                    #[cfg(feature = "metrics")]
+                    self.metrics.persistent.zone_records.increment(1);
+                }
             }
 
             // TODO: COMMIT THE TRANSACTION!!!
@@ -749,7 +754,18 @@ impl SqliteAuthority {
 
                     // zone     rrset    rr       Add to an RRset
                     info!("upserting record: {:?}", rr);
-                    updated = self.in_memory.upsert(rr.clone(), serial).await || updated;
+                    let upserted = self.in_memory.upsert(rr.clone(), serial).await;
+
+                    #[cfg(all(feature = "metrics", feature = "__dnssec"))]
+                    if auto_signing_and_increment {
+                        if upserted {
+                            self.metrics.persistent.dynamically_add();
+                        } else {
+                            self.metrics.persistent.dynamically_update();
+                        }
+                    }
+
+                    updated = upserted || updated
                 }
                 DNSClass::ANY => {
                     // This is a delete of entire RRSETs, either many or one. In either case, the spec is clear:
@@ -788,6 +804,11 @@ impl SqliteAuthority {
                             for delete in to_delete {
                                 self.in_memory.records_mut().await.remove(&delete);
                                 updated = true;
+
+                                #[cfg(all(feature = "metrics", feature = "__dnssec"))]
+                                if auto_signing_and_increment {
+                                    self.metrics.persistent.dynamically_delete()
+                                }
                             }
                         }
                         _ => {
@@ -801,6 +822,11 @@ impl SqliteAuthority {
                                 let deleted = self.in_memory.records_mut().await.remove(&rr_key);
                                 info!("deleted rrset: {:?}", deleted);
                                 updated = updated || deleted.is_some();
+
+                                #[cfg(all(feature = "metrics", feature = "__dnssec"))]
+                                if auto_signing_and_increment {
+                                    self.metrics.persistent.dynamically_delete()
+                                }
                             } else {
                                 info!("expected empty rdata: {:?}", rr);
                                 return Err(ResponseCode::FormErr);
@@ -820,6 +846,11 @@ impl SqliteAuthority {
 
                         if deleted {
                             *rrset = Arc::new(rrset_clone);
+                        }
+
+                        #[cfg(all(feature = "metrics", feature = "__dnssec"))]
+                        if auto_signing_and_increment {
+                            self.metrics.persistent.dynamically_delete()
                         }
                     }
                 }
@@ -948,17 +979,7 @@ impl Authority for SqliteAuthority {
         self.verify_prerequisites(update.prerequisites()).await?;
         self.pre_scan(update.updates()).await?;
 
-        let updated = self.update_records(update.updates(), true).await;
-
-        #[cfg(feature = "metrics")]
-        if updated == Ok(true) {
-            self.metrics
-                .persistent
-                .zone_records_dynamically_updated
-                .increment(update.updates().len() as u64);
-        }
-
-        updated
+        self.update_records(update.updates(), true).await
     }
 
     /// Always fail when DNSSEC is disabled.
@@ -996,7 +1017,7 @@ impl Authority for SqliteAuthority {
         let lookup = self.in_memory.lookup(name, rtype, lookup_options).await;
 
         #[cfg(feature = "metrics")]
-        self.metrics.query.zone_record_lookups.increment(1);
+        self.metrics.query.increment_lookup(&lookup);
 
         lookup
     }
@@ -1006,7 +1027,12 @@ impl Authority for SqliteAuthority {
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup> {
-        self.in_memory.search(request_info, lookup_options).await
+        let search = self.in_memory.search(request_info, lookup_options).await;
+
+        #[cfg(feature = "metrics")]
+        self.metrics.query.increment_lookup(&search);
+
+        search
     }
 
     /// Return the NSEC records based on the given name
