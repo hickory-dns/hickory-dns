@@ -51,7 +51,15 @@ fn compare(original: &[u8], message: &Message, reencoded: &[u8]) {
     };
 
     for (original_rr, reencoded_rr) in original_rrs.into_iter().zip(reencoded_rrs.into_iter()) {
-        assert_eq!(original_rr.r#type, reencoded_rr.r#type);
+        if original_rr.r#type != reencoded_rr.r#type {
+            println!("Parsed message: {message:?}");
+            println!("Original:   {:02x?}", original);
+            println!("Re-encoded: {:02x?}", reencoded);
+            panic!(
+                "record type changed when decoding and re-encoding: {} vs. {}",
+                original_rr.r#type, reencoded_rr.r#type
+            );
+        }
         if let Err(error_message) = compare_rr(original, original_rr, reencoded, reencoded_rr) {
             println!("Parsed message: {message:?}");
             println!("Record type: {}", original_rr.r#type);
