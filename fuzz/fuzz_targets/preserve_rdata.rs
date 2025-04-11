@@ -18,6 +18,8 @@ use hickory_proto::{
     serialize::binary::{BinDecodable, BinEncodable},
 };
 
+type Result<T> = std::result::Result<T, &'static str>;
+
 fuzz_target!(|data: &[u8]| {
     if let Ok(message) = Message::from_bytes(data) {
         let reencoded = message.to_bytes().unwrap();
@@ -26,27 +28,46 @@ fuzz_target!(|data: &[u8]| {
 });
 
 fn compare(original: &[u8], message: &Message, reencoded: &[u8]) {
-    assert_eq!(original[4..6], reencoded[4..6]);
     let query_count = u16::from_be_bytes(reencoded[4..6].try_into().unwrap());
-    assert_eq!(original[6..8], reencoded[6..8]);
     let answer_count = u16::from_be_bytes(reencoded[6..8].try_into().unwrap());
-    assert_eq!(original[8..10], reencoded[8..10]);
     let name_server_count = u16::from_be_bytes(reencoded[8..10].try_into().unwrap());
-    assert_eq!(original[10..12], reencoded[10..12]);
     let additional_records_count = u16::from_be_bytes(reencoded[10..12].try_into().unwrap());
 
     let rr_count = answer_count + name_server_count + additional_records_count;
-    let original_rrs = split_rrs(original, query_count, rr_count);
-    let reencoded_rrs = split_rrs(reencoded, query_count, rr_count);
+    let original_rrs = match split_rrs(original, query_count, rr_count) {
+        Ok(original_rrs) => original_rrs,
+        Err(error_message) => {
+            println!("Parsed message: {message:?}");
+            println!("Original: {:02x?}", original);
+            panic!("failed to split original message into resource records: {error_message}");
+        }
+    };
+    let reencoded_rrs = match split_rrs(reencoded, query_count, rr_count) {
+        Ok(reencoded_rrs) => reencoded_rrs,
+        Err(error_message) => {
+            println!("Parsed message: {message:?}");
+            println!("Original:   {:02x?}", original);
+            println!("Re-encoded: {:02x?}", reencoded);
+            panic!("failed to split re-encoded message into resource records: {error_message}");
+        }
+    };
 
     for (original_rr, reencoded_rr) in original_rrs.into_iter().zip(reencoded_rrs.into_iter()) {
-        assert_eq!(original_rr.r#type, reencoded_rr.r#type);
-        if let Err(()) = compare_rr(original, original_rr, reencoded, reencoded_rr) {
+        if original_rr.r#type != reencoded_rr.r#type {
+            println!("Parsed message: {message:?}");
+            println!("Original:   {:02x?}", original);
+            println!("Re-encoded: {:02x?}", reencoded);
+            panic!(
+                "record type changed when decoding and re-encoding: {} vs. {}",
+                original_rr.r#type, reencoded_rr.r#type
+            );
+        }
+        if let Err(error_message) = compare_rr(original, original_rr, reencoded, reencoded_rr) {
             println!("Parsed message: {message:?}");
             println!("Record type: {}", original_rr.r#type);
-            println!("Original: {:02x?}", &original_rr.rdata);
+            println!("Original:   {:02x?}", &original_rr.rdata);
             println!("Re-encoded: {:02x?}", &reencoded_rr.rdata);
-            panic!("record RDATA was not preserved when decoding and re-encoding");
+            panic!("record RDATA was not preserved when decoding and re-encoding: {error_message}");
         }
     }
 }
@@ -56,7 +77,7 @@ fn compare_rr(
     original_rr: Record<'_>,
     reencoded: &[u8],
     reencoded_rr: Record<'_>,
-) -> Result<(), ()> {
+) -> Result<()> {
     if original_rr.rdata == reencoded_rr.rdata {
         return Ok(());
     }
@@ -75,7 +96,7 @@ fn compare_rr(
             if original_decompressed == reencoded_decompressed {
                 Ok(())
             } else {
-                Err(())
+                Err("PTR RDATA was not preserved")
             }
         }
         record_types::SOA => {
@@ -85,7 +106,7 @@ fn compare_rr(
             if original_decompressed == reencoded_decompressed {
                 Ok(())
             } else {
-                Err(())
+                Err("SOA RDATA was not preserved")
             }
         }
         record_types::MINFO => {
@@ -95,7 +116,7 @@ fn compare_rr(
             if original_decompressed == reencoded_decompressed {
                 Ok(())
             } else {
-                Err(())
+                Err("MINFO RDATA was not preserved")
             }
         }
         record_types::MX => {
@@ -105,7 +126,7 @@ fn compare_rr(
             if original_decompressed == reencoded_decompressed {
                 Ok(())
             } else {
-                Err(())
+                Err("MX RDATA was not preserved")
             }
         }
         record_types::OPT => {
@@ -113,7 +134,7 @@ fn compare_rr(
             // transparently.
             Ok(())
         }
-        _ => Err(()),
+        _ => Err("RDATA was not preserved"),
     }
 }
 
@@ -125,19 +146,22 @@ struct Record<'a> {
 
 /// Walks through a DNS message and returns slices spanning each resource record in the main three
 /// sections.
-fn split_rrs(buffer: &[u8], query_count: u16, rr_count: u16) -> Vec<Record<'_>> {
+fn split_rrs(buffer: &[u8], query_count: u16, rr_count: u16) -> Result<Vec<Record<'_>>> {
     let mut offset = 12;
 
     // Skip over the question section.
     for _ in 0..query_count {
-        offset += name_length(&buffer[offset..]); // QNAME
+        if offset >= buffer.len() {
+            return Err("question section queries extend past end of message");
+        }
+        offset += name_length(&buffer[offset..])?; // QNAME
         offset += 2; // QTYPE
         offset += 2; // QCLASS
     }
 
     let mut output = Vec::new();
     for _ in 0..rr_count {
-        offset += name_length(&buffer[offset..]); // NAME
+        offset += name_length(&buffer[offset..])?; // NAME
 
         // TYPE
         let r#type = u16::from_be_bytes(buffer[offset..offset + 2].try_into().unwrap());
@@ -158,22 +182,30 @@ fn split_rrs(buffer: &[u8], query_count: u16, rr_count: u16) -> Vec<Record<'_>> 
         output.push(Record { r#type, rdata });
     }
 
-    output
+    Ok(output)
 }
 
 const LABEL_TYPE_MASK: u8 = 0b1100_0000;
 const COMPRESSED_LABEL_TYPE: u8 = 0b1100_0000;
 
 /// Determines the encoded length of a name inside a DNS message.
-fn name_length(input: &[u8]) -> usize {
+fn name_length(input: &[u8]) -> Result<usize> {
     let mut offset = 0;
 
-    while input[offset] != 0 && input[offset] & LABEL_TYPE_MASK != COMPRESSED_LABEL_TYPE {
-        let length = input[offset];
-        offset += 1 + length as usize;
+    loop {
+        let byte = input[offset];
+        if byte == 0 {
+            return Ok(offset + 1);
+        }
+        match byte & LABEL_TYPE_MASK {
+            0 => offset += 1 + byte as usize,
+            COMPRESSED_LABEL_TYPE => return Ok(offset + 2),
+            _ => return Err("unsupported label type in name"),
+        }
+        if offset >= input.len() {
+            return Err("name label length is longer than the remainder of the message");
+        }
     }
-
-    offset + 1
 }
 
 /// A decompressed domain name.
@@ -187,7 +219,7 @@ impl Decompressible for Name {
         let mut buffer = compressed_name;
         loop {
             if buffer[0] & LABEL_TYPE_MASK == COMPRESSED_LABEL_TYPE {
-                let offset = (buffer[0] & !LABEL_TYPE_MASK) as usize;
+                let offset = u16::from_be_bytes([buffer[0] & !LABEL_TYPE_MASK, buffer[1]]) as usize;
                 buffer = &message[offset..];
             } else {
                 let length = (buffer[0] & !LABEL_TYPE_MASK) as usize;
@@ -211,7 +243,7 @@ struct Minfo {
 impl Decompressible for Minfo {
     /// Decompress a MINFO RDATA.
     fn decompress(compressed_rdata: &[u8], message: &[u8]) -> Self {
-        let emailbx_offset = name_length(compressed_rdata);
+        let emailbx_offset = name_length(compressed_rdata).unwrap();
         let rmailbx = Name::decompress(compressed_rdata, message);
         let emailbx = Name::decompress(&compressed_rdata[emailbx_offset..], message);
 
@@ -248,8 +280,8 @@ struct Soa {
 impl Decompressible for Soa {
     /// Decompress a SOA RDATA.
     fn decompress(compressed_rdata: &[u8], message: &[u8]) -> Self {
-        let rname_offset = name_length(compressed_rdata);
-        let serial_offset = rname_offset + name_length(&compressed_rdata[rname_offset..]);
+        let rname_offset = name_length(compressed_rdata).unwrap();
+        let serial_offset = rname_offset + name_length(&compressed_rdata[rname_offset..]).unwrap();
 
         let mname = Name::decompress(compressed_rdata, message);
         let rname = Name::decompress(&compressed_rdata[rname_offset..], message);
