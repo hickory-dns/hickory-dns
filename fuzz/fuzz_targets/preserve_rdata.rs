@@ -60,13 +60,14 @@ fn compare(original: &[u8], message: &Message, reencoded: &[u8]) {
                 original_rr.r#type, reencoded_rr.r#type
             );
         }
-        if let Err(error_message) = compare_rr(original, original_rr, reencoded, reencoded_rr) {
-            println!("Parsed message: {message:?}");
-            println!("Record type: {}", original_rr.r#type);
-            println!("Original:   {:02x?}", &original_rr.rdata);
-            println!("Re-encoded: {:02x?}", &reencoded_rr.rdata);
-            panic!("record RDATA was not preserved when decoding and re-encoding: {error_message}");
-        }
+        let Err(error_message) = compare_rr(original, original_rr, reencoded, reencoded_rr) else {
+            continue;
+        };
+        println!("Parsed message: {message:?}");
+        println!("Record type: {}", original_rr.r#type);
+        println!("Original:   {:02x?}", &original_rr.rdata);
+        println!("Re-encoded: {:02x?}", &reencoded_rr.rdata);
+        panic!("record RDATA was not preserved when decoding and re-encoding: {error_message}");
     }
 }
 
