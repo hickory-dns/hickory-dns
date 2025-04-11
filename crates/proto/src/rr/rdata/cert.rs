@@ -51,8 +51,8 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum CertType {
-    /// 0, 255, 65535            Reserved
-    Reserved,
+    /// 0            Reserved
+    Reserved0,
 
     /// 1  PKIX      X.509 as per PKIX
     PKIX,
@@ -84,17 +84,23 @@ pub enum CertType {
     /// 254  OID       OID private
     OID,
 
+    /// 255          Reserved
+    Reserved255,
+
     /// 9-252, 256-65279            Available for IANA assignment
     Unassigned(u16),
 
     /// 65280-65534            Experimental
     Experimental(u16),
+
+    /// 65535        Reserved
+    Reserved65535,
 }
 
 impl From<u16> for CertType {
     fn from(cert_type: u16) -> Self {
         match cert_type {
-            0 => Self::Reserved,
+            0 => Self::Reserved0,
             1 => Self::PKIX,
             2 => Self::SPKI,
             3 => Self::PGP,
@@ -106,10 +112,10 @@ impl From<u16> for CertType {
             9_u16..=252_u16 => Self::Unassigned(cert_type),
             253 => Self::URI,
             254 => Self::OID,
-            255 => Self::Reserved,
+            255 => Self::Reserved255,
             256_u16..=65279_u16 => Self::Unassigned(cert_type),
             65280_u16..=65534_u16 => Self::Experimental(cert_type),
-            65535 => Self::Reserved,
+            65535 => Self::Reserved65535,
         }
     }
 }
@@ -117,7 +123,7 @@ impl From<u16> for CertType {
 impl From<CertType> for u16 {
     fn from(cert_type: CertType) -> Self {
         match cert_type {
-            CertType::Reserved => 0,
+            CertType::Reserved0 => 0,
             CertType::PKIX => 1,
             CertType::SPKI => 2,
             CertType::PGP => 3,
@@ -128,8 +134,10 @@ impl From<CertType> for u16 {
             CertType::IACPKIX => 8,
             CertType::URI => 253,
             CertType::OID => 254,
+            CertType::Reserved255 => 255,
             CertType::Unassigned(cert_type) => cert_type,
             CertType::Experimental(cert_type) => cert_type,
+            CertType::Reserved65535 => 65535,
         }
     }
 }
@@ -572,7 +580,7 @@ mod tests {
 
     #[test]
     fn test_cert_type() {
-        assert_eq!(CertType::Reserved, CertType::from(0));
+        assert_eq!(CertType::Reserved0, CertType::from(0));
         assert_eq!(CertType::PKIX, CertType::from(1));
         assert_eq!(CertType::SPKI, CertType::from(2));
         assert_eq!(CertType::PGP, CertType::from(3));
@@ -583,17 +591,19 @@ mod tests {
         assert_eq!(CertType::IACPKIX, CertType::from(8));
         assert_eq!(CertType::URI, CertType::from(253));
         assert_eq!(CertType::OID, CertType::from(254));
+        assert_eq!(CertType::Reserved255, CertType::from(255));
         assert_eq!(CertType::Unassigned(9), CertType::from(9));
         assert_eq!(CertType::Unassigned(90), CertType::from(90));
         assert_eq!(CertType::Experimental(65280), CertType::from(65280));
         assert_eq!(CertType::Experimental(65390), CertType::from(65390));
+        assert_eq!(CertType::Reserved65535, CertType::from(65535));
 
-        let cert_type_ianna_9 = CertType::Unassigned(9);
-        let cert_type_ianna_90 = CertType::Unassigned(90);
+        let cert_type_iana_9 = CertType::Unassigned(9);
+        let cert_type_iana_90 = CertType::Unassigned(90);
         let cert_type_experimental_80 = CertType::Experimental(65280);
         let cert_type_experimental_90 = CertType::Experimental(65290);
 
-        assert_eq!(u16::from(CertType::Reserved), 0);
+        assert_eq!(u16::from(CertType::Reserved0), 0);
         assert_eq!(u16::from(CertType::PKIX), 1);
         assert_eq!(u16::from(CertType::SPKI), 2);
         assert_eq!(u16::from(CertType::PGP), 3);
@@ -602,12 +612,14 @@ mod tests {
         assert_eq!(u16::from(CertType::IPGP), 6);
         assert_eq!(u16::from(CertType::ACPKIX), 7);
         assert_eq!(u16::from(CertType::IACPKIX), 8);
-        assert_eq!(u16::from(cert_type_ianna_9), 9);
-        assert_eq!(u16::from(cert_type_ianna_90), 90);
+        assert_eq!(u16::from(cert_type_iana_9), 9);
+        assert_eq!(u16::from(cert_type_iana_90), 90);
         assert_eq!(u16::from(CertType::URI), 253);
         assert_eq!(u16::from(CertType::OID), 254);
+        assert_eq!(u16::from(CertType::Reserved255), 255);
         assert_eq!(u16::from(cert_type_experimental_80), 65280);
         assert_eq!(u16::from(cert_type_experimental_90), 65290);
+        assert_eq!(u16::from(CertType::Reserved65535), 65535);
     }
 
     #[test]
