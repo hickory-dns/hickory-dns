@@ -145,6 +145,9 @@ fn split_rrs(
 
     // Skip over the question section.
     for _ in 0..query_count {
+        if offset >= buffer.len() {
+            return Err("question section queries extend past end of message");
+        }
         offset += name_length(&buffer[offset..])?; // QNAME
         offset += 2; // QTYPE
         offset += 2; // QCLASS
