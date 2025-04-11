@@ -186,15 +186,20 @@ const COMPRESSED_LABEL_TYPE: u8 = 0b1100_0000;
 fn name_length(input: &[u8]) -> Result<usize, &'static str> {
     let mut offset = 0;
 
-    while input[offset] != 0 && input[offset] & LABEL_TYPE_MASK != COMPRESSED_LABEL_TYPE {
-        let length = input[offset];
-        offset += 1 + length as usize;
+    loop {
+        let byte = input[offset];
+        if byte == 0 {
+            return Ok(offset + 1);
+        }
+        match byte & LABEL_TYPE_MASK {
+            0 => offset += 1 + byte as usize,
+            COMPRESSED_LABEL_TYPE => return Ok(offset + 2),
+            _ => return Err("unsupported label type in name"),
+        }
         if offset >= input.len() {
             return Err("name label length is longer than the remainder of the message");
         }
     }
-
-    Ok(offset + 1)
 }
 
 /// A decompressed domain name.
@@ -208,7 +213,7 @@ impl Decompressible for Name {
         let mut buffer = compressed_name;
         loop {
             if buffer[0] & LABEL_TYPE_MASK == COMPRESSED_LABEL_TYPE {
-                let offset = (buffer[0] & !LABEL_TYPE_MASK) as usize;
+                let offset = u16::from_be_bytes([buffer[0] & !LABEL_TYPE_MASK, buffer[1]]) as usize;
                 buffer = &message[offset..];
             } else {
                 let length = (buffer[0] & !LABEL_TYPE_MASK) as usize;
