@@ -697,14 +697,14 @@ impl Name {
             match encoder.get_label_pointer(*label_idx, last_index) {
                 // if writing canonical and already found, continue
                 Some(_) if canonical => continue,
-                Some(loc) if !canonical => {
+                Some(loc) if !canonical && loc & 0xC000 == 0 => {
                     // reset back to the beginning of this label, and then write the pointer...
                     encoder.set_offset(*label_idx);
                     encoder.trim();
 
                     // write out the pointer marker
-                    //  or'd with the location which shouldn't be larger than this 2^14 or 16k
-                    encoder.emit_u16(0xC000u16 | (loc & 0x3FFFu16))?;
+                    //  or'd with the location which is less than 2^14
+                    encoder.emit_u16(0xC000u16 | loc)?;
 
                     // we found a pointer don't write more, break
                     return Ok(());
