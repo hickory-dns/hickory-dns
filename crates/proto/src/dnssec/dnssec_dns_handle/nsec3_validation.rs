@@ -550,14 +550,6 @@ fn validate_nodata_response(
     let (hashed_query_name, base32_hashed_query_name) =
         hash_and_label(query_name, salt, iterations);
 
-    // DS queries resulting in NoData responses with accompanying NSEC3 records can prove that an
-    // insecure delegation exists; this is used to return Proof::Insecure instead of Proof::Secure
-    // in those situations.
-    let ds_proof_override = match query_type {
-        RecordType::DS => Proof::Insecure,
-        _ => Proof::Secure,
-    };
-
     let query_name_record = nsec3s
         .iter()
         .find(|record| record.base32_hashed_name == base32_hashed_query_name);
@@ -602,7 +594,7 @@ fn validate_nodata_response(
             );
         } else {
             return proof_log_yield(
-                ds_proof_override,
+                Proof::Secure,
                 query_name,
                 "nsec3",
                 &format!("type map does not cover {query_type} or CNAME")[..],
@@ -657,7 +649,7 @@ fn validate_nodata_response(
             .is_some_and(|x| x.nsec3_data.opt_out())
     {
         return proof_log_yield(
-            Proof::Insecure,
+            Proof::Secure,
             query_name,
             "nsec3",
             "DS query covered by opt-out proof",
@@ -696,7 +688,7 @@ fn validate_nodata_response(
                 &next_closer_name_info.base32_hashed_name,
             );
             match next_closer_record {
-                Some(_) => (ds_proof_override, "matching next closer record"),
+                Some(_) => (Proof::Secure, "matching next closer record"),
                 None => (Proof::Bogus, "no matching next closer record"),
             }
         }
@@ -711,15 +703,15 @@ fn validate_nodata_response(
             } = wildcard_based_encloser_proof(query_name, soa_name, nsec3s);
             match (closest_encloser, next_closer, closest_encloser_wildcard) {
                 (Some(_), Some(_), Some(_)) => (
-                    ds_proof_override,
+                    Proof::Secure,
                     "servicing wildcard with closest encloser proof",
                 ),
                 (None, Some(_), Some(_)) if &query_name.base_name() == soa_name => (
-                    ds_proof_override,
+                    Proof::Secure,
                     "servicing wildcard without closest encloser proof, but query parent name == SOA",
                 ),
                 (None, None, None) if query_name == soa_name => (
-                    ds_proof_override,
+                    Proof::Secure,
                     "no servicing wildcard, but query name == SOA",
                 ),
                 _ => (Proof::Bogus, "no valid servicing wildcard proof"),

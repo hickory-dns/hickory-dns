@@ -295,7 +295,6 @@ async fn wildcard_no_data_error() {
 }
 
 /// Based on RFC 5155 section B.6.
-#[ignore = "validation returns Insecure for DS query that gets an authenticated no data response"]
 #[tokio::test]
 async fn ds_child_zone_no_data_error() {
     subscribe();

@@ -206,10 +206,11 @@ fn check_nsec(verified_message: DnsResponse, query: &Query) -> Result<DnsRespons
         return Ok(verified_message);
     }
 
-    if verified_message
-        .name_servers()
-        .iter()
-        .all(|x| x.proof() == Proof::Insecure)
+    if !verified_message.name_servers().is_empty()
+        && verified_message
+            .name_servers()
+            .iter()
+            .all(|x| x.proof() == Proof::Insecure)
     {
         return Ok(verified_message);
     }
@@ -830,18 +831,36 @@ where
                 ProtoError::from(ProtoErrorKind::NoError)
             }
         }
-        Ok(_) => ProtoError::from(ProtoErrorKind::NoError),
+        Ok(response) => {
+            // If the response was an authenticated proof of nonexistence, then we have an insecure zone.
+            let empty_ds_rrset = !response
+                .answers()
+                .iter()
+                .any(|r| r.record_type() == RecordType::DS);
+            if empty_ds_rrset {
+                debug!(
+                    "marking {} as insecure based on secure NSEC/NSEC3 proof",
+                    zone
+                );
+                return Err(ProofError::new(
+                    Proof::Insecure,
+                    ProofErrorKind::DsResponseNsec { name: zone },
+                ));
+            }
+
+            ProtoError::from(ProtoErrorKind::NoError)
+        }
         Err(error) => error,
     };
 
-    // If the response was an authenticated proof of nonexistence, then we have an insecure zone.
+    // If the response was an empty DS RRset that was itself insecure, then we have another insecure zone.
     if let Some((query, _proof)) = error
         .kind()
         .as_nsec()
         .filter(|(_query, proof)| proof.is_insecure())
     {
         debug!(
-            "marking {} as insecure based on NSEC/NSEC3 proof",
+            "marking {} as insecure based on insecure NSEC/NSEC3 proof",
             query.name()
         );
         return Err(ProofError::new(
@@ -1303,21 +1322,13 @@ enum RrsigValidity {
 pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[(&Name, &NSEC)]) -> Proof {
     // TODO: consider converting this to Result, and giving explicit reason for the failure
 
-    // DS queries resulting in NoData responses with accompanying NSEC records can prove that an
-    // insecure delegation exists; this is used to return Proof::Insecure instead of Proof::Secure
-    // in those situations.
-    let ds_proof_override = match query.query_type() {
-        RecordType::DS => Proof::Insecure,
-        _ => Proof::Secure,
-    };
-
     // first look for a record with the same name
     //  if they are, then the query_type should not exist in the NSEC record.
     //  if we got an NSEC record of the same name, but it is listed in the NSEC types,
     //    WTF? is that bad server, bad record
     if let Some((_, nsec_data)) = nsecs.iter().find(|(name, _)| query.name() == *name) {
         if !nsec_data.type_set().contains(query.query_type()) {
-            return proof_log_yield(ds_proof_override, query.name(), "nsec1", "direct match");
+            return proof_log_yield(Proof::Secure, query.name(), "nsec1", "direct match");
         } else {
             return proof_log_yield(Proof::Bogus, query.name(), "nsec1", "direct match");
         }
@@ -1354,7 +1365,7 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[(&Name, &NSEC)]) -> 
     if wildcard == *query.name() {
         // this was validated by the nsec coverage over the query.name()
         proof_log_yield(
-            ds_proof_override,
+            Proof::Secure,
             query.name(),
             "nsec1",
             "direct wildcard match",
@@ -1364,7 +1375,7 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[(&Name, &NSEC)]) -> 
         //  if there is wildcard coverage, we're good.
         if verify_nsec_coverage(&wildcard) {
             proof_log_yield(
-                ds_proof_override,
+                Proof::Secure,
                 query.name(),
                 "nsec1",
                 "covering wildcard match",
