@@ -43,6 +43,7 @@ pub struct CAA {
     pub(crate) issuer_critical: bool,
     pub(crate) reserved_flags: u8,
     pub(crate) tag: Property,
+    pub(crate) raw_tag: Vec<u8>,
     pub(crate) value: Value,
     pub(crate) raw_value: Vec<u8>,
 }
@@ -56,12 +57,14 @@ impl CAA {
     ) -> Self {
         assert!(tag.is_issue() || tag.is_issuewild());
 
+        let raw_tag = tag.as_str().as_bytes().to_vec();
         let raw_value = encode_issuer_value(name.as_ref(), &options);
 
         Self {
             issuer_critical,
             reserved_flags: 0,
             tag,
+            raw_tag,
             value: Value::Issuer(name, options),
             raw_value,
         }
@@ -105,6 +108,7 @@ impl CAA {
             issuer_critical,
             reserved_flags: 0,
             tag: Property::Iodef,
+            raw_tag: Property::Iodef.as_str().as_bytes().to_vec(),
             value: Value::Url(url),
             raw_value,
         }
@@ -137,6 +141,7 @@ impl CAA {
 
     /// Set the property tag, see struct documentation
     pub fn set_tag(&mut self, tag: Property) {
+        self.raw_tag = tag.as_str().as_bytes().to_vec();
         self.tag = tag;
     }
 
@@ -670,11 +675,8 @@ fn read_tag(decoder: &mut BinDecoder<'_>, len: Restrict<u8>) -> ProtoResult<Stri
 }
 
 /// writes out the tag in binary form to the buffer, returning the number of bytes written
-fn emit_tag(buf: &mut [u8], tag: &Property) -> ProtoResult<u8> {
-    let property = tag.as_str();
-    let property = property.as_bytes();
-
-    let len = property.len();
+fn emit_tag(buf: &mut [u8], tag: &[u8]) -> ProtoResult<u8> {
+    let len = tag.len();
     if len > u8::MAX as usize {
         return Err(format!("CAA property too long: {len}").into());
     }
@@ -689,7 +691,7 @@ fn emit_tag(buf: &mut [u8], tag: &Property) -> ProtoResult<u8> {
 
     // copy into the buffer
     let buf = &mut buf[0..len];
-    buf.copy_from_slice(property);
+    buf.copy_from_slice(tag);
 
     Ok(len as u8)
 }
@@ -699,7 +701,7 @@ impl BinEncodable for CAA {
         encoder.emit(self.flags())?;
         // TODO: it might be interesting to use the new place semantics here to output all the data, then place the length back to the beginning...
         let mut tag_buf = [0_u8; u8::MAX as usize];
-        let len = emit_tag(&mut tag_buf, &self.tag)?;
+        let len = emit_tag(&mut tag_buf, &self.raw_tag)?;
 
         // now write to the encoder
         encoder.emit(len)?;
@@ -793,6 +795,7 @@ impl<'r> RecordDataDecodable<'r> for CAA {
             .unverified(/* used only as length safely */);
 
         let tag = read_tag(decoder, tag_len)?;
+        let raw_tag = tag.clone().into_bytes();
         let tag = Property::from(tag);
 
         let raw_value =
@@ -805,6 +808,7 @@ impl<'r> RecordDataDecodable<'r> for CAA {
             issuer_critical,
             reserved_flags,
             tag,
+            raw_tag,
             value,
             raw_value,
         })
@@ -892,7 +896,7 @@ impl fmt::Display for CAA {
             f,
             "{flags} {tag} \"{value}\"",
             flags = self.flags(),
-            tag = self.tag,
+            tag = String::from_utf8_lossy(&self.raw_tag),
             value = String::from_utf8_lossy(&self.raw_value)
         )
     }
@@ -1075,6 +1079,7 @@ mod tests {
             issuer_critical: false,
             reserved_flags: 0,
             tag: Property::Issue,
+            raw_tag: b"issue".to_vec(),
             value: Value::Unknown(b"%%%%%".to_vec()),
             raw_value: b"%%%%%".to_vec(),
         });
@@ -1101,6 +1106,7 @@ mod tests {
             issuer_critical: false,
             reserved_flags: 0,
             tag: Property::Iodef,
+            raw_tag: b"iodef".to_vec(),
             value: Value::Unknown(vec![0xff]),
             raw_value: vec![0xff],
         });
@@ -1112,6 +1118,7 @@ mod tests {
             issuer_critical: true,
             reserved_flags: 0,
             tag: Property::Unknown("tbs".to_string()),
+            raw_tag: b"tbs".to_vec(),
             value: Value::Unknown(b"Unknown".to_vec()),
             raw_value: b"Unknown".to_vec(),
         });
@@ -1234,6 +1241,7 @@ mod tests {
             issuer_critical: true,
             reserved_flags: 0,
             tag: Property::from("tbs".to_string()),
+            raw_tag: b"tbs".to_vec(),
             value: Value::Unknown(b"Unknown".to_vec()),
             raw_value: b"Unknown".to_vec(),
         };

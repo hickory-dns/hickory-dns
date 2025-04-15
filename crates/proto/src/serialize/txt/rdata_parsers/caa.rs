@@ -73,6 +73,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
         }
         tag
     };
+    let raw_tag = tag_str.as_bytes().to_vec();
 
     // parse the value
     let raw_value = value_str.as_bytes().to_vec();
@@ -88,6 +89,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
         issuer_critical,
         reserved_flags,
         tag,
+        raw_tag,
         value,
         raw_value,
     })
