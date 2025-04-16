@@ -77,6 +77,7 @@ impl SignSettings {
             expiration: None,
             inception: None,
             nsec: Nsec::_3 {
+                iterations: 0,
                 salt: None,
                 opt_out: true,
             },
@@ -143,12 +144,17 @@ impl Default for SignSettings {
 #[derive(Clone)]
 pub enum Nsec {
     _1,
-    _3 { opt_out: bool, salt: Option<String> },
+    _3 {
+        iterations: u16,
+        opt_out: bool,
+        salt: Option<String>,
+    },
 }
 
 impl Default for Nsec {
     fn default() -> Self {
         Self::_3 {
+            iterations: 0,
             opt_out: false,
             salt: None,
         }
@@ -341,8 +347,17 @@ impl<'a> Signer<'a> {
 
                 // NSEC3 related options
                 // -n = use NSEC3 instead of NSEC
-                if let Nsec::_3 { salt, opt_out } = &self.settings.nsec {
+                if let Nsec::_3 {
+                    iterations,
+                    salt,
+                    opt_out,
+                } = &self.settings.nsec
+                {
                     args.push("-n".to_string());
+
+                    if *iterations > 0 {
+                        args.push(format!("-t {iterations}"));
+                    }
 
                     if *opt_out {
                         args.push("-p".to_string());
@@ -373,8 +388,17 @@ impl<'a> Signer<'a> {
 
                 // Set -3 for NSEC3, optionally followed by a salt.
                 // -A sets opt-out
-                if let Nsec::_3 { salt, opt_out } = &self.settings.nsec {
+                if let Nsec::_3 {
+                    iterations,
+                    salt,
+                    opt_out,
+                } = &self.settings.nsec
+                {
                     args.push("-3".to_string());
+
+                    if *iterations > 0 {
+                        args.push(format!("-H {iterations}"));
+                    }
 
                     if let Some(salt) = salt {
                         args.push(salt.to_string());
