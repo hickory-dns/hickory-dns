@@ -85,7 +85,6 @@ name = "hickory_proto"
 path = "src/lib.rs"
 
 [dependencies]
-async-recursion.workspace = true
 async-trait.workspace = true
 aws-lc-rs = { workspace = true, optional = true }
 backtrace = { workspace = true, optional = true }
