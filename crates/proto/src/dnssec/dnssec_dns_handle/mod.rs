@@ -14,7 +14,6 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use async_recursion::async_recursion;
 use futures_util::{
     future::{self, TryFutureExt},
     stream::{self, Stream, TryStreamExt},
@@ -564,9 +563,9 @@ where
 
     // if not all of the DNSKEYs are in the root store, then we need to look for DS records to verify
     let ds_records = if !dnskey_proofs.iter().all(|p| p.0.is_secure()) && !rrset.name().is_root() {
-        // need to get DS records for each DNSKEY
-        //   there will be a DS record for everything under the root keys
-        find_ds_records(&handle, rrset.name().clone(), options).await?
+        // Need to get DS records for each DNSKEY.
+        // Every DNSKEY other than the root zone's keys may have a corresponding DS record.
+        fetch_ds_records(&handle, rrset.name().clone(), options).await?
     } else {
         debug!("ignoring DS lookup for root zone or registered keys");
         Vec::default()
@@ -774,8 +773,8 @@ fn verify_dnskey(
     ))
 }
 
-#[async_recursion]
-async fn find_ds_records<H>(
+/// Retrieves DS records for the given zone.
+async fn fetch_ds_records<H>(
     handle: &DnssecDnsHandle<H>,
     zone: Name,
     options: DnsRequestOptions,
@@ -783,14 +782,12 @@ async fn find_ds_records<H>(
 where
     H: DnsHandle + Sync + Unpin,
 {
-    // need to get DS records for each DNSKEY
-    //   there will be a DS record for everything under the root keys
     let ds_message = handle
         .lookup(Query::query(zone.clone(), RecordType::DS), options)
         .first_answer()
         .await;
 
-    let error: ProtoError = match ds_message {
+    let error = match ds_message {
         Ok(mut ds_message)
             if ds_message
                 .answers()
@@ -798,7 +795,7 @@ where
                 .filter(|r| r.record_type() == RecordType::DS)
                 .any(|r| r.proof().is_secure()) =>
         {
-            // this is a secure DS record, perfect
+            // This is a secure DS RRset.
 
             let all_records = ds_message
                 .take_answers()
@@ -808,7 +805,8 @@ where
             let mut supported_records = vec![];
             let mut all_unknown = None;
             for record in all_records {
-                // A chain can be either SECURE or INSECURE, but we should not trust BOGUS or other records
+                // A chain can be either SECURE or INSECURE, but we should not trust BOGUS or other
+                // records.
                 if (!record.data().algorithm().is_supported()
                     || !record.data().digest_type().is_supported())
                     && (record.proof().is_secure() || record.proof().is_insecure())
@@ -836,7 +834,7 @@ where
         Err(error) => error,
     };
 
-    // if the DS record was an NSEC then we have an insecure zone
+    // If the response was an authenticated proof of nonexistence, then we have an insecure zone.
     if let Some((query, _proof)) = error
         .kind()
         .as_nsec()
@@ -854,26 +852,55 @@ where
         ));
     }
 
-    // otherwise we need to recursively discover the status of DS up the chain,
-    //   if we find a valid DS, then we're in a Bogus state,
-    //   if we get ProofError, our result is the same
+    Err(ProofError::new(
+        Proof::Bogus,
+        ProofErrorKind::DsRecordShouldExist { name: zone },
+    ))
+}
 
-    let parent = zone.base_name();
-    if zone == parent {
-        // zone is `.`. do not call `find_ds_records(.., parent, ..)` or that will lead to infinite
-        // recursion
-        return Err(ProofError::new(
-            Proof::Bogus,
-            ProofErrorKind::DsRecordShouldExist { name: zone },
-        ));
+/// Checks whether a DS RRset exists for the given name or an ancestor of it.
+async fn find_ds_records<H>(
+    handle: &DnssecDnsHandle<H>,
+    zone: Name,
+    options: DnsRequestOptions,
+) -> Result<(), ProofError>
+where
+    H: DnsHandle + Sync + Unpin,
+{
+    let result = fetch_ds_records(handle, zone.clone(), options).await;
+    match result {
+        Ok(_) => return Ok(()),
+        Err(ProofError { proof, kind }) => match kind {
+            ProofErrorKind::DsRecordShouldExist { .. } => {}
+            _ => return Err(ProofError { proof, kind }),
+        },
     }
 
-    match find_ds_records(handle, parent, options).await {
-        Ok(ds_records) if !ds_records.is_empty() => Err(ProofError::new(
-            Proof::Bogus,
-            ProofErrorKind::DsRecordShouldExist { name: zone },
-        )),
-        result => result,
+    // Otherwise, we need to discover the status of DS RRsets up the chain. If we find a valid DS
+    // RRset, then we're in a Bogus state. If we get a ProofError, our result is the same.
+    let mut parent = zone.base_name();
+    loop {
+        let result = fetch_ds_records(handle, parent.clone(), options).await;
+        match result {
+            Ok(_) => {
+                return Err(ProofError::new(
+                    Proof::Bogus,
+                    ProofErrorKind::DsRecordShouldExist { name: zone },
+                ));
+            }
+            Err(ProofError { proof, kind }) => match kind {
+                ProofErrorKind::DsRecordShouldExist { .. } => {}
+                _ => return Err(ProofError { proof, kind }),
+            },
+        }
+        if parent == Name::root() {
+            // Stop after checking the root zone.
+            return Err(ProofError::new(
+                Proof::Bogus,
+                ProofErrorKind::DsRecordShouldExist { name: zone },
+            ));
+        }
+        parent = parent.base_name();
     }
 }
 
