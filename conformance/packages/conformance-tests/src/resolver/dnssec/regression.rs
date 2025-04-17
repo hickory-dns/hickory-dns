@@ -231,7 +231,6 @@ fn single_node_dns_graph_with_bind_as_peer() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory-proto DNSSEC validation fails when traversing too many zones"]
 fn five_secure_zones() -> Result<()> {
     let network = Network::new()?;
 

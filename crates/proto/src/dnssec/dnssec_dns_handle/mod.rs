@@ -403,7 +403,7 @@ where
         );
 
         // verify this rrset
-        let proof = verify_rrset(handle.clone_with_context(), &rrset, rrsigs, options).await;
+        let proof = verify_rrset(handle.clone(), &rrset, rrsigs, options).await;
 
         let proof = match proof {
             Ok(proof) => {
@@ -489,26 +489,12 @@ where
 
     // DNSKEYS have different logic for their verification
     if matches!(rrset.record_type(), RecordType::DNSKEY) {
-        let proof = verify_dnskey_rrset(
-            handle.clone_with_context(),
-            rrset,
-            &rrsigs,
-            current_time,
-            options,
-        )
-        .await?;
+        let proof = verify_dnskey_rrset(handle, rrset, &rrsigs, current_time, options).await?;
 
         return Ok(proof);
     }
 
-    verify_default_rrset(
-        &handle.clone_with_context(),
-        rrset,
-        &rrsigs,
-        current_time,
-        options,
-    )
-    .await
+    verify_default_rrset(&handle, rrset, &rrsigs, current_time, options).await
 }
 
 /// DNSKEY-specific verification
@@ -943,7 +929,6 @@ where
         .iter()
         .enumerate()
         .filter_map(|(i, rrsig)| {
-            let handle = handle.clone_with_context();
             let query = Query::query(rrsig.data().signer_name().clone(), RecordType::DNSKEY);
 
             if i > MAX_RRSIGS_PER_RRSET {
