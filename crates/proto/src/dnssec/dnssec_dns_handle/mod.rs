@@ -19,7 +19,7 @@ use futures_util::{
     future::{self, TryFutureExt},
     stream::{self, Stream, TryStreamExt},
 };
-use tracing::{debug, trace, warn};
+use tracing::{debug, error, trace, warn};
 
 use crate::{
     dnssec::{
@@ -119,6 +119,7 @@ where
 
         // backstop
         if self.request_depth > request.options().max_request_depth {
+            error!("exceeded max validation depth");
             return Box::pin(stream::once(future::err(ProtoError::from(
                 "exceeded max validation depth",
             ))));
