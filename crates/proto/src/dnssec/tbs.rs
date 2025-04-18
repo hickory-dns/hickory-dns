@@ -206,17 +206,14 @@ impl TBS {
                 encoder.emit_u32(original_ttl)?;
                 //
                 //                RDATA length
-                // TODO: add support to the encoder to set a marker to go back and write the length
-                let mut rdata_buf = Vec::new();
-                {
-                    let mut rdata_encoder = BinEncoder::new(&mut rdata_buf);
-                    rdata_encoder.set_canonical_names(true);
-                    record.data().emit(&mut rdata_encoder)?;
-                }
-                encoder.emit_u16(rdata_buf.len() as u16)?;
+                let rdata_length_place = encoder.place::<u16>()?;
                 //
                 //                All names in the RDATA field are in canonical form (set above)
-                encoder.emit_vec(&rdata_buf)?;
+                record.data().emit(&mut encoder)?;
+
+                let length = u16::try_from(encoder.len_since_place(&rdata_length_place))
+                    .map_err(|_| ProtoError::from("RDATA length exceeds u16::MAX"))?;
+                rdata_length_place.replace(&mut encoder, length)?;
             }
         }
 
