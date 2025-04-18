@@ -131,7 +131,6 @@ impl TBS {
     /// # Returns
     ///
     /// the binary hash of the specified RRSet and associated information
-    // FIXME: OMG, there are a ton of asserts in here...
     #[allow(clippy::too_many_arguments)]
     fn new<'a>(
         name: &Name,
@@ -178,40 +177,33 @@ impl TBS {
             //             RRSIG_RDATA is the wire format of the RRSIG RDATA fields
             //                with the Signature field excluded and the Signer's Name
             //                in canonical form.
-            assert!(
-                sig::emit_pre_sig(
-                    &mut encoder,
-                    type_covered,
-                    algorithm,
-                    name.num_labels(),
-                    original_ttl,
-                    sig_expiration,
-                    sig_inception,
-                    key_tag,
-                    signer_name,
-                )
-                .is_ok()
-            );
+            sig::emit_pre_sig(
+                &mut encoder,
+                type_covered,
+                algorithm,
+                name.num_labels(),
+                original_ttl,
+                sig_expiration,
+                sig_inception,
+                key_tag,
+                signer_name,
+            )?;
 
             // construct the rrset signing data
             for record in rrset {
                 //             RR(i) = name | type | class | OrigTTL | RDATA length | RDATA
                 //
                 //                name is calculated according to the function in the RFC 4035
-                assert!(
-                    name.to_lowercase()
-                        .emit_as_canonical(&mut encoder, true)
-                        .is_ok()
-                );
+                name.to_lowercase().emit_as_canonical(&mut encoder, true)?;
                 //
                 //                type is the RRset type and all RRs in the class
-                assert!(type_covered.emit(&mut encoder).is_ok());
+                type_covered.emit(&mut encoder)?;
                 //
                 //                class is the RRset's class
-                assert!(dns_class.emit(&mut encoder).is_ok());
+                dns_class.emit(&mut encoder)?;
                 //
                 //                OrigTTL is the value from the RRSIG Original TTL field
-                assert!(encoder.emit_u32(original_ttl).is_ok());
+                encoder.emit_u32(original_ttl)?;
                 //
                 //                RDATA length
                 // TODO: add support to the encoder to set a marker to go back and write the length
@@ -219,12 +211,12 @@ impl TBS {
                 {
                     let mut rdata_encoder = BinEncoder::new(&mut rdata_buf);
                     rdata_encoder.set_canonical_names(true);
-                    assert!(record.data().emit(&mut rdata_encoder).is_ok());
+                    record.data().emit(&mut rdata_encoder)?;
                 }
-                assert!(encoder.emit_u16(rdata_buf.len() as u16).is_ok());
+                encoder.emit_u16(rdata_buf.len() as u16)?;
                 //
                 //                All names in the RDATA field are in canonical form (set above)
-                assert!(encoder.emit_vec(&rdata_buf).is_ok());
+                encoder.emit_vec(&rdata_buf)?;
             }
         }
 
@@ -254,20 +246,17 @@ pub fn message_tbs<M: BinEncodable>(message: &M, pre_sig0: &SIG) -> ProtoResult<
 
     {
         let mut encoder: BinEncoder<'_> = BinEncoder::with_mode(&mut buf, EncodeMode::Normal);
-        assert!(
-            sig::emit_pre_sig(
-                &mut encoder,
-                pre_sig0.type_covered(),
-                pre_sig0.algorithm(),
-                pre_sig0.num_labels(),
-                pre_sig0.original_ttl(),
-                pre_sig0.sig_expiration(),
-                pre_sig0.sig_inception(),
-                pre_sig0.key_tag(),
-                pre_sig0.signer_name(),
-            )
-            .is_ok()
-        );
+        sig::emit_pre_sig(
+            &mut encoder,
+            pre_sig0.type_covered(),
+            pre_sig0.algorithm(),
+            pre_sig0.num_labels(),
+            pre_sig0.original_ttl(),
+            pre_sig0.sig_expiration(),
+            pre_sig0.sig_inception(),
+            pre_sig0.key_tag(),
+            pre_sig0.signer_name(),
+        )?;
         // need a separate encoder here, as the encoding references absolute positions
         // inside the buffer. If the buffer already contains the sig0 RDATA, offsets
         // are wrong and the signature won't match.
