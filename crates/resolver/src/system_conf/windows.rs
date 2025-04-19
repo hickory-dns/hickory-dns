@@ -7,7 +7,7 @@
 
 //! System configuration loading for windows
 
-use std::net::SocketAddr;
+use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::str::FromStr;
 
 use ipconfig::computer::{get_domain, get_search_list, is_round_robin_enabled};
@@ -24,10 +24,25 @@ fn get_name_servers() -> Result<Vec<NameServerConfig>, ResolveError> {
     let adapters = get_adapters()?;
     let mut name_servers = vec![];
 
+    // https://datatracker.ietf.org/doc/html/draft-ietf-ipv6-dns-discovery-07
+    // [RFC 3879](https://datatracker.ietf.org/doc/html/rfc3879)
+    const FORBIDDEN_ADDRS: [Ipv6Addr; 3] = [
+        Ipv6Addr::new(0xfec0, 0, 0, 0xffff, 0, 0, 0, 1), // fec0:0:0:ffff::1
+        Ipv6Addr::new(0xfec0, 0, 0, 0xffff, 0, 0, 0, 2), // fec0:0:0:ffff::2
+        Ipv6Addr::new(0xfec0, 0, 0, 0xffff, 0, 0, 0, 3), // fec0:0:0:ffff::3
+    ];
+
     for dns_server in adapters
         .iter()
+        .filter(|adapter| adapter.oper_status() == ipconfig::OperStatus::IfOperStatusUp) // Only take interfaces whose OperStatus is Up
         .flat_map(|adapter| adapter.dns_servers().iter())
     {
+        if let IpAddr::V6(ip) = dns_server {
+            if FORBIDDEN_ADDRS.contains(ip) {
+                continue;
+            }
+        }
+
         let socket_addr = SocketAddr::new(*dns_server, 53);
         name_servers.push(NameServerConfig {
             socket_addr,
