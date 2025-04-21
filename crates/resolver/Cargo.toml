@@ -30,12 +30,12 @@ backtrace = ["dep:backtrace", "hickory-proto/backtrace"]
 
 tls-aws-lc-rs = ["hickory-proto/tls-aws-lc-rs", "__tls"]
 https-aws-lc-rs = ["hickory-proto/https-aws-lc-rs", "__https"]
-quic-aws-lc-rs = ["hickory-proto/quic-aws-lc-rs", "__quic"]
+quic-aws-lc-rs = ["hickory-proto/quic-aws-lc-rs", "__quic", "quinn/rustls-aws-lc-rs"]
 h3-aws-lc-rs = ["hickory-proto/h3-aws-lc-rs", "__h3"]
 
 tls-ring = ["hickory-proto/tls-ring", "__tls"]
 https-ring = ["hickory-proto/https-ring", "__https"]
-quic-ring = ["hickory-proto/quic-ring", "__quic"]
+quic-ring = ["hickory-proto/quic-ring", "__quic", "quinn/rustls-ring"]
 h3-ring = ["hickory-proto/h3-ring", "__h3"]
 
 __tls = ["dep:rustls", "dep:tokio-rustls", "tokio"]
@@ -71,7 +71,6 @@ parking_lot.workspace = true
 quinn = { workspace = true, optional = true, features = [
     "log",
     "runtime-tokio",
-    "rustls",
 ] }
 rand.workspace = true
 resolv-conf = { workspace = true, optional = true, features = ["system"] }
