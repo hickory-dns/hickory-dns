@@ -42,7 +42,7 @@ tracing-subscriber = { version = "0.3", default-features = false }
 thiserror = { version = "2", default-features = false }
 
 # metrics
-metrics = { version = "0.24.1" }
+metrics = { version = "0.24.2" }
 metrics-exporter-prometheus = { version = "0.16.2", default-features = false, features = ["http-listener"] }
 
 # async/await
