@@ -338,6 +338,14 @@ impl ProofError {
     pub fn kind(&self) -> &ProofErrorKind {
         &self.kind
     }
+
+    /// Returns an error related to the absence of a DS record
+    pub fn ds_should_exist(name: Name) -> Self {
+        Self {
+            proof: Proof::Bogus,
+            kind: ProofErrorKind::DsRecordShouldExist { name },
+        }
+    }
 }
 
 impl fmt::Display for ProofError {
