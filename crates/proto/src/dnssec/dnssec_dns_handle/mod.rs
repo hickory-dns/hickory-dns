@@ -849,17 +849,11 @@ where
     if zone == parent {
         // zone is `.`. do not call `find_ds_records(.., parent, ..)` or that will lead to infinite
         // recursion
-        return Err(ProofError::new(
-            Proof::Bogus,
-            ProofErrorKind::DsRecordShouldExist { name: zone },
-        ));
+        return Err(ProofError::ds_should_exist(zone));
     }
 
     match find_ds_records(handle, parent, options).await {
-        Ok(ds_records) if !ds_records.is_empty() => Err(ProofError::new(
-            Proof::Bogus,
-            ProofErrorKind::DsRecordShouldExist { name: zone },
-        )),
+        Ok(ds_records) if !ds_records.is_empty() => Err(ProofError::ds_should_exist(zone)),
         result => result,
     }
 }
