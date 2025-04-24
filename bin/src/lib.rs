@@ -65,6 +65,12 @@ use hickory_server::{
 };
 use tracing::{debug, info, warn};
 
+#[cfg(feature = "prometheus-metrics")]
+mod prometheus_server;
+
+#[cfg(feature = "prometheus-metrics")]
+pub use prometheus_server::PrometheusServer;
+
 static DEFAULT_PATH: &str = "/var/named"; // TODO what about windows (do I care? ;)
 static DEFAULT_PORT: u16 = 53;
 static DEFAULT_TLS_PORT: u16 = 853;

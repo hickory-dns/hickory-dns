@@ -36,8 +36,6 @@ use std::{
 use clap::Parser;
 #[cfg(feature = "metrics")]
 use metrics::{Counter, Unit, counter, describe_counter, describe_gauge, gauge};
-#[cfg(feature = "prometheus-metrics")]
-use metrics_exporter_prometheus::PrometheusBuilder;
 #[cfg(feature = "metrics")]
 use metrics_process::Collector;
 use socket2::{Domain, Socket, Type};
@@ -62,12 +60,14 @@ use tracing_subscriber::{
 };
 
 use hickory_dns::Config;
+#[cfg(all(feature = "metrics", feature = "resolver"))]
+use hickory_dns::ExternalStoreConfig;
+#[cfg(feature = "prometheus-metrics")]
+use hickory_dns::PrometheusServer;
 #[cfg(feature = "__tls")]
 use hickory_dns::TlsCertConfig;
 #[cfg(feature = "metrics")]
-use hickory_dns::{
-    ExternalStoreConfig, ServerStoreConfig, ServerZoneConfig, ZoneConfig, ZoneTypeConfig,
-};
+use hickory_dns::{ServerStoreConfig, ServerZoneConfig, ZoneConfig, ZoneTypeConfig};
 use hickory_server::{authority::Catalog, server::ServerFuture};
 
 /// Cli struct for all options managed with clap derive api.
@@ -240,37 +240,25 @@ async fn async_run(args: Cli) -> Result<(), String> {
         .unwrap_or(directory_config);
 
     #[cfg(feature = "prometheus-metrics")]
-    if !args.disable_prometheus && !config.disable_prometheus() {
-        let mut socket = args
+    let prometheus_server_opt = if !args.disable_prometheus && !config.disable_prometheus() {
+        let socket_addr = args
             .prometheus_listen_addr
             .unwrap_or(config.prometheus_listen_addr());
+        let listener = build_tcp_listener(socket_addr.ip(), socket_addr.port()).map_err(|err| {
+            format!("failed to bind to Prometheus TCP socket address {socket_addr:?}: {err}")
+        })?;
+        let local_addr = listener
+            .local_addr()
+            .map_err(|err| format!("failed to look up local address: {err}"))?;
 
-        // bind to select a port, then drop the port so it can be used
-        // needed for dynamic port selection (port 0) as it is currently not possible to
-        // obtain the selected port from PrometheusBuilder after it binds the SocketAddr
-        // during PrometheusBuilder::install() or PrometheusBuilder::build()
-        if socket.port() == 0 {
-            let listener = std::net::TcpListener::bind(socket)
-                .map_err(|e| format!("failed to bind prometheus metrics socket {e}"))?;
-            socket = listener.local_addr().map_err(|e| {
-                format!("failed to get local addr for prometheus metrics socket {e}")
-            })?;
-        }
-
-        // setup tracing/metrics integration and prometheus endpoint
-        // execute setup on the existing tokio runtime to ensure that no new runtime is spawned
-        // prepare prometheus endpoint
-        let prometheus = PrometheusBuilder::new();
-        prometheus
-            .with_http_listener(socket)
-            // either executes on the endpoint on the current tokio runtime or launches a new one
-            .install()
-            .map_err(|e| format!("failed to install prometheus endpoint {e}"))?;
-
-        info!("listening for Prometheus metrics on {socket}");
+        // Set up Prometheus HTTP server.
+        let server = PrometheusServer::new(listener)?;
+        info!("listening for Prometheus metrics on {local_addr:?}");
+        Some(server)
     } else {
         info!("Prometheus metrics are disabled");
-    }
+        None
+    };
 
     #[cfg(feature = "metrics")]
     let (process_metrics_collector, config_metrics) = {
@@ -453,8 +441,6 @@ async fn async_run(args: Cli) -> Result<(), String> {
         tokio::spawn(async move {
             signal.recv().await;
             token.cancel();
-            #[cfg(feature = "metrics")]
-            process_metrics_collector.abort()
         });
     }
 
@@ -481,6 +467,15 @@ async fn async_run(args: Cli) -> Result<(), String> {
             panic!("{}", error_msg);
         }
     };
+
+    // Shut down the Prometheus metrics server after the DNS server has gracefully shut down.
+    #[cfg(feature = "prometheus-metrics")]
+    if let Some(server) = prometheus_server_opt {
+        server.stop().await;
+    }
+
+    #[cfg(feature = "metrics")]
+    process_metrics_collector.abort();
 
     Ok(())
 }
