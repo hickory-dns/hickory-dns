@@ -1026,7 +1026,6 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
             metrics: ResponseHandlerMetrics::default(),
         };
 
-        let queries = Queries::empty();
         let response = MessageResponseBuilder::new(&queries);
         let result = reporter
             .send_response(response.error_msg(&header, response_code))
