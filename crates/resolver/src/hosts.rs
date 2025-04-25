@@ -163,9 +163,10 @@ impl Hosts {
 
             // Remove byte-order mark if present
             let line = if line_index == 0 && line.starts_with('\u{feff}') {
-                line[3..].to_string()
+                // BOM is 3 bytes
+                &line[3..]
             } else {
-                line
+                &line
             };
 
             // Remove comments from the line
