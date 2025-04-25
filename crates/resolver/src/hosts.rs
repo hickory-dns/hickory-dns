@@ -158,9 +158,17 @@ impl Hosts {
         // if line only include `addr` without `host` will be ignored,
         // the src will be parsed to map in the form `Name -> LookUp`.
 
-        for line in BufReader::new(src).lines() {
-            // Remove comments from the line
+        for (line_index, line) in BufReader::new(src).lines().enumerate() {
             let line = line?;
+
+            // Remove byte-order mark if present
+            let line = if line_index == 0 && line.starts_with('\u{feff}') {
+                line[3..].to_string()
+            } else {
+                line
+            };
+
+            // Remove comments from the line
             let line = match line.split_once('#') {
                 Some((line, _)) => line,
                 None => &line,
