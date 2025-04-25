@@ -7,6 +7,7 @@ use dns_test::tshark::{Capture, Direction};
 use dns_test::{FQDN, Network, Resolver, Result};
 
 mod bad_referral;
+mod no_soa;
 mod packet_loss;
 
 #[test]
