@@ -15,6 +15,7 @@ use std::{
 };
 
 use futures_util::{FutureExt, StreamExt};
+use hickory_proto::ProtoErrorKind;
 use ipnet::IpNet;
 #[cfg(feature = "__tls")]
 use rustls::{ServerConfig, server::ResolvesServerCert};
@@ -934,7 +935,6 @@ impl ResponseHandlerMetrics {
 }
 
 pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
-    // TODO: allow Message here...
     message_bytes: &[u8],
     src_addr: SocketAddr,
     protocol: Protocol,
@@ -1043,6 +1043,28 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
             addr = src_addr.ip(),
             port = src_addr.port(),
         );
+
+        let Ok(header) = Header::read(&mut decoder) else {
+            // This will only fail if the message is less than twelve bytes long. Such messages are
+            // definitely not valid DNS queries, so it should be fine to return without sending a
+            // response.
+            return;
+        };
+        let queries = match Queries::read(&mut decoder, header.query_count() as usize) {
+            Ok(queries) => queries,
+            Err(_) => Queries::empty(),
+        };
+        error_response_handler(
+            protocol,
+            src_addr,
+            header,
+            queries,
+            ResponseCode::Refused,
+            Box::new(ProtoErrorKind::RequestRefused.into()),
+            response_handler,
+        )
+        .await;
+
         return;
     }
 
