@@ -18,8 +18,11 @@ use hickory_client::client::Client;
 use hickory_client::{ClientError, client::ClientHandle, proto::xfer::DnsResponse};
 #[cfg(feature = "__dnssec")]
 use hickory_proto::dnssec::Algorithm;
-use hickory_proto::rr::{DNSClass, Name, RData, RecordType, rdata::A};
 use hickory_proto::xfer::Protocol;
+use hickory_proto::{
+    op::ResponseCode,
+    rr::{DNSClass, Name, RData, RecordType, rdata::A},
+};
 use regex::Regex;
 use tokio::runtime::Runtime;
 use tracing::{info, warn};
@@ -287,14 +290,9 @@ pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
 #[allow(dead_code)]
 pub fn query_a_refused<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
     let name = Name::from_str("www.example.com.").unwrap();
-    let error =
-        query_message(io_loop, client, name, RecordType::A).expect_err("Expected an Error here");
+    let response = query_message(io_loop, client, name, RecordType::A).unwrap();
 
-    println!("got error: {error:?}");
-    // assert!(
-    //     matches!(*error.kind(), ClientErrorKind::Timeout),
-    //     "Expected Timeout, got error: {error:?}"
-    // );
+    assert_eq!(response.response_code(), ResponseCode::Refused);
 }
 
 // This only validates that a query to the server works, it shouldn't be used for more than this.
