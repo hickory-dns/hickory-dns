@@ -263,6 +263,11 @@ impl Queries {
         self.queries.is_empty()
     }
 
+    /// Returns the queries from the request
+    pub fn queries(&self) -> &[LowerQuery] {
+        &self.queries
+    }
+
     /// returns the bytes as they were seen from the Client
     pub fn as_bytes(&self) -> &[u8] {
         self.original.as_ref()

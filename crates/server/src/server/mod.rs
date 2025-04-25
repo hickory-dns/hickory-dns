@@ -31,7 +31,7 @@ use crate::{
     authority::{MessageRequest, MessageResponseBuilder, Queries},
     proto::{
         BufDnsStreamHandle, ProtoError,
-        op::{Header, LowerQuery, MessageType, Query, ResponseCode},
+        op::{Header, LowerQuery, MessageType, ResponseCode},
         rr::Record,
         runtime::{TokioRuntimeProvider, iocompat::AsyncIoTokioAsStd},
         serialize::binary::{BinDecodable, BinDecoder},
@@ -998,7 +998,7 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
     let error_response_handler = |protocol: Protocol,
                                   src_addr: SocketAddr,
                                   header: Header,
-                                  query: LowerQuery,
+                                  queries: Queries,
                                   response_code: ResponseCode,
                                   error: Box<ProtoError>,
                                   response_handler: R| async move {
@@ -1018,7 +1018,7 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
         // The reporter will handle making sure to log the result of the request
         let mut reporter = ReportingResponseHandler {
             request_header: header,
-            queries: vec![query],
+            queries: queries.queries().to_vec(),
             protocol,
             src_addr,
             handler: response_handler,
@@ -1057,13 +1057,13 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
             let (header, error) = kind
                 .into_form_error()
                 .expect("as form_error already confirmed this is a FormError");
-            let query = LowerQuery::query(Query::default());
+            let queries = Queries::empty();
 
             error_response_handler(
                 protocol,
                 src_addr,
                 header,
-                query,
+                queries,
                 ResponseCode::FormErr,
                 error,
                 response_handler,
