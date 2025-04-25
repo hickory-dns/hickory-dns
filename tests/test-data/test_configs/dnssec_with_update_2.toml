@@ -1,0 +1,65 @@
+## Example configuration for supported OpenSSL DNSSEC signing options.
+
+## Default zones, these should be present on all nameservers, except in rare
+##  configuration cases
+[[zones]]
+zone = "localhost"
+zone_type = "Primary"
+file = "default/localhost.zone"
+
+[[zones]]
+zone = "0.0.127.in-addr.arpa"
+zone_type = "Primary"
+file = "default/127.0.0.1.zone"
+
+[[zones]]
+zone = "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"
+zone_type = "Primary"
+file = "default/ipv6_1.zone"
+
+[[zones]]
+zone = "255.in-addr.arpa"
+zone_type = "Primary"
+file = "default/255.zone"
+
+[[zones]]
+zone = "0.in-addr.arpa"
+zone_type = "Primary"
+file = "default/0.zone"
+
+[[zones]]
+## zone: this is the ORIGIN of the zone, aka the base name, '.' is implied on the end
+zone = "example.com"
+
+## zone_type: Primary, Secondary, External
+zone_type = "Primary"
+
+## if at least one zone signing key has been configured, looks to see if a
+## chained pem file exists at $file.pem (see supported_algorithms below).
+## these keys will also be registered as authorities for update,
+## meaning that SIG(0) updates can be established by initially using these
+## keys. the zone will be signed with all specified keys, it may be desirable
+## to limit this set for performance reasons.
+
+## An ordered list of stores
+[zones.stores]
+type = "sqlite"
+zone_file_path = "example.com.zone"
+journal_file_path = "example.com_dnssec_update_2.jrnl"
+allow_update = true
+
+[[zones.keys]]
+key_path = "../tests/test-data/test_configs/dnssec/rsa_2048.pk8"
+## specify the algorithm
+algorithm = "RSASHA256"
+## this key should be used to sign the zone
+purpose = "ZoneSigning"
+## this key is authorized for dynamic update access to the zone via SIG0
+# is_zone_update_auth = true
+## create the key if it is not found
+# create_if_absent = false
+
+[[zones.keys]]
+key_path = "../tests/test-data/test_configs/dnssec/rsa_2048.pk8"
+algorithm = "RSASHA512"
+purpose = "ZoneUpdateAuth"

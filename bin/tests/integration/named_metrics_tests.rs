@@ -9,6 +9,8 @@ use std::net::{Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
+use std::{env, path::Path};
 use test_support::subscribe;
 
 use hickory_client::client::{Client, ClientHandle};
@@ -306,7 +308,7 @@ fn test_request_response() {
 fn test_updates() {
     subscribe();
 
-    named_test_harness("dnssec_with_update.toml", |socket_ports| {
+    named_test_harness("dnssec_with_update_2.toml", |socket_ports| {
         let io_loop = Runtime::new().unwrap();
         let metrics = &io_loop.block_on(async {
             let rsa_key =
@@ -390,6 +392,13 @@ fn test_updates() {
             Some(1f64),
         );
     });
+
+    // Clean up database.
+    let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
+    let server_path = Path::new(&server_path);
+    let database =
+        server_path.join("tests/test-data/test_configs/example.com_dnssec_update_2.jrnl");
+    std::fs::remove_file(&database).expect("failed to cleanup after test");
 }
 
 async fn create_local_client(
