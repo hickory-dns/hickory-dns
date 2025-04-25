@@ -172,7 +172,7 @@ impl Hosts {
             // Remove comments from the line
             let line = match line.split_once('#') {
                 Some((line, _)) => line,
-                None => &line,
+                None => line,
             }
             .trim();
 
