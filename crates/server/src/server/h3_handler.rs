@@ -12,12 +12,16 @@ use futures_util::lock::Mutex;
 use h3::server::RequestStream;
 use h3_quinn::BidiStream;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, warn};
+use tracing::{debug, error, warn};
 
 use crate::{
     access::AccessControl,
     authority::MessageResponse,
-    server::{ResponseInfo, request_handler::RequestHandler, response_handler::ResponseHandler},
+    server::{
+        ResponseInfo,
+        request_handler::RequestHandler,
+        response_handler::{ResponseHandler, encode_fallback_servfail_response},
+    },
 };
 use hickory_proto::{
     ProtoError,
@@ -114,11 +118,15 @@ impl ResponseHandler for H3ResponseHandle {
         use crate::proto::http::response;
         use crate::proto::serialize::binary::BinEncoder;
 
+        let id = response.header().id();
         let mut bytes = Vec::with_capacity(512);
         // mut block
         let info = {
             let mut encoder = BinEncoder::new(&mut bytes);
-            response.destructive_emit(&mut encoder)?
+            response.destructive_emit(&mut encoder).or_else(|error| {
+                error!(%error, "error encoding message");
+                encode_fallback_servfail_response(id, &mut bytes)
+            })?
         };
         let bytes = Bytes::from(bytes);
         let response = response::new(Version::Http3, bytes.len())?;
