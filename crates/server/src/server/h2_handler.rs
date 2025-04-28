@@ -13,14 +13,17 @@ use h2::server;
 use hickory_proto::{http::Version, rr::Record};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, warn};
+use tracing::{debug, error, warn};
 
 use crate::{
     access::AccessControl,
     authority::MessageResponse,
-    proto::h2::h2_server,
-    proto::xfer::Protocol,
-    server::{ResponseInfo, request_handler::RequestHandler, response_handler::ResponseHandler},
+    proto::{h2::h2_server, xfer::Protocol},
+    server::{
+        ResponseInfo,
+        request_handler::RequestHandler,
+        response_handler::{ResponseHandler, encode_fallback_servfail_response},
+    },
 };
 
 pub(crate) async fn h2_handler<T, I>(
@@ -111,11 +114,15 @@ impl ResponseHandler for HttpsResponseHandle {
         use crate::proto::http::response;
         use crate::proto::serialize::binary::BinEncoder;
 
+        let id = response.header().id();
         let mut bytes = Vec::with_capacity(512);
         // mut block
         let info = {
             let mut encoder = BinEncoder::new(&mut bytes);
-            response.destructive_emit(&mut encoder)?
+            response.destructive_emit(&mut encoder).or_else(|error| {
+                error!(%error, "error encoding message");
+                encode_fallback_servfail_response(id, &mut bytes)
+            })?
         };
         let bytes = Bytes::from(bytes);
         let response = response::new(Version::Http2, bytes.len())?;
