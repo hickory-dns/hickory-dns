@@ -111,8 +111,9 @@ impl ResponseHandler for ResponseHandle {
     ) -> io::Result<ResponseInfo> {
         let id = response.header().id();
         debug!(
-            "response: {id} response_code: {}",
-            response.header().response_code(),
+            id,
+            response_code = %response.header().response_code(),
+            "sending response",
         );
         let mut buffer = Vec::with_capacity(512);
         let encode_result = {
