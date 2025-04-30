@@ -147,8 +147,12 @@ where
                 info!("killing named");
 
                 let mut named = named_killer.lock().unwrap();
-                if let Err(e) = named.kill() {
-                    warn!("warning: failed to kill named: {:?}", e);
+                if let Err(error) = named.kill() {
+                    warn!(?error, "warning: failed to kill named");
+                    return;
+                }
+                if let Err(error) = named.wait() {
+                    warn!(?error, "warning: failed to wait for named");
                 }
             };
 
