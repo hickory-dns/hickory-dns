@@ -131,12 +131,11 @@ where
 
         match response {
             Ok(response) => {
-                // Record the measured latency.
-                self.stats.record_rtt(rtt);
-
                 // First evaluate if the message succeeded.
-                let response =
-                    ProtoError::from_response(response, self.config.trust_negative_responses)?;
+                let result =
+                    ProtoError::from_response(response, self.config.trust_negative_responses);
+                self.stats.record(rtt, &result);
+                let response = result?;
 
                 // TODO: consider making message::take_edns...
                 let remote_edns = response.extensions().clone();

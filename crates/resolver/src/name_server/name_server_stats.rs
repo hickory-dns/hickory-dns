@@ -9,13 +9,14 @@ use std::sync::{
     Arc,
     atomic::{self, AtomicU32},
 };
-
-use parking_lot::Mutex;
-
 #[cfg(not(test))]
 use std::time::{Duration, Instant};
+
+use parking_lot::Mutex;
 #[cfg(test)]
 use tokio::time::{Duration, Instant};
+
+use crate::proto::{ProtoError, ProtoErrorKind, op::ResponseCode, xfer::DnsResponse};
 
 pub(crate) struct NameServerStats {
     /// The smoothed round-trip time (SRTT).
@@ -84,8 +85,41 @@ impl NameServerStats {
         }
     }
 
-    /// Records the measured `rtt` for a particular query.
-    pub(crate) fn record_rtt(&self, rtt: Duration) {
+    /// Records the measured `rtt` for a particular result.
+    ///
+    /// Tries to guess if the result was a failure that should penalize the expected RTT.
+    pub(super) fn record(&self, rtt: Duration, result: &Result<DnsResponse, ProtoError>) {
+        let error = match result {
+            Ok(_) => {
+                self.record_rtt(rtt);
+                return;
+            }
+            Err(err) => err,
+        };
+
+        use ResponseCode::*;
+        match error.kind() {
+            ProtoErrorKind::NoRecordsFound { response_code, .. } => match response_code {
+                ServFail | Refused => self.record_connection_failure(),
+                _ => self.record_rtt(rtt),
+            },
+            ProtoErrorKind::Busy
+            | ProtoErrorKind::Io(_)
+            | ProtoErrorKind::Timeout
+            | ProtoErrorKind::RequestRefused => self.record_connection_failure(),
+            #[cfg(feature = "__quic")]
+            ProtoErrorKind::QuinnConfigError(_)
+            | ProtoErrorKind::QuinnConnect(_)
+            | ProtoErrorKind::QuinnConnection(_)
+            | ProtoErrorKind::QuinnTlsConfigError(_) => self.record_connection_failure(),
+            #[cfg(feature = "__tls")]
+            ProtoErrorKind::RustlsError(_) => self.record_connection_failure(),
+            ProtoErrorKind::NoError => self.record_rtt(rtt),
+            _ => {}
+        }
+    }
+
+    fn record_rtt(&self, rtt: Duration) {
         // If the cast on the result does overflow (it shouldn't), then the
         // value is saturated to u32::MAX, which is above the `MAX_SRTT_MICROS`
         // limit (meaning that any potential overflow is inconsequential).
