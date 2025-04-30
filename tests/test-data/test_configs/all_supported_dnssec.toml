@@ -43,10 +43,6 @@ key_path = "../tests/test-data/test_configs/dnssec/rsa_2048.pk8"
 algorithm = "RSASHA256"
 ## this key should be used to sign the zone
 purpose = "ZoneSigning"
-## this key is authorized for dynamic update access to the zone via SIG0
-# is_zone_update_auth = true
-## create the key if it is not found
-# create_if_absent = false
 
 [[zones.keys]]
 key_path = "../tests/test-data/test_configs/dnssec/rsa_2048.pk8"
