@@ -458,7 +458,7 @@ impl Header {
     /// # Return value
     ///
     /// If this is a query, this will return the number of queries in the query section of the
-    //   message, for updates this represents the zone count (must be no more than 1).
+    /// message, for updates this represents the zone count (must be no more than 1).
     pub fn query_count(&self) -> u16 {
         self.query_count
     }
