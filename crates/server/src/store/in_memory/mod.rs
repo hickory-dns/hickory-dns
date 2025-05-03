@@ -196,7 +196,7 @@ impl InMemoryAuthority {
             .increment_soa_serial(self.origin(), self.class)
     }
 
-    /// Inserts or updates a `Record` depending on it's existence in the authority.
+    /// Inserts or updates a `Record` depending on its existence in the authority.
     ///
     /// Guarantees that SOA, CNAME only has one record, will implicitly update if they already exist.
     ///
