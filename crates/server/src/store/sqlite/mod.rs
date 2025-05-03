@@ -973,7 +973,6 @@ impl Authority for SqliteAuthority {
     ///  returned in the case of bad data, etc.
     #[cfg(feature = "__dnssec")]
     async fn update(&self, update: &MessageRequest) -> UpdateResult<bool> {
-        //let this = &mut self.in_memory.lock().await;
         // the spec says to authorize after prereqs, seems better to auth first.
         self.authorize(update).await?;
         self.verify_prerequisites(update.prerequisites()).await?;
