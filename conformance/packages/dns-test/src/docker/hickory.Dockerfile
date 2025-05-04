@@ -17,10 +17,10 @@ RUN cargo chef prepare
 FROM chef AS builder
 COPY --from=planner /usr/src/hickory/recipe.json /usr/src/hickory/recipe.json
 WORKDIR /usr/src/hickory
-RUN cargo chef cook -p hickory-dns --bin hickory-dns --features recursor,$DNSSEC_FEATURE && \
+RUN cargo chef cook -p hickory-dns --bin hickory-dns --features recursor,$DNSSEC_FEATURE,blocklist && \
     cargo chef cook -p hickory-util --bin dns --features h3-aws-lc-rs,https-aws-lc-rs
 COPY ./src /usr/src/hickory
-RUN cargo build -p hickory-dns --bin hickory-dns --features recursor,$DNSSEC_FEATURE && \
+RUN cargo build -p hickory-dns --bin hickory-dns --features recursor,$DNSSEC_FEATURE,blocklist && \
     cargo build -p hickory-util --bin dns --features h3-aws-lc-rs,https-aws-lc-rs
 
 FROM debian:bookworm-slim AS final
