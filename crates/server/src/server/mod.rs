@@ -1361,7 +1361,7 @@ mod tests {
 
         let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
         let cert_chain =
-            CertificateDer::pem_file_iter(format!("{}/tests/test-data/cert.pem", server_path))
+            CertificateDer::pem_file_iter(format!("{server_path}/tests/test-data/cert.pem"))
                 .unwrap()
                 .collect::<Result<Vec<_>, _>>()
                 .unwrap();

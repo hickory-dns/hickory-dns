@@ -100,7 +100,7 @@ mod tests {
         // Expecting an error for invalid base64 data.
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert_eq!(format!("{}", err), "Invalid base64 CERT data");
+        assert_eq!(format!("{err}"), "Invalid base64 CERT data");
     }
 
     #[test]
@@ -113,7 +113,7 @@ mod tests {
         // Expecting an error due to missing cert type.
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert_eq!(format!("{}", err), "Invalid digit found in algorithm token");
+        assert_eq!(format!("{err}"), "Invalid digit found in algorithm token");
     }
 
     #[test]
@@ -126,6 +126,6 @@ mod tests {
         // Expecting an error due to missing cert data.
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert_eq!(format!("{}", err), "CERT data missing");
+        assert_eq!(format!("{err}"), "CERT data missing");
     }
 }

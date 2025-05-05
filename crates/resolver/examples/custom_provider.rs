@@ -71,10 +71,7 @@ impl RuntimeProvider for PrintProvider {
     ) -> Pin<Box<dyn Send + Future<Output = std::io::Result<Self::Udp>>>> {
         // The server_addr parameter is used only when you need to establish a tunnel or something similar.
         // For example, you try to use a http proxy and encapsulate UDP packets inside a TCP stream.
-        println!(
-            "Create udp local_addr: {}, server_addr: {}",
-            local_addr, server_addr
-        );
+        println!("Create udp local_addr: {local_addr}, server_addr: {server_addr}");
         Box::pin(UdpSocket::bind(local_addr))
     }
 }

@@ -32,8 +32,7 @@ fn dns_test_vars_are_not_set() {
     for var in ["DNS_TEST_SUBJECT", "DNS_TEST_PEER"] {
         assert!(
             env::var_os(var).is_none(),
-            "the environment variable {} must not be set when running this test suite",
-            var
+            "the environment variable {var} must not be set when running this test suite"
         )
     }
 }

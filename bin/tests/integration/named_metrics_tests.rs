@@ -467,7 +467,7 @@ fn verify_metric(metrics: &Scrape, name: &str, labels: &[(&str, &str)], value: O
         .filter(|s| s.metric == name)
         .collect::<Vec<_>>();
 
-    assert!(!named.is_empty(), "failed locating metric: {}", name);
+    assert!(!named.is_empty(), "failed locating metric: {name}");
 
     let labeled = named
         .iter()
@@ -488,9 +488,7 @@ fn verify_metric(metrics: &Scrape, name: &str, labels: &[(&str, &str)], value: O
     assert_eq!(
         labeled.len(),
         1,
-        "locating metric: {}, labels: {:?}",
-        name,
-        labels
+        "locating metric: {name}, labels: {labels:?}"
     );
 
     let Some(value) = value else { return };

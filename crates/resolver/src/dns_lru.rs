@@ -619,7 +619,7 @@ mod tests {
                 // the error's `valid_until` field should have been limited to 2 seconds.
                 assert_eq!(valid_until, 2);
             }
-            other => panic!("expected ProtoErrorKind::NoRecordsFound, got {:?}", other),
+            other => panic!("expected ProtoErrorKind::NoRecordsFound, got {other:?}"),
         }
 
         // neg response should have TTL of 3 seconds.
@@ -640,7 +640,7 @@ mod tests {
                 // over the min TTL.
                 assert_eq!(negative_ttl, 3);
             }
-            other => panic!("expected ProtoErrorKind::NoRecordsFound, got {:?}", other),
+            other => panic!("expected ProtoErrorKind::NoRecordsFound, got {other:?}"),
         }
     }
 
@@ -719,7 +719,7 @@ mod tests {
                 // the error's `valid_until` field should have been limited to 60 seconds.
                 assert_eq!(negative_ttl, 60);
             }
-            other => panic!("expected ProtoErrorKind::NoRecordsFound, got {:?}", other),
+            other => panic!("expected ProtoErrorKind::NoRecordsFound, got {other:?}"),
         }
 
         // neg response should have TTL of 59 seconds.
@@ -740,7 +740,7 @@ mod tests {
                 // under the max TTL.
                 assert_eq!(negative_ttl, 59);
             }
-            other => panic!("expected ProtoErrorKind::NoRecordsFound, got {:?}", other),
+            other => panic!("expected ProtoErrorKind::NoRecordsFound, got {other:?}"),
         }
     }
 

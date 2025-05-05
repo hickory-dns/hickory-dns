@@ -1075,7 +1075,7 @@ async fn test_recovery() {
     assert!(recovered_records.iter().all(|(rr_key, rr_set)| {
         let other_rr_set = records
             .get(rr_key)
-            .unwrap_or_else(|| panic!("key doesn't exist: {:?}", rr_key));
+            .unwrap_or_else(|| panic!("key doesn't exist: {rr_key:?}"));
         rr_set
             .records_without_rrsigs()
             .zip(other_rr_set.records_without_rrsigs())
@@ -1087,7 +1087,7 @@ async fn test_recovery() {
     assert!(records.iter().all(|(rr_key, rr_set)| {
         let other_rr_set = recovered_records
             .get(rr_key)
-            .unwrap_or_else(|| panic!("key doesn't exist: {:?}", rr_key));
+            .unwrap_or_else(|| panic!("key doesn't exist: {rr_key:?}"));
         rr_set
             .records_without_rrsigs()
             .zip(other_rr_set.records_without_rrsigs())

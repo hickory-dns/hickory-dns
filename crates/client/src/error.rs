@@ -175,6 +175,6 @@ fn test_conversion() {
 
     match error.kind() {
         ErrorKind::Timeout => (),
-        _ => panic!("incorrect type: {}", error),
+        _ => panic!("incorrect type: {error}"),
     }
 }
