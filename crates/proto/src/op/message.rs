@@ -779,7 +779,7 @@ impl From<MessageParts> for Message {
             answers,
             name_servers,
             additionals,
-            sig0,
+            signature,
             edns,
         } = msg;
         Self {
@@ -788,7 +788,7 @@ impl From<MessageParts> for Message {
             answers,
             name_servers,
             additionals,
-            signature: sig0,
+            signature,
             edns,
         }
     }
@@ -823,9 +823,7 @@ pub struct MessageParts {
     /// message additional records
     pub additionals: Vec<Record>,
     /// sig0 or tsig
-    // this can now contains TSIG too. It should probably be renamed to reflect that, but it's a
-    // breaking change
-    pub sig0: Vec<Record>,
+    pub signature: Vec<Record>,
     /// optional edns records
     pub edns: Option<Edns>,
 }
@@ -847,7 +845,7 @@ impl From<Message> for MessageParts {
             answers,
             name_servers,
             additionals,
-            sig0: signature,
+            signature,
             edns,
         }
     }
