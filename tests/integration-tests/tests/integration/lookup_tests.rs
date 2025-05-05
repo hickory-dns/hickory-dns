@@ -5,7 +5,6 @@ use std::{
 };
 
 use hickory_proto::{
-    NoRecords,
     op::Query,
     rr::{DNSClass, Name, RData, Record, RecordType, rdata::A},
     runtime::TokioTime,
@@ -469,26 +468,20 @@ async fn test_forward_soa() {
     );
 
     let lookup = lookup.await;
+    let Err(e) = lookup else {
+        panic!("Expected Error type for {lookup:?}");
+    };
 
-    match lookup {
-        Ok(_) => {
-            panic!("Expected Error type for {lookup:?}");
-        }
-        Err(e) => match e.kind() {
-            ResolveErrorKind::Proto(e) => match e.kind() {
-                ProtoErrorKind::NoRecordsFound(NoRecords { soa, ns, .. }) => {
-                    assert!(soa.is_some());
-                    assert!(ns.is_none());
-                }
-                _ => {
-                    panic!("Unexpected kind: {e:?}");
-                }
-            },
-            _ => {
-                panic!("Unexpected kind: {e:?}");
-            }
-        },
-    }
+    let ResolveErrorKind::Proto(e) = e.kind() else {
+        panic!("Unexpected kind: {e:?}");
+    };
+
+    let ProtoErrorKind::NoRecordsFound(no_records) = e.kind() else {
+        panic!("Unexpected kind: {e:?}");
+    };
+
+    assert!(no_records.soa.is_some());
+    assert!(no_records.ns.is_none());
 }
 
 // This test expects a no-answer query which returns an NS record in the nameservers section to
@@ -519,24 +512,18 @@ async fn test_forward_ns() {
     );
 
     let lookup = lookup.await;
+    let Err(e) = lookup else {
+        panic!("Expected Error type for {lookup:?}");
+    };
 
-    match lookup {
-        Ok(_) => {
-            panic!("Expected Error type for {lookup:?}");
-        }
-        Err(e) => match e.kind() {
-            ResolveErrorKind::Proto(e) => match e.kind() {
-                ProtoErrorKind::NoRecordsFound(NoRecords { soa, ns, .. }) => {
-                    assert!(!soa.is_some());
-                    assert!(ns.is_some());
-                }
-                _ => {
-                    panic!("Unexpected kind: {e:?}");
-                }
-            },
-            _ => {
-                panic!("Unexpected kind: {e:?}");
-            }
-        },
-    }
+    let ResolveErrorKind::Proto(e) = e.kind() else {
+        panic!("Unexpected kind: {e:?}");
+    };
+
+    let ProtoErrorKind::NoRecordsFound(no_records) = e.kind() else {
+        panic!("Unexpected kind: {e:?}");
+    };
+
+    assert!(no_records.soa.is_none());
+    assert!(no_records.ns.is_some());
 }
