@@ -373,7 +373,7 @@ impl<'a> Parser<'a> {
         }
 
         let (mut state, mut value) = (None, 0_u32);
-        for (i, c) in ttl_str.chars().enumerate() {
+        for (i, c) in ttl_str.char_indices() {
             let start = match (state, c) {
                 (None, '0'..='9') => {
                     state = Some(i);
