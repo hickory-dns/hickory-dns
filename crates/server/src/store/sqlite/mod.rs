@@ -15,6 +15,8 @@ use std::{
 
 use futures_util::lock::Mutex;
 use serde::Deserialize;
+#[cfg(feature = "__dnssec")]
+use tracing::debug;
 use tracing::{error, info, warn};
 
 #[cfg(feature = "metrics")]
@@ -488,8 +490,6 @@ impl SqliteAuthority {
     #[cfg(feature = "__dnssec")]
     #[allow(clippy::blocks_in_conditions)]
     pub async fn authorize(&self, update_message: &MessageRequest) -> UpdateResult<()> {
-        use tracing::debug;
-
         // 3.3.3 - Pseudocode for Permission Checking
         //
         //      if (security policy exists)
@@ -508,55 +508,10 @@ impl SqliteAuthority {
             return Err(ResponseCode::Refused);
         }
 
-        // verify sig0, currently the only authorization that is accepted.
-        let MessageSignature::Sig0(sig0) = update_message.signature() else {
-            warn!(
-                "no sig0 matched registered records: id {}",
-                update_message.id()
-            );
-            return Err(ResponseCode::Refused);
-        };
-        debug!("authorizing with: {:?}", sig0);
-
-        let Some(sig0) = sig0.data().as_dnssec().and_then(DNSSECRData::as_sig) else {
-            warn!(
-                "no sig0 matched registered records: id {}",
-                update_message.id()
-            );
-            return Err(ResponseCode::Refused);
-        };
-
-        let name = LowerName::from(sig0.signer_name());
-        let Continue(Ok(keys)) = self
-            .lookup(&name, RecordType::KEY, LookupOptions::default())
-            .await
-        else {
-            warn!("no sig0 key name matched: id {}", update_message.id());
-            return Err(ResponseCode::Refused);
-        };
-
-        debug!("found keys {:?}", keys);
-        let verified = keys
-            .iter()
-            .filter_map(|rr_set| rr_set.data().as_dnssec().and_then(DNSSECRData::as_key))
-            .any(
-                |key| match key.verify_message(update_message, sig0.sig(), sig0) {
-                    Ok(_) => {
-                        info!("verified sig: {:?} with key: {:?}", sig0, key);
-                        true
-                    }
-                    Err(_) => {
-                        debug!("did not verify sig: {:?} with key: {:?}", sig0, key);
-                        false
-                    }
-                },
-            );
-        match verified {
-            true => Ok(()),
-            false => {
-                warn!("invalid sig0 signature: id {}", update_message.id());
-                Err(ResponseCode::Refused)
-            }
+        match update_message.signature() {
+            // verify sig0, currently the only authorization that is accepted.
+            MessageSignature::Sig0(sig0) => self.authorized_sig0(update_message, sig0).await,
+            MessageSignature::Tsig(_) | MessageSignature::Unsigned => Err(ResponseCode::Refused),
         }
     }
 
@@ -880,6 +835,56 @@ impl SqliteAuthority {
         }
 
         Ok(updated)
+    }
+
+    #[cfg(feature = "__dnssec")]
+    async fn authorized_sig0(
+        &self,
+        update_message: &MessageRequest,
+        sig0: &Record,
+    ) -> UpdateResult<()> {
+        debug!("authorizing with: {:?}", sig0);
+
+        let Some(sig0) = sig0.data().as_dnssec().and_then(DNSSECRData::as_sig) else {
+            warn!(
+                "no sig0 matched registered records: id {}",
+                update_message.id()
+            );
+            return Err(ResponseCode::Refused);
+        };
+
+        let name = LowerName::from(sig0.signer_name());
+        let Continue(Ok(keys)) = self
+            .lookup(&name, RecordType::KEY, LookupOptions::default())
+            .await
+        else {
+            warn!("no sig0 key name matched: id {}", update_message.id());
+            return Err(ResponseCode::Refused);
+        };
+
+        debug!("found keys {:?}", keys);
+        let verified = keys
+            .iter()
+            .filter_map(|rr_set| rr_set.data().as_dnssec().and_then(DNSSECRData::as_key))
+            .any(
+                |key| match key.verify_message(update_message, sig0.sig(), sig0) {
+                    Ok(_) => {
+                        info!("verified sig: {:?} with key: {:?}", sig0, key);
+                        true
+                    }
+                    Err(_) => {
+                        debug!("did not verify sig: {:?} with key: {:?}", sig0, key);
+                        false
+                    }
+                },
+            );
+        match verified {
+            true => Ok(()),
+            false => {
+                warn!("invalid sig0 signature: id {}", update_message.id());
+                Err(ResponseCode::Refused)
+            }
+        }
     }
 }
 
