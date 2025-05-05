@@ -507,12 +507,12 @@ impl SqliteAuthority {
             return Err(ResponseCode::Refused);
         }
 
-        // verify sig0, currently the only authorization that is accepted.
-        let sig0s: &[Record] = update_message.sig0();
-        debug!("authorizing with: {:?}", sig0s);
-        if !sig0s.is_empty() {
+        let signature = update_message.signature();
+        debug!("authorizing with: {:?}", signature);
+        if !signature.is_empty() {
             let mut found_key = false;
-            for sig in sig0s
+            // verify sig0, currently the only authorization that is accepted.
+            for sig in signature
                 .iter()
                 .filter_map(|sig0| sig0.data().as_dnssec().and_then(DNSSECRData::as_sig))
             {

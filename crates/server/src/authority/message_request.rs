@@ -23,7 +23,7 @@ pub struct MessageRequest {
     answers: Vec<Record>,
     name_servers: Vec<Record>,
     additionals: Vec<Record>,
-    sig0: Vec<Record>,
+    signature: Vec<Record>,
     edns: Option<Edns>,
 }
 
@@ -150,9 +150,9 @@ impl MessageRequest {
         self.edns.as_ref()
     }
 
-    /// Any SIG0 records for signed messages
-    pub fn sig0(&self) -> &[Record] {
-        &self.sig0
+    /// Any SIG0 or TSIG records for signed messages
+    pub fn signature(&self) -> &[Record] {
+        &self.signature
     }
 
     /// # Return value
@@ -192,7 +192,8 @@ impl<'q> BinDecodable<'q> for MessageRequest {
             let queries = Queries::read(decoder, query_count)?;
             let (answers, _, _) = Message::read_records(decoder, answer_count, false)?;
             let (name_servers, _, _) = Message::read_records(decoder, name_server_count, false)?;
-            let (additionals, edns, sig0) = Message::read_records(decoder, additional_count, true)?;
+            let (additionals, edns, signature) =
+                Message::read_records(decoder, additional_count, true)?;
 
             // need to grab error code from EDNS (which might have a higher value)
             if let Some(edns) = &edns {
@@ -206,7 +207,7 @@ impl<'q> BinDecodable<'q> for MessageRequest {
                 answers,
                 name_servers,
                 additionals,
-                sig0,
+                signature,
                 edns,
             })
         };
@@ -336,7 +337,7 @@ impl BinEncodable for MessageRequest {
             &mut self.name_servers.iter(),
             &mut self.additionals.iter(),
             self.edns.as_ref(),
-            &self.sig0,
+            &self.signature,
             encoder,
         )?;
 
@@ -361,8 +362,8 @@ pub trait UpdateRequest {
     /// Additional records
     fn additionals(&self) -> &[Record];
 
-    /// SIG0 records for verifying the Message
-    fn sig0(&self) -> &[Record];
+    /// SIG0 or TSIG records for verifying the Message
+    fn signature(&self) -> &[Record];
 }
 
 impl UpdateRequest for MessageRequest {
@@ -387,7 +388,7 @@ impl UpdateRequest for MessageRequest {
         self.additionals()
     }
 
-    fn sig0(&self) -> &[Record] {
-        self.sig0()
+    fn signature(&self) -> &[Record] {
+        self.signature()
     }
 }
