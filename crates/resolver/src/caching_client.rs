@@ -198,37 +198,33 @@ where
         //  if it's DNSSEC they must be signed, otherwise?
         let records: Result<Records, ProtoError> = match response_message {
             // this is the only cacheable form
-            Err(e) => {
-                match e.kind() {
-                    ProtoErrorKind::NoRecordsFound {
-                        query,
-                        soa,
-                        negative_ttl,
-                        response_code,
-                        trusted,
-                        ns,
-                        ..
-                    } => {
-                        Err(Self::handle_nxdomain(
-                            is_dnssec,
-                            false, /*tbd*/
-                            query.as_ref().clone(),
-                            soa.as_ref().map(Box::as_ref).cloned(),
-                            ns.clone(),
-                            *negative_ttl,
-                            *response_code,
-                            *trusted,
-                        ))
-                    }
-                    _ => return Err(e),
-                }
-            }
+            Err(e) => match e.kind() {
+                ProtoErrorKind::NoRecordsFound {
+                    query,
+                    soa,
+                    negative_ttl,
+                    response_code,
+                    trusted,
+                    ns,
+                    ..
+                } => Err(Self::handle_nxdomain(
+                    query.as_ref().clone(),
+                    soa.as_ref().map(Box::as_ref).cloned(),
+                    ns.clone(),
+                    match is_dnssec {
+                        false => *negative_ttl,
+                        true => None,
+                    },
+                    *response_code,
+                    !is_dnssec || *trusted,
+                )),
+                _ => return Err(e),
+            },
             Ok(response_message) => {
                 // allow the handle_noerror function to deal with any error codes
                 let records = Self::handle_noerror(
                     &mut client,
                     options,
-                    is_dnssec,
                     &query,
                     response_message,
                     preserved_records,
@@ -277,8 +273,6 @@ where
     /// * `negative_ttl` - this should be the SOA minimum for negative ttl
     #[allow(clippy::too_many_arguments)]
     fn handle_nxdomain(
-        is_dnssec: bool,
-        valid_nsec: bool,
         query: Query,
         soa: Option<Record<SOA>>,
         ns: Option<Arc<[ForwardNSData]>>,
@@ -290,15 +284,9 @@ where
             query: Box::new(query),
             soa: soa.map(Box::new),
             ns,
-            negative_ttl: match valid_nsec || !is_dnssec {
-                true => negative_ttl,
-                false => None,
-            },
+            negative_ttl,
             response_code,
-            trusted: match valid_nsec || !is_dnssec {
-                true => true,
-                false => trusted,
-            },
+            trusted,
             authorities: None,
         }
         .into()
@@ -308,7 +296,6 @@ where
     fn handle_noerror(
         client: &mut Self,
         options: DnsRequestOptions,
-        is_dnssec: bool,
         query: &Query,
         response: DnsResponse,
         mut preserved_records: Vec<(Record, u32)>,
@@ -453,14 +440,12 @@ where
             // Note on DNSSEC, in secure_client_handle, if verify_nsec fails then the request fails.
             //   this will mean that no unverified negative caches will make it to this point and be stored
             Err(Self::handle_nxdomain(
-                is_dnssec,
-                true,
                 query.clone(),
                 soa,
                 None,
                 negative_ttl,
                 response_code,
-                false,
+                true,
             ))
         }
     }
@@ -916,7 +901,6 @@ mod tests {
         let records = CachingClient::handle_noerror(
             &mut client,
             DnsRequestOptions::default(),
-            false,
             &Query::query(Name::from_str("ttl.example.com.").unwrap(), RecordType::A),
             DnsResponse::from_message(message).unwrap(),
             vec![],
