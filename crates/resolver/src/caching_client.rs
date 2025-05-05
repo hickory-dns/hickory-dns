@@ -286,31 +286,22 @@ where
         response_code: ResponseCode,
         trusted: bool,
     ) -> ProtoError {
-        if valid_nsec || !is_dnssec {
-            // only trust if there were validated NSEC records
-            ProtoErrorKind::NoRecordsFound {
-                query: Box::new(query),
-                soa: soa.map(Box::new),
-                ns,
-                negative_ttl,
-                response_code,
-                trusted: true,
-                authorities: None,
-            }
-            .into()
-        } else {
-            // not cacheable, no ttl...
-            ProtoErrorKind::NoRecordsFound {
-                query: Box::new(query),
-                soa: soa.map(Box::new),
-                ns,
-                negative_ttl: None,
-                response_code,
-                trusted,
-                authorities: None,
-            }
-            .into()
+        ProtoErrorKind::NoRecordsFound {
+            query: Box::new(query),
+            soa: soa.map(Box::new),
+            ns,
+            negative_ttl: match valid_nsec || !is_dnssec {
+                true => negative_ttl,
+                false => None,
+            },
+            response_code,
+            trusted: match valid_nsec || !is_dnssec {
+                true => true,
+                false => trusted,
+            },
+            authorities: None,
         }
+        .into()
     }
 
     /// Handle the case where there is no error returned
