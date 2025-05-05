@@ -15,7 +15,7 @@ use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use super::{Algorithm, DnsSecError};
+use super::Algorithm;
 use crate::{
     error::ProtoError,
     op::Query,
@@ -159,10 +159,6 @@ impl BitOr for Proof {
 #[derive(Debug, Error, Clone)]
 #[non_exhaustive]
 pub enum ProofErrorKind {
-    /// An error with an arbitrary message, referenced as &'static str
-    #[error("{0}")]
-    Message(&'static str),
-
     /// An error with an arbitrary message, stored as String
     #[error("{0}")]
     Msg(String),
@@ -175,10 +171,6 @@ pub enum ProofErrorKind {
         /// Algorithm supported in the DNSKEY
         dnskey: Algorithm,
     },
-
-    /// A DNSSEC validation error, occurred
-    #[error("ssl error: {0}")]
-    DnsSecError(#[from] DnsSecError),
 
     /// A DnsKey verification of rrset and rrsig failed
     #[error("dnskey and rrset failed to verify: {name} key_tag: {key_tag}")]
@@ -214,13 +206,6 @@ pub enum ProofErrorKind {
         name: Name,
     },
 
-    /// No DNSSEC records returned with for the DS record
-    #[error("ds has no dnssec proof: {name}")]
-    DsHasNoDnssecProof {
-        /// DS record name
-        name: Name,
-    },
-
     /// DS record exists but not a DNSKEY that matches
     #[error("ds record exists, but no dnskey: {name}")]
     DsRecordsButNoDnskey {
@@ -232,13 +217,6 @@ pub enum ProofErrorKind {
     #[error("ds record should exist: {name}")]
     DsRecordShouldExist {
         /// Name fo the missing DS key
-        name: Name,
-    },
-
-    /// The DS response was empty
-    #[error("ds response empty: {name}")]
-    DsResponseEmpty {
-        /// No records for the DS query were returned
         name: Name,
     },
 
@@ -301,13 +279,6 @@ pub enum ProofErrorKind {
         name: Name,
         /// The record type in question
         record_type: RecordType,
-    },
-
-    /// The self-signed dnskey is invalid
-    #[error("self-signed dnskey is invalid: {name}")]
-    SelfSignedKeyInvalid {
-        /// Name of the DNSKEY
-        name: Name,
     },
 
     /// Unknown or reserved key algorithm
