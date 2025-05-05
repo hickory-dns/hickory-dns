@@ -233,7 +233,7 @@ async fn execute_query(
     } else if reverse {
         let v4addr = name
             .parse::<IpAddr>()
-            .unwrap_or_else(|_| panic!("Could not parse {} into an IP address", name));
+            .unwrap_or_else(|_| panic!("Could not parse {name} into an IP address"));
         Ok(resolver.reverse_lookup(v4addr).await?.into())
     } else {
         Ok(resolver.lookup(name.to_string(), ty).await?)

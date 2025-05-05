@@ -36,7 +36,7 @@ fn test_read_config() {
         PathBuf::from(server_path).join("tests/test-data/test_configs/example.toml");
 
     if !path.exists() {
-        panic!("can't locate example.toml and other configs: {:?}", path)
+        panic!("can't locate example.toml and other configs: {path:?}")
     }
 
     println!("reading config");

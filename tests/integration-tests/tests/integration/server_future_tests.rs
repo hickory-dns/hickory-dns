@@ -177,7 +177,7 @@ async fn test_server_no_response_on_response() {
     let udp_socket = UdpSocket::bind(&addr).await.unwrap();
 
     let ipaddr = udp_socket.local_addr().unwrap();
-    println!("udp_socket on port: {}", ipaddr);
+    println!("udp_socket on port: {ipaddr}");
     let server_continue = Arc::new(AtomicBool::new(true));
     let server_continue2 = server_continue.clone();
 
@@ -207,9 +207,9 @@ fn read_file(path: &str) -> Vec<u8> {
 
     let mut bytes = vec![];
 
-    let mut file = File::open(path).unwrap_or_else(|_| panic!("failed to open file: {}", path));
+    let mut file = File::open(path).unwrap_or_else(|_| panic!("failed to open file: {path}"));
     file.read_to_end(&mut bytes)
-        .unwrap_or_else(|_| panic!("failed to read file: {}", path));
+        .unwrap_or_else(|_| panic!("failed to read file: {path}"));
     bytes
 }
 

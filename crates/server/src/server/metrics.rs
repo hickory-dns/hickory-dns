@@ -35,7 +35,7 @@ pub(super) struct FlagMetrics {
 
 impl FlagMetrics {
     fn new(direction: &'static str) -> Self {
-        let flags_name = format!("hickory_{}_flags_total", direction);
+        let flags_name = format!("hickory_{direction}_flags_total");
         let key = "flag";
         Self {
             authoritative: {

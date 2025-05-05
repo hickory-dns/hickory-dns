@@ -193,7 +193,7 @@ where
                 .try_wait()
                 .expect("failed to check status of named")
             {
-                panic!("named has already exited with code: {}", ret_code);
+                panic!("named has already exited with code: {ret_code}");
             }
         }
 

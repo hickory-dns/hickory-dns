@@ -1119,7 +1119,7 @@ fn verify_rrset_with_dnskey(
         // the caller
         return Err(ProofError::new(
             Proof::Bogus,
-            ProofErrorKind::Msg(format!("{:?}", validity)),
+            ProofErrorKind::Msg(format!("{validity:?}")),
         ));
     }
 

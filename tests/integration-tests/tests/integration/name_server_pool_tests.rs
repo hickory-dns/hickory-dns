@@ -308,8 +308,7 @@ fn test_tcp_fallback_only_on_truncated() {
             if *response_code == ResponseCode::ServFail => {}
         kind => panic!(
             "got unexpected kind of resolve error; expected `NoRecordsFound` error with SERVFAIL,
-            got {:#?}",
-            kind,
+            got {kind:#?}",
         ),
     }
 }
@@ -357,8 +356,7 @@ fn test_no_tcp_fallback_on_non_io_error() {
             if *response_code == ResponseCode::NXDomain => {}
         kind => panic!(
             "expected `NoRecordsFound` with `response_code: NXDomain`,
-            got {:#?}",
-            kind,
+            got {kind:#?}",
         ),
     }
 }
@@ -400,8 +398,7 @@ fn test_tcp_fallback_on_io_error() {
             if *response_code == ResponseCode::NotImp => {}
         kind => panic!(
             "expected `NoRecordsFound` with `response_code: NotImp`,
-            got {:#?}",
-            kind,
+            got {kind:#?}",
         ),
     }
 }
@@ -442,8 +439,7 @@ fn test_tcp_fallback_on_no_connections() {
             if *response_code == ResponseCode::NotImp => {}
         kind => panic!(
             "expected `NoRecordsFound` with `response_code: NotImp`,
-            got {:#?}",
-            kind,
+            got {kind:#?}",
         ),
     }
 }
@@ -500,8 +496,7 @@ fn test_trust_nx_responses_fails() {
             if *response_code == ResponseCode::NXDomain => {}
         kind => panic!(
             "got unexpected kind of resolve error; expected `NoRecordsFound` error with NXDOMAIN,
-            got {:#?}",
-            kind,
+            got {kind:#?}",
         ),
     }
 }
@@ -562,7 +557,7 @@ fn test_noerror_doesnt_leak() {
             assert!(soa.is_some());
             assert!(trusted);
         }
-        x => panic!("Expected NoRecordsFound, got {:?}", x),
+        x => panic!("Expected NoRecordsFound, got {x:?}"),
     }
 }
 
@@ -736,8 +731,7 @@ fn test_return_error_from_highest_priority_nameserver() {
             if response_code == expected_response_code => {}
         kind => panic!(
             "got unexpected kind of resolve error; expected `NoRecordsFound` error with response \
-            code `{:?}`, got {:#?}",
-            expected_response_code, kind,
+            code `{expected_response_code:?}`, got {kind:#?}",
         ),
     }
 }

@@ -145,7 +145,7 @@ impl<'r> BinDecodable<'r> for CertType {
 
 impl fmt::Display for CertType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -368,7 +368,7 @@ impl<'r> BinDecodable<'r> for Algorithm {
 
 impl fmt::Display for Algorithm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
