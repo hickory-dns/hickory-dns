@@ -31,7 +31,7 @@ where
     name_servers: NameServers,
     soa: Soa,
     additionals: Additionals,
-    sig0: Vec<Record>,
+    signature: Vec<Record>,
     edns: Option<Edns>,
 }
 
@@ -78,7 +78,7 @@ where
             &mut name_servers,
             &mut self.additionals,
             self.edns.as_ref(),
-            &self.sig0,
+            &self.signature,
             encoder,
         )
         .map(Into::into)
@@ -88,7 +88,7 @@ where
 /// A builder for MessageResponses
 pub struct MessageResponseBuilder<'q> {
     queries: &'q Queries,
-    sig0: Option<Vec<Record>>,
+    signature: Option<Vec<Record>>,
     edns: Option<Edns>,
 }
 
@@ -101,7 +101,7 @@ impl<'q> MessageResponseBuilder<'q> {
     pub(crate) fn new(queries: &'q Queries) -> Self {
         MessageResponseBuilder {
             queries,
-            sig0: None,
+            signature: None,
             edns: None,
         }
     }
@@ -151,7 +151,7 @@ impl<'q> MessageResponseBuilder<'q> {
             name_servers: name_servers.into_iter(),
             soa: soa.into_iter(),
             additionals: additionals.into_iter(),
-            sig0: self.sig0.unwrap_or_default(),
+            signature: self.signature.unwrap_or_default(),
             edns: self.edns,
         }
     }
@@ -175,7 +175,7 @@ impl<'q> MessageResponseBuilder<'q> {
             name_servers: Box::new(None.into_iter()),
             soa: Box::new(None.into_iter()),
             additionals: Box::new(None.into_iter()),
-            sig0: self.sig0.unwrap_or_default(),
+            signature: self.signature.unwrap_or_default(),
             edns: self.edns,
         }
     }
@@ -209,7 +209,7 @@ impl<'q> MessageResponseBuilder<'q> {
             name_servers: Box::new(None.into_iter()),
             soa: Box::new(None.into_iter()),
             additionals: Box::new(None.into_iter()),
-            sig0: self.sig0.unwrap_or_default(),
+            signature: self.signature.unwrap_or_default(),
             edns: self.edns,
         }
     }
@@ -249,7 +249,7 @@ mod tests {
                 name_servers: iter::once(&answer),
                 soa: iter::once(&answer),
                 additionals: iter::once(&answer),
-                sig0: vec![],
+                signature: vec![],
                 edns: None,
             };
 
@@ -287,7 +287,7 @@ mod tests {
                 name_servers: iter::repeat(&answer),
                 soa: iter::repeat(&answer),
                 additionals: iter::repeat(&answer),
-                sig0: vec![],
+                signature: vec![],
                 edns: None,
             };
 
