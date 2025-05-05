@@ -547,7 +547,7 @@ mod tests {
         crypto::RsaSigningKey,
         rdata::{DNSSECRData, KEY, RRSIG, SIG, key::KeyUsage},
     };
-    use crate::op::{Message, Query};
+    use crate::op::{Message, MessageSignature, Query};
     use crate::rr::rdata::{CNAME, NS};
     use crate::rr::{DNSClass, Name, RData, Record, RecordType};
 
@@ -603,17 +603,29 @@ mod tests {
         assert!(sig0key.verify_message(&question, &sig, &pre_sig0).is_ok());
 
         // now test that the sig0 record works correctly.
-        assert!(question.sig0().is_empty());
+        assert_eq!(question.signature(), &MessageSignature::Unsigned);
         question.finalize(&signer, 0).expect("should have signed");
-        assert!(!question.sig0().is_empty());
+        assert!(matches!(question.signature(), MessageSignature::Sig0(_)));
 
         let sig = signer.sign_message(&question, &pre_sig0);
         #[cfg(feature = "std")]
         println!("sig after sign: {sig:?}");
 
-        if let RData::DNSSEC(DNSSECRData::SIG(sig)) = question.sig0()[0].data() {
-            assert!(sig0key.verify_message(&question, sig.sig(), sig).is_ok());
-        }
+        let MessageSignature::Sig0(sig) = question.signature() else {
+            panic!(
+                "expected sig0 signature after sign, not {:?}",
+                question.signature()
+            );
+        };
+
+        let RData::DNSSEC(DNSSECRData::SIG(sig)) = sig.data() else {
+            panic!(
+                "expected DNSSECRdata::SIG from Sig0 RR, not {:?}",
+                sig.data()
+            );
+        };
+
+        assert!(sig0key.verify_message(&question, sig.sig(), sig).is_ok());
     }
 
     #[test]
