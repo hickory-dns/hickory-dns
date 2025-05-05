@@ -9,16 +9,13 @@ use test_support::subscribe;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use time::Duration;
 
-use hickory_client::{
-    ClientErrorKind,
-    client::{Client, ClientHandle},
-};
+use hickory_client::client::{Client, ClientHandle};
 use hickory_integration::{
     GOOGLE_V4, GOOGLE_V6, NeverReturnsClientStream, TEST3_V4, TestClientStream,
     example_authority::create_example,
 };
 use hickory_proto::{
-    DnsHandle,
+    DnsHandle, ProtoErrorKind,
     op::{Edns, Message, MessageType, OpCode, Query, ResponseCode},
     rr::{
         DNSClass, Name, RecordSet, RecordType,
@@ -979,7 +976,7 @@ async fn test_timeout_query(mut client: Client) {
         .unwrap_err();
 
     println!("got error: {err:?}");
-    if let ClientErrorKind::Timeout = err.kind() {
+    if let ProtoErrorKind::Timeout = err.kind() {
     } else {
         panic!("expected timeout error");
     }

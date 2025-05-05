@@ -11,10 +11,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use hickory_client::{
-    ClientErrorKind,
-    client::{ClientHandle, DnssecClient},
-};
+use hickory_client::client::{ClientHandle, DnssecClient};
 use hickory_proto::{
     ProtoErrorKind,
     dnssec::{
@@ -522,11 +519,8 @@ async fn test_exclude_nsec3(
         .query(query_name.clone(), DNSClass::IN, query_type)
         .await
         .unwrap_err();
-    let ClientErrorKind::Proto(proto_error) = error.kind() else {
-        panic!("wrong client error kind {error}");
-    };
-    let ProtoErrorKind::Nsec { proof, .. } = proto_error.kind() else {
-        panic!("wrong proto error kind {proto_error}");
+    let ProtoErrorKind::Nsec { proof, .. } = error.kind() else {
+        panic!("wrong proto error kind {error}");
     };
     assert_eq!(proof, &Proof::Bogus);
 }
