@@ -13,19 +13,21 @@ use std::{
     time::*,
 };
 
-#[cfg(feature = "__dnssec")]
-use hickory_client::client::Client;
-use hickory_client::{ClientError, client::ClientHandle, proto::xfer::DnsResponse};
-#[cfg(feature = "__dnssec")]
-use hickory_proto::dnssec::Algorithm;
-use hickory_proto::xfer::Protocol;
-use hickory_proto::{
-    op::ResponseCode,
-    rr::{DNSClass, Name, RData, RecordType, rdata::A},
-};
 use regex::Regex;
 use tokio::runtime::Runtime;
 use tracing::{info, warn};
+
+#[cfg(feature = "__dnssec")]
+use hickory_client::client::Client;
+use hickory_client::{client::ClientHandle, proto::xfer::DnsResponse};
+#[cfg(feature = "__dnssec")]
+use hickory_proto::dnssec::Algorithm;
+use hickory_proto::{
+    ProtoError,
+    op::ResponseCode,
+    rr::{DNSClass, Name, RData, RecordType, rdata::A},
+    xfer::Protocol,
+};
 
 #[derive(Debug, Default)]
 pub struct SocketPort {
@@ -269,7 +271,7 @@ pub fn query_message<C: ClientHandle>(
     client: &mut C,
     name: Name,
     record_type: RecordType,
-) -> Result<DnsResponse, ClientError> {
+) -> Result<DnsResponse, ProtoError> {
     println!("sending request: {name} for: {record_type}");
     io_loop.block_on(client.query(name, DNSClass::IN, record_type))
 }

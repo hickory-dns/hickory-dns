@@ -20,7 +20,6 @@ use futures_util::{
 use rand;
 use tracing::debug;
 
-use crate::{ClientError, ClientErrorKind};
 use hickory_proto::{
     ProtoError, ProtoErrorKind,
     op::{Edns, Message, MessageFinalizer, MessageType, OpCode, Query, update_message},
@@ -594,10 +593,10 @@ impl<R> Stream for ClientStreamingResponse<R>
 where
     R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
 {
-    type Item = Result<DnsResponse, ClientError>;
+    type Item = Result<DnsResponse, ProtoError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        Poll::Ready(ready!(self.0.poll_next_unpin(cx)).map(|r| r.map_err(ClientError::from)))
+        Poll::Ready(ready!(self.0.poll_next_unpin(cx)))
     }
 }
 
@@ -611,16 +610,13 @@ impl<R> Future for ClientResponse<R>
 where
     R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
 {
-    type Output = Result<DnsResponse, ClientError>;
+    type Output = Result<DnsResponse, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        Poll::Ready(
-            match ready!(self.0.poll_next_unpin(cx)) {
-                Some(r) => r,
-                None => Err(ProtoError::from(ProtoErrorKind::Timeout)),
-            }
-            .map_err(ClientError::from),
-        )
+        Poll::Ready(match ready!(self.0.poll_next_unpin(cx)) {
+            Some(r) => r,
+            None => Err(ProtoError::from(ProtoErrorKind::Timeout)),
+        })
     }
 }
 
@@ -686,7 +682,7 @@ impl<R> ClientStreamXfrState<R> {
 
     /// Helper to ingest answer Records
     // TODO: this is complex enough it should get its own tests
-    fn process(&mut self, answers: &[Record]) -> Result<(), ClientError> {
+    fn process(&mut self, answers: &[Record]) -> Result<(), ProtoError> {
         use ClientStreamXfrState::*;
         fn get_serial(r: &Record) -> Option<u32> {
             r.data().as_soa().map(SOA::serial)
@@ -723,7 +719,7 @@ impl<R> ClientStreamXfrState<R> {
                             Ok(())
                         } else {
                             // invalid answer : trailing records
-                            Err(ClientErrorKind::Message(
+                            Err(ProtoErrorKind::Message(
                                 "invalid zone transfer, contains trailing records",
                             )
                             .into())
@@ -737,7 +733,7 @@ impl<R> ClientStreamXfrState<R> {
                         self.process(&answers[1..])
                     } else {
                         *self = Ended;
-                        Err(ClientErrorKind::Message(
+                        Err(ProtoErrorKind::Message(
                             "invalid zone transfer, expected AXFR, got IXFR",
                         )
                         .into())
@@ -771,7 +767,7 @@ impl<R> ClientStreamXfrState<R> {
                         *self = Ended;
                         match answers.last().map(|r| r.record_type()) {
                             Some(RecordType::SOA) => Ok(()),
-                            _ => Err(ClientErrorKind::Message(
+                            _ => Err(ProtoErrorKind::Message(
                                 "invalid zone transfer, contains trailing records",
                             )
                             .into()),
@@ -779,7 +775,7 @@ impl<R> ClientStreamXfrState<R> {
                     }
                     _ => {
                         *self = Ended;
-                        Err(ClientErrorKind::Message(
+                        Err(ProtoErrorKind::Message(
                             "invalid zone transfer, contains trailing records",
                         )
                         .into())
@@ -820,7 +816,7 @@ impl<R> Stream for ClientStreamXfr<R>
 where
     R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
 {
-    type Item = Result<DnsResponse, ClientError>;
+    type Item = Result<DnsResponse, ProtoError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use ClientStreamXfrState::*;

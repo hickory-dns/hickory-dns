@@ -140,8 +140,6 @@
 //! of dynamic DNS updates. Consult the [`client::DnssecClient`] API for more information.
 
 pub mod client;
-mod error;
-pub use error::{Error as ClientError, ErrorKind as ClientErrorKind};
 #[cfg(test)]
 mod tests;
 

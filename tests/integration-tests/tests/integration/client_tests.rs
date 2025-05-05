@@ -12,7 +12,6 @@ use futures::TryStreamExt;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use time::Duration;
 
-use hickory_client::ClientErrorKind;
 #[cfg(feature = "__dnssec")]
 use hickory_client::client::DnssecClient;
 use hickory_client::client::{Client, ClientHandle};
@@ -271,7 +270,7 @@ async fn test_timeout_query(mut client: Client) {
 
     let err = response.unwrap_err();
 
-    if let ClientErrorKind::Timeout = err.kind() {
+    if let ProtoErrorKind::Timeout = err.kind() {
     } else {
         panic!("expected timeout error")
     }
