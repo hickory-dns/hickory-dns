@@ -25,7 +25,7 @@ use crate::{
         Algorithm, Proof, ProofError, ProofErrorKind, TrustAnchors, Verifier,
         rdata::{DNSKEY, DS, RRSIG},
     },
-    error::{ProtoError, ProtoErrorKind},
+    error::{NoRecords, ProtoError, ProtoErrorKind},
     op::{Edns, Message, OpCode, Query},
     rr::{Name, Record, RecordData, RecordType, SerialNumber, resource::RecordRef},
     xfer::{DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer, dns_handle::DnsHandle},
@@ -157,12 +157,12 @@ where
                     // Translate NoRecordsFound errors into a DnsResponse message so the rest of the
                     // DNSSEC handler chain can validate negative responses.
                     match res.kind() {
-                        ProtoErrorKind::NoRecordsFound {
+                        ProtoErrorKind::NoRecordsFound(NoRecords {
                             query,
                             authorities,
                             response_code,
                             ..
-                        } => {
+                        }) => {
                             let mut msg = Message::new();
 
                             debug!("translating NoRecordsFound to DnsResponse for {query}");

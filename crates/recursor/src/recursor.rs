@@ -24,10 +24,10 @@ use crate::{
 use crate::{
     ErrorKind,
     proto::{
-        ProtoError,
+        NoRecords, ProtoError,
         dnssec::{DnssecDnsHandle, TrustAnchors},
         op::ResponseCode,
-        rr::{Record, RecordType, resource::RecordRef},
+        rr::RecordType,
         xfer::{DnsHandle as _, DnsRequestOptions, FirstAnswer as _},
     },
     resolver::dns_lru::DnsLru,
@@ -442,27 +442,25 @@ impl Recursor {
                     && !response.name_servers().is_empty()
                     && response.response_code() == ResponseCode::NoError
                 {
-                    let authorities = response
-                        .name_servers()
-                        .iter()
-                        .filter_map(|x| match x.record_type() {
-                            RecordType::SOA => None,
-                            _ => Some(x.clone()),
-                        })
-                        .collect::<Arc<[Record]>>();
-
-                    let soa = response.soa().as_ref().map(RecordRef::to_owned);
+                    let mut no_records = NoRecords::new(query.clone(), ResponseCode::NoError);
+                    no_records.soa = response
+                        .soa()
+                        .as_ref()
+                        .map(|record| Box::new(record.to_owned()));
+                    no_records.authorities = Some(
+                        response
+                            .name_servers()
+                            .iter()
+                            .filter_map(|x| match x.record_type() {
+                                RecordType::SOA => None,
+                                _ => Some(x.clone()),
+                            })
+                            .collect(),
+                    );
+                    no_records.trusted = true;
 
                     Err(Error {
-                        kind: Box::new(ErrorKind::Proto(ProtoError::nx_error(
-                            Box::new(query),
-                            soa.map(Box::new),
-                            None,
-                            None,
-                            ResponseCode::NoError,
-                            true,
-                            Some(authorities),
-                        ))),
+                        kind: Box::new(ErrorKind::from(ProtoError::from(no_records))),
                         #[cfg(feature = "backtrace")]
                         backtrack: None,
                     })

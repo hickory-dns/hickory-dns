@@ -28,7 +28,7 @@ use crate::{
             resource::RecordRef,
         },
         xfer::{DnsHandle, DnsRequestOptions, DnsResponse, FirstAnswer},
-        {ProtoError, ProtoErrorKind},
+        {NoRecords, ProtoError, ProtoErrorKind},
     },
 };
 
@@ -143,31 +143,14 @@ where
                     RecordType::A => return Ok(Lookup::from_rdata(query, LOCALHOST_V4.clone())),
                     RecordType::AAAA => return Ok(Lookup::from_rdata(query, LOCALHOST_V6.clone())),
                     RecordType::PTR => return Ok(Lookup::from_rdata(query, LOCALHOST.clone())),
-                    _ => {
-                        return Err(ProtoError::nx_error(
-                            Box::new(query),
-                            None,
-                            None,
-                            None,
-                            ResponseCode::NoError,
-                            false,
-                            None,
-                        ));
-                    } // Are there any other types we can use?
+                    // Are there any other types we can use?
+                    _ => return Err(NoRecords::new(query, ResponseCode::NoError).into()),
                 },
                 // TODO: this requires additional config, as Kubernetes and other systems misuse the .local. zone.
                 // when mdns is not enabled we will return errors on LinkLocal ("*.local.") names
                 ResolverUsage::LinkLocal => (),
                 ResolverUsage::NxDomain => {
-                    return Err(ProtoError::nx_error(
-                        Box::new(query),
-                        None,
-                        None,
-                        None,
-                        ResponseCode::NXDomain,
-                        false,
-                        None,
-                    ));
+                    return Err(NoRecords::new(query, ResponseCode::NXDomain).into());
                 }
                 ResolverUsage::Normal => (),
             }
@@ -199,27 +182,14 @@ where
         let records: Result<Records, ProtoError> = match response_message {
             // this is the only cacheable form
             Err(e) => match e.kind() {
-                ProtoErrorKind::NoRecordsFound {
-                    query,
-                    soa,
-                    negative_ttl,
-                    response_code,
-                    trusted,
-                    ns,
-                    ..
-                } => Err(ProtoErrorKind::NoRecordsFound {
-                    query: Box::new(*query.clone()),
-                    soa: soa.as_ref().cloned(),
-                    ns: ns.clone(),
-                    negative_ttl: match is_dnssec {
-                        false => *negative_ttl,
-                        true => None,
-                    },
-                    response_code: *response_code,
-                    trusted: !is_dnssec || *trusted,
-                    authorities: None,
+                ProtoErrorKind::NoRecordsFound(no_records) => {
+                    let mut new = no_records.clone();
+                    if is_dnssec {
+                        new.negative_ttl = None;
+                    }
+                    new.trusted = !is_dnssec || no_records.trusted;
+                    Err(new.into())
                 }
-                .into()),
                 _ => return Err(e),
             },
             Ok(response_message) => {
@@ -403,16 +373,11 @@ where
             // TODO: review See https://tools.ietf.org/html/rfc2308 for NoData section
             // Note on DNSSEC, in secure_client_handle, if verify_nsec fails then the request fails.
             //   this will mean that no unverified negative caches will make it to this point and be stored
-            Err(ProtoErrorKind::NoRecordsFound {
-                query: Box::new(query.clone()),
-                soa: soa.map(Box::new),
-                ns: None,
-                negative_ttl,
-                response_code,
-                trusted: true,
-                authorities: None,
-            }
-            .into())
+            let mut new = NoRecords::new(query.clone(), response_code);
+            new.soa = soa.map(Box::new);
+            new.negative_ttl = negative_ttl;
+            new.trusted = true;
+            Err(new.into())
         }
     }
 
@@ -473,11 +438,11 @@ mod tests {
         let client = mock(vec![empty()]);
         let client = CachingClient::with_cache(cache, client, false);
 
-        if let ProtoErrorKind::NoRecordsFound {
+        if let ProtoErrorKind::NoRecordsFound(NoRecords {
             query,
             negative_ttl,
             ..
-        } = block_on(CachingClient::inner_lookup(
+        }) = block_on(CachingClient::inner_lookup(
             Query::new(),
             DnsRequestOptions::default(),
             client,

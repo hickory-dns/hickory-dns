@@ -24,7 +24,7 @@ use crate::proto::op::Query;
 #[cfg(feature = "__dnssec")]
 use crate::proto::rr::RecordData;
 use crate::proto::rr::{Record, RecordType};
-use crate::proto::{ProtoError, ProtoErrorKind};
+use crate::proto::{NoRecords, ProtoError, ProtoErrorKind};
 
 /// Maximum TTL. This is set to one day (in seconds).
 ///
@@ -415,7 +415,7 @@ impl DnsLru {
     fn nx_error_with_ttl(error: &mut ProtoError, new_ttl: Duration) {
         let ProtoError { kind, .. } = error;
 
-        if let ProtoErrorKind::NoRecordsFound { negative_ttl, .. } = kind.as_mut() {
+        if let ProtoErrorKind::NoRecordsFound(NoRecords { negative_ttl, .. }) = kind.as_mut() {
             *negative_ttl = Some(u32::try_from(new_ttl.as_secs()).unwrap_or(MAX_TTL));
         }
     }
@@ -425,10 +425,10 @@ impl DnsLru {
 
         // TODO: if we are getting a negative response, should we instead fallback to cache?
         //   this would cache indefinitely, probably not correct
-        if let ProtoErrorKind::NoRecordsFound {
+        if let ProtoErrorKind::NoRecordsFound(NoRecords {
             negative_ttl: Some(ttl),
             ..
-        } = kind.as_ref()
+        }) = kind.as_ref()
         {
             let (negative_min_ttl, negative_max_ttl) = self
                 .ttl_config
@@ -603,18 +603,11 @@ mod tests {
         let lru = DnsLru::new(1, ttls);
 
         // neg response should have TTL of 1 seconds.
-        let err = ProtoErrorKind::NoRecordsFound {
-            query: Box::new(name.clone()),
-            soa: None,
-            ns: None,
-            negative_ttl: Some(1),
-            response_code: ResponseCode::NoError,
-            trusted: false,
-            authorities: None,
-        };
-        let nx_error = lru.negative(name.clone(), err.into(), now);
+        let mut no_records = NoRecords::new(name.clone(), ResponseCode::NoError);
+        no_records.negative_ttl = Some(1);
+        let nx_error = lru.negative(name.clone(), no_records.into(), now);
         match nx_error.kind() {
-            &ProtoErrorKind::NoRecordsFound { negative_ttl, .. } => {
+            &ProtoErrorKind::NoRecordsFound(NoRecords { negative_ttl, .. }) => {
                 let valid_until = negative_ttl.expect("resolve error should have a deadline");
                 // the error's `valid_until` field should have been limited to 2 seconds.
                 assert_eq!(valid_until, 2);
@@ -623,18 +616,11 @@ mod tests {
         }
 
         // neg response should have TTL of 3 seconds.
-        let err = ProtoErrorKind::NoRecordsFound {
-            query: Box::new(name.clone()),
-            soa: None,
-            ns: None,
-            negative_ttl: Some(3),
-            response_code: ResponseCode::NoError,
-            trusted: false,
-            authorities: None,
-        };
-        let nx_error = lru.negative(name, err.into(), now);
+        let mut no_records = NoRecords::new(name.clone(), ResponseCode::NoError);
+        no_records.negative_ttl = Some(3);
+        let nx_error = lru.negative(name, no_records.into(), now);
         match nx_error.kind() {
-            &ProtoErrorKind::NoRecordsFound { negative_ttl, .. } => {
+            &ProtoErrorKind::NoRecordsFound(NoRecords { negative_ttl, .. }) => {
                 let negative_ttl = negative_ttl.expect("ProtoError should have a deadline");
                 // the error's `valid_until` field should not have been limited, as it was
                 // over the min TTL.
@@ -703,18 +689,11 @@ mod tests {
         let lru = DnsLru::new(1, ttls);
 
         // neg response should have TTL of 62 seconds.
-        let err: ProtoErrorKind = ProtoErrorKind::NoRecordsFound {
-            query: Box::new(name.clone()),
-            soa: None,
-            ns: None,
-            negative_ttl: Some(62),
-            response_code: ResponseCode::NoError,
-            trusted: false,
-            authorities: None,
-        };
-        let nx_error = lru.negative(name.clone(), err.into(), now);
+        let mut no_records = NoRecords::new(name.clone(), ResponseCode::NoError);
+        no_records.negative_ttl = Some(62);
+        let nx_error = lru.negative(name.clone(), no_records.into(), now);
         match nx_error.kind() {
-            &ProtoErrorKind::NoRecordsFound { negative_ttl, .. } => {
+            &ProtoErrorKind::NoRecordsFound(NoRecords { negative_ttl, .. }) => {
                 let negative_ttl = negative_ttl.expect("resolve error should have a deadline");
                 // the error's `valid_until` field should have been limited to 60 seconds.
                 assert_eq!(negative_ttl, 60);
@@ -723,18 +702,11 @@ mod tests {
         }
 
         // neg response should have TTL of 59 seconds.
-        let err = ProtoErrorKind::NoRecordsFound {
-            query: Box::new(name.clone()),
-            soa: None,
-            ns: None,
-            negative_ttl: Some(59),
-            response_code: ResponseCode::NoError,
-            trusted: false,
-            authorities: None,
-        };
-        let nx_error = lru.negative(name, err.into(), now);
+        let mut no_records = NoRecords::new(name.clone(), ResponseCode::NoError);
+        no_records.negative_ttl = Some(59);
+        let nx_error = lru.negative(name, no_records.into(), now);
         match nx_error.kind() {
-            &ProtoErrorKind::NoRecordsFound { negative_ttl, .. } => {
+            &ProtoErrorKind::NoRecordsFound(NoRecords { negative_ttl, .. }) => {
                 let negative_ttl = negative_ttl.expect("resolve error should have a deadline");
                 // the error's `valid_until` field should not have been limited, as it was
                 // under the max TTL.

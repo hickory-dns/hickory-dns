@@ -19,9 +19,8 @@ use tracing::warn;
 use crate::proto::{ExtBacktrace, trace};
 use crate::proto::{
     ForwardNSData, ProtoErrorKind,
-    op::ResponseCode,
     rr::{Name, Record, rdata::SOA},
-    {ForwardData, ProtoError},
+    {ForwardData, NoRecords, ProtoError},
 };
 use crate::resolver::ResolveError;
 
@@ -227,13 +226,13 @@ impl From<ResolveError> for Error {
             Err(e) => return ErrorKind::Resolve(e).into(),
         };
 
-        let ProtoErrorKind::NoRecordsFound {
+        let ProtoErrorKind::NoRecordsFound(NoRecords {
             query,
             soa,
             ns,
             authorities,
             ..
-        } = proto_err
+        }) = proto_err
         else {
             return ErrorKind::Proto(proto_err.into()).into();
         };
@@ -275,21 +274,8 @@ impl Clone for ErrorKind {
 
 impl From<Error> for ProtoError {
     fn from(e: Error) -> Self {
-        let is_nx_domain = e.is_nx_domain();
         match *e.kind {
-            ErrorKind::Forward(fwd) => ProtoError::nx_error(
-                fwd.query,
-                Some(fwd.soa),
-                None,
-                None,
-                if is_nx_domain {
-                    ResponseCode::NXDomain
-                } else {
-                    ResponseCode::NoError
-                },
-                true,
-                fwd.authorities,
-            ),
+            ErrorKind::Forward(fwd) => NoRecords::from(fwd).into(),
             _ => ProtoError::from(e.to_string()),
         }
     }

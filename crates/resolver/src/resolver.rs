@@ -1068,7 +1068,7 @@ mod tests {
     use crate::proto::op::Message;
     use crate::proto::rr::rdata::A;
     use crate::proto::xfer::{DnsRequest, DnsResponse};
-    use crate::proto::{ProtoError, ProtoErrorKind};
+    use crate::proto::{NoRecords, ProtoError, ProtoErrorKind};
 
     fn is_send_t<T: Send>() -> bool {
         true
@@ -1356,11 +1356,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_empty_no_response() {
-        if let ProtoErrorKind::NoRecordsFound {
+        if let ProtoErrorKind::NoRecordsFound(NoRecords {
             query,
             negative_ttl,
             ..
-        } = LookupFuture::lookup(
+        }) = LookupFuture::lookup(
             vec![Name::root()],
             RecordType::A,
             DnsRequestOptions::default(),

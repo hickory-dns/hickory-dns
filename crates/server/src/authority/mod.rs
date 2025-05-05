@@ -14,7 +14,7 @@ use thiserror::Error;
 
 use crate::proto::op::ResponseCode;
 use crate::proto::rr::{Record, rdata::SOA};
-use crate::proto::{ProtoError, ProtoErrorKind};
+use crate::proto::{NoRecords, ProtoError, ProtoErrorKind};
 #[cfg(feature = "recursor")]
 use crate::recursor::ErrorKind;
 #[cfg(feature = "resolver")]
@@ -114,14 +114,18 @@ impl LookupError {
     pub fn authorities(&self) -> Option<Arc<[Record]>> {
         match self {
             Self::ProtoError(e) => match e.kind() {
-                ProtoErrorKind::NoRecordsFound { authorities, .. } => authorities.clone(),
+                ProtoErrorKind::NoRecordsFound(NoRecords { authorities, .. }) => {
+                    authorities.clone()
+                }
                 _ => None,
             },
             #[cfg(feature = "recursor")]
             Self::RecursiveError(e) => match e.kind() {
                 ErrorKind::Forward(fwd) => fwd.authorities.clone(),
                 ErrorKind::Proto(proto) => match proto.kind() {
-                    ProtoErrorKind::NoRecordsFound { authorities, .. } => authorities.clone(),
+                    ProtoErrorKind::NoRecordsFound(NoRecords { authorities, .. }) => {
+                        authorities.clone()
+                    }
                     _ => None,
                 },
                 _ => None,
