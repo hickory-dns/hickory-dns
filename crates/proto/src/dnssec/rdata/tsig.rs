@@ -742,6 +742,7 @@ mod tests {
     use std::println;
 
     use super::*;
+    use crate::op::MessageSignature;
     use crate::rr::Record;
 
     fn test_encode_decode(rdata: TSIG) {
@@ -810,9 +811,7 @@ mod tests {
 
         let pre_tsig = pre_tsig.set_mac(b"some signature".to_vec());
 
-        let tsig = make_tsig_record(key_name, pre_tsig);
-
-        message.add_tsig(tsig);
+        message.set_signature(MessageSignature::Tsig(make_tsig_record(key_name, pre_tsig)));
 
         let message_byte = message.to_bytes().unwrap();
 
@@ -844,9 +843,7 @@ mod tests {
 
         let pre_tsig = pre_tsig.set_mac(b"some signature".to_vec());
 
-        let tsig = make_tsig_record(key_name, pre_tsig);
-
-        message.add_tsig(tsig);
+        message.set_signature(MessageSignature::Tsig(make_tsig_record(key_name, pre_tsig)));
 
         let message_byte = message.to_bytes().unwrap();
         let mut message = Message::from_bytes(&message_byte).unwrap();

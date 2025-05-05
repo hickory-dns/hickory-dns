@@ -9,7 +9,7 @@ use crate::{
     authority::{Queries, message_request::MessageRequest},
     proto::{
         ProtoError,
-        op::{Edns, Header, ResponseCode, message},
+        op::{Edns, Header, MessageSignature, ResponseCode, message},
         rr::Record,
         serialize::binary::BinEncoder,
     },
@@ -31,7 +31,7 @@ where
     name_servers: NameServers,
     soa: Soa,
     additionals: Additionals,
-    signature: Vec<Record>,
+    signature: MessageSignature,
     edns: Option<Edns>,
 }
 
@@ -88,7 +88,7 @@ where
 /// A builder for MessageResponses
 pub struct MessageResponseBuilder<'q> {
     queries: &'q Queries,
-    signature: Option<Vec<Record>>,
+    signature: MessageSignature,
     edns: Option<Edns>,
 }
 
@@ -101,7 +101,7 @@ impl<'q> MessageResponseBuilder<'q> {
     pub(crate) fn new(queries: &'q Queries) -> Self {
         MessageResponseBuilder {
             queries,
-            signature: None,
+            signature: MessageSignature::default(),
             edns: None,
         }
     }
@@ -151,7 +151,7 @@ impl<'q> MessageResponseBuilder<'q> {
             name_servers: name_servers.into_iter(),
             soa: soa.into_iter(),
             additionals: additionals.into_iter(),
-            signature: self.signature.unwrap_or_default(),
+            signature: self.signature,
             edns: self.edns,
         }
     }
@@ -175,7 +175,7 @@ impl<'q> MessageResponseBuilder<'q> {
             name_servers: Box::new(None.into_iter()),
             soa: Box::new(None.into_iter()),
             additionals: Box::new(None.into_iter()),
-            signature: self.signature.unwrap_or_default(),
+            signature: self.signature,
             edns: self.edns,
         }
     }
@@ -209,7 +209,7 @@ impl<'q> MessageResponseBuilder<'q> {
             name_servers: Box::new(None.into_iter()),
             soa: Box::new(None.into_iter()),
             additionals: Box::new(None.into_iter()),
-            signature: self.signature.unwrap_or_default(),
+            signature: self.signature,
             edns: self.edns,
         }
     }
@@ -249,7 +249,7 @@ mod tests {
                 name_servers: iter::once(&answer),
                 soa: iter::once(&answer),
                 additionals: iter::once(&answer),
-                signature: vec![],
+                signature: MessageSignature::default(),
                 edns: None,
             };
 
@@ -287,7 +287,7 @@ mod tests {
                 name_servers: iter::repeat(&answer),
                 soa: iter::repeat(&answer),
                 additionals: iter::repeat(&answer),
-                signature: vec![],
+                signature: MessageSignature::default(),
                 edns: None,
             };
 

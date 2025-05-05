@@ -72,7 +72,7 @@ pub struct Message {
     answers: Vec<Record>,
     name_servers: Vec<Record>,
     additionals: Vec<Record>,
-    signature: Vec<Record>,
+    signature: MessageSignature,
     edns: Option<Edns>,
 }
 
@@ -85,7 +85,7 @@ impl Message {
             answers: Vec::new(),
             name_servers: Vec::new(),
             additionals: Vec::new(),
-            signature: Vec::new(),
+            signature: MessageSignature::default(),
             edns: None,
         }
     }
@@ -348,21 +348,50 @@ impl Message {
 
     /// Add a SIG0 record, i.e. sign this message
     ///
-    /// This must be used only after all records have been associated. Generally this will be handled by the client and not need to be used directly
+    /// This must be used only after all records have been associated. Generally this will be
+    /// handled by the client and not need to be used directly
+    ///
+    /// # Panics
+    ///
+    /// If the `Record` has a type other than `RecordType::SIG`.
     #[cfg(feature = "__dnssec")]
+    #[deprecated(note = "Please use `set_signature`")]
     pub fn add_sig0(&mut self, record: Record) -> &mut Self {
-        assert_eq!(RecordType::SIG, record.record_type());
-        self.signature.push(record);
-        self
+        self.set_signature(MessageSignature::Sig0(record))
     }
 
-    /// Add a TSIG record, i.e. authenticate this message
+    /// Add a TSIG record, i.e. sign this message
     ///
-    /// This must be used only after all records have been associated. Generally this will be handled by the client and not need to be used directly
+    /// This must be used only after all records have been associated. Generally this will be
+    /// handled by the client and not need to be used directly
+    ///
+    /// # Panics
+    ///
+    /// If the `Record` has a type other than `RecordType::TSIG`.
     #[cfg(feature = "__dnssec")]
+    #[deprecated(note = "Please use `set_signature`")]
     pub fn add_tsig(&mut self, record: Record) -> &mut Self {
-        assert_eq!(RecordType::TSIG, record.record_type());
-        self.signature.push(record);
+        self.set_signature(MessageSignature::Tsig(record))
+    }
+
+    /// Set the signature record for the message.
+    ///
+    /// This must be used only after all records have been associated. Generally this will be
+    /// handled by the client and not need to be used directly
+    ///
+    /// # Panics
+    ///
+    /// If the `MessageSignature` specifies a `Record` and the record type is not correct. For
+    /// example, providing a `MessageSignature::Tsig` variant with a `Record` with a type other than
+    /// `RecordType::TSIG` will panic.
+    #[cfg(feature = "__dnssec")]
+    pub fn set_signature(&mut self, sig: MessageSignature) -> &mut Self {
+        match &sig {
+            MessageSignature::Tsig(rec) => assert_eq!(RecordType::TSIG, rec.record_type()),
+            MessageSignature::Sig0(rec) => assert_eq!(RecordType::SIG, rec.record_type()),
+            _ => {}
+        }
+        self.signature = sig;
         self
     }
 
@@ -581,46 +610,15 @@ impl Message {
         self.edns.as_ref().map_or(0, Edns::version)
     }
 
-    /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4)
-    ///
-    /// ```text
-    /// A DNS request may be optionally signed by including one or more SIGs
-    ///  at the end of the query. Such SIGs are identified by having a "type
-    ///  covered" field of zero. They sign the preceding DNS request message
-    ///  including DNS header but not including the IP header or any request
-    ///  SIGs at the end and before the request RR counts have been adjusted
-    ///  for the inclusions of any request SIG(s).
-    /// ```
-    ///
     /// # Return value
     ///
-    /// The sig0 and tsig, i.e. signed record, for verifying the sending and package integrity
-    // comportment change: can now return TSIG instead of SIG0. Maybe should get deprecated in
-    // favor of signature() which have more correct naming ?
-    pub fn sig0(&self) -> &[Record] {
-        &self.signature
-    }
-
-    /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4)
-    ///
-    /// ```text
-    /// A DNS request may be optionally signed by including one or more SIGs
-    ///  at the end of the query. Such SIGs are identified by having a "type
-    ///  covered" field of zero. They sign the preceding DNS request message
-    ///  including DNS header but not including the IP header or any request
-    ///  SIGs at the end and before the request RR counts have been adjusted
-    ///  for the inclusions of any request SIG(s).
-    /// ```
-    ///
-    /// # Return value
-    ///
-    /// The sig0 and tsig, i.e. signed record, for verifying the sending and package integrity
-    pub fn signature(&self) -> &[Record] {
+    /// the signature over the message, if any
+    pub fn signature(&self) -> &MessageSignature {
         &self.signature
     }
 
     /// Remove signatures from the Message
-    pub fn take_signature(&mut self) -> Vec<Record> {
+    pub fn take_signature(&mut self) -> MessageSignature {
         mem::take(&mut self.signature)
     }
 
@@ -655,66 +653,69 @@ impl Message {
     ///
     /// # Returns
     ///
-    /// This returns a tuple of first standard Records, then a possibly associated Edns, and then finally any optionally associated SIG0 and TSIG records.
+    /// This returns a tuple of first standard Records, then a possibly associated Edns, and then
+    /// finally a `MessageSignature` if applicable.
+    ///
+    /// `MessageSignature::Tsig` and `MessageSignature::Sig0` records are only valid when
+    /// found in the additional data section. Further, they must always be the last record
+    /// in that section, and are mutually exclusive. It is not possible to have multiple TSIG
+    /// or SIG(0) records.
+    ///
+    /// RFC 2931 §3.1 says:
+    ///  "Note: requests and responses can either have a single TSIG or one SIG(0) but not both a
+    ///   TSIG and a SIG(0)."
+    /// RFC 8945 §5.1 says:
+    ///  "This TSIG record MUST be the only TSIG RR in the message and MUST be the last record in
+    ///   the additional data section."
     #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
     pub fn read_records(
         decoder: &mut BinDecoder<'_>,
         count: usize,
         is_additional: bool,
-    ) -> ProtoResult<(Vec<Record>, Option<Edns>, Vec<Record>)> {
+    ) -> ProtoResult<(Vec<Record>, Option<Edns>, MessageSignature)> {
         let mut records: Vec<Record> = Vec::with_capacity(count);
         let mut edns: Option<Edns> = None;
-        let mut sigs: Vec<Record> = Vec::with_capacity(if is_additional { 1 } else { 0 });
+        let mut sig = MessageSignature::default();
 
-        // sig0 must be last, once this is set, disable.
-        let mut saw_sig0 = false;
-        // tsig must be last, once this is set, disable.
-        let mut saw_tsig = false;
         for _ in 0..count {
             let record = Record::read(decoder)?;
-            if saw_tsig {
-                return Err("tsig must be final resource record".into());
-            } // TSIG must be last and multiple TSIG records are not allowed
-            if !is_additional {
-                if saw_sig0 {
-                    return Err("sig0 must be final resource record".into());
-                } // SIG0 must be last
-                records.push(record)
-            } else {
-                match record.record_type() {
-                    #[cfg(feature = "__dnssec")]
-                    RecordType::SIG => {
-                        saw_sig0 = true;
-                        sigs.push(record);
+
+            // There must be no additional records after a TSIG/SIG(0) record.
+            if sig != MessageSignature::Unsigned {
+                return Err("TSIG or SIG(0) record must be final resource record".into());
+            }
+
+            // SIG and TSIG records are only allowed in the additional section.
+            if !is_additional && matches!(record.record_type(), RecordType::SIG | RecordType::TSIG)
+            {
+                return Err(format!(
+                    "record type {} only allowed in additional section",
+                    record.record_type()
+                )
+                .into());
+            } else if !is_additional {
+                records.push(record);
+                continue;
+            }
+
+            match record.record_type() {
+                #[cfg(feature = "__dnssec")]
+                RecordType::SIG => sig = MessageSignature::Sig0(record),
+                #[cfg(feature = "__dnssec")]
+                RecordType::TSIG => sig = MessageSignature::Tsig(record),
+                RecordType::OPT => {
+                    if edns.is_some() {
+                        return Err("more than one edns record present".into());
                     }
-                    #[cfg(feature = "__dnssec")]
-                    RecordType::TSIG => {
-                        if saw_sig0 {
-                            return Err("sig0 must be final resource record".into());
-                        } // SIG0 must be last
-                        saw_tsig = true;
-                        sigs.push(record);
-                    }
-                    RecordType::OPT => {
-                        if saw_sig0 {
-                            return Err("sig0 must be final resource record".into());
-                        } // SIG0 must be last
-                        if edns.is_some() {
-                            return Err("more than one edns record present".into());
-                        }
-                        edns = Some((&record).into());
-                    }
-                    _ => {
-                        if saw_sig0 {
-                            return Err("sig0 must be final resource record".into());
-                        } // SIG0 must be last
-                        records.push(record);
-                    }
+                    edns = Some((&record).into());
+                }
+                _ => {
+                    records.push(record);
                 }
             }
         }
 
-        Ok((records, edns, sigs))
+        Ok((records, edns, sig))
     }
 
     /// Decodes a message from the buffer.
@@ -753,11 +754,11 @@ impl Message {
         // append all records to message
         for fin in finals {
             match fin.record_type() {
-                // SIG0's are special, and come at the very end of the message
+                // SIG0 and TSIG records are special, and come at the very end of the message
                 #[cfg(feature = "__dnssec")]
-                RecordType::SIG => self.add_sig0(fin),
+                RecordType::SIG => self.set_signature(MessageSignature::Sig0(fin)),
                 #[cfg(feature = "__dnssec")]
-                RecordType::TSIG => self.add_tsig(fin),
+                RecordType::TSIG => self.set_signature(MessageSignature::Tsig(fin)),
                 _ => self.add_additional(fin),
             };
         }
@@ -822,8 +823,8 @@ pub struct MessageParts {
     pub name_servers: Vec<Record>,
     /// message additional records
     pub additionals: Vec<Record>,
-    /// sig0 or tsig
-    pub signature: Vec<Record>,
+    /// message signature
+    pub signature: MessageSignature,
     /// optional edns records
     pub edns: Option<Edns>,
 }
@@ -961,7 +962,7 @@ pub fn emit_message_parts<Q, A, N, D>(
     name_servers: &mut N,
     additionals: &mut D,
     edns: Option<&Edns>,
-    signature: &[Record],
+    signature: &MessageSignature,
     encoder: &mut BinEncoder<'_>,
 ) -> ProtoResult<Header>
 where
@@ -996,10 +997,16 @@ where
     }
 
     // this is a little hacky, but if we are Verifying a signature, i.e. the original Message
-    //  then the SIG0 records should not be encoded and the edns record (if it exists) is already
-    //  part of the additionals section.
+    //  then the SIG0 or TSIG record should not be encoded and the edns record (if it exists) is
+    //  already part of the additionals section.
     if include_signature {
-        let count = count_was_truncated(encoder.emit_all(signature.iter()))?;
+        let count = match signature {
+            #[cfg(feature = "__dnssec")]
+            MessageSignature::Sig0(rec) | MessageSignature::Tsig(rec) => {
+                count_was_truncated(encoder.emit_all(iter::once(rec)))?
+            }
+            MessageSignature::Unsigned => (0, false),
+        };
         additional_count.0 += count.0;
         additional_count.1 |= count.1;
     }
@@ -1118,9 +1125,42 @@ impl fmt::Display for Message {
     }
 }
 
+/// Indicates how a [Message] is signed.
+///
+/// Per RFC, the choice of RFC 2931 SIG(0), or RFC 8945 TSIG is mutually exclusive:
+/// only one or the other may be used. See [`Message::read_records()`] for more
+/// information.
+#[derive(Clone, Debug, Eq, PartialEq, Default)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(not(feature = "__dnssec"), allow(missing_copy_implementations))]
+pub enum MessageSignature {
+    /// The message is not signed, or the dnssec crate feature is not enabled.
+    #[default]
+    Unsigned,
+    /// The message has an RFC 2931 SIG(0) signature [Record].
+    #[cfg(feature = "__dnssec")]
+    Sig0(Record),
+    /// The message has an RFC 8945 TSIG signature [Record].
+    #[cfg(feature = "__dnssec")]
+    Tsig(Record),
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "__dnssec")]
+    use crate::rr::RecordType;
+    use crate::rr::rdata::A;
+    #[cfg(feature = "std")]
+    use crate::rr::rdata::OPT;
+    #[cfg(feature = "std")]
+    use crate::rr::rdata::opt::{ClientSubnet, EdnsCode, EdnsOption};
+    use crate::rr::{Name, RData};
+    #[cfg(feature = "std")]
+    use crate::std::net::IpAddr;
+    #[cfg(feature = "std")]
+    use crate::std::string::ToString;
 
     #[test]
     fn test_emit_and_read_header() {
@@ -1310,5 +1350,383 @@ mod tests {
         let message = Message::from_bytes(MESSAGE).expect("failed to parse message");
         let encoded = message.to_bytes().unwrap();
         Message::from_bytes(&encoded).expect("failed to parse encoded message");
+    }
+
+    #[test]
+    fn test_read_records_unsigned() {
+        let records = vec![
+            Record::from_rdata(
+                Name::from_labels(vec!["example", "com"]).unwrap(),
+                300,
+                RData::A(A::new(127, 0, 0, 1)),
+            ),
+            Record::from_rdata(
+                Name::from_labels(vec!["www", "example", "com"]).unwrap(),
+                300,
+                RData::A(A::new(127, 0, 0, 1)),
+            ),
+        ];
+        let result = encode_and_read_records(records.clone(), false);
+        let (output_records, edns, signature) = result.unwrap();
+        assert_eq!(output_records.len(), records.len());
+        assert!(edns.is_none());
+        assert_eq!(signature, MessageSignature::Unsigned);
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn test_read_records_edns() {
+        let records = vec![
+            Record::from_rdata(
+                Name::from_labels(vec!["example", "com"]).unwrap(),
+                300,
+                RData::A(A::new(127, 0, 0, 1)),
+            ),
+            Record::from_rdata(
+                Name::new(),
+                0,
+                RData::OPT(OPT::new(vec![(
+                    EdnsCode::Subnet,
+                    EdnsOption::Subnet(ClientSubnet::new(IpAddr::from([127, 0, 0, 1]), 0, 24)),
+                )])),
+            ),
+        ];
+        let result = encode_and_read_records(records, true);
+        let (output_records, edns, signature) = result.unwrap();
+        assert_eq!(output_records.len(), 1); // Only the A record, OPT becomes EDNS
+        assert!(edns.is_some());
+        assert_eq!(signature, MessageSignature::Unsigned);
+    }
+
+    #[cfg(feature = "__dnssec")]
+    #[test]
+    fn test_read_records_tsig() {
+        let records = vec![
+            Record::from_rdata(
+                Name::from_labels(vec!["example", "com"]).unwrap(),
+                300,
+                RData::A(A::new(127, 0, 0, 1)),
+            ),
+            Record::from_rdata(
+                Name::from_labels(vec!["tsig", "example", "com"]).unwrap(),
+                0,
+                RData::Update0(RecordType::TSIG),
+            ),
+        ];
+        let result = encode_and_read_records(records, true);
+        let (output_records, edns, signature) = result.unwrap();
+        assert_eq!(output_records.len(), 1); // Only the A record, TSIG becomes signature
+        assert!(edns.is_none());
+        assert!(matches!(signature, MessageSignature::Tsig(_)));
+    }
+
+    #[cfg(feature = "__dnssec")]
+    #[test]
+    fn test_read_records_sig0() {
+        let records = vec![
+            Record::from_rdata(
+                Name::from_labels(vec!["example", "com"]).unwrap(),
+                300,
+                RData::A(A::new(127, 0, 0, 1)),
+            ),
+            Record::from_rdata(
+                Name::from_labels(vec!["sig", "example", "com"]).unwrap(),
+                0,
+                RData::Update0(RecordType::SIG),
+            ),
+        ];
+        let result = encode_and_read_records(records, true);
+        assert!(result.is_ok());
+        let (output_records, edns, signature) = result.unwrap();
+        assert_eq!(output_records.len(), 1); // Only the A record, SIG0 becomes signature
+        assert!(edns.is_none());
+        assert!(matches!(signature, MessageSignature::Sig0(_)));
+    }
+
+    #[cfg(all(feature = "std", feature = "__dnssec"))]
+    #[test]
+    fn test_read_records_edns_tsig() {
+        let records = vec![
+            Record::from_rdata(
+                Name::from_labels(vec!["example", "com"]).unwrap(),
+                300,
+                RData::A(A::new(127, 0, 0, 1)),
+            ),
+            Record::from_rdata(
+                Name::new(),
+                0,
+                RData::OPT(OPT::new(vec![(
+                    EdnsCode::Subnet,
+                    EdnsOption::Subnet(ClientSubnet::new(IpAddr::from([127, 0, 0, 1]), 0, 24)),
+                )])),
+            ),
+            Record::from_rdata(
+                Name::from_labels(vec!["tsig", "example", "com"]).unwrap(),
+                0,
+                RData::Update0(RecordType::TSIG),
+            ),
+        ];
+
+        let result = encode_and_read_records(records, true);
+        assert!(result.is_ok());
+        let (output_records, edns, signature) = result.unwrap();
+        assert_eq!(output_records.len(), 1); // Only the A record
+        assert!(edns.is_some());
+        assert!(matches!(signature, MessageSignature::Tsig(_)));
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn test_read_records_unsigned_multiple_edns() {
+        let opt_record = Record::from_rdata(
+            Name::new(),
+            0,
+            RData::OPT(OPT::new(vec![(
+                EdnsCode::Subnet,
+                EdnsOption::Subnet(ClientSubnet::new(IpAddr::from([127, 0, 0, 1]), 0, 24)),
+            )])),
+        );
+        let error = encode_and_read_records(
+            vec![
+                opt_record.clone(),
+                Record::from_rdata(
+                    Name::from_labels(vec!["example", "com"]).unwrap(),
+                    300,
+                    RData::A(A::new(127, 0, 0, 1)),
+                ),
+                opt_record.clone(),
+            ],
+            true,
+        )
+        .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("more than one edns record present")
+        );
+    }
+
+    #[cfg(all(feature = "std", feature = "__dnssec"))]
+    #[test]
+    fn test_read_records_signed_multiple_edns() {
+        let opt_record = Record::from_rdata(
+            Name::new(),
+            0,
+            RData::OPT(OPT::new(vec![(
+                EdnsCode::Subnet,
+                EdnsOption::Subnet(ClientSubnet::new(IpAddr::from([127, 0, 0, 1]), 0, 24)),
+            )])),
+        );
+        let error = encode_and_read_records(
+            vec![
+                opt_record.clone(),
+                Record::from_rdata(
+                    Name::from_labels(vec!["example", "com"]).unwrap(),
+                    300,
+                    RData::A(A::new(127, 0, 0, 1)),
+                ),
+                opt_record.clone(),
+                Record::from_rdata(
+                    Name::from_labels(vec!["tsig", "example", "com"]).unwrap(),
+                    0,
+                    RData::Update0(RecordType::TSIG),
+                ),
+            ],
+            true,
+        )
+        .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("more than one edns record present")
+        );
+    }
+
+    #[cfg(all(feature = "std", feature = "__dnssec"))]
+    #[test]
+    fn test_read_records_tsig_not_additional() {
+        let err = encode_and_read_records(
+            vec![
+                Record::from_rdata(
+                    Name::from_labels(vec!["example", "com"]).unwrap(),
+                    300,
+                    RData::A(A::new(127, 0, 0, 1)),
+                ),
+                Record::from_rdata(
+                    Name::from_labels(vec!["tsig", "example", "com"]).unwrap(),
+                    0,
+                    RData::Update0(RecordType::TSIG),
+                ),
+            ],
+            false,
+        )
+        .unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("record type TSIG only allowed in additional section")
+        );
+    }
+
+    #[cfg(all(feature = "std", feature = "__dnssec"))]
+    #[test]
+    fn test_read_records_sig0_not_additional() {
+        let err = encode_and_read_records(
+            vec![
+                Record::from_rdata(
+                    Name::from_labels(vec!["example", "com"]).unwrap(),
+                    300,
+                    RData::A(A::new(127, 0, 0, 1)),
+                ),
+                Record::from_rdata(
+                    Name::from_labels(vec!["sig0", "example", "com"]).unwrap(),
+                    0,
+                    RData::Update0(RecordType::SIG),
+                ),
+            ],
+            false,
+        )
+        .unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("record type SIG only allowed in additional section")
+        );
+    }
+
+    #[cfg(all(feature = "std", feature = "__dnssec"))]
+    #[test]
+    fn test_read_records_tsig_not_last() {
+        let a_record = Record::from_rdata(
+            Name::from_labels(vec!["example", "com"]).unwrap(),
+            300,
+            RData::A(A::new(127, 0, 0, 1)),
+        );
+        let error = encode_and_read_records(
+            vec![
+                a_record.clone(),
+                Record::from_rdata(
+                    Name::from_labels(vec!["tsig", "example", "com"]).unwrap(),
+                    0,
+                    RData::Update0(RecordType::TSIG),
+                ),
+                a_record.clone(),
+            ],
+            true,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(error.contains("TSIG or SIG(0) record must be final"));
+    }
+
+    #[cfg(all(feature = "std", feature = "__dnssec"))]
+    #[test]
+    fn test_read_records_sig0_not_last() {
+        let a_record = Record::from_rdata(
+            Name::from_labels(vec!["example", "com"]).unwrap(),
+            300,
+            RData::A(A::new(127, 0, 0, 1)),
+        );
+        let error = encode_and_read_records(
+            vec![
+                a_record.clone(),
+                Record::from_rdata(
+                    Name::from_labels(vec!["sig0", "example", "com"]).unwrap(),
+                    0,
+                    RData::Update0(RecordType::SIG),
+                ),
+                a_record.clone(),
+            ],
+            true,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(error.contains("TSIG or SIG(0) record must be final"));
+    }
+
+    #[cfg(all(feature = "std", feature = "__dnssec"))]
+    #[test]
+    fn test_read_records_both_sig0_tsig() {
+        let error = encode_and_read_records(
+            vec![
+                Record::from_rdata(
+                    Name::from_labels(vec!["example", "com"]).unwrap(),
+                    300,
+                    RData::A(A::new(127, 0, 0, 1)),
+                ),
+                Record::from_rdata(
+                    Name::from_labels(vec!["sig0", "example", "com"]).unwrap(),
+                    0,
+                    RData::Update0(RecordType::SIG),
+                ),
+                Record::from_rdata(
+                    Name::from_labels(vec!["tsig", "example", "com"]).unwrap(),
+                    0,
+                    RData::Update0(RecordType::TSIG),
+                ),
+            ],
+            true,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(error.contains("TSIG or SIG(0) record must be final"));
+    }
+
+    #[cfg(all(feature = "std", feature = "__dnssec"))]
+    #[test]
+    fn test_read_records_multiple_tsig() {
+        let tsig_record = Record::from_rdata(
+            Name::from_labels(vec!["tsig", "example", "com"]).unwrap(),
+            0,
+            RData::Update0(RecordType::TSIG),
+        );
+        let error = encode_and_read_records(
+            vec![
+                Record::from_rdata(
+                    Name::from_labels(vec!["example", "com"]).unwrap(),
+                    300,
+                    RData::A(A::new(127, 0, 0, 1)),
+                ),
+                tsig_record.clone(),
+                tsig_record.clone(),
+            ],
+            true,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(error.contains("TSIG or SIG(0) record must be final"));
+    }
+
+    #[cfg(all(feature = "std", feature = "__dnssec"))]
+    #[test]
+    fn test_read_records_multiple_sig0() {
+        let sig0_record = Record::from_rdata(
+            Name::from_labels(vec!["sig0", "example", "com"]).unwrap(),
+            0,
+            RData::Update0(RecordType::SIG),
+        );
+        let error = encode_and_read_records(
+            vec![
+                Record::from_rdata(
+                    Name::from_labels(vec!["example", "com"]).unwrap(),
+                    300,
+                    RData::A(A::new(127, 0, 0, 1)),
+                ),
+                sig0_record.clone(),
+                sig0_record.clone(),
+            ],
+            true,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(error.contains("TSIG or SIG(0) record must be final"));
+    }
+
+    fn encode_and_read_records(
+        records: Vec<Record>,
+        is_additional: bool,
+    ) -> ProtoResult<(Vec<Record>, Option<Edns>, MessageSignature)> {
+        let mut bytes = Vec::new();
+        let mut encoder = BinEncoder::new(&mut bytes);
+        encoder.emit_all(records.iter())?;
+        Message::read_records(&mut BinDecoder::new(&bytes), records.len(), is_additional)
     }
 }

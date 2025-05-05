@@ -39,6 +39,7 @@ use crate::{
         DnsSecResult, SigSigner, Verifier,
         rdata::{DNSSECRData, key::KEY},
     },
+    proto::op::MessageSignature,
 };
 #[cfg(feature = "__dnssec")]
 use LookupControlFlow::Continue;
@@ -507,60 +508,56 @@ impl SqliteAuthority {
             return Err(ResponseCode::Refused);
         }
 
-        let signature = update_message.signature();
-        debug!("authorizing with: {:?}", signature);
-        if !signature.is_empty() {
-            let mut found_key = false;
-            // verify sig0, currently the only authorization that is accepted.
-            for sig in signature
-                .iter()
-                .filter_map(|sig0| sig0.data().as_dnssec().and_then(DNSSECRData::as_sig))
-            {
-                let name = LowerName::from(sig.signer_name());
-                let keys = self
-                    .lookup(&name, RecordType::KEY, LookupOptions::default())
-                    .await;
-
-                let keys = match keys {
-                    Continue(Ok(keys)) => keys,
-                    _ => continue, // error trying to lookup a key by that name, try the next one.
-                };
-
-                debug!("found keys {:?}", keys);
-                // TODO: check key usage flags and restrictions
-                found_key = keys
-                    .iter()
-                    .filter_map(|rr_set| rr_set.data().as_dnssec().and_then(DNSSECRData::as_key))
-                    .any(|key| {
-                        key.verify_message(update_message, sig.sig(), sig)
-                            .map(|_| {
-                                info!("verified sig: {:?} with key: {:?}", sig, key);
-                                true
-                            })
-                            .unwrap_or_else(|_| {
-                                debug!("did not verify sig: {:?} with key: {:?}", sig, key);
-                                false
-                            })
-                    });
-
-                if found_key {
-                    break; // stop searching for matching keys, we found one
-                }
-            }
-
-            if found_key {
-                return Ok(());
-            }
-        } else {
+        // verify sig0, currently the only authorization that is accepted.
+        let MessageSignature::Sig0(sig0) = update_message.signature() else {
             warn!(
                 "no sig0 matched registered records: id {}",
                 update_message.id()
             );
-        }
+            return Err(ResponseCode::Refused);
+        };
+        debug!("authorizing with: {:?}", sig0);
 
-        // getting here, we will always default to rejecting the request
-        //  the code will only ever explicitly return authorized actions.
-        Err(ResponseCode::Refused)
+        let Some(sig0) = sig0.data().as_dnssec().and_then(DNSSECRData::as_sig) else {
+            warn!(
+                "no sig0 matched registered records: id {}",
+                update_message.id()
+            );
+            return Err(ResponseCode::Refused);
+        };
+
+        let name = LowerName::from(sig0.signer_name());
+        let Continue(Ok(keys)) = self
+            .lookup(&name, RecordType::KEY, LookupOptions::default())
+            .await
+        else {
+            warn!("no sig0 key name matched: id {}", update_message.id());
+            return Err(ResponseCode::Refused);
+        };
+
+        debug!("found keys {:?}", keys);
+        let verified = keys
+            .iter()
+            .filter_map(|rr_set| rr_set.data().as_dnssec().and_then(DNSSECRData::as_key))
+            .any(
+                |key| match key.verify_message(update_message, sig0.sig(), sig0) {
+                    Ok(_) => {
+                        info!("verified sig: {:?} with key: {:?}", sig0, key);
+                        true
+                    }
+                    Err(_) => {
+                        debug!("did not verify sig: {:?} with key: {:?}", sig0, key);
+                        false
+                    }
+                },
+            );
+        match verified {
+            true => Ok(()),
+            false => {
+                warn!("invalid sig0 signature: id {}", update_message.id());
+                Err(ResponseCode::Refused)
+            }
+        }
     }
 
     /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997

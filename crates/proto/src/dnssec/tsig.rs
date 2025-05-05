@@ -232,7 +232,7 @@ impl MessageFinalizer for TSigner {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    use crate::op::{Message, Query};
+    use crate::op::{Message, MessageSignature, Query};
     use crate::rr::Name;
     use crate::serialize::binary::BinEncodable;
 
@@ -259,11 +259,11 @@ mod tests {
         let signer =
             TSigner::new(sig_key, TsigAlgorithm::HmacSha512, key_name, fudge as u16).unwrap();
 
-        assert!(question.signature().is_empty());
+        assert_eq!(question.signature(), &MessageSignature::Unsigned);
         question
             .finalize(&signer, time_begin as u32)
             .expect("should have signed");
-        assert!(!question.signature().is_empty());
+        assert!(matches!(question.signature(), &MessageSignature::Tsig(_)));
 
         let (_, validity_range, _) = signer
             .verify_message_byte(None, &question.to_bytes().unwrap(), true)
@@ -289,11 +289,11 @@ mod tests {
         let signer =
             TSigner::new(sig_key, TsigAlgorithm::HmacSha512, key_name, fudge as u16).unwrap();
 
-        assert!(question.signature().is_empty());
+        assert_eq!(question.signature(), &MessageSignature::Unsigned);
         question
             .finalize(&signer, time_begin as u32)
             .expect("should have signed");
-        assert!(!question.signature().is_empty());
+        assert!(matches!(question.signature(), &MessageSignature::Tsig(_)));
 
         // this should be ok, it has not been tampered with
         assert!(
@@ -310,9 +310,11 @@ mod tests {
         let (mut question, signer) = get_message_and_signer();
 
         let other_name: Name = Name::from_ascii("other_name.").unwrap();
-        let mut signature = question.take_signature().remove(0);
+        let MessageSignature::Tsig(mut signature) = question.take_signature() else {
+            panic!("should have TSIG signed");
+        };
         signature.set_name(other_name);
-        question.add_tsig(signature);
+        question.set_signature(MessageSignature::Tsig(signature));
 
         assert!(
             signer

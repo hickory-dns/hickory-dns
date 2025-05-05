@@ -8,7 +8,7 @@
 use crate::proto::{
     ProtoError, ProtoErrorKind,
     op::{
-        Edns, Header, LowerQuery, Message, MessageType, OpCode, ResponseCode,
+        Edns, Header, LowerQuery, Message, MessageSignature, MessageType, OpCode, ResponseCode,
         message::{self, EmitAndCount},
     },
     rr::Record,
@@ -23,7 +23,7 @@ pub struct MessageRequest {
     answers: Vec<Record>,
     name_servers: Vec<Record>,
     additionals: Vec<Record>,
-    signature: Vec<Record>,
+    signature: MessageSignature,
     edns: Option<Edns>,
 }
 
@@ -150,8 +150,8 @@ impl MessageRequest {
         self.edns.as_ref()
     }
 
-    /// Any SIG0 or TSIG records for signed messages
-    pub fn signature(&self) -> &[Record] {
+    /// The message signature for signed messages
+    pub fn signature(&self) -> &MessageSignature {
         &self.signature
     }
 
@@ -362,8 +362,8 @@ pub trait UpdateRequest {
     /// Additional records
     fn additionals(&self) -> &[Record];
 
-    /// SIG0 or TSIG records for verifying the Message
-    fn signature(&self) -> &[Record];
+    /// Signature for verifying the Message
+    fn signature(&self) -> &MessageSignature;
 }
 
 impl UpdateRequest for MessageRequest {
@@ -388,7 +388,7 @@ impl UpdateRequest for MessageRequest {
         self.additionals()
     }
 
-    fn signature(&self) -> &[Record] {
+    fn signature(&self) -> &MessageSignature {
         self.signature()
     }
 }

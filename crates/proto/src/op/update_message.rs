@@ -16,7 +16,7 @@ use crate::{
     rr::{DNSClass, Name, RData, RecordSet, RecordType, rdata::SOA},
 };
 use crate::{
-    op::{Message, Query},
+    op::{Message, MessageSignature, Query},
     rr::Record,
 };
 
@@ -66,10 +66,10 @@ pub trait UpdateMessage: Debug {
     /// Returns the additional records
     fn additionals(&self) -> &[Record];
 
-    /// This is used to authenticate update messages.
+    /// Return the message's signature (if any)
     ///
-    /// see `Message::sig0()` for more information.
-    fn signature(&self) -> &[Record];
+    /// This is used to authenticate update messages.
+    fn signature(&self) -> &MessageSignature;
 }
 
 /// to reduce errors in using the Message struct as an Update, this will do the call throughs
@@ -127,8 +127,8 @@ impl UpdateMessage for Message {
         self.additionals()
     }
 
-    fn signature(&self) -> &[Record] {
-        self.sig0()
+    fn signature(&self) -> &MessageSignature {
+        self.signature()
     }
 }
 
