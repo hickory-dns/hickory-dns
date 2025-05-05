@@ -16,7 +16,7 @@ use parking_lot::Mutex;
 #[cfg(test)]
 use tokio::time::{Duration, Instant};
 
-use crate::proto::{ProtoError, ProtoErrorKind, op::ResponseCode, xfer::DnsResponse};
+use crate::proto::{NoRecords, ProtoError, ProtoErrorKind, op::ResponseCode, xfer::DnsResponse};
 
 pub(crate) struct NameServerStats {
     /// The smoothed round-trip time (SRTT).
@@ -99,10 +99,12 @@ impl NameServerStats {
 
         use ResponseCode::*;
         match error.kind() {
-            ProtoErrorKind::NoRecordsFound { response_code, .. } => match response_code {
-                ServFail | Refused => self.record_connection_failure(),
-                _ => self.record_rtt(rtt),
-            },
+            ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. }) => {
+                match response_code {
+                    ServFail | Refused => self.record_connection_failure(),
+                    _ => self.record_rtt(rtt),
+                }
+            }
             ProtoErrorKind::Busy
             | ProtoErrorKind::Io(_)
             | ProtoErrorKind::Timeout

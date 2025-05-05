@@ -24,7 +24,7 @@ use crate::name_server::connection_provider::{ConnectionProvider, GenericConnect
 use crate::name_server::name_server::NameServer;
 use crate::proto::runtime::{RuntimeProvider, Time};
 use crate::proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
-use crate::proto::{ProtoError, ProtoErrorKind};
+use crate::proto::{NoRecords, ProtoError, ProtoErrorKind};
 
 /// A pool of NameServers
 ///
@@ -303,9 +303,9 @@ where
             };
 
             match e.kind() {
-                ProtoErrorKind::NoRecordsFound {
+                ProtoErrorKind::NoRecordsFound(NoRecords {
                     trusted, soa, ns, ..
-                } if *trusted || soa.is_some() || ns.is_some() => {
+                }) if *trusted || soa.is_some() || ns.is_some() => {
                     return Err(e);
                 }
                 _ if e.is_busy() => {

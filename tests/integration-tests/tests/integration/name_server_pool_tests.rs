@@ -14,7 +14,7 @@ use hickory_integration::mock_client::*;
 use hickory_proto::op::{Query, ResponseCode};
 use hickory_proto::rr::{Name, RecordType};
 use hickory_proto::xfer::{DnsHandle, DnsResponse, FirstAnswer, Protocol};
-use hickory_proto::{ProtoError, ProtoErrorKind};
+use hickory_proto::{NoRecords, ProtoError, ProtoErrorKind};
 use hickory_resolver::config::{NameServerConfig, ResolverOpts, ServerOrderingStrategy};
 use hickory_resolver::name_server::{NameServer, NameServerPool};
 use test_support::subscribe;
@@ -304,7 +304,7 @@ fn test_tcp_fallback_only_on_truncated() {
     let future = pool.send(request).first_answer();
     let error = block_on(future).expect_err("lookup request should fail with SERVFAIL");
     match error.kind() {
-        ProtoErrorKind::NoRecordsFound { response_code, .. }
+        ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. })
             if *response_code == ResponseCode::ServFail => {}
         kind => panic!(
             "got unexpected kind of resolve error; expected `NoRecordsFound` error with SERVFAIL,
@@ -352,7 +352,7 @@ fn test_no_tcp_fallback_on_non_io_error() {
     let future = pool.send(request).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NXDomain`");
     match error.kind() {
-        ProtoErrorKind::NoRecordsFound { response_code, .. }
+        ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. })
             if *response_code == ResponseCode::NXDomain => {}
         kind => panic!(
             "expected `NoRecordsFound` with `response_code: NXDomain`,
@@ -394,7 +394,7 @@ fn test_tcp_fallback_on_io_error() {
     let future = pool.send(request).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NotImp`");
     match error.kind() {
-        ProtoErrorKind::NoRecordsFound { response_code, .. }
+        ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. })
             if *response_code == ResponseCode::NotImp => {}
         kind => panic!(
             "expected `NoRecordsFound` with `response_code: NotImp`,
@@ -435,7 +435,7 @@ fn test_tcp_fallback_on_no_connections() {
     let future = pool.send(request).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NotImp`");
     match error.kind() {
-        ProtoErrorKind::NoRecordsFound { response_code, .. }
+        ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. })
             if *response_code == ResponseCode::NotImp => {}
         kind => panic!(
             "expected `NoRecordsFound` with `response_code: NotImp`,
@@ -492,7 +492,7 @@ fn test_trust_nx_responses_fails() {
     let future = pool.send(request).first_answer();
     let response = block_on(future).expect_err("lookup request should fail with NXDOMAIN");
     match response.kind() {
-        ProtoErrorKind::NoRecordsFound { response_code, .. }
+        ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. })
             if *response_code == ResponseCode::NXDomain => {}
         kind => panic!(
             "got unexpected kind of resolve error; expected `NoRecordsFound` error with NXDOMAIN,
@@ -547,12 +547,12 @@ fn test_noerror_doesnt_leak() {
     let future = pool.send(request).first_answer();
 
     match block_on(future).unwrap_err().kind() {
-        ProtoErrorKind::NoRecordsFound {
+        ProtoErrorKind::NoRecordsFound(NoRecords {
             soa,
             response_code,
             trusted,
             ..
-        } => {
+        }) => {
             assert_eq!(response_code, &ResponseCode::NoError);
             assert!(soa.is_some());
             assert!(trusted);
@@ -727,7 +727,7 @@ fn test_return_error_from_highest_priority_nameserver() {
     eprintln!("error is: {error}");
 
     match error.kind() {
-        ProtoErrorKind::NoRecordsFound { response_code, .. }
+        ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. })
             if response_code == expected_response_code => {}
         kind => panic!(
             "got unexpected kind of resolve error; expected `NoRecordsFound` error with response \

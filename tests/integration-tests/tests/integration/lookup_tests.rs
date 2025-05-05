@@ -5,6 +5,7 @@ use std::{
 };
 
 use hickory_proto::{
+    NoRecords,
     op::Query,
     rr::{DNSClass, Name, RData, Record, RecordType, rdata::A},
     runtime::TokioTime,
@@ -475,7 +476,7 @@ async fn test_forward_soa() {
         }
         Err(e) => match e.kind() {
             ResolveErrorKind::Proto(e) => match e.kind() {
-                ProtoErrorKind::NoRecordsFound { soa, ns, .. } => {
+                ProtoErrorKind::NoRecordsFound(NoRecords { soa, ns, .. }) => {
                     assert!(soa.is_some());
                     assert!(ns.is_none());
                 }
@@ -525,7 +526,7 @@ async fn test_forward_ns() {
         }
         Err(e) => match e.kind() {
             ResolveErrorKind::Proto(e) => match e.kind() {
-                ProtoErrorKind::NoRecordsFound { soa, ns, .. } => {
+                ProtoErrorKind::NoRecordsFound(NoRecords { soa, ns, .. }) => {
                     assert!(!soa.is_some());
                     assert!(ns.is_some());
                 }

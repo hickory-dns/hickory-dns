@@ -92,7 +92,7 @@ pub use crate::xfer::dns_multiplexer::DnsMultiplexer;
 pub use crate::xfer::retry_dns_handle::RetryDnsHandle;
 #[cfg(feature = "backtrace")]
 pub use error::{ENABLE_BACKTRACE, ExtBacktrace};
-pub use error::{ForwardData, ForwardNSData, ProtoError, ProtoErrorKind};
+pub use error::{ForwardData, ForwardNSData, NoRecords, ProtoError, ProtoErrorKind};
 
 #[cfg(feature = "std")]
 pub(crate) use rand::random;

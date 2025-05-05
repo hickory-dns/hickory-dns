@@ -192,26 +192,8 @@ pub enum ProtoErrorKind {
     },
 
     /// No records were found for a query
-    #[error("no records found for {:?}", query)]
-    NoRecordsFound {
-        /// The query for which no records were found.
-        query: Box<Query>,
-        /// If an SOA is present, then this is an authoritative response or a referral to another nameserver, see the negative_type field.
-        soa: Option<Box<Record<SOA>>>,
-        /// Nameservers may be present in addition to or in lieu of an SOA for a referral
-        /// The tuple struct layout is vec[(Nameserver, [vec of glue records])]
-        ns: Option<Arc<[ForwardNSData]>>,
-        /// negative ttl, as determined from DnsResponse::negative_ttl
-        ///  this will only be present if the SOA was also present.
-        negative_ttl: Option<u32>,
-        /// ResponseCode, if `NXDOMAIN`, the domain does not exist (and no other types).
-        ///   If `NoError`, then the domain exists but there exist either other types at the same label, or subzones of that label.
-        response_code: ResponseCode,
-        /// If we trust `NXDOMAIN` errors from this server
-        trusted: bool,
-        /// Authority records from the query. These are important to preserve for DNSSEC validation.
-        authorities: Option<Arc<[Record]>>,
-    },
+    #[error("no records found for {:?}", .0.query)]
+    NoRecordsFound(NoRecords),
 
     /// An unknown algorithm type was found
     #[error("algorithm type value unknown: {0}")]
@@ -348,6 +330,69 @@ pub enum ProtoErrorKind {
     QueryCaseMismatch,
 }
 
+impl From<NoRecords> for ProtoErrorKind {
+    fn from(no_records: NoRecords) -> Self {
+        Self::NoRecordsFound(no_records)
+    }
+}
+
+/// Response where no records were found
+#[derive(Clone, Debug)]
+#[non_exhaustive]
+pub struct NoRecords {
+    /// The query for which no records were found.
+    pub query: Box<Query>,
+    /// If an SOA is present, then this is an authoritative response or a referral to another nameserver, see the negative_type field.
+    pub soa: Option<Box<Record<SOA>>>,
+    /// Nameservers may be present in addition to or in lieu of an SOA for a referral
+    /// The tuple struct layout is vec[(Nameserver, [vec of glue records])]
+    pub ns: Option<Arc<[ForwardNSData]>>,
+    /// negative ttl, as determined from DnsResponse::negative_ttl
+    ///  this will only be present if the SOA was also present.
+    pub negative_ttl: Option<u32>,
+    /// ResponseCode, if `NXDOMAIN`, the domain does not exist (and no other types).
+    ///   If `NoError`, then the domain exists but there exist either other types at the same label, or subzones of that label.
+    pub response_code: ResponseCode,
+    /// If we trust `NXDOMAIN` errors from this server
+    pub trusted: bool,
+    /// Authority records from the query. These are important to preserve for DNSSEC validation.
+    pub authorities: Option<Arc<[Record]>>,
+}
+
+impl NoRecords {
+    /// Construct a new [`NoRecords`] from a query and a response code
+    pub fn new(query: impl Into<Box<Query>>, response_code: ResponseCode) -> Self {
+        Self {
+            query: query.into(),
+            soa: None,
+            ns: None,
+            negative_ttl: None,
+            response_code,
+            trusted: false,
+            authorities: None,
+        }
+    }
+}
+
+impl From<ForwardData> for NoRecords {
+    fn from(fwd: ForwardData) -> Self {
+        let response_code = match fwd.is_nx_domain() {
+            true => ResponseCode::NXDomain,
+            false => ResponseCode::NoError,
+        };
+
+        Self {
+            query: fwd.query,
+            soa: Some(fwd.soa),
+            ns: None,
+            negative_ttl: None,
+            response_code,
+            trusted: true,
+            authorities: fwd.authorities,
+        }
+    }
+}
+
 /// Data needed to process a SOA-record-based referral.
 #[derive(Clone, Debug)]
 pub struct ForwardData {
@@ -417,29 +462,6 @@ pub struct ProtoError {
 }
 
 impl ProtoError {
-    /// Constructor to NX type errors
-    #[inline]
-    pub fn nx_error(
-        query: Box<Query>,
-        soa: Option<Box<Record<SOA>>>,
-        ns: Option<Arc<[ForwardNSData]>>,
-        negative_ttl: Option<u32>,
-        response_code: ResponseCode,
-        trusted: bool,
-        authorities: Option<Arc<[Record]>>,
-    ) -> Self {
-        ProtoErrorKind::NoRecordsFound {
-            query,
-            soa,
-            ns,
-            negative_ttl,
-            response_code,
-            trusted,
-            authorities,
-        }
-        .into()
-    }
-
     /// Get the kind of the error
     #[inline]
     pub fn kind(&self) -> &ProtoErrorKind {
@@ -463,10 +485,10 @@ impl ProtoError {
     pub fn is_nx_domain(&self) -> bool {
         matches!(
             *self.kind,
-            ProtoErrorKind::NoRecordsFound {
+            ProtoErrorKind::NoRecordsFound(NoRecords {
                 response_code: ResponseCode::NXDomain,
                 ..
-            }
+            })
         )
     }
 
@@ -480,7 +502,7 @@ impl ProtoError {
     #[inline]
     pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
         match *self.kind {
-            ProtoErrorKind::NoRecordsFound { soa, .. } => soa,
+            ProtoErrorKind::NoRecordsFound(NoRecords { soa, .. }) => soa,
             _ => None,
         }
     }
@@ -523,7 +545,7 @@ impl ProtoError {
                 | code @ BADCOOKIE => {
                     let soa = response.soa().as_ref().map(RecordRef::to_owned);
                     let query = response.queries().iter().next().cloned().unwrap_or_default();
-                    let error_kind = ProtoErrorKind::NoRecordsFound {
+                    let error_kind = ProtoErrorKind::NoRecordsFound(NoRecords {
                         query: Box::new(query),
                         ns: None,
                         soa: soa.map(Box::new),
@@ -533,7 +555,7 @@ impl ProtoError {
                         //   the client and server interaction, and do not pertain to record existence.
                         trusted: false,
                         authorities: None,
-                    };
+                    });
 
                     Err(Self::from(error_kind))
                 }
@@ -586,7 +608,7 @@ impl ProtoError {
                     let trusted = trust_nx && soa.is_some();
                     let query = response.into_message().take_queries().drain(..).next().unwrap_or_default();
 
-                    let error_kind = ProtoErrorKind::NoRecordsFound {
+                    let error_kind = ProtoErrorKind::NoRecordsFound(NoRecords {
                         query: Box::new(query),
                         soa: soa.map(Box::new),
                         ns: option_ns,
@@ -594,7 +616,7 @@ impl ProtoError {
                         response_code: code,
                         trusted,
                         authorities,
-                    };
+                    });
 
                     Err(Self::from(error_kind))
                 }
@@ -769,23 +791,7 @@ impl Clone for ProtoErrorKind {
             NoConnections => NoConnections,
             NoError => NoError,
             NotAllRecordsWritten { count } => NotAllRecordsWritten { count },
-            NoRecordsFound {
-                ref query,
-                ref soa,
-                ref ns,
-                negative_ttl,
-                response_code,
-                trusted,
-                ref authorities,
-            } => NoRecordsFound {
-                query: query.clone(),
-                soa: soa.clone(),
-                ns: ns.clone(),
-                negative_ttl,
-                response_code,
-                trusted,
-                authorities: authorities.clone(),
-            },
+            NoRecordsFound(ref inner) => NoRecordsFound(inner.clone()),
             RequestRefused => RequestRefused,
             #[cfg(feature = "__dnssec")]
             Nsec { ref query, proof } => Nsec {
