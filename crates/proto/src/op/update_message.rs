@@ -69,7 +69,7 @@ pub trait UpdateMessage: Debug {
     /// This is used to authenticate update messages.
     ///
     /// see `Message::sig0()` for more information.
-    fn sig0(&self) -> &[Record];
+    fn signature(&self) -> &[Record];
 }
 
 /// to reduce errors in using the Message struct as an Update, this will do the call throughs
@@ -127,7 +127,7 @@ impl UpdateMessage for Message {
         self.additionals()
     }
 
-    fn sig0(&self) -> &[Record] {
+    fn signature(&self) -> &[Record] {
         self.sig0()
     }
 }
