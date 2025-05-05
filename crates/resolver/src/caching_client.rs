@@ -7,7 +7,7 @@
 
 //! Caching related functionality for the Resolver.
 
-use std::{borrow::Cow, future::Future, pin::Pin, sync::Arc, time::Instant};
+use std::{borrow::Cow, future::Future, pin::Pin, time::Instant};
 
 use futures_util::future::TryFutureExt;
 use once_cell::sync::Lazy;
@@ -24,11 +24,11 @@ use crate::{
                 DEFAULT, IN_ADDR_ARPA_127, INVALID, IP6_ARPA_1, LOCAL,
                 LOCALHOST as LOCALHOST_usage, ONION, ResolverUsage,
             },
-            rdata::{A, AAAA, CNAME, PTR, SOA},
+            rdata::{A, AAAA, CNAME, PTR},
             resource::RecordRef,
         },
         xfer::{DnsHandle, DnsRequestOptions, DnsResponse, FirstAnswer},
-        {ForwardNSData, ProtoError, ProtoErrorKind},
+        {ProtoError, ProtoErrorKind},
     },
 };
 
@@ -207,17 +207,19 @@ where
                     trusted,
                     ns,
                     ..
-                } => Err(Self::handle_nxdomain(
-                    query.as_ref().clone(),
-                    soa.as_ref().map(Box::as_ref).cloned(),
-                    ns.clone(),
-                    match is_dnssec {
+                } => Err(ProtoErrorKind::NoRecordsFound {
+                    query: Box::new(*query.clone()),
+                    soa: soa.as_ref().cloned(),
+                    ns: ns.clone(),
+                    negative_ttl: match is_dnssec {
                         false => *negative_ttl,
                         true => None,
                     },
-                    *response_code,
-                    !is_dnssec || *trusted,
-                )),
+                    response_code: *response_code,
+                    trusted: !is_dnssec || *trusted,
+                    authorities: None,
+                }
+                .into()),
                 _ => return Err(e),
             },
             Ok(response_message) => {
@@ -252,44 +254,6 @@ where
     /// Check if this query is already cached
     fn lookup_from_cache(&self, query: &Query) -> Option<Result<Lookup, ProtoError>> {
         self.lru.get(query, Instant::now())
-    }
-
-    /// See https://tools.ietf.org/html/rfc2308
-    ///
-    /// For now we will regard NXDomain to strictly mean the query failed
-    ///  and a record for the name, regardless of CNAME presence, what have you
-    ///  ultimately does not exist.
-    ///
-    /// This also handles empty responses in the same way. When performing DNSSEC enabled queries, we should
-    ///  never enter here, and should never cache unless verified requests.
-    ///
-    /// TODO: should this should be expanded to do a forward lookup? Today, this will fail even if there are
-    ///   forwarding options.
-    ///
-    /// # Arguments
-    ///
-    /// * `message` - message to extract SOA, etc, from for caching failed requests
-    /// * `valid_nsec` - species that in DNSSEC mode, this request is safe to cache
-    /// * `negative_ttl` - this should be the SOA minimum for negative ttl
-    #[allow(clippy::too_many_arguments)]
-    fn handle_nxdomain(
-        query: Query,
-        soa: Option<Record<SOA>>,
-        ns: Option<Arc<[ForwardNSData]>>,
-        negative_ttl: Option<u32>,
-        response_code: ResponseCode,
-        trusted: bool,
-    ) -> ProtoError {
-        ProtoErrorKind::NoRecordsFound {
-            query: Box::new(query),
-            soa: soa.map(Box::new),
-            ns,
-            negative_ttl,
-            response_code,
-            trusted,
-            authorities: None,
-        }
-        .into()
     }
 
     /// Handle the case where there is no error returned
@@ -439,14 +403,16 @@ where
             // TODO: review See https://tools.ietf.org/html/rfc2308 for NoData section
             // Note on DNSSEC, in secure_client_handle, if verify_nsec fails then the request fails.
             //   this will mean that no unverified negative caches will make it to this point and be stored
-            Err(Self::handle_nxdomain(
-                query.clone(),
-                soa,
-                None,
+            Err(ProtoErrorKind::NoRecordsFound {
+                query: Box::new(query.clone()),
+                soa: soa.map(Box::new),
+                ns: None,
                 negative_ttl,
                 response_code,
-                true,
-            ))
+                trusted: true,
+                authorities: None,
+            }
+            .into())
         }
     }
 
