@@ -100,7 +100,7 @@ impl TSigner {
 
     /// Compute authentication tag for a message
     pub fn sign_message(&self, message: &Message, pre_tsig: &TSIG) -> Result<Vec<u8>, DnsSecError> {
-        self.sign(&message_tbs(None, message, pre_tsig, &self.0.signer_name)?)
+        self.sign(&message_tbs(message, pre_tsig, &self.0.signer_name)?)
     }
 
     /// Verify hmac in constant time to prevent timing attacks
