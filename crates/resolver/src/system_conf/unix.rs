@@ -21,20 +21,18 @@ use std::time::Duration;
 
 use resolv_conf;
 
-use crate::ResolveError;
 use crate::config::{NameServerConfig, ResolverConfig, ResolverOpts};
+use crate::proto::ProtoError;
 use crate::proto::rr::Name;
 use crate::proto::xfer::Protocol;
 
 const DEFAULT_PORT: u16 = 53;
 
-pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ResolveError> {
+pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ProtoError> {
     read_resolv_conf("/etc/resolv.conf")
 }
 
-fn read_resolv_conf<P: AsRef<Path>>(
-    path: P,
-) -> Result<(ResolverConfig, ResolverOpts), ResolveError> {
+fn read_resolv_conf<P: AsRef<Path>>(path: P) -> Result<(ResolverConfig, ResolverOpts), ProtoError> {
     let mut data = String::new();
     let mut file = File::open(path)?;
     file.read_to_string(&mut data)?;
@@ -43,7 +41,7 @@ fn read_resolv_conf<P: AsRef<Path>>(
 
 pub fn parse_resolv_conf<T: AsRef<[u8]>>(
     data: T,
-) -> Result<(ResolverConfig, ResolverOpts), ResolveError> {
+) -> Result<(ResolverConfig, ResolverOpts), ProtoError> {
     let parsed_conf = resolv_conf::Config::parse(&data).map_err(|e| {
         io::Error::new(
             io::ErrorKind::Other,
@@ -56,7 +54,7 @@ pub fn parse_resolv_conf<T: AsRef<[u8]>>(
 // TODO: use a custom parsing error type maybe?
 fn into_resolver_config(
     parsed_config: resolv_conf::Config,
-) -> Result<(ResolverConfig, ResolverOpts), ResolveError> {
+) -> Result<(ResolverConfig, ResolverOpts), ProtoError> {
     let domain = if let Some(domain) = parsed_config.get_system_domain() {
         // The system domain name maybe appear to be valid to the resolv_conf
         // crate but actually be invalid. For example, if the hostname is "matt.schulte's computer"

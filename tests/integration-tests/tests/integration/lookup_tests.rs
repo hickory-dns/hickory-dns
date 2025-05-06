@@ -446,7 +446,6 @@ async fn test_max_chained_lookup_depth() {
 #[tokio::test]
 async fn test_forward_soa() {
     use hickory_proto::ProtoErrorKind;
-    use hickory_resolver::ResolveErrorKind;
 
     subscribe();
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::NS);
@@ -472,10 +471,6 @@ async fn test_forward_soa() {
         panic!("Expected Error type for {lookup:?}");
     };
 
-    let ResolveErrorKind::Proto(e) = e.kind() else {
-        panic!("Unexpected kind: {e:?}");
-    };
-
     let ProtoErrorKind::NoRecordsFound(no_records) = e.kind() else {
         panic!("Unexpected kind: {e:?}");
     };
@@ -490,7 +485,6 @@ async fn test_forward_soa() {
 #[tokio::test]
 async fn test_forward_ns() {
     use hickory_proto::ProtoErrorKind;
-    use hickory_resolver::ResolveErrorKind;
 
     subscribe();
     let resp_query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::A);
@@ -514,10 +508,6 @@ async fn test_forward_ns() {
     let lookup = lookup.await;
     let Err(e) = lookup else {
         panic!("Expected Error type for {lookup:?}");
-    };
-
-    let ResolveErrorKind::Proto(e) = e.kind() else {
-        panic!("Unexpected kind: {e:?}");
     };
 
     let ProtoErrorKind::NoRecordsFound(no_records) = e.kind() else {

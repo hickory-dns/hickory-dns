@@ -17,8 +17,6 @@ use crate::proto::rr::{Record, rdata::SOA};
 use crate::proto::{NoRecords, ProtoError, ProtoErrorKind};
 #[cfg(feature = "recursor")]
 use crate::recursor::ErrorKind;
-#[cfg(feature = "resolver")]
-use crate::resolver::ResolveError;
 
 mod auth_lookup;
 #[allow(clippy::module_inception)]
@@ -57,10 +55,6 @@ pub enum LookupError {
     /// Proto error
     #[error("Proto error: {0}")]
     ProtoError(#[from] ProtoError),
-    /// Resolve Error
-    #[cfg(feature = "resolver")]
-    #[error("Forward resolution error: {0}")]
-    ResolveError(#[from] ResolveError),
     /// Recursive Resolver Error
     #[cfg(feature = "recursor")]
     #[error("Recursive resolution error: {0}")]
@@ -79,9 +73,8 @@ impl LookupError {
     /// This is a non-existent domain name
     pub fn is_nx_domain(&self) -> bool {
         match self {
+            Self::ProtoError(e) => e.is_nx_domain(),
             Self::ResponseCode(ResponseCode::NXDomain) => true,
-            #[cfg(feature = "resolver")]
-            Self::ResolveError(e) if e.is_nx_domain() => true,
             #[cfg(feature = "recursor")]
             Self::RecursiveError(e) if e.is_nx_domain() => true,
             _ => false,
@@ -91,8 +84,7 @@ impl LookupError {
     /// Returns true if no records were returned
     pub fn is_no_records_found(&self) -> bool {
         match self {
-            #[cfg(feature = "resolver")]
-            Self::ResolveError(e) if e.is_no_records_found() => true,
+            Self::ProtoError(e) => e.is_no_records_found(),
             #[cfg(feature = "recursor")]
             Self::RecursiveError(e) if e.is_no_records_found() => true,
             _ => false,
@@ -102,8 +94,7 @@ impl LookupError {
     /// Returns the SOA record, if the error contains one
     pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
         match self {
-            #[cfg(feature = "resolver")]
-            Self::ResolveError(e) => e.into_soa(),
+            Self::ProtoError(e) => e.into_soa(),
             #[cfg(feature = "recursor")]
             Self::RecursiveError(e) => e.into_soa(),
             _ => None,

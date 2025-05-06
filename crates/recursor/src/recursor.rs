@@ -456,11 +456,7 @@ impl Recursor {
                     );
                     no_records.trusted = true;
 
-                    Err(Error {
-                        kind: Box::new(ErrorKind::from(ProtoError::from(no_records))),
-                        #[cfg(feature = "backtrace")]
-                        backtrack: None,
-                    })
+                    Err(Error::from(ProtoError::from(no_records)))
                 } else {
                     // do not perform is_subzone filtering as it already happened in `handle.lookup`
                     let no_subzone_filtering = None;

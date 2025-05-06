@@ -19,6 +19,7 @@ use std::time::Instant;
 use futures_util::{FutureExt, future, future::Either};
 use tracing::debug;
 
+use crate::proto::ProtoError;
 use crate::proto::op::Query;
 use crate::proto::rr::{Name, RData, Record, RecordType};
 use crate::proto::xfer::{DnsHandle, DnsRequestOptions};
@@ -26,7 +27,6 @@ use crate::proto::xfer::{DnsHandle, DnsRequestOptions};
 use crate::caching_client::CachingClient;
 use crate::config::LookupIpStrategy;
 use crate::dns_lru::MAX_TTL;
-use crate::error::*;
 use crate::hosts::Hosts;
 use crate::lookup::{Lookup, LookupIntoIter, LookupIter};
 
@@ -124,7 +124,7 @@ pub struct LookupIpFuture<C: DnsHandle + 'static> {
     names: Vec<Name>,
     strategy: LookupIpStrategy,
     options: DnsRequestOptions,
-    query: Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>>,
+    query: Pin<Box<dyn Future<Output = Result<Lookup, ProtoError>> + Send>>,
     hosts: Arc<Hosts>,
     finally_ip_addr: Option<RData>,
 }
@@ -145,15 +145,13 @@ impl<C: DnsHandle + 'static> LookupIpFuture<C> {
         hosts: Arc<Hosts>,
         finally_ip_addr: Option<RData>,
     ) -> Self {
-        let empty =
-            ResolveError::from(ResolveErrorKind::Message("can not lookup IPs for no names"));
         Self {
             names,
             strategy,
             client_cache,
             // If there are no names remaining, this will be returned immediately,
             // otherwise, it will be retried.
-            query: future::err(empty).boxed(),
+            query: future::err("can not lookup IPs for no names".into()).boxed(),
             options,
             hosts,
             finally_ip_addr,
@@ -162,7 +160,7 @@ impl<C: DnsHandle + 'static> LookupIpFuture<C> {
 }
 
 impl<C: DnsHandle + 'static> Future for LookupIpFuture<C> {
-    type Output = Result<LookupIp, ResolveError>;
+    type Output = Result<LookupIp, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
@@ -231,7 +229,7 @@ impl<C: DnsHandle> LookupContext<C> {
         self,
         name: Name,
         strategy: LookupIpStrategy,
-    ) -> Result<Lookup, ResolveError> {
+    ) -> Result<Lookup, ProtoError> {
         match strategy {
             LookupIpStrategy::Ipv4Only => self.ipv4_only(name).await,
             LookupIpStrategy::Ipv6Only => self.ipv6_only(name).await,
@@ -242,19 +240,19 @@ impl<C: DnsHandle> LookupContext<C> {
     }
 
     /// queries only for A records
-    async fn ipv4_only(&self, name: Name) -> Result<Lookup, ResolveError> {
+    async fn ipv4_only(&self, name: Name) -> Result<Lookup, ProtoError> {
         self.hosts_lookup(Query::query(name, RecordType::A)).await
     }
 
     /// queries only for AAAA records
-    async fn ipv6_only(&self, name: Name) -> Result<Lookup, ResolveError> {
+    async fn ipv6_only(&self, name: Name) -> Result<Lookup, ProtoError> {
         self.hosts_lookup(Query::query(name, RecordType::AAAA))
             .await
     }
 
     // TODO: this really needs to have a stream interface
     /// queries only for A and AAAA in parallel
-    async fn ipv4_and_ipv6(&self, name: Name) -> Result<Lookup, ResolveError> {
+    async fn ipv4_and_ipv6(&self, name: Name) -> Result<Lookup, ProtoError> {
         let sel_res = future::select(
             self.hosts_lookup(Query::query(name.clone(), RecordType::A))
                 .boxed(),
@@ -294,13 +292,13 @@ impl<C: DnsHandle> LookupContext<C> {
     }
 
     /// queries only for AAAA and on no results queries for A
-    async fn ipv6_then_ipv4(&self, name: Name) -> Result<Lookup, ResolveError> {
+    async fn ipv6_then_ipv4(&self, name: Name) -> Result<Lookup, ProtoError> {
         self.rt_then_swap(name, RecordType::AAAA, RecordType::A)
             .await
     }
 
     /// queries only for A and on no results queries for AAAA
-    async fn ipv4_then_ipv6(&self, name: Name) -> Result<Lookup, ResolveError> {
+    async fn ipv4_then_ipv6(&self, name: Name) -> Result<Lookup, ProtoError> {
         self.rt_then_swap(name, RecordType::A, RecordType::AAAA)
             .await
     }
@@ -311,7 +309,7 @@ impl<C: DnsHandle> LookupContext<C> {
         name: Name,
         first_type: RecordType,
         second_type: RecordType,
-    ) -> Result<Lookup, ResolveError> {
+    ) -> Result<Lookup, ProtoError> {
         let res = self
             .hosts_lookup(Query::query(name.clone(), first_type))
             .await;
@@ -334,7 +332,7 @@ impl<C: DnsHandle> LookupContext<C> {
     }
 
     /// first lookups in hosts, then performs the query
-    async fn hosts_lookup(&self, query: Query) -> Result<Lookup, ResolveError> {
+    async fn hosts_lookup(&self, query: Query) -> Result<Lookup, ProtoError> {
         match self.hosts.lookup_static_host(&query) {
             Some(lookup) => Ok(lookup),
             None => self.client.lookup(query, self.options).await,

@@ -19,10 +19,10 @@ use tracing::warn;
 use crate::proto::{ExtBacktrace, trace};
 use crate::proto::{
     ForwardNSData, ProtoErrorKind,
+    op::ResponseCode,
     rr::{Name, Record, rdata::SOA},
     {AuthorityData, NoRecords, ProtoError},
 };
-use crate::resolver::ResolveError;
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, EnumAsInner, Error)]
@@ -51,11 +51,7 @@ pub enum ErrorKind {
 
     /// An error got returned by the hickory-proto crate
     #[error("proto error: {0}")]
-    Proto(#[from] ProtoError),
-
-    /// An error got returned by the hickory-proto crate
-    #[error("proto error: {0}")]
-    Resolve(ResolveError),
+    Proto(ProtoError),
 
     /// A request timed out
     #[error("request timed out")]
@@ -95,7 +91,6 @@ impl Error {
     pub fn is_nx_domain(&self) -> bool {
         match &*self.kind {
             ErrorKind::Proto(proto) => proto.is_nx_domain(),
-            ErrorKind::Resolve(err) => err.is_nx_domain(),
             ErrorKind::Negative(fwd) => fwd.is_nx_domain(),
             _ => false,
         }
@@ -105,7 +100,6 @@ impl Error {
     pub fn is_no_records_found(&self) -> bool {
         match &*self.kind {
             ErrorKind::Proto(proto) => proto.is_no_records_found(),
-            ErrorKind::Resolve(err) => err.is_no_records_found(),
             ErrorKind::Negative(fwd) => fwd.is_no_records_found(),
             _ => false,
         }
@@ -115,10 +109,6 @@ impl Error {
     pub fn is_timeout(&self) -> bool {
         let proto_error = match &*self.kind {
             ErrorKind::Proto(proto) => proto,
-            ErrorKind::Resolve(err) => match err.kind() {
-                hickory_resolver::ResolveErrorKind::Proto(proto) => proto,
-                _ => return false,
-            },
             _ => return false,
         };
         matches!(proto_error.kind(), ProtoErrorKind::Timeout)
@@ -128,7 +118,6 @@ impl Error {
     pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
         match *self.kind {
             ErrorKind::Proto(proto) => proto.into_soa(),
-            ErrorKind::Resolve(err) => err.into_soa(),
             ErrorKind::Negative(fwd) => Some(fwd.soa),
             _ => None,
         }
@@ -216,41 +205,27 @@ impl From<Error> for String {
     }
 }
 
-impl From<ResolveError> for Error {
-    fn from(e: ResolveError) -> Self {
-        let nx_domain = e.is_nx_domain();
-        let no_records_found = e.is_no_records_found();
-
-        let proto_err = match ProtoErrorKind::try_from(e) {
-            Ok(res) => res,
-            Err(e) => return ErrorKind::Resolve(e).into(),
+impl From<ProtoError> for Error {
+    fn from(e: ProtoError) -> Self {
+        let no_records = match e.kind() {
+            ProtoErrorKind::NoRecordsFound(no_records) => no_records,
+            _ => return ErrorKind::Proto(e).into(),
         };
 
-        let ProtoErrorKind::NoRecordsFound(NoRecords {
-            query,
-            soa,
-            ns,
-            authorities,
-            ..
-        }) = proto_err
-        else {
-            return ErrorKind::Proto(proto_err.into()).into();
-        };
-
-        if let Some(ns) = ns {
-            ErrorKind::ForwardNS(ns).into()
-        } else if let Some(soa) = soa {
+        if let Some(ns) = &no_records.ns {
+            ErrorKind::ForwardNS(ns.clone())
+        } else if let Some(soa) = &no_records.soa {
             ErrorKind::Negative(AuthorityData::new(
-                query,
-                soa,
-                no_records_found,
-                nx_domain,
-                authorities,
+                no_records.query.clone(),
+                soa.clone(),
+                true,
+                matches!(no_records.response_code, ResponseCode::NXDomain),
+                no_records.authorities.clone(),
             ))
-            .into()
         } else {
-            ErrorKind::Message("proto error missing ns and soa").into()
+            ErrorKind::Message("proto error missing ns and soa")
         }
+        .into()
     }
 }
 
@@ -264,7 +239,6 @@ impl Clone for ErrorKind {
             ForwardNS(ns) => ForwardNS(ns.clone()),
             Io(io) => Io(std::io::Error::from(io.kind())),
             Proto(proto) => Proto(proto.clone()),
-            Resolve(resolve) => Resolve(resolve.clone()),
             Timeout => Self::Timeout,
             RecursionLimitExceeded { count } => RecursionLimitExceeded { count: *count },
         }
