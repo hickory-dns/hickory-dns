@@ -41,7 +41,7 @@ use hickory_proto::{
     xfer::Protocol,
 };
 use hickory_resolver::{
-    ResolveError, TokioResolver,
+    TokioResolver,
     config::{NameServerConfig, NameServerConfigGroup, ResolverConfig, ResolverOpts},
     lookup::Lookup,
     name_server::TokioConnectionProvider,
@@ -171,9 +171,9 @@ fn print_ok(lookup: Lookup) {
     }
 }
 
-fn print_error(error: ResolveError) {
-    match error.proto().map(ProtoError::kind) {
-        Some(ProtoErrorKind::NoRecordsFound(NoRecords { query, soa, .. })) => {
+fn print_error(error: ProtoError) {
+    match error.kind() {
+        ProtoErrorKind::NoRecordsFound(NoRecords { query, soa, .. }) => {
             println!(
                 "{} for query {}",
                 style("NoRecordsFound").red(),
@@ -189,7 +189,7 @@ fn print_error(error: ResolveError) {
     }
 }
 
-fn print_result(result: Result<Lookup, ResolveError>) {
+fn print_result(result: Result<Lookup, ProtoError>) {
     match result {
         Ok(lookup) => print_ok(lookup),
         Err(re) => print_error(re),
@@ -227,7 +227,7 @@ async fn execute_query(
     happy: bool,
     reverse: bool,
     ty: RecordType,
-) -> Result<Lookup, ResolveError> {
+) -> Result<Lookup, ProtoError> {
     if happy {
         Ok(resolver.lookup_ip(name.to_string()).await?.into())
     } else if reverse {

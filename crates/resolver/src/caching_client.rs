@@ -9,12 +9,10 @@
 
 use std::{borrow::Cow, future::Future, pin::Pin, time::Instant};
 
-use futures_util::future::TryFutureExt;
 use once_cell::sync::Lazy;
 
 use crate::{
     dns_lru::{self, DnsLru, TtlConfig},
-    error::ResolveError,
     lookup::Lookup,
     proto::{
         op::{Query, ResponseCode},
@@ -96,17 +94,14 @@ where
         &self,
         query: Query,
         options: DnsRequestOptions,
-    ) -> Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>> {
-        Box::pin(
-            Self::inner_lookup(
-                query,
-                options,
-                self.clone(),
-                vec![],
-                DepthTracker::default(),
-            )
-            .map_err(ResolveError::from),
-        )
+    ) -> Pin<Box<dyn Future<Output = Result<Lookup, ProtoError>> + Send>> {
+        Box::pin(Self::inner_lookup(
+            query,
+            options,
+            self.clone(),
+            vec![],
+            DepthTracker::default(),
+        ))
     }
 
     async fn inner_lookup(
@@ -572,7 +567,7 @@ mod tests {
     }
 
     #[allow(clippy::unnecessary_wraps)]
-    pub(crate) fn ns_message() -> Result<DnsResponse, ResolveError> {
+    pub(crate) fn ns_message() -> Result<DnsResponse, ProtoError> {
         let mut message = Message::new();
         message.add_query(Query::query(
             Name::from_str("www.example.com.").unwrap(),

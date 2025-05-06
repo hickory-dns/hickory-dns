@@ -19,7 +19,6 @@ use tracing::debug;
 use crate::caching_client::CachingClient;
 use crate::config::{ResolveHosts, ResolverConfig, ResolverOpts};
 use crate::dns_lru::{self, DnsLru, TtlConfig};
-use crate::error::{ResolveError, ResolveErrorKind};
 use crate::hosts::Hosts;
 use crate::lookup::{self, Lookup, LookupEither};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
@@ -32,6 +31,7 @@ use crate::proto::op::Query;
 use crate::proto::rr::domain::usage::ONION;
 use crate::proto::rr::{IntoName, Name, RData, Record, RecordType};
 use crate::proto::xfer::{DnsHandle, DnsRequestOptions, RetryDnsHandle};
+use crate::proto::{ProtoError, ProtoErrorKind};
 
 /// A builder to construct a [`Resolver`].
 ///
@@ -163,7 +163,7 @@ macro_rules! lookup_fn {
         /// # Arguments
         ///
         /// * `query` - a string which parses to a domain name, failure to parse will return an error
-        pub async fn $p<N: IntoName>(&self, query: N) -> Result<$l, ResolveError> {
+        pub async fn $p<N: IntoName>(&self, query: N) -> Result<$l, ProtoError> {
             let name = match query.into_name() {
                 Ok(name) => name,
                 Err(err) => {
@@ -180,7 +180,7 @@ macro_rules! lookup_fn {
         /// # Arguments
         ///
         /// * `query` - a type which can be converted to `Name` via `From`.
-        pub async fn $p(&self, query: $t) -> Result<$l, ResolveError> {
+        pub async fn $p(&self, query: $t) -> Result<$l, ProtoError> {
             let name = Name::from(query);
             self.inner_lookup(name, $r, self.request_options()).await
         }
@@ -194,7 +194,7 @@ impl TokioResolver {
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
     #[cfg(feature = "system-config")]
-    pub fn builder_tokio() -> Result<ResolverBuilder<TokioConnectionProvider>, ResolveError> {
+    pub fn builder_tokio() -> Result<ResolverBuilder<TokioConnectionProvider>, ProtoError> {
         Self::builder(TokioConnectionProvider::default())
     }
 }
@@ -208,7 +208,7 @@ impl<R: ConnectionProvider> Resolver<R> {
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
     #[cfg(feature = "system-config")]
-    pub fn builder(provider: R) -> Result<ResolverBuilder<R>, ResolveError> {
+    pub fn builder(provider: R) -> Result<ResolverBuilder<R>, ProtoError> {
         let (config, options) = super::system_conf::read_system_conf()?;
         let mut builder = Self::builder_with_config(config, provider);
         *builder.options_mut() = options;
@@ -265,17 +265,12 @@ impl<P: ConnectionProvider> Resolver<P> {
     /// # Returns
     ///
     //  A future for the returned Lookup RData
-    pub async fn lookup<N: IntoName>(
+    pub async fn lookup(
         &self,
-        name: N,
+        name: impl IntoName,
         record_type: RecordType,
-    ) -> Result<Lookup, ResolveError> {
-        let name = match name.into_name() {
-            Ok(name) => name,
-            Err(err) => return Err(err.into()),
-        };
-
-        self.inner_lookup(name, record_type, self.request_options())
+    ) -> Result<Lookup, ProtoError> {
+        self.inner_lookup(name.into_name()?, record_type, self.request_options())
             .await
     }
 
@@ -357,7 +352,7 @@ impl<P: ConnectionProvider> Resolver<P> {
         name: Name,
         record_type: RecordType,
         options: DnsRequestOptions,
-    ) -> Result<L, ResolveError>
+    ) -> Result<L, ProtoError>
     where
         L: From<Lookup> + Send + Sync + 'static,
     {
@@ -379,7 +374,7 @@ impl<P: ConnectionProvider> Resolver<P> {
     ///
     /// # Arguments
     /// * `host` - string hostname, if this is an invalid hostname, an error will be returned.
-    pub async fn lookup_ip(&self, host: impl IntoName) -> Result<LookupIp, ResolveError> {
+    pub async fn lookup_ip(&self, host: impl IntoName) -> Result<LookupIp, ProtoError> {
         let mut finally_ip_addr = None;
         let maybe_ip = host.to_ip().map(RData::from);
         let maybe_name = host.into_name();
@@ -410,9 +405,7 @@ impl<P: ConnectionProvider> Resolver<P> {
                 let lookup = Lookup::new_with_max_ttl(query, Arc::from([ip_addr.clone()]));
                 return Ok(lookup.into());
             }
-            (Err(err), None) => {
-                return Err(err.into());
-            }
+            (Err(err), None) => return Err(err),
         };
 
         let names = self.build_names(name);
@@ -467,7 +460,7 @@ where
     names: Vec<Name>,
     record_type: RecordType,
     options: DnsRequestOptions,
-    query: Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>>,
+    query: Pin<Box<dyn Future<Output = Result<Lookup, ProtoError>> + Send>>,
 }
 
 impl<C> LookupFuture<C>
@@ -515,10 +508,10 @@ where
         hosts: Arc<Hosts>,
     ) -> Self {
         let name = names.pop().ok_or_else(|| {
-            ResolveError::from(ResolveErrorKind::Message("can not lookup for no names"))
+            ProtoError::from(ProtoErrorKind::Message("can not lookup for no names"))
         });
 
-        let query: Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>> = match name {
+        let query: Pin<Box<dyn Future<Output = Result<Lookup, ProtoError>> + Send>> = match name {
             Ok(name) => {
                 let query = Query::query(name, record_type);
 
@@ -545,7 +538,7 @@ impl<C> Future for LookupFuture<C>
 where
     C: DnsHandle + 'static,
 {
-    type Output = Result<Lookup, ResolveError>;
+    type Output = Result<Lookup, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
@@ -1374,8 +1367,6 @@ mod tests {
         )
         .await
         .expect_err("this should have been a NoRecordsFound")
-        .proto()
-        .expect("it should have been a ProtoError")
         .kind()
         {
             assert_eq!(**query, Query::query(Name::root(), RecordType::A));

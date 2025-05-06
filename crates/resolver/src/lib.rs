@@ -199,8 +199,6 @@ pub use proto::rr::{IntoName, Name};
 pub mod caching_client;
 pub mod config;
 pub mod dns_lru;
-mod error;
-pub use error::{ResolveError, ResolveErrorKind};
 #[cfg(feature = "__https")]
 mod h2;
 #[cfg(feature = "__h3")]

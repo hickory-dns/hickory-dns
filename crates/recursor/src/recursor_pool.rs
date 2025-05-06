@@ -13,31 +13,30 @@ use std::{
 };
 
 use futures_util::{Future, FutureExt, StreamExt, future::Shared};
-use hickory_proto::{
-    DnsHandle,
+use parking_lot::Mutex;
+use tracing::info;
+
+use crate::proto::{
+    DnsHandle, ProtoError,
     op::Query,
     runtime::{RuntimeProvider, TokioRuntimeProvider},
     xfer::{DnsRequestOptions, DnsResponse},
 };
-use hickory_resolver::{Name, ResolveError, ResolveErrorKind, name_server::GenericNameServerPool};
-use parking_lot::Mutex;
-use tracing::info;
+use crate::resolver::{Name, name_server::GenericNameServerPool};
 
 #[allow(clippy::type_complexity)]
 #[derive(Clone)]
 pub(crate) struct SharedLookup(
-    Shared<
-        Pin<Box<dyn Future<Output = Option<Result<DnsResponse, ResolveError>>> + Send + 'static>>,
-    >,
+    Shared<Pin<Box<dyn Future<Output = Option<Result<DnsResponse, ProtoError>>> + Send + 'static>>>,
 );
 
 impl Future for SharedLookup {
-    type Output = Result<DnsResponse, ResolveError>;
+    type Output = Result<DnsResponse, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.poll_unpin(cx).map(|o| match o {
             Some(r) => r,
-            None => Err(ResolveErrorKind::Message("no response from nameserver").into()),
+            None => Err("no response from nameserver".into()),
         })
     }
 }
@@ -73,7 +72,7 @@ where
         &self,
         query: Query,
         security_aware: bool,
-    ) -> Result<DnsResponse, ResolveError> {
+    ) -> Result<DnsResponse, ProtoError> {
         let ns = self.ns.clone();
 
         let query_cpy = query.clone();
@@ -101,7 +100,7 @@ where
                 let lookup = ns
                     .lookup(query_cpy, options)
                     .into_future()
-                    .map(|(next, _)| next.map(|r| r.map_err(ResolveError::from)))
+                    .map(|(next, _)| next)
                     .boxed()
                     .shared();
 
