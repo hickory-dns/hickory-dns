@@ -27,7 +27,7 @@ use super::rdata::tsig::{
 };
 use super::{DnsSecError, DnsSecErrorKind};
 use crate::error::{ProtoError, ProtoResult};
-use crate::op::{Message, MessageFinalizer, MessageVerifier};
+use crate::op::{Message, MessageFinalizer, MessageSignature, MessageVerifier};
 use crate::rr::{Name, RData, Record};
 use crate::xfer::DnsResponse;
 
@@ -185,7 +185,7 @@ impl MessageFinalizer for TSigner {
         &self,
         message: &Message,
         current_time: u32,
-    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
+    ) -> ProtoResult<(MessageSignature, Option<MessageVerifier>)> {
         debug!("signing message: {:?}", message);
         let current_time = current_time as u64;
 
@@ -221,7 +221,7 @@ impl MessageFinalizer for TSigner {
                 Err(ProtoError::from("tsig validation error: outdated response"))
             }
         };
-        Ok((vec![tsig], Some(Box::new(verifier))))
+        Ok((MessageSignature::Tsig(tsig), Some(Box::new(verifier))))
     }
 }
 

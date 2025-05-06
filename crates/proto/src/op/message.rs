@@ -748,19 +748,13 @@ impl Message {
         inception_time: u32,
     ) -> ProtoResult<Option<MessageVerifier>> {
         debug!("finalizing message: {:?}", self);
-        let (finals, verifier): (Vec<Record>, Option<MessageVerifier>) =
-            finalizer.finalize_message(self, inception_time)?;
 
-        // append all records to message
-        for fin in finals {
-            match fin.record_type() {
-                // SIG0 and TSIG records are special, and come at the very end of the message
-                #[cfg(feature = "__dnssec")]
-                RecordType::SIG => self.set_signature(MessageSignature::Sig0(fin)),
-                #[cfg(feature = "__dnssec")]
-                RecordType::TSIG => self.set_signature(MessageSignature::Tsig(fin)),
-                _ => self.add_additional(fin),
-            };
+        #[cfg_attr(not(feature = "__dnssec"), allow(unused_variables))]
+        let (signature, verifier) = finalizer.finalize_message(self, inception_time)?;
+
+        #[cfg(feature = "__dnssec")]
+        {
+            self.set_signature(signature);
         }
 
         Ok(verifier)
@@ -893,27 +887,25 @@ pub fn update_header_counts(
 /// Alias for a function verifying if a message is properly signed
 pub type MessageVerifier = Box<dyn FnMut(&[u8]) -> ProtoResult<DnsResponse> + Send>;
 
-/// A trait for performing final amendments to a Message before it is sent.
-///
-/// An example of this is a SIG0 signer, which needs the final form of the message,
-///  but then needs to attach additional data to the body of the message.
+/// A trait for adding a final `MessageSignature` to a Message before it is sent.
 pub trait MessageFinalizer: Send + Sync + 'static {
-    /// The message taken in should be processed and then return [`Record`]s which should be
-    ///  appended to the additional section of the message.
+    /// Finalize the provided `Message`, computing a `MessageSignature`, and optionally
+    /// providing a `MessageVerifier` for response messages.
     ///
     /// # Arguments
     ///
-    /// * `message` - message to process
-    /// * `current_time` - the current time as specified by the system, it's not recommended to read the current time as that makes testing complicated.
+    /// * `message` - the message to finalize
+    /// * `current_time` - the current system time.
     ///
     /// # Return
     ///
-    /// A vector to append to the additionals section of the message, sorted in the order as they should appear in the message.
+    /// A `MessageSignature` to append to the end of the additional data, and optionally
+    /// a `MessageVerifier` to use to verify responses provoked by the message.
     fn finalize_message(
         &self,
         message: &Message,
         current_time: u32,
-    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)>;
+    ) -> ProtoResult<(MessageSignature, Option<MessageVerifier>)>;
 
     /// Return whether the message requires further processing before being sent
     /// By default, returns true for AXFR and IXFR queries, and Update and Notify messages
