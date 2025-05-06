@@ -124,10 +124,10 @@ impl TSigner {
     /// Return `Ok(_)` for valid signatures. Inner tuple contain the following values, in order:
     /// * a byte buffer containing the hash of `message`. This can be passed back when
     ///   authenticating a later chained message.
-    /// * a `Range` of time that the signature is considered acceptable within based on the signer
-    ///   fudge value.
     /// * the time the signature was emitted. It must be greater or equal to the time of previous
     ///   messages, if any.
+    /// * a `Range` of time that the signature is considered acceptable within based on the signer
+    ///   fudge value.
     ///
     /// [RFC 8945 Section 5.2.3]: https://www.rfc-editor.org/rfc/rfc8945.html#section-5.2.3
     pub fn verify_message_byte(
@@ -135,7 +135,7 @@ impl TSigner {
         message: &[u8],
         previous_hash: Option<&[u8]>,
         first_message: bool,
-    ) -> Result<(Vec<u8>, Range<u64>, u64), DnsSecError> {
+    ) -> Result<(Vec<u8>, u64, Range<u64>), DnsSecError> {
         let (tbv, record) = signed_bitmessage_to_buf(message, previous_hash, first_message)?;
         let tsig = if let RData::DNSSEC(DNSSECRData::TSIG(tsig)) = record.data() {
             tsig
@@ -179,11 +179,11 @@ impl TSigner {
 
         Ok((
             tsig.mac().to_vec(),
+            tsig.time(),
             Range {
                 start: tsig.time() - tsig.fudge() as u64,
                 end: tsig.time() + tsig.fudge() as u64,
             },
-            tsig.time(),
         ))
     }
 }
@@ -216,7 +216,7 @@ impl MessageFinalizer for TSigner {
         let self2 = self.clone();
         let mut remote_time = 0;
         let verifier = move |dns_response: &[u8]| {
-            let (last_sig, range, rt) = self2
+            let (last_sig,  rt, range,) = self2
                 .verify_message_byte(dns_response, Some(signature.as_ref()), remote_time == 0)
                 .map_err(|err| ProtoError::from(err.to_string()))?;
             if rt >= remote_time && range.contains(&current_time)
@@ -270,7 +270,7 @@ mod tests {
             .expect("should have signed");
         assert!(matches!(question.signature(), &MessageSignature::Tsig(_)));
 
-        let (_, validity_range, _) = signer
+        let (_, _, validity_range) = signer
             .verify_message_byte(&question.to_bytes().unwrap(), None, true)
             .unwrap();
         assert!(validity_range.contains(&(time_begin + fudge / 2))); // slightly outdated, but still to be acceptable
