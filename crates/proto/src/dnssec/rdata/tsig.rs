@@ -627,8 +627,8 @@ pub fn message_tbs<M: BinEncodable>(
     pre_tsig: &TSIG,
     key_name: &Name,
 ) -> ProtoResult<Vec<u8>> {
-    let mut buf: Vec<u8> = Vec::with_capacity(512);
-    let mut encoder: BinEncoder<'_> = BinEncoder::with_mode(&mut buf, EncodeMode::Normal);
+    let mut buf = Vec::with_capacity(512);
+    let mut encoder = BinEncoder::with_mode(&mut buf, EncodeMode::Normal);
 
     if let Some(previous_hash) = previous_hash {
         encoder.emit_u16(previous_hash.len() as u16)?;
