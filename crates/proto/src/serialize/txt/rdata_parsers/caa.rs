@@ -20,8 +20,7 @@ use alloc::string::ToString;
 use tracing::warn;
 
 use crate::rr::rdata::CAA;
-use crate::rr::rdata::caa::{Property, read_value};
-use crate::serialize::binary::{BinDecoder, Restrict};
+use crate::rr::rdata::caa::Property;
 use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
 
 /// Parse the RData from a set of Tokens
@@ -74,15 +73,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
         tag
     };
     let raw_tag = tag_str.as_bytes().to_vec();
-
-    // parse the value
     let raw_value = value_str.as_bytes().to_vec();
-    let mut value_decoder = BinDecoder::new(&raw_value);
-    let value = read_value(
-        &tag,
-        &mut value_decoder,
-        Restrict::new(raw_value.len() as u16),
-    )?;
 
     // return the new CAA record
     Ok(CAA {
@@ -90,7 +81,6 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
         reserved_flags,
         tag,
         raw_tag,
-        value,
         raw_value,
     })
 }

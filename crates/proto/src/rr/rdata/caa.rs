@@ -44,7 +44,6 @@ pub struct CAA {
     pub(crate) reserved_flags: u8,
     pub(crate) tag: Property,
     pub(crate) raw_tag: Vec<u8>,
-    pub(crate) value: Value,
     pub(crate) raw_value: Vec<u8>,
 }
 
@@ -65,7 +64,6 @@ impl CAA {
             reserved_flags: 0,
             tag,
             raw_tag,
-            value: Value::Issuer(name, options),
             raw_value,
         }
     }
@@ -109,7 +107,6 @@ impl CAA {
             reserved_flags: 0,
             tag: Property::Iodef,
             raw_tag: Property::Iodef.as_str().as_bytes().to_vec(),
-            value: Value::Url(url),
             raw_value,
         }
     }
@@ -145,20 +142,32 @@ impl CAA {
         self.tag = tag;
     }
 
-    /// A value associated with the property tag, see struct documentation
-    #[deprecated = "See value_as_issue(), value_as_iodef(), or raw_value() instead"]
-    pub fn value(&self) -> &Value {
-        &self.value
+    /// Set the value associated with an `issue` or `issuewild` tag.
+    ///
+    /// This returns an error if the tag is not `issue` or `issuewild`.
+    pub fn set_issuer_value(
+        &mut self,
+        name: Option<&Name>,
+        key_values: &[KeyValue],
+    ) -> ProtoResult<()> {
+        match self.tag {
+            Property::Issue | Property::IssueWild => {}
+            _ => return Err("CAA property tag is not 'issue' or 'issuewild'".into()),
+        }
+        self.raw_value = encode_issuer_value(name, key_values);
+        Ok(())
     }
 
-    /// Set the value associated with the property tag, see struct documentation
-    pub fn set_value(&mut self, value: Value) {
-        self.raw_value = match &value {
-            Value::Issuer(name, key_values) => encode_issuer_value(name.as_ref(), key_values),
-            Value::Url(url) => url.as_str().as_bytes().to_vec(),
-            Value::Unknown(value) => value.clone(),
-        };
-        self.value = value;
+    /// Set the value associated with an `iodef` tag.
+    ///
+    /// This returns an error if the tag is not `iodef`.
+    pub fn set_iodef_value(&mut self, url: &Url) -> ProtoResult<()> {
+        match self.tag {
+            Property::Iodef => {}
+            _ => return Err("CAA property tag is not 'iodef'".into()),
+        }
+        self.raw_value = url.as_str().as_bytes().to_vec();
+        Ok(())
     }
 
     /// Get the value of an `issue` or `issuewild` CAA record.
@@ -166,9 +175,8 @@ impl CAA {
     /// This returns an error if the record's tag is not `issue` or `issuewild`, or if the value
     /// does not match the expected syntax.
     pub fn value_as_issue(&self) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
-        // TODO(#2904): When `Value` is removed, check the tag, and then call `read_issuer()`.
-        match &self.value {
-            Value::Issuer(name, key_values) => Ok((name.clone(), key_values.clone())),
+        match self.tag {
+            Property::Issue | Property::IssueWild => read_issuer(&self.raw_value),
             _ => Err("CAA property tag is not 'issue' or 'issuewild'".into()),
         }
     }
@@ -177,9 +185,8 @@ impl CAA {
     ///
     /// This returns an error if the record's tag is not `iodef`, or if the value is an invalid URL.
     pub fn value_as_iodef(&self) -> ProtoResult<Url> {
-        // TODO(#2904): When `Value` is removed, check the tag, and then call `read_iodef()`.
-        match &self.value {
-            Value::Url(url) => Ok(url.clone()),
+        match self.tag {
+            Property::Iodef => read_iodef(&self.raw_value),
             _ => Err("CAA property tag is not 'iodef'".into()),
         }
     }
@@ -265,71 +272,6 @@ impl From<String> for Property {
         }
 
         Self::Unknown(tag)
-    }
-}
-
-/// Potential values.
-///
-/// These are based off the Tag field:
-///
-/// `Issue` and `IssueWild` => `Issuer`,
-/// `Iodef` => `Url`,
-/// `Unknown` => `Unknown`.
-///
-/// `Unknown` is also used for invalid values of known Tag types that cannot be parsed.
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
-// TODO(#2904): We plan to remove the `Value` struct in the future.
-pub enum Value {
-    /// Issuer authorized to issue certs for this zone, and any associated parameters
-    Issuer(Option<Name>, Vec<KeyValue>),
-    /// Url to which to send CA errors
-    Url(Url),
-    /// Uninterpreted data, either for a tag that is not known to Hickory DNS, or an invalid value
-    Unknown(Vec<u8>),
-}
-
-impl Value {
-    /// true if this is an `Issuer`
-    pub fn is_issuer(&self) -> bool {
-        matches!(*self, Value::Issuer(..))
-    }
-
-    /// true if this is a `Url`
-    pub fn is_url(&self) -> bool {
-        matches!(*self, Value::Url(..))
-    }
-
-    /// true if this is an `Unknown`
-    pub fn is_unknown(&self) -> bool {
-        matches!(*self, Value::Unknown(..))
-    }
-}
-
-pub(crate) fn read_value(
-    tag: &Property,
-    decoder: &mut BinDecoder<'_>,
-    value_len: Restrict<u16>,
-) -> ProtoResult<Value> {
-    let value_len = value_len.map(|u| u as usize).unverified(/*used purely as length safely*/);
-    match tag {
-        Property::Issue | Property::IssueWild => {
-            let slice = decoder.read_slice(value_len)?.unverified(/*read_issuer verified as safe*/);
-            Ok(match read_issuer(slice) {
-                Ok(value) => Value::Issuer(value.0, value.1),
-                Err(_) => Value::Unknown(slice.to_vec()),
-            })
-        }
-        Property::Iodef => {
-            let url = decoder.read_slice(value_len)?.unverified(/*read_iodef verified as safe*/);
-            Ok(match read_iodef(url) {
-                Ok(url) => Value::Url(url),
-                Err(_) => Value::Unknown(url.to_vec()),
-            })
-        }
-        Property::Unknown(_) => Ok(Value::Unknown(
-            decoder.read_vec(value_len)?.unverified(/*unknown will fail in usage*/),
-        )),
     }
 }
 
@@ -801,15 +743,11 @@ impl<'r> RecordDataDecodable<'r> for CAA {
         let raw_value =
             decoder.read_vec(value_len as usize)?.unverified(/* stored as uninterpreted data */);
 
-        let mut value_decoder = BinDecoder::new(&raw_value);
-        let value = read_value(&tag, &mut value_decoder, Restrict::new(value_len))?;
-
         Ok(CAA {
             issuer_critical,
             reserved_flags,
             tag,
             raw_tag,
-            value,
             raw_value,
         })
     }
@@ -852,43 +790,6 @@ impl fmt::Display for Property {
     }
 }
 
-// TODO(#2904): We plan to remove the `Value` struct in the future.
-impl fmt::Display for Value {
-    // https://www.rfc-editor.org/rfc/rfc8659#section-4.1.1
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        f.write_str("\"")?;
-
-        match self {
-            Value::Issuer(name, values) => {
-                if let Some(name) = name {
-                    write!(f, "{name}")?;
-                }
-                for value in values.iter() {
-                    write!(f, "; {value}")?;
-                }
-            }
-            Value::Url(url) => write!(f, "{url}")?,
-            Value::Unknown(v) => match str::from_utf8(v) {
-                Ok(text) => write!(f, "{text}")?,
-                Err(_) => return Err(fmt::Error),
-            },
-        }
-
-        f.write_str("\"")
-    }
-}
-
-impl fmt::Display for KeyValue {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        f.write_str(&self.key)?;
-        if !self.value.is_empty() {
-            write!(f, "={}", self.value)?;
-        }
-
-        Ok(())
-    }
-}
-
 // FIXME: this needs to be verified to be correct, add tests...
 impl fmt::Display for CAA {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
@@ -908,7 +809,7 @@ mod tests {
 
     use alloc::{str, string::ToString};
     #[cfg(feature = "std")]
-    use std::{dbg, println};
+    use std::println;
 
     use super::*;
 
@@ -1080,7 +981,6 @@ mod tests {
             reserved_flags: 0,
             tag: Property::Issue,
             raw_tag: b"issue".to_vec(),
-            value: Value::Unknown(b"%%%%%".to_vec()),
             raw_value: b"%%%%%".to_vec(),
         });
     }
@@ -1107,7 +1007,6 @@ mod tests {
             reserved_flags: 0,
             tag: Property::Iodef,
             raw_tag: b"iodef".to_vec(),
-            value: Value::Unknown(vec![0xff]),
             raw_value: vec![0xff],
         });
     }
@@ -1119,7 +1018,6 @@ mod tests {
             reserved_flags: 0,
             tag: Property::Unknown("tbs".to_string()),
             raw_tag: b"tbs".to_vec(),
-            value: Value::Unknown(b"Unknown".to_vec()),
             raw_value: b"Unknown".to_vec(),
         });
     }
@@ -1242,7 +1140,6 @@ mod tests {
             reserved_flags: 0,
             tag: Property::from("tbs".to_string()),
             raw_tag: b"tbs".to_vec(),
-            value: Value::Unknown(b"Unknown".to_vec()),
             raw_value: b"Unknown".to_vec(),
         };
         assert_eq!(unknown.to_string(), "128 tbs \"Unknown\"");
@@ -1260,11 +1157,9 @@ mod tests {
         let caa = CAA::read_data(&mut decoder, Restrict::new(MESSAGE.len() as u16)).unwrap();
         assert!(!caa.issuer_critical());
         assert_eq!(*caa.tag(), Property::Issue);
-        match &caa.value {
-            Value::Unknown(bytes) => {
-                assert_eq!(bytes, &MESSAGE[7..]);
-            }
-            _ => panic!("wrong value type: {:?}", caa.value),
+        match (caa.value_as_issue(), caa.value_as_iodef()) {
+            (Err(_), Err(_)) => {}
+            _ => panic!("wrong value type"),
         }
         assert_eq!(caa.raw_value, &MESSAGE[7..]);
     }
@@ -1277,8 +1172,6 @@ mod tests {
             Restrict::new(u16::try_from(MESSAGE.len()).unwrap()),
         )
         .unwrap();
-        #[cfg(feature = "std")]
-        dbg!(&caa.value);
 
         let mut encoded = Vec::new();
         caa.emit(&mut BinEncoder::new(&mut encoded)).unwrap();
@@ -1288,8 +1181,6 @@ mod tests {
             Restrict::new(u16::try_from(encoded.len()).unwrap()),
         )
         .unwrap();
-        #[cfg(feature = "std")]
-        dbg!(&caa_round_trip.value);
 
         assert_eq!(caa, caa_round_trip);
     }
