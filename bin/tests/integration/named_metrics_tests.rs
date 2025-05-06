@@ -19,7 +19,7 @@ use hickory_proto::dnssec::{
     Algorithm, DnssecDnsHandle, SigSigner, SigningKey, TrustAnchors, crypto::RsaSigningKey,
     rdata::DNSKEY,
 };
-use hickory_proto::op::MessageFinalizer;
+use hickory_proto::op::MessageSigner;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::rr::Record;
 use hickory_proto::rr::rdata::A;
@@ -403,7 +403,7 @@ fn test_updates() {
 
 async fn create_local_client(
     socket_ports: &SocketPorts,
-    signer: Option<Arc<dyn MessageFinalizer>>,
+    signer: Option<Arc<dyn MessageSigner>>,
 ) -> Client {
     let dns_port = socket_ports.get_v4(ServerProtocol::Dns(Protocol::Tcp));
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, dns_port.expect("no dns tcp port")));

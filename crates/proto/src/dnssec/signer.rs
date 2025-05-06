@@ -19,7 +19,7 @@ use crate::{
         tbs,
     },
     error::{ProtoErrorKind, ProtoResult},
-    op::{Message, MessageFinalizer, MessageSignature, MessageVerifier},
+    op::{Message, MessageSignature, MessageSigner, MessageVerifier},
     rr::{
         Record, {DNSClass, Name, RData, RecordType},
     },
@@ -481,8 +481,8 @@ impl SigSigner {
     }
 }
 
-impl MessageFinalizer for SigSigner {
-    fn finalize_message(
+impl MessageSigner for SigSigner {
+    fn sign_message(
         &self,
         message: &Message,
         current_time: u32,

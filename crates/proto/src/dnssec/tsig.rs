@@ -27,7 +27,7 @@ use super::rdata::tsig::{
 };
 use super::{DnsSecError, DnsSecErrorKind};
 use crate::error::{ProtoError, ProtoResult};
-use crate::op::{Message, MessageFinalizer, MessageSignature, MessageVerifier};
+use crate::op::{Message, MessageSignature, MessageSigner, MessageVerifier};
 use crate::rr::{Name, RData};
 use crate::xfer::DnsResponse;
 
@@ -180,8 +180,8 @@ impl TSigner {
     }
 }
 
-impl MessageFinalizer for TSigner {
-    fn finalize_message(
+impl MessageSigner for TSigner {
+    fn sign_message(
         &self,
         message: &Message,
         current_time: u32,

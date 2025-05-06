@@ -22,7 +22,7 @@ use tracing::debug;
 
 use hickory_proto::{
     ProtoError, ProtoErrorKind,
-    op::{Edns, Message, MessageFinalizer, MessageType, OpCode, Query, update_message},
+    op::{Edns, Message, MessageSigner, MessageType, OpCode, Query, update_message},
     rr::{DNSClass, Name, Record, RecordSet, RecordType, rdata::SOA},
     runtime::TokioTime,
     xfer::{
@@ -58,7 +58,7 @@ impl Client {
     pub async fn new<F, S>(
         stream: F,
         stream_handle: BufDnsStreamHandle,
-        signer: Option<Arc<dyn MessageFinalizer>>,
+        signer: Option<Arc<dyn MessageSigner>>,
     ) -> Result<(Self, DnsExchangeBackground<DnsMultiplexer<S>, TokioTime>), ProtoError>
     where
         F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
@@ -81,7 +81,7 @@ impl Client {
         stream: F,
         stream_handle: BufDnsStreamHandle,
         timeout_duration: Duration,
-        signer: Option<Arc<dyn MessageFinalizer>>,
+        signer: Option<Arc<dyn MessageSigner>>,
     ) -> Result<(Self, DnsExchangeBackground<DnsMultiplexer<S>, TokioTime>), ProtoError>
     where
         F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
