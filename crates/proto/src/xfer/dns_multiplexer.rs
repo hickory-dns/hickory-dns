@@ -34,7 +34,7 @@ use tracing::debug;
 use crate::{
     DnsStreamHandle,
     error::{ProtoError, ProtoErrorKind},
-    op::{MessageFinalizer, MessageVerifier},
+    op::{MessageSigner, MessageVerifier},
     runtime::Time,
     xfer::{
         BufDnsStreamHandle, CHANNEL_BUFFER_SIZE, DnsClientStream, DnsRequest, DnsRequestSender,
@@ -103,7 +103,7 @@ where
     timeout_duration: Duration,
     stream_handle: BufDnsStreamHandle,
     active_requests: HashMap<u16, ActiveRequest>,
-    signer: Option<Arc<dyn MessageFinalizer>>,
+    signer: Option<Arc<dyn MessageSigner>>,
     is_shutdown: bool,
 }
 
@@ -123,7 +123,7 @@ where
     pub fn new<F>(
         stream: F,
         stream_handle: BufDnsStreamHandle,
-        signer: Option<Arc<dyn MessageFinalizer>>,
+        signer: Option<Arc<dyn MessageSigner>>,
     ) -> DnsMultiplexerConnect<F, S>
     where
         F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
@@ -145,7 +145,7 @@ where
         stream: F,
         stream_handle: BufDnsStreamHandle,
         timeout_duration: Duration,
-        signer: Option<Arc<dyn MessageFinalizer>>,
+        signer: Option<Arc<dyn MessageSigner>>,
     ) -> DnsMultiplexerConnect<F, S>
     where
         F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
@@ -224,7 +224,7 @@ where
     stream: F,
     stream_handle: Option<BufDnsStreamHandle>,
     timeout_duration: Duration,
-    signer: Option<Arc<dyn MessageFinalizer>>,
+    signer: Option<Arc<dyn MessageSigner>>,
 }
 
 impl<F, S> Future for DnsMultiplexerConnect<F, S>
@@ -291,7 +291,7 @@ where
 
         let mut verifier = None;
         if let Some(signer) = &self.signer {
-            if signer.should_finalize_message(&request) {
+            if signer.should_sign_message(&request) {
                 match request.finalize(signer.borrow(), now) {
                     Ok(answer_verifier) => verifier = answer_verifier,
                     Err(e) => {

@@ -28,7 +28,7 @@ use hickory_proto::dnssec::rdata::{DNSSECRData, KEY};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::dnssec::{Algorithm, PublicKey, SigSigner, SigningKey, crypto::RsaSigningKey};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use hickory_proto::op::MessageFinalizer;
+use hickory_proto::op::MessageSigner;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::op::ResponseCode;
 use hickory_proto::op::{Edns, Message, MessageType, OpCode, Query};
@@ -62,7 +62,7 @@ impl TestClientConnection {
     #[allow(clippy::type_complexity)]
     fn to_multiplexer(
         &self,
-        signer: Option<Arc<dyn MessageFinalizer>>,
+        signer: Option<Arc<dyn MessageSigner>>,
     ) -> DnsMultiplexerConnect<
         Pin<Box<dyn Future<Output = Result<TestClientStream, ProtoError>> + Send>>,
         TestClientStream,

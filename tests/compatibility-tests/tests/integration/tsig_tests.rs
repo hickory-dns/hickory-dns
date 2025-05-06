@@ -20,7 +20,7 @@ use time::Duration;
 use hickory_client::client::{Client, ClientHandle};
 use hickory_client::proto::dnssec::rdata::tsig::TsigAlgorithm;
 use hickory_client::proto::dnssec::tsig::TSigner;
-use hickory_client::proto::op::{MessageFinalizer, ResponseCode};
+use hickory_client::proto::op::{MessageSigner, ResponseCode};
 use hickory_client::proto::rr::{Name, RData, Record, rdata::A};
 use hickory_client::proto::runtime::TokioRuntimeProvider;
 use hickory_client::proto::tcp::TcpClientStream;
@@ -29,7 +29,7 @@ use hickory_client::proto::xfer::DnsMultiplexer;
 use hickory_compatibility::named_process;
 use test_support::subscribe;
 
-fn signer() -> Arc<dyn MessageFinalizer> {
+fn signer() -> Arc<dyn MessageSigner> {
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
     let pem_path = format!("{server_path}/tests/compatibility-tests/tests/conf/tsig.raw");
     println!("loading key from: {pem_path}");

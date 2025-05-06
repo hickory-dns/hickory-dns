@@ -748,13 +748,13 @@ impl Message {
     #[allow(clippy::match_single_binding)]
     pub fn finalize(
         &mut self,
-        finalizer: &dyn MessageFinalizer,
+        finalizer: &dyn MessageSigner,
         inception_time: u32,
     ) -> ProtoResult<Option<MessageVerifier>> {
         debug!("finalizing message: {:?}", self);
 
         #[cfg_attr(not(feature = "__dnssec"), allow(unused_variables))]
-        let (signature, verifier) = finalizer.finalize_message(self, inception_time)?;
+        let (signature, verifier) = finalizer.sign_message(self, inception_time)?;
 
         #[cfg(feature = "__dnssec")]
         {
@@ -892,7 +892,7 @@ pub fn update_header_counts(
 pub type MessageVerifier = Box<dyn FnMut(&[u8]) -> ProtoResult<DnsResponse> + Send>;
 
 /// A trait for adding a final `MessageSignature` to a Message before it is sent.
-pub trait MessageFinalizer: Send + Sync + 'static {
+pub trait MessageSigner: Send + Sync + 'static {
     /// Finalize the provided `Message`, computing a `MessageSignature`, and optionally
     /// providing a `MessageVerifier` for response messages.
     ///
@@ -905,15 +905,15 @@ pub trait MessageFinalizer: Send + Sync + 'static {
     ///
     /// A `MessageSignature` to append to the end of the additional data, and optionally
     /// a `MessageVerifier` to use to verify responses provoked by the message.
-    fn finalize_message(
+    fn sign_message(
         &self,
         message: &Message,
         current_time: u32,
     ) -> ProtoResult<(MessageSignature, Option<MessageVerifier>)>;
 
-    /// Return whether the message requires further processing before being sent
+    /// Return whether the message requires a signature before being sent.
     /// By default, returns true for AXFR and IXFR queries, and Update and Notify messages
-    fn should_finalize_message(&self, message: &Message) -> bool {
+    fn should_sign_message(&self, message: &Message) -> bool {
         [OpCode::Update, OpCode::Notify].contains(&message.op_code())
             || message
                 .queries()

@@ -20,7 +20,7 @@ use futures_util::{future::Future, stream::Stream};
 use tracing::{debug, trace, warn};
 
 use crate::error::{ProtoError, ProtoErrorKind};
-use crate::op::{Message, MessageFinalizer, MessageVerifier, Query};
+use crate::op::{Message, MessageSigner, MessageVerifier, Query};
 use crate::runtime::{RuntimeProvider, Time};
 use crate::udp::udp_stream::NextRandomUdpSocket;
 use crate::udp::{DnsUdpSocket, MAX_RECEIVE_BUFFER_SIZE};
@@ -32,7 +32,7 @@ use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, 
 pub struct UdpClientStreamBuilder<P> {
     name_server: SocketAddr,
     timeout: Option<Duration>,
-    signer: Option<Arc<dyn MessageFinalizer>>,
+    signer: Option<Arc<dyn MessageSigner>>,
     bind_addr: Option<SocketAddr>,
     avoid_local_ports: Arc<HashSet<u16>>,
     os_port_selection: bool,
@@ -47,7 +47,7 @@ impl<P> UdpClientStreamBuilder<P> {
     }
 
     /// Sets the message finalizer to be applied to queries.
-    pub fn with_signer(self, signer: Option<Arc<dyn MessageFinalizer>>) -> Self {
+    pub fn with_signer(self, signer: Option<Arc<dyn MessageSigner>>) -> Self {
         Self {
             name_server: self.name_server,
             timeout: self.timeout,
@@ -107,7 +107,7 @@ pub struct UdpClientStream<P> {
     name_server: SocketAddr,
     timeout: Duration,
     is_shutdown: bool,
-    signer: Option<Arc<dyn MessageFinalizer>>,
+    signer: Option<Arc<dyn MessageSigner>>,
     bind_addr: Option<SocketAddr>,
     avoid_local_ports: Arc<HashSet<u16>>,
     os_port_selection: bool,
@@ -162,7 +162,7 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
 
         let mut verifier = None;
         if let Some(signer) = &self.signer {
-            if signer.should_finalize_message(&request) {
+            if signer.should_sign_message(&request) {
                 match request.finalize(&**signer, now) {
                     Ok(answer_verifier) => verifier = answer_verifier,
                     Err(e) => {
@@ -251,7 +251,7 @@ impl<P> Stream for UdpClientStream<P> {
 pub struct UdpClientConnect<P> {
     name_server: SocketAddr,
     timeout: Duration,
-    signer: Option<Arc<dyn MessageFinalizer>>,
+    signer: Option<Arc<dyn MessageSigner>>,
     bind_addr: Option<SocketAddr>,
     avoid_local_ports: Arc<HashSet<u16>>,
     os_port_selection: bool,
