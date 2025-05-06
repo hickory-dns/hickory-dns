@@ -5,13 +5,13 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Trust dns implementation of Secret Key Transaction Authentication for DNS (TSIG)
+//! Hickory-DNS implementation of Secret Key Transaction Authentication for DNS (TSIG)
 //! [RFC 8945](https://www.rfc-editor.org/rfc/rfc8945) November 2020
 //!
-//! Current deviation from RFC in implementation as of 2022-10-28
+//! Current deviations from RFC in implementation as of 2022-10-28
 //!
-//! - Mac checking don't support HMAC truncation with TSIG (pedantic constant time verification)
-//! - Time checking not in TSIG implementation but in caller
+//! - Truncated MACs are not supported.
+//! - Time checking is not performed in the TSIG implementation but by the caller.
 
 use alloc::boxed::Box;
 use alloc::string::ToString;
@@ -43,7 +43,7 @@ struct TSignerInner {
 }
 
 impl TSigner {
-    /// Create a new Tsigner from its parts
+    /// Create a new TSigner from its parts
     ///
     /// # Arguments
     ///
@@ -116,7 +116,7 @@ impl TSigner {
     /// # Arguments
     /// * `message` - byte buffer containing the to-be-verified `Message`
     /// * `previous_hash` - Hash of the last message received before this one when processing chained
-    ///    messages, or of a query for a first response message.
+    ///   messages, or of a query for a first response message.
     /// * `first_message` - whether `message` is the first response message
     ///
     /// # Returns
@@ -150,32 +150,24 @@ impl TSigner {
         }
 
         // 2.  Check MAC
-        //  note: that this verification does not allow for truncation of the HMAC, which technically the RFC suggests.
-        //    this is to be pedantic about constant time HMAC validation (prevent timing attacks) as well as any security
-        //    concerns about MAC truncation and collisions.
+
+        // If the MAC length doesn't match the algorithm output length, then it was truncated.
+        // While the RFC supports this, we take a conservative approach and do not. Truncated
+        // MAC tags offer less security than their full-width counterparts, and the spec includes
+        // them only for backwards compatibility.
         if tsig.mac().len() < tsig.algorithm().output_len()? {
             return Err(DnsSecError::from(
                 "Please file an issue with https://github.com/hickory-dns/hickory-dns to support truncated HMACs with TSIG",
             ));
         }
-
-        // verify the MAC
         let mac = tsig.mac();
         self.verify(&tbv, mac)?;
 
         // 3.  Check time values
-        // we don't actually have time here so we will let upper level decide
-        // this is technically in violation of the RFC, in case both time and
-        // truncation policy are bad, time should be reported and this code will report
-        // truncation issue instead
+        // Since we don't have a time source to use here we instead defer this to the caller.
 
         // 4.  Check truncation policy
-        //   see not above in regards to not supporting verification of truncated HMACs.
-        // if tsig.mac().len() < std::cmp::max(10, self.0.algorithm.output_len()? / 2) {
-        //     return Err(ProtoError::from(
-        //         "tsig validation error: truncated signature",
-        //     ));
-        // }
+        // We have already rejected truncated MACs so this step is not applicable.
 
         Ok((
             tsig.mac().to_vec(),
