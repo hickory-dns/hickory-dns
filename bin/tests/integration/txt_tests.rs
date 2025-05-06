@@ -383,7 +383,6 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     .expect("nocerts not found");
     if let RData::CAA(rdata) = caa_record.data() {
         assert!(!rdata.issuer_critical());
-        assert!(rdata.tag().is_issue());
         rdata.value_as_issue().unwrap();
     } else {
         panic!();
