@@ -18,7 +18,7 @@ use crate::{
     DnssecPolicy, Error,
     proto::op::Query,
     recursor_dns_handle::RecursorDnsHandle,
-    resolver::{config::NameServerConfigGroup, dns_lru::TtlConfig, lookup::Lookup},
+    resolver::{dns_lru::TtlConfig, lookup::Lookup},
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
@@ -121,12 +121,12 @@ impl RecursorBuilder {
         self
     }
 
-    /// Construct a new recursor using the list of NameServerConfigs for the root node list
+    /// Construct a new recursor using the list of root zone name server addresses
     ///
     /// # Panics
     ///
     /// This will panic if the roots are empty.
-    pub fn build(self, roots: impl Into<NameServerConfigGroup>) -> Result<Recursor, Error> {
+    pub fn build(self, roots: &[IpAddr]) -> Result<Recursor, Error> {
         Recursor::build(roots, self)
     }
 }
@@ -151,10 +151,7 @@ impl Recursor {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn build(
-        roots: impl Into<NameServerConfigGroup>,
-        builder: RecursorBuilder,
-    ) -> Result<Self, Error> {
+    fn build(roots: &[IpAddr], builder: RecursorBuilder) -> Result<Self, Error> {
         let RecursorBuilder {
             ns_cache_size,
             record_cache_size,
@@ -625,10 +622,9 @@ const RECOMMENDED_SERVER_FILTERS: [IpNet; 22] = [
 
 #[cfg(test)]
 mod tests {
-    use std::time::Instant;
+    use std::{net::IpAddr, time::Instant};
 
     use hickory_proto::op::Query;
-    use hickory_resolver::config::NameServerConfigGroup;
     use test_support::subscribe;
 
     use crate::{Error, Recursor, proto::rr::RecordType, resolver::Name};
@@ -637,7 +633,8 @@ mod tests {
     async fn not_fully_qualified_domain_name_in_query() -> Result<(), Error> {
         subscribe();
 
-        let recursor = Recursor::builder().build(NameServerConfigGroup::cloudflare())?;
+        let j_root_servers_net_ip = IpAddr::from([192, 58, 128, 30]);
+        let recursor = Recursor::builder().build(&[j_root_servers_net_ip])?;
         let name = Name::from_ascii("example.com")?;
         assert!(!name.is_fqdn());
         let query = Query::query(name, RecordType::A);

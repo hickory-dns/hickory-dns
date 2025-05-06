@@ -59,7 +59,7 @@ pub(crate) struct RecursorDnsHandle {
 impl RecursorDnsHandle {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
-        roots: impl Into<NameServerConfigGroup>,
+        roots: &[IpAddr],
         ns_cache_size: usize,
         record_cache_size: usize,
         recursion_limit: Option<u8>,
@@ -72,7 +72,7 @@ impl RecursorDnsHandle {
         case_randomization: bool,
     ) -> Self {
         // configure the hickory-resolver
-        let roots: NameServerConfigGroup = roots.into();
+        let roots = NameServerConfigGroup::from_ips_clear(roots, 53, true);
 
         assert!(!roots.is_empty(), "roots must not be empty");
 
@@ -837,7 +837,7 @@ fn test_nameserver_filter() {
     ];
 
     let recursor = RecursorDnsHandle::new(
-        NameServerConfigGroup::from_ips_clear(&[IpAddr::from([192, 0, 2, 1])], 53, true),
+        &[IpAddr::from([192, 0, 2, 1])],
         1,
         1,
         Some(1),

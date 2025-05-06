@@ -16,7 +16,7 @@ use std::{
     collections::HashSet,
     fs::File,
     io::{self, Read},
-    net::SocketAddr,
+    net::IpAddr,
     path::{Path, PathBuf},
     time::Instant,
 };
@@ -37,14 +37,9 @@ use crate::{
         op::{Query, ResponseCode},
         rr::{LowerName, Name, RData, Record, RecordSet, RecordType},
         serialize::txt::{ParseError, Parser},
-        xfer::Protocol,
     },
     recursor::{DnssecPolicy, Recursor},
-    resolver::{
-        config::{NameServerConfig, NameServerConfigGroup},
-        dns_lru::TtlConfig,
-        lookup::Lookup,
-    },
+    resolver::{dns_lru::TtlConfig, lookup::Lookup},
     server::RequestInfo,
 };
 
@@ -71,28 +66,6 @@ impl RecursiveAuthority {
             .read_roots(root_dir)
             .map_err(|e| format!("failed to read roots {}: {}", config.roots.display(), e))?;
 
-        // Configure all the name servers
-        let mut roots = NameServerConfigGroup::new();
-        for socket_addr in root_addrs {
-            roots.push(NameServerConfig {
-                socket_addr,
-                protocol: Protocol::Tcp,
-                tls_dns_name: None,
-                http_endpoint: None,
-                trust_negative_responses: false,
-                bind_addr: None, // TODO: need to support bind addresses
-            });
-
-            roots.push(NameServerConfig {
-                socket_addr,
-                protocol: Protocol::Udp,
-                tls_dns_name: None,
-                http_endpoint: None,
-                trust_negative_responses: false,
-                bind_addr: None,
-            });
-        }
-
         let mut builder = Recursor::builder();
         if let Some(ns_cache_size) = config.ns_cache_size {
             builder = builder.ns_cache_size(ns_cache_size);
@@ -115,7 +88,7 @@ impl RecursiveAuthority {
             .avoid_local_udp_ports(config.avoid_local_udp_ports.clone())
             .ttl_config(config.cache_policy.clone())
             .case_randomization(config.case_randomization)
-            .build(roots)
+            .build(&root_addrs)
             .map_err(|e| format!("failed to initialize recursor: {e}"))?;
 
         Ok(Self {
@@ -292,10 +265,7 @@ pub struct RecursiveConfig {
 }
 
 impl RecursiveConfig {
-    pub(crate) fn read_roots(
-        &self,
-        root_dir: Option<&Path>,
-    ) -> Result<Vec<SocketAddr>, ConfigError> {
+    pub(crate) fn read_roots(&self, root_dir: Option<&Path>) -> Result<Vec<IpAddr>, ConfigError> {
         let path = if let Some(root_dir) = root_dir {
             Cow::Owned(root_dir.join(&self.roots))
         } else {
@@ -315,7 +285,6 @@ impl RecursiveConfig {
             .flat_map(RecordSet::records_without_rrsigs)
             .map(Record::data)
             .filter_map(RData::ip_addr) // we only want IPs
-            .map(|ip| SocketAddr::from((ip, 53))) // all the roots only have tradition DNS ports
             .collect())
     }
 }
