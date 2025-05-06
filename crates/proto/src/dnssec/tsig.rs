@@ -28,7 +28,7 @@ use super::rdata::tsig::{
 use super::{DnsSecError, DnsSecErrorKind};
 use crate::error::{ProtoError, ProtoResult};
 use crate::op::{Message, MessageFinalizer, MessageSignature, MessageVerifier};
-use crate::rr::{Name, RData, Record};
+use crate::rr::{Name, RData};
 use crate::xfer::DnsResponse;
 
 /// Struct to pass to a client for it to authenticate requests using TSIG.
