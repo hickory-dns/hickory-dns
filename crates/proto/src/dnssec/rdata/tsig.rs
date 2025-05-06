@@ -645,6 +645,7 @@ pub fn message_tbs<M: BinEncodable>(
 /// * `previous_hash` - hash of previous message in case of message chaining, or of query in case
 ///   of response. Should be None for query
 /// * `message` - the byte-message to authenticate, with included TSIG
+/// * `first_message` - whether to emit the tsig pseudo-record for a first message
 pub fn signed_bitmessage_to_buf(
     previous_hash: Option<&[u8]>,
     message: &[u8],
