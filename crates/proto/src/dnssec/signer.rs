@@ -19,7 +19,7 @@ use crate::{
         tbs,
     },
     error::{ProtoErrorKind, ProtoResult},
-    op::{Message, MessageFinalizer, MessageVerifier},
+    op::{Message, MessageFinalizer, MessageSignature, MessageVerifier},
     rr::{
         Record, {DNSClass, Name, RData, RecordType},
     },
@@ -486,7 +486,7 @@ impl MessageFinalizer for SigSigner {
         &self,
         message: &Message,
         current_time: u32,
-    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
+    ) -> ProtoResult<(MessageSignature, Option<MessageVerifier>)> {
         debug!("signing message: {message:?}");
         let key_tag: u16 = self.calculate_key_tag()?;
 
@@ -528,7 +528,7 @@ impl MessageFinalizer for SigSigner {
         // The CLASS field SHOULD be ANY
         sig0.set_dns_class(DNSClass::ANY);
 
-        Ok((vec![sig0], None))
+        Ok((MessageSignature::Sig0(sig0), None))
     }
 }
 
