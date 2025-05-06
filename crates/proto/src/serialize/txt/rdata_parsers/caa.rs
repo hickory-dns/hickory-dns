@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-//! mail exchange, email, record
+//! Certificate Authority Authorization record
 
-use alloc::string::ToString;
+use alloc::borrow::ToOwned;
+
 use tracing::warn;
 
 use crate::rr::rdata::CAA;
-use crate::rr::rdata::caa::Property;
 use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
 
 /// Parse the RData from a set of Tokens
@@ -63,23 +63,13 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
         warn!("unexpected flag values in caa (0 or 128): {}", flags);
     }
 
-    // parse the tag
-    let tag = {
-        // unnecessary clone
-        let tag = Property::from(tag_str.to_string());
-        if tag.is_unknown() {
-            warn!("unknown tag found for caa: {:?}", tag);
-        }
-        tag
-    };
-    let raw_tag = tag_str.as_bytes().to_vec();
+    let raw_tag = tag_str.to_owned();
     let raw_value = value_str.as_bytes().to_vec();
 
     // return the new CAA record
     Ok(CAA {
         issuer_critical,
         reserved_flags,
-        tag,
         raw_tag,
         raw_value,
     })
