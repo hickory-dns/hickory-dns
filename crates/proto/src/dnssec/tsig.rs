@@ -57,17 +57,17 @@ impl TSigner {
         mut signer_name: Name,
         fudge: u16,
     ) -> Result<Self, DnsSecError> {
-        signer_name.set_fqdn(true);
-        if algorithm.supported() {
-            Ok(Self(Arc::new(TSignerInner {
-                key,
-                algorithm,
-                signer_name,
-                fudge,
-            })))
-        } else {
-            Err(DnsSecErrorKind::TsigUnsupportedMacAlgorithm(algorithm).into())
+        if !algorithm.supported() {
+            return Err(DnsSecErrorKind::TsigUnsupportedMacAlgorithm(algorithm).into());
         }
+
+        signer_name.set_fqdn(true);
+        Ok(Self(Arc::new(TSignerInner {
+            key,
+            algorithm,
+            signer_name,
+            fudge,
+        })))
     }
 
     /// Return the key used for message authentication
@@ -208,7 +208,7 @@ impl MessageFinalizer for TSigner {
         let self2 = self.clone();
         let mut remote_time = 0;
         let verifier = move |dns_response: &[u8]| {
-            let (last_sig,  rt, range,) = self2
+            let (last_sig, rt, range) = self2
                 .verify_message_byte(dns_response, Some(signature.as_ref()), remote_time == 0)
                 .map_err(|err| ProtoError::from(err.to_string()))?;
             if rt >= remote_time && range.contains(&current_time)
