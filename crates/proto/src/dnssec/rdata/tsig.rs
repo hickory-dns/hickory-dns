@@ -15,6 +15,7 @@ use core::{convert::TryInto, fmt};
 use serde::{Deserialize, Serialize};
 
 use super::DNSSECRData;
+use crate::op::MessageSignature;
 use crate::{
     dnssec::{DnsSecError, DnsSecErrorKind, ring_like::hmac},
     error::{ProtoError, ProtoResult},
@@ -652,9 +653,10 @@ pub fn signed_bitmessage_to_buf(
     first_message: bool,
 ) -> ProtoResult<(Vec<u8>, Record)> {
     let mut decoder = BinDecoder::new(message);
-
-    // remove the tsig from Additional count
     let mut header = Header::read(&mut decoder)?;
+
+    // Adjust the header additional count down by one - this separates out the final
+    // additional data TSIG record.
     let adc = header.additional_count();
     if adc > 0 {
         header.set_additional_count(adc - 1);
@@ -664,61 +666,67 @@ pub fn signed_bitmessage_to_buf(
         ));
     }
 
-    // keep position of data start
+    // Note the position of the decoder in the message, past the header, before reading any data.
     let start_data = message.len() - decoder.len();
 
-    // Read queries
+    // Advance past the queries.
     let count = header.query_count();
     for _ in 0..count {
         Query::read(&mut decoder)?;
     }
 
-    // Read answer and name server records together
+    // Advance past answer and name server records together.
     let answer_ns_count = header.answer_count() as usize + header.name_server_count() as usize;
-    Message::read_records(&mut decoder, answer_ns_count, false)?;
+    let (_, _, sig) = Message::read_records(&mut decoder, answer_ns_count, false)?;
+    debug_assert_eq!(sig, MessageSignature::Unsigned);
 
-    // Read additional records (excluding the TSIG record)
+    // Advance past additional records, up to the final TSIG record.
     let additional_count = header.additional_count() as usize;
-    Message::read_records(&mut decoder, additional_count, true)?;
+    let (_, _, sig) = Message::read_records(&mut decoder, additional_count, true)?;
+    debug_assert_eq!(sig, MessageSignature::Unsigned);
 
-    // keep position of data end
+    // Note the position of the decoder ahead of the final additional data TSIG record.
     let end_data = message.len() - decoder.len();
 
-    // parse a tsig record
-    let sig = Record::read(&mut decoder)?;
-    let tsig = if let (RecordType::TSIG, RData::DNSSEC(DNSSECRData::TSIG(tsig_data))) =
-        (sig.record_type(), sig.data())
-    {
-        tsig_data
-    } else {
-        return Err(ProtoError::from("signature is not tsig"));
+    // Read the TSIG signature record.
+    let (_, _, sig) = Message::read_records(&mut decoder, 1, true)?;
+    let MessageSignature::Tsig(tsig_rr) = sig else {
+        return Err(ProtoError::from("TSIG signature record not found"));
+    };
+    let Some(tsig) = tsig_rr.data().as_dnssec().and_then(DNSSECRData::as_tsig) else {
+        return Err(ProtoError::from(
+            "TSIG signature record invalid record data",
+        ));
     };
     header.set_id(tsig.oid);
 
+    // Construct the TBS data.
     let mut buf = Vec::with_capacity(message.len());
     let mut encoder = BinEncoder::new(&mut buf);
 
-    // prepend previous Mac if it exists
+    // Prepend the previous hash if provided.
     if let Some(previous_hash) = previous_hash {
         encoder.emit_u16(previous_hash.len() as u16)?;
         encoder.emit_vec(previous_hash)?;
     }
 
-    // emit header without tsig
+    // Emit the header we modified to remove the TSIG additional record.
     header.emit(&mut encoder)?;
-    // copy all records verbatim, without decompressing it
+
+    // Emit all the message data between the header and the TSIG record.
     encoder.emit_vec(&message[start_data..end_data])?;
+
     if first_message {
-        // emit the tsig pseudo-record for first message
-        tsig.emit_tsig_for_mac(&mut encoder, sig.name())?;
+        // Emit the TSIG pseudo-record when this is the first message.
+        tsig.emit_tsig_for_mac(&mut encoder, tsig_rr.name())?;
     } else {
-        // emit only time and fudge for followings
+        // Emit only time and fudge data for later messages.
         encoder.emit_u16((tsig.time >> 32) as u16)?;
         encoder.emit_u32(tsig.time as u32)?;
         encoder.emit_u16(tsig.fudge)?;
     }
 
-    Ok((buf, sig))
+    Ok((buf, tsig_rr))
 }
 
 /// Helper function to make a TSIG record from the name of the key, and the TSIG RData
