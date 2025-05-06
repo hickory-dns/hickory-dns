@@ -242,7 +242,6 @@ impl From<ResolveError> for Error {
         } else if let Some(soa) = soa {
             ErrorKind::Forward(ForwardData::new(
                 query,
-                soa.name().clone(),
                 soa,
                 no_records_found,
                 nx_domain,
