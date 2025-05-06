@@ -613,8 +613,6 @@ impl fmt::Display for TsigAlgorithm {
 ///
 /// # Arguments
 ///
-/// * `previous_hash` - hash of a previous message in case of message chaining, or of a query in
-///   case of a response message. Should be None for query messages.
 /// * `message` - the message to authenticate. Should not be modified after calling this function
 ///   except to add the final TSIG record
 /// * `pre_tsig` - TSIG rrdata, possibly with missing MAC. Should not be modified in any other way
@@ -622,18 +620,12 @@ impl fmt::Display for TsigAlgorithm {
 /// * `key_name` - the name of the TSIG key, should be the same as the name known by the remote
 ///   peer.
 pub fn message_tbs<M: BinEncodable>(
-    previous_hash: Option<&[u8]>,
     message: &M,
     pre_tsig: &TSIG,
     key_name: &Name,
 ) -> ProtoResult<Vec<u8>> {
     let mut buf = Vec::with_capacity(512);
     let mut encoder = BinEncoder::with_mode(&mut buf, EncodeMode::Normal);
-
-    if let Some(previous_hash) = previous_hash {
-        encoder.emit_u16(previous_hash.len() as u16)?;
-        encoder.emit_vec(previous_hash)?;
-    };
     message.emit(&mut encoder)?;
     pre_tsig.emit_tsig_for_mac(&mut encoder, key_name)?;
     Ok(buf)
@@ -819,7 +811,7 @@ mod tests {
             vec![],
         );
 
-        let tbs = message_tbs(None, &message, &pre_tsig, &key_name).unwrap();
+        let tbs = message_tbs(&message, &pre_tsig, &key_name).unwrap();
 
         let pre_tsig = pre_tsig.set_mac(b"some signature".to_vec());
 
@@ -851,7 +843,7 @@ mod tests {
             vec![],
         );
 
-        let tbs = message_tbs(None, &message, &pre_tsig, &key_name).unwrap();
+        let tbs = message_tbs(&message, &pre_tsig, &key_name).unwrap();
 
         let pre_tsig = pre_tsig.set_mac(b"some signature".to_vec());
 
