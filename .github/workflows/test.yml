@@ -23,6 +23,11 @@ on:
 env:
   CARGO_WS_VERSION: "0.3.6"
 
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ## Run all default oriented feature sets across all platforms.
   platform-matrix:
