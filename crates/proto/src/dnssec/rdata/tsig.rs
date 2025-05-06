@@ -609,18 +609,18 @@ impl fmt::Display for TsigAlgorithm {
     }
 }
 
-/// Return the byte-message to be authenticated with a TSIG
+/// Return the to-be-signed data for authenticating the message with TSIG.
 ///
 /// # Arguments
 ///
-/// * `previous_hash` - hash of previous message in case of message chaining, or of query in case
-///   of response. Should be None for query
-/// * `message` - the message to authenticate. Should not be modified after calling message_tbs
-///   except for adding the TSIG record
-/// * `pre_tsig` - TSIG rrdata, possibly with missing mac. Should not be modified in any other way
-///   after calling message_tbs
-/// * `key_name` - name of they key, should be the same as the name known by the remove
-///   server/client
+/// * `previous_hash` - hash of a previous message in case of message chaining, or of a query in
+///   case of a response message. Should be None for query messages.
+/// * `message` - the message to authenticate. Should not be modified after calling this function
+///   except to add the final TSIG record
+/// * `pre_tsig` - TSIG rrdata, possibly with missing MAC. Should not be modified in any other way
+///   after calling this function.
+/// * `key_name` - the name of the TSIG key, should be the same as the name known by the remote
+///   peer.
 pub fn message_tbs<M: BinEncodable>(
     previous_hash: Option<&[u8]>,
     message: &M,
