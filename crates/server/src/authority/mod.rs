@@ -121,7 +121,7 @@ impl LookupError {
             },
             #[cfg(feature = "recursor")]
             Self::RecursiveError(e) => match e.kind() {
-                ErrorKind::Forward(fwd) => fwd.authorities.clone(),
+                ErrorKind::Negative(fwd) => fwd.authorities.clone(),
                 ErrorKind::Proto(proto) => match proto.kind() {
                     ProtoErrorKind::NoRecordsFound(NoRecords { authorities, .. }) => {
                         authorities.clone()
