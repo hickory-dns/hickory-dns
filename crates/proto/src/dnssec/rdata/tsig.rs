@@ -667,16 +667,19 @@ pub fn signed_bitmessage_to_buf(
     // keep position of data start
     let start_data = message.len() - decoder.len();
 
+    // Read queries
     let count = header.query_count();
     for _ in 0..count {
         Query::read(&mut decoder)?;
     }
 
-    // read all records except for the last one (tsig)
-    let record_count = header.answer_count() as usize
-        + header.name_server_count() as usize
-        + header.additional_count() as usize;
-    Message::read_records(&mut decoder, record_count, false)?;
+    // Read answer and name server records together
+    let answer_ns_count = header.answer_count() as usize + header.name_server_count() as usize;
+    Message::read_records(&mut decoder, answer_ns_count, false)?;
+
+    // Read additional records (excluding the TSIG record)
+    let additional_count = header.additional_count() as usize;
+    Message::read_records(&mut decoder, additional_count, true)?;
 
     // keep position of data end
     let end_data = message.len() - decoder.len();
