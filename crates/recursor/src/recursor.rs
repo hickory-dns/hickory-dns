@@ -574,7 +574,7 @@ mod for_dnssec {
                     Err(e) => {
                         return Err(match e.kind() {
                             // Translate back into a ProtoError::NoRecordsFound
-                            ErrorKind::Forward(_fwd) => e.into(),
+                            ErrorKind::Negative(_fwd) => e.into(),
                             _ => ProtoError::from(e.to_string()),
                         });
                     }

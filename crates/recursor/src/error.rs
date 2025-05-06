@@ -20,7 +20,7 @@ use crate::proto::{ExtBacktrace, trace};
 use crate::proto::{
     ForwardNSData, ProtoErrorKind,
     rr::{Name, Record, rdata::SOA},
-    {ForwardData, NoRecords, ProtoError},
+    {AuthorityData, NoRecords, ProtoError},
 };
 use crate::resolver::ResolveError;
 
@@ -36,9 +36,9 @@ pub enum ErrorKind {
     #[error("{0}")]
     Msg(String),
 
-    /// Upstream DNS authority returned a Referral to another nameserver in the form of an SOA record
-    #[error("forward response")]
-    Forward(ForwardData),
+    /// Upstream DNS authority returned an empty RRset
+    #[error("negative response")]
+    Negative(AuthorityData),
 
     /// Upstream DNS authority returned a referral to another set of nameservers in the form of
     /// additional NS records.
@@ -96,7 +96,7 @@ impl Error {
         match &*self.kind {
             ErrorKind::Proto(proto) => proto.is_nx_domain(),
             ErrorKind::Resolve(err) => err.is_nx_domain(),
-            ErrorKind::Forward(fwd) => fwd.is_nx_domain(),
+            ErrorKind::Negative(fwd) => fwd.is_nx_domain(),
             _ => false,
         }
     }
@@ -106,7 +106,7 @@ impl Error {
         match &*self.kind {
             ErrorKind::Proto(proto) => proto.is_no_records_found(),
             ErrorKind::Resolve(err) => err.is_no_records_found(),
-            ErrorKind::Forward(fwd) => fwd.is_no_records_found(),
+            ErrorKind::Negative(fwd) => fwd.is_no_records_found(),
             _ => false,
         }
     }
@@ -129,7 +129,7 @@ impl Error {
         match *self.kind {
             ErrorKind::Proto(proto) => proto.into_soa(),
             ErrorKind::Resolve(err) => err.into_soa(),
-            ErrorKind::Forward(fwd) => Some(fwd.soa),
+            ErrorKind::Negative(fwd) => Some(fwd.soa),
             _ => None,
         }
     }
@@ -137,7 +137,7 @@ impl Error {
     /// Return additional records
     pub fn authorities(self) -> Option<Arc<[Record]>> {
         match *self.kind {
-            ErrorKind::Forward(fwd) => fwd.authorities,
+            ErrorKind::Negative(fwd) => fwd.authorities,
             _ => None,
         }
     }
@@ -240,7 +240,7 @@ impl From<ResolveError> for Error {
         if let Some(ns) = ns {
             ErrorKind::ForwardNS(ns).into()
         } else if let Some(soa) = soa {
-            ErrorKind::Forward(ForwardData::new(
+            ErrorKind::Negative(AuthorityData::new(
                 query,
                 soa,
                 no_records_found,
@@ -260,7 +260,7 @@ impl Clone for ErrorKind {
         match self {
             Message(msg) => Message(msg),
             Msg(msg) => Msg(msg.clone()),
-            Forward(ns) => Forward(ns.clone()),
+            Negative(ns) => Negative(ns.clone()),
             ForwardNS(ns) => ForwardNS(ns.clone()),
             Io(io) => Io(std::io::Error::from(io.kind())),
             Proto(proto) => Proto(proto.clone()),
@@ -274,7 +274,7 @@ impl Clone for ErrorKind {
 impl From<Error> for ProtoError {
     fn from(e: Error) -> Self {
         match *e.kind {
-            ErrorKind::Forward(fwd) => NoRecords::from(fwd).into(),
+            ErrorKind::Negative(fwd) => NoRecords::from(fwd).into(),
             _ => ProtoError::from(e.to_string()),
         }
     }

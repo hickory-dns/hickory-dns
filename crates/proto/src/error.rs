@@ -374,28 +374,28 @@ impl NoRecords {
     }
 }
 
-impl From<ForwardData> for NoRecords {
-    fn from(fwd: ForwardData) -> Self {
-        let response_code = match fwd.is_nx_domain() {
+impl From<AuthorityData> for NoRecords {
+    fn from(value: AuthorityData) -> Self {
+        let response_code = match value.is_nx_domain() {
             true => ResponseCode::NXDomain,
             false => ResponseCode::NoError,
         };
 
         Self {
-            query: fwd.query,
-            soa: Some(fwd.soa),
+            query: value.query,
+            soa: Some(value.soa),
             ns: None,
             negative_ttl: None,
             response_code,
             trusted: true,
-            authorities: fwd.authorities,
+            authorities: value.authorities,
         }
     }
 }
 
-/// Data needed to process a SOA-record-based referral.
+/// Data from the authority section of a response.
 #[derive(Clone, Debug)]
-pub struct ForwardData {
+pub struct AuthorityData {
     /// Query
     pub query: Box<Query>,
     /// SOA
@@ -408,8 +408,8 @@ pub struct ForwardData {
     pub authorities: Option<Arc<[Record]>>,
 }
 
-impl ForwardData {
-    /// Construct a new ForwardData
+impl AuthorityData {
+    /// Construct a new AuthorityData
     pub fn new(
         query: Box<Query>,
         soa: Box<Record<SOA>>,
