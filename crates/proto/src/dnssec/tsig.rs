@@ -127,11 +127,11 @@ impl TSigner {
     ///   messages, if any
     pub fn verify_message_byte(
         &self,
-        previous_hash: Option<&[u8]>,
         message: &[u8],
+        previous_hash: Option<&[u8]>,
         first_message: bool,
     ) -> Result<(Vec<u8>, Range<u64>, u64), DnsSecError> {
-        let (tbv, record) = signed_bitmessage_to_buf(previous_hash, message, first_message)?;
+        let (tbv, record) = signed_bitmessage_to_buf(message, previous_hash, first_message)?;
         let tsig = if let RData::DNSSEC(DNSSECRData::TSIG(tsig)) = record.data() {
             tsig
         } else {
@@ -212,7 +212,7 @@ impl MessageFinalizer for TSigner {
         let mut remote_time = 0;
         let verifier = move |dns_response: &[u8]| {
             let (last_sig, range, rt) = self2
-                .verify_message_byte(Some(signature.as_ref()), dns_response, remote_time == 0)
+                .verify_message_byte(dns_response, Some(signature.as_ref()), remote_time == 0)
                 .map_err(|err| ProtoError::from(err.to_string()))?;
             if rt >= remote_time && range.contains(&current_time)
             // this assumes a no-latency answer
@@ -266,7 +266,7 @@ mod tests {
         assert!(matches!(question.signature(), &MessageSignature::Tsig(_)));
 
         let (_, validity_range, _) = signer
-            .verify_message_byte(None, &question.to_bytes().unwrap(), true)
+            .verify_message_byte(&question.to_bytes().unwrap(), None, true)
             .unwrap();
         assert!(validity_range.contains(&(time_begin + fudge / 2))); // slightly outdated, but still to be acceptable
         assert!(validity_range.contains(&(time_begin - fudge / 2))); // sooner than our time, but still acceptable
@@ -298,7 +298,7 @@ mod tests {
         // this should be ok, it has not been tampered with
         assert!(
             signer
-                .verify_message_byte(None, &question.to_bytes().unwrap(), true)
+                .verify_message_byte(&question.to_bytes().unwrap(), None, true)
                 .is_ok()
         );
 
@@ -318,7 +318,7 @@ mod tests {
 
         assert!(
             signer
-                .verify_message_byte(None, &question.to_bytes().unwrap(), true)
+                .verify_message_byte(&question.to_bytes().unwrap(), None, true)
                 .is_err()
         );
     }
@@ -334,7 +334,7 @@ mod tests {
 
         assert!(
             signer
-                .verify_message_byte(None, &question.to_bytes().unwrap(), true)
+                .verify_message_byte(&question.to_bytes().unwrap(), None, true)
                 .is_err()
         );
     }
