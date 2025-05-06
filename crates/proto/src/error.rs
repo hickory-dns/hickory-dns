@@ -32,7 +32,7 @@ use crate::dnssec::Proof;
 #[cfg(any(feature = "dnssec-aws-lc-rs", feature = "dnssec-ring"))]
 use crate::dnssec::ring_like::Unspecified;
 use crate::op::{Header, Query, ResponseCode};
-use crate::rr::{Record, RecordType, domain::Name, rdata::SOA, resource::RecordRef};
+use crate::rr::{Record, RecordType, rdata::SOA, resource::RecordRef};
 use crate::serialize::binary::DecodeError;
 use crate::xfer::DnsResponse;
 
@@ -398,8 +398,6 @@ impl From<ForwardData> for NoRecords {
 pub struct ForwardData {
     /// Query
     pub query: Box<Query>,
-    /// Name
-    pub name: Name,
     /// SOA
     pub soa: Box<Record<SOA>>,
     /// No records found?
@@ -414,7 +412,6 @@ impl ForwardData {
     /// Construct a new ForwardData
     pub fn new(
         query: Box<Query>,
-        name: Name,
         soa: Box<Record<SOA>>,
         no_records_found: bool,
         nx_domain: bool,
@@ -422,7 +419,6 @@ impl ForwardData {
     ) -> Self {
         Self {
             query,
-            name,
             soa,
             no_records_found,
             nx_domain,
