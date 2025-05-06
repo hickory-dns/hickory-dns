@@ -109,22 +109,27 @@ impl TSigner {
     }
 
     /// Verify the message is correctly signed
-    /// This does not perform time verification on its own, instead one should verify current time
-    /// lie in returned Range
+    ///
+    /// This does not perform signature time verification. The caller should verify the
+    /// current time lies in the returned `Range`. See [RFC 8945 Section 5.2.3] for more information.
     ///
     /// # Arguments
-    /// * `previous_hash` - Hash of the last message received before this one, or of the query for
-    ///   the first message
-    /// * `message` - byte buffer containing current message
-    /// * `first_message` - is this the first response message
+    /// * `message` - byte buffer containing the to-be-verified `Message`
+    /// * `previous_hash` - Hash of the last message received before this one when processing chained
+    ///    messages, or of a query for a first response message.
+    /// * `first_message` - whether `message` is the first response message
     ///
     /// # Returns
-    /// Return Ok(_) on valid signature. Inner tuple contain the following values, in order:
-    /// * a byte buffer containing the hash of this message. Need to be passed back when
-    ///   authenticating next message
-    /// * a Range of time that is acceptable
+    ///
+    /// Return `Ok(_)` for valid signatures. Inner tuple contain the following values, in order:
+    /// * a byte buffer containing the hash of `message`. This can be passed back when
+    ///   authenticating a later chained message.
+    /// * a `Range` of time that the signature is considered acceptable within based on the signer
+    ///   fudge value.
     /// * the time the signature was emitted. It must be greater or equal to the time of previous
-    ///   messages, if any
+    ///   messages, if any.
+    ///
+    /// [RFC 8945 Section 5.2.3]: https://www.rfc-editor.org/rfc/rfc8945.html#section-5.2.3
     pub fn verify_message_byte(
         &self,
         message: &[u8],
