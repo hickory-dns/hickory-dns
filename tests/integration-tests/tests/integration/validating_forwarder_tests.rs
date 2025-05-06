@@ -49,7 +49,7 @@ async fn query_validate_true_signed_zone_with_soa() {
     let (name_server_addr, _name_server_future, public_key) =
         setup_authoritative_server(true, true).await;
     let (mut client, _forwarder_future) =
-        setup_client_forwarder(name_server_addr, &public_key, true).await;
+        setup_client_forwarder(name_server_addr, Some(&public_key)).await;
     let response = client
         .query(Name::root(), DNSClass::IN, RecordType::A)
         .await
@@ -70,7 +70,7 @@ async fn query_validate_true_signed_zone_no_soa() {
     let (name_server_addr, _name_server_future, public_key) =
         setup_authoritative_server(true, false).await;
     let (mut client, _forwarder_future) =
-        setup_client_forwarder(name_server_addr, &public_key, true).await;
+        setup_client_forwarder(name_server_addr, Some(&public_key)).await;
     let response = client
         .query(Name::root(), DNSClass::IN, RecordType::A)
         .await
@@ -91,7 +91,7 @@ async fn query_validate_true_unsigned_zone_with_soa() {
     let (name_server_addr, _name_server_future, public_key) =
         setup_authoritative_server(false, true).await;
     let (mut client, _forwarder_future) =
-        setup_client_forwarder(name_server_addr, &public_key, true).await;
+        setup_client_forwarder(name_server_addr, Some(&public_key)).await;
     let response = client
         .query(Name::root(), DNSClass::IN, RecordType::A)
         .await
@@ -107,7 +107,7 @@ async fn query_validate_true_unsigned_zone_no_soa() {
     let (name_server_addr, _name_server_future, public_key) =
         setup_authoritative_server(false, false).await;
     let (mut client, _forwarder_future) =
-        setup_client_forwarder(name_server_addr, &public_key, true).await;
+        setup_client_forwarder(name_server_addr, Some(&public_key)).await;
     let response = client
         .query(Name::root(), DNSClass::IN, RecordType::A)
         .await
@@ -120,10 +120,8 @@ async fn query_validate_true_unsigned_zone_no_soa() {
 async fn query_validate_false_signed_zone_with_soa() {
     subscribe();
 
-    let (name_server_addr, _name_server_future, public_key) =
-        setup_authoritative_server(true, true).await;
-    let (mut client, _forwarder_future) =
-        setup_client_forwarder(name_server_addr, &public_key, false).await;
+    let (name_server_addr, _name_server_future, _) = setup_authoritative_server(true, true).await;
+    let (mut client, _forwarder_future) = setup_client_forwarder(name_server_addr, None).await;
     let response = client
         .query(Name::root(), DNSClass::IN, RecordType::A)
         .await
@@ -141,10 +139,8 @@ async fn query_validate_false_signed_zone_with_soa() {
 async fn query_validate_false_signed_zone_no_soa() {
     subscribe();
 
-    let (name_server_addr, _name_server_future, public_key) =
-        setup_authoritative_server(true, false).await;
-    let (mut client, _forwarder_future) =
-        setup_client_forwarder(name_server_addr, &public_key, false).await;
+    let (name_server_addr, _name_server_future, _) = setup_authoritative_server(true, false).await;
+    let (mut client, _forwarder_future) = setup_client_forwarder(name_server_addr, None).await;
     let response = client
         .query(Name::root(), DNSClass::IN, RecordType::A)
         .await
@@ -162,10 +158,8 @@ async fn query_validate_false_signed_zone_no_soa() {
 async fn query_validate_false_unsigned_zone_with_soa() {
     subscribe();
 
-    let (name_server_addr, _name_server_future, public_key) =
-        setup_authoritative_server(false, true).await;
-    let (mut client, _forwarder_future) =
-        setup_client_forwarder(name_server_addr, &public_key, false).await;
+    let (name_server_addr, _name_server_future, _) = setup_authoritative_server(false, true).await;
+    let (mut client, _forwarder_future) = setup_client_forwarder(name_server_addr, None).await;
     let response = client
         .query(Name::root(), DNSClass::IN, RecordType::A)
         .await
@@ -183,10 +177,8 @@ async fn query_validate_false_unsigned_zone_with_soa() {
 async fn query_validate_false_unsigned_zone_no_soa() {
     subscribe();
 
-    let (name_server_addr, _name_server_future, public_key) =
-        setup_authoritative_server(false, false).await;
-    let (mut client, _forwarder_future) =
-        setup_client_forwarder(name_server_addr, &public_key, false).await;
+    let (name_server_addr, _name_server_future, _) = setup_authoritative_server(false, false).await;
+    let (mut client, _forwarder_future) = setup_client_forwarder(name_server_addr, None).await;
     let response = client
         .query(Name::root(), DNSClass::IN, RecordType::A)
         .await
@@ -260,25 +252,24 @@ async fn setup_authoritative_server(
 
 async fn setup_client_forwarder(
     name_server_addr: SocketAddr,
-    public_key: &PublicKeyBuf,
-    validate: bool,
+    public_key: Option<&PublicKeyBuf>,
 ) -> (Client, ServerFuture<Catalog>) {
     // Server setup
-    let mut trust_anchor = TrustAnchors::empty();
-    trust_anchor.insert(public_key);
-    let mut options = ResolverOpts::default();
-    options.validate = validate;
     let mut authority_builder = ForwardAuthority::builder_tokio(ForwardConfig {
         name_servers: NameServerConfigGroup::from(vec![NameServerConfig::new(
             name_server_addr,
             Protocol::Udp,
         )]),
-        options: Some(options),
+        options: Some(ResolverOpts::default()),
     });
-    if validate {
-        authority_builder = authority_builder.with_trust_anchor(Arc::new(trust_anchor));
+
+    if let Some(public_key) = public_key {
+        let mut anchors = TrustAnchors::empty();
+        anchors.insert(public_key);
+        authority_builder = authority_builder.with_trust_anchor(Arc::new(anchors));
     }
     let authority = authority_builder.build().unwrap();
+
     let udp_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
     let local_addr = udp_socket.local_addr().unwrap();
     let mut catalog = Catalog::new();
