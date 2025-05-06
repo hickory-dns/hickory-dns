@@ -76,9 +76,10 @@ where
 
     /// Construct the resolver.
     pub fn build(self) -> Resolver<P> {
+        #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
         let Self {
             config,
-            options,
+            mut options,
             provider,
             #[cfg(feature = "__dnssec")]
             trust_anchor,
@@ -87,6 +88,11 @@ where
         let pool = NameServerPool::from_config_with_provider(&config, options.clone(), provider);
         let client = RetryDnsHandle::new(pool, options.attempts);
         let either;
+
+        #[cfg(feature = "__dnssec")]
+        if trust_anchor.is_some() || options.trust_anchor.is_some() {
+            options.validate = true;
+        }
 
         if options.validate {
             #[cfg(feature = "__dnssec")]

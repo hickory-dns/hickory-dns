@@ -137,12 +137,10 @@ impl<P: ConnectionProvider> ForwardAuthorityBuilder<P> {
         match (trust_anchor, &options.trust_anchor) {
             (Some(trust_anchor), _) => {
                 resolver_builder = resolver_builder.with_trust_anchor(trust_anchor);
-                options.validate = true;
             }
             (None, Some(path)) => {
                 let trust_anchor = TrustAnchors::from_file(path).map_err(|err| err.to_string())?;
                 resolver_builder = resolver_builder.with_trust_anchor(Arc::new(trust_anchor));
-                options.validate = true;
             }
             (None, None) => {}
         }
