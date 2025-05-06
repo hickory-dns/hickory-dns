@@ -685,8 +685,12 @@ impl Message {
                 return Err("TSIG or SIG(0) record must be final resource record".into());
             }
 
-            // SIG and TSIG records are only allowed in the additional section.
-            if !is_additional && matches!(record.record_type(), RecordType::SIG | RecordType::TSIG)
+            // OPT, SIG and TSIG records are only allowed in the additional section.
+            if !is_additional
+                && matches!(
+                    record.record_type(),
+                    RecordType::OPT | RecordType::SIG | RecordType::TSIG
+                )
             {
                 return Err(format!(
                     "record type {} only allowed in additional section",
@@ -1495,6 +1499,35 @@ mod tests {
             error
                 .to_string()
                 .contains("more than one edns record present")
+        );
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn test_read_records_opt_not_additional() {
+        let opt_record = Record::from_rdata(
+            Name::new(),
+            0,
+            RData::OPT(OPT::new(vec![(
+                EdnsCode::Subnet,
+                EdnsOption::Subnet(ClientSubnet::new(IpAddr::from([127, 0, 0, 1]), 0, 24)),
+            )])),
+        );
+        let err = encode_and_read_records(
+            vec![
+                opt_record.clone(),
+                Record::from_rdata(
+                    Name::from_labels(vec!["example", "com"]).unwrap(),
+                    300,
+                    RData::A(A::new(127, 0, 0, 1)),
+                ),
+            ],
+            false,
+        )
+        .unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("record type OPT only allowed in additional section")
         );
     }
 
