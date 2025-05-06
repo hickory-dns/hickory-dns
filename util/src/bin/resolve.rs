@@ -36,7 +36,7 @@ use tokio::task::JoinSet;
 use tokio::time::MissedTickBehavior;
 
 use hickory_proto::{
-    NoRecords, ProtoError, ProtoErrorKind,
+    ProtoError, ProtoErrorKind,
     rr::{Record, RecordData, RecordType},
     xfer::Protocol,
 };
@@ -172,20 +172,22 @@ fn print_ok(lookup: Lookup) {
 }
 
 fn print_error(error: ProtoError) {
-    match error.kind() {
-        ProtoErrorKind::NoRecordsFound(NoRecords { query, soa, .. }) => {
-            println!(
-                "{} for query {}",
-                style("NoRecordsFound").red(),
-                style(query).blue()
-            );
-            if let Some(r) = soa {
-                print_record(r);
-            }
-        }
+    let no_records = match error.kind() {
+        ProtoErrorKind::NoRecordsFound(no_records) => no_records,
         _ => {
             println!("{error:?}");
+            return;
         }
+    };
+
+    println!(
+        "{} for query {}",
+        style("NoRecordsFound").red(),
+        style(&no_records.query).blue()
+    );
+
+    if let Some(r) = &no_records.soa {
+        print_record(r);
     }
 }
 
