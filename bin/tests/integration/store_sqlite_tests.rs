@@ -28,6 +28,8 @@ fn sqlite(master_file_path: &Path, module: &str, test_name: &str) -> SqliteAutho
         zone_file_path: master_file_path.to_owned(),
         journal_file_path: journal_path.to_str().unwrap().to_string(),
         allow_update: true,
+        #[cfg(feature = "__dnssec")]
+        tsig_keys: Vec::new(),
     };
 
     block_on(SqliteAuthority::try_from_config(
@@ -58,6 +60,8 @@ fn sqlite_update(master_file_path: &Path, module: &str, test_name: &str) -> Sqli
         zone_file_path: master_file_path.to_owned(),
         journal_file_path: journal_path.to_str().unwrap().to_string(),
         allow_update: true,
+        #[cfg(feature = "__dnssec")]
+        tsig_keys: Vec::new(),
     };
 
     block_on(SqliteAuthority::try_from_config(

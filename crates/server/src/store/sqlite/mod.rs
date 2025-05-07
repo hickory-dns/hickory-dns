@@ -7,6 +7,12 @@
 
 //! SQLite serving with Dynamic DNS and journaling support
 
+#[cfg(feature = "__dnssec")]
+use std::fs;
+#[cfg(feature = "__dnssec")]
+use std::str::FromStr;
+#[cfg(feature = "__dnssec")]
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
@@ -39,9 +45,11 @@ use crate::{
     dnssec::NxProofKind,
     proto::dnssec::{
         DnsSecResult, SigSigner, Verifier,
-        rdata::{DNSSECRData, key::KEY},
+        rdata::{DNSSECRData, key::KEY, tsig::TsigAlgorithm},
+        tsig::TSigner,
     },
     proto::op::MessageSignature,
+    proto::serialize::binary::BinEncodable,
 };
 #[cfg(feature = "__dnssec")]
 use LookupControlFlow::Continue;
@@ -61,6 +69,8 @@ pub struct SqliteAuthority {
     is_dnssec_enabled: bool,
     #[cfg(feature = "metrics")]
     metrics: StoreMetrics,
+    #[cfg(feature = "__dnssec")]
+    tsig_signers: Vec<TSigner>,
 }
 
 impl SqliteAuthority {
@@ -84,6 +94,8 @@ impl SqliteAuthority {
             is_dnssec_enabled,
             #[cfg(feature = "metrics")]
             metrics: StoreMetrics::new("sqlite"),
+            #[cfg(feature = "__dnssec")]
+            tsig_signers: Vec::new(),
         }
     }
 
@@ -107,8 +119,9 @@ impl SqliteAuthority {
         let journal_path = root_zone_dir.join(&config.journal_file_path);
         let zone_path = root_zone_dir.join(&config.zone_file_path);
 
-        // load the zone
-        if journal_path.exists() {
+        #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
+        let mut authority = if journal_path.exists() {
+            // load the zone
             info!("recovering zone from journal: {journal_path:?}",);
             let journal = Journal::from_file(&journal_path)
                 .map_err(|e| format!("error opening journal: {journal_path:?}: {e}"))?;
@@ -130,7 +143,7 @@ impl SqliteAuthority {
             authority.set_journal(journal).await;
             info!("recovered zone: {zone_name}");
 
-            Ok(authority)
+            authority
         } else if zone_path.exists() {
             // TODO: deprecate this portion of loading, instantiate the journal through a separate tool
             info!("loading zone file: {zone_path:?}");
@@ -168,10 +181,31 @@ impl SqliteAuthority {
                 .map_err(|e| format!("error persisting to journal {journal_path:?}: {e}"))?;
 
             info!("zone file loaded: {zone_name}");
-            Ok(authority)
+            authority
         } else {
-            Err(format!("no zone file or journal defined at: {zone_path:?}"))
+            return Err(format!("no zone file or journal defined at: {zone_path:?}"));
+        };
+
+        #[cfg(feature = "__dnssec")]
+        {
+            for tsig_config in &config.tsig_keys {
+                let key_data = fs::read(&tsig_config.key_file).map_err(|e| {
+                    format!("error reading TSIG key file: {}: {e}", tsig_config.key_file)
+                })?;
+                let signer_name = Name::from_str(&tsig_config.name).unwrap_or(zone_name.clone());
+                authority.tsig_signers.push(
+                    TSigner::new(
+                        key_data,
+                        tsig_config.algorithm.clone(),
+                        signer_name,
+                        tsig_config.fudge,
+                    )
+                    .map_err(|e| format!("invalid TSIG key configuration: {e}"))?,
+                );
+            }
         }
+
+        Ok(authority)
     }
 
     /// Recovers the zone from a Journal, returns an error on failure to recover the zone.
@@ -508,9 +542,9 @@ impl SqliteAuthority {
         }
 
         match update_message.signature() {
-            // verify sig0, currently the only authorization that is accepted.
             MessageSignature::Sig0(sig0) => self.authorized_sig0(update_message, sig0).await,
-            MessageSignature::Tsig(_) | MessageSignature::Unsigned => Err(ResponseCode::Refused),
+            MessageSignature::Tsig(tsig) => self.authorized_tsig(update_message, tsig).await,
+            MessageSignature::Unsigned => Err(ResponseCode::Refused),
         }
     }
 
@@ -884,6 +918,43 @@ impl SqliteAuthority {
             }
         }
     }
+
+    #[cfg(feature = "__dnssec")]
+    async fn authorized_tsig(
+        &self,
+        update_message: &MessageRequest,
+        tsig: &Record,
+    ) -> UpdateResult<()> {
+        debug!("authorizing with: {tsig:?}");
+        let Some(signer) = self
+            .tsig_signers
+            .iter()
+            .find(|signer| signer.signer_name() == tsig.name())
+        else {
+            warn!("no TSIG key name matched: id {}", update_message.id());
+            return Err(ResponseCode::Refused);
+        };
+
+        let Ok((_, _, range)) = signer.verify_message_byte(
+            update_message.to_bytes().unwrap_or_default().as_ref(),
+            None,
+            true,
+        ) else {
+            warn!("invalid TSIG signature: id {}", update_message.id());
+            return Err(ResponseCode::Refused);
+        };
+
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|t| t.as_secs())
+            .unwrap_or_default();
+        if !range.contains(&now) {
+            warn!("expired TSIG signature: id {}", update_message.id());
+            return Err(ResponseCode::Refused);
+        }
+
+        Ok(())
+    }
 }
 
 impl Deref for SqliteAuthority {
@@ -1098,6 +1169,42 @@ pub struct SqliteConfig {
     /// Are updates allowed to this zone
     #[serde(default)]
     pub allow_update: bool,
+    /// TSIG keys allowed to authenticate updates if `allow_update` is true
+    #[cfg(feature = "__dnssec")]
+    #[serde(default)]
+    pub tsig_keys: Vec<TsigKeyConfig>,
+}
+
+/// Configuration for a TSIG authentication signer key
+#[derive(Deserialize, PartialEq, Eq, Debug)]
+#[serde(deny_unknown_fields)]
+#[cfg(feature = "__dnssec")]
+pub struct TsigKeyConfig {
+    /// The key name
+    pub name: String,
+    /// A path to the unencoded symmetric HMAC key data
+    pub key_file: String,
+    /// The key algorithm
+    pub algorithm: TsigAlgorithm,
+    /// Allowed +/- difference (in seconds) between the time a TSIG request was signed
+    /// and when it is verified.
+    ///
+    /// A fudge value that is too large may leave the server open to replay attacks.
+    /// A fudge value that is too small may cause failures from latency and clock
+    /// desynchronization.
+    ///
+    /// RFC 8945 recommends a fudge value of 300 seconds (the default if not specified).
+    #[serde(default = "default_fudge")]
+    pub fudge: u16,
+}
+
+/// Default TSIG fudge value (seconds).
+///
+/// Per RFC 8945 §10:
+///   "The RECOMMENDED value in most situations is 300 seconds."
+#[cfg(feature = "__dnssec")]
+pub(crate) fn default_fudge() -> u16 {
+    300
 }
 
 #[cfg(test)]
