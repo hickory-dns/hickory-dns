@@ -291,6 +291,12 @@ impl SqliteAuthority {
         self.allow_update = allow_update;
     }
 
+    /// Set the TSIG signers allowed to authenticate updates when `allow_update` is true
+    #[cfg(all(any(test, feature = "testing"), feature = "__dnssec"))]
+    pub fn set_tsig_signers(&mut self, signers: Vec<TSigner>) {
+        self.tsig_signers = signers;
+    }
+
     /// Get serial
     #[cfg(any(test, feature = "testing"))]
     pub async fn serial(&self) -> u32 {
