@@ -99,13 +99,13 @@ impl SqliteAuthority {
     ) -> Result<Self, String> {
         use crate::store::file::{FileAuthority, FileConfig};
 
-        let zone_name: Name = origin;
+        let zone_name = origin;
 
         let root_zone_dir = root_dir.map(PathBuf::from).unwrap_or_default();
 
         // to be compatible with previous versions, the extension might be zone, not jrnl
-        let journal_path: PathBuf = root_zone_dir.join(&config.journal_file_path);
-        let zone_path: PathBuf = root_zone_dir.join(&config.zone_file_path);
+        let journal_path = root_zone_dir.join(&config.journal_file_path);
+        let zone_path = root_zone_dir.join(&config.zone_file_path);
 
         // load the zone
         if journal_path.exists() {
