@@ -1,18 +1,28 @@
 #![cfg(feature = "sqlite")]
 
-use std::net::Ipv4Addr;
 use std::net::SocketAddr;
+use std::net::{IpAddr, Ipv4Addr};
 use std::str::FromStr;
+#[cfg(feature = "__dnssec")]
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use hickory_proto::rr::LowerName;
 use rusqlite::*;
 
-use hickory_proto::op::{Header, LowerQuery, Message, MessageType, OpCode, Query, ResponseCode};
+#[cfg(feature = "__dnssec")]
+use hickory_proto::dnssec::rdata::tsig::TsigAlgorithm;
+#[cfg(feature = "__dnssec")]
+use hickory_proto::dnssec::tsig::TSigner;
+use hickory_proto::op::{
+    Header, LowerQuery, Message, MessageSigner, MessageType, OpCode, Query, ResponseCode,
+};
 use hickory_proto::rr::rdata::{A, AAAA, NS, TXT};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
+#[cfg(feature = "__dnssec")]
+use hickory_proto::serialize::binary::{BinDecodable, BinEncodable};
 use hickory_proto::xfer::Protocol;
-use hickory_server::authority::LookupOptions;
 use hickory_server::authority::{Authority, ZoneType};
+use hickory_server::authority::{LookupOptions, MessageRequest};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::server::RequestInfo;
@@ -847,6 +857,218 @@ async fn test_update() {
     );
 
     assert_eq!(serial + 6, authority.serial().await);
+}
+
+#[cfg(feature = "__dnssec")]
+#[tokio::test]
+async fn test_update_tsig_valid() {
+    subscribe();
+
+    // First, we construct a test TSIG signer.
+    let signer = test_tsig_signer(Name::from_str("test-tsig-key").unwrap());
+
+    // Next we construct an authority, configured to allow updates authenticated with the signer.
+    let mut authority = create_example();
+    authority.set_allow_update(true);
+    authority.set_tsig_signers(vec![signer.clone()]);
+
+    // We want to add a new A record for a name. Let's first verify it doesn't exist yet.
+    let new_name = Name::from_str("new.example.com.").unwrap();
+    let res = authority
+        .lookup(
+            &new_name.clone().into(),
+            RecordType::ANY,
+            LookupOptions::default(),
+        )
+        .await
+        .unwrap();
+    assert!(res.was_empty());
+
+    // Now we construct an update message to add a new A record for the name.
+    let mut message = test_update_message(new_name.clone());
+
+    // Before we serialize it into a MessageRequest, we need to sign it.
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|t| t.as_secs())
+        .unwrap();
+    let (sig, _) = (&signer as &dyn MessageSigner)
+        .sign_message(&message, now as u32)
+        .unwrap();
+    message.set_signature(sig);
+
+    // TODO(@cpu): add and use a MessageRequestBuilder type?
+    // Round-trip the Message bytes into a MessageRequest.
+    let req_message = MessageRequest::from_bytes(&message.to_bytes().unwrap()).unwrap();
+
+    // The update should succeed.
+    assert!(authority.update(&req_message).await.unwrap());
+
+    // And we should now be able to look up the new record.
+    let new_name = Name::from_str("new.example.com.").unwrap();
+    let res = authority
+        .lookup(
+            &new_name.clone().into(),
+            RecordType::ANY,
+            LookupOptions::default(),
+        )
+        .await
+        .unwrap();
+    let records = res.iter().collect::<Vec<&Record>>();
+
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0].name(), &new_name);
+    let RData::A(a) = records[0].data() else {
+        panic!("unexpected record data");
+    };
+    assert_eq!(a.0, IpAddr::from([192, 168, 1, 10]));
+}
+
+#[cfg(feature = "__dnssec")]
+#[tokio::test]
+async fn test_update_tsig_invalid_unknown_signer() {
+    subscribe();
+
+    // Create an authority, configured to allow updates authenticated with a test signer.
+    let mut authority = create_example();
+    authority.set_allow_update(true);
+    authority.set_tsig_signers(vec![test_tsig_signer(
+        Name::from_str("test-tsig-key").unwrap(),
+    )]);
+
+    // Now, construct an update message but sign it with a **different** TSIG signer that
+    // has a different key name.
+    let new_name = Name::from_str("new.example.com.").unwrap();
+    let mut message = test_update_message(new_name.clone());
+    let bad_signer = test_tsig_signer(Name::from_str("some-other-tsig-key").unwrap());
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|t| t.as_secs())
+        .unwrap();
+    let (sig, _) = (&bad_signer as &dyn MessageSigner)
+        .sign_message(&message, now as u32)
+        .unwrap();
+    message.set_signature(sig);
+
+    // TODO(@cpu): add and use a MessageRequestBuilder type?
+    // Round-trip the Message bytes into a MessageRequest.
+    let req_message = MessageRequest::from_bytes(&message.to_bytes().unwrap()).unwrap();
+
+    // The update should have been refused.
+    assert_eq!(
+        authority.update(&req_message).await,
+        Err(ResponseCode::Refused)
+    );
+}
+
+#[cfg(feature = "__dnssec")]
+#[tokio::test]
+async fn test_update_tsig_invalid_sig() {
+    subscribe();
+
+    // Create an authority, configured to allow updates authenticated with a test signer.
+    let signer_name = Name::from_str("test-tsig-key").unwrap();
+    let mut authority = create_example();
+    authority.set_allow_update(true);
+    authority.set_tsig_signers(vec![test_tsig_signer(signer_name.clone())]);
+
+    // Now, construct an update message but sign it with a **different** TSIG signer that
+    // has a different MAC key but the same key name.
+    let new_name = Name::from_str("new.example.com.").unwrap();
+    let mut message = test_update_message(new_name.clone());
+    let bad_signer = TSigner::new(
+        [0_u8; 32].to_vec(),
+        TsigAlgorithm::HmacSha256,
+        signer_name,
+        300,
+    )
+    .unwrap();
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|t| t.as_secs())
+        .unwrap();
+    let (sig, _) = (&bad_signer as &dyn MessageSigner)
+        .sign_message(&message, now as u32)
+        .unwrap();
+    message.set_signature(sig);
+
+    // TODO(@cpu): add and use a MessageRequestBuilder type?
+    // Round-trip the Message bytes into a MessageRequest.
+    let req_message = MessageRequest::from_bytes(&message.to_bytes().unwrap()).unwrap();
+
+    // The update should have been refused.
+    assert_eq!(
+        authority.update(&req_message).await,
+        Err(ResponseCode::Refused)
+    );
+}
+
+#[cfg(feature = "__dnssec")]
+#[tokio::test]
+async fn test_update_tsig_invalid_stale_sig() {
+    subscribe();
+
+    // Create an authority, configured to allow updates authenticated with a test signer.
+    let signer = test_tsig_signer(Name::from_labels(["test-tsig-key"]).unwrap());
+    let mut authority = create_example();
+    authority.set_allow_update(true);
+    authority.set_tsig_signers(vec![signer.clone()]);
+
+    // Now, construct an update message and sign it with the correct signer, but providing a
+    // timestamp that's too far in the past based on the authority signer's fudge value.
+    let new_name = Name::from_str("new.example.com.").unwrap();
+    let mut message = test_update_message(new_name.clone());
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|t| t.as_secs())
+        .unwrap();
+    let too_stale = now - (signer.fudge() as u64) - 1;
+    let (sig, _) = (&signer as &dyn MessageSigner)
+        .sign_message(&message, too_stale as u32)
+        .unwrap();
+    message.set_signature(sig);
+
+    // TODO(@cpu): add and use a MessageRequestBuilder type?
+    // Round-trip the Message bytes into a MessageRequest.
+    let req_message = MessageRequest::from_bytes(&message.to_bytes().unwrap()).unwrap();
+
+    // The update should have been refused.
+    assert_eq!(
+        authority.update(&req_message).await,
+        Err(ResponseCode::Refused)
+    );
+}
+
+#[cfg(feature = "__dnssec")]
+fn test_tsig_signer(key_name: Name) -> TSigner {
+    // openssl rand -hex 32
+    let test_key = vec![
+        0x7a, 0xbc, 0x3d, 0x45, 0xf2, 0x01, 0x9e, 0x8b, 0xc5, 0x67, 0x12, 0x34, 0xab, 0xcd, 0xef,
+        0x98, 0x76, 0x54, 0x32, 0x10, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10, 0xab, 0xcd,
+        0xef, 0x01,
+    ];
+
+    TSigner::new(test_key, TsigAlgorithm::HmacSha256, key_name, 300).unwrap()
+}
+
+#[cfg(feature = "__dnssec")]
+fn test_update_message(name: Name) -> Message {
+    let mut q = Query::default();
+    q.set_name(name.clone());
+    q.set_query_class(DNSClass::IN);
+    q.set_query_type(RecordType::SOA);
+
+    let mut add_rec = Record::from_rdata(name, 3600, RData::A(A::new(192, 168, 1, 10)));
+    add_rec.set_dns_class(DNSClass::IN);
+
+    let mut message = Message::new();
+    message
+        .set_id(10)
+        .set_message_type(MessageType::Query)
+        .set_op_code(OpCode::Update);
+    message.add_query(q);
+    message.add_name_server(add_rec);
+    message
 }
 
 #[cfg(feature = "__dnssec")]
