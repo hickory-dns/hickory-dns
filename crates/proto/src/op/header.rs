@@ -507,8 +507,6 @@ impl Header {
 
 impl BinEncodable for Header {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.reserve(12)?; // the 12 bytes for the following fields;
-
         // Id
         encoder.emit_u16(self.id)?;
 
