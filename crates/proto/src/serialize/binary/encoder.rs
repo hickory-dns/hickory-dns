@@ -208,12 +208,6 @@ impl<'a> BinEncoder<'a> {
         res
     }
 
-    // TODO: deprecate this...
-    /// Reserve specified additional length in the internal buffer.
-    pub fn reserve(&mut self, _additional: usize) -> ProtoResult<()> {
-        Ok(())
-    }
-
     /// trims to the current offset
     pub fn trim(&mut self) {
         let offset = self.offset;
