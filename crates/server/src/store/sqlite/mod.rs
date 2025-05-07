@@ -109,7 +109,7 @@ impl SqliteAuthority {
 
         // load the zone
         if journal_path.exists() {
-            info!("recovering zone from journal: {:?}", journal_path);
+            info!("recovering zone from journal: {journal_path:?}",);
             let journal = Journal::from_file(&journal_path)
                 .map_err(|e| format!("error opening journal: {journal_path:?}: {e}"))?;
 
@@ -128,12 +128,12 @@ impl SqliteAuthority {
                 .map_err(|e| format!("error recovering from journal: {e}"))?;
 
             authority.set_journal(journal).await;
-            info!("recovered zone: {}", zone_name);
+            info!("recovered zone: {zone_name}");
 
             Ok(authority)
         } else if zone_path.exists() {
             // TODO: deprecate this portion of loading, instantiate the journal through a separate tool
-            info!("loading zone file: {:?}", zone_path);
+            info!("loading zone file: {zone_path:?}");
 
             let file_config = FileConfig {
                 zone_file_path: config.zone_file_path.clone(),
@@ -155,7 +155,7 @@ impl SqliteAuthority {
             let mut authority = Self::new(in_memory, config.allow_update, enable_dnssec);
 
             // if dynamic update is enabled, enable the journal
-            info!("creating new journal: {:?}", journal_path);
+            info!("creating new journal: {journal_path:?}");
             let journal = Journal::from_file(&journal_path)
                 .map_err(|e| format!("error creating journal {journal_path:?}: {e}"))?;
 
@@ -167,7 +167,7 @@ impl SqliteAuthority {
                 .await
                 .map_err(|e| format!("error persisting to journal {journal_path:?}: {e}"))?;
 
-            info!("zone file loaded: {}", zone_name);
+            info!("zone file loaded: {zone_name}");
             Ok(authority)
         } else {
             Err(format!("no zone file or journal defined at: {zone_path:?}"))
@@ -217,7 +217,7 @@ impl SqliteAuthority {
         if let Some(journal) = self.journal.lock().await.as_ref() {
             let serial = self.in_memory.serial().await;
 
-            info!("persisting zone to journal at SOA.serial: {}", serial);
+            info!("persisting zone to journal at SOA.serial: {serial}");
 
             // TODO: THIS NEEDS TO BE IN A TRANSACTION!!!
             journal.insert_record(
@@ -350,13 +350,13 @@ impl SqliteAuthority {
             let required_name = LowerName::from(require.name());
 
             if require.ttl() != 0 {
-                warn!("ttl must be 0 for: {:?}", require);
+                warn!("ttl must be 0 for: {require:?}");
                 return Err(ResponseCode::FormErr);
             }
 
             let origin = self.origin();
             if !origin.zone_of(&require.name().into()) {
-                warn!("{} is not a zone_of {}", require.name(), origin);
+                warn!("{} is not a zone_of {origin}", require.name());
                 return Err(ResponseCode::NotZone);
             }
 
@@ -642,7 +642,7 @@ impl SqliteAuthority {
         //  subsequent to a failure of the server.
         if let Some(journal) = &*self.journal.lock().await {
             if let Err(error) = journal.insert_records(serial, records) {
-                error!("could not persist update records: {}", error);
+                error!("could not persist update records: {error}");
                 return Err(ResponseCode::ServFail);
             }
         }
@@ -704,7 +704,7 @@ impl SqliteAuthority {
                     //  RR.
 
                     // zone     rrset    rr       Add to an RRset
-                    info!("upserting record: {:?}", rr);
+                    info!("upserting record: {rr:?}");
                     let upserted = self.in_memory.upsert(rr.clone(), serial).await;
 
                     #[cfg(all(feature = "metrics", feature = "__dnssec"))]
@@ -723,7 +723,7 @@ impl SqliteAuthority {
                     match rr.record_type() {
                         t @ RecordType::SOA | t @ RecordType::NS if rr_name == *self.origin() => {
                             // SOA and NS records are not to be deleted if they are the origin records
-                            info!("skipping delete of {:?} see RFC 2136 - 3.4.2.3", t);
+                            info!("skipping delete of {t:?} see RFC 2136 - 3.4.2.3");
                             continue;
                         }
                         RecordType::ANY => {
@@ -734,8 +734,7 @@ impl SqliteAuthority {
 
                             // ANY      ANY      empty    Delete all RRsets from a name
                             info!(
-                                "deleting all records at name (not SOA or NS at origin): {:?}",
-                                rr_name
+                                "deleting all records at name (not SOA or NS at origin): {rr_name:?}"
                             );
                             let origin = self.origin();
                             let to_delete = self
@@ -771,7 +770,7 @@ impl SqliteAuthority {
                             // ANY      rrset    empty    Delete an RRset
                             if let RData::Update0(_) | RData::NULL(..) = rr.data() {
                                 let deleted = self.in_memory.records_mut().await.remove(&rr_key);
-                                info!("deleted rrset: {:?}", deleted);
+                                info!("deleted rrset: {deleted:?}");
                                 updated = updated || deleted.is_some();
 
                                 #[cfg(all(feature = "metrics", feature = "__dnssec"))]
@@ -779,20 +778,20 @@ impl SqliteAuthority {
                                     self.metrics.persistent.deleted()
                                 }
                             } else {
-                                info!("expected empty rdata: {:?}", rr);
+                                info!("expected empty rdata: {rr:?}");
                                 return Err(ResponseCode::FormErr);
                             }
                         }
                     }
                 }
                 DNSClass::NONE => {
-                    info!("deleting specific record: {:?}", rr);
+                    info!("deleting specific record: {rr:?}");
                     // NONE     rrset    rr       Delete an RR from an RRset
                     if let Some(rrset) = self.in_memory.records_mut().await.get_mut(&rr_key) {
                         // b/c this is an Arc, we need to clone, then remove, and replace the node.
                         let mut rrset_clone: RecordSet = RecordSet::clone(&*rrset);
                         let deleted = rrset_clone.remove(rr, serial);
-                        info!("deleted ({}) specific record: {:?}", deleted, rr);
+                        info!("deleted ({deleted}) specific record: {rr:?}");
                         updated = updated || deleted;
 
                         if deleted {
@@ -818,7 +817,7 @@ impl SqliteAuthority {
                 cfg_if::cfg_if! {
                     if #[cfg(feature = "__dnssec")] {
                         self.secure_zone().await.map_err(|e| {
-                            error!("failure securing zone: {}", e);
+                            error!("failure securing zone: {e}");
                             ResponseCode::ServFail
                         })?
                     } else {
@@ -842,7 +841,7 @@ impl SqliteAuthority {
         update_message: &MessageRequest,
         sig0: &Record,
     ) -> UpdateResult<()> {
-        debug!("authorizing with: {:?}", sig0);
+        debug!("authorizing with: {sig0:?}");
 
         let Some(sig0) = sig0.data().as_dnssec().and_then(DNSSECRData::as_sig) else {
             warn!(
@@ -861,18 +860,18 @@ impl SqliteAuthority {
             return Err(ResponseCode::Refused);
         };
 
-        debug!("found keys {:?}", keys);
+        debug!("found keys {keys:?}");
         let verified = keys
             .iter()
             .filter_map(|rr_set| rr_set.data().as_dnssec().and_then(DNSSECRData::as_key))
             .any(
                 |key| match key.verify_message(update_message, sig0.sig(), sig0) {
                     Ok(_) => {
-                        info!("verified sig: {:?} with key: {:?}", sig0, key);
+                        info!("verified sig: {sig0:?} with key: {key:?}");
                         true
                     }
                     Err(_) => {
-                        debug!("did not verify sig: {:?} with key: {:?}", sig0, key);
+                        debug!("did not verify sig: {sig0:?} with key: {key:?}");
                         false
                     }
                 },
