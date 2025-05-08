@@ -29,7 +29,7 @@ use crate::error::{ProtoError, ProtoErrorKind, ProtoResult};
 use crate::rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
 use crate::rr::domain::usage::LOCALHOST as LOCALHOST_usage;
 use crate::serialize::binary::{
-    BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict,
+    BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, NameEncodingMode, Restrict,
 };
 
 /// A domain name
@@ -749,12 +749,13 @@ impl Name {
         encoder: &mut BinEncoder<'_>,
         lowercase: bool,
     ) -> ProtoResult<()> {
-        let is_canonical_names = encoder.is_canonical_names();
+        let compression = matches!(encoder.name_mode(), NameEncodingMode::Compressed)
+            && !encoder.is_canonical_names();
         if lowercase {
             self.to_lowercase()
-                .emit_as_canonical(encoder, is_canonical_names)
+                .emit_with_compression(encoder, compression)
         } else {
-            self.emit_as_canonical(encoder, is_canonical_names)
+            self.emit_with_compression(encoder, compression)
         }
     }
 
@@ -1249,8 +1250,9 @@ enum ParseState {
 
 impl BinEncodable for Name {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        let is_canonical_names = encoder.is_canonical_names();
-        self.emit_as_canonical(encoder, is_canonical_names)
+        let lowercase = matches!(encoder.name_mode(), NameEncodingMode::UncompressedLowercase)
+            | encoder.is_canonical_names();
+        self.emit_with_lowercase(encoder, lowercase)
     }
 }
 
