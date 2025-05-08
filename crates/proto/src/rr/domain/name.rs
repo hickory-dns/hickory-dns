@@ -738,7 +738,7 @@ impl Name {
         Ok(())
     }
 
-    /// Writes the labels, as lower case, to the encoder
+    /// Writes the labels to the encoder, possibly as lowercase
     ///
     /// # Arguments
     ///
