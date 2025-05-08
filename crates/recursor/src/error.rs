@@ -118,7 +118,7 @@ impl Error {
     pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
         match *self.kind {
             ErrorKind::Proto(proto) => proto.into_soa(),
-            ErrorKind::Negative(fwd) => Some(fwd.soa),
+            ErrorKind::Negative(fwd) => fwd.soa,
             _ => None,
         }
     }
@@ -214,16 +214,14 @@ impl From<ProtoError> for Error {
 
         if let Some(ns) = &no_records.ns {
             ErrorKind::ForwardNS(ns.clone())
-        } else if let Some(soa) = &no_records.soa {
+        } else {
             ErrorKind::Negative(AuthorityData::new(
                 no_records.query.clone(),
-                soa.clone(),
+                no_records.soa.clone(),
                 true,
                 matches!(no_records.response_code, ResponseCode::NXDomain),
                 no_records.authorities.clone(),
             ))
-        } else {
-            ErrorKind::Message("proto error missing ns and soa")
         }
         .into()
     }
