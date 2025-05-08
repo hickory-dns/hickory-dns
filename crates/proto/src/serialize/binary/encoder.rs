@@ -269,6 +269,20 @@ impl<'a> BinEncoder<'a> {
         }
     }
 
+    /// Temporarily change the name encoding mode.
+    ///
+    /// Returns a [ModalEncoder]. The previous name encoding mode will be restored when it is dropped.
+    pub fn with_name_mode<'e>(&'e mut self, name_mode: NameEncodingMode) -> ModalEncoder<'a, 'e> {
+        let previous_mode = self.name_mode();
+
+        self.set_name_mode(name_mode);
+
+        ModalEncoder {
+            previous_mode,
+            inner: self,
+        }
+    }
+
     /// trims to the current offset
     pub fn trim(&mut self) {
         let offset = self.offset;
