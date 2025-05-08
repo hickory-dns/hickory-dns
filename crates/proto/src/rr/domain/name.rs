@@ -665,88 +665,6 @@ impl Name {
         Ok(name)
     }
 
-    /// Emits the name to the encoder, with or without compression.
-    pub fn emit_with_compression(
-        &self,
-        encoder: &mut BinEncoder<'_>,
-        compression: bool,
-    ) -> ProtoResult<()> {
-        let buf_len = encoder.len(); // lazily assert the size is less than 255...
-        // lookup the label in the BinEncoder
-        // if it exists, write the Pointer
-        let labels = self.iter();
-
-        // start index of each label
-        let mut labels_written = Vec::with_capacity(self.label_ends.len());
-        // we're going to write out each label, tracking the indexes of the start to each label
-        //   then we'll look to see if we can remove them and recapture the capacity in the buffer...
-        for label in labels {
-            if label.len() > 63 {
-                return Err(ProtoErrorKind::LabelBytesTooLong(label.len()).into());
-            }
-
-            labels_written.push(encoder.offset());
-            encoder.emit_character_data(label)?;
-        }
-        let last_index = encoder.offset();
-        // now search for other labels already stored matching from the beginning label, strip then to the end
-        //   if it's not found, then store this as a new label
-        for label_idx in &labels_written {
-            match encoder.get_label_pointer(*label_idx, last_index) {
-                // if writing canonical and already found, continue
-                Some(_) if !compression => continue,
-                Some(loc) if compression && loc & 0xC000 == 0 => {
-                    // reset back to the beginning of this label, and then write the pointer...
-                    encoder.set_offset(*label_idx);
-                    encoder.trim();
-
-                    // write out the pointer marker
-                    //  or'd with the location which is less than 2^14
-                    encoder.emit_u16(0xC000u16 | loc)?;
-
-                    // we found a pointer don't write more, break
-                    return Ok(());
-                }
-                _ => {
-                    // no existing label exists, store this new one.
-                    encoder.store_label_pointer(*label_idx, last_index);
-                }
-            }
-        }
-
-        // if we're getting here, then we didn't write out a pointer and are ending the name
-        // the end of the list of names
-        encoder.emit(0)?;
-
-        // the entire name needs to be less than 256.
-        let length = encoder.len() - buf_len;
-        if length > 255 {
-            return Err(ProtoErrorKind::DomainNameTooLong(length).into());
-        }
-
-        Ok(())
-    }
-
-    /// Writes the labels to the encoder, possibly as lowercase
-    ///
-    /// # Arguments
-    ///
-    /// * `encoder` - encoder for writing this name
-    /// * `lowercase` - if true the name will be lowercased, otherwise it will not be changed when writing
-    pub fn emit_with_lowercase(
-        &self,
-        encoder: &mut BinEncoder<'_>,
-        lowercase: bool,
-    ) -> ProtoResult<()> {
-        let compression = matches!(encoder.name_mode(), NameEncodingMode::Compressed);
-        if lowercase {
-            self.to_lowercase()
-                .emit_with_compression(encoder, compression)
-        } else {
-            self.emit_with_compression(encoder, compression)
-        }
-    }
-
     /// compares with the other label, ignoring case
     fn cmp_with_f<F: LabelCmp>(&self, other: &Self) -> Ordering {
         match (self.is_fqdn(), other.is_fqdn()) {
@@ -1238,8 +1156,69 @@ enum ParseState {
 
 impl BinEncodable for Name {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        let lowercase = matches!(encoder.name_mode(), NameEncodingMode::UncompressedLowercase);
-        self.emit_with_lowercase(encoder, lowercase)
+        let name;
+        let name_ref = if matches!(encoder.name_mode(), NameEncodingMode::UncompressedLowercase) {
+            name = self.to_lowercase();
+            &name
+        } else {
+            self
+        };
+        let compression = matches!(encoder.name_mode(), NameEncodingMode::Compressed);
+
+        let buf_len = encoder.len(); // lazily assert the size is less than 255...
+        // lookup the label in the BinEncoder
+        // if it exists, write the Pointer
+        let labels = name_ref.iter();
+
+        // start index of each label
+        let mut labels_written = Vec::with_capacity(name_ref.label_ends.len());
+        // we're going to write out each label, tracking the indexes of the start to each label
+        //   then we'll look to see if we can remove them and recapture the capacity in the buffer...
+        for label in labels {
+            if label.len() > 63 {
+                return Err(ProtoErrorKind::LabelBytesTooLong(label.len()).into());
+            }
+
+            labels_written.push(encoder.offset());
+            encoder.emit_character_data(label)?;
+        }
+        let last_index = encoder.offset();
+        // now search for other labels already stored matching from the beginning label, strip then to the end
+        //   if it's not found, then store this as a new label
+        for label_idx in &labels_written {
+            match encoder.get_label_pointer(*label_idx, last_index) {
+                // if writing canonical and already found, continue
+                Some(_) if !compression => continue,
+                Some(loc) if compression && loc & 0xC000 == 0 => {
+                    // reset back to the beginning of this label, and then write the pointer...
+                    encoder.set_offset(*label_idx);
+                    encoder.trim();
+
+                    // write out the pointer marker
+                    //  or'd with the location which is less than 2^14
+                    encoder.emit_u16(0xC000u16 | loc)?;
+
+                    // we found a pointer don't write more, break
+                    return Ok(());
+                }
+                _ => {
+                    // no existing label exists, store this new one.
+                    encoder.store_label_pointer(*label_idx, last_index);
+                }
+            }
+        }
+
+        // if we're getting here, then we didn't write out a pointer and are ending the name
+        // the end of the list of names
+        encoder.emit(0)?;
+
+        // the entire name needs to be less than 256.
+        let length = encoder.len() - buf_len;
+        if length > 255 {
+            return Err(ProtoErrorKind::DomainNameTooLong(length).into());
+        }
+
+        Ok(())
     }
 }
 
