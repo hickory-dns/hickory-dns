@@ -5,7 +5,10 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use core::marker::PhantomData;
+use core::{
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 use alloc::vec::Vec;
 
@@ -233,6 +236,37 @@ impl<'a> BinEncoder<'a> {
     /// Returns the current name encoding mode
     pub fn name_mode(&self) -> NameEncodingMode {
         self.name_mode
+    }
+
+    /// Temporarily change name encoding mode for RDATA.
+    ///
+    /// If the encoder is using canonical form, name compression will not be used. Otherwise, name
+    /// compression will be used for standard record types.
+    ///
+    /// If the encoder is using canonical form, the case of names will depend on the record type.
+    /// Otherwise, the case will be unchanged.
+    ///
+    /// Returns a [ModalEncoder]. The previous mode will be restored when it is dropped.
+    pub fn with_rdata_behavior<'e>(
+        &'e mut self,
+        rdata_policy: RdataPolicy,
+    ) -> ModalEncoder<'a, 'e> {
+        let previous_mode = self.name_mode();
+
+        match (rdata_policy, self.is_canonical_form()) {
+            (RdataPolicy::StandardRecord, true) | (RdataPolicy::CanonicalLowercase, true) => {
+                self.set_name_mode(NameEncodingMode::UncompressedLowercase)
+            }
+            (RdataPolicy::StandardRecord, false) => {}
+            (RdataPolicy::CanonicalLowercase, false)
+            | (RdataPolicy::Other, true)
+            | (RdataPolicy::Other, false) => self.set_name_mode(NameEncodingMode::Uncompressed),
+        }
+
+        ModalEncoder {
+            previous_mode,
+            inner: self,
+        }
     }
 
     /// trims to the current offset
@@ -497,6 +531,34 @@ pub enum NameEncodingMode {
     Uncompressed,
     /// Encode names transformed to lowercase and without compression.
     UncompressedLowercase,
+}
+
+/// This wraps a [BinEncoder] and applies different name encoding options.
+///
+/// Original name encoding options will be restored when this is dropped.
+pub struct ModalEncoder<'a, 'e> {
+    previous_mode: NameEncodingMode,
+    inner: &'e mut BinEncoder<'a>,
+}
+
+impl<'a> Deref for ModalEncoder<'a, '_> {
+    type Target = BinEncoder<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner
+    }
+}
+
+impl DerefMut for ModalEncoder<'_, '_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.inner
+    }
+}
+
+impl Drop for ModalEncoder<'_, '_> {
+    fn drop(&mut self) {
+        self.inner.set_name_mode(self.previous_mode);
+    }
 }
 
 /// A trait to return the size of a type as it will be encoded in DNS
