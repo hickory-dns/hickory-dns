@@ -199,7 +199,11 @@ impl TBS {
                 //             RR(i) = name | type | class | OrigTTL | RDATA length | RDATA
                 //
                 //                name is calculated according to the function in the RFC 4035
-                name.to_lowercase().emit_as_canonical(&mut encoder, true)?;
+                {
+                    let mut encoder_name =
+                        encoder.with_name_encoding(NameEncoding::UncompressedLowercase);
+                    name.emit(&mut encoder_name)?;
+                }
                 //
                 //                type is the RRset type and all RRs in the class
                 type_covered.emit(&mut encoder)?;
