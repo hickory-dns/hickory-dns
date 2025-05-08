@@ -12,7 +12,7 @@ use crate::proto::{
         message::{self, EmitAndCount},
     },
     rr::Record,
-    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder},
+    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, NameEncoding},
 };
 
 /// A Message which captures the data from an inbound request
@@ -316,7 +316,8 @@ impl EmitAndCount for QueriesEmitAndCount<'_> {
     fn emit(&mut self, encoder: &mut BinEncoder<'_>) -> Result<usize, ProtoError> {
         let original_offset = encoder.offset();
         encoder.emit_vec(self.cached_serialized)?;
-        if !encoder.is_canonical_names() && self.first_query.is_some() {
+        if matches!(encoder.name_encoding(), NameEncoding::Compressed) && self.first_query.is_some()
+        {
             encoder.store_label_pointer(
                 original_offset,
                 original_offset + self.cached_serialized.len(),
