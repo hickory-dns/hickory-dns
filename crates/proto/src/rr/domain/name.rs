@@ -673,6 +673,15 @@ impl Name {
         encoder: &mut BinEncoder<'_>,
         canonical: bool,
     ) -> ProtoResult<()> {
+        self.emit_with_compression(encoder, !canonical)
+    }
+
+    /// Emits the name to the encoder, with or without compression.
+    pub fn emit_with_compression(
+        &self,
+        encoder: &mut BinEncoder<'_>,
+        compression: bool,
+    ) -> ProtoResult<()> {
         let buf_len = encoder.len(); // lazily assert the size is less than 255...
         // lookup the label in the BinEncoder
         // if it exists, write the Pointer
@@ -696,8 +705,8 @@ impl Name {
         for label_idx in &labels_written {
             match encoder.get_label_pointer(*label_idx, last_index) {
                 // if writing canonical and already found, continue
-                Some(_) if canonical => continue,
-                Some(loc) if !canonical && loc & 0xC000 == 0 => {
+                Some(_) if !compression => continue,
+                Some(loc) if compression && loc & 0xC000 == 0 => {
                     // reset back to the beginning of this label, and then write the pointer...
                     encoder.set_offset(*label_idx);
                     encoder.trim();
