@@ -18,7 +18,8 @@ use crate::{
     error::{ProtoError, ProtoResult},
     rr::{Name, RData, RecordData, RecordDataDecodable, RecordType, SerialNumber},
     serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, RDataEncoding, Restrict, RestrictedMath,
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, NameEncoding, RDataEncoding, Restrict,
+        RestrictedMath,
     },
 };
 
@@ -575,7 +576,8 @@ pub fn emit_pre_sig(
     encoder.emit_u32(sig_expiration.0)?;
     encoder.emit_u32(sig_inception.0)?;
     encoder.emit_u16(key_tag)?;
-    signer_name.emit_as_canonical(encoder, true)?;
+    let mut encoder = encoder.with_name_encoding(NameEncoding::UncompressedLowercase);
+    signer_name.emit(&mut encoder)?;
     Ok(())
 }
 

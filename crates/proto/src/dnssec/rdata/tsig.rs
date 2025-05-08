@@ -25,8 +25,8 @@ use crate::{
         record_data::RData, record_type::RecordType,
     },
     serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode, RDataEncoding, Restrict,
-        RestrictedMath,
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode, NameEncoding,
+        RDataEncoding, Restrict, RestrictedMath,
     },
 };
 
@@ -314,10 +314,12 @@ impl TSIG {
         encoder: &mut BinEncoder<'_>,
         key_name: &Name,
     ) -> ProtoResult<()> {
-        key_name.emit_as_canonical(encoder, true)?;
-        DNSClass::ANY.emit(encoder)?;
+        let mut encoder = encoder.with_name_encoding(NameEncoding::UncompressedLowercase);
+
+        key_name.emit(&mut encoder)?;
+        DNSClass::ANY.emit(&mut encoder)?;
         encoder.emit_u32(0)?; // TTL
-        self.algorithm.emit(encoder)?;
+        self.algorithm.emit(&mut encoder)?;
         encoder.emit_u16((self.time >> 32) as u16)?;
         encoder.emit_u32(self.time as u32)?;
         encoder.emit_u16(self.fudge)?;
@@ -511,8 +513,7 @@ impl TsigAlgorithm {
 
     /// Write the Algorithm to the given encoder
     pub fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        self.to_name().emit_as_canonical(encoder, true)?;
-        Ok(())
+        self.to_name().emit(encoder)
     }
 
     /// Read the Algorithm from the given Encoder
