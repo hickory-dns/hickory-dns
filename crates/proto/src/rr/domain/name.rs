@@ -665,17 +665,6 @@ impl Name {
         Ok(name)
     }
 
-    /// Emits the canonical version of the name to the encoder.
-    ///
-    /// In canonical form, there will be no pointers written to the encoder (i.e. no compression).
-    pub fn emit_as_canonical(
-        &self,
-        encoder: &mut BinEncoder<'_>,
-        canonical: bool,
-    ) -> ProtoResult<()> {
-        self.emit_with_compression(encoder, !canonical)
-    }
-
     /// Emits the name to the encoder, with or without compression.
     pub fn emit_with_compression(
         &self,
