@@ -881,6 +881,9 @@ where
     // RRset, then we're in a Bogus state. If we get a ProofError, our result is the same.
     let mut parent = zone.base_name();
     loop {
+        if parent.is_root() {
+            return Err(ProofError::ds_should_exist(zone));
+        }
         match fetch_ds_records(handle, parent.clone(), options).await {
             Ok(_) => {
                 return Err(ProofError::ds_should_exist(zone));
@@ -891,10 +894,7 @@ where
             }) => {}
             Err(err) => return Err(err),
         }
-        parent = match parent.is_root() {
-            true => return Err(ProofError::ds_should_exist(zone)),
-            false => parent.base_name(),
-        };
+        parent = parent.base_name();
     }
 }
 
