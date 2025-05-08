@@ -101,7 +101,12 @@ pub struct BinEncoder<'a> {
     /// start of label pointers with their labels in fully decompressed form for easy comparison, smallvec here?
     name_pointers: Vec<(usize, Vec<u8>)>,
     mode: EncodeMode,
+    /// Legacy flag that disables name compression and transforms names to lowercase.
     canonical_names: bool,
+    /// Whether the encoder should use the DNSSEC canonical form for RDATA.
+    canonical_form: bool,
+    /// How names should be encoded.
+    name_mode: NameEncodingMode,
 }
 
 impl<'a> BinEncoder<'a> {
@@ -141,6 +146,8 @@ impl<'a> BinEncoder<'a> {
             name_pointers: Vec::new(),
             mode,
             canonical_names: false,
+            canonical_form: false,
+            name_mode: NameEncodingMode::Compressed,
         }
     }
 
@@ -206,6 +213,26 @@ impl<'a> BinEncoder<'a> {
         self.set_canonical_names(was_canonical);
 
         res
+    }
+
+    /// If set to true, then records will be written into the buffer in DNSSEC canonical form
+    pub fn set_canonical_form(&mut self, canonical_form: bool) {
+        self.canonical_form = canonical_form;
+    }
+
+    /// Returns true if the encoder is writing in DNSSEC canonical form
+    pub fn is_canonical_form(&self) -> bool {
+        self.canonical_form
+    }
+
+    /// Select how names are encoded
+    pub fn set_name_mode(&mut self, name_mode: NameEncodingMode) {
+        self.name_mode = name_mode;
+    }
+
+    /// Returns the current name encoding mode
+    pub fn name_mode(&self) -> NameEncodingMode {
+        self.name_mode
     }
 
     /// trims to the current offset
@@ -459,6 +486,17 @@ pub enum RdataPolicy {
     /// 4](https://datatracker.ietf.org/doc/html/rfc3597#section-4) and [section
     /// 7](https://datatracker.ietf.org/doc/html/rfc3597#section-7).
     Other,
+}
+
+/// Selects how names should be encoded.
+#[derive(Clone, Copy)]
+pub enum NameEncodingMode {
+    /// Encode names with compression enabled. The case of the name is unchanged.
+    Compressed,
+    /// Encode names without compression. The case of the name is unchanged.
+    Uncompressed,
+    /// Encode names transformed to lowercase and without compression.
+    UncompressedLowercase,
 }
 
 /// A trait to return the size of a type as it will be encoded in DNS

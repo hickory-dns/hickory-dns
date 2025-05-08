@@ -14,7 +14,7 @@ mod restrict;
 use alloc::vec::Vec;
 
 pub use self::decoder::{BinDecoder, DecodeError};
-pub use self::encoder::{BinEncoder, EncodeMode, RdataPolicy};
+pub use self::encoder::{BinEncoder, EncodeMode, NameEncodingMode, RdataPolicy};
 pub use self::restrict::{Restrict, RestrictedMath, Verified};
 
 #[cfg(test)]
