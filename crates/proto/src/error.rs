@@ -383,7 +383,7 @@ impl From<AuthorityData> for NoRecords {
 
         Self {
             query: value.query,
-            soa: Some(value.soa),
+            soa: value.soa,
             ns: None,
             negative_ttl: None,
             response_code,
@@ -399,7 +399,7 @@ pub struct AuthorityData {
     /// Query
     pub query: Box<Query>,
     /// SOA
-    pub soa: Box<Record<SOA>>,
+    pub soa: Option<Box<Record<SOA>>>,
     /// No records found?
     no_records_found: bool,
     /// IS nx domain?
@@ -412,7 +412,7 @@ impl AuthorityData {
     /// Construct a new AuthorityData
     pub fn new(
         query: Box<Query>,
-        soa: Box<Record<SOA>>,
+        soa: Option<Box<Record<SOA>>>,
         no_records_found: bool,
         nx_domain: bool,
         authorities: Option<Arc<[Record]>>,

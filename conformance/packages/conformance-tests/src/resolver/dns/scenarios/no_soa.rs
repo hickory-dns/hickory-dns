@@ -8,7 +8,6 @@ use dns_test::{
 };
 
 #[test]
-#[ignore = "hickory returns SERVFAIL due to the absence of an NS or SOA record"]
 fn no_soa() -> Result<()> {
     let target_fqdn = FQDN::TEST_DOMAIN;
     let network = Network::new()?;
