@@ -433,6 +433,34 @@ impl<'a> BinEncoder<'a> {
     }
 }
 
+/// Determines how names inside RDATA are encoded, depending on the record type and whether DNSSEC
+/// canonical form is used.
+#[derive(Clone, Copy)]
+pub enum RdataPolicy {
+    /// Applicable to standard record types defined in [RFC 1035 section
+    /// 3.3](https://datatracker.ietf.org/doc/html/rfc1035#section-3.3).
+    ///
+    /// Names in the RDATA may be compressed, since these record types are well-known. When encoding
+    /// in DNSSEC canonical form, compression is not used, and names are transformed to lowercase.
+    /// Note that all standard types that contain names in the RDATA are also on the list in [RFC
+    /// 4034 section 6.2](https://datatracker.ietf.org/doc/html/rfc4034#section-6.2).
+    StandardRecord,
+    /// Applicable to record types that were defined after RFC 1035, for which the DNSSEC canonical
+    /// form of the RDATA has names transformed to lowercase. Compression is never used.
+    ///
+    /// This applies to the list of record types defined in [RFC 4034 section
+    /// 6.2](https://datatracker.ietf.org/doc/html/rfc4034#section-6.2) and modified by [RFC 6840,
+    /// section 5.1](https://datatracker.ietf.org/doc/html/rfc6840#section-5.1).
+    CanonicalLowercase,
+    /// Applicable to record types for which names in the RDATA are never compressed and never
+    /// transformed to lowercase.
+    ///
+    /// All newly defined record types must have this behavior, per [RFC 3597 section
+    /// 4](https://datatracker.ietf.org/doc/html/rfc3597#section-4) and [section
+    /// 7](https://datatracker.ietf.org/doc/html/rfc3597#section-7).
+    Other,
+}
+
 /// A trait to return the size of a type as it will be encoded in DNS
 ///
 /// it does not necessarily equal `core::mem::size_of`, though it might, especially for primitives
