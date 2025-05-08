@@ -175,8 +175,7 @@ impl PartialEq<Self> for LowerName {
 
 impl BinEncodable for LowerName {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        let is_canonical_names = encoder.is_canonical_names();
-        self.emit_as_canonical(encoder, is_canonical_names)
+        self.0.emit(encoder)
     }
 }
 

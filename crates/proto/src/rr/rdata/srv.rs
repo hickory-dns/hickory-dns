@@ -211,15 +211,11 @@ impl BinEncodable for SRV {
     /// ```
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         let mut encoder = encoder.with_rdata_behavior(RdataPolicy::CanonicalLowercase);
-        let is_canonical_names = encoder.is_canonical_names();
 
         encoder.emit_u16(self.priority())?;
         encoder.emit_u16(self.weight())?;
         encoder.emit_u16(self.port())?;
-
-        // to_lowercase for rfc4034 and rfc6840
-        self.target()
-            .emit_with_lowercase(&mut encoder, is_canonical_names)?;
+        self.target().emit(&mut encoder)?;
         Ok(())
     }
 }

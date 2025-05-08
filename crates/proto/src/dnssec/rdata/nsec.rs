@@ -151,12 +151,11 @@ impl BinEncodable for NSEC {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         // See RFC 6840 section 5.1.
         let mut encoder = encoder.with_rdata_behavior(RdataPolicy::Other);
-        encoder.with_canonical_names(|encoder| {
-            self.next_domain_name().emit(encoder)?;
-            self.type_bit_maps.emit(encoder)?;
 
-            Ok(())
-        })
+        self.next_domain_name().emit(&mut encoder)?;
+        self.type_bit_maps.emit(&mut encoder)?;
+
+        Ok(())
     }
 }
 

@@ -209,13 +209,14 @@ pub fn verify_flags(flags: &[u8]) -> bool {
 impl BinEncodable for NAPTR {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         let mut encoder = encoder.with_rdata_behavior(RdataPolicy::CanonicalLowercase);
+
         self.order.emit(&mut encoder)?;
         self.preference.emit(&mut encoder)?;
         encoder.emit_character_data(&self.flags)?;
         encoder.emit_character_data(&self.services)?;
         encoder.emit_character_data(&self.regexp)?;
 
-        encoder.with_canonical_names(|encoder| self.replacement.emit(encoder))?;
+        self.replacement.emit(&mut encoder)?;
         Ok(())
     }
 }

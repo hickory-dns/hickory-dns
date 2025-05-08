@@ -485,8 +485,6 @@ impl BinEncodable for SIG {
 }
 
 pub(super) fn emit_inner(sig: &SIG, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-    let is_canonical_names = encoder.is_canonical_names();
-
     sig.type_covered().emit(encoder)?;
     sig.algorithm().emit(encoder)?;
     encoder.emit(sig.num_labels())?;
@@ -494,8 +492,7 @@ pub(super) fn emit_inner(sig: &SIG, encoder: &mut BinEncoder<'_>) -> ProtoResult
     encoder.emit_u32(sig.sig_expiration().0)?;
     encoder.emit_u32(sig.sig_inception().0)?;
     encoder.emit_u16(sig.key_tag())?;
-    sig.signer_name()
-        .emit_with_lowercase(encoder, is_canonical_names)?;
+    sig.signer_name().emit(encoder)?;
     encoder.emit_vec(sig.sig())?;
 
     Ok(())

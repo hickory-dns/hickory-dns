@@ -229,13 +229,9 @@ impl BinEncodable for SOA {
     /// ```
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         let mut encoder = encoder.with_rdata_behavior(RdataPolicy::StandardRecord);
-        let is_canonical_names = encoder.is_canonical_names();
 
-        // to_lowercase for rfc4034 and rfc6840
-        self.mname
-            .emit_with_lowercase(&mut encoder, is_canonical_names)?;
-        self.rname
-            .emit_with_lowercase(&mut encoder, is_canonical_names)?;
+        self.mname.emit(&mut encoder)?;
+        self.rname.emit(&mut encoder)?;
         encoder.emit_u32(self.serial)?;
         encoder.emit_i32(self.refresh)?;
         encoder.emit_i32(self.retry)?;
