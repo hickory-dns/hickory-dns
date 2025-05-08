@@ -18,7 +18,7 @@ use crate::{
     error::{ProtoError, ProtoResult},
     rr::{Name, RData, RecordData, RecordDataDecodable, RecordType, SerialNumber},
     serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, RdataPolicy, Restrict, RestrictedMath,
     },
 };
 
@@ -478,7 +478,8 @@ impl BinEncodable for SIG {
     ///        by the corresponding lowercase US-ASCII letters;
     /// ```
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        emit_inner(self, encoder)
+        let mut encoder = encoder.with_rdata_behavior(RdataPolicy::CanonicalLowercase);
+        emit_inner(self, &mut encoder)
     }
 }
 

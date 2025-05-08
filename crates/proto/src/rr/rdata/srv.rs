@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordType, domain::Name},
-    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder},
+    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, RdataPolicy},
 };
 
 /// [RFC 2782, DNS SRV RR, February 2000](https://tools.ietf.org/html/rfc2782)
@@ -210,6 +210,7 @@ impl BinEncodable for SRV {
     ///        by the corresponding lowercase US-ASCII letters;
     /// ```
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        let mut encoder = encoder.with_rdata_behavior(RdataPolicy::CanonicalLowercase);
         let is_canonical_names = encoder.is_canonical_names();
 
         encoder.emit_u16(self.priority())?;
@@ -218,7 +219,7 @@ impl BinEncodable for SRV {
 
         // to_lowercase for rfc4034 and rfc6840
         self.target()
-            .emit_with_lowercase(encoder, is_canonical_names)?;
+            .emit_with_lowercase(&mut encoder, is_canonical_names)?;
         Ok(())
     }
 }

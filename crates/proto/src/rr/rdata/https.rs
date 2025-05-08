@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
-    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict},
+    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, RdataPolicy, Restrict},
 };
 
 use super::SVCB;
@@ -35,7 +35,8 @@ impl Deref for HTTPS {
 
 impl BinEncodable for HTTPS {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        self.0.emit(encoder)
+        let mut encoder = encoder.with_rdata_behavior(RdataPolicy::Other);
+        self.0.emit(&mut encoder)
     }
 }
 

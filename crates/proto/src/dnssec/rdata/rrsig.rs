@@ -17,7 +17,7 @@ use crate::{
     dnssec::Algorithm,
     error::ProtoResult,
     rr::{Name, RData, Record, RecordData, RecordDataDecodable, RecordType},
-    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict},
+    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, RdataPolicy, Restrict},
 };
 
 use super::{DNSSECRData, SIG};
@@ -129,7 +129,8 @@ impl BinEncodable for RRSIG {
     ///        by the corresponding lowercase US-ASCII letters;
     /// ```
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        super::sig::emit_inner(&self.0, encoder)
+        let mut encoder = encoder.with_rdata_behavior(RdataPolicy::CanonicalLowercase);
+        super::sig::emit_inner(&self.0, &mut encoder)
     }
 }
 
