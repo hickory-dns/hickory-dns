@@ -749,8 +749,7 @@ impl Name {
         encoder: &mut BinEncoder<'_>,
         lowercase: bool,
     ) -> ProtoResult<()> {
-        let compression = matches!(encoder.name_mode(), NameEncodingMode::Compressed)
-            && !encoder.is_canonical_names();
+        let compression = matches!(encoder.name_mode(), NameEncodingMode::Compressed);
         if lowercase {
             self.to_lowercase()
                 .emit_with_compression(encoder, compression)
@@ -1250,8 +1249,7 @@ enum ParseState {
 
 impl BinEncodable for Name {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        let lowercase = matches!(encoder.name_mode(), NameEncodingMode::UncompressedLowercase)
-            | encoder.is_canonical_names();
+        let lowercase = matches!(encoder.name_mode(), NameEncodingMode::UncompressedLowercase);
         self.emit_with_lowercase(encoder, lowercase)
     }
 }

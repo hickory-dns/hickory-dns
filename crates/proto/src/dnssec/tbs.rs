@@ -168,7 +168,6 @@ impl TBS {
 
         {
             let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut buf);
-            encoder.set_canonical_names(true);
             encoder.set_canonical_form(true);
             encoder.set_name_mode(NameEncodingMode::Uncompressed);
 

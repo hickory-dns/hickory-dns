@@ -104,8 +104,6 @@ pub struct BinEncoder<'a> {
     /// start of label pointers with their labels in fully decompressed form for easy comparison, smallvec here?
     name_pointers: Vec<(usize, Vec<u8>)>,
     mode: EncodeMode,
-    /// Legacy flag that disables name compression and transforms names to lowercase.
-    canonical_names: bool,
     /// Whether the encoder should use the DNSSEC canonical form for RDATA.
     canonical_form: bool,
     /// How names should be encoded.
@@ -148,7 +146,6 @@ impl<'a> BinEncoder<'a> {
             buffer: private::MaximalBuf::new(u16::MAX, buf),
             name_pointers: Vec::new(),
             mode,
-            canonical_names: false,
             canonical_form: false,
             name_mode: NameEncodingMode::Compressed,
         }
@@ -192,30 +189,6 @@ impl<'a> BinEncoder<'a> {
     /// Returns the current Encoding mode
     pub fn mode(&self) -> EncodeMode {
         self.mode
-    }
-
-    /// If set to true, then names will be written into the buffer in canonical form
-    pub fn set_canonical_names(&mut self, canonical_names: bool) {
-        self.canonical_names = canonical_names;
-    }
-
-    /// Returns true if then encoder is writing in canonical form
-    pub fn is_canonical_names(&self) -> bool {
-        self.canonical_names
-    }
-
-    /// Emit all names in canonical form, useful for <https://tools.ietf.org/html/rfc3597>
-    pub fn with_canonical_names<F: FnOnce(&mut Self) -> ProtoResult<()>>(
-        &mut self,
-        f: F,
-    ) -> ProtoResult<()> {
-        let was_canonical = self.is_canonical_names();
-        self.set_canonical_names(true);
-
-        let res = f(self);
-        self.set_canonical_names(was_canonical);
-
-        res
     }
 
     /// If set to true, then records will be written into the buffer in DNSSEC canonical form
