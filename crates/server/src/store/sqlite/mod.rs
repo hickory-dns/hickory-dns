@@ -33,7 +33,6 @@ use crate::{
     proto::{
         op::ResponseCode,
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
-        serialize::binary::BinEncodable,
     },
     server::{Request, RequestInfo},
     store::in_memory::InMemoryAuthority,
@@ -928,9 +927,7 @@ impl SqliteAuthority {
             return Err(ResponseCode::Refused);
         };
 
-        let Ok((_, _, range)) =
-            signer.verify_message_byte(request.to_bytes().unwrap_or_default().as_ref(), None, true)
-        else {
+        let Ok((_, _, range)) = signer.verify_message_byte(request.as_slice(), None, true) else {
             warn!("invalid TSIG signature: id {}", request.id());
             return Err(ResponseCode::Refused);
         };
