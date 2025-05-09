@@ -529,7 +529,7 @@ impl SqliteAuthority {
     /// ```
     ///
     #[cfg(feature = "__dnssec")]
-    pub async fn authorize(&self, update_message: &MessageRequest) -> UpdateResult<()> {
+    pub async fn authorize(&self, request: &MessageRequest) -> UpdateResult<()> {
         // 3.3.3 - Pseudocode for Permission Checking
         //
         //      if (security policy exists)
@@ -548,9 +548,9 @@ impl SqliteAuthority {
             return Err(ResponseCode::Refused);
         }
 
-        match update_message.signature() {
-            MessageSignature::Sig0(sig0) => self.authorized_sig0(update_message, sig0).await,
-            MessageSignature::Tsig(tsig) => self.authorized_tsig(update_message, tsig).await,
+        match request.signature() {
+            MessageSignature::Sig0(sig0) => self.authorized_sig0(sig0, request).await,
+            MessageSignature::Tsig(tsig) => self.authorized_tsig(tsig, request).await,
             MessageSignature::Unsigned => Err(ResponseCode::Refused),
         }
     }
@@ -877,18 +877,11 @@ impl SqliteAuthority {
     }
 
     #[cfg(feature = "__dnssec")]
-    async fn authorized_sig0(
-        &self,
-        update_message: &MessageRequest,
-        sig0: &Record,
-    ) -> UpdateResult<()> {
+    async fn authorized_sig0(&self, sig0: &Record, request: &MessageRequest) -> UpdateResult<()> {
         debug!("authorizing with: {sig0:?}");
 
         let Some(sig0) = sig0.data().as_dnssec().and_then(DNSSECRData::as_sig) else {
-            warn!(
-                "no sig0 matched registered records: id {}",
-                update_message.id()
-            );
+            warn!("no sig0 matched registered records: id {}", request.id());
             return Err(ResponseCode::Refused);
         };
 
@@ -897,7 +890,7 @@ impl SqliteAuthority {
             .lookup(&name, RecordType::KEY, LookupOptions::default())
             .await
         else {
-            warn!("no sig0 key name matched: id {}", update_message.id());
+            warn!("no sig0 key name matched: id {}", request.id());
             return Err(ResponseCode::Refused);
         };
 
@@ -905,49 +898,41 @@ impl SqliteAuthority {
         let verified = keys
             .iter()
             .filter_map(|rr_set| rr_set.data().as_dnssec().and_then(DNSSECRData::as_key))
-            .any(
-                |key| match key.verify_message(update_message, sig0.sig(), sig0) {
-                    Ok(_) => {
-                        info!("verified sig: {sig0:?} with key: {key:?}");
-                        true
-                    }
-                    Err(_) => {
-                        debug!("did not verify sig: {sig0:?} with key: {key:?}");
-                        false
-                    }
-                },
-            );
+            .any(|key| match key.verify_message(request, sig0.sig(), sig0) {
+                Ok(_) => {
+                    info!("verified sig: {sig0:?} with key: {key:?}");
+                    true
+                }
+                Err(_) => {
+                    debug!("did not verify sig: {sig0:?} with key: {key:?}");
+                    false
+                }
+            });
         match verified {
             true => Ok(()),
             false => {
-                warn!("invalid sig0 signature: id {}", update_message.id());
+                warn!("invalid sig0 signature: id {}", request.id());
                 Err(ResponseCode::Refused)
             }
         }
     }
 
     #[cfg(feature = "__dnssec")]
-    async fn authorized_tsig(
-        &self,
-        update_message: &MessageRequest,
-        tsig: &Record,
-    ) -> UpdateResult<()> {
+    async fn authorized_tsig(&self, tsig: &Record, request: &MessageRequest) -> UpdateResult<()> {
         debug!("authorizing with: {tsig:?}");
         let Some(signer) = self
             .tsig_signers
             .iter()
             .find(|signer| signer.signer_name() == tsig.name())
         else {
-            warn!("no TSIG key name matched: id {}", update_message.id());
+            warn!("no TSIG key name matched: id {}", request.id());
             return Err(ResponseCode::Refused);
         };
 
-        let Ok((_, _, range)) = signer.verify_message_byte(
-            update_message.to_bytes().unwrap_or_default().as_ref(),
-            None,
-            true,
-        ) else {
-            warn!("invalid TSIG signature: id {}", update_message.id());
+        let Ok((_, _, range)) =
+            signer.verify_message_byte(request.to_bytes().unwrap_or_default().as_ref(), None, true)
+        else {
+            warn!("invalid TSIG signature: id {}", request.id());
             return Err(ResponseCode::Refused);
         };
 
@@ -956,7 +941,7 @@ impl SqliteAuthority {
             .map(|t| t.as_secs())
             .unwrap_or_default();
         if !range.contains(&now) {
-            warn!("expired TSIG signature: id {}", update_message.id());
+            warn!("expired TSIG signature: id {}", request.id());
             return Err(ResponseCode::Refused);
         }
 
