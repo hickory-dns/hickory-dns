@@ -993,52 +993,6 @@ impl Authority for SqliteAuthority {
 
     /// Takes the UpdateMessage, extracts the Records, and applies the changes to the record set.
     ///
-    /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
-    ///
-    /// ```text
-    ///
-    /// 3.4 - Process Update Section
-    ///
-    ///   Next, the Update Section is processed as follows.
-    ///
-    /// 3.4.2 - Update
-    ///
-    ///   The Update Section is parsed into RRs and these RRs are processed in
-    ///   order.
-    ///
-    /// 3.4.2.1. If any system failure (such as an out of memory condition,
-    ///   or a hardware error in persistent storage) occurs during the
-    ///   processing of this section, signal SERVFAIL to the requestor and undo
-    ///   all updates applied to the zone during this transaction.
-    ///
-    /// 3.4.2.2. Any Update RR whose CLASS is the same as ZCLASS is added to
-    ///   the zone.  In case of duplicate RDATAs (which for SOA RRs is always
-    ///   the case, and for WKS RRs is the case if the ADDRESS and PROTOCOL
-    ///   fields both match), the Zone RR is replaced by Update RR.  If the
-    ///   TYPE is SOA and there is no Zone SOA RR, or the new SOA.SERIAL is
-    ///   lower (according to [RFC1982]) than or equal to the current Zone SOA
-    ///   RR's SOA.SERIAL, the Update RR is ignored.  In the case of a CNAME
-    ///   Update RR and a non-CNAME Zone RRset or vice versa, ignore the CNAME
-    ///   Update RR, otherwise replace the CNAME Zone RR with the CNAME Update
-    ///   RR.
-    ///
-    /// 3.4.2.3. For any Update RR whose CLASS is ANY and whose TYPE is ANY,
-    ///   all Zone RRs with the same NAME are deleted, unless the NAME is the
-    ///   same as ZNAME in which case only those RRs whose TYPE is other than
-    ///   SOA or NS are deleted.  For any Update RR whose CLASS is ANY and
-    ///   whose TYPE is not ANY all Zone RRs with the same NAME and TYPE are
-    ///   deleted, unless the NAME is the same as ZNAME in which case neither
-    ///   SOA or NS RRs will be deleted.
-    ///
-    /// 3.4.2.4. For any Update RR whose class is NONE, any Zone RR whose
-    ///   NAME, TYPE, RDATA and RDLENGTH are equal to the Update RR is deleted,
-    ///   unless the NAME is the same as ZNAME and either the TYPE is SOA or
-    ///   the TYPE is NS and the matching Zone RR is the only NS remaining in
-    ///   the RRset, in which case this Update RR is ignored.
-    ///
-    /// 3.4.2.5. Signal NOERROR to the requestor.
-    /// ```
-    ///
     /// # Arguments
     ///
     /// * `update` - The `UpdateMessage` records will be extracted and used to perform the update
@@ -1046,22 +1000,26 @@ impl Authority for SqliteAuthority {
     ///
     /// # Return value
     ///
-    /// true if any of additions, updates or deletes were made to the zone, false otherwise. Err is
-    ///  returned in the case of bad data, etc.
-    #[cfg(feature = "__dnssec")]
-    async fn update(&self, update: &MessageRequest) -> UpdateResult<bool> {
-        // the spec says to authorize after prereqs, seems better to auth first.
-        self.authorize(update).await?;
-        self.verify_prerequisites(update.prerequisites()).await?;
-        self.pre_scan(update.updates()).await?;
-
-        self.update_records(update.updates(), true).await
-    }
-
-    /// Always fail when DNSSEC is disabled.
-    #[cfg(not(feature = "__dnssec"))]
+    /// Always returns `Err(NotImp)` if DNSSEC is disabled. Returns `Ok(true)` if any of additions,
+    /// updates or deletes were made to the zone, false otherwise. Err is returned in the case of
+    /// bad data, etc.
+    ///
+    /// See [RFC 2136](https://datatracker.ietf.org/doc/html/rfc2136#section-3) section 3.4 for
+    /// details.
     async fn update(&self, _update: &MessageRequest) -> UpdateResult<bool> {
-        Err(ResponseCode::NotImp)
+        #[cfg(feature = "__dnssec")]
+        {
+            // the spec says to authorize after prereqs, seems better to auth first.
+            self.authorize(_update).await?;
+            self.verify_prerequisites(_update.prerequisites()).await?;
+            self.pre_scan(_update.updates()).await?;
+            self.update_records(_update.updates(), true).await
+        }
+        #[cfg(not(feature = "__dnssec"))]
+        {
+            // if we don't have dnssec, we can't do updates.
+            Err(ResponseCode::NotImp)
+        }
     }
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
