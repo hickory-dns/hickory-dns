@@ -977,8 +977,8 @@ impl BinEncodable for RData {
         match self {
             Self::A(address) => address.emit(encoder),
             Self::AAAA(address) => address.emit(encoder),
-            Self::ANAME(name) => encoder.with_canonical_names(|encoder| name.emit(encoder)),
-            Self::CAA(caa) => encoder.with_canonical_names(|encoder| caa.emit(encoder)),
+            Self::ANAME(name) => name.emit(encoder),
+            Self::CAA(caa) => caa.emit(encoder),
             Self::CERT(cert) => cert.emit(encoder),
             Self::CNAME(cname) => cname.emit(encoder),
             Self::NS(ns) => ns.emit(encoder),
@@ -988,20 +988,18 @@ impl BinEncodable for RData {
             Self::HTTPS(https) => https.emit(encoder),
             Self::ZERO => Ok(()),
             Self::MX(mx) => mx.emit(encoder),
-            Self::NAPTR(naptr) => encoder.with_canonical_names(|encoder| naptr.emit(encoder)),
+            Self::NAPTR(naptr) => naptr.emit(encoder),
             Self::NULL(null) => null.emit(encoder),
-            Self::OPENPGPKEY(openpgpkey) => {
-                encoder.with_canonical_names(|encoder| openpgpkey.emit(encoder))
-            }
+            Self::OPENPGPKEY(openpgpkey) => openpgpkey.emit(encoder),
             Self::OPT(opt) => opt.emit(encoder),
             Self::SOA(soa) => soa.emit(encoder),
-            Self::SRV(srv) => encoder.with_canonical_names(|encoder| srv.emit(encoder)),
-            Self::SSHFP(sshfp) => encoder.with_canonical_names(|encoder| sshfp.emit(encoder)),
+            Self::SRV(srv) => srv.emit(encoder),
+            Self::SSHFP(sshfp) => sshfp.emit(encoder),
             Self::SVCB(svcb) => svcb.emit(encoder),
-            Self::TLSA(tlsa) => encoder.with_canonical_names(|encoder| tlsa.emit(encoder)),
+            Self::TLSA(tlsa) => tlsa.emit(encoder),
             Self::TXT(txt) => txt.emit(encoder),
             #[cfg(feature = "__dnssec")]
-            Self::DNSSEC(rdata) => encoder.with_canonical_names(|encoder| rdata.emit(encoder)),
+            Self::DNSSEC(rdata) => rdata.emit(encoder),
             Self::Unknown { rdata, .. } => rdata.emit(encoder),
             Self::Update0(_) => Ok(()),
         }

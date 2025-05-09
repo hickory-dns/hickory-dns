@@ -18,7 +18,7 @@ use crate::{
     error::{ProtoError, ProtoResult},
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, RDataEncoding, Restrict, RestrictedMath,
     },
 };
 
@@ -462,6 +462,7 @@ impl TryFrom<&[u8]> for CERT {
 
 impl BinEncodable for CERT {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        let mut encoder = encoder.with_rdata_behavior(RDataEncoding::Other);
         encoder.emit_u16(self.cert_type.into())?;
         encoder.emit_u16(self.key_tag)?;
         encoder.emit_u8(self.algorithm.into())?;

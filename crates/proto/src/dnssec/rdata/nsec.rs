@@ -149,12 +149,13 @@ impl BinEncodable for NSEC {
     ///   records are converted to lowercase.
     /// ```
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.with_canonical_names(|encoder| {
-            self.next_domain_name().emit(encoder)?;
-            self.type_bit_maps.emit(encoder)?;
+        // See RFC 6840 section 5.1.
+        let mut encoder = encoder.with_rdata_behavior(RDataEncoding::Other);
 
-            Ok(())
-        })
+        self.next_domain_name().emit(&mut encoder)?;
+        self.type_bit_maps.emit(&mut encoder)?;
+
+        Ok(())
     }
 }
 

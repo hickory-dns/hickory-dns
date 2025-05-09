@@ -18,7 +18,7 @@ use crate::{
     error::{ProtoError, ProtoResult},
     rr::{Name, RData, RecordData, RecordDataDecodable, RecordType, SerialNumber},
     serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, RDataEncoding, Restrict, RestrictedMath,
     },
 };
 
@@ -478,18 +478,17 @@ impl BinEncodable for SIG {
     ///        by the corresponding lowercase US-ASCII letters;
     /// ```
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        let is_canonical_names = encoder.is_canonical_names();
-
-        self.type_covered().emit(encoder)?;
-        self.algorithm().emit(encoder)?;
+        let mut encoder = encoder.with_rdata_behavior(RDataEncoding::Canonical);
+        self.type_covered().emit(&mut encoder)?;
+        self.algorithm().emit(&mut encoder)?;
         encoder.emit(self.num_labels())?;
         encoder.emit_u32(self.original_ttl())?;
         encoder.emit_u32(self.sig_expiration().0)?;
         encoder.emit_u32(self.sig_inception().0)?;
         encoder.emit_u16(self.key_tag())?;
-        self.signer_name()
-            .emit_with_lowercase(encoder, is_canonical_names)?;
+        self.signer_name().emit(&mut encoder)?;
         encoder.emit_vec(self.sig())?;
+
         Ok(())
     }
 }

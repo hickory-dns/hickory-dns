@@ -572,6 +572,7 @@ fn emit_tag(buf: &mut [u8], tag: &str) -> ProtoResult<u8> {
 
 impl BinEncodable for CAA {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        let mut encoder = encoder.with_rdata_behavior(RDataEncoding::Other);
         encoder.emit(self.flags())?;
         // TODO: it might be interesting to use the new place semantics here to output all the data, then place the length back to the beginning...
         let mut tag_buf = [0_u8; u8::MAX as usize];

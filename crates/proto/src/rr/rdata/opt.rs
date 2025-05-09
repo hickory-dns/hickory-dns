@@ -23,7 +23,9 @@ use tracing::warn;
 use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
-    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict},
+    serialize::binary::{
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, RDataEncoding, Restrict,
+    },
 };
 
 #[cfg(feature = "__dnssec")]
@@ -241,10 +243,11 @@ impl AsRef<[(EdnsCode, EdnsOption)]> for OPT {
 
 impl BinEncodable for OPT {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        let mut encoder = encoder.with_rdata_behavior(RDataEncoding::Other);
         for (edns_code, edns_option) in self.as_ref().iter() {
             encoder.emit_u16(u16::from(*edns_code))?;
             encoder.emit_u16(edns_option.len())?;
-            edns_option.emit(encoder)?
+            edns_option.emit(&mut encoder)?
         }
         Ok(())
     }
