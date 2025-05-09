@@ -14,6 +14,7 @@ use std::{
     task::{Context, Poll},
 };
 
+use bytes::Bytes;
 use futures::{
     Future, FutureExt, future,
     stream::{Stream, StreamExt},
@@ -145,12 +146,13 @@ impl Stream for TestClientStream {
 
         match self.outbound_messages.next().poll_unpin(cx) {
             // already handled above, here to make sure the poll() pops the next message
-            Poll::Ready(Some(bytes)) => {
-                let mut decoder = BinDecoder::new(bytes.bytes());
+            Poll::Ready(Some(message)) => {
+                let (bytes, _) = message.into_parts();
+                let mut decoder = BinDecoder::new(&bytes);
                 let src_addr = SocketAddr::from(([127, 0, 0, 1], 1234));
 
                 let message = MessageRequest::read(&mut decoder).expect("could not decode message");
-                let request = Request::new(message, src_addr, Protocol::Udp);
+                let request = Request::new(message, Bytes::from(bytes), src_addr, Protocol::Udp);
 
                 let response_handler = TestResponseHandler::new();
                 block_on(

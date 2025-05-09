@@ -979,7 +979,7 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
     // Attempt to decode the message
     match MessageRequest::read(&mut decoder) {
         Ok(message) => {
-            let request = Request::new(message, src_addr, protocol);
+            let request = Request::new(message, message_bytes, src_addr, protocol);
             inner_handle_request(request, request_handler, response_handler).await;
         }
         Err(ProtoError { kind, .. }) if kind.as_form_error().is_some() => {
