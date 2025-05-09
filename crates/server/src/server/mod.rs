@@ -943,99 +943,6 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
     response_handler: R,
 ) {
     let mut decoder = BinDecoder::new(message_bytes);
-
-    // method to handle the request
-    let inner_handle_request = |message: MessageRequest, response_handler: R| async move {
-        if message.message_type() == MessageType::Response {
-            // Don't process response messages to avoid DoS attacks from reflection.
-            return;
-        }
-
-        let id = message.id();
-        let qflags = message.header().flags();
-        let qop_code = message.op_code();
-        let message_type = message.message_type();
-        let is_dnssec = message.edns().is_some_and(|edns| edns.flags().dnssec_ok);
-
-        let request = Request::new(message, src_addr, protocol);
-
-        debug!(
-            "request:{id} src:{proto}://{addr}#{port} type:{message_type} dnssec:{is_dnssec} {op} qflags:{qflags}",
-            id = id,
-            proto = protocol,
-            addr = src_addr.ip(),
-            port = src_addr.port(),
-            message_type = message_type,
-            is_dnssec = is_dnssec,
-            op = qop_code,
-            qflags = qflags
-        );
-        for query in request.queries().iter() {
-            debug!(
-                "query:{query}:{qtype}:{class}",
-                query = query.name(),
-                qtype = query.query_type(),
-                class = query.query_class()
-            );
-        }
-
-        // The reporter will handle making sure to log the result of the request
-        let queries = request.queries().to_vec();
-        let reporter = ReportingResponseHandler {
-            request_header: *request.header(),
-            queries,
-            protocol,
-            src_addr,
-            handler: response_handler,
-            #[cfg(feature = "metrics")]
-            metrics: ResponseHandlerMetrics::default(),
-        };
-
-        request_handler.handle_request(&request, reporter).await;
-    };
-
-    // method to return an error to the client
-    let error_response_handler = |protocol: Protocol,
-                                  src_addr: SocketAddr,
-                                  header: Header,
-                                  queries: Queries,
-                                  response_code: ResponseCode,
-                                  error: Box<ProtoError>,
-                                  response_handler: R| async move {
-        // debug for more info on why the message parsing failed
-        debug!(
-            "request:{id} src:{proto}://{addr}#{port} type:{message_type} {op}:{response_code}:{error}",
-            id = header.id(),
-            proto = protocol,
-            addr = src_addr.ip(),
-            port = src_addr.port(),
-            message_type = header.message_type(),
-            op = header.op_code(),
-            response_code = response_code,
-            error = error,
-        );
-
-        // The reporter will handle making sure to log the result of the request
-        let mut reporter = ReportingResponseHandler {
-            request_header: header,
-            queries: queries.queries().to_vec(),
-            protocol,
-            src_addr,
-            handler: response_handler,
-            #[cfg(feature = "metrics")]
-            metrics: ResponseHandlerMetrics::default(),
-        };
-
-        let response = MessageResponseBuilder::new(&queries);
-        let result = reporter
-            .send_response(response.error_msg(&header, response_code))
-            .await;
-
-        if let Err(e) = result {
-            warn!("failed to return FormError to client: {}", e);
-        }
-    };
-
     if !access.allow(src_addr.ip()) {
         info!(
             "request:Refused src:{proto}://{addr}#{port}",
@@ -1071,7 +978,14 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
     // Attempt to decode the message
     match MessageRequest::read(&mut decoder) {
         Ok(message) => {
-            inner_handle_request(message, response_handler).await;
+            inner_handle_request(
+                message,
+                src_addr,
+                protocol,
+                request_handler,
+                response_handler,
+            )
+            .await;
         }
         Err(ProtoError { kind, .. }) if kind.as_form_error().is_some() => {
             // We failed to parse the request due to some issue in the message, but the header is available, so we can respond
@@ -1097,6 +1011,106 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
             addr = src_addr.ip(),
             port = src_addr.port(),
         ),
+    }
+}
+
+// method to handle the request
+async fn inner_handle_request(
+    message: MessageRequest,
+    src_addr: SocketAddr,
+    protocol: Protocol,
+    request_handler: Arc<impl RequestHandler>,
+    response_handler: impl ResponseHandler,
+) {
+    if message.message_type() == MessageType::Response {
+        // Don't process response messages to avoid DoS attacks from reflection.
+        return;
+    }
+
+    let id = message.id();
+    let qflags = message.header().flags();
+    let qop_code = message.op_code();
+    let message_type = message.message_type();
+    let is_dnssec = message.edns().is_some_and(|edns| edns.flags().dnssec_ok);
+
+    let request = Request::new(message, src_addr, protocol);
+
+    debug!(
+        "request:{id} src:{proto}://{addr}#{port} type:{message_type} dnssec:{is_dnssec} {op} qflags:{qflags}",
+        id = id,
+        proto = protocol,
+        addr = src_addr.ip(),
+        port = src_addr.port(),
+        message_type = message_type,
+        is_dnssec = is_dnssec,
+        op = qop_code,
+        qflags = qflags
+    );
+    for query in request.queries().iter() {
+        debug!(
+            "query:{query}:{qtype}:{class}",
+            query = query.name(),
+            qtype = query.query_type(),
+            class = query.query_class()
+        );
+    }
+
+    // The reporter will handle making sure to log the result of the request
+    let queries = request.queries().to_vec();
+    let reporter = ReportingResponseHandler {
+        request_header: *request.header(),
+        queries,
+        protocol,
+        src_addr,
+        handler: response_handler,
+        #[cfg(feature = "metrics")]
+        metrics: ResponseHandlerMetrics::default(),
+    };
+
+    request_handler.handle_request(&request, reporter).await;
+}
+
+// method to return an error to the client
+async fn error_response_handler(
+    protocol: Protocol,
+    src_addr: SocketAddr,
+    header: Header,
+    queries: Queries,
+    response_code: ResponseCode,
+    error: Box<ProtoError>,
+    response_handler: impl ResponseHandler,
+) {
+    // debug for more info on why the message parsing failed
+    debug!(
+        "request:{id} src:{proto}://{addr}#{port} type:{message_type} {op}:{response_code}:{error}",
+        id = header.id(),
+        proto = protocol,
+        addr = src_addr.ip(),
+        port = src_addr.port(),
+        message_type = header.message_type(),
+        op = header.op_code(),
+        response_code = response_code,
+        error = error,
+    );
+
+    // The reporter will handle making sure to log the result of the request
+    let mut reporter = ReportingResponseHandler {
+        request_header: header,
+        queries: queries.queries().to_vec(),
+        protocol,
+        src_addr,
+        handler: response_handler,
+        #[cfg(feature = "metrics")]
+        metrics: ResponseHandlerMetrics::default(),
+    };
+
+    let response = MessageResponseBuilder::new(&queries);
+    let result = reporter
+        .send_response(response.error_msg(&header, response_code))
+        .await;
+
+    if let Err(e) = result {
+        warn!("failed to return FormError to client: {}", e);
     }
 }
 
