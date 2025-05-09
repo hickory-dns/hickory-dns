@@ -76,7 +76,7 @@ where
             &request,
             src_addr,
             Protocol::Quic,
-            access,
+            &access,
             handler,
             responder,
         )

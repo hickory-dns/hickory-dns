@@ -83,7 +83,7 @@ where
         let responder = H3ResponseHandle(stream.clone());
 
         tokio::spawn(async move {
-            super::handle_request(&request, src_addr, Protocol::H3, access, handler, responder)
+            super::handle_request(&request, src_addr, Protocol::H3, &access, handler, responder)
                 .await
         });
 

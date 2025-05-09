@@ -86,8 +86,15 @@ pub(crate) async fn h2_handler<T, I>(
                 }
             };
 
-            super::handle_request(&body, src_addr, Protocol::Https, access, handler, responder)
-                .await
+            super::handle_request(
+                &body,
+                src_addr,
+                Protocol::Https,
+                &access,
+                handler,
+                responder,
+            )
+            .await
         });
 
         // we'll continue handling requests from here.
