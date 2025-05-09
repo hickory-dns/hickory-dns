@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use bytes::Bytes;
 use hickory_integration::TestResponseHandler;
 use hickory_proto::{
     op::{Message, MessageType, Query, ResponseCode},
@@ -330,7 +331,12 @@ async fn do_query(catalog: &Catalog, query_name: &str) -> (ResponseInfo, TestRes
 
     let question_bytes = question.to_bytes().unwrap();
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
-    let question_req = Request::new(question_req, ([127, 0, 0, 1], 5553).into(), Protocol::Udp);
+    let question_req = Request::new(
+        question_req,
+        Bytes::from(question_bytes),
+        ([127, 0, 0, 1], 5553).into(),
+        Protocol::Udp,
+    );
     let response_handler = TestResponseHandler::new();
 
     let res = catalog

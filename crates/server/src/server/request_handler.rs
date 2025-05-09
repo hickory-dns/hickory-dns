@@ -9,11 +9,12 @@
 
 use std::net::SocketAddr;
 
-use hickory_proto::ProtoError;
+use bytes::Bytes;
 
 use crate::{
     authority::MessageRequest,
     proto::{
+        ProtoError,
         op::{Header, LowerQuery, ResponseCode},
         xfer::Protocol,
     },
@@ -25,6 +26,7 @@ use crate::{
 pub struct Request {
     /// Message with the associated query or update data
     pub(crate) message: MessageRequest,
+    pub(crate) raw: Bytes,
     /// Source address of the Client
     src: SocketAddr,
     /// Protocol of the request
@@ -35,9 +37,10 @@ impl Request {
     /// Build a new requests with the inbound message, source address, and protocol.
     ///
     /// This will return an error on bad verification.
-    pub fn new(message: MessageRequest, src: SocketAddr, protocol: Protocol) -> Self {
+    pub fn new(message: MessageRequest, raw: Bytes, src: SocketAddr, protocol: Protocol) -> Self {
         Self {
             message,
+            raw,
             src,
             protocol,
         }
@@ -63,6 +66,11 @@ impl Request {
     /// The protocol that was used for the request
     pub fn protocol(&self) -> Protocol {
         self.protocol
+    }
+
+    /// The raw bytes of the request
+    pub fn as_slice(&self) -> &[u8] {
+        &self.raw
     }
 }
 
