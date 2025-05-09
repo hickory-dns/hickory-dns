@@ -24,7 +24,7 @@ use crate::{
 #[derive(Debug)]
 pub struct Request {
     /// Message with the associated query or update data
-    message: MessageRequest,
+    pub(crate) message: MessageRequest,
     /// Source address of the Client
     src: SocketAddr,
     /// Protocol of the request

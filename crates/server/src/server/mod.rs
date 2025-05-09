@@ -978,14 +978,8 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
     // Attempt to decode the message
     match MessageRequest::read(&mut decoder) {
         Ok(message) => {
-            inner_handle_request(
-                message,
-                src_addr,
-                protocol,
-                request_handler,
-                response_handler,
-            )
-            .await;
+            let request = Request::new(message, src_addr, protocol);
+            inner_handle_request(request, request_handler, response_handler).await;
         }
         Err(ProtoError { kind, .. }) if kind.as_form_error().is_some() => {
             // We failed to parse the request due to some issue in the message, but the header is available, so we can respond
@@ -1016,31 +1010,30 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
 
 // method to handle the request
 async fn inner_handle_request(
-    message: MessageRequest,
-    src_addr: SocketAddr,
-    protocol: Protocol,
+    request: Request,
     request_handler: Arc<impl RequestHandler>,
     response_handler: impl ResponseHandler,
 ) {
-    if message.message_type() == MessageType::Response {
+    if request.message.message_type() == MessageType::Response {
         // Don't process response messages to avoid DoS attacks from reflection.
         return;
     }
 
-    let id = message.id();
-    let qflags = message.header().flags();
-    let qop_code = message.op_code();
-    let message_type = message.message_type();
-    let is_dnssec = message.edns().is_some_and(|edns| edns.flags().dnssec_ok);
-
-    let request = Request::new(message, src_addr, protocol);
+    let id = request.message.id();
+    let qflags = request.message.header().flags();
+    let qop_code = request.message.op_code();
+    let message_type = request.message.message_type();
+    let is_dnssec = request
+        .message
+        .edns()
+        .is_some_and(|edns| edns.flags().dnssec_ok);
 
     debug!(
         "request:{id} src:{proto}://{addr}#{port} type:{message_type} dnssec:{is_dnssec} {op} qflags:{qflags}",
         id = id,
-        proto = protocol,
-        addr = src_addr.ip(),
-        port = src_addr.port(),
+        proto = request.protocol(),
+        addr = request.src().ip(),
+        port = request.src().port(),
         message_type = message_type,
         is_dnssec = is_dnssec,
         op = qop_code,
@@ -1060,8 +1053,8 @@ async fn inner_handle_request(
     let reporter = ReportingResponseHandler {
         request_header: *request.header(),
         queries,
-        protocol,
-        src_addr,
+        protocol: request.protocol(),
+        src_addr: request.src(),
         handler: response_handler,
         #[cfg(feature = "metrics")]
         metrics: ResponseHandlerMetrics::default(),
