@@ -27,7 +27,7 @@ use crate::{
         rdata::{A, AAAA},
     },
     serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, RDataEncoding, Restrict, RestrictedMath,
     },
 };
 
@@ -1067,8 +1067,10 @@ impl fmt::Display for Unknown {
 
 impl BinEncodable for SVCB {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        self.svc_priority.emit(encoder)?;
-        self.target_name.emit(encoder)?;
+        let mut encoder = encoder.with_rdata_behavior(RDataEncoding::Other);
+
+        self.svc_priority.emit(&mut encoder)?;
+        self.target_name.emit(&mut encoder)?;
 
         let mut last_key: Option<SvcParamKey> = None;
         for (key, param) in self.svc_params.iter() {
@@ -1078,8 +1080,8 @@ impl BinEncodable for SVCB {
                 }
             }
 
-            key.emit(encoder)?;
-            param.emit(encoder)?;
+            key.emit(&mut encoder)?;
+            param.emit(&mut encoder)?;
 
             last_key = Some(*key);
         }

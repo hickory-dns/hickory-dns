@@ -25,7 +25,8 @@ use crate::{
         record_data::RData, record_type::RecordType,
     },
     serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode, Restrict, RestrictedMath,
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode, RDataEncoding, Restrict,
+        RestrictedMath,
     },
 };
 
@@ -361,7 +362,8 @@ impl BinEncodable for TSIG {
     ///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /// ```
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        self.algorithm.emit(encoder)?;
+        let mut encoder = encoder.with_rdata_behavior(RDataEncoding::Other);
+        self.algorithm.emit(&mut encoder)?;
         encoder.emit_u16(
             (self.time >> 32)
                 .try_into()

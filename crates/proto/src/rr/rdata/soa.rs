@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordType, domain::Name},
-    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder},
+    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, RDataEncoding},
 };
 
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
@@ -228,13 +228,10 @@ impl BinEncodable for SOA {
     ///        by the corresponding lowercase US-ASCII letters;
     /// ```
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        let is_canonical_names = encoder.is_canonical_names();
+        let mut encoder = encoder.with_rdata_behavior(RDataEncoding::StandardRecord);
 
-        // to_lowercase for rfc4034 and rfc6840
-        self.mname
-            .emit_with_lowercase(encoder, is_canonical_names)?;
-        self.rname
-            .emit_with_lowercase(encoder, is_canonical_names)?;
+        self.mname.emit(&mut encoder)?;
+        self.rname.emit(&mut encoder)?;
         encoder.emit_u32(self.serial)?;
         encoder.emit_i32(self.refresh)?;
         encoder.emit_i32(self.retry)?;
