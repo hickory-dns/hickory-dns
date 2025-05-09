@@ -19,13 +19,13 @@ use tracing::warn;
 use crate::{
     authority::{
         AnyRecords, AuthLookup, Authority, LookupControlFlow, LookupError, LookupOptions,
-        LookupRecords, MessageRequest, UpdateResult, ZoneType,
+        LookupRecords, UpdateResult, ZoneType,
     },
     proto::{
         op::ResponseCode,
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey, rdata::SOA},
     },
-    server::RequestInfo,
+    server::{Request, RequestInfo},
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
@@ -380,7 +380,7 @@ impl Authority for InMemoryAuthority {
     ///
     /// true if any of additions, updates or deletes were made to the zone, false otherwise. Err is
     ///  returned in the case of bad data, etc.
-    async fn update(&self, _update: &MessageRequest) -> UpdateResult<bool> {
+    async fn update(&self, _update: &Request) -> UpdateResult<bool> {
         Err(ResponseCode::NotImp)
     }
 

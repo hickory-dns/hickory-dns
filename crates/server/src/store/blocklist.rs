@@ -27,8 +27,8 @@ use tracing::{error, info, trace};
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
-        Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, MessageRequest,
-        UpdateResult, ZoneType,
+        Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, UpdateResult,
+        ZoneType,
     },
     proto::{
         op::{Query, ResponseCode},
@@ -38,7 +38,7 @@ use crate::{
         },
     },
     resolver::lookup::Lookup,
-    server::RequestInfo,
+    server::{Request, RequestInfo},
 };
 
 // TODO:
@@ -331,7 +331,7 @@ impl Authority for BlocklistAuthority {
         false
     }
 
-    async fn update(&self, _update: &MessageRequest) -> UpdateResult<bool> {
+    async fn update(&self, _update: &Request) -> UpdateResult<bool> {
         Err(ResponseCode::NotImp)
     }
 

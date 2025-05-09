@@ -102,6 +102,7 @@ metrics-process = { workspace = true, optional = true }
 libc.workspace = true
 
 [dev-dependencies]
+bytes.workspace = true
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
 regex.workspace = true
 hickory-proto = { workspace = true, features = ["testing", "std"] }

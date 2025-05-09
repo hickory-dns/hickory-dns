@@ -29,8 +29,8 @@ use tracing::{debug, info};
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::TrustAnchors};
 use crate::{
     authority::{
-        Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, MessageRequest,
-        UpdateResult, ZoneType,
+        Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, UpdateResult,
+        ZoneType,
     },
     error::ConfigError,
     proto::{
@@ -40,7 +40,7 @@ use crate::{
     },
     recursor::{DnssecPolicy, Recursor},
     resolver::{dns_lru::TtlConfig, lookup::Lookup},
-    server::RequestInfo,
+    server::{Request, RequestInfo},
 };
 
 /// An authority that performs recursive resolutions.
@@ -116,7 +116,7 @@ impl Authority for RecursiveAuthority {
         self.recursor.is_validating()
     }
 
-    async fn update(&self, _update: &MessageRequest) -> UpdateResult<bool> {
+    async fn update(&self, _update: &Request) -> UpdateResult<bool> {
         Err(ResponseCode::NotImp)
     }
 

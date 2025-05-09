@@ -12,11 +12,9 @@ use tracing::debug;
 #[cfg(feature = "__dnssec")]
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::Proof};
 use crate::{
-    authority::{
-        Authority, LookupControlFlow, LookupOptions, MessageRequest, UpdateResult, ZoneType,
-    },
+    authority::{Authority, LookupControlFlow, LookupOptions, UpdateResult, ZoneType},
     proto::rr::{LowerName, Record, RecordType},
-    server::RequestInfo,
+    server::{Request, RequestInfo},
 };
 
 /// An Object safe Authority
@@ -32,7 +30,7 @@ pub trait AuthorityObject: Send + Sync {
     fn can_validate_dnssec(&self) -> bool;
 
     /// Perform a dynamic update of a zone
-    async fn update(&self, update: &MessageRequest) -> UpdateResult<bool>;
+    async fn update(&self, update: &Request) -> UpdateResult<bool>;
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
     fn origin(&self) -> &LowerName;
@@ -183,7 +181,7 @@ where
     }
 
     /// Perform a dynamic update of a zone
-    async fn update(&self, update: &MessageRequest) -> UpdateResult<bool> {
+    async fn update(&self, update: &Request) -> UpdateResult<bool> {
         Authority::update(self, update).await
     }
 

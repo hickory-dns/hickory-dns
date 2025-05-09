@@ -4,6 +4,7 @@ use std::future::Future;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::str::FromStr;
 
+use bytes::Bytes;
 use futures_executor::block_on;
 
 use hickory_proto::{
@@ -15,6 +16,7 @@ use hickory_proto::{
     serialize::binary::BinDecodable,
     xfer::Protocol,
 };
+use hickory_server::server::Request;
 use hickory_server::{
     authority::{AuthLookup, Authority, LookupError, LookupOptions, MessageRequest},
     server::RequestInfo,
@@ -470,9 +472,15 @@ pub fn test_update_errors<A: Authority<Lookup = AuthLookup>>(mut authority: A) {
     message.add_query(Query::new());
     let bytes = message.to_vec().unwrap();
     let update = MessageRequest::from_bytes(&bytes).unwrap();
+    let request = Request::new(
+        update,
+        Bytes::from(bytes),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
+        Protocol::Udp,
+    );
 
     // this is expected to fail, i.e. updates are not allowed
-    assert!(block_on(authority.update(&update)).is_err());
+    assert!(block_on(authority.update(&request)).is_err());
 }
 
 #[allow(clippy::uninlined_format_args)]
