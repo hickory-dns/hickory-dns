@@ -1,11 +1,12 @@
 use std::net::Ipv4Addr;
+use std::time::Duration;
 
 use dns_test::client::{Client, DigSettings};
 use dns_test::name_server::NameServer;
 use dns_test::record::{Record, RecordType};
-use dns_test::tshark::Capture;
+use dns_test::tshark::{Capture, Direction};
 use dns_test::zone_file::{Nsec, SignSettings};
-use dns_test::{FQDN, Network, Resolver, Result, TrustAnchor};
+use dns_test::{FQDN, Network, PEER, Resolver, Result, TrustAnchor};
 
 use crate::resolver::dnssec::fixtures;
 
@@ -312,6 +313,70 @@ fn nxdomain_nsec3() -> Result<()> {
     assert!(output.status.is_nxdomain());
 
     assert!(output.flags.authenticated_data);
+
+    Ok(())
+}
+
+#[test]
+fn no_root_ds_query() -> Result<()> {
+    let network = Network::new()?;
+
+    let signed_root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
+    let signed_root_ns = signed_root_ns.sign(SignSettings::default())?;
+    let trust_anchor = signed_root_ns.trust_anchor();
+    drop(signed_root_ns);
+
+    let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
+    let tld_ns = NameServer::new(&PEER, FQDN::TEST_TLD, &network)?;
+
+    root_ns.referral_nameserver(&tld_ns);
+
+    let root_ns = root_ns.start()?;
+    let _tld_ns = tld_ns.start()?;
+
+    let root = root_ns.root_hint();
+    let resolver = Resolver::new(&network, root)
+        .trust_anchor(&trust_anchor)
+        .start()?;
+
+    let mut tshark = resolver.eavesdrop()?;
+
+    let client = Client::new(&network)?;
+    client.dig(
+        *DigSettings::default().recurse().authentic_data(),
+        resolver.ipv4_addr(),
+        RecordType::TXT,
+        &FQDN::TEST_TLD,
+    )?;
+
+    let client_ip = client.ipv4_addr();
+    tshark.wait_until(
+        |captures| {
+            captures.iter().any(|capture| {
+                matches!(
+                    capture,
+                    Capture {
+                        direction: Direction::Outgoing { destination },
+                        ..
+                    } if *destination == client_ip
+                )
+            })
+        },
+        Duration::from_secs(10),
+    )?;
+
+    let captures = tshark.terminate()?;
+    for capture in captures {
+        let message_object = capture.message.as_value().as_object().unwrap();
+        let queries = message_object.get("Queries").unwrap().as_object().unwrap();
+        for (query_key, query_value) in queries.iter() {
+            if query_key.contains("type DS") {
+                let qname = query_value.get("dns.qry.name").unwrap().as_str().unwrap();
+                // fail if any DS query was made for the root zone
+                assert!(qname.contains("testing"), "{query_key}: {query_value:?}");
+            }
+        }
+    }
 
     Ok(())
 }
