@@ -142,7 +142,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                     let stream_handle = stream_handle.with_remote_addr(src_addr);
 
                     inner_join_set.spawn(async move {
-                        handle_raw_request(message, Protocol::Udp, access, handler, stream_handle)
+                        handle_raw_request(message, Protocol::Udp, &access, handler, stream_handle)
                             .await;
                     });
 
@@ -244,7 +244,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                         handle_raw_request(
                             message,
                             Protocol::Tcp,
-                            access.clone(),
+                            &access,
                             handler.clone(),
                             stream_handle.clone(),
                         )
@@ -390,7 +390,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                         handle_raw_request(
                             message,
                             Protocol::Tls,
-                            access.clone(),
+                            &access,
                             handler.clone(),
                             stream_handle.clone(),
                         )
@@ -808,7 +808,7 @@ fn reap_tasks(join_set: &mut JoinSet<()>) {
 pub(crate) async fn handle_raw_request<T: RequestHandler>(
     message: SerialMessage,
     protocol: Protocol,
-    access: Arc<AccessControl>,
+    access: &AccessControl,
     request_handler: Arc<T>,
     response_handler: BufDnsStreamHandle,
 ) {
@@ -938,7 +938,7 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
     message_bytes: &[u8],
     src_addr: SocketAddr,
     protocol: Protocol,
-    access: Arc<AccessControl>,
+    access: &AccessControl,
     request_handler: Arc<T>,
     response_handler: R,
 ) {
