@@ -73,7 +73,7 @@ where
         let responder = QuicResponseHandle(stream.clone());
 
         super::handle_request(
-            &request,
+            request.freeze(),
             src_addr,
             Protocol::Quic,
             &access,

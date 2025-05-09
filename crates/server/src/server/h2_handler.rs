@@ -87,7 +87,7 @@ pub(crate) async fn h2_handler<T, I>(
             };
 
             super::handle_request(
-                &body,
+                body.freeze(),
                 src_addr,
                 Protocol::Https,
                 &access,

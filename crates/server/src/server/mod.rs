@@ -14,6 +14,7 @@ use std::{
     time::Duration,
 };
 
+use bytes::Bytes;
 use futures_util::{FutureExt, StreamExt};
 use hickory_proto::ProtoErrorKind;
 use ipnet::IpNet;
@@ -812,11 +813,11 @@ pub(crate) async fn handle_raw_request<T: RequestHandler>(
     request_handler: Arc<T>,
     response_handler: BufDnsStreamHandle,
 ) {
-    let src_addr = message.addr();
-    let response_handler = ResponseHandle::new(message.addr(), response_handler, protocol);
+    let (message, src_addr) = message.into_parts();
+    let response_handler = ResponseHandle::new(src_addr, response_handler, protocol);
 
     handle_request(
-        message.bytes(),
+        Bytes::from(message),
         src_addr,
         protocol,
         access,
@@ -935,14 +936,14 @@ impl ResponseHandlerMetrics {
 }
 
 pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
-    message_bytes: &[u8],
+    message_bytes: Bytes,
     src_addr: SocketAddr,
     protocol: Protocol,
     access: &AccessControl,
     request_handler: Arc<T>,
     response_handler: R,
 ) {
-    let mut decoder = BinDecoder::new(message_bytes);
+    let mut decoder = BinDecoder::new(&message_bytes);
     if !access.allow(src_addr.ip()) {
         info!(
             "request:Refused src:{proto}://{addr}#{port}",
