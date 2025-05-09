@@ -478,20 +478,25 @@ impl BinEncodable for SIG {
     ///        by the corresponding lowercase US-ASCII letters;
     /// ```
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        let is_canonical_names = encoder.is_canonical_names();
-
-        self.type_covered().emit(encoder)?;
-        self.algorithm().emit(encoder)?;
-        encoder.emit(self.num_labels())?;
-        encoder.emit_u32(self.original_ttl())?;
-        encoder.emit_u32(self.sig_expiration().0)?;
-        encoder.emit_u32(self.sig_inception().0)?;
-        encoder.emit_u16(self.key_tag())?;
-        self.signer_name()
-            .emit_with_lowercase(encoder, is_canonical_names)?;
-        encoder.emit_vec(self.sig())?;
-        Ok(())
+        emit_inner(self, encoder)
     }
+}
+
+pub(super) fn emit_inner(sig: &SIG, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+    let is_canonical_names = encoder.is_canonical_names();
+
+    sig.type_covered().emit(encoder)?;
+    sig.algorithm().emit(encoder)?;
+    encoder.emit(sig.num_labels())?;
+    encoder.emit_u32(sig.original_ttl())?;
+    encoder.emit_u32(sig.sig_expiration().0)?;
+    encoder.emit_u32(sig.sig_inception().0)?;
+    encoder.emit_u16(sig.key_tag())?;
+    sig.signer_name()
+        .emit_with_lowercase(encoder, is_canonical_names)?;
+    encoder.emit_vec(sig.sig())?;
+
+    Ok(())
 }
 
 impl<'r> RecordDataDecodable<'r> for SIG {

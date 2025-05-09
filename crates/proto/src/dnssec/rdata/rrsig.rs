@@ -129,7 +129,7 @@ impl BinEncodable for RRSIG {
     ///        by the corresponding lowercase US-ASCII letters;
     /// ```
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        self.0.emit(encoder)
+        super::sig::emit_inner(&self.0, encoder)
     }
 }
 
