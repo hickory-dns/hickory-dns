@@ -28,15 +28,14 @@ use tracing::{error, info, warn};
 #[cfg(feature = "metrics")]
 use crate::store::metrics::StoreMetrics;
 use crate::{
-    authority::{
-        Authority, LookupControlFlow, LookupOptions, MessageRequest, UpdateResult, ZoneType,
-    },
+    authority::{Authority, LookupControlFlow, LookupOptions, UpdateResult, ZoneType},
     error::{PersistenceError, PersistenceErrorKind},
     proto::{
         op::ResponseCode,
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
+        serialize::binary::BinEncodable,
     },
-    server::RequestInfo,
+    server::{Request, RequestInfo},
     store::in_memory::InMemoryAuthority,
 };
 #[cfg(feature = "__dnssec")]
@@ -49,8 +48,6 @@ use crate::{
         tsig::TSigner,
     },
     proto::op::MessageSignature,
-    proto::serialize::binary::BinEncodable,
-    server::Request,
 };
 #[cfg(feature = "__dnssec")]
 use LookupControlFlow::Continue;
@@ -529,7 +526,7 @@ impl SqliteAuthority {
     /// ```
     ///
     #[cfg(feature = "__dnssec")]
-    pub async fn authorize(&self, request: &MessageRequest) -> UpdateResult<()> {
+    pub async fn authorize(&self, request: &Request) -> UpdateResult<()> {
         // 3.3.3 - Pseudocode for Permission Checking
         //
         //      if (security policy exists)
@@ -877,7 +874,7 @@ impl SqliteAuthority {
     }
 
     #[cfg(feature = "__dnssec")]
-    async fn authorized_sig0(&self, sig0: &Record, request: &MessageRequest) -> UpdateResult<()> {
+    async fn authorized_sig0(&self, sig0: &Record, request: &Request) -> UpdateResult<()> {
         debug!("authorizing with: {sig0:?}");
 
         let Some(sig0) = sig0.data().as_dnssec().and_then(DNSSECRData::as_sig) else {
@@ -898,16 +895,18 @@ impl SqliteAuthority {
         let verified = keys
             .iter()
             .filter_map(|rr_set| rr_set.data().as_dnssec().and_then(DNSSECRData::as_key))
-            .any(|key| match key.verify_message(request, sig0.sig(), sig0) {
-                Ok(_) => {
-                    info!("verified sig: {sig0:?} with key: {key:?}");
-                    true
-                }
-                Err(_) => {
-                    debug!("did not verify sig: {sig0:?} with key: {key:?}");
-                    false
-                }
-            });
+            .any(
+                |key| match key.verify_message(&request.message, sig0.sig(), sig0) {
+                    Ok(_) => {
+                        info!("verified sig: {sig0:?} with key: {key:?}");
+                        true
+                    }
+                    Err(_) => {
+                        debug!("did not verify sig: {sig0:?} with key: {key:?}");
+                        false
+                    }
+                },
+            );
         match verified {
             true => Ok(()),
             false => {
@@ -918,7 +917,7 @@ impl SqliteAuthority {
     }
 
     #[cfg(feature = "__dnssec")]
-    async fn authorized_tsig(&self, tsig: &Record, request: &MessageRequest) -> UpdateResult<()> {
+    async fn authorized_tsig(&self, tsig: &Record, request: &Request) -> UpdateResult<()> {
         debug!("authorizing with: {tsig:?}");
         let Some(signer) = self
             .tsig_signers

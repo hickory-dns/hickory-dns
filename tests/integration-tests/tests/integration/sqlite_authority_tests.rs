@@ -241,9 +241,15 @@ async fn test_authorize() {
 
     let bytes = message.to_bytes().unwrap();
     let message = MessageRequest::from_bytes(&bytes).unwrap();
+    let request = Request::new(
+        message,
+        Bytes::from(bytes),
+        SocketAddr::from(([127, 0, 0, 1], 53)),
+        Protocol::Udp,
+    );
 
     assert_eq!(
-        authority.authorize(&message).await,
+        authority.authorize(&request).await,
         Err(ResponseCode::Refused)
     );
 
