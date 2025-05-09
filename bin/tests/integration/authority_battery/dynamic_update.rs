@@ -7,6 +7,7 @@ use std::{
     str::FromStr,
 };
 
+use bytes::Bytes;
 use futures_executor::block_on;
 
 use hickory_dns::dnssec::{KeyConfig, KeyPurpose};
@@ -28,7 +29,7 @@ use hickory_server::{
         AuthLookup, Authority, DnssecAuthority, LookupError, LookupOptions, MessageRequest,
         UpdateResult,
     },
-    server::RequestInfo,
+    server::{Request, RequestInfo},
 };
 
 const TEST_HEADER: &Header = &Header::new();
@@ -39,8 +40,14 @@ fn update_authority<A: Authority<Lookup = AuthLookup>>(
     authority: &mut A,
 ) -> UpdateResult<bool> {
     message.finalize(key, 1).expect("failed to sign message");
-    let message = message.to_bytes().unwrap();
-    let request = MessageRequest::from_bytes(&message).unwrap();
+    let bytes = message.to_bytes().unwrap();
+    let message = MessageRequest::from_bytes(&bytes).unwrap();
+    let request = Request::new(
+        message,
+        Bytes::from(bytes),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
+        Protocol::Udp,
+    );
 
     block_on(authority.update(&request))
 }

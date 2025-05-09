@@ -11,9 +11,9 @@ use cfg_if::cfg_if;
 use std::fmt;
 
 use crate::{
-    authority::{LookupError, LookupObject, MessageRequest, UpdateResult, ZoneType},
+    authority::{LookupError, LookupObject, UpdateResult, ZoneType},
     proto::rr::{LowerName, RecordSet, RecordType, RrsetRecords},
-    server::RequestInfo,
+    server::{Request, RequestInfo},
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
@@ -85,7 +85,7 @@ pub trait Authority: Send + Sync {
     }
 
     /// Perform a dynamic update of a zone
-    async fn update(&self, update: &MessageRequest) -> UpdateResult<bool>;
+    async fn update(&self, update: &Request) -> UpdateResult<bool>;
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
     fn origin(&self) -> &LowerName;

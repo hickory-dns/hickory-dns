@@ -820,6 +820,7 @@ dependencies = [
 name = "hickory-dns"
 version = "0.26.0-alpha.1"
 dependencies = [
+ "bytes",
  "cfg-if",
  "clap",
  "futures-executor",

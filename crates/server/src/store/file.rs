@@ -20,12 +20,12 @@ use tracing::{debug, info};
 #[cfg(feature = "metrics")]
 use crate::store::metrics::StoreMetrics;
 use crate::{
-    authority::{
-        Authority, LookupControlFlow, LookupOptions, MessageRequest, UpdateResult, ZoneType,
+    authority::{Authority, LookupControlFlow, LookupOptions, UpdateResult, ZoneType},
+    proto::{
+        rr::{LowerName, Name, RecordSet, RecordType, RrKey},
+        serialize::txt::Parser,
     },
-    proto::rr::{LowerName, Name, RecordSet, RecordType, RrKey},
-    proto::serialize::txt::Parser,
-    server::RequestInfo,
+    server::{Request, RequestInfo},
     store::in_memory::InMemoryAuthority,
 };
 #[cfg(feature = "__dnssec")]
@@ -204,7 +204,7 @@ impl Authority for FileAuthority {
     }
 
     /// Perform a dynamic update of a zone
-    async fn update(&self, _update: &MessageRequest) -> UpdateResult<bool> {
+    async fn update(&self, _update: &Request) -> UpdateResult<bool> {
         use crate::proto::op::ResponseCode;
         Err(ResponseCode::NotImp)
     }

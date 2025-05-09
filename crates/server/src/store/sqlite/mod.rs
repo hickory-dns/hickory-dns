@@ -50,6 +50,7 @@ use crate::{
     },
     proto::op::MessageSignature,
     proto::serialize::binary::BinEncodable,
+    server::Request,
 };
 #[cfg(feature = "__dnssec")]
 use LookupControlFlow::Continue;
@@ -1006,14 +1007,14 @@ impl Authority for SqliteAuthority {
     ///
     /// See [RFC 2136](https://datatracker.ietf.org/doc/html/rfc2136#section-3) section 3.4 for
     /// details.
-    async fn update(&self, _update: &MessageRequest) -> UpdateResult<bool> {
+    async fn update(&self, _request: &Request) -> UpdateResult<bool> {
         #[cfg(feature = "__dnssec")]
         {
             // the spec says to authorize after prereqs, seems better to auth first.
-            self.authorize(_update).await?;
-            self.verify_prerequisites(_update.prerequisites()).await?;
-            self.pre_scan(_update.updates()).await?;
-            self.update_records(_update.updates(), true).await
+            self.authorize(_request).await?;
+            self.verify_prerequisites(_request.prerequisites()).await?;
+            self.pre_scan(_request.updates()).await?;
+            self.update_records(_request.updates(), true).await
         }
         #[cfg(not(feature = "__dnssec"))]
         {

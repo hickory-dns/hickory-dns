@@ -6,6 +6,8 @@ use std::str::FromStr;
 #[cfg(feature = "__dnssec")]
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[cfg(feature = "__dnssec")]
+use bytes::Bytes;
 use hickory_proto::rr::LowerName;
 use rusqlite::*;
 
@@ -25,6 +27,8 @@ use hickory_server::authority::{Authority, ZoneType};
 use hickory_server::authority::{LookupOptions, MessageRequest};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
+#[cfg(feature = "__dnssec")]
+use hickory_server::server::Request;
 use hickory_server::server::RequestInfo;
 use hickory_server::store::in_memory::InMemoryAuthority;
 use hickory_server::store::sqlite::{Journal, SqliteAuthority};
@@ -899,10 +903,17 @@ async fn test_update_tsig_valid() {
 
     // TODO(@cpu): add and use a MessageRequestBuilder type?
     // Round-trip the Message bytes into a MessageRequest.
-    let req_message = MessageRequest::from_bytes(&message.to_bytes().unwrap()).unwrap();
+    let bytes = message.to_bytes().unwrap();
+    let req_message = MessageRequest::from_bytes(&bytes).unwrap();
+    let request = Request::new(
+        req_message,
+        Bytes::from(bytes),
+        SocketAddr::from(([127, 0, 0, 1], 53)),
+        Protocol::Udp,
+    );
 
     // The update should succeed.
-    assert!(authority.update(&req_message).await.unwrap());
+    assert!(authority.update(&request).await.unwrap());
 
     // And we should now be able to look up the new record.
     let new_name = Name::from_str("new.example.com.").unwrap();
@@ -952,13 +963,17 @@ async fn test_update_tsig_invalid_unknown_signer() {
 
     // TODO(@cpu): add and use a MessageRequestBuilder type?
     // Round-trip the Message bytes into a MessageRequest.
-    let req_message = MessageRequest::from_bytes(&message.to_bytes().unwrap()).unwrap();
+    let bytes = message.to_bytes().unwrap();
+    let req_message = MessageRequest::from_bytes(&bytes).unwrap();
+    let request = Request::new(
+        req_message,
+        Bytes::from(bytes),
+        SocketAddr::from(([127, 0, 0, 1], 53)),
+        Protocol::Udp,
+    );
 
     // The update should have been refused.
-    assert_eq!(
-        authority.update(&req_message).await,
-        Err(ResponseCode::Refused)
-    );
+    assert_eq!(authority.update(&request).await, Err(ResponseCode::Refused));
 }
 
 #[cfg(feature = "__dnssec")]
@@ -994,13 +1009,17 @@ async fn test_update_tsig_invalid_sig() {
 
     // TODO(@cpu): add and use a MessageRequestBuilder type?
     // Round-trip the Message bytes into a MessageRequest.
-    let req_message = MessageRequest::from_bytes(&message.to_bytes().unwrap()).unwrap();
+    let bytes = message.to_bytes().unwrap();
+    let req_message = MessageRequest::from_bytes(&bytes).unwrap();
+    let request = Request::new(
+        req_message,
+        Bytes::from(bytes),
+        SocketAddr::from(([127, 0, 0, 1], 53)),
+        Protocol::Udp,
+    );
 
     // The update should have been refused.
-    assert_eq!(
-        authority.update(&req_message).await,
-        Err(ResponseCode::Refused)
-    );
+    assert_eq!(authority.update(&request).await, Err(ResponseCode::Refused));
 }
 
 #[cfg(feature = "__dnssec")]
@@ -1030,13 +1049,17 @@ async fn test_update_tsig_invalid_stale_sig() {
 
     // TODO(@cpu): add and use a MessageRequestBuilder type?
     // Round-trip the Message bytes into a MessageRequest.
-    let req_message = MessageRequest::from_bytes(&message.to_bytes().unwrap()).unwrap();
+    let bytes = message.to_bytes().unwrap();
+    let req_message = MessageRequest::from_bytes(&bytes).unwrap();
+    let request = Request::new(
+        req_message,
+        Bytes::from(bytes),
+        SocketAddr::from(([127, 0, 0, 1], 53)),
+        Protocol::Udp,
+    );
 
     // The update should have been refused.
-    assert_eq!(
-        authority.update(&req_message).await,
-        Err(ResponseCode::Refused)
-    );
+    assert_eq!(authority.update(&request).await, Err(ResponseCode::Refused));
 }
 
 #[cfg(feature = "__dnssec")]

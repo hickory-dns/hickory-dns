@@ -22,8 +22,8 @@ use crate::store::metrics::QueryStoreMetrics;
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::TrustAnchors};
 use crate::{
     authority::{
-        Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, MessageRequest,
-        UpdateResult, ZoneType,
+        Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, UpdateResult,
+        ZoneType,
     },
     proto::{
         op::ResponseCode,
@@ -35,7 +35,7 @@ use crate::{
         lookup::Lookup as ResolverLookup,
         name_server::{ConnectionProvider, TokioConnectionProvider},
     },
-    server::RequestInfo,
+    server::{Request, RequestInfo},
 };
 
 /// A builder to construct a [`ForwardAuthority`].
@@ -229,7 +229,7 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         self.resolver.options().validate
     }
 
-    async fn update(&self, _update: &MessageRequest) -> UpdateResult<bool> {
+    async fn update(&self, _update: &Request) -> UpdateResult<bool> {
         Err(ResponseCode::NotImp)
     }
 

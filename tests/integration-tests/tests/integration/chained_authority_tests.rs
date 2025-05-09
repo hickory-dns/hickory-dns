@@ -188,7 +188,7 @@ impl Authority for TestAuthority {
         false
     }
 
-    async fn update(&self, _update: &MessageRequest) -> UpdateResult<bool> {
+    async fn update(&self, _update: &Request) -> UpdateResult<bool> {
         Err(ResponseCode::NotImp)
     }
 
