@@ -787,52 +787,47 @@ mod test {
     fn test_get_filter() {
         use crate::dnssec::{
             Algorithm,
-            rdata::{DNSSECRData, RRSIG},
+            rdata::{DNSSECRData, RRSIG, sig::SigInput},
         };
 
         let name = Name::root();
+        let input = SigInput {
+            type_covered: RecordType::A,
+            algorithm: Algorithm::RSASHA256,
+            num_labels: 0,
+            original_ttl: 0,
+            sig_expiration: SerialNumber(0),
+            sig_inception: SerialNumber(0),
+            key_tag: 0,
+            signer_name: Name::root(),
+        };
+
         let rsasha256 = RRSIG::new(
-            RecordType::A,
-            Algorithm::RSASHA256,
-            0,
-            0,
-            SerialNumber(0),
-            SerialNumber(0),
-            0,
-            Name::root(),
+            SigInput {
+                algorithm: Algorithm::RSASHA256,
+                ..input.clone()
+            },
             vec![],
         );
         let ecp256 = RRSIG::new(
-            RecordType::A,
-            Algorithm::ECDSAP256SHA256,
-            0,
-            0,
-            SerialNumber(0),
-            SerialNumber(0),
-            0,
-            Name::root(),
+            SigInput {
+                algorithm: Algorithm::ECDSAP256SHA256,
+                ..input.clone()
+            },
             vec![],
         );
         let ecp384 = RRSIG::new(
-            RecordType::A,
-            Algorithm::ECDSAP384SHA384,
-            0,
-            0,
-            SerialNumber(0),
-            SerialNumber(0),
-            0,
-            Name::root(),
+            SigInput {
+                algorithm: Algorithm::ECDSAP384SHA384,
+                ..input.clone()
+            },
             vec![],
         );
         let ed25519 = RRSIG::new(
-            RecordType::A,
-            Algorithm::ED25519,
-            0,
-            0,
-            SerialNumber(0),
-            SerialNumber(0),
-            0,
-            Name::root(),
+            SigInput {
+                algorithm: Algorithm::ED25519,
+                ..input
+            },
             vec![],
         );
 
