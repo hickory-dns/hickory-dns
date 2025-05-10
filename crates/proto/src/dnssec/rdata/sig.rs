@@ -423,18 +423,8 @@ impl BinEncodable for SIG {
     ///        by the corresponding lowercase US-ASCII letters;
     /// ```
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        let is_canonical_names = encoder.is_canonical_names();
-
-        self.type_covered().emit(encoder)?;
-        self.algorithm().emit(encoder)?;
-        encoder.emit(self.num_labels())?;
-        encoder.emit_u32(self.original_ttl())?;
-        encoder.emit_u32(self.sig_expiration().0)?;
-        encoder.emit_u32(self.sig_inception().0)?;
-        encoder.emit_u16(self.key_tag())?;
-        self.signer_name()
-            .emit_with_lowercase(encoder, is_canonical_names)?;
-        encoder.emit_vec(self.sig())?;
+        self.input.emit(encoder)?;
+        encoder.emit_vec(&self.sig)?;
         Ok(())
     }
 }
@@ -602,8 +592,11 @@ impl BinEncodable for SigInput {
         encoder.emit_u32(self.sig_expiration.0)?;
         encoder.emit_u32(self.sig_inception.0)?;
         encoder.emit_u16(self.key_tag)?;
+
+        let is_canonical_names = encoder.is_canonical_names();
         self.signer_name
-            .emit_with_lowercase(encoder, true /* canonical */)?;
+            .emit_with_lowercase(encoder, is_canonical_names)?;
+
         Ok(())
     }
 }
