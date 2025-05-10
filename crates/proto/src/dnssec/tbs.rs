@@ -26,6 +26,28 @@ use super::{
 pub struct TBS(Vec<u8>);
 
 impl TBS {
+    /// Returns the to-be-signed serialization of the given message.
+    pub fn from_message(message: &impl BinEncodable, input: &SigInput) -> ProtoResult<Self> {
+        // TODO: should perform the serialization and sign block by block to reduce the max memory
+        //  usage, though at 4k max, this is probably unnecessary... For AXFR and large zones, it's
+        //  more important
+        let mut buf = Vec::with_capacity(512);
+        let mut buf2 = Vec::with_capacity(512);
+        let mut encoder = BinEncoder::with_mode(&mut buf, EncodeMode::Normal);
+
+        input.emit(&mut encoder)?;
+
+        // need a separate encoder here, as the encoding references absolute positions
+        // inside the buffer. If the buffer already contains the sig0 RDATA, offsets
+        // are wrong and the signature won't match.
+        let mut encoder2 = BinEncoder::with_mode(&mut buf2, EncodeMode::Signing);
+        message.emit(&mut encoder2).unwrap(); // coding error if this panics (i think?)
+
+        buf.append(&mut buf2);
+
+        Ok(Self(buf))
+    }
+
     /// Returns the to-be-signed serialization of the given record set using the information
     /// provided from the RRSIG record.
     ///
@@ -206,28 +228,6 @@ impl AsRef<[u8]> for TBS {
     fn as_ref(&self) -> &[u8] {
         self.0.as_ref()
     }
-}
-
-/// Returns the to-be-signed serialization of the given message.
-pub fn message_tbs<M: BinEncodable>(message: &M, input: &SigInput) -> ProtoResult<TBS> {
-    // TODO: should perform the serialization and sign block by block to reduce the max memory
-    //  usage, though at 4k max, this is probably unnecessary... For AXFR and large zones, it's
-    //  more important
-    let mut buf = Vec::with_capacity(512);
-    let mut buf2 = Vec::with_capacity(512);
-
-    let mut encoder = BinEncoder::with_mode(&mut buf, EncodeMode::Normal);
-
-    input.emit(&mut encoder)?;
-
-    // need a separate encoder here, as the encoding references absolute positions
-    // inside the buffer. If the buffer already contains the sig0 RDATA, offsets
-    // are wrong and the signature won't match.
-    let mut encoder2 = BinEncoder::with_mode(&mut buf2, EncodeMode::Signing);
-    message.emit(&mut encoder2).unwrap(); // coding error if this panics (i think?)
-    buf.append(&mut buf2);
-
-    Ok(TBS(buf))
 }
 
 /// [RFC 4035](https://tools.ietf.org/html/rfc4035), DNSSEC Protocol Modifications, March 2005
