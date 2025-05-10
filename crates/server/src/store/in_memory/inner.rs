@@ -22,6 +22,7 @@ use crate::{
             DnsSecResult, Nsec3HashAlgorithm, SigSigner, TBS,
             rdata::{DNSSECRData, NSEC, NSEC3, NSEC3PARAM, RRSIG},
         },
+        rr::SerialNumber,
     },
 };
 
@@ -764,9 +765,9 @@ impl InnerInMemory {
                 // original_ttl: u32,
                 rr_set.ttl(),
                 // sig_expiration: u32,
-                expiration.unix_timestamp() as u32,
+                SerialNumber::from(expiration.unix_timestamp() as u32),
                 // sig_inception: u32,
-                inception.unix_timestamp() as u32,
+                SerialNumber::from(inception.unix_timestamp() as u32),
                 // key_tag: u16,
                 signer.calculate_key_tag()?,
                 // signer_name: Name,
