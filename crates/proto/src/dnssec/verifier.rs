@@ -12,7 +12,7 @@ use alloc::sync::Arc;
 use super::{
     Algorithm, PublicKey,
     rdata::{RRSIG, SigInput},
-    tbs::{self, TBS},
+    tbs::TBS,
 };
 use crate::{
     error::ProtoResult,
@@ -60,7 +60,7 @@ pub trait Verifier {
         signature: &[u8],
         input: &SigInput,
     ) -> ProtoResult<()> {
-        let tbs = tbs::message_tbs(message, input)?;
+        let tbs = TBS::from_message(message, input)?;
         self.verify(tbs.as_ref(), signature)
     }
 
