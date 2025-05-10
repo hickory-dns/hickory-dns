@@ -20,9 +20,7 @@ use crate::{
     },
     error::{ProtoErrorKind, ProtoResult},
     op::{Message, MessageSignature, MessageSigner, MessageVerifier},
-    rr::{
-        Record, {DNSClass, Name, RData, RecordType},
-    },
+    rr::{DNSClass, Name, RData, Record, RecordType, SerialNumber},
     serialize::binary::{BinEncodable, BinEncoder},
 };
 
@@ -499,7 +497,7 @@ impl MessageSigner for SigSigner {
 
         let num_labels = name.num_labels();
 
-        let expiration_time: u32 = current_time + (5 * 60); // +5 minutes in seconds
+        let expiration_time = current_time + (5 * 60); // +5 minutes in seconds
 
         let pre_sig0 = SIG::new(
             // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
@@ -509,10 +507,10 @@ impl MessageSigner for SigSigner {
             // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
             0,
             // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
-            expiration_time,
+            SerialNumber(expiration_time),
             // current time, this should be UTC
             // unsigned numbers of seconds since the start of 1 January 1970, GMT
-            current_time,
+            SerialNumber(current_time),
             key_tag,
             // can probably get rid of this clone if the ownership is correct
             self.signer_name().clone(),
@@ -567,10 +565,10 @@ mod tests {
             // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
             0,
             // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
-            expiration_time,
+            SerialNumber(expiration_time),
             // current time, this should be UTC
             // unsigned numbers of seconds since the start of 1 January 1970, GMT
-            inception_time,
+            SerialNumber(inception_time),
             signer.calculate_key_tag().unwrap(),
             // can probably get rid of this clone if the ownership is correct
             signer.signer_name().clone(),
@@ -647,8 +645,8 @@ mod tests {
                 Algorithm::RSASHA256,
                 origin.num_labels(),
                 86400,
-                5,
-                0,
+                SerialNumber(5),
+                SerialNumber(0),
                 signer.calculate_key_tag().unwrap(),
                 origin.clone(),
                 vec![],
@@ -711,8 +709,8 @@ mod tests {
                 Algorithm::RSASHA256,
                 origin.num_labels(),
                 86400,
-                5,
-                0,
+                SerialNumber(5),
+                SerialNumber(0),
                 signer.calculate_key_tag().unwrap(),
                 origin.clone(),
                 vec![],
