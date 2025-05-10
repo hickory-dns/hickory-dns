@@ -5,7 +5,10 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use core::marker::PhantomData;
+use core::{
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 use alloc::vec::Vec;
 
@@ -101,7 +104,10 @@ pub struct BinEncoder<'a> {
     /// start of label pointers with their labels in fully decompressed form for easy comparison, smallvec here?
     name_pointers: Vec<(usize, Vec<u8>)>,
     mode: EncodeMode,
-    canonical_names: bool,
+    /// Whether the encoder should use the DNSSEC canonical form for RDATA.
+    canonical_form: bool,
+    /// How names should be encoded.
+    name_mode: NameEncodingMode,
 }
 
 impl<'a> BinEncoder<'a> {
@@ -140,7 +146,8 @@ impl<'a> BinEncoder<'a> {
             buffer: private::MaximalBuf::new(u16::MAX, buf),
             name_pointers: Vec::new(),
             mode,
-            canonical_names: false,
+            canonical_form: false,
+            name_mode: NameEncodingMode::Compressed,
         }
     }
 
@@ -184,34 +191,69 @@ impl<'a> BinEncoder<'a> {
         self.mode
     }
 
-    /// If set to true, then names will be written into the buffer in canonical form
-    pub fn set_canonical_names(&mut self, canonical_names: bool) {
-        self.canonical_names = canonical_names;
+    /// If set to true, then records will be written into the buffer in DNSSEC canonical form
+    pub fn set_canonical_form(&mut self, canonical_form: bool) {
+        self.canonical_form = canonical_form;
     }
 
-    /// Returns true if then encoder is writing in canonical form
-    pub fn is_canonical_names(&self) -> bool {
-        self.canonical_names
+    /// Returns true if the encoder is writing in DNSSEC canonical form
+    pub fn is_canonical_form(&self) -> bool {
+        self.canonical_form
     }
 
-    /// Emit all names in canonical form, useful for <https://tools.ietf.org/html/rfc3597>
-    pub fn with_canonical_names<F: FnOnce(&mut Self) -> ProtoResult<()>>(
-        &mut self,
-        f: F,
-    ) -> ProtoResult<()> {
-        let was_canonical = self.is_canonical_names();
-        self.set_canonical_names(true);
-
-        let res = f(self);
-        self.set_canonical_names(was_canonical);
-
-        res
+    /// Select how names are encoded
+    pub fn set_name_mode(&mut self, name_mode: NameEncodingMode) {
+        self.name_mode = name_mode;
     }
 
-    // TODO: deprecate this...
-    /// Reserve specified additional length in the internal buffer.
-    pub fn reserve(&mut self, _additional: usize) -> ProtoResult<()> {
-        Ok(())
+    /// Returns the current name encoding mode
+    pub fn name_mode(&self) -> NameEncodingMode {
+        self.name_mode
+    }
+
+    /// Temporarily change name encoding mode for RDATA.
+    ///
+    /// If the encoder is using canonical form, name compression will not be used. Otherwise, name
+    /// compression will be used for standard record types.
+    ///
+    /// If the encoder is using canonical form, the case of names will depend on the record type.
+    /// Otherwise, the case will be unchanged.
+    ///
+    /// Returns a [ModalEncoder]. The previous mode will be restored when it is dropped.
+    pub fn with_rdata_behavior<'e>(
+        &'e mut self,
+        rdata_policy: RdataPolicy,
+    ) -> ModalEncoder<'a, 'e> {
+        let previous_mode = self.name_mode();
+
+        match (rdata_policy, self.is_canonical_form()) {
+            (RdataPolicy::StandardRecord, true) | (RdataPolicy::CanonicalLowercase, true) => {
+                self.set_name_mode(NameEncodingMode::UncompressedLowercase)
+            }
+            (RdataPolicy::StandardRecord, false) => {}
+            (RdataPolicy::CanonicalLowercase, false)
+            | (RdataPolicy::Other, true)
+            | (RdataPolicy::Other, false) => self.set_name_mode(NameEncodingMode::Uncompressed),
+        }
+
+        ModalEncoder {
+            previous_mode,
+            inner: self,
+        }
+    }
+
+    /// Temporarily change the name encoding mode.
+    ///
+    /// Returns a [ModalEncoder]. The previous name encoding mode will be restored when it is dropped.
+    pub fn with_name_mode<'e>(&'e mut self, name_mode: NameEncodingMode) -> ModalEncoder<'a, 'e> {
+        let previous_mode = self.name_mode();
+
+        self.set_name_mode(name_mode);
+
+        ModalEncoder {
+            previous_mode,
+            inner: self,
+        }
     }
 
     /// trims to the current offset
@@ -436,6 +478,73 @@ impl<'a> BinEncoder<'a> {
             offset: self.offset(),
             pointers: self.name_pointers.len(),
         }
+    }
+}
+
+/// Determines how names inside RDATA are encoded, depending on the record type and whether DNSSEC
+/// canonical form is used.
+#[derive(Clone, Copy)]
+pub enum RdataPolicy {
+    /// Applicable to standard record types defined in [RFC 1035 section
+    /// 3.3](https://datatracker.ietf.org/doc/html/rfc1035#section-3.3).
+    ///
+    /// Names in the RDATA may be compressed, since these record types are well-known. When encoding
+    /// in DNSSEC canonical form, compression is not used, and names are transformed to lowercase.
+    /// Note that all standard types that contain names in the RDATA are also on the list in [RFC
+    /// 4034 section 6.2](https://datatracker.ietf.org/doc/html/rfc4034#section-6.2).
+    StandardRecord,
+    /// Applicable to record types that were defined after RFC 1035, for which the DNSSEC canonical
+    /// form of the RDATA has names transformed to lowercase. Compression is never used.
+    ///
+    /// This applies to the list of record types defined in [RFC 4034 section
+    /// 6.2](https://datatracker.ietf.org/doc/html/rfc4034#section-6.2) and modified by [RFC 6840,
+    /// section 5.1](https://datatracker.ietf.org/doc/html/rfc6840#section-5.1).
+    CanonicalLowercase,
+    /// Applicable to record types for which names in the RDATA are never compressed and never
+    /// transformed to lowercase.
+    ///
+    /// All newly defined record types must have this behavior, per [RFC 3597 section
+    /// 4](https://datatracker.ietf.org/doc/html/rfc3597#section-4) and [section
+    /// 7](https://datatracker.ietf.org/doc/html/rfc3597#section-7).
+    Other,
+}
+
+/// Selects how names should be encoded.
+#[derive(Clone, Copy)]
+pub enum NameEncodingMode {
+    /// Encode names with compression enabled. The case of the name is unchanged.
+    Compressed,
+    /// Encode names without compression. The case of the name is unchanged.
+    Uncompressed,
+    /// Encode names transformed to lowercase and without compression.
+    UncompressedLowercase,
+}
+
+/// This wraps a [BinEncoder] and applies different name encoding options.
+///
+/// Original name encoding options will be restored when this is dropped.
+pub struct ModalEncoder<'a, 'e> {
+    previous_mode: NameEncodingMode,
+    inner: &'e mut BinEncoder<'a>,
+}
+
+impl<'a> Deref for ModalEncoder<'a, '_> {
+    type Target = BinEncoder<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner
+    }
+}
+
+impl DerefMut for ModalEncoder<'_, '_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.inner
+    }
+}
+
+impl Drop for ModalEncoder<'_, '_> {
+    fn drop(&mut self) {
+        self.inner.set_name_mode(self.previous_mode);
     }
 }
 

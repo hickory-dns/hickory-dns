@@ -18,7 +18,8 @@ use crate::{
     error::{ProtoError, ProtoResult},
     rr::{Name, RData, RecordData, RecordDataDecodable, RecordType, SerialNumber},
     serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, NameEncodingMode, RdataPolicy,
+        Restrict, RestrictedMath,
     },
 };
 
@@ -478,20 +479,23 @@ impl BinEncodable for SIG {
     ///        by the corresponding lowercase US-ASCII letters;
     /// ```
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        let is_canonical_names = encoder.is_canonical_names();
-
-        self.type_covered().emit(encoder)?;
-        self.algorithm().emit(encoder)?;
-        encoder.emit(self.num_labels())?;
-        encoder.emit_u32(self.original_ttl())?;
-        encoder.emit_u32(self.sig_expiration().0)?;
-        encoder.emit_u32(self.sig_inception().0)?;
-        encoder.emit_u16(self.key_tag())?;
-        self.signer_name()
-            .emit_with_lowercase(encoder, is_canonical_names)?;
-        encoder.emit_vec(self.sig())?;
-        Ok(())
+        let mut encoder = encoder.with_rdata_behavior(RdataPolicy::CanonicalLowercase);
+        emit_inner(self, &mut encoder)
     }
+}
+
+pub(super) fn emit_inner(sig: &SIG, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+    sig.type_covered().emit(encoder)?;
+    sig.algorithm().emit(encoder)?;
+    encoder.emit(sig.num_labels())?;
+    encoder.emit_u32(sig.original_ttl())?;
+    encoder.emit_u32(sig.sig_expiration().0)?;
+    encoder.emit_u32(sig.sig_inception().0)?;
+    encoder.emit_u16(sig.key_tag())?;
+    sig.signer_name().emit(encoder)?;
+    encoder.emit_vec(sig.sig())?;
+
+    Ok(())
 }
 
 impl<'r> RecordDataDecodable<'r> for SIG {
@@ -576,7 +580,8 @@ pub fn emit_pre_sig(
     encoder.emit_u32(sig_expiration.0)?;
     encoder.emit_u32(sig_inception.0)?;
     encoder.emit_u16(key_tag)?;
-    signer_name.emit_as_canonical(encoder, true)?;
+    let mut encoder = encoder.with_name_mode(NameEncodingMode::UncompressedLowercase);
+    signer_name.emit(&mut encoder)?;
     Ok(())
 }
 

@@ -25,7 +25,8 @@ use crate::{
         record_data::RData, record_type::RecordType,
     },
     serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode, Restrict, RestrictedMath,
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode, NameEncodingMode,
+        RdataPolicy, Restrict, RestrictedMath,
     },
 };
 
@@ -313,10 +314,12 @@ impl TSIG {
         encoder: &mut BinEncoder<'_>,
         key_name: &Name,
     ) -> ProtoResult<()> {
-        key_name.emit_as_canonical(encoder, true)?;
-        DNSClass::ANY.emit(encoder)?;
+        let mut encoder = encoder.with_name_mode(NameEncodingMode::UncompressedLowercase);
+
+        key_name.emit(&mut encoder)?;
+        DNSClass::ANY.emit(&mut encoder)?;
         encoder.emit_u32(0)?; // TTL
-        self.algorithm.emit(encoder)?;
+        self.algorithm.emit(&mut encoder)?;
         encoder.emit_u16((self.time >> 32) as u16)?;
         encoder.emit_u32(self.time as u32)?;
         encoder.emit_u16(self.fudge)?;
@@ -361,7 +364,8 @@ impl BinEncodable for TSIG {
     ///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /// ```
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        self.algorithm.emit(encoder)?;
+        let mut encoder = encoder.with_rdata_behavior(RdataPolicy::Other);
+        self.algorithm.emit(&mut encoder)?;
         encoder.emit_u16(
             (self.time >> 32)
                 .try_into()
@@ -507,19 +511,6 @@ impl TsigAlgorithm {
         }.unwrap(/* should not fail with static strings*/)
     }
 
-    /// Write the Algorithm to the given encoder
-    pub fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        self.to_name().emit_as_canonical(encoder, true)?;
-        Ok(())
-    }
-
-    /// Read the Algorithm from the given Encoder
-    pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
-        let mut name = Name::read(decoder)?;
-        name.set_fqdn(false);
-        Ok(Self::from_name(name))
-    }
-
     /// Convert a DNS name to an Algorithm
     pub fn from_name(name: Name) -> Self {
         use TsigAlgorithm::*;
@@ -606,6 +597,20 @@ impl TsigAlgorithm {
 impl fmt::Display for TsigAlgorithm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{}", self.to_name())
+    }
+}
+
+impl BinEncodable for TsigAlgorithm {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        self.to_name().emit(encoder)
+    }
+}
+
+impl BinDecodable<'_> for TsigAlgorithm {
+    fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
+        let mut name = Name::read(decoder)?;
+        name.set_fqdn(false);
+        Ok(Self::from_name(name))
     }
 }
 

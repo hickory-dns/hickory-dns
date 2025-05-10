@@ -14,7 +14,7 @@ use super::Algorithm;
 use crate::{
     error::{ProtoError, ProtoResult},
     rr::{DNSClass, Name, Record, RecordSet, RecordType, SerialNumber},
-    serialize::binary::{BinEncodable, BinEncoder, EncodeMode},
+    serialize::binary::{BinEncodable, BinEncoder, EncodeMode, NameEncodingMode},
 };
 
 use super::{
@@ -168,7 +168,8 @@ impl TBS {
 
         {
             let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut buf);
-            encoder.set_canonical_names(true);
+            encoder.set_canonical_form(true);
+            encoder.set_name_mode(NameEncodingMode::Uncompressed);
 
             //          signed_data = RRSIG_RDATA | RR(1) | RR(2)...  where
             //
@@ -194,7 +195,7 @@ impl TBS {
                 //             RR(i) = name | type | class | OrigTTL | RDATA length | RDATA
                 //
                 //                name is calculated according to the function in the RFC 4035
-                name.to_lowercase().emit_as_canonical(&mut encoder, true)?;
+                name.to_lowercase().emit(&mut encoder)?;
                 //
                 //                type is the RRset type and all RRs in the class
                 type_covered.emit(&mut encoder)?;
