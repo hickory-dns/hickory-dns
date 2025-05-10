@@ -240,7 +240,7 @@ impl AsRef<[u8]> for TBS {
 }
 
 /// Returns the to-be-signed serialization of the given message.
-pub fn message_tbs<M: BinEncodable>(message: &M, pre_sig0: &SIG) -> ProtoResult<TBS> {
+pub fn message_tbs<M: BinEncodable>(message: &M, input: &SigInput) -> ProtoResult<TBS> {
     // TODO: should perform the serialization and sign block by block to reduce the max memory
     //  usage, though at 4k max, this is probably unnecessary... For AXFR and large zones, it's
     //  more important
@@ -249,7 +249,7 @@ pub fn message_tbs<M: BinEncodable>(message: &M, pre_sig0: &SIG) -> ProtoResult<
 
     let mut encoder = BinEncoder::with_mode(&mut buf, EncodeMode::Normal);
 
-    pre_sig0.input.emit(&mut encoder)?;
+    input.emit(&mut encoder)?;
 
     // need a separate encoder here, as the encoding references absolute positions
     // inside the buffer. If the buffer already contains the sig0 RDATA, offsets

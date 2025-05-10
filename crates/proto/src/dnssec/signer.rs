@@ -453,8 +453,8 @@ impl SigSigner {
     ///  being verified.
     ///
     ///  ---
-    pub fn sign_message(&self, message: &Message, pre_sig0: &SIG) -> ProtoResult<Vec<u8>> {
-        tbs::message_tbs(message, pre_sig0).and_then(|tbs| self.sign(&tbs))
+    pub fn sign_message(&self, message: &Message, input: &SigInput) -> ProtoResult<Vec<u8>> {
+        tbs::message_tbs(message, input).and_then(|tbs| self.sign(&tbs))
     }
 
     /// Extracts a public KEY from this Signer
@@ -514,9 +514,8 @@ impl MessageSigner for SigSigner {
             signer_name: self.signer_name().clone(),
         };
 
-        let pre_sig0 = SIG::new(input, Vec::new());
-        let signature = self.sign_message(message, &pre_sig0)?;
-        let rdata = RData::DNSSEC(DNSSECRData::SIG(pre_sig0.set_sig(signature)));
+        let signature = self.sign_message(message, &input)?;
+        let rdata = RData::DNSSEC(DNSSECRData::SIG(SIG::new(input, signature)));
 
         // 'For all SIG(0) RRs, the owner name, class, TTL, and original TTL, are
         //  meaningless.' - 2931
@@ -542,7 +541,7 @@ mod tests {
     use crate::dnssec::{
         Algorithm, PublicKey, SigningKey, TBS, Verifier,
         crypto::RsaSigningKey,
-        rdata::{DNSSECRData, KEY, RRSIG, SIG, key::KeyUsage},
+        rdata::{DNSSECRData, KEY, RRSIG, key::KeyUsage},
     };
     use crate::op::{Message, MessageSignature, Query};
     use crate::rr::rdata::{CNAME, NS};
@@ -555,8 +554,8 @@ mod tests {
         assert_send_and_sync::<SigSigner>();
     }
 
-    fn pre_sig0(signer: &SigSigner, inception_time: u32, expiration_time: u32) -> SIG {
-        let input = SigInput {
+    fn input(signer: &SigSigner, inception_time: u32, expiration_time: u32) -> SigInput {
+        SigInput {
             // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
             type_covered: RecordType::ZERO,
             algorithm: signer.key().algorithm(),
@@ -570,9 +569,7 @@ mod tests {
             sig_inception: SerialNumber(inception_time),
             signer_name: signer.signer_name().clone(),
             key_tag: signer.calculate_key_tag().unwrap(),
-        };
-
-        SIG::new(input, Vec::new())
+        }
     }
 
     #[test]
@@ -590,21 +587,21 @@ mod tests {
         let sig0key = KEY::new_sig0key(&pub_key);
         let signer = SigSigner::sig0(sig0key.clone(), Box::new(key), Name::root());
 
-        let pre_sig0 = pre_sig0(&signer, 0, 300);
-        let sig = signer.sign_message(&question, &pre_sig0).unwrap();
+        let input = input(&signer, 0, 300);
+        let sig = signer.sign_message(&question, &input).unwrap();
         #[cfg(feature = "std")]
         println!("sig: {sig:?}");
 
         assert!(!sig.is_empty());
 
-        assert!(sig0key.verify_message(&question, &sig, &pre_sig0).is_ok());
+        assert!(sig0key.verify_message(&question, &sig, &input).is_ok());
 
         // now test that the sig0 record works correctly.
         assert_eq!(question.signature(), &MessageSignature::Unsigned);
         question.finalize(&signer, 0).expect("should have signed");
         assert!(matches!(question.signature(), MessageSignature::Sig0(_)));
 
-        let sig = signer.sign_message(&question, &pre_sig0);
+        let sig = signer.sign_message(&question, &input);
         #[cfg(feature = "std")]
         println!("sig after sign: {sig:?}");
 
@@ -622,7 +619,7 @@ mod tests {
             );
         };
 
-        assert!(sig0key.verify_message(&question, sig.sig(), sig).is_ok());
+        assert!(sig0key.verify_message(&question, sig.sig(), &input).is_ok());
     }
 
     #[test]
