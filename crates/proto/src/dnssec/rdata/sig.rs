@@ -203,22 +203,6 @@ impl SIG {
         Self { input, sig }
     }
 
-    /// Add actual signature value to existing SIG record data.
-    ///
-    /// # Arguments
-    ///
-    /// * `signature` - signature to be stored in this record.
-    ///
-    /// # Return value
-    ///
-    /// The new SIG record data.
-    pub fn set_sig(self, signature: Vec<u8>) -> Self {
-        Self {
-            input: self.input,
-            sig: signature,
-        }
-    }
-
     /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.1), Domain Name System Security Extensions, March 1999
     ///
     /// ```text
