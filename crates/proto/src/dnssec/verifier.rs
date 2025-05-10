@@ -79,7 +79,7 @@ pub trait Verifier {
         sig: &RRSIG,
         records: impl Iterator<Item = &'a Record>,
     ) -> ProtoResult<()> {
-        let rrset_tbs = TBS::from_sig(name, dns_class, sig, records)?;
+        let rrset_tbs = TBS::from_input(name, dns_class, sig.input(), records)?;
         self.verify(rrset_tbs.as_ref(), sig.sig())
     }
 }

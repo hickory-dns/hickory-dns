@@ -17,10 +17,7 @@ use crate::{
     serialize::binary::{BinEncodable, BinEncoder, EncodeMode, NameEncoding},
 };
 
-use super::{
-    SigSigner,
-    rdata::{RRSIG, SIG},
-};
+use super::{SigSigner, rdata::RRSIG};
 
 /// Data To Be Signed.
 pub struct TBS(Vec<u8>);
@@ -63,7 +60,12 @@ impl TBS {
         rrsig: &Record<RRSIG>,
         records: impl Iterator<Item = &'a Record>,
     ) -> ProtoResult<Self> {
-        Self::from_sig(rrsig.name(), rrsig.dns_class(), rrsig.data(), records)
+        Self::from_input(
+            rrsig.name(),
+            rrsig.dns_class(),
+            rrsig.data().input(),
+            records,
+        )
     }
 
     /// Returns the to-be-signed serialization of the given record set using the information
@@ -73,19 +75,19 @@ impl TBS {
     ///
     /// * `name` - labels of the record to sign
     /// * `dns_class` - DNSClass of the RRSet, i.e. IN
-    /// * `sig` - SIG or RRSIG record, which was produced from the RRSet
+    /// * `input` - `SigInput` data used to create the signature
     /// * `records` - RRSet records to sign with the information in the `rrsig`
     ///
     /// # Return
     ///
     /// binary hash of the RRSet with the information from the RRSIG record
-    pub fn from_sig<'a>(
+    pub fn from_input<'a>(
         name: &Name,
         dns_class: DNSClass,
-        sig: &SIG,
+        input: &SigInput,
         records: impl Iterator<Item = &'a Record>,
     ) -> ProtoResult<Self> {
-        Self::new(name, dns_class, &sig.input, records)
+        Self::new(name, dns_class, input, records)
     }
 
     /// Returns the to-be-signed serialization of the given record set.
