@@ -18,8 +18,7 @@ use crate::{
     error::{ProtoError, ProtoResult},
     rr::{Name, RData, RecordData, RecordDataDecodable, RecordType, SerialNumber},
     serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, NameEncoding, RDataEncoding, Restrict,
-        RestrictedMath,
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, RDataEncoding, Restrict, RestrictedMath,
     },
 };
 
@@ -424,17 +423,8 @@ impl BinEncodable for SIG {
     ///        by the corresponding lowercase US-ASCII letters;
     /// ```
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        let mut encoder = encoder.with_rdata_behavior(RDataEncoding::Canonical);
-        self.type_covered().emit(&mut encoder)?;
-        self.algorithm().emit(&mut encoder)?;
-        encoder.emit(self.num_labels())?;
-        encoder.emit_u32(self.original_ttl())?;
-        encoder.emit_u32(self.sig_expiration().0)?;
-        encoder.emit_u32(self.sig_inception().0)?;
-        encoder.emit_u16(self.key_tag())?;
-        self.signer_name().emit(&mut encoder)?;
-        encoder.emit_vec(self.sig())?;
-
+        self.input.emit(encoder)?;
+        encoder.emit_vec(&self.sig)?;
         Ok(())
     }
 }
@@ -594,15 +584,15 @@ pub struct SigInput {
 
 impl BinEncodable for SigInput {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        let mut encoder = encoder.with_rdata_behavior(RDataEncoding::Canonical);
         // specifically for outputting the RData for an RRSIG, with signer_name in canonical form
-        self.type_covered.emit(encoder)?;
-        self.algorithm.emit(encoder)?;
+        self.type_covered.emit(&mut encoder)?;
+        self.algorithm.emit(&mut encoder)?;
         encoder.emit(self.num_labels)?;
         encoder.emit_u32(self.original_ttl)?;
         encoder.emit_u32(self.sig_expiration.0)?;
         encoder.emit_u32(self.sig_inception.0)?;
         encoder.emit_u16(self.key_tag)?;
-        let mut encoder = encoder.with_name_encoding(NameEncoding::UncompressedLowercase);
         self.signer_name.emit(&mut encoder)?;
         Ok(())
     }
