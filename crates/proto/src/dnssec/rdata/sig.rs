@@ -188,8 +188,8 @@ pub struct SIG {
     algorithm: Algorithm,
     num_labels: u8,
     original_ttl: u32,
-    sig_expiration: u32,
-    sig_inception: u32,
+    sig_expiration: SerialNumber,
+    sig_inception: SerialNumber,
     key_tag: u16,
     signer_name: Name,
     sig: Vec<u8>,
@@ -221,8 +221,8 @@ impl SIG {
         algorithm: Algorithm,
         num_labels: u8,
         original_ttl: u32,
-        sig_expiration: u32,
-        sig_inception: u32,
+        sig_expiration: SerialNumber,
+        sig_inception: SerialNumber,
         key_tag: u16,
         signer_name: Name,
         sig: Vec<u8>,
@@ -379,12 +379,12 @@ impl SIG {
     /// serial number ring arithmetic
     /// ```
     pub fn sig_expiration(&self) -> SerialNumber {
-        SerialNumber(self.sig_expiration)
+        self.sig_expiration
     }
 
     /// see [`Self::sig_expiration`]
     pub fn sig_inception(&self) -> SerialNumber {
-        SerialNumber(self.sig_inception)
+        self.sig_inception
     }
 
     /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.6), Domain Name System Security Extensions, March 1999
@@ -503,8 +503,12 @@ impl<'r> RecordDataDecodable<'r> for SIG {
         let algorithm = Algorithm::read(decoder)?;
         let num_labels = decoder.read_u8()?.unverified(/*technically valid as any u8*/);
         let original_ttl = decoder.read_u32()?.unverified(/*valid as any u32*/);
-        let sig_expiration = decoder.read_u32()?.unverified(/*valid as any u32, in practice should be in the future*/);
-        let sig_inception = decoder.read_u32()?.unverified(/*valid as any u32, in practice should be before expiration*/);
+        let sig_expiration = SerialNumber(
+            decoder.read_u32()?.unverified(/*valid as any u32, in practice should be in the future*/),
+        );
+        let sig_inception = SerialNumber(
+            decoder.read_u32()?.unverified(/*valid as any u32, in practice should be before expiration*/),
+        );
         let key_tag = decoder.read_u16()?.unverified(/*valid as any u16*/);
         let signer_name = Name::read(decoder)?;
 
@@ -627,8 +631,8 @@ impl fmt::Display for SIG {
             alg = self.algorithm,
             num_labels = self.num_labels,
             original_ttl = self.original_ttl,
-            expire = self.sig_expiration,
-            inception = self.sig_inception,
+            expire = self.sig_expiration.0,
+            inception = self.sig_inception.0,
             tag = self.key_tag,
             signer = self.signer_name,
             sig = data_encoding::BASE64.encode(&self.sig)
@@ -653,8 +657,8 @@ mod tests {
             Algorithm::RSASHA256,
             0,
             0,
-            2,
-            1,
+            SerialNumber(2),
+            SerialNumber(1),
             5,
             Name::from_str("www.example.com.").unwrap(),
             vec![
