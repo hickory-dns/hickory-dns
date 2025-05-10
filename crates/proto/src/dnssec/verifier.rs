@@ -11,7 +11,7 @@ use alloc::sync::Arc;
 
 use super::{
     Algorithm, PublicKey,
-    rdata::{RRSIG, SIG},
+    rdata::{RRSIG, SigInput},
     tbs::{self, TBS},
 };
 use crate::{
@@ -58,9 +58,9 @@ pub trait Verifier {
         &self,
         message: &M,
         signature: &[u8],
-        sig0: &SIG,
+        input: &SigInput,
     ) -> ProtoResult<()> {
-        tbs::message_tbs(message, sig0).and_then(|tbs| self.verify(tbs.as_ref(), signature))
+        tbs::message_tbs(message, input).and_then(|tbs| self.verify(tbs.as_ref(), signature))
     }
 
     /// Verifies an RRSig with the associated key, e.g. DNSKEY
