@@ -184,14 +184,7 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct SIG {
-    type_covered: RecordType,
-    algorithm: Algorithm,
-    num_labels: u8,
-    original_ttl: u32,
-    sig_expiration: SerialNumber,
-    sig_inception: SerialNumber,
-    key_tag: u16,
-    signer_name: Name,
+    pub(crate) input: SigInput,
     sig: Vec<u8>,
 }
 
@@ -200,44 +193,14 @@ impl SIG {
     ///
     /// # Arguments
     ///
-    /// * `type_covered` - The `RecordType` which this signature covers, should be NULL for SIG(0).
-    /// * `algorithm` - The `Algorithm` used to generate the `signature`.
-    /// * `num_labels` - The number of labels in the name, should be less 1 for *.name labels,
-    ///   see `Name::num_labels()`.
-    /// * `original_ttl` - The TTL for the RRSet stored in the zone, should be 0 for SIG(0).
-    /// * `sig_expiration` - Timestamp at which this signature is no longer valid, very important to
-    ///   keep this low, < +5 minutes to limit replay attacks.
-    /// * `sig_inception` - Timestamp when this signature was generated.
-    /// * `key_tag` - See the key_tag generation in `rr::dnssec::Signer::key_tag()`.
-    /// * `signer_name` - Domain name of the server which was used to generate the signature.
+    /// * `input` - the input which this signature covers
     /// * `sig` - signature stored in this record.
     ///
     /// # Return value
     ///
     /// The new SIG record data.
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        type_covered: RecordType,
-        algorithm: Algorithm,
-        num_labels: u8,
-        original_ttl: u32,
-        sig_expiration: SerialNumber,
-        sig_inception: SerialNumber,
-        key_tag: u16,
-        signer_name: Name,
-        sig: Vec<u8>,
-    ) -> Self {
-        Self {
-            type_covered,
-            algorithm,
-            num_labels,
-            original_ttl,
-            sig_expiration,
-            sig_inception,
-            key_tag,
-            signer_name,
-            sig,
-        }
+    pub fn new(input: SigInput, sig: Vec<u8>) -> Self {
+        Self { input, sig }
     }
 
     /// Add actual signature value to existing SIG record data.
@@ -251,14 +214,7 @@ impl SIG {
     /// The new SIG record data.
     pub fn set_sig(self, signature: Vec<u8>) -> Self {
         Self {
-            type_covered: self.type_covered,
-            algorithm: self.algorithm,
-            num_labels: self.num_labels,
-            original_ttl: self.original_ttl,
-            sig_expiration: self.sig_expiration,
-            sig_inception: self.sig_inception,
-            key_tag: self.key_tag,
-            signer_name: self.signer_name,
+            input: self.input,
             sig: signature,
         }
     }
@@ -271,7 +227,7 @@ impl SIG {
     ///  The "type covered" is the type of the other RRs covered by this SIG.
     /// ```
     pub fn type_covered(&self) -> RecordType {
-        self.type_covered
+        self.input.type_covered
     }
 
     /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.2), Domain Name System Security Extensions, March 1999
@@ -282,7 +238,7 @@ impl SIG {
     ///  This octet is as described in section 3.2.
     /// ```
     pub fn algorithm(&self) -> Algorithm {
-        self.algorithm
+        self.input.algorithm
     }
 
     /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.3), Domain Name System Security Extensions, March 1999
@@ -318,7 +274,7 @@ impl SIG {
     ///  a.b.c.d.|  *. | *.d. | *.c.d. | *.b.c.d. | a.b.c.d. |
     /// ```
     pub fn num_labels(&self) -> u8 {
-        self.num_labels
+        self.input.num_labels
     }
 
     /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.4), Domain Name System Security Extensions, March 1999
@@ -339,7 +295,7 @@ impl SIG {
     ///  RRs in any particular RRset, must have the same TTL to start with.
     /// ```
     pub fn original_ttl(&self) -> u32 {
-        self.original_ttl
+        self.input.original_ttl
     }
 
     /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.5), Domain Name System Security Extensions, March 1999
@@ -379,12 +335,12 @@ impl SIG {
     /// serial number ring arithmetic
     /// ```
     pub fn sig_expiration(&self) -> SerialNumber {
-        self.sig_expiration
+        self.input.sig_expiration
     }
 
     /// see [`Self::sig_expiration`]
     pub fn sig_inception(&self) -> SerialNumber {
-        self.sig_inception
+        self.input.sig_inception
     }
 
     /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.6), Domain Name System Security Extensions, March 1999
@@ -404,7 +360,7 @@ impl SIG {
     ///  as a simple checksum of the KEY RR as described in Appendix C.
     /// ```
     pub fn key_tag(&self) -> u16 {
-        self.key_tag
+        self.input.key_tag
     }
 
     /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.7), Domain Name System Security Extensions, March 1999
@@ -422,7 +378,7 @@ impl SIG {
     ///  network.
     /// ```
     pub fn signer_name(&self) -> &Name {
-        &self.signer_name
+        &self.input.signer_name
     }
 
     /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.8), Domain Name System Security Extensions, March 1999
@@ -512,6 +468,17 @@ impl<'r> RecordDataDecodable<'r> for SIG {
         let key_tag = decoder.read_u16()?.unverified(/*valid as any u16*/);
         let signer_name = Name::read(decoder)?;
 
+        let input = SigInput {
+            type_covered,
+            algorithm,
+            num_labels,
+            original_ttl,
+            sig_expiration,
+            sig_inception,
+            key_tag,
+            signer_name,
+        };
+
         // read the signature, this will vary buy key size
         let sig_len = length
         .map(|u| u as usize)
@@ -521,18 +488,7 @@ impl<'r> RecordDataDecodable<'r> for SIG {
         let sig = decoder
         .read_vec(sig_len)?
         .unverified(/*will fail in usage if invalid*/);
-
-        Ok(Self::new(
-            type_covered,
-            algorithm,
-            num_labels,
-            original_ttl,
-            sig_expiration,
-            sig_inception,
-            key_tag,
-            signer_name,
-            sig,
-        ))
+        Ok(Self::new(input, sig))
     }
 }
 
@@ -551,31 +507,6 @@ impl RecordData for SIG {
     fn into_rdata(self) -> RData {
         RData::DNSSEC(DNSSECRData::SIG(self))
     }
-}
-
-/// specifically for outputting the RData for an RRSIG, with signer_name in canonical form
-#[allow(clippy::too_many_arguments)]
-pub fn emit_pre_sig(
-    encoder: &mut BinEncoder<'_>,
-    type_covered: RecordType,
-    algorithm: Algorithm,
-    num_labels: u8,
-    original_ttl: u32,
-    sig_expiration: SerialNumber,
-    sig_inception: SerialNumber,
-    key_tag: u16,
-    signer_name: &Name,
-) -> ProtoResult<()> {
-    type_covered.emit(encoder)?;
-    algorithm.emit(encoder)?;
-    encoder.emit(num_labels)?;
-    encoder.emit_u32(original_ttl)?;
-    encoder.emit_u32(sig_expiration.0)?;
-    encoder.emit_u32(sig_inception.0)?;
-    encoder.emit_u16(key_tag)?;
-    let mut encoder = encoder.with_name_encoding(NameEncoding::UncompressedLowercase);
-    signer_name.emit(&mut encoder)?;
-    Ok(())
 }
 
 /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-7.2), Domain Name System Security Extensions, March 1999
@@ -627,16 +558,57 @@ impl fmt::Display for SIG {
         write!(
             f,
             "{ty_covered} {alg} {num_labels} {original_ttl} {expire} {inception} {tag} {signer} {sig}",
-            ty_covered = self.type_covered,
-            alg = self.algorithm,
-            num_labels = self.num_labels,
-            original_ttl = self.original_ttl,
-            expire = self.sig_expiration.0,
-            inception = self.sig_inception.0,
-            tag = self.key_tag,
-            signer = self.signer_name,
+            ty_covered = self.input.type_covered,
+            alg = self.input.algorithm,
+            num_labels = self.input.num_labels,
+            original_ttl = self.input.original_ttl,
+            expire = self.input.sig_expiration.0,
+            inception = self.input.sig_inception.0,
+            tag = self.input.key_tag,
+            signer = self.input.signer_name,
             sig = data_encoding::BASE64.encode(&self.sig)
         )
+    }
+}
+
+/// Input for a SIG or RRSIG record signature.
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct SigInput {
+    /// `RecordType` which this signature covers, should be NULL for SIG(0).
+    pub type_covered: RecordType,
+    /// `Algorithm` used to generate the `signature`.
+    pub algorithm: Algorithm,
+    /// Number of labels in the name, should be less 1 for *.name labels, see
+    /// `Name::num_labels()`.
+    pub num_labels: u8,
+    /// * TTL for the RRSet stored in the zone, should be 0 for SIG(0).
+    pub original_ttl: u32,
+    /// Timestamp at which this signature is no longer valid
+    ///
+    /// Very important to keep this low, < +5 minutes to limit replay attacks.
+    pub sig_expiration: SerialNumber,
+    /// * Timestamp when this signature was generated.
+    pub sig_inception: SerialNumber,
+    /// * See the key_tag generation in `rr::dnssec::Signer::key_tag()`.
+    pub key_tag: u16,
+    /// * Domain name of the server which was used to generate the signature.
+    pub signer_name: Name,
+}
+
+impl BinEncodable for SigInput {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        // specifically for outputting the RData for an RRSIG, with signer_name in canonical form
+        self.type_covered.emit(encoder)?;
+        self.algorithm.emit(encoder)?;
+        encoder.emit(self.num_labels)?;
+        encoder.emit_u32(self.original_ttl)?;
+        encoder.emit_u32(self.sig_expiration.0)?;
+        encoder.emit_u32(self.sig_inception.0)?;
+        encoder.emit_u16(self.key_tag)?;
+        let mut encoder = encoder.with_name_encoding(NameEncoding::UncompressedLowercase);
+        self.signer_name.emit(&mut encoder)?;
+        Ok(())
     }
 }
 
@@ -652,15 +624,18 @@ mod tests {
     fn test() {
         use core::str::FromStr;
 
+        let input = SigInput {
+            type_covered: RecordType::NULL,
+            algorithm: Algorithm::RSASHA256,
+            num_labels: 0,
+            original_ttl: 0,
+            sig_expiration: SerialNumber(2),
+            sig_inception: SerialNumber(1),
+            key_tag: 5,
+            signer_name: Name::from_str("www.example.com.").unwrap(),
+        };
         let rdata = SIG::new(
-            RecordType::NULL,
-            Algorithm::RSASHA256,
-            0,
-            0,
-            SerialNumber(2),
-            SerialNumber(1),
-            5,
-            Name::from_str("www.example.com.").unwrap(),
+            input,
             vec![
                 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
                 23, 24, 25, 26, 27, 28, 29, 29, 31,
