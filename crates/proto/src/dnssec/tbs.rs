@@ -146,7 +146,7 @@ impl TBS {
         records: impl Iterator<Item = &'a Record>,
     ) -> ProtoResult<Self> {
         // TODO: change this to a BTreeSet so that it's preordered, no sort necessary
-        let mut rrset: Vec<&Record> = Vec::new();
+        let mut rrset = Vec::new();
 
         // collect only the records for this rrset
         for record in records {
@@ -164,66 +164,63 @@ impl TBS {
         let name = determine_name(name, num_labels)?;
 
         // TODO: rather than buffering here, use the Signer/Verifier? might mean fewer allocations...
-        let mut buf: Vec<u8> = Vec::new();
+        let mut buf = Vec::new();
+        let mut encoder = BinEncoder::new(&mut buf);
+        // Encode records using DNSSEC canonical form. This affects how names inside RDATA are
+        // encoded.
+        encoder.set_canonical_form(true);
+        // Disable name compression. Encoding of other fields may switch to use lowercase names
+        // as well.
+        encoder.set_name_encoding(NameEncoding::Uncompressed);
 
-        {
-            let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut buf);
-            // Encode records using DNSSEC canonical form. This affects how names inside RDATA are
-            // encoded.
-            encoder.set_canonical_form(true);
-            // Disable name compression. Encoding of other fields may switch to use lowercase names
-            // as well.
-            encoder.set_name_encoding(NameEncoding::Uncompressed);
+        //          signed_data = RRSIG_RDATA | RR(1) | RR(2)...  where
+        //
+        //             "|" denotes concatenation
+        //
+        //             RRSIG_RDATA is the wire format of the RRSIG RDATA fields
+        //                with the Signature field excluded and the Signer's Name
+        //                in canonical form.
+        sig::emit_pre_sig(
+            &mut encoder,
+            type_covered,
+            algorithm,
+            name.num_labels(),
+            original_ttl,
+            sig_expiration,
+            sig_inception,
+            key_tag,
+            signer_name,
+        )?;
 
-            //          signed_data = RRSIG_RDATA | RR(1) | RR(2)...  where
+        // construct the rrset signing data
+        for record in rrset {
+            //             RR(i) = name | type | class | OrigTTL | RDATA length | RDATA
             //
-            //             "|" denotes concatenation
-            //
-            //             RRSIG_RDATA is the wire format of the RRSIG RDATA fields
-            //                with the Signature field excluded and the Signer's Name
-            //                in canonical form.
-            sig::emit_pre_sig(
-                &mut encoder,
-                type_covered,
-                algorithm,
-                name.num_labels(),
-                original_ttl,
-                sig_expiration,
-                sig_inception,
-                key_tag,
-                signer_name,
-            )?;
-
-            // construct the rrset signing data
-            for record in rrset {
-                //             RR(i) = name | type | class | OrigTTL | RDATA length | RDATA
-                //
-                //                name is calculated according to the function in the RFC 4035
-                {
-                    let mut encoder_name =
-                        encoder.with_name_encoding(NameEncoding::UncompressedLowercase);
-                    name.emit(&mut encoder_name)?;
-                }
-                //
-                //                type is the RRset type and all RRs in the class
-                type_covered.emit(&mut encoder)?;
-                //
-                //                class is the RRset's class
-                dns_class.emit(&mut encoder)?;
-                //
-                //                OrigTTL is the value from the RRSIG Original TTL field
-                encoder.emit_u32(original_ttl)?;
-                //
-                //                RDATA length
-                let rdata_length_place = encoder.place::<u16>()?;
-                //
-                //                All names in the RDATA field are in canonical form (set above)
-                record.data().emit(&mut encoder)?;
-
-                let length = u16::try_from(encoder.len_since_place(&rdata_length_place))
-                    .map_err(|_| ProtoError::from("RDATA length exceeds u16::MAX"))?;
-                rdata_length_place.replace(&mut encoder, length)?;
+            //                name is calculated according to the function in the RFC 4035
+            {
+                let mut encoder_name =
+                    encoder.with_name_encoding(NameEncoding::UncompressedLowercase);
+                name.emit(&mut encoder_name)?;
             }
+            //
+            //                type is the RRset type and all RRs in the class
+            type_covered.emit(&mut encoder)?;
+            //
+            //                class is the RRset's class
+            dns_class.emit(&mut encoder)?;
+            //
+            //                OrigTTL is the value from the RRSIG Original TTL field
+            encoder.emit_u32(original_ttl)?;
+            //
+            //                RDATA length
+            let rdata_length_place = encoder.place::<u16>()?;
+            //
+            //                All names in the RDATA field are in canonical form (set above)
+            record.data().emit(&mut encoder)?;
+
+            let length = u16::try_from(encoder.len_since_place(&rdata_length_place))
+                .map_err(|_| ProtoError::from("RDATA length exceeds u16::MAX"))?;
+            rdata_length_place.replace(&mut encoder, length)?;
         }
 
         Ok(Self(buf))
@@ -247,29 +244,26 @@ pub fn message_tbs<M: BinEncodable>(message: &M, pre_sig0: &SIG) -> ProtoResult<
     // TODO: should perform the serialization and sign block by block to reduce the max memory
     //  usage, though at 4k max, this is probably unnecessary... For AXFR and large zones, it's
     //  more important
-    let mut buf: Vec<u8> = Vec::with_capacity(512);
-    let mut buf2: Vec<u8> = Vec::with_capacity(512);
+    let mut buf = Vec::with_capacity(512);
+    let mut buf2 = Vec::with_capacity(512);
 
-    {
-        let mut encoder: BinEncoder<'_> = BinEncoder::with_mode(&mut buf, EncodeMode::Normal);
-        sig::emit_pre_sig(
-            &mut encoder,
-            pre_sig0.type_covered(),
-            pre_sig0.algorithm(),
-            pre_sig0.num_labels(),
-            pre_sig0.original_ttl(),
-            pre_sig0.sig_expiration(),
-            pre_sig0.sig_inception(),
-            pre_sig0.key_tag(),
-            pre_sig0.signer_name(),
-        )?;
-        // need a separate encoder here, as the encoding references absolute positions
-        // inside the buffer. If the buffer already contains the sig0 RDATA, offsets
-        // are wrong and the signature won't match.
-        let mut encoder2: BinEncoder<'_> = BinEncoder::with_mode(&mut buf2, EncodeMode::Signing);
-        message.emit(&mut encoder2).unwrap(); // coding error if this panics (i think?)
-    }
-
+    let mut encoder = BinEncoder::with_mode(&mut buf, EncodeMode::Normal);
+    sig::emit_pre_sig(
+        &mut encoder,
+        pre_sig0.type_covered(),
+        pre_sig0.algorithm(),
+        pre_sig0.num_labels(),
+        pre_sig0.original_ttl(),
+        pre_sig0.sig_expiration(),
+        pre_sig0.sig_inception(),
+        pre_sig0.key_tag(),
+        pre_sig0.signer_name(),
+    )?;
+    // need a separate encoder here, as the encoding references absolute positions
+    // inside the buffer. If the buffer already contains the sig0 RDATA, offsets
+    // are wrong and the signature won't match.
+    let mut encoder2 = BinEncoder::with_mode(&mut buf2, EncodeMode::Signing);
+    message.emit(&mut encoder2).unwrap(); // coding error if this panics (i think?)
     buf.append(&mut buf2);
 
     Ok(TBS(buf))
