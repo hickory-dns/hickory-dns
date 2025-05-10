@@ -16,7 +16,6 @@ use crate::{
     dnssec::{
         TBS,
         rdata::{DNSKEY, DNSSECRData, KEY, SIG, SigInput},
-        tbs,
     },
     error::{ProtoErrorKind, ProtoResult},
     op::{Message, MessageSignature, MessageSigner, MessageVerifier},
@@ -454,7 +453,7 @@ impl SigSigner {
     ///
     ///  ---
     pub fn sign_message(&self, message: &Message, input: &SigInput) -> ProtoResult<Vec<u8>> {
-        let tbs = tbs::message_tbs(message, input)?;
+        let tbs = TBS::from_message(message, input)?;
         self.sign(&tbs)
     }
 
