@@ -1164,7 +1164,7 @@ async fn test_zone_signing() {
                         _ => None,
                     }
                 })
-                .any(|rrsig| rrsig.type_covered() == record.record_type()),
+                .any(|rrsig| rrsig.input().type_covered == record.record_type()),
             "record type not covered: {:?}",
             record
         );

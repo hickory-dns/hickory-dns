@@ -335,7 +335,7 @@ pub fn query_all_dnssec(io_loop: &mut Runtime, client: Client, algorithm: Algori
         .iter()
         .map(Record::data)
         .filter_map(RRSIG::try_borrow)
-        .filter(|rrsig| rrsig.algorithm() == algorithm)
-        .find(|rrsig| rrsig.type_covered() == RecordType::DNSKEY);
+        .filter(|rrsig| rrsig.input().algorithm == algorithm)
+        .find(|rrsig| rrsig.input().type_covered == RecordType::DNSKEY);
     assert!(rrsig.is_some(), "Associated RRSIG not found");
 }
