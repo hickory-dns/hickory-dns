@@ -791,84 +791,39 @@ mod test {
         };
 
         let name = Name::root();
-        let input = SigInput {
-            type_covered: RecordType::A,
-            algorithm: Algorithm::RSASHA256,
-            num_labels: 0,
-            original_ttl: 0,
-            sig_expiration: SerialNumber(0),
-            sig_inception: SerialNumber(0),
-            key_tag: 0,
-            signer_name: Name::root(),
-        };
+        const ALGORITHMS: [Algorithm; 4] = [
+            Algorithm::RSASHA256,
+            Algorithm::ECDSAP256SHA256,
+            Algorithm::ECDSAP384SHA384,
+            Algorithm::ED25519,
+        ];
 
-        let rsasha256 = RRSIG::new(
-            SigInput {
-                algorithm: Algorithm::RSASHA256,
-                ..input.clone()
-            },
-            vec![],
-        );
-        let ecp256 = RRSIG::new(
-            SigInput {
-                algorithm: Algorithm::ECDSAP256SHA256,
-                ..input.clone()
-            },
-            vec![],
-        );
-        let ecp384 = RRSIG::new(
-            SigInput {
-                algorithm: Algorithm::ECDSAP384SHA384,
-                ..input.clone()
-            },
-            vec![],
-        );
-        let ed25519 = RRSIG::new(
-            SigInput {
-                algorithm: Algorithm::ED25519,
-                ..input
-            },
-            vec![],
-        );
-
-        let rrsig_rsa = Record::from_rdata(
+        let mut a = Record::from_rdata(
             name.clone(),
             3600,
-            RData::DNSSEC(DNSSECRData::RRSIG(rsasha256)),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone();
-        let rrsig_ecp256 = Record::from_rdata(
-            name.clone(),
-            3600,
-            RData::DNSSEC(DNSSECRData::RRSIG(ecp256)),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone();
-        let rrsig_ecp384 = Record::from_rdata(
-            name.clone(),
-            3600,
-            RData::DNSSEC(DNSSECRData::RRSIG(ecp384)),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone();
-        let rrsig_ed25519 = Record::from_rdata(
-            name.clone(),
-            3600,
-            RData::DNSSEC(DNSSECRData::RRSIG(ed25519)),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone();
-
-        let a = Record::from_rdata(name, 3600, RData::A(Ipv4Addr::new(93, 184, 216, 24).into()))
-            .set_dns_class(DNSClass::IN)
-            .clone();
-
+            RData::A(Ipv4Addr::new(93, 184, 216, 24).into()),
+        );
+        a.set_dns_class(DNSClass::IN);
         let mut rrset = RecordSet::from(a);
-        rrset.insert_rrsig(rrsig_rsa);
-        rrset.insert_rrsig(rrsig_ecp256);
-        rrset.insert_rrsig(rrsig_ecp384);
-        rrset.insert_rrsig(rrsig_ed25519);
+
+        for algorithm in ALGORITHMS {
+            let input = SigInput {
+                type_covered: RecordType::A,
+                algorithm,
+                num_labels: 0,
+                original_ttl: 0,
+                sig_expiration: SerialNumber(0),
+                sig_inception: SerialNumber(0),
+                key_tag: 0,
+                signer_name: Name::root(),
+            };
+
+            let rrsig = RRSIG::new(input, vec![]);
+            let mut rrsig_record =
+                Record::from_rdata(name.clone(), 3600, RData::DNSSEC(DNSSECRData::RRSIG(rrsig)));
+            rrsig_record.set_dns_class(DNSClass::IN);
+            rrset.insert_rrsig(rrsig_record);
+        }
 
         assert!(rrset.records_with_rrsigs().any(|r| {
             if let RData::DNSSEC(DNSSECRData::RRSIG(sig)) = r.data() {
