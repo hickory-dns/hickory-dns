@@ -881,7 +881,7 @@ impl SqliteAuthority {
             return Err(ResponseCode::Refused);
         };
 
-        let name = LowerName::from(sig0.signer_name());
+        let name = LowerName::from(&sig0.input().signer_name);
         let Continue(Ok(keys)) = self
             .lookup(&name, RecordType::KEY, LookupOptions::default())
             .await

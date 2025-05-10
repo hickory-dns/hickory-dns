@@ -64,8 +64,8 @@ impl RRSIG {
     pub fn authenticated_ttl(&self, record: &Record, current_time: u32) -> u32 {
         record
             .ttl()
-            .min(self.original_ttl())
-            .min(self.sig_expiration().0.saturating_sub(current_time))
+            .min(self.input.original_ttl)
+            .min(self.input.sig_expiration.0.saturating_sub(current_time))
     }
 }
 
