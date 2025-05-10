@@ -436,7 +436,7 @@ where
         let current_rrsigs;
         (current_rrsigs, rrsigs) = rrsigs.into_iter().partition::<Vec<_>, _>(|rr| {
             rr.try_borrow::<RRSIG>()
-                .map(|rr| rr.name() == &name && rr.data().type_covered() == record_type)
+                .map(|rr| rr.name() == &name && rr.data().input.type_covered == record_type)
                 .unwrap_or_default()
         });
 
@@ -450,7 +450,7 @@ where
             .iter()
             .filter_map(|rr| rr.try_borrow::<RRSIG>())
             .filter(|rr| rr.name() == &name)
-            .filter(|rrsig| rrsig.data().type_covered() == record_type)
+            .filter(|rrsig| rrsig.data().input.type_covered == record_type)
             .collect();
 
         // if there is already an active validation going on, assume the other validation will
@@ -661,7 +661,7 @@ where
     //   we need to verify all the other DNSKEYS in the zone against it (i.e. the rrset)
     for (i, rrsig) in rrsigs.iter().enumerate() {
         // These should all match, but double checking...
-        let signer_name = rrsig.data().signer_name();
+        let signer_name = &rrsig.data().input.signer_name;
 
         let rrset_proof = rrset
             .records()
@@ -1019,7 +1019,7 @@ where
         .iter()
         .enumerate()
         .filter_map(|(i, rrsig)| {
-            let query = Query::query(rrsig.data().signer_name().clone(), RecordType::DNSKEY);
+            let query = Query::query(rrsig.data().input.signer_name.clone(), RecordType::DNSKEY);
 
             if i > MAX_RRSIGS_PER_RRSET {
                 warn!("too many ({i}) RRSIGs for rrset {rrset:?}; skipping");
@@ -1133,7 +1133,7 @@ fn verify_rrset_with_dnskey(
                 proof,
                 ProofErrorKind::InsecureDnsKey {
                     name: dnskey.name().clone(),
-                    key_tag: rrsig.data().key_tag(),
+                    key_tag: rrsig.data().input.key_tag,
                 },
             ));
         }
@@ -1145,7 +1145,7 @@ fn verify_rrset_with_dnskey(
             Proof::Bogus,
             ProofErrorKind::DnsKeyRevoked {
                 name: dnskey.name().clone(),
-                key_tag: rrsig.data().key_tag(),
+                key_tag: rrsig.data().input.key_tag,
             },
         ));
     } // TODO: does this need to be validated? RFC 5011
@@ -1154,15 +1154,15 @@ fn verify_rrset_with_dnskey(
             Proof::Bogus,
             ProofErrorKind::NotZoneDnsKey {
                 name: dnskey.name().clone(),
-                key_tag: rrsig.data().key_tag(),
+                key_tag: rrsig.data().input.key_tag,
             },
         ));
     }
-    if dnskey.data().algorithm() != rrsig.data().algorithm() {
+    if dnskey.data().algorithm() != rrsig.data().input.algorithm {
         return Err(ProofError::new(
             Proof::Bogus,
             ProofErrorKind::AlgorithmMismatch {
-                rrsig: rrsig.data().algorithm(),
+                rrsig: rrsig.data().input.algorithm,
                 dnskey: dnskey.data().algorithm(),
             },
         ));
@@ -1211,7 +1211,7 @@ fn verify_rrset_with_dnskey(
                 Proof::Bogus,
                 ProofErrorKind::DnsKeyVerifyRrsig {
                     name: dnskey.name().clone(),
-                    key_tag: rrsig.data().key_tag(),
+                    key_tag: rrsig.data().input.key_tag,
                     error: e,
                 },
             )
@@ -1226,8 +1226,8 @@ fn check_rrsig_validity(
     current_time: u32,
 ) -> RrsigValidity {
     let current_time = SerialNumber(current_time);
-    let expiration = rrsig.data().sig_expiration();
-    let inception = rrsig.data().sig_inception();
+    let expiration = rrsig.data().input.sig_expiration;
+    let inception = rrsig.data().input.sig_inception;
 
     let Ok(dnskey_key_tag) = dnskey.data().calculate_key_tag() else {
         return RrsigValidity::WrongDnskey;
@@ -1242,11 +1242,11 @@ fn check_rrsig_validity(
         // TODO(^) the zone name is in the SOA record, which is not accessible from here
 
         // "The RRSIG RR's Type Covered field MUST equal the RRset's type"
-        rrsig.data().type_covered() == rrset.record_type() &&
+        rrsig.data().input.type_covered == rrset.record_type() &&
 
         // "The number of labels in the RRset owner name MUST be greater than or equal to the value
         // in the RRSIG RR's Labels field"
-        rrset.name().num_labels() >= rrsig.data().num_labels()
+        rrset.name().num_labels() >= rrsig.data().input.num_labels
     ) {
         return RrsigValidity::WrongRrsig;
     }
@@ -1268,9 +1268,9 @@ fn check_rrsig_validity(
     if !(
         // "The RRSIG RR's Signer's Name, Algorithm, and Key Tag fields MUST match the owner name,
         // algorithm, and key tag for some DNSKEY RR in the zone's apex DNSKEY RRset"
-        rrsig.data().signer_name() == dnskey.name() &&
-        rrsig.data().algorithm() == dnskey.data().algorithm() &&
-        rrsig.data().key_tag() == dnskey_key_tag &&
+        &rrsig.data().input.signer_name == dnskey.name() &&
+        rrsig.data().input.algorithm == dnskey.data().algorithm() &&
+        rrsig.data().input.key_tag == dnskey_key_tag &&
 
         // "The matching DNSKEY RR MUST be present in the zone's apex DNSKEY RRset, and MUST have the
         // Zone Flag bit (DNSKEY RDATA Flag bit 7) set"

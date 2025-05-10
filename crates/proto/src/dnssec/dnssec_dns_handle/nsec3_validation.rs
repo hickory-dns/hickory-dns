@@ -189,7 +189,7 @@ pub(super) fn verify_nsec3(
                     .data()
                     .as_dnssec()?
                     .as_rrsig()
-                    .map(|data| data.num_labels())
+                    .map(|data| data.input.num_labels)
             });
             validate_nodata_response(
                 query_name,

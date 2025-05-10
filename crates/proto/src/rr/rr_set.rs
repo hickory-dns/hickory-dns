@@ -827,7 +827,7 @@ mod test {
 
         assert!(rrset.records_with_rrsigs().any(|r| {
             if let RData::DNSSEC(DNSSECRData::RRSIG(sig)) = r.data() {
-                sig.algorithm() == Algorithm::ED25519
+                sig.input.algorithm == Algorithm::ED25519
             } else {
                 false
             }
@@ -835,7 +835,7 @@ mod test {
 
         assert!(rrset.records_with_rrsigs().any(|r| {
             if let RData::DNSSEC(DNSSECRData::RRSIG(sig)) = r.data() {
-                sig.algorithm() == Algorithm::ECDSAP384SHA384
+                sig.input.algorithm == Algorithm::ECDSAP384SHA384
             } else {
                 false
             }
@@ -843,7 +843,7 @@ mod test {
 
         assert!(rrset.records_with_rrsigs().any(|r| {
             if let RData::DNSSEC(DNSSECRData::RRSIG(sig)) = r.data() {
-                sig.algorithm() == Algorithm::ED25519
+                sig.input.algorithm == Algorithm::ED25519
             } else {
                 false
             }
