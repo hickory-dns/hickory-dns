@@ -15,7 +15,7 @@ use super::{DnsSecResult, SigningKey};
 use crate::{
     dnssec::{
         TBS,
-        rdata::{DNSKEY, DNSSECRData, KEY, SIG},
+        rdata::{DNSKEY, DNSSECRData, KEY, SIG, SigInput},
         tbs,
     },
     error::{ProtoErrorKind, ProtoResult},
@@ -498,25 +498,24 @@ impl MessageSigner for SigSigner {
         let num_labels = name.num_labels();
 
         let expiration_time = current_time + (5 * 60); // +5 minutes in seconds
-
-        let pre_sig0 = SIG::new(
-            // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
-            RecordType::ZERO,
-            self.key.algorithm(),
+        let input = SigInput {
+            type_covered: RecordType::ZERO,
+            algorithm: self.key.algorithm(),
             num_labels,
             // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
-            0,
+            original_ttl: 0,
             // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
-            SerialNumber(expiration_time),
+            sig_expiration: SerialNumber(expiration_time),
             // current time, this should be UTC
             // unsigned numbers of seconds since the start of 1 January 1970, GMT
-            SerialNumber(current_time),
+            sig_inception: SerialNumber(current_time),
             key_tag,
             // can probably get rid of this clone if the ownership is correct
-            self.signer_name().clone(),
-            Vec::new(),
-        );
-        let signature: Vec<u8> = self.sign_message(message, &pre_sig0)?;
+            signer_name: self.signer_name().clone(),
+        };
+
+        let pre_sig0 = SIG::new(input, Vec::new());
+        let signature = self.sign_message(message, &pre_sig0)?;
         let rdata = RData::DNSSEC(DNSSECRData::SIG(pre_sig0.set_sig(signature)));
 
         // 'For all SIG(0) RRs, the owner name, class, TTL, and original TTL, are
@@ -557,30 +556,30 @@ mod tests {
     }
 
     fn pre_sig0(signer: &SigSigner, inception_time: u32, expiration_time: u32) -> SIG {
-        SIG::new(
+        let input = SigInput {
             // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
-            RecordType::ZERO,
-            signer.key().algorithm(),
-            0,
+            type_covered: RecordType::ZERO,
+            algorithm: signer.key().algorithm(),
+            num_labels: 0,
             // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
-            0,
+            original_ttl: 0,
             // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
-            SerialNumber(expiration_time),
+            sig_expiration: SerialNumber(expiration_time),
             // current time, this should be UTC
             // unsigned numbers of seconds since the start of 1 January 1970, GMT
-            SerialNumber(inception_time),
-            signer.calculate_key_tag().unwrap(),
-            // can probably get rid of this clone if the ownership is correct
-            signer.signer_name().clone(),
-            Vec::new(),
-        )
+            sig_inception: SerialNumber(inception_time),
+            signer_name: signer.signer_name().clone(),
+            key_tag: signer.calculate_key_tag().unwrap(),
+        };
+
+        SIG::new(input, Vec::new())
     }
 
     #[test]
     fn test_sign_and_verify_message_sig0() {
-        let origin: Name = Name::parse("example.com.", None).unwrap();
-        let mut question: Message = Message::new();
-        let mut query: Query = Query::new();
+        let origin = Name::parse("example.com.", None).unwrap();
+        let mut question = Message::new();
+        let mut query = Query::new();
         query.set_name(origin);
         question.add_query(query);
 
@@ -636,23 +635,19 @@ mod tests {
         let sig0key = KEY::new_sig0key_with_usage(&pub_key, KeyUsage::Zone);
         let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
 
-        let origin: Name = Name::parse("example.com.", None).unwrap();
-        let rrsig = Record::from_rdata(
-            origin.clone(),
-            86400,
-            RRSIG::new(
-                RecordType::NS,
-                Algorithm::RSASHA256,
-                origin.num_labels(),
-                86400,
-                SerialNumber(5),
-                SerialNumber(0),
-                signer.calculate_key_tag().unwrap(),
-                origin.clone(),
-                vec![],
-            ),
-        );
+        let origin = Name::parse("example.com.", None).unwrap();
+        let input = SigInput {
+            type_covered: RecordType::NS,
+            algorithm: Algorithm::RSASHA256,
+            num_labels: origin.num_labels(),
+            original_ttl: 86400,
+            sig_expiration: SerialNumber(5),
+            sig_inception: SerialNumber(0),
+            key_tag: signer.calculate_key_tag().unwrap(),
+            signer_name: origin.clone(),
+        };
 
+        let rrsig = Record::from_rdata(origin.clone(), 86400, RRSIG::new(input, vec![]));
         let rrset = vec![
             Record::from_rdata(
                 origin.clone(),
@@ -701,21 +696,18 @@ mod tests {
         let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
 
         let origin = Name::parse("example.com.", None).unwrap();
-        let rrsig = Record::from_rdata(
-            origin.clone(),
-            86400,
-            RRSIG::new(
-                RecordType::NS,
-                Algorithm::RSASHA256,
-                origin.num_labels(),
-                86400,
-                SerialNumber(5),
-                SerialNumber(0),
-                signer.calculate_key_tag().unwrap(),
-                origin.clone(),
-                vec![],
-            ),
-        );
+        let input = SigInput {
+            type_covered: RecordType::NS,
+            algorithm: Algorithm::RSASHA256,
+            num_labels: origin.num_labels(),
+            original_ttl: 86400,
+            sig_expiration: SerialNumber(5),
+            sig_inception: SerialNumber(0),
+            key_tag: signer.calculate_key_tag().unwrap(),
+            signer_name: origin.clone(),
+        };
+
+        let rrsig = Record::from_rdata(origin.clone(), 86400, RRSIG::new(input, vec![]));
         let rrset = vec![
             Record::from_rdata(
                 origin.clone(),

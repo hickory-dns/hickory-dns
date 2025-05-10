@@ -13,14 +13,12 @@ use core::{fmt, ops::Deref};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use super::{DNSSECRData, SIG, sig::SigInput};
 use crate::{
-    dnssec::Algorithm,
     error::ProtoResult,
-    rr::{Name, RData, Record, RecordData, RecordDataDecodable, RecordType, SerialNumber},
+    rr::{RData, Record, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict},
 };
-
-use super::{DNSSECRData, SIG};
 
 /// RRSIG is really a derivation of the original SIG record data. See SIG for more documentation
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
@@ -32,44 +30,14 @@ impl RRSIG {
     ///
     /// # Arguments
     ///
-    /// * `type_covered` - The `RecordType` which this signature covers, should be NULL for SIG(0).
-    /// * `algorithm` - The `Algorithm` used to generate the `signature`.
-    /// * `num_labels` - The number of labels in the name, should be less 1 for *.name labels,
-    ///   see `Name::num_labels()`.
-    /// * `original_ttl` - The TTL for the RRSet stored in the zone, should be 0 for SIG(0).
-    /// * `sig_expiration` - Timestamp at which this signature is no longer valid, very important to
-    ///   keep this low, < +5 minutes to limit replay attacks.
-    /// * `sig_inception` - Timestamp when this signature was generated.
-    /// * `key_tag` - See the key_tag generation in `rr::dnssec::Signer::key_tag()`.
-    /// * `signer_name` - Domain name of the server which was used to generate the signature.
+    /// * `input` - the input data used to create the signature.
     /// * `sig` - signature stored in this record.
     ///
     /// # Return value
     ///
     /// The new SIG record data.
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        type_covered: RecordType,
-        algorithm: Algorithm,
-        num_labels: u8,
-        original_ttl: u32,
-        sig_expiration: SerialNumber,
-        sig_inception: SerialNumber,
-        key_tag: u16,
-        signer_name: Name,
-        sig: Vec<u8>,
-    ) -> Self {
-        Self(SIG::new(
-            type_covered,
-            algorithm,
-            num_labels,
-            original_ttl,
-            sig_expiration,
-            sig_inception,
-            key_tag,
-            signer_name,
-            sig,
-        ))
+    pub fn new(input: SigInput, sig: Vec<u8>) -> Self {
+        Self(SIG::new(input, sig))
     }
 
     /// Returns the authenticated TTL of this RRSIG with a Record.

@@ -10,7 +10,7 @@
 use alloc::{borrow::ToOwned, vec::Vec};
 use time::OffsetDateTime;
 
-use super::Algorithm;
+use super::{Algorithm, rdata::sig::SigInput};
 use crate::{
     error::{ProtoError, ProtoResult},
     rr::{DNSClass, Name, Record, RecordSet, RecordType, SerialNumber},
@@ -19,7 +19,7 @@ use crate::{
 
 use super::{
     SigSigner,
-    rdata::{RRSIG, SIG, sig},
+    rdata::{RRSIG, SIG},
 };
 
 /// Data To Be Signed.
@@ -180,17 +180,17 @@ impl TBS {
         //             RRSIG_RDATA is the wire format of the RRSIG RDATA fields
         //                with the Signature field excluded and the Signer's Name
         //                in canonical form.
-        sig::emit_pre_sig(
-            &mut encoder,
+        SigInput {
             type_covered,
             algorithm,
-            name.num_labels(),
+            num_labels: name.num_labels(),
             original_ttl,
             sig_expiration,
             sig_inception,
             key_tag,
-            signer_name,
-        )?;
+            signer_name: signer_name.clone(),
+        }
+        .emit(&mut encoder)?;
 
         // construct the rrset signing data
         for record in rrset {
@@ -248,17 +248,9 @@ pub fn message_tbs<M: BinEncodable>(message: &M, pre_sig0: &SIG) -> ProtoResult<
     let mut buf2 = Vec::with_capacity(512);
 
     let mut encoder = BinEncoder::with_mode(&mut buf, EncodeMode::Normal);
-    sig::emit_pre_sig(
-        &mut encoder,
-        pre_sig0.type_covered(),
-        pre_sig0.algorithm(),
-        pre_sig0.num_labels(),
-        pre_sig0.original_ttl(),
-        pre_sig0.sig_expiration(),
-        pre_sig0.sig_inception(),
-        pre_sig0.key_tag(),
-        pre_sig0.signer_name(),
-    )?;
+
+    pre_sig0.input.emit(&mut encoder)?;
+
     // need a separate encoder here, as the encoding references absolute positions
     // inside the buffer. If the buffer already contains the sig0 RDATA, offsets
     // are wrong and the signature won't match.

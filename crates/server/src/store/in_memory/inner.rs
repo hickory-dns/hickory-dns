@@ -20,7 +20,7 @@ use crate::{
         ProtoError,
         dnssec::{
             DnsSecResult, Nsec3HashAlgorithm, SigSigner, TBS,
-            rdata::{DNSSECRData, NSEC, NSEC3, NSEC3PARAM, RRSIG},
+            rdata::{DNSSECRData, NSEC, NSEC3, NSEC3PARAM, RRSIG, sig::SigInput},
         },
         rr::SerialNumber,
     },
@@ -754,26 +754,20 @@ impl InnerInMemory {
                 }
             };
 
+            let input = SigInput {
+                type_covered: rr_set.record_type(),
+                algorithm: signer.key().algorithm(),
+                num_labels: rr_set.name().num_labels(),
+                original_ttl: rr_set.ttl(),
+                sig_expiration: SerialNumber::from(expiration.unix_timestamp() as u32),
+                sig_inception: SerialNumber::from(inception.unix_timestamp() as u32),
+                key_tag: signer.calculate_key_tag()?,
+                signer_name: signer.signer_name().clone(),
+            };
+
             let mut rrsig = rrsig_temp.clone();
             rrsig.set_data(RData::DNSSEC(DNSSECRData::RRSIG(RRSIG::new(
-                // type_covered: RecordType,
-                rr_set.record_type(),
-                // algorithm: Algorithm,
-                signer.key().algorithm(),
-                // num_labels: u8,
-                rr_set.name().num_labels(),
-                // original_ttl: u32,
-                rr_set.ttl(),
-                // sig_expiration: u32,
-                SerialNumber::from(expiration.unix_timestamp() as u32),
-                // sig_inception: u32,
-                SerialNumber::from(inception.unix_timestamp() as u32),
-                // key_tag: u16,
-                signer.calculate_key_tag()?,
-                // signer_name: Name,
-                signer.signer_name().clone(),
-                // sig: Vec<u8>
-                signature,
+                input, signature,
             ))));
 
             rr_set.insert_rrsig(rrsig);
