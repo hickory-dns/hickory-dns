@@ -541,7 +541,7 @@ mod tests {
     use crate::dnssec::{
         Algorithm, PublicKey, SigningKey, TBS, Verifier,
         crypto::RsaSigningKey,
-        rdata::{DNSSECRData, KEY, RRSIG, key::KeyUsage},
+        rdata::{DNSSECRData, KEY, key::KeyUsage},
     };
     use crate::op::{Message, MessageSignature, Query};
     use crate::rr::rdata::{CNAME, NS};
@@ -644,7 +644,6 @@ mod tests {
             signer_name: origin.clone(),
         };
 
-        let rrsig = Record::from_rdata(origin.clone(), 86400, RRSIG::new(input, vec![]));
         let rrset = vec![
             Record::from_rdata(
                 origin.clone(),
@@ -654,7 +653,7 @@ mod tests {
             .set_dns_class(DNSClass::IN)
             .clone(),
             Record::from_rdata(
-                origin,
+                origin.clone(),
                 86400,
                 RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
             )
@@ -662,7 +661,7 @@ mod tests {
             .clone(),
         ];
 
-        let tbs = TBS::from_rrsig(&rrsig, rrset.iter()).unwrap();
+        let tbs = TBS::from_input(&origin, DNSClass::IN, &input, rrset.iter()).unwrap();
         let sig = signer.sign(&tbs).unwrap();
 
         let pub_key = signer.key().to_public_key().unwrap();
@@ -704,7 +703,6 @@ mod tests {
             signer_name: origin.clone(),
         };
 
-        let rrsig = Record::from_rdata(origin.clone(), 86400, RRSIG::new(input, vec![]));
         let rrset = vec![
             Record::from_rdata(
                 origin.clone(),
@@ -722,7 +720,7 @@ mod tests {
             .clone(),
         ];
 
-        let tbs = TBS::from_rrsig(&rrsig, rrset.iter()).unwrap();
+        let tbs = TBS::from_input(&origin, DNSClass::IN, &input, rrset.iter()).unwrap();
         assert!(!tbs.as_ref().is_empty());
 
         let rrset = vec![
@@ -755,7 +753,7 @@ mod tests {
             .set_dns_class(DNSClass::IN)
             .clone(),
             Record::from_rdata(
-                origin,
+                origin.clone(),
                 86400,
                 RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
             )
@@ -763,7 +761,7 @@ mod tests {
             .clone(),
         ];
 
-        let filtered_tbs = TBS::from_rrsig(&rrsig, rrset.iter()).unwrap();
+        let filtered_tbs = TBS::from_input(&origin, DNSClass::IN, &input, rrset.iter()).unwrap();
         assert!(!filtered_tbs.as_ref().is_empty());
         assert_eq!(tbs.as_ref(), filtered_tbs.as_ref());
     }

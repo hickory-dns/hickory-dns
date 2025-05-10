@@ -10,14 +10,13 @@
 use alloc::{borrow::ToOwned, vec::Vec};
 use time::OffsetDateTime;
 
+use super::SigSigner;
 use super::rdata::sig::SigInput;
 use crate::{
     error::{ProtoError, ProtoResult},
     rr::{DNSClass, Name, Record, RecordSet, SerialNumber},
     serialize::binary::{BinEncodable, BinEncoder, EncodeMode, NameEncoding},
 };
-
-use super::{SigSigner, rdata::RRSIG};
 
 /// Data To Be Signed.
 pub struct TBS(Vec<u8>);
@@ -43,29 +42,6 @@ impl TBS {
         buf.append(&mut buf2);
 
         Ok(Self(buf))
-    }
-
-    /// Returns the to-be-signed serialization of the given record set using the information
-    /// provided from the RRSIG record.
-    ///
-    /// # Arguments
-    ///
-    /// * `rrsig` - SIG or RRSIG record, which was produced from the RRSet
-    /// * `records` - RRSet records to sign with the information in the `rrsig`
-    ///
-    /// # Return
-    ///
-    /// binary hash of the RRSet with the information from the RRSIG record
-    pub fn from_rrsig<'a>(
-        rrsig: &Record<RRSIG>,
-        records: impl Iterator<Item = &'a Record>,
-    ) -> ProtoResult<Self> {
-        Self::from_input(
-            rrsig.name(),
-            rrsig.dns_class(),
-            rrsig.data().input(),
-            records,
-        )
     }
 
     /// Returns the to-be-signed serialization of the given record set using the information
