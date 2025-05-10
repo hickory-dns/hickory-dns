@@ -60,7 +60,8 @@ pub trait Verifier {
         signature: &[u8],
         input: &SigInput,
     ) -> ProtoResult<()> {
-        tbs::message_tbs(message, input).and_then(|tbs| self.verify(tbs.as_ref(), signature))
+        let tbs = tbs::message_tbs(message, input)?;
+        self.verify(tbs.as_ref(), signature)
     }
 
     /// Verifies an RRSig with the associated key, e.g. DNSKEY
