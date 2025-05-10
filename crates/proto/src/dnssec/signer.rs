@@ -454,7 +454,8 @@ impl SigSigner {
     ///
     ///  ---
     pub fn sign_message(&self, message: &Message, input: &SigInput) -> ProtoResult<Vec<u8>> {
-        tbs::message_tbs(message, input).and_then(|tbs| self.sign(&tbs))
+        let tbs = tbs::message_tbs(message, input)?;
+        self.sign(&tbs)
     }
 
     /// Extracts a public KEY from this Signer
