@@ -413,6 +413,11 @@ impl SIG {
     pub fn sig(&self) -> &[u8] {
         &self.sig
     }
+
+    /// The input data used to create the signature.
+    pub fn input(&self) -> &SigInput {
+        &self.input
+    }
 }
 
 impl BinEncodable for SIG {
