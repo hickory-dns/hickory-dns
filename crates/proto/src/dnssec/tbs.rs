@@ -10,10 +10,10 @@
 use alloc::{borrow::ToOwned, vec::Vec};
 use time::OffsetDateTime;
 
-use super::{Algorithm, rdata::sig::SigInput};
+use super::rdata::sig::SigInput;
 use crate::{
     error::{ProtoError, ProtoResult},
-    rr::{DNSClass, Name, Record, RecordSet, RecordType, SerialNumber},
+    rr::{DNSClass, Name, Record, RecordSet, SerialNumber},
     serialize::binary::{BinEncodable, BinEncoder, EncodeMode, NameEncoding},
 };
 
@@ -63,19 +63,7 @@ impl TBS {
         sig: &SIG,
         records: impl Iterator<Item = &'a Record>,
     ) -> ProtoResult<Self> {
-        Self::new(
-            name,
-            dns_class,
-            sig.num_labels(),
-            sig.type_covered(),
-            sig.algorithm(),
-            sig.original_ttl(),
-            sig.sig_expiration(),
-            sig.sig_inception(),
-            sig.key_tag(),
-            sig.signer_name(),
-            records,
-        )
+        Self::new(name, dns_class, &sig.input, records)
     }
 
     /// Returns the to-be-signed serialization of the given record set.
@@ -98,17 +86,21 @@ impl TBS {
         expiration: OffsetDateTime,
         signer: &SigSigner,
     ) -> ProtoResult<Self> {
+        let input = SigInput {
+            type_covered: rr_set.record_type(),
+            algorithm: signer.key().algorithm(),
+            num_labels: rr_set.name().num_labels(),
+            original_ttl: rr_set.ttl(),
+            sig_expiration: SerialNumber(expiration.unix_timestamp() as u32),
+            sig_inception: SerialNumber(inception.unix_timestamp() as u32),
+            key_tag: signer.calculate_key_tag()?,
+            signer_name: signer.signer_name().clone(),
+        };
+
         Self::new(
             rr_set.name(),
             zone_class,
-            rr_set.name().num_labels(),
-            rr_set.record_type(),
-            signer.key().algorithm(),
-            rr_set.ttl(),
-            SerialNumber(expiration.unix_timestamp() as u32),
-            SerialNumber(inception.unix_timestamp() as u32),
-            signer.calculate_key_tag()?,
-            signer.signer_name(),
+            &input,
             rr_set.records_without_rrsigs(),
         )
     }
@@ -119,13 +111,7 @@ impl TBS {
     ///
     /// * `name` - RRset record name
     /// * `dns_class` - DNSClass, i.e. IN, of the records
-    /// * `num_labels` - number of labels in the name, needed to deal with `*.example.com`
-    /// * `type_covered` - RecordType of the RRSet being hashed
-    /// * `algorithm` - The Algorithm type used for the hashing
-    /// * `original_ttl` - Original TTL is the TTL as specified in the SOA zones RRSet associated record
-    /// * `sig_expiration` - the epoch seconds of when this hashed signature will expire
-    /// * `key_inception` - the epoch seconds of when this hashed signature will be valid
-    /// * `signer_name` - label of the entity responsible for signing this hash
+    /// * `input` - the input data used to create the signature
     /// * `records` - RRSet to hash
     ///
     /// # Returns
@@ -135,14 +121,7 @@ impl TBS {
     fn new<'a>(
         name: &Name,
         dns_class: DNSClass,
-        num_labels: u8,
-        type_covered: RecordType,
-        algorithm: Algorithm,
-        original_ttl: u32,
-        sig_expiration: SerialNumber,
-        sig_inception: SerialNumber,
-        key_tag: u16,
-        signer_name: &Name,
+        input: &SigInput,
         records: impl Iterator<Item = &'a Record>,
     ) -> ProtoResult<Self> {
         // TODO: change this to a BTreeSet so that it's preordered, no sort necessary
@@ -151,7 +130,7 @@ impl TBS {
         // collect only the records for this rrset
         for record in records {
             if dns_class == record.dns_class()
-                && type_covered == record.record_type()
+                && input.type_covered == record.record_type()
                 && name == record.name()
             {
                 rrset.push(record);
@@ -161,7 +140,7 @@ impl TBS {
         // put records in canonical order
         rrset.sort();
 
-        let name = determine_name(name, num_labels)?;
+        let name = determine_name(name, input.num_labels)?;
 
         // TODO: rather than buffering here, use the Signer/Verifier? might mean fewer allocations...
         let mut buf = Vec::new();
@@ -180,17 +159,7 @@ impl TBS {
         //             RRSIG_RDATA is the wire format of the RRSIG RDATA fields
         //                with the Signature field excluded and the Signer's Name
         //                in canonical form.
-        SigInput {
-            type_covered,
-            algorithm,
-            num_labels: name.num_labels(),
-            original_ttl,
-            sig_expiration,
-            sig_inception,
-            key_tag,
-            signer_name: signer_name.clone(),
-        }
-        .emit(&mut encoder)?;
+        input.emit(&mut encoder)?;
 
         // construct the rrset signing data
         for record in rrset {
@@ -204,13 +173,13 @@ impl TBS {
             }
             //
             //                type is the RRset type and all RRs in the class
-            type_covered.emit(&mut encoder)?;
+            input.type_covered.emit(&mut encoder)?;
             //
             //                class is the RRset's class
             dns_class.emit(&mut encoder)?;
             //
             //                OrigTTL is the value from the RRSIG Original TTL field
-            encoder.emit_u32(original_ttl)?;
+            encoder.emit_u32(input.original_ttl)?;
             //
             //                RDATA length
             let rdata_length_place = encoder.place::<u16>()?;
