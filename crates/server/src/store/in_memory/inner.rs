@@ -19,8 +19,8 @@ use crate::{
     proto::{
         ProtoError,
         dnssec::{
-            DnsSecResult, Nsec3HashAlgorithm, SigSigner, TBS,
-            rdata::{DNSSECRData, NSEC, NSEC3, NSEC3PARAM, RRSIG, SigInput},
+            DnsSecResult, Nsec3HashAlgorithm, SigSigner,
+            rdata::{DNSSECRData, NSEC, NSEC3, NSEC3PARAM, RRSIG},
         },
     },
 };
@@ -721,9 +721,6 @@ impl InnerInMemory {
         let inception = OffsetDateTime::now_utc();
 
         rr_set.clear_rrsigs();
-
-        let rrsig_temp = Record::update0(rr_set.name().clone(), zone_ttl, RecordType::RRSIG);
-
         for signer in secure_keys {
             debug!(
                 "signing rr_set: {}, {} with: {}",
@@ -732,43 +729,19 @@ impl InnerInMemory {
                 signer.key().algorithm(),
             );
 
-            let expiration = inception + signer.sig_duration();
-            let Ok(input) = SigInput::from_rrset(rr_set, expiration, inception, signer) else {
-                error!("could not create SigInput for rrset: {}", rr_set.name());
-                continue;
-            };
-
-            let tbs = TBS::from_input(
-                rr_set.name(),
-                zone_class,
-                &input,
-                rr_set.records_without_rrsigs(),
-            );
-
-            // TODO, maybe chain these with some ETL operations instead?
-            let tbs = match tbs {
-                Ok(tbs) => tbs,
+            let rrsig = match RRSIG::from_rrset(rr_set, zone_class, inception, signer) {
+                Ok(rrsig) => rrsig,
                 Err(err) => {
-                    error!("could not serialize rrset to sign: {}", err);
+                    error!("could not create RRSIG for rrset: {err}");
                     continue;
                 }
             };
 
-            let signature = signer.sign(&tbs);
-            let signature = match signature {
-                Ok(signature) => signature,
-                Err(err) => {
-                    error!("could not sign rrset: {}", err);
-                    continue;
-                }
-            };
-
-            let mut rrsig = rrsig_temp.clone();
-            rrsig.set_data(RData::DNSSEC(DNSSECRData::RRSIG(RRSIG::new(
-                input, signature,
-            ))));
-
-            rr_set.insert_rrsig(rrsig);
+            rr_set.insert_rrsig(Record::from_rdata(
+                rr_set.name().clone(),
+                zone_ttl,
+                RData::DNSSEC(DNSSECRData::RRSIG(rrsig)),
+            ));
         }
 
         Ok(())
