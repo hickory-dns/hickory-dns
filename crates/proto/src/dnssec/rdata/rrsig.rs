@@ -7,7 +7,6 @@
 
 //! RRSIG type and related implementations
 
-use alloc::vec::Vec;
 use core::{fmt, ops::Deref};
 
 #[cfg(feature = "serde")]
@@ -26,7 +25,7 @@ use crate::{
 /// RRSIG is really a derivation of the original SIG record data. See SIG for more documentation
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct RRSIG(pub(crate) SIG);
+pub struct RRSIG(pub(super) SIG);
 
 impl RRSIG {
     /// Creates a new RRSIG record data from the given record set and signer.
@@ -47,20 +46,6 @@ impl RRSIG {
 
         let sig = signer.sign(&tbs)?;
         Ok(Self(SIG { input, sig }))
-    }
-
-    /// Creates a new SIG record data, used for both RRSIG and SIG(0) records.
-    ///
-    /// # Arguments
-    ///
-    /// * `input` - the input data used to create the signature.
-    /// * `sig` - signature stored in this record.
-    ///
-    /// # Return value
-    ///
-    /// The new SIG record data.
-    pub fn new(input: SigInput, sig: Vec<u8>) -> Self {
-        Self(SIG::new(input, sig))
     }
 
     /// Returns the authenticated TTL of this RRSIG with a Record.
@@ -196,7 +181,7 @@ mod tests {
                 signer_name: Name::root(),
             };
 
-            let rrsig = RRSIG::new(input, vec![]);
+            let rrsig = RRSIG(SIG { input, sig: vec![] });
             let mut rrsig_record =
                 Record::from_rdata(name.clone(), 3600, RData::DNSSEC(DNSSECRData::RRSIG(rrsig)));
             rrsig_record.set_dns_class(DNSClass::IN);
