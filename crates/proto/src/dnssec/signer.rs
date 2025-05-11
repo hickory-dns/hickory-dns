@@ -514,8 +514,8 @@ impl MessageSigner for SigSigner {
             signer_name: self.signer_name().clone(),
         };
 
-        let signature = self.sign_message(message, &input)?;
-        let rdata = RData::DNSSEC(DNSSECRData::SIG(SIG::new(input, signature)));
+        let sig = self.sign_message(message, &input)?;
+        let rdata = RData::DNSSEC(DNSSECRData::SIG(SIG { input, sig }));
 
         // 'For all SIG(0) RRs, the owner name, class, TTL, and original TTL, are
         //  meaningless.' - 2931
