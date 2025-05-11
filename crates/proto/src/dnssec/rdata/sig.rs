@@ -9,9 +9,9 @@
 use alloc::vec::Vec;
 use core::fmt;
 
-use time::OffsetDateTime;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+use time::OffsetDateTime;
 
 use super::DNSSECRData;
 use crate::{
@@ -189,20 +189,6 @@ pub struct SIG {
 }
 
 impl SIG {
-    /// Creates a new SIG record data, used for both RRSIG and SIG(0) records.
-    ///
-    /// # Arguments
-    ///
-    /// * `input` - the input which this signature covers
-    /// * `sig` - signature stored in this record.
-    ///
-    /// # Return value
-    ///
-    /// The new SIG record data.
-    pub fn new(input: SigInput, sig: Vec<u8>) -> Self {
-        Self { input, sig }
-    }
-
     /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.8), Domain Name System Security Extensions, March 1999
     ///
     /// ```text
@@ -307,7 +293,7 @@ impl<'r> RecordDataDecodable<'r> for SIG {
         let sig = decoder
         .read_vec(sig_len)?
         .unverified(/*will fail in usage if invalid*/);
-        Ok(Self::new(input, sig))
+        Ok(Self { input, sig })
     }
 }
 
@@ -474,13 +460,13 @@ mod tests {
             key_tag: 5,
             signer_name: Name::from_str("www.example.com.").unwrap(),
         };
-        let rdata = SIG::new(
+        let rdata = SIG {
             input,
-            vec![
+            sig: vec![
                 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
                 23, 24, 25, 26, 27, 28, 29, 29, 31,
             ], // 32 bytes for SHA256
-        );
+        };
 
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
