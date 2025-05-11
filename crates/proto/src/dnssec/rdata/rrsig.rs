@@ -152,3 +152,79 @@ impl fmt::Display for RRSIG {
         write!(f, "{}", self.0)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use core::net::Ipv4Addr;
+
+    use super::*;
+    use crate::{
+        dnssec::{
+            Algorithm,
+            rdata::{DNSSECRData, RRSIG, sig::SigInput},
+        },
+        rr::{Name, SerialNumber},
+    };
+
+    #[test]
+    fn test_get_filter() {
+        let name = Name::root();
+        const ALGORITHMS: [Algorithm; 4] = [
+            Algorithm::RSASHA256,
+            Algorithm::ECDSAP256SHA256,
+            Algorithm::ECDSAP384SHA384,
+            Algorithm::ED25519,
+        ];
+
+        let mut a = Record::from_rdata(
+            name.clone(),
+            3600,
+            RData::A(Ipv4Addr::new(93, 184, 216, 24).into()),
+        );
+        a.set_dns_class(DNSClass::IN);
+        let mut rrset = RecordSet::from(a);
+
+        for algorithm in ALGORITHMS {
+            let input = SigInput {
+                type_covered: RecordType::A,
+                algorithm,
+                num_labels: 0,
+                original_ttl: 0,
+                sig_expiration: SerialNumber(0),
+                sig_inception: SerialNumber(0),
+                key_tag: 0,
+                signer_name: Name::root(),
+            };
+
+            let rrsig = RRSIG::new(input, vec![]);
+            let mut rrsig_record =
+                Record::from_rdata(name.clone(), 3600, RData::DNSSEC(DNSSECRData::RRSIG(rrsig)));
+            rrsig_record.set_dns_class(DNSClass::IN);
+            rrset.insert_rrsig(rrsig_record);
+        }
+
+        assert!(rrset.records_with_rrsigs().any(|r| {
+            if let RData::DNSSEC(DNSSECRData::RRSIG(sig)) = r.data() {
+                sig.input.algorithm == Algorithm::ED25519
+            } else {
+                false
+            }
+        },));
+
+        assert!(rrset.records_with_rrsigs().any(|r| {
+            if let RData::DNSSEC(DNSSECRData::RRSIG(sig)) = r.data() {
+                sig.input.algorithm == Algorithm::ECDSAP384SHA384
+            } else {
+                false
+            }
+        }));
+
+        assert!(rrset.records_with_rrsigs().any(|r| {
+            if let RData::DNSSEC(DNSSECRData::RRSIG(sig)) = r.data() {
+                sig.input.algorithm == Algorithm::ED25519
+            } else {
+                false
+            }
+        }));
+    }
+}
