@@ -185,7 +185,7 @@ use crate::{
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct SIG {
     pub(crate) input: SigInput,
-    sig: Vec<u8>,
+    pub(crate) sig: Vec<u8>,
 }
 
 impl SIG {
