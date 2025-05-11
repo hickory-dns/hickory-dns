@@ -12,20 +12,43 @@ use core::{fmt, ops::Deref};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+use time::OffsetDateTime;
 
 use super::{DNSSECRData, SIG, sig::SigInput};
 use crate::{
+    ProtoError,
+    dnssec::{SigSigner, TBS},
     error::ProtoResult,
-    rr::{RData, Record, RecordData, RecordDataDecodable, RecordType},
+    rr::{DNSClass, RData, Record, RecordData, RecordDataDecodable, RecordSet, RecordType},
     serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict},
 };
 
 /// RRSIG is really a derivation of the original SIG record data. See SIG for more documentation
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct RRSIG(SIG);
+pub struct RRSIG(pub(crate) SIG);
 
 impl RRSIG {
+    /// Creates a new RRSIG record data from the given record set and signer.
+    pub fn from_rrset(
+        rr_set: &RecordSet,
+        zone_class: DNSClass,
+        inception: OffsetDateTime,
+        signer: &SigSigner,
+    ) -> Result<Self, ProtoError> {
+        let expiration = inception + signer.sig_duration();
+        let input = SigInput::from_rrset(rr_set, expiration, inception, signer)?;
+        let tbs = TBS::from_input(
+            rr_set.name(),
+            zone_class,
+            &input,
+            rr_set.records_without_rrsigs(),
+        )?;
+
+        let sig = signer.sign(&tbs)?;
+        Ok(Self(SIG { input, sig }))
+    }
+
     /// Creates a new SIG record data, used for both RRSIG and SIG(0) records.
     ///
     /// # Arguments
