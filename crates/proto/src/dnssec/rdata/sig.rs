@@ -9,14 +9,15 @@
 use alloc::vec::Vec;
 use core::fmt;
 
+use time::OffsetDateTime;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use super::DNSSECRData;
 use crate::{
-    dnssec::Algorithm,
+    dnssec::{Algorithm, SigSigner},
     error::{ProtoError, ProtoResult},
-    rr::{Name, RData, RecordData, RecordDataDecodable, RecordType, SerialNumber},
+    rr::{Name, RData, RecordData, RecordDataDecodable, RecordSet, RecordType, SerialNumber},
     serialize::binary::{
         BinDecodable, BinDecoder, BinEncodable, BinEncoder, RDataEncoding, Restrict, RestrictedMath,
     },
@@ -412,6 +413,27 @@ pub struct SigInput {
     pub key_tag: u16,
     /// * Domain name of the server which was used to generate the signature.
     pub signer_name: Name,
+}
+
+impl SigInput {
+    /// Create a new `SigInput` from the given input parameters.
+    pub fn from_rrset(
+        rr_set: &RecordSet,
+        expiration: OffsetDateTime,
+        inception: OffsetDateTime,
+        signer: &SigSigner,
+    ) -> Result<Self, ProtoError> {
+        Ok(Self {
+            type_covered: rr_set.record_type(),
+            algorithm: signer.key().algorithm(),
+            num_labels: rr_set.name().num_labels(),
+            original_ttl: rr_set.ttl(),
+            sig_expiration: SerialNumber(expiration.unix_timestamp() as u32),
+            sig_inception: SerialNumber(inception.unix_timestamp() as u32),
+            key_tag: signer.calculate_key_tag()?,
+            signer_name: signer.signer_name().clone(),
+        })
+    }
 }
 
 impl BinEncodable for SigInput {

@@ -8,13 +8,11 @@
 //! hash functions for DNSSEC operations
 
 use alloc::{borrow::ToOwned, vec::Vec};
-use time::OffsetDateTime;
 
-use super::SigSigner;
 use super::rdata::sig::SigInput;
 use crate::{
     error::{ProtoError, ProtoResult},
-    rr::{DNSClass, Name, Record, RecordSet, SerialNumber},
+    rr::{DNSClass, Name, Record},
     serialize::binary::{BinEncodable, BinEncoder, EncodeMode, NameEncoding},
 };
 
@@ -64,45 +62,6 @@ impl TBS {
         records: impl Iterator<Item = &'a Record>,
     ) -> ProtoResult<Self> {
         Self::new(name, dns_class, input, records)
-    }
-
-    /// Returns the to-be-signed serialization of the given record set.
-    ///
-    /// # Arguments
-    ///
-    /// * `rr_set` - RRSet to sign
-    /// * `zone_class` - DNSClass, i.e. IN, of the records
-    /// * `inception` - the date/time when this hashed signature will become valid
-    /// * `expiration` - the date/time when this hashed signature will expire
-    /// * `signer` - the signer to use for signing the RRSet
-    ///
-    /// # Returns
-    ///
-    /// the binary hash of the specified RRSet and associated information
-    pub fn from_rrset(
-        rr_set: &RecordSet,
-        zone_class: DNSClass,
-        inception: OffsetDateTime,
-        expiration: OffsetDateTime,
-        signer: &SigSigner,
-    ) -> ProtoResult<Self> {
-        let input = SigInput {
-            type_covered: rr_set.record_type(),
-            algorithm: signer.key().algorithm(),
-            num_labels: rr_set.name().num_labels(),
-            original_ttl: rr_set.ttl(),
-            sig_expiration: SerialNumber(expiration.unix_timestamp() as u32),
-            sig_inception: SerialNumber(inception.unix_timestamp() as u32),
-            key_tag: signer.calculate_key_tag()?,
-            signer_name: signer.signer_name().clone(),
-        };
-
-        Self::new(
-            rr_set.name(),
-            zone_class,
-            &input,
-            rr_set.records_without_rrsigs(),
-        )
     }
 
     /// Returns the to-be-signed serialization of the given record set.

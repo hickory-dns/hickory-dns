@@ -20,9 +20,8 @@ use crate::{
         ProtoError,
         dnssec::{
             DnsSecResult, Nsec3HashAlgorithm, SigSigner, TBS,
-            rdata::{DNSSECRData, NSEC, NSEC3, NSEC3PARAM, RRSIG, sig::SigInput},
+            rdata::{DNSSECRData, NSEC, NSEC3, NSEC3PARAM, RRSIG, SigInput},
         },
-        rr::SerialNumber,
     },
 };
 
@@ -734,7 +733,17 @@ impl InnerInMemory {
             );
 
             let expiration = inception + signer.sig_duration();
-            let tbs = TBS::from_rrset(rr_set, zone_class, inception, expiration, signer);
+            let Ok(input) = SigInput::from_rrset(rr_set, expiration, inception, signer) else {
+                error!("could not create SigInput for rrset: {}", rr_set.name());
+                continue;
+            };
+
+            let tbs = TBS::from_input(
+                rr_set.name(),
+                zone_class,
+                &input,
+                rr_set.records_without_rrsigs(),
+            );
 
             // TODO, maybe chain these with some ETL operations instead?
             let tbs = match tbs {
@@ -752,17 +761,6 @@ impl InnerInMemory {
                     error!("could not sign rrset: {}", err);
                     continue;
                 }
-            };
-
-            let input = SigInput {
-                type_covered: rr_set.record_type(),
-                algorithm: signer.key().algorithm(),
-                num_labels: rr_set.name().num_labels(),
-                original_ttl: rr_set.ttl(),
-                sig_expiration: SerialNumber::from(expiration.unix_timestamp() as u32),
-                sig_inception: SerialNumber::from(inception.unix_timestamp() as u32),
-                key_tag: signer.calculate_key_tag()?,
-                signer_name: signer.signer_name().clone(),
             };
 
             let mut rrsig = rrsig_temp.clone();
