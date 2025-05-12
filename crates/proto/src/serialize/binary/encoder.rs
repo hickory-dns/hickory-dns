@@ -101,7 +101,8 @@ pub struct BinEncoder<'a> {
     /// start of label pointers with their labels in fully decompressed form for easy comparison, smallvec here?
     name_pointers: Vec<(usize, Vec<u8>)>,
     mode: EncodeMode,
-    canonical_names: bool,
+    /// How names should be encoded.
+    name_encoding: NameEncoding,
 }
 
 impl<'a> BinEncoder<'a> {
@@ -140,7 +141,7 @@ impl<'a> BinEncoder<'a> {
             buffer: private::MaximalBuf::new(u16::MAX, buf),
             name_pointers: Vec::new(),
             mode,
-            canonical_names: false,
+            name_encoding: NameEncoding::Compressed,
         }
     }
 
@@ -186,12 +187,16 @@ impl<'a> BinEncoder<'a> {
 
     /// If set to true, then names will be written into the buffer in canonical form
     pub fn set_canonical_names(&mut self, canonical_names: bool) {
-        self.canonical_names = canonical_names;
+        if canonical_names {
+            self.name_encoding = NameEncoding::UncompressedLowercase;
+        } else {
+            self.name_encoding = NameEncoding::Compressed;
+        }
     }
 
     /// Returns true if then encoder is writing in canonical form
     pub fn is_canonical_names(&self) -> bool {
-        self.canonical_names
+        matches!(self.name_encoding, NameEncoding::UncompressedLowercase)
     }
 
     /// Emit all names in canonical form, useful for <https://tools.ietf.org/html/rfc3597>
@@ -431,6 +436,17 @@ impl<'a> BinEncoder<'a> {
             pointers: self.name_pointers.len(),
         }
     }
+}
+
+/// Selects how names should be encoded.
+#[derive(Clone, Copy)]
+pub enum NameEncoding {
+    /// Encode names with compression enabled. The case of the name is unchanged.
+    Compressed,
+    /// Encode names without compression. The case of the name is unchanged.
+    Uncompressed,
+    /// Encode names transformed to lowercase and without compression.
+    UncompressedLowercase,
 }
 
 /// A trait to return the size of a type as it will be encoded in DNS
