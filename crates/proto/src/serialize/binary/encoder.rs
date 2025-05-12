@@ -101,6 +101,8 @@ pub struct BinEncoder<'a> {
     /// start of label pointers with their labels in fully decompressed form for easy comparison, smallvec here?
     name_pointers: Vec<(usize, Vec<u8>)>,
     mode: EncodeMode,
+    /// Whether the encoder should use the DNSSEC canonical form for RDATA.
+    canonical_form: bool,
     /// How names should be encoded.
     name_encoding: NameEncoding,
 }
@@ -141,6 +143,7 @@ impl<'a> BinEncoder<'a> {
             buffer: private::MaximalBuf::new(u16::MAX, buf),
             name_pointers: Vec::new(),
             mode,
+            canonical_form: false,
             name_encoding: NameEncoding::Compressed,
         }
     }
@@ -211,6 +214,16 @@ impl<'a> BinEncoder<'a> {
         self.set_canonical_names(was_canonical);
 
         res
+    }
+
+    /// If set to true, then records will be written into the buffer in DNSSEC canonical form
+    pub fn set_canonical_form(&mut self, canonical_form: bool) {
+        self.canonical_form = canonical_form;
+    }
+
+    /// Returns true if the encoder is writing in DNSSEC canonical form
+    pub fn is_canonical_form(&self) -> bool {
+        self.canonical_form
     }
 
     /// Select how names are encoded

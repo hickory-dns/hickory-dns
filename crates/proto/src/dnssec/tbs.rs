@@ -14,7 +14,7 @@ use super::Algorithm;
 use crate::{
     error::{ProtoError, ProtoResult},
     rr::{DNSClass, Name, Record, RecordSet, RecordType, SerialNumber},
-    serialize::binary::{BinEncodable, BinEncoder, EncodeMode},
+    serialize::binary::{BinEncodable, BinEncoder, EncodeMode, NameEncoding},
 };
 
 use super::{
@@ -168,7 +168,12 @@ impl TBS {
 
         {
             let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut buf);
-            encoder.set_canonical_names(true);
+            // Encode records using DNSSEC canonical form. This affects how names inside RDATA are
+            // encoded.
+            encoder.set_canonical_form(true);
+            // Disable name compression. Encoding of other fields may switch to use lowercase names
+            // as well.
+            encoder.set_name_encoding(NameEncoding::Uncompressed);
 
             //          signed_data = RRSIG_RDATA | RR(1) | RR(2)...  where
             //
