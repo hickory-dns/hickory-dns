@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 use super::{DigestType, crypto::Digest};
 use crate::error::*;
 use crate::rr::Name;
-use crate::serialize::binary::{BinEncodable, BinEncoder};
+use crate::serialize::binary::{BinEncodable, BinEncoder, NameEncoding};
 
 /// ```text
 /// RFC 5155                         NSEC3                        March 2008
@@ -157,8 +157,9 @@ impl Nsec3HashAlgorithm {
                 let mut buf: Vec<u8> = Vec::new();
                 {
                     let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut buf);
-                    encoder.set_canonical_names(true);
-                    name.to_lowercase().emit(&mut encoder)?;
+                    let mut encoder =
+                        encoder.with_name_encoding(NameEncoding::UncompressedLowercase);
+                    name.emit(&mut encoder)?;
                 }
 
                 Digest::iterated(salt, &buf, DigestType::SHA1, iterations)
