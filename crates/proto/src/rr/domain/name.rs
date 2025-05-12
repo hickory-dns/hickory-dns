@@ -729,25 +729,6 @@ impl Name {
         Ok(())
     }
 
-    /// Writes the labels, as lower case, to the encoder
-    ///
-    /// # Arguments
-    ///
-    /// * `encoder` - encoder for writing this name
-    /// * `lowercase` - if true the name will be lowercased, otherwise it will not be changed when writing
-    pub fn emit_with_lowercase(
-        &self,
-        encoder: &mut BinEncoder<'_>,
-        lowercase: bool,
-    ) -> ProtoResult<()> {
-        let compression = matches!(encoder.name_encoding(), NameEncoding::Compressed);
-        if lowercase {
-            self.to_lowercase().emit_as_canonical(encoder, !compression)
-        } else {
-            self.emit_as_canonical(encoder, !compression)
-        }
-    }
-
     /// compares with the other label, ignoring case
     fn cmp_with_f<F: LabelCmp>(&self, other: &Self) -> Ordering {
         match (self.is_fqdn(), other.is_fqdn()) {
@@ -1239,8 +1220,12 @@ enum ParseState {
 
 impl BinEncodable for Name {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        let lowercase = matches!(encoder.name_encoding(), NameEncoding::UncompressedLowercase);
-        self.emit_with_lowercase(encoder, lowercase)
+        let compression = matches!(encoder.name_encoding(), NameEncoding::Compressed);
+        if matches!(encoder.name_encoding(), NameEncoding::UncompressedLowercase) {
+            self.to_lowercase().emit_as_canonical(encoder, !compression)
+        } else {
+            self.emit_as_canonical(encoder, !compression)
+        }
     }
 }
 
