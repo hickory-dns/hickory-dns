@@ -84,12 +84,11 @@ impl MX {
 
 impl BinEncodable for MX {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        let is_canonical_names = encoder.is_canonical_names();
-        encoder.emit_u16(self.preference())?;
+        let mut encoder = encoder.with_rdata_behavior(RDataEncoding::StandardRecord);
 
-        // to_lowercase for rfc4034 and rfc6840
-        self.exchange()
-            .emit_with_lowercase(encoder, is_canonical_names)?;
+        encoder.emit_u16(self.preference())?;
+        self.exchange().emit(&mut encoder)?;
+
         Ok(())
     }
 }
