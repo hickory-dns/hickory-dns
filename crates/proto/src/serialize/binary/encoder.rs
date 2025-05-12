@@ -5,7 +5,10 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use core::marker::PhantomData;
+use core::{
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 use alloc::vec::Vec;
 
@@ -234,6 +237,21 @@ impl<'a> BinEncoder<'a> {
     /// Returns the current name encoding mode
     pub fn name_encoding(&self) -> NameEncoding {
         self.name_encoding
+    }
+
+    /// Returns a guard type that uses a different name encoding mode.
+    pub fn with_name_encoding<'e>(
+        &'e mut self,
+        name_encoding: NameEncoding,
+    ) -> ModalEncoder<'a, 'e> {
+        let previous_name_encoding = self.name_encoding();
+
+        self.set_name_encoding(name_encoding);
+
+        ModalEncoder {
+            previous_name_encoding,
+            inner: self,
+        }
     }
 
     /// trims to the current offset
@@ -470,6 +488,34 @@ pub enum NameEncoding {
     Uncompressed,
     /// Encode names transformed to lowercase and without compression.
     UncompressedLowercase,
+}
+
+/// This wraps a [BinEncoder] and applies different name encoding options.
+///
+/// Original name encoding options will be restored when this is dropped.
+pub struct ModalEncoder<'a, 'e> {
+    previous_name_encoding: NameEncoding,
+    inner: &'e mut BinEncoder<'a>,
+}
+
+impl<'a> Deref for ModalEncoder<'a, '_> {
+    type Target = BinEncoder<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner
+    }
+}
+
+impl DerefMut for ModalEncoder<'_, '_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.inner
+    }
+}
+
+impl Drop for ModalEncoder<'_, '_> {
+    fn drop(&mut self) {
+        self.inner.set_name_encoding(self.previous_name_encoding);
+    }
 }
 
 /// A trait to return the size of a type as it will be encoded in DNS
