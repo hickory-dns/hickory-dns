@@ -213,6 +213,16 @@ impl<'a> BinEncoder<'a> {
         res
     }
 
+    /// Select how names are encoded
+    pub fn set_name_encoding(&mut self, name_encoding: NameEncoding) {
+        self.name_encoding = name_encoding;
+    }
+
+    /// Returns the current name encoding mode
+    pub fn name_encoding(&self) -> NameEncoding {
+        self.name_encoding
+    }
+
     /// trims to the current offset
     pub fn trim(&mut self) {
         let offset = self.offset;

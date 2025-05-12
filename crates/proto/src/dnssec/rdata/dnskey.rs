@@ -21,7 +21,7 @@ use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     rr::{Name, RecordData, RecordDataDecodable, RecordType, record_data::RData},
     serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, NameEncoding, Restrict, RestrictedMath,
     },
 };
 
@@ -261,7 +261,7 @@ impl DNSKEY {
         let mut buf: Vec<u8> = Vec::new();
         {
             let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut buf);
-            encoder.set_canonical_names(true);
+            encoder.set_name_encoding(NameEncoding::UncompressedLowercase);
             if let Err(e) = name
                 .to_lowercase()
                 .emit(&mut encoder)
