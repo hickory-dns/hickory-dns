@@ -19,7 +19,7 @@ use crate::{
     proto::{
         ProtoError,
         dnssec::{
-            DnsSecResult, Nsec3HashAlgorithm, SigSigner, TBS,
+            DnsSecResult, Nsec3HashAlgorithm, SigSigner,
             rdata::{DNSSECRData, NSEC, NSEC3, NSEC3PARAM, RRSIG},
         },
     },
@@ -722,9 +722,6 @@ impl InnerInMemory {
         let inception = OffsetDateTime::now_utc();
 
         rr_set.clear_rrsigs();
-
-        let rrsig_temp = Record::update0(rr_set.name().clone(), zone_ttl, RecordType::RRSIG);
-
         for signer in secure_keys {
             debug!(
                 "signing rr_set: {}, {} with: {}",
@@ -733,50 +730,17 @@ impl InnerInMemory {
                 signer.key().algorithm(),
             );
 
-            let expiration = inception + signer.sig_duration();
-            let tbs = TBS::from_rrset(rr_set, zone_class, inception, expiration, signer);
-
-            // TODO, maybe chain these with some ETL operations instead?
-            let tbs = match tbs {
-                Ok(tbs) => tbs,
+            let rrsig = match RRSIG::from_rrset(rr_set, zone_class, inception, signer) {
+                Ok(rrsig) => rrsig,
                 Err(err) => {
-                    error!("could not serialize rrset to sign: {}", err);
+                    error!("could not create RRSIG for rrset: {err}");
                     continue;
                 }
             };
 
-            let signature = signer.sign(&tbs);
-            let signature = match signature {
-                Ok(signature) => signature,
-                Err(err) => {
-                    error!("could not sign rrset: {}", err);
-                    continue;
-                }
-            };
-
-            let mut rrsig = rrsig_temp.clone();
-            rrsig.set_data(RData::DNSSEC(DNSSECRData::RRSIG(RRSIG::new(
-                // type_covered: RecordType,
-                rr_set.record_type(),
-                // algorithm: Algorithm,
-                signer.key().algorithm(),
-                // num_labels: u8,
-                rr_set.name().num_labels(),
-                // original_ttl: u32,
-                rr_set.ttl(),
-                // sig_expiration: u32,
-                expiration.unix_timestamp() as u32,
-                // sig_inception: u32,
-                inception.unix_timestamp() as u32,
-                // key_tag: u16,
-                signer.calculate_key_tag()?,
-                // signer_name: Name,
-                signer.signer_name().clone(),
-                // sig: Vec<u8>
-                signature,
-            ))));
-
-            rr_set.insert_rrsig(rrsig);
+            let mut record = Record::update0(rr_set.name().clone(), zone_ttl, RecordType::RRSIG);
+            record.set_data(RData::DNSSEC(DNSSECRData::RRSIG(rrsig)));
+            rr_set.insert_rrsig(record);
         }
 
         Ok(())

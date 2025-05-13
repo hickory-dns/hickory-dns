@@ -46,7 +46,7 @@ pub use self::nsec::NSEC;
 pub use self::nsec3::NSEC3;
 pub use self::nsec3param::NSEC3PARAM;
 pub use self::rrsig::RRSIG;
-pub use self::sig::SIG;
+pub use self::sig::{SIG, SigInput};
 pub use self::tsig::TSIG;
 
 /// The type of the resource record, for DNSSEC-specific records.

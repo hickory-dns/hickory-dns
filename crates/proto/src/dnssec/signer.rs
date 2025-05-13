@@ -15,14 +15,11 @@ use super::{DnsSecResult, SigningKey};
 use crate::{
     dnssec::{
         TBS,
-        rdata::{DNSKEY, DNSSECRData, KEY, SIG},
-        tbs,
+        rdata::{DNSKEY, DNSSECRData, KEY, SIG, SigInput},
     },
     error::{ProtoErrorKind, ProtoResult},
     op::{Message, MessageSignature, MessageSigner, MessageVerifier},
-    rr::{
-        Record, {DNSClass, Name, RData, RecordType},
-    },
+    rr::{DNSClass, Name, RData, Record, RecordType, SerialNumber},
     serialize::binary::{BinEncodable, BinEncoder},
 };
 
@@ -455,8 +452,9 @@ impl SigSigner {
     ///  being verified.
     ///
     ///  ---
-    pub fn sign_message(&self, message: &Message, pre_sig0: &SIG) -> ProtoResult<Vec<u8>> {
-        tbs::message_tbs(message, pre_sig0).and_then(|tbs| self.sign(&tbs))
+    pub fn sign_message(&self, message: &Message, input: &SigInput) -> ProtoResult<Vec<u8>> {
+        let tbs = TBS::from_message(message, input)?;
+        self.sign(&tbs)
     }
 
     /// Extracts a public KEY from this Signer
@@ -499,27 +497,25 @@ impl MessageSigner for SigSigner {
 
         let num_labels = name.num_labels();
 
-        let expiration_time: u32 = current_time + (5 * 60); // +5 minutes in seconds
-
-        let pre_sig0 = SIG::new(
-            // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
-            RecordType::ZERO,
-            self.key.algorithm(),
+        let expiration_time = current_time + (5 * 60); // +5 minutes in seconds
+        let input = SigInput {
+            type_covered: RecordType::ZERO,
+            algorithm: self.key.algorithm(),
             num_labels,
             // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
-            0,
+            original_ttl: 0,
             // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
-            expiration_time,
+            sig_expiration: SerialNumber(expiration_time),
             // current time, this should be UTC
             // unsigned numbers of seconds since the start of 1 January 1970, GMT
-            current_time,
+            sig_inception: SerialNumber(current_time),
             key_tag,
             // can probably get rid of this clone if the ownership is correct
-            self.signer_name().clone(),
-            Vec::new(),
-        );
-        let signature: Vec<u8> = self.sign_message(message, &pre_sig0)?;
-        let rdata = RData::DNSSEC(DNSSECRData::SIG(pre_sig0.set_sig(signature)));
+            signer_name: self.signer_name().clone(),
+        };
+
+        let sig = self.sign_message(message, &input)?;
+        let rdata = RData::DNSSEC(DNSSECRData::SIG(SIG { input, sig }));
 
         // 'For all SIG(0) RRs, the owner name, class, TTL, and original TTL, are
         //  meaningless.' - 2931
@@ -545,7 +541,7 @@ mod tests {
     use crate::dnssec::{
         Algorithm, PublicKey, SigningKey, TBS, Verifier,
         crypto::RsaSigningKey,
-        rdata::{DNSSECRData, KEY, RRSIG, SIG, key::KeyUsage},
+        rdata::{DNSSECRData, KEY, key::KeyUsage},
     };
     use crate::op::{Message, MessageSignature, Query};
     use crate::rr::rdata::{CNAME, NS};
@@ -558,31 +554,29 @@ mod tests {
         assert_send_and_sync::<SigSigner>();
     }
 
-    fn pre_sig0(signer: &SigSigner, inception_time: u32, expiration_time: u32) -> SIG {
-        SIG::new(
+    fn input(signer: &SigSigner, inception_time: u32, expiration_time: u32) -> SigInput {
+        SigInput {
             // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
-            RecordType::ZERO,
-            signer.key().algorithm(),
-            0,
+            type_covered: RecordType::ZERO,
+            algorithm: signer.key().algorithm(),
+            num_labels: 0,
             // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
-            0,
+            original_ttl: 0,
             // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
-            expiration_time,
+            sig_expiration: SerialNumber(expiration_time),
             // current time, this should be UTC
             // unsigned numbers of seconds since the start of 1 January 1970, GMT
-            inception_time,
-            signer.calculate_key_tag().unwrap(),
-            // can probably get rid of this clone if the ownership is correct
-            signer.signer_name().clone(),
-            Vec::new(),
-        )
+            sig_inception: SerialNumber(inception_time),
+            signer_name: signer.signer_name().clone(),
+            key_tag: signer.calculate_key_tag().unwrap(),
+        }
     }
 
     #[test]
     fn test_sign_and_verify_message_sig0() {
-        let origin: Name = Name::parse("example.com.", None).unwrap();
-        let mut question: Message = Message::new();
-        let mut query: Query = Query::new();
+        let origin = Name::parse("example.com.", None).unwrap();
+        let mut question = Message::new();
+        let mut query = Query::new();
         query.set_name(origin);
         question.add_query(query);
 
@@ -593,21 +587,21 @@ mod tests {
         let sig0key = KEY::new_sig0key(&pub_key);
         let signer = SigSigner::sig0(sig0key.clone(), Box::new(key), Name::root());
 
-        let pre_sig0 = pre_sig0(&signer, 0, 300);
-        let sig = signer.sign_message(&question, &pre_sig0).unwrap();
+        let input = input(&signer, 0, 300);
+        let sig = signer.sign_message(&question, &input).unwrap();
         #[cfg(feature = "std")]
         println!("sig: {sig:?}");
 
         assert!(!sig.is_empty());
 
-        assert!(sig0key.verify_message(&question, &sig, &pre_sig0).is_ok());
+        assert!(sig0key.verify_message(&question, &sig, &input).is_ok());
 
         // now test that the sig0 record works correctly.
         assert_eq!(question.signature(), &MessageSignature::Unsigned);
         question.finalize(&signer, 0).expect("should have signed");
         assert!(matches!(question.signature(), MessageSignature::Sig0(_)));
 
-        let sig = signer.sign_message(&question, &pre_sig0);
+        let sig = signer.sign_message(&question, &input);
         #[cfg(feature = "std")]
         println!("sig after sign: {sig:?}");
 
@@ -625,7 +619,7 @@ mod tests {
             );
         };
 
-        assert!(sig0key.verify_message(&question, sig.sig(), sig).is_ok());
+        assert!(sig0key.verify_message(&question, sig.sig(), &input).is_ok());
     }
 
     #[test]
@@ -638,22 +632,17 @@ mod tests {
         let sig0key = KEY::new_sig0key_with_usage(&pub_key, KeyUsage::Zone);
         let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
 
-        let origin: Name = Name::parse("example.com.", None).unwrap();
-        let rrsig = Record::from_rdata(
-            origin.clone(),
-            86400,
-            RRSIG::new(
-                RecordType::NS,
-                Algorithm::RSASHA256,
-                origin.num_labels(),
-                86400,
-                5,
-                0,
-                signer.calculate_key_tag().unwrap(),
-                origin.clone(),
-                vec![],
-            ),
-        );
+        let origin = Name::parse("example.com.", None).unwrap();
+        let input = SigInput {
+            type_covered: RecordType::NS,
+            algorithm: Algorithm::RSASHA256,
+            num_labels: origin.num_labels(),
+            original_ttl: 86400,
+            sig_expiration: SerialNumber(5),
+            sig_inception: SerialNumber(0),
+            key_tag: signer.calculate_key_tag().unwrap(),
+            signer_name: origin.clone(),
+        };
 
         let rrset = vec![
             Record::from_rdata(
@@ -664,7 +653,7 @@ mod tests {
             .set_dns_class(DNSClass::IN)
             .clone(),
             Record::from_rdata(
-                origin,
+                origin.clone(),
                 86400,
                 RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
             )
@@ -672,7 +661,7 @@ mod tests {
             .clone(),
         ];
 
-        let tbs = TBS::from_rrsig(&rrsig, rrset.iter()).unwrap();
+        let tbs = TBS::from_input(&origin, DNSClass::IN, &input, rrset.iter()).unwrap();
         let sig = signer.sign(&tbs).unwrap();
 
         let pub_key = signer.key().to_public_key().unwrap();
@@ -703,21 +692,17 @@ mod tests {
         let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
 
         let origin = Name::parse("example.com.", None).unwrap();
-        let rrsig = Record::from_rdata(
-            origin.clone(),
-            86400,
-            RRSIG::new(
-                RecordType::NS,
-                Algorithm::RSASHA256,
-                origin.num_labels(),
-                86400,
-                5,
-                0,
-                signer.calculate_key_tag().unwrap(),
-                origin.clone(),
-                vec![],
-            ),
-        );
+        let input = SigInput {
+            type_covered: RecordType::NS,
+            algorithm: Algorithm::RSASHA256,
+            num_labels: origin.num_labels(),
+            original_ttl: 86400,
+            sig_expiration: SerialNumber(5),
+            sig_inception: SerialNumber(0),
+            key_tag: signer.calculate_key_tag().unwrap(),
+            signer_name: origin.clone(),
+        };
+
         let rrset = vec![
             Record::from_rdata(
                 origin.clone(),
@@ -735,7 +720,7 @@ mod tests {
             .clone(),
         ];
 
-        let tbs = TBS::from_rrsig(&rrsig, rrset.iter()).unwrap();
+        let tbs = TBS::from_input(&origin, DNSClass::IN, &input, rrset.iter()).unwrap();
         assert!(!tbs.as_ref().is_empty());
 
         let rrset = vec![
@@ -768,7 +753,7 @@ mod tests {
             .set_dns_class(DNSClass::IN)
             .clone(),
             Record::from_rdata(
-                origin,
+                origin.clone(),
                 86400,
                 RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
             )
@@ -776,7 +761,7 @@ mod tests {
             .clone(),
         ];
 
-        let filtered_tbs = TBS::from_rrsig(&rrsig, rrset.iter()).unwrap();
+        let filtered_tbs = TBS::from_input(&origin, DNSClass::IN, &input, rrset.iter()).unwrap();
         assert!(!filtered_tbs.as_ref().is_empty());
         assert_eq!(tbs.as_ref(), filtered_tbs.as_ref());
     }
