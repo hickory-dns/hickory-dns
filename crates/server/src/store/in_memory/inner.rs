@@ -73,11 +73,10 @@ impl InnerInMemory {
             return Ok(cover.map_or_else(Vec::new, |rr_set| vec![rr_set]));
         }
 
-        match qname_match {
-            // - No data response if the QTYPE is not DS.
-            // - No data response if the QTYPE is DS and there is an NSEC3 record matching QNAME.
-            Some(rr_set) => return Ok(vec![rr_set.clone()]),
-            None => {}
+        // - No data response if the QTYPE is not DS.
+        // - No data response if the QTYPE is DS and there is an NSEC3 record matching QNAME.
+        if let Some(rr_set) = qname_match {
+            return Ok(vec![rr_set.clone()]);
         }
 
         // - Name error response.
