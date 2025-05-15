@@ -678,6 +678,7 @@ where
 }
 
 /// This verifies a DNSKEY record against DS records from a secure delegation.
+#[allow(clippy::result_large_err)]
 fn verify_dnskey(
     rr: &RecordRef<'_, DNSKEY>,
     ds_records: &[Record<DS>],
@@ -1063,6 +1064,7 @@ where
 }
 
 /// Verifies the given SIG of the RRSET with the DNSKEY.
+#[allow(clippy::result_large_err)]
 fn verify_rrset_with_dnskey(
     dnskey: RecordRef<'_, DNSKEY>,
     dnskey_proof: Proof,
