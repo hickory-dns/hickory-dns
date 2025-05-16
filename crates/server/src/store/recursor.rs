@@ -290,11 +290,11 @@ impl RecursiveConfig {
 }
 
 fn recursion_limit_default() -> u8 {
-    12
+    24
 }
 
 fn ns_recursion_limit_default() -> u8 {
-    16
+    24
 }
 
 /// DNSSEC policy configuration

@@ -112,8 +112,15 @@ fn recursive_delegation() -> Result<()> {
 ///  example12.testing IN NS example13.testing.
 ///  example13.testing IN NS example14.testing.
 ///  example14.testing IN NS example15.testing.
-///  example15.testing IN NS example15.testing.
-///  example15.testing IN A <NS IP>
+///  example15.testing IN NS example16.testing.
+///  example16.testing IN NS example17.testing.
+///  example17.testing IN NS example18.testing.
+///  example18.testing IN NS example19.testing.
+///  example19.testing IN NS example20.testing.
+///  example20.testing IN NS example21.testing.
+///  example21.testing IN NS example22.testing.
+///  example22.testing IN NS example22.testing.
+///  example22.testing IN A <NS IP>
 ///
 /// Querying for any host in example.testing should cause the recursor to return no answer and the
 /// recursor log should contain a NoConnections error.
@@ -146,11 +153,11 @@ fn multi_domain_delegation() -> Result<()> {
         FQDN("ns.example2.testing.")?,
     ));
 
-    for i in 1..=15 {
-        if i == 15 {
+    for i in 1..=22 {
+        if i == 22 {
             tld_ns.referral(
-                FQDN("example15.testing.")?,
-                FQDN("ns.example15.testing.")?,
+                FQDN("example22.testing.")?,
+                FQDN("ns.example22.testing.")?,
                 example_ns.ipv4_addr(),
             );
         } else {
