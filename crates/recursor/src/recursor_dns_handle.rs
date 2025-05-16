@@ -372,18 +372,17 @@ impl RecursorDnsHandle {
 
         let parent_zone = zone.base_name();
 
-        let (mut ns_depth, nameserver_pool) = if parent_zone.is_root() {
+        let nameserver_pool = if parent_zone.is_root() {
             debug!("using roots for {zone} nameservers");
-            (depth, self.roots.clone())
+            self.roots.clone()
         } else {
+            // Discard depth returned from recursive call.
             self.ns_pool_for_zone(parent_zone, request_time, depth)
                 .await?
+                .1
         };
 
         let query = Query::query(zone.clone(), RecordType::NS);
-
-        ns_depth += 1;
-        Error::recursion_exceeded(self.ns_recursion_limit, ns_depth, &zone)?;
 
         // Query for nameserver records via the pool for the parent zone.
         let lookup_res = self
