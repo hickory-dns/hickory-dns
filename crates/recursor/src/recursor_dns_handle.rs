@@ -19,7 +19,7 @@ use tracing::{debug, info, trace, warn};
 use crate::{
     Error, ErrorKind,
     proto::{
-        ForwardNSData, ProtoErrorKind,
+        ProtoErrorKind,
         op::Query,
         rr::{
             RData,
@@ -158,56 +158,38 @@ impl RecursorDnsHandle {
         }
 
         // Recursively search for authoritative name servers for the queried record to build an NS
-        // pool to use for queries for a given zone. By searching for zone.base_name() (e.g.,
-        // example.com if the query is 'www.example.com'), we should end up with the following set
-        // of queries:
+        // pool to use for queries for a given zone. By searching for the query name, (e.g.
+        // 'www.example.com') we should end up with the following set of queries:
         //
         // query NS . for com. -> NS list + glue for com.
         // query NS com. for example.com. -> NS list + glue for example.com.
+        // query NS example.com. for www.example.com. -> no data.
         //
-        // ns_pool_for_zone would then return an NS pool based the results of the last query, plus
-        // any additional glue records that needed to be resolved, and the authoritative name servers
-        // for example.com can be queried directly for 'www.example.com'.
+        // ns_pool_for_zone would then return an NS pool based the results of the last NS RRset,
+        // plus any additional glue records that needed to be resolved, and the authoritative name
+        // servers for example.com can be queried directly for 'www.example.com'.
         //
-        // If you query zone.name() using this algorithm, you get a superfluous NS query for
-        // www.example.com directed to the nameservers for example.com, which will generally result in
-        // those servers returning an SOA record, and an additional query being made for whatever
-        // record is being queried.
+        // When querying zone.name() using this algorithm, you make an NS query for www.example.com
+        // directed to the nameservers for example.com, which will generally result in those servers
+        // returning a no data response, and an additional query being made for whatever record is
+        // being queried.
         //
         // If the user is directly querying the second-level domain (e.g., an A query for example.com),
         // the following behavior will occur:
         //
         // query NS . for com. -> NS list + glue for com.
+        // query NS com. for example.com. -> NS list + glue for example.com.
         //
         // ns_pool_for_zone would return that as the NS pool to use for the query 'example.com'.
-        // The subsequent lookup request for then ask the com. servers to resolve A example.com, which
-        // they are not authoritative for. In that case, those servers will return an empty answer
-        // section and a list of authortative name servers, which will result in an ErrorKind::ForwardNS
-        // error indicating a referral.  ns_pool_for_referral will build a new NS pool based on those
-        // name servers, and an additional query can be made to them to resolve A example.com.
-        //
-        // Note that while the recursor code has to do some additional checks, no additional queries
-        // are being sent to any nameservers in this case -- there are still a total of three queries
-        // being made:
-        //
-        // query NS . for com. -> NS list + glue for com.
-        // query A com. for example.com. -> Effectively an NS list + glue for example.com.
-        // query A example.com. for example.com. -> authoritative record set.
+        // The subsequent lookup request for then ask the example.com. servers to resolve
+        // A example.com.
 
         let zone = match query.query_type() {
-            // For DNSSEC queries for NS records, if DO=1 then we need to send the `NS $ZONE`
-            // query to `$ZONE` to get the RRSIG records associated to the NS record
-            // if DO=0 then we can send the query to the parent zone. its response won't include
-            // RRSIG records but that's fine
-            RecordType::NS if query_has_dnssec_ok => query.name().clone(),
-
-            // For all other records, we want to set the NS Pool based on the parent zone to
-            // avoid extra NS queries as outlined above.  Note that for DS records
-            // (RFC4035 section 3.1.4.1) this is an explicit requirement and not an optimization.
-            _ => query.name().base_name(),
+            RecordType::DS => query.name().base_name(),
+            _ => query.name().clone(),
         };
 
-        let (mut depth, mut ns) = match self
+        let (depth, ns) = match self
             .ns_pool_for_zone(zone.clone(), request_time, depth)
             .await
         {
@@ -220,79 +202,28 @@ impl RecursorDnsHandle {
 
         debug!("found zone {} for {query}", ns.zone());
 
-        match self
+        let (lookup, _) = self
             .lookup(query.clone(), ns, request_time, query_has_dnssec_ok)
-            .await
-        {
-            Ok((lookup, _)) => {
-                let response = self
-                    .resolve_cnames(
-                        lookup,
-                        query.clone(),
-                        request_time,
-                        query_has_dnssec_ok,
-                        depth,
-                        cname_limit,
-                    )
-                    .await?;
+            .await?;
 
-                // RFC 4035 section 3.2.1 if DO bit not set, strip DNSSEC records unless
-                // explicitly requested
-                Ok(super::maybe_strip_dnssec_records(
-                    query_has_dnssec_ok,
-                    response,
-                    query,
-                ))
-            }
-            Err(e) => {
-                match e.kind() {
-                    // ErrorKind::ForwardNS is mapped from ProtoError(NoRecordsFound) when an authoritative
-                    // nameserver returns an empty answers sections (NoRecordsFound) and one or more
-                    // nameserver records in the nameservers section.  We build a new NS Pool based on those
-                    // records and call resolve against that NS pool.
-                    ErrorKind::ForwardNS(referral_ns) => {
-                        debug!("ns for {} forwarded via NS records", query.name());
+        let response = self
+            .resolve_cnames(
+                lookup,
+                query.clone(),
+                request_time,
+                query_has_dnssec_ok,
+                depth,
+                cname_limit,
+            )
+            .await?;
 
-                        (depth, ns) = self
-                            .ns_pool_for_referral(
-                                query.clone(),
-                                referral_ns.clone(),
-                                request_time,
-                                depth,
-                            )
-                            .await?;
-
-                        match self
-                            .lookup(query.clone(), ns, request_time, query_has_dnssec_ok)
-                            .await
-                        {
-                            Ok((lookup, _)) => {
-                                let response = self
-                                    .resolve_cnames(
-                                        lookup,
-                                        query.clone(),
-                                        request_time,
-                                        query_has_dnssec_ok,
-                                        depth,
-                                        cname_limit,
-                                    )
-                                    .await?;
-
-                                // RFC 4035 section 3.2.1 if DO bit not set, strip DNSSEC
-                                // records unless explicitly requested
-                                Ok(super::maybe_strip_dnssec_records(
-                                    query_has_dnssec_ok,
-                                    response,
-                                    query,
-                                ))
-                            }
-                            Err(e) => Err(e),
-                        }
-                    }
-                    _ => Err(e),
-                }
-            }
-        }
+        // RFC 4035 section 3.2.1 if DO bit not set, strip DNSSEC records unless
+        // explicitly requested
+        Ok(super::maybe_strip_dnssec_records(
+            query_has_dnssec_ok,
+            response,
+            query,
+        ))
     }
 
     /// Handle CNAME expansion for the current query
@@ -587,133 +518,6 @@ impl RecursorDnsHandle {
                 ns_glue_ips.push(ip);
             }
         }
-    }
-
-    /// Build an NS Pool based on an NS-record referral.
-    ///
-    /// Normally, when we build an NS Pool with ns_pool_for_zone, we search recursively, starting at
-    /// the root, for authoritative name servers for a given domain.  Sometimes in the recursive
-    /// resolution process, an upstream name server will return an empty answers section but one or
-    /// more name servers in the name servers section (and possibly glue records in the additionals
-    /// section.)  To continue the resolution process, we need to query those name servers.  This
-    /// function builds a pool with those servers by:
-    ///
-    ///  1. Iterating over the list of referent name servers
-    ///  2. Combining glue records and A/AAAA cache entries for the referent name servers to build the new
-    ///     pool.
-    ///  3. If there are no glue records and no relevant A/AAAA cache entries, attempt to recursively
-    ///     resolve the referent NS records to produce an NS Pool.
-    #[async_recursion]
-    async fn ns_pool_for_referral(
-        &self,
-        query: Query,
-        nameservers: Arc<[ForwardNSData]>,
-        request_time: Instant,
-        mut depth: u8,
-    ) -> Result<(u8, RecursorPool<TokioRuntimeProvider>), Error> {
-        let query_name = query.name().clone();
-
-        depth += 1;
-        Error::recursion_exceeded(self.ns_recursion_limit, depth, &query_name)?;
-
-        trace!("ns_pool_for_referral: depth {depth} for {query}");
-
-        // TODO: grab TTL and use for cache
-        // get all the NS records and glue
-        let mut config_group = NameServerConfigGroup::new();
-        let mut need_ips_for_names = Vec::new();
-
-        for nameserver in nameservers.iter() {
-            let ns = &nameserver.ns;
-
-            let ns_name = if let Some(ns_name) = ns.data().as_ns() {
-                ns_name.0.clone()
-            } else {
-                debug!("ns_pool_for_referral: non-NS name in NS referral list: {ns:?}");
-                continue;
-            };
-
-            let glue = nameserver
-                .glue
-                .iter()
-                .filter(|record| *record.name() == ns_name);
-
-            trace!("ns_pool_for_referral: GLUE_A: {:?}", nameserver.glue);
-
-            let cached_a = self
-                .record_cache
-                .get(&Query::query(ns_name.clone(), RecordType::A), request_time);
-            let cached_aaaa = self.record_cache.get(
-                &Query::query(ns_name.clone(), RecordType::AAAA),
-                request_time,
-            );
-
-            trace!("ns_pool_for_referral: CACHED_A: {cached_a:?}");
-
-            let cached_a = cached_a.and_then(Result::ok).map(Lookup::into_iter);
-            let cached_aaaa = cached_aaaa.and_then(Result::ok).map(Lookup::into_iter);
-
-            let mut glue_ips = cached_a
-                .into_iter()
-                .flatten()
-                .chain(cached_aaaa.into_iter().flatten())
-                .filter_map(|r| RData::ip_addr(&r))
-                .chain(glue.filter_map(|r| RData::ip_addr(r.data())))
-                .filter(|ip| {
-                    let matches = self.matches_nameserver_filter(*ip);
-                    if matches {
-                        debug!(name = %ns_name, %ip, "ignoring address due to do_not_query");
-                    }
-                    !matches
-                })
-                .peekable();
-
-            if glue_ips.peek().is_some() {
-                config_group.append_ips(glue_ips, true);
-            } else {
-                debug!("ns_pool_for_referral glue not found for {ns}");
-                need_ips_for_names.push(ns);
-            }
-        }
-
-        trace!("pre glue config group: {config_group:?} Need IPs: {need_ips_for_names:?}");
-
-        // collect missing IP addresses
-        if config_group.is_empty() && !need_ips_for_names.is_empty() {
-            debug!("ns_pool_for_referral need glue for {query_name}");
-
-            let (new_depth, nameserver_pool) = self
-                .ns_pool_for_zone(query_name.clone(), request_time, depth)
-                .await?;
-
-            depth = new_depth;
-
-            depth = self
-                .append_ips_from_lookup(
-                    &query_name,
-                    depth,
-                    request_time,
-                    nameserver_pool,
-                    need_ips_for_names.iter().filter_map(|x| x.data().as_ns()),
-                    &mut config_group,
-                )
-                .await?;
-        }
-
-        debug!("ns_pool_for_referral found nameservers for {query_name}: {config_group:?}");
-
-        // now construct a namesever pool based off the NS and glue records
-        let ns = GenericNameServerPool::from_config(
-            config_group,
-            self.recursor_opts(),
-            TokioConnectionProvider::default(),
-        );
-        let ns = RecursorPool::from(query_name.clone(), ns);
-
-        // store in cache for future usage
-        self.name_server_cache.lock().insert(query_name, ns.clone());
-
-        Ok((depth, ns))
     }
 
     /// Check if an IP address matches any networks listed in the configuration that should not be

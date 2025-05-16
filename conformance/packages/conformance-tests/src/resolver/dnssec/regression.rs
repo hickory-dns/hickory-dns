@@ -297,14 +297,22 @@ fn five_secure_zones() -> Result<()> {
 fn glue_reuse() -> Result<()> {
     let network = Network::new()?;
 
+    let sibling_zone = FQDN::TEST_TLD.push_label("sibling");
+
     let leaf_ns = NameServer::builder(dns_test::PEER.clone(), FQDN::TEST_DOMAIN, network.clone())
-        .nameserver_fqdn(FQDN::TEST_DOMAIN)
+        .nameserver_fqdn(sibling_zone.clone())
         .build()?;
     let leaf_ns = leaf_ns.sign(SignSettings::default())?;
+
+    let mut sibling_ns = NameServer::new(&dns_test::PEER, sibling_zone.clone(), &network)?;
+    sibling_ns.add(Record::a(sibling_zone.clone(), leaf_ns.ipv4_addr()));
+    let sibling_ns = sibling_ns.sign(SignSettings::default())?;
 
     let mut tld_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_TLD, &network)?;
     tld_ns.referral_nameserver(&leaf_ns);
     tld_ns.add(leaf_ns.ds().ksk.clone());
+    tld_ns.referral_nameserver(&sibling_ns);
+    tld_ns.add(sibling_ns.ds().ksk.clone());
     let tld_ns = tld_ns.sign(SignSettings::default())?;
 
     let mut root_ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, &network)?;
@@ -316,19 +324,25 @@ fn glue_reuse() -> Result<()> {
 
     let _root_ns = root_ns.start()?;
     let _tld_ns = tld_ns.start()?;
+    let _sibling_ns = sibling_ns.start()?;
     let _leaf_ns = leaf_ns.start()?;
 
     let resolver = Resolver::new(&network, root)
         .trust_anchor(&trust_anchor)
         .start()?;
     let client = Client::new(&network)?;
+    let settings = *DigSettings::default().recurse();
 
-    let output = client.dig(
-        *DigSettings::default().recurse(),
+    // Make a query to prime the cache with a glue RRset.
+    client.dig(
+        settings,
         resolver.ipv4_addr(),
-        RecordType::A,
+        RecordType::NS,
         &FQDN::TEST_DOMAIN,
     )?;
+
+    // Make an A query, and see if it reuses the glue RRset that was stored previously.
+    let output = client.dig(settings, resolver.ipv4_addr(), RecordType::A, &sibling_zone)?;
 
     assert!(output.status.is_noerror(), "{:?}", output.status);
     assert!(!output.answer.is_empty());
