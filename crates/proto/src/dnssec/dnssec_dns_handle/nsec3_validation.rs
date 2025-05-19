@@ -91,6 +91,8 @@ pub(super) fn verify_nsec3(
     response_code: ResponseCode,
     answers: &[Record],
     nsec3s: &[(&Name, &NSEC3)],
+    nsec3_soft_iteration_limit: u16,
+    nsec3_hard_iteration_limit: u16,
 ) -> Proof {
     debug_assert!(!nsec3s.is_empty());
 
@@ -134,6 +136,31 @@ pub(super) fn verify_nsec3(
             || r.nsec3_data.iterations() != iterations
     }) {
         return proof_log_yield(Proof::Bogus, query.name(), "nsec3", "parameter mismatch");
+    }
+
+    // Protect against high iteration counts by returning Proof::Bogus (triggering a SERVFAIL
+    // response) if iterations > than the hard limit, or an insecure response if iterations > the
+    // soft limit.
+    //
+    // [RFC 9276 3.2](https://www.rfc-editor.org/rfc/rfc9276.html#name-recommendation-for-validati).
+    if iterations > nsec3_hard_iteration_limit {
+        return proof_log_yield(
+            Proof::Bogus,
+            query.name(),
+            "nsec3",
+            &format!(
+                "iteration count {iterations} is over {nsec3_hard_iteration_limit}; returning Proof::Bogus"
+            ),
+        );
+    } else if iterations > nsec3_soft_iteration_limit {
+        return proof_log_yield(
+            Proof::Insecure,
+            query.name(),
+            "nsec3",
+            &format!(
+                "iteration count {iterations} is over {nsec3_soft_iteration_limit}; returning Proof::Insecure"
+            ),
+        );
     }
 
     // Basic sanity checks are done.

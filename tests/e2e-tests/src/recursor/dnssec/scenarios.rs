@@ -11,7 +11,6 @@ use dns_test::{
 /// This tests that the server will return an insecure answer when receiving NSEC3 records with
 /// an iteration count exceeding the default soft limit, but below the hard limit.
 #[test]
-#[ignore = "hickory does not limit NSEC3 hash iterations"]
 fn soft_nsec3_iteration_failure() -> Result<()> {
     let (output, logs) = insecure_record_fixture(
         FQDN("noexist.insecure.testing.")?,
@@ -35,7 +34,6 @@ fn soft_nsec3_iteration_failure() -> Result<()> {
 /// This tests that the server will return SERVFAIL when receiving NSEC3 records with
 /// an iteration count exceeding the default hard limit.
 #[test]
-#[ignore = "hickory does not limit NSEC3 hash iterations"]
 fn hard_nsec3_iteration_failure() -> Result<()> {
     let (output, logs) = insecure_record_fixture(
         FQDN("noexist.insecure.testing.")?,
@@ -98,7 +96,6 @@ fn nsec3_custom_iteration_count() -> Result<()> {
 
 /// This test verifies the server will verify NSEC3 RRSIGs before rejecting high iteration counts.
 #[test]
-#[ignore = "hickory does not limit NSEC3 hash iterations or uncovered NSEC3 records"]
 fn hard_nsec3_iteration_invalid_rrsig() -> Result<()> {
     let network = Network::new()?;
     let leaf_zone = FQDN::TEST_DOMAIN;

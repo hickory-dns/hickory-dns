@@ -64,6 +64,12 @@ pub enum DnssecPolicy {
     ValidateWithStaticKey {
         /// set to `None` to use built-in trust anchor
         trust_anchor: Option<Arc<TrustAnchors>>,
+        /// NSEC3 soft iteration limit.  Responses with NSEC3 records having an iteration count
+        /// exceeding this value, but less than the hard limit, will return Proof::Insecure
+        nsec3_soft_iteration_limit: Option<u16>,
+        /// NSEC3 hard iteration limit.  Responses with NSEC3 responses having an iteration count
+        /// exceeding this value will return Proof::Bogus
+        nsec3_hard_iteration_limit: Option<u16>,
     },
     // TODO RFC5011
     // ValidateWithInitialKey { ..  },}
