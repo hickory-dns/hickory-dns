@@ -186,7 +186,11 @@ impl Recursor {
             DnssecPolicy::ValidationDisabled => RecursorMode::NonValidating { handle },
 
             #[cfg(feature = "__dnssec")]
-            DnssecPolicy::ValidateWithStaticKey { trust_anchor } => {
+            DnssecPolicy::ValidateWithStaticKey {
+                trust_anchor,
+                nsec3_soft_iteration_limit,
+                nsec3_hard_iteration_limit,
+            } => {
                 let record_cache = handle.record_cache().clone();
                 let trust_anchor = match trust_anchor {
                     Some(anchor) if anchor.is_empty() => {
@@ -198,7 +202,11 @@ impl Recursor {
 
                 RecursorMode::Validating {
                     record_cache,
-                    handle: DnssecDnsHandle::with_trust_anchor(handle, trust_anchor),
+                    handle: DnssecDnsHandle::with_trust_anchor(handle, trust_anchor)
+                        .nsec3_iteration_limits(
+                            nsec3_soft_iteration_limit,
+                            nsec3_hard_iteration_limit,
+                        ),
                 }
             }
         };

@@ -54,6 +54,8 @@ where
     request_depth: usize,
     minimum_key_len: usize,
     minimum_algorithm: Algorithm, // used to prevent down grade attacks...
+    nsec3_soft_iteration_limit: u16,
+    nsec3_hard_iteration_limit: u16,
 }
 
 impl<H> DnssecDnsHandle<H>
@@ -84,7 +86,34 @@ where
             request_depth: 0,
             minimum_key_len: 0,
             minimum_algorithm: Algorithm::RSASHA256,
+            // These default values are based on
+            // [RFC 9276 Appendix A](https://www.rfc-editor.org/rfc/rfc9276.html#appendix-A)
+            nsec3_soft_iteration_limit: 100,
+            nsec3_hard_iteration_limit: 500,
         }
+    }
+
+    /// Set custom NSEC3 iteration limits
+    ///
+    /// # Arguments
+    /// * `soft_limit` - the soft limit for NSEC3 iterations. NSEC3 records with iteration counts
+    ///   above this limit, but below the hard limit will evaluate to Proof::Insecure.
+    /// * `hard_limit` - the hard limit for NSEC3 iterations. NSEC3 records with iteration counts
+    ///   above this limit will evaluate to Proof::Bogus.
+    pub fn nsec3_iteration_limits(
+        mut self,
+        soft_limit: Option<u16>,
+        hard_limit: Option<u16>,
+    ) -> Self {
+        if let Some(soft) = soft_limit {
+            self.nsec3_soft_iteration_limit = soft;
+        }
+
+        if let Some(hard) = hard_limit {
+            self.nsec3_hard_iteration_limit = hard;
+        }
+
+        self
     }
 
     /// An internal function used to clone the handle, but maintain some information back to the
@@ -97,6 +126,8 @@ where
             request_depth: self.request_depth + 1,
             minimum_key_len: self.minimum_key_len,
             minimum_algorithm: self.minimum_algorithm,
+            nsec3_soft_iteration_limit: self.nsec3_soft_iteration_limit,
+            nsec3_hard_iteration_limit: self.nsec3_hard_iteration_limit,
         }
     }
 }
@@ -150,6 +181,9 @@ where
         request.set_checking_disabled(false);
         let options = *request.options();
 
+        let soft_iteration_limit = self.nsec3_soft_iteration_limit;
+        let hard_iteration_limit = self.nsec3_hard_iteration_limit;
+
         Box::pin(
             self.handle
                 .send(request)
@@ -191,7 +225,12 @@ where
                     verify_response(handle.clone(), message_response, options)
                 })
                 .and_then(move |verified_message| {
-                    future::ready(check_nsec(verified_message, &query))
+                    future::ready(check_nsec(
+                        verified_message,
+                        &query,
+                        soft_iteration_limit,
+                        hard_iteration_limit,
+                    ))
                 }),
         )
     }
@@ -202,7 +241,12 @@ where
 ///
 /// at this point all of the message is verified.
 /// This is where NSEC and NSEC3 validation occurs
-fn check_nsec(verified_message: DnsResponse, query: &Query) -> Result<DnsResponse, ProtoError> {
+fn check_nsec(
+    verified_message: DnsResponse,
+    query: &Query,
+    nsec3_soft_iteration_limit: u16,
+    nsec3_hard_iteration_limit: u16,
+) -> Result<DnsResponse, ProtoError> {
     if !verified_message.answers().is_empty() {
         return Ok(verified_message);
     }
@@ -279,6 +323,8 @@ fn check_nsec(verified_message: DnsResponse, query: &Query) -> Result<DnsRespons
             verified_message.response_code(),
             verified_message.answers(),
             &nsec3s,
+            nsec3_soft_iteration_limit,
+            nsec3_hard_iteration_limit,
         ),
         (false, true) => verify_nsec(query, soa_name, nsecs.as_slice()),
         (true, true) => {

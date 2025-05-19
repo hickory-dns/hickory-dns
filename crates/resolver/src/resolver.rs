@@ -43,6 +43,10 @@ pub struct ResolverBuilder<P> {
 
     #[cfg(feature = "__dnssec")]
     trust_anchor: Option<Arc<TrustAnchors>>,
+    #[cfg(feature = "__dnssec")]
+    nsec3_soft_iteration_limit: Option<u16>,
+    #[cfg(feature = "__dnssec")]
+    nsec3_hard_iteration_limit: Option<u16>,
 }
 
 impl<P> ResolverBuilder<P>
@@ -74,6 +78,22 @@ where
         self
     }
 
+    /// Set maximum limits on NSEC3 additional iterations.
+    ///
+    /// See [RFC 9276](https://www.rfc-editor.org/rfc/rfc9276.html). Signed
+    /// zones that exceed the soft limit will be treated as insecure, and signed
+    /// zones that exceed the hard limit will be treated as bogus.
+    #[cfg(feature = "__dnssec")]
+    pub fn nsec3_iteration_limits(
+        mut self,
+        soft_limit: Option<u16>,
+        hard_limit: Option<u16>,
+    ) -> Self {
+        self.nsec3_soft_iteration_limit = soft_limit;
+        self.nsec3_hard_iteration_limit = hard_limit;
+        self
+    }
+
     /// Construct the resolver.
     pub fn build(self) -> Resolver<P> {
         #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
@@ -83,6 +103,10 @@ where
             provider,
             #[cfg(feature = "__dnssec")]
             trust_anchor,
+            #[cfg(feature = "__dnssec")]
+            nsec3_soft_iteration_limit,
+            #[cfg(feature = "__dnssec")]
+            nsec3_hard_iteration_limit,
         } = self;
 
         let pool = NameServerPool::from_config_with_provider(&config, options.clone(), provider);
@@ -99,8 +123,14 @@ where
             {
                 let trust_anchor =
                     trust_anchor.unwrap_or_else(|| Arc::new(TrustAnchors::default()));
-                either =
-                    LookupEither::Secure(DnssecDnsHandle::with_trust_anchor(client, trust_anchor));
+
+                either = LookupEither::Secure(
+                    DnssecDnsHandle::with_trust_anchor(client, trust_anchor)
+                        .nsec3_iteration_limits(
+                            nsec3_soft_iteration_limit,
+                            nsec3_hard_iteration_limit,
+                        ),
+                );
             }
 
             #[cfg(not(feature = "__dnssec"))]
@@ -223,6 +253,10 @@ impl<R: ConnectionProvider> Resolver<R> {
             provider,
             #[cfg(feature = "__dnssec")]
             trust_anchor: None,
+            #[cfg(feature = "__dnssec")]
+            nsec3_soft_iteration_limit: None,
+            #[cfg(feature = "__dnssec")]
+            nsec3_hard_iteration_limit: None,
         }
     }
 

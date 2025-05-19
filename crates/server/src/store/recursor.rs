@@ -315,6 +315,14 @@ pub enum DnssecPolicyConfig {
     ValidateWithStaticKey {
         /// set to `None` to use built-in trust anchor
         path: Option<PathBuf>,
+        /// set to control the 'soft' NSEC3 iteration limit. Responses where valid NSEC3 records are
+        /// returned having an iteration count above this limit, but below the hard limit, will
+        /// be considered insecure (answered without the AD bit set.)
+        nsec3_soft_iteration_limit: Option<u16>,
+        /// set to control the 'hard' NSEC3 iteration limit. Responses where valid NSEC3 records are
+        /// returned having an iteration count above this limit will be considered Bogus and will
+        /// result in a SERVFAIL response being returned to the requester.
+        nsec3_hard_iteration_limit: Option<u16>,
     },
 }
 
@@ -325,12 +333,18 @@ impl DnssecPolicyConfig {
             #[cfg(feature = "__dnssec")]
             Self::ValidationDisabled => DnssecPolicy::ValidationDisabled,
             #[cfg(feature = "__dnssec")]
-            Self::ValidateWithStaticKey { path } => DnssecPolicy::ValidateWithStaticKey {
+            Self::ValidateWithStaticKey {
+                path,
+                nsec3_soft_iteration_limit,
+                nsec3_hard_iteration_limit,
+            } => DnssecPolicy::ValidateWithStaticKey {
                 trust_anchor: path
                     .as_ref()
                     .map(|path| TrustAnchors::from_file(path))
                     .transpose()?
                     .map(Arc::new),
+                nsec3_soft_iteration_limit: *nsec3_soft_iteration_limit,
+                nsec3_hard_iteration_limit: *nsec3_hard_iteration_limit,
             },
         })
     }
@@ -349,7 +363,7 @@ dnssec_policy.ValidateWithStaticKey.path = "/etc/trusted-key.key""#;
 
         let config: RecursiveConfig = toml::from_str(input).unwrap();
 
-        if let DnssecPolicyConfig::ValidateWithStaticKey { path } = config.dnssec_policy {
+        if let DnssecPolicyConfig::ValidateWithStaticKey { path, .. } = config.dnssec_policy {
             assert_eq!(Some(Path::new("/etc/trusted-key.key")), path.as_deref());
         } else {
             unreachable!()
