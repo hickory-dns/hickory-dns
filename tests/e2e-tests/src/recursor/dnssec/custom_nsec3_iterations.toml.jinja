@@ -1,0 +1,15 @@
+user = "nobody"
+group = "nogroup"
+
+[[zones]]
+zone = "."
+zone_type = "External"
+
+[zones.stores]
+type = "recursor"
+roots = "/etc/root.hints"
+dnssec_policy.ValidateWithStaticKey.path = "/etc/trusted-key.key"
+dnssec_policy.ValidateWithStaticKey.nsec3_soft_iteration_limit = 10
+dnssec_policy.ValidateWithStaticKey.nsec3_hard_iteration_limit = 20
+
+allow_server = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
