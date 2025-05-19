@@ -108,6 +108,8 @@ pub enum ProtoErrorKind {
     Nsec {
         /// Query for which the NSEC was returned
         query: Box<Query>,
+        /// Response for which the NSEC was returned
+        response: Box<DnsResponse>,
         /// DNSSEC proof of the record
         proof: Proof,
     },
@@ -790,8 +792,13 @@ impl Clone for ProtoErrorKind {
             NoRecordsFound(ref inner) => NoRecordsFound(inner.clone()),
             RequestRefused => RequestRefused,
             #[cfg(feature = "__dnssec")]
-            Nsec { ref query, proof } => Nsec {
+            Nsec {
+                ref query,
+                ref response,
+                proof,
+            } => Nsec {
                 query: query.clone(),
+                response: response.clone(),
                 proof,
             },
             UnknownAlgorithmTypeValue(value) => UnknownAlgorithmTypeValue(value),
