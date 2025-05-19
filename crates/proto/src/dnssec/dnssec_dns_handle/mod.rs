@@ -235,10 +235,18 @@ fn check_nsec(verified_message: DnsResponse, query: &Query) -> Result<DnsRespons
         .name_servers()
         .iter()
         .filter_map(|rr| {
-            rr.data()
-                .as_dnssec()?
-                .as_nsec3()
-                .map(|data| (rr.name(), data))
+            if verified_message
+                .name_servers()
+                .iter()
+                .any(|r| r.name() == rr.name() && r.proof() == Proof::Secure)
+            {
+                rr.data()
+                    .as_dnssec()?
+                    .as_nsec3()
+                    .map(|data| (rr.name(), data))
+            } else {
+                None
+            }
         })
         .collect::<Vec<_>>();
 
@@ -246,10 +254,18 @@ fn check_nsec(verified_message: DnsResponse, query: &Query) -> Result<DnsRespons
         .name_servers()
         .iter()
         .filter_map(|rr| {
-            rr.data()
-                .as_dnssec()?
-                .as_nsec()
-                .map(|data| (rr.name(), data))
+            if verified_message
+                .name_servers()
+                .iter()
+                .any(|r| r.name() == rr.name() && r.proof() == Proof::Secure)
+            {
+                rr.data()
+                    .as_dnssec()?
+                    .as_nsec()
+                    .map(|data| (rr.name(), data))
+            } else {
+                None
+            }
         })
         .collect::<Vec<_>>();
 
@@ -341,12 +357,14 @@ where
         .filter(|rr| {
             !is_dnssec(rr, RecordType::RRSIG) &&
                              // if we are at a depth greater than 1, we are only interested in proving evaluation chains
-                             //   this means that only DNSKEY and DS are interesting at that point.
+                             //   this means that only DNSKEY, DS, NSEC, and NSEC3 are interesting at that point.
                              //   this protects against looping over things like NS records and DNSKEYs in responses.
                              // TODO: is there a cleaner way to prevent cycles in the evaluations?
                                           (handle.request_depth <= 1 ||
                                            is_dnssec(rr, RecordType::DNSKEY) ||
-                                           is_dnssec(rr, RecordType::DS))
+                                           is_dnssec(rr, RecordType::DS) ||
+                                           is_dnssec(rr, RecordType::NSEC) ||
+                                           is_dnssec(rr, RecordType::NSEC3))
         })
         .map(|rr| (rr.name().clone(), rr.record_type()))
     {
