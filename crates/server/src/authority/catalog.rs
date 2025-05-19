@@ -15,6 +15,9 @@ use tracing::{debug, error, info, trace, warn};
 
 #[cfg(feature = "__dnssec")]
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
+#[cfg(all(feature = "__dnssec", feature = "recursor"))]
+use crate::{proto::ProtoErrorKind, recursor::ErrorKind};
+
 use crate::{
     authority::{
         AuthLookup, AuthorityObject, EmptyLookup, LookupControlFlow, LookupError, LookupObject,
@@ -836,6 +839,48 @@ async fn build_forwarded_response(
                 (Answer::Normal(Box::new(EmptyLookup)), authorities)
             }
         }
+        #[cfg(all(feature = "__dnssec", feature = "recursor"))]
+        Err(LookupError::RecursiveError(e)) => match e.kind() {
+            ErrorKind::Proto(e) => match e.kind() {
+                ProtoErrorKind::Nsec {
+                    response, proof, ..
+                } if proof.is_insecure() => {
+                    response_header.set_response_code(response.response_code());
+
+                    if let Some(soa) = response.soa() {
+                        let soa = soa.to_owned().into_record_of_rdata();
+                        let record_set = Arc::new(RecordSet::from(soa));
+                        let records = LookupRecords::new(LookupOptions::default(), record_set);
+
+                        (
+                            Answer::NoRecords(Box::new(AuthLookup::SOA(records))),
+                            Box::<AuthLookup>::default(),
+                        )
+                    } else {
+                        (
+                            Answer::Normal(Box::new(EmptyLookup)),
+                            Box::<AuthLookup>::default(),
+                        )
+                    }
+                }
+                _ => {
+                    response_header.set_response_code(ResponseCode::ServFail);
+                    debug!(error = ?e, "error resolving");
+                    (
+                        Answer::Normal(Box::new(EmptyLookup)),
+                        Box::<AuthLookup>::default(),
+                    )
+                }
+            },
+            _ => {
+                response_header.set_response_code(ResponseCode::ServFail);
+                debug!(error = ?e, "error resolving");
+                (
+                    Answer::Normal(Box::new(EmptyLookup)),
+                    Box::<AuthLookup>::default(),
+                )
+            }
+        },
         Err(e) => {
             response_header.set_response_code(ResponseCode::ServFail);
             debug!(error = ?e, "error resolving");
