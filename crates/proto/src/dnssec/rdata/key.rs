@@ -415,13 +415,6 @@ impl<'r> RecordDataDecodable<'r> for KEY {
 }
 
 impl RecordData for KEY {
-    fn try_from_rdata(data: RData) -> Result<Self, RData> {
-        match data {
-            RData::DNSSEC(DNSSECRData::KEY(csync)) => Ok(csync),
-            _ => Err(data),
-        }
-    }
-
     fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
             RData::DNSSEC(DNSSECRData::KEY(csync)) => Some(csync),

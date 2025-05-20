@@ -684,13 +684,6 @@ impl<'r> RecordDataDecodable<'r> for CAA {
 }
 
 impl RecordData for CAA {
-    fn try_from_rdata(data: RData) -> Result<Self, RData> {
-        match data {
-            RData::CAA(csync) => Ok(csync),
-            _ => Err(data),
-        }
-    }
-
     fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
             RData::CAA(csync) => Some(csync),

@@ -27,7 +27,7 @@ use crate::{
     },
     error::{NoRecords, ProtoError, ProtoErrorKind},
     op::{Edns, Message, OpCode, Query},
-    rr::{Name, Record, RecordData, RecordType, SerialNumber, resource::RecordRef},
+    rr::{Name, RData, Record, RecordData, RecordType, SerialNumber, resource::RecordRef},
     xfer::{DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer, dns_handle::DnsHandle},
 };
 
@@ -36,7 +36,7 @@ use self::rrset::Rrset;
 mod nsec3_validation;
 use nsec3_validation::verify_nsec3;
 
-use super::rdata::NSEC;
+use super::rdata::{DNSSECRData, NSEC};
 
 /// Performs DNSSEC validation of all DNS responses from the wrapped DnsHandle
 ///
@@ -844,10 +844,12 @@ where
         {
             // This is a secure DS RRset.
 
-            let all_records = ds_message
-                .take_answers()
-                .into_iter()
-                .filter_map(|r| Record::<DS>::try_from(r).ok());
+            let all_records = ds_message.take_answers().into_iter().filter_map(|r| {
+                r.map(|data| match data {
+                    RData::DNSSEC(DNSSECRData::DS(ds)) => Some(ds),
+                    _ => None,
+                })
+            });
 
             let mut supported_records = vec![];
             let mut all_unknown = None;

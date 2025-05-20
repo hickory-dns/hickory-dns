@@ -1156,13 +1156,6 @@ impl RecordDataDecodable<'_> for SVCB {
 }
 
 impl RecordData for SVCB {
-    fn try_from_rdata(data: RData) -> Result<Self, RData> {
-        match data {
-            RData::SVCB(data) => Ok(data),
-            _ => Err(data),
-        }
-    }
-
     fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
             RData::SVCB(data) => Some(data),

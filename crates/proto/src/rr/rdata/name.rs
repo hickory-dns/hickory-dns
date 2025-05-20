@@ -62,13 +62,6 @@ macro_rules! name_rdata {
         }
 
         impl RecordData for $name {
-            fn try_from_rdata(data: RData) -> Result<Self, RData> {
-                match data {
-                    RData::$name(data) => Ok(data),
-                    _ => Err(data),
-                }
-            }
-
             fn try_borrow(data: &RData) -> Option<&Self> {
                 match data {
                     RData::$name(data) => Some(data),

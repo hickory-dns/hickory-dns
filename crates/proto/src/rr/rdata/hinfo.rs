@@ -121,13 +121,6 @@ impl<'r> BinDecodable<'r> for HINFO {
 }
 
 impl RecordData for HINFO {
-    fn try_from_rdata(data: RData) -> Result<Self, RData> {
-        match data {
-            RData::HINFO(csync) => Ok(csync),
-            _ => Err(data),
-        }
-    }
-
     fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
             RData::HINFO(csync) => Some(csync),

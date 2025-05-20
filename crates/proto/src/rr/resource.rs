@@ -146,10 +146,9 @@ impl<R: RecordData> Record<R> {
         }
     }
 
-    /// Attempts to convert the generic `RData` based Record into this one with the interior `R`
-    #[allow(clippy::result_large_err)]
-    pub fn try_from(record: Record<RData>) -> Result<Self, Record<RData>> {
-        let Record {
+    /// Converts this Record into a more specific version of RData
+    pub fn map<N: RecordData>(self, f: impl FnOnce(R) -> Option<N>) -> Option<Record<N>> {
+        let Self {
             name_labels,
             dns_class,
             ttl,
@@ -158,30 +157,18 @@ impl<R: RecordData> Record<R> {
             mdns_cache_flush,
             #[cfg(feature = "__dnssec")]
             proof,
-        } = record;
+        } = self;
 
-        match R::try_from_rdata(rdata) {
-            Ok(rdata) => Ok(Self {
-                name_labels,
-                dns_class,
-                ttl,
-                rdata,
-                #[cfg(feature = "mdns")]
-                mdns_cache_flush,
-                #[cfg(feature = "__dnssec")]
-                proof,
-            }),
-            Err(rdata) => Err(Record {
-                name_labels,
-                dns_class,
-                ttl,
-                rdata,
-                #[cfg(feature = "mdns")]
-                mdns_cache_flush,
-                #[cfg(feature = "__dnssec")]
-                proof,
-            }),
-        }
+        Some(Record {
+            name_labels,
+            dns_class,
+            ttl,
+            rdata: f(rdata)?,
+            #[cfg(feature = "mdns")]
+            mdns_cache_flush,
+            #[cfg(feature = "__dnssec")]
+            proof,
+        })
     }
 
     /// Converts this Record into a generic version of RData

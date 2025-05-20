@@ -175,13 +175,6 @@ impl<'r> RecordDataDecodable<'r> for CDNSKEY {
 }
 
 impl RecordData for CDNSKEY {
-    fn try_from_rdata(data: RData) -> Result<Self, RData> {
-        match data {
-            RData::DNSSEC(DNSSECRData::CDNSKEY(cdnskey)) => Ok(cdnskey),
-            _ => Err(data),
-        }
-    }
-
     fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
             RData::DNSSEC(DNSSECRData::CDNSKEY(cdnskey)) => Some(cdnskey),

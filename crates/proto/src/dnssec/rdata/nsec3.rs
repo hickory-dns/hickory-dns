@@ -361,13 +361,6 @@ impl<'r> RecordDataDecodable<'r> for NSEC3 {
 }
 
 impl RecordData for NSEC3 {
-    fn try_from_rdata(data: RData) -> Result<Self, RData> {
-        match data {
-            RData::DNSSEC(DNSSECRData::NSEC3(csync)) => Ok(csync),
-            _ => Err(data),
-        }
-    }
-
     fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
             RData::DNSSEC(DNSSECRData::NSEC3(csync)) => Some(csync),
