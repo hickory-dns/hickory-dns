@@ -16,9 +16,12 @@ use ipnet::IpNet;
 
 use crate::{
     DnssecPolicy, Error,
-    proto::{op::Query, runtime::TokioRuntimeProvider},
+    proto::{
+        op::{Message, Query},
+        runtime::TokioRuntimeProvider,
+    },
     recursor_dns_handle::RecursorDnsHandle,
-    resolver::{dns_lru::TtlConfig, lookup::Lookup, name_server::ConnectionProvider},
+    resolver::{dns_lru::TtlConfig, name_server::ConnectionProvider},
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
@@ -30,14 +33,14 @@ use crate::{
         rr::RecordType,
         xfer::{DnsHandle as _, DnsRequestOptions, FirstAnswer as _},
     },
-    resolver::dns_lru::DnsLru,
+    resolver::ResponseCache,
 };
 
 /// A `Recursor` builder
 #[derive(Clone)]
 pub struct RecursorBuilder<P: ConnectionProvider> {
     ns_cache_size: usize,
-    record_cache_size: usize,
+    response_cache_size: u64,
     /// This controls how many nested lookups will be attempted to resolve a CNAME chain. Setting it
     /// to None will disable the recursion limit check, and is not recommended.
     recursion_limit: Option<u8>,
@@ -60,9 +63,9 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
         self
     }
 
-    /// Sets the size of the list of cached records
-    pub fn record_cache_size(mut self, size: usize) -> Self {
-        self.record_cache_size = size;
+    /// Sets the size of the list of cached responses
+    pub fn response_cache_size(mut self, size: u64) -> Self {
+        self.response_cache_size = size;
         self
     }
 
@@ -154,7 +157,7 @@ impl<P: ConnectionProvider> Recursor<P> {
     pub fn builder_with_provider(conn_provider: P) -> RecursorBuilder<P> {
         RecursorBuilder {
             ns_cache_size: 1_024,
-            record_cache_size: 1_048_576,
+            response_cache_size: 1_048_576,
             recursion_limit: Some(24),
             ns_recursion_limit: Some(24),
             dnssec_policy: DnssecPolicy::SecurityUnaware,
@@ -176,7 +179,7 @@ impl<P: ConnectionProvider> Recursor<P> {
     fn build(roots: &[IpAddr], builder: RecursorBuilder<P>) -> Result<Self, Error> {
         let RecursorBuilder {
             ns_cache_size,
-            record_cache_size,
+            response_cache_size,
             recursion_limit,
             ns_recursion_limit,
             dnssec_policy,
@@ -191,7 +194,7 @@ impl<P: ConnectionProvider> Recursor<P> {
         let handle = RecursorDnsHandle::new(
             roots,
             ns_cache_size,
-            record_cache_size,
+            response_cache_size,
             recursion_limit,
             ns_recursion_limit,
             dnssec_policy.is_security_aware(),
@@ -215,7 +218,7 @@ impl<P: ConnectionProvider> Recursor<P> {
                 nsec3_soft_iteration_limit,
                 nsec3_hard_iteration_limit,
             } => {
-                let record_cache = handle.record_cache().clone();
+                let response_cache = handle.response_cache().clone();
                 let trust_anchor = match trust_anchor {
                     Some(anchor) if anchor.is_empty() => {
                         return Err(Error::from("trust anchor must not be empty"));
@@ -225,7 +228,7 @@ impl<P: ConnectionProvider> Recursor<P> {
                 };
 
                 RecursorMode::Validating {
-                    record_cache,
+                    response_cache,
                     handle: DnssecDnsHandle::with_trust_anchor(handle, trust_anchor)
                         .nsec3_iteration_limits(
                             nsec3_soft_iteration_limit,
@@ -404,7 +407,7 @@ impl<P: ConnectionProvider> Recursor<P> {
         query: Query,
         request_time: Instant,
         query_has_dnssec_ok: bool,
-    ) -> Result<Lookup, Error> {
+    ) -> Result<Message, Error> {
         if !query.name().is_fqdn() {
             return Err(Error::from("query's domain name must be fully qualified"));
         }
@@ -425,12 +428,11 @@ impl<P: ConnectionProvider> Recursor<P> {
             #[cfg(feature = "__dnssec")]
             RecursorMode::Validating {
                 handle,
-                record_cache,
+                response_cache,
             } => {
-                if let Some(Ok(lookup)) = record_cache.get(&query, request_time) {
-                    let none_indeterminate = lookup
-                        .records()
-                        .iter()
+                if let Some(Ok(response)) = response_cache.get(&query, request_time) {
+                    let none_indeterminate = response
+                        .all_sections()
                         .all(|record| !record.proof().is_indeterminate());
 
                     // if any cached record is indeterminate, fall through and perform
@@ -438,7 +440,7 @@ impl<P: ConnectionProvider> Recursor<P> {
                     if none_indeterminate {
                         return Ok(super::maybe_strip_dnssec_records(
                             query_has_dnssec_ok,
-                            lookup,
+                            response,
                             query,
                         ));
                     }
@@ -489,18 +491,15 @@ impl<P: ConnectionProvider> Recursor<P> {
 
                     Err(Error::from(ProtoError::from(no_records)))
                 } else {
-                    // do not perform is_subzone filtering as it already happened in `handle.lookup`
-                    let no_subzone_filtering = None;
-                    let lookup = super::cache_response(
-                        response,
-                        no_subzone_filtering,
-                        record_cache,
+                    super::cache_response(
+                        response.clone(),
+                        response_cache,
                         query.clone(),
                         request_time,
-                    )?;
+                    );
                     Ok(super::maybe_strip_dnssec_records(
                         query_has_dnssec_ok,
-                        lookup,
+                        response.into_message(),
                         query,
                     ))
                 }
@@ -517,8 +516,8 @@ enum RecursorMode<P: ConnectionProvider> {
     #[cfg(feature = "__dnssec")]
     Validating {
         handle: DnssecDnsHandle<RecursorDnsHandle<P>>,
-        // this is a handle to the record cache in `RecursorDnsHandle`; not a whole separate cache
-        record_cache: DnsLru,
+        // This is a handle to the response cache in `RecursorDnsHandle`, not a whole separate cache.
+        response_cache: ResponseCache,
     },
 }
 
@@ -568,8 +567,8 @@ mod for_dnssec {
 
                 let future =
                     this.resolve(query, Instant::now(), do_bit, 0, Arc::new(AtomicU8::new(0)));
-                let lookup = match future.await {
-                    Ok(lookup) => lookup,
+                let response = match future.await {
+                    Ok(response) => response,
                     Err(e) => {
                         return Err(match e.kind() {
                             // Translate back into a ProtoError::NoRecordsFound
@@ -583,9 +582,9 @@ mod for_dnssec {
                 // we can put "stubs" in the other fields
                 let mut msg = Message::query();
 
-                // XXX this effectively merges the original nameservers and additional
-                // sections into the answers section
-                msg.add_answers(lookup.records().iter().cloned());
+                msg.add_answers(response.answers().iter().cloned());
+                msg.add_name_servers(response.name_servers().iter().cloned());
+                msg.add_additionals(response.additionals().iter().cloned());
 
                 DnsResponse::from_message(msg)
             })
@@ -626,10 +625,13 @@ const RECOMMENDED_SERVER_FILTERS: [IpNet; 22] = [
 mod tests {
     use std::{net::IpAddr, time::Instant};
 
-    use hickory_proto::op::Query;
     use test_support::subscribe;
 
-    use crate::{Error, Recursor, proto::rr::RecordType, resolver::Name};
+    use crate::{
+        Error, Recursor,
+        proto::{op::Query, rr::RecordType},
+        resolver::Name,
+    };
 
     #[tokio::test]
     async fn not_fully_qualified_domain_name_in_query() -> Result<(), Error> {

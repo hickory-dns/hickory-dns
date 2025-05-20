@@ -39,7 +39,7 @@ zone_type = "External"
 type = "recursor"
 roots = "default/root.zone"
 ns_cache_size = 1024
-record_cache_size = 1048576
+response_cache_size = 1048576
 recursion_limit = 24
 ns_recursion_limit = 24
 

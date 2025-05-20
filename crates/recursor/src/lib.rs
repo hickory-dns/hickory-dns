@@ -38,12 +38,17 @@ use std::time::Instant;
 pub use error::{Error, ErrorKind};
 pub use hickory_proto as proto;
 pub use hickory_resolver as resolver;
+use hickory_resolver::ResponseCache;
 pub use hickory_resolver::config::{NameServerConfig, NameServerConfigGroup};
 #[cfg(feature = "__dnssec")]
 use proto::dnssec::TrustAnchors;
-use proto::{op::Query, xfer::DnsResponse};
+use proto::{
+    op::{Message, Query},
+    rr::Record,
+    xfer::DnsResponse,
+};
 pub use recursor::{Recursor, RecursorBuilder};
-use resolver::{Name, dns_lru::DnsLru, lookup::Lookup};
+use resolver::Name;
 use tracing::{info, warn};
 
 /// `Recursor`'s DNSSEC policy
@@ -81,61 +86,41 @@ impl DnssecPolicy {
     }
 }
 
-/// caches the `response` to `query` in `record_cache`
+/// caches the `response` to `query` in `response_cache`
 ///
 /// `now` indicates when the `response` was obtained
-///
-/// if `zone` is present, records in `response` that do not belong to `zone` will be discarded
 fn cache_response(
     response: DnsResponse,
-    zone: Option<&Name>,
-    record_cache: &DnsLru,
+    response_cache: &ResponseCache,
     query: Query,
     now: Instant,
-) -> Result<Lookup, Error> {
-    let mut response = response.into_message();
+) {
+    let response = response.into_message();
     info!("response: {}", response.header());
 
-    let records = response
-        .take_answers()
-        .into_iter()
-        .chain(response.take_name_servers())
-        .chain(response.take_additionals())
-        .filter(|x| {
-            if let Some(zone) = zone {
-                if !is_subzone(zone, x.name()) {
-                    warn!("Dropping out of bailiwick record {x} for zone {}", zone);
-                    false
-                } else {
-                    true
-                }
-            } else {
-                true
-            }
-        });
-
-    let lookup = record_cache.insert_records(query, records, now);
-
-    lookup.ok_or_else(|| Error::from("no records found"))
+    response_cache.insert(query, Ok(response), now);
 }
 
 // as per section 3.2.1 of RFC4035
-fn maybe_strip_dnssec_records(query_has_dnssec_ok: bool, lookup: Lookup, query: Query) -> Lookup {
+fn maybe_strip_dnssec_records(
+    query_has_dnssec_ok: bool,
+    mut response: Message,
+    query: Query,
+) -> Message {
     if query_has_dnssec_ok {
-        return lookup;
+        return response;
     }
 
-    let records = lookup
-        .records()
-        .iter()
-        .filter(|rrset| {
-            let record_type = rrset.record_type();
-            record_type == query.query_type() || !record_type.is_dnssec()
-        })
-        .cloned()
-        .collect();
+    let predicate = |record: &Record| {
+        let record_type = record.record_type();
+        record_type == query.query_type() || !record_type.is_dnssec()
+    };
 
-    Lookup::new_with_deadline(query, records, lookup.valid_until())
+    response.answers_mut().retain(predicate);
+    response.name_servers_mut().retain(predicate);
+    response.additionals_mut().retain(predicate);
+
+    response
 }
 
 /// Bailiwick/sub zone checking.

@@ -9,7 +9,6 @@
 
 //! Recursive resolver related types
 
-#[cfg(feature = "__dnssec")]
 use std::sync::Arc;
 use std::{
     borrow::Cow,
@@ -18,7 +17,7 @@ use std::{
     io::{self, Read},
     net::IpAddr,
     path::{Path, PathBuf},
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use ipnet::IpNet;
@@ -72,8 +71,8 @@ impl<P: RuntimeProvider> RecursiveAuthority<P> {
         if let Some(ns_cache_size) = config.ns_cache_size {
             builder = builder.ns_cache_size(ns_cache_size);
         }
-        if let Some(record_cache_size) = config.record_cache_size {
-            builder = builder.record_cache_size(record_cache_size);
+        if let Some(response_cache_size) = config.response_cache_size {
+            builder = builder.response_cache_size(response_cache_size);
         }
 
         let recursor = builder
@@ -145,14 +144,29 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
 
         let result = self
             .recursor
-            .resolve(query, now, lookup_options.dnssec_ok())
+            .resolve(query.clone(), now, lookup_options.dnssec_ok())
             .await;
 
-        use LookupControlFlow::*;
-        match result {
-            Ok(lookup) => Continue(Ok(RecursiveLookup(lookup))),
-            Err(error) => Continue(Err(LookupError::from(error))),
-        }
+        let response = match result {
+            Ok(response) => response,
+            Err(error) => return LookupControlFlow::Continue(Err(LookupError::from(error))),
+        };
+        let records = response
+            .answers()
+            .iter()
+            .cloned()
+            .collect::<Arc<[Record]>>();
+        let min_ttl = records
+            .iter()
+            .map(|record| record.ttl())
+            .min()
+            .unwrap_or_default();
+        let valid_until = now + Duration::from_secs(min_ttl.into());
+        LookupControlFlow::Continue(Ok(RecursiveLookup(Lookup::new_with_deadline(
+            query,
+            records,
+            valid_until,
+        ))))
     }
 
     async fn search(
@@ -224,8 +238,9 @@ pub struct RecursiveConfig {
     /// Maximum nameserver cache size
     pub ns_cache_size: Option<usize>,
 
-    /// Maximum DNS record cache size
-    pub record_cache_size: Option<usize>,
+    /// Maximum DNS response cache size
+    #[serde(alias = "record_cache_size")]
+    pub response_cache_size: Option<u64>,
 
     /// Maximum recursion depth for queries. Set to 0 for unlimited recursion depth.
     #[serde(default = "recursion_limit_default")]

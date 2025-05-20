@@ -20,21 +20,19 @@ use crate::{
     Error, ErrorKind,
     proto::{
         ProtoErrorKind,
-        op::Query,
+        op::{Message, Query},
         rr::{
             RData,
             RData::CNAME,
             Record, RecordType,
             rdata::{A, AAAA, NS},
         },
-        xfer::DnsResponse,
     },
     recursor_pool::RecursorPool,
     resolver::{
-        Name,
+        Name, ResponseCache,
         config::{NameServerConfigGroup, ResolverOpts},
-        dns_lru::{DnsLru, TtlConfig},
-        lookup::Lookup,
+        dns_lru::TtlConfig,
         name_server::{ConnectionProvider, NameServerPool},
     },
 };
@@ -43,7 +41,7 @@ use crate::{
 pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     roots: RecursorPool<P>,
     name_server_cache: Arc<Mutex<LruCache<Name, RecursorPool<P>>>>,
-    record_cache: DnsLru,
+    response_cache: ResponseCache,
     recursion_limit: Option<u8>,
     ns_recursion_limit: Option<u8>,
     security_aware: bool,
@@ -61,7 +59,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     pub(crate) fn new(
         roots: &[IpAddr],
         ns_cache_size: usize,
-        record_cache_size: usize,
+        response_cache_size: u64,
         recursion_limit: Option<u8>,
         ns_recursion_limit: Option<u8>,
         security_aware: bool,
@@ -77,12 +75,15 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         assert!(!roots.is_empty(), "roots must not be empty");
 
-        debug!("Using cache sizes {}/{}", ns_cache_size, record_cache_size);
+        debug!(
+            "Using cache sizes {}/{}",
+            ns_cache_size, response_cache_size
+        );
         let opts = recursor_opts(avoid_local_udp_ports.clone(), case_randomization);
         let roots = NameServerPool::from_config(roots, Arc::new(opts), conn_provider.clone());
         let roots = RecursorPool::from(Name::root(), roots);
         let name_server_cache = Arc::new(Mutex::new(LruCache::new(ns_cache_size)));
-        let record_cache = DnsLru::new(record_cache_size, ttl_config);
+        let response_cache = ResponseCache::new(response_cache_size, ttl_config);
 
         let mut deny_server_v4 = PrefixSet::new();
         let mut deny_server_v6 = PrefixSet::new();
@@ -117,7 +118,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         Self {
             roots,
             name_server_cache,
-            record_cache,
+            response_cache,
             recursion_limit,
             ns_recursion_limit,
             security_aware,
@@ -138,11 +139,11 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         query_has_dnssec_ok: bool,
         depth: u8,
         cname_limit: Arc<AtomicU8>,
-    ) -> Result<Lookup, Error> {
-        if let Some(lookup) = self.record_cache.get(&query, request_time) {
+    ) -> Result<Message, Error> {
+        if let Some(result) = self.response_cache.get(&query, request_time) {
             let response = self
                 .resolve_cnames(
-                    lookup?,
+                    result?,
                     query.clone(),
                     request_time,
                     query_has_dnssec_ok,
@@ -203,13 +204,13 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         debug!("found zone {} for {query}", ns.zone());
 
-        let (lookup, _) = self
+        let response = self
             .lookup(query.clone(), ns, request_time, query_has_dnssec_ok)
             .await?;
 
         let response = self
             .resolve_cnames(
-                lookup,
+                response,
                 query.clone(),
                 request_time,
                 query_has_dnssec_ok,
@@ -231,19 +232,19 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     #[async_recursion]
     async fn resolve_cnames(
         &self,
-        mut lookup: Lookup,
+        mut response: Message,
         query: Query,
         now: Instant,
         query_has_dnssec_ok: bool,
         mut depth: u8,
         cname_limit: Arc<AtomicU8>,
-    ) -> Result<Lookup, Error> {
+    ) -> Result<Message, Error> {
         let query_type = query.query_type();
         let query_name = query.name().clone();
 
         // Don't resolve CNAME lookups for a CNAME (or ANY) query
         if query_type == RecordType::CNAME || query_type == RecordType::ANY {
-            return Ok(lookup);
+            return Ok(response);
         }
 
         depth += 1;
@@ -251,7 +252,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         let mut cname_chain = vec![];
 
-        for rec in lookup.records().iter() {
+        for rec in response.all_sections() {
             let CNAME(name) = rec.data() else {
                 continue;
             };
@@ -275,7 +276,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             // to the original queried name, or included or not included in the original
             // response.  Resolve will either pull the intermediates out of the cache or query
             // the appropriate nameservers if necessary.
-            let records = match self
+            let response = match self
                 .resolve(
                     cname_query,
                     now,
@@ -293,7 +294,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
             // Here, we're looking for either the terminal record type (matching the
             // original query, or another CNAME.
-            cname_chain.extend(records.records().iter().filter_map(|r| {
+            cname_chain.extend(response.answers().iter().filter_map(|r| {
                 if r.record_type() == query_type || r.record_type() == RecordType::CNAME {
                     Some(r.to_owned())
                 } else {
@@ -303,10 +304,10 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         }
 
         if !cname_chain.is_empty() {
-            lookup.extend_records(cname_chain);
+            response.answers_mut().extend(cname_chain);
         }
 
-        Ok(lookup)
+        Ok(response)
     }
 
     async fn lookup(
@@ -315,37 +316,47 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         ns: RecursorPool<P>,
         now: Instant,
         expect_dnssec_in_cached_response: bool,
-    ) -> Result<(Lookup, Option<DnsResponse>), Error> {
-        if let Some(lookup) = self.record_cache.get(&query, now) {
-            let lookup = lookup?;
+    ) -> Result<Message, Error> {
+        if let Some(response_res) = self.response_cache.get(&query, now) {
+            let response = response_res?;
 
-            // we may have cached a referral (NS+A record pair) from a parent zone while looking for
-            // the nameserver to send the query to. that parent zone response won't include RRSIG
-            // records. if DO=1 we want to fall through and send the query to the child zone to
-            // retrieve the missing RRSIG record
-            if expect_dnssec_in_cached_response
-                && lookup
-                    .records()
-                    .iter()
-                    .all(|rrset| !rrset.record_type().is_dnssec())
-            {
-                // fall through to send query to child zone
-            } else {
-                debug!("cached data {lookup:?}");
-                return Ok((lookup, None));
+            // We may have cached a referral (non-authoritative NS+A records) from a parent zone
+            // while looking for the nameserver to send the query to. That parent zone response
+            // likely won't include RRSIG records. If DO=1 we want to fall through and send the
+            // query to the child zone to retrieve the missing RRSIG record.
+            //
+            // TODO(#3008): We should examine the authoritative answer flag in responses, and track
+            // whether cached responses are authoritative or not.
+
+            #[cfg(feature = "__dnssec")]
+            let any_matching_rrsig = response.all_sections().any(|record| {
+                record.data().as_dnssec().is_some_and(|record| {
+                    record.as_rrsig().is_some_and(|rrsig| {
+                        rrsig.input().type_covered == query.query_type()
+                            || rrsig.input().type_covered == RecordType::CNAME
+                    })
+                }) && record.name() == query.name()
+            });
+
+            #[cfg(not(feature = "__dnssec"))]
+            let any_matching_rrsig = false;
+
+            if !expect_dnssec_in_cached_response || any_matching_rrsig {
+                debug!("cached data {response:?}");
+                return Ok(response);
             }
         }
 
-        let response = ns.lookup(query.clone(), self.security_aware);
+        let response_future = ns.lookup(query.clone(), self.security_aware);
 
         // TODO: we are only expecting one response
         // TODO: should we change DnsHandle to always be a single response? And build a totally custom handler for other situations?
         // TODO: check if data is "authentic"
-        match response.await {
-            Ok(r) => Ok((
-                super::cache_response(r.clone(), Some(ns.zone()), &self.record_cache, query, now)?,
-                Some(r),
-            )),
+        match response_future.await {
+            Ok(r) => {
+                super::cache_response(r.clone(), &self.response_cache, query, now);
+                Ok(r.into_message())
+            }
             Err(e) => {
                 warn!("lookup error: {e}");
                 Err(Error::from(e))
@@ -389,8 +400,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         let lookup_res = self
             .lookup(query, nameserver_pool.clone(), request_time, false)
             .await;
-        let (lookup, response_opt) = match lookup_res {
-            Ok((lookup, response_opt)) => (lookup, response_opt),
+        let response = match lookup_res {
+            Ok(response) => response,
             // Short-circuit on NXDOMAIN, per RFC 8020.
             Err(e) if e.is_nx_domain() => return Err(e),
             // Short-circuit on timeouts. Requesting a longer name from the same pool would likely
@@ -402,8 +413,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             Err(_) => return Ok((depth, nameserver_pool)),
         };
 
-        let any_ns = lookup
-            .record_iter()
+        let any_ns = response
+            .all_sections()
             .any(|record| record.record_type() == RecordType::NS);
         if !any_ns {
             // Not a zone cut, but there is a CNAME or other record at this name. Return the
@@ -418,19 +429,10 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         let mut need_ips_for_names = Vec::new();
         let mut glue_ips = HashMap::new();
 
-        if let Some(response) = response_opt {
-            for section in [
-                response.answers(),
-                response.name_servers(),
-                response.additionals(),
-            ] {
-                self.add_glue_to_map(&mut glue_ips, section.iter());
-            }
-        }
+        self.add_glue_to_map(&mut glue_ips, response.all_sections());
 
-        for zns in lookup.record_iter() {
+        for zns in response.all_sections() {
             let Some(ns_data) = zns.data().as_ns() else {
-                debug!("response is not NS: {:?}; skipping", zns.data());
                 continue;
             };
 
@@ -444,11 +446,11 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             }
 
             for record_type in [RecordType::A, RecordType::AAAA] {
-                if let Some(Ok(lookup)) = self
-                    .record_cache
+                if let Some(Ok(response)) = self
+                    .response_cache
                     .get(&Query::query(ns_data.0.clone(), record_type), request_time)
                 {
-                    self.add_glue_to_map(&mut glue_ips, lookup.records().iter());
+                    self.add_glue_to_map(&mut glue_ips, response.all_sections());
                 }
             }
 
@@ -536,8 +538,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     }
 
     #[cfg(feature = "__dnssec")]
-    pub(crate) fn record_cache(&self) -> &DnsLru {
-        &self.record_cache
+    pub(crate) fn response_cache(&self) -> &ResponseCache {
+        &self.response_cache
     }
 
     async fn append_ips_from_lookup<'a, I: Iterator<Item = &'a NS>>(

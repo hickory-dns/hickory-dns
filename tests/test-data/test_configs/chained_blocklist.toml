@@ -48,7 +48,7 @@ lists = ["default/blocklist.txt", "default/blocklist2.txt"]
 type = "recursor"
 roots = "default/root.zone"
 ns_cache_size = 1024
-record_cache_size = 1048576
+response_cache_size = 1048576
 
 ## deny_server: these networks will not be sent queries during recursive resolution
 deny_server = ["0.0.0.0/8", "127.0.0.0/8", "::/128", "::1/128"]

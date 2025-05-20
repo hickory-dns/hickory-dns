@@ -293,7 +293,6 @@ fn five_secure_zones() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory-recursor reuses a cached glue RRset, which lacks RRSIGs"]
 fn glue_reuse() -> Result<()> {
     let network = Network::new()?;
 
