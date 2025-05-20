@@ -470,14 +470,14 @@ where
                 debug!("verified: {name} record_type: {record_type}",);
                 proof
             }
-            Err(ProofError { proof, kind }) => {
-                match kind {
+            Err(err) => {
+                match err.kind() {
                     ProofErrorKind::DsResponseNsec { .. } => {
                         debug!("verified insecure {name}/{record_type}")
                     }
-                    _ => debug!("failed to verify: {name} record_type: {record_type}: {kind}"),
+                    kind => debug!("failed to verify: {name} record_type: {record_type}: {kind}"),
                 }
-                (proof, None, None)
+                (err.proof, None, None)
             }
         };
 
@@ -737,7 +737,6 @@ where
 }
 
 /// This verifies a DNSKEY record against DS records from a secure delegation.
-#[allow(clippy::result_large_err)]
 fn verify_dnskey(
     rr: &RecordRef<'_, DNSKEY>,
     ds_records: &[Record<DS>],
@@ -930,10 +929,7 @@ where
 {
     match fetch_ds_records(handle, zone.clone(), options).await {
         Ok(_) => return Ok(()),
-        Err(ProofError {
-            proof: _,
-            kind: ProofErrorKind::DsRecordShouldExist { .. },
-        }) => {}
+        Err(err) if matches!(err.kind(), ProofErrorKind::DsRecordShouldExist { .. }) => {}
         Err(err) => return Err(err),
     }
 
@@ -948,10 +944,7 @@ where
             Ok(_) => {
                 return Err(ProofError::ds_should_exist(zone));
             }
-            Err(ProofError {
-                proof: _,
-                kind: ProofErrorKind::DsRecordShouldExist { .. },
-            }) => {}
+            Err(err) if matches!(err.kind(), ProofErrorKind::DsRecordShouldExist { .. }) => {}
             Err(err) => return Err(err),
         }
         parent = parent.base_name();
@@ -1123,7 +1116,6 @@ where
 }
 
 /// Verifies the given SIG of the RRSET with the DNSKEY.
-#[allow(clippy::result_large_err)]
 fn verify_rrset_with_dnskey(
     dnskey: RecordRef<'_, DNSKEY>,
     dnskey_proof: Proof,
