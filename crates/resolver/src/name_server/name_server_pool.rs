@@ -11,7 +11,6 @@ use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering as AtomicOrdering},
 };
-use std::task::{Context, Poll};
 use std::time::Duration;
 
 use futures_util::future::FutureExt;
@@ -192,18 +191,6 @@ where
         // TODO: remove this clone, return the Message in the error?
         let tcp_message = request.clone();
 
-        // TODO: limited to only when mDNS is enabled, but this should probably always be enforced?
-        let mdns = Local::NotMdns(request);
-
-        // local queries are queried through mDNS
-        if mdns.is_local() {
-            return mdns.take_stream();
-        }
-
-        // TODO: should we allow mDNS to be used for standard lookups as well?
-
-        // it wasn't a local query, continue with standard lookup path
-        let request = mdns.take_request();
         Box::pin(once(async move {
             debug!("sending request: {:?}", request.queries());
 
@@ -322,55 +309,6 @@ where
                 }
                 _ => {}
             }
-        }
-    }
-}
-
-#[allow(clippy::large_enum_variant)]
-pub(crate) enum Local {
-    #[allow(dead_code)]
-    ResolveStream(Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>),
-    NotMdns(DnsRequest),
-}
-
-impl Local {
-    fn is_local(&self) -> bool {
-        matches!(*self, Self::ResolveStream(..))
-    }
-
-    /// Takes the stream
-    ///
-    /// # Panics
-    ///
-    /// Panics if this is in fact a Local::NotMdns
-    fn take_stream(self) -> Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>> {
-        match self {
-            Self::ResolveStream(future) => future,
-            _ => panic!("non Local queries have no future, see take_message()"),
-        }
-    }
-
-    /// Takes the message
-    ///
-    /// # Panics
-    ///
-    /// Panics if this is in fact a Local::ResolveStream
-    fn take_request(self) -> DnsRequest {
-        match self {
-            Self::NotMdns(request) => request,
-            _ => panic!("Local queries must be polled, see take_future()"),
-        }
-    }
-}
-
-impl Stream for Local {
-    type Item = Result<DnsResponse, ProtoError>;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        match self.get_mut() {
-            Self::ResolveStream(ns) => ns.as_mut().poll_next(cx),
-            // TODO: making this a panic for now
-            Self::NotMdns(..) => panic!("Local queries that are not mDNS should not be polled"), //Local::NotMdns(message) => return Err(ResolveErrorKind::Message("not mDNS")),
         }
     }
 }
