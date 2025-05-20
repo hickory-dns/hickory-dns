@@ -7,6 +7,7 @@
 
 //! DNSSEC related Proof of record authenticity
 
+use alloc::boxed::Box;
 use alloc::string::String;
 use core::{fmt, ops::BitOr};
 
@@ -296,13 +297,16 @@ pub struct ProofError {
     /// The proof derived from the failed state
     pub proof: Proof,
     /// The kind of error
-    pub kind: ProofErrorKind,
+    pub kind: Box<ProofErrorKind>,
 }
 
 impl ProofError {
     /// Create an error with the given Proof and Associated Error
     pub fn new(proof: Proof, kind: ProofErrorKind) -> Self {
-        Self { proof, kind }
+        Self {
+            proof,
+            kind: Box::new(kind),
+        }
     }
 
     /// Get the kind of the error
@@ -314,7 +318,7 @@ impl ProofError {
     pub fn ds_should_exist(name: Name) -> Self {
         Self {
             proof: Proof::Bogus,
-            kind: ProofErrorKind::DsRecordShouldExist { name },
+            kind: Box::new(ProofErrorKind::DsRecordShouldExist { name }),
         }
     }
 }
