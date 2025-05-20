@@ -22,7 +22,7 @@ use tracing::{debug, error, trace, warn};
 
 use crate::{
     dnssec::{
-        Algorithm, Proof, ProofError, ProofErrorKind, TrustAnchors, Verifier,
+        Proof, ProofError, ProofErrorKind, TrustAnchors, Verifier,
         rdata::{DNSKEY, DS, RRSIG},
     },
     error::{NoRecords, ProtoError, ProtoErrorKind},
@@ -52,8 +52,6 @@ where
     handle: H,
     trust_anchor: Arc<TrustAnchors>,
     request_depth: usize,
-    minimum_key_len: usize,
-    minimum_algorithm: Algorithm, // used to prevent down grade attacks...
     nsec3_soft_iteration_limit: u16,
     nsec3_hard_iteration_limit: u16,
 }
@@ -84,8 +82,6 @@ where
             handle,
             trust_anchor,
             request_depth: 0,
-            minimum_key_len: 0,
-            minimum_algorithm: Algorithm::RSASHA256,
             // These default values are based on
             // [RFC 9276 Appendix A](https://www.rfc-editor.org/rfc/rfc9276.html#appendix-A)
             nsec3_soft_iteration_limit: 100,
@@ -124,8 +120,6 @@ where
             handle: self.handle.clone(),
             trust_anchor: Arc::clone(&self.trust_anchor),
             request_depth: self.request_depth + 1,
-            minimum_key_len: self.minimum_key_len,
-            minimum_algorithm: self.minimum_algorithm,
             nsec3_soft_iteration_limit: self.nsec3_soft_iteration_limit,
             nsec3_hard_iteration_limit: self.nsec3_hard_iteration_limit,
         }
