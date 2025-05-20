@@ -1007,10 +1007,6 @@ impl BinEncodable for RData {
 }
 
 impl RecordData for RData {
-    fn try_from_rdata(data: RData) -> Result<Self, RData> {
-        Ok(data)
-    }
-
     fn try_borrow(data: &RData) -> Option<&Self> {
         Some(data)
     }

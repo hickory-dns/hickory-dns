@@ -259,13 +259,6 @@ impl<'r> RecordDataDecodable<'r> for SSHFP {
 }
 
 impl RecordData for SSHFP {
-    fn try_from_rdata(data: RData) -> Result<Self, RData> {
-        match data {
-            RData::SSHFP(data) => Ok(data),
-            _ => Err(data),
-        }
-    }
-
     fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
             RData::SSHFP(data) => Some(data),

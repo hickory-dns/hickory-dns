@@ -57,13 +57,6 @@ impl AAAA {
 }
 
 impl RecordData for AAAA {
-    fn try_from_rdata(data: RData) -> Result<Self, crate::rr::RData> {
-        match data {
-            RData::AAAA(ipv4) => Ok(ipv4),
-            _ => Err(data),
-        }
-    }
-
     fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
             RData::AAAA(ipv6) => Some(ipv6),

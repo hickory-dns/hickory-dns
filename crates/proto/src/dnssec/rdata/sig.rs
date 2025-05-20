@@ -533,13 +533,6 @@ impl<'r> RecordDataDecodable<'r> for SIG {
 }
 
 impl RecordData for SIG {
-    fn try_from_rdata(data: RData) -> Result<Self, RData> {
-        match data {
-            RData::DNSSEC(DNSSECRData::SIG(csync)) => Ok(csync),
-            _ => Err(data),
-        }
-    }
-
     fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
             RData::DNSSEC(DNSSECRData::SIG(csync)) => Some(csync),

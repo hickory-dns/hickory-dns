@@ -138,13 +138,6 @@ impl<'r> RecordDataDecodable<'r> for CDS {
 }
 
 impl RecordData for CDS {
-    fn try_from_rdata(data: RData) -> Result<Self, RData> {
-        match data {
-            RData::DNSSEC(DNSSECRData::CDS(cds)) => Ok(cds),
-            _ => Err(data),
-        }
-    }
-
     fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
             RData::DNSSEC(DNSSECRData::CDS(cds)) => Some(cds),

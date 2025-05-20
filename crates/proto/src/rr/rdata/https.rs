@@ -46,13 +46,6 @@ impl<'r> RecordDataDecodable<'r> for HTTPS {
 }
 
 impl RecordData for HTTPS {
-    fn try_from_rdata(data: RData) -> Result<Self, RData> {
-        match data {
-            RData::HTTPS(https) => Ok(https),
-            _ => Err(data),
-        }
-    }
-
     fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
             RData::HTTPS(https) => Some(https),

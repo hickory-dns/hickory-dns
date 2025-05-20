@@ -170,13 +170,6 @@ impl<'r> RecordDataDecodable<'r> for CSYNC {
 }
 
 impl RecordData for CSYNC {
-    fn try_from_rdata(data: RData) -> Result<Self, RData> {
-        match data {
-            RData::CSYNC(csync) => Ok(csync),
-            _ => Err(data),
-        }
-    }
-
     fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
             RData::CSYNC(csync) => Some(csync),

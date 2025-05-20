@@ -421,13 +421,6 @@ impl RecordDataDecodable<'_> for TLSA {
 }
 
 impl RecordData for TLSA {
-    fn try_from_rdata(data: RData) -> Result<Self, RData> {
-        match data {
-            RData::TLSA(data) => Ok(data),
-            _ => Err(data),
-        }
-    }
-
     fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
             RData::TLSA(data) => Some(data),

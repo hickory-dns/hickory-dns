@@ -327,13 +327,6 @@ impl<'r> RecordDataDecodable<'r> for OPT {
 }
 
 impl RecordData for OPT {
-    fn try_from_rdata(data: RData) -> Result<Self, RData> {
-        match data {
-            RData::OPT(csync) => Ok(csync),
-            _ => Err(data),
-        }
-    }
-
     fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
             RData::OPT(csync) => Some(csync),

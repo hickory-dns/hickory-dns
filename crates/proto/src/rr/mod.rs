@@ -45,10 +45,6 @@ pub use serial_number::SerialNumber;
 ///
 /// This trait allows for generic usage of `RecordData` types inside the `Record` type. Specific RecordData types can be used to enforce compile time constraints on a Record.
 pub trait RecordData: Clone + Sized + PartialEq + Eq + Display + Debug + BinEncodable {
-    /// Attempts to convert to this RecordData from the RData type, if it is not the correct type the original is returned
-    #[allow(clippy::result_large_err)]
-    fn try_from_rdata(data: RData) -> Result<Self, RData>;
-
     /// Attempts to borrow this RecordData from the RData type, if it is not the correct type the original is returned
     fn try_borrow(data: &RData) -> Option<&Self>;
 

@@ -7,7 +7,7 @@ use std::{future::Future, sync::Arc};
 
 use futures_executor::block_on;
 
-use hickory_proto::dnssec::rdata::NSEC;
+use hickory_proto::dnssec::rdata::{DNSSECRData, NSEC};
 use hickory_proto::{
     dnssec::{
         Algorithm, Verifier,
@@ -43,7 +43,7 @@ pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DN
     let rrsig_records: Vec<_> = other_records
         .into_iter()
         .cloned()
-        .filter_map(|r| Record::<RRSIG>::try_from(r).ok())
+        .filter_map(into_rrsig)
         .collect();
 
     assert!(!rrsig_records.is_empty());
@@ -76,7 +76,7 @@ pub fn test_soa<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]
     let rrsig_records: Vec<_> = other_records
         .into_iter()
         .cloned()
-        .filter_map(|r| Record::<RRSIG>::try_from(r).ok())
+        .filter_map(into_rrsig)
         .collect();
 
     assert!(!rrsig_records.is_empty());
@@ -98,7 +98,7 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY])
     let rrsig_records: Vec<_> = other_records
         .into_iter()
         .cloned()
-        .filter_map(|r| Record::<RRSIG>::try_from(r).ok())
+        .filter_map(into_rrsig)
         .collect();
 
     assert!(!rrsig_records.is_empty());
@@ -127,7 +127,7 @@ pub fn test_aname_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: 
     let rrsig_records: Vec<_> = other_records
         .into_iter()
         .cloned()
-        .filter_map(|r| Record::<RRSIG>::try_from(r).ok())
+        .filter_map(into_rrsig)
         .collect();
 
     assert!(!rrsig_records.is_empty());
@@ -164,7 +164,7 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DN
     let rrsig_records: Vec<_> = other_records
         .into_iter()
         .cloned()
-        .filter_map(|r| Record::<RRSIG>::try_from(r).ok())
+        .filter_map(into_rrsig)
         .collect();
 
     assert!(!rrsig_records.is_empty());
@@ -201,11 +201,18 @@ pub fn test_wildcard_subdomain<A: Authority<Lookup = AuthLookup>>(authority: A, 
     let rrsig_records: Vec<_> = other_records
         .into_iter()
         .cloned()
-        .filter_map(|r| Record::<RRSIG>::try_from(r).ok())
+        .filter_map(into_rrsig)
         .collect();
 
     assert!(!rrsig_records.is_empty());
     verify(&cname_records, &rrsig_records, keys);
+}
+
+fn into_rrsig(r: Record<RData>) -> Option<Record<RRSIG>> {
+    r.map(|data| match data {
+        RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) => Some(rrsig),
+        _ => None,
+    })
 }
 
 pub fn test_nsec_nodata<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {

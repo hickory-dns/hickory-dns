@@ -505,13 +505,6 @@ impl<'r> RecordDataDecodable<'r> for CERT {
 }
 
 impl RecordData for CERT {
-    fn try_from_rdata(data: RData) -> Result<Self, RData> {
-        match data {
-            RData::CERT(data) => Ok(data),
-            _ => Err(data),
-        }
-    }
-
     fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
             RData::CERT(data) => Some(data),

@@ -410,13 +410,6 @@ impl<'r> RecordDataDecodable<'r> for DNSKEY {
 }
 
 impl RecordData for DNSKEY {
-    fn try_from_rdata(data: RData) -> Result<Self, RData> {
-        match data {
-            RData::DNSSEC(DNSSECRData::DNSKEY(csync)) => Ok(csync),
-            _ => Err(data),
-        }
-    }
-
     fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
             RData::DNSSEC(DNSSECRData::DNSKEY(csync)) => Some(csync),

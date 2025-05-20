@@ -233,13 +233,6 @@ impl<'r> BinDecodable<'r> for SRV {
 }
 
 impl RecordData for SRV {
-    fn try_from_rdata(data: RData) -> Result<Self, RData> {
-        match data {
-            RData::SRV(data) => Ok(data),
-            _ => Err(data),
-        }
-    }
-
     fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
             RData::SRV(data) => Some(data),

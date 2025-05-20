@@ -64,13 +64,6 @@ impl A {
 }
 
 impl RecordData for A {
-    fn try_from_rdata(data: RData) -> Result<Self, crate::rr::RData> {
-        match data {
-            RData::A(ipv4) => Ok(ipv4),
-            _ => Err(data),
-        }
-    }
-
     fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
             RData::A(ipv4) => Some(ipv4),
