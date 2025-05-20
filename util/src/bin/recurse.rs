@@ -103,16 +103,16 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let now = Instant::now();
     let query = Query::query(name, ty);
-    let lookup = recursor.resolve(query, now, false).await?;
+    let response = recursor.resolve(query, now, false).await?;
 
     // report response, TODO: better display of errors
     println!(
         "{} for query {:?}",
         style("Success").green(),
-        style(&lookup).blue()
+        style(&response).blue()
     );
 
-    for r in lookup.record_iter().filter(|r| r.record_type() == ty) {
+    for r in response.all_sections().filter(|r| r.record_type() == ty) {
         print!(
             "\t{name} {ttl} {class} {ty} {rdata}",
             name = style(r.name()).blue(),

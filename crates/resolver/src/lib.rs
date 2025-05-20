@@ -212,6 +212,8 @@ pub use resolver::LookupFuture;
 #[cfg(feature = "tokio")]
 pub use resolver::TokioResolver;
 pub use resolver::{Resolver, ResolverBuilder};
+mod response_cache;
+pub use response_cache::ResponseCache;
 pub mod system_conf;
 #[cfg(test)]
 mod tests;
