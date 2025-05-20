@@ -22,7 +22,6 @@ use crate::proto::rr::{LowerName, Record, RecordSet, RecordType, RrsetRecords};
 /// * `'r` - the recordset lifetime, subset of 'c
 /// * `'q` - the queries lifetime
 #[derive(Debug)]
-#[allow(clippy::large_enum_variant)]
 pub enum AuthLookup {
     /// No records
     Empty,
@@ -135,7 +134,6 @@ impl<'a> IntoIterator for &'a AuthLookup {
 }
 
 /// An iterator over an Authority Lookup
-#[allow(clippy::large_enum_variant)]
 #[derive(Default)]
 pub enum AuthLookupIter<'r> {
     /// The empty set
