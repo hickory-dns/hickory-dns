@@ -36,28 +36,30 @@ use crate::{
     proto::{
         op::{Query, ResponseCode},
         rr::{LowerName, Name, RData, Record, RecordSet, RecordType},
+        runtime::RuntimeProvider,
         serialize::txt::{ParseError, Parser},
     },
     recursor::{DnssecPolicy, Recursor},
-    resolver::{dns_lru::TtlConfig, lookup::Lookup},
+    resolver::{dns_lru::TtlConfig, lookup::Lookup, name_server::GenericConnector},
     server::{Request, RequestInfo},
 };
 
 /// An authority that performs recursive resolutions.
 ///
 /// This uses the hickory-recursor crate for resolving requests.
-pub struct RecursiveAuthority {
+pub struct RecursiveAuthority<P: RuntimeProvider> {
     origin: LowerName,
-    recursor: Recursor,
+    recursor: Recursor<P>,
 }
 
-impl RecursiveAuthority {
+impl<P: RuntimeProvider> RecursiveAuthority<P> {
     /// Read the Authority for the origin from the specified configuration
     pub async fn try_from_config(
         origin: Name,
         _zone_type: ZoneType,
         config: &RecursiveConfig,
         root_dir: Option<&Path>,
+        conn_provider: GenericConnector<P>,
     ) -> Result<Self, String> {
         info!("loading recursor config: {}", origin);
 
@@ -66,7 +68,7 @@ impl RecursiveAuthority {
             .read_roots(root_dir)
             .map_err(|e| format!("failed to read roots {}: {}", config.roots.display(), e))?;
 
-        let mut builder = Recursor::builder();
+        let mut builder = Recursor::builder_with_provider(conn_provider);
         if let Some(ns_cache_size) = config.ns_cache_size {
             builder = builder.ns_cache_size(ns_cache_size);
         }
@@ -99,7 +101,7 @@ impl RecursiveAuthority {
 }
 
 #[async_trait::async_trait]
-impl Authority for RecursiveAuthority {
+impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
     type Lookup = RecursiveLookup;
 
     /// Always External

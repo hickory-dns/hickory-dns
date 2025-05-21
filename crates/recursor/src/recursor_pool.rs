@@ -19,7 +19,7 @@ use tracing::info;
 use crate::proto::{
     DnsHandle, ProtoError,
     op::Query,
-    runtime::{RuntimeProvider, TokioRuntimeProvider},
+    runtime::RuntimeProvider,
     xfer::{DnsRequestOptions, DnsResponse},
 };
 use crate::resolver::{Name, name_server::GenericNameServerPool};
@@ -42,14 +42,14 @@ impl Future for SharedLookup {
 }
 
 #[derive(Clone)]
-pub(crate) struct RecursorPool<P: RuntimeProvider + Send + 'static> {
+pub(crate) struct RecursorPool<P: RuntimeProvider> {
     zone: Name,
     ns: GenericNameServerPool<P>,
     active_requests: Arc<Mutex<HashMap<Query, SharedLookup>>>,
 }
 
-impl RecursorPool<TokioRuntimeProvider> {
-    pub(crate) fn from(zone: Name, ns: GenericNameServerPool<TokioRuntimeProvider>) -> Self {
+impl<P: RuntimeProvider> RecursorPool<P> {
+    pub(crate) fn from(zone: Name, ns: GenericNameServerPool<P>) -> Self {
         let active_requests = Arc::new(Mutex::new(HashMap::default()));
 
         Self {
@@ -58,12 +58,7 @@ impl RecursorPool<TokioRuntimeProvider> {
             active_requests,
         }
     }
-}
 
-impl<P> RecursorPool<P>
-where
-    P: RuntimeProvider + Send + 'static,
-{
     pub(crate) fn zone(&self) -> &Name {
         &self.zone
     }

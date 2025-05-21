@@ -27,7 +27,7 @@ use crate::{
             Record, RecordType,
             rdata::{A, AAAA, NS},
         },
-        runtime::TokioRuntimeProvider,
+        runtime::RuntimeProvider,
         xfer::DnsResponse,
     },
     recursor_pool::RecursorPool,
@@ -36,14 +36,14 @@ use crate::{
         config::{NameServerConfigGroup, ResolverOpts},
         dns_lru::{DnsLru, TtlConfig},
         lookup::Lookup,
-        name_server::{GenericNameServerPool, TokioConnectionProvider},
+        name_server::{GenericConnector, GenericNameServerPool},
     },
 };
 
 #[derive(Clone)]
-pub(crate) struct RecursorDnsHandle {
-    roots: RecursorPool<TokioRuntimeProvider>,
-    name_server_cache: Arc<Mutex<LruCache<Name, RecursorPool<TokioRuntimeProvider>>>>,
+pub(crate) struct RecursorDnsHandle<P: RuntimeProvider> {
+    roots: RecursorPool<P>,
+    name_server_cache: Arc<Mutex<LruCache<Name, RecursorPool<P>>>>,
     record_cache: DnsLru,
     recursion_limit: Option<u8>,
     ns_recursion_limit: Option<u8>,
@@ -54,9 +54,10 @@ pub(crate) struct RecursorDnsHandle {
     allow_server_v6: PrefixSet<Ipv6Net>,
     avoid_local_udp_ports: Arc<HashSet<u16>>,
     case_randomization: bool,
+    conn_provider: GenericConnector<P>,
 }
 
-impl RecursorDnsHandle {
+impl<P: RuntimeProvider> RecursorDnsHandle<P> {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         roots: &[IpAddr],
@@ -70,6 +71,7 @@ impl RecursorDnsHandle {
         avoid_local_udp_ports: Arc<HashSet<u16>>,
         ttl_config: TtlConfig,
         case_randomization: bool,
+        conn_provider: GenericConnector<P>,
     ) -> Self {
         // configure the hickory-resolver
         let roots = NameServerConfigGroup::from_ips_clear(roots, 53, true);
@@ -78,8 +80,7 @@ impl RecursorDnsHandle {
 
         debug!("Using cache sizes {}/{}", ns_cache_size, record_cache_size);
         let opts = recursor_opts(avoid_local_udp_ports.clone(), case_randomization);
-        let roots =
-            GenericNameServerPool::from_config(roots, opts, TokioConnectionProvider::default());
+        let roots = GenericNameServerPool::from_config(roots, opts, conn_provider.clone());
         let roots = RecursorPool::from(Name::root(), roots);
         let name_server_cache = Arc::new(Mutex::new(LruCache::new(ns_cache_size)));
         let record_cache = DnsLru::new(record_cache_size, ttl_config);
@@ -127,6 +128,7 @@ impl RecursorDnsHandle {
             allow_server_v6,
             avoid_local_udp_ports,
             case_randomization,
+            conn_provider,
         }
     }
 
@@ -311,7 +313,7 @@ impl RecursorDnsHandle {
     async fn lookup(
         &self,
         query: Query,
-        ns: RecursorPool<TokioRuntimeProvider>,
+        ns: RecursorPool<P>,
         now: Instant,
         expect_dnssec_in_cached_response: bool,
     ) -> Result<(Lookup, Option<DnsResponse>), Error> {
@@ -358,7 +360,7 @@ impl RecursorDnsHandle {
         zone: Name,
         request_time: Instant,
         mut depth: u8,
-    ) -> Result<(u8, RecursorPool<TokioRuntimeProvider>), Error> {
+    ) -> Result<(u8, RecursorPool<P>), Error> {
         // TODO: need to check TTLs here.
         if let Some(ns) = self.name_server_cache.lock().get_mut(&zone) {
             debug!("returning cached pool for {zone}");
@@ -485,7 +487,7 @@ impl RecursorDnsHandle {
         let ns = GenericNameServerPool::from_config(
             config_group,
             self.recursor_opts(),
-            TokioConnectionProvider::default(),
+            self.conn_provider.clone(),
         );
         let ns = RecursorPool::from(zone.clone(), ns);
 
@@ -544,7 +546,7 @@ impl RecursorDnsHandle {
         zone: &Name,
         depth: u8,
         request_time: Instant,
-        nameserver_pool: RecursorPool<TokioRuntimeProvider>,
+        nameserver_pool: RecursorPool<P>,
         nameservers: I,
         config: &mut NameServerConfigGroup,
     ) -> Result<u8, Error> {
@@ -632,6 +634,8 @@ fn recursor_opts(
 fn test_nameserver_filter() {
     use std::net::Ipv4Addr;
 
+    use hickory_resolver::name_server::TokioConnectionProvider;
+
     let allow_server = vec![IpNet::new(IpAddr::from([192, 168, 0, 1]), 32).unwrap()];
     let deny_server = vec![
         IpNet::new(IpAddr::from(Ipv4Addr::LOCALHOST), 8).unwrap(),
@@ -651,6 +655,7 @@ fn test_nameserver_filter() {
         Arc::new(HashSet::new()),
         TtlConfig::default(),
         false,
+        TokioConnectionProvider::default(),
     );
 
     for addr in [

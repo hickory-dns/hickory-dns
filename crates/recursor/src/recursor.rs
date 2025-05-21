@@ -16,9 +16,16 @@ use ipnet::IpNet;
 
 use crate::{
     DnssecPolicy, Error,
-    proto::op::Query,
+    proto::{
+        op::Query,
+        runtime::{RuntimeProvider, TokioRuntimeProvider},
+    },
     recursor_dns_handle::RecursorDnsHandle,
-    resolver::{dns_lru::TtlConfig, lookup::Lookup},
+    resolver::{
+        dns_lru::TtlConfig,
+        lookup::Lookup,
+        name_server::{GenericConnector, TokioConnectionProvider},
+    },
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
@@ -35,7 +42,7 @@ use crate::{
 
 /// A `Recursor` builder
 #[derive(Clone)]
-pub struct RecursorBuilder {
+pub struct RecursorBuilder<P: RuntimeProvider> {
     ns_cache_size: usize,
     record_cache_size: usize,
     /// This controls how many nested lookups will be attempted to resolve a CNAME chain. Setting it
@@ -50,9 +57,10 @@ pub struct RecursorBuilder {
     avoid_local_udp_ports: HashSet<u16>,
     ttl_config: TtlConfig,
     case_randomization: bool,
+    conn_provider: GenericConnector<P>,
 }
 
-impl RecursorBuilder {
+impl<P: RuntimeProvider> RecursorBuilder<P> {
     /// Sets the size of the list of cached name servers
     pub fn ns_cache_size(mut self, size: usize) -> Self {
         self.ns_cache_size = size;
@@ -126,7 +134,7 @@ impl RecursorBuilder {
     /// # Panics
     ///
     /// This will panic if the roots are empty.
-    pub fn build(self, roots: &[IpAddr]) -> Result<Recursor, Error> {
+    pub fn build(self, roots: &[IpAddr]) -> Result<Recursor<P>, Error> {
         Recursor::build(roots, self)
     }
 }
@@ -134,14 +142,36 @@ impl RecursorBuilder {
 /// A top down recursive resolver which operates off a list of roots for initial recursive requests.
 ///
 /// This is the well known root nodes, referred to as hints in RFCs. See the IANA [Root Servers](https://www.iana.org/domains/root/servers) list.
-pub struct Recursor {
-    mode: RecursorMode,
+pub struct Recursor<P: RuntimeProvider> {
+    mode: RecursorMode<P>,
 }
 
-impl Recursor {
-    /// Construct the new [`Recursor`] via the [`RecursorBuilder`]
-    pub fn builder() -> RecursorBuilder {
-        RecursorBuilder::default()
+impl Recursor<TokioRuntimeProvider> {
+    /// Construct a new [`Recursor`] via the [`RecursorBuilder`].
+    ///
+    /// This uses the Tokio async runtime. To use a different runtime provider, see
+    /// [`Recursor::builder_with_provider`].
+    pub fn builder() -> RecursorBuilder<TokioRuntimeProvider> {
+        Self::builder_with_provider(TokioConnectionProvider::default())
+    }
+}
+
+impl<P: RuntimeProvider> Recursor<P> {
+    /// Construct a new [`Recursor`] via the [`RecursorBuilder`].
+    pub fn builder_with_provider(conn_provider: GenericConnector<P>) -> RecursorBuilder<P> {
+        RecursorBuilder {
+            ns_cache_size: 1_024,
+            record_cache_size: 1_048_576,
+            recursion_limit: Some(24),
+            ns_recursion_limit: Some(24),
+            dnssec_policy: DnssecPolicy::SecurityUnaware,
+            allow_servers: vec![],
+            deny_servers: vec![],
+            avoid_local_udp_ports: HashSet::new(),
+            ttl_config: TtlConfig::default(),
+            case_randomization: false,
+            conn_provider,
+        }
     }
 
     /// Whether the recursive resolver is a validating resolver
@@ -151,7 +181,7 @@ impl Recursor {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn build(roots: &[IpAddr], builder: RecursorBuilder) -> Result<Self, Error> {
+    fn build(roots: &[IpAddr], builder: RecursorBuilder<P>) -> Result<Self, Error> {
         let RecursorBuilder {
             ns_cache_size,
             record_cache_size,
@@ -163,6 +193,7 @@ impl Recursor {
             avoid_local_udp_ports,
             ttl_config,
             case_randomization,
+            conn_provider,
         } = builder;
 
         let handle = RecursorDnsHandle::new(
@@ -177,6 +208,7 @@ impl Recursor {
             Arc::new(avoid_local_udp_ports),
             ttl_config,
             case_randomization,
+            conn_provider,
         );
 
         let mode = match dnssec_policy {
@@ -486,31 +518,14 @@ impl Recursor {
     }
 }
 
-impl Default for RecursorBuilder {
-    fn default() -> Self {
-        Self {
-            ns_cache_size: 1_024,
-            record_cache_size: 1_048_576,
-            recursion_limit: Some(24),
-            ns_recursion_limit: Some(24),
-            dnssec_policy: DnssecPolicy::SecurityUnaware,
-            allow_servers: vec![],
-            deny_servers: vec![],
-            avoid_local_udp_ports: HashSet::new(),
-            ttl_config: TtlConfig::default(),
-            case_randomization: false,
-        }
-    }
-}
-
-enum RecursorMode {
+enum RecursorMode<P: RuntimeProvider> {
     NonValidating {
-        handle: RecursorDnsHandle,
+        handle: RecursorDnsHandle<P>,
     },
 
     #[cfg(feature = "__dnssec")]
     Validating {
-        handle: DnssecDnsHandle<RecursorDnsHandle>,
+        handle: DnssecDnsHandle<RecursorDnsHandle<P>>,
         // this is a handle to the record cache in `RecursorDnsHandle`; not a whole separate cache
         record_cache: DnsLru,
     },
@@ -532,12 +547,13 @@ mod for_dnssec {
     use crate::proto::{
         ProtoError,
         op::{Message, OpCode},
+        runtime::RuntimeProvider,
         xfer::DnsHandle,
         xfer::DnsResponse,
     };
     use crate::recursor_dns_handle::RecursorDnsHandle;
 
-    impl DnsHandle for RecursorDnsHandle {
+    impl<P: RuntimeProvider> DnsHandle for RecursorDnsHandle<P> {
         type Response = BoxStream<'static, Result<DnsResponse, ProtoError>>;
 
         fn send<R: Into<hickory_proto::xfer::DnsRequest> + Unpin + Send + 'static>(
