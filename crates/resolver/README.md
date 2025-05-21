@@ -40,14 +40,14 @@ use hickory_resolver::name_server::TokioConnectionProvider;
 use hickory_resolver::config::*;
 
 // Construct a new Resolver with default configuration options
-let resolver = Resolver::new(
+let resolver = Resolver::builder_with_config(
     ResolverConfig::default(),
-    ResolverOpts::default(),
     TokioConnectionProvider::default(),
-);
+)
+.build();
 
 // On Unix/Posix systems, this will read the /etc/resolv.conf
-// let resolver = Resolver::from_system_conf(TokioConnectionProvider::default()).unwrap();
+// let resolver = TokioResolver::builder(TokioConnectionProvider::default()).unwrap().build();
 
 // Lookup the IP addresses associated with a name.
 let response = resolver.lookup_ip("www.example.com.").await.unwrap();
