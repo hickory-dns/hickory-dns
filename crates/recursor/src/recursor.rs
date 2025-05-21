@@ -491,11 +491,8 @@ impl Default for RecursorBuilder {
         Self {
             ns_cache_size: 1_024,
             record_cache_size: 1_048_576,
-            // This default is based on CNAME recursion failures of long (> 8 records) CNAME chains
-            // that users of Unbound encountered (see https://github.com/NLnetLabs/unbound/issues/438)
-            // with a small safety margin added.
-            recursion_limit: Some(12),
-            ns_recursion_limit: Some(16),
+            recursion_limit: Some(24),
+            ns_recursion_limit: Some(24),
             dnssec_policy: DnssecPolicy::SecurityUnaware,
             allow_servers: vec![],
             deny_servers: vec![],
