@@ -629,50 +629,59 @@ fn recursor_opts(
     options
 }
 
-#[cfg(test)]
-#[test]
-fn test_nameserver_filter() {
-    use std::net::Ipv4Addr;
-
-    use hickory_resolver::name_server::TokioConnectionProvider;
-
-    let allow_server = vec![IpNet::new(IpAddr::from([192, 168, 0, 1]), 32).unwrap()];
-    let deny_server = vec![
-        IpNet::new(IpAddr::from(Ipv4Addr::LOCALHOST), 8).unwrap(),
-        IpNet::new(IpAddr::from([192, 168, 0, 0]), 23).unwrap(),
-        IpNet::new(IpAddr::from([172, 17, 0, 0]), 20).unwrap(),
-    ];
-
-    let recursor = RecursorDnsHandle::new(
-        &[IpAddr::from([192, 0, 2, 1])],
-        1,
-        1,
-        Some(1),
-        Some(1),
-        true,
-        allow_server,
-        deny_server,
-        Arc::new(HashSet::new()),
-        TtlConfig::default(),
-        false,
-        TokioConnectionProvider::default(),
-    );
-
-    for addr in [
-        [127, 0, 0, 0],
-        [127, 0, 0, 1],
-        [192, 168, 1, 0],
-        [192, 168, 1, 254],
-        [172, 17, 0, 1],
-    ] {
-        assert!(recursor.matches_nameserver_filter(IpAddr::from(addr)));
-    }
-
-    for addr in [[128, 0, 0, 0], [192, 168, 2, 0], [192, 168, 0, 1]] {
-        assert!(!recursor.matches_nameserver_filter(IpAddr::from(addr)));
-    }
-}
-
 /// Maximum number of cname records to look up in a CNAME chain, regardless of the recursion
 /// depth limit
 const MAX_CNAME_LOOKUPS: u8 = 64;
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        collections::HashSet,
+        net::{IpAddr, Ipv4Addr},
+        sync::Arc,
+    };
+
+    use ipnet::IpNet;
+
+    use crate::recursor_dns_handle::RecursorDnsHandle;
+    use crate::resolver::{dns_lru::TtlConfig, name_server::TokioConnectionProvider};
+
+    #[test]
+    fn test_nameserver_filter() {
+        let allow_server = vec![IpNet::new(IpAddr::from([192, 168, 0, 1]), 32).unwrap()];
+        let deny_server = vec![
+            IpNet::new(IpAddr::from(Ipv4Addr::LOCALHOST), 8).unwrap(),
+            IpNet::new(IpAddr::from([192, 168, 0, 0]), 23).unwrap(),
+            IpNet::new(IpAddr::from([172, 17, 0, 0]), 20).unwrap(),
+        ];
+
+        let recursor = RecursorDnsHandle::new(
+            &[IpAddr::from([192, 0, 2, 1])],
+            1,
+            1,
+            Some(1),
+            Some(1),
+            true,
+            allow_server,
+            deny_server,
+            Arc::new(HashSet::new()),
+            TtlConfig::default(),
+            false,
+            TokioConnectionProvider::default(),
+        );
+
+        for addr in [
+            [127, 0, 0, 0],
+            [127, 0, 0, 1],
+            [192, 168, 1, 0],
+            [192, 168, 1, 254],
+            [172, 17, 0, 1],
+        ] {
+            assert!(recursor.matches_nameserver_filter(IpAddr::from(addr)));
+        }
+
+        for addr in [[128, 0, 0, 0], [192, 168, 2, 0], [192, 168, 0, 1]] {
+            assert!(!recursor.matches_nameserver_filter(IpAddr::from(addr)));
+        }
+    }
+}
