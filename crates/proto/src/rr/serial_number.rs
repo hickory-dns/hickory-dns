@@ -2,16 +2,27 @@
 
 use core::{cmp::Ordering, ops::Add};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// Wrapper type to support Serial Number Arithmetics as defined
 /// in RFC 1982. The signaure fields (expireation, inception) defined in RFC 4034, section 3.1.5
 /// are serial numbers.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct SerialNumber(pub(crate) u32);
 
 impl SerialNumber {
     /// Returns internal value
     pub fn get(&self) -> u32 {
         self.0
+    }
+}
+
+impl From<u32> for SerialNumber {
+    fn from(value: u32) -> Self {
+        Self(value)
     }
 }
 

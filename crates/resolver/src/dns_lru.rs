@@ -363,7 +363,7 @@ impl DnsLru {
                     RecordType::CNAME => original_query.query_type(),
                     #[cfg(feature = "__dnssec")]
                     RecordType::RRSIG => match RRSIG::try_borrow(record.data()) {
-                        Some(rrsig) => rrsig.type_covered(),
+                        Some(rrsig) => rrsig.input().type_covered,
                         None => record.record_type(),
                     },
                     _ => record.record_type(),

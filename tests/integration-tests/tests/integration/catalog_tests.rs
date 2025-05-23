@@ -796,7 +796,7 @@ mod dnssec {
                 .unwrap()
                 .into_rrsig()
                 .unwrap();
-            assert_eq!(rrsig.type_covered(), RecordType::DNSKEY);
+            assert_eq!(rrsig.input().type_covered, RecordType::DNSKEY);
         }
 
         // Check NSEC3

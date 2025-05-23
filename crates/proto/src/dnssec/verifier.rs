@@ -11,8 +11,8 @@ use alloc::sync::Arc;
 
 use super::{
     Algorithm, PublicKey,
-    rdata::{RRSIG, SIG},
-    tbs::{self, TBS},
+    rdata::{RRSIG, SigInput},
+    tbs::TBS,
 };
 use crate::{
     error::ProtoResult,
@@ -58,9 +58,10 @@ pub trait Verifier {
         &self,
         message: &M,
         signature: &[u8],
-        sig0: &SIG,
+        input: &SigInput,
     ) -> ProtoResult<()> {
-        tbs::message_tbs(message, sig0).and_then(|tbs| self.verify(tbs.as_ref(), signature))
+        let tbs = TBS::from_message(message, input)?;
+        self.verify(tbs.as_ref(), signature)
     }
 
     /// Verifies an RRSig with the associated key, e.g. DNSKEY
@@ -78,7 +79,7 @@ pub trait Verifier {
         sig: &RRSIG,
         records: impl Iterator<Item = &'a Record>,
     ) -> ProtoResult<()> {
-        let rrset_tbs = TBS::from_sig(name, dns_class, sig, records)?;
+        let rrset_tbs = TBS::from_input(name, dns_class, sig.input(), records)?;
         self.verify(rrset_tbs.as_ref(), sig.sig())
     }
 }

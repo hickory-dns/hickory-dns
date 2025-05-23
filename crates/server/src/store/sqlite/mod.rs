@@ -881,7 +881,7 @@ impl SqliteAuthority {
             return Err(ResponseCode::Refused);
         };
 
-        let name = LowerName::from(sig0.signer_name());
+        let name = LowerName::from(&sig0.input().signer_name);
         let Continue(Ok(keys)) = self
             .lookup(&name, RecordType::KEY, LookupOptions::default())
             .await
@@ -895,7 +895,7 @@ impl SqliteAuthority {
             .iter()
             .filter_map(|rr_set| rr_set.data().as_dnssec().and_then(DNSSECRData::as_key))
             .any(
-                |key| match key.verify_message(&request.message, sig0.sig(), sig0) {
+                |key| match key.verify_message(&request.message, sig0.sig(), sig0.input()) {
                     Ok(_) => {
                         info!("verified sig: {sig0:?} with key: {key:?}");
                         true
