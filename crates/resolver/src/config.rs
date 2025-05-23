@@ -19,6 +19,8 @@ use std::time::Duration;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+#[cfg(feature = "mdns")]
+use crate::proto::multicast::{MDNS_IPV4, MDNS_IPV6};
 use crate::proto::rr::Name;
 #[cfg(feature = "__tls")]
 use crate::proto::rustls::client_config;
@@ -128,6 +130,16 @@ impl ResolverConfig {
             domain: None,
             search: vec![],
             name_servers: NameServerConfigGroup::google_h3(),
+        }
+    }
+
+    /// Creates a mDNS configuration
+    #[cfg(feature = "mdns")]
+    pub fn mdns() -> Self {
+        Self {
+            domain: None,
+            search: vec![],
+            name_servers: NameServerConfigGroup::mdns(),
         }
     }
 
@@ -531,6 +543,23 @@ impl NameServerConfigGroup {
             Protocol::H3,
             trust_negative_responses,
         )
+    }
+
+    /// Creates a mDNS configuration
+    #[cfg(feature = "mdns")]
+    pub fn mdns() -> Self {
+        // let mdns_ipv4 = SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), 0);
+        // let mdns_ipv6 = SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), 0);
+
+        let mdns_ipv4 = *MDNS_IPV4;
+        let mdns_ipv6 = *MDNS_IPV6;
+
+        Self {
+            servers: vec![
+                NameServerConfig::new(mdns_ipv4, Protocol::Mdns),
+                NameServerConfig::new(mdns_ipv6, Protocol::Mdns),
+            ],
+        }
     }
 
     /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,

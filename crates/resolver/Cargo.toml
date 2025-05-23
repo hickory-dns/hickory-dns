@@ -38,6 +38,8 @@ https-ring = ["hickory-proto/https-ring", "__https"]
 quic-ring = ["hickory-proto/quic-ring", "__quic", "quinn/rustls-ring"]
 h3-ring = ["hickory-proto/h3-ring", "__h3"]
 
+mdns = ["hickory-proto/mdns"]
+
 __tls = ["dep:rustls", "dep:tokio-rustls", "tokio"]
 __https = ["__tls"]
 __quic = ["dep:quinn", "__tls"]
@@ -112,6 +114,10 @@ required-features = ["tokio", "system-config"]
 [[example]]
 name = "global_resolver"
 required-features = ["tokio", "system-config"]
+
+[[example]]
+name = "mdns_resolver"
+required-features = ["tokio", "system-config", "mdns"]
 
 [[example]]
 name = "multithreaded_runtime"
