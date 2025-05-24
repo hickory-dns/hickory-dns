@@ -123,7 +123,7 @@ mod test {
             let future = async {
                 let i = i;
                 let request = request;
-                let mut message = Message::new();
+                let mut message = Message::response();
 
                 let mut i = i.lock().await;
 

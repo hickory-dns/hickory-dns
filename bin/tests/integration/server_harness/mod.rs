@@ -217,6 +217,8 @@ where
                 "HTTPS" => socket_ports.put(Protocol::Https, socket_addr),
                 #[cfg(feature = "__quic")]
                 "QUIC" => socket_ports.put(Protocol::Quic, socket_addr),
+                #[cfg(feature = "mdns")]
+                "MDNS" => socket_ports.put(Protocol::Mdns, socket_addr),
                 #[cfg(feature = "metrics")]
                 "Prometheus metrics" => {
                     socket_ports.put(ServerProtocol::PrometheusMetrics, socket_addr)

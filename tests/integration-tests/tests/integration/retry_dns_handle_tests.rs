@@ -26,7 +26,7 @@ impl DnsHandle for TestClient {
         let i = self.attempts.load(Ordering::SeqCst);
 
         if i > self.retries || self.retries - i == 0 {
-            let mut message = Message::new();
+            let mut message = Message::response();
             message.set_id(i);
             return Box::new(stream::once(future::ok(
                 DnsResponse::from_message(message).unwrap(),

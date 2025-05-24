@@ -99,6 +99,12 @@ h3-ring = [
     "quic-ring",
 ]
 
+mdns = [
+    "hickory-proto/mdns",
+    "hickory-resolver/mdns",
+]
+
+
 __tls = ["dep:rustls"]
 __https = ["dep:rustls", "dep:webpki-roots"]
 
