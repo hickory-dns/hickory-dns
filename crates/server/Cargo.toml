@@ -88,6 +88,11 @@ h3-ring = [
     "__h3",
 ]
 
+mdns = [
+    "hickory-proto/mdns",
+    "hickory-resolver?/mdns",
+]
+
 __tls = ["dep:rustls", "dep:tokio-rustls"]
 __https = ["dep:h2", "dep:http", "__tls"]
 __quic = ["__tls"]

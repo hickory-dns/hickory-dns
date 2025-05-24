@@ -191,7 +191,7 @@ where
                             response_code,
                             ..
                         }) => {
-                            let mut msg = Message::new();
+                            let mut msg = Message::response();
 
                             debug!("translating NoRecordsFound to DnsResponse for {query}");
 

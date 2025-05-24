@@ -49,6 +49,7 @@ tls-ring = ["hickory-server/tls-ring", "__tls"]
 https-ring = ["hickory-server/https-ring", "tls-ring", "__https"]
 quic-ring = ["hickory-server/quic-ring", "tls-ring", "__quic"]
 h3-ring = ["hickory-server/h3-ring", "quic-ring", "__h3"]
+mdns = ["hickory-server/mdns"]
 
 __tls = ["dep:rustls"]
 __https = []

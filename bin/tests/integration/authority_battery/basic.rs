@@ -8,7 +8,7 @@ use bytes::Bytes;
 use futures_executor::block_on;
 
 use hickory_proto::{
-    op::{Header, Message, Query, ResponseCode},
+    op::{Header, Message, MessageType, Query, ResponseCode},
     rr::{
         Name, RData, Record, RecordType,
         rdata::{A as A4, AAAA},
@@ -22,7 +22,7 @@ use hickory_server::{
     server::RequestInfo,
 };
 
-const TEST_HEADER: &Header = &Header::new();
+const TEST_HEADER: &Header = &Header::new(MessageType::Query);
 
 pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A).into();

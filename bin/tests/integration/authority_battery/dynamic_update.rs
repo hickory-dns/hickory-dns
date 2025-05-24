@@ -16,7 +16,7 @@ use hickory_proto::{
         Algorithm, PublicKey, SigSigner, Verifier,
         rdata::{KEY, key::KeyUsage},
     },
-    op::{Header, Message, Query, ResponseCode, update_message},
+    op::{Header, Message, MessageType, Query, ResponseCode, update_message},
     rr::{
         DNSClass, Name, RData, Record, RecordSet, RecordType,
         rdata::{A as A4, AAAA},
@@ -32,7 +32,7 @@ use hickory_server::{
     server::{Request, RequestInfo},
 };
 
-const TEST_HEADER: &Header = &Header::new();
+const TEST_HEADER: &Header = &Header::new(MessageType::Query);
 
 fn update_authority<A: Authority<Lookup = AuthLookup>>(
     mut message: Message,

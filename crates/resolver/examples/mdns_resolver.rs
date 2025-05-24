@@ -80,7 +80,7 @@ pub async fn resolve<N: IntoName + Display + 'static>(host: N) -> io::Result<Vec
         })
         .map(move |lookup_ip| {
             // we take all the IPs returned, and then send back the set of IPs
-            lookup_ip.iter().map(|ip| ip).collect::<Vec<_>>()
+            lookup_ip.iter().collect::<Vec<_>>()
         })
 }
 

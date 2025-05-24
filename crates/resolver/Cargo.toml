@@ -38,7 +38,7 @@ https-ring = ["hickory-proto/https-ring", "__https"]
 quic-ring = ["hickory-proto/quic-ring", "__quic", "quinn/rustls-ring"]
 h3-ring = ["hickory-proto/h3-ring", "__h3"]
 
-mdns = ["hickory-proto/mdns"]
+mdns = ["hickory-proto/mdns", "tokio"]
 
 __tls = ["dep:rustls", "dep:tokio-rustls", "tokio"]
 __https = ["__tls"]
