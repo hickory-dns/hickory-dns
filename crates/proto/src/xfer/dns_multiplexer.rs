@@ -439,8 +439,7 @@ mod test {
     use test_support::subscribe;
 
     use super::*;
-    use crate::op::op_code::OpCode;
-    use crate::op::{Message, MessageType, Query};
+    use crate::op::{Message, Query};
     use crate::rr::record_type::RecordType;
     use crate::rr::{DNSClass, Name, RData, Record};
     use crate::serialize::binary::BinEncodable;
@@ -538,12 +537,10 @@ mod test {
             query.set_query_class(DNSClass::IN);
             query
         })
-        .set_message_type(MessageType::Query)
-        .set_op_code(OpCode::Query)
         .set_recursion_desired(true);
 
-        let query = msg.clone();
-        msg.set_message_type(MessageType::Response).add_answer(
+        let mut response = msg.to_response();
+        response.add_answer(
             Record::from_rdata(
                 name,
                 86400,
@@ -553,7 +550,7 @@ mod test {
             .clone(),
         );
         (
-            DnsRequest::new(query, DnsRequestOptions::default()),
+            DnsRequest::new(response, DnsRequestOptions::default()),
             vec![msg],
         )
     }
@@ -567,8 +564,6 @@ mod test {
             query.set_query_class(DNSClass::IN);
             query
         })
-        .set_message_type(MessageType::Query)
-        .set_op_code(OpCode::Query)
         .set_recursion_desired(true);
         msg
     }
@@ -632,14 +627,13 @@ mod test {
     }
 
     fn axfr_query_answer() -> (DnsRequest, Vec<Message>) {
-        let mut msg = axfr_query();
+        let msg = axfr_query();
 
-        let query = msg.clone();
-        msg.set_message_type(MessageType::Response)
-            .insert_answers(axfr_response());
+        let mut response = msg.to_response();
+        response.insert_answers(axfr_response());
         (
-            DnsRequest::new(query, DnsRequestOptions::default()),
-            vec![msg],
+            DnsRequest::new(msg, DnsRequestOptions::default()),
+            vec![response],
         )
     }
 
@@ -649,12 +643,10 @@ mod test {
         let query = base.clone();
         let mut rr = axfr_response();
         let rr2 = rr.split_off(3);
-        let mut msg1 = base.clone();
-        msg1.set_message_type(MessageType::Response)
-            .insert_answers(rr);
-        let mut msg2 = base;
-        msg2.set_message_type(MessageType::Response)
-            .insert_answers(rr2);
+        let mut msg1 = base.to_response();
+        msg1.insert_answers(rr);
+        let mut msg2 = base.to_response();
+        msg2.insert_answers(rr2);
         (
             DnsRequest::new(query, DnsRequestOptions::default()),
             vec![msg1, msg2],

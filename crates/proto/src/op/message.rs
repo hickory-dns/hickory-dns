@@ -93,14 +93,14 @@ impl Message {
     /// * `op_code` - operation of the request
     /// * `response_code` - the error code for the response
     pub fn error_msg(id: u16, op_code: OpCode, response_code: ResponseCode) -> Self {
-        let mut message = Self::new(id, MessageType::Response, op_code);
+        let mut message = Self::response(id, op_code);
+        message.set_response_code(response_code);
         message
-            .set_message_type(MessageType::Response)
-            .set_id(id)
-            .set_response_code(response_code)
-            .set_op_code(op_code);
+    }
 
-        message
+    /// Returns a new `Message` with `MessageType::Response` and the given header contents
+    pub fn response(id: u16, op_code: OpCode) -> Self {
+        Self::new(id, MessageType::Response, op_code)
     }
 
     /// Create a new [`Message`] with the given header contents
@@ -150,12 +150,6 @@ impl Message {
     /// see `Header::set_id`
     pub fn set_id(&mut self, id: u16) -> &mut Self {
         self.header.set_id(id);
-        self
-    }
-
-    /// see `Header::set_message_type`
-    pub fn set_message_type(&mut self, message_type: MessageType) -> &mut Self {
-        self.header.set_message_type(message_type);
         self
     }
 
@@ -402,6 +396,21 @@ impl Message {
         }
         self.signature = sig;
         self
+    }
+
+    /// Returns a clone of the `Message` with the message type set to `Response`.
+    pub fn to_response(&self) -> Self {
+        let mut header = self.header;
+        header.set_message_type(MessageType::Response);
+        Self {
+            header,
+            queries: self.queries.clone(),
+            answers: self.answers.clone(),
+            name_servers: self.name_servers.clone(),
+            additionals: self.additionals.clone(),
+            signature: self.signature.clone(),
+            edns: self.edns.clone(),
+        }
     }
 
     /// Gets the header of the Message
@@ -1160,11 +1169,8 @@ mod tests {
 
     #[test]
     fn test_emit_and_read_header() {
-        let mut message = Message::query();
+        let mut message = Message::response(10, OpCode::Update);
         message
-            .set_id(10)
-            .set_message_type(MessageType::Response)
-            .set_op_code(OpCode::Update)
             .set_authoritative(true)
             .set_truncated(false)
             .set_recursion_desired(true)
@@ -1176,11 +1182,8 @@ mod tests {
 
     #[test]
     fn test_emit_and_read_query() {
-        let mut message = Message::query();
+        let mut message = Message::response(10, OpCode::Update);
         message
-            .set_id(10)
-            .set_message_type(MessageType::Response)
-            .set_op_code(OpCode::Update)
             .set_authoritative(true)
             .set_truncated(true)
             .set_recursion_desired(true)
@@ -1194,11 +1197,8 @@ mod tests {
 
     #[test]
     fn test_emit_and_read_records() {
-        let mut message = Message::query();
+        let mut message = Message::response(10, OpCode::Update);
         message
-            .set_id(10)
-            .set_message_type(MessageType::Response)
-            .set_op_code(OpCode::Update)
             .set_authoritative(true)
             .set_truncated(true)
             .set_recursion_desired(true)
@@ -1231,12 +1231,8 @@ mod tests {
 
     #[test]
     fn test_header_counts_correction_after_emit_read() {
-        let mut message = Message::query();
-
+        let mut message = Message::response(10, OpCode::Update);
         message
-            .set_id(10)
-            .set_message_type(MessageType::Response)
-            .set_op_code(OpCode::Update)
             .set_authoritative(true)
             .set_truncated(true)
             .set_recursion_desired(true)

@@ -22,7 +22,7 @@ use tracing::debug;
 
 use hickory_proto::{
     ProtoError, ProtoErrorKind,
-    op::{Edns, Message, MessageSigner, MessageType, OpCode, Query, update_message},
+    op::{Edns, Message, MessageSigner, OpCode, Query, update_message},
     rr::{DNSClass, Name, Record, RecordSet, RecordType, rdata::SOA},
     runtime::TokioTime,
     xfer::{
@@ -235,7 +235,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
 
         // build the message
         let mut message = Message::query();
-        let id: u16 = rand::random();
+        let id = rand::random();
         message
             .set_id(id)
             // 3.3. NOTIFY is similar to QUERY in that it has a request message with
@@ -244,7 +244,6 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
             // the Primary is an indication that the Secondary has received the NOTIFY
             // and that the Primary Zone Server can remove the Secondary from any retry queue for
             // this NOTIFY event.
-            .set_message_type(MessageType::Query)
             .set_op_code(OpCode::Notify);
 
         // Extended dns

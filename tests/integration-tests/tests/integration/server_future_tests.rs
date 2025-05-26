@@ -26,7 +26,7 @@ use tokio::net::TcpListener;
 use tokio::net::UdpSocket;
 
 use hickory_integration::example_authority::create_example;
-use hickory_proto::op::{Message, MessageType, OpCode, Query, ResponseCode};
+use hickory_proto::op::{Message, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::{A, OPT};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
 #[cfg(feature = "__tls")]
@@ -150,8 +150,6 @@ async fn test_server_form_error_on_multiple_queries() {
     message
         .add_query(query_a)
         .add_query(query_aaaa)
-        .set_message_type(MessageType::Query)
-        .set_op_code(OpCode::Query)
         .set_recursion_desired(true);
 
     let mut client_result = client
@@ -186,11 +184,8 @@ async fn test_server_no_response_on_response() {
 
     // build the message
     let query_a = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
-    let mut message = Message::query();
-    message
-        .set_message_type(MessageType::Response)
-        .set_op_code(OpCode::Query)
-        .add_query(query_a);
+    let mut message = Message::response(10, OpCode::Query);
+    message.add_query(query_a);
 
     let client_result = client.send(message).try_collect::<Vec<_>>().await.unwrap();
     assert_eq!(client_result.len(), 0);

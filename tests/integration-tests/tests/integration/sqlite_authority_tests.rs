@@ -233,10 +233,7 @@ async fn test_authorize() {
     let authority = create_example();
 
     let mut message = Message::query();
-    message
-        .set_id(10)
-        .set_message_type(MessageType::Query)
-        .set_op_code(OpCode::Update);
+    message.set_op_code(OpCode::Update);
     message.add_query(Query::default());
 
     let bytes = message.to_bytes().unwrap();
@@ -1092,11 +1089,9 @@ fn test_update_message(name: Name) -> Message {
 
     let mut message = Message::query();
     message
-        .set_id(10)
-        .set_message_type(MessageType::Query)
-        .set_op_code(OpCode::Update);
-    message.add_query(q);
-    message.add_name_server(add_rec);
+        .set_op_code(OpCode::Update)
+        .add_query(q)
+        .add_name_server(add_rec);
     message
 }
 

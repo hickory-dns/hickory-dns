@@ -7,7 +7,7 @@ use futures::{Stream, executor::block_on, future, stream};
 
 use hickory_proto::{
     DnsHandle, ProtoError, RetryDnsHandle,
-    op::{Message, MessageType, OpCode, ResponseCode},
+    op::{Message, OpCode, ResponseCode},
     xfer::{DnsRequest, DnsResponse, FirstAnswer},
 };
 use test_support::subscribe;
@@ -60,11 +60,8 @@ fn retry_on_retryable_error() {
 #[test]
 fn dont_retry_on_negative_response() {
     subscribe();
-    let mut response = Message::query();
-    response
-        .set_message_type(MessageType::Response)
-        .set_op_code(OpCode::Update)
-        .set_response_code(ResponseCode::NoError);
+    let mut response = Message::response(10, OpCode::Update);
+    response.set_response_code(ResponseCode::NoError);
     let error = ProtoError::from_response(DnsResponse::from_message(response).unwrap(), false)
         .expect_err("NODATA should be an error");
     let client = RetryDnsHandle::new(
