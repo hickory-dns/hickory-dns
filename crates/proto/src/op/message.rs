@@ -453,14 +453,6 @@ impl Message {
         self.header.response_code()
     }
 
-    /// Returns the query from this Message.
-    ///
-    /// In almost all cases, a Message will only contain one query. This is a convenience function to get the single query.
-    /// See the alternative `queries*` methods for the raw set of queries in the Message
-    pub fn query(&self) -> Option<&Query> {
-        self.queries.first()
-    }
-
     /// ```text
     /// Question        Carries the query name and other query parameters.
     /// ```

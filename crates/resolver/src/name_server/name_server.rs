@@ -311,7 +311,7 @@ mod tests {
         );
         let response = stream.first_answer().await.unwrap();
 
-        let response_query_name = response.query().unwrap().name();
+        let response_query_name = response.queries().first().unwrap().name();
         assert!(response_query_name.eq_case(&name));
     }
 }
