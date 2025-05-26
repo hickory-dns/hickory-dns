@@ -1198,14 +1198,12 @@ impl RrsigValidity {
         dnskey: RecordRef<'_, DNSKEY>,
         current_time: u32,
     ) -> Self {
-        let current_time = SerialNumber(current_time);
-        let expiration = rrsig.data().input().sig_expiration;
-        let inception = rrsig.data().input().sig_inception;
-
         let Ok(dnskey_key_tag) = dnskey.data().calculate_key_tag() else {
             return Self::WrongDnskey;
         };
 
+        let current_time = SerialNumber(current_time);
+        let sig_input = rrsig.data().input();
         if !(
             // "The RRSIG RR and the RRset MUST have the same owner name and the same class"
             rrsig.name() == rrset.name() &&
@@ -1215,11 +1213,11 @@ impl RrsigValidity {
             // TODO(^) the zone name is in the SOA record, which is not accessible from here
 
             // "The RRSIG RR's Type Covered field MUST equal the RRset's type"
-            rrsig.data().input.type_covered == rrset.record_type() &&
+            sig_input.type_covered == rrset.record_type() &&
 
             // "The number of labels in the RRset owner name MUST be greater than or equal to the value
             // in the RRSIG RR's Labels field"
-            rrset.name().num_labels() >= rrsig.data().input().num_labels
+            rrset.name().num_labels() >= sig_input.num_labels
         ) {
             return Self::WrongRrsig;
         }
@@ -1229,11 +1227,11 @@ impl RrsigValidity {
         if !(
             // "The validator's notion of the current time MUST be less than or equal to the time listed
             // in the RRSIG RR's Expiration field"
-            current_time <= expiration &&
+            current_time <= sig_input.sig_expiration &&
 
-        // "The validator's notion of the current time MUST be greater than or equal to the time
-        // listed in the RRSIG RR's Inception field"
-        current_time >= inception
+            // "The validator's notion of the current time MUST be greater than or equal to the time
+            // listed in the RRSIG RR's Inception field"
+            current_time >= sig_input.sig_inception
         ) {
             return Self::ExpiredRrsig;
         }
@@ -1241,9 +1239,9 @@ impl RrsigValidity {
         if !(
             // "The RRSIG RR's Signer's Name, Algorithm, and Key Tag fields MUST match the owner name,
             // algorithm, and key tag for some DNSKEY RR in the zone's apex DNSKEY RRset"
-            &rrsig.data().input().signer_name == dnskey.name() &&
-            rrsig.data().input().algorithm == dnskey.data().algorithm() &&
-            rrsig.data().input().key_tag == dnskey_key_tag &&
+            &sig_input.signer_name == dnskey.name() &&
+            sig_input.algorithm == dnskey.data().algorithm() &&
+            sig_input.key_tag == dnskey_key_tag &&
             // "The matching DNSKEY RR MUST be present in the zone's apex DNSKEY RRset, and MUST have the
             // Zone Flag bit (DNSKEY RDATA Flag bit 7) set"
             dnskey.data().zone_key()
