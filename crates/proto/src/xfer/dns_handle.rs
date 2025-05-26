@@ -13,12 +13,9 @@ use tracing::debug;
 
 use crate::error::*;
 use crate::op::Query;
-use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage};
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
-use crate::{
-    op::{Edns, Message, MessageType, OpCode},
-    random,
-};
+use crate::op::{Edns, Message};
+use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage};
 
 // TODO: this should be configurable
 // > An EDNS buffer size of 1232 bytes will avoid fragmentation on nearly all current networks.
@@ -89,9 +86,6 @@ pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
 fn build_request(mut query: Query, options: DnsRequestOptions) -> DnsRequest {
     // build the message
     let mut message = Message::query();
-    // TODO: This is not the final ID, it's actually set in the poll method of DNS future
-    //  should we just remove this?
-    let id: u16 = random();
     let mut original_query = None;
 
     #[cfg(feature = "std")]
@@ -102,9 +96,6 @@ fn build_request(mut query: Query, options: DnsRequestOptions) -> DnsRequest {
 
     message
         .add_query(query)
-        .set_id(id)
-        .set_message_type(MessageType::Query)
-        .set_op_code(OpCode::Query)
         .set_recursion_desired(options.recursion_desired);
 
     // Extended dns

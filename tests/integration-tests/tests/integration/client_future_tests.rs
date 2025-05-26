@@ -16,7 +16,7 @@ use hickory_integration::{
 };
 use hickory_proto::{
     DnsHandle, ProtoErrorKind,
-    op::{Edns, Message, MessageType, OpCode, Query, ResponseCode},
+    op::{Edns, Message, Query, ResponseCode},
     rr::{
         DNSClass, Name, RecordSet, RecordType,
         rdata::opt::{EdnsCode, EdnsOption},
@@ -183,9 +183,6 @@ fn test_query_edns(client: &mut Client) -> impl Future<Output = ()> {
         query.set_query_class(DNSClass::IN);
         query
     })
-    .set_id(rand::random::<u16>())
-    .set_message_type(MessageType::Query)
-    .set_op_code(OpCode::Query)
     .set_recursion_desired(true)
     .set_edns(edns)
     .extensions_mut()

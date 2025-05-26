@@ -1,6 +1,6 @@
 use hickory_client::client::Client;
 use hickory_proto::DnsHandle;
-use hickory_proto::op::{Edns, Message, MessageType, OpCode, Query};
+use hickory_proto::op::{Edns, Message, Query};
 use hickory_proto::rr::rdata::{A, SOA};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, RrKey};
 use hickory_proto::runtime::TokioRuntimeProvider;
@@ -47,9 +47,6 @@ async fn test_truncation() {
         query.set_query_class(DNSClass::IN);
         query
     })
-    .set_id(rand::random::<u16>())
-    .set_message_type(MessageType::Query)
-    .set_op_code(OpCode::Query)
     .set_recursion_desired(true)
     .set_edns({
         let mut edns = Edns::new();

@@ -31,7 +31,7 @@ use hickory_proto::dnssec::{Algorithm, PublicKey, SigSigner, SigningKey, crypto:
 use hickory_proto::op::MessageSigner;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::op::ResponseCode;
-use hickory_proto::op::{Edns, Message, MessageType, OpCode, Query};
+use hickory_proto::op::{Edns, Message, Query};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::rr::Record;
 use hickory_proto::rr::rdata::opt::{EdnsCode, EdnsOption};
@@ -177,9 +177,6 @@ async fn test_query_edns(client: Client) {
         query.set_query_class(DNSClass::IN);
         query
     })
-    .set_id(rand::random::<u16>())
-    .set_message_type(MessageType::Query)
-    .set_op_code(OpCode::Query)
     .set_recursion_desired(true)
     .set_edns(edns)
     .extensions_mut()
