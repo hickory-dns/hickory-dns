@@ -954,7 +954,6 @@ impl core::fmt::Debug for Name {
 }
 
 trait LabelEnc {
-    #[allow(clippy::wrong_self_convention)]
     fn to_label(name: &str) -> ProtoResult<Label>;
     fn write_label<W: Write>(f: &mut W, label: &Label) -> Result<(), fmt::Error>;
 }
@@ -962,7 +961,6 @@ trait LabelEnc {
 struct LabelEncAscii;
 
 impl LabelEnc for LabelEncAscii {
-    #[allow(clippy::wrong_self_convention)]
     fn to_label(name: &str) -> ProtoResult<Label> {
         Label::from_ascii(name)
     }
@@ -975,7 +973,6 @@ impl LabelEnc for LabelEncAscii {
 struct LabelEncUtf8;
 
 impl LabelEnc for LabelEncUtf8 {
-    #[allow(clippy::wrong_self_convention)]
     fn to_label(name: &str) -> ProtoResult<Label> {
         Label::from_utf8(name)
     }

@@ -405,7 +405,6 @@ struct TlsConfig {
     http_endpoint: Arc<str>,
 }
 
-#[allow(clippy::large_enum_variant)]
 #[allow(clippy::type_complexity)]
 enum HttpsClientConnectState<S>
 where

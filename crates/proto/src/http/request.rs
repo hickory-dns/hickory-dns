@@ -28,7 +28,6 @@ use crate::http::error::Result;
 /// request (as described in Section 6), encoded with base64url
 /// [RFC4648].
 /// ```
-#[allow(clippy::field_reassign_with_default)] // https://github.com/rust-lang/rust-clippy/issues/6527
 pub fn new(
     version: Version,
     name_server_name: &str,

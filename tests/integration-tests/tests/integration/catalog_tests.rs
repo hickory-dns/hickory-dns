@@ -101,7 +101,6 @@ pub fn create_records(records: &mut InMemoryAuthority) {
     );
 }
 
-#[allow(clippy::unreadable_literal)]
 pub fn create_test() -> InMemoryAuthority {
     let origin: Name = Name::parse("test.com.", None).unwrap();
 

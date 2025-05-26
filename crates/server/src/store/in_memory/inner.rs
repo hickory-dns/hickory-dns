@@ -417,7 +417,6 @@ impl InnerInMemory {
         }
 
         /// returns true if an only if the label can not co-occupy space with the checked type
-        #[allow(clippy::nonminimal_bool)]
         fn label_does_not_allow_multiple(
             upsert_type: RecordType,
             occupied_type: RecordType,

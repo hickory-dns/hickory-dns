@@ -859,7 +859,6 @@ struct ReportingResponseHandler<R: ResponseHandler> {
 }
 
 #[async_trait::async_trait]
-#[allow(clippy::uninlined_format_args)]
 impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
     async fn send_response<'a>(
         &mut self,

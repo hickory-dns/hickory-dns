@@ -161,7 +161,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::redundant_clone)]
     fn test_name_server() {
         let parsed = parse_resolv_conf("nameserver 127.0.0.1").expect("failed");
         let cfg = empty_config(nameserver_config("127.0.0.1").to_vec());

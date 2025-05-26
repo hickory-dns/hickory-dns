@@ -420,7 +420,6 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 }
 
 #[test]
-#[allow(clippy::cognitive_complexity)]
 fn test_bad_cname_at_soa() {
     subscribe();
 

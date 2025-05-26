@@ -705,7 +705,6 @@ mod test {
         .await;
     }
 
-    #[allow(clippy::borrowed_box)]
     async fn basic_test(
         ao: &Arc<dyn AuthorityObject>,
         query: &'static str,

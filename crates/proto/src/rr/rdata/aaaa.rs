@@ -107,7 +107,6 @@ impl<'r> BinDecodable<'r> for AAAA {
 }
 
 /// Read the RData from the given Decoder
-#[allow(clippy::many_single_char_names)]
 #[deprecated(note = "use the BinDecodable::read method instead")]
 pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<AAAA> {
     <AAAA as BinDecodable>::read(decoder)

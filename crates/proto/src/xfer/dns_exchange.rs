@@ -268,7 +268,6 @@ where
     }
 }
 
-#[allow(clippy::type_complexity)]
 impl<F, S, TE> Future for DnsExchangeConnect<F, S, TE>
 where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
@@ -305,7 +304,6 @@ where
     Error(ProtoError),
 }
 
-#[allow(clippy::type_complexity)]
 impl<F, S, TE> Future for DnsExchangeConnectInner<F, S, TE>
 where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,

@@ -382,7 +382,6 @@ where
 
 /// This pulls all answers returned in a Message response and returns a future which will
 ///  validate all of them.
-#[allow(clippy::type_complexity)]
 async fn verify_rrsets<H>(
     handle: &DnssecDnsHandle<H>,
     records: Vec<Record>,
@@ -968,7 +967,6 @@ where
 ///
 /// This method should never be called to validate DNSKEYs, see `verify_dnskey_rrset` instead.
 ///  if a DNSKEY RRSET is passed into this method it will always panic.
-#[allow(clippy::blocks_in_conditions)]
 async fn verify_default_rrset<H>(
     handle: &DnssecDnsHandle<H>,
     rrset: &Rrset<'_>,
@@ -1346,7 +1344,6 @@ enum RrsigValidity {
 ///  corresponding RRSIG RR, a validator MUST ignore the settings of the
 ///  NSEC and RRSIG bits in an NSEC RR.
 /// ```
-#[allow(clippy::blocks_in_conditions)]
 #[doc(hidden)]
 pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[(&Name, &NSEC)]) -> Proof {
     // TODO: consider converting this to Result, and giving explicit reason for the failure

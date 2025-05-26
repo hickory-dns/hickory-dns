@@ -14,7 +14,6 @@ use crate::proto::runtime::TokioTime;
 use crate::proto::tcp::DnsTcpStream;
 use crate::proto::xfer::{DnsExchange, DnsExchangeConnect};
 
-#[allow(clippy::type_complexity)]
 pub(crate) fn new_https_stream_with_future<S, F>(
     future: F,
     socket_addr: SocketAddr,

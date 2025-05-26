@@ -180,7 +180,6 @@ impl<P: RuntimeProvider> Recursor<P> {
         !matches!(self.mode, RecursorMode::NonValidating { .. })
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn build(roots: &[IpAddr], builder: RecursorBuilder<P>) -> Result<Self, Error> {
         let RecursorBuilder {
             ns_cache_size,
