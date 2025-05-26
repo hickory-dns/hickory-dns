@@ -353,7 +353,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             if !dnskey_proofs.iter().all(|p| p.0.is_secure()) && !rrset.name().is_root() {
                 // Need to get DS records for each DNSKEY.
                 // Every DNSKEY other than the root zone's keys may have a corresponding DS record.
-                fetch_ds_records(self, rrset.name().clone(), options).await?
+                self.fetch_ds_records(rrset.name().clone(), options).await?
             } else {
                 debug!("ignoring DS lookup for root zone or registered keys");
                 Vec::default()
@@ -452,6 +452,103 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 name: rrset.name().clone(),
             },
         ))
+    }
+
+    /// Retrieves DS records for the given zone.
+    async fn fetch_ds_records(
+        &self,
+        zone: Name,
+        options: DnsRequestOptions,
+    ) -> Result<Vec<Record<DS>>, ProofError> {
+        let ds_message = self
+            .lookup(Query::query(zone.clone(), RecordType::DS), options)
+            .first_answer()
+            .await;
+
+        let error = match ds_message {
+            Ok(mut ds_message)
+                if ds_message
+                    .answers()
+                    .iter()
+                    .filter(|r| r.record_type() == RecordType::DS)
+                    .any(|r| r.proof().is_secure()) =>
+            {
+                // This is a secure DS RRset.
+
+                let all_records = ds_message.take_answers().into_iter().filter_map(|r| {
+                    r.map(|data| match data {
+                        RData::DNSSEC(DNSSECRData::DS(ds)) => Some(ds),
+                        _ => None,
+                    })
+                });
+
+                let mut supported_records = vec![];
+                let mut all_unknown = None;
+                for record in all_records {
+                    // A chain can be either SECURE or INSECURE, but we should not trust BOGUS or other
+                    // records.
+                    if (!record.data().algorithm().is_supported()
+                        || !record.data().digest_type().is_supported())
+                        && (record.proof().is_secure() || record.proof().is_insecure())
+                    {
+                        all_unknown.get_or_insert(true);
+                        continue;
+                    }
+                    all_unknown = Some(false);
+
+                    supported_records.push(record);
+                }
+
+                if all_unknown.unwrap_or(false) {
+                    return Err(ProofError::new(
+                        Proof::Insecure,
+                        ProofErrorKind::UnknownKeyAlgorithm,
+                    ));
+                } else if !supported_records.is_empty() {
+                    return Ok(supported_records);
+                } else {
+                    ProtoError::from(ProtoErrorKind::NoError)
+                }
+            }
+            Ok(response) => {
+                let any_ds_rr = response
+                    .answers()
+                    .iter()
+                    .any(|r| r.record_type() == RecordType::DS);
+                if any_ds_rr {
+                    ProtoError::from(ProtoErrorKind::NoError)
+                } else {
+                    // If the response was an authenticated proof of nonexistence, then we have an
+                    // insecure zone.
+                    debug!("marking {zone} as insecure based on secure NSEC/NSEC3 proof");
+                    return Err(ProofError::new(
+                        Proof::Insecure,
+                        ProofErrorKind::DsResponseNsec { name: zone },
+                    ));
+                }
+            }
+            Err(error) => error,
+        };
+
+        // If the response was an empty DS RRset that was itself insecure, then we have another insecure zone.
+        if let Some((query, _res, _proof)) = error
+            .kind()
+            .as_nsec()
+            .filter(|(_query, _res, proof)| proof.is_insecure())
+        {
+            debug!(
+                "marking {} as insecure based on insecure NSEC/NSEC3 proof",
+                query.name()
+            );
+            return Err(ProofError::new(
+                Proof::Insecure,
+                ProofErrorKind::DsResponseNsec {
+                    name: query.name().to_owned(),
+                },
+            ));
+        }
+
+        Err(ProofError::ds_should_exist(zone))
     }
 
     /// Verifies that the key is a trust anchor.
@@ -956,110 +1053,13 @@ fn verify_dnskey(
     ))
 }
 
-/// Retrieves DS records for the given zone.
-async fn fetch_ds_records(
-    handle: &DnssecDnsHandle<impl DnsHandle>,
-    zone: Name,
-    options: DnsRequestOptions,
-) -> Result<Vec<Record<DS>>, ProofError> {
-    let ds_message = handle
-        .lookup(Query::query(zone.clone(), RecordType::DS), options)
-        .first_answer()
-        .await;
-
-    let error = match ds_message {
-        Ok(mut ds_message)
-            if ds_message
-                .answers()
-                .iter()
-                .filter(|r| r.record_type() == RecordType::DS)
-                .any(|r| r.proof().is_secure()) =>
-        {
-            // This is a secure DS RRset.
-
-            let all_records = ds_message.take_answers().into_iter().filter_map(|r| {
-                r.map(|data| match data {
-                    RData::DNSSEC(DNSSECRData::DS(ds)) => Some(ds),
-                    _ => None,
-                })
-            });
-
-            let mut supported_records = vec![];
-            let mut all_unknown = None;
-            for record in all_records {
-                // A chain can be either SECURE or INSECURE, but we should not trust BOGUS or other
-                // records.
-                if (!record.data().algorithm().is_supported()
-                    || !record.data().digest_type().is_supported())
-                    && (record.proof().is_secure() || record.proof().is_insecure())
-                {
-                    all_unknown.get_or_insert(true);
-                    continue;
-                }
-                all_unknown = Some(false);
-
-                supported_records.push(record);
-            }
-
-            if all_unknown.unwrap_or(false) {
-                return Err(ProofError::new(
-                    Proof::Insecure,
-                    ProofErrorKind::UnknownKeyAlgorithm,
-                ));
-            } else if !supported_records.is_empty() {
-                return Ok(supported_records);
-            } else {
-                ProtoError::from(ProtoErrorKind::NoError)
-            }
-        }
-        Ok(response) => {
-            let any_ds_rr = response
-                .answers()
-                .iter()
-                .any(|r| r.record_type() == RecordType::DS);
-            if any_ds_rr {
-                ProtoError::from(ProtoErrorKind::NoError)
-            } else {
-                // If the response was an authenticated proof of nonexistence, then we have an
-                // insecure zone.
-                debug!("marking {zone} as insecure based on secure NSEC/NSEC3 proof");
-                return Err(ProofError::new(
-                    Proof::Insecure,
-                    ProofErrorKind::DsResponseNsec { name: zone },
-                ));
-            }
-        }
-        Err(error) => error,
-    };
-
-    // If the response was an empty DS RRset that was itself insecure, then we have another insecure zone.
-    if let Some((query, _res, _proof)) = error
-        .kind()
-        .as_nsec()
-        .filter(|(_query, _res, proof)| proof.is_insecure())
-    {
-        debug!(
-            "marking {} as insecure based on insecure NSEC/NSEC3 proof",
-            query.name()
-        );
-        return Err(ProofError::new(
-            Proof::Insecure,
-            ProofErrorKind::DsResponseNsec {
-                name: query.name().to_owned(),
-            },
-        ));
-    }
-
-    Err(ProofError::ds_should_exist(zone))
-}
-
 /// Checks whether a DS RRset exists for the given name or an ancestor of it.
 async fn find_ds_records(
     handle: &DnssecDnsHandle<impl DnsHandle>,
     zone: Name,
     options: DnsRequestOptions,
 ) -> Result<(), ProofError> {
-    match fetch_ds_records(handle, zone.clone(), options).await {
+    match handle.fetch_ds_records(zone.clone(), options).await {
         Ok(_) => return Ok(()),
         Err(err) if matches!(err.kind(), ProofErrorKind::DsRecordShouldExist { .. }) => {}
         Err(err) => return Err(err),
@@ -1072,7 +1072,7 @@ async fn find_ds_records(
         if parent.is_root() {
             return Err(ProofError::ds_should_exist(zone));
         }
-        match fetch_ds_records(handle, parent.clone(), options).await {
+        match handle.fetch_ds_records(parent.clone(), options).await {
             Ok(_) => {
                 return Err(ProofError::ds_should_exist(zone));
             }
