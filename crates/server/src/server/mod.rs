@@ -115,9 +115,9 @@ impl<T: RequestHandler> ServerFuture<T> {
                     };
 
                     let message = match message {
-                        Err(e) => {
-                            warn!("error receiving message on udp_socket: {}", e);
-                            if is_unrecoverable_socket_error(&e) {
+                        Err(error) => {
+                            warn!(%error, "error receiving message on udp_socket");
+                            if is_unrecoverable_socket_error(&error) {
                                 break;
                             }
                             continue;
@@ -193,9 +193,9 @@ impl<T: RequestHandler> ServerFuture<T> {
                 let (tcp_stream, src_addr) = tokio::select! {
                     tcp_stream = listener.accept() => match tcp_stream {
                         Ok((t, s)) => (t, s),
-                        Err(e) => {
-                            debug!("error receiving TCP tcp_stream error: {}", e);
-                            if is_unrecoverable_socket_error(&e) {
+                        Err(error) => {
+                            debug!(%error, "error receiving TCP tcp_stream error");
+                            if is_unrecoverable_socket_error(&error) {
                                 break;
                             }
                             continue;
@@ -324,9 +324,9 @@ impl<T: RequestHandler> ServerFuture<T> {
                 let (tcp_stream, src_addr) = tokio::select! {
                     tcp_stream = listener.accept() => match tcp_stream {
                         Ok((t, s)) => (t, s),
-                        Err(e) => {
-                            debug!("error receiving TLS tcp_stream error: {}", e);
-                            if is_unrecoverable_socket_error(&e) {
+                        Err(error) => {
+                            debug!(%error, "error receiving TLS tcp_stream error");
+                            if is_unrecoverable_socket_error(&error) {
                                 break;
                             }
                             continue;
@@ -481,9 +481,9 @@ impl<T: RequestHandler> ServerFuture<T> {
                 let (tcp_stream, src_addr) = tokio::select! {
                     tcp_stream = listener.accept() => match tcp_stream {
                         Ok((t, s)) => (t, s),
-                        Err(e) => {
-                            debug!("error receiving HTTPS tcp_stream error: {}", e);
-                            if is_unrecoverable_socket_error(&e) {
+                        Err(error) => {
+                            debug!(%error, "error receiving HTTPS tcp_stream error");
+                            if is_unrecoverable_socket_error(&error) {
                                 break;
                             }
                             continue;
@@ -496,8 +496,8 @@ impl<T: RequestHandler> ServerFuture<T> {
                 };
 
                 // verify that the src address is safe for responses
-                if let Err(e) = sanitize_src_address(src_addr) {
-                    warn!("address can not be responded to {src_addr}: {e}");
+                if let Err(error) = sanitize_src_address(src_addr) {
+                    warn!(%error, %src_addr, "address can not be responded to");
                     continue;
                 }
 
@@ -596,8 +596,8 @@ impl<T: RequestHandler> ServerFuture<T> {
                     result = server.next() => match result {
                         Ok(Some(c)) => c,
                         Ok(None) => continue,
-                        Err(e) => {
-                            debug!("error receiving quic connection: {e}");
+                        Err(error) => {
+                            debug!(%error, "error receiving quic connection");
                             continue;
                         }
                     },
@@ -609,11 +609,10 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                 // verify that the src address is safe for responses
                 // TODO: we're relying the quinn library to actually validate responses before we get here, but this check is still worth doing
-                if let Err(e) = sanitize_src_address(src_addr) {
+                if let Err(error) = sanitize_src_address(src_addr) {
                     warn!(
-                        "address can not be responded to {src_addr}: {e}",
-                        src_addr = src_addr,
-                        e = e
+                        %error, %src_addr,
+                        "address can not be responded to",
                     );
                     continue;
                 }
@@ -636,8 +635,8 @@ impl<T: RequestHandler> ServerFuture<T> {
                     )
                     .await;
 
-                    if let Err(e) = result {
-                        warn!("quic stream processing failed from {src_addr}: {e}")
+                    if let Err(error) = result {
+                        warn!(%error, %src_addr, "quic stream processing failed")
                     }
                 });
 
@@ -693,8 +692,8 @@ impl<T: RequestHandler> ServerFuture<T> {
                     result = server.accept() => match result {
                         Ok(Some(c)) => c,
                         Ok(None) => continue,
-                        Err(e) => {
-                            debug!("error receiving h3 connection: {e}");
+                        Err(error) => {
+                            debug!(%error, "error receiving h3 connection");
                             continue;
                         }
                     },
@@ -706,11 +705,10 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                 // verify that the src address is safe for responses
                 // TODO: we're relying the quinn library to actually validate responses before we get here, but this check is still worth doing
-                if let Err(e) = sanitize_src_address(src_addr) {
+                if let Err(error) = sanitize_src_address(src_addr) {
                     warn!(
-                        "address can not be responded to {src_addr}: {e}",
-                        src_addr = src_addr,
-                        e = e
+                        %error, %src_addr,
+                        "address can not be responded to",
                     );
                     continue;
                 }
@@ -733,8 +731,8 @@ impl<T: RequestHandler> ServerFuture<T> {
                     )
                     .await;
 
-                    if let Err(e) = result {
-                        warn!("h3 stream processing failed from {src_addr}: {e}")
+                    if let Err(error) = result {
+                        warn!(%error, %src_addr, "h3 stream processing failed")
                     }
                 });
 
@@ -1102,8 +1100,8 @@ async fn error_response_handler(
         .send_response(response.error_msg(&header, response_code))
         .await;
 
-    if let Err(e) = result {
-        warn!("failed to return FormError to client: {}", e);
+    if let Err(error) = result {
+        warn!(%error, "failed to return FormError to client");
     }
 }
 

@@ -104,8 +104,8 @@ impl RequestHandler for Catalog {
 
                 // couldn't handle the request
                 return match result {
-                    Err(e) => {
-                        error!("request error: {}", e);
+                    Err(error) => {
+                        error!(%error, "request error");
                         ResponseInfo::serve_failed()
                     }
                     Ok(info) => info,
@@ -151,8 +151,8 @@ impl RequestHandler for Catalog {
         };
 
         match result {
-            Err(e) => {
-                error!("request failed: {}", e);
+            Err(error) => {
+                error!(%error, "request failed");
                 ResponseInfo::serve_failed()
             }
             Ok(info) => info,
@@ -341,8 +341,8 @@ impl Catalog {
             .await;
 
             match result {
-                Err(e) => {
-                    error!("failed to send response: {e}");
+                Err(error) => {
+                    error!(%error, "failed to send response");
                     return ResponseInfo::serve_failed();
                 }
                 Ok(r) => return r,
@@ -362,8 +362,8 @@ impl Catalog {
             .await;
 
             match result {
-                Err(e) => {
-                    error!("failed to send response: {e}");
+                Err(error) => {
+                    error!(%error, "failed to send response");
                     return ResponseInfo::serve_failed();
                 }
                 Ok(r) => return r,
@@ -486,9 +486,9 @@ async fn lookup<R: ResponseHandler + Unpin>(
         let result = send_response(response_edns, message_response, response_handle).await;
 
         match result {
-            Err(e) => {
-                error!("error sending response: {e}");
-                return Err(LookupError::Io(e));
+            Err(error) => {
+                error!(%error, "error sending response");
+                return Err(LookupError::Io(error));
             }
             Ok(l) => return Ok(l),
         }
@@ -606,8 +606,8 @@ async fn build_authoritative_response(
 
             match authority.ns(lookup_options).await.map_result() {
                 Some(Ok(ns)) => (Some(ns), None),
-                Some(Err(e)) => {
-                    warn!("ns_lookup errored: {e}");
+                Some(Err(error)) => {
+                    warn!(%error, "ns_lookup errored");
                     (None, None)
                 }
                 None => {
@@ -648,12 +648,15 @@ async fn build_authoritative_response(
                     {
                         // run the soa lookup
                         Some(Ok(nsecs)) => (Some(nsecs), None),
-                        Some(Err(e)) => {
-                            warn!("failed to lookup nsecs for request {_request_id}: {e}");
+                        Some(Err(error)) => {
+                            warn!(%error, request_id = _request_id, "failed to lookup nsecs for request");
                             (None, None)
                         }
                         None => {
-                            warn!("unexpected lookup skip for request {_request_id}");
+                            warn!(
+                                request_id = _request_id,
+                                "unexpected lookup skip for request"
+                            );
                             (None, None)
                         }
                     }
@@ -698,12 +701,15 @@ async fn build_authoritative_response(
                         match future.await.map_result() {
                             // run the soa lookup
                             Some(Ok(nsecs)) => Some(nsecs),
-                            Some(Err(e)) => {
-                                warn!("failed to lookup nsecs for request {_request_id}: {e}");
+                            Some(Err(error)) => {
+                                warn!(%error, request_id = _request_id, "failed to lookup nsecs for request");
                                 None
                             }
                             None => {
-                                warn!("unexpected lookup skip for request {_request_id}");
+                                warn!(
+                                    request_id = _request_id,
+                                    "unexpected lookup skip for request"
+                                );
                                 None
                             }
                         }
@@ -719,8 +725,8 @@ async fn build_authoritative_response(
 
         match authority.soa_secure(lookup_options).await.map_result() {
             Some(Ok(soa)) => (nsecs, Some(soa)),
-            Some(Err(e)) => {
-                warn!("failed to lookup soa: {e}");
+            Some(Err(error)) => {
+                warn!(%error, "failed to lookup soa");
                 (nsecs, None)
             }
             None => {

@@ -324,8 +324,8 @@ impl Iterator for JournalIter<'_> {
                 Some(record)
             }
             Ok(None) => None,
-            Err(err) => {
-                error!("persistence error while iterating over journal: {}", err);
+            Err(error) => {
+                error!(%error, "persistence error while iterating over journal");
                 None
             }
         }
