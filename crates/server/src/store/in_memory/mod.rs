@@ -506,7 +506,7 @@ impl Authority for InMemoryAuthority {
                                         self.class(),
                                     )
                                     // rather than failing the request, we'll just warn
-                                    .map_err(|e| warn!("failed to sign ANAME record: {}", e))
+                                    .map_err(|error| warn!(%error, "failed to sign ANAME record"))
                                     .ok();
                                 }
 

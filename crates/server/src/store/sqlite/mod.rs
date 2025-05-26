@@ -853,8 +853,8 @@ impl SqliteAuthority {
             if self.is_dnssec_enabled {
                 cfg_if::cfg_if! {
                     if #[cfg(feature = "__dnssec")] {
-                        self.secure_zone().await.map_err(|e| {
-                            error!("failure securing zone: {e}");
+                        self.secure_zone().await.map_err(|error| {
+                            error!(%error, "failure securing zone");
                             ResponseCode::ServFail
                         })?
                     } else {

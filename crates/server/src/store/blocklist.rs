@@ -681,8 +681,8 @@ mod test {
         // Test: verify the blocklist authority was successfully created.
         match authority {
             Ok(ref _authority) => {}
-            Err(e) => {
-                error!("Unable to create blocklist authority: {e}");
+            Err(error) => {
+                error!(%error, "unable to create blocklist authority");
                 return;
             }
         }
