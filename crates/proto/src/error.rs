@@ -85,6 +85,7 @@ pub enum ProtoErrorKind {
     Canceled(futures_channel::oneshot::Canceled),
 
     /// Character data length exceeded the limit
+    #[non_exhaustive]
     #[error("char data length exceeds {max}: {len}")]
     CharacterDataTooLong {
         /// Specified maximum
@@ -94,6 +95,7 @@ pub enum ProtoErrorKind {
     },
 
     /// Overlapping labels
+    #[non_exhaustive]
     #[error("overlapping labels name {label} other {other}")]
     LabelOverlapsWithOther {
         /// Start of the label that is overlaps
@@ -104,6 +106,7 @@ pub enum ProtoErrorKind {
 
     /// No Records and there is a corresponding DNSSEC Proof for NSEC
     #[cfg(feature = "__dnssec")]
+    #[non_exhaustive]
     #[error("DNSSEC Negative Record Response for {query}, {proof}")]
     Nsec {
         /// Query for which the NSEC was returned
@@ -136,6 +139,7 @@ pub enum ProtoErrorKind {
     },
 
     /// The length of rdata read was not as expected
+    #[non_exhaustive]
     #[error("incorrect rdata length read: {read} expected: {len}")]
     IncorrectRDataLengthRead {
         /// The amount of read data
@@ -149,6 +153,7 @@ pub enum ProtoErrorKind {
     LabelBytesTooLong(usize),
 
     /// Label bytes exceeded the limit of 63
+    #[non_exhaustive]
     #[error("label points to data not prior to idx: {idx} ptr: {ptr}")]
     PointerNotPriorToLabel {
         /// index of the label containing this pointer
@@ -187,6 +192,7 @@ pub enum ProtoErrorKind {
     NoError,
 
     /// Not all records were able to be written
+    #[non_exhaustive]
     #[error("not all records could be written, wrote: {count}")]
     NotAllRecordsWritten {
         /// Number of records that were written before the error
