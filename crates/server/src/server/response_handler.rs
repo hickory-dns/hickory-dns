@@ -157,5 +157,5 @@ pub(crate) fn encode_fallback_servfail_response(
     header.set_response_code(ResponseCode::ServFail);
     header.emit(&mut encoder)?;
 
-    Ok(ResponseInfo::serve_failed())
+    Ok(ResponseInfo::from(header))
 }
