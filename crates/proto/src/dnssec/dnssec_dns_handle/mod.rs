@@ -396,15 +396,15 @@ where
         .iter()
         .filter(|rr| {
             !is_dnssec(rr, RecordType::RRSIG) &&
-                             // if we are at a depth greater than 1, we are only interested in proving evaluation chains
-                             //   this means that only DNSKEY, DS, NSEC, and NSEC3 are interesting at that point.
-                             //   this protects against looping over things like NS records and DNSKEYs in responses.
-                             // TODO: is there a cleaner way to prevent cycles in the evaluations?
-                                          (handle.request_depth <= 1 ||
-                                           is_dnssec(rr, RecordType::DNSKEY) ||
-                                           is_dnssec(rr, RecordType::DS) ||
-                                           is_dnssec(rr, RecordType::NSEC) ||
-                                           is_dnssec(rr, RecordType::NSEC3))
+            // if we are at a depth greater than 1, we are only interested in proving evaluation chains
+            //   this means that only DNSKEY, DS, NSEC, and NSEC3 are interesting at that point.
+            //   this protects against looping over things like NS records and DNSKEYs in responses.
+            // TODO: is there a cleaner way to prevent cycles in the evaluations?
+            (handle.request_depth <= 1 ||
+                is_dnssec(rr, RecordType::DNSKEY) ||
+                is_dnssec(rr, RecordType::DS) ||
+                is_dnssec(rr, RecordType::NSEC) ||
+                is_dnssec(rr, RecordType::NSEC3))
         })
         .map(|rr| (rr.name().clone(), rr.record_type()))
     {
