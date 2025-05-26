@@ -321,7 +321,7 @@ fn inner_lookup(
 
 // Boilerplate to query the catalog
 async fn do_query(catalog: &Catalog, query_name: &str) -> (ResponseInfo, TestResponseHandler) {
-    let mut question: Message = Message::new();
+    let mut question = Message::query();
 
     let mut query: Query = Query::new();
     query.set_name(Name::from_ascii(query_name).unwrap());

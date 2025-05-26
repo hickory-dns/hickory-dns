@@ -48,7 +48,7 @@ fn bench_parse_header(b: &mut Bencher) {
 
 #[bench]
 fn bench_emit_message(b: &mut Bencher) {
-    let mut message = Message::new();
+    let mut message = Message::query();
     message
         .set_id(10)
         .set_message_type(MessageType::Response)
@@ -72,7 +72,7 @@ fn bench_emit_message(b: &mut Bencher) {
 
 #[bench]
 fn bench_emit_message_no_reservation(b: &mut Bencher) {
-    let mut message = Message::new();
+    let mut message = Message::query();
     message
         .set_id(10)
         .set_message_type(MessageType::Response)
@@ -96,7 +96,7 @@ fn bench_emit_message_no_reservation(b: &mut Bencher) {
 
 #[bench]
 fn bench_parse_message(b: &mut Bencher) {
-    let mut message = Message::new();
+    let mut message = Message::query();
     message
         .set_id(10)
         .set_message_type(MessageType::Response)

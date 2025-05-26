@@ -794,7 +794,7 @@ mod tests {
 
     #[test]
     fn test_sign_encode() {
-        let mut message = Message::new();
+        let mut message = Message::query();
         message.add_answer(Record::stub());
 
         let key_name = Name::from_ascii("some.name").unwrap();
@@ -826,7 +826,7 @@ mod tests {
 
     #[test]
     fn test_sign_encode_id_changed() {
-        let mut message = Message::new();
+        let mut message = Message::query();
         message.set_id(123).add_answer(Record::stub());
 
         let key_name = Name::from_ascii("some.name").unwrap();

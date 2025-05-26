@@ -78,7 +78,7 @@ pub struct Message {
 
 impl Message {
     /// Returns a new "empty" Message
-    pub fn new() -> Self {
+    pub fn query() -> Self {
         Self {
             header: Header::new(),
             queries: Vec::new(),
@@ -98,7 +98,7 @@ impl Message {
     /// * `op_code` - operation of the request
     /// * `response_code` - the error code for the response
     pub fn error_msg(id: u16, op_code: OpCode, response_code: ResponseCode) -> Self {
-        let mut message = Self::new();
+        let mut message = Self::query();
         message
             .set_message_type(MessageType::Response)
             .set_id(id)
@@ -118,7 +118,7 @@ impl Message {
             .set_answer_count(0)
             .set_name_server_count(0);
 
-        let mut msg = Self::new();
+        let mut msg = Self::query();
         // drops additional/answer/nameservers/signature
         // adds query/OPT
         msg.add_queries(self.queries().iter().cloned());
@@ -797,8 +797,8 @@ impl Deref for Message {
 /// ```rust
 /// use hickory_proto::op::{Message, MessageParts};
 ///
-///  let msg = Message::new();
-///  let MessageParts { queries, .. } = msg.into_parts();
+/// let msg = Message::query();
+/// let MessageParts { queries, .. } = msg.into_parts();
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MessageParts {
@@ -1151,7 +1151,7 @@ mod tests {
 
     #[test]
     fn test_emit_and_read_header() {
-        let mut message = Message::new();
+        let mut message = Message::query();
         message
             .set_id(10)
             .set_message_type(MessageType::Response)
@@ -1167,7 +1167,7 @@ mod tests {
 
     #[test]
     fn test_emit_and_read_query() {
-        let mut message = Message::new();
+        let mut message = Message::query();
         message
             .set_id(10)
             .set_message_type(MessageType::Response)
@@ -1185,7 +1185,7 @@ mod tests {
 
     #[test]
     fn test_emit_and_read_records() {
-        let mut message = Message::new();
+        let mut message = Message::query();
         message
             .set_id(10)
             .set_message_type(MessageType::Response)
@@ -1222,7 +1222,7 @@ mod tests {
 
     #[test]
     fn test_header_counts_correction_after_emit_read() {
-        let mut message = Message::new();
+        let mut message = Message::query();
 
         message
             .set_id(10)

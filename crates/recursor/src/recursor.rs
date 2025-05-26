@@ -595,7 +595,7 @@ mod for_dnssec {
 
                 // `DnssecDnsHandle` will only look at the answer section of the message so
                 // we can put "stubs" in the other fields
-                let mut msg = Message::new();
+                let mut msg = Message::query();
 
                 // XXX this effectively merges the original nameservers and additional
                 // sections into the answers section

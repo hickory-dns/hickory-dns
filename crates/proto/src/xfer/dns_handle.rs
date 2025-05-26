@@ -88,7 +88,7 @@ pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 fn build_request(mut query: Query, options: DnsRequestOptions) -> DnsRequest {
     // build the message
-    let mut message: Message = Message::new();
+    let mut message = Message::query();
     // TODO: This is not the final ID, it's actually set in the poll method of DNS future
     //  should we just remove this?
     let id: u16 = random();

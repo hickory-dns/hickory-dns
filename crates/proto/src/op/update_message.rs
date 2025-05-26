@@ -178,7 +178,7 @@ pub fn create(rrset: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
         .set_query_type(RecordType::SOA);
 
     // build the message
-    let mut message: Message = Message::new();
+    let mut message = Message::query();
     message
         .set_id(random())
         .set_message_type(MessageType::Query)
@@ -249,7 +249,7 @@ pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool, use_edns: b
         .set_query_type(RecordType::SOA);
 
     // build the message
-    let mut message: Message = Message::new();
+    let mut message = Message::query();
     message
         .set_id(random())
         .set_message_type(MessageType::Query)
@@ -336,7 +336,7 @@ pub fn compare_and_swap(
         .set_query_type(RecordType::SOA);
 
     // build the message
-    let mut message: Message = Message::new();
+    let mut message = Message::query();
     message
         .set_id(random())
         .set_message_type(MessageType::Query)
@@ -407,7 +407,7 @@ pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name, use_edns: bool) 
         .set_query_type(RecordType::SOA);
 
     // build the message
-    let mut message: Message = Message::new();
+    let mut message = Message::query();
     message
         .set_id(random())
         .set_message_type(MessageType::Query)
@@ -467,7 +467,7 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Me
         .set_query_type(RecordType::SOA);
 
     // build the message
-    let mut message: Message = Message::new();
+    let mut message = Message::query();
     message
         .set_id(random())
         .set_message_type(MessageType::Query)
@@ -536,7 +536,7 @@ pub fn delete_all(
         .set_query_type(RecordType::SOA);
 
     // build the message
-    let mut message: Message = Message::new();
+    let mut message = Message::query();
     message
         .set_id(random())
         .set_message_type(MessageType::Query)
@@ -589,7 +589,7 @@ pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
     }
 
     // build the message
-    let mut message: Message = Message::new();
+    let mut message = Message::query();
     message
         .set_id(random())
         .set_message_type(MessageType::Query)

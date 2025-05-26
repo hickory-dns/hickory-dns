@@ -234,7 +234,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         debug!("notifying: {} {:?}", name, query_type);
 
         // build the message
-        let mut message: Message = Message::new();
+        let mut message = Message::query();
         let id: u16 = rand::random();
         message
             .set_id(id)
@@ -873,7 +873,7 @@ mod tests {
     ) -> impl Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static {
         let stream = records.into_iter().map(|r| {
             Ok({
-                let mut m = Message::new();
+                let mut m = Message::query();
                 m.insert_answers(r);
                 DnsResponse::from_message(m).unwrap()
             })

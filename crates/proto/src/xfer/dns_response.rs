@@ -748,7 +748,7 @@ mod tests {
 
     #[test]
     fn test_contains_answer() {
-        let mut message = Message::new();
+        let mut message = Message::query();
         message.set_response_code(ResponseCode::NXDomain);
         message.add_query(Query::query(Name::root(), RecordType::A));
         message.add_answer(Record::from_rdata(
@@ -764,7 +764,7 @@ mod tests {
 
     #[test]
     fn test_nx_type1() {
-        let mut message = Message::new();
+        let mut message = Message::query();
         message.set_response_code(ResponseCode::NXDomain);
         message.add_query(an_query());
         message.add_answer(an_cname_record());
@@ -783,7 +783,7 @@ mod tests {
 
     #[test]
     fn test_nx_type2() {
-        let mut message = Message::new();
+        let mut message = Message::query();
         message.set_response_code(ResponseCode::NXDomain);
         message.add_query(an_query());
         message.add_answer(an_cname_record());
@@ -798,7 +798,7 @@ mod tests {
 
     #[test]
     fn test_nx_type3() {
-        let mut message = Message::new();
+        let mut message = Message::query();
         message.set_response_code(ResponseCode::NXDomain);
         message.add_query(an_query());
         message.add_answer(an_cname_record());
@@ -812,7 +812,7 @@ mod tests {
 
     #[test]
     fn test_nx_type4() {
-        let mut message = Message::new();
+        let mut message = Message::query();
         message.set_response_code(ResponseCode::NXDomain);
         message.add_query(an_query());
         message.add_answer(an_cname_record());
@@ -830,7 +830,7 @@ mod tests {
 
     #[test]
     fn test_no_data_type1() {
-        let mut message = Message::new();
+        let mut message = Message::query();
         message.set_response_code(ResponseCode::NoError);
         message.add_query(another_query());
         message.add_name_server(soa());
@@ -847,7 +847,7 @@ mod tests {
 
     #[test]
     fn test_no_data_type2() {
-        let mut message = Message::new();
+        let mut message = Message::query();
         message.set_response_code(ResponseCode::NoError);
         message.add_query(another_query());
         message.add_name_server(soa());
@@ -861,7 +861,7 @@ mod tests {
 
     #[test]
     fn test_no_data_type3() {
-        let mut message = Message::new();
+        let mut message = Message::query();
         message.set_response_code(ResponseCode::NoError);
         message.add_query(another_query());
 
@@ -874,7 +874,7 @@ mod tests {
 
     #[test]
     fn referral() {
-        let mut message = Message::new();
+        let mut message = Message::query();
         message.set_response_code(ResponseCode::NoError);
         message.add_query(an_query());
         message.add_answer(an_cname_record());
@@ -889,7 +889,7 @@ mod tests {
         assert!(response.contains_answer());
         assert_eq!(ty.unwrap(), NegativeType::Referral);
 
-        let mut message = Message::new();
+        let mut message = Message::query();
         message.set_response_code(ResponseCode::NoError);
         message.add_query(another_query());
         message.add_name_server(ns1_record());
@@ -906,7 +906,7 @@ mod tests {
 
     #[test]
     fn contains_soa() {
-        let mut message = Message::new();
+        let mut message = Message::query();
         message.set_response_code(ResponseCode::NoError);
         message.add_query(Query::query(an_example(), RecordType::SOA));
         message.add_name_server(soa());
@@ -918,7 +918,7 @@ mod tests {
 
     #[test]
     fn contains_any() {
-        let mut message = Message::new();
+        let mut message = Message::query();
         message.set_response_code(ResponseCode::NoError);
         message.add_query(Query::query(xx(), RecordType::ANY));
         message.add_name_server(ns1_record());

@@ -130,7 +130,7 @@ mod tests {
     #[test]
     fn test_from_post() {
         subscribe();
-        let message = Message::new();
+        let message = Message::query();
         let msg_bytes = message.to_vec().unwrap();
         let len = msg_bytes.len();
         let stream = TestBytesStream(vec![Ok(Bytes::from(msg_bytes))]);

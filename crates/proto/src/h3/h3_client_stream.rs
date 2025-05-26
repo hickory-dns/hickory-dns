@@ -493,7 +493,7 @@ mod tests {
         subscribe();
 
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
-        let mut request = Message::new();
+        let mut request = Message::query();
         let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
         request.set_recursion_desired(true);
@@ -528,7 +528,7 @@ mod tests {
 
         //
         // assert that the connection works for a second query
-        let mut request = Message::new();
+        let mut request = Message::query();
         let query = Query::query(
             Name::from_str("www.example.com.").unwrap(),
             RecordType::AAAA,
@@ -561,7 +561,7 @@ mod tests {
         subscribe();
 
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
-        let mut request = Message::new();
+        let mut request = Message::query();
         let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
         request.set_recursion_desired(true);
@@ -596,7 +596,7 @@ mod tests {
 
         //
         // assert that the connection works for a second query
-        let mut request = Message::new();
+        let mut request = Message::query();
         let query = Query::query(
             Name::from_str("www.example.com.").unwrap(),
             RecordType::AAAA,
@@ -631,7 +631,7 @@ mod tests {
         subscribe();
 
         let cloudflare = SocketAddr::from(([1, 1, 1, 1], 443));
-        let mut request = Message::new();
+        let mut request = Message::query();
         let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
 
@@ -665,7 +665,7 @@ mod tests {
 
         //
         // assert that the connection works for a second query
-        let mut request = Message::new();
+        let mut request = Message::query();
         let query = Query::query(
             Name::from_str("www.example.com.").unwrap(),
             RecordType::AAAA,
@@ -703,7 +703,7 @@ mod tests {
         let h3 = connect.await.expect("h3 connect failed");
 
         // prepare request
-        let mut request = Message::new();
+        let mut request = Message::query();
         let query = Query::query(
             Name::from_str("www.example.com.").unwrap(),
             RecordType::AAAA,
