@@ -532,7 +532,7 @@ mod test {
     fn a_query_answer() -> (DnsRequest, Vec<Message>) {
         let name = Name::from_ascii("www.example.com.").unwrap();
 
-        let mut msg = Message::new();
+        let mut msg = Message::query();
         msg.add_query({
             let mut query = Query::query(name.clone(), RecordType::A);
             query.set_query_class(DNSClass::IN);
@@ -561,7 +561,7 @@ mod test {
     fn axfr_query() -> Message {
         let name = Name::from_ascii("example.com.").unwrap();
 
-        let mut msg = Message::new();
+        let mut msg = Message::query();
         msg.add_query({
             let mut query = Query::query(name, RecordType::AXFR);
             query.set_query_class(DNSClass::IN);

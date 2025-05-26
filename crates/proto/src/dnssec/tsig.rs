@@ -247,7 +247,7 @@ mod tests {
         let fudge = 300u64;
         let origin: Name = Name::parse("example.com.", None).unwrap();
         let key_name: Name = Name::from_ascii("key_name.").unwrap();
-        let mut question: Message = Message::new();
+        let mut question = Message::query();
         let mut query: Query = Query::new();
         query.set_name(origin);
         question.add_query(query);
@@ -277,7 +277,7 @@ mod tests {
         let fudge = 300u64;
         let origin: Name = Name::parse("example.com.", None).unwrap();
         let key_name: Name = Name::from_ascii("key_name.").unwrap();
-        let mut question: Message = Message::new();
+        let mut question = Message::query();
         let mut query: Query = Query::new();
         query.set_name(origin);
         question.add_query(query);

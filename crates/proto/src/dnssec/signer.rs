@@ -575,7 +575,7 @@ mod tests {
     #[test]
     fn test_sign_and_verify_message_sig0() {
         let origin = Name::parse("example.com.", None).unwrap();
-        let mut question = Message::new();
+        let mut question = Message::query();
         let mut query = Query::new();
         query.set_name(origin);
         question.add_query(query);

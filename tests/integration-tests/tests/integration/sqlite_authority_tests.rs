@@ -232,7 +232,7 @@ async fn test_authorize() {
 
     let authority = create_example();
 
-    let mut message = Message::new();
+    let mut message = Message::query();
     message
         .set_id(10)
         .set_message_type(MessageType::Query)
@@ -1090,7 +1090,7 @@ fn test_update_message(name: Name) -> Message {
     let mut add_rec = Record::from_rdata(name, 3600, RData::A(A::new(192, 168, 1, 10)));
     add_rec.set_dns_class(DNSClass::IN);
 
-    let mut message = Message::new();
+    let mut message = Message::query();
     message
         .set_id(10)
         .set_message_type(MessageType::Query)

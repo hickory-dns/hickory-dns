@@ -283,7 +283,7 @@ mod tests {
                 let mut buffer = [0_u8; 512];
                 let (len, addr) = server.recv_from(&mut buffer).await.unwrap();
                 let request = Message::from_vec(&buffer[0..len]).unwrap();
-                let mut response = Message::new();
+                let mut response = Message::query();
                 response.set_id(request.id());
                 response.add_queries(request.queries().to_vec());
                 response.add_answer(Record::from_rdata(

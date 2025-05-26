@@ -146,7 +146,7 @@ async fn test_server_form_error_on_multiple_queries() {
         Name::from_str("www.example.com.").unwrap(),
         RecordType::AAAA,
     );
-    let mut message: Message = Message::new();
+    let mut message = Message::query();
     message
         .add_query(query_a)
         .add_query(query_aaaa)
@@ -186,7 +186,7 @@ async fn test_server_no_response_on_response() {
 
     // build the message
     let query_a = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
-    let mut message = Message::new();
+    let mut message = Message::query();
     message
         .set_message_type(MessageType::Response)
         .set_op_code(OpCode::Query)
@@ -407,7 +407,7 @@ async fn edns_multiple_opt_rr() {
     let server_continue = Arc::new(AtomicBool::new(true));
     let server = tokio::spawn(server_thread_udp(udp_socket, Arc::clone(&server_continue)));
 
-    let mut message = Message::new();
+    let mut message = Message::query();
     message.add_query(Query::query(Name::root(), RecordType::NS));
     message.add_additional(Record::from_rdata(
         Name::root(),

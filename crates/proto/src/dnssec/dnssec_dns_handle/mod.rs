@@ -836,7 +836,7 @@ impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
                             response_code,
                             ..
                         }) => {
-                            let mut msg = Message::new();
+                            let mut msg = Message::query();
 
                             debug!("translating NoRecordsFound to DnsResponse for {query}");
 

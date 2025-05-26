@@ -715,7 +715,7 @@ mod tests {
 
     #[test]
     fn test_target_compression() {
-        let mut msg = Message::new();
+        let mut msg = Message::query();
         msg.add_query(Query::query(
             Name::from_str("www.google.com.").unwrap(),
             RecordType::A,

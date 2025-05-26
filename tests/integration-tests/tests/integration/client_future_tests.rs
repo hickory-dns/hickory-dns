@@ -177,7 +177,7 @@ fn test_query_edns(client: &mut Client) -> impl Future<Output = ()> {
         .insert(EdnsOption::Subnet("1.2.0.0/16".parse().unwrap()));
 
     // TODO: write builder
-    let mut msg = Message::new();
+    let mut msg = Message::query();
     msg.add_query({
         let mut query = Query::query(name.clone(), RecordType::A);
         query.set_query_class(DNSClass::IN);

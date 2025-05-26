@@ -123,7 +123,7 @@ mod test {
             let future = async {
                 let i = i;
                 let request = request;
-                let mut message = Message::new();
+                let mut message = Message::query();
 
                 let mut i = i.lock().await;
 
@@ -153,10 +153,10 @@ mod test {
             i: Arc::new(Mutex::new(0)),
         });
 
-        let mut test1 = Message::new();
+        let mut test1 = Message::query();
         test1.add_query(Query::new().set_query_type(RecordType::A).clone());
 
-        let mut test2 = Message::new();
+        let mut test2 = Message::query();
         test2.add_query(Query::new().set_query_type(RecordType::AAAA).clone());
 
         let result = block_on(client.send(test1.clone()).first_answer())

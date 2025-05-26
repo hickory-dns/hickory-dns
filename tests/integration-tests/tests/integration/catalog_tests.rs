@@ -130,7 +130,7 @@ async fn test_catalog_lookup() {
     catalog.upsert(origin.clone(), vec![Arc::new(example)]);
     catalog.upsert(test_origin.clone(), vec![Arc::new(test)]);
 
-    let mut question: Message = Message::new();
+    let mut question = Message::query();
 
     let mut query: Query = Query::new();
     query.set_name(origin.into());
@@ -170,7 +170,7 @@ async fn test_catalog_lookup() {
     assert!(ns.is_empty());
 
     // other zone
-    let mut question: Message = Message::new();
+    let mut question = Message::query();
     let mut query: Query = Query::new();
     query.set_name(test_origin.into());
 
@@ -219,7 +219,7 @@ async fn test_catalog_lookup_soa() {
     catalog.upsert(origin.clone(), vec![Arc::new(example)]);
     catalog.upsert(test_origin, vec![Arc::new(test)]);
 
-    let mut question: Message = Message::new();
+    let mut question = Message::query();
 
     let mut query: Query = Query::new();
     query.set_name(origin.into());
@@ -292,7 +292,7 @@ async fn test_catalog_nx_soa() {
     let mut catalog = Catalog::new();
     catalog.upsert(origin, vec![Arc::new(example)]);
 
-    let mut question: Message = Message::new();
+    let mut question = Message::query();
 
     let mut query: Query = Query::new();
     query.set_name(Name::parse("nx.example.com.", None).unwrap());
@@ -347,7 +347,7 @@ async fn test_non_authoritive_nx_refused() {
     let mut catalog = Catalog::new();
     catalog.upsert(origin, vec![Arc::new(example)]);
 
-    let mut question: Message = Message::new();
+    let mut question = Message::query();
 
     let mut query: Query = Query::new();
     query.set_name(Name::parse("com.", None).unwrap());
@@ -412,7 +412,7 @@ async fn test_axfr() {
     query.set_name(origin.clone().into());
     query.set_query_type(RecordType::AXFR);
 
-    let mut question: Message = Message::new();
+    let mut question = Message::query();
     question.add_query(query);
 
     // temp request
@@ -535,7 +535,7 @@ async fn test_axfr_refused() {
     query.set_name(origin.into());
     query.set_query_type(RecordType::AXFR);
 
-    let mut question: Message = Message::new();
+    let mut question = Message::query();
     question.add_query(query);
 
     // temp request
@@ -577,7 +577,7 @@ async fn test_cname_additionals() {
     let mut catalog = Catalog::new();
     catalog.upsert(origin, vec![Arc::new(example)]);
 
-    let mut question: Message = Message::new();
+    let mut question = Message::query();
 
     let mut query: Query = Query::new();
     query.set_name(Name::from_str("alias.example.com.").unwrap());
@@ -631,7 +631,7 @@ async fn test_multiple_cname_additionals() {
     let mut catalog = Catalog::new();
     catalog.upsert(origin, vec![Arc::new(example)]);
 
-    let mut question: Message = Message::new();
+    let mut question = Message::query();
 
     let mut query: Query = Query::new();
     query.set_name(Name::from_str("alias2.example.com.").unwrap());
@@ -732,7 +732,7 @@ mod dnssec {
     }
 
     async fn run_query(catalog: &Catalog, query: Query) -> Message {
-        let mut question = Message::new();
+        let mut question = Message::query();
         question.add_query(query);
         question
             .extensions_mut()

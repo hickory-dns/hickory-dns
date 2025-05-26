@@ -373,7 +373,7 @@ pub(crate) mod tests {
     }
 
     pub(crate) fn v4_message() -> Result<DnsResponse, ProtoError> {
-        let mut message = Message::new();
+        let mut message = Message::query();
         message.add_query(Query::query(Name::root(), RecordType::A));
         message.insert_answers(vec![Record::from_rdata(
             Name::root(),
@@ -387,7 +387,7 @@ pub(crate) mod tests {
     }
 
     pub(crate) fn v6_message() -> Result<DnsResponse, ProtoError> {
-        let mut message = Message::new();
+        let mut message = Message::query();
         message.add_query(Query::query(Name::root(), RecordType::AAAA));
         message.insert_answers(vec![Record::from_rdata(
             Name::root(),
@@ -401,7 +401,7 @@ pub(crate) mod tests {
     }
 
     pub(crate) fn empty() -> Result<DnsResponse, ProtoError> {
-        Ok(DnsResponse::from_message(Message::new()).unwrap())
+        Ok(DnsResponse::from_message(Message::query()).unwrap())
     }
 
     pub(crate) fn error() -> Result<DnsResponse, ProtoError> {

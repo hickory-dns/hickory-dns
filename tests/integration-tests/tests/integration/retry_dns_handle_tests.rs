@@ -26,7 +26,7 @@ impl DnsHandle for TestClient {
         let i = self.attempts.load(Ordering::SeqCst);
 
         if i > self.retries || self.retries - i == 0 {
-            let mut message = Message::new();
+            let mut message = Message::query();
             message.set_id(i);
             return Box::new(stream::once(future::ok(
                 DnsResponse::from_message(message).unwrap(),
@@ -50,7 +50,7 @@ fn retry_on_retryable_error() {
         },
         2,
     );
-    let test1 = Message::new();
+    let test1 = Message::query();
     let result = block_on(handle.send(test1).first_answer()).expect("should have succeeded");
     assert_eq!(result.id(), 1); // this is checking the number of iterations the TestClient ran
 }
@@ -60,7 +60,7 @@ fn retry_on_retryable_error() {
 #[test]
 fn dont_retry_on_negative_response() {
     subscribe();
-    let mut response = Message::new();
+    let mut response = Message::query();
     response
         .set_message_type(MessageType::Response)
         .set_op_code(OpCode::Update)
@@ -75,6 +75,6 @@ fn dont_retry_on_negative_response() {
         },
         2,
     );
-    let test1 = Message::new();
+    let test1 = Message::query();
     assert!(block_on(client.send(test1).first_answer()).is_err());
 }

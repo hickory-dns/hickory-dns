@@ -152,7 +152,7 @@ pub async fn udp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeP
         .unwrap(); // should receive something within 5 seconds...
     let server_addr = server.local_addr().unwrap();
 
-    let mut query = Message::new();
+    let mut query = Message::query();
     let test_name = Name::from_str("dead.beef.").unwrap();
     query.add_query(Query::query(test_name.clone(), RecordType::NULL));
     let test_bytes: &'static [u8; 8] = b"DEADBEEF";
@@ -175,7 +175,7 @@ pub async fn udp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeP
                 assert_eq!(*request.queries()[0].name(), test_name_server.clone());
                 assert_eq!(request.queries()[0].query_type(), RecordType::NULL);
 
-                let mut message = Message::new();
+                let mut message = Message::query();
                 message.set_id(request.id());
                 message.add_queries(request.queries().to_vec());
                 message.add_answer(Record::from_rdata(
