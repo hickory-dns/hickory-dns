@@ -209,7 +209,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             );
 
             // verify this rrset
-            let proof = self.clone().verify_rrset(&rrset, rrsigs, options).await;
+            let proof = self.verify_rrset(&rrset, rrsigs, options).await;
 
             let proof = match proof {
                 Ok(proof) => {
@@ -279,7 +279,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     /// If Ok, the set of (Proof, AdjustedTTL, and IndexOfRRSIG) is returned, where the index is the one of the RRSIG that validated
     ///   the Rrset
     async fn verify_rrset(
-        self,
+        &self,
         rrset: &Rrset<'_>,
         rrsigs: Vec<RecordRef<'_, RRSIG>>,
         options: DnsRequestOptions,
@@ -296,7 +296,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             return Ok(proof);
         }
 
-        verify_default_rrset(&self, rrset, &rrsigs, current_time, options).await
+        verify_default_rrset(self, rrset, &rrsigs, current_time, options).await
     }
 
     /// DNSKEY-specific verification
@@ -317,7 +317,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     /// This method should only be called to validate DNSKEYs, see `verify_default_rrset` for other record types.
     ///  if a non-DNSKEY RRSET is passed into this method it will always panic.
     async fn verify_dnskey_rrset(
-        self,
+        &self,
         rrset: &Rrset<'_>,
         rrsigs: &Vec<RecordRef<'_, RRSIG>>,
         current_time: u32,
@@ -344,7 +344,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 continue;
             };
 
-            proof.0 = is_dnskey_in_root_store(&self, &dnskey);
+            proof.0 = is_dnskey_in_root_store(self, &dnskey);
         }
 
         // if not all of the DNSKEYs are in the root store, then we need to look for DS records to verify
@@ -352,7 +352,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             if !dnskey_proofs.iter().all(|p| p.0.is_secure()) && !rrset.name().is_root() {
                 // Need to get DS records for each DNSKEY.
                 // Every DNSKEY other than the root zone's keys may have a corresponding DS record.
-                fetch_ds_records(&self, rrset.name().clone(), options).await?
+                fetch_ds_records(self, rrset.name().clone(), options).await?
             } else {
                 debug!("ignoring DS lookup for root zone or registered keys");
                 Vec::default()
