@@ -529,12 +529,6 @@ impl fmt::Display for Header {
     }
 }
 
-impl Default for Header {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 /// Message types are either Query (also Update) or Response
 #[derive(Debug, PartialEq, Eq, PartialOrd, Copy, Clone, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
