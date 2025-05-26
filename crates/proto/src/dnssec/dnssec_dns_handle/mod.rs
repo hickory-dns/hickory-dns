@@ -345,7 +345,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 continue;
             };
 
-            proof.0 = is_dnskey_in_root_store(self, &dnskey);
+            proof.0 = self.is_dnskey_in_root_store(&dnskey);
         }
 
         // if not all of the DNSKEYs are in the root store, then we need to look for DS records to verify
@@ -452,6 +452,28 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 name: rrset.name().clone(),
             },
         ))
+    }
+
+    /// Verifies that the key is a trust anchor.
+    ///
+    /// # Returns
+    ///
+    /// Proof::Secure if registered in the root store, Proof::Bogus if not
+    fn is_dnskey_in_root_store(&self, rr: &RecordRef<'_, DNSKEY>) -> Proof {
+        let dns_key = rr.data();
+        let pub_key = dns_key.public_key();
+
+        // Checks to see if the key is valid against the registered root certificates
+        if self.trust_anchor.contains(pub_key) {
+            debug!(
+                "validated dnskey with trust_anchor: {}, {dns_key}",
+                rr.name(),
+            );
+
+            Proof::Secure
+        } else {
+            Proof::Bogus
+        }
     }
 
     /// Verifies that a given RRSET is validly signed by any of the specified RRSIGs.
@@ -848,31 +870,6 @@ fn check_nsec(
     }
 
     Ok(verified_message)
-}
-
-/// Verifies that the key is a trust anchor.
-///
-/// # Returns
-///
-/// Proof::Secure if registered in the root store, Proof::Bogus if not
-fn is_dnskey_in_root_store(
-    handle: &DnssecDnsHandle<impl DnsHandle>,
-    rr: &RecordRef<'_, DNSKEY>,
-) -> Proof {
-    let dns_key = rr.data();
-    let pub_key = dns_key.public_key();
-
-    // Checks to see if the key is valid against the registered root certificates
-    if handle.trust_anchor.contains(pub_key) {
-        debug!(
-            "validated dnskey with trust_anchor: {}, {dns_key}",
-            rr.name(),
-        );
-
-        Proof::Secure
-    } else {
-        Proof::Bogus
-    }
 }
 
 /// This verifies a DNSKEY record against DS records from a secure delegation.
