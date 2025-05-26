@@ -11,7 +11,7 @@ use test::Bencher;
 
 #[bench]
 fn bench_emit_header(b: &mut Bencher) {
-    let header = Header::new();
+    let header = Header::new(10, MessageType::Query, OpCode::Query);
     b.iter(|| {
         // we need to create the vector here, otherwise its length is already big enough and the
         // encoder does not need to resize it
@@ -27,7 +27,7 @@ fn bench_emit_header(b: &mut Bencher) {
 // messages exceeding 512 bytes. A better benchmark would be to emit such a big message.
 #[bench]
 fn bench_parse_header_no_reservation(b: &mut Bencher) {
-    let header = Header::new();
+    let header = Header::new(10, MessageType::Query, OpCode::Query);
     b.iter(|| {
         let mut bytes = Vec::with_capacity(0);
         let mut encoder = BinEncoder::new(&mut bytes);

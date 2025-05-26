@@ -221,7 +221,7 @@ mod tests {
     use std::net::Ipv4Addr;
     use std::str::FromStr;
 
-    use crate::proto::op::{Header, Message};
+    use crate::proto::op::{Header, Message, MessageType, OpCode};
     use crate::proto::rr::{DNSClass, Name, RData, Record};
     use crate::proto::serialize::binary::BinEncoder;
 
@@ -243,7 +243,7 @@ mod tests {
             .clone();
 
             let message = MessageResponse {
-                header: Header::new(),
+                header: Header::new(10, MessageType::Response, OpCode::Query),
                 queries: &Queries::empty(),
                 answers: iter::repeat(&answer),
                 name_servers: iter::once(&answer),
@@ -281,7 +281,7 @@ mod tests {
             .clone();
 
             let message = MessageResponse {
-                header: Header::new(),
+                header: Header::new(10, MessageType::Response, OpCode::Query),
                 queries: &Queries::empty(),
                 answers: iter::empty(),
                 name_servers: iter::repeat(&answer),

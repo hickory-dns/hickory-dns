@@ -7,18 +7,15 @@
 
 use std::{io, net::SocketAddr};
 
-use hickory_proto::{
-    ProtoError,
-    op::{Header, ResponseCode},
-    rr::Record,
-    serialize::binary::BinEncodable,
-};
 use tracing::{debug, error, trace};
 
 use crate::{
     authority::MessageResponse,
     proto::{
-        BufDnsStreamHandle, DnsStreamHandle,
+        BufDnsStreamHandle, DnsStreamHandle, ProtoError,
+        op::{Header, MessageType, OpCode, ResponseCode},
+        rr::Record,
+        serialize::binary::BinEncodable,
         serialize::binary::BinEncoder,
         xfer::{Protocol, SerialMessage},
     },
@@ -152,8 +149,7 @@ pub(crate) fn encode_fallback_servfail_response(
     buffer.clear();
     let mut encoder = BinEncoder::new(buffer);
     encoder.set_max_size(512);
-    let mut header = Header::new();
-    header.set_id(id);
+    let mut header = Header::new(id, MessageType::Response, OpCode::Query);
     header.set_response_code(ResponseCode::ServFail);
     header.emit(&mut encoder)?;
 

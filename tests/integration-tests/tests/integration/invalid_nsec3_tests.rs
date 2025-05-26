@@ -20,7 +20,7 @@ use hickory_proto::{
         crypto::Ed25519SigningKey,
         rdata::{DNSKEY, DNSSECRData, DS},
     },
-    op::{Header, ResponseCode},
+    op::{Header, MessageType, ResponseCode},
     rr::{
         DNSClass, LowerName, RData, Record, RecordType,
         rdata::{A, AAAA, HINFO, MX, NS, SOA},
@@ -471,7 +471,13 @@ async fn send_response(
         Ok(info) => info,
         Err(e) => {
             error!(error = %e, "error responding to request");
-            (*Header::new().set_response_code(ResponseCode::ServFail)).into()
+            let mut header = Header::new(
+                request.id(),
+                MessageType::Response,
+                request.header().op_code(),
+            );
+            header.set_response_code(ResponseCode::ServFail);
+            ResponseInfo::from(header)
         }
     }
 }

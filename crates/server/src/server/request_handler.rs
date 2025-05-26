@@ -15,7 +15,7 @@ use crate::{
     authority::MessageRequest,
     proto::{
         ProtoError,
-        op::{Header, LowerQuery, ResponseCode},
+        op::{Header, LowerQuery, MessageType, ResponseCode},
         xfer::Protocol,
     },
     server::ResponseHandler,
@@ -127,9 +127,9 @@ impl<'a> RequestInfo<'a> {
 pub struct ResponseInfo(Header);
 
 impl ResponseInfo {
-    pub(crate) fn serve_failed(id: u16) -> Self {
-        let mut header = Header::new();
-        header.set_id(id).set_response_code(ResponseCode::ServFail);
+    pub(crate) fn serve_failed(request: &Request) -> Self {
+        let mut header = Header::new(request.id(), MessageType::Response, request.op_code());
+        header.set_response_code(ResponseCode::ServFail);
         header.into()
     }
 }
@@ -167,12 +167,12 @@ pub trait RequestHandler: Send + Sync + Unpin + 'static {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::proto::op::{Header, Query};
+    use crate::proto::op::{Header, OpCode, Query};
 
     #[test]
     fn request_info_clone() {
-        let query: Query = Query::new();
-        let header = Header::new();
+        let query = Query::new();
+        let header = Header::new(10, MessageType::Query, OpCode::Query);
         let lower_query = query.into();
         let origin = RequestInfo::new(
             "127.0.0.1:3000".parse().unwrap(),

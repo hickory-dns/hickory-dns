@@ -6,14 +6,13 @@ use std::str::FromStr;
 
 use futures_executor::block_on;
 
-use hickory_proto::dnssec::rdata::{DNSSECRData, NSEC};
 use hickory_proto::{
     dnssec::{
         Algorithm, Verifier,
-        rdata::{DNSKEY, RRSIG},
+        rdata::{DNSKEY, DNSSECRData, NSEC, RRSIG},
         verify_nsec,
     },
-    op::{Header, Query},
+    op::{Header, MessageType, OpCode, Query},
     rr::{DNSClass, Name, RData, Record, RecordType},
     xfer::Protocol,
 };
@@ -22,7 +21,7 @@ use hickory_server::{
     server::RequestInfo,
 };
 
-const TEST_HEADER: &Header = &Header::new();
+const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
 
 pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A).into();

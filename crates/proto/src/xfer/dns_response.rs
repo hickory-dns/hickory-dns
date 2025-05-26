@@ -669,7 +669,7 @@ impl NegativeType {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, any(feature = "std", feature = "no-std-rand")))]
 mod tests {
     use crate::op::{Message, Query, ResponseCode};
     use crate::rr::RData;
