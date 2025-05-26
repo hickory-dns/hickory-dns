@@ -124,15 +124,145 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         let nameservers = message.take_name_servers();
         let additionals = message.take_additionals();
 
-        let answers = verify_rrsets(&self, answers, options).await;
-        let nameservers = verify_rrsets(&self, nameservers, options).await;
-        let additionals = verify_rrsets(&self, additionals, options).await;
+        let answers = self.verify_rrsets(answers, options).await;
+        let nameservers = self.verify_rrsets(nameservers, options).await;
+        let additionals = self.verify_rrsets(additionals, options).await;
 
         message.insert_answers(answers);
         message.insert_name_servers(nameservers);
         message.insert_additionals(additionals);
 
         Ok(message)
+    }
+
+    /// This pulls all answers returned in a Message response and returns a future which will
+    ///  validate all of them.
+    async fn verify_rrsets(&self, records: Vec<Record>, options: DnsRequestOptions) -> Vec<Record> {
+        let mut rrset_types: HashSet<(Name, RecordType)> = HashSet::new();
+
+        for rrset in records
+            .iter()
+            .filter(|rr| {
+                rr.record_type() != RecordType::RRSIG &&
+                // if we are at a depth greater than 1, we are only interested in proving evaluation chains
+                //   this means that only DNSKEY, DS, NSEC, and NSEC3 are interesting at that point.
+                //   this protects against looping over things like NS records and DNSKEYs in responses.
+                // TODO: is there a cleaner way to prevent cycles in the evaluations?
+                (self.request_depth <= 1 || matches!(
+                    rr.record_type(),
+                    RecordType::DNSKEY | RecordType::DS | RecordType::NSEC | RecordType::NSEC3,
+                ))
+            })
+            .map(|rr| (rr.name().clone(), rr.record_type()))
+        {
+            rrset_types.insert(rrset);
+        }
+
+        // there were no records to verify
+        if rrset_types.is_empty() {
+            return records;
+        }
+
+        // Records for return, eventually, all records will be returned in here
+        let mut return_records = Vec::with_capacity(records.len());
+
+        // Removing the RRSIGs from the original records, the rest of the records will be mutable to remove those evaluated
+        //    and the remainder after all evalutions will be returned.
+        let (mut rrsigs, mut records) = records
+            .into_iter()
+            .partition::<Vec<_>, _>(|r| r.record_type().is_rrsig());
+
+        for (name, record_type) in rrset_types {
+            // collect all the rrsets to verify
+            let current_rrset;
+            (current_rrset, records) = records
+                .into_iter()
+                .partition::<Vec<_>, _>(|rr| rr.record_type() == record_type && rr.name() == &name);
+
+            let current_rrsigs;
+            (current_rrsigs, rrsigs) = rrsigs.into_iter().partition::<Vec<_>, _>(|rr| {
+                rr.try_borrow::<RRSIG>()
+                    .map(|rr| rr.name() == &name && rr.data().input().type_covered == record_type)
+                    .unwrap_or_default()
+            });
+
+            // TODO: we can do a better job here, no need for all the vec creation and clones in the Rrset.
+            let mut rrs_to_verify = current_rrset.iter();
+            let mut rrset = Rrset::new(rrs_to_verify.next().unwrap());
+            rrs_to_verify.for_each(|rr| rrset.add(rr));
+
+            // RRSIGS are never modified after this point
+            let rrsigs: Vec<_> = current_rrsigs
+                .iter()
+                .filter_map(|rr| rr.try_borrow::<RRSIG>())
+                .filter(|rr| rr.name() == &name)
+                .filter(|rrsig| rrsig.data().input().type_covered == record_type)
+                .collect();
+
+            // if there is already an active validation going on, assume the other validation will
+            //  complete properly or error if it is invalid
+
+            // TODO: support non-IN classes?
+            debug!(
+                "verifying: {name} record_type: {record_type}, rrsigs: {rrsig_len}",
+                rrsig_len = rrsigs.len()
+            );
+
+            // verify this rrset
+            let proof = verify_rrset(self.clone(), &rrset, rrsigs, options).await;
+
+            let proof = match proof {
+                Ok(proof) => {
+                    debug!("verified: {name} record_type: {record_type}",);
+                    proof
+                }
+                Err(err) => {
+                    match err.kind() {
+                        ProofErrorKind::DsResponseNsec { .. } => {
+                            debug!("verified insecure {name}/{record_type}")
+                        }
+                        kind => {
+                            debug!("failed to verify: {name} record_type: {record_type}: {kind}")
+                        }
+                    }
+                    (err.proof, None, None)
+                }
+            };
+
+            let (proof, adjusted_ttl, rrsig_idx) = proof;
+            for mut record in current_rrset {
+                record.set_proof(proof);
+                if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
+                    record.set_ttl(ttl);
+                }
+
+                return_records.push(record);
+            }
+
+            // only mark the RRSIG used for the proof
+            let mut current_rrsigs = current_rrsigs;
+            if let Some(rrsig_idx) = rrsig_idx {
+                if let Some(rrsig) = current_rrsigs.get_mut(rrsig_idx) {
+                    rrsig.set_proof(proof);
+                    if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
+                        rrsig.set_ttl(ttl);
+                    }
+                } else {
+                    warn!(
+                        "bad rrsig index {rrsig_idx} rrsigs.len = {}",
+                        current_rrsigs.len()
+                    );
+                }
+            }
+
+            // push all the RRSIGs back to the return
+            return_records.extend(current_rrsigs);
+        }
+
+        // Add back all the RRSIGs and any records that were not verified
+        return_records.extend(rrsigs);
+        return_records.extend(records);
+        return_records
     }
 
     /// An internal function used to clone the handle, but maintain some information back to the
@@ -366,138 +496,6 @@ fn check_nsec(
     }
 
     Ok(verified_message)
-}
-
-/// This pulls all answers returned in a Message response and returns a future which will
-///  validate all of them.
-async fn verify_rrsets(
-    handle: &DnssecDnsHandle<impl DnsHandle>,
-    records: Vec<Record>,
-    options: DnsRequestOptions,
-) -> Vec<Record> {
-    let mut rrset_types: HashSet<(Name, RecordType)> = HashSet::new();
-
-    for rrset in records
-        .iter()
-        .filter(|rr| {
-            rr.record_type() != RecordType::RRSIG &&
-            // if we are at a depth greater than 1, we are only interested in proving evaluation chains
-            //   this means that only DNSKEY, DS, NSEC, and NSEC3 are interesting at that point.
-            //   this protects against looping over things like NS records and DNSKEYs in responses.
-            // TODO: is there a cleaner way to prevent cycles in the evaluations?
-            (handle.request_depth <= 1 || matches!(
-                rr.record_type(),
-                RecordType::DNSKEY | RecordType::DS | RecordType::NSEC | RecordType::NSEC3,
-            ))
-        })
-        .map(|rr| (rr.name().clone(), rr.record_type()))
-    {
-        rrset_types.insert(rrset);
-    }
-
-    // there were no records to verify
-    if rrset_types.is_empty() {
-        return records;
-    }
-
-    // Records for return, eventually, all records will be returned in here
-    let mut return_records = Vec::with_capacity(records.len());
-
-    // Removing the RRSIGs from the original records, the rest of the records will be mutable to remove those evaluated
-    //    and the remainder after all evalutions will be returned.
-    let (mut rrsigs, mut records) = records
-        .into_iter()
-        .partition::<Vec<_>, _>(|r| r.record_type().is_rrsig());
-
-    for (name, record_type) in rrset_types {
-        // collect all the rrsets to verify
-        let current_rrset;
-        (current_rrset, records) = records
-            .into_iter()
-            .partition::<Vec<_>, _>(|rr| rr.record_type() == record_type && rr.name() == &name);
-
-        let current_rrsigs;
-        (current_rrsigs, rrsigs) = rrsigs.into_iter().partition::<Vec<_>, _>(|rr| {
-            rr.try_borrow::<RRSIG>()
-                .map(|rr| rr.name() == &name && rr.data().input.type_covered == record_type)
-                .unwrap_or_default()
-        });
-
-        // TODO: we can do a better job here, no need for all the vec creation and clones in the Rrset.
-        let mut rrs_to_verify = current_rrset.iter();
-        let mut rrset = Rrset::new(rrs_to_verify.next().unwrap());
-        rrs_to_verify.for_each(|rr| rrset.add(rr));
-
-        // RRSIGS are never modified after this point
-        let rrsigs: Vec<_> = current_rrsigs
-            .iter()
-            .filter_map(|rr| rr.try_borrow::<RRSIG>())
-            .filter(|rr| rr.name() == &name)
-            .filter(|rrsig| rrsig.data().input.type_covered == record_type)
-            .collect();
-
-        // if there is already an active validation going on, assume the other validation will
-        //  complete properly or error if it is invalid
-
-        // TODO: support non-IN classes?
-        debug!(
-            "verifying: {name} record_type: {record_type}, rrsigs: {rrsig_len}",
-            rrsig_len = rrsigs.len()
-        );
-
-        // verify this rrset
-        let proof = verify_rrset(handle.clone(), &rrset, rrsigs, options).await;
-
-        let proof = match proof {
-            Ok(proof) => {
-                debug!("verified: {name} record_type: {record_type}",);
-                proof
-            }
-            Err(err) => {
-                match err.kind() {
-                    ProofErrorKind::DsResponseNsec { .. } => {
-                        debug!("verified insecure {name}/{record_type}")
-                    }
-                    kind => debug!("failed to verify: {name} record_type: {record_type}: {kind}"),
-                }
-                (err.proof, None, None)
-            }
-        };
-
-        let (proof, adjusted_ttl, rrsig_idx) = proof;
-        for mut record in current_rrset {
-            record.set_proof(proof);
-            if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
-                record.set_ttl(ttl);
-            }
-
-            return_records.push(record);
-        }
-
-        // only mark the RRSIG used for the proof
-        let mut current_rrsigs = current_rrsigs;
-        if let Some(rrsig_idx) = rrsig_idx {
-            if let Some(rrsig) = current_rrsigs.get_mut(rrsig_idx) {
-                rrsig.set_proof(proof);
-                if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
-                    rrsig.set_ttl(ttl);
-                }
-            } else {
-                warn!(
-                    "bad rrsig index {rrsig_idx} rrsigs.len = {}",
-                    current_rrsigs.len()
-                );
-            }
-        }
-
-        // push all the RRSIGs back to the return
-        return_records.extend(current_rrsigs);
-    }
-
-    // Add back all the RRSIGs and any records that were not verified
-    return_records.extend(rrsigs);
-    return_records.extend(records);
-    return_records
 }
 
 /// Generic entrypoint to verify any RRSET against the provided signatures.
