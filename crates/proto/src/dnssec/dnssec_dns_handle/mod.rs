@@ -209,7 +209,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             );
 
             // verify this rrset
-            let proof = verify_rrset(self.clone(), &rrset, rrsigs, options).await;
+            let proof = self.clone().verify_rrset(&rrset, rrsigs, options).await;
 
             let proof = match proof {
                 Ok(proof) => {
@@ -263,6 +263,38 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         return_records.extend(rrsigs);
         return_records.extend(records);
         return_records
+    }
+
+    /// Generic entrypoint to verify any RRSET against the provided signatures.
+    ///
+    /// Generally, the RRSET will be validated by `verify_default_rrset()`. There are additional
+    ///  checks that happen after the RRSET is successfully validated. In the case of DNSKEYs this
+    ///  triggers `verify_dnskey_rrset()`. If it's an NSEC record, then the NSEC record will be
+    ///  validated to prove it's correctness. There is a special case for DNSKEY, where if the RRSET
+    ///  is unsigned, `rrsigs` is empty, then an immediate `verify_dnskey_rrset()` is triggered. In
+    ///  this case, it's possible the DNSKEY is a trust_anchor and is not self-signed.
+    ///
+    /// # Returns
+    ///
+    /// If Ok, the set of (Proof, AdjustedTTL, and IndexOfRRSIG) is returned, where the index is the one of the RRSIG that validated
+    ///   the Rrset
+    async fn verify_rrset(
+        self,
+        rrset: &Rrset<'_>,
+        rrsigs: Vec<RecordRef<'_, RRSIG>>,
+        options: DnsRequestOptions,
+    ) -> Result<(Proof, Option<u32>, Option<usize>), ProofError> {
+        // use the same current time value for all rrsig + rrset pairs.
+        let current_time = current_time();
+
+        // DNSKEYS have different logic for their verification
+        if matches!(rrset.record_type(), RecordType::DNSKEY) {
+            let proof = verify_dnskey_rrset(self, rrset, &rrsigs, current_time, options).await?;
+
+            return Ok(proof);
+        }
+
+        verify_default_rrset(&self, rrset, &rrsigs, current_time, options).await
     }
 
     /// An internal function used to clone the handle, but maintain some information back to the
@@ -496,38 +528,6 @@ fn check_nsec(
     }
 
     Ok(verified_message)
-}
-
-/// Generic entrypoint to verify any RRSET against the provided signatures.
-///
-/// Generally, the RRSET will be validated by `verify_default_rrset()`. There are additional
-///  checks that happen after the RRSET is successfully validated. In the case of DNSKEYs this
-///  triggers `verify_dnskey_rrset()`. If it's an NSEC record, then the NSEC record will be
-///  validated to prove it's correctness. There is a special case for DNSKEY, where if the RRSET
-///  is unsigned, `rrsigs` is empty, then an immediate `verify_dnskey_rrset()` is triggered. In
-///  this case, it's possible the DNSKEY is a trust_anchor and is not self-signed.
-///
-/// # Returns
-///
-/// If Ok, the set of (Proof, AdjustedTTL, and IndexOfRRSIG) is returned, where the index is the one of the RRSIG that validated
-///   the Rrset
-async fn verify_rrset(
-    handle: DnssecDnsHandle<impl DnsHandle>,
-    rrset: &Rrset<'_>,
-    rrsigs: Vec<RecordRef<'_, RRSIG>>,
-    options: DnsRequestOptions,
-) -> Result<(Proof, Option<u32>, Option<usize>), ProofError> {
-    // use the same current time value for all rrsig + rrset pairs.
-    let current_time = current_time();
-
-    // DNSKEYS have different logic for their verification
-    if matches!(rrset.record_type(), RecordType::DNSKEY) {
-        let proof = verify_dnskey_rrset(handle, rrset, &rrsigs, current_time, options).await?;
-
-        return Ok(proof);
-    }
-
-    verify_default_rrset(&handle, rrset, &rrsigs, current_time, options).await
 }
 
 /// DNSKEY-specific verification
