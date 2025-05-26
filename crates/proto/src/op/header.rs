@@ -71,95 +71,6 @@ pub struct Header {
     additional_count: u16,
 }
 
-impl fmt::Display for Header {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(
-            f,
-            "{id}:{message_type}:{flags}:{code:?}:{op_code}:{answers}/{authorities}/{additionals}",
-            id = self.id,
-            message_type = self.message_type,
-            flags = self.flags(),
-            code = self.response_code,
-            op_code = self.op_code,
-            answers = self.answer_count,
-            authorities = self.name_server_count,
-            additionals = self.additional_count,
-        )
-    }
-}
-
-/// Message types are either Query (also Update) or Response
-#[derive(Debug, PartialEq, Eq, PartialOrd, Copy, Clone, Hash)]
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-pub enum MessageType {
-    /// Queries are Client requests, these are either Queries or Updates
-    Query,
-    /// Response message from the Server or upstream Resolver
-    Response,
-}
-
-impl fmt::Display for MessageType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        let s = match self {
-            Self::Query => "QUERY",
-            Self::Response => "RESPONSE",
-        };
-
-        f.write_str(s)
-    }
-}
-
-/// All the flags of the request/response header
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Flags {
-    authoritative: bool,
-    truncation: bool,
-    recursion_desired: bool,
-    recursion_available: bool,
-    authentic_data: bool,
-    checking_disabled: bool,
-}
-
-/// We are following the `dig` commands display format for the header flags
-///
-/// Example: "RD,AA,RA;" is Recursion-Desired, Authoritative-Answer, Recursion-Available.
-impl fmt::Display for Flags {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        const SEPARATOR: &str = ",";
-
-        let flags = [
-            (self.recursion_desired, "RD"),
-            (self.checking_disabled, "CD"),
-            (self.truncation, "TC"),
-            (self.authoritative, "AA"),
-            (self.recursion_available, "RA"),
-            (self.authentic_data, "AD"),
-        ];
-
-        let mut iter = flags
-            .iter()
-            .cloned()
-            .filter_map(|(flag, s)| if flag { Some(s) } else { None });
-
-        // print first without a separator, then print the rest.
-        if let Some(s) = iter.next() {
-            f.write_str(s)?
-        }
-        for s in iter {
-            f.write_str(SEPARATOR)?;
-            f.write_str(s)?;
-        }
-
-        Ok(())
-    }
-}
-
-impl Default for Header {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Header {
     // TODO: we should make id, message_type and op_code all required and non-editable
     /// A default Header, not very useful.
@@ -598,6 +509,95 @@ impl<'r> BinDecodable<'r> for Header {
             name_server_count,
             additional_count,
         })
+    }
+}
+
+impl fmt::Display for Header {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(
+            f,
+            "{id}:{message_type}:{flags}:{code:?}:{op_code}:{answers}/{authorities}/{additionals}",
+            id = self.id,
+            message_type = self.message_type,
+            flags = self.flags(),
+            code = self.response_code,
+            op_code = self.op_code,
+            answers = self.answer_count,
+            authorities = self.name_server_count,
+            additionals = self.additional_count,
+        )
+    }
+}
+
+impl Default for Header {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Message types are either Query (also Update) or Response
+#[derive(Debug, PartialEq, Eq, PartialOrd, Copy, Clone, Hash)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+pub enum MessageType {
+    /// Queries are Client requests, these are either Queries or Updates
+    Query,
+    /// Response message from the Server or upstream Resolver
+    Response,
+}
+
+impl fmt::Display for MessageType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        let s = match self {
+            Self::Query => "QUERY",
+            Self::Response => "RESPONSE",
+        };
+
+        f.write_str(s)
+    }
+}
+
+/// All the flags of the request/response header
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Flags {
+    authoritative: bool,
+    truncation: bool,
+    recursion_desired: bool,
+    recursion_available: bool,
+    authentic_data: bool,
+    checking_disabled: bool,
+}
+
+/// We are following the `dig` commands display format for the header flags
+///
+/// Example: "RD,AA,RA;" is Recursion-Desired, Authoritative-Answer, Recursion-Available.
+impl fmt::Display for Flags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        const SEPARATOR: &str = ",";
+
+        let flags = [
+            (self.recursion_desired, "RD"),
+            (self.checking_disabled, "CD"),
+            (self.truncation, "TC"),
+            (self.authoritative, "AA"),
+            (self.recursion_available, "RA"),
+            (self.authentic_data, "AD"),
+        ];
+
+        let mut iter = flags
+            .iter()
+            .cloned()
+            .filter_map(|(flag, s)| if flag { Some(s) } else { None });
+
+        // print first without a separator, then print the rest.
+        if let Some(s) = iter.next() {
+            f.write_str(s)?
+        }
+        for s in iter {
+            f.write_str(SEPARATOR)?;
+            f.write_str(s)?;
+        }
+
+        Ok(())
     }
 }
 
