@@ -287,7 +287,7 @@ impl Catalog {
                 };
 
                 let response = MessageResponseBuilder::new(update.raw_queries());
-                let mut response_header = Header::default();
+                let mut response_header = Header::new();
                 response_header.set_id(update.id());
                 response_header.set_op_code(OpCode::Update);
                 response_header.set_message_type(MessageType::Response);

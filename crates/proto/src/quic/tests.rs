@@ -111,7 +111,7 @@ async fn test_quic_stream() {
     println!("connected client to server");
 
     // create a test message, send and then receive...
-    let mut message = Message::default();
+    let mut message = Message::new();
     message.add_query(Query::query(
         Name::from_str("www.example.test.").unwrap(),
         RecordType::AAAA,
