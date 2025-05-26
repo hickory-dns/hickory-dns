@@ -45,10 +45,7 @@ use super::rdata::{DNSSECRData, NSEC};
 ///  this process.
 #[derive(Clone)]
 #[must_use = "queries can only be sent through a DnsHandle"]
-pub struct DnssecDnsHandle<H>
-where
-    H: DnsHandle + Unpin + 'static,
-{
+pub struct DnssecDnsHandle<H> {
     handle: H,
     trust_anchor: Arc<TrustAnchors>,
     request_depth: usize,
@@ -56,10 +53,7 @@ where
     nsec3_hard_iteration_limit: u16,
 }
 
-impl<H> DnssecDnsHandle<H>
-where
-    H: DnsHandle + Unpin + 'static,
-{
+impl<H: DnsHandle> DnssecDnsHandle<H> {
     /// Create a new DnssecDnsHandle wrapping the specified handle.
     ///
     /// This uses the compiled in TrustAnchor default trusted keys.
@@ -127,10 +121,7 @@ where
 }
 
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
-impl<H> DnsHandle for DnssecDnsHandle<H>
-where
-    H: DnsHandle + Sync + Unpin,
-{
+impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn is_verifying_dnssec(&self) -> bool {
@@ -349,14 +340,11 @@ fn check_nsec(
 }
 
 /// Extracts the different sections of a message and verifies the RRSIGs
-async fn verify_response<H>(
-    handle: DnssecDnsHandle<H>,
+async fn verify_response(
+    handle: DnssecDnsHandle<impl DnsHandle>,
     mut message: DnsResponse,
     options: DnsRequestOptions,
-) -> Result<DnsResponse, ProtoError>
-where
-    H: DnsHandle + Sync + Unpin,
-{
+) -> Result<DnsResponse, ProtoError> {
     debug!(
         "validating message_response: {}, with {} trust_anchors",
         message.id(),
@@ -382,14 +370,11 @@ where
 
 /// This pulls all answers returned in a Message response and returns a future which will
 ///  validate all of them.
-async fn verify_rrsets<H>(
-    handle: &DnssecDnsHandle<H>,
+async fn verify_rrsets(
+    handle: &DnssecDnsHandle<impl DnsHandle>,
     records: Vec<Record>,
     options: DnsRequestOptions,
-) -> Vec<Record>
-where
-    H: DnsHandle + Sync + Unpin,
-{
+) -> Vec<Record> {
     let mut rrset_types: HashSet<(Name, RecordType)> = HashSet::new();
 
     for rrset in records
@@ -528,15 +513,12 @@ where
 ///
 /// If Ok, the set of (Proof, AdjustedTTL, and IndexOfRRSIG) is returned, where the index is the one of the RRSIG that validated
 ///   the Rrset
-async fn verify_rrset<H>(
-    handle: DnssecDnsHandle<H>,
+async fn verify_rrset(
+    handle: DnssecDnsHandle<impl DnsHandle>,
     rrset: &Rrset<'_>,
     rrsigs: Vec<RecordRef<'_, RRSIG>>,
     options: DnsRequestOptions,
-) -> Result<(Proof, Option<u32>, Option<usize>), ProofError>
-where
-    H: DnsHandle + Sync + Unpin,
-{
+) -> Result<(Proof, Option<u32>, Option<usize>), ProofError> {
     // use the same current time value for all rrsig + rrset pairs.
     let current_time = current_time();
 
@@ -567,16 +549,13 @@ where
 ///
 /// This method should only be called to validate DNSKEYs, see `verify_default_rrset` for other record types.
 ///  if a non-DNSKEY RRSET is passed into this method it will always panic.
-async fn verify_dnskey_rrset<H>(
-    handle: DnssecDnsHandle<H>,
+async fn verify_dnskey_rrset(
+    handle: DnssecDnsHandle<impl DnsHandle>,
     rrset: &Rrset<'_>,
     rrsigs: &Vec<RecordRef<'_, RRSIG>>,
     current_time: u32,
     options: DnsRequestOptions,
-) -> Result<(Proof, Option<u32>, Option<usize>), ProofError>
-where
-    H: DnsHandle + Sync + Unpin,
-{
+) -> Result<(Proof, Option<u32>, Option<usize>), ProofError> {
     // Ensure that this method is not misused
     if RecordType::DNSKEY != rrset.record_type() {
         panic!("All other RRSETs must use verify_default_rrset");
@@ -709,10 +688,10 @@ where
 /// # Returns
 ///
 /// Proof::Secure if registered in the root store, Proof::Bogus if not
-fn is_dnskey_in_root_store<H>(handle: &DnssecDnsHandle<H>, rr: &RecordRef<'_, DNSKEY>) -> Proof
-where
-    H: DnsHandle + Sync + Unpin,
-{
+fn is_dnskey_in_root_store(
+    handle: &DnssecDnsHandle<impl DnsHandle>,
+    rr: &RecordRef<'_, DNSKEY>,
+) -> Proof {
     let dns_key = rr.data();
     let pub_key = dns_key.public_key();
 
@@ -814,14 +793,11 @@ fn verify_dnskey(
 }
 
 /// Retrieves DS records for the given zone.
-async fn fetch_ds_records<H>(
-    handle: &DnssecDnsHandle<H>,
+async fn fetch_ds_records(
+    handle: &DnssecDnsHandle<impl DnsHandle>,
     zone: Name,
     options: DnsRequestOptions,
-) -> Result<Vec<Record<DS>>, ProofError>
-where
-    H: DnsHandle + Sync + Unpin,
-{
+) -> Result<Vec<Record<DS>>, ProofError> {
     let ds_message = handle
         .lookup(Query::query(zone.clone(), RecordType::DS), options)
         .first_answer()
@@ -914,14 +890,11 @@ where
 }
 
 /// Checks whether a DS RRset exists for the given name or an ancestor of it.
-async fn find_ds_records<H>(
-    handle: &DnssecDnsHandle<H>,
+async fn find_ds_records(
+    handle: &DnssecDnsHandle<impl DnsHandle>,
     zone: Name,
     options: DnsRequestOptions,
-) -> Result<(), ProofError>
-where
-    H: DnsHandle + Sync + Unpin,
-{
+) -> Result<(), ProofError> {
     match fetch_ds_records(handle, zone.clone(), options).await {
         Ok(_) => return Ok(()),
         Err(err) if matches!(err.kind(), ProofErrorKind::DsRecordShouldExist { .. }) => {}
@@ -961,16 +934,13 @@ where
 ///
 /// This method should never be called to validate DNSKEYs, see `verify_dnskey_rrset` instead.
 ///  if a DNSKEY RRSET is passed into this method it will always panic.
-async fn verify_default_rrset<H>(
-    handle: &DnssecDnsHandle<H>,
+async fn verify_default_rrset(
+    handle: &DnssecDnsHandle<impl DnsHandle>,
     rrset: &Rrset<'_>,
     rrsigs: &Vec<RecordRef<'_, RRSIG>>,
     current_time: u32,
     options: DnsRequestOptions,
-) -> Result<(Proof, Option<u32>, Option<usize>), ProofError>
-where
-    H: DnsHandle + Sync + Unpin,
-{
+) -> Result<(Proof, Option<u32>, Option<usize>), ProofError> {
     // Ensure that this method is not misused
     if RecordType::DNSKEY == rrset.record_type() {
         panic!("DNSKEYs must be validated with verify_dnskey_rrset");
