@@ -106,6 +106,35 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         self
     }
 
+    /// Extracts the different sections of a message and verifies the RRSIGs
+    async fn verify_response(
+        self,
+        mut message: DnsResponse,
+        options: DnsRequestOptions,
+    ) -> Result<DnsResponse, ProtoError> {
+        debug!(
+            "validating message_response: {}, with {} trust_anchors",
+            message.id(),
+            self.trust_anchor.len(),
+        );
+
+        // group the record sets by name and type
+        //  each rrset type needs to validated independently
+        let answers = message.take_answers();
+        let nameservers = message.take_name_servers();
+        let additionals = message.take_additionals();
+
+        let answers = verify_rrsets(&self, answers, options).await;
+        let nameservers = verify_rrsets(&self, nameservers, options).await;
+        let additionals = verify_rrsets(&self, additionals, options).await;
+
+        message.insert_answers(answers);
+        message.insert_name_servers(nameservers);
+        message.insert_additionals(additionals);
+
+        Ok(message)
+    }
+
     /// An internal function used to clone the handle, but maintain some information back to the
     ///  original handle, such as the request_depth such that infinite recursion does
     ///  not occur.
@@ -207,7 +236,7 @@ impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
                     }
                 })
                 .and_then(move |message_response| {
-                    verify_response(handle.clone(), message_response, options)
+                    handle.clone().verify_response(message_response, options)
                 })
                 .and_then(move |verified_message| {
                     future::ready(check_nsec(
@@ -337,35 +366,6 @@ fn check_nsec(
     }
 
     Ok(verified_message)
-}
-
-/// Extracts the different sections of a message and verifies the RRSIGs
-async fn verify_response(
-    handle: DnssecDnsHandle<impl DnsHandle>,
-    mut message: DnsResponse,
-    options: DnsRequestOptions,
-) -> Result<DnsResponse, ProtoError> {
-    debug!(
-        "validating message_response: {}, with {} trust_anchors",
-        message.id(),
-        handle.trust_anchor.len(),
-    );
-
-    // group the record sets by name and type
-    //  each rrset type needs to validated independently
-    let answers = message.take_answers();
-    let nameservers = message.take_name_servers();
-    let additionals = message.take_additionals();
-
-    let answers = verify_rrsets(&handle, answers, options).await;
-    let nameservers = verify_rrsets(&handle, nameservers, options).await;
-    let additionals = verify_rrsets(&handle, additionals, options).await;
-
-    message.insert_answers(answers);
-    message.insert_name_servers(nameservers);
-    message.insert_additionals(additionals);
-
-    Ok(message)
 }
 
 /// This pulls all answers returned in a Message response and returns a future which will
