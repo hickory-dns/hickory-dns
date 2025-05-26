@@ -1,7 +1,7 @@
 //! Reserved Zone and related information
 
 use hickory_proto::rr::domain::usage::{
-    ZoneUsage, DEFAULT, INVALID, IN_ADDR_ARPA, IN_ADDR_ARPA_127, IP6_ARPA_1, LOCALHOST, ONION,
+    DEFAULT, IN_ADDR_ARPA, IN_ADDR_ARPA_127, INVALID, IP6_ARPA_1, LOCALHOST, ONION, ZoneUsage,
 };
 use hickory_proto::rr::domain::{Label, Name};
 use hickory_proto::serialize::binary::BinEncodable;
@@ -302,84 +302,107 @@ impl UsageTrie {
 
         assert!(trie.insert(DEFAULT.clone().into(), &DEFAULT).is_none());
 
-        assert!(trie
-            .insert(IN_ADDR_ARPA_10.clone().into(), &IN_ADDR_ARPA_10)
-            .is_none());
-        assert!(trie
-            .insert(IN_ADDR_ARPA_172_16.clone().into(), &IN_ADDR_ARPA_172_16)
-            .is_none());
-        assert!(trie
-            .insert(IN_ADDR_ARPA_172_17.clone().into(), &IN_ADDR_ARPA_172_17)
-            .is_none());
-        assert!(trie
-            .insert(IN_ADDR_ARPA_172_18.clone().into(), &IN_ADDR_ARPA_172_18)
-            .is_none());
-        assert!(trie
-            .insert(IN_ADDR_ARPA_172_19.clone().into(), &IN_ADDR_ARPA_172_19)
-            .is_none());
-        assert!(trie
-            .insert(IN_ADDR_ARPA_172_20.clone().into(), &IN_ADDR_ARPA_172_20)
-            .is_none());
-        assert!(trie
-            .insert(IN_ADDR_ARPA_172_21.clone().into(), &IN_ADDR_ARPA_172_21)
-            .is_none());
-        assert!(trie
-            .insert(IN_ADDR_ARPA_172_22.clone().into(), &IN_ADDR_ARPA_172_22)
-            .is_none());
-        assert!(trie
-            .insert(IN_ADDR_ARPA_172_23.clone().into(), &IN_ADDR_ARPA_172_23)
-            .is_none());
-        assert!(trie
-            .insert(IN_ADDR_ARPA_172_24.clone().into(), &IN_ADDR_ARPA_172_24)
-            .is_none());
-        assert!(trie
-            .insert(IN_ADDR_ARPA_172_25.clone().into(), &IN_ADDR_ARPA_172_25)
-            .is_none());
-        assert!(trie
-            .insert(IN_ADDR_ARPA_172_26.clone().into(), &IN_ADDR_ARPA_172_26)
-            .is_none());
-        assert!(trie
-            .insert(IN_ADDR_ARPA_172_27.clone().into(), &IN_ADDR_ARPA_172_27)
-            .is_none());
-        assert!(trie
-            .insert(IN_ADDR_ARPA_172_28.clone().into(), &IN_ADDR_ARPA_172_28)
-            .is_none());
-        assert!(trie
-            .insert(IN_ADDR_ARPA_172_29.clone().into(), &IN_ADDR_ARPA_172_29)
-            .is_none());
-        assert!(trie
-            .insert(IN_ADDR_ARPA_172_30.clone().into(), &IN_ADDR_ARPA_172_30)
-            .is_none());
-        assert!(trie
-            .insert(IN_ADDR_ARPA_172_31.clone().into(), &IN_ADDR_ARPA_172_31)
-            .is_none());
-        assert!(trie
-            .insert(IN_ADDR_ARPA_192_168.clone().into(), &IN_ADDR_ARPA_192_168)
-            .is_none());
+        assert!(
+            trie.insert(IN_ADDR_ARPA_10.clone().into(), &IN_ADDR_ARPA_10)
+                .is_none()
+        );
+        assert!(
+            trie.insert(IN_ADDR_ARPA_172_16.clone().into(), &IN_ADDR_ARPA_172_16)
+                .is_none()
+        );
+        assert!(
+            trie.insert(IN_ADDR_ARPA_172_17.clone().into(), &IN_ADDR_ARPA_172_17)
+                .is_none()
+        );
+        assert!(
+            trie.insert(IN_ADDR_ARPA_172_18.clone().into(), &IN_ADDR_ARPA_172_18)
+                .is_none()
+        );
+        assert!(
+            trie.insert(IN_ADDR_ARPA_172_19.clone().into(), &IN_ADDR_ARPA_172_19)
+                .is_none()
+        );
+        assert!(
+            trie.insert(IN_ADDR_ARPA_172_20.clone().into(), &IN_ADDR_ARPA_172_20)
+                .is_none()
+        );
+        assert!(
+            trie.insert(IN_ADDR_ARPA_172_21.clone().into(), &IN_ADDR_ARPA_172_21)
+                .is_none()
+        );
+        assert!(
+            trie.insert(IN_ADDR_ARPA_172_22.clone().into(), &IN_ADDR_ARPA_172_22)
+                .is_none()
+        );
+        assert!(
+            trie.insert(IN_ADDR_ARPA_172_23.clone().into(), &IN_ADDR_ARPA_172_23)
+                .is_none()
+        );
+        assert!(
+            trie.insert(IN_ADDR_ARPA_172_24.clone().into(), &IN_ADDR_ARPA_172_24)
+                .is_none()
+        );
+        assert!(
+            trie.insert(IN_ADDR_ARPA_172_25.clone().into(), &IN_ADDR_ARPA_172_25)
+                .is_none()
+        );
+        assert!(
+            trie.insert(IN_ADDR_ARPA_172_26.clone().into(), &IN_ADDR_ARPA_172_26)
+                .is_none()
+        );
+        assert!(
+            trie.insert(IN_ADDR_ARPA_172_27.clone().into(), &IN_ADDR_ARPA_172_27)
+                .is_none()
+        );
+        assert!(
+            trie.insert(IN_ADDR_ARPA_172_28.clone().into(), &IN_ADDR_ARPA_172_28)
+                .is_none()
+        );
+        assert!(
+            trie.insert(IN_ADDR_ARPA_172_29.clone().into(), &IN_ADDR_ARPA_172_29)
+                .is_none()
+        );
+        assert!(
+            trie.insert(IN_ADDR_ARPA_172_30.clone().into(), &IN_ADDR_ARPA_172_30)
+                .is_none()
+        );
+        assert!(
+            trie.insert(IN_ADDR_ARPA_172_31.clone().into(), &IN_ADDR_ARPA_172_31)
+                .is_none()
+        );
+        assert!(
+            trie.insert(IN_ADDR_ARPA_192_168.clone().into(), &IN_ADDR_ARPA_192_168)
+                .is_none()
+        );
 
         assert!(trie.insert(TEST.clone().into(), &TEST).is_none());
 
         assert!(trie.insert(LOCALHOST.clone().into(), &LOCALHOST).is_none());
-        assert!(trie
-            .insert(IN_ADDR_ARPA_127.clone().into(), &IN_ADDR_ARPA_127)
-            .is_none());
-        assert!(trie
-            .insert(IP6_ARPA_1.clone().into(), &IP6_ARPA_1)
-            .is_none());
+        assert!(
+            trie.insert(IN_ADDR_ARPA_127.clone().into(), &IN_ADDR_ARPA_127)
+                .is_none()
+        );
+        assert!(
+            trie.insert(IP6_ARPA_1.clone().into(), &IP6_ARPA_1)
+                .is_none()
+        );
 
         assert!(trie.insert(INVALID.clone().into(), &INVALID).is_none());
         assert!(trie.insert(ONION.clone().into(), &ONION).is_none());
 
         assert!(trie.insert(EXAMPLE.clone().into(), &EXAMPLE).is_none());
-        assert!(trie
-            .insert(EXAMPLE_COM.clone().into(), &EXAMPLE_COM)
-            .is_none());
-        assert!(trie
-            .insert(EXAMPLE_NET.clone().into(), &EXAMPLE_NET)
-            .is_none());
-        assert!(trie
-            .insert(EXAMPLE_ORG.clone().into(), &EXAMPLE_ORG)
-            .is_none());
+        assert!(
+            trie.insert(EXAMPLE_COM.clone().into(), &EXAMPLE_COM)
+                .is_none()
+        );
+        assert!(
+            trie.insert(EXAMPLE_NET.clone().into(), &EXAMPLE_NET)
+                .is_none()
+        );
+        assert!(
+            trie.insert(EXAMPLE_ORG.clone().into(), &EXAMPLE_ORG)
+                .is_none()
+        );
 
         Self(trie)
     }
