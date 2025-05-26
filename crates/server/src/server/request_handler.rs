@@ -127,9 +127,9 @@ impl<'a> RequestInfo<'a> {
 pub struct ResponseInfo(Header);
 
 impl ResponseInfo {
-    pub(crate) fn serve_failed() -> Self {
+    pub(crate) fn serve_failed(id: u16) -> Self {
         let mut header = Header::new();
-        header.set_response_code(ResponseCode::ServFail);
+        header.set_id(id).set_response_code(ResponseCode::ServFail);
         header.into()
     }
 }
