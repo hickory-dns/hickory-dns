@@ -391,12 +391,8 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
             // need to track each proof on each dnskey to ensure they are all validated
             match verify_dnskey(&dnskey, &ds_records) {
-                Ok(pf) => {
-                    *proof = (pf, None, None);
-                }
-                Err(err) => {
-                    *proof = (err.proof, None, None);
-                }
+                Ok(pf) => *proof = (pf, None, None),
+                Err(err) => *proof = (err.proof, None, None),
             }
         }
 
@@ -474,9 +470,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 return Err(ProofError::ds_should_exist(zone));
             }
             match self.fetch_ds_records(parent.clone(), options).await {
-                Ok(_) => {
-                    return Err(ProofError::ds_should_exist(zone));
-                }
+                Ok(_) => return Err(ProofError::ds_should_exist(zone)),
                 Err(err) if matches!(err.kind(), ProofErrorKind::DsRecordShouldExist { .. }) => {}
                 Err(err) => return Err(err),
             }
