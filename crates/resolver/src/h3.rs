@@ -13,24 +13,6 @@ use crate::proto::runtime::TokioTime;
 use crate::proto::xfer::{DnsExchange, DnsExchangeConnect};
 
 #[allow(clippy::type_complexity)]
-#[allow(unused)]
-pub(crate) fn new_h3_stream(
-    socket_addr: SocketAddr,
-    bind_addr: Option<SocketAddr>,
-    dns_name: String,
-    http_endpoint: String,
-    crypto_config: rustls::ClientConfig,
-) -> DnsExchangeConnect<H3ClientConnect, H3ClientStream, TokioTime> {
-    let mut h3_builder = H3ClientStream::builder();
-    // TODO: normalize the crypto config settings, can we just use common ALPN settings?
-    h3_builder.crypto_config(crypto_config);
-    if let Some(bind_addr) = bind_addr {
-        h3_builder.bind_addr(bind_addr);
-    }
-    DnsExchange::connect(h3_builder.build(socket_addr, dns_name, http_endpoint))
-}
-
-#[allow(clippy::type_complexity)]
 pub(crate) fn new_h3_stream_with_future(
     socket: Arc<dyn quinn::AsyncUdpSocket>,
     socket_addr: SocketAddr,
