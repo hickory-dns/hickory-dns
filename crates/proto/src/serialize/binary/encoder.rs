@@ -404,7 +404,6 @@ impl<'a> BinEncoder<'a> {
     }
 
     /// emits all items in the iterator, return the number emitted
-    #[allow(clippy::needless_return)]
     pub fn emit_iter<'e, I: Iterator<Item = &'e E>, E: 'e + BinEncodable>(
         &mut self,
         iter: &mut I,

@@ -40,8 +40,6 @@ pub use self::message_response::{MessageResponse, MessageResponseBuilder};
 /// Result of an Update operation
 pub type UpdateResult<T> = Result<T, ResponseCode>;
 
-// TODO: should this implement Failure?
-#[allow(clippy::large_enum_variant)]
 /// A query could not be fulfilled
 #[derive(Debug, EnumAsInner, Error)]
 #[non_exhaustive]

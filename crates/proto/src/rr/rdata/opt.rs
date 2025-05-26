@@ -512,7 +512,6 @@ impl BinEncodable for EdnsOption {
 impl<'a> TryFrom<(EdnsCode, &'a [u8])> for EdnsOption {
     type Error = ProtoError;
 
-    #[allow(clippy::match_single_binding)]
     fn try_from(value: (EdnsCode, &'a [u8])) -> Result<Self, Self::Error> {
         Ok(match value.0 {
             #[cfg(feature = "__dnssec")]

@@ -31,7 +31,6 @@ fn trust_anchor(public_key_path: &Path, algorithm: Algorithm) -> Arc<TrustAnchor
     Arc::new(trust_anchor)
 }
 
-#[allow(clippy::type_complexity)]
 async fn standard_tcp_conn<P: RuntimeProvider>(
     port: u16,
     provider: P,

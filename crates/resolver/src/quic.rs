@@ -12,7 +12,6 @@ use crate::proto::quic::{QuicClientConnect, QuicClientStream};
 use crate::proto::runtime::TokioTime;
 use crate::proto::xfer::{DnsExchange, DnsExchangeConnect};
 
-#[allow(clippy::type_complexity)]
 #[allow(unused)]
 pub(crate) fn new_quic_stream(
     socket_addr: SocketAddr,
@@ -29,7 +28,6 @@ pub(crate) fn new_quic_stream(
     DnsExchange::connect(quic_builder.build(socket_addr, dns_name))
 }
 
-#[allow(clippy::type_complexity)]
 pub(crate) fn new_quic_stream_with_future(
     socket: Arc<dyn quinn::AsyncUdpSocket>,
     socket_addr: SocketAddr,

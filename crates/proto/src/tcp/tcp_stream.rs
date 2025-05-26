@@ -141,7 +141,6 @@ impl<S: DnsTcpStream> TcpStream<S> {
     /// * `future` - underlying stream future which this tcp stream relies on
     /// * `name_server` - the IP and Port of the DNS server to connect to
     /// * `timeout` - connection timeout
-    #[allow(clippy::type_complexity)]
     pub fn with_future<F: Future<Output = Result<S, io::Error>> + Send + 'static>(
         future: F,
         name_server: SocketAddr,

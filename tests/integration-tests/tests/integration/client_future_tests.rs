@@ -255,7 +255,6 @@ async fn test_notify() {
 
 /// create a client with a sig0 section
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-#[allow(clippy::type_complexity)]
 async fn create_sig0_ready_client() -> (
     (
         Client,

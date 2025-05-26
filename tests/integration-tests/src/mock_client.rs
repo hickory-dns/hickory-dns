@@ -90,7 +90,6 @@ impl DnsUdpSocket for UdpPlaceholder {
 #[derive(Clone, Default)]
 pub struct MockRuntimeProvider;
 
-#[allow(clippy::type_complexity)]
 impl RuntimeProvider for MockRuntimeProvider {
     type Handle = TokioHandle;
     type Timer = TokioTime;

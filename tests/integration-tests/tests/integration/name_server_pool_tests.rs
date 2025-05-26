@@ -104,7 +104,6 @@ fn mock_nameserver_pool(
 }
 
 #[cfg(test)]
-#[allow(clippy::redundant_clone)]
 fn mock_nameserver_pool_on_send<O: OnSend + Unpin>(
     udp: Vec<MockedNameServer<O>>,
     tcp: Vec<MockedNameServer<O>>,

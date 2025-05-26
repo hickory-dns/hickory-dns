@@ -1274,7 +1274,6 @@ async fn test_journal() {
 }
 
 #[tokio::test]
-#[allow(clippy::blocks_in_conditions)]
 async fn test_recovery() {
     subscribe();
     // test that this message can be inserted

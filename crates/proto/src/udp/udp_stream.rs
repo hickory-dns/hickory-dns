@@ -108,7 +108,6 @@ impl<P: RuntimeProvider> UdpStream<P> {
     ///
     /// A tuple of a Future of a Stream which will handle sending and receiving messages, and a
     ///  handle which can be used to send messages into the stream.
-    #[allow(clippy::type_complexity)]
     pub fn new(
         remote_addr: SocketAddr,
         bind_addr: Option<SocketAddr>,
@@ -176,7 +175,6 @@ impl<P: RuntimeProvider> UdpStream<P> {
 }
 
 impl<P: RuntimeProvider> UdpStream<P> {
-    #[allow(clippy::type_complexity)]
     fn pollable_split(&mut self) -> (&mut P::Udp, &mut StreamReceiver) {
         (&mut self.socket, &mut self.outbound_messages)
     }

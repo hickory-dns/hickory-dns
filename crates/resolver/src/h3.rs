@@ -12,7 +12,6 @@ use crate::proto::h3::{H3ClientConnect, H3ClientStream};
 use crate::proto::runtime::TokioTime;
 use crate::proto::xfer::{DnsExchange, DnsExchangeConnect};
 
-#[allow(clippy::type_complexity)]
 pub(crate) fn new_h3_stream_with_future(
     socket: Arc<dyn quinn::AsyncUdpSocket>,
     socket_addr: SocketAddr,

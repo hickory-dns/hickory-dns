@@ -252,7 +252,6 @@ impl From<ResponseCode> for u16 {
 /// assert_eq!(0, var);
 /// ```
 impl From<u16> for ResponseCode {
-    #[allow(clippy::unimplemented)]
     fn from(value: u16) -> Self {
         match value {
             0 => Self::NoError, // 0    NoError    No Error                             [RFC1035]
