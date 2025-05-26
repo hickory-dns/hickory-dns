@@ -34,7 +34,7 @@ use hickory_server::store::in_memory::InMemoryAuthority;
 use hickory_server::store::sqlite::{Journal, SqliteAuthority};
 use test_support::subscribe;
 
-const TEST_HEADER: &Header = &Header::new();
+const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
 
 fn create_example() -> SqliteAuthority {
     let authority = hickory_integration::example_authority::create_example();

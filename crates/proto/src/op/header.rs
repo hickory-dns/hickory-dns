@@ -72,13 +72,12 @@ pub struct Header {
 }
 
 impl Header {
-    // TODO: we should make id, message_type and op_code all required and non-editable
-    /// A default Header, not very useful.
-    pub const fn new() -> Self {
+    /// Construct a new `Header` with the given `id`, `message_type`, and `op_code`.
+    pub const fn new(id: u16, message_type: MessageType, op_code: OpCode) -> Self {
         Self {
-            id: 0,
-            message_type: MessageType::Query,
-            op_code: OpCode::Query,
+            id,
+            message_type,
+            op_code,
             authoritative: false,
             truncation: false,
             recursion_desired: false,

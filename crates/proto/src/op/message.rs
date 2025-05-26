@@ -14,6 +14,8 @@ use core::{iter, mem, ops::Deref};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
+use crate::random;
 use crate::{
     error::*,
     op::{Edns, Header, MessageType, OpCode, Query, ResponseCode},
@@ -78,16 +80,9 @@ pub struct Message {
 
 impl Message {
     /// Returns a new "empty" Message
+    #[cfg(any(feature = "std", feature = "no-std-rand"))]
     pub fn query() -> Self {
-        Self {
-            header: Header::new(),
-            queries: Vec::new(),
-            answers: Vec::new(),
-            name_servers: Vec::new(),
-            additionals: Vec::new(),
-            signature: MessageSignature::default(),
-            edns: None,
-        }
+        Self::new(random(), MessageType::Query, OpCode::Query)
     }
 
     /// Returns a Message constructed with error details to return to a client
@@ -98,7 +93,7 @@ impl Message {
     /// * `op_code` - operation of the request
     /// * `response_code` - the error code for the response
     pub fn error_msg(id: u16, op_code: OpCode, response_code: ResponseCode) -> Self {
-        let mut message = Self::query();
+        let mut message = Self::new(id, MessageType::Response, op_code);
         message
             .set_message_type(MessageType::Response)
             .set_id(id)
@@ -106,6 +101,19 @@ impl Message {
             .set_op_code(op_code);
 
         message
+    }
+
+    /// Create a new [`Message`] with the given header contents
+    pub fn new(id: u16, message_type: MessageType, op_code: OpCode) -> Self {
+        Self {
+            header: Header::new(id, message_type, op_code),
+            queries: Vec::new(),
+            answers: Vec::new(),
+            name_servers: Vec::new(),
+            additionals: Vec::new(),
+            signature: MessageSignature::default(),
+            edns: None,
+        }
     }
 
     /// Truncates a Message, this blindly removes all response fields and sets truncated to `true`
@@ -118,15 +126,16 @@ impl Message {
             .set_answer_count(0)
             .set_name_server_count(0);
 
-        let mut msg = Self::query();
+        let mut msg = Self::new(0, MessageType::Query, OpCode::Query);
+        msg.header = header;
+
         // drops additional/answer/nameservers/signature
         // adds query/OPT
         msg.add_queries(self.queries().iter().cloned());
         if let Some(edns) = self.extensions().clone() {
             msg.set_edns(edns);
         }
-        // set header
-        msg.set_header(header);
+
 
         // TODO, perhaps just quickly add a few response records here? that we know would fit?
         msg

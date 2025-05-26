@@ -599,18 +599,23 @@ pub enum EncodeMode {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(any(feature = "std", feature = "no-std-rand"))]
     use core::str::FromStr;
 
     use super::*;
     use crate::{
-        op::{Message, Query},
+        op::Message,
+        serialize::binary::{BinDecodable, BinDecoder},
+    };
+    #[cfg(any(feature = "std", feature = "no-std-rand"))]
+    use crate::{
+        op::Query,
+        rr::Name,
         rr::{
             RData, Record, RecordType,
             rdata::{CNAME, SRV},
         },
-        serialize::binary::BinDecodable,
     };
-    use crate::{rr::Name, serialize::binary::BinDecoder};
 
     #[test]
     fn test_label_compression_regression() {
@@ -713,6 +718,7 @@ mod tests {
         }
     }
 
+    #[cfg(any(feature = "std", feature = "no-std-rand"))]
     #[test]
     fn test_target_compression() {
         let mut msg = Message::query();

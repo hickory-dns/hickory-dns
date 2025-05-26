@@ -106,7 +106,7 @@ impl RequestHandler for Catalog {
                 return match result {
                     Err(error) => {
                         error!(%error, "request error");
-                        ResponseInfo::serve_failed(request.id())
+                        ResponseInfo::serve_failed(request)
                     }
                     Ok(info) => info,
                 };
@@ -153,7 +153,7 @@ impl RequestHandler for Catalog {
         match result {
             Err(error) => {
                 error!(%error, "request failed");
-                ResponseInfo::serve_failed(request.id())
+                ResponseInfo::serve_failed(request)
             }
             Ok(info) => info,
         }
@@ -262,7 +262,7 @@ impl Catalog {
         };
 
         let Ok(verify_request) = verify_request() else {
-            return Ok(ResponseInfo::serve_failed(update.id()));
+            return Ok(ResponseInfo::serve_failed(update));
         };
 
         // verify the zone type and number of zones in request, then find the zone to update
@@ -287,10 +287,8 @@ impl Catalog {
                 };
 
                 let response = MessageResponseBuilder::new(update.raw_queries());
-                let mut response_header = Header::new();
-                response_header.set_id(update.id());
-                response_header.set_op_code(OpCode::Update);
-                response_header.set_message_type(MessageType::Response);
+                let mut response_header =
+                    Header::new(update.id(), MessageType::Response, OpCode::Update);
                 response_header.set_response_code(response_code);
 
                 return send_response(
@@ -302,7 +300,7 @@ impl Catalog {
             }
         };
 
-        Ok(ResponseInfo::serve_failed(update.id()))
+        Ok(ResponseInfo::serve_failed(update))
     }
 
     /// Checks whether the `Catalog` contains DNS records for `name`
@@ -343,7 +341,7 @@ impl Catalog {
             match result {
                 Err(error) => {
                     error!(%error, "failed to send response");
-                    return ResponseInfo::serve_failed(request.id());
+                    return ResponseInfo::serve_failed(request);
                 }
                 Ok(r) => return r,
             }
@@ -364,7 +362,7 @@ impl Catalog {
             match result {
                 Err(error) => {
                     error!(%error, "failed to send response");
-                    return ResponseInfo::serve_failed(request.id());
+                    return ResponseInfo::serve_failed(request);
                 }
                 Ok(r) => return r,
             }
@@ -383,7 +381,7 @@ impl Catalog {
 
         match result {
             Ok(lookup) => lookup,
-            Err(_e) => ResponseInfo::serve_failed(request.id()),
+            Err(_e) => ResponseInfo::serve_failed(request),
         }
     }
 
