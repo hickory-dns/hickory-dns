@@ -106,7 +106,7 @@ impl RequestHandler for Catalog {
                 return match result {
                     Err(error) => {
                         error!(%error, "request error");
-                        ResponseInfo::serve_failed()
+                        ResponseInfo::serve_failed(request.id())
                     }
                     Ok(info) => info,
                 };
@@ -153,7 +153,7 @@ impl RequestHandler for Catalog {
         match result {
             Err(error) => {
                 error!(%error, "request failed");
-                ResponseInfo::serve_failed()
+                ResponseInfo::serve_failed(request.id())
             }
             Ok(info) => info,
         }
@@ -262,7 +262,7 @@ impl Catalog {
         };
 
         let Ok(verify_request) = verify_request() else {
-            return Ok(ResponseInfo::serve_failed());
+            return Ok(ResponseInfo::serve_failed(update.id()));
         };
 
         // verify the zone type and number of zones in request, then find the zone to update
@@ -302,7 +302,7 @@ impl Catalog {
             }
         };
 
-        Ok(ResponseInfo::serve_failed())
+        Ok(ResponseInfo::serve_failed(update.id()))
     }
 
     /// Checks whether the `Catalog` contains DNS records for `name`
@@ -343,7 +343,7 @@ impl Catalog {
             match result {
                 Err(error) => {
                     error!(%error, "failed to send response");
-                    return ResponseInfo::serve_failed();
+                    return ResponseInfo::serve_failed(request.id());
                 }
                 Ok(r) => return r,
             }
@@ -364,7 +364,7 @@ impl Catalog {
             match result {
                 Err(error) => {
                     error!(%error, "failed to send response");
-                    return ResponseInfo::serve_failed();
+                    return ResponseInfo::serve_failed(request.id());
                 }
                 Ok(r) => return r,
             }
@@ -383,7 +383,7 @@ impl Catalog {
 
         match result {
             Ok(lookup) => lookup,
-            Err(_e) => ResponseInfo::serve_failed(),
+            Err(_e) => ResponseInfo::serve_failed(request.id()),
         }
     }
 
