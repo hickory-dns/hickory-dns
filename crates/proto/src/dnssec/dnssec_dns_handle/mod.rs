@@ -296,7 +296,8 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             return Ok(proof);
         }
 
-        verify_default_rrset(self, rrset, &rrsigs, current_time, options).await
+        self.verify_default_rrset(rrset, &rrsigs, current_time, options)
+            .await
     }
 
     /// DNSKEY-specific verification
@@ -450,6 +451,169 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             ProofErrorKind::DnskeyNotFound {
                 name: rrset.name().clone(),
             },
+        ))
+    }
+
+    /// Verifies that a given RRSET is validly signed by any of the specified RRSIGs.
+    ///
+    /// Invalid RRSIGs will be ignored. RRSIGs will only be validated against DNSKEYs which can
+    ///  be validated through a chain back to the `trust_anchor`. As long as one RRSIG is valid,
+    ///  then the RRSET will be valid.
+    ///
+    /// # Returns
+    ///
+    /// On Ok, the set of (Proof, AdjustedTTL, and IndexOfRRSIG) is returned, where the index is the one of the RRSIG that validated
+    ///   the Rrset
+    ///
+    /// # Panics
+    ///
+    /// This method should never be called to validate DNSKEYs, see `verify_dnskey_rrset` instead.
+    ///  if a DNSKEY RRSET is passed into this method it will always panic.
+    async fn verify_default_rrset(
+        &self,
+        rrset: &Rrset<'_>,
+        rrsigs: &Vec<RecordRef<'_, RRSIG>>,
+        current_time: u32,
+        options: DnsRequestOptions,
+    ) -> Result<(Proof, Option<u32>, Option<usize>), ProofError> {
+        // Ensure that this method is not misused
+        if RecordType::DNSKEY == rrset.record_type() {
+            panic!("DNSKEYs must be validated with verify_dnskey_rrset");
+        }
+
+        if rrsigs.is_empty() {
+            // Decide if we're:
+            //    1) "insecure", the zone has a valid NSEC for the DS record in the parent zone
+            //    2) "bogus", the parent zone has a valid DS record, but the child zone didn't have the RRSIGs/DNSKEYs
+            find_ds_records(self, rrset.name().clone(), options).await?; // insecure will return early here
+
+            return Err(ProofError::new(
+                Proof::Bogus,
+                ProofErrorKind::RrsigsNotPresent {
+                    name: rrset.name().clone(),
+                    record_type: rrset.record_type(),
+                },
+            ));
+        }
+
+        // the record set is going to be shared across a bunch of futures, Arc for that.
+        trace!(
+            "default validation {}, record_type: {:?}",
+            rrset.name(),
+            rrset.record_type()
+        );
+
+        // we can validate with any of the rrsigs...
+        //  i.e. the first that validates is good enough
+        //  TODO: could there be a cert downgrade attack here with a MITM stripping stronger RRSIGs?
+        //         we could check for the strongest RRSIG and only use that...
+        //         though, since the entire package isn't signed any RRSIG could have been injected,
+        //         right? meaning if there is an attack on any of the acceptable algorithms, we'd be
+        //         susceptible until that algorithm is removed as an option.
+        //        dns over TLS will mitigate this.
+        //  TODO: strip RRSIGS to accepted algorithms and make algorithms configurable.
+        let verifications = rrsigs
+        .iter()
+        .enumerate()
+        .filter_map(|(i, rrsig)| {
+            let query = Query::query(rrsig.data().input().signer_name.clone(), RecordType::DNSKEY);
+
+            if i > MAX_RRSIGS_PER_RRSET {
+                warn!("too many ({i}) RRSIGs for rrset {rrset:?}; skipping");
+                return None;
+            }
+
+            // TODO: Should this sig.signer_name should be confirmed to be in the same zone as the rrsigs and rrset?
+            Some(self
+                .lookup(query.clone(), options)
+                .first_answer()
+                .map_err(|proto| {
+                    ProofError::new(Proof::Bogus, ProofErrorKind::Proto { query, proto })
+                })
+                .map_ok(move |message| {
+                    let mut tag_count = HashMap::<u16, usize>::new();
+
+                    // DNSKEYs were already validated by the inner query in the above lookup
+                    let dnskeys = message
+                        .answers()
+                        .iter()
+                        .filter_map(|r| {
+                            let dnskey = r.try_borrow::<DNSKEY>()?;
+
+                            let tag = match dnskey.data().calculate_key_tag() {
+                                Ok(tag) => tag,
+                                Err(e) => {
+                                    warn!("unable to calculate key tag: {e:?}; skipping key");
+                                    return None;
+                                }
+                            };
+
+                            match tag_count.get_mut(&tag) {
+                                Some(n_keys) => {
+                                    *n_keys += 1;
+                                    if *n_keys > MAX_KEY_TAG_COLLISIONS {
+                                        warn!("too many ({n_keys}) DNSKEYs with key tag {tag}; skipping");
+                                        return None;
+                                    }
+                                }
+                                None => _ = tag_count.insert(tag, 1),
+                            }
+
+                            Some(dnskey)
+                        });
+
+                    let mut all_insecure = None;
+                    for dnskey in dnskeys {
+                        match dnskey.proof() {
+                            Proof::Secure => {
+                                all_insecure = Some(false);
+                                if let Ok(proof) =
+                                    verify_rrset_with_dnskey(dnskey, dnskey.proof(), rrsig, rrset, current_time)
+                                {
+                                    return Some((proof.0, proof.1, Some(i)));
+                                }
+                            }
+                            Proof::Insecure => {
+                                all_insecure.get_or_insert(true);
+                            }
+                            _ => all_insecure = Some(false),
+                        }
+                    }
+
+                    if all_insecure.unwrap_or(false) {
+                        // inherit Insecure state
+                        Some((Proof::Insecure, None, None))
+                    } else {
+                        None
+                    }
+                }))
+        })
+        .collect::<Vec<_>>();
+
+        // if there are no available verifications, then we are in a failed state.
+        if verifications.is_empty() {
+            return Err(ProofError::new(
+                Proof::Bogus,
+                ProofErrorKind::RrsigsNotPresent {
+                    name: rrset.name().clone(),
+                    record_type: rrset.record_type(),
+                },
+            ));
+        }
+
+        // as long as any of the verifications is good, then the RRSET is valid.
+        let select = future::select_ok(verifications);
+
+        // this will return either a good result or the errors
+        let (proof, rest) = select.await?;
+        drop(rest);
+
+        proof.ok_or_else(||
+            // we are in a bogus state, DS records were available (see beginning of function), but RRSIGs couldn't be verified
+            ProofError::new(Proof::Bogus, ProofErrorKind::RrsigsUnverified {
+                name: rrset.name().clone(),
+                record_type: rrset.record_type(),
+            }
         ))
     }
 
@@ -920,166 +1084,6 @@ async fn find_ds_records(
         }
         parent = parent.base_name();
     }
-}
-
-/// Verifies that a given RRSET is validly signed by any of the specified RRSIGs.
-///
-/// Invalid RRSIGs will be ignored. RRSIGs will only be validated against DNSKEYs which can
-///  be validated through a chain back to the `trust_anchor`. As long as one RRSIG is valid,
-///  then the RRSET will be valid.
-///
-/// # Returns
-///
-/// On Ok, the set of (Proof, AdjustedTTL, and IndexOfRRSIG) is returned, where the index is the one of the RRSIG that validated
-///   the Rrset
-///
-/// # Panics
-///
-/// This method should never be called to validate DNSKEYs, see `verify_dnskey_rrset` instead.
-///  if a DNSKEY RRSET is passed into this method it will always panic.
-async fn verify_default_rrset(
-    handle: &DnssecDnsHandle<impl DnsHandle>,
-    rrset: &Rrset<'_>,
-    rrsigs: &Vec<RecordRef<'_, RRSIG>>,
-    current_time: u32,
-    options: DnsRequestOptions,
-) -> Result<(Proof, Option<u32>, Option<usize>), ProofError> {
-    // Ensure that this method is not misused
-    if RecordType::DNSKEY == rrset.record_type() {
-        panic!("DNSKEYs must be validated with verify_dnskey_rrset");
-    }
-
-    if rrsigs.is_empty() {
-        // Decide if we're:
-        //    1) "insecure", the zone has a valid NSEC for the DS record in the parent zone
-        //    2) "bogus", the parent zone has a valid DS record, but the child zone didn't have the RRSIGs/DNSKEYs
-        find_ds_records(handle, rrset.name().clone(), options).await?; // insecure will return early here
-
-        return Err(ProofError::new(
-            Proof::Bogus,
-            ProofErrorKind::RrsigsNotPresent {
-                name: rrset.name().clone(),
-                record_type: rrset.record_type(),
-            },
-        ));
-    }
-
-    // the record set is going to be shared across a bunch of futures, Arc for that.
-    trace!(
-        "default validation {}, record_type: {:?}",
-        rrset.name(),
-        rrset.record_type()
-    );
-
-    // we can validate with any of the rrsigs...
-    //  i.e. the first that validates is good enough
-    //  TODO: could there be a cert downgrade attack here with a MITM stripping stronger RRSIGs?
-    //         we could check for the strongest RRSIG and only use that...
-    //         though, since the entire package isn't signed any RRSIG could have been injected,
-    //         right? meaning if there is an attack on any of the acceptable algorithms, we'd be
-    //         susceptible until that algorithm is removed as an option.
-    //        dns over TLS will mitigate this.
-    //  TODO: strip RRSIGS to accepted algorithms and make algorithms configurable.
-    let verifications = rrsigs
-        .iter()
-        .enumerate()
-        .filter_map(|(i, rrsig)| {
-            let query = Query::query(rrsig.data().input.signer_name.clone(), RecordType::DNSKEY);
-
-            if i > MAX_RRSIGS_PER_RRSET {
-                warn!("too many ({i}) RRSIGs for rrset {rrset:?}; skipping");
-                return None;
-            }
-
-            // TODO: Should this sig.signer_name should be confirmed to be in the same zone as the rrsigs and rrset?
-            Some(handle
-                .lookup(query.clone(), options)
-                .first_answer()
-                .map_err(|proto| {
-                    ProofError::new(Proof::Bogus, ProofErrorKind::Proto { query, proto })
-                })
-                .map_ok(move |message| {
-                    let mut tag_count = HashMap::<u16, usize>::new();
-
-                    // DNSKEYs were already validated by the inner query in the above lookup
-                    let dnskeys = message
-                        .answers()
-                        .iter()
-                        .filter_map(|r| {
-                            let dnskey = r.try_borrow::<DNSKEY>()?;
-
-                            let tag = match dnskey.data().calculate_key_tag() {
-                                Ok(tag) => tag,
-                                Err(e) => {
-                                    warn!("unable to calculate key tag: {e:?}; skipping key");
-                                    return None;
-                                }
-                            };
-
-                            match tag_count.get_mut(&tag) {
-                                Some(n_keys) => {
-                                    *n_keys += 1;
-                                    if *n_keys > MAX_KEY_TAG_COLLISIONS {
-                                        warn!("too many ({n_keys}) DNSKEYs with key tag {tag}; skipping");
-                                        return None;
-                                    }
-                                }
-                                None => _ = tag_count.insert(tag, 1),
-                            }
-
-                            Some(dnskey)
-                        });
-
-                    let mut all_insecure = None;
-                    for dnskey in dnskeys {
-                        match dnskey.proof() {
-                            Proof::Secure => {
-                                all_insecure = Some(false);
-                                if let Ok(proof) =
-                                    verify_rrset_with_dnskey(dnskey, dnskey.proof(), rrsig, rrset, current_time)
-                                {
-                                    return Some((proof.0, proof.1, Some(i)));
-                                }
-                            }
-                            Proof::Insecure => {
-                                all_insecure.get_or_insert(true);
-                            }
-                            _ => all_insecure = Some(false),
-                        }
-                    }
-
-                    if all_insecure.unwrap_or(false) {
-                        // inherit Insecure state
-                        Some((Proof::Insecure, None, None))
-                    } else {
-                        None
-                    }
-                }))
-        })
-        .collect::<Vec<_>>();
-
-    // if there are no available verifications, then we are in a failed state.
-    if verifications.is_empty() {
-        return Err(ProofError::new(
-            Proof::Bogus,
-            ProofErrorKind::RrsigsNotPresent {
-                name: rrset.name().clone(),
-                record_type: rrset.record_type(),
-            },
-        ));
-    }
-
-    // as long as any of the verifications is good, then the RRSET is valid.
-    let select = future::select_ok(verifications);
-
-    // this will return either a good result or the errors
-    let (proof, rest) = select.await?;
-    drop(rest);
-
-    proof.ok_or_else(||
-        // we are in a bogus state, DS records were available (see beginning of function), but RRSIGs couldn't be verified
-        ProofError::new(Proof::Bogus, ProofErrorKind::RrsigsUnverified{name: rrset.name().clone(), record_type: rrset.record_type()})
-    )
 }
 
 /// Verifies the given SIG of the RRSET with the DNSKEY.
