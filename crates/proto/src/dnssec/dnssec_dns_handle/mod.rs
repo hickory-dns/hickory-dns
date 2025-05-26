@@ -392,6 +392,10 @@ where
 {
     let mut rrset_types: HashSet<(Name, RecordType)> = HashSet::new();
 
+    fn is_dnssec<D: RecordData>(rr: &Record<D>, dnssec_type: RecordType) -> bool {
+        rr.record_type().is_dnssec() && dnssec_type.is_dnssec() && rr.record_type() == dnssec_type
+    }
+
     for rrset in records
         .iter()
         .filter(|rr| {
@@ -514,11 +518,6 @@ where
     return_records.extend(rrsigs);
     return_records.extend(records);
     return_records
-}
-
-// TODO: is this method useful/necessary?
-fn is_dnssec<D: RecordData>(rr: &Record<D>, dnssec_type: RecordType) -> bool {
-    rr.record_type().is_dnssec() && dnssec_type.is_dnssec() && rr.record_type() == dnssec_type
 }
 
 /// Generic entrypoint to verify any RRSET against the provided signatures.
