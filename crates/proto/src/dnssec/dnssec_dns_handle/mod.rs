@@ -27,7 +27,7 @@ use crate::{
     },
     error::{NoRecords, ProtoError, ProtoErrorKind},
     op::{Edns, Message, OpCode, Query},
-    rr::{Name, RData, Record, RecordData, RecordType, SerialNumber, resource::RecordRef},
+    rr::{Name, RData, Record, RecordType, SerialNumber, resource::RecordRef},
     xfer::{DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer, dns_handle::DnsHandle},
 };
 
@@ -392,23 +392,18 @@ where
 {
     let mut rrset_types: HashSet<(Name, RecordType)> = HashSet::new();
 
-    fn is_dnssec<D: RecordData>(rr: &Record<D>, dnssec_type: RecordType) -> bool {
-        rr.record_type().is_dnssec() && dnssec_type.is_dnssec() && rr.record_type() == dnssec_type
-    }
-
     for rrset in records
         .iter()
         .filter(|rr| {
-            !is_dnssec(rr, RecordType::RRSIG) &&
+            rr.record_type() != RecordType::RRSIG &&
             // if we are at a depth greater than 1, we are only interested in proving evaluation chains
             //   this means that only DNSKEY, DS, NSEC, and NSEC3 are interesting at that point.
             //   this protects against looping over things like NS records and DNSKEYs in responses.
             // TODO: is there a cleaner way to prevent cycles in the evaluations?
-            (handle.request_depth <= 1 ||
-                is_dnssec(rr, RecordType::DNSKEY) ||
-                is_dnssec(rr, RecordType::DS) ||
-                is_dnssec(rr, RecordType::NSEC) ||
-                is_dnssec(rr, RecordType::NSEC3))
+            (handle.request_depth <= 1 || matches!(
+                rr.record_type(),
+                RecordType::DNSKEY | RecordType::DS | RecordType::NSEC | RecordType::NSEC3,
+            ))
         })
         .map(|rr| (rr.name().clone(), rr.record_type()))
     {
