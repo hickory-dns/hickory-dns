@@ -219,12 +219,6 @@ impl Header {
         }
     }
 
-    /// Length of the header, always 12 bytes
-    #[inline(always)]
-    pub fn len() -> usize {
-        12 /* this is always 12 bytes */
-    }
-
     /// Sets the id of the message, for queries this should be random.
     pub fn set_id(&mut self, id: u16) -> &mut Self {
         self.id = id;

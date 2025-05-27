@@ -429,13 +429,12 @@ impl<'a> BinEncoder<'a> {
     /// capture a location to write back to
     pub fn place<T: EncodedSize>(&mut self) -> ProtoResult<Place<T>> {
         let index = self.offset;
-        let len = T::size_of();
 
         // resize the buffer
-        self.buffer.reserve(self.offset, len)?;
+        self.buffer.reserve(self.offset, T::LEN)?;
 
         // update the offset
-        self.offset += len;
+        self.offset += T::LEN;
 
         Ok(Place {
             start_index: index,
@@ -445,7 +444,7 @@ impl<'a> BinEncoder<'a> {
 
     /// calculates the length of data written since the place was creating
     pub fn len_since_place<T: EncodedSize>(&self, place: &Place<T>) -> usize {
-        (self.offset - place.start_index) - place.size_of()
+        (self.offset - place.start_index) - T::LEN
     }
 
     /// write back to a previously captured location
@@ -463,7 +462,7 @@ impl<'a> BinEncoder<'a> {
 
         // double check that the current number of bytes were written
         //   this is an assert because it's programming error for it to be wrong.
-        assert!((self.offset - place.start_index) == place.size_of());
+        assert!((self.offset - place.start_index) == T::LEN);
 
         // reset to original location
         self.offset = current_index;
@@ -550,20 +549,15 @@ impl Drop for ModalEncoder<'_, '_> {
 ///
 /// it does not necessarily equal `core::mem::size_of`, though it might, especially for primitives
 pub trait EncodedSize: BinEncodable {
-    /// Return the size in bytes of the
-    fn size_of() -> usize;
+    const LEN: usize;
 }
 
 impl EncodedSize for u16 {
-    fn size_of() -> usize {
-        2
-    }
+    const LEN: usize = 2;
 }
 
 impl EncodedSize for Header {
-    fn size_of() -> usize {
-        Self::len()
-    }
+    const LEN: usize = 12;
 }
 
 #[derive(Debug)]
@@ -576,10 +570,6 @@ pub struct Place<T: EncodedSize> {
 impl<T: EncodedSize> Place<T> {
     pub fn replace(self, encoder: &mut BinEncoder<'_>, data: T) -> ProtoResult<()> {
         encoder.emit_at(self, data)
-    }
-
-    pub fn size_of(&self) -> usize {
-        T::size_of()
     }
 }
 
@@ -646,17 +636,11 @@ mod tests {
     }
 
     #[test]
-    fn test_size_of() {
-        assert_eq!(u16::size_of(), 2);
-    }
-
-    #[test]
     fn test_place() {
         let mut buf = vec![];
         {
             let mut encoder = BinEncoder::new(&mut buf);
             let place = encoder.place::<u16>().unwrap();
-            assert_eq!(place.size_of(), 2);
             assert_eq!(encoder.len_since_place(&place), 0);
 
             encoder.emit(42_u8).expect("failed 0");
