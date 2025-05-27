@@ -101,7 +101,7 @@ mod test {
     use futures::*;
     use hickory_proto::{
         ProtoError,
-        op::{Message, Query},
+        op::{Message, MessageType, OpCode, Query},
         rr::RecordType,
         xfer::{DnsHandle, DnsRequest, DnsResponse},
     };
@@ -120,14 +120,9 @@ mod test {
 
         fn send<R: Into<DnsRequest> + Send + 'static>(&self, request: R) -> Self::Response {
             let i = Arc::clone(&self.i);
-            let future = async {
-                let i = i;
-                let request = request;
-                let mut message = Message::query();
-
+            Box::pin(stream::once(async move {
                 let mut i = i.lock().await;
-
-                message.set_id(*i);
+                let message = Message::new(*i, MessageType::Query, OpCode::Query);
                 println!(
                     "sending {}: {}",
                     *i,
@@ -137,9 +132,7 @@ mod test {
                 *i += 1;
 
                 Ok(DnsResponse::from_message(message).unwrap())
-            };
-
-            Box::pin(stream::once(future))
+            }))
         }
     }
 

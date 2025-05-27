@@ -17,7 +17,6 @@ use futures_util::{
     ready,
     stream::{Stream, StreamExt},
 };
-use rand;
 use tracing::debug;
 
 use hickory_proto::{
@@ -235,9 +234,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
 
         // build the message
         let mut message = Message::query();
-        let id = rand::random();
         message
-            .set_id(id)
             // 3.3. NOTIFY is similar to QUERY in that it has a request message with
             // the header QR flag "clear" and a response message with QR "set".  The
             // response message contains no useful information, but its reception by
