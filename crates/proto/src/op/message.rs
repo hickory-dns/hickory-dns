@@ -136,7 +136,6 @@ impl Message {
             msg.set_edns(edns);
         }
 
-
         // TODO, perhaps just quickly add a few response records here? that we know would fit?
         msg
     }
@@ -148,7 +147,8 @@ impl Message {
     }
 
     /// see `Header::set_id`
-    pub fn set_id(&mut self, id: u16) -> &mut Self {
+    #[allow(dead_code)] // Complicated feature combination
+    pub(crate) fn set_id(&mut self, id: u16) -> &mut Self {
         self.header.set_id(id);
         self
     }
