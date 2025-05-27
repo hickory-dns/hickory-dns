@@ -148,10 +148,10 @@ impl MdnsStream {
                         Ok(None) => Ok(None),
                         Err(err) => Err(err),
                     })
-                    .map_ok(move |socket: Option<_>| {
-                        let datagram: Option<_> =
+                    .map_ok(move |socket| {
+                        let datagram =
                             socket.map(|socket| UdpStream::from_parts(socket, outbound_messages));
-                        let multicast: Option<_> = multicast_socket.map(|multicast_socket| {
+                        let multicast = multicast_socket.map(|multicast_socket| {
                             Arc::new(UdpSocket::from_std(multicast_socket).expect("bad handle?"))
                         });
 

@@ -21,7 +21,6 @@ use hickory_client::proto::xfer::DnsMultiplexer;
 use hickory_compatibility::named_process;
 use test_support::subscribe;
 
-#[allow(unused)]
 macro_rules! assert_serial {
     ( $record:expr, $serial:expr  ) => {{
         let rdata = $record.data();

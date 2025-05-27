@@ -165,7 +165,7 @@ impl<P: RuntimeProvider> UdpStream<P> {
         (stream, message_sender)
     }
 
-    #[allow(unused)]
+    #[cfg(feature = "mdns")]
     pub(crate) fn from_parts(socket: P::Udp, outbound_messages: StreamReceiver) -> Self {
         Self {
             socket,

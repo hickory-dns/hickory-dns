@@ -3,7 +3,6 @@
 use std::net::{Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::{future::Future, sync::Arc};
 
 use futures_executor::block_on;
 
@@ -16,7 +15,7 @@ use hickory_proto::{
     },
     op::{Header, Query},
     rr::{DNSClass, Name, RData, Record, RecordType},
-    xfer::{self, Protocol},
+    xfer::Protocol,
 };
 use hickory_server::{
     authority::{AuthLookup, Authority, DnssecAuthority, LookupOptions},
@@ -215,7 +214,7 @@ fn into_rrsig(r: Record<RData>) -> Option<Record<RRSIG>> {
     })
 }
 
-pub fn test_nsec_nodata<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
+pub fn test_nsec_nodata<A: Authority<Lookup = AuthLookup>>(authority: A, _: &[DNSKEY]) {
     // this should have a single nsec record that covers the type
     let name = Name::from_str("www.example.com.").unwrap();
     let lookup =
@@ -244,7 +243,7 @@ pub fn test_nsec_nodata<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &
     );
 }
 
-pub fn test_nsec_nxdomain_start<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
+pub fn test_nsec_nxdomain_start<A: Authority<Lookup = AuthLookup>>(authority: A, _: &[DNSKEY]) {
     // tests between the SOA and first record in the zone, where bbb is the first zone record
     let name = Name::from_str("aaa.example.com.").unwrap();
     let lookup =
@@ -275,7 +274,7 @@ pub fn test_nsec_nxdomain_start<A: Authority<Lookup = AuthLookup>>(authority: A,
     );
 }
 
-pub fn test_nsec_nxdomain_middle<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
+pub fn test_nsec_nxdomain_middle<A: Authority<Lookup = AuthLookup>>(authority: A, _: &[DNSKEY]) {
     // follows the first record, nsec should cover between ccc and www, where bbb is the first zone record
     let name = Name::from_str("ccc.example.com.").unwrap();
     let lookup =
@@ -305,10 +304,7 @@ pub fn test_nsec_nxdomain_middle<A: Authority<Lookup = AuthLookup>>(authority: A
     );
 }
 
-pub fn test_nsec_nxdomain_wraps_end<A: Authority<Lookup = AuthLookup>>(
-    authority: A,
-    keys: &[DNSKEY],
-) {
+pub fn test_nsec_nxdomain_wraps_end<A: Authority<Lookup = AuthLookup>>(authority: A, _: &[DNSKEY]) {
     // wraps back to the beginning of the zone, where www is the last zone record
     let name = Name::from_str("zzz.example.com.").unwrap();
     let lookup =

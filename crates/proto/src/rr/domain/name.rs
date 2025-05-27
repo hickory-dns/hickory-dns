@@ -1518,9 +1518,6 @@ mod tests {
     use super::*;
 
     use crate::serialize::binary::bin_tests::{test_emit_data_set, test_read_data_set};
-    #[allow(clippy::useless_attribute)]
-    #[allow(unused)]
-    use crate::serialize::binary::*;
 
     fn get_data() -> Vec<(Name, Vec<u8>)> {
         vec![

@@ -37,7 +37,6 @@ pub struct Catalog {
     authorities: HashMap<LowerName, Vec<Arc<dyn AuthorityObject>>>,
 }
 
-#[allow(unused_mut, unused_variables)]
 async fn send_response<'a, R: ResponseHandler>(
     response_edns: Option<Edns>,
     mut response: MessageResponse<
@@ -50,7 +49,7 @@ async fn send_response<'a, R: ResponseHandler>(
     >,
     mut response_handle: R,
 ) -> io::Result<ResponseInfo> {
-    if let Some(mut resp_edns) = response_edns {
+    if let Some(resp_edns) = response_edns {
         response.set_edns(resp_edns);
     }
 
@@ -499,7 +498,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
     Err(LookupError::ResponseCode(ResponseCode::ServFail))
 }
 
-#[allow(unused_variables)]
+#[cfg_attr(not(feature = "__dnssec"), allow(unused_variables))]
 fn lookup_options_for_edns(edns: Option<&Edns>) -> LookupOptions {
     let edns = match edns {
         Some(edns) => edns,

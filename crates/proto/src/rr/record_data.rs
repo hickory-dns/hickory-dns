@@ -1133,9 +1133,6 @@ mod tests {
     use crate::rr::domain::Name;
     use crate::rr::rdata::{MX, SOA, SRV, TXT};
     use crate::serialize::binary::bin_tests::test_emit_data_set;
-    #[allow(clippy::useless_attribute)]
-    #[allow(unused)]
-    use crate::serialize::binary::*;
 
     fn get_data() -> Vec<(RData, Vec<u8>)> {
         vec![

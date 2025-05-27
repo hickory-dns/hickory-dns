@@ -199,24 +199,9 @@ async fn test_server_no_response_on_response() {
     server.await.unwrap();
 }
 
-#[cfg(feature = "__tls")]
-#[allow(unused)]
-fn read_file(path: &str) -> Vec<u8> {
-    use std::fs::File;
-    use std::io::Read;
-
-    let mut bytes = vec![];
-
-    let mut file = File::open(path).unwrap_or_else(|_| panic!("failed to open file: {path}"));
-    file.read_to_end(&mut bytes)
-        .unwrap_or_else(|_| panic!("failed to read file: {path}"));
-    bytes
-}
-
 // TODO: move all this to future based clients
 #[cfg(feature = "__tls")]
 #[tokio::test]
-#[allow(clippy::uninlined_format_args)]
 async fn test_server_www_tls() {
     use std::env;
 
@@ -384,14 +369,11 @@ async fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<Atomi
 
 // TODO: need a rustls option
 #[cfg(feature = "__tls")]
-#[allow(unused)]
 async fn server_thread_tls(
     tls_listener: TcpListener,
     server_continue: Arc<AtomicBool>,
     cert_chain: Arc<dyn ResolvesServerCert>,
 ) {
-    use std::path::Path;
-
     let catalog = new_catalog();
     let mut server = ServerFuture::new(catalog);
 
@@ -409,7 +391,7 @@ async fn server_thread_tls(
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
 
-    server.shutdown_gracefully().await;
+    server.shutdown_gracefully().await.unwrap();
 }
 
 /// This test checks the behavior of the server when it receives a query with too many OPT RRs.

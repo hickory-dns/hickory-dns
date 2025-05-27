@@ -37,13 +37,11 @@ use hickory_server::{
 pub mod example_authority;
 pub mod mock_client;
 
-#[allow(unused)]
 pub struct TestClientStream {
     catalog: Arc<Mutex<Catalog>>,
     outbound_messages: StreamReceiver,
 }
 
-#[allow(unused)]
 impl TestClientStream {
     #[allow(clippy::type_complexity)]
     pub fn new(
@@ -185,7 +183,6 @@ impl fmt::Debug for TestClientStream {
 
 // need to do something with the message channel, otherwise the Client will think there
 //  is no one listening to messages and shutdown...
-#[allow(dead_code)]
 pub struct NeverReturnsClientStream {
     timeout: Pin<Box<Sleep>>,
     outbound_messages: StreamReceiver,

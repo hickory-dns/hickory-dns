@@ -34,7 +34,6 @@ pub trait PublicKey {
     ///
     /// True if and only if the signature is valid for the hash. This will always return
     /// false if the `key`.
-    #[allow(unused)]
     fn verify(&self, message: &[u8], signature: &[u8]) -> ProtoResult<()>;
 
     /// The algorithm associated with this key.

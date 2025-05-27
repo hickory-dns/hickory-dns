@@ -1,8 +1,7 @@
 #![cfg(feature = "__dnssec")]
 
 use std::{
-    future::Future,
-    net::{Ipv4Addr, Ipv6Addr, SocketAddr},
+    net::{Ipv4Addr, SocketAddr},
     path::PathBuf,
     str::FromStr,
 };
@@ -13,7 +12,7 @@ use futures_executor::block_on;
 use hickory_dns::dnssec::{KeyConfig, KeyPurpose};
 use hickory_proto::{
     dnssec::{
-        Algorithm, PublicKey, SigSigner, Verifier,
+        Algorithm, SigSigner,
         rdata::{KEY, key::KeyUsage},
     },
     op::{Header, Message, Query, ResponseCode, update_message},
@@ -26,8 +25,7 @@ use hickory_proto::{
 };
 use hickory_server::{
     authority::{
-        AuthLookup, Authority, DnssecAuthority, LookupError, LookupOptions, MessageRequest,
-        UpdateResult,
+        AuthLookup, Authority, DnssecAuthority, LookupOptions, MessageRequest, UpdateResult,
     },
     server::{Request, RequestInfo},
 };
@@ -89,7 +87,7 @@ pub fn test_create<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
         }
 
         // trying to create again should error
-        let mut message =
+        let message =
             update_message::create(record.into(), Name::from_str("example.com.").unwrap(), true);
         assert_eq!(
             update_authority(message, key, &mut authority).unwrap_err(),
@@ -154,7 +152,7 @@ pub fn test_append<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
         let record = Record::from_rdata(name.clone(), 8, RData::A(A4::new(100, 10, 100, 10)));
 
         // first check the must_exist option
-        let mut message = update_message::append(
+        let message = update_message::append(
             record.clone().into(),
             Name::from_str("example.com.").unwrap(),
             true,
@@ -335,8 +333,7 @@ pub fn test_compare_and_swap<A: Authority<Lookup = AuthLookup>>(
             .unwrap();
 
         // create a record
-        let mut record = Record::from_rdata(name.clone(), 8, RData::A(A4::new(100, 10, 100, 10)));
-        let record = record;
+        let record = Record::from_rdata(name.clone(), 8, RData::A(A4::new(100, 10, 100, 10)));
 
         let message = update_message::create(
             record.clone().into(),
@@ -426,7 +423,7 @@ pub fn test_compare_and_swap_multi<A: Authority<Lookup = AuthLookup>>(
             .clone();
         let current = current;
 
-        let mut message = update_message::create(
+        let message = update_message::create(
             current.clone(),
             Name::from_str("example.com.").unwrap(),
             true,
@@ -439,7 +436,7 @@ pub fn test_compare_and_swap_multi<A: Authority<Lookup = AuthLookup>>(
         let new2 = new.new_record(&RData::A(A4::new(100, 10, 101, 11))).clone();
         let new = new;
 
-        let mut message = update_message::compare_and_swap(
+        let message = update_message::compare_and_swap(
             current.clone(),
             new.clone(),
             Name::from_str("example.com.").unwrap(),
@@ -510,7 +507,7 @@ pub fn test_delete_by_rdata<A: Authority<Lookup = AuthLookup>>(
         let record1 = Record::from_rdata(name.clone(), 8, RData::A(A4::new(100, 10, 100, 10)));
 
         // first check the must_exist option
-        let mut message = update_message::delete_by_rdata(
+        let message = update_message::delete_by_rdata(
             record1.clone().into(),
             Name::from_str("example.com.").unwrap(),
             true,
@@ -518,7 +515,7 @@ pub fn test_delete_by_rdata<A: Authority<Lookup = AuthLookup>>(
         assert!(!update_authority(message, key, &mut authority).expect("delete_by_rdata failed"));
 
         // next create to a non-existent RRset
-        let mut message = update_message::create(
+        let message = update_message::create(
             record1.clone().into(),
             Name::from_str("example.com.").unwrap(),
             true,
@@ -649,7 +646,7 @@ pub fn test_delete_rrset<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
             .unwrap();
 
         // append a record
-        let mut record = Record::from_rdata(name.clone(), 8, RData::A(A4::new(100, 10, 100, 10)));
+        let record = Record::from_rdata(name.clone(), 8, RData::A(A4::new(100, 10, 100, 10)));
 
         // first check the must_exist option
         let message = update_message::delete_rrset(
@@ -711,7 +708,7 @@ pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys
             .unwrap();
 
         // append a record
-        let mut record = Record::from_rdata(name.clone(), 8, RData::A(A4::new(100, 10, 100, 10)));
+        let record = Record::from_rdata(name.clone(), 8, RData::A(A4::new(100, 10, 100, 10)));
 
         // first check the must_exist option
         let message = update_message::delete_all(
