@@ -819,9 +819,6 @@ mod tests {
     use crate::rr::dns_class::DNSClass;
     use crate::rr::rdata::{A, AAAA};
     use crate::rr::record_data::RData;
-    #[allow(clippy::useless_attribute)]
-    #[allow(unused)]
-    use crate::serialize::binary::*;
 
     #[test]
     fn test_emit_and_read() {

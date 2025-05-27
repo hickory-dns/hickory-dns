@@ -59,7 +59,6 @@ impl SocketPorts {
     }
 
     /// Assumes there is only one V4 addr for the IP based on the usage in the Server
-    #[allow(unused)]
     pub fn get_v6(&self, protocol: impl Into<ServerProtocol>) -> Option<u16> {
         self.0
             .get(&protocol.into())

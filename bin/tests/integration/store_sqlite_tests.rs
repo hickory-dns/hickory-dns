@@ -45,7 +45,7 @@ fn sqlite(master_file_path: &Path, module: &str, test_name: &str) -> SqliteAutho
     .expect("failed to load file")
 }
 
-#[allow(unused)]
+#[cfg_attr(not(feature = "__dnssec"), allow(unused))]
 fn sqlite_update(master_file_path: &Path, module: &str, test_name: &str) -> SqliteAuthority {
     let journal_path = PathBuf::from("target/tests")
         .join(module.replace("::", "_"))

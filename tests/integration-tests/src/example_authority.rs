@@ -1,19 +1,14 @@
 use std::str::FromStr;
 
-use hickory_proto::rr::*;
-
+use hickory_proto::rr::rdata::{A, AAAA, CNAME, NS, SOA, TXT};
+use hickory_proto::rr::{DNSClass, Name, RData, Record};
 use hickory_server::authority::ZoneType;
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryAuthority;
 
-#[allow(unused)]
-#[allow(clippy::unreadable_literal)]
 pub fn create_example() -> InMemoryAuthority {
-    use hickory_proto::rr::rdata::*;
-    use std::net::*;
-
-    let origin: Name = Name::parse("example.com.", None).unwrap();
+    let origin = Name::parse("example.com.", None).unwrap();
     let mut records = InMemoryAuthority::empty(
         origin.clone(),
         ZoneType::Primary,
@@ -188,12 +183,11 @@ pub fn create_example() -> InMemoryAuthority {
 }
 
 #[cfg(feature = "__dnssec")]
-#[allow(unused)]
 pub fn create_secure_example() -> InMemoryAuthority {
     use hickory_proto::dnssec::{
-        Algorithm, PublicKey, SigSigner, SigningKey, crypto::RsaSigningKey, rdata::DNSKEY,
+        Algorithm, SigSigner, SigningKey, crypto::RsaSigningKey, rdata::DNSKEY,
     };
-    use hickory_server::authority::{Authority, DnssecAuthority};
+    use hickory_server::authority::Authority;
     use rustls_pki_types::PrivatePkcs8KeyDer;
     use time::Duration;
 
@@ -202,7 +196,6 @@ pub fn create_secure_example() -> InMemoryAuthority {
     const KEY: &[u8] = include_bytes!("../tests/rsa-2048.pk8");
     let key =
         RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(KEY), Algorithm::RSASHA256).unwrap();
-    let dnskey = key.to_public_key().unwrap();
     let signer = SigSigner::dnssec(
         DNSKEY::from_key(&key.to_public_key().unwrap()),
         Box::new(key),
@@ -210,8 +203,8 @@ pub fn create_secure_example() -> InMemoryAuthority {
         Duration::weeks(1).try_into().unwrap(),
     );
 
-    authority.add_zone_signing_key_mut(signer);
-    authority.secure_zone_mut();
+    authority.add_zone_signing_key_mut(signer).unwrap();
+    authority.secure_zone_mut().unwrap();
 
     authority
 }

@@ -1,7 +1,6 @@
 #![allow(clippy::dbg_macro)]
 
-use std::future::Future;
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 
 use bytes::Bytes;
@@ -467,7 +466,7 @@ pub fn test_aname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
     assert_eq!(A4::new(127, 0, 0, 1), *a);
 }
 
-pub fn test_update_errors<A: Authority<Lookup = AuthLookup>>(mut authority: A) {
+pub fn test_update_errors<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let mut message = Message::default();
     message.add_query(Query::new());
     let bytes = message.to_vec().unwrap();

@@ -9,8 +9,6 @@ use std::iter::Chain;
 use std::slice::Iter;
 use std::sync::Arc;
 
-use cfg_if::cfg_if;
-
 use crate::authority::{LookupObject, LookupOptions};
 use crate::proto::rr::{LowerName, Record, RecordSet, RecordType, RrsetRecords};
 
@@ -176,6 +174,7 @@ impl From<LookupRecords> for AuthLookup {
 /// * `'q` - the lifetime of the query/request
 #[derive(Debug)]
 pub struct AnyRecords {
+    #[cfg(feature = "__dnssec")]
     lookup_options: LookupOptions,
     rrsets: Vec<Arc<RecordSet>>,
     query_type: RecordType,
@@ -185,13 +184,14 @@ pub struct AnyRecords {
 impl AnyRecords {
     /// construct a new lookup of any set of records
     pub fn new(
-        lookup_options: LookupOptions,
+        #[cfg_attr(not(feature = "__dnssec"), allow(unused))] lookup_options: LookupOptions,
         // TODO: potentially very expensive
         rrsets: Vec<Arc<RecordSet>>,
         query_type: RecordType,
         query_name: LowerName,
     ) -> Self {
         Self {
+            #[cfg(feature = "__dnssec")]
             lookup_options,
             rrsets,
             query_type,
@@ -210,6 +210,7 @@ impl<'r> IntoIterator for &'r AnyRecords {
 
     fn into_iter(self) -> Self::IntoIter {
         AnyRecordsIter {
+            #[cfg(feature = "__dnssec")]
             lookup_options: self.lookup_options,
             // TODO: potentially very expensive
             rrsets: self.rrsets.iter(),
@@ -222,8 +223,8 @@ impl<'r> IntoIterator for &'r AnyRecords {
 }
 
 /// An iteration over a lookup for any Records
-#[allow(unused)]
 pub struct AnyRecordsIter<'r> {
+    #[cfg(feature = "__dnssec")]
     lookup_options: LookupOptions,
     rrsets: Iter<'r, Arc<RecordSet>>,
     rrset: Option<&'r RecordSet>,
@@ -261,19 +262,14 @@ impl<'r> Iterator for AnyRecordsIter<'r> {
             self.rrset = self.rrsets.next().map(Borrow::borrow);
 
             // if there are no more RecordSets, then return
-            self.rrset?;
-
-            // getting here, we must have exhausted our records from the rrset
-            cfg_if! {
-                if #[cfg(feature = "__dnssec")] {
-                    self.records = Some(
-                        self.rrset
-                            .expect("rrset should not be None at this point")
-                            .records(self.lookup_options.dnssec_ok()),
-                    );
-                } else {
-                    self.records = Some(self.rrset.expect("rrset should not be None at this point").records_without_rrsigs());
-                }
+            let rrset = self.rrset?;
+            #[cfg(feature = "__dnssec")]
+            {
+                self.records = Some(rrset.records(self.lookup_options.dnssec_ok()));
+            }
+            #[cfg(not(feature = "__dnssec"))]
+            {
+                self.records = Some(rrset.records_without_rrsigs());
             }
         }
     }
@@ -337,7 +333,6 @@ impl<'a> IntoIterator for &'a LookupRecords {
     type Item = &'a Record;
     type IntoIter = LookupRecordsIter<'a>;
 
-    #[allow(unused_variables)]
     fn into_iter(self) -> Self::IntoIter {
         match self {
             LookupRecords::Empty => LookupRecordsIter::Empty,

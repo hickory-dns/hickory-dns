@@ -10,7 +10,7 @@
 //! This module is responsible for parsing and returning the configuration from
 //!  the host system. It will read from the default location on each operating
 //!  system, e.g. most Unixes have this written to `/etc/resolv.conf`
-#![allow(missing_docs, unused_extern_crates)]
+#![allow(missing_docs)]
 
 #[cfg(unix)]
 #[cfg(feature = "system-config")]

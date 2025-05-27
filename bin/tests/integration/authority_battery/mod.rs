@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 #[macro_use]
 pub mod basic;
 #[macro_use]

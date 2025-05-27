@@ -511,7 +511,6 @@ impl Context {
     }
 }
 
-#[allow(unused)]
 enum State {
     StartLine,    // start of line, @, $<WORD>, Name, Blank
     TtlClassType, // [<TTL>] [<class>] <type>,

@@ -577,7 +577,6 @@ impl SqliteAuthority {
     ///   MAILB, or any other QUERY metatype besides ANY, or any unrecognized
     ///   type, else signal FORMERR to the requestor.
     /// ```
-    #[allow(clippy::unused_unit)]
     pub async fn pre_scan(&self, records: &[Record]) -> UpdateResult<()> {
         // 3.4.1.3 - Pseudocode For Update Section Prescan
         //
@@ -615,11 +614,12 @@ impl SqliteAuthority {
                         if rr.ttl() != 0 {
                             return Err(ResponseCode::FormErr);
                         }
-                        if let RData::Update0(_) | RData::NULL(..) = rr.data() {
-                            ()
-                        } else {
-                            return Err(ResponseCode::FormErr);
+
+                        match rr.data() {
+                            RData::Update0(_) | RData::NULL(..) => {}
+                            _ => return Err(ResponseCode::FormErr),
                         }
+
                         match rr.record_type() {
                             RecordType::AXFR | RecordType::IXFR => {
                                 return Err(ResponseCode::FormErr);
