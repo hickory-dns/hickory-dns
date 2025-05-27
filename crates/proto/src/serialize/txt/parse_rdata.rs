@@ -78,7 +78,11 @@ impl RDataParser for RData {
             RecordType::IXFR => return Err(ParseError::from("parsing IXFR doesn't make sense")),
             RecordType::MX => Self::MX(mx::parse(tokens, origin)?),
             RecordType::NAPTR => Self::NAPTR(naptr::parse(tokens, origin)?),
-            RecordType::NULL => Self::NULL(null::parse(tokens)?),
+            RecordType::NULL => {
+                return Err(ParseError::from(ParseErrorKind::Message(
+                    "parse is not implemented for NULL record",
+                )));
+            }
             RecordType::NS => Self::NS(NS(name::parse(tokens, origin)?)),
             RecordType::OPENPGPKEY => Self::OPENPGPKEY(openpgpkey::parse(tokens)?),
             RecordType::OPT => return Err(ParseError::from("parsing OPT doesn't make sense")),

@@ -32,7 +32,6 @@ pub(crate) mod hinfo;
 pub(crate) mod mx;
 pub(crate) mod name;
 pub(crate) mod naptr;
-pub(crate) mod null;
 pub(crate) mod openpgpkey;
 pub(crate) mod soa;
 pub(crate) mod srv;
