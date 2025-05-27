@@ -80,7 +80,20 @@ impl Message {
     /// Returns a new "empty" Message
     pub fn new() -> Self {
         Self {
-            header: Header::new(),
+            header: Header::default(),
+            queries: Vec::new(),
+            answers: Vec::new(),
+            name_servers: Vec::new(),
+            additionals: Vec::new(),
+            signature: MessageSignature::default(),
+            edns: None,
+        }
+    }
+
+    /// Returns a new "empty" response Message
+    pub fn response() -> Self {
+        Self {
+            header: Header::new(MessageType::Response),
             queries: Vec::new(),
             answers: Vec::new(),
             name_servers: Vec::new(),

@@ -13,7 +13,7 @@ use hickory_proto::{
         rdata::{DNSKEY, RRSIG},
         verify_nsec,
     },
-    op::{Header, Query},
+    op::{Header, MessageType, Query},
     rr::{DNSClass, Name, RData, Record, RecordType},
     xfer::Protocol,
 };
@@ -22,7 +22,7 @@ use hickory_server::{
     server::RequestInfo,
 };
 
-const TEST_HEADER: &Header = &Header::new();
+const TEST_HEADER: &Header = &Header::new(MessageType::Query);
 
 pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A).into();

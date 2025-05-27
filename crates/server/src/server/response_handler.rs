@@ -9,7 +9,7 @@ use std::{io, net::SocketAddr};
 
 use hickory_proto::{
     ProtoError,
-    op::{Header, ResponseCode},
+    op::{Header, MessageType, ResponseCode},
     rr::Record,
     serialize::binary::BinEncodable,
 };
@@ -152,7 +152,7 @@ pub(crate) fn encode_fallback_servfail_response(
     buffer.clear();
     let mut encoder = BinEncoder::new(buffer);
     encoder.set_max_size(512);
-    let mut header = Header::new();
+    let mut header = Header::new(MessageType::Response);
     header.set_id(id);
     header.set_response_code(ResponseCode::ServFail);
     header.emit(&mut encoder)?;

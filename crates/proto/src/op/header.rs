@@ -155,18 +155,19 @@ impl fmt::Display for Flags {
 }
 
 impl Default for Header {
+    #[inline]
     fn default() -> Self {
-        Self::new()
+        Self::new(MessageType::Query)
     }
 }
 
 impl Header {
     // TODO: we should make id, message_type and op_code all required and non-editable
     /// A default Header, not very useful.
-    pub const fn new() -> Self {
+    pub const fn new(message_type: MessageType) -> Self {
         Self {
             id: 0,
-            message_type: MessageType::Query,
+            message_type,
             op_code: OpCode::Query,
             authoritative: false,
             truncation: false,
