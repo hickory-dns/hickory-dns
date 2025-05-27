@@ -135,11 +135,6 @@ impl<P> Display for UdpClientStream<P> {
     }
 }
 
-/// creates random query_id, each socket is unique, no need for global uniqueness
-fn random_query_id() -> u16 {
-    rand::random()
-}
-
 impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
     fn send_message(&mut self, mut request: DnsRequest) -> DnsResponseStream {
         if self.is_shutdown {
@@ -147,11 +142,6 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
         }
 
         let case_randomization = request.options().case_randomization;
-
-        // associated the ID for this request, b/c this connection is unique to socket port, the ID
-        //   does not need to be globally unique
-        request.set_id(random_query_id());
-
         let now = match SystemTime::now().duration_since(UNIX_EPOCH) {
             Ok(now) => now.as_secs(),
             Err(_) => return ProtoError::from("Current time is before the Unix epoch.").into(),
