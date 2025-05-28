@@ -38,11 +38,12 @@ use tokio::time::MissedTickBehavior;
 use hickory_proto::{
     ProtoError, ProtoErrorKind,
     rr::{Record, RecordData, RecordType},
-    xfer::Protocol,
 };
 use hickory_resolver::{
     TokioResolver,
-    config::{NameServerConfig, NameServerConfigGroup, ResolverConfig, ResolverOpts},
+    config::{
+        NameServerConfig, NameServerConfigGroup, ProtocolConfig, ResolverConfig, ResolverOpts,
+    },
     lookup::Lookup,
     name_server::TokioConnectionProvider,
 };
@@ -277,18 +278,14 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     for socket_addr in &opts.nameserver {
         name_servers.push(NameServerConfig {
             socket_addr: *socket_addr,
-            protocol: Protocol::Tcp,
-            tls_dns_name: None,
-            http_endpoint: None,
+            protocol: ProtocolConfig::Tcp,
             trust_negative_responses: false,
             bind_addr: opts.bind.map(|ip| SocketAddr::new(ip, 0)),
         });
 
         name_servers.push(NameServerConfig {
             socket_addr: *socket_addr,
-            protocol: Protocol::Udp,
-            tls_dns_name: None,
-            http_endpoint: None,
+            protocol: ProtocolConfig::Udp,
             trust_negative_responses: false,
             bind_addr: opts.bind.map(|ip| SocketAddr::new(ip, 0)),
         });
@@ -316,7 +313,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     name_servers
         .retain(|ns| (ipv4 && ns.socket_addr.is_ipv4()) || (ipv6 && ns.socket_addr.is_ipv6()));
     name_servers.retain(|ns| {
-        (udp && ns.protocol == Protocol::Udp) || (tcp && ns.protocol == Protocol::Tcp)
+        (udp && ns.protocol == ProtocolConfig::Udp) || (tcp && ns.protocol == ProtocolConfig::Tcp)
     });
 
     let mut config = sys_config.unwrap_or_default();

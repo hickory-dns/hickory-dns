@@ -806,7 +806,7 @@ mod tests {
 
                [[zones.stores.name_servers]]
                socket_addr = "8.8.8.8:53"
-               protocol = "udp"
+               protocol = { type = "udp" }
                trust_negative_responses = false
 
                [[zones.stores]]
@@ -814,7 +814,7 @@ mod tests {
 
                [[zones.stores.name_servers]]
                socket_addr = "1.1.1.1:53"
-               rotocol = "udp"
+               rotocol = { type = "udp" }
                trust_negative_responses = false"#,
         ) {
             Ok(val) => panic!("expected error value; got ok: {val:?}"),

@@ -13,9 +13,11 @@ use futures::executor::block_on;
 use hickory_integration::mock_client::*;
 use hickory_proto::op::{Query, ResponseCode};
 use hickory_proto::rr::{Name, RecordType};
-use hickory_proto::xfer::{DnsHandle, DnsResponse, FirstAnswer, Protocol};
+use hickory_proto::xfer::{DnsHandle, DnsResponse, FirstAnswer};
 use hickory_proto::{NoRecords, ProtoError, ProtoErrorKind};
-use hickory_resolver::config::{NameServerConfig, ResolverOpts, ServerOrderingStrategy};
+use hickory_resolver::config::{
+    NameServerConfig, ProtocolConfig, ResolverOpts, ServerOrderingStrategy,
+};
 use hickory_resolver::name_server::{NameServer, NameServerPool};
 use test_support::subscribe;
 
@@ -81,9 +83,7 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
     NameServer::from_conn(
         NameServerConfig {
             socket_addr: SocketAddr::new(addr, 0),
-            protocol: Protocol::Udp,
-            tls_dns_name: None,
-            http_endpoint: None,
+            protocol: ProtocolConfig::Udp,
             trust_negative_responses,
             bind_addr: None,
         },

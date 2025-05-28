@@ -13,7 +13,7 @@ use std::str::FromStr;
 use ipconfig::computer::{get_domain, get_search_list};
 use ipconfig::get_adapters;
 
-use crate::config::{NameServerConfig, ResolverConfig, ResolverOpts};
+use crate::config::{NameServerConfig, ProtocolConfig, ResolverConfig, ResolverOpts};
 use crate::proto::ProtoError;
 use crate::proto::rr::Name;
 use crate::proto::xfer::Protocol;
@@ -45,17 +45,13 @@ fn get_name_servers() -> Result<Vec<NameServerConfig>, ProtoError> {
         let socket_addr = SocketAddr::new(*dns_server, 53);
         name_servers.push(NameServerConfig {
             socket_addr,
-            protocol: Protocol::Udp,
-            tls_dns_name: None,
-            http_endpoint: None,
+            protocol: ProtocolConfig::Udp,
             trust_negative_responses: false,
             bind_addr: None,
         });
         name_servers.push(NameServerConfig {
             socket_addr,
-            protocol: Protocol::Tcp,
-            tls_dns_name: None,
-            http_endpoint: None,
+            protocol: ProtocolConfig::Tcp,
             trust_negative_responses: false,
             bind_addr: None,
         });

@@ -42,10 +42,10 @@ type = "forward"
 
 [[zones.stores.name_servers]]
 socket_addr = "8.8.8.8:53"
-protocol = "udp"
+protocol = { type = "udp" }
 trust_negative_responses = false
 
 [[zones.stores.name_servers]]
 socket_addr = "8.8.8.8:53"
-protocol = "tcp"
+protocol = { type = "tcp" }
 trust_negative_responses = false

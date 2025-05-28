@@ -198,9 +198,10 @@ mod tests {
     use tokio::net::UdpSocket;
     use tokio::spawn;
 
+    use crate::config::ProtocolConfig;
     use crate::proto::op::{Query, ResponseCode};
     use crate::proto::rr::{Name, RecordType};
-    use crate::proto::xfer::{DnsHandle, DnsRequestOptions, FirstAnswer, Protocol};
+    use crate::proto::xfer::{DnsHandle, DnsRequestOptions, FirstAnswer};
 
     use super::*;
     use crate::name_server::connection_provider::TokioConnectionProvider;
@@ -211,9 +212,7 @@ mod tests {
 
         let config = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
-            protocol: Protocol::Udp,
-            tls_dns_name: None,
-            http_endpoint: None,
+            protocol: ProtocolConfig::Udp,
             trust_negative_responses: false,
             bind_addr: None,
         };
@@ -245,9 +244,7 @@ mod tests {
         };
         let config = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 252)), 252),
-            protocol: Protocol::Udp,
-            tls_dns_name: None,
-            http_endpoint: None,
+            protocol: ProtocolConfig::Udp,
             trust_negative_responses: false,
             bind_addr: None,
         };
@@ -295,7 +292,7 @@ mod tests {
             }
         });
 
-        let config = NameServerConfig::new(server_addr, Protocol::Udp);
+        let config = NameServerConfig::new(server_addr, ProtocolConfig::Udp);
         let resolver_opts = ResolverOpts {
             case_randomization: true,
             ..Default::default()

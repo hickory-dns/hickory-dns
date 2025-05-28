@@ -16,4 +16,4 @@ trust_anchor = "/etc/trusted-key.key"
 
 [[zones.stores.name_servers]]
 socket_addr = "{{ resolver_ip }}:53"
-protocol = "tcp"
+protocol = { type = "tcp" }
