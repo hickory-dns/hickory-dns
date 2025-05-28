@@ -368,7 +368,7 @@ impl NameServerConfigGroup {
             port,
             ProtocolConfig::Https {
                 server_name,
-                path: DEFAULT_DNS_QUERY_PATH.to_owned(),
+                path: Arc::from(DEFAULT_DNS_QUERY_PATH),
             },
             trust_negative_responses,
         )
@@ -407,7 +407,7 @@ impl NameServerConfigGroup {
             port,
             ProtocolConfig::H3 {
                 server_name,
-                path: DEFAULT_DNS_QUERY_PATH.to_owned(),
+                path: Arc::from(DEFAULT_DNS_QUERY_PATH),
             },
             trust_negative_responses,
         )
@@ -660,7 +660,7 @@ pub enum ProtocolConfig {
         /// The server name to use in the TLS handshake.
         server_name: Arc<str>,
         /// The path (or endpoint) to use for the DNS query.
-        path: String,
+        path: Arc<str>,
     },
     #[cfg(feature = "__quic")]
     Quic {
@@ -672,7 +672,7 @@ pub enum ProtocolConfig {
         /// The server name to use in the TLS handshake.
         server_name: Arc<str>,
         /// The path (or endpoint) to use for the DNS query.
-        path: String,
+        path: Arc<str>,
     },
 }
 

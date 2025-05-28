@@ -18,7 +18,7 @@ pub(crate) fn new_https_stream_with_future<S, F>(
     future: F,
     socket_addr: SocketAddr,
     server_name: Arc<str>,
-    http_endpoint: String,
+    path: Arc<str>,
     tls_config: Arc<rustls::ClientConfig>,
 ) -> DnsExchangeConnect<HttpsClientConnect<S>, HttpsClientStream, TokioTime>
 where
@@ -30,7 +30,7 @@ where
         tls_config,
         socket_addr,
         server_name,
-        http_endpoint,
+        path,
     ))
 }
 

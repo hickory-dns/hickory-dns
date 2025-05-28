@@ -364,9 +364,12 @@ async fn https(
     let config = Arc::new(config);
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(config, provider);
-    let (client, bg) =
-        Client::connect(https_builder.build(nameserver, Arc::from(dns_name), http_endpoint))
-            .await?;
+    let (client, bg) = Client::connect(https_builder.build(
+        nameserver,
+        Arc::from(dns_name),
+        Arc::from(http_endpoint),
+    ))
+    .await?;
 
     let handle = tokio::spawn(bg);
     handle_request(opts.class, opts.zone, opts.command, client).await?;
@@ -441,8 +444,12 @@ async fn h3(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
 
     let mut h3_builder = H3ClientStream::builder();
     h3_builder.crypto_config(config);
-    let (client, bg) =
-        Client::connect(h3_builder.build(nameserver, Arc::from(dns_name), http_endpoint)).await?;
+    let (client, bg) = Client::connect(h3_builder.build(
+        nameserver,
+        Arc::from(dns_name),
+        Arc::from(http_endpoint),
+    ))
+    .await?;
 
     let handle = tokio::spawn(bg);
     handle_request(opts.class, opts.zone, opts.command, client).await?;

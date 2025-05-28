@@ -16,18 +16,13 @@ pub(crate) fn new_h3_stream_with_future(
     socket: Arc<dyn quinn::AsyncUdpSocket>,
     socket_addr: SocketAddr,
     server_name: Arc<str>,
-    http_endpoint: String,
+    path: Arc<str>,
     crypto_config: rustls::ClientConfig,
 ) -> DnsExchangeConnect<H3ClientConnect, H3ClientStream, TokioTime> {
     let mut h3_builder = H3ClientStream::builder();
     // TODO: normalize the crypto config settings, can we just use common ALPN settings?
     h3_builder.crypto_config(crypto_config);
-    DnsExchange::connect(h3_builder.build_with_future(
-        socket,
-        socket_addr,
-        server_name,
-        http_endpoint,
-    ))
+    DnsExchange::connect(h3_builder.build_with_future(socket, socket_addr, server_name, path))
 }
 
 #[cfg(all(
