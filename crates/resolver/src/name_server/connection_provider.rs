@@ -26,9 +26,7 @@ use futures_util::stream::{Stream, StreamExt};
 #[cfg(feature = "__tls")]
 use tokio_rustls::client::TlsStream as TokioTlsStream;
 
-use crate::config::{NameServerConfig, ResolverOpts};
-#[cfg(any(feature = "__h3", feature = "__https"))]
-use crate::proto;
+use crate::config::{NameServerConfig, ProtocolConfig, ResolverOpts};
 #[cfg(feature = "__https")]
 use crate::proto::h2::{HttpsClientConnect, HttpsClientStream};
 #[cfg(feature = "__h3")]
@@ -47,7 +45,7 @@ use crate::proto::{
     udp::{UdpClientConnect, UdpClientStream},
     xfer::{
         DnsExchange, DnsExchangeConnect, DnsExchangeSend, DnsHandle, DnsMultiplexer,
-        DnsMultiplexerConnect, DnsRequest, DnsResponse, Protocol,
+        DnsMultiplexerConnect, DnsRequest, DnsResponse,
     },
 };
 
@@ -213,8 +211,8 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
         config: &NameServerConfig,
         options: &ResolverOpts,
     ) -> Result<Self::FutureConn, io::Error> {
-        let dns_connect = match (config.protocol, self.runtime_provider.quic_binder()) {
-            (Protocol::Udp, _) => {
+        let dns_connect = match (&config.protocol, self.runtime_provider.quic_binder()) {
+            (ProtocolConfig::Udp, _) => {
                 let provider_handle = self.runtime_provider.clone();
                 let stream = UdpClientStream::builder(config.socket_addr, provider_handle)
                     .with_timeout(Some(options.timeout))
@@ -225,7 +223,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let exchange = DnsExchange::connect(stream);
                 ConnectionConnect::Udp(exchange)
             }
-            (Protocol::Tcp, _) => {
+            (ProtocolConfig::Tcp, _) => {
                 let (future, handle) = TcpClientStream::new(
                     config.socket_addr,
                     config.bind_addr,
@@ -239,16 +237,15 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 ConnectionConnect::Tcp(exchange)
             }
             #[cfg(feature = "__tls")]
-            (Protocol::Tls, _) => {
+            (ProtocolConfig::Tls { server_name }, _) => {
                 let socket_addr = config.socket_addr;
                 let timeout = options.timeout;
-                let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
                 let tcp_future = self.runtime_provider.connect_tcp(socket_addr, None, None);
 
                 let (stream, handle) = crate::tls::new_tls_stream_with_future(
                     tcp_future,
                     socket_addr,
-                    tls_dns_name,
+                    server_name.clone(),
                     options.tls_config.clone(),
                 );
 
@@ -257,71 +254,68 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 ConnectionConnect::Tls(exchange)
             }
             #[cfg(feature = "__https")]
-            (Protocol::Https, _) => {
+            (ProtocolConfig::Https { server_name, path }, _) => {
                 let socket_addr = config.socket_addr;
-                let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
-                let http_endpoint = config
-                    .http_endpoint
-                    .clone()
-                    .unwrap_or_else(|| proto::http::DEFAULT_DNS_QUERY_PATH.to_owned());
                 let tcp_future = self.runtime_provider.connect_tcp(socket_addr, None, None);
 
                 let exchange = crate::h2::new_https_stream_with_future(
                     tcp_future,
                     socket_addr,
-                    tls_dns_name,
-                    http_endpoint,
+                    server_name.clone(),
+                    path.clone(),
                     Arc::new(options.tls_config.clone()),
                 );
                 ConnectionConnect::Https(exchange)
             }
             #[cfg(feature = "__quic")]
-            (Protocol::Quic, Some(binder)) => {
+            (ProtocolConfig::Quic { server_name }, Some(binder)) => {
                 let socket_addr = config.socket_addr;
                 let bind_addr = config.bind_addr.unwrap_or(match socket_addr {
                     SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
                     SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
                 });
-                let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
                 let client_config = options.tls_config.clone();
                 let socket = binder.bind_quic(bind_addr, socket_addr)?;
 
                 let exchange = crate::quic::new_quic_stream_with_future(
                     socket,
                     socket_addr,
-                    tls_dns_name,
+                    server_name.clone(),
                     client_config,
                 );
                 ConnectionConnect::Quic(exchange)
             }
             #[cfg(feature = "__h3")]
-            (Protocol::H3, Some(binder)) => {
+            (ProtocolConfig::H3 { server_name, path }, Some(binder)) => {
                 let socket_addr = config.socket_addr;
                 let bind_addr = config.bind_addr.unwrap_or(match socket_addr {
                     SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
                     SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
                 });
-                let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
-                let http_endpoint = config
-                    .http_endpoint
-                    .clone()
-                    .unwrap_or_else(|| proto::http::DEFAULT_DNS_QUERY_PATH.to_owned());
                 let client_config = options.tls_config.clone();
                 let socket = binder.bind_quic(bind_addr, socket_addr)?;
 
                 let exchange = crate::h3::new_h3_stream_with_future(
                     socket,
                     socket_addr,
-                    tls_dns_name,
-                    http_endpoint,
+                    server_name.clone(),
+                    path.clone(),
                     client_config,
                 );
                 ConnectionConnect::H3(exchange)
             }
-            (protocol, _) => {
+            #[cfg(feature = "__quic")]
+            (ProtocolConfig::Quic { .. }, None) => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
-                    format!("unsupported protocol: {protocol:?}"),
+                    "runtime provider does not support QUIC",
+                ));
+            }
+            #[cfg(feature = "__h3")]
+            (ProtocolConfig::H3 { .. }, None) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "runtime provider does not support QUIC",
                 ));
             }
         };

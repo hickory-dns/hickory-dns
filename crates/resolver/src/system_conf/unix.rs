@@ -19,12 +19,9 @@ use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
 
-use resolv_conf;
-
-use crate::config::{NameServerConfig, ResolverConfig, ResolverOpts};
+use crate::config::{NameServerConfig, ProtocolConfig, ResolverConfig, ResolverOpts};
 use crate::proto::ProtoError;
 use crate::proto::rr::Name;
-use crate::proto::xfer::Protocol;
 
 const DEFAULT_PORT: u16 = 53;
 
@@ -70,17 +67,13 @@ fn into_resolver_config(
     for ip in &parsed_config.nameservers {
         nameservers.push(NameServerConfig {
             socket_addr: SocketAddr::new(ip.into(), DEFAULT_PORT),
-            protocol: Protocol::Udp,
-            tls_dns_name: None,
-            http_endpoint: None,
+            protocol: ProtocolConfig::Udp,
             trust_negative_responses: false,
             bind_addr: None,
         });
         nameservers.push(NameServerConfig {
             socket_addr: SocketAddr::new(ip.into(), DEFAULT_PORT),
-            protocol: Protocol::Tcp,
-            tls_dns_name: None,
-            http_endpoint: None,
+            protocol: ProtocolConfig::Tcp,
             trust_negative_responses: false,
             bind_addr: None,
         });
@@ -138,17 +131,13 @@ mod tests {
         [
             NameServerConfig {
                 socket_addr: addr,
-                protocol: Protocol::Udp,
-                tls_dns_name: None,
-                http_endpoint: None,
+                protocol: ProtocolConfig::Udp,
                 trust_negative_responses: false,
                 bind_addr: None,
             },
             NameServerConfig {
                 socket_addr: addr,
-                protocol: Protocol::Tcp,
-                tls_dns_name: None,
-                http_endpoint: None,
+                protocol: ProtocolConfig::Tcp,
                 trust_negative_responses: false,
                 bind_addr: None,
             },

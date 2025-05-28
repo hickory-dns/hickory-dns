@@ -62,7 +62,7 @@ where
         let stream_conns = config
             .name_servers()
             .iter()
-            .filter(|ns_config| ns_config.protocol.is_stream())
+            .filter(|ns_config| !ns_config.protocol.is_datagram())
             .map(|ns_config| {
                 NameServer::new(ns_config.clone(), options.clone(), conn_provider.clone())
             })
@@ -323,13 +323,13 @@ mod tests {
     use tokio::runtime::Runtime;
 
     use super::*;
-    use crate::config::NameServerConfig;
+    use crate::config::{NameServerConfig, ProtocolConfig};
     use crate::name_server::GenericNameServer;
     use crate::name_server::connection_provider::TokioConnectionProvider;
     use crate::proto::op::Query;
     use crate::proto::rr::{Name, RecordType};
     use crate::proto::runtime::TokioRuntimeProvider;
-    use crate::proto::xfer::{DnsHandle, DnsRequestOptions, Protocol};
+    use crate::proto::xfer::{DnsHandle, DnsRequestOptions};
 
     #[ignore]
     // because of there is a real connection that needs a reasonable timeout
@@ -340,18 +340,14 @@ mod tests {
 
         let config1 = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 252)), 253),
-            protocol: Protocol::Udp,
-            tls_dns_name: None,
-            http_endpoint: None,
+            protocol: ProtocolConfig::Udp,
             trust_negative_responses: false,
             bind_addr: None,
         };
 
         let config2 = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
-            protocol: Protocol::Udp,
-            tls_dns_name: None,
-            http_endpoint: None,
+            protocol: ProtocolConfig::Udp,
             trust_negative_responses: false,
             bind_addr: None,
         };
@@ -411,9 +407,7 @@ mod tests {
 
         let tcp = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
-            protocol: Protocol::Tcp,
-            tls_dns_name: None,
-            http_endpoint: None,
+            protocol: ProtocolConfig::Tcp,
             trust_negative_responses: false,
             bind_addr: None,
         };

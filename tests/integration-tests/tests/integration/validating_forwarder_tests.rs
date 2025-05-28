@@ -25,11 +25,10 @@ use hickory_proto::{
     },
     runtime::TokioRuntimeProvider,
     udp::UdpClientStream,
-    xfer::Protocol,
 };
 use hickory_resolver::{
     Name,
-    config::{NameServerConfig, NameServerConfigGroup, ResolverOpts},
+    config::{NameServerConfig, NameServerConfigGroup, ProtocolConfig, ResolverOpts},
 };
 use hickory_server::{
     ServerFuture,
@@ -258,7 +257,7 @@ async fn setup_client_forwarder(
     let mut authority_builder = ForwardAuthority::builder_tokio(ForwardConfig {
         name_servers: NameServerConfigGroup::from(vec![NameServerConfig::new(
             name_server_addr,
-            Protocol::Udp,
+            ProtocolConfig::Udp,
         )]),
         options: Some(ResolverOpts::default()),
     });

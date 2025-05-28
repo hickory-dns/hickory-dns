@@ -18,10 +18,11 @@ use std::time::Duration;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+#[cfg(any(feature = "__https", feature = "__h3"))]
+use crate::proto::http::DEFAULT_DNS_QUERY_PATH;
 use crate::proto::rr::Name;
 #[cfg(feature = "__tls")]
 use crate::proto::rustls::client_config;
-use crate::proto::xfer::Protocol;
 
 /// Configuration for the upstream nameservers to use for resolution
 #[derive(Clone, Debug, Default)]
@@ -293,17 +294,13 @@ impl NameServerConfigGroup {
             let socket_addr = SocketAddr::new(*ip, port);
             let udp = NameServerConfig {
                 socket_addr,
-                protocol: Protocol::Udp,
-                tls_dns_name: None,
-                http_endpoint: None,
+                protocol: ProtocolConfig::Udp,
                 trust_negative_responses,
                 bind_addr: None,
             };
             let tcp = NameServerConfig {
                 socket_addr,
-                protocol: Protocol::Tcp,
-                tls_dns_name: None,
-                http_endpoint: None,
+                protocol: ProtocolConfig::Tcp,
                 trust_negative_responses,
                 bind_addr: None,
             };
@@ -319,20 +316,15 @@ impl NameServerConfigGroup {
     fn from_ips_encrypted(
         ips: &[IpAddr],
         port: u16,
-        tls_dns_name: String,
-        protocol: Protocol,
+        protocol: ProtocolConfig,
         trust_negative_responses: bool,
     ) -> Self {
-        assert!(protocol.is_encrypted());
-
         let mut name_servers = Self::with_capacity(ips.len());
 
         for ip in ips {
             let config = NameServerConfig {
                 socket_addr: SocketAddr::new(*ip, port),
-                protocol,
-                tls_dns_name: Some(tls_dns_name.clone()),
-                http_endpoint: None,
+                protocol: protocol.clone(),
                 trust_negative_responses,
                 bind_addr: None,
             };
@@ -350,14 +342,13 @@ impl NameServerConfigGroup {
     pub fn from_ips_tls(
         ips: &[IpAddr],
         port: u16,
-        tls_dns_name: String,
+        server_name: String,
         trust_negative_responses: bool,
     ) -> Self {
         Self::from_ips_encrypted(
             ips,
             port,
-            tls_dns_name,
-            Protocol::Tls,
+            ProtocolConfig::Tls { server_name },
             trust_negative_responses,
         )
     }
@@ -369,14 +360,16 @@ impl NameServerConfigGroup {
     pub fn from_ips_https(
         ips: &[IpAddr],
         port: u16,
-        tls_dns_name: String,
+        server_name: String,
         trust_negative_responses: bool,
     ) -> Self {
         Self::from_ips_encrypted(
             ips,
             port,
-            tls_dns_name,
-            Protocol::Https,
+            ProtocolConfig::Https {
+                server_name,
+                path: DEFAULT_DNS_QUERY_PATH.to_owned(),
+            },
             trust_negative_responses,
         )
     }
@@ -388,14 +381,13 @@ impl NameServerConfigGroup {
     pub fn from_ips_quic(
         ips: &[IpAddr],
         port: u16,
-        tls_dns_name: String,
+        server_name: String,
         trust_negative_responses: bool,
     ) -> Self {
         Self::from_ips_encrypted(
             ips,
             port,
-            tls_dns_name,
-            Protocol::Quic,
+            ProtocolConfig::Quic { server_name },
             trust_negative_responses,
         )
     }
@@ -407,14 +399,16 @@ impl NameServerConfigGroup {
     pub fn from_ips_h3(
         ips: &[IpAddr],
         port: u16,
-        tls_dns_name: String,
+        server_name: String,
         trust_negative_responses: bool,
     ) -> Self {
         Self::from_ips_encrypted(
             ips,
             port,
-            tls_dns_name,
-            Protocol::H3,
+            ProtocolConfig::H3 {
+                server_name,
+                path: DEFAULT_DNS_QUERY_PATH.to_owned(),
+            },
             trust_negative_responses,
         )
     }
@@ -540,7 +534,7 @@ impl NameServerConfigGroup {
         trust_negative_response: bool,
     ) {
         for ip in nameserver_ips {
-            for proto in [Protocol::Udp, Protocol::Tcp] {
+            for proto in [ProtocolConfig::Udp, ProtocolConfig::Tcp] {
                 let mut config = NameServerConfig::new(SocketAddr::from((ip, 53)), proto);
                 config.trust_negative_responses = trust_negative_response;
                 self.push(config);
@@ -613,14 +607,7 @@ pub struct NameServerConfig {
     /// The address which the DNS NameServer is registered at.
     pub socket_addr: SocketAddr,
     /// The protocol to use when communicating with the NameServer.
-    #[cfg_attr(feature = "serde", serde(default = "default_protocol"))]
-    pub protocol: Protocol,
-    /// SPKI name, only relevant for TLS connections
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub tls_dns_name: Option<String>,
-    /// The HTTP endpoint where the DNS NameServer provides service. Only
-    /// relevant to DNS-over-HTTPS. Defaults to `/dns-query` if unspecified.
-    pub http_endpoint: Option<String>,
+    pub protocol: ProtocolConfig,
     /// Whether to trust `NXDOMAIN` responses from upstream nameservers.
     ///
     /// When this is `true`, and an empty `NXDOMAIN` response or `NOERROR`
@@ -641,20 +628,58 @@ pub struct NameServerConfig {
 
 impl NameServerConfig {
     /// Constructs a Nameserver configuration with some basic defaults
-    pub fn new(socket_addr: SocketAddr, protocol: Protocol) -> Self {
+    pub fn new(socket_addr: SocketAddr, protocol: ProtocolConfig) -> Self {
         Self {
             socket_addr,
             protocol,
             trust_negative_responses: true,
-            tls_dns_name: None,
-            http_endpoint: None,
             bind_addr: None,
         }
     }
 }
 
-fn default_protocol() -> Protocol {
-    Protocol::Udp
+/// Protocol configuration
+#[allow(missing_docs, missing_copy_implementations)]
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(
+    feature = "serde",
+    derive(Serialize, Deserialize),
+    serde(deny_unknown_fields, rename_all = "snake_case", tag = "type")
+)]
+pub enum ProtocolConfig {
+    #[default]
+    Udp,
+    Tcp,
+    #[cfg(feature = "__tls")]
+    Tls {
+        /// The server name to use in the TLS handshake.
+        server_name: String,
+    },
+    #[cfg(feature = "__https")]
+    Https {
+        /// The server name to use in the TLS handshake.
+        server_name: String,
+        /// The path (or endpoint) to use for the DNS query.
+        path: String,
+    },
+    #[cfg(feature = "__quic")]
+    Quic {
+        /// The server name to use in the TLS handshake.
+        server_name: String,
+    },
+    #[cfg(feature = "__h3")]
+    H3 {
+        /// The server name to use in the TLS handshake.
+        server_name: String,
+        /// The path (or endpoint) to use for the DNS query.
+        path: String,
+    },
+}
+
+impl ProtocolConfig {
+    pub(crate) fn is_datagram(&self) -> bool {
+        matches!(self, ProtocolConfig::Udp)
+    }
 }
 
 /// Configuration for the Resolver
