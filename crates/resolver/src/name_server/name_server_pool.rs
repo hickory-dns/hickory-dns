@@ -356,7 +356,7 @@ mod tests {
             bind_addr: None,
         };
 
-        let mut resolver_config = ResolverConfig::new();
+        let mut resolver_config = ResolverConfig::default();
         resolver_config.add_name_server(config1);
         resolver_config.add_name_server(config2);
 
