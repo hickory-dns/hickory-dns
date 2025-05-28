@@ -7,7 +7,6 @@
 
 use std::sync::Arc;
 use std::sync::atomic::{self, AtomicU8};
-use std::time::Instant;
 
 use crate::proto::op::Edns;
 use futures_util::lock::Mutex;
@@ -66,9 +65,7 @@ impl NameServerState {
     /// transition to the Failed state
     ///
     /// when is the time of the failure
-    ///
-    /// * when - deprecated
-    pub(crate) fn fail(&self, _when: /* FIXME: remove in 0.20 */ Instant) {
+    pub(crate) fn fail(&self) {
         self.store(ConnectionState::Failed);
     }
 

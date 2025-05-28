@@ -149,7 +149,7 @@ where
                 debug!(config = ?self.config, "name_server connection failure: {}", error);
 
                 // this transitions the state to failure
-                self.state.fail(Instant::now());
+                self.state.fail();
 
                 // record the failure
                 self.stats.record_connection_failure();
