@@ -402,7 +402,7 @@ async fn quic(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
 
     let mut quic_builder = QuicClientStream::builder();
     quic_builder.crypto_config(config);
-    let (client, bg) = Client::connect(quic_builder.build(nameserver, dns_name)).await?;
+    let (client, bg) = Client::connect(quic_builder.build(nameserver, Arc::from(dns_name))).await?;
 
     let handle = tokio::spawn(bg);
     handle_request(opts.class, opts.zone, opts.command, client).await?;
@@ -442,7 +442,7 @@ async fn h3(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     let mut h3_builder = H3ClientStream::builder();
     h3_builder.crypto_config(config);
     let (client, bg) =
-        Client::connect(h3_builder.build(nameserver, dns_name, http_endpoint)).await?;
+        Client::connect(h3_builder.build(nameserver, Arc::from(dns_name), http_endpoint)).await?;
 
     let handle = tokio::spawn(bg);
     handle_request(opts.class, opts.zone, opts.command, client).await?;

@@ -39,7 +39,7 @@ use super::ALPN_H3;
 #[must_use = "futures do nothing unless polled"]
 pub struct H3ClientStream {
     // Corresponds to the dns-name of the HTTP/3 server
-    name_server_name: Arc<str>,
+    server_name: Arc<str>,
     name_server: SocketAddr,
     query_path: Arc<str>,
     send_request: SendRequest<OpenStreams, Bytes>,
@@ -49,11 +49,7 @@ pub struct H3ClientStream {
 
 impl Display for H3ClientStream {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(
-            formatter,
-            "H3({},{})",
-            self.name_server, self.name_server_name
-        )
+        write!(formatter, "H3({},{})", self.name_server, self.server_name)
     }
 }
 
@@ -258,7 +254,7 @@ impl DnsRequestSender for H3ClientStream {
         Box::pin(Self::inner_send(
             self.send_request.clone(),
             Bytes::from(bytes),
-            Arc::clone(&self.name_server_name),
+            self.server_name.clone(),
             Arc::clone(&self.query_path),
         ))
         .into()
@@ -317,14 +313,14 @@ impl H3ClientStreamBuilder {
     /// # Arguments
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
-    /// * `dns_name` - The DNS name associated with a certificate
+    /// * `server_name` - The DNS name associated with a certificate
     pub fn build(
         self,
         name_server: SocketAddr,
-        dns_name: String,
+        server_name: Arc<str>,
         query_path: String,
     ) -> H3ClientConnect {
-        H3ClientConnect(Box::pin(self.connect(name_server, dns_name, query_path)) as _)
+        H3ClientConnect(Box::pin(self.connect(name_server, server_name, query_path)) as _)
     }
 
     /// Creates a new H3Stream with existing connection
@@ -332,13 +328,13 @@ impl H3ClientStreamBuilder {
         self,
         socket: Arc<dyn quinn::AsyncUdpSocket>,
         name_server: SocketAddr,
-        dns_name: String,
+        server_name: Arc<str>,
         query_path: String,
     ) -> H3ClientConnect {
         H3ClientConnect(Box::pin(self.connect_with_future(
             socket,
             name_server,
-            dns_name,
+            server_name,
             query_path,
         )) as _)
     }
@@ -347,7 +343,7 @@ impl H3ClientStreamBuilder {
         self,
         socket: Arc<dyn quinn::AsyncUdpSocket>,
         name_server: SocketAddr,
-        server_name: String,
+        server_name: Arc<str>,
         query_path: String,
     ) -> Result<H3ClientStream, ProtoError> {
         let endpoint = Endpoint::new_with_abstract_socket(
@@ -363,7 +359,7 @@ impl H3ClientStreamBuilder {
     async fn connect(
         self,
         name_server: SocketAddr,
-        dns_name: String,
+        server_name: Arc<str>,
         query_path: String,
     ) -> Result<H3ClientStream, ProtoError> {
         let connect = if let Some(bind_addr) = self.bind_addr {
@@ -380,7 +376,7 @@ impl H3ClientStreamBuilder {
             socket,
             Arc::new(quinn::TokioRuntime),
         )?;
-        self.connect_inner(endpoint, name_server, dns_name, query_path)
+        self.connect_inner(endpoint, name_server, server_name, query_path)
             .await
     }
 
@@ -388,12 +384,12 @@ impl H3ClientStreamBuilder {
         self,
         endpoint: Endpoint,
         name_server: SocketAddr,
-        dns_name: String,
+        server_name: Arc<str>,
         query_path: String,
     ) -> Result<H3ClientStream, ProtoError> {
         let quic_connection = connect_quic(
             name_server,
-            &dns_name,
+            server_name.clone(),
             ALPN_H3,
             self.crypto_config,
             self.transport_config,
@@ -423,7 +419,7 @@ impl H3ClientStreamBuilder {
         });
 
         Ok(H3ClientStream {
-            name_server_name: Arc::from(dns_name),
+            server_name,
             name_server,
             query_path: Arc::from(query_path),
             send_request,
@@ -509,7 +505,7 @@ mod tests {
 
         let mut h3_builder = H3ClientStream::builder();
         h3_builder.crypto_config(client_config);
-        let connect = h3_builder.build(google, "dns.google".to_string(), "/dns-query".to_string());
+        let connect = h3_builder.build(google, Arc::from("dns.google"), "/dns-query".to_string());
 
         let mut h3 = connect.await.expect("h3 connect failed");
 
@@ -577,7 +573,11 @@ mod tests {
 
         let mut h3_builder = H3ClientStream::builder();
         h3_builder.crypto_config(client_config);
-        let connect = h3_builder.build(google, google.ip().to_string(), "/dns-query".to_string());
+        let connect = h3_builder.build(
+            google,
+            Arc::from(google.ip().to_string()),
+            "/dns-query".to_string(),
+        );
 
         let mut h3 = connect.await.expect("h3 connect failed");
 
@@ -644,7 +644,7 @@ mod tests {
         h3_builder.crypto_config(client_config);
         let connect = h3_builder.build(
             cloudflare,
-            "cloudflare-dns.com".to_string(),
+            Arc::from("cloudflare-dns.com"),
             "/dns-query".to_string(),
         );
 
@@ -698,7 +698,7 @@ mod tests {
 
         let mut h3_builder = H3ClientStream::builder();
         h3_builder.crypto_config(client_config);
-        let connect = h3_builder.build(google, "dns.google".to_string(), "/dns-query".to_string());
+        let connect = h3_builder.build(google, Arc::from("dns.google"), "/dns-query".to_string());
 
         let h3 = connect.await.expect("h3 connect failed");
 

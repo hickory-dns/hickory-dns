@@ -289,7 +289,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let exchange = crate::quic::new_quic_stream_with_future(
                     socket,
                     socket_addr,
-                    server_name.clone(),
+                    Arc::from(server_name.as_str()),
                     client_config,
                 );
                 ConnectionConnect::Quic(exchange)
@@ -307,7 +307,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let exchange = crate::h3::new_h3_stream_with_future(
                     socket,
                     socket_addr,
-                    server_name.clone(),
+                    Arc::from(server_name.as_str()),
                     path.clone(),
                     client_config,
                 );

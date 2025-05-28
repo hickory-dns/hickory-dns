@@ -15,13 +15,13 @@ use crate::proto::xfer::{DnsExchange, DnsExchangeConnect};
 pub(crate) fn new_quic_stream_with_future(
     socket: Arc<dyn quinn::AsyncUdpSocket>,
     socket_addr: SocketAddr,
-    dns_name: String,
+    server_name: Arc<str>,
     crypto_config: rustls::ClientConfig,
 ) -> DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime> {
     let mut quic_builder = QuicClientStream::builder();
     // TODO: normalize the crypto config settings, can we just use common ALPN settings?
     quic_builder.crypto_config(crypto_config);
-    DnsExchange::connect(quic_builder.build_with_future(socket, socket_addr, dns_name))
+    DnsExchange::connect(quic_builder.build_with_future(socket, socket_addr, server_name))
 }
 
 #[cfg(all(

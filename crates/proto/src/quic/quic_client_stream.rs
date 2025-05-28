@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use alloc::{boxed::Box, string::String, sync::Arc};
+use alloc::{boxed::Box, sync::Arc};
 use core::{
     fmt::{self, Display},
     future::Future,
@@ -35,18 +35,14 @@ use super::{quic_config, quic_stream};
 #[derive(Clone)]
 pub struct QuicClientStream {
     quic_connection: Connection,
-    name_server_name: Arc<str>,
+    server_name: Arc<str>,
     name_server: SocketAddr,
     is_shutdown: bool,
 }
 
 impl Display for QuicClientStream {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(
-            formatter,
-            "QUIC({},{})",
-            self.name_server, self.name_server_name
-        )
+        write!(formatter, "QUIC({},{})", self.name_server, self.server_name)
     }
 }
 
@@ -220,9 +216,9 @@ impl QuicClientStreamBuilder {
     /// # Arguments
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
-    /// * `dns_name` - The DNS name associated with a certificate
-    pub fn build(self, name_server: SocketAddr, dns_name: String) -> QuicClientConnect {
-        QuicClientConnect(Box::pin(self.connect(name_server, dns_name)) as _)
+    /// * `server_name` - The DNS name associated with a certificate
+    pub fn build(self, name_server: SocketAddr, server_name: Arc<str>) -> QuicClientConnect {
+        QuicClientConnect(Box::pin(self.connect(name_server, server_name)) as _)
     }
 
     /// Create a QuicStream with existing connection
@@ -230,16 +226,16 @@ impl QuicClientStreamBuilder {
         self,
         socket: Arc<dyn quinn::AsyncUdpSocket>,
         name_server: SocketAddr,
-        dns_name: String,
+        server_name: Arc<str>,
     ) -> QuicClientConnect {
-        QuicClientConnect(Box::pin(self.connect_with_future(socket, name_server, dns_name)) as _)
+        QuicClientConnect(Box::pin(self.connect_with_future(socket, name_server, server_name)) as _)
     }
 
     async fn connect_with_future(
         self,
         socket: Arc<dyn quinn::AsyncUdpSocket>,
         name_server: SocketAddr,
-        dns_name: String,
+        server_name: Arc<str>,
     ) -> Result<QuicClientStream, ProtoError> {
         let endpoint_config = quic_config::endpoint();
         let endpoint = Endpoint::new_with_abstract_socket(
@@ -248,13 +244,13 @@ impl QuicClientStreamBuilder {
             socket,
             Arc::new(quinn::TokioRuntime),
         )?;
-        self.connect_inner(endpoint, name_server, dns_name).await
+        self.connect_inner(endpoint, name_server, server_name).await
     }
 
     async fn connect(
         self,
         name_server: SocketAddr,
-        dns_name: String,
+        server_name: Arc<str>,
     ) -> Result<QuicClientStream, ProtoError> {
         let connect = if let Some(bind_addr) = self.bind_addr {
             <tokio::net::UdpSocket as UdpSocket>::connect_with_bind(name_server, bind_addr)
@@ -266,14 +262,14 @@ impl QuicClientStreamBuilder {
         let socket = socket.into_std()?;
         let endpoint_config = quic_config::endpoint();
         let endpoint = Endpoint::new(endpoint_config, None, socket, Arc::new(quinn::TokioRuntime))?;
-        self.connect_inner(endpoint, name_server, dns_name).await
+        self.connect_inner(endpoint, name_server, server_name).await
     }
 
     async fn connect_inner(
         self,
         endpoint: Endpoint,
         name_server: SocketAddr,
-        dns_name: String,
+        server_name: Arc<str>,
     ) -> Result<QuicClientStream, ProtoError> {
         // ensure the ALPN protocol is set correctly
         let crypto_config = if let Some(crypto_config) = self.crypto_config {
@@ -284,7 +280,7 @@ impl QuicClientStreamBuilder {
 
         let quic_connection = connect_quic(
             name_server,
-            &dns_name,
+            server_name.clone(),
             quic_stream::DOQ_ALPN,
             crypto_config,
             self.transport_config,
@@ -294,7 +290,7 @@ impl QuicClientStreamBuilder {
 
         Ok(QuicClientStream {
             quic_connection,
-            name_server_name: Arc::from(dns_name),
+            server_name,
             name_server,
             is_shutdown: false,
         })
@@ -303,7 +299,7 @@ impl QuicClientStreamBuilder {
 
 pub(crate) async fn connect_quic(
     addr: SocketAddr,
-    server_name: &str,
+    server_name: Arc<str>,
     protocol: &[u8],
     mut crypto_config: rustls::ClientConfig,
     transport_config: Arc<TransportConfig>,
@@ -319,7 +315,7 @@ pub(crate) async fn connect_quic(
 
     endpoint.set_default_client_config(client_config);
 
-    let connecting = endpoint.connect(addr, server_name)?;
+    let connecting = endpoint.connect(addr, &server_name)?;
     // TODO: for Client/Dynamic update, don't use RTT, for queries, do use it.
 
     Ok(if early_data_enabled {
