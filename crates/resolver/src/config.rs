@@ -25,7 +25,7 @@ use crate::proto::rustls::client_config;
 use crate::proto::xfer::Protocol;
 
 /// Configuration for the upstream nameservers to use for resolution
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ResolverConfig {
     // base search domain
@@ -39,16 +39,6 @@ pub struct ResolverConfig {
 }
 
 impl ResolverConfig {
-    /// Creates a new empty configuration
-    pub fn new() -> Self {
-        Self {
-            // TODO: this should get the hostname and use the basename as the default
-            domain: None,
-            search: vec![],
-            name_servers: NameServerConfigGroup::default(),
-        }
-    }
-
     /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
     /// `2001:4860:4860::8844` (thank you, Google).
     ///
@@ -272,19 +262,6 @@ impl ResolverConfig {
     /// Returns a reference to the name servers
     pub fn name_servers(&self) -> &[NameServerConfig] {
         &self.name_servers
-    }
-}
-
-impl Default for ResolverConfig {
-    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
-    /// `2001:4860:4860::8844` (thank you, Google).
-    ///
-    /// Please see Google's [privacy
-    /// statement](https://developers.google.com/speed/public-dns/privacy) for important information
-    /// about what they track, many ISP's track similar information in DNS. To use the system
-    /// configuration see: `Resolver::from_system_conf`.
-    fn default() -> Self {
-        Self::google()
     }
 }
 

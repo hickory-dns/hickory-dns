@@ -69,7 +69,7 @@
 //!
 //! // Construct a new Resolver with default configuration options
 //! let resolver = Resolver::builder_with_config(
-//!     ResolverConfig::default(),
+//!     ResolverConfig::google(),
 //!     TokioConnectionProvider::default()
 //! ).build();
 //!

@@ -319,7 +319,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         (udp && ns.protocol == Protocol::Udp) || (tcp && ns.protocol == Protocol::Tcp)
     });
 
-    let mut config = sys_config.unwrap_or_else(ResolverConfig::new);
+    let mut config = sys_config.unwrap_or_default();
 
     for ns in name_servers.iter() {
         config.add_name_server(ns.clone());
