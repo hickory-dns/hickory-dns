@@ -323,7 +323,7 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
         mut self,
         name_server: SocketAddr,
         server_name: Arc<str>,
-        http_endpoint: String,
+        path: Arc<str>,
     ) -> HttpsClientConnect<P::Tcp> {
         // ensure the ALPN protocol is set correctly
         if self.client_config.alpn_protocols.is_empty() {
@@ -336,7 +336,7 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
         let tls = TlsConfig {
             client_config: self.client_config,
             server_name,
-            http_endpoint: Arc::from(http_endpoint),
+            path,
         };
 
         let connect = self.provider.connect_tcp(name_server, self.bind_addr, None);
@@ -360,7 +360,7 @@ impl<S: DnsTcpStream> HttpsClientConnect<S> {
         mut client_config: Arc<ClientConfig>,
         name_server: SocketAddr,
         server_name: Arc<str>,
-        http_endpoint: String,
+        path: Arc<str>,
     ) -> Self
     where
         S: DnsTcpStream,
@@ -377,7 +377,7 @@ impl<S: DnsTcpStream> HttpsClientConnect<S> {
         let tls = TlsConfig {
             client_config,
             server_name,
-            http_endpoint: Arc::from(http_endpoint),
+            path,
         };
 
         Self(HttpsClientConnectState::TcpConnecting {
@@ -402,7 +402,7 @@ where
 struct TlsConfig {
     client_config: Arc<ClientConfig>,
     server_name: Arc<str>,
-    http_endpoint: Arc<str>,
+    path: Arc<str>,
 }
 
 #[allow(clippy::type_complexity)]
@@ -474,7 +474,7 @@ where
                         .take()
                         .expect("programming error, tls should not be None here");
                     let name_server_name = Arc::clone(&tls.server_name);
-                    let query_path = Arc::clone(&tls.http_endpoint);
+                    let query_path = tls.path.clone();
 
                     match ServerName::try_from(&*tls.server_name) {
                         Ok(dns_name) => Self::TlsConnecting {
@@ -611,8 +611,7 @@ mod tests {
         let provider = TokioRuntimeProvider::new();
         let https_builder =
             HttpsClientStreamBuilder::with_client_config(Arc::new(client_config), provider);
-        let connect =
-            https_builder.build(google, Arc::from("dns.google"), "/dns-query".to_string());
+        let connect = https_builder.build(google, Arc::from("dns.google"), Arc::from("/dns-query"));
 
         let mut https = connect.await.expect("https connect failed");
 
@@ -684,7 +683,7 @@ mod tests {
         let connect = https_builder.build(
             google,
             Arc::from(google.ip().to_string()),
-            "/dns-query".to_string(),
+            Arc::from("/dns-query"),
         );
 
         let mut https = connect.await.expect("https connect failed");
@@ -756,7 +755,7 @@ mod tests {
         let connect = https_builder.build(
             cloudflare,
             Arc::from("cloudflare-dns.com"),
-            "/dns-query".to_string(),
+            Arc::from("/dns-query"),
         );
 
         let mut https = connect.await.expect("https connect failed");
