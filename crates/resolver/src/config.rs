@@ -45,7 +45,7 @@ impl ResolverConfig {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
-            name_servers: NameServerConfigGroup::new(),
+            name_servers: NameServerConfigGroup::default(),
         }
     }
 
@@ -295,13 +295,6 @@ pub struct NameServerConfigGroup {
 }
 
 impl NameServerConfigGroup {
-    /// Creates a new `NameServerConfigGroup` with a default size of 2
-    pub fn new() -> Self {
-        // this might be a nice opportunity for SmallVec
-        //   most name_server configs will be 2.
-        Self::with_capacity(2)
-    }
-
     /// Creates a new `NameServiceConfigGroup` with the specified capacity
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
@@ -629,7 +622,7 @@ impl From<Vec<NameServerConfig>> for NameServerConfigGroup {
 
 impl Default for NameServerConfigGroup {
     fn default() -> Self {
-        Self::new()
+        Self::with_capacity(2)
     }
 }
 

@@ -272,7 +272,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Configure all the name servers
-    let mut name_servers = NameServerConfigGroup::new();
+    let mut name_servers = NameServerConfigGroup::default();
 
     for socket_addr in &opts.nameserver {
         name_servers.push(NameServerConfig {

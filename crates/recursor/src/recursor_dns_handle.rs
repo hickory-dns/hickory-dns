@@ -415,7 +415,7 @@ impl<P: RuntimeProvider> RecursorDnsHandle<P> {
 
         // TODO: grab TTL and use for cache
         // get all the NS records and glue
-        let mut config_group = NameServerConfigGroup::new();
+        let mut config_group = NameServerConfigGroup::default();
         let mut need_ips_for_names = Vec::new();
         let mut glue_ips = HashMap::new();
 
