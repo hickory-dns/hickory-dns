@@ -8,15 +8,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use futures::TryStreamExt;
-use hickory_client::client::{Client, ClientHandle};
-use hickory_proto::runtime::TokioRuntimeProvider;
-use hickory_proto::tcp::TcpClientStream;
-use hickory_proto::udp::UdpClientStream;
+
 #[cfg(feature = "__tls")]
 use rustls::{
     ClientConfig, RootCertStore,
     pki_types::{
-        CertificateDer, PrivateKeyDer,
+        CertificateDer, PrivateKeyDer, ServerName,
         pem::{self, PemObject},
     },
     server::ResolvesServerCert,
@@ -25,12 +22,16 @@ use rustls::{
 use tokio::net::TcpListener;
 use tokio::net::UdpSocket;
 
+use hickory_client::client::{Client, ClientHandle};
 use hickory_integration::example_authority::create_example;
 use hickory_proto::op::{Message, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::{A, OPT};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
+use hickory_proto::runtime::TokioRuntimeProvider;
 #[cfg(feature = "__tls")]
-use hickory_proto::rustls::default_provider;
+use hickory_proto::rustls::{default_provider, tls_client_connect_with_bind_addr};
+use hickory_proto::tcp::TcpClientStream;
+use hickory_proto::udp::UdpClientStream;
 use hickory_proto::xfer::{DnsHandle, DnsMultiplexer};
 use hickory_server::ServerFuture;
 use hickory_server::authority::{Authority, Catalog};
@@ -202,8 +203,6 @@ async fn test_server_www_tls() {
 
     subscribe();
 
-    let dns_name = "ns.example.com";
-
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
     println!("using server src path: {}", server_path);
 
@@ -233,7 +232,7 @@ async fn test_server_www_tls() {
 
     let client = tokio::spawn(client_thread_www(lazy_tls_client(
         ipaddr,
-        dns_name.to_string(),
+        "ns.example.com",
         ca,
     )));
 
@@ -269,11 +268,9 @@ fn read_certs(cert_path: impl AsRef<Path>) -> Result<Vec<CertificateDer<'static>
 #[cfg(feature = "__tls")]
 async fn lazy_tls_client(
     ipaddr: SocketAddr,
-    dns_name: String,
+    server_name: &str,
     cert_chain: Vec<CertificateDer<'static>>,
 ) -> Client {
-    use hickory_proto::rustls::tls_client_connect_with_bind_addr;
-
     let mut root_store = RootCertStore::empty();
     let (_, ignored) = root_store.add_parsable_certificates(cert_chain);
     assert_eq!(ignored, 0, "bad certificate!");
@@ -284,10 +281,14 @@ async fn lazy_tls_client(
         .with_root_certificates(root_store)
         .with_no_client_auth();
 
+    let server_name = ServerName::try_from(server_name)
+        .expect("failed to create server name")
+        .to_owned();
+
     let (tls_client_stream, handle) = tls_client_connect_with_bind_addr(
         ipaddr,
         None,
-        dns_name,
+        server_name,
         Arc::new(config),
         TokioRuntimeProvider::default(),
     );
