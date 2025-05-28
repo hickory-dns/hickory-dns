@@ -5,7 +5,6 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::cmp::Ordering;
 use std::sync::Arc;
 use std::sync::atomic::{self, AtomicU8};
 use std::time::Instant;
@@ -110,63 +109,5 @@ impl NameServerState {
     /// True if this is in the Failed state
     pub(crate) fn is_failed(&self) -> bool {
         NameServerStateInner::Failed == self.load()
-    }
-}
-
-impl Ord for NameServerStateInner {
-    fn cmp(&self, other: &Self) -> Ordering {
-        let (self_num, other_num) = (u8::from(*self), u8::from(*other));
-        self_num.cmp(&other_num)
-    }
-}
-
-impl PartialOrd for NameServerStateInner {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for NameServerState {
-    fn cmp(&self, other: &Self) -> Ordering {
-        let other = other.load();
-        self.load().cmp(&other)
-    }
-}
-
-impl PartialOrd for NameServerState {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl PartialEq for NameServerState {
-    fn eq(&self, other: &Self) -> bool {
-        self.load() == other.load()
-    }
-}
-
-impl Eq for NameServerState {}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::name_server::NameServerState;
-
-    #[test]
-    fn test_state_cmp() {
-        let init = NameServerState::init(None);
-
-        let established = NameServerState::init(None);
-        established.establish(None);
-
-        let failed = NameServerState::init(None);
-        failed.fail(Instant::now());
-
-        assert_eq!(init.cmp(&init), Ordering::Equal);
-        assert_eq!(init.cmp(&established), Ordering::Less);
-        assert_eq!(init.cmp(&failed), Ordering::Greater);
-        assert_eq!(established.cmp(&established), Ordering::Equal);
-        assert_eq!(established.cmp(&failed), Ordering::Greater);
-        assert_eq!(failed.cmp(&failed), Ordering::Equal);
     }
 }
