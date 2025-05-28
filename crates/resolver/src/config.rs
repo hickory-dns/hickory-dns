@@ -696,67 +696,6 @@ impl Default for NameServerConfigGroup {
     }
 }
 
-/// The lookup ip strategy
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum LookupIpStrategy {
-    /// Only query for A (Ipv4) records
-    Ipv4Only,
-    /// Only query for AAAA (Ipv6) records
-    Ipv6Only,
-    /// Query for A and AAAA in parallel
-    Ipv4AndIpv6,
-    /// Query for Ipv6 if that fails, query for Ipv4
-    Ipv6thenIpv4,
-    /// Query for Ipv4 if that fails, query for Ipv6 (default)
-    Ipv4thenIpv6,
-}
-
-impl Default for LookupIpStrategy {
-    /// Returns [`LookupIpStrategy::Ipv4thenIpv6`] as the default.
-    fn default() -> Self {
-        Self::Ipv4thenIpv6
-    }
-}
-
-/// The strategy for establishing the query order of name servers in a pool.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[non_exhaustive]
-pub enum ServerOrderingStrategy {
-    /// Servers are ordered based on collected query statistics. The ordering
-    /// may vary over time.
-    QueryStatistics,
-    /// The order provided to the resolver is used. The ordering does not vary
-    /// over time.
-    UserProvidedOrder,
-    /// The order of servers is rotated in a round-robin fashion. This is useful for
-    /// load balancing and ensuring that all servers are used evenly.
-    RoundRobin,
-}
-
-impl Default for ServerOrderingStrategy {
-    /// Returns [`ServerOrderingStrategy::QueryStatistics`] as the default.
-    fn default() -> Self {
-        Self::QueryStatistics
-    }
-}
-
-/// Whether the system hosts file should be respected by the resolver.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum ResolveHosts {
-    /// Always attempt to look up IP addresses from the system hosts file.
-    /// If the hostname cannot be found, query the DNS.
-    Always,
-    /// The DNS will always be queried.
-    Never,
-    /// Use local resolver configurations only when this resolver is not used in
-    /// a DNS forwarder. This is the default.
-    #[default]
-    Auto,
-}
-
 /// Configuration for the Resolver
 #[derive(Debug, Clone)]
 #[cfg_attr(
@@ -936,6 +875,67 @@ fn default_preserve_intermediates() -> bool {
 
 fn default_recursion_desired() -> bool {
     true
+}
+
+/// The lookup ip strategy
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum LookupIpStrategy {
+    /// Only query for A (Ipv4) records
+    Ipv4Only,
+    /// Only query for AAAA (Ipv6) records
+    Ipv6Only,
+    /// Query for A and AAAA in parallel
+    Ipv4AndIpv6,
+    /// Query for Ipv6 if that fails, query for Ipv4
+    Ipv6thenIpv4,
+    /// Query for Ipv4 if that fails, query for Ipv6 (default)
+    Ipv4thenIpv6,
+}
+
+impl Default for LookupIpStrategy {
+    /// Returns [`LookupIpStrategy::Ipv4thenIpv6`] as the default.
+    fn default() -> Self {
+        Self::Ipv4thenIpv6
+    }
+}
+
+/// The strategy for establishing the query order of name servers in a pool.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[non_exhaustive]
+pub enum ServerOrderingStrategy {
+    /// Servers are ordered based on collected query statistics. The ordering
+    /// may vary over time.
+    QueryStatistics,
+    /// The order provided to the resolver is used. The ordering does not vary
+    /// over time.
+    UserProvidedOrder,
+    /// The order of servers is rotated in a round-robin fashion. This is useful for
+    /// load balancing and ensuring that all servers are used evenly.
+    RoundRobin,
+}
+
+impl Default for ServerOrderingStrategy {
+    /// Returns [`ServerOrderingStrategy::QueryStatistics`] as the default.
+    fn default() -> Self {
+        Self::QueryStatistics
+    }
+}
+
+/// Whether the system hosts file should be respected by the resolver.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum ResolveHosts {
+    /// Always attempt to look up IP addresses from the system hosts file.
+    /// If the hostname cannot be found, query the DNS.
+    Always,
+    /// The DNS will always be queried.
+    Never,
+    /// Use local resolver configurations only when this resolver is not used in
+    /// a DNS forwarder. This is the default.
+    #[default]
+    Auto,
 }
 
 /// IP addresses for Google Public DNS
