@@ -613,7 +613,7 @@ pub struct NameServerConfig {
     /// The address which the DNS NameServer is registered at.
     pub socket_addr: SocketAddr,
     /// The protocol to use when communicating with the NameServer.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(default = "default_protocol"))]
     pub protocol: Protocol,
     /// SPKI name, only relevant for TLS connections
     #[cfg_attr(feature = "serde", serde(default))]
@@ -651,6 +651,10 @@ impl NameServerConfig {
             bind_addr: None,
         }
     }
+}
+
+fn default_protocol() -> Protocol {
+    Protocol::Udp
 }
 
 /// Configuration for the Resolver
