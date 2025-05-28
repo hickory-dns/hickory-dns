@@ -400,12 +400,5 @@ impl fmt::Display for Protocol {
     }
 }
 
-impl Default for Protocol {
-    /// Default protocol should be UDP, which is supported by all DNS servers
-    fn default() -> Self {
-        Self::Udp
-    }
-}
-
 #[allow(unused)] // May be unused depending on features
 pub(crate) const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
